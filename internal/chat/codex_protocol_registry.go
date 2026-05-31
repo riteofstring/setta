@@ -15,7 +15,6 @@ var supportedCodexClientMethods = map[string]struct{}{
 }
 
 var codexAppServer0135ServerRequests = []string{
-	"account/chatgptAuthTokens/refresh",
 	"attestation/generate",
 	"item/commandExecution/requestApproval",
 	"item/fileChange/requestApproval",

@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"setta/internal/chat"
-	"setta/internal/provideraccounts"
+	"setta/internal/codexaccount"
 	"setta/internal/workspacesession"
 )
 
@@ -53,9 +53,11 @@ var apiEndpoints = []endpoint{
 	post[GetRunItemOutputRequest, chat.RunItemOutputPage]("GetRunItemOutputPage", "/chat/runs/item-output", handler.getRunItemOutput),
 	post[ListDiagnosticsRequest, ListDiagnosticsResponse]("ListDiagnostics", "/chat/diagnostics/list", handler.listDiagnostics),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
-	get[provideraccounts.ProviderAccounts]("ListProviderAccounts", "/provider-accounts", handler.listProviderAccounts),
-	post[provideraccounts.SaveChatGPTAuthRequest, provideraccounts.ProviderAccounts]("SaveChatGPTAuth", "/provider-accounts/chatgpt-auth/save", handler.saveChatGPTAuth),
-	post[provideraccounts.ClearChatGPTAuthRequest, provideraccounts.ProviderAccounts]("ClearChatGPTAuth", "/provider-accounts/chatgpt-auth/clear", handler.clearChatGPTAuth),
+	get[codexaccount.CodexAccountState]("ReadCodexAccount", "/codex/account", handler.readCodexAccount),
+	post[codexaccount.RefreshCodexAccountRequest, codexaccount.CodexAccountState]("RefreshCodexAccount", "/codex/account/refresh", handler.refreshCodexAccount),
+	post[codexaccount.StartCodexLoginRequest, codexaccount.StartCodexLoginResponse]("StartCodexLogin", "/codex/account/login/start", handler.startCodexLogin),
+	post[codexaccount.CancelCodexLoginRequest, codexaccount.CodexAccountState]("CancelCodexLogin", "/codex/account/login/cancel", handler.cancelCodexLogin),
+	post[codexaccount.LogoutCodexAccountRequest, codexaccount.CodexAccountState]("LogoutCodexAccount", "/codex/account/logout", handler.logoutCodexAccount),
 	stream("EventStream", "/events", handler.eventStream),
 }
 

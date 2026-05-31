@@ -25,6 +25,7 @@ const (
 	EventTypeConversationUpdated = "chat.conversation.updated"
 	EventTypeResyncRequired      = "chat.resync_required"
 	EventTypeDiagnosticCreated   = "diagnostic.created"
+	EventTypeCodexAccountChanged = "codex.account.changed"
 )
 
 const (
@@ -130,6 +131,10 @@ type DiagnosticCreatedPayload struct {
 	Diagnostic Diagnostic `json:"diagnostic"`
 }
 
+type CodexAccountChangedPayload struct {
+	Reason string `json:"reason"`
+}
+
 type EventHub struct {
 	bufferSize       int
 	now              func() time.Time
@@ -168,6 +173,7 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatConversationUpdatedEvent", Type: EventTypeConversationUpdated, Payload: reflect.TypeFor[ConversationUpdatedPayload]()},
 			{Name: "ChatResyncRequiredEvent", Type: EventTypeResyncRequired, Payload: reflect.TypeFor[ResyncRequiredPayload]()},
 			{Name: "DiagnosticCreatedEvent", Type: EventTypeDiagnosticCreated, Payload: reflect.TypeFor[DiagnosticCreatedPayload]()},
+			{Name: "CodexAccountChangedEvent", Type: EventTypeCodexAccountChanged, Payload: reflect.TypeFor[CodexAccountChangedPayload]()},
 		},
 	}
 }
@@ -209,6 +215,13 @@ func NewMessageCreatedEvent(workspaceID string, conversationID string, runID str
 		RunID:          runID,
 		Type:           EventTypeMessageCreated,
 		WorkspaceID:    workspaceID,
+	}
+}
+
+func NewCodexAccountChangedEvent(reason string) EventDraft {
+	return EventDraft{
+		Payload: CodexAccountChangedPayload{Reason: reason},
+		Type:    EventTypeCodexAccountChanged,
 	}
 }
 

@@ -48,6 +48,25 @@ func TestCodexHarnessFailsOnTurnScopedNotificationMismatch(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessIgnoresUnownedScopedNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("unowned-scoped-notification"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want valid stream only", sink.text)
+	}
+	for _, diagnostic := range sink.diagnostics {
+		if diagnostic.code == "codex_notification_scope_drift" {
+			t.Fatalf("diagnostics = %+v, want no scope drift for unowned notification", sink.diagnostics)
+		}
+	}
+}
+
 func handleFakeMismatchMode(mode string) bool {
 	switch mode {
 	case "mismatched-assistant-delta":
@@ -58,6 +77,8 @@ func handleFakeMismatchMode(mode string) bool {
 		writeFakeMismatchedOutputDelta()
 	case "mismatched-turn-completed":
 		writeFakeMismatchedCompletedTurn()
+	case "unowned-scoped-notification":
+		writeFakeUnownedScopedNotification()
 	default:
 		return false
 	}
@@ -65,16 +86,18 @@ func handleFakeMismatchMode(mode string) bool {
 }
 
 func writeFakeMismatchedAssistantDelta() {
+	writeFakeTurnStartedID("turn_fake")
 	writeFakeNotification("item/agentMessage/delta", map[string]any{
 		"delta":    "wrong",
 		"itemId":   "item_fake",
-		"threadId": "thread_other",
-		"turnId":   "turn_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_other",
 	})
 	time.Sleep(2 * time.Second)
 }
 
 func writeFakeMismatchedItemUpsert() {
+	writeFakeTurnStartedID("turn_fake")
 	writeFakeNotification("item/started", map[string]any{
 		"item": map[string]any{
 			"command": "go test ./...",
@@ -88,20 +111,32 @@ func writeFakeMismatchedItemUpsert() {
 }
 
 func writeFakeMismatchedOutputDelta() {
+	writeFakeTurnStartedID("turn_fake")
 	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
 		"delta":    "wrong\n",
 		"itemId":   "command_fake",
 		"stream":   "stdout",
-		"threadId": "thread_other",
-		"turnId":   "turn_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_other",
 	})
 	time.Sleep(2 * time.Second)
 }
 
 func writeFakeMismatchedCompletedTurn() {
+	writeFakeTurnStartedID("turn_fake")
 	writeFakeNotification("turn/completed", map[string]any{
 		"threadId": "thread_fake",
 		"turn":     map[string]any{"id": "turn_other", "items": []any{}, "status": "completed"},
 	})
 	time.Sleep(2 * time.Second)
+}
+
+func writeFakeUnownedScopedNotification() {
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    "wrong",
+		"itemId":   "item_stale",
+		"threadId": "thread_other",
+		"turnId":   "turn_stale",
+	})
+	writeFakeStreamTurn()
 }

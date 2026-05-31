@@ -83,6 +83,7 @@ function fakeCodexAppServerScript() {
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
+let account = null;
 const rl = readline.createInterface({ input: process.stdin });
 
 rl.on("line", (line) => {
@@ -103,12 +104,40 @@ function handleMessage(message) {
         userAgent: "fake",
       });
       return;
+    case "initialized":
+      return;
+    case "account/read":
+      respond(message.id, {
+        account,
+        requiresOpenaiAuth: true,
+      });
+      return;
+    case "account/login/start":
+      handleAccountLoginStart(message);
+      return;
+    case "account/login/cancel":
+      respond(message.id, {});
+      notify("account/login/completed", {
+        error: "cancelled",
+        loginId: message.params?.loginId ?? "login_fake",
+        success: false,
+      });
+      return;
+    case "account/logout":
+      account = null;
+      respond(message.id, {});
+      notify("account/updated", { authMode: null, planType: null });
+      return;
     case "thread/start":
     case "thread/resume":
       respond(message.id, { model: "gpt-test", thread: { id: threadId } });
       return;
     case "turn/start":
       respond(message.id, { turn: { id: turnId } });
+      if (turnInputText(message).includes("app-server exit workflow")) {
+        setTimeout(() => process.exit(42), 5);
+        return;
+      }
       setTimeout(emitProtocolCoverageTurn, 5);
       return;
     case "turn/interrupt":
@@ -130,8 +159,44 @@ function handleMessage(message) {
   }
 }
 
+function handleAccountLoginStart(message) {
+  const type = message.params?.type;
+  if (type === "apiKey") {
+    account = { type: "apiKey" };
+    respond(message.id, { type: "apiKey" });
+    notify("account/login/completed", { error: null, loginId: null, success: true });
+    notify("account/updated", { authMode: "apikey", planType: null });
+    return;
+  }
+  if (type === "chatgptDeviceCode") {
+    respond(message.id, {
+      loginId: "login_device_fake",
+      type: "chatgptDeviceCode",
+      userCode: "ABCD-1234",
+      verificationUrl: "https://auth.openai.com/codex/device",
+    });
+    return;
+  }
+  account = { email: "user@example.com", planType: "pro", type: "chatgpt" };
+  respond(message.id, {
+    authUrl: "https://chatgpt.com/auth/fake",
+    loginId: "login_fake",
+    type: "chatgpt",
+  });
+  setTimeout(() => {
+    notify("account/login/completed", { error: null, loginId: "login_fake", success: true });
+    notify("account/updated", { authMode: "chatgpt", planType: "pro" });
+  }, 5);
+}
+
 function respond(id, result) {
   write({ id, result });
+}
+
+function turnInputText(message) {
+  return (message.params?.input ?? [])
+    .map((item) => item?.text ?? "")
+    .join("\\n");
 }
 
 function notify(method, params) {

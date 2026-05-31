@@ -87,10 +87,12 @@ const api: SettaAPI = {
       invoke("chatSteerMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
   },
-  providerAccounts: {
-    clearChatGPTAuth: (request) => invoke("providerAccountsClearChatGPTAuth", request),
-    list: () => invoke("providerAccountsList"),
-    saveChatGPTAuth: (request) => invoke("providerAccountsSaveChatGPTAuth", request),
+  codexAccount: {
+    cancelLogin: (request) => invoke("codexAccountCancelLogin", request),
+    logout: (request) => invoke("codexAccountLogout", request),
+    read: () => invoke("codexAccountRead"),
+    refresh: (request) => invoke("codexAccountRefresh", request),
+    startLogin: (request) => invoke("codexAccountStartLogin", request),
   },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),

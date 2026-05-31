@@ -123,8 +123,6 @@ func (harness *CodexHarness) handleImmediateCodexServerRequest(ctx context.Conte
 	switch message.Method {
 	case "item/tool/call":
 		return harness.handleCodexDynamicToolCall(ctx, message, runID, threadID, turnID, sink)
-	case "account/chatgptAuthTokens/refresh":
-		return harness.handleCodexChatGPTAuthRefresh(ctx, message, sink)
 	case "attestation/generate":
 		return harness.handleCodexAttestationGenerate(ctx, message, sink)
 	default:
@@ -156,7 +154,7 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 		if err := sink.RunItemUpsert(item); err != nil {
 			return err
 		}
-		return message.client.respondError(message.ID, codexJSONRPCErrorToolUnavailable, messageText)
+		return message.RespondError(codexJSONRPCErrorToolUnavailable, messageText)
 	}
 	result, err := tool.Handler(ctx, call)
 	if err != nil {
@@ -166,14 +164,14 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 		if upsertErr := sink.RunItemUpsert(item); upsertErr != nil {
 			return upsertErr
 		}
-		return message.client.respondError(message.ID, codexJSONRPCErrorToolFailed, messageText)
+		return message.RespondError(codexJSONRPCErrorToolFailed, messageText)
 	}
 	item.Status = RunItemStatusCompleted
 	item.Result = codexDynamicToolResultSummary(result)
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
 	}
-	return message.client.respondResult(message.ID, map[string]any{
+	return message.RespondResult(map[string]any{
 		"contentItems": codexDynamicToolContentItems(result.ContentItems),
 		"success":      result.Success,
 	})
@@ -248,48 +246,6 @@ func codexDynamicToolResultSummary(result AgentToolResult) string {
 	return strings.Join(parts, "\n")
 }
 
-func (harness *CodexHarness) handleCodexChatGPTAuthRefresh(ctx context.Context, message jsonRPCMessage, sink TurnSink) error {
-	params, err := objectValue(message.Params, "codex chatgpt auth refresh params")
-	if err != nil {
-		return err
-	}
-	reason, err := requireString(params, "reason", "codex chatgpt auth refresh")
-	if err != nil {
-		return err
-	}
-	previousAccountID, err := optionalString(params, "previousAccountId", "codex chatgpt auth refresh")
-	if err != nil {
-		return err
-	}
-	if harness.config.ChatGPTAuthProvider == nil {
-		messageText := "ChatGPT auth token refresh is unavailable in Setta"
-		if diagnosticErr := sink.ProviderDiagnostic("codex_chatgpt_auth_unavailable", messageText, map[string]string{"reason": reason, "previousAccountId": previousAccountID}, false, DiagnosticSeverityError); diagnosticErr != nil {
-			return diagnosticErr
-		}
-		return message.client.respondError(message.ID, codexJSONRPCErrorCapabilityUnavailable, messageText)
-	}
-	tokens, err := harness.config.ChatGPTAuthProvider.RefreshChatGPTAuthTokens(ctx, ChatGPTAuthRefreshRequest{PreviousAccountID: previousAccountID, Reason: reason})
-	if err != nil {
-		if IsChatGPTAuthUnavailable(err) {
-			messageText := err.Error()
-			if diagnosticErr := sink.ProviderDiagnostic("codex_chatgpt_auth_unavailable", messageText, map[string]string{"reason": reason, "previousAccountId": previousAccountID}, false, DiagnosticSeverityError); diagnosticErr != nil {
-				return diagnosticErr
-			}
-			return message.client.respondError(message.ID, codexJSONRPCErrorCapabilityUnavailable, messageText)
-		}
-		messageText := "ChatGPT auth token refresh failed: " + err.Error()
-		if diagnosticErr := sink.ProviderDiagnostic("codex_chatgpt_auth_refresh_failed", messageText, map[string]string{"reason": reason, "previousAccountId": previousAccountID}, false, DiagnosticSeverityError); diagnosticErr != nil {
-			return diagnosticErr
-		}
-		return message.client.respondError(message.ID, codexJSONRPCErrorCapabilityUnavailable, messageText)
-	}
-	return message.client.respondResult(message.ID, map[string]any{
-		"accessToken":      tokens.AccessToken,
-		"chatgptAccountId": tokens.ChatGPTAccountID,
-		"chatgptPlanType":  nullableString(tokens.ChatGPTPlanType),
-	})
-}
-
 func (harness *CodexHarness) handleCodexAttestationGenerate(ctx context.Context, message jsonRPCMessage, sink TurnSink) error {
 	if _, err := objectValue(message.Params, "codex attestation generate params"); err != nil {
 		return err
@@ -299,7 +255,7 @@ func (harness *CodexHarness) handleCodexAttestationGenerate(ctx context.Context,
 		if diagnosticErr := sink.ProviderDiagnostic("codex_attestation_unavailable", messageText, nil, false, DiagnosticSeverityError); diagnosticErr != nil {
 			return diagnosticErr
 		}
-		return message.client.respondError(message.ID, codexJSONRPCErrorCapabilityUnavailable, messageText)
+		return message.RespondError(codexJSONRPCErrorCapabilityUnavailable, messageText)
 	}
 	token, err := harness.config.AttestationProvider.GenerateAttestation(ctx)
 	if err != nil {
@@ -307,9 +263,9 @@ func (harness *CodexHarness) handleCodexAttestationGenerate(ctx context.Context,
 		if diagnosticErr := sink.ProviderDiagnostic("codex_attestation_failed", messageText, nil, false, DiagnosticSeverityError); diagnosticErr != nil {
 			return diagnosticErr
 		}
-		return message.client.respondError(message.ID, codexJSONRPCErrorCapabilityUnavailable, messageText)
+		return message.RespondError(codexJSONRPCErrorCapabilityUnavailable, messageText)
 	}
-	return message.client.respondResult(message.ID, map[string]any{"token": token})
+	return message.RespondResult(map[string]any{"token": token})
 }
 
 func (harness *CodexHarness) applyCodexServerRequestResolved(message jsonRPCMessage, _ string, threadID string, sink TurnSink) error {
@@ -386,11 +342,4 @@ func requireStringArray(value map[string]any, name string, label string) ([]stri
 		result = append(result, text)
 	}
 	return result, nil
-}
-
-func nullableString(value string) any {
-	if value == "" {
-		return nil
-	}
-	return value
 }

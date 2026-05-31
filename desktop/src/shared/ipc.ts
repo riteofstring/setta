@@ -2,21 +2,24 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
   BackendHealth,
+  CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
-  ClearChatGPTAuthRequest,
+  CodexAccountState,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
+  LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
-  ProviderAccounts,
   QueueMessageResult,
+  RefreshCodexAccountRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
-  SaveChatGPTAuthRequest,
   SendMessageResult,
+  StartCodexLoginRequest,
+  StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
   WorkspaceSession,
@@ -43,9 +46,11 @@ export const ipcChannels = {
   chatSendMessage: "chat:send-message",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
-  providerAccountsClearChatGPTAuth: "provider-accounts:clear-chatgpt-auth",
-  providerAccountsList: "provider-accounts:list",
-  providerAccountsSaveChatGPTAuth: "provider-accounts:save-chatgpt-auth",
+  codexAccountCancelLogin: "codex-account:cancel-login",
+  codexAccountLogout: "codex-account:logout",
+  codexAccountRead: "codex-account:read",
+  codexAccountRefresh: "codex-account:refresh",
+  codexAccountStartLogin: "codex-account:start-login",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceRemoveRecent: "workspace:remove-recent",
@@ -144,17 +149,25 @@ interface IpcContract {
     args: [input: SubmitApprovalRequest];
     result: Run;
   };
-  providerAccountsClearChatGPTAuth: {
-    args: [request: ClearChatGPTAuthRequest];
-    result: ProviderAccounts;
+  codexAccountCancelLogin: {
+    args: [request: CancelCodexLoginRequest];
+    result: CodexAccountState;
   };
-  providerAccountsList: {
+  codexAccountLogout: {
+    args: [request: LogoutCodexAccountRequest];
+    result: CodexAccountState;
+  };
+  codexAccountRead: {
     args: [];
-    result: ProviderAccounts;
+    result: CodexAccountState;
   };
-  providerAccountsSaveChatGPTAuth: {
-    args: [request: SaveChatGPTAuthRequest];
-    result: ProviderAccounts;
+  codexAccountRefresh: {
+    args: [request: RefreshCodexAccountRequest];
+    result: CodexAccountState;
+  };
+  codexAccountStartLogin: {
+    args: [request: StartCodexLoginRequest];
+    result: StartCodexLoginResponse;
   };
   workspaceClose: {
     args: [id: string];

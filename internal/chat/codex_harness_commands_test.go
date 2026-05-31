@@ -59,7 +59,7 @@ func TestCodexHarnessRequiresModelSettingsUpdatedNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set-no-notification"))
 	request := testCommandRequest(t, "/model gpt-test")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
 	_, err := harness.ExecuteCommand(ctx, request)

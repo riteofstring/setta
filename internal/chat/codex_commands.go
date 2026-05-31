@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"setta/internal/codexapp"
 	"setta/internal/workspace"
 )
 
@@ -30,7 +31,7 @@ func (harness *CodexHarness) executeActiveCommand(ctx context.Context, request H
 	if active == nil || active.threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is not available for the active run", nil)
 	}
-	return harness.executeCodexCommandRPC(ctx, active.client, active.threadID, "", request.Command)
+	return harness.executeCodexCommandRPC(ctx, active.session, active.threadID, "", request.Command)
 }
 
 func (harness *CodexHarness) activeTurnForCommand(runID string) *codexActiveTurn {
@@ -41,30 +42,30 @@ func (harness *CodexHarness) activeTurnForCommand(runID string) *codexActiveTurn
 		return nil
 	}
 	return &codexActiveTurn{
-		client:   active.client,
+		session:  active.session,
 		threadID: active.threadID,
 		turnID:   active.turnID,
 	}
 }
 
 func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
-	client, err := startJSONRPCClient(harness.config)
+	session, err := harness.manager.NewSession(ctx)
 	if err != nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "start codex app-server: "+err.Error(), err)
 	}
-	defer client.close()
+	defer session.Close()
 
-	if err := harness.initializeCodex(ctx, client); err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, err.Error(), err)
-	}
 	if !commandNeedsThread(request.Command) {
-		return harness.executeCodexCommandRPC(ctx, client, "", "", request.Command)
+		return harness.executeCodexCommandRPC(ctx, session, "", "", request.Command)
 	}
-	thread, err := harness.startOrResumeCommandThread(ctx, client, request.Workspace, request.ThreadRef)
+	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
-	result, err := harness.executeCodexCommandRPC(ctx, client, thread.Ref.ThreadID, thread.Model, request.Command)
+	if err := session.OwnThread(thread.Ref.ThreadID); err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "own codex command thread: "+err.Error(), err)
+	}
+	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Model, request.Command)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
@@ -78,9 +79,9 @@ type codexCommandThread struct {
 	Model string
 }
 
-func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, client *jsonRPCClient, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
+func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
-		result, err := client.call(ctx, "thread/resume", map[string]any{
+		result, err := session.Call(ctx, "thread/resume", map[string]any{
 			"approvalPolicy":        "on-request",
 			"approvalsReviewer":     "user",
 			"cwd":                   workspaceSummary.RootPath,
@@ -98,7 +99,7 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, cli
 		return thread, nil
 	}
 
-	result, err := client.call(ctx, "thread/start", map[string]any{
+	result, err := session.Call(ctx, "thread/start", map[string]any{
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceSummary.RootPath,
@@ -114,18 +115,18 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, cli
 	return thread, nil
 }
 
-func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, client *jsonRPCClient, threadID string, currentModel string, command ChatCommand) (HarnessCommandResult, error) {
+func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, session *codexapp.Session, threadID string, currentModel string, command ChatCommand) (HarnessCommandResult, error) {
 	switch command.Kind {
 	case ChatCommandGoal:
-		return executeCodexGoalCommand(ctx, client, threadID, command)
+		return executeCodexGoalCommand(ctx, session, threadID, command)
 	case ChatCommandModel:
-		return executeCodexModelCommand(ctx, client, threadID, currentModel, command)
+		return executeCodexModelCommand(ctx, session, threadID, currentModel, command)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("codex does not support chat command kind %s", command.Kind), nil)
 	}
 }
 
-func executeCodexGoalCommand(ctx context.Context, client *jsonRPCClient, threadID string, command ChatCommand) (HarnessCommandResult, error) {
+func executeCodexGoalCommand(ctx context.Context, session *codexapp.Session, threadID string, command ChatCommand) (HarnessCommandResult, error) {
 	if threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is required for goal commands", nil)
 	}
@@ -134,7 +135,7 @@ func executeCodexGoalCommand(ctx context.Context, client *jsonRPCClient, threadI
 	}
 	switch command.Goal.Action {
 	case GoalCommandShow:
-		raw, err := client.call(ctx, "thread/goal/get", map[string]any{"threadId": threadID})
+		raw, err := session.Call(ctx, "thread/goal/get", map[string]any{"threadId": threadID})
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/goal/get: "+err.Error(), err)
 		}
@@ -144,20 +145,20 @@ func executeCodexGoalCommand(ctx context.Context, client *jsonRPCClient, threadI
 		}
 		return HarnessCommandResult{Action: ChatCommandResultDisplay, Goal: goal}, nil
 	case GoalCommandSet:
-		raw, err := client.call(ctx, "thread/goal/set", map[string]any{
+		raw, err := session.Call(ctx, "thread/goal/set", map[string]any{
 			"objective": command.Goal.Objective,
 			"status":    "active",
 			"threadId":  threadID,
 		})
 		return goalMutationResult(raw, err, "thread/goal/set")
 	case GoalCommandClear:
-		_, err := client.call(ctx, "thread/goal/clear", map[string]any{"threadId": threadID})
+		_, err := session.Call(ctx, "thread/goal/clear", map[string]any{"threadId": threadID})
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/goal/clear: "+err.Error(), err)
 		}
 		return HarnessCommandResult{Action: ChatCommandResultDisplay}, nil
 	case GoalCommandPause, GoalCommandResume:
-		raw, err := client.call(ctx, "thread/goal/set", map[string]any{
+		raw, err := session.Call(ctx, "thread/goal/set", map[string]any{
 			"status":   command.Goal.Status,
 			"threadId": threadID,
 		})
@@ -178,13 +179,13 @@ func goalMutationResult(raw json.RawMessage, rpcErr error, method string) (Harne
 	return HarnessCommandResult{Action: ChatCommandResultDisplay, Goal: goal}, nil
 }
 
-func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, threadID string, currentModel string, command ChatCommand) (HarnessCommandResult, error) {
+func executeCodexModelCommand(ctx context.Context, session *codexapp.Session, threadID string, currentModel string, command ChatCommand) (HarnessCommandResult, error) {
 	if command.Model == nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "model command payload is required", nil)
 	}
 	switch command.Model.Action {
 	case ModelCommandShowPicker:
-		raw, err := client.call(ctx, "model/list", map[string]any{"includeHidden": true})
+		raw, err := session.Call(ctx, "model/list", map[string]any{"includeHidden": true})
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "model/list: "+err.Error(), err)
 		}
@@ -203,14 +204,14 @@ func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, thread
 				SelectedModel: command.Model.ModelID,
 			}, nil
 		}
-		_, err := client.call(ctx, "thread/settings/update", map[string]any{
+		_, err := session.Call(ctx, "thread/settings/update", map[string]any{
 			"model":    command.Model.ModelID,
 			"threadId": threadID,
 		})
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
 		}
-		appliedModel, err := waitForCodexThreadSettingsUpdated(ctx, client, threadID, command.Model.ModelID)
+		appliedModel, err := waitForCodexThreadSettingsUpdated(ctx, session, threadID, command.Model.ModelID)
 		if err != nil {
 			return HarnessCommandResult{}, err
 		}
@@ -223,7 +224,7 @@ func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, thread
 	}
 }
 
-func waitForCodexThreadSettingsUpdated(ctx context.Context, client *jsonRPCClient, threadID string, selectedModel string) (string, error) {
+func waitForCodexThreadSettingsUpdated(ctx context.Context, session *codexapp.Session, threadID string, selectedModel string) (string, error) {
 	waitCtx, cancel := context.WithTimeout(ctx, codexSettingsUpdatedTimeout)
 	defer cancel()
 
@@ -235,10 +236,19 @@ func waitForCodexThreadSettingsUpdated(ctx context.Context, client *jsonRPCClien
 				fmt.Sprintf("thread/settings/update did not emit thread/settings/updated for thread %s model %s: %v", threadID, selectedModel, waitCtx.Err()),
 				waitCtx.Err(),
 			)
-		case <-client.lifecycle.Done():
-			err := client.lifecycleError("codex app-server exited before thread/settings/updated")
-			return "", commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
-		case message := <-client.notifications:
+		case event, ok := <-session.Events():
+			if !ok {
+				err := fmt.Errorf("codex app-server session closed before thread/settings/updated")
+				return "", commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+			}
+			if event.Kind == codexapp.EventLifecycle {
+				err := fmt.Errorf("codex app-server exited before thread/settings/updated: %w", event.Err)
+				return "", commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+			}
+			if event.Kind != codexapp.EventNotification {
+				continue
+			}
+			message := event.Message
 			if message.Method != "thread/settings/updated" {
 				continue
 			}

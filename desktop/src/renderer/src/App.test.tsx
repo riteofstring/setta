@@ -182,8 +182,7 @@ describe("workspace renderer states", () => {
     expect(emptyPane).not.toContain("Browser");
     expect(emptyPane).not.toContain("Canvas");
     expect(emptyPane).not.toContain("Terminal");
-    expect(settings).toContain("Provider Accounts");
-    expect(settings).toContain("Codex ChatGPT");
+    expect(settings).toContain("Codex Account");
     expect(settings).not.toContain("Reset");
     expect(settings).not.toContain("Shortcuts");
     expect(settings).not.toContain("Storage");
