@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -6,12 +6,11 @@ import { join, resolve } from "node:path";
 import { createBackendClient, type BackendClient, type ChatEvent } from "@generated/backend";
 import { handleIpc, ipcEvents } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
-import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
-import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
+import { createVSCodeWorkspaceURI, readWorkspaceGitInfo } from "./workspace-actions";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
@@ -20,7 +19,6 @@ let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
-const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
 
 function desktopRoot() {
   return process.cwd();
@@ -31,16 +29,9 @@ function repoRoot() {
 }
 
 async function prepareBackend(appDataDir: string) {
-  emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
     backend = await startBackend(repoRoot(), appDataDir, process.env);
     backendStartupError = null;
-    emitBackendProcessStatus({
-      message: backend.mode === "external" ? "Using external backend" : "Backend online",
-      mode: backend.mode,
-      status: "online",
-      url: backend.url,
-    });
     recorder?.recordAppEvent("backend_started", {
       mode: backend.mode,
       url: backend.url,
@@ -55,7 +46,6 @@ async function prepareBackend(appDataDir: string) {
       recorder?.recordBackendExit(exit);
       void stopChatEventStream();
       if (!exit.expected) {
-        emitBackendProcessStatus({ message: "Backend exited unexpectedly", status: "offline" });
         mainWindow?.webContents.send(ipcEvents.backendUnexpectedExit, exit);
         void recorder?.captureScreenshot(mainWindow, "backend-unexpected-exit");
       }
@@ -64,8 +54,6 @@ async function prepareBackend(appDataDir: string) {
   } catch (error) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
-    emitBackendProcessStatus({ message: backendStartupError, status: "failed" });
-    emitBackendEventStreamStatus({ message: "Backend event stream stopped", status: "stopped" });
     recorder?.recordBackendStartupError(backendStartupError);
   }
 }
@@ -88,8 +76,7 @@ function startChatEventStream() {
         });
       },
       lifecycle: (event) => {
-        emitBackendEventStreamStatus(event);
-        recorder?.recordAppEvent("chat_event_stream_" + event.status, event);
+        recorder?.recordAppEvent("chat_event_stream_" + event.type, event);
       },
     },
     sendEvent: forwardChatEvent,
@@ -102,18 +89,6 @@ async function stopChatEventStream() {
   await stream?.stop();
 }
 
-function emitBackendProcessStatus(status: BackendProcessStatus) {
-  backendStatuses.emitProcessStatus(status);
-}
-
-function emitBackendEventStreamStatus(status: BackendEventStreamStatus) {
-  backendStatuses.emitEventStreamStatus(status);
-}
-
-function sendBackendStatuses(window: BrowserWindow) {
-  backendStatuses.sendToWindow(window);
-}
-
 function forwardChatEvent(event: ChatEvent) {
   forwardChatEventToWindows(BrowserWindow.getAllWindows(), event);
 }
@@ -122,31 +97,13 @@ function settaAppDataDir() {
   return process.env.SETTA_APP_DATA_DIR ?? join(homedir(), ".setta");
 }
 
-function isE2E() {
-  return process.env.SETTA_E2E === "1";
-}
-
-function isVisibleE2E() {
-  return process.env.SETTA_E2E_VISIBLE === "1";
-}
-
-function shouldShowMainWindow() {
-  return !isE2E() || isVisibleE2E();
-}
-
-function testOpenWorkspaceRoot() {
-  if (!isE2E()) {
-    return "";
-  }
-  return process.env.SETTA_E2E_OPEN_WORKSPACE_ROOT ?? "";
-}
-
 async function createWindow() {
   mainWindow = new BrowserWindow({
     height: 820,
     minHeight: 620,
     minWidth: 960,
     show: false,
+    ...(process.platform === "darwin" ? { titleBarStyle: "hiddenInset" as const } : {}),
     title: "Setta",
     webPreferences: {
       contextIsolation: true,
@@ -161,11 +118,7 @@ async function createWindow() {
   registerIpc();
 
   mainWindow.once("ready-to-show", () => {
-    if (shouldShowMainWindow()) {
-      mainWindow?.show();
-    } else {
-      recorder?.recordAppEvent("window_hidden_for_e2e", {});
-    }
+    mainWindow?.show();
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -175,13 +128,6 @@ async function createWindow() {
     await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
     await mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
-  }
-  if (mainWindow) {
-    setTimeout(() => {
-      if (mainWindow) {
-        sendBackendStatuses(mainWindow);
-      }
-    }, 0);
   }
 }
 
@@ -194,6 +140,22 @@ function registerIpc() {
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
   });
+  handleIpc(
+    ipcMain,
+    "appOpenWorkspaceInVSCode",
+    async (_event, rootPath) => {
+      await shell.openExternal(createVSCodeWorkspaceURI(rootPath));
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appWorkspaceGitInfo",
+    async (_event, rootPath) => {
+      return readWorkspaceGitInfo(rootPath);
+    },
+    ipcObserver,
+  );
   handleIpc(
     ipcMain,
     "appVersions",
@@ -225,10 +187,6 @@ function registerIpc() {
     ipcMain,
     "workspaceOpenLocalFolder",
     async () => {
-      const scriptedRoot = testOpenWorkspaceRoot();
-      if (scriptedRoot) {
-        return requireBackendClient().openWorkspace({ rootPath: scriptedRoot });
-      }
       const options: OpenDialogOptions = {
         properties: ["openDirectory"],
         title: "Open Workspace Folder",
@@ -318,22 +276,6 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "chatQueueMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().queueChatMessage({ conversationId, prompt, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSteerMessage",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().steerChatMessage({ conversationId, prompt, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "chatCancelRun",
     async (_event, workspaceId, conversationId) => {
       return requireBackendClient().cancelRun({ conversationId, workspaceId });
@@ -345,29 +287,6 @@ function registerIpc() {
     "chatActiveRun",
     async (_event, workspaceId, conversationId) => {
       return requireBackendClient().getActiveRun({ conversationId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatRunActivity",
-    async (_event, workspaceId, runId, limit) => {
-      return requireBackendClient().getRunActivity({ limit, runId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatRunItemOutput",
-    async (_event, ...args) => {
-      const [workspaceId, runId, runItemId, afterOrdinal, limit] = args;
-      return requireBackendClient().getRunItemOutputPage({
-        afterOrdinal,
-        limit,
-        runId,
-        runItemId,
-        workspaceId,
-      });
     },
     ipcObserver,
   );
@@ -399,9 +318,6 @@ function requestQuit() {
 }
 
 app.whenReady().then(async () => {
-  if (isE2E() && !isVisibleE2E()) {
-    app.dock?.hide();
-  }
   const appDataDir = settaAppDataDir();
   recorder = createSessionRecorder(process.env, {
     appDataDir,
