@@ -19,6 +19,7 @@ type DiagnosticSource string
 type ChatCommandKind string
 type GoalCommandAction string
 type ModelCommandAction string
+type ReasoningEffort string
 type ChatCommandResultAction string
 
 const (
@@ -40,6 +41,7 @@ const (
 	MessageStatusError     MessageStatus = "error"
 
 	MessageDeliveryNormal   MessageDelivery = "normal"
+	MessageDeliveryGoal     MessageDelivery = "goal"
 	MessageDeliveryQueued   MessageDelivery = "queued"
 	MessageDeliverySteering MessageDelivery = "steering"
 
@@ -114,14 +116,24 @@ const (
 
 	GoalCommandShow   GoalCommandAction = "show"
 	GoalCommandSet    GoalCommandAction = "set"
+	GoalCommandEdit   GoalCommandAction = "edit"
 	GoalCommandClear  GoalCommandAction = "clear"
 	GoalCommandPause  GoalCommandAction = "pause"
 	GoalCommandResume GoalCommandAction = "resume"
 
 	ModelCommandShowPicker ModelCommandAction = "show_picker"
 	ModelCommandSet        ModelCommandAction = "set"
+	ModelCommandSetEffort  ModelCommandAction = "set_reasoning_effort"
+
+	ReasoningEffortNone    ReasoningEffort = "none"
+	ReasoningEffortMinimal ReasoningEffort = "minimal"
+	ReasoningEffortLow     ReasoningEffort = "low"
+	ReasoningEffortMedium  ReasoningEffort = "medium"
+	ReasoningEffortHigh    ReasoningEffort = "high"
+	ReasoningEffortXHigh   ReasoningEffort = "xhigh"
 
 	ChatCommandResultDisplay     ChatCommandResultAction = "display"
+	ChatCommandResultGoalEditor  ChatCommandResultAction = "goal_editor"
 	ChatCommandResultModelPicker ChatCommandResultAction = "model_picker"
 )
 
@@ -149,6 +161,7 @@ var (
 	}
 	messageDeliveryValues = []MessageDelivery{
 		MessageDeliveryNormal,
+		MessageDeliveryGoal,
 		MessageDeliveryQueued,
 		MessageDeliverySteering,
 	}
@@ -230,6 +243,7 @@ var (
 	goalCommandActionValues = []GoalCommandAction{
 		GoalCommandShow,
 		GoalCommandSet,
+		GoalCommandEdit,
 		GoalCommandClear,
 		GoalCommandPause,
 		GoalCommandResume,
@@ -237,9 +251,19 @@ var (
 	modelCommandActionValues = []ModelCommandAction{
 		ModelCommandShowPicker,
 		ModelCommandSet,
+		ModelCommandSetEffort,
+	}
+	reasoningEffortValues = []ReasoningEffort{
+		ReasoningEffortNone,
+		ReasoningEffortMinimal,
+		ReasoningEffortLow,
+		ReasoningEffortMedium,
+		ReasoningEffortHigh,
+		ReasoningEffortXHigh,
 	}
 	chatCommandResultActionValues = []ChatCommandResultAction{
 		ChatCommandResultDisplay,
+		ChatCommandResultGoalEditor,
 		ChatCommandResultModelPicker,
 	}
 	structuredInputModeValues = []StructuredInputMode{
@@ -268,6 +292,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ChatCommandKind", Values: stringValues(chatCommandKindValues)},
 		{Name: "GoalCommandAction", Values: stringValues(goalCommandActionValues)},
 		{Name: "ModelCommandAction", Values: stringValues(modelCommandActionValues)},
+		{Name: "ReasoningEffort", Values: stringValues(reasoningEffortValues)},
 		{Name: "ChatCommandResultAction", Values: stringValues(chatCommandResultActionValues)},
 	}
 }
@@ -288,7 +313,13 @@ type Conversation struct {
 	CreatedAt     string             `json:"createdAt"`
 	UpdatedAt     string             `json:"updatedAt"`
 	ArchivedAt    string             `json:"archivedAt"`
+	CodexSettings *ChatCodexSettings `json:"codexSettings"`
 	HarnessRefs   []HarnessThreadRef `json:"harnessRefs"`
+}
+
+type ChatCodexSettings struct {
+	Model           string           `json:"model"`
+	ReasoningEffort *ReasoningEffort `json:"reasoningEffort"`
 }
 
 type ChatMessage struct {
@@ -536,23 +567,38 @@ type GoalCommand struct {
 }
 
 type ModelCommand struct {
-	Action  ModelCommandAction `json:"action"`
-	ModelID string             `json:"modelId"`
+	Action          ModelCommandAction `json:"action"`
+	ModelID         string             `json:"modelId"`
+	ReasoningEffort *ReasoningEffort   `json:"reasoningEffort"`
 }
 
 type ChatGoalState struct {
-	ThreadID  string `json:"threadId"`
-	Objective string `json:"objective"`
-	Status    string `json:"status"`
+	ThreadID        string `json:"threadId"`
+	Objective       string `json:"objective"`
+	Status          string `json:"status"`
+	TokenBudget     *int   `json:"tokenBudget"`
+	TokensUsed      int    `json:"tokensUsed"`
+	TimeUsedSeconds int    `json:"timeUsedSeconds"`
+	CreatedAt       int    `json:"createdAt"`
+	UpdatedAt       int    `json:"updatedAt"`
 }
 
 type ChatModelOption struct {
-	ID          string `json:"id"`
-	Model       string `json:"model"`
-	DisplayName string `json:"displayName"`
-	Description string `json:"description"`
-	Hidden      bool   `json:"hidden"`
-	IsDefault   bool   `json:"isDefault"`
+	ID                        string                      `json:"id"`
+	Model                     string                      `json:"model"`
+	DisplayName               string                      `json:"displayName"`
+	Description               string                      `json:"description"`
+	Hidden                    bool                        `json:"hidden"`
+	IsDefault                 bool                        `json:"isDefault"`
+	DefaultReasoningEffort    ReasoningEffort             `json:"defaultReasoningEffort"`
+	SupportedReasoningEfforts []ChatReasoningEffortOption `json:"supportedReasoningEfforts"`
+}
+
+type ChatReasoningEffortOption struct {
+	Effort      ReasoningEffort `json:"effort"`
+	DisplayName string          `json:"displayName"`
+	Description string          `json:"description"`
+	IsDefault   bool            `json:"isDefault"`
 }
 
 type ChatCommandCapability struct {
@@ -569,14 +615,16 @@ type ChatCommandListResult struct {
 }
 
 type ChatCommandResult struct {
-	Action        ChatCommandResultAction `json:"action"`
-	Kind          ChatCommandKind         `json:"kind"`
-	Raw           string                  `json:"raw"`
-	Title         string                  `json:"title"`
-	Message       string                  `json:"message"`
-	Goal          *ChatGoalState          `json:"goal"`
-	Models        []ChatModelOption       `json:"models"`
-	SelectedModel string                  `json:"selectedModel"`
+	Action                  ChatCommandResultAction     `json:"action"`
+	Kind                    ChatCommandKind             `json:"kind"`
+	Raw                     string                      `json:"raw"`
+	Title                   string                      `json:"title"`
+	Message                 string                      `json:"message"`
+	Goal                    *ChatGoalState              `json:"goal"`
+	Models                  []ChatModelOption           `json:"models"`
+	SelectedModel           string                      `json:"selectedModel"`
+	ReasoningEfforts        []ChatReasoningEffortOption `json:"reasoningEfforts"`
+	SelectedReasoningEffort *ReasoningEffort            `json:"selectedReasoningEffort"`
 }
 
 type ChatCommandExecuteResult struct {
@@ -593,6 +641,7 @@ type MessagePage struct {
 	RunItemOutputs     []RunItemOutput  `json:"runItemOutputs"`
 	Queue              QueueState       `json:"queue"`
 	Transcript         []TranscriptTurn `json:"transcript"`
+	Goal               *ChatGoalState   `json:"goal"`
 	HasMoreOlder       bool             `json:"hasMoreOlder"`
 	OlderBeforeOrdinal int              `json:"olderBeforeOrdinal"`
 }
@@ -650,7 +699,18 @@ func (result ChatCommandResult) MarshalJSON() ([]byte, error) {
 	if result.Models == nil {
 		result.Models = []ChatModelOption{}
 	}
+	if result.ReasoningEfforts == nil {
+		result.ReasoningEfforts = []ChatReasoningEffortOption{}
+	}
 	return json.Marshal(resultAlias(result))
+}
+
+func (model ChatModelOption) MarshalJSON() ([]byte, error) {
+	type modelAlias ChatModelOption
+	if model.SupportedReasoningEfforts == nil {
+		model.SupportedReasoningEfforts = []ChatReasoningEffortOption{}
+	}
+	return json.Marshal(modelAlias(model))
 }
 
 func (question ApprovalQuestion) MarshalJSON() ([]byte, error) {

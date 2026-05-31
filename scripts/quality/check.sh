@@ -215,6 +215,9 @@ is_prettier_path() {
 
 is_length_excluded_path() {
   case "$1" in
+    internal/codexapp/protocolschema/json/*)
+      return 0
+      ;;
     LICENSE|desktop/pnpm-lock.yaml|pnpm-lock.yaml|*.lock|go.sum)
       return 0
       ;;

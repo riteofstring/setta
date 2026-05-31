@@ -249,7 +249,7 @@ function registerIpc() {
     ipcMain,
     "appOpenExternalUrl",
     async (_event, rawURL) => {
-      await shell.openExternal(externalURL(rawURL));
+      await openExternalURL(rawURL);
     },
     ipcObserver,
   );
@@ -375,8 +375,37 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatExecuteCommand",
-    async (_event, workspaceId, conversationId, raw) => {
-      return requireBackendClient().executeChatCommand({ conversationId, raw, workspaceId });
+    async (_event, workspaceId, conversationId, raw, confirmGoalReplacement) => {
+      return requireBackendClient().executeChatCommand({
+        confirmGoalReplacement,
+        conversationId,
+        raw,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSetCodexModel",
+    async (_event, workspaceId, conversationId, modelId) => {
+      return requireBackendClient().setChatCodexModel({
+        conversationId,
+        modelId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSetCodexReasoningEffort",
+    async (_event, workspaceId, conversationId, reasoningEffort) => {
+      return requireBackendClient().setChatCodexReasoningEffort({
+        conversationId,
+        reasoningEffort,
+        workspaceId,
+      });
     },
     ipcObserver,
   );
@@ -466,25 +495,41 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "providerAccountsList",
+    "codexAccountRead",
     async () => {
-      return requireBackendClient().listProviderAccounts();
+      return requireBackendClient().readCodexAccount();
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
-    "providerAccountsSaveChatGPTAuth",
+    "codexAccountRefresh",
     async (_event, request) => {
-      return requireBackendClient().saveChatGPTAuth(request);
+      return requireBackendClient().refreshCodexAccount(request);
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
-    "providerAccountsClearChatGPTAuth",
+    "codexAccountStartLogin",
     async (_event, request) => {
-      return requireBackendClient().clearChatGPTAuth(request);
+      return requireBackendClient().startCodexLogin(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "codexAccountCancelLogin",
+    async (_event, request) => {
+      return requireBackendClient().cancelCodexLogin(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "codexAccountLogout",
+    async (_event, request) => {
+      return requireBackendClient().logoutCodexAccount(request);
     },
     ipcObserver,
   );
@@ -496,6 +541,15 @@ function externalURL(rawURL: string) {
     throw new Error("external URL must use http or https: " + rawURL);
   }
   return url.toString();
+}
+
+async function openExternalURL(rawURL: string) {
+  const url = externalURL(rawURL);
+  if (process.env.SETTA_E2E_BLOCK_EXTERNAL_OPEN === "1") {
+    recorder?.recordAppEvent("external_url_open_blocked", { url });
+    return;
+  }
+  await shell.openExternal(url);
 }
 
 function requireBackendClient(): BackendClient {

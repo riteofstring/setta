@@ -121,6 +121,10 @@ func (service *Service) CloseEvents() {
 	service.events.Close()
 }
 
+func (service *Service) PublishCodexAccountChanged(reason string) {
+	_, _ = service.events.Publish(NewCodexAccountChangedEvent(reason))
+}
+
 func (service *Service) ListConversations(workspaceID string) (ConversationListResult, error) {
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return ConversationListResult{}, err
@@ -282,11 +286,15 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 }
 
 func (service *Service) persistTurnStartLocked(workspaceID string, conversationID string, prompt string, now string) (Conversation, ChatMessage, ChatMessage, Run, error) {
+	return service.persistTurnStartWithDeliveryLocked(workspaceID, conversationID, prompt, MessageDeliveryNormal, now)
+}
+
+func (service *Service) persistTurnStartWithDeliveryLocked(workspaceID string, conversationID string, prompt string, delivery MessageDelivery, now string) (Conversation, ChatMessage, ChatMessage, Run, error) {
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
-	userMessage, err := service.newUserMessage(workspaceID, conversationID, "", prompt, MessageDeliveryNormal, MessageStatusComplete, now)
+	userMessage, err := service.newUserMessage(workspaceID, conversationID, "", prompt, delivery, MessageStatusComplete, now)
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
@@ -938,8 +946,10 @@ func (service *Service) markHarnessRefUnavailable(workspaceID string, conversati
 			if err := service.store.SaveConversation(conversation); err != nil {
 				return err
 			}
-			if err := service.traceLocked(workspaceID, runID, "codex_thread_resume_failed", refErr.Error()); err != nil {
-				return err
+			if runID != "" {
+				if err := service.traceLocked(workspaceID, runID, "codex_thread_resume_failed", refErr.Error()); err != nil {
+					return err
+				}
 			}
 			return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
 		}
@@ -1086,6 +1096,10 @@ func (sink turnSink) ApprovalResolved(approvalID string, approved bool, response
 
 func (sink turnSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
 	return sink.service.recordProviderDiagnostic(sink.workspaceID, sink.conversationID, sink.runID, code, message, context, resyncRequired, severity)
+}
+
+func (sink turnSink) GoalUpdated(goal *ChatGoalState) error {
+	return sink.service.updateGoalState(sink.workspaceID, sink.conversationID, sink.runID, goal)
 }
 
 func (sink turnSink) RunItemOutputDelta(providerItemID string, stream string, text string) error {

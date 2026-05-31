@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"setta/internal/chat"
+	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
-	"setta/internal/provideraccounts"
 )
 
 type ContractTestLeaf struct {
@@ -203,13 +203,13 @@ func TestRenderIncludesLiteralUnionValueSets(t *testing.T) {
 	}
 }
 
-func TestRenderIncludesProviderAccountValueSets(t *testing.T) {
+func TestRenderIncludesCodexAccountValueSets(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{{
-			Name:     "ContractTestProviderAccount",
+			Name:     "ContractTestCodexAccount",
 			Method:   "GET",
-			Path:     "/contract-test/provider-account",
-			Response: reflect.TypeFor[provideraccounts.ProviderAccountSummary](),
+			Path:     "/contract-test/codex-account",
+			Response: reflect.TypeFor[codexaccount.CodexAccountState](),
 		}},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
 	}, chat.EventContractSchema{})
@@ -224,12 +224,12 @@ func TestRenderIncludesProviderAccountValueSets(t *testing.T) {
 	output := buffer.String()
 
 	for _, expected := range []string{
-		"export type ChatGPTPlanType = \"business\"",
-		"export const chatGPTPlanTypeValues = [\"business\"",
-		"provider: ProviderAccountProvider;",
-		"authMode: ProviderAccountAuthMode;",
-		"planType: ChatGPTPlanType | null;",
-		"planType: decodeNullable(requireField(record, \"planType\", \"ProviderAccountSummary\"), \"ProviderAccountSummary.planType\", (item) => decodeChatGPTPlanType(item, \"ProviderAccountSummary.planType\"))",
+		"export type CodexAccountStatus = \"signed_in\" | \"unauthenticated\" | \"unavailable\" | \"login_in_progress\";",
+		"export const codexLoginTypeValues = [\"apiKey\", \"chatgpt\", \"chatgptDeviceCode\"] as const satisfies readonly CodexLoginType[];",
+		"status: CodexAccountStatus;",
+		"account: CodexAccount | null;",
+		"planType: CodexChatGPTPlanType | null;",
+		"planType: decodeNullable(requireField(record, \"planType\", \"CodexAccount\"), \"CodexAccount.planType\", (item) => decodeCodexChatGPTPlanType(item, \"CodexAccount.planType\"))",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("generated output missing %q:\n%s", expected, output)

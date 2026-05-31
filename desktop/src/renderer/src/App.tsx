@@ -463,9 +463,11 @@ function ProjectPane({
           chatBusy={chat.operation !== null || chat.status === "loading"}
           closeWorkspace={workspace.closeWorkspace}
           conversations={chat.conversations}
+          corruption={chat.corruption}
           createConversation={chat.createConversation}
           createWorkspaceConversation={chat.createWorkspaceConversation}
           deleteConversation={chat.deleteConversation}
+          diagnostics={chat.diagnostics}
           openLocalFolder={workspace.openLocalFolder}
           openSettingsPane={openSettingsPane}
           recentWorkspaces={workspace.recentWorkspaces}

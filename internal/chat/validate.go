@@ -8,6 +8,26 @@ import (
 )
 
 func validateConversation(conversation Conversation) error {
+	if err := validateConversationIdentity(conversation); err != nil {
+		return err
+	}
+	if err := validateConversationTimestamps(conversation); err != nil {
+		return err
+	}
+	for _, ref := range conversation.HarnessRefs {
+		if err := validateHarnessThreadRef(conversation.ID, ref); err != nil {
+			return err
+		}
+	}
+	if conversation.CodexSettings != nil {
+		if err := validateChatCodexSettings(conversation.ID, *conversation.CodexSettings); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateConversationIdentity(conversation Conversation) error {
 	if conversation.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("conversation %s has unsupported schemaVersion %d", conversation.ID, conversation.SchemaVersion)
 	}
@@ -20,6 +40,10 @@ func validateConversation(conversation Conversation) error {
 	if conversation.Title == "" {
 		return fmt.Errorf("conversation %s title is required", conversation.ID)
 	}
+	return nil
+}
+
+func validateConversationTimestamps(conversation Conversation) error {
 	if err := validateTimestamp(conversation.CreatedAt, "conversation "+conversation.ID+" createdAt"); err != nil {
 		return err
 	}
@@ -31,10 +55,37 @@ func validateConversation(conversation Conversation) error {
 			return err
 		}
 	}
-	for _, ref := range conversation.HarnessRefs {
-		if err := validateHarnessThreadRef(conversation.ID, ref); err != nil {
-			return err
-		}
+	return nil
+}
+
+func validateChatCodexSettings(conversationID string, settings ChatCodexSettings) error {
+	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
+		return fmt.Errorf("conversation %s codexSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
+	}
+	return nil
+}
+
+func validateChatGoalState(goal ChatGoalState) error {
+	if goal.ThreadID == "" {
+		return fmt.Errorf("goal threadId is required")
+	}
+	if _, ok := codexThreadGoalStatuses[goal.Status]; !ok {
+		return fmt.Errorf("goal has unsupported status %s", goal.Status)
+	}
+	if goal.TokenBudget != nil && *goal.TokenBudget < 0 {
+		return fmt.Errorf("goal tokenBudget must be non-negative")
+	}
+	if goal.TokensUsed < 0 {
+		return fmt.Errorf("goal tokensUsed must be non-negative")
+	}
+	if goal.TimeUsedSeconds < 0 {
+		return fmt.Errorf("goal timeUsedSeconds must be non-negative")
+	}
+	if goal.CreatedAt < 0 {
+		return fmt.Errorf("goal createdAt must be non-negative")
+	}
+	if goal.UpdatedAt < 0 {
+		return fmt.Errorf("goal updatedAt must be non-negative")
 	}
 	return nil
 }

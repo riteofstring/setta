@@ -112,7 +112,12 @@ function transcriptTimelineItems(indexes: TranscriptIndexes): TranscriptTimeline
   });
   for (const messageId of indexes.messageIds) {
     const message = indexes.messagesById[messageId];
-    if (!message || message.runId !== "" || turnMessageIds.has(message.id)) {
+    if (
+      !message ||
+      message.runId !== "" ||
+      turnMessageIds.has(message.id) ||
+      !isVisibleMessage(message)
+    ) {
       continue;
     }
     items.push({ kind: "message", message, ordinal: message.ordinal });
@@ -139,6 +144,7 @@ const messageRowClassByRole = {
 } satisfies Record<MessageRole, string>;
 
 const deliveryLabelByDelivery = {
+  goal: "Goal",
   queued: "Queued",
   steering: "Steering",
 } satisfies Record<Exclude<MessageDelivery, "normal">, string>;
@@ -164,6 +170,7 @@ const assistantMessageContainerClassByRole = {
 } satisfies Record<Exclude<MessageRole, "user">, string>;
 
 const userMessageContainerClassByDelivery = {
+  goal: "max-w-[78%] overflow-hidden rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-[13px] leading-5 break-words text-emerald-100",
   normal:
     "min-w-0 max-w-[calc(100%-3.5rem)] overflow-hidden rounded-sm bg-zinc-800 px-2 py-1 text-[13px] leading-5 break-words text-zinc-50",
   queued:
@@ -544,6 +551,7 @@ function transcriptSearchMatches(messages: Array<ChatMessage | undefined>, query
   }
   return messages
     .filter((message): message is ChatMessage => message !== undefined)
+    .filter(isVisibleMessage)
     .filter((message) => chatMessageText(message).toLowerCase().includes(normalizedQuery))
     .map((message) => ({ messageId: message.id }));
 }
@@ -561,10 +569,14 @@ function timelineItemForMessage(timeline: TranscriptTimelineItem[], messageId: s
 
 function transcriptTurnHasMessage(turn: TranscriptTurn, messageId: string) {
   return (
-    turn.triggerMessage.id === messageId ||
+    (isVisibleMessage(turn.triggerMessage) && turn.triggerMessage.id === messageId) ||
     turn.assistantMessage?.id === messageId ||
     turn.steeringMessages.some((message) => message.id === messageId)
   );
+}
+
+function isVisibleMessage(message: ChatMessage) {
+  return message.delivery !== "goal";
 }
 
 function ChatSearchBar({ search }: { search: TranscriptSearchController }) {
@@ -683,17 +695,19 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
       data-testid="chat-transcript-turn"
       data-turn-status={turn.run.status}
     >
-      <MessageRow
-        loadRunItemOutput={loadRunItemOutput}
-        activeSearchMessageId={activeSearchMessageId}
-        message={turn.triggerMessage}
-        updateUserMessage={updateUserMessage}
-        runItemIdsByRunId={runItemIdsByRunId}
-        runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
-        runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-        runItemOutputsById={runItemOutputsById}
-        runItemsById={runItemsById}
-      />
+      {isVisibleMessage(turn.triggerMessage) ? (
+        <MessageRow
+          loadRunItemOutput={loadRunItemOutput}
+          activeSearchMessageId={activeSearchMessageId}
+          message={turn.triggerMessage}
+          updateUserMessage={updateUserMessage}
+          runItemIdsByRunId={runItemIdsByRunId}
+          runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
+          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+          runItemOutputsById={runItemOutputsById}
+          runItemsById={runItemsById}
+        />
+      ) : null}
       {turn.steeringMessages.map((message) => (
         <MessageRow
           key={message.id}

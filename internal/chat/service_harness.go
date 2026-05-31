@@ -16,6 +16,17 @@ func (service *Service) runHarnessTurn(ctx context.Context, request TurnRequest)
 	service.handleHarnessTurnCompletion(request, completion)
 }
 
+func (service *Service) runHarnessGoalContinuation(ctx context.Context, request TurnRequest, continuation HarnessGoalContinuation) {
+	defer continuation.Close()
+	sink := turnSink{service: service, workspaceID: request.Workspace.ID, conversationID: request.Conversation.ID, runID: request.Run.ID}
+	completion, err := continuation.Wait(ctx, request, sink)
+	if err != nil {
+		service.handleHarnessTurnError(ctx, request, err)
+		return
+	}
+	service.handleHarnessTurnCompletion(request, completion)
+}
+
 func (service *Service) handleHarnessTurnError(ctx context.Context, request TurnRequest, err error) {
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return

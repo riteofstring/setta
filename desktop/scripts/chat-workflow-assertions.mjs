@@ -18,3 +18,110 @@ export async function assertNoCriticalDiagnostics(backend, workspaceId, conversa
     throw new Error(`critical diagnostics recorded: ${JSON.stringify(critical)}`);
   }
 }
+
+export async function waitForComposerFocus(waitForState, client) {
+  await waitForState(
+    client,
+    `(() => ({
+      focused: document.activeElement?.getAttribute("aria-label") === "Ask Setta",
+    }))()`,
+    (value) => value.focused,
+  );
+}
+
+export async function waitForModelPicker(waitForState, client) {
+  await waitForState(
+    client,
+    `(() => {
+      const picker = document.querySelector('[data-testid="model-picker"]');
+      return { body: document.body.innerText, ready: Boolean(picker) };
+    })()`,
+    (value) => value.ready && value.body.includes("scripted-fast"),
+  );
+}
+
+export async function waitForModelPickerAbsent(waitForState, client) {
+  await waitForState(
+    client,
+    `(() => ({ open: Boolean(document.querySelector('[data-testid="model-picker"]')) }))()`,
+    (value) => !value.open,
+  );
+}
+
+export async function waitForSelectedModel(waitForState, client, modelText) {
+  await waitForState(
+    client,
+    `(() => {
+      const picker = document.querySelector('[data-testid="model-picker"]');
+      const selected = Array.from(picker?.querySelectorAll('[data-selected="true"]') ?? [])
+        .map((button) => button.innerText);
+      return { selected };
+    })()`,
+    (value) => value.selected.length === 1 && value.selected[0].includes(modelText),
+  );
+}
+
+export async function waitForSelectedReasoningEffort(waitForState, client, effortText) {
+  await waitForState(
+    client,
+    `(() => {
+      const picker = document.querySelector('[data-testid="model-picker"]');
+      const selected = Array.from(
+        picker?.querySelectorAll('[data-reasoning-selected="true"]') ?? [],
+      ).map((button) => button.innerText);
+      return { selected };
+    })()`,
+    (value) => value.selected.length === 1 && value.selected[0].includes(effortText),
+  );
+}
+
+export async function clickModelByText(waitForState, client, modelText) {
+  await waitForPickerButton(waitForState, client, modelText);
+  await clickPickerButton(client, modelText, "model option");
+}
+
+export async function clickReasoningEffortByText(waitForState, client, effortText) {
+  await waitForPickerButton(waitForState, client, effortText);
+  await clickPickerButton(client, effortText, "reasoning effort option");
+}
+
+export async function dispatchDocumentEscape(client) {
+  await client.evaluate(`(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+  })()`);
+}
+
+async function waitForPickerButton(waitForState, client, text) {
+  await waitForState(
+    client,
+    `(() => {
+      const picker = document.querySelector('[data-testid="model-picker"]');
+      const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
+      return {
+        ready: buttons.some((button) => button.innerText.includes(${JSON.stringify(text)})),
+      };
+    })()`,
+    (value) => value.ready,
+  );
+}
+
+async function clickPickerButton(client, text, label) {
+  const clicked = await client.evaluate(`(() => {
+    const picker = document.querySelector('[data-testid="model-picker"]');
+    const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
+    const button = buttons.find((candidate) =>
+      candidate.innerText.includes(${JSON.stringify(text)})
+    );
+    if (!button || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error(`${label} was not clickable: ${text}`);
+  }
+}

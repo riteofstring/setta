@@ -14,6 +14,15 @@ type Harness interface {
 	SubmitApproval(context.Context, ApprovalResponse) error
 }
 
+type HarnessGoalContinuationStarter interface {
+	BeginGoalContinuation(context.Context, HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error)
+}
+
+type HarnessGoalContinuation interface {
+	Wait(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
+	Close()
+}
+
 type TurnOutcome string
 
 const (
@@ -84,6 +93,7 @@ type TurnSink interface {
 	ApprovalRequested(approval ApprovalRequest) error
 	ApprovalResolved(approvalID string, approved bool, response string) error
 	ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error
+	GoalUpdated(goal *ChatGoalState) error
 	RunItemOutputDelta(providerItemID string, stream string, text string) error
 	RunItemUpsert(item RunItem) error
 	ThreadLinked(threadID string, sessionID string, turnID string) error

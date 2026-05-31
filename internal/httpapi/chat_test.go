@@ -321,13 +321,53 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 	if len(result.Page.Conversation.HarnessRefs) != 1 {
 		t.Fatalf("harness refs = %+v, want command-created ref", result.Page.Conversation.HarnessRefs)
 	}
+	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
+		t.Fatalf("page goal = %+v, want active command goal", result.Page.Goal)
+	}
+	if len(result.Page.Transcript) != 1 || result.Page.Transcript[0].TriggerMessage.Delivery != chat.MessageDeliveryGoal {
+		t.Fatalf("transcript = %+v, want internal goal trigger", result.Page.Transcript)
+	}
 
 	runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 	}, http.StatusOK)
-	if len(runs.Runs) != 0 {
-		t.Fatalf("runs = %+v, want none for command", runs.Runs)
+	if len(runs.Runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal pursuit run", runs.Runs)
+	}
+	if runs.Runs[0].PromptSummary != "finish renderer tests" {
+		t.Fatalf("run prompt summary = %q, want objective", runs.Runs[0].PromptSummary)
+	}
+	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, runs.Runs[0].ID, chat.MessageStatusComplete)
+}
+
+func TestChatCodexModelSelectionEndpoints(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+
+	model := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/model/set", SetChatCodexModelRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		ModelID:        "gpt-test",
+	}, http.StatusOK)
+	if model.Message == nil || model.Message.Parts[0].Text != "Model set: gpt-test" {
+		t.Fatalf("model result message = %+v, want model set", model.Message)
+	}
+	if model.Conversation.CodexSettings == nil || model.Conversation.CodexSettings.Model != "gpt-test" {
+		t.Fatalf("model settings = %+v, want gpt-test", model.Conversation.CodexSettings)
+	}
+
+	effort := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/reasoning-effort/set", SetChatCodexReasoningEffortRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ConversationID:  conversation.ID,
+		ReasoningEffort: chat.ReasoningEffortHigh,
+	}, http.StatusOK)
+	if effort.Message == nil || effort.Message.Parts[0].Text != "Reasoning set: High" {
+		t.Fatalf("effort result message = %+v, want reasoning set", effort.Message)
+	}
+	if effort.Conversation.CodexSettings == nil || effort.Conversation.CodexSettings.ReasoningEffort == nil || *effort.Conversation.CodexSettings.ReasoningEffort != chat.ReasoningEffortHigh {
+		t.Fatalf("effort settings = %+v, want high", effort.Conversation.CodexSettings)
 	}
 }
 

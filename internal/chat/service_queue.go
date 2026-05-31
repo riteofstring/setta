@@ -59,7 +59,6 @@ func (service *Service) persistQueuedMessageLocked(workspaceID string, conversat
 	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
-	conversation = records.Conversation
 	message = records.UserMessage
 	run = records.Run
 	if err := service.traceLocked(workspaceID, run.ID, "message_queued", "Message queued"); err != nil {
