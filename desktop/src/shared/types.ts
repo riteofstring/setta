@@ -3,6 +3,7 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
+  ChatMessage,
   ClearChatGPTAuthRequest,
   Conversation,
   GetActiveRunResponse,
@@ -99,6 +100,10 @@ export interface SettaAPI {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
+    deleteConversation: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ListConversationsResponse>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
@@ -137,6 +142,12 @@ export interface SettaAPI {
     ) => Promise<SteerMessageResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
+    updateUserMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      text: string,
+    ) => Promise<ChatMessage>;
   };
   providerAccounts: {
     clearChatGPTAuth: (request: ClearChatGPTAuthRequest) => Promise<ProviderAccounts>;

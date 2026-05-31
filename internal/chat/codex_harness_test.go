@@ -833,7 +833,9 @@ func codexHookRunFixture(status string) map[string]any {
 func TestCodexHarnessProtocolCoverageRegistry(t *testing.T) {
 	for _, method := range []string{
 		"initialize",
+		"mcpServerStatus/list",
 		"model/list",
+		"skills/list",
 		"thread/goal/clear",
 		"thread/goal/get",
 		"thread/goal/set",
@@ -1317,6 +1319,12 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 			}},
 			"nextCursor": nil,
 		})
+		return fakeCommandDone(mode)
+	case "skills/list":
+		writeFakeResponse(message["id"], fakeSkillsListResponse())
+		return fakeCommandDone(mode)
+	case "mcpServerStatus/list":
+		writeFakeResponse(message["id"], fakeMCPServerStatusResponse())
 		return fakeCommandDone(mode)
 	case "thread/settings/update":
 		if mode == "command-model-set-already-current" {

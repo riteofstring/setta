@@ -202,8 +202,16 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 	switch request.Command.Kind {
 	case ChatCommandGoal:
 		return harness.executeGoalCommandLocked(request.Command, result)
+	case ChatCommandMCP:
+		result.DisplayTitle = "MCP"
+		result.DisplayMessage = "MCP servers:\n- fake: auth unsupported, 2 tools"
+		return result, nil
 	case ChatCommandModel:
 		return harness.executeModelCommandLocked(request.Command, result)
+	case ChatCommandSkills:
+		result.DisplayTitle = "Skills"
+		result.DisplayMessage = "Available skills:\n- fake-skill: Fake test skill"
+		return result, nil
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported fake command kind: %s", request.Command.Kind), nil)
 	}

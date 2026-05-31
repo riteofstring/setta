@@ -106,8 +106,11 @@ const (
 	DiagnosticSourceWorkspace   DiagnosticSource = "workspace"
 	DiagnosticSourceProvider    DiagnosticSource = "provider"
 
-	ChatCommandGoal  ChatCommandKind = "goal"
-	ChatCommandModel ChatCommandKind = "model"
+	ChatCommandGoal   ChatCommandKind = "goal"
+	ChatCommandMCP    ChatCommandKind = "mcp"
+	ChatCommandModel  ChatCommandKind = "model"
+	ChatCommandNew    ChatCommandKind = "new"
+	ChatCommandSkills ChatCommandKind = "skills"
 
 	GoalCommandShow   GoalCommandAction = "show"
 	GoalCommandSet    GoalCommandAction = "set"
@@ -219,7 +222,10 @@ var (
 	}
 	chatCommandKindValues = []ChatCommandKind{
 		ChatCommandGoal,
+		ChatCommandMCP,
 		ChatCommandModel,
+		ChatCommandNew,
+		ChatCommandSkills,
 	}
 	goalCommandActionValues = []GoalCommandAction{
 		GoalCommandShow,

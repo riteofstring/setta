@@ -50,6 +50,8 @@ const api: SettaAPI = {
       invoke("chatCancelRun", workspaceId, conversationId),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
+    deleteConversation: (workspaceId: string, conversationId: string) =>
+      invoke("chatDeleteConversation", workspaceId, conversationId),
     executeCommand: (workspaceId: string, conversationId: string, raw: string) =>
       invoke("chatExecuteCommand", workspaceId, conversationId, raw),
     listCommands: (workspaceId: string, conversationId: string) =>
@@ -86,6 +88,12 @@ const api: SettaAPI = {
     steerMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSteerMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
+    updateUserMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      text: string,
+    ) => invoke("chatUpdateUserMessage", workspaceId, conversationId, messageId, text),
   },
   providerAccounts: {
     clearChatGPTAuth: (request) => invoke("providerAccountsClearChatGPTAuth", request),

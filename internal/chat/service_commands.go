@@ -46,6 +46,9 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
+	if command.Kind == ChatCommandNew {
+		return service.executeNewChatCommand(workspaceSummary.ID, command)
+	}
 	executor, err := service.commandExecutor()
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
@@ -75,6 +78,34 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	return service.persistCommandResultLocked(workspaceID, conversationID, command, harnessResult)
+}
+
+func (service *Service) executeNewChatCommand(workspaceID string, command ChatCommand) (ChatCommandExecuteResult, error) {
+	conversation, err := service.CreateConversation(workspaceID, command.Args)
+	if err != nil {
+		return ChatCommandExecuteResult{}, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	page, err := service.loadMessagePageLocked(workspaceID, conversation.ID, 0, defaultPageLimit)
+	if err != nil {
+		return ChatCommandExecuteResult{}, err
+	}
+	return ChatCommandExecuteResult{
+		Conversation: conversation,
+		Message:      nil,
+		Page:         page,
+		Result: ChatCommandResult{
+			Action:        ChatCommandResultDisplay,
+			Kind:          ChatCommandNew,
+			Raw:           command.Raw,
+			Title:         "New chat",
+			Message:       "Started new chat: " + conversation.Title,
+			Goal:          nil,
+			Models:        []ChatModelOption{},
+			SelectedModel: "",
+		},
+	}, nil
 }
 
 func (service *Service) commandExecutor() (HarnessCommandExecutor, error) {
@@ -233,6 +264,8 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 		Models:        nonNilModels(harnessResult.Models),
 		Raw:           command.Raw,
 		SelectedModel: harnessResult.SelectedModel,
+		Title:         harnessResult.DisplayTitle,
+		Message:       harnessResult.DisplayMessage,
 	}
 	result.Title, result.Message = commandResultText(command, result)
 	return result
@@ -246,11 +279,20 @@ func nonNilModels(models []ChatModelOption) []ChatModelOption {
 }
 
 func commandResultText(command ChatCommand, result ChatCommandResult) (string, string) {
+	if result.Title != "" || result.Message != "" {
+		return result.Title, result.Message
+	}
 	switch command.Kind {
 	case ChatCommandGoal:
 		return goalCommandResultText(command, result.Goal)
+	case ChatCommandMCP:
+		return "MCP", "MCP status checked."
 	case ChatCommandModel:
 		return modelCommandResultText(command, result)
+	case ChatCommandNew:
+		return "New chat", "Started new chat."
+	case ChatCommandSkills:
+		return "Skills", "Skills listed."
 	default:
 		return "Command", "Command completed."
 	}

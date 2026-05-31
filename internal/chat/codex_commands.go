@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"setta/internal/workspace"
@@ -30,7 +32,7 @@ func (harness *CodexHarness) executeActiveCommand(ctx context.Context, request H
 	if active == nil || active.threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is not available for the active run", nil)
 	}
-	return harness.executeCodexCommandRPC(ctx, active.client, active.threadID, "", request.Command)
+	return harness.executeCodexCommandRPC(ctx, active.client, active.threadID, "", request.Workspace, request.Command)
 }
 
 func (harness *CodexHarness) activeTurnForCommand(runID string) *codexActiveTurn {
@@ -58,13 +60,13 @@ func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request Har
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, err.Error(), err)
 	}
 	if !commandNeedsThread(request.Command) {
-		return harness.executeCodexCommandRPC(ctx, client, "", "", request.Command)
+		return harness.executeCodexCommandRPC(ctx, client, "", "", request.Workspace, request.Command)
 	}
 	thread, err := harness.startOrResumeCommandThread(ctx, client, request.Workspace, request.ThreadRef)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
-	result, err := harness.executeCodexCommandRPC(ctx, client, thread.Ref.ThreadID, thread.Model, request.Command)
+	result, err := harness.executeCodexCommandRPC(ctx, client, thread.Ref.ThreadID, thread.Model, request.Workspace, request.Command)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
@@ -114,12 +116,16 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, cli
 	return thread, nil
 }
 
-func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, client *jsonRPCClient, threadID string, currentModel string, command ChatCommand) (HarnessCommandResult, error) {
+func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, client *jsonRPCClient, threadID string, currentModel string, workspaceSummary workspace.WorkspaceSummary, command ChatCommand) (HarnessCommandResult, error) {
 	switch command.Kind {
 	case ChatCommandGoal:
 		return executeCodexGoalCommand(ctx, client, threadID, command)
+	case ChatCommandMCP:
+		return executeCodexMCPCommand(ctx, client)
 	case ChatCommandModel:
 		return executeCodexModelCommand(ctx, client, threadID, currentModel, command)
+	case ChatCommandSkills:
+		return executeCodexSkillsCommand(ctx, client, workspaceSummary)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("codex does not support chat command kind %s", command.Kind), nil)
 	}
@@ -221,6 +227,226 @@ func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, thread
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
 	}
+}
+
+func executeCodexSkillsCommand(ctx context.Context, client *jsonRPCClient, workspaceSummary workspace.WorkspaceSummary) (HarnessCommandResult, error) {
+	raw, err := client.call(ctx, "skills/list", map[string]any{
+		"cwds":        []string{workspaceSummary.RootPath},
+		"forceReload": true,
+	})
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "skills/list: "+err.Error(), err)
+	}
+	message, err := skillsListMessageFromResponse(raw)
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "skills/list response: "+err.Error(), err)
+	}
+	return HarnessCommandResult{
+		Action:         ChatCommandResultDisplay,
+		DisplayTitle:   "Skills",
+		DisplayMessage: message,
+	}, nil
+}
+
+func executeCodexMCPCommand(ctx context.Context, client *jsonRPCClient) (HarnessCommandResult, error) {
+	raw, err := client.call(ctx, "mcpServerStatus/list", map[string]any{
+		"detail": "toolsAndAuthOnly",
+	})
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "mcpServerStatus/list: "+err.Error(), err)
+	}
+	message, err := mcpStatusMessageFromResponse(raw)
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "mcpServerStatus/list response: "+err.Error(), err)
+	}
+	return HarnessCommandResult{
+		Action:         ChatCommandResultDisplay,
+		DisplayTitle:   "MCP",
+		DisplayMessage: message,
+	}, nil
+}
+
+func skillsListMessageFromResponse(raw json.RawMessage) (string, error) {
+	response, err := objectValue(raw, "codex skills list response")
+	if err != nil {
+		return "", err
+	}
+	entries, err := requireObjectArray(response, "data", "codex skills list response")
+	if err != nil {
+		return "", err
+	}
+	summaries, err := collectSkillSummaries(entries)
+	if err != nil {
+		return "", err
+	}
+	sort.Strings(summaries.enabled)
+	return formatSkillsListMessage(summaries), nil
+}
+
+type skillsListSummaries struct {
+	enabled       []string
+	disabledCount int
+}
+
+func collectSkillSummaries(entries []map[string]any) (skillsListSummaries, error) {
+	summaries := skillsListSummaries{}
+	for entryIndex, entry := range entries {
+		skills, err := requireObjectArray(entry, "skills", fmt.Sprintf("codex skills list response.data[%d]", entryIndex))
+		if err != nil {
+			return summaries, err
+		}
+		for skillIndex, skill := range skills {
+			enabledSummary, enabled, err := skillSummaryFromResponse(entryIndex, skillIndex, skill)
+			if err != nil {
+				return summaries, err
+			}
+			if !enabled {
+				summaries.disabledCount += 1
+				continue
+			}
+			summaries.enabled = append(summaries.enabled, enabledSummary)
+		}
+	}
+	return summaries, nil
+}
+
+func skillSummaryFromResponse(entryIndex int, skillIndex int, skill map[string]any) (string, bool, error) {
+	label := fmt.Sprintf("codex skills list response.data[%d].skills[%d]", entryIndex, skillIndex)
+	name, err := requireString(skill, "name", label)
+	if err != nil {
+		return "", false, err
+	}
+	description, err := requireStringAllowEmpty(skill, "description", label)
+	if err != nil {
+		return "", false, err
+	}
+	path, err := requireString(skill, "path", label)
+	if err != nil {
+		return "", false, err
+	}
+	enabled, err := requireBool(skill, "enabled", label)
+	if err != nil {
+		return "", false, err
+	}
+	return formatSkillSummary(name, description, path), enabled, nil
+}
+
+func formatSkillsListMessage(summaries skillsListSummaries) string {
+	enabled := summaries.enabled
+	disabledCount := summaries.disabledCount
+	if len(enabled) == 0 {
+		if disabledCount == 0 {
+			return "No skills found for this workspace."
+		}
+		return fmt.Sprintf("No enabled skills found. %d disabled skill(s) are present.", disabledCount)
+	}
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "Available skills (%d enabled", len(enabled))
+	if disabledCount > 0 {
+		fmt.Fprintf(&builder, ", %d disabled", disabledCount)
+	}
+	builder.WriteString("):")
+	limit := min(len(enabled), 20)
+	for _, item := range enabled[:limit] {
+		builder.WriteString("\n- ")
+		builder.WriteString(item)
+	}
+	if len(enabled) > limit {
+		fmt.Fprintf(&builder, "\n- ...and %d more", len(enabled)-limit)
+	}
+	return builder.String()
+}
+
+func formatSkillSummary(name string, description string, path string) string {
+	if description == "" {
+		return fmt.Sprintf("%s (%s)", name, path)
+	}
+	return fmt.Sprintf("%s: %s (%s)", name, description, path)
+}
+
+func mcpStatusMessageFromResponse(raw json.RawMessage) (string, error) {
+	response, err := objectValue(raw, "codex mcp status response")
+	if err != nil {
+		return "", err
+	}
+	servers, err := requireObjectArray(response, "data", "codex mcp status response")
+	if err != nil {
+		return "", err
+	}
+	if len(servers) == 0 {
+		return "No MCP servers configured.", nil
+	}
+	rows := make([]string, 0, len(servers))
+	for index, server := range servers {
+		label := fmt.Sprintf("codex mcp status response.data[%d]", index)
+		name, err := requireString(server, "name", label)
+		if err != nil {
+			return "", err
+		}
+		authStatus, err := requireString(server, "authStatus", label)
+		if err != nil {
+			return "", err
+		}
+		tools, err := optionalObjectMap(server, "tools", label)
+		if err != nil {
+			return "", err
+		}
+		toolNames := sortedKeys(tools)
+		rows = append(rows, formatMCPServerSummary(name, authStatus, toolNames))
+	}
+	sort.Strings(rows)
+	return "MCP servers:\n- " + strings.Join(rows, "\n- "), nil
+}
+
+func formatMCPServerSummary(name string, authStatus string, toolNames []string) string {
+	if len(toolNames) == 0 {
+		return fmt.Sprintf("%s: auth %s, no tools", name, authStatus)
+	}
+	if len(toolNames) > 8 {
+		return fmt.Sprintf("%s: auth %s, %d tools (%s, ...)", name, authStatus, len(toolNames), strings.Join(toolNames[:8], ", "))
+	}
+	return fmt.Sprintf("%s: auth %s, %d tools (%s)", name, authStatus, len(toolNames), strings.Join(toolNames, ", "))
+}
+
+func requireObjectArray(value map[string]any, name string, label string) ([]map[string]any, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return nil, fmt.Errorf("%s.%s is required", label, name)
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s.%s must be an array", label, name)
+	}
+	result := make([]map[string]any, 0, len(items))
+	for index, rawItem := range items {
+		item, ok := rawItem.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s.%s[%d] must be an object", label, name, index)
+		}
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+func optionalObjectMap(value map[string]any, name string, label string) (map[string]any, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return map[string]any{}, nil
+	}
+	items, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s.%s must be an object", label, name)
+	}
+	return items, nil
+}
+
+func sortedKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func waitForCodexThreadSettingsUpdated(ctx context.Context, client *jsonRPCClient, threadID string, selectedModel string) (string, error) {

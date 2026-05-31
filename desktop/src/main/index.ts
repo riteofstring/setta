@@ -150,6 +150,7 @@ function testOpenWorkspaceRoot() {
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
+    backgroundColor: "#18181b",
     height: 820,
     minHeight: 620,
     minWidth: 960,
@@ -344,6 +345,14 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatDeleteConversation",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().deleteConversation({ conversationId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatMessagePage",
     async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
       return requireBackendClient().getMessagePage({
@@ -439,6 +448,19 @@ function registerIpc() {
     "chatSubmitApproval",
     async (_event, input) => {
       return requireBackendClient().submitApproval(input);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatUpdateUserMessage",
+    async (_event, workspaceId, conversationId, messageId, text) => {
+      return requireBackendClient().updateUserMessage({
+        conversationId,
+        messageId,
+        text,
+        workspaceId,
+      });
     },
     ipcObserver,
   );

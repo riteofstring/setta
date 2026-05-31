@@ -2,7 +2,9 @@ package chat
 
 var supportedCodexClientMethods = map[string]struct{}{
 	"initialize":             {},
+	"mcpServerStatus/list":   {},
 	"model/list":             {},
+	"skills/list":            {},
 	"thread/goal/clear":      {},
 	"thread/goal/get":        {},
 	"thread/goal/set":        {},

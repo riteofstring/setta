@@ -335,16 +335,22 @@ export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): 
   }
 }
 
-export type ChatCommandKind = "goal" | "model";
+export type ChatCommandKind = "goal" | "mcp" | "model" | "new" | "skills";
 
-export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+export const chatCommandKindValues = ["goal", "mcp", "model", "new", "skills"] as const satisfies readonly ChatCommandKind[];
 
 export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "goal":
       return decoded;
+    case "mcp":
+      return decoded;
     case "model":
+      return decoded;
+    case "new":
+      return decoded;
+    case "skills":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -544,6 +550,11 @@ export interface CreateConversationRequest {
   title: string;
 }
 
+export interface DeleteConversationRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
 export interface GetMessagePageRequest {
   workspaceId: string;
   conversationId: string;
@@ -713,6 +724,13 @@ export interface SendMessageResult {
   assistantMessage: ChatMessage;
   run: Run;
   page: MessagePage;
+}
+
+export interface UpdateUserMessageRequest {
+  workspaceId: string;
+  conversationId: string;
+  messageId: string;
+  text: string;
 }
 
 export interface QueueChatMessageRequest {
@@ -1193,6 +1211,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/conversations/create",
   },
+  DeleteConversation: {
+    method: "POST",
+    path: "/chat/conversations/delete",
+  },
   GetMessagePage: {
     method: "POST",
     path: "/chat/messages/page",
@@ -1200,6 +1222,10 @@ export const backendEndpoints = {
   SendChatMessage: {
     method: "POST",
     path: "/chat/messages/send",
+  },
+  UpdateUserMessage: {
+    method: "POST",
+    path: "/chat/messages/update-user",
   },
   QueueChatMessage: {
     method: "POST",
@@ -1448,6 +1474,15 @@ export function decodeCreateConversationRequest(value: unknown): CreateConversat
   };
 }
 
+export function decodeDeleteConversationRequest(value: unknown): DeleteConversationRequest {
+  const record = assertRecord(value, "DeleteConversationRequest");
+  assertKnownFields(record, "DeleteConversationRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "DeleteConversationRequest"), "DeleteConversationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "DeleteConversationRequest"), "DeleteConversationRequest.conversationId"),
+  };
+}
+
 export function decodeGetMessagePageRequest(value: unknown): GetMessagePageRequest {
   const record = assertRecord(value, "GetMessagePageRequest");
   assertKnownFields(record, "GetMessagePageRequest", ["workspaceId", "conversationId", "beforeOrdinal", "limit"]);
@@ -1672,6 +1707,17 @@ export function decodeSendMessageResult(value: unknown): SendMessageResult {
     assistantMessage: decodeChatMessage(requireField(record, "assistantMessage", "SendMessageResult")),
     run: decodeRun(requireField(record, "run", "SendMessageResult")),
     page: decodeMessagePage(requireField(record, "page", "SendMessageResult")),
+  };
+}
+
+export function decodeUpdateUserMessageRequest(value: unknown): UpdateUserMessageRequest {
+  const record = assertRecord(value, "UpdateUserMessageRequest");
+  assertKnownFields(record, "UpdateUserMessageRequest", ["workspaceId", "conversationId", "messageId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.conversationId"),
+    messageId: decodeString(requireField(record, "messageId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.messageId"),
+    text: decodeString(requireField(record, "text", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.text"),
   };
 }
 
@@ -2464,8 +2510,10 @@ export interface BackendClient {
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
+  deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
+  updateUserMessage: (request: UpdateUserMessageRequest) => Promise<ChatMessage>;
   queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
@@ -2556,6 +2604,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    deleteConversation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeListConversationsResponse,
+      endpoint: backendEndpoints.DeleteConversation,
+      fetchImpl,
+      requestPayload: request,
+    }),
     getMessagePage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -2569,6 +2625,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSendMessageResult,
       endpoint: backendEndpoints.SendChatMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateUserMessage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatMessage,
+      endpoint: backendEndpoints.UpdateUserMessage,
       fetchImpl,
       requestPayload: request,
     }),

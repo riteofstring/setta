@@ -132,8 +132,16 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 	switch request.Command.Kind {
 	case ChatCommandGoal:
 		return harness.executeGoalCommandLocked(request.Command, result)
+	case ChatCommandMCP:
+		result.DisplayTitle = "MCP"
+		result.DisplayMessage = "MCP servers:\n- scripted: auth unsupported, 2 tools"
+		return result, nil
 	case ChatCommandModel:
 		return harness.executeModelCommandLocked(request.Command, result)
+	case ChatCommandSkills:
+		result.DisplayTitle = "Skills"
+		result.DisplayMessage = "Available skills:\n- scripted-skill: Scripted workflow skill"
+		return result, nil
 	default:
 		return HarnessCommandResult{}, fmt.Errorf("unsupported scripted command kind: %s", request.Command.Kind)
 	}

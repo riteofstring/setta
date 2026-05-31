@@ -21,6 +21,8 @@ import (
 	"setta/internal/workspacesession"
 )
 
+var _ httpapi.ChatService = (*chat.Service)(nil)
+
 type Config struct {
 	AppDataDir      string
 	ChatHarness     ChatHarnessMode
