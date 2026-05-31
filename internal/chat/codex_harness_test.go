@@ -573,6 +573,25 @@ func TestCodexHarnessReportsUnsupportedNotificationAsProviderDrift(t *testing.T)
 	}
 }
 
+func TestCodexHarnessRejectsDeprecatedThreadCompactedNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("deprecated-thread-compacted-notification"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want deprecated thread compacted notification error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex app-server notification: thread/compacted") {
+		t.Fatalf("error = %q, want unsupported thread/compacted notification", err)
+	}
+	if containsRunItemType(sink.items, RunItemTypeNotice) {
+		t.Fatalf("items = %+v, want no deprecated compaction notice", sink.items)
+	}
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_notification_unsupported" {
+		t.Fatalf("diagnostics = %+v, want unsupported notification diagnostic", sink.diagnostics)
+	}
+}
+
 func TestCodexHarnessHandlesRemoteControlStatusAsGlobalNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("remote-control-status"))
 	sink := newRecordingSink()
@@ -754,6 +773,7 @@ func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
 	}
 	requireRunItemType(t, sink.items, RunItemTypeHook)
 	requireRunItemType(t, sink.items, RunItemTypeApprovalReview)
+	requireRunItemType(t, sink.items, RunItemTypeContextCompaction)
 	requireRunItemType(t, sink.items, RunItemTypeFileChange)
 	reasoning := requireRunItemType(t, sink.items, RunItemTypeReasoning)
 	if reasoning.HiddenText != "private reasoning" {
@@ -1358,6 +1378,12 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 	case "unsupported-notification":
 		writeFakeNotification("turn/unknownStateChanged", map[string]any{
 			"data":     map[string]any{"value": "unknown"},
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
+		return true, true
+	case "deprecated-thread-compacted-notification":
+		writeFakeNotification("thread/compacted", map[string]any{
 			"threadId": "thread_fake",
 			"turnId":   "turn_fake",
 		})

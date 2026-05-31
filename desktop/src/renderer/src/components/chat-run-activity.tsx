@@ -1,6 +1,7 @@
 import type { RunItem, RunItemOutput, RunItemType } from "@generated/backend";
 import {
   AlertTriangle,
+  Archive,
   FileText,
   ListChecks,
   Terminal,
@@ -16,6 +17,7 @@ const activityLabelByType = {
   approval_review: "approval review",
   collab_agent_tool_call: "collab agent tool call",
   command_execution: "command execution",
+  context_compaction: "context compaction",
   diff: "diff",
   dynamic_tool_call: "dynamic tool call",
   file_change: "file change",
@@ -36,6 +38,7 @@ const activityIconByType = {
   approval_review: AlertTriangle,
   collab_agent_tool_call: Wrench,
   command_execution: Terminal,
+  context_compaction: Archive,
   diff: FileText,
   dynamic_tool_call: Wrench,
   file_change: FileText,
@@ -56,6 +59,7 @@ const activityIconClassByType = {
   approval_review: "h-4 w-4 shrink-0 text-amber-600",
   collab_agent_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
   command_execution: "h-4 w-4 shrink-0 text-zinc-500",
+  context_compaction: "h-4 w-4 shrink-0 text-zinc-500",
   diff: "h-4 w-4 shrink-0 text-zinc-500",
   dynamic_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
   file_change: "h-4 w-4 shrink-0 text-zinc-500",

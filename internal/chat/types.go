@@ -92,6 +92,7 @@ const (
 	RunItemTypeImageGeneration     RunItemType = "image_generation"
 	RunItemTypeTerminalInteraction RunItemType = "terminal_interaction"
 	RunItemTypeDiff                RunItemType = "diff"
+	RunItemTypeContextCompaction   RunItemType = "context_compaction"
 	RunItemTypeNotice              RunItemType = "notice"
 	RunItemTypeApprovalReview      RunItemType = "approval_review"
 	RunItemTypeHook                RunItemType = "hook"
@@ -212,6 +213,7 @@ var (
 		RunItemTypeImageGeneration,
 		RunItemTypeTerminalInteraction,
 		RunItemTypeDiff,
+		RunItemTypeContextCompaction,
 		RunItemTypeNotice,
 		RunItemTypeApprovalReview,
 		RunItemTypeHook,

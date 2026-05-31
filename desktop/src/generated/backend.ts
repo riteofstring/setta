@@ -211,9 +211,9 @@ export function decodeTextFormat(value: unknown, label = "TextFormat"): TextForm
   }
 }
 
-export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "notice" | "approval_review" | "hook" | "structured_input";
+export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "context_compaction" | "notice" | "approval_review" | "hook" | "structured_input";
 
-export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
+export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "context_compaction", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
 
 export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
   const decoded = decodeString(value, label);
@@ -243,6 +243,8 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
     case "terminal_interaction":
       return decoded;
     case "diff":
+      return decoded;
+    case "context_compaction":
       return decoded;
     case "notice":
       return decoded;

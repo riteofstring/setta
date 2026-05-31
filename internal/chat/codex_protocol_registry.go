@@ -17,5 +17,9 @@ var supportedCodexClientMethods = map[string]struct{}{
 	codexapp.CodexMethodTurnSteer:            {},
 }
 
+var unsupportedCodexAppServerNotifications = map[string]struct{}{
+	codexapp.CodexNotificationThreadCompacted: {},
+}
+
 var codexAppServerNotifications = codexapp.CodexNotificationValues
 var codexAppServerRequests = codexapp.CodexServerRequestValues

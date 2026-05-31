@@ -502,7 +502,6 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	codexapp.CodexNotificationSkillsChanged:                           handleCodexSkillsChanged,
 	codexapp.CodexNotificationThreadArchived:                          handleCodexThreadLifecycle,
 	codexapp.CodexNotificationThreadClosed:                            handleCodexThreadLifecycle,
-	codexapp.CodexNotificationThreadCompacted:                         handleCodexNotice,
 	codexapp.CodexNotificationThreadGoalCleared:                       handleCodexThreadGoalCleared,
 	codexapp.CodexNotificationThreadGoalUpdated:                       handleCodexThreadGoalUpdated,
 	codexapp.CodexNotificationThreadNameUpdated:                       handleCodexThreadNameUpdated,
