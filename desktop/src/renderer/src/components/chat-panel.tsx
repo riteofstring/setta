@@ -2,7 +2,6 @@ import type { WorkspaceSummary } from "@generated/backend";
 import {
   History,
   ListFilter,
-  Maximize2,
   MessageSquarePlus,
   Mic,
   Plus,
@@ -70,21 +69,8 @@ function ChatHeader({
   title: string;
 }) {
   return (
-    <header className="shrink-0 px-4 pt-3 pb-0">
-      <div className="flex h-6 min-w-0 items-start justify-between gap-3">
-        <h2 className="truncate text-sm font-bold tracking-wide text-[#7180a6] uppercase">
-          Project AI Chat
-        </h2>
-        <button
-          aria-label="Expand chat"
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[#93a4ca] hover:bg-[#101622] hover:text-zinc-100"
-          title="Expand chat"
-          type="button"
-        >
-          <Maximize2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      <div className="mt-2 flex min-w-0 items-center gap-2 text-[#7f8eb4]">
+    <header className="shrink-0 px-4 pt-2 pb-0">
+      <div className="flex min-w-0 items-center gap-2 text-[#7f8eb4]">
         <IconButton
           disabled={busy || !onCreateConversation}
           label="New chat"
