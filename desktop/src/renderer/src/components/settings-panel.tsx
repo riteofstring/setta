@@ -509,7 +509,7 @@ function ViewSettings({
               { label: "Canvas", value: "canvas" },
               { label: "Git", value: "git" },
               { label: "Browser", value: "browser" },
-              { label: "Settings", value: "settings" },
+              { label: "Note", value: "note" },
             ]}
             value={choices.launchView}
           />

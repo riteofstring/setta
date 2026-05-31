@@ -7,6 +7,7 @@ import {
   PanelTop,
   Plus,
   Settings,
+  StickyNote,
   Terminal,
   X,
 } from "lucide-react";
@@ -17,12 +18,13 @@ import { FloatingMenu } from "./floating-menu";
 import { SettingsPanel } from "./settings-panel";
 
 type PaneSlot = "bottom" | "right";
-type WorkspacePaneKind = "browser" | "canvas" | "diffs" | "file" | "settings" | "terminal";
+type WorkspacePaneKind = "browser" | "canvas" | "diffs" | "file" | "note" | "settings" | "terminal";
 type WorkspacePaneRuntime =
   | "chromium-browser"
   | "libghostty"
   | "pierre-diffs"
   | "pierre-trees"
+  | "renderer-note"
   | "renderer-settings"
   | "xyflow";
 type WorkspacePaneHost = "electron" | "native" | "renderer";
@@ -93,6 +95,7 @@ const workspacePaneLabels = {
   canvas: "Canvas",
   diffs: "Diffs",
   file: "Files",
+  note: "Note",
   settings: "Settings",
   terminal: "Terminal",
 } satisfies Record<WorkspacePaneKind, string>;
@@ -103,7 +106,7 @@ const workspacePaneActions = [
   "diffs",
   "browser",
   "terminal",
-  "settings",
+  "note",
 ] satisfies WorkspacePaneKind[];
 
 const workspacePaneIntegrationPlan = {
@@ -122,6 +125,10 @@ const workspacePaneIntegrationPlan = {
   file: {
     host: "renderer",
     runtime: "pierre-trees",
+  },
+  note: {
+    host: "renderer",
+    runtime: "renderer-note",
   },
   settings: {
     host: "renderer",
@@ -452,6 +459,8 @@ function WorkspacePaneContent({ tab }: { tab: WorkspacePaneTab }) {
       return <DiffsPaneSurface />;
     case "file":
       return <FilesPaneSurface />;
+    case "note":
+      return <NotePaneSurface />;
     case "settings":
       return <SettingsPaneSurface />;
     case "terminal":
@@ -475,6 +484,17 @@ function DiffsPaneSurface() {
 
 function FilesPaneSurface() {
   return <WorkspacePaneRuntimeFrame kind="file" />;
+}
+
+function NotePaneSurface() {
+  const integration = workspacePaneIntegrationPlan.note;
+  return (
+    <div
+      className="h-full min-h-0 bg-zinc-900 p-2 text-xs text-zinc-500"
+      data-pane-host={integration.host}
+      data-pane-runtime={integration.runtime}
+    />
+  );
 }
 
 function TerminalPaneSurface() {
@@ -528,6 +548,8 @@ function workspacePaneIcon(kind: WorkspacePaneKind, className: string) {
       return <GitCompareArrows className={className} />;
     case "file":
       return <FileText className={className} />;
+    case "note":
+      return <StickyNote className={className} />;
     case "settings":
       return <Settings className={className} />;
     case "terminal":

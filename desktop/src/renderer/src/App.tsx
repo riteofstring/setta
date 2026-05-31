@@ -51,6 +51,10 @@ export function App() {
     setCommandPaletteOpen(false);
     setSearchPaletteOpen(true);
   }, []);
+  const openSettingsPane = useCallback(() => {
+    panes.createTab("right", "settings");
+    setMaximizedPane(null);
+  }, [panes]);
   const visibility = paneVisibility({
     bottomPaneOpen: panes.bottom.open,
     chatPaneOpen,
@@ -129,6 +133,7 @@ export function App() {
           chat={chat}
           open={visibility.project}
           openSearchPalette={openSearchPalette}
+          openSettingsPane={openSettingsPane}
           setWidth={setProjectPaneWidth}
           width={projectPaneWidth}
           workspace={workspace}
@@ -389,6 +394,7 @@ function ProjectPane({
   chat,
   open,
   openSearchPalette,
+  openSettingsPane,
   setWidth,
   width,
   workspace,
@@ -397,6 +403,7 @@ function ProjectPane({
   chat: ChatView;
   open: boolean;
   openSearchPalette: () => void;
+  openSettingsPane: () => void;
   setWidth: (width: number) => void;
   width: number;
   workspace: WorkspaceViewState;
@@ -425,6 +432,7 @@ function ProjectPane({
           createWorkspaceConversation={chat.createWorkspaceConversation}
           openLocalFolder={workspace.openLocalFolder}
           openSearch={openSearchPalette}
+          openSettingsPane={openSettingsPane}
           recentWorkspaces={workspace.recentWorkspaces}
           removeRecent={workspace.removeRecent}
           selectConversation={chat.selectConversation}

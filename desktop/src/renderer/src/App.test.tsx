@@ -33,6 +33,7 @@ describe("workspace renderer states", () => {
           createWorkspaceConversation={async () => {}}
           openLocalFolder={async () => {}}
           openSearch={() => {}}
+          openSettingsPane={() => {}}
           recentWorkspaces={[]}
           removeRecent={async () => {}}
           selectConversation={async () => {}}
@@ -106,6 +107,7 @@ describe("workspace renderer states", () => {
           createWorkspaceConversation={async () => {}}
           openLocalFolder={async () => {}}
           openSearch={() => {}}
+          openSettingsPane={() => {}}
           recentWorkspaces={[web, api, docs]}
           removeRecent={async () => {}}
           selectConversation={async () => {}}
@@ -152,6 +154,8 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain("No Markdown notes");
     expect(html).toContain('aria-label="Notes empty"');
     expect(html).toContain("DB / Memories");
+    expect(html).toContain('aria-label="Open settings"');
+    expect(html).toContain("Right pane");
     expect(html).toContain("Rules");
     expect(html).toContain('aria-label="New rule"');
     expect(html).not.toContain("No rule canvases");
@@ -235,6 +239,7 @@ describe("workspace renderer states", () => {
         createWorkspaceConversation={async () => {}}
         openLocalFolder={async () => {}}
         openSearch={() => {}}
+        openSettingsPane={() => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
         selectConversation={async () => {}}
@@ -276,7 +281,8 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Browser");
     expect(html).toContain("Diffs");
     expect(html).toContain("Files");
-    expect(html).toContain("Settings");
+    expect(html).toContain("Note");
+    expect(html).not.toContain("Settings");
   });
 
   test("renders workspace pane tabs and active terminal content", () => {
@@ -331,7 +337,8 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Diffs");
     expect(html).toContain("Browser");
     expect(html).toContain("Terminal");
-    expect(html).toContain("Settings");
+    expect(html).toContain("Note");
+    expect(html).not.toContain("Settings");
   });
 
   test("renders a canvas workspace pane tab", () => {
@@ -358,7 +365,7 @@ describe("workspace renderer states", () => {
   });
 
   test("renders future pane runtime boundaries", () => {
-    const renderPane = (id: string, kind: "browser" | "diffs" | "file" | "settings") =>
+    const renderPane = (id: string, kind: "browser" | "diffs" | "file" | "note" | "settings") =>
       renderToString(
         <WorkspacePanePanel
           activeTabId={id}
@@ -379,6 +386,7 @@ describe("workspace renderer states", () => {
     expect(renderPane("browser_tab", "browser")).toContain('data-pane-runtime="chromium-browser"');
     expect(renderPane("diffs_tab", "diffs")).toContain('data-pane-runtime="pierre-diffs"');
     expect(renderPane("files_tab", "file")).toContain('data-pane-runtime="pierre-trees"');
+    expect(renderPane("note_tab", "note")).toContain('data-pane-runtime="renderer-note"');
     expect(renderPane("settings_tab", "settings")).toContain(
       'data-pane-runtime="renderer-settings"',
     );

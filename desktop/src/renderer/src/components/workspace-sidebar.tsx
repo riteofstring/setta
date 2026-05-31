@@ -35,6 +35,7 @@ import {
   RulesContent,
   SettaCanvasIcon,
   SidebarIndentedListItems,
+  SidebarSettingsButton,
   type SidebarUtilityKind,
   type SidebarListItem,
   UnorganizedChatsContent,
@@ -69,6 +70,7 @@ interface WorkspaceSidebarProps {
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
   openSearch: () => void;
+  openSettingsPane: () => void;
   recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
   selectConversation: (conversationId: string) => Promise<void>;
@@ -104,6 +106,7 @@ export function WorkspaceSidebar({
   createWorkspaceConversation,
   openLocalFolder,
   openSearch,
+  openSettingsPane,
   recentWorkspaces,
   removeRecent,
   selectConversation,
@@ -351,8 +354,9 @@ export function WorkspaceSidebar({
           </SidebarAccordionSection>
         </div>
       </div>
-      <div className="shrink-0 px-1 py-1" data-testid="sidebar-memory-footer">
+      <div className="grid shrink-0 gap-0.5 px-1 py-1" data-testid="sidebar-memory-footer">
         <MemoryIntegrationsContent />
+        <SidebarSettingsButton onOpenSettings={openSettingsPane} />
       </div>
     </aside>
   );
