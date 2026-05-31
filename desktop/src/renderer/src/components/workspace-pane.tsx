@@ -1,14 +1,16 @@
-import { Maximize2, Minimize2, Plus, Settings, X } from "lucide-react";
+import { Maximize2, MessageSquareText, Minimize2, Plus, Settings, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
 import { FloatingMenu } from "./floating-menu";
 import { SettingsPanel } from "./settings-panel";
 
-type PaneSlot = "bottom" | "right";
-export type WorkspacePaneKind = "settings";
-type WorkspacePaneRuntime = "renderer-settings";
+type PaneSlot = "bottom" | "grid" | "right";
+export type WorkspacePaneKind = "chat" | "settings";
+type WorkspacePaneRuntime = "renderer-chat" | "renderer-settings";
 type WorkspacePaneHost = "renderer";
+export const maxWorkspacePaneCount = 4;
 
 export interface WorkspacePaneTab {
   id: string;
@@ -16,68 +18,132 @@ export interface WorkspacePaneTab {
   title: string;
 }
 
-interface WorkspacePaneState {
+export interface WorkspacePaneState {
+  id: string;
   activeTabId: string;
-  open: boolean;
   tabs: WorkspacePaneTab[];
 }
 
 export function useWorkspacePaneState() {
-  const tabCounter = useRef(0);
-  const [right, setRight] = useState<WorkspacePaneState>(emptyPaneState);
-  const [bottom, setBottom] = useState<WorkspacePaneState>(emptyPaneState);
+  const paneCounter = useRef(1);
+  const tabCounter = useRef(1);
+  const [panes, setPanes] = useState<WorkspacePaneState[]>(() => [
+    createWorkspacePane("workspace_pane_1", createWorkspacePaneTab("chat", 1, [])),
+  ]);
 
-  const setPaneOpen = useCallback((slot: PaneSlot, open: boolean) => {
-    const setPane = slot === "right" ? setRight : setBottom;
-    setPane((pane) => ({ ...pane, open }));
-  }, []);
-
-  const createTab = useCallback((slot: PaneSlot, kind: WorkspacePaneKind) => {
-    const setPane = slot === "right" ? setRight : setBottom;
-    setPane((pane) => {
+  const createPane = useCallback((kind: WorkspacePaneKind) => {
+    setPanes((current) => {
+      if (current.length >= maxWorkspacePaneCount) {
+        return current;
+      }
+      paneCounter.current += 1;
       tabCounter.current += 1;
-      const tab = createWorkspacePaneTab(kind, tabCounter.current, pane.tabs);
-      return {
-        activeTabId: tab.id,
-        open: true,
-        tabs: [...pane.tabs, tab],
-      };
+      const tab = createWorkspacePaneTab(kind, tabCounter.current, []);
+      return [...current, createWorkspacePane(`workspace_pane_${paneCounter.current}`, tab)];
     });
   }, []);
 
-  const selectTab = useCallback((slot: PaneSlot, tabId: string) => {
-    const setPane = slot === "right" ? setRight : setBottom;
-    setPane((pane) => ({ ...pane, activeTabId: tabId }));
+  const createTab = useCallback((paneId: string, kind: WorkspacePaneKind) => {
+    setPanes((current) =>
+      current.map((pane) => {
+        if (pane.id !== paneId) {
+          return pane;
+        }
+        tabCounter.current += 1;
+        const tab = createWorkspacePaneTab(kind, tabCounter.current, pane.tabs);
+        return {
+          ...pane,
+          activeTabId: tab.id,
+          tabs: [...pane.tabs, tab],
+        };
+      }),
+    );
   }, []);
 
-  const closeTab = useCallback((slot: PaneSlot, tabId: string) => {
-    const setPane = slot === "right" ? setRight : setBottom;
-    setPane((pane) => closeWorkspacePaneTab(pane, tabId));
+  const selectTab = useCallback((paneId: string, tabId: string) => {
+    setPanes((current) =>
+      current.map((pane) => (pane.id === paneId ? { ...pane, activeTabId: tabId } : pane)),
+    );
+  }, []);
+
+  const closeTab = useCallback((paneId: string, tabId: string) => {
+    setPanes((current) => {
+      const next = current.map((pane) =>
+        pane.id === paneId ? closeWorkspacePaneTab(pane, tabId) : pane,
+      );
+      const closingPane = next.find((pane) => pane.id === paneId);
+      if (!closingPane || closingPane.tabs.length > 0 || next.length === 1) {
+        return next;
+      }
+      return next.filter((pane) => pane.id !== paneId);
+    });
+  }, []);
+
+  const closePane = useCallback((paneId: string) => {
+    setPanes((current) => {
+      if (current.length === 1) {
+        return current;
+      }
+      return current.filter((pane) => pane.id !== paneId);
+    });
+  }, []);
+
+  const openTabKind = useCallback((kind: WorkspacePaneKind) => {
+    setPanes((current) => {
+      const existing = firstPaneWithTabKind(current, kind);
+      if (existing) {
+        return current.map((pane) =>
+          pane.id === existing.pane.id ? { ...pane, activeTabId: existing.tab.id } : pane,
+        );
+      }
+      if (current.length < maxWorkspacePaneCount) {
+        paneCounter.current += 1;
+        tabCounter.current += 1;
+        const tab = createWorkspacePaneTab(kind, tabCounter.current, []);
+        return [...current, createWorkspacePane(`workspace_pane_${paneCounter.current}`, tab)];
+      }
+      tabCounter.current += 1;
+      const tab = createWorkspacePaneTab(kind, tabCounter.current, current[0]?.tabs ?? []);
+      return current.map((pane, index) =>
+        index === 0
+          ? {
+              ...pane,
+              activeTabId: tab.id,
+              tabs: [...pane.tabs, tab],
+            }
+          : pane,
+      );
+    });
   }, []);
 
   return {
-    bottom,
     closeTab,
+    closePane,
+    createPane,
     createTab,
-    right,
+    canCreatePane: canCreateWorkspacePane(panes),
+    openTabKind,
+    panes,
     selectTab,
-    setPaneOpen,
   };
 }
 
-const emptyPaneState: WorkspacePaneState = {
-  activeTabId: "",
-  open: false,
-  tabs: [],
-};
+export function canCreateWorkspacePane(panes: readonly WorkspacePaneState[]) {
+  return panes.length < maxWorkspacePaneCount;
+}
 
 const workspacePaneLabels = {
+  chat: "Chat",
   settings: "Settings",
 } satisfies Record<WorkspacePaneKind, string>;
 
-const workspacePaneActions = ["settings"] satisfies WorkspacePaneKind[];
+const workspacePaneActions = ["chat", "settings"] satisfies WorkspacePaneKind[];
 
 const workspacePaneIntegrationPlan = {
+  chat: {
+    host: "renderer",
+    runtime: "renderer-chat",
+  },
   settings: {
     host: "renderer",
     runtime: "renderer-settings",
@@ -89,6 +155,14 @@ const workspacePaneIntegrationPlan = {
     runtime: WorkspacePaneRuntime;
   }
 >;
+
+function createWorkspacePane(id: string, tab: WorkspacePaneTab): WorkspacePaneState {
+  return {
+    activeTabId: tab.id,
+    id,
+    tabs: [tab],
+  };
+}
 
 function createWorkspacePaneTab(
   kind: WorkspacePaneKind,
@@ -102,6 +176,16 @@ function createWorkspacePaneTab(
     kind,
     title: kindCount === 1 ? label : `${label} ${kindCount}`,
   };
+}
+
+function firstPaneWithTabKind(panes: WorkspacePaneState[], kind: WorkspacePaneKind) {
+  for (const pane of panes) {
+    const tab = pane.tabs.find((candidate) => candidate.kind === kind);
+    if (tab) {
+      return { pane, tab };
+    }
+  }
+  return null;
 }
 
 function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): WorkspacePaneState {
@@ -121,82 +205,205 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
 
 export function WorkspacePanePanel({
   activeTabId,
+  canClosePane = false,
   chromeInsetTop = false,
   initialNewTabMenuOpen = false,
   maximized = false,
+  onClosePane,
   onCloseTab,
   onCreateTab,
   onSelectTab,
   onToggleMaximize,
+  paneId = "",
+  renderTabContent,
   showNewTabButton = true,
-  slot,
+  slot = "grid",
   tabs,
 }: {
   activeTabId: string;
+  canClosePane?: boolean;
   chromeInsetTop?: boolean;
   initialNewTabMenuOpen?: boolean;
   maximized?: boolean;
+  onClosePane?: () => void;
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
   onToggleMaximize?: () => void;
+  paneId?: string;
+  renderTabContent?: (tab: WorkspacePaneTab) => ReactNode;
   showNewTabButton?: boolean;
   slot: PaneSlot;
   tabs: WorkspacePaneTab[];
 }) {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
-  const paneLabel = slot === "right" ? "Workspace side pane" : "Workspace bottom pane";
-  const [newTabMenuOpen, setNewTabMenuOpen] = useState(initialNewTabMenuOpen);
+  const paneLabel = workspacePaneLabel(slot, paneId);
   return (
     <section
       aria-label={paneLabel}
       className={workspacePanePanelClass(slot, chromeInsetTop)}
       data-testid={`${slot}-workspace-pane`}
     >
-      <header
-        className="app-drag relative z-40 flex h-8 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5"
-        data-testid={`${slot}-workspace-pane-header`}
-      >
-        <nav
-          className="app-no-drag flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden"
-          aria-label={`${paneLabel} tabs`}
-        >
-          {tabs.map((tab) => (
-            <WorkspacePaneTabButton
-              active={tab.id === activeTabId}
-              key={tab.id}
-              onClose={() => onCloseTab(tab.id)}
-              onSelect={() => onSelectTab(tab.id)}
-              tab={tab}
-            />
-          ))}
-          <WorkspacePaneNewTabSlot
-            onCreateTab={(kind) => {
-              setNewTabMenuOpen(false);
-              onCreateTab(kind);
-            }}
-            onOpenChange={setNewTabMenuOpen}
-            open={newTabMenuOpen}
-            show={showNewTabButton}
-          />
-        </nav>
-        {onToggleMaximize ? (
-          <WorkspacePaneMaximizeButton
-            maximized={maximized}
-            onToggleMaximize={onToggleMaximize}
-            slot={slot}
-          />
-        ) : null}
-      </header>
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {activeTab ? (
-          <WorkspacePaneContent tab={activeTab} />
-        ) : (
-          <WorkspacePaneEmpty onCreateTab={() => onCreateTab("settings")} />
-        )}
-      </div>
+      <WorkspacePaneHeader
+        activeTabId={activeTabId}
+        canClosePane={canClosePane}
+        initialNewTabMenuOpen={initialNewTabMenuOpen}
+        maximized={maximized}
+        onClosePane={onClosePane}
+        onCloseTab={onCloseTab}
+        onCreateTab={onCreateTab}
+        onSelectTab={onSelectTab}
+        onToggleMaximize={onToggleMaximize}
+        paneLabel={paneLabel}
+        showNewTabButton={showNewTabButton}
+        slot={slot}
+        tabs={tabs}
+      />
+      <WorkspacePaneBody
+        activeTab={activeTab}
+        onCreateTab={onCreateTab}
+        renderTabContent={renderTabContent}
+      />
     </section>
   );
+}
+
+function WorkspacePaneHeader({
+  activeTabId,
+  canClosePane,
+  initialNewTabMenuOpen,
+  maximized,
+  onClosePane,
+  onCloseTab,
+  onCreateTab,
+  onSelectTab,
+  onToggleMaximize,
+  paneLabel,
+  showNewTabButton,
+  slot,
+  tabs,
+}: {
+  activeTabId: string;
+  canClosePane: boolean;
+  initialNewTabMenuOpen: boolean;
+  maximized: boolean;
+  onClosePane: (() => void) | undefined;
+  onCloseTab: (tabId: string) => void;
+  onCreateTab: (kind: WorkspacePaneKind) => void;
+  onSelectTab: (tabId: string) => void;
+  onToggleMaximize: (() => void) | undefined;
+  paneLabel: string;
+  showNewTabButton: boolean;
+  slot: PaneSlot;
+  tabs: WorkspacePaneTab[];
+}) {
+  const [newTabMenuOpen, setNewTabMenuOpen] = useState(initialNewTabMenuOpen);
+  return (
+    <header
+      className="app-drag relative z-40 flex h-8 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5"
+      data-testid={`${slot}-workspace-pane-header`}
+    >
+      <WorkspacePaneTabNav
+        activeTabId={activeTabId}
+        newTabMenuOpen={newTabMenuOpen}
+        onCloseTab={onCloseTab}
+        onCreateTab={(kind) => {
+          setNewTabMenuOpen(false);
+          onCreateTab(kind);
+        }}
+        onNewTabMenuOpenChange={setNewTabMenuOpen}
+        onSelectTab={onSelectTab}
+        paneLabel={paneLabel}
+        showNewTabButton={showNewTabButton}
+        tabs={tabs}
+      />
+      {onClosePane && canClosePane ? (
+        <WorkspacePaneCloseButton onClosePane={onClosePane} paneLabel={paneLabel} />
+      ) : null}
+      {onToggleMaximize ? (
+        <WorkspacePaneMaximizeButton
+          maximized={maximized}
+          onToggleMaximize={onToggleMaximize}
+          slot={slot}
+        />
+      ) : null}
+    </header>
+  );
+}
+
+function WorkspacePaneTabNav({
+  activeTabId,
+  newTabMenuOpen,
+  onCloseTab,
+  onCreateTab,
+  onNewTabMenuOpenChange,
+  onSelectTab,
+  paneLabel,
+  showNewTabButton,
+  tabs,
+}: {
+  activeTabId: string;
+  newTabMenuOpen: boolean;
+  onCloseTab: (tabId: string) => void;
+  onCreateTab: (kind: WorkspacePaneKind) => void;
+  onNewTabMenuOpenChange: (open: boolean) => void;
+  onSelectTab: (tabId: string) => void;
+  paneLabel: string;
+  showNewTabButton: boolean;
+  tabs: WorkspacePaneTab[];
+}) {
+  return (
+    <nav
+      className="app-no-drag flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden"
+      aria-label={`${paneLabel} tabs`}
+    >
+      {tabs.map((tab) => (
+        <WorkspacePaneTabButton
+          active={tab.id === activeTabId}
+          key={tab.id}
+          onClose={() => onCloseTab(tab.id)}
+          onSelect={() => onSelectTab(tab.id)}
+          tab={tab}
+        />
+      ))}
+      <WorkspacePaneNewTabSlot
+        onCreateTab={onCreateTab}
+        onOpenChange={onNewTabMenuOpenChange}
+        open={newTabMenuOpen}
+        show={showNewTabButton}
+      />
+    </nav>
+  );
+}
+
+function WorkspacePaneBody({
+  activeTab,
+  onCreateTab,
+  renderTabContent,
+}: {
+  activeTab: WorkspacePaneTab | null;
+  onCreateTab: (kind: WorkspacePaneKind) => void;
+  renderTabContent: ((tab: WorkspacePaneTab) => ReactNode) | undefined;
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-hidden">
+      {activeTab ? (
+        <WorkspacePaneContent renderTabContent={renderTabContent} tab={activeTab} />
+      ) : (
+        <WorkspacePaneEmpty onCreateTab={onCreateTab} />
+      )}
+    </div>
+  );
+}
+
+function workspacePaneLabel(slot: PaneSlot, paneId: string) {
+  if (slot === "right") {
+    return "Workspace side pane";
+  }
+  if (slot === "bottom") {
+    return "Workspace bottom pane";
+  }
+  return paneId ? `Workspace pane ${paneId}` : "Workspace pane";
 }
 
 function WorkspacePaneNewTabSlot({
@@ -227,7 +434,7 @@ function WorkspacePaneMaximizeButton({
   onToggleMaximize: () => void;
   slot: PaneSlot;
 }) {
-  const paneName = slot === "bottom" ? "bottom" : "side";
+  const paneName = workspacePaneMaximizeName(slot);
   const label = maximized ? `Restore ${paneName} pane` : `Maximize ${paneName} pane`;
   return (
     <button
@@ -242,12 +449,55 @@ function WorkspacePaneMaximizeButton({
   );
 }
 
+function workspacePaneMaximizeName(slot: PaneSlot) {
+  switch (slot) {
+    case "bottom":
+      return "bottom";
+    case "right":
+      return "side";
+    case "grid":
+      return "workspace";
+    default:
+      return assertPaneSlot(slot);
+  }
+}
+
+function WorkspacePaneCloseButton({
+  onClosePane,
+  paneLabel,
+}: {
+  onClosePane: () => void;
+  paneLabel: string;
+}) {
+  return (
+    <button
+      aria-label={`Close ${paneLabel}`}
+      className="app-no-drag grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
+      onClick={onClosePane}
+      title={`Close ${paneLabel}`}
+      type="button"
+    >
+      <X className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 function workspacePanePanelClass(slot: PaneSlot, chromeInsetTop: boolean) {
-  const slotClass =
-    slot === "right"
-      ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
-      : "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100";
+  const slotClass = workspacePaneSlotClass(slot);
   return cn(slotClass, chromeInsetTop && "pt-10");
+}
+
+function workspacePaneSlotClass(slot: PaneSlot) {
+  switch (slot) {
+    case "bottom":
+      return "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100";
+    case "right":
+      return "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100";
+    case "grid":
+      return "flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-zinc-950 text-zinc-100";
+    default:
+      return assertPaneSlot(slot);
+  }
 }
 
 function WorkspacePaneTabButton({
@@ -263,12 +513,7 @@ function WorkspacePaneTabButton({
 }) {
   return (
     <div
-      className={cn(
-        "app-no-drag group relative flex h-7 min-w-0 max-w-40 items-center rounded-sm border px-1.5 text-xs transition-colors",
-        active
-          ? "border-zinc-700/70 bg-zinc-800/80 text-zinc-100"
-          : "border-transparent text-zinc-500 hover:bg-zinc-900/80 hover:text-zinc-200",
-      )}
+      className={workspacePaneTabClass(tab.kind, active)}
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
       <button
@@ -279,10 +524,7 @@ function WorkspacePaneTabButton({
       >
         <span className="relative grid h-4 w-4 shrink-0 place-items-center">
           {workspacePaneIcon(tab.kind, "h-3.5 w-3.5")}
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 grid place-items-center rounded-sm bg-zinc-800 text-zinc-100 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          >
+          <span aria-hidden="true" className={workspacePaneTabCloseOverlayClass(tab.kind)}>
             <X className="h-3 w-3 stroke-[2.5]" />
           </span>
         </span>
@@ -303,6 +545,32 @@ function WorkspacePaneTabButton({
         <X className="h-3 w-3 stroke-[2.5]" />
       </button>
     </div>
+  );
+}
+
+function workspacePaneTabClass(kind: WorkspacePaneKind, active: boolean) {
+  const base =
+    "app-no-drag group relative flex h-7 min-w-0 max-w-40 items-center rounded-sm border px-1.5 text-xs transition-colors";
+  if (kind === "chat") {
+    return cn(
+      base,
+      active
+        ? "border-zinc-700 bg-zinc-900 text-zinc-50 shadow-inner shadow-black/30"
+        : "border-zinc-900/80 bg-zinc-900/45 text-zinc-500 hover:border-zinc-800 hover:bg-zinc-900 hover:text-zinc-200",
+    );
+  }
+  return cn(
+    base,
+    active
+      ? "border-zinc-700/70 bg-zinc-800/80 text-zinc-100"
+      : "border-transparent text-zinc-500 hover:bg-zinc-900/80 hover:text-zinc-200",
+  );
+}
+
+function workspacePaneTabCloseOverlayClass(kind: WorkspacePaneKind) {
+  return cn(
+    "absolute inset-0 grid place-items-center rounded-sm text-zinc-100 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
+    kind === "chat" ? "bg-zinc-900" : "bg-zinc-800",
   );
 }
 
@@ -388,25 +656,41 @@ function WorkspacePaneNewTabMenu({
   );
 }
 
-function WorkspacePaneEmpty({ onCreateTab }: { onCreateTab: () => void }) {
+function WorkspacePaneEmpty({ onCreateTab }: { onCreateTab: (kind: WorkspacePaneKind) => void }) {
   return (
     <div className="flex h-full items-center justify-center bg-zinc-950 px-4">
-      <button
-        className="inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
-        onClick={onCreateTab}
-        type="button"
-      >
-        <Settings className="h-3.5 w-3.5 shrink-0" />
-        <span>Settings</span>
-      </button>
+      <div className="flex items-center gap-1.5">
+        {workspacePaneActions.map((kind) => (
+          <button
+            className="inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+            key={kind}
+            onClick={() => onCreateTab(kind)}
+            type="button"
+          >
+            {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0")}
+            <span>{workspacePaneLabels[kind]}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
-function WorkspacePaneContent({ tab }: { tab: WorkspacePaneTab }) {
+function WorkspacePaneContent({
+  renderTabContent,
+  tab,
+}: {
+  renderTabContent: ((tab: WorkspacePaneTab) => ReactNode) | undefined;
+  tab: WorkspacePaneTab;
+}) {
+  if (renderTabContent) {
+    return renderTabContent(tab);
+  }
   switch (tab.kind) {
     case "settings":
       return <SettingsPaneSurface />;
+    case "chat":
+      throw new Error("Chat workspace pane requires renderTabContent");
     default:
       return assertWorkspacePaneKind(tab.kind);
   }
@@ -427,6 +711,8 @@ function SettingsPaneSurface() {
 
 function workspacePaneIcon(kind: WorkspacePaneKind, className: string) {
   switch (kind) {
+    case "chat":
+      return <MessageSquareText className={className} />;
     case "settings":
       return <Settings className={className} />;
     default:
@@ -436,4 +722,8 @@ function workspacePaneIcon(kind: WorkspacePaneKind, className: string) {
 
 function assertWorkspacePaneKind(value: never): never {
   throw new Error(`Unhandled workspace pane kind: ${value}`);
+}
+
+function assertPaneSlot(value: never): never {
+  throw new Error(`Unhandled workspace pane slot: ${value}`);
 }

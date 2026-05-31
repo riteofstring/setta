@@ -11,13 +11,42 @@ import type {
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { WorkspacePanel } from "./App";
+import { App, WorkspacePanel } from "./App";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
-import { WorkspacePanePanel } from "./components/workspace-pane";
+import {
+  canCreateWorkspacePane,
+  maxWorkspacePaneCount,
+  WorkspacePanePanel,
+  type WorkspacePaneState,
+} from "./components/workspace-pane";
 
 describe("workspace renderer states", () => {
+  test("renders the default chat pane grid", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        setta: {
+          app: { platform: "darwin" },
+          backend: { onEventStreamStatus: () => () => {} },
+          chat: { onEvent: () => () => {} },
+        },
+      },
+    });
+
+    const html = renderToString(<App />);
+
+    expect(html).toContain('data-testid="workspace-pane-grid-shell"');
+    expect(html).toContain('data-testid="workspace-pane-grid"');
+    expect(rowCount(html, "workspace-pane-grid-cell")).toBe(1);
+    expect(html).toContain('data-testid="chat-pane-surface"');
+    expect(html).toContain("1/4");
+    expect(html).toContain("Add chat pane");
+    expect(html).toContain("Add settings pane");
+    expect(html).toContain("bg-zinc-900");
+  });
+
   test("renders the empty workspace state", () => {
     const html = renderToString(
       <>
@@ -243,6 +272,7 @@ describe("workspace renderer states", () => {
     const settings = renderToString(<SettingsPanel />);
 
     expect(emptyPane).toContain("New pane tab");
+    expect(emptyPane).toContain("Chat");
     expect(emptyPane).toContain("Settings");
     expect(emptyPane).not.toContain("Browser");
     expect(emptyPane).not.toContain("Canvas");
@@ -252,6 +282,11 @@ describe("workspace renderer states", () => {
     expect(settings).not.toContain("Shortcuts");
     expect(settings).not.toContain("Storage");
     expect(settings).not.toContain("Voice input");
+  });
+
+  test("caps workspace panes at four", () => {
+    expect(canCreateWorkspacePane(workspacePaneStates(maxWorkspacePaneCount - 1))).toBe(true);
+    expect(canCreateWorkspacePane(workspacePaneStates(maxWorkspacePaneCount))).toBe(false);
   });
 });
 
@@ -932,6 +967,20 @@ function chatUserMessage(id: string, ordinal: number, runId: string): ChatMessag
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
+}
+
+function workspacePaneStates(count: number): WorkspacePaneState[] {
+  return Array.from({ length: count }, (_, index) => ({
+    activeTabId: `tab_${index}`,
+    id: `pane_${index}`,
+    tabs: [
+      {
+        id: `tab_${index}`,
+        kind: "chat",
+        title: "Chat",
+      },
+    ],
+  }));
 }
 
 function conversationListItem(id: string, title: string): ConversationListItem {
