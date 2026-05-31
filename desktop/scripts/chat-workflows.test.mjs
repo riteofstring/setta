@@ -1,59 +1,77 @@
 #!/usr/bin/env node
-import { Buffer } from "node:buffer";
-import { spawn } from "node:child_process";
-import { createServer } from "node:net";
-import { existsSync } from "node:fs";
-import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, rm } from "node:fs/promises";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
-import { setTimeout as delay } from "node:timers/promises";
 
 import {
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
 } from "./chat-workflow-assertions.mjs";
+import {
+  appendWorkflowState,
+  assertAssistantCompleted,
+  assertBuildExists,
+  assertChatLayout,
+  assertNoActiveRun,
+  assertNoLinkedCodexRef,
+  assertNoRunWithPrompt,
+  assertNoVisibleUserMessage,
+  assertQueuedRunNotPromoted,
+  assertRecordingEvidence,
+  assertRunsDrainedSequentially,
+  assertTextAbsent,
+  assertTranscriptSequence,
+  backendProbe,
+  captureScreenshot,
+  clickButtonByAria,
+  clickButtonByText,
+  clickButtonContainingText,
+  configureChatWorkflowHarness,
+  createChat,
+  createFixture,
+  createSidebarFixture,
+  failureWithLogs,
+  launchContext,
+  liveWorkflowTimeoutMs,
+  openWorkspace,
+  pathTimestamp,
+  scrollSidebarNavigationTo,
+  setInputValue,
+  sidebarMetrics,
+  stopElectron,
+  stopLaunchedContext,
+  submitComposer,
+  waitForAssistantTextRendered,
+  waitForBackendState,
+  waitForCommandResult,
+  waitForGoalStatus,
+  waitForLinkedCodexRef,
+  waitForRunStatus,
+  waitForRunWithPrompt,
+  waitForState,
+  waitForText,
+  waitForTexts,
+} from "./chat-workflow-harness.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
+import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
-import { CDPClient } from "./cdp-client.mjs";
+import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
 } from "./codex-protocol-workflow.mjs";
-import { stopElectron } from "./electron-process.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(desktopRoot, "..");
 const options = parseArgs(process.argv.slice(2));
+configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = chatWorkflowRecordingRoot(options);
-const pageLoadTimeoutMs = 20_000;
-const workflowTimeoutMs = 30_000;
-const liveWorkflowTimeoutMs = 120_000;
-const cleanupRetryCount = 5;
-const uiShowcaseActivityTypes = [
-  "agent_message",
-  "plan",
-  "reasoning",
-  "command_execution",
-  "file_change",
-  "mcp_tool_call",
-  "dynamic_tool_call",
-  "collab_agent_tool_call",
-  "web_search",
-  "image_view",
-  "image_generation",
-  "terminal_interaction",
-  "diff",
-  "notice",
-  "approval_review",
-  "hook",
-  "structured_input",
-];
+
 function parseArgs(args) {
   const parsed = {
     deterministic: true,
@@ -99,13 +117,36 @@ function chatWorkflowRecordingRoot(parsed) {
 async function main() {
   assertBuildExists();
   if (!options.keepArtifacts && options.deterministic) {
-    await removeTree(recordingRoot);
+    await rm(recordingRoot, { force: true, recursive: true });
   }
   await mkdir(recordingRoot, { recursive: true });
 
   const results = [];
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
+    await runSidebarNavigationWorkflow(results);
+    await runUnreadConversationWorkflow({
+      appendWorkflowState,
+      assertRecordingEvidence,
+      backendProbe,
+      captureScreenshot,
+      clickButtonContainingText,
+      createChat,
+      createFixture,
+      failureWithLogs,
+      launchContext,
+      openWorkspace,
+      recordingRoot,
+      stopLaunchedContext,
+      submitComposer,
+      waitForBackendState,
+      waitForRunStatus,
+      waitForRunWithPrompt,
+      waitForState,
+      waitForTexts,
+    });
+    results.push("unread-conversations");
+    process.stdout.write("Electron chat workflow passed: unread-conversations\n");
     await runCodexProtocolWorkflow(results);
     await runRestartWorkflow(results);
   }
@@ -171,9 +212,28 @@ async function runDeterministicWorkflowLaunch(results) {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
     });
-    await runWorkflowStep(results, recordingDir, "ui-showcase", context.client, async () => {
+    await runWorkflowStep(results, recordingDir, "queued-controls", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
-      await runUIShowcaseWorkflow(context.client, backend, workspaceId, conversationId);
+      await runQueuedControlsWorkflow({
+        assertChatLayout,
+        assertNoActiveRun,
+        assertNoCriticalDiagnostics,
+        assertTextAbsent,
+        assertTranscriptSequence,
+        backend,
+        clickButtonByAria,
+        client: context.client,
+        conversationId,
+        setInputValue,
+        submitComposer,
+        waitForBackendState,
+        waitForRunStatus,
+        waitForRunWithPrompt,
+        waitForState,
+        waitForText,
+        waitForTexts,
+        workspaceId,
+      });
     });
     await runWorkflowStep(results, recordingDir, "cancel-queue", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
@@ -214,23 +274,13 @@ async function runDeterministicWorkflowLaunch(results) {
         workspaceId,
       });
     });
-    await runWorkflowStep(
-      results,
-      recordingDir,
-      "sidebar-chat-actions",
-      context.client,
-      async () => {
-        const conversationId = await createChat(context.client, backend, workspaceId);
-        await runSidebarChatActionsWorkflow(context.client, backend, workspaceId, conversationId);
-      },
-    );
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await removeTree(fixture.tempRoot);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   if (failure) {
@@ -241,16 +291,17 @@ async function runDeterministicWorkflowLaunch(results) {
       "/workspaces/open",
       "/chat/conversations/create",
       "/chat/messages/send",
-      "/chat/messages/update-user",
       "/chat/messages/queue",
+      "/chat/messages/queue/edit",
+      "/chat/messages/queue/remove",
       "/chat/messages/steer",
+      "/chat/messages/steer/immediate",
       "/chat/runs/active",
       "/chat/runs/list",
       "/chat/runs/cancel",
       "/chat/approvals/submit",
       "/chat/commands/list",
       "/chat/commands/execute",
-      "/chat/conversations/delete",
       "/chat/codex/model/set",
       "/chat/codex/reasoning-effort/set",
       "/codex/account",
@@ -261,14 +312,15 @@ async function runDeterministicWorkflowLaunch(results) {
       "workspace:open-local-folder",
       "chat:create-conversation",
       "chat:send-message",
-      "chat:update-user-message",
       "chat:queue-message",
+      "chat:edit-queued-message",
+      "chat:remove-queued-message",
       "chat:steer-message",
+      "chat:send-steering-immediately",
       "chat:cancel-run",
       "chat:submit-approval",
       "chat:list-commands",
       "chat:execute-command",
-      "chat:delete-conversation",
       "chat:set-codex-model",
       "chat:set-codex-reasoning-effort",
       "codex-account:logout",
@@ -276,6 +328,158 @@ async function runDeterministicWorkflowLaunch(results) {
       "codex-account:start-login",
     ],
   });
+}
+
+async function runHappyPathWorkflow(
+  client,
+  backend,
+  workspaceId,
+  conversationId,
+  { postCompletionActiveRun = true } = {},
+) {
+  const queuedPrompts = [
+    "queued follow-up one from active run",
+    "queued follow-up two from active run",
+    "queued follow-up three from active run",
+  ];
+  await submitComposer(client, "workflow hold for queue and steering", "Send message");
+  const activeRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "workflow hold for queue and steering",
+    "running",
+  );
+  await waitForText(client, "Workflow stream started.");
+  const queuedRuns = [];
+  for (const prompt of queuedPrompts) {
+    await submitComposer(client, prompt, "Queue follow-up");
+    queuedRuns.push(
+      await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, "queued"),
+    );
+  }
+  await waitForTexts(client, [...queuedPrompts, "Queued"]);
+  await submitComposer(client, "steer active run", "Send steering message");
+  await waitForTexts(client, [
+    "Steered with steer active run.",
+    "Active workflow complete.",
+    ...queuedPrompts.map((prompt) => `Queued response for ${prompt}.`),
+  ]);
+  await waitForRunStatus(backend, workspaceId, conversationId, activeRun.id, "completed");
+  for (const run of queuedRuns) {
+    await waitForRunStatus(backend, workspaceId, conversationId, run.id, "completed");
+  }
+  await assertRunsDrainedSequentially(
+    backend,
+    workspaceId,
+    conversationId,
+    [activeRun, ...queuedRuns].map((run) => run.id),
+  );
+  await assertTranscriptSequence(client, [
+    "workflow hold for queue and steering",
+    "Active workflow complete.",
+    "steer active run",
+    "queued follow-up one from active run",
+    "Queued response for queued follow-up one from active run.",
+    "queued follow-up two from active run",
+    "Queued response for queued follow-up two from active run.",
+    "queued follow-up three from active run",
+    "Queued response for queued follow-up three from active run.",
+  ]);
+  await assertChatLayout(client);
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+  await assertAssistantCompleted(backend, workspaceId, conversationId, queuedRuns.at(-1).id);
+
+  if (postCompletionActiveRun) {
+    await runPostCompletionActiveRunWorkflow({
+      backend,
+      client,
+      conversationId,
+      submitComposer,
+      waitForRunStatus,
+      waitForRunWithPrompt,
+      waitForState,
+      waitForTexts,
+      workspaceId,
+    });
+    await assertNoActiveRun(backend, workspaceId, conversationId);
+  }
+}
+
+async function runCancelWorkflow(client, backend, workspaceId, conversationId) {
+  await submitComposer(client, "cancel active workflow", "Send message");
+  const activeRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "cancel active workflow",
+    "running",
+  );
+  await waitForText(client, "Cancel workflow waiting.");
+  await submitComposer(client, "queued follow-up after cancel", "Queue follow-up");
+  const queuedRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "queued follow-up after cancel",
+    "queued",
+  );
+  await waitForTexts(client, ["queued follow-up after cancel", "Queued"]);
+  await clickButtonByAria(client, "Stop run");
+  await assertQueuedRunNotPromoted(backend, workspaceId, conversationId, {
+    activeRunId: activeRun.id,
+    queuedRunId: queuedRun.id,
+    terminalStatus: "cancelled",
+  });
+  await assertRendererQueueMatchesBackend(client, "queued follow-up after cancel");
+  await assertTextAbsent(client, "Queued response for queued follow-up after cancel.");
+}
+
+async function runFailWorkflow(client, backend, workspaceId, conversationId) {
+  await submitComposer(client, "fail active workflow", "Send message");
+  const activeRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "fail active workflow",
+    "running",
+  );
+  await waitForText(client, "Failure workflow waiting.");
+  await submitComposer(client, "queued follow-up after failure", "Queue follow-up");
+  const queuedRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "queued follow-up after failure",
+    "queued",
+  );
+  await waitForTexts(client, ["queued follow-up after failure", "Queued"]);
+  await submitComposer(client, "trigger scripted failure", "Send steering message");
+  await waitForTexts(client, ["Scripted failure surfaced.", "error"]);
+  await assertQueuedRunNotPromoted(backend, workspaceId, conversationId, {
+    activeRunId: activeRun.id,
+    queuedRunId: queuedRun.id,
+    terminalStatus: "failed",
+  });
+  await assertRendererQueueMatchesBackend(client, "queued follow-up after failure");
+  await assertTextAbsent(client, "Queued response for queued follow-up after failure.");
+}
+
+async function runApprovalsWorkflow(client, backend, workspaceId, conversationId) {
+  await runProtocolApprovalWorkflows({
+    backend,
+    clickButtonByText,
+    client,
+    conversationId,
+    setInputValue,
+    submitComposer,
+    waitForRunWithPrompt,
+    waitForState,
+    waitForText,
+    waitForTexts,
+    workspaceId,
+  });
+  await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 }
 
 async function runWorkflowStep(results, recordingDir, name, client, workflow) {
@@ -289,6 +493,92 @@ async function runWorkflowStep(results, recordingDir, name, client, workflow) {
   results.push(name);
   await appendWorkflowState(recordingDir, { name, status: "passed" });
   process.stdout.write(`Electron chat workflow passed: ${name}\n`);
+}
+
+async function runSidebarNavigationWorkflow(results) {
+  const fixture = await createSidebarFixture("sidebar-navigation");
+  const recordingDir = join(recordingRoot, "sidebar-navigation");
+  const context = await launchContext(fixture, recordingDir);
+  let failure = null;
+
+  try {
+    const backend = await backendProbe(recordingDir);
+    await runWorkflowStep(results, recordingDir, "sidebar-navigation", context.client, async () => {
+      await waitForTexts(context.client, [fixture.initialWorkspace.displayName]);
+      const conversation = await backend.post("/chat/conversations/create", {
+        title: "Large workspace conversation",
+        workspaceId: fixture.targetWorkspace.id,
+      });
+
+      await scrollSidebarNavigationTo(
+        context.client,
+        fixture.targetWorkspaceIndex * fixture.sidebarRowHeight,
+      );
+      await clickButtonByText(context.client, fixture.targetWorkspace.displayName);
+      await waitForTexts(context.client, [fixture.targetWorkspace.displayName, conversation.title]);
+      await clickButtonContainingText(context.client, conversation.title);
+
+      const targetMetrics = await sidebarMetrics(context.client);
+      if (targetMetrics.activeRows >= 40 || targetMetrics.totalElements >= 800) {
+        throw new Error(`sidebar target metrics exceeded budget: ${JSON.stringify(targetMetrics)}`);
+      }
+      if (targetMetrics.conversationRows === 0) {
+        throw new Error(
+          `selected large-list workspace conversation was not mounted: ${JSON.stringify(targetMetrics)}`,
+        );
+      }
+
+      await scrollSidebarNavigationTo(
+        context.client,
+        (fixture.activeWorkspaces.length + 1) * fixture.sidebarRowHeight,
+      );
+      await clickButtonByText(context.client, fixture.recentWorkspace.displayName);
+      const opened = await waitForBackendState(
+        async () => backend.get("/workspace-session"),
+        (value) => value.selectedWorkspaceId === fixture.recentWorkspace.id,
+      );
+      if (
+        !opened.activeWorkspaces.some((workspace) => workspace.id === fixture.recentWorkspace.id)
+      ) {
+        throw new Error(`recent workspace did not become active: ${JSON.stringify(opened)}`);
+      }
+
+      const recentMetrics = await sidebarMetrics(context.client);
+      await appendWorkflowState(recordingDir, {
+        recentMetrics,
+        targetMetrics,
+        type: "sidebar_metrics",
+      });
+    });
+  } catch (error) {
+    failure = error;
+    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
+  } finally {
+    context.client?.close();
+    await stopElectron(context.electron);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
+  }
+
+  if (failure) {
+    throw failureWithLogs(failure, context.electron.logs);
+  }
+  await assertRecordingEvidence(recordingDir, {
+    backendPaths: [
+      "/workspace-session",
+      "/workspaces/open",
+      "/workspaces/select",
+      "/chat/conversations/create",
+      "/chat/conversations/list",
+      "/chat/messages/page",
+    ],
+    ipcChannels: [
+      "workspace:session",
+      "workspace:select",
+      "workspace:open-path",
+      "chat:list-conversations",
+      "chat:message-page",
+    ],
+  });
 }
 
 async function runCodexProtocolWorkflow(results) {
@@ -347,7 +637,7 @@ async function runCodexProtocolWorkflow(results) {
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await removeTree(fixture.tempRoot);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   if (failure) {
@@ -396,8 +686,8 @@ async function runRestartWorkflow(results) {
     ]);
     await assertTranscriptSequence(second.client, [
       "workflow hold for queue and steering",
-      "steer active run",
       "Active workflow complete.",
+      "steer active run",
       "queued follow-up one from active run",
       "Queued response for queued follow-up one from active run.",
       "queued follow-up two from active run",
@@ -417,7 +707,7 @@ async function runRestartWorkflow(results) {
   } finally {
     await stopLaunchedContext(first);
     await stopLaunchedContext(second);
-    await removeTree(fixture.tempRoot);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   await assertRecordingEvidence(firstRecording, {
@@ -444,987 +734,6 @@ async function runRestartWorkflow(results) {
   });
   results.push("restart");
   process.stdout.write("Electron chat workflow passed: restart\n");
-}
-
-async function waitForAssistantTextRendered(client, timeoutMs) {
-  await waitForState(
-    client,
-    `(() => {
-      const rows = Array.from(document.querySelectorAll('[data-chat-message="true"], [data-testid="chat-assistant-turn-row"], [data-testid="chat-message-row"], [data-testid="chat-queued-turn-row"]'));
-      const assistantTexts = rows
-        .filter((row) => row.getAttribute("data-message-role") === "assistant")
-        .map((row) => row.innerText.trim())
-        .filter((text) => text !== "" && text !== "...");
-      return { assistantTexts };
-    })()`,
-    (value) => value.assistantTexts.length > 0,
-    timeoutMs,
-  );
-}
-
-async function stopLaunchedContext(context) {
-  if (!context) {
-    return;
-  }
-  context.client?.close();
-  await stopElectron(context.electron);
-}
-
-async function runHappyPathWorkflow(
-  client,
-  backend,
-  workspaceId,
-  conversationId,
-  { postCompletionActiveRun = true } = {},
-) {
-  const queuedPrompts = [
-    "queued follow-up one from active run",
-    "queued follow-up two from active run",
-    "queued follow-up three from active run",
-  ];
-  await submitComposer(client, "workflow hold for queue and steering", "Send message");
-  const activeRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "workflow hold for queue and steering",
-    "running",
-  );
-  await waitForText(client, "Workflow stream started.");
-  const queuedRuns = [];
-  for (const prompt of queuedPrompts) {
-    await submitComposer(client, prompt, "Queue follow-up");
-    queuedRuns.push(
-      await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, "queued"),
-    );
-  }
-  await waitForTexts(client, [...queuedPrompts, "Queued"]);
-  await submitComposer(client, "steer active run", "Send steering message");
-  await waitForTexts(client, [
-    "Steered with steer active run.",
-    "Active workflow complete.",
-    ...queuedPrompts.map((prompt) => `Queued response for ${prompt}.`),
-  ]);
-  await waitForRunStatus(backend, workspaceId, conversationId, activeRun.id, "completed");
-  for (const run of queuedRuns) {
-    await waitForRunStatus(backend, workspaceId, conversationId, run.id, "completed");
-  }
-  await assertRunsDrainedSequentially(
-    backend,
-    workspaceId,
-    conversationId,
-    [activeRun, ...queuedRuns].map((run) => run.id),
-  );
-  await assertTranscriptSequence(client, [
-    "workflow hold for queue and steering",
-    "steer active run",
-    "Active workflow complete.",
-    "queued follow-up one from active run",
-    "Queued response for queued follow-up one from active run.",
-    "queued follow-up two from active run",
-    "Queued response for queued follow-up two from active run.",
-    "queued follow-up three from active run",
-    "Queued response for queued follow-up three from active run.",
-  ]);
-  await assertChatLayout(client);
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-  await assertAssistantCompleted(backend, workspaceId, conversationId, queuedRuns.at(-1).id);
-
-  if (postCompletionActiveRun) {
-    await runPostCompletionActiveRunWorkflow({
-      backend,
-      client,
-      conversationId,
-      submitComposer,
-      waitForRunStatus,
-      waitForRunWithPrompt,
-      waitForState,
-      waitForTexts,
-      workspaceId,
-    });
-    await assertNoActiveRun(backend, workspaceId, conversationId);
-  }
-}
-
-async function runUIShowcaseWorkflow(client, backend, workspaceId, conversationId) {
-  await submitComposer(client, "ui showcase workflow", "Send message");
-  const run = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "ui showcase workflow",
-    "completed",
-  );
-  await assertUIShowcaseActivity(backend, workspaceId, conversationId, run.id);
-  await waitForTexts(client, ["UI showcase started.", "UI showcase complete."]);
-  await assertChatLayout(client);
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-}
-
-async function assertUIShowcaseActivity(backend, workspaceId, conversationId, runId) {
-  const page = await backend.post("/chat/messages/page", {
-    conversationId,
-    limit: 40,
-    workspaceId,
-  });
-  const showcaseItems = page.runItems.filter(
-    (item) => item.runId === runId && item.providerItemId.startsWith("provider_ui_"),
-  );
-  const itemTypes = new Set(showcaseItems.map((item) => item.type));
-  for (const itemType of uiShowcaseActivityTypes) {
-    if (!itemTypes.has(itemType)) {
-      throw new Error(
-        `UI showcase missing activity type ${itemType}: ${JSON.stringify(page.runItems)}`,
-      );
-    }
-  }
-  const outputItemIds = new Set(page.runItemOutputs.map((output) => output.runItemId));
-  const missingOutput = showcaseItems.find((item) => !outputItemIds.has(item.id));
-  if (missingOutput) {
-    throw new Error(`UI showcase missing output for item: ${JSON.stringify(missingOutput)}`);
-  }
-}
-
-async function runCancelWorkflow(client, backend, workspaceId, conversationId) {
-  await submitComposer(client, "cancel active workflow", "Send message");
-  const activeRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "cancel active workflow",
-    "running",
-  );
-  await waitForText(client, "Cancel workflow waiting.");
-  await submitComposer(client, "queued follow-up after cancel", "Queue follow-up");
-  const queuedRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "queued follow-up after cancel",
-    "queued",
-  );
-  await waitForTexts(client, ["queued follow-up after cancel", "Queued"]);
-  await clickButtonByAria(client, "Stop run");
-  await assertQueuedRunNotPromoted(
-    backend,
-    workspaceId,
-    conversationId,
-    activeRun.id,
-    queuedRun.id,
-    "cancelled",
-  );
-  await assertRendererQueueMatchesBackend(client, "queued follow-up after cancel");
-  await assertTextAbsent(client, "Queued response for queued follow-up after cancel.");
-}
-
-async function runFailWorkflow(client, backend, workspaceId, conversationId) {
-  await submitComposer(client, "fail active workflow", "Send message");
-  const activeRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "fail active workflow",
-    "running",
-  );
-  await waitForText(client, "Failure workflow waiting.");
-  await submitComposer(client, "queued follow-up after failure", "Queue follow-up");
-  const queuedRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "queued follow-up after failure",
-    "queued",
-  );
-  await waitForTexts(client, ["queued follow-up after failure", "Queued"]);
-  await submitComposer(client, "trigger scripted failure", "Send steering message");
-  await waitForText(client, "Scripted failure surfaced.");
-  await assertQueuedRunNotPromoted(
-    backend,
-    workspaceId,
-    conversationId,
-    activeRun.id,
-    queuedRun.id,
-    "failed",
-  );
-  await assertRendererQueueMatchesBackend(client, "queued follow-up after failure");
-  await assertTextAbsent(client, "Queued response for queued follow-up after failure.");
-}
-
-async function runApprovalsWorkflow(client, backend, workspaceId, conversationId) {
-  await runProtocolApprovalWorkflows({
-    backend,
-    clickButtonByText,
-    client,
-    conversationId,
-    setInputValue,
-    submitComposer,
-    waitForRunWithPrompt,
-    waitForState,
-    waitForText,
-    waitForTexts,
-    workspaceId,
-  });
-  await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
-}
-
-async function runSidebarChatActionsWorkflow(client, backend, workspaceId, conversationId) {
-  const [prompt, editedPrompt] = ["sidebar actions workflow", "sidebar actions edited workflow"];
-  await submitComposer(client, prompt, "Send message");
-  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, "completed");
-  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
-  await waitForTexts(client, [prompt, "Scripted response: " + prompt]);
-  await clickButtonByAria(client, "Copy message");
-  await clickButtonByAria(client, "Edit message");
-  await setInputValue(client, 'textarea[aria-label="Edit message text"]', editedPrompt);
-  await clickButtonByAria(client, "Save edit");
-  await waitForBackendState(
-    async () => backend.post("/chat/messages/page", { conversationId, limit: 20, workspaceId }),
-    (page) => page.transcript[0]?.triggerMessage?.parts?.[0]?.text === editedPrompt,
-  );
-  await waitForTexts(client, [editedPrompt]);
-  await clickButtonByAria(client, "Pin " + prompt);
-  await waitForButtonPressed(client, "Unpin " + prompt, true);
-  await clickButtonByAria(client, "Unpin " + prompt);
-  await waitForButtonPressed(client, "Pin " + prompt, false);
-  await clickButtonByAria(client, "Delete " + prompt);
-  await waitForBackendState(
-    async () => backend.post("/chat/conversations/list", { workspaceId }),
-    (value) => !value.conversations.some((item) => item.conversation.id === conversationId),
-  );
-  await waitForState(client, bodyTextExpression(), (value) => !value.body.includes(prompt));
-}
-
-async function openWorkspace(client, workspaceRoot, backend) {
-  await waitForTexts(client, ["Shortcuts", "Projects"]);
-  await clickButtonByAria(client, "Open project folder");
-  await waitForTexts(client, ["workspace-root", "What should we build in setta?"]);
-  const session = await waitForBackendState(
-    async () => backend.get("/workspace-session"),
-    (value) => Boolean(value.selectedWorkspaceId),
-  );
-  return session.selectedWorkspaceId;
-}
-
-async function createChat(client, backend, workspaceId) {
-  const before = await backend.post("/chat/conversations/list", { workspaceId });
-  const existing = new Set(before.conversations.map((item) => item.conversation.id));
-  await clickButtonByAria(client, "New chat");
-  await waitForTexts(client, ["New chat"]);
-  await waitForComposerReady(client);
-  const after = await waitForBackendState(
-    async () => backend.post("/chat/conversations/list", { workspaceId }),
-    (value) => value.conversations.some((item) => !existing.has(item.conversation.id)),
-  );
-  const created = after.conversations.find((item) => !existing.has(item.conversation.id));
-  if (!created) {
-    throw new Error("new conversation was not returned by the backend");
-  }
-  return created.conversation.id;
-}
-
-async function submitComposer(client, text, buttonLabel) {
-  await waitForComposerReady(client);
-  await setInputValue(client, 'textarea[aria-label="Ask Setta"]', text);
-  await clickButtonByAria(client, buttonLabel);
-}
-
-async function waitForComposerReady(client) {
-  await waitForState(client, composerReadyExpression(), (value) => value.ready);
-}
-
-function composerReadyExpression() {
-  return `(() => {
-    const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
-    return { ready: Boolean(textarea && !textarea.disabled) };
-  })()`;
-}
-
-async function setInputValue(client, selector, value) {
-  const changed = await client.evaluate(`(() => {
-    const element = document.querySelector(${JSON.stringify(selector)});
-    if (!element || element.disabled) {
-      return false;
-    }
-    const prototype = element instanceof HTMLTextAreaElement
-      ? HTMLTextAreaElement.prototype
-      : HTMLInputElement.prototype;
-    const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
-    descriptor.set.call(element, ${JSON.stringify(value)});
-    element.dispatchEvent(new Event("input", { bubbles: true }));
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-    return true;
-  })()`);
-  if (!changed) {
-    throw new Error(`input was not editable: ${selector}`);
-  }
-}
-
-async function clickButtonByAria(client, label) {
-  await clickWorkflowButton(client, "aria-label", label);
-}
-
-async function clickButtonByText(client, text) {
-  await clickWorkflowButton(client, "text", text);
-}
-
-async function clickWorkflowButton(client, kind, value) {
-  await waitForState(client, buttonClickExpression(kind, value), Boolean);
-}
-
-async function waitForButtonPressed(client, label, pressed) {
-  await waitForState(
-    client,
-    `(() => {
-      const button = window.findWorkflowButton("aria-label", ${JSON.stringify(label)});
-      return {
-        body: document.body.innerText,
-        pressed: button?.getAttribute("aria-pressed") === "true",
-        ready: Boolean(button),
-      };
-    })()`,
-    (value) => value.ready && value.pressed === pressed,
-  );
-}
-
-function buttonClickExpression(kind, value) {
-  return `(() => {
-    const button = findWorkflowButton(${JSON.stringify(kind)}, ${JSON.stringify(value)});
-    if (!button || button.disabled) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`;
-}
-
-async function waitForText(client, text) {
-  await waitForTexts(client, [text]);
-}
-
-async function waitForTexts(client, texts) {
-  await waitForState(client, bodyTextExpression(), (value) =>
-    texts.every((text) => value.body.includes(text)),
-  );
-}
-
-async function assertTextAbsent(client, text) {
-  const body = await client.evaluate("document.body.innerText");
-  if (body.includes(text)) {
-    throw new Error(`unexpected rendered text: ${text}`);
-  }
-}
-
-function bodyTextExpression() {
-  return `(() => ({ body: document.body.innerText }))()`;
-}
-
-async function waitForState(client, expression, isReady, timeoutMs = workflowTimeoutMs) {
-  const startedAt = Date.now();
-  let lastValue = null;
-  while (Date.now() - startedAt < timeoutMs) {
-    lastValue = await client.evaluate(expression);
-    if (isReady(lastValue)) {
-      return lastValue;
-    }
-    await delay(100);
-  }
-  throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
-}
-
-async function backendProbe(recordingDir) {
-  const baseURL = await waitForBackendURL(recordingDir);
-  await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
-  return {
-    baseURL,
-    get: (path) => backendRequest(recordingDir, baseURL, "GET", path),
-    post: (path, payload) => backendRequest(recordingDir, baseURL, "POST", path, payload),
-  };
-}
-
-async function backendRequest(recordingDir, baseURL, method, path, payload) {
-  const response = await globalThis.fetch(baseURL + path, {
-    body: payload === undefined ? undefined : JSON.stringify(payload),
-    headers: payload === undefined ? undefined : { "Content-Type": "application/json" },
-    method,
-  });
-  const body = await response.text();
-  await appendWorkflowState(recordingDir, {
-    method,
-    ok: response.ok,
-    path,
-    status: response.status,
-    type: "backend_request",
-  });
-  if (!response.ok) {
-    throw new Error(`${method} ${path} returned ${response.status}: ${body}`);
-  }
-  return JSON.parse(body);
-}
-
-async function waitForBackendURL(recordingDir) {
-  const eventsPath = join(recordingDir, "events.jsonl");
-  const startedAt = Date.now();
-  let lastError = null;
-  while (Date.now() - startedAt < pageLoadTimeoutMs) {
-    try {
-      const events = await readJsonLines(eventsPath);
-      const started = events.find((entry) => entry.type === "backend_started");
-      const url = started?.payload?.url;
-      if (typeof url === "string" && url !== "") {
-        return url;
-      }
-    } catch (error) {
-      lastError = error;
-    }
-    await delay(100);
-  }
-  throw new Error(`backend URL was not recorded: ${lastError?.message ?? "timed out"}`);
-}
-
-async function waitForBackendState(readState, isReady, timeoutMs = workflowTimeoutMs) {
-  const startedAt = Date.now();
-  let lastValue = null;
-  while (Date.now() - startedAt < timeoutMs) {
-    lastValue = await readState();
-    if (isReady(lastValue)) {
-      return lastValue;
-    }
-    await delay(100);
-  }
-  throw new Error(`timed out waiting for backend state: ${JSON.stringify(lastValue)}`);
-}
-
-async function waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, status) {
-  return waitForBackendState(async () => {
-    const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-    return (
-      list.runs.find(
-        (run) => run.promptSummary === prompt && (status === null || run.status === status),
-      ) ?? null
-    );
-  }, Boolean);
-}
-
-async function waitForRunStatus(backend, workspaceId, conversationId, runId, status, timeoutMs) {
-  return waitForBackendState(
-    async () => {
-      const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-      return list.runs.find((run) => run.id === runId) ?? null;
-    },
-    (run) => run?.status === status,
-    timeoutMs,
-  );
-}
-
-async function assertNoRunWithPrompt(backend, workspaceId, conversationId, prompt) {
-  const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-  if (list.runs.some((run) => run.promptSummary === prompt)) {
-    throw new Error(`slash command was recorded as a run prompt: ${prompt}`);
-  }
-}
-
-async function waitForCommandResult(
-  backend,
-  workspaceId,
-  conversationId,
-  expectedText,
-  timeoutMs = workflowTimeoutMs,
-) {
-  return waitForBackendState(
-    async () =>
-      backend.post("/chat/messages/page", {
-        conversationId,
-        limit: 80,
-        workspaceId,
-      }),
-    (page) =>
-      page.messages.some(
-        (message) => message.role === "command" && messageText(message).includes(expectedText),
-      ),
-    timeoutMs,
-  );
-}
-
-async function waitForLinkedCodexRef(
-  backend,
-  workspaceId,
-  conversationId,
-  timeoutMs = workflowTimeoutMs,
-) {
-  return waitForBackendState(
-    async () => backend.post("/chat/conversations/list", { workspaceId }),
-    (value) => {
-      const item = value.conversations.find(
-        (candidate) => candidate.conversation.id === conversationId,
-      );
-      return Boolean(
-        item?.conversation.harnessRefs.some(
-          (ref) => ref.harness === "codex" && ref.status === "linked" && ref.threadId !== "",
-        ),
-      );
-    },
-    timeoutMs,
-  );
-}
-
-async function waitForGoalStatus(
-  backend,
-  workspaceId,
-  conversationId,
-  status,
-  timeoutMs = workflowTimeoutMs,
-) {
-  return waitForBackendState(
-    async () =>
-      backend.post("/chat/messages/page", {
-        conversationId,
-        limit: 80,
-        workspaceId,
-      }),
-    (page) => (status === null ? page.goal === null : page.goal?.status === status),
-    timeoutMs,
-  );
-}
-
-async function assertNoLinkedCodexRef(backend, workspaceId, conversationId) {
-  const value = await backend.post("/chat/conversations/list", { workspaceId });
-  const item = value.conversations.find(
-    (candidate) => candidate.conversation.id === conversationId,
-  );
-  if (
-    item?.conversation.harnessRefs.some(
-      (ref) => ref.harness === "codex" && ref.status === "linked" && ref.threadId !== "",
-    )
-  ) {
-    throw new Error(`conversation ${conversationId} unexpectedly has a linked codex ref`);
-  }
-}
-
-async function assertNoActiveRun(backend, workspaceId, conversationId) {
-  const active = await waitForBackendState(
-    async () => backend.post("/chat/runs/active", { conversationId, workspaceId }),
-    (value) => !value.hasActiveRun,
-  );
-  if (active.run !== null && active.run !== undefined) {
-    throw new Error(
-      `active run payload was present after terminal state: ${JSON.stringify(active)}`,
-    );
-  }
-}
-
-async function assertRunsDrainedSequentially(backend, workspaceId, conversationId, runIds) {
-  const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-  const runsById = new Map(list.runs.map((run) => [run.id, run]));
-  const runs = runIds.map((runId) => {
-    const run = runsById.get(runId);
-    if (!run) {
-      throw new Error(`run ${runId} was not returned by /chat/runs/list`);
-    }
-    return run;
-  });
-  for (const run of runs) {
-    if (run.status !== "completed" || run.startedAt === "" || run.completedAt === "") {
-      throw new Error(`run did not complete with timestamps: ${JSON.stringify(run)}`);
-    }
-  }
-  for (let index = 1; index < runs.length; index += 1) {
-    const previousCompletedAt = Date.parse(runs[index - 1].completedAt);
-    const currentStartedAt = Date.parse(runs[index].startedAt);
-    if (currentStartedAt < previousCompletedAt) {
-      throw new Error(
-        `queued run ${runs[index].id} started before ${runs[index - 1].id} completed: ${JSON.stringify(runs)}`,
-      );
-    }
-  }
-}
-
-async function assertTranscriptSequence(client, expectedTexts) {
-  const value = await client.evaluate(`(() => {
-    const rows = Array.from(document.querySelectorAll('[data-chat-message="true"]'));
-    return {
-      rows: rows.map((row) => ({
-        role: row.getAttribute("data-message-role"),
-        text: row.innerText.trim(),
-      })),
-    };
-  })()`);
-  let cursorOffset = 0;
-  let cursorRow = 0;
-  for (const expected of expectedTexts) {
-    let match = null;
-    for (let rowIndex = cursorRow; rowIndex < value.rows.length; rowIndex += 1) {
-      const textOffset = rowIndex === cursorRow ? cursorOffset : 0;
-      const index = value.rows[rowIndex].text.indexOf(expected, textOffset);
-      if (index !== -1) {
-        match = { rowIndex, textOffset: index + expected.length };
-        break;
-      }
-    }
-    if (!match) {
-      throw new Error(
-        `transcript did not contain ${expected} after row ${cursorRow}: ${JSON.stringify(value.rows)}`,
-      );
-    }
-    cursorOffset = match.textOffset;
-    cursorRow = match.rowIndex;
-  }
-}
-
-async function assertNoVisibleUserMessage(client, text) {
-  const value = await client.evaluate(`(() => {
-    const rows = Array.from(document.querySelectorAll('[data-chat-message="true"]'));
-    return {
-      rows: rows
-        .filter((row) => row.getAttribute("data-message-role") === "user")
-        .map((row) => row.innerText.trim()),
-    };
-  })()`);
-  const matches = value.rows.filter((rowText) => rowText.includes(text));
-  if (matches.length > 0) {
-    throw new Error(`found visible user message ${text}: ${JSON.stringify(value.rows)}`);
-  }
-}
-
-async function assertChatLayout(client) {
-  const metrics = await client.evaluate(`(() => {
-    const rect = (element) => {
-      if (!element) return null;
-      const box = element.getBoundingClientRect();
-      return {
-        bottom: box.bottom,
-        height: box.height,
-        top: box.top,
-      };
-    };
-    const pane = document.querySelector('[data-testid="chat-detail-pane"]');
-    const transcript = document.querySelector('[data-testid="chat-transcript-region"]');
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    const composer = document.querySelector('[data-testid="chat-composer"]');
-    return {
-      composer: rect(composer),
-      pane: rect(pane),
-      scrollerClientHeight: scroller?.clientHeight ?? 0,
-      scrollerScrollHeight: scroller?.scrollHeight ?? 0,
-      transcript: rect(transcript),
-    };
-  })()`);
-  if (!metrics.pane || !metrics.transcript || !metrics.composer) {
-    throw new Error(`chat layout metrics missing required regions: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.transcript.height < 160 || metrics.scrollerClientHeight < 120) {
-    throw new Error(`transcript region collapsed: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.transcript.bottom > metrics.composer.top + 1) {
-    throw new Error(`transcript overlaps composer: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.composer.bottom > metrics.pane.bottom + 1) {
-    throw new Error(`composer escapes chat pane: ${JSON.stringify(metrics)}`);
-  }
-}
-
-async function assertQueuedRunNotPromoted(
-  backend,
-  workspaceId,
-  conversationId,
-  activeRunId,
-  queuedRunId,
-  terminalStatus,
-) {
-  await waitForRunStatus(backend, workspaceId, conversationId, activeRunId, terminalStatus);
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-  const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
-  const queued = list.runs.find((run) => run.id === queuedRunId);
-  if (!queued) {
-    throw new Error(`queued run ${queuedRunId} was not returned by /chat/runs/list`);
-  }
-  if (queued.status !== "queued") {
-    throw new Error(`queued run ${queuedRunId} status = ${queued.status}, want queued`);
-  }
-  if (queued.startedAt !== "" || queued.assistantMessageId !== "") {
-    throw new Error(`queued run ${queuedRunId} was partially promoted: ${JSON.stringify(queued)}`);
-  }
-  const page = await backend.post("/chat/messages/page", {
-    conversationId,
-    limit: 40,
-    workspaceId,
-  });
-  if (!page.queue.runs.some((run) => run.id === queuedRunId)) {
-    throw new Error(`queued run ${queuedRunId} was not present in page queue state`);
-  }
-  const queuedAssistant = page.messages.find(
-    (message) => message.runId === queuedRunId && message.role === "assistant",
-  );
-  if (queuedAssistant) {
-    throw new Error(
-      `queued run ${queuedRunId} has assistant message: ${JSON.stringify(queuedAssistant)}`,
-    );
-  }
-}
-
-async function assertAssistantCompleted(backend, workspaceId, conversationId, runId) {
-  const page = await backend.post("/chat/messages/page", {
-    conversationId,
-    limit: 40,
-    workspaceId,
-  });
-  const assistant = page.messages.find(
-    (message) => message.runId === runId && message.role === "assistant",
-  );
-  if (!assistant || assistant.status !== "complete" || messageText(assistant).trim() === "") {
-    throw new Error(
-      `assistant response for run ${runId} was not complete: ${JSON.stringify(assistant)}`,
-    );
-  }
-}
-
-function messageText(message) {
-  return message.parts.map((part) => part.text).join("");
-}
-
-async function removeTree(path) {
-  let lastError = null;
-  for (let attempt = 0; attempt < cleanupRetryCount; attempt += 1) {
-    try {
-      await rm(path, { force: true, maxRetries: 2, recursive: true, retryDelay: 100 });
-      return;
-    } catch (error) {
-      lastError = error;
-      await delay(100 * (attempt + 1));
-    }
-  }
-  throw lastError;
-}
-
-async function launchContext(fixture, recordingDir, options = {}) {
-  await removeTree(recordingDir);
-  await mkdir(recordingDir, { recursive: true });
-  const debugPort = await openPort();
-  const electron = launchElectron(debugPort, fixture, recordingDir, options);
-  const client = await connectToSettaPage(debugPort);
-  await client.call("Runtime.enable");
-  await installPageHelpers(client);
-  return { client, electron };
-}
-
-async function installPageHelpers(client) {
-  await client.evaluate(`(() => {
-    window.findWorkflowButton = (kind, expected) => {
-      const buttons = Array.from(document.querySelectorAll("button"));
-      return buttons.find((button) => {
-        if (kind === "aria-label") {
-          return button.getAttribute("aria-label") === expected;
-        }
-        return button.innerText.trim() === expected;
-      }) ?? null;
-    };
-  })()`);
-}
-
-function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
-  const harness = launchOptions.harness ?? "scripted-workflow";
-  const extraEnv = launchOptions.extraEnv ?? {};
-  const e2eEnv = {
-    SETTA_E2E: "1",
-    SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
-    SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
-    ...(options.visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
-    ...(harness === "scripted-workflow" ? { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" } : {}),
-  };
-  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
-    cwd: desktopRoot,
-    detached: process.platform !== "win32",
-    env: {
-      ...process.env,
-      ...extraEnv,
-      ...e2eEnv,
-      SETTA_APP_DATA_DIR: fixture.appDataDir,
-      SETTA_RECORD_INCLUDE_PAYLOADS: "1",
-      SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
-      SETTA_RECORDING: "1",
-      SETTA_RECORDING_DIR: recordingDir,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  electron.logs = [];
-  collectProcessOutput(electron);
-  return electron;
-}
-
-async function createFixture(name) {
-  const tempRoot = await mkdtemp(join(tmpdir(), `setta-electron-${name}-`));
-  const appDataDir = join(tempRoot, "app-data");
-  const workspaceRoot = join(tempRoot, "workspace-root");
-  await mkdir(appDataDir, { recursive: true });
-  await mkdir(workspaceRoot, { recursive: true });
-  return { appDataDir, tempRoot, workspaceRoot };
-}
-
-function assertBuildExists() {
-  const mainPath = join(desktopRoot, "out", "main", "index.js");
-  if (!existsSync(mainPath)) {
-    throw new Error(`desktop build is missing: ${mainPath}. Run pnpm -C desktop build first.`);
-  }
-}
-
-async function openPort() {
-  const server = createServer();
-  await new Promise((resolvePromise, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolvePromise);
-  });
-  const address = server.address();
-  await new Promise((resolvePromise, reject) => {
-    server.close((error) => (error ? reject(error) : resolvePromise()));
-  });
-  if (address === null || typeof address === "string") {
-    throw new Error("failed to reserve Electron debugging port");
-  }
-  return address.port;
-}
-
-async function connectToSettaPage(debugPort) {
-  const startedAt = Date.now();
-  let lastError = null;
-  while (Date.now() - startedAt < pageLoadTimeoutMs) {
-    try {
-      const page = await settaPageTarget(debugPort);
-      if (page) {
-        return CDPClient.connect(page.webSocketDebuggerUrl, pageLoadTimeoutMs);
-      }
-    } catch (error) {
-      lastError = error;
-    }
-    await delay(100);
-  }
-  throw new Error(`Setta page target was not available: ${lastError?.message ?? "timed out"}`);
-}
-
-async function settaPageTarget(debugPort) {
-  const response = await globalThis.fetch(`http://127.0.0.1:${debugPort}/json/list`);
-  if (!response.ok) {
-    throw new Error(`DevTools target list returned ${response.status}`);
-  }
-  const targets = await response.json();
-  return targets.find((target) => target.type === "page" && target.title === "Setta") ?? null;
-}
-
-function electronBin() {
-  const extension = process.platform === "win32" ? ".cmd" : "";
-  return join(desktopRoot, "node_modules", ".bin", `electron${extension}`);
-}
-
-function collectProcessOutput(child) {
-  child.stdout.on("data", (data) => appendLog(child.logs, data));
-  child.stderr.on("data", (data) => appendLog(child.logs, data));
-}
-
-function appendLog(logs, data) {
-  logs.push(data.toString());
-  if (logs.length > 100) {
-    logs.shift();
-  }
-}
-
-async function captureScreenshot(client, path) {
-  if (!client) {
-    return;
-  }
-  await mkdir(dirname(path), { recursive: true });
-  await requestRendererLayoutSnapshot(client, "workflow_screenshot");
-  const image = await client.call("Page.captureScreenshot", { format: "png" });
-  await writeFile(path, Buffer.from(image.data, "base64"));
-}
-
-async function requestRendererLayoutSnapshot(client, trigger) {
-  if (!client) {
-    return;
-  }
-  await client.evaluate(`(() => {
-    window.dispatchEvent(new CustomEvent("setta:record-layout-snapshot", {
-      detail: { trigger: ${JSON.stringify(trigger)} },
-    }));
-  })()`);
-  await delay(25);
-}
-
-function failureWithLogs(error, logs) {
-  const message = error instanceof Error ? error.message : String(error);
-  return new Error(`${message}\nElectron output:\n${logs.join("")}`);
-}
-
-async function assertRecordingEvidence(recordingDir, expected) {
-  await assertNoIpcFailures(recordingDir);
-  await assertLayoutSnapshotsRecorded(recordingDir);
-  const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
-  for (const channel of expected.ipcChannels) {
-    if (!ipc.some((entry) => entry.type === "ipc_finish" && entry.channel === channel)) {
-      throw new Error(`recording missing successful IPC channel: ${channel}`);
-    }
-  }
-  const backend = await readJsonLines(join(recordingDir, "backend-http.jsonl"));
-  const workflowState = await readJsonLinesOptional(join(recordingDir, "workflow-state.jsonl"));
-  for (const path of expected.backendPaths) {
-    if (
-      !backend.some(
-        (entry) =>
-          entry.type === "backend_http_response" &&
-          entry.status === 200 &&
-          entry.url.includes(path),
-      ) &&
-      !workflowState.some(
-        (entry) => entry.type === "backend_request" && entry.status === 200 && entry.path === path,
-      )
-    ) {
-      throw new Error(`recording missing successful backend path: ${path}`);
-    }
-  }
-}
-
-async function assertLayoutSnapshotsRecorded(recordingDir) {
-  const rendererEvents = await readJsonLines(join(recordingDir, "renderer-events.jsonl"));
-  const snapshots = rendererEvents.filter((entry) => entry.type === "layout_snapshot");
-  if (snapshots.length === 0) {
-    throw new Error(`recording missing renderer layout snapshots: ${recordingDir}`);
-  }
-  if (!snapshots.some((entry) => entry.chatDetailPane && entry.transcript && entry.composer)) {
-    throw new Error(`recording layout snapshots never captured chat regions: ${recordingDir}`);
-  }
-}
-
-async function assertNoIpcFailures(recordingDir) {
-  const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
-  const failures = ipc.filter((entry) => entry.type === "ipc_failure");
-  if (failures.length > 0) {
-    throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
-  }
-}
-
-async function readJsonLines(path) {
-  const content = await readFile(path, "utf8");
-  return content
-    .split("\n")
-    .filter((line) => line.trim() !== "")
-    .map((line) => JSON.parse(line));
-}
-
-async function readJsonLinesOptional(path) {
-  try {
-    return await readJsonLines(path);
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return [];
-    }
-    throw error;
-  }
-}
-
-async function appendWorkflowState(recordingDir, value) {
-  await mkdir(recordingDir, { recursive: true });
-  await appendFile(join(recordingDir, "workflow-state.jsonl"), JSON.stringify(value) + "\n");
-}
-
-function pathTimestamp() {
-  return new Date().toISOString().replaceAll(":", "").replaceAll(".", "-");
 }
 
 main().catch((error) => {

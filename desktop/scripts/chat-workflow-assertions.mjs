@@ -22,9 +22,20 @@ export async function assertNoCriticalDiagnostics(backend, workspaceId, conversa
 export async function waitForComposerFocus(waitForState, client) {
   await waitForState(
     client,
-    `(() => ({
-      focused: document.activeElement?.getAttribute("aria-label") === "Ask Setta",
-    }))()`,
+    `(() => {
+      const active = document.activeElement;
+      const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
+      return {
+        activeAriaLabel: active?.getAttribute("aria-label") ?? "",
+        activeTagName: active?.tagName ?? "",
+        activeTestId: active?.getAttribute("data-testid") ?? "",
+        documentHasFocus: document.hasFocus(),
+        focused: active?.getAttribute("aria-label") === "Ask Setta",
+        textareaDisabled: textarea?.disabled ?? null,
+        textareaExists: Boolean(textarea),
+        textareaValue: textarea?.value ?? "",
+      };
+    })()`,
     (value) => value.focused,
   );
 }
