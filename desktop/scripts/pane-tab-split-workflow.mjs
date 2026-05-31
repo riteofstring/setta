@@ -16,6 +16,20 @@ export async function runPaneTabSplitWorkflow({
       value.tabHasGrip,
     );
   });
+  const selection = await waitForState(
+    client,
+    paneUserSelectionExpression(),
+    (value) =>
+      value.ready &&
+      value.chromeButtonUserSelect === "none" &&
+      value.composerUserSelect === "text" &&
+      value.messageUserSelect === "text" &&
+      (value.summaryUserSelect === null || value.summaryUserSelect === "none") &&
+      value.tabUserSelect === "none",
+  );
+  if (selection.bodyUserSelect !== "none") {
+    throw new Error(`app root remained selectable: ${JSON.stringify(selection)}`);
+  }
   const start = {
     x: initial.tabRect.left + Math.min(45, initial.tabRect.width / 2),
     y: initial.tabRect.top + initial.tabRect.height / 2,
@@ -119,6 +133,29 @@ function paneTabSplitStateExpression() {
       tabDraggable: tab?.getAttribute("draggable") ?? null,
       tabHasGrip: Boolean(tab?.querySelector(".lucide-grip-vertical")),
       tabRect: rect(tab),
+    };
+  })()`;
+}
+
+function paneUserSelectionExpression() {
+  return `(() => {
+    const style = (selector) => {
+      const element = document.querySelector(selector);
+      return element ? getComputedStyle(element).userSelect : null;
+    };
+    return {
+      chromeButtonUserSelect: style('button[aria-label="Add settings pane"]'),
+      composerUserSelect: style('textarea[aria-label="Ask Setta"]'),
+      bodyUserSelect: getComputedStyle(document.body).userSelect,
+      messageUserSelect: style('[data-chat-message="true"]'),
+      ready: Boolean(
+        document.querySelector('[data-testid^="workspace-pane-tab-"] span:last-of-type') &&
+          document.querySelector('[data-chat-message="true"]') &&
+          document.querySelector('textarea[aria-label="Ask Setta"]') &&
+          document.querySelector('button[aria-label="Add settings pane"]'),
+      ),
+      summaryUserSelect: style('[data-chat-message="true"] summary'),
+      tabUserSelect: style('[data-testid^="workspace-pane-tab-"] span:last-of-type'),
     };
   })()`;
 }

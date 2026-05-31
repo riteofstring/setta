@@ -29,6 +29,8 @@ body,
 body {
   background: #18181b;
   margin: 0;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 a {
@@ -49,6 +51,36 @@ button:focus-visible,
 
 button:disabled {
   cursor: default;
+}
+
+button,
+[role="button"],
+[role="menuitem"],
+label,
+summary {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+[data-chat-message="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+[data-chat-message="true"] button,
+[data-chat-message="true"] [role="button"],
+[data-chat-message="true"] label,
+[data-chat-message="true"] summary {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .app-drag {
