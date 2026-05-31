@@ -75,6 +75,20 @@ func TestCodexHarnessRequiresModelSettingsUpdatedNotification(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessTreatsCurrentModelSetAsNoop(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-model-set-already-current"))
+	request := testCommandRequest(t, "/model gpt-test")
+	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.SelectedModel != "gpt-test" || !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
+		t.Fatalf("result = %+v, want selected model no-op with linked thread", result)
+	}
+}
+
 func testCommandRequest(t *testing.T, raw string) HarnessCommandRequest {
 	t.Helper()
 	command, err := ParseChatCommand(raw)
@@ -107,7 +121,7 @@ func fakeCommandDone(mode string) bool {
 }
 
 func handleFakeCommandThread(mode string, state *fakeCodexState, message map[string]any) {
-	if mode != "command-goal-set" && mode != "command-model-set" && mode != "command-model-set-no-notification" {
+	if mode != "command-goal-set" && mode != "command-model-set" && mode != "command-model-set-no-notification" && mode != "command-model-set-already-current" {
 		return
 	}
 	method := message["method"]
@@ -115,7 +129,7 @@ func handleFakeCommandThread(mode string, state *fakeCodexState, message map[str
 	if mode == "command-goal-set" && method != "thread/start" {
 		panic("goal set command should start a thread")
 	}
-	if (mode == "command-model-set" || mode == "command-model-set-no-notification") && method != "thread/resume" {
+	if (mode == "command-model-set" || mode == "command-model-set-no-notification" || mode == "command-model-set-already-current") && method != "thread/resume" {
 		panic("model set command should resume a linked thread")
 	}
 	if params["approvalPolicy"] != "on-request" || params["approvalsReviewer"] != "user" {
@@ -155,6 +169,15 @@ func assertFakeModelSet(message map[string]any) {
 	params := fakeParams(message)
 	if params["threadId"] != "thread_fake" || params["model"] != "gpt-test" {
 		panic("model set used wrong params")
+	}
+}
+
+func fakeThreadResponseModel(mode string) string {
+	switch mode {
+	case "command-model-set", "command-model-set-no-notification":
+		return "gpt-old"
+	default:
+		return "gpt-test"
 	}
 }
 

@@ -881,7 +881,7 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		writeFakeInitializeResponse(message["id"])
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
-		writeFakeThreadResponse(message["id"])
+		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode))
 	case "thread/goal/get":
 		assertFakeThreadID(message)
 		writeFakeResponse(message["id"], map[string]any{"goal": nil})
@@ -909,6 +909,9 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		})
 		return fakeCommandDone(mode)
 	case "thread/settings/update":
+		if mode == "command-model-set-already-current" {
+			panic("already-current model command should not update settings")
+		}
 		assertFakeModelSet(message)
 		writeFakeResponse(message["id"], map[string]any{})
 		if mode == "command-model-set-no-notification" {
@@ -1076,8 +1079,9 @@ func writeFakeInitializeResponse(id any) {
 	})
 }
 
-func writeFakeThreadResponse(id any) {
+func writeFakeThreadResponse(id any, model string) {
 	writeFakeResponse(id, map[string]any{
+		"model":  model,
 		"thread": map[string]any{"id": "thread_fake"},
 	})
 }
