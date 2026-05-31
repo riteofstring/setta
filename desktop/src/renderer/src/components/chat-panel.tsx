@@ -7,14 +7,11 @@ import type {
 import {
   AlertTriangle,
   ArrowUp,
-  Archive,
   Check,
   Maximize2,
   MessageSquarePlus,
   Minimize2,
-  RotateCcw,
   Square,
-  Trash2,
 } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
@@ -64,7 +61,6 @@ export function ChatPanel({
       onToggleMaximize={onToggleMaximize}
       searchOpen={searchOpen}
       setSearchOpen={setSearchOpen}
-      workspace={workspace}
     />
   );
 }
@@ -76,7 +72,6 @@ function ChatWorkspace({
   onToggleMaximize,
   searchOpen,
   setSearchOpen,
-  workspace,
 }: {
   chat: ChatView;
   chromeInsetTop: boolean;
@@ -84,7 +79,6 @@ function ChatWorkspace({
   onToggleMaximize?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
-  workspace: WorkspaceSummary;
 }) {
   const busy = isChatBusy(chat);
   const blocked = isChatBlocked(chat);
@@ -108,14 +102,13 @@ function ChatWorkspace({
         data-run-status={activeRunStatus(chat) ?? ""}
         data-testid="chat-detail-pane"
       >
-        <WorkspaceCorruptionPanel busy={busy} chat={chat} workspace={workspace} />
+        <ChatStateStatusIcon chat={chat} chromeInsetTop={chromeInsetTop} />
         <ConversationBody
           busy={busy}
           chat={chat}
           searchOpen={searchOpen}
           setSearchOpen={setSearchOpen}
         />
-        <CriticalDiagnostics chat={chat} />
         <ChatError message={selectedConversationChatError(chat)} />
         <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
       </div>
@@ -324,102 +317,51 @@ function ChatError({ message }: { message: string | null }) {
   );
 }
 
-function WorkspaceCorruptionPanel({
-  busy,
+function ChatStateStatusIcon({
   chat,
-  workspace,
+  chromeInsetTop,
 }: {
-  busy: boolean;
   chat: ChatView;
-  workspace: WorkspaceSummary;
+  chromeInsetTop: boolean;
 }) {
-  if (!chat.corruption.hasCorruption && !chat.maintenanceNotice) {
+  if (!chat.corruption.hasCorruption) {
     return null;
   }
   const latestDiagnostic = chat.diagnostics
     .filter((diagnostic) => diagnostic.severity === "critical")
     .at(-1);
-  const affectedPath = latestDiagnostic?.context.path ?? "";
+  const label = chatStateStatusLabel(chat, latestDiagnostic);
   return (
     <div
-      className="border-b border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100"
-      data-testid="workspace-corruption-warning"
+      aria-label={label}
+      className={cn(
+        "group/chat-state app-no-drag absolute left-2 z-40 grid h-7 w-7 place-items-center rounded-sm text-amber-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80",
+        chromeInsetTop ? "top-9" : "top-1",
+      )}
+      data-testid="workspace-corruption-status"
+      role="status"
+      tabIndex={0}
+      title={label}
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <AlertTriangle className="h-4 w-4 flex-none text-amber-300" />
-        <div className="min-w-0 flex-1">
-          <div className="font-medium">Chat state needs attention</div>
-          <div className="truncate text-[11px] text-zinc-400">
-            {chat.maintenanceNotice ??
-              `${chat.corruption.total} corrupt records detected${affectedPath ? `: ${affectedPath}` : ""}`}
-          </div>
-        </div>
-        <Button
-          aria-label="Quarantine corrupt chat records"
-          disabled={busy || !chat.corruption.hasCorruption}
-          onClick={() =>
-            confirmMaintenance(workspace.id, "Quarantine corrupt chat records") &&
-            void chat.quarantineCorruptState()
-          }
-          type="button"
-          variant="secondary"
-        >
-          <Archive className="h-4 w-4" />
-          Quarantine
-        </Button>
-        <Button
-          aria-label="Reset workspace chat state"
-          disabled={busy}
-          onClick={() =>
-            confirmMaintenance(workspace.id, "Reset workspace chat state") &&
-            void chat.resetWorkspaceState()
-          }
-          type="button"
-          variant="secondary"
-        >
-          <Trash2 className="h-4 w-4" />
-          Reset
-        </Button>
-        <Button
-          aria-label="Clear chat quarantine"
-          disabled={busy}
-          onClick={() =>
-            confirmMaintenance(workspace.id, "Clear chat quarantine") && void chat.clearQuarantine()
-          }
-          type="button"
-          variant="secondary"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
+      <AlertTriangle className="h-4 w-4" />
+      <div className="pointer-events-none absolute top-8 left-0 hidden w-72 rounded-sm border border-zinc-700/80 bg-zinc-950/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/chat-state:block group-focus/chat-state:block">
+        <div className="font-medium">Chat state issue</div>
+        <div className="mt-1 break-words text-zinc-300">{label}</div>
       </div>
     </div>
   );
 }
 
-function confirmMaintenance(workspaceId: string, action: string) {
-  return window.confirm(`${action} for workspace ${workspaceId}?`);
-}
-
-function CriticalDiagnostics({ chat }: { chat: ChatView }) {
-  const selectedConversationId = chat.selectedConversation?.id ?? "";
-  const activeRunId = chat.activeRun?.id ?? "";
-  const critical = chat.diagnostics
-    .filter(
-      (diagnostic) =>
-        diagnostic.severity === "critical" &&
-        ((diagnostic.conversationId !== "" &&
-          diagnostic.conversationId === selectedConversationId) ||
-          (diagnostic.runId !== "" && diagnostic.runId === activeRunId)),
-    )
-    .at(-1);
-  if (!critical) {
-    return null;
-  }
-  return (
-    <div className="border-t border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100">
-      <span className="font-medium">{critical.code}</span>: {critical.message}
-    </div>
-  );
+function chatStateStatusLabel(
+  chat: ChatView,
+  diagnostic: ChatView["diagnostics"][number] | undefined,
+) {
+  const count = chat.corruption.total;
+  const noun = count === 1 ? "record" : "records";
+  const details = diagnostic
+    ? ` Latest issue: ${diagnostic.message}${diagnostic.context.path ? ` Path: ${diagnostic.context.path}` : ""}`
+    : "";
+  return `${count} corrupt chat ${noun} detected.${details}`;
 }
 
 function Composer({
@@ -895,7 +837,6 @@ export function ComposerButton({
 
 export function useChatViewState(workspaceId: string | null) {
   const activeRun = useChatStore((state) => state.activeRun);
-  const clearQuarantine = useChatStore((state) => state.clearQuarantine);
   const conversations = useChatStore((state) => state.conversations);
   const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
@@ -908,14 +849,11 @@ export function useChatViewState(workspaceId: string | null) {
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
   const listCommands = useChatStore((state) => state.listCommands);
-  const maintenanceNotice = useChatStore((state) => state.maintenanceNotice);
   const messageIds = useChatStore((state) => state.messageIds);
   const messages = useChatStore((state) => state.messages);
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
-  const quarantineCorruptState = useChatStore((state) => state.quarantineCorruptState);
   const queueMessage = useChatStore((state) => state.queueMessage);
-  const resetWorkspaceState = useChatStore((state) => state.resetWorkspaceState);
   const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
@@ -945,7 +883,6 @@ export function useChatViewState(workspaceId: string | null) {
 
   return {
     activeRun,
-    clearQuarantine,
     conversations,
     corruption,
     createConversation,
@@ -957,14 +894,11 @@ export function useChatViewState(workspaceId: string | null) {
     loadOlder,
     loadRunItemOutput,
     listCommands,
-    maintenanceNotice,
     messageIds,
     messages,
     messagesById,
     operation,
-    quarantineCorruptState,
     queueMessage,
-    resetWorkspaceState,
     runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,

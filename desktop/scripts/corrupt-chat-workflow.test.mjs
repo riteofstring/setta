@@ -3,7 +3,7 @@ import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -128,34 +128,21 @@ async function main() {
     await waitForPartialCorruptChatState(context.client);
     await openCorruptConversation(context.client);
     await submitComposer(context.client, "resilient prompt", "Send message");
-    await waitForTexts(context.client, [
-      "resilient prompt",
-      "Scripted response: resilient prompt",
-      "Chat state needs attention",
-    ]);
+    await waitForTexts(context.client, ["resilient prompt", "Scripted response: resilient prompt"]);
+    await waitForCorruptionStatus(context.client, "corrupt chat");
+    await assertRepairControlsAbsent(context.client);
     await clickNewChat(context.client);
     await waitForUsableNewChat(context.client);
+    await waitForCorruptionStatus(context.client, "corrupt chat");
     await captureScreenshot(context.client, join(recordingDir, "after-new-chat.png"));
     await stopLaunchedContext(context);
     context = null;
 
     context = await launchCorruptContext(fixture.appDataDir);
-    await waitForTexts(context.client, ["New chat", "Chat state needs attention"]);
-    await clickButtonByText(context.client, "Quarantine");
-    await waitForTexts(context.client, ["Quarantined records", "Remaining corrupt records: 0"]);
-    await assertQuarantineManifest(fixture.appDataDir);
-    await clickButtonByText(context.client, "Reset");
-    await waitForTexts(context.client, [
-      "What should we build in setta?",
-      "Remaining corrupt records: 0",
-    ]);
-    await captureScreenshot(context.client, join(recordingDir, "after-maintenance.png"));
-    await stopLaunchedContext(context);
-    context = null;
-
-    context = await launchCorruptContext(fixture.appDataDir);
-    await waitForResetState(context.client);
-    await captureScreenshot(context.client, join(recordingDir, "after-reset-restart.png"));
+    await waitForTexts(context.client, ["New chat"]);
+    await waitForCorruptionStatus(context.client, "corrupt chat");
+    await assertRepairControlsAbsent(context.client);
+    await captureScreenshot(context.client, join(recordingDir, "after-restart.png"));
   } catch (error) {
     failure = error;
     await captureScreenshot(context?.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -475,22 +462,25 @@ async function waitForPartialCorruptChatState(client) {
 function partialCorruptChatStateExpression() {
   return `(() => {
     const button = document.querySelector('button[aria-label="New chat"]');
-    const warning = document.querySelector('[data-testid="workspace-corruption-warning"]');
+    const status = document.querySelector('[data-testid="workspace-corruption-status"]');
+    const statusLabel = status?.getAttribute("aria-label") ?? "";
     const conversations = Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]'));
     const body = document.body.innerText;
     return {
       body,
       conversationCount: conversations.length,
       newChatDisabled: button ? button.disabled : null,
+      statusLabel,
       ready: Boolean(
         button &&
-        warning &&
+        status &&
+        statusLabel.includes("corrupt chat") &&
         conversations.length >= 3 &&
         body.includes("Valid historical chat") &&
         body.includes("Second valid chat") &&
         body.includes("Corrupt historical chat") &&
         body.includes("persisted valid message") &&
-        body.includes("Chat state needs attention") &&
+        !body.includes("Chat state needs attention") &&
         !body.includes("Chat state is corrupt")
       ),
     };
@@ -499,10 +489,8 @@ function partialCorruptChatStateExpression() {
 
 async function openCorruptConversation(client) {
   await clickButtonByText(client, "Corrupt historical chat");
-  await waitForTexts(client, [
-    "has pendingApproval while status is completed",
-    "persisted valid message",
-  ]);
+  await waitForCorruptionStatus(client, "has pendingApproval while status is completed");
+  await waitForTexts(client, ["persisted valid message"]);
 }
 
 async function clickNewChat(client) {
@@ -621,19 +609,39 @@ function bodyTextExpression() {
   return `(() => ({ body: document.body.innerText }))()`;
 }
 
-async function waitForResetState(client) {
-  await waitForState(client, resetStateExpression(), (value) => value.ready);
+async function waitForCorruptionStatus(client, expectedText) {
+  await waitForState(client, corruptionStatusExpression(expectedText), (value) => value.ready);
 }
 
-function resetStateExpression() {
+function corruptionStatusExpression(expectedText) {
   return `(() => {
-    const body = document.body.innerText;
-    const warning = document.querySelector('[data-testid="workspace-corruption-warning"]');
+    const status = document.querySelector('[data-testid="workspace-corruption-status"]');
+    const label = status?.getAttribute("aria-label") ?? "";
     return {
-      body,
-      ready: body.includes("What should we build in setta?") && !warning,
+      label,
+      ready: Boolean(status && label.includes(${JSON.stringify(expectedText)})),
     };
   })()`;
+}
+
+async function assertRepairControlsAbsent(client) {
+  const state = await client.evaluate(`(() => {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const labels = buttons.map((button) =>
+      [button.innerText.trim(), button.getAttribute("aria-label") ?? ""].join(" "),
+    );
+    return {
+      labels,
+      hasRepairControl: labels.some((label) =>
+        label.includes("Quarantine") ||
+        label.includes("Reset workspace chat state") ||
+        label.includes("Clear chat quarantine")
+      ),
+    };
+  })()`);
+  if (state.hasRepairControl) {
+    throw new Error(`repair controls should not be exposed: ${JSON.stringify(state.labels)}`);
+  }
 }
 
 async function waitForState(client, expression, isReady) {
@@ -705,58 +713,16 @@ async function assertRecordingProvesWorkflow(dir) {
   if (!listFinish) {
     throw new Error("recording did not include a partial chat:list-conversations result");
   }
-  const quarantineFinish = ipc.find(
+  const maintenanceCall = ipc.find(
     (entry) =>
-      entry.type === "ipc_finish" &&
-      entry.channel === "chat:quarantine-corrupt-state" &&
-      entry.result?.quarantined?.length > 0,
+      (entry.type === "ipc_start" || entry.type === "ipc_finish") &&
+      (entry.channel === "chat:quarantine-corrupt-state" ||
+        entry.channel === "chat:reset-workspace-state" ||
+        entry.channel === "chat:clear-quarantine"),
   );
-  if (!quarantineFinish) {
-    throw new Error("recording did not include a successful quarantine IPC call");
+  if (maintenanceCall) {
+    throw new Error(`recording included removed chat maintenance IPC: ${maintenanceCall.channel}`);
   }
-  const resetFinish = ipc.find(
-    (entry) =>
-      entry.type === "ipc_finish" &&
-      entry.channel === "chat:reset-workspace-state" &&
-      entry.result?.removedPaths?.length > 0,
-  );
-  if (!resetFinish) {
-    throw new Error("recording did not include a successful reset IPC call");
-  }
-}
-
-async function assertQuarantineManifest(appDataDir) {
-  const manifests = await findFiles(join(appDataDir, "quarantine"), "manifest.json");
-  if (manifests.length !== 1) {
-    throw new Error(`expected one quarantine manifest, found ${manifests.length}`);
-  }
-  const manifest = JSON.parse(await readFile(manifests[0], "utf8"));
-  if (!Array.isArray(manifest.records) || manifest.records.length === 0) {
-    throw new Error(`quarantine manifest has no records: ${JSON.stringify(manifest)}`);
-  }
-  const movedRun = manifest.records.find((record) => record.originalPath.endsWith(`${runId}.json`));
-  if (!movedRun) {
-    throw new Error(`quarantine manifest did not include corrupt run: ${JSON.stringify(manifest)}`);
-  }
-}
-
-async function findFiles(root, name) {
-  if (!existsSync(root)) {
-    return [];
-  }
-  const entries = await readdir(root, { withFileTypes: true });
-  const matches = [];
-  for (const entry of entries) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      matches.push(...(await findFiles(path, name)));
-      continue;
-    }
-    if (entry.isFile() && entry.name === name) {
-      matches.push(path);
-    }
-  }
-  return matches;
 }
 
 async function readJsonLines(path) {

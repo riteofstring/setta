@@ -37,7 +37,6 @@ describe("chat store", () => {
       hasMoreOlder: false,
       lastEventSequence: 0,
       lastEventStreamId: "",
-      maintenanceNotice: null,
       messageIds: [],
       messages: [],
       messagesById: {},
@@ -829,18 +828,6 @@ function listResponse(
   };
 }
 
-function maintenanceResult() {
-  return {
-    corruption: emptyCorruption(),
-    diagnostics: [],
-    manifestPath: "",
-    quarantined: [],
-    removedPaths: [],
-    validationRunAt: "2026-05-29T20:00:00Z",
-    workspaceId: "workspace_api",
-  };
-}
-
 function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
@@ -874,7 +861,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
-      clearQuarantine: async () => maintenanceResult(),
       createConversation: async () => conversation,
       executeCommand: async () => ({
         conversation,
@@ -906,7 +892,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       listConversations: async () => listResponse([]),
       messagePage: async () => testPage(conversation, []),
       onEvent: () => () => {},
-      quarantineCorruptState: async () => maintenanceResult(),
       queueMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
@@ -933,7 +918,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("completed"),
         userMessage: message("message_user", 1, "user", "complete", "hello"),
       }),
-      resetWorkspaceState: async () => maintenanceResult(),
       steerMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
