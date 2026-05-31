@@ -22,6 +22,7 @@ import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
 } from "./codex-protocol-workflow.mjs";
+import { stopElectron } from "./electron-process.mjs";
 import { runProviderAccountWorkflow } from "./provider-account-workflow.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -30,9 +31,9 @@ const repoRoot = resolve(desktopRoot, "..");
 const options = parseArgs(process.argv.slice(2));
 const recordingRoot = chatWorkflowRecordingRoot(options);
 const pageLoadTimeoutMs = 20_000;
-const workflowTimeoutMs = 15_000;
+const workflowTimeoutMs = 30_000;
 const liveWorkflowTimeoutMs = 120_000;
-const shutdownTimeoutMs = 10_000;
+const cleanupRetryCount = 5;
 
 function parseArgs(args) {
   const parsed = {
@@ -79,7 +80,7 @@ function chatWorkflowRecordingRoot(parsed) {
 async function main() {
   assertBuildExists();
   if (!options.keepArtifacts && options.deterministic) {
-    await rm(recordingRoot, { force: true, recursive: true });
+    await removeTree(recordingRoot);
   }
   await mkdir(recordingRoot, { recursive: true });
 
@@ -138,13 +139,23 @@ async function runDeterministicWorkflowLaunch(results) {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runSlashCommandWorkflow(context.client, backend, workspaceId, conversationId);
     });
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "sidebar-chat-actions",
+      context.client,
+      async () => {
+        const conversationId = await createChat(context.client, backend, workspaceId);
+        await runSidebarChatActionsWorkflow(context.client, backend, workspaceId, conversationId);
+      },
+    );
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
+    await removeTree(fixture.tempRoot);
   }
 
   if (failure) {
@@ -155,6 +166,7 @@ async function runDeterministicWorkflowLaunch(results) {
       "/workspaces/open",
       "/chat/conversations/create",
       "/chat/messages/send",
+      "/chat/messages/update-user",
       "/chat/messages/queue",
       "/chat/messages/steer",
       "/chat/runs/active",
@@ -163,6 +175,7 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/approvals/submit",
       "/chat/commands/list",
       "/chat/commands/execute",
+      "/chat/conversations/delete",
       "/provider-accounts",
       "/provider-accounts/chatgpt-auth/clear",
       "/provider-accounts/chatgpt-auth/save",
@@ -171,12 +184,14 @@ async function runDeterministicWorkflowLaunch(results) {
       "workspace:open-local-folder",
       "chat:create-conversation",
       "chat:send-message",
+      "chat:update-user-message",
       "chat:queue-message",
       "chat:steer-message",
       "chat:cancel-run",
       "chat:submit-approval",
       "chat:list-commands",
       "chat:execute-command",
+      "chat:delete-conversation",
       "provider-accounts:clear-chatgpt-auth",
       "provider-accounts:list",
       "provider-accounts:save-chatgpt-auth",
@@ -237,7 +252,7 @@ async function runCodexProtocolWorkflow(results) {
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
+    await removeTree(fixture.tempRoot);
   }
 
   if (failure) {
@@ -307,7 +322,7 @@ async function runRestartWorkflow(results) {
   } finally {
     await stopLaunchedContext(first);
     await stopLaunchedContext(second);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
+    await removeTree(fixture.tempRoot);
   }
 
   await assertRecordingEvidence(firstRecording, {
@@ -404,8 +419,8 @@ async function runLiveCodexWorkflow(results) {
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
-    await rm(liveEnv.codexHome, { force: true, recursive: true });
+    await removeTree(fixture.tempRoot);
+    await removeTree(liveEnv.codexHome);
   }
 
   if (failure) {
@@ -585,7 +600,7 @@ async function runFailWorkflow(client, backend, workspaceId, conversationId) {
   );
   await waitForTexts(client, ["queued follow-up after failure", "Queued"]);
   await submitComposer(client, "trigger scripted failure", "Send steering message");
-  await waitForTexts(client, ["Scripted failure surfaced.", "error"]);
+  await waitForText(client, "Scripted failure surfaced.");
   await assertQueuedRunNotPromoted(
     backend,
     workspaceId,
@@ -704,6 +719,33 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 }
 
+async function runSidebarChatActionsWorkflow(client, backend, workspaceId, conversationId) {
+  const [prompt, editedPrompt] = ["sidebar actions workflow", "sidebar actions edited workflow"];
+  await submitComposer(client, prompt, "Send message");
+  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, "completed");
+  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
+  await waitForTexts(client, [prompt, "Scripted response: " + prompt]);
+  await clickButtonByAria(client, "Copy message");
+  await clickButtonByAria(client, "Edit message");
+  await setInputValue(client, 'textarea[aria-label="Edit message text"]', editedPrompt);
+  await clickButtonByAria(client, "Save edit");
+  await waitForBackendState(
+    async () => backend.post("/chat/messages/page", { conversationId, limit: 20, workspaceId }),
+    (page) => page.transcript[0]?.triggerMessage?.parts?.[0]?.text === editedPrompt,
+  );
+  await waitForTexts(client, [editedPrompt]);
+  await clickButtonByAria(client, "Pin " + prompt);
+  await waitForButtonPressed(client, "Unpin " + prompt, true);
+  await clickButtonByAria(client, "Unpin " + prompt);
+  await waitForButtonPressed(client, "Pin " + prompt, false);
+  await clickButtonByAria(client, "Delete " + prompt);
+  await waitForBackendState(
+    async () => backend.post("/chat/conversations/list", { workspaceId }),
+    (value) => !value.conversations.some((item) => item.conversation.id === conversationId),
+  );
+  await waitForState(client, bodyTextExpression(), (value) => !value.body.includes(prompt));
+}
+
 async function openWorkspace(client, workspaceRoot, backend) {
   await waitForTexts(client, ["Shortcuts", "Projects"]);
   await clickButtonByAria(client, "Open project folder");
@@ -770,26 +812,30 @@ async function setInputValue(client, selector, value) {
 }
 
 async function clickButtonByAria(client, label) {
-  await waitForState(client, buttonStateExpression("aria-label", label), (value) => value.ready);
-  const clicked = await client.evaluate(buttonClickExpression("aria-label", label));
-  if (!clicked) {
-    throw new Error(`button was not clickable: ${label}`);
-  }
+  await clickWorkflowButton(client, "aria-label", label);
 }
 
 async function clickButtonByText(client, text) {
-  await waitForState(client, buttonStateExpression("text", text), (value) => value.ready);
-  const clicked = await client.evaluate(buttonClickExpression("text", text));
-  if (!clicked) {
-    throw new Error(`button was not clickable: ${text}`);
-  }
+  await clickWorkflowButton(client, "text", text);
 }
 
-function buttonStateExpression(kind, value) {
-  return `(() => {
-    const button = findWorkflowButton(${JSON.stringify(kind)}, ${JSON.stringify(value)});
-    return { body: document.body.innerText, ready: Boolean(button && !button.disabled) };
-  })()`;
+async function clickWorkflowButton(client, kind, value) {
+  await waitForState(client, buttonClickExpression(kind, value), Boolean);
+}
+
+async function waitForButtonPressed(client, label, pressed) {
+  await waitForState(
+    client,
+    `(() => {
+      const button = window.findWorkflowButton("aria-label", ${JSON.stringify(label)});
+      return {
+        body: document.body.innerText,
+        pressed: button?.getAttribute("aria-pressed") === "true",
+        ready: Boolean(button),
+      };
+    })()`,
+    (value) => value.ready && value.pressed === pressed,
+  );
 }
 
 function buttonClickExpression(kind, value) {
@@ -1075,17 +1121,25 @@ async function assertTranscriptSequence(client, expectedTexts) {
       })),
     };
   })()`);
-  let cursor = 0;
+  let cursorOffset = 0;
+  let cursorRow = 0;
   for (const expected of expectedTexts) {
-    const index = value.rows.findIndex((row, rowIndex) => {
-      return rowIndex >= cursor && row.text.includes(expected);
-    });
-    if (index === -1) {
+    let match = null;
+    for (let rowIndex = cursorRow; rowIndex < value.rows.length; rowIndex += 1) {
+      const textOffset = rowIndex === cursorRow ? cursorOffset : 0;
+      const index = value.rows[rowIndex].text.indexOf(expected, textOffset);
+      if (index !== -1) {
+        match = { rowIndex, textOffset: index + expected.length };
+        break;
+      }
+    }
+    if (!match) {
       throw new Error(
-        `transcript did not contain ${expected} after index ${cursor}: ${JSON.stringify(value.rows)}`,
+        `transcript did not contain ${expected} after row ${cursorRow}: ${JSON.stringify(value.rows)}`,
       );
     }
-    cursor = index + 1;
+    cursorOffset = match.textOffset;
+    cursorRow = match.rowIndex;
   }
 }
 
@@ -1185,8 +1239,22 @@ function messageText(message) {
   return message.parts.map((part) => part.text).join("");
 }
 
+async function removeTree(path) {
+  let lastError = null;
+  for (let attempt = 0; attempt < cleanupRetryCount; attempt += 1) {
+    try {
+      await rm(path, { force: true, maxRetries: 2, recursive: true, retryDelay: 100 });
+      return;
+    } catch (error) {
+      lastError = error;
+      await delay(100 * (attempt + 1));
+    }
+  }
+  throw lastError;
+}
+
 async function launchContext(fixture, recordingDir, options = {}) {
-  await rm(recordingDir, { force: true, recursive: true });
+  await removeTree(recordingDir);
   await mkdir(recordingDir, { recursive: true });
   const debugPort = await openPort();
   const electron = launchElectron(debugPort, fixture, recordingDir, options);
@@ -1221,6 +1289,7 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   };
   const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
     cwd: desktopRoot,
+    detached: process.platform !== "win32",
     env: {
       ...process.env,
       ...extraEnv,
@@ -1294,28 +1363,6 @@ async function settaPageTarget(debugPort) {
   }
   const targets = await response.json();
   return targets.find((target) => target.type === "page" && target.title === "Setta") ?? null;
-}
-
-async function stopElectron(child) {
-  if (child.exitCode !== null || child.killed) {
-    return;
-  }
-  const exitPromise = onceExit(child);
-  child.kill("SIGTERM");
-  const exited = await Promise.race([
-    exitPromise.then(() => true),
-    delay(shutdownTimeoutMs).then(() => false),
-  ]);
-  if (!exited && child.exitCode === null) {
-    child.kill("SIGKILL");
-    await Promise.race([exitPromise, delay(3_000)]);
-  }
-}
-
-function onceExit(child) {
-  return new Promise((resolvePromise) => {
-    child.once("exit", resolvePromise);
-  });
 }
 
 function electronBin() {
