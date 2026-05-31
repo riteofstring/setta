@@ -55,7 +55,6 @@ export function App() {
     projectPaneOpen,
     rightPaneOpen: panes.right.open,
   });
-  const chromeInsetPane: ChromeInsetPane | null = null;
   const toggleMaximizedPane = useCallback(
     (pane: NonNullable<MaximizedPane>) => {
       setProjectPaneOpen(true);
@@ -72,6 +71,7 @@ export function App() {
     },
     [panes],
   );
+  const chromeInsetPane = firstVisibleTopInsetPane(visibility);
 
   useEffect(() => {
     return window.setta.chat.onEvent((event) => {
@@ -118,7 +118,7 @@ export function App() {
         setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
         setSearchPaletteOpen={setSearchPaletteOpen}
       />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900 pt-9">
+      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
         <ProjectPane
           chromeInsetTop={chromeInsetPane === "project"}
           chat={chat}
@@ -566,7 +566,7 @@ function ShellTopBar() {
   return (
     <div
       aria-hidden="true"
-      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-9 border-b border-zinc-800 bg-zinc-900/95"
+      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-9 border-b border-zinc-800/80 bg-transparent"
       data-testid="shell-top-bar"
     />
   );
@@ -675,6 +675,19 @@ function floatingControlsRightInsetClass(platform: DesktopPlatform) {
 }
 
 type ChromeInsetPane = "chat" | "project" | "right";
+
+function firstVisibleTopInsetPane(visibility: PaneVisibility): ChromeInsetPane | null {
+  if (visibility.project) {
+    return "project";
+  }
+  if (visibility.chat) {
+    return "chat";
+  }
+  if (visibility.right) {
+    return "right";
+  }
+  return null;
+}
 
 function CommandPalette({
   onOpenChange,
