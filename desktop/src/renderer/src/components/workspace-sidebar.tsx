@@ -1,18 +1,24 @@
 import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/backend";
 import {
+  Archive,
   Circle,
   Clock3,
+  Ellipsis,
   FolderClosed,
   FolderOpen,
   FolderPlus,
+  GitFork,
   LoaderCircle,
+  MessageSquarePlus,
   PenLine,
+  Pencil,
+  Pin,
   Plug,
   Trash2,
   Workflow,
   X,
 } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -21,6 +27,9 @@ const activeWorkspaceRowHeight = 28;
 const recentWorkspaceRowHeight = 28;
 const chatHistoryLimit = 80;
 const directProjectRenderLimit = 120;
+const projectMenuHeight = 200;
+const projectMenuInset = 8;
+const projectMenuWidth = 224;
 const workspaceListOverscan = 6;
 
 interface WorkspaceSidebarProps {
@@ -100,6 +109,7 @@ export function WorkspaceSidebar({
             chatBusy={chatBusy}
             closeWorkspace={closeWorkspace}
             conversations={conversations}
+            createConversation={createConversation}
             expandedWorkspaceId={expandedWorkspaceId}
             selectConversation={selectConversation}
             selectWorkspace={selectWorkspace}
@@ -194,6 +204,7 @@ function ProjectList({
   chatBusy,
   closeWorkspace,
   conversations,
+  createConversation,
   expandedWorkspaceId,
   selectConversation,
   selectWorkspace,
@@ -207,6 +218,7 @@ function ProjectList({
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
+  createConversation: (title?: string) => Promise<void>;
   expandedWorkspaceId: string;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
@@ -226,6 +238,7 @@ function ProjectList({
       chatBusy={chatBusy}
       closeWorkspace={closeWorkspace}
       conversations={conversations}
+      createConversation={createConversation}
       expanded={expandedWorkspaceId === workspace.id}
       selectConversation={selectConversation}
       selectWorkspace={selectWorkspace}
@@ -252,6 +265,7 @@ function ProjectList({
               <ProjectRow
                 busy={busy}
                 closeWorkspace={closeWorkspace}
+                createConversation={createConversation}
                 expanded={expandedWorkspaceId === workspace.id}
                 selectWorkspace={selectWorkspace}
                 selected={workspace.id === selectedWorkspaceId}
@@ -293,6 +307,7 @@ function ProjectWithChats({
   chatBusy,
   closeWorkspace,
   conversations,
+  createConversation,
   expanded,
   selectConversation,
   selectWorkspace,
@@ -306,6 +321,7 @@ function ProjectWithChats({
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
+  createConversation: (title?: string) => Promise<void>;
   expanded: boolean;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
@@ -319,6 +335,7 @@ function ProjectWithChats({
       <ProjectRow
         busy={busy}
         closeWorkspace={closeWorkspace}
+        createConversation={createConversation}
         expanded={expanded}
         selectWorkspace={selectWorkspace}
         selected={selected}
@@ -341,6 +358,7 @@ function ProjectWithChats({
 function ProjectRow({
   busy,
   closeWorkspace,
+  createConversation,
   expanded,
   selectWorkspace,
   selected,
@@ -349,12 +367,20 @@ function ProjectRow({
 }: {
   busy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
+  createConversation: (title?: string) => Promise<void>;
   expanded: boolean;
   selectWorkspace: (id: string) => Promise<void>;
   selected: boolean;
   setExpandedWorkspaceId: (next: string) => void;
   workspace: WorkspaceSummary;
 }) {
+  async function createProjectConversation() {
+    if (!selected) {
+      await selectWorkspace(workspace.id);
+    }
+    await createConversation();
+  }
+
   return (
     <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60">
       <button
@@ -384,15 +410,171 @@ function ProjectRow({
           {workspace.displayName}
         </span>
       </button>
-      <IconButton
-        className="mr-0.5 opacity-0 group-hover:opacity-100"
-        disabled={busy}
-        label="Close workspace"
-        onClick={() => void closeWorkspace(workspace.id)}
-      >
-        <X className="h-3.5 w-3.5" />
-      </IconButton>
+      <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <IconButton
+          disabled={busy}
+          label={`New chat in ${workspace.displayName}`}
+          onClick={() => void createProjectConversation()}
+        >
+          <MessageSquarePlus className="h-3.5 w-3.5" />
+        </IconButton>
+        <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
+      </div>
     </div>
+  );
+}
+
+function ProjectMoreMenu({
+  busy,
+  closeWorkspace,
+  workspace,
+}: {
+  busy: boolean;
+  closeWorkspace: (id: string) => Promise<void>;
+  workspace: WorkspaceSummary;
+}) {
+  const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({
+    left: projectMenuInset,
+    top: projectMenuInset,
+  });
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  function updateMenuPosition() {
+    const anchor = menuRef.current?.getBoundingClientRect();
+    if (!anchor) {
+      return;
+    }
+    const maxLeft = Math.max(
+      projectMenuInset,
+      window.innerWidth - projectMenuWidth - projectMenuInset,
+    );
+    setMenuPosition({
+      left: Math.min(Math.max(projectMenuInset, anchor.right - projectMenuWidth), maxLeft),
+      top: Math.min(
+        anchor.bottom + 4,
+        Math.max(projectMenuInset, window.innerHeight - projectMenuHeight - projectMenuInset),
+      ),
+    });
+  }
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    updateMenuPosition();
+
+    function closeOnOutsidePress(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    function repositionMenu() {
+      updateMenuPosition();
+    }
+
+    window.addEventListener("pointerdown", closeOnOutsidePress);
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", repositionMenu);
+    window.addEventListener("scroll", repositionMenu, true);
+    return () => {
+      window.removeEventListener("pointerdown", closeOnOutsidePress);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", repositionMenu);
+      window.removeEventListener("scroll", repositionMenu, true);
+    };
+  }, [open]);
+
+  const closeMenu = () => setOpen(false);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <IconButton
+        aria-expanded={open}
+        aria-haspopup="menu"
+        disabled={busy}
+        label={`More options for ${workspace.displayName}`}
+        onClick={() => {
+          if (!open) {
+            updateMenuPosition();
+          }
+          setOpen((current) => !current);
+        }}
+      >
+        <Ellipsis className="h-3.5 w-3.5" />
+      </IconButton>
+      {open ? (
+        <div
+          className="fixed z-50 w-56 rounded-md border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50 backdrop-blur"
+          role="menu"
+          style={menuPosition}
+        >
+          <ProjectMenuItem
+            icon={<Pin className="h-4 w-4" />}
+            label="Pin project"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<FolderOpen className="h-4 w-4" />}
+            label="Open in Finder"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<GitFork className="h-4 w-4" />}
+            label="Create permanent worktree"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<Pencil className="h-4 w-4" />}
+            label="Rename project"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<Archive className="h-4 w-4" />}
+            label="Archive chats"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<X className="h-4 w-4" />}
+            label="Remove"
+            onClick={() => {
+              setOpen(false);
+              void closeWorkspace(workspace.id);
+            }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ProjectMenuItem({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-200 hover:bg-zinc-800 hover:text-zinc-50"
+      onClick={onClick}
+      role="menuitem"
+      type="button"
+    >
+      <span className="shrink-0 text-zinc-400">{icon}</span>
+      <span className="truncate">{label}</span>
+    </button>
   );
 }
 
@@ -646,15 +828,17 @@ function IconButton({
   disabled,
   label,
   onClick,
+  type = "button",
+  ...buttonProps
 }: {
   children: ReactNode;
   className?: string;
   disabled: boolean;
   label: string;
-  onClick: () => void;
-}) {
+} & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
+      {...buttonProps}
       aria-label={label}
       className={cn(
         "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-20",
@@ -663,7 +847,7 @@ function IconButton({
       disabled={disabled}
       onClick={onClick}
       title={label}
-      type="button"
+      type={type}
     >
       {children}
     </button>

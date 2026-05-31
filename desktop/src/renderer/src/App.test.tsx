@@ -106,6 +106,8 @@ describe("workspace renderer states", () => {
     expect(html).toContain("/tmp/web");
     expect(html).toContain("Active");
     expect(html).toContain("Web chat");
+    expect(html).toContain("New chat in web");
+    expect(html).toContain("More options for web");
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('data-testid="recent-workspace-list"');
   });
