@@ -16,6 +16,7 @@ import (
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/httpapi"
+	"setta/internal/provideraccounts"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -48,6 +49,12 @@ type Server struct {
 	server      *http.Server
 	listener    net.Listener
 	done        chan error
+}
+
+type runtimeServices struct {
+	chatService            *chat.Service
+	providerAccountService *provideraccounts.Service
+	workspaceService       *workspacesession.Service
 }
 
 func DefaultConfig() Config {
@@ -106,51 +113,17 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bind backend listener: %w", err)
 	}
-	appStore, err := appstate.NewStore(config.AppDataDir)
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("create app state store: %w", err)
-	}
-	workspaceManager, err := workspace.NewManager(config.AppDataDir)
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("create workspace manager: %w", err)
-	}
-	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("load workspace session: %w", err)
-	}
-	chatStore, err := chat.NewStore(config.AppDataDir)
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("create chat store: %w", err)
-	}
-	harness, err := chatHarness(config.ChatHarness)
+	services, err := buildRuntimeServices(config)
 	if err != nil {
 		_ = listener.Close()
 		return nil, err
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, harness)
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("create chat service: %w", err)
-	}
 
 	server := &Server{
-		closeEvents: chatService.CloseEvents,
-		server: &http.Server{
-			Handler: httpapi.NewHandler(httpapi.HandlerConfig{
-				Metadata: httpapi.BackendMetadata{
-					Name:    httpapi.BackendName,
-					Version: config.Version,
-				},
-				ChatService:      chatService,
-				WorkspaceService: workspaceService,
-			}),
-		},
-		listener: listener,
-		done:     make(chan error, 1),
+		closeEvents: services.chatService.CloseEvents,
+		server:      newHTTPServer(config, services),
+		listener:    listener,
+		done:        make(chan error, 1),
 	}
 
 	if err := json.NewEncoder(config.Stdout).Encode(ReadyEvent{Event: "ready", Addr: listener.Addr().String()}); err != nil {
@@ -160,6 +133,61 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 
 	go server.serve()
 	return server, nil
+}
+
+func buildRuntimeServices(config Config) (runtimeServices, error) {
+	appStore, err := appstate.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create app state store: %w", err)
+	}
+	workspaceManager, err := workspace.NewManager(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create workspace manager: %w", err)
+	}
+	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("load workspace session: %w", err)
+	}
+	chatStore, err := chat.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create chat store: %w", err)
+	}
+	providerAccountStore, err := provideraccounts.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create provider account store: %w", err)
+	}
+	providerAccountService, err := provideraccounts.NewService(providerAccountStore)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create provider account service: %w", err)
+	}
+	harness, err := chatHarness(config.ChatHarness, providerAccountService)
+	if err != nil {
+		return runtimeServices{}, err
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, harness)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create chat service: %w", err)
+	}
+
+	return runtimeServices{
+		chatService:            chatService,
+		providerAccountService: providerAccountService,
+		workspaceService:       workspaceService,
+	}, nil
+}
+
+func newHTTPServer(config Config, services runtimeServices) *http.Server {
+	return &http.Server{
+		Handler: httpapi.NewHandler(httpapi.HandlerConfig{
+			Metadata: httpapi.BackendMetadata{
+				Name:    httpapi.BackendName,
+				Version: config.Version,
+			},
+			ChatService:            services.chatService,
+			ProviderAccountService: services.providerAccountService,
+			WorkspaceService:       services.workspaceService,
+		}),
+	}
 }
 
 func (server *Server) Addr() string {
@@ -201,10 +229,10 @@ func normalizeConfig(config Config) Config {
 	return config
 }
 
-func chatHarness(mode ChatHarnessMode) (chat.Harness, error) {
+func chatHarness(mode ChatHarnessMode, providerAccountService *provideraccounts.Service) (chat.Harness, error) {
 	switch mode {
 	case ChatHarnessCodex:
-		return chat.NewCodexHarness(chat.CodexHarnessConfig{}), nil
+		return chat.NewCodexHarness(chat.CodexHarnessConfig{ChatGPTAuthProvider: providerAccountService}), nil
 	case ChatHarnessScriptedWorkflow:
 		return chat.NewScriptedWorkflowHarness(), nil
 	default:

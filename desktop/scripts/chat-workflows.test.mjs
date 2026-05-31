@@ -5,12 +5,18 @@ import { createServer } from "node:net";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { prepareLiveCodexEnv } from "./chat-live-env.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
+import {
+  assertProtocolNotificationActivity,
+  installFakeCodexAppServer,
+} from "./codex-protocol-workflow.mjs";
+import { runProviderAccountWorkflow } from "./provider-account-workflow.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
@@ -133,6 +139,7 @@ async function main() {
   const results = [];
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
+    await runCodexProtocolWorkflow(results);
     await runRestartWorkflow(results);
   }
   if (options.live) {
@@ -154,6 +161,16 @@ async function runDeterministicWorkflowLaunch(results) {
   try {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
+    await runWorkflowStep(results, recordingDir, "provider-accounts", context.client, async () => {
+      await runProviderAccountWorkflow({
+        backend,
+        clickButtonByAria,
+        client: context.client,
+        setInputValue,
+        waitForText,
+        waitForTexts,
+      });
+    });
     await runWorkflowStep(results, recordingDir, "happy-path", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
@@ -199,6 +216,9 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/approvals/submit",
       "/chat/commands/list",
       "/chat/commands/execute",
+      "/provider-accounts",
+      "/provider-accounts/chatgpt-auth/clear",
+      "/provider-accounts/chatgpt-auth/save",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
@@ -210,6 +230,9 @@ async function runDeterministicWorkflowLaunch(results) {
       "chat:submit-approval",
       "chat:list-commands",
       "chat:execute-command",
+      "provider-accounts:clear-chatgpt-auth",
+      "provider-accounts:list",
+      "provider-accounts:save-chatgpt-auth",
     ],
   });
 }
@@ -225,6 +248,68 @@ async function runWorkflowStep(results, recordingDir, name, client, workflow) {
   results.push(name);
   await appendWorkflowState(recordingDir, { name, status: "passed" });
   process.stdout.write(`Electron chat workflow passed: ${name}\n`);
+}
+
+async function runCodexProtocolWorkflow(results) {
+  const fixture = await createFixture("codex-protocol");
+  const fakeCodex = await installFakeCodexAppServer(fixture);
+  const recordingDir = join(recordingRoot, "codex-protocol");
+  const context = await launchContext(fixture, recordingDir, {
+    extraEnv: {
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+    },
+    harness: "codex",
+  });
+  let failure = null;
+
+  try {
+    const backend = await backendProbe(recordingDir);
+    const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
+    const conversationId = await createChat(context.client, backend, workspaceId);
+    await submitComposer(context.client, "protocol notification workflow", "Send message");
+    const run = await waitForRunWithPrompt(
+      backend,
+      workspaceId,
+      conversationId,
+      "protocol notification workflow",
+      "completed",
+    );
+    await waitForTexts(context.client, [
+      "coverage complete",
+      "Hook: pre-command",
+      "Auto-approval review",
+      "File change output",
+      "Reasoning text",
+    ]);
+    await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
+    await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+    await captureScreenshot(context.client, join(recordingDir, "success.png"));
+  } catch (error) {
+    failure = error;
+    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
+  } finally {
+    context.client?.close();
+    await stopElectron(context.electron);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
+  }
+
+  if (failure) {
+    throw failureWithLogs(failure, context.electron.logs);
+  }
+  await assertRecordingEvidence(recordingDir, {
+    backendPaths: [
+      "/workspaces/open",
+      "/chat/conversations/create",
+      "/chat/messages/send",
+      "/chat/messages/page",
+      "/chat/runs/activity",
+      "/chat/runs/list",
+      "/chat/diagnostics/list",
+    ],
+    ipcChannels: ["workspace:open-local-folder", "chat:create-conversation", "chat:send-message"],
+  });
+  results.push("codex-protocol-notifications");
+  process.stdout.write("Electron chat workflow passed: codex-protocol-notifications\n");
 }
 
 async function runRestartWorkflow(results) {
@@ -304,7 +389,7 @@ async function runRestartWorkflow(results) {
 }
 
 async function runLiveCodexWorkflow(results) {
-  const liveEnv = await prepareLiveCodexEnv();
+  const liveEnv = await prepareLiveCodexEnv(repoRoot);
   if (!liveEnv) {
     results.push("live-codex-electron-skipped-no-openai-api-key");
     process.stdout.write(
@@ -398,82 +483,6 @@ async function runLiveCodexWorkflow(results) {
   });
   results.push("live-codex-electron");
   process.stdout.write("Electron chat workflow passed: live-codex-electron\n");
-}
-
-async function prepareLiveCodexEnv() {
-  const openAIKey = await openAIKeyFromDotEnv();
-  if (openAIKey === null) {
-    return null;
-  }
-  const codexHome = await mkdtemp(join(tmpdir(), "setta-live-codex-home-"));
-  await runCommand("codex", ["login", "--with-api-key"], {
-    env: { ...process.env, CODEX_HOME: codexHome },
-    input: openAIKey + "\n",
-  });
-  return {
-    codexHome,
-    env: {
-      CODEX_HOME: codexHome,
-      OPENAI_API_KEY: openAIKey,
-    },
-  };
-}
-
-async function openAIKeyFromDotEnv() {
-  const dotEnvPath = join(repoRoot, ".env");
-  if (!existsSync(dotEnvPath)) {
-    return null;
-  }
-  const content = await readFile(dotEnvPath, "utf8");
-  for (const line of content.split("\n")) {
-    const parsed = parseDotEnvLine(line);
-    if (parsed?.key === "OPENAI_API_KEY" && parsed.value !== "") {
-      return parsed.value;
-    }
-  }
-  return null;
-}
-
-function parseDotEnvLine(line) {
-  const trimmed = line.trim();
-  if (trimmed === "" || trimmed.startsWith("#")) {
-    return null;
-  }
-  const withoutExport = trimmed.startsWith("export ")
-    ? trimmed.slice("export ".length).trim()
-    : trimmed;
-  const separator = withoutExport.indexOf("=");
-  if (separator === -1) {
-    return null;
-  }
-  const key = withoutExport.slice(0, separator).trim();
-  let value = withoutExport.slice(separator + 1).trim();
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    value = value.slice(1, -1);
-  }
-  return { key, value };
-}
-
-async function runCommand(command, args, { env, input }) {
-  const child = spawn(command, args, {
-    env,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  let stderr = "";
-  child.stdout.on("data", () => {});
-  child.stderr.on("data", (data) => {
-    stderr += data.toString();
-  });
-  if (input !== undefined) {
-    child.stdin.end(input);
-  }
-  const code = await onceExit(child);
-  if (code !== 0) {
-    throw new Error(`${command} ${args.join(" ")} exited with ${code}: ${stderr}`);
-  }
 }
 
 async function waitForAssistantTextRendered(client, timeoutMs) {

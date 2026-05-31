@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"setta/internal/chat"
+	"setta/internal/provideraccounts"
 	"setta/internal/workspacesession"
 )
 
@@ -55,6 +56,9 @@ var apiEndpoints = []endpoint{
 	post[ResetWorkspaceChatStateRequest, chat.ChatMaintenanceResult]("ResetWorkspaceChatState", "/chat/maintenance/reset-workspace", handler.resetWorkspaceChatState),
 	post[ClearChatQuarantineRequest, chat.ChatMaintenanceResult]("ClearChatQuarantine", "/chat/maintenance/clear-quarantine", handler.clearChatQuarantine),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
+	get[provideraccounts.ProviderAccounts]("ListProviderAccounts", "/provider-accounts", handler.listProviderAccounts),
+	post[provideraccounts.SaveChatGPTAuthRequest, provideraccounts.ProviderAccounts]("SaveChatGPTAuth", "/provider-accounts/chatgpt-auth/save", handler.saveChatGPTAuth),
+	post[provideraccounts.ClearChatGPTAuthRequest, provideraccounts.ProviderAccounts]("ClearChatGPTAuth", "/provider-accounts/chatgpt-auth/clear", handler.clearChatGPTAuth),
 	stream("EventStream", "/events", handler.eventStream),
 }
 

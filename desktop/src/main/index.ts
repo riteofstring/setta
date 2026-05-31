@@ -427,6 +427,30 @@ function registerIpc() {
     },
     ipcObserver,
   );
+  handleIpc(
+    ipcMain,
+    "providerAccountsList",
+    async () => {
+      return requireBackendClient().listProviderAccounts();
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "providerAccountsSaveChatGPTAuth",
+    async (_event, request) => {
+      return requireBackendClient().saveChatGPTAuth(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "providerAccountsClearChatGPTAuth",
+    async (_event, request) => {
+      return requireBackendClient().clearChatGPTAuth(request);
+    },
+    ipcObserver,
+  );
 }
 
 function externalURL(rawURL: string) {

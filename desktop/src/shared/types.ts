@@ -4,15 +4,18 @@ import type {
   ChatCommandListResult,
   ChatEvent,
   ChatMaintenanceResult,
+  ClearChatGPTAuthRequest,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
   MessagePage,
   OpenWorkspaceResponse,
+  ProviderAccounts,
   QueueMessageResult,
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  SaveChatGPTAuthRequest,
   SendMessageResult,
   SteerMessageResult,
   SubmitApprovalRequest,
@@ -114,5 +117,10 @@ export interface SettaAPI {
       confirmation: string,
     ) => Promise<ChatMaintenanceResult>;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
+  };
+  providerAccounts: {
+    clearChatGPTAuth: (request: ClearChatGPTAuthRequest) => Promise<ProviderAccounts>;
+    list: () => Promise<ProviderAccounts>;
+    saveChatGPTAuth: (request: SaveChatGPTAuthRequest) => Promise<ProviderAccounts>;
   };
 }

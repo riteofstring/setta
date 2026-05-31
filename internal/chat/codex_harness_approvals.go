@@ -15,9 +15,7 @@ const (
 
 var supportedCodexServerRequests = map[string]codexServerRequestPolicy{
 	"account/chatgptAuthTokens/refresh":     codexServerRequestImmediate,
-	"applyPatchApproval":                    codexServerRequestDeferredApproval,
 	"attestation/generate":                  codexServerRequestImmediate,
-	"execCommandApproval":                   codexServerRequestDeferredApproval,
 	"item/commandExecution/requestApproval": codexServerRequestDeferredApproval,
 	"item/fileChange/requestApproval":       codexServerRequestDeferredApproval,
 	"item/permissions/requestApproval":      codexServerRequestDeferredApproval,
@@ -72,14 +70,7 @@ var codexThreadApprovalFactories = map[string]codexApprovalFactory{
 	"mcpServer/elicitation/request": mcpElicitationApprovalFromCodex,
 }
 
-var codexLegacyApprovalFactories = map[string]codexApprovalFactory{
-	"applyPatchApproval":  legacyPatchApprovalFromCodex,
-	"execCommandApproval": legacyExecApprovalFromCodex,
-}
-
 var codexDecisionApprovalResponseMethods = map[string]struct{}{
-	"applyPatchApproval":                    {},
-	"execCommandApproval":                   {},
 	"item/commandExecution/requestApproval": {},
 	"item/fileChange/requestApproval":       {},
 }
@@ -117,13 +108,6 @@ func codexApprovalFromMethod(message jsonRPCMessage, params map[string]any, requ
 		approvalContext := codexApprovalContext{providerItemID: "mcp_elicitation_" + requestID, requestID: requestID, runID: runID}
 		return factory(params, approvalContext)
 	}
-	if factory, ok := codexLegacyApprovalFactories[message.Method]; ok {
-		approvalContext, err := codexLegacyApprovalContext(message, params, requestID, runID, threadID, sink)
-		if err != nil {
-			return ApprovalRequest{}, codexApprovalDetails{}, err
-		}
-		return factory(params, approvalContext)
-	}
 	return ApprovalRequest{}, codexApprovalDetails{}, fmt.Errorf("unsupported codex app-server request: %s", message.Method)
 }
 
@@ -136,21 +120,6 @@ func codexItemApprovalContext(message jsonRPCMessage, params map[string]any, req
 		return codexApprovalContext{}, err
 	}
 	return codexApprovalContext{providerItemID: itemID, requestID: requestID, runID: runID}, nil
-}
-
-func codexLegacyApprovalContext(message jsonRPCMessage, params map[string]any, requestID string, runID string, threadID string, sink TurnSink) (codexApprovalContext, error) {
-	messageThreadID, err := requireString(params, "conversationId", "codex legacy approval request")
-	if err != nil {
-		return codexApprovalContext{}, err
-	}
-	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
-		return codexApprovalContext{}, err
-	}
-	callID, err := requireString(params, "callId", "codex legacy approval request")
-	if err != nil {
-		return codexApprovalContext{}, err
-	}
-	return codexApprovalContext{providerItemID: callID, requestID: requestID, runID: runID}, nil
 }
 
 func validateCodexRequestTurn(message jsonRPCMessage, params map[string]any, threadID string, turnID string, sink TurnSink) error {

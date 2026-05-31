@@ -5,15 +5,18 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatMaintenanceResult,
+  ClearChatGPTAuthRequest,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
   MessagePage,
   OpenWorkspaceResponse,
+  ProviderAccounts,
   QueueMessageResult,
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  SaveChatGPTAuthRequest,
   SendMessageResult,
   SteerMessageResult,
   SubmitApprovalRequest,
@@ -41,6 +44,9 @@ export const ipcChannels = {
   chatSendMessage: "chat:send-message",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
+  providerAccountsClearChatGPTAuth: "provider-accounts:clear-chatgpt-auth",
+  providerAccountsList: "provider-accounts:list",
+  providerAccountsSaveChatGPTAuth: "provider-accounts:save-chatgpt-auth",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceRemoveRecent: "workspace:remove-recent",
@@ -138,6 +144,18 @@ interface IpcContract {
   chatSubmitApproval: {
     args: [input: SubmitApprovalRequest];
     result: Run;
+  };
+  providerAccountsClearChatGPTAuth: {
+    args: [request: ClearChatGPTAuthRequest];
+    result: ProviderAccounts;
+  };
+  providerAccountsList: {
+    args: [];
+    result: ProviderAccounts;
+  };
+  providerAccountsSaveChatGPTAuth: {
+    args: [request: SaveChatGPTAuthRequest];
+    result: ProviderAccounts;
   };
   workspaceClose: {
     args: [id: string];

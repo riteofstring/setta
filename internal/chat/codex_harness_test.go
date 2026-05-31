@@ -302,6 +302,23 @@ func TestCodexHarnessDispatchesRegisteredDynamicTool(t *testing.T) {
 	registry, err := NewAgentToolRegistry(AgentTool{
 		Namespace: "setta",
 		Name:      "fakeTool",
+		InputSchema: AgentToolSchema{
+			Type: AgentToolSchemaObject,
+			Properties: map[string]AgentToolSchema{
+				"value": {Type: AgentToolSchemaString},
+			},
+			Required: []string{"value"},
+		},
+		OutputSchema: AgentToolSchema{Type: AgentToolSchemaObject},
+		PermissionRequirements: []AgentToolPermissionRequirement{{
+			Kind:        AgentToolPermissionReadWorkspace,
+			Description: "Read workspace state for the fake tool.",
+		}},
+		AuditMetadata: AgentToolAuditMetadata{
+			DisplayName: "Fake dynamic tool",
+			Description: "Deterministic dynamic tool test fixture.",
+			Category:    "test",
+		},
 		Handler: func(_ context.Context, call AgentToolCall) (AgentToolResult, error) {
 			if string(call.Arguments) != `{"value":"from codex"}` {
 				t.Fatalf("tool arguments = %s, want structured json", call.Arguments)

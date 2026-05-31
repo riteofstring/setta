@@ -12,7 +12,16 @@ import type {
   TranscriptTurn,
 } from "@generated/backend";
 import { ArrowDown, Check, ChevronUp, X } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  type KeyboardEvent,
+  type UIEvent,
+  type WheelEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button } from "./ui/button";
@@ -277,6 +286,7 @@ export function ChatTranscript({
   transcript: backendTranscript,
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  const scrollTopRef = useRef(0);
   const [pinned, setPinned] = useState(true);
   const transcript = useMemo(
     () =>
@@ -315,6 +325,34 @@ export function ChatTranscript({
     virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
   }, [activeRun, pinned, timeline.length, transcript.runItemOutputsById, transcript.runItemsById]);
 
+  function updatePinnedFromScroll(scrollTop: number, scrollHeight: number, clientHeight: number) {
+    const distanceFromBottom = scrollHeight - clientHeight - scrollTop;
+    if (distanceFromBottom <= 8) {
+      setPinned(true);
+    }
+    scrollTopRef.current = scrollTop;
+  }
+
+  function handleScroll(event: UIEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    updatePinnedFromScroll(target.scrollTop, target.scrollHeight, target.clientHeight);
+  }
+
+  function handleWheel(event: WheelEvent<HTMLDivElement>) {
+    if (event.deltaY < 0) {
+      setPinned(false);
+    }
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (["ArrowUp", "Home", "PageUp"].includes(event.key)) {
+      setPinned(false);
+    }
+  }
+
   async function loadOlderAndPreserveScroll() {
     await loadOlder();
   }
@@ -324,9 +362,18 @@ export function ChatTranscript({
   }
 
   return (
-    <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
+    <div
+      className="relative h-full min-h-0 min-w-0 overflow-hidden"
+      onKeyDownCapture={handleKeyDown}
+      onScrollCapture={handleScroll}
+      onWheelCapture={handleWheel}
+    >
       <Virtuoso
-        atBottomStateChange={setPinned}
+        atBottomStateChange={(atBottom) => {
+          if (atBottom) {
+            setPinned(true);
+          }
+        }}
         className="h-full min-h-0 min-w-0 px-6 py-5"
         components={{
           Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,

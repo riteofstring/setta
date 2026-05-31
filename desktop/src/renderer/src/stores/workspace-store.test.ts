@@ -336,6 +336,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       }),
       submitApproval: async () => emptyRun(),
     },
+    providerAccounts: {
+      clearChatGPTAuth: async () => ({ accounts: [] }),
+      list: async () => ({ accounts: [] }),
+      saveChatGPTAuth: async () => ({ accounts: [] }),
+    },
     workspace: workspaceAPI,
   };
 

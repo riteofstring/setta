@@ -11,6 +11,7 @@ import (
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/jsonio"
+	"setta/internal/provideraccounts"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -217,23 +218,32 @@ type ChatService interface {
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
 }
 
+type ProviderAccountService interface {
+	ClearChatGPTAuth() (provideraccounts.ProviderAccounts, error)
+	ListProviderAccounts() (provideraccounts.ProviderAccounts, error)
+	SaveChatGPTAuth(provideraccounts.SaveChatGPTAuthRequest) (provideraccounts.ProviderAccounts, error)
+}
+
 type HandlerConfig struct {
-	Metadata         BackendMetadata
-	ChatService      ChatService
-	WorkspaceService WorkspaceService
+	Metadata               BackendMetadata
+	ChatService            ChatService
+	ProviderAccountService ProviderAccountService
+	WorkspaceService       WorkspaceService
 }
 
 type handler struct {
-	metadata         BackendMetadata
-	chatService      ChatService
-	workspaceService WorkspaceService
+	metadata               BackendMetadata
+	chatService            ChatService
+	providerAccountService ProviderAccountService
+	workspaceService       WorkspaceService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
-		metadata:         config.Metadata,
-		chatService:      config.ChatService,
-		workspaceService: config.WorkspaceService,
+		metadata:               config.Metadata,
+		chatService:            config.ChatService,
+		providerAccountService: config.ProviderAccountService,
+		workspaceService:       config.WorkspaceService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)
@@ -655,6 +665,53 @@ func (handler handler) submitApproval(response http.ResponseWriter, request *htt
 	writeJSON(response, http.StatusOK, run)
 }
 
+func (handler handler) listProviderAccounts(response http.ResponseWriter, request *http.Request) {
+	service := requireProviderAccountService(response, handler.providerAccountService)
+	if service == nil {
+		return
+	}
+	accounts, err := service.ListProviderAccounts()
+	if err != nil {
+		writeProviderAccountError(response, "list_provider_accounts_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, accounts)
+}
+
+func (handler handler) saveChatGPTAuth(response http.ResponseWriter, request *http.Request) {
+	service := requireProviderAccountService(response, handler.providerAccountService)
+	if service == nil {
+		return
+	}
+	var payload provideraccounts.SaveChatGPTAuthRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	accounts, err := service.SaveChatGPTAuth(payload)
+	if err != nil {
+		writeProviderAccountError(response, "save_chatgpt_auth_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, accounts)
+}
+
+func (handler handler) clearChatGPTAuth(response http.ResponseWriter, request *http.Request) {
+	service := requireProviderAccountService(response, handler.providerAccountService)
+	if service == nil {
+		return
+	}
+	var payload provideraccounts.ClearChatGPTAuthRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	accounts, err := service.ClearChatGPTAuth()
+	if err != nil {
+		writeProviderAccountError(response, "clear_chatgpt_auth_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, accounts)
+}
+
 func (handler handler) eventStream(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -745,6 +802,14 @@ func requireChatService(response http.ResponseWriter, service ChatService) ChatS
 	return service
 }
 
+func requireProviderAccountService(response http.ResponseWriter, service ProviderAccountService) ProviderAccountService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "provider_account_service_unavailable", "provider account service is not available")
+		return nil
+	}
+	return service
+}
+
 func decodeRequest(response http.ResponseWriter, request *http.Request, target any) bool {
 	if err := jsonio.DecodeSingle(request.Body, target); err != nil {
 		if errors.Is(err, jsonio.ErrMultipleValues) {
@@ -784,6 +849,18 @@ func writeChatError(response http.ResponseWriter, code string, err error) {
 		return
 	}
 	if chat.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeProviderAccountError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if provideraccounts.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_provider_account_state", err.Error())
+		return
+	}
+	if provideraccounts.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())

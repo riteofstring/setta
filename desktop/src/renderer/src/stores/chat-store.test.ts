@@ -798,6 +798,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       submitApproval: async () => testRun("running"),
       ...overrides.chat,
     },
+    providerAccounts: {
+      clearChatGPTAuth: async () => ({ accounts: [] }),
+      list: async () => ({ accounts: [] }),
+      saveChatGPTAuth: async () => ({ accounts: [] }),
+    },
     workspace: {
       close: async () => workspaceSession(),
       openLocalFolder: async () => ({

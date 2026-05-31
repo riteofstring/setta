@@ -119,82 +119,6 @@ func structuredInputWithMode(params map[string]any, input StructuredInputRequest
 	return input, nil
 }
 
-func legacyPatchApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
-	reason, err := optionalString(params, "reason", "codex legacy patch approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	grantRoot, err := optionalString(params, "grantRoot", "codex legacy patch approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	fileChanges, err := requireObject(params, "fileChanges", "codex legacy patch approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	paths := make([]string, 0, len(fileChanges))
-	for path := range fileChanges {
-		paths = append(paths, path)
-	}
-	approval := ApprovalRequest{
-		ID:             "codex_" + context.requestID,
-		RunID:          context.runID,
-		ProviderItemID: context.providerItemID,
-		Kind:           ApprovalKindFileChange,
-		Title:          "File change approval",
-		Body:           reason,
-		FilePath:       grantRoot,
-		Options:        []string{},
-	}
-	return approval, codexApprovalDetails{runItem: RunItem{
-		ProviderItemID: context.providerItemID,
-		Type:           RunItemTypeFileChange,
-		Status:         RunItemStatusPending,
-		Title:          "File change approval",
-		Summary:        reason,
-		FilePaths:      paths,
-		PatchStatus:    "approval_requested",
-		RequestID:      context.requestID,
-	}}, nil
-}
-
-func legacyExecApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
-	command, err := requireStringArray(params, "command", "codex legacy exec approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	cwd, err := requireString(params, "cwd", "codex legacy exec approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	reason, err := optionalString(params, "reason", "codex legacy exec approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	commandText := strings.Join(command, " ")
-	approval := ApprovalRequest{
-		ID:             "codex_" + context.requestID,
-		RunID:          context.runID,
-		ProviderItemID: context.providerItemID,
-		Kind:           ApprovalKindCommand,
-		Title:          "Command approval",
-		Body:           reason,
-		Command:        commandText,
-		FilePath:       cwd,
-		Options:        []string{},
-	}
-	return approval, codexApprovalDetails{runItem: RunItem{
-		ProviderItemID: context.providerItemID,
-		Type:           RunItemTypeCommandExecution,
-		Status:         RunItemStatusPending,
-		Title:          "Command approval",
-		Summary:        reason,
-		Command:        commandText,
-		Cwd:            cwd,
-		RequestID:      context.requestID,
-	}}, nil
-}
-
 func (harness *CodexHarness) handleImmediateCodexServerRequest(ctx context.Context, message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) error {
 	switch message.Method {
 	case "item/tool/call":
@@ -220,19 +144,11 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 	if err != nil {
 		return err
 	}
-	item := RunItem{
-		ProviderItemID: call.CallID,
-		Type:           RunItemTypeDynamicToolCall,
-		Status:         RunItemStatusRunning,
-		Title:          "Dynamic tool call",
-		Namespace:      call.Namespace,
-		ToolName:       call.Tool,
-		Details:        call.Arguments,
-	}
+	tool, ok := harness.config.Tools.Lookup(call.Namespace, call.Tool)
+	item := codexDynamicToolRunItem(call, tool, ok)
 	if err := sink.RunItemUpsert(item); err != nil {
 		return err
 	}
-	tool, ok := harness.config.Tools.Lookup(call.Namespace, call.Tool)
 	if !ok {
 		messageText := "unsupported dynamic tool: " + agentToolKey(call.Namespace, call.Tool)
 		item.Status = RunItemStatusFailed
@@ -261,6 +177,23 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 		"contentItems": codexDynamicToolContentItems(result.ContentItems),
 		"success":      result.Success,
 	})
+}
+
+func codexDynamicToolRunItem(call AgentToolCall, tool AgentTool, registered bool) RunItem {
+	item := RunItem{
+		ProviderItemID: call.CallID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusRunning,
+		Title:          "Dynamic tool call",
+		Namespace:      call.Namespace,
+		ToolName:       call.Tool,
+		Details:        call.Arguments,
+	}
+	if registered {
+		item.Title = tool.AuditMetadata.DisplayName
+		item.Summary = tool.AuditMetadata.Description
+	}
+	return item
 }
 
 func codexDynamicToolCall(params map[string]any) (AgentToolCall, error) {
@@ -337,6 +270,13 @@ func (harness *CodexHarness) handleCodexChatGPTAuthRefresh(ctx context.Context, 
 	}
 	tokens, err := harness.config.ChatGPTAuthProvider.RefreshChatGPTAuthTokens(ctx, ChatGPTAuthRefreshRequest{PreviousAccountID: previousAccountID, Reason: reason})
 	if err != nil {
+		if IsChatGPTAuthUnavailable(err) {
+			messageText := err.Error()
+			if diagnosticErr := sink.ProviderDiagnostic("codex_chatgpt_auth_unavailable", messageText, map[string]string{"reason": reason, "previousAccountId": previousAccountID}, false, DiagnosticSeverityError); diagnosticErr != nil {
+				return diagnosticErr
+			}
+			return message.client.respondError(message.ID, codexJSONRPCErrorCapabilityUnavailable, messageText)
+		}
 		messageText := "ChatGPT auth token refresh failed: " + err.Error()
 		if diagnosticErr := sink.ProviderDiagnostic("codex_chatgpt_auth_refresh_failed", messageText, map[string]string{"reason": reason, "previousAccountId": previousAccountID}, false, DiagnosticSeverityError); diagnosticErr != nil {
 			return diagnosticErr

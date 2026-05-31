@@ -815,6 +815,29 @@ export interface SubmitApprovalRequest {
   cancelled: boolean;
 }
 
+export interface ProviderAccountSummary {
+  provider: string;
+  authMode: string;
+  configured: boolean;
+  accountId: string;
+  planType: string;
+  updatedAt: string;
+  diagnostic: string;
+}
+
+export interface ProviderAccounts {
+  accounts: ProviderAccountSummary[];
+}
+
+export interface SaveChatGPTAuthRequest {
+  accessToken: string;
+  accountId: string;
+  planType: string;
+}
+
+export interface ClearChatGPTAuthRequest {
+}
+
 export interface APIError {
   code: string;
   message: string;
@@ -1171,6 +1194,18 @@ export const backendEndpoints = {
   SubmitApproval: {
     method: "POST",
     path: "/chat/approvals/submit",
+  },
+  ListProviderAccounts: {
+    method: "GET",
+    path: "/provider-accounts",
+  },
+  SaveChatGPTAuth: {
+    method: "POST",
+    path: "/provider-accounts/chatgpt-auth/save",
+  },
+  ClearChatGPTAuth: {
+    method: "POST",
+    path: "/provider-accounts/chatgpt-auth/clear",
   },
   EventStream: {
     method: "GET",
@@ -1908,6 +1943,45 @@ export function decodeSubmitApprovalRequest(value: unknown): SubmitApprovalReque
   };
 }
 
+export function decodeProviderAccountSummary(value: unknown): ProviderAccountSummary {
+  const record = assertRecord(value, "ProviderAccountSummary");
+  assertKnownFields(record, "ProviderAccountSummary", ["provider", "authMode", "configured", "accountId", "planType", "updatedAt", "diagnostic"]);
+  return {
+    provider: decodeString(requireField(record, "provider", "ProviderAccountSummary"), "ProviderAccountSummary.provider"),
+    authMode: decodeString(requireField(record, "authMode", "ProviderAccountSummary"), "ProviderAccountSummary.authMode"),
+    configured: decodeBoolean(requireField(record, "configured", "ProviderAccountSummary"), "ProviderAccountSummary.configured"),
+    accountId: decodeString(requireField(record, "accountId", "ProviderAccountSummary"), "ProviderAccountSummary.accountId"),
+    planType: decodeString(requireField(record, "planType", "ProviderAccountSummary"), "ProviderAccountSummary.planType"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "ProviderAccountSummary"), "ProviderAccountSummary.updatedAt"),
+    diagnostic: decodeString(requireField(record, "diagnostic", "ProviderAccountSummary"), "ProviderAccountSummary.diagnostic"),
+  };
+}
+
+export function decodeProviderAccounts(value: unknown): ProviderAccounts {
+  const record = assertRecord(value, "ProviderAccounts");
+  assertKnownFields(record, "ProviderAccounts", ["accounts"]);
+  return {
+    accounts: decodeArray(requireField(record, "accounts", "ProviderAccounts"), "ProviderAccounts.accounts", (item) => decodeProviderAccountSummary(item)),
+  };
+}
+
+export function decodeSaveChatGPTAuthRequest(value: unknown): SaveChatGPTAuthRequest {
+  const record = assertRecord(value, "SaveChatGPTAuthRequest");
+  assertKnownFields(record, "SaveChatGPTAuthRequest", ["accessToken", "accountId", "planType"]);
+  return {
+    accessToken: decodeString(requireField(record, "accessToken", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.accessToken"),
+    accountId: decodeString(requireField(record, "accountId", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.accountId"),
+    planType: decodeString(requireField(record, "planType", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.planType"),
+  };
+}
+
+export function decodeClearChatGPTAuthRequest(value: unknown): ClearChatGPTAuthRequest {
+  const record = assertRecord(value, "ClearChatGPTAuthRequest");
+  assertKnownFields(record, "ClearChatGPTAuthRequest", []);
+  return {
+  };
+}
+
 export function decodeAPIError(value: unknown): APIError {
   const record = assertRecord(value, "APIError");
   assertKnownFields(record, "APIError", ["code", "message"]);
@@ -2412,6 +2486,9 @@ export interface BackendClient {
   resetWorkspaceChatState: (request: ResetWorkspaceChatStateRequest) => Promise<ChatMaintenanceResult>;
   clearChatQuarantine: (request: ClearChatQuarantineRequest) => Promise<ChatMaintenanceResult>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
+  listProviderAccounts: () => Promise<ProviderAccounts>;
+  saveChatGPTAuth: (request: SaveChatGPTAuthRequest) => Promise<ProviderAccounts>;
+  clearChatGPTAuth: (request: ClearChatGPTAuthRequest) => Promise<ProviderAccounts>;
 }
 
 export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {
@@ -2613,6 +2690,30 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
       endpoint: backendEndpoints.SubmitApproval,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listProviderAccounts: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeProviderAccounts,
+      endpoint: backendEndpoints.ListProviderAccounts,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    saveChatGPTAuth: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeProviderAccounts,
+      endpoint: backendEndpoints.SaveChatGPTAuth,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    clearChatGPTAuth: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeProviderAccounts,
+      endpoint: backendEndpoints.ClearChatGPTAuth,
       fetchImpl,
       requestPayload: request,
     }),

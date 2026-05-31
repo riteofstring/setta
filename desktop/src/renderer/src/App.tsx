@@ -1,6 +1,28 @@
-import type { BackendHealth, WorkspaceSession, WorkspaceSummary } from "@generated/backend";
-import { CircleAlert, CircleCheck, FolderOpen, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import type {
+  BackendHealth,
+  ProviderAccountSummary,
+  WorkspaceSession,
+  WorkspaceSummary,
+} from "@generated/backend";
+import {
+  CircleAlert,
+  CircleCheck,
+  FolderOpen,
+  KeyRound,
+  RefreshCw,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import type {
   BackendEventStreamStatus,
@@ -73,6 +95,10 @@ export function App() {
             reorderWorkspaces={workspace.reorderWorkspaces}
             selectWorkspace={workspace.selectWorkspace}
             selectedWorkspaceId={workspace.selectedWorkspaceId}
+          />
+          <Separator className="my-5" />
+          <ProviderAccountsPanel
+            backendOnline={backend.process.status === "online" || backend.health?.ok === true}
           />
           <Separator className="my-5" />
           <dl className="space-y-3 px-4 pb-5 text-xs">
@@ -195,6 +221,306 @@ function useSelectedWorkspace(session: WorkspaceSession | null) {
       null
     );
   }, [session]);
+}
+
+interface ProviderAccountForm {
+  accessToken: string;
+  accountId: string;
+  planType: string;
+}
+
+const emptyProviderAccountForm: ProviderAccountForm = {
+  accessToken: "",
+  accountId: "",
+  planType: "unknown",
+};
+
+function useProviderAccountState(backendOnline: boolean) {
+  const [account, setAccount] = useState<ProviderAccountSummary | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState<ProviderAccountForm>(emptyProviderAccountForm);
+
+  const loadAccounts = useCallback(async () => {
+    if (!backendOnline) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const accounts = await window.setta.providerAccounts.list();
+      setAccount(codexChatGPTAccount(accounts.accounts));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Account state unavailable");
+    } finally {
+      setBusy(false);
+    }
+  }, [backendOnline]);
+
+  useEffect(() => {
+    void loadAccounts();
+  }, [loadAccounts]);
+
+  const beginEdit = () => {
+    setForm({
+      accessToken: "",
+      accountId: account?.accountId ?? "",
+      planType: account?.planType || "unknown",
+    });
+    setEditing(true);
+    setError("");
+  };
+
+  const saveAuth = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const accounts = await window.setta.providerAccounts.saveChatGPTAuth({
+        accessToken: form.accessToken,
+        accountId: form.accountId,
+        planType: form.planType,
+      });
+      setAccount(codexChatGPTAccount(accounts.accounts));
+      setEditing(false);
+      setForm(emptyProviderAccountForm);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearAuth = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const accounts = await window.setta.providerAccounts.clearChatGPTAuth({});
+      setAccount(codexChatGPTAccount(accounts.accounts));
+      setEditing(false);
+      setForm(emptyProviderAccountForm);
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : "Clear failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return {
+    account,
+    beginEdit,
+    busy,
+    clearAuth,
+    editing,
+    error,
+    form,
+    saveAuth,
+    setEditing,
+    setForm,
+  };
+}
+
+function ProviderAccountsPanel({ backendOnline }: { backendOnline: boolean }) {
+  const accountState = useProviderAccountState(backendOnline);
+  const configured = accountState.account?.configured ?? false;
+  return (
+    <section className="px-4 text-xs" data-testid="provider-accounts-panel">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-zinc-950">Accounts</h2>
+        <Badge data-testid="provider-accounts-status" variant={configured ? "success" : "neutral"}>
+          {configured ? "Configured" : "Empty"}
+        </Badge>
+      </div>
+      <div className="mt-3 min-w-0">
+        <div className="flex items-center gap-2 font-medium text-zinc-800">
+          <KeyRound className="h-4 w-4 shrink-0 text-zinc-500" />
+          <span className="truncate">Codex ChatGPT</span>
+        </div>
+        <div className="mt-1 truncate text-zinc-500" data-testid="provider-account-summary">
+          <ProviderAccountSummaryText account={accountState.account} configured={configured} />
+        </div>
+      </div>
+      {accountState.editing ? (
+        <ProviderAccountEditor
+          busy={accountState.busy}
+          form={accountState.form}
+          saveAuth={accountState.saveAuth}
+          setEditing={accountState.setEditing}
+          setForm={accountState.setForm}
+        />
+      ) : (
+        <ProviderAccountActions
+          backendOnline={backendOnline}
+          beginEdit={accountState.beginEdit}
+          busy={accountState.busy}
+          clearAuth={accountState.clearAuth}
+          configured={configured}
+        />
+      )}
+      <ProviderAccountError error={accountState.error} />
+    </section>
+  );
+}
+
+function ProviderAccountSummaryText({
+  account,
+  configured,
+}: {
+  account: ProviderAccountSummary | null;
+  configured: boolean;
+}) {
+  return configured
+    ? accountSummary(account)
+    : account?.diagnostic || "ChatGPT auth is not configured";
+}
+
+function ProviderAccountEditor({
+  busy,
+  form,
+  saveAuth,
+  setEditing,
+  setForm,
+}: {
+  busy: boolean;
+  form: ProviderAccountForm;
+  saveAuth: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  setEditing: (editing: boolean) => void;
+  setForm: Dispatch<SetStateAction<ProviderAccountForm>>;
+}) {
+  return (
+    <form className="mt-3 space-y-2" onSubmit={(event) => void saveAuth(event)}>
+      <label className="block text-zinc-600">
+        Access token
+        <input
+          className="mt-1 h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 outline-none focus:border-zinc-400"
+          data-testid="provider-account-access-token"
+          onChange={(event) =>
+            setForm((current) => ({ ...current, accessToken: event.target.value }))
+          }
+          type="password"
+          value={form.accessToken}
+        />
+      </label>
+      <label className="block text-zinc-600">
+        Account ID
+        <input
+          className="mt-1 h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 outline-none focus:border-zinc-400"
+          data-testid="provider-account-account-id"
+          onChange={(event) =>
+            setForm((current) => ({ ...current, accountId: event.target.value }))
+          }
+          value={form.accountId}
+        />
+      </label>
+      <label className="block text-zinc-600">
+        Plan
+        <select
+          className="mt-1 h-8 w-full rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-950 outline-none focus:border-zinc-400"
+          data-testid="provider-account-plan-type"
+          onChange={(event) => setForm((current) => ({ ...current, planType: event.target.value }))}
+          value={form.planType}
+        >
+          <option value="unknown">unknown</option>
+          <option value="chatgptPlus">chatgptPlus</option>
+          <option value="chatgptPro">chatgptPro</option>
+          <option value="chatgptTeam">chatgptTeam</option>
+          <option value="chatgptEnterprise">chatgptEnterprise</option>
+        </select>
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          aria-label="Save ChatGPT account"
+          className="h-8 px-2 text-xs"
+          disabled={busy || form.accessToken === "" || form.accountId === ""}
+          type="submit"
+          variant="primary"
+        >
+          <Save className="h-3.5 w-3.5" />
+          Save
+        </Button>
+        <Button
+          aria-label="Cancel ChatGPT account edit"
+          className="h-8 px-2 text-xs"
+          disabled={busy}
+          onClick={() => {
+            setEditing(false);
+            setForm(emptyProviderAccountForm);
+          }}
+          type="button"
+        >
+          <X className="h-3.5 w-3.5" />
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function ProviderAccountActions({
+  backendOnline,
+  beginEdit,
+  busy,
+  clearAuth,
+  configured,
+}: {
+  backendOnline: boolean;
+  beginEdit: () => void;
+  busy: boolean;
+  clearAuth: () => Promise<void>;
+  configured: boolean;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <Button
+        aria-label="Configure ChatGPT account"
+        className="h-8 px-2 text-xs"
+        disabled={busy || !backendOnline}
+        onClick={beginEdit}
+      >
+        <KeyRound className="h-3.5 w-3.5" />
+        Configure
+      </Button>
+      {configured ? (
+        <Button
+          aria-label="Clear ChatGPT account"
+          className="h-8 px-2 text-xs"
+          disabled={busy}
+          onClick={() => void clearAuth()}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Clear
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function ProviderAccountError({ error }: { error: string }) {
+  if (error === "") {
+    return null;
+  }
+  return (
+    <div className="mt-2 break-words text-red-700" data-testid="provider-accounts-error">
+      {error}
+    </div>
+  );
+}
+
+function codexChatGPTAccount(accounts: ProviderAccountSummary[]) {
+  return (
+    accounts.find(
+      (candidate) => candidate.provider === "codex" && candidate.authMode === "chatgpt",
+    ) ?? null
+  );
+}
+
+function accountSummary(account: ProviderAccountSummary | null) {
+  if (!account) {
+    return "";
+  }
+  const plan = account.planType ? ` ${account.planType}` : "";
+  return `${account.accountId}${plan}`;
 }
 
 export function WorkspacePanel({

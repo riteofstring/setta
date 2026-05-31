@@ -83,6 +83,11 @@ const api: SettaAPI = {
       invoke("chatSteerMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
   },
+  providerAccounts: {
+    clearChatGPTAuth: (request) => invoke("providerAccountsClearChatGPTAuth", request),
+    list: () => invoke("providerAccountsList"),
+    saveChatGPTAuth: (request) => invoke("providerAccountsSaveChatGPTAuth", request),
+  },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
