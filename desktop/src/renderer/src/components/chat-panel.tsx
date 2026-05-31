@@ -77,7 +77,7 @@ function IconButton({
   return (
     <button
       aria-label={label}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={disabled}
       onClick={onClick}
       title={label}
@@ -182,7 +182,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
 
   return (
     <form
-      className="bg-zinc-900 px-4 pt-2 pb-3"
+      className="bg-zinc-900 px-3 pt-1.5 pb-2"
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
@@ -197,9 +197,9 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           open={slashPaletteOpen}
           query={slashQuery ?? ""}
         />
-        <div className="min-w-0 rounded-[28px] border border-zinc-700 bg-zinc-800/90 px-4 pt-3 pb-3 shadow-xl shadow-black/20">
+        <div className="min-w-0 rounded-xl border border-zinc-700 bg-zinc-800/90 px-2.5 py-2 shadow-lg shadow-black/15">
           <Textarea
-            className="max-h-44 min-h-24 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-base leading-6 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
+            className="max-h-32 min-h-10 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-5 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled}
             onChange={(event) => updateDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -220,18 +220,18 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
               void sendDraft();
             }}
             placeholder={chat.selectedConversation ? "Ask Setta" : "Create a chat first"}
-            rows={3}
+            rows={2}
             value={draft}
           />
-          <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
+          <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-1">
               <ChatPlusMenu disabled={disabled} />
               <ChatPermissionsMenu disabled={disabled} />
             </div>
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-center gap-1">
               <ChatModelMenu disabled={disabled} />
               <IconButton disabled={disabled} label="Voice input">
-                <Mic className="h-4 w-4" />
+                <Mic className="h-3.5 w-3.5" />
               </IconButton>
               <ComposerButton
                 canSend={!disabled && draft.trim() !== ""}
@@ -259,7 +259,7 @@ function ComposerButton({
     return (
       <Button
         aria-label="Stop run"
-        className="h-9 w-9 shrink-0 rounded-full border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white"
+        className="h-7 w-7 shrink-0 rounded-md border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white"
         disabled={chat.operation === "cancelling"}
         onClick={() => void chat.stopActiveRun()}
         title="Stop run"
@@ -273,13 +273,13 @@ function ComposerButton({
   return (
     <Button
       aria-label="Send message"
-      className="h-9 w-9 shrink-0 rounded-full border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
+      className="h-7 w-7 shrink-0 rounded-md border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
       disabled={!canSend}
       title="Send message"
       type="submit"
       variant="primary"
     >
-      <ArrowUp className="h-5 w-5" />
+      <ArrowUp className="h-4 w-4" />
     </Button>
   );
 }

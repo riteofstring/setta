@@ -9,6 +9,7 @@ import {
   PanelBottomOpen,
   PanelLeftOpen,
   PanelRightOpen,
+  PanelTop,
   Search,
   Settings,
   Terminal,
@@ -35,7 +36,7 @@ import { useChatStore } from "./stores/chat-store";
 import { type WorkspaceGitState, useWorkspaceGitInfo } from "./hooks/use-workspace-git-info";
 
 type PaneSlot = "bottom" | "right";
-type WorkspacePaneKind = "browser" | "file" | "settings" | "terminal";
+type WorkspacePaneKind = "browser" | "canvas" | "file" | "settings" | "terminal";
 
 export interface WorkspacePaneTab {
   id: string;
@@ -822,15 +823,17 @@ const emptyPaneState: WorkspacePaneState = {
 
 const workspacePaneLabels = {
   browser: "Browser",
-  file: "Open file",
+  canvas: "Canvas",
+  file: "Files",
   settings: "Settings",
   terminal: "Terminal",
 } satisfies Record<WorkspacePaneKind, string>;
 
 const workspacePaneActions = [
-  "terminal",
-  "browser",
+  "canvas",
   "file",
+  "browser",
+  "terminal",
   "settings",
 ] satisfies WorkspacePaneKind[];
 
@@ -1022,12 +1025,21 @@ function WorkspacePaneContent({ tab }: { tab: WorkspacePaneTab }) {
           </div>
         </div>
       );
+    case "canvas":
+      return (
+        <div className="flex h-full min-h-0 flex-col bg-zinc-900">
+          <div className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 px-3 text-xs text-zinc-500">
+            <PanelTop className="h-3.5 w-3.5" />
+            <span>Canvas</span>
+          </div>
+        </div>
+      );
     case "file":
       return (
         <div className="flex h-full min-h-0 flex-col bg-zinc-900">
           <div className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 px-3 text-xs text-zinc-500">
             <FileText className="h-3.5 w-3.5" />
-            <span>Open file</span>
+            <span>Files</span>
           </div>
         </div>
       );
@@ -1048,6 +1060,8 @@ function workspacePaneIcon(kind: WorkspacePaneKind, className: string) {
   switch (kind) {
     case "browser":
       return <Globe2 className={className} />;
+    case "canvas":
+      return <PanelTop className={className} />;
     case "file":
       return <FileText className={className} />;
     case "settings":

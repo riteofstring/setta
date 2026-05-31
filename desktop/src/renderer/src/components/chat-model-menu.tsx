@@ -61,15 +61,15 @@ export function ChatModelMenu({
       {open ? (
         <div
           aria-label="Chat model selection"
-          className="absolute right-0 bottom-[calc(100%+0.55rem)] z-50 w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-zinc-700/90 bg-zinc-800/95 p-2 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+          className="absolute right-0 bottom-[calc(100%+0.4rem)] z-50 w-[min(340px,calc(100vw-2rem))] rounded-xl border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
           role="menu"
         >
-          <div className="px-3 pt-2 pb-2 text-base text-zinc-400">Reasoning</div>
+          <div className="px-2 pt-1 pb-1 text-xs text-zinc-400">Reasoning</div>
           {reasoningLevels.map((level) => (
             <button
               aria-checked={level.id === reasoningLevel}
               className={cn(
-                "grid h-11 w-full grid-cols-[minmax(0,1fr)_20px] items-center gap-3 rounded-xl px-3 text-left text-base text-zinc-100 hover:bg-zinc-700/75",
+                "grid h-8 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 rounded-md px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75",
                 level.id === reasoningLevel ? "bg-zinc-700/80" : "",
               )}
               key={level.id}
@@ -82,11 +82,11 @@ export function ChatModelMenu({
             >
               <span className="truncate">{level.label}</span>
               {level.id === reasoningLevel ? (
-                <Check className="h-5 w-5 text-zinc-100" aria-hidden="true" />
+                <Check className="h-3.5 w-3.5 text-zinc-100" aria-hidden="true" />
               ) : null}
             </button>
           ))}
-          <div className="mx-3 my-2 h-px bg-zinc-700/80" />
+          <div className="mx-2 my-1 h-px bg-zinc-700/80" />
           <ModelSubmenuRow label="GPT-5.5" />
           <ModelSubmenuRow label="Speed" />
         </div>
@@ -96,7 +96,7 @@ export function ChatModelMenu({
         aria-haspopup="menu"
         aria-label="Chat model selection"
         className={cn(
-          "inline-flex h-9 min-w-0 items-center gap-1.5 rounded-full px-3 text-sm hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
+          "inline-flex h-6 min-w-0 items-center gap-1 rounded-md px-1.5 text-xs hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
           open ? "bg-zinc-700/80 text-zinc-100" : "text-zinc-400",
         )}
         disabled={disabled}
@@ -105,7 +105,7 @@ export function ChatModelMenu({
       >
         <span className="font-medium text-zinc-100">5.5</span>
         <span className="truncate text-zinc-500">{reasoningLabels[reasoningLevel]}</span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-zinc-400" />
+        <ChevronDown className="h-3 w-3 shrink-0 text-zinc-400" />
       </button>
     </div>
   );
@@ -114,12 +114,12 @@ export function ChatModelMenu({
 function ModelSubmenuRow({ label }: { label: string }) {
   return (
     <button
-      className="grid h-11 w-full grid-cols-[minmax(0,1fr)_20px] items-center gap-3 rounded-xl px-3 text-left text-base text-zinc-100 hover:bg-zinc-700/75"
+      className="grid h-8 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 rounded-md px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
       role="menuitem"
       type="button"
     >
       <span className="truncate">{label}</span>
-      <ChevronRight className="h-5 w-5 text-zinc-500" aria-hidden="true" />
+      <ChevronRight className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
     </button>
   );
 }

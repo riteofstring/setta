@@ -46,19 +46,19 @@ export function EditorPicker({ rootPath }: { rootPath: string }) {
 
   return (
     <div className="relative" ref={rootRef}>
-      <div className="inline-flex h-7 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/80 text-zinc-300 shadow-sm shadow-black/20">
+      <div className="inline-flex h-6 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 shadow-sm shadow-black/20">
         <EditorOpenButton editor={selectedEditor} onOpenEditor={openEditor} state={buttonState} />
         <button
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Choose editor"
-          className="grid h-7 w-7 place-items-center border-l border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:pointer-events-none disabled:opacity-40"
+          className="grid h-6 w-6 place-items-center border-l border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:pointer-events-none disabled:opacity-40"
           disabled={!rootPath}
           onClick={() => setOpen((current) => !current)}
           title="Choose editor"
           type="button"
         >
-          <ChevronDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-3 w-3" />
         </button>
       </div>
       {open ? (
@@ -86,7 +86,7 @@ function EditorOpenButton({
   return (
     <button
       aria-label={state.title}
-      className="grid h-7 w-9 place-items-center hover:bg-zinc-700 hover:text-white disabled:pointer-events-none disabled:opacity-40"
+      className="grid h-6 w-7 place-items-center hover:bg-zinc-700 hover:text-white disabled:pointer-events-none disabled:opacity-40"
       disabled={state.disabled}
       onClick={() => void onOpenEditor(editor)}
       title={state.title}
@@ -236,7 +236,7 @@ function EditorPickerMenu({
 }) {
   return (
     <div
-      className="absolute top-full right-0 z-50 mt-1 w-56 rounded-xl border border-zinc-700 bg-zinc-900/95 p-1.5 text-sm text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
+      className="absolute top-full right-0 z-50 mt-1 w-52 rounded-xl border border-zinc-700 bg-zinc-900/95 p-1.5 text-xs text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
       role="menu"
     >
       {state.status === "ready" && state.editors.length > 0 ? (
@@ -273,7 +273,7 @@ function EditorMenuItem({
   return (
     <button
       className={cn(
-        "flex h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-zinc-200 hover:bg-zinc-800 hover:text-white",
+        "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-zinc-200 hover:bg-zinc-800 hover:text-white",
         selected ? "bg-zinc-800/70 text-white" : "",
       )}
       onClick={() => {
@@ -295,13 +295,13 @@ function EditorIcon({ editor }: { editor: InstalledEditorApp | null }) {
     return (
       <img
         alt=""
-        className="h-4 w-4 shrink-0 rounded-[3px]"
+        className="h-3.5 w-3.5 shrink-0 rounded-[3px]"
         draggable={false}
         src={editor.iconDataUrl}
       />
     );
   }
-  return <Code2 className="h-4 w-4 shrink-0" />;
+  return <Code2 className="h-3.5 w-3.5 shrink-0" />;
 }
 
 function editorPickerStatus(state: EditorPickerState) {

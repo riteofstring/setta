@@ -93,7 +93,7 @@ export function ChatPlusMenu({
       {open ? (
         <div
           aria-label="Add context"
-          className="absolute bottom-[calc(100%+0.55rem)] left-0 z-50 w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-zinc-700/90 bg-zinc-800/95 p-2 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(280px,calc(100vw-2rem))] rounded-xl border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
           role="menu"
         >
           <MenuItem icon={<Paperclip />} label="Add photos & files" />
@@ -116,7 +116,7 @@ export function ChatPlusMenu({
             aria-expanded={pluginSubmenuOpen}
             aria-haspopup="menu"
             className={cn(
-              "grid h-11 w-full grid-cols-[24px_minmax(0,1fr)_20px] items-center gap-3 rounded-xl px-2 text-left text-base text-zinc-100 hover:bg-zinc-700/75",
+              "grid h-8 w-full grid-cols-[20px_minmax(0,1fr)_16px] items-center gap-2 rounded-md px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75",
               pluginSubmenuOpen ? "bg-zinc-700/80" : "",
             )}
             onClick={() => setPluginSubmenuOpen((isOpen) => !isOpen)}
@@ -127,7 +127,7 @@ export function ChatPlusMenu({
           >
             <MenuIcon>{<Blocks />}</MenuIcon>
             <span className="truncate">Plugins</span>
-            <ChevronRight className="h-5 w-5 text-zinc-400" aria-hidden="true" />
+            <ChevronRight className="h-3.5 w-3.5 text-zinc-400" aria-hidden="true" />
           </button>
           {pluginSubmenuOpen ? <PluginSubmenu /> : null}
         </div>
@@ -137,7 +137,7 @@ export function ChatPlusMenu({
         aria-haspopup="menu"
         aria-label="Add context"
         className={cn(
-          "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
+          "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
           open ? "bg-zinc-700/80 text-zinc-100" : "",
         )}
         disabled={disabled}
@@ -149,7 +149,7 @@ export function ChatPlusMenu({
         }}
         type="button"
       >
-        <Plus className="h-5 w-5" />
+        <Plus className="h-3.5 w-3.5" />
       </button>
     </div>
   );
@@ -158,7 +158,7 @@ export function ChatPlusMenu({
 function MenuItem({ icon, label }: { icon: ReactNode; label: string }) {
   return (
     <button
-      className="grid h-11 w-full grid-cols-[24px_minmax(0,1fr)] items-center gap-3 rounded-xl px-2 text-left text-base text-zinc-100 hover:bg-zinc-700/75"
+      className="grid h-8 w-full grid-cols-[20px_minmax(0,1fr)] items-center gap-2 rounded-md px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
       role="menuitem"
       type="button"
     >
@@ -182,7 +182,7 @@ function SwitchMenuItem({
   return (
     <button
       aria-checked={checked}
-      className="grid h-11 w-full grid-cols-[24px_minmax(0,1fr)_56px] items-center gap-3 rounded-xl px-2 text-left text-base text-zinc-100 hover:bg-zinc-700/75"
+      className="grid h-8 w-full grid-cols-[20px_minmax(0,1fr)_34px] items-center gap-2 rounded-md px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
       onClick={onClick}
       role="menuitemcheckbox"
       type="button"
@@ -191,14 +191,14 @@ function SwitchMenuItem({
       <span className="truncate">{label}</span>
       <span
         className={cn(
-          "relative h-7 w-14 rounded-full transition-colors",
+          "relative h-5 w-9 rounded-full transition-colors",
           checked ? "bg-zinc-100" : "bg-zinc-700",
         )}
       >
         <span
           className={cn(
-            "absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full transition-transform",
-            checked ? "translate-x-7 bg-zinc-950" : "translate-x-1 bg-zinc-50",
+            "absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform",
+            checked ? "translate-x-5 bg-zinc-950" : "translate-x-1 bg-zinc-50",
           )}
         />
       </span>
@@ -210,21 +210,21 @@ function PluginSubmenu() {
   return (
     <div
       aria-label="Installed plugins"
-      className="absolute bottom-0 left-[calc(100%-0.35rem)] z-50 w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-zinc-700/90 bg-zinc-800/95 p-4 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+      className="absolute bottom-0 left-[calc(100%-0.35rem)] z-50 w-[min(300px,calc(100vw-2rem))] rounded-xl border border-zinc-700/90 bg-zinc-800/95 p-2 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
       role="menu"
     >
-      <div className="mb-2 text-base text-zinc-400">4 installed plugins</div>
+      <div className="mb-1 px-1 text-xs text-zinc-400">4 installed plugins</div>
       <div className="grid gap-1">
         {pluginItems.map((item) => (
           <button
-            className="grid h-11 w-full grid-cols-[28px_minmax(0,1fr)] items-center gap-3 rounded-xl text-left text-base text-zinc-100 hover:bg-zinc-700/75"
+            className="grid h-8 w-full grid-cols-[22px_minmax(0,1fr)] items-center gap-2 rounded-md px-1 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
             key={item.label}
             role="menuitem"
             type="button"
           >
             <span
               className={cn(
-                "grid h-7 w-7 place-items-center rounded-md [&>svg]:h-4 [&>svg]:w-4",
+                "grid h-5 w-5 place-items-center rounded [&>svg]:h-3.5 [&>svg]:w-3.5",
                 item.accentClass,
               )}
             >
@@ -239,12 +239,12 @@ function PluginSubmenu() {
 }
 
 function MenuDivider() {
-  return <div className="mx-4 my-2 h-px bg-zinc-700/80" />;
+  return <div className="mx-2 my-1 h-px bg-zinc-700/80" />;
 }
 
 function MenuIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="grid h-6 w-6 place-items-center text-zinc-300 [&>svg]:h-5 [&>svg]:w-5">
+    <span className="grid h-5 w-5 place-items-center text-zinc-300 [&>svg]:h-3.5 [&>svg]:w-3.5">
       {children}
     </span>
   );

@@ -194,9 +194,10 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="right-workspace-pane"');
     expect(html).toContain("Right pane");
+    expect(html).toContain("Canvas");
     expect(html).toContain("Terminal");
     expect(html).toContain("Browser");
-    expect(html).toContain("Open file");
+    expect(html).toContain("Files");
     expect(html).toContain("Settings");
   });
 
@@ -227,6 +228,28 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="workspace-pane-tab-terminal_tab"');
     expect(html).toContain("Close Terminal");
     expect(html).toContain("$");
+  });
+
+  test("renders a canvas workspace pane tab", () => {
+    const html = renderToString(
+      <WorkspacePanePanel
+        activeTabId="canvas_tab"
+        onCloseTab={() => {}}
+        onCreateTab={() => {}}
+        onSelectTab={() => {}}
+        slot="right"
+        tabs={[
+          {
+            id: "canvas_tab",
+            kind: "canvas",
+            title: "Canvas",
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("Canvas");
+    expect(html).toContain('data-testid="workspace-pane-tab-canvas_tab"');
   });
 });
 
