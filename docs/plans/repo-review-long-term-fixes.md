@@ -1,383 +1,333 @@
-# Repository Review Long-Term Fix Plan
+# Repository Review Fix Plan
 
 Date: 2026-06-03
 
-This plan addresses the repository review findings with durable fixes rather
-than local patches. The goal is to remove the classes of failure that produced
-the issues: UI behavior that changes at scale, UI-only state that is not backed
-by product semantics, Codex compatibility fallbacks, brittle generator
-discovery, implementation-coupled tests, and large modules with unclear
-responsibilities.
+This plan addresses the review findings from the diff against
+`ca1141b10ae708c6c614b4889d35c3e8c26d4c0e` with principled fixes rather than
+local patches:
+
+- expanded, non-selected workspace conversation lists can go stale in the
+  sidebar;
+- recovered interrupted runs do not advance persisted unread state;
+- conversation loading clears too much state, causing sidebar and chat-pane
+  flicker while unrelated components rerender.
 
 ## Principles
 
-- Treat active projects, recent projects, and conversations as one explicit
-  navigation model instead of separate UI branches with different behavior.
-- Put chat state semantics in the backend or in explicit store reducers, not in
-  ad hoc component flags.
-- Fail loudly for unsupported Codex protocol capabilities. Do not add or keep
-  backward-compatibility shims unless that exact compatibility work is
-  requested.
-- Generate protocol and TypeScript surfaces from owner-defined contracts and
-  checked inputs. Do not infer product protocol support from comments, tests, or
-  incidental string literals.
-- Test user-visible behavior through production paths for chat, Codex, queueing,
-  approvals, event streaming, preload, renderer state, and persistence.
-- Refactor by responsibility boundaries. Avoid generic dumping grounds such as
-  broad `utils`, `helpers`, or cross-domain constants files.
+- Keep backend-owned chat semantics in backend state or store reducers, not in
+  component-local caches.
+- Treat conversation list summaries as a shared, event-updated data model keyed
+  by workspace, not as a side effect of whichever workspace is currently
+  selected.
+- Use push-based event updates for live chat state. Do not add polling to mask
+  stale state.
+- Make read/unread state durable and monotonic. Every user-visible assistant or
+  terminal run state change must move through one read-relevant marker path.
+- Preserve visual continuity during navigation. Do not clear valid previous or
+  cached state merely to express that a request is in flight.
+- Keep loading state scoped to the exact data dependency that is missing. A
+  selected conversation change should not repaint unrelated sidebar rows,
+  workspace chrome, settings buttons, or other panes.
+- Verify chat behavior through production Electron/main/preload/renderer/HTTP
+  and store paths when the change touches event streaming, persistence, or
+  workflow state.
 
-## 1. Sidebar Navigation Model
-
-### Problems
-
-- Recent project rows look interactive but cannot open a workspace.
-- When active workspace count exceeds `directProjectRenderLimit`, selected
-  project conversations disappear because virtualized rows are rendered with
-  project chats disabled.
-
-### Long-Term Fix
-
-Replace the current threshold-based sidebar behavior with a single typed
-navigation model.
-
-The renderer should derive a flat list of sidebar items from store state:
-
-- active workspace rows
-- visible conversation rows for the selected and expanded workspace
-- recent workspace rows
-- section headers or separators, if needed
-
-The virtualizer should render that single list regardless of count. Rendering
-3,000 workspaces should change only how many DOM nodes are mounted, not what
-actions or nested data are available.
-
-Recent workspace rows should have a clear primary action: open or select the
-workspace. Removing the recent entry should remain a secondary icon action and
-must not swallow the row click.
-
-### Implementation Steps
-
-1. Introduce a pure sidebar selector that converts store state into typed
-   sidebar items with stable ids, row kinds, labels, selection state, and
-   commands.
-2. Replace the active workspace `directProjectRenderLimit` branch with one
-   virtualized list that can render workspace and conversation rows.
-3. Wire recent workspace rows to the same open/select workspace command used by
-   normal workspace opening.
-4. Preserve the existing DOM performance budget by keeping only visible rows
-   mounted and using stable row heights or measured row groups.
-5. Add keyboard and accessibility semantics: workspace and conversation rows
-   should be buttons or tree items with correct labels, disabled state, focus
-   handling, and secondary actions.
-
-### Verification
-
-- Renderer selector tests should cover active projects, recent projects,
-  selected workspace expansion, empty states, and row command mapping.
-- Deterministic Electron E2E tests should use temporary app data with thousands
-  of active and recent workspaces, open a recent workspace, select a large-list
-  workspace, and verify its conversations remain visible.
-- Performance verification should re-measure mounted row count and total DOM
-  elements, appending results to `docs/performance/workspace-list-rendering.md`.
-
-## 2. Durable Unread Conversation State
+## 1. Event-Driven Workspace Conversation Summaries
 
 ### Problem
 
-The sidebar renders unread indicators, but `unreadConversationIds` is never set
-or cleared. The UI advertises state that has no durable semantics.
+`WorkspaceSidebar` keeps conversation lists for expanded, non-selected
+workspaces in component-local `workspaceConversationLists`. Those lists are
+loaded once when a workspace is expanded and then treated as fresh forever:
 
-### Long-Term Fix
+- `chat.conversation.updated` events are applied only to the selected workspace
+  in the global chat store.
+- the sidebar-local cache does not subscribe to chat events;
+- once a non-selected workspace has a cached list, expansion no longer reloads
+  it.
 
-Define unread state in terms of durable chat data:
+As a result, unread indicators, active run ids, message counts, updated titles,
+and newly created conversations in other expanded workspaces can remain stale
+until the workspace is selected or the sidebar remounts.
 
-- A conversation is unread when it has an assistant response, run completion, or
-  approval-relevant update newer than the user's read marker for that
-  conversation.
-- The read marker should be persisted per conversation, using a message ordinal,
-  event sequence, or other monotonic backend-owned value.
-- Selecting or viewing a conversation should issue an explicit "mark read"
-  action rather than mutating transient UI-only ids.
+### Target Design
 
-The backend should expose enough conversation summary metadata for the renderer
-to derive unread state deterministically. The renderer should not guess from
-text, timestamps alone, or local component lifecycle.
+Move conversation summary ownership out of `WorkspaceSidebar` and into a store
+model that is keyed by workspace id.
+
+The selected workspace should continue to have full conversation detail state:
+message page, transcript, active run, queue, run items, and operations. Conversation
+list summaries should be separate shared state:
+
+- `conversationListsByWorkspaceId[workspaceId]`
+- loading and error state per workspace
+- corruption and diagnostics per workspace
+- last loaded or initialized marker for explicit loading state only, not for
+  freshness polling
+
+All visible sidebar rows should be derived from this shared model. The selected
+workspace conversation list and background expanded workspace lists should use
+the same update path.
 
 ### Implementation Steps
 
-1. Pick the read marker representation and add it to the backend-owned
-   conversation or workspace state.
-2. Extend conversation list summaries with the latest assistant/read-relevant
-   marker.
-3. Add an HTTP command to mark a conversation read, or include the action in the
-   existing conversation selection flow if that remains the owner of the
-   behavior.
-4. Replace `unreadConversationIds` with derived unread status from conversation
-   summaries and read markers.
-5. Ensure event streaming updates conversation summaries when inactive
-   conversations receive assistant output or run status changes.
+1. Add a workspace-keyed conversation summary slice to the chat store or a
+   sibling store owned by chat state.
+2. Replace `WorkspaceSidebar`'s local `workspaceConversationLists` state with
+   selectors and actions from that store:
+   - `ensureWorkspaceConversationList(workspaceId)`
+   - `applyConversationList(workspaceId, response)`
+   - `applyConversationUpdatedEvent(workspaceId, item)`
+   - `clearClosedWorkspaceConversationLists(activeWorkspaceIds)`
+3. Keep selected conversation detail state separate from summary state. Loading a
+   workspace or selecting a conversation may hydrate both, but summary events
+   should not require the selected workspace to match.
+4. Change the event reducer so `chat.conversation.updated` updates the
+   workspace-keyed summary for `event.workspaceId` regardless of the currently
+   selected workspace.
+5. Keep detail updates scoped to the selected conversation. Message deltas, run
+   item updates, queue updates, and transcript mutations should still affect only
+   the selected detail view unless the app later gains per-workspace transcript
+   caches.
+6. Update sidebar selectors to consume the workspace-keyed summary model.
+7. Remove component-local load-once freshness assumptions from
+   `WorkspaceSidebar`; expansion should call `ensureWorkspaceConversationList`,
+   but event updates must be the source of live freshness.
+8. Preserve deterministic ordering by reusing the existing conversation summary
+   sort function.
 
-### Verification
+### Tests
 
-- Deterministic Electron E2E tests should open a workspace, create at least two
-  conversations, stream assistant output into an inactive conversation, verify
-  the unread indicator appears, select the conversation, verify it clears, then
-  restart or reload and verify persistence.
-- Store and backend tests should cover marker ordering and idempotent mark-read
-  behavior.
+- Store reducer test: a `chat.conversation.updated` event for a non-selected
+  but loaded workspace updates that workspace's cached summary.
+- Store reducer test: a `chat.conversation.updated` event for an unloaded
+  workspace does not create a misleading complete list unless the store design
+  explicitly supports sparse summaries.
+- Store action test: closing a workspace removes its conversation summary state
+  without disturbing other active workspaces.
+- Sidebar model test: multiple expanded workspaces render updated unread and
+  active-run state from the workspace-keyed summary model.
+- Deterministic Electron E2E: open two workspaces, expand both in the sidebar,
+  keep workspace A selected, produce assistant output in workspace B through the
+  backend/HTTP path, and verify the workspace B conversation row updates without
+  selecting workspace B.
+- Deterministic Electron E2E: create a new conversation in a non-selected active
+  workspace and verify the expanded sidebar list reflects it through
+  `chat.conversation.updated`.
 
-## 3. Codex Protocol Capability Policy
+## 2. Read Markers for Recovered Interrupted Runs
 
 ### Problem
 
-`thread/settings/update` has an explicit downgrade path. Unsupported protocol
-errors are swallowed, future attempts are disabled, and command execution
-continues with a diagnostic. That is a backward-compatibility shim.
+Startup recovery converts persisted running turns to failed turns, updates the
+assistant message to `error`, and persists the failed run. Normal terminal run
+paths advance `latestReadRelevantMarker`, but recovery does not.
 
-### Long-Term Fix
+If a run is interrupted before any assistant delta or approval event advanced
+the marker, the recovered error message is user-visible but the conversation
+does not become unread after restart.
 
-Make Codex capability support an explicit contract:
+### Target Design
 
-- Define the minimum supported Codex protocol snapshot and required
-  capabilities.
-- If `thread/settings/update` is required, require it at session initialization
-  or fail the specific command loudly when the method is unavailable.
-- If the method remains experimental and cannot be required, remove live thread
-  settings updates from the product path until the protocol is stable.
-- Do not keep global "disable future attempts" fallback state for unsupported
-  protocol methods.
-- Do not support deprecated Codex server request methods in the harness
-  registry. Generated upstream constants may exist, but product support must be
-  gated by the explicit registry.
+All terminal run transitions that create user-visible assistant state should use
+one read-relevant marker path, including recovery.
+
+Recovery is a persistence repair path, not a live harness path. It should:
+
+- persist the failed run and errored assistant message;
+- reconcile pending steering messages;
+- advance the conversation's latest read-relevant marker exactly once for that
+  recovered run;
+- leave already-failed recovered runs idempotent on future restarts;
+- avoid relying on renderer lifecycle to infer unread state.
 
 ### Implementation Steps
 
-1. Remove `codexThreadSettingsUpdateDowngraded`,
-   `codexThreadSettingsUpdateDowngradeDiagnostic`,
-   `disableThreadSettingsUpdate`, and
-   `isThreadSettingsUpdateUnsupported`.
-2. Replace downgrade behavior with a specific command error that identifies the
-   unsupported Codex method or missing capability.
-3. Remove tests that expect downgrade success.
-4. Add tests that verify unsupported required capabilities fail loudly and do
-   not mutate selected model state as if the command succeeded.
-5. Audit the Codex server request registry for deprecated protocol methods and
-   keep only current, intentionally supported request kinds.
+1. In `recoverInterruptedRun`, after the failed turn records are persisted and
+   pending steering messages are reconciled, call the same marker advancement
+   path used by normal terminal turns.
+2. Use the recovery timestamp already assigned to `run.CompletedAt` and
+   `message.UpdatedAt` as the marker update timestamp.
+3. Keep the marker advancement inside the recovery transaction boundary as much
+   as the file store allows. If a helper is needed, extract a small service-level
+   function for "persist terminal read relevance" instead of duplicating marker
+   mutation logic.
+4. Do not publish extra UI events solely for startup recovery. The durable marker
+   must be visible through `ListConversations` after service construction; live
+   event publication during constructor recovery is not the contract.
+5. Ensure a second restart does not advance the marker again, because the run is
+   no longer `running`.
 
-### Verification
+### Tests
 
-- Focused Go harness tests should cover supported update, unsupported update,
-  and unrelated RPC errors.
-- Deterministic app workflow tests are required because this touches Codex
-  harness behavior and chat command lifecycle.
-- Live Codex E2E tests should run when `OPENAI_API_KEY` is present in `.env`;
-  skip narrowly and report absence without printing the key.
+- Backend service test: create persisted running turn records with no prior read
+  marker advancement, construct a new service, and assert the recovered
+  conversation list item has `latestReadRelevantMarker > readMarker`.
+- Backend service test: mark that recovered conversation read, construct another
+  service, and assert both markers remain unchanged.
+- Backend service test: recovered assistant message remains `error` and run
+  remains `failed`, preserving existing recovery assertions.
+- Deterministic Electron E2E, if feasible: launch with a fixture containing an
+  interrupted running turn, verify the conversation is unread after startup,
+  select it, verify the marker clears, restart, and verify it stays read.
 
-## 4. Codex Protocol Generation
+## 3. Flicker-Free Conversation Navigation
 
 ### Problem
 
-The Codex protocol generator regex-parses Rust source and discovers used
-protocol surface by scanning Go text for string literals and constant names.
-Formatting changes, comments, tests, or incidental strings can affect generated
-output.
+Selecting or loading a conversation currently causes broad state churn:
 
-### Long-Term Fix
+- conversation lists can render transient "Loading chats", "No chats", or
+  workspace-level empty states even when the app already has usable cached data;
+- the main chat pane can briefly drop the selected transcript and render a
+  workspace loading or empty message before the requested conversation appears;
+- global chat operation/status state is passed through large view objects, so
+  unrelated sidebar and pane components rerender during conversation selection;
+- the UX makes fast operations look slow because the app intentionally paints an
+  intermediate loading frame.
 
-Replace implicit discovery with explicit supported protocol registration backed
-by checked protocol inputs.
+This is a state modeling problem. A loading label or a delayed spinner would be
+a bandage; the principled fix is to stop destroying renderable state during
+navigation and to make data dependencies explicit.
 
-The generator should:
+### Target Design
 
-- consume an upstream protocol JSON/schema snapshot, or another structured
-  upstream artifact;
-- consume one Go-owned supported-protocol registration input that lists the
-  product-supported methods, notifications, requests, and schema names;
-- verify every registered item exists in the upstream artifact;
-- fail with a specific error when a registered item is missing or has an
-  unsupported schema shape;
-- avoid parsing Rust source for product behavior;
-- avoid scanning `_test.go`, comments, or string literals to infer support.
+Adopt a stale-while-revalidate chat navigation model with per-workspace and
+per-conversation caches.
 
-If upstream does not expose structured schema for an experimental method, the
-principled options are to remove that product feature until upstream does, or
-check in a clearly named protocol input file with upstream provenance and fail
-when it diverges. Do not synthesize long-term protocol contracts from regexes.
+Conversation selection should be a small state transition:
 
-### Implementation Steps
+- update the selected workspace/conversation ids immediately;
+- render cached conversation detail immediately when available;
+- keep the previous conversation detail visible until the next selected
+  conversation's first page is ready when no cache exists;
+- never replace a known conversation list with an empty list just because a load
+  request is in flight;
+- revalidate summaries and detail pages in the background and patch them in when
+  they arrive;
+- reserve loading UI for true cold-start states where there is no previous,
+  cached, or server-provided state to render.
 
-1. Define the supported-protocol registration input and make it the only source
-   of product support decisions.
-2. Change the generator to validate that registration against structured
-   upstream protocol data.
-3. Remove usage scanning and Rust source regex parsing.
-4. Keep generated outputs generated only; do not manually edit them.
-5. Update generator tests to exercise semantic model validation rather than
-   generated output formatting.
+The sidebar should not have a "Loading chats" steady-state row for normal
+workspace expansion or conversation selection. Known lists remain visible while
+they refresh. Unknown lists may show no child rows until the first response
+arrives, but they should not flash through false empty states.
 
-### Verification
+### Store Shape
 
-- Generator tests should use small structured protocol fixtures and assert
-  semantic outcomes: included method, missing method failure, unsupported schema
-  failure, and deprecated method exclusion.
-- Run the generator and then the narrow Go checks covering Codex harness
-  protocol handling.
-- Because generated protocol output affects Codex harness behavior, run the
-  deterministic app workflow tests before finishing an implementation change.
+Split chat state by ownership and invalidation boundary:
 
-## 5. Test Strategy Cleanup
+- `selection`: selected workspace id and selected conversation id.
+- `conversationSummariesByWorkspaceId`: durable list summaries, corruption, and
+  diagnostics keyed by workspace id.
+- `conversationDetailsById`: first page, transcript, queue, active run, run
+  items, output page state, and request state keyed by conversation id.
+- `operationsByConversationId`: send, queue, steering, approval, cancellation,
+  and detail-load state scoped to the conversation they affect.
+- `globalChatStatus`: backend availability or event-stream health only, not
+  conversation selection progress.
 
-### Problem
+Components should subscribe to narrow selectors with stable equality. Avoid
+constructing one large `ChatView` object in `App` that changes identity for every
+chat store patch and forces broad rerenders.
 
-Some tests assert generated string snippets or exact IPC call order. Those tests
-lock implementation shape rather than user-visible behavior.
+### Backend and Data Flow
 
-### Long-Term Fix
-
-Separate contract correctness from code-generation formatting.
-
-Contract generator tests should focus on:
-
-- endpoint registry ownership and duplicate route detection;
-- type-shape semantics such as required fields, nullable fields, literal
-  unions, and records;
-- runtime decoder behavior in the generated TypeScript client;
-- request construction behavior through the backend client.
-
-Preload and IPC tests should focus on:
-
-- whether exposed methods call the correct channels with the correct arguments;
-- whether errors and malformed responses are surfaced correctly;
-- whether the public API shape remains coherent.
-
-They should not depend on large blocks of generated text, helper names, or
-incidental nth-call ordering unless the order itself is the behavior being
-tested.
+1. Keep `ListConversations` fast and summary-only. It should not block on detail
+   page work.
+2. Keep `LoadMessagePage` detail-specific and cache the first page by
+   conversation id in the renderer store.
+3. Consider adding a batched "open workspace chat state" endpoint only if
+   profiling shows startup requires multiple dependent round trips. That endpoint
+   should return the selected workspace summaries and selected conversation first
+   page in one response, without becoming a separate hand-maintained contract
+   list.
+4. Prefetch detail pages for the currently selected conversation and, after the
+   main render is stable, the next few visible conversation rows. Prefetch must
+   be bounded and cancelable, with no polling.
+5. Revalidation responses must be applied only if their workspace/conversation
+   ids still match the cache entry they target. Stale responses may update cache
+   data but must not overwrite current selection or global status.
 
 ### Implementation Steps
 
-1. Replace generated TypeScript substring tests with semantic tests for
-   `contractSpecs`, generated runtime decoders, and backend client behavior.
-2. Keep at most one narrow smoke test that generated output is non-empty and
-   parseable, if useful.
-3. Collapse repetitive preload call-order assertions into table-driven behavior
-   cases that assert method, channel, arguments, and result.
-4. Delete tautological tests that only rerun a generator or formatter and
-   compare checked-in artifacts to current output.
+1. Replace selection-time `beginOperation` patches that clear conversations,
+   selected conversation, messages, transcript, run items, and queued runs with
+   targeted request state on the relevant workspace or conversation cache entry.
+2. Introduce a `conversationDetailsById` cache and hydrate it from
+   `messagePage`, send/queue/steer command results, and event-stream updates.
+3. Change `ChatPanel` to read the selected conversation detail by id. It should
+   render cached selected detail immediately, keep previous detail during a cold
+   transition, and only show an initial empty state after the selected workspace
+   and conversation list are known to be empty.
+4. Change `WorkspaceSidebar` to render known summaries while refreshes are in
+   flight. Remove normal-path "Loading chats" rows and false "No chats" rows.
+5. Replace broad `chatBusy` and `busy={workspace.busy || chat.operation !== null}`
+   propagation with scoped disabled states. A message send should not disable
+   workspace rows unrelated to that conversation.
+6. Move store subscriptions down from `App` into `ProjectPane`, `ChatPane`,
+   `WorkspaceSidebar`, and transcript/composer subcomponents using narrow
+   selectors and shallow equality.
+7. Memoize pure sidebar and transcript row models by input slices instead of
+   rebuilding all rows for unrelated chat detail updates.
+8. Add performance instrumentation around conversation selection: render counts
+   for sidebar rows, chat pane shell, transcript rows, and composer; time from
+   click to stable transcript; backend request count; and DOM node count.
+9. Record before/after measurements in an append-only performance report before
+   and after the refactor.
 
-### Verification
+### Tests
 
-- Run focused generator, backend client, preload, and renderer tests.
-- After implementation stabilizes, run `./scripts/format.sh` and
-  `./check_quality.sh --all` before committing source or test changes.
+- Store test: selecting a conversation with a cached detail page does not clear
+  messages, transcript, or conversation summaries.
+- Store test: selecting an uncached conversation preserves previous renderable
+  detail until the requested page arrives and then swaps atomically.
+- Store test: loading a workspace never replaces a known conversation list with
+  `[]` solely because `loading` is true.
+- Renderer test: sidebar rows do not render "Loading chats" during normal
+  selected-conversation changes when summaries are cached.
+- Renderer test: unrelated sidebar workspace rows do not rerender when only the
+  selected conversation detail changes.
+- Deterministic Electron E2E: click between conversations with populated
+  transcripts and assert there is no intermediate "Loading workspace chats",
+  "Loading chats", false "No chats", or workspace empty state frame.
+- Deterministic Electron E2E: measure and assert bounded render counts or use a
+  committed performance trace for the conversation-switch path.
 
-## 6. Module Boundaries And Maintainability
+## Sequencing
 
-### Problem
+1. Implement backend recovery marker advancement first. It is narrowly scoped and
+   protects durable read semantics.
+2. Implement the workspace-keyed conversation summary store and event reducer
+   changes.
+3. Refactor conversation detail state into per-conversation caches and remove
+   clear-to-empty selection transitions.
+4. Refactor `WorkspaceSidebar` and `ChatPanel` to consume narrow selectors from
+   the shared summary/detail models.
+5. Add focused unit/store/render tests before broad Electron workflows.
+6. Baseline conversation-switch performance, re-measure after the refactor, and
+   append both results to the performance report.
+7. Run the deterministic chat workflow tests once focused verification passes.
 
-Several core backend, store, component, and test files sit near the repository's
-current line-count limits. The quality script currently defaults to 1,200 lines
-for normal files and 1,500 lines for test files. The intended policy is 1,000
-lines for regular files and 1,500 lines for test files, so the automation is
-looser than the codebase standard for regular files and should be corrected.
+## Verification Commands
 
-The size makes behavior review harder, especially around chat lifecycle,
-queueing, transcript rendering, and renderer state.
+Focused checks during implementation:
 
-### Long-Term Fix
+```sh
+./scripts/go.sh test ./internal/chat -run 'TestServiceRecoversInterruptedRunningTurns|TestServicePersistsReadMarkersAcrossRestart'
+pnpm --dir desktop vitest run src/renderer/src/components/workspace-sidebar-model.test.ts src/renderer/src/components/chat-panel.test.tsx src/renderer/src/stores/chat-store.test.ts src/renderer/src/stores/chat-store-workspace.test.ts
+pnpm --dir desktop typecheck
+```
 
-Split by domain responsibility while preserving production behavior.
+Required final checks before committing executable changes:
 
-Recommended backend boundaries:
+```sh
+./scripts/format.sh
+./check_quality.sh --all
+```
 
-- service orchestration
-- run lifecycle
-- queueing and promotion
-- conversation persistence
-- event publication and replay
-- harness command handling
-- Codex protocol/session handling
-- approvals
-
-Recommended renderer store boundaries:
-
-- normalized chat state
-- user operations and backend calls
-- event reducer
-- selectors
-- persistence/reload handling
-- error and operation-state handling
-
-Recommended component boundaries:
-
-- sidebar data model and row views
-- chat composer
-- model/settings controls
-- transcript virtualization
-- run activity timeline
-- approval UI
-
-Extraction should move cohesive behavior into named modules with narrow public
-APIs. Avoid creating generic helper files that merely relocate complexity.
-
-### Implementation Steps
-
-1. Add module-level ownership comments only where names are not enough to make
-   boundaries obvious.
-2. Extract pure selectors and reducers before extracting side-effect-heavy
-   code.
-3. Move persistence and event serialization code behind small typed interfaces.
-4. Split large tests by behavior area, not by implementation file.
-5. Update the quality script defaults and help text to enforce 1,000 lines for
-   regular files and 1,500 lines for test files.
-6. Ratchet line-count limits downward only after the first successful splits, so
-   the quality gate enforces the new shape without blocking unrelated work.
-
-### Verification
-
-- Run narrow tests after each extraction to prove behavior is unchanged.
-- For any extraction touching chat behavior, Codex harness behavior, run
-  lifecycle, queueing, approvals, event streaming, preload contracts, renderer
-  chat state, or transcript UI, run deterministic Electron E2E tests through
-  production paths.
-- Finish broad implementation commits with `./scripts/format.sh` and
-  `./check_quality.sh --all`.
-
-## Suggested Sequence
-
-1. Replace the sidebar navigation model. This fixes the recent-project UX bug
-   and the large-workspace conversation disappearance while preserving the
-   performance work.
-2. Implement durable unread state. This touches chat event semantics and should
-   be validated with deterministic E2E coverage.
-3. Remove the Codex downgrade shim and make unsupported capabilities fail
-   loudly.
-4. Replace Codex protocol discovery with explicit registration and structured
-   input validation.
-5. Clean up implementation-coupled tests after the contract and protocol models
-   are clearer.
-6. Split large modules incrementally along the boundaries above, starting with
-   the areas changed by the preceding fixes.
-7. Align the quality script line-count defaults with the intended repository
-   policy once the first split has landed, or immediately if the 1,000-line
-   regular-file cap is already meant to be enforced.
-
-## Acceptance Checklist
-
-- Recent projects can be opened, removed, keyboard-selected, and tested through
-  production app paths.
-- Selected workspace conversations remain visible and usable with thousands of
-  active workspaces.
-- Unread indicators are driven by durable conversation semantics and survive
-  reload.
-- Unsupported Codex protocol capabilities fail specifically instead of silently
-  downgrading.
-- Deprecated Codex protocol methods are not registered as supported harness
-  behavior.
-- Protocol generation no longer infers support from Rust regex parsing or Go
-  text scanning.
-- Generator and preload tests assert behavior rather than formatting or
-  incidental call order.
-- Large chat/backend/renderer modules are split by responsibility, with tests
-  organized around behavior.
-- Quality scripts enforce the intended line-count policy.
+Because these fixes touch chat workflow state, event streaming, persistence, and
+renderer chat state, deterministic end-to-end Electron workflow coverage is
+required. If `OPENAI_API_KEY` is present in `.env`, also run the live Codex E2E
+tests; if it is absent, report the live-provider skip without treating it as
+provider integration proof.
