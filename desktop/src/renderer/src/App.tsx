@@ -314,7 +314,7 @@ function ResizablePane({
   );
 
   return (
-    <div className="relative min-h-0 shrink-0" style={{ width }}>
+    <div className="relative h-full min-h-0 shrink-0" style={{ width }}>
       {children}
       <div
         aria-label={label}

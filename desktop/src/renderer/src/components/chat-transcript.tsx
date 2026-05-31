@@ -1,5 +1,16 @@
 import type { ApprovalAnswer, ApprovalQuestion, ChatMessage, Run } from "@generated/backend";
-import { ArrowDown, Bot, ChevronDown, ChevronUp, Check, Copy, Wrench, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowDown,
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Copy,
+  RotateCcw,
+  Wrench,
+  X,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { memo, useEffect, useRef, useState } from "react";
 
@@ -57,7 +68,7 @@ export function ChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-y-auto bg-zinc-900 px-3 py-3"
+        className="h-full min-h-0 min-w-0 overflow-y-auto bg-[#05080f] px-6 pt-20 pb-3"
         onScroll={(event) => {
           const node = event.currentTarget;
           setPinned(node.scrollHeight - node.scrollTop - node.clientHeight < 24);
@@ -66,15 +77,19 @@ export function ChatTranscript({
       >
         {hasMoreOlder ? (
           <div className="mb-5 flex justify-center">
-            <Button onClick={() => void loadOlderAndPreserveScroll()} variant="secondary">
+            <Button
+              className="border-[#2d3a57] bg-[#111723] text-[#c9d1df] hover:bg-[#182033]"
+              onClick={() => void loadOlderAndPreserveScroll()}
+              variant="secondary"
+            >
               <ChevronUp className="h-4 w-4" />
               Older
             </Button>
           </div>
         ) : null}
-        <div className="flex w-full min-w-0 flex-col gap-4">
+        <div className="flex w-full min-w-0 flex-col gap-8">
           {messages.length === 0 ? (
-            <div className="py-16 text-center text-sm text-zinc-500" data-testid="empty-chat">
+            <div className="py-16 text-center text-sm text-[#6f7fa4]" data-testid="empty-chat">
               Start a conversation for this workspace.
             </div>
           ) : null}
@@ -93,7 +108,7 @@ export function ChatTranscript({
       {!pinned ? (
         <Button
           aria-label="Jump to latest"
-          className="absolute bottom-4 right-6 border-zinc-700 bg-zinc-900 text-zinc-100 shadow-sm hover:bg-zinc-800"
+          className="absolute right-6 bottom-28 border-[#2d3a57] bg-[#111723] text-zinc-100 shadow-sm hover:bg-[#182033]"
           onClick={() => {
             const node = scrollRef.current;
             if (!node) {
@@ -127,8 +142,8 @@ const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage 
       <div
         className={
           isUser
-            ? "max-w-[82%] overflow-hidden rounded-md border border-zinc-600 bg-zinc-800 px-4 py-3 text-sm leading-6 break-words text-zinc-50"
-            : "max-w-[92%] min-w-0 overflow-hidden rounded-md border border-zinc-700 bg-zinc-900 px-4 py-3 text-zinc-100"
+            ? "max-w-[88%] overflow-hidden rounded-xl border border-[#2755f0] bg-[#1d2b62] px-5 py-3 text-[18px] leading-7 break-words text-zinc-50"
+            : "max-w-[88%] min-w-0 overflow-hidden rounded-xl border border-[#222c3d] bg-[#151a23] px-6 py-4 text-[18px] leading-8 text-[#d5d9e2]"
         }
       >
         {isUser ? (
@@ -137,10 +152,10 @@ const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage 
           <MarkdownText text={text || (message.status === "streaming" ? "..." : "")} />
         )}
         {message.status === "error" || message.status === "cancelled" ? (
-          <div className="mt-3 text-xs font-medium text-zinc-400">{message.status}</div>
+          <div className="mt-3 text-xs font-medium text-[#8190b8]">{message.status}</div>
         ) : null}
       </div>
-      <time className="text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
+      <time className="text-[15px] text-[#6678a5]">{messageTime(message.createdAt)}</time>
     </article>
   );
 });
@@ -148,50 +163,171 @@ const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage 
 function ToolMessage({ message, text }: { message: ChatMessage; text: string }) {
   return (
     <article className="min-w-0" data-testid="chat-message">
-      <ToolCallFrame title="Action: tool output">
+      <ToolCallFrame title="tool_output">
         <ToolBlock title="Result">{text || message.status}</ToolBlock>
       </ToolCallFrame>
-      <time className="mt-2 block text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
+      <time className="mt-3 block text-[15px] text-[#6678a5]">
+        {messageTime(message.createdAt)}
+      </time>
     </article>
   );
 }
 
 function ToolCallFrame({ children, title }: { children: ReactNode; title: string }) {
+  const [open, setOpen] = useState(true);
   return (
-    <div className="min-w-0 overflow-hidden rounded-md border border-zinc-700 bg-zinc-950">
-      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-700 px-3 py-2 text-zinc-300">
-        <div className="flex min-w-0 items-center gap-3">
-          <Bot className="h-4 w-4 shrink-0 text-zinc-500" />
-          <span className="rounded-full border border-zinc-600 px-2 py-0.5 text-xs">1</span>
-          <span className="truncate text-sm">{title}</span>
+    <div className="relative min-w-0">
+      <button
+        className="flex h-8 w-full min-w-0 items-center gap-3 text-left text-[17px] text-[#c6ccd8]"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <Bot className="h-4 w-4 shrink-0 text-[#6e80ac]" />
+        <span className="rounded-full border border-[#30405e] bg-[#111827] px-3 py-0.5 text-sm font-semibold text-[#c9d1df]">
+          3
+        </span>
+        <span className="min-w-0 flex-1 truncate">Action: {title}</span>
+        {open ? (
+          <ChevronUp className="h-5 w-5 shrink-0 text-[#9aa7c7]" />
+        ) : (
+          <ChevronDown className="h-5 w-5 shrink-0 text-[#9aa7c7]" />
+        )}
+      </button>
+      {open ? (
+        <div className="mt-3 min-w-0 border border-[#263147] bg-[#0d1119]">
+          <div className="grid min-w-0 grid-cols-[56px_minmax(0,1fr)] border-b border-[#263147]">
+            <div className="grid bg-[#151b27]">
+              <ToolRailIcon />
+              <ToolRailIcon />
+              <ToolRailIcon />
+            </div>
+            <div className="min-w-0">
+              <ToolCommandRow title={title} />
+              <ToolCommandRow title={title} />
+              <ToolCommandRow active title={title} />
+            </div>
+          </div>
+          <div className="divide-y divide-[#263147]">{children}</div>
+          <ToolCallActions />
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span
-            className="inline-flex h-7 w-7 items-center justify-center rounded bg-zinc-900 text-zinc-400"
-            title="Copy tool call"
-          >
-            <Copy className="h-4 w-4" />
-          </span>
-          <ChevronDown className="h-4 w-4 text-zinc-400" aria-hidden="true" />
-        </div>
-      </div>
-      <div className="divide-y divide-zinc-800">{children}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function ToolRailIcon() {
+  return (
+    <div className="grid h-11 place-items-center text-[#9aa7c7]">
+      <Wrench className="h-5 w-5" />
+    </div>
+  );
+}
+
+function ToolCommandRow({ active = false, title }: { active?: boolean; title: string }) {
+  return (
+    <button
+      className="grid h-11 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 text-left font-mono text-lg font-semibold text-[#c7cedd] hover:bg-[#121824]"
+      type="button"
+    >
+      <span className="truncate">{title}</span>
+      <span className="flex items-center gap-3">
+        {active ? (
+          <>
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded bg-[#182032] text-[#9aa7c7]">
+              <Copy className="h-4 w-4" />
+            </span>
+            <span className="font-sans text-base font-semibold text-[#f5dc57]">&lt;1s</span>
+            <AlertCircle className="h-5 w-5 text-[#ff5b66]" />
+            <ChevronUp className="h-5 w-5 text-[#9aa7c7]" />
+          </>
+        ) : (
+          <ChevronDown className="h-5 w-5 text-[#9aa7c7]" />
+        )}
+      </span>
+    </button>
+  );
+}
+
+function ToolCallActions() {
+  return (
+    <div className="absolute top-[10.5rem] right-4 flex w-12 flex-col items-center rounded-lg border border-[#263147] bg-[#070b13] py-2 text-[#9aa7c7]">
+      <button
+        aria-label="Copy tool call"
+        className="grid h-9 w-9 place-items-center rounded hover:bg-[#151b27]"
+        type="button"
+      >
+        <Copy className="h-4 w-4" />
+      </button>
+      <button
+        aria-label="Rerun tool call"
+        className="grid h-9 w-9 place-items-center rounded hover:bg-[#151b27]"
+        type="button"
+      >
+        <RotateCcw className="h-4 w-4" />
+      </button>
     </div>
   );
 }
 
 function ToolBlock({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <section className="min-w-0 px-4 py-3">
-      <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
-        <Wrench className="h-3.5 w-3.5" />
-        {title}
-      </h4>
-      <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap font-mono text-sm leading-6 text-zinc-200">
-        {children}
+    <section className="min-w-0 px-5 py-3">
+      <h4 className="text-base font-bold tracking-[0.32em] text-[#9ba8c6] uppercase">{title}</h4>
+      <pre className="mt-2 max-w-full overflow-x-auto whitespace-pre-wrap font-mono text-lg leading-8 text-[#cbd2df]">
+        {renderToolBlockContent(children)}
       </pre>
     </section>
   );
+}
+
+function renderToolBlockContent(children: ReactNode) {
+  if (typeof children !== "string") {
+    return children;
+  }
+  const json = formatJson(children);
+  if (!json) {
+    return children;
+  }
+  return json.map((part, index) => {
+    if (part.kind === "plain") {
+      return part.text;
+    }
+    return (
+      <span className={part.kind === "key" ? "text-[#d6a7ff]" : "text-[#8ed2ff]"} key={index}>
+        {part.text}
+      </span>
+    );
+  });
+}
+
+type JsonPart = { kind: "key" | "plain" | "value"; text: string };
+
+function formatJson(input: string): JsonPart[] | null {
+  try {
+    const formatted = JSON.stringify(JSON.parse(input), null, 2);
+    const parts: JsonPart[] = [];
+    const tokenPattern = /("(?:\\.|[^"\\])*")(?=\s*:)|("(?:\\.|[^"\\])*")|(\b\d+(?:\.\d+)?\b)/g;
+    let cursor = 0;
+    for (const match of formatted.matchAll(tokenPattern)) {
+      if (match.index === undefined) {
+        continue;
+      }
+      if (match.index > cursor) {
+        parts.push({ kind: "plain", text: formatted.slice(cursor, match.index) });
+      }
+      parts.push({
+        kind: match[1] ? "key" : "value",
+        text: match[0],
+      });
+      cursor = match.index + match[0].length;
+    }
+    if (cursor < formatted.length) {
+      parts.push({ kind: "plain", text: formatted.slice(cursor) });
+    }
+    return parts;
+  } catch {
+    return null;
+  }
 }
 
 function ApprovalCard({
@@ -212,7 +348,7 @@ function ApprovalCard({
   const questions = approval.questions.length > 0 ? approval.questions : legacyQuestion(approval);
   return (
     <section className="min-w-0 text-sm text-zinc-100" data-testid="approval-card">
-      <ToolCallFrame title={`Action: ${approval.title}`}>
+      <ToolCallFrame title={approval.title}>
         {approval.command ? <ToolBlock title="Command">{approval.command}</ToolBlock> : null}
         {approval.filePath ? <ToolBlock title="Path">{approval.filePath}</ToolBlock> : null}
         {approval.permission ? (
