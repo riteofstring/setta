@@ -34,7 +34,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 3000,
+      readyTimeoutMs: 1000,
     });
 
     expect(handle.mode).toBe("spawned");
@@ -58,7 +58,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 3000,
+      readyTimeoutMs: 1000,
     });
 
     try {
@@ -91,7 +91,7 @@ describe("startSpawnedBackend", () => {
           command: process.execPath,
           cwd: process.cwd(),
           env: process.env,
-          readyTimeoutMs: 2000,
+          readyTimeoutMs: 500,
         }),
       ).rejects.toThrow("backend readiness timed out");
       expect(existsSync(readyForSignalPath)).toBe(true);
@@ -99,6 +99,30 @@ describe("startSpawnedBackend", () => {
     } finally {
       rmSync(tempDir, { force: true, recursive: true });
     }
+  });
+
+  test("reports backend logs when the process exits before readiness", async () => {
+    await expect(
+      startSpawnedBackend({
+        args: [
+          "-e",
+          [
+            "console.error('start backend: load workspace session: malformed app state')",
+            "process.exit(1)",
+          ].join(";"),
+        ],
+        command: process.execPath,
+        cwd: process.cwd(),
+        env: process.env,
+        readyTimeoutMs: 1000,
+      }),
+    ).rejects.toThrow(
+      [
+        "backend exited before ready with code 1 and signal null",
+        "Recent backend logs:",
+        "start backend: load workspace session: malformed app state",
+      ].join("\n"),
+    );
   });
 
   test("reports unexpected exit after readiness", async () => {
@@ -113,7 +137,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 3000,
+      readyTimeoutMs: 1000,
     });
 
     const exit = await new Promise((resolve) => {

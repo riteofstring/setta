@@ -123,7 +123,7 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 			if err := json.Unmarshal(event.Payload, &payload); err != nil {
 				t.Fatalf("decode run update payload: %v", err)
 			}
-			return payload.Run.HasPendingApproval
+			return payload.Run.PendingApproval != nil
 		})
 		requireEventType(t, events, EventTypeRunUpdated)
 		submitted, err := service.SubmitApproval("workspace_api", conversation.ID, run.PendingApproval.ID, true, "", nil, false)
@@ -348,6 +348,7 @@ func eventTestMessage(id string, ordinal int) ChatMessage {
 			Text:   "hello",
 			Type:   MessagePartText,
 		}},
+		Delivery:      MessageDeliveryNormal,
 		Role:          RoleUser,
 		RunID:         "",
 		SchemaVersion: SchemaVersion,
