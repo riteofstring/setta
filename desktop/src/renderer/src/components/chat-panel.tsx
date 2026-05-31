@@ -197,7 +197,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           open={slashPaletteOpen}
           query={slashQuery ?? ""}
         />
-        <div className="min-w-0 rounded-xl border border-zinc-700 bg-zinc-800/90 px-2.5 py-2 shadow-lg shadow-black/15">
+        <div className="min-w-0 rounded-md border border-zinc-700 bg-zinc-800/90 px-2.5 py-2 shadow-lg shadow-black/15">
           <Textarea
             className="max-h-32 min-h-10 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-5 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled}

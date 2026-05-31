@@ -61,7 +61,7 @@ export function ChatModelMenu({
       {open ? (
         <div
           aria-label="Chat model selection"
-          className="absolute right-0 bottom-[calc(100%+0.4rem)] z-50 w-[min(340px,calc(100vw-2rem))] rounded-xl border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+          className="absolute right-0 bottom-[calc(100%+0.4rem)] z-50 w-[min(340px,calc(100vw-2rem))] rounded-md border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
           role="menu"
         >
           <div className="px-2 pt-1 pb-1 text-xs text-zinc-400">Reasoning</div>

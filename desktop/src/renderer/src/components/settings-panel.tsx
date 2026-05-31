@@ -747,7 +747,7 @@ function ToggleSwitch({
       aria-label={label}
       aria-checked={checked}
       className={cn(
-        "relative h-5 w-9 rounded-full border transition-colors",
+        "relative h-5 w-9 rounded-sm border transition-colors",
         checked ? "border-zinc-100 bg-zinc-100" : "border-zinc-600 bg-zinc-700",
       )}
       onClick={() => onChange(!checked)}
@@ -756,7 +756,7 @@ function ToggleSwitch({
     >
       <span
         className={cn(
-          "absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-full shadow transition-transform",
+          "absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-sm shadow transition-transform",
           checked ? "translate-x-4 bg-zinc-900" : "translate-x-0 bg-zinc-300",
         )}
       />

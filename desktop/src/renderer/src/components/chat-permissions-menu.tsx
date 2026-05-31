@@ -68,7 +68,7 @@ export function ChatPermissionsMenu({
       {open ? (
         <div
           aria-label="Chat permissions"
-          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(320px,calc(100vw-2rem))] rounded-md border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
           role="menu"
         >
           {permissionModes.map((mode) => (

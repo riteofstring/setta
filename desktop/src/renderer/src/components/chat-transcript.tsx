@@ -119,7 +119,7 @@ export function ChatTranscript({
           {messages.map((message) => (
             <div
               className={cn(
-                "scroll-mt-24 rounded-xl transition-shadow",
+                "scroll-mt-24 rounded-md transition-shadow",
                 search.activeMessageId === message.id
                   ? "bg-blue-400/5 ring-1 ring-blue-400/50"
                   : "",
@@ -256,7 +256,7 @@ function ChatSearchBar({ search }: { search: ChatSearchController }) {
 
   return (
     <div className="pointer-events-none absolute top-2 right-4 left-4 z-20 flex justify-end">
-      <div className="pointer-events-auto flex h-9 w-full max-w-sm min-w-0 items-center gap-1.5 rounded-full border border-zinc-700/90 bg-zinc-800/95 px-2 text-zinc-100 shadow-xl shadow-black/40 backdrop-blur">
+      <div className="pointer-events-auto flex h-9 w-full max-w-sm min-w-0 items-center gap-1.5 rounded-md border border-zinc-700/90 bg-zinc-800/95 px-2 text-zinc-100 shadow-xl shadow-black/40 backdrop-blur">
         <Search className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden="true" />
         <Input
           className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-sm text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:border-0"
@@ -317,7 +317,7 @@ function SearchNavButton({
   return (
     <button
       aria-label={label}
-      className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-600"
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-600"
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -387,7 +387,7 @@ function MessageContent({
 
 function UserMessageContent({ message, text }: { message: ChatMessage; text: string }) {
   return (
-    <div className="max-w-[82%] overflow-hidden rounded-lg bg-zinc-800 px-2.5 py-1.5 text-sm leading-5 break-words text-zinc-50">
+    <div className="max-w-[82%] overflow-hidden rounded-md bg-zinc-800 px-2.5 py-1.5 text-sm leading-5 break-words text-zinc-50">
       <div className="whitespace-pre-wrap">{text}</div>
       <MessageStatus status={message.status} />
     </div>
@@ -460,7 +460,7 @@ function ToolCallFrame({ children, title }: { children: ReactNode; title: string
         type="button"
       >
         <Bot className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
-        <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+        <span className="rounded-sm border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
           3
         </span>
         <span className="min-w-0 flex-1 truncate">Action: {title}</span>

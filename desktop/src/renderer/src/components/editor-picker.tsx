@@ -236,7 +236,7 @@ function EditorPickerMenu({
 }) {
   return (
     <div
-      className="absolute top-full right-0 z-50 mt-1 w-52 rounded-xl border border-zinc-700 bg-zinc-900/95 p-1.5 text-xs text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
+      className="absolute top-full right-0 z-50 mt-1 w-52 rounded-md border border-zinc-700 bg-zinc-900/95 p-1.5 text-xs text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
       role="menu"
     >
       {state.status === "ready" && state.editors.length > 0 ? (
@@ -295,7 +295,7 @@ function EditorIcon({ editor }: { editor: InstalledEditorApp | null }) {
     return (
       <img
         alt=""
-        className="h-3.5 w-3.5 shrink-0 rounded-[3px]"
+        className="h-3.5 w-3.5 shrink-0 rounded-sm"
         draggable={false}
         src={editor.iconDataUrl}
       />

@@ -159,7 +159,7 @@ export function SlashCommandPalette({
   const visibleSections = visibleSlashCommandSections(query);
 
   return (
-    <div className="absolute right-0 bottom-[calc(100%+0.75rem)] left-0 z-40 max-h-[min(440px,calc(100vh-220px))] overflow-y-auto rounded-2xl border border-zinc-700/90 bg-zinc-800/95 p-2 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur">
+    <div className="absolute right-0 bottom-[calc(100%+0.75rem)] left-0 z-40 max-h-[min(440px,calc(100vh-220px))] overflow-y-auto rounded-md border border-zinc-700/90 bg-zinc-800/95 p-2 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur">
       {visibleSections.length > 0 ? (
         visibleSections.map((section) => (
           <SlashCommandSectionView
@@ -211,7 +211,7 @@ function SlashCommandRow({
   return (
     <button
       className={cn(
-        "grid h-9 w-full grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-2 text-left text-sm hover:bg-zinc-700/75",
+        "grid h-9 w-full grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-zinc-700/75",
         highlighted ? "bg-zinc-700/80" : "",
       )}
       onClick={() => onSelect(item.insertText)}

@@ -93,7 +93,7 @@ export function ChatPlusMenu({
       {open ? (
         <div
           aria-label="Add context"
-          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(280px,calc(100vw-2rem))] rounded-xl border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(280px,calc(100vw-2rem))] rounded-md border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
           role="menu"
         >
           <MenuItem icon={<Paperclip />} label="Add photos & files" />
@@ -191,13 +191,13 @@ function SwitchMenuItem({
       <span className="truncate">{label}</span>
       <span
         className={cn(
-          "relative h-5 w-9 rounded-full transition-colors",
+          "relative h-5 w-9 rounded-sm transition-colors",
           checked ? "bg-zinc-100" : "bg-zinc-700",
         )}
       >
         <span
           className={cn(
-            "absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform",
+            "absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-sm transition-transform",
             checked ? "translate-x-5 bg-zinc-950" : "translate-x-1 bg-zinc-50",
           )}
         />
@@ -210,7 +210,7 @@ function PluginSubmenu() {
   return (
     <div
       aria-label="Installed plugins"
-      className="absolute bottom-0 left-[calc(100%-0.35rem)] z-50 w-[min(300px,calc(100vw-2rem))] rounded-xl border border-zinc-700/90 bg-zinc-800/95 p-2 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+      className="absolute bottom-0 left-[calc(100%-0.35rem)] z-50 w-[min(300px,calc(100vw-2rem))] rounded-md border border-zinc-700/90 bg-zinc-800/95 p-2 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
       role="menu"
     >
       <div className="mb-1 px-1 text-xs text-zinc-400">4 installed plugins</div>
