@@ -9,6 +9,7 @@ import { ChatPlusMenu } from "./components/chat-plus-menu";
 import { ChatTranscript } from "./components/chat-transcript";
 import { EditorPicker } from "./components/editor-picker";
 import { SettingsPanel } from "./components/settings-panel";
+import { NotesContent, UnorganizedChatsContent } from "./components/sidebar-secondary-sections";
 import { SlashCommandPalette } from "./components/slash-command-palette";
 import { WorkspacePanePanel } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -159,6 +160,22 @@ describe("workspace renderer states", () => {
     expect(html).toContain("More options for web");
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('data-testid="recent-workspace-list"');
+  });
+
+  test("indents secondary sidebar items like project chats", () => {
+    const html = renderToString(
+      <>
+        <UnorganizedChatsContent
+          chats={[{ id: "chat_one", subtitle: "1m", title: "Scratch chat" }]}
+        />
+        <NotesContent notes={[{ id: "note_one", subtitle: "local", title: "Draft note" }]} />
+      </>,
+    );
+
+    expect(rowCount(html, "sidebar-indented-list-item")).toBe(2);
+    expect(html).toContain("grid-cols-[18px_minmax(0,1fr)_auto]");
+    expect(html).toContain("Scratch chat");
+    expect(html).toContain("Draft note");
   });
 
   test("renders loading and error states", () => {

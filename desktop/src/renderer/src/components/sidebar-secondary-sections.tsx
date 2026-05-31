@@ -12,22 +12,7 @@ export function UnorganizedChatsContent({ chats }: { chats: SidebarListItem[] })
   if (chats.length === 0) {
     return <EmptySectionIcon label="Chats" />;
   }
-  return (
-    <div className="grid gap-0.5 py-0.5">
-      {chats.map((chat) => (
-        <button
-          className="grid h-7 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
-          key={chat.id}
-          type="button"
-        >
-          <span className="truncate">{chat.title}</span>
-          {chat.subtitle ? (
-            <span className="text-[11px] text-zinc-600">{chat.subtitle}</span>
-          ) : null}
-        </button>
-      ))}
-    </div>
-  );
+  return <SidebarIndentedListItems items={chats} />;
 }
 
 // Notes are app-local Markdown documents for now. Keep the boundary narrow so a
@@ -37,17 +22,23 @@ export function NotesContent({ notes }: { notes: SidebarListItem[] }) {
   if (notes.length === 0) {
     return <EmptySectionIcon label="Notes" />;
   }
+  return <SidebarIndentedListItems items={notes} />;
+}
+
+function SidebarIndentedListItems({ items }: { items: SidebarListItem[] }) {
   return (
     <div className="grid gap-0.5 py-0.5">
-      {notes.map((note) => (
+      {items.map((item) => (
         <button
-          className="grid h-7 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
-          key={note.id}
+          className="grid h-7 w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
+          data-testid="sidebar-indented-list-item"
+          key={item.id}
           type="button"
         >
-          <span className="truncate">{note.title}</span>
-          {note.subtitle ? (
-            <span className="text-[11px] text-zinc-600">{note.subtitle}</span>
+          <span aria-hidden="true" className="h-4 w-[18px]" />
+          <span className="truncate">{item.title}</span>
+          {item.subtitle ? (
+            <span className="text-[11px] text-zinc-600">{item.subtitle}</span>
           ) : null}
         </button>
       ))}
