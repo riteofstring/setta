@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
+import { cn } from "../lib/utils";
 import { ChatModelMenu } from "./chat-model-menu";
 import { ChatPermissionsMenu } from "./chat-permissions-menu";
 import { ChatPlusMenu } from "./chat-plus-menu";
@@ -15,33 +16,49 @@ import { Textarea } from "./ui/textarea";
 
 export function ChatPanel({
   chat,
+  chromeInsetTop = false,
   searchOpen,
   setSearchOpen,
   workspace,
 }: {
   chat: ChatView;
+  chromeInsetTop?: boolean;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
   workspace: WorkspaceSummary | null;
 }) {
   if (!workspace) {
     return (
-      <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100">
+      <section
+        className={cn(
+          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
+          chromeInsetTop && "pt-9",
+        )}
+      >
         <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
           Open a workspace to start chat.
         </div>
       </section>
     );
   }
-  return <ChatWorkspace chat={chat} searchOpen={searchOpen} setSearchOpen={setSearchOpen} />;
+  return (
+    <ChatWorkspace
+      chat={chat}
+      chromeInsetTop={chromeInsetTop}
+      searchOpen={searchOpen}
+      setSearchOpen={setSearchOpen}
+    />
+  );
 }
 
 function ChatWorkspace({
   chat,
+  chromeInsetTop,
   searchOpen,
   setSearchOpen,
 }: {
   chat: ChatView;
+  chromeInsetTop: boolean;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
 }) {
@@ -49,7 +66,12 @@ function ChatWorkspace({
   const running = chat.activeRun?.status === "running";
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100">
+    <section
+      className={cn(
+        "flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100",
+        chromeInsetTop && "pt-9",
+      )}
+    >
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-visible">
         <ConversationBody
           busy={busy}

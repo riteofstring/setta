@@ -39,6 +39,7 @@ interface WorkspaceSidebarProps {
   activeRun: Run | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
+  chromeInsetTop?: boolean;
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
@@ -71,6 +72,7 @@ export function WorkspaceSidebar({
   activeRun,
   activeWorkspaces,
   busy,
+  chromeInsetTop = false,
   chatBusy,
   closeWorkspace,
   conversations,
@@ -110,7 +112,9 @@ export function WorkspaceSidebar({
       className="flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-800 text-zinc-100"
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-3">
+      <div
+        className={cn("min-h-0 flex-1 overflow-y-auto px-1 pb-3", chromeInsetClass(chromeInsetTop))}
+      >
         <SidebarNav
           busy={busy || chatBusy}
           createConversation={createConversation}
@@ -150,6 +154,10 @@ export function WorkspaceSidebar({
       </div>
     </aside>
   );
+}
+
+function chromeInsetClass(enabled: boolean) {
+  return enabled ? "pt-9" : "";
 }
 
 function SidebarNav({

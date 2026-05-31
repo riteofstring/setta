@@ -167,6 +167,7 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
 
 export function WorkspacePanePanel({
   activeTabId,
+  chromeInsetTop = false,
   onCloseTab,
   onCreateTab,
   onSelectTab,
@@ -174,6 +175,7 @@ export function WorkspacePanePanel({
   tabs,
 }: {
   activeTabId: string;
+  chromeInsetTop?: boolean;
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
@@ -186,11 +188,12 @@ export function WorkspacePanePanel({
   return (
     <section
       aria-label={paneLabel}
-      className={
+      className={cn(
         slot === "right"
           ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
-          : "flex h-72 min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100"
-      }
+          : "flex h-72 min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100",
+        chromeInsetTop && "pt-9",
+      )}
       data-testid={`${slot}-workspace-pane`}
     >
       <header className="app-no-drag flex h-7 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5">

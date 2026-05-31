@@ -18,7 +18,6 @@ import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
-import { cn } from "./lib/utils";
 import {
   type WorkspaceOperationKind,
   type WorkspaceOperation,
@@ -47,6 +46,11 @@ export function App() {
     setCommandPaletteOpen(false);
     setSearchPaletteOpen(true);
   }, []);
+  const chromeInsetPane = nativeChromeInsetPane(platform, {
+    chat: chatPaneOpen,
+    project: projectPaneOpen,
+    right: panes.right.open,
+  });
 
   useEffect(() => {
     return window.setta.chat.onEvent((event) => {
@@ -78,6 +82,7 @@ export function App() {
       <main className="grid h-full min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-zinc-900">
         <div className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900">
           <ProjectPane
+            chromeInsetTop={chromeInsetPane === "project"}
             chat={chat}
             open={projectPaneOpen}
             openSearchPalette={openSearchPalette}
@@ -86,6 +91,7 @@ export function App() {
             workspace={workspace}
           />
           <ChatPane
+            chromeInsetTop={chromeInsetPane === "chat"}
             chat={chat}
             chatSearchOpen={chatSearchOpen}
             open={chatPaneOpen}
@@ -99,6 +105,7 @@ export function App() {
             <div className="h-full min-w-[360px] flex-1">
               <WorkspacePanePanel
                 activeTabId={panes.right.activeTabId}
+                chromeInsetTop={chromeInsetPane === "right"}
                 onCloseTab={(tabId) => panes.closeTab("right", tabId)}
                 onCreateTab={(kind) => panes.createTab("right", kind)}
                 onSelectTab={(tabId) => panes.selectTab("right", tabId)}
@@ -126,6 +133,7 @@ export function App() {
 type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
 
 function ProjectPane({
+  chromeInsetTop,
   chat,
   open,
   openSearchPalette,
@@ -133,6 +141,7 @@ function ProjectPane({
   width,
   workspace,
 }: {
+  chromeInsetTop: boolean;
   chat: ChatView;
   open: boolean;
   openSearchPalette: () => void;
@@ -169,6 +178,7 @@ function ProjectPane({
           selectWorkspace={workspace.selectWorkspace}
           selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectedWorkspaceId={workspace.selectedWorkspaceId}
+          chromeInsetTop={chromeInsetTop}
           sidebarWidth={width}
         />
       </div>
@@ -177,6 +187,7 @@ function ProjectPane({
 }
 
 function ChatPane({
+  chromeInsetTop,
   chat,
   chatSearchOpen,
   open,
@@ -186,6 +197,7 @@ function ChatPane({
   width,
   workspace,
 }: {
+  chromeInsetTop: boolean;
   chat: ChatView;
   chatSearchOpen: boolean;
   open: boolean;
@@ -202,6 +214,7 @@ function ChatPane({
   const panel = (
     <ChatPanel
       chat={chat}
+      chromeInsetTop={chromeInsetTop}
       searchOpen={chatSearchOpen}
       setSearchOpen={setChatSearchOpen}
       workspace={workspace.selectedWorkspace}
@@ -309,7 +322,6 @@ function AppChromeControls({
       <FloatingPaneControls
         bottomPaneOpen={bottomPaneOpen}
         chatPaneOpen={chatPaneOpen}
-        platform={platform}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={rightPaneOpen}
         rootPath={selectedWorkspace?.rootPath ?? ""}
@@ -361,7 +373,6 @@ function ShellPaneToggle({
 function FloatingPaneControls({
   bottomPaneOpen,
   chatPaneOpen,
-  platform,
   projectPaneOpen,
   rightPaneOpen,
   rootPath,
@@ -372,7 +383,6 @@ function FloatingPaneControls({
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
-  platform: DesktopPlatform;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
   rootPath: string;
@@ -382,12 +392,7 @@ function FloatingPaneControls({
   setRightPaneOpen: (open: boolean) => void;
 }) {
   return (
-    <div
-      className={cn(
-        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-400",
-        platform === "darwin" ? "right-2" : "right-36",
-      )}
-    >
+    <div className="app-no-drag pointer-events-none fixed top-1 right-2 z-50 flex items-center gap-1 text-zinc-400">
       <div className="pointer-events-auto flex items-center gap-1">
         <EditorPicker rootPath={rootPath} />
         <ShellPaneToggle
@@ -424,30 +429,38 @@ function FloatingPaneControls({
 }
 
 function NativeChromeGuards({ platform }: { platform: DesktopPlatform }) {
-  if (platform === "darwin") {
-    return (
-      <>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed top-0 left-0 z-40 h-9 w-24 bg-zinc-900"
-          data-testid="macos-traffic-light-safe-zone"
-        />
-        <div
-          aria-hidden="true"
-          className="app-drag fixed top-0 left-24 z-40 h-1.5 w-[calc(100vw-12rem)]"
-          data-testid="macos-window-drag-strip"
-        />
-      </>
-    );
+  if (platform !== "darwin") {
+    return null;
   }
-  if (platform === "win32" || platform === "linux") {
-    return (
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed top-0 right-0 z-40 h-8 w-36"
-        data-testid="native-window-control-safe-zone"
-      />
-    );
+  return (
+    <div
+      aria-hidden="true"
+      className="app-drag fixed top-0 right-0 z-40 h-8"
+      data-testid="macos-window-drag-strip"
+      style={{ left: macOsTrafficLightSafeWidth }}
+    />
+  );
+}
+
+type ChromeInsetPane = "chat" | "project" | "right";
+
+const macOsTrafficLightSafeWidth = 92;
+
+function nativeChromeInsetPane(
+  platform: DesktopPlatform,
+  visiblePanes: Record<ChromeInsetPane, boolean>,
+): ChromeInsetPane | null {
+  if (platform !== "darwin") {
+    return null;
+  }
+  if (visiblePanes.project) {
+    return "project";
+  }
+  if (visiblePanes.chat) {
+    return "chat";
+  }
+  if (visiblePanes.right) {
+    return "right";
   }
   return null;
 }
