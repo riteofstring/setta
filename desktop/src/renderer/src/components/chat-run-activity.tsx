@@ -1,6 +1,7 @@
 import type { RunItem, RunItemOutput, RunItemType } from "@generated/backend";
 import {
   AlertTriangle,
+  Bot,
   ChevronDown,
   ChevronUp,
   FileText,
@@ -93,18 +94,36 @@ export function RunActivityRows({
   outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   outputsById: Record<string, RunItemOutput>;
 }) {
+  if (items.length === 0) {
+    return null;
+  }
   return (
-    <div className="mt-3 w-full min-w-0 max-w-full overflow-hidden space-y-1.5 border-t border-zinc-800/80 pt-2.5">
-      {items.map((item) => (
-        <RunActivityRow
-          item={item}
-          key={item.id}
-          loadRunItemOutput={loadRunItemOutput}
-          outputPage={outputPagesByRunItemId[item.id]}
-          outputs={outputsForItem(outputIdsByRunItemId, outputsById, item.id)}
-        />
-      ))}
-    </div>
+    <details
+      className="group/activity mt-3 w-full min-w-0 max-w-full overflow-hidden border-t border-zinc-800/80 pt-2.5 text-xs text-zinc-100"
+      data-testid="run-activity-group"
+      open
+    >
+      <summary className="flex h-7 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-zinc-300 marker:hidden">
+        <Bot className="h-4 w-4 shrink-0 text-zinc-500" />
+        <ActivityGroupDisclosureIcon />
+        <span className="rounded-sm border border-zinc-700 bg-zinc-950 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+          {items.length}
+        </span>
+        <span className="min-w-0 flex-1 truncate font-medium text-zinc-300">Activity</span>
+        <RunActivityGroupStatus items={items} />
+      </summary>
+      <div className="mt-1.5 min-w-0 space-y-1.5 border-l border-zinc-700/70 pl-2">
+        {items.map((item) => (
+          <RunActivityRow
+            item={item}
+            key={item.id}
+            loadRunItemOutput={loadRunItemOutput}
+            outputPage={outputPagesByRunItemId[item.id]}
+            outputs={outputsForItem(outputIdsByRunItemId, outputsById, item.id)}
+          />
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -127,7 +146,7 @@ function RunActivityRow({
   const outputText = outputPreview(outputs);
   return (
     <details
-      className="group relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-zinc-100"
+      className="group/item relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-zinc-100"
       data-testid="run-activity-row"
       onToggle={(event) => {
         if (!event.currentTarget.open || outputPage?.loading || outputPage) {
@@ -153,6 +172,15 @@ function RunActivityRow({
         outputText={outputText}
       />
     </details>
+  );
+}
+
+function ActivityGroupDisclosureIcon() {
+  return (
+    <>
+      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-open/activity:hidden" />
+      <ChevronUp className="hidden h-3.5 w-3.5 shrink-0 text-zinc-400 group-open/activity:block" />
+    </>
   );
 }
 
@@ -407,10 +435,33 @@ function ActivityIcon({ type }: { type: RunItemType }) {
 function ToolDisclosureIcon() {
   return (
     <>
-      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-open:hidden" />
-      <ChevronUp className="hidden h-3.5 w-3.5 shrink-0 text-zinc-400 group-open:block" />
+      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-open/item:hidden" />
+      <ChevronUp className="hidden h-3.5 w-3.5 shrink-0 text-zinc-400 group-open/item:block" />
     </>
   );
+}
+
+function RunActivityGroupStatus({ items }: { items: RunItem[] }) {
+  const running = items.some((item) => item.status === "pending" || item.status === "running");
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-[11px] text-zinc-500">
+      {running ? <BrailleSpinner className="text-zinc-500" label="Activity running" /> : null}
+      <span>{activityGroupStatus(items)}</span>
+    </span>
+  );
+}
+
+function activityGroupStatus(items: RunItem[]) {
+  if (items.some((item) => item.status === "failed")) {
+    return "failed";
+  }
+  if (items.some((item) => item.status === "cancelled")) {
+    return "cancelled";
+  }
+  if (items.some((item) => item.status === "pending" || item.status === "running")) {
+    return "running";
+  }
+  return "completed";
 }
 
 function RunActivityStatus({ item }: { item: RunItem }) {

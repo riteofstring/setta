@@ -564,6 +564,8 @@ describe("chat renderer states", () => {
     expect(html).toContain("halfway");
     expect(html).toContain("warning text");
     expect(html).toContain('dateTime="2026-05-29T20:00:00Z"');
+    expect(rowCount(html, "run-activity-group")).toBe(1);
+    expect(rowCount(html, "run-activity-row")).toBe(4);
     expect(html).not.toContain("assistant message");
   });
 
