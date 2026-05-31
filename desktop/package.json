@@ -12,8 +12,6 @@
     "deadcode": "knip --no-config-hints",
     "lint": "eslint .",
     "test": "vitest run src",
-    "test:electron": "pnpm build && pnpm test:electron:built",
-    "test:electron:built": "node scripts/chat-workflows.test.mjs && node scripts/corrupt-chat-workflow.test.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -22,7 +20,6 @@
     "lucide-react": "1.16.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "react-virtuoso": "4.18.7",
     "tailwind-merge": "3.6.0",
     "zustand": "5.0.13"
   },
