@@ -187,6 +187,9 @@ function applyAssistantTextDelta(
 }
 
 function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
+  if (item.conversation.archivedAt !== "") {
+    return archivedConversationPatch(state, item);
+  }
   const selectedConversation =
     state.selectedConversation?.id === item.conversation.id
       ? item.conversation
@@ -194,6 +197,28 @@ function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem):
   return {
     conversations: upsertConversation(state.conversations, item),
     selectedConversation,
+  };
+}
+
+function archivedConversationPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
+  const conversations = state.conversations.filter(
+    (conversationItem) => conversationItem.conversation.id !== item.conversation.id,
+  );
+  if (state.selectedConversation?.id !== item.conversation.id) {
+    return {
+      conversations,
+      selectedConversation: state.selectedConversation,
+    };
+  }
+  return {
+    activeRun: null,
+    conversations,
+    hasMoreOlder: false,
+    messages: [],
+    olderBeforeOrdinal: 0,
+    queuedRuns: [],
+    selectedConversation: null,
+    transcript: [],
   };
 }
 

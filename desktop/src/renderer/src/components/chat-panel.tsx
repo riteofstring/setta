@@ -19,12 +19,14 @@ import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
 import { ChatTranscript } from "./chat-transcript";
+import { EditorPicker } from "./editor-picker";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
 export function ChatPanel({
   chat,
   chromeInsetTop = false,
+  avoidShellControls = false,
   maximized = false,
   onToggleMaximize,
   searchOpen,
@@ -32,6 +34,7 @@ export function ChatPanel({
   workspace,
 }: {
   chat: ChatView;
+  avoidShellControls?: boolean;
   chromeInsetTop?: boolean;
   maximized?: boolean;
   onToggleMaximize?: () => void;
@@ -44,7 +47,7 @@ export function ChatPanel({
       <section
         className={cn(
           "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
-          chromeInsetTop && "pt-8",
+          chromeInsetTop && "pt-10",
         )}
       >
         <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
@@ -55,30 +58,36 @@ export function ChatPanel({
   }
   return (
     <ChatWorkspace
+      avoidShellControls={avoidShellControls}
       chat={chat}
       chromeInsetTop={chromeInsetTop}
       maximized={maximized}
       onToggleMaximize={onToggleMaximize}
       searchOpen={searchOpen}
       setSearchOpen={setSearchOpen}
+      workspace={workspace}
     />
   );
 }
 
 function ChatWorkspace({
+  avoidShellControls,
   chat,
   chromeInsetTop,
   maximized,
   onToggleMaximize,
   searchOpen,
   setSearchOpen,
+  workspace,
 }: {
+  avoidShellControls: boolean;
   chat: ChatView;
   chromeInsetTop: boolean;
   maximized: boolean;
   onToggleMaximize?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
+  workspace: WorkspaceSummary;
 }) {
   const busy = isChatBusy(chat);
   const blocked = isChatBlocked(chat);
@@ -89,15 +98,18 @@ function ChatWorkspace({
   return (
     <section
       className={cn(
-        "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100",
-        chromeInsetTop && "pt-8",
+        "relative flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 text-zinc-100",
+        chromeInsetTop && "pt-10",
       )}
     >
-      {onToggleMaximize ? (
-        <ChatMaximizeButton maximized={maximized} onToggleMaximize={onToggleMaximize} />
-      ) : null}
+      <ChatPaneChromeActions
+        avoidShellControls={avoidShellControls}
+        maximized={maximized}
+        onToggleMaximize={onToggleMaximize}
+        rootPath={workspace.rootPath}
+      />
       <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
         data-conversation-id={selectedConversationId}
         data-run-status={activeRunStatus(chat) ?? ""}
         data-testid="chat-detail-pane"
@@ -116,6 +128,32 @@ function ChatWorkspace({
   );
 }
 
+function ChatPaneChromeActions({
+  avoidShellControls,
+  maximized,
+  onToggleMaximize,
+  rootPath,
+}: {
+  avoidShellControls: boolean;
+  maximized: boolean;
+  onToggleMaximize?: () => void;
+  rootPath: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "app-no-drag pointer-events-auto absolute top-1 z-50 flex items-center gap-1",
+        avoidShellControls ? "right-[min(8.5rem,calc(100%_-_6.5rem))]" : "right-1",
+      )}
+    >
+      {onToggleMaximize && !maximized ? (
+        <ChatMaximizeButton maximized={maximized} onToggleMaximize={onToggleMaximize} />
+      ) : null}
+      <EditorPicker rootPath={rootPath} />
+    </div>
+  );
+}
+
 function ChatMaximizeButton({
   maximized,
   onToggleMaximize,
@@ -127,7 +165,7 @@ function ChatMaximizeButton({
   return (
     <button
       aria-label={label}
-      className="app-no-drag absolute top-0 right-1 z-50 grid h-8 w-7 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+      className="app-no-drag grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
       onClick={onToggleMaximize}
       title={label}
       type="button"
@@ -227,6 +265,7 @@ export function ConversationBody({
         setSearchOpen={setSearchOpen}
         submitApproval={chat.submitApproval}
         transcript={chat.transcript}
+        updateUserMessage={chat.updateUserMessage}
       />
     </div>
   );
@@ -278,7 +317,7 @@ function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
     <div className="grid min-h-0 place-items-center px-3 pb-[12vh]">
       <div
         className={cn(
-          "w-full max-w-3xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+          "w-full max-w-2xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
           departing && "translate-y-16 opacity-0",
         )}
       >
@@ -336,7 +375,7 @@ function ChatStateStatusIcon({
       aria-label={label}
       className={cn(
         "group/chat-state app-no-drag absolute left-2 z-40 grid h-7 w-7 place-items-center rounded-sm text-amber-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80",
-        chromeInsetTop ? "top-9" : "top-1",
+        chromeInsetTop ? "top-11" : "top-1",
       )}
       data-testid="workspace-corruption-status"
       role="status"
@@ -505,7 +544,7 @@ function Composer({
         void sendDraft();
       }}
     >
-      <div className="relative mx-auto w-full max-w-3xl min-w-0">
+      <div className="relative mx-auto w-full max-w-2xl min-w-0">
         <div
           className={cn(
             "min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15",
@@ -841,6 +880,7 @@ export function useChatViewState(workspaceId: string | null) {
   const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
+  const deleteConversation = useChatStore((state) => state.deleteConversation);
   const error = useChatStore((state) => state.error);
   const executeCommand = useChatStore((state) => state.executeCommand);
   const diagnostics = useChatStore((state) => state.diagnostics);
@@ -872,6 +912,7 @@ export function useChatViewState(workspaceId: string | null) {
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcript = useChatStore((state) => state.transcript);
+  const updateUserMessage = useChatStore((state) => state.updateUserMessage);
   const unreadConversationIds = useChatStore((state) => state.unreadConversationIds);
 
   useEffect(() => {
@@ -887,6 +928,7 @@ export function useChatViewState(workspaceId: string | null) {
     corruption,
     createConversation,
     createWorkspaceConversation,
+    deleteConversation,
     diagnostics,
     error,
     executeCommand,
@@ -914,6 +956,7 @@ export function useChatViewState(workspaceId: string | null) {
     stopActiveRun,
     submitApproval,
     transcript,
+    updateUserMessage,
     unreadConversationIds,
   };
 }

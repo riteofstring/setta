@@ -109,6 +109,72 @@ describe("chat store", () => {
     expect(useChatStore.getState().status).toBe("ready");
   });
 
+  test("deletes the selected conversation and selects the next visible chat", async () => {
+    const selected = { ...testConversation(), id: "conversation_selected", title: "Selected" };
+    const remaining = { ...testConversation(), id: "conversation_remaining", title: "Remaining" };
+    const deleteConversation = vi
+      .fn()
+      .mockResolvedValue(listResponse([conversationItem(remaining, 0)]));
+    const messagePage = vi.fn().mockResolvedValue(testPage(remaining, []));
+    installSettaAPI({ chat: { deleteConversation, messagePage } });
+    useChatStore.setState({
+      conversations: [conversationItem(selected, 0), conversationItem(remaining, 0)],
+      messages: [message("message_selected", 1, "user", "complete", "selected")],
+      selectedConversation: selected,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().deleteConversation(selected.id);
+
+    expect(deleteConversation).toHaveBeenCalledWith("workspace_api", selected.id);
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", remaining.id, 0, 40);
+    expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
+      remaining.id,
+    ]);
+    expect(useChatStore.getState().selectedConversation?.id).toBe(remaining.id);
+    expect(useChatStore.getState().status).toBe("ready");
+  });
+
+  test("updates a user message in messages and transcript", async () => {
+    const conversation = testConversation();
+    const original = message("message_user", 1, "user", "complete", "before edit");
+    const updated = {
+      ...original,
+      parts: [{ ...original.parts[0], text: "after edit" }],
+      updatedAt: "2026-05-29T20:01:00Z",
+    };
+    const updateUserMessage = vi.fn().mockResolvedValue(updated);
+    installSettaAPI({ chat: { updateUserMessage } });
+    useChatStore.setState({
+      conversations: [conversationItem(conversation, 1)],
+      messages: [original],
+      selectedConversation: conversation,
+      status: "ready",
+      transcript: [
+        {
+          assistantMessage: null,
+          run: testRun("completed"),
+          steeringMessages: [],
+          triggerMessage: original,
+        },
+      ],
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().updateUserMessage(original.id, "after edit");
+
+    expect(updateUserMessage).toHaveBeenCalledWith(
+      "workspace_api",
+      conversation.id,
+      original.id,
+      "after edit",
+    );
+    expect(useChatStore.getState().messagesById[original.id]?.parts[0]?.text).toBe("after edit");
+    expect(useChatStore.getState().transcript[0]?.triggerMessage.parts[0]?.text).toBe("after edit");
+    expect(useChatStore.getState().status).toBe("ready");
+  });
+
   test("prepends older message pages without replacing the latest page", async () => {
     const conversation = testConversation();
     installSettaAPI({
@@ -862,6 +928,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
+      deleteConversation: async () => listResponse([]),
       executeCommand: async () => ({
         conversation,
         message: null,
@@ -925,6 +992,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: message("message_steer", 3, "user", "complete", "steer", "steering"),
       }),
       submitApproval: async () => testRun("running"),
+      updateUserMessage: async () =>
+        message("message_user", 1, "user", "complete", "updated message"),
       ...overrides.chat,
     },
     providerAccounts: {

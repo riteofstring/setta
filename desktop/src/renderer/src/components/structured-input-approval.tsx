@@ -137,11 +137,12 @@ function StructuredInputURLApproval({
 }) {
   return (
     <div className="mt-3 space-y-3">
-      <div className="break-all rounded border border-amber-200 bg-white px-3 py-2 font-mono text-xs">
+      <div className="break-all rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-200">
         {input.url}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button
+          className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
           onClick={() => void window.setta.app.openExternalUrl(input.url)}
           type="button"
           variant="secondary"
@@ -150,6 +151,7 @@ function StructuredInputURLApproval({
           Open
         </Button>
         <Button
+          className="border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
           onClick={() => void submitApproval(true, [], false)}
           type="button"
           variant="primary"
@@ -158,6 +160,7 @@ function StructuredInputURLApproval({
           Accept
         </Button>
         <Button
+          className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
           onClick={() => void submitApproval(false, [], false)}
           type="button"
           variant="secondary"
@@ -166,6 +169,7 @@ function StructuredInputURLApproval({
           Decline
         </Button>
         <Button
+          className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
           onClick={() => void submitApproval(false, [], true)}
           type="button"
           variant="secondary"
@@ -204,7 +208,7 @@ function StructuredFormFieldInput({
     <label className="block space-y-1.5">
       <span className="block font-medium">{field.title}</span>
       {field.description ? (
-        <span className="block text-xs text-amber-900">{field.description}</span>
+        <span className="block text-xs text-zinc-400">{field.description}</span>
       ) : null}
       <StructuredFormFieldControl field={field} setValue={setValue} value={value} />
     </label>
@@ -225,18 +229,20 @@ function StructuredFormFieldControl({
       return (
         <input
           checked={structuredValueAsBoolean(value)}
-          className="h-4 w-4 rounded border-amber-300"
+          className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
           data-testid={`structured-input-field-${field.id}`}
           onChange={(event) => setValue(event.target.checked)}
+          onInput={(event) => setValue(event.currentTarget.checked)}
           type="checkbox"
         />
       );
     case "single_select":
       return (
         <select
-          className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
+          className="w-full rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-400"
           data-testid={`structured-input-field-${field.id}`}
           onChange={(event) => setValue(event.target.value)}
+          onInput={(event) => setValue(event.currentTarget.value)}
           value={structuredValueAsString(value)}
         >
           <option value="">Select</option>
@@ -253,7 +259,7 @@ function StructuredFormFieldControl({
     case "number":
       return (
         <input
-          className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
+          className="w-full rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-400"
           data-testid={`structured-input-field-${field.id}`}
           max={field.maximum}
           min={field.minimum}
@@ -266,7 +272,7 @@ function StructuredFormFieldControl({
     case "string":
       return (
         <input
-          className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
+          className="w-full rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-400"
           data-testid={`structured-input-field-${field.id}`}
           maxLength={field.maxLength}
           minLength={field.minLength}
@@ -294,12 +300,12 @@ function StructuredMultiSelectField({
     <div className="flex flex-wrap gap-2" data-testid={`structured-input-field-${field.id}`}>
       {field.options.map((option) => (
         <label
-          className="inline-flex items-center gap-2 rounded border border-amber-200 bg-white px-2 py-1"
+          className="inline-flex items-center gap-2 rounded-sm border border-zinc-700 bg-zinc-950 px-2 py-1 text-zinc-100"
           key={option.value}
         >
           <input
             checked={selected.includes(option.value)}
-            className="h-4 w-4 rounded border-amber-300"
+            className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
             onChange={() => setValue(toggledStructuredMultiValue(selected, option.value))}
             type="checkbox"
           />
