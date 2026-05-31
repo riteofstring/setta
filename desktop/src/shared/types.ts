@@ -1,15 +1,18 @@
 import type {
   BackendHealth,
-  ApprovalAnswer,
   ChatEvent,
-  ChatMessage,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueMessageResult,
   Run,
+  RunActivityPage,
+  RunItemOutputPage,
   SendMessageResult,
+  SteerMessageResult,
+  SubmitApprovalRequest,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -20,52 +23,33 @@ export interface RuntimeVersions {
   node: string;
 }
 
-export type DesktopPlatform =
-  | "aix"
-  | "android"
-  | "cygwin"
-  | "darwin"
-  | "freebsd"
-  | "haiku"
-  | "linux"
-  | "netbsd"
-  | "openbsd"
-  | "sunos"
-  | "win32";
+export type BackendProcessStatus =
+  | { status: "starting"; message: string }
+  | { status: "online"; url: string; mode: "external" | "spawned"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string };
 
-export interface InstalledEditorApp {
-  id: string;
-  displayName: string;
-  iconDataUrl: string;
-}
-
-export interface WorkspaceGitInfo {
-  branchName: string;
-  commitShort: string;
-  worktreeName: string;
-  worktreeRoot: string;
-}
-
-export interface SubmitApprovalInput {
-  workspaceId: string;
-  conversationId: string;
-  approvalId: string;
-  approved: boolean;
-  answers: ApprovalAnswer[];
-  response: string;
-  cancelled: boolean;
-}
+export type BackendEventStreamStatus =
+  | { status: "connecting"; attempt: number; message: string }
+  | { status: "connected"; lastSequence: number; lastStreamId: string; message: string }
+  | {
+      status: "reconnecting";
+      attempt: number;
+      lastSequence: number;
+      lastStreamId: string;
+      message: string;
+    }
+  | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
+  | { status: "stopped"; message: string };
 
 export interface SettaAPI {
   app: {
-    installedEditors: () => Promise<InstalledEditorApp[]>;
-    openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;
-    platform: DesktopPlatform;
     versions: () => Promise<RuntimeVersions>;
-    workspaceGitInfo: (rootPath: string) => Promise<WorkspaceGitInfo>;
   };
   backend: {
     health: () => Promise<BackendHealth>;
+    onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
+    onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
@@ -86,18 +70,30 @@ export interface SettaAPI {
       beforeOrdinal: number,
       limit: number,
     ) => Promise<MessagePage>;
+    queueMessage: (
+      workspaceId: string,
+      conversationId: string,
+      prompt: string,
+    ) => Promise<QueueMessageResult>;
+    runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
+    runItemOutput: (
+      workspaceId: string,
+      runId: string,
+      runItemId: string,
+      afterOrdinal: number,
+      limit: number,
+    ) => Promise<RunItemOutputPage>;
     sendMessage: (
       workspaceId: string,
       conversationId: string,
       prompt: string,
     ) => Promise<SendMessageResult>;
-    onEvent: (listener: (event: ChatEvent) => void) => () => void;
-    submitApproval: (input: SubmitApprovalInput) => Promise<Run>;
-    updateUserMessage: (
+    steerMessage: (
       workspaceId: string,
       conversationId: string,
-      messageId: string,
-      text: string,
-    ) => Promise<ChatMessage>;
+      prompt: string,
+    ) => Promise<SteerMessageResult>;
+    onEvent: (listener: (event: ChatEvent) => void) => () => void;
+    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };
 }

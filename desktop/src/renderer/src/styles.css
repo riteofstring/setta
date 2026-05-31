@@ -31,20 +31,3 @@ a {
   color: inherit;
   text-decoration: none;
 }
-
-button:not(:disabled),
-[role="button"]:not([aria-disabled="true"]) {
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: default;
-}
-
-.app-drag {
-  -webkit-app-region: drag;
-}
-
-.app-no-drag {
-  -webkit-app-region: no-drag;
-}

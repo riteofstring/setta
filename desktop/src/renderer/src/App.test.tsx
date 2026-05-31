@@ -1,15 +1,9 @@
+import type { ChatMessage } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
-import { ChatModelMenu } from "./components/chat-model-menu";
-import { ChatPermissionsMenu } from "./components/chat-permissions-menu";
-import { ChatPlusMenu } from "./components/chat-plus-menu";
 import { ChatTranscript } from "./components/chat-transcript";
-import { EditorPicker } from "./components/editor-picker";
-import { SettingsPanel } from "./components/settings-panel";
-import { SlashCommandPalette } from "./components/slash-command-palette";
-import { WorkspacePanePanel } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 
 describe("workspace renderer states", () => {
@@ -17,21 +11,14 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <>
         <WorkspaceSidebar
-          activeRun={null}
           activeWorkspaces={[]}
           busy={false}
-          chatBusy={false}
           closeWorkspace={async () => {}}
-          conversations={[]}
-          createConversation={async () => {}}
-          createWorkspaceConversation={async () => {}}
           openLocalFolder={async () => {}}
-          openSearch={() => {}}
           recentWorkspaces={[]}
           removeRecent={async () => {}}
-          selectConversation={async () => {}}
+          reorderWorkspaces={async () => {}}
           selectWorkspace={async () => {}}
-          selectedConversationId=""
           selectedWorkspaceId=""
         />
         <WorkspacePanel
@@ -45,7 +32,8 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain("No workspace open");
-    expect(html).toContain("No projects");
+    expect(html).toContain("No active workspaces");
+    expect(html).toContain("No recent workspaces");
   });
 
   test("renders active selected and recent workspace state", () => {
@@ -61,45 +49,17 @@ describe("workspace renderer states", () => {
       lastOpenedAt: "2026-05-29T20:05:00Z",
       rootPath: "/tmp/web",
     };
-    const docs = {
-      displayName: "docs",
-      id: "workspace_docs",
-      lastOpenedAt: "2026-05-29T20:10:00Z",
-      rootPath: "/tmp/docs",
-    };
     const html = renderToString(
       <>
         <WorkspaceSidebar
-          activeRun={null}
           activeWorkspaces={[api, web]}
           busy={false}
-          chatBusy={false}
           closeWorkspace={async () => {}}
-          conversations={[
-            {
-              activeRunId: "",
-              conversation: {
-                archivedAt: "",
-                createdAt: "2026-05-29T20:00:00Z",
-                harnessRefs: [],
-                id: "conversation_web",
-                schemaVersion: 1,
-                title: "Web chat",
-                updatedAt: "2026-05-29T20:00:00Z",
-                workspaceId: "workspace_web",
-              },
-              messageCount: 2,
-            },
-          ]}
-          createConversation={async () => {}}
-          createWorkspaceConversation={async () => {}}
           openLocalFolder={async () => {}}
-          openSearch={() => {}}
-          recentWorkspaces={[web, api, docs]}
+          recentWorkspaces={[web, api]}
           removeRecent={async () => {}}
-          selectConversation={async () => {}}
+          reorderWorkspaces={async () => {}}
           selectWorkspace={async () => {}}
-          selectedConversationId="conversation_web"
           selectedWorkspaceId="workspace_web"
         />
         <WorkspacePanel
@@ -115,30 +75,6 @@ describe("workspace renderer states", () => {
     expect(html).toContain("web");
     expect(html).toContain("/tmp/web");
     expect(html).toContain("Active");
-    expect(html).toContain("Web chat");
-    expect(html).toContain('dateTime="2026-05-29T20:00:00Z"');
-    expect(html).toContain('data-testid="conversation-hover-card"');
-    expect(html).toContain("No branch");
-    expect(html).toContain('title="/tmp/web"');
-    expect(html).toContain('title="/tmp/api"');
-    expect(html).toContain('data-testid="standalone-chat-section"');
-    expect(html).toContain("Chats");
-    expect(html).toContain('aria-label="New chat in web"');
-    expect(html).toContain("No unorganized chats");
-    expect(html).toContain("Notes");
-    expect(html).toContain("No Markdown notes");
-    expect(html).toContain("DB / Memories");
-    expect(html).toContain("Rules");
-    expect(html).toContain("Setta rules");
-    expect(html).toContain("No rule canvases");
-    expect(html).toContain('data-testid="notes-section"');
-    expect(html).toContain('data-testid="memory-integrations-section"');
-    expect(html).toContain('data-testid="rules-section"');
-    expect(html).toContain("Resize Projects");
-    expect(html).toContain("Resize Rules");
-    expect(html).toContain("Search");
-    expect(html).toContain("Notifications / Logs");
-    expect(html).toContain("More options for web");
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('data-testid="recent-workspace-list"');
   });
@@ -169,137 +105,20 @@ describe("workspace renderer states", () => {
 
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={null}
         activeWorkspaces={workspaces}
         busy={false}
-        chatBusy={false}
         closeWorkspace={async () => {}}
-        conversations={[]}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openSearch={() => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
+        reorderWorkspaces={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId=""
         selectedWorkspaceId="workspace_0"
       />,
     );
 
     expect(rowCount(html, "active-workspace-item")).toBeLessThan(30);
     expect(rowCount(html, "recent-workspace-item")).toBeLessThan(30);
-  });
-
-  test("renders the compact shell editor picker", () => {
-    const html = renderToString(<EditorPicker rootPath="/tmp/web" />);
-
-    expect(html).toContain("Choose editor");
-    expect(html).not.toContain("VS Code");
-  });
-
-  test("renders an empty right workspace pane with creation actions", () => {
-    const html = renderToString(
-      <WorkspacePanePanel
-        activeTabId=""
-        onCloseTab={() => {}}
-        onCreateTab={() => {}}
-        onSelectTab={() => {}}
-        slot="right"
-        tabs={[]}
-      />,
-    );
-
-    expect(html).toContain('data-testid="right-workspace-pane"');
-    expect(html).not.toContain("Right pane");
-    expect(html).toContain("Canvas");
-    expect(html).toContain("Terminal");
-    expect(html).toContain("Browser");
-    expect(html).toContain("Diffs");
-    expect(html).toContain("Files");
-    expect(html).toContain("Settings");
-  });
-
-  test("renders workspace pane tabs and active terminal content", () => {
-    const html = renderToString(
-      <WorkspacePanePanel
-        activeTabId="terminal_tab"
-        onCloseTab={() => {}}
-        onCreateTab={() => {}}
-        onSelectTab={() => {}}
-        slot="bottom"
-        tabs={[
-          {
-            id: "terminal_tab",
-            kind: "terminal",
-            title: "Terminal",
-          },
-          {
-            id: "browser_tab",
-            kind: "browser",
-            title: "Browser",
-          },
-        ]}
-      />,
-    );
-
-    expect(html).toContain('data-testid="bottom-workspace-pane"');
-    expect(html).toContain('data-testid="workspace-pane-tab-terminal_tab"');
-    expect(html).toContain('data-pane-runtime="libghostty"');
-    expect(html).toContain("New pane tab");
-    expect(html).toContain("Close Terminal");
-    expect(html).toContain("$");
-  });
-
-  test("renders a canvas workspace pane tab", () => {
-    const html = renderToString(
-      <WorkspacePanePanel
-        activeTabId="canvas_tab"
-        onCloseTab={() => {}}
-        onCreateTab={() => {}}
-        onSelectTab={() => {}}
-        slot="right"
-        tabs={[
-          {
-            id: "canvas_tab",
-            kind: "canvas",
-            title: "Canvas",
-          },
-        ]}
-      />,
-    );
-
-    expect(html).toContain("Canvas");
-    expect(html).toContain('data-pane-runtime="xyflow"');
-    expect(html).toContain('data-testid="workspace-pane-tab-canvas_tab"');
-  });
-
-  test("renders future pane runtime boundaries", () => {
-    const renderPane = (id: string, kind: "browser" | "diffs" | "file" | "settings") =>
-      renderToString(
-        <WorkspacePanePanel
-          activeTabId={id}
-          onCloseTab={() => {}}
-          onCreateTab={() => {}}
-          onSelectTab={() => {}}
-          slot="right"
-          tabs={[
-            {
-              id,
-              kind,
-              title: kind,
-            },
-          ]}
-        />,
-      );
-
-    expect(renderPane("browser_tab", "browser")).toContain('data-pane-runtime="chromium-browser"');
-    expect(renderPane("diffs_tab", "diffs")).toContain('data-pane-runtime="pierre-diffs"');
-    expect(renderPane("files_tab", "file")).toContain('data-pane-runtime="pierre-trees"');
-    expect(renderPane("settings_tab", "settings")).toContain(
-      'data-pane-runtime="renderer-settings"',
-    );
   });
 });
 
@@ -310,10 +129,12 @@ describe("chat renderer states", () => {
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
         messages={[
           {
             conversationId: "conversation_api",
             createdAt: "2026-05-29T20:00:00Z",
+            delivery: "normal",
             id: "message_assistant",
             ordinal: 1,
             parts: [
@@ -331,6 +152,8 @@ describe("chat renderer states", () => {
             updatedAt: "2026-05-29T20:00:00Z",
           },
         ]}
+        runItemOutputs={[]}
+        runItems={[]}
         submitApproval={async () => {}}
       />,
     );
@@ -340,158 +163,324 @@ describe("chat renderer states", () => {
     expect(html).not.toContain("<script>");
   });
 
-  test("only user messages expose edit actions", () => {
+  test("bounds large transcript row rendering", () => {
+    const messages = Array.from({ length: 5000 }, (_, index) =>
+      chatMessage(`message_${index}`, index + 1),
+    );
+
     const html = renderToString(
       <ChatTranscript
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={messages}
+        runItemOutputs={[]}
+        runItems={[]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(rowCount(html, "chat-message")).toBeLessThanOrEqual(30);
+  });
+
+  test("renders queued steering and activity rows", () => {
+    const html = renderToString(
+      <ChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
         messages={[
           {
             conversationId: "conversation_api",
             createdAt: "2026-05-29T20:00:00Z",
-            id: "message_user",
+            delivery: "queued",
+            id: "message_queued",
             ordinal: 1,
-            parts: [
-              {
-                format: "plain",
-                id: "part_user",
-                text: "Can you check this?",
-                type: "text",
-              },
-            ],
+            parts: [{ format: "plain", id: "part_queued", text: "queued", type: "text" }],
             role: "user",
-            runId: "",
+            runId: "run_queue",
+            schemaVersion: 1,
+            status: "pending",
+            updatedAt: "2026-05-29T20:00:00Z",
+          },
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            delivery: "steering",
+            id: "message_steering",
+            ordinal: 2,
+            parts: [{ format: "plain", id: "part_steering", text: "steer", type: "text" }],
+            role: "user",
+            runId: "run_api",
             schemaVersion: 1,
             status: "complete",
             updatedAt: "2026-05-29T20:00:00Z",
           },
           {
             conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:01Z",
+            createdAt: "2026-05-29T20:00:00Z",
+            delivery: "normal",
             id: "message_assistant",
-            ordinal: 2,
-            parts: [
-              {
-                format: "markdown",
-                id: "part_assistant",
-                text: "Done.",
-                type: "text",
-              },
-            ],
+            ordinal: 3,
+            parts: [{ format: "markdown", id: "part_assistant", text: "done", type: "text" }],
             role: "assistant",
             runId: "run_api",
             schemaVersion: 1,
             status: "complete",
-            updatedAt: "2026-05-29T20:00:01Z",
+            updatedAt: "2026-05-29T20:00:00Z",
+          },
+        ]}
+        runItemOutputs={[
+          {
+            createdAt: "2026-05-29T20:00:00Z",
+            id: "output_1",
+            ordinal: 1,
+            runItemId: "item_command",
+            schemaVersion: 1,
+            stream: "stdout",
+            text: "ok\n",
+          },
+        ]}
+        runItems={[
+          {
+            command: "go test ./...",
+            completedAt: "",
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            cwd: "/tmp/workspace",
+            diffSummary: "",
+            durationMs: 10,
+            error: "",
+            exitCode: 0,
+            filePaths: [],
+            id: "item_command",
+            noticeKind: "",
+            noticeMessage: "",
+            patchStatus: "",
+            progress: "",
+            providerItemId: "command_provider",
+            result: "",
+            runId: "run_api",
+            schemaVersion: 1,
+            serverName: "",
+            startedAt: "2026-05-29T20:00:00Z",
+            status: "completed",
+            summary: "",
+            title: "",
+            toolName: "",
+            type: "command_execution",
+            workspaceId: "workspace_api",
+          },
+          {
+            command: "",
+            completedAt: "",
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            cwd: "",
+            diffSummary: "",
+            durationMs: 0,
+            error: "",
+            exitCode: 0,
+            filePaths: ["/tmp/workspace/main.go"],
+            id: "item_file",
+            noticeKind: "",
+            noticeMessage: "",
+            patchStatus: "updated",
+            progress: "",
+            providerItemId: "file_provider",
+            result: "",
+            runId: "run_api",
+            schemaVersion: 1,
+            serverName: "",
+            startedAt: "2026-05-29T20:00:00Z",
+            status: "running",
+            summary: "",
+            title: "",
+            toolName: "",
+            type: "file_change",
+            workspaceId: "workspace_api",
+          },
+          {
+            command: "",
+            completedAt: "",
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            cwd: "",
+            diffSummary: "",
+            durationMs: 0,
+            error: "",
+            exitCode: 0,
+            filePaths: [],
+            id: "item_mcp",
+            noticeKind: "",
+            noticeMessage: "",
+            patchStatus: "",
+            progress: "halfway",
+            providerItemId: "mcp_provider",
+            result: "",
+            runId: "run_api",
+            schemaVersion: 1,
+            serverName: "server",
+            startedAt: "2026-05-29T20:00:00Z",
+            status: "running",
+            summary: "",
+            title: "",
+            toolName: "tool",
+            type: "mcp_tool_call",
+            workspaceId: "workspace_api",
+          },
+          {
+            command: "",
+            completedAt: "",
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            cwd: "",
+            diffSummary: "",
+            durationMs: 0,
+            error: "",
+            exitCode: 0,
+            filePaths: [],
+            id: "item_notice",
+            noticeKind: "warning",
+            noticeMessage: "warning text",
+            patchStatus: "",
+            progress: "",
+            providerItemId: "notice_provider",
+            result: "",
+            runId: "run_api",
+            schemaVersion: 1,
+            serverName: "",
+            startedAt: "2026-05-29T20:00:00Z",
+            status: "completed",
+            summary: "",
+            title: "",
+            toolName: "",
+            type: "notice",
+            workspaceId: "workspace_api",
           },
         ]}
         submitApproval={async () => {}}
       />,
     );
 
-    expect(html.match(/Edit message/g)).toHaveLength(2);
-    expect(html.match(/Copy message/g)).toHaveLength(4);
-    expect(html.match(/Pin message/g)).toHaveLength(4);
+    expect(html).toContain("Queued");
+    expect(html).toContain("Steering");
+    expect(html).toContain("go test ./...");
+    expect(html).toContain("main.go");
+    expect(html).toContain("halfway");
+    expect(html).toContain("warning text");
   });
 
-  test("renders chat-local search controls", () => {
+  test("renders load more for paged run output", () => {
     const html = renderToString(
       <ChatTranscript
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
-        messages={[]}
-        searchOpen
+        loadRunItemOutput={async () => {}}
+        messages={[
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            delivery: "normal",
+            id: "message_assistant",
+            ordinal: 1,
+            parts: [{ format: "markdown", id: "part_assistant", text: "done", type: "text" }],
+            role: "assistant",
+            runId: "run_api",
+            schemaVersion: 1,
+            status: "complete",
+            updatedAt: "2026-05-29T20:00:00Z",
+          },
+        ]}
+        runItemOutputPagesByRunItemId={{
+          item_command: {
+            error: null,
+            hasMore: true,
+            loadedThroughOrdinal: 1,
+            loading: false,
+            nextOrdinal: 1,
+          },
+        }}
+        runItemOutputs={[
+          {
+            createdAt: "2026-05-29T20:00:00Z",
+            id: "output_1",
+            ordinal: 1,
+            runItemId: "item_command",
+            schemaVersion: 1,
+            stream: "stdout",
+            text: "partial\n",
+          },
+        ]}
+        runItems={[
+          {
+            command: "go test ./...",
+            completedAt: "",
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            cwd: "/tmp/workspace",
+            diffSummary: "",
+            durationMs: 0,
+            error: "",
+            exitCode: 0,
+            filePaths: [],
+            id: "item_command",
+            noticeKind: "",
+            noticeMessage: "",
+            patchStatus: "",
+            progress: "",
+            providerItemId: "command_provider",
+            result: "",
+            runId: "run_api",
+            schemaVersion: 1,
+            serverName: "",
+            startedAt: "2026-05-29T20:00:00Z",
+            status: "completed",
+            summary: "",
+            title: "",
+            toolName: "",
+            type: "command_execution",
+            workspaceId: "workspace_api",
+          },
+        ]}
         submitApproval={async () => {}}
       />,
     );
 
-    expect(html).toContain("Search chat");
-    expect(html).toContain("Previous result");
-    expect(html).toContain("Next result");
-    expect(html).toContain("Close chat search");
-  });
-
-  test("renders slash commands and installed skills without pet entry", () => {
-    const html = renderToString(<SlashCommandPalette onSelect={() => {}} open query="" />);
-
-    expect(html).toContain("Plan mode");
-    expect(html).toContain("Frontend Design");
-    expect(html).toContain("Setta will keep working");
-    expect(html).not.toContain("Pet");
-    expect(html).not.toContain("Codex");
-  });
-
-  test("renders chat permission menu options", () => {
-    const html = renderToString(<ChatPermissionsMenu disabled={false} initialOpen />);
-
-    expect(html).toContain("Default permissions");
-    expect(html).toContain("Auto-review");
-    expect(html).toContain("Full access");
-    expect(html).toContain("Custom (config.toml)");
-    expect(html).not.toContain("Pet");
-    expect(html).not.toContain("Codex");
-  });
-
-  test("renders chat model selection options", () => {
-    const html = renderToString(<ChatModelMenu disabled={false} initialOpen />);
-
-    expect(html).toContain("Reasoning");
-    expect(html).toContain("Low");
-    expect(html).toContain("Medium");
-    expect(html).toContain("High");
-    expect(html).toContain("Extra High");
-    expect(html).toContain("GPT-5.5");
-    expect(html).toContain("Speed");
-    expect(html).not.toContain("Pet");
-    expect(html).not.toContain("Codex");
-  });
-
-  test("renders chat plus menu and plugin submenu", () => {
-    const html = renderToString(
-      <ChatPlusMenu disabled={false} initialOpen initialPluginSubmenuOpen />,
-    );
-
-    expect(html).toContain("Add photos &amp; files");
-    expect(html).toContain("Attach Electron");
-    expect(html).toContain("Plan mode");
-    expect(html).toContain("Pursue goal");
-    expect(html).toContain("Plugins");
-    expect(html).toContain("4 installed plugins");
-    expect(html).toContain("Documents");
-    expect(html).toContain("Spreadsheets");
-    expect(html).toContain("Presentations");
-    expect(html).toContain("Browser");
-    expect(html).not.toContain("Pet");
-    expect(html).not.toContain("Codex");
+    expect(html).toContain("Load more");
   });
 
   test("renders pending approval controls", () => {
     const html = renderToString(
       <ChatTranscript
         activeRun={{
+          assistantMessageId: "message_assistant",
           completedAt: "",
           conversationId: "conversation_api",
           error: "",
-          harness: "setta",
+          harness: "codex",
           hasPendingApproval: true,
           id: "run_api",
           pendingApproval: {
             approved: false,
-            body: "Setta wants permission",
+            body: "Codex wants permission",
             command: "go test ./...",
             createdAt: "2026-05-29T20:00:00Z",
             filePath: "",
             id: "approval_api",
             kind: "command",
             options: [],
+            providerItemId: "",
             questions: [],
             permission: "",
             question: "",
             resolvedAt: "",
             response: "",
             runId: "run_api",
+            runItemId: "",
             status: "pending",
             title: "Run command",
           },
@@ -504,7 +493,10 @@ describe("chat renderer states", () => {
         }}
         hasMoreOlder={false}
         loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
         messages={[]}
+        runItemOutputs={[]}
+        runItems={[]}
         submitApproval={async () => {}}
       />,
     );
@@ -519,10 +511,11 @@ describe("chat renderer states", () => {
     const html = renderToString(
       <ChatTranscript
         activeRun={{
+          assistantMessageId: "message_assistant",
           completedAt: "",
           conversationId: "conversation_api",
           error: "",
-          harness: "setta",
+          harness: "codex",
           hasPendingApproval: true,
           id: "run_api",
           pendingApproval: {
@@ -535,7 +528,8 @@ describe("chat renderer states", () => {
             kind: "user_input",
             options: ["main", "release"],
             permission: "",
-            question: "Which branch should Setta use?",
+            providerItemId: "",
+            question: "Which branch should Codex use?",
             questions: [
               {
                 header: "Branch",
@@ -543,7 +537,7 @@ describe("chat renderer states", () => {
                 isOther: false,
                 isSecret: false,
                 options: ["main", "release"],
-                question: "Which branch should Setta use?",
+                question: "Which branch should Codex use?",
               },
               {
                 header: "Mode",
@@ -557,6 +551,7 @@ describe("chat renderer states", () => {
             resolvedAt: "",
             response: "",
             runId: "run_api",
+            runItemId: "",
             status: "pending",
             title: "Branch",
           },
@@ -569,12 +564,15 @@ describe("chat renderer states", () => {
         }}
         hasMoreOlder={false}
         loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
         messages={[]}
+        runItemOutputs={[]}
+        runItems={[]}
         submitApproval={async () => {}}
       />,
     );
 
-    expect(html).toContain("Which branch should Setta use?");
+    expect(html).toContain("Which branch should Codex use?");
     expect(html).toContain("main");
     expect(html).toContain("release");
     expect(html).toContain("Answer");
@@ -582,22 +580,22 @@ describe("chat renderer states", () => {
   });
 });
 
-describe("settings renderer states", () => {
-  test("renders compact settings sections", () => {
-    const html = renderToString(<SettingsPanel />);
-
-    expect(html).toContain("Settings");
-    expect(html).toContain("Shell");
-    expect(html).toContain("Chat");
-    expect(html).toContain("Projects");
-    expect(html).toContain("Views");
-    expect(html).toContain("Integrations");
-    expect(html).toContain("Shortcuts");
-    expect(html).toContain("Storage");
-    expect(html).toContain("Native title bar");
-  });
-});
-
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
+}
+
+function chatMessage(id: string, ordinal: number): ChatMessage {
+  return {
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:00Z",
+    delivery: "normal",
+    id,
+    ordinal,
+    parts: [{ format: "markdown", id: `${id}_part`, text: `message ${ordinal}`, type: "text" }],
+    role: "assistant",
+    runId: `run_${id}`,
+    schemaVersion: 1,
+    status: "complete",
+    updatedAt: "2026-05-29T20:00:00Z",
+  };
 }
