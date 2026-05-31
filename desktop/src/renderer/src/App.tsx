@@ -37,6 +37,7 @@ export function App() {
   const [maximizedPane, setMaximizedPane] = useState<MaximizedPane>(null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
   const [chatPaneWidth, setChatPaneWidth] = useState(360);
+  const [bottomPaneHeight, setBottomPaneHeight] = useState(288);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [chatPaneOpen, setChatPaneOpen] = useState(true);
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
@@ -133,11 +134,13 @@ export function App() {
           workspace={workspace}
         />
         <WorkspaceArea
+          bottomPaneHeight={bottomPaneHeight}
           chat={chat}
           chatPaneWidth={chatPaneWidth}
           chatSearchOpen={chatSearchOpen}
           maximizedPane={maximizedPane}
           panes={panes}
+          setBottomPaneHeight={setBottomPaneHeight}
           setChatPaneWidth={setChatPaneWidth}
           setChatSearchOpen={setChatSearchOpen}
           toggleMaximizedPane={toggleMaximizedPane}
@@ -248,22 +251,26 @@ function assertNever(value: never): never {
 }
 
 function WorkspaceArea({
+  bottomPaneHeight,
   chat,
   chatPaneWidth,
   chatSearchOpen,
   maximizedPane,
   panes,
+  setBottomPaneHeight,
   setChatPaneWidth,
   setChatSearchOpen,
   toggleMaximizedPane,
   visibility,
   workspace,
 }: {
+  bottomPaneHeight: number;
   chat: ChatView;
   chatPaneWidth: number;
   chatSearchOpen: boolean;
   maximizedPane: MaximizedPane;
   panes: ReturnType<typeof useWorkspacePaneState>;
+  setBottomPaneHeight: (height: number) => void;
   setChatPaneWidth: (width: number) => void;
   setChatSearchOpen: (open: boolean) => void;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
@@ -297,16 +304,24 @@ function WorkspaceArea({
         />
       ) : null}
       {visibility.bottom ? (
-        <WorkspacePanePanel
-          activeTabId={panes.bottom.activeTabId}
+        <ResizableBottomPane
+          height={bottomPaneHeight}
+          label="Resize bottom pane"
           maximized={maximizedPane === "bottom"}
-          onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
-          onCreateTab={(kind) => panes.createTab("bottom", kind)}
-          onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
-          onToggleMaximize={() => toggleMaximizedPane("bottom")}
-          slot="bottom"
-          tabs={panes.bottom.tabs}
-        />
+          minHeight={140}
+          onHeightChange={setBottomPaneHeight}
+        >
+          <WorkspacePanePanel
+            activeTabId={panes.bottom.activeTabId}
+            maximized={maximizedPane === "bottom"}
+            onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
+            onCreateTab={(kind) => panes.createTab("bottom", kind)}
+            onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
+            onToggleMaximize={() => toggleMaximizedPane("bottom")}
+            slot="bottom"
+            tabs={panes.bottom.tabs}
+          />
+        </ResizableBottomPane>
       ) : null}
     </div>
   );
@@ -965,6 +980,91 @@ function ResizablePane({
       />
     </div>
   );
+}
+
+function ResizableBottomPane({
+  children,
+  height,
+  label,
+  maximized,
+  minHeight,
+  onHeightChange,
+}: {
+  children: ReactNode;
+  height: number;
+  label: string;
+  maximized: boolean;
+  minHeight: number;
+  onHeightChange: (height: number) => void;
+}) {
+  const [resizing, setResizing] = useState(false);
+  const startResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const startY = event.clientY;
+      const startHeight = height;
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+
+      const resize = (moveEvent: globalThis.PointerEvent) => {
+        const nextHeight = startHeight + startY - moveEvent.clientY;
+        onHeightChange(clamp(nextHeight, minHeight, bottomPaneMaxHeight(minHeight)));
+      };
+      const stopResize = () => {
+        setResizing(false);
+        document.body.style.cursor = previousCursor;
+        document.body.style.userSelect = previousUserSelect;
+        window.removeEventListener("pointermove", resize);
+      };
+
+      event.preventDefault();
+      setResizing(true);
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("pointermove", resize);
+      window.addEventListener("pointerup", stopResize, { once: true });
+    },
+    [height, minHeight, onHeightChange],
+  );
+
+  return (
+    <div
+      className={cn(
+        "relative min-h-0 w-full",
+        maximized ? "h-full" : "shrink-0",
+        !resizing &&
+          !maximized &&
+          "transition-[height] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+      )}
+      style={maximized ? undefined : { height }}
+    >
+      {children}
+      {!maximized ? (
+        <div
+          aria-label={label}
+          aria-orientation="horizontal"
+          className="absolute inset-x-0 top-0 z-40 h-2 -translate-y-1 cursor-row-resize"
+          data-testid="bottom-pane-resizer"
+          onKeyDown={(event) => {
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              onHeightChange(clamp(height + 12, minHeight, bottomPaneMaxHeight(minHeight)));
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              onHeightChange(clamp(height - 12, minHeight, bottomPaneMaxHeight(minHeight)));
+            }
+          }}
+          onPointerDown={startResize}
+          role="separator"
+          tabIndex={0}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function bottomPaneMaxHeight(minHeight: number) {
+  return Math.max(minHeight, window.innerHeight - 96);
 }
 
 function clamp(value: number, min: number, max: number) {

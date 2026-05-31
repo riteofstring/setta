@@ -261,18 +261,16 @@ function WorkspacePaneMaximizeButton({
   );
 }
 
-function workspacePanePanelClass({ maximized, slot }: { maximized: boolean; slot: PaneSlot }) {
+function workspacePanePanelClass({ slot }: { maximized: boolean; slot: PaneSlot }) {
   const slotClass =
     slot === "right"
       ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100 transition-[width,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
-      : bottomPanePanelClass(maximized);
+      : bottomPanePanelClass();
   return cn(slotClass);
 }
 
-function bottomPanePanelClass(maximized: boolean) {
-  return maximized
-    ? "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100 transition-[height,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
-    : "flex h-72 min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100 transition-[height,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]";
+function bottomPanePanelClass() {
+  return "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100 transition-[height,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]";
 }
 
 function WorkspacePaneTabButton({
