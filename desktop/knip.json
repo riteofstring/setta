@@ -10,7 +10,6 @@
   "project": [
     "electron.vite.config.ts",
     "eslint.config.mjs",
-    "src/**/*.js",
     "src/**/*.ts",
     "src/**/*.tsx",
     "vitest.config.ts"
