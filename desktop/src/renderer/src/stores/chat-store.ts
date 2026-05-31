@@ -37,6 +37,7 @@ interface ChatStore {
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  deleteConversation: (conversationId: string) => Promise<void>;
   selectedConversation: Conversation | null;
   selectConversation: (conversationId: string) => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
@@ -148,6 +149,35 @@ export const useChatStore = create<ChatStore>((set, get) => {
           status: "ready",
           workspaceId,
         });
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+      }
+    },
+    deleteConversation: async (conversationId: string) => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId) {
+        return;
+      }
+      const operationId = beginOperation({ error: null, operation: "refreshing" });
+      try {
+        const list = await window.setta.chat.deleteConversation(workspaceId, conversationId);
+        const nextConversation = nextConversationAfterDelete(
+          list.conversations,
+          selectedConversation,
+        );
+        const patch = await deletedConversationSelectionPatch(
+          workspaceId,
+          selectedConversation,
+          nextConversation,
+          loadConversationPage,
+        );
+        commitCurrentFromState(operationId, (current) => ({
+          ...patch,
+          conversations: list.conversations,
+          operation: null,
+          status: "ready",
+          unreadConversationIds: withoutConversation(current.unreadConversationIds, conversationId),
+        }));
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
       }
@@ -444,6 +474,35 @@ function emptyConversationPatch(): ChatPatch {
   };
 }
 
+function nextConversationAfterDelete(
+  conversations: ConversationListItem[],
+  selectedConversation: Conversation | null,
+) {
+  if (selectedConversation === null) {
+    return conversations[0]?.conversation ?? null;
+  }
+  return (
+    conversations.find((item) => item.conversation.id === selectedConversation.id)?.conversation ??
+    conversations[0]?.conversation ??
+    null
+  );
+}
+
+async function deletedConversationSelectionPatch(
+  workspaceId: string,
+  selectedConversation: Conversation | null,
+  nextConversation: Conversation | null,
+  loadConversationPage: (workspaceId: string, conversation: Conversation) => Promise<ChatPatch>,
+): Promise<ChatPatch> {
+  if (nextConversation === null) {
+    return emptyConversationPatch();
+  }
+  if (selectedConversation?.id === nextConversation.id) {
+    return { selectedConversation: nextConversation };
+  }
+  return loadConversationPage(workspaceId, nextConversation);
+}
+
 function errorPatch(error: unknown): ChatPatch {
   return {
     error: error instanceof Error ? error.message : "Chat operation failed",
@@ -492,6 +551,12 @@ function applyChatEvent(
         state,
         event,
         conversationUpdatedPatch(state, event.payload.item),
+      );
+    case "chat.conversation.deleted":
+      return workspaceEventResult(
+        state,
+        event,
+        conversationDeletedPatch(state, event.payload.conversationId),
       );
     default:
       return assertNever(event);
@@ -560,6 +625,24 @@ function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem):
   return {
     conversations: upsertConversation(state.conversations, item),
     selectedConversation,
+  };
+}
+
+function conversationDeletedPatch(state: ChatStore, conversationId: string): ChatPatch {
+  const conversations = state.conversations.filter(
+    (item) => item.conversation.id !== conversationId,
+  );
+  const unreadConversationIds = withoutConversation(state.unreadConversationIds, conversationId);
+  if (state.selectedConversation?.id !== conversationId) {
+    return {
+      conversations,
+      unreadConversationIds,
+    };
+  }
+  return {
+    ...emptyConversationPatch(),
+    conversations,
+    unreadConversationIds,
   };
 }
 

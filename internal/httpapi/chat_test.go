@@ -73,6 +73,33 @@ func TestChatEndpointsUpdateUserMessage(t *testing.T) {
 	}
 }
 
+func TestChatEndpointsDeleteConversation(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	deleted := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Delete me",
+	}, http.StatusOK)
+	kept := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Keep me",
+	}, http.StatusOK)
+
+	result := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/delete", DeleteConversationRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: deleted.ID,
+	}, http.StatusOK)
+	if len(result.Conversations) != 1 || result.Conversations[0].Conversation.ID != kept.ID {
+		t.Fatalf("delete response conversations = %+v, want only %s", result.Conversations, kept.ID)
+	}
+	list := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != kept.ID {
+		t.Fatalf("list response conversations = %+v, want only %s", list.Conversations, kept.ID)
+	}
+}
+
 func TestChatEndpointsCancelActiveRun(t *testing.T) {
 	handler := newChatHandler(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventWaitForCancel}})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -205,7 +232,12 @@ func newChatHandler(t *testing.T, events []chat.FakeHarnessEvent) http.Handler {
 	if err != nil {
 		t.Fatalf("new chat store: %v", err)
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewFakeHarness(events))
+	chatService, err := chat.NewService(
+		chatStore,
+		workspaceService,
+		chat.NewFakeHarness(events),
+		chat.WithExternalHistoryProvider(nil),
+	)
 	if err != nil {
 		t.Fatalf("new chat service: %v", err)
 	}

@@ -31,6 +31,7 @@ describe("workspace renderer states", () => {
           conversations={[]}
           createConversation={async () => {}}
           createWorkspaceConversation={async () => {}}
+          deleteConversation={async () => {}}
           openLocalFolder={async () => {}}
           openSearch={() => {}}
           openSettingsPane={() => {}}
@@ -105,6 +106,7 @@ describe("workspace renderer states", () => {
           ]}
           createConversation={async () => {}}
           createWorkspaceConversation={async () => {}}
+          deleteConversation={async () => {}}
           openLocalFolder={async () => {}}
           openSearch={() => {}}
           openSettingsPane={() => {}}
@@ -150,6 +152,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain('aria-label="New standalone setta canvas"');
     expect(html).toContain('aria-label="New standalone chat"');
     expect(html).toContain('aria-label="Pin Web chat"');
+    expect(html).toContain('aria-label="Delete Web chat"');
     expect(html).not.toContain("No unorganized chats");
     expect(html).toContain('aria-label="Chats empty"');
     expect(html).toContain("Notes");
@@ -240,6 +243,7 @@ describe("workspace renderer states", () => {
         conversations={[]}
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
+        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
         openSearch={() => {}}
         openSettingsPane={() => {}}
@@ -769,6 +773,7 @@ function emptyChatView(): ChatView {
     conversations: [],
     createConversation: async () => {},
     createWorkspaceConversation: async () => {},
+    deleteConversation: async () => {},
     error: null,
     hasMoreOlder: false,
     loadOlder: async () => {},

@@ -97,6 +97,11 @@ export interface CreateConversationRequest {
   title: string;
 }
 
+export interface DeleteConversationRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
 export interface GetMessagePageRequest {
   workspaceId: string;
   conversationId: string;
@@ -258,6 +263,10 @@ export interface ConversationUpdatedPayload {
   item: ConversationListItem;
 }
 
+export interface ConversationDeletedPayload {
+  conversationId: string;
+}
+
 export interface ResyncRequiredPayload {
   reason: string;
   requestedStreamId: string;
@@ -273,6 +282,7 @@ export type ChatEvent =
   | ChatMessageUpdatedEvent
   | ChatRunUpdatedEvent
   | ChatConversationUpdatedEvent
+  | ChatConversationDeletedEvent
   | ChatResyncRequiredEvent
 ;
 
@@ -341,6 +351,19 @@ export interface ChatConversationUpdatedEvent {
   payload: ConversationUpdatedPayload;
 }
 
+export interface ChatConversationDeletedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.conversation.deleted";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: ConversationDeletedPayload;
+}
+
 export interface ChatResyncRequiredEvent {
   schemaVersion: number;
   streamId: string;
@@ -390,6 +413,10 @@ export const backendEndpoints = {
   CreateConversation: {
     method: "POST",
     path: "/chat/conversations/create",
+  },
+  DeleteConversation: {
+    method: "POST",
+    path: "/chat/conversations/delete",
   },
   GetMessagePage: {
     method: "POST",
@@ -563,6 +590,15 @@ export function decodeCreateConversationRequest(value: unknown): CreateConversat
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "CreateConversationRequest"), "CreateConversationRequest.workspaceId"),
     title: decodeString(requireField(record, "title", "CreateConversationRequest"), "CreateConversationRequest.title"),
+  };
+}
+
+export function decodeDeleteConversationRequest(value: unknown): DeleteConversationRequest {
+  const record = assertRecord(value, "DeleteConversationRequest");
+  assertKnownFields(record, "DeleteConversationRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "DeleteConversationRequest"), "DeleteConversationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "DeleteConversationRequest"), "DeleteConversationRequest.conversationId"),
   };
 }
 
@@ -815,6 +851,14 @@ export function decodeConversationUpdatedPayload(value: unknown): ConversationUp
   };
 }
 
+export function decodeConversationDeletedPayload(value: unknown): ConversationDeletedPayload {
+  const record = assertRecord(value, "ConversationDeletedPayload");
+  assertKnownFields(record, "ConversationDeletedPayload", ["conversationId"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "ConversationDeletedPayload"), "ConversationDeletedPayload.conversationId"),
+  };
+}
+
 export function decodeResyncRequiredPayload(value: unknown): ResyncRequiredPayload {
   const record = assertRecord(value, "ResyncRequiredPayload");
   assertKnownFields(record, "ResyncRequiredPayload", ["reason", "requestedStreamId", "requestedSequence", "currentStreamId", "currentSequence", "earliestSequence"]);
@@ -842,6 +886,8 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatRunUpdatedEventFromRecord(record);
     case "chat.conversation.updated":
       return decodeChatConversationUpdatedEventFromRecord(record);
+    case "chat.conversation.deleted":
+      return decodeChatConversationDeletedEventFromRecord(record);
     case "chat.resync_required":
       return decodeChatResyncRequiredEventFromRecord(record);
     default:
@@ -969,6 +1015,30 @@ function decodeChatConversationUpdatedEventFromRecord(record: Record<string, unk
   };
 }
 
+export function decodeChatConversationDeletedEvent(value: unknown): ChatConversationDeletedEvent {
+  return decodeChatConversationDeletedEventFromRecord(assertRecord(value, "ChatConversationDeletedEvent"));
+}
+
+function decodeChatConversationDeletedEventFromRecord(record: Record<string, unknown>): ChatConversationDeletedEvent {
+  assertKnownFields(record, "ChatConversationDeletedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
+  const type = decodeString(requireField(record, "type", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.type");
+  if (type !== "chat.conversation.deleted") {
+    throw new Error("ChatConversationDeletedEvent.type must be chat.conversation.deleted, got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.eventId"),
+    type: "chat.conversation.deleted",
+    emittedAt: decodeString(requireField(record, "emittedAt", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.conversationId"),
+    runId: decodeString(requireField(record, "runId", "ChatConversationDeletedEvent"), "ChatConversationDeletedEvent.runId"),
+    payload: decodeConversationDeletedPayload(requireField(record, "payload", "ChatConversationDeletedEvent")),
+  };
+}
+
 export function decodeChatResyncRequiredEvent(value: unknown): ChatResyncRequiredEvent {
   return decodeChatResyncRequiredEventFromRecord(assertRecord(value, "ChatResyncRequiredEvent"));
 }
@@ -1003,6 +1073,7 @@ export interface BackendClient {
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
+  deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
   updateUserMessage: (request: UpdateUserMessageRequest) => Promise<ChatMessage>;
@@ -1082,6 +1153,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversation,
       endpoint: backendEndpoints.CreateConversation,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    deleteConversation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeListConversationsResponse,
+      endpoint: backendEndpoints.DeleteConversation,
       fetchImpl,
       requestPayload: request,
     }),

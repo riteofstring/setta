@@ -301,6 +301,68 @@ describe("chat store", () => {
     expect(useChatStore.getState().unreadConversationIds).toEqual({});
   });
 
+  test("deletes the selected conversation and selects the next visible chat", async () => {
+    const conversation = testConversation();
+    const otherConversation = {
+      ...testConversation(),
+      id: "conversation_other",
+      title: "Other chat",
+    };
+    const deleteConversation = vi.fn().mockResolvedValue({
+      conversations: [conversationItem(otherConversation, 1)],
+    });
+    const messagePage = vi
+      .fn()
+      .mockResolvedValue(
+        testPage(otherConversation, [message("message_other", 1, "assistant", "complete", "done")]),
+      );
+    installSettaAPI({ chat: { deleteConversation, messagePage } });
+    useChatStore.setState({
+      conversations: [conversationItem(conversation, 1), conversationItem(otherConversation, 1)],
+      messages: [message("message_existing", 1, "assistant", "complete", "existing")],
+      selectedConversation: conversation,
+      status: "ready",
+      unreadConversationIds: { [conversation.id]: true },
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().deleteConversation(conversation.id);
+
+    expect(deleteConversation).toHaveBeenCalledWith("workspace_api", conversation.id);
+    expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
+      "conversation_other",
+    ]);
+    expect(useChatStore.getState().selectedConversation?.id).toBe("conversation_other");
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_other"]);
+    expect(useChatStore.getState().unreadConversationIds).toEqual({});
+  });
+
+  test("removes deleted conversations from pushed events", () => {
+    const conversation = testConversation();
+    const otherConversation = {
+      ...testConversation(),
+      id: "conversation_other",
+      title: "Other chat",
+    };
+    useChatStore.setState({
+      conversations: [conversationItem(conversation, 1), conversationItem(otherConversation, 1)],
+      messages: [message("message_existing", 1, "assistant", "complete", "existing")],
+      selectedConversation: conversation,
+      status: "ready",
+      unreadConversationIds: { [conversation.id]: true },
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore.getState().handleEvent(conversationDeletedEvent(1, conversation.id));
+
+    expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
+      "conversation_other",
+    ]);
+    expect(useChatStore.getState().selectedConversation).toBeNull();
+    expect(useChatStore.getState().messages).toEqual([]);
+    expect(useChatStore.getState().unreadConversationIds).toEqual({});
+  });
+
   test("selecting a conversation does not set a global busy operation", async () => {
     const conversation = testConversation();
     const otherConversation = {
@@ -427,6 +489,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: testRun("completed") }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
+      deleteConversation: async () => ({ conversations: [] }),
       listConversations: async () => ({ conversations: [] }),
       messagePage: async () => testPage(conversation, []),
       onEvent: () => () => {},
@@ -562,6 +625,25 @@ function conversationUpdatedEvent(
     streamId,
     type: "chat.conversation.updated",
     workspaceId: item.conversation.workspaceId,
+  };
+}
+
+function conversationDeletedEvent(
+  sequence: number,
+  conversationId: string,
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: { conversationId },
+    runId: "",
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.conversation.deleted",
+    workspaceId: "workspace_api",
   };
 }
 

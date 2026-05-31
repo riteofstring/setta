@@ -79,6 +79,10 @@ export interface SettaAPI {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
+    deleteConversation: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ListConversationsResponse>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
     messagePage: (
       workspaceId: string,

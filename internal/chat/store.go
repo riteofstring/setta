@@ -102,6 +102,21 @@ func (store *Store) LoadConversation(workspaceID string, conversationID string) 
 	return conversation, nil
 }
 
+func (store *Store) ArchiveConversation(workspaceID string, conversationID string, archivedAt string) (Conversation, error) {
+	conversation, err := store.LoadConversation(workspaceID, conversationID)
+	if err != nil {
+		return Conversation{}, err
+	}
+	if conversation.ArchivedAt == "" {
+		conversation.ArchivedAt = archivedAt
+		conversation.UpdatedAt = archivedAt
+		if err := store.SaveConversation(conversation); err != nil {
+			return Conversation{}, err
+		}
+	}
+	return conversation, nil
+}
+
 func (store *Store) ListConversations(workspaceID string) ([]Conversation, error) {
 	dir := store.conversationsDir(workspaceID)
 	entries, err := os.ReadDir(dir)

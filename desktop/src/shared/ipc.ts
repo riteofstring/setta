@@ -28,6 +28,7 @@ export const ipcChannels = {
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
+  chatDeleteConversation: "chat:delete-conversation",
   chatListConversations: "chat:list-conversations",
   chatMessagePage: "chat:message-page",
   chatSendMessage: "chat:send-message",
@@ -78,6 +79,10 @@ interface IpcContract {
   chatCreateConversation: {
     args: [workspaceId: string, title: string];
     result: Conversation;
+  };
+  chatDeleteConversation: {
+    args: [workspaceId: string, conversationId: string];
+    result: ListConversationsResponse;
   };
   chatListConversations: {
     args: [workspaceId: string];

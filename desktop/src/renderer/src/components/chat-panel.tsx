@@ -385,6 +385,7 @@ export function useChatViewState(workspaceId: string | null) {
   const conversations = useChatStore((state) => state.conversations);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
+  const deleteConversation = useChatStore((state) => state.deleteConversation);
   const error = useChatStore((state) => state.error);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
@@ -413,6 +414,7 @@ export function useChatViewState(workspaceId: string | null) {
     conversations,
     createConversation,
     createWorkspaceConversation,
+    deleteConversation,
     error,
     hasMoreOlder,
     loadOlder,

@@ -430,6 +430,7 @@ function ProjectPane({
           conversations={chat.conversations}
           createConversation={chat.createConversation}
           createWorkspaceConversation={chat.createWorkspaceConversation}
+          deleteConversation={chat.deleteConversation}
           openLocalFolder={workspace.openLocalFolder}
           openSearch={openSearchPalette}
           openSettingsPane={openSettingsPane}

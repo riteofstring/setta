@@ -277,6 +277,14 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatDeleteConversation",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().deleteConversation({ conversationId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatMessagePage",
     async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
       return requireBackendClient().getMessagePage({

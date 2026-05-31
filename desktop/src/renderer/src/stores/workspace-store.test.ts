@@ -266,6 +266,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: emptyRun() }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
+      deleteConversation: async () => ({ conversations: [] }),
       listConversations: async () => ({ conversations: [] }),
       messagePage: async () => ({
         conversation: emptyConversation(),

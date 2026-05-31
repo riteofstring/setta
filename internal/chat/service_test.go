@@ -69,6 +69,36 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	}
 }
 
+func TestServiceDeletesConversationFromList(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
+	deleted, err := service.CreateConversation("workspace_api", "Delete me")
+	if err != nil {
+		t.Fatalf("create deleted conversation: %v", err)
+	}
+	kept, err := service.CreateConversation("workspace_api", "Keep me")
+	if err != nil {
+		t.Fatalf("create kept conversation: %v", err)
+	}
+
+	if err := service.DeleteConversation("workspace_api", deleted.ID); err != nil {
+		t.Fatalf("delete conversation: %v", err)
+	}
+	conversations, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
+	}
+	if len(conversations) != 1 || conversations[0].Conversation.ID != kept.ID {
+		t.Fatalf("conversations = %+v, want only %s", conversations, kept.ID)
+	}
+	archived, err := service.store.LoadConversation("workspace_api", deleted.ID)
+	if err != nil {
+		t.Fatalf("load archived conversation: %v", err)
+	}
+	if archived.ArchivedAt == "" {
+		t.Fatalf("archivedAt = empty, want deleted conversation archived")
+	}
+}
+
 func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventError, Error: "codex app-server failed to start"}})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)

@@ -66,6 +66,11 @@ type CreateConversationRequest struct {
 	Title       string `json:"title"`
 }
 
+type DeleteConversationRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
 type GetMessagePageRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
@@ -133,6 +138,7 @@ type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
+	DeleteConversation(workspaceID string, conversationID string) error
 	ListConversations(workspaceID string) ([]chat.ConversationListItem, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
@@ -296,6 +302,27 @@ func (handler handler) createConversation(response http.ResponseWriter, request 
 		return
 	}
 	writeJSON(response, http.StatusOK, conversation)
+}
+
+func (handler handler) deleteConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload DeleteConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := service.DeleteConversation(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeChatError(response, "delete_conversation_failed", err)
+		return
+	}
+	conversations, err := service.ListConversations(payload.WorkspaceID)
+	if err != nil {
+		writeChatError(response, "list_conversations_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ListConversationsResponse{Conversations: conversations})
 }
 
 func (handler handler) getMessagePage(response http.ResponseWriter, request *http.Request) {

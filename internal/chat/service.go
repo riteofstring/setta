@@ -137,6 +137,9 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 	}
 	items := make([]ConversationListItem, 0, len(conversations))
 	for _, conversation := range conversations {
+		if conversation.ArchivedAt != "" {
+			continue
+		}
 		count, err := service.store.MessageCount(workspaceID, conversation.ID)
 		if err != nil {
 			return nil, err
@@ -158,6 +161,36 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 		return nil, err
 	}
 	return sortConversationListItems(append(items, external...)), nil
+}
+
+func (service *Service) DeleteConversation(workspaceID string, conversationID string) error {
+	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	if err != nil {
+		return err
+	}
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	if service.ownsExternalConversation(conversationID) {
+		if err := service.materializeExternalConversationLocked(workspaceSummary, conversationID); err != nil {
+			return err
+		}
+	}
+	if _, ok := service.active[activeKey(workspaceID, conversationID)]; ok {
+		return fmt.Errorf("cannot delete conversation with active run: %s", conversationID)
+	}
+	if run, ok, err := service.store.ActiveRun(workspaceID, conversationID); err != nil {
+		return err
+	} else if ok {
+		return fmt.Errorf("cannot delete conversation with active run: %s", run.ID)
+	}
+
+	if _, err := service.store.ArchiveConversation(workspaceID, conversationID, timestamp(service.now())); err != nil {
+		return err
+	}
+	_, err = service.events.Publish(NewConversationDeletedEvent(workspaceID, conversationID))
+	return err
 }
 
 func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {

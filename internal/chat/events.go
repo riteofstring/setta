@@ -17,6 +17,7 @@ const (
 	EventTypeMessageUpdated      = "chat.message.updated"
 	EventTypeRunUpdated          = "chat.run.updated"
 	EventTypeConversationUpdated = "chat.conversation.updated"
+	EventTypeConversationDeleted = "chat.conversation.deleted"
 	EventTypeResyncRequired      = "chat.resync_required"
 )
 
@@ -84,6 +85,10 @@ type ConversationUpdatedPayload struct {
 	Item ConversationListItem `json:"item"`
 }
 
+type ConversationDeletedPayload struct {
+	ConversationID string `json:"conversationId"`
+}
+
 type ResyncRequiredPayload struct {
 	Reason            string `json:"reason"`
 	RequestedStreamID string `json:"requestedStreamId"`
@@ -123,6 +128,7 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatMessageUpdatedEvent", Type: EventTypeMessageUpdated, Payload: reflect.TypeFor[MessageUpdatedPayload]()},
 			{Name: "ChatRunUpdatedEvent", Type: EventTypeRunUpdated, Payload: reflect.TypeFor[RunUpdatedPayload]()},
 			{Name: "ChatConversationUpdatedEvent", Type: EventTypeConversationUpdated, Payload: reflect.TypeFor[ConversationUpdatedPayload]()},
+			{Name: "ChatConversationDeletedEvent", Type: EventTypeConversationDeleted, Payload: reflect.TypeFor[ConversationDeletedPayload]()},
 			{Name: "ChatResyncRequiredEvent", Type: EventTypeResyncRequired, Payload: reflect.TypeFor[ResyncRequiredPayload]()},
 		},
 	}
@@ -209,6 +215,15 @@ func NewConversationUpdatedEvent(workspaceID string, conversationID string, runI
 		Payload:        ConversationUpdatedPayload{Item: item},
 		RunID:          runID,
 		Type:           EventTypeConversationUpdated,
+		WorkspaceID:    workspaceID,
+	}
+}
+
+func NewConversationDeletedEvent(workspaceID string, conversationID string) EventDraft {
+	return EventDraft{
+		ConversationID: conversationID,
+		Payload:        ConversationDeletedPayload{ConversationID: conversationID},
+		Type:           EventTypeConversationDeleted,
 		WorkspaceID:    workspaceID,
 	}
 }

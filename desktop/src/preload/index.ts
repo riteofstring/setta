@@ -26,6 +26,8 @@ const api: SettaAPI = {
       invoke("chatCancelRun", workspaceId, conversationId),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
+    deleteConversation: (workspaceId: string, conversationId: string) =>
+      invoke("chatDeleteConversation", workspaceId, conversationId),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
     messagePage: (
       workspaceId: string,

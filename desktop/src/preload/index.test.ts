@@ -125,6 +125,7 @@ describe("preload workspace API", () => {
       "activeRun",
       "cancelRun",
       "createConversation",
+      "deleteConversation",
       "listConversations",
       "messagePage",
       "onEvent",
@@ -135,6 +136,7 @@ describe("preload workspace API", () => {
 
     await api.chat.listConversations("workspace_api");
     await api.chat.createConversation("workspace_api", "Plan");
+    await api.chat.deleteConversation("workspace_api", "conversation_api");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
     await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
     await api.chat.cancelRun("workspace_api", "conversation_api");
@@ -168,6 +170,12 @@ describe("preload workspace API", () => {
     );
     expect(invoke).toHaveBeenNthCalledWith(
       3,
+      ipcChannels.chatDeleteConversation,
+      "workspace_api",
+      "conversation_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      4,
       ipcChannels.chatMessagePage,
       "workspace_api",
       "conversation_api",
@@ -175,33 +183,33 @@ describe("preload workspace API", () => {
       40,
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      4,
+      5,
       ipcChannels.chatSendMessage,
       "workspace_api",
       "conversation_api",
       "hello",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      5,
+      6,
       ipcChannels.chatCancelRun,
       "workspace_api",
       "conversation_api",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      6,
+      7,
       ipcChannels.chatActiveRun,
       "workspace_api",
       "conversation_api",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      7,
+      8,
       ipcChannels.chatUpdateUserMessage,
       "workspace_api",
       "conversation_api",
       "message_user",
       "edit",
     );
-    expect(invoke).toHaveBeenNthCalledWith(8, ipcChannels.chatSubmitApproval, {
+    expect(invoke).toHaveBeenNthCalledWith(9, ipcChannels.chatSubmitApproval, {
       approvalId: "approval_api",
       approved: true,
       answers: [],
