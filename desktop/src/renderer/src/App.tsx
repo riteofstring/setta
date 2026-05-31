@@ -549,6 +549,7 @@ function AppChromeControls({
       <FloatingPaneControls
         bottomPaneOpen={bottomPaneOpen}
         chatPaneOpen={chatPaneOpen}
+        platform={platform}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={rightPaneOpen}
         rootPath={selectedWorkspace?.rootPath ?? ""}
@@ -600,6 +601,7 @@ function ShellPaneToggle({
 function FloatingPaneControls({
   bottomPaneOpen,
   chatPaneOpen,
+  platform,
   projectPaneOpen,
   rightPaneOpen,
   rootPath,
@@ -610,6 +612,7 @@ function FloatingPaneControls({
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
+  platform: DesktopPlatform;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
   rootPath: string;
@@ -619,7 +622,12 @@ function FloatingPaneControls({
   setRightPaneOpen: (open: boolean) => void;
 }) {
   return (
-    <div className="app-no-drag pointer-events-none fixed top-1 right-2 z-50 flex items-center gap-1 text-zinc-400">
+    <div
+      className={cn(
+        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-400",
+        floatingControlsRightInsetClass(platform),
+      )}
+    >
       <div className="pointer-events-auto flex items-center gap-1">
         <EditorPicker rootPath={rootPath} />
         <ShellPaneToggle
@@ -653,6 +661,10 @@ function FloatingPaneControls({
       </div>
     </div>
   );
+}
+
+function floatingControlsRightInsetClass(platform: DesktopPlatform) {
+  return platform === "darwin" ? "right-2" : "right-36";
 }
 
 function NativeChromeGuards({ platform }: { platform: DesktopPlatform }) {
