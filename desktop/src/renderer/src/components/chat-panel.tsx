@@ -1,14 +1,5 @@
 import type { WorkspaceSummary } from "@generated/backend";
-import {
-  History,
-  MessageSquarePlus,
-  Mic,
-  PanelLeftClose,
-  Plus,
-  Send,
-  Settings,
-  Square,
-} from "lucide-react";
+import { MessageSquarePlus, Mic, Plus, Send, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -19,89 +10,35 @@ import { Textarea } from "./ui/textarea";
 
 export function ChatPanel({
   chat,
-  onMinimize,
   workspace,
 }: {
   chat: ChatView;
-  onMinimize: () => void;
   workspace: WorkspaceSummary | null;
 }) {
   if (!workspace) {
     return (
       <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 pt-8 text-zinc-100">
-        <ChatHeader busy onMinimize={onMinimize} title="No workspace" />
         <div className="grid min-h-0 flex-1 place-items-center px-6 text-center text-sm text-zinc-500">
           Open a workspace to start chat.
         </div>
       </section>
     );
   }
-  return <ChatWorkspace chat={chat} onMinimize={onMinimize} workspace={workspace} />;
+  return <ChatWorkspace chat={chat} />;
 }
 
-function ChatWorkspace({
-  chat,
-  onMinimize,
-  workspace,
-}: {
-  chat: ChatView;
-  onMinimize: () => void;
-  workspace: WorkspaceSummary;
-}) {
+function ChatWorkspace({ chat }: { chat: ChatView }) {
   const busy = chat.operation !== null || chat.status === "loading";
   const running = chat.activeRun?.status === "running";
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 pt-8 text-zinc-100">
-      <ChatHeader
-        busy={busy}
-        onCreateConversation={() => void chat.createConversation()}
-        onMinimize={onMinimize}
-        title={chat.selectedConversation?.title ?? workspace.displayName}
-      />
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden">
         <ConversationBody busy={busy} chat={chat} />
         <ChatError message={chat.error} />
         <Composer busy={busy} chat={chat} running={running} />
       </div>
     </section>
-  );
-}
-
-function ChatHeader({
-  busy,
-  onCreateConversation,
-  onMinimize,
-  title,
-}: {
-  busy: boolean;
-  onCreateConversation?: () => void;
-  onMinimize: () => void;
-  title: string;
-}) {
-  return (
-    <header className="shrink-0 px-4 pt-1 pb-0">
-      <div className="flex min-w-0 items-center gap-2 text-zinc-400">
-        <IconButton
-          disabled={busy || !onCreateConversation}
-          label="New chat"
-          onClick={onCreateConversation}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton label="Conversation history">
-          <History className="h-3.5 w-3.5" />
-        </IconButton>
-        <div className="min-w-0 flex-1" />
-        <IconButton label="Chat settings">
-          <Settings className="h-4 w-4" />
-        </IconButton>
-        <IconButton label="Hide chat pane" onClick={onMinimize}>
-          <PanelLeftClose className="h-4 w-4" />
-        </IconButton>
-      </div>
-      <div className="sr-only">{title}</div>
-    </header>
   );
 }
 

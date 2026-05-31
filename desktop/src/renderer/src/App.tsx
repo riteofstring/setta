@@ -70,7 +70,6 @@ export function App() {
         />
         <ChatPane
           chat={chat}
-          onMinimize={() => setChatPaneOpen(false)}
           open={chatPaneOpen}
           rightView={rightView}
           setWidth={setChatPaneWidth}
@@ -134,7 +133,6 @@ function ProjectPane({
 
 function ChatPane({
   chat,
-  onMinimize,
   open,
   rightView,
   setWidth,
@@ -142,7 +140,6 @@ function ChatPane({
   workspace,
 }: {
   chat: ChatView;
-  onMinimize: () => void;
   open: boolean;
   rightView: RightView | null;
   setWidth: (width: number) => void;
@@ -153,9 +150,7 @@ function ChatPane({
     return null;
   }
 
-  const panel = (
-    <ChatPanel chat={chat} onMinimize={onMinimize} workspace={workspace.selectedWorkspace} />
-  );
+  const panel = <ChatPanel chat={chat} workspace={workspace.selectedWorkspace} />;
   if (!rightView) {
     return <div className="h-full min-h-0 min-w-0 flex-1">{panel}</div>;
   }
