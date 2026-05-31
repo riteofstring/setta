@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import { decodeChatEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
-import type { SettaAPI } from "@shared/types";
+import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
@@ -12,6 +12,7 @@ const api: SettaAPI = {
     installedEditors: () => invoke("appInstalledEditors"),
     openWorkspaceInEditor: (editorId: string, rootPath: string) =>
       invoke("appOpenWorkspaceInEditor", editorId, rootPath),
+    platform: process.platform as DesktopPlatform,
     versions: () => invoke("appVersions"),
     workspaceGitInfo: (rootPath: string) => invoke("appWorkspaceGitInfo", rootPath),
   },

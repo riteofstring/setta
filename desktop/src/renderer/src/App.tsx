@@ -1,4 +1,5 @@
 import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
+import type { DesktopPlatform } from "@shared/types";
 import {
   FolderOpen,
   MessageSquareText,
@@ -18,6 +19,7 @@ import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { cn } from "./lib/utils";
 import {
   type WorkspaceOperationKind,
   type WorkspaceOperation,
@@ -30,6 +32,7 @@ export function App() {
   const workspace = useWorkspaceViewState();
   const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
   const panes = useWorkspacePaneState();
+  const platform = window.setta.app.platform;
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
   const [chatPaneWidth, setChatPaneWidth] = useState(360);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
@@ -61,6 +64,7 @@ export function App() {
         createConversation={chat.createConversation}
         openChatSearch={openChatSearch}
         openSearchPalette={openSearchPalette}
+        platform={platform}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={panes.right.open}
         searchPaletteOpen={searchPaletteOpen}
@@ -232,6 +236,7 @@ function AppChromeControls({
   createConversation,
   openChatSearch,
   openSearchPalette,
+  platform,
   projectPaneOpen,
   rightPaneOpen,
   searchPaletteOpen,
@@ -249,6 +254,7 @@ function AppChromeControls({
   createConversation: (title?: string) => Promise<void>;
   openChatSearch: () => void;
   openSearchPalette: () => void;
+  platform: DesktopPlatform;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
   searchPaletteOpen: boolean;
@@ -308,6 +314,7 @@ function AppChromeControls({
       <FloatingPaneControls
         bottomPaneOpen={bottomPaneOpen}
         chatPaneOpen={chatPaneOpen}
+        platform={platform}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={rightPaneOpen}
         rootPath={selectedWorkspace?.rootPath ?? ""}
@@ -316,6 +323,7 @@ function AppChromeControls({
         setProjectPaneOpen={setProjectPaneOpen}
         setRightPaneOpen={setRightPaneOpen}
       />
+      <NativeChromeGuards platform={platform} />
       <SettaWatermark />
       <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
       <SearchPalette onOpenChange={setSearchPaletteOpen} open={searchPaletteOpen} />
@@ -359,6 +367,7 @@ function ShellPaneToggle({
 function FloatingPaneControls({
   bottomPaneOpen,
   chatPaneOpen,
+  platform,
   projectPaneOpen,
   rightPaneOpen,
   rootPath,
@@ -369,6 +378,7 @@ function FloatingPaneControls({
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
+  platform: DesktopPlatform;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
   rootPath: string;
@@ -378,7 +388,12 @@ function FloatingPaneControls({
   setRightPaneOpen: (open: boolean) => void;
 }) {
   return (
-    <div className="app-no-drag pointer-events-none fixed top-2 right-2 z-50 flex items-center gap-1">
+    <div
+      className={cn(
+        "app-no-drag pointer-events-none fixed top-2 z-50 flex items-center gap-1",
+        platform === "darwin" ? "right-2" : "right-36",
+      )}
+    >
       <div className="pointer-events-auto flex items-center gap-1 rounded-sm border border-zinc-800/90 bg-zinc-900/75 p-0.5 text-zinc-400 shadow-xl shadow-black/30 backdrop-blur">
         <EditorPicker rootPath={rootPath} />
         <ShellPaneToggle
@@ -412,6 +427,35 @@ function FloatingPaneControls({
       </div>
     </div>
   );
+}
+
+function NativeChromeGuards({ platform }: { platform: DesktopPlatform }) {
+  if (platform === "darwin") {
+    return (
+      <>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed top-0 left-0 z-40 h-9 w-24 bg-zinc-900"
+          data-testid="macos-traffic-light-safe-zone"
+        />
+        <div
+          aria-hidden="true"
+          className="app-drag fixed top-0 left-24 z-40 h-1.5 w-[calc(100vw-12rem)]"
+          data-testid="macos-window-drag-strip"
+        />
+      </>
+    );
+  }
+  if (platform === "win32" || platform === "linux") {
+    return (
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed top-0 right-0 z-40 h-8 w-36"
+        data-testid="native-window-control-safe-zone"
+      />
+    );
+  }
+  return null;
 }
 
 function SettaWatermark() {

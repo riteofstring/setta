@@ -30,9 +30,11 @@ describe("preload workspace API", () => {
     expect(Object.keys(api.app).sort()).toEqual([
       "installedEditors",
       "openWorkspaceInEditor",
+      "platform",
       "versions",
       "workspaceGitInfo",
     ]);
+    expect(api.app.platform).toBe(process.platform);
 
     await api.app.installedEditors();
     await api.app.openWorkspaceInEditor("cursor", "/tmp/workspace_api");

@@ -241,6 +241,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     app: {
       installedEditors: async () => [],
       openWorkspaceInEditor: async () => {},
+      platform: "darwin",
       versions: async (): Promise<RuntimeVersions> => ({
         app: "test",
         chrome: "test",

@@ -19,6 +19,19 @@ export interface RuntimeVersions {
   node: string;
 }
 
+export type DesktopPlatform =
+  | "aix"
+  | "android"
+  | "cygwin"
+  | "darwin"
+  | "freebsd"
+  | "haiku"
+  | "linux"
+  | "netbsd"
+  | "openbsd"
+  | "sunos"
+  | "win32";
+
 export interface InstalledEditorApp {
   id: string;
   displayName: string;
@@ -46,6 +59,7 @@ export interface SettaAPI {
   app: {
     installedEditors: () => Promise<InstalledEditorApp[]>;
     openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;
+    platform: DesktopPlatform;
     versions: () => Promise<RuntimeVersions>;
     workspaceGitInfo: (rootPath: string) => Promise<WorkspaceGitInfo>;
   };
