@@ -271,3 +271,67 @@ Additional scenario coverage:
 | Sampled pixels                     |    6,001 |
 | Non-background sampled pixels      |      476 |
 | Sampled color count                |        8 |
+
+## MSDF BitmapText Label Pipeline Update
+
+Date: 2026-06-04
+
+Artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260604T052749Z
+```
+
+The visual smoke workflow now verifies that normal graph labels are screen-space
+Pixi `BitmapText` labels using the generated `InterMSDF` bitmap font. The run
+loads the committed `fonts/inter-msdf/InterMSDF.fnt` descriptor and adjacent
+`InterMSDF.png` atlas through the production renderer path, then asserts that
+each node-label debug snapshot reports `kind: "bitmap-text"` and
+`fontFamily: "InterMSDF"`.
+
+Additional scenario coverage:
+
+- `visibleLabelCount` remains 4 for the current fixture and label debug
+  metadata is present for all normal graph labels.
+- The loaded `BitmapFont` reports `fontDistanceFieldType: "msdf"` and
+  `fontDistanceFieldRange: 4`, preventing the MSDF atlas from being rendered as
+  plain RGB bitmap glyphs.
+- `labelSyncCount` advances from 8 at initial render to 36 after grouped drag,
+  132 after empty-space pan, 140 after wheel zoom, 164 after grouped drag at
+  `1.78` zoom, 172 after wheel pan, 180 after deep zoom, and 188 after pan
+  while deeply zoomed.
+- Label local scale and world scale remain `1.00` at deep zoom, confirming the
+  label layer remains screen-space and is not viewport-scaled.
+- Label sync keeps `reactRenderCount: 1` through grouped drag, pan, zoom, wheel
+  pan, deep zoom, and pan after deep zoom.
+- Existing selection, marquee, edge cancellation, edge commit, camera pan/zoom,
+  grouped drag at non-1x zoom, deep zoom, and pan-after-deep-zoom coverage still
+  passes.
+
+| Metric                             |     Value |
+| ---------------------------------- | --------: |
+| Bitmap label kind                  |      pass |
+| Bitmap label font family           | InterMSDF |
+| Deep zoom camera zoom              |      4.00 |
+| Labels visible after deep zoom     |         4 |
+| Labels visible after deep-zoom pan |         4 |
+| Active visible label objects       |         4 |
+| Label local/world scale            |      1.00 |
+| Initial label sync count           |         8 |
+| Label sync count after group drag  |        36 |
+| Label sync count after empty pan   |       132 |
+| Label sync count after wheel zoom  |       140 |
+| Label sync count after zoomed drag |       164 |
+| Label sync count after wheel pan   |       172 |
+| Final label sync count             |       188 |
+| Final edge count                   |         4 |
+| Group node drag updates            |        26 |
+| Pointer pan updates                |        12 |
+| Wheel pan updates                  |         2 |
+| Wheel zoom updates                 |         2 |
+| React host renders                 |         1 |
+| Average recent frame interval      |   9.17 ms |
+| Worst recent frame interval        |  89.40 ms |
+| Sampled pixels                     |     6,001 |
+| Non-background sampled pixels      |       476 |
+| Sampled color count                |         8 |

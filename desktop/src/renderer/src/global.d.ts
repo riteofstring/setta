@@ -27,8 +27,12 @@ interface PixiWorkspaceDebugSnapshot {
       id: string;
       label: {
         eventMode: string;
+        fontDistanceFieldRange: number;
+        fontDistanceFieldType: "msdf";
+        fontFamily: string;
         globalX: number;
         globalY: number;
+        kind: "bitmap-text";
         screenX: number;
         screenY: number;
         scaleX: number;

@@ -25,6 +25,7 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const cdpMetaModifier = 4;
 const cdpShiftModifier = 8;
+const expectedBitmapLabelFontFamily = "InterMSDF";
 const expectedFixtureVisibleLabelCount = 4;
 
 if (options.help) {
@@ -642,6 +643,7 @@ function assertLabelsScreenSpace(snapshot, label) {
     if (node.label.eventMode !== "none") {
       throw new Error(`${label} node label was interactive: ${JSON.stringify(node)}`);
     }
+    assertLabelBitmapFontMetadata(node, label);
     const scaleFields = ["scaleX", "scaleY", "worldScaleX", "worldScaleY"];
     for (const field of scaleFields) {
       assertFiniteNumber(node.label[field], `${label} ${node.id} label.${field}`);
@@ -651,6 +653,20 @@ function assertLabelsScreenSpace(snapshot, label) {
         );
       }
     }
+  }
+}
+
+function assertLabelBitmapFontMetadata(node, label) {
+  if (node.label.kind !== "bitmap-text") {
+    throw new Error(`${label} node label was not BitmapText: ${JSON.stringify(node)}`);
+  }
+  if (node.label.fontFamily !== expectedBitmapLabelFontFamily) {
+    throw new Error(
+      `${label} node label used wrong bitmap font: expected=${expectedBitmapLabelFontFamily} node=${JSON.stringify(node)}`,
+    );
+  }
+  if (node.label.fontDistanceFieldType !== "msdf" || node.label.fontDistanceFieldRange !== 4) {
+    throw new Error(`${label} node label did not use an MSDF font: ${JSON.stringify(node)}`);
   }
 }
 

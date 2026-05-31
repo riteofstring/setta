@@ -1,16 +1,17 @@
 /* global ResizeObserver, performance, window */
 
-import { Application, Container, Graphics, Point, Rectangle, Text } from "pixi.js";
+import { Application, BitmapText, Container, Graphics, Point, Rectangle } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 
 import { initialEdges, initialNodes } from "./pixi-workspace-fixture";
+import { nodeLabelBitmapFontSize, validateNodeLabelGlyphs } from "./pixi-workspace-label-font";
+import { loadNodeLabelBitmapFont } from "./pixi-workspace-label-font-loader";
 import {
   cameraState,
   capturePointer,
   clamp,
   drawGrid,
   hostScreenSize,
-  isNonBackgroundColor,
   isSelectionToggleEvent,
   isZoomWheel,
   marqueeBounds,
@@ -24,6 +25,7 @@ import {
   rectanglesIntersect,
   releasePointer,
   requirePort,
+  samplePixiVisualState,
   screenPointFromPointer,
   screenPointFromWheel,
   setsEqual,
@@ -47,6 +49,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     resolution: window.devicePixelRatio || 1,
     width: screenSize.width,
   });
+  const loadedNodeLabelFont = await loadNodeLabelBitmapFont();
 
   host.appendChild(app.canvas);
   app.canvas.dataset.testid = "pixi-workspace-canvas";
@@ -312,7 +315,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   if (debugEnabled) {
     window.__settaPixiWorkspaceDebug = {
       getSnapshot: () => {
-        const visual = sampleVisualState();
+        const visual = samplePixiVisualState(app.renderer, app.stage, backgroundColor);
         const camera = cameraState(viewport);
         const frameAverage =
           recentFrameMs.length === 0
@@ -345,8 +348,12 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
                 id: node.id,
                 label: {
                   eventMode: label.eventMode,
+                  fontDistanceFieldRange: loadedNodeLabelFont.distanceField.range,
+                  fontDistanceFieldType: loadedNodeLabelFont.distanceField.type,
+                  fontFamily: label.style.fontFamily,
                   globalX: labelGlobal.x,
                   globalY: labelGlobal.y,
+                  kind: "bitmap-text",
                   screenX: label.x,
                   screenY: label.y,
                   scaleX: label.scale.x,
@@ -467,17 +474,17 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       return existingLabel;
     }
     const node = requireNode(nodeId);
-    const label = new Text({
+    validateNodeLabelGlyphs(node.id, node.label);
+    const label = new BitmapText({
+      anchor: 0.5,
       style: {
         align: "center",
         fill: 0xf8fafc,
-        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-        fontSize: 16,
-        fontWeight: "700",
+        fontFamily: loadedNodeLabelFont.fontFamily,
+        fontSize: nodeLabelBitmapFontSize,
       },
       text: node.label,
     });
-    label.anchor.set(0.5);
     label.eventMode = "none";
     label.roundPixels = true;
     nodeLabels.set(nodeId, label);
@@ -933,39 +940,6 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
         .circle(node.x + node.width / 2, node.y + node.height / 2, 58 + pulse * 16)
         .stroke({ alpha: 0.08 + pulse * 0.05, color: node.color, width: 2 });
     }
-  }
-
-  function sampleVisualState() {
-    const sample = app.renderer.extract.pixels({
-      clearColor: backgroundColor,
-      resolution: 0.25,
-      target: app.stage,
-    });
-    const pixelStride = Math.max(1, Math.floor((sample.width * sample.height) / 6000));
-    const colorSamples = new Set();
-    let nonBackgroundPixelCount = 0;
-    let sampledPixelCount = 0;
-    for (let pixelIndex = 0; pixelIndex < sample.width * sample.height; pixelIndex += pixelStride) {
-      const offset = pixelIndex * 4;
-      const red = sample.pixels[offset] ?? 0;
-      const green = sample.pixels[offset + 1] ?? 0;
-      const blue = sample.pixels[offset + 2] ?? 0;
-      const alpha = sample.pixels[offset + 3] ?? 0;
-      if (alpha === 0) {
-        continue;
-      }
-      sampledPixelCount += 1;
-      colorSamples.add(`${red},${green},${blue},${alpha}`);
-      if (isNonBackgroundColor(red, green, blue)) {
-        nonBackgroundPixelCount += 1;
-      }
-    }
-    return {
-      hasNonBackgroundPixels: nonBackgroundPixelCount > 0,
-      nonBackgroundPixelCount,
-      sampledColorCount: colorSamples.size,
-      sampledPixelCount,
-    };
   }
 
   function firstSelectedNodeId() {

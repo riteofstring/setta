@@ -93,12 +93,45 @@ export function parsePortKey(key) {
   return { nodeId, portId };
 }
 
-export function isNonBackgroundColor(red, green, blue) {
+function isNonBackgroundColor(red, green, blue) {
   return (
     Math.abs(red - backgroundRed) > 3 ||
     Math.abs(green - backgroundGreen) > 3 ||
     Math.abs(blue - backgroundBlue) > 3
   );
+}
+
+export function samplePixiVisualState(renderer, stage, clearColor) {
+  const sample = renderer.extract.pixels({
+    clearColor,
+    resolution: 0.25,
+    target: stage,
+  });
+  const pixelStride = Math.max(1, Math.floor((sample.width * sample.height) / 6000));
+  const colorSamples = new Set();
+  let nonBackgroundPixelCount = 0;
+  let sampledPixelCount = 0;
+  for (let pixelIndex = 0; pixelIndex < sample.width * sample.height; pixelIndex += pixelStride) {
+    const offset = pixelIndex * 4;
+    const red = sample.pixels[offset] ?? 0;
+    const green = sample.pixels[offset + 1] ?? 0;
+    const blue = sample.pixels[offset + 2] ?? 0;
+    const alpha = sample.pixels[offset + 3] ?? 0;
+    if (alpha === 0) {
+      continue;
+    }
+    sampledPixelCount += 1;
+    colorSamples.add(`${red},${green},${blue},${alpha}`);
+    if (isNonBackgroundColor(red, green, blue)) {
+      nonBackgroundPixelCount += 1;
+    }
+  }
+  return {
+    hasNonBackgroundPixels: nonBackgroundPixelCount > 0,
+    nonBackgroundPixelCount,
+    sampledColorCount: colorSamples.size,
+    sampledPixelCount,
+  };
 }
 
 export function drawGrid(grid) {
