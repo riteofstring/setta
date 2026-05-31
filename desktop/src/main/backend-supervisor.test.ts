@@ -101,30 +101,6 @@ describe("startSpawnedBackend", () => {
     }
   });
 
-  test("reports backend logs when the process exits before readiness", async () => {
-    await expect(
-      startSpawnedBackend({
-        args: [
-          "-e",
-          [
-            "console.error('start backend: load workspace session: malformed app state')",
-            "process.exit(1)",
-          ].join(";"),
-        ],
-        command: process.execPath,
-        cwd: process.cwd(),
-        env: process.env,
-        readyTimeoutMs: 1000,
-      }),
-    ).rejects.toThrow(
-      [
-        "backend exited before ready with code 1 and signal null",
-        "Recent backend logs:",
-        "start backend: load workspace session: malformed app state",
-      ].join("\n"),
-    );
-  });
-
   test("reports unexpected exit after readiness", async () => {
     const handle = await startSpawnedBackend({
       args: [

@@ -1,25 +1,30 @@
-import type { WorkspaceSummary } from "@generated/backend";
-import { ArrowDown, ArrowUp, FolderOpen, Trash2, X } from "lucide-react";
+import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
+import { FolderOpen, MessageSquarePlus, Plus, Trash2, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
+import { AccordionSection } from "./ui/accordion";
 import { Button } from "./ui/button";
-import { Separator } from "./ui/separator";
 
-const activeWorkspaceRowHeight = 76;
-const recentWorkspaceRowHeight = 60;
+const activeWorkspaceRowHeight = 34;
+const recentWorkspaceRowHeight = 36;
+const chatHistoryLimit = 80;
 const workspaceListOverscan = 6;
 
 interface WorkspaceSidebarProps {
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
+  chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
+  conversations: ConversationListItem[];
+  createConversation: (title?: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
   recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
-  reorderWorkspaces: (ids: string[]) => Promise<void>;
+  selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
+  selectedConversationId: string;
   selectedWorkspaceId: string;
 }
 
@@ -31,7 +36,7 @@ interface VirtualRange {
 interface VirtualWorkspaceListProps {
   itemTestId: string;
   items: WorkspaceSummary[];
-  renderItem: (workspace: WorkspaceSummary, index: number) => ReactNode;
+  renderItem: (workspace: WorkspaceSummary) => ReactNode;
   rowHeight: number;
   testId: string;
 }
@@ -39,44 +44,64 @@ interface VirtualWorkspaceListProps {
 export function WorkspaceSidebar({
   activeWorkspaces,
   busy,
+  chatBusy,
   closeWorkspace,
+  conversations,
+  createConversation,
   openLocalFolder,
   recentWorkspaces,
   removeRecent,
-  reorderWorkspaces,
+  selectConversation,
   selectWorkspace,
+  selectedConversationId,
   selectedWorkspaceId,
 }: WorkspaceSidebarProps) {
   const activeWorkspaceIds = useMemo(
     () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
     [activeWorkspaces],
   );
+  const selectedWorkspace = useMemo(
+    () => activeWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null,
+    [activeWorkspaces, selectedWorkspaceId],
+  );
+  const otherWorkspaces = useMemo(
+    () => activeWorkspaces.filter((workspace) => workspace.id !== selectedWorkspaceId),
+    [activeWorkspaces, selectedWorkspaceId],
+  );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-4 py-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Workspaces</h2>
+    <aside className="flex min-h-0 w-full min-w-0 flex-col border-r border-zinc-800 bg-zinc-900 text-zinc-100">
+      <div className="flex h-8 shrink-0 items-center justify-between gap-2 px-2">
+        <h2 className="text-[11px] font-semibold tracking-normal text-zinc-500 uppercase">
+          Projects
+        </h2>
         <Button
           aria-label="Open workspace folder"
-          className="h-8 px-2"
+          className="h-6 border-transparent bg-transparent px-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
           disabled={busy}
           onClick={() => void openLocalFolder()}
           title="Open workspace folder"
         >
           <FolderOpen className="h-4 w-4" />
-          Open
         </Button>
       </div>
-      <div className="mt-5 grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-4 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden px-1.5 pb-2">
+        <CurrentWorkspaceAccordion
+          busy={busy}
+          chatBusy={chatBusy}
+          conversations={conversations}
+          createConversation={createConversation}
+          openLocalFolder={openLocalFolder}
+          selectConversation={selectConversation}
+          selectedConversationId={selectedConversationId}
+          selectedWorkspace={selectedWorkspace}
+        />
         <WorkspaceList
-          activeWorkspaces={activeWorkspaces}
           busy={busy}
           closeWorkspace={closeWorkspace}
-          reorderWorkspaces={reorderWorkspaces}
           selectWorkspace={selectWorkspace}
-          selectedWorkspaceId={selectedWorkspaceId}
+          visibleWorkspaces={otherWorkspaces}
         />
-        <Separator />
         <RecentWorkspaceList
           activeWorkspaceIds={activeWorkspaceIds}
           busy={busy}
@@ -84,117 +109,223 @@ export function WorkspaceSidebar({
           removeRecent={removeRecent}
         />
       </div>
-    </div>
+    </aside>
   );
 }
 
-function WorkspaceList({
-  activeWorkspaces,
+function CurrentWorkspaceAccordion({
   busy,
-  closeWorkspace,
-  reorderWorkspaces,
-  selectWorkspace,
-  selectedWorkspaceId,
+  chatBusy,
+  conversations,
+  createConversation,
+  openLocalFolder,
+  selectConversation,
+  selectedConversationId,
+  selectedWorkspace,
 }: {
-  activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
-  closeWorkspace: (id: string) => Promise<void>;
-  reorderWorkspaces: (ids: string[]) => Promise<void>;
-  selectWorkspace: (id: string) => Promise<void>;
-  selectedWorkspaceId: string;
+  chatBusy: boolean;
+  conversations: ConversationListItem[];
+  createConversation: (title?: string) => Promise<void>;
+  openLocalFolder: () => Promise<void>;
+  selectConversation: (conversationId: string) => Promise<void>;
+  selectedConversationId: string;
+  selectedWorkspace: WorkspaceSummary | null;
 }) {
-  if (activeWorkspaces.length === 0) {
+  if (!selectedWorkspace) {
     return (
-      <section className="min-h-0">
-        <p className="text-sm text-zinc-500">No active workspaces</p>
-      </section>
+      <AccordionSection defaultOpen title="Current project">
+        <div className="py-1.5">
+          <p className="text-xs text-zinc-500">No active workspaces</p>
+          <Button
+            className="mt-2 h-7 border-zinc-700 bg-zinc-800 px-2 text-xs text-zinc-100 hover:bg-zinc-700"
+            disabled={busy}
+            onClick={() => void openLocalFolder()}
+            variant="primary"
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+            Open
+          </Button>
+        </div>
+      </AccordionSection>
     );
   }
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden" aria-label="Active workspaces">
-      <VirtualWorkspaceList
-        itemTestId="active-workspace-item"
-        items={activeWorkspaces}
-        renderItem={(workspace, index) => (
-          <ActiveWorkspaceRow
-            activeWorkspaces={activeWorkspaces}
-            busy={busy}
-            closeWorkspace={closeWorkspace}
-            index={index}
-            reorderWorkspaces={reorderWorkspaces}
-            selectWorkspace={selectWorkspace}
-            selected={workspace.id === selectedWorkspaceId}
-            workspace={workspace}
-          />
-        )}
-        rowHeight={activeWorkspaceRowHeight}
-        testId="active-workspace-list"
+    <AccordionSection
+      className="shrink-0"
+      defaultOpen
+      key={selectedWorkspace.id}
+      subtitle={selectedWorkspace.rootPath}
+      title={selectedWorkspace.displayName}
+    >
+      <ProjectChatHistory
+        busy={chatBusy}
+        conversations={conversations}
+        createConversation={createConversation}
+        selectConversation={selectConversation}
+        selectedConversationId={selectedConversationId}
       />
-    </section>
+    </AccordionSection>
+  );
+}
+
+function WorkspaceList({
+  busy,
+  closeWorkspace,
+  selectWorkspace,
+  visibleWorkspaces,
+}: {
+  busy: boolean;
+  closeWorkspace: (id: string) => Promise<void>;
+  selectWorkspace: (id: string) => Promise<void>;
+  visibleWorkspaces: WorkspaceSummary[];
+}) {
+  if (visibleWorkspaces.length === 0) {
+    return null;
+  }
+
+  return (
+    <AccordionSection
+      className="min-h-0 shrink-0"
+      contentClassName="min-h-0"
+      defaultOpen
+      title={`Other projects (${visibleWorkspaces.length})`}
+    >
+      <div
+        className="overflow-hidden"
+        aria-label="Projects"
+        style={{ height: Math.min(128, visibleWorkspaces.length * activeWorkspaceRowHeight) }}
+      >
+        <VirtualWorkspaceList
+          itemTestId="active-workspace-item"
+          items={visibleWorkspaces}
+          renderItem={(workspace) => (
+            <ActiveWorkspaceRow
+              busy={busy}
+              closeWorkspace={closeWorkspace}
+              selectWorkspace={selectWorkspace}
+              workspace={workspace}
+            />
+          )}
+          rowHeight={activeWorkspaceRowHeight}
+          testId="active-workspace-list"
+        />
+      </div>
+    </AccordionSection>
   );
 }
 
 function ActiveWorkspaceRow({
-  activeWorkspaces,
   busy,
   closeWorkspace,
-  index,
-  reorderWorkspaces,
   selectWorkspace,
-  selected,
   workspace,
 }: {
-  activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
-  index: number;
-  reorderWorkspaces: (ids: string[]) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
-  selected: boolean;
   workspace: WorkspaceSummary;
 }) {
   return (
-    <div
-      className={cn(
-        "grid h-[68px] grid-cols-[1fr_auto] gap-1 rounded-md border px-2 py-2",
-        selected
-          ? "border-zinc-300 bg-zinc-100"
-          : "border-transparent bg-white hover:border-zinc-200",
-      )}
-    >
+    <div className="group grid h-8 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded px-1 hover:bg-zinc-800/70">
       <button
         className="min-w-0 text-left"
         data-testid="active-workspace-select"
         disabled={busy}
         onClick={() => void selectWorkspace(workspace.id)}
+        type="button"
       >
-        <span className="block truncate text-sm font-medium">{workspace.displayName}</span>
-        <span className="mt-0.5 block truncate text-xs text-zinc-500">{workspace.rootPath}</span>
+        <span className="block truncate text-xs font-medium text-zinc-300">
+          {workspace.displayName}
+        </span>
+        <span className="block truncate text-[11px] leading-none text-zinc-600">
+          {workspace.rootPath}
+        </span>
       </button>
-      <div className="flex items-center gap-1">
-        <IconButton
-          disabled={busy || index === 0}
-          label="Move workspace up"
-          onClick={() => void moveWorkspace(activeWorkspaces, index, -1, reorderWorkspaces)}
-        >
-          <ArrowUp className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton
-          disabled={busy || index === activeWorkspaces.length - 1}
-          label="Move workspace down"
-          onClick={() => void moveWorkspace(activeWorkspaces, index, 1, reorderWorkspaces)}
-        >
-          <ArrowDown className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton
-          disabled={busy}
-          label="Close workspace"
-          onClick={() => void closeWorkspace(workspace.id)}
-        >
-          <X className="h-3.5 w-3.5" />
+      <IconButton
+        disabled={busy}
+        label="Close workspace"
+        onClick={() => void closeWorkspace(workspace.id)}
+      >
+        <X className="h-3.5 w-3.5" />
+      </IconButton>
+    </div>
+  );
+}
+
+function ProjectChatHistory({
+  busy,
+  conversations,
+  createConversation,
+  selectConversation,
+  selectedConversationId,
+}: {
+  busy: boolean;
+  conversations: ConversationListItem[];
+  createConversation: (title?: string) => Promise<void>;
+  selectConversation: (conversationId: string) => Promise<void>;
+  selectedConversationId: string;
+}) {
+  const [visibleLimit, setVisibleLimit] = useState(chatHistoryLimit);
+  const selectedIndex = conversations.findIndex(
+    (item) => item.conversation.id === selectedConversationId,
+  );
+  const effectiveLimit =
+    selectedIndex >= visibleLimit
+      ? Math.min(conversations.length, selectedIndex + 1)
+      : visibleLimit;
+  const visibleConversations = useMemo(
+    () => conversations.slice(0, effectiveLimit),
+    [conversations, effectiveLimit],
+  );
+
+  return (
+    <div className="min-w-0 pb-1">
+      <div className="flex h-6 items-center justify-between gap-2">
+        <span className="text-[11px] font-medium text-zinc-600 uppercase">Chats</span>
+        <IconButton disabled={busy} label="New chat" onClick={() => void createConversation()}>
+          <Plus className="h-3.5 w-3.5" />
         </IconButton>
       </div>
+      {visibleConversations.length === 0 ? (
+        <div className="flex min-h-12 items-center gap-2 text-xs text-zinc-500">
+          <MessageSquarePlus className="h-4 w-4 shrink-0" />
+          <span>No chats yet</span>
+        </div>
+      ) : (
+        <div className="max-h-72 overflow-y-auto" data-testid="conversation-list">
+          {visibleConversations.map((item) => (
+            <button
+              className={cn(
+                "mb-0.5 block w-full rounded px-1.5 py-1 text-left",
+                item.conversation.id === selectedConversationId
+                  ? "bg-zinc-800 text-zinc-100"
+                  : "text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-200",
+              )}
+              data-testid="conversation-list-item"
+              disabled={busy}
+              key={item.conversation.id}
+              onClick={() => void selectConversation(item.conversation.id)}
+              type="button"
+            >
+              <span className="block truncate text-xs font-medium">{item.conversation.title}</span>
+              <span className="block text-[11px] leading-none opacity-60">
+                {item.messageCount} messages
+              </span>
+            </button>
+          ))}
+          {visibleConversations.length < conversations.length ? (
+            <Button
+              className="mt-1 h-7 w-full border-transparent bg-transparent text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}
+              variant="secondary"
+            >
+              More chats
+            </Button>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
@@ -212,31 +343,36 @@ function RecentWorkspaceList({
 }) {
   if (recentWorkspaces.length === 0) {
     return (
-      <section className="min-h-0">
-        <h3 className="text-xs font-semibold uppercase tracking-normal text-zinc-500">Recent</h3>
-        <p className="mt-3 text-sm text-zinc-500">No recent workspaces</p>
-      </section>
+      <AccordionSection defaultOpen title="Recent">
+        <p className="py-1.5 text-xs text-zinc-500">No recent workspaces</p>
+      </AccordionSection>
     );
   }
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden" aria-label="Recent workspaces">
-      <h3 className="text-xs font-semibold uppercase tracking-normal text-zinc-500">Recent</h3>
-      <VirtualWorkspaceList
-        itemTestId="recent-workspace-item"
-        items={recentWorkspaces}
-        renderItem={(workspace) => (
-          <RecentWorkspaceRow
-            active={activeWorkspaceIds.has(workspace.id)}
-            busy={busy}
-            removeRecent={removeRecent}
-            workspace={workspace}
-          />
-        )}
-        rowHeight={recentWorkspaceRowHeight}
-        testId="recent-workspace-list"
-      />
-    </section>
+    <AccordionSection
+      className="flex min-h-0 flex-1 flex-col"
+      contentClassName="min-h-0 flex-1"
+      defaultOpen
+      title="Recent"
+    >
+      <div className="h-full min-h-0 overflow-hidden" aria-label="Recent workspaces">
+        <VirtualWorkspaceList
+          itemTestId="recent-workspace-item"
+          items={recentWorkspaces}
+          renderItem={(workspace) => (
+            <RecentWorkspaceRow
+              active={activeWorkspaceIds.has(workspace.id)}
+              busy={busy}
+              removeRecent={removeRecent}
+              workspace={workspace}
+            />
+          )}
+          rowHeight={recentWorkspaceRowHeight}
+          testId="recent-workspace-list"
+        />
+      </div>
+    </AccordionSection>
   );
 }
 
@@ -252,10 +388,10 @@ function RecentWorkspaceRow({
   workspace: WorkspaceSummary;
 }) {
   return (
-    <div className="grid h-[52px] grid-cols-[1fr_auto] items-center gap-2 rounded-md px-2 py-2">
+    <div className="group grid h-8 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded px-1 hover:bg-zinc-800/70">
       <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-zinc-800">{workspace.displayName}</div>
-        <div className="truncate text-xs text-zinc-500">{workspace.rootPath}</div>
+        <div className="truncate text-xs font-medium text-zinc-400">{workspace.displayName}</div>
+        <div className="truncate text-[11px] leading-none text-zinc-600">{workspace.rootPath}</div>
       </div>
       <IconButton
         disabled={busy || active}
@@ -306,7 +442,7 @@ function VirtualWorkspaceList({
   return (
     <div
       ref={viewportRef}
-      className="mt-3 min-h-0 flex-1 basis-0 overflow-y-auto"
+      className="h-full min-h-0 overflow-y-auto"
       data-testid={testId}
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
@@ -320,7 +456,7 @@ function VirtualWorkspaceList({
               key={workspace.id}
               style={virtualRowStyle(index, rowHeight)}
             >
-              {renderItem(workspace, index)}
+              {renderItem(workspace)}
             </li>
           );
         })}
@@ -377,7 +513,7 @@ function IconButton({
   return (
     <button
       aria-label={label}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-500 opacity-70 hover:bg-zinc-800 hover:text-zinc-100 hover:opacity-100 disabled:pointer-events-none disabled:opacity-20"
       disabled={disabled}
       onClick={onClick}
       title={label}
@@ -386,25 +522,4 @@ function IconButton({
       {children}
     </button>
   );
-}
-
-function moveWorkspace(
-  activeWorkspaces: WorkspaceSummary[],
-  index: number,
-  direction: -1 | 1,
-  reorderWorkspaces: (ids: string[]) => Promise<void>,
-) {
-  const targetIndex = index + direction;
-  if (targetIndex < 0 || targetIndex >= activeWorkspaces.length) {
-    return;
-  }
-  const ids = activeWorkspaces.map((workspace) => workspace.id);
-  const currentID = ids[index];
-  const targetID = ids[targetIndex];
-  if (currentID === undefined || targetID === undefined) {
-    return;
-  }
-  ids[index] = targetID;
-  ids[targetIndex] = currentID;
-  void reorderWorkspaces(ids);
 }

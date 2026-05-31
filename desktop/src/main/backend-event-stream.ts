@@ -1,6 +1,5 @@
 import { backendEndpoints, decodeChatEvent, type ChatEvent } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
-import type { BackendEventStreamStatus } from "@shared/types";
 
 export interface BackendEventStream {
   done: Promise<void>;
@@ -17,7 +16,15 @@ interface BackendEventStreamOptions {
 
 interface BackendEventStreamObserver {
   forwarded: (event: ChatEvent) => void;
-  lifecycle: (event: BackendEventStreamStatus) => void;
+  lifecycle: (event: BackendEventStreamLifecycleEvent) => void;
+}
+
+interface BackendEventStreamLifecycleEvent {
+  attempt: number;
+  lastSequence: number;
+  lastStreamId: string;
+  message: string;
+  type: "connecting" | "connected" | "disconnected" | "error" | "stopped";
 }
 
 interface BackendEventStreamReconnectOptions {
@@ -41,26 +48,6 @@ interface ServerSentEventState {
 interface EventCursor {
   sequence: number;
   streamId: string;
-}
-
-interface StreamOnceOptions {
-  attempt: number;
-  baseURL: string;
-  cursor: EventCursor;
-  fetchImpl: BackendFetch;
-  observer: BackendEventStreamObserver | undefined;
-  sendEvent: (event: ChatEvent) => void;
-  signal: AbortSignal;
-  updateCursor: (cursor: EventCursor) => void;
-}
-
-class EventPayloadDecodeError extends Error {
-  constructor(
-    message: string,
-    readonly cursor: EventCursor,
-  ) {
-    super(message);
-  }
 }
 
 const defaultReconnect: BackendEventStreamReconnectOptions = {
@@ -111,8 +98,10 @@ async function runEventStreamLoop(options: {
     }
   }
   options.observer?.lifecycle({
+    attempt,
+    ...cursorLifecycleFields(cursor),
     message: "backend event stream stopped",
-    status: "stopped",
+    type: "stopped",
   });
 }
 
@@ -127,8 +116,9 @@ async function runStreamAttempt(options: {
 }): Promise<EventCursor> {
   options.observer?.lifecycle({
     attempt: options.attempt,
+    ...cursorLifecycleFields(options.cursor),
     message: "connecting to backend event stream",
-    status: "connecting",
+    type: "connecting",
   });
   let cursor = options.cursor;
   try {
@@ -159,7 +149,7 @@ function recordDisconnected(
     attempt,
     ...cursorLifecycleFields(cursor),
     message: "backend event stream disconnected",
-    status: "reconnecting",
+    type: "disconnected",
   });
 }
 
@@ -173,23 +163,24 @@ function recordStreamError(
   if (signal.aborted) {
     return;
   }
-  if (error instanceof EventPayloadDecodeError) {
-    observer?.lifecycle({
-      ...cursorLifecycleFields(error.cursor),
-      message: error.message,
-      status: "resyncing",
-    });
-    return;
-  }
   observer?.lifecycle({
     attempt,
     ...cursorLifecycleFields(cursor),
     message: error instanceof Error ? error.message : "backend event stream failed",
-    status: "reconnecting",
+    type: "error",
   });
 }
 
-async function streamOnce(options: StreamOnceOptions): Promise<EventCursor> {
+async function streamOnce(options: {
+  attempt: number;
+  baseURL: string;
+  cursor: EventCursor;
+  fetchImpl: BackendFetch;
+  observer: BackendEventStreamObserver | undefined;
+  sendEvent: (event: ChatEvent) => void;
+  signal: AbortSignal;
+  updateCursor: (cursor: EventCursor) => void;
+}): Promise<EventCursor> {
   const headers: Record<string, string> = {};
   if (options.cursor.streamId !== "") {
     headers["Last-Event-ID"] = encodeEventCursor(options.cursor);
@@ -209,9 +200,10 @@ async function streamOnce(options: StreamOnceOptions): Promise<EventCursor> {
     throw new Error("backend event stream returned no response body");
   }
   options.observer?.lifecycle({
+    attempt: options.attempt,
     ...cursorLifecycleFields(options.cursor),
     message: "connected to backend event stream",
-    status: "connected",
+    type: "connected",
   });
 
   let cursor = options.cursor;
@@ -219,58 +211,21 @@ async function streamOnce(options: StreamOnceOptions): Promise<EventCursor> {
     if (options.signal.aborted) {
       break;
     }
-    cursor = handleStreamMessage(options, message, cursor);
+    const event = decodeChatEvent(JSON.parse(message.data));
+    if (event.type === "chat.resync_required") {
+      cursor = resyncEventCursor(event);
+      options.updateCursor(cursor);
+      forwardEvent(options, event);
+      continue;
+    }
+    if (isDuplicateEvent(event, cursor)) {
+      continue;
+    }
+    assertEventStream(event, cursor);
+    cursor = eventCursor(event);
+    options.updateCursor(cursor);
+    forwardEvent(options, event);
   }
-  return cursor;
-}
-
-function handleStreamMessage(
-  options: StreamOnceOptions,
-  message: ServerSentEvent,
-  cursor: EventCursor,
-): EventCursor {
-  const event = decodeStreamEvent(message, options.updateCursor);
-  if (event.type === "chat.resync_required") {
-    return handleResyncRequiredEvent(options, event);
-  }
-  if (isDuplicateEvent(event, cursor)) {
-    return cursor;
-  }
-  assertEventStream(event, cursor);
-  const nextCursor = eventCursor(event);
-  options.updateCursor(nextCursor);
-  forwardEvent(options, event);
-  return nextCursor;
-}
-
-function decodeStreamEvent(
-  message: ServerSentEvent,
-  updateCursor: (cursor: EventCursor) => void,
-): ChatEvent {
-  try {
-    return decodeChatEvent(JSON.parse(message.data));
-  } catch (error) {
-    const nextCursor = eventCursorFromServerSentEvent(message);
-    updateCursor(nextCursor);
-    throw new EventPayloadDecodeError(
-      error instanceof Error ? error.message : "backend event stream payload decode failed",
-      nextCursor,
-    );
-  }
-}
-
-function handleResyncRequiredEvent(
-  options: StreamOnceOptions,
-  event: Extract<ChatEvent, { type: "chat.resync_required" }>,
-): EventCursor {
-  const cursor = resyncEventCursor(event);
-  options.updateCursor(cursor);
-  options.observer?.lifecycle({
-    ...cursorLifecycleFields(cursor),
-    message: event.payload.reason,
-    status: "resyncing",
-  });
-  forwardEvent(options, event);
   return cursor;
 }
 
@@ -291,20 +246,6 @@ function encodeEventCursor(cursor: EventCursor): string {
 
 function eventCursor(event: ChatEvent): EventCursor {
   return { sequence: event.sequence, streamId: event.streamId };
-}
-
-function eventCursorFromServerSentEvent(message: ServerSentEvent): EventCursor {
-  const separator = message.id.lastIndexOf(":");
-  if (separator <= 0 || separator === message.id.length - 1) {
-    throw new Error("backend event stream payload failed and event id is invalid: " + message.id);
-  }
-  const sequence = Number.parseInt(message.id.slice(separator + 1), 10);
-  if (!Number.isInteger(sequence) || sequence < 0) {
-    throw new Error(
-      "backend event stream payload failed and event id sequence is invalid: " + message.id,
-    );
-  }
-  return { sequence, streamId: message.id.slice(0, separator) };
 }
 
 function resyncEventCursor(
