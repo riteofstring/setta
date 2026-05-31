@@ -1,11 +1,4 @@
-import type {
-  BackendHealth,
-  ChatMessage,
-  MessagePage,
-  OpenWorkspaceResponse,
-  Run,
-  WorkspaceSession,
-} from "@generated/backend";
+import type { BackendHealth, OpenWorkspaceResponse, WorkspaceSession } from "@generated/backend";
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -246,11 +239,20 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   };
   const api: SettaAPI = {
     app: {
+      installedEditors: async () => [],
+      openWorkspaceInEditor: async () => {},
+      platform: "darwin",
       versions: async (): Promise<RuntimeVersions> => ({
         app: "test",
         chrome: "test",
         electron: "test",
         node: "test",
+      }),
+      workspaceGitInfo: async () => ({
+        branchName: "main",
+        commitShort: "abc123",
+        worktreeName: "workspace_api",
+        worktreeRoot: "/tmp/workspace_api",
       }),
     },
     backend: {
@@ -259,81 +261,33 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         ok: true,
         version: "test",
       }),
-      onEventStreamStatus: () => () => {},
-      onProcessStatus: () => () => {},
     },
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, run: null }),
+      activeRun: async () => ({ hasActiveRun: false, run: emptyRun() }),
       cancelRun: async () => emptyRun(),
-      clearQuarantine: async () => emptyMaintenanceResult(),
       createConversation: async () => emptyConversation(),
-      executeCommand: async () => ({
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "goal",
-          message: "Goal set: test",
-          models: [],
-          raw: "/goal test",
-          selectedModel: "",
-          title: "Goal",
-        },
-      }),
-      listCommands: async () => ({ commands: [] }),
-      listConversations: async () => ({
-        conversations: [],
-        corruption: emptyCorruption(),
-        diagnostics: [],
-      }),
+      listConversations: async () => ({ conversations: [] }),
       messagePage: async () => ({
         conversation: emptyConversation(),
         hasMoreOlder: false,
         messages: [],
         olderBeforeOrdinal: 0,
-        queue: { messages: [], runs: [] },
-        runItemOutputs: [],
-        runItems: [],
-        transcript: [],
       }),
       onEvent: () => () => {},
-      quarantineCorruptState: async () => emptyMaintenanceResult(),
-      queueMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        run: emptyRun(),
-        userMessage: emptyMessage(),
-      }),
-      runActivity: async () => ({
-        items: [],
-        output: [],
-        runId: "run_test",
-      }),
-      runItemOutput: async () => ({
-        hasMore: false,
-        nextOrdinal: 0,
-        output: [],
-        runId: "run_test",
-        runItemId: "run_item_test",
-      }),
       sendMessage: async () => ({
         assistantMessage: emptyMessage(),
         conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        run: emptyRun(),
-        userMessage: emptyMessage(),
-      }),
-      resetWorkspaceState: async () => emptyMaintenanceResult(),
-      steerMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
+        page: {
+          conversation: emptyConversation(),
+          hasMoreOlder: false,
+          messages: [],
+          olderBeforeOrdinal: 0,
+        },
         run: emptyRun(),
         userMessage: emptyMessage(),
       }),
       submitApproval: async () => emptyRun(),
+      updateUserMessage: async () => emptyMessage(),
     },
     workspace: workspaceAPI,
   };
@@ -359,32 +313,10 @@ function emptyConversation() {
   };
 }
 
-function emptyCorruption() {
-  return {
-    byKind: [],
-    bySeverity: [],
-    hasCorruption: false,
-    total: 0,
-  };
-}
-
-function emptyMaintenanceResult() {
-  return {
-    corruption: emptyCorruption(),
-    diagnostics: [],
-    manifestPath: "",
-    quarantined: [],
-    removedPaths: [],
-    validationRunAt: "2026-05-29T20:00:00Z",
-    workspaceId: "workspace_api",
-  };
-}
-
-function emptyMessage(): ChatMessage {
+function emptyMessage() {
   return {
     conversationId: "conversation_test",
     createdAt: "2026-05-29T20:00:00Z",
-    delivery: "normal",
     id: "message_test",
     ordinal: 1,
     parts: [{ format: "plain", id: "part_test", text: "", type: "text" }],
@@ -396,29 +328,32 @@ function emptyMessage(): ChatMessage {
   };
 }
 
-function emptyMessagePage(): MessagePage {
+function emptyRun() {
   return {
-    conversation: emptyConversation(),
-    hasMoreOlder: false,
-    messages: [],
-    olderBeforeOrdinal: 0,
-    queue: { messages: [], runs: [] },
-    runItemOutputs: [],
-    runItems: [],
-    transcript: [],
-  };
-}
-
-function emptyRun(): Run {
-  return {
-    assistantMessageId: "message_assistant",
     completedAt: "",
     conversationId: "conversation_test",
     error: "",
-    harness: "codex",
+    harness: "setta",
     hasPendingApproval: false,
     id: "run_test",
-    pendingApproval: null,
+    pendingApproval: {
+      approved: false,
+      body: "",
+      command: "",
+      createdAt: "2026-05-29T20:00:00Z",
+      filePath: "",
+      id: "approval_test",
+      kind: "permission",
+      options: [],
+      questions: [],
+      permission: "",
+      question: "",
+      resolvedAt: "",
+      response: "",
+      runId: "run_test",
+      status: "pending",
+      title: "Approval",
+    },
     promptSummary: "",
     schemaVersion: 1,
     startedAt: "2026-05-29T20:00:00Z",
