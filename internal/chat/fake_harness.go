@@ -36,7 +36,8 @@ type FakeHarnessEvent struct {
 }
 
 type FakeHarness struct {
-	events []FakeHarnessEvent
+	events         []FakeHarnessEvent
+	eventsByPrompt map[string][]FakeHarnessEvent
 
 	mu          sync.Mutex
 	cancelled   []CancelRequest
@@ -48,10 +49,19 @@ type FakeHarness struct {
 
 func NewFakeHarness(events []FakeHarnessEvent) *FakeHarness {
 	return &FakeHarness{
-		events:      append([]FakeHarnessEvent{}, events...),
-		approvalChs: map[string]chan ApprovalResponse{},
-		steerChs:    map[string]chan SteerRequest{},
+		events:         append([]FakeHarnessEvent{}, events...),
+		eventsByPrompt: map[string][]FakeHarnessEvent{},
+		approvalChs:    map[string]chan ApprovalResponse{},
+		steerChs:       map[string]chan SteerRequest{},
 	}
+}
+
+func NewFakeHarnessByPrompt(eventsByPrompt map[string][]FakeHarnessEvent) *FakeHarness {
+	harness := NewFakeHarness(nil)
+	for prompt, events := range eventsByPrompt {
+		harness.eventsByPrompt[prompt] = append([]FakeHarnessEvent{}, events...)
+	}
+	return harness
 }
 
 func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -182,6 +192,9 @@ func (harness *FakeHarness) SteeringRequests() []SteerRequest {
 }
 
 func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {
+	if events, ok := harness.eventsByPrompt[request.Prompt]; ok {
+		return append([]FakeHarnessEvent{}, events...)
+	}
 	if len(harness.events) > 0 {
 		return append([]FakeHarnessEvent{}, harness.events...)
 	}

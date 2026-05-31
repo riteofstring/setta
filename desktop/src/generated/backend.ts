@@ -513,12 +513,20 @@ export interface QueueState {
   runs: Run[];
 }
 
+export interface TranscriptTurn {
+  run: Run;
+  triggerMessage: ChatMessage;
+  assistantMessage: ChatMessage | null;
+  steeringMessages: ChatMessage[];
+}
+
 export interface MessagePage {
   conversation: Conversation;
   messages: ChatMessage[];
   runItems: RunItem[];
   runItemOutputs: RunItemOutput[];
   queue: QueueState;
+  transcript: TranscriptTurn[];
   hasMoreOlder: boolean;
   olderBeforeOrdinal: number;
 }
@@ -1372,15 +1380,27 @@ export function decodeQueueState(value: unknown): QueueState {
   };
 }
 
+export function decodeTranscriptTurn(value: unknown): TranscriptTurn {
+  const record = assertRecord(value, "TranscriptTurn");
+  assertKnownFields(record, "TranscriptTurn", ["run", "triggerMessage", "assistantMessage", "steeringMessages"]);
+  return {
+    run: decodeRun(requireField(record, "run", "TranscriptTurn")),
+    triggerMessage: decodeChatMessage(requireField(record, "triggerMessage", "TranscriptTurn")),
+    assistantMessage: decodeNullable(requireField(record, "assistantMessage", "TranscriptTurn"), "TranscriptTurn.assistantMessage", (item) => decodeChatMessage(item)),
+    steeringMessages: decodeArray(requireField(record, "steeringMessages", "TranscriptTurn"), "TranscriptTurn.steeringMessages", (item) => decodeChatMessage(item)),
+  };
+}
+
 export function decodeMessagePage(value: unknown): MessagePage {
   const record = assertRecord(value, "MessagePage");
-  assertKnownFields(record, "MessagePage", ["conversation", "messages", "runItems", "runItemOutputs", "queue", "hasMoreOlder", "olderBeforeOrdinal"]);
+  assertKnownFields(record, "MessagePage", ["conversation", "messages", "runItems", "runItemOutputs", "queue", "transcript", "hasMoreOlder", "olderBeforeOrdinal"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "MessagePage")),
     messages: decodeArray(requireField(record, "messages", "MessagePage"), "MessagePage.messages", (item) => decodeChatMessage(item)),
     runItems: decodeArray(requireField(record, "runItems", "MessagePage"), "MessagePage.runItems", (item) => decodeRunItem(item)),
     runItemOutputs: decodeArray(requireField(record, "runItemOutputs", "MessagePage"), "MessagePage.runItemOutputs", (item) => decodeRunItemOutput(item)),
     queue: decodeQueueState(requireField(record, "queue", "MessagePage")),
+    transcript: decodeArray(requireField(record, "transcript", "MessagePage"), "MessagePage.transcript", (item) => decodeTranscriptTurn(item)),
     hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "MessagePage"), "MessagePage.hasMoreOlder"),
     olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "MessagePage"), "MessagePage.olderBeforeOrdinal"),
   };

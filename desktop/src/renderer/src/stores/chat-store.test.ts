@@ -16,6 +16,7 @@ import type {
   RunItemStatus,
   RunItemType,
   RunStatus,
+  TranscriptTurn,
   WorkspaceSession,
 } from "@generated/backend";
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
@@ -40,6 +41,7 @@ describe("chat store", () => {
       messageIds: [],
       messages: [],
       messagesById: {},
+      olderBeforeOrdinal: 0,
       operation: null,
       runItemOutputs: [],
       runItemOutputIdsByRunItemId: {},
@@ -50,6 +52,7 @@ describe("chat store", () => {
       runItemsById: {},
       selectedConversation: null,
       status: "idle",
+      transcript: [],
       workspaceId: null,
     });
   });
@@ -69,8 +72,11 @@ describe("chat store", () => {
     await useChatStore.getState().loadWorkspace("workspace_api");
 
     expect(useChatStore.getState().conversations).toHaveLength(1);
-    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_latest"]);
-    expect(useChatStore.getState().messageIds).toEqual(["message_latest"]);
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual([
+      "message_user_run_api",
+      "message_latest",
+    ]);
+    expect(useChatStore.getState().messageIds).toEqual(["message_user_run_api", "message_latest"]);
     expect(useChatStore.getState().messagesById.message_latest?.parts[0]?.text).toBe("latest");
     expect(listConversations).toHaveBeenCalledWith("workspace_api");
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
@@ -117,6 +123,7 @@ describe("chat store", () => {
     useChatStore.setState({
       hasMoreOlder: true,
       messages: [message("message_latest", 2, "assistant", "complete", "latest")],
+      olderBeforeOrdinal: 2,
       selectedConversation: conversation,
       status: "ready",
       workspaceId: "workspace_api",
@@ -144,6 +151,7 @@ describe("chat store", () => {
     useChatStore.setState({
       hasMoreOlder: true,
       messages: [latest],
+      olderBeforeOrdinal: 2,
       selectedConversation: conversation,
       status: "ready",
       workspaceId: "workspace_api",
@@ -239,7 +247,9 @@ describe("chat store", () => {
     await useChatStore.getState().steerMessage("steer");
 
     expect(steerMessage).toHaveBeenCalledWith("workspace_api", "conversation_api", "steer");
-    expect(useChatStore.getState().messages[0]?.delivery).toBe("steering");
+    expect(useChatStore.getState().messages.some((item) => item.delivery === "steering")).toBe(
+      true,
+    );
   });
 
   test("operation responses do not regress terminal run events", async () => {
@@ -278,7 +288,9 @@ describe("chat store", () => {
     await steerPromise;
 
     expect(useChatStore.getState().activeRun?.status).toBe("failed");
-    expect(useChatStore.getState().messages[0]?.status).toBe("error");
+    expect(
+      useChatStore.getState().messages.find((message) => message.id === staleAssistant.id)?.status,
+    ).toBe("error");
   });
 
   test("submit approval passes the decision to the preload API", async () => {
@@ -971,7 +983,33 @@ function testPage(
     queue: { messages: messages.filter((item) => item.delivery === "queued"), runs: [] },
     runItemOutputs: [],
     runItems: [],
+    transcript: transcriptFromMessages(messages),
   };
+}
+
+function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
+  const runIds = [...new Set(messages.map((item) => item.runId).filter((runId) => runId !== ""))];
+  return runIds.map((runId) => {
+    const run = testRun("running", runId);
+    const triggerMessage =
+      messages.find((item) => item.runId === runId && item.role === "user") ??
+      message(`message_user_${runId}`, 1, "user", "complete", "user", "normal", runId);
+    const assistantMessage =
+      messages.find((item) => item.runId === runId && item.role === "assistant") ?? null;
+    return {
+      assistantMessage,
+      run: {
+        ...run,
+        assistantMessageId: assistantMessage?.id ?? "",
+        status: assistantMessage ? run.status : "queued",
+        triggerMessageId: triggerMessage.id,
+      },
+      steeringMessages: messages.filter(
+        (item) => item.runId === runId && item.delivery === "steering",
+      ),
+      triggerMessage,
+    };
+  });
 }
 
 function message(
@@ -981,6 +1019,7 @@ function message(
   status: MessageStatus,
   text: string,
   delivery: MessageDelivery = "normal",
+  runId = "run_api",
 ): ChatMessage {
   return {
     conversationId: "conversation_api",
@@ -992,7 +1031,7 @@ function message(
       { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
     ],
     role,
-    runId: role === "assistant" ? "run_api" : "",
+    runId,
     schemaVersion: 1,
     status,
     updatedAt: "2026-05-29T20:00:00Z",
@@ -1011,7 +1050,7 @@ function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
   };
 }
 
-function testRun(status: RunStatus): Run {
+function testRun(status: RunStatus, runId = "run_api"): Run {
   return {
     assistantMessageId: "message_assistant",
     completedAt: status === "running" ? "" : "2026-05-29T20:01:00Z",
@@ -1019,7 +1058,7 @@ function testRun(status: RunStatus): Run {
     error: "",
     harness: "codex",
     hasPendingApproval: false,
-    id: "run_api",
+    id: runId,
     pendingApproval: null,
     promptSummary: "hello",
     schemaVersion: 1,

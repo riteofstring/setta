@@ -264,11 +264,14 @@ func (service *Service) attachPageState(workspaceID string, conversationID strin
 		return err
 	}
 	page.Queue = queue
+	if err := service.attachTranscriptToPageLocked(workspaceID, conversationID, page, runs); err != nil {
+		return err
+	}
 	return service.attachRunActivityToPage(workspaceID, page)
 }
 
 func (service *Service) attachRunActivityToPage(workspaceID string, page *MessagePage) error {
-	for _, runID := range runIDsFromMessages(page.Messages) {
+	for _, runID := range runIDsFromTranscript(page.Transcript) {
 		run, err := service.store.LoadRun(workspaceID, runID)
 		if err != nil {
 			return err
@@ -315,19 +318,6 @@ func validateRunAssistantMessageRecord(run Run, message ChatMessage) error {
 		return fmt.Errorf("run %s assistant message %s belongs to run %s", run.ID, message.ID, message.RunID)
 	}
 	return nil
-}
-
-func runIDsFromMessages(messages []ChatMessage) []string {
-	seen := map[string]bool{}
-	runIDs := []string{}
-	for _, message := range messages {
-		if message.RunID == "" || seen[message.RunID] {
-			continue
-		}
-		seen[message.RunID] = true
-		runIDs = append(runIDs, message.RunID)
-	}
-	return runIDs
 }
 
 func (service *Service) LoadRunActivityPage(workspaceID string, runID string, limit int) (RunActivityPage, error) {

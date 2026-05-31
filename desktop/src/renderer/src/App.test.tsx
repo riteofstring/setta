@@ -1,9 +1,9 @@
-import type { ChatMessage } from "@generated/backend";
+import type { ChatMessage, Run, TranscriptTurn } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
-import { ChatTranscript } from "./components/chat-transcript";
+import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 
 describe("workspace renderer states", () => {
@@ -125,7 +125,7 @@ describe("workspace renderer states", () => {
 describe("chat renderer states", () => {
   test("renders markdown messages without trusting raw html", () => {
     const html = renderToString(
-      <ChatTranscript
+      <TestChatTranscript
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
@@ -169,7 +169,7 @@ describe("chat renderer states", () => {
     );
 
     const html = renderToString(
-      <ChatTranscript
+      <TestChatTranscript
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
@@ -181,12 +181,12 @@ describe("chat renderer states", () => {
       />,
     );
 
-    expect(rowCount(html, "chat-message")).toBeLessThanOrEqual(30);
+    expect(rowCount(html, "chat-assistant-turn-row")).toBeLessThanOrEqual(30);
   });
 
   test("renders queued steering and activity rows", () => {
     const html = renderToString(
-      <ChatTranscript
+      <TestChatTranscript
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
@@ -375,7 +375,7 @@ describe("chat renderer states", () => {
 
   test("renders load more for paged run output", () => {
     const html = renderToString(
-      <ChatTranscript
+      <TestChatTranscript
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
@@ -455,7 +455,7 @@ describe("chat renderer states", () => {
 
   test("renders pending approval controls", () => {
     const html = renderToString(
-      <ChatTranscript
+      <TestChatTranscript
         activeRun={{
           assistantMessageId: "message_assistant",
           completedAt: "",
@@ -509,7 +509,7 @@ describe("chat renderer states", () => {
 
   test("renders user input approval answer controls", () => {
     const html = renderToString(
-      <ChatTranscript
+      <TestChatTranscript
         activeRun={{
           assistantMessageId: "message_assistant",
           completedAt: "",
@@ -579,6 +579,69 @@ describe("chat renderer states", () => {
     expect(html).toContain("Cancel");
   });
 });
+
+function TestChatTranscript({
+  transcript,
+  ...props
+}: Omit<ChatTranscriptProps, "transcript"> & { transcript?: TranscriptTurn[] }) {
+  return (
+    <ChatTranscript {...props} transcript={transcript ?? transcriptFromMessages(props.messages)} />
+  );
+}
+
+function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
+  const runIds = [...new Set(messages.map((message) => message.runId).filter(Boolean))];
+  return runIds.map((runId) => {
+    const triggerMessage =
+      messages.find((message) => message.runId === runId && message.role === "user") ??
+      chatUserMessage(`message_user_${runId}`, 1, runId);
+    const assistantMessage =
+      messages.find((message) => message.runId === runId && message.role === "assistant") ?? null;
+    return {
+      assistantMessage,
+      run: transcriptRun(runId, triggerMessage.id, assistantMessage?.id ?? ""),
+      steeringMessages: messages.filter(
+        (message) => message.runId === runId && message.delivery === "steering",
+      ),
+      triggerMessage,
+    };
+  });
+}
+
+function transcriptRun(runId: string, triggerMessageId: string, assistantMessageId: string): Run {
+  return {
+    assistantMessageId,
+    completedAt: assistantMessageId ? "2026-05-29T20:01:00Z" : "",
+    conversationId: "conversation_api",
+    error: "",
+    harness: "codex",
+    hasPendingApproval: false,
+    id: runId,
+    pendingApproval: null,
+    promptSummary: "test",
+    schemaVersion: 1,
+    startedAt: assistantMessageId ? "2026-05-29T20:00:00Z" : "",
+    status: assistantMessageId ? "completed" : "queued",
+    triggerMessageId,
+    workspaceId: "workspace_api",
+  };
+}
+
+function chatUserMessage(id: string, ordinal: number, runId: string): ChatMessage {
+  return {
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:00Z",
+    delivery: "normal",
+    id,
+    ordinal,
+    parts: [{ format: "plain", id: `${id}_part`, text: "prompt", type: "text" }],
+    role: "user",
+    runId,
+    schemaVersion: 1,
+    status: "complete",
+    updatedAt: "2026-05-29T20:00:00Z",
+  };
+}
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;

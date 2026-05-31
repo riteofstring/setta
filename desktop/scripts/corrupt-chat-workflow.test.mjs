@@ -23,6 +23,7 @@ const validConversationId = "conversation_valid_history";
 const secondValidConversationId = "conversation_second_valid";
 const conversationId = "conversation_corrupt_history";
 const runId = "run_missing_assistant_message";
+const validRunId = "run_valid_history";
 
 function parseArgs(args) {
   const parsed = {
@@ -238,12 +239,57 @@ async function createCorruptChatFixture(tempRoot) {
         { format: "plain", id: "part_valid_user", text: "persisted valid message", type: "text" },
       ],
       role: "user",
-      runId: "",
+      runId: validRunId,
       schemaVersion: 1,
       status: "complete",
       updatedAt: validUpdatedAt,
     },
   );
+  await writeJson(
+    join(
+      workspaceDir,
+      "conversations",
+      validConversationId,
+      "messages",
+      "000000000002_message_valid_assistant.json",
+    ),
+    {
+      conversationId: validConversationId,
+      createdAt: validUpdatedAt,
+      delivery: "normal",
+      id: "message_valid_assistant",
+      ordinal: 2,
+      parts: [
+        {
+          format: "markdown",
+          id: "part_valid_assistant",
+          text: "persisted valid response",
+          type: "text",
+        },
+      ],
+      role: "assistant",
+      runId: validRunId,
+      schemaVersion: 1,
+      status: "complete",
+      updatedAt: validUpdatedAt,
+    },
+  );
+  await writeJson(join(workspaceDir, "runs", `${validRunId}.json`), {
+    assistantMessageId: "message_valid_assistant",
+    completedAt: validUpdatedAt,
+    conversationId: validConversationId,
+    error: "",
+    harness: "codex",
+    hasPendingApproval: false,
+    id: validRunId,
+    pendingApproval: emptyApproval(),
+    promptSummary: "persisted valid message",
+    schemaVersion: 1,
+    startedAt: now,
+    status: "completed",
+    triggerMessageId: "message_valid_user",
+    workspaceId,
+  });
   await writeJson(
     join(workspaceDir, "conversations", secondValidConversationId, "conversation.json"),
     {

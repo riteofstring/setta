@@ -56,16 +56,11 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	if !strings.Contains(latest.Messages[0].Parts[0].Text, "Explain Phase 3") {
 		t.Fatalf("assistant text = %q, want streamed fake response", latest.Messages[0].Parts[0].Text)
 	}
-	if !latest.HasMoreOlder {
-		t.Fatal("latest page hasMoreOlder = false, want true")
+	if latest.HasMoreOlder {
+		t.Fatal("latest page hasMoreOlder = true, want false because transcript includes the complete turn")
 	}
-
-	older, err := restarted.LoadMessagePage("workspace_api", conversation.ID, latest.OlderBeforeOrdinal, 1)
-	if err != nil {
-		t.Fatalf("load older page: %v", err)
-	}
-	if len(older.Messages) != 1 || older.Messages[0].Role != RoleUser {
-		t.Fatalf("older messages = %+v, want user only", older.Messages)
+	if got, want := transcriptMessageTexts(latest.Transcript), []string{"Explain Phase 3", latest.Messages[0].Parts[0].Text}; !equalStrings(got, want) {
+		t.Fatalf("latest transcript = %+v, want complete turn %+v", got, want)
 	}
 }
 

@@ -10,6 +10,7 @@ import type {
   RunItem,
   RunItemOutput,
   RunItemType,
+  TranscriptTurn,
 } from "@generated/backend";
 import {
   AlertTriangle,
@@ -57,6 +58,7 @@ export interface ChatTranscriptProps {
     answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
+  transcript: TranscriptTurn[];
 }
 
 interface TranscriptIndexes {
@@ -66,6 +68,7 @@ interface TranscriptIndexes {
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputsById: Record<string, RunItemOutput>;
   runItemsById: Record<string, RunItem>;
+  turns: TranscriptTurn[];
 }
 
 function transcriptIndexes(props: {
@@ -78,15 +81,18 @@ function transcriptIndexes(props: {
   runItemOutputsById: Record<string, RunItemOutput> | undefined;
   runItems: RunItem[];
   runItemsById: Record<string, RunItem> | undefined;
+  transcript: TranscriptTurn[];
 }): TranscriptIndexes {
+  const messageIndex = messageIndexes(props.messages, props.messageIds, props.messagesById);
   return {
-    ...messageIndexes(props.messages, props.messageIds, props.messagesById),
+    ...messageIndex,
     ...runItemIndexes(props.runItems, props.runItemIdsByRunId, props.runItemsById),
     ...runItemOutputIndexes(
       props.runItemOutputs,
       props.runItemOutputIdsByRunItemId,
       props.runItemOutputsById,
     ),
+    turns: hydrateTranscriptTurns(props.transcript, messageIndex.messagesById),
   };
 }
 
@@ -107,6 +113,20 @@ function messageIndexes(
     messageIds: ordered.map((message) => message.id),
     messagesById: fallbackById,
   };
+}
+
+function hydrateTranscriptTurns(
+  turns: TranscriptTurn[],
+  messagesById: Record<string, ChatMessage>,
+): TranscriptTurn[] {
+  return turns.map((turn) => ({
+    ...turn,
+    assistantMessage: turn.assistantMessage
+      ? (messagesById[turn.assistantMessage.id] ?? turn.assistantMessage)
+      : null,
+    steeringMessages: turn.steeringMessages.map((message) => messagesById[message.id] ?? message),
+    triggerMessage: messagesById[turn.triggerMessage.id] ?? turn.triggerMessage,
+  }));
 }
 
 function runItemIndexes(
@@ -277,6 +297,7 @@ export function ChatTranscript({
   runItems,
   runItemsById,
   submitApproval,
+  transcript: backendTranscript,
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [pinned, setPinned] = useState(true);
@@ -292,6 +313,7 @@ export function ChatTranscript({
         runItemOutputsById,
         runItems,
         runItemsById,
+        transcript: backendTranscript,
       }),
     [
       messageIds,
@@ -303,12 +325,10 @@ export function ChatTranscript({
       runItemOutputsById,
       runItems,
       runItemsById,
+      backendTranscript,
     ],
   );
-  const firstMessage = transcript.messageIds[0]
-    ? transcript.messagesById[transcript.messageIds[0]]
-    : undefined;
-  const firstItemIndex = firstMessage?.ordinal ?? 0;
+  const firstItemIndex = transcript.turns[0]?.triggerMessage.ordinal ?? 0;
 
   useEffect(() => {
     if (!pinned) {
@@ -318,7 +338,7 @@ export function ChatTranscript({
   }, [
     activeRun,
     pinned,
-    transcript.messageIds.length,
+    transcript.turns.length,
     transcript.runItemOutputsById,
     transcript.runItemsById,
   ]);
@@ -327,7 +347,7 @@ export function ChatTranscript({
     await loadOlder();
   }
 
-  if (transcript.messageIds.length === 0) {
+  if (transcript.turns.length === 0) {
     return <EmptyChatTranscript activeRun={activeRun} submitApproval={submitApproval} />;
   }
 
@@ -342,25 +362,22 @@ export function ChatTranscript({
             <TranscriptHeader hasMoreOlder={hasMoreOlder} loadOlder={loadOlderAndPreserveScroll} />
           ),
         }}
-        data={transcript.messageIds}
+        data={transcript.turns}
+        data-testid="chat-transcript-scroller"
         firstItemIndex={firstItemIndex}
         followOutput={pinned ? "auto" : false}
         increaseViewportBy={{ bottom: 800, top: 400 }}
-        initialItemCount={Math.min(transcript.messageIds.length, 30)}
-        itemContent={(_, messageId) => {
-          const message = transcript.messagesById[messageId];
-          if (!message) {
-            return null;
-          }
+        initialItemCount={Math.min(transcript.turns.length, 30)}
+        itemContent={(_, turn) => {
           return (
-            <MessageRow
-              message={message}
+            <TranscriptTurnRow
               loadRunItemOutput={loadRunItemOutput}
               runItemIdsByRunId={transcript.runItemIdsByRunId}
               runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
               runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
               runItemOutputsById={transcript.runItemOutputsById}
               runItemsById={transcript.runItemsById}
+              turn={turn}
             />
           );
         }}
@@ -381,7 +398,10 @@ function EmptyChatTranscript({
 }) {
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
-      <div className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5">
+      <div
+        className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5"
+        data-testid="chat-transcript-scroller"
+      >
         <div
           className="mx-auto w-full max-w-4xl py-16 text-center text-sm text-zinc-500"
           data-testid="empty-chat"
@@ -479,8 +499,8 @@ function JumpToLatestButton({
   );
 }
 
-const MessageRow = memo(function MessageRow({
-  message,
+const TranscriptTurnRow = memo(function TranscriptTurnRow({
+  turn,
   loadRunItemOutput,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
@@ -488,7 +508,7 @@ const MessageRow = memo(function MessageRow({
   runItemOutputsById,
   runItemsById,
 }: {
-  message: ChatMessage;
+  turn: TranscriptTurn;
   loadRunItemOutput: (
     runId: string,
     runItemId: string,
@@ -501,29 +521,94 @@ const MessageRow = memo(function MessageRow({
   runItemOutputsById: Record<string, RunItemOutput>;
   runItemsById: Record<string, RunItem>;
 }) {
-  const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
   return (
-    <article className={messageRowClass(message)} data-testid="chat-message">
+    <div
+      className="min-w-0"
+      data-run-id={turn.run.id}
+      data-testid="chat-transcript-turn"
+      data-turn-status={turn.run.status}
+    >
+      <MessageRow message={turn.triggerMessage} />
+      {turn.steeringMessages.map((message) => (
+        <MessageRow key={message.id} message={message} />
+      ))}
+      {turn.assistantMessage ? (
+        <MessageRow
+          loadRunItemOutput={loadRunItemOutput}
+          message={turn.assistantMessage}
+          runItemIdsByRunId={runItemIdsByRunId}
+          runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
+          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+          runItemOutputsById={runItemOutputsById}
+          runItemsById={runItemsById}
+        />
+      ) : null}
+    </div>
+  );
+});
+
+const MessageRow = memo(function MessageRow({
+  message,
+  loadRunItemOutput,
+  runItemIdsByRunId,
+  runItemOutputIdsByRunItemId,
+  runItemOutputPagesByRunItemId,
+  runItemOutputsById,
+  runItemsById,
+}: {
+  message: ChatMessage;
+  loadRunItemOutput?: (
+    runId: string,
+    runItemId: string,
+    afterOrdinal?: number,
+    limit?: number,
+  ) => Promise<void>;
+  runItemIdsByRunId?: Record<string, string[]>;
+  runItemOutputIdsByRunItemId?: Record<string, string[]>;
+  runItemOutputPagesByRunItemId?: Record<string, RunItemOutputPageState>;
+  runItemOutputsById?: Record<string, RunItemOutput>;
+  runItemsById?: Record<string, RunItem>;
+}) {
+  const itemRows = activityItemsForMessage(message, runItemIdsByRunId ?? {}, runItemsById ?? {});
+  return (
+    <div
+      className={messageRowClass(message)}
+      data-chat-message="true"
+      data-message-delivery={message.delivery}
+      data-message-id={message.id}
+      data-message-role={message.role}
+      data-testid={messageRowTestId(message)}
+    >
       <div className={messageContainerClass(message)}>
         <MessageContent message={message} />
         <UserDeliveryBadge message={message} />
         <MessageStatus message={message} />
-        {itemRows.length > 0 ? (
+        {itemRows.length > 0 && loadRunItemOutput ? (
           <RunActivityRows
             items={itemRows}
             loadRunItemOutput={loadRunItemOutput}
-            outputIdsByRunItemId={runItemOutputIdsByRunItemId}
-            outputPagesByRunItemId={runItemOutputPagesByRunItemId}
-            outputsById={runItemOutputsById}
+            outputIdsByRunItemId={runItemOutputIdsByRunItemId ?? {}}
+            outputPagesByRunItemId={runItemOutputPagesByRunItemId ?? {}}
+            outputsById={runItemOutputsById ?? {}}
           />
         ) : null}
       </div>
-    </article>
+    </div>
   );
 });
 
 function messageRowClass(message: ChatMessage) {
   return messageRowClassByRole[message.role];
+}
+
+function messageRowTestId(message: ChatMessage) {
+  if (message.role === "assistant") {
+    return "chat-assistant-turn-row";
+  }
+  if (message.delivery === "queued") {
+    return "chat-queued-turn-row";
+  }
+  return "chat-message-row";
 }
 
 function MessageContent({ message }: { message: ChatMessage }) {

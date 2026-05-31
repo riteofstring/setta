@@ -11,8 +11,11 @@ import type {
   Run,
   RunItem,
   RunItemOutput,
+  TranscriptTurn,
 } from "@generated/backend";
 import { create } from "zustand";
+
+import { applyChatEvent } from "./chat-events";
 
 type ChatStatus = "idle" | "loading" | "ready" | "error";
 type ChatOperation =
@@ -35,7 +38,7 @@ export interface RunItemOutputPageState {
   nextOrdinal: number;
 }
 
-interface ChatStore {
+export interface ChatStore {
   activeRun: Run | null;
   clearQuarantine: () => Promise<void>;
   conversations: ConversationListItem[];
@@ -59,6 +62,7 @@ interface ChatStore {
   messageIds: string[];
   messages: ChatMessage[];
   messagesById: Record<string, ChatMessage>;
+  olderBeforeOrdinal: number;
   operation: ChatOperation;
   quarantineCorruptState: () => Promise<void>;
   queueMessage: (prompt: string) => Promise<void>;
@@ -86,9 +90,10 @@ interface ChatStore {
     cancelled: boolean,
   ) => Promise<void>;
   workspaceId: string | null;
+  transcript: TranscriptTurn[];
 }
 
-type ChatPatch = Partial<
+export type ChatPatch = Partial<
   Pick<
     ChatStore,
     | "activeRun"
@@ -103,6 +108,7 @@ type ChatPatch = Partial<
     | "messageIds"
     | "messages"
     | "messagesById"
+    | "olderBeforeOrdinal"
     | "operation"
     | "runItemIdsByRunId"
     | "runItemOutputIdsByRunItemId"
@@ -113,6 +119,7 @@ type ChatPatch = Partial<
     | "runItemsById"
     | "selectedConversation"
     | "status"
+    | "transcript"
     | "workspaceId"
   >
 >;
@@ -269,9 +276,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     loadOlder: async () => {
-      const { messages, selectedConversation, workspaceId } = get();
-      const firstMessage = messages[0];
-      if (!workspaceId || !selectedConversation || !firstMessage || !get().hasMoreOlder) {
+      const { olderBeforeOrdinal, selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation || olderBeforeOrdinal <= 0 || !get().hasMoreOlder) {
         return;
       }
       const operationId = beginOperation({ error: null, operation: "loadingOlder" });
@@ -279,7 +285,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const page = await window.setta.chat.messagePage(
           workspaceId,
           selectedConversation.id,
-          firstMessage.ordinal,
+          olderBeforeOrdinal,
           pageLimit,
         );
         commitCurrentFromState(operationId, (current) => {
@@ -291,11 +297,13 @@ export const useChatStore = create<ChatStore>((set, get) => {
           }
           return {
             hasMoreOlder: page.hasMoreOlder,
-            messages: prependOlderMessages(page.messages, current.messages),
+            messages: prependOlderMessages(messagesFromPage(page), current.messages),
+            olderBeforeOrdinal: page.olderBeforeOrdinal,
             operation: null,
             runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.runItemOutputs),
             runItems: upsertRunItems(current.runItems, page.runItems),
             status: "ready",
+            transcript: prependOlderTranscript(page.transcript, current.transcript),
           };
         });
       } catch (error) {
@@ -375,12 +383,14 @@ export const useChatStore = create<ChatStore>((set, get) => {
         hasMoreOlder: false,
         maintenanceNotice: null,
         messages: [],
+        olderBeforeOrdinal: 0,
         operation: "loading",
         runItemOutputPagesByRunItemId: {},
         runItemOutputs: [],
         runItems: [],
         selectedConversation: null,
         status: "loading",
+        transcript: [],
         workspaceId,
       });
       try {
@@ -407,6 +417,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     messageIds: [],
     messages: [],
     messagesById: {},
+    olderBeforeOrdinal: 0,
     operation: null,
     quarantineCorruptState: async () => {
       const { selectedConversation, workspaceId } = get();
@@ -637,6 +648,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operationId, errorPatch(error));
       }
     },
+    transcript: [],
     workspaceId: null,
   };
 });
@@ -693,11 +705,13 @@ function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
   return normalizeChatPatch({
     activeRun,
     hasMoreOlder: page.hasMoreOlder,
-    messages: page.messages,
+    messages: messagesFromPage(page),
+    olderBeforeOrdinal: page.olderBeforeOrdinal,
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: page.runItemOutputs,
     runItems: page.runItems,
     selectedConversation: page.conversation,
+    transcript: page.transcript,
   });
 }
 
@@ -777,10 +791,12 @@ function emptyConversationPatch(): ChatPatch {
     activeRun: null,
     hasMoreOlder: false,
     messages: [],
+    olderBeforeOrdinal: 0,
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItems: [],
     selectedConversation: null,
+    transcript: [],
   });
 }
 
@@ -835,8 +851,14 @@ function updateRunItemOutputPageState(
 
 function normalizeChatPatch(patch: ChatPatch): ChatPatch {
   const next: ChatPatch = { ...patch };
+  let messagesById: Record<string, ChatMessage> | undefined;
   if (patch.messages !== undefined) {
-    Object.assign(next, normalizeMessages(patch.messages));
+    const normalized = normalizeMessages(patch.messages);
+    messagesById = normalized.messagesById;
+    Object.assign(next, normalized);
+  }
+  if (patch.transcript !== undefined) {
+    Object.assign(next, normalizeTranscript(patch.transcript, messagesById));
   }
   if (patch.runItems !== undefined) {
     Object.assign(next, normalizeRunItems(patch.runItems));
@@ -845,6 +867,20 @@ function normalizeChatPatch(patch: ChatPatch): ChatPatch {
     Object.assign(next, normalizeRunItemOutputs(patch.runItemOutputs));
   }
   return next;
+}
+
+function messagesFromPage(page: MessagePage): ChatMessage[] {
+  const messagesById = new Map(page.messages.map((message) => [message.id, message]));
+  for (const turn of page.transcript) {
+    messagesById.set(turn.triggerMessage.id, turn.triggerMessage);
+    if (turn.assistantMessage) {
+      messagesById.set(turn.assistantMessage.id, turn.assistantMessage);
+    }
+    for (const message of turn.steeringMessages) {
+      messagesById.set(message.id, message);
+    }
+  }
+  return [...messagesById.values()];
 }
 
 function normalizeMessages(messages: ChatMessage[]) {
@@ -858,6 +894,32 @@ function normalizeMessages(messages: ChatMessage[]) {
     messages: ordered,
     messagesById,
   } satisfies ChatPatch;
+}
+
+function normalizeTranscript(
+  transcript: TranscriptTurn[],
+  messagesById: Record<string, ChatMessage> | undefined,
+) {
+  return {
+    transcript: transcript.map((turn) => hydrateTranscriptTurn(turn, messagesById)),
+  } satisfies ChatPatch;
+}
+
+function hydrateTranscriptTurn(
+  turn: TranscriptTurn,
+  messagesById: Record<string, ChatMessage> | undefined,
+): TranscriptTurn {
+  if (!messagesById) {
+    return turn;
+  }
+  return {
+    ...turn,
+    assistantMessage: turn.assistantMessage
+      ? (messagesById[turn.assistantMessage.id] ?? turn.assistantMessage)
+      : null,
+    steeringMessages: turn.steeringMessages.map((message) => messagesById[message.id] ?? message),
+    triggerMessage: messagesById[turn.triggerMessage.id] ?? turn.triggerMessage,
+  };
 }
 
 function normalizeRunItems(items: RunItem[]) {
@@ -901,191 +963,15 @@ export function prependOlderMessages(
   return [...olderMessages.filter((message) => !currentIDs.has(message.id)), ...currentMessages];
 }
 
-interface EventApplyResult {
-  patch: ChatPatch;
-  resync: boolean;
-}
-
-type AppliedChatEvent = Exclude<ChatEvent, { type: "chat.resync_required" }>;
-type MessageUpsertEvent = Extract<
-  AppliedChatEvent,
-  {
-    type:
-      | "chat.message.created"
-      | "chat.message.queued"
-      | "chat.message.steering_sent"
-      | "chat.message.updated";
-  }
->;
-type RunItemUpsertEvent = Extract<
-  AppliedChatEvent,
-  { type: "chat.run_item.created" | "chat.run_item.updated" }
->;
-
-const messageUpsertEventTypes = new Set([
-  "chat.message.created",
-  "chat.message.queued",
-  "chat.message.steering_sent",
-  "chat.message.updated",
-]);
-
-const runItemUpsertEventTypes = new Set(["chat.run_item.created", "chat.run_item.updated"]);
-
-function applyChatEvent(state: ChatStore, event: AppliedChatEvent): EventApplyResult {
-  if (isMessageUpsertEvent(event)) {
-    return applyMessageUpsertEvent(state, event);
-  }
-  if (isRunItemUpsertEvent(event)) {
-    return applyRunItemUpsertEvent(state, event);
-  }
-  if (event.type === "chat.assistant_text_delta") {
-    return applyAssistantTextDelta(state, event);
-  }
-  if (event.type === "chat.run.updated") {
-    return selectedConversationEventResult(state, event, {
-      activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
-      status: "ready",
-    });
-  }
-  if (event.type === "chat.run_item_output.delta") {
-    return selectedConversationEventResult(state, event, {
-      runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
-      status: "ready",
-    });
-  }
-  if (event.type === "chat.queue.updated") {
-    return selectedConversationEventResult(state, event, {
-      messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
-      status: "ready",
-    });
-  }
-  if (event.type === "chat.conversation.updated") {
-    return workspaceEventResult(state, event, conversationUpdatedPatch(state, event.payload.item));
-  }
-  if (event.type === "diagnostic.created") {
-    return workspaceEventResult(state, event, {
-      diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
-      status: "ready",
-    });
-  }
-  return assertNever(event);
-}
-
-function isMessageUpsertEvent(event: AppliedChatEvent): event is MessageUpsertEvent {
-  return messageUpsertEventTypes.has(event.type);
-}
-
-function isRunItemUpsertEvent(event: AppliedChatEvent): event is RunItemUpsertEvent {
-  return runItemUpsertEventTypes.has(event.type);
-}
-
-function applyMessageUpsertEvent(state: ChatStore, event: MessageUpsertEvent): EventApplyResult {
-  return selectedConversationEventResult(state, event, {
-    messages: upsertMessage(state.messages, event.payload.message),
-    status: "ready",
-  });
-}
-
-function applyRunItemUpsertEvent(state: ChatStore, event: RunItemUpsertEvent): EventApplyResult {
-  return selectedConversationEventResult(state, event, {
-    runItems: upsertRunItem(state.runItems, event.payload.item),
-    status: "ready",
-  });
-}
-
-function selectedConversationEventResult(
-  state: ChatStore,
-  event: ChatEvent,
-  patch: ChatPatch,
-): EventApplyResult {
-  if (!isSelectedConversationEvent(state, event)) {
-    return unchangedEventResult();
-  }
-  return { patch, resync: false };
-}
-
-function workspaceEventResult(
-  state: ChatStore,
-  event: ChatEvent,
-  patch: ChatPatch,
-): EventApplyResult {
-  if (state.workspaceId !== event.workspaceId) {
-    return unchangedEventResult();
-  }
-  return { patch, resync: false };
-}
-
-function applyAssistantTextDelta(
-  state: ChatStore,
-  event: Extract<ChatEvent, { type: "chat.assistant_text_delta" }>,
-): EventApplyResult {
-  if (!isSelectedConversationEvent(state, event)) {
-    return unchangedEventResult();
-  }
-  let foundMessage = false;
-  let foundPart = false;
-  const messages = state.messages.map((message) => {
-    if (message.id !== event.payload.messageId) {
-      return message;
-    }
-    foundMessage = true;
-    return {
-      ...message,
-      parts: message.parts.map((part) => {
-        if (part.id !== event.payload.partId) {
-          return part;
-        }
-        foundPart = true;
-        return { ...part, text: part.text + event.payload.delta };
-      }),
-      updatedAt: event.payload.updatedAt,
-    };
-  });
-  if (!foundMessage || !foundPart) {
-    return { patch: {}, resync: true };
-  }
-  return { patch: { messages, status: "ready" }, resync: false };
-}
-
-function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
-  const selectedConversation =
-    state.selectedConversation?.id === item.conversation.id
-      ? item.conversation
-      : state.selectedConversation;
-  return {
-    conversations: upsertConversation(state.conversations, item),
-    selectedConversation,
-  };
-}
-
-function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {
-  return (
-    state.workspaceId === event.workspaceId &&
-    state.selectedConversation?.id === event.conversationId
-  );
-}
-
-function activeRunFromRunEvent(current: Run | null, run: Run): Run | null {
-  if (run.status === "running") {
-    return run;
-  }
-  if (run.status === "queued") {
-    return current?.id === run.id ? run : current;
-  }
-  if (!current || current.id === run.id) {
-    return run;
-  }
-  return current;
-}
-
-function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
-  const index = messages.findIndex((item) => item.id === message.id);
-  const next = index === -1 ? [...messages, message] : messages.with(index, message);
-  return next.toSorted((left, right) => left.ordinal - right.ordinal);
-}
-
-function mergeQueueMessages(messages: ChatMessage[], queuedMessages: ChatMessage[]): ChatMessage[] {
-  return queuedMessages.reduce(upsertMessage, messages);
+function prependOlderTranscript(
+  olderTranscript: TranscriptTurn[],
+  currentTranscript: TranscriptTurn[],
+): TranscriptTurn[] {
+  const currentRunIds = new Set(currentTranscript.map((turn) => turn.run.id));
+  return [
+    ...olderTranscript.filter((turn) => !currentRunIds.has(turn.run.id)),
+    ...currentTranscript,
+  ];
 }
 
 function upsertRunItems(items: RunItem[], nextItems: RunItem[]): RunItem[] {
@@ -1123,43 +1009,4 @@ function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
     return left.ordinal - right.ordinal;
   }
   return left.runItemId.localeCompare(right.runItemId);
-}
-
-function upsertConversation(
-  conversations: ConversationListItem[],
-  item: ConversationListItem,
-): ConversationListItem[] {
-  const index = conversations.findIndex(
-    (current) => current.conversation.id === item.conversation.id,
-  );
-  const next = index === -1 ? [...conversations, item] : conversations.with(index, item);
-  return next.toSorted(compareConversationListItems);
-}
-
-function upsertDiagnostic(diagnostics: Diagnostic[], diagnostic: Diagnostic): Diagnostic[] {
-  const index = diagnostics.findIndex((current) => current.id === diagnostic.id);
-  const next = index === -1 ? [...diagnostics, diagnostic] : diagnostics.with(index, diagnostic);
-  return next.toSorted(compareDiagnostics).slice(-10);
-}
-
-function compareDiagnostics(left: Diagnostic, right: Diagnostic) {
-  if (left.occurredAt === right.occurredAt) {
-    return left.id.localeCompare(right.id);
-  }
-  return left.occurredAt.localeCompare(right.occurredAt);
-}
-
-function compareConversationListItems(left: ConversationListItem, right: ConversationListItem) {
-  if (left.conversation.updatedAt === right.conversation.updatedAt) {
-    return left.conversation.id.localeCompare(right.conversation.id);
-  }
-  return right.conversation.updatedAt.localeCompare(left.conversation.updatedAt);
-}
-
-function unchangedEventResult(): EventApplyResult {
-  return { patch: {}, resync: false };
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled chat event: ${JSON.stringify(value)}`);
 }

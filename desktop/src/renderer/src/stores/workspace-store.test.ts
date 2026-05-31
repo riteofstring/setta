@@ -280,6 +280,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         queue: { messages: [], runs: [] },
         runItemOutputs: [],
         runItems: [],
+        transcript: [],
       }),
       onEvent: () => () => {},
       quarantineCorruptState: async () => emptyMaintenanceResult(),
@@ -388,6 +389,7 @@ function emptyMessagePage(): MessagePage {
     queue: { messages: [], runs: [] },
     runItemOutputs: [],
     runItems: [],
+    transcript: [],
   };
 }
 

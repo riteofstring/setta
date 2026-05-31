@@ -221,6 +221,14 @@ func (store *Store) LoadMessagePage(workspaceID string, conversationID string, b
 	}, nil
 }
 
+func (store *Store) LoadMessages(workspaceID string, conversationID string) ([]ChatMessage, error) {
+	files, err := store.messageFiles(workspaceID, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	return readMessages(files, conversationID)
+}
+
 func selectMessageFiles(files []messageFile, beforeOrdinal int, limit int) ([]messageFile, int) {
 	eligible := make([]messageFile, 0, len(files))
 	for _, file := range files {

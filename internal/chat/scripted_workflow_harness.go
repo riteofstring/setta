@@ -24,6 +24,9 @@ type scriptedWorkflowFixture struct {
 var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow hold for queue and steering", Run: (*ScriptedWorkflowHarness).workflowTurn},
 	{Prompt: "queued follow-up from active run", Run: scriptedQueuedReply},
+	{Prompt: "queued follow-up one from active run", Run: scriptedQueuedReply},
+	{Prompt: "queued follow-up two from active run", Run: scriptedQueuedReply},
+	{Prompt: "queued follow-up three from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up after cancel", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up after failure", Run: scriptedQueuedReply},
 	{Prompt: "cancel active workflow", Run: (*ScriptedWorkflowHarness).cancelTurn},
@@ -92,7 +95,7 @@ func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, respon
 }
 
 func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	return scriptedReply(sink, request.Run.ID, "Queued follow-up response rendered through the app.")
+	return scriptedReply(sink, request.Run.ID, "Queued response for "+request.Prompt+".")
 }
 
 func scriptedCommandApprovalTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

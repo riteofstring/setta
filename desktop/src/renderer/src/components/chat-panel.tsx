@@ -54,8 +54,13 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
           selectConversation={chat.selectConversation}
         />
       </aside>
-      <div className="grid min-h-0 min-w-0 grid-rows-[56px_auto_minmax(0,1fr)_auto_auto_auto] overflow-hidden">
-        <header className="flex min-w-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
+      <div
+        className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+        data-conversation-id={selectedConversationId}
+        data-run-status={activeRunStatus(chat) ?? ""}
+        data-testid="chat-detail-pane"
+      >
+        <header className="flex h-14 flex-none min-w-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">{chatTitle(chat, workspace)}</div>
             <div className="truncate text-xs text-zinc-500">{workspace.rootPath}</div>
@@ -133,29 +138,32 @@ export function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView
     return <EmptyConversation busy={busy} createConversation={chat.createConversation} />;
   }
   return (
-    <ChatTranscript
-      activeRun={chat.activeRun}
-      hasMoreOlder={chat.hasMoreOlder}
-      loadOlder={chat.loadOlder}
-      loadRunItemOutput={chat.loadRunItemOutput}
-      messageIds={chat.messageIds}
-      messages={chat.messages}
-      messagesById={chat.messagesById}
-      runItemIdsByRunId={chat.runItemIdsByRunId}
-      runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
-      runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
-      runItemOutputs={chat.runItemOutputs}
-      runItemOutputsById={chat.runItemOutputsById}
-      runItems={chat.runItems}
-      runItemsById={chat.runItemsById}
-      submitApproval={chat.submitApproval}
-    />
+    <div className="min-h-0 min-w-0 flex-1 overflow-hidden" data-testid="chat-transcript-region">
+      <ChatTranscript
+        activeRun={chat.activeRun}
+        hasMoreOlder={chat.hasMoreOlder}
+        loadOlder={chat.loadOlder}
+        loadRunItemOutput={chat.loadRunItemOutput}
+        messageIds={chat.messageIds}
+        messages={chat.messages}
+        messagesById={chat.messagesById}
+        runItemIdsByRunId={chat.runItemIdsByRunId}
+        runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
+        runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
+        runItemOutputs={chat.runItemOutputs}
+        runItemOutputsById={chat.runItemOutputsById}
+        runItems={chat.runItems}
+        runItemsById={chat.runItemsById}
+        submitApproval={chat.submitApproval}
+        transcript={chat.transcript}
+      />
+    </div>
   );
 }
 
 function ChatLoadError({ message }: { message: string }) {
   return (
-    <div className="grid min-h-0 place-items-center px-6">
+    <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-6">
       <div
         className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm break-words text-red-800"
         data-testid="chat-load-error"
@@ -175,7 +183,7 @@ function EmptyConversation({
   createConversation: (title?: string) => Promise<void>;
 }) {
   return (
-    <div className="grid min-h-0 place-items-center px-6">
+    <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-6">
       <div className="text-center">
         <MessageSquarePlus className="mx-auto h-8 w-8 text-zinc-400" />
         <Button
@@ -340,7 +348,8 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
 
   return (
     <form
-      className="border-t border-zinc-200 bg-white p-4"
+      className="flex-none border-t border-zinc-200 bg-white p-4"
+      data-testid="chat-composer"
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
@@ -513,6 +522,7 @@ function useChatViewState(workspaceId: string | null) {
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
+  const transcript = useChatStore((state) => state.transcript);
 
   useEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
@@ -554,6 +564,7 @@ function useChatViewState(workspaceId: string | null) {
     steerMessage,
     stopActiveRun,
     submitApproval,
+    transcript,
   };
 }
 
