@@ -205,7 +205,7 @@ export function WorkspaceSidebar({
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <div
-        className={cn("shrink-0 px-1", chromeInsetClass(chromeInsetTop))}
+        className={cn("shrink-0 px-1 pb-1", chromeInsetClass(chromeInsetTop))}
         data-testid="sidebar-shortcuts-shell"
       >
         <SidebarAccordionSection
@@ -335,7 +335,7 @@ export function WorkspaceSidebar({
 }
 
 function chromeInsetClass(enabled: boolean) {
-  return enabled ? "pt-8" : "";
+  return enabled ? "pt-10" : "";
 }
 
 function ProjectList({

@@ -1,6 +1,8 @@
+import { createElement } from "react";
+import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { constrainSectionHeight } from "./sidebar-accordion";
+import { constrainSectionHeight, SidebarAccordionSection } from "./sidebar-accordion";
 
 describe("sidebar accordion sizing", () => {
   test("caps resized sections to the rendered content height", () => {
@@ -15,4 +17,31 @@ describe("sidebar accordion sizing", () => {
   test("keeps a usable minimum when content can scroll", () => {
     expect(constrainSectionHeight(10, 120)).toBe(40);
   });
+
+  test("renders fast motion classes for expanded and collapsed sections", () => {
+    const closed = renderAccordion(false);
+    const open = renderAccordion(true);
+
+    expect(closed).toContain("duration-125");
+    expect(closed).toContain("grid-rows-[0fr]");
+    expect(closed).toContain('aria-hidden="true"');
+    expect(open).toContain("grid-rows-[1fr]");
+    expect(open).toContain("ease-[cubic-bezier(0.16,1,0.3,1)]");
+  });
 });
+
+function renderAccordion(open: boolean) {
+  const child = createElement("button", { type: "button" }, "Item");
+  return renderToString(
+    createElement(SidebarAccordionSection, {
+      children: child,
+      height: 80,
+      onHeightChange: () => {},
+      onOpenChange: () => {},
+      open,
+      resized: false,
+      testId: "test-section",
+      title: "Test",
+    }),
+  );
+}

@@ -1,6 +1,8 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useLayoutEffect, useRef } from "react";
 
+import { cn } from "../lib/utils";
+
 const sectionMinHeight = 40;
 const sectionMaxHeight = 520;
 
@@ -67,13 +69,24 @@ export function SidebarAccordionSection({
         </button>
         {action}
       </div>
-      {open ? (
-        <div className="relative min-h-0" ref={bodyRef} style={sectionBodyStyle(height, resized)}>
-          <div className={resized ? "h-full min-h-0 overflow-y-auto" : ""}>
-            <div className="pb-1" ref={contentRef}>
-              {children}
-            </div>
+      <div
+        aria-hidden={!open}
+        className={cn(
+          "relative grid min-h-0 overflow-hidden transition-[grid-template-rows,height,opacity] duration-125 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        )}
+        data-state={open ? "open" : "closed"}
+        ref={bodyRef}
+        style={sectionBodyStyle({ height, open, resized })}
+      >
+        <div
+          className={resized && open ? "h-full min-h-0 overflow-y-auto" : "min-h-0 overflow-hidden"}
+        >
+          <div className="pb-1" ref={contentRef}>
+            {children}
           </div>
+        </div>
+        {open ? (
           <SectionResizeHandle
             bodyRef={bodyRef}
             contentRef={contentRef}
@@ -81,17 +94,25 @@ export function SidebarAccordionSection({
             label={`Resize ${title}`}
             onHeightChange={onHeightChange}
           />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </section>
   );
 }
 
-function sectionBodyStyle(height: number, resized: boolean): CSSProperties | undefined {
-  if (!resized) {
+function sectionBodyStyle({
+  height,
+  open,
+  resized,
+}: {
+  height: number;
+  open: boolean;
+  resized: boolean;
+}): CSSProperties | undefined {
+  if (!resized && open) {
     return undefined;
   }
-  return { height };
+  return { height: open ? height : 0 };
 }
 
 function SectionResizeHandle({
