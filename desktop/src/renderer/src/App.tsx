@@ -270,11 +270,15 @@ function WorkspaceArea({
   return (
     <div
       className={cn(
-        "grid h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-900",
+        "relative grid h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-900",
         "transition-[grid-template-rows] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         workspaceAreaRows(maximizedPane),
       )}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-7 z-40 h-px bg-zinc-800"
+      />
       {visibility.content ? (
         <WorkspaceContentRow
           chat={chat}
@@ -291,7 +295,6 @@ function WorkspaceArea({
       {visibility.bottom ? (
         <WorkspacePanePanel
           activeTabId={panes.bottom.activeTabId}
-          chromeInsetTop={!visibility.content}
           maximized={maximizedPane === "bottom"}
           onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
           onCreateTab={(kind) => panes.createTab("bottom", kind)}
@@ -342,7 +345,6 @@ function WorkspaceContentRow({
         <div className="h-full min-w-[360px] flex-1">
           <WorkspacePanePanel
             activeTabId={panes.right.activeTabId}
-            chromeInsetTop={visibility.right}
             maximized={maximizedPane === "right"}
             onCloseTab={(tabId) => panes.closeTab("right", tabId)}
             onCreateTab={(kind) => panes.createTab("right", kind)}
@@ -579,7 +581,7 @@ function ShellTopBar() {
   return (
     <div
       aria-hidden="true"
-      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-9 bg-transparent"
+      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-7 bg-transparent"
       data-testid="shell-top-bar"
     />
   );

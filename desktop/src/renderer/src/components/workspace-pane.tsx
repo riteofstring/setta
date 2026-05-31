@@ -168,7 +168,6 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
 
 export function WorkspacePanePanel({
   activeTabId,
-  chromeInsetTop = false,
   maximized = false,
   onCloseTab,
   onCreateTab,
@@ -177,7 +176,6 @@ export function WorkspacePanePanel({
   tabs,
 }: {
   activeTabId: string;
-  chromeInsetTop?: boolean;
   maximized?: boolean;
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
@@ -191,7 +189,7 @@ export function WorkspacePanePanel({
   return (
     <section
       aria-label={paneLabel}
-      className={workspacePanePanelClass({ chromeInsetTop, maximized, slot })}
+      className={workspacePanePanelClass({ maximized, slot })}
       data-testid={`${slot}-workspace-pane`}
     >
       <header className="app-no-drag flex h-7 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5">
@@ -230,20 +228,12 @@ export function WorkspacePanePanel({
   );
 }
 
-function workspacePanePanelClass({
-  chromeInsetTop,
-  maximized,
-  slot,
-}: {
-  chromeInsetTop: boolean;
-  maximized: boolean;
-  slot: PaneSlot;
-}) {
+function workspacePanePanelClass({ maximized, slot }: { maximized: boolean; slot: PaneSlot }) {
   const slotClass =
     slot === "right"
       ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100 transition-[width,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
       : bottomPanePanelClass(maximized);
-  return cn(slotClass, chromeInsetTop && "pt-9");
+  return cn(slotClass);
 }
 
 function bottomPanePanelClass(maximized: boolean) {

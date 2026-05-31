@@ -32,7 +32,7 @@ export function ChatPanel({
       <section
         className={cn(
           "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
-          chromeInsetTop && "pt-9",
+          chromeInsetTop && "pt-7",
         )}
       >
         <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
@@ -69,7 +69,7 @@ function ChatWorkspace({
     <section
       className={cn(
         "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100",
-        chromeInsetTop && "pt-9",
+        chromeInsetTop && "pt-7",
       )}
     >
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-visible">
