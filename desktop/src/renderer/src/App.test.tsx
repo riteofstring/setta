@@ -231,6 +231,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="bottom-workspace-pane"');
     expect(html).toContain('data-testid="workspace-pane-tab-terminal_tab"');
     expect(html).toContain('data-pane-runtime="libghostty"');
+    expect(html).toContain("New pane tab");
     expect(html).toContain("Close Terminal");
     expect(html).toContain("$");
   });
@@ -375,6 +376,7 @@ describe("chat renderer states", () => {
 
     expect(html.match(/Edit message/g)).toHaveLength(2);
     expect(html.match(/Copy message/g)).toHaveLength(4);
+    expect(html.match(/Pin message/g)).toHaveLength(4);
   });
 
   test("renders chat-local search controls", () => {

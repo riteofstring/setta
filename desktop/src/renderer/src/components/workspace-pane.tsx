@@ -1,5 +1,13 @@
-import { FileText, GitCompareArrows, Globe2, PanelTop, Settings, Terminal, X } from "lucide-react";
-import type { ReactNode } from "react";
+import {
+  FileText,
+  GitCompareArrows,
+  Globe2,
+  PanelTop,
+  Plus,
+  Settings,
+  Terminal,
+  X,
+} from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -174,6 +182,7 @@ export function WorkspacePanePanel({
 }) {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
   const paneLabel = slot === "right" ? "Workspace side pane" : "Workspace bottom pane";
+  const [newTabMenuOpen, setNewTabMenuOpen] = useState(false);
   return (
     <section
       aria-label={paneLabel}
@@ -196,22 +205,18 @@ export function WorkspacePanePanel({
                 tab={tab}
               />
             ))}
+            <WorkspacePaneNewTabMenu
+              onCreateTab={(kind) => {
+                setNewTabMenuOpen(false);
+                onCreateTab(kind);
+              }}
+              onOpenChange={setNewTabMenuOpen}
+              open={newTabMenuOpen}
+            />
           </nav>
         ) : (
           <span className="min-w-0 flex-1" />
         )}
-        {tabs.length > 0 ? (
-          <div className="flex items-center gap-1">
-            {workspacePaneActions.map((kind) => (
-              <WorkspacePaneActionButton
-                key={kind}
-                kind={kind}
-                onClick={() => onCreateTab(kind)}
-                showLabel={false}
-              />
-            ))}
-          </div>
-        ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab ? (
@@ -261,6 +266,54 @@ function WorkspacePaneTabButton({
       >
         <X className="h-3 w-3" />
       </button>
+    </div>
+  );
+}
+
+function WorkspacePaneNewTabMenu({
+  onCreateTab,
+  onOpenChange,
+  open,
+}: {
+  onCreateTab: (kind: WorkspacePaneKind) => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="New pane tab"
+        className="grid h-6 w-6 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-900 hover:text-zinc-100 focus-visible:bg-zinc-900 focus-visible:text-zinc-100"
+        onClick={() => onOpenChange(!open)}
+        title="New pane tab"
+        type="button"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+      {open ? (
+        <div
+          className="absolute top-7 left-0 z-30 w-36 rounded-sm border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-black/35"
+          role="menu"
+        >
+          {workspacePaneActions.map((kind) => {
+            const label = workspacePaneLabels[kind];
+            return (
+              <button
+                className="flex h-6 w-full cursor-pointer items-center gap-2 px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
+                key={kind}
+                onClick={() => onCreateTab(kind)}
+                role="menuitem"
+                type="button"
+              >
+                {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0 text-zinc-500")}
+                <span className="truncate">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -330,43 +383,19 @@ function WorkspacePaneContent({ tab }: { tab: WorkspacePaneTab }) {
 }
 
 function BrowserPaneSurface() {
-  return (
-    <WorkspacePaneRuntimeFrame
-      icon={<Globe2 className="h-3.5 w-3.5" />}
-      kind="browser"
-      label="Browser"
-    />
-  );
+  return <WorkspacePaneRuntimeFrame kind="browser" />;
 }
 
 function CanvasPaneSurface() {
-  return (
-    <WorkspacePaneRuntimeFrame
-      icon={<PanelTop className="h-3.5 w-3.5" />}
-      kind="canvas"
-      label="Canvas"
-    />
-  );
+  return <WorkspacePaneRuntimeFrame kind="canvas" />;
 }
 
 function DiffsPaneSurface() {
-  return (
-    <WorkspacePaneRuntimeFrame
-      icon={<GitCompareArrows className="h-3.5 w-3.5" />}
-      kind="diffs"
-      label="Diffs"
-    />
-  );
+  return <WorkspacePaneRuntimeFrame kind="diffs" />;
 }
 
 function FilesPaneSurface() {
-  return (
-    <WorkspacePaneRuntimeFrame
-      icon={<FileText className="h-3.5 w-3.5" />}
-      kind="file"
-      label="Files"
-    />
-  );
+  return <WorkspacePaneRuntimeFrame kind="file" />;
 }
 
 function TerminalPaneSurface() {
@@ -396,26 +425,17 @@ function SettingsPaneSurface() {
 }
 
 function WorkspacePaneRuntimeFrame({
-  icon,
   kind,
-  label,
 }: {
-  icon: ReactNode;
   kind: Exclude<WorkspacePaneKind, "settings" | "terminal">;
-  label: string;
 }) {
   const integration = workspacePaneIntegrationPlan[kind];
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-zinc-900"
+      className="h-full min-h-0 bg-zinc-900"
       data-pane-host={integration.host}
       data-pane-runtime={integration.runtime}
-    >
-      <div className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 px-3 text-xs text-zinc-500">
-        {icon}
-        <span>{label}</span>
-      </div>
-    </div>
+    />
   );
 }
 

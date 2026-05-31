@@ -8,6 +8,7 @@ import {
   Check,
   Copy,
   Pencil,
+  Pin,
   RotateCcw,
   Search,
   Wrench,
@@ -51,12 +52,29 @@ export function ChatTranscript({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const messageNodeRefs = useRef(new Map<string, HTMLDivElement>());
   const [pinned, setPinned] = useState(true);
+  const [pinnedMessageIds, setPinnedMessageIds] = useState<string[]>([]);
   const search = useChatSearch({
     messageNodeRefs,
     messages,
     onOpenChange: onSearchOpenChange,
     open: searchOpen,
   });
+  const pinnedMessages = useMemo(() => {
+    const messagesById = new Map(messages.map((message) => [message.id, message]));
+    return pinnedMessageIds
+      .map((messageId) => messagesById.get(messageId))
+      .filter((message): message is ChatMessage => Boolean(message));
+  }, [messages, pinnedMessageIds]);
+
+  useEffect(() => {
+    const messageIds = new Set(messages.map((message) => message.id));
+    setPinnedMessageIds((current) => {
+      if (current.every((messageId) => messageIds.has(messageId))) {
+        return current;
+      }
+      return current.filter((messageId) => messageIds.has(messageId));
+    });
+  }, [messages]);
 
   useEffect(() => {
     if (!pinned) {
@@ -89,6 +107,22 @@ export function ChatTranscript({
     messageNodeRefs.current.delete(messageId);
   }
 
+  function togglePinnedMessage(messageId: string) {
+    setPinnedMessageIds((current) => {
+      if (current.includes(messageId)) {
+        return current.filter((item) => item !== messageId);
+      }
+      return [...current, messageId];
+    });
+  }
+
+  function scrollToMessage(messageId: string) {
+    messageNodeRefs.current.get(messageId)?.scrollIntoView({
+      block: "center",
+      behavior: "smooth",
+    });
+  }
+
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <ChatSearchBar search={search} />
@@ -112,6 +146,11 @@ export function ChatTranscript({
             </Button>
           </div>
         ) : null}
+        <PinnedMessagesBar
+          messages={pinnedMessages}
+          onOpenMessage={scrollToMessage}
+          onUnpin={togglePinnedMessage}
+        />
         <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-3">
           {messages.length === 0 ? (
             <div className="py-8 text-center text-xs text-zinc-500" data-testid="empty-chat">
@@ -129,7 +168,12 @@ export function ChatTranscript({
               key={message.id}
               ref={(node) => setMessageNode(message.id, node)}
             >
-              <MessageRow message={message} updateUserMessage={updateUserMessage} />
+              <MessageRow
+                message={message}
+                pinned={pinnedMessageIds.includes(message.id)}
+                togglePinnedMessage={togglePinnedMessage}
+                updateUserMessage={updateUserMessage}
+              />
             </div>
           ))}
           {activeRun?.hasPendingApproval ? (
@@ -158,6 +202,55 @@ export function ChatTranscript({
           <ArrowDown className="h-4 w-4" />
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+function PinnedMessagesBar({
+  messages,
+  onOpenMessage,
+  onUnpin,
+}: {
+  messages: ChatMessage[];
+  onOpenMessage: (messageId: string) => void;
+  onUnpin: (messageId: string) => void;
+}) {
+  if (messages.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="sticky top-0 z-10 -mx-1 mb-2 border-b border-zinc-800/80 bg-zinc-900/95 px-1 py-1 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-1">
+        {messages.map((message) => {
+          const text = chatMessageText(message);
+          return (
+            <div
+              className="flex h-6 min-w-0 items-center gap-1 rounded-sm bg-zinc-800/70 px-1.5 text-xs text-zinc-300"
+              key={message.id}
+            >
+              <Pin className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+              <button
+                className="min-w-0 flex-1 cursor-pointer truncate text-left hover:text-zinc-50"
+                onClick={() => onOpenMessage(message.id)}
+                title={text}
+                type="button"
+              >
+                {text || message.status}
+              </button>
+              <button
+                aria-label="Unpin message"
+                className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-500 hover:bg-zinc-700 hover:text-zinc-100"
+                onClick={() => onUnpin(message.id)}
+                title="Unpin message"
+                type="button"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -349,9 +442,13 @@ function chatMessageText(message: ChatMessage) {
 
 const MessageRow = memo(function MessageRow({
   message,
+  pinned,
+  togglePinnedMessage,
   updateUserMessage,
 }: {
   message: ChatMessage;
+  pinned: boolean;
+  togglePinnedMessage: (messageId: string) => void;
   updateUserMessage: (messageId: string, text: string) => Promise<void>;
 }) {
   const isUser = message.role === "user";
@@ -409,6 +506,8 @@ const MessageRow = memo(function MessageRow({
                 setDraft(text);
                 setEditing(true);
               }}
+              onPinToggle={() => togglePinnedMessage(message.id)}
+              pinned={pinned}
               text={text}
             />
           </>
@@ -542,14 +641,30 @@ function MessageStatus({ status }: { status: string }) {
 function MessageActions({
   canEdit,
   onEdit,
+  onPinToggle,
+  pinned,
   text,
 }: {
   canEdit: boolean;
   onEdit: () => void;
+  onPinToggle: () => void;
+  pinned: boolean;
   text: string;
 }) {
   return (
     <div className="flex shrink-0 items-center gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <button
+        aria-label={pinned ? "Unpin message" : "Pin message"}
+        className={cn(
+          "grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100",
+          pinned && "text-zinc-200",
+        )}
+        onClick={onPinToggle}
+        title={pinned ? "Unpin message" : "Pin message"}
+        type="button"
+      >
+        <Pin className="h-3.5 w-3.5" />
+      </button>
       <button
         aria-label="Copy message"
         className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
