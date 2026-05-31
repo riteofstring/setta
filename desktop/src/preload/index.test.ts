@@ -1,7 +1,7 @@
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { ChatEvent } from "@generated/backend";
+import type { ChatEvent, UpdateAppearanceSettingsRequest } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 
 describe("preload workspace API", () => {
@@ -101,6 +101,33 @@ describe("preload workspace API", () => {
       "workspace_api",
     ]);
     expect(invoke).toHaveBeenNthCalledWith(6, ipcChannels.workspaceRemoveRecent, "workspace_web");
+  });
+
+  test("exposes typed appearance methods through IPC", async () => {
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
+    expect(Object.keys(api.appearance).sort()).toEqual(["read", "update"]);
+    const request = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
+
+    await api.appearance.read();
+    await api.appearance.update(request);
+
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appearanceRead);
+    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.appearanceUpdate, request);
   });
 
   test("exposes typed chat methods through IPC", async () => {

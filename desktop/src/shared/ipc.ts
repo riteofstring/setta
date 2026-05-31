@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
+  AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
@@ -24,6 +25,7 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
+  UpdateAppearanceSettingsRequest,
   WorkspaceSession,
 } from "@generated/backend";
 import type { InstalledEditorApp, RuntimeVersions, WorkspaceGitInfo } from "./types";
@@ -34,6 +36,8 @@ export const ipcChannels = {
   appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
   appWorkspaceGitInfo: "app:workspace-git-info",
+  appearanceRead: "appearance:read",
+  appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
@@ -92,6 +96,14 @@ interface IpcContract {
   appWorkspaceGitInfo: {
     args: [rootPath: string];
     result: WorkspaceGitInfo;
+  };
+  appearanceRead: {
+    args: [];
+    result: AppearanceSettings;
+  };
+  appearanceUpdate: {
+    args: [request: UpdateAppearanceSettingsRequest];
+    result: AppearanceSettings;
   };
   backendHealth: {
     args: [];

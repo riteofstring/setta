@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
@@ -136,6 +137,9 @@ func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContract
 
 func contractValueSets() []chat.ContractValueSet {
 	sets := chat.ContractValueSets()
+	for _, set := range appearance.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
 	for _, set := range codexaccount.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
