@@ -1,6 +1,8 @@
 import type {
   ChatMessage,
   ConversationListItem,
+  CorruptionSummary,
+  Diagnostic,
   Run,
   RunItem,
   RunItemOutput,
@@ -26,8 +28,10 @@ describe("workspace renderer states", () => {
           chatBusy={false}
           closeWorkspace={async () => {}}
           conversations={[]}
+          corruption={emptyCorruption()}
           createConversation={async () => {}}
           createWorkspaceConversation={async () => {}}
+          diagnostics={[]}
           openLocalFolder={async () => {}}
           openSettingsPane={() => {}}
           recentWorkspaces={[]}
@@ -82,8 +86,10 @@ describe("workspace renderer states", () => {
           chatBusy={false}
           closeWorkspace={async () => {}}
           conversations={[conversationListItem("conversation_web", "Build web UI")]}
+          corruption={emptyCorruption()}
           createConversation={async () => {}}
           createWorkspaceConversation={async () => {}}
+          diagnostics={[]}
           openLocalFolder={async () => {}}
           openSettingsPane={() => {}}
           recentWorkspaces={[web, api]}
@@ -110,10 +116,57 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('aria-label="New chat in web"');
     expect(html).toContain("Build web UI");
+    expect(html).not.toContain('data-testid="conversation-hover-card"');
     expect(html).not.toContain('aria-label="Pin Build web UI"');
     expect(html).not.toContain('aria-label="Delete Build web UI"');
     expect(html).not.toContain("New terminal in web");
     expect(html).not.toContain("New setta canvas in web");
+  });
+
+  test("renders chat corruption status in the project and conversation list", () => {
+    const web = {
+      displayName: "web",
+      id: "workspace_web",
+      lastOpenedAt: "2026-05-29T20:05:00Z",
+      rootPath: "/tmp/web",
+    };
+    const html = renderToString(
+      <WorkspaceSidebar
+        activeRun={null}
+        activeWorkspaces={[web]}
+        busy={false}
+        chatBusy={false}
+        closeWorkspace={async () => {}}
+        conversations={[conversationListItem("conversation_web", "Build web UI")]}
+        corruption={{
+          byKind: [{ count: 2, key: "run" }],
+          bySeverity: [{ count: 2, key: "critical" }],
+          hasCorruption: true,
+          total: 2,
+        }}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        diagnostics={[criticalDiagnostic("conversation_web")]}
+        openLocalFolder={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId="conversation_web"
+        selectedWorkspaceId="workspace_web"
+        unreadConversationIds={{}}
+      />,
+    );
+
+    expect(html).toContain('data-testid="workspace-corruption-status"');
+    expect(html).toContain('data-testid="workspace-corruption-tooltip"');
+    expect(html).toContain('data-testid="conversation-corruption-status"');
+    expect(html).toContain("Malformed chat data");
+    expect(html).toContain("2 corrupt chat records detected");
+    expect(html).toContain("1 corrupt chat record detected");
+    expect(html).toContain("assistant message message_missing was not found");
+    expect(html).toContain("Path: /tmp/run.json");
   });
 
   test("renders loading and error states", () => {
@@ -148,8 +201,10 @@ describe("workspace renderer states", () => {
         chatBusy={false}
         closeWorkspace={async () => {}}
         conversations={[]}
+        corruption={emptyCorruption()}
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
+        diagnostics={[]}
         openLocalFolder={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={workspaces}
@@ -838,6 +893,31 @@ function conversationListItem(id: string, title: string): ConversationListItem {
       workspaceId: "workspace_web",
     },
     messageCount: 0,
+  };
+}
+
+function emptyCorruption(): CorruptionSummary {
+  return {
+    byKind: [],
+    bySeverity: [],
+    hasCorruption: false,
+    total: 0,
+  };
+}
+
+function criticalDiagnostic(conversationId: string): Diagnostic {
+  return {
+    code: "corrupt_chat_state",
+    context: { path: "/tmp/run.json" },
+    conversationId,
+    id: "diagnostic_api",
+    message: "run run_api assistant message message_missing was not found",
+    occurredAt: "2026-05-29T20:00:00Z",
+    runId: "run_api",
+    schemaVersion: 1,
+    severity: "critical",
+    source: "chat",
+    workspaceId: "workspace_web",
   };
 }
 

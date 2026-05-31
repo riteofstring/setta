@@ -107,7 +107,6 @@ function ChatWorkspace({
         data-run-status={activeRunStatus(chat) ?? ""}
         data-testid="chat-detail-pane"
       >
-        <ChatStateStatusIcon chat={chat} chromeInsetTop={chromeInsetTop} />
         <ConversationBody
           busy={busy}
           chat={chat}
@@ -375,53 +374,6 @@ function ChatError({ message }: { message: string | null }) {
       {message}
     </div>
   );
-}
-
-function ChatStateStatusIcon({
-  chat,
-  chromeInsetTop,
-}: {
-  chat: ChatView;
-  chromeInsetTop: boolean;
-}) {
-  if (!chat.corruption.hasCorruption) {
-    return null;
-  }
-  const latestDiagnostic = chat.diagnostics
-    .filter((diagnostic) => diagnostic.severity === "critical")
-    .at(-1);
-  const label = chatStateStatusLabel(chat, latestDiagnostic);
-  return (
-    <div
-      aria-label={label}
-      className={cn(
-        "group/chat-state app-no-drag absolute left-2 z-40 grid h-7 w-7 place-items-center rounded-sm text-amber-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80",
-        chromeInsetTop ? "top-9" : "top-1",
-      )}
-      data-testid="workspace-corruption-status"
-      role="status"
-      tabIndex={0}
-      title={label}
-    >
-      <AlertTriangle className="h-4 w-4" />
-      <div className="pointer-events-none absolute top-8 left-0 hidden w-72 rounded-sm border border-zinc-700/80 bg-zinc-950/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/chat-state:block group-focus/chat-state:block">
-        <div className="font-medium">Chat state issue</div>
-        <div className="mt-1 break-words text-zinc-300">{label}</div>
-      </div>
-    </div>
-  );
-}
-
-function chatStateStatusLabel(
-  chat: ChatView,
-  diagnostic: ChatView["diagnostics"][number] | undefined,
-) {
-  const count = chat.corruption.total;
-  const noun = count === 1 ? "record" : "records";
-  const details = diagnostic
-    ? ` Latest issue: ${diagnostic.message}${diagnostic.context.path ? ` Path: ${diagnostic.context.path}` : ""}`
-    : "";
-  return `${count} corrupt chat ${noun} detected.${details}`;
 }
 
 function Composer({

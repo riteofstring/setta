@@ -1,5 +1,12 @@
-import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/backend";
+import type {
+  ConversationListItem,
+  CorruptionSummary,
+  Diagnostic,
+  Run,
+  WorkspaceSummary,
+} from "@generated/backend";
 import {
+  AlertTriangle,
   Ellipsis,
   FolderClosed,
   FolderOpen,
@@ -11,7 +18,6 @@ import {
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { type WorkspaceGitState, useWorkspaceGitInfo } from "../hooks/use-workspace-git-info";
 import { cn } from "../lib/utils";
 import {
   defaultSidebarSections,
@@ -41,8 +47,10 @@ interface WorkspaceSidebarProps {
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
+  corruption: CorruptionSummary;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  diagnostics: Diagnostic[];
   openLocalFolder: () => Promise<void>;
   openSettingsPane: () => void;
   recentWorkspaces: WorkspaceSummary[];
@@ -76,8 +84,10 @@ export function WorkspaceSidebar({
   chatBusy,
   closeWorkspace,
   conversations,
+  corruption,
   createConversation,
   createWorkspaceConversation,
+  diagnostics,
   openLocalFolder,
   openSettingsPane,
   recentWorkspaces,
@@ -99,10 +109,6 @@ export function WorkspaceSidebar({
     [activeWorkspaceIds, recentWorkspaces],
   );
   const projectsEmpty = activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0;
-  const selectedWorkspace =
-    activeWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null;
-  const selectedGit = useWorkspaceGitInfo(selectedWorkspace?.rootPath ?? null);
-  const selectedBranchLabel = branchHoverLabel(selectedGit);
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
 
@@ -172,12 +178,13 @@ export function WorkspaceSidebar({
               <>
                 <ProjectList
                   activeRun={activeRun}
-                  branchLabel={selectedBranchLabel}
                   busy={busy}
                   chatBusy={chatBusy}
                   closeWorkspace={closeWorkspace}
                   conversations={conversations}
+                  corruption={corruption}
                   createWorkspaceConversation={createWorkspaceConversation}
+                  diagnostics={diagnostics}
                   expandedWorkspaceId={expandedWorkspaceId}
                   selectConversation={selectConversation}
                   selectWorkspace={selectWorkspace}
@@ -210,12 +217,13 @@ function chromeInsetClass(enabled: boolean) {
 
 function ProjectList({
   activeRun,
-  branchLabel,
   busy,
   chatBusy,
   closeWorkspace,
   conversations,
+  corruption,
   createWorkspaceConversation,
+  diagnostics,
   expandedWorkspaceId,
   selectConversation,
   selectWorkspace,
@@ -226,12 +234,13 @@ function ProjectList({
   workspaces,
 }: {
   activeRun: Run | null;
-  branchLabel: string;
   busy: boolean;
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
+  corruption: CorruptionSummary;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  diagnostics: Diagnostic[];
   expandedWorkspaceId: string;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
@@ -245,26 +254,30 @@ function ProjectList({
     return null;
   }
 
-  const renderProject = (workspace: WorkspaceSummary, allowProjectChats: boolean) => (
-    <ProjectRow
-      activeRun={activeRun}
-      allowProjectChats={allowProjectChats}
-      branchLabel={branchLabel}
-      busy={busy}
-      chatBusy={chatBusy}
-      closeWorkspace={closeWorkspace}
-      conversations={conversations}
-      createWorkspaceConversation={createWorkspaceConversation}
-      expanded={expandedWorkspaceId === workspace.id}
-      selectConversation={selectConversation}
-      selectWorkspace={selectWorkspace}
-      selected={workspace.id === selectedWorkspaceId}
-      selectedConversationId={selectedConversationId}
-      setExpandedWorkspaceId={setExpandedWorkspaceId}
-      unreadConversationIds={unreadConversationIds}
-      workspace={workspace}
-    />
-  );
+  const renderProject = (workspace: WorkspaceSummary, allowProjectChats: boolean) => {
+    const workspaceSelected = workspace.id === selectedWorkspaceId;
+    return (
+      <ProjectRow
+        activeRun={activeRun}
+        allowProjectChats={allowProjectChats}
+        busy={busy}
+        chatBusy={chatBusy}
+        closeWorkspace={closeWorkspace}
+        conversations={conversations}
+        corruption={workspaceSelected ? corruption : null}
+        createWorkspaceConversation={createWorkspaceConversation}
+        diagnostics={diagnostics}
+        expanded={expandedWorkspaceId === workspace.id}
+        selectConversation={selectConversation}
+        selectWorkspace={selectWorkspace}
+        selected={workspaceSelected}
+        selectedConversationId={selectedConversationId}
+        setExpandedWorkspaceId={setExpandedWorkspaceId}
+        unreadConversationIds={unreadConversationIds}
+        workspace={workspace}
+      />
+    );
+  };
 
   if (workspaces.length > directProjectRenderLimit) {
     return (
@@ -298,12 +311,13 @@ function ProjectList({
 function ProjectRow({
   activeRun,
   allowProjectChats,
-  branchLabel,
   busy,
   chatBusy,
   closeWorkspace,
   conversations,
+  corruption,
   createWorkspaceConversation,
+  diagnostics,
   expanded,
   selectConversation,
   selectWorkspace,
@@ -315,12 +329,13 @@ function ProjectRow({
 }: {
   activeRun: Run | null;
   allowProjectChats: boolean;
-  branchLabel: string;
   busy: boolean;
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
+  corruption: CorruptionSummary | null;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  diagnostics: Diagnostic[];
   expanded: boolean;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
@@ -343,7 +358,7 @@ function ProjectRow({
 
   return (
     <div className="min-w-0">
-      <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/55">
+      <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center rounded-sm hover:bg-zinc-800/55">
         <button
           className="grid min-w-0 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 px-2 text-left"
           data-testid="active-workspace-select"
@@ -371,6 +386,7 @@ function ProjectRow({
             {workspace.displayName}
           </span>
         </button>
+        <WorkspaceCorruptionIndicator corruption={corruption} diagnostics={diagnostics} />
         <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           <SidebarIconButton
             disabled={rowBusy}
@@ -386,9 +402,9 @@ function ProjectRow({
         <div className="min-w-0">
           <ConversationList
             activeRun={activeRun}
-            branchLabel={branchLabel}
             busy={chatBusy}
             conversations={conversations}
+            diagnostics={diagnostics}
             selectConversation={selectConversation}
             selectedConversationId={selectedConversationId}
             unreadConversationIds={unreadConversationIds}
@@ -526,20 +542,54 @@ function ProjectMenuItem({
   );
 }
 
+function WorkspaceCorruptionIndicator({
+  corruption,
+  diagnostics,
+}: {
+  corruption: CorruptionSummary | null;
+  diagnostics: Diagnostic[];
+}) {
+  if (!corruption?.hasCorruption) {
+    return null;
+  }
+  const latestDiagnostic = latestCriticalDiagnostic(diagnostics);
+  const label = chatStateStatusLabel(corruption.total, latestDiagnostic);
+  return (
+    <div
+      aria-label={label}
+      className="group/workspace-corruption grid h-6 w-6 place-items-center rounded-sm text-amber-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
+      data-testid="workspace-corruption-status"
+      role="status"
+      tabIndex={0}
+      title={label}
+    >
+      <AlertTriangle className="h-3.5 w-3.5" />
+      <div
+        className="pointer-events-none fixed z-50 hidden w-72 rounded-sm border border-zinc-700/80 bg-zinc-900/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/workspace-corruption:block group-focus/workspace-corruption:block"
+        data-testid="workspace-corruption-tooltip"
+        style={{ left: "calc(var(--sidebar-width, 220px) + 8px)" }}
+      >
+        <div className="font-medium text-amber-200">Malformed chat data</div>
+        <div className="mt-1 break-words text-zinc-300">{label}</div>
+      </div>
+    </div>
+  );
+}
+
 function ConversationList({
   activeRun,
-  branchLabel,
   busy,
   conversations,
+  diagnostics,
   selectConversation,
   selectedConversationId,
   showEmpty = true,
   unreadConversationIds,
 }: {
   activeRun: Run | null;
-  branchLabel: string;
   busy: boolean;
   conversations: ConversationListItem[];
+  diagnostics: Diagnostic[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectedConversationId: string;
   showEmpty?: boolean;
@@ -557,6 +607,10 @@ function ConversationList({
     () => conversations.slice(0, effectiveLimit),
     [conversations, effectiveLimit],
   );
+  const corruptionLabelsByConversationId = useMemo(
+    () => conversationCorruptionLabels(diagnostics),
+    [diagnostics],
+  );
 
   if (visibleConversations.length === 0) {
     return showEmpty ? <div className="px-2 py-1 text-xs text-zinc-600">No chats</div> : null;
@@ -567,8 +621,8 @@ function ConversationList({
       {visibleConversations.map((item) => (
         <ConversationRow
           activeRun={activeRun}
-          branchLabel={branchLabel}
           busy={busy}
+          corruptionLabel={corruptionLabelsByConversationId.get(item.conversation.id) ?? null}
           item={item}
           key={item.conversation.id}
           selectConversation={selectConversation}
@@ -589,23 +643,40 @@ function ConversationList({
   );
 }
 
-function branchHoverLabel(git: WorkspaceGitState) {
-  switch (git.status) {
-    case "ready":
-      return git.info.branchName;
-    case "loading":
-      return "Reading branch";
-    case "error":
-      return "Branch unavailable";
-    case "idle":
-      return "No branch";
-    default:
-      return assertWorkspaceGitState(git);
+function conversationCorruptionLabels(diagnostics: Diagnostic[]) {
+  const diagnosticsByConversationId = new Map<string, Diagnostic[]>();
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.conversationId === "" || diagnostic.severity !== "critical") {
+      continue;
+    }
+    const existing = diagnosticsByConversationId.get(diagnostic.conversationId);
+    if (existing) {
+      existing.push(diagnostic);
+    } else {
+      diagnosticsByConversationId.set(diagnostic.conversationId, [diagnostic]);
+    }
   }
+
+  const labels = new Map<string, string>();
+  for (const [conversationId, conversationDiagnostics] of diagnosticsByConversationId) {
+    const diagnostic = conversationDiagnostics.at(-1);
+    if (diagnostic) {
+      labels.set(conversationId, chatStateStatusLabel(conversationDiagnostics.length, diagnostic));
+    }
+  }
+  return labels;
 }
 
-function assertWorkspaceGitState(value: never): never {
-  throw new Error(`Unhandled workspace git state: ${value}`);
+function latestCriticalDiagnostic(diagnostics: Diagnostic[]) {
+  return diagnostics.filter((diagnostic) => diagnostic.severity === "critical").at(-1);
+}
+
+function chatStateStatusLabel(count: number, diagnostic: Diagnostic | undefined) {
+  const noun = count === 1 ? "record" : "records";
+  const details = diagnostic
+    ? ` Latest issue: ${diagnostic.message}${diagnostic.context.path ? ` Path: ${diagnostic.context.path}` : ""}`
+    : "";
+  return `${count} corrupt chat ${noun} detected.${details}`;
 }
 
 function RecentProjectList({

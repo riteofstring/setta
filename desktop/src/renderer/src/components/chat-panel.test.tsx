@@ -3,13 +3,11 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import {
-  ChatPanel,
   CommandSuggestions,
   commandSuggestions,
   commandTextToExecute,
   ComposerButton,
   ConversationBody,
-  type ChatView,
   goalEditorDraft,
   goalReplacementExecutionOptions,
   handleComposerKeyDown,
@@ -355,59 +353,6 @@ describe("conversation body states", () => {
     expect(html).toContain("Chat state is corrupt");
     expect(html).toContain("malformed chat state /tmp/run.json");
     expect(html).not.toContain("New Chat");
-  });
-});
-
-describe("chat state status", () => {
-  test("uses a compact status icon without repair actions", () => {
-    const html = renderToString(
-      <ChatPanel
-        chat={
-          {
-            activeRun: null,
-            corruption: {
-              byKind: [{ count: 1, key: "run" }],
-              bySeverity: [{ count: 1, key: "critical" }],
-              hasCorruption: true,
-              total: 1,
-            },
-            diagnostics: [
-              {
-                code: "corrupt_chat_state",
-                context: { path: "/tmp/run.json" },
-                conversationId: "conversation_api",
-                id: "diagnostic_api",
-                message: "run run_api assistant message message_missing was not found",
-                occurredAt: "2026-05-29T20:00:00Z",
-                runId: "run_api",
-                schemaVersion: 1,
-                severity: "critical",
-                source: "chat",
-                workspaceId: "workspace_api",
-              },
-            ],
-            error: null,
-            operation: null,
-            selectedConversation: null,
-            status: "ready",
-          } as unknown as ChatView
-        }
-        searchOpen={false}
-        setSearchOpen={() => {}}
-        workspace={{
-          displayName: "Workspace",
-          id: "workspace_api",
-          lastOpenedAt: "2026-05-29T20:00:00Z",
-          rootPath: "/tmp/workspace",
-        }}
-      />,
-    );
-
-    expect(html).toContain('data-testid="workspace-corruption-status"');
-    expect(html).toContain("1 corrupt chat record detected");
-    expect(html).toContain("message_missing was not found");
-    expect(html).not.toContain("Quarantine");
-    expect(html).not.toContain("Reset workspace chat state");
   });
 });
 
