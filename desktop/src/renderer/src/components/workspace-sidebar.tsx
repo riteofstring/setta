@@ -1,8 +1,6 @@
 import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/backend";
 import {
   Archive,
-  Bell,
-  Clock3,
   Ellipsis,
   FolderClosed,
   FolderOpen,
@@ -12,8 +10,6 @@ import {
   PenLine,
   Pencil,
   Pin,
-  Plug,
-  Search,
   Trash2,
   Workflow,
   X,
@@ -31,6 +27,7 @@ import {
   type SidebarSectionState,
 } from "./sidebar-accordion";
 import {
+  EmptySectionIcon,
   MemoryIntegrationsContent,
   NotesContent,
   RulesContent,
@@ -38,6 +35,7 @@ import {
   UnorganizedChatsContent,
 } from "./sidebar-secondary-sections";
 import { ProjectFolderButton, SidebarHeaderIconButton } from "./sidebar-header-actions";
+import { SidebarShortcuts } from "./sidebar-shortcuts";
 
 const activeWorkspaceRowHeight = 28;
 const recentWorkspaceRowHeight = 28;
@@ -117,6 +115,7 @@ export function WorkspaceSidebar({
     () => recentWorkspaces.filter((workspace) => !activeWorkspaceIds.has(workspace.id)),
     [activeWorkspaceIds, recentWorkspaces],
   );
+  const projectsEmpty = activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0;
   const selectedWorkspace =
     activeWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null;
   const selectedGit = useWorkspaceGitInfo(selectedWorkspace?.rootPath ?? null);
@@ -206,7 +205,7 @@ export function WorkspaceSidebar({
           testId="shortcuts-section"
           title="Shortcuts"
         >
-          <SidebarNav
+          <SidebarShortcuts
             busy={busy || chatBusy}
             createConversation={createConversation}
             hasWorkspace={selectedWorkspaceId !== ""}
@@ -229,30 +228,36 @@ export function WorkspaceSidebar({
             testId="projects-section"
             title="Projects"
           >
-            <ProjectList
-              activeRun={activeRun}
-              branchLabel={selectedBranchLabel}
-              busy={busy}
-              chatBusy={chatBusy}
-              closeWorkspace={closeWorkspace}
-              conversations={conversations}
-              createWorkspaceConversation={createWorkspaceConversation}
-              expandedWorkspaceId={expandedWorkspaceId}
-              pinnedConversationIdsByWorkspace={pinnedProjectConversationIds}
-              selectConversation={selectConversation}
-              selectWorkspace={selectWorkspace}
-              selectedConversationId={selectedConversationId}
-              selectedWorkspaceId={selectedWorkspaceId}
-              setExpandedWorkspaceId={setExpandedWorkspaceId}
-              togglePinnedConversation={togglePinnedProjectConversation}
-              unreadConversationIds={unreadConversationIds}
-              workspaces={activeWorkspaces}
-            />
-            <RecentProjectList
-              busy={busy}
-              recentWorkspaces={inactiveRecentWorkspaces}
-              removeRecent={removeRecent}
-            />
+            {projectsEmpty ? (
+              <EmptySectionIcon label="Projects" />
+            ) : (
+              <>
+                <ProjectList
+                  activeRun={activeRun}
+                  branchLabel={selectedBranchLabel}
+                  busy={busy}
+                  chatBusy={chatBusy}
+                  closeWorkspace={closeWorkspace}
+                  conversations={conversations}
+                  createWorkspaceConversation={createWorkspaceConversation}
+                  expandedWorkspaceId={expandedWorkspaceId}
+                  pinnedConversationIdsByWorkspace={pinnedProjectConversationIds}
+                  selectConversation={selectConversation}
+                  selectWorkspace={selectWorkspace}
+                  selectedConversationId={selectedConversationId}
+                  selectedWorkspaceId={selectedWorkspaceId}
+                  setExpandedWorkspaceId={setExpandedWorkspaceId}
+                  togglePinnedConversation={togglePinnedProjectConversation}
+                  unreadConversationIds={unreadConversationIds}
+                  workspaces={activeWorkspaces}
+                />
+                <RecentProjectList
+                  busy={busy}
+                  recentWorkspaces={inactiveRecentWorkspaces}
+                  removeRecent={removeRecent}
+                />
+              </>
+            )}
           </SidebarAccordionSection>
           <SidebarAccordionSection
             action={
@@ -312,61 +317,6 @@ export function WorkspaceSidebar({
 
 function chromeInsetClass(enabled: boolean) {
   return enabled ? "pt-7" : "";
-}
-
-function SidebarNav({
-  busy,
-  createConversation,
-  hasWorkspace,
-  openSearch,
-}: {
-  busy: boolean;
-  createConversation: (title?: string) => Promise<void>;
-  hasWorkspace: boolean;
-  openSearch: () => void;
-}) {
-  return (
-    <nav className="grid gap-0.5" aria-label="Primary">
-      <SidebarNavButton
-        disabled={busy || !hasWorkspace}
-        icon={<PenLine className="h-3.5 w-3.5" />}
-        label="New chat"
-        onClick={() => void createConversation()}
-      />
-      <SidebarNavButton
-        icon={<Search className="h-3.5 w-3.5" />}
-        label="Search"
-        onClick={openSearch}
-      />
-      <SidebarNavButton icon={<Plug className="h-3.5 w-3.5" />} label="Plugins" />
-      <SidebarNavButton icon={<Clock3 className="h-3.5 w-3.5" />} label="Automations" />
-      <SidebarNavButton icon={<Bell className="h-3.5 w-3.5" />} label="Notifications / Logs" />
-    </nav>
-  );
-}
-
-function SidebarNavButton({
-  disabled = false,
-  icon,
-  label,
-  onClick,
-}: {
-  disabled?: boolean;
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      className="flex h-7 w-full min-w-0 items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800/70 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-      disabled={disabled}
-      onClick={onClick}
-      type="button"
-    >
-      <span className="shrink-0 text-zinc-300">{icon}</span>
-      <span className="truncate">{label}</span>
-    </button>
-  );
 }
 
 function ProjectList({

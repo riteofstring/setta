@@ -47,6 +47,10 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain("No workspace open");
     expect(html).not.toContain("No projects");
+    expect(html).toContain('aria-label="Projects empty"');
+    expect(html).toContain('aria-label="Chats empty"');
+    expect(html).toContain('aria-label="Notes empty"');
+    expect(html).toContain('aria-label="Rules empty"');
   });
 
   test("renders active selected and recent workspace state", () => {
@@ -126,18 +130,21 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="standalone-chat-section"');
     expect(html).toContain('data-testid="shortcuts-section"');
     expect(html).toContain("Shortcuts");
+    expect(html).toContain("New setta gen");
     expect(html).toContain("Chats");
     expect(html).toContain('aria-label="New chat in web"');
     expect(html).toContain('aria-label="New standalone chat"');
     expect(html).toContain('aria-label="Pin Web chat"');
     expect(html).not.toContain("No unorganized chats");
+    expect(html).toContain('aria-label="Chats empty"');
     expect(html).toContain("Notes");
     expect(html).toContain('aria-label="New note"');
     expect(html).not.toContain("No Markdown notes");
+    expect(html).toContain('aria-label="Notes empty"');
     expect(html).toContain("DB / Memories");
     expect(html).toContain("Rules");
-    expect(html).toContain("Setta rules");
     expect(html).not.toContain("No rule canvases");
+    expect(html).toContain('aria-label="Rules empty"');
     expect(html).toContain('data-testid="notes-section"');
     expect(html).toContain('data-testid="rules-section"');
     expect(html).toContain('data-testid="sidebar-shortcuts-shell"');
@@ -422,6 +429,53 @@ describe("chat renderer states", () => {
     expect(html).toContain("Previous result");
     expect(html).toContain("Next result");
     expect(html).toContain("Close chat search");
+  });
+
+  test("renders ascii spinners for pending assistant and tool messages", () => {
+    const html = renderToString(
+      <ChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        messages={[
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            id: "message_assistant_pending",
+            ordinal: 1,
+            parts: [],
+            role: "assistant",
+            runId: "run_api",
+            schemaVersion: 1,
+            status: "streaming",
+            updatedAt: "2026-05-29T20:00:00Z",
+          },
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:01Z",
+            id: "message_tool_pending",
+            ordinal: 2,
+            parts: [
+              {
+                format: "plain",
+                id: "part_tool",
+                text: "",
+                type: "text",
+              },
+            ],
+            role: "tool",
+            runId: "run_api",
+            schemaVersion: 1,
+            status: "streaming",
+            updatedAt: "2026-05-29T20:00:01Z",
+          },
+        ]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(html).toContain("Assistant response running");
+    expect(html).toContain("Tool call running");
   });
 
   test("renders slash commands and installed skills without pet entry", () => {

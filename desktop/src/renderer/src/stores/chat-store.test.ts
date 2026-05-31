@@ -301,6 +301,38 @@ describe("chat store", () => {
     expect(useChatStore.getState().unreadConversationIds).toEqual({});
   });
 
+  test("selecting a conversation does not set a global busy operation", async () => {
+    const conversation = testConversation();
+    const otherConversation = {
+      ...testConversation(),
+      id: "conversation_other",
+      title: "Other chat",
+    };
+    const page = deferred<MessagePage>();
+    installSettaAPI({ chat: { messagePage: vi.fn().mockReturnValue(page.promise) } });
+    useChatStore.setState({
+      conversations: [conversationItem(conversation, 1), conversationItem(otherConversation, 1)],
+      messages: [message("message_existing", 1, "assistant", "complete", "existing")],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    const selectPromise = useChatStore.getState().selectConversation("conversation_other");
+
+    expect(useChatStore.getState().operation).toBeNull();
+    expect(useChatStore.getState().status).toBe("ready");
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_existing"]);
+
+    page.resolve(
+      testPage(otherConversation, [message("message_other", 1, "assistant", "complete", "done")]),
+    );
+    await selectPromise;
+
+    expect(useChatStore.getState().selectedConversation?.id).toBe("conversation_other");
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_other"]);
+  });
+
   test("resync-required events reload the selected snapshot", async () => {
     const conversation = testConversation();
     const listConversations = vi.fn().mockResolvedValue({

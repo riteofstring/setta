@@ -297,7 +297,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         set({ error: `conversation not found: ${conversationId}`, status: "error" });
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "loading" });
+      const operationId = beginOperation({ error: null });
       try {
         const patch = await loadConversationPage(workspaceId, conversation);
         commitCurrentFromState(operationId, (current) => {

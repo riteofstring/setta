@@ -1,4 +1,4 @@
-import { BookOpen, Database, FileText, FolderOpen, Workflow, X } from "lucide-react";
+import { BookOpen, Database, FileText, FolderOpen, Inbox, Workflow, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -10,7 +10,7 @@ export interface SidebarListItem {
 
 export function UnorganizedChatsContent({ chats }: { chats: SidebarListItem[] }) {
   if (chats.length === 0) {
-    return null;
+    return <EmptySectionIcon label="Chats" />;
   }
   return (
     <div className="grid gap-0.5 py-0.5">
@@ -35,7 +35,7 @@ export function UnorganizedChatsContent({ chats }: { chats: SidebarListItem[] })
 // project chat or external memory integration contracts.
 export function NotesContent({ notes }: { notes: SidebarListItem[] }) {
   if (notes.length === 0) {
-    return null;
+    return <EmptySectionIcon label="Notes" />;
   }
   return (
     <div className="grid gap-0.5 py-0.5">
@@ -80,18 +80,17 @@ export function MemoryIntegrationsContent() {
 // beside the chat permissions control or invoked through slash commands, then
 // evaluated before or during every user turn.
 export function RulesContent() {
+  return <EmptySectionIcon label="Rules" />;
+}
+
+export function EmptySectionIcon({ label }: { label: string }) {
   return (
-    <div className="grid gap-0.5 py-0.5">
-      <button
-        className="grid h-7 w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
-        disabled
-        title="Setta rule canvases are not available yet"
-        type="button"
-      >
-        <Workflow className="h-3.5 w-3.5 text-zinc-500" />
-        <span className="truncate">Setta rules</span>
-        <span className="text-[11px] text-zinc-600">Node graph</span>
-      </button>
+    <div
+      aria-label={`${label} empty`}
+      className="grid h-10 place-items-center text-zinc-700"
+      role="status"
+    >
+      <Inbox className="h-4 w-4" aria-hidden="true" />
     </div>
   );
 }
