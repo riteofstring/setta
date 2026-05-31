@@ -1,15 +1,18 @@
 import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
 import {
   ChevronDown,
+  FileText,
   FolderOpen,
   GitBranch,
   Globe2,
   MessageSquareText,
+  PanelBottomOpen,
   PanelLeftOpen,
-  PanelTop,
   PanelRightOpen,
   Search,
   Settings,
+  Terminal,
+  X,
 } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -31,11 +34,25 @@ import {
 } from "./stores/workspace-store";
 import { useChatStore } from "./stores/chat-store";
 
-type RightView = "browser" | "canvas" | "git" | "settings";
+type PaneSlot = "bottom" | "right";
+type WorkspacePaneKind = "browser" | "file" | "settings" | "terminal";
+
+export interface WorkspacePaneTab {
+  id: string;
+  kind: WorkspacePaneKind;
+  title: string;
+}
+
+interface WorkspacePaneState {
+  activeTabId: string;
+  open: boolean;
+  tabs: WorkspacePaneTab[];
+}
 
 export function App() {
   const workspace = useWorkspaceViewState();
   const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
+  const panes = useWorkspacePaneState();
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
   const [chatPaneWidth, setChatPaneWidth] = useState(360);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
@@ -43,7 +60,6 @@ export function App() {
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
-  const [rightView, setRightView] = useState<RightView | null>("canvas");
   const openChatSearch = useCallback(() => {
     setChatPaneOpen(true);
     setChatSearchOpen(true);
@@ -62,41 +78,66 @@ export function App() {
   return (
     <div className="relative h-screen min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
       <AppMenuBar
+        bottomPaneOpen={panes.bottom.open}
         chatPaneOpen={chatPaneOpen}
         commandPaletteOpen={commandPaletteOpen}
         createConversation={chat.createConversation}
         openChatSearch={openChatSearch}
         openSearchPalette={openSearchPalette}
         projectPaneOpen={projectPaneOpen}
-        rightPaneOpen={rightView !== null}
+        rightPaneOpen={panes.right.open}
         searchPaletteOpen={searchPaletteOpen}
         selectedWorkspace={workspace.selectedWorkspace}
+        setBottomPaneOpen={(open) => panes.setPaneOpen("bottom", open)}
         setChatPaneOpen={setChatPaneOpen}
         setCommandPaletteOpen={setCommandPaletteOpen}
         setProjectPaneOpen={setProjectPaneOpen}
-        setRightPaneOpen={(open) => setRightView(open ? "canvas" : null)}
+        setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
         setSearchPaletteOpen={setSearchPaletteOpen}
       />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
-        <ProjectPane
-          chat={chat}
-          open={projectPaneOpen}
-          openSearchPalette={openSearchPalette}
-          setWidth={setProjectPaneWidth}
-          width={projectPaneWidth}
-          workspace={workspace}
-        />
-        <ChatPane
-          chat={chat}
-          chatSearchOpen={chatSearchOpen}
-          open={chatPaneOpen}
-          rightView={rightView}
-          setChatSearchOpen={setChatSearchOpen}
-          setWidth={setChatPaneWidth}
-          width={chatPaneWidth}
-          workspace={workspace}
-        />
-        <CanvasPanel activeView={rightView} onSelectView={setRightView} />
+      <main className="grid h-full min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-zinc-900">
+        <div className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900">
+          <ProjectPane
+            chat={chat}
+            open={projectPaneOpen}
+            openSearchPalette={openSearchPalette}
+            setWidth={setProjectPaneWidth}
+            width={projectPaneWidth}
+            workspace={workspace}
+          />
+          <ChatPane
+            chat={chat}
+            chatSearchOpen={chatSearchOpen}
+            open={chatPaneOpen}
+            rightPaneOpen={panes.right.open}
+            setChatSearchOpen={setChatSearchOpen}
+            setWidth={setChatPaneWidth}
+            width={chatPaneWidth}
+            workspace={workspace}
+          />
+          {panes.right.open ? (
+            <div className="h-full min-w-[360px] flex-1">
+              <WorkspacePanePanel
+                activeTabId={panes.right.activeTabId}
+                onCloseTab={(tabId) => panes.closeTab("right", tabId)}
+                onCreateTab={(kind) => panes.createTab("right", kind)}
+                onSelectTab={(tabId) => panes.selectTab("right", tabId)}
+                slot="right"
+                tabs={panes.right.tabs}
+              />
+            </div>
+          ) : null}
+        </div>
+        {panes.bottom.open ? (
+          <WorkspacePanePanel
+            activeTabId={panes.bottom.activeTabId}
+            onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
+            onCreateTab={(kind) => panes.createTab("bottom", kind)}
+            onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
+            slot="bottom"
+            tabs={panes.bottom.tabs}
+          />
+        ) : null}
       </main>
     </div>
   );
@@ -158,7 +199,7 @@ function ChatPane({
   chat,
   chatSearchOpen,
   open,
-  rightView,
+  rightPaneOpen,
   setChatSearchOpen,
   setWidth,
   width,
@@ -167,7 +208,7 @@ function ChatPane({
   chat: ChatView;
   chatSearchOpen: boolean;
   open: boolean;
-  rightView: RightView | null;
+  rightPaneOpen: boolean;
   setChatSearchOpen: (open: boolean) => void;
   setWidth: (width: number) => void;
   width: number;
@@ -185,7 +226,7 @@ function ChatPane({
       workspace={workspace.selectedWorkspace}
     />
   );
-  if (!rightView) {
+  if (!rightPaneOpen) {
     return <div className="h-full min-h-0 min-w-0 flex-1">{panel}</div>;
   }
 
@@ -203,6 +244,7 @@ function ChatPane({
 }
 
 function AppMenuBar({
+  bottomPaneOpen,
   chatPaneOpen,
   commandPaletteOpen,
   createConversation,
@@ -212,12 +254,14 @@ function AppMenuBar({
   rightPaneOpen,
   searchPaletteOpen,
   selectedWorkspace,
+  setBottomPaneOpen,
   setChatPaneOpen,
   setCommandPaletteOpen,
   setProjectPaneOpen,
   setRightPaneOpen,
   setSearchPaletteOpen,
 }: {
+  bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
   commandPaletteOpen: boolean;
   createConversation: (title?: string) => Promise<void>;
@@ -227,6 +271,7 @@ function AppMenuBar({
   rightPaneOpen: boolean;
   searchPaletteOpen: boolean;
   selectedWorkspace: WorkspaceSummary | null;
+  setBottomPaneOpen: (open: boolean) => void;
   setChatPaneOpen: (open: boolean) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   setProjectPaneOpen: (open: boolean) => void;
@@ -301,17 +346,26 @@ function AppMenuBar({
           >
             <MessageSquareText className="h-3.5 w-3.5" />
           </ShellPaneToggle>
+        </div>
+      </div>
+      <div className="flex min-w-0 items-center justify-end gap-2 text-xs text-zinc-400">
+        <ShellWorkspaceControls selectedWorkspace={selectedWorkspace} />
+        <div className="app-no-drag flex items-center gap-1">
+          <ShellPaneToggle
+            active={bottomPaneOpen}
+            label={bottomPaneOpen ? "Hide bottom pane" : "Show bottom pane"}
+            onClick={() => setBottomPaneOpen(!bottomPaneOpen)}
+          >
+            <PanelBottomOpen className="h-3.5 w-3.5" />
+          </ShellPaneToggle>
           <ShellPaneToggle
             active={rightPaneOpen}
-            label={rightPaneOpen ? "Hide workspace view" : "Show workspace view"}
+            label={rightPaneOpen ? "Hide right pane" : "Show right pane"}
             onClick={() => setRightPaneOpen(!rightPaneOpen)}
           >
             <PanelRightOpen className="h-3.5 w-3.5" />
           </ShellPaneToggle>
         </div>
-      </div>
-      <div className="flex min-w-0 items-center justify-end gap-2 text-xs text-zinc-400">
-        <ShellWorkspaceControls selectedWorkspace={selectedWorkspace} />
       </div>
       <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
       <SearchPalette onOpenChange={setSearchPaletteOpen} open={searchPaletteOpen} />
@@ -755,142 +809,296 @@ function useSelectedWorkspace(session: WorkspaceSession | null) {
   }, [session]);
 }
 
-function CanvasPanel({
-  activeView,
-  onSelectView,
+function useWorkspacePaneState() {
+  const tabCounter = useRef(0);
+  const [right, setRight] = useState<WorkspacePaneState>(emptyPaneState);
+  const [bottom, setBottom] = useState<WorkspacePaneState>(emptyPaneState);
+
+  const setPaneOpen = useCallback((slot: PaneSlot, open: boolean) => {
+    const setPane = slot === "right" ? setRight : setBottom;
+    setPane((pane) => ({ ...pane, open }));
+  }, []);
+
+  const createTab = useCallback((slot: PaneSlot, kind: WorkspacePaneKind) => {
+    const setPane = slot === "right" ? setRight : setBottom;
+    setPane((pane) => {
+      tabCounter.current += 1;
+      const tab = createWorkspacePaneTab(kind, tabCounter.current, pane.tabs);
+      return {
+        activeTabId: tab.id,
+        open: true,
+        tabs: [...pane.tabs, tab],
+      };
+    });
+  }, []);
+
+  const selectTab = useCallback((slot: PaneSlot, tabId: string) => {
+    const setPane = slot === "right" ? setRight : setBottom;
+    setPane((pane) => ({ ...pane, activeTabId: tabId }));
+  }, []);
+
+  const closeTab = useCallback((slot: PaneSlot, tabId: string) => {
+    const setPane = slot === "right" ? setRight : setBottom;
+    setPane((pane) => closeWorkspacePaneTab(pane, tabId));
+  }, []);
+
+  return {
+    bottom,
+    closeTab,
+    createTab,
+    right,
+    selectTab,
+    setPaneOpen,
+  };
+}
+
+const emptyPaneState: WorkspacePaneState = {
+  activeTabId: "",
+  open: false,
+  tabs: [],
+};
+
+const workspacePaneLabels = {
+  browser: "Browser",
+  file: "Open file",
+  settings: "Settings",
+  terminal: "Terminal",
+} satisfies Record<WorkspacePaneKind, string>;
+
+const workspacePaneActions = [
+  "terminal",
+  "browser",
+  "file",
+  "settings",
+] satisfies WorkspacePaneKind[];
+
+function createWorkspacePaneTab(
+  kind: WorkspacePaneKind,
+  idIndex: number,
+  tabs: WorkspacePaneTab[],
+): WorkspacePaneTab {
+  const label = workspacePaneLabels[kind];
+  const kindCount = tabs.filter((tab) => tab.kind === kind).length + 1;
+  return {
+    id: `pane_${kind}_${idIndex}`,
+    kind,
+    title: kindCount === 1 ? label : `${label} ${kindCount}`,
+  };
+}
+
+function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): WorkspacePaneState {
+  const closingIndex = pane.tabs.findIndex((tab) => tab.id === tabId);
+  if (closingIndex === -1) {
+    return pane;
+  }
+  const tabs = pane.tabs.filter((tab) => tab.id !== tabId);
+  const activeTabId =
+    pane.activeTabId === tabId ? (tabs[Math.max(0, closingIndex - 1)]?.id ?? "") : pane.activeTabId;
+  return {
+    ...pane,
+    activeTabId,
+    tabs,
+  };
+}
+
+export function WorkspacePanePanel({
+  activeTabId,
+  onCloseTab,
+  onCreateTab,
+  onSelectTab,
+  slot,
+  tabs,
 }: {
-  activeView: RightView | null;
-  onSelectView: (view: RightView | null) => void;
+  activeTabId: string;
+  onCloseTab: (tabId: string) => void;
+  onCreateTab: (kind: WorkspacePaneKind) => void;
+  onSelectTab: (tabId: string) => void;
+  slot: PaneSlot;
+  tabs: WorkspacePaneTab[];
 }) {
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const paneLabel = slot === "right" ? "Right pane" : "Bottom pane";
   return (
     <section
+      aria-label={paneLabel}
       className={
-        activeView ? "flex min-w-0 flex-1 bg-zinc-900" : "flex min-w-0 shrink-0 bg-zinc-900"
+        slot === "right"
+          ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
+          : "flex h-72 min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100"
       }
+      data-testid={`${slot}-workspace-pane`}
     >
-      {activeView ? (
-        <div className="relative m-2 mt-10 ml-0 min-w-0 flex-1 overflow-hidden rounded-md bg-zinc-800 text-zinc-100 ring-1 ring-zinc-700/70">
-          <WorkspaceView activeView={activeView} />
-        </div>
-      ) : null}
-      <ViewTabRail activeView={activeView} onSelectView={onSelectView} />
+      <header className="app-no-drag flex h-9 shrink-0 items-center gap-1 border-b border-zinc-800 px-2">
+        {tabs.length > 0 ? (
+          <nav className="flex min-w-0 flex-1 items-center gap-1" aria-label={`${paneLabel} tabs`}>
+            {tabs.map((tab) => (
+              <WorkspacePaneTabButton
+                active={tab.id === activeTabId}
+                key={tab.id}
+                onClose={() => onCloseTab(tab.id)}
+                onSelect={() => onSelectTab(tab.id)}
+                tab={tab}
+              />
+            ))}
+          </nav>
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-xs text-zinc-500">{paneLabel}</span>
+        )}
+        {tabs.length > 0 ? (
+          <div className="flex items-center gap-1">
+            {workspacePaneActions.map((kind) => (
+              <WorkspacePaneActionButton
+                key={kind}
+                kind={kind}
+                onClick={() => onCreateTab(kind)}
+                showLabel={false}
+              />
+            ))}
+          </div>
+        ) : null}
+      </header>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {activeTab ? (
+          <WorkspacePaneContent tab={activeTab} />
+        ) : (
+          <WorkspacePaneEmpty onCreateTab={onCreateTab} />
+        )}
+      </div>
     </section>
   );
 }
 
-function WorkspaceView({ activeView }: { activeView: RightView }) {
-  switch (activeView) {
-    case "canvas":
-      return <CanvasPlaceholder />;
-    case "git":
-      return <WorkspacePlaceholder icon={<GitBranch className="h-4 w-4" />} title="Git" />;
+function WorkspacePaneTabButton({
+  active,
+  onClose,
+  onSelect,
+  tab,
+}: {
+  active: boolean;
+  onClose: () => void;
+  onSelect: () => void;
+  tab: WorkspacePaneTab;
+}) {
+  return (
+    <div
+      className={
+        active
+          ? "group flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-md bg-zinc-800 px-2 text-xs text-zinc-100"
+          : "group flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-md px-2 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+      }
+      data-testid={`workspace-pane-tab-${tab.id}`}
+    >
+      {workspacePaneIcon(tab.kind, "h-3.5 w-3.5 shrink-0")}
+      <button className="min-w-0 truncate" onClick={onSelect} type="button">
+        {tab.title}
+      </button>
+      <button
+        aria-label={`Close ${tab.title}`}
+        className="ml-1 hidden h-4 w-4 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-100 group-hover:inline-flex"
+        onClick={onClose}
+        type="button"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function WorkspacePaneActionButton({
+  kind,
+  onClick,
+  showLabel,
+}: {
+  kind: WorkspacePaneKind;
+  onClick: () => void;
+  showLabel: boolean;
+}) {
+  const label = workspacePaneLabels[kind];
+  return (
+    <button
+      aria-label={`New ${label}`}
+      className={
+        showLabel
+          ? "inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          : "inline-flex h-6 w-6 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+      }
+      onClick={onClick}
+      title={`New ${label}`}
+      type="button"
+    >
+      {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0")}
+      {showLabel ? <span>{label}</span> : null}
+    </button>
+  );
+}
+
+function WorkspacePaneEmpty({ onCreateTab }: { onCreateTab: (kind: WorkspacePaneKind) => void }) {
+  return (
+    <div className="flex h-full items-center justify-center px-4">
+      <div className="flex flex-wrap justify-center gap-1">
+        {workspacePaneActions.map((kind) => (
+          <WorkspacePaneActionButton
+            key={kind}
+            kind={kind}
+            onClick={() => onCreateTab(kind)}
+            showLabel
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkspacePaneContent({ tab }: { tab: WorkspacePaneTab }) {
+  switch (tab.kind) {
     case "browser":
-      return <WorkspacePlaceholder icon={<Globe2 className="h-4 w-4" />} title="Browser" />;
+      return (
+        <div className="flex h-full min-h-0 flex-col bg-zinc-900">
+          <div className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 px-3 text-xs text-zinc-500">
+            <Globe2 className="h-3.5 w-3.5" />
+            <span>Browser</span>
+          </div>
+        </div>
+      );
+    case "file":
+      return (
+        <div className="flex h-full min-h-0 flex-col bg-zinc-900">
+          <div className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 px-3 text-xs text-zinc-500">
+            <FileText className="h-3.5 w-3.5" />
+            <span>Open file</span>
+          </div>
+        </div>
+      );
     case "settings":
       return <SettingsPanel />;
+    case "terminal":
+      return (
+        <div className="h-full bg-zinc-950 p-3 font-mono text-xs text-zinc-500">
+          <span className="text-zinc-300">$</span>
+        </div>
+      );
     default:
-      return assertNever(activeView);
+      return assertWorkspacePaneKind(tab.kind);
   }
 }
 
-function CanvasPlaceholder() {
-  return (
-    <div className="absolute inset-0 grid place-items-center px-8">
-      <div className="grid w-full max-w-[500px] grid-cols-[96px_auto_minmax(0,220px)] items-center gap-3">
-        <div className="grid h-14 w-24 place-items-center rounded-md bg-zinc-700 text-xs text-white">
-          node
-        </div>
-        <div className="h-0 w-0 border-y-[8px] border-r-[8px] border-y-transparent border-r-zinc-700" />
-        <div className="grid h-44 min-w-0 place-items-center rounded-md bg-zinc-700 px-5 text-center text-xs text-white">
-          Node details on click
-        </div>
-      </div>
-    </div>
-  );
+function workspacePaneIcon(kind: WorkspacePaneKind, className: string) {
+  switch (kind) {
+    case "browser":
+      return <Globe2 className={className} />;
+    case "file":
+      return <FileText className={className} />;
+    case "settings":
+      return <Settings className={className} />;
+    case "terminal":
+      return <Terminal className={className} />;
+    default:
+      return assertWorkspacePaneKind(kind);
+  }
 }
 
-function WorkspacePlaceholder({ icon, title }: { icon: ReactNode; title: string }) {
-  return (
-    <div className="absolute inset-0 grid place-items-center px-8">
-      <div className="flex items-center gap-2 text-sm font-medium text-zinc-400">
-        {icon}
-        {title}
-      </div>
-    </div>
-  );
-}
-
-function ViewTabRail({
-  activeView,
-  onSelectView,
-}: {
-  activeView: RightView | null;
-  onSelectView: (view: RightView | null) => void;
-}) {
-  return (
-    <aside
-      className="flex w-12 shrink-0 flex-col items-center gap-1 bg-zinc-900 pt-10"
-      aria-label="Workspace views"
-    >
-      <ViewTabButton
-        active={activeView === "canvas"}
-        label="Canvas"
-        onClick={() => onSelectView(activeView === "canvas" ? null : "canvas")}
-      >
-        <PanelTop className="h-4 w-4" />
-      </ViewTabButton>
-      <ViewTabButton
-        active={activeView === "git"}
-        label="Git"
-        onClick={() => onSelectView(activeView === "git" ? null : "git")}
-      >
-        <GitBranch className="h-4 w-4" />
-      </ViewTabButton>
-      <ViewTabButton
-        active={activeView === "settings"}
-        label="Settings"
-        onClick={() => onSelectView(activeView === "settings" ? null : "settings")}
-      >
-        <Settings className="h-4 w-4" />
-      </ViewTabButton>
-      <ViewTabButton
-        active={activeView === "browser"}
-        label="Web browser"
-        onClick={() => onSelectView(activeView === "browser" ? null : "browser")}
-      >
-        <Globe2 className="h-4 w-4" />
-      </ViewTabButton>
-    </aside>
-  );
-}
-
-function ViewTabButton({
-  active = false,
-  children,
-  label,
-  onClick,
-}: {
-  active?: boolean;
-  children: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-label={label}
-      aria-pressed={active}
-      className={
-        active
-          ? "inline-flex h-9 w-9 items-center justify-center rounded-md bg-zinc-100 text-zinc-950"
-          : "inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-      }
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
-      {children}
-    </button>
-  );
+function assertWorkspacePaneKind(value: never): never {
+  throw new Error(`Unhandled workspace pane kind: ${value}`);
 }
 
 export function WorkspacePanel({
@@ -967,8 +1175,4 @@ const operationLabels = {
 
 function operationLabel(operation: WorkspaceOperationKind) {
   return operationLabels[operation];
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled workspace view: ${value}`);
 }

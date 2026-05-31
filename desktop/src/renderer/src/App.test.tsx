@@ -1,7 +1,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { WorkspacePanel } from "./App";
+import { WorkspacePanePanel, WorkspacePanel } from "./App";
 import { ChatModelMenu } from "./components/chat-model-menu";
 import { ChatPermissionsMenu } from "./components/chat-permissions-menu";
 import { ChatPlusMenu } from "./components/chat-plus-menu";
@@ -173,6 +173,55 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain("Choose editor");
     expect(html).not.toContain("VS Code");
+  });
+
+  test("renders an empty right workspace pane with creation actions", () => {
+    const html = renderToString(
+      <WorkspacePanePanel
+        activeTabId=""
+        onCloseTab={() => {}}
+        onCreateTab={() => {}}
+        onSelectTab={() => {}}
+        slot="right"
+        tabs={[]}
+      />,
+    );
+
+    expect(html).toContain('data-testid="right-workspace-pane"');
+    expect(html).toContain("Right pane");
+    expect(html).toContain("Terminal");
+    expect(html).toContain("Browser");
+    expect(html).toContain("Open file");
+    expect(html).toContain("Settings");
+  });
+
+  test("renders workspace pane tabs and active terminal content", () => {
+    const html = renderToString(
+      <WorkspacePanePanel
+        activeTabId="terminal_tab"
+        onCloseTab={() => {}}
+        onCreateTab={() => {}}
+        onSelectTab={() => {}}
+        slot="bottom"
+        tabs={[
+          {
+            id: "terminal_tab",
+            kind: "terminal",
+            title: "Terminal",
+          },
+          {
+            id: "browser_tab",
+            kind: "browser",
+            title: "Browser",
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-testid="bottom-workspace-pane"');
+    expect(html).toContain('data-testid="workspace-pane-tab-terminal_tab"');
+    expect(html).toContain("Close Terminal");
+    expect(html).toContain("$");
   });
 });
 
