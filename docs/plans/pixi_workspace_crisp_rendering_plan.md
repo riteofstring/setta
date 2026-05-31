@@ -1,8 +1,8 @@
 # Pixi Workspace Crisp Rendering Plan
 
-**Date:** June 4, 2026  
-**Status:** Phase 1 implemented; Phase 2 planned  
-**Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
+- **Date:** June 4, 2026
+- **Status:** Phase 1 and 2 implemented; Phase 3 planned
+- **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
 
@@ -10,7 +10,7 @@ Make nodes and labels remain crisp during deep zoom while preserving fast pan, z
 
 The original issue was that the workspace zoomed the whole Pixi viewport while node labels were Pixi `Text` objects inside the zoomed world. Each label was rasterized to a texture and then magnified, which made text blur at high zoom and made naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
 
-Phase 1 moved labels into a screen-space Pixi layer. The remaining work is to make that label path explicitly pool-shaped and observable before replacing the label text technology or adding LOD.
+Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. The next work is replacing normal Pixi `Text` labels with an MSDF bitmap-font pipeline before adding label LOD and culling.
 
 The recommended production direction is:
 
@@ -29,9 +29,11 @@ The current prototype:
 - Renders node bodies, ports, outlines, edges, temporary edges, and marquee selection with Pixi graphics.
 - Renders node labels as screen-space Pixi `Text` objects in a `labelLayer` sibling of the viewport.
 - Tracks labels in a node-label map.
+- Creates and releases labels through explicit `acquireLabel(nodeId)` and `releaseLabel(nodeId)` helpers.
 - Syncs label screen positions through `syncAllLabels()` and `syncLabelPosition(nodeId)`.
+- Exposes `labelSyncCount` and `visibleLabelCount` in the debug snapshot.
 - Keeps interaction state in the imperative renderer path, not React state.
-- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, and unchanged React render count during label sync.
+- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, and unchanged React render count during label sync.
 
 This plan should extend the existing renderer/controller path. Do not create a second Pixi implementation or introduce DOM labels for workspace nodes.
 
@@ -111,16 +113,18 @@ Expected result:
 
 ## Phase 2: Label Pooling and Debug Counters
 
+Status: Implemented.
+
 Make the existing screen-space label layer production-shaped and observable before replacing text technology.
 
-Implementation tasks:
+Completed work:
 
 - Introduce explicit label lifecycle helpers:
   - `acquireLabel(nodeId)`
   - `releaseLabel(nodeId)`
-- Keep the existing `syncLabelPosition(nodeId)` and `syncAllLabels()` helpers, adjusting call sites only if needed.
-- Keep the existing node-label map as the active-label registry for this phase.
-- Define `releaseLabel(nodeId)` as a lifecycle boundary for future culling. It may be a simple removal/destroy helper in this phase; full culling and LOD remain Phase 4.
+- Keep `syncLabelPosition(nodeId)` and `syncAllLabels()` as the label-position sync boundaries.
+- Keep the node-label map as the active-label registry for this phase.
+- Define `releaseLabel(nodeId)` as the lifecycle boundary for future culling. It currently removes and destroys the label; full culling and LOD remain Phase 4.
 - Add debug snapshot fields:
 
 ```ts
@@ -145,16 +149,75 @@ Expected result:
 - Label behavior is observable in automated smoke output.
 - The code path is ready for culling and MSDF migration.
 
-## Phase 3: MSDF/SDF BitmapText Pipeline
+## Phase 3: MSDF BitmapText Pipeline
 
-Replace normal Pixi `Text` for default graph labels with MSDF/SDF `BitmapText`.
+Status: Planned; implementation-ready.
 
-Implementation tasks:
+Replace normal Pixi `Text` for default graph labels with Pixi v8 `BitmapText` backed by an MSDF AngelCode BMFont asset.
 
-- Add a committed MSDF/SDF bitmap font asset for the default node-label typeface.
-- Load the font through Pixi assets during renderer initialization.
-- Replace pooled normal labels with pooled `BitmapText` labels.
-- Preserve fallback or failure behavior by failing loudly if the required font asset cannot load in the prototype path.
+Implementation decisions:
+
+- Runtime text type: Pixi `BitmapText` from `pixi.js/text-bitmap`.
+- Descriptor format: AngelCode text BMFont `.fnt`.
+- Atlas format: adjacent PNG page referenced by the `.fnt` descriptor.
+- Direct Pixi load target: the descriptor, not the PNG.
+- Normal graph labels must fail loudly if the font asset cannot load or if a label contains a glyph outside the generated charset.
+- Do not add AssetPack in this slice. Use a focused deterministic generation script with `@pixi/msdf-bmfont-xml` if a generator dependency is needed.
+- If adding a generator dependency, add it as an exact pinned dev dependency and update the lockfile through `./update_dependencies.sh`.
+
+Asset layout:
+
+```text
+desktop/src/renderer/assets/fonts/source/inter/
+  Inter-Bold.ttf
+  OFL.txt
+
+desktop/src/renderer/public/fonts/inter-msdf/
+  InterMSDF.fnt
+  InterMSDF.png
+```
+
+Descriptor requirements:
+
+```text
+info face="InterMSDF" size=48 ...
+common lineHeight=... base=... scaleW=1024 scaleH=1024 pages=1 packed=0
+page id=0 file="InterMSDF.png"
+distanceField fieldType="msdf" distanceRange=4
+chars count=...
+```
+
+The page file must be a stable relative path. Do not use an absolute filesystem path, a Vite-hashed path, or a dev-server-only URL inside the descriptor.
+
+Generation requirements:
+
+- Use `Inter-Bold.ttf` to match the current bold node-label style.
+- Start with font size `48`, texture size `1024x1024`, padding `2`, field type `msdf`, and distance range `4`.
+- Generate enough glyphs for normal graph labels before runtime:
+  - space
+  - `A-Z`
+  - `a-z`
+  - `0-9`
+  - common punctuation and symbols currently valid in node labels
+- Keep the generated `.fnt` and `.png` committed so renderer startup does not depend on a generation step.
+- Keep the source font and license committed so the generated asset is reproducible.
+
+Renderer loading tasks:
+
+- Import `pixi.js/text-bitmap` before loading the font.
+- Import `Assets` and `BitmapText` from `pixi.js`.
+- Load `fonts/inter-msdf/InterMSDF.fnt` inside `createPixiWorkspaceRenderer()` after `app.init(...)` and before the loop that calls `acquireLabel(node.id)`.
+- Use the loaded bitmap font's `fontFamily`, expected to be `InterMSDF`, rather than assuming the asset alias is the font family.
+- Keep `createPixiWorkspaceRenderer()` as the async initialization boundary; it is already awaited by the React wrapper.
+- Throw a specific error if the font load returns no usable `fontFamily`.
+
+Renderer integration tasks:
+
+- Replace the pooled normal labels created by `acquireLabel(nodeId)` with pooled `BitmapText` labels.
+- Preserve `releaseLabel(nodeId)`, `syncLabelPosition(nodeId)`, `syncAllLabels()`, `labelSyncCount`, and `visibleLabelCount`.
+- Add a small glyph validation helper for node labels before constructing `BitmapText`; fail specifically on unsupported glyphs.
+- Add per-label debug metadata such as `label.kind: "bitmap-text"` and `label.fontFamily`.
+- Update `desktop/src/renderer/src/global.d.ts` for any new debug fields.
 - Keep Pixi `Text` only for future selected/editing/rich-label states, not normal graph labels.
 
 Constraints:
@@ -162,10 +225,14 @@ Constraints:
 - Do not dynamically mutate label resolution every zoom frame.
 - Do not create a unique texture per label.
 - Do not add DOM labels for normal graph labels.
+- Do not use JSON as the direct bitmap-font descriptor.
+- Do not use `?url` imports for the `.fnt` unless the emitted descriptor and PNG adjacency has been verified.
+- Do not add a silent fallback from `BitmapText` to Pixi `Text` for normal graph labels.
 
 Expected result:
 
 - Labels stay sharp across common zoom ranges with substantially lower texture churn than Pixi `Text`.
+- The normal label path uses one shared generated font atlas rather than one raster texture per label.
 
 ## Phase 4: Label LOD, Decluttering, and Culling
 
@@ -272,6 +339,8 @@ Extend the Pixi visual smoke workflow to cover:
 - Label position remains attached to node centers during pan and zoom.
 - Label position updates after node drag and group drag.
 - Labels remain screen-sized, not viewport-scaled.
+- Normal graph labels are `BitmapText` labels using the expected MSDF font family after Phase 3.
+- Unsupported glyph validation fails loudly in a focused unit test after Phase 3.
 - React render count remains stable during label sync.
 - Existing pan, zoom, selection, marquee, group drag, and edge drawing flows still pass.
 
