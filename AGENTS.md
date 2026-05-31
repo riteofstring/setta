@@ -26,6 +26,11 @@
 - Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
 - Tests must use temporary directories instead of local runtime state, must never mutate real git history in this repo or any non-disposable developer worktree, and should exercise production paths instead of mocks or test-only code paths.
 - Do not add tautological tests that only restate the implementation or reproduce the same logic to compute the expected result.
+- During implementation, run the narrowest checks that exercise the changed behavior first. Broaden to app workflow tests, live-provider tests, and full quality gates after the implementation is stable, after generated outputs change, or when a focused check exposes a cross-boundary risk.
+- Avoid redundant broad gates. If `./check_quality.sh --all` already runs the relevant app workflow tests, do not also run `./scripts/test_chat_workflows.sh` immediately before it unless debugging that workflow or needing a faster targeted signal before the final gate.
+- After a broad gate fails, fix the reported issue and rerun the narrowest relevant check first. Rerun `./check_quality.sh --all` after focused verification passes.
+- Before committing, one clean final `./scripts/format.sh` and one clean final `./check_quality.sh --all` are sufficient unless new edits are made after those commands.
+- When checking whether live-provider tests should run, verify that `OPENAI_API_KEY` is present without printing its value.
 
 ## UI Rules
 
