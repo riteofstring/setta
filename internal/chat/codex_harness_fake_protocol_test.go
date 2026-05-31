@@ -26,10 +26,11 @@ func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error)
 	})
 }
 
-func writeFakeThreadResponse(id any, model string) {
+func writeFakeThreadResponse(id any, model string, effort ReasoningEffort) {
 	writeFakeResponse(id, map[string]any{
-		"model":  model,
-		"thread": map[string]any{"id": "thread_fake"},
+		"model":           model,
+		"reasoningEffort": string(effort),
+		"thread":          map[string]any{"id": "thread_fake"},
 	})
 }
 

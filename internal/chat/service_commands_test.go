@@ -1,6 +1,9 @@
 package chat
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestServiceExecutesGoalCommandWithoutCreatingRun(t *testing.T) {
 	harness := NewFakeHarness(nil)
@@ -40,6 +43,76 @@ func TestServiceExecutesGoalCommandWithoutCreatingRun(t *testing.T) {
 	}
 }
 
+func TestServiceStoresModelSettingsWithoutCreatingThread(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/model effort high")
+	if err != nil {
+		t.Fatalf("execute model command: %v", err)
+	}
+
+	if result.Message == nil || result.Message.Parts[0].Text != "Reasoning set: High" {
+		t.Fatalf("command message = %+v, want reasoning set result", result.Message)
+	}
+	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.ReasoningEffort == nil || *result.Conversation.CodexSettings.ReasoningEffort != ReasoningEffortHigh {
+		t.Fatalf("result conversation codex settings = %+v, want high reasoning", result.Conversation.CodexSettings)
+	}
+	loaded, err := service.store.LoadConversation("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("load conversation: %v", err)
+	}
+	if len(loaded.HarnessRefs) != 0 {
+		t.Fatalf("harness refs = %+v, want no thread ref for local model setting", loaded.HarnessRefs)
+	}
+	if loaded.CodexSettings == nil || loaded.CodexSettings.ReasoningEffort == nil || *loaded.CodexSettings.ReasoningEffort != ReasoningEffortHigh {
+		t.Fatalf("stored codex settings = %+v, want high reasoning", loaded.CodexSettings)
+	}
+}
+
+func TestServiceRetriesModelCommandAfterMissingThreadRef(t *testing.T) {
+	harness := &refUnavailableCommandHarness{FakeHarness: NewFakeHarness(nil)}
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation.HarnessRefs = []HarnessThreadRef{{
+		Harness:       HarnessCodex,
+		ThreadID:      "bad-thread",
+		Status:        HarnessRefLinked,
+		CreatedAt:     conversation.CreatedAt,
+		LastResumedAt: conversation.UpdatedAt,
+	}}
+	if err := service.store.SaveConversation(conversation); err != nil {
+		t.Fatalf("save conversation: %v", err)
+	}
+
+	result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/model")
+	if err != nil {
+		t.Fatalf("execute model command: %v", err)
+	}
+
+	if result.Result.Action != ChatCommandResultModelPicker {
+		t.Fatalf("result = %+v, want model picker after retry", result.Result)
+	}
+	if harness.calls != 2 {
+		t.Fatalf("command calls = %d, want one retry", harness.calls)
+	}
+	loaded, err := service.store.LoadConversation("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("load conversation: %v", err)
+	}
+	ref := latestHarnessRef(loaded, HarnessCodex)
+	if ref.Status != HarnessRefMissing || ref.ThreadID != "bad-thread" {
+		t.Fatalf("harness ref = %+v, want missing bad thread", ref)
+	}
+}
+
 func TestServiceExecutesActiveGoalCommandWithoutSteering(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{
 		{Type: FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
@@ -70,6 +143,23 @@ func TestServiceExecutesActiveGoalCommandWithoutSteering(t *testing.T) {
 	if len(commands) != 1 || commands[0].ActiveRun == nil || commands[0].ActiveRun.ID != started.Run.ID {
 		t.Fatalf("command requests = %+v, want active run command", commands)
 	}
+}
+
+type refUnavailableCommandHarness struct {
+	*FakeHarness
+	calls int
+}
+
+func (harness *refUnavailableCommandHarness) ExecuteCommand(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
+	harness.calls++
+	if harness.calls == 1 {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "resume codex thread bad-thread: no rollout found", &HarnessRefUnavailableError{
+			Harness:  HarnessCodex,
+			ThreadID: request.ThreadRef.ThreadID,
+			Message:  "resume codex thread bad-thread: no rollout found",
+		})
+	}
+	return harness.FakeHarness.ExecuteCommand(ctx, request)
 }
 
 func TestServiceRejectsSlashCommandThroughMessageEndpoints(t *testing.T) {

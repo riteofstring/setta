@@ -13,9 +13,14 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
+  clickModelByText,
+  clickReasoningEffortByText,
   dispatchDocumentEscape,
   waitForComposerFocus,
+  waitForModelPicker,
   waitForModelPickerAbsent,
+  waitForSelectedModel,
+  waitForSelectedReasoningEffort,
 } from "./chat-workflow-assertions.mjs";
 import { prepareLiveCodexEnv } from "./chat-live-env.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
@@ -640,6 +645,25 @@ async function runApprovalsWorkflow(client, backend, workspaceId, conversationId
 }
 
 async function runSlashCommandWorkflow(client, backend, workspaceId, conversationId) {
+  await submitComposer(client, "/model scripted-careful", "Send message");
+  await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-careful");
+  await assertNoLinkedCodexRef(backend, workspaceId, conversationId);
+  await submitComposer(client, "/model effort high", "Send message");
+  await waitForCommandResult(backend, workspaceId, conversationId, "Reasoning set: High");
+  await assertNoLinkedCodexRef(backend, workspaceId, conversationId);
+  await submitComposer(client, "pre-turn model setting workflow", "Send message");
+  const preTurnModelRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "pre-turn model setting workflow",
+    "completed",
+  );
+  await assertAssistantCompleted(backend, workspaceId, conversationId, preTurnModelRun.id);
+  await waitForTexts(client, [
+    "Model for next turn: scripted-careful. Reasoning for next turn: High.",
+  ]);
+
   await submitComposer(client, "/goal finish renderer tests", "Send message");
   await waitForCommandResult(
     backend,
@@ -674,17 +698,24 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await assertNoActiveRun(backend, workspaceId, conversationId);
 
   await submitComposer(client, "/model", "Send message");
-  await waitForModelPicker(client);
-  await clickModelByText(client, "scripted-fast");
+  await waitForModelPicker(waitForState, client);
+  await clickModelByText(waitForState, client, "scripted-fast");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-fast");
   await waitForTexts(client, ["Model set: scripted-fast"]);
   await submitComposer(client, "/model", "Send message");
-  await waitForSelectedModel(client, "scripted-fast");
+  await waitForSelectedModel(waitForState, client, "scripted-fast");
+  await waitForSelectedReasoningEffort(waitForState, client, "High");
+  await clickReasoningEffortByText(waitForState, client, "High");
+  await waitForCommandResult(backend, workspaceId, conversationId, "Reasoning set: High");
+  await waitForTexts(client, ["Reasoning set: High"]);
+  await submitComposer(client, "/model", "Send message");
+  await waitForSelectedModel(waitForState, client, "scripted-fast");
+  await waitForSelectedReasoningEffort(waitForState, client, "High");
   await waitForComposerFocus(waitForState, client);
   await clickButtonByAria(client, "Close model picker");
   await waitForModelPickerAbsent(waitForState, client);
   await submitComposer(client, "/model", "Send message");
-  await waitForSelectedModel(client, "scripted-fast");
+  await waitForSelectedModel(waitForState, client, "scripted-fast");
   await dispatchDocumentEscape(client);
   await waitForModelPickerAbsent(waitForState, client);
 
@@ -700,7 +731,9 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
     "completed",
   );
   await assertAssistantCompleted(backend, workspaceId, conversationId, modelRun.id);
-  await waitForTexts(client, ["Model for next turn: scripted-careful."]);
+  await waitForTexts(client, [
+    "Model for next turn: scripted-careful. Reasoning for next turn: High.",
+  ]);
 
   await submitComposer(client, "workflow hold for queue and steering", "Send message");
   const secondRun = await waitForRunWithPrompt(
@@ -721,13 +754,16 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await waitForRunStatus(backend, workspaceId, conversationId, secondRun.id, "completed");
   await assertNoActiveRun(backend, workspaceId, conversationId);
   await assertTranscriptSequence(client, [
+    "pre-turn model setting workflow",
+    "Model for next turn: scripted-careful. Reasoning for next turn: High.",
     "workflow hold for queue and steering",
     "Active workflow complete.",
     "Goal paused.",
     "Model set: scripted-fast",
+    "Reasoning set: High",
     "Model set: scripted-careful",
     "model setting workflow",
-    "Model for next turn: scripted-careful.",
+    "Model for next turn: scripted-careful. Reasoning for next turn: High.",
     "workflow hold for queue and steering",
     "Active workflow complete.",
   ]);
@@ -848,59 +884,6 @@ async function assertTextAbsent(client, text) {
   const body = await client.evaluate("document.body.innerText");
   if (body.includes(text)) {
     throw new Error(`unexpected rendered text: ${text}`);
-  }
-}
-
-async function waitForModelPicker(client) {
-  await waitForState(
-    client,
-    `(() => {
-      const picker = document.querySelector('[data-testid="model-picker"]');
-      return { body: document.body.innerText, ready: Boolean(picker) };
-    })()`,
-    (value) => value.ready && value.body.includes("scripted-fast"),
-  );
-}
-
-async function waitForSelectedModel(client, modelText) {
-  await waitForState(
-    client,
-    `(() => {
-      const picker = document.querySelector('[data-testid="model-picker"]');
-      const selected = Array.from(picker?.querySelectorAll('[data-selected="true"]') ?? [])
-        .map((button) => button.innerText);
-      return { selected };
-    })()`,
-    (value) => value.selected.length === 1 && value.selected[0].includes(modelText),
-  );
-}
-
-async function clickModelByText(client, modelText) {
-  await waitForState(
-    client,
-    `(() => {
-      const picker = document.querySelector('[data-testid="model-picker"]');
-      const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
-      return {
-        ready: buttons.some((button) => button.innerText.includes(${JSON.stringify(modelText)})),
-      };
-    })()`,
-    (value) => value.ready,
-  );
-  const clicked = await client.evaluate(`(() => {
-    const picker = document.querySelector('[data-testid="model-picker"]');
-    const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
-    const button = buttons.find((candidate) =>
-      candidate.innerText.includes(${JSON.stringify(modelText)})
-    );
-    if (!button || button.disabled) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!clicked) {
-    throw new Error(`model option was not clickable: ${modelText}`);
   }
 }
 
@@ -1055,6 +1038,20 @@ async function waitForLinkedCodexRef(
     },
     timeoutMs,
   );
+}
+
+async function assertNoLinkedCodexRef(backend, workspaceId, conversationId) {
+  const value = await backend.post("/chat/conversations/list", { workspaceId });
+  const item = value.conversations.find(
+    (candidate) => candidate.conversation.id === conversationId,
+  );
+  if (
+    item?.conversation.harnessRefs.some(
+      (ref) => ref.harness === "codex" && ref.status === "linked" && ref.threadId !== "",
+    )
+  ) {
+    throw new Error(`conversation ${conversationId} unexpectedly has a linked codex ref`);
+  }
 }
 
 async function assertModelCommandDisabled(backend, workspaceId, conversationId) {

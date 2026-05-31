@@ -2,7 +2,10 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"setta/internal/workspace"
 )
 
 func (service *Service) ListCommands(workspaceID string, conversationID string) (ChatCommandListResult, error) {
@@ -61,13 +64,22 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 		return ChatCommandExecuteResult{}, err
 	}
 
-	harnessResult, err := executor.ExecuteCommand(context.Background(), HarnessCommandRequest{
-		ActiveRun:    activeRun,
-		Command:      command,
-		Conversation: conversation,
-		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
-		Workspace:    workspaceSummary,
-	})
+	harnessResult, err := executor.ExecuteCommand(context.Background(), commandRequest(workspaceSummary, conversation, activeRun, command))
+	if shouldRetryCommandWithMissingHarnessRef(command, err) {
+		var refErr *HarnessRefUnavailableError
+		errors.As(err, &refErr)
+		if markErr := service.markHarnessRefUnavailable(workspaceID, conversationID, "", refErr); markErr != nil {
+			return ChatCommandExecuteResult{}, markErr
+		}
+
+		service.mu.Lock()
+		conversation, activeRun, err = service.commandConversationStateLocked(workspaceID, conversationID)
+		service.mu.Unlock()
+		if err != nil {
+			return ChatCommandExecuteResult{}, err
+		}
+		harnessResult, err = executor.ExecuteCommand(context.Background(), commandRequest(workspaceSummary, conversation, activeRun, command))
+	}
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
@@ -75,6 +87,24 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	return service.persistCommandResultLocked(workspaceID, conversationID, command, harnessResult)
+}
+
+func commandRequest(workspaceSummary workspace.WorkspaceSummary, conversation Conversation, activeRun *Run, command ChatCommand) HarnessCommandRequest {
+	return HarnessCommandRequest{
+		ActiveRun:    activeRun,
+		Command:      command,
+		Conversation: conversation,
+		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
+		Workspace:    workspaceSummary,
+	}
+}
+
+func shouldRetryCommandWithMissingHarnessRef(command ChatCommand, err error) bool {
+	if err == nil || command.Kind != ChatCommandModel {
+		return false
+	}
+	var refErr *HarnessRefUnavailableError
+	return errors.As(err, &refErr)
 }
 
 func (service *Service) commandExecutor() (HarnessCommandExecutor, error) {
@@ -119,6 +149,10 @@ func (service *Service) persistCommandResultLocked(
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
+	conversation, err = service.persistCommandCodexSettingsLocked(workspaceID, conversationID, conversation, harnessResult, now)
+	if err != nil {
+		return ChatCommandExecuteResult{}, err
+	}
 
 	result := commandResult(command, harnessResult)
 	message, err := service.persistCommandMessageLocked(workspaceID, conversationID, conversation, result, now)
@@ -143,6 +177,21 @@ func (service *Service) persistCommandThreadRefLocked(workspaceID string, conver
 		return conversation, nil
 	}
 	conversation = commandConversationWithThreadRef(conversation, harnessResult.ThreadRef, now)
+	if err := service.store.SaveConversation(conversation); err != nil {
+		return Conversation{}, err
+	}
+	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, ""); err != nil {
+		return Conversation{}, err
+	}
+	return conversation, nil
+}
+
+func (service *Service) persistCommandCodexSettingsLocked(workspaceID string, conversationID string, conversation Conversation, harnessResult HarnessCommandResult, now string) (Conversation, error) {
+	if harnessResult.CodexSettings == nil {
+		return conversation, nil
+	}
+	conversation.CodexSettings = harnessResult.CodexSettings
+	conversation.UpdatedAt = now
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return Conversation{}, err
 	}
@@ -227,12 +276,14 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 		action = ChatCommandResultDisplay
 	}
 	result := ChatCommandResult{
-		Action:        action,
-		Goal:          harnessResult.Goal,
-		Kind:          command.Kind,
-		Models:        nonNilModels(harnessResult.Models),
-		Raw:           command.Raw,
-		SelectedModel: harnessResult.SelectedModel,
+		Action:                  action,
+		Goal:                    harnessResult.Goal,
+		Kind:                    command.Kind,
+		Models:                  nonNilModels(harnessResult.Models),
+		Raw:                     command.Raw,
+		ReasoningEfforts:        nonNilReasoningEfforts(harnessResult.ReasoningEfforts),
+		SelectedModel:           harnessResult.SelectedModel,
+		SelectedReasoningEffort: harnessResult.SelectedReasoningEffort,
 	}
 	result.Title, result.Message = commandResultText(command, result)
 	return result
@@ -243,6 +294,13 @@ func nonNilModels(models []ChatModelOption) []ChatModelOption {
 		return []ChatModelOption{}
 	}
 	return models
+}
+
+func nonNilReasoningEfforts(efforts []ChatReasoningEffortOption) []ChatReasoningEffortOption {
+	if efforts == nil {
+		return []ChatReasoningEffortOption{}
+	}
+	return efforts
 }
 
 func commandResultText(command ChatCommand, result ChatCommandResult) (string, string) {
@@ -288,6 +346,11 @@ func modelCommandResultText(command ChatCommand, result ChatCommandResult) (stri
 		return "Model", "Choose a model."
 	case ModelCommandSet:
 		return "Model", "Model set: " + result.SelectedModel
+	case ModelCommandSetEffort:
+		if result.SelectedReasoningEffort == nil {
+			return "Model", "Reasoning set."
+		}
+		return "Model", "Reasoning set: " + reasoningEffortDisplayName(*result.SelectedReasoningEffort)
 	default:
 		return "Model", "Model command completed."
 	}

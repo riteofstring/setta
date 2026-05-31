@@ -8,6 +8,26 @@ import (
 )
 
 func validateConversation(conversation Conversation) error {
+	if err := validateConversationIdentity(conversation); err != nil {
+		return err
+	}
+	if err := validateConversationTimestamps(conversation); err != nil {
+		return err
+	}
+	for _, ref := range conversation.HarnessRefs {
+		if err := validateHarnessThreadRef(conversation.ID, ref); err != nil {
+			return err
+		}
+	}
+	if conversation.CodexSettings != nil {
+		if err := validateChatCodexSettings(conversation.ID, *conversation.CodexSettings); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateConversationIdentity(conversation Conversation) error {
 	if conversation.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("conversation %s has unsupported schemaVersion %d", conversation.ID, conversation.SchemaVersion)
 	}
@@ -20,6 +40,10 @@ func validateConversation(conversation Conversation) error {
 	if conversation.Title == "" {
 		return fmt.Errorf("conversation %s title is required", conversation.ID)
 	}
+	return nil
+}
+
+func validateConversationTimestamps(conversation Conversation) error {
 	if err := validateTimestamp(conversation.CreatedAt, "conversation "+conversation.ID+" createdAt"); err != nil {
 		return err
 	}
@@ -31,10 +55,12 @@ func validateConversation(conversation Conversation) error {
 			return err
 		}
 	}
-	for _, ref := range conversation.HarnessRefs {
-		if err := validateHarnessThreadRef(conversation.ID, ref); err != nil {
-			return err
-		}
+	return nil
+}
+
+func validateChatCodexSettings(conversationID string, settings ChatCodexSettings) error {
+	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
+		return fmt.Errorf("conversation %s codexSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
 	}
 	return nil
 }

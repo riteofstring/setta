@@ -1,6 +1,7 @@
 package chat
 
 var supportedCodexClientMethods = map[string]struct{}{
+	"config/read":            {},
 	"initialize":             {},
 	"model/list":             {},
 	"thread/goal/clear":      {},

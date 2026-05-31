@@ -287,6 +287,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           message: "Goal set: test",
           models: [],
           raw: "/goal test",
+          reasoningEfforts: [],
+          selectedReasoningEffort: null,
           selectedModel: "",
           title: "Goal",
         },
@@ -384,6 +386,7 @@ function emptyCodexAccountState() {
 function emptyConversation() {
   return {
     archivedAt: "",
+    codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
     id: "conversation_test",

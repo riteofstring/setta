@@ -50,6 +50,14 @@ func TestParseChatCommandModelCommands(t *testing.T) {
 	if set.Model == nil || set.Model.Action != ModelCommandSet || set.Model.ModelID != "gpt-5.5" {
 		t.Fatalf("set command = %+v, want model set", set)
 	}
+
+	effort, err := ParseChatCommand("/model effort high")
+	if err != nil {
+		t.Fatalf("parse /model effort high: %v", err)
+	}
+	if effort.Model == nil || effort.Model.Action != ModelCommandSetEffort || effort.Model.ReasoningEffort == nil || *effort.Model.ReasoningEffort != ReasoningEffortHigh {
+		t.Fatalf("effort command = %+v, want reasoning effort set", effort)
+	}
 }
 
 func TestParseChatCommandRejectsMalformedAndUnknownInput(t *testing.T) {
@@ -63,7 +71,8 @@ func TestParseChatCommandRejectsMalformedAndUnknownInput(t *testing.T) {
 		{raw: "/Goal", code: ChatCommandErrorMalformedCommand, text: "lowercase"},
 		{raw: "/goal!", code: ChatCommandErrorMalformedCommand, text: "lowercase"},
 		{raw: "/unknown", code: ChatCommandErrorUnknownCommand, text: "unknown slash command"},
-		{raw: "/model gpt 5", code: ChatCommandErrorMalformedCommand, text: "exactly one model id"},
+		{raw: "/model gpt 5", code: ChatCommandErrorMalformedCommand, text: "exactly one model id or effort"},
+		{raw: "/model effort extreme", code: ChatCommandErrorMalformedCommand, text: "unsupported reasoning level"},
 	}
 	for _, test := range tests {
 		_, err := ParseChatCommand(test.raw)

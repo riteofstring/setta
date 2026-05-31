@@ -413,14 +413,16 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 }
 
 func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID string, request TurnRequest) (string, error) {
-	result, err := session.Call(ctx, "turn/start", map[string]any{
+	params := map[string]any{
 		"cwd":      request.Workspace.RootPath,
 		"threadId": threadID,
 		"input": []map[string]any{{
 			"text": request.Prompt,
 			"type": "text",
 		}},
-	})
+	}
+	applyInitialCodexSettings(params, request)
+	result, err := session.Call(ctx, "turn/start", params)
 	if err != nil {
 		return "", fmt.Errorf("start codex turn: %w", err)
 	}
@@ -429,6 +431,21 @@ func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID str
 		return "", err
 	}
 	return turnID, nil
+}
+
+func applyInitialCodexSettings(params map[string]any, request TurnRequest) {
+	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
+		return
+	}
+	if request.Conversation.CodexSettings == nil {
+		return
+	}
+	if request.Conversation.CodexSettings.Model != "" {
+		params["model"] = request.Conversation.CodexSettings.Model
+	}
+	if request.Conversation.CodexSettings.ReasoningEffort != nil {
+		params["effort"] = string(*request.Conversation.CodexSettings.ReasoningEffort)
+	}
 }
 
 type codexNotificationResult struct {

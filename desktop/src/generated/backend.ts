@@ -15,6 +15,30 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
+
+export function decodeReasoningEffort(value: unknown, label = "ReasoningEffort"): ReasoningEffort {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "none":
+      return decoded;
+    case "minimal":
+      return decoded;
+    case "low":
+      return decoded;
+    case "medium":
+      return decoded;
+    case "high":
+      return decoded;
+    case "xhigh":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type HarnessKind = "codex";
 
 export const harnessKindValues = ["codex"] as const satisfies readonly HarnessKind[];
@@ -527,6 +551,11 @@ export interface ListConversationsRequest {
   workspaceId: string;
 }
 
+export interface ChatCodexSettings {
+  model: string;
+  reasoningEffort: ReasoningEffort | null;
+}
+
 export interface HarnessThreadRef {
   harness: HarnessKind;
   threadId: string;
@@ -546,6 +575,7 @@ export interface Conversation {
   createdAt: string;
   updatedAt: string;
   archivedAt: string;
+  codexSettings: ChatCodexSettings | null;
   harnessRefs: HarnessThreadRef[];
 }
 
@@ -820,6 +850,13 @@ export interface ChatGoalState {
   status: string;
 }
 
+export interface ChatReasoningEffortOption {
+  effort: ReasoningEffort;
+  displayName: string;
+  description: string;
+  isDefault: boolean;
+}
+
 export interface ChatModelOption {
   id: string;
   model: string;
@@ -827,6 +864,8 @@ export interface ChatModelOption {
   description: string;
   hidden: boolean;
   isDefault: boolean;
+  defaultReasoningEffort: ReasoningEffort;
+  supportedReasoningEfforts: ChatReasoningEffortOption[];
 }
 
 export interface ChatCommandResult {
@@ -838,6 +877,8 @@ export interface ChatCommandResult {
   goal: ChatGoalState | null;
   models: ChatModelOption[];
   selectedModel: string;
+  reasoningEfforts: ChatReasoningEffortOption[];
+  selectedReasoningEffort: ReasoningEffort | null;
 }
 
 export interface ChatCommandExecuteResult {
@@ -1447,6 +1488,15 @@ export function decodeListConversationsRequest(value: unknown): ListConversation
   };
 }
 
+export function decodeChatCodexSettings(value: unknown): ChatCodexSettings {
+  const record = assertRecord(value, "ChatCodexSettings");
+  assertKnownFields(record, "ChatCodexSettings", ["model", "reasoningEffort"]);
+  return {
+    model: decodeString(requireField(record, "model", "ChatCodexSettings"), "ChatCodexSettings.model"),
+    reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "ChatCodexSettings"), "ChatCodexSettings.reasoningEffort", (item) => decodeReasoningEffort(item, "ChatCodexSettings.reasoningEffort")),
+  };
+}
+
 export function decodeHarnessThreadRef(value: unknown): HarnessThreadRef {
   const record = assertRecord(value, "HarnessThreadRef");
   assertKnownFields(record, "HarnessThreadRef", ["harness", "threadId", "sessionId", "lastTurnId", "status", "createdAt", "lastResumedAt", "unavailableMessage"]);
@@ -1464,7 +1514,7 @@ export function decodeHarnessThreadRef(value: unknown): HarnessThreadRef {
 
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "createdAt", "updatedAt", "archivedAt", "harnessRefs"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "createdAt", "updatedAt", "archivedAt", "codexSettings", "harnessRefs"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
@@ -1473,6 +1523,7 @@ export function decodeConversation(value: unknown): Conversation {
     createdAt: decodeString(requireField(record, "createdAt", "Conversation"), "Conversation.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "Conversation"), "Conversation.updatedAt"),
     archivedAt: decodeString(requireField(record, "archivedAt", "Conversation"), "Conversation.archivedAt"),
+    codexSettings: decodeNullable(requireField(record, "codexSettings", "Conversation"), "Conversation.codexSettings", (item) => decodeChatCodexSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
   };
 }
@@ -1864,9 +1915,20 @@ export function decodeChatGoalState(value: unknown): ChatGoalState {
   };
 }
 
+export function decodeChatReasoningEffortOption(value: unknown): ChatReasoningEffortOption {
+  const record = assertRecord(value, "ChatReasoningEffortOption");
+  assertKnownFields(record, "ChatReasoningEffortOption", ["effort", "displayName", "description", "isDefault"]);
+  return {
+    effort: decodeReasoningEffort(requireField(record, "effort", "ChatReasoningEffortOption"), "ChatReasoningEffortOption.effort"),
+    displayName: decodeString(requireField(record, "displayName", "ChatReasoningEffortOption"), "ChatReasoningEffortOption.displayName"),
+    description: decodeString(requireField(record, "description", "ChatReasoningEffortOption"), "ChatReasoningEffortOption.description"),
+    isDefault: decodeBoolean(requireField(record, "isDefault", "ChatReasoningEffortOption"), "ChatReasoningEffortOption.isDefault"),
+  };
+}
+
 export function decodeChatModelOption(value: unknown): ChatModelOption {
   const record = assertRecord(value, "ChatModelOption");
-  assertKnownFields(record, "ChatModelOption", ["id", "model", "displayName", "description", "hidden", "isDefault"]);
+  assertKnownFields(record, "ChatModelOption", ["id", "model", "displayName", "description", "hidden", "isDefault", "defaultReasoningEffort", "supportedReasoningEfforts"]);
   return {
     id: decodeString(requireField(record, "id", "ChatModelOption"), "ChatModelOption.id"),
     model: decodeString(requireField(record, "model", "ChatModelOption"), "ChatModelOption.model"),
@@ -1874,12 +1936,14 @@ export function decodeChatModelOption(value: unknown): ChatModelOption {
     description: decodeString(requireField(record, "description", "ChatModelOption"), "ChatModelOption.description"),
     hidden: decodeBoolean(requireField(record, "hidden", "ChatModelOption"), "ChatModelOption.hidden"),
     isDefault: decodeBoolean(requireField(record, "isDefault", "ChatModelOption"), "ChatModelOption.isDefault"),
+    defaultReasoningEffort: decodeReasoningEffort(requireField(record, "defaultReasoningEffort", "ChatModelOption"), "ChatModelOption.defaultReasoningEffort"),
+    supportedReasoningEfforts: decodeArray(requireField(record, "supportedReasoningEfforts", "ChatModelOption"), "ChatModelOption.supportedReasoningEfforts", (item) => decodeChatReasoningEffortOption(item)),
   };
 }
 
 export function decodeChatCommandResult(value: unknown): ChatCommandResult {
   const record = assertRecord(value, "ChatCommandResult");
-  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "goal", "models", "selectedModel"]);
+  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "goal", "models", "selectedModel", "reasoningEfforts", "selectedReasoningEffort"]);
   return {
     action: decodeChatCommandResultAction(requireField(record, "action", "ChatCommandResult"), "ChatCommandResult.action"),
     kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandResult"), "ChatCommandResult.kind"),
@@ -1889,6 +1953,8 @@ export function decodeChatCommandResult(value: unknown): ChatCommandResult {
     goal: decodeNullable(requireField(record, "goal", "ChatCommandResult"), "ChatCommandResult.goal", (item) => decodeChatGoalState(item)),
     models: decodeArray(requireField(record, "models", "ChatCommandResult"), "ChatCommandResult.models", (item) => decodeChatModelOption(item)),
     selectedModel: decodeString(requireField(record, "selectedModel", "ChatCommandResult"), "ChatCommandResult.selectedModel"),
+    reasoningEfforts: decodeArray(requireField(record, "reasoningEfforts", "ChatCommandResult"), "ChatCommandResult.reasoningEfforts", (item) => decodeChatReasoningEffortOption(item)),
+    selectedReasoningEffort: decodeNullable(requireField(record, "selectedReasoningEffort", "ChatCommandResult"), "ChatCommandResult.selectedReasoningEffort", (item) => decodeReasoningEffort(item, "ChatCommandResult.selectedReasoningEffort")),
   };
 }
 

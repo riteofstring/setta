@@ -45,6 +45,7 @@ type FakeHarness struct {
 	approvals   []ApprovalResponse
 	goal        *ChatGoalState
 	model       string
+	reasoning   ReasoningEffort
 	steering    []SteerRequest
 	approvalChs map[string]chan ApprovalResponse
 	steerChs    map[string]chan SteerRequest
@@ -186,7 +187,7 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 
 	harness.commands = append(harness.commands, request)
 	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
-	if request.ActiveRun == nil && commandNeedsThread(request.Command) {
+	if request.ActiveRun == nil && commandNeedsThread(request.Command) && !commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
 		ref := request.ThreadRef
 		if ref.ThreadID == "" {
 			ref = HarnessThreadRef{
@@ -248,10 +249,32 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 	case ModelCommandShowPicker:
 		result.Action = ChatCommandResultModelPicker
 		result.Models = fakeModelOptions()
+		result.ReasoningEfforts = fakeReasoningEffortOptions()
 		result.SelectedModel = harness.model
+		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
 	case ModelCommandSet:
 		harness.model = command.Model.ModelID
 		result.SelectedModel = command.Model.ModelID
+		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
+		if !result.HasThreadRef {
+			result.CodexSettings = &ChatCodexSettings{
+				Model:           harness.model,
+				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+			}
+		}
+	case ModelCommandSetEffort:
+		if command.Model.ReasoningEffort == nil {
+			return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "reasoning effort is required", nil)
+		}
+		harness.reasoning = *command.Model.ReasoningEffort
+		result.SelectedModel = harness.model
+		result.SelectedReasoningEffort = reasoningEffortResult(*command.Model.ReasoningEffort)
+		if !result.HasThreadRef {
+			result.CodexSettings = &ChatCodexSettings{
+				Model:           harness.model,
+				ReasoningEffort: reasoningEffortResult(harness.reasoning),
+			}
+		}
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
 	}
@@ -303,20 +326,50 @@ func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {
 func fakeModelOptions() []ChatModelOption {
 	return []ChatModelOption{
 		{
-			Description: "Fast scripted test model.",
-			DisplayName: "Scripted Fast",
-			Hidden:      false,
-			ID:          "scripted-fast-catalog-id",
-			IsDefault:   true,
-			Model:       "scripted-fast",
+			Description:               "Fast scripted test model.",
+			DisplayName:               "Scripted Fast",
+			Hidden:                    false,
+			ID:                        "scripted-fast-catalog-id",
+			IsDefault:                 true,
+			Model:                     "scripted-fast",
+			DefaultReasoningEffort:    ReasoningEffortMedium,
+			SupportedReasoningEfforts: fakeReasoningEffortOptions(),
 		},
 		{
-			Description: "Careful scripted test model.",
-			DisplayName: "Scripted Careful",
-			Hidden:      false,
-			ID:          "scripted-careful",
-			IsDefault:   false,
-			Model:       "scripted-careful",
+			Description:               "Careful scripted test model.",
+			DisplayName:               "Scripted Careful",
+			Hidden:                    false,
+			ID:                        "scripted-careful",
+			IsDefault:                 false,
+			Model:                     "scripted-careful",
+			DefaultReasoningEffort:    ReasoningEffortMedium,
+			SupportedReasoningEfforts: fakeReasoningEffortOptions(),
+		},
+	}
+}
+
+func fakeReasoningEffortOptions() []ChatReasoningEffortOption {
+	return []ChatReasoningEffortOption{
+		{
+			Description: "Fast responses with lighter reasoning.",
+			DisplayName: reasoningEffortDisplayName(ReasoningEffortLow),
+			Effort:      ReasoningEffortLow,
+		},
+		{
+			Description: "Balances speed and reasoning depth for everyday tasks.",
+			DisplayName: reasoningEffortDisplayName(ReasoningEffortMedium),
+			Effort:      ReasoningEffortMedium,
+			IsDefault:   true,
+		},
+		{
+			Description: "Greater reasoning depth for complex problems.",
+			DisplayName: reasoningEffortDisplayName(ReasoningEffortHigh),
+			Effort:      ReasoningEffortHigh,
+		},
+		{
+			Description: "Extra high reasoning depth for complex problems.",
+			DisplayName: reasoningEffortDisplayName(ReasoningEffortXHigh),
+			Effort:      ReasoningEffortXHigh,
 		},
 	}
 }

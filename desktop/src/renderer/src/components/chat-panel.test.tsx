@@ -13,6 +13,8 @@ import {
   handleComposerKeyDown,
   modelPickerOptionSelected,
   modelSelectionCommand,
+  reasoningEffortOptionSelected,
+  reasoningEffortSelectionCommand,
 } from "./chat-panel";
 
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
@@ -136,6 +138,7 @@ describe("composer command helpers", () => {
         onDismissModelPicker={vi.fn()}
         onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
+        onPickReasoningEffort={vi.fn()}
         selectedSuggestion={null}
         suggestions={[]}
       />,
@@ -175,9 +178,39 @@ describe("composer command helpers", () => {
                   id: "scripted-fast-catalog-id",
                   isDefault: true,
                   model: "scripted-fast",
+                  defaultReasoningEffort: "medium",
+                  supportedReasoningEfforts: [
+                    {
+                      description: "Balances speed and reasoning depth.",
+                      displayName: "Medium",
+                      effort: "medium",
+                      isDefault: true,
+                    },
+                    {
+                      description: "Greater reasoning depth.",
+                      displayName: "High",
+                      effort: "high",
+                      isDefault: false,
+                    },
+                  ],
+                },
+              ],
+              reasoningEfforts: [
+                {
+                  description: "Balances speed and reasoning depth.",
+                  displayName: "Medium",
+                  effort: "medium",
+                  isDefault: true,
+                },
+                {
+                  description: "Greater reasoning depth.",
+                  displayName: "High",
+                  effort: "high",
+                  isDefault: false,
                 },
               ],
               raw: "/model",
+              selectedReasoningEffort: null,
               selectedModel: "",
               title: "Model",
             },
@@ -186,6 +219,7 @@ describe("composer command helpers", () => {
         onDismissModelPicker={vi.fn()}
         onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
+        onPickReasoningEffort={vi.fn()}
         selectedSuggestion={null}
         suggestions={[]}
       />,
@@ -193,6 +227,8 @@ describe("composer command helpers", () => {
 
     expect(html).toContain('data-testid="model-picker"');
     expect(html).toContain("scripted-fast");
+    expect(html).toContain("Reasoning");
+    expect(html).toContain("High");
     expect(html).not.toContain("scripted-fast-catalog-id");
   });
 
@@ -205,8 +241,21 @@ describe("composer command helpers", () => {
         id: "catalog-row-gpt-test",
         isDefault: false,
         model: "gpt-test",
+        defaultReasoningEffort: "medium",
+        supportedReasoningEfforts: [],
       }),
     ).toBe("/model gpt-test");
+  });
+
+  test("uses explicit effort syntax when selecting reasoning from the picker", () => {
+    expect(
+      reasoningEffortSelectionCommand({
+        description: "Greater reasoning depth.",
+        displayName: "High",
+        effort: "high",
+        isDefault: false,
+      }),
+    ).toBe("/model effort high");
   });
 
   test("prefers the selected model over the catalog default", () => {
@@ -222,6 +271,21 @@ describe("composer command helpers", () => {
     expect(modelPickerOptionSelected(defaultModel, "")).toBe(true);
     expect(modelPickerOptionSelected(defaultModel, "scripted-careful")).toBe(false);
     expect(modelPickerOptionSelected(selectedModel, "scripted-careful")).toBe(true);
+  });
+
+  test("prefers the selected reasoning effort over the model default", () => {
+    const defaultEffort = {
+      effort: "medium",
+      isDefault: true,
+    } as const;
+    const selectedEffort = {
+      effort: "high",
+      isDefault: false,
+    } as const;
+
+    expect(reasoningEffortOptionSelected(defaultEffort, null)).toBe(true);
+    expect(reasoningEffortOptionSelected(defaultEffort, "high")).toBe(false);
+    expect(reasoningEffortOptionSelected(selectedEffort, "high")).toBe(true);
   });
 });
 

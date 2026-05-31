@@ -935,8 +935,10 @@ func (service *Service) markHarnessRefUnavailable(workspaceID string, conversati
 			if err := service.store.SaveConversation(conversation); err != nil {
 				return err
 			}
-			if err := service.traceLocked(workspaceID, runID, "codex_thread_resume_failed", refErr.Error()); err != nil {
-				return err
+			if runID != "" {
+				if err := service.traceLocked(workspaceID, runID, "codex_thread_resume_failed", refErr.Error()); err != nil {
+					return err
+				}
 			}
 			return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
 		}

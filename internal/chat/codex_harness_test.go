@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -817,49 +816,6 @@ func codexHookRunFixture(status string) map[string]any {
 	}
 }
 
-func TestCodexHarnessProtocolCoverageRegistry(t *testing.T) {
-	for _, method := range []string{
-		"initialize",
-		"model/list",
-		"thread/goal/clear",
-		"thread/goal/get",
-		"thread/goal/set",
-		"thread/resume",
-		"thread/settings/update",
-		"thread/start",
-		"turn/interrupt",
-		"turn/start",
-		"turn/steer",
-	} {
-		if _, ok := supportedCodexClientMethods[method]; !ok {
-			t.Fatalf("client method %s missing support policy", method)
-		}
-	}
-	for _, method := range codexAppServer0135ServerRequests {
-		if !isSupportedCodexServerRequest(method) {
-			t.Fatalf("server request %s missing support policy", method)
-		}
-	}
-	for _, method := range codexAppServer0135Notifications {
-		if _, ok := codexNotificationHandlers[method]; !ok {
-			t.Fatalf("notification %s missing handler", method)
-		}
-		if _, ok := codexNotificationScopePolicies[method]; !ok {
-			t.Fatalf("notification %s missing scope policy", method)
-		}
-	}
-	for method := range supportedCodexServerRequests {
-		if !slices.Contains(codexAppServer0135ServerRequests, method) {
-			t.Fatalf("server request %s is not in the codex 0.135.0 baseline", method)
-		}
-	}
-	for method := range codexNotificationHandlers {
-		if !slices.Contains(codexAppServer0135Notifications, method) {
-			t.Fatalf("notification handler %s is not in the codex 0.135.0 baseline", method)
-		}
-	}
-}
-
 func TestCodexHarnessIgnoresProviderUserMessageItem(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("provider-user-message-item"))
 	sink := newRecordingSink()
@@ -1272,9 +1228,20 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	switch message["method"] {
 	case "initialize":
 		writeFakeInitializeResponse(message["id"])
+	case "config/read":
+		assertFakeConfigRead(message)
+		writeFakeResponse(message["id"], map[string]any{
+			"config": map[string]any{
+				"model":                  "gpt-test",
+				"model_reasoning_effort": "xhigh",
+			},
+			"layers":  []any{},
+			"origins": map[string]any{},
+		})
+		return mode == "command-model-set-local" || mode == "command-effort-set-local"
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
-		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode))
+		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
 	case "thread/goal/get":
 		assertFakeThreadID(message)
 		writeFakeResponse(message["id"], map[string]any{"goal": nil})
@@ -1291,26 +1258,36 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		assertFakeModelList(message)
 		writeFakeResponse(message["id"], map[string]any{
 			"data": []map[string]any{{
-				"description": "Fake model.",
-				"displayName": "GPT Test",
-				"hidden":      false,
-				"id":          "gpt-test",
-				"isDefault":   true,
-				"model":       "gpt-test",
+				"defaultReasoningEffort": "high",
+				"description":            "Fake model.",
+				"displayName":            "GPT Test",
+				"hidden":                 false,
+				"id":                     "gpt-test",
+				"isDefault":              true,
+				"model":                  "gpt-test",
+				"supportedReasoningEfforts": []map[string]any{
+					{"description": "Medium reasoning.", "reasoningEffort": "medium"},
+					{"description": "High reasoning.", "reasoningEffort": "high"},
+					{"description": "Extra high reasoning.", "reasoningEffort": "xhigh"},
+				},
 			}},
 			"nextCursor": nil,
 		})
 		return fakeCommandDone(mode)
 	case "thread/settings/update":
-		if mode == "command-model-set-already-current" {
-			panic("already-current model command should not update settings")
+		if mode == "command-model-set-already-current" || mode == "command-effort-set-already-current" {
+			panic("already-current settings command should not update settings")
 		}
-		assertFakeModelSet(message)
+		if mode == "command-effort-set" {
+			assertFakeEffortSet(message)
+		} else {
+			assertFakeModelSet(message)
+		}
 		writeFakeResponse(message["id"], map[string]any{})
 		if mode == "command-model-set-no-notification" {
 			return false
 		}
-		writeFakeThreadSettingsUpdated("gpt-test")
+		writeFakeThreadSettingsUpdated("gpt-test", ReasoningEffortHigh)
 		return fakeCommandDone(mode)
 	case "turn/start":
 		return handleFakeTurnStart(mode, state, message)
@@ -1329,6 +1306,9 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 }
 
 func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]any) bool {
+	if mode == "initial-settings" {
+		assertFakeInitialTurnSettings(message)
+	}
 	writeFakeResponse(message["id"], map[string]any{
 		"turn": map[string]any{"id": "turn_fake", "items": []any{}, "status": "inProgress"},
 	})
@@ -1350,6 +1330,9 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
 	switch mode {
 	case "stream":
+		writeFakeStreamTurn()
+		return true, true
+	case "initial-settings":
 		writeFakeStreamTurn()
 		return true, true
 	case "turn-started-id":

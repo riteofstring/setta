@@ -140,11 +140,18 @@ function handleMessage(message) {
       }
       setTimeout(emitProtocolCoverageTurn, 5);
       return;
+    case "config/read":
+      respond(message.id, {
+        config: { model: "gpt-test", model_reasoning_effort: "xhigh" },
+        layers: [],
+        origins: {},
+      });
+      return;
     case "turn/interrupt":
       respond(message.id, {});
       return;
     case "model/list":
-      respond(message.id, { models: [] });
+      respond(message.id, { data: [], nextCursor: null });
       return;
     case "thread/goal/get":
       respond(message.id, { goal: null });

@@ -203,6 +203,7 @@ async function createCorruptChatFixture(tempRoot) {
   });
   await writeJson(join(workspaceDir, "conversations", validConversationId, "conversation.json"), {
     archivedAt: "",
+    codexSettings: null,
     createdAt: now,
     harnessRefs: [],
     id: validConversationId,
@@ -283,6 +284,7 @@ async function createCorruptChatFixture(tempRoot) {
     join(workspaceDir, "conversations", secondValidConversationId, "conversation.json"),
     {
       archivedAt: "",
+      codexSettings: null,
       createdAt: now,
       harnessRefs: [],
       id: secondValidConversationId,
@@ -294,6 +296,7 @@ async function createCorruptChatFixture(tempRoot) {
   );
   await writeJson(join(workspaceDir, "conversations", conversationId, "conversation.json"), {
     archivedAt: "",
+    codexSettings: null,
     createdAt: now,
     harnessRefs: [],
     id: conversationId,

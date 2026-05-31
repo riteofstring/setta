@@ -130,21 +130,33 @@ func goalChatCommand(raw string, args string, action GoalCommandAction, objectiv
 
 func parseModelCommand(raw string, args string) (ChatCommand, error) {
 	if args == "" {
-		return modelChatCommand(raw, args, ModelCommandShowPicker, ""), nil
+		return modelChatCommand(raw, args, ModelCommandShowPicker, "", nil), nil
+	}
+	name, value := splitCommandNameAndArgs(args)
+	if name == "effort" || name == "reasoning" {
+		if value == "" || strings.ContainsAny(value, " \t\r\n") {
+			return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "/model effort accepts exactly one reasoning level", nil)
+		}
+		effort := ReasoningEffort(value)
+		if !validValue(effort, reasoningEffortValues) {
+			return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "unsupported reasoning level: "+value, nil)
+		}
+		return modelChatCommand(raw, args, ModelCommandSetEffort, "", reasoningEffortResult(effort)), nil
 	}
 	if strings.ContainsAny(args, " \t\r\n") {
-		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "/model accepts exactly one model id", nil)
+		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "/model accepts exactly one model id or effort <level>", nil)
 	}
-	return modelChatCommand(raw, args, ModelCommandSet, args), nil
+	return modelChatCommand(raw, args, ModelCommandSet, args, nil), nil
 }
 
-func modelChatCommand(raw string, args string, action ModelCommandAction, modelID string) ChatCommand {
+func modelChatCommand(raw string, args string, action ModelCommandAction, modelID string, effort *ReasoningEffort) ChatCommand {
 	return ChatCommand{
 		Args: args,
 		Kind: ChatCommandModel,
 		Model: &ModelCommand{
-			Action:  action,
-			ModelID: modelID,
+			Action:          action,
+			ModelID:         modelID,
+			ReasoningEffort: effort,
 		},
 		Raw: raw,
 	}
@@ -171,12 +183,15 @@ type HarnessCommandListRequest struct {
 }
 
 type HarnessCommandResult struct {
-	Action        ChatCommandResultAction
-	Goal          *ChatGoalState
-	Models        []ChatModelOption
-	SelectedModel string
-	ThreadRef     HarnessThreadRef
-	HasThreadRef  bool
+	Action                  ChatCommandResultAction
+	CodexSettings           *ChatCodexSettings
+	Goal                    *ChatGoalState
+	Models                  []ChatModelOption
+	SelectedModel           string
+	ReasoningEfforts        []ChatReasoningEffortOption
+	SelectedReasoningEffort *ReasoningEffort
+	ThreadRef               HarnessThreadRef
+	HasThreadRef            bool
 }
 
 type HarnessCommandListResult struct {
@@ -199,11 +214,11 @@ func defaultCommandCapabilities(activeRun *Run) []ChatCommandCapability {
 		},
 		{
 			Available:         modelAvailable,
-			Description:       "Open the model picker or set the model for future turns.",
+			Description:       "Open the model picker or set the model or reasoning effort for future turns.",
 			Kind:              ChatCommandModel,
 			Name:              "/model",
 			UnavailableReason: modelReason,
-			Usage:             "/model [model-id]",
+			Usage:             "/model [model-id|effort <level>]",
 		},
 	}
 }
@@ -227,10 +242,36 @@ func commandNeedsThread(command ChatCommand) bool {
 	case ChatCommandGoal:
 		return true
 	case ChatCommandModel:
-		return command.Model != nil && command.Model.Action == ModelCommandSet
+		return command.Model != nil && (command.Model.Action == ModelCommandSet || command.Model.Action == ModelCommandSetEffort)
 	default:
 		return false
 	}
+}
+
+func reasoningEffortDisplayName(effort ReasoningEffort) string {
+	switch effort {
+	case ReasoningEffortNone:
+		return "None"
+	case ReasoningEffortMinimal:
+		return "Minimal"
+	case ReasoningEffortLow:
+		return "Low"
+	case ReasoningEffortMedium:
+		return "Medium"
+	case ReasoningEffortHigh:
+		return "High"
+	case ReasoningEffortXHigh:
+		return "Extra high"
+	default:
+		return string(effort)
+	}
+}
+
+func reasoningEffortResult(effort ReasoningEffort) *ReasoningEffort {
+	if effort == "" {
+		return nil
+	}
+	return &effort
 }
 
 func rejectSlashPromptForMessageEndpoint(prompt string) error {

@@ -2,6 +2,8 @@ import type {
   ChatCommandCapability,
   ChatCommandExecuteResult,
   ChatModelOption,
+  ChatReasoningEffortOption,
+  ReasoningEffort,
   WorkspaceSummary,
 } from "@generated/backend";
 import {
@@ -544,6 +546,9 @@ function Composer({
               onPickModel={(model) => {
                 void executeModelSelection(model);
               }}
+              onPickReasoningEffort={(effort) => {
+                void executeReasoningEffortSelection(effort);
+              }}
               selectedSuggestion={selectedSuggestion}
               suggestions={suggestions}
             />
@@ -614,6 +619,20 @@ function Composer({
       submittingRef.current = false;
     }
   }
+
+  async function executeReasoningEffortSelection(effort: ChatReasoningEffortOption) {
+    if (!chat.selectedConversation || disabled || submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
+    try {
+      await chat.executeCommand(reasoningEffortSelectionCommand(effort));
+      setDraft("");
+      setModelPicker(null);
+    } finally {
+      submittingRef.current = false;
+    }
+  }
 }
 
 export function CommandSuggestions({
@@ -622,6 +641,7 @@ export function CommandSuggestions({
   onDismissModelPicker,
   onPickCommand,
   onPickModel,
+  onPickReasoningEffort,
   selectedSuggestion,
   suggestions,
 }: {
@@ -630,14 +650,16 @@ export function CommandSuggestions({
   onDismissModelPicker: () => void;
   onPickCommand: (command: ChatCommandCapability) => void;
   onPickModel: (model: ChatModelOption) => void;
+  onPickReasoningEffort: (effort: ChatReasoningEffortOption) => void;
   selectedSuggestion: ChatCommandCapability | null;
   suggestions: ChatCommandCapability[];
 }) {
   if (modelPicker?.result.action === "model_picker") {
     const selectedModel = modelPicker.result.selectedModel;
+    const selectedReasoningEffort = modelPicker.result.selectedReasoningEffort;
     return (
       <div
-        className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
+        className="absolute bottom-full left-0 z-20 mb-2 max-h-80 w-full overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
         data-testid="model-picker"
       >
         <div className="mb-1 flex justify-end border-b border-zinc-700/70 pb-1">
@@ -651,6 +673,7 @@ export function CommandSuggestions({
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
+        <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-zinc-500">Model</div>
         {modelPicker.result.models.map((model) => {
           const selected = modelPickerOptionSelected(model, selectedModel);
           return (
@@ -677,6 +700,42 @@ export function CommandSuggestions({
             </button>
           );
         })}
+        {modelPicker.result.reasoningEfforts.length > 0 ? (
+          <>
+            <div className="mt-1 border-t border-zinc-700/70 px-2 pt-2 pb-1 text-[11px] font-medium text-zinc-500">
+              Reasoning
+            </div>
+            {modelPicker.result.reasoningEfforts.map((effort) => {
+              const selected = reasoningEffortOptionSelected(effort, selectedReasoningEffort);
+              return (
+                <button
+                  aria-current={selected ? "true" : undefined}
+                  className={cn(
+                    "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75",
+                    selected && "bg-zinc-700/70",
+                  )}
+                  data-reasoning-effort={effort.effort}
+                  data-reasoning-selected={selected ? "true" : undefined}
+                  key={effort.effort}
+                  onClick={() => onPickReasoningEffort(effort)}
+                  type="button"
+                >
+                  <span className="grid h-4 w-4 shrink-0 place-items-center">
+                    {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-zinc-100">
+                      {effort.displayName}
+                    </span>
+                    <span className="block truncate text-[11px] text-zinc-400">
+                      {effort.description}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        ) : null}
       </div>
     );
   }
@@ -750,6 +809,10 @@ export function modelSelectionCommand(model: ChatModelOption) {
   return `/model ${model.model}`;
 }
 
+export function reasoningEffortSelectionCommand(effort: ChatReasoningEffortOption) {
+  return `/model effort ${effort.effort}`;
+}
+
 export function modelPickerOptionSelected(
   model: Pick<ChatModelOption, "isDefault" | "model">,
   selectedModel: string,
@@ -758,6 +821,16 @@ export function modelPickerOptionSelected(
     return model.isDefault;
   }
   return model.model === selectedModel;
+}
+
+export function reasoningEffortOptionSelected(
+  effort: Pick<ChatReasoningEffortOption, "effort" | "isDefault">,
+  selectedReasoningEffort: ReasoningEffort | null,
+) {
+  if (selectedReasoningEffort === null) {
+    return effort.isDefault;
+  }
+  return effort.effort === selectedReasoningEffort;
 }
 
 function composerTextareaLabel(selected: boolean) {
