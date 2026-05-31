@@ -139,6 +139,9 @@ try {
   await delay(150);
   const afterPan = await getPixiSnapshot(context.client);
   assertCameraMoved(afterEscapeClear, afterPan, "empty-space pan after marquee interactions");
+  assertLabelsAttachedToNodeCenters(afterPan, "empty-space pan");
+  assertLabelsScreenSpace(afterPan, "empty-space pan");
+  assertReactRenderCountUnchanged(afterEscapeClear, afterPan, "empty-space pan label sync");
 
   await dispatchWheel(context.client, {
     deltaY: -360,
@@ -148,6 +151,9 @@ try {
   await delay(200);
   const afterZoom = await getPixiSnapshot(context.client);
   assertZoomChanged(afterPan, afterZoom);
+  assertLabelsAttachedToNodeCenters(afterZoom, "wheel zoom");
+  assertLabelsScreenSpace(afterZoom, "wheel zoom");
+  assertReactRenderCountUnchanged(afterPan, afterZoom, "wheel zoom label sync");
 
   await dispatchWheel(context.client, {
     deltaX: 34,
@@ -159,6 +165,9 @@ try {
   const afterWheelPan = await getPixiSnapshot(context.client);
   assertCameraMoved(afterZoom, afterWheelPan, "trackpad-style wheel pan");
   assertZoomUnchanged(afterZoom, afterWheelPan, "trackpad-style wheel pan");
+  assertLabelsAttachedToNodeCenters(afterWheelPan, "trackpad-style wheel pan");
+  assertLabelsScreenSpace(afterWheelPan, "trackpad-style wheel pan");
+  assertReactRenderCountUnchanged(afterZoom, afterWheelPan, "trackpad-style wheel pan label sync");
 
   const cancelPair = visiblePortPair(afterWheelPan);
   if (!cancelPair) {
@@ -190,7 +199,45 @@ try {
   await delay(200);
   const afterEdgeDraw = await getPixiSnapshot(context.client);
   assertEdgeCommitted(afterCancel, duringEdgeDraw, afterEdgeDraw, commitPair);
-  assertRendererFramesHealthy(afterEdgeDraw);
+  const deepZoomTarget = visibleNodes(afterEdgeDraw)[0];
+  if (!deepZoomTarget) {
+    throw new Error(
+      `no visible node was present for deep label zoom coverage: ${JSON.stringify(afterEdgeDraw.graph.nodes)}`,
+    );
+  }
+  await dispatchWheel(context.client, {
+    deltaY: -1200,
+    x: deepZoomTarget.screenX,
+    y: deepZoomTarget.screenY,
+  });
+  await delay(250);
+  const afterDeepZoom = await getPixiSnapshot(context.client);
+  assertZoomAtLeast(afterDeepZoom, 3, "deep label zoom");
+  assertLabelsAttachedToNodeCenters(afterDeepZoom, "deep label zoom");
+  assertLabelsScreenSpace(afterDeepZoom, "deep label zoom");
+  assertAtLeastOneVisibleLabel(afterDeepZoom, "deep label zoom");
+  assertReactRenderCountUnchanged(afterEdgeDraw, afterDeepZoom, "deep label zoom sync");
+  await captureScreenshot(context.client, join(artifactDir, "deep-zoom-labels.png"));
+
+  await dispatchWheel(context.client, {
+    deltaX: 34,
+    deltaY: 28,
+    x: deepZoomTarget.screenX,
+    y: deepZoomTarget.screenY,
+  });
+  await delay(150);
+  const afterDeepZoomPan = await getPixiSnapshot(context.client);
+  assertCameraMoved(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom");
+  assertZoomUnchanged(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom");
+  assertLabelsAttachedToNodeCenters(afterDeepZoomPan, "pan after deep label zoom");
+  assertLabelsScreenSpace(afterDeepZoomPan, "pan after deep label zoom");
+  assertAtLeastOneVisibleLabel(afterDeepZoomPan, "pan after deep label zoom");
+  assertReactRenderCountUnchanged(
+    afterDeepZoom,
+    afterDeepZoomPan,
+    "pan after deep label zoom sync",
+  );
+  assertRendererFramesHealthy(afterDeepZoomPan);
   await captureScreenshot(context.client, join(artifactDir, "final.png"));
 
   const consoleRows = await readJsonLinesOptional(join(artifactDir, "renderer-console.jsonl"));
@@ -203,6 +250,8 @@ try {
     afterCancel,
     afterCmdAdd,
     afterCmdRemove,
+    afterDeepZoom,
+    afterDeepZoomPan,
     afterEmptySelectionClear,
     afterEscapeClear,
     afterEdgeDraw,
@@ -421,6 +470,9 @@ function assertInitialSnapshot(snapshot) {
     throw new Error(`Pixi canvas appears blank: ${JSON.stringify(snapshot.visual)}`);
   }
   assertSelectionDebugShape(snapshot);
+  assertLabelsAttachedToNodeCenters(snapshot, "initial render");
+  assertLabelsScreenSpace(snapshot, "initial render");
+  assertAtLeastOneVisibleLabel(snapshot, "initial render");
 }
 
 function assertSelectionDebugShape(snapshot) {
@@ -449,6 +501,14 @@ function assertZoomChanged(before, after) {
   if (Math.abs(after.camera.zoom - before.camera.zoom) < 0.01) {
     throw new Error(
       `camera zoom did not change: before=${JSON.stringify(before.camera)} after=${JSON.stringify(after.camera)}`,
+    );
+  }
+}
+
+function assertZoomAtLeast(snapshot, minimumZoom, label) {
+  if (snapshot.camera.zoom < minimumZoom) {
+    throw new Error(
+      `${label} did not reach target zoom: minimum=${minimumZoom} camera=${JSON.stringify(snapshot.camera)}`,
     );
   }
 }
@@ -493,6 +553,76 @@ function assertSelectedExactly(snapshot, expectedNodeIds, label) {
   }
 }
 
+function assertLabelsAttachedToNodeCenters(snapshot, label) {
+  for (const node of snapshot.graph.nodes) {
+    const nodeCenter = { x: Math.round(node.screenX), y: Math.round(node.screenY) };
+    assertFiniteNumber(node.label?.screenX, `${label} ${node.id} label.screenX`);
+    assertFiniteNumber(node.label?.screenY, `${label} ${node.id} label.screenY`);
+    if (
+      Math.abs(node.label.screenX - nodeCenter.x) > 1 ||
+      Math.abs(node.label.screenY - nodeCenter.y) > 1
+    ) {
+      throw new Error(
+        `${label} label was not attached to node center: node=${JSON.stringify(node)}`,
+      );
+    }
+    if (
+      Math.abs(node.label.globalX - node.label.screenX) > 1 ||
+      Math.abs(node.label.globalY - node.label.screenY) > 1
+    ) {
+      throw new Error(
+        `${label} label global position did not match screen position: node=${JSON.stringify(node)}`,
+      );
+    }
+  }
+}
+
+function assertLabelsScreenSpace(snapshot, label) {
+  for (const node of snapshot.graph.nodes) {
+    if (!node.label || node.label.text.length === 0) {
+      throw new Error(`${label} node label was missing text: ${JSON.stringify(node)}`);
+    }
+    if (!node.label.visible) {
+      throw new Error(`${label} node label was hidden: ${JSON.stringify(node)}`);
+    }
+    if (node.label.eventMode !== "none") {
+      throw new Error(`${label} node label was interactive: ${JSON.stringify(node)}`);
+    }
+    const scaleFields = ["scaleX", "scaleY", "worldScaleX", "worldScaleY"];
+    for (const field of scaleFields) {
+      assertFiniteNumber(node.label[field], `${label} ${node.id} label.${field}`);
+      if (Math.abs(node.label[field] - 1) > 0.01) {
+        throw new Error(
+          `${label} label was viewport-scaled: field=${field} node=${JSON.stringify(node)} camera=${JSON.stringify(snapshot.camera)}`,
+        );
+      }
+    }
+  }
+}
+
+function assertAtLeastOneVisibleLabel(snapshot, label) {
+  const visibleLabels = snapshot.graph.nodes.filter((node) => visiblePoint(snapshot, node.label));
+  if (visibleLabels.length === 0) {
+    throw new Error(
+      `${label} did not leave any labels visible: nodes=${JSON.stringify(snapshot.graph.nodes)} camera=${JSON.stringify(snapshot.camera)}`,
+    );
+  }
+}
+
+function assertReactRenderCountUnchanged(before, after, label) {
+  if (after.render.reactRenderCount !== before.render.reactRenderCount) {
+    throw new Error(
+      `${label} changed React render count: before=${before.render.reactRenderCount} after=${after.render.reactRenderCount}`,
+    );
+  }
+}
+
+function assertFiniteNumber(value, label) {
+  if (!Number.isFinite(value)) {
+    throw new Error(`${label} was not finite: ${String(value)}`);
+  }
+}
+
 function assertMarqueeCommitted(before, during, after, targetNodeIds) {
   if (!during.interaction.drawingMarquee) {
     throw new Error(
@@ -531,6 +661,9 @@ function assertGroupDragMoved(before, after, selectedNodeIds) {
   assertCameraUnchanged(before, after, "group node drag");
   assertRenderCounterAdvanced(before, after, "nodeDragUpdateCount", "group node drag");
   assertRenderCounterAdvanced(before, after, "edgeRedrawCount", "group node drag edge redraw");
+  assertLabelsAttachedToNodeCenters(after, "group node drag");
+  assertLabelsScreenSpace(after, "group node drag");
+  assertReactRenderCountUnchanged(before, after, "group node drag label sync");
 
   const primaryBefore = nodeById(before, selectedNodeIds[0]);
   const primaryAfter = nodeById(after, selectedNodeIds[0]);

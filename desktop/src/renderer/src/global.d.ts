@@ -25,6 +25,19 @@ interface PixiWorkspaceDebugSnapshot {
     nodes: Array<{
       height: number;
       id: string;
+      label: {
+        eventMode: string;
+        globalX: number;
+        globalY: number;
+        screenX: number;
+        screenY: number;
+        scaleX: number;
+        scaleY: number;
+        text: string;
+        visible: boolean;
+        worldScaleX: number;
+        worldScaleY: number;
+      };
       ports: Array<{
         id: string;
         role: "source" | "target";

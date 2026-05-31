@@ -3,6 +3,7 @@
 import { Application, Container, Graphics, Point, Rectangle, Text } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 
+import { initialEdges, initialNodes } from "./pixi-workspace-fixture";
 import {
   cameraState,
   capturePointer,
@@ -34,67 +35,6 @@ const backgroundColor = 0x07080d;
 const maxZoom = 4;
 const minZoom = 0.25;
 const portHitRadiusScreen = 18;
-const initialNodes = [
-  {
-    color: 0x14b8a6,
-    height: 82,
-    id: "source",
-    label: "Source",
-    width: 168,
-    x: -360,
-    y: -140,
-  },
-  {
-    color: 0x8b5cf6,
-    height: 90,
-    id: "reason",
-    label: "Reason",
-    width: 184,
-    x: -70,
-    y: -40,
-  },
-  {
-    color: 0xf59e0b,
-    height: 82,
-    id: "output",
-    label: "Output",
-    width: 168,
-    x: 260,
-    y: -150,
-  },
-  {
-    color: 0x38bdf8,
-    height: 76,
-    id: "review",
-    label: "Review",
-    width: 160,
-    x: 110,
-    y: 150,
-  },
-];
-const initialEdges = [
-  {
-    id: "source-reason",
-    sourceNodeId: "source",
-    sourcePortId: "output",
-    targetNodeId: "reason",
-    targetPortId: "input",
-  },
-  {
-    id: "reason-output",
-    sourceNodeId: "reason",
-    sourcePortId: "output",
-    targetNodeId: "output",
-    targetPortId: "input",
-  },
-  {
-    id: "reason-review",
-    sourceNodeId: "reason",
-    sourcePortId: "output",
-    targetNodeId: "review",
-    targetPortId: "input",
-  },
-];
 
 export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRenderCount }) {
   const app = new Application();
@@ -124,7 +64,10 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   viewport.forceHitArea = new Rectangle(0, 0, screenSize.width, screenSize.height);
   viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
   viewport.moveCenter(0, 20);
-  app.stage.addChild(viewport);
+  const labelLayer = new Container();
+  labelLayer.eventMode = "none";
+  labelLayer.interactiveChildren = false;
+  app.stage.addChild(viewport, labelLayer);
 
   const backgroundLayer = new Container();
   const edgeLayer = new Container();
@@ -137,6 +80,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   const edges = initialEdges.map((edge) => ({ ...edge }));
   const nodeContainers = new Map();
   const nodeBodies = new Map();
+  const nodeLabels = new Map();
   const nodeOutlines = new Map();
   const portVisuals = new Map();
   const portVisualStates = new Map();
@@ -178,7 +122,9 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     const container = nodeContainer(node);
     nodeContainers.set(node.id, container);
     nodeLayer.addChild(container);
+    createNodeLabel(node);
   }
+  syncAllLabels();
   redrawEdges();
 
   const resizeObserver = new ResizeObserver(() => {
@@ -186,6 +132,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     app.renderer.resize(nextSize.width, nextSize.height);
     viewport.resize(nextSize.width, nextSize.height, 4000, 4000);
     viewport.forceHitArea = new Rectangle(0, 0, nextSize.width, nextSize.height);
+    syncAllLabels();
   });
   resizeObserver.observe(host);
 
@@ -356,6 +303,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     ) {
       cameraUpdateCount += 1;
       lastCameraState = nextCameraState;
+      syncAllLabels();
     }
     drawGlow(glow, now);
   });
@@ -389,9 +337,24 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             nodeCount: nodes.length,
             nodes: nodes.map((node) => {
               const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
+              const label = requireNodeLabel(node.id);
+              const labelGlobal = label.getGlobalPosition(new Point());
               return {
                 height: node.height,
                 id: node.id,
+                label: {
+                  eventMode: label.eventMode,
+                  globalX: labelGlobal.x,
+                  globalY: labelGlobal.y,
+                  screenX: label.x,
+                  screenY: label.y,
+                  scaleX: label.scale.x,
+                  scaleY: label.scale.y,
+                  text: label.text,
+                  visible: label.visible,
+                  worldScaleX: label.worldTransform.a,
+                  worldScaleY: label.worldTransform.d,
+                },
                 ports: ports.map((port) => {
                   const world = portWorldPosition(node, port.id);
                   const portScreen = viewport.toScreen(world.x, world.y);
@@ -475,22 +438,11 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     const shadow = new Graphics()
       .roundRect(7, 9, node.width, node.height, 8)
       .fill({ alpha: 0.14, color: 0x000000 });
-    const label = new Text({
-      style: {
-        fill: 0xf8fafc,
-        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-        fontSize: 16,
-        fontWeight: "700",
-      },
-      text: node.label,
-    });
-    label.x = 18;
-    label.y = 18;
     const outline = new Graphics();
     const portContainers = ports.map((port) => portContainer(node, port));
     nodeOutlines.set(node.id, outline);
 
-    container.addChild(shadow, body, label, outline, ...portContainers);
+    container.addChild(shadow, body, outline, ...portContainers);
     body.on("pointerover", () => {
       hoveredNodeIds.add(node.id);
       drawNodeOutline(node.id);
@@ -501,6 +453,24 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     });
 
     return container;
+  }
+
+  function createNodeLabel(node) {
+    const label = new Text({
+      style: {
+        align: "center",
+        fill: 0xf8fafc,
+        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+        fontSize: 16,
+        fontWeight: "700",
+      },
+      text: node.label,
+    });
+    label.anchor.set(0.5);
+    label.eventMode = "none";
+    label.roundPixels = true;
+    nodeLabels.set(node.id, label);
+    labelLayer.addChild(label);
   }
 
   function portContainer(node, port) {
@@ -575,6 +545,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       node.y = world.y - draggedNode.offsetY;
       container.x = node.x;
       container.y = node.y;
+      syncLabelPosition(node.id);
     }
     nodeDragUpdateCount += 1;
     redrawEdges();
@@ -866,6 +837,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     }
     const corner = viewport.corner;
     viewport.moveCorner(corner.x + deltaX / viewport.scaled, corner.y + deltaY / viewport.scaled);
+    syncAllLabels();
   }
 
   function zoomCameraAtScreen(screen, factor) {
@@ -878,6 +850,21 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     const screenAfter = viewport.toScreen(worldBefore);
     viewport.x += screen.x - screenAfter.x;
     viewport.y += screen.y - screenAfter.y;
+    syncAllLabels();
+  }
+
+  function syncAllLabels() {
+    for (const node of nodes) {
+      syncLabelPosition(node.id);
+    }
+  }
+
+  function syncLabelPosition(nodeId) {
+    const node = requireNode(nodeId);
+    const label = requireNodeLabel(nodeId);
+    const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
+    label.position.set(Math.round(screen.x), Math.round(screen.y));
+    label.scale.set(1);
   }
 
   function setPortVisualState(nodeId, portId, state) {
@@ -964,6 +951,14 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       throw new Error(`workspace edge references missing node: ${nodeId}`);
     }
     return node;
+  }
+
+  function requireNodeLabel(nodeId) {
+    const label = nodeLabels.get(nodeId);
+    if (!label) {
+      throw new Error(`workspace node label is missing: ${nodeId}`);
+    }
+    return label;
   }
 
   function requireEdgePort(edge, field) {
