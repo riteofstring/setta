@@ -27,11 +27,27 @@ describe("preload workspace API", () => {
     await import("./index");
 
     const api = exposed.setta as SettaAPI;
-    expect(Object.keys(api.app).sort()).toEqual(["versions"]);
+    expect(Object.keys(api.app).sort()).toEqual([
+      "openWorkspaceInVSCode",
+      "versions",
+      "workspaceGitInfo",
+    ]);
 
+    await api.app.openWorkspaceInVSCode("/tmp/workspace_api");
     await api.app.versions();
+    await api.app.workspaceGitInfo("/tmp/workspace_api");
 
-    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appVersions);
+    expect(invoke).toHaveBeenNthCalledWith(
+      1,
+      ipcChannels.appOpenWorkspaceInVSCode,
+      "/tmp/workspace_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.appVersions);
+    expect(invoke).toHaveBeenNthCalledWith(
+      3,
+      ipcChannels.appWorkspaceGitInfo,
+      "/tmp/workspace_api",
+    );
   });
 
   test("exposes typed workspace methods through IPC", async () => {

@@ -9,7 +9,9 @@ const invoke = createRendererIpcInvoke(ipcRenderer);
 
 const api: SettaAPI = {
   app: {
+    openWorkspaceInVSCode: (rootPath: string) => invoke("appOpenWorkspaceInVSCode", rootPath),
     versions: () => invoke("appVersions"),
+    workspaceGitInfo: (rootPath: string) => invoke("appWorkspaceGitInfo", rootPath),
   },
   backend: {
     health: () => invoke("backendHealth"),

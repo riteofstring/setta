@@ -1,19 +1,19 @@
 import type { BackendHealth, WorkspaceSession, WorkspaceSummary } from "@generated/backend";
 import {
-  CircleAlert,
-  CircleCheck,
+  ChevronDown,
+  Code2,
   Command,
   FolderOpen,
   GitBranch,
   Globe2,
   PanelTop,
-  RefreshCw,
   Search,
   Settings,
 } from "lucide-react";
-import type { PointerEvent, ReactNode } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import type { WorkspaceGitInfo } from "@shared/types";
 import settaLogo from "../../../img/logo/logo.svg";
 import { ChatPanel, useChatViewState } from "./components/chat-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -55,9 +55,9 @@ export function App() {
   return (
     <div className="grid h-screen min-h-0 grid-rows-[32px_minmax(0,1fr)] overflow-hidden bg-zinc-900 text-zinc-950">
       <AppMenuBar
-        backend={backend}
         openLocalFolder={workspace.openLocalFolder}
         refreshHealth={refreshHealth}
+        selectedWorkspace={workspace.selectedWorkspace}
       />
       <main className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900">
         <ResizablePane
@@ -106,13 +106,13 @@ export function App() {
 }
 
 function AppMenuBar({
-  backend,
   openLocalFolder,
   refreshHealth,
+  selectedWorkspace,
 }: {
-  backend: BackendState;
   openLocalFolder: () => Promise<void>;
   refreshHealth: () => Promise<void>;
+  selectedWorkspace: WorkspaceSummary | null;
 }) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const menus = useMemo<MenubarMenu[]>(
@@ -184,18 +184,216 @@ function AppMenuBar({
         <kbd className="text-[10px] text-zinc-500">cmd k</kbd>
       </button>
       <div className="flex min-w-0 items-center justify-end gap-2 text-xs text-zinc-400">
-        <BackendBadge backend={backend} />
-        <Button
-          aria-label="Refresh backend health"
-          className="app-no-drag h-6 border-zinc-700 bg-zinc-800 px-2 text-xs text-zinc-300 hover:bg-zinc-700"
-          onClick={() => void refreshHealth()}
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-        </Button>
+        <ShellWorkspaceControls selectedWorkspace={selectedWorkspace} />
       </div>
       <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
     </header>
   );
+}
+
+type WorkspaceGitState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { info: WorkspaceGitInfo; status: "ready" }
+  | { message: string; status: "error" };
+
+function ShellWorkspaceControls({
+  selectedWorkspace,
+}: {
+  selectedWorkspace: WorkspaceSummary | null;
+}) {
+  const git = useWorkspaceGitInfo(selectedWorkspace?.rootPath ?? null);
+  const branch = branchDropdown(git);
+  const worktree = worktreeDropdown(git, selectedWorkspace);
+
+  return (
+    <div className="app-no-drag flex min-w-0 items-center justify-end gap-1">
+      <VSCodeButton rootPath={selectedWorkspace?.rootPath ?? ""} />
+      <ShellDropdownButton
+        disabled={!selectedWorkspace}
+        icon={<GitBranch className="h-3.5 w-3.5" />}
+        items={branch.items}
+        label={branch.label}
+      />
+      <ShellDropdownButton
+        disabled={!selectedWorkspace}
+        icon={<FolderOpen className="h-3.5 w-3.5" />}
+        items={worktree.items}
+        label={worktree.label}
+      />
+    </div>
+  );
+}
+
+function VSCodeButton({ rootPath }: { rootPath: string }) {
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
+
+  const openInVSCode = async () => {
+    if (!rootPath || opening) {
+      return;
+    }
+    setOpenError(null);
+    setOpening(true);
+    try {
+      await window.setta.app.openWorkspaceInVSCode(rootPath);
+    } catch (error) {
+      setOpenError(error instanceof Error ? error.message : "Unable to open workspace in VS Code");
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  return (
+    <Button
+      aria-label="Open workspace in VS Code"
+      className="h-6 border-zinc-700 bg-zinc-800 px-2 text-[11px] text-zinc-300 hover:bg-zinc-700 hover:text-white disabled:opacity-40"
+      disabled={!rootPath || opening}
+      onClick={() => void openInVSCode()}
+      title={openError ?? "Open workspace in VS Code"}
+    >
+      <Code2 className="h-3.5 w-3.5" />
+      <span className="hidden sm:inline">{opening ? "Opening" : "VS Code"}</span>
+    </Button>
+  );
+}
+
+function branchDropdown(git: WorkspaceGitState) {
+  if (git.status === "ready") {
+    return {
+      items: [
+        { label: "Branch", value: git.info.branchName },
+        { label: "Commit", value: git.info.commitShort },
+      ],
+      label: git.info.branchName,
+    };
+  }
+  return {
+    items: [
+      {
+        label: git.status === "loading" ? "Reading git metadata" : "Git unavailable",
+        value: git.status === "error" ? git.message : "",
+      },
+    ],
+    label: git.status === "loading" ? "Branch" : "No branch",
+  };
+}
+
+function worktreeDropdown(git: WorkspaceGitState, selectedWorkspace: WorkspaceSummary | null) {
+  const fallbackLabel = selectedWorkspace?.displayName ?? "No worktree";
+  const label = git.status === "ready" ? git.info.worktreeName : fallbackLabel;
+  return {
+    items: [
+      { label: "Worktree", value: label },
+      {
+        label: "Path",
+        value: git.status === "ready" ? git.info.worktreeRoot : (selectedWorkspace?.rootPath ?? ""),
+      },
+    ],
+    label,
+  };
+}
+
+function ShellDropdownButton({
+  disabled = false,
+  icon,
+  items,
+  label,
+}: {
+  disabled?: boolean;
+  icon: ReactNode;
+  items: { label: string; value: string }[];
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const closeOnPointerDown = (event: globalThis.PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    window.addEventListener("pointerdown", closeOnPointerDown);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", closeOnPointerDown);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative min-w-0" ref={rootRef}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="inline-flex h-6 max-w-36 min-w-0 items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800 px-2 text-[11px] text-zinc-300 hover:bg-zinc-700 hover:text-white disabled:pointer-events-none disabled:opacity-40"
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        {icon}
+        <span className="min-w-0 truncate">{label}</span>
+        <ChevronDown className="h-3 w-3 shrink-0 text-zinc-500" />
+      </button>
+      {open ? (
+        <div
+          className="absolute top-full right-0 z-50 mt-1 grid min-w-56 gap-1 rounded-md border border-zinc-700 bg-zinc-950 p-1 text-xs text-zinc-100 shadow-xl"
+          role="menu"
+        >
+          {items.map((item) => (
+            <div className="grid gap-0.5 rounded px-2 py-1.5" key={item.label} role="menuitem">
+              <span className="text-[10px] tracking-wide text-zinc-500 uppercase">
+                {item.label}
+              </span>
+              <span className="max-w-80 truncate text-zinc-200">{item.value || "Unavailable"}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function useWorkspaceGitInfo(rootPath: string | null): WorkspaceGitState {
+  const [state, setState] = useState<WorkspaceGitState>({ status: "idle" });
+
+  useEffect(() => {
+    if (!rootPath) {
+      setState({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState({ status: "loading" });
+    void window.setta.app
+      .workspaceGitInfo(rootPath)
+      .then((info) => {
+        if (!cancelled) {
+          setState({ info, status: "ready" });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setState({
+            message: error instanceof Error ? error.message : "Unable to read git metadata",
+            status: "error",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rootPath]);
+
+  return state;
 }
 
 function CommandPalette({
@@ -282,7 +480,7 @@ function ResizablePane({
   width: number;
 }) {
   const startResize = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
+    (event: ReactPointerEvent<HTMLDivElement>) => {
       const startX = event.clientX;
       const startWidth = width;
       const previousCursor = document.body.style.cursor;
@@ -615,24 +813,4 @@ const operationLabels = {
 
 function operationLabel(operation: WorkspaceOperationKind) {
   return operationLabels[operation];
-}
-
-function BackendBadge({ backend }: { backend: BackendState }) {
-  if (backend.status === "online") {
-    return (
-      <Badge data-testid="backend-status" variant="success">
-        <CircleCheck className="h-3.5 w-3.5" />
-        Online
-      </Badge>
-    );
-  }
-  if (backend.status === "offline") {
-    return (
-      <Badge data-testid="backend-status" variant="danger">
-        <CircleAlert className="h-3.5 w-3.5" />
-        Offline
-      </Badge>
-    );
-  }
-  return <Badge data-testid="backend-status">Checking</Badge>;
 }

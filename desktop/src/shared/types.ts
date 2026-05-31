@@ -19,6 +19,13 @@ export interface RuntimeVersions {
   node: string;
 }
 
+export interface WorkspaceGitInfo {
+  branchName: string;
+  commitShort: string;
+  worktreeName: string;
+  worktreeRoot: string;
+}
+
 export interface SubmitApprovalInput {
   workspaceId: string;
   conversationId: string;
@@ -31,7 +38,9 @@ export interface SubmitApprovalInput {
 
 export interface SettaAPI {
   app: {
+    openWorkspaceInVSCode: (rootPath: string) => Promise<void>;
     versions: () => Promise<RuntimeVersions>;
+    workspaceGitInfo: (rootPath: string) => Promise<WorkspaceGitInfo>;
   };
   backend: {
     health: () => Promise<BackendHealth>;

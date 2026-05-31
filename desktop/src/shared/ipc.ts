@@ -11,10 +11,12 @@ import type {
   SendMessageResult,
   WorkspaceSession,
 } from "@generated/backend";
-import type { RuntimeVersions, SubmitApprovalInput } from "./types";
+import type { RuntimeVersions, SubmitApprovalInput, WorkspaceGitInfo } from "./types";
 
 export const ipcChannels = {
+  appOpenWorkspaceInVSCode: "app:open-workspace-in-vscode",
   appVersions: "app:versions",
+  appWorkspaceGitInfo: "app:workspace-git-info",
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
@@ -37,9 +39,17 @@ export const ipcEvents = {
 } as const;
 
 interface IpcContract {
+  appOpenWorkspaceInVSCode: {
+    args: [rootPath: string];
+    result: void;
+  };
   appVersions: {
     args: [];
     result: RuntimeVersions;
+  };
+  appWorkspaceGitInfo: {
+    args: [rootPath: string];
+    result: WorkspaceGitInfo;
   };
   backendHealth: {
     args: [];

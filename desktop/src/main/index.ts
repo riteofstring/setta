@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -10,6 +10,7 @@ import { startBackendEventStream, type BackendEventStream } from "./backend-even
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
+import { createVSCodeWorkspaceURI, readWorkspaceGitInfo } from "./workspace-actions";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
@@ -139,6 +140,22 @@ function registerIpc() {
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
   });
+  handleIpc(
+    ipcMain,
+    "appOpenWorkspaceInVSCode",
+    async (_event, rootPath) => {
+      await shell.openExternal(createVSCodeWorkspaceURI(rootPath));
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appWorkspaceGitInfo",
+    async (_event, rootPath) => {
+      return readWorkspaceGitInfo(rootPath);
+    },
+    ipcObserver,
+  );
   handleIpc(
     ipcMain,
     "appVersions",
