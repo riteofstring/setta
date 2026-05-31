@@ -283,6 +283,9 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain('data-testid="right-workspace-pane"');
+    expect(html).toContain('data-testid="right-workspace-pane-header"');
+    expect(html).toContain("app-drag relative z-40");
+    expect(html).toContain("app-no-drag relative shrink-0");
     expect(html).not.toContain("Right pane");
     expect(html).toContain("New pane tab");
     expect(html).toContain("Canvas");
