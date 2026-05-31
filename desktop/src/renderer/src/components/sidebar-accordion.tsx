@@ -82,7 +82,7 @@ export function SidebarAccordionSection({
         <div
           className={resized && open ? "h-full min-h-0 overflow-y-auto" : "min-h-0 overflow-hidden"}
         >
-          <div className="pb-1" ref={contentRef}>
+          <div className="pb-4" ref={contentRef}>
             {children}
           </div>
         </div>
@@ -153,11 +153,11 @@ function SectionResizeHandle({
     <div
       aria-label={label}
       aria-orientation="horizontal"
-      className="absolute inset-x-2 bottom-0 h-2 cursor-row-resize opacity-0 transition-opacity group-hover/section:opacity-100"
+      className="absolute inset-x-2 bottom-0 h-4 cursor-row-resize opacity-0 transition-opacity group-hover/section:opacity-100"
       onPointerDown={beginResize}
       role="separator"
     >
-      <div className="mx-auto mt-[3px] h-px w-10 rounded-full bg-zinc-600/80" />
+      <div className="mx-auto mt-2 h-px w-10 rounded-full bg-zinc-600/80" />
     </div>
   );
 }
