@@ -588,7 +588,7 @@ function WorkspacePaneTabNav({
 }) {
   return (
     <nav
-      className="app-no-drag flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden"
+      className="app-drag flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden"
       aria-label={`${paneLabel} tabs`}
     >
       {tabs.map((tab) => (
@@ -775,23 +775,35 @@ function WorkspacePaneTabButton({
   paneId: string;
   tab: WorkspacePaneTab;
 }) {
+  const dragTitle = `Drag ${tab.title} to split pane`;
+  const handleDragStart = (event: DragEvent<HTMLElement>) => {
+    event.stopPropagation();
+    const payload = { sourcePaneId: paneId, tabId: tab.id };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(workspacePaneTabDragMimeType, JSON.stringify(payload));
+    onDragStart?.(payload);
+  };
+  const handleDragEnd = (event: DragEvent<HTMLElement>) => {
+    event.stopPropagation();
+    onDragEnd?.();
+  };
+
   return (
     <div
       className={workspacePaneTabClass(tab.kind, active)}
       draggable
-      onDragEnd={onDragEnd}
-      onDragStart={(event) => {
-        const payload = { sourcePaneId: paneId, tabId: tab.id };
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData(workspacePaneTabDragMimeType, JSON.stringify(payload));
-        onDragStart?.(payload);
-      }}
+      onDragEnd={handleDragEnd}
+      onDragStart={handleDragStart}
       data-testid={`workspace-pane-tab-${tab.id}`}
+      title={dragTitle}
     >
       <button
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 truncate pr-1 text-left outline-none focus-visible:text-zinc-50 focus-visible:underline focus-visible:decoration-zinc-400 focus-visible:underline-offset-2"
+        className="flex min-w-0 flex-1 cursor-grab items-center gap-1 truncate pr-1 text-left outline-none active:cursor-grabbing focus-visible:text-zinc-50 focus-visible:underline focus-visible:decoration-zinc-400 focus-visible:underline-offset-2"
+        draggable
         onClick={onSelect}
-        onPointerDown={(event) => event.stopPropagation()}
+        onDragEnd={handleDragEnd}
+        onDragStart={handleDragStart}
+        title={dragTitle}
         type="button"
       >
         <span className="relative grid h-4 w-4 shrink-0 place-items-center">
@@ -848,7 +860,7 @@ export function readWorkspacePaneTabDragPayload(
 
 function workspacePaneTabClass(kind: WorkspacePaneKind, active: boolean) {
   const base =
-    "app-no-drag group relative flex h-7 min-w-0 max-w-40 items-center rounded-sm border px-1.5 text-xs transition-colors";
+    "app-no-drag group relative flex h-7 min-w-0 max-w-40 cursor-grab items-center rounded-sm border px-1.5 text-xs transition-colors active:cursor-grabbing";
   if (kind === "chat") {
     return cn(
       base,

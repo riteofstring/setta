@@ -123,6 +123,7 @@ async function main() {
       liveWorkflowTimeoutMs,
       openWorkspace,
       recordingRoot,
+      removeTree,
       repoRoot,
       stopElectron,
       assertNoVisibleUserMessage,

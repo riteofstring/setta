@@ -331,8 +331,11 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain('data-in-shell-top-bar="true"');
+    expect(html).toContain("app-drag flex min-w-0 flex-1 flex-nowrap");
+    expect(html).toContain("app-no-drag group relative flex h-7");
     expect(html).toContain('draggable="true"');
     expect(html).toContain('data-testid="workspace-pane-tab-tab_chat"');
+    expect(html).toContain('title="Drag Chat to split pane"');
   });
 
   test("caps workspace panes at four", () => {

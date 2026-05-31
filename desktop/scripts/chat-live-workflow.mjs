@@ -1,4 +1,3 @@
-import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
@@ -20,6 +19,7 @@ export async function runLiveCodexWorkflow(results, deps) {
     liveWorkflowTimeoutMs,
     openWorkspace,
     recordingRoot,
+    removeTree,
     repoRoot,
     stopElectron,
     submitComposer,
@@ -130,8 +130,8 @@ export async function runLiveCodexWorkflow(results, deps) {
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await rm(fixture.tempRoot, { force: true, recursive: true });
-    await rm(liveEnv.codexHome, { force: true, recursive: true });
+    await removeTree(fixture.tempRoot);
+    await removeTree(liveEnv.codexHome);
   }
 
   if (failure) {
