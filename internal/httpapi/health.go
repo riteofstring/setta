@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
@@ -54,10 +53,6 @@ type ReorderWorkspaceRequest struct {
 
 type RemoveRecentWorkspaceRequest struct {
 	ID string `json:"id"`
-}
-
-type UpdateAppearanceSettingsRequest struct {
-	Settings appearance.AppearanceSettings `json:"settings"`
 }
 
 type ListConversationsRequest struct {
@@ -212,11 +207,6 @@ type WorkspaceService interface {
 	Session() workspacesession.WorkspaceSession
 }
 
-type AppearanceService interface {
-	Read(context.Context) (appearance.AppearanceSettings, error)
-	Update(context.Context, appearance.AppearanceSettings) (appearance.AppearanceSettings, error)
-}
-
 type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
@@ -250,7 +240,6 @@ type CodexAccountService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService   AppearanceService
 	Metadata            BackendMetadata
 	ChatService         ChatService
 	CodexAccountService CodexAccountService
@@ -258,7 +247,6 @@ type HandlerConfig struct {
 }
 
 type handler struct {
-	appearanceService   AppearanceService
 	metadata            BackendMetadata
 	chatService         ChatService
 	codexAccountService CodexAccountService
@@ -267,7 +255,6 @@ type handler struct {
 
 func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
-		appearanceService:   config.AppearanceService,
 		metadata:            config.Metadata,
 		chatService:         config.ChatService,
 		codexAccountService: config.CodexAccountService,
@@ -284,36 +271,6 @@ func (handler handler) health(response http.ResponseWriter, request *http.Reques
 		Name:    handler.metadata.Name,
 		Version: handler.metadata.Version,
 	})
-}
-
-func (handler handler) readAppearanceSettings(response http.ResponseWriter, request *http.Request) {
-	service := requireAppearanceService(response, handler.appearanceService)
-	if service == nil {
-		return
-	}
-	settings, err := service.Read(request.Context())
-	if err != nil {
-		writeAppearanceError(response, "read_appearance_settings_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, settings)
-}
-
-func (handler handler) updateAppearanceSettings(response http.ResponseWriter, request *http.Request) {
-	service := requireAppearanceService(response, handler.appearanceService)
-	if service == nil {
-		return
-	}
-	var payload UpdateAppearanceSettingsRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	settings, err := service.Update(request.Context(), payload.Settings)
-	if err != nil {
-		writeAppearanceError(response, "update_appearance_settings_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, settings)
 }
 
 func (handler handler) workspaceSession(response http.ResponseWriter, request *http.Request) {
@@ -909,14 +866,6 @@ func requireWorkspaceService(response http.ResponseWriter, service WorkspaceServ
 	return service
 }
 
-func requireAppearanceService(response http.ResponseWriter, service AppearanceService) AppearanceService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "appearance_service_unavailable", "appearance service is not available")
-		return nil
-	}
-	return service
-}
-
 func requireChatService(response http.ResponseWriter, service ChatService) ChatService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "chat_service_unavailable", "chat service is not available")
@@ -956,18 +905,6 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 		return
 	}
 	if appstate.IsPersistenceError(err) || workspace.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
-}
-
-func writeAppearanceError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
-	if appearance.IsCorruptSettingsError(err) {
-		writeError(response, status, code, err.Error())
-		return
-	}
-	if appearance.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())

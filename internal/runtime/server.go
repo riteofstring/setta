@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
@@ -23,7 +22,6 @@ import (
 	"setta/internal/workspacesession"
 )
 
-var _ httpapi.AppearanceService = (*appearance.Service)(nil)
 var _ httpapi.ChatService = (*chat.Service)(nil)
 
 type Config struct {
@@ -58,7 +56,6 @@ type Server struct {
 }
 
 type runtimeServices struct {
-	appearanceService   *appearance.Service
 	chatService         *chat.Service
 	codexAccountService *codexaccount.Service
 	codexManager        *codexapp.Manager
@@ -157,14 +154,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("load workspace session: %w", err)
 	}
-	appearanceStore, err := appearance.NewStore(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create appearance settings store: %w", err)
-	}
-	appearanceService, err := appearance.NewService(appearanceStore)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("load appearance settings: %w", err)
-	}
 	chatStore, err := chat.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create chat store: %w", err)
@@ -190,7 +179,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	}
 
 	return runtimeServices{
-		appearanceService:   appearanceService,
 		chatService:         chatService,
 		codexAccountService: codexAccountService,
 		codexManager:        codexManager,
@@ -205,7 +193,6 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 				Name:    httpapi.BackendName,
 				Version: config.Version,
 			},
-			AppearanceService:   services.appearanceService,
 			ChatService:         services.chatService,
 			CodexAccountService: services.codexAccountService,
 			WorkspaceService:    services.workspaceService,

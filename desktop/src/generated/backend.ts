@@ -15,22 +15,6 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
-export type AppearanceColorMode = "dark" | "light";
-
-export const appearanceColorModeValues = ["dark", "light"] as const satisfies readonly AppearanceColorMode[];
-
-export function decodeAppearanceColorMode(value: unknown, label = "AppearanceColorMode"): AppearanceColorMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "dark":
-      return decoded;
-    case "light":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
@@ -533,90 +517,6 @@ export interface BackendHealth {
   ok: boolean;
   name: string;
   version: string;
-}
-
-export interface AppearanceTailwindPalette {
-  zinc50: string;
-  zinc100: string;
-  zinc150: string;
-  zinc200: string;
-  zinc300: string;
-  zinc400: string;
-  zinc500: string;
-  zinc600: string;
-  zinc700: string;
-  zinc750: string;
-  zinc800: string;
-  zinc850: string;
-  zinc860: string;
-  zinc875: string;
-  zinc900: string;
-  zinc925: string;
-  zinc950: string;
-  zinc975: string;
-}
-
-export interface AppearanceShadcnPalette {
-  background: string;
-  foreground: string;
-  card: string;
-  cardForeground: string;
-  popover: string;
-  popoverForeground: string;
-  primary: string;
-  primaryForeground: string;
-  secondary: string;
-  secondaryForeground: string;
-  muted: string;
-  mutedForeground: string;
-  accent: string;
-  accentForeground: string;
-  destructive: string;
-  destructiveForeground: string;
-  border: string;
-  input: string;
-  ring: string;
-  sidebar: string;
-  sidebarForeground: string;
-  sidebarAccent: string;
-  sidebarAccentForeground: string;
-}
-
-export interface AppearanceStatusPalette {
-  info: string;
-  infoForeground: string;
-  success: string;
-  successForeground: string;
-  warning: string;
-  warningForeground: string;
-  alert: string;
-  alertForeground: string;
-  critical: string;
-  criticalForeground: string;
-}
-
-export interface AppearanceColorScheme {
-  tailwind: AppearanceTailwindPalette;
-  shadcn: AppearanceShadcnPalette;
-  status: AppearanceStatusPalette;
-}
-
-export interface AppearanceFontScheme {
-  sans: string;
-  mono: string;
-  heading: string;
-}
-
-export interface AppearanceSettings {
-  schemaVersion: number;
-  mode: AppearanceColorMode;
-  light: AppearanceColorScheme;
-  dark: AppearanceColorScheme;
-  fonts: AppearanceFontScheme;
-}
-
-export interface UpdateAppearanceSettingsRequest {
-  settings: AppearanceSettings;
 }
 
 export interface WorkspaceSummary {
@@ -1449,14 +1349,6 @@ export const backendEndpoints = {
     method: "GET",
     path: "/health",
   },
-  ReadAppearanceSettings: {
-    method: "GET",
-    path: "/appearance/settings",
-  },
-  UpdateAppearanceSettings: {
-    method: "POST",
-    path: "/appearance/settings",
-  },
   WorkspaceSession: {
     method: "GET",
     path: "/workspace-session",
@@ -1590,118 +1482,6 @@ export function decodeBackendHealth(value: unknown): BackendHealth {
     ok: decodeBoolean(requireField(record, "ok", "BackendHealth"), "BackendHealth.ok"),
     name: decodeString(requireField(record, "name", "BackendHealth"), "BackendHealth.name"),
     version: decodeString(requireField(record, "version", "BackendHealth"), "BackendHealth.version"),
-  };
-}
-
-export function decodeAppearanceTailwindPalette(value: unknown): AppearanceTailwindPalette {
-  const record = assertRecord(value, "AppearanceTailwindPalette");
-  assertKnownFields(record, "AppearanceTailwindPalette", ["zinc50", "zinc100", "zinc150", "zinc200", "zinc300", "zinc400", "zinc500", "zinc600", "zinc700", "zinc750", "zinc800", "zinc850", "zinc860", "zinc875", "zinc900", "zinc925", "zinc950", "zinc975"]);
-  return {
-    zinc50: decodeString(requireField(record, "zinc50", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc50"),
-    zinc100: decodeString(requireField(record, "zinc100", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc100"),
-    zinc150: decodeString(requireField(record, "zinc150", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc150"),
-    zinc200: decodeString(requireField(record, "zinc200", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc200"),
-    zinc300: decodeString(requireField(record, "zinc300", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc300"),
-    zinc400: decodeString(requireField(record, "zinc400", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc400"),
-    zinc500: decodeString(requireField(record, "zinc500", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc500"),
-    zinc600: decodeString(requireField(record, "zinc600", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc600"),
-    zinc700: decodeString(requireField(record, "zinc700", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc700"),
-    zinc750: decodeString(requireField(record, "zinc750", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc750"),
-    zinc800: decodeString(requireField(record, "zinc800", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc800"),
-    zinc850: decodeString(requireField(record, "zinc850", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc850"),
-    zinc860: decodeString(requireField(record, "zinc860", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc860"),
-    zinc875: decodeString(requireField(record, "zinc875", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc875"),
-    zinc900: decodeString(requireField(record, "zinc900", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc900"),
-    zinc925: decodeString(requireField(record, "zinc925", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc925"),
-    zinc950: decodeString(requireField(record, "zinc950", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc950"),
-    zinc975: decodeString(requireField(record, "zinc975", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc975"),
-  };
-}
-
-export function decodeAppearanceShadcnPalette(value: unknown): AppearanceShadcnPalette {
-  const record = assertRecord(value, "AppearanceShadcnPalette");
-  assertKnownFields(record, "AppearanceShadcnPalette", ["background", "foreground", "card", "cardForeground", "popover", "popoverForeground", "primary", "primaryForeground", "secondary", "secondaryForeground", "muted", "mutedForeground", "accent", "accentForeground", "destructive", "destructiveForeground", "border", "input", "ring", "sidebar", "sidebarForeground", "sidebarAccent", "sidebarAccentForeground"]);
-  return {
-    background: decodeString(requireField(record, "background", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.background"),
-    foreground: decodeString(requireField(record, "foreground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.foreground"),
-    card: decodeString(requireField(record, "card", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.card"),
-    cardForeground: decodeString(requireField(record, "cardForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.cardForeground"),
-    popover: decodeString(requireField(record, "popover", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.popover"),
-    popoverForeground: decodeString(requireField(record, "popoverForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.popoverForeground"),
-    primary: decodeString(requireField(record, "primary", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.primary"),
-    primaryForeground: decodeString(requireField(record, "primaryForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.primaryForeground"),
-    secondary: decodeString(requireField(record, "secondary", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.secondary"),
-    secondaryForeground: decodeString(requireField(record, "secondaryForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.secondaryForeground"),
-    muted: decodeString(requireField(record, "muted", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.muted"),
-    mutedForeground: decodeString(requireField(record, "mutedForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.mutedForeground"),
-    accent: decodeString(requireField(record, "accent", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.accent"),
-    accentForeground: decodeString(requireField(record, "accentForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.accentForeground"),
-    destructive: decodeString(requireField(record, "destructive", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.destructive"),
-    destructiveForeground: decodeString(requireField(record, "destructiveForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.destructiveForeground"),
-    border: decodeString(requireField(record, "border", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.border"),
-    input: decodeString(requireField(record, "input", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.input"),
-    ring: decodeString(requireField(record, "ring", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.ring"),
-    sidebar: decodeString(requireField(record, "sidebar", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.sidebar"),
-    sidebarForeground: decodeString(requireField(record, "sidebarForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.sidebarForeground"),
-    sidebarAccent: decodeString(requireField(record, "sidebarAccent", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.sidebarAccent"),
-    sidebarAccentForeground: decodeString(requireField(record, "sidebarAccentForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.sidebarAccentForeground"),
-  };
-}
-
-export function decodeAppearanceStatusPalette(value: unknown): AppearanceStatusPalette {
-  const record = assertRecord(value, "AppearanceStatusPalette");
-  assertKnownFields(record, "AppearanceStatusPalette", ["info", "infoForeground", "success", "successForeground", "warning", "warningForeground", "alert", "alertForeground", "critical", "criticalForeground"]);
-  return {
-    info: decodeString(requireField(record, "info", "AppearanceStatusPalette"), "AppearanceStatusPalette.info"),
-    infoForeground: decodeString(requireField(record, "infoForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.infoForeground"),
-    success: decodeString(requireField(record, "success", "AppearanceStatusPalette"), "AppearanceStatusPalette.success"),
-    successForeground: decodeString(requireField(record, "successForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.successForeground"),
-    warning: decodeString(requireField(record, "warning", "AppearanceStatusPalette"), "AppearanceStatusPalette.warning"),
-    warningForeground: decodeString(requireField(record, "warningForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.warningForeground"),
-    alert: decodeString(requireField(record, "alert", "AppearanceStatusPalette"), "AppearanceStatusPalette.alert"),
-    alertForeground: decodeString(requireField(record, "alertForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.alertForeground"),
-    critical: decodeString(requireField(record, "critical", "AppearanceStatusPalette"), "AppearanceStatusPalette.critical"),
-    criticalForeground: decodeString(requireField(record, "criticalForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.criticalForeground"),
-  };
-}
-
-export function decodeAppearanceColorScheme(value: unknown): AppearanceColorScheme {
-  const record = assertRecord(value, "AppearanceColorScheme");
-  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status"]);
-  return {
-    tailwind: decodeAppearanceTailwindPalette(requireField(record, "tailwind", "AppearanceColorScheme")),
-    shadcn: decodeAppearanceShadcnPalette(requireField(record, "shadcn", "AppearanceColorScheme")),
-    status: decodeAppearanceStatusPalette(requireField(record, "status", "AppearanceColorScheme")),
-  };
-}
-
-export function decodeAppearanceFontScheme(value: unknown): AppearanceFontScheme {
-  const record = assertRecord(value, "AppearanceFontScheme");
-  assertKnownFields(record, "AppearanceFontScheme", ["sans", "mono", "heading"]);
-  return {
-    sans: decodeString(requireField(record, "sans", "AppearanceFontScheme"), "AppearanceFontScheme.sans"),
-    mono: decodeString(requireField(record, "mono", "AppearanceFontScheme"), "AppearanceFontScheme.mono"),
-    heading: decodeString(requireField(record, "heading", "AppearanceFontScheme"), "AppearanceFontScheme.heading"),
-  };
-}
-
-export function decodeAppearanceSettings(value: unknown): AppearanceSettings {
-  const record = assertRecord(value, "AppearanceSettings");
-  assertKnownFields(record, "AppearanceSettings", ["schemaVersion", "mode", "light", "dark", "fonts"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "AppearanceSettings"), "AppearanceSettings.schemaVersion"),
-    mode: decodeAppearanceColorMode(requireField(record, "mode", "AppearanceSettings"), "AppearanceSettings.mode"),
-    light: decodeAppearanceColorScheme(requireField(record, "light", "AppearanceSettings")),
-    dark: decodeAppearanceColorScheme(requireField(record, "dark", "AppearanceSettings")),
-    fonts: decodeAppearanceFontScheme(requireField(record, "fonts", "AppearanceSettings")),
-  };
-}
-
-export function decodeUpdateAppearanceSettingsRequest(value: unknown): UpdateAppearanceSettingsRequest {
-  const record = assertRecord(value, "UpdateAppearanceSettingsRequest");
-  assertKnownFields(record, "UpdateAppearanceSettingsRequest", ["settings"]);
-  return {
-    settings: decodeAppearanceSettings(requireField(record, "settings", "UpdateAppearanceSettingsRequest")),
   };
 }
 
@@ -3066,8 +2846,6 @@ function decodeCodexAccountChangedEventFromRecord(record: Record<string, unknown
 
 export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
-  readAppearanceSettings: () => Promise<AppearanceSettings>;
-  updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
   workspaceSession: () => Promise<WorkspaceSession>;
   openWorkspace: (request: OpenWorkspaceRequest) => Promise<OpenWorkspaceResponse>;
   selectWorkspace: (request: SelectWorkspaceRequest) => Promise<WorkspaceSession>;
@@ -3109,22 +2887,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       endpoint: backendEndpoints.BackendHealth,
       fetchImpl,
       requestPayload: undefined,
-    }),
-    readAppearanceSettings: () => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeAppearanceSettings,
-      endpoint: backendEndpoints.ReadAppearanceSettings,
-      fetchImpl,
-      requestPayload: undefined,
-    }),
-    updateAppearanceSettings: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeAppearanceSettings,
-      endpoint: backendEndpoints.UpdateAppearanceSettings,
-      fetchImpl,
-      requestPayload: request,
     }),
     workspaceSession: () => requestBackend({
       baseURL,

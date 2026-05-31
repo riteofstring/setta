@@ -43,10 +43,6 @@ const api: SettaAPI = {
       };
     },
   },
-  appearance: {
-    read: () => invoke("appearanceRead"),
-    update: (request) => invoke("appearanceUpdate", request),
-  },
   chat: {
     activeRun: (workspaceId: string, conversationId: string) =>
       invoke("chatActiveRun", workspaceId, conversationId),

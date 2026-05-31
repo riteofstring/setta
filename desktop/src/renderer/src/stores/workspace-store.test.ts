@@ -272,14 +272,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       onEventStreamStatus: () => () => {},
       onProcessStatus: () => () => {},
     },
-    appearance: {
-      read: async () => {
-        throw new Error("appearance read is not used by workspace store tests");
-      },
-      update: async () => {
-        throw new Error("appearance update is not used by workspace store tests");
-      },
-    },
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
