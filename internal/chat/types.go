@@ -68,6 +68,7 @@ const (
 	ApprovalKindCommand    ApprovalKind = "command"
 	ApprovalKindFileChange ApprovalKind = "file_change"
 	ApprovalKindPermission ApprovalKind = "permission"
+	ApprovalKindStructured ApprovalKind = "structured_input"
 	ApprovalKindUserInput  ApprovalKind = "user_input"
 
 	RunItemStatusPending   RunItemStatus = "pending"
@@ -90,6 +91,9 @@ const (
 	RunItemTypeTerminalInteraction RunItemType = "terminal_interaction"
 	RunItemTypeDiff                RunItemType = "diff"
 	RunItemTypeNotice              RunItemType = "notice"
+	RunItemTypeApprovalReview      RunItemType = "approval_review"
+	RunItemTypeHook                RunItemType = "hook"
+	RunItemTypeStructuredInput     RunItemType = "structured_input"
 
 	DiagnosticSeverityInfo     DiagnosticSeverity = "info"
 	DiagnosticSeverityWarning  DiagnosticSeverity = "warning"
@@ -171,6 +175,7 @@ var (
 		ApprovalKindCommand,
 		ApprovalKindFileChange,
 		ApprovalKindPermission,
+		ApprovalKindStructured,
 		ApprovalKindUserInput,
 	}
 	runItemStatusValues = []RunItemStatus{
@@ -195,6 +200,9 @@ var (
 		RunItemTypeTerminalInteraction,
 		RunItemTypeDiff,
 		RunItemTypeNotice,
+		RunItemTypeApprovalReview,
+		RunItemTypeHook,
+		RunItemTypeStructuredInput,
 	}
 	diagnosticSeverityValues = []DiagnosticSeverity{
 		DiagnosticSeverityInfo,
@@ -228,6 +236,10 @@ var (
 		ChatCommandResultDisplay,
 		ChatCommandResultModelPicker,
 	}
+	structuredInputModeValues = []StructuredInputMode{
+		StructuredInputModeForm,
+		StructuredInputModeURL,
+	}
 )
 
 func ContractValueSets() []ContractValueSet {
@@ -246,6 +258,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
 		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
 		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},
+		{Name: "StructuredInputMode", Values: stringValues(structuredInputModeValues)},
 		{Name: "ChatCommandKind", Values: stringValues(chatCommandKindValues)},
 		{Name: "GoalCommandAction", Values: stringValues(goalCommandActionValues)},
 		{Name: "ModelCommandAction", Values: stringValues(modelCommandActionValues)},
@@ -330,24 +343,45 @@ func (run Run) MarshalJSON() ([]byte, error) {
 }
 
 type ApprovalRequest struct {
-	ID             string             `json:"id"`
-	RunID          string             `json:"runId"`
-	RunItemID      string             `json:"runItemId"`
-	ProviderItemID string             `json:"providerItemId"`
-	Kind           ApprovalKind       `json:"kind"`
-	Title          string             `json:"title"`
-	Body           string             `json:"body"`
-	Command        string             `json:"command"`
-	FilePath       string             `json:"filePath"`
-	Permission     string             `json:"permission"`
-	Question       string             `json:"question"`
-	Options        []string           `json:"options"`
-	Questions      []ApprovalQuestion `json:"questions"`
-	Status         ApprovalStatus     `json:"status"`
-	CreatedAt      string             `json:"createdAt"`
-	ResolvedAt     string             `json:"resolvedAt"`
-	Response       string             `json:"response"`
-	Approved       bool               `json:"approved"`
+	ID              string                  `json:"id"`
+	RunID           string                  `json:"runId"`
+	RunItemID       string                  `json:"runItemId"`
+	ProviderItemID  string                  `json:"providerItemId"`
+	Kind            ApprovalKind            `json:"kind"`
+	Title           string                  `json:"title"`
+	Body            string                  `json:"body"`
+	Command         string                  `json:"command"`
+	FilePath        string                  `json:"filePath"`
+	Permission      string                  `json:"permission"`
+	Question        string                  `json:"question"`
+	Options         []string                `json:"options"`
+	Questions       []ApprovalQuestion      `json:"questions"`
+	StructuredInput *StructuredInputRequest `json:"structuredInput"`
+	Status          ApprovalStatus          `json:"status"`
+	CreatedAt       string                  `json:"createdAt"`
+	ResolvedAt      string                  `json:"resolvedAt"`
+	Response        string                  `json:"response"`
+	Approved        bool                    `json:"approved"`
+}
+
+type StructuredInputMode string
+
+const (
+	StructuredInputModeForm StructuredInputMode = "form"
+	StructuredInputModeURL  StructuredInputMode = "url"
+)
+
+type StructuredInputRequest struct {
+	ProviderRequestID string              `json:"providerRequestId"`
+	ThreadID          string              `json:"threadId"`
+	TurnID            string              `json:"turnId"`
+	ServerName        string              `json:"serverName"`
+	Mode              StructuredInputMode `json:"mode"`
+	Message           string              `json:"message"`
+	Schema            json.RawMessage     `json:"schema"`
+	URL               string              `json:"url"`
+	ElicitationID     string              `json:"elicitationId"`
+	Meta              json.RawMessage     `json:"meta"`
 }
 
 type ApprovalQuestion struct {
@@ -360,8 +394,9 @@ type ApprovalQuestion struct {
 }
 
 type ApprovalAnswer struct {
-	QuestionID string   `json:"questionId"`
-	Answers    []string `json:"answers"`
+	QuestionID string           `json:"questionId"`
+	Answers    []string         `json:"answers"`
+	Value      *json.RawMessage `json:"value"`
 }
 
 type TraceEvent struct {
@@ -396,33 +431,39 @@ func (diagnostic Diagnostic) MarshalJSON() ([]byte, error) {
 }
 
 type RunItem struct {
-	SchemaVersion  int           `json:"schemaVersion"`
-	ID             string        `json:"id"`
-	WorkspaceID    string        `json:"workspaceId"`
-	ConversationID string        `json:"conversationId"`
-	RunID          string        `json:"runId"`
-	ProviderItemID string        `json:"providerItemId"`
-	Type           RunItemType   `json:"type"`
-	Status         RunItemStatus `json:"status"`
-	CreatedAt      string        `json:"createdAt"`
-	StartedAt      string        `json:"startedAt"`
-	CompletedAt    string        `json:"completedAt"`
-	Title          string        `json:"title"`
-	Summary        string        `json:"summary"`
-	Command        string        `json:"command"`
-	Cwd            string        `json:"cwd"`
-	ExitCode       int           `json:"exitCode"`
-	DurationMs     int           `json:"durationMs"`
-	FilePaths      []string      `json:"filePaths"`
-	PatchStatus    string        `json:"patchStatus"`
-	ServerName     string        `json:"serverName"`
-	ToolName       string        `json:"toolName"`
-	Progress       string        `json:"progress"`
-	Result         string        `json:"result"`
-	Error          string        `json:"error"`
-	NoticeKind     string        `json:"noticeKind"`
-	NoticeMessage  string        `json:"noticeMessage"`
-	DiffSummary    string        `json:"diffSummary"`
+	SchemaVersion  int             `json:"schemaVersion"`
+	ID             string          `json:"id"`
+	WorkspaceID    string          `json:"workspaceId"`
+	ConversationID string          `json:"conversationId"`
+	RunID          string          `json:"runId"`
+	ProviderItemID string          `json:"providerItemId"`
+	Type           RunItemType     `json:"type"`
+	Status         RunItemStatus   `json:"status"`
+	CreatedAt      string          `json:"createdAt"`
+	StartedAt      string          `json:"startedAt"`
+	CompletedAt    string          `json:"completedAt"`
+	Title          string          `json:"title"`
+	Summary        string          `json:"summary"`
+	Command        string          `json:"command"`
+	Cwd            string          `json:"cwd"`
+	ExitCode       int             `json:"exitCode"`
+	DurationMs     int             `json:"durationMs"`
+	FilePaths      []string        `json:"filePaths"`
+	PatchStatus    string          `json:"patchStatus"`
+	ServerName     string          `json:"serverName"`
+	ToolName       string          `json:"toolName"`
+	Progress       string          `json:"progress"`
+	Result         string          `json:"result"`
+	Error          string          `json:"error"`
+	NoticeKind     string          `json:"noticeKind"`
+	NoticeMessage  string          `json:"noticeMessage"`
+	DiffSummary    string          `json:"diffSummary"`
+	Namespace      string          `json:"namespace"`
+	ProcessID      string          `json:"processId"`
+	RequestID      string          `json:"requestId"`
+	ReviewID       string          `json:"reviewId"`
+	Details        json.RawMessage `json:"details"`
+	HiddenText     string          `json:"hiddenText"`
 }
 
 type RunItemOutput struct {

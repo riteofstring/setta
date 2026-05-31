@@ -1084,8 +1084,8 @@ func (sink turnSink) ApprovalResolved(approvalID string, approved bool, response
 	return sink.service.resolveApproval(sink.workspaceID, sink.conversationID, sink.runID, approvalID, approved, response)
 }
 
-func (sink turnSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool) error {
-	return sink.service.recordProviderDiagnostic(sink.workspaceID, sink.conversationID, sink.runID, code, message, context, resyncRequired)
+func (sink turnSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
+	return sink.service.recordProviderDiagnostic(sink.workspaceID, sink.conversationID, sink.runID, code, message, context, resyncRequired, severity)
 }
 
 func (sink turnSink) RunItemOutputDelta(providerItemID string, stream string, text string) error {

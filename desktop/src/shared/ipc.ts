@@ -22,6 +22,7 @@ import type {
 import type { RuntimeVersions } from "./types";
 
 export const ipcChannels = {
+  appOpenExternalUrl: "app:open-external-url",
   appVersions: "app:versions",
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
@@ -56,6 +57,10 @@ export const ipcEvents = {
 } as const;
 
 interface IpcContract {
+  appOpenExternalUrl: {
+    args: [url: string];
+    result: void;
+  };
   appVersions: {
     args: [];
     result: RuntimeVersions;

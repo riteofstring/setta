@@ -709,6 +709,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
     app: {
+      openExternalUrl: async () => {},
       versions: async (): Promise<RuntimeVersions> => ({
         app: "test",
         chrome: "test",
@@ -1151,18 +1152,24 @@ function runItem(id: string, type: RunItemType, status: RunItemStatus): RunItem 
     conversationId: "conversation_api",
     createdAt: "2026-05-29T20:00:00Z",
     cwd: "/tmp/workspace",
+    details: null,
     diffSummary: "",
     durationMs: 0,
     error: "",
     exitCode: 0,
     filePaths: [],
+    hiddenText: "",
     id,
     noticeKind: "",
+    namespace: "",
     noticeMessage: "",
     patchStatus: "",
+    processId: "",
     progress: "",
     providerItemId: "provider_" + id,
+    requestId: "",
     result: "",
+    reviewId: "",
     runId: "run_api",
     schemaVersion: 1,
     serverName: "",

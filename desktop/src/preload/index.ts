@@ -9,6 +9,7 @@ const invoke = createRendererIpcInvoke(ipcRenderer);
 
 const api: SettaAPI = {
   app: {
+    openExternalUrl: (url: string) => invoke("appOpenExternalUrl", url),
     versions: () => invoke("appVersions"),
   },
   backend: {

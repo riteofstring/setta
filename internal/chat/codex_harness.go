@@ -8,17 +8,21 @@ import (
 )
 
 type CodexHarnessConfig struct {
-	Command string
-	Args    []string
-	Env     []string
+	Command             string
+	Args                []string
+	Env                 []string
+	Tools               *AgentToolRegistry
+	ChatGPTAuthProvider ChatGPTAuthTokenProvider
+	AttestationProvider AttestationProvider
 }
 
 type CodexHarness struct {
 	config CodexHarnessConfig
 
-	mu        sync.Mutex
-	active    map[string]*codexActiveTurn
-	approvals map[string]codexPendingApproval
+	mu                   sync.Mutex
+	active               map[string]*codexActiveTurn
+	approvals            map[string]codexPendingApproval
+	approvalsByRequestID map[string]string
 }
 
 type codexActiveTurn struct {
@@ -32,13 +36,21 @@ type codexPendingApproval struct {
 	method            string
 	permissionProfile map[string]any
 	requestID         any
+	requestKey        string
 	runID             string
 	questions         []ApprovalQuestion
+	structuredInput   *StructuredInputRequest
 }
 
 type codexApprovalReply struct {
 	errorMessage string
 	result       any
+}
+
+type codexTurnWaitResult struct {
+	activeTurnID string
+	completion   TurnCompletion
+	done         bool
 }
 
 func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
@@ -49,9 +61,10 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 		config.Args = []string{"app-server", "--listen", "stdio://"}
 	}
 	return &CodexHarness{
-		config:    config,
-		active:    map[string]*codexActiveTurn{},
-		approvals: map[string]codexPendingApproval{},
+		config:               config,
+		active:               map[string]*codexActiveTurn{},
+		approvals:            map[string]codexPendingApproval{},
+		approvalsByRequestID: map[string]string{},
 	}
 }
 
@@ -67,7 +80,7 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	harness.registerActive(request.Run.ID, client)
 	defer harness.unregisterActive(request.Run.ID)
 
-	if err := initializeCodex(ctx, client); err != nil {
+	if err := harness.initializeCodex(ctx, client); err != nil {
 		return TurnCompletion{}, err
 	}
 	threadID, err := harness.startOrResumeThread(ctx, client, request)
@@ -92,26 +105,67 @@ func (harness *CodexHarness) waitForTurn(ctx context.Context, client *jsonRPCCli
 		case <-ctx.Done():
 			return TurnCompletion{}, ctx.Err()
 		case <-client.lifecycle.Done():
-			return TurnCompletion{}, client.terminalError("codex app-server exited before turn completed", client.lifecycle.Err())
+			result, err := harness.handleCodexLifecycleDone(ctx, client, runID, threadID, activeTurnID, sink)
+			if err != nil {
+				return TurnCompletion{}, err
+			}
+			activeTurnID = result.activeTurnID
+			if result.done {
+				return result.completion, nil
+			}
 		case message := <-client.notifications:
-			result, err := handleCodexNotification(message, threadID, activeTurnID, sink)
+			result, err := harness.handleCodexNotificationForTurn(message, runID, threadID, activeTurnID, sink)
 			if err != nil {
 				return TurnCompletion{}, err
 			}
-			activeTurnID, err = harness.applyNotificationTurnID(runID, threadID, activeTurnID, result, sink)
-			if err != nil {
-				return TurnCompletion{}, err
-			}
-			if result.Completion.Outcome != "" {
-				return result.Completion, nil
+			activeTurnID = result.activeTurnID
+			if result.done {
+				return result.completion, nil
 			}
 		case message := <-client.requests:
-			if err := harness.handleCodexServerRequest(message, runID, threadID, activeTurnID, sink); err != nil {
-				_ = client.respondError(message.ID, -32601, err.Error())
+			if err := harness.handleCodexServerRequestForTurn(ctx, client, message, runID, threadID, activeTurnID, sink); err != nil {
 				return TurnCompletion{}, err
 			}
 		}
 	}
+}
+
+func (harness *CodexHarness) handleCodexLifecycleDone(ctx context.Context, client *jsonRPCClient, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
+	select {
+	case message := <-client.requests:
+		if err := harness.handleCodexServerRequestForTurn(ctx, client, message, runID, threadID, activeTurnID, sink); err != nil {
+			return codexTurnWaitResult{}, err
+		}
+		return codexTurnWaitResult{activeTurnID: activeTurnID}, nil
+	case message := <-client.notifications:
+		return harness.handleCodexNotificationForTurn(message, runID, threadID, activeTurnID, sink)
+	default:
+		return codexTurnWaitResult{}, client.terminalError("codex app-server exited before turn completed", client.lifecycle.Err())
+	}
+}
+
+func (harness *CodexHarness) handleCodexNotificationForTurn(message jsonRPCMessage, runID string, threadID string, activeTurnID string, sink TurnSink) (codexTurnWaitResult, error) {
+	result, err := harness.handleCodexNotification(message, runID, threadID, activeTurnID, sink)
+	if err != nil {
+		return codexTurnWaitResult{}, err
+	}
+	nextTurnID, err := harness.applyNotificationTurnID(runID, threadID, activeTurnID, result, sink)
+	if err != nil {
+		return codexTurnWaitResult{}, err
+	}
+	return codexTurnWaitResult{
+		activeTurnID: nextTurnID,
+		completion:   result.Completion,
+		done:         result.Completion.Outcome != "",
+	}, nil
+}
+
+func (harness *CodexHarness) handleCodexServerRequestForTurn(ctx context.Context, client *jsonRPCClient, message jsonRPCMessage, runID string, threadID string, activeTurnID string, sink TurnSink) error {
+	if err := harness.handleCodexServerRequest(ctx, message, runID, threadID, activeTurnID, sink); err != nil {
+		_ = client.respondError(message.ID, -32601, err.Error())
+		return err
+	}
+	return nil
 }
 
 func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelRequest) error {
@@ -180,11 +234,12 @@ func (harness *CodexHarness) SubmitApproval(_ context.Context, response Approval
 	}
 	harness.mu.Lock()
 	delete(harness.approvals, response.ApprovalID)
+	delete(harness.approvalsByRequestID, pending.requestKey)
 	harness.mu.Unlock()
 	return nil
 }
 
-func initializeCodex(ctx context.Context, client *jsonRPCClient) error {
+func (harness *CodexHarness) initializeCodex(ctx context.Context, client *jsonRPCClient) error {
 	_, err := client.call(ctx, "initialize", map[string]any{
 		"clientInfo": map[string]any{
 			"name":    "setta",
@@ -192,7 +247,8 @@ func initializeCodex(ctx context.Context, client *jsonRPCClient) error {
 			"version": "dev",
 		},
 		"capabilities": map[string]any{
-			"experimentalApi": true,
+			"experimentalApi":    true,
+			"requestAttestation": harness.config.AttestationProvider != nil,
 			"optOutNotificationMethods": []string{
 				"thread/started",
 			},
@@ -278,31 +334,58 @@ type codexNotificationHandler func(jsonRPCMessage, string, string, TurnSink) (co
 
 var codexNotificationHandlers = map[string]codexNotificationHandler{
 	"account/rateLimits/updated":                handleCodexAccountRateLimitsUpdated,
+	"account/login/completed":                   handleCodexAccountLoginCompleted,
 	"account/updated":                           handleCodexAccountUpdated,
+	"app/list/updated":                          handleCodexAppListUpdated,
+	"command/exec/outputDelta":                  handleCodexCommandExecOutputDelta,
 	"configWarning":                             handleCodexNotice,
 	"deprecationNotice":                         handleCodexNotice,
 	"error":                                     handleCodexErrorNotification,
+	"externalAgentConfig/import/completed":      handleCodexTraceOnlyNotification,
+	"fs/changed":                                handleCodexFSChanged,
+	"fuzzyFileSearch/sessionCompleted":          handleCodexFuzzyFileSearchSessionCompleted,
+	"fuzzyFileSearch/sessionUpdated":            handleCodexFuzzyFileSearchSessionUpdated,
 	"guardianWarning":                           handleCodexNotice,
+	"hook/completed":                            handleCodexHookCompleted,
+	"hook/started":                              handleCodexHookStarted,
 	"item/agentMessage/delta":                   handleCodexAssistantDelta,
+	"item/autoApprovalReview/completed":         handleCodexAutoApprovalReviewCompleted,
+	"item/autoApprovalReview/started":           handleCodexAutoApprovalReviewStarted,
 	"item/commandExecution/outputDelta":         handleCodexOutputDelta,
 	"item/commandExecution/terminalInteraction": handleCodexTerminalInteraction,
 	"item/completed":                            handleCodexItemCompleted,
+	"item/fileChange/outputDelta":               handleCodexFileChangeOutputDelta,
 	"item/fileChange/patchUpdated":              handleCodexPatchUpdated,
 	"item/mcpToolCall/progress":                 handleCodexMCPProgress,
 	"item/plan/delta":                           handleCodexPlanDelta,
 	"item/reasoning/summaryPartAdded":           handleCodexReasoningSummaryPartAdded,
 	"item/reasoning/summaryTextDelta":           handleCodexReasoningSummaryDelta,
+	"item/reasoning/textDelta":                  handleCodexReasoningTextDelta,
 	"item/started":                              handleCodexItemStarted,
+	"mcpServer/oauthLogin/completed":            handleCodexMCPServerOAuthLoginCompleted,
 	"mcpServer/startupStatus/updated":           handleCodexMCPServerStartupStatusUpdated,
 	"model/rerouted":                            handleCodexNotice,
+	"model/verification":                        handleCodexModelVerification,
+	"process/exited":                            handleCodexProcessExited,
+	"process/outputDelta":                       handleCodexProcessOutputDelta,
 	"rawResponseItem/completed":                 ignoreCodexNotification,
 	"remoteControl/status/changed":              handleCodexRemoteControlStatusChanged,
+	"serverRequest/resolved":                    handleCodexServerRequestResolvedNotification,
+	"skills/changed":                            handleCodexSkillsChanged,
 	"thread/archived":                           handleCodexThreadLifecycle,
 	"thread/closed":                             handleCodexThreadLifecycle,
 	"thread/compacted":                          handleCodexNotice,
 	"thread/goal/cleared":                       handleCodexThreadGoalCleared,
 	"thread/goal/updated":                       handleCodexThreadGoalUpdated,
 	"thread/name/updated":                       handleCodexThreadNameUpdated,
+	"thread/realtime/closed":                    handleCodexRealtimeIgnored,
+	"thread/realtime/error":                     handleCodexRealtimeIgnored,
+	"thread/realtime/itemAdded":                 handleCodexRealtimeIgnored,
+	"thread/realtime/outputAudio/delta":         handleCodexRealtimeIgnored,
+	"thread/realtime/sdp":                       handleCodexRealtimeIgnored,
+	"thread/realtime/started":                   handleCodexRealtimeIgnored,
+	"thread/realtime/transcript/delta":          handleCodexRealtimeIgnored,
+	"thread/realtime/transcript/done":           handleCodexRealtimeIgnored,
 	"thread/settings/updated":                   handleCodexThreadSettingsUpdated,
 	"thread/started":                            handleCodexThreadStarted,
 	"thread/status/changed":                     handleCodexThreadStatusChanged,
@@ -313,6 +396,8 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	"turn/plan/updated":                         handleCodexPlanUpdated,
 	"turn/started":                              handleCodexTurnStarted,
 	"warning":                                   handleCodexNotice,
+	"windows/worldWritableWarning":              handleCodexWindowsWorldWritableWarning,
+	"windowsSandbox/setupCompleted":             handleCodexWindowsSandboxSetupCompleted,
 }
 
 func handleCodexItemStarted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
@@ -477,7 +562,7 @@ func emitCodexProviderDriftWithContext(sink TurnSink, code string, messageText s
 	if len(message.Params) > 0 {
 		context["params"] = boundedJSON(message.Params, 4096)
 	}
-	return sink.ProviderDiagnostic(code, messageText, context, resyncRequired)
+	return sink.ProviderDiagnostic(code, messageText, context, resyncRequired, DiagnosticSeverityCritical)
 }
 
 func boundedJSON(raw json.RawMessage, limit int) string {
@@ -864,9 +949,12 @@ func codexTurnCompletionForStatus(status string, turn map[string]any, message js
 	return codexNotificationResult{Completion: TurnCompletion{Outcome: outcome}}, nil
 }
 
-func (harness *CodexHarness) handleCodexServerRequest(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) error {
+func (harness *CodexHarness) handleCodexServerRequest(ctx context.Context, message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) error {
 	if !isSupportedCodexServerRequest(message.Method) {
 		return handleUnsupportedCodexServerRequest(message, sink)
+	}
+	if !isCodexDeferredApprovalRequest(message.Method) {
+		return harness.handleImmediateCodexServerRequest(ctx, message, runID, threadID, turnID, sink)
 	}
 	approval, details, err := approvalRequestFromCodex(message, runID, threadID, turnID, sink)
 	if err != nil {
@@ -881,291 +969,14 @@ func (harness *CodexHarness) handleCodexServerRequest(message jsonRPCMessage, ru
 		method:            message.Method,
 		permissionProfile: details.permissionProfile,
 		requestID:         message.ID,
+		requestKey:        details.requestID,
 		runID:             runID,
 		questions:         details.questions,
+		structuredInput:   approval.StructuredInput,
 	}
+	harness.approvalsByRequestID[details.requestID] = approval.ID
 	harness.mu.Unlock()
 	return sink.ApprovalRequested(approval)
-}
-
-var supportedCodexServerRequests = map[string]bool{
-	"item/commandExecution/requestApproval": true,
-	"item/fileChange/requestApproval":       true,
-	"item/permissions/requestApproval":      true,
-	"item/tool/requestUserInput":            true,
-}
-
-func isSupportedCodexServerRequest(method string) bool {
-	return supportedCodexServerRequests[method]
-}
-
-func handleUnsupportedCodexServerRequest(message jsonRPCMessage, sink TurnSink) error {
-	err := fmt.Errorf("unsupported codex app-server request: %s", message.Method)
-	if diagnosticErr := emitCodexProviderDrift(sink, "codex_request_unsupported", err.Error(), message, true); diagnosticErr != nil {
-		return diagnosticErr
-	}
-	if traceErr := sink.Trace("codex_request_unsupported", message.Method); traceErr != nil {
-		return traceErr
-	}
-	return err
-}
-
-type codexApprovalDetails struct {
-	permissionProfile map[string]any
-	questions         []ApprovalQuestion
-	runItem           RunItem
-}
-
-type codexApprovalContext struct {
-	providerItemID string
-	requestID      string
-	runID          string
-}
-
-func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) (ApprovalRequest, codexApprovalDetails, error) {
-	params, err := objectValue(message.Params, "codex approval request params")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	requestID, err := requestIDString(message.ID)
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	if err := validateCodexRequestTurn(message, params, threadID, turnID, sink); err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	itemID, err := requireString(params, "itemId", "codex approval request")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	context := codexApprovalContext{providerItemID: itemID, requestID: requestID, runID: runID}
-	switch message.Method {
-	case "item/commandExecution/requestApproval":
-		return commandApprovalFromCodex(params, context)
-	case "item/fileChange/requestApproval":
-		return fileChangeApprovalFromCodex(params, context)
-	case "item/permissions/requestApproval":
-		return permissionApprovalFromCodex(params, context)
-	case "item/tool/requestUserInput":
-		return userInputApprovalFromCodex(params, context)
-	default:
-		return ApprovalRequest{}, codexApprovalDetails{}, fmt.Errorf("unsupported codex app-server request: %s", message.Method)
-	}
-}
-
-func validateCodexRequestTurn(message jsonRPCMessage, params map[string]any, threadID string, turnID string, sink TurnSink) error {
-	messageThreadID, err := requireString(params, "threadId", "codex approval request")
-	if err != nil {
-		return err
-	}
-	messageTurnID, err := requireString(params, "turnId", "codex approval request")
-	if err != nil {
-		return err
-	}
-	return requireCodexTurnIDMatch(message, threadID, turnID, messageThreadID, messageTurnID, sink)
-}
-
-func commandApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
-	command, err := requireString(params, "command", "codex command approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	reason, err := optionalString(params, "reason", "codex command approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	cwd, err := optionalString(params, "cwd", "codex command approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	approval := ApprovalRequest{
-		ID:             "codex_" + context.requestID,
-		RunID:          context.runID,
-		ProviderItemID: context.providerItemID,
-		Kind:           ApprovalKindCommand,
-		Title:          "Command approval",
-		Body:           reason,
-		Command:        command,
-		FilePath:       cwd,
-		Options:        []string{},
-	}
-	return approval, codexApprovalDetails{runItem: commandApprovalRunItem(context.providerItemID, command, cwd, reason)}, nil
-}
-
-func commandApprovalRunItem(providerItemID string, command string, cwd string, reason string) RunItem {
-	return RunItem{
-		ProviderItemID: providerItemID,
-		Type:           RunItemTypeCommandExecution,
-		Status:         RunItemStatusPending,
-		Title:          "Command approval",
-		Summary:        reason,
-		Command:        command,
-		Cwd:            cwd,
-	}
-}
-
-func fileChangeApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
-	reason, err := optionalString(params, "reason", "codex file change approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	grantRoot, err := requireString(params, "grantRoot", "codex file change approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	approval := ApprovalRequest{
-		ID:             "codex_" + context.requestID,
-		RunID:          context.runID,
-		ProviderItemID: context.providerItemID,
-		Kind:           ApprovalKindFileChange,
-		Title:          "File change approval",
-		Body:           reason,
-		FilePath:       grantRoot,
-		Options:        []string{},
-	}
-	return approval, codexApprovalDetails{runItem: fileChangeApprovalRunItem(context.providerItemID, grantRoot, reason)}, nil
-}
-
-func fileChangeApprovalRunItem(providerItemID string, grantRoot string, reason string) RunItem {
-	return RunItem{
-		ProviderItemID: providerItemID,
-		Type:           RunItemTypeFileChange,
-		Status:         RunItemStatusPending,
-		Title:          "File change approval",
-		Summary:        reason,
-		FilePaths:      []string{grantRoot},
-		PatchStatus:    "approval_requested",
-	}
-}
-
-func permissionApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
-	permissions, err := requireObject(params, "permissions", "codex permission approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	permissionSummary, err := jsonSummary(permissions)
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	reason, err := optionalString(params, "reason", "codex permission approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	cwd, err := optionalString(params, "cwd", "codex permission approval")
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	approval := ApprovalRequest{
-		ID:             "codex_" + context.requestID,
-		RunID:          context.runID,
-		ProviderItemID: context.providerItemID,
-		Kind:           ApprovalKindPermission,
-		Title:          "Permission approval",
-		Body:           reason,
-		FilePath:       cwd,
-		Permission:     permissionSummary,
-		Options:        []string{},
-	}
-	return approval, codexApprovalDetails{
-		permissionProfile: permissions,
-		runItem:           permissionApprovalRunItem(context.providerItemID, cwd, reason, permissionSummary),
-	}, nil
-}
-
-func permissionApprovalRunItem(providerItemID string, cwd string, reason string, permissionSummary string) RunItem {
-	return RunItem{
-		ProviderItemID: providerItemID,
-		Type:           RunItemTypeDynamicToolCall,
-		Status:         RunItemStatusPending,
-		Title:          "Permission approval",
-		Summary:        reason,
-		Cwd:            cwd,
-		Result:         permissionSummary,
-	}
-}
-
-func userInputApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
-	questions, title, body, options, err := userInputQuestions(params)
-	if err != nil {
-		return ApprovalRequest{}, codexApprovalDetails{}, err
-	}
-	approval := ApprovalRequest{
-		ID:             "codex_" + context.requestID,
-		RunID:          context.runID,
-		ProviderItemID: context.providerItemID,
-		Kind:           ApprovalKindUserInput,
-		Title:          title,
-		Body:           body,
-		Question:       body,
-		Options:        options,
-		Questions:      questions,
-	}
-	return approval, codexApprovalDetails{
-		questions: questions,
-		runItem:   userInputApprovalRunItem(context.providerItemID, title, body),
-	}, nil
-}
-
-func userInputApprovalRunItem(providerItemID string, title string, body string) RunItem {
-	return RunItem{
-		ProviderItemID: providerItemID,
-		Type:           RunItemTypeDynamicToolCall,
-		Status:         RunItemStatusPending,
-		Title:          title,
-		Summary:        body,
-	}
-}
-
-func codexApprovalResult(pending codexPendingApproval, response ApprovalResponse) (codexApprovalReply, error) {
-	switch pending.method {
-	case "item/commandExecution/requestApproval":
-		return codexApprovalReply{result: map[string]any{"decision": approvalDecision(response)}}, nil
-	case "item/fileChange/requestApproval":
-		return codexApprovalReply{result: map[string]any{"decision": approvalDecision(response)}}, nil
-	case "item/permissions/requestApproval":
-		if !response.Approved || response.Cancelled {
-			return codexApprovalReply{errorMessage: "permission request denied"}, nil
-		}
-		return codexApprovalReply{result: map[string]any{"permissions": pending.permissionProfile, "scope": "turn"}}, nil
-	case "item/tool/requestUserInput":
-		if response.Cancelled {
-			return codexApprovalReply{errorMessage: "user input cancelled"}, nil
-		}
-		answers := map[string]any{}
-		submitted := answersByQuestionID(response.Answers)
-		for _, question := range pending.questions {
-			values := submitted[question.ID]
-			if len(values) == 0 {
-				return codexApprovalReply{}, fmt.Errorf("answer is required for question %s", question.ID)
-			}
-			answers[question.ID] = map[string]any{"answers": values}
-		}
-		return codexApprovalReply{result: map[string]any{"answers": answers}}, nil
-	default:
-		return codexApprovalReply{}, fmt.Errorf("unsupported codex approval response method: %s", pending.method)
-	}
-}
-
-func approvalDecision(response ApprovalResponse) string {
-	switch {
-	case response.Cancelled:
-		return "cancel"
-	case response.Approved:
-		return "accept"
-	default:
-		return "decline"
-	}
-}
-
-func answersByQuestionID(answers []ApprovalAnswer) map[string][]string {
-	byQuestion := map[string][]string{}
-	for _, answer := range answers {
-		if answer.QuestionID == "" {
-			continue
-		}
-		byQuestion[answer.QuestionID] = append([]string{}, answer.Answers...)
-	}
-	return byQuestion
 }
 
 func (harness *CodexHarness) registerActive(runID string, client *jsonRPCClient) {
@@ -1192,6 +1003,7 @@ func (harness *CodexHarness) unregisterActive(runID string) {
 	for approvalID, approval := range harness.approvals {
 		if approval.runID == runID {
 			delete(harness.approvals, approvalID)
+			delete(harness.approvalsByRequestID, approval.requestKey)
 		}
 	}
 }

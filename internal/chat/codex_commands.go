@@ -54,7 +54,7 @@ func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request Har
 	}
 	defer client.close()
 
-	if err := initializeCodex(ctx, client); err != nil {
+	if err := harness.initializeCodex(ctx, client); err != nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, err.Error(), err)
 	}
 	if !commandNeedsThread(request.Command) {

@@ -5,37 +5,67 @@ import "fmt"
 type codexNotificationScopePolicy string
 
 const (
-	codexNotificationScopeGlobal     codexNotificationScopePolicy = "global"
-	codexNotificationScopeThread     codexNotificationScopePolicy = "thread"
+	codexNotificationScopeGlobal     codexNotificationScopePolicy = "global_state"
+	codexNotificationScopeThread     codexNotificationScopePolicy = "thread_state"
 	codexNotificationScopeTurnState  codexNotificationScopePolicy = "turn_state"
-	codexNotificationScopeTurnIgnore codexNotificationScopePolicy = "turn_ignore"
+	codexNotificationScopeTraceOnly  codexNotificationScopePolicy = "trace_only"
+	codexNotificationScopeCapability codexNotificationScopePolicy = "capability_ignored"
 )
 
 var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	"account/rateLimits/updated":                codexNotificationScopeGlobal,
+	"account/login/completed":                   codexNotificationScopeGlobal,
 	"account/updated":                           codexNotificationScopeGlobal,
+	"app/list/updated":                          codexNotificationScopeGlobal,
+	"command/exec/outputDelta":                  codexNotificationScopeTraceOnly,
 	"configWarning":                             codexNotificationScopeGlobal,
+	"deprecationNotice":                         codexNotificationScopeGlobal,
 	"error":                                     codexNotificationScopeTurnState,
+	"externalAgentConfig/import/completed":      codexNotificationScopeGlobal,
+	"fs/changed":                                codexNotificationScopeGlobal,
+	"fuzzyFileSearch/sessionCompleted":          codexNotificationScopeGlobal,
+	"fuzzyFileSearch/sessionUpdated":            codexNotificationScopeGlobal,
+	"guardianWarning":                           codexNotificationScopeGlobal,
+	"hook/completed":                            codexNotificationScopeTraceOnly,
+	"hook/started":                              codexNotificationScopeTraceOnly,
 	"item/agentMessage/delta":                   codexNotificationScopeTurnState,
+	"item/autoApprovalReview/completed":         codexNotificationScopeTraceOnly,
+	"item/autoApprovalReview/started":           codexNotificationScopeTraceOnly,
 	"item/commandExecution/outputDelta":         codexNotificationScopeTurnState,
 	"item/commandExecution/terminalInteraction": codexNotificationScopeTurnState,
 	"item/completed":                            codexNotificationScopeTurnState,
+	"item/fileChange/outputDelta":               codexNotificationScopeTurnState,
 	"item/fileChange/patchUpdated":              codexNotificationScopeTurnState,
 	"item/mcpToolCall/progress":                 codexNotificationScopeTurnState,
 	"item/plan/delta":                           codexNotificationScopeTurnState,
 	"item/reasoning/summaryPartAdded":           codexNotificationScopeTurnState,
 	"item/reasoning/summaryTextDelta":           codexNotificationScopeTurnState,
+	"item/reasoning/textDelta":                  codexNotificationScopeTurnState,
 	"item/started":                              codexNotificationScopeTurnState,
+	"mcpServer/oauthLogin/completed":            codexNotificationScopeGlobal,
 	"mcpServer/startupStatus/updated":           codexNotificationScopeGlobal,
 	"model/rerouted":                            codexNotificationScopeTurnState,
-	"rawResponseItem/completed":                 codexNotificationScopeTurnIgnore,
+	"model/verification":                        codexNotificationScopeTurnState,
+	"process/exited":                            codexNotificationScopeTraceOnly,
+	"process/outputDelta":                       codexNotificationScopeTraceOnly,
+	"rawResponseItem/completed":                 codexNotificationScopeTraceOnly,
 	"remoteControl/status/changed":              codexNotificationScopeGlobal,
+	"serverRequest/resolved":                    codexNotificationScopeThread,
+	"skills/changed":                            codexNotificationScopeGlobal,
 	"thread/archived":                           codexNotificationScopeThread,
 	"thread/closed":                             codexNotificationScopeThread,
 	"thread/compacted":                          codexNotificationScopeThread,
 	"thread/goal/cleared":                       codexNotificationScopeThread,
 	"thread/goal/updated":                       codexNotificationScopeThread,
 	"thread/name/updated":                       codexNotificationScopeThread,
+	"thread/realtime/closed":                    codexNotificationScopeCapability,
+	"thread/realtime/error":                     codexNotificationScopeCapability,
+	"thread/realtime/itemAdded":                 codexNotificationScopeCapability,
+	"thread/realtime/outputAudio/delta":         codexNotificationScopeCapability,
+	"thread/realtime/sdp":                       codexNotificationScopeCapability,
+	"thread/realtime/started":                   codexNotificationScopeCapability,
+	"thread/realtime/transcript/delta":          codexNotificationScopeCapability,
+	"thread/realtime/transcript/done":           codexNotificationScopeCapability,
 	"thread/settings/updated":                   codexNotificationScopeThread,
 	"thread/started":                            codexNotificationScopeThread,
 	"thread/status/changed":                     codexNotificationScopeThread,
@@ -46,6 +76,19 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	"turn/plan/updated":                         codexNotificationScopeTurnState,
 	"turn/started":                              codexNotificationScopeThread,
 	"warning":                                   codexNotificationScopeTurnState,
+	"windows/worldWritableWarning":              codexNotificationScopeGlobal,
+	"windowsSandbox/setupCompleted":             codexNotificationScopeCapability,
+}
+
+func (harness *CodexHarness) handleCodexNotification(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+	result, err := handleCodexNotification(message, threadID, turnID, sink)
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if message.Method == "serverRequest/resolved" {
+		return result, harness.applyCodexServerRequestResolved(message, runID, threadID, sink)
+	}
+	return result, nil
 }
 
 func handleCodexNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {

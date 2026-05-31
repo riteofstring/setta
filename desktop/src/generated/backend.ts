@@ -9,6 +9,7 @@ import {
   decodeStringRecord,
   decodeNullable,
   decodeString,
+  decodeUnknown,
   requestBackend,
   requireField,
   type BackendFetch,
@@ -166,7 +167,7 @@ export function decodeTextFormat(value: unknown, label = "TextFormat"): TextForm
   }
 }
 
-export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "notice";
+export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "notice" | "approval_review" | "hook" | "structured_input";
 
 export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
   const decoded = decodeString(value, label);
@@ -198,6 +199,12 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
     case "diff":
       return decoded;
     case "notice":
+      return decoded;
+    case "approval_review":
+      return decoded;
+    case "hook":
+      return decoded;
+    case "structured_input":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -244,7 +251,7 @@ export function decodeRunStatus(value: unknown, label = "RunStatus"): RunStatus 
   }
 }
 
-export type ApprovalKind = "command" | "file_change" | "permission" | "user_input";
+export type ApprovalKind = "command" | "file_change" | "permission" | "structured_input" | "user_input";
 
 export function decodeApprovalKind(value: unknown, label = "ApprovalKind"): ApprovalKind {
   const decoded = decodeString(value, label);
@@ -255,7 +262,23 @@ export function decodeApprovalKind(value: unknown, label = "ApprovalKind"): Appr
       return decoded;
     case "permission":
       return decoded;
+    case "structured_input":
+      return decoded;
     case "user_input":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type StructuredInputMode = "form" | "url";
+
+export function decodeStructuredInputMode(value: unknown, label = "StructuredInputMode"): StructuredInputMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "form":
+      return decoded;
+    case "url":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -479,6 +502,12 @@ export interface RunItem {
   noticeKind: string;
   noticeMessage: string;
   diffSummary: string;
+  namespace: string;
+  processId: string;
+  requestId: string;
+  reviewId: string;
+  details: unknown;
+  hiddenText: string;
 }
 
 export interface RunItemOutput {
@@ -500,6 +529,19 @@ export interface ApprovalQuestion {
   isSecret: boolean;
 }
 
+export interface StructuredInputRequest {
+  providerRequestId: string;
+  threadId: string;
+  turnId: string;
+  serverName: string;
+  mode: StructuredInputMode;
+  message: string;
+  schema: unknown;
+  url: string;
+  elicitationId: string;
+  meta: unknown;
+}
+
 export interface ApprovalRequest {
   id: string;
   runId: string;
@@ -514,6 +556,7 @@ export interface ApprovalRequest {
   question: string;
   options: string[];
   questions: ApprovalQuestion[];
+  structuredInput: StructuredInputRequest | null;
   status: ApprovalStatus;
   createdAt: string;
   resolvedAt: string;
@@ -759,6 +802,7 @@ export interface ClearChatQuarantineRequest {
 export interface ApprovalAnswer {
   questionId: string;
   answers: string[];
+  value: unknown | null;
 }
 
 export interface SubmitApprovalRequest {
@@ -1361,7 +1405,7 @@ export function decodeChatMessage(value: unknown): ChatMessage {
 
 export function decodeRunItem(value: unknown): RunItem {
   const record = assertRecord(value, "RunItem");
-  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary"]);
+  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary", "namespace", "processId", "requestId", "reviewId", "details", "hiddenText"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
     id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
@@ -1390,6 +1434,12 @@ export function decodeRunItem(value: unknown): RunItem {
     noticeKind: decodeString(requireField(record, "noticeKind", "RunItem"), "RunItem.noticeKind"),
     noticeMessage: decodeString(requireField(record, "noticeMessage", "RunItem"), "RunItem.noticeMessage"),
     diffSummary: decodeString(requireField(record, "diffSummary", "RunItem"), "RunItem.diffSummary"),
+    namespace: decodeString(requireField(record, "namespace", "RunItem"), "RunItem.namespace"),
+    processId: decodeString(requireField(record, "processId", "RunItem"), "RunItem.processId"),
+    requestId: decodeString(requireField(record, "requestId", "RunItem"), "RunItem.requestId"),
+    reviewId: decodeString(requireField(record, "reviewId", "RunItem"), "RunItem.reviewId"),
+    details: decodeUnknown(requireField(record, "details", "RunItem"), "RunItem.details"),
+    hiddenText: decodeString(requireField(record, "hiddenText", "RunItem"), "RunItem.hiddenText"),
   };
 }
 
@@ -1420,9 +1470,26 @@ export function decodeApprovalQuestion(value: unknown): ApprovalQuestion {
   };
 }
 
+export function decodeStructuredInputRequest(value: unknown): StructuredInputRequest {
+  const record = assertRecord(value, "StructuredInputRequest");
+  assertKnownFields(record, "StructuredInputRequest", ["providerRequestId", "threadId", "turnId", "serverName", "mode", "message", "schema", "url", "elicitationId", "meta"]);
+  return {
+    providerRequestId: decodeString(requireField(record, "providerRequestId", "StructuredInputRequest"), "StructuredInputRequest.providerRequestId"),
+    threadId: decodeString(requireField(record, "threadId", "StructuredInputRequest"), "StructuredInputRequest.threadId"),
+    turnId: decodeString(requireField(record, "turnId", "StructuredInputRequest"), "StructuredInputRequest.turnId"),
+    serverName: decodeString(requireField(record, "serverName", "StructuredInputRequest"), "StructuredInputRequest.serverName"),
+    mode: decodeStructuredInputMode(requireField(record, "mode", "StructuredInputRequest"), "StructuredInputRequest.mode"),
+    message: decodeString(requireField(record, "message", "StructuredInputRequest"), "StructuredInputRequest.message"),
+    schema: decodeUnknown(requireField(record, "schema", "StructuredInputRequest"), "StructuredInputRequest.schema"),
+    url: decodeString(requireField(record, "url", "StructuredInputRequest"), "StructuredInputRequest.url"),
+    elicitationId: decodeString(requireField(record, "elicitationId", "StructuredInputRequest"), "StructuredInputRequest.elicitationId"),
+    meta: decodeUnknown(requireField(record, "meta", "StructuredInputRequest"), "StructuredInputRequest.meta"),
+  };
+}
+
 export function decodeApprovalRequest(value: unknown): ApprovalRequest {
   const record = assertRecord(value, "ApprovalRequest");
-  assertKnownFields(record, "ApprovalRequest", ["id", "runId", "runItemId", "providerItemId", "kind", "title", "body", "command", "filePath", "permission", "question", "options", "questions", "status", "createdAt", "resolvedAt", "response", "approved"]);
+  assertKnownFields(record, "ApprovalRequest", ["id", "runId", "runItemId", "providerItemId", "kind", "title", "body", "command", "filePath", "permission", "question", "options", "questions", "structuredInput", "status", "createdAt", "resolvedAt", "response", "approved"]);
   return {
     id: decodeString(requireField(record, "id", "ApprovalRequest"), "ApprovalRequest.id"),
     runId: decodeString(requireField(record, "runId", "ApprovalRequest"), "ApprovalRequest.runId"),
@@ -1437,6 +1504,7 @@ export function decodeApprovalRequest(value: unknown): ApprovalRequest {
     question: decodeString(requireField(record, "question", "ApprovalRequest"), "ApprovalRequest.question"),
     options: decodeArray(requireField(record, "options", "ApprovalRequest"), "ApprovalRequest.options", (item) => decodeString(item, "ApprovalRequest.options item")),
     questions: decodeArray(requireField(record, "questions", "ApprovalRequest"), "ApprovalRequest.questions", (item) => decodeApprovalQuestion(item)),
+    structuredInput: decodeNullable(requireField(record, "structuredInput", "ApprovalRequest"), "ApprovalRequest.structuredInput", (item) => decodeStructuredInputRequest(item)),
     status: decodeApprovalStatus(requireField(record, "status", "ApprovalRequest"), "ApprovalRequest.status"),
     createdAt: decodeString(requireField(record, "createdAt", "ApprovalRequest"), "ApprovalRequest.createdAt"),
     resolvedAt: decodeString(requireField(record, "resolvedAt", "ApprovalRequest"), "ApprovalRequest.resolvedAt"),
@@ -1818,10 +1886,11 @@ export function decodeClearChatQuarantineRequest(value: unknown): ClearChatQuara
 
 export function decodeApprovalAnswer(value: unknown): ApprovalAnswer {
   const record = assertRecord(value, "ApprovalAnswer");
-  assertKnownFields(record, "ApprovalAnswer", ["questionId", "answers"]);
+  assertKnownFields(record, "ApprovalAnswer", ["questionId", "answers", "value"]);
   return {
     questionId: decodeString(requireField(record, "questionId", "ApprovalAnswer"), "ApprovalAnswer.questionId"),
     answers: decodeArray(requireField(record, "answers", "ApprovalAnswer"), "ApprovalAnswer.answers", (item) => decodeString(item, "ApprovalAnswer.answers item")),
+    value: decodeNullable(requireField(record, "value", "ApprovalAnswer"), "ApprovalAnswer.value", (item) => decodeUnknown(item, "ApprovalAnswer.value")),
   };
 }
 

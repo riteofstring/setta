@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -203,6 +203,14 @@ function registerIpc() {
       electron: process.versions.electron,
       node: process.versions.node,
     }),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appOpenExternalUrl",
+    async (_event, rawURL) => {
+      await shell.openExternal(externalURL(rawURL));
+    },
     ipcObserver,
   );
   handleIpc(
@@ -419,6 +427,14 @@ function registerIpc() {
     },
     ipcObserver,
   );
+}
+
+function externalURL(rawURL: string) {
+  const url = new URL(rawURL);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("external URL must use http or https: " + rawURL);
+  }
+  return url.toString();
 }
 
 function requireBackendClient(): BackendClient {

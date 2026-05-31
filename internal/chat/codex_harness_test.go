@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -98,6 +99,31 @@ func TestJSONRPCMalformedResponseIDFailsPendingCall(t *testing.T) {
 	}
 }
 
+func TestJSONRPCRoutesStringIDServerRequest(t *testing.T) {
+	client, err := startJSONRPCClient(testCodexConfig("malformed-approval"))
+	if err != nil {
+		t.Fatalf("start json rpc client: %v", err)
+	}
+	defer client.close()
+	if _, err := client.call(context.Background(), "initialize", map[string]any{}); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if _, err := client.call(context.Background(), "thread/start", map[string]any{}); err != nil {
+		t.Fatalf("thread/start: %v", err)
+	}
+	if _, err := client.call(context.Background(), "turn/start", map[string]any{}); err != nil {
+		t.Fatalf("turn/start: %v", err)
+	}
+	select {
+	case request := <-client.requests:
+		if request.Method != "item/commandExecution/requestApproval" {
+			t.Fatalf("request method = %q", request.Method)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for server request")
+	}
+}
+
 func TestCodexHarnessMapsApprovalRequestAndResponse(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("approval"))
 	sink := newRecordingSink()
@@ -178,6 +204,174 @@ func TestCodexHarnessMapsMultiQuestionUserInput(t *testing.T) {
 	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
 	if sink.text != "answers received" {
 		t.Fatalf("assistant text = %q, want answers received", sink.text)
+	}
+}
+
+func TestCodexHarnessMapsMCPElicitationFormResponse(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("mcp-elicitation-form"))
+	sink := newRecordingSink()
+	done := startCodexTurnAsync(t, harness, sink)
+
+	approval := waitForApproval(t, sink)
+	if approval.Kind != ApprovalKindStructured || approval.StructuredInput == nil || approval.StructuredInput.Mode != StructuredInputModeForm {
+		t.Fatalf("approval = %+v, want structured form elicitation", approval)
+	}
+	if approval.StructuredInput.ServerName != "deploy" || len(approval.StructuredInput.Schema) == 0 {
+		t.Fatalf("structured input = %+v, want server and schema", approval.StructuredInput)
+	}
+	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
+		ApprovalID: approval.ID,
+		Approved:   true,
+		Answers: []ApprovalAnswer{
+			{QuestionID: "target", Value: rawJSONPtr(`"staging"`)},
+			{QuestionID: "confirm", Value: rawJSONPtr(`true`)},
+		},
+		RunID: "run_fake",
+	}); err != nil {
+		t.Fatalf("submit mcp elicitation: %v", err)
+	}
+	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
+	if sink.text != "mcp form accepted" {
+		t.Fatalf("assistant text = %q, want mcp form accepted", sink.text)
+	}
+}
+
+func TestCodexHarnessMapsMCPElicitationFormCancel(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("mcp-elicitation-form-cancel"))
+	sink := newRecordingSink()
+	done := startCodexTurnAsync(t, harness, sink)
+
+	approval := waitForApproval(t, sink)
+	if approval.Kind != ApprovalKindStructured || approval.StructuredInput == nil {
+		t.Fatalf("approval = %+v, want structured elicitation", approval)
+	}
+	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
+		ApprovalID: approval.ID,
+		Cancelled:  true,
+		RunID:      "run_fake",
+	}); err != nil {
+		t.Fatalf("submit mcp cancel: %v", err)
+	}
+	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
+	if sink.text != "mcp form cancelled" {
+		t.Fatalf("assistant text = %q, want mcp form cancelled", sink.text)
+	}
+}
+
+func TestCodexHarnessMapsMCPElicitationURLDecline(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("mcp-elicitation-url-decline"))
+	sink := newRecordingSink()
+	done := startCodexTurnAsync(t, harness, sink)
+
+	approval := waitForApproval(t, sink)
+	if approval.Kind != ApprovalKindStructured || approval.StructuredInput == nil || approval.StructuredInput.Mode != StructuredInputModeURL {
+		t.Fatalf("approval = %+v, want structured url elicitation", approval)
+	}
+	if approval.StructuredInput.URL != "https://example.test/login" || approval.StructuredInput.ElicitationID != "elicitation_fake" {
+		t.Fatalf("structured input = %+v, want url metadata", approval.StructuredInput)
+	}
+	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
+		ApprovalID: approval.ID,
+		Approved:   false,
+		RunID:      "run_fake",
+	}); err != nil {
+		t.Fatalf("submit mcp decline: %v", err)
+	}
+	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
+	if sink.text != "mcp url declined" {
+		t.Fatalf("assistant text = %q, want mcp url declined", sink.text)
+	}
+}
+
+func TestCodexHarnessReturnsUnsupportedDynamicToolError(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("dynamic-tool-unknown"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
+	if !ok || item.Status != RunItemStatusFailed || !strings.Contains(item.Error, "unsupported dynamic tool") {
+		t.Fatalf("items = %+v, want failed unsupported dynamic tool item", sink.items)
+	}
+}
+
+func TestCodexHarnessDispatchesRegisteredDynamicTool(t *testing.T) {
+	registry, err := NewAgentToolRegistry(AgentTool{
+		Namespace: "setta",
+		Name:      "fakeTool",
+		Handler: func(_ context.Context, call AgentToolCall) (AgentToolResult, error) {
+			if string(call.Arguments) != `{"value":"from codex"}` {
+				t.Fatalf("tool arguments = %s, want structured json", call.Arguments)
+			}
+			return AgentToolResult{
+				ContentItems: []AgentToolContentItem{{Type: "inputText", Text: "tool ok"}},
+				Success:      true,
+			}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("tool registry: %v", err)
+	}
+	config := testCodexConfig("dynamic-tool-registered")
+	config.Tools = registry
+	harness := NewCodexHarness(config)
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
+	if !ok || item.Status != RunItemStatusCompleted || item.Result != "tool ok" {
+		t.Fatalf("items = %+v, want completed registered dynamic tool item", sink.items)
+	}
+}
+
+func TestCodexHarnessReturnsUnavailableChatGPTAuthRefresh(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("chatgpt-auth-refresh-unavailable"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_chatgpt_auth_unavailable" || sink.diagnostics[0].severity != DiagnosticSeverityError {
+		t.Fatalf("diagnostics = %+v, want auth unavailable diagnostic", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessReturnsUnavailableAttestation(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("attestation-unavailable"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_attestation_unavailable" || sink.diagnostics[0].severity != DiagnosticSeverityError {
+		t.Fatalf("diagnostics = %+v, want attestation unavailable diagnostic", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessUsesConfiguredAttestationProvider(t *testing.T) {
+	config := testCodexConfig("attestation-provider")
+	config.AttestationProvider = fakeAttestationProvider{token: "token_fake"}
+	harness := NewCodexHarness(config)
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
 	}
 }
 
@@ -283,6 +477,24 @@ func findRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) {
 		}
 	}
 	return RunItem{}, false
+}
+
+func findLastRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) {
+	for index := len(items) - 1; index >= 0; index-- {
+		if items[index].Type == itemType {
+			return items[index], true
+		}
+	}
+	return RunItem{}, false
+}
+
+func requireRunItemType(t *testing.T, items []RunItem, itemType RunItemType) RunItem {
+	t.Helper()
+	item, ok := findRunItemType(items, itemType)
+	if !ok {
+		t.Fatalf("items = %+v, want %s", items, itemType)
+	}
+	return item
 }
 
 func TestCodexHarnessReportsNotStartedBeforeActiveRegistration(t *testing.T) {
@@ -525,6 +737,75 @@ func TestCodexHarnessHandlesThreadTokenUsageAsTelemetryNotification(t *testing.T
 	}
 }
 
+func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("protocol-coverage-notifications"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "coverage complete" {
+		t.Fatalf("assistant text = %q, want coverage complete", sink.text)
+	}
+	requireRunItemType(t, sink.items, RunItemTypeHook)
+	requireRunItemType(t, sink.items, RunItemTypeApprovalReview)
+	requireRunItemType(t, sink.items, RunItemTypeFileChange)
+	reasoning := requireRunItemType(t, sink.items, RunItemTypeReasoning)
+	if reasoning.HiddenText != "private reasoning" {
+		t.Fatalf("reasoning hidden text = %q, want preserved private reasoning", reasoning.HiddenText)
+	}
+	for _, diagnostic := range sink.diagnostics {
+		if diagnostic.severity == DiagnosticSeverityCritical {
+			t.Fatalf("diagnostics = %+v, want no critical diagnostics for known coverage notifications", sink.diagnostics)
+		}
+	}
+}
+
+func TestCodexHarnessProtocolCoverageRegistry(t *testing.T) {
+	for _, method := range []string{
+		"initialize",
+		"model/list",
+		"thread/goal/clear",
+		"thread/goal/get",
+		"thread/goal/set",
+		"thread/resume",
+		"thread/settings/update",
+		"thread/start",
+		"turn/interrupt",
+		"turn/start",
+		"turn/steer",
+	} {
+		if _, ok := supportedCodexClientMethods[method]; !ok {
+			t.Fatalf("client method %s missing support policy", method)
+		}
+	}
+	for _, method := range codexAppServer0135ServerRequests {
+		if !isSupportedCodexServerRequest(method) {
+			t.Fatalf("server request %s missing support policy", method)
+		}
+	}
+	for _, method := range codexAppServer0135Notifications {
+		if _, ok := codexNotificationHandlers[method]; !ok {
+			t.Fatalf("notification %s missing handler", method)
+		}
+		if _, ok := codexNotificationScopePolicies[method]; !ok {
+			t.Fatalf("notification %s missing scope policy", method)
+		}
+	}
+	for method := range supportedCodexServerRequests {
+		if !slices.Contains(codexAppServer0135ServerRequests, method) {
+			t.Fatalf("server request %s is not in the codex 0.135.0 baseline", method)
+		}
+	}
+	for method := range codexNotificationHandlers {
+		if !slices.Contains(codexAppServer0135Notifications, method) {
+			t.Fatalf("notification handler %s is not in the codex 0.135.0 baseline", method)
+		}
+	}
+}
+
 func TestCodexHarnessIgnoresProviderUserMessageItem(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("provider-user-message-item"))
 	sink := newRecordingSink()
@@ -630,6 +911,15 @@ type recordedProviderDiagnostic struct {
 	context        map[string]string
 	message        string
 	resyncRequired bool
+	severity       DiagnosticSeverity
+}
+
+type fakeAttestationProvider struct {
+	token string
+}
+
+func (provider fakeAttestationProvider) GenerateAttestation(context.Context) (string, error) {
+	return provider.token, nil
 }
 
 func newRecordingSink() *recordingSink {
@@ -637,6 +927,11 @@ func newRecordingSink() *recordingSink {
 		approvalCh: make(chan ApprovalRequest, 1),
 		linkCh:     make(chan struct{}, 4),
 	}
+}
+
+func rawJSONPtr(value string) *json.RawMessage {
+	raw := json.RawMessage(value)
+	return &raw
 }
 
 func startCodexTurnAsync(t *testing.T, harness *CodexHarness, sink *recordingSink) <-chan codexTurnResult {
@@ -719,12 +1014,13 @@ func (sink *recordingSink) ApprovalResolved(string, bool, string) error {
 	return nil
 }
 
-func (sink *recordingSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool) error {
+func (sink *recordingSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
 	sink.diagnostics = append(sink.diagnostics, recordedProviderDiagnostic{
 		code:           code,
 		context:        context,
 		message:        message,
 		resyncRequired: resyncRequired,
+		severity:       severity,
 	})
 	return nil
 }
@@ -812,6 +1108,9 @@ func fakeCodexAppServer(mode string) {
 		if handleFakeJSONRPCMode(mode, &state, message) {
 			return
 		}
+		if handleFakeServerResponse(mode, &state, message) {
+			return
+		}
 		if handleFakeApprovalResponse(mode, state, message) {
 			return
 		}
@@ -827,6 +1126,7 @@ type fakeCodexState struct {
 	commandThreadResumed bool
 	commandThreadStarted bool
 	holdCalls            int
+	responseOutstanding  string
 }
 
 func handleFakeJSONRPCMode(mode string, state *fakeCodexState, message map[string]any) bool {
@@ -870,9 +1170,52 @@ func handleFakeApprovalResponse(mode string, state fakeCodexState, message map[s
 		assertFakeUserInputApproval(message)
 		delta = "answers received"
 	}
+	if mode == "mcp-elicitation-form" {
+		assertFakeMCPElicitationResponse(message, "accept", map[string]any{"confirm": true, "target": "staging"})
+		delta = "mcp form accepted"
+	}
+	if mode == "mcp-elicitation-form-cancel" {
+		assertFakeMCPElicitationResponse(message, "cancel", nil)
+		delta = "mcp form cancelled"
+	}
+	if mode == "mcp-elicitation-url-decline" {
+		assertFakeMCPElicitationResponse(message, "decline", nil)
+		delta = "mcp url declined"
+	}
 	writeFakeAssistantDelta(delta)
 	writeFakeCompletedTurn("completed")
 	return true
+}
+
+func handleFakeServerResponse(mode string, state *fakeCodexState, message map[string]any) bool {
+	if state.responseOutstanding == "" || message["method"] != nil {
+		return false
+	}
+	switch state.responseOutstanding {
+	case "dynamic-tool-unknown":
+		assertFakeErrorResponse(message, codexJSONRPCErrorToolUnavailable, "unsupported dynamic tool")
+		writeFakeCompletedTurn("completed")
+		return true
+	case "dynamic-tool-registered":
+		assertFakeDynamicToolResponse(message)
+		writeFakeAssistantDelta("dynamic tool completed")
+		writeFakeCompletedTurn("completed")
+		return true
+	case "chatgpt-auth-refresh-unavailable":
+		assertFakeErrorResponse(message, codexJSONRPCErrorCapabilityUnavailable, "ChatGPT auth token refresh is unavailable")
+		writeFakeCompletedTurn("completed")
+		return true
+	case "attestation-unavailable":
+		assertFakeErrorResponse(message, codexJSONRPCErrorCapabilityUnavailable, "attestation is unavailable")
+		writeFakeCompletedTurn("completed")
+		return true
+	case "attestation-provider":
+		assertFakeAttestationResponse(message)
+		writeFakeCompletedTurn("completed")
+		return true
+	default:
+		panic("unsupported fake response expectation " + state.responseOutstanding)
+	}
 }
 
 func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[string]any) bool {
@@ -977,6 +1320,13 @@ func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool
 		state.approvalOutstanding = true
 		writeFakeApprovalRequest(mode)
 		return true, false
+	case "mcp-elicitation-form", "mcp-elicitation-form-cancel", "mcp-elicitation-url-decline":
+		state.approvalOutstanding = true
+		writeFakeMCPElicitationRequest(mode)
+		return true, false
+	case "dynamic-tool-unknown", "dynamic-tool-registered", "chatgpt-auth-refresh-unavailable", "attestation-unavailable", "attestation-provider":
+		writeFakeImmediateServerRequest(mode, state)
+		return true, false
 	case "malformed-approval":
 		writeFakeMalformedApproval()
 		return true, true
@@ -1023,6 +1373,9 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 	case "terminal-error-notification":
 		writeFakeErrorNotification("model unavailable", false)
 		return true, true
+	case "protocol-coverage-notifications":
+		writeFakeProtocolCoverageNotifications()
+		return true, true
 	default:
 		return false, false
 	}
@@ -1068,423 +1421,4 @@ func handleFakeAppServerStatusMode(mode string) (bool, bool) {
 	default:
 		return false, false
 	}
-}
-
-func writeFakeInitializeResponse(id any) {
-	writeFakeResponse(id, map[string]any{
-		"codexHome":      "/tmp/codex",
-		"platformFamily": "unix",
-		"platformOs":     "test",
-		"userAgent":      "fake",
-	})
-}
-
-func writeFakeThreadResponse(id any, model string) {
-	writeFakeResponse(id, map[string]any{
-		"model":  model,
-		"thread": map[string]any{"id": "thread_fake"},
-	})
-}
-
-func writeFakeStreamTurn() {
-	writeFakeAssistantDelta("hello ")
-	writeFakeAssistantDelta("from codex")
-	writeFakeCompletedTurn("completed")
-}
-
-func writeFakeRemoteControlStatus(status string) {
-	writeFakeNotification("remoteControl/status/changed", map[string]any{
-		"environmentId":  nil,
-		"installationId": "installation_fake",
-		"serverName":     "fake.local",
-		"status":         status,
-	})
-}
-
-func writeFakeMCPServerStartupStatus(name string, status string, errorMessage any) {
-	writeFakeNotification("mcpServer/startupStatus/updated", map[string]any{
-		"error":  errorMessage,
-		"name":   name,
-		"status": status,
-	})
-}
-
-func writeFakeReasoningSummaryArrayItem() {
-	writeFakeNotification("item/completed", map[string]any{
-		"item": map[string]any{
-			"content": []string{},
-			"id":      "reasoning_summary_array_fake",
-			"summary": []string{"checked context", "answered directly"},
-			"type":    "reasoning",
-		},
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-}
-
-func writeFakeEmptyAgentMessageItem() {
-	writeFakeNotification("item/started", map[string]any{
-		"item": map[string]any{
-			"id":   "agent_message_empty_fake",
-			"text": "",
-			"type": "agentMessage",
-		},
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-}
-
-func writeFakeAccountRateLimits() {
-	writeFakeNotification("account/rateLimits/updated", map[string]any{
-		"rateLimits": map[string]any{
-			"credits":              nil,
-			"limitId":              "codex",
-			"limitName":            "Codex",
-			"planType":             "pro",
-			"primary":              map[string]any{"resetsAt": nil, "usedPercent": 1, "windowDurationMins": 300},
-			"rateLimitReachedType": nil,
-			"secondary":            nil,
-		},
-	})
-}
-
-func writeFakeThreadGoalCleared() {
-	writeFakeNotification("thread/goal/cleared", map[string]any{
-		"threadId": "thread_fake",
-	})
-}
-
-func writeFakeThreadStarted() {
-	writeFakeNotification("thread/started", map[string]any{
-		"thread": map[string]any{
-			"id": "thread_fake",
-		},
-	})
-}
-
-func writeFakeThreadStatusChanged(statusType string) {
-	status := map[string]any{
-		"type": statusType,
-	}
-	if statusType == "active" {
-		status["activeFlags"] = []string{}
-	}
-	writeFakeNotification("thread/status/changed", map[string]any{
-		"status":   status,
-		"threadId": "thread_fake",
-	})
-}
-
-func writeFakeThreadTokenUsage() {
-	breakdown := map[string]any{
-		"cachedInputTokens":     0,
-		"inputTokens":           1,
-		"outputTokens":          2,
-		"reasoningOutputTokens": 0,
-		"totalTokens":           3,
-	}
-	writeFakeNotification("thread/tokenUsage/updated", map[string]any{
-		"threadId": "thread_fake",
-		"tokenUsage": map[string]any{
-			"last":               breakdown,
-			"modelContextWindow": nil,
-			"total":              breakdown,
-		},
-		"turnId": "turn_fake",
-	})
-}
-
-func writeFakeUserMessageItem() {
-	writeFakeNotification("item/started", map[string]any{
-		"item": map[string]any{
-			"content": []any{map[string]any{
-				"text": "hello",
-				"type": "text",
-			}},
-			"id":   "user_message_fake",
-			"type": "userMessage",
-		},
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-}
-
-func writeFakeErrorNotification(message string, willRetry bool) {
-	writeFakeNotification("error", map[string]any{
-		"error": map[string]any{
-			"additionalDetails": nil,
-			"codexErrorInfo":    nil,
-			"message":           message,
-		},
-		"threadId":  "thread_fake",
-		"turnId":    "turn_fake",
-		"willRetry": willRetry,
-	})
-}
-
-func writeFakeFailedTurn() {
-	writeFakeNotification("turn/completed", map[string]any{
-		"threadId": "thread_fake",
-		"turn": map[string]any{
-			"error":  map[string]any{"message": "model failed"},
-			"id":     "turn_fake",
-			"items":  []any{},
-			"status": "failed",
-		},
-	})
-}
-
-func writeFakeActivityTurn() {
-	writeFakeNotification("turn/started", map[string]any{
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("item/reasoning/summaryPartAdded", map[string]any{
-		"itemId":   "reasoning_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("item/reasoning/summaryTextDelta", map[string]any{
-		"delta":    "checked plan",
-		"itemId":   "reasoning_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("item/started", map[string]any{
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-		"item": map[string]any{
-			"id":      "command_fake",
-			"type":    "commandExecution",
-			"command": "go test ./...",
-			"cwd":     "/tmp/workspace",
-			"status":  "inProgress",
-		},
-	})
-	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
-		"delta":    "ok\n",
-		"itemId":   "command_fake",
-		"stream":   "stdout",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("item/fileChange/patchUpdated", map[string]any{
-		"changedPaths": []string{"/tmp/workspace/main.go"},
-		"itemId":       "file_fake",
-		"status":       "updated",
-		"threadId":     "thread_fake",
-		"turnId":       "turn_fake",
-	})
-	writeFakeNotification("item/mcpToolCall/progress", map[string]any{
-		"itemId":   "mcp_fake",
-		"progress": "halfway",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("warning", map[string]any{
-		"message":  "watch out",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("item/completed", map[string]any{
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-		"item": map[string]any{
-			"durationMs": 42,
-			"exitCode":   0,
-			"id":         "command_fake",
-			"type":       "commandExecution",
-			"command":    "go test ./...",
-			"cwd":        "/tmp/workspace",
-			"status":     "completed",
-		},
-	})
-	writeFakeCompletedTurn("completed")
-}
-
-func writeFakeApprovalRequest(mode string) {
-	switch mode {
-	case "approval":
-		writeFakeCommandApprovalRequest()
-	case "permission":
-		writeFakePermissionApprovalRequest()
-	case "user-input":
-		writeFakeUserInputApprovalRequest()
-	}
-}
-
-func writeFakeCommandApprovalRequest() {
-	writeFakeServerRequest("approval-1", "item/commandExecution/requestApproval", map[string]any{
-		"command":     "go test ./...",
-		"itemId":      "item_fake",
-		"startedAtMs": 0,
-		"threadId":    "thread_fake",
-		"turnId":      "turn_fake",
-	})
-}
-
-func writeFakePermissionApprovalRequest() {
-	writeFakeServerRequest("approval-1", "item/permissions/requestApproval", map[string]any{
-		"cwd":         "/tmp/workspace",
-		"itemId":      "item_fake",
-		"permissions": map[string]any{"network": map[string]any{"enabled": true}},
-		"reason":      "Need network access",
-		"startedAtMs": 0,
-		"threadId":    "thread_fake",
-		"turnId":      "turn_fake",
-	})
-}
-
-func writeFakeUserInputApprovalRequest() {
-	writeFakeServerRequest("approval-1", "item/tool/requestUserInput", map[string]any{
-		"itemId": "item_fake",
-		"questions": []map[string]any{
-			{
-				"header":   "Branch",
-				"id":       "branch",
-				"options":  []map[string]any{{"description": "Use main", "label": "main"}},
-				"question": "Which branch?",
-			},
-			{
-				"header":   "Mode",
-				"id":       "mode",
-				"options":  []map[string]any{{"description": "Fast mode", "label": "fast"}},
-				"question": "Which mode?",
-			},
-		},
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-}
-
-func writeFakeMalformedApproval() {
-	writeFakeServerRequest("approval-1", "item/commandExecution/requestApproval", map[string]any{
-		"itemId":   "item_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	time.Sleep(2 * time.Second)
-}
-
-func writeFakeMalformedDelta() {
-	writeFakeNotification("item/agentMessage/delta", map[string]any{
-		"delta":    12,
-		"itemId":   "item_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	time.Sleep(2 * time.Second)
-}
-
-func writeFakeUnsupportedRequest() {
-	writeFakeServerRequest("request-unsupported", "item/unknown/requestApproval", map[string]any{
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	time.Sleep(2 * time.Second)
-}
-
-func writeFakeAssistantDelta(delta string) {
-	writeFakeNotification("item/agentMessage/delta", map[string]any{
-		"delta":    delta,
-		"itemId":   "item_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-}
-
-func writeFakeCompletedTurn(status string) {
-	writeFakeNotification("turn/completed", map[string]any{
-		"threadId": "thread_fake",
-		"turn":     map[string]any{"id": "turn_fake", "items": []any{}, "status": status},
-	})
-}
-
-func assertFakeSteer(message map[string]any) {
-	params := fakeParams(message)
-	if params["threadId"] != "thread_fake" || params["expectedTurnId"] != "turn_fake" {
-		panic("steer targeted wrong turn")
-	}
-	input, ok := params["input"].([]any)
-	if !ok || len(input) != 1 {
-		panic("steer missing input")
-	}
-	first, ok := input[0].(map[string]any)
-	if !ok || first["text"] != "adjust course" || first["type"] != "text" {
-		panic("steer input mismatch")
-	}
-}
-
-func fakeParams(message map[string]any) map[string]any {
-	params, ok := message["params"].(map[string]any)
-	if !ok {
-		panic("message missing params")
-	}
-	return params
-}
-
-func assertFakeThreadID(message map[string]any) {
-	params := fakeParams(message)
-	if params["threadId"] != "thread_fake" {
-		panic("command targeted wrong thread")
-	}
-}
-
-func assertFakePermissionApproval(message map[string]any) {
-	result, ok := message["result"].(map[string]any)
-	if !ok {
-		panic("permission approval missing result")
-	}
-	permissions, ok := result["permissions"].(map[string]any)
-	if !ok {
-		panic("permission approval missing permissions")
-	}
-	network, ok := permissions["network"].(map[string]any)
-	if !ok || network["enabled"] != true {
-		panic("permission approval did not echo requested network permission")
-	}
-}
-
-func assertFakeUserInputApproval(message map[string]any) {
-	result, ok := message["result"].(map[string]any)
-	if !ok {
-		panic("user input approval missing result")
-	}
-	answers, ok := result["answers"].(map[string]any)
-	if !ok {
-		panic("user input approval missing answers")
-	}
-	assertFakeAnswer(answers, "branch", "main")
-	assertFakeAnswer(answers, "mode", "fast")
-}
-
-func assertFakeAnswer(answers map[string]any, questionID string, expected string) {
-	raw, ok := answers[questionID].(map[string]any)
-	if !ok {
-		panic("missing answer for " + questionID)
-	}
-	values, ok := raw["answers"].([]any)
-	if !ok || len(values) != 1 || values[0] != expected {
-		panic("unexpected answer for " + questionID)
-	}
-}
-
-func writeFakeResponse(id any, result any) {
-	writeFake(map[string]any{"id": id, "result": result})
-}
-
-func writeFakeNotification(method string, params any) {
-	writeFake(map[string]any{"method": method, "params": params})
-}
-
-func writeFakeServerRequest(id any, method string, params any) {
-	writeFake(map[string]any{"id": id, "method": method, "params": params})
-}
-
-func writeFake(payload any) {
-	data, err := json.Marshal(payload)
-	if err != nil {
-		panic(err)
-	}
-	_, _ = os.Stdout.Write(append(data, '\n'))
 }

@@ -47,6 +47,7 @@ export type BackendEventStreamStatus =
 
 export interface SettaAPI {
   app: {
+    openExternalUrl: (url: string) => Promise<void>;
     versions: () => Promise<RuntimeVersions>;
   };
   backend: {

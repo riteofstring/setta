@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
+
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(desktopRoot, "..");
@@ -620,10 +622,18 @@ async function runFailWorkflow(client, backend, workspaceId, conversationId) {
 }
 
 async function runApprovalsWorkflow(client, backend, workspaceId, conversationId) {
-  await approveDecisionWorkflow(client, "command approval workflow", "Command approval");
-  await approveDecisionWorkflow(client, "file approval workflow", "File change approval");
-  await approveDecisionWorkflow(client, "permission approval workflow", "Permission approval");
-  await answerUserInputApproval(client);
+  await runProtocolApprovalWorkflows({
+    backend,
+    clickButtonByText,
+    client,
+    conversationId,
+    setInputValue,
+    submitComposer,
+    waitForRunWithPrompt,
+    waitForText,
+    waitForTexts,
+    workspaceId,
+  });
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 }
 
@@ -714,21 +724,6 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   ]);
   await assertChatLayout(client);
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
-}
-
-async function approveDecisionWorkflow(client, prompt, title) {
-  await submitComposer(client, prompt, "Send message");
-  await waitForText(client, title);
-  await clickButtonByText(client, "Approve");
-  await waitForText(client, `${title} resolved.`);
-}
-
-async function answerUserInputApproval(client) {
-  await submitComposer(client, "user input approval workflow", "Send message");
-  await waitForText(client, "User input approval");
-  await setInputValue(client, 'input[type="text"]', "scripted answer");
-  await clickButtonByText(client, "Answer");
-  await waitForText(client, "User input approval resolved.");
 }
 
 async function openWorkspace(client, workspaceRoot, backend) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -55,6 +56,7 @@ type decoderHelpers struct {
 	Map      bool
 	Nullable bool
 	String   bool
+	Unknown  bool
 }
 
 type contractCollector struct {
@@ -310,6 +312,9 @@ func (collector *contractCollector) add(goType reflect.Type) error {
 	if goType == nil {
 		return nil
 	}
+	if isJSONRawMessage(goType) {
+		return nil
+	}
 	switch goType.Kind() {
 	case reflect.Bool, reflect.Int:
 		return nil
@@ -487,6 +492,9 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 	}
 	if helpers.String {
 		imports = append(imports, "decodeString")
+	}
+	if helpers.Unknown {
+		imports = append(imports, "decodeUnknown")
 	}
 	imports = append(imports,
 		"requestBackend",
@@ -669,6 +677,10 @@ func decoderHelperUsage(specs []interfaceSpec, events []eventSpec) decoderHelper
 }
 
 func markDecoderHelperUsage(goType reflect.Type, helpers *decoderHelpers) {
+	if isJSONRawMessage(goType) {
+		helpers.Unknown = true
+		return
+	}
 	switch goType.Kind() {
 	case reflect.Bool:
 		helpers.Boolean = true
@@ -741,6 +753,9 @@ func renderRequestBackendProperties(buffer *bytes.Buffer, endpoint endpointSpec,
 }
 
 func decoderExpression(goType reflect.Type, valueExpr string, label string) (string, error) {
+	if isJSONRawMessage(goType) {
+		return fmt.Sprintf("decodeUnknown(%s, %q)", valueExpr, label), nil
+	}
 	switch goType.Kind() {
 	case reflect.Bool, reflect.Int, reflect.String:
 		return scalarDecoderExpression(goType, valueExpr, label), nil
@@ -826,6 +841,9 @@ func jsonName(field reflect.StructField) string {
 }
 
 func typeScriptType(goType reflect.Type) (string, error) {
+	if isJSONRawMessage(goType) {
+		return "unknown", nil
+	}
 	switch goType.Kind() {
 	case reflect.Bool, reflect.Int, reflect.String:
 		return scalarTypeScriptType(goType), nil
@@ -897,6 +915,10 @@ func typeName(goType reflect.Type) string {
 		return ""
 	}
 	return goType.Name()
+}
+
+func isJSONRawMessage(goType reflect.Type) bool {
+	return goType == reflect.TypeFor[json.RawMessage]()
 }
 
 func lowerCamel(value string) string {

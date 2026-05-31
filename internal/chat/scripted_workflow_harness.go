@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -38,6 +39,10 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "file approval workflow", Run: scriptedFileApprovalTurn},
 	{Prompt: "permission approval workflow", Run: scriptedPermissionApprovalTurn},
 	{Prompt: "user input approval workflow", Run: (*ScriptedWorkflowHarness).userInputApprovalTurn},
+	{Prompt: "mcp elicitation form accept workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormAcceptTurn},
+	{Prompt: "mcp elicitation form cancel workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormCancelTurn},
+	{Prompt: "mcp elicitation url decline workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationURLDeclineTurn},
+	{Prompt: "dynamic tool workflow", Run: scriptedDynamicToolTurn},
 	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 }
 
@@ -259,6 +264,79 @@ func (harness *ScriptedWorkflowHarness) userInputApprovalTurn(ctx context.Contex
 	return scriptedReply(sink, request.Run.ID, "User input approval resolved.")
 }
 
+func (harness *ScriptedWorkflowHarness) mcpElicitationFormAcceptTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	approval := scriptedMCPFormApproval(request.Run.ID)
+	if err := scriptedStructuredApprovalActivity(sink, approval); err != nil {
+		return TurnCompletion{}, err
+	}
+	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if !response.Approved || response.Cancelled {
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted mcp form was not accepted"}, nil
+	}
+	values := approvalValuesByQuestionID(response.Answers)
+	if string(values["target"]) != `"staging"` || string(values["confirm"]) != `true` {
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted mcp form returned unexpected values"}, nil
+	}
+	return scriptedReply(sink, request.Run.ID, "MCP form accepted.")
+}
+
+func (harness *ScriptedWorkflowHarness) mcpElicitationFormCancelTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	approval := scriptedMCPFormApproval(request.Run.ID)
+	if err := scriptedStructuredApprovalActivity(sink, approval); err != nil {
+		return TurnCompletion{}, err
+	}
+	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if !response.Cancelled {
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted mcp form was not cancelled"}, nil
+	}
+	return scriptedReply(sink, request.Run.ID, "MCP form cancelled.")
+}
+
+func (harness *ScriptedWorkflowHarness) mcpElicitationURLDeclineTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	approval := scriptedMCPURLApproval(request.Run.ID)
+	if err := scriptedStructuredApprovalActivity(sink, approval); err != nil {
+		return TurnCompletion{}, err
+	}
+	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if response.Approved || response.Cancelled {
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted mcp url was not declined"}, nil
+	}
+	return scriptedReply(sink, request.Run.ID, "MCP url declined.")
+}
+
+func scriptedDynamicToolTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	item := RunItem{
+		ProviderItemID: "provider_dynamic_tool_" + request.Run.ID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusRunning,
+		Title:          "Dynamic tool call",
+		Namespace:      "setta",
+		ToolName:       "fakeTool",
+		Details:        json.RawMessage(`{"value":"from scripted workflow"}`),
+	}
+	if err := sink.RunItemUpsert(item); err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.RunItemOutputDelta(item.ProviderItemID, "stdout", "tool ok\n"); err != nil {
+		return TurnCompletion{}, err
+	}
+	item.Status = RunItemStatusCompleted
+	item.Result = "tool ok"
+	if err := sink.RunItemUpsert(item); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Dynamic tool workflow complete.")
+}
+
 func (harness *ScriptedWorkflowHarness) modelSettingTurn(_ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.mu.Lock()
 	model := harness.model
@@ -348,6 +426,22 @@ func scriptedApprovalActivity(sink TurnSink, runID string, approval ApprovalRequ
 	return sink.RunItemOutputDelta(approval.ProviderItemID, "stdout", "scripted approval output for "+runID+"\n")
 }
 
+func scriptedStructuredApprovalActivity(sink TurnSink, approval ApprovalRequest) error {
+	item := RunItem{
+		ProviderItemID: approval.ProviderItemID,
+		Type:           RunItemTypeStructuredInput,
+		Status:         RunItemStatusPending,
+		Title:          approval.Title,
+		Summary:        approval.Body,
+	}
+	if approval.StructuredInput != nil {
+		item.ServerName = approval.StructuredInput.ServerName
+		item.RequestID = approval.StructuredInput.ProviderRequestID
+		item.Details = approval.StructuredInput.Schema
+	}
+	return sink.RunItemUpsert(item)
+}
+
 func approvalFilePaths(approval ApprovalRequest) []string {
 	if approval.FilePath == "" {
 		return nil
@@ -401,4 +495,81 @@ func scriptedUserInputApproval(runID string) ApprovalRequest {
 			Options:  []string{},
 		}},
 	}
+}
+
+func scriptedMCPFormApproval(runID string) ApprovalRequest {
+	input := StructuredInputRequest{
+		ProviderRequestID: "provider_mcp_form_" + runID,
+		ThreadID:          "scripted-thread",
+		TurnID:            "scripted-turn-" + runID,
+		ServerName:        "deploy",
+		Mode:              StructuredInputModeForm,
+		Message:           "Provide deploy settings.",
+		Schema: json.RawMessage(`{
+			"type": "object",
+			"properties": {
+				"target": {
+					"type": "string",
+					"title": "Target",
+					"description": "Deployment target",
+					"enum": ["staging", "production"]
+				},
+				"confirm": {
+					"type": "boolean",
+					"title": "Confirm",
+					"description": "Confirm deployment",
+					"default": false
+				}
+			},
+			"required": ["target", "confirm"]
+		}`),
+		Meta: json.RawMessage(`{"source":"scripted-workflow"}`),
+	}
+	return ApprovalRequest{
+		ID:              "approval_mcp_form_" + runID,
+		ProviderItemID:  input.ProviderRequestID,
+		Kind:            ApprovalKindStructured,
+		Title:           "MCP input requested: deploy",
+		Body:            input.Message,
+		Question:        input.Message,
+		Options:         []string{},
+		Questions:       []ApprovalQuestion{},
+		StructuredInput: &input,
+	}
+}
+
+func scriptedMCPURLApproval(runID string) ApprovalRequest {
+	input := StructuredInputRequest{
+		ProviderRequestID: "provider_mcp_url_" + runID,
+		ThreadID:          "scripted-thread",
+		TurnID:            "scripted-turn-" + runID,
+		ServerName:        "accounts",
+		Mode:              StructuredInputModeURL,
+		Message:           "Authorize the scripted account.",
+		URL:               "https://example.test/login",
+		ElicitationID:     "scripted-elicitation-" + runID,
+		Meta:              json.RawMessage(`{"source":"scripted-workflow"}`),
+	}
+	return ApprovalRequest{
+		ID:              "approval_mcp_url_" + runID,
+		ProviderItemID:  input.ProviderRequestID,
+		Kind:            ApprovalKindStructured,
+		Title:           "MCP input requested: accounts",
+		Body:            input.Message,
+		Question:        input.Message,
+		Options:         []string{},
+		Questions:       []ApprovalQuestion{},
+		StructuredInput: &input,
+	}
+}
+
+func approvalValuesByQuestionID(answers []ApprovalAnswer) map[string]json.RawMessage {
+	values := map[string]json.RawMessage{}
+	for _, answer := range answers {
+		if answer.QuestionID == "" || answer.Value == nil {
+			continue
+		}
+		values[answer.QuestionID] = append(json.RawMessage{}, (*answer.Value)...)
+	}
+	return values
 }

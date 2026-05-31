@@ -69,9 +69,12 @@ func (service *Service) recordBackgroundFailure(request TurnRequest, code string
 	}
 }
 
-func (service *Service) recordProviderDiagnostic(workspaceID string, conversationID string, runID string, code string, message string, context map[string]string, resyncRequired bool) error {
+func (service *Service) recordProviderDiagnostic(workspaceID string, conversationID string, runID string, code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
 	if context == nil {
 		context = map[string]string{}
+	}
+	if severity == "" {
+		severity = DiagnosticSeverityCritical
 	}
 	context["resyncRequired"] = fmt.Sprintf("%t", resyncRequired)
 	_, err := service.recordDiagnostic(diagnosticDraft{
@@ -80,7 +83,7 @@ func (service *Service) recordProviderDiagnostic(workspaceID string, conversatio
 		ConversationID: conversationID,
 		Message:        message,
 		RunID:          runID,
-		Severity:       DiagnosticSeverityCritical,
+		Severity:       severity,
 		Source:         DiagnosticSourceProvider,
 		WorkspaceID:    workspaceID,
 	})

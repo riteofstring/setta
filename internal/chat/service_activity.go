@@ -144,6 +144,12 @@ func mergeRunItem(existing RunItem, next RunItem) RunItem {
 	next.NoticeKind = keepString(next.NoticeKind, existing.NoticeKind)
 	next.NoticeMessage = keepString(next.NoticeMessage, existing.NoticeMessage)
 	next.DiffSummary = keepString(next.DiffSummary, existing.DiffSummary)
+	next.Namespace = keepString(next.Namespace, existing.Namespace)
+	next.ProcessID = keepString(next.ProcessID, existing.ProcessID)
+	next.RequestID = keepString(next.RequestID, existing.RequestID)
+	next.ReviewID = keepString(next.ReviewID, existing.ReviewID)
+	next.Details = keepRawMessage(next.Details, existing.Details)
+	next.HiddenText = mergeHiddenText(existing, next)
 	return next
 }
 
@@ -161,6 +167,13 @@ func keepStrings(next []string, existing []string) []string {
 	return existing
 }
 
+func keepRawMessage(next []byte, existing []byte) []byte {
+	if len(next) > 0 {
+		return next
+	}
+	return existing
+}
+
 func mergeProgress(existing RunItem, next RunItem) string {
 	if next.Progress == "" {
 		return existing.Progress
@@ -169,6 +182,16 @@ func mergeProgress(existing RunItem, next RunItem) string {
 		return existing.Progress + next.Progress
 	}
 	return next.Progress
+}
+
+func mergeHiddenText(existing RunItem, next RunItem) string {
+	if next.HiddenText == "" {
+		return existing.HiddenText
+	}
+	if next.Type == RunItemTypeReasoning {
+		return existing.HiddenText + next.HiddenText
+	}
+	return next.HiddenText
 }
 
 func (service *Service) appendRunItemOutput(workspaceID string, conversationID string, runID string, providerItemID string, stream string, text string) error {
