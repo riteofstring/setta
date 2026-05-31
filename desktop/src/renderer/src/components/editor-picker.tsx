@@ -48,13 +48,13 @@ export function EditorPicker({ rootPath }: { rootPath: string }) {
 
   return (
     <div className="relative" ref={rootRef}>
-      <div className="inline-flex h-6 overflow-hidden rounded-sm border border-zinc-700 bg-zinc-800 text-zinc-300 shadow-sm shadow-black/20">
+      <div className="inline-flex h-6 items-center gap-px rounded-sm text-zinc-300">
         <EditorOpenButton editor={selectedEditor} onOpenEditor={openEditor} state={buttonState} />
         <button
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Choose editor"
-          className="grid h-6 w-6 place-items-center border-l border-zinc-700 text-zinc-400 outline-none hover:bg-zinc-700 hover:text-white focus-visible:bg-zinc-700 focus-visible:text-white disabled:pointer-events-none disabled:opacity-40"
+          className="grid h-6 w-5 place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
           disabled={!rootPath}
           onClick={() => setOpen((current) => !current)}
           title="Choose editor"
@@ -90,7 +90,7 @@ function EditorOpenButton({
   return (
     <button
       aria-label={state.title}
-      className="grid h-6 w-7 place-items-center outline-none hover:bg-zinc-700 hover:text-white focus-visible:bg-zinc-700 focus-visible:text-white disabled:pointer-events-none disabled:opacity-40"
+      className="grid h-6 w-6 place-items-center rounded-sm outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={state.disabled}
       onClick={() => void onOpenEditor(editor)}
       title={state.title}
@@ -288,8 +288,8 @@ function EditorMenuItem({
   return (
     <button
       className={cn(
-        "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-zinc-200 outline-none transition-colors hover:bg-zinc-800 hover:text-white focus-visible:bg-zinc-800 focus-visible:text-white focus-visible:shadow-[inset_0_0_0_1px_rgba(161,161,170,0.5)]",
-        selected ? "bg-zinc-800/70 text-white shadow-[inset_0_-1px_0_rgba(212,212,216,0.35)]" : "",
+        "flex h-7 w-full items-center gap-2 rounded-sm px-2 text-left text-zinc-300 outline-none transition-colors hover:bg-zinc-800 hover:text-zinc-50 focus-visible:bg-zinc-800 focus-visible:text-zinc-50",
+        selected ? "bg-zinc-800/80 text-zinc-50" : "",
       )}
       onClick={() => {
         onSelectEditor(editor.id);
@@ -310,7 +310,7 @@ function EditorIcon({ editor }: { editor: InstalledEditorApp | null }) {
     return (
       <img
         alt=""
-        className="h-4 w-4 shrink-0 rounded-[3px]"
+        className="block h-4 w-4 shrink-0 rounded-[3px] object-contain"
         draggable={false}
         src={editor.iconDataUrl}
       />

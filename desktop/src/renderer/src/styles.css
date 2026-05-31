@@ -37,6 +37,12 @@ button:not(:disabled),
   cursor: pointer;
 }
 
+button:focus-visible,
+[role="button"]:focus-visible,
+[role="menuitem"]:focus-visible {
+  outline: none;
+}
+
 button:disabled {
   cursor: default;
 }

@@ -71,8 +71,6 @@ export function App() {
     },
     [panes],
   );
-  const chromeInsetPane = firstVisibleTopInsetPane(visibility);
-
   useEffect(() => {
     return window.setta.chat.onEvent((event) => {
       useChatStore.getState().handleEvent(event);
@@ -120,7 +118,7 @@ export function App() {
       />
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
         <ProjectPane
-          chromeInsetTop={chromeInsetPane === "project"}
+          chromeInsetTop={visibility.project}
           chat={chat}
           open={visibility.project}
           openSearchPalette={openSearchPalette}
@@ -132,7 +130,6 @@ export function App() {
           chat={chat}
           chatPaneWidth={chatPaneWidth}
           chatSearchOpen={chatSearchOpen}
-          chromeInsetPane={chromeInsetPane}
           maximizedPane={maximizedPane}
           panes={panes}
           setChatPaneWidth={setChatPaneWidth}
@@ -229,7 +226,6 @@ function WorkspaceArea({
   chat,
   chatPaneWidth,
   chatSearchOpen,
-  chromeInsetPane,
   maximizedPane,
   panes,
   setChatPaneWidth,
@@ -241,7 +237,6 @@ function WorkspaceArea({
   chat: ChatView;
   chatPaneWidth: number;
   chatSearchOpen: boolean;
-  chromeInsetPane: ChromeInsetPane | null;
   maximizedPane: MaximizedPane;
   panes: ReturnType<typeof useWorkspacePaneState>;
   setChatPaneWidth: (width: number) => void;
@@ -262,7 +257,6 @@ function WorkspaceArea({
           chat={chat}
           chatPaneWidth={chatPaneWidth}
           chatSearchOpen={chatSearchOpen}
-          chromeInsetPane={chromeInsetPane}
           maximizedPane={maximizedPane}
           panes={panes}
           setChatPaneWidth={setChatPaneWidth}
@@ -275,6 +269,7 @@ function WorkspaceArea({
       {visibility.bottom ? (
         <WorkspacePanePanel
           activeTabId={panes.bottom.activeTabId}
+          chromeInsetTop={!visibility.content}
           maximized={maximizedPane === "bottom"}
           onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
           onCreateTab={(kind) => panes.createTab("bottom", kind)}
@@ -292,7 +287,6 @@ function WorkspaceContentRow({
   chat,
   chatPaneWidth,
   chatSearchOpen,
-  chromeInsetPane,
   maximizedPane,
   panes,
   setChatPaneWidth,
@@ -304,7 +298,6 @@ function WorkspaceContentRow({
   chat: ChatView;
   chatPaneWidth: number;
   chatSearchOpen: boolean;
-  chromeInsetPane: ChromeInsetPane | null;
   maximizedPane: MaximizedPane;
   panes: ReturnType<typeof useWorkspacePaneState>;
   setChatPaneWidth: (width: number) => void;
@@ -316,7 +309,7 @@ function WorkspaceContentRow({
   return (
     <div className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900">
       <ChatPane
-        chromeInsetTop={chromeInsetPane === "chat"}
+        chromeInsetTop={visibility.chat}
         chat={chat}
         chatSearchOpen={chatSearchOpen}
         maximized={maximizedPane === "chat"}
@@ -332,7 +325,7 @@ function WorkspaceContentRow({
         <div className="h-full min-w-[360px] flex-1">
           <WorkspacePanePanel
             activeTabId={panes.right.activeTabId}
-            chromeInsetTop={chromeInsetPane === "right"}
+            chromeInsetTop={visibility.right}
             maximized={maximizedPane === "right"}
             onCloseTab={(tabId) => panes.closeTab("right", tabId)}
             onCreateTab={(kind) => panes.createTab("right", kind)}
@@ -568,7 +561,7 @@ function ShellTopBar() {
   return (
     <div
       aria-hidden="true"
-      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-9 border-b border-zinc-800/80 bg-transparent"
+      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-9 bg-transparent"
       data-testid="shell-top-bar"
     />
   );
@@ -595,8 +588,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-100 hover:bg-zinc-800"
-          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+          ? "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-100 outline-none hover:bg-zinc-800 focus-visible:bg-zinc-800"
+          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
       }
       onClick={onClick}
       title={label}
@@ -674,21 +667,6 @@ function FloatingPaneControls({
 
 function floatingControlsRightInsetClass(platform: DesktopPlatform) {
   return platform === "darwin" ? "right-2" : "right-36";
-}
-
-type ChromeInsetPane = "chat" | "project" | "right";
-
-function firstVisibleTopInsetPane(visibility: PaneVisibility): ChromeInsetPane | null {
-  if (visibility.project) {
-    return "project";
-  }
-  if (visibility.chat) {
-    return "chat";
-  }
-  if (visibility.right) {
-    return "right";
-  }
-  return null;
 }
 
 function CommandPalette({

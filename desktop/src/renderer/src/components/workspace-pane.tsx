@@ -300,10 +300,10 @@ function WorkspacePaneTabButton({
   return (
     <div
       className={cn(
-        "group relative flex h-6 min-w-0 max-w-40 items-center gap-1 rounded-[3px] px-1.5 text-xs transition-colors",
+        "group relative flex h-6 min-w-0 max-w-40 items-center gap-1 rounded-sm border px-1.5 text-xs transition-colors",
         active
-          ? "bg-zinc-800/70 text-zinc-100 shadow-[inset_0_-1px_0_rgba(212,212,216,0.55)]"
-          : "text-zinc-500 hover:bg-zinc-900/80 hover:text-zinc-200",
+          ? "border-zinc-700/70 bg-zinc-800/80 text-zinc-100"
+          : "border-transparent text-zinc-500 hover:bg-zinc-900/80 hover:text-zinc-200",
       )}
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
@@ -425,8 +425,8 @@ function WorkspacePaneActionButton({
       aria-label={`New ${label}`}
       className={
         showLabel
-          ? "inline-flex h-6 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          ? "inline-flex h-6 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-400 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
       }
       onClick={onClick}
       title={`New ${label}`}

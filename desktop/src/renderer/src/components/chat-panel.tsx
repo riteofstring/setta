@@ -336,7 +336,7 @@ function ComposerPlaceholder({ selected }: { selected: boolean }) {
       <span>Ask</span>
       <img
         alt=""
-        className="h-3 w-auto translate-y-px opacity-60 grayscale"
+        className="h-[10px] w-auto translate-y-[2px] opacity-60 grayscale"
         draggable={false}
         src={settaLogo}
       />
