@@ -2,6 +2,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
+import { ChatModelMenu } from "./components/chat-model-menu";
 import { ChatPermissionsMenu } from "./components/chat-permissions-menu";
 import { ChatTranscript } from "./components/chat-transcript";
 import { EditorPicker } from "./components/editor-picker";
@@ -224,6 +225,20 @@ describe("chat renderer states", () => {
     expect(html).toContain("Auto-review");
     expect(html).toContain("Full access");
     expect(html).toContain("Custom (config.toml)");
+    expect(html).not.toContain("Pet");
+    expect(html).not.toContain("Codex");
+  });
+
+  test("renders chat model selection options", () => {
+    const html = renderToString(<ChatModelMenu disabled={false} initialOpen />);
+
+    expect(html).toContain("Reasoning");
+    expect(html).toContain("Low");
+    expect(html).toContain("Medium");
+    expect(html).toContain("High");
+    expect(html).toContain("Extra High");
+    expect(html).toContain("GPT-5.5");
+    expect(html).toContain("Speed");
     expect(html).not.toContain("Pet");
     expect(html).not.toContain("Codex");
   });

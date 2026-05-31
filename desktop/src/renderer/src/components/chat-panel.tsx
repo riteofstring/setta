@@ -1,9 +1,10 @@
 import type { WorkspaceSummary } from "@generated/backend";
-import { ArrowUp, ChevronDown, MessageSquarePlus, Mic, Plus, Square } from "lucide-react";
+import { ArrowUp, MessageSquarePlus, Mic, Plus, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
+import { ChatModelMenu } from "./chat-model-menu";
 import { ChatPermissionsMenu } from "./chat-permissions-menu";
 import { ChatTranscript } from "./chat-transcript";
 import { SlashCommandPalette } from "./slash-command-palette";
@@ -34,8 +35,8 @@ function ChatWorkspace({ chat }: { chat: ChatView }) {
   const running = chat.activeRun?.status === "running";
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 pt-8 text-zinc-100">
-      <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden">
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 pt-8 text-zinc-100">
+      <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-visible">
         <ConversationBody busy={busy} chat={chat} />
         <ChatError message={chat.error} />
         <Composer busy={busy} chat={chat} running={running} />
@@ -200,7 +201,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
               <ChatPermissionsMenu disabled={disabled} />
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <ComposerMenuButton disabled={disabled}>5.5 Extra High</ComposerMenuButton>
+              <ChatModelMenu disabled={disabled} />
               <IconButton disabled={disabled} label="Voice input">
                 <Mic className="h-4 w-4" />
               </IconButton>
@@ -252,19 +253,6 @@ function ComposerButton({
     >
       <ArrowUp className="h-5 w-5" />
     </Button>
-  );
-}
-
-function ComposerMenuButton({ children, disabled }: { children: ReactNode; disabled: boolean }) {
-  return (
-    <button
-      className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-      disabled={disabled}
-      type="button"
-    >
-      <span className="truncate">{children}</span>
-      <ChevronDown className="h-4 w-4 shrink-0" />
-    </button>
   );
 }
 
