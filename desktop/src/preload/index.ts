@@ -11,15 +11,9 @@ import type {
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
-const appFlags = {
-  pixiWorkspaceDebug:
-    process.env.SETTA_E2E === "1" || process.env.SETTA_PIXI_WORKSPACE_DEBUG === "1",
-  pixiWorkspacePrototype: process.env.SETTA_PIXI_WORKSPACE_PROTOTYPE === "1",
-};
 
 const api: SettaAPI = {
   app: {
-    flags: appFlags,
     installedEditors: () => invoke("appInstalledEditors"),
     openWorkspaceInEditor: (editorId: string, rootPath: string) =>
       invoke("appOpenWorkspaceInEditor", editorId, rootPath),
@@ -56,12 +50,8 @@ const api: SettaAPI = {
       invoke("chatCancelRun", workspaceId, conversationId),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
-    editQueuedMessage: (
-      workspaceId: string,
-      conversationId: string,
-      messageId: string,
-      prompt: string,
-    ) => invoke("chatEditQueuedMessage", workspaceId, conversationId, messageId, prompt),
+    deleteConversation: (workspaceId: string, conversationId: string) =>
+      invoke("chatDeleteConversation", workspaceId, conversationId),
     executeCommand: (workspaceId: string, conversationId: string, raw: string, options) =>
       invoke(
         "chatExecuteCommand",
@@ -77,8 +67,6 @@ const api: SettaAPI = {
     listCommands: (workspaceId: string, conversationId: string) =>
       invoke("chatListCommands", workspaceId, conversationId),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
-    markConversationRead: (workspaceId: string, conversationId: string) =>
-      invoke("chatMarkConversationRead", workspaceId, conversationId),
     messagePage: (
       workspaceId: string,
       conversationId: string,
@@ -96,8 +84,6 @@ const api: SettaAPI = {
     },
     queueMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatQueueMessage", workspaceId, conversationId, prompt),
-    removeQueuedMessage: (workspaceId: string, conversationId: string, messageId: string) =>
-      invoke("chatRemoveQueuedMessage", workspaceId, conversationId, messageId),
     runActivity: (workspaceId: string, runId: string, limit: number) =>
       invoke("chatRunActivity", workspaceId, runId, limit),
     runItemOutput: (
@@ -109,11 +95,15 @@ const api: SettaAPI = {
     ) => invoke("chatRunItemOutput", workspaceId, runId, runItemId, afterOrdinal, limit),
     sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSendMessage", workspaceId, conversationId, prompt),
-    sendSteeringImmediately: (workspaceId: string, conversationId: string, prompt = "") =>
-      invoke("chatSendSteeringImmediately", workspaceId, conversationId, prompt),
     steerMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSteerMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
+    updateUserMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      text: string,
+    ) => invoke("chatUpdateUserMessage", workspaceId, conversationId, messageId, text),
   },
   codexAccount: {
     cancelLogin: (request) => invoke("codexAccountCancelLogin", request),
@@ -125,7 +115,6 @@ const api: SettaAPI = {
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
-    openPath: (rootPath: string) => invoke("workspaceOpenPath", rootPath),
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
     select: (id: string) => invoke("workspaceSelect", id),

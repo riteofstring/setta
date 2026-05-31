@@ -3,7 +3,10 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	"setta/internal/codexapp"
@@ -71,7 +74,7 @@ func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request 
 	if err := session.OwnThread(thread.Ref.ThreadID); err != nil {
 		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorCodexRPC, "own codex command thread: "+err.Error(), err)
 	}
-	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Command)
+	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Workspace, request.Command)
 	if err != nil {
 		return HarnessCommandResult{}, nil, err
 	}
@@ -110,7 +113,7 @@ func (harness *CodexHarness) executeActiveCommand(ctx context.Context, request H
 	if active == nil || active.threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is not available for the active run", nil)
 	}
-	return harness.executeCodexCommandRPC(ctx, active.session, active.threadID, codexCommandThreadSettings{}, request.Command)
+	return harness.executeCodexCommandRPC(ctx, active.session, active.threadID, codexCommandThreadSettings{}, request.Workspace, request.Command)
 }
 
 func (harness *CodexHarness) activeTurnForCommand(runID string) *codexActiveTurn {
@@ -157,7 +160,7 @@ func (harness *CodexHarness) executeExistingCommandThread(ctx context.Context, s
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "own codex command thread: "+err.Error(), err)
 		}
 	}
-	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Command)
+	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Workspace, request.Command)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
@@ -177,7 +180,7 @@ func (harness *CodexHarness) executeThreadlessCommand(ctx context.Context, sessi
 			return HarnessCommandResult{}, err
 		}
 	}
-	return harness.executeCodexCommandRPC(ctx, session, "", settings, request.Command)
+	return harness.executeCodexCommandRPC(ctx, session, "", settings, request.Workspace, request.Command)
 }
 
 func (harness *CodexHarness) executeNewCommandThread(ctx context.Context, session *codexapp.Session, request HarnessCommandRequest) (HarnessCommandResult, error) {
@@ -188,7 +191,7 @@ func (harness *CodexHarness) executeNewCommandThread(ctx context.Context, sessio
 	if err := session.OwnThread(thread.Ref.ThreadID); err != nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "own codex command thread: "+err.Error(), err)
 	}
-	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Command)
+	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Workspace, request.Command)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
@@ -228,6 +231,16 @@ type codexCommandThreadSettings struct {
 	Model           string
 	ReasoningEffort ReasoningEffort
 }
+
+type codexThreadSettingsUpdateOutcome string
+
+const (
+	codexThreadSettingsUpdateAcked      codexThreadSettingsUpdateOutcome = "acked"
+	codexThreadSettingsUpdateDowngraded codexThreadSettingsUpdateOutcome = "downgraded"
+	codexThreadSettingsUpdateSkipped    codexThreadSettingsUpdateOutcome = "skipped"
+)
+
+const codexThreadSettingsUpdateDowngradeDiagnostic = "Codex does not support live thread settings updates in this session; Setta will stop retrying that experimental update."
 
 func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
@@ -361,12 +374,16 @@ func chatCodexSettingsFromCommandSettings(settings codexCommandThreadSettings) *
 	}
 }
 
-func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, command ChatCommand) (HarnessCommandResult, error) {
+func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, workspaceSummary workspace.WorkspaceSummary, command ChatCommand) (HarnessCommandResult, error) {
 	switch command.Kind {
 	case ChatCommandGoal:
 		return executeCodexGoalCommand(ctx, session, threadID, command)
+	case ChatCommandMCP:
+		return executeCodexMCPCommand(ctx, session)
 	case ChatCommandModel:
 		return harness.executeCodexModelCommand(ctx, session, threadID, currentSettings, command)
+	case ChatCommandSkills:
+		return executeCodexSkillsCommand(ctx, session, workspaceSummary)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("codex does not support chat command kind %s", command.Kind), nil)
 	}
@@ -497,6 +514,226 @@ func (harness *CodexHarness) executeCodexModelCommand(ctx context.Context, sessi
 	}
 }
 
+func executeCodexSkillsCommand(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary) (HarnessCommandResult, error) {
+	raw, err := session.Call(ctx, codexapp.CodexMethodSkillsList, map[string]any{
+		"cwds":        []string{workspaceSummary.RootPath},
+		"forceReload": true,
+	})
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "skills/list: "+err.Error(), err)
+	}
+	message, err := skillsListMessageFromResponse(raw)
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "skills/list response: "+err.Error(), err)
+	}
+	return HarnessCommandResult{
+		Action:         ChatCommandResultDisplay,
+		DisplayTitle:   "Skills",
+		DisplayMessage: message,
+	}, nil
+}
+
+func executeCodexMCPCommand(ctx context.Context, session *codexapp.Session) (HarnessCommandResult, error) {
+	raw, err := session.Call(ctx, codexapp.CodexMethodMcpServerStatusList, map[string]any{
+		"detail": "toolsAndAuthOnly",
+	})
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "mcpServerStatus/list: "+err.Error(), err)
+	}
+	message, err := mcpStatusMessageFromResponse(raw)
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "mcpServerStatus/list response: "+err.Error(), err)
+	}
+	return HarnessCommandResult{
+		Action:         ChatCommandResultDisplay,
+		DisplayTitle:   "MCP",
+		DisplayMessage: message,
+	}, nil
+}
+
+func skillsListMessageFromResponse(raw json.RawMessage) (string, error) {
+	response, err := objectValue(raw, "codex skills list response")
+	if err != nil {
+		return "", err
+	}
+	entries, err := requireObjectArray(response, "data", "codex skills list response")
+	if err != nil {
+		return "", err
+	}
+	summaries, err := collectSkillSummaries(entries)
+	if err != nil {
+		return "", err
+	}
+	sort.Strings(summaries.enabled)
+	return formatSkillsListMessage(summaries), nil
+}
+
+type skillsListSummaries struct {
+	enabled       []string
+	disabledCount int
+}
+
+func collectSkillSummaries(entries []map[string]any) (skillsListSummaries, error) {
+	summaries := skillsListSummaries{}
+	for entryIndex, entry := range entries {
+		skills, err := requireObjectArray(entry, "skills", fmt.Sprintf("codex skills list response.data[%d]", entryIndex))
+		if err != nil {
+			return summaries, err
+		}
+		for skillIndex, skill := range skills {
+			enabledSummary, enabled, err := skillSummaryFromResponse(entryIndex, skillIndex, skill)
+			if err != nil {
+				return summaries, err
+			}
+			if !enabled {
+				summaries.disabledCount += 1
+				continue
+			}
+			summaries.enabled = append(summaries.enabled, enabledSummary)
+		}
+	}
+	return summaries, nil
+}
+
+func skillSummaryFromResponse(entryIndex int, skillIndex int, skill map[string]any) (string, bool, error) {
+	label := fmt.Sprintf("codex skills list response.data[%d].skills[%d]", entryIndex, skillIndex)
+	name, err := requireString(skill, "name", label)
+	if err != nil {
+		return "", false, err
+	}
+	description, err := requireStringAllowEmpty(skill, "description", label)
+	if err != nil {
+		return "", false, err
+	}
+	path, err := requireString(skill, "path", label)
+	if err != nil {
+		return "", false, err
+	}
+	enabled, err := requireBool(skill, "enabled", label)
+	if err != nil {
+		return "", false, err
+	}
+	return formatSkillSummary(name, description, path), enabled, nil
+}
+
+func formatSkillsListMessage(summaries skillsListSummaries) string {
+	enabled := summaries.enabled
+	disabledCount := summaries.disabledCount
+	if len(enabled) == 0 {
+		if disabledCount == 0 {
+			return "No skills found for this workspace."
+		}
+		return fmt.Sprintf("No enabled skills found. %d disabled skill(s) are present.", disabledCount)
+	}
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "Available skills (%d enabled", len(enabled))
+	if disabledCount > 0 {
+		fmt.Fprintf(&builder, ", %d disabled", disabledCount)
+	}
+	builder.WriteString("):")
+	limit := min(len(enabled), 20)
+	for _, item := range enabled[:limit] {
+		builder.WriteString("\n- ")
+		builder.WriteString(item)
+	}
+	if len(enabled) > limit {
+		fmt.Fprintf(&builder, "\n- ...and %d more", len(enabled)-limit)
+	}
+	return builder.String()
+}
+
+func formatSkillSummary(name string, description string, path string) string {
+	if description == "" {
+		return fmt.Sprintf("%s (%s)", name, path)
+	}
+	return fmt.Sprintf("%s: %s (%s)", name, description, path)
+}
+
+func mcpStatusMessageFromResponse(raw json.RawMessage) (string, error) {
+	response, err := objectValue(raw, "codex mcp status response")
+	if err != nil {
+		return "", err
+	}
+	servers, err := requireObjectArray(response, "data", "codex mcp status response")
+	if err != nil {
+		return "", err
+	}
+	if len(servers) == 0 {
+		return "No MCP servers configured.", nil
+	}
+	rows := make([]string, 0, len(servers))
+	for index, server := range servers {
+		label := fmt.Sprintf("codex mcp status response.data[%d]", index)
+		name, err := requireString(server, "name", label)
+		if err != nil {
+			return "", err
+		}
+		authStatus, err := requireString(server, "authStatus", label)
+		if err != nil {
+			return "", err
+		}
+		tools, err := optionalObjectMap(server, "tools", label)
+		if err != nil {
+			return "", err
+		}
+		toolNames := sortedKeys(tools)
+		rows = append(rows, formatMCPServerSummary(name, authStatus, toolNames))
+	}
+	sort.Strings(rows)
+	return "MCP servers:\n- " + strings.Join(rows, "\n- "), nil
+}
+
+func formatMCPServerSummary(name string, authStatus string, toolNames []string) string {
+	if len(toolNames) == 0 {
+		return fmt.Sprintf("%s: auth %s, no tools", name, authStatus)
+	}
+	if len(toolNames) > 8 {
+		return fmt.Sprintf("%s: auth %s, %d tools (%s, ...)", name, authStatus, len(toolNames), strings.Join(toolNames[:8], ", "))
+	}
+	return fmt.Sprintf("%s: auth %s, %d tools (%s)", name, authStatus, len(toolNames), strings.Join(toolNames, ", "))
+}
+
+func requireObjectArray(value map[string]any, name string, label string) ([]map[string]any, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return nil, fmt.Errorf("%s.%s is required", label, name)
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s.%s must be an array", label, name)
+	}
+	result := make([]map[string]any, 0, len(items))
+	for index, rawItem := range items {
+		item, ok := rawItem.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s.%s[%d] must be an object", label, name, index)
+		}
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+func optionalObjectMap(value map[string]any, name string, label string) (map[string]any, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return map[string]any{}, nil
+	}
+	items, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s.%s must be an object", label, name)
+	}
+	return items, nil
+}
+
+func sortedKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func executeCodexModelPickerCommand(ctx context.Context, session *codexapp.Session, currentSettings codexCommandThreadSettings) (HarnessCommandResult, error) {
 	models, err := listCodexModelOptions(ctx, session)
 	if err != nil {
@@ -558,13 +795,18 @@ func (harness *CodexHarness) executeCodexModelSetCommand(ctx context.Context, se
 		Model:           modelID,
 		ReasoningEffort: currentSettings.ReasoningEffort,
 	}
-	if err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
+	outcome, err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
 		Model:    &modelID,
 		ThreadID: threadID,
-	}); err != nil {
+	})
+	if err != nil {
 		return HarnessCommandResult{}, err
 	}
-	return codexSettingsCommandResult(settings), nil
+	result := codexSettingsCommandResult(settings)
+	if outcome == codexThreadSettingsUpdateDowngraded {
+		result.CapabilityDiagnostic = codexThreadSettingsUpdateDowngradeDiagnostic
+	}
+	return result, nil
 }
 
 func (harness *CodexHarness) executeCodexEffortSetCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, effort ReasoningEffort) (HarnessCommandResult, error) {
@@ -582,25 +824,70 @@ func (harness *CodexHarness) executeCodexEffortSetCommand(ctx context.Context, s
 		Model:           currentSettings.Model,
 		ReasoningEffort: effort,
 	}
-	if err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
+	outcome, err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
 		Effort:   &codexEffort,
 		ThreadID: threadID,
-	}); err != nil {
+	})
+	if err != nil {
 		return HarnessCommandResult{}, err
 	}
-	return codexSettingsCommandResult(settings), nil
+	result := codexSettingsCommandResult(settings)
+	if outcome == codexThreadSettingsUpdateDowngraded {
+		result.CapabilityDiagnostic = codexThreadSettingsUpdateDowngradeDiagnostic
+	}
+	return result, nil
 }
 
-func (harness *CodexHarness) callThreadSettingsUpdate(ctx context.Context, session *codexapp.Session, params codexapp.ThreadSettingsUpdateParams) error {
+func (harness *CodexHarness) callThreadSettingsUpdate(ctx context.Context, session *codexapp.Session, params codexapp.ThreadSettingsUpdateParams) (codexThreadSettingsUpdateOutcome, error) {
+	if !harness.isThreadSettingsUpdateSupported() {
+		return codexThreadSettingsUpdateSkipped, nil
+	}
 	_, err := session.Call(ctx, codexapp.CodexMethodThreadSettingsUpdate, params)
 	if err == nil {
-		return nil
+		return codexThreadSettingsUpdateAcked, nil
 	}
-	return commandError(
-		ChatCommandErrorCodexRPC,
-		"thread/settings/update is required for linked Codex model settings: "+err.Error(),
-		err,
-	)
+	if isThreadSettingsUpdateUnsupported(err) {
+		harness.disableThreadSettingsUpdate()
+		return codexThreadSettingsUpdateDowngraded, nil
+	}
+	return codexThreadSettingsUpdateSkipped, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+}
+
+func (harness *CodexHarness) isThreadSettingsUpdateSupported() bool {
+	harness.threadSettingsUpdateMu.Lock()
+	defer harness.threadSettingsUpdateMu.Unlock()
+	return harness.threadSettingsUpdateSupported
+}
+
+func (harness *CodexHarness) disableThreadSettingsUpdate() {
+	harness.threadSettingsUpdateMu.Lock()
+	defer harness.threadSettingsUpdateMu.Unlock()
+	harness.threadSettingsUpdateSupported = false
+}
+
+const (
+	codexJSONRPCErrorInvalidRequest = -32600
+	codexJSONRPCErrorMethodNotFound = -32601
+)
+
+func isThreadSettingsUpdateUnsupported(err error) bool {
+	var rpcErr *codexapp.RPCError
+	if !errors.As(err, &rpcErr) {
+		return false
+	}
+	if rpcErr.Code == codexJSONRPCErrorMethodNotFound {
+		return true
+	}
+	if rpcErr.Code != codexJSONRPCErrorInvalidRequest {
+		return false
+	}
+	switch rpcErr.Message {
+	case "thread/settings/update requires experimentalApi capability",
+		"Invalid request: unknown variant `thread/settings/update`":
+		return true
+	default:
+		return false
+	}
 }
 
 func codexSettingsCommandResult(settings codexCommandThreadSettings) HarnessCommandResult {

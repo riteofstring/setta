@@ -150,6 +150,7 @@ function testOpenWorkspaceRoot() {
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
+    backgroundColor: "#18181b",
     height: 820,
     minHeight: 620,
     minWidth: 960,
@@ -304,14 +305,6 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "workspaceOpenPath",
-    async (_event, rootPath) => {
-      return requireBackendClient().openWorkspace({ rootPath });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "workspaceClose",
     async (_event, id) => {
       return requireBackendClient().closeWorkspace({ id });
@@ -352,9 +345,9 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "chatMarkConversationRead",
+    "chatDeleteConversation",
     async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().markConversationRead({ conversationId, workspaceId });
+      return requireBackendClient().deleteConversation({ conversationId, workspaceId });
     },
     ipcObserver,
   );
@@ -434,46 +427,9 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "chatEditQueuedMessage",
-    async (_event, workspaceId, conversationId, messageId, prompt) => {
-      return requireBackendClient().editQueuedChatMessage({
-        conversationId,
-        messageId,
-        prompt,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatRemoveQueuedMessage",
-    async (_event, workspaceId, conversationId, messageId) => {
-      return requireBackendClient().removeQueuedChatMessage({
-        conversationId,
-        messageId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "chatSteerMessage",
     async (_event, workspaceId, conversationId, prompt) => {
       return requireBackendClient().steerChatMessage({ conversationId, prompt, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSendSteeringImmediately",
-    async (_event, workspaceId, conversationId, prompt) => {
-      return requireBackendClient().sendSteeringImmediately({
-        conversationId,
-        prompt,
-        workspaceId,
-      });
     },
     ipcObserver,
   );
@@ -521,6 +477,19 @@ function registerIpc() {
     "chatSubmitApproval",
     async (_event, input) => {
       return requireBackendClient().submitApproval(input);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatUpdateUserMessage",
+    async (_event, workspaceId, conversationId, messageId, text) => {
+      return requireBackendClient().updateUserMessage({
+        conversationId,
+        messageId,
+        text,
+        workspaceId,
+      });
     },
     ipcObserver,
   );
