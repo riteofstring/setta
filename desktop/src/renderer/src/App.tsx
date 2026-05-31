@@ -80,7 +80,6 @@ export function App() {
             openLocalFolder={workspace.openLocalFolder}
             recentWorkspaces={workspace.recentWorkspaces}
             removeRecent={workspace.removeRecent}
-            reorderWorkspaces={workspace.reorderWorkspaces}
             selectConversation={chat.selectConversation}
             selectWorkspace={workspace.selectWorkspace}
             selectedConversationId={chat.selectedConversation?.id ?? ""}
@@ -384,7 +383,6 @@ function useWorkspaceViewState() {
   const openLocalFolder = useWorkspaceStore((state) => state.openLocalFolder);
   const operation = useWorkspaceStore((state) => state.operation);
   const removeRecent = useWorkspaceStore((state) => state.removeRecent);
-  const reorderWorkspaces = useWorkspaceStore((state) => state.reorderWorkspaces);
   const selectWorkspace = useWorkspaceStore((state) => state.selectWorkspace);
   const session = useWorkspaceStore((state) => state.session);
   const status = useWorkspaceStore((state) => state.status);
@@ -403,7 +401,6 @@ function useWorkspaceViewState() {
     operation,
     recentWorkspaces: session?.recentWorkspaces ?? [],
     removeRecent,
-    reorderWorkspaces,
     selectWorkspace,
     selectedWorkspace,
     selectedWorkspaceId: session?.selectedWorkspaceId ?? "",

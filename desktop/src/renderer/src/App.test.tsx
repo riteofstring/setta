@@ -19,7 +19,6 @@ describe("workspace renderer states", () => {
           openLocalFolder={async () => {}}
           recentWorkspaces={[]}
           removeRecent={async () => {}}
-          reorderWorkspaces={async () => {}}
           selectConversation={async () => {}}
           selectWorkspace={async () => {}}
           selectedConversationId=""
@@ -80,7 +79,6 @@ describe("workspace renderer states", () => {
           openLocalFolder={async () => {}}
           recentWorkspaces={[web, api]}
           removeRecent={async () => {}}
-          reorderWorkspaces={async () => {}}
           selectConversation={async () => {}}
           selectWorkspace={async () => {}}
           selectedConversationId="conversation_web"
@@ -138,7 +136,6 @@ describe("workspace renderer states", () => {
         openLocalFolder={async () => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
-        reorderWorkspaces={async () => {}}
         selectConversation={async () => {}}
         selectWorkspace={async () => {}}
         selectedConversationId=""
