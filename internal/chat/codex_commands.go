@@ -55,6 +55,13 @@ func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request Har
 	}
 	defer session.Close()
 
+	if commandUsesExistingThread(request.Command, request.ThreadRef) {
+		thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
+		if err != nil {
+			return HarnessCommandResult{}, err
+		}
+		return harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Model, request.Command)
+	}
 	if !commandNeedsThread(request.Command) {
 		return harness.executeCodexCommandRPC(ctx, session, "", "", request.Command)
 	}
@@ -72,6 +79,18 @@ func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request Har
 	result.ThreadRef = thread.Ref
 	result.HasThreadRef = true
 	return result, nil
+}
+
+func commandUsesExistingThread(command ChatCommand, threadRef HarnessThreadRef) bool {
+	if threadRef.ThreadID == "" || threadRef.Status != HarnessRefLinked {
+		return false
+	}
+	switch command.Kind {
+	case ChatCommandModel:
+		return command.Model != nil && command.Model.Action == ModelCommandShowPicker
+	default:
+		return false
+	}
 }
 
 type codexCommandThread struct {
@@ -193,7 +212,7 @@ func executeCodexModelCommand(ctx context.Context, session *codexapp.Session, th
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "model/list response: "+err.Error(), err)
 		}
-		return HarnessCommandResult{Action: ChatCommandResultModelPicker, Models: models}, nil
+		return HarnessCommandResult{Action: ChatCommandResultModelPicker, Models: models, SelectedModel: currentModel}, nil
 	case ModelCommandSet:
 		if threadID == "" {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is required to set the model", nil)

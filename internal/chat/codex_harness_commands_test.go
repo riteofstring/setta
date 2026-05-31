@@ -39,6 +39,29 @@ func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	if result.HasThreadRef {
 		t.Fatalf("thread ref = %+v, want no thread for model picker", result.ThreadRef)
 	}
+	if result.SelectedModel != "" {
+		t.Fatalf("selected model = %q, want empty without linked thread", result.SelectedModel)
+	}
+}
+
+func TestCodexHarnessExecutesModelListRPCAgainstLinkedThread(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-model-list-linked"))
+	request := testCommandRequest(t, "/model")
+	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.Action != ChatCommandResultModelPicker || len(result.Models) != 1 || result.Models[0].ID != "gpt-test" {
+		t.Fatalf("result = %+v, want model picker with fake model", result)
+	}
+	if result.SelectedModel != "gpt-test" {
+		t.Fatalf("selected model = %q, want linked thread model", result.SelectedModel)
+	}
+	if result.HasThreadRef {
+		t.Fatalf("thread ref = %+v, want model picker to avoid persisted thread ref updates", result.ThreadRef)
+	}
 }
 
 func TestCodexHarnessExecutesModelSetRPCAgainstLinkedThread(t *testing.T) {
@@ -113,7 +136,7 @@ func testCommandRequest(t *testing.T, raw string) HarnessCommandRequest {
 
 func fakeCommandDone(mode string) bool {
 	switch mode {
-	case "command-goal-set", "command-model-list", "command-model-set":
+	case "command-goal-set", "command-model-list", "command-model-list-linked", "command-model-set":
 		return true
 	default:
 		return false
@@ -121,7 +144,7 @@ func fakeCommandDone(mode string) bool {
 }
 
 func handleFakeCommandThread(mode string, state *fakeCodexState, message map[string]any) {
-	if mode != "command-goal-set" && mode != "command-model-set" && mode != "command-model-set-no-notification" && mode != "command-model-set-already-current" {
+	if mode != "command-goal-set" && mode != "command-model-list-linked" && mode != "command-model-set" && mode != "command-model-set-no-notification" && mode != "command-model-set-already-current" {
 		return
 	}
 	method := message["method"]
@@ -129,8 +152,8 @@ func handleFakeCommandThread(mode string, state *fakeCodexState, message map[str
 	if mode == "command-goal-set" && method != "thread/start" {
 		panic("goal set command should start a thread")
 	}
-	if (mode == "command-model-set" || mode == "command-model-set-no-notification" || mode == "command-model-set-already-current") && method != "thread/resume" {
-		panic("model set command should resume a linked thread")
+	if (mode == "command-model-list-linked" || mode == "command-model-set" || mode == "command-model-set-no-notification" || mode == "command-model-set-already-current") && method != "thread/resume" {
+		panic("linked model command should resume a linked thread")
 	}
 	if params["approvalPolicy"] != "on-request" || params["approvalsReviewer"] != "user" {
 		panic("command thread start/resume missing approval params")

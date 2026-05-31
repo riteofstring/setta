@@ -178,6 +178,7 @@ func (harness *ScriptedWorkflowHarness) executeModelCommandLocked(command ChatCo
 	case ModelCommandShowPicker:
 		result.Action = ChatCommandResultModelPicker
 		result.Models = fakeModelOptions()
+		result.SelectedModel = harness.model
 	case ModelCommandSet:
 		harness.model = command.Model.ModelID
 		result.SelectedModel = command.Model.ModelID

@@ -11,6 +11,7 @@ import {
   ConversationBody,
   type ChatView,
   handleComposerKeyDown,
+  modelPickerOptionSelected,
   modelSelectionCommand,
 } from "./chat-panel";
 
@@ -177,6 +178,21 @@ describe("composer command helpers", () => {
         model: "gpt-test",
       }),
     ).toBe("/model gpt-test");
+  });
+
+  test("prefers the selected model over the catalog default", () => {
+    const defaultModel = {
+      isDefault: true,
+      model: "scripted-fast",
+    };
+    const selectedModel = {
+      isDefault: false,
+      model: "scripted-careful",
+    };
+
+    expect(modelPickerOptionSelected(defaultModel, "")).toBe(true);
+    expect(modelPickerOptionSelected(defaultModel, "scripted-careful")).toBe(false);
+    expect(modelPickerOptionSelected(selectedModel, "scripted-careful")).toBe(true);
   });
 });
 

@@ -675,6 +675,8 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await clickModelByText(client, "scripted-fast");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-fast");
   await waitForTexts(client, ["Model set: scripted-fast"]);
+  await submitComposer(client, "/model", "Send message");
+  await waitForSelectedModel(client, "scripted-fast");
 
   await submitComposer(client, "/model scripted-careful", "Send message");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-careful");
@@ -847,6 +849,19 @@ async function waitForModelPicker(client) {
       return { body: document.body.innerText, ready: Boolean(picker) };
     })()`,
     (value) => value.ready && value.body.includes("scripted-fast"),
+  );
+}
+
+async function waitForSelectedModel(client, modelText) {
+  await waitForState(
+    client,
+    `(() => {
+      const picker = document.querySelector('[data-testid="model-picker"]');
+      const selected = Array.from(picker?.querySelectorAll('[data-selected="true"]') ?? [])
+        .map((button) => button.innerText);
+      return { selected };
+    })()`,
+    (value) => value.selected.length === 1 && value.selected[0].includes(modelText),
   );
 }
 
