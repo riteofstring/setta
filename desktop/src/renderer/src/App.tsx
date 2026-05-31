@@ -17,7 +17,6 @@ import {
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { WorkspaceGitInfo } from "@shared/types";
 import settaLogo from "../../../img/logo/logo.svg";
 import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
 import { EditorPicker } from "./components/editor-picker";
@@ -33,6 +32,7 @@ import {
   useWorkspaceStore,
 } from "./stores/workspace-store";
 import { useChatStore } from "./stores/chat-store";
+import { type WorkspaceGitState, useWorkspaceGitInfo } from "./hooks/use-workspace-git-info";
 
 type PaneSlot = "bottom" | "right";
 type WorkspacePaneKind = "browser" | "file" | "settings" | "terminal";
@@ -189,6 +189,7 @@ function ProjectPane({
           selectWorkspace={workspace.selectWorkspace}
           selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectedWorkspaceId={workspace.selectedWorkspaceId}
+          sidebarWidth={width}
         />
       </div>
     </ResizablePane>
@@ -406,12 +407,6 @@ function ShellPaneToggle({
   );
 }
 
-type WorkspaceGitState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { info: WorkspaceGitInfo; status: "ready" }
-  | { message: string; status: "error" };
-
 function ShellWorkspaceControls({
   selectedWorkspace,
 }: {
@@ -543,39 +538,6 @@ function ShellDropdownButton({
       ) : null}
     </div>
   );
-}
-
-function useWorkspaceGitInfo(rootPath: string | null): WorkspaceGitState {
-  const [state, setState] = useState<WorkspaceGitState>({ status: "idle" });
-
-  useEffect(() => {
-    if (!rootPath) {
-      setState({ status: "idle" });
-      return;
-    }
-    let cancelled = false;
-    setState({ status: "loading" });
-    void window.setta.app
-      .workspaceGitInfo(rootPath)
-      .then((info) => {
-        if (!cancelled) {
-          setState({ info, status: "ready" });
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setState({
-            message: error instanceof Error ? error.message : "Unable to read git metadata",
-            status: "error",
-          });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [rootPath]);
-
-  return state;
 }
 
 function CommandPalette({

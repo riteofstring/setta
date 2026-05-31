@@ -7,6 +7,7 @@ import {
   FolderClosed,
   FolderOpen,
   FolderPlus,
+  GitBranch,
   GitFork,
   LoaderCircle,
   MessageSquarePlus,
@@ -22,6 +23,7 @@ import {
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { type WorkspaceGitState, useWorkspaceGitInfo } from "../hooks/use-workspace-git-info";
 import { cn } from "../lib/utils";
 
 const activeWorkspaceRowHeight = 28;
@@ -49,6 +51,7 @@ interface WorkspaceSidebarProps {
   selectWorkspace: (id: string) => Promise<void>;
   selectedConversationId: string;
   selectedWorkspaceId: string;
+  sidebarWidth?: number;
 }
 
 interface VirtualRange {
@@ -80,6 +83,7 @@ export function WorkspaceSidebar({
   selectWorkspace,
   selectedConversationId,
   selectedWorkspaceId,
+  sidebarWidth = 220,
 }: WorkspaceSidebarProps) {
   const [expandedWorkspaceId, setExpandedWorkspaceId] = useState(selectedWorkspaceId);
   const activeWorkspaceIds = useMemo(
@@ -90,6 +94,10 @@ export function WorkspaceSidebar({
     () => recentWorkspaces.filter((workspace) => !activeWorkspaceIds.has(workspace.id)),
     [activeWorkspaceIds, recentWorkspaces],
   );
+  const selectedWorkspace =
+    activeWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null;
+  const selectedGit = useWorkspaceGitInfo(selectedWorkspace?.rootPath ?? null);
+  const selectedBranchLabel = branchHoverLabel(selectedGit);
 
   useEffect(() => {
     if (selectedWorkspaceId) {
@@ -98,7 +106,10 @@ export function WorkspaceSidebar({
   }, [selectedWorkspaceId]);
 
   return (
-    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 pt-10 text-zinc-100">
+    <aside
+      className="flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 pt-10 text-zinc-100"
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+    >
       <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-3">
         <SidebarNav
           busy={busy || chatBusy}
@@ -118,6 +129,7 @@ export function WorkspaceSidebar({
             conversations={conversations}
             createConversation={createConversation}
             expandedWorkspaceId={expandedWorkspaceId}
+            branchLabel={selectedBranchLabel}
             selectConversation={selectConversation}
             selectWorkspace={selectWorkspace}
             selectedConversationId={selectedConversationId}
@@ -214,6 +226,7 @@ function ProjectHeading({
 
 function ProjectList({
   activeRun,
+  branchLabel,
   busy,
   chatBusy,
   closeWorkspace,
@@ -228,6 +241,7 @@ function ProjectList({
   workspaces,
 }: {
   activeRun: Run | null;
+  branchLabel: string;
   busy: boolean;
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
@@ -248,6 +262,7 @@ function ProjectList({
   const renderProject = (workspace: WorkspaceSummary) => (
     <ProjectWithChats
       activeRun={activeRun}
+      branchLabel={branchLabel}
       busy={busy}
       chatBusy={chatBusy}
       closeWorkspace={closeWorkspace}
@@ -294,6 +309,7 @@ function ProjectList({
         {selectedWorkspace && expandedWorkspaceId === selectedWorkspace.id ? (
           <ProjectChats
             activeRun={activeRun}
+            branchLabel={branchLabel}
             busy={chatBusy}
             conversations={conversations}
             selectConversation={selectConversation}
@@ -317,6 +333,7 @@ function ProjectList({
 
 function ProjectWithChats({
   activeRun,
+  branchLabel,
   busy,
   chatBusy,
   closeWorkspace,
@@ -331,6 +348,7 @@ function ProjectWithChats({
   workspace,
 }: {
   activeRun: Run | null;
+  branchLabel: string;
   busy: boolean;
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
@@ -359,6 +377,7 @@ function ProjectWithChats({
       {expanded && selected ? (
         <ProjectChats
           activeRun={activeRun}
+          branchLabel={branchLabel}
           busy={chatBusy}
           conversations={conversations}
           selectConversation={selectConversation}
@@ -594,12 +613,14 @@ function ProjectMenuItem({
 
 function ProjectChats({
   activeRun,
+  branchLabel,
   busy,
   conversations,
   selectConversation,
   selectedConversationId,
 }: {
   activeRun: Run | null;
+  branchLabel: string;
   busy: boolean;
   conversations: ConversationListItem[];
   selectConversation: (conversationId: string) => Promise<void>;
@@ -627,6 +648,7 @@ function ProjectChats({
       {visibleConversations.map((item) => (
         <ConversationRow
           activeRun={activeRun}
+          branchLabel={branchLabel}
           busy={busy}
           item={item}
           key={item.conversation.id}
@@ -649,12 +671,14 @@ function ProjectChats({
 
 function ConversationRow({
   activeRun,
+  branchLabel,
   busy,
   item,
   selectConversation,
   selected,
 }: {
   activeRun: Run | null;
+  branchLabel: string;
   busy: boolean;
   item: ConversationListItem;
   selectConversation: (conversationId: string) => Promise<void>;
@@ -664,26 +688,100 @@ function ConversationRow({
     item.activeRunId !== "" ||
     (activeRun?.conversationId === item.conversation.id &&
       (activeRun.status === "queued" || activeRun.status === "running"));
+  const responseAge = formatConversationAge(item.conversation.updatedAt);
 
   return (
-    <button
-      className={cn(
-        "grid h-7 w-full min-w-0 grid-cols-[10px_minmax(0,1fr)] items-center gap-1.5 rounded-sm px-2 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
-        selected ? "text-zinc-100" : "text-zinc-300",
-      )}
-      data-testid="conversation-list-item"
-      disabled={busy}
-      onClick={() => void selectConversation(item.conversation.id)}
-      type="button"
-    >
-      {running ? (
-        <LoaderCircle className="h-3 w-3 animate-spin text-zinc-300" />
-      ) : (
-        <Circle className="h-1.5 w-1.5 fill-zinc-500 text-zinc-500" />
-      )}
-      <span className="truncate text-xs">{item.conversation.title}</span>
-    </button>
+    <div className="group/chat relative min-w-0">
+      <button
+        className={cn(
+          "grid h-7 w-full min-w-0 grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-2 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
+          selected ? "text-zinc-100" : "text-zinc-300",
+        )}
+        data-testid="conversation-list-item"
+        disabled={busy}
+        onClick={() => void selectConversation(item.conversation.id)}
+        type="button"
+      >
+        {running ? (
+          <LoaderCircle className="h-3 w-3 animate-spin text-zinc-300" />
+        ) : (
+          <Circle className="h-1.5 w-1.5 fill-zinc-500 text-zinc-500" />
+        )}
+        <span className="truncate text-xs">{item.conversation.title}</span>
+        {responseAge ? (
+          <time
+            className="pl-2 text-[11px] text-zinc-500"
+            dateTime={item.conversation.updatedAt}
+            title={item.conversation.updatedAt}
+          >
+            {responseAge}
+          </time>
+        ) : null}
+      </button>
+      <div
+        className="pointer-events-none fixed z-50 hidden min-w-52 max-w-72 rounded-md border border-zinc-700/80 bg-zinc-900/95 px-3 py-2 text-xs text-zinc-100 shadow-2xl shadow-zinc-950/50 backdrop-blur group-hover/chat:block"
+        data-testid="conversation-hover-card"
+        style={{ left: "calc(var(--sidebar-width, 220px) + 8px)" }}
+      >
+        <div className="truncate text-sm font-medium">{item.conversation.title}</div>
+        <div className="mt-2 flex min-w-0 items-center gap-2 text-zinc-300">
+          <GitBranch className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+          <span className="truncate">{branchLabel}</span>
+        </div>
+      </div>
+    </div>
   );
+}
+
+function branchHoverLabel(git: WorkspaceGitState) {
+  switch (git.status) {
+    case "ready":
+      return git.info.branchName;
+    case "loading":
+      return "Reading branch";
+    case "error":
+      return "Branch unavailable";
+    case "idle":
+      return "No branch";
+    default:
+      return assertWorkspaceGitState(git);
+  }
+}
+
+function formatConversationAge(updatedAt: string) {
+  const timestamp = Date.parse(updatedAt);
+  if (!Number.isFinite(timestamp)) {
+    return "";
+  }
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (elapsedSeconds < 60) {
+    return "now";
+  }
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes}m`;
+  }
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) {
+    return `${elapsedHours}h`;
+  }
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 14) {
+    return `${elapsedDays}d`;
+  }
+  const elapsedWeeks = Math.floor(elapsedDays / 7);
+  if (elapsedWeeks < 8) {
+    return `${elapsedWeeks}w`;
+  }
+  const elapsedMonths = Math.floor(elapsedDays / 30);
+  if (elapsedDays < 365) {
+    return `${Math.max(1, elapsedMonths)}mo`;
+  }
+  return `${Math.floor(elapsedDays / 365)}y`;
+}
+
+function assertWorkspaceGitState(value: never): never {
+  throw new Error(`Unhandled workspace git state: ${value}`);
 }
 
 function RecentProjectList({

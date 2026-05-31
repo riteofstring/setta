@@ -113,6 +113,9 @@ describe("workspace renderer states", () => {
     expect(html).toContain("/tmp/web");
     expect(html).toContain("Active");
     expect(html).toContain("Web chat");
+    expect(html).toContain('dateTime="2026-05-29T20:00:00Z"');
+    expect(html).toContain('data-testid="conversation-hover-card"');
+    expect(html).toContain("No branch");
     expect(html).toContain("New chat in web");
     expect(html).toContain("Search");
     expect(html).toContain("More options for web");
