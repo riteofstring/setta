@@ -1,5 +1,5 @@
 import { Maximize2, MessageSquareText, Minimize2, Plus, Settings, X } from "lucide-react";
-import type { ReactNode } from "react";
+import type { DragEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -8,9 +8,20 @@ import { SettingsPanel } from "./settings-panel";
 
 type PaneSlot = "bottom" | "grid" | "right";
 export type WorkspacePaneKind = "chat" | "settings";
+export type WorkspacePaneLayout = "columns" | "grid" | "rows";
+export type WorkspacePaneSplitTarget =
+  | "bottom"
+  | "bottom-left"
+  | "bottom-right"
+  | "left"
+  | "right"
+  | "top"
+  | "top-left"
+  | "top-right";
 type WorkspacePaneRuntime = "renderer-chat" | "renderer-settings";
 type WorkspacePaneHost = "renderer";
 export const maxWorkspacePaneCount = 4;
+const workspacePaneTabDragMimeType = "application/x-setta-workspace-pane-tab";
 
 export interface WorkspacePaneTab {
   id: string;
@@ -24,28 +35,47 @@ export interface WorkspacePaneState {
   tabs: WorkspacePaneTab[];
 }
 
+export interface WorkspacePaneTabDragPayload {
+  sourcePaneId: string;
+  tabId: string;
+}
+
+interface WorkspacePaneCollectionState {
+  layout: WorkspacePaneLayout;
+  panes: WorkspacePaneState[];
+}
+
 export function useWorkspacePaneState() {
   const paneCounter = useRef(1);
   const tabCounter = useRef(1);
-  const [panes, setPanes] = useState<WorkspacePaneState[]>(() => [
-    createWorkspacePane("workspace_pane_1", createWorkspacePaneTab("chat", 1, [])),
-  ]);
+  const [state, setState] = useState<WorkspacePaneCollectionState>(() => ({
+    layout: "grid",
+    panes: [createWorkspacePane("workspace_pane_1", createWorkspacePaneTab("chat", 1, []))],
+  }));
 
   const createPane = useCallback((kind: WorkspacePaneKind) => {
-    setPanes((current) => {
-      if (current.length >= maxWorkspacePaneCount) {
+    setState((current) => {
+      if (current.panes.length >= maxWorkspacePaneCount) {
         return current;
       }
       paneCounter.current += 1;
       tabCounter.current += 1;
       const tab = createWorkspacePaneTab(kind, tabCounter.current, []);
-      return [...current, createWorkspacePane(`workspace_pane_${paneCounter.current}`, tab)];
+      const panes = [
+        ...current.panes,
+        createWorkspacePane(`workspace_pane_${paneCounter.current}`, tab),
+      ];
+      return {
+        layout: workspacePaneLayoutAfterAppend(current.layout, panes.length),
+        panes,
+      };
     });
   }, []);
 
   const createTab = useCallback((paneId: string, kind: WorkspacePaneKind) => {
-    setPanes((current) =>
-      current.map((pane) => {
+    setState((current) => ({
+      ...current,
+      panes: current.panes.map((pane) => {
         if (pane.id !== paneId) {
           return pane;
         }
@@ -57,79 +87,152 @@ export function useWorkspacePaneState() {
           tabs: [...pane.tabs, tab],
         };
       }),
-    );
+    }));
   }, []);
 
   const selectTab = useCallback((paneId: string, tabId: string) => {
-    setPanes((current) =>
-      current.map((pane) => (pane.id === paneId ? { ...pane, activeTabId: tabId } : pane)),
-    );
+    setState((current) => ({
+      ...current,
+      panes: current.panes.map((pane) =>
+        pane.id === paneId ? { ...pane, activeTabId: tabId } : pane,
+      ),
+    }));
   }, []);
 
   const closeTab = useCallback((paneId: string, tabId: string) => {
-    setPanes((current) => {
-      const next = current.map((pane) =>
+    setState((current) => {
+      const next = current.panes.map((pane) =>
         pane.id === paneId ? closeWorkspacePaneTab(pane, tabId) : pane,
       );
       const closingPane = next.find((pane) => pane.id === paneId);
       if (!closingPane || closingPane.tabs.length > 0 || next.length === 1) {
-        return next;
+        return { ...current, panes: next };
       }
-      return next.filter((pane) => pane.id !== paneId);
+      const panes = next.filter((pane) => pane.id !== paneId);
+      return {
+        layout: normalizeWorkspacePaneLayout(current.layout, panes.length),
+        panes,
+      };
     });
   }, []);
 
   const closePane = useCallback((paneId: string) => {
-    setPanes((current) => {
-      if (current.length === 1) {
+    setState((current) => {
+      if (current.panes.length === 1) {
         return current;
       }
-      return current.filter((pane) => pane.id !== paneId);
+      const panes = current.panes.filter((pane) => pane.id !== paneId);
+      return {
+        layout: normalizeWorkspacePaneLayout(current.layout, panes.length),
+        panes,
+      };
     });
   }, []);
 
   const openTabKind = useCallback((kind: WorkspacePaneKind) => {
-    setPanes((current) => {
-      const existing = firstPaneWithTabKind(current, kind);
+    setState((current) => {
+      const existing = firstPaneWithTabKind(current.panes, kind);
       if (existing) {
-        return current.map((pane) =>
-          pane.id === existing.pane.id ? { ...pane, activeTabId: existing.tab.id } : pane,
-        );
+        return {
+          ...current,
+          panes: current.panes.map((pane) =>
+            pane.id === existing.pane.id ? { ...pane, activeTabId: existing.tab.id } : pane,
+          ),
+        };
       }
-      if (current.length < maxWorkspacePaneCount) {
+      if (current.panes.length < maxWorkspacePaneCount) {
         paneCounter.current += 1;
         tabCounter.current += 1;
         const tab = createWorkspacePaneTab(kind, tabCounter.current, []);
-        return [...current, createWorkspacePane(`workspace_pane_${paneCounter.current}`, tab)];
+        const panes = [
+          ...current.panes,
+          createWorkspacePane(`workspace_pane_${paneCounter.current}`, tab),
+        ];
+        return {
+          layout: workspacePaneLayoutAfterAppend(current.layout, panes.length),
+          panes,
+        };
       }
       tabCounter.current += 1;
-      const tab = createWorkspacePaneTab(kind, tabCounter.current, current[0]?.tabs ?? []);
-      return current.map((pane, index) =>
-        index === 0
-          ? {
-              ...pane,
-              activeTabId: tab.id,
-              tabs: [...pane.tabs, tab],
-            }
-          : pane,
-      );
+      const tab = createWorkspacePaneTab(kind, tabCounter.current, current.panes[0]?.tabs ?? []);
+      return {
+        ...current,
+        panes: current.panes.map((pane, index) =>
+          index === 0
+            ? {
+                ...pane,
+                activeTabId: tab.id,
+                tabs: [...pane.tabs, tab],
+              }
+            : pane,
+        ),
+      };
     });
   }, []);
+
+  const splitTab = useCallback(
+    (sourcePaneId: string, tabId: string, target: WorkspacePaneSplitTarget) => {
+      setState((current) => {
+        const sourcePane = current.panes.find((pane) => pane.id === sourcePaneId);
+        const tab = sourcePane?.tabs.find((candidate) => candidate.id === tabId);
+        if (!sourcePane || !tab || !canSplitWorkspacePaneTab(current.panes, sourcePaneId)) {
+          return current;
+        }
+
+        const sourceHasOneTab = sourcePane.tabs.length === 1;
+        const cloneOnlyTab = sourceHasOneTab && current.panes.length === 1;
+        const splitTab = cloneOnlyTab
+          ? createWorkspacePaneTab(tab.kind, (tabCounter.current += 1), [])
+          : tab;
+        paneCounter.current += 1;
+        const splitPane = createWorkspacePane(`workspace_pane_${paneCounter.current}`, splitTab);
+        const panesWithoutSplitTab = sourceHasOneTab
+          ? cloneOnlyTab
+            ? current.panes
+            : current.panes.filter((pane) => pane.id !== sourcePane.id)
+          : current.panes.map((pane) =>
+              pane.id === sourcePane.id ? closeWorkspacePaneTab(pane, tab.id) : pane,
+            );
+        const panes = insertWorkspacePaneAtSplitTarget(panesWithoutSplitTab, splitPane, target);
+        return {
+          layout: workspacePaneLayoutForSplitTarget(target, panes.length),
+          panes,
+        };
+      });
+    },
+    [],
+  );
 
   return {
     closeTab,
     closePane,
     createPane,
     createTab,
-    canCreatePane: canCreateWorkspacePane(panes),
+    canCreatePane: canCreateWorkspacePane(state.panes),
+    layout: state.layout,
     openTabKind,
-    panes,
+    panes: state.panes,
     selectTab,
+    splitTab,
   };
 }
 
 export function canCreateWorkspacePane(panes: readonly WorkspacePaneState[]) {
   return panes.length < maxWorkspacePaneCount;
+}
+
+export function canSplitWorkspacePaneTab(
+  panes: readonly WorkspacePaneState[],
+  sourcePaneId: string,
+) {
+  const sourcePane = panes.find((pane) => pane.id === sourcePaneId);
+  if (!sourcePane) {
+    return false;
+  }
+  if (panes.length < maxWorkspacePaneCount) {
+    return true;
+  }
+  return sourcePane.tabs.length === 1 && panes.length > 1;
 }
 
 const workspacePaneLabels = {
@@ -203,58 +306,133 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
   };
 }
 
+function workspacePaneLayoutAfterAppend(
+  current: WorkspacePaneLayout,
+  count: number,
+): WorkspacePaneLayout {
+  if (count <= 1) {
+    return "grid";
+  }
+  if (count === 2) {
+    return current === "rows" ? "rows" : "columns";
+  }
+  return "grid";
+}
+
+function normalizeWorkspacePaneLayout(
+  current: WorkspacePaneLayout,
+  count: number,
+): WorkspacePaneLayout {
+  if (count <= 1) {
+    return "grid";
+  }
+  if (count === 2) {
+    return current === "rows" ? "rows" : "columns";
+  }
+  return "grid";
+}
+
+function workspacePaneLayoutForSplitTarget(
+  target: WorkspacePaneSplitTarget,
+  count: number,
+): WorkspacePaneLayout {
+  if (count <= 1) {
+    return "grid";
+  }
+  if (count > 2 || isQuadrantSplitTarget(target)) {
+    return "grid";
+  }
+  return target === "top" || target === "bottom" ? "rows" : "columns";
+}
+
+function isQuadrantSplitTarget(target: WorkspacePaneSplitTarget) {
+  return (
+    target === "top-left" ||
+    target === "top-right" ||
+    target === "bottom-left" ||
+    target === "bottom-right"
+  );
+}
+
+function insertWorkspacePaneAtSplitTarget(
+  panes: WorkspacePaneState[],
+  pane: WorkspacePaneState,
+  target: WorkspacePaneSplitTarget,
+) {
+  const next = [...panes];
+  next.splice(workspacePaneSplitInsertionIndex(target, panes.length + 1), 0, pane);
+  return next.slice(0, maxWorkspacePaneCount);
+}
+
+function workspacePaneSplitInsertionIndex(target: WorkspacePaneSplitTarget, count: number) {
+  switch (target) {
+    case "left":
+    case "top":
+    case "top-left":
+      return 0;
+    case "right":
+    case "top-right":
+      return Math.min(1, count - 1);
+    case "bottom-left":
+      return Math.min(2, count - 1);
+    case "bottom":
+    case "bottom-right":
+      return count - 1;
+    default:
+      return assertWorkspacePaneSplitTarget(target);
+  }
+}
+
 export function WorkspacePanePanel({
   activeTabId,
-  canClosePane = false,
-  chromeInsetTop = false,
-  initialNewTabMenuOpen = false,
-  maximized = false,
+  avoidShellLeftControls,
+  avoidShellRightControls,
+  canClosePane,
+  inShellTopBar,
+  initialNewTabMenuOpen,
+  maximized,
   onClosePane,
   onCloseTab,
   onCreateTab,
   onSelectTab,
+  onTabDragEnd,
+  onTabDragStart,
   onToggleMaximize,
-  paneId = "",
+  paneId,
   renderTabContent,
-  showNewTabButton = true,
-  slot = "grid",
+  shellLeftInsetClass,
+  shellRightInsetClass,
+  showNewTabButton,
+  slot,
   tabs,
-}: {
-  activeTabId: string;
-  canClosePane?: boolean;
-  chromeInsetTop?: boolean;
-  initialNewTabMenuOpen?: boolean;
-  maximized?: boolean;
-  onClosePane?: () => void;
-  onCloseTab: (tabId: string) => void;
-  onCreateTab: (kind: WorkspacePaneKind) => void;
-  onSelectTab: (tabId: string) => void;
-  onToggleMaximize?: () => void;
-  paneId?: string;
-  renderTabContent?: (tab: WorkspacePaneTab) => ReactNode;
-  showNewTabButton?: boolean;
-  slot: PaneSlot;
-  tabs: WorkspacePaneTab[];
-}) {
+}: WorkspacePanePanelProps) {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
   const paneLabel = workspacePaneLabel(slot, paneId);
   return (
     <section
       aria-label={paneLabel}
-      className={workspacePanePanelClass(slot, chromeInsetTop)}
+      className={workspacePanePanelClass(slot)}
       data-testid={`${slot}-workspace-pane`}
     >
       <WorkspacePaneHeader
         activeTabId={activeTabId}
+        avoidShellLeftControls={avoidShellLeftControls}
+        avoidShellRightControls={avoidShellRightControls}
         canClosePane={canClosePane}
+        inShellTopBar={inShellTopBar}
         initialNewTabMenuOpen={initialNewTabMenuOpen}
         maximized={maximized}
         onClosePane={onClosePane}
         onCloseTab={onCloseTab}
         onCreateTab={onCreateTab}
         onSelectTab={onSelectTab}
+        onTabDragEnd={onTabDragEnd}
+        onTabDragStart={onTabDragStart}
         onToggleMaximize={onToggleMaximize}
         paneLabel={paneLabel}
+        paneId={paneId}
+        shellLeftInsetClass={shellLeftInsetClass}
+        shellRightInsetClass={shellRightInsetClass}
         showNewTabButton={showNewTabButton}
         slot={slot}
         tabs={tabs}
@@ -268,31 +446,71 @@ export function WorkspacePanePanel({
   );
 }
 
+interface WorkspacePanePanelProps {
+  activeTabId: string;
+  avoidShellLeftControls: boolean;
+  avoidShellRightControls: boolean;
+  canClosePane: boolean;
+  inShellTopBar: boolean;
+  initialNewTabMenuOpen: boolean;
+  maximized: boolean;
+  onClosePane?: () => void;
+  onCloseTab: (tabId: string) => void;
+  onCreateTab: (kind: WorkspacePaneKind) => void;
+  onSelectTab: (tabId: string) => void;
+  onTabDragEnd?: () => void;
+  onTabDragStart?: (payload: WorkspacePaneTabDragPayload) => void;
+  onToggleMaximize?: () => void;
+  paneId: string;
+  renderTabContent?: (tab: WorkspacePaneTab) => ReactNode;
+  shellLeftInsetClass: string;
+  shellRightInsetClass: string;
+  showNewTabButton: boolean;
+  slot: PaneSlot;
+  tabs: WorkspacePaneTab[];
+}
+
 function WorkspacePaneHeader({
   activeTabId,
+  avoidShellLeftControls,
+  avoidShellRightControls,
   canClosePane,
+  inShellTopBar,
   initialNewTabMenuOpen,
   maximized,
   onClosePane,
   onCloseTab,
   onCreateTab,
   onSelectTab,
+  onTabDragEnd,
+  onTabDragStart,
   onToggleMaximize,
   paneLabel,
+  paneId,
+  shellLeftInsetClass,
+  shellRightInsetClass,
   showNewTabButton,
   slot,
   tabs,
 }: {
   activeTabId: string;
+  avoidShellLeftControls: boolean;
+  avoidShellRightControls: boolean;
   canClosePane: boolean;
+  inShellTopBar: boolean;
   initialNewTabMenuOpen: boolean;
   maximized: boolean;
   onClosePane: (() => void) | undefined;
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
+  onTabDragEnd: (() => void) | undefined;
+  onTabDragStart: ((payload: WorkspacePaneTabDragPayload) => void) | undefined;
   onToggleMaximize: (() => void) | undefined;
   paneLabel: string;
+  paneId: string;
+  shellLeftInsetClass: string;
+  shellRightInsetClass: string;
   showNewTabButton: boolean;
   slot: PaneSlot;
   tabs: WorkspacePaneTab[];
@@ -300,7 +518,14 @@ function WorkspacePaneHeader({
   const [newTabMenuOpen, setNewTabMenuOpen] = useState(initialNewTabMenuOpen);
   return (
     <header
-      className="app-drag relative z-40 flex h-8 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5"
+      className={workspacePaneHeaderClass({
+        avoidShellLeftControls,
+        avoidShellRightControls,
+        inShellTopBar,
+        shellLeftInsetClass,
+        shellRightInsetClass,
+      })}
+      data-in-shell-top-bar={inShellTopBar ? "true" : "false"}
       data-testid={`${slot}-workspace-pane-header`}
     >
       <WorkspacePaneTabNav
@@ -313,7 +538,10 @@ function WorkspacePaneHeader({
         }}
         onNewTabMenuOpenChange={setNewTabMenuOpen}
         onSelectTab={onSelectTab}
+        onTabDragEnd={onTabDragEnd}
+        onTabDragStart={onTabDragStart}
         paneLabel={paneLabel}
+        paneId={paneId}
         showNewTabButton={showNewTabButton}
         tabs={tabs}
       />
@@ -338,7 +566,10 @@ function WorkspacePaneTabNav({
   onCreateTab,
   onNewTabMenuOpenChange,
   onSelectTab,
+  onTabDragEnd,
+  onTabDragStart,
   paneLabel,
+  paneId,
   showNewTabButton,
   tabs,
 }: {
@@ -348,7 +579,10 @@ function WorkspacePaneTabNav({
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onNewTabMenuOpenChange: (open: boolean) => void;
   onSelectTab: (tabId: string) => void;
+  onTabDragEnd: (() => void) | undefined;
+  onTabDragStart: ((payload: WorkspacePaneTabDragPayload) => void) | undefined;
   paneLabel: string;
+  paneId: string;
   showNewTabButton: boolean;
   tabs: WorkspacePaneTab[];
 }) {
@@ -362,7 +596,10 @@ function WorkspacePaneTabNav({
           active={tab.id === activeTabId}
           key={tab.id}
           onClose={() => onCloseTab(tab.id)}
+          onDragEnd={onTabDragEnd}
+          onDragStart={onTabDragStart}
           onSelect={() => onSelectTab(tab.id)}
+          paneId={paneId}
           tab={tab}
         />
       ))}
@@ -482,9 +719,30 @@ function WorkspacePaneCloseButton({
   );
 }
 
-function workspacePanePanelClass(slot: PaneSlot, chromeInsetTop: boolean) {
+function workspacePaneHeaderClass({
+  avoidShellLeftControls,
+  avoidShellRightControls,
+  inShellTopBar,
+  shellLeftInsetClass,
+  shellRightInsetClass,
+}: {
+  avoidShellLeftControls: boolean;
+  avoidShellRightControls: boolean;
+  inShellTopBar: boolean;
+  shellLeftInsetClass: string;
+  shellRightInsetClass: string;
+}) {
+  return cn(
+    "app-drag relative z-40 flex shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5",
+    inShellTopBar ? "h-10" : "h-8",
+    inShellTopBar && avoidShellLeftControls && shellLeftInsetClass,
+    inShellTopBar && avoidShellRightControls && shellRightInsetClass,
+  );
+}
+
+function workspacePanePanelClass(slot: PaneSlot) {
   const slotClass = workspacePaneSlotClass(slot);
-  return cn(slotClass, chromeInsetTop && "pt-10");
+  return cn(slotClass);
 }
 
 function workspacePaneSlotClass(slot: PaneSlot) {
@@ -503,17 +761,31 @@ function workspacePaneSlotClass(slot: PaneSlot) {
 function WorkspacePaneTabButton({
   active,
   onClose,
+  onDragEnd,
+  onDragStart,
   onSelect,
+  paneId,
   tab,
 }: {
   active: boolean;
   onClose: () => void;
+  onDragEnd: (() => void) | undefined;
+  onDragStart: ((payload: WorkspacePaneTabDragPayload) => void) | undefined;
   onSelect: () => void;
+  paneId: string;
   tab: WorkspacePaneTab;
 }) {
   return (
     <div
       className={workspacePaneTabClass(tab.kind, active)}
+      draggable
+      onDragEnd={onDragEnd}
+      onDragStart={(event) => {
+        const payload = { sourcePaneId: paneId, tabId: tab.id };
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData(workspacePaneTabDragMimeType, JSON.stringify(payload));
+        onDragStart?.(payload);
+      }}
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
       <button
@@ -546,6 +818,32 @@ function WorkspacePaneTabButton({
       </button>
     </div>
   );
+}
+
+export function readWorkspacePaneTabDragPayload(
+  event: DragEvent<HTMLElement>,
+): WorkspacePaneTabDragPayload | null {
+  const raw = event.dataTransfer.getData(workspacePaneTabDragMimeType);
+  if (!raw) {
+    return null;
+  }
+  const value = JSON.parse(raw) as unknown;
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("sourcePaneId" in value) ||
+    !("tabId" in value)
+  ) {
+    throw new Error("Workspace pane tab drag payload is malformed.");
+  }
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.sourcePaneId !== "string" || typeof payload.tabId !== "string") {
+    throw new Error("Workspace pane tab drag payload fields must be strings.");
+  }
+  return {
+    sourcePaneId: payload.sourcePaneId,
+    tabId: payload.tabId,
+  };
 }
 
 function workspacePaneTabClass(kind: WorkspacePaneKind, active: boolean) {
@@ -726,4 +1024,8 @@ function assertWorkspacePaneKind(value: never): never {
 
 function assertPaneSlot(value: never): never {
   throw new Error(`Unhandled workspace pane slot: ${value}`);
+}
+
+function assertWorkspacePaneSplitTarget(value: never): never {
+  throw new Error(`Unhandled workspace pane split target: ${value}`);
 }

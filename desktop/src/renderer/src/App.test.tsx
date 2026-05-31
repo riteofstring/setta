@@ -16,6 +16,7 @@ import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-tran
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import {
+  canSplitWorkspacePaneTab,
   canCreateWorkspacePane,
   maxWorkspacePaneCount,
   WorkspacePanePanel,
@@ -274,10 +275,19 @@ describe("workspace renderer states", () => {
     const emptyPane = renderToString(
       <WorkspacePanePanel
         activeTabId=""
+        avoidShellLeftControls={false}
+        avoidShellRightControls={false}
+        canClosePane={false}
+        inShellTopBar={false}
         initialNewTabMenuOpen
+        maximized={false}
         onCloseTab={() => {}}
         onCreateTab={() => {}}
         onSelectTab={() => {}}
+        paneId="test_right_pane"
+        shellLeftInsetClass=""
+        shellRightInsetClass=""
+        showNewTabButton
         slot="right"
         tabs={[]}
       />,
@@ -297,9 +307,73 @@ describe("workspace renderer states", () => {
     expect(settings).not.toContain("Voice input");
   });
 
+  test("renders pane tabs in the shell top bar and marks them draggable", () => {
+    const html = renderToString(
+      <WorkspacePanePanel
+        activeTabId="tab_chat"
+        avoidShellLeftControls={false}
+        avoidShellRightControls={false}
+        canClosePane={false}
+        inShellTopBar
+        initialNewTabMenuOpen={false}
+        maximized={false}
+        onCloseTab={() => {}}
+        onCreateTab={() => {}}
+        onSelectTab={() => {}}
+        paneId="test_chat_pane"
+        renderTabContent={() => <div>Chat surface</div>}
+        shellLeftInsetClass=""
+        shellRightInsetClass=""
+        showNewTabButton
+        slot="grid"
+        tabs={[{ id: "tab_chat", kind: "chat", title: "Chat" }]}
+      />,
+    );
+
+    expect(html).toContain('data-in-shell-top-bar="true"');
+    expect(html).toContain('draggable="true"');
+    expect(html).toContain('data-testid="workspace-pane-tab-tab_chat"');
+  });
+
   test("caps workspace panes at four", () => {
     expect(canCreateWorkspacePane(workspacePaneStates(maxWorkspacePaneCount - 1))).toBe(true);
     expect(canCreateWorkspacePane(workspacePaneStates(maxWorkspacePaneCount))).toBe(false);
+  });
+
+  test("allows tab splitting when a move keeps the pane count within four", () => {
+    expect(canSplitWorkspacePaneTab(workspacePaneStates(maxWorkspacePaneCount), "pane_0")).toBe(
+      true,
+    );
+    expect(
+      canSplitWorkspacePaneTab(
+        [
+          {
+            activeTabId: "tab_0",
+            id: "pane_0",
+            tabs: [{ id: "tab_0", kind: "chat", title: "Chat" }],
+          },
+          {
+            activeTabId: "tab_1",
+            id: "pane_1",
+            tabs: [
+              { id: "tab_1", kind: "chat", title: "Chat" },
+              { id: "tab_2", kind: "settings", title: "Settings" },
+            ],
+          },
+          {
+            activeTabId: "tab_3",
+            id: "pane_2",
+            tabs: [{ id: "tab_3", kind: "chat", title: "Chat" }],
+          },
+          {
+            activeTabId: "tab_4",
+            id: "pane_3",
+            tabs: [{ id: "tab_4", kind: "settings", title: "Settings" }],
+          },
+        ],
+        "pane_1",
+      ),
+    ).toBe(false);
   });
 });
 

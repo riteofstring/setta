@@ -8,18 +8,23 @@ import {
   Search,
   Settings,
 } from "lucide-react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CSSProperties, Dispatch, ReactNode, SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizablePane } from "./components/resizable-pane";
 import { SettingsPanel } from "./components/settings-panel";
 import {
   maxWorkspacePaneCount,
+  canSplitWorkspacePaneTab,
+  readWorkspacePaneTabDragPayload,
   WorkspacePanePanel,
   type WorkspacePaneKind,
+  type WorkspacePaneLayout,
+  type WorkspacePaneSplitTarget,
   type WorkspacePaneState,
   type WorkspacePaneTab,
+  type WorkspacePaneTabDragPayload,
   useWorkspacePaneState,
 } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -51,6 +56,9 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const [maximizedPaneId, setMaximizedPaneId] = useState<string | null>(null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
+  const [workspaceColumnPercent, setWorkspaceColumnPercent] = useState(50);
+  const [workspaceRowPercent, setWorkspaceRowPercent] = useState(50);
+  const [draggingPaneTab, setDraggingPaneTab] = useState<WorkspacePaneTabDragPayload | null>(null);
   const [chatSearchOpenByPaneId, setChatSearchOpenByPaneId] = useState<Record<string, boolean>>({});
   const openChatSearch = useCallback(() => {
     const chatPane = firstWorkspacePaneWithKind(panes.panes, "chat");
@@ -114,11 +122,21 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           closePane={panes.closePane}
           closeTab={panes.closeTab}
           createTab={panes.createTab}
+          draggingPaneTab={draggingPaneTab}
+          onTabDragEnd={() => setDraggingPaneTab(null)}
+          onTabDragStart={setDraggingPaneTab}
           maximizedPaneId={maximizedPaneId}
           panes={panes}
+          platform={platform}
+          projectPaneOpen={projectPaneOpen}
           selectTab={panes.selectTab}
+          setMaximizedPaneId={setMaximizedPaneId}
           setChatSearchOpenByPaneId={setChatSearchOpenByPaneId}
           toggleMaximizedPane={toggleMaximizedPane}
+          workspaceColumnPercent={workspaceColumnPercent}
+          workspaceRowPercent={workspaceRowPercent}
+          setWorkspaceColumnPercent={setWorkspaceColumnPercent}
+          setWorkspaceRowPercent={setWorkspaceRowPercent}
           workspace={workspace}
         />
       </main>
@@ -169,11 +187,21 @@ function WorkspaceArea({
   closePane,
   closeTab,
   createTab,
+  draggingPaneTab,
   maximizedPaneId,
+  onTabDragEnd,
+  onTabDragStart,
   panes,
+  platform,
+  projectPaneOpen,
   selectTab,
+  setMaximizedPaneId,
   setChatSearchOpenByPaneId,
+  setWorkspaceColumnPercent,
+  setWorkspaceRowPercent,
   toggleMaximizedPane,
+  workspaceColumnPercent,
+  workspaceRowPercent,
   workspace,
 }: {
   chat: ChatView;
@@ -181,14 +209,41 @@ function WorkspaceArea({
   closePane: (paneId: string) => void;
   closeTab: (paneId: string, tabId: string) => void;
   createTab: (paneId: string, kind: WorkspacePaneKind) => void;
+  draggingPaneTab: WorkspacePaneTabDragPayload | null;
   maximizedPaneId: string | null;
+  onTabDragEnd: () => void;
+  onTabDragStart: (payload: WorkspacePaneTabDragPayload) => void;
   panes: ReturnType<typeof useWorkspacePaneState>;
+  platform: DesktopPlatform;
+  projectPaneOpen: boolean;
   selectTab: (paneId: string, tabId: string) => void;
+  setMaximizedPaneId: Dispatch<SetStateAction<string | null>>;
   setChatSearchOpenByPaneId: Dispatch<SetStateAction<Record<string, boolean>>>;
+  setWorkspaceColumnPercent: Dispatch<SetStateAction<number>>;
+  setWorkspaceRowPercent: Dispatch<SetStateAction<number>>;
   toggleMaximizedPane: (paneId: string) => void;
+  workspaceColumnPercent: number;
+  workspaceRowPercent: number;
   workspace: WorkspaceViewState;
 }) {
   const visiblePanes = workspaceGridVisiblePanes(panes.panes, maximizedPaneId);
+  const splitAllowed = draggingPaneTab
+    ? canSplitWorkspacePaneTab(panes.panes, draggingPaneTab.sourcePaneId)
+    : false;
+  const splitTabIntoTarget = useCallback(
+    (payload: WorkspacePaneTabDragPayload, target: WorkspacePaneSplitTarget) => {
+      panes.splitTab(payload.sourcePaneId, payload.tabId, target);
+      setMaximizedPaneId(null);
+      onTabDragEnd();
+    },
+    [onTabDragEnd, panes, setMaximizedPaneId],
+  );
+  const gridRef = useWorkspacePaneGridResize({
+    columnPercent: workspaceColumnPercent,
+    rowPercent: workspaceRowPercent,
+    setColumnPercent: setWorkspaceColumnPercent,
+    setRowPercent: setWorkspaceRowPercent,
+  });
 
   return (
     <div
@@ -197,35 +252,45 @@ function WorkspaceArea({
       data-testid="workspace-pane-grid-shell"
     >
       <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-10 z-40 h-px bg-zinc-800"
-      />
-      <div
-        className={cn(
-          "grid h-full min-h-0 min-w-0 gap-px overflow-hidden bg-zinc-800",
-          workspacePaneGridClass(visiblePanes.length),
-        )}
+        className="grid h-full min-h-0 min-w-0 overflow-hidden bg-zinc-800"
         data-testid="workspace-pane-grid"
+        ref={gridRef}
+        style={workspacePaneGridStyle(
+          panes.layout,
+          visiblePanes.length,
+          workspaceColumnPercent,
+          workspaceRowPercent,
+        )}
       >
         {visiblePanes.map((pane, index) => (
           <div
-            className={cn(
-              "min-h-0 min-w-0 overflow-hidden bg-zinc-950",
-              workspacePaneGridCellClass(visiblePanes.length, index),
-            )}
+            className="min-h-0 min-w-0 overflow-hidden bg-zinc-950"
             data-pane-id={pane.id}
             data-testid="workspace-pane-grid-cell"
             key={pane.id}
+            style={workspacePaneGridCellStyle(panes.layout, visiblePanes.length, index)}
           >
             <WorkspacePanePanel
               activeTabId={pane.activeTabId}
+              avoidShellLeftControls={
+                !projectPaneOpen &&
+                workspacePaneTouchesShellLeft(panes.layout, visiblePanes.length, index)
+              }
+              avoidShellRightControls={workspacePaneTouchesShellRight(
+                panes.layout,
+                visiblePanes.length,
+                index,
+              )}
               canClosePane={panes.panes.length > 1}
-              chromeInsetTop={workspacePaneNeedsChromeInset(visiblePanes.length, index)}
+              inShellTopBar={workspacePaneIsTopRow(panes.layout, visiblePanes.length, index)}
+              initialNewTabMenuOpen={false}
               maximized={maximizedPaneId === pane.id}
               onClosePane={() => closePane(pane.id)}
               onCloseTab={(tabId) => closeTab(pane.id, tabId)}
               onCreateTab={(kind) => createTab(pane.id, kind)}
               onSelectTab={(tabId) => selectTab(pane.id, tabId)}
+              onTabDragEnd={onTabDragEnd}
+              onTabDragStart={onTabDragStart}
               onToggleMaximize={() => toggleMaximizedPane(pane.id)}
               paneId={pane.id}
               renderTabContent={(tab) => (
@@ -243,12 +308,28 @@ function WorkspaceArea({
                   workspace={workspace}
                 />
               )}
+              shellLeftInsetClass={shellLeftControlsPaddingClass(platform)}
+              shellRightInsetClass={shellRightControlsPaddingClass(platform)}
+              showNewTabButton
               slot="grid"
               tabs={pane.tabs}
             />
           </div>
         ))}
+        <WorkspacePaneGridResizers
+          columnPercent={workspaceColumnPercent}
+          layout={panes.layout}
+          paneCount={visiblePanes.length}
+          rowPercent={workspaceRowPercent}
+          setColumnPercent={setWorkspaceColumnPercent}
+          setRowPercent={setWorkspaceRowPercent}
+        />
       </div>
+      <WorkspacePaneSplitDropOverlay
+        canSplit={splitAllowed}
+        draggingTab={draggingPaneTab}
+        onDropTarget={splitTabIntoTarget}
+      />
     </div>
   );
 }
@@ -314,29 +395,340 @@ function workspaceGridVisiblePanes(panes: WorkspacePaneState[], maximizedPaneId:
   return panes.filter((pane) => pane.id === maximizedPaneId);
 }
 
-function workspacePaneGridClass(count: number) {
+function workspacePaneGridStyle(
+  layout: WorkspacePaneLayout,
+  count: number,
+  columnPercent: number,
+  rowPercent: number,
+): CSSProperties {
   if (count <= 1) {
-    return "grid-cols-1 grid-rows-1";
+    return {
+      gridTemplateColumns: "minmax(0, 1fr)",
+      gridTemplateRows: "minmax(0, 1fr)",
+    };
   }
-  if (count === 2) {
-    return "grid-cols-2 grid-rows-1";
+  if (layout === "columns") {
+    return {
+      gridTemplateColumns: `${columnPercent}% 1px ${100 - columnPercent}%`,
+      gridTemplateRows: "minmax(0, 1fr)",
+    };
   }
-  return "grid-cols-2 grid-rows-2";
+  if (layout === "rows") {
+    return {
+      gridTemplateColumns: "minmax(0, 1fr)",
+      gridTemplateRows: `${rowPercent}% 1px ${100 - rowPercent}%`,
+    };
+  }
+  return {
+    gridTemplateColumns: `${columnPercent}% 1px ${100 - columnPercent}%`,
+    gridTemplateRows: `${rowPercent}% 1px ${100 - rowPercent}%`,
+  };
 }
 
-function workspacePaneGridCellClass(count: number, index: number) {
-  return count === 3 && index === 2 ? "col-span-2" : "";
+function workspacePaneGridCellStyle(
+  layout: WorkspacePaneLayout,
+  count: number,
+  index: number,
+): CSSProperties {
+  if (count <= 1) {
+    return { gridColumn: "1", gridRow: "1" };
+  }
+  if (layout === "columns") {
+    return { gridColumn: index === 0 ? "1" : "3", gridRow: "1" };
+  }
+  if (layout === "rows") {
+    return { gridColumn: "1", gridRow: index === 0 ? "1" : "3" };
+  }
+  return {
+    gridColumn: index % 2 === 0 ? "1" : "3",
+    gridRow: index < 2 ? "1" : "3",
+  };
 }
 
-function workspacePaneNeedsChromeInset(count: number, index: number) {
-  if (count <= 2) {
+function workspacePaneIsTopRow(layout: WorkspacePaneLayout, count: number, index: number) {
+  if (count <= 1) {
+    return true;
+  }
+  if (layout === "rows") {
+    return index === 0;
+  }
+  if (layout === "columns") {
     return true;
   }
   return index < 2;
 }
 
+function workspacePaneTouchesShellLeft(layout: WorkspacePaneLayout, count: number, index: number) {
+  if (!workspacePaneIsTopRow(layout, count, index)) {
+    return false;
+  }
+  if (count <= 1 || layout === "rows") {
+    return true;
+  }
+  if (layout === "columns") {
+    return index === 0;
+  }
+  return index === 0;
+}
+
+function workspacePaneTouchesShellRight(layout: WorkspacePaneLayout, count: number, index: number) {
+  if (!workspacePaneIsTopRow(layout, count, index)) {
+    return false;
+  }
+  if (count <= 1 || layout === "rows") {
+    return true;
+  }
+  if (layout === "columns") {
+    return index === 1;
+  }
+  return index === 1;
+}
+
 function firstWorkspacePaneWithKind(panes: WorkspacePaneState[], kind: WorkspacePaneKind) {
   return panes.find((pane) => pane.tabs.some((tab) => tab.kind === kind)) ?? null;
+}
+
+function shellLeftControlsPaddingClass(platform: DesktopPlatform) {
+  return platform === "darwin" ? "pl-28" : "pl-12";
+}
+
+function shellRightControlsPaddingClass(platform: DesktopPlatform) {
+  return platform === "darwin" ? "pr-44" : "pr-40";
+}
+
+function useWorkspacePaneGridResize({
+  columnPercent,
+  rowPercent,
+  setColumnPercent,
+  setRowPercent,
+}: {
+  columnPercent: number;
+  rowPercent: number;
+  setColumnPercent: Dispatch<SetStateAction<number>>;
+  setRowPercent: Dispatch<SetStateAction<number>>;
+}) {
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    gridRef.current?.style.setProperty("--workspace-column-percent", `${columnPercent}`);
+    gridRef.current?.style.setProperty("--workspace-row-percent", `${rowPercent}`);
+  }, [columnPercent, gridRef, rowPercent]);
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) {
+      return;
+    }
+    const startResize = (event: PointerEvent) => {
+      const target = event.target as HTMLElement;
+      const axis = target.dataset.resizeAxis;
+      if (axis !== "column" && axis !== "row") {
+        return;
+      }
+      const rect = grid.getBoundingClientRect();
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+      const update = (moveEvent: PointerEvent) => {
+        if (axis === "column") {
+          setColumnPercent(clampRatio(((moveEvent.clientX - rect.left) / rect.width) * 100));
+        } else {
+          setRowPercent(clampRatio(((moveEvent.clientY - rect.top) / rect.height) * 100));
+        }
+      };
+      const stopResize = () => {
+        document.body.style.cursor = previousCursor;
+        document.body.style.userSelect = previousUserSelect;
+        window.removeEventListener("pointermove", update);
+      };
+      event.preventDefault();
+      document.body.style.cursor = axis === "column" ? "col-resize" : "row-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("pointermove", update);
+      window.addEventListener("pointerup", stopResize, { once: true });
+    };
+    grid.addEventListener("pointerdown", startResize);
+    return () => {
+      grid.removeEventListener("pointerdown", startResize);
+    };
+  }, [gridRef, setColumnPercent, setRowPercent]);
+  return gridRef;
+}
+
+function WorkspacePaneGridResizers({
+  columnPercent,
+  layout,
+  paneCount,
+  rowPercent,
+  setColumnPercent,
+  setRowPercent,
+}: {
+  columnPercent: number;
+  layout: WorkspacePaneLayout;
+  paneCount: number;
+  rowPercent: number;
+  setColumnPercent: Dispatch<SetStateAction<number>>;
+  setRowPercent: Dispatch<SetStateAction<number>>;
+}) {
+  if (paneCount <= 1) {
+    return null;
+  }
+  const showColumn = layout === "columns" || layout === "grid";
+  const showRow = layout === "rows" || layout === "grid";
+  return (
+    <>
+      {showColumn ? (
+        <WorkspacePaneGridResizeHandle
+          axis="column"
+          onKeyStep={(step) => setColumnPercent((current) => clampRatio(current + step))}
+          value={columnPercent}
+        />
+      ) : null}
+      {showRow ? (
+        <WorkspacePaneGridResizeHandle
+          axis="row"
+          onKeyStep={(step) => setRowPercent((current) => clampRatio(current + step))}
+          value={rowPercent}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function WorkspacePaneGridResizeHandle({
+  axis,
+  onKeyStep,
+  value,
+}: {
+  axis: "column" | "row";
+  onKeyStep: (step: number) => void;
+  value: number;
+}) {
+  const isColumn = axis === "column";
+  return (
+    <div
+      aria-label={isColumn ? "Resize workspace columns" : "Resize workspace rows"}
+      aria-orientation={isColumn ? "vertical" : "horizontal"}
+      aria-valuemax={75}
+      aria-valuemin={25}
+      aria-valuenow={Math.round(value)}
+      className={cn(
+        "relative z-50 bg-zinc-800 outline-none transition-colors hover:bg-zinc-700 focus-visible:bg-zinc-600",
+        isColumn ? "cursor-col-resize" : "cursor-row-resize",
+      )}
+      data-resize-axis={axis}
+      onKeyDown={(event) => {
+        const negativeKey = isColumn ? "ArrowLeft" : "ArrowUp";
+        const positiveKey = isColumn ? "ArrowRight" : "ArrowDown";
+        if (event.key === negativeKey) {
+          event.preventDefault();
+          onKeyStep(-4);
+        }
+        if (event.key === positiveKey) {
+          event.preventDefault();
+          onKeyStep(4);
+        }
+      }}
+      role="separator"
+      style={
+        isColumn ? { gridColumn: "2", gridRow: "1 / -1" } : { gridColumn: "1 / -1", gridRow: "2" }
+      }
+      tabIndex={0}
+    />
+  );
+}
+
+const workspacePaneSplitTargets = [
+  { cellClass: "col-start-1 row-start-1", label: "Top left", target: "top-left" },
+  { cellClass: "col-start-2 row-start-1", label: "Top", target: "top" },
+  { cellClass: "col-start-3 row-start-1", label: "Top right", target: "top-right" },
+  { cellClass: "col-start-1 row-start-2", label: "Left", target: "left" },
+  { cellClass: "col-start-3 row-start-2", label: "Right", target: "right" },
+  { cellClass: "col-start-1 row-start-3", label: "Bottom left", target: "bottom-left" },
+  { cellClass: "col-start-2 row-start-3", label: "Bottom", target: "bottom" },
+  { cellClass: "col-start-3 row-start-3", label: "Bottom right", target: "bottom-right" },
+] satisfies {
+  cellClass: string;
+  label: string;
+  target: WorkspacePaneSplitTarget;
+}[];
+
+function WorkspacePaneSplitDropOverlay({
+  canSplit,
+  draggingTab,
+  onDropTarget,
+}: {
+  canSplit: boolean;
+  draggingTab: WorkspacePaneTabDragPayload | null;
+  onDropTarget: (payload: WorkspacePaneTabDragPayload, target: WorkspacePaneSplitTarget) => void;
+}) {
+  if (!draggingTab) {
+    return null;
+  }
+  if (!canSplit) {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[70] grid place-items-center bg-zinc-950/35">
+        <div className="rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-300 shadow-xl shadow-black/35">
+          Four pane limit reached
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[70] grid grid-cols-3 grid-rows-3 gap-1 bg-zinc-950/20 p-2">
+      <div className="col-start-2 row-start-2 grid place-items-center">
+        <div className="rounded-sm border border-zinc-700/80 bg-zinc-950/90 px-2 py-1 text-[11px] font-medium text-zinc-400 shadow-lg shadow-black/30">
+          Split tab
+        </div>
+      </div>
+      {workspacePaneSplitTargets.map((target) => (
+        <WorkspacePaneSplitDropTarget
+          draggingTab={draggingTab}
+          key={target.target}
+          label={target.label}
+          onDropTarget={onDropTarget}
+          target={target.target}
+          targetClass={target.cellClass}
+        />
+      ))}
+    </div>
+  );
+}
+
+function WorkspacePaneSplitDropTarget({
+  draggingTab,
+  label,
+  onDropTarget,
+  target,
+  targetClass,
+}: {
+  draggingTab: WorkspacePaneTabDragPayload;
+  label: string;
+  onDropTarget: (payload: WorkspacePaneTabDragPayload, target: WorkspacePaneSplitTarget) => void;
+  target: WorkspacePaneSplitTarget;
+  targetClass: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "pointer-events-auto grid place-items-center rounded-sm border border-zinc-600/70 bg-zinc-900/65 text-[11px] font-semibold text-zinc-300 shadow-inner shadow-black/35 transition-colors",
+        "hover:border-zinc-400 hover:bg-zinc-800/85 hover:text-zinc-50",
+        targetClass,
+      )}
+      data-testid={`workspace-split-target-${target}`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        onDropTarget(readWorkspacePaneTabDragPayload(event) ?? draggingTab, target);
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function clampRatio(value: number) {
+  return Math.min(75, Math.max(25, value));
 }
 
 function assertWorkspacePaneKind(value: never): never {
