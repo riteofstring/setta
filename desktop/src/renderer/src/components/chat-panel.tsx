@@ -78,36 +78,36 @@ function ChatHeader({
   title: string;
 }) {
   return (
-    <header className="shrink-0 px-6 pt-4 pb-0">
-      <div className="flex h-8 min-w-0 items-start justify-between gap-4">
-        <h2 className="truncate text-lg font-bold tracking-wide text-[#7180a6] uppercase">
+    <header className="shrink-0 px-4 pt-3 pb-0">
+      <div className="flex h-6 min-w-0 items-start justify-between gap-3">
+        <h2 className="truncate text-sm font-bold tracking-wide text-[#7180a6] uppercase">
           Project AI Chat
         </h2>
         <button
           aria-label="Expand chat"
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-[#93a4ca] hover:bg-[#101622] hover:text-zinc-100"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[#93a4ca] hover:bg-[#101622] hover:text-zinc-100"
           title="Expand chat"
           type="button"
         >
-          <Maximize2 className="h-4 w-4" />
+          <Maximize2 className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div className="mt-4 flex min-w-0 items-center gap-4 text-[#7f8eb4]">
+      <div className="mt-2 flex min-w-0 items-center gap-2 text-[#7f8eb4]">
         <IconButton
           disabled={busy || !onCreateConversation}
           label="New chat"
           onClick={onCreateConversation}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" />
         </IconButton>
         <IconButton label="Conversation history">
-          <History className="h-4 w-4" />
+          <History className="h-3.5 w-3.5" />
         </IconButton>
         <label className="flex min-w-0 flex-1 items-center gap-2">
-          <ListFilter className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <ListFilter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <Input
-            className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-base text-zinc-100 shadow-none outline-none placeholder:text-[#4f5d7d] focus-visible:border-0"
+            className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs text-zinc-100 shadow-none outline-none placeholder:text-[#4f5d7d] focus-visible:border-0"
             placeholder="Search in conversation"
             type="search"
           />
@@ -116,11 +116,11 @@ function ChatHeader({
           <RunBadge active={running} status={status} />
         </span>
         <IconButton label="Chat settings">
-          <Settings className="h-6 w-6" />
+          <Settings className="h-4 w-4" />
         </IconButton>
       </div>
       <div className="sr-only">{title}</div>
-      <div className="mt-4 h-px bg-[#1f2635]" />
+      <div className="mt-2 h-px bg-[#1f2635]" />
     </header>
   );
 }
@@ -139,7 +139,7 @@ function IconButton({
   return (
     <button
       aria-label={label}
-      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-[#91a0c6] hover:bg-[#101622] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#91a0c6] hover:bg-[#101622] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={disabled}
       onClick={onClick}
       title={label}
@@ -224,21 +224,21 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
 
   return (
     <form
-      className="bg-[#05080f] px-6 pt-3 pb-7"
+      className="bg-[#05080f] px-4 pt-2 pb-4"
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
       }}
     >
-      <div className="flex min-w-0 items-center gap-4 rounded-lg border border-[#2d3a57] bg-[#060a12] px-4 py-2">
+      <div className="flex min-w-0 items-center gap-2 rounded-md border border-[#2d3a57] bg-[#060a12] px-2 py-1">
         <IconButton disabled={disabled} label="Add attachment">
-          <Plus className="h-5 w-5" />
+          <Plus className="h-3.5 w-3.5" />
         </IconButton>
         <IconButton disabled={disabled} label="Voice input">
-          <Mic className="h-4 w-4" />
+          <Mic className="h-3.5 w-3.5" />
         </IconButton>
         <Textarea
-          className="max-h-32 min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[17px] leading-7 text-zinc-100 shadow-none outline-none placeholder:text-[#7380a4] focus-visible:border-0"
+          className="max-h-24 min-h-7 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-1 text-sm leading-5 text-zinc-100 shadow-none outline-none placeholder:text-[#7380a4] focus-visible:border-0"
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -276,27 +276,27 @@ function ComposerButton({
     return (
       <Button
         aria-label="Stop run"
-        className="h-8 w-8 shrink-0 border-[#2d3a57] bg-[#172554] px-0 text-zinc-100 hover:bg-[#1e3a8a]"
+        className="h-7 w-7 shrink-0 border-[#2d3a57] bg-[#172554] px-0 text-zinc-100 hover:bg-[#1e3a8a]"
         disabled={chat.operation === "cancelling"}
         onClick={() => void chat.stopActiveRun()}
         title="Stop run"
         type="button"
         variant="secondary"
       >
-        <Square className="h-4 w-4" />
+        <Square className="h-3.5 w-3.5" />
       </Button>
     );
   }
   return (
     <Button
       aria-label="Send message"
-      className="h-8 w-8 shrink-0 border-[#2d3a57] bg-[#24304a] px-0 text-[#91a0c6] hover:bg-[#2f3d5c] hover:text-white"
+      className="h-7 w-7 shrink-0 border-[#2d3a57] bg-[#24304a] px-0 text-[#91a0c6] hover:bg-[#2f3d5c] hover:text-white"
       disabled={!canSend}
       title="Send message"
       type="submit"
       variant="primary"
     >
-      <Send className="h-4 w-4" />
+      <Send className="h-3.5 w-3.5" />
     </Button>
   );
 }
