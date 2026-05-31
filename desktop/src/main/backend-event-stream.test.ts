@@ -1,4 +1,4 @@
-import type { ChatEvent, ChatMessage, MessageRole, MessageStatus } from "@generated/backend";
+import type { ChatEvent, ChatMessage } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { describe, expect, test, vi } from "vitest";
 
@@ -52,61 +52,7 @@ describe("backend event stream", () => {
     await stream.stop();
 
     expect(forwarded).toEqual([event]);
-    expect(lifecycle).toHaveBeenCalledWith(expect.objectContaining({ status: "connected" }));
-  });
-
-  test("reports malformed event payloads as resyncing and reconnects after the bad event", async () => {
-    const nextEvent = messageCreatedEvent(2);
-    const forwarded: ChatEvent[] = [];
-    const lifecycle = vi.fn();
-    const lastEventIds: string[] = [];
-    const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
-      const headers = init.headers as Record<string, string> | undefined;
-      lastEventIds.push(headers?.["Last-Event-ID"] ?? "");
-      if (lastEventIds.length === 1) {
-        return new Response(
-          textStream("id: event_stream_test:1\nevent: chat.message.created\ndata: {bad\n\n"),
-          { status: 200 },
-        );
-      }
-      return new Response(textStream(sseFrame(nextEvent)), { status: 200 });
-    });
-    let sleepCount = 0;
-    const sleep = vi.fn(async (_ms: number, signal: AbortSignal) => {
-      sleepCount += 1;
-      if (sleepCount === 1) {
-        return;
-      }
-      await new Promise<void>((resolve) => {
-        signal.addEventListener("abort", () => resolve(), { once: true });
-      });
-    });
-
-    const stream = startBackendEventStream({
-      baseURL: "http://127.0.0.1:41000",
-      fetchImpl,
-      observer: {
-        forwarded: vi.fn(),
-        lifecycle,
-      },
-      reconnect: {
-        initialDelayMs: 1,
-        maxDelayMs: 1,
-        sleep,
-      },
-      sendEvent: (payload) => {
-        forwarded.push(payload);
-      },
-    });
-
-    await waitFor(() => forwarded.length === 1);
-    await stream.stop();
-
-    expect(lastEventIds).toEqual(["", "event_stream_test:1"]);
-    expect(forwarded).toEqual([nextEvent]);
-    expect(lifecycle).toHaveBeenCalledWith(
-      expect.objectContaining({ lastSequence: 1, status: "resyncing" }),
-    );
+    expect(lifecycle).toHaveBeenCalledWith(expect.objectContaining({ type: "connected" }));
   });
 
   test("forwards resync events when a backend stream restarts with a lower sequence", async () => {
@@ -230,14 +176,13 @@ function resyncRequiredEvent(
 function message(
   id: string,
   ordinal: number,
-  role: MessageRole,
-  status: MessageStatus,
+  role: string,
+  status: string,
   text: string,
 ): ChatMessage {
   return {
     conversationId: "conversation_api",
     createdAt: "2026-05-29T20:00:00Z",
-    delivery: "normal",
     id,
     ordinal,
     parts: [

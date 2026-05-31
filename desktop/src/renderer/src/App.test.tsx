@@ -1,4 +1,3 @@
-import type { ChatMessage } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
@@ -129,12 +128,10 @@ describe("chat renderer states", () => {
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
-        loadRunItemOutput={async () => {}}
         messages={[
           {
             conversationId: "conversation_api",
             createdAt: "2026-05-29T20:00:00Z",
-            delivery: "normal",
             id: "message_assistant",
             ordinal: 1,
             parts: [
@@ -152,8 +149,6 @@ describe("chat renderer states", () => {
             updatedAt: "2026-05-29T20:00:00Z",
           },
         ]}
-        runItemOutputs={[]}
-        runItems={[]}
         submitApproval={async () => {}}
       />,
     );
@@ -163,301 +158,10 @@ describe("chat renderer states", () => {
     expect(html).not.toContain("<script>");
   });
 
-  test("bounds large transcript row rendering", () => {
-    const messages = Array.from({ length: 5000 }, (_, index) =>
-      chatMessage(`message_${index}`, index + 1),
-    );
-
-    const html = renderToString(
-      <ChatTranscript
-        activeRun={null}
-        hasMoreOlder={false}
-        loadOlder={async () => {}}
-        loadRunItemOutput={async () => {}}
-        messages={messages}
-        runItemOutputs={[]}
-        runItems={[]}
-        submitApproval={async () => {}}
-      />,
-    );
-
-    expect(rowCount(html, "chat-message")).toBeLessThanOrEqual(30);
-  });
-
-  test("renders queued steering and activity rows", () => {
-    const html = renderToString(
-      <ChatTranscript
-        activeRun={null}
-        hasMoreOlder={false}
-        loadOlder={async () => {}}
-        loadRunItemOutput={async () => {}}
-        messages={[
-          {
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            delivery: "queued",
-            id: "message_queued",
-            ordinal: 1,
-            parts: [{ format: "plain", id: "part_queued", text: "queued", type: "text" }],
-            role: "user",
-            runId: "run_queue",
-            schemaVersion: 1,
-            status: "pending",
-            updatedAt: "2026-05-29T20:00:00Z",
-          },
-          {
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            delivery: "steering",
-            id: "message_steering",
-            ordinal: 2,
-            parts: [{ format: "plain", id: "part_steering", text: "steer", type: "text" }],
-            role: "user",
-            runId: "run_api",
-            schemaVersion: 1,
-            status: "complete",
-            updatedAt: "2026-05-29T20:00:00Z",
-          },
-          {
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            delivery: "normal",
-            id: "message_assistant",
-            ordinal: 3,
-            parts: [{ format: "markdown", id: "part_assistant", text: "done", type: "text" }],
-            role: "assistant",
-            runId: "run_api",
-            schemaVersion: 1,
-            status: "complete",
-            updatedAt: "2026-05-29T20:00:00Z",
-          },
-        ]}
-        runItemOutputs={[
-          {
-            createdAt: "2026-05-29T20:00:00Z",
-            id: "output_1",
-            ordinal: 1,
-            runItemId: "item_command",
-            schemaVersion: 1,
-            stream: "stdout",
-            text: "ok\n",
-          },
-        ]}
-        runItems={[
-          {
-            command: "go test ./...",
-            completedAt: "",
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            cwd: "/tmp/workspace",
-            diffSummary: "",
-            durationMs: 10,
-            error: "",
-            exitCode: 0,
-            filePaths: [],
-            id: "item_command",
-            noticeKind: "",
-            noticeMessage: "",
-            patchStatus: "",
-            progress: "",
-            providerItemId: "command_provider",
-            result: "",
-            runId: "run_api",
-            schemaVersion: 1,
-            serverName: "",
-            startedAt: "2026-05-29T20:00:00Z",
-            status: "completed",
-            summary: "",
-            title: "",
-            toolName: "",
-            type: "command_execution",
-            workspaceId: "workspace_api",
-          },
-          {
-            command: "",
-            completedAt: "",
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            cwd: "",
-            diffSummary: "",
-            durationMs: 0,
-            error: "",
-            exitCode: 0,
-            filePaths: ["/tmp/workspace/main.go"],
-            id: "item_file",
-            noticeKind: "",
-            noticeMessage: "",
-            patchStatus: "updated",
-            progress: "",
-            providerItemId: "file_provider",
-            result: "",
-            runId: "run_api",
-            schemaVersion: 1,
-            serverName: "",
-            startedAt: "2026-05-29T20:00:00Z",
-            status: "running",
-            summary: "",
-            title: "",
-            toolName: "",
-            type: "file_change",
-            workspaceId: "workspace_api",
-          },
-          {
-            command: "",
-            completedAt: "",
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            cwd: "",
-            diffSummary: "",
-            durationMs: 0,
-            error: "",
-            exitCode: 0,
-            filePaths: [],
-            id: "item_mcp",
-            noticeKind: "",
-            noticeMessage: "",
-            patchStatus: "",
-            progress: "halfway",
-            providerItemId: "mcp_provider",
-            result: "",
-            runId: "run_api",
-            schemaVersion: 1,
-            serverName: "server",
-            startedAt: "2026-05-29T20:00:00Z",
-            status: "running",
-            summary: "",
-            title: "",
-            toolName: "tool",
-            type: "mcp_tool_call",
-            workspaceId: "workspace_api",
-          },
-          {
-            command: "",
-            completedAt: "",
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            cwd: "",
-            diffSummary: "",
-            durationMs: 0,
-            error: "",
-            exitCode: 0,
-            filePaths: [],
-            id: "item_notice",
-            noticeKind: "warning",
-            noticeMessage: "warning text",
-            patchStatus: "",
-            progress: "",
-            providerItemId: "notice_provider",
-            result: "",
-            runId: "run_api",
-            schemaVersion: 1,
-            serverName: "",
-            startedAt: "2026-05-29T20:00:00Z",
-            status: "completed",
-            summary: "",
-            title: "",
-            toolName: "",
-            type: "notice",
-            workspaceId: "workspace_api",
-          },
-        ]}
-        submitApproval={async () => {}}
-      />,
-    );
-
-    expect(html).toContain("Queued");
-    expect(html).toContain("Steering");
-    expect(html).toContain("go test ./...");
-    expect(html).toContain("main.go");
-    expect(html).toContain("halfway");
-    expect(html).toContain("warning text");
-  });
-
-  test("renders load more for paged run output", () => {
-    const html = renderToString(
-      <ChatTranscript
-        activeRun={null}
-        hasMoreOlder={false}
-        loadOlder={async () => {}}
-        loadRunItemOutput={async () => {}}
-        messages={[
-          {
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            delivery: "normal",
-            id: "message_assistant",
-            ordinal: 1,
-            parts: [{ format: "markdown", id: "part_assistant", text: "done", type: "text" }],
-            role: "assistant",
-            runId: "run_api",
-            schemaVersion: 1,
-            status: "complete",
-            updatedAt: "2026-05-29T20:00:00Z",
-          },
-        ]}
-        runItemOutputPagesByRunItemId={{
-          item_command: {
-            error: null,
-            hasMore: true,
-            loadedThroughOrdinal: 1,
-            loading: false,
-            nextOrdinal: 1,
-          },
-        }}
-        runItemOutputs={[
-          {
-            createdAt: "2026-05-29T20:00:00Z",
-            id: "output_1",
-            ordinal: 1,
-            runItemId: "item_command",
-            schemaVersion: 1,
-            stream: "stdout",
-            text: "partial\n",
-          },
-        ]}
-        runItems={[
-          {
-            command: "go test ./...",
-            completedAt: "",
-            conversationId: "conversation_api",
-            createdAt: "2026-05-29T20:00:00Z",
-            cwd: "/tmp/workspace",
-            diffSummary: "",
-            durationMs: 0,
-            error: "",
-            exitCode: 0,
-            filePaths: [],
-            id: "item_command",
-            noticeKind: "",
-            noticeMessage: "",
-            patchStatus: "",
-            progress: "",
-            providerItemId: "command_provider",
-            result: "",
-            runId: "run_api",
-            schemaVersion: 1,
-            serverName: "",
-            startedAt: "2026-05-29T20:00:00Z",
-            status: "completed",
-            summary: "",
-            title: "",
-            toolName: "",
-            type: "command_execution",
-            workspaceId: "workspace_api",
-          },
-        ]}
-        submitApproval={async () => {}}
-      />,
-    );
-
-    expect(html).toContain("Load more");
-  });
-
   test("renders pending approval controls", () => {
     const html = renderToString(
       <ChatTranscript
         activeRun={{
-          assistantMessageId: "message_assistant",
           completedAt: "",
           conversationId: "conversation_api",
           error: "",
@@ -473,14 +177,12 @@ describe("chat renderer states", () => {
             id: "approval_api",
             kind: "command",
             options: [],
-            providerItemId: "",
             questions: [],
             permission: "",
             question: "",
             resolvedAt: "",
             response: "",
             runId: "run_api",
-            runItemId: "",
             status: "pending",
             title: "Run command",
           },
@@ -493,10 +195,7 @@ describe("chat renderer states", () => {
         }}
         hasMoreOlder={false}
         loadOlder={async () => {}}
-        loadRunItemOutput={async () => {}}
         messages={[]}
-        runItemOutputs={[]}
-        runItems={[]}
         submitApproval={async () => {}}
       />,
     );
@@ -511,7 +210,6 @@ describe("chat renderer states", () => {
     const html = renderToString(
       <ChatTranscript
         activeRun={{
-          assistantMessageId: "message_assistant",
           completedAt: "",
           conversationId: "conversation_api",
           error: "",
@@ -528,7 +226,6 @@ describe("chat renderer states", () => {
             kind: "user_input",
             options: ["main", "release"],
             permission: "",
-            providerItemId: "",
             question: "Which branch should Codex use?",
             questions: [
               {
@@ -551,7 +248,6 @@ describe("chat renderer states", () => {
             resolvedAt: "",
             response: "",
             runId: "run_api",
-            runItemId: "",
             status: "pending",
             title: "Branch",
           },
@@ -564,10 +260,7 @@ describe("chat renderer states", () => {
         }}
         hasMoreOlder={false}
         loadOlder={async () => {}}
-        loadRunItemOutput={async () => {}}
         messages={[]}
-        runItemOutputs={[]}
-        runItems={[]}
         submitApproval={async () => {}}
       />,
     );
@@ -582,20 +275,4 @@ describe("chat renderer states", () => {
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
-}
-
-function chatMessage(id: string, ordinal: number): ChatMessage {
-  return {
-    conversationId: "conversation_api",
-    createdAt: "2026-05-29T20:00:00Z",
-    delivery: "normal",
-    id,
-    ordinal,
-    parts: [{ format: "markdown", id: `${id}_part`, text: `message ${ordinal}`, type: "text" }],
-    role: "assistant",
-    runId: `run_${id}`,
-    schemaVersion: 1,
-    status: "complete",
-    updatedAt: "2026-05-29T20:00:00Z",
-  };
 }

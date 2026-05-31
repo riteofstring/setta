@@ -4,11 +4,8 @@ import type {
   ChatMessage,
   Conversation,
   ConversationListItem,
-  Diagnostic,
   MessagePage,
   Run,
-  RunItem,
-  RunItemOutput,
 } from "@generated/backend";
 import { create } from "zustand";
 
@@ -19,57 +16,28 @@ type ChatOperation =
   | "creating"
   | "loading"
   | "loadingOlder"
-  | "queueing"
   | "refreshing"
   | "sending"
-  | "steering"
   | null;
-
-export interface RunItemOutputPageState {
-  error: string | null;
-  hasMore: boolean;
-  loadedThroughOrdinal: number;
-  loading: boolean;
-  nextOrdinal: number;
-}
 
 interface ChatStore {
   activeRun: Run | null;
   conversations: ConversationListItem[];
-  diagnostics: Diagnostic[];
   error: string | null;
   hasMoreOlder: boolean;
   handleEvent: (event: ChatEvent) => void;
   lastEventSequence: number;
   lastEventStreamId: string;
   loadOlder: () => Promise<void>;
-  loadRunActivity: (runId: string, limit?: number) => Promise<void>;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
-  messageIds: string[];
   messages: ChatMessage[];
-  messagesById: Record<string, ChatMessage>;
   operation: ChatOperation;
-  queueMessage: (prompt: string) => Promise<void>;
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  runItemOutputs: RunItemOutput[];
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItems: RunItem[];
-  runItemsById: Record<string, RunItem>;
   selectedConversation: Conversation | null;
   selectConversation: (conversationId: string) => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
   status: ChatStatus;
-  steerMessage: (prompt: string) => Promise<void>;
   stopActiveRun: () => Promise<void>;
   submitApproval: (
     approvalId: string,
@@ -86,22 +54,12 @@ type ChatPatch = Partial<
     ChatStore,
     | "activeRun"
     | "conversations"
-    | "diagnostics"
     | "error"
     | "hasMoreOlder"
     | "lastEventSequence"
     | "lastEventStreamId"
-    | "messageIds"
     | "messages"
-    | "messagesById"
     | "operation"
-    | "runItemIdsByRunId"
-    | "runItemOutputIdsByRunItemId"
-    | "runItemOutputPagesByRunItemId"
-    | "runItemOutputs"
-    | "runItemOutputsById"
-    | "runItems"
-    | "runItemsById"
     | "selectedConversation"
     | "status"
     | "workspaceId"
@@ -116,7 +74,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
   function beginOperation(patch: ChatPatch) {
     operationSequence += 1;
     currentOperationId = operationSequence;
-    set(normalizeChatPatch(patch));
+    set(patch);
     return currentOperationId;
   }
 
@@ -125,7 +83,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       return;
     }
     currentOperationId = 0;
-    set(normalizeChatPatch(patch));
+    set(patch);
   }
 
   function commitCurrentFromState(
@@ -137,7 +95,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     }
     const patch = patchForState(get());
     currentOperationId = 0;
-    set(normalizeChatPatch(patch));
+    set(patch);
   }
 
   async function loadConversationPage(workspaceId: string, conversation: Conversation) {
@@ -153,7 +111,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
   return {
     activeRun: null,
     conversations: [],
-    diagnostics: [],
     createConversation: async (title = "") => {
       const workspaceId = get().workspaceId;
       if (!workspaceId) {
@@ -162,15 +119,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
       const operationId = beginOperation({ error: null, operation: "creating" });
       try {
         const conversation = await window.setta.chat.createConversation(workspaceId, title);
+        const list = await reloadConversations(workspaceId);
         const patch = await loadConversationPage(workspaceId, conversation);
-        const listPatch = await reloadConversationsPatch(
-          workspaceId,
-          conversation,
-          get().conversations,
-        );
         commitCurrent(operationId, {
           ...patch,
-          ...listPatch,
+          conversations: list.conversations,
           operation: null,
           selectedConversation: conversation,
           status: "ready",
@@ -206,7 +159,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
       const result = applyChatEvent(state, event);
       set({
-        ...normalizeChatPatch(result.patch),
+        ...result.patch,
         lastEventSequence: event.sequence,
         lastEventStreamId: event.streamId,
       });
@@ -239,77 +192,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
             hasMoreOlder: page.hasMoreOlder,
             messages: prependOlderMessages(page.messages, current.messages),
             operation: null,
-            runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.runItemOutputs),
-            runItems: upsertRunItems(current.runItems, page.runItems),
             status: "ready",
           };
         });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
-      }
-    },
-    loadRunActivity: async (runId, limit = 200) => {
-      const { workspaceId } = get();
-      if (!workspaceId || runId === "") {
-        return;
-      }
-      try {
-        const page = await window.setta.chat.runActivity(workspaceId, runId, limit);
-        set((current) =>
-          normalizeChatPatch({
-            runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
-            runItems: upsertRunItems(current.runItems, page.items),
-            status: "ready",
-          }),
-        );
-      } catch (error) {
-        set(errorPatch(error));
-      }
-    },
-    loadRunItemOutput: async (runId, runItemId, afterOrdinal = 0, limit = 200) => {
-      const { workspaceId } = get();
-      if (!workspaceId || runId === "" || runItemId === "") {
-        return;
-      }
-      set((current) =>
-        normalizeChatPatch({
-          runItemOutputPagesByRunItemId: updateRunItemOutputPageState(
-            current.runItemOutputPagesByRunItemId,
-            runItemId,
-            { error: null, loading: true },
-          ),
-        }),
-      );
-      try {
-        const page = await window.setta.chat.runItemOutput(
-          workspaceId,
-          runId,
-          runItemId,
-          afterOrdinal,
-          limit,
-        );
-        set((current) =>
-          normalizeChatPatch({
-            runItemOutputPagesByRunItemId: updateRunItemOutputPageState(
-              current.runItemOutputPagesByRunItemId,
-              runItemId,
-              outputPageLoadedState(page.output, afterOrdinal, page.hasMore, page.nextOrdinal),
-            ),
-            runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
-            status: "ready",
-          }),
-        );
-      } catch (error) {
-        set((current) =>
-          normalizeChatPatch({
-            ...errorPatch(error),
-            runItemOutputPagesByRunItemId: updateRunItemOutputPageState(
-              current.runItemOutputPagesByRunItemId,
-              runItemId,
-              { error: errorMessage(error), loading: false },
-            ),
-          }),
-        );
       }
     },
     loadWorkspace: async (workspaceId: string) => {
@@ -319,10 +206,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
         hasMoreOlder: false,
         messages: [],
         operation: "loading",
-        diagnostics: [],
-        runItemOutputPagesByRunItemId: {},
-        runItemOutputs: [],
-        runItems: [],
         selectedConversation: null,
         status: "loading",
         workspaceId,
@@ -347,32 +230,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     lastEventSequence: 0,
     lastEventStreamId: "",
-    messageIds: [],
     messages: [],
-    messagesById: {},
     operation: null,
-    queueMessage: async (prompt: string) => {
-      const { activeRun, selectedConversation, workspaceId } = get();
-      if (!workspaceId || !selectedConversation) {
-        return;
-      }
-      const operationId = beginOperation({ error: null, operation: "queueing" });
-      try {
-        const result = await window.setta.chat.queueMessage(
-          workspaceId,
-          selectedConversation.id,
-          prompt,
-        );
-        commitCurrentFromState(operationId, (current) => ({
-          ...operationPagePatch(current, result.page, result.run, activeRun),
-          operation: null,
-          selectedConversation: result.conversation,
-          status: "ready",
-        }));
-      } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
-      }
-    },
     resyncActiveConversation: async () => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId) {
@@ -436,46 +295,17 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation.id,
           prompt,
         );
-        commitCurrentFromState(operationId, (current) => ({
-          ...operationPagePatch(current, result.page, result.run, null),
+        commitCurrent(operationId, {
+          ...pagePatch(result.page, result.run),
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
-        }));
+        });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
       }
     },
     status: "idle",
-    runItemOutputs: [],
-    runItemOutputIdsByRunItemId: {},
-    runItemOutputPagesByRunItemId: {},
-    runItemOutputsById: {},
-    runItems: [],
-    runItemIdsByRunId: {},
-    runItemsById: {},
-    steerMessage: async (prompt: string) => {
-      const { selectedConversation, workspaceId } = get();
-      if (!workspaceId || !selectedConversation) {
-        return;
-      }
-      const operationId = beginOperation({ error: null, operation: "steering" });
-      try {
-        const result = await window.setta.chat.steerMessage(
-          workspaceId,
-          selectedConversation.id,
-          prompt,
-        );
-        commitCurrentFromState(operationId, (current) => ({
-          ...operationPagePatch(current, result.page, result.run, null),
-          operation: null,
-          selectedConversation: result.conversation,
-          status: "ready",
-        }));
-      } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
-      }
-    },
     stopActiveRun: async () => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
@@ -522,37 +352,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
   };
 });
 
-async function reloadConversationsPatch(
-  workspaceId: string,
-  conversation: Conversation,
-  currentConversations: ConversationListItem[],
-): Promise<ChatPatch> {
-  try {
-    const list = await window.setta.chat.listConversations(workspaceId);
-    return { conversations: list.conversations };
-  } catch (error) {
-    return {
-      conversations: upsertConversation(
-        currentConversations,
-        conversationListItem(conversation, 0, ""),
-      ),
-      error: errorMessage(error),
-    };
-  }
-}
-
-function conversationListItem(
-  conversation: Conversation,
-  messageCount: number,
-  activeRunId: string,
-): ConversationListItem {
-  return {
-    activeRunId,
-    conversation,
-    messageCount,
-  };
-}
-
 function isUnexpectedStream(state: ChatStore, event: ChatEvent): boolean {
   return state.lastEventStreamId !== "" && event.streamId !== state.lastEventStreamId;
 }
@@ -570,207 +369,29 @@ function hasSequenceGap(state: ChatStore, event: ChatEvent): boolean {
 }
 
 function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
-  return normalizeChatPatch({
+  return {
     activeRun,
     hasMoreOlder: page.hasMoreOlder,
     messages: page.messages,
-    runItemOutputPagesByRunItemId: {},
-    runItemOutputs: page.runItemOutputs,
-    runItems: page.runItems,
     selectedConversation: page.conversation,
-  });
-}
-
-function operationPagePatch(
-  current: ChatStore,
-  page: MessagePage,
-  returnedRun: Run,
-  fallbackActiveRun: Run | null,
-): ChatPatch {
-  const patch = pagePatch(
-    page,
-    activeRunAfterOperation(current.activeRun, returnedRun, fallbackActiveRun),
-  );
-  if (patch.messages) {
-    patch.messages = mergeOperationMessages(current.messages, patch.messages);
-  }
-  return patch;
-}
-
-function activeRunAfterOperation(
-  currentActiveRun: Run | null,
-  returnedRun: Run,
-  fallbackActiveRun: Run | null,
-): Run | null {
-  const activeRun = currentActiveRun ?? fallbackActiveRun;
-  if (activeRun) {
-    if (activeRun.id !== returnedRun.id) {
-      return activeRun;
-    }
-    if (isTerminalRun(activeRun) && returnedRun.status === "running") {
-      return activeRun;
-    }
-  }
-  if (returnedRun.status === "queued") {
-    return activeRun;
-  }
-  return returnedRun;
-}
-
-function isTerminalRun(run: Run) {
-  return run.status === "completed" || run.status === "cancelled" || run.status === "failed";
-}
-
-function mergeOperationMessages(currentMessages: ChatMessage[], pageMessages: ChatMessage[]) {
-  const currentById = new Map(currentMessages.map((message) => [message.id, message]));
-  return pageMessages.map((pageMessage) => {
-    const current = currentById.get(pageMessage.id);
-    if (!current || current.updatedAt < pageMessage.updatedAt) {
-      return pageMessage;
-    }
-    if (current.updatedAt > pageMessage.updatedAt) {
-      return current;
-    }
-    return messageStatusRank(current.status) > messageStatusRank(pageMessage.status)
-      ? current
-      : pageMessage;
-  });
-}
-
-function messageStatusRank(status: ChatMessage["status"]) {
-  switch (status) {
-    case "pending":
-      return 0;
-    case "streaming":
-      return 1;
-    case "complete":
-    case "cancelled":
-    case "error":
-      return 2;
-    default:
-      return assertNever(status);
-  }
+  };
 }
 
 function emptyConversationPatch(): ChatPatch {
-  return normalizeChatPatch({
+  return {
     activeRun: null,
     hasMoreOlder: false,
     messages: [],
-    runItemOutputPagesByRunItemId: {},
-    runItemOutputs: [],
-    runItems: [],
     selectedConversation: null,
-  });
+  };
 }
 
 function errorPatch(error: unknown): ChatPatch {
   return {
-    error: errorMessage(error),
+    error: error instanceof Error ? error.message : "Chat operation failed",
     operation: null,
     status: "error",
   };
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Chat operation failed";
-}
-
-function outputPageLoadedState(
-  outputs: RunItemOutput[],
-  afterOrdinal: number,
-  hasMore: boolean,
-  nextOrdinal: number,
-): Partial<RunItemOutputPageState> {
-  return {
-    error: null,
-    hasMore,
-    loadedThroughOrdinal: outputs.reduce(
-      (current, output) => Math.max(current, output.ordinal),
-      afterOrdinal,
-    ),
-    loading: false,
-    nextOrdinal,
-  };
-}
-
-function updateRunItemOutputPageState(
-  current: Record<string, RunItemOutputPageState>,
-  runItemId: string,
-  patch: Partial<RunItemOutputPageState>,
-) {
-  return {
-    ...current,
-    [runItemId]: {
-      error: null,
-      hasMore: false,
-      loadedThroughOrdinal: 0,
-      loading: false,
-      nextOrdinal: 0,
-      ...current[runItemId],
-      ...patch,
-    },
-  };
-}
-
-function normalizeChatPatch(patch: ChatPatch): ChatPatch {
-  const next: ChatPatch = { ...patch };
-  if (patch.messages !== undefined) {
-    Object.assign(next, normalizeMessages(patch.messages));
-  }
-  if (patch.runItems !== undefined) {
-    Object.assign(next, normalizeRunItems(patch.runItems));
-  }
-  if (patch.runItemOutputs !== undefined) {
-    Object.assign(next, normalizeRunItemOutputs(patch.runItemOutputs));
-  }
-  return next;
-}
-
-function normalizeMessages(messages: ChatMessage[]) {
-  const ordered = messages.toSorted((left, right) => left.ordinal - right.ordinal);
-  const messagesById: Record<string, ChatMessage> = {};
-  for (const message of ordered) {
-    messagesById[message.id] = message;
-  }
-  return {
-    messageIds: ordered.map((message) => message.id),
-    messages: ordered,
-    messagesById,
-  } satisfies ChatPatch;
-}
-
-function normalizeRunItems(items: RunItem[]) {
-  const ordered = items.toSorted(compareRunItems);
-  const runItemsById: Record<string, RunItem> = {};
-  const runItemIdsByRunId: Record<string, string[]> = {};
-  for (const item of ordered) {
-    runItemsById[item.id] = item;
-    runItemIdsByRunId[item.runId] = [...(runItemIdsByRunId[item.runId] ?? []), item.id];
-  }
-  return {
-    runItemIdsByRunId,
-    runItems: ordered,
-    runItemsById,
-  } satisfies ChatPatch;
-}
-
-function normalizeRunItemOutputs(outputs: RunItemOutput[]) {
-  const ordered = outputs.toSorted(compareRunItemOutputs);
-  const runItemOutputsById: Record<string, RunItemOutput> = {};
-  const runItemOutputIdsByRunItemId: Record<string, string[]> = {};
-  for (const output of ordered) {
-    runItemOutputsById[output.id] = output;
-    runItemOutputIdsByRunItemId[output.runItemId] = [
-      ...(runItemOutputIdsByRunItemId[output.runItemId] ?? []),
-      output.id,
-    ];
-  }
-  return {
-    runItemOutputIdsByRunItemId,
-    runItemOutputs: ordered,
-    runItemOutputsById,
-  } satisfies ChatPatch;
 }
 
 export function prependOlderMessages(
@@ -786,91 +407,37 @@ interface EventApplyResult {
   resync: boolean;
 }
 
-type AppliedChatEvent = Exclude<ChatEvent, { type: "chat.resync_required" }>;
-type MessageUpsertEvent = Extract<
-  AppliedChatEvent,
-  {
-    type:
-      | "chat.message.created"
-      | "chat.message.queued"
-      | "chat.message.steering_sent"
-      | "chat.message.updated";
+function applyChatEvent(
+  state: ChatStore,
+  event: Exclude<ChatEvent, { type: "chat.resync_required" }>,
+): EventApplyResult {
+  switch (event.type) {
+    case "chat.message.created":
+      return selectedConversationEventResult(state, event, {
+        messages: upsertMessage(state.messages, event.payload.message),
+        status: "ready",
+      });
+    case "chat.assistant_text_delta":
+      return applyAssistantTextDelta(state, event);
+    case "chat.message.updated":
+      return selectedConversationEventResult(state, event, {
+        messages: upsertMessage(state.messages, event.payload.message),
+        status: "ready",
+      });
+    case "chat.run.updated":
+      return selectedConversationEventResult(state, event, {
+        activeRun: event.payload.run,
+        status: "ready",
+      });
+    case "chat.conversation.updated":
+      return workspaceEventResult(
+        state,
+        event,
+        conversationUpdatedPatch(state, event.payload.item),
+      );
+    default:
+      return assertNever(event);
   }
->;
-type RunItemUpsertEvent = Extract<
-  AppliedChatEvent,
-  { type: "chat.run_item.created" | "chat.run_item.updated" }
->;
-
-const messageUpsertEventTypes = new Set([
-  "chat.message.created",
-  "chat.message.queued",
-  "chat.message.steering_sent",
-  "chat.message.updated",
-]);
-
-const runItemUpsertEventTypes = new Set(["chat.run_item.created", "chat.run_item.updated"]);
-
-function applyChatEvent(state: ChatStore, event: AppliedChatEvent): EventApplyResult {
-  if (isMessageUpsertEvent(event)) {
-    return applyMessageUpsertEvent(state, event);
-  }
-  if (isRunItemUpsertEvent(event)) {
-    return applyRunItemUpsertEvent(state, event);
-  }
-  if (event.type === "chat.assistant_text_delta") {
-    return applyAssistantTextDelta(state, event);
-  }
-  if (event.type === "chat.run.updated") {
-    return selectedConversationEventResult(state, event, {
-      activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
-      status: "ready",
-    });
-  }
-  if (event.type === "chat.run_item_output.delta") {
-    return selectedConversationEventResult(state, event, {
-      runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
-      status: "ready",
-    });
-  }
-  if (event.type === "chat.queue.updated") {
-    return selectedConversationEventResult(state, event, {
-      messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
-      status: "ready",
-    });
-  }
-  if (event.type === "chat.conversation.updated") {
-    return workspaceEventResult(state, event, conversationUpdatedPatch(state, event.payload.item));
-  }
-  if (event.type === "diagnostic.created") {
-    return workspaceEventResult(state, event, {
-      diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
-      status: "ready",
-    });
-  }
-  return assertNever(event);
-}
-
-function isMessageUpsertEvent(event: AppliedChatEvent): event is MessageUpsertEvent {
-  return messageUpsertEventTypes.has(event.type);
-}
-
-function isRunItemUpsertEvent(event: AppliedChatEvent): event is RunItemUpsertEvent {
-  return runItemUpsertEventTypes.has(event.type);
-}
-
-function applyMessageUpsertEvent(state: ChatStore, event: MessageUpsertEvent): EventApplyResult {
-  return selectedConversationEventResult(state, event, {
-    messages: upsertMessage(state.messages, event.payload.message),
-    status: "ready",
-  });
-}
-
-function applyRunItemUpsertEvent(state: ChatStore, event: RunItemUpsertEvent): EventApplyResult {
-  return selectedConversationEventResult(state, event, {
-    runItems: upsertRunItem(state.runItems, event.payload.item),
-    status: "ready",
-  });
 }
 
 function selectedConversationEventResult(
@@ -945,64 +512,10 @@ function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {
   );
 }
 
-function activeRunFromRunEvent(current: Run | null, run: Run): Run | null {
-  if (run.status === "running") {
-    return run;
-  }
-  if (run.status === "queued") {
-    return current?.id === run.id ? run : current;
-  }
-  if (!current || current.id === run.id) {
-    return run;
-  }
-  return current;
-}
-
 function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
   const index = messages.findIndex((item) => item.id === message.id);
   const next = index === -1 ? [...messages, message] : messages.with(index, message);
   return next.toSorted((left, right) => left.ordinal - right.ordinal);
-}
-
-function mergeQueueMessages(messages: ChatMessage[], queuedMessages: ChatMessage[]): ChatMessage[] {
-  return queuedMessages.reduce(upsertMessage, messages);
-}
-
-function upsertRunItems(items: RunItem[], nextItems: RunItem[]): RunItem[] {
-  return nextItems.reduce(upsertRunItem, items);
-}
-
-function upsertRunItem(items: RunItem[], item: RunItem): RunItem[] {
-  const index = items.findIndex((current) => current.id === item.id);
-  const next = index === -1 ? [...items, item] : items.with(index, item);
-  return next.toSorted(compareRunItems);
-}
-
-function compareRunItems(left: RunItem, right: RunItem) {
-  if (left.createdAt === right.createdAt) {
-    return left.id.localeCompare(right.id);
-  }
-  return left.createdAt.localeCompare(right.createdAt);
-}
-
-function upsertRunItemOutputs(
-  outputs: RunItemOutput[],
-  nextOutputs: RunItemOutput[],
-): RunItemOutput[] {
-  return nextOutputs.reduce(upsertRunItemOutput, outputs);
-}
-
-function upsertRunItemOutput(outputs: RunItemOutput[], output: RunItemOutput): RunItemOutput[] {
-  const index = outputs.findIndex((current) => current.id === output.id);
-  const next = index === -1 ? [...outputs, output] : outputs.with(index, output);
-  return next.toSorted(compareRunItemOutputs);
-}
-
-function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
-  if (left.runItemId === right.runItemId) {
-    return left.ordinal - right.ordinal;
-  }
-  return left.runItemId.localeCompare(right.runItemId);
 }
 
 function upsertConversation(
@@ -1014,19 +527,6 @@ function upsertConversation(
   );
   const next = index === -1 ? [...conversations, item] : conversations.with(index, item);
   return next.toSorted(compareConversationListItems);
-}
-
-function upsertDiagnostic(diagnostics: Diagnostic[], diagnostic: Diagnostic): Diagnostic[] {
-  const index = diagnostics.findIndex((current) => current.id === diagnostic.id);
-  const next = index === -1 ? [...diagnostics, diagnostic] : diagnostics.with(index, diagnostic);
-  return next.toSorted(compareDiagnostics).slice(-10);
-}
-
-function compareDiagnostics(left: Diagnostic, right: Diagnostic) {
-  if (left.occurredAt === right.occurredAt) {
-    return left.id.localeCompare(right.id);
-  }
-  return left.occurredAt.localeCompare(right.occurredAt);
 }
 
 function compareConversationListItems(left: ConversationListItem, right: ConversationListItem) {

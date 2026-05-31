@@ -1,6 +1,6 @@
-import type { ConversationListItem, RunStatus, WorkspaceSummary } from "@generated/backend";
+import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
 import { MessageSquarePlus, Plus, Send, Square } from "lucide-react";
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import { ChatTranscript } from "./chat-transcript";
@@ -20,11 +20,8 @@ export function ChatPanel({ workspace }: { workspace: WorkspaceSummary | null })
 
 function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
   const chat = useChatViewState(workspace.id);
-  const busy = isChatBusy(chat);
-  const blocked = isChatBlocked(chat);
-  const composerBusy = isComposerBusy(chat);
-  const running = isRunRunning(chat);
-  const selectedConversationId = selectedChatConversationId(chat);
+  const busy = chat.operation !== null || chat.status === "loading";
+  const running = chat.activeRun?.status === "running";
 
   return (
     <section className="grid min-h-0 min-w-0 grid-cols-[280px_1fr] overflow-hidden border-l border-zinc-200 bg-zinc-50">
@@ -41,22 +38,23 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
         </div>
         <ConversationList
           conversations={chat.conversations}
-          selectedConversationId={selectedConversationId}
+          selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectConversation={chat.selectConversation}
         />
       </aside>
       <div className="grid min-h-0 min-w-0 grid-rows-[56px_minmax(0,1fr)_auto_auto] overflow-hidden">
         <header className="flex min-w-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">{chatTitle(chat, workspace)}</div>
+            <div className="truncate text-sm font-semibold">
+              {chat.selectedConversation?.title ?? workspace.displayName}
+            </div>
             <div className="truncate text-xs text-zinc-500">{workspace.rootPath}</div>
           </div>
-          <RunBadge active={running} status={activeRunStatus(chat)} />
+          <RunBadge active={running} status={chat.activeRun?.status ?? null} />
         </header>
         <ConversationBody busy={busy} chat={chat} />
-        <CriticalDiagnostics chat={chat} />
-        <ChatError message={selectedConversationChatError(chat)} />
-        <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
+        <ChatError message={chat.error} />
+        <Composer busy={busy} chat={chat} running={running} />
       </div>
     </section>
   );
@@ -64,61 +62,7 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
 
 type ChatView = ReturnType<typeof useChatViewState>;
 
-const composerBlockingOperations = new Set(["creating", "loading", "loadingOlder", "refreshing"]);
-
-function isChatBusy(chat: ChatView) {
-  return chat.operation !== null || chat.status === "loading";
-}
-
-function isComposerBusy(chat: ChatView) {
-  return chat.status === "loading" || composerBlockingOperations.has(chat.operation ?? "");
-}
-
-function isRunRunning(chat: ChatView) {
-  return chat.activeRun?.status === "running";
-}
-
-function isChatBlocked(chat: ChatView) {
-  return chat.error !== null && !chat.selectedConversation;
-}
-
-function selectedChatConversationId(chat: ChatView) {
-  return chat.selectedConversation?.id ?? "";
-}
-
-function chatTitle(chat: ChatView, workspace: WorkspaceSummary) {
-  return chat.selectedConversation?.title ?? workspace.displayName;
-}
-
-function activeRunStatus(chat: ChatView) {
-  return chat.activeRun?.status ?? null;
-}
-
-function selectedConversationChatError(chat: ChatView) {
-  return chat.selectedConversation ? chat.error : null;
-}
-
-function ComposerSlot({
-  blocked,
-  busy,
-  chat,
-  running,
-}: {
-  blocked: boolean;
-  busy: boolean;
-  chat: ChatView;
-  running: boolean;
-}) {
-  if (blocked) {
-    return null;
-  }
-  return <Composer busy={busy} chat={chat} running={running} />;
-}
-
-export function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
-  if (chat.error && !chat.selectedConversation) {
-    return <ChatLoadError message={chat.error} />;
-  }
+function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
   if (!chat.selectedConversation) {
     return <EmptyConversation busy={busy} createConversation={chat.createConversation} />;
   }
@@ -127,33 +71,9 @@ export function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView
       activeRun={chat.activeRun}
       hasMoreOlder={chat.hasMoreOlder}
       loadOlder={chat.loadOlder}
-      loadRunItemOutput={chat.loadRunItemOutput}
-      messageIds={chat.messageIds}
       messages={chat.messages}
-      messagesById={chat.messagesById}
-      runItemIdsByRunId={chat.runItemIdsByRunId}
-      runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
-      runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
-      runItemOutputs={chat.runItemOutputs}
-      runItemOutputsById={chat.runItemOutputsById}
-      runItems={chat.runItems}
-      runItemsById={chat.runItemsById}
       submitApproval={chat.submitApproval}
     />
-  );
-}
-
-function ChatLoadError({ message }: { message: string }) {
-  return (
-    <div className="grid min-h-0 place-items-center px-6">
-      <div
-        className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm break-words text-red-800"
-        data-testid="chat-load-error"
-      >
-        <div className="font-medium">Chat state is corrupt</div>
-        <div className="mt-2">{message}</div>
-      </div>
-    </div>
   );
 }
 
@@ -193,60 +113,20 @@ function ChatError({ message }: { message: string | null }) {
   );
 }
 
-function CriticalDiagnostics({ chat }: { chat: ChatView }) {
-  const selectedConversationId = chat.selectedConversation?.id ?? "";
-  const activeRunId = chat.activeRun?.id ?? "";
-  const critical = chat.diagnostics
-    .filter(
-      (diagnostic) =>
-        diagnostic.severity === "critical" &&
-        ((diagnostic.conversationId !== "" &&
-          diagnostic.conversationId === selectedConversationId) ||
-          (diagnostic.runId !== "" && diagnostic.runId === activeRunId)),
-    )
-    .at(-1);
-  if (!critical) {
-    return null;
-  }
-  return (
-    <div className="border-t border-red-200 bg-red-50 px-5 py-2 text-sm text-red-800">
-      <span className="font-medium">{critical.code}</span>: {critical.message}
-    </div>
-  );
-}
-
 function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
   const [draft, setDraft] = useState("");
   const submittingRef = useRef(false);
-  const disabled = !chat.selectedConversation || busy;
+  const disabled = !chat.selectedConversation || busy || running;
 
   async function sendDraft() {
     const prompt = draft.trim();
-    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
+    if (!prompt || !chat.selectedConversation || running || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
     try {
       setDraft("");
-      if (running) {
-        await chat.steerMessage(prompt);
-      } else {
-        await chat.sendMessage(prompt);
-      }
-    } finally {
-      submittingRef.current = false;
-    }
-  }
-
-  async function queueDraft() {
-    const prompt = draft.trim();
-    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
-      return;
-    }
-    submittingRef.current = true;
-    try {
-      setDraft("");
-      await chat.queueMessage(prompt);
+      await chat.sendMessage(prompt);
     } finally {
       submittingRef.current = false;
     }
@@ -265,121 +145,49 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           className="min-h-11 min-w-0 flex-1 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500"
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) =>
-            handleComposerKeyDown(event, {
-              queueDraft,
-              running,
-              sendDraft,
-              stopRun: chat.stopActiveRun,
-            })
-          }
+          onKeyDown={(event) => {
+            if (
+              event.key !== "Enter" ||
+              event.shiftKey ||
+              event.altKey ||
+              event.nativeEvent.isComposing
+            ) {
+              return;
+            }
+            event.preventDefault();
+            void sendDraft();
+          }}
           placeholder={chat.selectedConversation ? "Ask Codex" : "Create a chat first"}
           rows={2}
           value={draft}
         />
-        <ComposerButton
-          canSend={!disabled && draft.trim() !== ""}
-          chat={chat}
-          queueDraft={queueDraft}
-          running={running}
-        />
+        <ComposerButton canSend={!disabled && draft.trim() !== ""} chat={chat} running={running} />
       </div>
     </form>
   );
 }
 
-interface ComposerKeyActions {
-  queueDraft: () => Promise<void>;
-  running: boolean;
-  sendDraft: () => Promise<void>;
-  stopRun: () => Promise<void>;
-}
-
-export function handleComposerKeyDown(
-  event: KeyboardEvent<HTMLTextAreaElement>,
-  actions: ComposerKeyActions,
-) {
-  if (isQueueShortcut(event)) {
-    event.preventDefault();
-    void actions.queueDraft();
-    return;
-  }
-  if (isStopShortcut(event, actions.running)) {
-    event.preventDefault();
-    void actions.stopRun();
-    return;
-  }
-  if (!isSubmitShortcut(event)) {
-    return;
-  }
-  event.preventDefault();
-  void actions.sendDraft();
-}
-
-function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
-  return event.key === "Tab" && !event.nativeEvent.isComposing;
-}
-
-function isStopShortcut(event: KeyboardEvent<HTMLTextAreaElement>, running: boolean) {
-  return running && event.key === "c" && event.ctrlKey && !hasTextSelection(event.currentTarget);
-}
-
-function isSubmitShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
-  return (
-    event.key === "Enter" && !event.shiftKey && !event.altKey && !event.nativeEvent.isComposing
-  );
-}
-
-function hasTextSelection(textarea: HTMLTextAreaElement) {
-  return textarea.selectionStart !== textarea.selectionEnd;
-}
-
-export function ComposerButton({
+function ComposerButton({
   canSend,
   chat,
-  queueDraft,
   running,
 }: {
   canSend: boolean;
-  chat: {
-    operation: string | null;
-    stopActiveRun: () => Promise<void>;
-  };
-  queueDraft: () => Promise<void>;
+  chat: ChatView;
   running: boolean;
 }) {
   if (running) {
     return (
-      <div className="flex items-center gap-2">
-        <Button
-          aria-label="Send steering message"
-          disabled={!canSend}
-          type="submit"
-          variant="primary"
-        >
-          <Send className="h-4 w-4" />
-          Send
-        </Button>
-        <Button
-          aria-label="Queue follow-up"
-          disabled={!canSend || chat.operation === "queueing"}
-          onClick={() => void queueDraft()}
-          type="button"
-          variant="secondary"
-        >
-          <MessageSquarePlus className="h-4 w-4" />
-          Queue
-        </Button>
-        <Button
-          aria-label="Stop run"
-          disabled={chat.operation === "cancelling"}
-          onClick={() => void chat.stopActiveRun()}
-          type="button"
-          variant="secondary"
-        >
-          <Square className="h-4 w-4" />
-        </Button>
-      </div>
+      <Button
+        aria-label="Stop run"
+        disabled={chat.operation === "cancelling"}
+        onClick={() => void chat.stopActiveRun()}
+        type="button"
+        variant="secondary"
+      >
+        <Square className="h-4 w-4" />
+        Stop
+      </Button>
     );
   }
   return (
@@ -395,30 +203,15 @@ function useChatViewState(workspaceId: string | null) {
   const conversations = useChatStore((state) => state.conversations);
   const createConversation = useChatStore((state) => state.createConversation);
   const error = useChatStore((state) => state.error);
-  const diagnostics = useChatStore((state) => state.diagnostics);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
-  const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
-  const messageIds = useChatStore((state) => state.messageIds);
   const messages = useChatStore((state) => state.messages);
-  const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
-  const queueMessage = useChatStore((state) => state.queueMessage);
-  const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
-  const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
-  const runItemOutputPagesByRunItemId = useChatStore(
-    (state) => state.runItemOutputPagesByRunItemId,
-  );
-  const runItemOutputs = useChatStore((state) => state.runItemOutputs);
-  const runItemOutputsById = useChatStore((state) => state.runItemOutputsById);
-  const runItems = useChatStore((state) => state.runItems);
-  const runItemsById = useChatStore((state) => state.runItemsById);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const status = useChatStore((state) => state.status);
-  const steerMessage = useChatStore((state) => state.steerMessage);
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
@@ -434,28 +227,15 @@ function useChatViewState(workspaceId: string | null) {
     activeRun,
     conversations,
     createConversation,
-    diagnostics,
     error,
     hasMoreOlder,
     loadOlder,
-    loadRunItemOutput,
-    messageIds,
     messages,
-    messagesById,
     operation,
-    queueMessage,
-    runItemIdsByRunId,
-    runItemOutputIdsByRunItemId,
-    runItemOutputPagesByRunItemId,
-    runItemOutputs,
-    runItemOutputsById,
-    runItems,
-    runItemsById,
     selectConversation,
     selectedConversation,
     sendMessage,
     status,
-    steerMessage,
     stopActiveRun,
     submitApproval,
   };
@@ -518,21 +298,15 @@ function ConversationList({
   );
 }
 
-const runBadgeByStatus = {
-  cancelled: { label: "Cancelled", variant: "neutral" },
-  completed: { label: "Ready", variant: "success" },
-  failed: { label: "Failed", variant: "danger" },
-  queued: { label: "Queued", variant: "neutral" },
-  running: { label: "Running", variant: "neutral" },
-} satisfies Record<RunStatus, { label: string; variant: "danger" | "neutral" | "success" }>;
-
-function RunBadge({ active, status }: { active: boolean; status: RunStatus | null }) {
+function RunBadge({ active, status }: { active: boolean; status: string | null }) {
   if (active) {
     return <Badge variant="neutral">Running</Badge>;
   }
-  if (status === null) {
-    return <Badge variant="success">Ready</Badge>;
+  if (status === "failed") {
+    return <Badge variant="danger">Failed</Badge>;
   }
-  const badge = runBadgeByStatus[status];
-  return <Badge variant={badge.variant}>{badge.label}</Badge>;
+  if (status === "cancelled") {
+    return <Badge variant="neutral">Cancelled</Badge>;
+  }
+  return <Badge variant="success">Ready</Badge>;
 }

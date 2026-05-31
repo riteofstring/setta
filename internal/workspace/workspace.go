@@ -40,44 +40,7 @@ type Manager struct {
 	now        func() time.Time
 }
 
-type PersistenceError struct {
-	Operation string
-	Path      string
-	Err       error
-}
-
-type CorruptStateError struct {
-	Path string
-	Err  error
-}
-
 type Option func(*Manager)
-
-func (err *PersistenceError) Error() string {
-	return fmt.Sprintf("%s %s: %v", err.Operation, err.Path, err.Err)
-}
-
-func (err *PersistenceError) Unwrap() error {
-	return err.Err
-}
-
-func IsPersistenceError(err error) bool {
-	var persistenceError *PersistenceError
-	return errors.As(err, &persistenceError)
-}
-
-func (err *CorruptStateError) Error() string {
-	return fmt.Sprintf("malformed workspace metadata %s: %v", err.Path, err.Err)
-}
-
-func (err *CorruptStateError) Unwrap() error {
-	return err.Err
-}
-
-func IsCorruptStateError(err error) bool {
-	var corruptStateError *CorruptStateError
-	return errors.As(err, &corruptStateError)
-}
 
 func NewManager(appDataDir string, options ...Option) (*Manager, error) {
 	if appDataDir == "" {
@@ -127,7 +90,7 @@ func (manager *Manager) OpenLocal(rootPath string) (WorkspaceSummary, WorkspaceS
 		state = newState(id, rootPath, now)
 	} else {
 		if state.ID != id {
-			return WorkspaceSummary{}, WorkspaceState{}, corruptStateErrorf(statePath, "id %s does not match canonical root path id %s", state.ID, id)
+			return WorkspaceSummary{}, WorkspaceState{}, fmt.Errorf("malformed workspace metadata %s: id %s does not match canonical root path id %s", statePath, state.ID, id)
 		}
 		state.RootPath = rootPath
 		state.DisplayName = displayName(rootPath)
@@ -194,13 +157,13 @@ func loadState(statePath string) (WorkspaceState, bool, error) {
 		if errors.Is(err, os.ErrNotExist) {
 			return WorkspaceState{}, false, nil
 		}
-		return WorkspaceState{}, false, &PersistenceError{Operation: "read workspace metadata", Path: statePath, Err: err}
+		return WorkspaceState{}, false, fmt.Errorf("read workspace metadata %s: %w", statePath, err)
 	}
 	defer file.Close()
 
 	var state WorkspaceState
 	if err := jsonio.DecodeSingle(file, &state); err != nil {
-		return WorkspaceState{}, false, corruptStateError(statePath, err)
+		return WorkspaceState{}, false, fmt.Errorf("malformed workspace metadata %s: %w", statePath, err)
 	}
 	if err := validateState(state, statePath); err != nil {
 		return WorkspaceState{}, false, err
@@ -210,37 +173,37 @@ func loadState(statePath string) (WorkspaceState, bool, error) {
 
 func validateState(state WorkspaceState, statePath string) error {
 	if state.SchemaVersion != SchemaVersion {
-		return corruptStateErrorf(statePath, "unsupported schemaVersion %d", state.SchemaVersion)
+		return fmt.Errorf("malformed workspace metadata %s: unsupported schemaVersion %d", statePath, state.SchemaVersion)
 	}
 	if state.ID == "" {
-		return corruptStateErrorf(statePath, "id is required")
+		return fmt.Errorf("malformed workspace metadata %s: id is required", statePath)
 	}
 	if state.RootPath == "" {
-		return corruptStateErrorf(statePath, "rootPath is required")
+		return fmt.Errorf("malformed workspace metadata %s: rootPath is required", statePath)
 	}
 	if !filepath.IsAbs(state.RootPath) {
-		return corruptStateErrorf(statePath, "rootPath must be absolute")
+		return fmt.Errorf("malformed workspace metadata %s: rootPath must be absolute", statePath)
 	}
 	if state.DisplayName == "" {
-		return corruptStateErrorf(statePath, "displayName is required")
+		return fmt.Errorf("malformed workspace metadata %s: displayName is required", statePath)
 	}
 	if _, err := time.Parse(time.RFC3339Nano, state.CreatedAt); err != nil {
-		return corruptStateError(statePath, fmt.Errorf("createdAt must be RFC3339: %w", err))
+		return fmt.Errorf("malformed workspace metadata %s: createdAt must be RFC3339: %w", statePath, err)
 	}
 	if _, err := time.Parse(time.RFC3339Nano, state.UpdatedAt); err != nil {
-		return corruptStateError(statePath, fmt.Errorf("updatedAt must be RFC3339: %w", err))
+		return fmt.Errorf("malformed workspace metadata %s: updatedAt must be RFC3339: %w", statePath, err)
 	}
 	return nil
 }
 
 func writeState(statePath string, state WorkspaceState) error {
 	if err := os.MkdirAll(filepath.Dir(statePath), 0o755); err != nil {
-		return &PersistenceError{Operation: "create workspace metadata directory", Path: filepath.Dir(statePath), Err: err}
+		return fmt.Errorf("create workspace metadata directory %s: %w", filepath.Dir(statePath), err)
 	}
 
 	file, err := os.CreateTemp(filepath.Dir(statePath), ".workspace-*.tmp")
 	if err != nil {
-		return &PersistenceError{Operation: "create workspace metadata temp file", Path: filepath.Dir(statePath), Err: err}
+		return fmt.Errorf("create workspace metadata temp file %s: %w", filepath.Dir(statePath), err)
 	}
 	tempPath := file.Name()
 	removeTemp := true
@@ -254,13 +217,13 @@ func writeState(statePath string, state WorkspaceState) error {
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(state); err != nil {
 		_ = file.Close()
-		return &PersistenceError{Operation: "write workspace metadata temp file", Path: tempPath, Err: err}
+		return fmt.Errorf("write workspace metadata temp file %s: %w", tempPath, err)
 	}
 	if err := file.Close(); err != nil {
-		return &PersistenceError{Operation: "close workspace metadata temp file", Path: tempPath, Err: err}
+		return fmt.Errorf("close workspace metadata temp file %s: %w", tempPath, err)
 	}
 	if err := os.Rename(tempPath, statePath); err != nil {
-		return &PersistenceError{Operation: "replace workspace metadata", Path: statePath, Err: err}
+		return fmt.Errorf("replace workspace metadata %s: %w", statePath, err)
 	}
 	removeTemp = false
 	return nil
@@ -281,12 +244,4 @@ func timestamp(value time.Time) string {
 func workspaceID(canonicalRootPath string) string {
 	hash := sha256.Sum256([]byte(canonicalRootPath))
 	return "workspace_" + hex.EncodeToString(hash[:16])
-}
-
-func corruptStateError(path string, err error) error {
-	return &CorruptStateError{Path: path, Err: err}
-}
-
-func corruptStateErrorf(path string, format string, args ...any) error {
-	return corruptStateError(path, fmt.Errorf(format, args...))
 }

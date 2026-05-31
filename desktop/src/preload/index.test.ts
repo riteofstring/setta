@@ -82,22 +82,14 @@ describe("preload workspace API", () => {
       "listConversations",
       "messagePage",
       "onEvent",
-      "queueMessage",
-      "runActivity",
-      "runItemOutput",
       "sendMessage",
-      "steerMessage",
       "submitApproval",
     ]);
 
     await api.chat.listConversations("workspace_api");
     await api.chat.createConversation("workspace_api", "Plan");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
-    await api.chat.queueMessage("workspace_api", "conversation_api", "queued");
-    await api.chat.runActivity("workspace_api", "run_api", 100);
-    await api.chat.runItemOutput("workspace_api", "run_api", "item_api", 0, 100);
     await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
-    await api.chat.steerMessage("workspace_api", "conversation_api", "steer");
     await api.chat.cancelRun("workspace_api", "conversation_api");
     await api.chat.activeRun("workspace_api", "conversation_api");
     await api.chat.submitApproval({
@@ -136,54 +128,24 @@ describe("preload workspace API", () => {
     );
     expect(invoke).toHaveBeenNthCalledWith(
       4,
-      ipcChannels.chatQueueMessage,
-      "workspace_api",
-      "conversation_api",
-      "queued",
-    );
-    expect(invoke).toHaveBeenNthCalledWith(
-      5,
-      ipcChannels.chatRunActivity,
-      "workspace_api",
-      "run_api",
-      100,
-    );
-    expect(invoke).toHaveBeenNthCalledWith(
-      6,
-      ipcChannels.chatRunItemOutput,
-      "workspace_api",
-      "run_api",
-      "item_api",
-      0,
-      100,
-    );
-    expect(invoke).toHaveBeenNthCalledWith(
-      7,
       ipcChannels.chatSendMessage,
       "workspace_api",
       "conversation_api",
       "hello",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      8,
-      ipcChannels.chatSteerMessage,
-      "workspace_api",
-      "conversation_api",
-      "steer",
-    );
-    expect(invoke).toHaveBeenNthCalledWith(
-      9,
+      5,
       ipcChannels.chatCancelRun,
       "workspace_api",
       "conversation_api",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      10,
+      6,
       ipcChannels.chatActiveRun,
       "workspace_api",
       "conversation_api",
     );
-    expect(invoke).toHaveBeenNthCalledWith(11, ipcChannels.chatSubmitApproval, {
+    expect(invoke).toHaveBeenNthCalledWith(7, ipcChannels.chatSubmitApproval, {
       approvalId: "approval_api",
       approved: true,
       answers: [],
@@ -207,7 +169,6 @@ function chatEvent(): ChatEvent {
       message: {
         conversationId: "conversation_api",
         createdAt: "2026-05-29T20:00:00Z",
-        delivery: "normal",
         id: "message_user",
         ordinal: 1,
         parts: [
