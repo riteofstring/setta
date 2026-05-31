@@ -1,5 +1,5 @@
 import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
-import type { DesktopPlatform } from "@shared/types";
+import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import {
   FolderOpen,
   LayoutGrid,
@@ -35,11 +35,19 @@ import {
 import { useChatStore } from "./stores/chat-store";
 
 export function App() {
+  const setta = readSettaApi();
+  if (!setta) {
+    return <AppRuntimeContractError />;
+  }
+  return <SettaApp setta={setta} />;
+}
+
+function SettaApp({ setta }: { setta: SettaAPI }) {
   const workspace = useWorkspaceViewState();
   const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
   const panes = useWorkspacePaneState();
-  const platform = window.setta.app.platform;
-  useBackendResyncStatus();
+  const platform = setta.app.platform;
+  useBackendResyncStatus(setta);
   const [maximizedPaneId, setMaximizedPaneId] = useState<string | null>(null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
@@ -61,10 +69,10 @@ export function App() {
     setMaximizedPaneId((current) => (current === paneId ? null : paneId));
   }, []);
   useEffect(() => {
-    return window.setta.chat.onEvent((event) => {
+    return setta.chat.onEvent((event) => {
       useChatStore.getState().handleEvent(event);
     });
-  }, []);
+  }, [setta]);
 
   useEffect(() => {
     if (maximizedPaneId === null || panes.panes.some((pane) => pane.id === maximizedPaneId)) {
@@ -118,14 +126,41 @@ export function App() {
   );
 }
 
-function useBackendResyncStatus() {
+function readSettaApi(): SettaAPI | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return (window as Window & { setta?: SettaAPI }).setta ?? null;
+}
+
+function AppRuntimeContractError() {
+  return (
+    <div className="fixed inset-0 flex min-h-0 items-center justify-center bg-zinc-950 px-6 text-zinc-100">
+      <div
+        className="max-w-md rounded-lg border border-red-500/30 bg-red-950/30 p-5 shadow-2xl"
+        data-testid="app-runtime-contract-error"
+        role="alert"
+      >
+        <div className="text-sm font-semibold text-red-200">Setta preload API is unavailable.</div>
+        <p className="mt-2 text-sm leading-6 text-red-100/80">
+          The renderer cannot start because the required Electron contract{" "}
+          <code className="rounded bg-red-950/80 px-1.5 py-0.5 text-red-100">window.setta</code> is
+          missing. Start Setta through the Electron desktop shell so the preload script can install
+          the production API.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function useBackendResyncStatus(setta: SettaAPI) {
   useEffect(() => {
-    return window.setta.backend.onEventStreamStatus((eventStream) => {
+    return setta.backend.onEventStreamStatus((eventStream) => {
       if (eventStream.status === "resyncing") {
         void useChatStore.getState().resyncActiveConversation();
       }
     });
-  }, []);
+  }, [setta]);
 }
 
 function WorkspaceArea({

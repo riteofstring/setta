@@ -23,6 +23,19 @@ import {
 } from "./components/workspace-pane";
 
 describe("workspace renderer states", () => {
+  test("renders a preload contract error when the Electron API is missing", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {},
+    });
+
+    const html = renderToString(<App />);
+
+    expect(html).toContain('data-testid="app-runtime-contract-error"');
+    expect(html).toContain("Setta preload API is unavailable.");
+    expect(html).toContain("window.setta");
+  });
+
   test("renders the default chat pane grid", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
