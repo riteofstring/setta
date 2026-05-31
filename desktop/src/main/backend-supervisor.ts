@@ -90,7 +90,7 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
     ready = await readyPromise;
   } catch (error) {
     await stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise);
-    throw error;
+    throw startupErrorWithLogs(error, logs);
   }
 
   return {
@@ -264,6 +264,14 @@ function appendLog(logs: string[], line: string) {
   if (logs.length > maxRecentLogs) {
     logs.shift();
   }
+}
+
+function startupErrorWithLogs(error: unknown, logs: string[]): Error {
+  const message = error instanceof Error ? error.message : "backend failed before ready";
+  if (logs.length === 0) {
+    return new Error(message);
+  }
+  return new Error(`${message}\nRecent backend logs:\n${logs.join("\n")}`);
 }
 
 function positiveIntegerEnv(rawValue: string | undefined, fallback: number): number {

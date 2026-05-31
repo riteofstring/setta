@@ -2,37 +2,51 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
   BackendHealth,
-  ChatMessage,
+  ChatCommandExecuteResult,
+  ChatCommandListResult,
+  ChatMaintenanceResult,
+  ClearChatGPTAuthRequest,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
   MessagePage,
   OpenWorkspaceResponse,
+  ProviderAccounts,
+  QueueMessageResult,
   Run,
+  RunActivityPage,
+  RunItemOutputPage,
+  SaveChatGPTAuthRequest,
   SendMessageResult,
+  SteerMessageResult,
+  SubmitApprovalRequest,
   WorkspaceSession,
 } from "@generated/backend";
-import type {
-  InstalledEditorApp,
-  RuntimeVersions,
-  SubmitApprovalInput,
-  WorkspaceGitInfo,
-} from "./types";
+import type { RuntimeVersions } from "./types";
 
 export const ipcChannels = {
-  appInstalledEditors: "app:installed-editors",
-  appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
+  appOpenExternalUrl: "app:open-external-url",
   appVersions: "app:versions",
-  appWorkspaceGitInfo: "app:workspace-git-info",
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
+  chatClearQuarantine: "chat:clear-quarantine",
+  chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
+  chatListCommands: "chat:list-commands",
   chatMessagePage: "chat:message-page",
+  chatQuarantineCorruptState: "chat:quarantine-corrupt-state",
+  chatQueueMessage: "chat:queue-message",
+  chatResetWorkspaceState: "chat:reset-workspace-state",
+  chatRunActivity: "chat:run-activity",
+  chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
+  chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
-  chatUpdateUserMessage: "chat:update-user-message",
+  providerAccountsClearChatGPTAuth: "provider-accounts:clear-chatgpt-auth",
+  providerAccountsList: "provider-accounts:list",
+  providerAccountsSaveChatGPTAuth: "provider-accounts:save-chatgpt-auth",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceRemoveRecent: "workspace:remove-recent",
@@ -42,26 +56,20 @@ export const ipcChannels = {
 } as const;
 
 export const ipcEvents = {
+  backendEventStreamStatus: "backend:event-stream-status",
+  backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
 } as const;
 
 interface IpcContract {
-  appInstalledEditors: {
-    args: [];
-    result: InstalledEditorApp[];
-  };
-  appOpenWorkspaceInEditor: {
-    args: [editorId: string, rootPath: string];
+  appOpenExternalUrl: {
+    args: [url: string];
     result: void;
   };
   appVersions: {
     args: [];
     result: RuntimeVersions;
-  };
-  appWorkspaceGitInfo: {
-    args: [rootPath: string];
-    result: WorkspaceGitInfo;
   };
   backendHealth: {
     args: [];
@@ -79,25 +87,75 @@ interface IpcContract {
     args: [workspaceId: string, title: string];
     result: Conversation;
   };
+  chatClearQuarantine: {
+    args: [workspaceId: string, confirmation: string];
+    result: ChatMaintenanceResult;
+  };
+  chatExecuteCommand: {
+    args: [workspaceId: string, conversationId: string, raw: string];
+    result: ChatCommandExecuteResult;
+  };
   chatListConversations: {
     args: [workspaceId: string];
     result: ListConversationsResponse;
+  };
+  chatListCommands: {
+    args: [workspaceId: string, conversationId: string];
+    result: ChatCommandListResult;
   };
   chatMessagePage: {
     args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
     result: MessagePage;
   };
+  chatQuarantineCorruptState: {
+    args: [workspaceId: string, confirmation: string];
+    result: ChatMaintenanceResult;
+  };
+  chatQueueMessage: {
+    args: [workspaceId: string, conversationId: string, prompt: string];
+    result: QueueMessageResult;
+  };
+  chatResetWorkspaceState: {
+    args: [workspaceId: string, confirmation: string];
+    result: ChatMaintenanceResult;
+  };
+  chatRunActivity: {
+    args: [workspaceId: string, runId: string, limit: number];
+    result: RunActivityPage;
+  };
+  chatRunItemOutput: {
+    args: [
+      workspaceId: string,
+      runId: string,
+      runItemId: string,
+      afterOrdinal: number,
+      limit: number,
+    ];
+    result: RunItemOutputPage;
+  };
   chatSendMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];
     result: SendMessageResult;
   };
+  chatSteerMessage: {
+    args: [workspaceId: string, conversationId: string, prompt: string];
+    result: SteerMessageResult;
+  };
   chatSubmitApproval: {
-    args: [input: SubmitApprovalInput];
+    args: [input: SubmitApprovalRequest];
     result: Run;
   };
-  chatUpdateUserMessage: {
-    args: [workspaceId: string, conversationId: string, messageId: string, text: string];
-    result: ChatMessage;
+  providerAccountsClearChatGPTAuth: {
+    args: [request: ClearChatGPTAuthRequest];
+    result: ProviderAccounts;
+  };
+  providerAccountsList: {
+    args: [];
+    result: ProviderAccounts;
+  };
+  providerAccountsSaveChatGPTAuth: {
+    args: [request: SaveChatGPTAuthRequest];
+    result: ProviderAccounts;
   };
   workspaceClose: {
     args: [id: string];
@@ -166,10 +224,25 @@ export interface IpcObservedFailure {
 let nextObservedIpcID = 1;
 
 export function createRendererIpcInvoke(renderer: Pick<IpcRenderer, "invoke">): RendererIpcInvoke {
-  return (channel, ...args) =>
-    renderer.invoke(ipcChannels[channel], ...args) as Promise<
-      IpcContract[typeof channel]["result"]
-    >;
+  return async (channel, ...args) => {
+    const channelName = ipcChannels[channel];
+    try {
+      return (await renderer.invoke(channelName, ...args)) as IpcContract[typeof channel]["result"];
+    } catch (error) {
+      throw normalizeRendererIpcError(channelName, error);
+    }
+  };
+}
+
+function normalizeRendererIpcError(channelName: string, error: unknown) {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+  const prefix = `Error invoking remote method '${channelName}': Error: `;
+  if (!error.message.startsWith(prefix)) {
+    return error;
+  }
+  return new Error(error.message.slice(prefix.length));
 }
 
 export function handleIpc<Channel extends IpcChannelKey>(

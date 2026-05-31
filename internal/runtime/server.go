@@ -16,12 +16,14 @@ import (
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/httpapi"
+	"setta/internal/provideraccounts"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
 
 type Config struct {
 	AppDataDir      string
+	ChatHarness     ChatHarnessMode
 	Host            string
 	Port            int
 	Version         string
@@ -29,6 +31,13 @@ type Config struct {
 	Stderr          io.Writer
 	ShutdownTimeout time.Duration
 }
+
+type ChatHarnessMode string
+
+const (
+	ChatHarnessCodex            ChatHarnessMode = "codex"
+	ChatHarnessScriptedWorkflow ChatHarnessMode = "scripted-workflow"
+)
 
 type ReadyEvent struct {
 	Event string `json:"event"`
@@ -42,9 +51,16 @@ type Server struct {
 	done        chan error
 }
 
+type runtimeServices struct {
+	chatService            *chat.Service
+	providerAccountService *provideraccounts.Service
+	workspaceService       *workspacesession.Service
+}
+
 func DefaultConfig() Config {
 	return Config{
 		AppDataDir:      "",
+		ChatHarness:     ChatHarnessCodex,
 		Host:            "127.0.0.1",
 		Port:            0,
 		Version:         "dev",
@@ -60,6 +76,9 @@ func (config Config) Validate() error {
 	}
 	if !filepath.IsAbs(config.AppDataDir) {
 		return fmt.Errorf("app data directory must be absolute: %s", config.AppDataDir)
+	}
+	if !validChatHarnessMode(config.ChatHarness) {
+		return fmt.Errorf("unsupported chat harness mode: %s", config.ChatHarness)
 	}
 	if config.Host == "" {
 		return errors.New("host is required")
@@ -94,46 +113,17 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bind backend listener: %w", err)
 	}
-	appStore, err := appstate.NewStore(config.AppDataDir)
+	services, err := buildRuntimeServices(config)
 	if err != nil {
 		_ = listener.Close()
-		return nil, fmt.Errorf("create app state store: %w", err)
-	}
-	workspaceManager, err := workspace.NewManager(config.AppDataDir)
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("create workspace manager: %w", err)
-	}
-	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("load workspace session: %w", err)
-	}
-	chatStore, err := chat.NewStore(config.AppDataDir)
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("create chat store: %w", err)
-	}
-	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewCodexHarness(chat.CodexHarnessConfig{}))
-	if err != nil {
-		_ = listener.Close()
-		return nil, fmt.Errorf("create chat service: %w", err)
+		return nil, err
 	}
 
 	server := &Server{
-		closeEvents: chatService.CloseEvents,
-		server: &http.Server{
-			Handler: httpapi.NewHandler(httpapi.HandlerConfig{
-				Metadata: httpapi.BackendMetadata{
-					Name:    httpapi.BackendName,
-					Version: config.Version,
-				},
-				ChatService:      chatService,
-				WorkspaceService: workspaceService,
-			}),
-		},
-		listener: listener,
-		done:     make(chan error, 1),
+		closeEvents: services.chatService.CloseEvents,
+		server:      newHTTPServer(config, services),
+		listener:    listener,
+		done:        make(chan error, 1),
 	}
 
 	if err := json.NewEncoder(config.Stdout).Encode(ReadyEvent{Event: "ready", Addr: listener.Addr().String()}); err != nil {
@@ -143,6 +133,61 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 
 	go server.serve()
 	return server, nil
+}
+
+func buildRuntimeServices(config Config) (runtimeServices, error) {
+	appStore, err := appstate.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create app state store: %w", err)
+	}
+	workspaceManager, err := workspace.NewManager(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create workspace manager: %w", err)
+	}
+	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("load workspace session: %w", err)
+	}
+	chatStore, err := chat.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create chat store: %w", err)
+	}
+	providerAccountStore, err := provideraccounts.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create provider account store: %w", err)
+	}
+	providerAccountService, err := provideraccounts.NewService(providerAccountStore)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create provider account service: %w", err)
+	}
+	harness, err := chatHarness(config.ChatHarness, providerAccountService)
+	if err != nil {
+		return runtimeServices{}, err
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, harness)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create chat service: %w", err)
+	}
+
+	return runtimeServices{
+		chatService:            chatService,
+		providerAccountService: providerAccountService,
+		workspaceService:       workspaceService,
+	}, nil
+}
+
+func newHTTPServer(config Config, services runtimeServices) *http.Server {
+	return &http.Server{
+		Handler: httpapi.NewHandler(httpapi.HandlerConfig{
+			Metadata: httpapi.BackendMetadata{
+				Name:    httpapi.BackendName,
+				Version: config.Version,
+			},
+			ChatService:            services.chatService,
+			ProviderAccountService: services.providerAccountService,
+			WorkspaceService:       services.workspaceService,
+		}),
+	}
 }
 
 func (server *Server) Addr() string {
@@ -178,5 +223,28 @@ func normalizeConfig(config Config) Config {
 	if config.Stderr == nil {
 		config.Stderr = io.Discard
 	}
+	if config.ChatHarness == "" {
+		config.ChatHarness = ChatHarnessCodex
+	}
 	return config
+}
+
+func chatHarness(mode ChatHarnessMode, providerAccountService *provideraccounts.Service) (chat.Harness, error) {
+	switch mode {
+	case ChatHarnessCodex:
+		return chat.NewCodexHarness(chat.CodexHarnessConfig{ChatGPTAuthProvider: providerAccountService}), nil
+	case ChatHarnessScriptedWorkflow:
+		return chat.NewScriptedWorkflowHarness(), nil
+	default:
+		return nil, fmt.Errorf("unsupported chat harness mode: %s", mode)
+	}
+}
+
+func validChatHarnessMode(mode ChatHarnessMode) bool {
+	switch mode {
+	case ChatHarnessCodex, ChatHarnessScriptedWorkflow:
+		return true
+	default:
+		return false
+	}
 }
