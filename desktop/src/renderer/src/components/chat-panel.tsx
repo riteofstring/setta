@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useChatStore } from "../stores/chat-store";
 import { ChatModelMenu } from "./chat-model-menu";
 import { ChatPermissionsMenu } from "./chat-permissions-menu";
+import { ChatPlusMenu } from "./chat-plus-menu";
 import { ChatTranscript } from "./chat-transcript";
 import { SlashCommandPalette } from "./slash-command-palette";
 import { Button } from "./ui/button";
@@ -195,9 +196,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           />
           <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <IconButton disabled={disabled} label="Add attachment">
-                <Plus className="h-4 w-4" />
-              </IconButton>
+              <ChatPlusMenu disabled={disabled} />
               <ChatPermissionsMenu disabled={disabled} />
             </div>
             <div className="flex min-w-0 items-center gap-2">

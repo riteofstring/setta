@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import { WorkspacePanel } from "./App";
 import { ChatModelMenu } from "./components/chat-model-menu";
 import { ChatPermissionsMenu } from "./components/chat-permissions-menu";
+import { ChatPlusMenu } from "./components/chat-plus-menu";
 import { ChatTranscript } from "./components/chat-transcript";
 import { EditorPicker } from "./components/editor-picker";
 import { SettingsPanel } from "./components/settings-panel";
@@ -239,6 +240,25 @@ describe("chat renderer states", () => {
     expect(html).toContain("Extra High");
     expect(html).toContain("GPT-5.5");
     expect(html).toContain("Speed");
+    expect(html).not.toContain("Pet");
+    expect(html).not.toContain("Codex");
+  });
+
+  test("renders chat plus menu and plugin submenu", () => {
+    const html = renderToString(
+      <ChatPlusMenu disabled={false} initialOpen initialPluginSubmenuOpen />,
+    );
+
+    expect(html).toContain("Add photos &amp; files");
+    expect(html).toContain("Attach Electron");
+    expect(html).toContain("Plan mode");
+    expect(html).toContain("Pursue goal");
+    expect(html).toContain("Plugins");
+    expect(html).toContain("4 installed plugins");
+    expect(html).toContain("Documents");
+    expect(html).toContain("Spreadsheets");
+    expect(html).toContain("Presentations");
+    expect(html).toContain("Browser");
     expect(html).not.toContain("Pet");
     expect(html).not.toContain("Codex");
   });
