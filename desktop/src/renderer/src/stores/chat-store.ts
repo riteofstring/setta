@@ -44,6 +44,14 @@ import {
   upsertRunItemOutputs,
   upsertRunItems,
 } from "./chat-store-normalization";
+import {
+  conversationSelectionRequest,
+  emptyCorruption,
+  findConversation,
+  missingConversationPatch,
+  type ConversationSelectionRequest,
+  type ConversationSelectionResult,
+} from "./chat-store-workspace-selection";
 
 export { prependOlderMessages };
 export type { RunItemOutputPageState } from "./chat-store-normalization";
@@ -115,7 +123,7 @@ export interface ChatStore {
   runItems: RunItem[];
   runItemsById: Record<string, RunItem>;
   selectedConversation: Conversation | null;
-  selectConversation: (conversationId: string) => Promise<void>;
+  selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
   sendSteeringImmediately: (prompt?: string) => Promise<void>;
   status: ChatStatus;
@@ -167,12 +175,6 @@ export type ChatPatch = Partial<
 >;
 
 const pageLimit = 40;
-const emptyCorruption: CorruptionSummary = {
-  byKind: [],
-  bySeverity: [],
-  hasCorruption: false,
-  total: 0,
-};
 let operationSequence = 0;
 let currentOperationId = 0;
 
@@ -212,6 +214,19 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
   async function reloadConversations(workspaceId: string) {
     return window.setta.chat.listConversations(workspaceId);
+  }
+
+  async function resolveConversationSelection(
+    request: ConversationSelectionRequest,
+  ): Promise<ConversationSelectionResult> {
+    if (request.conversation) {
+      return { conversation: request.conversation, conversationListPatch: {} };
+    }
+    const list = await reloadConversations(request.workspaceId);
+    return {
+      conversation: findConversation(list.conversations, request.conversationId),
+      conversationListPatch: listPatch(list),
+    };
   }
 
   return {
@@ -419,6 +434,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     loadWorkspace: async (workspaceId: string) => {
       const operationId = beginOperation({
         activeRun: null,
+        conversations: [],
         error: null,
         corruption: emptyCorruption,
         diagnostics: [],
@@ -648,25 +664,26 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operationId, errorPatch(error));
       }
     },
-    selectConversation: async (conversationId: string) => {
-      const { conversations, workspaceId } = get();
-      if (!workspaceId) {
+    selectConversation: async (conversationId: string, targetWorkspaceId?: string) => {
+      const request = conversationSelectionRequest(get(), conversationId, targetWorkspaceId);
+      if (!request) {
         return;
       }
-      const conversation =
-        conversations.find((item) => item.conversation.id === conversationId)?.conversation ?? null;
-      if (!conversation) {
-        set({ error: `conversation not found: ${conversationId}`, status: "error" });
-        return;
-      }
-      const operationId = beginOperation({ error: null, operation: "loading" });
+      const operationId = beginOperation(request.loadingPatch);
       try {
-        const patch = await loadConversationPage(workspaceId, conversation);
+        const { conversation, conversationListPatch } = await resolveConversationSelection(request);
+        if (!conversation) {
+          commitCurrent(operationId, missingConversationPatch(request, conversationListPatch));
+          return;
+        }
+        const patch = await loadConversationPage(request.workspaceId, conversation);
         commitCurrent(operationId, {
+          ...conversationListPatch,
           ...patch,
           operation: null,
           selectedConversation: conversation,
           status: "ready",
+          workspaceId: request.workspaceId,
         });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));

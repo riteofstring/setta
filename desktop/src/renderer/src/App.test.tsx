@@ -26,6 +26,8 @@ describe("workspace renderer states", () => {
           activeWorkspaces={[]}
           busy={false}
           chatBusy={false}
+          chatLoading={false}
+          chatWorkspaceId={null}
           closeWorkspace={async () => {}}
           conversations={[]}
           corruption={emptyCorruption()}
@@ -84,6 +86,8 @@ describe("workspace renderer states", () => {
           activeWorkspaces={[api, web]}
           busy={false}
           chatBusy={false}
+          chatLoading={false}
+          chatWorkspaceId="workspace_web"
           closeWorkspace={async () => {}}
           conversations={[conversationListItem("conversation_web", "Build web UI")]}
           corruption={emptyCorruption()}
@@ -123,6 +127,50 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain("New setta canvas in web");
   });
 
+  test("does not render stale chat conversations while switching workspaces", () => {
+    const api = {
+      displayName: "api",
+      id: "workspace_api",
+      lastOpenedAt: "2026-05-29T20:00:00Z",
+      rootPath: "/tmp/api",
+    };
+    const web = {
+      displayName: "web",
+      id: "workspace_web",
+      lastOpenedAt: "2026-05-29T20:05:00Z",
+      rootPath: "/tmp/web",
+    };
+    const html = renderToString(
+      <WorkspaceSidebar
+        activeRun={null}
+        activeWorkspaces={[api, web]}
+        busy={false}
+        chatBusy={false}
+        chatLoading
+        chatWorkspaceId="workspace_web"
+        closeWorkspace={async () => {}}
+        conversations={[conversationListItem("conversation_api", "Old API chat")]}
+        corruption={emptyCorruption()}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        diagnostics={[]}
+        openLocalFolder={async () => {}}
+        openWorkspacePath={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId=""
+        selectedWorkspaceId="workspace_web"
+      />,
+    );
+
+    expect(html).toContain("web");
+    expect(html).toContain("Loading chats");
+    expect(html).not.toContain("Old API chat");
+  });
+
   test("renders chat corruption status in the project and conversation list", () => {
     const web = {
       displayName: "web",
@@ -136,6 +184,8 @@ describe("workspace renderer states", () => {
         activeWorkspaces={[web]}
         busy={false}
         chatBusy={false}
+        chatLoading={false}
+        chatWorkspaceId="workspace_web"
         closeWorkspace={async () => {}}
         conversations={[conversationListItem("conversation_web", "Build web UI")]}
         corruption={{
@@ -199,6 +249,8 @@ describe("workspace renderer states", () => {
         activeWorkspaces={workspaces}
         busy={false}
         chatBusy={false}
+        chatLoading={false}
+        chatWorkspaceId="workspace_0"
         closeWorkspace={async () => {}}
         conversations={[conversationListItem("conversation_workspace_0", "Large workspace chat")]}
         corruption={emptyCorruption()}

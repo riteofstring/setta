@@ -1,7 +1,10 @@
 import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
-import { selectSidebarNavigationItems } from "./workspace-sidebar-model";
+import {
+  selectSidebarNavigationItems,
+  type SidebarWorkspaceConversationList,
+} from "./workspace-sidebar-model";
 
 describe("workspace sidebar navigation model", () => {
   test("maps selected expanded workspace conversations into the active workspace stream", () => {
@@ -10,18 +13,20 @@ describe("workspace sidebar navigation model", () => {
 
     const items = selectSidebarNavigationItems({
       activeWorkspaces: [api, web],
-      conversations: [
-        conversationListItem("conversation_web_build", "Build web", {
-          latestReadRelevantMarker: 2,
-          readMarker: 1,
-        }),
-        conversationListItem("conversation_web_fix", "Fix web"),
-      ],
-      expandedWorkspaceId: web.id,
+      expandedWorkspaceIds: new Set([web.id]),
       recentWorkspaces: [web, api],
       selectedConversationId: "conversation_web_fix",
       selectedWorkspaceId: web.id,
       visibleConversationLimit: 80,
+      workspaceConversationLists: {
+        [web.id]: conversationList([
+          conversationListItem("conversation_web_build", "Build web", web.id, {
+            latestReadRelevantMarker: 2,
+            readMarker: 1,
+          }),
+          conversationListItem("conversation_web_fix", "Fix web", web.id),
+        ]),
+      },
     });
 
     expect(items.map((item) => item.id)).toEqual([
@@ -33,7 +38,7 @@ describe("workspace sidebar navigation model", () => {
     expect(items[1]).toMatchObject({
       commands: {
         primary: {
-          nextExpandedWorkspaceId: "",
+          nextExpanded: false,
           selectWorkspace: false,
           type: "activateWorkspace",
           workspaceId: web.id,
@@ -45,7 +50,11 @@ describe("workspace sidebar navigation model", () => {
     });
     expect(items[2]).toMatchObject({
       commands: {
-        primary: { conversationId: "conversation_web_build", type: "selectConversation" },
+        primary: {
+          conversationId: "conversation_web_build",
+          type: "selectConversation",
+          workspaceId: web.id,
+        },
       },
       kind: "conversation",
       selected: false,
@@ -58,18 +67,61 @@ describe("workspace sidebar navigation model", () => {
     });
   });
 
+  test("keeps conversations visible for multiple expanded active workspaces", () => {
+    const api = workspace("workspace_api", "api");
+    const web = workspace("workspace_web", "web");
+
+    const items = selectSidebarNavigationItems({
+      activeWorkspaces: [api, web],
+      expandedWorkspaceIds: new Set([api.id, web.id]),
+      recentWorkspaces: [],
+      selectedConversationId: "conversation_web_fix",
+      selectedWorkspaceId: web.id,
+      visibleConversationLimit: 80,
+      workspaceConversationLists: {
+        [api.id]: conversationList([
+          conversationListItem("conversation_api_plan", "Plan API", api.id),
+        ]),
+        [web.id]: conversationList([
+          conversationListItem("conversation_web_fix", "Fix web", web.id),
+        ]),
+      },
+    });
+
+    expect(items.map((item) => item.id)).toEqual([
+      "active-workspace:workspace_api",
+      "conversation:conversation_api_plan",
+      "active-workspace:workspace_web",
+      "conversation:conversation_web_fix",
+    ]);
+    expect(items[0]).toMatchObject({
+      commands: {
+        primary: {
+          nextExpanded: true,
+          selectWorkspace: true,
+          type: "activateWorkspace",
+          workspaceId: api.id,
+        },
+      },
+      expanded: true,
+      selected: false,
+    });
+    expect(items[1]).toMatchObject({ kind: "conversation", selected: false });
+    expect(items[3]).toMatchObject({ kind: "conversation", selected: true });
+  });
+
   test("keeps inactive recent workspaces selectable and removable", () => {
     const api = workspace("workspace_api", "api");
     const docs = workspace("workspace_docs", "docs");
 
     const items = selectSidebarNavigationItems({
       activeWorkspaces: [api],
-      conversations: [],
-      expandedWorkspaceId: "",
+      expandedWorkspaceIds: new Set(),
       recentWorkspaces: [docs, api],
       selectedConversationId: "",
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 80,
+      workspaceConversationLists: {},
     });
 
     expect(items.map((item) => item.id)).toEqual([
@@ -94,12 +146,14 @@ describe("workspace sidebar navigation model", () => {
     const api = workspace("workspace_api", "api");
     const emptyItems = selectSidebarNavigationItems({
       activeWorkspaces: [api],
-      conversations: [],
-      expandedWorkspaceId: api.id,
+      expandedWorkspaceIds: new Set([api.id]),
       recentWorkspaces: [],
       selectedConversationId: "",
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 80,
+      workspaceConversationLists: {
+        [api.id]: conversationList([]),
+      },
     });
 
     expect(emptyItems.map((item) => item.kind)).toEqual([
@@ -112,12 +166,14 @@ describe("workspace sidebar navigation model", () => {
     );
     const limitedItems = selectSidebarNavigationItems({
       activeWorkspaces: [api],
-      conversations,
-      expandedWorkspaceId: api.id,
+      expandedWorkspaceIds: new Set([api.id]),
       recentWorkspaces: [],
       selectedConversationId: "conversation_0",
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 1,
+      workspaceConversationLists: {
+        [api.id]: conversationList(conversations),
+      },
     });
 
     expect(limitedItems.map((item) => item.id)).toEqual([
@@ -145,6 +201,7 @@ function workspace(id: string, displayName: string): WorkspaceSummary {
 function conversationListItem(
   id: string,
   title: string,
+  workspaceId: string = "workspace_api",
   markers: { latestReadRelevantMarker: number; readMarker: number } = {
     latestReadRelevantMarker: 0,
     readMarker: 0,
@@ -161,10 +218,18 @@ function conversationListItem(
       schemaVersion: 1,
       title,
       updatedAt: "2026-05-29T20:00:00Z",
-      workspaceId: "workspace_api",
+      workspaceId,
     },
     latestReadRelevantMarker: markers.latestReadRelevantMarker,
     messageCount: 1,
     readMarker: markers.readMarker,
+  };
+}
+
+function conversationList(conversations: ConversationListItem[]): SidebarWorkspaceConversationList {
+  return {
+    conversations,
+    error: null,
+    loading: false,
   };
 }

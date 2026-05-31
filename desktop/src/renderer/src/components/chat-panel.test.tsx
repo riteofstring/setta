@@ -399,7 +399,6 @@ describe("conversation body states", () => {
   test("shows corrupt-state load errors instead of empty chat actions", () => {
     const html = renderToString(
       <ConversationBody
-        busy={false}
         chat={
           {
             createConversation: async () => {},
@@ -416,6 +415,47 @@ describe("conversation body states", () => {
     expect(html).toContain("Chat state is corrupt");
     expect(html).toContain("malformed chat state /tmp/run.json");
     expect(html).not.toContain("New Chat");
+  });
+
+  test("renders empty chat copy without a duplicate composer", () => {
+    const html = renderToString(
+      <ConversationBody
+        chat={
+          {
+            error: null,
+            selectedConversation: null,
+            status: "ready",
+          } as ConversationBodyProps["chat"]
+        }
+        searchOpen={false}
+        setSearchOpen={() => {}}
+      />,
+    );
+
+    expect(html).toContain("Start a conversation for this workspace.");
+    expect(html).not.toContain("What should we build in setta?");
+    expect(html).not.toContain('data-testid="chat-composer"');
+  });
+
+  test("renders workspace switching as loading instead of empty chat actions", () => {
+    const html = renderToString(
+      <ConversationBody
+        chat={
+          {
+            error: null,
+            selectedConversation: null,
+            status: "ready",
+          } as ConversationBodyProps["chat"]
+        }
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        switchingWorkspace
+      />,
+    );
+
+    expect(html).toContain("Loading workspace chats.");
+    expect(html).not.toContain("What should we build in setta?");
+    expect(html).not.toContain('data-testid="chat-composer"');
   });
 });
 

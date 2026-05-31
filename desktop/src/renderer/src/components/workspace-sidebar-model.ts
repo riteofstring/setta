@@ -2,7 +2,7 @@ import type { ConversationListItem, WorkspaceSummary } from "@generated/backend"
 
 export type SidebarNavigationCommand =
   | {
-      nextExpandedWorkspaceId: string;
+      nextExpanded: boolean;
       selectWorkspace: boolean;
       type: "activateWorkspace";
       workspaceId: string;
@@ -11,7 +11,7 @@ export type SidebarNavigationCommand =
   | { type: "closeWorkspace"; workspaceId: string }
   | { type: "openRecentWorkspace"; rootPath: string; workspaceId: string }
   | { type: "removeRecentWorkspace"; workspaceId: string }
-  | { type: "selectConversation"; conversationId: string }
+  | { type: "selectConversation"; conversationId: string; workspaceId: string }
   | { type: "showMoreConversations" };
 
 export type SidebarNavigationItem =
@@ -68,35 +68,41 @@ export type SidebarNavigationItem =
 
 export interface SidebarNavigationInput {
   activeWorkspaces: WorkspaceSummary[];
-  conversations: ConversationListItem[];
-  expandedWorkspaceId: string;
+  expandedWorkspaceIds: ReadonlySet<string>;
   recentWorkspaces: WorkspaceSummary[];
   selectedConversationId: string;
   selectedWorkspaceId: string;
   visibleConversationLimit: number;
+  workspaceConversationLists: Record<string, SidebarWorkspaceConversationList | undefined>;
+}
+
+export interface SidebarWorkspaceConversationList {
+  conversations: ConversationListItem[];
+  error: string | null;
+  loading: boolean;
 }
 
 export function selectSidebarNavigationItems({
   activeWorkspaces,
-  conversations,
-  expandedWorkspaceId,
+  expandedWorkspaceIds,
   recentWorkspaces,
   selectedConversationId,
   selectedWorkspaceId,
   visibleConversationLimit,
+  workspaceConversationLists,
 }: SidebarNavigationInput): SidebarNavigationItem[] {
   const items: SidebarNavigationItem[] = [];
   const activeWorkspaceIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
 
   for (const workspace of activeWorkspaces) {
     const selected = workspace.id === selectedWorkspaceId;
-    const expanded = workspace.id === expandedWorkspaceId;
+    const expanded = expandedWorkspaceIds.has(workspace.id);
     items.push({
       commands: {
         close: { type: "closeWorkspace", workspaceId: workspace.id },
         createConversation: { type: "createWorkspaceConversation", workspaceId: workspace.id },
         primary: {
-          nextExpandedWorkspaceId: expanded ? "" : workspace.id,
+          nextExpanded: selected ? !expanded : true,
           selectWorkspace: !selected,
           type: "activateWorkspace",
           workspaceId: workspace.id,
@@ -110,11 +116,11 @@ export function selectSidebarNavigationItems({
       workspace,
     });
 
-    if (selected && expanded) {
+    if (expanded) {
       items.push(
         ...conversationItems({
-          conversations,
-          selectedConversationId,
+          conversationList: workspaceConversationLists[workspace.id],
+          selectedConversationId: selected ? selectedConversationId : "",
           visibleConversationLimit,
           workspaceId: workspace.id,
         }),
@@ -146,25 +152,28 @@ export function selectSidebarNavigationItems({
 }
 
 function conversationItems({
-  conversations,
+  conversationList,
   selectedConversationId,
   visibleConversationLimit,
   workspaceId,
 }: {
-  conversations: ConversationListItem[];
+  conversationList: SidebarWorkspaceConversationList | undefined;
   selectedConversationId: string;
   visibleConversationLimit: number;
   workspaceId: string;
 }) {
+  if (
+    !conversationList ||
+    (conversationList.loading && conversationList.conversations.length === 0)
+  ) {
+    return [conversationStatusItem(workspaceId, "Loading chats")];
+  }
+  if (conversationList.error) {
+    return [conversationStatusItem(workspaceId, conversationList.error)];
+  }
+  const { conversations } = conversationList;
   if (conversations.length === 0) {
-    return [
-      {
-        id: `conversation-empty:${workspaceId}`,
-        kind: "emptyConversationList",
-        label: "No chats",
-        workspaceId,
-      } satisfies SidebarNavigationItem,
-    ];
+    return [conversationStatusItem(workspaceId, "No chats")];
   }
 
   const visibleCount = visibleConversationCount(
@@ -175,7 +184,11 @@ function conversationItems({
   const visibleConversations = conversations.slice(0, visibleCount);
   const items: SidebarNavigationItem[] = visibleConversations.map((conversation) => ({
     commands: {
-      primary: { conversationId: conversation.conversation.id, type: "selectConversation" },
+      primary: {
+        conversationId: conversation.conversation.id,
+        type: "selectConversation",
+        workspaceId,
+      },
     },
     conversation,
     id: `conversation:${conversation.conversation.id}`,
@@ -199,6 +212,15 @@ function conversationItems({
   }
 
   return items;
+}
+
+function conversationStatusItem(workspaceId: string, label: string) {
+  return {
+    id: `conversation-empty:${workspaceId}`,
+    kind: "emptyConversationList",
+    label,
+    workspaceId,
+  } satisfies SidebarNavigationItem;
 }
 
 function visibleConversationCount(

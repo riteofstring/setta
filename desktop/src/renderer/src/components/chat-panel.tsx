@@ -1,7 +1,7 @@
 import type { WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
@@ -58,6 +58,7 @@ export function ChatPanel({
       onToggleMaximize={onToggleMaximize}
       searchOpen={searchOpen}
       setSearchOpen={setSearchOpen}
+      workspaceId={workspace.id}
     />
   );
 }
@@ -69,6 +70,7 @@ function ChatWorkspace({
   onToggleMaximize,
   searchOpen,
   setSearchOpen,
+  workspaceId,
 }: {
   chat: ChatView;
   chromeInsetTop: boolean;
@@ -76,12 +78,14 @@ function ChatWorkspace({
   onToggleMaximize?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
+  workspaceId: string;
 }) {
-  const busy = isChatBusy(chat);
-  const blocked = isChatBlocked(chat);
-  const composerBusy = isComposerBusy(chat);
-  const running = isRunRunning(chat);
-  const selectedConversationId = selectedChatConversationId(chat);
+  const switchingWorkspace = chat.workspaceId !== workspaceId;
+  const blocked = !switchingWorkspace && isChatBlocked(chat);
+  const composerBusy = switchingWorkspace || isComposerBusy(chat);
+  const running = !switchingWorkspace && isRunRunning(chat);
+  const selectedConversationId = switchingWorkspace ? "" : selectedChatConversationId(chat);
+  const runStatus = switchingWorkspace ? null : activeRunStatus(chat);
 
   return (
     <section
@@ -96,14 +100,14 @@ function ChatWorkspace({
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
         data-conversation-id={selectedConversationId}
-        data-run-status={activeRunStatus(chat) ?? ""}
+        data-run-status={runStatus ?? ""}
         data-testid="chat-detail-pane"
       >
         <ConversationBody
-          busy={busy}
           chat={chat}
           searchOpen={searchOpen}
           setSearchOpen={setSearchOpen}
+          switchingWorkspace={switchingWorkspace}
         />
         <ChatError message={selectedConversationChatError(chat)} />
         <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
@@ -144,10 +148,6 @@ const composerBlockingOperations = new Set([
   "sendingSteeringImmediately",
 ]);
 
-function isChatBusy(chat: ChatView) {
-  return chat.operation !== null || chat.status === "loading";
-}
-
 function isComposerBusy(chat: ChatView) {
   return chat.status === "loading" || composerBlockingOperations.has(chat.operation ?? "");
 }
@@ -186,25 +186,44 @@ function ComposerSlot({
   if (blocked) {
     return null;
   }
-  return <Composer busy={busy} chat={chat} running={running} />;
+  const emptyWorkspace = chat.selectedConversation === null;
+  const disabled = emptyWorkspace ? busy || chat.status !== "ready" : undefined;
+  return (
+    <Composer
+      busy={busy}
+      chat={chat}
+      disabled={disabled}
+      onSendPrompt={emptyWorkspace ? createAndSendFirstMessage : undefined}
+      placeholder={emptyWorkspace ? "Ask setta" : ""}
+      running={running}
+    />
+  );
+
+  async function createAndSendFirstMessage(prompt: string) {
+    await chat.createConversation();
+    await chat.sendMessage(prompt);
+  }
 }
 
 export function ConversationBody({
-  busy,
   chat,
   searchOpen,
   setSearchOpen,
+  switchingWorkspace = false,
 }: {
-  busy: boolean;
   chat: ChatView;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
+  switchingWorkspace?: boolean;
 }) {
   if (chat.error && !chat.selectedConversation) {
     return <ChatLoadError message={chat.error} />;
   }
+  if (switchingWorkspace || (chat.status === "loading" && !chat.selectedConversation)) {
+    return <EmptyConversation label="Loading workspace chats." />;
+  }
   if (!chat.selectedConversation) {
-    return <EmptyConversation busy={busy} chat={chat} />;
+    return <EmptyConversation label="Start a conversation for this workspace." />;
   }
   return (
     <div
@@ -304,64 +323,14 @@ function ChatLoadError({ message }: { message: string }) {
   );
 }
 
-function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
-  const [departing, setDeparting] = useState(false);
-  const mountedRef = useRef(true);
-  const running = chat.activeRun?.status === "running";
-  const disabled = busy || running || departing;
-
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  async function createAndSend(prompt: string) {
-    if (disabled) {
-      return;
-    }
-    setDeparting(true);
-    try {
-      await waitForComposerExit();
-      await chat.createConversation();
-      await chat.sendMessage(prompt);
-    } finally {
-      if (mountedRef.current) {
-        setDeparting(false);
-      }
-    }
-  }
-
+function EmptyConversation({ label }: { label: string }) {
   return (
-    <div className="grid min-h-0 place-items-center px-3 pb-[12vh]">
-      <div
-        className={cn(
-          "w-full max-w-3xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-          departing && "translate-y-16 opacity-0",
-        )}
-      >
-        <h1 className="mb-8 text-center text-2xl font-normal tracking-normal text-zinc-100">
-          What should we build in setta?
-        </h1>
-        <Composer
-          busy={busy}
-          chat={chat}
-          disabled={disabled}
-          formClassName="bg-transparent px-0 pt-0 pb-0"
-          frameClassName="border-zinc-700 bg-zinc-800/90 shadow-xl shadow-black/20"
-          onSendPrompt={createAndSend}
-          placeholder="Do anything"
-          running={running}
-        />
+    <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
+      <div className="mx-auto w-full max-w-3xl py-16" data-testid="empty-chat">
+        {label}
       </div>
     </div>
   );
-}
-
-function waitForComposerExit() {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 130);
-  });
 }
 
 function ChatError({ message }: { message: string | null }) {
@@ -432,7 +401,7 @@ export function useChatViewState(workspaceId: string | null) {
         .map((message) => message.id)
     : [];
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
       return;
     }
@@ -494,5 +463,6 @@ export function useChatViewState(workspaceId: string | null) {
     stopActiveRun,
     submitApproval,
     transcript,
+    workspaceId: storeWorkspaceId,
   };
 }

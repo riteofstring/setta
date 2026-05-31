@@ -466,6 +466,8 @@ function ProjectPane({
           activeWorkspaces={workspace.activeWorkspaces}
           busy={workspace.busy || chat.operation !== null}
           chatBusy={chat.operation !== null || chat.status === "loading"}
+          chatLoading={chat.status === "loading"}
+          chatWorkspaceId={chat.workspaceId}
           closeWorkspace={workspace.closeWorkspace}
           conversations={chat.conversations}
           corruption={chat.corruption}

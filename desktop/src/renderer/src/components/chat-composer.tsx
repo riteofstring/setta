@@ -85,7 +85,8 @@ export function Composer({
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
-  const disabled = composerDisabled(disabledOverride, selected, busy);
+  const acceptsPrompt = selected || onSendPrompt !== undefined;
+  const disabled = composerDisabled(disabledOverride, acceptsPrompt, busy);
   const slashDraft = isSlashDraft(draft);
   const draftText = draft.trim();
   const suggestions = commandSuggestions(commands, draft);
@@ -315,7 +316,7 @@ export function Composer({
               suggestions={suggestions}
             />
             <Textarea
-              aria-label={composerTextareaLabel(selected)}
+              aria-label={composerTextareaLabel(acceptsPrompt)}
               className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled}
               onChange={(event) => updateDraft(event.target.value)}
