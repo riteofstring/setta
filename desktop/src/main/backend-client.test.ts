@@ -65,7 +65,7 @@ describe("generated backend client", () => {
     const client = createBackendClient("http://127.0.0.1:41000", async () =>
       jsonResponse({
         hasActiveRun: false,
-        run: null,
+        run: emptyRun(),
       }),
     );
 
@@ -75,7 +75,8 @@ describe("generated backend client", () => {
     });
 
     expect(response.hasActiveRun).toBe(false);
-    expect(response.run).toBeNull();
+    expect(response.run.pendingApproval.options).toEqual([]);
+    expect(response.run.pendingApproval.questions).toEqual([]);
   });
 
   test("GET endpoints do not send JSON bodies", async () => {
@@ -151,5 +152,40 @@ function workspaceSession(): WorkspaceSession {
       },
     ],
     selectedWorkspaceId: "workspace_api",
+  };
+}
+
+function emptyRun() {
+  return {
+    completedAt: "",
+    conversationId: "",
+    error: "",
+    harness: "",
+    hasPendingApproval: false,
+    id: "",
+    pendingApproval: {
+      approved: false,
+      body: "",
+      command: "",
+      createdAt: "",
+      filePath: "",
+      id: "",
+      kind: "",
+      options: [],
+      permission: "",
+      question: "",
+      questions: [],
+      resolvedAt: "",
+      response: "",
+      runId: "",
+      status: "",
+      title: "",
+    },
+    promptSummary: "",
+    schemaVersion: 0,
+    startedAt: "",
+    status: "",
+    triggerMessageId: "",
+    workspaceId: "",
   };
 }
