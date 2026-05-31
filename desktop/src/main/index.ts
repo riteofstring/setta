@@ -27,7 +27,8 @@ let recorder: SessionRecorder | null = null;
 const execFileAsync = promisify(execFile);
 
 function desktopRoot() {
-  return process.cwd();
+  const appPath = app.getAppPath();
+  return appPath.endsWith(".asar") ? process.cwd() : appPath;
 }
 
 function repoRoot() {
