@@ -31,7 +31,7 @@
 
 - Frontend code must handle very large DOMs efficiently.
 - Treat frontend performance verification as first-class. Prefer automated guardrails; use chrome-devtools profiling when deeper analysis is needed.
-- For performance-relevant refactors, baseline first, re-measure after, and record before/after results as append-only reports.
+- For performance-relevant refactors, baseline first, re-measure after, and record before/after results as append-only reports under `docs/reports/performance/`.
 - Avoid div soup.
 
 ## Code Shape & Safety
