@@ -1,6 +1,7 @@
 import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/backend";
 import {
   Archive,
+  Bell,
   BookOpen,
   Circle,
   Clock3,
@@ -191,6 +192,7 @@ function SidebarNav({
       />
       <SidebarNavButton icon={<Plug className="h-3.5 w-3.5" />} label="Plugins" />
       <SidebarNavButton icon={<Clock3 className="h-3.5 w-3.5" />} label="Automations" />
+      <SidebarNavButton icon={<Bell className="h-3.5 w-3.5" />} label="Notifications / Logs" />
     </nav>
   );
 }

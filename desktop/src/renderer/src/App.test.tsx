@@ -131,6 +131,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="notes-section"');
     expect(html).toContain('data-testid="memory-integrations-section"');
     expect(html).toContain("Search");
+    expect(html).toContain("Notifications / Logs");
     expect(html).toContain("More options for web");
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('data-testid="recent-workspace-list"');
