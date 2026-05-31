@@ -440,6 +440,7 @@ function Composer({
   const [draft, setDraft] = useState("");
   const [commands, setCommands] = useState<ChatCommandCapability[]>([]);
   const [commandListKey, setCommandListKey] = useState("");
+  const [focusRequest, setFocusRequest] = useState(0);
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -494,6 +495,13 @@ function Composer({
       cancelled = true;
     };
   }, [chat, commandListKey, running, slashDraft]);
+
+  useEffect(() => {
+    if (focusRequest === 0) {
+      return;
+    }
+    textareaRef.current?.focus();
+  }, [focusRequest]);
 
   useEffect(() => {
     if (modelPicker?.result.action !== "model_picker") {
@@ -595,7 +603,9 @@ function Composer({
     submittingRef.current = true;
     try {
       setDraft("");
+      focusComposerSoon();
       await chat.queueMessage(prompt);
+      focusComposerSoon();
     } finally {
       submittingRef.current = false;
     }
@@ -706,6 +716,18 @@ function Composer({
 
   function dismissModelPicker() {
     setModelPicker(null);
+    textareaRef.current?.focus();
+  }
+
+  function focusComposerSoon() {
+    setFocusRequest((request) => request + 1);
+    focusComposer();
+    for (const delayMs of [0, 25, 100, 250, 500]) {
+      window.setTimeout(focusComposer, delayMs);
+    }
+  }
+
+  function focusComposer() {
     textareaRef.current?.focus();
   }
 

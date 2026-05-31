@@ -44,6 +44,7 @@ export function handleComposerKeyDown(
       actions.completeCommand();
       return;
     }
+    focusTextareaSoon(event.currentTarget);
     void actions.queueDraft();
     return;
   }
@@ -88,6 +89,13 @@ function isSubmitShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
 
 function hasTextSelection(textarea: HTMLTextAreaElement) {
   return textarea.selectionStart !== textarea.selectionEnd;
+}
+
+function focusTextareaSoon(textarea: HTMLTextAreaElement) {
+  if (typeof textarea.focus !== "function") {
+    return;
+  }
+  globalThis.setTimeout(() => textarea.focus(), 0);
 }
 
 export function ComposerButton({

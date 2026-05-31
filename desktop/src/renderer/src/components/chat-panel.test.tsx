@@ -18,30 +18,38 @@ import {
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
 
 describe("composer keyboard behavior", () => {
-  test("queues on Tab", () => {
-    const event = keyboardEvent("Tab");
+  test("queues on Tab and preserves composer focus", () => {
+    vi.useFakeTimers();
+    const focus = vi.fn();
+    const event = keyboardEvent("Tab", { focus });
     const queueDraft = vi.fn();
     const sendDraft = vi.fn();
     const stopRun = vi.fn();
 
-    handleComposerKeyDown(event, {
-      completeCommand: vi.fn(),
-      draftEmpty: false,
-      dismissModelPicker: vi.fn(),
-      hasPendingSteering: false,
-      modelPickerOpen: false,
-      queueDraft,
-      running: false,
-      sendImmediateSteering: vi.fn(),
-      sendDraft,
-      slashDraft: false,
-      stopRun,
-    });
+    try {
+      handleComposerKeyDown(event, {
+        completeCommand: vi.fn(),
+        draftEmpty: false,
+        dismissModelPicker: vi.fn(),
+        hasPendingSteering: false,
+        modelPickerOpen: false,
+        queueDraft,
+        running: false,
+        sendImmediateSteering: vi.fn(),
+        sendDraft,
+        slashDraft: false,
+        stopRun,
+      });
+      vi.runOnlyPendingTimers();
 
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(queueDraft).toHaveBeenCalledOnce();
-    expect(sendDraft).not.toHaveBeenCalled();
-    expect(stopRun).not.toHaveBeenCalled();
+      expect(event.preventDefault).toHaveBeenCalledOnce();
+      expect(queueDraft).toHaveBeenCalledOnce();
+      expect(focus).toHaveBeenCalledOnce();
+      expect(sendDraft).not.toHaveBeenCalled();
+      expect(stopRun).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("submits once on Enter", () => {
@@ -405,12 +413,18 @@ describe("conversation body states", () => {
 
 function keyboardEvent(
   key: string,
-  options: { ctrlKey?: boolean; selectionEnd?: number; selectionStart?: number } = {},
+  options: {
+    ctrlKey?: boolean;
+    focus?: () => void;
+    selectionEnd?: number;
+    selectionStart?: number;
+  } = {},
 ) {
   return {
     altKey: false,
     ctrlKey: options.ctrlKey ?? false,
     currentTarget: {
+      ...(options.focus ? { focus: options.focus } : {}),
       selectionEnd: options.selectionEnd ?? 0,
       selectionStart: options.selectionStart ?? 0,
     },

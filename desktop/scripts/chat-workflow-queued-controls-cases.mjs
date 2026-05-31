@@ -1,3 +1,5 @@
+import { waitForComposerFocus } from "./chat-workflow-assertions.mjs";
+
 export async function runQueuedControlsWorkflow({
   assertChatLayout,
   assertNoActiveRun,
@@ -28,7 +30,12 @@ export async function runQueuedControlsWorkflow({
   );
   await waitForText(client, "Cancel workflow waiting.");
 
-  await submitComposer(client, "queued follow-up from active run", "Queue follow-up");
+  await queueComposerWithTab({
+    client,
+    setInputValue,
+    text: "queued follow-up from active run",
+    waitForState,
+  });
   const queuedRun = await waitForRunWithPrompt(
     backend,
     workspaceId,
@@ -36,6 +43,7 @@ export async function runQueuedControlsWorkflow({
     "queued follow-up from active run",
     "queued",
   );
+  await waitForComposerFocus(waitForState, client);
   await clickMessageActionByText(
     waitForState,
     client,
@@ -148,6 +156,41 @@ export async function runQueuedControlsWorkflow({
   ]);
   await assertChatLayout(client);
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+}
+
+async function queueComposerWithTab({ client, setInputValue, text, waitForState }) {
+  await waitForState(client, composerReadyExpression(), (value) => value.ready);
+  await setInputValue(client, 'textarea[aria-label="Ask Setta"]', text);
+  const focused = await client.evaluate(`(() => {
+    const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
+    if (!textarea || textarea.disabled) {
+      return false;
+    }
+    textarea.focus();
+    return document.activeElement === textarea;
+  })()`);
+  if (!focused) {
+    throw new Error("composer could not be focused before Tab queueing");
+  }
+  await dispatchTab(client, "rawKeyDown");
+  await dispatchTab(client, "keyUp");
+}
+
+async function dispatchTab(client, type) {
+  await client.call("Input.dispatchKeyEvent", {
+    code: "Tab",
+    key: "Tab",
+    nativeVirtualKeyCode: 9,
+    type,
+    windowsVirtualKeyCode: 9,
+  });
+}
+
+function composerReadyExpression() {
+  return `(() => {
+    const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
+    return { ready: Boolean(textarea && !textarea.disabled) };
+  })()`;
 }
 
 async function clickMessageActionByText(waitForState, client, messageText, label) {
