@@ -1026,6 +1026,15 @@ export interface ListDiagnosticsResponse {
   diagnostics: Diagnostic[];
 }
 
+export interface ListApprovalsRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface ListApprovalsResponse {
+  approvals: ApprovalRequest[];
+}
+
 export interface ApprovalAnswer {
   questionId: string;
   answers: string[];
@@ -1506,6 +1515,10 @@ export const backendEndpoints = {
   ListDiagnostics: {
     method: "POST",
     path: "/chat/diagnostics/list",
+  },
+  ListApprovals: {
+    method: "POST",
+    path: "/chat/approvals/list",
   },
   SubmitApproval: {
     method: "POST",
@@ -2318,6 +2331,23 @@ export function decodeListDiagnosticsResponse(value: unknown): ListDiagnosticsRe
   };
 }
 
+export function decodeListApprovalsRequest(value: unknown): ListApprovalsRequest {
+  const record = assertRecord(value, "ListApprovalsRequest");
+  assertKnownFields(record, "ListApprovalsRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListApprovalsRequest"), "ListApprovalsRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ListApprovalsRequest"), "ListApprovalsRequest.conversationId"),
+  };
+}
+
+export function decodeListApprovalsResponse(value: unknown): ListApprovalsResponse {
+  const record = assertRecord(value, "ListApprovalsResponse");
+  assertKnownFields(record, "ListApprovalsResponse", ["approvals"]);
+  return {
+    approvals: decodeArray(requireField(record, "approvals", "ListApprovalsResponse"), "ListApprovalsResponse.approvals", (item) => decodeApprovalRequest(item)),
+  };
+}
+
 export function decodeApprovalAnswer(value: unknown): ApprovalAnswer {
   const record = assertRecord(value, "ApprovalAnswer");
   assertKnownFields(record, "ApprovalAnswer", ["questionId", "answers", "value"]);
@@ -3028,6 +3058,7 @@ export interface BackendClient {
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
+  listApprovals: (request: ListApprovalsRequest) => Promise<ListApprovalsResponse>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
   readCodexAccount: () => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
@@ -3251,6 +3282,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDiagnosticsResponse,
       endpoint: backendEndpoints.ListDiagnostics,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listApprovals: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeListApprovalsResponse,
+      endpoint: backendEndpoints.ListApprovals,
       fetchImpl,
       requestPayload: request,
     }),

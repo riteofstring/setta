@@ -341,6 +341,17 @@ func (service *Service) ActiveRun(workspaceID string, conversationID string) (Ru
 	return service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
 }
 
+func (service *Service) ListPendingApprovals(workspaceID string, conversationID string) ([]ApprovalRequest, error) {
+	run, ok, err := service.ActiveRun(workspaceID, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok || run.PendingApproval == nil {
+		return []ApprovalRequest{}, nil
+	}
+	return []ApprovalRequest{*run.PendingApproval}, nil
+}
+
 func (service *Service) SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []ApprovalAnswer, cancelled bool) (Run, error) {
 	run, err := service.pendingApprovalRun(workspaceID, conversationID, approvalID)
 	if err != nil {

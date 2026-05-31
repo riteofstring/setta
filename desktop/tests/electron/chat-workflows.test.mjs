@@ -680,6 +680,7 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
         ]);
 
         await clickButtonByText(context.client, fixture.secondWorkspace.displayName);
+        await waitForSelectedWorkspace(context.client, fixture.secondWorkspace.displayName);
         await waitForBackendState(
           async () => backend.get("/workspace-session"),
           (value) => value.selectedWorkspaceId === fixture.secondWorkspace.id,
@@ -691,6 +692,8 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
         );
 
         await clickButtonByText(context.client, fixture.firstWorkspace.displayName);
+        await waitForSelectedWorkspace(context.client, fixture.firstWorkspace.displayName);
+        await waitForNoSelectedConversation(context.client);
         await waitForBackendState(
           async () => backend.get("/workspace-session"),
           (value) => value.selectedWorkspaceId === fixture.firstWorkspace.id,
@@ -765,6 +768,16 @@ async function waitForSidebarConversationRow(client, text, { unread }) {
   );
 }
 
+async function waitForSelectedWorkspace(client, displayName) {
+  await waitForState(client, selectedWorkspaceRowsExpression(), (value) =>
+    value.rows.some((row) => row.text.includes(displayName) && row.current),
+  );
+}
+
+async function waitForNoSelectedConversation(client) {
+  await waitForState(client, chatDetailPaneExpression(), (value) => value.conversationId === "");
+}
+
 function conversationRowsExpression() {
   return `(() => ({
     rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map((row) => ({
@@ -772,6 +785,22 @@ function conversationRowsExpression() {
       unread: Boolean(row.querySelector('[aria-label="Unread assistant response"]')),
     })),
   }))()`;
+}
+
+function selectedWorkspaceRowsExpression() {
+  return `(() => ({
+    rows: Array.from(document.querySelectorAll('[data-testid="active-workspace-select"]')).map((row) => ({
+      current: row.getAttribute("aria-current") === "page",
+      text: row.innerText,
+    })),
+  }))()`;
+}
+
+function chatDetailPaneExpression() {
+  return `(() => {
+    const pane = document.querySelector('[data-testid="chat-detail-pane"]');
+    return { conversationId: pane?.getAttribute("data-conversation-id") ?? null };
+  })()`;
 }
 
 async function runCodexProtocolWorkflow(results) {

@@ -49,10 +49,10 @@ func (store *Store) CreateRunningTurn(records RunningTurnRecords) (RunningTurnRe
 	if err := store.SaveMessage(workspaceID, records.UserMessage); err != nil {
 		return RunningTurnRecords{}, err
 	}
-	if err := store.SaveRun(records.Run); err != nil {
+	if err := store.SaveMessage(workspaceID, records.AssistantMessage); err != nil {
 		return RunningTurnRecords{}, err
 	}
-	if err := store.SaveMessage(workspaceID, records.AssistantMessage); err != nil {
+	if err := store.SaveRun(records.Run); err != nil {
 		return RunningTurnRecords{}, err
 	}
 	if err := store.SaveConversation(records.Conversation); err != nil {
@@ -66,10 +66,10 @@ func (store *Store) CreateQueuedTurn(records QueuedTurnRecords) (QueuedTurnRecor
 		return QueuedTurnRecords{}, err
 	}
 	workspaceID := records.Run.WorkspaceID
-	if err := store.SaveRun(records.Run); err != nil {
+	if err := store.SaveMessage(workspaceID, records.UserMessage); err != nil {
 		return QueuedTurnRecords{}, err
 	}
-	if err := store.SaveMessage(workspaceID, records.UserMessage); err != nil {
+	if err := store.SaveRun(records.Run); err != nil {
 		return QueuedTurnRecords{}, err
 	}
 	if err := store.SaveConversation(records.Conversation); err != nil {
@@ -83,13 +83,13 @@ func (store *Store) PromoteQueuedTurn(records QueuedPromotionRecords) (QueuedPro
 		return QueuedPromotionRecords{}, err
 	}
 	workspaceID := records.Run.WorkspaceID
-	if err := store.SaveRun(records.Run); err != nil {
-		return QueuedPromotionRecords{}, err
-	}
 	if err := store.SaveMessage(workspaceID, records.UserMessage); err != nil {
 		return QueuedPromotionRecords{}, err
 	}
 	if err := store.SaveMessage(workspaceID, records.AssistantMessage); err != nil {
+		return QueuedPromotionRecords{}, err
+	}
+	if err := store.SaveRun(records.Run); err != nil {
 		return QueuedPromotionRecords{}, err
 	}
 	if err := store.SaveConversation(records.Conversation); err != nil {
@@ -125,13 +125,13 @@ func (store *Store) DeleteQueuedTurn(workspaceID string, conversationID string, 
 		return Conversation{}, "", err
 	}
 	conversation.UpdatedAt = now
-	if err := store.removeMessageFile(workspaceID, message); err != nil {
-		return Conversation{}, "", err
-	}
 	if err := store.removeRunFile(workspaceID, run.ID); err != nil {
 		return Conversation{}, "", err
 	}
 	if err := store.removeRunDirectory(workspaceID, run.ID); err != nil {
+		return Conversation{}, "", err
+	}
+	if err := store.removeMessageFile(workspaceID, message); err != nil {
 		return Conversation{}, "", err
 	}
 	if err := store.SaveConversation(conversation); err != nil {
@@ -148,10 +148,10 @@ func (store *Store) ReplayPendingSteeringAsTurn(records PendingSteeringReplayRec
 	if err := store.SaveMessage(workspaceID, records.UserMessage); err != nil {
 		return PendingSteeringReplayRecords{}, err
 	}
-	if err := store.SaveRun(records.Run); err != nil {
+	if err := store.SaveMessage(workspaceID, records.AssistantMessage); err != nil {
 		return PendingSteeringReplayRecords{}, err
 	}
-	if err := store.SaveMessage(workspaceID, records.AssistantMessage); err != nil {
+	if err := store.SaveRun(records.Run); err != nil {
 		return PendingSteeringReplayRecords{}, err
 	}
 	if err := store.SaveConversation(records.Conversation); err != nil {
