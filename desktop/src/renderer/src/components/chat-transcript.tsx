@@ -11,10 +11,11 @@ import type {
   RunItemOutput,
   TranscriptTurn,
 } from "@generated/backend";
-import { ArrowDown, Check, ChevronUp, X } from "lucide-react";
+import { ArrowDown, Check, ChevronUp, Search, X } from "lucide-react";
 import {
   memo,
   type KeyboardEvent,
+  type ReactNode,
   type UIEvent,
   type WheelEvent,
   useEffect,
@@ -25,9 +26,11 @@ import {
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { MarkdownText } from "./markdown-text";
 import { RunActivityRows } from "./chat-run-activity";
 import { StructuredInputApproval } from "./structured-input-approval";
+import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 
 export interface ChatTranscriptProps {
@@ -47,6 +50,8 @@ export interface ChatTranscriptProps {
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
   runItemsById: Record<string, RunItem>;
+  searchOpen?: boolean;
+  setSearchOpen?: (open: boolean) => void;
   submitApproval: (
     approvalId: string,
     approved: boolean,
@@ -123,12 +128,12 @@ function timelineItemID(item: TranscriptTimelineItem) {
 }
 
 const messageRowClassByRole = {
-  assistant: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  command: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  developer: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  system: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  tool: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  user: "mx-auto flex w-full max-w-4xl min-w-0 justify-end py-2",
+  assistant: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  command: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  developer: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  system: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  tool: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  user: "mx-auto flex w-full max-w-3xl min-w-0 justify-end py-1.5",
 } satisfies Record<MessageRole, string>;
 
 const deliveryLabelByDelivery = {
@@ -145,12 +150,12 @@ const messageStatusLabelByStatus = {
 } satisfies Record<MessageStatus, string | null>;
 
 const assistantMessageContainerClass =
-  "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white px-4 py-3";
+  "max-w-[84%] min-w-0 overflow-hidden rounded-sm border border-zinc-800 bg-zinc-900 px-3 py-2 text-[13px] leading-5 break-words text-zinc-100";
 
 const assistantMessageContainerClassByRole = {
   assistant: assistantMessageContainerClass,
   command:
-    "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 break-words text-emerald-950",
+    "max-w-[84%] min-w-0 overflow-hidden rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-[13px] leading-5 break-words text-emerald-100",
   developer: assistantMessageContainerClass,
   system: assistantMessageContainerClass,
   tool: assistantMessageContainerClass,
@@ -158,11 +163,11 @@ const assistantMessageContainerClassByRole = {
 
 const userMessageContainerClassByDelivery = {
   normal:
-    "max-w-[78%] overflow-hidden rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 break-words text-white",
+    "max-w-[78%] overflow-hidden rounded-sm bg-zinc-800 px-3 py-2 text-[13px] leading-5 break-words text-zinc-100",
   queued:
-    "max-w-[78%] overflow-hidden rounded-md border border-dashed border-zinc-300 bg-white px-4 py-3 text-sm leading-6 break-words text-zinc-800",
+    "max-w-[78%] overflow-hidden rounded-sm border border-dashed border-zinc-700 bg-zinc-900 px-3 py-2 text-[13px] leading-5 break-words text-zinc-300",
   steering:
-    "max-w-[78%] overflow-hidden rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 break-words text-blue-950",
+    "max-w-[78%] overflow-hidden rounded-sm border border-blue-400/40 bg-blue-950/30 px-3 py-2 text-[13px] leading-5 break-words text-blue-100",
 } satisfies Record<MessageDelivery, string>;
 
 type SubmitApproval = ChatTranscriptProps["submitApproval"];
@@ -179,6 +184,8 @@ export function ChatTranscript({
   runItemOutputPagesByRunItemId,
   runItemOutputsById,
   runItemsById,
+  searchOpen = false,
+  setSearchOpen = () => {},
   submitApproval,
   transcript: backendTranscript,
 }: ChatTranscriptProps) {
@@ -208,6 +215,14 @@ export function ChatTranscript({
   );
   const timeline = useMemo(() => transcriptTimelineItems(transcript), [transcript]);
   const firstItemIndex = timeline[0]?.ordinal ?? 0;
+  const search = useTranscriptSearch({
+    messagesById,
+    messageIds,
+    open: searchOpen,
+    setOpen: setSearchOpen,
+    timeline,
+    virtuosoRef,
+  });
 
   useEffect(() => {
     if (!pinned) {
@@ -259,13 +274,14 @@ export function ChatTranscript({
       onScrollCapture={handleScroll}
       onWheelCapture={handleWheel}
     >
+      <ChatSearchBar search={search} />
       <Virtuoso
         atBottomStateChange={(atBottom) => {
           if (atBottom) {
             setPinned(true);
           }
         }}
-        className="h-full min-h-0 min-w-0 px-6 py-5"
+        className="h-full min-h-0 min-w-0 bg-zinc-900 px-3 pt-4 pb-2"
         components={{
           Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
           Header: () => (
@@ -283,6 +299,7 @@ export function ChatTranscript({
             return (
               <MessageRow
                 loadRunItemOutput={loadRunItemOutput}
+                activeSearchMessageId={search.activeMessageId}
                 message={item.message}
                 runItemIdsByRunId={transcript.runItemIdsByRunId}
                 runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
@@ -295,6 +312,7 @@ export function ChatTranscript({
           return (
             <TranscriptTurnRow
               loadRunItemOutput={loadRunItemOutput}
+              activeSearchMessageId={search.activeMessageId}
               runItemIdsByRunId={transcript.runItemIdsByRunId}
               runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
               runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -322,11 +340,11 @@ function EmptyChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5"
+        className="h-full min-h-0 min-w-0 overflow-y-auto bg-zinc-900 px-3 pt-4 pb-2"
         data-testid="chat-transcript-scroller"
       >
         <div
-          className="mx-auto w-full max-w-4xl py-16 text-center text-sm text-zinc-500"
+          className="mx-auto w-full max-w-3xl py-16 text-center text-xs text-zinc-500"
           data-testid="empty-chat"
         >
           Start a conversation for this workspace.
@@ -344,8 +362,12 @@ function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
     return null;
   }
   return (
-    <div className="mb-3 flex justify-center">
-      <Button onClick={() => void loadOlder()} variant="secondary">
+    <div className="mb-2 flex justify-center">
+      <Button
+        className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+        onClick={() => void loadOlder()}
+        variant="secondary"
+      >
         <ChevronUp className="h-4 w-4" />
         Older
       </Button>
@@ -360,7 +382,7 @@ function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) 
     return null;
   }
   return (
-    <div className="mx-auto w-full max-w-4xl py-2">
+    <div className="mx-auto w-full max-w-3xl py-2">
       <PendingApproval activeRun={activeRun} submitApproval={submitApproval} />
     </div>
   );
@@ -412,7 +434,217 @@ function JumpToLatestButton({
   );
 }
 
+interface TranscriptSearchController {
+  activeIndex: number;
+  activeMessageId: string | null;
+  close: () => void;
+  inputRef: { current: HTMLInputElement | null };
+  matchCount: number;
+  next: () => void;
+  open: boolean;
+  previous: () => void;
+  query: string;
+  setQuery: (query: string) => void;
+}
+
+function useTranscriptSearch({
+  messagesById,
+  messageIds,
+  open,
+  setOpen,
+  timeline,
+  virtuosoRef,
+}: {
+  messagesById: Record<string, ChatMessage>;
+  messageIds: string[];
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  timeline: TranscriptTimelineItem[];
+  virtuosoRef: { current: VirtuosoHandle | null };
+}): TranscriptSearchController {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [query, setQueryValue] = useState("");
+  const matches = useMemo(
+    () =>
+      transcriptSearchMatches(
+        messageIds.map((messageId) => messagesById[messageId]),
+        query,
+      ),
+    [messageIds, messagesById, query],
+  );
+  const activeMessageId = matches[activeIndex]?.messageId ?? null;
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (activeIndex < matches.length) {
+      return;
+    }
+    setActiveIndex(Math.max(0, matches.length - 1));
+  }, [activeIndex, matches.length]);
+
+  useEffect(() => {
+    if (!activeMessageId) {
+      return;
+    }
+    const item = timelineItemForMessage(timeline, activeMessageId);
+    if (!item) {
+      return;
+    }
+    virtuosoRef.current?.scrollToIndex({ align: "center", index: item.ordinal });
+  }, [activeMessageId, timeline, virtuosoRef]);
+
+  function move(direction: "next" | "previous") {
+    if (matches.length === 0) {
+      return;
+    }
+    setActiveIndex((current) => {
+      const offset = direction === "next" ? 1 : -1;
+      return (current + offset + matches.length) % matches.length;
+    });
+  }
+
+  return {
+    activeIndex,
+    activeMessageId,
+    close: () => setOpen(false),
+    inputRef,
+    matchCount: matches.length,
+    next: () => move("next"),
+    open,
+    previous: () => move("previous"),
+    query,
+    setQuery: (nextQuery) => {
+      setQueryValue(nextQuery);
+      setActiveIndex(0);
+    },
+  };
+}
+
+function transcriptSearchMatches(messages: Array<ChatMessage | undefined>, query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (normalizedQuery === "") {
+    return [];
+  }
+  return messages
+    .filter((message): message is ChatMessage => message !== undefined)
+    .filter((message) => chatMessageText(message).toLowerCase().includes(normalizedQuery))
+    .map((message) => ({ messageId: message.id }));
+}
+
+function timelineItemForMessage(timeline: TranscriptTimelineItem[], messageId: string) {
+  return (
+    timeline.find((item) => {
+      if (item.kind === "message") {
+        return item.message.id === messageId;
+      }
+      return transcriptTurnHasMessage(item.turn, messageId);
+    }) ?? null
+  );
+}
+
+function transcriptTurnHasMessage(turn: TranscriptTurn, messageId: string) {
+  return (
+    turn.triggerMessage.id === messageId ||
+    turn.assistantMessage?.id === messageId ||
+    turn.steeringMessages.some((message) => message.id === messageId)
+  );
+}
+
+function ChatSearchBar({ search }: { search: TranscriptSearchController }) {
+  if (!search.open) {
+    return null;
+  }
+
+  const resultLabel =
+    search.query.trim() === ""
+      ? "0/0"
+      : `${search.matchCount === 0 ? 0 : search.activeIndex + 1}/${search.matchCount}`;
+
+  return (
+    <div className="pointer-events-none absolute top-2 right-3 left-3 z-20 flex justify-end">
+      <div className="pointer-events-auto flex h-7 w-full max-w-xs min-w-0 items-center gap-1 rounded-sm border border-zinc-700/90 bg-zinc-800/95 px-1.5 text-zinc-100 shadow-xl shadow-black/40 backdrop-blur">
+        <Search className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
+        <Input
+          className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-xs text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:border-0"
+          onChange={(event) => search.setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              search.close();
+              return;
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (event.shiftKey) {
+                search.previous();
+                return;
+              }
+              search.next();
+            }
+          }}
+          placeholder="Search chat"
+          ref={search.inputRef}
+          value={search.query}
+        />
+        <span className="min-w-8 text-right text-[11px] text-zinc-500">{resultLabel}</span>
+        <SearchNavButton
+          disabled={search.matchCount === 0}
+          label="Previous result"
+          onClick={search.previous}
+        >
+          <ChevronUp className="h-3.5 w-3.5" />
+        </SearchNavButton>
+        <SearchNavButton
+          disabled={search.matchCount === 0}
+          label="Next result"
+          onClick={search.next}
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+        </SearchNavButton>
+        <SearchNavButton label="Close chat search" onClick={search.close}>
+          <X className="h-3.5 w-3.5" />
+        </SearchNavButton>
+      </div>
+    </div>
+  );
+}
+
+function SearchNavButton({
+  children,
+  disabled = false,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-600"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
 const TranscriptTurnRow = memo(function TranscriptTurnRow({
+  activeSearchMessageId,
   turn,
   loadRunItemOutput,
   runItemIdsByRunId,
@@ -421,6 +653,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
   runItemOutputsById,
   runItemsById,
 }: {
+  activeSearchMessageId: string | null;
   turn: TranscriptTurn;
   loadRunItemOutput: (
     runId: string,
@@ -443,6 +676,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
     >
       <MessageRow
         loadRunItemOutput={loadRunItemOutput}
+        activeSearchMessageId={activeSearchMessageId}
         message={turn.triggerMessage}
         runItemIdsByRunId={runItemIdsByRunId}
         runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
@@ -454,6 +688,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
         <MessageRow
           key={message.id}
           loadRunItemOutput={loadRunItemOutput}
+          activeSearchMessageId={activeSearchMessageId}
           message={message}
           runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
@@ -465,6 +700,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
       {turn.assistantMessage ? (
         <MessageRow
           loadRunItemOutput={loadRunItemOutput}
+          activeSearchMessageId={activeSearchMessageId}
           message={turn.assistantMessage}
           runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
@@ -478,6 +714,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
 });
 
 const MessageRow = memo(function MessageRow({
+  activeSearchMessageId,
   message,
   loadRunItemOutput,
   runItemIdsByRunId,
@@ -486,6 +723,7 @@ const MessageRow = memo(function MessageRow({
   runItemOutputsById,
   runItemsById,
 }: {
+  activeSearchMessageId: string | null;
   message: ChatMessage;
   loadRunItemOutput: (
     runId: string,
@@ -502,7 +740,7 @@ const MessageRow = memo(function MessageRow({
   const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
   return (
     <div
-      className={messageRowClass(message)}
+      className={messageRowClass(message, message.id === activeSearchMessageId)}
       data-chat-message="true"
       data-message-delivery={message.delivery}
       data-message-id={message.id}
@@ -527,8 +765,11 @@ const MessageRow = memo(function MessageRow({
   );
 });
 
-function messageRowClass(message: ChatMessage) {
-  return messageRowClassByRole[message.role];
+function messageRowClass(message: ChatMessage, activeSearchMatch: boolean) {
+  return cn(
+    messageRowClassByRole[message.role],
+    activeSearchMatch && "rounded-sm bg-blue-400/5 ring-1 ring-blue-400/50",
+  );
 }
 
 function messageRowTestId(message: ChatMessage) {
@@ -545,7 +786,7 @@ function messageRowTestId(message: ChatMessage) {
 }
 
 function MessageContent({ message }: { message: ChatMessage }) {
-  const text = message.parts.map((part) => part.text).join("");
+  const text = chatMessageText(message);
   switch (message.role) {
     case "user":
       return <div className="whitespace-pre-wrap">{text}</div>;
@@ -559,6 +800,10 @@ function MessageContent({ message }: { message: ChatMessage }) {
     default:
       return assertNever(message.role);
   }
+}
+
+function chatMessageText(message: ChatMessage) {
+  return message.parts.map((part) => part.text).join("");
 }
 
 function assistantMessageText(text: string, status: MessageStatus) {
@@ -592,7 +837,7 @@ function MessageStatus({ message }: { message: ChatMessage }) {
   if (label === null) {
     return null;
   }
-  return <div className="mt-3 text-xs font-medium text-red-600">{label}</div>;
+  return <div className="mt-3 text-xs font-medium text-red-400">{label}</div>;
 }
 
 function activityItemsForMessage(

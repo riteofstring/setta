@@ -515,34 +515,6 @@ type ConversationListResult struct {
 	Diagnostics   []Diagnostic           `json:"diagnostics"`
 }
 
-type QuarantinedRecord struct {
-	OriginalPath   string `json:"originalPath"`
-	QuarantinePath string `json:"quarantinePath"`
-	RecordKind     string `json:"recordKind"`
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	RunID          string `json:"runId"`
-	Error          string `json:"error"`
-}
-
-type ChatQuarantineManifest struct {
-	SchemaVersion int                 `json:"schemaVersion"`
-	ID            string              `json:"id"`
-	WorkspaceID   string              `json:"workspaceId"`
-	CreatedAt     string              `json:"createdAt"`
-	Records       []QuarantinedRecord `json:"records"`
-}
-
-type ChatMaintenanceResult struct {
-	WorkspaceID     string              `json:"workspaceId"`
-	Corruption      CorruptionSummary   `json:"corruption"`
-	Diagnostics     []Diagnostic        `json:"diagnostics"`
-	Quarantined     []QuarantinedRecord `json:"quarantined"`
-	ManifestPath    string              `json:"manifestPath"`
-	RemovedPaths    []string            `json:"removedPaths"`
-	ValidationRunAt string              `json:"validationRunAt"`
-}
-
 type ChatCommand struct {
 	Kind  ChatCommandKind `json:"kind"`
 	Raw   string          `json:"raw"`
@@ -736,28 +708,6 @@ func (result ConversationListResult) MarshalJSON() ([]byte, error) {
 	}
 	if result.Diagnostics == nil {
 		result.Diagnostics = []Diagnostic{}
-	}
-	return json.Marshal(resultAlias(result))
-}
-
-func (manifest ChatQuarantineManifest) MarshalJSON() ([]byte, error) {
-	type manifestAlias ChatQuarantineManifest
-	if manifest.Records == nil {
-		manifest.Records = []QuarantinedRecord{}
-	}
-	return json.Marshal(manifestAlias(manifest))
-}
-
-func (result ChatMaintenanceResult) MarshalJSON() ([]byte, error) {
-	type resultAlias ChatMaintenanceResult
-	if result.Diagnostics == nil {
-		result.Diagnostics = []Diagnostic{}
-	}
-	if result.Quarantined == nil {
-		result.Quarantined = []QuarantinedRecord{}
-	}
-	if result.RemovedPaths == nil {
-		result.RemovedPaths = []string{}
 	}
 	return json.Marshal(resultAlias(result))
 }

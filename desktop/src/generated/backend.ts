@@ -861,41 +861,6 @@ export interface ListDiagnosticsResponse {
   diagnostics: Diagnostic[];
 }
 
-export interface QuarantineCorruptChatStateRequest {
-  workspaceId: string;
-  confirmation: string;
-}
-
-export interface QuarantinedRecord {
-  originalPath: string;
-  quarantinePath: string;
-  recordKind: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  error: string;
-}
-
-export interface ChatMaintenanceResult {
-  workspaceId: string;
-  corruption: CorruptionSummary;
-  diagnostics: Diagnostic[];
-  quarantined: QuarantinedRecord[];
-  manifestPath: string;
-  removedPaths: string[];
-  validationRunAt: string;
-}
-
-export interface ResetWorkspaceChatStateRequest {
-  workspaceId: string;
-  confirmation: string;
-}
-
-export interface ClearChatQuarantineRequest {
-  workspaceId: string;
-  confirmation: string;
-}
-
 export interface ApprovalAnswer {
   questionId: string;
   answers: string[];
@@ -1275,18 +1240,6 @@ export const backendEndpoints = {
   ListDiagnostics: {
     method: "POST",
     path: "/chat/diagnostics/list",
-  },
-  QuarantineCorruptChatState: {
-    method: "POST",
-    path: "/chat/maintenance/quarantine-corrupt",
-  },
-  ResetWorkspaceChatState: {
-    method: "POST",
-    path: "/chat/maintenance/reset-workspace",
-  },
-  ClearChatQuarantine: {
-    method: "POST",
-    path: "/chat/maintenance/clear-quarantine",
   },
   SubmitApproval: {
     method: "POST",
@@ -1960,61 +1913,6 @@ export function decodeListDiagnosticsResponse(value: unknown): ListDiagnosticsRe
   };
 }
 
-export function decodeQuarantineCorruptChatStateRequest(value: unknown): QuarantineCorruptChatStateRequest {
-  const record = assertRecord(value, "QuarantineCorruptChatStateRequest");
-  assertKnownFields(record, "QuarantineCorruptChatStateRequest", ["workspaceId", "confirmation"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "QuarantineCorruptChatStateRequest"), "QuarantineCorruptChatStateRequest.workspaceId"),
-    confirmation: decodeString(requireField(record, "confirmation", "QuarantineCorruptChatStateRequest"), "QuarantineCorruptChatStateRequest.confirmation"),
-  };
-}
-
-export function decodeQuarantinedRecord(value: unknown): QuarantinedRecord {
-  const record = assertRecord(value, "QuarantinedRecord");
-  assertKnownFields(record, "QuarantinedRecord", ["originalPath", "quarantinePath", "recordKind", "workspaceId", "conversationId", "runId", "error"]);
-  return {
-    originalPath: decodeString(requireField(record, "originalPath", "QuarantinedRecord"), "QuarantinedRecord.originalPath"),
-    quarantinePath: decodeString(requireField(record, "quarantinePath", "QuarantinedRecord"), "QuarantinedRecord.quarantinePath"),
-    recordKind: decodeString(requireField(record, "recordKind", "QuarantinedRecord"), "QuarantinedRecord.recordKind"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "QuarantinedRecord"), "QuarantinedRecord.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "QuarantinedRecord"), "QuarantinedRecord.conversationId"),
-    runId: decodeString(requireField(record, "runId", "QuarantinedRecord"), "QuarantinedRecord.runId"),
-    error: decodeString(requireField(record, "error", "QuarantinedRecord"), "QuarantinedRecord.error"),
-  };
-}
-
-export function decodeChatMaintenanceResult(value: unknown): ChatMaintenanceResult {
-  const record = assertRecord(value, "ChatMaintenanceResult");
-  assertKnownFields(record, "ChatMaintenanceResult", ["workspaceId", "corruption", "diagnostics", "quarantined", "manifestPath", "removedPaths", "validationRunAt"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMaintenanceResult"), "ChatMaintenanceResult.workspaceId"),
-    corruption: decodeCorruptionSummary(requireField(record, "corruption", "ChatMaintenanceResult")),
-    diagnostics: decodeArray(requireField(record, "diagnostics", "ChatMaintenanceResult"), "ChatMaintenanceResult.diagnostics", (item) => decodeDiagnostic(item)),
-    quarantined: decodeArray(requireField(record, "quarantined", "ChatMaintenanceResult"), "ChatMaintenanceResult.quarantined", (item) => decodeQuarantinedRecord(item)),
-    manifestPath: decodeString(requireField(record, "manifestPath", "ChatMaintenanceResult"), "ChatMaintenanceResult.manifestPath"),
-    removedPaths: decodeArray(requireField(record, "removedPaths", "ChatMaintenanceResult"), "ChatMaintenanceResult.removedPaths", (item) => decodeString(item, "ChatMaintenanceResult.removedPaths item")),
-    validationRunAt: decodeString(requireField(record, "validationRunAt", "ChatMaintenanceResult"), "ChatMaintenanceResult.validationRunAt"),
-  };
-}
-
-export function decodeResetWorkspaceChatStateRequest(value: unknown): ResetWorkspaceChatStateRequest {
-  const record = assertRecord(value, "ResetWorkspaceChatStateRequest");
-  assertKnownFields(record, "ResetWorkspaceChatStateRequest", ["workspaceId", "confirmation"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ResetWorkspaceChatStateRequest"), "ResetWorkspaceChatStateRequest.workspaceId"),
-    confirmation: decodeString(requireField(record, "confirmation", "ResetWorkspaceChatStateRequest"), "ResetWorkspaceChatStateRequest.confirmation"),
-  };
-}
-
-export function decodeClearChatQuarantineRequest(value: unknown): ClearChatQuarantineRequest {
-  const record = assertRecord(value, "ClearChatQuarantineRequest");
-  assertKnownFields(record, "ClearChatQuarantineRequest", ["workspaceId", "confirmation"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ClearChatQuarantineRequest"), "ClearChatQuarantineRequest.workspaceId"),
-    confirmation: decodeString(requireField(record, "confirmation", "ClearChatQuarantineRequest"), "ClearChatQuarantineRequest.confirmation"),
-  };
-}
-
 export function decodeApprovalAnswer(value: unknown): ApprovalAnswer {
   const record = assertRecord(value, "ApprovalAnswer");
   assertKnownFields(record, "ApprovalAnswer", ["questionId", "answers", "value"]);
@@ -2578,9 +2476,6 @@ export interface BackendClient {
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
-  quarantineCorruptChatState: (request: QuarantineCorruptChatStateRequest) => Promise<ChatMaintenanceResult>;
-  resetWorkspaceChatState: (request: ResetWorkspaceChatStateRequest) => Promise<ChatMaintenanceResult>;
-  clearChatQuarantine: (request: ClearChatQuarantineRequest) => Promise<ChatMaintenanceResult>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
   listProviderAccounts: () => Promise<ProviderAccounts>;
   saveChatGPTAuth: (request: SaveChatGPTAuthRequest) => Promise<ProviderAccounts>;
@@ -2754,30 +2649,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDiagnosticsResponse,
       endpoint: backendEndpoints.ListDiagnostics,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    quarantineCorruptChatState: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeChatMaintenanceResult,
-      endpoint: backendEndpoints.QuarantineCorruptChatState,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    resetWorkspaceChatState: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeChatMaintenanceResult,
-      endpoint: backendEndpoints.ResetWorkspaceChatState,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    clearChatQuarantine: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeChatMaintenanceResult,
-      endpoint: backendEndpoints.ClearChatQuarantine,
       fetchImpl,
       requestPayload: request,
     }),

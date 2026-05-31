@@ -27,14 +27,33 @@ describe("preload workspace API", () => {
     await import("./index");
 
     const api = exposed.setta as SettaAPI;
-    expect(Object.keys(api.app).sort()).toEqual(["openExternalUrl", "versions"]);
+    expect(Object.keys(api.app).sort()).toEqual([
+      "installedEditors",
+      "openExternalUrl",
+      "openWorkspaceInEditor",
+      "platform",
+      "versions",
+      "workspaceGitInfo",
+    ]);
 
+    await api.app.installedEditors();
+    await api.app.openWorkspaceInEditor("vscode", "/tmp/api");
     await api.app.versions();
+    await api.app.workspaceGitInfo("/tmp/api");
     await api.app.openExternalUrl("https://example.test/login");
 
-    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appVersions);
+    expect(api.app.platform).toBe(process.platform);
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appInstalledEditors);
     expect(invoke).toHaveBeenNthCalledWith(
       2,
+      ipcChannels.appOpenWorkspaceInEditor,
+      "vscode",
+      "/tmp/api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(3, ipcChannels.appVersions);
+    expect(invoke).toHaveBeenNthCalledWith(4, ipcChannels.appWorkspaceGitInfo, "/tmp/api");
+    expect(invoke).toHaveBeenNthCalledWith(
+      5,
       ipcChannels.appOpenExternalUrl,
       "https://example.test/login",
     );
@@ -108,16 +127,13 @@ describe("preload workspace API", () => {
     expect(Object.keys(api.chat).sort()).toEqual([
       "activeRun",
       "cancelRun",
-      "clearQuarantine",
       "createConversation",
       "executeCommand",
       "listCommands",
       "listConversations",
       "messagePage",
       "onEvent",
-      "quarantineCorruptState",
       "queueMessage",
-      "resetWorkspaceState",
       "runActivity",
       "runItemOutput",
       "sendMessage",
@@ -137,9 +153,6 @@ describe("preload workspace API", () => {
     await api.chat.steerMessage("workspace_api", "conversation_api", "steer");
     await api.chat.cancelRun("workspace_api", "conversation_api");
     await api.chat.activeRun("workspace_api", "conversation_api");
-    await api.chat.quarantineCorruptState("workspace_api", "workspace_api");
-    await api.chat.resetWorkspaceState("workspace_api", "workspace_api");
-    await api.chat.clearQuarantine("workspace_api", "workspace_api");
     await api.chat.submitApproval({
       approvalId: "approval_api",
       approved: true,
@@ -236,25 +249,7 @@ describe("preload workspace API", () => {
       "workspace_api",
       "conversation_api",
     );
-    expect(invoke).toHaveBeenNthCalledWith(
-      13,
-      ipcChannels.chatQuarantineCorruptState,
-      "workspace_api",
-      "workspace_api",
-    );
-    expect(invoke).toHaveBeenNthCalledWith(
-      14,
-      ipcChannels.chatResetWorkspaceState,
-      "workspace_api",
-      "workspace_api",
-    );
-    expect(invoke).toHaveBeenNthCalledWith(
-      15,
-      ipcChannels.chatClearQuarantine,
-      "workspace_api",
-      "workspace_api",
-    );
-    expect(invoke).toHaveBeenNthCalledWith(16, ipcChannels.chatSubmitApproval, {
+    expect(invoke).toHaveBeenNthCalledWith(13, ipcChannels.chatSubmitApproval, {
       approvalId: "approval_api",
       approved: true,
       answers: [],
