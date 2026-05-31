@@ -12,12 +12,17 @@ describe("workspace renderer states", () => {
         <WorkspaceSidebar
           activeWorkspaces={[]}
           busy={false}
+          chatBusy={false}
           closeWorkspace={async () => {}}
+          conversations={[]}
+          createConversation={async () => {}}
           openLocalFolder={async () => {}}
           recentWorkspaces={[]}
           removeRecent={async () => {}}
           reorderWorkspaces={async () => {}}
+          selectConversation={async () => {}}
           selectWorkspace={async () => {}}
+          selectedConversationId=""
           selectedWorkspaceId=""
         />
         <WorkspacePanel
@@ -53,12 +58,32 @@ describe("workspace renderer states", () => {
         <WorkspaceSidebar
           activeWorkspaces={[api, web]}
           busy={false}
+          chatBusy={false}
           closeWorkspace={async () => {}}
+          conversations={[
+            {
+              activeRunId: "",
+              conversation: {
+                archivedAt: "",
+                createdAt: "2026-05-29T20:00:00Z",
+                harnessRefs: [],
+                id: "conversation_web",
+                schemaVersion: 1,
+                title: "Web chat",
+                updatedAt: "2026-05-29T20:00:00Z",
+                workspaceId: "workspace_web",
+              },
+              messageCount: 2,
+            },
+          ]}
+          createConversation={async () => {}}
           openLocalFolder={async () => {}}
           recentWorkspaces={[web, api]}
           removeRecent={async () => {}}
           reorderWorkspaces={async () => {}}
+          selectConversation={async () => {}}
           selectWorkspace={async () => {}}
+          selectedConversationId="conversation_web"
           selectedWorkspaceId="workspace_web"
         />
         <WorkspacePanel
@@ -106,12 +131,17 @@ describe("workspace renderer states", () => {
       <WorkspaceSidebar
         activeWorkspaces={workspaces}
         busy={false}
+        chatBusy={false}
         closeWorkspace={async () => {}}
+        conversations={[]}
+        createConversation={async () => {}}
         openLocalFolder={async () => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
         reorderWorkspaces={async () => {}}
+        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
+        selectedConversationId=""
         selectedWorkspaceId="workspace_0"
       />,
     );

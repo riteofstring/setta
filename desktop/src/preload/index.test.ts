@@ -10,6 +10,30 @@ describe("preload workspace API", () => {
     vi.doUnmock("electron");
   });
 
+  test("exposes typed app methods through IPC", async () => {
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
+    expect(Object.keys(api.app).sort()).toEqual(["versions"]);
+
+    await api.app.versions();
+
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appVersions);
+  });
+
   test("exposes typed workspace methods through IPC", async () => {
     const exposed: Record<string, unknown> = {};
     const invoke = vi.fn();

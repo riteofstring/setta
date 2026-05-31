@@ -1,8 +1,10 @@
 import type { ApprovalAnswer, ApprovalQuestion, ChatMessage, Run } from "@generated/backend";
-import { ArrowDown, ChevronUp, Check, X } from "lucide-react";
+import { ArrowDown, Bot, ChevronDown, ChevronUp, Check, Copy, Wrench, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { memo, useEffect, useRef, useState } from "react";
 
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { MarkdownText } from "./markdown-text";
 
 export interface ChatTranscriptProps {
@@ -55,7 +57,7 @@ export function ChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5"
+        className="h-full min-h-0 min-w-0 overflow-y-auto bg-zinc-900 px-3 py-3"
         onScroll={(event) => {
           const node = event.currentTarget;
           setPinned(node.scrollHeight - node.scrollTop - node.clientHeight < 24);
@@ -70,7 +72,7 @@ export function ChatTranscript({
             </Button>
           </div>
         ) : null}
-        <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-5">
+        <div className="flex w-full min-w-0 flex-col gap-4">
           {messages.length === 0 ? (
             <div className="py-16 text-center text-sm text-zinc-500" data-testid="empty-chat">
               Start a conversation for this workspace.
@@ -91,7 +93,7 @@ export function ChatTranscript({
       {!pinned ? (
         <Button
           aria-label="Jump to latest"
-          className="absolute bottom-4 right-6 shadow-sm"
+          className="absolute bottom-4 right-6 border-zinc-700 bg-zinc-900 text-zinc-100 shadow-sm hover:bg-zinc-800"
           onClick={() => {
             const node = scrollRef.current;
             if (!node) {
@@ -112,16 +114,21 @@ export function ChatTranscript({
 const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const text = message.parts.map((part) => part.text).join("");
+  if (message.role === "tool") {
+    return <ToolMessage message={message} text={text} />;
+  }
   return (
     <article
-      className={isUser ? "flex min-w-0 justify-end" : "flex min-w-0 justify-start"}
+      className={
+        isUser ? "flex min-w-0 flex-col items-end gap-2" : "flex min-w-0 flex-col items-start gap-2"
+      }
       data-testid="chat-message"
     >
       <div
         className={
           isUser
-            ? "max-w-[78%] overflow-hidden rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 break-words text-white"
-            : "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white px-4 py-3"
+            ? "max-w-[82%] overflow-hidden rounded-md border border-zinc-600 bg-zinc-800 px-4 py-3 text-sm leading-6 break-words text-zinc-50"
+            : "max-w-[92%] min-w-0 overflow-hidden rounded-md border border-zinc-700 bg-zinc-900 px-4 py-3 text-zinc-100"
         }
       >
         {isUser ? (
@@ -130,12 +137,62 @@ const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage 
           <MarkdownText text={text || (message.status === "streaming" ? "..." : "")} />
         )}
         {message.status === "error" || message.status === "cancelled" ? (
-          <div className="mt-3 text-xs font-medium text-red-600">{message.status}</div>
+          <div className="mt-3 text-xs font-medium text-zinc-400">{message.status}</div>
         ) : null}
       </div>
+      <time className="text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
     </article>
   );
 });
+
+function ToolMessage({ message, text }: { message: ChatMessage; text: string }) {
+  return (
+    <article className="min-w-0" data-testid="chat-message">
+      <ToolCallFrame title="Action: tool output">
+        <ToolBlock title="Result">{text || message.status}</ToolBlock>
+      </ToolCallFrame>
+      <time className="mt-2 block text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
+    </article>
+  );
+}
+
+function ToolCallFrame({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <div className="min-w-0 overflow-hidden rounded-md border border-zinc-700 bg-zinc-950">
+      <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-700 px-3 py-2 text-zinc-300">
+        <div className="flex min-w-0 items-center gap-3">
+          <Bot className="h-4 w-4 shrink-0 text-zinc-500" />
+          <span className="rounded-full border border-zinc-600 px-2 py-0.5 text-xs">1</span>
+          <span className="truncate text-sm">{title}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className="inline-flex h-7 w-7 items-center justify-center rounded bg-zinc-900 text-zinc-400"
+            title="Copy tool call"
+          >
+            <Copy className="h-4 w-4" />
+          </span>
+          <ChevronDown className="h-4 w-4 text-zinc-400" aria-hidden="true" />
+        </div>
+      </div>
+      <div className="divide-y divide-zinc-800">{children}</div>
+    </div>
+  );
+}
+
+function ToolBlock({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <section className="min-w-0 px-4 py-3">
+      <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.32em] text-zinc-500">
+        <Wrench className="h-3.5 w-3.5" />
+        {title}
+      </h4>
+      <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap font-mono text-sm leading-6 text-zinc-200">
+        {children}
+      </pre>
+    </section>
+  );
+}
 
 function ApprovalCard({
   run,
@@ -154,26 +211,17 @@ function ApprovalCard({
   const isUserInput = approval.kind === "user_input";
   const questions = approval.questions.length > 0 ? approval.questions : legacyQuestion(approval);
   return (
-    <section
-      className="min-w-0 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm break-words text-amber-950"
-      data-testid="approval-card"
-    >
-      <div className="font-semibold">{approval.title}</div>
-      {approval.body ? <div className="mt-1 text-amber-900">{approval.body}</div> : null}
-      {approval.command ? (
-        <pre className="mt-3 max-w-full overflow-x-auto rounded border border-amber-200 bg-white p-2 text-xs">
-          {approval.command}
-        </pre>
-      ) : null}
-      {approval.filePath ? (
-        <div className="mt-2 break-all font-mono text-xs">{approval.filePath}</div>
-      ) : null}
-      {approval.permission ? (
-        <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap rounded border border-amber-200 bg-white p-2 text-xs">
-          {approval.permission}
-        </pre>
-      ) : null}
-      {approval.question ? <div className="mt-2">{approval.question}</div> : null}
+    <section className="min-w-0 text-sm text-zinc-100" data-testid="approval-card">
+      <ToolCallFrame title={`Action: ${approval.title}`}>
+        {approval.command ? <ToolBlock title="Command">{approval.command}</ToolBlock> : null}
+        {approval.filePath ? <ToolBlock title="Path">{approval.filePath}</ToolBlock> : null}
+        {approval.permission ? (
+          <ToolBlock title="Permission">{approval.permission}</ToolBlock>
+        ) : null}
+        {approval.body ? <ToolBlock title="Arguments">{approval.body}</ToolBlock> : null}
+        {approval.question ? <ToolBlock title="Question">{approval.question}</ToolBlock> : null}
+        <ToolBlock title="Result">Waiting for approval</ToolBlock>
+      </ToolCallFrame>
       {isUserInput ? (
         <UserInputApproval
           questions={questions}
@@ -204,6 +252,7 @@ function DecisionApproval({
   return (
     <div className="mt-3 flex gap-2">
       <Button
+        className="border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
         onClick={() => void submitApproval(approvalId, true, "", [], false)}
         variant="primary"
       >
@@ -211,6 +260,7 @@ function DecisionApproval({
         Approve
       </Button>
       <Button
+        className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
         onClick={() => void submitApproval(approvalId, false, "", [], false)}
         variant="secondary"
       >
@@ -238,7 +288,7 @@ function UserInputApproval({
   }));
 
   return (
-    <div className="mt-3 space-y-3">
+    <div className="mt-3 space-y-3 rounded-md border border-zinc-700 bg-zinc-900 p-3">
       {questions.map((question) => {
         const answer = answerValue(answersByQuestion, question.id);
         return (
@@ -259,8 +309,8 @@ function UserInputApproval({
                 ))}
               </div>
             ) : null}
-            <input
-              className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
+            <Input
+              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-400"
               onChange={(event) =>
                 setQuestionAnswer(setAnswersByQuestion, question.id, event.target.value)
               }
@@ -272,6 +322,7 @@ function UserInputApproval({
       })}
       <div className="flex gap-2">
         <Button
+          className="border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
           disabled={!complete}
           onClick={() => void submitApproval(answers, false)}
           type="button"
@@ -280,7 +331,12 @@ function UserInputApproval({
           <Check className="h-4 w-4" />
           Answer
         </Button>
-        <Button onClick={() => void submitApproval([], true)} type="button" variant="secondary">
+        <Button
+          className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+          onClick={() => void submitApproval([], true)}
+          type="button"
+          variant="secondary"
+        >
           <X className="h-4 w-4" />
           Cancel
         </Button>
@@ -315,4 +371,12 @@ function setQuestionAnswer(
   answer: string,
 ) {
   setAnswersByQuestion((current) => ({ ...current, [questionID]: answer }));
+}
+
+function messageTime(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.valueOf())) {
+    return "";
+  }
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }

@@ -102,6 +102,7 @@ async function createWindow() {
     minHeight: 620,
     minWidth: 960,
     show: false,
+    ...(process.platform === "darwin" ? { titleBarStyle: "hiddenInset" as const } : {}),
     title: "Setta",
     webPreferences: {
       contextIsolation: true,
