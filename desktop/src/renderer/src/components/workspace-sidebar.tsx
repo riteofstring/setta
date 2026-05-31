@@ -114,6 +114,7 @@ export function WorkspaceSidebar({
         <SidebarNav
           busy={busy || chatBusy}
           createConversation={createConversation}
+          hasWorkspace={selectedWorkspaceId !== ""}
           openSearch={openSearch}
         />
         <section className="mt-4 min-w-0">
@@ -122,17 +123,10 @@ export function WorkspaceSidebar({
             <p className="px-2 py-1 text-xs text-zinc-500">No projects</p>
           ) : null}
           <ProjectList
-            activeRun={activeRun}
             busy={busy}
-            chatBusy={chatBusy}
             closeWorkspace={closeWorkspace}
-            conversations={conversations}
-            createConversation={createConversation}
             expandedWorkspaceId={expandedWorkspaceId}
-            branchLabel={selectedBranchLabel}
-            selectConversation={selectConversation}
             selectWorkspace={selectWorkspace}
-            selectedConversationId={selectedConversationId}
             selectedWorkspaceId={selectedWorkspaceId}
             setExpandedWorkspaceId={setExpandedWorkspaceId}
             workspaces={activeWorkspaces}
@@ -143,6 +137,16 @@ export function WorkspaceSidebar({
             removeRecent={removeRecent}
           />
         </section>
+        <ChatsSection
+          activeRun={activeRun}
+          branchLabel={selectedBranchLabel}
+          busy={chatBusy}
+          conversations={conversations}
+          createConversation={createConversation}
+          selectConversation={selectConversation}
+          selectedConversationId={selectedConversationId}
+          selectedWorkspaceId={selectedWorkspaceId}
+        />
       </div>
     </aside>
   );
@@ -151,16 +155,18 @@ export function WorkspaceSidebar({
 function SidebarNav({
   busy,
   createConversation,
+  hasWorkspace,
   openSearch,
 }: {
   busy: boolean;
   createConversation: (title?: string) => Promise<void>;
+  hasWorkspace: boolean;
   openSearch: () => void;
 }) {
   return (
     <nav className="grid gap-0.5" aria-label="Primary">
       <SidebarNavButton
-        disabled={busy}
+        disabled={busy || !hasWorkspace}
         icon={<PenLine className="h-3.5 w-3.5" />}
         label="New chat"
         onClick={() => void createConversation()}
@@ -225,32 +231,18 @@ function ProjectHeading({
 }
 
 function ProjectList({
-  activeRun,
-  branchLabel,
   busy,
-  chatBusy,
   closeWorkspace,
-  conversations,
-  createConversation,
   expandedWorkspaceId,
-  selectConversation,
   selectWorkspace,
-  selectedConversationId,
   selectedWorkspaceId,
   setExpandedWorkspaceId,
   workspaces,
 }: {
-  activeRun: Run | null;
-  branchLabel: string;
   busy: boolean;
-  chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
-  conversations: ConversationListItem[];
-  createConversation: (title?: string) => Promise<void>;
   expandedWorkspaceId: string;
-  selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
-  selectedConversationId: string;
   selectedWorkspaceId: string;
   setExpandedWorkspaceId: (next: string) => void;
   workspaces: WorkspaceSummary[];
@@ -260,63 +252,32 @@ function ProjectList({
   }
 
   const renderProject = (workspace: WorkspaceSummary) => (
-    <ProjectWithChats
-      activeRun={activeRun}
-      branchLabel={branchLabel}
+    <ProjectRow
       busy={busy}
-      chatBusy={chatBusy}
       closeWorkspace={closeWorkspace}
-      conversations={conversations}
-      createConversation={createConversation}
       expanded={expandedWorkspaceId === workspace.id}
-      selectConversation={selectConversation}
       selectWorkspace={selectWorkspace}
       selected={workspace.id === selectedWorkspaceId}
-      selectedConversationId={selectedConversationId}
       setExpandedWorkspaceId={setExpandedWorkspaceId}
       workspace={workspace}
     />
   );
 
   if (workspaces.length > directProjectRenderLimit) {
-    const selectedWorkspace = workspaces.find((workspace) => workspace.id === selectedWorkspaceId);
     return (
-      <>
-        <div
-          className="h-52 overflow-hidden"
-          aria-label="Projects"
-          data-testid="active-workspace-list"
-        >
-          <VirtualWorkspaceList
-            itemTestId="active-workspace-item"
-            items={workspaces}
-            renderItem={(workspace) => (
-              <ProjectRow
-                busy={busy}
-                closeWorkspace={closeWorkspace}
-                createConversation={createConversation}
-                expanded={expandedWorkspaceId === workspace.id}
-                selectWorkspace={selectWorkspace}
-                selected={workspace.id === selectedWorkspaceId}
-                setExpandedWorkspaceId={setExpandedWorkspaceId}
-                workspace={workspace}
-              />
-            )}
-            rowHeight={activeWorkspaceRowHeight}
-            testId="active-workspace-list-virtual"
-          />
-        </div>
-        {selectedWorkspace && expandedWorkspaceId === selectedWorkspace.id ? (
-          <ProjectChats
-            activeRun={activeRun}
-            branchLabel={branchLabel}
-            busy={chatBusy}
-            conversations={conversations}
-            selectConversation={selectConversation}
-            selectedConversationId={selectedConversationId}
-          />
-        ) : null}
-      </>
+      <div
+        className="h-52 overflow-hidden"
+        aria-label="Projects"
+        data-testid="active-workspace-list"
+      >
+        <VirtualWorkspaceList
+          itemTestId="active-workspace-item"
+          items={workspaces}
+          renderItem={renderProject}
+          rowHeight={activeWorkspaceRowHeight}
+          testId="active-workspace-list-virtual"
+        />
+      </div>
     );
   }
 
@@ -331,67 +292,9 @@ function ProjectList({
   );
 }
 
-function ProjectWithChats({
-  activeRun,
-  branchLabel,
-  busy,
-  chatBusy,
-  closeWorkspace,
-  conversations,
-  createConversation,
-  expanded,
-  selectConversation,
-  selectWorkspace,
-  selected,
-  selectedConversationId,
-  setExpandedWorkspaceId,
-  workspace,
-}: {
-  activeRun: Run | null;
-  branchLabel: string;
-  busy: boolean;
-  chatBusy: boolean;
-  closeWorkspace: (id: string) => Promise<void>;
-  conversations: ConversationListItem[];
-  createConversation: (title?: string) => Promise<void>;
-  expanded: boolean;
-  selectConversation: (conversationId: string) => Promise<void>;
-  selectWorkspace: (id: string) => Promise<void>;
-  selected: boolean;
-  selectedConversationId: string;
-  setExpandedWorkspaceId: (next: string) => void;
-  workspace: WorkspaceSummary;
-}) {
-  return (
-    <div className="min-w-0">
-      <ProjectRow
-        busy={busy}
-        closeWorkspace={closeWorkspace}
-        createConversation={createConversation}
-        expanded={expanded}
-        selectWorkspace={selectWorkspace}
-        selected={selected}
-        setExpandedWorkspaceId={setExpandedWorkspaceId}
-        workspace={workspace}
-      />
-      {expanded && selected ? (
-        <ProjectChats
-          activeRun={activeRun}
-          branchLabel={branchLabel}
-          busy={chatBusy}
-          conversations={conversations}
-          selectConversation={selectConversation}
-          selectedConversationId={selectedConversationId}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 function ProjectRow({
   busy,
   closeWorkspace,
-  createConversation,
   expanded,
   selectWorkspace,
   selected,
@@ -400,20 +303,12 @@ function ProjectRow({
 }: {
   busy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
-  createConversation: (title?: string) => Promise<void>;
   expanded: boolean;
   selectWorkspace: (id: string) => Promise<void>;
   selected: boolean;
   setExpandedWorkspaceId: (next: string) => void;
   workspace: WorkspaceSummary;
 }) {
-  async function createProjectConversation() {
-    if (!selected) {
-      await selectWorkspace(workspace.id);
-    }
-    await createConversation();
-  }
-
   return (
     <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60">
       <button
@@ -444,13 +339,6 @@ function ProjectRow({
         </span>
       </button>
       <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-        <IconButton
-          disabled={busy}
-          label={`New chat in ${workspace.displayName}`}
-          onClick={() => void createProjectConversation()}
-        >
-          <MessageSquarePlus className="h-3.5 w-3.5" />
-        </IconButton>
         <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
       </div>
     </div>
@@ -611,7 +499,77 @@ function ProjectMenuItem({
   );
 }
 
-function ProjectChats({
+function ChatsSection({
+  activeRun,
+  branchLabel,
+  busy,
+  conversations,
+  createConversation,
+  selectConversation,
+  selectedConversationId,
+  selectedWorkspaceId,
+}: {
+  activeRun: Run | null;
+  branchLabel: string;
+  busy: boolean;
+  conversations: ConversationListItem[];
+  createConversation: (title?: string) => Promise<void>;
+  selectConversation: (conversationId: string) => Promise<void>;
+  selectedConversationId: string;
+  selectedWorkspaceId: string;
+}) {
+  const hasWorkspace = selectedWorkspaceId !== "";
+
+  return (
+    <section className="mt-3 min-w-0" data-testid="standalone-chat-section">
+      <ChatsHeading
+        busy={busy || !hasWorkspace}
+        createConversation={createConversation}
+        hasWorkspace={hasWorkspace}
+      />
+      {hasWorkspace ? (
+        <ConversationList
+          activeRun={activeRun}
+          branchLabel={branchLabel}
+          busy={busy}
+          conversations={conversations}
+          selectConversation={selectConversation}
+          selectedConversationId={selectedConversationId}
+        />
+      ) : (
+        <div className="px-2 py-1 text-xs text-zinc-600">Open a project to start chats</div>
+      )}
+    </section>
+  );
+}
+
+function ChatsHeading({
+  busy,
+  createConversation,
+  hasWorkspace,
+}: {
+  busy: boolean;
+  createConversation: (title?: string) => Promise<void>;
+  hasWorkspace: boolean;
+}) {
+  return (
+    <div className="flex h-7 items-center justify-between gap-2 px-2 pb-1">
+      <h2 className="text-xs font-medium text-zinc-500">Chats</h2>
+      <button
+        aria-label="New chat"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+        disabled={busy}
+        onClick={() => void createConversation()}
+        title={hasWorkspace ? "New chat" : "Open a project to start chats"}
+        type="button"
+      >
+        <MessageSquarePlus className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function ConversationList({
   activeRun,
   branchLabel,
   busy,
@@ -640,11 +598,11 @@ function ProjectChats({
   );
 
   if (visibleConversations.length === 0) {
-    return <div className="py-1 pr-1 pl-7 text-xs text-zinc-600">No chats</div>;
+    return <div className="px-2 py-1 text-xs text-zinc-600">No chats</div>;
   }
 
   return (
-    <div className="grid py-0.5 pr-0.5 pl-6" data-testid="conversation-list">
+    <div className="grid py-0.5 pr-0.5" data-testid="conversation-list">
       {visibleConversations.map((item) => (
         <ConversationRow
           activeRun={activeRun}

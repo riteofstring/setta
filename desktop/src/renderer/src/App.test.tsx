@@ -119,7 +119,9 @@ describe("workspace renderer states", () => {
     expect(html).toContain("No branch");
     expect(html).toContain('title="/tmp/web"');
     expect(html).toContain('title="/tmp/api"');
-    expect(html).toContain("New chat in web");
+    expect(html).toContain('data-testid="standalone-chat-section"');
+    expect(html).toContain("Chats");
+    expect(html).toContain('aria-label="New chat"');
     expect(html).toContain("Search");
     expect(html).toContain("More options for web");
     expect(html).toContain('data-testid="active-workspace-list"');
