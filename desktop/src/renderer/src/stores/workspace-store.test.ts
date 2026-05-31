@@ -330,7 +330,7 @@ function emptyRun() {
     completedAt: "",
     conversationId: "conversation_test",
     error: "",
-    harness: "codex",
+    harness: "setta",
     hasPendingApproval: false,
     id: "run_test",
     pendingApproval: {

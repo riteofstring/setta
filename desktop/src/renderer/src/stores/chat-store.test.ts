@@ -568,7 +568,7 @@ function testRun(status: string): Run {
     completedAt: status === "running" ? "" : "2026-05-29T20:01:00Z",
     conversationId: "conversation_api",
     error: "",
-    harness: "codex",
+    harness: "setta",
     hasPendingApproval: false,
     id: "run_api",
     pendingApproval: {

@@ -171,7 +171,7 @@ func TestServiceSurfacesAndResolvesApprovalRequests(t *testing.T) {
 	approval := ApprovalRequest{
 		Kind:       ApprovalKindCommand,
 		Title:      "Run command",
-		Body:       "Codex wants to run a command",
+		Body:       "Setta wants to run a command",
 		Command:    "go test ./...",
 		Options:    []string{},
 		FilePath:   "",

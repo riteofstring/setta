@@ -276,7 +276,7 @@ func (service *Service) persistTurnStartLocked(workspaceID string, conversationI
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
-	if err := service.traceLocked(workspaceID, run.ID, "turn_started", "Codex turn started"); err != nil {
+	if err := service.traceLocked(workspaceID, run.ID, "turn_started", "Assistant turn started"); err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
 	if err := service.publishTurnStartEventsLocked(workspaceID, conversationID, userMessage, assistantMessage, run); err != nil {
@@ -813,7 +813,7 @@ func (service *Service) linkThread(workspaceID string, conversationID string, ru
 	if err := service.store.SaveConversation(conversation); err != nil {
 		return err
 	}
-	if err := service.traceLocked(workspaceID, runID, "codex_thread_ref_linked", "Codex thread reference linked"); err != nil {
+	if err := service.traceLocked(workspaceID, runID, "codex_thread_ref_linked", "Thread reference linked"); err != nil {
 		return err
 	}
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)

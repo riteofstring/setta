@@ -1,18 +1,30 @@
-import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
-import { FolderOpen, MessageSquarePlus, Plus, Trash2, X } from "lucide-react";
+import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/backend";
+import {
+  Circle,
+  Clock3,
+  FolderClosed,
+  FolderOpen,
+  FolderPlus,
+  LoaderCircle,
+  PenLine,
+  Plug,
+  Trash2,
+  Workflow,
+  X,
+} from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
-import { AccordionSection } from "./ui/accordion";
-import { Button } from "./ui/button";
 
-const activeWorkspaceRowHeight = 34;
-const recentWorkspaceRowHeight = 36;
+const activeWorkspaceRowHeight = 28;
+const recentWorkspaceRowHeight = 28;
 const chatHistoryLimit = 80;
+const directProjectRenderLimit = 120;
 const workspaceListOverscan = 6;
 
 interface WorkspaceSidebarProps {
+  activeRun: Run | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
   chatBusy: boolean;
@@ -42,6 +54,7 @@ interface VirtualWorkspaceListProps {
 }
 
 export function WorkspaceSidebar({
+  activeRun,
   activeWorkspaces,
   busy,
   chatBusy,
@@ -56,194 +69,323 @@ export function WorkspaceSidebar({
   selectedConversationId,
   selectedWorkspaceId,
 }: WorkspaceSidebarProps) {
+  const [expandedWorkspaceId, setExpandedWorkspaceId] = useState(selectedWorkspaceId);
   const activeWorkspaceIds = useMemo(
     () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
     [activeWorkspaces],
   );
-  const selectedWorkspace = useMemo(
-    () => activeWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null,
-    [activeWorkspaces, selectedWorkspaceId],
-  );
-  const otherWorkspaces = useMemo(
-    () => activeWorkspaces.filter((workspace) => workspace.id !== selectedWorkspaceId),
-    [activeWorkspaces, selectedWorkspaceId],
+  const inactiveRecentWorkspaces = useMemo(
+    () => recentWorkspaces.filter((workspace) => !activeWorkspaceIds.has(workspace.id)),
+    [activeWorkspaceIds, recentWorkspaces],
   );
 
+  useEffect(() => {
+    if (selectedWorkspaceId) {
+      setExpandedWorkspaceId(selectedWorkspaceId);
+    }
+  }, [selectedWorkspaceId]);
+
   return (
-    <aside className="flex min-h-0 w-full min-w-0 flex-col border-r border-zinc-800 bg-zinc-900 text-zinc-100">
-      <div className="flex h-8 shrink-0 items-center justify-between gap-2 px-2">
-        <h2 className="text-[11px] font-semibold tracking-normal text-zinc-500 uppercase">
-          Projects
-        </h2>
-        <Button
-          aria-label="Open workspace folder"
-          className="h-6 border-transparent bg-transparent px-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-          disabled={busy}
-          onClick={() => void openLocalFolder()}
-          title="Open workspace folder"
-        >
-          <FolderOpen className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden px-1.5 pb-2">
-        <CurrentWorkspaceAccordion
-          busy={busy}
-          chatBusy={chatBusy}
-          conversations={conversations}
-          createConversation={createConversation}
-          openLocalFolder={openLocalFolder}
-          selectConversation={selectConversation}
-          selectedConversationId={selectedConversationId}
-          selectedWorkspace={selectedWorkspace}
-        />
-        <WorkspaceList
-          busy={busy}
-          closeWorkspace={closeWorkspace}
-          selectWorkspace={selectWorkspace}
-          visibleWorkspaces={otherWorkspaces}
-        />
-        <RecentWorkspaceList
-          activeWorkspaceIds={activeWorkspaceIds}
-          busy={busy}
-          recentWorkspaces={recentWorkspaces}
-          removeRecent={removeRecent}
-        />
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 pt-10 text-zinc-100">
+      <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-3">
+        <SidebarNav busy={busy || chatBusy} createConversation={createConversation} />
+        <section className="mt-4 min-w-0">
+          <ProjectHeading busy={busy} openLocalFolder={openLocalFolder} />
+          {activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0 ? (
+            <p className="px-2 py-1 text-xs text-zinc-500">No projects</p>
+          ) : null}
+          <ProjectList
+            activeRun={activeRun}
+            busy={busy}
+            chatBusy={chatBusy}
+            closeWorkspace={closeWorkspace}
+            conversations={conversations}
+            expandedWorkspaceId={expandedWorkspaceId}
+            selectConversation={selectConversation}
+            selectWorkspace={selectWorkspace}
+            selectedConversationId={selectedConversationId}
+            selectedWorkspaceId={selectedWorkspaceId}
+            setExpandedWorkspaceId={setExpandedWorkspaceId}
+            workspaces={activeWorkspaces}
+          />
+          <RecentProjectList
+            busy={busy}
+            recentWorkspaces={inactiveRecentWorkspaces}
+            removeRecent={removeRecent}
+          />
+        </section>
       </div>
     </aside>
   );
 }
 
-function CurrentWorkspaceAccordion({
+function SidebarNav({
   busy,
-  chatBusy,
-  conversations,
   createConversation,
-  openLocalFolder,
-  selectConversation,
-  selectedConversationId,
-  selectedWorkspace,
 }: {
   busy: boolean;
-  chatBusy: boolean;
-  conversations: ConversationListItem[];
   createConversation: (title?: string) => Promise<void>;
-  openLocalFolder: () => Promise<void>;
-  selectConversation: (conversationId: string) => Promise<void>;
-  selectedConversationId: string;
-  selectedWorkspace: WorkspaceSummary | null;
 }) {
-  if (!selectedWorkspace) {
+  return (
+    <nav className="grid gap-0.5" aria-label="Primary">
+      <SidebarNavButton
+        disabled={busy}
+        icon={<PenLine className="h-3.5 w-3.5" />}
+        label="New chat"
+        onClick={() => void createConversation()}
+      />
+      <SidebarNavButton icon={<Plug className="h-3.5 w-3.5" />} label="Plugins" />
+      <SidebarNavButton icon={<Clock3 className="h-3.5 w-3.5" />} label="Automations" />
+    </nav>
+  );
+}
+
+function SidebarNavButton({
+  disabled = false,
+  icon,
+  label,
+  onClick,
+}: {
+  disabled?: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      className="flex h-7 w-full min-w-0 items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800/70 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="shrink-0 text-zinc-300">{icon}</span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function ProjectHeading({
+  busy,
+  openLocalFolder,
+}: {
+  busy: boolean;
+  openLocalFolder: () => Promise<void>;
+}) {
+  return (
+    <div className="flex h-7 items-center justify-between gap-2 px-2 pb-1">
+      <h2 className="text-xs font-medium text-zinc-500">Projects</h2>
+      <button
+        aria-label="Open project folder"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+        disabled={busy}
+        onClick={() => void openLocalFolder()}
+        title="Open project folder"
+        type="button"
+      >
+        <FolderPlus className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function ProjectList({
+  activeRun,
+  busy,
+  chatBusy,
+  closeWorkspace,
+  conversations,
+  expandedWorkspaceId,
+  selectConversation,
+  selectWorkspace,
+  selectedConversationId,
+  selectedWorkspaceId,
+  setExpandedWorkspaceId,
+  workspaces,
+}: {
+  activeRun: Run | null;
+  busy: boolean;
+  chatBusy: boolean;
+  closeWorkspace: (id: string) => Promise<void>;
+  conversations: ConversationListItem[];
+  expandedWorkspaceId: string;
+  selectConversation: (conversationId: string) => Promise<void>;
+  selectWorkspace: (id: string) => Promise<void>;
+  selectedConversationId: string;
+  selectedWorkspaceId: string;
+  setExpandedWorkspaceId: (next: string) => void;
+  workspaces: WorkspaceSummary[];
+}) {
+  if (workspaces.length === 0) {
+    return null;
+  }
+
+  const renderProject = (workspace: WorkspaceSummary) => (
+    <ProjectWithChats
+      activeRun={activeRun}
+      busy={busy}
+      chatBusy={chatBusy}
+      closeWorkspace={closeWorkspace}
+      conversations={conversations}
+      expanded={expandedWorkspaceId === workspace.id}
+      selectConversation={selectConversation}
+      selectWorkspace={selectWorkspace}
+      selected={workspace.id === selectedWorkspaceId}
+      selectedConversationId={selectedConversationId}
+      setExpandedWorkspaceId={setExpandedWorkspaceId}
+      workspace={workspace}
+    />
+  );
+
+  if (workspaces.length > directProjectRenderLimit) {
+    const selectedWorkspace = workspaces.find((workspace) => workspace.id === selectedWorkspaceId);
     return (
-      <AccordionSection defaultOpen title="Current project">
-        <div className="py-1.5">
-          <p className="text-xs text-zinc-500">No active workspaces</p>
-          <Button
-            className="mt-2 h-7 border-zinc-700 bg-zinc-800 px-2 text-xs text-zinc-100 hover:bg-zinc-700"
-            disabled={busy}
-            onClick={() => void openLocalFolder()}
-            variant="primary"
-          >
-            <FolderOpen className="h-3.5 w-3.5" />
-            Open
-          </Button>
+      <>
+        <div
+          className="h-52 overflow-hidden"
+          aria-label="Projects"
+          data-testid="active-workspace-list"
+        >
+          <VirtualWorkspaceList
+            itemTestId="active-workspace-item"
+            items={workspaces}
+            renderItem={(workspace) => (
+              <ProjectRow
+                busy={busy}
+                closeWorkspace={closeWorkspace}
+                expanded={expandedWorkspaceId === workspace.id}
+                selectWorkspace={selectWorkspace}
+                selected={workspace.id === selectedWorkspaceId}
+                setExpandedWorkspaceId={setExpandedWorkspaceId}
+                workspace={workspace}
+              />
+            )}
+            rowHeight={activeWorkspaceRowHeight}
+            testId="active-workspace-list-virtual"
+          />
         </div>
-      </AccordionSection>
+        {selectedWorkspace && expandedWorkspaceId === selectedWorkspace.id ? (
+          <ProjectChats
+            activeRun={activeRun}
+            busy={chatBusy}
+            conversations={conversations}
+            selectConversation={selectConversation}
+            selectedConversationId={selectedConversationId}
+          />
+        ) : null}
+      </>
     );
   }
 
   return (
-    <AccordionSection
-      className="shrink-0"
-      defaultOpen
-      key={selectedWorkspace.id}
-      subtitle={selectedWorkspace.rootPath}
-      title={selectedWorkspace.displayName}
-    >
-      <ProjectChatHistory
-        busy={chatBusy}
-        conversations={conversations}
-        createConversation={createConversation}
-        selectConversation={selectConversation}
-        selectedConversationId={selectedConversationId}
-      />
-    </AccordionSection>
+    <div className="grid" aria-label="Projects" data-testid="active-workspace-list">
+      {workspaces.map((workspace) => (
+        <div data-testid="active-workspace-item" key={workspace.id}>
+          {renderProject(workspace)}
+        </div>
+      ))}
+    </div>
   );
 }
 
-function WorkspaceList({
+function ProjectWithChats({
+  activeRun,
   busy,
+  chatBusy,
   closeWorkspace,
+  conversations,
+  expanded,
+  selectConversation,
   selectWorkspace,
-  visibleWorkspaces,
+  selected,
+  selectedConversationId,
+  setExpandedWorkspaceId,
+  workspace,
 }: {
+  activeRun: Run | null;
   busy: boolean;
+  chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
+  conversations: ConversationListItem[];
+  expanded: boolean;
+  selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
-  visibleWorkspaces: WorkspaceSummary[];
+  selected: boolean;
+  selectedConversationId: string;
+  setExpandedWorkspaceId: (next: string) => void;
+  workspace: WorkspaceSummary;
 }) {
-  if (visibleWorkspaces.length === 0) {
-    return null;
-  }
-
   return (
-    <AccordionSection
-      className="min-h-0 shrink-0"
-      contentClassName="min-h-0"
-      defaultOpen
-      title={`Other projects (${visibleWorkspaces.length})`}
-    >
-      <div
-        className="overflow-hidden"
-        aria-label="Projects"
-        style={{ height: Math.min(128, visibleWorkspaces.length * activeWorkspaceRowHeight) }}
-      >
-        <VirtualWorkspaceList
-          itemTestId="active-workspace-item"
-          items={visibleWorkspaces}
-          renderItem={(workspace) => (
-            <ActiveWorkspaceRow
-              busy={busy}
-              closeWorkspace={closeWorkspace}
-              selectWorkspace={selectWorkspace}
-              workspace={workspace}
-            />
-          )}
-          rowHeight={activeWorkspaceRowHeight}
-          testId="active-workspace-list"
+    <div className="min-w-0">
+      <ProjectRow
+        busy={busy}
+        closeWorkspace={closeWorkspace}
+        expanded={expanded}
+        selectWorkspace={selectWorkspace}
+        selected={selected}
+        setExpandedWorkspaceId={setExpandedWorkspaceId}
+        workspace={workspace}
+      />
+      {expanded && selected ? (
+        <ProjectChats
+          activeRun={activeRun}
+          busy={chatBusy}
+          conversations={conversations}
+          selectConversation={selectConversation}
+          selectedConversationId={selectedConversationId}
         />
-      </div>
-    </AccordionSection>
+      ) : null}
+    </div>
   );
 }
 
-function ActiveWorkspaceRow({
+function ProjectRow({
   busy,
   closeWorkspace,
+  expanded,
   selectWorkspace,
+  selected,
+  setExpandedWorkspaceId,
   workspace,
 }: {
   busy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
+  expanded: boolean;
   selectWorkspace: (id: string) => Promise<void>;
+  selected: boolean;
+  setExpandedWorkspaceId: (next: string) => void;
   workspace: WorkspaceSummary;
 }) {
   return (
-    <div className="group grid h-8 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded px-1 hover:bg-zinc-800/70">
+    <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60">
       <button
-        className="min-w-0 text-left"
+        className="flex min-w-0 items-center gap-2 px-2 text-left"
         data-testid="active-workspace-select"
         disabled={busy}
-        onClick={() => void selectWorkspace(workspace.id)}
+        onClick={() => {
+          setExpandedWorkspaceId(expanded ? "" : workspace.id);
+          if (!selected) {
+            void selectWorkspace(workspace.id);
+          }
+        }}
+        title={workspace.rootPath}
         type="button"
       >
-        <span className="block truncate text-xs font-medium text-zinc-300">
+        {expanded ? (
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+        ) : (
+          <FolderClosed className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+        )}
+        <span
+          className={cn(
+            "truncate text-xs",
+            selected ? "font-medium text-zinc-100" : "text-zinc-400",
+          )}
+        >
           {workspace.displayName}
-        </span>
-        <span className="block truncate text-[11px] leading-none text-zinc-600">
-          {workspace.rootPath}
         </span>
       </button>
       <IconButton
+        className="mr-0.5 opacity-0 group-hover:opacity-100"
         disabled={busy}
         label="Close workspace"
         onClick={() => void closeWorkspace(workspace.id)}
@@ -254,16 +396,16 @@ function ActiveWorkspaceRow({
   );
 }
 
-function ProjectChatHistory({
+function ProjectChats({
+  activeRun,
   busy,
   conversations,
-  createConversation,
   selectConversation,
   selectedConversationId,
 }: {
+  activeRun: Run | null;
   busy: boolean;
   conversations: ConversationListItem[];
-  createConversation: (title?: string) => Promise<void>;
   selectConversation: (conversationId: string) => Promise<void>;
   selectedConversationId: string;
 }) {
@@ -280,121 +422,120 @@ function ProjectChatHistory({
     [conversations, effectiveLimit],
   );
 
+  if (visibleConversations.length === 0) {
+    return <div className="py-1 pr-1 pl-7 text-xs text-zinc-600">No chats</div>;
+  }
+
   return (
-    <div className="min-w-0 pb-1">
-      <div className="flex h-6 items-center justify-between gap-2">
-        <span className="text-[11px] font-medium text-zinc-600 uppercase">Chats</span>
-        <IconButton disabled={busy} label="New chat" onClick={() => void createConversation()}>
-          <Plus className="h-3.5 w-3.5" />
-        </IconButton>
-      </div>
-      {visibleConversations.length === 0 ? (
-        <div className="flex min-h-12 items-center gap-2 text-xs text-zinc-500">
-          <MessageSquarePlus className="h-4 w-4 shrink-0" />
-          <span>No chats yet</span>
-        </div>
-      ) : (
-        <div className="max-h-72 overflow-y-auto" data-testid="conversation-list">
-          {visibleConversations.map((item) => (
-            <button
-              className={cn(
-                "mb-0.5 block w-full rounded px-1.5 py-1 text-left",
-                item.conversation.id === selectedConversationId
-                  ? "bg-zinc-800 text-zinc-100"
-                  : "text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-200",
-              )}
-              data-testid="conversation-list-item"
-              disabled={busy}
-              key={item.conversation.id}
-              onClick={() => void selectConversation(item.conversation.id)}
-              type="button"
-            >
-              <span className="block truncate text-xs font-medium">{item.conversation.title}</span>
-              <span className="block text-[11px] leading-none opacity-60">
-                {item.messageCount} messages
-              </span>
-            </button>
-          ))}
-          {visibleConversations.length < conversations.length ? (
-            <Button
-              className="mt-1 h-7 w-full border-transparent bg-transparent text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-              onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}
-              variant="secondary"
-            >
-              More chats
-            </Button>
-          ) : null}
-        </div>
-      )}
+    <div className="grid py-0.5 pr-0.5 pl-6" data-testid="conversation-list">
+      {visibleConversations.map((item) => (
+        <ConversationRow
+          activeRun={activeRun}
+          busy={busy}
+          item={item}
+          key={item.conversation.id}
+          selectConversation={selectConversation}
+          selected={item.conversation.id === selectedConversationId}
+        />
+      ))}
+      {visibleConversations.length < conversations.length ? (
+        <button
+          className="h-6 rounded-sm px-2 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
+          onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}
+          type="button"
+        >
+          More chats
+        </button>
+      ) : null}
     </div>
   );
 }
 
-function RecentWorkspaceList({
-  activeWorkspaceIds,
+function ConversationRow({
+  activeRun,
+  busy,
+  item,
+  selectConversation,
+  selected,
+}: {
+  activeRun: Run | null;
+  busy: boolean;
+  item: ConversationListItem;
+  selectConversation: (conversationId: string) => Promise<void>;
+  selected: boolean;
+}) {
+  const running =
+    item.activeRunId !== "" ||
+    (activeRun?.conversationId === item.conversation.id &&
+      (activeRun.status === "queued" || activeRun.status === "running"));
+
+  return (
+    <button
+      className={cn(
+        "grid h-7 w-full min-w-0 grid-cols-[10px_minmax(0,1fr)] items-center gap-1.5 rounded-sm px-2 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
+        selected ? "text-zinc-100" : "text-zinc-300",
+      )}
+      data-testid="conversation-list-item"
+      disabled={busy}
+      onClick={() => void selectConversation(item.conversation.id)}
+      type="button"
+    >
+      {running ? (
+        <LoaderCircle className="h-3 w-3 animate-spin text-zinc-300" />
+      ) : (
+        <Circle className="h-1.5 w-1.5 fill-zinc-500 text-zinc-500" />
+      )}
+      <span className="truncate text-xs">{item.conversation.title}</span>
+    </button>
+  );
+}
+
+function RecentProjectList({
   busy,
   recentWorkspaces,
   removeRecent,
 }: {
-  activeWorkspaceIds: Set<string>;
   busy: boolean;
   recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
 }) {
   if (recentWorkspaces.length === 0) {
-    return (
-      <AccordionSection defaultOpen title="Recent">
-        <p className="py-1.5 text-xs text-zinc-500">No recent workspaces</p>
-      </AccordionSection>
-    );
+    return null;
   }
 
   return (
-    <AccordionSection
-      className="flex min-h-0 flex-1 flex-col"
-      contentClassName="min-h-0 flex-1"
-      defaultOpen
-      title="Recent"
-    >
-      <div className="h-full min-h-0 overflow-hidden" aria-label="Recent workspaces">
-        <VirtualWorkspaceList
-          itemTestId="recent-workspace-item"
-          items={recentWorkspaces}
-          renderItem={(workspace) => (
-            <RecentWorkspaceRow
-              active={activeWorkspaceIds.has(workspace.id)}
-              busy={busy}
-              removeRecent={removeRecent}
-              workspace={workspace}
-            />
-          )}
-          rowHeight={recentWorkspaceRowHeight}
-          testId="recent-workspace-list"
-        />
-      </div>
-    </AccordionSection>
+    <div className="mt-2 h-36 min-h-0 overflow-hidden" aria-label="Recent projects">
+      <VirtualWorkspaceList
+        itemTestId="recent-workspace-item"
+        items={recentWorkspaces}
+        renderItem={(workspace) => (
+          <RecentWorkspaceRow busy={busy} removeRecent={removeRecent} workspace={workspace} />
+        )}
+        rowHeight={recentWorkspaceRowHeight}
+        testId="recent-workspace-list"
+      />
+    </div>
   );
 }
 
 function RecentWorkspaceRow({
-  active,
   busy,
   removeRecent,
   workspace,
 }: {
-  active: boolean;
   busy: boolean;
   removeRecent: (id: string) => Promise<void>;
   workspace: WorkspaceSummary;
 }) {
   return (
-    <div className="group grid h-8 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded px-1 hover:bg-zinc-800/70">
-      <div className="min-w-0">
-        <div className="truncate text-xs font-medium text-zinc-400">{workspace.displayName}</div>
-        <div className="truncate text-[11px] leading-none text-zinc-600">{workspace.rootPath}</div>
+    <div className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60">
+      <div className="flex min-w-0 items-center gap-2 px-2">
+        <Workflow className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        <span className="truncate text-xs text-zinc-500">{workspace.displayName}</span>
       </div>
       <IconButton
-        disabled={busy || active}
+        className="mr-0.5 opacity-0 group-hover:opacity-100"
+        disabled={busy}
         label="Remove recent workspace"
         onClick={() => void removeRecent(workspace.id)}
       >
@@ -501,11 +642,13 @@ function virtualRowStyle(index: number, rowHeight: number): CSSProperties {
 
 function IconButton({
   children,
+  className,
   disabled,
   label,
   onClick,
 }: {
   children: ReactNode;
+  className?: string;
   disabled: boolean;
   label: string;
   onClick: () => void;
@@ -513,7 +656,10 @@ function IconButton({
   return (
     <button
       aria-label={label}
-      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-zinc-500 opacity-70 hover:bg-zinc-800 hover:text-zinc-100 hover:opacity-100 disabled:pointer-events-none disabled:opacity-20"
+      className={cn(
+        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-20",
+        className,
+      )}
       disabled={disabled}
       onClick={onClick}
       title={label}

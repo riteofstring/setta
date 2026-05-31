@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Check,
   Copy,
+  Pencil,
   RotateCcw,
   Wrench,
   X,
@@ -14,6 +15,7 @@ import {
 import type { ReactNode } from "react";
 import { memo, useEffect, useRef, useState } from "react";
 
+import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { MarkdownText } from "./markdown-text";
@@ -87,7 +89,7 @@ export function ChatTranscript({
             </Button>
           </div>
         ) : null}
-        <div className="flex w-full min-w-0 flex-col gap-4">
+        <div className="flex w-full min-w-0 flex-col gap-5">
           {messages.length === 0 ? (
             <div className="py-16 text-center text-sm text-zinc-500" data-testid="empty-chat">
               Start a conversation for this workspace.
@@ -133,32 +135,92 @@ const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage 
     return <ToolMessage message={message} text={text} />;
   }
   return (
-    <article
-      className={
-        isUser ? "flex min-w-0 flex-col items-end gap-1" : "flex min-w-0 flex-col items-start gap-1"
-      }
-      data-testid="chat-message"
-    >
-      <div
-        className={
-          isUser
-            ? "max-w-[88%] overflow-hidden rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm leading-5 break-words text-zinc-50"
-            : "max-w-[88%] min-w-0 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm leading-5 text-zinc-200"
-        }
-      >
-        {isUser ? (
-          <div className="whitespace-pre-wrap">{text}</div>
-        ) : (
-          <MarkdownText text={text || (message.status === "streaming" ? "..." : "")} />
-        )}
-        {message.status === "error" || message.status === "cancelled" ? (
-          <div className="mt-3 text-xs font-medium text-zinc-500">{message.status}</div>
-        ) : null}
+    <article className={messageRowClass(isUser)} data-testid="chat-message">
+      <div className={messageActionsRowClass(isUser)}>
+        <MessageContent isUser={isUser} message={message} text={text} />
+        <MessageActions messageId={message.id} text={text} />
       </div>
       <time className="text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
     </article>
   );
 });
+
+function messageRowClass(isUser: boolean) {
+  return cn("group flex min-w-0 flex-col gap-1", isUser && "items-end");
+}
+
+function messageActionsRowClass(isUser: boolean) {
+  return cn("flex max-w-full min-w-0 items-start gap-2", isUser ? "flex-row-reverse" : "flex-row");
+}
+
+function MessageContent({
+  isUser,
+  message,
+  text,
+}: {
+  isUser: boolean;
+  message: ChatMessage;
+  text: string;
+}) {
+  if (isUser) {
+    return <UserMessageContent message={message} text={text} />;
+  }
+  return <AssistantMessageContent message={message} text={text} />;
+}
+
+function UserMessageContent({ message, text }: { message: ChatMessage; text: string }) {
+  return (
+    <div className="max-w-[82%] overflow-hidden rounded-lg bg-zinc-800 px-2.5 py-1.5 text-sm leading-5 break-words text-zinc-50">
+      <div className="whitespace-pre-wrap">{text}</div>
+      <MessageStatus status={message.status} />
+    </div>
+  );
+}
+
+function AssistantMessageContent({ message, text }: { message: ChatMessage; text: string }) {
+  return (
+    <div className="max-w-[88%] min-w-0 text-sm leading-6 text-zinc-200">
+      <MarkdownText text={text || (message.status === "streaming" ? "..." : "")} />
+      <MessageStatus status={message.status} />
+    </div>
+  );
+}
+
+function MessageStatus({ status }: { status: string }) {
+  if (status !== "error" && status !== "cancelled") {
+    return null;
+  }
+  return <div className="mt-2 text-xs font-medium text-zinc-500">{status}</div>;
+}
+
+function MessageActions({ messageId, text }: { messageId: string; text: string }) {
+  return (
+    <div className="flex shrink-0 items-center gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <button
+        aria-label="Copy message"
+        className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+        onClick={() => void navigator.clipboard.writeText(text)}
+        title="Copy message"
+        type="button"
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+      <button
+        aria-label="Edit message"
+        className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+        onClick={() => {
+          window.dispatchEvent(
+            new CustomEvent("setta:edit-message", { detail: { messageId, text } }),
+          );
+        }}
+        title="Edit message"
+        type="button"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
 
 function ToolMessage({ message, text }: { message: ChatMessage; text: string }) {
   return (

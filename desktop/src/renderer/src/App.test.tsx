@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
 import { ChatTranscript } from "./components/chat-transcript";
+import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 
 describe("workspace renderer states", () => {
@@ -10,6 +11,7 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <>
         <WorkspaceSidebar
+          activeRun={null}
           activeWorkspaces={[]}
           busy={false}
           chatBusy={false}
@@ -35,8 +37,7 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain("No workspace open");
-    expect(html).toContain("No active workspaces");
-    expect(html).toContain("No recent workspaces");
+    expect(html).toContain("No projects");
   });
 
   test("renders active selected and recent workspace state", () => {
@@ -52,9 +53,16 @@ describe("workspace renderer states", () => {
       lastOpenedAt: "2026-05-29T20:05:00Z",
       rootPath: "/tmp/web",
     };
+    const docs = {
+      displayName: "docs",
+      id: "workspace_docs",
+      lastOpenedAt: "2026-05-29T20:10:00Z",
+      rootPath: "/tmp/docs",
+    };
     const html = renderToString(
       <>
         <WorkspaceSidebar
+          activeRun={null}
           activeWorkspaces={[api, web]}
           busy={false}
           chatBusy={false}
@@ -77,7 +85,7 @@ describe("workspace renderer states", () => {
           ]}
           createConversation={async () => {}}
           openLocalFolder={async () => {}}
-          recentWorkspaces={[web, api]}
+          recentWorkspaces={[web, api, docs]}
           removeRecent={async () => {}}
           selectConversation={async () => {}}
           selectWorkspace={async () => {}}
@@ -97,6 +105,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("web");
     expect(html).toContain("/tmp/web");
     expect(html).toContain("Active");
+    expect(html).toContain("Web chat");
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('data-testid="recent-workspace-list"');
   });
@@ -127,6 +136,7 @@ describe("workspace renderer states", () => {
 
     const html = renderToString(
       <WorkspaceSidebar
+        activeRun={null}
         activeWorkspaces={workspaces}
         busy={false}
         chatBusy={false}
@@ -192,12 +202,12 @@ describe("chat renderer states", () => {
           completedAt: "",
           conversationId: "conversation_api",
           error: "",
-          harness: "codex",
+          harness: "setta",
           hasPendingApproval: true,
           id: "run_api",
           pendingApproval: {
             approved: false,
-            body: "Codex wants permission",
+            body: "Setta wants permission",
             command: "go test ./...",
             createdAt: "2026-05-29T20:00:00Z",
             filePath: "",
@@ -240,7 +250,7 @@ describe("chat renderer states", () => {
           completedAt: "",
           conversationId: "conversation_api",
           error: "",
-          harness: "codex",
+          harness: "setta",
           hasPendingApproval: true,
           id: "run_api",
           pendingApproval: {
@@ -253,7 +263,7 @@ describe("chat renderer states", () => {
             kind: "user_input",
             options: ["main", "release"],
             permission: "",
-            question: "Which branch should Codex use?",
+            question: "Which branch should Setta use?",
             questions: [
               {
                 header: "Branch",
@@ -261,7 +271,7 @@ describe("chat renderer states", () => {
                 isOther: false,
                 isSecret: false,
                 options: ["main", "release"],
-                question: "Which branch should Codex use?",
+                question: "Which branch should Setta use?",
               },
               {
                 header: "Mode",
@@ -292,11 +302,27 @@ describe("chat renderer states", () => {
       />,
     );
 
-    expect(html).toContain("Which branch should Codex use?");
+    expect(html).toContain("Which branch should Setta use?");
     expect(html).toContain("main");
     expect(html).toContain("release");
     expect(html).toContain("Answer");
     expect(html).toContain("Cancel");
+  });
+});
+
+describe("settings renderer states", () => {
+  test("renders compact settings sections", () => {
+    const html = renderToString(<SettingsPanel />);
+
+    expect(html).toContain("Settings");
+    expect(html).toContain("Shell");
+    expect(html).toContain("Chat");
+    expect(html).toContain("Projects");
+    expect(html).toContain("Views");
+    expect(html).toContain("Integrations");
+    expect(html).toContain("Shortcuts");
+    expect(html).toContain("Storage");
+    expect(html).toContain("Native title bar");
   });
 });
 
