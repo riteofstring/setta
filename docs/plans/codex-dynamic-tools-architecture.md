@@ -195,3 +195,15 @@ do not treat the skip as proof of provider integration.
   permission and approval behavior is explicit.
 - Treat Codex `dynamicTools` as experimental app-server API. The adapter should
   be narrow enough to update if the upstream protocol changes.
+
+## Reference Sources
+
+The Codex source repository is cloned locally at:
+
+```text
+/Users/kevin/Documents/AppDevelopment/reference_repos/codex
+```
+
+Use that clone to verify current app-server protocol behavior, dynamic tool
+validation, deferred tool exposure, `tool_search` behavior, and upstream tests
+before making protocol-sensitive changes.
