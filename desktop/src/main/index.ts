@@ -1,7 +1,10 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from "electron";
+import { execFile } from "node:child_process";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
-import { homedir } from "node:os";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { promisify } from "node:util";
 
 import { createBackendClient, type BackendClient, type ChatEvent } from "@generated/backend";
 import { handleIpc, ipcEvents } from "@shared/ipc";
@@ -20,6 +23,8 @@ let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
+
+const execFileAsync = promisify(execFile);
 
 function desktopRoot() {
   return process.cwd();
@@ -150,14 +155,7 @@ function registerIpc() {
     ipcMain,
     "appInstalledEditors",
     () => {
-      return listInstalledEditorApps(async (iconPath, appPath) => {
-        const nativeIcon = nativeImage.createFromPath(iconPath);
-        if (!nativeIcon.isEmpty()) {
-          return nativeIcon.resize({ height: 32, width: 32 }).toDataURL();
-        }
-        const icon = await app.getFileIcon(appPath, { size: "large" });
-        return icon.toDataURL();
-      });
+      return listInstalledEditorApps(readEditorIconDataURL);
     },
     ipcObserver,
   );
@@ -341,6 +339,33 @@ function requireBackendClient(): BackendClient {
     throw new Error(backendStartupError ?? "backend is not running");
   }
   return createBackendClient(backend.url, recorder?.createBackendFetch(fetch) ?? fetch);
+}
+
+async function readEditorIconDataURL(iconPath: string, appPath: string) {
+  if (process.platform === "darwin" && iconPath.endsWith(".icns")) {
+    return convertIcnsToDataURL(iconPath);
+  }
+  const icon = await app.getFileIcon(appPath, { size: "large" });
+  return icon.toDataURL();
+}
+
+async function convertIcnsToDataURL(iconPath: string) {
+  const dir = await mkdtemp(join(tmpdir(), "setta-editor-icon-"));
+  const outputPath = join(dir, "icon.png");
+  try {
+    await execFileAsync(
+      "/usr/bin/sips",
+      ["-s", "format", "png", "-Z", "32", iconPath, "--out", outputPath],
+      {
+        timeout: 5_000,
+        windowsHide: true,
+      },
+    );
+    const bytes = await readFile(outputPath);
+    return `data:image/png;base64,${bytes.toString("base64")}`;
+  } finally {
+    await rm(dir, { force: true, recursive: true });
+  }
 }
 
 async function stopBackend() {
