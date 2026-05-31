@@ -172,7 +172,7 @@ export function WorkspacePanePanel({
   tabs: WorkspacePaneTab[];
 }) {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
-  const paneLabel = slot === "right" ? "Right pane" : "Bottom pane";
+  const paneLabel = slot === "right" ? "Workspace side pane" : "Workspace bottom pane";
   return (
     <section
       aria-label={paneLabel}
@@ -183,7 +183,7 @@ export function WorkspacePanePanel({
       }
       data-testid={`${slot}-workspace-pane`}
     >
-      <header className="app-no-drag flex h-9 shrink-0 items-center gap-1 border-b border-zinc-800 px-2">
+      <header className="app-no-drag flex h-7 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5">
         {tabs.length > 0 ? (
           <nav className="flex min-w-0 flex-1 items-center gap-1" aria-label={`${paneLabel} tabs`}>
             {tabs.map((tab) => (
@@ -197,7 +197,7 @@ export function WorkspacePanePanel({
             ))}
           </nav>
         ) : (
-          <span className="min-w-0 flex-1 truncate text-xs text-zinc-500">{paneLabel}</span>
+          <span className="min-w-0 flex-1" />
         )}
         {tabs.length > 0 ? (
           <div className="flex items-center gap-1">
@@ -238,8 +238,8 @@ function WorkspacePaneTabButton({
     <div
       className={
         active
-          ? "group flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-sm bg-zinc-800 px-2 text-xs text-zinc-100"
-          : "group flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-sm px-2 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+          ? "group flex h-6 min-w-0 max-w-40 items-center gap-1 rounded-sm bg-zinc-800 px-1.5 text-xs text-zinc-100"
+          : "group flex h-6 min-w-0 max-w-40 items-center gap-1 rounded-sm px-1.5 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
       }
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
@@ -275,7 +275,7 @@ function WorkspacePaneActionButton({
       className={
         showLabel
           ? "inline-flex h-6 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
       }
       onClick={onClick}
       title={`New ${label}`}

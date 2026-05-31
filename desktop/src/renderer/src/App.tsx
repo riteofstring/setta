@@ -153,7 +153,7 @@ function ProjectPane({
       onWidthChange={setWidth}
       width={width}
     >
-      <div className="relative h-full">
+      <div className="h-full">
         <WorkspaceSidebar
           activeRun={chat.activeRun}
           activeWorkspaces={workspace.activeWorkspaces}
@@ -171,10 +171,6 @@ function ProjectPane({
           selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectedWorkspaceId={workspace.selectedWorkspaceId}
           sidebarWidth={width}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 right-0 h-[calc(100%-4rem)] min-h-24 w-px -translate-y-1/2 bg-zinc-800/80"
         />
       </div>
     </ResizablePane>
@@ -390,11 +386,11 @@ function FloatingPaneControls({
   return (
     <div
       className={cn(
-        "app-no-drag pointer-events-none fixed top-2 z-50 flex items-center gap-1",
+        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-400",
         platform === "darwin" ? "right-2" : "right-36",
       )}
     >
-      <div className="pointer-events-auto flex items-center gap-1 rounded-sm border border-zinc-800/90 bg-zinc-900/75 p-0.5 text-zinc-400 shadow-xl shadow-black/30 backdrop-blur">
+      <div className="pointer-events-auto flex items-center gap-1">
         <EditorPicker rootPath={rootPath} />
         <ShellPaneToggle
           active={projectPaneOpen}

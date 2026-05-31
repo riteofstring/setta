@@ -196,7 +196,7 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain('data-testid="right-workspace-pane"');
-    expect(html).toContain("Right pane");
+    expect(html).not.toContain("Right pane");
     expect(html).toContain("Canvas");
     expect(html).toContain("Terminal");
     expect(html).toContain("Browser");
