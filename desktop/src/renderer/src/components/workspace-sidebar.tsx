@@ -29,6 +29,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { type WorkspaceGitState, useWorkspaceGitInfo } from "../hooks/use-workspace-git-info";
 import { cn } from "../lib/utils";
+import {
+  defaultSidebarSections,
+  SidebarAccordionSection,
+  type SidebarSectionId,
+  type SidebarSectionState,
+} from "./sidebar-accordion";
 
 const activeWorkspaceRowHeight = 28;
 const recentWorkspaceRowHeight = 28;
@@ -106,12 +112,28 @@ export function WorkspaceSidebar({
     activeWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null;
   const selectedGit = useWorkspaceGitInfo(selectedWorkspace?.rootPath ?? null);
   const selectedBranchLabel = branchHoverLabel(selectedGit);
+  const [sections, setSections] =
+    useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
 
   useEffect(() => {
     if (selectedWorkspaceId) {
       setExpandedWorkspaceId(selectedWorkspaceId);
     }
   }, [selectedWorkspaceId]);
+
+  function setSectionOpen(sectionId: SidebarSectionId, open: boolean) {
+    setSections((current) => ({
+      ...current,
+      [sectionId]: { ...current[sectionId], open },
+    }));
+  }
+
+  function setSectionHeight(sectionId: SidebarSectionId, height: number) {
+    setSections((current) => ({
+      ...current,
+      [sectionId]: { ...current[sectionId], height },
+    }));
+  }
 
   return (
     <aside
@@ -127,36 +149,82 @@ export function WorkspaceSidebar({
           hasWorkspace={selectedWorkspaceId !== ""}
           openSearch={openSearch}
         />
-        <section className="mt-4 min-w-0">
-          <ProjectHeading busy={busy} openLocalFolder={openLocalFolder} />
-          {activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0 ? (
-            <p className="px-2 py-1 text-xs text-zinc-500">No projects</p>
-          ) : null}
-          <ProjectList
-            activeRun={activeRun}
-            branchLabel={selectedBranchLabel}
-            busy={busy}
-            chatBusy={chatBusy}
-            closeWorkspace={closeWorkspace}
-            conversations={conversations}
-            createWorkspaceConversation={createWorkspaceConversation}
-            expandedWorkspaceId={expandedWorkspaceId}
-            selectConversation={selectConversation}
-            selectWorkspace={selectWorkspace}
-            selectedConversationId={selectedConversationId}
-            selectedWorkspaceId={selectedWorkspaceId}
-            setExpandedWorkspaceId={setExpandedWorkspaceId}
-            workspaces={activeWorkspaces}
-          />
-          <RecentProjectList
-            busy={busy}
-            recentWorkspaces={inactiveRecentWorkspaces}
-            removeRecent={removeRecent}
-          />
-        </section>
-        <UnorganizedChatsSection />
-        <NotesSection />
-        <MemoryIntegrationsSection />
+        <div className="mt-3 grid gap-1">
+          <SidebarAccordionSection
+            action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
+            height={sections.projects.height}
+            onHeightChange={(height) => setSectionHeight("projects", height)}
+            onOpenChange={(open) => setSectionOpen("projects", open)}
+            open={sections.projects.open}
+            testId="projects-section"
+            title="Projects"
+          >
+            {activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0 ? (
+              <p className="px-2 py-1 text-xs text-zinc-500">No projects</p>
+            ) : null}
+            <ProjectList
+              activeRun={activeRun}
+              branchLabel={selectedBranchLabel}
+              busy={busy}
+              chatBusy={chatBusy}
+              closeWorkspace={closeWorkspace}
+              conversations={conversations}
+              createWorkspaceConversation={createWorkspaceConversation}
+              expandedWorkspaceId={expandedWorkspaceId}
+              selectConversation={selectConversation}
+              selectWorkspace={selectWorkspace}
+              selectedConversationId={selectedConversationId}
+              selectedWorkspaceId={selectedWorkspaceId}
+              setExpandedWorkspaceId={setExpandedWorkspaceId}
+              workspaces={activeWorkspaces}
+            />
+            <RecentProjectList
+              busy={busy}
+              recentWorkspaces={inactiveRecentWorkspaces}
+              removeRecent={removeRecent}
+            />
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            height={sections.chats.height}
+            onHeightChange={(height) => setSectionHeight("chats", height)}
+            onOpenChange={(open) => setSectionOpen("chats", open)}
+            open={sections.chats.open}
+            testId="standalone-chat-section"
+            title="Chats"
+          >
+            <UnorganizedChatsContent />
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            height={sections.notes.height}
+            onHeightChange={(height) => setSectionHeight("notes", height)}
+            onOpenChange={(open) => setSectionOpen("notes", open)}
+            open={sections.notes.open}
+            testId="notes-section"
+            title="Notes"
+          >
+            <NotesContent />
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            height={sections.memories.height}
+            onHeightChange={(height) => setSectionHeight("memories", height)}
+            onOpenChange={(open) => setSectionOpen("memories", open)}
+            open={sections.memories.open}
+            testId="memory-integrations-section"
+            title="DB / Memories"
+          >
+            <MemoryIntegrationsContent />
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            height={sections.rules.height}
+            onHeightChange={(height) => setSectionHeight("rules", height)}
+            onOpenChange={(open) => setSectionOpen("rules", open)}
+            open={sections.rules.open}
+            testId="rules-section"
+            title="Rules"
+          >
+            <RulesContent />
+          </SidebarAccordionSection>
+        </div>
       </div>
     </aside>
   );
@@ -221,7 +289,7 @@ function SidebarNavButton({
   );
 }
 
-function ProjectHeading({
+function ProjectFolderButton({
   busy,
   openLocalFolder,
 }: {
@@ -229,8 +297,7 @@ function ProjectHeading({
   openLocalFolder: () => Promise<void>;
 }) {
   return (
-    <div className="flex h-7 items-center justify-between gap-2 px-2 pb-1">
-      <h2 className="text-xs font-medium text-zinc-500">Projects</h2>
+    <div className="shrink-0">
       <button
         aria-label="Open project folder"
         className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
@@ -584,56 +651,50 @@ function ProjectMenuItem({
   );
 }
 
-function UnorganizedChatsSection() {
+function UnorganizedChatsContent() {
   return (
-    <section className="mt-3 min-w-0" data-testid="standalone-chat-section">
-      <div className="flex h-7 items-center justify-between gap-2 px-2 pb-1">
-        <h2 className="text-xs font-medium text-zinc-500">Chats</h2>
-        <button
-          aria-label="New unorganized chat"
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
-          disabled
-          title="Unorganized chats are not available yet"
-          type="button"
-        >
-          <MessageSquarePlus className="h-3.5 w-3.5" />
-        </button>
-      </div>
+    <div className="min-w-0">
+      <button
+        aria-label="New unorganized chat"
+        className="ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
+        disabled
+        title="Unorganized chats are not available yet"
+        type="button"
+      >
+        <MessageSquarePlus className="h-3.5 w-3.5" />
+      </button>
       <div className="px-2 py-1 text-xs text-zinc-600">No unorganized chats</div>
-    </section>
+    </div>
   );
 }
 
 // Notes are app-local Markdown documents for now. Keep the boundary narrow so a
 // future Markdown/WYSIWYG editor can replace the empty state without changing
 // project chat or external memory integration contracts.
-function NotesSection() {
+function NotesContent() {
   return (
-    <section className="mt-3 min-w-0" data-testid="notes-section">
-      <div className="flex h-7 items-center justify-between gap-2 px-2 pb-1">
-        <h2 className="text-xs font-medium text-zinc-500">Notes</h2>
-        <button
-          aria-label="New Markdown note"
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
-          disabled
-          title="Markdown notes are not available yet"
-          type="button"
-        >
-          <PenLine className="h-3.5 w-3.5" />
-        </button>
-      </div>
+    <div className="min-w-0">
+      <button
+        aria-label="New Markdown note"
+        className="ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
+        disabled
+        title="Markdown notes are not available yet"
+        type="button"
+      >
+        <PenLine className="h-3.5 w-3.5" />
+      </button>
       <div className="px-2 py-1 text-xs text-zinc-600">No Markdown notes</div>
-    </section>
+    </div>
   );
 }
 
 // External memories should be provider-backed later: local folders, Obsidian
 // vaults/libraries, qmd stores, cognee graphs, or other richer memory systems.
-function MemoryIntegrationsSection() {
+function MemoryIntegrationsContent() {
   const [open, setOpen] = useState(false);
 
   return (
-    <section className="mt-3 min-w-0" data-testid="memory-integrations-section">
+    <div className="min-w-0">
       <button
         className="flex h-7 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
         onClick={() => setOpen(true)}
@@ -644,7 +705,28 @@ function MemoryIntegrationsSection() {
         <span className="text-[11px] text-zinc-600">Integrations</span>
       </button>
       <MemoryIntegrationsModal onOpenChange={setOpen} open={open} />
-    </section>
+    </div>
+  );
+}
+
+// Rules are planned as Setta node-graph canvases. A rule can later be selected
+// beside the chat permissions control or invoked through slash commands, then
+// evaluated before or during every user turn.
+function RulesContent() {
+  return (
+    <div className="grid gap-0.5 py-0.5">
+      <button
+        className="grid h-7 w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
+        disabled
+        title="Setta rule canvases are not available yet"
+        type="button"
+      >
+        <Workflow className="h-3.5 w-3.5 text-zinc-500" />
+        <span className="truncate">Setta rules</span>
+        <span className="text-[11px] text-zinc-600">Node graph</span>
+      </button>
+      <div className="px-2 py-1 text-xs text-zinc-600">No rule canvases</div>
+    </div>
   );
 }
 

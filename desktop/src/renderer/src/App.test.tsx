@@ -128,8 +128,14 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Notes");
     expect(html).toContain("No Markdown notes");
     expect(html).toContain("DB / Memories");
+    expect(html).toContain("Rules");
+    expect(html).toContain("Setta rules");
+    expect(html).toContain("No rule canvases");
     expect(html).toContain('data-testid="notes-section"');
     expect(html).toContain('data-testid="memory-integrations-section"');
+    expect(html).toContain('data-testid="rules-section"');
+    expect(html).toContain("Resize Projects");
+    expect(html).toContain("Resize Rules");
     expect(html).toContain("Search");
     expect(html).toContain("Notifications / Logs");
     expect(html).toContain("More options for web");
