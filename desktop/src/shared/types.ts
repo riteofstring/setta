@@ -1,24 +1,21 @@
 import type {
   BackendHealth,
-  CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
-  CodexAccountState,
+  ClearChatGPTAuthRequest,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
-  LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  ProviderAccounts,
   QueueMessageResult,
-  RefreshCodexAccountRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  SaveChatGPTAuthRequest,
   SendMessageResult,
-  StartCodexLoginRequest,
-  StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
   WorkspaceSession,
@@ -141,11 +138,9 @@ export interface SettaAPI {
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };
-  codexAccount: {
-    cancelLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
-    logout: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
-    read: () => Promise<CodexAccountState>;
-    refresh: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
-    startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
+  providerAccounts: {
+    clearChatGPTAuth: (request: ClearChatGPTAuthRequest) => Promise<ProviderAccounts>;
+    list: () => Promise<ProviderAccounts>;
+    saveChatGPTAuth: (request: SaveChatGPTAuthRequest) => Promise<ProviderAccounts>;
   };
 }

@@ -342,23 +342,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       }),
       submitApproval: async () => emptyRun(),
     },
-    codexAccount: {
-      cancelLogin: async () => emptyCodexAccountState(),
-      logout: async () => emptyCodexAccountState(),
-      read: async () => emptyCodexAccountState(),
-      refresh: async () => emptyCodexAccountState(),
-      startLogin: async () => ({
-        login: {
-          authUrl: "",
-          error: "",
-          loginId: "",
-          status: "succeeded",
-          type: "chatgpt",
-          userCode: "",
-          verificationUrl: "",
-        },
-        state: emptyCodexAccountState(),
-      }),
+    providerAccounts: {
+      clearChatGPTAuth: async () => ({ accounts: [] }),
+      list: async () => ({ accounts: [] }),
+      saveChatGPTAuth: async () => ({ accounts: [] }),
     },
     workspace: workspaceAPI,
   };
@@ -369,16 +356,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       setta: api,
     },
   });
-}
-
-function emptyCodexAccountState() {
-  return {
-    account: null,
-    diagnostic: "",
-    login: null,
-    requiresOpenaiAuth: true,
-    status: "unauthenticated" as const,
-  };
 }
 
 function emptyConversation() {

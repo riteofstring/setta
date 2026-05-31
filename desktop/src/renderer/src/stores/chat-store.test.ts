@@ -927,23 +927,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       submitApproval: async () => testRun("running"),
       ...overrides.chat,
     },
-    codexAccount: {
-      cancelLogin: async () => emptyCodexAccountState(),
-      logout: async () => emptyCodexAccountState(),
-      read: async () => emptyCodexAccountState(),
-      refresh: async () => emptyCodexAccountState(),
-      startLogin: async () => ({
-        login: {
-          authUrl: "",
-          error: "",
-          loginId: "",
-          status: "succeeded",
-          type: "chatgpt",
-          userCode: "",
-          verificationUrl: "",
-        },
-        state: emptyCodexAccountState(),
-      }),
+    providerAccounts: {
+      clearChatGPTAuth: async () => ({ accounts: [] }),
+      list: async () => ({ accounts: [] }),
+      saveChatGPTAuth: async () => ({ accounts: [] }),
     },
     workspace: {
       close: async () => workspaceSession(),
@@ -1386,16 +1373,6 @@ function workspaceSession(): WorkspaceSession {
     activeWorkspaces: [workspaceSummary()],
     recentWorkspaces: [],
     selectedWorkspaceId: "workspace_api",
-  };
-}
-
-function emptyCodexAccountState() {
-  return {
-    account: null,
-    diagnostic: "",
-    login: null,
-    requiresOpenaiAuth: true,
-    status: "unauthenticated" as const,
   };
 }
 

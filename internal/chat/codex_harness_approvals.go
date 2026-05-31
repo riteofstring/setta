@@ -14,6 +14,7 @@ const (
 )
 
 var supportedCodexServerRequests = map[string]codexServerRequestPolicy{
+	"account/chatgptAuthTokens/refresh":     codexServerRequestImmediate,
 	"attestation/generate":                  codexServerRequestImmediate,
 	"item/commandExecution/requestApproval": codexServerRequestDeferredApproval,
 	"item/fileChange/requestApproval":       codexServerRequestDeferredApproval,

@@ -367,49 +367,39 @@ export function decodeChatCommandResultAction(value: unknown, label = "ChatComma
   }
 }
 
-export type CodexAccountStatus = "signed_in" | "unauthenticated" | "unavailable" | "login_in_progress";
+export type ProviderAccountProvider = "codex";
 
-export const codexAccountStatusValues = ["signed_in", "unauthenticated", "unavailable", "login_in_progress"] as const satisfies readonly CodexAccountStatus[];
+export const providerAccountProviderValues = ["codex"] as const satisfies readonly ProviderAccountProvider[];
 
-export function decodeCodexAccountStatus(value: unknown, label = "CodexAccountStatus"): CodexAccountStatus {
+export function decodeProviderAccountProvider(value: unknown, label = "ProviderAccountProvider"): ProviderAccountProvider {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "signed_in":
-      return decoded;
-    case "unauthenticated":
-      return decoded;
-    case "unavailable":
-      return decoded;
-    case "login_in_progress":
+    case "codex":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type CodexAccountType = "apiKey" | "chatgpt" | "chatgptAuthTokens";
+export type ProviderAccountAuthMode = "chatgpt";
 
-export const codexAccountTypeValues = ["apiKey", "chatgpt", "chatgptAuthTokens"] as const satisfies readonly CodexAccountType[];
+export const providerAccountAuthModeValues = ["chatgpt"] as const satisfies readonly ProviderAccountAuthMode[];
 
-export function decodeCodexAccountType(value: unknown, label = "CodexAccountType"): CodexAccountType {
+export function decodeProviderAccountAuthMode(value: unknown, label = "ProviderAccountAuthMode"): ProviderAccountAuthMode {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "apiKey":
-      return decoded;
     case "chatgpt":
       return decoded;
-    case "chatgptAuthTokens":
-      return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type CodexChatGPTPlanType = "business" | "edu" | "enterprise" | "enterprise_cbp_usage_based" | "free" | "go" | "plus" | "pro" | "prolite" | "self_serve_business_usage_based" | "team" | "unknown";
+export type ChatGPTPlanType = "business" | "edu" | "enterprise" | "enterprise_cbp_usage_based" | "free" | "go" | "plus" | "pro" | "prolite" | "self_serve_business_usage_based" | "team" | "unknown";
 
-export const codexChatGPTPlanTypeValues = ["business", "edu", "enterprise", "enterprise_cbp_usage_based", "free", "go", "plus", "pro", "prolite", "self_serve_business_usage_based", "team", "unknown"] as const satisfies readonly CodexChatGPTPlanType[];
+export const chatGPTPlanTypeValues = ["business", "edu", "enterprise", "enterprise_cbp_usage_based", "free", "go", "plus", "pro", "prolite", "self_serve_business_usage_based", "team", "unknown"] as const satisfies readonly ChatGPTPlanType[];
 
-export function decodeCodexChatGPTPlanType(value: unknown, label = "CodexChatGPTPlanType"): CodexChatGPTPlanType {
+export function decodeChatGPTPlanType(value: unknown, label = "ChatGPTPlanType"): ChatGPTPlanType {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "business":
@@ -435,44 +425,6 @@ export function decodeCodexChatGPTPlanType(value: unknown, label = "CodexChatGPT
     case "team":
       return decoded;
     case "unknown":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type CodexLoginStatus = "in_progress" | "succeeded" | "failed" | "cancelled";
-
-export const codexLoginStatusValues = ["in_progress", "succeeded", "failed", "cancelled"] as const satisfies readonly CodexLoginStatus[];
-
-export function decodeCodexLoginStatus(value: unknown, label = "CodexLoginStatus"): CodexLoginStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "in_progress":
-      return decoded;
-    case "succeeded":
-      return decoded;
-    case "failed":
-      return decoded;
-    case "cancelled":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type CodexLoginType = "apiKey" | "chatgpt" | "chatgptDeviceCode";
-
-export const codexLoginTypeValues = ["apiKey", "chatgpt", "chatgptDeviceCode"] as const satisfies readonly CodexLoginType[];
-
-export function decodeCodexLoginType(value: unknown, label = "CodexLoginType"): CodexLoginType {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "apiKey":
-      return decoded;
-    case "chatgpt":
-      return decoded;
-    case "chatgptDeviceCode":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -925,49 +877,27 @@ export interface SubmitApprovalRequest {
   cancelled: boolean;
 }
 
-export interface CodexAccount {
-  type: CodexAccountType;
-  email: string;
-  planType: CodexChatGPTPlanType | null;
-}
-
-export interface CodexLoginState {
-  status: CodexLoginStatus;
-  type: CodexLoginType;
-  loginId: string;
-  authUrl: string;
-  verificationUrl: string;
-  userCode: string;
-  error: string;
-}
-
-export interface CodexAccountState {
-  status: CodexAccountStatus;
-  account: CodexAccount | null;
-  requiresOpenaiAuth: boolean;
-  login: CodexLoginState | null;
+export interface ProviderAccountSummary {
+  provider: ProviderAccountProvider;
+  authMode: ProviderAccountAuthMode;
+  configured: boolean;
+  accountId: string;
+  planType: ChatGPTPlanType | null;
+  updatedAt: string;
   diagnostic: string;
 }
 
-export interface RefreshCodexAccountRequest {
-  refreshToken: boolean;
+export interface ProviderAccounts {
+  accounts: ProviderAccountSummary[];
 }
 
-export interface StartCodexLoginRequest {
-  type: CodexLoginType;
-  apiKey: string;
+export interface SaveChatGPTAuthRequest {
+  accessToken: string;
+  accountId: string;
+  planType: ChatGPTPlanType;
 }
 
-export interface StartCodexLoginResponse {
-  state: CodexAccountState;
-  login: CodexLoginState;
-}
-
-export interface CancelCodexLoginRequest {
-  loginId: string;
-}
-
-export interface LogoutCodexAccountRequest {
+export interface ClearChatGPTAuthRequest {
 }
 
 export interface APIError {
@@ -1041,10 +971,6 @@ export interface DiagnosticCreatedPayload {
   diagnostic: Diagnostic;
 }
 
-export interface CodexAccountChangedPayload {
-  reason: string;
-}
-
 export type ChatEvent =
   ChatMessageCreatedEvent
   | ChatMessageQueuedEvent
@@ -1059,7 +985,6 @@ export type ChatEvent =
   | ChatConversationUpdatedEvent
   | ChatResyncRequiredEvent
   | DiagnosticCreatedEvent
-  | CodexAccountChangedEvent
 ;
 
 export interface ChatMessageCreatedEvent {
@@ -1231,19 +1156,6 @@ export interface DiagnosticCreatedEvent {
   payload: DiagnosticCreatedPayload;
 }
 
-export interface CodexAccountChangedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "codex.account.changed";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: CodexAccountChangedPayload;
-}
-
 export const backendEndpoints = {
   BackendHealth: {
     method: "GET",
@@ -1333,25 +1245,17 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/approvals/submit",
   },
-  ReadCodexAccount: {
+  ListProviderAccounts: {
     method: "GET",
-    path: "/codex/account",
+    path: "/provider-accounts",
   },
-  RefreshCodexAccount: {
+  SaveChatGPTAuth: {
     method: "POST",
-    path: "/codex/account/refresh",
+    path: "/provider-accounts/chatgpt-auth/save",
   },
-  StartCodexLogin: {
+  ClearChatGPTAuth: {
     method: "POST",
-    path: "/codex/account/login/start",
-  },
-  CancelCodexLogin: {
-    method: "POST",
-    path: "/codex/account/login/cancel",
-  },
-  LogoutCodexAccount: {
-    method: "POST",
-    path: "/codex/account/logout",
+    path: "/provider-accounts/chatgpt-auth/clear",
   },
   EventStream: {
     method: "GET",
@@ -2033,79 +1937,41 @@ export function decodeSubmitApprovalRequest(value: unknown): SubmitApprovalReque
   };
 }
 
-export function decodeCodexAccount(value: unknown): CodexAccount {
-  const record = assertRecord(value, "CodexAccount");
-  assertKnownFields(record, "CodexAccount", ["type", "email", "planType"]);
+export function decodeProviderAccountSummary(value: unknown): ProviderAccountSummary {
+  const record = assertRecord(value, "ProviderAccountSummary");
+  assertKnownFields(record, "ProviderAccountSummary", ["provider", "authMode", "configured", "accountId", "planType", "updatedAt", "diagnostic"]);
   return {
-    type: decodeCodexAccountType(requireField(record, "type", "CodexAccount"), "CodexAccount.type"),
-    email: decodeString(requireField(record, "email", "CodexAccount"), "CodexAccount.email"),
-    planType: decodeNullable(requireField(record, "planType", "CodexAccount"), "CodexAccount.planType", (item) => decodeCodexChatGPTPlanType(item, "CodexAccount.planType")),
+    provider: decodeProviderAccountProvider(requireField(record, "provider", "ProviderAccountSummary"), "ProviderAccountSummary.provider"),
+    authMode: decodeProviderAccountAuthMode(requireField(record, "authMode", "ProviderAccountSummary"), "ProviderAccountSummary.authMode"),
+    configured: decodeBoolean(requireField(record, "configured", "ProviderAccountSummary"), "ProviderAccountSummary.configured"),
+    accountId: decodeString(requireField(record, "accountId", "ProviderAccountSummary"), "ProviderAccountSummary.accountId"),
+    planType: decodeNullable(requireField(record, "planType", "ProviderAccountSummary"), "ProviderAccountSummary.planType", (item) => decodeChatGPTPlanType(item, "ProviderAccountSummary.planType")),
+    updatedAt: decodeString(requireField(record, "updatedAt", "ProviderAccountSummary"), "ProviderAccountSummary.updatedAt"),
+    diagnostic: decodeString(requireField(record, "diagnostic", "ProviderAccountSummary"), "ProviderAccountSummary.diagnostic"),
   };
 }
 
-export function decodeCodexLoginState(value: unknown): CodexLoginState {
-  const record = assertRecord(value, "CodexLoginState");
-  assertKnownFields(record, "CodexLoginState", ["status", "type", "loginId", "authUrl", "verificationUrl", "userCode", "error"]);
+export function decodeProviderAccounts(value: unknown): ProviderAccounts {
+  const record = assertRecord(value, "ProviderAccounts");
+  assertKnownFields(record, "ProviderAccounts", ["accounts"]);
   return {
-    status: decodeCodexLoginStatus(requireField(record, "status", "CodexLoginState"), "CodexLoginState.status"),
-    type: decodeCodexLoginType(requireField(record, "type", "CodexLoginState"), "CodexLoginState.type"),
-    loginId: decodeString(requireField(record, "loginId", "CodexLoginState"), "CodexLoginState.loginId"),
-    authUrl: decodeString(requireField(record, "authUrl", "CodexLoginState"), "CodexLoginState.authUrl"),
-    verificationUrl: decodeString(requireField(record, "verificationUrl", "CodexLoginState"), "CodexLoginState.verificationUrl"),
-    userCode: decodeString(requireField(record, "userCode", "CodexLoginState"), "CodexLoginState.userCode"),
-    error: decodeString(requireField(record, "error", "CodexLoginState"), "CodexLoginState.error"),
+    accounts: decodeArray(requireField(record, "accounts", "ProviderAccounts"), "ProviderAccounts.accounts", (item) => decodeProviderAccountSummary(item)),
   };
 }
 
-export function decodeCodexAccountState(value: unknown): CodexAccountState {
-  const record = assertRecord(value, "CodexAccountState");
-  assertKnownFields(record, "CodexAccountState", ["status", "account", "requiresOpenaiAuth", "login", "diagnostic"]);
+export function decodeSaveChatGPTAuthRequest(value: unknown): SaveChatGPTAuthRequest {
+  const record = assertRecord(value, "SaveChatGPTAuthRequest");
+  assertKnownFields(record, "SaveChatGPTAuthRequest", ["accessToken", "accountId", "planType"]);
   return {
-    status: decodeCodexAccountStatus(requireField(record, "status", "CodexAccountState"), "CodexAccountState.status"),
-    account: decodeNullable(requireField(record, "account", "CodexAccountState"), "CodexAccountState.account", (item) => decodeCodexAccount(item)),
-    requiresOpenaiAuth: decodeBoolean(requireField(record, "requiresOpenaiAuth", "CodexAccountState"), "CodexAccountState.requiresOpenaiAuth"),
-    login: decodeNullable(requireField(record, "login", "CodexAccountState"), "CodexAccountState.login", (item) => decodeCodexLoginState(item)),
-    diagnostic: decodeString(requireField(record, "diagnostic", "CodexAccountState"), "CodexAccountState.diagnostic"),
+    accessToken: decodeString(requireField(record, "accessToken", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.accessToken"),
+    accountId: decodeString(requireField(record, "accountId", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.accountId"),
+    planType: decodeChatGPTPlanType(requireField(record, "planType", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.planType"),
   };
 }
 
-export function decodeRefreshCodexAccountRequest(value: unknown): RefreshCodexAccountRequest {
-  const record = assertRecord(value, "RefreshCodexAccountRequest");
-  assertKnownFields(record, "RefreshCodexAccountRequest", ["refreshToken"]);
-  return {
-    refreshToken: decodeBoolean(requireField(record, "refreshToken", "RefreshCodexAccountRequest"), "RefreshCodexAccountRequest.refreshToken"),
-  };
-}
-
-export function decodeStartCodexLoginRequest(value: unknown): StartCodexLoginRequest {
-  const record = assertRecord(value, "StartCodexLoginRequest");
-  assertKnownFields(record, "StartCodexLoginRequest", ["type", "apiKey"]);
-  return {
-    type: decodeCodexLoginType(requireField(record, "type", "StartCodexLoginRequest"), "StartCodexLoginRequest.type"),
-    apiKey: decodeString(requireField(record, "apiKey", "StartCodexLoginRequest"), "StartCodexLoginRequest.apiKey"),
-  };
-}
-
-export function decodeStartCodexLoginResponse(value: unknown): StartCodexLoginResponse {
-  const record = assertRecord(value, "StartCodexLoginResponse");
-  assertKnownFields(record, "StartCodexLoginResponse", ["state", "login"]);
-  return {
-    state: decodeCodexAccountState(requireField(record, "state", "StartCodexLoginResponse")),
-    login: decodeCodexLoginState(requireField(record, "login", "StartCodexLoginResponse")),
-  };
-}
-
-export function decodeCancelCodexLoginRequest(value: unknown): CancelCodexLoginRequest {
-  const record = assertRecord(value, "CancelCodexLoginRequest");
-  assertKnownFields(record, "CancelCodexLoginRequest", ["loginId"]);
-  return {
-    loginId: decodeString(requireField(record, "loginId", "CancelCodexLoginRequest"), "CancelCodexLoginRequest.loginId"),
-  };
-}
-
-export function decodeLogoutCodexAccountRequest(value: unknown): LogoutCodexAccountRequest {
-  const record = assertRecord(value, "LogoutCodexAccountRequest");
-  assertKnownFields(record, "LogoutCodexAccountRequest", []);
+export function decodeClearChatGPTAuthRequest(value: unknown): ClearChatGPTAuthRequest {
+  const record = assertRecord(value, "ClearChatGPTAuthRequest");
+  assertKnownFields(record, "ClearChatGPTAuthRequest", []);
   return {
   };
 }
@@ -2241,14 +2107,6 @@ export function decodeDiagnosticCreatedPayload(value: unknown): DiagnosticCreate
   };
 }
 
-export function decodeCodexAccountChangedPayload(value: unknown): CodexAccountChangedPayload {
-  const record = assertRecord(value, "CodexAccountChangedPayload");
-  assertKnownFields(record, "CodexAccountChangedPayload", ["reason"]);
-  return {
-    reason: decodeString(requireField(record, "reason", "CodexAccountChangedPayload"), "CodexAccountChangedPayload.reason"),
-  };
-}
-
 export function decodeChatEvent(value: unknown): ChatEvent {
   const record = assertRecord(value, "ChatEvent");
   const type = decodeString(requireField(record, "type", "ChatEvent"), "ChatEvent.type");
@@ -2279,8 +2137,6 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatResyncRequiredEventFromRecord(record);
     case "diagnostic.created":
       return decodeDiagnosticCreatedEventFromRecord(record);
-    case "codex.account.changed":
-      return decodeCodexAccountChangedEventFromRecord(record);
     default:
       throw new Error("ChatEvent.type is unsupported: " + type);
   }
@@ -2598,30 +2454,6 @@ function decodeDiagnosticCreatedEventFromRecord(record: Record<string, unknown>)
   };
 }
 
-export function decodeCodexAccountChangedEvent(value: unknown): CodexAccountChangedEvent {
-  return decodeCodexAccountChangedEventFromRecord(assertRecord(value, "CodexAccountChangedEvent"));
-}
-
-function decodeCodexAccountChangedEventFromRecord(record: Record<string, unknown>): CodexAccountChangedEvent {
-  assertKnownFields(record, "CodexAccountChangedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.type");
-  if (type !== "codex.account.changed") {
-    throw new Error("CodexAccountChangedEvent.type must be codex.account.changed, got " + type);
-  }
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.eventId"),
-    type: "codex.account.changed",
-    emittedAt: decodeString(requireField(record, "emittedAt", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.runId"),
-    payload: decodeCodexAccountChangedPayload(requireField(record, "payload", "CodexAccountChangedEvent")),
-  };
-}
-
 export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
   workspaceSession: () => Promise<WorkspaceSession>;
@@ -2645,11 +2477,9 @@ export interface BackendClient {
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
-  readCodexAccount: () => Promise<CodexAccountState>;
-  refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
-  startCodexLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
-  cancelCodexLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
-  logoutCodexAccount: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
+  listProviderAccounts: () => Promise<ProviderAccounts>;
+  saveChatGPTAuth: (request: SaveChatGPTAuthRequest) => Promise<ProviderAccounts>;
+  clearChatGPTAuth: (request: ClearChatGPTAuthRequest) => Promise<ProviderAccounts>;
 }
 
 export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {
@@ -2830,43 +2660,27 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
-    readCodexAccount: () => requestBackend({
+    listProviderAccounts: () => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeCodexAccountState,
-      endpoint: backendEndpoints.ReadCodexAccount,
+      decodeResponse: decodeProviderAccounts,
+      endpoint: backendEndpoints.ListProviderAccounts,
       fetchImpl,
       requestPayload: undefined,
     }),
-    refreshCodexAccount: (request) => requestBackend({
+    saveChatGPTAuth: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeCodexAccountState,
-      endpoint: backendEndpoints.RefreshCodexAccount,
+      decodeResponse: decodeProviderAccounts,
+      endpoint: backendEndpoints.SaveChatGPTAuth,
       fetchImpl,
       requestPayload: request,
     }),
-    startCodexLogin: (request) => requestBackend({
+    clearChatGPTAuth: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeStartCodexLoginResponse,
-      endpoint: backendEndpoints.StartCodexLogin,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    cancelCodexLogin: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeCodexAccountState,
-      endpoint: backendEndpoints.CancelCodexLogin,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    logoutCodexAccount: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeCodexAccountState,
-      endpoint: backendEndpoints.LogoutCodexAccount,
+      decodeResponse: decodeProviderAccounts,
+      endpoint: backendEndpoints.ClearChatGPTAuth,
       fetchImpl,
       requestPayload: request,
     }),

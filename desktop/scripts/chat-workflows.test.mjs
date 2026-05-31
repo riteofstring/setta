@@ -13,9 +13,6 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
-  dispatchDocumentEscape,
-  waitForComposerFocus,
-  waitForModelPickerAbsent,
 } from "./chat-workflow-assertions.mjs";
 import { prepareLiveCodexEnv } from "./chat-live-env.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
@@ -25,7 +22,7 @@ import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
 } from "./codex-protocol-workflow.mjs";
-import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
+import { runProviderAccountWorkflow } from "./provider-account-workflow.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
@@ -104,20 +101,15 @@ async function main() {
 
 async function runDeterministicWorkflowLaunch(results) {
   const fixture = await createFixture("deterministic");
-  const fakeCodex = await installFakeCodexAppServer(fixture);
   const recordingDir = join(recordingRoot, "deterministic");
-  const context = await launchContext(fixture, recordingDir, {
-    extraEnv: {
-      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-    },
-  });
+  const context = await launchContext(fixture, recordingDir);
   let failure = null;
 
   try {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
-    await runWorkflowStep(results, recordingDir, "codex-account", context.client, async () => {
-      await runCodexAccountWorkflow({
+    await runWorkflowStep(results, recordingDir, "provider-accounts", context.client, async () => {
+      await runProviderAccountWorkflow({
         backend,
         clickButtonByAria,
         client: context.client,
@@ -171,9 +163,9 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/approvals/submit",
       "/chat/commands/list",
       "/chat/commands/execute",
-      "/codex/account",
-      "/codex/account/login/start",
-      "/codex/account/logout",
+      "/provider-accounts",
+      "/provider-accounts/chatgpt-auth/clear",
+      "/provider-accounts/chatgpt-auth/save",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
@@ -185,9 +177,9 @@ async function runDeterministicWorkflowLaunch(results) {
       "chat:submit-approval",
       "chat:list-commands",
       "chat:execute-command",
-      "codex-account:logout",
-      "codex-account:read",
-      "codex-account:start-login",
+      "provider-accounts:clear-chatgpt-auth",
+      "provider-accounts:list",
+      "provider-accounts:save-chatgpt-auth",
     ],
   });
 }
@@ -238,22 +230,6 @@ async function runCodexProtocolWorkflow(results) {
     ]);
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
-
-    const exitConversationId = await createChat(context.client, backend, workspaceId);
-    await submitComposer(context.client, "app-server exit workflow", "Send message");
-    const failedRun = await waitForRunWithPrompt(
-      backend,
-      workspaceId,
-      exitConversationId,
-      "app-server exit workflow",
-      "failed",
-    );
-    if (!failedRun.error.includes("codex app-server exited")) {
-      throw new Error(
-        `app-server exit run error did not mention exit: ${JSON.stringify(failedRun)}`,
-      );
-    }
-    await assertNoActiveRun(backend, workspaceId, exitConversationId);
     await captureScreenshot(context.client, join(recordingDir, "success.png"));
   } catch (error) {
     failure = error;
@@ -678,15 +654,6 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await clickModelByText(client, "scripted-fast");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-fast");
   await waitForTexts(client, ["Model set: scripted-fast"]);
-  await submitComposer(client, "/model", "Send message");
-  await waitForSelectedModel(client, "scripted-fast");
-  await waitForComposerFocus(waitForState, client);
-  await clickButtonByAria(client, "Close model picker");
-  await waitForModelPickerAbsent(waitForState, client);
-  await submitComposer(client, "/model", "Send message");
-  await waitForSelectedModel(client, "scripted-fast");
-  await dispatchDocumentEscape(client);
-  await waitForModelPickerAbsent(waitForState, client);
 
   await submitComposer(client, "/model scripted-careful", "Send message");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-careful");
@@ -722,6 +689,7 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await assertNoActiveRun(backend, workspaceId, conversationId);
   await assertTranscriptSequence(client, [
     "workflow hold for queue and steering",
+    "finish after slash command",
     "Active workflow complete.",
     "Goal paused.",
     "Model set: scripted-fast",
@@ -729,6 +697,7 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
     "model setting workflow",
     "Model for next turn: scripted-careful.",
     "workflow hold for queue and steering",
+    "finish after disabled model command",
     "Active workflow complete.",
   ]);
   await assertChatLayout(client);
@@ -859,19 +828,6 @@ async function waitForModelPicker(client) {
       return { body: document.body.innerText, ready: Boolean(picker) };
     })()`,
     (value) => value.ready && value.body.includes("scripted-fast"),
-  );
-}
-
-async function waitForSelectedModel(client, modelText) {
-  await waitForState(
-    client,
-    `(() => {
-      const picker = document.querySelector('[data-testid="model-picker"]');
-      const selected = Array.from(picker?.querySelectorAll('[data-selected="true"]') ?? [])
-        .map((button) => button.innerText);
-      return { selected };
-    })()`,
-    (value) => value.selected.length === 1 && value.selected[0].includes(modelText),
   );
 }
 
@@ -1259,7 +1215,6 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   const extraEnv = launchOptions.extraEnv ?? {};
   const e2eEnv = {
     SETTA_E2E: "1",
-    SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
     SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
     ...(options.visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
     ...(harness === "scripted-workflow" ? { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" } : {}),

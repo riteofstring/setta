@@ -15,9 +15,8 @@ import (
 
 	"setta/internal/appstate"
 	"setta/internal/chat"
-	"setta/internal/codexaccount"
-	"setta/internal/codexapp"
 	"setta/internal/httpapi"
+	"setta/internal/provideraccounts"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -46,7 +45,6 @@ type ReadyEvent struct {
 }
 
 type Server struct {
-	closeCodex  func(context.Context) error
 	closeEvents func()
 	server      *http.Server
 	listener    net.Listener
@@ -54,10 +52,9 @@ type Server struct {
 }
 
 type runtimeServices struct {
-	chatService         *chat.Service
-	codexAccountService *codexaccount.Service
-	codexManager        *codexapp.Manager
-	workspaceService    *workspacesession.Service
+	chatService            *chat.Service
+	providerAccountService *provideraccounts.Service
+	workspaceService       *workspacesession.Service
 }
 
 func DefaultConfig() Config {
@@ -123,7 +120,6 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	}
 
 	server := &Server{
-		closeCodex:  services.codexManager.Shutdown,
 		closeEvents: services.chatService.CloseEvents,
 		server:      newHTTPServer(config, services),
 		listener:    listener,
@@ -156,14 +152,15 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create chat store: %w", err)
 	}
-	codexManager := codexapp.NewManager(codexapp.ManagerConfig{
-		Process: codexapp.ProcessConfig{
-			Command: "codex",
-			Args:    []string{"app-server", "--listen", "stdio://"},
-		},
-		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
-	})
-	harness, err := chatHarness(config.ChatHarness, codexManager)
+	providerAccountStore, err := provideraccounts.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create provider account store: %w", err)
+	}
+	providerAccountService, err := provideraccounts.NewService(providerAccountStore)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create provider account service: %w", err)
+	}
+	harness, err := chatHarness(config.ChatHarness, providerAccountService)
 	if err != nil {
 		return runtimeServices{}, err
 	}
@@ -171,16 +168,11 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create chat service: %w", err)
 	}
-	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create Codex account service: %w", err)
-	}
 
 	return runtimeServices{
-		chatService:         chatService,
-		codexAccountService: codexAccountService,
-		codexManager:        codexManager,
-		workspaceService:    workspaceService,
+		chatService:            chatService,
+		providerAccountService: providerAccountService,
+		workspaceService:       workspaceService,
 	}, nil
 }
 
@@ -191,9 +183,9 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 				Name:    httpapi.BackendName,
 				Version: config.Version,
 			},
-			ChatService:         services.chatService,
-			CodexAccountService: services.codexAccountService,
-			WorkspaceService:    services.workspaceService,
+			ChatService:            services.chatService,
+			ProviderAccountService: services.providerAccountService,
+			WorkspaceService:       services.workspaceService,
 		}),
 	}
 }
@@ -209,13 +201,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	if server.closeEvents != nil {
 		server.closeEvents()
 	}
-	shutdownErr := server.server.Shutdown(ctx)
-	if server.closeCodex != nil {
-		if err := server.closeCodex(ctx); err != nil && shutdownErr == nil {
-			shutdownErr = err
-		}
-	}
-	return shutdownErr
+	return server.server.Shutdown(ctx)
 }
 
 func (server *Server) Wait() error {
@@ -243,10 +229,10 @@ func normalizeConfig(config Config) Config {
 	return config
 }
 
-func chatHarness(mode ChatHarnessMode, codexManager *codexapp.Manager) (chat.Harness, error) {
+func chatHarness(mode ChatHarnessMode, providerAccountService *provideraccounts.Service) (chat.Harness, error) {
 	switch mode {
 	case ChatHarnessCodex:
-		return chat.NewCodexHarness(chat.CodexHarnessConfig{Manager: codexManager}), nil
+		return chat.NewCodexHarness(chat.CodexHarnessConfig{ChatGPTAuthProvider: providerAccountService}), nil
 	case ChatHarnessScriptedWorkflow:
 		return chat.NewScriptedWorkflowHarness(), nil
 	default:

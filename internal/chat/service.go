@@ -121,10 +121,6 @@ func (service *Service) CloseEvents() {
 	service.events.Close()
 }
 
-func (service *Service) PublishCodexAccountChanged(reason string) {
-	_, _ = service.events.Publish(NewCodexAccountChangedEvent(reason))
-}
-
 func (service *Service) ListConversations(workspaceID string) (ConversationListResult, error) {
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return ConversationListResult{}, err

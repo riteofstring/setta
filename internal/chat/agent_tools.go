@@ -214,6 +214,37 @@ func validateAgentToolPermissions(tool AgentTool) error {
 	return nil
 }
 
+type ChatGPTAuthTokenProvider interface {
+	RefreshChatGPTAuthTokens(context.Context, ChatGPTAuthRefreshRequest) (ChatGPTAuthTokens, error)
+}
+
+type ChatGPTAuthUnavailableError struct {
+	Message string
+}
+
+func (err *ChatGPTAuthUnavailableError) Error() string {
+	if err.Message != "" {
+		return err.Message
+	}
+	return "ChatGPT auth token refresh is unavailable in Setta"
+}
+
+func IsChatGPTAuthUnavailable(err error) bool {
+	var unavailable *ChatGPTAuthUnavailableError
+	return errors.As(err, &unavailable)
+}
+
+type ChatGPTAuthRefreshRequest struct {
+	PreviousAccountID string
+	Reason            string
+}
+
+type ChatGPTAuthTokens struct {
+	AccessToken      string
+	ChatGPTAccountID string
+	ChatGPTPlanType  string
+}
+
 type AttestationProvider interface {
 	GenerateAttestation(context.Context) (string, error)
 }

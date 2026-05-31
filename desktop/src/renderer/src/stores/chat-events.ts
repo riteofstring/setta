@@ -34,7 +34,6 @@ type RunItemUpsertEvent = Extract<
   AppliedChatEvent,
   { type: "chat.run_item.created" | "chat.run_item.updated" }
 >;
-type OtherChatEvent = Exclude<AppliedChatEvent, MessageUpsertEvent | RunItemUpsertEvent>;
 
 const messageUpsertEventTypes = new Set([
   "chat.message.created",
@@ -52,10 +51,6 @@ export function applyChatEvent(state: ChatStore, event: AppliedChatEvent): Event
   if (isRunItemUpsertEvent(event)) {
     return applyRunItemUpsertEvent(state, event);
   }
-  return applyOtherChatEvent(state, event);
-}
-
-function applyOtherChatEvent(state: ChatStore, event: OtherChatEvent): EventApplyResult {
   if (event.type === "chat.assistant_text_delta") {
     return applyAssistantTextDelta(state, event);
   }
@@ -92,9 +87,6 @@ function applyOtherChatEvent(state: ChatStore, event: OtherChatEvent): EventAppl
       diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
       status: "ready",
     });
-  }
-  if (event.type === "codex.account.changed") {
-    return unchangedEventResult();
   }
   return assertNever(event);
 }

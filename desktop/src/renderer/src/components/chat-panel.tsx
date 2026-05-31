@@ -12,7 +12,6 @@ import {
   MessageSquarePlus,
   Minimize2,
   Square,
-  X,
 } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
@@ -389,7 +388,6 @@ function Composer({
   const [commandListKey, setCommandListKey] = useState("");
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
   const submittingRef = useRef(false);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
   const disabled = disabledOverride ?? (!selected || busy);
   const slashDraft = isSlashDraft(draft);
@@ -430,26 +428,6 @@ function Composer({
       cancelled = true;
     };
   }, [chat, commandListKey, running, slashDraft]);
-
-  useEffect(() => {
-    if (modelPicker?.result.action !== "model_picker") {
-      return;
-    }
-    textareaRef.current?.focus();
-
-    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key !== "Escape") {
-        return;
-      }
-      event.preventDefault();
-      dismissModelPicker();
-    }
-
-    document.addEventListener("keydown", handleDocumentKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleDocumentKeyDown);
-    };
-  }, [modelPicker]);
 
   async function sendDraft() {
     const prompt = draft.trim();
@@ -540,7 +518,6 @@ function Composer({
               draft={draft}
               modelPicker={modelPicker}
               onPickCommand={(command) => updateDraft(command.name + " ")}
-              onDismissModelPicker={dismissModelPicker}
               onPickModel={(model) => {
                 void executeModelSelection(model);
               }}
@@ -559,8 +536,6 @@ function Composer({
                       updateDraft(selectedSuggestion.name + " ");
                     }
                   },
-                  dismissModelPicker,
-                  modelPickerOpen: modelPicker?.result.action === "model_picker",
                   queueDraft,
                   running,
                   sendDraft,
@@ -569,7 +544,6 @@ function Composer({
                 });
               }}
               placeholder={placeholder}
-              ref={textareaRef}
               rows={2}
               value={draft}
             />
@@ -596,11 +570,6 @@ function Composer({
     }
   }
 
-  function dismissModelPicker() {
-    setModelPicker(null);
-    textareaRef.current?.focus();
-  }
-
   async function executeModelSelection(model: ChatModelOption) {
     if (!chat.selectedConversation || disabled || submittingRef.current) {
       return;
@@ -619,7 +588,6 @@ function Composer({
 export function CommandSuggestions({
   draft,
   modelPicker,
-  onDismissModelPicker,
   onPickCommand,
   onPickModel,
   selectedSuggestion,
@@ -627,56 +595,31 @@ export function CommandSuggestions({
 }: {
   draft: string;
   modelPicker: ChatCommandExecuteResult | null;
-  onDismissModelPicker: () => void;
   onPickCommand: (command: ChatCommandCapability) => void;
   onPickModel: (model: ChatModelOption) => void;
   selectedSuggestion: ChatCommandCapability | null;
   suggestions: ChatCommandCapability[];
 }) {
   if (modelPicker?.result.action === "model_picker") {
-    const selectedModel = modelPicker.result.selectedModel;
     return (
       <div
         className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
         data-testid="model-picker"
       >
-        <div className="mb-1 flex justify-end border-b border-zinc-700/70 pb-1">
+        {modelPicker.result.models.map((model) => (
           <button
-            aria-label="Close model picker"
-            className="grid h-6 w-6 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700/75 hover:text-zinc-100"
-            onClick={onDismissModelPicker}
-            title="Close model picker"
+            className="flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75"
+            key={model.id}
+            onClick={() => onPickModel(model)}
             type="button"
           >
-            <X className="h-3.5 w-3.5" />
+            {model.isDefault ? <Check className="h-4 w-4 shrink-0 text-zinc-400" /> : null}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium text-zinc-100">{model.displayName}</span>
+              <span className="block truncate text-[11px] text-zinc-400">{model.model}</span>
+            </span>
           </button>
-        </div>
-        {modelPicker.result.models.map((model) => {
-          const selected = modelPickerOptionSelected(model, selectedModel);
-          return (
-            <button
-              aria-current={selected ? "true" : undefined}
-              className={cn(
-                "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75",
-                selected && "bg-zinc-700/70",
-              )}
-              data-selected={selected ? "true" : undefined}
-              key={model.id}
-              onClick={() => onPickModel(model)}
-              type="button"
-            >
-              <span className="grid h-4 w-4 shrink-0 place-items-center">
-                {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-zinc-100">
-                  {model.displayName}
-                </span>
-                <span className="block truncate text-[11px] text-zinc-400">{model.model}</span>
-              </span>
-            </button>
-          );
-        })}
+        ))}
       </div>
     );
   }
@@ -750,16 +693,6 @@ export function modelSelectionCommand(model: ChatModelOption) {
   return `/model ${model.model}`;
 }
 
-export function modelPickerOptionSelected(
-  model: Pick<ChatModelOption, "isDefault" | "model">,
-  selectedModel: string,
-) {
-  if (selectedModel === "") {
-    return model.isDefault;
-  }
-  return model.model === selectedModel;
-}
-
 function composerTextareaLabel(selected: boolean) {
   return selected ? "Ask Setta" : "Start new chat";
 }
@@ -786,8 +719,6 @@ function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible
 
 interface ComposerKeyActions {
   completeCommand: () => void;
-  dismissModelPicker: () => void;
-  modelPickerOpen: boolean;
   queueDraft: () => Promise<void>;
   running: boolean;
   sendDraft: () => Promise<void>;
@@ -799,11 +730,6 @@ export function handleComposerKeyDown(
   event: KeyboardEvent<HTMLTextAreaElement>,
   actions: ComposerKeyActions,
 ) {
-  if (isDismissShortcut(event, actions.modelPickerOpen)) {
-    event.preventDefault();
-    actions.dismissModelPicker();
-    return;
-  }
   if (isQueueShortcut(event)) {
     event.preventDefault();
     if (actions.slashDraft) {
@@ -823,10 +749,6 @@ export function handleComposerKeyDown(
   }
   event.preventDefault();
   void actions.sendDraft();
-}
-
-function isDismissShortcut(event: KeyboardEvent<HTMLTextAreaElement>, modelPickerOpen: boolean) {
-  return modelPickerOpen && event.key === "Escape";
 }
 
 function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {

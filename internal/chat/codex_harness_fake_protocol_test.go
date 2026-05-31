@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"setta/internal/codexapp"
 )
 
 func writeFakeInitializeResponse(id any) {
@@ -15,14 +13,6 @@ func writeFakeInitializeResponse(id any) {
 		"platformFamily": "unix",
 		"platformOs":     "test",
 		"userAgent":      "fake",
-	})
-}
-
-func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error) {
-	return codexapp.StartProcess(codexapp.ProcessConfig{
-		Command: config.Command,
-		Args:    config.Args,
-		Env:     config.Env,
 	})
 }
 
@@ -37,13 +27,6 @@ func writeFakeStreamTurn() {
 	writeFakeAssistantDelta("hello ")
 	writeFakeAssistantDelta("from codex")
 	writeFakeCompletedTurn("completed")
-}
-
-func writeFakeTurnStartedID(turnID string) {
-	writeFakeNotification("turn/started", map[string]any{
-		"threadId": "thread_fake",
-		"turnId":   turnID,
-	})
 }
 
 func writeFakeRemoteControlStatus(status string) {
@@ -453,6 +436,11 @@ func writeFakeImmediateServerRequest(mode string, state *fakeCodexState) {
 		writeFakeDynamicToolRequest("missingTool")
 	case "dynamic-tool-registered":
 		writeFakeDynamicToolRequest("fakeTool")
+	case "chatgpt-auth-refresh-unavailable":
+		writeFakeServerRequest("auth-1", "account/chatgptAuthTokens/refresh", map[string]any{
+			"previousAccountId": "account_fake",
+			"reason":            "expired",
+		})
 	case "attestation-unavailable", "attestation-provider":
 		writeFakeServerRequest("attestation-1", "attestation/generate", map[string]any{})
 	}

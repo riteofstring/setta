@@ -248,7 +248,7 @@ function registerIpc() {
     ipcMain,
     "appOpenExternalUrl",
     async (_event, rawURL) => {
-      await openExternalURL(rawURL);
+      await shell.openExternal(externalURL(rawURL));
     },
     ipcObserver,
   );
@@ -444,41 +444,25 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "codexAccountRead",
+    "providerAccountsList",
     async () => {
-      return requireBackendClient().readCodexAccount();
+      return requireBackendClient().listProviderAccounts();
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
-    "codexAccountRefresh",
+    "providerAccountsSaveChatGPTAuth",
     async (_event, request) => {
-      return requireBackendClient().refreshCodexAccount(request);
+      return requireBackendClient().saveChatGPTAuth(request);
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
-    "codexAccountStartLogin",
+    "providerAccountsClearChatGPTAuth",
     async (_event, request) => {
-      return requireBackendClient().startCodexLogin(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "codexAccountCancelLogin",
-    async (_event, request) => {
-      return requireBackendClient().cancelCodexLogin(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "codexAccountLogout",
-    async (_event, request) => {
-      return requireBackendClient().logoutCodexAccount(request);
+      return requireBackendClient().clearChatGPTAuth(request);
     },
     ipcObserver,
   );
@@ -490,15 +474,6 @@ function externalURL(rawURL: string) {
     throw new Error("external URL must use http or https: " + rawURL);
   }
   return url.toString();
-}
-
-async function openExternalURL(rawURL: string) {
-  const url = externalURL(rawURL);
-  if (process.env.SETTA_E2E_BLOCK_EXTERNAL_OPEN === "1") {
-    recorder?.recordAppEvent("external_url_open_blocked", { url });
-    return;
-  }
-  await shell.openExternal(url);
 }
 
 function requireBackendClient(): BackendClient {
