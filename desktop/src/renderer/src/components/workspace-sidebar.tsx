@@ -1,11 +1,4 @@
-import type {
-  ConversationListItem,
-  CorruptionSummary,
-  Diagnostic,
-  ListConversationsResponse,
-  Run,
-  WorkspaceSummary,
-} from "@generated/backend";
+import type { CorruptionSummary, Diagnostic, Run, WorkspaceSummary } from "@generated/backend";
 import {
   AlertTriangle,
   Ellipsis,
@@ -21,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 import { cn } from "../lib/utils";
+import { useChatStore, type WorkspaceConversationListState } from "../stores/chat-store";
 import {
   defaultSidebarSections,
   SidebarAccordionSection,
@@ -46,27 +40,15 @@ const sidebarNavigationMaxHeight = 360;
 const sidebarNavigationRowHeight = 28;
 const workspaceListOverscan = 6;
 const noScrollAnchoringStyle = { overflowAnchor: "none" } satisfies CSSProperties;
-const emptyCorruptionSummary = {
-  byKind: [],
-  bySeverity: [],
-  hasCorruption: false,
-  total: 0,
-} satisfies CorruptionSummary;
 
 interface WorkspaceSidebarProps {
   activeRun: Run | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
   chromeInsetTop?: boolean;
-  chatBusy: boolean;
-  chatLoading: boolean;
-  chatWorkspaceId: string | null;
   closeWorkspace: (id: string) => Promise<void>;
-  conversations: ConversationListItem[];
-  corruption: CorruptionSummary;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  diagnostics: Diagnostic[];
   openLocalFolder: () => Promise<void>;
   openWorkspacePath: (rootPath: string) => Promise<void>;
   openSettingsPane: () => void;
@@ -86,7 +68,8 @@ interface VirtualWorkspaceListProps {
   testId: string;
 }
 
-interface SidebarWorkspaceConversationState extends SidebarWorkspaceConversationList {
+interface SidebarWorkspaceConversationState
+  extends SidebarWorkspaceConversationList, WorkspaceConversationListState {
   corruption: CorruptionSummary;
   diagnostics: Diagnostic[];
 }
@@ -96,15 +79,9 @@ export function WorkspaceSidebar({
   activeWorkspaces,
   busy,
   chromeInsetTop = false,
-  chatBusy,
-  chatLoading,
-  chatWorkspaceId,
   closeWorkspace,
-  conversations,
-  corruption,
   createConversation,
   createWorkspaceConversation,
-  diagnostics,
   openLocalFolder,
   openWorkspacePath,
   openSettingsPane,
@@ -119,9 +96,22 @@ export function WorkspaceSidebar({
   const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<ReadonlySet<string>>(
     () => new Set(selectedWorkspaceId ? [selectedWorkspaceId] : []),
   );
-  const [workspaceConversationLists, setWorkspaceConversationLists] = useState<
-    Record<string, SidebarWorkspaceConversationState | undefined>
-  >({});
+  const subscribedWorkspaceConversationLists = useChatStore(
+    (state) => state.conversationListsByWorkspaceId,
+  );
+  const currentWorkspaceConversationLists = useChatStore.getState().conversationListsByWorkspaceId;
+  const workspaceConversationLists =
+    Object.keys(subscribedWorkspaceConversationLists).length > 0
+      ? subscribedWorkspaceConversationLists
+      : currentWorkspaceConversationLists;
+  const ensureWorkspaceConversationList = useChatStore(
+    (state) => state.ensureWorkspaceConversationList,
+  );
+  const clearClosedWorkspaceConversationLists = useChatStore(
+    (state) => state.clearClosedWorkspaceConversationLists,
+  );
+  const chatCreateBusy = useChatStore((state) => state.operation === "creating");
+  const conversationSelectionBusy = useChatStore((state) => state.operation === "loading");
   const activeWorkspaceIds = useMemo(
     () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
     [activeWorkspaces],
@@ -133,28 +123,6 @@ export function WorkspaceSidebar({
   const projectsEmpty = activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0;
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
-  const selectedWorkspaceList = useMemo(
-    () =>
-      selectedWorkspaceId && chatWorkspaceId === selectedWorkspaceId
-        ? {
-            conversations: chatLoading ? [] : conversations,
-            corruption,
-            diagnostics,
-            error: null,
-            loading: chatLoading,
-          }
-        : null,
-    [chatLoading, chatWorkspaceId, conversations, corruption, diagnostics, selectedWorkspaceId],
-  );
-  const visibleWorkspaceConversationLists = useMemo(() => {
-    if (!selectedWorkspaceId || !selectedWorkspaceList) {
-      return workspaceConversationLists;
-    }
-    return {
-      ...workspaceConversationLists,
-      [selectedWorkspaceId]: selectedWorkspaceList,
-    };
-  }, [selectedWorkspaceId, selectedWorkspaceList, workspaceConversationLists]);
 
   useEffect(() => {
     if (selectedWorkspaceId) {
@@ -168,24 +136,8 @@ export function WorkspaceSidebar({
   }, [selectedWorkspaceId]);
 
   useEffect(() => {
-    if (!selectedWorkspaceId || !selectedWorkspaceList) {
-      return;
-    }
-    setWorkspaceConversationLists((current) => ({
-      ...current,
-      [selectedWorkspaceId]: selectedWorkspaceList,
-    }));
-  }, [selectedWorkspaceId, selectedWorkspaceList]);
-
-  useEffect(() => {
-    const activeIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
-    setWorkspaceConversationLists((current) => {
-      const next = Object.fromEntries(
-        Object.entries(current).filter(([workspaceId]) => activeIds.has(workspaceId)),
-      );
-      return Object.keys(next).length === Object.keys(current).length ? current : next;
-    });
-  }, [activeWorkspaces]);
+    clearClosedWorkspaceConversationLists(activeWorkspaces.map((workspace) => workspace.id));
+  }, [activeWorkspaces, clearClosedWorkspaceConversationLists]);
 
   useEffect(() => {
     for (const workspace of activeWorkspaces) {
@@ -193,48 +145,18 @@ export function WorkspaceSidebar({
         continue;
       }
       const list = workspaceConversationLists[workspace.id];
-      if (list) {
+      if (list?.loading || (list && list.error === null)) {
         continue;
       }
-      void loadSidebarWorkspaceConversations(workspace.id);
+      void ensureWorkspaceConversationList(workspace.id);
     }
-  }, [activeWorkspaces, expandedWorkspaceIds, selectedWorkspaceId, workspaceConversationLists]);
-
-  async function loadSidebarWorkspaceConversations(workspaceId: string) {
-    setWorkspaceConversationLists((current) => {
-      if (current[workspaceId]) {
-        return current;
-      }
-      return {
-        ...current,
-        [workspaceId]: {
-          conversations: [],
-          corruption: emptyCorruptionSummary,
-          diagnostics: [],
-          error: null,
-          loading: true,
-        },
-      };
-    });
-    try {
-      const list = await window.setta.chat.listConversations(workspaceId);
-      setWorkspaceConversationLists((current) => ({
-        ...current,
-        [workspaceId]: sidebarWorkspaceConversationState(list),
-      }));
-    } catch (error) {
-      setWorkspaceConversationLists((current) => ({
-        ...current,
-        [workspaceId]: {
-          conversations: current[workspaceId]?.conversations ?? [],
-          corruption: emptyCorruptionSummary,
-          diagnostics: [],
-          error: error instanceof Error ? error.message : String(error),
-          loading: false,
-        },
-      }));
-    }
-  }
+  }, [
+    activeWorkspaces,
+    ensureWorkspaceConversationList,
+    expandedWorkspaceIds,
+    selectedWorkspaceId,
+    workspaceConversationLists,
+  ]);
 
   function setWorkspaceExpanded(workspaceId: string, expanded: boolean) {
     setExpandedWorkspaceIds((current) => {
@@ -281,7 +203,7 @@ export function WorkspaceSidebar({
           title="Shortcuts"
         >
           <SidebarShortcuts
-            busy={busy || chatBusy}
+            busy={busy || chatCreateBusy}
             createConversation={createConversation}
             hasWorkspace={selectedWorkspaceId !== ""}
           />
@@ -310,7 +232,8 @@ export function WorkspaceSidebar({
                 <ProjectNavigationList
                   activeRun={activeRun}
                   busy={busy}
-                  chatBusy={chatBusy}
+                  chatCreateBusy={chatCreateBusy}
+                  conversationSelectionBusy={conversationSelectionBusy}
                   closeWorkspace={closeWorkspace}
                   createWorkspaceConversation={createWorkspaceConversation}
                   expandedWorkspaceIds={expandedWorkspaceIds}
@@ -322,7 +245,7 @@ export function WorkspaceSidebar({
                   selectedConversationId={selectedConversationId}
                   selectedWorkspaceId={selectedWorkspaceId}
                   setWorkspaceExpanded={setWorkspaceExpanded}
-                  workspaceConversationLists={visibleWorkspaceConversationLists}
+                  workspaceConversationLists={workspaceConversationLists}
                   activeWorkspaces={activeWorkspaces}
                 />
               </>
@@ -337,18 +260,6 @@ export function WorkspaceSidebar({
   );
 }
 
-function sidebarWorkspaceConversationState(
-  response: ListConversationsResponse,
-): SidebarWorkspaceConversationState {
-  return {
-    conversations: response.conversations,
-    corruption: response.corruption,
-    diagnostics: response.diagnostics,
-    error: null,
-    loading: false,
-  };
-}
-
 function sidebarWorkspaceDiagnostics(
   workspaceConversationLists: Record<string, SidebarWorkspaceConversationState | undefined>,
 ) {
@@ -359,7 +270,8 @@ function ProjectNavigationList({
   activeRun,
   activeWorkspaces,
   busy,
-  chatBusy,
+  chatCreateBusy,
+  conversationSelectionBusy,
   closeWorkspace,
   createWorkspaceConversation,
   expandedWorkspaceIds,
@@ -376,7 +288,8 @@ function ProjectNavigationList({
   activeRun: Run | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
-  chatBusy: boolean;
+  chatCreateBusy: boolean;
+  conversationSelectionBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   expandedWorkspaceIds: ReadonlySet<string>;
@@ -499,7 +412,8 @@ function ProjectNavigationList({
           <SidebarNavigationRow
             activeRun={activeRun}
             busy={busy}
-            chatBusy={chatBusy}
+            chatCreateBusy={chatCreateBusy}
+            conversationSelectionBusy={conversationSelectionBusy}
             workspaceConversationLists={workspaceConversationLists}
             corruptionLabelsByConversationId={corruptionLabelsByConversationId}
             item={item}
@@ -516,7 +430,8 @@ function ProjectNavigationList({
 function SidebarNavigationRow({
   activeRun,
   busy,
-  chatBusy,
+  chatCreateBusy,
+  conversationSelectionBusy,
   corruptionLabelsByConversationId,
   item,
   runCommand,
@@ -524,7 +439,8 @@ function SidebarNavigationRow({
 }: {
   activeRun: Run | null;
   busy: boolean;
-  chatBusy: boolean;
+  chatCreateBusy: boolean;
+  conversationSelectionBusy: boolean;
   corruptionLabelsByConversationId: Map<string, string>;
   item: SidebarNavigationItem;
   runCommand: (command: SidebarNavigationCommand) => Promise<void>;
@@ -535,7 +451,7 @@ function SidebarNavigationRow({
       return (
         <ActiveWorkspaceNavigationRow
           busy={busy}
-          chatBusy={chatBusy}
+          chatCreateBusy={chatCreateBusy}
           item={item}
           runCommand={runCommand}
           workspaceConversationLists={workspaceConversationLists}
@@ -545,7 +461,7 @@ function SidebarNavigationRow({
       return (
         <ConversationNavigationRow
           activeRun={activeRun}
-          chatBusy={chatBusy}
+          conversationSelectionBusy={conversationSelectionBusy}
           corruptionLabelsByConversationId={corruptionLabelsByConversationId}
           item={item}
           runCommand={runCommand}
@@ -564,13 +480,13 @@ function SidebarNavigationRow({
 
 function ActiveWorkspaceNavigationRow({
   busy,
-  chatBusy,
+  chatCreateBusy,
   item,
   runCommand,
   workspaceConversationLists,
 }: {
   busy: boolean;
-  chatBusy: boolean;
+  chatCreateBusy: boolean;
   item: Extract<SidebarNavigationItem, { kind: "activeWorkspace" }>;
   runCommand: (command: SidebarNavigationCommand) => Promise<void>;
   workspaceConversationLists: Record<string, SidebarWorkspaceConversationState | undefined>;
@@ -579,7 +495,7 @@ function ActiveWorkspaceNavigationRow({
   return (
     <ProjectRow
       busy={busy}
-      chatBusy={chatBusy}
+      chatCreateBusy={chatCreateBusy}
       corruption={workspaceList?.corruption ?? null}
       diagnostics={workspaceList?.diagnostics ?? []}
       item={item}
@@ -590,13 +506,13 @@ function ActiveWorkspaceNavigationRow({
 
 function ConversationNavigationRow({
   activeRun,
-  chatBusy,
+  conversationSelectionBusy,
   corruptionLabelsByConversationId,
   item,
   runCommand,
 }: {
   activeRun: Run | null;
-  chatBusy: boolean;
+  conversationSelectionBusy: boolean;
   corruptionLabelsByConversationId: Map<string, string>;
   item: Extract<SidebarNavigationItem, { kind: "conversation" }>;
   runCommand: (command: SidebarNavigationCommand) => Promise<void>;
@@ -607,7 +523,7 @@ function ConversationNavigationRow({
     <div className="pl-4">
       <ConversationRow
         activeRun={activeRun}
-        busy={chatBusy}
+        busy={conversationSelectionBusy && item.selected}
         corruptionLabel={corruptionLabel}
         item={item.conversation}
         selectConversation={() => runCommand(item.commands.primary)}
@@ -646,20 +562,20 @@ function MoreConversationsRow({
 
 function ProjectRow({
   busy,
-  chatBusy,
+  chatCreateBusy,
   corruption,
   diagnostics,
   item,
   runCommand,
 }: {
   busy: boolean;
-  chatBusy: boolean;
+  chatCreateBusy: boolean;
   corruption: CorruptionSummary | null;
   diagnostics: Diagnostic[];
   item: Extract<SidebarNavigationItem, { kind: "activeWorkspace" }>;
   runCommand: (command: SidebarNavigationCommand) => Promise<void>;
 }) {
-  const rowBusy = busy || chatBusy;
+  const rowBusy = busy || chatCreateBusy;
   const { workspace } = item;
 
   return (

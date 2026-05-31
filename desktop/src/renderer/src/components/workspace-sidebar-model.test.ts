@@ -187,6 +187,54 @@ describe("workspace sidebar navigation model", () => {
       kind: "moreConversations",
     });
   });
+
+  test("omits cold loading rows while preserving known conversations during refresh", () => {
+    const api = workspace("workspace_api", "api");
+
+    const unknownItems = selectSidebarNavigationItems({
+      activeWorkspaces: [api],
+      expandedWorkspaceIds: new Set([api.id]),
+      recentWorkspaces: [],
+      selectedConversationId: "",
+      selectedWorkspaceId: api.id,
+      visibleConversationLimit: 80,
+      workspaceConversationLists: {},
+    });
+    expect(unknownItems.map((item) => item.kind)).toEqual(["activeWorkspace"]);
+
+    const coldLoadingItems = selectSidebarNavigationItems({
+      activeWorkspaces: [api],
+      expandedWorkspaceIds: new Set([api.id]),
+      recentWorkspaces: [],
+      selectedConversationId: "",
+      selectedWorkspaceId: api.id,
+      visibleConversationLimit: 80,
+      workspaceConversationLists: {
+        [api.id]: { conversations: [], error: null, loading: true },
+      },
+    });
+    expect(coldLoadingItems.map((item) => item.kind)).toEqual(["activeWorkspace"]);
+
+    const refreshingItems = selectSidebarNavigationItems({
+      activeWorkspaces: [api],
+      expandedWorkspaceIds: new Set([api.id]),
+      recentWorkspaces: [],
+      selectedConversationId: "",
+      selectedWorkspaceId: api.id,
+      visibleConversationLimit: 80,
+      workspaceConversationLists: {
+        [api.id]: {
+          conversations: [conversationListItem("conversation_api_plan", "Plan API", api.id)],
+          error: null,
+          loading: true,
+        },
+      },
+    });
+    expect(refreshingItems.map((item) => item.id)).toEqual([
+      "active-workspace:workspace_api",
+      "conversation:conversation_api_plan",
+    ]);
+  });
 });
 
 function workspace(id: string, displayName: string): WorkspaceSummary {

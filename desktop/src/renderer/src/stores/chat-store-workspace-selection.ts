@@ -37,7 +37,7 @@ export function conversationSelectionRequest(
     }),
     conversationId,
     loadingPatch: {
-      ...(switchingWorkspace ? workspaceSwitchLoadingPatch(workspaceId) : {}),
+      ...(switchingWorkspace ? workspaceSwitchLoadingPatch() : {}),
       error: null,
       operation: "loading",
     },
@@ -64,27 +64,10 @@ export function missingConversationPatch(
   };
 }
 
-function workspaceSwitchLoadingPatch(workspaceId: string): ChatPatch {
+function workspaceSwitchLoadingPatch(): ChatPatch {
   return {
-    activeRun: null,
-    conversations: [],
-    corruption: emptyCorruption,
-    diagnostics: [],
-    editingQueuedMessageId: null,
     error: null,
-    goal: null,
-    hasMoreOlder: false,
-    messages: [],
-    olderBeforeOrdinal: 0,
-    queuedRuns: [],
-    removingQueuedMessageId: null,
-    runItemOutputPagesByRunItemId: {},
-    runItemOutputs: [],
-    runItems: [],
-    selectedConversation: null,
     status: "loading",
-    transcript: [],
-    workspaceId,
   };
 }
 

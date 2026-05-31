@@ -56,5 +56,8 @@ func (service *Service) recoverInterruptedRun(workspaceID string, run Run, now s
 	if _, err := service.markPendingSteeringMessagesLocked(workspaceID, run.ConversationID, run.ID, MessageStatusError); err != nil {
 		return err
 	}
+	if err := service.advanceReadRelevantMarkerLocked(workspaceID, run.ConversationID, run.CompletedAt); err != nil {
+		return err
+	}
 	return service.traceLocked(workspaceID, run.ID, "error_received", run.Error)
 }

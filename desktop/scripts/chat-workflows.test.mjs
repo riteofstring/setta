@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, rm } from "node:fs/promises";
 import { delimiter, dirname, join, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
@@ -31,6 +32,7 @@ import {
   createChat,
   createFixture,
   createSidebarFixture,
+  createTwoWorkspaceFixture,
   failureWithLogs,
   launchContext,
   liveWorkflowTimeoutMs,
@@ -125,6 +127,7 @@ async function main() {
   if (options.deterministic) {
     await runDeterministicWorkflowLaunch(results);
     await runSidebarNavigationWorkflow(results);
+    await runCrossWorkspaceSidebarSummaryWorkflow(results);
     await runUnreadConversationWorkflow({
       appendWorkflowState,
       assertRecordingEvidence,
@@ -274,6 +277,15 @@ async function runDeterministicWorkflowLaunch(results) {
         workspaceId,
       });
     });
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "conversation-switch",
+      context.client,
+      async () => {
+        await runConversationSwitchWorkflow(context.client, backend, workspaceId);
+      },
+    );
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -482,6 +494,73 @@ async function runApprovalsWorkflow(client, backend, workspaceId, conversationId
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 }
 
+async function runConversationSwitchWorkflow(client, backend, workspaceId) {
+  const firstConversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "switch workflow first", "Send message");
+  await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    firstConversationId,
+    "switch workflow first",
+    "completed",
+  );
+  await waitForTexts(client, ["switch workflow first", "Scripted response: switch workflow first"]);
+
+  const secondConversationId = await createChat(client, backend, workspaceId);
+  await submitComposer(client, "switch workflow second", "Send message");
+  await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    secondConversationId,
+    "switch workflow second",
+    "completed",
+  );
+  await waitForTexts(client, [
+    "switch workflow second",
+    "Scripted response: switch workflow second",
+  ]);
+
+  await clickButtonContainingText(client, "switch workflow first");
+  await waitForTexts(client, ["switch workflow first", "Scripted response: switch workflow first"]);
+
+  const monitor = startForbiddenTextMonitor(client, [
+    "Loading workspace chats.",
+    "Loading chats",
+    "No chats",
+    "Start a conversation for this workspace.",
+  ]);
+  await clickButtonContainingText(client, "switch workflow second");
+  await waitForTexts(client, [
+    "switch workflow second",
+    "Scripted response: switch workflow second",
+  ]);
+  await monitor.stop();
+}
+
+function startForbiddenTextMonitor(client, forbiddenTexts) {
+  let stopped = false;
+  const samples = [];
+  const promise = (async () => {
+    while (!stopped) {
+      const body = await client.evaluate("document.body.innerText");
+      const found = forbiddenTexts.find((text) => body.includes(text));
+      samples.push({ found, timestamp: Date.now() });
+      if (found) {
+        throw new Error(
+          `forbidden transition text rendered: ${found}; samples=${JSON.stringify(samples)}`,
+        );
+      }
+      await delay(16);
+    }
+  })();
+  return {
+    stop: async () => {
+      stopped = true;
+      await promise;
+    },
+  };
+}
+
 async function runWorkflowStep(results, recordingDir, name, client, workflow) {
   try {
     await workflow();
@@ -579,6 +658,120 @@ async function runSidebarNavigationWorkflow(results) {
       "chat:message-page",
     ],
   });
+}
+
+async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
+  const fixture = await createTwoWorkspaceFixture("cross-workspace-sidebar-summary");
+  const recordingDir = join(recordingRoot, "cross-workspace-sidebar-summary");
+  const context = await launchContext(fixture, recordingDir);
+  let failure = null;
+
+  try {
+    const backend = await backendProbe(recordingDir);
+    await runWorkflowStep(
+      results,
+      recordingDir,
+      "cross-workspace-sidebar-summary",
+      context.client,
+      async () => {
+        await waitForTexts(context.client, [
+          fixture.firstWorkspace.displayName,
+          fixture.secondWorkspace.displayName,
+        ]);
+
+        await clickButtonByText(context.client, fixture.secondWorkspace.displayName);
+        await waitForBackendState(
+          async () => backend.get("/workspace-session"),
+          (value) => value.selectedWorkspaceId === fixture.secondWorkspace.id,
+        );
+        const conversationId = await createChat(
+          context.client,
+          backend,
+          fixture.secondWorkspace.id,
+        );
+
+        await clickButtonByText(context.client, fixture.firstWorkspace.displayName);
+        await waitForBackendState(
+          async () => backend.get("/workspace-session"),
+          (value) => value.selectedWorkspaceId === fixture.firstWorkspace.id,
+        );
+
+        const backgroundPrompt = "background sidebar unread";
+        const sent = await backend.post("/chat/messages/send", {
+          conversationId,
+          prompt: backgroundPrompt,
+          workspaceId: fixture.secondWorkspace.id,
+        });
+        await waitForRunStatus(
+          backend,
+          fixture.secondWorkspace.id,
+          conversationId,
+          sent.run.id,
+          "completed",
+        );
+        await waitForSidebarConversationRow(context.client, backgroundPrompt, {
+          unread: true,
+        });
+
+        const created = await backend.post("/chat/conversations/create", {
+          title: "Background created chat",
+          workspaceId: fixture.secondWorkspace.id,
+        });
+        await waitForSidebarConversationRow(context.client, created.title, {
+          unread: false,
+        });
+
+        await appendWorkflowState(recordingDir, {
+          backgroundConversationId: conversationId,
+          createdConversationId: created.id,
+          type: "cross_workspace_sidebar_summary",
+        });
+      },
+    );
+  } catch (error) {
+    failure = error;
+    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
+  } finally {
+    context.client?.close();
+    await stopElectron(context.electron);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
+  }
+
+  if (failure) {
+    throw failureWithLogs(failure, context.electron.logs);
+  }
+  await assertRecordingEvidence(recordingDir, {
+    backendPaths: [
+      "/workspace-session",
+      "/chat/conversations/create",
+      "/chat/conversations/list",
+      "/chat/messages/page",
+      "/chat/messages/send",
+      "/chat/runs/list",
+    ],
+    ipcChannels: [
+      "workspace:session",
+      "workspace:select",
+      "chat:create-conversation",
+      "chat:list-conversations",
+      "chat:message-page",
+    ],
+  });
+}
+
+async function waitForSidebarConversationRow(client, text, { unread }) {
+  await waitForState(client, conversationRowsExpression(), (value) =>
+    value.rows.some((row) => row.text.includes(text) && row.unread === unread),
+  );
+}
+
+function conversationRowsExpression() {
+  return `(() => ({
+    rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map((row) => ({
+      text: row.innerText,
+      unread: Boolean(row.querySelector('[aria-label="Unread assistant response"]')),
+    })),
+  }))()`;
 }
 
 async function runCodexProtocolWorkflow(results) {

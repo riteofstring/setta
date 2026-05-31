@@ -9,13 +9,18 @@ import type {
   TranscriptTurn,
 } from "@generated/backend";
 import { renderToString } from "react-dom/server";
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 
-import { WorkspacePanel } from "./App";
+import { sidebarWorkspaceBusy, WorkspacePanel } from "./App";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { WorkspacePanePanel } from "./components/workspace-pane";
+import { useChatStore } from "./stores/chat-store";
+
+beforeEach(() => {
+  useChatStore.setState(useChatStore.getInitialState(), true);
+});
 
 describe("workspace renderer states", () => {
   test("renders the empty workspace state", () => {
@@ -25,15 +30,9 @@ describe("workspace renderer states", () => {
           activeRun={null}
           activeWorkspaces={[]}
           busy={false}
-          chatBusy={false}
-          chatLoading={false}
-          chatWorkspaceId={null}
           closeWorkspace={async () => {}}
-          conversations={[]}
-          corruption={emptyCorruption()}
           createConversation={async () => {}}
           createWorkspaceConversation={async () => {}}
-          diagnostics={[]}
           openLocalFolder={async () => {}}
           openWorkspacePath={async () => {}}
           openSettingsPane={() => {}}
@@ -79,21 +78,18 @@ describe("workspace renderer states", () => {
       lastOpenedAt: "2026-05-29T20:05:00Z",
       rootPath: "/tmp/web",
     };
+    seedWorkspaceConversationList("workspace_web", [
+      conversationListItem("conversation_web", "Build web UI", "workspace_web"),
+    ]);
     const html = renderToString(
       <>
         <WorkspaceSidebar
           activeRun={null}
           activeWorkspaces={[api, web]}
           busy={false}
-          chatBusy={false}
-          chatLoading={false}
-          chatWorkspaceId="workspace_web"
           closeWorkspace={async () => {}}
-          conversations={[conversationListItem("conversation_web", "Build web UI")]}
-          corruption={emptyCorruption()}
           createConversation={async () => {}}
           createWorkspaceConversation={async () => {}}
-          diagnostics={[]}
           openLocalFolder={async () => {}}
           openWorkspacePath={async () => {}}
           openSettingsPane={() => {}}
@@ -140,20 +136,17 @@ describe("workspace renderer states", () => {
       lastOpenedAt: "2026-05-29T20:05:00Z",
       rootPath: "/tmp/web",
     };
+    seedWorkspaceConversationList("workspace_api", [
+      conversationListItem("conversation_api", "Old API chat", "workspace_api"),
+    ]);
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
         activeWorkspaces={[api, web]}
         busy={false}
-        chatBusy={false}
-        chatLoading
-        chatWorkspaceId="workspace_web"
         closeWorkspace={async () => {}}
-        conversations={[conversationListItem("conversation_api", "Old API chat")]}
-        corruption={emptyCorruption()}
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
-        diagnostics={[]}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
@@ -167,8 +160,97 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain("web");
-    expect(html).toContain("Loading chats");
     expect(html).not.toContain("Old API chat");
+    expect(html).not.toContain("Loading chats");
+  });
+
+  test("does not disable sidebar conversation rows during selected chat sends", () => {
+    const web = {
+      displayName: "web",
+      id: "workspace_web",
+      lastOpenedAt: "2026-05-29T20:05:00Z",
+      rootPath: "/tmp/web",
+    };
+    seedWorkspaceConversationList("workspace_web", [
+      conversationListItem("conversation_web", "Build web UI", "workspace_web"),
+    ]);
+    useChatStore.setState({ operation: "sending" });
+
+    const html = renderToString(
+      <WorkspaceSidebar
+        activeRun={null}
+        activeWorkspaces={[web]}
+        busy={false}
+        closeWorkspace={async () => {}}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        openLocalFolder={async () => {}}
+        openWorkspacePath={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId="conversation_web"
+        selectedWorkspaceId="workspace_web"
+      />,
+    );
+
+    const conversationButton = html.match(
+      /<button(?=[^>]*data-testid="conversation-list-item")[^>]*>/,
+    )?.[0];
+    const workspaceNewChatButton = html.match(
+      /<button(?=[^>]*aria-label="New chat in web")[^>]*>/,
+    )?.[0];
+
+    expect(conversationButton).toBeDefined();
+    expect(workspaceNewChatButton).toBeDefined();
+    expect(conversationButton).not.toContain(' disabled=""');
+    expect(workspaceNewChatButton).not.toContain(' disabled=""');
+  });
+
+  test("does not dim sidebar actions during workspace selection", () => {
+    const web = {
+      displayName: "web",
+      id: "workspace_web",
+      lastOpenedAt: "2026-05-29T20:05:00Z",
+      rootPath: "/tmp/web",
+    };
+    seedWorkspaceConversationList("workspace_web", [
+      conversationListItem("conversation_web", "Build web UI", "workspace_web"),
+    ]);
+
+    const html = renderToString(
+      <WorkspaceSidebar
+        activeRun={null}
+        activeWorkspaces={[web]}
+        busy={sidebarWorkspaceBusy("selecting", "ready")}
+        closeWorkspace={async () => {}}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        openLocalFolder={async () => {}}
+        openWorkspacePath={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId="conversation_web"
+        selectedWorkspaceId="workspace_web"
+      />,
+    );
+
+    const shortcutNewChatButton = html.match(/<button(?=[^>]*aria-label="New chat")[^>]*>/)?.[0];
+    const projectFolderButton = html.match(
+      /<button(?=[^>]*aria-label="Open project folder")[^>]*>/,
+    )?.[0];
+
+    expect(sidebarWorkspaceBusy("selecting", "ready")).toBe(false);
+    expect(sidebarWorkspaceBusy("opening", "ready")).toBe(true);
+    expect(shortcutNewChatButton).toBeDefined();
+    expect(projectFolderButton).toBeDefined();
+    expect(shortcutNewChatButton).not.toContain(' disabled=""');
+    expect(projectFolderButton).not.toContain(' disabled=""');
   });
 
   test("renders chat corruption status in the project and conversation list", () => {
@@ -178,25 +260,27 @@ describe("workspace renderer states", () => {
       lastOpenedAt: "2026-05-29T20:05:00Z",
       rootPath: "/tmp/web",
     };
+    seedWorkspaceConversationList(
+      "workspace_web",
+      [conversationListItem("conversation_web", "Build web UI", "workspace_web")],
+      {
+        corruption: {
+          byKind: [{ count: 2, key: "run" }],
+          bySeverity: [{ count: 2, key: "critical" }],
+          hasCorruption: true,
+          total: 2,
+        },
+        diagnostics: [criticalDiagnostic("conversation_web")],
+      },
+    );
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
         activeWorkspaces={[web]}
         busy={false}
-        chatBusy={false}
-        chatLoading={false}
-        chatWorkspaceId="workspace_web"
         closeWorkspace={async () => {}}
-        conversations={[conversationListItem("conversation_web", "Build web UI")]}
-        corruption={{
-          byKind: [{ count: 2, key: "run" }],
-          bySeverity: [{ count: 2, key: "critical" }],
-          hasCorruption: true,
-          total: 2,
-        }}
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
-        diagnostics={[criticalDiagnostic("conversation_web")]}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
@@ -242,21 +326,18 @@ describe("workspace renderer states", () => {
       lastOpenedAt: "2026-05-29T20:00:00Z",
       rootPath: `/tmp/workspace-${index}`,
     }));
+    seedWorkspaceConversationList("workspace_0", [
+      conversationListItem("conversation_workspace_0", "Large workspace chat", "workspace_0"),
+    ]);
 
     const html = renderToString(
       <WorkspaceSidebar
         activeRun={null}
         activeWorkspaces={workspaces}
         busy={false}
-        chatBusy={false}
-        chatLoading={false}
-        chatWorkspaceId="workspace_0"
         closeWorkspace={async () => {}}
-        conversations={[conversationListItem("conversation_workspace_0", "Large workspace chat")]}
-        corruption={emptyCorruption()}
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
-        diagnostics={[]}
         openLocalFolder={async () => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
@@ -1124,7 +1205,35 @@ function expectTextOrder(html: string, texts: string[]) {
   }
 }
 
-function conversationListItem(id: string, title: string): ConversationListItem {
+function seedWorkspaceConversationList(
+  workspaceId: string,
+  conversations: ConversationListItem[],
+  options: {
+    corruption?: CorruptionSummary;
+    diagnostics?: Diagnostic[];
+    error?: string | null;
+    loading?: boolean;
+  } = {},
+) {
+  useChatStore.setState((current) => ({
+    conversationListsByWorkspaceId: {
+      ...current.conversationListsByWorkspaceId,
+      [workspaceId]: {
+        conversations,
+        corruption: options.corruption ?? emptyCorruption(),
+        diagnostics: options.diagnostics ?? [],
+        error: options.error ?? null,
+        loading: options.loading ?? false,
+      },
+    },
+  }));
+}
+
+function conversationListItem(
+  id: string,
+  title: string,
+  workspaceId = "workspace_web",
+): ConversationListItem {
   return {
     activeRunId: "",
     conversation: {
@@ -1136,7 +1245,7 @@ function conversationListItem(id: string, title: string): ConversationListItem {
       schemaVersion: 1,
       title,
       updatedAt: "2026-05-29T20:00:00Z",
-      workspaceId: "workspace_web",
+      workspaceId,
     },
     latestReadRelevantMarker: 0,
     messageCount: 0,

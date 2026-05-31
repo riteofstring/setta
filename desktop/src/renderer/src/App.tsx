@@ -10,9 +10,9 @@ import {
   PanelRightOpen,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
-import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
+import { ChatPanel, useChatViewState } from "./components/chat-panel";
 import { EditorPicker } from "./components/editor-picker";
 import { ResizableBottomPane, ResizablePane } from "./components/resizable-pane";
 import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspace-pane";
@@ -30,10 +30,10 @@ import { useChatStore } from "./stores/chat-store";
 
 export function App() {
   const workspace = useWorkspaceViewState();
-  const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
   const panes = useWorkspacePaneState();
   const platform = window.setta.app.platform;
   useBackendResyncStatus();
+  useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [maximizedPane, setMaximizedPane] = useState<MaximizedPane>(null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
   const [chatPaneWidth, setChatPaneWidth] = useState(360);
@@ -97,7 +97,6 @@ export function App() {
       <AppChromeControls
         bottomPaneOpen={panes.bottom.open}
         chatPaneOpen={chatPaneOpen}
-        createConversation={chat.createConversation}
         maximizedPane={maximizedPane}
         maximizeTarget={maximizeTarget}
         openChatSearch={openChatSearch}
@@ -119,7 +118,6 @@ export function App() {
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900 transition-[gap] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
         <ProjectPane
           chromeInsetTop={visibility.project}
-          chat={chat}
           open={visibility.project}
           openSettingsPane={openSettingsPane}
           setWidth={setProjectPaneWidth}
@@ -128,7 +126,6 @@ export function App() {
         />
         <WorkspaceArea
           bottomPaneHeight={bottomPaneHeight}
-          chat={chat}
           chatPaneWidth={chatPaneWidth}
           chatSearchOpen={chatSearchOpen}
           maximizedPane={maximizedPane}
@@ -153,6 +150,17 @@ function useBackendResyncStatus() {
       }
     });
   }, []);
+}
+
+function useSelectedWorkspaceChatSync(workspaceId: string | null) {
+  const loadWorkspace = useChatStore((state) => state.loadWorkspace);
+  const storeWorkspaceId = useChatStore((state) => state.workspaceId);
+  useLayoutEffect(() => {
+    if (!workspaceId || workspaceId === storeWorkspaceId) {
+      return;
+    }
+    void loadWorkspace(workspaceId);
+  }, [loadWorkspace, storeWorkspaceId, workspaceId]);
 }
 
 type MaximizedPane = "bottom" | "chat" | "right" | null;
@@ -270,7 +278,6 @@ function assertNever(value: never): never {
 
 function WorkspaceArea({
   bottomPaneHeight,
-  chat,
   chatPaneWidth,
   chatSearchOpen,
   maximizedPane,
@@ -283,7 +290,6 @@ function WorkspaceArea({
   workspace,
 }: {
   bottomPaneHeight: number;
-  chat: ChatView;
   chatPaneWidth: number;
   chatSearchOpen: boolean;
   maximizedPane: MaximizedPane;
@@ -312,7 +318,6 @@ function WorkspaceArea({
       />
       {contentPresent ? (
         <WorkspaceContentRow
-          chat={chat}
           chatPaneWidth={chatPaneWidth}
           chatSearchOpen={chatSearchOpen}
           maximizedPane={maximizedPane}
@@ -358,7 +363,6 @@ function WorkspaceArea({
 }
 
 function WorkspaceContentRow({
-  chat,
   chatPaneWidth,
   chatSearchOpen,
   maximizedPane,
@@ -370,7 +374,6 @@ function WorkspaceContentRow({
   visibility,
   workspace,
 }: {
-  chat: ChatView;
   chatPaneWidth: number;
   chatSearchOpen: boolean;
   maximizedPane: MaximizedPane;
@@ -395,7 +398,6 @@ function WorkspaceContentRow({
     >
       <ChatPane
         chromeInsetTop={visibility.chat}
-        chat={chat}
         chatSearchOpen={chatSearchOpen}
         maximized={maximizedPane === "chat"}
         open={visibility.chat}
@@ -433,7 +435,6 @@ type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
 
 function ProjectPane({
   chromeInsetTop,
-  chat,
   open,
   openSettingsPane,
   setWidth,
@@ -441,7 +442,6 @@ function ProjectPane({
   workspace,
 }: {
   chromeInsetTop: boolean;
-  chat: ChatView;
   open: boolean;
   openSettingsPane: () => void;
   setWidth: (width: number) => void;
@@ -453,6 +453,36 @@ function ProjectPane({
   }
 
   return (
+    <ProjectPaneContent
+      chromeInsetTop={chromeInsetTop}
+      openSettingsPane={openSettingsPane}
+      setWidth={setWidth}
+      width={width}
+      workspace={workspace}
+    />
+  );
+}
+
+function ProjectPaneContent({
+  chromeInsetTop,
+  openSettingsPane,
+  setWidth,
+  width,
+  workspace,
+}: {
+  chromeInsetTop: boolean;
+  openSettingsPane: () => void;
+  setWidth: (width: number) => void;
+  width: number;
+  workspace: WorkspaceViewState;
+}) {
+  const activeRun = useChatStore((state) => state.activeRun);
+  const createConversation = useChatStore((state) => state.createConversation);
+  const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
+  const selectConversation = useChatStore((state) => state.selectConversation);
+  const selectedConversationId = useChatStore((state) => state.selectedConversation?.id ?? "");
+
+  return (
     <ResizablePane
       label="Resize project sidebar"
       maxWidth={320}
@@ -462,26 +492,20 @@ function ProjectPane({
     >
       <div className="h-full">
         <WorkspaceSidebar
-          activeRun={chat.activeRun}
+          activeRun={activeRun}
           activeWorkspaces={workspace.activeWorkspaces}
-          busy={workspace.busy || chat.operation !== null}
-          chatBusy={chat.operation !== null || chat.status === "loading"}
-          chatLoading={chat.status === "loading"}
-          chatWorkspaceId={chat.workspaceId}
+          busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
           closeWorkspace={workspace.closeWorkspace}
-          conversations={chat.conversations}
-          corruption={chat.corruption}
-          createConversation={chat.createConversation}
-          createWorkspaceConversation={chat.createWorkspaceConversation}
-          diagnostics={chat.diagnostics}
+          createConversation={createConversation}
+          createWorkspaceConversation={createWorkspaceConversation}
           openLocalFolder={workspace.openLocalFolder}
           openWorkspacePath={workspace.openWorkspacePath}
           openSettingsPane={openSettingsPane}
           recentWorkspaces={workspace.recentWorkspaces}
           removeRecent={workspace.removeRecent}
-          selectConversation={chat.selectConversation}
+          selectConversation={selectConversation}
           selectWorkspace={workspace.selectWorkspace}
-          selectedConversationId={chat.selectedConversation?.id ?? ""}
+          selectedConversationId={selectedConversationId}
           selectedWorkspaceId={workspace.selectedWorkspaceId}
           chromeInsetTop={chromeInsetTop}
           sidebarWidth={width}
@@ -491,9 +515,15 @@ function ProjectPane({
   );
 }
 
+export function sidebarWorkspaceBusy(
+  operation: WorkspaceOperation,
+  status: WorkspaceStatus,
+): boolean {
+  return status === "loading" || (operation !== null && operation !== "selecting");
+}
+
 function ChatPane({
   chromeInsetTop,
-  chat,
   chatSearchOpen,
   maximized,
   open,
@@ -505,7 +535,6 @@ function ChatPane({
   workspace,
 }: {
   chromeInsetTop: boolean;
-  chat: ChatView;
   chatSearchOpen: boolean;
   maximized: boolean;
   open: boolean;
@@ -520,6 +549,43 @@ function ChatPane({
     return null;
   }
 
+  return (
+    <ChatPaneContent
+      chromeInsetTop={chromeInsetTop}
+      chatSearchOpen={chatSearchOpen}
+      maximized={maximized}
+      rightPaneOpen={rightPaneOpen}
+      setChatSearchOpen={setChatSearchOpen}
+      setWidth={setWidth}
+      toggleMaximize={toggleMaximize}
+      width={width}
+      workspace={workspace}
+    />
+  );
+}
+
+function ChatPaneContent({
+  chromeInsetTop,
+  chatSearchOpen,
+  maximized,
+  rightPaneOpen,
+  setChatSearchOpen,
+  setWidth,
+  toggleMaximize,
+  width,
+  workspace,
+}: {
+  chromeInsetTop: boolean;
+  chatSearchOpen: boolean;
+  maximized: boolean;
+  rightPaneOpen: boolean;
+  setChatSearchOpen: (open: boolean) => void;
+  setWidth: (width: number) => void;
+  toggleMaximize: () => void;
+  width: number;
+  workspace: WorkspaceViewState;
+}) {
+  const chat = useChatViewState();
   const panel = (
     <ChatPanel
       chat={chat}
@@ -551,7 +617,6 @@ function ChatPane({
 function AppChromeControls({
   bottomPaneOpen,
   chatPaneOpen,
-  createConversation,
   maximizedPane,
   maximizeTarget,
   openChatSearch,
@@ -567,7 +632,6 @@ function AppChromeControls({
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
-  createConversation: (title?: string) => Promise<void>;
   maximizedPane: MaximizedPane;
   maximizeTarget: NonNullable<MaximizedPane> | null;
   openChatSearch: () => void;
@@ -581,6 +645,7 @@ function AppChromeControls({
   setRightPaneOpen: (open: boolean) => void;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
+  const createConversation = useChatStore((state) => state.createConversation);
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if (!isModShortcut(event)) {

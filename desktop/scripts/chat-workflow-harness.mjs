@@ -697,6 +697,34 @@ export async function createSidebarFixture(name) {
   };
 }
 
+export async function createTwoWorkspaceFixture(name) {
+  const fixture = await createFixture(name);
+  const activeRoot = join(fixture.tempRoot, "two-active-workspaces");
+  await mkdir(activeRoot, { recursive: true });
+  const firstWorkspace = await createWorkspaceSummary(activeRoot, "first-workspace", 0);
+  const secondWorkspace = await createWorkspaceSummary(activeRoot, "second-workspace", 1);
+
+  await writeFile(
+    join(fixture.appDataDir, "app-state.json"),
+    JSON.stringify(
+      {
+        activeWorkspaceIds: [firstWorkspace.id, secondWorkspace.id],
+        recentWorkspaces: [firstWorkspace, secondWorkspace],
+        schemaVersion: 1,
+        selectedWorkspaceId: firstWorkspace.id,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+
+  return {
+    ...fixture,
+    firstWorkspace,
+    secondWorkspace,
+  };
+}
+
 async function createWorkspaceSummary(parent, name, timestampOffsetSeconds) {
   const root = join(parent, name);
   await mkdir(root, { recursive: true });

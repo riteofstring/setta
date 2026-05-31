@@ -166,7 +166,7 @@ function conversationItems({
     !conversationList ||
     (conversationList.loading && conversationList.conversations.length === 0)
   ) {
-    return [conversationStatusItem(workspaceId, "Loading chats")];
+    return [];
   }
   if (conversationList.error) {
     return [conversationStatusItem(workspaceId, conversationList.error)];

@@ -32,6 +32,8 @@ describe("chat store", () => {
   beforeEach(() => {
     useChatStore.setState({
       activeRun: null,
+      conversationDetailsById: {},
+      conversationListsByWorkspaceId: {},
       conversations: [],
       corruption: emptyCorruption(),
       diagnostics: [],
@@ -1478,7 +1480,6 @@ function workspaceSession(): WorkspaceSession {
     selectedWorkspaceId: "workspace_api",
   };
 }
-
 function emptyCodexAccountState() {
   return {
     account: null,

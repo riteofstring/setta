@@ -99,16 +99,12 @@ function applyConversationOrWorkspaceEvent(
         status: "ready",
       });
     case "chat.conversation.updated":
-      return workspaceEventResult(
-        state,
-        event,
-        conversationUpdatedPatch(state, event.payload.item),
-      );
+      return {
+        patch: conversationUpdatedPatch(state, event.workspaceId, event.payload.item),
+        resync: false,
+      };
     case "diagnostic.created":
-      return workspaceEventResult(state, event, {
-        diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
-        status: "ready",
-      });
+      return { patch: diagnosticCreatedPatch(state, event), resync: false };
     default:
       return assertNever(event);
   }
@@ -175,17 +171,6 @@ function selectedConversationEventResult(
   return { patch, resync };
 }
 
-function workspaceEventResult(
-  state: ChatStore,
-  event: ChatEvent,
-  patch: ChatPatch,
-): EventApplyResult {
-  if (state.workspaceId !== event.workspaceId) {
-    return unchangedEventResult();
-  }
-  return { patch, resync: false };
-}
-
 function applyAssistantTextDelta(
   state: ChatStore,
   event: Extract<ChatEvent, { type: "chat.assistant_text_delta" }>,
@@ -228,15 +213,56 @@ function applyAssistantTextDelta(
   };
 }
 
-function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
-  const selectedConversation =
-    state.selectedConversation?.id === item.conversation.id
-      ? item.conversation
-      : state.selectedConversation;
-  return {
-    conversations: upsertConversation(state.conversations, item),
-    selectedConversation,
-  };
+function conversationUpdatedPatch(
+  state: ChatStore,
+  workspaceId: string,
+  item: ConversationListItem,
+): ChatPatch {
+  const patch: ChatPatch = {};
+  const summary = state.conversationListsByWorkspaceId[workspaceId];
+  if (summary) {
+    patch.conversationListsByWorkspaceId = {
+      ...state.conversationListsByWorkspaceId,
+      [workspaceId]: {
+        ...summary,
+        conversations: upsertConversation(summary.conversations, item),
+      },
+    };
+  }
+  if (state.workspaceId === workspaceId) {
+    Object.assign(patch, {
+      conversations: upsertConversation(state.conversations, item),
+      selectedConversation:
+        state.selectedConversation?.id === item.conversation.id
+          ? item.conversation
+          : state.selectedConversation,
+    });
+  }
+  return patch;
+}
+
+function diagnosticCreatedPatch(
+  state: ChatStore,
+  event: Extract<OtherChatEvent, { type: "diagnostic.created" }>,
+): ChatPatch {
+  const patch: ChatPatch = {};
+  const summary = state.conversationListsByWorkspaceId[event.workspaceId];
+  if (summary) {
+    patch.conversationListsByWorkspaceId = {
+      ...state.conversationListsByWorkspaceId,
+      [event.workspaceId]: {
+        ...summary,
+        diagnostics: upsertDiagnostic(summary.diagnostics, event.payload.diagnostic),
+      },
+    };
+  }
+  if (state.workspaceId === event.workspaceId) {
+    Object.assign(patch, {
+      diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
+      status: "ready",
+    });
+  }
+  return patch;
 }
 
 function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {

@@ -1,7 +1,7 @@
 import type { WorkspaceSummary } from "@generated/backend";
 import { AlertTriangle, Check, Maximize2, Minimize2 } from "lucide-react";
 import { Square } from "lucide-react";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
@@ -219,7 +219,10 @@ export function ConversationBody({
   if (chat.error && !chat.selectedConversation) {
     return <ChatLoadError message={chat.error} />;
   }
-  if (switchingWorkspace || (chat.status === "loading" && !chat.selectedConversation)) {
+  if (switchingWorkspace && !chat.selectedConversation) {
+    return <EmptyConversation label="Loading workspace chats." />;
+  }
+  if (chat.status === "loading" && !chat.selectedConversation) {
     return <EmptyConversation label="Loading workspace chats." />;
   }
   if (!chat.selectedConversation) {
@@ -344,7 +347,7 @@ function ChatError({ message }: { message: string | null }) {
   );
 }
 
-export function useChatViewState(workspaceId: string | null) {
+export function useChatViewState() {
   const activeRun = useChatStore((state) => state.activeRun);
   const conversations = useChatStore((state) => state.conversations);
   const corruption = useChatStore((state) => state.corruption);
@@ -359,7 +362,6 @@ export function useChatViewState(workspaceId: string | null) {
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
-  const loadWorkspace = useChatStore((state) => state.loadWorkspace);
   const listCommands = useChatStore((state) => state.listCommands);
   const markConversationRead = useChatStore((state) => state.markConversationRead);
   const messageIds = useChatStore((state) => state.messageIds);
@@ -400,13 +402,6 @@ export function useChatViewState(workspaceId: string | null) {
         )
         .map((message) => message.id)
     : [];
-
-  useLayoutEffect(() => {
-    if (!workspaceId || workspaceId === storeWorkspaceId) {
-      return;
-    }
-    void loadWorkspace(workspaceId);
-  }, [loadWorkspace, storeWorkspaceId, workspaceId]);
 
   const selectedConversationSummary = selectedConversation
     ? conversations.find((item) => item.conversation.id === selectedConversation.id)
