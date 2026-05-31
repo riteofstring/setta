@@ -280,7 +280,7 @@ function WorkspaceArea({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-7 z-40 h-px bg-zinc-800"
+        className="pointer-events-none absolute inset-x-0 top-8 z-40 h-px bg-zinc-800"
       />
       {visibility.content ? (
         <WorkspaceContentRow
@@ -596,7 +596,7 @@ function ShellTopBar() {
   return (
     <div
       aria-hidden="true"
-      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-7 bg-transparent"
+      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-8 bg-transparent"
       data-testid="shell-top-bar"
     />
   );
@@ -625,8 +625,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-100 outline-none hover:bg-zinc-800 focus-visible:bg-zinc-800"
-          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+          ? "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-100 outline-none hover:bg-zinc-800 focus-visible:bg-zinc-800"
+          : "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
       }
       disabled={disabled}
       onClick={onClick}
@@ -731,7 +731,7 @@ function TopBarMaximizeButton({
       aria-hidden={maximizeTarget === null}
       aria-label={label}
       className={cn(
-        "inline-flex h-6 w-6 items-center justify-center rounded-sm outline-none transition-[opacity,transform,background-color,color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "inline-flex h-7 w-7 items-center justify-center rounded-sm outline-none transition-[opacity,transform,background-color,color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         active
           ? "text-zinc-100 hover:bg-zinc-800 focus-visible:bg-zinc-800"
           : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100",

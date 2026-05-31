@@ -170,6 +170,7 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
 
 export function WorkspacePanePanel({
   activeTabId,
+  initialNewTabMenuOpen = false,
   maximized = false,
   onCloseTab,
   onCreateTab,
@@ -179,6 +180,7 @@ export function WorkspacePanePanel({
   tabs,
 }: {
   activeTabId: string;
+  initialNewTabMenuOpen?: boolean;
   maximized?: boolean;
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
@@ -189,37 +191,33 @@ export function WorkspacePanePanel({
 }) {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
   const paneLabel = slot === "right" ? "Workspace side pane" : "Workspace bottom pane";
-  const [newTabMenuOpen, setNewTabMenuOpen] = useState(false);
+  const [newTabMenuOpen, setNewTabMenuOpen] = useState(initialNewTabMenuOpen);
   return (
     <section
       aria-label={paneLabel}
       className={workspacePanePanelClass({ maximized, slot })}
       data-testid={`${slot}-workspace-pane`}
     >
-      <header className="app-no-drag flex h-7 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5">
-        {tabs.length > 0 ? (
-          <nav className="flex min-w-0 flex-1 items-center gap-1" aria-label={`${paneLabel} tabs`}>
-            {tabs.map((tab) => (
-              <WorkspacePaneTabButton
-                active={tab.id === activeTabId}
-                key={tab.id}
-                onClose={() => onCloseTab(tab.id)}
-                onSelect={() => onSelectTab(tab.id)}
-                tab={tab}
-              />
-            ))}
-            <WorkspacePaneNewTabMenu
-              onCreateTab={(kind) => {
-                setNewTabMenuOpen(false);
-                onCreateTab(kind);
-              }}
-              onOpenChange={setNewTabMenuOpen}
-              open={newTabMenuOpen}
+      <header className="app-no-drag flex h-8 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5">
+        <nav className="flex min-w-0 flex-1 items-center gap-1" aria-label={`${paneLabel} tabs`}>
+          {tabs.map((tab) => (
+            <WorkspacePaneTabButton
+              active={tab.id === activeTabId}
+              key={tab.id}
+              onClose={() => onCloseTab(tab.id)}
+              onSelect={() => onSelectTab(tab.id)}
+              tab={tab}
             />
-          </nav>
-        ) : (
-          <span className="min-w-0 flex-1" />
-        )}
+          ))}
+          <WorkspacePaneNewTabMenu
+            onCreateTab={(kind) => {
+              setNewTabMenuOpen(false);
+              onCreateTab(kind);
+            }}
+            onOpenChange={setNewTabMenuOpen}
+            open={newTabMenuOpen}
+          />
+        </nav>
         {onToggleMaximize ? (
           <WorkspacePaneMaximizeButton
             maximized={maximized}
@@ -253,7 +251,7 @@ function WorkspacePaneMaximizeButton({
   return (
     <button
       aria-label={label}
-      className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+      className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
       onClick={onToggleMaximize}
       title={label}
       type="button"
@@ -291,7 +289,7 @@ function WorkspacePaneTabButton({
   return (
     <div
       className={cn(
-        "group relative flex h-6 min-w-0 max-w-40 items-center gap-1 rounded-sm border px-1.5 text-xs transition-colors",
+        "group relative flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-sm border px-1.5 text-xs transition-colors",
         active
           ? "border-zinc-700/70 bg-zinc-800/80 text-zinc-100"
           : "border-transparent text-zinc-500 hover:bg-zinc-900/80 hover:text-zinc-200",
@@ -365,7 +363,7 @@ function WorkspacePaneNewTabMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="New pane tab"
-        className="grid h-6 w-6 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-900 hover:text-zinc-100 focus-visible:bg-zinc-900 focus-visible:text-zinc-100"
+        className="grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-900 hover:text-zinc-100 focus-visible:bg-zinc-900 focus-visible:text-zinc-100"
         onClick={() => onOpenChange(!open)}
         ref={anchorRef}
         title="New pane tab"

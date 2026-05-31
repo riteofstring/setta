@@ -316,7 +316,7 @@ export function WorkspaceSidebar({
 }
 
 function chromeInsetClass(enabled: boolean) {
-  return enabled ? "pt-7" : "";
+  return enabled ? "pt-8" : "";
 }
 
 function ProjectList({

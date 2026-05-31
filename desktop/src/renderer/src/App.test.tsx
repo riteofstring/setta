@@ -249,6 +249,7 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="right-workspace-pane"');
     expect(html).not.toContain("Right pane");
+    expect(html).toContain("New pane tab");
     expect(html).toContain("Canvas");
     expect(html).toContain("Terminal");
     expect(html).toContain("Browser");
@@ -288,6 +289,28 @@ describe("workspace renderer states", () => {
     expect(html).toContain("New pane tab");
     expect(html).toContain("Close Terminal");
     expect(html).toContain("$");
+  });
+
+  test("renders the workspace pane new-tab menu with all pane kinds", () => {
+    const html = renderToString(
+      <WorkspacePanePanel
+        activeTabId=""
+        initialNewTabMenuOpen
+        onCloseTab={() => {}}
+        onCreateTab={() => {}}
+        onSelectTab={() => {}}
+        slot="right"
+        tabs={[]}
+      />,
+    );
+
+    expect(html).toContain('role="menu"');
+    expect(html).toContain("Canvas");
+    expect(html).toContain("Files");
+    expect(html).toContain("Diffs");
+    expect(html).toContain("Browser");
+    expect(html).toContain("Terminal");
+    expect(html).toContain("Settings");
   });
 
   test("renders a canvas workspace pane tab", () => {

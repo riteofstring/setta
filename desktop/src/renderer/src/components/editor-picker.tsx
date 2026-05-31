@@ -48,13 +48,13 @@ export function EditorPicker({ rootPath }: { rootPath: string }) {
 
   return (
     <div className="relative" ref={rootRef}>
-      <div className="inline-flex h-6 items-center gap-px rounded-sm text-zinc-300">
+      <div className="inline-flex h-7 items-center gap-px rounded-sm text-zinc-300">
         <EditorOpenButton editor={selectedEditor} onOpenEditor={openEditor} state={buttonState} />
         <button
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Choose editor"
-          className="grid h-6 w-5 place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+          className="grid h-7 w-6 place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
           disabled={!rootPath}
           onClick={() => setOpen((current) => !current)}
           title="Choose editor"
@@ -90,7 +90,7 @@ function EditorOpenButton({
   return (
     <button
       aria-label={state.title}
-      className="grid h-6 w-6 place-items-center rounded-sm outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+      className="grid h-7 w-7 place-items-center rounded-sm outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={state.disabled}
       onClick={() => void onOpenEditor(editor)}
       title={state.title}
