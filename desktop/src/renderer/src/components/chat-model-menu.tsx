@@ -61,7 +61,7 @@ export function ChatModelMenu({
       {open ? (
         <div
           aria-label="Chat model selection"
-          className="absolute right-0 bottom-[calc(100%+0.4rem)] z-50 w-[min(340px,calc(100vw-2rem))] rounded-md border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+          className="absolute right-0 bottom-[calc(100%+0.4rem)] z-50 w-[min(340px,calc(100vw-2rem))] rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
           role="menu"
         >
           <div className="px-2 pt-1 pb-1 text-xs text-zinc-400">Reasoning</div>
@@ -69,7 +69,7 @@ export function ChatModelMenu({
             <button
               aria-checked={level.id === reasoningLevel}
               className={cn(
-                "grid h-8 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 rounded-md px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75",
+                "grid h-8 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75",
                 level.id === reasoningLevel ? "bg-zinc-700/80" : "",
               )}
               key={level.id}
@@ -96,7 +96,7 @@ export function ChatModelMenu({
         aria-haspopup="menu"
         aria-label="Chat model selection"
         className={cn(
-          "inline-flex h-6 min-w-0 items-center gap-1 rounded-md px-1.5 text-xs hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
+          "inline-flex h-6 min-w-0 items-center gap-1 rounded-sm px-1.5 text-xs hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
           open ? "bg-zinc-700/80 text-zinc-100" : "text-zinc-400",
         )}
         disabled={disabled}
@@ -114,7 +114,7 @@ export function ChatModelMenu({
 function ModelSubmenuRow({ label }: { label: string }) {
   return (
     <button
-      className="grid h-8 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 rounded-md px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
+      className="grid h-8 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
       role="menuitem"
       type="button"
     >

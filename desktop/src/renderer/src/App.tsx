@@ -152,7 +152,7 @@ function ProjectPane({
       onWidthChange={setWidth}
       width={width}
     >
-      <div className="h-full border-r border-zinc-800/80">
+      <div className="relative h-full">
         <WorkspaceSidebar
           activeRun={chat.activeRun}
           activeWorkspaces={workspace.activeWorkspaces}
@@ -170,6 +170,10 @@ function ProjectPane({
           selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectedWorkspaceId={workspace.selectedWorkspaceId}
           sidebarWidth={width}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-0 h-[calc(100%-4rem)] min-h-24 w-px -translate-y-1/2 bg-zinc-800/80"
         />
       </div>
     </ResizablePane>
@@ -492,7 +496,7 @@ function ShellDropdownButton({
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="inline-flex h-6 max-w-36 min-w-0 items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800 px-2 text-[11px] text-zinc-300 hover:bg-zinc-700 hover:text-white disabled:pointer-events-none disabled:opacity-40"
+        className="inline-flex h-6 max-w-36 min-w-0 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-800 px-2 text-[11px] text-zinc-300 hover:bg-zinc-700 hover:text-white disabled:pointer-events-none disabled:opacity-40"
         disabled={disabled}
         onClick={() => setOpen((current) => !current)}
         type="button"
@@ -503,7 +507,7 @@ function ShellDropdownButton({
       </button>
       {open ? (
         <div
-          className="absolute top-full right-0 z-50 mt-1 grid min-w-56 gap-1 rounded-md border border-zinc-700 bg-zinc-950 p-1 text-xs text-zinc-100 shadow-xl"
+          className="absolute top-full right-0 z-50 mt-1 grid min-w-56 gap-0.5 rounded-sm border border-zinc-700 bg-zinc-950 p-1 text-[11px] text-zinc-100 shadow-xl"
           role="menu"
         >
           {items.map((item) => (
@@ -551,7 +555,7 @@ function CommandPalette({
 
   return (
     <div
-      className="app-no-drag fixed inset-0 z-50 bg-black/35 px-4 pt-16"
+      className="app-no-drag fixed inset-0 z-50 bg-black/35 px-3 pt-10"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onOpenChange(false);
@@ -559,11 +563,11 @@ function CommandPalette({
       }}
       role="presentation"
     >
-      <div className="mx-auto w-full max-w-xl overflow-hidden rounded-md border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-2xl">
-        <label className="flex h-11 items-center gap-2 border-b border-zinc-800 px-3">
-          <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+      <div className="mx-auto w-full max-w-lg overflow-hidden rounded-sm border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-xl">
+        <label className="flex h-8 items-center gap-1.5 border-b border-zinc-800 px-2">
+          <Search className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
           <Input
-            className="h-9 border-0 bg-transparent px-0 shadow-none placeholder:text-zinc-600 focus-visible:border-0"
+            className="h-7 border-0 bg-transparent px-0 text-xs shadow-none placeholder:text-zinc-600 focus-visible:border-0"
             placeholder="Run a command"
             ref={inputRef}
           />
@@ -571,7 +575,7 @@ function CommandPalette({
         <div className="p-1">
           {["Open Project", "Switch Workspace", "Search Chat", "Open Settings"].map((command) => (
             <button
-              className="flex h-8 w-full items-center justify-between rounded px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              className="flex h-7 w-full items-center justify-between rounded-sm px-2 text-left text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white"
               key={command}
               onClick={() => onOpenChange(false)}
               type="button"
@@ -619,7 +623,7 @@ function SearchPalette({
 
   return (
     <div
-      className="app-no-drag fixed inset-0 z-50 bg-black/35 px-4 pt-16"
+      className="app-no-drag fixed inset-0 z-50 bg-black/35 px-3 pt-10"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onOpenChange(false);
@@ -627,11 +631,11 @@ function SearchPalette({
       }}
       role="presentation"
     >
-      <div className="mx-auto w-full max-w-xl overflow-hidden rounded-md border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-2xl">
-        <label className="flex h-11 items-center gap-2 px-3">
-          <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+      <div className="mx-auto w-full max-w-lg overflow-hidden rounded-sm border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-xl">
+        <label className="flex h-8 items-center gap-1.5 px-2">
+          <Search className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
           <Input
-            className="h-9 border-0 bg-transparent px-0 shadow-none placeholder:text-zinc-600 focus-visible:border-0"
+            className="h-7 border-0 bg-transparent px-0 text-xs shadow-none placeholder:text-zinc-600 focus-visible:border-0"
             placeholder="Search chats, projects, files"
             ref={inputRef}
           />
@@ -766,29 +770,29 @@ export function WorkspacePanel({
 }) {
   const busy = operation !== null || status === "loading";
   return (
-    <div id="workspace" className="border-b border-zinc-200 bg-white p-4">
-      <div className="flex h-full items-start justify-between gap-4">
+    <div id="workspace" className="border-b border-zinc-200 bg-white p-2">
+      <div className="flex h-full items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-zinc-950">Workspace</h2>
+            <h2 className="text-xs font-semibold text-zinc-950">Workspace</h2>
             {status === "loading" ? <Badge variant="neutral">Loading</Badge> : null}
             {operation ? <Badge variant="neutral">{operationLabel(operation)}</Badge> : null}
           </div>
           {selectedWorkspace ? (
-            <div className="mt-5 min-w-0">
-              <div className="truncate text-xl font-semibold">{selectedWorkspace.displayName}</div>
+            <div className="mt-3 min-w-0">
+              <div className="truncate text-xs font-semibold">{selectedWorkspace.displayName}</div>
               <div
-                className="mt-2 truncate text-sm text-zinc-500"
+                className="mt-1 truncate text-xs text-zinc-500"
                 data-testid="selected-workspace-path"
               >
                 {selectedWorkspace.rootPath}
               </div>
             </div>
           ) : (
-            <div className="mt-5">
-              <div className="text-xl font-semibold">No workspace open</div>
+            <div className="mt-3">
+              <div className="text-xs font-semibold">No workspace open</div>
               <Button
-                className="mt-4"
+                className="mt-2 h-7 rounded-sm px-2 text-xs"
                 disabled={busy}
                 onClick={() => void openLocalFolder()}
                 variant="primary"
@@ -800,7 +804,7 @@ export function WorkspacePanel({
           )}
           {error ? (
             <div
-              className="mt-4 max-w-3xl rounded-md border border-zinc-400 bg-zinc-50 px-3 py-2 text-sm text-zinc-950"
+              className="mt-2 max-w-3xl rounded-sm border border-zinc-400 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-950"
               data-testid="workspace-error"
             >
               {error}

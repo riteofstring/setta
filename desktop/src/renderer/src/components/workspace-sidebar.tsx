@@ -546,7 +546,7 @@ function ProjectMoreMenu({
       </IconButton>
       {open ? (
         <div
-          className="fixed z-50 w-56 rounded-md border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50 backdrop-blur"
+          className="fixed z-50 w-56 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50 backdrop-blur"
           role="menu"
           style={menuPosition}
         >
@@ -719,12 +719,12 @@ function ConversationRow({
         ) : null}
       </button>
       <div
-        className="pointer-events-none fixed z-50 hidden min-w-52 max-w-72 rounded-md border border-zinc-700/80 bg-zinc-900/95 px-3 py-2 text-xs text-zinc-100 shadow-2xl shadow-zinc-950/50 backdrop-blur group-hover/chat:block"
+        className="pointer-events-none fixed z-50 hidden min-w-52 max-w-72 rounded-sm border border-zinc-700/80 bg-zinc-900/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/chat:block"
         data-testid="conversation-hover-card"
         style={{ left: "calc(var(--sidebar-width, 220px) + 8px)" }}
       >
-        <div className="truncate text-sm font-medium">{item.conversation.title}</div>
-        <div className="mt-2 flex min-w-0 items-center gap-2 text-zinc-300">
+        <div className="truncate text-xs font-medium">{item.conversation.title}</div>
+        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-zinc-300">
           <GitBranch className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
           <span className="truncate">{branchLabel}</span>
         </div>

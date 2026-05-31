@@ -159,7 +159,7 @@ export function SlashCommandPalette({
   const visibleSections = visibleSlashCommandSections(query);
 
   return (
-    <div className="absolute right-0 bottom-[calc(100%+0.75rem)] left-0 z-40 max-h-[min(440px,calc(100vh-220px))] overflow-y-auto rounded-md border border-zinc-700/90 bg-zinc-800/95 p-2 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur">
+    <div className="absolute right-0 bottom-[calc(100%+0.4rem)] left-0 z-40 max-h-[min(320px,calc(100vh-190px))] overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-[11px] text-zinc-100 shadow-xl shadow-black/45 backdrop-blur">
       {visibleSections.length > 0 ? (
         visibleSections.map((section) => (
           <SlashCommandSectionView
@@ -169,7 +169,7 @@ export function SlashCommandPalette({
           />
         ))
       ) : (
-        <div className="px-3 py-2 text-sm text-zinc-500">No matching commands</div>
+        <div className="px-2 py-1.5 text-[11px] text-zinc-500">No matching commands</div>
       )}
     </div>
   );
@@ -183,9 +183,9 @@ function SlashCommandSectionView({
   section: VisibleSlashCommandSection;
 }) {
   return (
-    <section className="grid gap-1">
+    <section className="grid gap-0.5">
       {section.title ? (
-        <h3 className="px-2 pt-2 pb-1 text-sm text-zinc-400">{section.title}</h3>
+        <h3 className="px-1.5 pt-1.5 pb-0.5 text-[10px] text-zinc-500">{section.title}</h3>
       ) : null}
       {section.commands.map((item, index) => (
         <SlashCommandRow
@@ -211,18 +211,18 @@ function SlashCommandRow({
   return (
     <button
       className={cn(
-        "grid h-9 w-full grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-zinc-700/75",
+        "grid h-7 w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1.5 text-left text-[11px] leading-4 hover:bg-zinc-700/75",
         highlighted ? "bg-zinc-700/80" : "",
       )}
       onClick={() => onSelect(item.insertText)}
       type="button"
     >
-      <span className="grid h-6 w-6 place-items-center text-zinc-300">{item.icon}</span>
+      <span className="grid h-5 w-5 place-items-center text-zinc-300">{item.icon}</span>
       <span className="min-w-0 truncate">
         <span className="font-medium text-zinc-100">{item.label}</span>
-        <span className="ml-2 text-zinc-400">{item.description}</span>
+        <span className="ml-1.5 text-zinc-400">{item.description}</span>
       </span>
-      {item.meta ? <span className="ml-3 text-zinc-400">{item.meta}</span> : null}
+      {item.meta ? <span className="ml-2 text-[10px] text-zinc-400">{item.meta}</span> : null}
     </button>
   );
 }
@@ -267,5 +267,5 @@ function skill(
 }
 
 function iconNode(icon: ReactNode) {
-  return <span className="[&>svg]:h-4 [&>svg]:w-4">{icon}</span>;
+  return <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>;
 }

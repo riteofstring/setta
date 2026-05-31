@@ -68,13 +68,13 @@ export function ChatPermissionsMenu({
       {open ? (
         <div
           aria-label="Chat permissions"
-          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(320px,calc(100vw-2rem))] rounded-md border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(320px,calc(100vw-2rem))] rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
           role="menu"
         >
           {permissionModes.map((mode) => (
             <button
               aria-checked={mode.id === selectedModeId}
-              className="grid h-8 w-full grid-cols-[20px_minmax(0,1fr)_16px] items-center gap-2 rounded-md px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
+              className="grid h-8 w-full grid-cols-[20px_minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
               key={mode.id}
               onClick={() => {
                 setSelectedModeId(mode.id);
@@ -99,7 +99,7 @@ export function ChatPermissionsMenu({
         aria-haspopup="menu"
         aria-label="Chat permissions"
         className={cn(
-          "inline-flex h-6 min-w-0 items-center gap-1 rounded-md px-1.5 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
+          "inline-flex h-6 min-w-0 items-center gap-1 rounded-sm px-1.5 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
           open ? "bg-zinc-700/80 text-zinc-100" : "bg-zinc-700/55",
         )}
         disabled={disabled}

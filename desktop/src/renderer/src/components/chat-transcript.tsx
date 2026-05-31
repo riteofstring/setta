@@ -91,7 +91,7 @@ export function ChatTranscript({
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <ChatSearchBar search={search} />
       <div
-        className="h-full min-h-0 min-w-0 overflow-y-auto bg-zinc-900 px-4 pt-6 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-y-auto bg-zinc-900 px-3 pt-4 pb-2"
         onScroll={(event) => {
           const node = event.currentTarget;
           setPinned(node.scrollHeight - node.scrollTop - node.clientHeight < 24);
@@ -99,7 +99,7 @@ export function ChatTranscript({
         ref={scrollRef}
       >
         {hasMoreOlder ? (
-          <div className="mb-3 flex justify-center">
+          <div className="mb-2 flex justify-center">
             <Button
               className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
               onClick={() => void loadOlderAndPreserveScroll()}
@@ -110,16 +110,16 @@ export function ChatTranscript({
             </Button>
           </div>
         ) : null}
-        <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-5">
+        <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-3">
           {messages.length === 0 ? (
-            <div className="py-16 text-center text-sm text-zinc-500" data-testid="empty-chat">
+            <div className="py-8 text-center text-xs text-zinc-500" data-testid="empty-chat">
               Start a conversation for this workspace.
             </div>
           ) : null}
           {messages.map((message) => (
             <div
               className={cn(
-                "scroll-mt-24 rounded-md transition-shadow",
+                "scroll-mt-16 rounded-sm transition-shadow",
                 search.activeMessageId === message.id
                   ? "bg-blue-400/5 ring-1 ring-blue-400/50"
                   : "",
@@ -255,11 +255,11 @@ function ChatSearchBar({ search }: { search: ChatSearchController }) {
       : `${search.matchCount === 0 ? 0 : search.activeIndex + 1}/${search.matchCount}`;
 
   return (
-    <div className="pointer-events-none absolute top-2 right-4 left-4 z-20 flex justify-end">
-      <div className="pointer-events-auto flex h-9 w-full max-w-sm min-w-0 items-center gap-1.5 rounded-md border border-zinc-700/90 bg-zinc-800/95 px-2 text-zinc-100 shadow-xl shadow-black/40 backdrop-blur">
-        <Search className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden="true" />
+    <div className="pointer-events-none absolute top-2 right-3 left-3 z-20 flex justify-end">
+      <div className="pointer-events-auto flex h-7 w-full max-w-xs min-w-0 items-center gap-1 rounded-sm border border-zinc-700/90 bg-zinc-800/95 px-1.5 text-zinc-100 shadow-xl shadow-black/40 backdrop-blur">
+        <Search className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
         <Input
-          className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-sm text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:border-0"
+          className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-xs text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:border-0"
           onChange={(event) => search.setQuery(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -280,23 +280,23 @@ function ChatSearchBar({ search }: { search: ChatSearchController }) {
           ref={search.inputRef}
           value={search.query}
         />
-        <span className="min-w-10 text-right text-xs text-zinc-500">{resultLabel}</span>
+        <span className="min-w-8 text-right text-[11px] text-zinc-500">{resultLabel}</span>
         <SearchNavButton
           disabled={search.matchCount === 0}
           label="Previous result"
           onClick={search.previous}
         >
-          <ChevronUp className="h-4 w-4" />
+          <ChevronUp className="h-3.5 w-3.5" />
         </SearchNavButton>
         <SearchNavButton
           disabled={search.matchCount === 0}
           label="Next result"
           onClick={search.next}
         >
-          <ArrowDown className="h-4 w-4" />
+          <ArrowDown className="h-3.5 w-3.5" />
         </SearchNavButton>
         <SearchNavButton label="Close chat search" onClick={search.close}>
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
         </SearchNavButton>
       </div>
     </div>
@@ -317,7 +317,7 @@ function SearchNavButton({
   return (
     <button
       aria-label={label}
-      className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-600"
+      className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-600"
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -387,7 +387,7 @@ function MessageContent({
 
 function UserMessageContent({ message, text }: { message: ChatMessage; text: string }) {
   return (
-    <div className="max-w-[82%] overflow-hidden rounded-md bg-zinc-800 px-2.5 py-1.5 text-sm leading-5 break-words text-zinc-50">
+    <div className="max-w-[82%] overflow-hidden rounded-sm bg-zinc-800 px-2 py-1 text-[13px] leading-5 break-words text-zinc-50">
       <div className="whitespace-pre-wrap">{text}</div>
       <MessageStatus status={message.status} />
     </div>
@@ -396,7 +396,7 @@ function UserMessageContent({ message, text }: { message: ChatMessage; text: str
 
 function AssistantMessageContent({ message, text }: { message: ChatMessage; text: string }) {
   return (
-    <div className="max-w-[88%] min-w-0 text-sm leading-6 text-zinc-200">
+    <div className="max-w-[88%] min-w-0 text-[13px] leading-5 text-zinc-200">
       <MarkdownText text={text || (message.status === "streaming" ? "..." : "")} />
       <MessageStatus status={message.status} />
     </div>
@@ -503,7 +503,7 @@ function ToolRailIcon() {
 function ToolCommandRow({ active = false, title }: { active?: boolean; title: string }) {
   return (
     <button
-      className="grid h-7 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 text-left font-mono text-sm font-semibold text-zinc-300 hover:bg-zinc-900"
+      className="grid h-7 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 text-left font-mono text-xs font-semibold text-zinc-300 hover:bg-zinc-900"
       type="button"
     >
       <span className="truncate">{title}</span>
@@ -527,7 +527,7 @@ function ToolCommandRow({ active = false, title }: { active?: boolean; title: st
 
 function ToolCallActions() {
   return (
-    <div className="absolute top-[5.75rem] right-2 flex w-8 flex-col items-center rounded-md border border-zinc-700 bg-zinc-950 py-1 text-zinc-400">
+    <div className="absolute top-[5.75rem] right-2 flex w-8 flex-col items-center rounded-sm border border-zinc-700 bg-zinc-950 py-1 text-zinc-400">
       <button
         aria-label="Copy tool call"
         className="grid h-6 w-6 place-items-center rounded hover:bg-zinc-900"
@@ -624,7 +624,7 @@ function ApprovalCard({
   const isUserInput = approval.kind === "user_input";
   const questions = approval.questions.length > 0 ? approval.questions : legacyQuestion(approval);
   return (
-    <section className="min-w-0 text-sm text-zinc-100" data-testid="approval-card">
+    <section className="min-w-0 text-xs text-zinc-100" data-testid="approval-card">
       <ToolCallFrame title={approval.title}>
         {approval.command ? <ToolBlock title="Command">{approval.command}</ToolBlock> : null}
         {approval.filePath ? <ToolBlock title="Path">{approval.filePath}</ToolBlock> : null}
@@ -663,7 +663,7 @@ function DecisionApproval({
   ) => Promise<void>;
 }) {
   return (
-    <div className="mt-3 flex gap-2">
+    <div className="mt-2 flex gap-1.5">
       <Button
         className="border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
         onClick={() => void submitApproval(approvalId, true, "", [], false)}
@@ -701,15 +701,15 @@ function UserInputApproval({
   }));
 
   return (
-    <div className="mt-3 space-y-3 rounded-md border border-zinc-700 bg-zinc-900 p-3">
+    <div className="mt-2 space-y-2 rounded-sm border border-zinc-700 bg-zinc-900 p-2">
       {questions.map((question) => {
         const answer = answerValue(answersByQuestion, question.id);
         return (
-          <div className="space-y-2" key={question.id}>
+          <div className="space-y-1.5" key={question.id}>
             {question.header ? <div className="font-medium">{question.header}</div> : null}
             <div>{question.question}</div>
             {question.options.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {question.options.map((option) => (
                   <Button
                     key={option}
@@ -723,7 +723,7 @@ function UserInputApproval({
               </div>
             ) : null}
             <Input
-              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-400"
+              className="w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-zinc-400"
               onChange={(event) =>
                 setQuestionAnswer(setAnswersByQuestion, question.id, event.target.value)
               }

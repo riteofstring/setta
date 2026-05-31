@@ -238,8 +238,8 @@ function WorkspacePaneTabButton({
     <div
       className={
         active
-          ? "group flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-md bg-zinc-800 px-2 text-xs text-zinc-100"
-          : "group flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-md px-2 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+          ? "group flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-sm bg-zinc-800 px-2 text-xs text-zinc-100"
+          : "group flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-sm px-2 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
       }
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
@@ -274,8 +274,8 @@ function WorkspacePaneActionButton({
       aria-label={`New ${label}`}
       className={
         showLabel
-          ? "inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-          : "inline-flex h-6 w-6 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+          ? "inline-flex h-6 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
       }
       onClick={onClick}
       title={`New ${label}`}
@@ -367,7 +367,7 @@ function TerminalPaneSurface() {
   const integration = workspacePaneIntegrationPlan.terminal;
   return (
     <div
-      className="h-full bg-zinc-950 p-3 font-mono text-xs text-zinc-500"
+      className="h-full bg-zinc-950 p-2 font-mono text-xs text-zinc-500"
       data-pane-host={integration.host}
       data-pane-runtime={integration.runtime}
     >

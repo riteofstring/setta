@@ -46,7 +46,7 @@ export function EditorPicker({ rootPath }: { rootPath: string }) {
 
   return (
     <div className="relative" ref={rootRef}>
-      <div className="inline-flex h-6 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 text-zinc-300 shadow-sm shadow-black/20">
+      <div className="inline-flex h-6 overflow-hidden rounded-sm border border-zinc-700 bg-zinc-800 text-zinc-300 shadow-sm shadow-black/20">
         <EditorOpenButton editor={selectedEditor} onOpenEditor={openEditor} state={buttonState} />
         <button
           aria-expanded={open}
@@ -236,7 +236,7 @@ function EditorPickerMenu({
 }) {
   return (
     <div
-      className="absolute top-full right-0 z-50 mt-1 w-52 rounded-md border border-zinc-700 bg-zinc-900/95 p-1.5 text-xs text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
+      className="absolute top-full right-0 z-50 mt-1 w-52 rounded-sm border border-zinc-700 bg-zinc-900/95 p-1.5 text-xs text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
       role="menu"
     >
       {state.status === "ready" && state.editors.length > 0 ? (
@@ -273,7 +273,7 @@ function EditorMenuItem({
   return (
     <button
       className={cn(
-        "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-zinc-200 hover:bg-zinc-800 hover:text-white",
+        "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-zinc-200 hover:bg-zinc-800 hover:text-white",
         selected ? "bg-zinc-800/70 text-white" : "",
       )}
       onClick={() => {

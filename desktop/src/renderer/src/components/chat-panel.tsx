@@ -26,7 +26,7 @@ export function ChatPanel({
   if (!workspace) {
     return (
       <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 pt-8 text-zinc-100">
-        <div className="grid min-h-0 flex-1 place-items-center px-6 text-center text-sm text-zinc-500">
+        <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
           Open a workspace to start chat.
         </div>
       </section>
@@ -77,7 +77,7 @@ function IconButton({
   return (
     <button
       aria-label={label}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={disabled}
       onClick={onClick}
       title={label}
@@ -125,11 +125,11 @@ function EmptyConversation({
   createConversation: (title?: string) => Promise<void>;
 }) {
   return (
-    <div className="grid min-h-0 place-items-center px-6">
+    <div className="grid min-h-0 place-items-center px-3">
       <div className="text-center">
-        <MessageSquarePlus className="mx-auto h-8 w-8 text-zinc-500" />
+        <MessageSquarePlus className="mx-auto h-6 w-6 text-zinc-500" />
         <Button
-          className="mt-4 border-zinc-700 bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
+          className="mt-3 h-7 rounded-sm border-zinc-700 bg-zinc-800 px-2 text-xs text-zinc-100 hover:bg-zinc-700"
           disabled={busy}
           onClick={() => void createConversation()}
           variant="primary"
@@ -147,7 +147,7 @@ function ChatError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <div className="border-t border-zinc-800 bg-zinc-900 px-5 py-2 text-sm text-zinc-100">
+    <div className="border-t border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100">
       {message}
     </div>
   );
@@ -182,7 +182,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
 
   return (
     <form
-      className="bg-zinc-900 px-3 pt-1.5 pb-2"
+      className="bg-zinc-900 px-2 pt-1 pb-1.5"
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
@@ -197,9 +197,9 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           open={slashPaletteOpen}
           query={slashQuery ?? ""}
         />
-        <div className="min-w-0 rounded-md border border-zinc-700 bg-zinc-800/90 px-2.5 py-2 shadow-lg shadow-black/15">
+        <div className="min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15">
           <Textarea
-            className="max-h-32 min-h-10 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-5 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
+            className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled}
             onChange={(event) => updateDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -223,7 +223,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
             rows={2}
             value={draft}
           />
-          <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+          <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
             <div className="flex min-w-0 items-center gap-1">
               <ChatPlusMenu disabled={disabled} />
               <ChatPermissionsMenu disabled={disabled} />
@@ -259,7 +259,7 @@ function ComposerButton({
     return (
       <Button
         aria-label="Stop run"
-        className="h-7 w-7 shrink-0 rounded-md border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white"
+        className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white"
         disabled={chat.operation === "cancelling"}
         onClick={() => void chat.stopActiveRun()}
         title="Stop run"
@@ -273,7 +273,7 @@ function ComposerButton({
   return (
     <Button
       aria-label="Send message"
-      className="h-7 w-7 shrink-0 rounded-md border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
+      className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
       disabled={!canSend}
       title="Send message"
       type="submit"

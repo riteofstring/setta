@@ -97,10 +97,10 @@ export function SettingsPanel() {
       className="flex h-full min-h-0 flex-col bg-zinc-800 text-zinc-100"
       data-testid="settings-panel"
     >
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-zinc-700 px-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <Settings2 className="h-4 w-4 shrink-0 text-zinc-400" />
-          <h1 className="truncate text-sm font-semibold">Settings</h1>
+      <header className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-zinc-700 px-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Settings2 className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+          <h1 className="truncate text-xs font-semibold">Settings</h1>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <Badge
@@ -669,7 +669,7 @@ function SettingsArticle({
   title: string;
 }) {
   return (
-    <article className="mx-auto grid w-full max-w-3xl gap-3">
+    <article className="mx-auto grid w-full max-w-3xl gap-2">
       <header className="flex h-8 items-center gap-2 text-zinc-400">
         {icon}
         <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">{title}</h2>
@@ -690,7 +690,7 @@ function SettingGroup({ children, title }: { children: ReactNode; title: string 
 
 function SettingRow({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <div className="grid min-h-9 min-w-0 grid-cols-[minmax(120px,1fr)_minmax(160px,auto)] items-center gap-3 py-1.5 text-xs">
+    <div className="grid min-h-8 min-w-0 grid-cols-[minmax(120px,1fr)_minmax(160px,auto)] items-center gap-2 py-1 text-xs">
       <span className="min-w-0 truncate font-medium text-zinc-200">{label}</span>
       <span className="flex min-w-0 justify-end">{children}</span>
     </div>
@@ -708,7 +708,7 @@ function SegmentedControl({
 }) {
   return (
     <div
-      className="inline-flex min-w-0 overflow-hidden rounded-md border border-zinc-600 bg-zinc-900 p-0.5"
+      className="inline-flex min-w-0 overflow-hidden rounded-sm border border-zinc-600 bg-zinc-900 p-0.5"
       role="radiogroup"
     >
       {options.map((option) => (
@@ -766,7 +766,7 @@ function ToggleSwitch({
 
 function ShortcutRow({ action, keys }: { action: string; keys: string[] }) {
   return (
-    <div className="grid min-h-9 grid-cols-[minmax(120px,1fr)_auto] items-center gap-3 py-1.5 text-xs">
+    <div className="grid min-h-8 grid-cols-[minmax(120px,1fr)_auto] items-center gap-2 py-1 text-xs">
       <span className="font-medium text-zinc-200">{action}</span>
       <span className="flex justify-end gap-1">
         {keys.map((key) => (
@@ -784,7 +784,7 @@ function ShortcutRow({ action, keys }: { action: string; keys: string[] }) {
 
 function StatusToken({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-zinc-600 bg-zinc-900 px-2 text-[11px] text-zinc-300">
+    <span className="inline-flex h-6 items-center gap-1.5 rounded-sm border border-zinc-600 bg-zinc-900 px-2 text-[11px] text-zinc-300">
       {icon}
       {label}
     </span>
