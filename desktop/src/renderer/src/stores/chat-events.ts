@@ -11,6 +11,9 @@ import type {
 
 import type { ChatPatch, ChatStore } from "./chat-store";
 
+type RunningRun = Run & { status: "running" };
+type QueuedRun = Run & { status: "queued" };
+
 interface EventApplyResult {
   patch: ChatPatch;
   resync: boolean;
@@ -70,6 +73,7 @@ export function applyChatEvent(state: ChatStore, event: AppliedChatEvent): Event
       event,
       {
         messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
+        queuedRuns: queuedRunsFromQueue(event.payload.queue.runs),
         status: "ready",
       },
       true,
@@ -200,17 +204,18 @@ function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {
   );
 }
 
-function activeRunFromRunEvent(current: Run | null, run: Run): Run | null {
+function activeRunFromRunEvent(current: RunningRun | null, run: Run): RunningRun | null {
   if (run.status === "running") {
-    return run;
+    return run as RunningRun;
   }
-  if (run.status === "queued") {
-    return current?.id === run.id ? run : current;
-  }
-  if (!current || current.id === run.id) {
-    return run;
+  if (current?.id === run.id) {
+    return null;
   }
   return current;
+}
+
+function queuedRunsFromQueue(runs: Run[]): QueuedRun[] {
+  return runs.filter((run): run is QueuedRun => run.status === "queued");
 }
 
 function updateTranscriptRun(transcript: TranscriptTurn[], run: Run): TranscriptTurn[] {

@@ -159,14 +159,11 @@ export function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView
         loadOlder={chat.loadOlder}
         loadRunItemOutput={chat.loadRunItemOutput}
         messageIds={chat.messageIds}
-        messages={chat.messages}
         messagesById={chat.messagesById}
         runItemIdsByRunId={chat.runItemIdsByRunId}
         runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
         runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
-        runItemOutputs={chat.runItemOutputs}
         runItemOutputsById={chat.runItemOutputsById}
-        runItems={chat.runItems}
         runItemsById={chat.runItemsById}
         submitApproval={chat.submitApproval}
         transcript={chat.transcript}

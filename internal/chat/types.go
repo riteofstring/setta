@@ -330,16 +330,7 @@ type Run struct {
 	CompletedAt        string           `json:"completedAt"`
 	PromptSummary      string           `json:"promptSummary"`
 	Error              string           `json:"error"`
-	HasPendingApproval bool             `json:"hasPendingApproval"`
 	PendingApproval    *ApprovalRequest `json:"pendingApproval"`
-}
-
-func (run Run) MarshalJSON() ([]byte, error) {
-	type runAlias Run
-	if !run.HasPendingApproval {
-		run.PendingApproval = nil
-	}
-	return json.Marshal(runAlias(run))
 }
 
 type ApprovalRequest struct {

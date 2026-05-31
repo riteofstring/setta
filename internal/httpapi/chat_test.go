@@ -80,7 +80,7 @@ func TestChatEndpointsListValidConversationsWithMalformedRunState(t *testing.T) 
 	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
 		t.Fatalf("create runs dir: %v", err)
 	}
-	raw := fmt.Sprintf(`{"schemaVersion":1,"id":"run_bad","workspaceId":%q,"conversationId":%q,"triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":"","hasPendingApproval":false}`, opened.Workspace.ID, corruptConversation.ID)
+	raw := fmt.Sprintf(`{"schemaVersion":1,"id":"run_bad","workspaceId":%q,"conversationId":%q,"triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":""}`, opened.Workspace.ID, corruptConversation.ID)
 	if err := os.WriteFile(runPath, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write malformed run: %v", err)
 	}
@@ -470,7 +470,7 @@ func waitForActiveApproval(t *testing.T, handler http.Handler, workspaceID strin
 			WorkspaceID:    workspaceID,
 			ConversationID: conversationID,
 		}, http.StatusOK)
-		if active.HasActiveRun && active.Run.HasPendingApproval {
+		if active.HasActiveRun && active.Run.PendingApproval != nil {
 			return active
 		}
 		time.Sleep(10 * time.Millisecond)

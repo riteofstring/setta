@@ -51,7 +51,7 @@ func newServiceWithCorruptRun(t *testing.T) (*Service, string, string) {
 	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
 		t.Fatalf("create run dir: %v", err)
 	}
-	rawRun := `{"schemaVersion":1,"id":"run_bad","workspaceId":"workspace_api","conversationId":"conversation_corrupt","triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"completed","startedAt":"2026-05-29T20:00:00Z","completedAt":"2026-05-29T20:00:01Z","promptSummary":"prompt","error":"","hasPendingApproval":false}`
+	rawRun := `{"schemaVersion":1,"id":"run_bad","workspaceId":"workspace_api","conversationId":"conversation_corrupt","triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"completed","startedAt":"2026-05-29T20:00:00Z","completedAt":"2026-05-29T20:00:01Z","promptSummary":"prompt","error":""}`
 	if err := os.WriteFile(runPath, []byte(rawRun), 0o644); err != nil {
 		t.Fatalf("write corrupt run: %v", err)
 	}

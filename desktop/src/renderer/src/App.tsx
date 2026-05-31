@@ -1,9 +1,11 @@
 import type {
   BackendHealth,
+  ChatGPTPlanType,
   ProviderAccountSummary,
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
+import { chatGPTPlanTypeValues } from "@generated/backend";
 import {
   CircleAlert,
   CircleCheck,
@@ -232,7 +234,7 @@ interface ProviderAccountForm {
 const emptyProviderAccountForm: ProviderAccountForm = {
   accessToken: "",
   accountId: "",
-  planType: "unknown",
+  planType: "plus",
 };
 
 function useProviderAccountState(backendOnline: boolean) {
@@ -266,7 +268,7 @@ function useProviderAccountState(backendOnline: boolean) {
     setForm({
       accessToken: "",
       accountId: account?.accountId ?? "",
-      planType: account?.planType || "unknown",
+      planType: account?.planType ?? emptyProviderAccountForm.planType,
     });
     setEditing(true);
     setError("");
@@ -280,7 +282,7 @@ function useProviderAccountState(backendOnline: boolean) {
       const accounts = await window.setta.providerAccounts.saveChatGPTAuth({
         accessToken: form.accessToken,
         accountId: form.accountId,
-        planType: form.planType,
+        planType: requireChatGPTPlanType(form.planType),
       });
       setAccount(codexChatGPTAccount(accounts.accounts));
       setEditing(false);
@@ -421,18 +423,23 @@ function ProviderAccountEditor({
           onChange={(event) => setForm((current) => ({ ...current, planType: event.target.value }))}
           value={form.planType}
         >
-          <option value="unknown">unknown</option>
-          <option value="chatgptPlus">chatgptPlus</option>
-          <option value="chatgptPro">chatgptPro</option>
-          <option value="chatgptTeam">chatgptTeam</option>
-          <option value="chatgptEnterprise">chatgptEnterprise</option>
+          {chatGPTPlanTypeValues.map((planType) => (
+            <option key={planType} value={planType}>
+              {planType}
+            </option>
+          ))}
         </select>
       </label>
       <div className="flex flex-wrap gap-2">
         <Button
           aria-label="Save ChatGPT account"
           className="h-8 px-2 text-xs"
-          disabled={busy || form.accessToken === "" || form.accountId === ""}
+          disabled={
+            busy ||
+            form.accessToken === "" ||
+            form.accountId === "" ||
+            !isChatGPTPlanType(form.planType)
+          }
           type="submit"
           variant="primary"
         >
@@ -513,6 +520,18 @@ function codexChatGPTAccount(accounts: ProviderAccountSummary[]) {
       (candidate) => candidate.provider === "codex" && candidate.authMode === "chatgpt",
     ) ?? null
   );
+}
+
+function requireChatGPTPlanType(value: string): ChatGPTPlanType {
+  const planType = chatGPTPlanTypeValues.find((candidate) => candidate === value);
+  if (!planType) {
+    throw new Error(`Unsupported ChatGPT plan type: ${value}`);
+  }
+  return planType;
+}
+
+function isChatGPTPlanType(value: string): value is ChatGPTPlanType {
+  return chatGPTPlanTypeValues.some((candidate) => candidate === value);
 }
 
 function accountSummary(account: ProviderAccountSummary | null) {

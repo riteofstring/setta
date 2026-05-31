@@ -2,6 +2,9 @@ package provideraccounts
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,7 +35,7 @@ func TestServiceManagesChatGPTAuthForCodexRefresh(t *testing.T) {
 	configured, err := service.SaveChatGPTAuth(SaveChatGPTAuthRequest{
 		AccessToken: "access_token_fake",
 		AccountID:   "account_fake",
-		PlanType:    "chatgptPlus",
+		PlanType:    ChatGPTPlanPro,
 	})
 	if err != nil {
 		t.Fatalf("save chatgpt auth: %v", err)
@@ -45,7 +48,7 @@ func TestServiceManagesChatGPTAuthForCodexRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("refresh chatgpt auth: %v", err)
 	}
-	if tokens.AccessToken != "access_token_fake" || tokens.ChatGPTAccountID != "account_fake" || tokens.ChatGPTPlanType != "chatgptPlus" {
+	if tokens.AccessToken != "access_token_fake" || tokens.ChatGPTAccountID != "account_fake" || tokens.ChatGPTPlanType != "pro" {
 		t.Fatalf("tokens = %+v, want stored auth tokens", tokens)
 	}
 
@@ -76,5 +79,36 @@ func TestServiceRejectsIncompleteChatGPTAuth(t *testing.T) {
 	}
 	if _, err := service.SaveChatGPTAuth(SaveChatGPTAuthRequest{AccessToken: "access_token_fake"}); err == nil {
 		t.Fatal("save succeeded without account id")
+	}
+	if _, err := service.SaveChatGPTAuth(SaveChatGPTAuthRequest{AccessToken: "access_token_fake", AccountID: "account_fake"}); err == nil {
+		t.Fatal("save succeeded without plan type")
+	}
+	if _, err := service.SaveChatGPTAuth(SaveChatGPTAuthRequest{AccessToken: "access_token_fake", AccountID: "account_fake", PlanType: "chatgptPlus"}); err == nil {
+		t.Fatal("save succeeded with unsupported plan type")
+	}
+}
+
+func TestStoreRejectsInvalidPersistedChatGPTPlanType(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(store.path), 0o755); err != nil {
+		t.Fatalf("create store dir: %v", err)
+	}
+	raw := `{"schemaVersion":1,"codexChatgptAuth":{"accessToken":"access_token_fake","accountId":"account_fake","planType":"chatgptPlus","updatedAt":"2026-05-31T12:00:00Z"}}`
+	if err := os.WriteFile(store.path, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write provider account state: %v", err)
+	}
+
+	_, err = store.Load()
+	if err == nil {
+		t.Fatal("load succeeded, want corrupt provider account state")
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
+	if !strings.Contains(err.Error(), "codex ChatGPT plan type is unsupported") {
+		t.Fatalf("error = %q, want unsupported plan type diagnostic", err)
 	}
 }

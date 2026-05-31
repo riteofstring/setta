@@ -13,6 +13,7 @@ import (
 
 	"setta/internal/chat"
 	"setta/internal/httpapi"
+	"setta/internal/provideraccounts"
 )
 
 type contractSpec struct {
@@ -102,7 +103,7 @@ func main() {
 }
 
 func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContractSchema) (contractSpec, error) {
-	valueSets, err := valueSetSpecs(chat.ContractValueSets())
+	valueSets, err := valueSetSpecs(contractValueSets())
 	if err != nil {
 		return contractSpec{}, err
 	}
@@ -131,6 +132,14 @@ func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContract
 		Interfaces:    collector.specs,
 		ValueSets:     collector.usedValueSets,
 	}, nil
+}
+
+func contractValueSets() []chat.ContractValueSet {
+	sets := chat.ContractValueSets()
+	for _, set := range provideraccounts.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
+	return sets
 }
 
 func valueSetSpecs(registry []chat.ContractValueSet) (map[string]valueSetSpec, error) {
@@ -447,6 +456,7 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 func renderValueSets(buffer *bytes.Buffer, specs []valueSetSpec) {
 	for _, spec := range specs {
 		fmt.Fprintf(buffer, "export type %s = %s;\n\n", spec.Name, literalUnion(spec.Values))
+		fmt.Fprintf(buffer, "export const %sValues = [%s] as const satisfies readonly %s[];\n\n", lowerCamel(spec.Name), literalList(spec.Values), spec.Name)
 		fmt.Fprintf(buffer, "export function decode%s(value: unknown, label = %q): %s {\n", spec.Name, spec.Name, spec.Name)
 		buffer.WriteString("  const decoded = decodeString(value, label);\n")
 		buffer.WriteString("  switch (decoded) {\n")
@@ -459,6 +469,14 @@ func renderValueSets(buffer *bytes.Buffer, specs []valueSetSpec) {
 		buffer.WriteString("  }\n")
 		buffer.WriteString("}\n\n")
 	}
+}
+
+func literalList(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, fmt.Sprintf("%q", value))
+	}
+	return strings.Join(quoted, ", ")
 }
 
 func literalUnion(values []string) string {

@@ -40,16 +40,13 @@ export interface ChatTranscriptProps {
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
-  messageIds?: string[];
-  messages: ChatMessage[];
-  messagesById?: Record<string, ChatMessage>;
-  runItemIdsByRunId?: Record<string, string[]>;
-  runItemOutputIdsByRunItemId?: Record<string, string[]>;
-  runItemOutputPagesByRunItemId?: Record<string, RunItemOutputPageState>;
-  runItemOutputs: RunItemOutput[];
-  runItemOutputsById?: Record<string, RunItemOutput>;
-  runItems: RunItem[];
-  runItemsById?: Record<string, RunItem>;
+  messageIds: string[];
+  messagesById: Record<string, ChatMessage>;
+  runItemIdsByRunId: Record<string, string[]>;
+  runItemOutputIdsByRunItemId: Record<string, string[]>;
+  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
+  runItemOutputsById: Record<string, RunItemOutput>;
+  runItemsById: Record<string, RunItem>;
   submitApproval: (
     approvalId: string,
     approved: boolean,
@@ -75,61 +72,23 @@ type TranscriptTimelineItem =
   | { kind: "turn"; ordinal: number; turn: TranscriptTurn };
 
 function transcriptIndexes(props: {
-  messageIds: string[] | undefined;
-  messages: ChatMessage[];
-  messagesById: Record<string, ChatMessage> | undefined;
-  runItemIdsByRunId: Record<string, string[]> | undefined;
-  runItemOutputIdsByRunItemId: Record<string, string[]> | undefined;
-  runItemOutputs: RunItemOutput[];
-  runItemOutputsById: Record<string, RunItemOutput> | undefined;
-  runItems: RunItem[];
-  runItemsById: Record<string, RunItem> | undefined;
+  messageIds: string[];
+  messagesById: Record<string, ChatMessage>;
+  runItemIdsByRunId: Record<string, string[]>;
+  runItemOutputIdsByRunItemId: Record<string, string[]>;
+  runItemOutputsById: Record<string, RunItemOutput>;
+  runItemsById: Record<string, RunItem>;
   transcript: TranscriptTurn[];
 }): TranscriptIndexes {
-  const messageIndex = messageIndexes(props.messages, props.messageIds, props.messagesById);
   return {
-    ...messageIndex,
-    ...runItemIndexes(props.runItems, props.runItemIdsByRunId, props.runItemsById),
-    ...runItemOutputIndexes(
-      props.runItemOutputs,
-      props.runItemOutputIdsByRunItemId,
-      props.runItemOutputsById,
-    ),
-    turns: hydrateTranscriptTurns(props.transcript, messageIndex.messagesById),
+    messageIds: props.messageIds,
+    messagesById: props.messagesById,
+    runItemIdsByRunId: props.runItemIdsByRunId,
+    runItemOutputIdsByRunItemId: props.runItemOutputIdsByRunItemId,
+    runItemOutputsById: props.runItemOutputsById,
+    runItemsById: props.runItemsById,
+    turns: props.transcript,
   };
-}
-
-function messageIndexes(
-  messages: ChatMessage[],
-  messageIds: string[] | undefined,
-  messagesById: Record<string, ChatMessage> | undefined,
-) {
-  if (messageIds && messagesById) {
-    return { messageIds, messagesById };
-  }
-  const ordered = messages.toSorted((left, right) => left.ordinal - right.ordinal);
-  const fallbackById: Record<string, ChatMessage> = {};
-  for (const message of ordered) {
-    fallbackById[message.id] = message;
-  }
-  return {
-    messageIds: ordered.map((message) => message.id),
-    messagesById: fallbackById,
-  };
-}
-
-function hydrateTranscriptTurns(
-  turns: TranscriptTurn[],
-  messagesById: Record<string, ChatMessage>,
-): TranscriptTurn[] {
-  return turns.map((turn) => ({
-    ...turn,
-    assistantMessage: turn.assistantMessage
-      ? (messagesById[turn.assistantMessage.id] ?? turn.assistantMessage)
-      : null,
-    steeringMessages: turn.steeringMessages.map((message) => messagesById[message.id] ?? message),
-    triggerMessage: messagesById[turn.triggerMessage.id] ?? turn.triggerMessage,
-  }));
 }
 
 function transcriptTimelineItems(indexes: TranscriptIndexes): TranscriptTimelineItem[] {
@@ -161,65 +120,6 @@ function transcriptTimelineItems(indexes: TranscriptIndexes): TranscriptTimeline
 
 function timelineItemID(item: TranscriptTimelineItem) {
   return item.kind === "turn" ? item.turn.run.id : item.message.id;
-}
-
-function runItemIndexes(
-  runItems: RunItem[],
-  runItemIdsByRunId: Record<string, string[]> | undefined,
-  runItemsById: Record<string, RunItem> | undefined,
-) {
-  if (runItemIdsByRunId && runItemsById) {
-    return { runItemIdsByRunId, runItemsById };
-  }
-  const ordered = runItems.toSorted(compareRunItems);
-  const fallbackById: Record<string, RunItem> = {};
-  const fallbackIdsByRunId: Record<string, string[]> = {};
-  for (const item of ordered) {
-    fallbackById[item.id] = item;
-    fallbackIdsByRunId[item.runId] = [...(fallbackIdsByRunId[item.runId] ?? []), item.id];
-  }
-  return {
-    runItemIdsByRunId: fallbackIdsByRunId,
-    runItemsById: fallbackById,
-  };
-}
-
-function runItemOutputIndexes(
-  runItemOutputs: RunItemOutput[],
-  runItemOutputIdsByRunItemId: Record<string, string[]> | undefined,
-  runItemOutputsById: Record<string, RunItemOutput> | undefined,
-) {
-  if (runItemOutputIdsByRunItemId && runItemOutputsById) {
-    return { runItemOutputIdsByRunItemId, runItemOutputsById };
-  }
-  const ordered = runItemOutputs.toSorted(compareRunItemOutputs);
-  const fallbackById: Record<string, RunItemOutput> = {};
-  const fallbackIdsByItemId: Record<string, string[]> = {};
-  for (const output of ordered) {
-    fallbackById[output.id] = output;
-    fallbackIdsByItemId[output.runItemId] = [
-      ...(fallbackIdsByItemId[output.runItemId] ?? []),
-      output.id,
-    ];
-  }
-  return {
-    runItemOutputIdsByRunItemId: fallbackIdsByItemId,
-    runItemOutputsById: fallbackById,
-  };
-}
-
-function compareRunItems(left: RunItem, right: RunItem) {
-  if (left.createdAt === right.createdAt) {
-    return left.id.localeCompare(right.id);
-  }
-  return left.createdAt.localeCompare(right.createdAt);
-}
-
-function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
-  if (left.runItemId === right.runItemId) {
-    return left.ordinal - right.ordinal;
-  }
-  return left.runItemId.localeCompare(right.runItemId);
 }
 
 const messageRowClassByRole = {
@@ -273,14 +173,11 @@ export function ChatTranscript({
   loadOlder,
   loadRunItemOutput,
   messageIds,
-  messages,
   messagesById,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
-  runItemOutputPagesByRunItemId = {},
-  runItemOutputs,
+  runItemOutputPagesByRunItemId,
   runItemOutputsById,
-  runItems,
   runItemsById,
   submitApproval,
   transcript: backendTranscript,
@@ -292,25 +189,19 @@ export function ChatTranscript({
     () =>
       transcriptIndexes({
         messageIds,
-        messages,
         messagesById,
         runItemIdsByRunId,
         runItemOutputIdsByRunItemId,
-        runItemOutputs,
         runItemOutputsById,
-        runItems,
         runItemsById,
         transcript: backendTranscript,
       }),
     [
       messageIds,
-      messages,
       messagesById,
       runItemIdsByRunId,
       runItemOutputIdsByRunItemId,
-      runItemOutputs,
       runItemOutputsById,
-      runItems,
       runItemsById,
       backendTranscript,
     ],
@@ -389,7 +280,17 @@ export function ChatTranscript({
         initialItemCount={Math.min(timeline.length, 30)}
         itemContent={(_, item) => {
           if (item.kind === "message") {
-            return <MessageRow message={item.message} />;
+            return (
+              <MessageRow
+                loadRunItemOutput={loadRunItemOutput}
+                message={item.message}
+                runItemIdsByRunId={transcript.runItemIdsByRunId}
+                runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
+                runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+                runItemOutputsById={transcript.runItemOutputsById}
+                runItemsById={transcript.runItemsById}
+              />
+            );
           }
           return (
             <TranscriptTurnRow
@@ -455,7 +356,7 @@ function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
 type TranscriptFooterProps = { activeRun: Run | null; submitApproval: SubmitApproval };
 
 function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) {
-  if (!activeRun?.hasPendingApproval) {
+  if (!activeRun?.pendingApproval) {
     return null;
   }
   return (
@@ -472,18 +373,16 @@ function PendingApproval({
   activeRun: Run | null;
   submitApproval: SubmitApproval;
 }) {
-  if (!activeRun?.hasPendingApproval) {
+  if (!activeRun?.pendingApproval) {
     return null;
   }
-  const approval = requirePendingApproval(activeRun);
-  return <ApprovalCard approval={approval} key={approval.id} submitApproval={submitApproval} />;
-}
-
-function requirePendingApproval(run: Run): ApprovalRequest {
-  if (run.pendingApproval === null) {
-    throw new Error(`run ${run.id} hasPendingApproval is true but pendingApproval is null`);
-  }
-  return run.pendingApproval;
+  return (
+    <ApprovalCard
+      approval={activeRun.pendingApproval}
+      key={activeRun.pendingApproval.id}
+      submitApproval={submitApproval}
+    />
+  );
 }
 
 function JumpToLatestButton({
@@ -542,9 +441,26 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
       data-testid="chat-transcript-turn"
       data-turn-status={turn.run.status}
     >
-      <MessageRow message={turn.triggerMessage} />
+      <MessageRow
+        loadRunItemOutput={loadRunItemOutput}
+        message={turn.triggerMessage}
+        runItemIdsByRunId={runItemIdsByRunId}
+        runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
+        runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+        runItemOutputsById={runItemOutputsById}
+        runItemsById={runItemsById}
+      />
       {turn.steeringMessages.map((message) => (
-        <MessageRow key={message.id} message={message} />
+        <MessageRow
+          key={message.id}
+          loadRunItemOutput={loadRunItemOutput}
+          message={message}
+          runItemIdsByRunId={runItemIdsByRunId}
+          runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
+          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+          runItemOutputsById={runItemOutputsById}
+          runItemsById={runItemsById}
+        />
       ))}
       {turn.assistantMessage ? (
         <MessageRow
@@ -571,19 +487,19 @@ const MessageRow = memo(function MessageRow({
   runItemsById,
 }: {
   message: ChatMessage;
-  loadRunItemOutput?: (
+  loadRunItemOutput: (
     runId: string,
     runItemId: string,
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
-  runItemIdsByRunId?: Record<string, string[]>;
-  runItemOutputIdsByRunItemId?: Record<string, string[]>;
-  runItemOutputPagesByRunItemId?: Record<string, RunItemOutputPageState>;
-  runItemOutputsById?: Record<string, RunItemOutput>;
-  runItemsById?: Record<string, RunItem>;
+  runItemIdsByRunId: Record<string, string[]>;
+  runItemOutputIdsByRunItemId: Record<string, string[]>;
+  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
+  runItemOutputsById: Record<string, RunItemOutput>;
+  runItemsById: Record<string, RunItem>;
 }) {
-  const itemRows = activityItemsForMessage(message, runItemIdsByRunId ?? {}, runItemsById ?? {});
+  const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
   return (
     <div
       className={messageRowClass(message)}
@@ -597,13 +513,13 @@ const MessageRow = memo(function MessageRow({
         <MessageContent message={message} />
         <UserDeliveryBadge message={message} />
         <MessageStatus message={message} />
-        {itemRows.length > 0 && loadRunItemOutput ? (
+        {itemRows.length > 0 ? (
           <RunActivityRows
             items={itemRows}
             loadRunItemOutput={loadRunItemOutput}
-            outputIdsByRunItemId={runItemOutputIdsByRunItemId ?? {}}
-            outputPagesByRunItemId={runItemOutputPagesByRunItemId ?? {}}
-            outputsById={runItemOutputsById ?? {}}
+            outputIdsByRunItemId={runItemOutputIdsByRunItemId}
+            outputPagesByRunItemId={runItemOutputPagesByRunItemId}
+            outputsById={runItemOutputsById}
           />
         ) : null}
       </div>

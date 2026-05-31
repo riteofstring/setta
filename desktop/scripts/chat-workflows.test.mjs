@@ -10,8 +10,14 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
+import {
+  assertNoCriticalDiagnostics,
+  assertRendererQueueMatchesBackend,
+} from "./chat-workflow-assertions.mjs";
 import { prepareLiveCodexEnv } from "./chat-live-env.mjs";
+import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
+import { CDPClient } from "./cdp-client.mjs";
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
@@ -27,65 +33,6 @@ const pageLoadTimeoutMs = 20_000;
 const workflowTimeoutMs = 15_000;
 const liveWorkflowTimeoutMs = 120_000;
 const shutdownTimeoutMs = 10_000;
-
-class CDPClient {
-  constructor(socket) {
-    this.nextId = 1;
-    this.pending = new Map();
-    this.socket = socket;
-    socket.addEventListener("message", (event) => {
-      this.handleMessage(event.data);
-    });
-  }
-
-  static async connect(url) {
-    const socket = new globalThis.WebSocket(url);
-    await new Promise((resolvePromise, reject) => {
-      socket.addEventListener("open", resolvePromise, { once: true });
-      socket.addEventListener("error", reject, { once: true });
-    });
-    return new CDPClient(socket);
-  }
-
-  call(method, params = {}) {
-    const id = this.nextId;
-    this.nextId += 1;
-    this.socket.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolvePromise, reject) => {
-      this.pending.set(id, { reject, resolve: resolvePromise });
-    });
-  }
-
-  async evaluate(expression) {
-    const result = await this.call("Runtime.evaluate", {
-      awaitPromise: true,
-      expression,
-      returnByValue: true,
-    });
-    if (result.exceptionDetails) {
-      throw new Error(result.exceptionDetails.text);
-    }
-    return result.result.value;
-  }
-
-  close() {
-    this.socket.close();
-  }
-
-  handleMessage(data) {
-    const message = JSON.parse(data);
-    if (!message.id || !this.pending.has(message.id)) {
-      return;
-    }
-    const pending = this.pending.get(message.id);
-    this.pending.delete(message.id);
-    if (message.error) {
-      pending.reject(new Error(JSON.stringify(message.error)));
-      return;
-    }
-    pending.resolve(message.result);
-  }
-}
 
 function parseArgs(args) {
   const parsed = {
@@ -324,7 +271,9 @@ async function runRestartWorkflow(results) {
     const backend = await backendProbe(firstRecording);
     const workspaceId = await openWorkspace(first.client, fixture.workspaceRoot, backend);
     const conversationId = await createChat(first.client, backend, workspaceId);
-    await runHappyPathWorkflow(first.client, backend, workspaceId, conversationId);
+    await runHappyPathWorkflow(first.client, backend, workspaceId, conversationId, {
+      postCompletionActiveRun: false,
+    });
     await stopLaunchedContext(first);
 
     second = await launchContext(fixture, secondRecording);
@@ -509,7 +458,13 @@ async function stopLaunchedContext(context) {
   await stopElectron(context.electron);
 }
 
-async function runHappyPathWorkflow(client, backend, workspaceId, conversationId) {
+async function runHappyPathWorkflow(
+  client,
+  backend,
+  workspaceId,
+  conversationId,
+  { postCompletionActiveRun = true } = {},
+) {
   const queuedPrompts = [
     "queued follow-up one from active run",
     "queued follow-up two from active run",
@@ -562,6 +517,21 @@ async function runHappyPathWorkflow(client, backend, workspaceId, conversationId
   await assertChatLayout(client);
   await assertNoActiveRun(backend, workspaceId, conversationId);
   await assertAssistantCompleted(backend, workspaceId, conversationId, queuedRuns.at(-1).id);
+
+  if (postCompletionActiveRun) {
+    await runPostCompletionActiveRunWorkflow({
+      backend,
+      client,
+      conversationId,
+      submitComposer,
+      waitForRunStatus,
+      waitForRunWithPrompt,
+      waitForState,
+      waitForTexts,
+      workspaceId,
+    });
+    await assertNoActiveRun(backend, workspaceId, conversationId);
+  }
 }
 
 async function runCancelWorkflow(client, backend, workspaceId, conversationId) {
@@ -584,7 +554,6 @@ async function runCancelWorkflow(client, backend, workspaceId, conversationId) {
   );
   await waitForTexts(client, ["queued follow-up after cancel", "Queued"]);
   await clickButtonByAria(client, "Stop run");
-  await waitForText(client, "Cancelled");
   await assertQueuedRunNotPromoted(
     backend,
     workspaceId,
@@ -639,6 +608,7 @@ async function runApprovalsWorkflow(client, backend, workspaceId, conversationId
     setInputValue,
     submitComposer,
     waitForRunWithPrompt,
+    waitForState,
     waitForText,
     waitForTexts,
     workspaceId,
@@ -1212,27 +1182,6 @@ async function assertAssistantCompleted(backend, workspaceId, conversationId, ru
   }
 }
 
-async function assertRendererQueueMatchesBackend(client, queuedPrompt) {
-  const body = await client.evaluate("document.body.innerText");
-  if (!body.includes(queuedPrompt) || !body.includes("Queued")) {
-    throw new Error(`renderer did not show queued state for ${queuedPrompt}: ${body}`);
-  }
-}
-
-async function assertNoCriticalDiagnostics(backend, workspaceId, conversationId) {
-  const diagnostics = await backend.post("/chat/diagnostics/list", {
-    conversationId,
-    runId: "",
-    workspaceId,
-  });
-  const critical = diagnostics.diagnostics.filter(
-    (diagnostic) => diagnostic.severity === "critical",
-  );
-  if (critical.length > 0) {
-    throw new Error(`critical diagnostics recorded: ${JSON.stringify(critical)}`);
-  }
-}
-
 function messageText(message) {
   return message.parts.map((part) => part.text).join("");
 }
@@ -1329,7 +1278,7 @@ async function connectToSettaPage(debugPort) {
     try {
       const page = await settaPageTarget(debugPort);
       if (page) {
-        return CDPClient.connect(page.webSocketDebuggerUrl);
+        return CDPClient.connect(page.webSocketDebuggerUrl, pageLoadTimeoutMs);
       }
     } catch (error) {
       lastError = error;

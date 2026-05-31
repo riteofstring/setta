@@ -109,7 +109,7 @@ func (store *Store) SubmitApproval(run Run) (Run, error) {
 	if err := validateRun(run); err != nil {
 		return Run{}, err
 	}
-	if run.HasPendingApproval {
+	if run.PendingApproval != nil {
 		return Run{}, fmt.Errorf("run %s still has pending approval after submit", run.ID)
 	}
 	if err := store.SaveRun(run); err != nil {
@@ -122,7 +122,7 @@ func (store *Store) ResolveApproval(run Run) (Run, error) {
 	if err := validateRun(run); err != nil {
 		return Run{}, err
 	}
-	if run.HasPendingApproval {
+	if run.PendingApproval != nil {
 		return Run{}, fmt.Errorf("run %s still has pending approval after resolve", run.ID)
 	}
 	if err := store.SaveRun(run); err != nil {

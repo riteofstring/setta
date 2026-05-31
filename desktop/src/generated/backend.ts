@@ -17,6 +17,8 @@ import {
 
 export type HarnessKind = "codex";
 
+export const harnessKindValues = ["codex"] as const satisfies readonly HarnessKind[];
+
 export function decodeHarnessKind(value: unknown, label = "HarnessKind"): HarnessKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
@@ -28,6 +30,8 @@ export function decodeHarnessKind(value: unknown, label = "HarnessKind"): Harnes
 }
 
 export type HarnessRefStatus = "linked" | "missing" | "stale" | "unsupported";
+
+export const harnessRefStatusValues = ["linked", "missing", "stale", "unsupported"] as const satisfies readonly HarnessRefStatus[];
 
 export function decodeHarnessRefStatus(value: unknown, label = "HarnessRefStatus"): HarnessRefStatus {
   const decoded = decodeString(value, label);
@@ -46,6 +50,8 @@ export function decodeHarnessRefStatus(value: unknown, label = "HarnessRefStatus
 }
 
 export type DiagnosticSource = "backend" | "event_stream" | "chat" | "workspace" | "provider";
+
+export const diagnosticSourceValues = ["backend", "event_stream", "chat", "workspace", "provider"] as const satisfies readonly DiagnosticSource[];
 
 export function decodeDiagnosticSource(value: unknown, label = "DiagnosticSource"): DiagnosticSource {
   const decoded = decodeString(value, label);
@@ -67,6 +73,8 @@ export function decodeDiagnosticSource(value: unknown, label = "DiagnosticSource
 
 export type DiagnosticSeverity = "info" | "warning" | "error" | "critical";
 
+export const diagnosticSeverityValues = ["info", "warning", "error", "critical"] as const satisfies readonly DiagnosticSeverity[];
+
 export function decodeDiagnosticSeverity(value: unknown, label = "DiagnosticSeverity"): DiagnosticSeverity {
   const decoded = decodeString(value, label);
   switch (decoded) {
@@ -84,6 +92,8 @@ export function decodeDiagnosticSeverity(value: unknown, label = "DiagnosticSeve
 }
 
 export type MessageRole = "user" | "assistant" | "system" | "developer" | "tool" | "command";
+
+export const messageRoleValues = ["user", "assistant", "system", "developer", "tool", "command"] as const satisfies readonly MessageRole[];
 
 export function decodeMessageRole(value: unknown, label = "MessageRole"): MessageRole {
   const decoded = decodeString(value, label);
@@ -107,6 +117,8 @@ export function decodeMessageRole(value: unknown, label = "MessageRole"): Messag
 
 export type MessageDelivery = "normal" | "queued" | "steering";
 
+export const messageDeliveryValues = ["normal", "queued", "steering"] as const satisfies readonly MessageDelivery[];
+
 export function decodeMessageDelivery(value: unknown, label = "MessageDelivery"): MessageDelivery {
   const decoded = decodeString(value, label);
   switch (decoded) {
@@ -122,6 +134,8 @@ export function decodeMessageDelivery(value: unknown, label = "MessageDelivery")
 }
 
 export type MessageStatus = "pending" | "streaming" | "complete" | "cancelled" | "error";
+
+export const messageStatusValues = ["pending", "streaming", "complete", "cancelled", "error"] as const satisfies readonly MessageStatus[];
 
 export function decodeMessageStatus(value: unknown, label = "MessageStatus"): MessageStatus {
   const decoded = decodeString(value, label);
@@ -143,6 +157,8 @@ export function decodeMessageStatus(value: unknown, label = "MessageStatus"): Me
 
 export type MessagePartType = "text";
 
+export const messagePartTypeValues = ["text"] as const satisfies readonly MessagePartType[];
+
 export function decodeMessagePartType(value: unknown, label = "MessagePartType"): MessagePartType {
   const decoded = decodeString(value, label);
   switch (decoded) {
@@ -154,6 +170,8 @@ export function decodeMessagePartType(value: unknown, label = "MessagePartType")
 }
 
 export type TextFormat = "plain" | "markdown";
+
+export const textFormatValues = ["plain", "markdown"] as const satisfies readonly TextFormat[];
 
 export function decodeTextFormat(value: unknown, label = "TextFormat"): TextFormat {
   const decoded = decodeString(value, label);
@@ -168,6 +186,8 @@ export function decodeTextFormat(value: unknown, label = "TextFormat"): TextForm
 }
 
 export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "notice" | "approval_review" | "hook" | "structured_input";
+
+export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
 
 export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
   const decoded = decodeString(value, label);
@@ -213,6 +233,8 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
 
 export type RunItemStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
+export const runItemStatusValues = ["pending", "running", "completed", "failed", "cancelled"] as const satisfies readonly RunItemStatus[];
+
 export function decodeRunItemStatus(value: unknown, label = "RunItemStatus"): RunItemStatus {
   const decoded = decodeString(value, label);
   switch (decoded) {
@@ -232,6 +254,8 @@ export function decodeRunItemStatus(value: unknown, label = "RunItemStatus"): Ru
 }
 
 export type RunStatus = "queued" | "running" | "completed" | "cancelled" | "failed";
+
+export const runStatusValues = ["queued", "running", "completed", "cancelled", "failed"] as const satisfies readonly RunStatus[];
 
 export function decodeRunStatus(value: unknown, label = "RunStatus"): RunStatus {
   const decoded = decodeString(value, label);
@@ -253,6 +277,8 @@ export function decodeRunStatus(value: unknown, label = "RunStatus"): RunStatus 
 
 export type ApprovalKind = "command" | "file_change" | "permission" | "structured_input" | "user_input";
 
+export const approvalKindValues = ["command", "file_change", "permission", "structured_input", "user_input"] as const satisfies readonly ApprovalKind[];
+
 export function decodeApprovalKind(value: unknown, label = "ApprovalKind"): ApprovalKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
@@ -273,6 +299,8 @@ export function decodeApprovalKind(value: unknown, label = "ApprovalKind"): Appr
 
 export type StructuredInputMode = "form" | "url";
 
+export const structuredInputModeValues = ["form", "url"] as const satisfies readonly StructuredInputMode[];
+
 export function decodeStructuredInputMode(value: unknown, label = "StructuredInputMode"): StructuredInputMode {
   const decoded = decodeString(value, label);
   switch (decoded) {
@@ -286,6 +314,8 @@ export function decodeStructuredInputMode(value: unknown, label = "StructuredInp
 }
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "answered" | "cancelled";
+
+export const approvalStatusValues = ["pending", "approved", "denied", "answered", "cancelled"] as const satisfies readonly ApprovalStatus[];
 
 export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): ApprovalStatus {
   const decoded = decodeString(value, label);
@@ -307,6 +337,8 @@ export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): 
 
 export type ChatCommandKind = "goal" | "model";
 
+export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+
 export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
@@ -321,12 +353,78 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
 
 export type ChatCommandResultAction = "display" | "model_picker";
 
+export const chatCommandResultActionValues = ["display", "model_picker"] as const satisfies readonly ChatCommandResultAction[];
+
 export function decodeChatCommandResultAction(value: unknown, label = "ChatCommandResultAction"): ChatCommandResultAction {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "display":
       return decoded;
     case "model_picker":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ProviderAccountProvider = "codex";
+
+export const providerAccountProviderValues = ["codex"] as const satisfies readonly ProviderAccountProvider[];
+
+export function decodeProviderAccountProvider(value: unknown, label = "ProviderAccountProvider"): ProviderAccountProvider {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "codex":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ProviderAccountAuthMode = "chatgpt";
+
+export const providerAccountAuthModeValues = ["chatgpt"] as const satisfies readonly ProviderAccountAuthMode[];
+
+export function decodeProviderAccountAuthMode(value: unknown, label = "ProviderAccountAuthMode"): ProviderAccountAuthMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "chatgpt":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ChatGPTPlanType = "business" | "edu" | "enterprise" | "enterprise_cbp_usage_based" | "free" | "go" | "plus" | "pro" | "prolite" | "self_serve_business_usage_based" | "team" | "unknown";
+
+export const chatGPTPlanTypeValues = ["business", "edu", "enterprise", "enterprise_cbp_usage_based", "free", "go", "plus", "pro", "prolite", "self_serve_business_usage_based", "team", "unknown"] as const satisfies readonly ChatGPTPlanType[];
+
+export function decodeChatGPTPlanType(value: unknown, label = "ChatGPTPlanType"): ChatGPTPlanType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "business":
+      return decoded;
+    case "edu":
+      return decoded;
+    case "enterprise":
+      return decoded;
+    case "enterprise_cbp_usage_based":
+      return decoded;
+    case "free":
+      return decoded;
+    case "go":
+      return decoded;
+    case "plus":
+      return decoded;
+    case "pro":
+      return decoded;
+    case "prolite":
+      return decoded;
+    case "self_serve_business_usage_based":
+      return decoded;
+    case "team":
+      return decoded;
+    case "unknown":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -577,7 +675,6 @@ export interface Run {
   completedAt: string;
   promptSummary: string;
   error: string;
-  hasPendingApproval: boolean;
   pendingApproval: ApprovalRequest | null;
 }
 
@@ -816,11 +913,11 @@ export interface SubmitApprovalRequest {
 }
 
 export interface ProviderAccountSummary {
-  provider: string;
-  authMode: string;
+  provider: ProviderAccountProvider;
+  authMode: ProviderAccountAuthMode;
   configured: boolean;
   accountId: string;
-  planType: string;
+  planType: ChatGPTPlanType | null;
   updatedAt: string;
   diagnostic: string;
 }
@@ -832,7 +929,7 @@ export interface ProviderAccounts {
 export interface SaveChatGPTAuthRequest {
   accessToken: string;
   accountId: string;
-  planType: string;
+  planType: ChatGPTPlanType;
 }
 
 export interface ClearChatGPTAuthRequest {
@@ -1550,7 +1647,7 @@ export function decodeApprovalRequest(value: unknown): ApprovalRequest {
 
 export function decodeRun(value: unknown): Run {
   const record = assertRecord(value, "Run");
-  assertKnownFields(record, "Run", ["schemaVersion", "id", "workspaceId", "conversationId", "triggerMessageId", "assistantMessageId", "harness", "status", "startedAt", "completedAt", "promptSummary", "error", "hasPendingApproval", "pendingApproval"]);
+  assertKnownFields(record, "Run", ["schemaVersion", "id", "workspaceId", "conversationId", "triggerMessageId", "assistantMessageId", "harness", "status", "startedAt", "completedAt", "promptSummary", "error", "pendingApproval"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Run"), "Run.schemaVersion"),
     id: decodeString(requireField(record, "id", "Run"), "Run.id"),
@@ -1564,7 +1661,6 @@ export function decodeRun(value: unknown): Run {
     completedAt: decodeString(requireField(record, "completedAt", "Run"), "Run.completedAt"),
     promptSummary: decodeString(requireField(record, "promptSummary", "Run"), "Run.promptSummary"),
     error: decodeString(requireField(record, "error", "Run"), "Run.error"),
-    hasPendingApproval: decodeBoolean(requireField(record, "hasPendingApproval", "Run"), "Run.hasPendingApproval"),
     pendingApproval: decodeNullable(requireField(record, "pendingApproval", "Run"), "Run.pendingApproval", (item) => decodeApprovalRequest(item)),
   };
 }
@@ -1947,11 +2043,11 @@ export function decodeProviderAccountSummary(value: unknown): ProviderAccountSum
   const record = assertRecord(value, "ProviderAccountSummary");
   assertKnownFields(record, "ProviderAccountSummary", ["provider", "authMode", "configured", "accountId", "planType", "updatedAt", "diagnostic"]);
   return {
-    provider: decodeString(requireField(record, "provider", "ProviderAccountSummary"), "ProviderAccountSummary.provider"),
-    authMode: decodeString(requireField(record, "authMode", "ProviderAccountSummary"), "ProviderAccountSummary.authMode"),
+    provider: decodeProviderAccountProvider(requireField(record, "provider", "ProviderAccountSummary"), "ProviderAccountSummary.provider"),
+    authMode: decodeProviderAccountAuthMode(requireField(record, "authMode", "ProviderAccountSummary"), "ProviderAccountSummary.authMode"),
     configured: decodeBoolean(requireField(record, "configured", "ProviderAccountSummary"), "ProviderAccountSummary.configured"),
     accountId: decodeString(requireField(record, "accountId", "ProviderAccountSummary"), "ProviderAccountSummary.accountId"),
-    planType: decodeString(requireField(record, "planType", "ProviderAccountSummary"), "ProviderAccountSummary.planType"),
+    planType: decodeNullable(requireField(record, "planType", "ProviderAccountSummary"), "ProviderAccountSummary.planType", (item) => decodeChatGPTPlanType(item, "ProviderAccountSummary.planType")),
     updatedAt: decodeString(requireField(record, "updatedAt", "ProviderAccountSummary"), "ProviderAccountSummary.updatedAt"),
     diagnostic: decodeString(requireField(record, "diagnostic", "ProviderAccountSummary"), "ProviderAccountSummary.diagnostic"),
   };
@@ -1971,7 +2067,7 @@ export function decodeSaveChatGPTAuthRequest(value: unknown): SaveChatGPTAuthReq
   return {
     accessToken: decodeString(requireField(record, "accessToken", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.accessToken"),
     accountId: decodeString(requireField(record, "accountId", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.accountId"),
-    planType: decodeString(requireField(record, "planType", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.planType"),
+    planType: decodeChatGPTPlanType(requireField(record, "planType", "SaveChatGPTAuthRequest"), "SaveChatGPTAuthRequest.planType"),
   };
 }
 

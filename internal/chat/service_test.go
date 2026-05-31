@@ -327,7 +327,7 @@ func TestServiceKeepsApprovalPendingWhenHarnessRejectsResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("active run after failed approval: %v", err)
 	}
-	if !ok || !run.HasPendingApproval {
+	if !ok || run.PendingApproval == nil {
 		t.Fatalf("active run = %+v ok=%v, want approval still pending", run, ok)
 	}
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
@@ -924,7 +924,7 @@ func TestApprovalRequestMarshalsEmptySlicesAsArrays(t *testing.T) {
 	}
 }
 
-func TestRunWithoutPendingApprovalMarshalsNullPendingApproval(t *testing.T) {
+func TestValidateRunRejectsPendingApprovalOnNonRunningRun(t *testing.T) {
 	approval := ApprovalRequest{
 		ID:        "approval_stale",
 		RunID:     "run_api",
@@ -946,12 +946,12 @@ func TestRunWithoutPendingApprovalMarshalsNullPendingApproval(t *testing.T) {
 		PendingApproval:  &approval,
 	}
 
-	data, err := json.Marshal(run)
-	if err != nil {
-		t.Fatalf("marshal run: %v", err)
+	err := validateRun(run)
+	if err == nil {
+		t.Fatal("validate run succeeded, want corrupt pending approval state")
 	}
-	if !strings.Contains(string(data), `"pendingApproval":null`) {
-		t.Fatalf("marshaled run = %s, want null pending approval", string(data))
+	if !strings.Contains(err.Error(), "has pendingApproval while status is queued") {
+		t.Fatalf("error = %q, want pending approval status diagnostic", err)
 	}
 }
 
@@ -1330,7 +1330,7 @@ func waitForPendingApproval(t *testing.T, service *Service, workspaceID string, 
 		if err != nil {
 			t.Fatalf("active run: %v", err)
 		}
-		if ok && run.HasPendingApproval {
+		if ok && run.PendingApproval != nil {
 			return run
 		}
 		time.Sleep(10 * time.Millisecond)

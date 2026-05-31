@@ -17,30 +17,79 @@ import (
 const (
 	SchemaVersion = 1
 
-	ProviderCodex      = "codex"
-	AuthModeChatGPT    = "chatgpt"
-	accountsFileName   = "provider-accounts.json"
-	defaultChatGPTPlan = "unknown"
+	ProviderCodex   ProviderAccountProvider = "codex"
+	AuthModeChatGPT ProviderAccountAuthMode = "chatgpt"
+
+	ChatGPTPlanBusiness                   ChatGPTPlanType = "business"
+	ChatGPTPlanEdu                        ChatGPTPlanType = "edu"
+	ChatGPTPlanEnterprise                 ChatGPTPlanType = "enterprise"
+	ChatGPTPlanEnterpriseCBPUsageBased    ChatGPTPlanType = "enterprise_cbp_usage_based"
+	ChatGPTPlanFree                       ChatGPTPlanType = "free"
+	ChatGPTPlanGo                         ChatGPTPlanType = "go"
+	ChatGPTPlanPlus                       ChatGPTPlanType = "plus"
+	ChatGPTPlanPro                        ChatGPTPlanType = "pro"
+	ChatGPTPlanProLite                    ChatGPTPlanType = "prolite"
+	ChatGPTPlanSelfServeBusinessUsageBase ChatGPTPlanType = "self_serve_business_usage_based"
+	ChatGPTPlanTeam                       ChatGPTPlanType = "team"
+	ChatGPTPlanUnknown                    ChatGPTPlanType = "unknown"
+
+	accountsFileName = "provider-accounts.json"
 )
+
+type ProviderAccountProvider string
+type ProviderAccountAuthMode string
+type ChatGPTPlanType string
+
+var (
+	providerAccountProviderValues = []ProviderAccountProvider{ProviderCodex}
+	providerAccountAuthModeValues = []ProviderAccountAuthMode{AuthModeChatGPT}
+	chatGPTPlanTypeValues         = []ChatGPTPlanType{
+		ChatGPTPlanBusiness,
+		ChatGPTPlanEdu,
+		ChatGPTPlanEnterprise,
+		ChatGPTPlanEnterpriseCBPUsageBased,
+		ChatGPTPlanFree,
+		ChatGPTPlanGo,
+		ChatGPTPlanPlus,
+		ChatGPTPlanPro,
+		ChatGPTPlanProLite,
+		ChatGPTPlanSelfServeBusinessUsageBase,
+		ChatGPTPlanTeam,
+		ChatGPTPlanUnknown,
+	}
+)
+
+type ContractValueSet struct {
+	Name   string
+	Values []string
+}
+
+func ContractValueSets() []ContractValueSet {
+	return []ContractValueSet{
+		{Name: "ProviderAccountProvider", Values: stringValues(providerAccountProviderValues)},
+		{Name: "ProviderAccountAuthMode", Values: stringValues(providerAccountAuthModeValues)},
+		{Name: "ChatGPTPlanType", Values: stringValues(chatGPTPlanTypeValues)},
+	}
+}
 
 type ProviderAccounts struct {
 	Accounts []ProviderAccountSummary `json:"accounts"`
 }
 
 type ProviderAccountSummary struct {
-	Provider   string `json:"provider"`
-	AuthMode   string `json:"authMode"`
-	Configured bool   `json:"configured"`
-	AccountID  string `json:"accountId"`
-	PlanType   string `json:"planType"`
-	UpdatedAt  string `json:"updatedAt"`
-	Diagnostic string `json:"diagnostic"`
+	Provider   ProviderAccountProvider `json:"provider"`
+	AuthMode   ProviderAccountAuthMode `json:"authMode"`
+	Configured bool                    `json:"configured"`
+	AccountID  string                  `json:"accountId"`
+	PlanType   *ChatGPTPlanType        `json:"planType"`
+	UpdatedAt  string                  `json:"updatedAt"`
+	Diagnostic string                  `json:"diagnostic"`
 }
 
 type SaveChatGPTAuthRequest struct {
-	AccessToken string `json:"accessToken"`
-	AccountID   string `json:"accountId"`
-	PlanType    string `json:"planType"`
+	AccessToken string          `json:"accessToken"`
+	AccountID   string          `json:"accountId"`
+	PlanType    ChatGPTPlanType `json:"planType"`
 }
 
 type ClearChatGPTAuthRequest struct{}
@@ -51,10 +100,10 @@ type State struct {
 }
 
 type ChatGPTAuthState struct {
-	AccessToken string `json:"accessToken"`
-	AccountID   string `json:"accountId"`
-	PlanType    string `json:"planType"`
-	UpdatedAt   string `json:"updatedAt"`
+	AccessToken string          `json:"accessToken"`
+	AccountID   string          `json:"accountId"`
+	PlanType    ChatGPTPlanType `json:"planType"`
+	UpdatedAt   string          `json:"updatedAt"`
 }
 
 type Store struct {
@@ -169,7 +218,7 @@ func (service *Service) RefreshChatGPTAuthTokens(context.Context, chat.ChatGPTAu
 	return chat.ChatGPTAuthTokens{
 		AccessToken:      state.CodexChatGPTAuth.AccessToken,
 		ChatGPTAccountID: state.CodexChatGPTAuth.AccountID,
-		ChatGPTPlanType:  state.CodexChatGPTAuth.PlanType,
+		ChatGPTPlanType:  string(state.CodexChatGPTAuth.PlanType),
 	}, nil
 }
 
@@ -190,14 +239,10 @@ func (store *Store) SaveChatGPTAuth(request SaveChatGPTAuthRequest) (State, erro
 	if err := validateSaveChatGPTAuthRequest(request); err != nil {
 		return State{}, err
 	}
-	planType := request.PlanType
-	if planType == "" {
-		planType = defaultChatGPTPlan
-	}
 	state.CodexChatGPTAuth = &ChatGPTAuthState{
 		AccessToken: request.AccessToken,
 		AccountID:   request.AccountID,
-		PlanType:    planType,
+		PlanType:    request.PlanType,
 		UpdatedAt:   store.clock().UTC().Format(time.RFC3339Nano),
 	}
 	if err := store.saveLocked(state); err != nil {
@@ -285,9 +330,10 @@ func providerAccountsFromState(state State) ProviderAccounts {
 		Diagnostic: "ChatGPT auth is not configured",
 	}
 	if state.CodexChatGPTAuth != nil {
+		planType := state.CodexChatGPTAuth.PlanType
 		summary.Configured = true
 		summary.AccountID = state.CodexChatGPTAuth.AccountID
-		summary.PlanType = state.CodexChatGPTAuth.PlanType
+		summary.PlanType = &planType
 		summary.UpdatedAt = state.CodexChatGPTAuth.UpdatedAt
 		summary.Diagnostic = ""
 	}
@@ -300,6 +346,12 @@ func validateSaveChatGPTAuthRequest(request SaveChatGPTAuthRequest) error {
 	}
 	if request.AccountID == "" {
 		return errors.New("account id is required")
+	}
+	if request.PlanType == "" {
+		return errors.New("plan type is required")
+	}
+	if !validChatGPTPlanType(request.PlanType) {
+		return fmt.Errorf("unsupported plan type: %s", request.PlanType)
 	}
 	return nil
 }
@@ -318,11 +370,31 @@ func validateState(state State, path string) error {
 		if state.CodexChatGPTAuth.PlanType == "" {
 			return corruptStateErrorf(path, "codex ChatGPT plan type is required")
 		}
+		if !validChatGPTPlanType(state.CodexChatGPTAuth.PlanType) {
+			return corruptStateErrorf(path, "codex ChatGPT plan type is unsupported: %s", state.CodexChatGPTAuth.PlanType)
+		}
 		if _, err := time.Parse(time.RFC3339Nano, state.CodexChatGPTAuth.UpdatedAt); err != nil {
 			return corruptStateError(path, fmt.Errorf("codex ChatGPT updatedAt must be RFC3339: %w", err))
 		}
 	}
 	return nil
+}
+
+func validChatGPTPlanType(planType ChatGPTPlanType) bool {
+	for _, value := range chatGPTPlanTypeValues {
+		if planType == value {
+			return true
+		}
+	}
+	return false
+}
+
+func stringValues[T ~string](values []T) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, string(value))
+	}
+	return result
 }
 
 func corruptStateError(path string, err error) error {

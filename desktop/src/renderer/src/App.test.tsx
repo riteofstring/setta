@@ -1,4 +1,4 @@
-import type { ChatMessage, Run, TranscriptTurn } from "@generated/backend";
+import type { ChatMessage, Run, RunItem, RunItemOutput, TranscriptTurn } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
@@ -492,7 +492,6 @@ describe("chat renderer states", () => {
           conversationId: "conversation_api",
           error: "",
           harness: "codex",
-          hasPendingApproval: true,
           id: "run_api",
           pendingApproval: {
             approved: false,
@@ -547,7 +546,6 @@ describe("chat renderer states", () => {
           conversationId: "conversation_api",
           error: "",
           harness: "codex",
-          hasPendingApproval: true,
           id: "run_api",
           pendingApproval: {
             approved: false,
@@ -613,12 +611,91 @@ describe("chat renderer states", () => {
 });
 
 function TestChatTranscript({
+  messages = [],
+  runItemOutputPagesByRunItemId = {},
+  runItemOutputs = [],
+  runItems = [],
   transcript,
   ...props
-}: Omit<ChatTranscriptProps, "transcript"> & { transcript?: TranscriptTurn[] }) {
+}: Omit<
+  ChatTranscriptProps,
+  | "messageIds"
+  | "messagesById"
+  | "runItemIdsByRunId"
+  | "runItemOutputIdsByRunItemId"
+  | "runItemOutputPagesByRunItemId"
+  | "runItemOutputsById"
+  | "runItemsById"
+  | "transcript"
+> & {
+  messages?: ChatMessage[];
+  runItemOutputPagesByRunItemId?: ChatTranscriptProps["runItemOutputPagesByRunItemId"];
+  runItemOutputs?: RunItemOutput[];
+  runItems?: RunItem[];
+  transcript?: TranscriptTurn[];
+}) {
+  const normalized = normalizedTranscriptFixture(messages, runItems, runItemOutputs);
   return (
-    <ChatTranscript {...props} transcript={transcript ?? transcriptFromMessages(props.messages)} />
+    <ChatTranscript
+      {...props}
+      messageIds={normalized.messageIds}
+      messagesById={normalized.messagesById}
+      runItemIdsByRunId={normalized.runItemIdsByRunId}
+      runItemOutputIdsByRunItemId={normalized.runItemOutputIdsByRunItemId}
+      runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+      runItemOutputsById={normalized.runItemOutputsById}
+      runItemsById={normalized.runItemsById}
+      transcript={transcript ?? transcriptFromMessages(messages)}
+    />
   );
+}
+
+function normalizedTranscriptFixture(
+  messages: ChatMessage[],
+  runItems: RunItem[],
+  runItemOutputs: RunItemOutput[],
+) {
+  const orderedMessages = messages.toSorted((left, right) => left.ordinal - right.ordinal);
+  const messagesById = Object.fromEntries(orderedMessages.map((message) => [message.id, message]));
+  const orderedItems = runItems.toSorted(compareRunItems);
+  const runItemsById = Object.fromEntries(orderedItems.map((item) => [item.id, item]));
+  const runItemIdsByRunId: Record<string, string[]> = {};
+  for (const item of orderedItems) {
+    runItemIdsByRunId[item.runId] = [...(runItemIdsByRunId[item.runId] ?? []), item.id];
+  }
+  const orderedOutputs = runItemOutputs.toSorted(compareRunItemOutputs);
+  const runItemOutputsById = Object.fromEntries(
+    orderedOutputs.map((output) => [output.id, output]),
+  );
+  const runItemOutputIdsByRunItemId: Record<string, string[]> = {};
+  for (const output of orderedOutputs) {
+    runItemOutputIdsByRunItemId[output.runItemId] = [
+      ...(runItemOutputIdsByRunItemId[output.runItemId] ?? []),
+      output.id,
+    ];
+  }
+  return {
+    messageIds: orderedMessages.map((message) => message.id),
+    messagesById,
+    runItemIdsByRunId,
+    runItemOutputIdsByRunItemId,
+    runItemOutputsById,
+    runItemsById,
+  };
+}
+
+function compareRunItems(left: RunItem, right: RunItem) {
+  if (left.createdAt === right.createdAt) {
+    return left.id.localeCompare(right.id);
+  }
+  return left.createdAt.localeCompare(right.createdAt);
+}
+
+function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
+  if (left.runItemId === right.runItemId) {
+    return left.ordinal - right.ordinal;
+  }
+  return left.runItemId.localeCompare(right.runItemId);
 }
 
 function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
@@ -647,7 +724,6 @@ function transcriptRun(runId: string, triggerMessageId: string, assistantMessage
     conversationId: "conversation_api",
     error: "",
     harness: "codex",
-    hasPendingApproval: false,
     id: runId,
     pendingApproval: null,
     promptSummary: "test",

@@ -24,7 +24,7 @@ func TestProviderAccountEndpointsManageChatGPTAuth(t *testing.T) {
 	configured := postJSON[provideraccounts.ProviderAccounts](t, handler, "/provider-accounts/chatgpt-auth/save", provideraccounts.SaveChatGPTAuthRequest{
 		AccessToken: "access_token_fake",
 		AccountID:   "account_fake",
-		PlanType:    "chatgptPlus",
+		PlanType:    provideraccounts.ChatGPTPlanPro,
 	}, http.StatusOK)
 	if len(configured.Accounts) != 1 || !configured.Accounts[0].Configured || configured.Accounts[0].AccountID != "account_fake" {
 		t.Fatalf("configured accounts = %+v, want configured account", configured.Accounts)

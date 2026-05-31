@@ -8,6 +8,7 @@ import (
 
 	"setta/internal/chat"
 	"setta/internal/httpapi"
+	"setta/internal/provideraccounts"
 )
 
 type ContractTestLeaf struct {
@@ -195,6 +196,40 @@ func TestRenderIncludesLiteralUnionValueSets(t *testing.T) {
 		"pendingApproval: decodeNullable(requireField(record, \"pendingApproval\", \"Run\"), \"Run.pendingApproval\", (item) => decodeApprovalRequest(item))",
 		"kind: ApprovalKind;",
 		"kind: decodeApprovalKind(requireField(record, \"kind\", \"ApprovalRequest\"), \"ApprovalRequest.kind\")",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("generated output missing %q:\n%s", expected, output)
+		}
+	}
+}
+
+func TestRenderIncludesProviderAccountValueSets(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractTestProviderAccount",
+			Method:   "GET",
+			Path:     "/contract-test/provider-account",
+			Response: reflect.TypeFor[provideraccounts.ProviderAccountSummary](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contracts: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+
+	for _, expected := range []string{
+		"export type ChatGPTPlanType = \"business\"",
+		"export const chatGPTPlanTypeValues = [\"business\"",
+		"provider: ProviderAccountProvider;",
+		"authMode: ProviderAccountAuthMode;",
+		"planType: ChatGPTPlanType | null;",
+		"planType: decodeNullable(requireField(record, \"planType\", \"ProviderAccountSummary\"), \"ProviderAccountSummary.planType\", (item) => decodeChatGPTPlanType(item, \"ProviderAccountSummary.planType\"))",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("generated output missing %q:\n%s", expected, output)

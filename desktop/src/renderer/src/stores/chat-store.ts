@@ -20,6 +20,8 @@ import { create } from "zustand";
 import { applyChatEvent } from "./chat-events";
 
 type ChatStatus = "idle" | "loading" | "ready" | "error";
+type RunningRun = Run & { status: "running" };
+type QueuedRun = Run & { status: "queued" };
 type ChatOperation =
   | "approving"
   | "cancelling"
@@ -42,7 +44,7 @@ export interface RunItemOutputPageState {
 }
 
 export interface ChatStore {
-  activeRun: Run | null;
+  activeRun: RunningRun | null;
   clearQuarantine: () => Promise<void>;
   conversations: ConversationListItem[];
   corruption: CorruptionSummary;
@@ -67,6 +69,7 @@ export interface ChatStore {
   messagesById: Record<string, ChatMessage>;
   olderBeforeOrdinal: number;
   operation: ChatOperation;
+  queuedRuns: QueuedRun[];
   quarantineCorruptState: () => Promise<void>;
   queueMessage: (prompt: string) => Promise<void>;
   executeCommand: (raw: string) => Promise<ChatCommandExecuteResult>;
@@ -115,6 +118,7 @@ export type ChatPatch = Partial<
     | "messagesById"
     | "olderBeforeOrdinal"
     | "operation"
+    | "queuedRuns"
     | "runItemIdsByRunId"
     | "runItemOutputIdsByRunItemId"
     | "runItemOutputPagesByRunItemId"
@@ -393,6 +397,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         runItemOutputPagesByRunItemId: {},
         runItemOutputs: [],
         runItems: [],
+        queuedRuns: [],
         selectedConversation: null,
         status: "loading",
         transcript: [],
@@ -424,6 +429,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     messagesById: {},
     olderBeforeOrdinal: 0,
     operation: null,
+    queuedRuns: [],
     quarantineCorruptState: async () => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId) {
@@ -651,7 +657,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       try {
         const run = await window.setta.chat.cancelRun(workspaceId, selectedConversation.id);
         commitCurrent(operationId, {
-          activeRun: run,
+          activeRun: activeRunFromCandidate(run),
           operation: null,
           status: "ready",
         });
@@ -676,7 +682,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           workspaceId,
         });
         commitCurrent(operationId, {
-          activeRun: run.status === "running" ? run : null,
+          activeRun: activeRunFromCandidate(run),
           operation: null,
           status: "ready",
         });
@@ -739,10 +745,11 @@ function hasSequenceGap(state: ChatStore, event: ChatEvent): boolean {
 
 function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
   return normalizeChatPatch({
-    activeRun,
+    activeRun: activeRunFromCandidate(activeRun),
     hasMoreOlder: page.hasMoreOlder,
     messages: messagesFromPage(page),
     olderBeforeOrdinal: page.olderBeforeOrdinal,
+    queuedRuns: queuedRunsFromPage(page),
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: page.runItemOutputs,
     runItems: page.runItems,
@@ -755,64 +762,121 @@ function operationPagePatch(
   current: ChatStore,
   page: MessagePage,
   returnedRun: Run,
-  fallbackActiveRun: Run | null,
+  fallbackActiveRun: RunningRun | null,
 ): ChatPatch {
-  const activeRun = activeRunAfterOperation(current.activeRun, returnedRun, fallbackActiveRun);
-  const patch = pagePatch(page, activeRun);
-  if (patch.messages) {
-    patch.messages = mergeOperationMessages(
-      current.messages,
-      patch.messages,
-      terminalRunIdsAfterOperation(current.activeRun, activeRun, returnedRun),
-    );
-  }
-  return patch;
+  const terminalRunIds = terminalRunIdsAfterOperation(current, returnedRun);
+  const activeRun = activeRunAfterOperation(
+    current,
+    returnedRun,
+    fallbackActiveRun,
+    terminalRunIds,
+  );
+  return terminalPreservingPagePatch(current, page, activeRun, terminalRunIds);
 }
 
 function commandOperationPatch(
   current: ChatStore,
   result: ChatCommandExecuteResult,
-  fallbackActiveRun: Run | null,
+  fallbackActiveRun: RunningRun | null,
 ): ChatPatch {
-  const patch = pagePatch(result.page, current.activeRun ?? fallbackActiveRun);
+  const terminalRunIds = terminalRunIdsFromTranscript(current.transcript);
+  return terminalPreservingPagePatch(
+    current,
+    result.page,
+    activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun),
+    terminalRunIds,
+  );
+}
+
+function terminalPreservingPagePatch(
+  current: ChatStore,
+  page: MessagePage,
+  activeRun: RunningRun | null,
+  terminalRunIds: Set<string>,
+): ChatPatch {
+  const patch = pagePatch(
+    {
+      ...page,
+      transcript: mergeOperationTranscript(current.transcript, page.transcript, terminalRunIds),
+    },
+    activeRun,
+  );
   if (patch.messages) {
-    patch.messages = mergeOperationMessages(current.messages, patch.messages, new Set());
+    patch.messages = mergeOperationMessages(current.messages, patch.messages, terminalRunIds);
   }
   return patch;
 }
 
 function activeRunAfterOperation(
-  currentActiveRun: Run | null,
+  current: ChatStore,
   returnedRun: Run,
-  fallbackActiveRun: Run | null,
-): Run | null {
-  const activeRun = currentActiveRun ?? fallbackActiveRun;
-  if (activeRun) {
-    if (activeRun.id !== returnedRun.id) {
-      return activeRun;
-    }
-    if (isTerminalRun(activeRun) && returnedRun.status === "running") {
-      return activeRun;
-    }
+  fallbackActiveRun: RunningRun | null,
+  terminalRunIds: Set<string>,
+): RunningRun | null {
+  if (terminalRunIds.has(returnedRun.id)) {
+    return activeRunFromCandidates(terminalRunIds, current.activeRun);
   }
-  if (returnedRun.status === "queued") {
-    return activeRun;
-  }
-  return returnedRun;
+  return activeRunFromCandidates(terminalRunIds, returnedRun, current.activeRun, fallbackActiveRun);
 }
 
-function terminalRunIdsAfterOperation(
-  currentActiveRun: Run | null,
-  nextActiveRun: Run | null,
-  returnedRun: Run,
-) {
+function terminalRunIdsAfterOperation(current: ChatStore, returnedRun: Run) {
+  const runIds = terminalRunIdsFromTranscript(current.transcript);
+  if (isTerminalRun(returnedRun)) {
+    runIds.add(returnedRun.id);
+  }
+  return runIds;
+}
+
+function terminalRunIdsFromTranscript(transcript: TranscriptTurn[]) {
   const runIds = new Set<string>();
-  for (const run of [currentActiveRun, nextActiveRun, returnedRun]) {
-    if (run && isTerminalRun(run)) {
-      runIds.add(run.id);
+  for (const turn of transcript) {
+    if (isTerminalRun(turn.run)) {
+      runIds.add(turn.run.id);
     }
   }
   return runIds;
+}
+
+function activeRunFromCandidates(
+  terminalRunIds: Set<string>,
+  ...candidates: Array<Run | null>
+): RunningRun | null {
+  for (const candidate of candidates) {
+    if (candidate && terminalRunIds.has(candidate.id)) {
+      continue;
+    }
+    const activeRun = activeRunFromCandidate(candidate);
+    if (activeRun) {
+      return activeRun;
+    }
+  }
+  return null;
+}
+
+function mergeOperationTranscript(
+  currentTranscript: TranscriptTurn[],
+  pageTranscript: TranscriptTurn[],
+  terminalRunIds: Set<string>,
+) {
+  const currentByRunId = new Map(currentTranscript.map((turn) => [turn.run.id, turn]));
+  return pageTranscript.map((pageTurn) => {
+    const current = currentByRunId.get(pageTurn.run.id);
+    if (current && terminalRunIds.has(pageTurn.run.id)) {
+      return current;
+    }
+    return pageTurn;
+  });
+}
+
+function activeRunFromCandidate(run: Run | null): RunningRun | null {
+  if (run?.status === "running") {
+    return run as RunningRun;
+  }
+  return null;
+}
+
+function queuedRunsFromPage(page: MessagePage): QueuedRun[] {
+  return page.queue.runs.filter((run): run is QueuedRun => run.status === "queued");
 }
 
 function isTerminalRun(run: Run) {
@@ -840,6 +904,7 @@ function emptyConversationPatch(): ChatPatch {
     hasMoreOlder: false,
     messages: [],
     olderBeforeOrdinal: 0,
+    queuedRuns: [],
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItems: [],

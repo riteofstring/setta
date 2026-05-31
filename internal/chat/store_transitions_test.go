@@ -100,13 +100,11 @@ func TestStoreFailAndCancelTurnTransitions(t *testing.T) {
 func TestStoreSubmitAndResolveApprovalTransitions(t *testing.T) {
 	store := mustStore(t, t.TempDir())
 	submitted := transitionRunningRecords("submit")
-	submitted.Run.HasPendingApproval = true
 	submittedApproval := transitionApproval("approval_submit", submitted.Run.ID)
 	submitted.Run.PendingApproval = &submittedApproval
 	if _, err := store.CreateRunningTurn(submitted); err != nil {
 		t.Fatalf("create submit approval turn: %v", err)
 	}
-	submitted.Run.HasPendingApproval = false
 	submitted.Run.PendingApproval = nil
 	if _, err := store.SubmitApproval(submitted.Run); err != nil {
 		t.Fatalf("submit approval: %v", err)
@@ -115,13 +113,11 @@ func TestStoreSubmitAndResolveApprovalTransitions(t *testing.T) {
 	resolved := transitionRunningRecords("resolve")
 	resolved.UserMessage.Ordinal = 3
 	resolved.AssistantMessage.Ordinal = 4
-	resolved.Run.HasPendingApproval = true
 	resolvedApproval := transitionApproval("approval_resolve", resolved.Run.ID)
 	resolved.Run.PendingApproval = &resolvedApproval
 	if _, err := store.CreateRunningTurn(resolved); err != nil {
 		t.Fatalf("create resolve approval turn: %v", err)
 	}
-	resolved.Run.HasPendingApproval = false
 	resolved.Run.PendingApproval = nil
 	if _, err := store.ResolveApproval(resolved.Run); err != nil {
 		t.Fatalf("resolve approval: %v", err)

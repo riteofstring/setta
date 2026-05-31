@@ -43,6 +43,7 @@ describe("chat store", () => {
       messagesById: {},
       olderBeforeOrdinal: 0,
       operation: null,
+      queuedRuns: [],
       runItemOutputs: [],
       runItemOutputIdsByRunItemId: {},
       runItemOutputPagesByRunItemId: {},
@@ -227,6 +228,66 @@ describe("chat store", () => {
     expect(useChatStore.getState().messages[0]?.delivery).toBe("queued");
   });
 
+  test("queue message response ignores a captured active run that completed before the response", async () => {
+    const conversation = testConversation();
+    const activeRun = testRun("running", "run_active");
+    const activeAssistant = message(
+      "message_active_assistant",
+      2,
+      "assistant",
+      "streaming",
+      "partial",
+      "normal",
+      activeRun.id,
+    );
+    const completedAssistant: ChatMessage = {
+      ...activeAssistant,
+      status: "complete",
+      updatedAt: "2026-05-29T20:00:01Z",
+    };
+    const queued = message(
+      "message_queued",
+      3,
+      "user",
+      "pending",
+      "queued",
+      "queued",
+      "run_queued",
+    );
+    const queueResponse = deferred<Awaited<ReturnType<SettaAPI["chat"]["queueMessage"]>>>();
+    installSettaAPI({
+      chat: {
+        queueMessage: vi.fn().mockReturnValue(queueResponse.promise),
+      },
+    });
+    useChatStore.setState({
+      activeRun,
+      messages: [activeAssistant],
+      selectedConversation: conversation,
+      status: "ready",
+      transcript: [transcriptTurn(activeRun, activeAssistant)],
+      workspaceId: "workspace_api",
+    });
+
+    const queuePromise = useChatStore.getState().queueMessage("queued");
+    useChatStore.setState({
+      activeRun: null,
+      messages: [completedAssistant],
+      transcript: [transcriptTurn(testRun("completed", activeRun.id), completedAssistant)],
+    });
+    queueResponse.resolve({
+      conversation,
+      page: testPage(conversation, [queued]),
+      queue: { messages: [queued], runs: [testRun("queued", "run_queued")] },
+      run: testRun("queued", "run_queued"),
+      userMessage: queued,
+    });
+    await queuePromise;
+
+    expect(useChatStore.getState().activeRun).toBeNull();
+    expect(useChatStore.getState().queuedRuns.map((run) => run.id)).toEqual(["run_queued"]);
+  });
+
   test("steer message updates from the backend page", async () => {
     const conversation = testConversation();
     const steering = message("message_steer", 3, "user", "complete", "steer", "steering");
@@ -252,7 +313,7 @@ describe("chat store", () => {
     );
   });
 
-  test("operation responses do not regress terminal run events", async () => {
+  test("operation responses do not resurrect terminal run events", async () => {
     const conversation = testConversation();
     const steerResponse = deferred<Awaited<ReturnType<SettaAPI["chat"]["steerMessage"]>>>();
     const staleAssistant = message("message_assistant", 2, "assistant", "streaming", "partial");
@@ -271,13 +332,15 @@ describe("chat store", () => {
       messages: [staleAssistant],
       selectedConversation: conversation,
       status: "ready",
+      transcript: [transcriptTurn(testRun("running"), staleAssistant)],
       workspaceId: "workspace_api",
     });
 
     const steerPromise = useChatStore.getState().steerMessage("trigger failure");
     useChatStore.setState({
-      activeRun: testRun("failed"),
+      activeRun: null,
       messages: [terminalAssistant],
+      transcript: [transcriptTurn(testRun("failed"), terminalAssistant)],
     });
     steerResponse.resolve({
       conversation,
@@ -287,10 +350,11 @@ describe("chat store", () => {
     });
     await steerPromise;
 
-    expect(useChatStore.getState().activeRun?.status).toBe("failed");
+    expect(useChatStore.getState().activeRun).toBeNull();
     expect(
       useChatStore.getState().messages.find((message) => message.id === staleAssistant.id)?.status,
     ).toBe("error");
+    expect(useChatStore.getState().transcript[0]?.run.status).toBe("failed");
   });
 
   test("execute command updates from the backend page without creating an active run", async () => {
@@ -323,6 +387,78 @@ describe("chat store", () => {
     expect(executeCommand).toHaveBeenCalledWith("workspace_api", "conversation_api", "/goal tests");
     expect(useChatStore.getState().messages.map((item) => item.role)).toContain("command");
     expect(useChatStore.getState().activeRun).toBeNull();
+  });
+
+  test("execute command response ignores a captured active run that completed before the response", async () => {
+    const conversation = testConversation();
+    const activeRun = testRun("running", "run_active");
+    const activeAssistant = message(
+      "message_active_assistant",
+      2,
+      "assistant",
+      "streaming",
+      "partial",
+      "normal",
+      activeRun.id,
+    );
+    const completedAssistant: ChatMessage = {
+      ...activeAssistant,
+      status: "complete",
+      updatedAt: "2026-05-29T20:00:01Z",
+    };
+    const commandMessage = message(
+      "message_command",
+      3,
+      "command",
+      "complete",
+      "Goal set: tests",
+      "normal",
+      "",
+    );
+    const commandResponse = deferred<Awaited<ReturnType<SettaAPI["chat"]["executeCommand"]>>>();
+    installSettaAPI({
+      chat: {
+        executeCommand: vi.fn().mockReturnValue(commandResponse.promise),
+      },
+    });
+    useChatStore.setState({
+      activeRun,
+      messages: [activeAssistant],
+      selectedConversation: conversation,
+      status: "ready",
+      transcript: [transcriptTurn(activeRun, activeAssistant)],
+      workspaceId: "workspace_api",
+    });
+
+    const commandPromise = useChatStore.getState().executeCommand("/goal tests");
+    useChatStore.setState({
+      activeRun: null,
+      messages: [completedAssistant],
+      transcript: [transcriptTurn(testRun("completed", activeRun.id), completedAssistant)],
+    });
+    commandResponse.resolve({
+      conversation,
+      message: commandMessage,
+      page: testPage(conversation, [activeAssistant, commandMessage]),
+      result: {
+        action: "display",
+        goal: { objective: "tests", status: "active", threadId: "thread_fake" },
+        kind: "goal",
+        message: "Goal set: tests",
+        models: [],
+        raw: "/goal tests",
+        selectedModel: "",
+        title: "Goal",
+      },
+    });
+    await commandPromise;
+
+    expect(useChatStore.getState().activeRun).toBeNull();
+    expect(useChatStore.getState().messages.map((item) => item.role)).toContain("command");
+    expect(
+      useChatStore.getState().messages.find((message) => message.id === activeAssistant.id)?.status,
+    ).toBe("complete");
+    expect(useChatStore.getState().transcript[0]?.run.status).toBe("completed");
   });
 
   test("execute command preserves error state for caller handling", async () => {
@@ -1061,7 +1197,12 @@ function testPage(
     hasMoreOlder,
     messages,
     olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
-    queue: { messages: messages.filter((item) => item.delivery === "queued"), runs: [] },
+    queue: {
+      messages: messages.filter((item) => item.delivery === "queued"),
+      runs: transcriptFromMessages(messages)
+        .map((turn) => turn.run)
+        .filter((run) => run.status === "queued"),
+    },
     runItemOutputs: [],
     runItems: [],
     transcript: transcriptFromMessages(messages),
@@ -1131,14 +1272,13 @@ function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
   };
 }
 
-function testRun(status: RunStatus, runId = "run_api"): Run {
-  return {
+function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { status: T } {
+  const run = {
     assistantMessageId: "message_assistant",
     completedAt: status === "running" ? "" : "2026-05-29T20:01:00Z",
     conversationId: "conversation_api",
     error: "",
     harness: "codex",
-    hasPendingApproval: false,
     id: runId,
     pendingApproval: null,
     promptSummary: "hello",
@@ -1147,6 +1287,17 @@ function testRun(status: RunStatus, runId = "run_api"): Run {
     status,
     triggerMessageId: "message_user",
     workspaceId: "workspace_api",
+  } satisfies Run;
+  return run as Run & { status: T };
+}
+
+function transcriptTurn(run: Run, assistantMessage: ChatMessage): TranscriptTurn {
+  const triggerMessage = message("message_user", 1, "user", "complete", "hello", "normal", run.id);
+  return {
+    assistantMessage,
+    run: { ...run, assistantMessageId: assistantMessage.id, triggerMessageId: triggerMessage.id },
+    steeringMessages: [],
+    triggerMessage,
   };
 }
 

@@ -37,7 +37,7 @@ func TestServiceStartupRecordsMalformedRunStateAndContinues(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("create run dir: %v", err)
 	}
-	raw := `{"schemaVersion":1,"id":"run_bad","workspaceId":"workspace_api","conversationId":"conversation_corrupt","triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"cancelled","startedAt":"2026-05-29T20:00:00Z","completedAt":"2026-05-29T20:00:01Z","promptSummary":"prompt","error":"turn cancelled","hasPendingApproval":false,"pendingApproval":{"id":"","runId":"","runItemId":"","providerItemId":"","kind":"","title":"","body":"","command":"","filePath":"","permission":"","question":"","options":[],"questions":[],"status":"","createdAt":"","resolvedAt":"","response":"","approved":false}}`
+	raw := `{"schemaVersion":1,"id":"run_bad","workspaceId":"workspace_api","conversationId":"conversation_corrupt","triggerMessageId":"message_user","assistantMessageId":"message_assistant","harness":"codex","status":"cancelled","startedAt":"2026-05-29T20:00:00Z","completedAt":"2026-05-29T20:00:01Z","promptSummary":"prompt","error":"turn cancelled","pendingApproval":{"id":"approval_bad","runId":"run_bad","kind":"permission","title":"Permission","status":"pending","createdAt":"2026-05-29T20:00:00Z"}}`
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write malformed run: %v", err)
 	}
@@ -81,8 +81,8 @@ func TestServiceStartupRecordsMalformedRunStateAndContinues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list diagnostics: %v", err)
 	}
-	if len(diagnostics) == 0 || !strings.Contains(diagnostics[0].Message, "assistantMessageId is required unless queued") {
-		t.Fatalf("diagnostics = %+v, want missing assistantMessageId", diagnostics)
+	if len(diagnostics) == 0 || !strings.Contains(diagnostics[0].Message, "has pendingApproval while status is cancelled") {
+		t.Fatalf("diagnostics = %+v, want stale pending approval", diagnostics)
 	}
 }
 

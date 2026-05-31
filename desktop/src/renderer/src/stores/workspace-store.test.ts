@@ -422,7 +422,6 @@ function emptyRun(): Run {
     conversationId: "conversation_test",
     error: "",
     harness: "codex",
-    hasPendingApproval: false,
     id: "run_test",
     pendingApproval: null,
     promptSummary: "",

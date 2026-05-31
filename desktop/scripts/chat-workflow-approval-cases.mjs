@@ -6,6 +6,7 @@ export async function runProtocolApprovalWorkflows({
   setInputValue,
   submitComposer,
   waitForRunWithPrompt,
+  waitForState,
   waitForText,
   waitForTexts,
   workspaceId,
@@ -16,6 +17,7 @@ export async function runProtocolApprovalWorkflows({
     prompt: "command approval workflow",
     submitComposer,
     title: "Command approval",
+    waitForState,
     waitForText,
   });
   await approveDecisionWorkflow({
@@ -24,6 +26,7 @@ export async function runProtocolApprovalWorkflows({
     prompt: "file approval workflow",
     submitComposer,
     title: "File change approval",
+    waitForState,
     waitForText,
   });
   await approveDecisionWorkflow({
@@ -32,6 +35,7 @@ export async function runProtocolApprovalWorkflows({
     prompt: "permission approval workflow",
     submitComposer,
     title: "Permission approval",
+    waitForState,
     waitForText,
   });
   await answerUserInputApproval({
@@ -39,6 +43,7 @@ export async function runProtocolApprovalWorkflows({
     client,
     setInputValue,
     submitComposer,
+    waitForState,
     waitForText,
     waitForTexts,
   });
@@ -49,6 +54,7 @@ export async function runProtocolApprovalWorkflows({
     conversationId,
     submitComposer,
     waitForRunWithPrompt,
+    waitForState,
     waitForText,
     waitForTexts,
     workspaceId,
@@ -57,6 +63,7 @@ export async function runProtocolApprovalWorkflows({
     clickButtonByText,
     client,
     submitComposer,
+    waitForState,
     waitForText,
     waitForTexts,
   });
@@ -64,6 +71,7 @@ export async function runProtocolApprovalWorkflows({
     clickButtonByText,
     client,
     submitComposer,
+    waitForState,
     waitForText,
     waitForTexts,
   });
@@ -84,12 +92,14 @@ async function approveDecisionWorkflow({
   prompt,
   submitComposer,
   title,
+  waitForState,
   waitForText,
 }) {
   await submitComposer(client, prompt, "Send message");
   await waitForText(client, title);
   await clickButtonByText(client, "Approve");
   await waitForText(client, `${title} resolved.`);
+  await waitForApprovalCardAbsent(client, waitForState);
 }
 
 async function answerUserInputApproval({
@@ -97,6 +107,7 @@ async function answerUserInputApproval({
   client,
   setInputValue,
   submitComposer,
+  waitForState,
   waitForText,
   waitForTexts,
 }) {
@@ -108,6 +119,7 @@ async function answerUserInputApproval({
   await setInputValue(client, '[data-testid="approval-card"] input[type="text"]', "continue");
   await clickButtonByText(client, "Answer");
   await waitForText(client, "User input approval resolved.");
+  await waitForApprovalCardAbsent(client, waitForState);
 }
 
 async function acceptStructuredFormApproval({
@@ -117,6 +129,7 @@ async function acceptStructuredFormApproval({
   conversationId,
   submitComposer,
   waitForRunWithPrompt,
+  waitForState,
   waitForText,
   waitForTexts,
   workspaceId,
@@ -127,6 +140,7 @@ async function acceptStructuredFormApproval({
   await setCheckboxChecked(client, 'input[data-testid="structured-input-field-confirm"]', true);
   await clickButtonByText(client, "Submit");
   await waitForText(client, "MCP form accepted.");
+  await waitForApprovalCardAbsent(client, waitForState);
   const run = await waitForRunWithPrompt(
     backend,
     workspaceId,
@@ -146,6 +160,7 @@ async function cancelStructuredFormApproval({
   clickButtonByText,
   client,
   submitComposer,
+  waitForState,
   waitForText,
   waitForTexts,
 }) {
@@ -153,12 +168,14 @@ async function cancelStructuredFormApproval({
   await waitForTexts(client, ["MCP input requested: deploy", "Target", "Confirm"]);
   await clickButtonByText(client, "Cancel");
   await waitForText(client, "MCP form cancelled.");
+  await waitForApprovalCardAbsent(client, waitForState);
 }
 
 async function declineStructuredURLApproval({
   clickButtonByText,
   client,
   submitComposer,
+  waitForState,
   waitForText,
   waitForTexts,
 }) {
@@ -166,6 +183,15 @@ async function declineStructuredURLApproval({
   await waitForTexts(client, ["MCP input requested: accounts", "https://example.test/login"]);
   await clickButtonByText(client, "Decline");
   await waitForText(client, "MCP url declined.");
+  await waitForApprovalCardAbsent(client, waitForState);
+}
+
+async function waitForApprovalCardAbsent(client, waitForState) {
+  await waitForState(
+    client,
+    `(() => ({ present: Boolean(document.querySelector('[data-testid="approval-card"]')) }))()`,
+    (value) => !value.present,
+  );
 }
 
 async function runDynamicToolWorkflow({

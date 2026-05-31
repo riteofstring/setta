@@ -280,9 +280,8 @@ async function createCorruptChatFixture(tempRoot) {
     conversationId: validConversationId,
     error: "",
     harness: "codex",
-    hasPendingApproval: false,
     id: validRunId,
-    pendingApproval: emptyApproval(),
+    pendingApproval: null,
     promptSummary: "persisted valid message",
     schemaVersion: 1,
     startedAt: now,
@@ -314,13 +313,20 @@ async function createCorruptChatFixture(tempRoot) {
     workspaceId,
   });
   await writeJson(join(workspaceDir, "runs", `${runId}.json`), {
+    assistantMessageId: "message_missing_assistant",
     completedAt: "2026-05-31T01:01:00Z",
     conversationId,
     error: "",
     harness: "codex",
-    hasPendingApproval: false,
     id: runId,
-    pendingApproval: emptyApproval(),
+    pendingApproval: {
+      createdAt: now,
+      id: "approval_stale",
+      kind: "permission",
+      runId,
+      status: "pending",
+      title: "Stale approval",
+    },
     promptSummary: "historical corrupt turn",
     schemaVersion: 1,
     startedAt: now,
@@ -329,29 +335,6 @@ async function createCorruptChatFixture(tempRoot) {
     workspaceId,
   });
   return { appDataDir, workspaceRoot };
-}
-
-function emptyApproval() {
-  return {
-    approved: false,
-    body: "",
-    command: "",
-    createdAt: "",
-    filePath: "",
-    id: "",
-    kind: "",
-    options: [],
-    permission: "",
-    providerItemId: "",
-    question: "",
-    questions: [],
-    resolvedAt: "",
-    response: "",
-    runId: "",
-    runItemId: "",
-    status: "",
-    title: "",
-  };
 }
 
 async function writeJson(path, value) {
@@ -520,7 +503,7 @@ function partialCorruptChatStateExpression() {
 async function openCorruptConversation(client) {
   await clickButtonByText(client, "Corrupt historical chat");
   await waitForTexts(client, [
-    "assistantMessageId is required unless queued",
+    "has pendingApproval while status is completed",
     "persisted valid message",
   ]);
 }

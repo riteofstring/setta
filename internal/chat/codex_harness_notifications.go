@@ -223,14 +223,14 @@ func handleCodexReasoningTextDelta(message jsonRPCMessage, threadID string, turn
 }
 
 func handleCodexHookStarted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	return handleCodexHookNotification(message, threadID, turnID, sink, RunItemStatusRunning)
+	return handleCodexHookNotification(message, threadID, turnID, sink)
 }
 
 func handleCodexHookCompleted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	return handleCodexHookNotification(message, threadID, turnID, sink, RunItemStatusCompleted)
+	return handleCodexHookNotification(message, threadID, turnID, sink)
 }
 
-func handleCodexHookNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, fallbackStatus RunItemStatus) (codexNotificationResult, error) {
+func handleCodexHookNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
 	params, err := objectValue(message.Params, "codex hook params")
 	if err != nil {
 		return codexNotificationResult{}, err
@@ -242,14 +242,14 @@ func handleCodexHookNotification(message jsonRPCMessage, threadID string, turnID
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	item, err := codexHookRunItem(run, fallbackStatus)
+	item, err := codexHookRunItem(run)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(item)
 }
 
-func codexHookRunItem(run map[string]any, fallbackStatus RunItemStatus) (RunItem, error) {
+func codexHookRunItem(run map[string]any) (RunItem, error) {
 	id, err := requireString(run, "id", "codex hook run")
 	if err != nil {
 		return RunItem{}, err
@@ -265,9 +265,6 @@ func codexHookRunItem(run map[string]any, fallbackStatus RunItemStatus) (RunItem
 	status, ok := codexHookStatuses[statusText]
 	if !ok {
 		return RunItem{}, fmt.Errorf("unsupported codex hook status: %s", statusText)
-	}
-	if status == "" {
-		status = fallbackStatus
 	}
 	statusMessage, err := optionalString(run, "statusMessage", "codex hook run")
 	if err != nil {

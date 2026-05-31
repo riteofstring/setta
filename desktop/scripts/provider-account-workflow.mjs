@@ -10,9 +10,9 @@ export async function runProviderAccountWorkflow({
   await clickButtonByAria(client, "Configure ChatGPT account");
   await setInputValue(client, '[data-testid="provider-account-access-token"]', "access_token_e2e");
   await setInputValue(client, '[data-testid="provider-account-account-id"]', "account_e2e");
-  await setSelectValue(client, '[data-testid="provider-account-plan-type"]', "chatgptPlus");
+  await setSelectValue(client, '[data-testid="provider-account-plan-type"]', "pro");
   await clickButtonByAria(client, "Save ChatGPT account");
-  await waitForTexts(client, ["Configured", "account_e2e chatgptPlus"]);
+  await waitForTexts(client, ["Configured", "account_e2e pro"]);
   const configured = await backend.get("/provider-accounts");
   const account = configured.accounts.find(
     (candidate) => candidate.provider === "codex" && candidate.authMode === "chatgpt",

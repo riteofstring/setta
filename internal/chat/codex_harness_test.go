@@ -780,6 +780,56 @@ func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
 	}
 }
 
+func TestCodexHookRunItemMapsSupportedStatuses(t *testing.T) {
+	tests := []struct {
+		provider string
+		want     RunItemStatus
+	}{
+		{provider: "blocked", want: RunItemStatusFailed},
+		{provider: "completed", want: RunItemStatusCompleted},
+		{provider: "failed", want: RunItemStatusFailed},
+		{provider: "running", want: RunItemStatusRunning},
+		{provider: "stopped", want: RunItemStatusCancelled},
+	}
+
+	for _, test := range tests {
+		t.Run(test.provider, func(t *testing.T) {
+			item, err := codexHookRunItem(codexHookRunFixture(test.provider))
+			if err != nil {
+				t.Fatalf("hook run item: %v", err)
+			}
+			if item.Status != test.want {
+				t.Fatalf("status = %s, want %s", item.Status, test.want)
+			}
+		})
+	}
+}
+
+func TestCodexHookRunItemRejectsUnsupportedStatus(t *testing.T) {
+	_, err := codexHookRunItem(codexHookRunFixture("paused"))
+	if err == nil {
+		t.Fatal("hook run item succeeded, want provider drift error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex hook status: paused") {
+		t.Fatalf("error = %q, want unsupported hook status", err)
+	}
+}
+
+func codexHookRunFixture(status string) map[string]any {
+	return map[string]any{
+		"durationMs":    float64(12),
+		"entries":       []any{},
+		"eventName":     "preToolUse",
+		"executionMode": "auto",
+		"id":            "hook_fake",
+		"scope":         "workspace",
+		"source":        "project",
+		"sourcePath":    "/tmp/workspace/.codex/hooks.json",
+		"status":        status,
+		"statusMessage": nil,
+	}
+}
+
 func TestCodexHarnessProtocolCoverageRegistry(t *testing.T) {
 	for _, method := range []string{
 		"initialize",

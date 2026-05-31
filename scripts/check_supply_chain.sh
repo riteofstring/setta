@@ -63,6 +63,10 @@ check_pnpm_lock_sync() {
   return "${status}"
 }
 
+check_npmrc_release_age_keys() {
+  "${python_bin}" "${repo_root}/scripts/check_npmrc_release_age_keys.py" --repo-root "${repo_root}"
+}
+
 check_pnpm_project() {
   local project_dir="$1"
   if [[ ! -f "${repo_root}/${project_dir}/pnpm-lock.yaml" ]]; then
@@ -87,6 +91,9 @@ check_pnpm_project() {
 }
 
 python_bin="$(resolve_python)"
+
+echo "npmrc release-age key checks..."
+check_npmrc_release_age_keys
 
 check_go_supply_chain
 
