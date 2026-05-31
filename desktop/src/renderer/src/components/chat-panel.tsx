@@ -36,7 +36,7 @@ export function ChatPanel({
       <section
         className={cn(
           "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
-          chromeInsetTop && "pt-14",
+          chromeInsetTop && "pt-9",
         )}
       >
         <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
@@ -79,7 +79,7 @@ function ChatWorkspace({
     <section
       className={cn(
         "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100",
-        chromeInsetTop && "pt-14",
+        chromeInsetTop && "pt-9",
       )}
     >
       {onToggleMaximized ? (
@@ -118,7 +118,7 @@ function PanelMaximizeButton({
       aria-label={label}
       className={cn(
         "app-no-drag absolute right-1 z-20 grid h-6 w-6 place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100",
-        chromeInsetTop ? "top-14" : "top-1",
+        chromeInsetTop ? "top-10" : "top-1",
       )}
       onClick={onClick}
       title={label}

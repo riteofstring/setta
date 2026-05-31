@@ -253,7 +253,7 @@ function workspacePanePanelClass({
     slot === "right"
       ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
       : bottomPanePanelClass(maximized);
-  return cn(slotClass, chromeInsetTop && "pt-14");
+  return cn(slotClass, chromeInsetTop && "pt-9");
 }
 
 function bottomPanePanelClass(maximized: boolean) {

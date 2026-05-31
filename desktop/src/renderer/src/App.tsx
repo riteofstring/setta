@@ -55,11 +55,7 @@ export function App() {
     projectPaneOpen,
     rightPaneOpen: panes.right.open,
   });
-  const chromeInsetPane = nativeChromeInsetPane(platform, {
-    chat: visibility.chat,
-    project: visibility.project,
-    right: visibility.right,
-  });
+  const chromeInsetPane: ChromeInsetPane | null = null;
   const toggleMaximizedPane = useCallback(
     (pane: NonNullable<MaximizedPane>) => {
       setProjectPaneOpen(true);
@@ -122,7 +118,7 @@ export function App() {
         setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
         setSearchPaletteOpen={setSearchPaletteOpen}
       />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
+      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900 pt-9">
         <ProjectPane
           chromeInsetTop={chromeInsetPane === "project"}
           chat={chat}
@@ -546,6 +542,7 @@ function AppChromeControls({
 
   return (
     <>
+      <ShellTopBar />
       <FloatingPaneControls
         bottomPaneOpen={bottomPaneOpen}
         chatPaneOpen={chatPaneOpen}
@@ -558,10 +555,19 @@ function AppChromeControls({
         setProjectPaneOpen={setProjectPaneOpen}
         setRightPaneOpen={setRightPaneOpen}
       />
-      <NativeChromeGuards platform={platform} />
       <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
       <SearchPalette onOpenChange={setSearchPaletteOpen} open={searchPaletteOpen} />
     </>
+  );
+}
+
+function ShellTopBar() {
+  return (
+    <div
+      aria-hidden="true"
+      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-9 border-b border-zinc-800 bg-zinc-900/95"
+      data-testid="shell-top-bar"
+    />
   );
 }
 
@@ -667,42 +673,7 @@ function floatingControlsRightInsetClass(platform: DesktopPlatform) {
   return platform === "darwin" ? "right-2" : "right-36";
 }
 
-function NativeChromeGuards({ platform }: { platform: DesktopPlatform }) {
-  if (platform !== "darwin") {
-    return null;
-  }
-  return (
-    <div
-      aria-hidden="true"
-      className="app-drag fixed top-0 right-0 z-40 h-8"
-      data-testid="macos-window-drag-strip"
-      style={{ left: macOsTrafficLightSafeWidth }}
-    />
-  );
-}
-
 type ChromeInsetPane = "chat" | "project" | "right";
-
-const macOsTrafficLightSafeWidth = 92;
-
-function nativeChromeInsetPane(
-  platform: DesktopPlatform,
-  visiblePanes: Record<ChromeInsetPane, boolean>,
-): ChromeInsetPane | null {
-  if (platform !== "darwin") {
-    return null;
-  }
-  if (visiblePanes.project) {
-    return "project";
-  }
-  if (visiblePanes.chat) {
-    return "chat";
-  }
-  if (visiblePanes.right) {
-    return "right";
-  }
-  return null;
-}
 
 function CommandPalette({
   onOpenChange,

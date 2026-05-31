@@ -157,7 +157,7 @@ export function WorkspaceSidebar({
 }
 
 function chromeInsetClass(enabled: boolean) {
-  return enabled ? "pt-14" : "";
+  return enabled ? "pt-9" : "";
 }
 
 function SidebarNav({
