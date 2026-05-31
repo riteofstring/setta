@@ -434,12 +434,13 @@ function ChatPane({
     return null;
   }
 
+  const canToggleMaximized = maximized || rightPaneOpen;
   const panel = (
     <ChatPanel
       chat={chat}
       chromeInsetTop={chromeInsetTop}
       maximized={maximized}
-      onToggleMaximized={onToggleMaximized}
+      onToggleMaximized={canToggleMaximized ? onToggleMaximized : undefined}
       searchOpen={chatSearchOpen}
       setSearchOpen={setChatSearchOpen}
       workspace={workspace.selectedWorkspace}
