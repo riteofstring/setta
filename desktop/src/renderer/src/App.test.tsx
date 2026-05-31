@@ -122,8 +122,11 @@ describe("workspace renderer states", () => {
     expect(html).toContain('title="/tmp/web"');
     expect(html).toContain('title="/tmp/api"');
     expect(html).toContain('data-testid="standalone-chat-section"');
+    expect(html).toContain('data-testid="shortcuts-section"');
+    expect(html).toContain("Shortcuts");
     expect(html).toContain("Chats");
     expect(html).toContain('aria-label="New chat in web"');
+    expect(html).toContain('aria-label="Pin Web chat"');
     expect(html).toContain("No unorganized chats");
     expect(html).toContain("Notes");
     expect(html).toContain("No Markdown notes");
@@ -135,6 +138,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="memory-integrations-section"');
     expect(html).toContain('data-testid="rules-section"');
     expect(html).toContain("Resize Projects");
+    expect(html).toContain("Resize Shortcuts");
     expect(html).toContain("Resize Rules");
     expect(html).toContain("Search");
     expect(html).toContain("Notifications / Logs");

@@ -11,6 +11,7 @@ export const defaultSidebarSections = {
   notes: { height: 70, open: true },
   projects: { height: 280, open: true },
   rules: { height: 86, open: true },
+  shortcuts: { height: 146, open: true },
 } satisfies Record<string, SidebarSectionState>;
 
 export type SidebarSectionId = keyof typeof defaultSidebarSections;

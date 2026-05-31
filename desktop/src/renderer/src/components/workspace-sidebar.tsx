@@ -2,12 +2,9 @@ import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/bac
 import {
   Archive,
   Bell,
-  BookOpen,
   Circle,
   Clock3,
-  Database,
   Ellipsis,
-  FileText,
   FolderClosed,
   FolderOpen,
   FolderPlus,
@@ -35,6 +32,12 @@ import {
   type SidebarSectionId,
   type SidebarSectionState,
 } from "./sidebar-accordion";
+import {
+  MemoryIntegrationsContent,
+  NotesContent,
+  RulesContent,
+  UnorganizedChatsContent,
+} from "./sidebar-secondary-sections";
 
 const activeWorkspaceRowHeight = 28;
 const recentWorkspaceRowHeight = 28;
@@ -44,6 +47,7 @@ const projectMenuHeight = 200;
 const projectMenuInset = 8;
 const projectMenuWidth = 224;
 const workspaceListOverscan = 6;
+const emptyPinnedConversationIds: string[] = [];
 
 interface WorkspaceSidebarProps {
   activeRun: Run | null;
@@ -100,6 +104,9 @@ export function WorkspaceSidebar({
   sidebarWidth = 220,
 }: WorkspaceSidebarProps) {
   const [expandedWorkspaceId, setExpandedWorkspaceId] = useState(selectedWorkspaceId);
+  const [pinnedProjectConversationIds, setPinnedProjectConversationIds] = useState<
+    Record<string, string[]>
+  >({});
   const activeWorkspaceIds = useMemo(
     () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
     [activeWorkspaces],
@@ -135,6 +142,26 @@ export function WorkspaceSidebar({
     }));
   }
 
+  function togglePinnedProjectConversation(workspaceId: string, conversationId: string) {
+    setPinnedProjectConversationIds((current) => {
+      const currentPinnedIds = current[workspaceId] ?? [];
+      const pinned = currentPinnedIds.includes(conversationId);
+      if (pinned) {
+        const nextPinnedIds = currentPinnedIds.filter((id) => id !== conversationId);
+        if (nextPinnedIds.length === 0) {
+          const next = { ...current };
+          delete next[workspaceId];
+          return next;
+        }
+        return { ...current, [workspaceId]: nextPinnedIds };
+      }
+      return {
+        ...current,
+        [workspaceId]: [conversationId, ...currentPinnedIds],
+      };
+    });
+  }
+
   return (
     <aside
       className="flex h-full min-h-0 w-full min-w-0 flex-col bg-[#202124] text-zinc-100"
@@ -143,13 +170,22 @@ export function WorkspaceSidebar({
       <div
         className={cn("min-h-0 flex-1 overflow-y-auto px-1 pb-3", chromeInsetClass(chromeInsetTop))}
       >
-        <SidebarNav
-          busy={busy || chatBusy}
-          createConversation={createConversation}
-          hasWorkspace={selectedWorkspaceId !== ""}
-          openSearch={openSearch}
-        />
-        <div className="mt-3 grid gap-1">
+        <div className="grid gap-1">
+          <SidebarAccordionSection
+            height={sections.shortcuts.height}
+            onHeightChange={(height) => setSectionHeight("shortcuts", height)}
+            onOpenChange={(open) => setSectionOpen("shortcuts", open)}
+            open={sections.shortcuts.open}
+            testId="shortcuts-section"
+            title="Shortcuts"
+          >
+            <SidebarNav
+              busy={busy || chatBusy}
+              createConversation={createConversation}
+              hasWorkspace={selectedWorkspaceId !== ""}
+              openSearch={openSearch}
+            />
+          </SidebarAccordionSection>
           <SidebarAccordionSection
             action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
             height={sections.projects.height}
@@ -171,11 +207,13 @@ export function WorkspaceSidebar({
               conversations={conversations}
               createWorkspaceConversation={createWorkspaceConversation}
               expandedWorkspaceId={expandedWorkspaceId}
+              pinnedConversationIdsByWorkspace={pinnedProjectConversationIds}
               selectConversation={selectConversation}
               selectWorkspace={selectWorkspace}
               selectedConversationId={selectedConversationId}
               selectedWorkspaceId={selectedWorkspaceId}
               setExpandedWorkspaceId={setExpandedWorkspaceId}
+              togglePinnedConversation={togglePinnedProjectConversation}
               workspaces={activeWorkspaces}
             />
             <RecentProjectList
@@ -321,11 +359,13 @@ function ProjectList({
   conversations,
   createWorkspaceConversation,
   expandedWorkspaceId,
+  pinnedConversationIdsByWorkspace,
   selectConversation,
   selectWorkspace,
   selectedConversationId,
   selectedWorkspaceId,
   setExpandedWorkspaceId,
+  togglePinnedConversation,
   workspaces,
 }: {
   activeRun: Run | null;
@@ -336,11 +376,13 @@ function ProjectList({
   conversations: ConversationListItem[];
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   expandedWorkspaceId: string;
+  pinnedConversationIdsByWorkspace: Record<string, string[]>;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selectedConversationId: string;
   selectedWorkspaceId: string;
   setExpandedWorkspaceId: (next: string) => void;
+  togglePinnedConversation: (workspaceId: string, conversationId: string) => void;
   workspaces: WorkspaceSummary[];
 }) {
   if (workspaces.length === 0) {
@@ -358,11 +400,15 @@ function ProjectList({
       conversations={conversations}
       createWorkspaceConversation={createWorkspaceConversation}
       expanded={expandedWorkspaceId === workspace.id}
+      pinnedConversationIds={
+        pinnedConversationIdsByWorkspace[workspace.id] ?? emptyPinnedConversationIds
+      }
       selectConversation={selectConversation}
       selectWorkspace={selectWorkspace}
       selected={workspace.id === selectedWorkspaceId}
       selectedConversationId={selectedConversationId}
       setExpandedWorkspaceId={setExpandedWorkspaceId}
+      togglePinnedConversation={togglePinnedConversation}
       workspace={workspace}
     />
   );
@@ -406,11 +452,13 @@ function ProjectRow({
   conversations,
   createWorkspaceConversation,
   expanded,
+  pinnedConversationIds,
   selectConversation,
   selectWorkspace,
   selected,
   selectedConversationId,
   setExpandedWorkspaceId,
+  togglePinnedConversation,
   workspace,
 }: {
   activeRun: Run | null;
@@ -422,11 +470,13 @@ function ProjectRow({
   conversations: ConversationListItem[];
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   expanded: boolean;
+  pinnedConversationIds: string[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selected: boolean;
   selectedConversationId: string;
   setExpandedWorkspaceId: (next: string) => void;
+  togglePinnedConversation: (workspaceId: string, conversationId: string) => void;
   workspace: WorkspaceSummary;
 }) {
   const hasVisibleChats = allowProjectChats && selected && expanded;
@@ -488,6 +538,10 @@ function ProjectRow({
             branchLabel={branchLabel}
             busy={chatBusy}
             conversations={conversations}
+            onTogglePinned={(conversationId) =>
+              togglePinnedConversation(workspace.id, conversationId)
+            }
+            pinnedConversationIds={pinnedConversationIds}
             selectConversation={selectConversation}
             selectedConversationId={selectedConversationId}
           />
@@ -651,193 +705,13 @@ function ProjectMenuItem({
   );
 }
 
-function UnorganizedChatsContent() {
-  return (
-    <div className="min-w-0">
-      <button
-        aria-label="New unorganized chat"
-        className="ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
-        disabled
-        title="Unorganized chats are not available yet"
-        type="button"
-      >
-        <MessageSquarePlus className="h-3.5 w-3.5" />
-      </button>
-      <div className="px-2 py-1 text-xs text-zinc-600">No unorganized chats</div>
-    </div>
-  );
-}
-
-// Notes are app-local Markdown documents for now. Keep the boundary narrow so a
-// future Markdown/WYSIWYG editor can replace the empty state without changing
-// project chat or external memory integration contracts.
-function NotesContent() {
-  return (
-    <div className="min-w-0">
-      <button
-        aria-label="New Markdown note"
-        className="ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
-        disabled
-        title="Markdown notes are not available yet"
-        type="button"
-      >
-        <PenLine className="h-3.5 w-3.5" />
-      </button>
-      <div className="px-2 py-1 text-xs text-zinc-600">No Markdown notes</div>
-    </div>
-  );
-}
-
-// External memories should be provider-backed later: local folders, Obsidian
-// vaults/libraries, qmd stores, cognee graphs, or other richer memory systems.
-function MemoryIntegrationsContent() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="min-w-0">
-      <button
-        className="flex h-7 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
-        onClick={() => setOpen(true)}
-        type="button"
-      >
-        <Database className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
-        <span className="min-w-0 flex-1 truncate font-medium">DB / Memories</span>
-        <span className="text-[11px] text-zinc-600">Integrations</span>
-      </button>
-      <MemoryIntegrationsModal onOpenChange={setOpen} open={open} />
-    </div>
-  );
-}
-
-// Rules are planned as Setta node-graph canvases. A rule can later be selected
-// beside the chat permissions control or invoked through slash commands, then
-// evaluated before or during every user turn.
-function RulesContent() {
-  return (
-    <div className="grid gap-0.5 py-0.5">
-      <button
-        className="grid h-7 w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
-        disabled
-        title="Setta rule canvases are not available yet"
-        type="button"
-      >
-        <Workflow className="h-3.5 w-3.5 text-zinc-500" />
-        <span className="truncate">Setta rules</span>
-        <span className="text-[11px] text-zinc-600">Node graph</span>
-      </button>
-      <div className="px-2 py-1 text-xs text-zinc-600">No rule canvases</div>
-    </div>
-  );
-}
-
-function MemoryIntegrationsModal({
-  onOpenChange,
-  open,
-}: {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-}) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onOpenChange, open]);
-
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/35 px-3 pt-12"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onOpenChange(false);
-        }
-      }}
-      role="presentation"
-    >
-      <div
-        aria-label="Memory integrations"
-        className="mx-auto w-full max-w-sm overflow-hidden rounded-sm border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-xl shadow-black/40"
-        role="dialog"
-      >
-        <div className="flex h-8 items-center justify-between border-b border-zinc-800 px-2">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Database className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
-            <h2 className="truncate text-xs font-medium">DB / Memories</h2>
-          </div>
-          <button
-            aria-label="Close memory integrations"
-            className="grid h-5 w-5 place-items-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
-            onClick={() => onOpenChange(false)}
-            type="button"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="grid gap-0.5 p-1">
-          <MemoryIntegrationOption
-            description="Markdown and QMD files"
-            icon={<FolderOpen className="h-3.5 w-3.5" />}
-            label="Folder"
-          />
-          <MemoryIntegrationOption
-            description="Vault or library"
-            icon={<BookOpen className="h-3.5 w-3.5" />}
-            label="Obsidian"
-          />
-          <MemoryIntegrationOption
-            description="Queryable Markdown"
-            icon={<FileText className="h-3.5 w-3.5" />}
-            label="QMD"
-          />
-          <MemoryIntegrationOption
-            description="Graph memory"
-            icon={<Workflow className="h-3.5 w-3.5" />}
-            label="Cognee"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MemoryIntegrationOption({
-  description,
-  icon,
-  label,
-}: {
-  description: string;
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      className="grid h-8 w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
-      type="button"
-    >
-      <span className="text-zinc-500">{icon}</span>
-      <span className="truncate">{label}</span>
-      <span className="truncate text-[11px] text-zinc-600">{description}</span>
-    </button>
-  );
-}
-
 function ConversationList({
   activeRun,
   branchLabel,
   busy,
   conversations,
+  onTogglePinned,
+  pinnedConversationIds,
   selectConversation,
   selectedConversationId,
 }: {
@@ -845,20 +719,30 @@ function ConversationList({
   branchLabel: string;
   busy: boolean;
   conversations: ConversationListItem[];
+  onTogglePinned: (conversationId: string) => void;
+  pinnedConversationIds: string[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectedConversationId: string;
 }) {
   const [visibleLimit, setVisibleLimit] = useState(chatHistoryLimit);
-  const selectedIndex = conversations.findIndex(
+  const sortedConversations = useMemo(
+    () => orderProjectConversations(conversations, pinnedConversationIds),
+    [conversations, pinnedConversationIds],
+  );
+  const pinnedConversationIdsSet = useMemo(
+    () => new Set(pinnedConversationIds),
+    [pinnedConversationIds],
+  );
+  const selectedIndex = sortedConversations.findIndex(
     (item) => item.conversation.id === selectedConversationId,
   );
   const effectiveLimit =
     selectedIndex >= visibleLimit
-      ? Math.min(conversations.length, selectedIndex + 1)
+      ? Math.min(sortedConversations.length, selectedIndex + 1)
       : visibleLimit;
   const visibleConversations = useMemo(
-    () => conversations.slice(0, effectiveLimit),
-    [conversations, effectiveLimit],
+    () => sortedConversations.slice(0, effectiveLimit),
+    [effectiveLimit, sortedConversations],
   );
 
   if (visibleConversations.length === 0) {
@@ -874,11 +758,13 @@ function ConversationList({
           busy={busy}
           item={item}
           key={item.conversation.id}
+          onTogglePinned={onTogglePinned}
+          pinned={pinnedConversationIdsSet.has(item.conversation.id)}
           selectConversation={selectConversation}
           selected={item.conversation.id === selectedConversationId}
         />
       ))}
-      {visibleConversations.length < conversations.length ? (
+      {visibleConversations.length < sortedConversations.length ? (
         <button
           className="h-6 rounded-sm px-2 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
           onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}
@@ -891,11 +777,37 @@ function ConversationList({
   );
 }
 
+function orderProjectConversations(
+  conversations: ConversationListItem[],
+  pinnedConversationIds: string[],
+) {
+  if (pinnedConversationIds.length === 0) {
+    return conversations;
+  }
+  const pinnedConversationIdsSet = new Set(pinnedConversationIds);
+  const pinnedOrder = new Map(pinnedConversationIds.map((id, index) => [id, index]));
+  return [...conversations].sort((left, right) => {
+    const leftPinned = pinnedConversationIdsSet.has(left.conversation.id);
+    const rightPinned = pinnedConversationIdsSet.has(right.conversation.id);
+    if (leftPinned && rightPinned) {
+      return (
+        (pinnedOrder.get(left.conversation.id) ?? 0) - (pinnedOrder.get(right.conversation.id) ?? 0)
+      );
+    }
+    if (leftPinned !== rightPinned) {
+      return leftPinned ? -1 : 1;
+    }
+    return 0;
+  });
+}
+
 function ConversationRow({
   activeRun,
   branchLabel,
   busy,
   item,
+  onTogglePinned,
+  pinned,
   selectConversation,
   selected,
 }: {
@@ -903,6 +815,8 @@ function ConversationRow({
   branchLabel: string;
   busy: boolean;
   item: ConversationListItem;
+  onTogglePinned: (conversationId: string) => void;
+  pinned: boolean;
   selectConversation: (conversationId: string) => Promise<void>;
   selected: boolean;
 }) {
@@ -916,7 +830,7 @@ function ConversationRow({
     <div className="group/chat relative min-w-0">
       <button
         className={cn(
-          "grid h-7 w-full min-w-0 grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-2 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
+          "grid h-7 w-full min-w-0 grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-2 pr-7 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
           selected ? "text-zinc-100" : "text-zinc-300",
         )}
         data-testid="conversation-list-item"
@@ -940,6 +854,12 @@ function ConversationRow({
           </time>
         ) : null}
       </button>
+      <ConversationPinButton
+        conversationId={item.conversation.id}
+        pinned={pinned}
+        title={item.conversation.title}
+        togglePinned={onTogglePinned}
+      />
       <div
         className="pointer-events-none fixed z-50 hidden min-w-52 max-w-72 rounded-sm border border-zinc-700/80 bg-zinc-900/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/chat:block"
         data-testid="conversation-hover-card"
@@ -952,6 +872,34 @@ function ConversationRow({
         </div>
       </div>
     </div>
+  );
+}
+
+function ConversationPinButton({
+  conversationId,
+  pinned,
+  title,
+  togglePinned,
+}: {
+  conversationId: string;
+  pinned: boolean;
+  title: string;
+  togglePinned: (conversationId: string) => void;
+}) {
+  const label = pinned ? `Unpin ${title}` : `Pin ${title}`;
+  return (
+    <button
+      aria-label={label}
+      className={cn(
+        "absolute top-1 right-1 grid h-5 w-5 place-items-center rounded-sm text-zinc-500 opacity-0 outline-none transition-opacity hover:bg-zinc-700/80 hover:text-zinc-100 focus-visible:bg-zinc-700/80 focus-visible:text-zinc-100 group-hover/chat:opacity-100",
+        pinned ? "opacity-100 text-zinc-300" : "",
+      )}
+      onClick={() => togglePinned(conversationId)}
+      title={pinned ? "Unpin chat" : "Pin chat"}
+      type="button"
+    >
+      <Pin className={cn("h-3.5 w-3.5", pinned ? "fill-zinc-300" : "")} />
+    </button>
   );
 }
 
