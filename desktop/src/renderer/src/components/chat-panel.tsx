@@ -1,10 +1,11 @@
 import type { WorkspaceSummary } from "@generated/backend";
-import { MessageSquarePlus, Mic, Plus, Send, Square } from "lucide-react";
+import { ArrowUp, ChevronDown, MessageSquarePlus, Mic, Plus, Settings, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import { ChatTranscript } from "./chat-transcript";
+import { SlashCommandPalette } from "./slash-command-palette";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
@@ -122,8 +123,11 @@ function ChatError({ message }: { message: string | null }) {
 
 function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
   const [draft, setDraft] = useState("");
+  const [slashPaletteDismissed, setSlashPaletteDismissed] = useState(false);
   const submittingRef = useRef(false);
   const disabled = !chat.selectedConversation || busy || running;
+  const slashQuery = slashCommandQuery(draft);
+  const slashPaletteOpen = slashQuery !== null && !slashPaletteDismissed;
 
   async function sendDraft() {
     const prompt = draft.trim();
@@ -139,42 +143,76 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
     }
   }
 
+  function updateDraft(nextDraft: string) {
+    setDraft(nextDraft);
+    setSlashPaletteDismissed((wasDismissed) => (nextDraft.startsWith("/") ? wasDismissed : false));
+  }
+
   return (
     <form
-      className="bg-zinc-900 px-4 pt-2 pb-4"
+      className="bg-zinc-900 px-4 pt-2 pb-3"
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
       }}
     >
-      <div className="mx-auto flex w-full max-w-3xl min-w-0 items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1">
-        <IconButton disabled={disabled} label="Add attachment">
-          <Plus className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton disabled={disabled} label="Voice input">
-          <Mic className="h-3.5 w-3.5" />
-        </IconButton>
-        <Textarea
-          className="max-h-24 min-h-7 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-1 text-sm leading-5 text-zinc-100 shadow-none outline-none placeholder:text-zinc-600 focus-visible:border-0"
-          disabled={disabled}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key !== "Enter" ||
-              event.shiftKey ||
-              event.altKey ||
-              event.nativeEvent.isComposing
-            ) {
-              return;
-            }
-            event.preventDefault();
-            void sendDraft();
+      <div className="relative mx-auto w-full max-w-3xl min-w-0">
+        <SlashCommandPalette
+          onSelect={(insertText) => {
+            setDraft(insertText);
+            setSlashPaletteDismissed(true);
           }}
-          placeholder={chat.selectedConversation ? "Ask Setta" : "Create a chat first"}
-          rows={1}
-          value={draft}
+          open={slashPaletteOpen}
+          query={slashQuery ?? ""}
         />
-        <ComposerButton canSend={!disabled && draft.trim() !== ""} chat={chat} running={running} />
+        <div className="min-w-0 rounded-[28px] border border-zinc-700 bg-zinc-800/90 px-4 pt-3 pb-3 shadow-xl shadow-black/20">
+          <Textarea
+            className="max-h-44 min-h-24 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-base leading-6 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={disabled}
+            onChange={(event) => updateDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && slashPaletteOpen) {
+                event.preventDefault();
+                setSlashPaletteDismissed(true);
+                return;
+              }
+              if (
+                event.key !== "Enter" ||
+                event.shiftKey ||
+                event.altKey ||
+                event.nativeEvent.isComposing
+              ) {
+                return;
+              }
+              event.preventDefault();
+              void sendDraft();
+            }}
+            placeholder={chat.selectedConversation ? "Ask Setta" : "Create a chat first"}
+            rows={3}
+            value={draft}
+          />
+          <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <IconButton disabled={disabled} label="Add attachment">
+                <Plus className="h-4 w-4" />
+              </IconButton>
+              <ComposerMenuButton disabled={disabled} icon={<Settings className="h-4 w-4" />}>
+                Custom
+              </ComposerMenuButton>
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <ComposerMenuButton disabled={disabled}>5.5 Extra High</ComposerMenuButton>
+              <IconButton disabled={disabled} label="Voice input">
+                <Mic className="h-4 w-4" />
+              </IconButton>
+              <ComposerButton
+                canSend={!disabled && draft.trim() !== ""}
+                chat={chat}
+                running={running}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </form>
   );
@@ -193,7 +231,7 @@ function ComposerButton({
     return (
       <Button
         aria-label="Stop run"
-        className="h-7 w-7 shrink-0 border-zinc-700 bg-zinc-800 px-0 text-zinc-100 hover:bg-zinc-700"
+        className="h-9 w-9 shrink-0 rounded-full border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white"
         disabled={chat.operation === "cancelling"}
         onClick={() => void chat.stopActiveRun()}
         title="Stop run"
@@ -207,15 +245,44 @@ function ComposerButton({
   return (
     <Button
       aria-label="Send message"
-      className="h-7 w-7 shrink-0 border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+      className="h-9 w-9 shrink-0 rounded-full border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
       disabled={!canSend}
       title="Send message"
       type="submit"
       variant="primary"
     >
-      <Send className="h-3.5 w-3.5" />
+      <ArrowUp className="h-5 w-5" />
     </Button>
   );
+}
+
+function ComposerMenuButton({
+  children,
+  disabled,
+  icon,
+}: {
+  children: ReactNode;
+  disabled: boolean;
+  icon?: ReactNode;
+}) {
+  return (
+    <button
+      className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+      disabled={disabled}
+      type="button"
+    >
+      {icon}
+      <span className="truncate">{children}</span>
+      <ChevronDown className="h-4 w-4 shrink-0" />
+    </button>
+  );
+}
+
+function slashCommandQuery(draft: string) {
+  if (!draft.startsWith("/") || draft.includes("\n")) {
+    return null;
+  }
+  return draft.slice(1);
 }
 
 export function useChatViewState(workspaceId: string | null) {

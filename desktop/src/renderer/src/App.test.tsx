@@ -5,6 +5,7 @@ import { WorkspacePanel } from "./App";
 import { ChatTranscript } from "./components/chat-transcript";
 import { EditorPicker } from "./components/editor-picker";
 import { SettingsPanel } from "./components/settings-panel";
+import { SlashCommandPalette } from "./components/slash-command-palette";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 
 describe("workspace renderer states", () => {
@@ -203,6 +204,16 @@ describe("chat renderer states", () => {
     expect(html).toContain("<strong");
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
+  });
+
+  test("renders slash commands and installed skills without pet entry", () => {
+    const html = renderToString(<SlashCommandPalette onSelect={() => {}} open query="" />);
+
+    expect(html).toContain("Plan mode");
+    expect(html).toContain("Frontend Design");
+    expect(html).toContain("Setta will keep working");
+    expect(html).not.toContain("Pet");
+    expect(html).not.toContain("Codex");
   });
 
   test("renders pending approval controls", () => {
