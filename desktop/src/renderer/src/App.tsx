@@ -14,6 +14,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "reac
 
 import { ChatPanel, useChatViewState } from "./components/chat-panel";
 import { EditorPicker } from "./components/editor-picker";
+import { PixiWorkspacePrototype } from "./components/pixi-workspace-prototype";
 import { ResizableBottomPane, ResizablePane } from "./components/resizable-pane";
 import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -29,6 +30,14 @@ import {
 import { useChatStore } from "./stores/chat-store";
 
 export function App() {
+  const flags = window.setta.app.flags;
+  if (flags.pixiWorkspacePrototype) {
+    return <PixiWorkspacePrototype debugEnabled={flags.pixiWorkspaceDebug} />;
+  }
+  return <AppShell />;
+}
+
+function AppShell() {
   const workspace = useWorkspaceViewState();
   const panes = useWorkspacePaneState();
   const platform = window.setta.app.platform;

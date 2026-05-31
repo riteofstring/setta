@@ -8,6 +8,10 @@ describe("preload workspace API", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.doUnmock("electron");
+    vi.unstubAllEnvs();
+    vi.stubEnv("SETTA_E2E", "");
+    vi.stubEnv("SETTA_PIXI_WORKSPACE_DEBUG", "");
+    vi.stubEnv("SETTA_PIXI_WORKSPACE_PROTOTYPE", "");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -28,6 +32,7 @@ describe("preload workspace API", () => {
 
     const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.app).sort()).toEqual([
+      "flags",
       "installedEditors",
       "openExternalUrl",
       "openWorkspaceInEditor",
@@ -36,6 +41,10 @@ describe("preload workspace API", () => {
       "workspaceGitInfo",
     ]);
 
+    expect(api.app.flags).toEqual({
+      pixiWorkspaceDebug: false,
+      pixiWorkspacePrototype: false,
+    });
     await api.app.installedEditors();
     await api.app.openWorkspaceInEditor("vscode", "/tmp/api");
     await api.app.versions();

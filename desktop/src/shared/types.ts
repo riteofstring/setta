@@ -87,6 +87,10 @@ export interface ChatCommandExecutionOptions {
 
 export interface SettaAPI {
   app: {
+    flags: {
+      pixiWorkspaceDebug: boolean;
+      pixiWorkspacePrototype: boolean;
+    };
     installedEditors: () => Promise<InstalledEditorApp[]>;
     openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;
     openExternalUrl: (url: string) => Promise<void>;

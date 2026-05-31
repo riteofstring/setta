@@ -91,7 +91,7 @@ func (continuation *codexGoalContinuation) Wait(ctx context.Context, request Tur
 	if err := ctx.Err(); err != nil {
 		return TurnCompletion{}, err
 	}
-	continuation.harness.registerActive(request.Run.ID, continuation.session, request)
+	continuation.harness.registerActive(request.Run.ID, continuation.session)
 	continuation.harness.updateActiveTurn(request.Run.ID, continuation.threadID, "")
 	defer continuation.harness.unregisterActive(request.Run.ID)
 
@@ -231,7 +231,14 @@ type codexCommandThreadSettings struct {
 
 func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
-		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, codexThreadResumeParams(workspaceSummary.RootPath, threadRef.ThreadID))
+		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, map[string]any{
+			"approvalPolicy":        "on-request",
+			"approvalsReviewer":     "user",
+			"cwd":                   workspaceSummary.RootPath,
+			"excludeTurns":          true,
+			"runtimeWorkspaceRoots": []string{workspaceSummary.RootPath},
+			"threadId":              threadRef.ThreadID,
+		})
 		if err != nil {
 			refErr := &HarnessRefUnavailableError{
 				Err:      err,
@@ -254,11 +261,12 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, ses
 		return thread, nil
 	}
 
-	params, err := harness.codexThreadStartParams(workspaceSummary.RootPath)
-	if err != nil {
-		return codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "build codex thread start params: "+err.Error(), err)
-	}
-	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
+	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, map[string]any{
+		"approvalPolicy":        "on-request",
+		"approvalsReviewer":     "user",
+		"cwd":                   workspaceSummary.RootPath,
+		"runtimeWorkspaceRoots": []string{workspaceSummary.RootPath},
+	})
 	if err != nil {
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "start codex thread: "+err.Error(), err)
 	}
