@@ -721,11 +721,12 @@ function ToolCallFrame({
   return (
     <div className="relative min-w-0">
       <button
-        className="flex h-6 w-full min-w-0 items-center gap-2 text-left text-xs text-zinc-300"
+        className="flex h-6 w-full min-w-0 items-center gap-1.5 text-left text-xs text-zinc-300"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
         <Bot className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        <ToolDisclosureIcon open={open} />
         <span className="rounded-sm border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
           3
         </span>
@@ -733,11 +734,6 @@ function ToolCallFrame({
         {loading ? (
           <AsciiSpinner className="w-9 text-[8px] text-zinc-500" label="Tool call running" />
         ) : null}
-        {open ? (
-          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-        )}
       </button>
       {open ? (
         <div className="mt-1.5 grid min-w-0 grid-cols-[minmax(0,1fr)_1.75rem] gap-1.5">
@@ -768,7 +764,7 @@ function ToolCommandRow({
   return (
     <button
       className={cn(
-        "grid h-6 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-1.5 text-left font-mono text-xs font-semibold transition-colors",
+        "grid h-6 w-full min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1.5 text-left font-mono text-xs font-semibold transition-colors",
         active
           ? "bg-zinc-800/45 text-zinc-100"
           : "text-zinc-500 hover:bg-zinc-800/25 hover:text-zinc-300",
@@ -776,22 +772,26 @@ function ToolCommandRow({
       type="button"
     >
       <Wrench className="h-3.5 w-3.5 text-zinc-500" />
+      <ToolDisclosureIcon open={active} />
       <span className="truncate">{title}</span>
-      <span className="flex items-center gap-2">
-        {active ? (
-          <>
-            {loading ? (
-              <AsciiSpinner className="w-9 text-[8px] text-zinc-400" label="Tool call running" />
-            ) : (
-              <span className="font-sans text-xs font-semibold text-zinc-300">&lt;1s</span>
-            )}
-            <ChevronUp className="h-3.5 w-3.5 text-zinc-400" />
-          </>
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
-        )}
-      </span>
+      {active ? (
+        <span className="justify-self-end">
+          {loading ? (
+            <AsciiSpinner className="w-9 text-[8px] text-zinc-400" label="Tool call running" />
+          ) : (
+            <span className="font-sans text-xs font-semibold text-zinc-300">&lt;1s</span>
+          )}
+        </span>
+      ) : null}
     </button>
+  );
+}
+
+function ToolDisclosureIcon({ open }: { open: boolean }) {
+  return open ? (
+    <ChevronUp className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+  ) : (
+    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
   );
 }
 
