@@ -67,7 +67,11 @@ export function SidebarAccordionSection({
         >
           <span className="truncate">{title}</span>
         </button>
-        {action}
+        {action ? (
+          <div className="opacity-0 transition-opacity duration-75 ease-out group-hover/section:opacity-100 group-focus-within/section:opacity-100">
+            {action}
+          </div>
+        ) : null}
       </div>
       <div
         aria-hidden={!open}

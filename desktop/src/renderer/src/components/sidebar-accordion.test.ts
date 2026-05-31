@@ -28,12 +28,22 @@ describe("sidebar accordion sizing", () => {
     expect(open).toContain("grid-rows-[1fr]");
     expect(open).toContain("ease-[cubic-bezier(0.16,1,0.3,1)]");
   });
+
+  test("keeps header actions hidden until section hover or focus", () => {
+    const html = renderAccordion(true, createElement("button", { type: "button" }, "New"));
+
+    expect(html).toContain("opacity-0");
+    expect(html).toContain("duration-75");
+    expect(html).toContain("group-hover/section:opacity-100");
+    expect(html).toContain("group-focus-within/section:opacity-100");
+  });
 });
 
-function renderAccordion(open: boolean) {
+function renderAccordion(open: boolean, action?: ReturnType<typeof createElement>) {
   const child = createElement("button", { type: "button" }, "Item");
   return renderToString(
     createElement(SidebarAccordionSection, {
+      action,
       children: child,
       height: 80,
       onHeightChange: () => {},
