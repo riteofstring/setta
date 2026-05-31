@@ -113,6 +113,7 @@ function ConversationBody({
       onSearchOpenChange={setSearchOpen}
       searchOpen={searchOpen}
       submitApproval={chat.submitApproval}
+      updateUserMessage={chat.updateUserMessage}
     />
   );
 }
@@ -307,6 +308,7 @@ export function useChatViewState(workspaceId: string | null) {
   const status = useChatStore((state) => state.status);
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
+  const updateUserMessage = useChatStore((state) => state.updateUserMessage);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
 
   useEffect(() => {
@@ -331,5 +333,6 @@ export function useChatViewState(workspaceId: string | null) {
     status,
     stopActiveRun,
     submitApproval,
+    updateUserMessage,
   };
 }

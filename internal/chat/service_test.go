@@ -100,6 +100,56 @@ func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	}
 }
 
+func TestServiceUpdatesUserMessage(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "original prompt")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+
+	updated, err := service.UpdateUserMessage("workspace_api", conversation.ID, result.UserMessage.ID, "updated prompt")
+	if err != nil {
+		t.Fatalf("update user message: %v", err)
+	}
+	if updated.Role != RoleUser || updated.Parts[0].Text != "updated prompt" {
+		t.Fatalf("updated message = %+v, want user text updated", updated)
+	}
+
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load page: %v", err)
+	}
+	if page.Messages[0].Parts[0].Text != "updated prompt" {
+		t.Fatalf("stored user text = %q, want updated prompt", page.Messages[0].Parts[0].Text)
+	}
+}
+
+func TestServiceRejectsAssistantMessageEdits(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "original prompt")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+
+	_, err = service.UpdateUserMessage("workspace_api", conversation.ID, result.AssistantMessage.ID, "edited response")
+	if err == nil {
+		t.Fatal("update assistant message succeeded, want error")
+	}
+	if !strings.Contains(err.Error(), "only user messages can be edited") {
+		t.Fatalf("error = %q, want user-only edit error", err)
+	}
+}
+
 func TestServiceLoadsUnpersistedActiveAssistantDeltas(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{
 		{Type: FakeEventAssistantDelta, Text: "first"},

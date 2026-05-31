@@ -295,6 +295,19 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatUpdateUserMessage",
+    async (_event, workspaceId, conversationId, messageId, text) => {
+      return requireBackendClient().updateUserMessage({
+        conversationId,
+        messageId,
+        text,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatCancelRun",
     async (_event, workspaceId, conversationId) => {
       return requireBackendClient().cancelRun({ conversationId, workspaceId });

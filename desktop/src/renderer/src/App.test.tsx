@@ -323,6 +323,60 @@ describe("chat renderer states", () => {
     expect(html).not.toContain("<script>");
   });
 
+  test("only user messages expose edit actions", () => {
+    const html = renderToString(
+      <ChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        messages={[
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            id: "message_user",
+            ordinal: 1,
+            parts: [
+              {
+                format: "plain",
+                id: "part_user",
+                text: "Can you check this?",
+                type: "text",
+              },
+            ],
+            role: "user",
+            runId: "",
+            schemaVersion: 1,
+            status: "complete",
+            updatedAt: "2026-05-29T20:00:00Z",
+          },
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:01Z",
+            id: "message_assistant",
+            ordinal: 2,
+            parts: [
+              {
+                format: "markdown",
+                id: "part_assistant",
+                text: "Done.",
+                type: "text",
+              },
+            ],
+            role: "assistant",
+            runId: "run_api",
+            schemaVersion: 1,
+            status: "complete",
+            updatedAt: "2026-05-29T20:00:01Z",
+          },
+        ]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(html.match(/Edit message/g)).toHaveLength(2);
+    expect(html.match(/Copy message/g)).toHaveLength(4);
+  });
+
   test("renders chat-local search controls", () => {
     const html = renderToString(
       <ChatTranscript

@@ -287,6 +287,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       submitApproval: async () => emptyRun(),
+      updateUserMessage: async () => emptyMessage(),
     },
     workspace: workspaceAPI,
   };

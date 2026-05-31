@@ -139,6 +139,26 @@ func (store *Store) SaveMessage(workspaceID string, message ChatMessage) error {
 	return writeJSONFile(store.messagePath(workspaceID, message.ConversationID, message.Ordinal, message.ID), message)
 }
 
+func (store *Store) LoadMessageByID(workspaceID string, conversationID string, messageID string) (ChatMessage, error) {
+	files, err := store.messageFiles(workspaceID, conversationID)
+	if err != nil {
+		return ChatMessage{}, err
+	}
+	for _, file := range files {
+		var message ChatMessage
+		if err := readJSONFile(file.path, &message); err != nil {
+			return ChatMessage{}, err
+		}
+		if message.ConversationID != conversationID {
+			return ChatMessage{}, fmt.Errorf("message %s belongs to conversation %s, not %s", message.ID, message.ConversationID, conversationID)
+		}
+		if message.ID == messageID {
+			return message, nil
+		}
+	}
+	return ChatMessage{}, fmt.Errorf("message not found: %s", messageID)
+}
+
 func (store *Store) LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
 	if limit <= 0 {
 		return MessagePage{}, fmt.Errorf("message page limit must be positive: %d", limit)

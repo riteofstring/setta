@@ -35,6 +35,7 @@ export interface ChatTranscriptProps {
     answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
+  updateUserMessage?: (messageId: string, text: string) => Promise<void>;
 }
 
 export function ChatTranscript({
@@ -45,6 +46,7 @@ export function ChatTranscript({
   onSearchOpenChange = () => {},
   searchOpen = false,
   submitApproval,
+  updateUserMessage = async () => {},
 }: ChatTranscriptProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const messageNodeRefs = useRef(new Map<string, HTMLDivElement>());
@@ -127,7 +129,7 @@ export function ChatTranscript({
               key={message.id}
               ref={(node) => setMessageNode(message.id, node)}
             >
-              <MessageRow message={message} />
+              <MessageRow message={message} updateUserMessage={updateUserMessage} />
             </div>
           ))}
           {activeRun?.hasPendingApproval ? (
@@ -345,17 +347,72 @@ function chatMessageText(message: ChatMessage) {
   return message.parts.map((part) => part.text).join("");
 }
 
-const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage }) {
+const MessageRow = memo(function MessageRow({
+  message,
+  updateUserMessage,
+}: {
+  message: ChatMessage;
+  updateUserMessage: (messageId: string, text: string) => Promise<void>;
+}) {
   const isUser = message.role === "user";
   const text = chatMessageText(message);
+  const [draft, setDraft] = useState(text);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(text);
+    }
+  }, [editing, text]);
+
   if (message.role === "tool") {
     return <ToolMessage message={message} text={text} />;
   }
+
+  async function saveEdit() {
+    const nextText = draft.trim();
+    if (!nextText || nextText === text.trim()) {
+      setDraft(text);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateUserMessage(message.id, nextText);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <article className={messageRowClass(isUser)} data-testid="chat-message">
       <div className={messageActionsRowClass(isUser)}>
-        <MessageContent isUser={isUser} message={message} text={text} />
-        <MessageActions messageId={message.id} text={text} />
+        {editing && isUser ? (
+          <UserMessageEditor
+            draft={draft}
+            onCancel={() => {
+              setDraft(text);
+              setEditing(false);
+            }}
+            onChange={setDraft}
+            onSave={() => void saveEdit()}
+            saving={saving}
+          />
+        ) : (
+          <>
+            <MessageContent isUser={isUser} message={message} text={text} />
+            <MessageActions
+              canEdit={isUser}
+              onEdit={() => {
+                setDraft(text);
+                setEditing(true);
+              }}
+              text={text}
+            />
+          </>
+        )}
       </div>
       <time className="text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
     </article>
@@ -394,6 +451,78 @@ function UserMessageContent({ message, text }: { message: ChatMessage; text: str
   );
 }
 
+function UserMessageEditor({
+  draft,
+  onCancel,
+  onChange,
+  onSave,
+  saving,
+}: {
+  draft: string;
+  onCancel: () => void;
+  onChange: (draft: string) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+    textareaRef.current?.select();
+  }, []);
+
+  return (
+    <form
+      className="max-w-[82%] overflow-hidden rounded-sm bg-zinc-800 px-2 py-1 text-[13px] leading-5 text-zinc-50"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSave();
+      }}
+    >
+      <textarea
+        className="max-h-40 min-h-14 w-full resize-y bg-transparent p-0 text-[13px] leading-5 text-zinc-50 outline-none placeholder:text-zinc-500"
+        disabled={saving}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+            return;
+          }
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            onSave();
+          }
+        }}
+        ref={textareaRef}
+        rows={3}
+        value={draft}
+      />
+      <div className="mt-1 flex justify-end gap-1">
+        <button
+          aria-label="Cancel edit"
+          className="grid h-5 w-5 place-items-center rounded-sm text-zinc-500 hover:bg-zinc-700 hover:text-zinc-100"
+          disabled={saving}
+          onClick={onCancel}
+          title="Cancel edit"
+          type="button"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+        <button
+          aria-label="Save edit"
+          className="grid h-5 w-5 place-items-center rounded-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-50 disabled:pointer-events-none disabled:text-zinc-600"
+          disabled={saving || draft.trim() === ""}
+          title="Save edit"
+          type="submit"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function AssistantMessageContent({ message, text }: { message: ChatMessage; text: string }) {
   return (
     <div className="max-w-[88%] min-w-0 text-[13px] leading-5 text-zinc-200">
@@ -410,7 +539,15 @@ function MessageStatus({ status }: { status: string }) {
   return <div className="mt-2 text-xs font-medium text-zinc-500">{status}</div>;
 }
 
-function MessageActions({ messageId, text }: { messageId: string; text: string }) {
+function MessageActions({
+  canEdit,
+  onEdit,
+  text,
+}: {
+  canEdit: boolean;
+  onEdit: () => void;
+  text: string;
+}) {
   return (
     <div className="flex shrink-0 items-center gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
       <button
@@ -422,19 +559,17 @@ function MessageActions({ messageId, text }: { messageId: string; text: string }
       >
         <Copy className="h-3.5 w-3.5" />
       </button>
-      <button
-        aria-label="Edit message"
-        className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
-        onClick={() => {
-          window.dispatchEvent(
-            new CustomEvent("setta:edit-message", { detail: { messageId, text } }),
-          );
-        }}
-        title="Edit message"
-        type="button"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </button>
+      {canEdit ? (
+        <button
+          aria-label="Edit message"
+          className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+          onClick={onEdit}
+          title="Edit message"
+          type="button"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
     </div>
   );
 }

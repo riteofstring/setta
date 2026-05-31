@@ -45,6 +45,8 @@ const api: SettaAPI = {
     sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSendMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
+    updateUserMessage: (workspaceId, conversationId, messageId, text) =>
+      invoke("chatUpdateUserMessage", workspaceId, conversationId, messageId, text),
   },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),

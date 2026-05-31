@@ -79,6 +79,13 @@ type SendChatMessageRequest struct {
 	Prompt         string `json:"prompt"`
 }
 
+type UpdateUserMessageRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	MessageID      string `json:"messageId"`
+	Text           string `json:"text"`
+}
+
 type CancelRunRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
@@ -323,6 +330,28 @@ func (handler handler) sendChatMessage(response http.ResponseWriter, request *ht
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) updateUserMessage(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	editor, ok := service.(*chat.Service)
+	if !ok {
+		writeError(response, http.StatusServiceUnavailable, "chat_editor_unavailable", "chat service does not support user message edits")
+		return
+	}
+	var payload UpdateUserMessageRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	message, err := editor.UpdateUserMessage(payload.WorkspaceID, payload.ConversationID, payload.MessageID, payload.Text)
+	if err != nil {
+		writeChatError(response, "update_user_message_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, message)
 }
 
 func (handler handler) cancelRun(response http.ResponseWriter, request *http.Request) {

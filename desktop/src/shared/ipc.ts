@@ -2,6 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
   BackendHealth,
+  ChatMessage,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
@@ -31,6 +32,7 @@ export const ipcChannels = {
   chatMessagePage: "chat:message-page",
   chatSendMessage: "chat:send-message",
   chatSubmitApproval: "chat:submit-approval",
+  chatUpdateUserMessage: "chat:update-user-message",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceRemoveRecent: "workspace:remove-recent",
@@ -92,6 +94,10 @@ interface IpcContract {
   chatSubmitApproval: {
     args: [input: SubmitApprovalInput];
     result: Run;
+  };
+  chatUpdateUserMessage: {
+    args: [workspaceId: string, conversationId: string, messageId: string, text: string];
+    result: ChatMessage;
   };
   workspaceClose: {
     args: [id: string];

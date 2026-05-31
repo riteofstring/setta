@@ -130,6 +130,7 @@ describe("preload workspace API", () => {
       "onEvent",
       "sendMessage",
       "submitApproval",
+      "updateUserMessage",
     ]);
 
     await api.chat.listConversations("workspace_api");
@@ -138,6 +139,7 @@ describe("preload workspace API", () => {
     await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
     await api.chat.cancelRun("workspace_api", "conversation_api");
     await api.chat.activeRun("workspace_api", "conversation_api");
+    await api.chat.updateUserMessage("workspace_api", "conversation_api", "message_user", "edit");
     await api.chat.submitApproval({
       approvalId: "approval_api",
       approved: true,
@@ -191,7 +193,15 @@ describe("preload workspace API", () => {
       "workspace_api",
       "conversation_api",
     );
-    expect(invoke).toHaveBeenNthCalledWith(7, ipcChannels.chatSubmitApproval, {
+    expect(invoke).toHaveBeenNthCalledWith(
+      7,
+      ipcChannels.chatUpdateUserMessage,
+      "workspace_api",
+      "conversation_api",
+      "message_user",
+      "edit",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(8, ipcChannels.chatSubmitApproval, {
       approvalId: "approval_api",
       approved: true,
       answers: [],

@@ -189,6 +189,13 @@ export interface SendMessageResult {
   page: MessagePage;
 }
 
+export interface UpdateUserMessageRequest {
+  workspaceId: string;
+  conversationId: string;
+  messageId: string;
+  text: string;
+}
+
 export interface CancelRunRequest {
   workspaceId: string;
   conversationId: string;
@@ -391,6 +398,10 @@ export const backendEndpoints = {
   SendChatMessage: {
     method: "POST",
     path: "/chat/messages/send",
+  },
+  UpdateUserMessage: {
+    method: "POST",
+    path: "/chat/messages/update-user",
   },
   CancelRun: {
     method: "POST",
@@ -680,6 +691,17 @@ export function decodeSendMessageResult(value: unknown): SendMessageResult {
     assistantMessage: decodeChatMessage(requireField(record, "assistantMessage", "SendMessageResult")),
     run: decodeRun(requireField(record, "run", "SendMessageResult")),
     page: decodeMessagePage(requireField(record, "page", "SendMessageResult")),
+  };
+}
+
+export function decodeUpdateUserMessageRequest(value: unknown): UpdateUserMessageRequest {
+  const record = assertRecord(value, "UpdateUserMessageRequest");
+  assertKnownFields(record, "UpdateUserMessageRequest", ["workspaceId", "conversationId", "messageId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.conversationId"),
+    messageId: decodeString(requireField(record, "messageId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.messageId"),
+    text: decodeString(requireField(record, "text", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.text"),
   };
 }
 
@@ -983,6 +1005,7 @@ export interface BackendClient {
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
+  updateUserMessage: (request: UpdateUserMessageRequest) => Promise<ChatMessage>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
   getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
@@ -1075,6 +1098,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSendMessageResult,
       endpoint: backendEndpoints.SendChatMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateUserMessage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatMessage,
+      endpoint: backendEndpoints.UpdateUserMessage,
       fetchImpl,
       requestPayload: request,
     }),

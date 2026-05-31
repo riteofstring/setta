@@ -51,6 +51,28 @@ func TestChatEndpointsCreateSendListAndPageMessages(t *testing.T) {
 	}
 }
 
+func TestChatEndpointsUpdateUserMessage(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	result := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "original prompt",
+	}, http.StatusOK)
+	waitForAssistantStatus(t, handler, opened.Workspace.ID, conversation.ID, chat.MessageStatusComplete)
+
+	updated := postJSON[chat.ChatMessage](t, handler, "/chat/messages/update-user", UpdateUserMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		MessageID:      result.UserMessage.ID,
+		Text:           "updated prompt",
+	}, http.StatusOK)
+	if updated.Parts[0].Text != "updated prompt" {
+		t.Fatalf("updated text = %q, want updated prompt", updated.Parts[0].Text)
+	}
+}
+
 func TestChatEndpointsCancelActiveRun(t *testing.T) {
 	handler := newChatHandler(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventWaitForCancel}})
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)

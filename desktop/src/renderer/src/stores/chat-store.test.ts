@@ -167,6 +167,30 @@ describe("chat store", () => {
     });
   });
 
+  test("updates user messages through the preload API", async () => {
+    const conversation = testConversation();
+    const original = message("message_user", 1, "user", "complete", "original");
+    const updated = replaceMessageText(original, "updated");
+    const updateUserMessage = vi.fn().mockResolvedValue(updated);
+    installSettaAPI({ chat: { updateUserMessage } });
+    useChatStore.setState({
+      messages: [original],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().updateUserMessage("message_user", "updated");
+
+    expect(updateUserMessage).toHaveBeenCalledWith(
+      "workspace_api",
+      "conversation_api",
+      "message_user",
+      "updated",
+    );
+    expect(useChatStore.getState().messages[0]?.parts[0]?.text).toBe("updated");
+  });
+
   test("prepends older pages without duplicating messages already visible", () => {
     const currentLatest = message("message_latest", 2, "assistant", "streaming", "latest");
     const staleLatest = replaceMessageText(currentLatest, "stale latest");
@@ -345,6 +369,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: message("message_user", 1, "user", "complete", "hello"),
       }),
       submitApproval: async () => testRun("running"),
+      updateUserMessage: async () => message("message_user", 1, "user", "complete", "updated"),
       ...overrides.chat,
     },
     workspace: {

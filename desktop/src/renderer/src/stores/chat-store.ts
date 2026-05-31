@@ -14,6 +14,7 @@ type ChatOperation =
   | "approving"
   | "cancelling"
   | "creating"
+  | "editing"
   | "loading"
   | "loadingOlder"
   | "refreshing"
@@ -46,6 +47,7 @@ interface ChatStore {
     answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
+  updateUserMessage: (messageId: string, text: string) => Promise<void>;
   workspaceId: string | null;
 }
 
@@ -346,6 +348,29 @@ export const useChatStore = create<ChatStore>((set, get) => {
         });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
+      }
+    },
+    updateUserMessage: async (messageId, text) => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        return;
+      }
+      const operationId = beginOperation({ error: null, operation: "editing" });
+      try {
+        const message = await window.setta.chat.updateUserMessage(
+          workspaceId,
+          selectedConversation.id,
+          messageId,
+          text,
+        );
+        commitCurrentFromState(operationId, (current) => ({
+          messages: upsertMessage(current.messages, message),
+          operation: null,
+          status: "ready",
+        }));
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+        throw error;
       }
     },
     workspaceId: null,
