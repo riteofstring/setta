@@ -10,11 +10,12 @@ import {
   PanelRightOpen,
   Search,
 } from "lucide-react";
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
 import { EditorPicker } from "./components/editor-picker";
+import { ResizableBottomPane, ResizablePane } from "./components/resizable-pane";
 import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
@@ -232,6 +233,21 @@ function workspaceAreaRows(maximizedPane: MaximizedPane) {
     : "grid-rows-[minmax(0,1fr)_auto]";
 }
 
+function usePanePresence(open: boolean) {
+  const [present, setPresent] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setPresent(true);
+      return;
+    }
+    const timeoutId = window.setTimeout(() => setPresent(false), 150);
+    return () => window.clearTimeout(timeoutId);
+  }, [open]);
+
+  return present;
+}
+
 function topBarMaximizeTarget(
   visibility: PaneVisibility,
   maximizedPane: MaximizedPane,
@@ -282,6 +298,9 @@ function WorkspaceArea({
   visibility: PaneVisibility;
   workspace: WorkspaceViewState;
 }) {
+  const contentPresent = usePanePresence(visibility.content);
+  const bottomPresent = usePanePresence(visibility.bottom);
+
   return (
     <div
       className={cn(
@@ -294,7 +313,7 @@ function WorkspaceArea({
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-8 z-40 h-px bg-zinc-800"
       />
-      {visibility.content ? (
+      {contentPresent ? (
         <WorkspaceContentRow
           chat={chat}
           chatPaneWidth={chatPaneWidth}
@@ -304,29 +323,39 @@ function WorkspaceArea({
           setChatPaneWidth={setChatPaneWidth}
           setChatSearchOpen={setChatSearchOpen}
           toggleMaximizedPane={toggleMaximizedPane}
+          visible={visibility.content}
           visibility={visibility}
           workspace={workspace}
         />
       ) : null}
-      {visibility.bottom ? (
-        <ResizableBottomPane
-          height={bottomPaneHeight}
-          label="Resize bottom pane"
-          maximized={maximizedPane === "bottom"}
-          minHeight={140}
-          onHeightChange={setBottomPaneHeight}
+      {bottomPresent ? (
+        <div
+          className={cn(
+            "min-h-0 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+            visibility.bottom
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-3 opacity-0",
+          )}
         >
-          <WorkspacePanePanel
-            activeTabId={panes.bottom.activeTabId}
+          <ResizableBottomPane
+            height={bottomPaneHeight}
+            label="Resize bottom pane"
             maximized={maximizedPane === "bottom"}
-            onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
-            onCreateTab={(kind) => panes.createTab("bottom", kind)}
-            onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
-            onToggleMaximize={() => toggleMaximizedPane("bottom")}
-            slot="bottom"
-            tabs={panes.bottom.tabs}
-          />
-        </ResizableBottomPane>
+            minHeight={140}
+            onHeightChange={setBottomPaneHeight}
+          >
+            <WorkspacePanePanel
+              activeTabId={panes.bottom.activeTabId}
+              maximized={maximizedPane === "bottom"}
+              onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
+              onCreateTab={(kind) => panes.createTab("bottom", kind)}
+              onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
+              onToggleMaximize={() => toggleMaximizedPane("bottom")}
+              slot="bottom"
+              tabs={panes.bottom.tabs}
+            />
+          </ResizableBottomPane>
+        </div>
       ) : null}
     </div>
   );
@@ -341,6 +370,7 @@ function WorkspaceContentRow({
   setChatPaneWidth,
   setChatSearchOpen,
   toggleMaximizedPane,
+  visible,
   visibility,
   workspace,
 }: {
@@ -352,26 +382,43 @@ function WorkspaceContentRow({
   setChatPaneWidth: (width: number) => void;
   setChatSearchOpen: (open: boolean) => void;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
+  visible: boolean;
   visibility: PaneVisibility;
   workspace: WorkspaceViewState;
 }) {
+  const rightPresent = usePanePresence(visibility.right);
+  const rightPaneTakingSpace = visibility.right || rightPresent;
+
   return (
-    <div className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900 transition-[gap] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
+    <div
+      className={cn(
+        "flex min-h-0 min-w-0 overflow-hidden bg-zinc-900",
+        "transition-[gap,opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
+      )}
+    >
       <ChatPane
         chromeInsetTop={visibility.chat}
         chat={chat}
         chatSearchOpen={chatSearchOpen}
         maximized={maximizedPane === "chat"}
         open={visibility.chat}
-        rightPaneOpen={visibility.right}
+        rightPaneOpen={rightPaneTakingSpace}
         setChatSearchOpen={setChatSearchOpen}
         setWidth={setChatPaneWidth}
         toggleMaximize={() => toggleMaximizedPane("chat")}
         width={chatPaneWidth}
         workspace={workspace}
       />
-      {visibility.right ? (
-        <div className="h-full min-w-[360px] flex-1">
+      {rightPresent ? (
+        <div
+          className={cn(
+            "h-full min-w-[360px] flex-1 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+            visibility.right
+              ? "translate-x-0 opacity-100"
+              : "pointer-events-none translate-x-4 opacity-0",
+          )}
+        >
           <WorkspacePanePanel
             activeTabId={panes.right.activeTabId}
             maximized={maximizedPane === "right"}
@@ -915,169 +962,6 @@ function SearchPalette({
       </div>
     </div>
   );
-}
-
-function ResizablePane({
-  children,
-  label,
-  maxWidth,
-  minWidth,
-  onWidthChange,
-  width,
-}: {
-  children: ReactNode;
-  label: string;
-  maxWidth: number;
-  minWidth: number;
-  onWidthChange: (width: number) => void;
-  width: number;
-}) {
-  const [resizing, setResizing] = useState(false);
-  const startResize = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const startX = event.clientX;
-      const startWidth = width;
-      const previousCursor = document.body.style.cursor;
-      const previousUserSelect = document.body.style.userSelect;
-
-      const resize = (moveEvent: globalThis.PointerEvent) => {
-        onWidthChange(clamp(startWidth + moveEvent.clientX - startX, minWidth, maxWidth));
-      };
-      const stopResize = () => {
-        setResizing(false);
-        document.body.style.cursor = previousCursor;
-        document.body.style.userSelect = previousUserSelect;
-        window.removeEventListener("pointermove", resize);
-      };
-
-      event.preventDefault();
-      setResizing(true);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      window.addEventListener("pointermove", resize);
-      window.addEventListener("pointerup", stopResize, { once: true });
-    },
-    [maxWidth, minWidth, onWidthChange, width],
-  );
-
-  return (
-    <div
-      className={cn(
-        "relative h-full min-h-0 shrink-0",
-        !resizing && "transition-[width] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
-      )}
-      style={{ width }}
-    >
-      {children}
-      <div
-        aria-label={label}
-        aria-orientation="vertical"
-        className="absolute top-0 right-0 z-30 h-full w-2 translate-x-1 cursor-col-resize"
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft") {
-            event.preventDefault();
-            onWidthChange(clamp(width - 12, minWidth, maxWidth));
-          }
-          if (event.key === "ArrowRight") {
-            event.preventDefault();
-            onWidthChange(clamp(width + 12, minWidth, maxWidth));
-          }
-        }}
-        onPointerDown={startResize}
-        role="separator"
-        tabIndex={0}
-      />
-    </div>
-  );
-}
-
-function ResizableBottomPane({
-  children,
-  height,
-  label,
-  maximized,
-  minHeight,
-  onHeightChange,
-}: {
-  children: ReactNode;
-  height: number;
-  label: string;
-  maximized: boolean;
-  minHeight: number;
-  onHeightChange: (height: number) => void;
-}) {
-  const [resizing, setResizing] = useState(false);
-  const startResize = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const startY = event.clientY;
-      const startHeight = height;
-      const previousCursor = document.body.style.cursor;
-      const previousUserSelect = document.body.style.userSelect;
-
-      const resize = (moveEvent: globalThis.PointerEvent) => {
-        const nextHeight = startHeight + startY - moveEvent.clientY;
-        onHeightChange(clamp(nextHeight, minHeight, bottomPaneMaxHeight(minHeight)));
-      };
-      const stopResize = () => {
-        setResizing(false);
-        document.body.style.cursor = previousCursor;
-        document.body.style.userSelect = previousUserSelect;
-        window.removeEventListener("pointermove", resize);
-      };
-
-      event.preventDefault();
-      setResizing(true);
-      document.body.style.cursor = "row-resize";
-      document.body.style.userSelect = "none";
-      window.addEventListener("pointermove", resize);
-      window.addEventListener("pointerup", stopResize, { once: true });
-    },
-    [height, minHeight, onHeightChange],
-  );
-
-  return (
-    <div
-      className={cn(
-        "relative min-h-0 w-full",
-        maximized ? "h-full" : "shrink-0",
-        !resizing &&
-          !maximized &&
-          "transition-[height] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
-      )}
-      style={maximized ? undefined : { height }}
-    >
-      {children}
-      {!maximized ? (
-        <div
-          aria-label={label}
-          aria-orientation="horizontal"
-          className="absolute inset-x-0 top-0 z-40 h-2 -translate-y-1 cursor-row-resize"
-          data-testid="bottom-pane-resizer"
-          onKeyDown={(event) => {
-            if (event.key === "ArrowUp") {
-              event.preventDefault();
-              onHeightChange(clamp(height + 12, minHeight, bottomPaneMaxHeight(minHeight)));
-            }
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              onHeightChange(clamp(height - 12, minHeight, bottomPaneMaxHeight(minHeight)));
-            }
-          }}
-          onPointerDown={startResize}
-          role="separator"
-          tabIndex={0}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function bottomPaneMaxHeight(minHeight: number) {
-  return Math.max(minHeight, window.innerHeight - 96);
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function useWorkspaceViewState() {

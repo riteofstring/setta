@@ -427,6 +427,27 @@ describe("chat renderer states", () => {
     expect(html).toContain("Maximize chat pane");
   });
 
+  test("renders a centered first-message composer for new chats", () => {
+    const html = renderToString(
+      <ChatPanel
+        chat={emptyChatView()}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        workspace={{
+          displayName: "api",
+          id: "workspace_api",
+          lastOpenedAt: "2026-05-29T20:00:00Z",
+          rootPath: "/tmp/api",
+        }}
+      />,
+    );
+
+    expect(html).toContain("What should we build in setta?");
+    expect(html).toContain('placeholder="Do anything"');
+    expect(html).toContain('aria-label="Start new chat"');
+    expect(html).not.toContain("Start a conversation for this workspace.");
+  });
+
   test("renders markdown messages without trusting raw html", () => {
     const html = renderToString(
       <ChatTranscript

@@ -1,6 +1,6 @@
 import type { WorkspaceSummary } from "@generated/backend";
-import { ArrowUp, Maximize2, MessageSquarePlus, Mic, Minimize2, Plus, Square } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowUp, Maximize2, Mic, Minimize2, Square } from "lucide-react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import settaLogo from "../../../../img/logo/logo.svg";
@@ -93,7 +93,7 @@ function ChatWorkspace({
           setSearchOpen={setSearchOpen}
         />
         <ChatError message={chat.error} />
-        <Composer busy={busy} chat={chat} running={running} />
+        {chat.selectedConversation ? <Composer busy={busy} chat={chat} running={running} /> : null}
       </div>
     </section>
   );
@@ -159,7 +159,7 @@ function ConversationBody({
   setSearchOpen: (open: boolean) => void;
 }) {
   if (!chat.selectedConversation) {
-    return <EmptyConversation busy={busy} createConversation={chat.createConversation} />;
+    return <EmptyConversation busy={busy} chat={chat} />;
   }
   return (
     <ChatTranscript
@@ -175,26 +175,55 @@ function ConversationBody({
   );
 }
 
-function EmptyConversation({
-  busy,
-  createConversation,
-}: {
-  busy: boolean;
-  createConversation: (title?: string) => Promise<void>;
-}) {
+function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
+  const [departing, setDeparting] = useState(false);
+  const mountedRef = useRef(true);
+  const running = chat.activeRun?.status === "running";
+  const disabled = busy || running || departing;
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  async function createAndSend(prompt: string) {
+    if (disabled) {
+      return;
+    }
+    setDeparting(true);
+    try {
+      await waitForComposerExit();
+      await chat.createConversation();
+      await chat.sendMessage(prompt);
+    } finally {
+      if (mountedRef.current) {
+        setDeparting(false);
+      }
+    }
+  }
+
   return (
-    <div className="grid min-h-0 place-items-center px-3">
-      <div className="text-center">
-        <MessageSquarePlus className="mx-auto h-6 w-6 text-zinc-500" />
-        <Button
-          className="mt-3 h-7 rounded-sm border-zinc-700 bg-zinc-800 px-2 text-xs text-zinc-100 hover:bg-zinc-700"
-          disabled={busy}
-          onClick={() => void createConversation()}
-          variant="primary"
-        >
-          <Plus className="h-4 w-4" />
-          New Chat
-        </Button>
+    <div className="grid min-h-0 place-items-center px-3 pb-[12vh]">
+      <div
+        className={cn(
+          "w-full max-w-3xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+          departing && "translate-y-16 opacity-0",
+        )}
+      >
+        <h1 className="mb-8 text-center text-2xl font-normal tracking-normal text-zinc-100">
+          What should we build in setta?
+        </h1>
+        <Composer
+          busy={busy}
+          chat={chat}
+          disabled={disabled}
+          formClassName="bg-transparent px-0 pt-0 pb-0"
+          frameClassName="border-zinc-700 bg-zinc-800/90 shadow-xl shadow-black/20"
+          onSendPrompt={createAndSend}
+          placeholder="Do anything"
+          running={running}
+        />
       </div>
     </div>
   );
@@ -211,24 +240,48 @@ function ChatError({ message }: { message: string | null }) {
   );
 }
 
-function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
+function Composer({
+  busy,
+  chat,
+  disabled: disabledOverride,
+  formClassName,
+  frameClassName,
+  onSendPrompt,
+  placeholder = "",
+  running,
+}: {
+  busy: boolean;
+  chat: ChatView;
+  disabled?: boolean;
+  formClassName?: string;
+  frameClassName?: string;
+  onSendPrompt?: (prompt: string) => Promise<void>;
+  placeholder?: string;
+  running: boolean;
+}) {
   const [draft, setDraft] = useState("");
   const [slashPaletteDismissed, setSlashPaletteDismissed] = useState(false);
   const composerFrameRef = useRef<HTMLDivElement | null>(null);
   const submittingRef = useRef(false);
-  const disabled = !chat.selectedConversation || busy || running;
+  const selected = chat.selectedConversation !== null;
+  const disabled = composerIsDisabled({
+    busy,
+    disabledOverride,
+    running,
+    selected,
+  });
   const slashQuery = slashCommandQuery(draft);
-  const slashPaletteOpen = slashQuery !== null && !slashPaletteDismissed;
+  const slashPaletteOpen = composerSlashPaletteIsOpen(slashQuery, slashPaletteDismissed);
 
   async function sendDraft() {
     const prompt = draft.trim();
-    if (!prompt || !chat.selectedConversation || running || submittingRef.current) {
+    if (!prompt || disabled || running || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
     try {
       setDraft("");
-      await chat.sendMessage(prompt);
+      await (onSendPrompt ?? chat.sendMessage)(prompt);
     } finally {
       submittingRef.current = false;
     }
@@ -241,7 +294,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
 
   return (
     <form
-      className="bg-zinc-900 px-2 pt-1 pb-1.5"
+      className={cn("bg-zinc-900 px-2 pt-1 pb-1.5", formClassName)}
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
@@ -258,15 +311,16 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           query={slashQuery ?? ""}
         />
         <div
-          className="min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15"
+          className={cn(
+            "min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15",
+            frameClassName,
+          )}
           ref={composerFrameRef}
         >
           <div className="relative min-w-0">
-            {draft === "" ? (
-              <ComposerPlaceholder selected={Boolean(chat.selectedConversation)} />
-            ) : null}
+            <ComposerPlaceholder selected={selected} visible={draft === ""} />
             <Textarea
-              aria-label={chat.selectedConversation ? "Ask Setta" : "Create a chat first"}
+              aria-label={composerTextareaLabel(selected)}
               className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled}
               onChange={(event) => updateDraft(event.target.value)}
@@ -276,18 +330,13 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
                   setSlashPaletteDismissed(true);
                   return;
                 }
-                if (
-                  event.key !== "Enter" ||
-                  event.shiftKey ||
-                  event.altKey ||
-                  event.nativeEvent.isComposing
-                ) {
+                if (!shouldSubmitComposer(event)) {
                   return;
                 }
                 event.preventDefault();
                 void sendDraft();
               }}
-              placeholder={chat.selectedConversation ? "" : "Create a chat first"}
+              placeholder={placeholder}
               rows={2}
               value={draft}
             />
@@ -315,8 +364,45 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
   );
 }
 
-function ComposerPlaceholder({ selected }: { selected: boolean }) {
-  if (!selected) {
+function waitForComposerExit() {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, 130);
+  });
+}
+
+function composerIsDisabled({
+  busy,
+  disabledOverride,
+  running,
+  selected,
+}: {
+  busy: boolean;
+  disabledOverride: boolean | undefined;
+  running: boolean;
+  selected: boolean;
+}) {
+  if (disabledOverride !== undefined) {
+    return disabledOverride;
+  }
+  return !selected || busy || running;
+}
+
+function composerSlashPaletteIsOpen(slashQuery: string | null, dismissed: boolean) {
+  return slashQuery !== null && !dismissed;
+}
+
+function composerTextareaLabel(selected: boolean) {
+  return selected ? "Ask Setta" : "Start new chat";
+}
+
+function shouldSubmitComposer(event: KeyboardEvent<HTMLTextAreaElement>) {
+  return (
+    event.key === "Enter" && !event.shiftKey && !event.altKey && !event.nativeEvent.isComposing
+  );
+}
+
+function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible: boolean }) {
+  if (!selected || !visible) {
     return null;
   }
   return (
