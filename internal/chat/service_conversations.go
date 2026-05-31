@@ -24,7 +24,7 @@ func (service *Service) archiveConversation(workspaceID string, conversationID s
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	runs, err := service.runsForConversationForArchiveLocked(workspaceID, conversationID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return err
 	}
@@ -50,21 +50,7 @@ func (service *Service) archiveConversation(workspaceID string, conversationID s
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, "")
 }
 
-func (service *Service) runsForConversationForArchiveLocked(workspaceID string, conversationID string) ([]Run, error) {
-	runs, corrupt, err := service.store.ScanRunsForConversationAllowingCorrupt(workspaceID, conversationID)
-	if err != nil {
-		return nil, err
-	}
-	for _, finding := range corrupt {
-		service.recordCorruptStateFindingLocked(finding)
-	}
-	return runs, nil
-}
-
 func (service *Service) rejectConversationArchiveWithLiveRunLocked(workspaceID string, conversationID string, runs []Run) error {
-	if active, ok := service.active[activeKey(workspaceID, conversationID)]; ok && active.workspaceID == workspaceID {
-		return fmt.Errorf("cannot delete conversation %s while run %s is active", conversationID, active.runID)
-	}
 	for _, run := range runs {
 		if run.Status == RunStatusQueued {
 			return fmt.Errorf("cannot delete conversation %s while run %s is queued", conversationID, run.ID)
