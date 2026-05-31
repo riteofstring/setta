@@ -143,7 +143,16 @@ async function main() {
     await waitForTexts(context.client, ["New chat"]);
     await waitForCorruptionStatus(context.client, "corrupt chat");
     await assertRepairControlsAbsent(context.client);
-    await captureScreenshot(context.client, join(recordingDir, "after-restart.png"));
+    await clickButtonByAria(context.client, "Delete Corrupt historical chat");
+    await waitForDeletedCorruptConversation(context.client);
+    await captureScreenshot(context.client, join(recordingDir, "after-delete.png"));
+    await stopLaunchedContext(context);
+    context = null;
+
+    context = await launchCorruptContext(fixture.appDataDir);
+    await waitForDeletedCorruptConversation(context.client);
+    await assertRepairControlsAbsent(context.client);
+    await captureScreenshot(context.client, join(recordingDir, "after-delete-restart.png"));
   } catch (error) {
     failure = error;
     await captureScreenshot(context?.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -688,6 +697,29 @@ function usableNewChatExpression() {
   })()`;
 }
 
+async function waitForDeletedCorruptConversation(client) {
+  await waitForState(client, deletedCorruptConversationExpression(), (value) => value.ready);
+}
+
+function deletedCorruptConversationExpression() {
+  return `(() => {
+    const conversations = Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]'));
+    const body = document.body.innerText;
+    return {
+      body,
+      conversationCount: conversations.length,
+      ready: Boolean(
+        conversations.length >= 3 &&
+        body.includes("Valid historical chat") &&
+        body.includes("Second valid chat") &&
+        body.includes("New chat") &&
+        !body.includes("Corrupt historical chat") &&
+        !body.includes("Chat state is corrupt")
+      ),
+    };
+  })()`;
+}
+
 async function waitForTexts(client, texts) {
   await waitForState(client, bodyTextExpression(), (value) =>
     texts.every((text) => value.body.includes(text)),
@@ -808,6 +840,15 @@ async function assertRecordingProvesWorkflow(dir) {
   );
   if (!listFinish) {
     throw new Error("recording did not include a partial chat:list-conversations result");
+  }
+  const deleteFinish = ipc.find(
+    (entry) =>
+      entry.type === "ipc_finish" &&
+      entry.channel === "chat:delete-conversation" &&
+      entry.result?.conversations?.every((item) => item.conversation?.id !== conversationId),
+  );
+  if (!deleteFinish) {
+    throw new Error("recording did not include a successful corrupt chat delete IPC call");
   }
   const maintenanceCall = ipc.find(
     (entry) =>

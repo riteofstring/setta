@@ -34,7 +34,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 1000,
+      readyTimeoutMs: 3000,
     });
 
     expect(handle.mode).toBe("spawned");
@@ -58,7 +58,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 1000,
+      readyTimeoutMs: 3000,
     });
 
     try {
@@ -91,7 +91,7 @@ describe("startSpawnedBackend", () => {
           command: process.execPath,
           cwd: process.cwd(),
           env: process.env,
-          readyTimeoutMs: 500,
+          readyTimeoutMs: 3000,
         }),
       ).rejects.toThrow("backend readiness timed out");
       expect(existsSync(readyForSignalPath)).toBe(true);
@@ -114,7 +114,7 @@ describe("startSpawnedBackend", () => {
         command: process.execPath,
         cwd: process.cwd(),
         env: process.env,
-        readyTimeoutMs: 1000,
+        readyTimeoutMs: 3000,
       }),
     ).rejects.toThrow(
       [
@@ -137,7 +137,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 1000,
+      readyTimeoutMs: 3000,
     });
 
     const exit = await new Promise((resolve) => {

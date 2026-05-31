@@ -97,7 +97,7 @@ func TestContractSpecsRejectsDuplicateEndpointRoutes(t *testing.T) {
 	}
 }
 
-func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
+func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{
 			contractEndpoint("ContractTest", "/contract-test"),
@@ -106,18 +106,6 @@ func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
 				Method:   "GET",
 				Path:     "/contract-test/health",
 				Response: reflect.TypeFor[ContractTestLeaf](),
-			},
-			{
-				Name:     "ContractTestRun",
-				Method:   "GET",
-				Path:     "/contract-test/run",
-				Response: reflect.TypeFor[chat.Run](),
-			},
-			{
-				Name:     "ContractTestCodexAccount",
-				Method:   "GET",
-				Path:     "/contract-test/codex-account",
-				Response: reflect.TypeFor[codexaccount.CodexAccountState](),
 			},
 		},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
@@ -132,37 +120,61 @@ func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
 		t.Fatalf("collect contracts: %v", err)
 	}
 
-	if specs.Endpoints[0].OperationName != "contractTest" ||
-		specs.Endpoints[1].OperationName != "contractTestHealth" {
-		t.Fatalf("endpoints = %+v, want lower-camel operation names", specs.Endpoints)
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
 	}
-	if len(specs.Events) != 1 || specs.Events[0].Type != "chat.contract_test" ||
-		specs.Events[0].Payload != reflect.TypeFor[ContractTestResponse]() {
-		t.Fatalf("events = %+v, want contract test event payload", specs.Events)
-	}
-	helpers := decoderHelperUsage(specs.Interfaces, specs.Events)
-	if !helpers.Array || !helpers.Integer || !helpers.Map || !helpers.Nullable || !helpers.String {
-		t.Fatalf("decoder helpers = %+v, want semantic helper usage for test graph", helpers)
-	}
-	for _, valueSet := range []struct {
-		name  string
-		value string
-	}{
-		{name: "RunStatus", value: string(chat.RunStatusCompleted)},
-		{name: "ApprovalKind", value: string(chat.ApprovalKindPermission)},
-		{name: "CodexAccountStatus", value: string(codexaccount.AccountStatusSignedIn)},
-		{name: "CodexLoginType", value: string(codexaccount.LoginTypeChatGPT)},
-		{name: "CodexChatGPTPlanType", value: string(codexaccount.ChatGPTPlanPlus)},
+	output := buffer.String()
+
+	for _, expected := range []string{
+		"import {",
+		"} from \"@shared/backend-runtime\";",
+		"export const backendEndpoints = {",
+		"ContractTest: {",
+		"method: \"POST\"",
+		"path: \"/contract-test\"",
+		"export type ChatEvent =",
+		"export interface ChatContractTestEvent",
+		"type: \"chat.contract_test\";",
+		"export function decodeChatEvent(value: unknown): ChatEvent",
+		"export function decodeContractTestResponse(value: unknown): ContractTestResponse",
+		"labels: Record<string, string>;",
+		"labels: decodeStringRecord(requireField(record, \"labels\", \"ContractTestResponse\"), \"ContractTestResponse.labels\")",
+		"contractTest: (request: ContractTestRequest) => Promise<ContractTestResponse>;",
+		"contractTestHealth: () => Promise<ContractTestLeaf>;",
+		"contractTest: (request) => requestBackend({",
+		"contractTestHealth: () => requestBackend({",
+		"decodeErrorResponse: decodeErrorResponse",
+		"decodeResponse: decodeContractTestResponse",
+		"decodeResponse: decodeContractTestLeaf",
+		"endpoint: backendEndpoints.ContractTest",
+		"endpoint: backendEndpoints.ContractTestHealth",
+		"requestPayload: request",
+		"requestPayload: undefined",
 	} {
-		if !valueSetContains(specs.ValueSets, valueSet.name, valueSet.value) {
-			t.Fatalf("value sets = %+v, want %s containing %q", specs.ValueSets, valueSet.name, valueSet.value)
+		if !strings.Contains(output, expected) {
+			t.Fatalf("generated output missing %q:\n%s", expected, output)
+		}
+	}
+	for _, unexpected := range []string{
+		"function assertRecord",
+		"function decodeArray",
+		"async function requestBackend",
+	} {
+		if strings.Contains(output, unexpected) {
+			t.Fatalf("generated output contains stable runtime block %q:\n%s", unexpected, output)
 		}
 	}
 }
 
-func TestRenderProducesGeneratedClientSmoke(t *testing.T) {
+func TestRenderIncludesLiteralUnionValueSets(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
-		Endpoints:      []httpapi.ContractEndpoint{contractEndpoint("ContractTest", "/contract-test")},
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractTestRun",
+			Method:   "GET",
+			Path:     "/contract-test/run",
+			Response: reflect.TypeFor[chat.Run](),
+		}},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
 	}, chat.EventContractSchema{})
 	if err != nil {
@@ -174,18 +186,53 @@ func TestRenderProducesGeneratedClientSmoke(t *testing.T) {
 		t.Fatalf("render contracts: %v", err)
 	}
 	output := buffer.String()
-	if !strings.HasPrefix(output, "// Code generated by go run ./cmd/generate-contracts; DO NOT EDIT.") ||
-		!strings.Contains(output, "export const backendEndpoints = {") ||
-		!strings.Contains(output, "export function createBackendClient(") {
-		t.Fatalf("generated output does not look like a generated backend client:\n%s", output)
-	}
-	for _, runtimeBlock := range []string{
-		"function assertRecord",
-		"function decodeArray",
-		"async function requestBackend",
+
+	for _, expected := range []string{
+		"export type RunStatus = \"queued\" | \"running\" | \"completed\" | \"cancelled\" | \"failed\";",
+		"export function decodeRunStatus(value: unknown, label = \"RunStatus\"): RunStatus",
+		"status: RunStatus;",
+		"status: decodeRunStatus(requireField(record, \"status\", \"Run\"), \"Run.status\")",
+		"pendingApproval: ApprovalRequest | null;",
+		"pendingApproval: decodeNullable(requireField(record, \"pendingApproval\", \"Run\"), \"Run.pendingApproval\", (item) => decodeApprovalRequest(item))",
+		"kind: ApprovalKind;",
+		"kind: decodeApprovalKind(requireField(record, \"kind\", \"ApprovalRequest\"), \"ApprovalRequest.kind\")",
 	} {
-		if strings.Contains(output, runtimeBlock) {
-			t.Fatalf("generated output contains stable runtime block %q:\n%s", runtimeBlock, output)
+		if !strings.Contains(output, expected) {
+			t.Fatalf("generated output missing %q:\n%s", expected, output)
+		}
+	}
+}
+
+func TestRenderIncludesCodexAccountValueSets(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractTestCodexAccount",
+			Method:   "GET",
+			Path:     "/contract-test/codex-account",
+			Response: reflect.TypeFor[codexaccount.CodexAccountState](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contracts: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+
+	for _, expected := range []string{
+		"export type CodexAccountStatus = \"signed_in\" | \"unauthenticated\" | \"unavailable\" | \"login_in_progress\";",
+		"export const codexLoginTypeValues = [\"apiKey\", \"chatgpt\", \"chatgptDeviceCode\"] as const satisfies readonly CodexLoginType[];",
+		"status: CodexAccountStatus;",
+		"account: CodexAccount | null;",
+		"planType: CodexChatGPTPlanType | null;",
+		"planType: decodeNullable(requireField(record, \"planType\", \"CodexAccount\"), \"CodexAccount.planType\", (item) => decodeCodexChatGPTPlanType(item, \"CodexAccount.planType\"))",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("generated output missing %q:\n%s", expected, output)
 		}
 	}
 }
@@ -196,20 +243,6 @@ func specNames(specs []interfaceSpec) []string {
 		names = append(names, spec.Name)
 	}
 	return names
-}
-
-func valueSetContains(specs []valueSetSpec, name string, value string) bool {
-	for _, spec := range specs {
-		if spec.Name != name {
-			continue
-		}
-		for _, candidate := range spec.Values {
-			if candidate == value {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func contractEndpoint(name string, path string) httpapi.ContractEndpoint {
