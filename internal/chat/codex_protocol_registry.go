@@ -5,9 +5,7 @@ import "setta/internal/codexapp"
 var supportedCodexClientMethods = map[string]struct{}{
 	codexapp.CodexMethodConfigRead:           {},
 	codexapp.CodexMethodInitialize:           {},
-	codexapp.CodexMethodMcpServerStatusList:  {},
 	codexapp.CodexMethodModelList:            {},
-	codexapp.CodexMethodSkillsList:           {},
 	codexapp.CodexMethodThreadGoalClear:      {},
 	codexapp.CodexMethodThreadGoalGet:        {},
 	codexapp.CodexMethodThreadGoalSet:        {},

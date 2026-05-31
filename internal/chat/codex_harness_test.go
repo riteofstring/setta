@@ -1259,12 +1259,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		return fakeCommandDone(mode)
 	case "model/list":
 		return handleFakeModelList(mode, state, message)
-	case "skills/list":
-		writeFakeResponse(message["id"], fakeSkillsListResponse())
-		return fakeCommandDone(mode)
-	case "mcpServerStatus/list":
-		writeFakeResponse(message["id"], fakeMCPServerStatusResponse())
-		return fakeCommandDone(mode)
 	case "thread/settings/update":
 		return handleFakeThreadSettingsUpdate(mode, message)
 	case "turn/start":

@@ -1,20 +1,17 @@
 import type { ConversationListItem, Run } from "@generated/backend";
-import { AlertTriangle, Pin, Trash2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { type FocusEvent, type RefObject, useLayoutEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
-import { BrailleSpinner } from "./ascii-spinner";
+import { AsciiSpinner } from "./ascii-spinner";
 
 const hoverCardViewportInset = 8;
 
 interface ConversationRowProps {
   activeRun: Run | null;
   busy: boolean;
-  deleteConversation: (conversationId: string) => Promise<void>;
   corruptionLabel: string | null;
   item: ConversationListItem;
-  onTogglePinned: (conversationId: string) => void;
-  pinned: boolean;
   selectConversation: (conversationId: string) => Promise<void>;
   selected: boolean;
   unread: boolean;
@@ -23,11 +20,8 @@ interface ConversationRowProps {
 export function ConversationRow({
   activeRun,
   busy,
-  deleteConversation,
   corruptionLabel,
   item,
-  onTogglePinned,
-  pinned,
   selectConversation,
   selected,
   unread,
@@ -42,7 +36,7 @@ export function ConversationRow({
 
   return (
     <div
-      className="group/chat relative min-w-0"
+      className="relative min-w-0"
       onBlur={hoverCard.closeIfFocusLeaves}
       onFocus={hoverCard.open}
       onMouseEnter={hoverCard.open}
@@ -51,7 +45,7 @@ export function ConversationRow({
     >
       <button
         className={cn(
-          "grid h-7 w-full min-w-0 grid-cols-[18px_minmax(0,1fr)_3.5rem] items-center gap-2 rounded-sm px-2 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
+          "grid h-7 w-full min-w-0 grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
           selected ? "text-zinc-100" : "text-zinc-300",
         )}
         data-testid="conversation-list-item"
@@ -69,10 +63,7 @@ export function ConversationRow({
         </span>
         {responseAge ? (
           <time
-            className={cn(
-              "justify-self-end text-right text-[11px] text-zinc-500 transition-opacity",
-              pinned ? "opacity-0 group-hover/chat:opacity-100" : "group-hover/chat:opacity-0",
-            )}
+            className="justify-self-end text-right text-[11px] text-zinc-500"
             dateTime={item.conversation.updatedAt}
             title={item.conversation.updatedAt}
           >
@@ -80,14 +71,6 @@ export function ConversationRow({
           </time>
         ) : null}
       </button>
-      <ConversationRowActions
-        busy={busy}
-        conversationId={item.conversation.id}
-        deleteConversation={deleteConversation}
-        onTogglePinned={onTogglePinned}
-        pinned={pinned}
-        title={item.conversation.title}
-      />
       <ConversationHoverCard
         cardRef={hoverCard.cardRef}
         corruptionLabel={corruptionLabel}
@@ -140,64 +123,6 @@ function ConversationCorruptionDetails({ label }: { label: string }) {
         <div className="text-[11px] text-amber-300">Malformed chat data</div>
         <div className="break-words text-zinc-300">{label}</div>
       </div>
-    </div>
-  );
-}
-
-function ConversationRowActions({
-  busy,
-  conversationId,
-  deleteConversation,
-  onTogglePinned,
-  pinned,
-  title,
-}: {
-  busy: boolean;
-  conversationId: string;
-  deleteConversation: (conversationId: string) => Promise<void>;
-  onTogglePinned: (conversationId: string) => void;
-  pinned: boolean;
-  title: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "absolute top-1 right-2 flex h-5 items-center gap-0.5 opacity-0 transition-opacity group-hover/chat:opacity-100 group-focus-within/chat:opacity-100",
-        pinned && "opacity-100",
-      )}
-    >
-      <button
-        aria-label={pinned ? `Unpin ${title}` : `Pin ${title}`}
-        aria-pressed={pinned}
-        className={cn(
-          "grid h-5 w-5 place-items-center rounded-sm text-zinc-500 hover:bg-zinc-700/80 hover:text-zinc-100",
-          pinned && "text-zinc-300",
-        )}
-        disabled={busy}
-        onClick={(event) => {
-          event.stopPropagation();
-          onTogglePinned(conversationId);
-        }}
-        title={pinned ? `Unpin ${title}` : `Pin ${title}`}
-        type="button"
-      >
-        <span className="sr-only">{pinned ? `Unpin ${title}` : `Pin ${title}`}</span>
-        <Pin className="h-3.5 w-3.5" />
-      </button>
-      <button
-        aria-label={`Delete ${title}`}
-        className="grid h-5 w-5 place-items-center rounded-sm text-zinc-500 hover:bg-red-950/60 hover:text-red-200"
-        disabled={busy}
-        onClick={(event) => {
-          event.stopPropagation();
-          void deleteConversation(conversationId);
-        }}
-        title={`Delete ${title}`}
-        type="button"
-      >
-        <span className="sr-only">{`Delete ${title}`}</span>
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
     </div>
   );
 }
@@ -292,10 +217,7 @@ function ConversationStatusIndicator({
           role="status"
         />
       ) : running ? (
-        <BrailleSpinner
-          className="w-[18px] text-[11px] text-zinc-400"
-          label="Chat response running"
-        />
+        <AsciiSpinner className="w-[18px] text-[7px] text-zinc-400" label="Chat response running" />
       ) : unread ? (
         <span
           aria-label="Unread assistant response"

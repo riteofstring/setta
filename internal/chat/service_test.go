@@ -64,84 +64,6 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	}
 }
 
-func TestServiceDeleteConversationArchivesAndHidesConversation(t *testing.T) {
-	appDataDir := t.TempDir()
-	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	first, err := service.CreateConversation("workspace_api", "first")
-	if err != nil {
-		t.Fatalf("create first conversation: %v", err)
-	}
-	second, err := service.CreateConversation("workspace_api", "second")
-	if err != nil {
-		t.Fatalf("create second conversation: %v", err)
-	}
-
-	list, err := service.DeleteConversation("workspace_api", first.ID)
-	if err != nil {
-		t.Fatalf("delete conversation: %v", err)
-	}
-	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != second.ID {
-		t.Fatalf("conversations = %+v, want only second conversation", list.Conversations)
-	}
-	archived, err := service.store.LoadConversation("workspace_api", first.ID)
-	if err != nil {
-		t.Fatalf("load archived conversation: %v", err)
-	}
-	if archived.ArchivedAt == "" {
-		t.Fatal("archivedAt is empty, want archived conversation timestamp")
-	}
-
-	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	restartedList, err := restarted.ListConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list conversations after restart: %v", err)
-	}
-	if len(restartedList.Conversations) != 1 || restartedList.Conversations[0].Conversation.ID != second.ID {
-		t.Fatalf("restarted conversations = %+v, want only second conversation", restartedList.Conversations)
-	}
-}
-
-func TestServiceDeleteConversationArchivesConversationWithCorruptHistoricalRun(t *testing.T) {
-	appDataDir := t.TempDir()
-	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	deleted, err := service.CreateConversation("workspace_api", "delete corrupt history")
-	if err != nil {
-		t.Fatalf("create deleted conversation: %v", err)
-	}
-	remaining, err := service.CreateConversation("workspace_api", "keep")
-	if err != nil {
-		t.Fatalf("create remaining conversation: %v", err)
-	}
-
-	runPath := service.store.runPath("workspace_api", "run_corrupt_history")
-	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
-		t.Fatalf("create run dir: %v", err)
-	}
-	raw := fmt.Sprintf(`{"schemaVersion":1,"id":"run_corrupt_history","workspaceId":"workspace_api","conversationId":%q,"triggerMessageId":"message_user","assistantMessageId":"message_missing_assistant","harness":"codex","status":"completed","startedAt":"2026-05-29T20:00:00Z","completedAt":"2026-05-29T20:00:01Z","promptSummary":"prompt","error":"","pendingApproval":{"id":"approval_stale","runId":"run_corrupt_history","kind":"permission","title":"Permission","status":"pending","createdAt":"2026-05-29T20:00:00Z"}}`, deleted.ID)
-	if err := os.WriteFile(runPath, []byte(raw), 0o644); err != nil {
-		t.Fatalf("write malformed run: %v", err)
-	}
-
-	list, err := service.DeleteConversation("workspace_api", deleted.ID)
-	if err != nil {
-		t.Fatalf("delete corrupt conversation: %v", err)
-	}
-	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != remaining.ID {
-		t.Fatalf("conversations = %+v, want only remaining conversation", list.Conversations)
-	}
-	archived, err := service.store.LoadConversation("workspace_api", deleted.ID)
-	if err != nil {
-		t.Fatalf("load archived conversation: %v", err)
-	}
-	if archived.ArchivedAt == "" {
-		t.Fatal("archivedAt is empty, want archived corrupt conversation timestamp")
-	}
-	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
-	if !strings.Contains(diagnostic.Message, "has pendingApproval while status is completed") {
-		t.Fatalf("diagnostic = %q, want corrupt completed approval state", diagnostic.Message)
-	}
-}
-
 func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventError, Error: "codex app-server failed to start"}})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
@@ -1249,7 +1171,7 @@ func (harness *approvalCompletesBeforeSubmitReturnsHarness) SubmitApproval(ctx c
 		return ctx.Err()
 	}
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		harness.mu.Lock()
 		workspaceID := harness.workspaceID

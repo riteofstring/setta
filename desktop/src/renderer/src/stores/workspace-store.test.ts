@@ -276,11 +276,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
-      deleteConversation: async () => ({
-        conversations: [],
-        corruption: emptyCorruption(),
-        diagnostics: [],
-      }),
       executeCommand: async () => ({
         conversation: emptyConversation(),
         message: null,
@@ -373,7 +368,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       submitApproval: async () => emptyRun(),
-      updateUserMessage: async () => emptyMessage(),
     },
     codexAccount: {
       cancelLogin: async () => emptyCodexAccountState(),

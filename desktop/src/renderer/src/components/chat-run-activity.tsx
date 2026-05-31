@@ -1,8 +1,6 @@
 import type { RunItem, RunItemOutput, RunItemType } from "@generated/backend";
 import {
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
   FileText,
   ListChecks,
   Terminal,
@@ -10,8 +8,6 @@ import {
   Wrench,
 } from "lucide-react";
 
-import { cn } from "../lib/utils";
-import { BrailleSpinner } from "./ascii-spinner";
 import { Button } from "./ui/button";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 
@@ -94,7 +90,7 @@ export function RunActivityRows({
   outputsById: Record<string, RunItemOutput>;
 }) {
   return (
-    <div className="mt-3 w-full min-w-0 max-w-full overflow-hidden space-y-1.5 border-t border-zinc-800/80 pt-2.5">
+    <div className="mt-4 space-y-2 border-t border-zinc-100 pt-3">
       {items.map((item) => (
         <RunActivityRow
           item={item}
@@ -127,7 +123,7 @@ function RunActivityRow({
   const outputText = outputPreview(outputs);
   return (
     <details
-      className="group relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-zinc-100"
+      className="group rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
       data-testid="run-activity-row"
       onToggle={(event) => {
         if (!event.currentTarget.open || outputPage?.loading || outputPage) {
@@ -136,13 +132,12 @@ function RunActivityRow({
         void loadRunItemOutput(item.runId, item.id, 0);
       }}
     >
-      <summary className="flex h-6 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-zinc-300 marker:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2">
         <ActivityIcon type={item.type} />
-        <ToolDisclosureIcon />
-        <span className="min-w-0 flex-1 truncate font-medium text-zinc-300">
+        <span className="min-w-0 flex-1 truncate font-medium text-zinc-800">
           {activityTitle(item)}
         </span>
-        <RunActivityStatus item={item} />
+        <span className="shrink-0 text-xs text-zinc-500">{item.status}</span>
       </summary>
       <RunActivityDetails
         item={item}
@@ -168,25 +163,23 @@ function RunActivityDetails({
   outputText: string;
 }) {
   return (
-    <div className="mt-1.5 w-full min-w-0 max-w-full overflow-hidden border-l border-zinc-700/70 pl-2">
-      <div className="w-full min-w-0 max-w-full overflow-hidden space-y-1.5 text-xs text-zinc-400">
-        <RunActivityCwd cwd={item.cwd} />
-        <RunActivityCommand command={item.command} />
-        <RunActivityFiles paths={item.filePaths} />
-        <RunActivityMetadata item={item} />
-        <RunActivityTextBlock title="Progress" value={item.progress} />
-        <RunActivityTextBlock title="Result" value={item.result} />
-        <RunActivityTextBlock tone="error" title="Error" value={item.error} />
-        <RunActivityTextBlock title="Notice" value={item.noticeMessage} />
-        <RunActivityTextBlock title="Diff" value={item.diffSummary} />
-        <RunActivityJSONDetails details={item.details} />
-        <RunActivityExit durationMs={item.durationMs} exitCode={item.exitCode} />
-        <RunActivityOutput
-          loadMoreOutput={loadMoreOutput}
-          outputPage={outputPage}
-          outputText={outputText}
-        />
-      </div>
+    <div className="mt-2 space-y-2 text-xs text-zinc-600">
+      <RunActivityCwd cwd={item.cwd} />
+      <RunActivityCommand command={item.command} />
+      <RunActivityFiles paths={item.filePaths} />
+      <RunActivityMetadata item={item} />
+      <OptionalRunActivityText value={item.progress} />
+      <OptionalRunActivityText value={item.result} />
+      <OptionalRunActivityText className="font-medium text-red-600" value={item.error} />
+      <OptionalRunActivityText value={item.noticeMessage} />
+      <OptionalRunActivityText value={item.diffSummary} />
+      <RunActivityJSONDetails details={item.details} />
+      <RunActivityExit durationMs={item.durationMs} exitCode={item.exitCode} />
+      <RunActivityOutput
+        loadMoreOutput={loadMoreOutput}
+        outputPage={outputPage}
+        outputText={outputText}
+      />
     </div>
   );
 }
@@ -195,21 +188,33 @@ function RunActivityCwd({ cwd }: { cwd: string }) {
   if (!cwd) {
     return null;
   }
-  return <RunActivityTextBlock monospace title="Cwd" value={cwd} />;
+  return <div className="break-all font-mono">{cwd}</div>;
 }
 
 function RunActivityCommand({ command }: { command: string }) {
   if (!command) {
     return null;
   }
-  return <RunActivityPreBlock title="Command" value={command} />;
+  return (
+    <pre className="max-h-28 overflow-auto rounded border border-zinc-200 bg-white p-2">
+      {command}
+    </pre>
+  );
 }
 
 function RunActivityFiles({ paths }: { paths: string[] }) {
   if (paths.length === 0) {
     return null;
   }
-  return <RunActivityPreBlock title="Files" value={paths.join("\n")} />;
+  return (
+    <div className="space-y-1">
+      {paths.map((path) => (
+        <div className="break-all font-mono" key={path}>
+          {path}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function RunActivityMetadata({ item }: { item: RunItem }) {
@@ -221,7 +226,7 @@ function RunActivityMetadata({ item }: { item: RunItem }) {
     <div className="flex flex-wrap gap-1.5">
       {entries.map((entry) => (
         <span
-          className="max-w-full truncate rounded-sm border border-zinc-700 bg-zinc-950 px-2 py-0.5 font-mono text-zinc-300"
+          className="max-w-full truncate rounded border border-zinc-200 bg-white px-2 py-0.5 font-mono"
           key={entry.label}
         >
           {entry.label}: {entry.value}
@@ -240,52 +245,11 @@ function runActivityMetadata(item: RunItem) {
   ].filter((entry) => entry.value !== "");
 }
 
-function RunActivityTextBlock({
-  monospace = false,
-  title,
-  tone = "normal",
-  value,
-}: {
-  monospace?: boolean;
-  title: string;
-  tone?: "error" | "normal";
-  value: string;
-}) {
+function OptionalRunActivityText({ className, value }: { className?: string; value: string }) {
   if (!value) {
     return null;
   }
-  return (
-    <section className="min-w-0">
-      <h4 className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
-        {title}
-      </h4>
-      <div
-        className={cn(
-          "mt-0.5 break-words text-zinc-300",
-          monospace && "break-all font-mono",
-          tone === "error" && "font-medium text-red-400",
-        )}
-      >
-        {value}
-      </div>
-    </section>
-  );
-}
-
-function RunActivityPreBlock({ title, value }: { title: string; value: string }) {
-  if (!value) {
-    return null;
-  }
-  return (
-    <section className="min-w-0">
-      <h4 className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
-        {title}
-      </h4>
-      <pre className="mt-1 max-h-32 w-full min-w-0 max-w-full overflow-auto whitespace-pre-wrap rounded-sm border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs leading-5 text-zinc-300">
-        {value}
-      </pre>
-    </section>
-  );
+  return <div className={className}>{value}</div>;
 }
 
 function RunActivityJSONDetails({ details }: { details: unknown }) {
@@ -293,7 +257,9 @@ function RunActivityJSONDetails({ details }: { details: unknown }) {
   if (!text) {
     return null;
   }
-  return <RunActivityPreBlock title="Details" value={text} />;
+  return (
+    <pre className="max-h-32 overflow-auto rounded border border-zinc-200 bg-white p-2">{text}</pre>
+  );
 }
 
 function runActivityDetailsText(details: unknown) {
@@ -314,10 +280,10 @@ function RunActivityExit({ durationMs, exitCode }: { durationMs: number; exitCod
     return null;
   }
   return (
-    <RunActivityTextBlock
-      title="Exit"
-      value={`${exitCode > 0 ? `exit ${exitCode}` : "exit 0"}${durationMs > 0 ? ` / ${durationMs}ms` : ""}`}
-    />
+    <div>
+      {exitCode > 0 ? `exit ${exitCode}` : "exit 0"}
+      {durationMs > 0 ? ` / ${durationMs}ms` : ""}
+    </div>
   );
 }
 
@@ -334,7 +300,7 @@ function RunActivityOutput({
     return null;
   }
   return (
-    <div className="w-full min-w-0 max-w-full overflow-hidden space-y-2">
+    <div className="space-y-2">
       <RunActivityOutputText outputText={outputText} />
       <RunActivityOutputError outputPage={outputPage} />
       <RunActivityOutputLoadMore loadMoreOutput={loadMoreOutput} outputPage={outputPage} />
@@ -351,7 +317,11 @@ function RunActivityOutputText({ outputText }: { outputText: string }) {
   if (!outputText) {
     return null;
   }
-  return <RunActivityPreBlock title="Output" value={outputText} />;
+  return (
+    <pre className="max-h-32 overflow-auto rounded border border-zinc-200 bg-white p-2">
+      {outputText}
+    </pre>
+  );
 }
 
 function RunActivityOutputError({
@@ -362,7 +332,7 @@ function RunActivityOutputError({
   if (!outputPage?.error) {
     return null;
   }
-  return <div className="font-medium text-red-400">{outputPage.error}</div>;
+  return <div className="font-medium text-red-600">{outputPage.error}</div>;
 }
 
 function RunActivityOutputLoadMore({
@@ -377,7 +347,6 @@ function RunActivityOutputLoadMore({
   }
   return (
     <Button
-      className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
       disabled={outputPage.loading}
       onClick={loadMoreOutput}
       type="button"
@@ -396,32 +365,12 @@ function RunActivityOutputLoading({
   if (!outputPage?.loading) {
     return null;
   }
-  return <BrailleSpinner className="text-zinc-500" label="Loading tool output" />;
+  return <div className="text-zinc-500">Loading output...</div>;
 }
 
 function ActivityIcon({ type }: { type: RunItemType }) {
   const Icon = activityIconByType[type];
   return <Icon className={activityIconClassByType[type]} />;
-}
-
-function ToolDisclosureIcon() {
-  return (
-    <>
-      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-open:hidden" />
-      <ChevronUp className="hidden h-3.5 w-3.5 shrink-0 text-zinc-400 group-open:block" />
-    </>
-  );
-}
-
-function RunActivityStatus({ item }: { item: RunItem }) {
-  return (
-    <span className="flex shrink-0 items-center gap-1 text-[11px] text-zinc-500">
-      {item.status === "running" || item.status === "pending" ? (
-        <BrailleSpinner className="text-zinc-500" label={`${activityTitle(item)} running`} />
-      ) : null}
-      <span>{item.status}</span>
-    </span>
-  );
 }
 
 function activityTitle(item: RunItem) {

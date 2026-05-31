@@ -129,10 +129,6 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return ConversationListResult{}, err
 	}
-	return service.listConversations(workspaceID)
-}
-
-func (service *Service) listConversations(workspaceID string) (ConversationListResult, error) {
 	conversations, corruptConversations, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
@@ -146,9 +142,6 @@ func (service *Service) listConversations(workspaceID string) (ConversationListR
 	findings = append(findings, corruptRuns...)
 	items := make([]ConversationListItem, 0, len(conversations))
 	for _, conversation := range conversations {
-		if conversation.ArchivedAt != "" {
-			continue
-		}
 		count, corruptMessages, err := service.store.MessageCountAllowingCorrupt(workspaceID, conversation.ID)
 		if err != nil {
 			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
@@ -976,9 +969,6 @@ func (service *Service) conversationListItemLocked(workspaceID string, conversat
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
 		return ConversationListItem{}, err
-	}
-	if conversation.ArchivedAt != "" {
-		return ConversationListItem{Conversation: conversation}, nil
 	}
 	count, err := service.store.MessageCount(workspaceID, conversationID)
 	if err != nil {

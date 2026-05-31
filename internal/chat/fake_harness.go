@@ -55,9 +55,6 @@ type FakeHarness struct {
 	steerChs    map[string]chan SteerRequest
 }
 
-var _ HarnessCommandExecutor = (*FakeHarness)(nil)
-var _ HarnessGoalContinuationStarter = (*FakeHarness)(nil)
-
 func NewFakeHarness(events []FakeHarnessEvent) *FakeHarness {
 	return &FakeHarness{
 		events:         append([]FakeHarnessEvent{}, events...),
@@ -209,20 +206,29 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 	defer harness.mu.Unlock()
 
 	harness.commands = append(harness.commands, request)
-	result := commandDisplayResult(request, "fake-session", "fake-thread-")
+	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
+	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
+		result.ThreadRef = request.ThreadRef
+		result.HasThreadRef = true
+	}
+	if request.ActiveRun == nil && commandNeedsThread(request.Command) && !commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
+		ref := request.ThreadRef
+		if ref.ThreadID == "" {
+			ref = HarnessThreadRef{
+				Harness:   HarnessCodex,
+				SessionID: "fake-session",
+				Status:    HarnessRefLinked,
+				ThreadID:  "fake-thread-" + request.Conversation.ID,
+			}
+		}
+		result.ThreadRef = ref
+		result.HasThreadRef = true
+	}
 	switch request.Command.Kind {
 	case ChatCommandGoal:
 		return harness.executeGoalCommandLocked(request.Command, result)
-	case ChatCommandMCP:
-		result.DisplayTitle = "MCP"
-		result.DisplayMessage = "MCP servers:\n- fake: auth unsupported, 2 tools"
-		return result, nil
 	case ChatCommandModel:
 		return harness.executeModelCommandLocked(request.Command, result)
-	case ChatCommandSkills:
-		result.DisplayTitle = "Skills"
-		result.DisplayMessage = "Available skills:\n- fake-skill: Fake test skill"
-		return result, nil
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported fake command kind: %s", request.Command.Kind), nil)
 	}

@@ -11,9 +11,7 @@ func TestCodexHarnessProtocolCoverageRegistry(t *testing.T) {
 	for _, method := range []string{
 		codexapp.CodexMethodConfigRead,
 		codexapp.CodexMethodInitialize,
-		codexapp.CodexMethodMcpServerStatusList,
 		codexapp.CodexMethodModelList,
-		codexapp.CodexMethodSkillsList,
 		codexapp.CodexMethodThreadGoalClear,
 		codexapp.CodexMethodThreadGoalGet,
 		codexapp.CodexMethodThreadGoalSet,

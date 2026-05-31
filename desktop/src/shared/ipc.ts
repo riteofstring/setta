@@ -5,7 +5,6 @@ import type {
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
-  ChatMessage,
   CodexAccountState,
   Conversation,
   GetActiveRunResponse,
@@ -38,7 +37,6 @@ export const ipcChannels = {
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
-  chatDeleteConversation: "chat:delete-conversation",
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
@@ -51,7 +49,6 @@ export const ipcChannels = {
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
-  chatUpdateUserMessage: "chat:update-user-message",
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
   codexAccountRead: "codex-account:read",
@@ -108,10 +105,6 @@ interface IpcContract {
   chatCreateConversation: {
     args: [workspaceId: string, title: string];
     result: Conversation;
-  };
-  chatDeleteConversation: {
-    args: [workspaceId: string, conversationId: string];
-    result: ListConversationsResponse;
   };
   chatExecuteCommand: {
     args: [
@@ -171,10 +164,6 @@ interface IpcContract {
   chatSubmitApproval: {
     args: [input: SubmitApprovalRequest];
     result: Run;
-  };
-  chatUpdateUserMessage: {
-    args: [workspaceId: string, conversationId: string, messageId: string, text: string];
-    result: ChatMessage;
   };
   codexAccountCancelLogin: {
     args: [request: CancelCodexLoginRequest];
