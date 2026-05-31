@@ -57,7 +57,6 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	codexapp.CodexNotificationSkillsChanged:                           codexNotificationScopeGlobal,
 	codexapp.CodexNotificationThreadArchived:                          codexNotificationScopeThread,
 	codexapp.CodexNotificationThreadClosed:                            codexNotificationScopeThread,
-	codexapp.CodexNotificationThreadCompacted:                         codexNotificationScopeThread,
 	codexapp.CodexNotificationThreadGoalCleared:                       codexNotificationScopeThread,
 	codexapp.CodexNotificationThreadGoalUpdated:                       codexNotificationScopeThread,
 	codexapp.CodexNotificationThreadNameUpdated:                       codexNotificationScopeThread,
