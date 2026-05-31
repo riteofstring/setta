@@ -442,6 +442,7 @@ function Composer({
   const [commandListKey, setCommandListKey] = useState("");
   const [focusRequest, setFocusRequest] = useState(0);
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
+  const restoreComposerFocusRef = useRef(false);
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
@@ -504,6 +505,13 @@ function Composer({
   }, [focusRequest]);
 
   useEffect(() => {
+    if (!restoreComposerFocusRef.current) {
+      return;
+    }
+    focusComposer();
+  }, [chat.activeRun?.id, chat.messagesById, disabled, running]);
+
+  useEffect(() => {
     if (modelPicker?.result.action !== "model_picker") {
       return;
     }
@@ -529,8 +537,11 @@ function Composer({
       return;
     }
     submittingRef.current = true;
+    restoreComposerFocusRef.current = true;
     try {
+      focusComposerSoon();
       await submitDraftPrompt(prompt);
+      focusComposerSoon();
     } finally {
       submittingRef.current = false;
     }
@@ -708,6 +719,9 @@ function Composer({
   );
 
   function updateDraft(nextDraft: string) {
+    if (!submittingRef.current) {
+      restoreComposerFocusRef.current = false;
+    }
     setDraft(nextDraft);
     if (!isSlashDraft(nextDraft)) {
       setModelPicker(null);
@@ -722,13 +736,27 @@ function Composer({
   function focusComposerSoon() {
     setFocusRequest((request) => request + 1);
     focusComposer();
-    for (const delayMs of [0, 25, 100, 250, 500]) {
+    for (const delayMs of [0, 25, 100, 250, 500, 1000, 2000]) {
       window.setTimeout(focusComposer, delayMs);
     }
   }
 
   function focusComposer() {
-    textareaRef.current?.focus();
+    const textarea = textareaRef.current;
+    if (!textarea || textarea.disabled) {
+      return;
+    }
+    const active = document.activeElement;
+    if (
+      active &&
+      active !== document.body &&
+      active !== document.documentElement &&
+      active !== textarea
+    ) {
+      restoreComposerFocusRef.current = false;
+      return;
+    }
+    textarea.focus();
   }
 
   async function executeModelSelection(model: ChatModelOption) {

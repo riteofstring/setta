@@ -561,6 +561,85 @@ describe("chat renderer states", () => {
     expect(html).toContain('aria-label="Interrupt and send pending steering"');
   });
 
+  test("renders pending steering after active assistant output", () => {
+    const activeRun = {
+      ...transcriptRun("run_active", "message_active_user", "message_active_assistant"),
+      completedAt: "",
+      status: "running",
+    } satisfies Run;
+    const messages = [
+      chatUserMessageWithText("message_active_user", 1, activeRun.id, "normal", "Active prompt"),
+      chatAssistantMessage(
+        "message_active_assistant",
+        2,
+        activeRun.id,
+        "Assistant partial",
+        "streaming",
+      ),
+      chatUserMessageWithText(
+        "message_steering",
+        3,
+        activeRun.id,
+        "steering",
+        "Steering prompt",
+        "pending",
+      ),
+    ];
+
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={activeRun}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={messages}
+        runItemOutputs={[]}
+        runItems={[]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expectTextOrder(html, [
+      "Active prompt",
+      "Assistant partial",
+      "Steering prompt",
+      "Steering pending",
+    ]);
+  });
+
+  test("renders promoted queued turns after immediate steering replay", () => {
+    const messages = [
+      chatUserMessageWithText("message_active_user", 1, "run_active", "normal", "Active prompt"),
+      chatAssistantMessage("message_active_assistant", 2, "run_active", "Active partial"),
+      chatUserMessageWithText("message_queued_user", 3, "run_queue", "queued", "Queued prompt"),
+      chatUserMessageWithText("message_steer_user", 4, "run_steer", "normal", "Steering prompt"),
+      chatAssistantMessage("message_steer_assistant", 5, "run_steer", "Steering answer"),
+      chatAssistantMessage("message_queued_assistant", 6, "run_queue", "Queued answer"),
+    ];
+
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={messages}
+        runItemOutputs={[]}
+        runItems={[]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expectTextOrder(html, [
+      "Active prompt",
+      "Active partial",
+      "Steering prompt",
+      "Steering answer",
+      "Queued prompt",
+      "Queued answer",
+    ]);
+  });
+
   test("renders load more for paged run output", () => {
     const html = renderToString(
       <TestChatTranscript
@@ -931,23 +1010,65 @@ function transcriptRun(runId: string, triggerMessageId: string, assistantMessage
 }
 
 function chatUserMessage(id: string, ordinal: number, runId: string): ChatMessage {
+  return chatUserMessageWithText(id, ordinal, runId, "normal", "prompt");
+}
+
+function chatUserMessageWithText(
+  id: string,
+  ordinal: number,
+  runId: string,
+  delivery: ChatMessage["delivery"],
+  text: string,
+  status: ChatMessage["status"] = "complete",
+): ChatMessage {
+  return {
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:00Z",
+    delivery,
+    id,
+    ordinal,
+    parts: [{ format: "plain", id: `${id}_part`, text, type: "text" }],
+    role: "user",
+    runId,
+    schemaVersion: 1,
+    status,
+    updatedAt: "2026-05-29T20:00:00Z",
+  };
+}
+
+function chatAssistantMessage(
+  id: string,
+  ordinal: number,
+  runId: string,
+  text: string,
+  status: ChatMessage["status"] = "complete",
+): ChatMessage {
   return {
     conversationId: "conversation_api",
     createdAt: "2026-05-29T20:00:00Z",
     delivery: "normal",
     id,
     ordinal,
-    parts: [{ format: "plain", id: `${id}_part`, text: "prompt", type: "text" }],
-    role: "user",
+    parts: [{ format: "markdown", id: `${id}_part`, text, type: "text" }],
+    role: "assistant",
     runId,
     schemaVersion: 1,
-    status: "complete",
+    status,
     updatedAt: "2026-05-29T20:00:00Z",
   };
 }
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
+}
+
+function expectTextOrder(html: string, texts: string[]) {
+  let previousIndex = -1;
+  for (const text of texts) {
+    const index = html.indexOf(text);
+    expect(index).toBeGreaterThan(previousIndex);
+    previousIndex = index;
+  }
 }
 
 function conversationListItem(id: string, title: string): ConversationListItem {

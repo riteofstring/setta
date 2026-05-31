@@ -52,26 +52,34 @@ describe("composer keyboard behavior", () => {
     }
   });
 
-  test("submits once on Enter", () => {
-    const event = keyboardEvent("Enter");
+  test("submits once on Enter and preserves composer focus", () => {
+    vi.useFakeTimers();
+    const focus = vi.fn();
+    const event = keyboardEvent("Enter", { focus });
     const sendDraft = vi.fn();
 
-    handleComposerKeyDown(event, {
-      completeCommand: vi.fn(),
-      draftEmpty: false,
-      dismissModelPicker: vi.fn(),
-      hasPendingSteering: false,
-      modelPickerOpen: false,
-      queueDraft: vi.fn(),
-      running: false,
-      sendImmediateSteering: vi.fn(),
-      sendDraft,
-      slashDraft: false,
-      stopRun: vi.fn(),
-    });
+    try {
+      handleComposerKeyDown(event, {
+        completeCommand: vi.fn(),
+        draftEmpty: false,
+        dismissModelPicker: vi.fn(),
+        hasPendingSteering: false,
+        modelPickerOpen: false,
+        queueDraft: vi.fn(),
+        running: false,
+        sendImmediateSteering: vi.fn(),
+        sendDraft,
+        slashDraft: false,
+        stopRun: vi.fn(),
+      });
+      vi.runOnlyPendingTimers();
 
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(sendDraft).toHaveBeenCalledOnce();
+      expect(event.preventDefault).toHaveBeenCalledOnce();
+      expect(sendDraft).toHaveBeenCalledOnce();
+      expect(focus).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("stops an active run on Ctrl+C when no text is selected", () => {

@@ -389,8 +389,8 @@ async function runRestartWorkflow(results) {
     ]);
     await assertTranscriptSequence(second.client, [
       "workflow hold for queue and steering",
-      "steer active run",
       "Active workflow complete.",
+      "steer active run",
       "queued follow-up one from active run",
       "Queued response for queued follow-up one from active run.",
       "queued follow-up two from active run",
@@ -510,8 +510,8 @@ async function runHappyPathWorkflow(
   );
   await assertTranscriptSequence(client, [
     "workflow hold for queue and steering",
-    "steer active run",
     "Active workflow complete.",
+    "steer active run",
     "queued follow-up one from active run",
     "Queued response for queued follow-up one from active run.",
     "queued follow-up two from active run",

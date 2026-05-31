@@ -20,7 +20,12 @@ export async function runQueuedControlsWorkflow({
   waitForTexts,
   workspaceId,
 }) {
-  await submitComposer(client, "cancel active workflow", "Send message");
+  await submitComposerWithEnter({
+    client,
+    setInputValue,
+    text: "cancel active workflow",
+    waitForState,
+  });
   const originalActiveRun = await waitForRunWithPrompt(
     backend,
     workspaceId,
@@ -29,6 +34,7 @@ export async function runQueuedControlsWorkflow({
     "running",
   );
   await waitForText(client, "Cancel workflow waiting.");
+  await waitForComposerFocus(waitForState, client);
 
   await queueComposerWithTab({
     client,
@@ -100,6 +106,12 @@ export async function runQueuedControlsWorkflow({
 
   await submitComposer(client, "immediate replay workflow", "Send steering message");
   await waitForTexts(client, ["immediate replay workflow", "Steering pending"]);
+  await assertTranscriptSequence(client, [
+    "cancel active workflow",
+    "Cancel workflow waiting.",
+    "queued follow-up one from active run",
+    "immediate replay workflow",
+  ]);
   await waitForPendingSteeringPrompt(
     waitForBackendState,
     backend,
@@ -148,11 +160,11 @@ export async function runQueuedControlsWorkflow({
   );
   await assertTranscriptSequence(client, [
     "cancel active workflow",
+    "immediate replay workflow",
+    "Active workflow complete.",
+    "finish immediate replay",
     "queued follow-up one from active run",
     "Queued response for queued follow-up one from active run.",
-    "immediate replay workflow",
-    "finish immediate replay",
-    "Active workflow complete.",
   ]);
   await assertChatLayout(client);
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
@@ -161,7 +173,27 @@ export async function runQueuedControlsWorkflow({
 async function queueComposerWithTab({ client, setInputValue, text, waitForState }) {
   await waitForState(client, composerReadyExpression(), (value) => value.ready);
   await setInputValue(client, 'textarea[aria-label="Ask Setta"]', text);
-  const focused = await client.evaluate(`(() => {
+  const focused = await focusComposerTextarea(client);
+  if (!focused) {
+    throw new Error("composer could not be focused before Tab queueing");
+  }
+  await dispatchTab(client, "rawKeyDown");
+  await dispatchTab(client, "keyUp");
+}
+
+async function submitComposerWithEnter({ client, setInputValue, text, waitForState }) {
+  await waitForState(client, composerReadyExpression(), (value) => value.ready);
+  await setInputValue(client, 'textarea[aria-label="Ask Setta"]', text);
+  const focused = await focusComposerTextarea(client);
+  if (!focused) {
+    throw new Error("composer could not be focused before Enter send");
+  }
+  await dispatchEnter(client, "rawKeyDown");
+  await dispatchEnter(client, "keyUp");
+}
+
+async function focusComposerTextarea(client) {
+  return client.evaluate(`(() => {
     const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
     if (!textarea || textarea.disabled) {
       return false;
@@ -169,11 +201,6 @@ async function queueComposerWithTab({ client, setInputValue, text, waitForState 
     textarea.focus();
     return document.activeElement === textarea;
   })()`);
-  if (!focused) {
-    throw new Error("composer could not be focused before Tab queueing");
-  }
-  await dispatchTab(client, "rawKeyDown");
-  await dispatchTab(client, "keyUp");
 }
 
 async function dispatchTab(client, type) {
@@ -183,6 +210,16 @@ async function dispatchTab(client, type) {
     nativeVirtualKeyCode: 9,
     type,
     windowsVirtualKeyCode: 9,
+  });
+}
+
+async function dispatchEnter(client, type) {
+  await client.call("Input.dispatchKeyEvent", {
+    code: "Enter",
+    key: "Enter",
+    nativeVirtualKeyCode: 13,
+    type,
+    windowsVirtualKeyCode: 13,
   });
 }
 

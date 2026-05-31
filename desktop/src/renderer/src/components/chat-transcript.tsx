@@ -29,6 +29,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { MarkdownText } from "./markdown-text";
 import { RunActivityRows } from "./chat-run-activity";
+import { transcriptTurnSortOrdinal } from "./chat-transcript-ordering";
 import {
   canSaveQueuedEdit,
   isPendingSteeringMessage,
@@ -112,16 +113,15 @@ function transcriptIndexes(props: {
 
 function transcriptTimelineItems(indexes: TranscriptIndexes): TranscriptTimelineItem[] {
   const turnMessageIds = new Set<string>();
-  const items: TranscriptTimelineItem[] = indexes.turns.map((turn) => {
+  const items: TranscriptTimelineItem[] = [];
+  for (const turn of indexes.turns) {
     turnMessageIds.add(turn.triggerMessage.id);
     if (turn.assistantMessage) {
       turnMessageIds.add(turn.assistantMessage.id);
     }
-    for (const message of turn.steeringMessages) {
-      turnMessageIds.add(message.id);
-    }
-    return { kind: "turn", ordinal: turn.triggerMessage.ordinal, turn };
-  });
+    addSteeringTimelineItems(items, turn.steeringMessages);
+    items.push({ kind: "turn", ordinal: transcriptTurnSortOrdinal(turn), turn });
+  }
   for (const messageId of indexes.messageIds) {
     const message = indexes.messagesById[messageId];
     if (
@@ -140,6 +140,14 @@ function transcriptTimelineItems(indexes: TranscriptIndexes): TranscriptTimeline
     }
     return left.ordinal - right.ordinal;
   });
+}
+
+function addSteeringTimelineItems(items: TranscriptTimelineItem[], messages: ChatMessage[]) {
+  for (const message of messages) {
+    if (isVisibleMessage(message)) {
+      items.push({ kind: "message", message, ordinal: message.ordinal });
+    }
+  }
 }
 
 function timelineItemID(item: TranscriptTimelineItem) {
@@ -594,8 +602,7 @@ function timelineItemForMessage(timeline: TranscriptTimelineItem[], messageId: s
 function transcriptTurnHasMessage(turn: TranscriptTurn, messageId: string) {
   return (
     (isVisibleMessage(turn.triggerMessage) && turn.triggerMessage.id === messageId) ||
-    turn.assistantMessage?.id === messageId ||
-    turn.steeringMessages.some((message) => message.id === messageId)
+    turn.assistantMessage?.id === messageId
   );
 }
 
@@ -732,20 +739,6 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
           runItemsById={runItemsById}
         />
       ) : null}
-      {turn.steeringMessages.map((message) => (
-        <MessageRow
-          key={message.id}
-          loadRunItemOutput={loadRunItemOutput}
-          activeSearchMessageId={activeSearchMessageId}
-          message={message}
-          rowActions={rowActions}
-          runItemIdsByRunId={runItemIdsByRunId}
-          runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
-          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-          runItemOutputsById={runItemOutputsById}
-          runItemsById={runItemsById}
-        />
-      ))}
       {turn.assistantMessage ? (
         <MessageRow
           loadRunItemOutput={loadRunItemOutput}

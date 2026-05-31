@@ -57,6 +57,7 @@ export function handleComposerKeyDown(
     return;
   }
   event.preventDefault();
+  focusTextareaSoon(event.currentTarget);
   void actions.sendDraft();
 }
 
