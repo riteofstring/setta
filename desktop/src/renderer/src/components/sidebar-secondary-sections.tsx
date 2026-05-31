@@ -70,8 +70,11 @@ export function MemoryIntegrationsContent() {
 // Rules are planned as Setta node-graph canvases. A rule can later be selected
 // beside the chat permissions control or invoked through slash commands, then
 // evaluated before or during every user turn.
-export function RulesContent() {
-  return <EmptySectionIcon label="Rules" />;
+export function RulesContent({ rules }: { rules: SidebarListItem[] }) {
+  if (rules.length === 0) {
+    return <EmptySectionIcon label="Rules" />;
+  }
+  return <SidebarIndentedListItems items={rules} />;
 }
 
 export function EmptySectionIcon({ label }: { label: string }) {

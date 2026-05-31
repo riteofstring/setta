@@ -124,6 +124,7 @@ export function WorkspaceSidebar({
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
   const [standaloneChats, setStandaloneChats] = useState<SidebarListItem[]>([]);
   const [notes, setNotes] = useState<SidebarListItem[]>([]);
+  const [rules, setRules] = useState<SidebarListItem[]>([]);
 
   useEffect(() => {
     if (selectedWorkspaceId) {
@@ -182,6 +183,17 @@ export function WorkspaceSidebar({
         id: `note_${Date.now()}_${current.length}`,
         subtitle: "local",
         title: current.length === 0 ? "Untitled note" : `Untitled note ${current.length + 1}`,
+      },
+      ...current,
+    ]);
+  }
+
+  function createLocalRule() {
+    setRules((current) => [
+      {
+        id: `rule_${Date.now()}_${current.length}`,
+        subtitle: "node graph",
+        title: current.length === 0 ? "New rule" : `New rule ${current.length + 1}`,
       },
       ...current,
     ]);
@@ -296,6 +308,13 @@ export function WorkspaceSidebar({
             <NotesContent notes={notes} />
           </SidebarAccordionSection>
           <SidebarAccordionSection
+            action={
+              <SidebarHeaderIconButton
+                icon={<Workflow className="h-3.5 w-3.5" />}
+                label="New rule"
+                onClick={createLocalRule}
+              />
+            }
             height={sections.rules.height}
             onHeightChange={(height) => setSectionHeight("rules", height)}
             onOpenChange={(open) => setSectionOpen("rules", open)}
@@ -304,7 +323,7 @@ export function WorkspaceSidebar({
             testId="rules-section"
             title="Rules"
           >
-            <RulesContent />
+            <RulesContent rules={rules} />
           </SidebarAccordionSection>
         </div>
       </div>

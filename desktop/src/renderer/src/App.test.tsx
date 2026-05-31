@@ -9,7 +9,11 @@ import { ChatPlusMenu } from "./components/chat-plus-menu";
 import { ChatTranscript } from "./components/chat-transcript";
 import { EditorPicker } from "./components/editor-picker";
 import { SettingsPanel } from "./components/settings-panel";
-import { NotesContent, UnorganizedChatsContent } from "./components/sidebar-secondary-sections";
+import {
+  NotesContent,
+  RulesContent,
+  UnorganizedChatsContent,
+} from "./components/sidebar-secondary-sections";
 import { SlashCommandPalette } from "./components/slash-command-palette";
 import { WorkspacePanePanel } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -145,6 +149,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain('aria-label="Notes empty"');
     expect(html).toContain("DB / Memories");
     expect(html).toContain("Rules");
+    expect(html).toContain('aria-label="New rule"');
     expect(html).not.toContain("No rule canvases");
     expect(html).toContain('aria-label="Rules empty"');
     expect(html).toContain('data-testid="notes-section"');
@@ -169,13 +174,15 @@ describe("workspace renderer states", () => {
           chats={[{ id: "chat_one", subtitle: "1m", title: "Scratch chat" }]}
         />
         <NotesContent notes={[{ id: "note_one", subtitle: "local", title: "Draft note" }]} />
+        <RulesContent rules={[{ id: "rule_one", subtitle: "node graph", title: "Code review" }]} />
       </>,
     );
 
-    expect(rowCount(html, "sidebar-indented-list-item")).toBe(2);
+    expect(rowCount(html, "sidebar-indented-list-item")).toBe(3);
     expect(html).toContain("grid-cols-[18px_minmax(0,1fr)_auto]");
     expect(html).toContain("Scratch chat");
     expect(html).toContain("Draft note");
+    expect(html).toContain("Code review");
   });
 
   test("renders loading and error states", () => {
