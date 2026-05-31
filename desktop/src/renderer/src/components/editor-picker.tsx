@@ -17,7 +17,7 @@ interface EditorPickerButtonState {
   title: string;
 }
 
-export function EditorPicker({ className, rootPath }: { className?: string; rootPath: string }) {
+export function EditorPicker({ rootPath }: { rootPath: string }) {
   const state = useInstalledEditors();
   const [selectedEditorId, setSelectedEditorId] = useState("");
   const [open, setOpen] = useState(false);
@@ -47,14 +47,14 @@ export function EditorPicker({ className, rootPath }: { className?: string; root
   useCloseOnOutside(open, rootRef, menuRef, () => setOpen(false));
 
   return (
-    <div className={cn("app-no-drag relative shrink-0", className)} ref={rootRef}>
-      <div className="inline-flex h-7 items-center overflow-hidden rounded-sm text-zinc-400">
+    <div className="relative" ref={rootRef}>
+      <div className="inline-flex h-7 items-center gap-px rounded-sm text-zinc-300">
         <EditorOpenButton editor={selectedEditor} onOpenEditor={openEditor} state={buttonState} />
         <button
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Choose editor"
-          className="app-no-drag grid h-7 w-4 place-items-center rounded-r-sm border-l border-zinc-800/70 text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300 disabled:pointer-events-none disabled:opacity-40"
+          className="grid h-7 w-6 place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
           disabled={!rootPath}
           onClick={() => setOpen((current) => !current)}
           title="Choose editor"
@@ -90,7 +90,7 @@ function EditorOpenButton({
   return (
     <button
       aria-label={state.title}
-      className="app-no-drag grid h-7 w-7 place-items-center rounded-l-sm outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300 disabled:pointer-events-none disabled:opacity-40"
+      className="grid h-7 w-7 place-items-center rounded-sm outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={state.disabled}
       onClick={() => void onOpenEditor(editor)}
       title={state.title}
@@ -310,7 +310,7 @@ function EditorIcon({ editor }: { editor: InstalledEditorApp | null }) {
     return (
       <img
         alt=""
-        className="block h-4 w-4 shrink-0 rounded-[3px] object-contain opacity-80"
+        className="block h-4 w-4 shrink-0 rounded-[3px] object-contain"
         draggable={false}
         src={editor.iconDataUrl}
       />

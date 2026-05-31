@@ -4,15 +4,18 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
-  ChatMessage,
   CodexAccountState,
   Conversation,
+  ConversationListItem,
   GetActiveRunResponse,
+  ImmediateSteeringResult,
   ListConversationsResponse,
   LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueEditResult,
   QueueMessageResult,
+  QueueRemoveResult,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
@@ -99,6 +102,7 @@ export interface SettaAPI {
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
+    openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
     select: (id: string) => Promise<WorkspaceSession>;
@@ -108,10 +112,12 @@ export interface SettaAPI {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
-    deleteConversation: (
+    editQueuedMessage: (
       workspaceId: string,
       conversationId: string,
-    ) => Promise<ListConversationsResponse>;
+      messageId: string,
+      prompt: string,
+    ) => Promise<QueueEditResult>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
@@ -130,6 +136,10 @@ export interface SettaAPI {
     ) => Promise<ChatCommandExecuteResult>;
     listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
+    markConversationRead: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ConversationListItem>;
     messagePage: (
       workspaceId: string,
       conversationId: string,
@@ -141,6 +151,11 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<QueueMessageResult>;
+    removeQueuedMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+    ) => Promise<QueueRemoveResult>;
     runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
     runItemOutput: (
       workspaceId: string,
@@ -159,14 +174,13 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<SteerMessageResult>;
-    onEvent: (listener: (event: ChatEvent) => void) => () => void;
-    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
-    updateUserMessage: (
+    sendSteeringImmediately: (
       workspaceId: string,
       conversationId: string,
-      messageId: string,
-      text: string,
-    ) => Promise<ChatMessage>;
+      prompt?: string,
+    ) => Promise<ImmediateSteeringResult>;
+    onEvent: (listener: (event: ChatEvent) => void) => () => void;
+    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };
   codexAccount: {
     cancelLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
