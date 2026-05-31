@@ -398,6 +398,7 @@ function ProjectPane({
           selectedWorkspaceId={workspace.selectedWorkspaceId}
           chromeInsetTop={chromeInsetTop}
           sidebarWidth={width}
+          unreadConversationIds={chat.unreadConversationIds}
         />
       </div>
     </ResizablePane>

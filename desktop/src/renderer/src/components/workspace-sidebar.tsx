@@ -2,7 +2,6 @@ import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/bac
 import {
   Archive,
   Bell,
-  Circle,
   Clock3,
   Ellipsis,
   FolderClosed,
@@ -10,7 +9,6 @@ import {
   FolderPlus,
   GitBranch,
   GitFork,
-  LoaderCircle,
   MessageSquarePlus,
   PenLine,
   Pencil,
@@ -26,6 +24,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { type WorkspaceGitState, useWorkspaceGitInfo } from "../hooks/use-workspace-git-info";
 import { cn } from "../lib/utils";
+import { AsciiSpinner } from "./ascii-spinner";
 import {
   defaultSidebarSections,
   SidebarAccordionSection,
@@ -68,6 +67,7 @@ interface WorkspaceSidebarProps {
   selectedConversationId: string;
   selectedWorkspaceId: string;
   sidebarWidth?: number;
+  unreadConversationIds: Record<string, true>;
 }
 
 interface VirtualRange {
@@ -102,6 +102,7 @@ export function WorkspaceSidebar({
   selectedConversationId,
   selectedWorkspaceId,
   sidebarWidth = 220,
+  unreadConversationIds,
 }: WorkspaceSidebarProps) {
   const [expandedWorkspaceId, setExpandedWorkspaceId] = useState(selectedWorkspaceId);
   const [pinnedProjectConversationIds, setPinnedProjectConversationIds] = useState<
@@ -214,6 +215,7 @@ export function WorkspaceSidebar({
               selectedWorkspaceId={selectedWorkspaceId}
               setExpandedWorkspaceId={setExpandedWorkspaceId}
               togglePinnedConversation={togglePinnedProjectConversation}
+              unreadConversationIds={unreadConversationIds}
               workspaces={activeWorkspaces}
             />
             <RecentProjectList
@@ -366,6 +368,7 @@ function ProjectList({
   selectedWorkspaceId,
   setExpandedWorkspaceId,
   togglePinnedConversation,
+  unreadConversationIds,
   workspaces,
 }: {
   activeRun: Run | null;
@@ -383,6 +386,7 @@ function ProjectList({
   selectedWorkspaceId: string;
   setExpandedWorkspaceId: (next: string) => void;
   togglePinnedConversation: (workspaceId: string, conversationId: string) => void;
+  unreadConversationIds: Record<string, true>;
   workspaces: WorkspaceSummary[];
 }) {
   if (workspaces.length === 0) {
@@ -409,6 +413,7 @@ function ProjectList({
       selectedConversationId={selectedConversationId}
       setExpandedWorkspaceId={setExpandedWorkspaceId}
       togglePinnedConversation={togglePinnedConversation}
+      unreadConversationIds={unreadConversationIds}
       workspace={workspace}
     />
   );
@@ -459,6 +464,7 @@ function ProjectRow({
   selectedConversationId,
   setExpandedWorkspaceId,
   togglePinnedConversation,
+  unreadConversationIds,
   workspace,
 }: {
   activeRun: Run | null;
@@ -477,6 +483,7 @@ function ProjectRow({
   selectedConversationId: string;
   setExpandedWorkspaceId: (next: string) => void;
   togglePinnedConversation: (workspaceId: string, conversationId: string) => void;
+  unreadConversationIds: Record<string, true>;
   workspace: WorkspaceSummary;
 }) {
   const hasVisibleChats = allowProjectChats && selected && expanded;
@@ -494,7 +501,7 @@ function ProjectRow({
     <div className="min-w-0">
       <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/55">
         <button
-          className="flex min-w-0 items-center gap-2 px-2 text-left"
+          className="grid min-w-0 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 px-2 text-left"
           data-testid="active-workspace-select"
           disabled={busy}
           onClick={() => {
@@ -532,7 +539,7 @@ function ProjectRow({
         </div>
       </div>
       {hasVisibleChats ? (
-        <div className="ml-5 min-w-0">
+        <div className="min-w-0">
           <ConversationList
             activeRun={activeRun}
             branchLabel={branchLabel}
@@ -544,6 +551,7 @@ function ProjectRow({
             pinnedConversationIds={pinnedConversationIds}
             selectConversation={selectConversation}
             selectedConversationId={selectedConversationId}
+            unreadConversationIds={unreadConversationIds}
           />
         </div>
       ) : null}
@@ -714,6 +722,7 @@ function ConversationList({
   pinnedConversationIds,
   selectConversation,
   selectedConversationId,
+  unreadConversationIds,
 }: {
   activeRun: Run | null;
   branchLabel: string;
@@ -723,6 +732,7 @@ function ConversationList({
   pinnedConversationIds: string[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectedConversationId: string;
+  unreadConversationIds: Record<string, true>;
 }) {
   const [visibleLimit, setVisibleLimit] = useState(chatHistoryLimit);
   const sortedConversations = useMemo(
@@ -762,6 +772,7 @@ function ConversationList({
           pinned={pinnedConversationIdsSet.has(item.conversation.id)}
           selectConversation={selectConversation}
           selected={item.conversation.id === selectedConversationId}
+          unread={Boolean(unreadConversationIds[item.conversation.id])}
         />
       ))}
       {visibleConversations.length < sortedConversations.length ? (
@@ -810,6 +821,7 @@ function ConversationRow({
   pinned,
   selectConversation,
   selected,
+  unread,
 }: {
   activeRun: Run | null;
   branchLabel: string;
@@ -819,6 +831,7 @@ function ConversationRow({
   pinned: boolean;
   selectConversation: (conversationId: string) => Promise<void>;
   selected: boolean;
+  unread: boolean;
 }) {
   const running =
     item.activeRunId !== "" ||
@@ -830,7 +843,7 @@ function ConversationRow({
     <div className="group/chat relative min-w-0">
       <button
         className={cn(
-          "grid h-7 w-full min-w-0 grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-2 pr-7 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
+          "grid h-7 w-full min-w-0 grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 pr-7 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
           selected ? "text-zinc-100" : "text-zinc-300",
         )}
         data-testid="conversation-list-item"
@@ -838,11 +851,7 @@ function ConversationRow({
         onClick={() => void selectConversation(item.conversation.id)}
         type="button"
       >
-        {running ? (
-          <LoaderCircle className="h-3 w-3 animate-spin text-zinc-300" />
-        ) : (
-          <Circle className="h-1.5 w-1.5 fill-zinc-500 text-zinc-500" />
-        )}
+        <ConversationStatusIndicator running={running} unread={unread && !selected} />
         <span className="truncate text-xs">{item.conversation.title}</span>
         {responseAge ? (
           <time
@@ -872,6 +881,22 @@ function ConversationRow({
         </div>
       </div>
     </div>
+  );
+}
+
+function ConversationStatusIndicator({ running, unread }: { running: boolean; unread: boolean }) {
+  return (
+    <span className="grid h-4 w-[18px] place-items-center overflow-hidden">
+      {running ? (
+        <AsciiSpinner className="w-[18px] text-[7px] text-zinc-400" label="Chat response running" />
+      ) : unread ? (
+        <span
+          aria-label="Unread assistant response"
+          className="h-1.5 w-1.5 rounded-full bg-zinc-500"
+          role="status"
+        />
+      ) : null}
+    </span>
   );
 }
 

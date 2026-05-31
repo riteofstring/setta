@@ -406,6 +406,7 @@ export function useChatViewState(workspaceId: string | null) {
   const status = useChatStore((state) => state.status);
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
+  const unreadConversationIds = useChatStore((state) => state.unreadConversationIds);
   const updateUserMessage = useChatStore((state) => state.updateUserMessage);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
 
@@ -432,6 +433,7 @@ export function useChatViewState(workspaceId: string | null) {
     status,
     stopActiveRun,
     submitApproval,
+    unreadConversationIds,
     updateUserMessage,
   };
 }

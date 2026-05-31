@@ -18,9 +18,10 @@ import type { ReactNode, RefObject } from "react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
+import { AsciiSpinner } from "./ascii-spinner";
+import { MarkdownText } from "./markdown-text";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { MarkdownText } from "./markdown-text";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
@@ -623,9 +624,14 @@ function UserMessageEditor({
 }
 
 function AssistantMessageContent({ message, text }: { message: ChatMessage; text: string }) {
+  const waiting = text === "" && (message.status === "pending" || message.status === "streaming");
   return (
     <div className="max-w-[88%] min-w-0 text-[13px] leading-5 text-zinc-200">
-      <MarkdownText text={text || (message.status === "streaming" ? "..." : "")} />
+      {waiting ? (
+        <AsciiSpinner className="text-zinc-500" label="Assistant response running" />
+      ) : (
+        <MarkdownText text={text} />
+      )}
       <MessageStatus status={message.status} />
     </div>
   );
@@ -692,7 +698,10 @@ function MessageActions({
 function ToolMessage({ message, text }: { message: ChatMessage; text: string }) {
   return (
     <article className="min-w-0" data-testid="chat-message">
-      <ToolCallFrame title="tool_output">
+      <ToolCallFrame
+        loading={message.status === "pending" || message.status === "streaming"}
+        title="tool_output"
+      >
         <ToolBlock title="Result">{text || message.status}</ToolBlock>
       </ToolCallFrame>
       <time className="mt-1 block text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
@@ -700,7 +709,15 @@ function ToolMessage({ message, text }: { message: ChatMessage; text: string }) 
   );
 }
 
-function ToolCallFrame({ children, title }: { children: ReactNode; title: string }) {
+function ToolCallFrame({
+  children,
+  loading = false,
+  title,
+}: {
+  children: ReactNode;
+  loading?: boolean;
+  title: string;
+}) {
   const [open, setOpen] = useState(true);
   return (
     <div className="relative min-w-0">
@@ -714,6 +731,9 @@ function ToolCallFrame({ children, title }: { children: ReactNode; title: string
           3
         </span>
         <span className="min-w-0 flex-1 truncate">Action: {title}</span>
+        {loading ? (
+          <AsciiSpinner className="w-9 text-[8px] text-zinc-500" label="Tool call running" />
+        ) : null}
         {open ? (
           <ChevronUp className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
         ) : (
@@ -731,7 +751,7 @@ function ToolCallFrame({ children, title }: { children: ReactNode; title: string
             <div className="min-w-0">
               <ToolCommandRow title={title} />
               <ToolCommandRow title={title} />
-              <ToolCommandRow active title={title} />
+              <ToolCommandRow active loading={loading} title={title} />
             </div>
           </div>
           <div className="divide-y divide-zinc-700">{children}</div>
@@ -750,7 +770,15 @@ function ToolRailIcon() {
   );
 }
 
-function ToolCommandRow({ active = false, title }: { active?: boolean; title: string }) {
+function ToolCommandRow({
+  active = false,
+  loading = false,
+  title,
+}: {
+  active?: boolean;
+  loading?: boolean;
+  title: string;
+}) {
   return (
     <button
       className="grid h-7 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 text-left font-mono text-xs font-semibold text-zinc-300 hover:bg-zinc-900"
@@ -763,7 +791,11 @@ function ToolCommandRow({ active = false, title }: { active?: boolean; title: st
             <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-zinc-900 text-zinc-400">
               <Copy className="h-3.5 w-3.5" />
             </span>
-            <span className="font-sans text-xs font-semibold text-zinc-300">&lt;1s</span>
+            {loading ? (
+              <AsciiSpinner className="w-9 text-[8px] text-zinc-400" label="Tool call running" />
+            ) : (
+              <span className="font-sans text-xs font-semibold text-zinc-300">&lt;1s</span>
+            )}
             <AlertCircle className="h-3.5 w-3.5 text-zinc-400" />
             <ChevronUp className="h-3.5 w-3.5 text-zinc-400" />
           </>

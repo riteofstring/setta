@@ -28,6 +28,7 @@ describe("chat store", () => {
       operation: null,
       selectedConversation: null,
       status: "idle",
+      unreadConversationIds: {},
       workspaceId: null,
     });
   });
@@ -264,6 +265,42 @@ describe("chat store", () => {
     expect(useChatStore.getState().lastEventSequence).toBe(1);
   });
 
+  test("marks only unseen assistant responses unread and clears them on select", async () => {
+    const conversation = testConversation();
+    const otherConversation = {
+      ...testConversation(),
+      id: "conversation_other",
+      title: "Other chat",
+    };
+    const messagePage = vi.fn().mockResolvedValue(testPage(otherConversation, []));
+    installSettaAPI({ chat: { messagePage } });
+    useChatStore.setState({
+      conversations: [conversationItem(conversation, 1), conversationItem(otherConversation, 1)],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+    const assistant = {
+      ...message("message_other_assistant", 1, "assistant", "complete", "done"),
+      conversationId: "conversation_other",
+    };
+    const user = {
+      ...message("message_other_user", 1, "user", "complete", "hello"),
+      conversationId: "conversation_other",
+    };
+
+    useChatStore.getState().handleEvent(messageUpdatedEvent(1, user));
+    expect(useChatStore.getState().unreadConversationIds).toEqual({});
+
+    useChatStore.getState().handleEvent(messageUpdatedEvent(2, assistant));
+    expect(useChatStore.getState().unreadConversationIds).toEqual({
+      conversation_other: true,
+    });
+
+    await useChatStore.getState().selectConversation("conversation_other");
+    expect(useChatStore.getState().unreadConversationIds).toEqual({});
+  });
+
   test("resync-required events reload the selected snapshot", async () => {
     const conversation = testConversation();
     const listConversations = vi.fn().mockResolvedValue({
@@ -437,6 +474,27 @@ function assistantDeltaEvent(
     sequence,
     streamId,
     type: "chat.assistant_text_delta",
+    workspaceId: "workspace_api",
+  };
+}
+
+function messageUpdatedEvent(
+  sequence: number,
+  chatMessage: ChatMessage,
+  streamId = eventStreamId,
+): ChatEvent {
+  return {
+    conversationId: chatMessage.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: {
+      message: chatMessage,
+    },
+    runId: chatMessage.runId,
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "chat.message.updated",
     workspaceId: "workspace_api",
   };
 }

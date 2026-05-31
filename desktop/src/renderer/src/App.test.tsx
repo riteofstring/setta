@@ -33,6 +33,7 @@ describe("workspace renderer states", () => {
           selectWorkspace={async () => {}}
           selectedConversationId=""
           selectedWorkspaceId=""
+          unreadConversationIds={{}}
         />
         <WorkspacePanel
           error={null}
@@ -101,6 +102,7 @@ describe("workspace renderer states", () => {
           selectWorkspace={async () => {}}
           selectedConversationId="conversation_web"
           selectedWorkspaceId="workspace_web"
+          unreadConversationIds={{ conversation_web: true }}
         />
         <WorkspacePanel
           error={null}
@@ -189,6 +191,7 @@ describe("workspace renderer states", () => {
         selectWorkspace={async () => {}}
         selectedConversationId=""
         selectedWorkspaceId="workspace_0"
+        unreadConversationIds={{}}
       />,
     );
 

@@ -31,6 +31,7 @@ interface ChatStore {
   lastEventStreamId: string;
   loadOlder: () => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
+  markConversationRead: (conversationId: string) => void;
   messages: ChatMessage[];
   operation: ChatOperation;
   resyncActiveConversation: () => Promise<void>;
@@ -49,6 +50,7 @@ interface ChatStore {
     cancelled: boolean,
   ) => Promise<void>;
   updateUserMessage: (messageId: string, text: string) => Promise<void>;
+  unreadConversationIds: Record<string, true>;
   workspaceId: string | null;
 }
 
@@ -65,6 +67,7 @@ type ChatPatch = Partial<
     | "operation"
     | "selectedConversation"
     | "status"
+    | "unreadConversationIds"
     | "workspaceId"
   >
 >;
@@ -175,8 +178,10 @@ export const useChatStore = create<ChatStore>((set, get) => {
         return;
       }
       const result = applyChatEvent(state, event);
+      const unreadPatch = unreadConversationPatch(state, event);
       set({
         ...result.patch,
+        ...unreadPatch,
         lastEventSequence: event.sequence,
         lastEventStreamId: event.streamId,
       });
@@ -239,6 +244,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           operation: null,
           selectedConversation: first,
           status: "ready",
+          unreadConversationIds: {},
           workspaceId,
         });
       } catch (error) {
@@ -247,6 +253,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     lastEventSequence: 0,
     lastEventStreamId: "",
+    markConversationRead: (conversationId) => {
+      set((state) => ({
+        unreadConversationIds: withoutConversation(state.unreadConversationIds, conversationId),
+      }));
+    },
     messages: [],
     operation: null,
     resyncActiveConversation: async () => {
@@ -289,11 +300,17 @@ export const useChatStore = create<ChatStore>((set, get) => {
       const operationId = beginOperation({ error: null, operation: "loading" });
       try {
         const patch = await loadConversationPage(workspaceId, conversation);
-        commitCurrent(operationId, {
-          ...patch,
-          operation: null,
-          selectedConversation: conversation,
-          status: "ready",
+        commitCurrentFromState(operationId, (current) => {
+          return {
+            ...patch,
+            operation: null,
+            selectedConversation: conversation,
+            status: "ready",
+            unreadConversationIds: withoutConversation(
+              current.unreadConversationIds,
+              conversation.id,
+            ),
+          };
         });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
@@ -388,6 +405,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         throw error;
       }
     },
+    unreadConversationIds: {},
     workspaceId: null,
   };
 });
@@ -543,6 +561,48 @@ function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem):
     conversations: upsertConversation(state.conversations, item),
     selectedConversation,
   };
+}
+
+function unreadConversationPatch(
+  state: ChatStore,
+  event: Exclude<ChatEvent, { type: "chat.resync_required" }>,
+): ChatPatch {
+  if (event.type !== "chat.message.updated") {
+    return {};
+  }
+  if (event.workspaceId !== state.workspaceId) {
+    return {};
+  }
+  if (event.conversationId === state.selectedConversation?.id) {
+    return {};
+  }
+  if (!isUnreadAssistantMessage(event.payload.message)) {
+    return {};
+  }
+  return {
+    unreadConversationIds: {
+      ...state.unreadConversationIds,
+      [event.conversationId]: true,
+    },
+  };
+}
+
+function isUnreadAssistantMessage(message: ChatMessage) {
+  if (message.role !== "assistant") {
+    return false;
+  }
+  return (
+    message.status === "complete" || message.status === "error" || message.status === "cancelled"
+  );
+}
+
+function withoutConversation(unread: Record<string, true>, conversationId: string) {
+  if (!unread[conversationId]) {
+    return unread;
+  }
+  const next = { ...unread };
+  delete next[conversationId];
+  return next;
 }
 
 function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {
