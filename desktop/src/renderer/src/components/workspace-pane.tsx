@@ -2,6 +2,7 @@ import { FileText, GitCompareArrows, Globe2, PanelTop, Settings, Terminal, X } f
 import type { ReactNode } from "react";
 import { useCallback, useRef, useState } from "react";
 
+import { cn } from "../lib/utils";
 import { SettingsPanel } from "./settings-panel";
 
 type PaneSlot = "bottom" | "right";
@@ -236,20 +237,25 @@ function WorkspacePaneTabButton({
 }) {
   return (
     <div
-      className={
+      className={cn(
+        "group relative flex h-6 min-w-0 max-w-40 items-center gap-1 rounded-[3px] px-1.5 text-xs transition-colors",
         active
-          ? "group flex h-6 min-w-0 max-w-40 items-center gap-1 rounded-sm bg-zinc-800 px-1.5 text-xs text-zinc-100"
-          : "group flex h-6 min-w-0 max-w-40 items-center gap-1 rounded-sm px-1.5 text-xs text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
-      }
+          ? "bg-zinc-800/70 text-zinc-100 shadow-[inset_0_-1px_0_rgba(212,212,216,0.55)]"
+          : "text-zinc-500 hover:bg-zinc-900/80 hover:text-zinc-200",
+      )}
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
       {workspacePaneIcon(tab.kind, "h-3.5 w-3.5 shrink-0")}
-      <button className="min-w-0 truncate" onClick={onSelect} type="button">
+      <button
+        className="min-w-0 flex-1 cursor-pointer truncate text-left outline-none focus-visible:text-zinc-50 focus-visible:underline focus-visible:decoration-zinc-400 focus-visible:underline-offset-2"
+        onClick={onSelect}
+        type="button"
+      >
         {tab.title}
       </button>
       <button
         aria-label={`Close ${tab.title}`}
-        className="ml-1 hidden h-4 w-4 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-700 hover:text-zinc-100 group-hover:inline-flex"
+        className="ml-1 hidden h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-[3px] text-zinc-500 outline-none hover:bg-zinc-700 hover:text-zinc-100 focus-visible:bg-zinc-700 focus-visible:text-zinc-100 group-hover:inline-flex"
         onClick={onClose}
         type="button"
       >
