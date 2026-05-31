@@ -3,21 +3,37 @@
 import { Application, Container, Graphics, Point, Rectangle, Text } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 
+import {
+  cameraState,
+  capturePointer,
+  clamp,
+  drawGrid,
+  hostScreenSize,
+  isNonBackgroundColor,
+  isSelectionToggleEvent,
+  isZoomWheel,
+  marqueeBounds,
+  nodeBounds,
+  normalizedWheelDelta,
+  parsePortKey,
+  portKey,
+  ports,
+  portLocalPosition,
+  portWorldPosition,
+  rectanglesIntersect,
+  releasePointer,
+  requirePort,
+  screenPointFromPointer,
+  screenPointFromWheel,
+  setsEqual,
+  stopNativeInteraction,
+  zoomFactorFromWheel,
+} from "./pixi-workspace-renderer-helpers";
+
 const backgroundColor = 0x07080d;
-const backgroundRed = 7;
-const backgroundGreen = 8;
-const backgroundBlue = 13;
-const lineWheelPixelSize = 20;
 const maxZoom = 4;
 const minZoom = 0.25;
-const mouseWheelZoomSensitivity = 0.0016;
-const notchedWheelDeltaThreshold = 80;
 const portHitRadiusScreen = 18;
-const trackpadPinchZoomSensitivity = 0.018;
-const ports = [
-  { id: "input", role: "target", xOffset: 20, yRatio: 0.5 },
-  { id: "output", role: "source", xOffset: -20, yRatio: 0.5 },
-];
 const initialNodes = [
   {
     color: 0x14b8a6,
@@ -126,11 +142,14 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   const portVisualStates = new Map();
   const edgeGraphics = new Graphics();
   const temporaryEdgeGraphics = new Graphics();
+  const marqueeGraphics = new Graphics();
   const grid = new Graphics();
   const glow = new Graphics();
-  let selectedNodeId = null;
+  const selectedNodeIds = new Set();
+  const hoveredNodeIds = new Set();
   let draggingNode = null;
   let drawingEdge = null;
+  let drawingMarquee = null;
   let panningCamera = null;
   let activeTargetPortKey = null;
   let destroyed = false;
@@ -139,9 +158,11 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   let cameraUpdateCount = 0;
   let nodeDragUpdateCount = 0;
   let edgeRedrawCount = 0;
+  let marqueeUpdateCount = 0;
   let edgeCommitCount = 0;
   let nextEdgeSequence = initialEdges.length + 1;
   let pointerPanUpdateCount = 0;
+  let selectionChangeCount = 0;
   let temporaryEdgeUpdateCount = 0;
   let wheelPanUpdateCount = 0;
   let wheelZoomUpdateCount = 0;
@@ -150,7 +171,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
 
   backgroundLayer.addChild(grid);
   edgeLayer.addChild(edgeGraphics);
-  interactionLayer.addChild(temporaryEdgeGraphics);
+  interactionLayer.addChild(marqueeGraphics, temporaryEdgeGraphics);
   effectsLayer.addChild(glow);
   drawGrid(grid);
   for (const node of nodes) {
@@ -185,18 +206,35 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     }
     const node = hitTestNodeAtScreen(screen);
     if (node) {
+      if (isSelectionToggleEvent(event)) {
+        toggleNodeSelection(node.id);
+        capturePointer(event);
+        stopNativeInteraction(event);
+        return;
+      }
       startNodeDragging(node.id, screen);
       capturePointer(event);
       stopNativeInteraction(event);
       return;
     }
+    if (event.shiftKey) {
+      startMarqueeSelection(screen);
+      capturePointer(event);
+      stopNativeInteraction(event);
+      return;
+    }
+    if (isSelectionToggleEvent(event)) {
+      stopNativeInteraction(event);
+      return;
+    }
+    clearSelection();
     startCameraPanning(screen);
     capturePointer(event);
     stopNativeInteraction(event);
   };
   const pointerMove = (event) => {
+    const screen = screenPointFromPointer(app.canvas, event);
     if (drawingEdge) {
-      const screen = screenPointFromPointer(app.canvas, event);
       const world = viewport.toWorld(screen);
       drawingEdge.endX = world.x;
       drawingEdge.endY = world.y;
@@ -205,12 +243,16 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       drawTemporaryEdge();
       return;
     }
+    if (drawingMarquee) {
+      updateMarqueeSelection(screen);
+      return;
+    }
     if (draggingNode) {
-      moveDraggedNode(screenPointFromPointer(app.canvas, event));
+      moveDraggedNode(screen);
       return;
     }
     if (panningCamera) {
-      moveCameraPan(screenPointFromPointer(app.canvas, event));
+      moveCameraPan(screen);
     }
   };
   const pointerUp = (event) => {
@@ -229,6 +271,11 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       releasePointer(event);
       return;
     }
+    if (drawingMarquee) {
+      commitMarqueeSelection();
+      releasePointer(event);
+      return;
+    }
     if (draggingNode) {
       finishNodeDragging();
       releasePointer(event);
@@ -240,11 +287,16 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       releasePointer(event);
     }
   };
-  const pointerCancel = () => {
-    pointerUp(null);
+  const pointerCancel = (event) => {
+    if (drawingMarquee) {
+      cancelMarqueeSelection();
+      releasePointer(event);
+      return;
+    }
+    pointerUp(event ?? null);
   };
   const wheel = (event) => {
-    if (drawingEdge || draggingNode) {
+    if (drawingEdge || drawingMarquee || draggingNode) {
       return;
     }
     stopNativeInteraction(event);
@@ -258,11 +310,34 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     panCameraByScreenDelta(delta.x, delta.y);
     wheelPanUpdateCount += 1;
   };
+  const keyDown = (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+    if (drawingEdge) {
+      finishEdgeDrawing();
+      stopNativeInteraction(event);
+      return;
+    }
+    if (drawingMarquee) {
+      cancelMarqueeSelection();
+      stopNativeInteraction(event);
+      return;
+    }
+    if (draggingNode || panningCamera) {
+      return;
+    }
+    if (selectedNodeIds.size > 0) {
+      clearSelection();
+      stopNativeInteraction(event);
+    }
+  };
   app.canvas.addEventListener("pointerdown", pointerDown, true);
   app.canvas.addEventListener("pointermove", pointerMove);
   app.canvas.addEventListener("wheel", wheel, { capture: true, passive: false });
   window.addEventListener("pointerup", pointerUp);
   window.addEventListener("pointercancel", pointerCancel);
+  window.addEventListener("keydown", keyDown);
 
   app.ticker.add(() => {
     const now = performance.now();
@@ -339,7 +414,9 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
           },
           interaction: {
             drawingEdge: Boolean(drawingEdge),
-            selectedNodeId,
+            drawingMarquee: Boolean(drawingMarquee),
+            selectedNodeId: firstSelectedNodeId(),
+            selectedNodeIds: [...selectedNodeIds],
           },
           render: {
             averageFrameMs: frameAverage,
@@ -347,10 +424,12 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             edgeCommitCount,
             edgeRedrawCount,
             frameCount,
+            marqueeUpdateCount,
             nodeDragUpdateCount,
             pointerPanUpdateCount,
             reactRenderCount: reactRenderCount(),
             recentFrameMs: [...recentFrameMs],
+            selectionChangeCount,
             temporaryEdgeUpdateCount,
             wheelPanUpdateCount,
             wheelZoomUpdateCount,
@@ -371,6 +450,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       app.canvas.removeEventListener("wheel", wheel, true);
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("pointercancel", pointerCancel);
+      window.removeEventListener("keydown", keyDown);
       if (debugEnabled) {
         delete window.__settaPixiWorkspaceDebug;
       }
@@ -412,19 +492,12 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
 
     container.addChild(shadow, body, label, outline, ...portContainers);
     body.on("pointerover", () => {
-      drawNodeOutline(node.id, 0xffffff, 0.42);
+      hoveredNodeIds.add(node.id);
+      drawNodeOutline(node.id);
     });
     body.on("pointerout", () => {
-      if (selectedNodeId !== node.id) {
-        drawNodeOutline(node.id, 0xffffff, 0);
-      }
-    });
-    body.on("pointerdown", (event) => {
-      if (drawingEdge || event.button !== 0) {
-        return;
-      }
-      event.stopPropagation();
-      startNodeDragging(node.id, event.global);
+      hoveredNodeIds.delete(node.id);
+      drawNodeOutline(node.id);
     });
 
     return container;
@@ -460,31 +533,29 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
         setPortVisualState(node.id, port.id, "idle");
       }
     });
-    container.on("pointerdown", (event) => {
-      if (event.button !== 0) {
-        return;
-      }
-      event.stopPropagation();
-      if (port.role === "source") {
-        startEdgeDrawing(node.id, port.id);
-      }
-    });
-
     return container;
   }
 
   function startNodeDragging(nodeId, screen) {
     const node = requireNode(nodeId);
     const world = viewport.toWorld(screen);
-    selectNode(node.id);
+    if (!selectedNodeIds.has(node.id)) {
+      selectOnlyNode(node.id);
+    }
+    const draggedNodes = nodes.filter((candidate) => selectedNodeIds.has(candidate.id));
     draggingNode = {
-      nodeId: node.id,
-      offsetX: world.x - node.x,
-      offsetY: world.y - node.y,
+      nodes: draggedNodes.map((candidate) => ({
+        nodeId: candidate.id,
+        offsetX: world.x - candidate.x,
+        offsetY: world.y - candidate.y,
+      })),
+      primaryNodeId: node.id,
     };
-    const body = nodeBodies.get(node.id);
-    if (body) {
-      body.cursor = "grabbing";
+    for (const draggedNode of draggedNodes) {
+      const body = nodeBodies.get(draggedNode.id);
+      if (body) {
+        body.cursor = "grabbing";
+      }
     }
     viewport.plugins.pause("decelerate");
   }
@@ -493,16 +564,18 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     if (!draggingNode) {
       return;
     }
-    const node = requireNode(draggingNode.nodeId);
-    const container = nodeContainers.get(draggingNode.nodeId);
-    if (!container) {
-      throw new Error(`dragged node container is missing: ${draggingNode.nodeId}`);
-    }
     const world = viewport.toWorld(screen);
-    node.x = world.x - draggingNode.offsetX;
-    node.y = world.y - draggingNode.offsetY;
-    container.x = node.x;
-    container.y = node.y;
+    for (const draggedNode of draggingNode.nodes) {
+      const node = requireNode(draggedNode.nodeId);
+      const container = nodeContainers.get(draggedNode.nodeId);
+      if (!container) {
+        throw new Error(`dragged node container is missing: ${draggedNode.nodeId}`);
+      }
+      node.x = world.x - draggedNode.offsetX;
+      node.y = world.y - draggedNode.offsetY;
+      container.x = node.x;
+      container.y = node.y;
+    }
     nodeDragUpdateCount += 1;
     redrawEdges();
   }
@@ -535,27 +608,60 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     pointerPanUpdateCount += 1;
   }
 
-  function selectNode(nodeId) {
-    selectedNodeId = nodeId;
+  function selectOnlyNode(nodeId) {
+    setSelectedNodeIds([nodeId]);
+  }
+
+  function clearSelection() {
+    setSelectedNodeIds([]);
+  }
+
+  function toggleNodeSelection(nodeId) {
+    const nextSelectedNodeIds = new Set(selectedNodeIds);
+    if (nextSelectedNodeIds.has(nodeId)) {
+      nextSelectedNodeIds.delete(nodeId);
+    } else {
+      nextSelectedNodeIds.add(nodeId);
+    }
+    setSelectedNodeIds(nextSelectedNodeIds);
+  }
+
+  function setSelectedNodeIds(nextNodeIds) {
+    const nextSelectedNodeIds = new Set(nextNodeIds);
+    if (setsEqual(selectedNodeIds, nextSelectedNodeIds)) {
+      return;
+    }
+    selectedNodeIds.clear();
+    for (const nodeId of nextSelectedNodeIds) {
+      selectedNodeIds.add(nodeId);
+    }
+    selectionChangeCount += 1;
+    drawAllNodeOutlines();
+  }
+
+  function drawAllNodeOutlines() {
     for (const candidate of nodes) {
-      drawNodeOutline(candidate.id, 0xffffff, candidate.id === selectedNodeId ? 0.95 : 0);
+      drawNodeOutline(candidate.id);
     }
   }
 
-  function drawNodeOutline(nodeId, color, alpha) {
+  function drawNodeOutline(nodeId) {
     const node = nodes.find((candidate) => candidate.id === nodeId);
     const outline = nodeOutlines.get(nodeId);
     if (!node || !outline) {
       throw new Error(`node outline target is missing: ${nodeId}`);
     }
+    const selected = selectedNodeIds.has(nodeId);
+    const hovered = hoveredNodeIds.has(nodeId);
     outline.clear();
-    if (alpha <= 0) {
+    if (!selected && !hovered) {
       return;
     }
+    const alpha = selected ? 0.95 : 0.42;
     outline.roundRect(-5, -5, node.width + 10, node.height + 10, 12).stroke({
       alpha,
-      color,
-      width: selectedNodeId === nodeId ? 3 : 2,
+      color: 0xffffff,
+      width: selected ? 3 : 2,
     });
   }
 
@@ -582,7 +688,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       startX: start.x,
       startY: start.y,
     };
-    selectNode(sourceNodeId);
+    selectOnlyNode(sourceNodeId);
     viewport.plugins.pause("decelerate");
     setPortVisualState(sourceNodeId, sourcePortId, "active");
     temporaryEdgeUpdateCount += 1;
@@ -599,6 +705,69 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
         setPortVisualState(node.id, port.id, "idle");
       }
     }
+  }
+
+  function startMarqueeSelection(screen) {
+    const world = viewport.toWorld(screen);
+    drawingMarquee = {
+      endX: world.x,
+      endY: world.y,
+      startX: world.x,
+      startY: world.y,
+    };
+    viewport.plugins.pause("decelerate");
+    marqueeUpdateCount += 1;
+    drawMarqueeSelection();
+  }
+
+  function updateMarqueeSelection(screen) {
+    if (!drawingMarquee) {
+      return;
+    }
+    const world = viewport.toWorld(screen);
+    drawingMarquee.endX = world.x;
+    drawingMarquee.endY = world.y;
+    marqueeUpdateCount += 1;
+    drawMarqueeSelection();
+  }
+
+  function commitMarqueeSelection() {
+    if (!drawingMarquee) {
+      return;
+    }
+    const bounds = marqueeBounds(drawingMarquee);
+    const intersectingNodeIds = nodes
+      .filter((node) => rectanglesIntersect(bounds, nodeBounds(node)))
+      .map((node) => node.id);
+    setSelectedNodeIds(intersectingNodeIds);
+    finishMarqueeSelection();
+  }
+
+  function cancelMarqueeSelection() {
+    if (!drawingMarquee) {
+      return;
+    }
+    finishMarqueeSelection();
+  }
+
+  function finishMarqueeSelection() {
+    drawingMarquee = null;
+    marqueeGraphics.clear();
+    marqueeUpdateCount += 1;
+    viewport.plugins.resume("decelerate");
+  }
+
+  function drawMarqueeSelection() {
+    marqueeGraphics.clear();
+    if (!drawingMarquee) {
+      return;
+    }
+    const bounds = marqueeBounds(drawingMarquee);
+    marqueeGraphics
+      .rect(bounds.x, bounds.y, bounds.width, bounds.height)
+      .fill({ alpha: 0.14, color: 0x38bdf8 })
+      .rect(bounds.x, bounds.y, bounds.width, bounds.height)
+      .stroke({ alpha: 0.9, color: 0xbae6fd, width: 2 });
   }
 
   function updateActiveTargetPort(screen) {
@@ -785,6 +954,10 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     };
   }
 
+  function firstSelectedNodeId() {
+    return selectedNodeIds.values().next().value ?? null;
+  }
+
   function requireNode(nodeId) {
     const node = nodes.find((candidate) => candidate.id === nodeId);
     if (!node) {
@@ -800,141 +973,4 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     }
     return portId;
   }
-}
-
-function portWorldPosition(node, portId) {
-  const position = portLocalPosition(node, portId);
-  return new Point(node.x + position.x, node.y + position.y);
-}
-
-function portLocalPosition(node, portId) {
-  const port = requirePort(portId);
-  return {
-    x: port.xOffset >= 0 ? port.xOffset : node.width + port.xOffset,
-    y: node.height * port.yRatio,
-  };
-}
-
-function requirePort(portId) {
-  const port = ports.find((candidate) => candidate.id === portId);
-  if (!port) {
-    throw new Error(`unknown workspace port: ${portId}`);
-  }
-  return port;
-}
-
-function portKey(nodeId, portId) {
-  return `${nodeId}:${portId}`;
-}
-
-function parsePortKey(key) {
-  const [nodeId, portId] = key.split(":");
-  if (!nodeId || !portId) {
-    throw new Error(`invalid workspace port key: ${key}`);
-  }
-  return { nodeId, portId };
-}
-
-function isNonBackgroundColor(red, green, blue) {
-  return (
-    Math.abs(red - backgroundRed) > 3 ||
-    Math.abs(green - backgroundGreen) > 3 ||
-    Math.abs(blue - backgroundBlue) > 3
-  );
-}
-
-function drawGrid(grid) {
-  grid.clear();
-  for (let position = -2000; position <= 2000; position += 48) {
-    grid.moveTo(position, -2000).lineTo(position, 2000);
-    grid.moveTo(-2000, position).lineTo(2000, position);
-  }
-  grid.stroke({ alpha: 0.22, color: 0x334155, width: 1 });
-  for (let position = -2000; position <= 2000; position += 240) {
-    grid.moveTo(position, -2000).lineTo(position, 2000);
-    grid.moveTo(-2000, position).lineTo(2000, position);
-  }
-  grid.stroke({ alpha: 0.28, color: 0x64748b, width: 1.5 });
-}
-
-function hostScreenSize(host) {
-  return {
-    height: Math.max(1, Math.floor(host.clientHeight || window.innerHeight || 1)),
-    width: Math.max(1, Math.floor(host.clientWidth || window.innerWidth || 1)),
-  };
-}
-
-function cameraState(viewport) {
-  const corner = viewport.corner;
-  return {
-    x: corner.x,
-    y: corner.y,
-    zoom: viewport.scaled,
-  };
-}
-
-function screenPointFromPointer(canvas, event) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
-  };
-}
-
-function screenPointFromWheel(canvas, event) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
-  };
-}
-
-function normalizedWheelDelta(event) {
-  const multiplier = event.deltaMode === 1 ? lineWheelPixelSize : 1;
-  return {
-    x: event.deltaX * multiplier,
-    y: event.deltaY * multiplier,
-  };
-}
-
-function isZoomWheel(event, delta) {
-  if (event.ctrlKey || event.metaKey) {
-    return true;
-  }
-  return Math.abs(delta.x) < 1 && Math.abs(delta.y) >= notchedWheelDeltaThreshold;
-}
-
-function zoomFactorFromWheel(event, delta) {
-  const sensitivity =
-    event.ctrlKey || event.metaKey ? trackpadPinchZoomSensitivity : mouseWheelZoomSensitivity;
-  return Math.exp(-delta.y * sensitivity);
-}
-
-function capturePointer(event) {
-  if (event.pointerId === undefined || event.currentTarget?.setPointerCapture === undefined) {
-    return;
-  }
-  event.currentTarget.setPointerCapture(event.pointerId);
-}
-
-function releasePointer(event) {
-  if (
-    !event ||
-    event.pointerId === undefined ||
-    event.currentTarget?.releasePointerCapture === undefined ||
-    !event.currentTarget.hasPointerCapture(event.pointerId)
-  ) {
-    return;
-  }
-  event.currentTarget.releasePointerCapture(event.pointerId);
-}
-
-function stopNativeInteraction(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  event.stopImmediatePropagation();
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
 }

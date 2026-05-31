@@ -154,9 +154,10 @@ export async function captureScreenshot(client, path) {
   await writeFile(path, Buffer.from(image.data, "base64"));
 }
 
-export async function dispatchMouseDrag(client, { from, steps = 12, to }) {
+export async function dispatchMouseDrag(client, { from, modifiers = 0, steps = 12, to }) {
   await client.call("Input.dispatchMouseEvent", {
     button: "none",
+    modifiers,
     type: "mouseMoved",
     x: from.x,
     y: from.y,
@@ -165,6 +166,7 @@ export async function dispatchMouseDrag(client, { from, steps = 12, to }) {
     button: "left",
     buttons: 1,
     clickCount: 1,
+    modifiers,
     type: "mousePressed",
     x: from.x,
     y: from.y,
@@ -174,6 +176,7 @@ export async function dispatchMouseDrag(client, { from, steps = 12, to }) {
     await client.call("Input.dispatchMouseEvent", {
       button: "left",
       buttons: 1,
+      modifiers,
       type: "mouseMoved",
       x: from.x + (to.x - from.x) * progress,
       y: from.y + (to.y - from.y) * progress,
@@ -184,6 +187,7 @@ export async function dispatchMouseDrag(client, { from, steps = 12, to }) {
     button: "left",
     buttons: 0,
     clickCount: 1,
+    modifiers,
     type: "mouseReleased",
     x: to.x,
     y: to.y,

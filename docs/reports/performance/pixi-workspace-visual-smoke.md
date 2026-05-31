@@ -124,3 +124,51 @@ for touch pinch through `pixi-viewport` and handles Chromium trackpad pinch
 wheel events directly. The automated workflow verifies mouse-drag pan,
 trackpad-style wheel pan, and wheel zoom paths. Physical Mac trackpad pan/pinch
 verification is still required to claim hardware coverage.
+
+## Multi-Select Interaction Update
+
+Date: 2026-06-04
+
+Artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260604T031346Z
+```
+
+The visual smoke workflow now also drives node selection, Cmd-click
+multi-select, Shift-drag marquee selection, Escape clearing, and grouped node
+dragging through the built Electron app.
+
+Additional scenario coverage:
+
+- Plain node click selects exactly one visible node.
+- Cmd-click adds a second visible node, then removes it when clicked again.
+- Plain empty-space click clears selection.
+- Shift-drag from empty workspace reports `interaction.drawingMarquee: true`
+  during the drag, commits multiple selected nodes on release, and does not move
+  the camera.
+- Dragging one selected node moves the selected group while leaving unselected
+  nodes stationary.
+- Escape clears selected nodes.
+- Empty-space drag still pans after marquee and grouped-drag interactions.
+- Source-port edge cancellation and commit still pass after multi-select
+  interactions.
+
+| Metric                        |    Value |
+| ----------------------------- | -------: |
+| Final edge count              |        4 |
+| Selection changes             |        7 |
+| Marquee updates               |       18 |
+| Group node drag updates       |       14 |
+| Edge redraws                  |       16 |
+| Edge commits                  |        1 |
+| Temporary edge updates        |       34 |
+| Pointer pan updates           |       12 |
+| Wheel pan updates             |        1 |
+| Wheel zoom updates            |        1 |
+| React host renders            |        1 |
+| Average recent frame interval |  8.70 ms |
+| Worst recent frame interval   | 37.10 ms |
+| Sampled pixels                |    6,001 |
+| Non-background sampled pixels |      711 |
+| Sampled color count           |       33 |

@@ -8,6 +8,7 @@ import {
   assertBuildExists,
   captureScreenshot,
   createElectronFixture,
+  dispatchKeyEvent,
   dispatchMouseDrag,
   dispatchWheel,
   launchElectronCdpContext,
@@ -22,6 +23,8 @@ import {
 } from "./electron-cdp-harness.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
+const cdpMetaModifier = 4;
+const cdpShiftModifier = 8;
 
 if (options.help) {
   console.log(
@@ -61,9 +64,73 @@ try {
   assertInitialSnapshot(initial);
   await captureScreenshot(context.client, join(artifactDir, "initial.png"));
 
+  const selectionNodes = visibleNodes(initial);
+  if (selectionNodes.length < 2) {
+    throw new Error(
+      `fewer than two visible nodes were present for selection coverage: ${JSON.stringify(initial.graph.nodes)}`,
+    );
+  }
+  const [firstNode, secondNode] = selectionNodes;
+  await dispatchMouseClick(context.client, { x: firstNode.screenX, y: firstNode.screenY });
+  await delay(100);
+  const afterPlainSelect = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterPlainSelect, [firstNode.id], "plain node click");
+
+  await dispatchMouseClick(context.client, {
+    modifiers: cdpMetaModifier,
+    x: secondNode.screenX,
+    y: secondNode.screenY,
+  });
+  await delay(100);
+  const afterCmdAdd = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterCmdAdd, [firstNode.id, secondNode.id], "Cmd-click add");
+
+  await dispatchMouseClick(context.client, {
+    modifiers: cdpMetaModifier,
+    x: secondNode.screenX,
+    y: secondNode.screenY,
+  });
+  await delay(100);
+  const afterCmdRemove = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterCmdRemove, [firstNode.id], "Cmd-click remove");
+
+  const selectionClearPoint = emptyCanvasPoint(afterCmdRemove);
+  await dispatchMouseClick(context.client, selectionClearPoint);
+  await delay(100);
+  const afterEmptySelectionClear = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterEmptySelectionClear, [], "plain empty click");
+
+  const marquee = marqueeForNodes(afterEmptySelectionClear, [firstNode.id, secondNode.id]);
+  const duringMarquee = await dispatchMouseDragWithSnapshot(context.client, {
+    from: marquee.from,
+    modifiers: cdpShiftModifier,
+    screenshotPath: join(artifactDir, "marquee-selection.png"),
+    steps: 16,
+    to: marquee.to,
+  });
+  await delay(150);
+  const afterMarquee = await getPixiSnapshot(context.client);
+  assertMarqueeCommitted(afterEmptySelectionClear, duringMarquee, afterMarquee, marquee.nodeIds);
+
+  const selectedGroupNodeIds = [...afterMarquee.interaction.selectedNodeIds];
+  const groupPrimaryNode = nodeById(afterMarquee, selectedGroupNodeIds[0]);
+  await dispatchMouseDrag(context.client, {
+    from: { x: groupPrimaryNode.screenX, y: groupPrimaryNode.screenY },
+    steps: 14,
+    to: { x: groupPrimaryNode.screenX + 86, y: groupPrimaryNode.screenY + 42 },
+  });
+  await delay(200);
+  const afterGroupDrag = await getPixiSnapshot(context.client);
+  assertGroupDragMoved(afterMarquee, afterGroupDrag, selectedGroupNodeIds);
+
+  await dispatchEscape(context.client);
+  await delay(100);
+  const afterEscapeClear = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterEscapeClear, [], "Escape clear");
+
   const panStart = {
-    x: Math.max(40, initial.canvas.clientWidth - 160),
-    y: Math.max(40, initial.canvas.clientHeight - 90),
+    x: Math.max(40, afterEscapeClear.canvas.clientWidth - 160),
+    y: Math.max(40, afterEscapeClear.canvas.clientHeight - 90),
   };
   await dispatchMouseDrag(context.client, {
     from: panStart,
@@ -71,7 +138,7 @@ try {
   });
   await delay(150);
   const afterPan = await getPixiSnapshot(context.client);
-  assertCameraMoved(initial, afterPan, "pan");
+  assertCameraMoved(afterEscapeClear, afterPan, "empty-space pan after marquee interactions");
 
   await dispatchWheel(context.client, {
     deltaY: -360,
@@ -93,27 +160,13 @@ try {
   assertCameraMoved(afterZoom, afterWheelPan, "trackpad-style wheel pan");
   assertZoomUnchanged(afterZoom, afterWheelPan, "trackpad-style wheel pan");
 
-  const dragNode = visibleNode(afterWheelPan);
-  if (!dragNode) {
-    throw new Error(
-      `no visible node was present in Pixi debug snapshot: ${JSON.stringify(afterWheelPan.graph.nodes)}`,
-    );
-  }
-  await dispatchMouseDrag(context.client, {
-    from: { x: dragNode.screenX, y: dragNode.screenY },
-    steps: 14,
-    to: { x: dragNode.screenX + 86, y: dragNode.screenY + 42 },
-  });
-  await delay(200);
-  const afterDrag = await getPixiSnapshot(context.client);
-  assertNodeMoved(afterWheelPan, afterDrag, dragNode.id);
-  const cancelPair = visiblePortPair(afterDrag);
+  const cancelPair = visiblePortPair(afterWheelPan);
   if (!cancelPair) {
     throw new Error(
-      `no visible source/target port pair was present in Pixi debug snapshot: ${JSON.stringify(afterDrag.graph.nodes)}`,
+      `no visible source/target port pair was present in Pixi debug snapshot: ${JSON.stringify(afterWheelPan.graph.nodes)}`,
     );
   }
-  const cancelPoint = emptyCanvasPoint(afterDrag);
+  const cancelPoint = emptyCanvasPoint(afterWheelPan);
   const duringCancelledEdge = await dispatchEdgeDrag(context.client, {
     from: cancelPair.source,
     screenshotPath: join(artifactDir, "edge-drawing-cancel.png"),
@@ -121,7 +174,7 @@ try {
   });
   await delay(150);
   const afterCancel = await getPixiSnapshot(context.client);
-  assertEdgeCancelled(afterDrag, duringCancelledEdge, afterCancel);
+  assertEdgeCancelled(afterWheelPan, duringCancelledEdge, afterCancel);
 
   const commitPair = visiblePortPair(afterCancel);
   if (!commitPair) {
@@ -148,9 +201,15 @@ try {
 
   await writeJson(join(artifactDir, "summary.json"), {
     afterCancel,
-    afterDrag,
+    afterCmdAdd,
+    afterCmdRemove,
+    afterEmptySelectionClear,
+    afterEscapeClear,
     afterEdgeDraw,
+    afterGroupDrag,
+    afterMarquee,
     afterPan,
+    afterPlainSelect,
     afterWheelPan,
     afterZoom,
     artifactDir,
@@ -158,7 +217,9 @@ try {
     commitPair,
     duringCancelledEdge,
     duringEdgeDraw,
+    duringMarquee,
     initial,
+    marquee,
     status: "passed",
   });
   console.log(`Pixi workspace visual smoke passed: ${artifactDir}`);
@@ -202,6 +263,91 @@ async function getPixiSnapshot(client) {
     }
     return api.getSnapshot();
   })()`);
+}
+
+async function dispatchMouseClick(client, { modifiers = 0, x, y }) {
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    modifiers,
+    type: "mouseMoved",
+    x,
+    y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    modifiers,
+    type: "mousePressed",
+    x,
+    y,
+  });
+  await delay(16);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    modifiers,
+    type: "mouseReleased",
+    x,
+    y,
+  });
+}
+
+async function dispatchMouseDragWithSnapshot(
+  client,
+  { from, modifiers = 0, screenshotPath, steps = 12, to },
+) {
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    modifiers,
+    type: "mouseMoved",
+    x: from.x,
+    y: from.y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    modifiers,
+    type: "mousePressed",
+    x: from.x,
+    y: from.y,
+  });
+  let during = null;
+  for (let step = 1; step <= steps; step += 1) {
+    const progress = step / steps;
+    await client.call("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      modifiers,
+      type: "mouseMoved",
+      x: from.x + (to.x - from.x) * progress,
+      y: from.y + (to.y - from.y) * progress,
+    });
+    await delay(16);
+    if (step === Math.floor(steps / 2)) {
+      during = await getPixiSnapshot(client);
+      if (screenshotPath) {
+        await captureScreenshot(client, screenshotPath);
+      }
+    }
+  }
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    modifiers,
+    type: "mouseReleased",
+    x: to.x,
+    y: to.y,
+  });
+  return during ?? getPixiSnapshot(client);
+}
+
+async function dispatchEscape(client) {
+  await dispatchKeyEvent(client, { code: "Escape", key: "Escape" });
+  await dispatchKeyEvent(client, { code: "Escape", key: "Escape", type: "keyUp" });
 }
 
 async function dispatchEdgeDrag(client, { from, screenshotPath, to }) {
@@ -274,6 +420,18 @@ function assertInitialSnapshot(snapshot) {
   if (!snapshot.visual.hasNonBackgroundPixels || snapshot.visual.sampledColorCount < 2) {
     throw new Error(`Pixi canvas appears blank: ${JSON.stringify(snapshot.visual)}`);
   }
+  assertSelectionDebugShape(snapshot);
+}
+
+function assertSelectionDebugShape(snapshot) {
+  if (
+    typeof snapshot.interaction.drawingMarquee !== "boolean" ||
+    !Array.isArray(snapshot.interaction.selectedNodeIds)
+  ) {
+    throw new Error(
+      `Pixi debug snapshot did not expose selection state: ${JSON.stringify(snapshot.interaction)}`,
+    );
+  }
 }
 
 function assertCameraMoved(before, after, label) {
@@ -303,23 +461,120 @@ function assertZoomUnchanged(before, after, label) {
   }
 }
 
-function assertNodeMoved(before, after, nodeId) {
-  const beforeNode = before.graph.nodes.find((node) => node.id === nodeId);
-  const afterNode = after.graph.nodes.find((node) => node.id === nodeId);
-  if (!beforeNode || !afterNode) {
-    throw new Error(`node ${nodeId} missing from debug snapshots`);
-  }
+function assertCameraUnchanged(before, after, label) {
   const moved =
-    Math.abs(afterNode.x - beforeNode.x) > 1 || Math.abs(afterNode.y - beforeNode.y) > 1;
-  if (!moved) {
+    Math.abs(after.camera.x - before.camera.x) > 0.5 ||
+    Math.abs(after.camera.y - before.camera.y) > 0.5 ||
+    Math.abs(after.camera.zoom - before.camera.zoom) > 0.005;
+  if (moved) {
     throw new Error(
-      `node ${nodeId} did not move: before=${JSON.stringify(beforeNode)} after=${JSON.stringify(afterNode)}`,
+      `camera moved during ${label}: before=${JSON.stringify(before.camera)} after=${JSON.stringify(after.camera)}`,
     );
   }
 }
 
-function visibleNode(snapshot) {
-  return snapshot.graph.nodes.find((node) => {
+function assertSelectedExactly(snapshot, expectedNodeIds, label) {
+  const actual = snapshot.interaction.selectedNodeIds;
+  const actualSet = new Set(actual);
+  const expectedSet = new Set(expectedNodeIds);
+  if (actual.length !== actualSet.size) {
+    throw new Error(`${label} reported duplicate selected nodes: ${JSON.stringify(actual)}`);
+  }
+  if (!setsEqual(actualSet, expectedSet)) {
+    throw new Error(
+      `${label} selected wrong nodes: expected=${JSON.stringify([...expectedSet])} actual=${JSON.stringify(actual)}`,
+    );
+  }
+  const expectedFirst = expectedNodeIds[0] ?? null;
+  if (snapshot.interaction.selectedNodeId !== expectedFirst) {
+    throw new Error(
+      `${label} selectedNodeId did not mirror the first selected node: expected=${expectedFirst} actual=${snapshot.interaction.selectedNodeId}`,
+    );
+  }
+}
+
+function assertMarqueeCommitted(before, during, after, targetNodeIds) {
+  if (!during.interaction.drawingMarquee) {
+    throw new Error(
+      `debug snapshot did not report active marquee selection: ${JSON.stringify(during.interaction)}`,
+    );
+  }
+  if (after.interaction.drawingMarquee) {
+    throw new Error(
+      `marquee selection remained active after release: ${JSON.stringify(after.interaction)}`,
+    );
+  }
+  if (after.interaction.selectedNodeIds.length < 2) {
+    throw new Error(
+      `marquee did not select multiple nodes: ${JSON.stringify(after.interaction.selectedNodeIds)}`,
+    );
+  }
+  for (const nodeId of targetNodeIds) {
+    if (!after.interaction.selectedNodeIds.includes(nodeId)) {
+      throw new Error(
+        `marquee did not include target node ${nodeId}: selected=${JSON.stringify(after.interaction.selectedNodeIds)}`,
+      );
+    }
+  }
+  assertCameraUnchanged(before, after, "Shift marquee selection");
+  assertRenderCounterAdvanced(before, after, "marqueeUpdateCount", "marquee update");
+  assertRenderCounterAdvanced(before, after, "selectionChangeCount", "marquee selection");
+}
+
+function assertGroupDragMoved(before, after, selectedNodeIds) {
+  if (selectedNodeIds.length < 2) {
+    throw new Error(
+      `group drag requires multiple selected nodes: ${JSON.stringify(selectedNodeIds)}`,
+    );
+  }
+  assertSelectedExactly(after, selectedNodeIds, "group drag");
+  assertCameraUnchanged(before, after, "group node drag");
+  assertRenderCounterAdvanced(before, after, "nodeDragUpdateCount", "group node drag");
+  assertRenderCounterAdvanced(before, after, "edgeRedrawCount", "group node drag edge redraw");
+
+  const primaryBefore = nodeById(before, selectedNodeIds[0]);
+  const primaryAfter = nodeById(after, selectedNodeIds[0]);
+  const delta = { x: primaryAfter.x - primaryBefore.x, y: primaryAfter.y - primaryBefore.y };
+  if (Math.abs(delta.x) < 1 && Math.abs(delta.y) < 1) {
+    throw new Error(
+      `group drag primary node did not move: before=${JSON.stringify(primaryBefore)} after=${JSON.stringify(primaryAfter)}`,
+    );
+  }
+  assertSelectedNodesMovedWithDelta(before, after, selectedNodeIds, delta);
+  assertUnselectedNodesStationary(before, after, selectedNodeIds);
+}
+
+function assertSelectedNodesMovedWithDelta(before, after, selectedNodeIds, delta) {
+  for (const nodeId of selectedNodeIds) {
+    const beforeNode = nodeById(before, nodeId);
+    const afterNode = nodeById(after, nodeId);
+    const nodeDeltaX = afterNode.x - beforeNode.x;
+    const nodeDeltaY = afterNode.y - beforeNode.y;
+    if (Math.abs(nodeDeltaX - delta.x) > 0.5 || Math.abs(nodeDeltaY - delta.y) > 0.5) {
+      throw new Error(
+        `selected node ${nodeId} did not move with the group: expectedDelta=${JSON.stringify(delta)} actualDelta=${JSON.stringify({ x: nodeDeltaX, y: nodeDeltaY })}`,
+      );
+    }
+  }
+}
+
+function assertUnselectedNodesStationary(before, after, selectedNodeIds) {
+  const selectedSet = new Set(selectedNodeIds);
+  for (const beforeNode of before.graph.nodes) {
+    if (selectedSet.has(beforeNode.id)) {
+      continue;
+    }
+    const afterNode = nodeById(after, beforeNode.id);
+    if (Math.abs(afterNode.x - beforeNode.x) > 0.5 || Math.abs(afterNode.y - beforeNode.y) > 0.5) {
+      throw new Error(
+        `unselected node ${beforeNode.id} moved during group drag: before=${JSON.stringify(beforeNode)} after=${JSON.stringify(afterNode)}`,
+      );
+    }
+  }
+}
+
+function visibleNodes(snapshot) {
+  return snapshot.graph.nodes.filter((node) => {
     return (
       node.screenX > 24 &&
       node.screenY > 24 &&
@@ -327,6 +582,46 @@ function visibleNode(snapshot) {
       node.screenY < snapshot.canvas.clientHeight - 24
     );
   });
+}
+
+function marqueeForNodes(snapshot, nodeIds) {
+  const targetNodes = nodeIds.map((nodeId) => nodeById(snapshot, nodeId));
+  const bounds = targetNodes.map((node) => nodeScreenBounds(snapshot, node));
+  const left = Math.min(...bounds.map((bound) => bound.left)) - 28;
+  const top = Math.min(...bounds.map((bound) => bound.top)) - 28;
+  const right = Math.max(...bounds.map((bound) => bound.right)) + 28;
+  const bottom = Math.max(...bounds.map((bound) => bound.bottom)) + 28;
+  return {
+    from: clampCanvasPoint(snapshot, { x: left, y: top }),
+    nodeIds,
+    to: clampCanvasPoint(snapshot, { x: right, y: bottom }),
+  };
+}
+
+function nodeById(snapshot, nodeId) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(`node ${nodeId} missing from debug snapshot`);
+  }
+  return node;
+}
+
+function nodeScreenBounds(snapshot, node) {
+  const halfWidth = (node.width * snapshot.camera.zoom) / 2;
+  const halfHeight = (node.height * snapshot.camera.zoom) / 2;
+  return {
+    bottom: node.screenY + halfHeight,
+    left: node.screenX - halfWidth,
+    right: node.screenX + halfWidth,
+    top: node.screenY - halfHeight,
+  };
+}
+
+function clampCanvasPoint(snapshot, point) {
+  return {
+    x: Math.max(12, Math.min(snapshot.canvas.clientWidth - 12, point.x)),
+    y: Math.max(12, Math.min(snapshot.canvas.clientHeight - 12, point.y)),
+  };
 }
 
 function visiblePortPair(snapshot) {
@@ -383,16 +678,30 @@ function emptyCanvasPoint(snapshot) {
   ];
   const ports = snapshot.graph.nodes.flatMap((node) => node.ports);
   const point = candidates.find((candidate) => {
-    return ports.every(
+    const awayFromPorts = ports.every(
       (port) => Math.hypot(candidate.x - port.screenX, candidate.y - port.screenY) > 72,
     );
+    const outsideNodes = snapshot.graph.nodes.every((node) => {
+      return !pointInsideNodeScreenBounds(snapshot, node, candidate, 24);
+    });
+    return awayFromPorts && outsideNodes;
   });
   if (!point) {
     throw new Error(
-      `could not find an empty canvas point away from visible ports: ${JSON.stringify(ports)}`,
+      `could not find an empty canvas point away from visible nodes and ports: nodes=${JSON.stringify(snapshot.graph.nodes)} ports=${JSON.stringify(ports)}`,
     );
   }
   return point;
+}
+
+function pointInsideNodeScreenBounds(snapshot, node, point, padding) {
+  const bounds = nodeScreenBounds(snapshot, node);
+  return (
+    point.x >= bounds.left - padding &&
+    point.x <= bounds.right + padding &&
+    point.y >= bounds.top - padding &&
+    point.y <= bounds.bottom + padding
+  );
 }
 
 function assertEdgeCancelled(before, during, after) {
@@ -505,6 +814,8 @@ function assertRendererFramesHealthy(snapshot) {
   assertPositiveRenderCounters(snapshot, [
     "nodeDragUpdateCount",
     "pointerPanUpdateCount",
+    "marqueeUpdateCount",
+    "selectionChangeCount",
     "wheelPanUpdateCount",
     "wheelZoomUpdateCount",
     "cameraUpdateCount",
@@ -533,4 +844,16 @@ function assertPositiveRenderCounters(snapshot, counters) {
       );
     }
   }
+}
+
+function setsEqual(left, right) {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const value of left) {
+    if (!right.has(value)) {
+      return false;
+    }
+  }
+  return true;
 }

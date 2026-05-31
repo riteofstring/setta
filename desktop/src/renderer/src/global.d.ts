@@ -42,7 +42,9 @@ interface PixiWorkspaceDebugSnapshot {
   };
   interaction: {
     drawingEdge: boolean;
+    drawingMarquee: boolean;
     selectedNodeId: string | null;
+    selectedNodeIds: string[];
   };
   render: {
     averageFrameMs: number;
@@ -50,10 +52,12 @@ interface PixiWorkspaceDebugSnapshot {
     edgeCommitCount: number;
     edgeRedrawCount: number;
     frameCount: number;
+    marqueeUpdateCount: number;
     nodeDragUpdateCount: number;
     pointerPanUpdateCount: number;
     reactRenderCount: number;
     recentFrameMs: number[];
+    selectionChangeCount: number;
     temporaryEdgeUpdateCount: number;
     wheelPanUpdateCount: number;
     wheelZoomUpdateCount: number;
