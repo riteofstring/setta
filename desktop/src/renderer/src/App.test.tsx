@@ -116,6 +116,8 @@ describe("workspace renderer states", () => {
     expect(html).toContain('dateTime="2026-05-29T20:00:00Z"');
     expect(html).toContain('data-testid="conversation-hover-card"');
     expect(html).toContain("No branch");
+    expect(html).toContain('title="/tmp/web"');
+    expect(html).toContain('title="/tmp/api"');
     expect(html).toContain("New chat in web");
     expect(html).toContain("Search");
     expect(html).toContain("More options for web");

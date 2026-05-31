@@ -822,7 +822,10 @@ function RecentWorkspaceRow({
   workspace: WorkspaceSummary;
 }) {
   return (
-    <div className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60">
+    <div
+      className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60"
+      title={workspace.rootPath}
+    >
       <div className="flex min-w-0 items-center gap-2 px-2">
         <Workflow className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
         <span className="truncate text-xs text-zinc-500">{workspace.displayName}</span>
