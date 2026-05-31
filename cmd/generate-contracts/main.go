@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 
 	"setta/internal/chat"
 	"setta/internal/httpapi"
-	"setta/internal/provideraccounts"
 )
 
 type contractSpec struct {
@@ -21,7 +19,6 @@ type contractSpec struct {
 	ErrorResponse reflect.Type
 	Events        []eventSpec
 	Interfaces    []interfaceSpec
-	ValueSets     []valueSetSpec
 }
 
 type endpointSpec struct {
@@ -39,11 +36,6 @@ type interfaceSpec struct {
 	Type reflect.Type
 }
 
-type valueSetSpec struct {
-	Name   string
-	Values []string
-}
-
 type eventSpec struct {
 	Name    string
 	Payload reflect.Type
@@ -51,22 +43,16 @@ type eventSpec struct {
 }
 
 type decoderHelpers struct {
-	Array    bool
-	Boolean  bool
-	Integer  bool
-	Map      bool
-	Nullable bool
-	String   bool
-	Unknown  bool
+	Array   bool
+	Boolean bool
+	Integer bool
+	String  bool
 }
 
 type contractCollector struct {
-	specs          []interfaceSpec
-	states         map[reflect.Type]visitState
-	names          map[string]reflect.Type
-	valueSets      map[string]valueSetSpec
-	usedValueSets  []valueSetSpec
-	usedValueNames map[string]bool
+	specs  []interfaceSpec
+	states map[reflect.Type]visitState
+	names  map[string]reflect.Type
 }
 
 type visitState int
@@ -103,15 +89,9 @@ func main() {
 }
 
 func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContractSchema) (contractSpec, error) {
-	valueSets, err := valueSetSpecs(contractValueSets())
-	if err != nil {
-		return contractSpec{}, err
-	}
 	collector := contractCollector{
-		states:         map[reflect.Type]visitState{},
-		names:          map[string]reflect.Type{},
-		valueSets:      valueSets,
-		usedValueNames: map[string]bool{},
+		states: map[reflect.Type]visitState{},
+		names:  map[string]reflect.Type{},
 	}
 	endpoints, err := endpointSpecs(schema.Endpoints, &collector)
 	if err != nil {
@@ -130,45 +110,7 @@ func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContract
 		ErrorResponse: errorResponse,
 		Events:        events,
 		Interfaces:    collector.specs,
-		ValueSets:     collector.usedValueSets,
 	}, nil
-}
-
-func contractValueSets() []chat.ContractValueSet {
-	sets := chat.ContractValueSets()
-	for _, set := range provideraccounts.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
-	return sets
-}
-
-func valueSetSpecs(registry []chat.ContractValueSet) (map[string]valueSetSpec, error) {
-	specs := map[string]valueSetSpec{}
-	for _, valueSet := range registry {
-		if !isTypeScriptIdentifier(valueSet.Name) || !isUpperASCII(valueSet.Name[0]) {
-			return nil, fmt.Errorf("unsupported value set name %s", valueSet.Name)
-		}
-		if _, exists := specs[valueSet.Name]; exists {
-			return nil, fmt.Errorf("duplicate value set %s", valueSet.Name)
-		}
-		if len(valueSet.Values) == 0 {
-			return nil, fmt.Errorf("%s value set is empty", valueSet.Name)
-		}
-		seenValues := map[string]bool{}
-		values := make([]string, 0, len(valueSet.Values))
-		for _, value := range valueSet.Values {
-			if value == "" {
-				return nil, fmt.Errorf("%s value set contains an empty value", valueSet.Name)
-			}
-			if seenValues[value] {
-				return nil, fmt.Errorf("%s value set contains duplicate value %q", valueSet.Name, value)
-			}
-			seenValues[value] = true
-			values = append(values, value)
-		}
-		specs[valueSet.Name] = valueSetSpec{Name: valueSet.Name, Values: values}
-	}
-	return specs, nil
 }
 
 func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractCollector) ([]endpointSpec, error) {
@@ -321,48 +263,16 @@ func (collector *contractCollector) add(goType reflect.Type) error {
 	if goType == nil {
 		return nil
 	}
-	if isJSONRawMessage(goType) {
-		return nil
-	}
 	switch goType.Kind() {
-	case reflect.Bool, reflect.Int:
+	case reflect.Bool, reflect.Int, reflect.String:
 		return nil
-	case reflect.String:
-		return collector.addStringAlias(goType)
 	case reflect.Slice:
-		return collector.add(goType.Elem())
-	case reflect.Map:
-		return collector.addMap(goType)
-	case reflect.Pointer:
 		return collector.add(goType.Elem())
 	case reflect.Struct:
 		return collector.addStruct(goType)
 	default:
 		return fmt.Errorf("unsupported Go type %s", goType)
 	}
-}
-
-func (collector *contractCollector) addStringAlias(goType reflect.Type) error {
-	if goType.Name() == "" || goType.PkgPath() == "" {
-		return nil
-	}
-	spec, ok := collector.valueSets[goType.Name()]
-	if !ok {
-		return fmt.Errorf("named string contract type %s has no registered value set", goType)
-	}
-	if collector.usedValueNames[spec.Name] {
-		return nil
-	}
-	collector.usedValueNames[spec.Name] = true
-	collector.usedValueSets = append(collector.usedValueSets, spec)
-	return nil
-}
-
-func (collector *contractCollector) addMap(goType reflect.Type) error {
-	if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
-		return fmt.Errorf("unsupported Go map type %s", goType)
-	}
-	return nil
 }
 
 func (collector *contractCollector) addStruct(goType reflect.Type) error {
@@ -439,7 +349,6 @@ func skipContractField(field reflect.StructField, jsonName string) bool {
 func render(buffer *bytes.Buffer, specs contractSpec) error {
 	buffer.WriteString("// Code generated by go run ./cmd/generate-contracts; DO NOT EDIT.\n\n")
 	renderRuntimeImports(buffer, specs)
-	renderValueSets(buffer, specs.ValueSets)
 	if err := renderInterfaces(buffer, specs.Interfaces); err != nil {
 		return err
 	}
@@ -451,40 +360,6 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 	renderEventDecoders(buffer, specs.Events)
 	renderClient(buffer, specs)
 	return nil
-}
-
-func renderValueSets(buffer *bytes.Buffer, specs []valueSetSpec) {
-	for _, spec := range specs {
-		fmt.Fprintf(buffer, "export type %s = %s;\n\n", spec.Name, literalUnion(spec.Values))
-		fmt.Fprintf(buffer, "export const %sValues = [%s] as const satisfies readonly %s[];\n\n", lowerCamel(spec.Name), literalList(spec.Values), spec.Name)
-		fmt.Fprintf(buffer, "export function decode%s(value: unknown, label = %q): %s {\n", spec.Name, spec.Name, spec.Name)
-		buffer.WriteString("  const decoded = decodeString(value, label);\n")
-		buffer.WriteString("  switch (decoded) {\n")
-		for _, value := range spec.Values {
-			fmt.Fprintf(buffer, "    case %q:\n", value)
-			buffer.WriteString("      return decoded;\n")
-		}
-		buffer.WriteString("    default:\n")
-		buffer.WriteString("      throw new Error(label + \" is unsupported: \" + decoded);\n")
-		buffer.WriteString("  }\n")
-		buffer.WriteString("}\n\n")
-	}
-}
-
-func literalList(values []string) string {
-	quoted := make([]string, 0, len(values))
-	for _, value := range values {
-		quoted = append(quoted, fmt.Sprintf("%q", value))
-	}
-	return strings.Join(quoted, ", ")
-}
-
-func literalUnion(values []string) string {
-	quoted := make([]string, 0, len(values))
-	for _, value := range values {
-		quoted = append(quoted, fmt.Sprintf("%q", value))
-	}
-	return strings.Join(quoted, " | ")
 }
 
 func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
@@ -502,17 +377,8 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 	if helpers.Integer {
 		imports = append(imports, "decodeInteger")
 	}
-	if helpers.Map {
-		imports = append(imports, "decodeStringRecord")
-	}
-	if helpers.Nullable {
-		imports = append(imports, "decodeNullable")
-	}
 	if helpers.String {
 		imports = append(imports, "decodeString")
-	}
-	if helpers.Unknown {
-		imports = append(imports, "decodeUnknown")
 	}
 	imports = append(imports,
 		"requestBackend",
@@ -695,10 +561,6 @@ func decoderHelperUsage(specs []interfaceSpec, events []eventSpec) decoderHelper
 }
 
 func markDecoderHelperUsage(goType reflect.Type, helpers *decoderHelpers) {
-	if isJSONRawMessage(goType) {
-		helpers.Unknown = true
-		return
-	}
 	switch goType.Kind() {
 	case reflect.Bool:
 		helpers.Boolean = true
@@ -708,11 +570,6 @@ func markDecoderHelperUsage(goType reflect.Type, helpers *decoderHelpers) {
 		helpers.String = true
 	case reflect.Slice:
 		helpers.Array = true
-		markDecoderHelperUsage(goType.Elem(), helpers)
-	case reflect.Map:
-		helpers.Map = true
-	case reflect.Pointer:
-		helpers.Nullable = true
 		markDecoderHelperUsage(goType.Elem(), helpers)
 	}
 }
@@ -771,66 +628,24 @@ func renderRequestBackendProperties(buffer *bytes.Buffer, endpoint endpointSpec,
 }
 
 func decoderExpression(goType reflect.Type, valueExpr string, label string) (string, error) {
-	if isJSONRawMessage(goType) {
-		return fmt.Sprintf("decodeUnknown(%s, %q)", valueExpr, label), nil
-	}
 	switch goType.Kind() {
-	case reflect.Bool, reflect.Int, reflect.String:
-		return scalarDecoderExpression(goType, valueExpr, label), nil
+	case reflect.Bool:
+		return fmt.Sprintf("decodeBoolean(%s, %q)", valueExpr, label), nil
+	case reflect.Int:
+		return fmt.Sprintf("decodeInteger(%s, %q)", valueExpr, label), nil
+	case reflect.String:
+		return fmt.Sprintf("decodeString(%s, %q)", valueExpr, label), nil
 	case reflect.Slice:
-		return arrayDecoderExpression(goType, valueExpr, label)
-	case reflect.Map:
-		return mapDecoderExpression(goType, valueExpr, label)
-	case reflect.Pointer:
-		return pointerDecoderExpression(goType, valueExpr, label)
+		item, err := decoderExpression(goType.Elem(), "item", label+" item")
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("decodeArray(%s, %q, (item) => %s)", valueExpr, label, item), nil
 	case reflect.Struct:
-		return structDecoderExpression(goType, valueExpr), nil
+		return fmt.Sprintf("%s(%s)", decoderFunctionName(goType), valueExpr), nil
 	default:
 		return "", fmt.Errorf("unsupported Go type %s", goType)
 	}
-}
-
-func scalarDecoderExpression(goType reflect.Type, valueExpr string, label string) string {
-	switch goType.Kind() {
-	case reflect.Bool:
-		return fmt.Sprintf("decodeBoolean(%s, %q)", valueExpr, label)
-	case reflect.Int:
-		return fmt.Sprintf("decodeInteger(%s, %q)", valueExpr, label)
-	case reflect.String:
-		if goType.Name() != "" && goType.PkgPath() != "" {
-			return fmt.Sprintf("%s(%s, %q)", decoderFunctionName(goType), valueExpr, label)
-		}
-		return fmt.Sprintf("decodeString(%s, %q)", valueExpr, label)
-	default:
-		panic(fmt.Sprintf("unsupported scalar Go type %s", goType))
-	}
-}
-
-func arrayDecoderExpression(goType reflect.Type, valueExpr string, label string) (string, error) {
-	item, err := decoderExpression(goType.Elem(), "item", label+" item")
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("decodeArray(%s, %q, (item) => %s)", valueExpr, label, item), nil
-}
-
-func mapDecoderExpression(goType reflect.Type, valueExpr string, label string) (string, error) {
-	if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
-		return "", fmt.Errorf("unsupported Go map type %s", goType)
-	}
-	return fmt.Sprintf("decodeStringRecord(%s, %q)", valueExpr, label), nil
-}
-
-func pointerDecoderExpression(goType reflect.Type, valueExpr string, label string) (string, error) {
-	item, err := decoderExpression(goType.Elem(), "item", label)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("decodeNullable(%s, %q, (item) => %s)", valueExpr, label, item), nil
-}
-
-func structDecoderExpression(goType reflect.Type, valueExpr string) string {
-	return fmt.Sprintf("%s(%s)", decoderFunctionName(goType), valueExpr)
 }
 
 func fieldNameLiterals(goType reflect.Type) string {
@@ -859,69 +674,27 @@ func jsonName(field reflect.StructField) string {
 }
 
 func typeScriptType(goType reflect.Type) (string, error) {
-	if isJSONRawMessage(goType) {
-		return "unknown", nil
-	}
 	switch goType.Kind() {
-	case reflect.Bool, reflect.Int, reflect.String:
-		return scalarTypeScriptType(goType), nil
+	case reflect.Bool:
+		return "boolean", nil
+	case reflect.Int:
+		return "number", nil
+	case reflect.String:
+		return "string", nil
 	case reflect.Slice:
-		return arrayTypeScriptType(goType)
-	case reflect.Map:
-		return mapTypeScriptType(goType)
-	case reflect.Pointer:
-		return pointerTypeScriptType(goType)
+		elementType, err := typeScriptType(goType.Elem())
+		if err != nil {
+			return "", err
+		}
+		return elementType + "[]", nil
 	case reflect.Struct:
-		return structTypeScriptType(goType)
+		if goType.Name() == "" {
+			return "", fmt.Errorf("unsupported anonymous Go struct %s", goType)
+		}
+		return goType.Name(), nil
 	default:
 		return "", fmt.Errorf("unsupported Go type %s", goType)
 	}
-}
-
-func scalarTypeScriptType(goType reflect.Type) string {
-	switch goType.Kind() {
-	case reflect.Bool:
-		return "boolean"
-	case reflect.Int:
-		return "number"
-	case reflect.String:
-		if goType.Name() != "" && goType.PkgPath() != "" {
-			return goType.Name()
-		}
-		return "string"
-	default:
-		panic(fmt.Sprintf("unsupported scalar Go type %s", goType))
-	}
-}
-
-func arrayTypeScriptType(goType reflect.Type) (string, error) {
-	elementType, err := typeScriptType(goType.Elem())
-	if err != nil {
-		return "", err
-	}
-	return elementType + "[]", nil
-}
-
-func mapTypeScriptType(goType reflect.Type) (string, error) {
-	if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
-		return "", fmt.Errorf("unsupported Go map type %s", goType)
-	}
-	return "Record<string, string>", nil
-}
-
-func pointerTypeScriptType(goType reflect.Type) (string, error) {
-	elementType, err := typeScriptType(goType.Elem())
-	if err != nil {
-		return "", err
-	}
-	return elementType + " | null", nil
-}
-
-func structTypeScriptType(goType reflect.Type) (string, error) {
-	if goType.Name() == "" {
-		return "", fmt.Errorf("unsupported anonymous Go struct %s", goType)
-	}
-	return goType.Name(), nil
 }
 
 func decoderFunctionName(goType reflect.Type) string {
@@ -933,10 +706,6 @@ func typeName(goType reflect.Type) string {
 		return ""
 	}
 	return goType.Name()
-}
-
-func isJSONRawMessage(goType reflect.Type) bool {
-	return goType == reflect.TypeFor[json.RawMessage]()
 }
 
 func lowerCamel(value string) string {

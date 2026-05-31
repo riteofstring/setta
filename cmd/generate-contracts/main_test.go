@@ -8,7 +8,6 @@ import (
 
 	"setta/internal/chat"
 	"setta/internal/httpapi"
-	"setta/internal/provideraccounts"
 )
 
 type ContractTestLeaf struct {
@@ -20,8 +19,7 @@ type ContractTestRequest struct {
 }
 
 type ContractTestResponse struct {
-	Items  []ContractTestLeaf `json:"items"`
-	Labels map[string]string  `json:"labels"`
+	Items []ContractTestLeaf `json:"items"`
 }
 
 type ContractTestError struct {
@@ -138,8 +136,6 @@ func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 		"type: \"chat.contract_test\";",
 		"export function decodeChatEvent(value: unknown): ChatEvent",
 		"export function decodeContractTestResponse(value: unknown): ContractTestResponse",
-		"labels: Record<string, string>;",
-		"labels: decodeStringRecord(requireField(record, \"labels\", \"ContractTestResponse\"), \"ContractTestResponse.labels\")",
 		"contractTest: (request: ContractTestRequest) => Promise<ContractTestResponse>;",
 		"contractTestHealth: () => Promise<ContractTestLeaf>;",
 		"contractTest: (request) => requestBackend({",
@@ -163,76 +159,6 @@ func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 	} {
 		if strings.Contains(output, unexpected) {
 			t.Fatalf("generated output contains stable runtime block %q:\n%s", unexpected, output)
-		}
-	}
-}
-
-func TestRenderIncludesLiteralUnionValueSets(t *testing.T) {
-	specs, err := contractSpecs(httpapi.ContractSchema{
-		Endpoints: []httpapi.ContractEndpoint{{
-			Name:     "ContractTestRun",
-			Method:   "GET",
-			Path:     "/contract-test/run",
-			Response: reflect.TypeFor[chat.Run](),
-		}},
-		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
-	if err != nil {
-		t.Fatalf("collect contracts: %v", err)
-	}
-
-	var buffer bytes.Buffer
-	if err := render(&buffer, specs); err != nil {
-		t.Fatalf("render contracts: %v", err)
-	}
-	output := buffer.String()
-
-	for _, expected := range []string{
-		"export type RunStatus = \"queued\" | \"running\" | \"completed\" | \"cancelled\" | \"failed\";",
-		"export function decodeRunStatus(value: unknown, label = \"RunStatus\"): RunStatus",
-		"status: RunStatus;",
-		"status: decodeRunStatus(requireField(record, \"status\", \"Run\"), \"Run.status\")",
-		"pendingApproval: ApprovalRequest | null;",
-		"pendingApproval: decodeNullable(requireField(record, \"pendingApproval\", \"Run\"), \"Run.pendingApproval\", (item) => decodeApprovalRequest(item))",
-		"kind: ApprovalKind;",
-		"kind: decodeApprovalKind(requireField(record, \"kind\", \"ApprovalRequest\"), \"ApprovalRequest.kind\")",
-	} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("generated output missing %q:\n%s", expected, output)
-		}
-	}
-}
-
-func TestRenderIncludesProviderAccountValueSets(t *testing.T) {
-	specs, err := contractSpecs(httpapi.ContractSchema{
-		Endpoints: []httpapi.ContractEndpoint{{
-			Name:     "ContractTestProviderAccount",
-			Method:   "GET",
-			Path:     "/contract-test/provider-account",
-			Response: reflect.TypeFor[provideraccounts.ProviderAccountSummary](),
-		}},
-		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	}, chat.EventContractSchema{})
-	if err != nil {
-		t.Fatalf("collect contracts: %v", err)
-	}
-
-	var buffer bytes.Buffer
-	if err := render(&buffer, specs); err != nil {
-		t.Fatalf("render contracts: %v", err)
-	}
-	output := buffer.String()
-
-	for _, expected := range []string{
-		"export type ChatGPTPlanType = \"business\"",
-		"export const chatGPTPlanTypeValues = [\"business\"",
-		"provider: ProviderAccountProvider;",
-		"authMode: ProviderAccountAuthMode;",
-		"planType: ChatGPTPlanType | null;",
-		"planType: decodeNullable(requireField(record, \"planType\", \"ProviderAccountSummary\"), \"ProviderAccountSummary.planType\", (item) => decodeChatGPTPlanType(item, \"ProviderAccountSummary.planType\"))",
-	} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("generated output missing %q:\n%s", expected, output)
 		}
 	}
 }

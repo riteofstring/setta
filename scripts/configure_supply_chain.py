@@ -15,8 +15,7 @@ IGNORED_PROJECT_PARTS = (
     "node_modules",
 )
 LOCAL_POLICY_FILE = Path("supply_chain_policy.env")
-NPMRC_RELEASE_AGE_KEY = "minimum-release-age"
-STALE_NPMRC_RELEASE_AGE_KEYS = ("min-release-age", "minimumReleaseAge")
+NPMRC_KEY_ALIASES = ("minimum-release-age", "min-release-age", "minimumReleaseAge")
 
 
 def parse_args() -> argparse.Namespace:
@@ -96,24 +95,12 @@ def npmrc_key(line: str) -> str | None:
     return stripped.split("=", 1)[0].strip()
 
 
-def validate_npmrc_release_age_keys(path: Path, lines: list[str]) -> None:
-    for line in lines:
-        key = npmrc_key(line)
-        if key in STALE_NPMRC_RELEASE_AGE_KEYS:
-            raise ValueError(
-                f"{path} uses stale npmrc key {key}; remove it and use {NPMRC_RELEASE_AGE_KEY}"
-            )
-
-
-def upsert_release_age_npmrc_lines(
-    path: Path, lines: list[str], *, minutes: int
-) -> list[str]:
-    validate_npmrc_release_age_keys(path, lines)
-    policy_line = f"{NPMRC_RELEASE_AGE_KEY}={minutes}"
+def normalize_release_age_npmrc_lines(lines: list[str], *, minutes: int) -> list[str]:
+    policy_line = f"minimum-release-age={minutes}"
     kept_lines: list[str] = []
     insert_at: int | None = None
     for line in lines:
-        if npmrc_key(line) != NPMRC_RELEASE_AGE_KEY:
+        if npmrc_key(line) not in NPMRC_KEY_ALIASES:
             kept_lines.append(line)
             continue
         if insert_at is None:
@@ -126,8 +113,8 @@ def upsert_release_age_npmrc_lines(
 
 
 def upsert_npmrc(path: Path, *, days: int) -> None:
-    updated_lines = upsert_release_age_npmrc_lines(
-        path, load_npmrc_lines(path), minutes=days_to_minutes(days)
+    updated_lines = normalize_release_age_npmrc_lines(
+        load_npmrc_lines(path), minutes=days_to_minutes(days)
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(updated_lines).rstrip() + "\n", encoding="utf-8")
@@ -218,7 +205,5 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except ValueError as exc:
-        raise SystemExit(str(exc)) from exc
     except subprocess.CalledProcessError as exc:
         raise SystemExit(exc.returncode) from exc

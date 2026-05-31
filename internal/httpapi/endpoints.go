@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"setta/internal/chat"
-	"setta/internal/provideraccounts"
 	"setta/internal/workspacesession"
 )
 
@@ -42,23 +41,10 @@ var apiEndpoints = []endpoint{
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[GetMessagePageRequest, chat.MessagePage]("GetMessagePage", "/chat/messages/page", handler.getMessagePage),
 	post[SendChatMessageRequest, chat.SendMessageResult]("SendChatMessage", "/chat/messages/send", handler.sendChatMessage),
-	post[QueueChatMessageRequest, chat.QueueMessageResult]("QueueChatMessage", "/chat/messages/queue", handler.queueChatMessage),
-	post[SteerChatMessageRequest, chat.SteerMessageResult]("SteerChatMessage", "/chat/messages/steer", handler.steerChatMessage),
-	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
-	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
+	post[UpdateUserMessageRequest, chat.ChatMessage]("UpdateUserMessage", "/chat/messages/update-user", handler.updateUserMessage),
 	post[CancelRunRequest, chat.Run]("CancelRun", "/chat/runs/cancel", handler.cancelRun),
 	post[GetActiveRunRequest, GetActiveRunResponse]("GetActiveRun", "/chat/runs/active", handler.getActiveRun),
-	post[ListRunsRequest, ListRunsResponse]("ListRuns", "/chat/runs/list", handler.listRuns),
-	post[GetRunActivityRequest, chat.RunActivityPage]("GetRunActivity", "/chat/runs/activity", handler.getRunActivity),
-	post[GetRunItemOutputRequest, chat.RunItemOutputPage]("GetRunItemOutputPage", "/chat/runs/item-output", handler.getRunItemOutput),
-	post[ListDiagnosticsRequest, ListDiagnosticsResponse]("ListDiagnostics", "/chat/diagnostics/list", handler.listDiagnostics),
-	post[QuarantineCorruptChatStateRequest, chat.ChatMaintenanceResult]("QuarantineCorruptChatState", "/chat/maintenance/quarantine-corrupt", handler.quarantineCorruptChatState),
-	post[ResetWorkspaceChatStateRequest, chat.ChatMaintenanceResult]("ResetWorkspaceChatState", "/chat/maintenance/reset-workspace", handler.resetWorkspaceChatState),
-	post[ClearChatQuarantineRequest, chat.ChatMaintenanceResult]("ClearChatQuarantine", "/chat/maintenance/clear-quarantine", handler.clearChatQuarantine),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
-	get[provideraccounts.ProviderAccounts]("ListProviderAccounts", "/provider-accounts", handler.listProviderAccounts),
-	post[provideraccounts.SaveChatGPTAuthRequest, provideraccounts.ProviderAccounts]("SaveChatGPTAuth", "/provider-accounts/chatgpt-auth/save", handler.saveChatGPTAuth),
-	post[provideraccounts.ClearChatGPTAuthRequest, provideraccounts.ProviderAccounts]("ClearChatGPTAuth", "/provider-accounts/chatgpt-auth/clear", handler.clearChatGPTAuth),
 	stream("EventStream", "/events", handler.eventStream),
 }
 

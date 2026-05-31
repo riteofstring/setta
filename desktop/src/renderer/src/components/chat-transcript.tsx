@@ -1,52 +1,34 @@
-import type {
-  ApprovalAnswer,
-  ApprovalRequest,
-  ApprovalQuestion,
-  ChatMessage,
-  MessageDelivery,
-  MessageRole,
-  MessageStatus,
-  Run,
-  RunItem,
-  RunItemOutput,
-  TranscriptTurn,
-} from "@generated/backend";
-import { ArrowDown, Check, ChevronUp, X } from "lucide-react";
+import type { ApprovalAnswer, ApprovalQuestion, ChatMessage, Run } from "@generated/backend";
 import {
-  memo,
-  type KeyboardEvent,
-  type UIEvent,
-  type WheelEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+  ArrowDown,
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Copy,
+  Pencil,
+  Pin,
+  RotateCcw,
+  Search,
+  Wrench,
+  X,
+} from "lucide-react";
+import type { ReactNode, RefObject } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from "./ui/button";
+import { cn } from "../lib/utils";
+import { AsciiSpinner } from "./ascii-spinner";
 import { MarkdownText } from "./markdown-text";
-import { RunActivityRows } from "./chat-run-activity";
-import { StructuredInputApproval } from "./structured-input-approval";
-import type { RunItemOutputPageState } from "../stores/chat-store";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
   hasMoreOlder: boolean;
   loadOlder: () => Promise<void>;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
+  messages: ChatMessage[];
+  onSearchOpenChange?: (open: boolean) => void;
+  searchOpen?: boolean;
   submitApproval: (
     approvalId: string,
     approved: boolean,
@@ -54,614 +36,854 @@ export interface ChatTranscriptProps {
     answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
-  transcript: TranscriptTurn[];
+  updateUserMessage?: (messageId: string, text: string) => Promise<void>;
 }
-
-interface TranscriptIndexes {
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-  turns: TranscriptTurn[];
-}
-
-type TranscriptTimelineItem =
-  | { kind: "message"; message: ChatMessage; ordinal: number }
-  | { kind: "turn"; ordinal: number; turn: TranscriptTurn };
-
-function transcriptIndexes(props: {
-  messageIds: string[];
-  messagesById: Record<string, ChatMessage>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-  transcript: TranscriptTurn[];
-}): TranscriptIndexes {
-  return {
-    messageIds: props.messageIds,
-    messagesById: props.messagesById,
-    runItemIdsByRunId: props.runItemIdsByRunId,
-    runItemOutputIdsByRunItemId: props.runItemOutputIdsByRunItemId,
-    runItemOutputsById: props.runItemOutputsById,
-    runItemsById: props.runItemsById,
-    turns: props.transcript,
-  };
-}
-
-function transcriptTimelineItems(indexes: TranscriptIndexes): TranscriptTimelineItem[] {
-  const turnMessageIds = new Set<string>();
-  const items: TranscriptTimelineItem[] = indexes.turns.map((turn) => {
-    turnMessageIds.add(turn.triggerMessage.id);
-    if (turn.assistantMessage) {
-      turnMessageIds.add(turn.assistantMessage.id);
-    }
-    for (const message of turn.steeringMessages) {
-      turnMessageIds.add(message.id);
-    }
-    return { kind: "turn", ordinal: turn.triggerMessage.ordinal, turn };
-  });
-  for (const messageId of indexes.messageIds) {
-    const message = indexes.messagesById[messageId];
-    if (!message || message.runId !== "" || turnMessageIds.has(message.id)) {
-      continue;
-    }
-    items.push({ kind: "message", message, ordinal: message.ordinal });
-  }
-  return items.toSorted((left, right) => {
-    if (left.ordinal === right.ordinal) {
-      return timelineItemID(left).localeCompare(timelineItemID(right));
-    }
-    return left.ordinal - right.ordinal;
-  });
-}
-
-function timelineItemID(item: TranscriptTimelineItem) {
-  return item.kind === "turn" ? item.turn.run.id : item.message.id;
-}
-
-const messageRowClassByRole = {
-  assistant: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  command: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  developer: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  system: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  tool: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
-  user: "mx-auto flex w-full max-w-4xl min-w-0 justify-end py-2",
-} satisfies Record<MessageRole, string>;
-
-const deliveryLabelByDelivery = {
-  queued: "Queued",
-  steering: "Steering",
-} satisfies Record<Exclude<MessageDelivery, "normal">, string>;
-
-const messageStatusLabelByStatus = {
-  cancelled: "cancelled",
-  complete: null,
-  error: "error",
-  pending: null,
-  streaming: null,
-} satisfies Record<MessageStatus, string | null>;
-
-const assistantMessageContainerClass =
-  "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white px-4 py-3";
-
-const assistantMessageContainerClassByRole = {
-  assistant: assistantMessageContainerClass,
-  command:
-    "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 break-words text-emerald-950",
-  developer: assistantMessageContainerClass,
-  system: assistantMessageContainerClass,
-  tool: assistantMessageContainerClass,
-} satisfies Record<Exclude<MessageRole, "user">, string>;
-
-const userMessageContainerClassByDelivery = {
-  normal:
-    "max-w-[78%] overflow-hidden rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 break-words text-white",
-  queued:
-    "max-w-[78%] overflow-hidden rounded-md border border-dashed border-zinc-300 bg-white px-4 py-3 text-sm leading-6 break-words text-zinc-800",
-  steering:
-    "max-w-[78%] overflow-hidden rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 break-words text-blue-950",
-} satisfies Record<MessageDelivery, string>;
-
-type SubmitApproval = ChatTranscriptProps["submitApproval"];
 
 export function ChatTranscript({
   activeRun,
   hasMoreOlder,
   loadOlder,
-  loadRunItemOutput,
-  messageIds,
-  messagesById,
-  runItemIdsByRunId,
-  runItemOutputIdsByRunItemId,
-  runItemOutputPagesByRunItemId,
-  runItemOutputsById,
-  runItemsById,
+  messages,
+  onSearchOpenChange = () => {},
+  searchOpen = false,
   submitApproval,
-  transcript: backendTranscript,
+  updateUserMessage = async () => {},
 }: ChatTranscriptProps) {
-  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-  const scrollTopRef = useRef(0);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const messageNodeRefs = useRef(new Map<string, HTMLDivElement>());
   const [pinned, setPinned] = useState(true);
-  const transcript = useMemo(
-    () =>
-      transcriptIndexes({
-        messageIds,
-        messagesById,
-        runItemIdsByRunId,
-        runItemOutputIdsByRunItemId,
-        runItemOutputsById,
-        runItemsById,
-        transcript: backendTranscript,
-      }),
-    [
-      messageIds,
-      messagesById,
-      runItemIdsByRunId,
-      runItemOutputIdsByRunItemId,
-      runItemOutputsById,
-      runItemsById,
-      backendTranscript,
-    ],
-  );
-  const timeline = useMemo(() => transcriptTimelineItems(transcript), [transcript]);
-  const firstItemIndex = timeline[0]?.ordinal ?? 0;
+  const [pinnedMessageIds, setPinnedMessageIds] = useState<string[]>([]);
+  const search = useChatSearch({
+    messageNodeRefs,
+    messages,
+    onOpenChange: onSearchOpenChange,
+    open: searchOpen,
+  });
+  const pinnedMessages = useMemo(() => {
+    const messagesById = new Map(messages.map((message) => [message.id, message]));
+    return pinnedMessageIds
+      .map((messageId) => messagesById.get(messageId))
+      .filter((message): message is ChatMessage => Boolean(message));
+  }, [messages, pinnedMessageIds]);
+
+  useEffect(() => {
+    const messageIds = new Set(messages.map((message) => message.id));
+    setPinnedMessageIds((current) => {
+      if (current.every((messageId) => messageIds.has(messageId))) {
+        return current;
+      }
+      return current.filter((messageId) => messageIds.has(messageId));
+    });
+  }, [messages]);
 
   useEffect(() => {
     if (!pinned) {
       return;
     }
-    virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-  }, [activeRun, pinned, timeline.length, transcript.runItemOutputsById, transcript.runItemsById]);
-
-  function updatePinnedFromScroll(scrollTop: number, scrollHeight: number, clientHeight: number) {
-    const distanceFromBottom = scrollHeight - clientHeight - scrollTop;
-    if (distanceFromBottom <= 8) {
-      setPinned(true);
-    }
-    scrollTopRef.current = scrollTop;
-  }
-
-  function handleScroll(event: UIEvent<HTMLDivElement>) {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
+    const node = scrollRef.current;
+    if (!node) {
       return;
     }
-    updatePinnedFromScroll(target.scrollTop, target.scrollHeight, target.clientHeight);
-  }
-
-  function handleWheel(event: WheelEvent<HTMLDivElement>) {
-    if (event.deltaY < 0) {
-      setPinned(false);
-    }
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (["ArrowUp", "Home", "PageUp"].includes(event.key)) {
-      setPinned(false);
-    }
-  }
+    node.scrollTop = node.scrollHeight;
+  }, [messages, activeRun, pinned]);
 
   async function loadOlderAndPreserveScroll() {
+    const node = scrollRef.current;
+    const previousHeight = node?.scrollHeight ?? 0;
     await loadOlder();
+    requestAnimationFrame(() => {
+      if (!node) {
+        return;
+      }
+      node.scrollTop = node.scrollHeight - previousHeight + node.scrollTop;
+    });
   }
 
-  if (timeline.length === 0) {
-    return <EmptyChatTranscript activeRun={activeRun} submitApproval={submitApproval} />;
+  function setMessageNode(messageId: string, node: HTMLDivElement | null) {
+    if (node) {
+      messageNodeRefs.current.set(messageId, node);
+      return;
+    }
+    messageNodeRefs.current.delete(messageId);
+  }
+
+  function togglePinnedMessage(messageId: string) {
+    setPinnedMessageIds((current) => {
+      if (current.includes(messageId)) {
+        return current.filter((item) => item !== messageId);
+      }
+      return [...current, messageId];
+    });
+  }
+
+  function scrollToMessage(messageId: string) {
+    messageNodeRefs.current.get(messageId)?.scrollIntoView({
+      block: "center",
+      behavior: "smooth",
+    });
   }
 
   return (
-    <div
-      className="relative h-full min-h-0 min-w-0 overflow-hidden"
-      onKeyDownCapture={handleKeyDown}
-      onScrollCapture={handleScroll}
-      onWheelCapture={handleWheel}
-    >
-      <Virtuoso
-        atBottomStateChange={(atBottom) => {
-          if (atBottom) {
-            setPinned(true);
-          }
+    <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
+      <ChatSearchBar search={search} />
+      <div
+        className="h-full min-h-0 min-w-0 overflow-y-auto bg-zinc-900 px-3 pt-4 pb-2"
+        onScroll={(event) => {
+          const node = event.currentTarget;
+          setPinned(node.scrollHeight - node.scrollTop - node.clientHeight < 24);
         }}
-        className="h-full min-h-0 min-w-0 px-6 py-5"
-        components={{
-          Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
-          Header: () => (
-            <TranscriptHeader hasMoreOlder={hasMoreOlder} loadOlder={loadOlderAndPreserveScroll} />
-          ),
-        }}
-        data={timeline}
-        data-testid="chat-transcript-scroller"
-        firstItemIndex={firstItemIndex}
-        followOutput={pinned ? "auto" : false}
-        increaseViewportBy={{ bottom: 800, top: 400 }}
-        initialItemCount={Math.min(timeline.length, 30)}
-        itemContent={(_, item) => {
-          if (item.kind === "message") {
-            return (
+        ref={scrollRef}
+      >
+        {hasMoreOlder ? (
+          <div className="mb-2 flex justify-center">
+            <Button
+              className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+              onClick={() => void loadOlderAndPreserveScroll()}
+              variant="secondary"
+            >
+              <ChevronUp className="h-4 w-4" />
+              Older
+            </Button>
+          </div>
+        ) : null}
+        <PinnedMessagesBar
+          messages={pinnedMessages}
+          onOpenMessage={scrollToMessage}
+          onUnpin={togglePinnedMessage}
+        />
+        <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-3">
+          {messages.length === 0 ? (
+            <div className="py-8 text-center text-xs text-zinc-500" data-testid="empty-chat">
+              Start a conversation for this workspace.
+            </div>
+          ) : null}
+          {messages.map((message) => (
+            <div
+              className={cn(
+                "scroll-mt-16 rounded-sm transition-shadow",
+                search.activeMessageId === message.id
+                  ? "bg-blue-400/5 ring-1 ring-blue-400/50"
+                  : "",
+              )}
+              key={message.id}
+              ref={(node) => setMessageNode(message.id, node)}
+            >
               <MessageRow
-                loadRunItemOutput={loadRunItemOutput}
-                message={item.message}
-                runItemIdsByRunId={transcript.runItemIdsByRunId}
-                runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-                runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-                runItemOutputsById={transcript.runItemOutputsById}
-                runItemsById={transcript.runItemsById}
+                message={message}
+                pinned={pinnedMessageIds.includes(message.id)}
+                togglePinnedMessage={togglePinnedMessage}
+                updateUserMessage={updateUserMessage}
               />
-            );
-          }
-          return (
-            <TranscriptTurnRow
-              loadRunItemOutput={loadRunItemOutput}
-              runItemIdsByRunId={transcript.runItemIdsByRunId}
-              runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
-              runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-              runItemOutputsById={transcript.runItemOutputsById}
-              runItemsById={transcript.runItemsById}
-              turn={item.turn}
+            </div>
+          ))}
+          {activeRun?.hasPendingApproval ? (
+            <ApprovalCard
+              key={activeRun.pendingApproval.id}
+              run={activeRun}
+              submitApproval={submitApproval}
             />
-          );
-        }}
-        overscan={200}
-        ref={virtuosoRef}
-      />
-      <JumpToLatestButton pinned={pinned} setPinned={setPinned} virtuosoRef={virtuosoRef} />
+          ) : null}
+        </div>
+      </div>
+      {!pinned ? (
+        <Button
+          aria-label="Jump to latest"
+          className="absolute right-4 bottom-20 border-zinc-700 bg-zinc-900 text-zinc-100 shadow-sm hover:bg-zinc-800"
+          onClick={() => {
+            const node = scrollRef.current;
+            if (!node) {
+              return;
+            }
+            node.scrollTop = node.scrollHeight;
+            setPinned(true);
+          }}
+          variant="secondary"
+        >
+          <ArrowDown className="h-4 w-4" />
+        </Button>
+      ) : null}
     </div>
   );
 }
 
-function EmptyChatTranscript({
-  activeRun,
-  submitApproval,
+function PinnedMessagesBar({
+  messages,
+  onOpenMessage,
+  onUnpin,
 }: {
-  activeRun: Run | null;
-  submitApproval: SubmitApproval;
+  messages: ChatMessage[];
+  onOpenMessage: (messageId: string) => void;
+  onUnpin: (messageId: string) => void;
 }) {
+  if (messages.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
-      <div
-        className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5"
-        data-testid="chat-transcript-scroller"
-      >
-        <div
-          className="mx-auto w-full max-w-4xl py-16 text-center text-sm text-zinc-500"
-          data-testid="empty-chat"
-        >
-          Start a conversation for this workspace.
-        </div>
-        <PendingApproval activeRun={activeRun} submitApproval={submitApproval} />
+    <div className="sticky top-0 z-10 -mx-1 mb-2 border-b border-zinc-800/80 bg-zinc-900/95 px-1 py-1 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-1">
+        {messages.map((message) => {
+          const text = chatMessageText(message);
+          return (
+            <div
+              className="flex h-6 min-w-0 items-center gap-1 rounded-sm bg-zinc-800/70 px-1.5 text-xs text-zinc-300"
+              key={message.id}
+            >
+              <Pin className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+              <button
+                className="min-w-0 flex-1 cursor-pointer truncate text-left hover:text-zinc-50"
+                onClick={() => onOpenMessage(message.id)}
+                title={text}
+                type="button"
+              >
+                {text || message.status}
+              </button>
+              <button
+                aria-label="Unpin message"
+                className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-500 hover:bg-zinc-700 hover:text-zinc-100"
+                onClick={() => onUnpin(message.id)}
+                title="Unpin message"
+                type="button"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-type TranscriptHeaderProps = { hasMoreOlder: boolean; loadOlder: () => Promise<void> };
-
-function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
-  if (!hasMoreOlder) {
-    return null;
-  }
-  return (
-    <div className="mb-3 flex justify-center">
-      <Button onClick={() => void loadOlder()} variant="secondary">
-        <ChevronUp className="h-4 w-4" />
-        Older
-      </Button>
-    </div>
-  );
+interface ChatSearchController {
+  activeIndex: number;
+  activeMessageId: string | null;
+  close: () => void;
+  inputRef: RefObject<HTMLInputElement | null>;
+  matchCount: number;
+  next: () => void;
+  open: boolean;
+  previous: () => void;
+  query: string;
+  setQuery: (query: string) => void;
 }
 
-type TranscriptFooterProps = { activeRun: Run | null; submitApproval: SubmitApproval };
-
-function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) {
-  if (!activeRun?.pendingApproval) {
-    return null;
-  }
-  return (
-    <div className="mx-auto w-full max-w-4xl py-2">
-      <PendingApproval activeRun={activeRun} submitApproval={submitApproval} />
-    </div>
-  );
-}
-
-function PendingApproval({
-  activeRun,
-  submitApproval,
+function useChatSearch({
+  messageNodeRefs,
+  messages,
+  onOpenChange,
+  open,
 }: {
-  activeRun: Run | null;
-  submitApproval: SubmitApproval;
-}) {
-  if (!activeRun?.pendingApproval) {
-    return null;
+  messageNodeRefs: { current: Map<string, HTMLDivElement> };
+  messages: ChatMessage[];
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}): ChatSearchController {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [query, setQueryValue] = useState("");
+  const matches = useMemo(() => chatSearchMatches(messages, query), [messages, query]);
+  const activeMessageId = matches[activeIndex]?.messageId ?? null;
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (activeIndex < matches.length) {
+      return;
+    }
+    setActiveIndex(Math.max(0, matches.length - 1));
+  }, [activeIndex, matches.length]);
+
+  useEffect(() => {
+    if (!activeMessageId) {
+      return;
+    }
+    messageNodeRefs.current.get(activeMessageId)?.scrollIntoView({
+      block: "center",
+      behavior: "smooth",
+    });
+  }, [activeMessageId, messageNodeRefs]);
+
+  function move(direction: "next" | "previous") {
+    if (matches.length === 0) {
+      return;
+    }
+    setActiveIndex((current) => {
+      const offset = direction === "next" ? 1 : -1;
+      return (current + offset + matches.length) % matches.length;
+    });
   }
-  return (
-    <ApprovalCard
-      approval={activeRun.pendingApproval}
-      key={activeRun.pendingApproval.id}
-      submitApproval={submitApproval}
-    />
-  );
+
+  return {
+    activeIndex,
+    activeMessageId,
+    close: () => onOpenChange(false),
+    inputRef,
+    matchCount: matches.length,
+    next: () => move("next"),
+    open,
+    previous: () => move("previous"),
+    query,
+    setQuery: (nextQuery) => {
+      setQueryValue(nextQuery);
+      setActiveIndex(0);
+    },
+  };
 }
 
-function JumpToLatestButton({
-  pinned,
-  setPinned,
-  virtuosoRef,
-}: {
-  pinned: boolean;
-  setPinned: (pinned: boolean) => void;
-  virtuosoRef: { current: VirtuosoHandle | null };
-}) {
-  if (pinned) {
+function ChatSearchBar({ search }: { search: ChatSearchController }) {
+  if (!search.open) {
     return null;
   }
-  return (
-    <Button
-      aria-label="Jump to latest"
-      className="absolute bottom-4 right-6 shadow-sm"
-      onClick={() => {
-        virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-        setPinned(true);
-      }}
-      variant="secondary"
-    >
-      <ArrowDown className="h-4 w-4" />
-    </Button>
-  );
-}
 
-const TranscriptTurnRow = memo(function TranscriptTurnRow({
-  turn,
-  loadRunItemOutput,
-  runItemIdsByRunId,
-  runItemOutputIdsByRunItemId,
-  runItemOutputPagesByRunItemId,
-  runItemOutputsById,
-  runItemsById,
-}: {
-  turn: TranscriptTurn;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
-}) {
+  const resultLabel =
+    search.query.trim() === ""
+      ? "0/0"
+      : `${search.matchCount === 0 ? 0 : search.activeIndex + 1}/${search.matchCount}`;
+
   return (
-    <div
-      className="min-w-0"
-      data-run-id={turn.run.id}
-      data-testid="chat-transcript-turn"
-      data-turn-status={turn.run.status}
-    >
-      <MessageRow
-        loadRunItemOutput={loadRunItemOutput}
-        message={turn.triggerMessage}
-        runItemIdsByRunId={runItemIdsByRunId}
-        runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
-        runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-        runItemOutputsById={runItemOutputsById}
-        runItemsById={runItemsById}
-      />
-      {turn.steeringMessages.map((message) => (
-        <MessageRow
-          key={message.id}
-          loadRunItemOutput={loadRunItemOutput}
-          message={message}
-          runItemIdsByRunId={runItemIdsByRunId}
-          runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
-          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-          runItemOutputsById={runItemOutputsById}
-          runItemsById={runItemsById}
+    <div className="pointer-events-none absolute top-2 right-3 left-3 z-20 flex justify-end">
+      <div className="pointer-events-auto flex h-7 w-full max-w-xs min-w-0 items-center gap-1 rounded-sm border border-zinc-700/90 bg-zinc-800/95 px-1.5 text-zinc-100 shadow-xl shadow-black/40 backdrop-blur">
+        <Search className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
+        <Input
+          className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-xs text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:border-0"
+          onChange={(event) => search.setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              search.close();
+              return;
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (event.shiftKey) {
+                search.previous();
+                return;
+              }
+              search.next();
+            }
+          }}
+          placeholder="Search chat"
+          ref={search.inputRef}
+          value={search.query}
         />
-      ))}
-      {turn.assistantMessage ? (
-        <MessageRow
-          loadRunItemOutput={loadRunItemOutput}
-          message={turn.assistantMessage}
-          runItemIdsByRunId={runItemIdsByRunId}
-          runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
-          runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
-          runItemOutputsById={runItemOutputsById}
-          runItemsById={runItemsById}
-        />
-      ) : null}
+        <span className="min-w-8 text-right text-[11px] text-zinc-500">{resultLabel}</span>
+        <SearchNavButton
+          disabled={search.matchCount === 0}
+          label="Previous result"
+          onClick={search.previous}
+        >
+          <ChevronUp className="h-3.5 w-3.5" />
+        </SearchNavButton>
+        <SearchNavButton
+          disabled={search.matchCount === 0}
+          label="Next result"
+          onClick={search.next}
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+        </SearchNavButton>
+        <SearchNavButton label="Close chat search" onClick={search.close}>
+          <X className="h-3.5 w-3.5" />
+        </SearchNavButton>
+      </div>
     </div>
   );
-});
+}
+
+function SearchNavButton({
+  children,
+  disabled = false,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-600"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+interface ChatSearchMatch {
+  messageId: string;
+}
+
+function chatSearchMatches(messages: ChatMessage[], query: string): ChatSearchMatch[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (normalizedQuery === "") {
+    return [];
+  }
+  return messages
+    .filter((message) => chatMessageText(message).toLowerCase().includes(normalizedQuery))
+    .map((message) => ({ messageId: message.id }));
+}
+
+function chatMessageText(message: ChatMessage) {
+  return message.parts.map((part) => part.text).join("");
+}
 
 const MessageRow = memo(function MessageRow({
   message,
-  loadRunItemOutput,
-  runItemIdsByRunId,
-  runItemOutputIdsByRunItemId,
-  runItemOutputPagesByRunItemId,
-  runItemOutputsById,
-  runItemsById,
+  pinned,
+  togglePinnedMessage,
+  updateUserMessage,
 }: {
   message: ChatMessage;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItemsById: Record<string, RunItem>;
+  pinned: boolean;
+  togglePinnedMessage: (messageId: string) => void;
+  updateUserMessage: (messageId: string, text: string) => Promise<void>;
 }) {
-  const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
+  const isUser = message.role === "user";
+  const text = chatMessageText(message);
+  const [draft, setDraft] = useState(text);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(text);
+    }
+  }, [editing, text]);
+
+  if (message.role === "tool") {
+    return <ToolMessage message={message} text={text} />;
+  }
+
+  async function saveEdit() {
+    const nextText = draft.trim();
+    if (!nextText || nextText === text.trim()) {
+      setDraft(text);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateUserMessage(message.id, nextText);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <div
-      className={messageRowClass(message)}
-      data-chat-message="true"
-      data-message-delivery={message.delivery}
-      data-message-id={message.id}
-      data-message-role={message.role}
-      data-testid={messageRowTestId(message)}
-    >
-      <div className={messageContainerClass(message)}>
-        <MessageContent message={message} />
-        <UserDeliveryBadge message={message} />
-        <MessageStatus message={message} />
-        {itemRows.length > 0 ? (
-          <RunActivityRows
-            items={itemRows}
-            loadRunItemOutput={loadRunItemOutput}
-            outputIdsByRunItemId={runItemOutputIdsByRunItemId}
-            outputPagesByRunItemId={runItemOutputPagesByRunItemId}
-            outputsById={runItemOutputsById}
+    <article className={messageRowClass(isUser)} data-testid="chat-message">
+      <div className={messageActionsRowClass(isUser)}>
+        {editing && isUser ? (
+          <UserMessageEditor
+            draft={draft}
+            onCancel={() => {
+              setDraft(text);
+              setEditing(false);
+            }}
+            onChange={setDraft}
+            onSave={() => void saveEdit()}
+            saving={saving}
           />
-        ) : null}
+        ) : (
+          <>
+            <MessageContent isUser={isUser} message={message} text={text} />
+            <MessageActions
+              canEdit={isUser}
+              onEdit={() => {
+                setDraft(text);
+                setEditing(true);
+              }}
+              onPinToggle={() => togglePinnedMessage(message.id)}
+              pinned={pinned}
+              text={text}
+            />
+          </>
+        )}
       </div>
-    </div>
+      <time className="text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
+    </article>
   );
 });
 
-function messageRowClass(message: ChatMessage) {
-  return messageRowClassByRole[message.role];
+function messageRowClass(isUser: boolean) {
+  return cn("group flex min-w-0 flex-col gap-1", isUser && "items-end");
 }
 
-function messageRowTestId(message: ChatMessage) {
-  if (message.role === "assistant") {
-    return "chat-assistant-turn-row";
-  }
-  if (message.role === "command") {
-    return "chat-command-result-row";
-  }
-  if (message.delivery === "queued") {
-    return "chat-queued-turn-row";
-  }
-  return "chat-message-row";
+function messageActionsRowClass(isUser: boolean) {
+  return cn("flex max-w-full min-w-0 items-start gap-2", isUser ? "flex-row-reverse" : "flex-row");
 }
 
-function MessageContent({ message }: { message: ChatMessage }) {
-  const text = message.parts.map((part) => part.text).join("");
-  switch (message.role) {
-    case "user":
-      return <div className="whitespace-pre-wrap">{text}</div>;
-    case "command":
-      return <div className="whitespace-pre-wrap">{text}</div>;
-    case "assistant":
-    case "developer":
-    case "system":
-    case "tool":
-      return <MarkdownText text={assistantMessageText(text, message.status)} />;
-    default:
-      return assertNever(message.role);
+function MessageContent({
+  isUser,
+  message,
+  text,
+}: {
+  isUser: boolean;
+  message: ChatMessage;
+  text: string;
+}) {
+  if (isUser) {
+    return <UserMessageContent message={message} text={text} />;
   }
+  return <AssistantMessageContent message={message} text={text} />;
 }
 
-function assistantMessageText(text: string, status: MessageStatus) {
-  if (text !== "") {
-    return text;
-  }
-  switch (status) {
-    case "streaming":
-      return "...";
-    case "cancelled":
-    case "complete":
-    case "error":
-    case "pending":
-      return "";
-    default:
-      return assertNever(status);
-  }
-}
-
-function UserDeliveryBadge({ message }: { message: ChatMessage }) {
-  if (message.role !== "user" || message.delivery === "normal") {
-    return null;
-  }
+function UserMessageContent({ message, text }: { message: ChatMessage; text: string }) {
   return (
-    <div className="mt-2 text-xs font-medium opacity-80">{deliveryLabel(message.delivery)}</div>
+    <div className="max-w-[82%] overflow-hidden rounded-sm bg-zinc-800 px-2 py-1 text-[13px] leading-5 break-words text-zinc-50">
+      <div className="whitespace-pre-wrap">{text}</div>
+      <MessageStatus status={message.status} />
+    </div>
   );
 }
 
-function MessageStatus({ message }: { message: ChatMessage }) {
-  const label = messageStatusLabelByStatus[message.status];
-  if (label === null) {
+function UserMessageEditor({
+  draft,
+  onCancel,
+  onChange,
+  onSave,
+  saving,
+}: {
+  draft: string;
+  onCancel: () => void;
+  onChange: (draft: string) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+    textareaRef.current?.select();
+  }, []);
+
+  return (
+    <form
+      className="max-w-[82%] overflow-hidden rounded-sm bg-zinc-800 px-2 py-1 text-[13px] leading-5 text-zinc-50"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSave();
+      }}
+    >
+      <textarea
+        className="max-h-40 min-h-14 w-full resize-y bg-transparent p-0 text-[13px] leading-5 text-zinc-50 outline-none placeholder:text-zinc-500"
+        disabled={saving}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+            return;
+          }
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            onSave();
+          }
+        }}
+        ref={textareaRef}
+        rows={3}
+        value={draft}
+      />
+      <div className="mt-1 flex justify-end gap-1">
+        <button
+          aria-label="Cancel edit"
+          className="grid h-5 w-5 place-items-center rounded-sm text-zinc-500 hover:bg-zinc-700 hover:text-zinc-100"
+          disabled={saving}
+          onClick={onCancel}
+          title="Cancel edit"
+          type="button"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+        <button
+          aria-label="Save edit"
+          className="grid h-5 w-5 place-items-center rounded-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-50 disabled:pointer-events-none disabled:text-zinc-600"
+          disabled={saving || draft.trim() === ""}
+          title="Save edit"
+          type="submit"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AssistantMessageContent({ message, text }: { message: ChatMessage; text: string }) {
+  const waiting = text === "" && (message.status === "pending" || message.status === "streaming");
+  return (
+    <div className="max-w-[88%] min-w-0 text-[13px] leading-5 text-zinc-200">
+      {waiting ? (
+        <AsciiSpinner className="text-zinc-500" label="Assistant response running" />
+      ) : (
+        <MarkdownText text={text} />
+      )}
+      <MessageStatus status={message.status} />
+    </div>
+  );
+}
+
+function MessageStatus({ status }: { status: string }) {
+  if (status !== "error" && status !== "cancelled") {
     return null;
   }
-  return <div className="mt-3 text-xs font-medium text-red-600">{label}</div>;
+  return <div className="mt-2 text-xs font-medium text-zinc-500">{status}</div>;
 }
 
-function activityItemsForMessage(
-  message: ChatMessage,
-  runItemIdsByRunId: Record<string, string[]>,
-  runItemsById: Record<string, RunItem>,
-) {
-  if (message.role === "user" || message.runId === "") {
-    return [];
-  }
-  return (runItemIdsByRunId[message.runId] ?? [])
-    .map((itemId) => runItemsById[itemId])
-    .filter((item): item is RunItem => item !== undefined);
-}
-
-function messageContainerClass(message: ChatMessage) {
-  return message.role === "user"
-    ? userMessageContainerClassByDelivery[message.delivery]
-    : assistantMessageContainerClassByRole[message.role];
-}
-
-function deliveryLabel(delivery: Exclude<MessageDelivery, "normal">) {
-  return deliveryLabelByDelivery[delivery];
-}
-
-function ApprovalCard({
-  approval,
-  submitApproval,
+function MessageActions({
+  canEdit,
+  onEdit,
+  onPinToggle,
+  pinned,
+  text,
 }: {
-  approval: ApprovalRequest;
-  submitApproval: (
-    approvalId: string,
-    approved: boolean,
-    response: string,
-    answers: ApprovalAnswer[],
-    cancelled: boolean,
-  ) => Promise<void>;
+  canEdit: boolean;
+  onEdit: () => void;
+  onPinToggle: () => void;
+  pinned: boolean;
+  text: string;
 }) {
   return (
-    <section
-      className="min-w-0 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm break-words text-amber-950"
-      data-testid="approval-card"
+    <div className="flex shrink-0 items-center gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <button
+        aria-label={pinned ? "Unpin message" : "Pin message"}
+        className={cn(
+          "grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100",
+          pinned && "text-zinc-200",
+        )}
+        onClick={onPinToggle}
+        title={pinned ? "Unpin message" : "Pin message"}
+        type="button"
+      >
+        <Pin className="h-3.5 w-3.5" />
+      </button>
+      <button
+        aria-label="Copy message"
+        className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+        onClick={() => void navigator.clipboard.writeText(text)}
+        title="Copy message"
+        type="button"
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+      {canEdit ? (
+        <button
+          aria-label="Edit message"
+          className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+          onClick={onEdit}
+          title="Edit message"
+          type="button"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ToolMessage({ message, text }: { message: ChatMessage; text: string }) {
+  return (
+    <article className="w-full max-w-[88%] min-w-0" data-testid="chat-message">
+      <ToolCallFrame
+        loading={message.status === "pending" || message.status === "streaming"}
+        title="tool_output"
+      >
+        <ToolBlock title="Result">{text || message.status}</ToolBlock>
+      </ToolCallFrame>
+      <time className="mt-1 block text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
+    </article>
+  );
+}
+
+function ToolCallFrame({
+  children,
+  loading = false,
+  title,
+}: {
+  children: ReactNode;
+  loading?: boolean;
+  title: string;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="relative min-w-0">
+      <button
+        className="flex h-6 w-full min-w-0 items-center gap-1.5 text-left text-xs text-zinc-300"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <Bot className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        <ToolDisclosureIcon open={open} />
+        <span className="rounded-sm border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+          3
+        </span>
+        <span className="min-w-0 flex-1 truncate">Action: {title}</span>
+        {loading ? (
+          <AsciiSpinner className="w-9 text-[8px] text-zinc-500" label="Tool call running" />
+        ) : null}
+      </button>
+      {open ? (
+        <div className="mt-1.5 grid min-w-0 grid-cols-[minmax(0,1fr)_1.75rem] gap-1.5">
+          <div className="min-w-0 border-l border-zinc-700/70 pl-2">
+            <div className="min-w-0 space-y-0.5">
+              <ToolCommandRow title={title} />
+              <ToolCommandRow title={title} />
+              <ToolCommandRow active loading={loading} title={title} />
+            </div>
+            <div className="mt-1.5 min-w-0 space-y-1">{children}</div>
+          </div>
+          <ToolCallActions />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ToolCommandRow({
+  active = false,
+  loading = false,
+  title,
+}: {
+  active?: boolean;
+  loading?: boolean;
+  title: string;
+}) {
+  return (
+    <button
+      className={cn(
+        "grid h-6 w-full min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-1.5 text-left font-mono text-xs font-semibold transition-colors",
+        active
+          ? "bg-zinc-800/45 text-zinc-100"
+          : "text-zinc-500 hover:bg-zinc-800/25 hover:text-zinc-300",
+      )}
+      type="button"
     >
-      <div className="font-semibold">{approval.title}</div>
-      {approval.body ? <div className="mt-1 text-amber-900">{approval.body}</div> : null}
-      {approval.command ? (
-        <pre className="mt-3 max-w-full overflow-x-auto rounded border border-amber-200 bg-white p-2 text-xs">
-          {approval.command}
-        </pre>
+      <Wrench className="h-3.5 w-3.5 text-zinc-500" />
+      <ToolDisclosureIcon open={active} />
+      <span className="truncate">{title}</span>
+      {active ? (
+        <span className="justify-self-end">
+          {loading ? (
+            <AsciiSpinner className="w-9 text-[8px] text-zinc-400" label="Tool call running" />
+          ) : (
+            <span className="font-sans text-xs font-semibold text-zinc-300">&lt;1s</span>
+          )}
+        </span>
       ) : null}
-      {approval.filePath ? (
-        <div className="mt-2 break-all font-mono text-xs">{approval.filePath}</div>
-      ) : null}
-      {approval.permission ? (
-        <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap rounded border border-amber-200 bg-white p-2 text-xs">
-          {approval.permission}
-        </pre>
-      ) : null}
-      {approval.question ? <div className="mt-2">{approval.question}</div> : null}
-      <ApprovalControls approval={approval} submitApproval={submitApproval} />
+    </button>
+  );
+}
+
+function ToolDisclosureIcon({ open }: { open: boolean }) {
+  return open ? (
+    <ChevronUp className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+  ) : (
+    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+  );
+}
+
+function ToolCallActions() {
+  return (
+    <div className="flex w-7 shrink-0 flex-col items-center gap-1 pt-7 text-zinc-500">
+      <button
+        aria-label="Copy tool call"
+        className="grid h-6 w-6 place-items-center rounded-sm hover:bg-zinc-800 hover:text-zinc-100"
+        type="button"
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+      <button
+        aria-label="Rerun tool call"
+        className="grid h-6 w-6 place-items-center rounded-sm hover:bg-zinc-800 hover:text-zinc-100"
+        type="button"
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function ToolBlock({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <section className="min-w-0 py-1.5 pr-1">
+      <h4 className="text-[10px] font-semibold tracking-[0.22em] text-zinc-500 uppercase">
+        {title}
+      </h4>
+      <pre className="mt-1 max-w-full overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5 text-zinc-300">
+        {renderToolBlockContent(children)}
+      </pre>
     </section>
   );
 }
 
-function ApprovalControls({
-  approval,
+function renderToolBlockContent(children: ReactNode) {
+  if (typeof children !== "string") {
+    return children;
+  }
+  const json = formatJson(children);
+  if (!json) {
+    return children;
+  }
+  return json.map((part, index) => {
+    if (part.kind === "plain") {
+      return part.text;
+    }
+    return (
+      <span className={part.kind === "key" ? "text-zinc-200" : "text-zinc-400"} key={index}>
+        {part.text}
+      </span>
+    );
+  });
+}
+
+type JsonPart = { kind: "key" | "plain" | "value"; text: string };
+
+function formatJson(input: string): JsonPart[] | null {
+  try {
+    const formatted = JSON.stringify(JSON.parse(input), null, 2);
+    const parts: JsonPart[] = [];
+    const tokenPattern = /("(?:\\.|[^"\\])*")(?=\s*:)|("(?:\\.|[^"\\])*")|(\b\d+(?:\.\d+)?\b)/g;
+    let cursor = 0;
+    for (const match of formatted.matchAll(tokenPattern)) {
+      if (match.index === undefined) {
+        continue;
+      }
+      if (match.index > cursor) {
+        parts.push({ kind: "plain", text: formatted.slice(cursor, match.index) });
+      }
+      parts.push({
+        kind: match[1] ? "key" : "value",
+        text: match[0],
+      });
+      cursor = match.index + match[0].length;
+    }
+    if (cursor < formatted.length) {
+      parts.push({ kind: "plain", text: formatted.slice(cursor) });
+    }
+    return parts;
+  } catch {
+    return null;
+  }
+}
+
+function ApprovalCard({
+  run,
   submitApproval,
 }: {
-  approval: ApprovalRequest;
+  run: Run;
   submitApproval: (
     approvalId: string,
     approved: boolean,
@@ -670,39 +892,33 @@ function ApprovalControls({
     cancelled: boolean,
   ) => Promise<void>;
 }) {
-  switch (approval.kind) {
-    case "user_input":
-      return (
+  const approval = run.pendingApproval;
+  const isUserInput = approval.kind === "user_input";
+  const questions = approval.questions.length > 0 ? approval.questions : legacyQuestion(approval);
+  return (
+    <section className="min-w-0 text-xs text-zinc-100" data-testid="approval-card">
+      <ToolCallFrame title={approval.title}>
+        {approval.command ? <ToolBlock title="Command">{approval.command}</ToolBlock> : null}
+        {approval.filePath ? <ToolBlock title="Path">{approval.filePath}</ToolBlock> : null}
+        {approval.permission ? (
+          <ToolBlock title="Permission">{approval.permission}</ToolBlock>
+        ) : null}
+        {approval.body ? <ToolBlock title="Arguments">{approval.body}</ToolBlock> : null}
+        {approval.question ? <ToolBlock title="Question">{approval.question}</ToolBlock> : null}
+        <ToolBlock title="Result">Waiting for approval</ToolBlock>
+      </ToolCallFrame>
+      {isUserInput ? (
         <UserInputApproval
-          questions={approval.questions}
+          questions={questions}
           submitApproval={(answers, cancelled) =>
             submitApproval(approval.id, !cancelled, "", answers, cancelled)
           }
         />
-      );
-    case "command":
-    case "file_change":
-    case "permission":
-      return <DecisionApproval approvalId={approval.id} submitApproval={submitApproval} />;
-    case "structured_input":
-      if (approval.structuredInput === null) {
-        return (
-          <div className="mt-3 font-medium text-red-700">
-            Approval request is missing structured input metadata.
-          </div>
-        );
-      }
-      return (
-        <StructuredInputApproval
-          input={approval.structuredInput}
-          submitApproval={(approved, answers, cancelled) =>
-            submitApproval(approval.id, approved, "", answers, cancelled)
-          }
-        />
-      );
-    default:
-      return assertNever(approval.kind);
-  }
+      ) : (
+        <DecisionApproval approvalId={approval.id} submitApproval={submitApproval} />
+      )}
+    </section>
+  );
 }
 
 function DecisionApproval({
@@ -719,8 +935,9 @@ function DecisionApproval({
   ) => Promise<void>;
 }) {
   return (
-    <div className="mt-3 flex gap-2">
+    <div className="mt-2 flex gap-1.5">
       <Button
+        className="border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
         onClick={() => void submitApproval(approvalId, true, "", [], false)}
         variant="primary"
       >
@@ -728,6 +945,7 @@ function DecisionApproval({
         Approve
       </Button>
       <Button
+        className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
         onClick={() => void submitApproval(approvalId, false, "", [], false)}
         variant="secondary"
       >
@@ -746,30 +964,24 @@ function UserInputApproval({
   submitApproval: (answers: ApprovalAnswer[], cancelled: boolean) => Promise<void>;
 }) {
   const [answersByQuestion, setAnswersByQuestion] = useState<Record<string, string>>({});
-  if (questions.length === 0) {
-    return (
-      <div className="mt-3 font-medium text-red-700">Approval request is missing questions.</div>
-    );
-  }
   const complete = questions.every(
     (question) => answerValue(answersByQuestion, question.id) !== "",
   );
   const answers = questions.map((question) => ({
     answers: [answerValue(answersByQuestion, question.id)],
     questionId: question.id,
-    value: null,
   }));
 
   return (
-    <div className="mt-3 space-y-3">
+    <div className="mt-2 space-y-2 rounded-sm border border-zinc-700 bg-zinc-900 p-2">
       {questions.map((question) => {
         const answer = answerValue(answersByQuestion, question.id);
         return (
-          <div className="space-y-2" key={question.id}>
+          <div className="space-y-1.5" key={question.id}>
             {question.header ? <div className="font-medium">{question.header}</div> : null}
             <div>{question.question}</div>
             {question.options.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {question.options.map((option) => (
                   <Button
                     key={option}
@@ -782,8 +994,8 @@ function UserInputApproval({
                 ))}
               </div>
             ) : null}
-            <input
-              className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
+            <Input
+              className="w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-100 outline-none focus:border-zinc-400"
               onChange={(event) =>
                 setQuestionAnswer(setAnswersByQuestion, question.id, event.target.value)
               }
@@ -795,6 +1007,7 @@ function UserInputApproval({
       })}
       <div className="flex gap-2">
         <Button
+          className="border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
           disabled={!complete}
           onClick={() => void submitApproval(answers, false)}
           type="button"
@@ -803,13 +1016,34 @@ function UserInputApproval({
           <Check className="h-4 w-4" />
           Answer
         </Button>
-        <Button onClick={() => void submitApproval([], true)} type="button" variant="secondary">
+        <Button
+          className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+          onClick={() => void submitApproval([], true)}
+          type="button"
+          variant="secondary"
+        >
           <X className="h-4 w-4" />
           Cancel
         </Button>
       </div>
     </div>
   );
+}
+
+function legacyQuestion(approval: Run["pendingApproval"]): ApprovalQuestion[] {
+  if (!approval.question) {
+    return [];
+  }
+  return [
+    {
+      header: approval.title,
+      id: "response",
+      isOther: false,
+      isSecret: false,
+      options: approval.options,
+      question: approval.question,
+    },
+  ];
 }
 
 function answerValue(answersByQuestion: Record<string, string>, questionID: string) {
@@ -824,6 +1058,10 @@ function setQuestionAnswer(
   setAnswersByQuestion((current) => ({ ...current, [questionID]: answer }));
 }
 
-function assertNever(value: never): never {
-  throw new Error(`Unhandled generated value: ${JSON.stringify(value)}`);
+function messageTime(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.valueOf())) {
+    return "";
+  }
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }

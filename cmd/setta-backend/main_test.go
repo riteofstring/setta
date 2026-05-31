@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"testing"
-
-	"setta/internal/runtime"
 )
 
 func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
@@ -40,42 +38,6 @@ func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("config succeeded, want error")
-	}
-}
-
-func TestConfigFromArgsUsesScriptedWorkflowHarnessEnvWithE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E" {
-			return "1"
-		}
-		if name == "SETTA_E2E_CHAT_HARNESS" {
-			return string(runtime.ChatHarnessScriptedWorkflow)
-		}
-		return ""
-	})
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
-	}
-	if config.ChatHarness != runtime.ChatHarnessScriptedWorkflow {
-		t.Fatalf("chat harness = %q, want %q", config.ChatHarness, runtime.ChatHarnessScriptedWorkflow)
-	}
-}
-
-func TestConfigFromArgsRejectsScriptedWorkflowHarnessWithoutE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E_CHAT_HARNESS" {
-			return string(runtime.ChatHarnessScriptedWorkflow)
-		}
-		return ""
-	})
-	if err == nil {
-		t.Fatal("config succeeded, want SETTA_E2E guard error")
 	}
 }
 

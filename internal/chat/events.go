@@ -13,18 +13,11 @@ const (
 	EventSchemaVersion = 1
 
 	EventTypeMessageCreated      = "chat.message.created"
-	EventTypeMessageQueued       = "chat.message.queued"
-	EventTypeMessageSteeringSent = "chat.message.steering_sent"
 	EventTypeAssistantTextDelta  = "chat.assistant_text_delta"
 	EventTypeMessageUpdated      = "chat.message.updated"
 	EventTypeRunUpdated          = "chat.run.updated"
-	EventTypeRunItemCreated      = "chat.run_item.created"
-	EventTypeRunItemUpdated      = "chat.run_item.updated"
-	EventTypeRunItemOutputDelta  = "chat.run_item_output.delta"
-	EventTypeQueueUpdated        = "chat.queue.updated"
 	EventTypeConversationUpdated = "chat.conversation.updated"
 	EventTypeResyncRequired      = "chat.resync_required"
-	EventTypeDiagnosticCreated   = "diagnostic.created"
 )
 
 const (
@@ -72,16 +65,6 @@ type MessageCreatedPayload struct {
 	Message ChatMessage `json:"message"`
 }
 
-type MessageQueuedPayload struct {
-	Message ChatMessage `json:"message"`
-	Run     Run         `json:"run"`
-}
-
-type MessageSteeringSentPayload struct {
-	Message ChatMessage `json:"message"`
-	Run     Run         `json:"run"`
-}
-
 type AssistantTextDeltaPayload struct {
 	MessageID string `json:"messageId"`
 	PartID    string `json:"partId"`
@@ -97,22 +80,6 @@ type RunUpdatedPayload struct {
 	Run Run `json:"run"`
 }
 
-type RunItemCreatedPayload struct {
-	Item RunItem `json:"item"`
-}
-
-type RunItemUpdatedPayload struct {
-	Item RunItem `json:"item"`
-}
-
-type RunItemOutputDeltaPayload struct {
-	Output RunItemOutput `json:"output"`
-}
-
-type QueueUpdatedPayload struct {
-	Queue QueueState `json:"queue"`
-}
-
 type ConversationUpdatedPayload struct {
 	Item ConversationListItem `json:"item"`
 }
@@ -124,10 +91,6 @@ type ResyncRequiredPayload struct {
 	CurrentStreamID   string `json:"currentStreamId"`
 	CurrentSequence   int    `json:"currentSequence"`
 	EarliestSequence  int    `json:"earliestSequence"`
-}
-
-type DiagnosticCreatedPayload struct {
-	Diagnostic Diagnostic `json:"diagnostic"`
 }
 
 type EventHub struct {
@@ -156,18 +119,11 @@ func EventContracts() EventContractSchema {
 	return EventContractSchema{
 		Events: []EventContract{
 			{Name: "ChatMessageCreatedEvent", Type: EventTypeMessageCreated, Payload: reflect.TypeFor[MessageCreatedPayload]()},
-			{Name: "ChatMessageQueuedEvent", Type: EventTypeMessageQueued, Payload: reflect.TypeFor[MessageQueuedPayload]()},
-			{Name: "ChatMessageSteeringSentEvent", Type: EventTypeMessageSteeringSent, Payload: reflect.TypeFor[MessageSteeringSentPayload]()},
 			{Name: "ChatAssistantTextDeltaEvent", Type: EventTypeAssistantTextDelta, Payload: reflect.TypeFor[AssistantTextDeltaPayload]()},
 			{Name: "ChatMessageUpdatedEvent", Type: EventTypeMessageUpdated, Payload: reflect.TypeFor[MessageUpdatedPayload]()},
 			{Name: "ChatRunUpdatedEvent", Type: EventTypeRunUpdated, Payload: reflect.TypeFor[RunUpdatedPayload]()},
-			{Name: "ChatRunItemCreatedEvent", Type: EventTypeRunItemCreated, Payload: reflect.TypeFor[RunItemCreatedPayload]()},
-			{Name: "ChatRunItemUpdatedEvent", Type: EventTypeRunItemUpdated, Payload: reflect.TypeFor[RunItemUpdatedPayload]()},
-			{Name: "ChatRunItemOutputDeltaEvent", Type: EventTypeRunItemOutputDelta, Payload: reflect.TypeFor[RunItemOutputDeltaPayload]()},
-			{Name: "ChatQueueUpdatedEvent", Type: EventTypeQueueUpdated, Payload: reflect.TypeFor[QueueUpdatedPayload]()},
 			{Name: "ChatConversationUpdatedEvent", Type: EventTypeConversationUpdated, Payload: reflect.TypeFor[ConversationUpdatedPayload]()},
 			{Name: "ChatResyncRequiredEvent", Type: EventTypeResyncRequired, Payload: reflect.TypeFor[ResyncRequiredPayload]()},
-			{Name: "DiagnosticCreatedEvent", Type: EventTypeDiagnosticCreated, Payload: reflect.TypeFor[DiagnosticCreatedPayload]()},
 		},
 	}
 }
@@ -212,26 +168,6 @@ func NewMessageCreatedEvent(workspaceID string, conversationID string, runID str
 	}
 }
 
-func NewMessageQueuedEvent(workspaceID string, conversationID string, runID string, message ChatMessage, run Run) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        MessageQueuedPayload{Message: message, Run: run},
-		RunID:          runID,
-		Type:           EventTypeMessageQueued,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewMessageSteeringSentEvent(workspaceID string, conversationID string, runID string, message ChatMessage, run Run) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        MessageSteeringSentPayload{Message: message, Run: run},
-		RunID:          runID,
-		Type:           EventTypeMessageSteeringSent,
-		WorkspaceID:    workspaceID,
-	}
-}
-
 func NewAssistantTextDeltaEvent(workspaceID string, conversationID string, runID string, messageID string, partID string, delta string, updatedAt string) EventDraft {
 	return EventDraft{
 		ConversationID: conversationID,
@@ -267,46 +203,6 @@ func NewRunUpdatedEvent(run Run) EventDraft {
 	}
 }
 
-func NewRunItemCreatedEvent(item RunItem) EventDraft {
-	return EventDraft{
-		ConversationID: item.ConversationID,
-		Payload:        RunItemCreatedPayload{Item: item},
-		RunID:          item.RunID,
-		Type:           EventTypeRunItemCreated,
-		WorkspaceID:    item.WorkspaceID,
-	}
-}
-
-func NewRunItemUpdatedEvent(item RunItem) EventDraft {
-	return EventDraft{
-		ConversationID: item.ConversationID,
-		Payload:        RunItemUpdatedPayload{Item: item},
-		RunID:          item.RunID,
-		Type:           EventTypeRunItemUpdated,
-		WorkspaceID:    item.WorkspaceID,
-	}
-}
-
-func NewRunItemOutputDeltaEvent(workspaceID string, conversationID string, runID string, output RunItemOutput) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        RunItemOutputDeltaPayload{Output: output},
-		RunID:          runID,
-		Type:           EventTypeRunItemOutputDelta,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewQueueUpdatedEvent(workspaceID string, conversationID string, runID string, queue QueueState) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        QueueUpdatedPayload{Queue: queue},
-		RunID:          runID,
-		Type:           EventTypeQueueUpdated,
-		WorkspaceID:    workspaceID,
-	}
-}
-
 func NewConversationUpdatedEvent(workspaceID string, conversationID string, runID string, item ConversationListItem) EventDraft {
 	return EventDraft{
 		ConversationID: conversationID,
@@ -314,16 +210,6 @@ func NewConversationUpdatedEvent(workspaceID string, conversationID string, runI
 		RunID:          runID,
 		Type:           EventTypeConversationUpdated,
 		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewDiagnosticCreatedEvent(diagnostic Diagnostic) EventDraft {
-	return EventDraft{
-		ConversationID: diagnostic.ConversationID,
-		Payload:        DiagnosticCreatedPayload{Diagnostic: diagnostic},
-		RunID:          diagnostic.RunID,
-		Type:           EventTypeDiagnosticCreated,
-		WorkspaceID:    diagnostic.WorkspaceID,
 	}
 }
 
