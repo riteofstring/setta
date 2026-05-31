@@ -29,6 +29,7 @@ type generator struct {
 	rustDir        string
 	outputPath     string
 	rootSchemas    map[string]jsonSchema
+	rootSchemaRaw  map[string]string
 	clientMethods  []protocolMember
 	serverRequests []protocolMember
 	notifications  []protocolMember
@@ -53,13 +54,14 @@ func main() {
 		fatalf("find repo root: %v", err)
 	}
 	generator := &generator{
-		repoRoot:    repoRoot,
-		schemaDir:   filepath.Join(repoRoot, *schemaDir, "json"),
-		rustDir:     filepath.Join(repoRoot, *schemaDir, "rust", "protocol"),
-		outputPath:  filepath.Join(repoRoot, *output),
-		rootSchemas: map[string]jsonSchema{},
-		schemas:     map[string]jsonSchema{},
-		schemaRaw:   map[string]string{},
+		repoRoot:      repoRoot,
+		schemaDir:     filepath.Join(repoRoot, *schemaDir, "json"),
+		rustDir:       filepath.Join(repoRoot, *schemaDir, "rust", "protocol"),
+		outputPath:    filepath.Join(repoRoot, *output),
+		rootSchemas:   map[string]jsonSchema{},
+		rootSchemaRaw: map[string]string{},
+		schemas:       map[string]jsonSchema{},
+		schemaRaw:     map[string]string{},
 	}
 	if err := generator.run(); err != nil {
 		fatalf("generate codex protocol: %v", err)
@@ -150,7 +152,9 @@ func (generator *generator) loadRoot(name string) (jsonSchema, error) {
 		return jsonSchema{}, err
 	}
 	for definitionName, definition := range schema.Definitions {
-		generator.rootSchemas[definitionName] = definition
+		if err := generator.addRootSchema(definitionName, definition); err != nil {
+			return jsonSchema{}, fmt.Errorf("%s definition %s: %w", name, definitionName, err)
+		}
 	}
 	return schema, nil
 }
@@ -489,8 +493,7 @@ func (generator *generator) enqueueNamedSchema(name string) error {
 		return nil
 	}
 	if schema, ok := generator.rootSchemas[name]; ok {
-		generator.addSchema(name, schema)
-		return nil
+		return generator.addSchema(name, schema)
 	}
 	if err := generator.enqueueSchemaFile(name); err != nil {
 		if errors.Is(err, errSchemaFileMissing) {
@@ -505,35 +508,56 @@ func (generator *generator) enqueueSchemaFile(name string) error {
 	if _, ok := generator.schemas[name]; ok {
 		return nil
 	}
-	path := filepath.Join(generator.schemaDir, "v2", name+".json")
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			path = filepath.Join(generator.schemaDir, name+".json")
-		}
-	}
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			foundPath, ok, walkErr := generator.findSchemaFile(name)
-			if walkErr != nil {
-				return walkErr
-			}
-			if !ok {
-				return errSchemaFileMissing
-			}
-			path = foundPath
-		} else {
-			return err
-		}
+	path, err := generator.schemaFilePath(name)
+	if err != nil {
+		return err
 	}
 	schema, err := readSchema(path)
 	if err != nil {
 		return err
 	}
-	generator.addSchema(name, schema)
+	if err := generator.addSchema(name, schema); err != nil {
+		return err
+	}
 	for defName, def := range schema.Definitions {
-		generator.addSchema(defName, def)
+		if err := generator.addSchema(defName, def); err != nil {
+			return fmt.Errorf("%s definition %s: %w", name, defName, err)
+		}
 	}
 	return nil
+}
+
+func (generator *generator) schemaFilePath(name string) (string, error) {
+	for _, path := range []string{
+		filepath.Join(generator.schemaDir, "v2", name+".json"),
+		filepath.Join(generator.schemaDir, name+".json"),
+	} {
+		exists, err := fileExists(path)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return path, nil
+		}
+	}
+	foundPath, ok, err := generator.findSchemaFile(name)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", errSchemaFileMissing
+	}
+	return foundPath, nil
+}
+
+func fileExists(path string) (bool, error) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (generator *generator) findSchemaFile(name string) (string, bool, error) {
@@ -555,21 +579,48 @@ func (generator *generator) findSchemaFile(name string) (string, bool, error) {
 	return found, found != "", nil
 }
 
-func (generator *generator) addSchema(name string, schema jsonSchema) {
-	raw := string(schema.raw)
-	if raw == "" {
-		data, _ := json.Marshal(schema)
-		raw = string(canonicalJSON(data))
+func (generator *generator) addRootSchema(name string, schema jsonSchema) error {
+	raw, err := schemaCanonicalText(name, schema)
+	if err != nil {
+		return err
+	}
+	if existing, ok := generator.rootSchemaRaw[name]; ok {
+		if existing == raw {
+			return nil
+		}
+		return fmt.Errorf("schema %s has conflicting root definitions", name)
+	}
+	generator.rootSchemas[name] = schema
+	generator.rootSchemaRaw[name] = raw
+	return nil
+}
+
+func (generator *generator) addSchema(name string, schema jsonSchema) error {
+	raw, err := schemaCanonicalText(name, schema)
+	if err != nil {
+		return err
 	}
 	if existing, ok := generator.schemaRaw[name]; ok {
 		if existing == raw {
-			return
+			return nil
 		}
-		return
+		return fmt.Errorf("schema %s has conflicting definitions", name)
 	}
 	generator.schemas[name] = schema
 	generator.schemaRaw[name] = raw
 	generator.queue = append(generator.queue, name)
+	return nil
+}
+
+func schemaCanonicalText(name string, schema jsonSchema) (string, error) {
+	if len(schema.raw) > 0 {
+		return string(schema.raw), nil
+	}
+	data, err := json.Marshal(schema)
+	if err != nil {
+		return "", fmt.Errorf("marshal schema %s: %w", name, err)
+	}
+	return string(canonicalJSON(data)), nil
 }
 
 func (generator *generator) enqueueRustStruct(name string) error {
@@ -581,26 +632,32 @@ func (generator *generator) enqueueRustStruct(name string) error {
 	if err != nil {
 		return fmt.Errorf("read Rust protocol source for %s: %w", name, err)
 	}
-	schema, ok := rustStructSchema(string(data), name)
+	schema, ok, err := generator.rustStructSchema(string(data), name)
+	if err != nil {
+		return err
+	}
 	if !ok {
 		return fmt.Errorf("schema %s was not found in JSON snapshot or Rust protocol source", name)
 	}
-	generator.addSchema(name, schema)
-	return nil
+	return generator.addSchema(name, schema)
 }
 
-func rustStructSchema(text string, name string) (jsonSchema, bool) {
+func (generator *generator) rustStructSchema(text string, name string) (jsonSchema, bool, error) {
 	pattern := regexp.MustCompile(`(?s)pub struct ` + regexp.QuoteMeta(name) + ` \{(.*?)\n\}`)
 	match := pattern.FindStringSubmatch(text)
 	if match == nil {
-		return jsonSchema{}, false
+		return jsonSchema{}, false, nil
 	}
 	properties := map[string]jsonSchema{}
 	required := []string{}
 	fieldPattern := regexp.MustCompile(`(?m)^\s*pub ([a-zA-Z0-9_]+): ([^,]+),`)
 	for _, field := range fieldPattern.FindAllStringSubmatch(match[1], -1) {
 		jsonName := lowerCamelFromSnake(field[1])
-		schema, isRequired := rustTypeSchema(strings.TrimSpace(field[2]))
+		rustType := strings.TrimSpace(field[2])
+		schema, isRequired, err := generator.rustTypeSchema(rustType)
+		if err != nil {
+			return jsonSchema{}, true, fmt.Errorf("%s.%s has unsupported Rust field type %s: %w", name, field[1], rustType, err)
+		}
 		properties[jsonName] = schema
 		if isRequired {
 			required = append(required, jsonName)
@@ -612,40 +669,86 @@ func rustStructSchema(text string, name string) (jsonSchema, bool) {
 		Type:       "object",
 		Properties: properties,
 		Required:   required,
-	}, true
+	}, true, nil
 }
 
-func rustTypeSchema(typeName string) (jsonSchema, bool) {
+func (generator *generator) rustTypeSchema(typeName string) (jsonSchema, bool, error) {
 	if typeName == "String" || typeName == "PathBuf" {
-		return jsonSchema{Type: "string"}, true
+		return jsonSchema{Type: "string"}, true, nil
 	}
 	if strings.HasPrefix(typeName, "Option<") {
-		inner := strings.TrimSuffix(strings.TrimPrefix(typeName, "Option<"), ">")
-		if strings.HasPrefix(inner, "Option<") {
-			return jsonSchema{Type: []any{"string", "null"}}, false
+		inner, ok := rustGenericInner(typeName, "Option")
+		if !ok {
+			return jsonSchema{}, false, fmt.Errorf("malformed Option type")
 		}
-		schema, _ := rustTypeSchema(inner)
-		if schema.Ref == "" && typeString(schema.Type) == "" {
-			schema = jsonSchema{}
+		schema, _, err := generator.rustTypeSchema(inner)
+		if err != nil {
+			return jsonSchema{}, false, err
 		}
-		return nullableSchema(schema), false
+		nullable, err := nullableSchema(schema)
+		if err != nil {
+			return jsonSchema{}, false, err
+		}
+		return nullable, false, nil
 	}
-	switch typeName {
-	case "ReasoningEffort":
-		return jsonSchema{Ref: "#/definitions/ReasoningEffort"}, false
-	default:
-		return jsonSchema{}, false
+	if isRustNamedType(typeName) {
+		if _, ok := generator.rootSchemas[typeName]; ok {
+			return jsonSchema{Ref: "#/definitions/" + typeName}, false, nil
+		}
 	}
+	return jsonSchema{}, false, fmt.Errorf("unsupported Rust type")
 }
 
-func nullableSchema(schema jsonSchema) jsonSchema {
+func isRustNamedType(typeName string) bool {
+	if typeName == "" {
+		return false
+	}
+	for index, char := range typeName {
+		if index == 0 {
+			if !unicode.IsLetter(char) {
+				return false
+			}
+			continue
+		}
+		if !unicode.IsLetter(char) && !unicode.IsDigit(char) && char != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+func rustGenericInner(typeName string, genericName string) (string, bool) {
+	prefix := genericName + "<"
+	if !strings.HasPrefix(typeName, prefix) || !strings.HasSuffix(typeName, ">") {
+		return "", false
+	}
+	inner := strings.TrimSpace(typeName[len(prefix) : len(typeName)-1])
+	return inner, inner != ""
+}
+
+func nullableSchema(schema jsonSchema) (jsonSchema, error) {
+	if schemaAllowsNull(schema) {
+		return schema, nil
+	}
 	if schema.Ref != "" {
-		return jsonSchema{AnyOf: []jsonSchema{schema, jsonSchema{Type: "null"}}}
+		return jsonSchema{AnyOf: []jsonSchema{schema, jsonSchema{Type: "null"}}}, nil
 	}
 	if text := typeString(schema.Type); text != "" {
-		return jsonSchema{Type: []any{text, "null"}}
+		return jsonSchema{Type: []any{text, "null"}}, nil
 	}
-	return jsonSchema{}
+	return jsonSchema{}, fmt.Errorf("unsupported nullable schema")
+}
+
+func schemaAllowsNull(schema jsonSchema) bool {
+	if schemaTypeAllows(schema.Type, "null") {
+		return true
+	}
+	for _, entry := range schema.AnyOf {
+		if schemaTypeAllows(entry.Type, "null") {
+			return true
+		}
+	}
+	return false
 }
 
 func (generator *generator) walkSchemaQueue() error {

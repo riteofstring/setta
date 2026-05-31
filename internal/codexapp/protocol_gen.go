@@ -1805,18 +1805,18 @@ type ThreadSettings struct {
 }
 
 type ThreadSettingsUpdateParams struct {
-	ApprovalPolicy    json.RawMessage  `json:"approvalPolicy,omitempty"`
-	ApprovalsReviewer json.RawMessage  `json:"approvalsReviewer,omitempty"`
-	CollaborationMode json.RawMessage  `json:"collaborationMode,omitempty"`
-	CWD               *string          `json:"cwd,omitempty"`
-	Effort            *ReasoningEffort `json:"effort,omitempty"`
-	Model             *string          `json:"model,omitempty"`
-	Permissions       *string          `json:"permissions,omitempty"`
-	Personality       json.RawMessage  `json:"personality,omitempty"`
-	SandboxPolicy     json.RawMessage  `json:"sandboxPolicy,omitempty"`
-	ServiceTier       *string          `json:"serviceTier,omitempty"`
-	Summary           json.RawMessage  `json:"summary,omitempty"`
-	ThreadID          string           `json:"threadId"`
+	ApprovalPolicy    *AskForApproval    `json:"approvalPolicy,omitempty"`
+	ApprovalsReviewer *ApprovalsReviewer `json:"approvalsReviewer,omitempty"`
+	CollaborationMode *CollaborationMode `json:"collaborationMode,omitempty"`
+	CWD               *string            `json:"cwd,omitempty"`
+	Effort            *ReasoningEffort   `json:"effort,omitempty"`
+	Model             *string            `json:"model,omitempty"`
+	Permissions       *string            `json:"permissions,omitempty"`
+	Personality       *Personality       `json:"personality,omitempty"`
+	SandboxPolicy     *SandboxPolicy     `json:"sandboxPolicy,omitempty"`
+	ServiceTier       *string            `json:"serviceTier,omitempty"`
+	Summary           *ReasoningSummary  `json:"summary,omitempty"`
+	ThreadID          string             `json:"threadId"`
 }
 
 type ThreadSettingsUpdatedNotification struct {
