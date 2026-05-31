@@ -10,11 +10,12 @@ import {
   PenLine,
   Pencil,
   Pin,
+  Terminal,
   Trash2,
   Workflow,
   X,
 } from "lucide-react";
-import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { type WorkspaceGitState, useWorkspaceGitInfo } from "../hooks/use-workspace-git-info";
@@ -27,14 +28,23 @@ import {
   type SidebarSectionState,
 } from "./sidebar-accordion";
 import {
+  createSidebarListItem,
   EmptySectionIcon,
   MemoryIntegrationsContent,
   NotesContent,
   RulesContent,
+  SettaCanvasIcon,
+  SidebarIndentedListItems,
+  type SidebarUtilityKind,
   type SidebarListItem,
   UnorganizedChatsContent,
 } from "./sidebar-secondary-sections";
-import { ProjectFolderButton, SidebarHeaderIconButton } from "./sidebar-header-actions";
+import {
+  ProjectFolderButton,
+  SidebarHeaderActionGroup,
+  SidebarHeaderIconButton,
+  SidebarIconButton,
+} from "./sidebar-header-actions";
 import { SidebarShortcuts } from "./sidebar-shortcuts";
 
 const activeWorkspaceRowHeight = 28;
@@ -122,7 +132,10 @@ export function WorkspaceSidebar({
   const selectedBranchLabel = branchHoverLabel(selectedGit);
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
-  const [standaloneChats, setStandaloneChats] = useState<SidebarListItem[]>([]);
+  const [standaloneItems, setStandaloneItems] = useState<SidebarListItem[]>([]);
+  const [projectUtilityItemsByWorkspace, setProjectUtilityItemsByWorkspace] = useState<
+    Record<string, SidebarListItem[]>
+  >({});
   const [notes, setNotes] = useState<SidebarListItem[]>([]);
   const [rules, setRules] = useState<SidebarListItem[]>([]);
 
@@ -166,37 +179,32 @@ export function WorkspaceSidebar({
     });
   }
 
-  function createStandaloneChat() {
-    setStandaloneChats((current) => [
-      {
-        id: `standalone_chat_${Date.now()}_${current.length}`,
-        subtitle: "now",
-        title: current.length === 0 ? "New chat" : `New chat ${current.length + 1}`,
-      },
+  function createStandaloneItem(kind: SidebarUtilityKind) {
+    setStandaloneItems((current) => [
+      createSidebarListItem(kind, current, "standalone"),
       ...current,
     ]);
+  }
+
+  function createProjectUtilityItem(workspaceId: string, kind: SidebarUtilityKind) {
+    setProjectUtilityItemsByWorkspace((current) => {
+      const workspaceItems = current[workspaceId] ?? [];
+      return {
+        ...current,
+        [workspaceId]: [
+          createSidebarListItem(kind, workspaceItems, workspaceId),
+          ...workspaceItems,
+        ],
+      };
+    });
   }
 
   function createLocalNote() {
-    setNotes((current) => [
-      {
-        id: `note_${Date.now()}_${current.length}`,
-        subtitle: "local",
-        title: current.length === 0 ? "Untitled note" : `Untitled note ${current.length + 1}`,
-      },
-      ...current,
-    ]);
+    setNotes((current) => [createSidebarListItem("note", current, "notes"), ...current]);
   }
 
   function createLocalRule() {
-    setRules((current) => [
-      {
-        id: `rule_${Date.now()}_${current.length}`,
-        subtitle: "node graph",
-        title: current.length === 0 ? "New rule" : `New rule ${current.length + 1}`,
-      },
-      ...current,
-    ]);
+    setRules((current) => [createSidebarListItem("rule", current, "rules"), ...current]);
   }
 
   return (
@@ -251,8 +259,10 @@ export function WorkspaceSidebar({
                   chatBusy={chatBusy}
                   closeWorkspace={closeWorkspace}
                   conversations={conversations}
+                  createProjectUtilityItem={createProjectUtilityItem}
                   createWorkspaceConversation={createWorkspaceConversation}
                   expandedWorkspaceId={expandedWorkspaceId}
+                  projectUtilityItemsByWorkspace={projectUtilityItemsByWorkspace}
                   pinnedConversationIdsByWorkspace={pinnedProjectConversationIds}
                   selectConversation={selectConversation}
                   selectWorkspace={selectWorkspace}
@@ -273,11 +283,23 @@ export function WorkspaceSidebar({
           </SidebarAccordionSection>
           <SidebarAccordionSection
             action={
-              <SidebarHeaderIconButton
-                icon={<MessageSquarePlus className="h-3.5 w-3.5" />}
-                label="New standalone chat"
-                onClick={createStandaloneChat}
-              />
+              <SidebarHeaderActionGroup>
+                <SidebarHeaderIconButton
+                  icon={<Terminal className="h-3.5 w-3.5" />}
+                  label="New standalone terminal"
+                  onClick={() => createStandaloneItem("terminal")}
+                />
+                <SidebarHeaderIconButton
+                  icon={<SettaCanvasIcon />}
+                  label="New standalone setta canvas"
+                  onClick={() => createStandaloneItem("canvas")}
+                />
+                <SidebarHeaderIconButton
+                  icon={<MessageSquarePlus className="h-3.5 w-3.5" />}
+                  label="New standalone chat"
+                  onClick={() => createStandaloneItem("chat")}
+                />
+              </SidebarHeaderActionGroup>
             }
             height={sections.chats.height}
             onHeightChange={(height) => setSectionHeight("chats", height)}
@@ -287,15 +309,17 @@ export function WorkspaceSidebar({
             testId="standalone-chat-section"
             title="Chats"
           >
-            <UnorganizedChatsContent chats={standaloneChats} />
+            <UnorganizedChatsContent chats={standaloneItems} />
           </SidebarAccordionSection>
           <SidebarAccordionSection
             action={
-              <SidebarHeaderIconButton
-                icon={<PenLine className="h-3.5 w-3.5" />}
-                label="New note"
-                onClick={createLocalNote}
-              />
+              <SidebarHeaderActionGroup>
+                <SidebarHeaderIconButton
+                  icon={<PenLine className="h-3.5 w-3.5" />}
+                  label="New note"
+                  onClick={createLocalNote}
+                />
+              </SidebarHeaderActionGroup>
             }
             height={sections.notes.height}
             onHeightChange={(height) => setSectionHeight("notes", height)}
@@ -345,8 +369,10 @@ function ProjectList({
   chatBusy,
   closeWorkspace,
   conversations,
+  createProjectUtilityItem,
   createWorkspaceConversation,
   expandedWorkspaceId,
+  projectUtilityItemsByWorkspace,
   pinnedConversationIdsByWorkspace,
   selectConversation,
   selectWorkspace,
@@ -363,8 +389,10 @@ function ProjectList({
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
+  createProjectUtilityItem: (workspaceId: string, kind: SidebarUtilityKind) => void;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   expandedWorkspaceId: string;
+  projectUtilityItemsByWorkspace: Record<string, SidebarListItem[]>;
   pinnedConversationIdsByWorkspace: Record<string, string[]>;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
@@ -388,11 +416,13 @@ function ProjectList({
       chatBusy={chatBusy}
       closeWorkspace={closeWorkspace}
       conversations={conversations}
+      createProjectUtilityItem={createProjectUtilityItem}
       createWorkspaceConversation={createWorkspaceConversation}
       expanded={expandedWorkspaceId === workspace.id}
       pinnedConversationIds={
         pinnedConversationIdsByWorkspace[workspace.id] ?? emptyPinnedConversationIds
       }
+      projectUtilityItems={projectUtilityItemsByWorkspace[workspace.id] ?? []}
       selectConversation={selectConversation}
       selectWorkspace={selectWorkspace}
       selected={workspace.id === selectedWorkspaceId}
@@ -441,9 +471,11 @@ function ProjectRow({
   chatBusy,
   closeWorkspace,
   conversations,
+  createProjectUtilityItem,
   createWorkspaceConversation,
   expanded,
   pinnedConversationIds,
+  projectUtilityItems,
   selectConversation,
   selectWorkspace,
   selected,
@@ -460,9 +492,11 @@ function ProjectRow({
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
+  createProjectUtilityItem: (workspaceId: string, kind: SidebarUtilityKind) => void;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   expanded: boolean;
   pinnedConversationIds: string[];
+  projectUtilityItems: SidebarListItem[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selected: boolean;
@@ -481,6 +515,14 @@ function ProjectRow({
       await selectWorkspace(workspace.id);
     }
     await createWorkspaceConversation(workspace.id);
+  }
+
+  async function createProjectUtility(kind: SidebarUtilityKind) {
+    setExpandedWorkspaceId(workspace.id);
+    if (!selected) {
+      await selectWorkspace(workspace.id);
+    }
+    createProjectUtilityItem(workspace.id, kind);
   }
 
   return (
@@ -514,23 +556,39 @@ function ProjectRow({
           </span>
         </button>
         <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
-          <IconButton
+          <SidebarIconButton
+            disabled={rowBusy}
+            label={`New terminal in ${workspace.displayName}`}
+            onClick={() => void createProjectUtility("terminal")}
+          >
+            <Terminal className="h-3.5 w-3.5" />
+          </SidebarIconButton>
+          <SidebarIconButton
+            disabled={rowBusy}
+            label={`New setta canvas in ${workspace.displayName}`}
+            onClick={() => void createProjectUtility("canvas")}
+          >
+            <SettaCanvasIcon />
+          </SidebarIconButton>
+          <SidebarIconButton
             disabled={rowBusy}
             label={`New chat in ${workspace.displayName}`}
             onClick={() => void createProjectConversation()}
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
-          </IconButton>
+          </SidebarIconButton>
+          <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
         </div>
       </div>
       {hasVisibleChats ? (
         <div className="min-w-0">
+          <ProjectUtilityList items={projectUtilityItems} />
           <ConversationList
             activeRun={activeRun}
             branchLabel={branchLabel}
             busy={chatBusy}
             conversations={conversations}
+            showEmpty={projectUtilityItems.length === 0}
             onTogglePinned={(conversationId) =>
               togglePinnedConversation(workspace.id, conversationId)
             }
@@ -618,7 +676,7 @@ function ProjectMoreMenu({
 
   return (
     <div ref={menuRef} className="relative">
-      <IconButton
+      <SidebarIconButton
         aria-expanded={open}
         aria-haspopup="menu"
         disabled={busy}
@@ -631,7 +689,7 @@ function ProjectMoreMenu({
         }}
       >
         <Ellipsis className="h-3.5 w-3.5" />
-      </IconButton>
+      </SidebarIconButton>
       {open ? (
         <div
           className="fixed z-50 w-56 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50 backdrop-blur"
@@ -677,6 +735,13 @@ function ProjectMoreMenu({
   );
 }
 
+function ProjectUtilityList({ items }: { items: SidebarListItem[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+  return <SidebarIndentedListItems items={items} />;
+}
+
 function ProjectMenuItem({
   icon,
   label,
@@ -708,6 +773,7 @@ function ConversationList({
   pinnedConversationIds,
   selectConversation,
   selectedConversationId,
+  showEmpty = true,
   unreadConversationIds,
 }: {
   activeRun: Run | null;
@@ -718,6 +784,7 @@ function ConversationList({
   pinnedConversationIds: string[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectedConversationId: string;
+  showEmpty?: boolean;
   unreadConversationIds: Record<string, true>;
 }) {
   const [visibleLimit, setVisibleLimit] = useState(chatHistoryLimit);
@@ -742,7 +809,7 @@ function ConversationList({
   );
 
   if (visibleConversations.length === 0) {
-    return <div className="px-2 py-1 text-xs text-zinc-600">No chats</div>;
+    return showEmpty ? <div className="px-2 py-1 text-xs text-zinc-600">No chats</div> : null;
   }
 
   return (
@@ -1011,14 +1078,14 @@ function RecentWorkspaceRow({
         <Workflow className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
         <span className="truncate text-xs text-zinc-500">{workspace.displayName}</span>
       </div>
-      <IconButton
+      <SidebarIconButton
         className="mr-0.5 opacity-0 group-hover:opacity-100"
         disabled={busy}
         label="Remove recent workspace"
         onClick={() => void removeRecent(workspace.id)}
       >
         <Trash2 className="h-3.5 w-3.5" />
-      </IconButton>
+      </SidebarIconButton>
     </div>
   );
 }
@@ -1116,36 +1183,4 @@ function virtualRowStyle(index: number, rowHeight: number): CSSProperties {
     height: rowHeight,
     transform: `translateY(${index * rowHeight}px)`,
   };
-}
-
-function IconButton({
-  children,
-  className,
-  disabled,
-  label,
-  onClick,
-  type = "button",
-  ...buttonProps
-}: {
-  children: ReactNode;
-  className?: string;
-  disabled: boolean;
-  label: string;
-} & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      {...buttonProps}
-      aria-label={label}
-      className={cn(
-        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-20",
-        className,
-      )}
-      disabled={disabled}
-      onClick={onClick}
-      title={label}
-      type={type}
-    >
-      {children}
-    </button>
-  );
 }

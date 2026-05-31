@@ -58,7 +58,7 @@ export function SidebarAccordionSection({
 
   return (
     <section className="group/section min-w-0" data-testid={testId}>
-      <div className="flex h-6 items-center justify-between gap-1 px-2">
+      <div className="flex h-6 items-center justify-between gap-1 pl-2 pr-0.5">
         <button
           aria-expanded={open}
           className="flex min-w-0 flex-1 items-center text-left text-xs font-medium text-zinc-500 hover:text-zinc-200"

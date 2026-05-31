@@ -138,7 +138,11 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Shortcuts");
     expect(html).toContain("New setta gen");
     expect(html).toContain("Chats");
+    expect(html).toContain('aria-label="New terminal in web"');
+    expect(html).toContain('aria-label="New setta canvas in web"');
     expect(html).toContain('aria-label="New chat in web"');
+    expect(html).toContain('aria-label="New standalone terminal"');
+    expect(html).toContain('aria-label="New standalone setta canvas"');
     expect(html).toContain('aria-label="New standalone chat"');
     expect(html).toContain('aria-label="Pin Web chat"');
     expect(html).not.toContain("No unorganized chats");
@@ -171,16 +175,26 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <>
         <UnorganizedChatsContent
-          chats={[{ id: "chat_one", subtitle: "1m", title: "Scratch chat" }]}
+          chats={[
+            { id: "chat_one", kind: "chat", subtitle: "1m", title: "Scratch chat" },
+            { id: "terminal_one", kind: "terminal", subtitle: "terminal", title: "Terminal" },
+            { id: "canvas_one", kind: "canvas", subtitle: "canvas", title: "Setta canvas" },
+          ]}
         />
-        <NotesContent notes={[{ id: "note_one", subtitle: "local", title: "Draft note" }]} />
-        <RulesContent rules={[{ id: "rule_one", subtitle: "node graph", title: "Code review" }]} />
+        <NotesContent
+          notes={[{ id: "note_one", kind: "note", subtitle: "local", title: "Draft note" }]}
+        />
+        <RulesContent
+          rules={[{ id: "rule_one", kind: "rule", subtitle: "node graph", title: "Code review" }]}
+        />
       </>,
     );
 
-    expect(rowCount(html, "sidebar-indented-list-item")).toBe(3);
+    expect(rowCount(html, "sidebar-indented-list-item")).toBe(5);
     expect(html).toContain("grid-cols-[18px_minmax(0,1fr)_auto]");
     expect(html).toContain("Scratch chat");
+    expect(html).toContain("Terminal");
+    expect(html).toContain("Setta canvas");
     expect(html).toContain("Draft note");
     expect(html).toContain("Code review");
   });

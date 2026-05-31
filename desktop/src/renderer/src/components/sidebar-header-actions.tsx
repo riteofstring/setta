@@ -1,5 +1,39 @@
 import { FolderPlus } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+
+import { cn } from "../lib/utils";
+
+export function SidebarIconButton({
+  children,
+  className,
+  disabled = false,
+  label,
+  onClick,
+  type = "button",
+  ...buttonProps
+}: {
+  children: ReactNode;
+  className?: string;
+  disabled?: boolean;
+  label: string;
+} & ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...buttonProps}
+      aria-label={label}
+      className={cn(
+        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-20",
+        className,
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+      type={type}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function SidebarHeaderIconButton({
   icon,
@@ -11,16 +45,14 @@ export function SidebarHeaderIconButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      aria-label={label}
-      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
+    <SidebarIconButton label={label} onClick={onClick}>
       {icon}
-    </button>
+    </SidebarIconButton>
   );
+}
+
+export function SidebarHeaderActionGroup({ children }: { children: ReactNode }) {
+  return <div className="mr-0.5 flex shrink-0 items-center gap-0.5">{children}</div>;
 }
 
 export function ProjectFolderButton({
@@ -31,17 +63,14 @@ export function ProjectFolderButton({
   openLocalFolder: () => Promise<void>;
 }) {
   return (
-    <div className="shrink-0">
-      <button
-        aria-label="Open project folder"
-        className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+    <SidebarHeaderActionGroup>
+      <SidebarIconButton
         disabled={busy}
+        label="Open project folder"
         onClick={() => void openLocalFolder()}
-        title="Open project folder"
-        type="button"
       >
         <FolderPlus className="h-3.5 w-3.5" />
-      </button>
-    </div>
+      </SidebarIconButton>
+    </SidebarHeaderActionGroup>
   );
 }

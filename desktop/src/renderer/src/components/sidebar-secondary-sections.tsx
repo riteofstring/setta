@@ -1,11 +1,47 @@
-import { BookOpen, Database, FileText, FolderOpen, Inbox, Workflow, X } from "lucide-react";
+import {
+  BookOpen,
+  Database,
+  FileText,
+  FolderOpen,
+  Inbox,
+  Terminal,
+  Workflow,
+  X,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
+import settaSLogo from "../../../../img/logo/s-logo-only-og.svg";
+
+export type SidebarListItemKind = "canvas" | "chat" | "note" | "rule" | "terminal";
+export type SidebarUtilityKind = Extract<SidebarListItemKind, "canvas" | "chat" | "terminal">;
+
 export interface SidebarListItem {
   id: string;
+  kind?: SidebarListItemKind;
   subtitle?: string;
   title: string;
+}
+
+export function createSidebarListItem(
+  kind: SidebarListItemKind,
+  existingItems: SidebarListItem[],
+  scope: string,
+): SidebarListItem {
+  const kindCount = existingItems.filter((item) => item.kind === kind).length;
+  const baseTitle = sidebarItemBaseTitle(kind);
+  return {
+    id: `${scope}_${kind}_${Date.now()}_${existingItems.length}`,
+    kind,
+    subtitle: sidebarItemSubtitle(kind),
+    title: kindCount === 0 ? baseTitle : `${baseTitle} ${kindCount + 1}`,
+  };
+}
+
+export function SettaCanvasIcon() {
+  return (
+    <img alt="" className="h-3.5 w-3.5 opacity-75 grayscale" draggable={false} src={settaSLogo} />
+  );
 }
 
 export function UnorganizedChatsContent({ chats }: { chats: SidebarListItem[] }) {
@@ -25,7 +61,7 @@ export function NotesContent({ notes }: { notes: SidebarListItem[] }) {
   return <SidebarIndentedListItems items={notes} />;
 }
 
-function SidebarIndentedListItems({ items }: { items: SidebarListItem[] }) {
+export function SidebarIndentedListItems({ items }: { items: SidebarListItem[] }) {
   return (
     <div className="grid gap-0.5 py-0.5">
       {items.map((item) => (
@@ -35,7 +71,9 @@ function SidebarIndentedListItems({ items }: { items: SidebarListItem[] }) {
           key={item.id}
           type="button"
         >
-          <span aria-hidden="true" className="h-4 w-[18px]" />
+          <span aria-hidden="true" className="grid h-4 w-[18px] place-items-center text-zinc-500">
+            <SidebarItemIcon kind={item.kind} />
+          </span>
           <span className="truncate">{item.title}</span>
           {item.subtitle ? (
             <span className="text-[11px] text-zinc-600">{item.subtitle}</span>
@@ -44,6 +82,56 @@ function SidebarIndentedListItems({ items }: { items: SidebarListItem[] }) {
       ))}
     </div>
   );
+}
+
+function SidebarItemIcon({ kind }: { kind?: SidebarListItemKind }) {
+  switch (kind) {
+    case "canvas":
+      return <SettaCanvasIcon />;
+    case "terminal":
+      return <Terminal className="h-3.5 w-3.5" />;
+    case "chat":
+    case "note":
+    case "rule":
+    case undefined:
+      return null;
+    default:
+      return assertSidebarItemKind(kind);
+  }
+}
+
+function sidebarItemBaseTitle(kind: SidebarListItemKind) {
+  switch (kind) {
+    case "canvas":
+      return "Setta canvas";
+    case "chat":
+      return "New chat";
+    case "note":
+      return "Untitled note";
+    case "rule":
+      return "New rule";
+    case "terminal":
+      return "Terminal";
+    default:
+      return assertSidebarItemKind(kind);
+  }
+}
+
+function sidebarItemSubtitle(kind: SidebarListItemKind) {
+  switch (kind) {
+    case "canvas":
+      return "canvas";
+    case "chat":
+      return "now";
+    case "note":
+      return "local";
+    case "rule":
+      return "node graph";
+    case "terminal":
+      return "terminal";
+    default:
+      return assertSidebarItemKind(kind);
+  }
 }
 
 // External memories should be provider-backed later: local folders, Obsidian
@@ -190,4 +278,8 @@ function MemoryIntegrationOption({
       <span className="truncate text-[11px] text-zinc-600">{description}</span>
     </button>
   );
+}
+
+function assertSidebarItemKind(value: never): never {
+  throw new Error(`Unhandled sidebar item kind: ${value}`);
 }
