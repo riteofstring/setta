@@ -12,20 +12,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
 import { FloatingMenu } from "./floating-menu";
+import {
+  appendWorkspacePane,
+  insertWorkspacePaneAtSplitTarget,
+  removeWorkspacePaneFromLayout,
+  workspacePaneLayoutAfterRemoval,
+  type WorkspacePaneLayout,
+  type WorkspacePaneSplitTarget,
+} from "./workspace-pane-layout";
 import { SettingsPanel } from "./settings-panel";
 
 type PaneSlot = "bottom" | "grid" | "right";
 export type WorkspacePaneKind = "chat" | "settings";
-export type WorkspacePaneLayout = "columns" | "grid" | "rows";
-export type WorkspacePaneSplitTarget =
-  | "bottom"
-  | "bottom-left"
-  | "bottom-right"
-  | "left"
-  | "right"
-  | "top"
-  | "top-left"
-  | "top-right";
+export type { WorkspacePaneLayout, WorkspacePaneSplitTarget } from "./workspace-pane-layout";
 type WorkspacePaneRuntime = "renderer-chat" | "renderer-settings";
 type WorkspacePaneHost = "renderer";
 export const maxWorkspacePaneCount = 4;
@@ -67,14 +66,11 @@ export function useWorkspacePaneState() {
       paneCounter.current += 1;
       tabCounter.current += 1;
       const tab = createWorkspacePaneTab(kind, tabCounter.current, []);
-      const panes = [
-        ...current.panes,
+      return appendWorkspacePane(
+        current.layout,
+        current.panes,
         createWorkspacePane(`workspace_pane_${paneCounter.current}`, tab),
-      ];
-      return {
-        layout: workspacePaneLayoutAfterAppend(current.layout, panes.length),
-        panes,
-      };
+      );
     });
   }, []);
 
@@ -114,11 +110,7 @@ export function useWorkspacePaneState() {
       if (!closingPane || closingPane.tabs.length > 0 || next.length === 1) {
         return { ...current, panes: next };
       }
-      const panes = next.filter((pane) => pane.id !== paneId);
-      return {
-        layout: normalizeWorkspacePaneLayout(current.layout, panes.length),
-        panes,
-      };
+      return removeWorkspacePaneFromLayout(current.layout, next, paneId);
     });
   }, []);
 
@@ -127,11 +119,7 @@ export function useWorkspacePaneState() {
       if (current.panes.length === 1) {
         return current;
       }
-      const panes = current.panes.filter((pane) => pane.id !== paneId);
-      return {
-        layout: normalizeWorkspacePaneLayout(current.layout, panes.length),
-        panes,
-      };
+      return removeWorkspacePaneFromLayout(current.layout, current.panes, paneId);
     });
   }, []);
 
@@ -150,14 +138,11 @@ export function useWorkspacePaneState() {
         paneCounter.current += 1;
         tabCounter.current += 1;
         const tab = createWorkspacePaneTab(kind, tabCounter.current, []);
-        const panes = [
-          ...current.panes,
+        return appendWorkspacePane(
+          current.layout,
+          current.panes,
           createWorkspacePane(`workspace_pane_${paneCounter.current}`, tab),
-        ];
-        return {
-          layout: workspacePaneLayoutAfterAppend(current.layout, panes.length),
-          panes,
-        };
+        );
       }
       tabCounter.current += 1;
       const tab = createWorkspacePaneTab(kind, tabCounter.current, current.panes[0]?.tabs ?? []);
@@ -178,33 +163,18 @@ export function useWorkspacePaneState() {
 
   const splitTab = useCallback(
     (sourcePaneId: string, tabId: string, target: WorkspacePaneSplitTarget) => {
-      setState((current) => {
-        const sourcePane = current.panes.find((pane) => pane.id === sourcePaneId);
-        const tab = sourcePane?.tabs.find((candidate) => candidate.id === tabId);
-        if (!sourcePane || !tab || !canSplitWorkspacePaneTab(current.panes, sourcePaneId)) {
-          return current;
-        }
-
-        const sourceHasOneTab = sourcePane.tabs.length === 1;
-        const cloneOnlyTab = sourceHasOneTab && current.panes.length === 1;
-        const splitTab = cloneOnlyTab
-          ? createWorkspacePaneTab(tab.kind, (tabCounter.current += 1), [])
-          : tab;
-        paneCounter.current += 1;
-        const splitPane = createWorkspacePane(`workspace_pane_${paneCounter.current}`, splitTab);
-        const panesWithoutSplitTab = sourceHasOneTab
-          ? cloneOnlyTab
-            ? current.panes
-            : current.panes.filter((pane) => pane.id !== sourcePane.id)
-          : current.panes.map((pane) =>
-              pane.id === sourcePane.id ? closeWorkspacePaneTab(pane, tab.id) : pane,
-            );
-        const panes = insertWorkspacePaneAtSplitTarget(panesWithoutSplitTab, splitPane, target);
-        return {
-          layout: workspacePaneLayoutForSplitTarget(target, panes.length),
-          panes,
-        };
-      });
+      setState((current) =>
+        splitWorkspacePaneTabState(current, sourcePaneId, tabId, target, {
+          nextPaneId: () => {
+            paneCounter.current += 1;
+            return paneCounter.current;
+          },
+          nextTabId: () => {
+            tabCounter.current += 1;
+            return tabCounter.current;
+          },
+        }),
+      );
     },
     [],
   );
@@ -312,81 +282,57 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
   };
 }
 
-function workspacePaneLayoutAfterAppend(
-  current: WorkspacePaneLayout,
-  count: number,
-): WorkspacePaneLayout {
-  if (count <= 1) {
-    return "grid";
-  }
-  if (count === 2) {
-    return current === "rows" ? "rows" : "columns";
-  }
-  return "grid";
-}
-
-function normalizeWorkspacePaneLayout(
-  current: WorkspacePaneLayout,
-  count: number,
-): WorkspacePaneLayout {
-  if (count <= 1) {
-    return "grid";
-  }
-  if (count === 2) {
-    return current === "rows" ? "rows" : "columns";
-  }
-  return "grid";
-}
-
-function workspacePaneLayoutForSplitTarget(
+function splitWorkspacePaneTabState(
+  current: WorkspacePaneCollectionState,
+  sourcePaneId: string,
+  tabId: string,
   target: WorkspacePaneSplitTarget,
-  count: number,
-): WorkspacePaneLayout {
-  if (count <= 1) {
-    return "grid";
+  counters: {
+    nextPaneId: () => number;
+    nextTabId: () => number;
+  },
+): WorkspacePaneCollectionState {
+  const sourcePane = current.panes.find((pane) => pane.id === sourcePaneId);
+  const tab = sourcePane?.tabs.find((candidate) => candidate.id === tabId);
+  if (!sourcePane || !tab || !canSplitWorkspacePaneTab(current.panes, sourcePaneId)) {
+    return current;
   }
-  if (count > 2 || isQuadrantSplitTarget(target)) {
-    return "grid";
-  }
-  return target === "top" || target === "bottom" ? "rows" : "columns";
+  const sourceState = workspacePaneSplitSourceState(current, sourcePane, tab, counters.nextTabId);
+  const pane = createWorkspacePane(`workspace_pane_${counters.nextPaneId()}`, sourceState.tab);
+  return insertWorkspacePaneAtSplitTarget(sourceState.layout, sourceState.panes, pane, target);
 }
 
-function isQuadrantSplitTarget(target: WorkspacePaneSplitTarget) {
-  return (
-    target === "top-left" ||
-    target === "top-right" ||
-    target === "bottom-left" ||
-    target === "bottom-right"
-  );
-}
-
-function insertWorkspacePaneAtSplitTarget(
-  panes: WorkspacePaneState[],
-  pane: WorkspacePaneState,
-  target: WorkspacePaneSplitTarget,
+function workspacePaneSplitSourceState(
+  current: WorkspacePaneCollectionState,
+  sourcePane: WorkspacePaneState,
+  tab: WorkspacePaneTab,
+  nextTabId: () => number,
 ) {
-  const next = [...panes];
-  next.splice(workspacePaneSplitInsertionIndex(target, panes.length + 1), 0, pane);
-  return next.slice(0, maxWorkspacePaneCount);
-}
-
-function workspacePaneSplitInsertionIndex(target: WorkspacePaneSplitTarget, count: number) {
-  switch (target) {
-    case "left":
-    case "top":
-    case "top-left":
-      return 0;
-    case "right":
-    case "top-right":
-      return Math.min(1, count - 1);
-    case "bottom-left":
-      return Math.min(2, count - 1);
-    case "bottom":
-    case "bottom-right":
-      return count - 1;
-    default:
-      return assertWorkspacePaneSplitTarget(target);
+  const sourceHasOneTab = sourcePane.tabs.length === 1;
+  if (!sourceHasOneTab) {
+    return {
+      layout: current.layout,
+      panes: current.panes.map((pane) =>
+        pane.id === sourcePane.id ? closeWorkspacePaneTab(pane, tab.id) : pane,
+      ),
+      tab,
+    };
   }
+  const cloneOnlyTab = current.panes.length === 1;
+  const panes = cloneOnlyTab
+    ? current.panes
+    : current.panes.filter((pane) => pane.id !== sourcePane.id);
+  return {
+    layout: cloneOnlyTab
+      ? current.layout
+      : workspacePaneLayoutAfterRemoval(
+          current.layout,
+          current.panes.findIndex((pane) => pane.id === sourcePane.id),
+          panes.length,
+        ),
+    panes,
+    tab: cloneOnlyTab ? createWorkspacePaneTab(tab.kind, nextTabId(), []) : tab,
+  };
 }
 
 export function WorkspacePanePanel({
@@ -1009,8 +955,4 @@ function assertWorkspacePaneKind(value: never): never {
 
 function assertPaneSlot(value: never): never {
   throw new Error(`Unhandled workspace pane slot: ${value}`);
-}
-
-function assertWorkspacePaneSplitTarget(value: never): never {
-  throw new Error(`Unhandled workspace pane split target: ${value}`);
 }

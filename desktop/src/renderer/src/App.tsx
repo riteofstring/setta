@@ -389,7 +389,8 @@ function WorkspaceArea({
         activeTarget={draggingPaneTarget}
         canSplit={splitAllowed}
         draggingTab={draggingPaneTab}
-        onDropTarget={splitTabIntoTarget}
+        layout={panes.layout}
+        paneCount={visiblePanes.length}
       />
     </div>
   );
@@ -486,6 +487,73 @@ function workspacePaneGridStyle(
   };
 }
 
+const workspacePaneGridCellStyles = {
+  "bottom-split": [
+    { gridColumn: "1 / 4", gridRow: "1" },
+    { gridColumn: "1", gridRow: "3" },
+    { gridColumn: "3", gridRow: "3" },
+  ],
+  columns: [
+    { gridColumn: "1", gridRow: "1" },
+    { gridColumn: "3", gridRow: "1" },
+  ],
+  grid: [
+    { gridColumn: "1", gridRow: "1" },
+    { gridColumn: "3", gridRow: "1" },
+    { gridColumn: "1", gridRow: "3" },
+    { gridColumn: "3", gridRow: "3" },
+  ],
+  "left-split": [
+    { gridColumn: "1", gridRow: "1" },
+    { gridColumn: "1", gridRow: "3" },
+    { gridColumn: "3", gridRow: "1 / 4" },
+  ],
+  "right-split": [
+    { gridColumn: "1", gridRow: "1 / 4" },
+    { gridColumn: "3", gridRow: "1" },
+    { gridColumn: "3", gridRow: "3" },
+  ],
+  rows: [
+    { gridColumn: "1", gridRow: "1" },
+    { gridColumn: "1", gridRow: "3" },
+  ],
+  "top-split": [
+    { gridColumn: "1", gridRow: "1" },
+    { gridColumn: "3", gridRow: "1" },
+    { gridColumn: "1 / 4", gridRow: "3" },
+  ],
+} satisfies Record<WorkspacePaneLayout, CSSProperties[]>;
+
+const workspacePaneTopRowIndices = {
+  "bottom-split": [0],
+  columns: [0, 1],
+  grid: [0, 1],
+  "left-split": [0, 2],
+  "right-split": [0, 1],
+  rows: [0],
+  "top-split": [0, 1],
+} satisfies Record<WorkspacePaneLayout, number[]>;
+
+const workspacePaneShellLeftIndices = {
+  "bottom-split": [0],
+  columns: [0],
+  grid: [0],
+  "left-split": [0],
+  "right-split": [0],
+  rows: [0],
+  "top-split": [0],
+} satisfies Record<WorkspacePaneLayout, number[]>;
+
+const workspacePaneShellRightIndices = {
+  "bottom-split": [0],
+  columns: [1],
+  grid: [1],
+  "left-split": [2],
+  "right-split": [1],
+  rows: [0],
+  "top-split": [1],
+} satisfies Record<WorkspacePaneLayout, number[]>;
+
 function workspacePaneGridCellStyle(
   layout: WorkspacePaneLayout,
   count: number,
@@ -494,55 +562,31 @@ function workspacePaneGridCellStyle(
   if (count <= 1) {
     return { gridColumn: "1", gridRow: "1" };
   }
-  if (layout === "columns") {
-    return { gridColumn: index === 0 ? "1" : "3", gridRow: "1" };
-  }
-  if (layout === "rows") {
-    return { gridColumn: "1", gridRow: index === 0 ? "1" : "3" };
-  }
-  return {
-    gridColumn: index % 2 === 0 ? "1" : "3",
-    gridRow: index < 2 ? "1" : "3",
-  };
+  return (
+    workspacePaneGridCellStyles[layout][index] ??
+    workspacePaneGridCellStyles.grid[index] ?? { gridColumn: "1", gridRow: "1" }
+  );
 }
 
 function workspacePaneIsTopRow(layout: WorkspacePaneLayout, count: number, index: number) {
   if (count <= 1) {
     return true;
   }
-  if (layout === "rows") {
-    return index === 0;
-  }
-  if (layout === "columns") {
-    return true;
-  }
-  return index < 2;
+  return workspacePaneTopRowIndices[layout].includes(index);
 }
 
 function workspacePaneTouchesShellLeft(layout: WorkspacePaneLayout, count: number, index: number) {
   if (!workspacePaneIsTopRow(layout, count, index)) {
     return false;
   }
-  if (count <= 1 || layout === "rows") {
-    return true;
-  }
-  if (layout === "columns") {
-    return index === 0;
-  }
-  return index === 0;
+  return count <= 1 || workspacePaneShellLeftIndices[layout].includes(index);
 }
 
 function workspacePaneTouchesShellRight(layout: WorkspacePaneLayout, count: number, index: number) {
   if (!workspacePaneIsTopRow(layout, count, index)) {
     return false;
   }
-  if (count <= 1 || layout === "rows") {
-    return true;
-  }
-  if (layout === "columns") {
-    return index === 1;
-  }
-  return index === 1;
+  return count <= 1 || workspacePaneShellRightIndices[layout].includes(index);
 }
 
 function firstWorkspacePaneWithKind(panes: WorkspacePaneState[], kind: WorkspacePaneKind) {
@@ -631,13 +675,14 @@ function WorkspacePaneGridResizers({
   if (paneCount <= 1) {
     return null;
   }
-  const showColumn = layout === "columns" || layout === "grid";
-  const showRow = layout === "rows" || layout === "grid";
+  const showColumn = layout !== "rows";
+  const showRow = layout !== "columns";
   return (
     <>
       {showColumn ? (
         <WorkspacePaneGridResizeHandle
           axis="column"
+          layout={layout}
           onKeyStep={(step) => setColumnPercent((current) => clampRatio(current + step))}
           value={columnPercent}
         />
@@ -645,6 +690,7 @@ function WorkspacePaneGridResizers({
       {showRow ? (
         <WorkspacePaneGridResizeHandle
           axis="row"
+          layout={layout}
           onKeyStep={(step) => setRowPercent((current) => clampRatio(current + step))}
           value={rowPercent}
         />
@@ -655,10 +701,12 @@ function WorkspacePaneGridResizers({
 
 function WorkspacePaneGridResizeHandle({
   axis,
+  layout,
   onKeyStep,
   value,
 }: {
   axis: "column" | "row";
+  layout: WorkspacePaneLayout;
   onKeyStep: (step: number) => void;
   value: number;
 }) {
@@ -688,13 +736,39 @@ function WorkspacePaneGridResizeHandle({
         }
       }}
       role="separator"
-      style={
-        isColumn ? { gridColumn: "2", gridRow: "1 / -1" } : { gridColumn: "1 / -1", gridRow: "2" }
-      }
+      style={workspacePaneResizeHandleStyle(layout, axis)}
       tabIndex={0}
     />
   );
 }
+
+function workspacePaneResizeHandleStyle(
+  layout: WorkspacePaneLayout,
+  axis: "column" | "row",
+): CSSProperties {
+  return workspacePaneResizeHandleStyles[axis][layout];
+}
+
+const workspacePaneResizeHandleStyles = {
+  column: {
+    "bottom-split": { gridColumn: "2", gridRow: "3" },
+    columns: { gridColumn: "2", gridRow: "1 / -1" },
+    grid: { gridColumn: "2", gridRow: "1 / -1" },
+    "left-split": { gridColumn: "2", gridRow: "1 / -1" },
+    "right-split": { gridColumn: "2", gridRow: "1 / -1" },
+    rows: { gridColumn: "1", gridRow: "1 / -1" },
+    "top-split": { gridColumn: "2", gridRow: "1" },
+  },
+  row: {
+    "bottom-split": { gridColumn: "1 / -1", gridRow: "2" },
+    columns: { gridColumn: "1 / -1", gridRow: "1" },
+    grid: { gridColumn: "1 / -1", gridRow: "2" },
+    "left-split": { gridColumn: "1", gridRow: "2" },
+    "right-split": { gridColumn: "3", gridRow: "2" },
+    rows: { gridColumn: "1", gridRow: "2" },
+    "top-split": { gridColumn: "1 / -1", gridRow: "2" },
+  },
+} satisfies Record<"column" | "row", Record<WorkspacePaneLayout, CSSProperties>>;
 
 function clampRatio(value: number) {
   return Math.min(75, Math.max(25, value));
