@@ -677,14 +677,12 @@ func testResolver(t *testing.T) resolver {
 	}
 }
 
-func newTestService(t *testing.T, appDataDir string, resolver resolver, harness Harness) *Service {
+func newTestService(t *testing.T, appDataDir string, resolver resolver, harness Harness, options ...Option) *Service {
 	t.Helper()
 
 	idCounter := 0
-	service, err := NewService(
-		mustStore(t, appDataDir),
-		resolver,
-		harness,
+	serviceOptions := []Option{
+		WithExternalHistoryProvider(nil),
 		WithClock(func() time.Time {
 			return mustTime(t, "2026-05-29T20:00:00Z")
 		}),
@@ -692,7 +690,9 @@ func newTestService(t *testing.T, appDataDir string, resolver resolver, harness 
 			idCounter++
 			return fmt.Sprintf("%s_%04d", prefix, idCounter), nil
 		}),
-	)
+	}
+	serviceOptions = append(serviceOptions, options...)
+	service, err := NewService(mustStore(t, appDataDir), resolver, harness, serviceOptions...)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}

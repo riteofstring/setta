@@ -29,6 +29,7 @@ type Service struct {
 	harness           Harness
 	workspaceResolver WorkspaceResolver
 	events            *EventHub
+	externalHistory   ExternalHistoryProvider
 	newID             func(prefix string) (string, error)
 	now               func() time.Time
 
@@ -68,6 +69,7 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		store:             store,
 		harness:           harness,
 		workspaceResolver: workspaceResolver,
+		externalHistory:   NewCodexHistoryProvider(CodexHistoryProviderConfig{}),
 		newID:             randomID,
 		now:               time.Now,
 		active:            map[string]activeTurn{},
@@ -110,6 +112,12 @@ func WithEventHub(events *EventHub) Option {
 	}
 }
 
+func WithExternalHistoryProvider(provider ExternalHistoryProvider) Option {
+	return func(service *Service) {
+		service.externalHistory = provider
+	}
+}
+
 func (service *Service) SubscribeEvents(cursor EventCursor) (*EventSubscription, error) {
 	return service.events.Subscribe(cursor)
 }
@@ -119,7 +127,8 @@ func (service *Service) CloseEvents() {
 }
 
 func (service *Service) ListConversations(workspaceID string) ([]ConversationListItem, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	if err != nil {
 		return nil, err
 	}
 	conversations, err := service.store.ListConversations(workspaceID)
@@ -144,7 +153,11 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 			ActiveRunID:  activeRunID,
 		})
 	}
-	return items, nil
+	external, err := service.externalConversationItems(workspaceSummary, conversations)
+	if err != nil {
+		return nil, err
+	}
+	return sortConversationListItems(append(items, external...)), nil
 }
 
 func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {
@@ -183,8 +196,17 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	if limit == 0 {
 		limit = defaultPageLimit
 	}
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	if err != nil {
 		return MessagePage{}, err
+	}
+	if service.ownsExternalConversation(conversationID) {
+		service.mu.Lock()
+		err := service.materializeExternalConversationLocked(workspaceSummary, conversationID)
+		service.mu.Unlock()
+		if err != nil {
+			return MessagePage{}, err
+		}
 	}
 	page, err := service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
 	if err != nil {
@@ -206,6 +228,9 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
+	if err := service.materializeExternalConversationLocked(workspaceSummary, conversationID); err != nil {
+		return SendMessageResult{}, err
+	}
 	if err := service.ensureNoActiveTurnLocked(workspaceID, conversationID); err != nil {
 		return SendMessageResult{}, err
 	}
