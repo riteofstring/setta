@@ -1,29 +1,31 @@
-import {
-  BookOpen,
-  Database,
-  FileText,
-  FolderOpen,
-  MessageSquarePlus,
-  PenLine,
-  Workflow,
-  X,
-} from "lucide-react";
+import { BookOpen, Database, FileText, FolderOpen, Workflow, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
-export function UnorganizedChatsContent() {
+export interface SidebarListItem {
+  id: string;
+  subtitle?: string;
+  title: string;
+}
+
+export function UnorganizedChatsContent({ chats }: { chats: SidebarListItem[] }) {
+  if (chats.length === 0) {
+    return null;
+  }
   return (
-    <div className="min-w-0">
-      <button
-        aria-label="New unorganized chat"
-        className="ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
-        disabled
-        title="Unorganized chats are not available yet"
-        type="button"
-      >
-        <MessageSquarePlus className="h-3.5 w-3.5" />
-      </button>
-      <div className="px-2 py-1 text-xs text-zinc-600">No unorganized chats</div>
+    <div className="grid gap-0.5 py-0.5">
+      {chats.map((chat) => (
+        <button
+          className="grid h-7 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
+          key={chat.id}
+          type="button"
+        >
+          <span className="truncate">{chat.title}</span>
+          {chat.subtitle ? (
+            <span className="text-[11px] text-zinc-600">{chat.subtitle}</span>
+          ) : null}
+        </button>
+      ))}
     </div>
   );
 }
@@ -31,19 +33,24 @@ export function UnorganizedChatsContent() {
 // Notes are app-local Markdown documents for now. Keep the boundary narrow so a
 // future Markdown/WYSIWYG editor can replace the empty state without changing
 // project chat or external memory integration contracts.
-export function NotesContent() {
+export function NotesContent({ notes }: { notes: SidebarListItem[] }) {
+  if (notes.length === 0) {
+    return null;
+  }
   return (
-    <div className="min-w-0">
-      <button
-        aria-label="New Markdown note"
-        className="ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
-        disabled
-        title="Markdown notes are not available yet"
-        type="button"
-      >
-        <PenLine className="h-3.5 w-3.5" />
-      </button>
-      <div className="px-2 py-1 text-xs text-zinc-600">No Markdown notes</div>
+    <div className="grid gap-0.5 py-0.5">
+      {notes.map((note) => (
+        <button
+          className="grid h-7 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
+          key={note.id}
+          type="button"
+        >
+          <span className="truncate">{note.title}</span>
+          {note.subtitle ? (
+            <span className="text-[11px] text-zinc-600">{note.subtitle}</span>
+          ) : null}
+        </button>
+      ))}
     </div>
   );
 }
@@ -85,7 +92,6 @@ export function RulesContent() {
         <span className="truncate">Setta rules</span>
         <span className="text-[11px] text-zinc-600">Node graph</span>
       </button>
-      <div className="px-2 py-1 text-xs text-zinc-600">No rule canvases</div>
     </div>
   );
 }

@@ -2,8 +2,6 @@ import {
   FileText,
   GitCompareArrows,
   Globe2,
-  Maximize2,
-  Minimize2,
   PanelTop,
   Plus,
   Settings,
@@ -175,7 +173,6 @@ export function WorkspacePanePanel({
   onCloseTab,
   onCreateTab,
   onSelectTab,
-  onToggleMaximized,
   slot,
   tabs,
 }: {
@@ -185,7 +182,6 @@ export function WorkspacePanePanel({
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
-  onToggleMaximized?: () => void;
   slot: PaneSlot;
   tabs: WorkspacePaneTab[];
 }) {
@@ -222,13 +218,6 @@ export function WorkspacePanePanel({
         ) : (
           <span className="min-w-0 flex-1" />
         )}
-        {onToggleMaximized ? (
-          <WorkspacePaneMaximizeButton
-            label={paneLabel}
-            maximized={maximized}
-            onClick={onToggleMaximized}
-          />
-        ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab ? (
@@ -252,38 +241,15 @@ function workspacePanePanelClass({
 }) {
   const slotClass =
     slot === "right"
-      ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
+      ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100 transition-[width,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
       : bottomPanePanelClass(maximized);
   return cn(slotClass, chromeInsetTop && "pt-9");
 }
 
 function bottomPanePanelClass(maximized: boolean) {
   return maximized
-    ? "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100"
-    : "flex h-72 min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100";
-}
-
-function WorkspacePaneMaximizeButton({
-  label,
-  maximized,
-  onClick,
-}: {
-  label: string;
-  maximized: boolean;
-  onClick: () => void;
-}) {
-  const buttonLabel = maximized ? `Restore ${label}` : `Maximize ${label}`;
-  return (
-    <button
-      aria-label={buttonLabel}
-      className="grid h-6 w-6 shrink-0 place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-900 hover:text-zinc-100 focus-visible:bg-zinc-900 focus-visible:text-zinc-100"
-      onClick={onClick}
-      title={buttonLabel}
-      type="button"
-    >
-      {maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-    </button>
-  );
+    ? "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100 transition-[height,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
+    : "flex h-72 min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100 transition-[height,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]";
 }
 
 function WorkspacePaneTabButton({

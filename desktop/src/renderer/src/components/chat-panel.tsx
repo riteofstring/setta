@@ -1,5 +1,5 @@
 import type { WorkspaceSummary } from "@generated/backend";
-import { ArrowUp, Maximize2, MessageSquarePlus, Mic, Minimize2, Plus, Square } from "lucide-react";
+import { ArrowUp, MessageSquarePlus, Mic, Plus, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -17,16 +17,12 @@ import { Textarea } from "./ui/textarea";
 export function ChatPanel({
   chat,
   chromeInsetTop = false,
-  maximized = false,
-  onToggleMaximized,
   searchOpen,
   setSearchOpen,
   workspace,
 }: {
   chat: ChatView;
   chromeInsetTop?: boolean;
-  maximized?: boolean;
-  onToggleMaximized?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
   workspace: WorkspaceSummary | null;
@@ -49,8 +45,6 @@ export function ChatPanel({
     <ChatWorkspace
       chat={chat}
       chromeInsetTop={chromeInsetTop}
-      maximized={maximized}
-      onToggleMaximized={onToggleMaximized}
       searchOpen={searchOpen}
       setSearchOpen={setSearchOpen}
     />
@@ -60,15 +54,11 @@ export function ChatPanel({
 function ChatWorkspace({
   chat,
   chromeInsetTop,
-  maximized,
-  onToggleMaximized,
   searchOpen,
   setSearchOpen,
 }: {
   chat: ChatView;
   chromeInsetTop: boolean;
-  maximized: boolean;
-  onToggleMaximized?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
 }) {
@@ -82,13 +72,6 @@ function ChatWorkspace({
         chromeInsetTop && "pt-9",
       )}
     >
-      {onToggleMaximized ? (
-        <PanelMaximizeButton
-          chromeInsetTop={chromeInsetTop}
-          maximized={maximized}
-          onClick={onToggleMaximized}
-        />
-      ) : null}
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-visible">
         <ConversationBody
           busy={busy}
@@ -100,32 +83,6 @@ function ChatWorkspace({
         <Composer busy={busy} chat={chat} running={running} />
       </div>
     </section>
-  );
-}
-
-function PanelMaximizeButton({
-  chromeInsetTop,
-  maximized,
-  onClick,
-}: {
-  chromeInsetTop: boolean;
-  maximized: boolean;
-  onClick: () => void;
-}) {
-  const label = maximized ? "Restore chat pane" : "Maximize chat pane";
-  return (
-    <button
-      aria-label={label}
-      className={cn(
-        "app-no-drag absolute right-1 z-20 grid h-6 w-6 place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100",
-        chromeInsetTop ? "top-10" : "top-1",
-      )}
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
-      {maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-    </button>
   );
 }
 
@@ -336,7 +293,7 @@ function ComposerPlaceholder({ selected }: { selected: boolean }) {
       <span>Ask</span>
       <img
         alt=""
-        className="h-[10px] w-auto translate-y-[2px] opacity-60 grayscale"
+        className="h-[11px] w-auto translate-y-[3px] opacity-60 grayscale"
         draggable={false}
         src={settaLogo}
       />

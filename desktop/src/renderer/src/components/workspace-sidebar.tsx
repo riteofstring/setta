@@ -6,7 +6,6 @@ import {
   Ellipsis,
   FolderClosed,
   FolderOpen,
-  FolderPlus,
   GitBranch,
   GitFork,
   MessageSquarePlus,
@@ -35,8 +34,10 @@ import {
   MemoryIntegrationsContent,
   NotesContent,
   RulesContent,
+  type SidebarListItem,
   UnorganizedChatsContent,
 } from "./sidebar-secondary-sections";
+import { ProjectFolderButton, SidebarHeaderIconButton } from "./sidebar-header-actions";
 
 const activeWorkspaceRowHeight = 28;
 const recentWorkspaceRowHeight = 28;
@@ -122,6 +123,8 @@ export function WorkspaceSidebar({
   const selectedBranchLabel = branchHoverLabel(selectedGit);
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
+  const [standaloneChats, setStandaloneChats] = useState<SidebarListItem[]>([]);
+  const [notes, setNotes] = useState<SidebarListItem[]>([]);
 
   useEffect(() => {
     if (selectedWorkspaceId) {
@@ -161,6 +164,28 @@ export function WorkspaceSidebar({
         [workspaceId]: [conversationId, ...currentPinnedIds],
       };
     });
+  }
+
+  function createStandaloneChat() {
+    setStandaloneChats((current) => [
+      {
+        id: `standalone_chat_${Date.now()}_${current.length}`,
+        subtitle: "now",
+        title: current.length === 0 ? "New chat" : `New chat ${current.length + 1}`,
+      },
+      ...current,
+    ]);
+  }
+
+  function createLocalNote() {
+    setNotes((current) => [
+      {
+        id: `note_${Date.now()}_${current.length}`,
+        subtitle: "local",
+        title: current.length === 0 ? "Untitled note" : `Untitled note ${current.length + 1}`,
+      },
+      ...current,
+    ]);
   }
 
   return (
@@ -204,9 +229,6 @@ export function WorkspaceSidebar({
             testId="projects-section"
             title="Projects"
           >
-            {activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0 ? (
-              <p className="px-2 py-1 text-xs text-zinc-500">No projects</p>
-            ) : null}
             <ProjectList
               activeRun={activeRun}
               branchLabel={selectedBranchLabel}
@@ -233,6 +255,13 @@ export function WorkspaceSidebar({
             />
           </SidebarAccordionSection>
           <SidebarAccordionSection
+            action={
+              <SidebarHeaderIconButton
+                icon={<MessageSquarePlus className="h-3.5 w-3.5" />}
+                label="New standalone chat"
+                onClick={createStandaloneChat}
+              />
+            }
             height={sections.chats.height}
             onHeightChange={(height) => setSectionHeight("chats", height)}
             onOpenChange={(open) => setSectionOpen("chats", open)}
@@ -241,9 +270,16 @@ export function WorkspaceSidebar({
             testId="standalone-chat-section"
             title="Chats"
           >
-            <UnorganizedChatsContent />
+            <UnorganizedChatsContent chats={standaloneChats} />
           </SidebarAccordionSection>
           <SidebarAccordionSection
+            action={
+              <SidebarHeaderIconButton
+                icon={<PenLine className="h-3.5 w-3.5" />}
+                label="New note"
+                onClick={createLocalNote}
+              />
+            }
             height={sections.notes.height}
             onHeightChange={(height) => setSectionHeight("notes", height)}
             onOpenChange={(open) => setSectionOpen("notes", open)}
@@ -252,7 +288,7 @@ export function WorkspaceSidebar({
             testId="notes-section"
             title="Notes"
           >
-            <NotesContent />
+            <NotesContent notes={notes} />
           </SidebarAccordionSection>
           <SidebarAccordionSection
             height={sections.rules.height}
@@ -330,29 +366,6 @@ function SidebarNavButton({
       <span className="shrink-0 text-zinc-300">{icon}</span>
       <span className="truncate">{label}</span>
     </button>
-  );
-}
-
-function ProjectFolderButton({
-  busy,
-  openLocalFolder,
-}: {
-  busy: boolean;
-  openLocalFolder: () => Promise<void>;
-}) {
-  return (
-    <div className="shrink-0">
-      <button
-        aria-label="Open project folder"
-        className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-        disabled={busy}
-        onClick={() => void openLocalFolder()}
-        title="Open project folder"
-        type="button"
-      >
-        <FolderPlus className="h-3.5 w-3.5" />
-      </button>
-    </div>
   );
 }
 
@@ -532,6 +545,7 @@ function ProjectRow({
           </span>
         </button>
         <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
           <IconButton
             disabled={rowBusy}
             label={`New chat in ${workspace.displayName}`}
@@ -539,7 +553,6 @@ function ProjectRow({
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
           </IconButton>
-          <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
         </div>
       </div>
       {hasVisibleChats ? (

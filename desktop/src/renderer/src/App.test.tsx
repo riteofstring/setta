@@ -46,7 +46,7 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain("No workspace open");
-    expect(html).toContain("No projects");
+    expect(html).not.toContain("No projects");
   });
 
   test("renders active selected and recent workspace state", () => {
@@ -128,14 +128,16 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Shortcuts");
     expect(html).toContain("Chats");
     expect(html).toContain('aria-label="New chat in web"');
+    expect(html).toContain('aria-label="New standalone chat"');
     expect(html).toContain('aria-label="Pin Web chat"');
-    expect(html).toContain("No unorganized chats");
+    expect(html).not.toContain("No unorganized chats");
     expect(html).toContain("Notes");
-    expect(html).toContain("No Markdown notes");
+    expect(html).toContain('aria-label="New note"');
+    expect(html).not.toContain("No Markdown notes");
     expect(html).toContain("DB / Memories");
     expect(html).toContain("Rules");
     expect(html).toContain("Setta rules");
-    expect(html).toContain("No rule canvases");
+    expect(html).not.toContain("No rule canvases");
     expect(html).toContain('data-testid="notes-section"');
     expect(html).toContain('data-testid="rules-section"');
     expect(html).toContain('data-testid="sidebar-shortcuts-shell"');

@@ -2,7 +2,9 @@ import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import {
   FolderOpen,
+  Maximize2,
   MessageSquareText,
+  Minimize2,
   PanelBottomOpen,
   PanelLeftOpen,
   PanelRightOpen,
@@ -55,6 +57,7 @@ export function App() {
     projectPaneOpen,
     rightPaneOpen: panes.right.open,
   });
+  const maximizeTarget = topBarMaximizeTarget(visibility, maximizedPane);
   const toggleMaximizedPane = useCallback(
     (pane: NonNullable<MaximizedPane>) => {
       setProjectPaneOpen(true);
@@ -97,6 +100,8 @@ export function App() {
         chatPaneOpen={chatPaneOpen}
         commandPaletteOpen={commandPaletteOpen}
         createConversation={chat.createConversation}
+        maximizedPane={maximizedPane}
+        maximizeTarget={maximizeTarget}
         openChatSearch={openChatSearch}
         openSearchPalette={openSearchPalette}
         platform={platform}
@@ -115,8 +120,9 @@ export function App() {
         }}
         setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
         setSearchPaletteOpen={setSearchPaletteOpen}
+        toggleMaximizedPane={toggleMaximizedPane}
       />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
+      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900 transition-[gap] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
         <ProjectPane
           chromeInsetTop={visibility.project}
           chat={chat}
@@ -134,7 +140,6 @@ export function App() {
           panes={panes}
           setChatPaneWidth={setChatPaneWidth}
           setChatSearchOpen={setChatSearchOpen}
-          toggleMaximizedPane={toggleMaximizedPane}
           visibility={visibility}
           workspace={workspace}
         />
@@ -218,6 +223,25 @@ function workspaceAreaRows(maximizedPane: MaximizedPane) {
     : "grid-rows-[minmax(0,1fr)_auto]";
 }
 
+function topBarMaximizeTarget(
+  visibility: PaneVisibility,
+  maximizedPane: MaximizedPane,
+): NonNullable<MaximizedPane> | null {
+  if (maximizedPane !== null) {
+    return maximizedPane;
+  }
+  if (visibility.right) {
+    return "right";
+  }
+  if (visibility.bottom) {
+    return "bottom";
+  }
+  if (visibility.chat && !visibility.right) {
+    return null;
+  }
+  return visibility.chat ? "chat" : null;
+}
+
 function assertNever(value: never): never {
   throw new Error(`Unhandled app state: ${String(value)}`);
 }
@@ -230,7 +254,6 @@ function WorkspaceArea({
   panes,
   setChatPaneWidth,
   setChatSearchOpen,
-  toggleMaximizedPane,
   visibility,
   workspace,
 }: {
@@ -241,7 +264,6 @@ function WorkspaceArea({
   panes: ReturnType<typeof useWorkspacePaneState>;
   setChatPaneWidth: (width: number) => void;
   setChatSearchOpen: (open: boolean) => void;
-  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
   visibility: PaneVisibility;
   workspace: WorkspaceViewState;
 }) {
@@ -249,6 +271,7 @@ function WorkspaceArea({
     <div
       className={cn(
         "grid h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-900",
+        "transition-[grid-template-rows] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         workspaceAreaRows(maximizedPane),
       )}
     >
@@ -261,7 +284,6 @@ function WorkspaceArea({
           panes={panes}
           setChatPaneWidth={setChatPaneWidth}
           setChatSearchOpen={setChatSearchOpen}
-          toggleMaximizedPane={toggleMaximizedPane}
           visibility={visibility}
           workspace={workspace}
         />
@@ -274,7 +296,6 @@ function WorkspaceArea({
           onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
           onCreateTab={(kind) => panes.createTab("bottom", kind)}
           onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
-          onToggleMaximized={() => toggleMaximizedPane("bottom")}
           slot="bottom"
           tabs={panes.bottom.tabs}
         />
@@ -291,7 +312,6 @@ function WorkspaceContentRow({
   panes,
   setChatPaneWidth,
   setChatSearchOpen,
-  toggleMaximizedPane,
   visibility,
   workspace,
 }: {
@@ -302,18 +322,15 @@ function WorkspaceContentRow({
   panes: ReturnType<typeof useWorkspacePaneState>;
   setChatPaneWidth: (width: number) => void;
   setChatSearchOpen: (open: boolean) => void;
-  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
   visibility: PaneVisibility;
   workspace: WorkspaceViewState;
 }) {
   return (
-    <div className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900">
+    <div className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900 transition-[gap] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
       <ChatPane
         chromeInsetTop={visibility.chat}
         chat={chat}
         chatSearchOpen={chatSearchOpen}
-        maximized={maximizedPane === "chat"}
-        onToggleMaximized={() => toggleMaximizedPane("chat")}
         open={visibility.chat}
         rightPaneOpen={visibility.right}
         setChatSearchOpen={setChatSearchOpen}
@@ -330,7 +347,6 @@ function WorkspaceContentRow({
             onCloseTab={(tabId) => panes.closeTab("right", tabId)}
             onCreateTab={(kind) => panes.createTab("right", kind)}
             onSelectTab={(tabId) => panes.selectTab("right", tabId)}
-            onToggleMaximized={() => toggleMaximizedPane("right")}
             slot="right"
             tabs={panes.right.tabs}
           />
@@ -402,8 +418,6 @@ function ChatPane({
   chromeInsetTop,
   chat,
   chatSearchOpen,
-  maximized,
-  onToggleMaximized,
   open,
   rightPaneOpen,
   setChatSearchOpen,
@@ -414,8 +428,6 @@ function ChatPane({
   chromeInsetTop: boolean;
   chat: ChatView;
   chatSearchOpen: boolean;
-  maximized: boolean;
-  onToggleMaximized: () => void;
   open: boolean;
   rightPaneOpen: boolean;
   setChatSearchOpen: (open: boolean) => void;
@@ -427,13 +439,10 @@ function ChatPane({
     return null;
   }
 
-  const canToggleMaximized = maximized || rightPaneOpen;
   const panel = (
     <ChatPanel
       chat={chat}
       chromeInsetTop={chromeInsetTop}
-      maximized={maximized}
-      onToggleMaximized={canToggleMaximized ? onToggleMaximized : undefined}
       searchOpen={chatSearchOpen}
       setSearchOpen={setChatSearchOpen}
       workspace={workspace.selectedWorkspace}
@@ -461,6 +470,8 @@ function AppChromeControls({
   chatPaneOpen,
   commandPaletteOpen,
   createConversation,
+  maximizedPane,
+  maximizeTarget,
   openChatSearch,
   openSearchPalette,
   platform,
@@ -474,11 +485,14 @@ function AppChromeControls({
   setProjectPaneOpen,
   setRightPaneOpen,
   setSearchPaletteOpen,
+  toggleMaximizedPane,
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
   commandPaletteOpen: boolean;
   createConversation: (title?: string) => Promise<void>;
+  maximizedPane: MaximizedPane;
+  maximizeTarget: NonNullable<MaximizedPane> | null;
   openChatSearch: () => void;
   openSearchPalette: () => void;
   platform: DesktopPlatform;
@@ -492,6 +506,7 @@ function AppChromeControls({
   setProjectPaneOpen: (open: boolean) => void;
   setRightPaneOpen: (open: boolean) => void;
   setSearchPaletteOpen: (open: boolean) => void;
+  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -546,10 +561,13 @@ function AppChromeControls({
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={rightPaneOpen}
         rootPath={selectedWorkspace?.rootPath ?? ""}
+        maximizedPane={maximizedPane}
+        maximizeTarget={maximizeTarget}
         setBottomPaneOpen={setBottomPaneOpen}
         setChatPaneOpen={setChatPaneOpen}
         setProjectPaneOpen={setProjectPaneOpen}
         setRightPaneOpen={setRightPaneOpen}
+        toggleMaximizedPane={toggleMaximizedPane}
       />
       <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
       <SearchPalette onOpenChange={setSearchPaletteOpen} open={searchPaletteOpen} />
@@ -576,9 +594,11 @@ function ShellPaneToggle({
   children,
   label,
   onClick,
+  disabled = false,
 }: {
   active: boolean;
   children: ReactNode;
+  disabled?: boolean;
   label: string;
   onClick: () => void;
 }) {
@@ -591,6 +611,7 @@ function ShellPaneToggle({
           ? "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-100 outline-none hover:bg-zinc-800 focus-visible:bg-zinc-800"
           : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
       }
+      disabled={disabled}
       onClick={onClick}
       title={label}
       type="button"
@@ -607,10 +628,13 @@ function FloatingPaneControls({
   projectPaneOpen,
   rightPaneOpen,
   rootPath,
+  maximizedPane,
+  maximizeTarget,
   setBottomPaneOpen,
   setChatPaneOpen,
   setProjectPaneOpen,
   setRightPaneOpen,
+  toggleMaximizedPane,
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
@@ -618,10 +642,13 @@ function FloatingPaneControls({
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
   rootPath: string;
+  maximizedPane: MaximizedPane;
+  maximizeTarget: NonNullable<MaximizedPane> | null;
   setBottomPaneOpen: (open: boolean) => void;
   setChatPaneOpen: (open: boolean) => void;
   setProjectPaneOpen: (open: boolean) => void;
   setRightPaneOpen: (open: boolean) => void;
+  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
   return (
     <div
@@ -630,7 +657,7 @@ function FloatingPaneControls({
         floatingControlsRightInsetClass(platform),
       )}
     >
-      <div className="pointer-events-auto flex items-center gap-1">
+      <div className="pointer-events-auto flex items-center gap-1 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
         <EditorPicker rootPath={rootPath} />
         <ShellPaneToggle
           active={projectPaneOpen}
@@ -660,9 +687,68 @@ function FloatingPaneControls({
         >
           <PanelRightOpen className="h-3.5 w-3.5" />
         </ShellPaneToggle>
+        <TopBarMaximizeButton
+          maximizedPane={maximizedPane}
+          maximizeTarget={maximizeTarget}
+          toggleMaximizedPane={toggleMaximizedPane}
+        />
       </div>
     </div>
   );
+}
+
+function TopBarMaximizeButton({
+  maximizedPane,
+  maximizeTarget,
+  toggleMaximizedPane,
+}: {
+  maximizedPane: MaximizedPane;
+  maximizeTarget: NonNullable<MaximizedPane> | null;
+  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
+}) {
+  const active = maximizeTarget !== null && maximizedPane === maximizeTarget;
+  const label =
+    maximizeTarget === null ? "Maximize pane" : maximizeButtonLabel(maximizeTarget, active);
+  return (
+    <button
+      aria-hidden={maximizeTarget === null}
+      aria-label={label}
+      className={cn(
+        "inline-flex h-6 w-6 items-center justify-center rounded-sm outline-none transition-[opacity,transform,background-color,color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        active
+          ? "text-zinc-100 hover:bg-zinc-800 focus-visible:bg-zinc-800"
+          : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100",
+        maximizeTarget === null && "pointer-events-none translate-x-1 opacity-0",
+      )}
+      disabled={maximizeTarget === null}
+      onClick={() => {
+        if (maximizeTarget !== null) {
+          toggleMaximizedPane(maximizeTarget);
+        }
+      }}
+      title={maximizeTarget === null ? undefined : label}
+      type="button"
+    >
+      {active ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
+function maximizeButtonLabel(pane: NonNullable<MaximizedPane>, active: boolean) {
+  return `${active ? "Restore" : "Maximize"} ${paneLabel(pane)} pane`;
+}
+
+function paneLabel(pane: NonNullable<MaximizedPane>) {
+  switch (pane) {
+    case "bottom":
+      return "bottom";
+    case "chat":
+      return "chat";
+    case "right":
+      return "right";
+    default:
+      return assertNever(pane);
+  }
 }
 
 function floatingControlsRightInsetClass(platform: DesktopPlatform) {
@@ -805,6 +891,7 @@ function ResizablePane({
   onWidthChange: (width: number) => void;
   width: number;
 }) {
+  const [resizing, setResizing] = useState(false);
   const startResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const startX = event.clientX;
@@ -816,12 +903,14 @@ function ResizablePane({
         onWidthChange(clamp(startWidth + moveEvent.clientX - startX, minWidth, maxWidth));
       };
       const stopResize = () => {
+        setResizing(false);
         document.body.style.cursor = previousCursor;
         document.body.style.userSelect = previousUserSelect;
         window.removeEventListener("pointermove", resize);
       };
 
       event.preventDefault();
+      setResizing(true);
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
       window.addEventListener("pointermove", resize);
@@ -831,7 +920,13 @@ function ResizablePane({
   );
 
   return (
-    <div className="relative h-full min-h-0 shrink-0" style={{ width }}>
+    <div
+      className={cn(
+        "relative h-full min-h-0 shrink-0",
+        !resizing && "transition-[width] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+      )}
+      style={{ width }}
+    >
       {children}
       <div
         aria-label={label}
