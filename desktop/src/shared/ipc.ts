@@ -22,11 +22,14 @@ import type {
   SubmitApprovalRequest,
   WorkspaceSession,
 } from "@generated/backend";
-import type { RuntimeVersions } from "./types";
+import type { InstalledEditorApp, RuntimeVersions, WorkspaceGitInfo } from "./types";
 
 export const ipcChannels = {
+  appInstalledEditors: "app:installed-editors",
   appOpenExternalUrl: "app:open-external-url",
+  appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
+  appWorkspaceGitInfo: "app:workspace-git-info",
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
@@ -63,13 +66,25 @@ export const ipcEvents = {
 } as const;
 
 interface IpcContract {
+  appInstalledEditors: {
+    args: [];
+    result: InstalledEditorApp[];
+  };
   appOpenExternalUrl: {
     args: [url: string];
+    result: void;
+  };
+  appOpenWorkspaceInEditor: {
+    args: [editorId: string, rootPath: string];
     result: void;
   };
   appVersions: {
     args: [];
     result: RuntimeVersions;
+  };
+  appWorkspaceGitInfo: {
+    args: [rootPath: string];
+    result: WorkspaceGitInfo;
   };
   backendHealth: {
     args: [];

@@ -278,12 +278,11 @@ async function runRestartWorkflow(results) {
 
     second = await launchContext(fixture, secondRecording);
     await waitForTexts(second.client, [
-      fixture.workspaceRoot,
+      "workspace-root",
       "workflow hold for queue and steering",
       "Queued response for queued follow-up one from active run.",
       "Queued response for queued follow-up two from active run.",
       "Queued response for queued follow-up three from active run.",
-      "Stream",
     ]);
     await assertTranscriptSequence(second.client, [
       "workflow hold for queue and steering",
@@ -706,9 +705,9 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
 }
 
 async function openWorkspace(client, workspaceRoot, backend) {
-  await waitForTexts(client, ["setta-backend dev", "Stream"]);
-  await clickButtonByAria(client, "Open workspace folder");
-  await waitForTexts(client, [workspaceRoot, "No chats yet"]);
+  await waitForTexts(client, ["Shortcuts", "Projects"]);
+  await clickButtonByAria(client, "Open project folder");
+  await waitForTexts(client, ["workspace-root", "What should we build in setta?"]);
   const session = await waitForBackendState(
     async () => backend.get("/workspace-session"),
     (value) => Boolean(value.selectedWorkspaceId),
@@ -735,7 +734,7 @@ async function createChat(client, backend, workspaceId) {
 
 async function submitComposer(client, text, buttonLabel) {
   await waitForComposerReady(client);
-  await setInputValue(client, 'textarea[placeholder="Ask Codex"]', text);
+  await setInputValue(client, 'textarea[aria-label="Ask Setta"]', text);
   await clickButtonByAria(client, buttonLabel);
 }
 
@@ -745,7 +744,7 @@ async function waitForComposerReady(client) {
 
 function composerReadyExpression() {
   return `(() => {
-    const textarea = document.querySelector('textarea[placeholder="Ask Codex"]');
+    const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
     return { ready: Boolean(textarea && !textarea.disabled) };
   })()`;
 }

@@ -6,6 +6,8 @@ export async function runProviderAccountWorkflow({
   waitForText,
   waitForTexts,
 }) {
+  await clickButtonByAria(client, "Open settings");
+  await clickButtonByText(client, "Integrations");
   await waitForText(client, "Accounts");
   await clickButtonByAria(client, "Configure ChatGPT account");
   await setInputValue(client, '[data-testid="provider-account-access-token"]', "access_token_e2e");
@@ -28,6 +30,21 @@ export async function runProviderAccountWorkflow({
   );
   if (clearedAccount?.configured) {
     throw new Error(`provider account was not cleared: ${JSON.stringify(cleared)}`);
+  }
+}
+
+async function clickButtonByText(client, text) {
+  const clicked = await client.evaluate(`(() => {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const button = buttons.find((candidate) => candidate.textContent?.trim() === ${JSON.stringify(text)});
+    if (!button || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error(`button was not clickable: ${text}`);
   }
 }
 

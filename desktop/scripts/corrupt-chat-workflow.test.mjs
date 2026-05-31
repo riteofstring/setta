@@ -145,7 +145,10 @@ async function main() {
     await waitForTexts(context.client, ["Quarantined records", "Remaining corrupt records: 0"]);
     await assertQuarantineManifest(fixture.appDataDir);
     await clickButtonByText(context.client, "Reset");
-    await waitForTexts(context.client, ["No chats yet", "Remaining corrupt records: 0"]);
+    await waitForTexts(context.client, [
+      "What should we build in setta?",
+      "Remaining corrupt records: 0",
+    ]);
     await captureScreenshot(context.client, join(recordingDir, "after-maintenance.png"));
     await stopLaunchedContext(context);
     context = null;
@@ -467,12 +470,6 @@ async function waitForPartialCorruptChatState(client) {
   if (state.newChatDisabled) {
     throw new Error(`New chat is disabled with partial corrupt state: ${state.body}`);
   }
-  if (!state.body.includes("setta-backend dev")) {
-    throw new Error(`backend health was not rendered: ${state.body}`);
-  }
-  if (!state.body.includes("Stream")) {
-    throw new Error(`event stream did not connect: ${state.body}`);
-  }
 }
 
 function partialCorruptChatStateExpression() {
@@ -524,7 +521,7 @@ async function clickNewChat(client) {
 
 async function submitComposer(client, text, buttonLabel) {
   await waitForComposerReady(client);
-  await setInputValue(client, 'textarea[placeholder="Ask Codex"]', text);
+  await setInputValue(client, 'textarea[aria-label="Ask Setta"]', text);
   await clickButtonByAria(client, buttonLabel);
 }
 
@@ -534,7 +531,7 @@ async function waitForComposerReady(client) {
 
 function composerReadyExpression() {
   return `(() => {
-    const textarea = document.querySelector('textarea[placeholder="Ask Codex"]');
+    const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
     return { ready: Boolean(textarea && !textarea.disabled) };
   })()`;
 }
@@ -602,7 +599,7 @@ async function waitForUsableNewChat(client) {
 
 function usableNewChatExpression() {
   return `(() => {
-    const textarea = document.querySelector('textarea[placeholder="Ask Codex"]');
+    const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
     const conversations = Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]'));
     const body = document.body.innerText;
     return {
@@ -634,7 +631,7 @@ function resetStateExpression() {
     const warning = document.querySelector('[data-testid="workspace-corruption-warning"]');
     return {
       body,
-      ready: body.includes("No chats yet") && body.includes("Stream") && !warning,
+      ready: body.includes("What should we build in setta?") && !warning,
     };
   })()`;
 }

@@ -11,15 +11,25 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <>
         <WorkspaceSidebar
+          activeRun={null}
           activeWorkspaces={[]}
           busy={false}
+          chatBusy={false}
           closeWorkspace={async () => {}}
+          conversations={[]}
+          createConversation={async () => {}}
+          createWorkspaceConversation={async () => {}}
+          deleteConversation={async () => {}}
           openLocalFolder={async () => {}}
+          openSearch={() => {}}
+          openSettingsPane={() => {}}
           recentWorkspaces={[]}
           removeRecent={async () => {}}
-          reorderWorkspaces={async () => {}}
+          selectConversation={async () => {}}
           selectWorkspace={async () => {}}
+          selectedConversationId=""
           selectedWorkspaceId=""
+          unreadConversationIds={{}}
         />
         <WorkspacePanel
           error={null}
@@ -32,8 +42,8 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain("No workspace open");
-    expect(html).toContain("No active workspaces");
-    expect(html).toContain("No recent workspaces");
+    expect(html).toContain('data-testid="projects-section"');
+    expect(html).toContain('data-testid="sidebar-empty-space"');
   });
 
   test("renders active selected and recent workspace state", () => {
@@ -52,15 +62,25 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <>
         <WorkspaceSidebar
+          activeRun={null}
           activeWorkspaces={[api, web]}
           busy={false}
+          chatBusy={false}
           closeWorkspace={async () => {}}
+          conversations={[]}
+          createConversation={async () => {}}
+          createWorkspaceConversation={async () => {}}
+          deleteConversation={async () => {}}
           openLocalFolder={async () => {}}
+          openSearch={() => {}}
+          openSettingsPane={() => {}}
           recentWorkspaces={[web, api]}
           removeRecent={async () => {}}
-          reorderWorkspaces={async () => {}}
+          selectConversation={async () => {}}
           selectWorkspace={async () => {}}
+          selectedConversationId=""
           selectedWorkspaceId="workspace_web"
+          unreadConversationIds={{}}
         />
         <WorkspacePanel
           error={null}
@@ -76,7 +96,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("/tmp/web");
     expect(html).toContain("Active");
     expect(html).toContain('data-testid="active-workspace-list"');
-    expect(html).toContain('data-testid="recent-workspace-list"');
+    expect(html).toContain('aria-label="New chat in web"');
   });
 
   test("renders loading and error states", () => {
@@ -105,15 +125,25 @@ describe("workspace renderer states", () => {
 
     const html = renderToString(
       <WorkspaceSidebar
+        activeRun={null}
         activeWorkspaces={workspaces}
         busy={false}
+        chatBusy={false}
         closeWorkspace={async () => {}}
+        conversations={[]}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
+        openSearch={() => {}}
+        openSettingsPane={() => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
-        reorderWorkspaces={async () => {}}
+        selectConversation={async () => {}}
         selectWorkspace={async () => {}}
+        selectedConversationId=""
         selectedWorkspaceId="workspace_0"
+        unreadConversationIds={{}}
       />,
     );
 

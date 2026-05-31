@@ -202,6 +202,8 @@ describe("conversation body states", () => {
             selectedConversation: null,
           } as ConversationBodyProps["chat"]
         }
+        searchOpen={false}
+        setSearchOpen={() => {}}
       />,
     );
 

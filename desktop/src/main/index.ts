@@ -1,7 +1,11 @@
+import { execFile } from "node:child_process";
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { promisify } from "node:util";
 
 import { createBackendClient, type BackendClient, type ChatEvent } from "@generated/backend";
 import { handleIpc, ipcEvents } from "@shared/ipc";
@@ -11,7 +15,9 @@ import { startBackendEventStream, type BackendEventStream } from "./backend-even
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
+import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
+import { readWorkspaceGitInfo } from "./workspace-actions";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
@@ -21,6 +27,7 @@ let mainWindow: BrowserWindow | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
+const execFileAsync = promisify(execFile);
 
 function desktopRoot() {
   return process.cwd();
@@ -147,6 +154,12 @@ async function createWindow() {
     minHeight: 620,
     minWidth: 960,
     show: false,
+    ...(process.platform === "darwin"
+      ? {
+          titleBarStyle: "hidden" as const,
+          trafficLightPosition: { x: 12, y: 12 },
+        }
+      : {}),
     title: "Setta",
     webPreferences: {
       contextIsolation: true,
@@ -194,6 +207,32 @@ function registerIpc() {
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
   });
+  handleIpc(
+    ipcMain,
+    "appInstalledEditors",
+    () => {
+      return listInstalledEditorApps(readEditorIconDataURL);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appOpenWorkspaceInEditor",
+    async (_event, editorId, rootPath) => {
+      await openWorkspaceInEditor(editorId, rootPath, {
+        openPath: shell.openPath,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appWorkspaceGitInfo",
+    async (_event, rootPath) => {
+      return readWorkspaceGitInfo(rootPath);
+    },
+    ipcObserver,
+  );
   handleIpc(
     ipcMain,
     "appVersions",
@@ -466,6 +505,33 @@ function requireBackendClient(): BackendClient {
     throw new Error(backendStartupError ?? "backend is not running");
   }
   return createBackendClient(backend.url, recorder?.createBackendFetch(fetch) ?? fetch);
+}
+
+async function readEditorIconDataURL(iconPath: string, appPath: string) {
+  if (process.platform === "darwin" && iconPath.endsWith(".icns")) {
+    return convertIcnsToDataURL(iconPath);
+  }
+  const icon = await app.getFileIcon(appPath, { size: "large" });
+  return icon.toDataURL();
+}
+
+async function convertIcnsToDataURL(iconPath: string) {
+  const dir = await mkdtemp(join(tmpdir(), "setta-editor-icon-"));
+  const outputPath = join(dir, "icon.png");
+  try {
+    await execFileAsync(
+      "/usr/bin/sips",
+      ["-s", "format", "png", "-Z", "32", iconPath, "--out", outputPath],
+      {
+        timeout: 5_000,
+        windowsHide: true,
+      },
+    );
+    const bytes = await readFile(outputPath);
+    return `data:image/png;base64,${bytes.toString("base64")}`;
+  } finally {
+    await rm(dir, { force: true, recursive: true });
+  }
 }
 
 async function stopBackend() {

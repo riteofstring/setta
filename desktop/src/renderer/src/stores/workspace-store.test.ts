@@ -246,12 +246,21 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   };
   const api: SettaAPI = {
     app: {
+      installedEditors: async () => [],
+      openWorkspaceInEditor: async () => {},
       openExternalUrl: async () => {},
+      platform: "darwin",
       versions: async (): Promise<RuntimeVersions> => ({
         app: "test",
         chrome: "test",
         electron: "test",
         node: "test",
+      }),
+      workspaceGitInfo: async () => ({
+        branchName: "main",
+        commitShort: "0000000",
+        worktreeName: "workspace",
+        worktreeRoot: "/tmp/workspace",
       }),
     },
     backend: {
