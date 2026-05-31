@@ -2,6 +2,8 @@ import {
   FileText,
   GitCompareArrows,
   Globe2,
+  Maximize2,
+  Minimize2,
   PanelTop,
   Plus,
   Settings,
@@ -172,6 +174,7 @@ export function WorkspacePanePanel({
   onCloseTab,
   onCreateTab,
   onSelectTab,
+  onToggleMaximize,
   slot,
   tabs,
 }: {
@@ -180,6 +183,7 @@ export function WorkspacePanePanel({
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
+  onToggleMaximize?: () => void;
   slot: PaneSlot;
   tabs: WorkspacePaneTab[];
 }) {
@@ -216,6 +220,13 @@ export function WorkspacePanePanel({
         ) : (
           <span className="min-w-0 flex-1" />
         )}
+        {onToggleMaximize ? (
+          <WorkspacePaneMaximizeButton
+            maximized={maximized}
+            onToggleMaximize={onToggleMaximize}
+            slot={slot}
+          />
+        ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab ? (
@@ -225,6 +236,30 @@ export function WorkspacePanePanel({
         )}
       </div>
     </section>
+  );
+}
+
+function WorkspacePaneMaximizeButton({
+  maximized,
+  onToggleMaximize,
+  slot,
+}: {
+  maximized: boolean;
+  onToggleMaximize: () => void;
+  slot: PaneSlot;
+}) {
+  const paneName = slot === "bottom" ? "bottom" : "side";
+  const label = maximized ? `Restore ${paneName} pane` : `Maximize ${paneName} pane`;
+  return (
+    <button
+      aria-label={label}
+      className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+      onClick={onToggleMaximize}
+      title={label}
+      type="button"
+    >
+      {maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+    </button>
   );
 }
 

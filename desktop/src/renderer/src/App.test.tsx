@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
 import { ChatModelMenu } from "./components/chat-model-menu";
+import { ChatPanel, type ChatView } from "./components/chat-panel";
 import { ChatPermissionsMenu } from "./components/chat-permissions-menu";
 import { ChatPlusMenu } from "./components/chat-plus-menu";
 import { ChatTranscript } from "./components/chat-transcript";
@@ -246,6 +247,7 @@ describe("workspace renderer states", () => {
         onCloseTab={() => {}}
         onCreateTab={() => {}}
         onSelectTab={() => {}}
+        onToggleMaximize={() => {}}
         slot="bottom"
         tabs={[
           {
@@ -263,6 +265,7 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain('data-testid="bottom-workspace-pane"');
+    expect(html).toContain("Maximize bottom pane");
     expect(html).toContain('data-testid="workspace-pane-tab-terminal_tab"');
     expect(html).toContain('data-pane-runtime="libghostty"');
     expect(html).toContain("New pane tab");
@@ -322,6 +325,27 @@ describe("workspace renderer states", () => {
 });
 
 describe("chat renderer states", () => {
+  test("renders chat pane maximize control", () => {
+    const html = renderToString(
+      <ChatPanel
+        chat={emptyChatView()}
+        chromeInsetTop
+        maximized={false}
+        onToggleMaximize={() => {}}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        workspace={{
+          displayName: "api",
+          id: "workspace_api",
+          lastOpenedAt: "2026-05-29T20:00:00Z",
+          rootPath: "/tmp/api",
+        }}
+      />,
+    );
+
+    expect(html).toContain("Maximize chat pane");
+  });
+
   test("renders markdown messages without trusting raw html", () => {
     const html = renderToString(
       <ChatTranscript
@@ -665,4 +689,26 @@ describe("settings renderer states", () => {
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
+}
+
+function emptyChatView(): ChatView {
+  return {
+    activeRun: null,
+    conversations: [],
+    createConversation: async () => {},
+    createWorkspaceConversation: async () => {},
+    error: null,
+    hasMoreOlder: false,
+    loadOlder: async () => {},
+    messages: [],
+    operation: null,
+    selectConversation: async () => {},
+    selectedConversation: null,
+    sendMessage: async () => {},
+    status: "ready",
+    stopActiveRun: async () => {},
+    submitApproval: async () => {},
+    unreadConversationIds: {},
+    updateUserMessage: async () => {},
+  };
 }

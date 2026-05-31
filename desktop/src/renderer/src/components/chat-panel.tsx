@@ -1,5 +1,5 @@
 import type { WorkspaceSummary } from "@generated/backend";
-import { ArrowUp, MessageSquarePlus, Mic, Plus, Square } from "lucide-react";
+import { ArrowUp, Maximize2, MessageSquarePlus, Mic, Minimize2, Plus, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -17,12 +17,16 @@ import { Textarea } from "./ui/textarea";
 export function ChatPanel({
   chat,
   chromeInsetTop = false,
+  maximized = false,
+  onToggleMaximize,
   searchOpen,
   setSearchOpen,
   workspace,
 }: {
   chat: ChatView;
   chromeInsetTop?: boolean;
+  maximized?: boolean;
+  onToggleMaximize?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
   workspace: WorkspaceSummary | null;
@@ -45,6 +49,8 @@ export function ChatPanel({
     <ChatWorkspace
       chat={chat}
       chromeInsetTop={chromeInsetTop}
+      maximized={maximized}
+      onToggleMaximize={onToggleMaximize}
       searchOpen={searchOpen}
       setSearchOpen={setSearchOpen}
     />
@@ -54,11 +60,15 @@ export function ChatPanel({
 function ChatWorkspace({
   chat,
   chromeInsetTop,
+  maximized,
+  onToggleMaximize,
   searchOpen,
   setSearchOpen,
 }: {
   chat: ChatView;
   chromeInsetTop: boolean;
+  maximized: boolean;
+  onToggleMaximize?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
 }) {
@@ -72,6 +82,9 @@ function ChatWorkspace({
         chromeInsetTop && "pt-7",
       )}
     >
+      {onToggleMaximize ? (
+        <ChatMaximizeButton maximized={maximized} onToggleMaximize={onToggleMaximize} />
+      ) : null}
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-visible">
         <ConversationBody
           busy={busy}
@@ -83,6 +96,27 @@ function ChatWorkspace({
         <Composer busy={busy} chat={chat} running={running} />
       </div>
     </section>
+  );
+}
+
+function ChatMaximizeButton({
+  maximized,
+  onToggleMaximize,
+}: {
+  maximized: boolean;
+  onToggleMaximize: () => void;
+}) {
+  const label = maximized ? "Restore chat pane" : "Maximize chat pane";
+  return (
+    <button
+      aria-label={label}
+      className="app-no-drag absolute top-0 right-1 z-50 grid h-7 w-6 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+      onClick={onToggleMaximize}
+      title={label}
+      type="button"
+    >
+      {maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+    </button>
   );
 }
 

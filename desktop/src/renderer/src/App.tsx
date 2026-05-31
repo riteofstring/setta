@@ -140,6 +140,7 @@ export function App() {
           panes={panes}
           setChatPaneWidth={setChatPaneWidth}
           setChatSearchOpen={setChatSearchOpen}
+          toggleMaximizedPane={toggleMaximizedPane}
           visibility={visibility}
           workspace={workspace}
         />
@@ -254,6 +255,7 @@ function WorkspaceArea({
   panes,
   setChatPaneWidth,
   setChatSearchOpen,
+  toggleMaximizedPane,
   visibility,
   workspace,
 }: {
@@ -264,6 +266,7 @@ function WorkspaceArea({
   panes: ReturnType<typeof useWorkspacePaneState>;
   setChatPaneWidth: (width: number) => void;
   setChatSearchOpen: (open: boolean) => void;
+  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
   visibility: PaneVisibility;
   workspace: WorkspaceViewState;
 }) {
@@ -288,6 +291,7 @@ function WorkspaceArea({
           panes={panes}
           setChatPaneWidth={setChatPaneWidth}
           setChatSearchOpen={setChatSearchOpen}
+          toggleMaximizedPane={toggleMaximizedPane}
           visibility={visibility}
           workspace={workspace}
         />
@@ -299,6 +303,7 @@ function WorkspaceArea({
           onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
           onCreateTab={(kind) => panes.createTab("bottom", kind)}
           onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
+          onToggleMaximize={() => toggleMaximizedPane("bottom")}
           slot="bottom"
           tabs={panes.bottom.tabs}
         />
@@ -315,6 +320,7 @@ function WorkspaceContentRow({
   panes,
   setChatPaneWidth,
   setChatSearchOpen,
+  toggleMaximizedPane,
   visibility,
   workspace,
 }: {
@@ -325,6 +331,7 @@ function WorkspaceContentRow({
   panes: ReturnType<typeof useWorkspacePaneState>;
   setChatPaneWidth: (width: number) => void;
   setChatSearchOpen: (open: boolean) => void;
+  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
   visibility: PaneVisibility;
   workspace: WorkspaceViewState;
 }) {
@@ -334,10 +341,12 @@ function WorkspaceContentRow({
         chromeInsetTop={visibility.chat}
         chat={chat}
         chatSearchOpen={chatSearchOpen}
+        maximized={maximizedPane === "chat"}
         open={visibility.chat}
         rightPaneOpen={visibility.right}
         setChatSearchOpen={setChatSearchOpen}
         setWidth={setChatPaneWidth}
+        toggleMaximize={() => toggleMaximizedPane("chat")}
         width={chatPaneWidth}
         workspace={workspace}
       />
@@ -420,20 +429,24 @@ function ChatPane({
   chromeInsetTop,
   chat,
   chatSearchOpen,
+  maximized,
   open,
   rightPaneOpen,
   setChatSearchOpen,
   setWidth,
+  toggleMaximize,
   width,
   workspace,
 }: {
   chromeInsetTop: boolean;
   chat: ChatView;
   chatSearchOpen: boolean;
+  maximized: boolean;
   open: boolean;
   rightPaneOpen: boolean;
   setChatSearchOpen: (open: boolean) => void;
   setWidth: (width: number) => void;
+  toggleMaximize: () => void;
   width: number;
   workspace: WorkspaceViewState;
 }) {
@@ -445,6 +458,8 @@ function ChatPane({
     <ChatPanel
       chat={chat}
       chromeInsetTop={chromeInsetTop}
+      maximized={maximized}
+      onToggleMaximize={toggleMaximize}
       searchOpen={chatSearchOpen}
       setSearchOpen={setChatSearchOpen}
       workspace={workspace.selectedWorkspace}
