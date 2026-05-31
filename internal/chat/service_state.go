@@ -19,10 +19,10 @@ func (service *Service) runsForConversationWithDiagnosticsLocked(workspaceID str
 	return runs, nil
 }
 
-func (service *Service) validRunsForWorkspaceListLocked(workspaceID string) ([]Run, []CorruptStateFinding, error) {
+func (service *Service) validRunsForWorkspaceList(workspaceID string) ([]Run, []CorruptStateFinding, error) {
 	runs, corruptRuns, err := service.store.ScanRunsAllowingCorrupt(workspaceID)
 	if err != nil {
-		service.recordCorruptStateDiagnosticLocked(err, workspaceID, "", "")
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
 		return nil, nil, err
 	}
 	findings := append([]CorruptStateFinding{}, corruptRuns...)

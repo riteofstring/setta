@@ -242,25 +242,23 @@ func TestCodexHarnessTreatsModelSettingsUpdateAckAsSuccess(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessFailsUnsupportedThreadSettingsUpdate(t *testing.T) {
+func TestCodexHarnessDowngradesUnsupportedThreadSettingsUpdate(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set-unsupported-settings-update"))
 	request := testTypedModelCommandRequest(t, "gpt-test")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
-	if err == nil {
-		t.Fatal("execute command succeeded, want unsupported thread/settings/update error")
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
 	}
-	if result.SelectedModel != "" || result.SelectedReasoningEffort != nil {
-		t.Fatalf("result = %+v, want no selected settings after failed update", result)
+	if result.SelectedModel != "gpt-test" {
+		t.Fatalf("selected model = %q, want selected model despite unsupported settings update", result.SelectedModel)
 	}
-	commandErr, ok := IsChatCommandError(err)
-	if !ok || commandErr.Code != ChatCommandErrorCodexRPC {
-		t.Fatalf("error = %T %v, want codex RPC command error", err, err)
+	if result.CapabilityDiagnostic != codexThreadSettingsUpdateDowngradeDiagnostic {
+		t.Fatalf("capability diagnostic = %q, want downgrade diagnostic", result.CapabilityDiagnostic)
 	}
-	if !strings.Contains(commandErr.Message, "thread/settings/update is required") ||
-		!strings.Contains(commandErr.Message, "experimentalApi capability") {
-		t.Fatalf("error message = %q, want required method and missing capability", commandErr.Message)
+	if harness.isThreadSettingsUpdateSupported() {
+		t.Fatal("thread settings update remains supported, want capability downgrade")
 	}
 }
 
@@ -275,6 +273,38 @@ func TestCodexHarnessTreatsCurrentModelSetAsNoop(t *testing.T) {
 	}
 	if result.SelectedModel != "gpt-test" || !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
 		t.Fatalf("result = %+v, want selected model no-op with linked thread", result)
+	}
+}
+
+func TestCodexHarnessExecutesSkillsListRPC(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-skills-list"))
+	request := testCommandRequest(t, "/skills")
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.DisplayTitle != "Skills" || !strings.Contains(result.DisplayMessage, "fake-skill") {
+		t.Fatalf("result = %+v, want skills display text", result)
+	}
+	if result.HasThreadRef {
+		t.Fatalf("thread ref = %+v, want no thread for skills list", result.ThreadRef)
+	}
+}
+
+func TestCodexHarnessExecutesMCPStatusRPC(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-mcp-status"))
+	request := testCommandRequest(t, "/mcp")
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.DisplayTitle != "MCP" || !strings.Contains(result.DisplayMessage, "fake-mcp") || !strings.Contains(result.DisplayMessage, "fake_tool") {
+		t.Fatalf("result = %+v, want mcp display text", result)
+	}
+	if result.HasThreadRef {
+		t.Fatalf("thread ref = %+v, want no thread for mcp status", result.ThreadRef)
 	}
 }
 
@@ -362,7 +392,9 @@ func fakeCommandDone(mode string) bool {
 		"command-model-set",
 		"command-model-set-local",
 		"command-effort-set",
-		"command-effort-set-local":
+		"command-effort-set-local",
+		"command-skills-list",
+		"command-mcp-status":
 		return true
 	default:
 		return false

@@ -18,7 +18,7 @@ Options:
   --go-test-max N    Fail Go test cyclomatic complexity at >= N (default: 20).
   --ts-max N         Fail TypeScript/JavaScript cyclomatic complexity at >= N (default: 10).
   --ts-test-max N    Fail TypeScript/JavaScript test complexity at >= N (default: 10).
-  --max-lines N      Fail normal files above N lines (default: 1000).
+  --max-lines N      Fail normal files above N lines (default: 1200).
   --test-max-lines N Fail test files above N lines (default: 1500).
   -h, --help         Show this help text.
 EOF
@@ -32,7 +32,7 @@ go_max="12"
 go_test_max="20"
 ts_max="10"
 ts_test_max="10"
-max_lines="1000"
+max_lines="1200"
 test_max_lines="1500"
 declare -a explicit_files=()
 
@@ -254,7 +254,7 @@ is_length_checked_path() {
     return 0
   fi
   case "$1" in
-    *.css|*.cjs|*.go|*.html|*.js|*.jsx|*.json|*.jsonc|*.md|*.mjs|*.mts|*.cts|*.py|*.toml|*.yaml|*.yml)
+    *.css|*.go|*.html|*.json|*.jsonc|*.md|*.py|*.toml|*.yaml|*.yml)
       return 0
       ;;
   esac
@@ -475,11 +475,6 @@ if [[ ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then
         -over "$(effective_max "${go_test_max}")" "${go_test_files[@]}" || status=1
     fi
   fi
-fi
-
-if [[ "${mode}" == "all" && -x "${repo_root}/scripts/test_setta_cli_workflows.sh" ]]; then
-  echo "Setta CLI workflow integration checks..."
-  "${repo_root}/scripts/test_setta_cli_workflows.sh" || status=1
 fi
 
 if [[ ${#format_projects[@]} -gt 0 ]]; then

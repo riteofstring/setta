@@ -241,29 +241,7 @@ func (manager *Manager) dispatchLoop(client *Client) {
 		case message := <-client.Requests():
 			manager.dispatchRequest(message)
 		case <-client.Done():
-			manager.dispatchBufferedMessages(client)
 			manager.handleClientDone(client)
-			return
-		}
-	}
-}
-
-func (manager *Manager) dispatchBufferedMessages(client *Client) {
-	for {
-		dispatched := false
-		select {
-		case message := <-client.Notifications():
-			manager.dispatchNotification(message)
-			dispatched = true
-		default:
-		}
-		select {
-		case message := <-client.Requests():
-			manager.dispatchRequest(message)
-			dispatched = true
-		default:
-		}
-		if !dispatched {
 			return
 		}
 	}

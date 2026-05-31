@@ -107,6 +107,15 @@ func (service *Service) recordCorruptStateDiagnosticLocked(err error, workspaceI
 	service.recordCorruptStateFindingLocked(finding)
 }
 
+func (service *Service) recordCorruptStateFindings(findings []CorruptStateFinding) []Diagnostic {
+	if len(findings) == 0 {
+		return []Diagnostic{}
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.recordCorruptStateFindingsLocked(findings)
+}
+
 func (service *Service) recordCorruptStateFindingsLocked(findings []CorruptStateFinding) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0, len(findings))
 	for _, finding := range findings {
