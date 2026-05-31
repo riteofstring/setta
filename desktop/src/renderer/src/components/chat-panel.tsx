@@ -210,7 +210,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
         void sendDraft();
       }}
     >
-      <div className="flex min-w-0 items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1">
+      <div className="mx-auto flex w-full max-w-3xl min-w-0 items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1">
         <IconButton disabled={disabled} label="Add attachment">
           <Plus className="h-3.5 w-3.5" />
         </IconButton>

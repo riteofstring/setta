@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { WorkspaceGitInfo } from "@shared/types";
 import settaLogo from "../../../img/logo/logo.svg";
-import { ChatPanel, useChatViewState } from "./components/chat-panel";
+import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
@@ -61,50 +61,115 @@ export function App() {
         setRightPaneOpen={(open) => setRightView(open ? "canvas" : null)}
       />
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
-        {projectPaneOpen ? (
-          <ResizablePane
-            label="Resize project sidebar"
-            maxWidth={320}
-            minWidth={176}
-            onWidthChange={setProjectPaneWidth}
-            width={projectPaneWidth}
-          >
-            <WorkspaceSidebar
-              activeRun={chat.activeRun}
-              activeWorkspaces={workspace.activeWorkspaces}
-              busy={workspace.busy || chat.operation !== null}
-              chatBusy={chat.operation !== null || chat.status === "loading"}
-              closeWorkspace={workspace.closeWorkspace}
-              conversations={chat.conversations}
-              createConversation={chat.createConversation}
-              openLocalFolder={workspace.openLocalFolder}
-              recentWorkspaces={workspace.recentWorkspaces}
-              removeRecent={workspace.removeRecent}
-              selectConversation={chat.selectConversation}
-              selectWorkspace={workspace.selectWorkspace}
-              selectedConversationId={chat.selectedConversation?.id ?? ""}
-              selectedWorkspaceId={workspace.selectedWorkspaceId}
-            />
-          </ResizablePane>
-        ) : null}
-        {chatPaneOpen ? (
-          <ResizablePane
-            label="Resize chat"
-            maxWidth={560}
-            minWidth={300}
-            onWidthChange={setChatPaneWidth}
-            width={chatPaneWidth}
-          >
-            <ChatPanel
-              chat={chat}
-              onMinimize={() => setChatPaneOpen(false)}
-              workspace={workspace.selectedWorkspace}
-            />
-          </ResizablePane>
-        ) : null}
+        <ProjectPane
+          chat={chat}
+          open={projectPaneOpen}
+          setWidth={setProjectPaneWidth}
+          width={projectPaneWidth}
+          workspace={workspace}
+        />
+        <ChatPane
+          chat={chat}
+          onMinimize={() => setChatPaneOpen(false)}
+          open={chatPaneOpen}
+          rightView={rightView}
+          setWidth={setChatPaneWidth}
+          width={chatPaneWidth}
+          workspace={workspace}
+        />
         <CanvasPanel activeView={rightView} onSelectView={setRightView} />
       </main>
     </div>
+  );
+}
+
+type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
+
+function ProjectPane({
+  chat,
+  open,
+  setWidth,
+  width,
+  workspace,
+}: {
+  chat: ChatView;
+  open: boolean;
+  setWidth: (width: number) => void;
+  width: number;
+  workspace: WorkspaceViewState;
+}) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <ResizablePane
+      label="Resize project sidebar"
+      maxWidth={320}
+      minWidth={176}
+      onWidthChange={setWidth}
+      width={width}
+    >
+      <div className="h-full border-r border-zinc-800/80">
+        <WorkspaceSidebar
+          activeRun={chat.activeRun}
+          activeWorkspaces={workspace.activeWorkspaces}
+          busy={workspace.busy || chat.operation !== null}
+          chatBusy={chat.operation !== null || chat.status === "loading"}
+          closeWorkspace={workspace.closeWorkspace}
+          conversations={chat.conversations}
+          createConversation={chat.createConversation}
+          openLocalFolder={workspace.openLocalFolder}
+          recentWorkspaces={workspace.recentWorkspaces}
+          removeRecent={workspace.removeRecent}
+          selectConversation={chat.selectConversation}
+          selectWorkspace={workspace.selectWorkspace}
+          selectedConversationId={chat.selectedConversation?.id ?? ""}
+          selectedWorkspaceId={workspace.selectedWorkspaceId}
+        />
+      </div>
+    </ResizablePane>
+  );
+}
+
+function ChatPane({
+  chat,
+  onMinimize,
+  open,
+  rightView,
+  setWidth,
+  width,
+  workspace,
+}: {
+  chat: ChatView;
+  onMinimize: () => void;
+  open: boolean;
+  rightView: RightView | null;
+  setWidth: (width: number) => void;
+  width: number;
+  workspace: WorkspaceViewState;
+}) {
+  if (!open) {
+    return null;
+  }
+
+  const panel = (
+    <ChatPanel chat={chat} onMinimize={onMinimize} workspace={workspace.selectedWorkspace} />
+  );
+  if (!rightView) {
+    return <div className="h-full min-h-0 min-w-0 flex-1">{panel}</div>;
+  }
+
+  return (
+    <ResizablePane
+      label="Resize chat"
+      maxWidth={560}
+      minWidth={300}
+      onWidthChange={setWidth}
+      width={width}
+    >
+      {panel}
+    </ResizablePane>
   );
 }
 
@@ -683,13 +748,11 @@ function CanvasPanel({
   return (
     <section
       className={
-        activeView
-          ? "flex min-w-0 flex-1 bg-zinc-900"
-          : "flex min-w-0 flex-1 justify-end bg-zinc-900"
+        activeView ? "flex min-w-0 flex-1 bg-zinc-900" : "flex min-w-0 shrink-0 bg-zinc-900"
       }
     >
       {activeView ? (
-        <div className="relative m-2 mt-10 ml-0 min-w-0 flex-1 overflow-hidden rounded-md bg-zinc-100">
+        <div className="relative m-2 mt-10 ml-0 min-w-0 flex-1 overflow-hidden rounded-md bg-zinc-800 text-zinc-100 ring-1 ring-zinc-700/70">
           <WorkspaceView activeView={activeView} />
         </div>
       ) : null}
@@ -732,7 +795,7 @@ function CanvasPlaceholder() {
 function WorkspacePlaceholder({ icon, title }: { icon: ReactNode; title: string }) {
   return (
     <div className="absolute inset-0 grid place-items-center px-8">
-      <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+      <div className="flex items-center gap-2 text-sm font-medium text-zinc-400">
         {icon}
         {title}
       </div>

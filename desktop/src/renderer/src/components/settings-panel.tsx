@@ -94,20 +94,23 @@ export function SettingsPanel() {
 
   return (
     <section
-      className="flex h-full min-h-0 flex-col bg-zinc-100 text-zinc-950"
+      className="flex h-full min-h-0 flex-col bg-zinc-800 text-zinc-100"
       data-testid="settings-panel"
     >
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-zinc-200 px-4">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-zinc-700 px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <Settings2 className="h-4 w-4 shrink-0 text-zinc-500" />
+          <Settings2 className="h-4 w-4 shrink-0 text-zinc-400" />
           <h1 className="truncate text-sm font-semibold">Settings</h1>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <Badge className="h-5 border-zinc-300 bg-zinc-50 px-1.5 text-[10px]" variant="neutral">
+          <Badge
+            className="h-5 border-zinc-600 bg-zinc-800 px-1.5 text-[10px] text-zinc-300"
+            variant="neutral"
+          >
             Local
           </Badge>
           <Button
-            className="h-6 border-zinc-300 bg-zinc-50 px-2 text-[11px] text-zinc-600 hover:bg-white"
+            className="h-6 border-zinc-600 bg-zinc-800 px-2 text-[11px] text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
             onClick={() => {
               setChoices(defaultChoices);
               setSwitches(defaultSwitches);
@@ -147,7 +150,7 @@ function SettingsNav({
   return (
     <nav
       aria-label="Settings sections"
-      className="min-h-0 overflow-y-auto border-r border-zinc-200 px-1.5 py-2"
+      className="min-h-0 overflow-y-auto border-r border-zinc-700 px-1.5 py-2"
     >
       {settingsSections.map((section) => (
         <SettingsNavButton
@@ -179,8 +182,8 @@ function SettingsNavButton({
       className={cn(
         "flex h-7 w-full min-w-0 items-center gap-2 rounded-sm px-2 text-left text-xs",
         active
-          ? "bg-zinc-900 text-zinc-50"
-          : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-950",
+          ? "bg-zinc-950 text-zinc-50"
+          : "text-zinc-400 hover:bg-zinc-700/70 hover:text-zinc-100",
       )}
       onClick={onClick}
       type="button"
@@ -322,7 +325,7 @@ function ChatSettings({ choices, switches, updateChoice, updateSwitch }: Setting
         <SettingRow label="Assistant name">
           <Input
             aria-label="Assistant name"
-            className="h-7 max-w-56 border-zinc-300 bg-white px-2 text-xs"
+            className="h-7 max-w-56 border-zinc-600 bg-zinc-900 px-2 text-xs text-zinc-100"
             defaultValue="Setta"
           />
         </SettingRow>
@@ -407,7 +410,7 @@ function ProjectSettings({ choices, switches, updateChoice, updateSwitch }: Sett
         <SettingRow label="Default project path">
           <Input
             aria-label="Default project path"
-            className="h-7 max-w-72 border-zinc-300 bg-white px-2 text-xs"
+            className="h-7 max-w-72 border-zinc-600 bg-zinc-900 px-2 text-xs text-zinc-100"
             defaultValue="~/Documents/_projects"
           />
         </SettingRow>
@@ -424,7 +427,7 @@ function ProjectSettings({ choices, switches, updateChoice, updateSwitch }: Sett
         <SettingRow label="Recent project limit">
           <Input
             aria-label="Recent project limit"
-            className="h-7 max-w-20 border-zinc-300 bg-white px-2 text-xs"
+            className="h-7 max-w-20 border-zinc-600 bg-zinc-900 px-2 text-xs text-zinc-100"
             defaultValue="40"
           />
         </SettingRow>
@@ -451,7 +454,7 @@ function ProjectSettings({ choices, switches, updateChoice, updateSwitch }: Sett
         <SettingRow label="Editor command">
           <Input
             aria-label="Editor command"
-            className="h-7 max-w-32 border-zinc-300 bg-white px-2 text-xs"
+            className="h-7 max-w-32 border-zinc-600 bg-zinc-900 px-2 text-xs text-zinc-100"
             defaultValue="code"
           />
         </SettingRow>
@@ -667,9 +670,9 @@ function SettingsArticle({
 }) {
   return (
     <article className="mx-auto grid w-full max-w-3xl gap-3">
-      <header className="flex h-8 items-center gap-2 text-zinc-500">
+      <header className="flex h-8 items-center gap-2 text-zinc-400">
         {icon}
-        <h2 className="text-xs font-semibold tracking-wide text-zinc-700 uppercase">{title}</h2>
+        <h2 className="text-xs font-semibold tracking-wide text-zinc-300 uppercase">{title}</h2>
       </header>
       {children}
     </article>
@@ -678,9 +681,9 @@ function SettingsArticle({
 
 function SettingGroup({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <fieldset className="min-w-0 border-t border-zinc-200 pt-2">
-      <legend className="px-0 pr-2 text-[11px] font-semibold text-zinc-500">{title}</legend>
-      <div className="divide-y divide-zinc-200">{children}</div>
+    <fieldset className="min-w-0 border-t border-zinc-700 pt-2">
+      <legend className="px-0 pr-2 text-[11px] font-semibold text-zinc-400">{title}</legend>
+      <div className="divide-y divide-zinc-700">{children}</div>
     </fieldset>
   );
 }
@@ -688,7 +691,7 @@ function SettingGroup({ children, title }: { children: ReactNode; title: string 
 function SettingRow({ children, label }: { children: ReactNode; label: string }) {
   return (
     <div className="grid min-h-9 min-w-0 grid-cols-[minmax(120px,1fr)_minmax(160px,auto)] items-center gap-3 py-1.5 text-xs">
-      <span className="min-w-0 truncate font-medium text-zinc-700">{label}</span>
+      <span className="min-w-0 truncate font-medium text-zinc-200">{label}</span>
       <span className="flex min-w-0 justify-end">{children}</span>
     </div>
   );
@@ -705,7 +708,7 @@ function SegmentedControl({
 }) {
   return (
     <div
-      className="inline-flex min-w-0 overflow-hidden rounded-md border border-zinc-300 bg-zinc-200 p-0.5"
+      className="inline-flex min-w-0 overflow-hidden rounded-md border border-zinc-600 bg-zinc-900 p-0.5"
       role="radiogroup"
     >
       {options.map((option) => (
@@ -714,8 +717,8 @@ function SegmentedControl({
           className={cn(
             "h-5 min-w-0 rounded-sm border-0 px-2 text-[11px] shadow-none",
             value === option.value
-              ? "bg-white text-zinc-950 hover:bg-white"
-              : "bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950",
+              ? "bg-zinc-700 text-zinc-50 hover:bg-zinc-700"
+              : "bg-transparent text-zinc-400 hover:bg-zinc-700/70 hover:text-zinc-100",
           )}
           key={option.value}
           onClick={() => onChange(option.value)}
@@ -745,7 +748,7 @@ function ToggleSwitch({
       aria-checked={checked}
       className={cn(
         "relative h-5 w-9 rounded-full border transition-colors",
-        checked ? "border-zinc-900 bg-zinc-900" : "border-zinc-300 bg-zinc-200",
+        checked ? "border-zinc-100 bg-zinc-100" : "border-zinc-600 bg-zinc-700",
       )}
       onClick={() => onChange(!checked)}
       role="switch"
@@ -753,8 +756,8 @@ function ToggleSwitch({
     >
       <span
         className={cn(
-          "absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-full bg-white shadow transition-transform",
-          checked ? "translate-x-4" : "translate-x-0",
+          "absolute top-0.5 left-0.5 h-3.5 w-3.5 rounded-full shadow transition-transform",
+          checked ? "translate-x-4 bg-zinc-900" : "translate-x-0 bg-zinc-300",
         )}
       />
     </button>
@@ -764,11 +767,11 @@ function ToggleSwitch({
 function ShortcutRow({ action, keys }: { action: string; keys: string[] }) {
   return (
     <div className="grid min-h-9 grid-cols-[minmax(120px,1fr)_auto] items-center gap-3 py-1.5 text-xs">
-      <span className="font-medium text-zinc-700">{action}</span>
+      <span className="font-medium text-zinc-200">{action}</span>
       <span className="flex justify-end gap-1">
         {keys.map((key) => (
           <kbd
-            className="min-w-6 rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-center text-[10px] font-medium text-zinc-600"
+            className="min-w-6 rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-center text-[10px] font-medium text-zinc-300"
             key={key}
           >
             {key}
@@ -781,7 +784,7 @@ function ShortcutRow({ action, keys }: { action: string; keys: string[] }) {
 
 function StatusToken({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2 text-[11px] text-zinc-600">
+    <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-zinc-600 bg-zinc-900 px-2 text-[11px] text-zinc-300">
       {icon}
       {label}
     </span>
