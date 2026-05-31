@@ -3,6 +3,7 @@ import { ArrowUp, MessageSquarePlus, Mic, Plus, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
 import { ChatModelMenu } from "./chat-model-menu";
 import { ChatPermissionsMenu } from "./chat-permissions-menu";
@@ -199,31 +200,37 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           query={slashQuery ?? ""}
         />
         <div className="min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15">
-          <Textarea
-            className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={disabled}
-            onChange={(event) => updateDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && slashPaletteOpen) {
+          <div className="relative min-w-0">
+            {draft === "" ? (
+              <ComposerPlaceholder selected={Boolean(chat.selectedConversation)} />
+            ) : null}
+            <Textarea
+              aria-label={chat.selectedConversation ? "Ask Setta" : "Create a chat first"}
+              className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={disabled}
+              onChange={(event) => updateDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && slashPaletteOpen) {
+                  event.preventDefault();
+                  setSlashPaletteDismissed(true);
+                  return;
+                }
+                if (
+                  event.key !== "Enter" ||
+                  event.shiftKey ||
+                  event.altKey ||
+                  event.nativeEvent.isComposing
+                ) {
+                  return;
+                }
                 event.preventDefault();
-                setSlashPaletteDismissed(true);
-                return;
-              }
-              if (
-                event.key !== "Enter" ||
-                event.shiftKey ||
-                event.altKey ||
-                event.nativeEvent.isComposing
-              ) {
-                return;
-              }
-              event.preventDefault();
-              void sendDraft();
-            }}
-            placeholder={chat.selectedConversation ? "Ask Setta" : "Create a chat first"}
-            rows={2}
-            value={draft}
-          />
+                void sendDraft();
+              }}
+              placeholder={chat.selectedConversation ? "" : "Create a chat first"}
+              rows={2}
+              value={draft}
+            />
+          </div>
           <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
             <div className="flex min-w-0 items-center gap-1">
               <ChatPlusMenu disabled={disabled} />
@@ -244,6 +251,26 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
         </div>
       </div>
     </form>
+  );
+}
+
+function ComposerPlaceholder({ selected }: { selected: boolean }) {
+  if (!selected) {
+    return null;
+  }
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute top-0 left-0 flex h-4 items-center gap-1 text-xs leading-4 text-zinc-500"
+    >
+      <span>Ask</span>
+      <img
+        alt=""
+        className="h-4 w-auto translate-y-[2px] opacity-60 grayscale"
+        draggable={false}
+        src={settaLogo}
+      />
+    </div>
   );
 }
 

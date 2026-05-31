@@ -11,7 +11,6 @@ import {
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import settaLogo from "../../../img/logo/logo.svg";
 import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
 import { EditorPicker } from "./components/editor-picker";
 import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspace-pane";
@@ -320,7 +319,6 @@ function AppChromeControls({
         setRightPaneOpen={setRightPaneOpen}
       />
       <NativeChromeGuards platform={platform} />
-      <SettaWatermark />
       <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
       <SearchPalette onOpenChange={setSearchPaletteOpen} open={searchPaletteOpen} />
     </>
@@ -452,18 +450,6 @@ function NativeChromeGuards({ platform }: { platform: DesktopPlatform }) {
     );
   }
   return null;
-}
-
-function SettaWatermark() {
-  return (
-    <div className="pointer-events-none fixed right-2 bottom-2 z-40 opacity-50">
-      <img
-        alt="Setta"
-        className="h-2.5 w-auto max-w-10 shrink-0 grayscale brightness-0 invert"
-        src={settaLogo}
-      />
-    </div>
-  );
 }
 
 function CommandPalette({
