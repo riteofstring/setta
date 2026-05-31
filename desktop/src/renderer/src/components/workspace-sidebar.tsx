@@ -107,7 +107,7 @@ export function WorkspaceSidebar({
 
   return (
     <aside
-      className="flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 pt-10 text-zinc-100"
+      className="flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 text-zinc-100"
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-3">

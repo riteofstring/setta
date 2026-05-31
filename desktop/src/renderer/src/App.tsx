@@ -1,8 +1,6 @@
 import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
 import {
-  ChevronDown,
   FolderOpen,
-  GitBranch,
   MessageSquareText,
   PanelBottomOpen,
   PanelLeftOpen,
@@ -27,7 +25,6 @@ import {
   useWorkspaceStore,
 } from "./stores/workspace-store";
 import { useChatStore } from "./stores/chat-store";
-import { type WorkspaceGitState, useWorkspaceGitInfo } from "./hooks/use-workspace-git-info";
 
 export function App() {
   const workspace = useWorkspaceViewState();
@@ -57,7 +54,7 @@ export function App() {
 
   return (
     <div className="relative h-screen min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
-      <AppMenuBar
+      <AppChromeControls
         bottomPaneOpen={panes.bottom.open}
         chatPaneOpen={chatPaneOpen}
         commandPaletteOpen={commandPaletteOpen}
@@ -228,7 +225,7 @@ function ChatPane({
   );
 }
 
-function AppMenuBar({
+function AppChromeControls({
   bottomPaneOpen,
   chatPaneOpen,
   commandPaletteOpen,
@@ -307,54 +304,22 @@ function AppMenuBar({
   ]);
 
   return (
-    <header className="app-drag fixed top-0 right-0 left-0 z-50 grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center bg-zinc-900/95 py-0 pr-2 pl-20 text-zinc-100">
-      <div className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center">
-        <img
-          alt="Setta"
-          className="h-3 w-auto max-w-12 shrink-0 grayscale brightness-0 invert"
-          src={settaLogo}
-        />
-      </div>
-      <div className="flex min-w-0 items-center">
-        <div className="app-no-drag flex items-center gap-1">
-          <ShellPaneToggle
-            active={projectPaneOpen}
-            label={projectPaneOpen ? "Hide project sidebar" : "Show project sidebar"}
-            onClick={() => setProjectPaneOpen(!projectPaneOpen)}
-          >
-            <PanelLeftOpen className="h-3.5 w-3.5" />
-          </ShellPaneToggle>
-          <ShellPaneToggle
-            active={chatPaneOpen}
-            label={chatPaneOpen ? "Hide chat pane" : "Show chat pane"}
-            onClick={() => setChatPaneOpen(!chatPaneOpen)}
-          >
-            <MessageSquareText className="h-3.5 w-3.5" />
-          </ShellPaneToggle>
-        </div>
-      </div>
-      <div className="flex min-w-0 items-center justify-end gap-2 text-xs text-zinc-400">
-        <ShellWorkspaceControls selectedWorkspace={selectedWorkspace} />
-        <div className="app-no-drag flex items-center gap-1">
-          <ShellPaneToggle
-            active={bottomPaneOpen}
-            label={bottomPaneOpen ? "Hide bottom pane" : "Show bottom pane"}
-            onClick={() => setBottomPaneOpen(!bottomPaneOpen)}
-          >
-            <PanelBottomOpen className="h-3.5 w-3.5" />
-          </ShellPaneToggle>
-          <ShellPaneToggle
-            active={rightPaneOpen}
-            label={rightPaneOpen ? "Hide right pane" : "Show right pane"}
-            onClick={() => setRightPaneOpen(!rightPaneOpen)}
-          >
-            <PanelRightOpen className="h-3.5 w-3.5" />
-          </ShellPaneToggle>
-        </div>
-      </div>
+    <>
+      <FloatingPaneControls
+        bottomPaneOpen={bottomPaneOpen}
+        chatPaneOpen={chatPaneOpen}
+        projectPaneOpen={projectPaneOpen}
+        rightPaneOpen={rightPaneOpen}
+        rootPath={selectedWorkspace?.rootPath ?? ""}
+        setBottomPaneOpen={setBottomPaneOpen}
+        setChatPaneOpen={setChatPaneOpen}
+        setProjectPaneOpen={setProjectPaneOpen}
+        setRightPaneOpen={setRightPaneOpen}
+      />
+      <SettaWatermark />
       <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
       <SearchPalette onOpenChange={setSearchPaletteOpen} open={searchPaletteOpen} />
-    </header>
+    </>
   );
 }
 
@@ -379,8 +344,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "inline-flex h-6 w-6 items-center justify-center rounded text-zinc-100 hover:bg-zinc-800"
-          : "inline-flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+          ? "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-100 hover:bg-zinc-800"
+          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
       }
       onClick={onClick}
       title={label}
@@ -391,135 +356,72 @@ function ShellPaneToggle({
   );
 }
 
-function ShellWorkspaceControls({
-  selectedWorkspace,
+function FloatingPaneControls({
+  bottomPaneOpen,
+  chatPaneOpen,
+  projectPaneOpen,
+  rightPaneOpen,
+  rootPath,
+  setBottomPaneOpen,
+  setChatPaneOpen,
+  setProjectPaneOpen,
+  setRightPaneOpen,
 }: {
-  selectedWorkspace: WorkspaceSummary | null;
+  bottomPaneOpen: boolean;
+  chatPaneOpen: boolean;
+  projectPaneOpen: boolean;
+  rightPaneOpen: boolean;
+  rootPath: string;
+  setBottomPaneOpen: (open: boolean) => void;
+  setChatPaneOpen: (open: boolean) => void;
+  setProjectPaneOpen: (open: boolean) => void;
+  setRightPaneOpen: (open: boolean) => void;
 }) {
-  const git = useWorkspaceGitInfo(selectedWorkspace?.rootPath ?? null);
-  const branch = branchDropdown(git);
-  const worktree = worktreeDropdown(git, selectedWorkspace);
-
   return (
-    <div className="app-no-drag flex min-w-0 items-center justify-end gap-1">
-      <EditorPicker rootPath={selectedWorkspace?.rootPath ?? ""} />
-      <ShellDropdownButton
-        disabled={!selectedWorkspace}
-        icon={<GitBranch className="h-3.5 w-3.5" />}
-        items={branch.items}
-        label={branch.label}
-      />
-      <ShellDropdownButton
-        disabled={!selectedWorkspace}
-        icon={<FolderOpen className="h-3.5 w-3.5" />}
-        items={worktree.items}
-        label={worktree.label}
-      />
+    <div className="app-no-drag pointer-events-none fixed top-2 right-2 z-50 flex items-center gap-1">
+      <div className="pointer-events-auto flex items-center gap-1 rounded-sm border border-zinc-800/90 bg-zinc-900/75 p-0.5 text-zinc-400 shadow-xl shadow-black/30 backdrop-blur">
+        <EditorPicker rootPath={rootPath} />
+        <ShellPaneToggle
+          active={projectPaneOpen}
+          label={projectPaneOpen ? "Hide project sidebar" : "Show project sidebar"}
+          onClick={() => setProjectPaneOpen(!projectPaneOpen)}
+        >
+          <PanelLeftOpen className="h-3.5 w-3.5" />
+        </ShellPaneToggle>
+        <ShellPaneToggle
+          active={chatPaneOpen}
+          label={chatPaneOpen ? "Hide chat pane" : "Show chat pane"}
+          onClick={() => setChatPaneOpen(!chatPaneOpen)}
+        >
+          <MessageSquareText className="h-3.5 w-3.5" />
+        </ShellPaneToggle>
+        <ShellPaneToggle
+          active={bottomPaneOpen}
+          label={bottomPaneOpen ? "Hide bottom pane" : "Show bottom pane"}
+          onClick={() => setBottomPaneOpen(!bottomPaneOpen)}
+        >
+          <PanelBottomOpen className="h-3.5 w-3.5" />
+        </ShellPaneToggle>
+        <ShellPaneToggle
+          active={rightPaneOpen}
+          label={rightPaneOpen ? "Hide right pane" : "Show right pane"}
+          onClick={() => setRightPaneOpen(!rightPaneOpen)}
+        >
+          <PanelRightOpen className="h-3.5 w-3.5" />
+        </ShellPaneToggle>
+      </div>
     </div>
   );
 }
 
-function branchDropdown(git: WorkspaceGitState) {
-  if (git.status === "ready") {
-    return {
-      items: [
-        { label: "Branch", value: git.info.branchName },
-        { label: "Commit", value: git.info.commitShort },
-      ],
-      label: git.info.branchName,
-    };
-  }
-  return {
-    items: [
-      {
-        label: git.status === "loading" ? "Reading git metadata" : "Git unavailable",
-        value: git.status === "error" ? git.message : "",
-      },
-    ],
-    label: git.status === "loading" ? "Branch" : "No branch",
-  };
-}
-
-function worktreeDropdown(git: WorkspaceGitState, selectedWorkspace: WorkspaceSummary | null) {
-  const fallbackLabel = selectedWorkspace?.displayName ?? "No worktree";
-  const label = git.status === "ready" ? git.info.worktreeName : fallbackLabel;
-  return {
-    items: [
-      { label: "Worktree", value: label },
-      {
-        label: "Path",
-        value: git.status === "ready" ? git.info.worktreeRoot : (selectedWorkspace?.rootPath ?? ""),
-      },
-    ],
-    label,
-  };
-}
-
-function ShellDropdownButton({
-  disabled = false,
-  icon,
-  items,
-  label,
-}: {
-  disabled?: boolean;
-  icon: ReactNode;
-  items: { label: string; value: string }[];
-  label: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const closeOnPointerDown = (event: globalThis.PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    };
-    window.addEventListener("pointerdown", closeOnPointerDown);
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("pointerdown", closeOnPointerDown);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
+function SettaWatermark() {
   return (
-    <div className="relative min-w-0" ref={rootRef}>
-      <button
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className="inline-flex h-6 max-w-36 min-w-0 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-800 px-2 text-[11px] text-zinc-300 hover:bg-zinc-700 hover:text-white disabled:pointer-events-none disabled:opacity-40"
-        disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
-        type="button"
-      >
-        {icon}
-        <span className="min-w-0 truncate">{label}</span>
-        <ChevronDown className="h-3 w-3 shrink-0 text-zinc-500" />
-      </button>
-      {open ? (
-        <div
-          className="absolute top-full right-0 z-50 mt-1 grid min-w-56 gap-0.5 rounded-sm border border-zinc-700 bg-zinc-950 p-1 text-[11px] text-zinc-100 shadow-xl"
-          role="menu"
-        >
-          {items.map((item) => (
-            <div className="grid gap-0.5 rounded px-2 py-1.5" key={item.label} role="menuitem">
-              <span className="text-[10px] tracking-wide text-zinc-500 uppercase">
-                {item.label}
-              </span>
-              <span className="max-w-80 truncate text-zinc-200">{item.value || "Unavailable"}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+    <div className="pointer-events-none fixed right-2 bottom-2 z-40 opacity-50">
+      <img
+        alt="Setta"
+        className="h-2.5 w-auto max-w-10 shrink-0 grayscale brightness-0 invert"
+        src={settaLogo}
+      />
     </div>
   );
 }

@@ -25,7 +25,7 @@ export function ChatPanel({
 }) {
   if (!workspace) {
     return (
-      <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 pt-8 text-zinc-100">
+      <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100">
         <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
           Open a workspace to start chat.
         </div>
@@ -48,7 +48,7 @@ function ChatWorkspace({
   const running = chat.activeRun?.status === "running";
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 pt-8 text-zinc-100">
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100">
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-visible">
         <ConversationBody
           busy={busy}
