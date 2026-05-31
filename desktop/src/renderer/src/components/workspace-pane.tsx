@@ -253,21 +253,25 @@ function WorkspacePaneTabButton({
       )}
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
-      {workspacePaneIcon(tab.kind, "h-3.5 w-3.5 shrink-0")}
+      <span className="relative grid h-4 w-4 shrink-0 place-items-center">
+        <span className="grid h-4 w-4 place-items-center transition-opacity group-hover:opacity-0">
+          {workspacePaneIcon(tab.kind, "h-3.5 w-3.5")}
+        </span>
+        <button
+          aria-label={`Close ${tab.title}`}
+          className="pointer-events-none absolute inset-0 grid h-4 w-4 cursor-pointer place-items-center rounded-full bg-zinc-500/85 text-zinc-950 opacity-0 outline-none transition-colors group-hover:pointer-events-auto group-hover:opacity-100 hover:bg-zinc-300 focus:pointer-events-auto focus:opacity-100 focus-visible:bg-zinc-300"
+          onClick={onClose}
+          type="button"
+        >
+          <X className="h-2.5 w-2.5 stroke-[3]" />
+        </button>
+      </span>
       <button
         className="min-w-0 flex-1 cursor-pointer truncate text-left outline-none focus-visible:text-zinc-50 focus-visible:underline focus-visible:decoration-zinc-400 focus-visible:underline-offset-2"
         onClick={onSelect}
         type="button"
       >
         {tab.title}
-      </button>
-      <button
-        aria-label={`Close ${tab.title}`}
-        className="ml-1 hidden h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-[3px] text-zinc-500 outline-none hover:bg-zinc-700 hover:text-zinc-100 focus-visible:bg-zinc-700 focus-visible:text-zinc-100 group-hover:inline-flex"
-        onClick={onClose}
-        type="button"
-      >
-        <X className="h-3 w-3" />
       </button>
     </div>
   );
