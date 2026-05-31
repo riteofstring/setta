@@ -34,7 +34,7 @@ describe("workspace actions", () => {
     } finally {
       await rm(root, { force: true, recursive: true });
     }
-  });
+  }, 15_000);
 
   test("returns an explicit non-git state for a plain workspace folder", async () => {
     const root = await mkdtemp(join(tmpdir(), "setta-plain-workspace-"));

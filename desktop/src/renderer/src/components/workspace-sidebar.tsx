@@ -28,7 +28,7 @@ import {
 import { ConversationRow } from "./workspace-sidebar-conversation-row";
 import {
   createSidebarListItem,
-  EmptySectionIcon,
+  EmptySectionSpace,
   MemoryIntegrationsContent,
   NotesContent,
   RulesContent,
@@ -253,7 +253,7 @@ export function WorkspaceSidebar({
             title="Projects"
           >
             {projectsEmpty ? (
-              <EmptySectionIcon label="Projects" />
+              <EmptySectionSpace />
             ) : (
               <>
                 <ProjectList

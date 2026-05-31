@@ -55,10 +55,11 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain("No workspace open");
     expect(html).not.toContain("No projects");
-    expect(html).toContain('aria-label="Projects empty"');
-    expect(html).toContain('aria-label="Chats empty"');
-    expect(html).toContain('aria-label="Notes empty"');
-    expect(html).toContain('aria-label="Rules empty"');
+    expect(html).not.toContain('aria-label="Projects empty"');
+    expect(html).not.toContain('aria-label="Chats empty"');
+    expect(html).not.toContain('aria-label="Notes empty"');
+    expect(html).not.toContain('aria-label="Rules empty"');
+    expect(rowCount(html, "sidebar-empty-space")).toBeGreaterThanOrEqual(4);
   });
 
   test("renders active selected and recent workspace state", () => {
@@ -154,18 +155,19 @@ describe("workspace renderer states", () => {
     expect(html).toContain('aria-label="Pin Web chat"');
     expect(html).toContain('aria-label="Delete Web chat"');
     expect(html).not.toContain("No unorganized chats");
-    expect(html).toContain('aria-label="Chats empty"');
+    expect(html).not.toContain('aria-label="Chats empty"');
     expect(html).toContain("Notes");
     expect(html).toContain('aria-label="New note"');
     expect(html).not.toContain("No Markdown notes");
-    expect(html).toContain('aria-label="Notes empty"');
+    expect(html).not.toContain('aria-label="Notes empty"');
     expect(html).toContain("DB / Memories");
     expect(html).toContain('aria-label="Open settings"');
     expect(html).toContain("Right pane");
     expect(html).toContain("Rules");
     expect(html).toContain('aria-label="New rule"');
     expect(html).not.toContain("No rule canvases");
-    expect(html).toContain('aria-label="Rules empty"');
+    expect(html).not.toContain('aria-label="Rules empty"');
+    expect(rowCount(html, "sidebar-empty-space")).toBeGreaterThanOrEqual(3);
     expect(html).toContain('data-testid="notes-section"');
     expect(html).toContain('data-testid="rules-section"');
     expect(html).toContain('data-testid="sidebar-shortcuts-shell"');

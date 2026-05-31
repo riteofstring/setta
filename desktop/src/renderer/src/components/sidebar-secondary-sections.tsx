@@ -3,7 +3,6 @@ import {
   Database,
   FileText,
   FolderOpen,
-  Inbox,
   Settings,
   Terminal,
   Workflow,
@@ -47,7 +46,7 @@ export function SettaCanvasIcon() {
 
 export function UnorganizedChatsContent({ chats }: { chats: SidebarListItem[] }) {
   if (chats.length === 0) {
-    return <EmptySectionIcon label="Chats" />;
+    return <EmptySectionSpace />;
   }
   return <SidebarIndentedListItems items={chats} />;
 }
@@ -57,7 +56,7 @@ export function UnorganizedChatsContent({ chats }: { chats: SidebarListItem[] })
 // project chat or external memory integration contracts.
 export function NotesContent({ notes }: { notes: SidebarListItem[] }) {
   if (notes.length === 0) {
-    return <EmptySectionIcon label="Notes" />;
+    return <EmptySectionSpace />;
   }
   return <SidebarIndentedListItems items={notes} />;
 }
@@ -176,21 +175,13 @@ export function SidebarSettingsButton({ onOpenSettings }: { onOpenSettings: () =
 // evaluated before or during every user turn.
 export function RulesContent({ rules }: { rules: SidebarListItem[] }) {
   if (rules.length === 0) {
-    return <EmptySectionIcon label="Rules" />;
+    return <EmptySectionSpace />;
   }
   return <SidebarIndentedListItems items={rules} />;
 }
 
-export function EmptySectionIcon({ label }: { label: string }) {
-  return (
-    <div
-      aria-label={`${label} empty`}
-      className="grid h-10 place-items-center text-zinc-700"
-      role="status"
-    >
-      <Inbox className="h-4 w-4" aria-hidden="true" />
-    </div>
-  );
+export function EmptySectionSpace() {
+  return <div aria-hidden="true" className="h-10" data-testid="sidebar-empty-space" />;
 }
 
 function MemoryIntegrationsModal({
