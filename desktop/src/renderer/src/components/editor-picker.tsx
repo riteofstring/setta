@@ -1,6 +1,6 @@
 import type { InstalledEditorApp } from "@shared/types";
 import { ChevronDown, Code2, LoaderCircle } from "lucide-react";
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -291,18 +291,78 @@ function EditorMenuItem({
 }
 
 function EditorIcon({ editor }: { editor: InstalledEditorApp | null }) {
-  if (editor?.iconDataUrl) {
+  if (editor?.iconDataUrl.trim()) {
     return (
       <img
         alt=""
-        className="h-3.5 w-3.5 shrink-0 rounded-sm"
+        className="h-4 w-4 shrink-0 rounded-[3px]"
         draggable={false}
         src={editor.iconDataUrl}
       />
     );
   }
+  if (editor) {
+    return <EditorFallbackIcon editorId={editor.id} />;
+  }
   return <Code2 className="h-3.5 w-3.5 shrink-0" />;
 }
+
+function EditorFallbackIcon({ editorId }: { editorId: string }) {
+  const icon = editorFallbackIcons[editorId] ?? defaultEditorFallbackIcon;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid h-4 w-4 shrink-0 place-items-center overflow-hidden rounded-[3px] border text-[9px] font-semibold leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]",
+        icon.className,
+      )}
+    >
+      {icon.mark}
+    </span>
+  );
+}
+
+interface EditorFallbackIconDefinition {
+  className: string;
+  mark: ReactNode;
+}
+
+const defaultEditorFallbackIcon = {
+  className: "border-zinc-600 bg-zinc-800 text-zinc-300",
+  mark: <Code2 className="h-3 w-3" />,
+} satisfies EditorFallbackIconDefinition;
+
+const editorFallbackIcons: Record<string, EditorFallbackIconDefinition> = {
+  "android-studio": {
+    className: "border-emerald-400/40 bg-emerald-600/90 text-white",
+    mark: "A",
+  },
+  cursor: {
+    className: "border-zinc-600 bg-zinc-950 text-zinc-200",
+    mark: "C",
+  },
+  default: defaultEditorFallbackIcon,
+  finder: {
+    className: "border-sky-300/40 bg-sky-500/90 text-white",
+    mark: "F",
+  },
+  ghostty: {
+    className: "border-indigo-300/40 bg-indigo-600/90 text-white",
+    mark: ">",
+  },
+  terminal: {
+    className: "border-zinc-600 bg-zinc-950 text-zinc-100",
+    mark: ">",
+  },
+  vscode: {
+    className: "border-sky-300/40 bg-sky-600/90 text-white",
+    mark: "<>",
+  },
+  zed: {
+    className: "border-zinc-500/60 bg-zinc-800 text-zinc-100",
+    mark: "Z",
+  },
+};
 
 function editorPickerStatus(state: EditorPickerState) {
   switch (state.status) {

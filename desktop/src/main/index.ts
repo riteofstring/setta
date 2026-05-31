@@ -151,7 +151,7 @@ function registerIpc() {
     "appInstalledEditors",
     () => {
       return listInstalledEditorApps(async (appPath) => {
-        const icon = await app.getFileIcon(appPath, { size: "normal" });
+        const icon = await app.getFileIcon(appPath, { size: "large" });
         return icon.toDataURL();
       });
     },
