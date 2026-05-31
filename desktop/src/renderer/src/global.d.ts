@@ -14,10 +14,25 @@ interface PixiWorkspaceDebugSnapshot {
   };
   graph: {
     edgeCount: number;
+    edges: Array<{
+      id: string;
+      sourceNodeId: string;
+      sourcePortId: string;
+      targetNodeId: string;
+      targetPortId: string;
+    }>;
     nodeCount: number;
     nodes: Array<{
       height: number;
       id: string;
+      ports: Array<{
+        id: string;
+        role: "source" | "target";
+        screenX: number;
+        screenY: number;
+        x: number;
+        y: number;
+      }>;
       screenX: number;
       screenY: number;
       width: number;
@@ -32,11 +47,13 @@ interface PixiWorkspaceDebugSnapshot {
   render: {
     averageFrameMs: number;
     cameraUpdateCount: number;
+    edgeCommitCount: number;
     edgeRedrawCount: number;
     frameCount: number;
     nodeDragUpdateCount: number;
     reactRenderCount: number;
     recentFrameMs: number[];
+    temporaryEdgeUpdateCount: number;
     worstFrameMs: number;
   };
   visual: {

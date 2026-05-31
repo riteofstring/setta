@@ -1,23 +1,64 @@
 # Pixi Workspace Foundation Plan
 
 **Date:** June 3, 2026  
-**Scope:** Foundational Pixi workspace prototype for a pannable, zoomable, animated node/edge canvas.
+**Status:** Implemented except physical trackpad hardware verification
+**Scope:** Complete the foundational Pixi workspace prototype for a pannable, zoomable, animated node/edge canvas.
 
 ## Goal
 
-Lay the technical foundation for a high-performance PixiJS workspace inside the Electron renderer.
+Finish the first Pixi workspace foundation slice inside the Electron renderer.
 
-The first version should prove:
+The prototype should prove:
 
-- Full-window Pixi workspace rendering behind a temporary feature flag.
-- Smooth trackpad and mouse pan/zoom.
+- Full-window Pixi workspace rendering behind a temporary runtime flag.
+- Smooth mouse and trackpad-oriented pan/zoom.
 - Hard-coded starter nodes and edges.
 - Dragging existing nodes.
 - Drawing new edges between existing nodes.
 - Basic selection, hover, and temporary interaction overlays.
 - A path for colorful, fluid canvas-native animation.
 
-Node creation is intentionally out of scope for this phase. There should be no context menu creation flow and no palette/toolbar drag-to-create flow yet.
+Node creation is intentionally out of scope. There should be no context menu creation flow, no command-palette creation flow, and no palette/toolbar drag-to-create flow yet.
+
+## Current State
+
+The repository already has the initial Pixi/tooling foundation:
+
+- `pixi.js` and `pixi-viewport` are installed with exact checked-in versions.
+- `SETTA_PIXI_WORKSPACE_PROTOTYPE=1` switches the app into full-window Pixi prototype mode.
+- `SETTA_PIXI_WORKSPACE_DEBUG=1` enables the Pixi debug snapshot API.
+- `desktop/src/renderer/src/components/pixi-workspace-prototype.tsx` mounts the Pixi workspace host.
+- `desktop/src/renderer/src/components/pixi-workspace-renderer.js` owns the imperative Pixi application, viewport, scene graph, ticker, and interaction handlers.
+- Existing project, chat, right, and bottom panes do not render in prototype mode.
+- The prototype renders a dark workspace background, grid, hard-coded nodes, curved edges, ports, labels, selected-node outline, and low-cost glow animation.
+- Existing nodes can be dragged, and connected edges redraw during drag.
+- Existing source ports can start temporary edges.
+- Releasing a temporary edge on a valid target port commits a new edge.
+- Releasing a temporary edge away from a valid target port cancels it.
+- Pixi debug snapshots expose canvas, camera, graph, interaction, render, and visual sampling state.
+- `./scripts/test_pixi_workspace_visual.sh` launches the built Electron app in prototype mode, captures screenshots, verifies a nonblank canvas, drives pan/zoom, drags a visible node, draws and cancels a temporary edge, commits an edge, and records artifacts.
+- Baseline performance notes exist at `docs/reports/performance/pixi-workspace-visual-smoke.md`.
+
+Do not create a second Pixi implementation. Extend the existing prototype path.
+
+## Remaining Foundation Scope
+
+The main missing evidence is physical Mac trackpad hardware verification.
+
+Implemented:
+
+- Port-to-port temporary edge drawing.
+- Committing a new edge between existing nodes.
+- Cancelling a temporary edge when released away from a valid target port.
+- Debug snapshot fields and visual smoke coverage for edge drawing.
+- Trackpad limitation notes for pan and pinch behavior.
+
+Still required before claiming full hardware coverage:
+
+- Manual Mac trackpad verification for two-finger pan.
+- Manual Mac trackpad verification for pinch zoom where Electron/Chromium exposes it.
+
+Keep the implementation scoped to the prototype. Do not add persistence, backend contracts, chat integration, undo/redo, semantic node types, node creation, deletion, or migrations.
 
 ## Non-Goals
 
@@ -35,36 +76,16 @@ Node creation is intentionally out of scope for this phase. There should be no c
 
 Do not add backward compatibility, legacy support, transitional code, migrations, dual-read/write paths, compatibility shims, or old-field aliases for this prototype. The foundation should use the intended new model and runtime shape directly.
 
-## Feature Flag
+## Runtime Flags
 
-Add a temporary renderer-side flag that switches the app into Pixi workspace prototype mode.
-
-When enabled:
-
-- The Electron renderer should mount only the Pixi workspace.
-- Existing project, chat, right, and bottom panes should not render.
-- The prototype should still run through the normal Electron renderer/preload environment.
-
-Recommended shape:
-
-```ts
-const pixiWorkspacePrototypeEnabled = import.meta.env.VITE_PIXI_WORKSPACE_PROTOTYPE === "1";
-```
-
-Use the flag near the top-level app render boundary so the prototype remains decoupled from pane and chat lifecycle.
-
-## Dependencies
-
-Add the minimum Pixi stack:
+Prototype mode is controlled at runtime through preload-exposed app flags:
 
 ```text
-pixi.js
-pixi-viewport
+SETTA_PIXI_WORKSPACE_PROTOTYPE=1
+SETTA_PIXI_WORKSPACE_DEBUG=1
 ```
 
-The repository requires exact dependency versions. Do not use floating ranges. If lockfile changes are needed, use the repository dependency update workflow.
-
-Avoid `@pixi/react` for the first foundation slice. React should mount and unmount the workspace host element, but the Pixi application, viewport, scene graph, ticker, and interaction handlers should be owned imperatively by workspace code.
+Do not switch this to a Vite build-time flag. The visual tooling needs to toggle prototype mode against the built Electron app without producing a separate build.
 
 ## Architecture
 
@@ -82,36 +103,30 @@ React component
             └── effects layer
 ```
 
-Do not put pan, zoom, pointer move, temporary edge drawing, or animation ticks through React state.
+Do not put pan, zoom, pointer move, node drag, temporary edge drawing, or animation ticks through React state.
 
-The hot path should be imperative:
+The hot path should stay imperative:
 
 - `pixi-viewport` owns camera movement during pan/zoom.
-- Pixi pointer events drive hover, drag, and edge drawing.
+- Pixi pointer events drive hover, drag, selection, and edge drawing.
 - Pixi ticker drives animated visuals.
-- React receives only coarse events if needed.
+- React receives no high-frequency interaction updates.
 
 ## Graph Model
 
-Use a small hard-coded graph fixture as the source of truth for the prototype.
+Use the existing hard-coded graph fixture as the prototype source of truth.
 
-Suggested starter model:
+The current model shape is file-local in `pixi-workspace-renderer.js`:
 
 ```ts
-type Vec2 = {
-  x: number;
-  y: number;
-};
-
 type WorkspaceNode = {
   id: string;
   label: string;
-  position: Vec2;
-  size: {
-    width: number;
-    height: number;
-  };
-  color: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: number;
 };
 
 type WorkspaceEdge = {
@@ -119,140 +134,210 @@ type WorkspaceEdge = {
   sourceNodeId: string;
   targetNodeId: string;
 };
+```
 
-type WorkspaceGraph = {
-  nodes: WorkspaceNode[];
-  edges: WorkspaceEdge[];
+Keep Pixi display objects separate from this model. Pixi objects may cache IDs, but they should not become the authoritative representation of nodes and edges.
+
+For edge drawing, it is acceptable to extend the model with port IDs if that reduces ambiguity:
+
+```ts
+type WorkspaceEdge = {
+  id: string;
+  sourceNodeId: string;
+  sourcePortId?: string;
+  targetNodeId: string;
+  targetPortId?: string;
 };
 ```
 
-Keep Pixi display objects separate from the graph model. Pixi objects may cache IDs, but they should not become the authoritative representation of nodes and edges.
+Do not add a persistence format yet.
 
-## Initial Interactions
+## Required Interactions
 
 ### Pan and Zoom
 
-Support:
+Already implemented enough for automated smoke coverage:
 
-- Two-finger trackpad pan.
-- Trackpad pinch zoom where Chromium/Electron exposes it.
+- Mouse drag pan on empty workspace space.
 - Mouse wheel zoom.
-- Optional mouse drag pan when interacting with empty workspace space.
+- No React renders in the pan/zoom hot path.
 
-Pan/zoom should not trigger React renders.
+Still required:
+
+- Manual verification on a Mac trackpad for two-finger pan.
+- Manual verification on a Mac trackpad for pinch zoom where Electron/Chromium exposes it.
+- Record any trackpad-specific limitation in the implementation notes or performance report.
 
 ### Node Dragging
 
-Support dragging hard-coded nodes.
+Already implemented:
 
-During drag:
+- Existing hard-coded nodes can be dragged.
+- Node positions update in prototype graph/controller state.
+- Connected edge visuals redraw during drag.
+- Drag updates do not go through React state.
 
-- Update node position in the prototype graph/controller state.
-- Update connected edge visuals.
-- Keep movement smooth without React state updates.
+Maintain this behavior while adding edge drawing.
 
 ### Edge Drawing
 
-Support drawing edges between existing nodes.
+Implemented in the Pixi prototype path and covered by the visual smoke workflow.
 
-Recommended first behavior:
+Required behavior:
 
-- Each node has simple visible connection handles or ports.
+- Each node has visible connection handles or ports.
 - Pointer down on a source port starts a temporary edge.
-- Pointer move updates the temporary edge endpoint.
-- Pointer up on a valid target port commits a new edge.
+- Pointer move updates the temporary edge endpoint in the interaction layer.
+- Pointer up on a valid target port commits a new edge to the prototype graph.
 - Pointer up elsewhere cancels the temporary edge.
+- Temporary edge drawing should not pan the viewport.
+- Temporary edge drawing should not trigger React renders.
+- Connected edge rendering should update after a committed edge.
 
-Keep temporary edge rendering in the interaction layer.
+Recommended controller state:
+
+```ts
+type EdgeDrawingState = {
+  sourceNodeId: string;
+  sourcePortId?: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+};
+```
+
+Add edge drawing details to the debug snapshot:
+
+```ts
+interaction: {
+  selectedNodeId: string | null;
+  drawingEdge: boolean;
+};
+graph: {
+  nodeCount: number;
+  edgeCount: number;
+  nodes: ...;
+  edges?: Array<{ id: string; sourceNodeId: string; targetNodeId: string }>;
+};
+```
 
 ### Selection and Hover
 
-Add simple visual feedback:
+Already implemented:
 
 - Node hover outline.
 - Selected node outline.
-- Edge hover or active styling if straightforward.
+
+Still useful if straightforward:
+
+- Edge hover or active styling.
 - Temporary edge highlight while drawing.
 
 ## Visual Foundation
 
-Create enough visual richness to prove Pixi is the right rendering layer, without overbuilding product design.
-
-Initial visuals:
+Already implemented:
 
 - Dark workspace background.
-- Subtle grid or spatial reference layer.
+- Grid.
 - Colored nodes.
-- Curved or straight edges.
-- Animated background accents or low-cost particles.
-- Lightweight pulses/glows on selected or connected elements.
+- Curved edges.
+- Lightweight glow/pulse animation.
 
-Avoid expensive filters on large containers until profiling supports them.
+Maintain these visuals. Do not add expensive filters on large containers unless profiling supports them.
 
 ## Performance Rules
 
-The prototype should establish these constraints from the beginning:
+Keep these constraints:
 
-- No React state updates in pan/zoom, pointer move, animation, or temporary edge drawing hot paths.
+- No React state updates in pan/zoom, pointer move, animation, node drag, or temporary edge drawing hot paths.
 - No DOM node per workspace node or edge.
 - No full Pixi scene rebuild on every interaction.
-- Reuse Pixi objects when practical.
+- Reuse Pixi objects where practical.
 - Keep layers explicit so later culling and batching are straightforward.
 - Do not add polling.
 
-For the first slice, `Graphics` objects are acceptable for nodes and edges. Later optimization can move repeated node visuals to textures/sprites and dense edges to batching or mesh-based rendering.
+For this prototype, Pixi `Graphics` objects are acceptable for nodes and edges. Later optimization can move repeated node visuals to textures/sprites and dense edges to batching or mesh-based rendering.
 
 ## Verification
 
-Focused checks for the first implementation:
+After implementation, run:
 
-- Typecheck the desktop package.
-- Run renderer/unit tests relevant to changed code.
-- Run an Electron smoke workflow that launches the app with the Pixi flag enabled and verifies the canvas mounts.
-- Manually verify trackpad pan and pinch zoom on a Mac trackpad.
+```sh
+pnpm -C desktop typecheck
+pnpm -C desktop test
+pnpm -C desktop build
+./scripts/test_pixi_workspace_visual.sh --skip-build --keep-artifacts
+./scripts/format.sh
+./check_quality.sh --all
+```
 
-Because this feature is performance-sensitive, add a short append-only report under `docs/reports/performance/` when meaningful baseline measurements are collected. The first report can be lightweight, but should record:
+For dependency manifest or lockfile changes, also run:
 
-- Scenario tested.
-- Approximate graph size.
-- Device/environment.
-- Measured or observed pan/zoom behavior.
-- Any known bottlenecks.
+```sh
+./scripts/check_supply_chain.sh
+```
 
-This change should not require chat workflow E2E tests unless chat, run lifecycle, provider handling, IPC contracts, streaming, or transcript behavior are touched.
+The Pixi visual smoke workflow should be extended to cover edge drawing:
+
+- Launch prototype mode.
+- Verify a nonblank canvas.
+- Drive pan and zoom.
+- Drag one visible node.
+- Drag from one visible port to another visible port.
+- Assert `edgeCount` increases.
+- Capture screenshots and summary artifacts.
+
+Manual verification:
+
+- Test two-finger pan on a Mac trackpad.
+- Test pinch zoom on a Mac trackpad.
+- Record the outcome and any limitation under `docs/reports/performance/` or in implementation notes.
+
+This work should not require chat workflow E2E tests unless chat, run lifecycle, provider handling, IPC contracts, streaming, or transcript behavior are touched. `./check_quality.sh --all` will still run deterministic chat workflows as part of the broad gate.
 
 ## Implementation Phases
 
-### Phase 1: Isolated Canvas Prototype
+### Phase 1: Edge Drawing State
 
-- Add exact Pixi dependencies.
-- Add the full-window prototype flag.
-- Mount a Pixi application into a React host component.
-- Add `pixi-viewport`.
-- Render hard-coded nodes, edges, and a background grid.
-- Verify canvas sizing and cleanup on unmount.
+Completed.
 
-### Phase 2: Core Interactions
+- Add edge drawing state to the Pixi renderer/controller.
+- Separate node-body dragging from port edge drawing.
+- Pause viewport drag while drawing a temporary edge.
 
-- Add trackpad/mouse pan and zoom.
-- Add node hover and selection.
-- Add node dragging.
-- Redraw connected edges during drag.
-- Add port-to-port temporary edge drawing.
-- Commit edges between existing nodes.
+### Phase 2: Temporary Edge Rendering
 
-### Phase 3: Visual Motion
+Completed.
 
-- Add low-cost animated background or particle accents.
-- Add selection/edge pulse animation.
-- Confirm animations do not affect pan/zoom responsiveness.
+- Render the temporary edge in the interaction layer.
+- Update its endpoint on pointer move.
+- Show clear visual feedback while drawing.
+- Cancel cleanly on invalid release.
 
-### Phase 4: Guardrails
+### Phase 3: Edge Commit
 
-- Add focused tests for pure graph/controller helpers.
-- Add Electron canvas-mount smoke coverage for prototype mode.
-- Add manual or automated performance notes.
-- Record any trackpad-specific behavior or limitations.
+Completed.
+
+- Hit-test valid target ports.
+- Commit a new `WorkspaceEdge`.
+- Redraw committed edges.
+- Update debug snapshot `edgeCount`.
+
+### Phase 4: Visual Smoke Coverage
+
+Completed.
+
+- Extend `desktop/tests/electron/pixi-workspace-smoke.test.mjs` with port-to-port edge drawing automation.
+- Assert the committed edge count increases.
+- Save before/after snapshots and screenshots.
+
+### Phase 5: Trackpad Notes
+
+Limitation documented; physical hardware verification remains.
+
+- Manually verify Mac trackpad pan/pinch.
+- Record pass/fail results and limitations.
 
 ## Future Work
 

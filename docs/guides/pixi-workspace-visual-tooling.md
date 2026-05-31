@@ -34,8 +34,8 @@ SETTA_PIXI_WORKSPACE_DEBUG=1
 ```
 
 It captures screenshots, verifies the canvas is nonblank through the Pixi debug
-snapshot API, drives pan and zoom gestures, drags a hard-coded node, and writes
-`summary.json`.
+snapshot API, drives pan and zoom gestures, drags a hard-coded node, cancels a
+temporary edge, commits a port-to-port edge, and writes `summary.json`.
 
 To attach Chrome DevTools MCP to the latest visual run while it is still open:
 
@@ -49,3 +49,31 @@ If the debug port is not from the latest Pixi visual run, provide it directly:
 SETTA_ELECTRON_CDP_PORT=9229 ./scripts/electron-devtools-mcp.sh
 ```
 
+## Manual Mac Trackpad Check
+
+Use this check when physical trackpad behavior needs verification. Build first
+when you need the production Electron path:
+
+```sh
+pnpm -C desktop build
+```
+
+Then launch the prototype with a visible app window:
+
+```sh
+cd desktop
+SETTA_PIXI_WORKSPACE_PROTOTYPE=1 SETTA_PIXI_WORKSPACE_DEBUG=1 pnpm exec electron .
+```
+
+Verify:
+
+- Two-finger trackpad pan moves the workspace camera smoothly without selecting
+  or dragging a node.
+- Trackpad pinch zoom changes canvas zoom where Electron/Chromium exposes pinch
+  as supported input.
+- Mouse drag pan, mouse-wheel zoom, node drag, temporary edge cancellation, and
+  source-port to target-port edge commit still work after trackpad gestures.
+
+Record the result in `docs/reports/performance/pixi-workspace-visual-smoke.md`.
+If pinch is not exposed by the OS/Electron configuration, record that limitation
+instead of treating it as automated proof of failure.
