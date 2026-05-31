@@ -1,6 +1,5 @@
 import type { ApprovalAnswer, ApprovalQuestion, ChatMessage, Run } from "@generated/backend";
 import {
-  AlertCircle,
   ArrowDown,
   Bot,
   ChevronDown,
@@ -741,31 +740,18 @@ function ToolCallFrame({
         )}
       </button>
       {open ? (
-        <div className="mt-1.5 min-w-0 border border-zinc-700 bg-zinc-950">
-          <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)] border-b border-zinc-700">
-            <div className="grid bg-zinc-900">
-              <ToolRailIcon />
-              <ToolRailIcon />
-              <ToolRailIcon />
-            </div>
-            <div className="min-w-0">
+        <div className="mt-1.5 grid min-w-0 grid-cols-[minmax(0,1fr)_1.75rem] gap-1.5">
+          <div className="min-w-0 border-l border-zinc-700/70 pl-2">
+            <div className="min-w-0 space-y-0.5">
               <ToolCommandRow title={title} />
               <ToolCommandRow title={title} />
               <ToolCommandRow active loading={loading} title={title} />
             </div>
+            <div className="mt-1.5 min-w-0 space-y-1">{children}</div>
           </div>
-          <div className="divide-y divide-zinc-700">{children}</div>
           <ToolCallActions />
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function ToolRailIcon() {
-  return (
-    <div className="grid h-7 place-items-center text-zinc-400">
-      <Wrench className="h-3.5 w-3.5" />
     </div>
   );
 }
@@ -781,22 +767,24 @@ function ToolCommandRow({
 }) {
   return (
     <button
-      className="grid h-7 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 text-left font-mono text-xs font-semibold text-zinc-300 hover:bg-zinc-900"
+      className={cn(
+        "grid h-6 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-1.5 text-left font-mono text-xs font-semibold transition-colors",
+        active
+          ? "bg-zinc-800/45 text-zinc-100"
+          : "text-zinc-500 hover:bg-zinc-800/25 hover:text-zinc-300",
+      )}
       type="button"
     >
+      <Wrench className="h-3.5 w-3.5 text-zinc-500" />
       <span className="truncate">{title}</span>
       <span className="flex items-center gap-2">
         {active ? (
           <>
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-zinc-900 text-zinc-400">
-              <Copy className="h-3.5 w-3.5" />
-            </span>
             {loading ? (
               <AsciiSpinner className="w-9 text-[8px] text-zinc-400" label="Tool call running" />
             ) : (
               <span className="font-sans text-xs font-semibold text-zinc-300">&lt;1s</span>
             )}
-            <AlertCircle className="h-3.5 w-3.5 text-zinc-400" />
             <ChevronUp className="h-3.5 w-3.5 text-zinc-400" />
           </>
         ) : (
@@ -809,17 +797,17 @@ function ToolCommandRow({
 
 function ToolCallActions() {
   return (
-    <div className="absolute top-[5.75rem] right-2 flex w-8 flex-col items-center rounded-sm border border-zinc-700 bg-zinc-950 py-1 text-zinc-400">
+    <div className="flex w-7 shrink-0 flex-col items-center gap-1 pt-7 text-zinc-500">
       <button
         aria-label="Copy tool call"
-        className="grid h-6 w-6 place-items-center rounded hover:bg-zinc-900"
+        className="grid h-6 w-6 place-items-center rounded-sm hover:bg-zinc-800 hover:text-zinc-100"
         type="button"
       >
         <Copy className="h-3.5 w-3.5" />
       </button>
       <button
         aria-label="Rerun tool call"
-        className="grid h-6 w-6 place-items-center rounded hover:bg-zinc-900"
+        className="grid h-6 w-6 place-items-center rounded-sm hover:bg-zinc-800 hover:text-zinc-100"
         type="button"
       >
         <RotateCcw className="h-3.5 w-3.5" />
@@ -830,9 +818,11 @@ function ToolCallActions() {
 
 function ToolBlock({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <section className="min-w-0 px-3 py-2">
-      <h4 className="text-[11px] font-bold tracking-[0.32em] text-zinc-500 uppercase">{title}</h4>
-      <pre className="mt-1.5 max-w-full overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5 text-zinc-300">
+    <section className="min-w-0 py-1.5 pr-1">
+      <h4 className="text-[10px] font-semibold tracking-[0.22em] text-zinc-500 uppercase">
+        {title}
+      </h4>
+      <pre className="mt-1 max-w-full overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5 text-zinc-300">
         {renderToolBlockContent(children)}
       </pre>
     </section>
