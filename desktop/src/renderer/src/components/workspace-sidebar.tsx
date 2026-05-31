@@ -1,26 +1,69 @@
-import type { WorkspaceSummary } from "@generated/backend";
-import { ArrowDown, ArrowUp, FolderOpen, Trash2, X } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/backend";
+import {
+  Archive,
+  Bell,
+  BookOpen,
+  Circle,
+  Clock3,
+  Database,
+  Ellipsis,
+  FileText,
+  FolderClosed,
+  FolderOpen,
+  FolderPlus,
+  GitBranch,
+  GitFork,
+  LoaderCircle,
+  MessageSquarePlus,
+  PenLine,
+  Pencil,
+  Pin,
+  Plug,
+  Search,
+  Trash2,
+  Workflow,
+  X,
+} from "lucide-react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { type WorkspaceGitState, useWorkspaceGitInfo } from "../hooks/use-workspace-git-info";
 import { cn } from "../lib/utils";
-import { Button } from "./ui/button";
-import { Separator } from "./ui/separator";
+import {
+  defaultSidebarSections,
+  SidebarAccordionSection,
+  type SidebarSectionId,
+  type SidebarSectionState,
+} from "./sidebar-accordion";
 
-const activeWorkspaceRowHeight = 76;
-const recentWorkspaceRowHeight = 60;
+const activeWorkspaceRowHeight = 28;
+const recentWorkspaceRowHeight = 28;
+const chatHistoryLimit = 80;
+const directProjectRenderLimit = 120;
+const projectMenuHeight = 200;
+const projectMenuInset = 8;
+const projectMenuWidth = 224;
 const workspaceListOverscan = 6;
 
 interface WorkspaceSidebarProps {
+  activeRun: Run | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
+  chromeInsetTop?: boolean;
+  chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
+  conversations: ConversationListItem[];
+  createConversation: (title?: string) => Promise<void>;
+  createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
+  openSearch: () => void;
   recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
-  reorderWorkspaces: (ids: string[]) => Promise<void>;
+  selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
+  selectedConversationId: string;
   selectedWorkspaceId: string;
+  sidebarWidth?: number;
 }
 
 interface VirtualRange {
@@ -31,234 +74,987 @@ interface VirtualRange {
 interface VirtualWorkspaceListProps {
   itemTestId: string;
   items: WorkspaceSummary[];
-  renderItem: (workspace: WorkspaceSummary, index: number) => ReactNode;
+  renderItem: (workspace: WorkspaceSummary) => ReactNode;
   rowHeight: number;
   testId: string;
 }
 
 export function WorkspaceSidebar({
+  activeRun,
   activeWorkspaces,
   busy,
+  chromeInsetTop = false,
+  chatBusy,
   closeWorkspace,
+  conversations,
+  createConversation,
+  createWorkspaceConversation,
   openLocalFolder,
+  openSearch,
   recentWorkspaces,
   removeRecent,
-  reorderWorkspaces,
+  selectConversation,
   selectWorkspace,
+  selectedConversationId,
   selectedWorkspaceId,
+  sidebarWidth = 220,
 }: WorkspaceSidebarProps) {
+  const [expandedWorkspaceId, setExpandedWorkspaceId] = useState(selectedWorkspaceId);
   const activeWorkspaceIds = useMemo(
     () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
     [activeWorkspaces],
   );
+  const inactiveRecentWorkspaces = useMemo(
+    () => recentWorkspaces.filter((workspace) => !activeWorkspaceIds.has(workspace.id)),
+    [activeWorkspaceIds, recentWorkspaces],
+  );
+  const selectedWorkspace =
+    activeWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null;
+  const selectedGit = useWorkspaceGitInfo(selectedWorkspace?.rootPath ?? null);
+  const selectedBranchLabel = branchHoverLabel(selectedGit);
+  const [sections, setSections] =
+    useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
+
+  useEffect(() => {
+    if (selectedWorkspaceId) {
+      setExpandedWorkspaceId(selectedWorkspaceId);
+    }
+  }, [selectedWorkspaceId]);
+
+  function setSectionOpen(sectionId: SidebarSectionId, open: boolean) {
+    setSections((current) => ({
+      ...current,
+      [sectionId]: { ...current[sectionId], open },
+    }));
+  }
+
+  function setSectionHeight(sectionId: SidebarSectionId, height: number) {
+    setSections((current) => ({
+      ...current,
+      [sectionId]: { ...current[sectionId], height },
+    }));
+  }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-4 py-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Workspaces</h2>
-        <Button
-          aria-label="Open workspace folder"
-          className="h-8 px-2"
-          disabled={busy}
-          onClick={() => void openLocalFolder()}
-          title="Open workspace folder"
-        >
-          <FolderOpen className="h-4 w-4" />
-          Open
-        </Button>
-      </div>
-      <div className="mt-5 grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-4 overflow-hidden">
-        <WorkspaceList
-          activeWorkspaces={activeWorkspaces}
-          busy={busy}
-          closeWorkspace={closeWorkspace}
-          reorderWorkspaces={reorderWorkspaces}
-          selectWorkspace={selectWorkspace}
-          selectedWorkspaceId={selectedWorkspaceId}
+    <aside
+      className="flex h-full min-h-0 w-full min-w-0 flex-col bg-[#202124] text-zinc-100"
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+    >
+      <div
+        className={cn("min-h-0 flex-1 overflow-y-auto px-1 pb-3", chromeInsetClass(chromeInsetTop))}
+      >
+        <SidebarNav
+          busy={busy || chatBusy}
+          createConversation={createConversation}
+          hasWorkspace={selectedWorkspaceId !== ""}
+          openSearch={openSearch}
         />
-        <Separator />
-        <RecentWorkspaceList
-          activeWorkspaceIds={activeWorkspaceIds}
-          busy={busy}
-          recentWorkspaces={recentWorkspaces}
-          removeRecent={removeRecent}
-        />
+        <div className="mt-3 grid gap-1">
+          <SidebarAccordionSection
+            action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
+            height={sections.projects.height}
+            onHeightChange={(height) => setSectionHeight("projects", height)}
+            onOpenChange={(open) => setSectionOpen("projects", open)}
+            open={sections.projects.open}
+            testId="projects-section"
+            title="Projects"
+          >
+            {activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0 ? (
+              <p className="px-2 py-1 text-xs text-zinc-500">No projects</p>
+            ) : null}
+            <ProjectList
+              activeRun={activeRun}
+              branchLabel={selectedBranchLabel}
+              busy={busy}
+              chatBusy={chatBusy}
+              closeWorkspace={closeWorkspace}
+              conversations={conversations}
+              createWorkspaceConversation={createWorkspaceConversation}
+              expandedWorkspaceId={expandedWorkspaceId}
+              selectConversation={selectConversation}
+              selectWorkspace={selectWorkspace}
+              selectedConversationId={selectedConversationId}
+              selectedWorkspaceId={selectedWorkspaceId}
+              setExpandedWorkspaceId={setExpandedWorkspaceId}
+              workspaces={activeWorkspaces}
+            />
+            <RecentProjectList
+              busy={busy}
+              recentWorkspaces={inactiveRecentWorkspaces}
+              removeRecent={removeRecent}
+            />
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            height={sections.chats.height}
+            onHeightChange={(height) => setSectionHeight("chats", height)}
+            onOpenChange={(open) => setSectionOpen("chats", open)}
+            open={sections.chats.open}
+            testId="standalone-chat-section"
+            title="Chats"
+          >
+            <UnorganizedChatsContent />
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            height={sections.notes.height}
+            onHeightChange={(height) => setSectionHeight("notes", height)}
+            onOpenChange={(open) => setSectionOpen("notes", open)}
+            open={sections.notes.open}
+            testId="notes-section"
+            title="Notes"
+          >
+            <NotesContent />
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            height={sections.memories.height}
+            onHeightChange={(height) => setSectionHeight("memories", height)}
+            onOpenChange={(open) => setSectionOpen("memories", open)}
+            open={sections.memories.open}
+            testId="memory-integrations-section"
+            title="DB / Memories"
+          >
+            <MemoryIntegrationsContent />
+          </SidebarAccordionSection>
+          <SidebarAccordionSection
+            height={sections.rules.height}
+            onHeightChange={(height) => setSectionHeight("rules", height)}
+            onOpenChange={(open) => setSectionOpen("rules", open)}
+            open={sections.rules.open}
+            testId="rules-section"
+            title="Rules"
+          >
+            <RulesContent />
+          </SidebarAccordionSection>
+        </div>
       </div>
+    </aside>
+  );
+}
+
+function chromeInsetClass(enabled: boolean) {
+  return enabled ? "pt-9" : "";
+}
+
+function SidebarNav({
+  busy,
+  createConversation,
+  hasWorkspace,
+  openSearch,
+}: {
+  busy: boolean;
+  createConversation: (title?: string) => Promise<void>;
+  hasWorkspace: boolean;
+  openSearch: () => void;
+}) {
+  return (
+    <nav className="grid gap-0.5" aria-label="Primary">
+      <SidebarNavButton
+        disabled={busy || !hasWorkspace}
+        icon={<PenLine className="h-3.5 w-3.5" />}
+        label="New chat"
+        onClick={() => void createConversation()}
+      />
+      <SidebarNavButton
+        icon={<Search className="h-3.5 w-3.5" />}
+        label="Search"
+        onClick={openSearch}
+      />
+      <SidebarNavButton icon={<Plug className="h-3.5 w-3.5" />} label="Plugins" />
+      <SidebarNavButton icon={<Clock3 className="h-3.5 w-3.5" />} label="Automations" />
+      <SidebarNavButton icon={<Bell className="h-3.5 w-3.5" />} label="Notifications / Logs" />
+    </nav>
+  );
+}
+
+function SidebarNavButton({
+  disabled = false,
+  icon,
+  label,
+  onClick,
+}: {
+  disabled?: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      className="flex h-7 w-full min-w-0 items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800/70 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="shrink-0 text-zinc-300">{icon}</span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function ProjectFolderButton({
+  busy,
+  openLocalFolder,
+}: {
+  busy: boolean;
+  openLocalFolder: () => Promise<void>;
+}) {
+  return (
+    <div className="shrink-0">
+      <button
+        aria-label="Open project folder"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+        disabled={busy}
+        onClick={() => void openLocalFolder()}
+        title="Open project folder"
+        type="button"
+      >
+        <FolderPlus className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
 
-function WorkspaceList({
-  activeWorkspaces,
+function ProjectList({
+  activeRun,
+  branchLabel,
   busy,
+  chatBusy,
   closeWorkspace,
-  reorderWorkspaces,
+  conversations,
+  createWorkspaceConversation,
+  expandedWorkspaceId,
+  selectConversation,
   selectWorkspace,
+  selectedConversationId,
   selectedWorkspaceId,
+  setExpandedWorkspaceId,
+  workspaces,
 }: {
-  activeWorkspaces: WorkspaceSummary[];
+  activeRun: Run | null;
+  branchLabel: string;
   busy: boolean;
+  chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
-  reorderWorkspaces: (ids: string[]) => Promise<void>;
+  conversations: ConversationListItem[];
+  createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  expandedWorkspaceId: string;
+  selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
+  selectedConversationId: string;
   selectedWorkspaceId: string;
+  setExpandedWorkspaceId: (next: string) => void;
+  workspaces: WorkspaceSummary[];
 }) {
-  if (activeWorkspaces.length === 0) {
+  if (workspaces.length === 0) {
+    return null;
+  }
+
+  const renderProject = (workspace: WorkspaceSummary, allowProjectChats: boolean) => (
+    <ProjectRow
+      activeRun={activeRun}
+      allowProjectChats={allowProjectChats}
+      branchLabel={branchLabel}
+      busy={busy}
+      chatBusy={chatBusy}
+      closeWorkspace={closeWorkspace}
+      conversations={conversations}
+      createWorkspaceConversation={createWorkspaceConversation}
+      expanded={expandedWorkspaceId === workspace.id}
+      selectConversation={selectConversation}
+      selectWorkspace={selectWorkspace}
+      selected={workspace.id === selectedWorkspaceId}
+      selectedConversationId={selectedConversationId}
+      setExpandedWorkspaceId={setExpandedWorkspaceId}
+      workspace={workspace}
+    />
+  );
+
+  if (workspaces.length > directProjectRenderLimit) {
     return (
-      <section className="min-h-0">
-        <p className="text-sm text-zinc-500">No active workspaces</p>
-      </section>
+      <div
+        className="h-52 overflow-hidden"
+        aria-label="Projects"
+        data-testid="active-workspace-list"
+      >
+        <VirtualWorkspaceList
+          itemTestId="active-workspace-item"
+          items={workspaces}
+          renderItem={(workspace) => renderProject(workspace, false)}
+          rowHeight={activeWorkspaceRowHeight}
+          testId="active-workspace-list-virtual"
+        />
+      </div>
     );
   }
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden" aria-label="Active workspaces">
-      <VirtualWorkspaceList
-        itemTestId="active-workspace-item"
-        items={activeWorkspaces}
-        renderItem={(workspace, index) => (
-          <ActiveWorkspaceRow
-            activeWorkspaces={activeWorkspaces}
-            busy={busy}
-            closeWorkspace={closeWorkspace}
-            index={index}
-            reorderWorkspaces={reorderWorkspaces}
-            selectWorkspace={selectWorkspace}
-            selected={workspace.id === selectedWorkspaceId}
-            workspace={workspace}
-          />
-        )}
-        rowHeight={activeWorkspaceRowHeight}
-        testId="active-workspace-list"
-      />
-    </section>
+    <div className="grid" aria-label="Projects" data-testid="active-workspace-list">
+      {workspaces.map((workspace) => (
+        <div data-testid="active-workspace-item" key={workspace.id}>
+          {renderProject(workspace, true)}
+        </div>
+      ))}
+    </div>
   );
 }
 
-function ActiveWorkspaceRow({
-  activeWorkspaces,
+function ProjectRow({
+  activeRun,
+  allowProjectChats,
+  branchLabel,
   busy,
+  chatBusy,
   closeWorkspace,
-  index,
-  reorderWorkspaces,
+  conversations,
+  createWorkspaceConversation,
+  expanded,
+  selectConversation,
   selectWorkspace,
   selected,
+  selectedConversationId,
+  setExpandedWorkspaceId,
   workspace,
 }: {
-  activeWorkspaces: WorkspaceSummary[];
+  activeRun: Run | null;
+  allowProjectChats: boolean;
+  branchLabel: string;
   busy: boolean;
+  chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
-  index: number;
-  reorderWorkspaces: (ids: string[]) => Promise<void>;
+  conversations: ConversationListItem[];
+  createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  expanded: boolean;
+  selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selected: boolean;
+  selectedConversationId: string;
+  setExpandedWorkspaceId: (next: string) => void;
   workspace: WorkspaceSummary;
 }) {
+  const hasVisibleChats = allowProjectChats && selected && expanded;
+  const rowBusy = busy || chatBusy;
+
+  async function createProjectConversation() {
+    setExpandedWorkspaceId(workspace.id);
+    if (!selected) {
+      await selectWorkspace(workspace.id);
+    }
+    await createWorkspaceConversation(workspace.id);
+  }
+
+  return (
+    <div className="min-w-0">
+      <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/55">
+        <button
+          className="flex min-w-0 items-center gap-2 px-2 text-left"
+          data-testid="active-workspace-select"
+          disabled={busy}
+          onClick={() => {
+            setExpandedWorkspaceId(expanded ? "" : workspace.id);
+            if (!selected) {
+              void selectWorkspace(workspace.id);
+            }
+          }}
+          title={workspace.rootPath}
+          type="button"
+        >
+          {expanded ? (
+            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+          ) : (
+            <FolderClosed className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+          )}
+          <span
+            className={cn(
+              "truncate text-xs",
+              selected ? "font-medium text-zinc-100" : "text-zinc-400",
+            )}
+          >
+            {workspace.displayName}
+          </span>
+        </button>
+        <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <IconButton
+            disabled={rowBusy}
+            label={`New chat in ${workspace.displayName}`}
+            onClick={() => void createProjectConversation()}
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+          </IconButton>
+          <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
+        </div>
+      </div>
+      {hasVisibleChats ? (
+        <div className="ml-5 min-w-0">
+          <ConversationList
+            activeRun={activeRun}
+            branchLabel={branchLabel}
+            busy={chatBusy}
+            conversations={conversations}
+            selectConversation={selectConversation}
+            selectedConversationId={selectedConversationId}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ProjectMoreMenu({
+  busy,
+  closeWorkspace,
+  workspace,
+}: {
+  busy: boolean;
+  closeWorkspace: (id: string) => Promise<void>;
+  workspace: WorkspaceSummary;
+}) {
+  const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({
+    left: projectMenuInset,
+    top: projectMenuInset,
+  });
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  function updateMenuPosition() {
+    const anchor = menuRef.current?.getBoundingClientRect();
+    if (!anchor) {
+      return;
+    }
+    const maxLeft = Math.max(
+      projectMenuInset,
+      window.innerWidth - projectMenuWidth - projectMenuInset,
+    );
+    setMenuPosition({
+      left: Math.min(Math.max(projectMenuInset, anchor.right - projectMenuWidth), maxLeft),
+      top: Math.min(
+        anchor.bottom + 4,
+        Math.max(projectMenuInset, window.innerHeight - projectMenuHeight - projectMenuInset),
+      ),
+    });
+  }
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    updateMenuPosition();
+
+    function closeOnOutsidePress(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    function repositionMenu() {
+      updateMenuPosition();
+    }
+
+    window.addEventListener("pointerdown", closeOnOutsidePress);
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", repositionMenu);
+    window.addEventListener("scroll", repositionMenu, true);
+    return () => {
+      window.removeEventListener("pointerdown", closeOnOutsidePress);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", repositionMenu);
+      window.removeEventListener("scroll", repositionMenu, true);
+    };
+  }, [open]);
+
+  const closeMenu = () => setOpen(false);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <IconButton
+        aria-expanded={open}
+        aria-haspopup="menu"
+        disabled={busy}
+        label={`More options for ${workspace.displayName}`}
+        onClick={() => {
+          if (!open) {
+            updateMenuPosition();
+          }
+          setOpen((current) => !current);
+        }}
+      >
+        <Ellipsis className="h-3.5 w-3.5" />
+      </IconButton>
+      {open ? (
+        <div
+          className="fixed z-50 w-56 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50 backdrop-blur"
+          role="menu"
+          style={menuPosition}
+        >
+          <ProjectMenuItem
+            icon={<Pin className="h-4 w-4" />}
+            label="Pin project"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<FolderOpen className="h-4 w-4" />}
+            label="Open in Finder"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<GitFork className="h-4 w-4" />}
+            label="Create permanent worktree"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<Pencil className="h-4 w-4" />}
+            label="Rename project"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<Archive className="h-4 w-4" />}
+            label="Archive chats"
+            onClick={closeMenu}
+          />
+          <ProjectMenuItem
+            icon={<X className="h-4 w-4" />}
+            label="Remove"
+            onClick={() => {
+              setOpen(false);
+              void closeWorkspace(workspace.id);
+            }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ProjectMenuItem({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-200 hover:bg-zinc-800 hover:text-zinc-50"
+      onClick={onClick}
+      role="menuitem"
+      type="button"
+    >
+      <span className="shrink-0 text-zinc-400">{icon}</span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function UnorganizedChatsContent() {
+  return (
+    <div className="min-w-0">
+      <button
+        aria-label="New unorganized chat"
+        className="ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
+        disabled
+        title="Unorganized chats are not available yet"
+        type="button"
+      >
+        <MessageSquarePlus className="h-3.5 w-3.5" />
+      </button>
+      <div className="px-2 py-1 text-xs text-zinc-600">No unorganized chats</div>
+    </div>
+  );
+}
+
+// Notes are app-local Markdown documents for now. Keep the boundary narrow so a
+// future Markdown/WYSIWYG editor can replace the empty state without changing
+// project chat or external memory integration contracts.
+function NotesContent() {
+  return (
+    <div className="min-w-0">
+      <button
+        aria-label="New Markdown note"
+        className="ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
+        disabled
+        title="Markdown notes are not available yet"
+        type="button"
+      >
+        <PenLine className="h-3.5 w-3.5" />
+      </button>
+      <div className="px-2 py-1 text-xs text-zinc-600">No Markdown notes</div>
+    </div>
+  );
+}
+
+// External memories should be provider-backed later: local folders, Obsidian
+// vaults/libraries, qmd stores, cognee graphs, or other richer memory systems.
+function MemoryIntegrationsContent() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="min-w-0">
+      <button
+        className="flex h-7 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
+        onClick={() => setOpen(true)}
+        type="button"
+      >
+        <Database className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        <span className="min-w-0 flex-1 truncate font-medium">DB / Memories</span>
+        <span className="text-[11px] text-zinc-600">Integrations</span>
+      </button>
+      <MemoryIntegrationsModal onOpenChange={setOpen} open={open} />
+    </div>
+  );
+}
+
+// Rules are planned as Setta node-graph canvases. A rule can later be selected
+// beside the chat permissions control or invoked through slash commands, then
+// evaluated before or during every user turn.
+function RulesContent() {
+  return (
+    <div className="grid gap-0.5 py-0.5">
+      <button
+        className="grid h-7 w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-400 hover:bg-zinc-800/55 hover:text-zinc-100"
+        disabled
+        title="Setta rule canvases are not available yet"
+        type="button"
+      >
+        <Workflow className="h-3.5 w-3.5 text-zinc-500" />
+        <span className="truncate">Setta rules</span>
+        <span className="text-[11px] text-zinc-600">Node graph</span>
+      </button>
+      <div className="px-2 py-1 text-xs text-zinc-600">No rule canvases</div>
+    </div>
+  );
+}
+
+function MemoryIntegrationsModal({
+  onOpenChange,
+  open,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onOpenChange(false);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onOpenChange, open]);
+
+  if (!open) {
+    return null;
+  }
+
   return (
     <div
-      className={cn(
-        "grid h-[68px] grid-cols-[1fr_auto] gap-1 rounded-md border px-2 py-2",
-        selected
-          ? "border-zinc-300 bg-zinc-100"
-          : "border-transparent bg-white hover:border-zinc-200",
-      )}
+      className="fixed inset-0 z-50 bg-black/35 px-3 pt-12"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onOpenChange(false);
+        }
+      }}
+      role="presentation"
     >
-      <button
-        className="min-w-0 text-left"
-        data-testid="active-workspace-select"
-        disabled={busy}
-        onClick={() => void selectWorkspace(workspace.id)}
+      <div
+        aria-label="Memory integrations"
+        className="mx-auto w-full max-w-sm overflow-hidden rounded-sm border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-xl shadow-black/40"
+        role="dialog"
       >
-        <span className="block truncate text-sm font-medium">{workspace.displayName}</span>
-        <span className="mt-0.5 block truncate text-xs text-zinc-500">{workspace.rootPath}</span>
-      </button>
-      <div className="flex items-center gap-1">
-        <IconButton
-          disabled={busy || index === 0}
-          label="Move workspace up"
-          onClick={() => void moveWorkspace(activeWorkspaces, index, -1, reorderWorkspaces)}
-        >
-          <ArrowUp className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton
-          disabled={busy || index === activeWorkspaces.length - 1}
-          label="Move workspace down"
-          onClick={() => void moveWorkspace(activeWorkspaces, index, 1, reorderWorkspaces)}
-        >
-          <ArrowDown className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton
-          disabled={busy}
-          label="Close workspace"
-          onClick={() => void closeWorkspace(workspace.id)}
-        >
-          <X className="h-3.5 w-3.5" />
-        </IconButton>
+        <div className="flex h-8 items-center justify-between border-b border-zinc-800 px-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Database className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+            <h2 className="truncate text-xs font-medium">DB / Memories</h2>
+          </div>
+          <button
+            aria-label="Close memory integrations"
+            className="grid h-5 w-5 place-items-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+            onClick={() => onOpenChange(false)}
+            type="button"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div className="grid gap-0.5 p-1">
+          <MemoryIntegrationOption
+            description="Markdown and QMD files"
+            icon={<FolderOpen className="h-3.5 w-3.5" />}
+            label="Folder"
+          />
+          <MemoryIntegrationOption
+            description="Vault or library"
+            icon={<BookOpen className="h-3.5 w-3.5" />}
+            label="Obsidian"
+          />
+          <MemoryIntegrationOption
+            description="Queryable Markdown"
+            icon={<FileText className="h-3.5 w-3.5" />}
+            label="QMD"
+          />
+          <MemoryIntegrationOption
+            description="Graph memory"
+            icon={<Workflow className="h-3.5 w-3.5" />}
+            label="Cognee"
+          />
+        </div>
       </div>
     </div>
   );
 }
 
-function RecentWorkspaceList({
-  activeWorkspaceIds,
+function MemoryIntegrationOption({
+  description,
+  icon,
+  label,
+}: {
+  description: string;
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      className="grid h-8 w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
+      type="button"
+    >
+      <span className="text-zinc-500">{icon}</span>
+      <span className="truncate">{label}</span>
+      <span className="truncate text-[11px] text-zinc-600">{description}</span>
+    </button>
+  );
+}
+
+function ConversationList({
+  activeRun,
+  branchLabel,
+  busy,
+  conversations,
+  selectConversation,
+  selectedConversationId,
+}: {
+  activeRun: Run | null;
+  branchLabel: string;
+  busy: boolean;
+  conversations: ConversationListItem[];
+  selectConversation: (conversationId: string) => Promise<void>;
+  selectedConversationId: string;
+}) {
+  const [visibleLimit, setVisibleLimit] = useState(chatHistoryLimit);
+  const selectedIndex = conversations.findIndex(
+    (item) => item.conversation.id === selectedConversationId,
+  );
+  const effectiveLimit =
+    selectedIndex >= visibleLimit
+      ? Math.min(conversations.length, selectedIndex + 1)
+      : visibleLimit;
+  const visibleConversations = useMemo(
+    () => conversations.slice(0, effectiveLimit),
+    [conversations, effectiveLimit],
+  );
+
+  if (visibleConversations.length === 0) {
+    return <div className="px-2 py-1 text-xs text-zinc-600">No chats</div>;
+  }
+
+  return (
+    <div className="grid py-0.5 pr-0.5" data-testid="conversation-list">
+      {visibleConversations.map((item) => (
+        <ConversationRow
+          activeRun={activeRun}
+          branchLabel={branchLabel}
+          busy={busy}
+          item={item}
+          key={item.conversation.id}
+          selectConversation={selectConversation}
+          selected={item.conversation.id === selectedConversationId}
+        />
+      ))}
+      {visibleConversations.length < conversations.length ? (
+        <button
+          className="h-6 rounded-sm px-2 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
+          onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}
+          type="button"
+        >
+          More chats
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ConversationRow({
+  activeRun,
+  branchLabel,
+  busy,
+  item,
+  selectConversation,
+  selected,
+}: {
+  activeRun: Run | null;
+  branchLabel: string;
+  busy: boolean;
+  item: ConversationListItem;
+  selectConversation: (conversationId: string) => Promise<void>;
+  selected: boolean;
+}) {
+  const running =
+    item.activeRunId !== "" ||
+    (activeRun?.conversationId === item.conversation.id &&
+      (activeRun.status === "queued" || activeRun.status === "running"));
+  const responseAge = formatConversationAge(item.conversation.updatedAt);
+
+  return (
+    <div className="group/chat relative min-w-0">
+      <button
+        className={cn(
+          "grid h-7 w-full min-w-0 grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-1.5 rounded-sm px-2 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
+          selected ? "text-zinc-100" : "text-zinc-300",
+        )}
+        data-testid="conversation-list-item"
+        disabled={busy}
+        onClick={() => void selectConversation(item.conversation.id)}
+        type="button"
+      >
+        {running ? (
+          <LoaderCircle className="h-3 w-3 animate-spin text-zinc-300" />
+        ) : (
+          <Circle className="h-1.5 w-1.5 fill-zinc-500 text-zinc-500" />
+        )}
+        <span className="truncate text-xs">{item.conversation.title}</span>
+        {responseAge ? (
+          <time
+            className="pl-2 text-[11px] text-zinc-500"
+            dateTime={item.conversation.updatedAt}
+            title={item.conversation.updatedAt}
+          >
+            {responseAge}
+          </time>
+        ) : null}
+      </button>
+      <div
+        className="pointer-events-none fixed z-50 hidden min-w-52 max-w-72 rounded-sm border border-zinc-700/80 bg-zinc-900/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/chat:block"
+        data-testid="conversation-hover-card"
+        style={{ left: "calc(var(--sidebar-width, 220px) + 8px)" }}
+      >
+        <div className="truncate text-xs font-medium">{item.conversation.title}</div>
+        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-zinc-300">
+          <GitBranch className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+          <span className="truncate">{branchLabel}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function branchHoverLabel(git: WorkspaceGitState) {
+  switch (git.status) {
+    case "ready":
+      return git.info.branchName;
+    case "loading":
+      return "Reading branch";
+    case "error":
+      return "Branch unavailable";
+    case "idle":
+      return "No branch";
+    default:
+      return assertWorkspaceGitState(git);
+  }
+}
+
+function formatConversationAge(updatedAt: string) {
+  const timestamp = Date.parse(updatedAt);
+  if (!Number.isFinite(timestamp)) {
+    return "";
+  }
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (elapsedSeconds < 60) {
+    return "now";
+  }
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes}m`;
+  }
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) {
+    return `${elapsedHours}h`;
+  }
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 14) {
+    return `${elapsedDays}d`;
+  }
+  const elapsedWeeks = Math.floor(elapsedDays / 7);
+  if (elapsedWeeks < 8) {
+    return `${elapsedWeeks}w`;
+  }
+  const elapsedMonths = Math.floor(elapsedDays / 30);
+  if (elapsedDays < 365) {
+    return `${Math.max(1, elapsedMonths)}mo`;
+  }
+  return `${Math.floor(elapsedDays / 365)}y`;
+}
+
+function assertWorkspaceGitState(value: never): never {
+  throw new Error(`Unhandled workspace git state: ${value}`);
+}
+
+function RecentProjectList({
   busy,
   recentWorkspaces,
   removeRecent,
 }: {
-  activeWorkspaceIds: Set<string>;
   busy: boolean;
   recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
 }) {
   if (recentWorkspaces.length === 0) {
-    return (
-      <section className="min-h-0">
-        <h3 className="text-xs font-semibold uppercase tracking-normal text-zinc-500">Recent</h3>
-        <p className="mt-3 text-sm text-zinc-500">No recent workspaces</p>
-      </section>
-    );
+    return null;
   }
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden" aria-label="Recent workspaces">
-      <h3 className="text-xs font-semibold uppercase tracking-normal text-zinc-500">Recent</h3>
+    <div className="mt-2 h-36 min-h-0 overflow-hidden" aria-label="Recent projects">
       <VirtualWorkspaceList
         itemTestId="recent-workspace-item"
         items={recentWorkspaces}
         renderItem={(workspace) => (
-          <RecentWorkspaceRow
-            active={activeWorkspaceIds.has(workspace.id)}
-            busy={busy}
-            removeRecent={removeRecent}
-            workspace={workspace}
-          />
+          <RecentWorkspaceRow busy={busy} removeRecent={removeRecent} workspace={workspace} />
         )}
         rowHeight={recentWorkspaceRowHeight}
         testId="recent-workspace-list"
       />
-    </section>
+    </div>
   );
 }
 
 function RecentWorkspaceRow({
-  active,
   busy,
   removeRecent,
   workspace,
 }: {
-  active: boolean;
   busy: boolean;
   removeRecent: (id: string) => Promise<void>;
   workspace: WorkspaceSummary;
 }) {
   return (
-    <div className="grid h-[52px] grid-cols-[1fr_auto] items-center gap-2 rounded-md px-2 py-2">
-      <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-zinc-800">{workspace.displayName}</div>
-        <div className="truncate text-xs text-zinc-500">{workspace.rootPath}</div>
+    <div
+      className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60"
+      title={workspace.rootPath}
+    >
+      <div className="flex min-w-0 items-center gap-2 px-2">
+        <Workflow className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        <span className="truncate text-xs text-zinc-500">{workspace.displayName}</span>
       </div>
       <IconButton
-        disabled={busy || active}
+        className="mr-0.5 opacity-0 group-hover:opacity-100"
+        disabled={busy}
         label="Remove recent workspace"
         onClick={() => void removeRecent(workspace.id)}
       >
@@ -306,7 +1102,7 @@ function VirtualWorkspaceList({
   return (
     <div
       ref={viewportRef}
-      className="mt-3 min-h-0 flex-1 basis-0 overflow-y-auto"
+      className="h-full min-h-0 overflow-y-auto"
       data-testid={testId}
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
@@ -320,7 +1116,7 @@ function VirtualWorkspaceList({
               key={workspace.id}
               style={virtualRowStyle(index, rowHeight)}
             >
-              {renderItem(workspace, index)}
+              {renderItem(workspace)}
             </li>
           );
         })}
@@ -365,46 +1161,32 @@ function virtualRowStyle(index: number, rowHeight: number): CSSProperties {
 
 function IconButton({
   children,
+  className,
   disabled,
   label,
   onClick,
+  type = "button",
+  ...buttonProps
 }: {
   children: ReactNode;
+  className?: string;
   disabled: boolean;
   label: string;
-  onClick: () => void;
-}) {
+} & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
+      {...buttonProps}
       aria-label={label}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-40"
+      className={cn(
+        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-20",
+        className,
+      )}
       disabled={disabled}
       onClick={onClick}
       title={label}
-      type="button"
+      type={type}
     >
       {children}
     </button>
   );
-}
-
-function moveWorkspace(
-  activeWorkspaces: WorkspaceSummary[],
-  index: number,
-  direction: -1 | 1,
-  reorderWorkspaces: (ids: string[]) => Promise<void>,
-) {
-  const targetIndex = index + direction;
-  if (targetIndex < 0 || targetIndex >= activeWorkspaces.length) {
-    return;
-  }
-  const ids = activeWorkspaces.map((workspace) => workspace.id);
-  const currentID = ids[index];
-  const targetID = ids[targetIndex];
-  if (currentID === undefined || targetID === undefined) {
-    return;
-  }
-  ids[index] = targetID;
-  ids[targetIndex] = currentID;
-  void reorderWorkspaces(ids);
 }
