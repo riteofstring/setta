@@ -125,6 +125,8 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Chats");
     expect(html).toContain('aria-label="New chat in web"');
     expect(html).toContain("No unorganized chats");
+    expect(html).toContain("Notes / Memories");
+    expect(html).toContain('data-testid="notes-memories-section"');
     expect(html).toContain("Search");
     expect(html).toContain("More options for web");
     expect(html).toContain('data-testid="active-workspace-list"');

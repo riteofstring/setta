@@ -151,6 +151,7 @@ export function WorkspaceSidebar({
           />
         </section>
         <UnorganizedChatsSection />
+        <NotesMemoriesSection />
       </div>
     </aside>
   );
@@ -593,6 +594,29 @@ function UnorganizedChatsSection() {
         </button>
       </div>
       <div className="px-2 py-1 text-xs text-zinc-600">No unorganized chats</div>
+    </section>
+  );
+}
+
+// Keep this UI-only until notes and memory contracts exist. Planned surfaces include
+// markdown/WYSIWYG notes, optional Obsidian vault/library integration, and richer
+// memory engines such as qmd + cognee.
+function NotesMemoriesSection() {
+  return (
+    <section className="mt-3 min-w-0" data-testid="notes-memories-section">
+      <div className="flex h-7 items-center justify-between gap-2 px-2 pb-1">
+        <h2 className="text-xs font-medium text-zinc-500">Notes / Memories</h2>
+        <button
+          aria-label="New note or memory"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-zinc-600 disabled:pointer-events-none"
+          disabled
+          title="Notes and memories are not available yet"
+          type="button"
+        >
+          <PenLine className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="px-2 py-1 text-xs text-zinc-600">No notes</div>
     </section>
   );
 }
