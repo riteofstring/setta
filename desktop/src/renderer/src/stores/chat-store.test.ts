@@ -1,6 +1,8 @@
 import type {
   BackendHealth,
+  ChatCommandResult,
   ChatEvent,
+  ChatGoalState,
   ChatMessage,
   Conversation,
   ConversationListItem,
@@ -358,23 +360,20 @@ describe("chat store", () => {
 
   test("execute command updates from the backend page without creating an active run", async () => {
     const conversation = testConversation();
-    const commandMessage = message("message_command", 1, "command", "complete", "Goal set: tests");
+    const commandMessage = message(
+      "message_command",
+      1,
+      "command",
+      "complete",
+      "Goal set: tests",
+      "normal",
+      "",
+    );
     const executeCommand = vi.fn().mockResolvedValue({
       conversation,
       message: commandMessage,
-      page: testPage(conversation, [commandMessage]),
-      result: {
-        action: "display",
-        goal: { objective: "tests", status: "active", threadId: "thread_fake" },
-        kind: "goal",
-        message: "Goal set: tests",
-        models: [],
-        raw: "/goal tests",
-        reasoningEfforts: [],
-        selectedReasoningEffort: null,
-        selectedModel: "",
-        title: "Goal",
-      },
+      page: testPage(conversation, [commandMessage], false, goalState("tests", "active")),
+      result: goalCommandResult(),
     });
     installSettaAPI({ chat: { executeCommand } });
     useChatStore.setState({
@@ -388,6 +387,65 @@ describe("chat store", () => {
     expect(executeCommand).toHaveBeenCalledWith("workspace_api", "conversation_api", "/goal tests");
     expect(useChatStore.getState().messages.map((item) => item.role)).toContain("command");
     expect(useChatStore.getState().activeRun).toBeNull();
+    expect(useChatStore.getState().goal?.status).toBe("active");
+  });
+
+  test("execute command uses the backend page running turn as active", async () => {
+    const conversation = testConversation();
+    const commandMessage = message(
+      "message_command",
+      1,
+      "command",
+      "complete",
+      "Goal set: tests",
+      "normal",
+      "",
+    );
+    const userMessage = message(
+      "message_goal_user",
+      2,
+      "user",
+      "complete",
+      "tests",
+      "goal",
+      "run_goal",
+    );
+    const assistantMessage = message(
+      "message_goal_assistant",
+      3,
+      "assistant",
+      "streaming",
+      "working",
+      "normal",
+      "run_goal",
+    );
+    const executeCommand = vi.fn().mockResolvedValue({
+      conversation,
+      message: commandMessage,
+      page: testPage(
+        conversation,
+        [commandMessage, userMessage, assistantMessage],
+        false,
+        goalState("tests", "active"),
+      ),
+      result: goalCommandResult(),
+    });
+    installSettaAPI({ chat: { executeCommand } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().executeCommand("/goal tests");
+
+    expect(useChatStore.getState().activeRun?.id).toBe("run_goal");
+    expect(useChatStore.getState().goal?.status).toBe("active");
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual([
+      commandMessage.id,
+      userMessage.id,
+      assistantMessage.id,
+    ]);
   });
 
   test("execute command response ignores a captured active run that completed before the response", async () => {
@@ -440,19 +498,13 @@ describe("chat store", () => {
     commandResponse.resolve({
       conversation,
       message: commandMessage,
-      page: testPage(conversation, [activeAssistant, commandMessage]),
-      result: {
-        action: "display",
-        goal: { objective: "tests", status: "active", threadId: "thread_fake" },
-        kind: "goal",
-        message: "Goal set: tests",
-        models: [],
-        raw: "/goal tests",
-        reasoningEfforts: [],
-        selectedReasoningEffort: null,
-        selectedModel: "",
-        title: "Goal",
-      },
+      page: testPage(
+        conversation,
+        [activeAssistant, commandMessage],
+        false,
+        goalState("tests", "active"),
+      ),
+      result: goalCommandResult(),
     });
     await commandPromise;
 
@@ -1204,9 +1256,11 @@ function testPage(
   conversation: Conversation,
   messages: ChatMessage[],
   hasMoreOlder = false,
+  goal: ChatGoalState | null = null,
 ): MessagePage {
   return {
     conversation,
+    goal,
     hasMoreOlder,
     messages,
     olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
@@ -1219,6 +1273,34 @@ function testPage(
     runItemOutputs: [],
     runItems: [],
     transcript: transcriptFromMessages(messages),
+  };
+}
+
+function goalState(objective: string, status: string): ChatGoalState {
+  return {
+    createdAt: 0,
+    objective,
+    status,
+    threadId: "thread_fake",
+    timeUsedSeconds: 0,
+    tokenBudget: null,
+    tokensUsed: 0,
+    updatedAt: 0,
+  };
+}
+
+function goalCommandResult(): ChatCommandResult {
+  return {
+    action: "display",
+    goal: goalState("tests", "active"),
+    kind: "goal",
+    message: "Goal set: tests",
+    models: [],
+    raw: "/goal tests",
+    reasoningEfforts: [],
+    selectedModel: "",
+    selectedReasoningEffort: null,
+    title: "Goal",
   };
 }
 

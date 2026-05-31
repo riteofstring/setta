@@ -136,6 +136,10 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 
 	harness.commands = append(harness.commands, request)
 	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
+	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
+		result.ThreadRef = request.ThreadRef
+		result.HasThreadRef = true
+	}
 	if request.ActiveRun == nil && commandNeedsThread(request.Command) && !commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
 		ref := request.ThreadRef
 		if ref.ThreadID == "" {
@@ -157,6 +161,49 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 	default:
 		return HarnessCommandResult{}, fmt.Errorf("unsupported scripted command kind: %s", request.Command.Kind)
 	}
+}
+
+type scriptedGoalContinuation struct {
+	harness *ScriptedWorkflowHarness
+}
+
+func (harness *ScriptedWorkflowHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
+	result, err := harness.ExecuteCommand(ctx, request)
+	if err != nil {
+		return HarnessCommandResult{}, nil, err
+	}
+	return result, &scriptedGoalContinuation{harness: harness}, nil
+}
+
+func (continuation *scriptedGoalContinuation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	completion, err := continuation.harness.StartTurn(ctx, request, sink)
+	if err != nil || completion.Outcome != TurnOutcomeCompleted {
+		return completion, err
+	}
+	goal := continuation.harness.completeGoal(request.ThreadRef.ThreadID)
+	if goal != nil {
+		if err := sink.GoalUpdated(goal); err != nil {
+			return TurnCompletion{}, err
+		}
+	}
+	return completion, nil
+}
+
+func (continuation *scriptedGoalContinuation) Close() {}
+
+func (harness *ScriptedWorkflowHarness) completeGoal(threadID string) *ChatGoalState {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+	if harness.goal == nil || harness.goal.Status != "active" {
+		return nil
+	}
+	goal := *harness.goal
+	goal.Status = "complete"
+	if goal.ThreadID == "" {
+		goal.ThreadID = threadID
+	}
+	harness.goal = &goal
+	return &goal
 }
 
 func (harness *ScriptedWorkflowHarness) executeGoalCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {

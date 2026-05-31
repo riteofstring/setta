@@ -299,16 +299,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         corruption: emptyCorruption(),
         diagnostics: [],
       }),
-      messagePage: async () => ({
-        conversation: emptyConversation(),
-        hasMoreOlder: false,
-        messages: [],
-        olderBeforeOrdinal: 0,
-        queue: { messages: [], runs: [] },
-        runItemOutputs: [],
-        runItems: [],
-        transcript: [],
-      }),
+      messagePage: async () => emptyMessagePage(),
       onEvent: () => () => {},
       queueMessage: async () => ({
         conversation: emptyConversation(),
@@ -425,6 +416,7 @@ function emptyMessage(): ChatMessage {
 function emptyMessagePage(): MessagePage {
   return {
     conversation: emptyConversation(),
+    goal: null,
     hasMoreOlder: false,
     messages: [],
     olderBeforeOrdinal: 0,

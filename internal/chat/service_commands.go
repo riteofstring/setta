@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"setta/internal/workspace"
 )
@@ -55,16 +56,14 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 	}
 
 	service.mu.Lock()
-	conversation, activeRun, err := service.commandConversationStateLocked(workspaceID, conversationID)
+	state, err := service.prepareCommandExecutionLocked(workspaceID, conversationID, command)
 	service.mu.Unlock()
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
-	if err := ensureCommandAvailable(command, activeRun); err != nil {
-		return ChatCommandExecuteResult{}, err
-	}
 
-	harnessResult, err := executor.ExecuteCommand(context.Background(), commandRequest(workspaceSummary, conversation, activeRun, command))
+	request := commandRequest(workspaceSummary, state.conversation, state.activeRun, command)
+	harnessResult, continuation, err := service.executeCommandRequest(context.Background(), executor, request, state.startGoalContinuation)
 	if shouldRetryCommandWithMissingHarnessRef(command, err) {
 		var refErr *HarnessRefUnavailableError
 		errors.As(err, &refErr)
@@ -73,12 +72,13 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 		}
 
 		service.mu.Lock()
-		conversation, activeRun, err = service.commandConversationStateLocked(workspaceID, conversationID)
+		state, err = service.prepareCommandExecutionLocked(workspaceID, conversationID, command)
 		service.mu.Unlock()
 		if err != nil {
 			return ChatCommandExecuteResult{}, err
 		}
-		harnessResult, err = executor.ExecuteCommand(context.Background(), commandRequest(workspaceSummary, conversation, activeRun, command))
+		request = commandRequest(workspaceSummary, state.conversation, state.activeRun, command)
+		harnessResult, continuation, err = service.executeCommandRequest(context.Background(), executor, request, state.startGoalContinuation)
 	}
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
@@ -86,7 +86,44 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	return service.persistCommandResultLocked(workspaceID, conversationID, command, harnessResult)
+	return service.persistCommandResultLocked(workspaceSummary, workspaceID, conversationID, command, harnessResult, continuation, state.startGoalContinuation)
+}
+
+type commandExecutionState struct {
+	conversation          Conversation
+	activeRun             *Run
+	startGoalContinuation bool
+}
+
+func (service *Service) prepareCommandExecutionLocked(workspaceID string, conversationID string, command ChatCommand) (commandExecutionState, error) {
+	conversation, activeRun, err := service.commandConversationStateLocked(workspaceID, conversationID)
+	if err != nil {
+		return commandExecutionState{}, err
+	}
+	if err := ensureCommandAvailable(command, activeRun); err != nil {
+		return commandExecutionState{}, err
+	}
+	state := commandExecutionState{
+		activeRun:             activeRun,
+		conversation:          conversation,
+		startGoalContinuation: commandMayStartGoalContinuation(command, activeRun),
+	}
+	if state.startGoalContinuation {
+		err = service.ensureCanStartTurnLocked(workspaceID, conversationID, activeKey(workspaceID, conversationID))
+	}
+	return state, err
+}
+
+func (service *Service) executeCommandRequest(ctx context.Context, executor HarnessCommandExecutor, request HarnessCommandRequest, startGoalContinuation bool) (HarnessCommandResult, HarnessGoalContinuation, error) {
+	if !startGoalContinuation {
+		result, err := executor.ExecuteCommand(ctx, request)
+		return result, nil, err
+	}
+	starter, ok := service.harness.(HarnessGoalContinuationStarter)
+	if !ok {
+		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorUnsupportedHarness, "selected harness does not support goal continuation", nil)
+	}
+	return starter.BeginGoalContinuation(ctx, request)
 }
 
 func commandRequest(workspaceSummary workspace.WorkspaceSummary, conversation Conversation, activeRun *Run, command ChatCommand) HarnessCommandRequest {
@@ -135,21 +172,22 @@ func (service *Service) commandConversationStateLocked(workspaceID string, conve
 }
 
 func (service *Service) persistCommandResultLocked(
+	workspaceSummary workspace.WorkspaceSummary,
 	workspaceID string,
 	conversationID string,
 	command ChatCommand,
 	harnessResult HarnessCommandResult,
-) (ChatCommandExecuteResult, error) {
-	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
-		return ChatCommandExecuteResult{}, err
-	}
-	now := timestamp(service.now())
-	conversation, err = service.persistCommandThreadRefLocked(workspaceID, conversationID, conversation, harnessResult, now)
-	if err != nil {
-		return ChatCommandExecuteResult{}, err
-	}
-	conversation, err = service.persistCommandCodexSettingsLocked(workspaceID, conversationID, conversation, harnessResult, now)
+	continuation HarnessGoalContinuation,
+	startGoalContinuation bool,
+) (executeResult ChatCommandExecuteResult, err error) {
+	continuationStarted := false
+	defer func() {
+		if err != nil && continuation != nil && !continuationStarted {
+			continuation.Close()
+		}
+	}()
+
+	conversation, now, err := service.persistCommandMetadataLocked(workspaceID, conversationID, harnessResult)
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
@@ -157,6 +195,12 @@ func (service *Service) persistCommandResultLocked(
 	result := commandResult(command, harnessResult)
 	message, err := service.persistCommandMessageLocked(workspaceID, conversationID, conversation, result, now)
 	if err != nil {
+		return ChatCommandExecuteResult{}, err
+	}
+	if err := service.persistCommandGoalStateLocked(workspaceID, conversationID, "", command, result); err != nil {
+		return ChatCommandExecuteResult{}, err
+	}
+	if err := service.maybeStartGoalContinuationLocked(workspaceSummary, conversationID, command, result, continuation, startGoalContinuation, &continuationStarted); err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
 
@@ -170,6 +214,116 @@ func (service *Service) persistCommandResultLocked(
 		Page:         page,
 		Result:       result,
 	}, nil
+}
+
+func (service *Service) persistCommandMetadataLocked(workspaceID string, conversationID string, harnessResult HarnessCommandResult) (Conversation, string, error) {
+	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
+	if err != nil {
+		return Conversation{}, "", err
+	}
+	now := timestamp(service.now())
+	conversation, err = service.persistCommandThreadRefLocked(workspaceID, conversationID, conversation, harnessResult, now)
+	if err != nil {
+		return Conversation{}, "", err
+	}
+	conversation, err = service.persistCommandCodexSettingsLocked(workspaceID, conversationID, conversation, harnessResult, now)
+	if err != nil {
+		return Conversation{}, "", err
+	}
+	return conversation, now, nil
+}
+
+func (service *Service) maybeStartGoalContinuationLocked(
+	workspaceSummary workspace.WorkspaceSummary,
+	conversationID string,
+	command ChatCommand,
+	result ChatCommandResult,
+	continuation HarnessGoalContinuation,
+	startGoalContinuation bool,
+	continuationStarted *bool,
+) error {
+	if !startGoalContinuation {
+		return nil
+	}
+	started, err := service.startGoalContinuationLocked(workspaceSummary, conversationID, command, result, continuation)
+	*continuationStarted = started
+	return err
+}
+
+func (service *Service) persistCommandGoalStateLocked(workspaceID string, conversationID string, runID string, command ChatCommand, result ChatCommandResult) error {
+	if command.Kind != ChatCommandGoal || command.Goal == nil {
+		return nil
+	}
+	switch command.Goal.Action {
+	case GoalCommandClear:
+		return service.updateGoalStateLocked(workspaceID, conversationID, runID, nil)
+	case GoalCommandShow, GoalCommandSet, GoalCommandPause, GoalCommandResume:
+		return service.updateGoalStateLocked(workspaceID, conversationID, runID, result.Goal)
+	default:
+		return nil
+	}
+}
+
+func commandMayStartGoalContinuation(command ChatCommand, activeRun *Run) bool {
+	if activeRun != nil || command.Kind != ChatCommandGoal || command.Goal == nil {
+		return false
+	}
+	return command.Goal.Action == GoalCommandSet || command.Goal.Action == GoalCommandResume
+}
+
+func (service *Service) startGoalContinuationLocked(workspaceSummary workspace.WorkspaceSummary, conversationID string, command ChatCommand, result ChatCommandResult, continuation HarnessGoalContinuation) (bool, error) {
+	prompt, ok := goalContinuationPrompt(command, result.Goal)
+	if !ok {
+		if continuation != nil {
+			continuation.Close()
+		}
+		return false, nil
+	}
+	if continuation == nil {
+		return false, commandError(ChatCommandErrorUnsupportedHarness, "goal continuation was not started by the harness", nil)
+	}
+	key := activeKey(workspaceSummary.ID, conversationID)
+	if err := service.ensureCanStartTurnLocked(workspaceSummary.ID, conversationID, key); err != nil {
+		return false, err
+	}
+
+	now := timestamp(service.now())
+	conversation, _, assistantMessage, run, err := service.persistTurnStartWithDeliveryLocked(workspaceSummary.ID, conversationID, prompt, MessageDeliveryGoal, now)
+	if err != nil {
+		return false, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	service.active[key] = activeTurn{
+		assistantMessage: assistantMessage,
+		cancel:           cancel,
+		runID:            run.ID,
+		workspaceID:      workspaceSummary.ID,
+	}
+	request := TurnRequest{
+		Workspace:    workspaceSummary,
+		Conversation: conversation,
+		Run:          run,
+		Prompt:       prompt,
+		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
+	}
+	go service.runHarnessGoalContinuation(ctx, request, continuation)
+	return true, nil
+}
+
+func goalContinuationPrompt(command ChatCommand, goal *ChatGoalState) (string, bool) {
+	if command.Goal == nil || goal == nil || goal.Status != "active" {
+		return "", false
+	}
+	switch command.Goal.Action {
+	case GoalCommandSet, GoalCommandResume:
+	default:
+		return "", false
+	}
+	objective := strings.TrimSpace(goal.Objective)
+	if objective == "" {
+		objective = strings.TrimSpace(command.Goal.Objective)
+	}
+	return objective, objective != ""
 }
 
 func (service *Service) persistCommandThreadRefLocked(workspaceID string, conversationID string, conversation Conversation, harnessResult HarnessCommandResult, now string) (Conversation, error) {

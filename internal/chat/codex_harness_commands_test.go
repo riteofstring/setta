@@ -25,6 +25,41 @@ func TestCodexHarnessExecutesIdleGoalCommandRPC(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessBeginsGoalContinuationFromCommandRPC(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-goal-continuation"))
+	request := testCommandRequest(t, "/goal finish renderer tests")
+
+	result, continuation, err := harness.BeginGoalContinuation(context.Background(), request)
+	if err != nil {
+		t.Fatalf("begin goal continuation: %v", err)
+	}
+	defer continuation.Close()
+	if !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
+		t.Fatalf("thread ref = %+v has=%v, want linked thread", result.ThreadRef, result.HasThreadRef)
+	}
+	if result.Goal == nil || result.Goal.Status != "active" {
+		t.Fatalf("goal = %+v, want active goal", result.Goal)
+	}
+
+	turnRequest := testTurnRequest(t)
+	turnRequest.Conversation = request.Conversation
+	turnRequest.Prompt = "finish renderer tests"
+	turnRequest.ThreadRef = result.ThreadRef
+	turnRequest.Workspace = request.Workspace
+	sink := newRecordingSink()
+	completion, err := continuation.Wait(context.Background(), turnRequest, sink)
+	if err != nil {
+		t.Fatalf("wait goal continuation: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "goal continuation" {
+		t.Fatalf("assistant text = %q, want goal continuation", sink.text)
+	}
+	if len(sink.goals) == 0 || sink.goals[len(sink.goals)-1] == nil || sink.goals[len(sink.goals)-1].Status != "complete" {
+		t.Fatalf("goals = %+v, want final complete goal", sink.goals)
+	}
+}
+
 func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-list"))
 	request := testCommandRequest(t, "/model")
@@ -272,7 +307,7 @@ func fakeCommandUsesThread(mode string) bool {
 }
 
 func fakeCommandStartsThread(mode string) bool {
-	return mode == "command-goal-set"
+	return mode == "command-goal-set" || mode == "command-goal-continuation"
 }
 
 func fakeCommandResumesThread(mode string) bool {
@@ -362,6 +397,17 @@ func writeFakeGoalResponse(id any, objective string, status string) {
 			"status":    status,
 			"threadId":  "thread_fake",
 		},
+	})
+}
+
+func writeFakeThreadGoalUpdated(objective string, status string) {
+	writeFakeNotification("thread/goal/updated", map[string]any{
+		"goal": map[string]any{
+			"objective": objective,
+			"status":    status,
+			"threadId":  "thread_fake",
+		},
+		"threadId": "thread_fake",
 	})
 }
 

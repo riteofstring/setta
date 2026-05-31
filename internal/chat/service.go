@@ -279,11 +279,15 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 }
 
 func (service *Service) persistTurnStartLocked(workspaceID string, conversationID string, prompt string, now string) (Conversation, ChatMessage, ChatMessage, Run, error) {
+	return service.persistTurnStartWithDeliveryLocked(workspaceID, conversationID, prompt, MessageDeliveryNormal, now)
+}
+
+func (service *Service) persistTurnStartWithDeliveryLocked(workspaceID string, conversationID string, prompt string, delivery MessageDelivery, now string) (Conversation, ChatMessage, ChatMessage, Run, error) {
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
-	userMessage, err := service.newUserMessage(workspaceID, conversationID, "", prompt, MessageDeliveryNormal, MessageStatusComplete, now)
+	userMessage, err := service.newUserMessage(workspaceID, conversationID, "", prompt, delivery, MessageStatusComplete, now)
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
@@ -1085,6 +1089,10 @@ func (sink turnSink) ApprovalResolved(approvalID string, approved bool, response
 
 func (sink turnSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
 	return sink.service.recordProviderDiagnostic(sink.workspaceID, sink.conversationID, sink.runID, code, message, context, resyncRequired, severity)
+}
+
+func (sink turnSink) GoalUpdated(goal *ChatGoalState) error {
+	return sink.service.updateGoalState(sink.workspaceID, sink.conversationID, sink.runID, goal)
 }
 
 func (sink turnSink) RunItemOutputDelta(providerItemID string, stream string, text string) error {

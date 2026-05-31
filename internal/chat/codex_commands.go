@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"setta/internal/codexapp"
@@ -24,6 +25,87 @@ func (harness *CodexHarness) ExecuteCommand(ctx context.Context, request Harness
 		return harness.executeActiveCommand(ctx, request)
 	}
 	return harness.executeIdleCommand(ctx, request)
+}
+
+type codexGoalContinuation struct {
+	harness  *CodexHarness
+	session  *codexapp.Session
+	threadID string
+
+	closeOnce sync.Once
+}
+
+func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
+	if err := ensureCommandAvailable(request.Command, request.ActiveRun); err != nil {
+		return HarnessCommandResult{}, nil, err
+	}
+	if !commandMayStartGoalContinuation(request.Command, request.ActiveRun) {
+		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorMalformedCommand, "command does not start goal continuation", nil)
+	}
+	if err := ctx.Err(); err != nil {
+		return HarnessCommandResult{}, nil, err
+	}
+
+	harness.turnMu.Lock()
+	continuationCreated := false
+	defer func() {
+		if !continuationCreated {
+			harness.turnMu.Unlock()
+		}
+	}()
+
+	session, err := harness.manager.NewSession(ctx)
+	if err != nil {
+		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorCodexRPC, "start codex app-server: "+err.Error(), err)
+	}
+	closeSession := true
+	defer func() {
+		if closeSession {
+			session.Close()
+		}
+	}()
+	session.AcceptUnscopedNotifications()
+	session.AcceptUnscopedRequests()
+
+	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
+	if err != nil {
+		return HarnessCommandResult{}, nil, err
+	}
+	if err := session.OwnThread(thread.Ref.ThreadID); err != nil {
+		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorCodexRPC, "own codex command thread: "+err.Error(), err)
+	}
+	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Settings, request.Command)
+	if err != nil {
+		return HarnessCommandResult{}, nil, err
+	}
+	result.ThreadRef = thread.Ref
+	result.HasThreadRef = true
+
+	closeSession = false
+	continuationCreated = true
+	return result, &codexGoalContinuation{
+		harness:  harness,
+		session:  session,
+		threadID: thread.Ref.ThreadID,
+	}, nil
+}
+
+func (continuation *codexGoalContinuation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := ctx.Err(); err != nil {
+		return TurnCompletion{}, err
+	}
+	continuation.harness.registerActive(request.Run.ID, continuation.session)
+	continuation.harness.updateActiveTurn(request.Run.ID, continuation.threadID, "")
+	defer continuation.harness.unregisterActive(request.Run.ID)
+
+	return continuation.harness.waitForTurn(ctx, continuation.session, request.Run.ID, continuation.threadID, "", sink)
+}
+
+func (continuation *codexGoalContinuation) Close() {
+	continuation.closeOnce.Do(func() {
+		continuation.session.Close()
+		continuation.harness.turnMu.Unlock()
+	})
 }
 
 func (harness *CodexHarness) executeActiveCommand(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
@@ -556,25 +638,54 @@ func goalStateFromResponse(raw json.RawMessage) (*ChatGoalState, error) {
 	if !ok {
 		return nil, fmt.Errorf("codex goal response.goal must be an object")
 	}
-	threadID, err := requireString(goal, "threadId", "codex goal response goal")
+	return goalStateFromObject(goal, "codex goal response goal")
+}
+
+func goalStateFromObject(goal map[string]any, label string) (*ChatGoalState, error) {
+	threadID, err := requireString(goal, "threadId", label)
 	if err != nil {
 		return nil, err
 	}
-	objective, err := requireStringAllowEmpty(goal, "objective", "codex goal response goal")
+	objective, err := requireStringAllowEmpty(goal, "objective", label)
 	if err != nil {
 		return nil, err
 	}
-	status, err := requireString(goal, "status", "codex goal response goal")
+	status, err := requireString(goal, "status", label)
 	if err != nil {
 		return nil, err
 	}
 	if _, ok := codexThreadGoalStatuses[status]; !ok {
 		return nil, fmt.Errorf("unsupported codex thread goal status: %s", status)
 	}
+	tokenBudget, err := optionalIntPointer(goal, "tokenBudget", label)
+	if err != nil {
+		return nil, err
+	}
+	tokensUsed, err := optionalInt(goal, "tokensUsed", label)
+	if err != nil {
+		return nil, err
+	}
+	timeUsedSeconds, err := optionalInt(goal, "timeUsedSeconds", label)
+	if err != nil {
+		return nil, err
+	}
+	createdAt, err := optionalInt(goal, "createdAt", label)
+	if err != nil {
+		return nil, err
+	}
+	updatedAt, err := optionalInt(goal, "updatedAt", label)
+	if err != nil {
+		return nil, err
+	}
 	return &ChatGoalState{
-		Objective: objective,
-		Status:    status,
-		ThreadID:  threadID,
+		CreatedAt:       createdAt,
+		Objective:       objective,
+		Status:          status,
+		ThreadID:        threadID,
+		TimeUsedSeconds: timeUsedSeconds,
+		TokenBudget:     tokenBudget,
+		TokensUsed:      tokensUsed,
+		UpdatedAt:       updatedAt,
 	}, nil
 }
 

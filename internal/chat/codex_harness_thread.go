@@ -38,6 +38,9 @@ func handleCodexThreadGoalCleared(message jsonRPCMessage, threadID string, _ str
 	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
+	if err := sink.GoalUpdated(nil); err != nil {
+		return codexNotificationResult{}, err
+	}
 	return codexNotificationResult{}, sink.Trace("codex_thread_goal_cleared", messageThreadID)
 }
 
@@ -53,24 +56,21 @@ func handleCodexThreadGoalUpdated(message jsonRPCMessage, threadID string, _ str
 	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	goal, err := requireObject(params, "goal", "codex thread goal updated")
+	rawGoal, err := requireObject(params, "goal", "codex thread goal updated")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if _, err := requireString(goal, "threadId", "codex thread goal updated goal"); err != nil {
-		return codexNotificationResult{}, err
-	}
-	if _, err := requireStringAllowEmpty(goal, "objective", "codex thread goal updated goal"); err != nil {
-		return codexNotificationResult{}, err
-	}
-	status, err := requireString(goal, "status", "codex thread goal updated goal")
+	goal, err := goalStateFromObject(rawGoal, "codex thread goal updated goal")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if _, ok := codexThreadGoalStatuses[status]; !ok {
-		return codexNotificationResult{}, fmt.Errorf("unsupported codex thread goal status: %s", status)
+	if goal.ThreadID != messageThreadID {
+		return codexNotificationResult{}, fmt.Errorf("codex thread goal updated goal thread mismatch: expected %s, got %s", messageThreadID, goal.ThreadID)
 	}
-	return codexNotificationResult{}, sink.Trace("codex_thread_goal_updated", status)
+	if err := sink.GoalUpdated(goal); err != nil {
+		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{}, sink.Trace("codex_thread_goal_updated", goal.Status)
 }
 
 func handleCodexThreadNameUpdated(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {

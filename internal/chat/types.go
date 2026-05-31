@@ -41,6 +41,7 @@ const (
 	MessageStatusError     MessageStatus = "error"
 
 	MessageDeliveryNormal   MessageDelivery = "normal"
+	MessageDeliveryGoal     MessageDelivery = "goal"
 	MessageDeliveryQueued   MessageDelivery = "queued"
 	MessageDeliverySteering MessageDelivery = "steering"
 
@@ -155,6 +156,7 @@ var (
 	}
 	messageDeliveryValues = []MessageDelivery{
 		MessageDeliveryNormal,
+		MessageDeliveryGoal,
 		MessageDeliveryQueued,
 		MessageDeliverySteering,
 	}
@@ -561,9 +563,14 @@ type ModelCommand struct {
 }
 
 type ChatGoalState struct {
-	ThreadID  string `json:"threadId"`
-	Objective string `json:"objective"`
-	Status    string `json:"status"`
+	ThreadID        string `json:"threadId"`
+	Objective       string `json:"objective"`
+	Status          string `json:"status"`
+	TokenBudget     *int   `json:"tokenBudget"`
+	TokensUsed      int    `json:"tokensUsed"`
+	TimeUsedSeconds int    `json:"timeUsedSeconds"`
+	CreatedAt       int    `json:"createdAt"`
+	UpdatedAt       int    `json:"updatedAt"`
 }
 
 type ChatModelOption struct {
@@ -624,6 +631,7 @@ type MessagePage struct {
 	RunItemOutputs     []RunItemOutput  `json:"runItemOutputs"`
 	Queue              QueueState       `json:"queue"`
 	Transcript         []TranscriptTurn `json:"transcript"`
+	Goal               *ChatGoalState   `json:"goal"`
 	HasMoreOlder       bool             `json:"hasMoreOlder"`
 	OlderBeforeOrdinal int              `json:"olderBeforeOrdinal"`
 }

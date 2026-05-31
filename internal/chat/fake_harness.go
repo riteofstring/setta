@@ -13,6 +13,7 @@ const (
 	FakeEventCancelled      = "cancelled"
 	FakeEventError          = "error"
 	FakeEventFailed         = "failed"
+	FakeEventGoalUpdated    = "goal_updated"
 	FakeEventRunItem        = "run_item"
 	FakeEventRunItemOutput  = "run_item_output"
 	FakeEventThreadLinked   = "thread_linked"
@@ -20,6 +21,8 @@ const (
 	FakeEventWaitForCancel  = "wait_for_cancel"
 	FakeEventWaitForSteer   = "wait_for_steer"
 )
+
+var errUnsupportedFakeHarnessEvent = errors.New("unsupported fake harness event")
 
 type FakeHarnessEvent struct {
 	Type            string
@@ -31,6 +34,7 @@ type FakeHarnessEvent struct {
 	ProviderItemID  string
 	Stream          string
 	RunItem         RunItem
+	Goal            *ChatGoalState
 	Approval        ApprovalRequest
 	WaitForApproval bool
 }
@@ -91,6 +95,23 @@ func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, 
 }
 
 func (harness *FakeHarness) handleEvent(ctx context.Context, request TurnRequest, sink TurnSink, event FakeHarnessEvent) error {
+	err := harness.handleImmediateEvent(ctx, request, sink, event)
+	if !errors.Is(err, errUnsupportedFakeHarnessEvent) {
+		return err
+	}
+	switch event.Type {
+	case FakeEventWaitForCancel:
+		<-ctx.Done()
+		return ctx.Err()
+	case FakeEventWaitForSteer:
+		_, err := harness.waitForSteer(ctx, request.Run.ID)
+		return err
+	default:
+		return fmt.Errorf("unsupported fake harness event type %s", event.Type)
+	}
+}
+
+func (harness *FakeHarness) handleImmediateEvent(ctx context.Context, request TurnRequest, sink TurnSink, event FakeHarnessEvent) error {
 	switch event.Type {
 	case FakeEventAssistantDelta:
 		return sink.AssistantTextDelta(event.ProviderItemID, event.Text)
@@ -98,6 +119,8 @@ func (harness *FakeHarness) handleEvent(ctx context.Context, request TurnRequest
 		return harness.handleApprovalEvent(ctx, request.Run.ID, sink, event)
 	case FakeEventError:
 		return errors.New(event.Error)
+	case FakeEventGoalUpdated:
+		return sink.GoalUpdated(event.Goal)
 	case FakeEventRunItem:
 		item := event.RunItem
 		if item.ProviderItemID == "" {
@@ -110,14 +133,8 @@ func (harness *FakeHarness) handleEvent(ctx context.Context, request TurnRequest
 		return sink.ThreadLinked(event.ThreadID, event.SessionID, event.TurnID)
 	case FakeEventTrace:
 		return sink.Trace(event.Text, event.Error)
-	case FakeEventWaitForCancel:
-		<-ctx.Done()
-		return ctx.Err()
-	case FakeEventWaitForSteer:
-		_, err := harness.waitForSteer(ctx, request.Run.ID)
-		return err
 	default:
-		return fmt.Errorf("unsupported fake harness event type %s", event.Type)
+		return errUnsupportedFakeHarnessEvent
 	}
 }
 
@@ -187,6 +204,10 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 
 	harness.commands = append(harness.commands, request)
 	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
+	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
+		result.ThreadRef = request.ThreadRef
+		result.HasThreadRef = true
+	}
 	if request.ActiveRun == nil && commandNeedsThread(request.Command) && !commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
 		ref := request.ThreadRef
 		if ref.ThreadID == "" {
@@ -209,6 +230,24 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported fake command kind: %s", request.Command.Kind), nil)
 	}
 }
+
+type fakeGoalContinuation struct {
+	harness *FakeHarness
+}
+
+func (harness *FakeHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
+	result, err := harness.ExecuteCommand(ctx, request)
+	if err != nil {
+		return HarnessCommandResult{}, nil, err
+	}
+	return result, &fakeGoalContinuation{harness: harness}, nil
+}
+
+func (continuation *fakeGoalContinuation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	return continuation.harness.StartTurn(ctx, request, sink)
+}
+
+func (continuation *fakeGoalContinuation) Close() {}
 
 func (harness *FakeHarness) executeGoalCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
 	if command.Goal == nil {

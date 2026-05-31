@@ -3,10 +3,11 @@ package chat
 import (
 	"context"
 	"testing"
+	"time"
 )
 
-func TestServiceExecutesGoalCommandWithoutCreatingRun(t *testing.T) {
-	harness := NewFakeHarness(nil)
+func TestServiceExecutesGoalCommandAndStartsPursuit(t *testing.T) {
+	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventAssistantDelta, Text: "pursuing goal"}})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
 	conversation, err := service.CreateConversation("workspace_api", "")
 	if err != nil {
@@ -24,15 +25,28 @@ func TestServiceExecutesGoalCommandWithoutCreatingRun(t *testing.T) {
 	if result.Message.Parts[0].Text != "Goal set: finish renderer tests" {
 		t.Fatalf("command text = %q, want goal set result", result.Message.Parts[0].Text)
 	}
-	if len(result.Page.Transcript) != 0 {
-		t.Fatalf("transcript = %+v, want no model turns", result.Page.Transcript)
+	if len(result.Page.Transcript) != 1 {
+		t.Fatalf("transcript = %+v, want goal pursuit turn", result.Page.Transcript)
+	}
+	if result.Page.Transcript[0].TriggerMessage.Parts[0].Text != "finish renderer tests" {
+		t.Fatalf("goal pursuit prompt = %q, want objective", result.Page.Transcript[0].TriggerMessage.Parts[0].Text)
+	}
+	if result.Page.Transcript[0].TriggerMessage.Delivery != MessageDeliveryGoal {
+		t.Fatalf("goal trigger delivery = %s, want goal", result.Page.Transcript[0].TriggerMessage.Delivery)
+	}
+	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
+		t.Fatalf("page goal = %+v, want active renderer goal", result.Page.Goal)
 	}
 	runs, err := service.ListRuns("workspace_api", conversation.ID)
 	if err != nil {
 		t.Fatalf("list runs: %v", err)
 	}
-	if len(runs) != 0 {
-		t.Fatalf("runs = %+v, want no run for command", runs)
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one run for goal pursuit", runs)
+	}
+	run := waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+	if run.PromptSummary != "finish renderer tests" {
+		t.Fatalf("run prompt summary = %q, want objective", run.PromptSummary)
 	}
 	loaded, err := service.store.LoadConversation("workspace_api", conversation.ID)
 	if err != nil {
@@ -40,6 +54,39 @@ func TestServiceExecutesGoalCommandWithoutCreatingRun(t *testing.T) {
 	}
 	if ref := latestHarnessRef(loaded, HarnessCodex); ref.ThreadID != "fake-thread-"+conversation.ID || ref.Status != HarnessRefLinked {
 		t.Fatalf("harness ref = %+v, want linked fake command thread", ref)
+	}
+}
+
+func TestServicePersistsGoalCompletionNotification(t *testing.T) {
+	harness := NewFakeHarness([]FakeHarnessEvent{{
+		Type: FakeEventGoalUpdated,
+		Goal: &ChatGoalState{
+			Objective: "finish renderer tests",
+			Status:    "complete",
+			ThreadID:  "fake-thread-conversation_0001",
+		},
+	}})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	_, err = service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests")
+	if err != nil {
+		t.Fatalf("execute goal command: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal continuation run", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+	page := waitForGoalStatus(t, service, "workspace_api", conversation.ID, "complete")
+	if page.Goal == nil || page.Goal.Objective != "finish renderer tests" {
+		t.Fatalf("completed page goal = %+v, want completed renderer goal", page.Goal)
 	}
 }
 
@@ -72,6 +119,28 @@ func TestServiceStoresModelSettingsWithoutCreatingThread(t *testing.T) {
 	if loaded.CodexSettings == nil || loaded.CodexSettings.ReasoningEffort == nil || *loaded.CodexSettings.ReasoningEffort != ReasoningEffortHigh {
 		t.Fatalf("stored codex settings = %+v, want high reasoning", loaded.CodexSettings)
 	}
+}
+
+func waitForGoalStatus(t *testing.T, service *Service, workspaceID string, conversationID string, status string) MessagePage {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		page, err := service.LoadMessagePage(workspaceID, conversationID, 0, 20)
+		if err != nil {
+			t.Fatalf("load page: %v", err)
+		}
+		if page.Goal != nil && page.Goal.Status == status {
+			return page
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	page, err := service.LoadMessagePage(workspaceID, conversationID, 0, 20)
+	if err != nil {
+		t.Fatalf("load final page: %v", err)
+	}
+	t.Fatalf("goal status = %+v, want %s", page.Goal, status)
+	return MessagePage{}
 }
 
 func TestServiceRetriesModelCommandAfterMissingThreadRef(t *testing.T) {

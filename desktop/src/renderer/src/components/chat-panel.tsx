@@ -213,26 +213,81 @@ export function ConversationBody({
     return <EmptyConversation busy={busy} chat={chat} />;
   }
   return (
-    <div className="min-h-0 min-w-0 flex-1 overflow-hidden" data-testid="chat-transcript-region">
-      <ChatTranscript
-        activeRun={chat.activeRun}
-        hasMoreOlder={chat.hasMoreOlder}
-        loadOlder={chat.loadOlder}
-        loadRunItemOutput={chat.loadRunItemOutput}
-        messageIds={chat.messageIds}
-        messagesById={chat.messagesById}
-        runItemIdsByRunId={chat.runItemIdsByRunId}
-        runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
-        runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
-        runItemOutputsById={chat.runItemOutputsById}
-        runItemsById={chat.runItemsById}
-        searchOpen={searchOpen}
-        setSearchOpen={setSearchOpen}
-        submitApproval={chat.submitApproval}
-        transcript={chat.transcript}
-      />
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      data-testid="chat-transcript-region"
+    >
+      <GoalStatus goal={chat.goal} />
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        <ChatTranscript
+          activeRun={chat.activeRun}
+          hasMoreOlder={chat.hasMoreOlder}
+          loadOlder={chat.loadOlder}
+          loadRunItemOutput={chat.loadRunItemOutput}
+          messageIds={chat.messageIds}
+          messagesById={chat.messagesById}
+          runItemIdsByRunId={chat.runItemIdsByRunId}
+          runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
+          runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
+          runItemOutputsById={chat.runItemOutputsById}
+          runItemsById={chat.runItemsById}
+          searchOpen={searchOpen}
+          setSearchOpen={setSearchOpen}
+          submitApproval={chat.submitApproval}
+          transcript={chat.transcript}
+        />
+      </div>
     </div>
   );
+}
+
+function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
+  if (!goal) {
+    return null;
+  }
+  const status = goalStatusLabel(goal.status);
+  const title = `${status}: ${goal.objective}`;
+  return (
+    <div
+      className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-300"
+      data-goal-status={goal.status}
+      data-testid="chat-goal-status"
+      title={title}
+    >
+      <GoalStatusIcon status={goal.status} />
+      <span className="shrink-0 font-medium text-zinc-100">{status}</span>
+      <span className="min-w-0 truncate text-zinc-400">{goal.objective}</span>
+    </div>
+  );
+}
+
+function GoalStatusIcon({ status }: { status: string }) {
+  if (status === "complete") {
+    return <Check className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />;
+  }
+  if (status === "blocked" || status === "budgetLimited" || status === "usageLimited") {
+    return <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden="true" />;
+  }
+  return <Square className="h-3 w-3 shrink-0 text-zinc-500" aria-hidden="true" />;
+}
+
+function goalStatusLabel(status: string) {
+  switch (status) {
+    case "active":
+      return "Goal active";
+    case "blocked":
+      return "Goal blocked";
+    case "budgetLimited":
+      return "Goal budget-limited";
+    case "complete":
+      return "Goal complete";
+    case "paused":
+      return "Goal paused";
+    case "usageLimited":
+      return "Goal usage-limited";
+    default:
+      return "Goal";
+  }
 }
 
 function ChatLoadError({ message }: { message: string }) {
@@ -995,6 +1050,7 @@ export function useChatViewState(workspaceId: string | null) {
   const error = useChatStore((state) => state.error);
   const executeCommand = useChatStore((state) => state.executeCommand);
   const diagnostics = useChatStore((state) => state.diagnostics);
+  const goal = useChatStore((state) => state.goal);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
@@ -1041,6 +1097,7 @@ export function useChatViewState(workspaceId: string | null) {
     diagnostics,
     error,
     executeCommand,
+    goal,
     hasMoreOlder,
     loadOlder,
     loadRunItemOutput,

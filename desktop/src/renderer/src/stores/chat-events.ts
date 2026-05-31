@@ -84,6 +84,12 @@ function applyOtherChatEvent(state: ChatStore, event: OtherChatEvent): EventAppl
       true,
     );
   }
+  if (event.type === "chat.goal.updated") {
+    return selectedConversationEventResult(state, event, {
+      goal: event.payload.goal,
+      status: "ready",
+    });
+  }
   if (event.type === "chat.conversation.updated") {
     return workspaceEventResult(state, event, conversationUpdatedPatch(state, event.payload.item));
   }

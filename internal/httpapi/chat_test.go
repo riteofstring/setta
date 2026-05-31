@@ -252,14 +252,24 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 	if len(result.Page.Conversation.HarnessRefs) != 1 {
 		t.Fatalf("harness refs = %+v, want command-created ref", result.Page.Conversation.HarnessRefs)
 	}
+	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
+		t.Fatalf("page goal = %+v, want active command goal", result.Page.Goal)
+	}
+	if len(result.Page.Transcript) != 1 || result.Page.Transcript[0].TriggerMessage.Delivery != chat.MessageDeliveryGoal {
+		t.Fatalf("transcript = %+v, want internal goal trigger", result.Page.Transcript)
+	}
 
 	runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 	}, http.StatusOK)
-	if len(runs.Runs) != 0 {
-		t.Fatalf("runs = %+v, want none for command", runs.Runs)
+	if len(runs.Runs) != 1 {
+		t.Fatalf("runs = %+v, want one goal pursuit run", runs.Runs)
 	}
+	if runs.Runs[0].PromptSummary != "finish renderer tests" {
+		t.Fatalf("run prompt summary = %q, want objective", runs.Runs[0].PromptSummary)
+	}
+	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, runs.Runs[0].ID, chat.MessageStatusComplete)
 }
 
 func TestChatCommandEndpointReturnsTypedUnknownCommandError(t *testing.T) {

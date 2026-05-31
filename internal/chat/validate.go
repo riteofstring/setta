@@ -65,6 +65,31 @@ func validateChatCodexSettings(conversationID string, settings ChatCodexSettings
 	return nil
 }
 
+func validateChatGoalState(goal ChatGoalState) error {
+	if goal.ThreadID == "" {
+		return fmt.Errorf("goal threadId is required")
+	}
+	if _, ok := codexThreadGoalStatuses[goal.Status]; !ok {
+		return fmt.Errorf("goal has unsupported status %s", goal.Status)
+	}
+	if goal.TokenBudget != nil && *goal.TokenBudget < 0 {
+		return fmt.Errorf("goal tokenBudget must be non-negative")
+	}
+	if goal.TokensUsed < 0 {
+		return fmt.Errorf("goal tokensUsed must be non-negative")
+	}
+	if goal.TimeUsedSeconds < 0 {
+		return fmt.Errorf("goal timeUsedSeconds must be non-negative")
+	}
+	if goal.CreatedAt < 0 {
+		return fmt.Errorf("goal createdAt must be non-negative")
+	}
+	if goal.UpdatedAt < 0 {
+		return fmt.Errorf("goal updatedAt must be non-negative")
+	}
+	return nil
+}
+
 func validateMessage(message ChatMessage) error {
 	if message.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("message %s has unsupported schemaVersion %d", message.ID, message.SchemaVersion)

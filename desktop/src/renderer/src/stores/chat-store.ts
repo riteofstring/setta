@@ -3,6 +3,7 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
+  ChatGoalState,
   ChatMessage,
   Conversation,
   ConversationListItem,
@@ -49,6 +50,7 @@ export interface ChatStore {
   corruption: CorruptionSummary;
   diagnostics: Diagnostic[];
   error: string | null;
+  goal: ChatGoalState | null;
   hasMoreOlder: boolean;
   handleEvent: (event: ChatEvent) => void;
   lastEventSequence: number;
@@ -107,6 +109,7 @@ export type ChatPatch = Partial<
     | "corruption"
     | "diagnostics"
     | "error"
+    | "goal"
     | "hasMoreOlder"
     | "lastEventSequence"
     | "lastEventStreamId"
@@ -184,6 +187,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     conversations: [],
     corruption: emptyCorruption,
     diagnostics: [],
+    goal: null,
     createConversation: async (title = "") => {
       const workspaceId = get().workspaceId;
       if (!workspaceId) {
@@ -354,6 +358,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         corruption: emptyCorruption,
         diagnostics: [],
         hasMoreOlder: false,
+        goal: null,
         messages: [],
         olderBeforeOrdinal: 0,
         operation: "loading",
@@ -628,6 +633,7 @@ function hasSequenceGap(state: ChatStore, event: ChatEvent): boolean {
 function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
   return normalizeChatPatch({
     activeRun: activeRunFromCandidate(activeRun),
+    goal: page.goal,
     hasMoreOlder: page.hasMoreOlder,
     messages: messagesFromPage(page),
     olderBeforeOrdinal: page.olderBeforeOrdinal,
@@ -665,7 +671,12 @@ function commandOperationPatch(
   return terminalPreservingPagePatch(
     current,
     result.page,
-    activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun),
+    activeRunFromCandidates(
+      terminalRunIds,
+      activeRunFromPage(result.page),
+      current.activeRun,
+      fallbackActiveRun,
+    ),
     terminalRunIds,
   );
 }
@@ -735,6 +746,16 @@ function activeRunFromCandidates(
   return null;
 }
 
+function activeRunFromPage(page: MessagePage): RunningRun | null {
+  for (const turn of page.transcript) {
+    const activeRun = activeRunFromCandidate(turn.run);
+    if (activeRun) {
+      return activeRun;
+    }
+  }
+  return null;
+}
+
 function mergeOperationTranscript(
   currentTranscript: TranscriptTurn[],
   pageTranscript: TranscriptTurn[],
@@ -783,6 +804,7 @@ function mergeOperationMessages(
 function emptyConversationPatch(): ChatPatch {
   return normalizeChatPatch({
     activeRun: null,
+    goal: null,
     hasMoreOlder: false,
     messages: [],
     olderBeforeOrdinal: 0,

@@ -897,6 +897,7 @@ func TestCodexHarnessFakeAppServer(t *testing.T) {
 type recordingSink struct {
 	approvalCh  chan ApprovalRequest
 	diagnostics []recordedProviderDiagnostic
+	goals       []*ChatGoalState
 	items       []RunItem
 	linkCh      chan struct{}
 	outputs     []recordedOutput
@@ -1032,6 +1033,11 @@ func (sink *recordingSink) ProviderDiagnostic(code string, message string, conte
 		resyncRequired: resyncRequired,
 		severity:       severity,
 	})
+	return nil
+}
+
+func (sink *recordingSink) GoalUpdated(goal *ChatGoalState) error {
+	sink.goals = append(sink.goals, goal)
 	return nil
 }
 
@@ -1249,6 +1255,14 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "thread/goal/set":
 		assertFakeGoalSet(mode, message)
 		writeFakeGoalResponse(message["id"], "finish renderer tests", "active")
+		if mode == "command-goal-continuation" {
+			writeFakeThreadGoalUpdated("finish renderer tests", "active")
+			writeFakeTurnStartedID("turn_fake")
+			writeFakeAssistantDelta("goal continuation")
+			writeFakeThreadGoalUpdated("finish renderer tests", "complete")
+			writeFakeCompletedTurn("completed")
+			return true
+		}
 		return fakeCommandDone(mode)
 	case "thread/goal/clear":
 		assertFakeThreadID(message)
