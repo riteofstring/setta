@@ -1,6 +1,5 @@
 import type { WorkspaceSummary } from "@generated/backend";
 import {
-  Clock3,
   History,
   ListFilter,
   Maximize2,
@@ -17,7 +16,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import { ChatTranscript } from "./chat-transcript";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -32,7 +30,7 @@ export function ChatPanel({
   if (!workspace) {
     return (
       <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-[#111827] bg-[#05080f] text-zinc-100">
-        <ChatHeader busy running={false} status={null} title="No workspace" />
+        <ChatHeader busy title="No workspace" />
         <div className="grid min-h-0 flex-1 place-items-center px-6 text-center text-sm text-[#6f7fa4]">
           Open a workspace to start chat.
         </div>
@@ -51,8 +49,6 @@ function ChatWorkspace({ chat, workspace }: { chat: ChatView; workspace: Workspa
       <ChatHeader
         busy={busy}
         onCreateConversation={() => void chat.createConversation()}
-        running={running}
-        status={chat.activeRun?.status ?? null}
         title={chat.selectedConversation?.title ?? workspace.displayName}
       />
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden">
@@ -67,14 +63,10 @@ function ChatWorkspace({ chat, workspace }: { chat: ChatView; workspace: Workspa
 function ChatHeader({
   busy,
   onCreateConversation,
-  running,
-  status,
   title,
 }: {
   busy: boolean;
   onCreateConversation?: () => void;
-  running: boolean;
-  status: string | null;
   title: string;
 }) {
   return (
@@ -112,9 +104,6 @@ function ChatHeader({
             type="search"
           />
         </label>
-        <span className="sr-only">
-          <RunBadge active={running} status={status} />
-        </span>
         <IconButton label="Chat settings">
           <Settings className="h-4 w-4" />
         </IconButton>
@@ -342,22 +331,4 @@ export function useChatViewState(workspaceId: string | null) {
     stopActiveRun,
     submitApproval,
   };
-}
-
-function RunBadge({ active, status }: { active: boolean; status: string | null }) {
-  if (active) {
-    return (
-      <Badge variant="neutral">
-        <Clock3 className="h-3.5 w-3.5" />
-        Running
-      </Badge>
-    );
-  }
-  if (status === "failed") {
-    return <Badge variant="danger">Failed</Badge>;
-  }
-  if (status === "cancelled") {
-    return <Badge variant="neutral">Cancelled</Badge>;
-  }
-  return <Badge variant="success">Ready</Badge>;
 }
