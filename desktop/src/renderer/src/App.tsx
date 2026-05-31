@@ -40,7 +40,12 @@ export function App() {
   const [chatPaneWidth, setChatPaneWidth] = useState(360);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [chatPaneOpen, setChatPaneOpen] = useState(true);
+  const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [rightView, setRightView] = useState<RightView | null>("canvas");
+  const openChatSearch = useCallback(() => {
+    setChatPaneOpen(true);
+    setChatSearchOpen(true);
+  }, []);
 
   useEffect(() => {
     return window.setta.chat.onEvent((event) => {
@@ -53,6 +58,7 @@ export function App() {
       <AppMenuBar
         chatPaneOpen={chatPaneOpen}
         createConversation={chat.createConversation}
+        openChatSearch={openChatSearch}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={rightView !== null}
         selectedWorkspace={workspace.selectedWorkspace}
@@ -70,8 +76,10 @@ export function App() {
         />
         <ChatPane
           chat={chat}
+          chatSearchOpen={chatSearchOpen}
           open={chatPaneOpen}
           rightView={rightView}
+          setChatSearchOpen={setChatSearchOpen}
           setWidth={setChatPaneWidth}
           width={chatPaneWidth}
           workspace={workspace}
@@ -133,15 +141,19 @@ function ProjectPane({
 
 function ChatPane({
   chat,
+  chatSearchOpen,
   open,
   rightView,
+  setChatSearchOpen,
   setWidth,
   width,
   workspace,
 }: {
   chat: ChatView;
+  chatSearchOpen: boolean;
   open: boolean;
   rightView: RightView | null;
+  setChatSearchOpen: (open: boolean) => void;
   setWidth: (width: number) => void;
   width: number;
   workspace: WorkspaceViewState;
@@ -150,7 +162,14 @@ function ChatPane({
     return null;
   }
 
-  const panel = <ChatPanel chat={chat} workspace={workspace.selectedWorkspace} />;
+  const panel = (
+    <ChatPanel
+      chat={chat}
+      searchOpen={chatSearchOpen}
+      setSearchOpen={setChatSearchOpen}
+      workspace={workspace.selectedWorkspace}
+    />
+  );
   if (!rightView) {
     return <div className="h-full min-h-0 min-w-0 flex-1">{panel}</div>;
   }
@@ -171,6 +190,7 @@ function ChatPane({
 function AppMenuBar({
   chatPaneOpen,
   createConversation,
+  openChatSearch,
   projectPaneOpen,
   rightPaneOpen,
   selectedWorkspace,
@@ -180,6 +200,7 @@ function AppMenuBar({
 }: {
   chatPaneOpen: boolean;
   createConversation: (title?: string) => Promise<void>;
+  openChatSearch: () => void;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
   selectedWorkspace: WorkspaceSummary | null;
@@ -208,6 +229,13 @@ function AppMenuBar({
         setSearchPaletteOpen(true);
         return;
       }
+      if (key === "f") {
+        event.preventDefault();
+        setCommandPaletteOpen(false);
+        setSearchPaletteOpen(false);
+        openChatSearch();
+        return;
+      }
       if (key === "n") {
         event.preventDefault();
         setCommandPaletteOpen(false);
@@ -219,7 +247,7 @@ function AppMenuBar({
     return () => {
       window.removeEventListener("keydown", handleShortcut);
     };
-  }, [createConversation]);
+  }, [createConversation, openChatSearch]);
 
   return (
     <header className="app-drag fixed top-0 right-0 left-0 z-50 grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center bg-zinc-900/95 py-0 pr-2 pl-20 text-zinc-100">

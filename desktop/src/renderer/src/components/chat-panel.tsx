@@ -14,9 +14,13 @@ import { Textarea } from "./ui/textarea";
 
 export function ChatPanel({
   chat,
+  searchOpen,
+  setSearchOpen,
   workspace,
 }: {
   chat: ChatView;
+  searchOpen: boolean;
+  setSearchOpen: (open: boolean) => void;
   workspace: WorkspaceSummary | null;
 }) {
   if (!workspace) {
@@ -28,17 +32,30 @@ export function ChatPanel({
       </section>
     );
   }
-  return <ChatWorkspace chat={chat} />;
+  return <ChatWorkspace chat={chat} searchOpen={searchOpen} setSearchOpen={setSearchOpen} />;
 }
 
-function ChatWorkspace({ chat }: { chat: ChatView }) {
+function ChatWorkspace({
+  chat,
+  searchOpen,
+  setSearchOpen,
+}: {
+  chat: ChatView;
+  searchOpen: boolean;
+  setSearchOpen: (open: boolean) => void;
+}) {
   const busy = chat.operation !== null || chat.status === "loading";
   const running = chat.activeRun?.status === "running";
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 pt-8 text-zinc-100">
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-visible">
-        <ConversationBody busy={busy} chat={chat} />
+        <ConversationBody
+          busy={busy}
+          chat={chat}
+          searchOpen={searchOpen}
+          setSearchOpen={setSearchOpen}
+        />
         <ChatError message={chat.error} />
         <Composer busy={busy} chat={chat} running={running} />
       </div>
@@ -73,7 +90,17 @@ function IconButton({
 
 export type ChatView = ReturnType<typeof useChatViewState>;
 
-function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
+function ConversationBody({
+  busy,
+  chat,
+  searchOpen,
+  setSearchOpen,
+}: {
+  busy: boolean;
+  chat: ChatView;
+  searchOpen: boolean;
+  setSearchOpen: (open: boolean) => void;
+}) {
   if (!chat.selectedConversation) {
     return <EmptyConversation busy={busy} createConversation={chat.createConversation} />;
   }
@@ -83,6 +110,8 @@ function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
       hasMoreOlder={chat.hasMoreOlder}
       loadOlder={chat.loadOlder}
       messages={chat.messages}
+      onSearchOpenChange={setSearchOpen}
+      searchOpen={searchOpen}
       submitApproval={chat.submitApproval}
     />
   );

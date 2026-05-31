@@ -209,6 +209,24 @@ describe("chat renderer states", () => {
     expect(html).not.toContain("<script>");
   });
 
+  test("renders chat-local search controls", () => {
+    const html = renderToString(
+      <ChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        messages={[]}
+        searchOpen
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(html).toContain("Search chat");
+    expect(html).toContain("Previous result");
+    expect(html).toContain("Next result");
+    expect(html).toContain("Close chat search");
+  });
+
   test("renders slash commands and installed skills without pet entry", () => {
     const html = renderToString(<SlashCommandPalette onSelect={() => {}} open query="" />);
 
