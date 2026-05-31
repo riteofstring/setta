@@ -377,6 +377,10 @@ func (service *Service) markTurnCancelled(workspaceID string, conversationID str
 }
 
 func (service *Service) markTurnCancelledWithReason(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string) (Run, error) {
+	return service.markTurnCancelledWithOptions(workspaceID, conversationID, runID, runError, traceType, traceMessage, true)
+}
+
+func (service *Service) markTurnCancelledWithOptions(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string, reconcilePendingSteering bool) (Run, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -408,17 +412,15 @@ func (service *Service) markTurnCancelledWithReason(workspaceID string, conversa
 	}
 	message = records.AssistantMessage
 	run = records.Run
+	pendingSteering, err := service.markTerminalPendingSteeringLocked(workspaceID, conversationID, run.ID, MessageStatusCancelled, reconcilePendingSteering)
+	if err != nil {
+		return Run{}, err
+	}
 	if err := service.traceLocked(workspaceID, run.ID, traceType, traceMessage); err != nil {
 		return Run{}, err
 	}
 	delete(service.active, key)
-	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, message)); err != nil {
-		return Run{}, err
-	}
-	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
-		return Run{}, err
-	}
-	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
+	if err := service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering); err != nil {
 		return Run{}, err
 	}
 	return run, nil
@@ -644,8 +646,12 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 	if err != nil {
 		return err
 	}
+	pendingSteering, err := service.markPendingSteeringMessagesLocked(workspaceID, conversationID, run.ID, MessageStatusComplete)
+	if err != nil {
+		return err
+	}
 	delete(service.active, activeKey(workspaceID, conversationID))
-	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, run); err != nil {
+	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, pendingSteering, run); err != nil {
 		return err
 	}
 	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
@@ -677,8 +683,11 @@ func (service *Service) saveCompletedTurnLocked(workspaceID string, run Run, mes
 	return message, run, nil
 }
 
-func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, run Run) error {
+func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, pendingSteering []ChatMessage, run Run) error {
 	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, message)); err != nil {
+		return err
+	}
+	if err := service.publishMessageUpdatesLocked(workspaceID, conversationID, run.ID, pendingSteering); err != nil {
 		return err
 	}
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
@@ -723,17 +732,12 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	if err := service.traceLocked(workspaceID, run.ID, "error_received", message); err != nil {
 		return err
 	}
+	pendingSteering, err := service.markTerminalPendingSteeringLocked(workspaceID, conversationID, run.ID, MessageStatusError, true)
+	if err != nil {
+		return err
+	}
 	delete(service.active, key)
-	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, assistant)); err != nil {
-		return err
-	}
-	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
-		return err
-	}
-	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
-		return err
-	}
-	return nil
+	return service.publishTerminalTurnLocked(workspaceID, conversationID, assistant, run, pendingSteering)
 }
 
 func (service *Service) overlayActiveAssistantMessageLocked(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {
@@ -1065,6 +1069,9 @@ func (service *Service) recoverInterruptedRun(workspaceID string, run Run, now s
 	if _, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: message, Run: run}); err != nil {
 		return err
 	}
+	if _, err := service.markPendingSteeringMessagesLocked(workspaceID, run.ConversationID, run.ID, MessageStatusError); err != nil {
+		return err
+	}
 	return service.traceLocked(workspaceID, run.ID, "error_received", run.Error)
 }
 
@@ -1105,6 +1112,10 @@ func (sink turnSink) RunItemUpsert(item RunItem) error {
 
 func (sink turnSink) ThreadLinked(threadID string, sessionID string, turnID string) error {
 	return sink.service.linkThread(sink.workspaceID, sink.conversationID, sink.runID, threadID, sessionID, turnID)
+}
+
+func (sink turnSink) UserMessageCommitted(text string) error {
+	return sink.service.markPendingSteeringCommitted(sink.workspaceID, sink.conversationID, sink.runID, text)
 }
 
 func (sink turnSink) Trace(eventType string, message string) error {

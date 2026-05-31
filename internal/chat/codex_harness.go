@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"setta/internal/codexapp"
@@ -779,7 +780,41 @@ func ignoreCodexItemIfHandled(item map[string]any, sink TurnSink) (bool, error) 
 	if codexType != "userMessage" {
 		return false, nil
 	}
+	text, err := userMessageTextFromCodexItem(item)
+	if err != nil {
+		return true, err
+	}
+	if err := sink.UserMessageCommitted(text); err != nil {
+		return true, err
+	}
 	return true, sink.Trace("codex_user_message_item_ignored", providerItemID)
+}
+
+func userMessageTextFromCodexItem(item map[string]any) (string, error) {
+	content, err := requireArray(item, "content", "codex user message item")
+	if err != nil {
+		return "", err
+	}
+	parts := make([]string, 0, len(content))
+	for index, rawPart := range content {
+		part, ok := rawPart.(map[string]any)
+		if !ok {
+			return "", fmt.Errorf("codex user message item.content[%d] must be an object", index)
+		}
+		partType, err := requireString(part, "type", "codex user message item content")
+		if err != nil {
+			return "", err
+		}
+		if partType != "text" {
+			continue
+		}
+		text, err := requireStringAllowEmpty(part, "text", "codex user message item content")
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, text)
+	}
+	return strings.Join(parts, ""), nil
 }
 
 func handleCodexTextActivityDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, itemType RunItemType, title string) (codexNotificationResult, error) {

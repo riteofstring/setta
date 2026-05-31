@@ -513,11 +513,52 @@ describe("chat renderer states", () => {
     );
 
     expect(html).toContain("Queued");
+    expect(html).toContain('aria-label="Edit queued message"');
+    expect(html).toContain('aria-label="Confirm queued message removal"');
     expect(html).toContain("Steering");
     expect(html).toContain("go test ./...");
     expect(html).toContain("main.go");
     expect(html).toContain("halfway");
     expect(html).toContain("warning text");
+  });
+
+  test("renders immediate steering action only for pending steering on the active run", () => {
+    const activeRun = {
+      ...transcriptRun("run_api", "message_user_run_api", ""),
+      startedAt: "2026-05-29T20:00:00Z",
+      status: "running",
+    } satisfies Run;
+
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={activeRun}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={[
+          chatUserMessage("message_user_run_api", 1, activeRun.id),
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            delivery: "steering",
+            id: "message_steering",
+            ordinal: 2,
+            parts: [{ format: "plain", id: "part_steering", text: "steer", type: "text" }],
+            role: "user",
+            runId: activeRun.id,
+            schemaVersion: 1,
+            status: "pending",
+            updatedAt: "2026-05-29T20:00:00Z",
+          },
+        ]}
+        runItemOutputs={[]}
+        runItems={[]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(html).toContain("Steering pending");
+    expect(html).toContain('aria-label="Interrupt and send pending steering"');
   });
 
   test("renders load more for paged run output", () => {
@@ -733,42 +774,73 @@ describe("chat renderer states", () => {
   });
 });
 
-function TestChatTranscript({
-  messages = [],
-  runItemOutputPagesByRunItemId = {},
-  runItemOutputs = [],
-  runItems = [],
-  transcript,
-  ...props
-}: Omit<
+const defaultTestChatTranscriptOptions = {
+  editQueuedMessage: async () => {},
+  editingQueuedMessageId: null,
+  messages: [] as ChatMessage[],
+  operation: null,
+  removeQueuedMessage: async () => {},
+  removingQueuedMessageId: null,
+  runItemOutputPagesByRunItemId: {},
+  runItemOutputs: [] as RunItemOutput[],
+  runItems: [] as RunItem[],
+  sendSteeringImmediately: async () => {},
+};
+
+type TestChatTranscriptProps = Omit<
   ChatTranscriptProps,
   | "messageIds"
   | "messagesById"
+  | "editQueuedMessage"
+  | "editingQueuedMessageId"
+  | "operation"
+  | "removeQueuedMessage"
+  | "removingQueuedMessageId"
   | "runItemIdsByRunId"
   | "runItemOutputIdsByRunItemId"
   | "runItemOutputPagesByRunItemId"
   | "runItemOutputsById"
   | "runItemsById"
+  | "sendSteeringImmediately"
   | "transcript"
 > & {
+  editQueuedMessage?: ChatTranscriptProps["editQueuedMessage"];
+  editingQueuedMessageId?: ChatTranscriptProps["editingQueuedMessageId"];
   messages?: ChatMessage[];
+  operation?: ChatTranscriptProps["operation"];
+  removeQueuedMessage?: ChatTranscriptProps["removeQueuedMessage"];
+  removingQueuedMessageId?: ChatTranscriptProps["removingQueuedMessageId"];
   runItemOutputPagesByRunItemId?: ChatTranscriptProps["runItemOutputPagesByRunItemId"];
   runItemOutputs?: RunItemOutput[];
   runItems?: RunItem[];
+  sendSteeringImmediately?: ChatTranscriptProps["sendSteeringImmediately"];
   transcript?: TranscriptTurn[];
-}) {
-  const normalized = normalizedTranscriptFixture(messages, runItems, runItemOutputs);
+};
+
+function TestChatTranscript(props: TestChatTranscriptProps) {
+  const options = { ...defaultTestChatTranscriptOptions, ...props };
+  const normalized = normalizedTranscriptFixture(
+    options.messages,
+    options.runItems,
+    options.runItemOutputs,
+  );
   return (
     <ChatTranscript
-      {...props}
+      {...options}
+      editQueuedMessage={options.editQueuedMessage}
+      editingQueuedMessageId={options.editingQueuedMessageId}
       messageIds={normalized.messageIds}
       messagesById={normalized.messagesById}
+      operation={options.operation}
+      removeQueuedMessage={options.removeQueuedMessage}
+      removingQueuedMessageId={options.removingQueuedMessageId}
       runItemIdsByRunId={normalized.runItemIdsByRunId}
       runItemOutputIdsByRunItemId={normalized.runItemOutputIdsByRunItemId}
-      runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
+      runItemOutputPagesByRunItemId={options.runItemOutputPagesByRunItemId}
       runItemOutputsById={normalized.runItemOutputsById}
       runItemsById={normalized.runItemsById}
-      transcript={transcript ?? transcriptFromMessages(messages)}
+      sendSteeringImmediately={options.sendSteeringImmediately}
+      transcript={options.transcript ?? transcriptFromMessages(options.messages)}
     />
   );
 }

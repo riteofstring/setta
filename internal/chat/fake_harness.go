@@ -18,6 +18,7 @@ const (
 	FakeEventRunItemOutput  = "run_item_output"
 	FakeEventThreadLinked   = "thread_linked"
 	FakeEventTrace          = "trace"
+	FakeEventUserMessage    = "user_message"
 	FakeEventWaitForCancel  = "wait_for_cancel"
 	FakeEventWaitForSteer   = "wait_for_steer"
 )
@@ -136,6 +137,8 @@ func (harness *FakeHarness) handleImmediateEvent(ctx context.Context, request Tu
 		return sink.ThreadLinked(event.ThreadID, event.SessionID, event.TurnID)
 	case FakeEventTrace:
 		return sink.Trace(event.Text, event.Error)
+	case FakeEventUserMessage:
+		return sink.UserMessageCommitted(event.Text)
 	default:
 		return errUnsupportedFakeHarnessEvent
 	}

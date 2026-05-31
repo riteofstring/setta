@@ -7,11 +7,14 @@ import type {
   CodexAccountState,
   Conversation,
   GetActiveRunResponse,
+  ImmediateSteeringResult,
   ListConversationsResponse,
   LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueEditResult,
   QueueMessageResult,
+  QueueRemoveResult,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
@@ -107,6 +110,12 @@ export interface SettaAPI {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
+    editQueuedMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      prompt: string,
+    ) => Promise<QueueEditResult>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
@@ -136,6 +145,11 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<QueueMessageResult>;
+    removeQueuedMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+    ) => Promise<QueueRemoveResult>;
     runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
     runItemOutput: (
       workspaceId: string,
@@ -154,6 +168,11 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<SteerMessageResult>;
+    sendSteeringImmediately: (
+      workspaceId: string,
+      conversationId: string,
+      prompt?: string,
+    ) => Promise<ImmediateSteeringResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };

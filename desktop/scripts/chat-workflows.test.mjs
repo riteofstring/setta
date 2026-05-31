@@ -17,6 +17,7 @@ import {
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
+import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
 import { CDPClient } from "./cdp-client.mjs";
 import {
@@ -152,6 +153,29 @@ async function runDeterministicWorkflowLaunch(results) {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
     });
+    await runWorkflowStep(results, recordingDir, "queued-controls", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runQueuedControlsWorkflow({
+        assertChatLayout,
+        assertNoActiveRun,
+        assertNoCriticalDiagnostics,
+        assertTextAbsent,
+        assertTranscriptSequence,
+        backend,
+        clickButtonByAria,
+        client: context.client,
+        conversationId,
+        setInputValue,
+        submitComposer,
+        waitForBackendState,
+        waitForRunStatus,
+        waitForRunWithPrompt,
+        waitForState,
+        waitForText,
+        waitForTexts,
+        workspaceId,
+      });
+    });
     await runWorkflowStep(results, recordingDir, "cancel-queue", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runCancelWorkflow(context.client, backend, workspaceId, conversationId);
@@ -209,7 +233,10 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/conversations/create",
       "/chat/messages/send",
       "/chat/messages/queue",
+      "/chat/messages/queue/edit",
+      "/chat/messages/queue/remove",
       "/chat/messages/steer",
+      "/chat/messages/steer/immediate",
       "/chat/runs/active",
       "/chat/runs/list",
       "/chat/runs/cancel",
@@ -227,7 +254,10 @@ async function runDeterministicWorkflowLaunch(results) {
       "chat:create-conversation",
       "chat:send-message",
       "chat:queue-message",
+      "chat:edit-queued-message",
+      "chat:remove-queued-message",
       "chat:steer-message",
+      "chat:send-steering-immediately",
       "chat:cancel-run",
       "chat:submit-approval",
       "chat:list-commands",

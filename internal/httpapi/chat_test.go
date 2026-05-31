@@ -225,6 +225,132 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	}
 }
 
+func TestChatEndpointsEditAndRemoveQueuedMessages(t *testing.T) {
+	handler := newChatHandler(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventWaitForCancel}})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "active",
+	}, http.StatusOK)
+
+	queued := postJSON[chat.QueueMessageResult](t, handler, "/chat/messages/queue", QueueChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "queued follow-up",
+	}, http.StatusOK)
+	edited := postJSON[chat.QueueEditResult](t, handler, "/chat/messages/queue/edit", EditQueuedChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		MessageID:      queued.UserMessage.ID,
+		Prompt:         "edited follow-up",
+	}, http.StatusOK)
+	if edited.UserMessage.Parts[0].Text != "edited follow-up" || edited.Run.ID != queued.Run.ID {
+		t.Fatalf("edited result = %+v, want edited queued message on original run", edited)
+	}
+
+	removed := postJSON[chat.QueueMessageResult](t, handler, "/chat/messages/queue", QueueChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "remove follow-up",
+	}, http.StatusOK)
+	removedResult := postJSON[chat.QueueRemoveResult](t, handler, "/chat/messages/queue/remove", RemoveQueuedChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		MessageID:      removed.UserMessage.ID,
+	}, http.StatusOK)
+	if removedResult.RemovedMessageID != removed.UserMessage.ID || removedResult.RemovedRunID != removed.Run.ID {
+		t.Fatalf("remove result = %+v, want removed queued message and run ids", removedResult)
+	}
+	conflict := postJSON[ErrorResponse](t, handler, "/chat/messages/queue/edit", EditQueuedChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		MessageID:      removed.UserMessage.ID,
+		Prompt:         "edit removed",
+	}, http.StatusConflict)
+	if conflict.Error.Code != "queued_message_conflict" {
+		t.Fatalf("conflict code = %q, want queued_message_conflict", conflict.Error.Code)
+	}
+
+	page := postJSON[chat.MessagePage](t, handler, "/chat/messages/page", GetMessagePageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Limit:          20,
+	}, http.StatusOK)
+	if got := promptForHTTPMessage(page.Messages, queued.UserMessage.ID); got != "edited follow-up" {
+		t.Fatalf("edited prompt in page = %q, want edited follow-up", got)
+	}
+	if got := promptForHTTPMessage(page.Messages, removed.UserMessage.ID); got != "" {
+		t.Fatalf("removed prompt in page = %q, want removed message absent", got)
+	}
+	postJSON[chat.Run](t, handler, "/chat/runs/cancel", CancelRunRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+}
+
+func TestChatEndpointSendsSteeringImmediately(t *testing.T) {
+	handler := newChatHandler(t, []chat.FakeHarnessEvent{
+		{Type: chat.FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
+		{Type: chat.FakeEventWaitForCancel},
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	started := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "active",
+	}, http.StatusOK)
+	waitForHarnessTurn(t, handler, opened.Workspace.ID, conversation.ID, "turn_fake")
+
+	conflict := postJSON[ErrorResponse](t, handler, "/chat/messages/steer/immediate", SendSteeringImmediatelyRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusConflict)
+	if conflict.Error.Code != "immediate_steering_conflict" {
+		t.Fatalf("conflict code = %q, want immediate_steering_conflict", conflict.Error.Code)
+	}
+
+	steered := postJSON[chat.SteerMessageResult](t, handler, "/chat/messages/steer", SteerChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "steer now",
+	}, http.StatusOK)
+	if steered.UserMessage.Delivery != chat.MessageDeliverySteering || steered.UserMessage.Status != chat.MessageStatusPending {
+		t.Fatalf("steered message = %+v, want pending steering message", steered.UserMessage)
+	}
+	replayed := postJSON[chat.ImmediateSteeringResult](t, handler, "/chat/messages/steer/immediate", SendSteeringImmediatelyRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if replayed.CancelledRun.ID != started.Run.ID || replayed.CancelledRun.Status != chat.RunStatusCancelled {
+		t.Fatalf("cancelled run = %+v, want original run cancelled", replayed.CancelledRun)
+	}
+	if len(replayed.ReplayedSteeringMessageIDs) != 1 || replayed.ReplayedSteeringMessageIDs[0] != steered.UserMessage.ID {
+		t.Fatalf("replayed ids = %+v, want %s", replayed.ReplayedSteeringMessageIDs, steered.UserMessage.ID)
+	}
+	if replayed.ActiveRun.Status != chat.RunStatusRunning || replayed.ActiveRun.ID == started.Run.ID {
+		t.Fatalf("active replay run = %+v, want new running run", replayed.ActiveRun)
+	}
+
+	page := postJSON[chat.MessagePage](t, handler, "/chat/messages/page", GetMessagePageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Limit:          20,
+	}, http.StatusOK)
+	if got := promptForHTTPMessage(page.Messages, steered.UserMessage.ID); got != "" {
+		t.Fatalf("pending steering message after replay = %q, want removed", got)
+	}
+	if got := promptForHTTPRun(page.Messages, replayed.ActiveRun.ID); got != "steer now" {
+		t.Fatalf("replay run prompt = %q, want steer now", got)
+	}
+	postJSON[chat.Run](t, handler, "/chat/runs/cancel", CancelRunRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+}
+
 func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -555,6 +681,24 @@ func assertRunStatus(t *testing.T, runs []chat.Run, runID string, status chat.Ru
 		}
 	}
 	t.Fatalf("run %s was not returned in %+v", runID, runs)
+}
+
+func promptForHTTPMessage(messages []chat.ChatMessage, messageID string) string {
+	for _, message := range messages {
+		if message.ID == messageID && len(message.Parts) > 0 {
+			return message.Parts[0].Text
+		}
+	}
+	return ""
+}
+
+func promptForHTTPRun(messages []chat.ChatMessage, runID string) string {
+	for _, message := range messages {
+		if message.RunID == runID && message.Role == chat.RoleUser && len(message.Parts) > 0 {
+			return message.Parts[0].Text
+		}
+	}
+	return ""
 }
 
 func containsConversationListItem(items []chat.ConversationListItem, conversationID string) bool {

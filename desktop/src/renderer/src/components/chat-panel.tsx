@@ -8,24 +8,18 @@ import type {
   WorkspaceSummary,
 } from "@generated/backend";
 import type { ChatCommandExecutionOptions } from "@shared/types";
-import {
-  AlertTriangle,
-  ArrowUp,
-  Check,
-  Maximize2,
-  MessageSquarePlus,
-  Minimize2,
-  Square,
-  X,
-} from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Check, Maximize2, Minimize2, X } from "lucide-react";
+import { Square } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
+import { ComposerButton, handleComposerKeyDown } from "./chat-composer-controls";
 import { ChatTranscript } from "./chat-transcript";
-import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
+
+export { ComposerButton, handleComposerKeyDown } from "./chat-composer-controls";
 
 export function ChatPanel({
   chat,
@@ -149,6 +143,7 @@ const composerBlockingOperations = new Set([
   "loading",
   "loadingOlder",
   "refreshing",
+  "sendingSteeringImmediately",
 ]);
 
 function isChatBusy(chat: ChatView) {
@@ -222,17 +217,23 @@ export function ConversationBody({
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <ChatTranscript
           activeRun={chat.activeRun}
+          editQueuedMessage={chat.editQueuedMessage}
+          editingQueuedMessageId={chat.editingQueuedMessageId}
           hasMoreOlder={chat.hasMoreOlder}
           loadOlder={chat.loadOlder}
           loadRunItemOutput={chat.loadRunItemOutput}
           messageIds={chat.messageIds}
           messagesById={chat.messagesById}
+          operation={chat.operation}
+          removeQueuedMessage={chat.removeQueuedMessage}
+          removingQueuedMessageId={chat.removingQueuedMessageId}
           runItemIdsByRunId={chat.runItemIdsByRunId}
           runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
           runItemOutputsById={chat.runItemOutputsById}
           runItemsById={chat.runItemsById}
           searchOpen={searchOpen}
+          sendSteeringImmediately={chat.sendSteeringImmediately}
           setSearchOpen={setSearchOpen}
           submitApproval={chat.submitApproval}
           transcript={chat.transcript}
@@ -376,6 +377,47 @@ function ChatError({ message }: { message: string | null }) {
   );
 }
 
+function composerDisabled(disabledOverride: boolean | undefined, selected: boolean, busy: boolean) {
+  if (disabledOverride !== undefined) {
+    return disabledOverride;
+  }
+  return !selected || busy;
+}
+
+function isModelPickerOpen(modelPicker: ChatCommandExecuteResult | null) {
+  return modelPicker?.result.action === "model_picker";
+}
+
+function canSendComposerDraft(disabled: boolean, draftText: string) {
+  return !disabled && draftText !== "";
+}
+
+function canSendImmediateSteeringDraft({
+  disabled,
+  draftText,
+  hasPendingSteering,
+  running,
+  slashDraft,
+}: {
+  disabled: boolean;
+  draftText: string;
+  hasPendingSteering: boolean;
+  running: boolean;
+  slashDraft: boolean;
+}) {
+  return running && !disabled && !slashDraft && (draftText !== "" || hasPendingSteering);
+}
+
+function completedCommandDraft(
+  selectedSuggestion: ChatCommandCapability | null,
+  draftText: string,
+) {
+  if (!selectedSuggestion || draftText === selectedSuggestion.name) {
+    return "";
+  }
+  return selectedSuggestion.name + " ";
+}
+
 function Composer({
   busy,
   chat,
@@ -402,10 +444,21 @@ function Composer({
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
-  const disabled = disabledOverride ?? (!selected || busy);
+  const disabled = composerDisabled(disabledOverride, selected, busy);
   const slashDraft = isSlashDraft(draft);
+  const draftText = draft.trim();
   const suggestions = commandSuggestions(commands, draft);
   const selectedSuggestion = suggestions[0] ?? null;
+  const hasPendingSteering = chat.pendingSteeringMessageIds.length > 0;
+  const modelPickerOpen = isModelPickerOpen(modelPicker);
+  const canSend = canSendComposerDraft(disabled, draftText);
+  const canSendImmediately = canSendImmediateSteeringDraft({
+    disabled,
+    draftText,
+    hasPendingSteering,
+    running,
+    slashDraft,
+  });
 
   useEffect(() => {
     if (!chat.selectedConversation) {
@@ -524,6 +577,13 @@ function Composer({
     }
   }
 
+  function completeCommand() {
+    const completed = completedCommandDraft(selectedSuggestion, draftText);
+    if (completed) {
+      updateDraft(completed);
+    }
+  }
+
   async function queueDraft() {
     const prompt = draft.trim();
     if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
@@ -536,6 +596,27 @@ function Composer({
     try {
       setDraft("");
       await chat.queueMessage(prompt);
+    } finally {
+      submittingRef.current = false;
+    }
+  }
+
+  async function sendImmediateSteering() {
+    const prompt = draft.trim();
+    if (
+      slashDraft ||
+      !running ||
+      !chat.selectedConversation ||
+      disabled ||
+      submittingRef.current ||
+      (prompt === "" && !hasPendingSteering)
+    ) {
+      return;
+    }
+    submittingRef.current = true;
+    try {
+      await chat.sendSteeringImmediately(prompt === "" ? undefined : prompt);
+      setDraft("");
     } finally {
       submittingRef.current = false;
     }
@@ -580,16 +661,15 @@ function Composer({
               onChange={(event) => updateDraft(event.target.value)}
               onKeyDown={(event) => {
                 handleComposerKeyDown(event, {
-                  completeCommand: () => {
-                    if (selectedSuggestion && draft.trim() !== selectedSuggestion.name) {
-                      updateDraft(selectedSuggestion.name + " ");
-                    }
-                  },
+                  completeCommand,
+                  draftEmpty: draftText === "",
                   dismissModelPicker,
-                  modelPickerOpen: modelPicker?.result.action === "model_picker",
+                  hasPendingSteering,
+                  modelPickerOpen,
                   queueDraft,
                   running,
                   sendDraft,
+                  sendImmediateSteering,
                   slashDraft,
                   stopRun: chat.stopActiveRun,
                 });
@@ -603,10 +683,12 @@ function Composer({
           <div className="mt-1 flex min-w-0 items-center justify-end gap-1.5">
             <div className="flex min-w-0 items-center gap-1">
               <ComposerButton
-                canSend={!disabled && draft.trim() !== ""}
+                canSend={canSend}
                 chat={chat}
+                canSendImmediately={canSendImmediately}
                 queueDraft={queueDraft}
                 running={running}
+                sendImmediateSteering={sendImmediateSteering}
               />
             </div>
           </div>
@@ -911,141 +993,14 @@ function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible
   );
 }
 
-interface ComposerKeyActions {
-  completeCommand: () => void;
-  dismissModelPicker: () => void;
-  modelPickerOpen: boolean;
-  queueDraft: () => Promise<void>;
-  running: boolean;
-  sendDraft: () => Promise<void>;
-  slashDraft: boolean;
-  stopRun: () => Promise<void>;
-}
-
-export function handleComposerKeyDown(
-  event: KeyboardEvent<HTMLTextAreaElement>,
-  actions: ComposerKeyActions,
-) {
-  if (isDismissShortcut(event, actions.modelPickerOpen)) {
-    event.preventDefault();
-    actions.dismissModelPicker();
-    return;
-  }
-  if (isQueueShortcut(event)) {
-    event.preventDefault();
-    if (actions.slashDraft) {
-      actions.completeCommand();
-      return;
-    }
-    void actions.queueDraft();
-    return;
-  }
-  if (isStopShortcut(event, actions.running)) {
-    event.preventDefault();
-    void actions.stopRun();
-    return;
-  }
-  if (!isSubmitShortcut(event)) {
-    return;
-  }
-  event.preventDefault();
-  void actions.sendDraft();
-}
-
-function isDismissShortcut(event: KeyboardEvent<HTMLTextAreaElement>, modelPickerOpen: boolean) {
-  return modelPickerOpen && event.key === "Escape";
-}
-
-function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
-  return event.key === "Tab" && !event.nativeEvent.isComposing;
-}
-
-function isStopShortcut(event: KeyboardEvent<HTMLTextAreaElement>, running: boolean) {
-  return running && event.key === "c" && event.ctrlKey && !hasTextSelection(event.currentTarget);
-}
-
-function isSubmitShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
-  return (
-    event.key === "Enter" && !event.shiftKey && !event.altKey && !event.nativeEvent.isComposing
-  );
-}
-
-function hasTextSelection(textarea: HTMLTextAreaElement) {
-  return textarea.selectionStart !== textarea.selectionEnd;
-}
-
-export function ComposerButton({
-  canSend,
-  chat,
-  queueDraft,
-  running,
-}: {
-  canSend: boolean;
-  chat: {
-    operation: string | null;
-    stopActiveRun: () => Promise<void>;
-  };
-  queueDraft: () => Promise<void>;
-  running: boolean;
-}) {
-  if (running) {
-    return (
-      <div className="flex items-center gap-1">
-        <Button
-          aria-label="Send steering message"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
-          disabled={!canSend}
-          title="Send steering message"
-          type="submit"
-          variant="primary"
-        >
-          <ArrowUp className="h-4 w-4" />
-        </Button>
-        <Button
-          aria-label="Queue follow-up"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
-          disabled={!canSend || chat.operation === "queueing"}
-          onClick={() => void queueDraft()}
-          title="Queue follow-up"
-          type="button"
-          variant="secondary"
-        >
-          <MessageSquarePlus className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          aria-label="Stop run"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
-          disabled={chat.operation === "cancelling"}
-          onClick={() => void chat.stopActiveRun()}
-          title="Stop run"
-          type="button"
-          variant="secondary"
-        >
-          <Square className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-    );
-  }
-  return (
-    <Button
-      aria-label="Send message"
-      className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
-      disabled={!canSend}
-      title="Send message"
-      type="submit"
-      variant="primary"
-    >
-      <ArrowUp className="h-4 w-4" />
-    </Button>
-  );
-}
-
 export function useChatViewState(workspaceId: string | null) {
   const activeRun = useChatStore((state) => state.activeRun);
   const conversations = useChatStore((state) => state.conversations);
   const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
+  const editQueuedMessage = useChatStore((state) => state.editQueuedMessage);
+  const editingQueuedMessageId = useChatStore((state) => state.editingQueuedMessageId);
   const error = useChatStore((state) => state.error);
   const executeCommand = useChatStore((state) => state.executeCommand);
   const diagnostics = useChatStore((state) => state.diagnostics);
@@ -1060,6 +1015,8 @@ export function useChatViewState(workspaceId: string | null) {
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
   const queueMessage = useChatStore((state) => state.queueMessage);
+  const removeQueuedMessage = useChatStore((state) => state.removeQueuedMessage);
+  const removingQueuedMessageId = useChatStore((state) => state.removingQueuedMessageId);
   const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
@@ -1072,6 +1029,7 @@ export function useChatViewState(workspaceId: string | null) {
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
+  const sendSteeringImmediately = useChatStore((state) => state.sendSteeringImmediately);
   const setCodexModel = useChatStore((state) => state.setCodexModel);
   const setCodexReasoningEffort = useChatStore((state) => state.setCodexReasoningEffort);
   const status = useChatStore((state) => state.status);
@@ -1081,6 +1039,16 @@ export function useChatViewState(workspaceId: string | null) {
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcript = useChatStore((state) => state.transcript);
   const unreadConversationIds = useChatStore((state) => state.unreadConversationIds);
+  const pendingSteeringMessageIds = activeRun
+    ? messages
+        .filter(
+          (message) =>
+            message.delivery === "steering" &&
+            message.status === "pending" &&
+            message.runId === activeRun.id,
+        )
+        .map((message) => message.id)
+    : [];
 
   useEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
@@ -1096,6 +1064,8 @@ export function useChatViewState(workspaceId: string | null) {
     createConversation,
     createWorkspaceConversation,
     diagnostics,
+    editQueuedMessage,
+    editingQueuedMessageId,
     error,
     executeCommand,
     goal,
@@ -1107,7 +1077,10 @@ export function useChatViewState(workspaceId: string | null) {
     messages,
     messagesById,
     operation,
+    pendingSteeringMessageIds,
     queueMessage,
+    removeQueuedMessage,
+    removingQueuedMessageId,
     runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
@@ -1118,6 +1091,7 @@ export function useChatViewState(workspaceId: string | null) {
     selectConversation,
     selectedConversation,
     sendMessage,
+    sendSteeringImmediately,
     setCodexModel,
     setCodexReasoningEffort,
     status,

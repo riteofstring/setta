@@ -26,10 +26,13 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
+      draftEmpty: false,
       dismissModelPicker: vi.fn(),
+      hasPendingSteering: false,
       modelPickerOpen: false,
       queueDraft,
       running: false,
+      sendImmediateSteering: vi.fn(),
       sendDraft,
       slashDraft: false,
       stopRun,
@@ -47,10 +50,13 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
+      draftEmpty: false,
       dismissModelPicker: vi.fn(),
+      hasPendingSteering: false,
       modelPickerOpen: false,
       queueDraft: vi.fn(),
       running: false,
+      sendImmediateSteering: vi.fn(),
       sendDraft,
       slashDraft: false,
       stopRun: vi.fn(),
@@ -66,10 +72,13 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
+      draftEmpty: false,
       dismissModelPicker: vi.fn(),
+      hasPendingSteering: false,
       modelPickerOpen: false,
       queueDraft: vi.fn(),
       running: true,
+      sendImmediateSteering: vi.fn(),
       sendDraft: vi.fn(),
       slashDraft: false,
       stopRun,
@@ -86,10 +95,13 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand,
+      draftEmpty: false,
       dismissModelPicker: vi.fn(),
+      hasPendingSteering: false,
       modelPickerOpen: false,
       queueDraft,
       running: false,
+      sendImmediateSteering: vi.fn(),
       sendDraft: vi.fn(),
       slashDraft: true,
       stopRun: vi.fn(),
@@ -106,10 +118,13 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
+      draftEmpty: true,
       dismissModelPicker,
+      hasPendingSteering: true,
       modelPickerOpen: true,
       queueDraft: vi.fn(),
       running: false,
+      sendImmediateSteering: vi.fn(),
       sendDraft: vi.fn(),
       slashDraft: false,
       stopRun: vi.fn(),
@@ -117,6 +132,28 @@ describe("composer keyboard behavior", () => {
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(dismissModelPicker).toHaveBeenCalledOnce();
+  });
+
+  test("sends pending steering immediately on Escape when the composer is empty", () => {
+    const event = keyboardEvent("Escape");
+    const sendImmediateSteering = vi.fn();
+
+    handleComposerKeyDown(event, {
+      completeCommand: vi.fn(),
+      draftEmpty: true,
+      dismissModelPicker: vi.fn(),
+      hasPendingSteering: true,
+      modelPickerOpen: false,
+      queueDraft: vi.fn(),
+      running: true,
+      sendImmediateSteering,
+      sendDraft: vi.fn(),
+      slashDraft: false,
+      stopRun: vi.fn(),
+    });
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(sendImmediateSteering).toHaveBeenCalledOnce();
   });
 });
 
@@ -310,9 +347,11 @@ describe("composer controls", () => {
     const html = renderToString(
       <ComposerButton
         canSend
+        canSendImmediately={false}
         chat={composerButtonChat()}
         queueDraft={async () => {}}
         running={false}
+        sendImmediateSteering={async () => {}}
       />,
     );
 
@@ -323,11 +362,19 @@ describe("composer controls", () => {
 
   test("shows separate steering queue and stop controls while running", () => {
     const html = renderToString(
-      <ComposerButton canSend chat={composerButtonChat()} queueDraft={async () => {}} running />,
+      <ComposerButton
+        canSend
+        canSendImmediately
+        chat={composerButtonChat()}
+        queueDraft={async () => {}}
+        running
+        sendImmediateSteering={async () => {}}
+      />,
     );
 
     expect(html).toContain("Send steering message");
     expect(html).toContain("Queue follow-up");
+    expect(html).toContain("Interrupt and send pending steering");
     expect(html).toContain("Stop run");
   });
 });

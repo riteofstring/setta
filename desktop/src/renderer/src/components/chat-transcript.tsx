@@ -29,12 +29,22 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { MarkdownText } from "./markdown-text";
 import { RunActivityRows } from "./chat-run-activity";
+import {
+  canSaveQueuedEdit,
+  isPendingSteeringMessage,
+  isQueuedEditableMessage,
+  MessageRowActions,
+  QueuedMessageEditor,
+  type TranscriptRowActions,
+} from "./chat-transcript-row-actions";
 import { StructuredInputApproval } from "./structured-input-approval";
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
+  editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
+  editingQueuedMessageId: string | null;
   hasMoreOlder: boolean;
   loadOlder: () => Promise<void>;
   loadRunItemOutput: (
@@ -45,12 +55,16 @@ export interface ChatTranscriptProps {
   ) => Promise<void>;
   messageIds: string[];
   messagesById: Record<string, ChatMessage>;
+  operation: string | null;
+  removeQueuedMessage: (messageId: string) => Promise<void>;
+  removingQueuedMessageId: string | null;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
   runItemsById: Record<string, RunItem>;
   searchOpen?: boolean;
+  sendSteeringImmediately: (prompt?: string) => Promise<void>;
   setSearchOpen?: (open: boolean) => void;
   submitApproval: (
     approvalId: string,
@@ -181,17 +195,23 @@ type SubmitApproval = ChatTranscriptProps["submitApproval"];
 
 export function ChatTranscript({
   activeRun,
+  editQueuedMessage,
+  editingQueuedMessageId,
   hasMoreOlder,
   loadOlder,
   loadRunItemOutput,
   messageIds,
   messagesById,
+  operation,
+  removeQueuedMessage,
+  removingQueuedMessageId,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
   runItemOutputsById,
   runItemsById,
   searchOpen = false,
+  sendSteeringImmediately,
   setSearchOpen = () => {},
   submitApproval,
   transcript: backendTranscript,
@@ -230,6 +250,15 @@ export function ChatTranscript({
     timeline,
     virtuosoRef,
   });
+  const rowActions: TranscriptRowActions = {
+    activeRun,
+    editQueuedMessage,
+    editingQueuedMessageId,
+    operation,
+    removeQueuedMessage,
+    removingQueuedMessageId,
+    sendSteeringImmediately,
+  };
 
   useEffect(() => {
     if (!pinned) {
@@ -308,6 +337,7 @@ export function ChatTranscript({
                 loadRunItemOutput={loadRunItemOutput}
                 activeSearchMessageId={search.activeMessageId}
                 message={item.message}
+                rowActions={rowActions}
                 runItemIdsByRunId={transcript.runItemIdsByRunId}
                 runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
                 runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -326,6 +356,7 @@ export function ChatTranscript({
               runItemOutputsById={transcript.runItemOutputsById}
               runItemsById={transcript.runItemsById}
               turn={item.turn}
+              rowActions={rowActions}
             />
           );
         }}
@@ -659,6 +690,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
   activeSearchMessageId,
   turn,
   loadRunItemOutput,
+  rowActions,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
@@ -673,6 +705,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
+  rowActions: TranscriptRowActions;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
@@ -691,6 +724,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
           loadRunItemOutput={loadRunItemOutput}
           activeSearchMessageId={activeSearchMessageId}
           message={turn.triggerMessage}
+          rowActions={rowActions}
           runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -704,6 +738,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
           loadRunItemOutput={loadRunItemOutput}
           activeSearchMessageId={activeSearchMessageId}
           message={message}
+          rowActions={rowActions}
           runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -716,6 +751,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
           loadRunItemOutput={loadRunItemOutput}
           activeSearchMessageId={activeSearchMessageId}
           message={turn.assistantMessage}
+          rowActions={rowActions}
           runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -731,6 +767,7 @@ const MessageRow = memo(function MessageRow({
   activeSearchMessageId,
   message,
   loadRunItemOutput,
+  rowActions,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
@@ -745,6 +782,7 @@ const MessageRow = memo(function MessageRow({
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
+  rowActions: TranscriptRowActions;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
@@ -752,6 +790,46 @@ const MessageRow = memo(function MessageRow({
   runItemsById: Record<string, RunItem>;
 }) {
   const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
+  const [editMode, setEditMode] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [draft, setDraft] = useState(chatMessageText(message));
+  const queuedEditable = isQueuedEditableMessage(message);
+  const pendingSteering = isPendingSteeringMessage(message, rowActions.activeRun);
+  const rowBusy =
+    (rowActions.operation === "editingQueued" &&
+      rowActions.editingQueuedMessageId === message.id) ||
+    (rowActions.operation === "removingQueued" &&
+      rowActions.removingQueuedMessageId === message.id);
+
+  useEffect(() => {
+    if (!queuedEditable) {
+      setEditMode(false);
+      setConfirmRemove(false);
+    }
+  }, [queuedEditable]);
+
+  useEffect(() => {
+    if (!editMode) {
+      setDraft(chatMessageText(message));
+    }
+  }, [editMode, message]);
+
+  async function saveQueuedEdit() {
+    if (!canSaveQueuedEdit(message, draft, rowBusy)) {
+      return;
+    }
+    await rowActions.editQueuedMessage(message.id, draft);
+    setEditMode(false);
+  }
+
+  async function removeQueued() {
+    if (rowBusy) {
+      return;
+    }
+    await rowActions.removeQueuedMessage(message.id);
+    setConfirmRemove(false);
+  }
+
   return (
     <div
       className={messageRowClass(message, message.id === activeSearchMessageId)}
@@ -762,7 +840,33 @@ const MessageRow = memo(function MessageRow({
       data-testid={messageRowTestId(message)}
     >
       <div className={messageContainerClass(message)}>
-        <MessageContent message={message} />
+        <MessageRowActions
+          confirmRemove={confirmRemove}
+          draft={draft}
+          editMode={editMode}
+          message={message}
+          pendingSteering={pendingSteering}
+          queuedEditable={queuedEditable}
+          rowActions={rowActions}
+          rowBusy={rowBusy}
+          saveQueuedEdit={saveQueuedEdit}
+          setConfirmRemove={setConfirmRemove}
+          setDraft={setDraft}
+          setEditMode={setEditMode}
+          removeQueued={removeQueued}
+        />
+        {editMode ? (
+          <QueuedMessageEditor
+            draft={draft}
+            message={message}
+            rowBusy={rowBusy}
+            saveQueuedEdit={saveQueuedEdit}
+            setDraft={setDraft}
+            setEditMode={setEditMode}
+          />
+        ) : (
+          <MessageContent message={message} />
+        )}
         <UserDeliveryBadge message={message} />
         <MessageStatus message={message} />
         {itemRows.length > 0 ? (
@@ -841,9 +945,7 @@ function UserDeliveryBadge({ message }: { message: ChatMessage }) {
   if (message.role !== "user" || message.delivery === "normal") {
     return null;
   }
-  return (
-    <div className="mt-2 text-xs font-medium opacity-80">{deliveryLabel(message.delivery)}</div>
-  );
+  return <div className="mt-2 text-xs font-medium opacity-80">{deliveryLabel(message)}</div>;
 }
 
 function MessageStatus({ message }: { message: ChatMessage }) {
@@ -873,8 +975,14 @@ function messageContainerClass(message: ChatMessage) {
     : assistantMessageContainerClassByRole[message.role];
 }
 
-function deliveryLabel(delivery: Exclude<MessageDelivery, "normal">) {
-  return deliveryLabelByDelivery[delivery];
+function deliveryLabel(message: ChatMessage) {
+  if (message.delivery === "normal") {
+    return "";
+  }
+  if (message.delivery === "steering" && message.status === "pending") {
+    return "Steering pending";
+  }
+  return deliveryLabelByDelivery[message.delivery];
 }
 
 function ApprovalCard({

@@ -669,6 +669,31 @@ type SteerMessageResult struct {
 	Page         MessagePage  `json:"page"`
 }
 
+type QueueEditResult struct {
+	Conversation Conversation `json:"conversation"`
+	UserMessage  ChatMessage  `json:"userMessage"`
+	Run          Run          `json:"run"`
+	Queue        QueueState   `json:"queue"`
+	Page         MessagePage  `json:"page"`
+}
+
+type QueueRemoveResult struct {
+	Conversation     Conversation `json:"conversation"`
+	RemovedMessageID string       `json:"removedMessageId"`
+	RemovedRunID     string       `json:"removedRunId"`
+	Queue            QueueState   `json:"queue"`
+	Page             MessagePage  `json:"page"`
+}
+
+type ImmediateSteeringResult struct {
+	Conversation               Conversation `json:"conversation"`
+	CancelledRun               Run          `json:"cancelledRun"`
+	ReplayedSteeringMessageIDs []string     `json:"replayedSteeringMessageIds"`
+	ActiveRun                  Run          `json:"activeRun"`
+	Queue                      QueueState   `json:"queue"`
+	Page                       MessagePage  `json:"page"`
+}
+
 func (approval ApprovalRequest) MarshalJSON() ([]byte, error) {
 	type approvalAlias ApprovalRequest
 	if approval.Options == nil {

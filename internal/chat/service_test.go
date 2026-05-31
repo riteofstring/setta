@@ -625,14 +625,21 @@ func TestServiceSteeringPersistsMessageAndCallsHarness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("steer active: %v", err)
 	}
-	if result.UserMessage.Delivery != MessageDeliverySteering || result.UserMessage.Status != MessageStatusComplete {
-		t.Fatalf("steering message = %+v, want complete steering", result.UserMessage)
+	if result.UserMessage.Delivery != MessageDeliverySteering || result.UserMessage.Status != MessageStatusPending {
+		t.Fatalf("steering message = %+v, want pending steering", result.UserMessage)
 	}
 	requests := harness.SteeringRequests()
 	if len(requests) != 1 || requests[0].Text != "S1" || requests[0].TurnID != "turn_fake" {
 		t.Fatalf("steering requests = %+v, want S1 for active turn", requests)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+	committed, err := service.store.LoadMessageByID("workspace_api", conversation.ID, result.UserMessage.ID)
+	if err != nil {
+		t.Fatalf("load steering message: %v", err)
+	}
+	if committed.Status != MessageStatusComplete {
+		t.Fatalf("committed steering status = %s, want complete", committed.Status)
+	}
 }
 
 func TestServiceSteeringRequiresStartedTurn(t *testing.T) {

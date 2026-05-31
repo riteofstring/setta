@@ -28,6 +28,7 @@ type scriptedWorkflowFixture struct {
 
 var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow hold for queue and steering", Run: (*ScriptedWorkflowHarness).workflowTurn},
+	{Prompt: "immediate replay workflow", Run: (*ScriptedWorkflowHarness).workflowTurn},
 	{Prompt: "queued follow-up from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up one from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up two from active run", Run: scriptedQueuedReply},

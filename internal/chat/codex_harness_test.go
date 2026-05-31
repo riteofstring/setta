@@ -1058,6 +1058,10 @@ func (sink *recordingSink) ThreadLinked(threadID string, _ string, turnID string
 	return nil
 }
 
+func (sink *recordingSink) UserMessageCommitted(string) error {
+	return nil
+}
+
 func (sink *recordingSink) Trace(string, string) error {
 	return nil
 }

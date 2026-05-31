@@ -29,12 +29,15 @@ type ChatOperation =
   | "approving"
   | "cancelling"
   | "creating"
+  | "editingQueued"
   | "commanding"
   | "loading"
   | "loadingOlder"
   | "queueing"
+  | "removingQueued"
   | "refreshing"
   | "sending"
+  | "sendingSteeringImmediately"
   | "steering"
   | null;
 
@@ -51,6 +54,8 @@ export interface ChatStore {
   conversations: ConversationListItem[];
   corruption: CorruptionSummary;
   diagnostics: Diagnostic[];
+  editingQueuedMessageId: string | null;
+  editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
   error: string | null;
   goal: ChatGoalState | null;
   hasMoreOlder: boolean;
@@ -73,6 +78,8 @@ export interface ChatStore {
   operation: ChatOperation;
   queuedRuns: QueuedRun[];
   queueMessage: (prompt: string) => Promise<void>;
+  removeQueuedMessage: (messageId: string) => Promise<void>;
+  removingQueuedMessageId: string | null;
   executeCommand: (
     raw: string,
     options?: ChatCommandExecutionOptions,
@@ -93,6 +100,7 @@ export interface ChatStore {
   selectedConversation: Conversation | null;
   selectConversation: (conversationId: string) => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
+  sendSteeringImmediately: (prompt?: string) => Promise<void>;
   status: ChatStatus;
   steerMessage: (prompt: string) => Promise<void>;
   stopActiveRun: () => Promise<void>;
@@ -115,6 +123,7 @@ export type ChatPatch = Partial<
     | "conversations"
     | "corruption"
     | "diagnostics"
+    | "editingQueuedMessageId"
     | "error"
     | "goal"
     | "hasMoreOlder"
@@ -126,6 +135,7 @@ export type ChatPatch = Partial<
     | "olderBeforeOrdinal"
     | "operation"
     | "queuedRuns"
+    | "removingQueuedMessageId"
     | "runItemIdsByRunId"
     | "runItemOutputIdsByRunItemId"
     | "runItemOutputPagesByRunItemId"
@@ -194,7 +204,40 @@ export const useChatStore = create<ChatStore>((set, get) => {
     conversations: [],
     corruption: emptyCorruption,
     diagnostics: [],
+    editingQueuedMessageId: null,
     goal: null,
+    editQueuedMessage: async (messageId: string, prompt: string) => {
+      const { activeRun, selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        return;
+      }
+      const operationId = beginOperation({
+        editingQueuedMessageId: messageId,
+        error: null,
+        operation: "editingQueued",
+      });
+      try {
+        const result = await window.setta.chat.editQueuedMessage(
+          workspaceId,
+          selectedConversation.id,
+          messageId,
+          prompt,
+        );
+        commitCurrentFromState(operationId, (current) => ({
+          ...operationPagePatch(current, result.page, result.run, activeRun),
+          editingQueuedMessageId: null,
+          operation: null,
+          selectedConversation: result.conversation,
+          status: "ready",
+        }));
+      } catch (error) {
+        commitCurrent(operationId, {
+          ...errorPatch(error),
+          editingQueuedMessageId: null,
+        });
+        throw error;
+      }
+    },
     createConversation: async (title = "") => {
       const workspaceId = get().workspaceId;
       if (!workspaceId) {
@@ -364,6 +407,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         error: null,
         corruption: emptyCorruption,
         diagnostics: [],
+        editingQueuedMessageId: null,
         hasMoreOlder: false,
         goal: null,
         messages: [],
@@ -373,6 +417,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         runItemOutputs: [],
         runItems: [],
         queuedRuns: [],
+        removingQueuedMessageId: null,
         selectedConversation: null,
         status: "loading",
         transcript: [],
@@ -394,6 +439,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
+        throw error;
       }
     },
     lastEventSequence: 0,
@@ -426,6 +472,38 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operationId, errorPatch(error));
       }
     },
+    removeQueuedMessage: async (messageId: string) => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        return;
+      }
+      const operationId = beginOperation({
+        error: null,
+        operation: "removingQueued",
+        removingQueuedMessageId: messageId,
+      });
+      try {
+        const result = await window.setta.chat.removeQueuedMessage(
+          workspaceId,
+          selectedConversation.id,
+          messageId,
+        );
+        commitCurrentFromState(operationId, (current) => ({
+          ...pagePatch(result.page, activeRunFromPage(result.page) ?? current.activeRun),
+          operation: null,
+          removingQueuedMessageId: null,
+          selectedConversation: result.conversation,
+          status: "ready",
+        }));
+      } catch (error) {
+        commitCurrent(operationId, {
+          ...errorPatch(error),
+          removingQueuedMessageId: null,
+        });
+        throw error;
+      }
+    },
+    removingQueuedMessageId: null,
     executeCommand: async (raw: string, options?: ChatCommandExecutionOptions) => {
       const { activeRun, selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
@@ -580,6 +658,29 @@ export const useChatStore = create<ChatStore>((set, get) => {
         }));
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
+      }
+    },
+    sendSteeringImmediately: async (prompt?: string) => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        return;
+      }
+      const operationId = beginOperation({ error: null, operation: "sendingSteeringImmediately" });
+      try {
+        const result = await window.setta.chat.sendSteeringImmediately(
+          workspaceId,
+          selectedConversation.id,
+          prompt ?? "",
+        );
+        commitCurrentFromState(operationId, (current) => ({
+          ...operationPagePatch(current, result.page, result.activeRun, null),
+          operation: null,
+          selectedConversation: result.conversation,
+          status: "ready",
+        }));
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+        throw error;
       }
     },
     status: "idle",
@@ -863,11 +964,13 @@ function mergeOperationMessages(
 function emptyConversationPatch(): ChatPatch {
   return normalizeChatPatch({
     activeRun: null,
+    editingQueuedMessageId: null,
     goal: null,
     hasMoreOlder: false,
     messages: [],
     olderBeforeOrdinal: 0,
     queuedRuns: [],
+    removingQueuedMessageId: null,
     runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItems: [],

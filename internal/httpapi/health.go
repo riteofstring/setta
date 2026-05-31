@@ -89,10 +89,29 @@ type QueueChatMessageRequest struct {
 	Prompt         string `json:"prompt"`
 }
 
+type EditQueuedChatMessageRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	MessageID      string `json:"messageId"`
+	Prompt         string `json:"prompt"`
+}
+
+type RemoveQueuedChatMessageRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	MessageID      string `json:"messageId"`
+}
+
 type SteerChatMessageRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 	Prompt         string `json:"prompt"`
+}
+
+type SendSteeringImmediatelyRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	Prompt         string `json:"prompt,omitempty"`
 }
 
 type ListChatCommandsRequest struct {
@@ -207,9 +226,12 @@ type ChatService interface {
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
 	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
+	EditQueuedMessage(workspaceID string, conversationID string, messageID string, prompt string) (chat.QueueEditResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
+	RemoveQueuedMessage(workspaceID string, conversationID string, messageID string) (chat.QueueRemoveResult, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
+	SendSteeringImmediately(workspaceID string, conversationID string, prompt string) (chat.ImmediateSteeringResult, error)
 	SetChatCodexModel(workspaceID string, conversationID string, modelID string) (chat.ChatCommandExecuteResult, error)
 	SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort chat.ReasoningEffort) (chat.ChatCommandExecuteResult, error)
 	SteerActiveRun(workspaceID string, conversationID string, prompt string) (chat.SteerMessageResult, error)
@@ -441,6 +463,40 @@ func (handler handler) queueChatMessage(response http.ResponseWriter, request *h
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) editQueuedChatMessage(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload EditQueuedChatMessageRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.EditQueuedMessage(payload.WorkspaceID, payload.ConversationID, payload.MessageID, payload.Prompt)
+	if err != nil {
+		writeChatError(response, "edit_queued_chat_message_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) removeQueuedChatMessage(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload RemoveQueuedChatMessageRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.RemoveQueuedMessage(payload.WorkspaceID, payload.ConversationID, payload.MessageID)
+	if err != nil {
+		writeChatError(response, "remove_queued_chat_message_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) steerChatMessage(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -453,6 +509,23 @@ func (handler handler) steerChatMessage(response http.ResponseWriter, request *h
 	result, err := service.SteerActiveRun(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
 	if err != nil {
 		writeChatError(response, "steer_chat_message_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) sendSteeringImmediately(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload SendSteeringImmediatelyRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SendSteeringImmediately(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
+	if err != nil {
+		writeChatError(response, "send_steering_immediately_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
@@ -862,6 +935,10 @@ func writeChatError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
 	if commandErr, ok := chat.IsChatCommandError(err); ok {
 		writeError(response, status, string(commandErr.Code), commandErr.Error())
+		return
+	}
+	if operationErr, ok := chat.IsChatOperationError(err); ok {
+		writeError(response, http.StatusConflict, string(operationErr.Code), operationErr.Error())
 		return
 	}
 	if chat.IsCorruptStateError(err) {
