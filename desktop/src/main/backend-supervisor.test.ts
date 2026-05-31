@@ -31,6 +31,7 @@ describe("startSpawnedBackend", () => {
           "setInterval(() => {}, 1000)",
         ].join(";"),
       ],
+      authToken: "test-token",
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
@@ -38,6 +39,7 @@ describe("startSpawnedBackend", () => {
     });
 
     expect(handle.mode).toBe("spawned");
+    expect(handle.token).toBe("test-token");
     expect(handle.url).toBe("http://127.0.0.1:41000");
     expect(handle.recentLogs()).toContain("stderr log");
     expect(handle.recentLogs()).toContain("stdout log");
@@ -55,6 +57,7 @@ describe("startSpawnedBackend", () => {
           "setInterval(() => {}, 1000)",
         ].join(";"),
       ],
+      authToken: "test-token",
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
@@ -88,6 +91,7 @@ describe("startSpawnedBackend", () => {
               "setInterval(() => {}, 1000)",
             ].join(";"),
           ],
+          authToken: "test-token",
           command: process.execPath,
           cwd: process.cwd(),
           env: process.env,
@@ -111,6 +115,7 @@ describe("startSpawnedBackend", () => {
             "process.exit(1)",
           ].join(";"),
         ],
+        authToken: "test-token",
         command: process.execPath,
         cwd: process.cwd(),
         env: process.env,
@@ -134,6 +139,7 @@ describe("startSpawnedBackend", () => {
           "setTimeout(() => process.exit(12), 20)",
         ].join(";"),
       ],
+      authToken: "test-token",
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,

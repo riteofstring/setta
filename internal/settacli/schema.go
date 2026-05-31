@@ -186,19 +186,20 @@ func jsonField(field reflect.StructField) (string, bool, bool) {
 
 func schemaTypes() map[string]reflect.Type {
 	types := map[string]reflect.Type{
-		"AgentGuide":       reflect.TypeFor[agentGuideOutput](),
-		"AgentSkillExport": reflect.TypeFor[agentSkillExportOutput](),
-		"APIEndpoints":     reflect.TypeFor[apiEndpointsOutput](),
-		"APISchema":        reflect.TypeFor[apiSchemaOutput](),
-		"BackendStart":     reflect.TypeFor[backendStartOutput](),
-		"ChatEvent":        reflect.TypeFor[chat.Event](),
-		"CLICommandList":   reflect.TypeFor[commandsOutput](),
-		"CLIErrorEnvelope": reflect.TypeFor[errorEnvelope](),
-		"CLIErrors":        reflect.TypeFor[errorsOutput](),
-		"CLIHelp":          reflect.TypeFor[helpOutput](),
-		"CLISchema":        reflect.TypeFor[schemaOutput](),
-		"CLISuccess":       reflect.TypeFor[successEnvelope](),
-		"Version":          reflect.TypeFor[versionOutput](),
+		"AgentGuide":        reflect.TypeFor[agentGuideOutput](),
+		"AgentSkillExport":  reflect.TypeFor[agentSkillExportOutput](),
+		"APIEndpoints":      reflect.TypeFor[apiEndpointsOutput](),
+		"APISchema":         reflect.TypeFor[apiSchemaOutput](),
+		"BackendConnection": reflect.TypeFor[backendConnection](),
+		"BackendStart":      reflect.TypeFor[backendStartOutput](),
+		"ChatEvent":         reflect.TypeFor[chat.Event](),
+		"CLICommandList":    reflect.TypeFor[commandsOutput](),
+		"CLIErrorEnvelope":  reflect.TypeFor[errorEnvelope](),
+		"CLIErrors":         reflect.TypeFor[errorsOutput](),
+		"CLIHelp":           reflect.TypeFor[helpOutput](),
+		"CLISchema":         reflect.TypeFor[schemaOutput](),
+		"CLISuccess":        reflect.TypeFor[successEnvelope](),
+		"Version":           reflect.TypeFor[versionOutput](),
 	}
 	for _, endpoint := range httpapi.Contracts().Endpoints {
 		if endpoint.Request != nil {

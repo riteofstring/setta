@@ -4,13 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"setta/internal/backendconn"
 )
+
+const testAuthToken = "test-token"
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 	var stdout bytes.Buffer
@@ -35,7 +40,12 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 		t.Fatalf("ready addr = %q, want %q", ready.Addr, server.Addr())
 	}
 
-	response, err := http.Get("http://" + ready.Addr + "/health")
+	request, err := http.NewRequest(http.MethodGet, "http://"+ready.Addr+"/health", nil)
+	if err != nil {
+		t.Fatalf("create health request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+config.AuthToken)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("get health from ready addr: %v", err)
 	}
@@ -43,6 +53,35 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("health status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+}
+
+func TestStartWritesAndShutdownRemovesRuntimeConnectionFile(t *testing.T) {
+	config := testConfig(t)
+	config.Version = "test"
+
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+
+	path := backendconn.RuntimeFilePath(config.AppDataDir)
+	record, err := backendconn.ReadRuntimeFile(path)
+	if err != nil {
+		t.Fatalf("read runtime connection file: %v", err)
+	}
+	if record.SchemaVersion != backendconn.RuntimeSchemaVersion ||
+		record.Addr != "http://"+server.Addr() ||
+		record.Token != config.AuthToken ||
+		record.PID <= 0 ||
+		record.AppDataDir != config.AppDataDir ||
+		record.Version != "test" {
+		t.Fatalf("runtime connection record = %+v", record)
+	}
+
+	shutdownServer(t, server)
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("runtime connection file stat after shutdown = %v, want not exist", err)
 	}
 }
 
@@ -131,6 +170,7 @@ func testConfig(t *testing.T) Config {
 
 	config := DefaultConfig()
 	config.AppDataDir = t.TempDir()
+	config.AuthToken = testAuthToken
 	return config
 }
 

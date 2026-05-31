@@ -238,19 +238,24 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
 }
 
 export async function backendProbe(recordingDir) {
-  const baseURL = await waitForBackendURL(recordingDir);
+  const connection = await waitForBackendConnection(recordingDir);
+  const baseURL = connection.addr;
   await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
   return {
     baseURL,
-    get: (path) => backendRequest(recordingDir, baseURL, "GET", path),
-    post: (path, payload) => backendRequest(recordingDir, baseURL, "POST", path, payload),
+    get: (path) => backendRequest(recordingDir, connection, "GET", path),
+    post: (path, payload) => backendRequest(recordingDir, connection, "POST", path, payload),
   };
 }
 
-async function backendRequest(recordingDir, baseURL, method, path, payload) {
-  const response = await globalThis.fetch(baseURL + path, {
+async function backendRequest(recordingDir, connection, method, path, payload) {
+  const headers = {
+    Authorization: `Bearer ${connection.token}`,
+    ...(payload === undefined ? {} : { "Content-Type": "application/json" }),
+  };
+  const response = await globalThis.fetch(connection.addr + path, {
     body: payload === undefined ? undefined : JSON.stringify(payload),
-    headers: payload === undefined ? undefined : { "Content-Type": "application/json" },
+    headers,
     method,
   });
   const body = await response.text();
@@ -267,24 +272,59 @@ async function backendRequest(recordingDir, baseURL, method, path, payload) {
   return JSON.parse(body);
 }
 
-async function waitForBackendURL(recordingDir) {
+async function waitForBackendConnection(recordingDir) {
   const eventsPath = join(recordingDir, "events.jsonl");
   const startedAt = Date.now();
   let lastError = null;
   while (Date.now() - startedAt < pageLoadTimeoutMs) {
     try {
-      const events = await readJsonLines(eventsPath);
-      const started = events.find((entry) => entry.type === "backend_started");
-      const url = started?.payload?.url;
-      if (typeof url === "string" && url !== "") {
-        return url;
+      const connection = await readBackendConnectionFromEvents(eventsPath);
+      if (connection) {
+        return connection;
       }
     } catch (error) {
       lastError = error;
     }
     await delay(100);
   }
-  throw new Error(`backend URL was not recorded: ${lastError?.message ?? "timed out"}`);
+  throw new Error(`backend connection was not recorded: ${lastError?.message ?? "timed out"}`);
+}
+
+async function readBackendConnectionFromEvents(eventsPath) {
+  const started = recordedBackendStart(await readJsonLines(eventsPath));
+  if (!started) {
+    return null;
+  }
+  const connectionPath = join(started.appDataDir, "runtime", "backend.json");
+  const connection = JSON.parse(await readFile(connectionPath, "utf8"));
+  validateRecordedBackendConnection(connection, connectionPath, started.url);
+  return connection;
+}
+
+function recordedBackendStart(events) {
+  const started = events.find((entry) => entry.type === "backend_started");
+  const url = started?.payload?.url;
+  const appDataDir = started?.payload?.appDataDir;
+  if (
+    typeof url !== "string" ||
+    url === "" ||
+    typeof appDataDir !== "string" ||
+    appDataDir === ""
+  ) {
+    return null;
+  }
+  return { appDataDir, url };
+}
+
+function validateRecordedBackendConnection(connection, connectionPath, recordedURL) {
+  if (connection.addr !== recordedURL) {
+    throw new Error(
+      `runtime backend addr ${connection.addr} did not match recorded URL ${recordedURL}`,
+    );
+  }
+  if (typeof connection.token !== "string" || connection.token === "") {
+    throw new Error(`runtime backend connection had no token: ${connectionPath}`);
+  }
 }
 
 export async function waitForBackendState(readState, isReady, timeoutMs = workflowTimeoutMs) {

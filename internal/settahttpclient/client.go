@@ -11,14 +11,18 @@ import (
 	"net/url"
 	"time"
 
+	"setta/internal/backendconn"
 	"setta/internal/httpapi"
 )
 
 type Client struct {
+	authToken  string
 	baseURL    *url.URL
 	httpClient *http.Client
 	endpoints  map[string]httpapi.ContractEndpoint
 }
+
+type Option func(*Client)
 
 type BackendError struct {
 	StatusCode int
@@ -33,7 +37,7 @@ func (err BackendError) Error() string {
 	return fmt.Sprintf("%s: %s", err.Code, err.Message)
 }
 
-func New(baseAddr string, timeout time.Duration) (*Client, error) {
+func New(baseAddr string, timeout time.Duration, options ...Option) (*Client, error) {
 	if baseAddr == "" {
 		return nil, errors.New("backend address is required")
 	}
@@ -54,11 +58,21 @@ func New(baseAddr string, timeout time.Duration) (*Client, error) {
 	for _, endpoint := range httpapi.Contracts().Endpoints {
 		endpoints[endpoint.Name] = endpoint
 	}
-	return &Client{
+	client := &Client{
 		baseURL:    parsed,
 		httpClient: &http.Client{Timeout: timeout},
 		endpoints:  endpoints,
-	}, nil
+	}
+	for _, option := range options {
+		option(client)
+	}
+	return client, nil
+}
+
+func WithAuthToken(token string) Option {
+	return func(client *Client) {
+		client.authToken = token
+	}
 }
 
 func (client *Client) Endpoint(name string) (httpapi.ContractEndpoint, bool) {
@@ -157,6 +171,9 @@ func (client *Client) request(ctx context.Context, endpoint httpapi.ContractEndp
 	}
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
+	}
+	if client.authToken != "" {
+		request.Header.Set(backendconn.AuthHeader, backendconn.BearerToken(client.authToken))
 	}
 	return request, nil
 }

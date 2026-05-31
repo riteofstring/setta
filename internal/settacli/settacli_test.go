@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/backendconn"
 	"setta/internal/chat"
 	"setta/internal/httpapi"
 )
@@ -56,9 +60,9 @@ func TestDiscoveryCommandsDoNotRequireBackend(t *testing.T) {
 func TestJSONErrorEnvelopeGoesToStdout(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := Run([]string{"workspace", "open", t.TempDir(), "--json"}, strings.NewReader(""), &stdout, &stderr, func(string) string {
-		return ""
-	})
+	exitCode := Run([]string{"workspace", "open", t.TempDir(), "--json"}, strings.NewReader(""), &stdout, &stderr, mapEnv(map[string]string{
+		backendconn.AppDataDirEnv: t.TempDir(),
+	}))
 	if exitCode != exitBackendUnavailable {
 		t.Fatalf("exit code = %d, want %d", exitCode, exitBackendUnavailable)
 	}
@@ -77,17 +81,152 @@ func TestJSONErrorEnvelopeGoesToStdout(t *testing.T) {
 func TestHumanErrorGoesToStderr(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := Run([]string{"workspace", "open", t.TempDir()}, strings.NewReader(""), &stdout, &stderr, func(string) string {
-		return ""
-	})
+	exitCode := Run([]string{"workspace", "open", t.TempDir()}, strings.NewReader(""), &stdout, &stderr, mapEnv(map[string]string{
+		backendconn.AppDataDirEnv: t.TempDir(),
+	}))
 	if exitCode != exitBackendUnavailable {
 		t.Fatalf("exit code = %d, want %d", exitCode, exitBackendUnavailable)
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "backend address is required") {
-		t.Fatalf("stderr = %q, want backend address diagnostic", stderr.String())
+	if !strings.Contains(stderr.String(), missingBackendConnectionMessage) {
+		t.Fatalf("stderr = %q, want backend connection diagnostic", stderr.String())
+	}
+}
+
+func TestBackendConnectionResolutionPrecedence(t *testing.T) {
+	flagServer := newBackendConnectionTestServer(t, "flag-token")
+	envServer := newBackendConnectionTestServer(t, "env-token")
+	runtimeServer := newBackendConnectionTestServer(t, "runtime-token")
+	appDataDir := t.TempDir()
+	writeTestRuntimeConnection(t, appDataDir, runtimeServer.URL, "runtime-token", os.Getpid())
+
+	context := newRunContext(strings.NewReader(""), io.Discard, io.Discard, mapEnv(map[string]string{
+		backendconn.AddrEnv:       envServer.URL,
+		backendconn.TokenEnv:      "env-token",
+		backendconn.AppDataDirEnv: appDataDir,
+	}))
+	context.Globals = Globals{
+		BackendAddr:  flagServer.URL,
+		BackendToken: "flag-token",
+		Timeout:      time.Second,
+	}
+	connection, err := context.resolveBackendConnection(true)
+	if err != nil {
+		t.Fatalf("resolve flag connection: %v", err)
+	}
+	if connection.Source != "flags" || connection.Addr != flagServer.URL || !connection.Authenticated {
+		t.Fatalf("flag connection = %+v", connection)
+	}
+
+	context = newRunContext(strings.NewReader(""), io.Discard, io.Discard, mapEnv(map[string]string{
+		backendconn.AddrEnv:       envServer.URL,
+		backendconn.TokenEnv:      "env-token",
+		backendconn.AppDataDirEnv: appDataDir,
+	}))
+	context.Globals.Timeout = time.Second
+	connection, err = context.resolveBackendConnection(true)
+	if err != nil {
+		t.Fatalf("resolve env connection: %v", err)
+	}
+	if connection.Source != "environment" || connection.Addr != envServer.URL || !connection.Authenticated {
+		t.Fatalf("env connection = %+v", connection)
+	}
+
+	context = newRunContext(strings.NewReader(""), io.Discard, io.Discard, mapEnv(map[string]string{
+		backendconn.AppDataDirEnv: appDataDir,
+	}))
+	context.Globals.Timeout = time.Second
+	connection, err = context.resolveBackendConnection(true)
+	if err != nil {
+		t.Fatalf("resolve runtime connection: %v", err)
+	}
+	if connection.Source != "runtime_file" || connection.Addr != runtimeServer.URL || !connection.Authenticated {
+		t.Fatalf("runtime connection = %+v", connection)
+	}
+}
+
+func TestBackendConnectionReportsMissingRuntimeFile(t *testing.T) {
+	context := newRunContext(strings.NewReader(""), io.Discard, io.Discard, mapEnv(map[string]string{
+		backendconn.AppDataDirEnv: t.TempDir(),
+	}))
+	context.Globals.Timeout = time.Second
+
+	_, err := context.resolveBackendConnection(true)
+	if err == nil || err.Error() != missingBackendConnectionMessage {
+		t.Fatalf("missing connection error = %v, want %q", err, missingBackendConnectionMessage)
+	}
+}
+
+func TestBackendConnectionRejectsMalformedRuntimeFile(t *testing.T) {
+	appDataDir := t.TempDir()
+	path := backendconn.RuntimeFilePath(appDataDir)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("create runtime dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("{"), 0o600); err != nil {
+		t.Fatalf("write malformed runtime file: %v", err)
+	}
+	context := newRunContext(strings.NewReader(""), io.Discard, io.Discard, mapEnv(map[string]string{
+		backendconn.AppDataDirEnv: appDataDir,
+	}))
+	context.Globals.Timeout = time.Second
+
+	_, err := context.resolveBackendConnection(true)
+	if err == nil || !strings.Contains(err.Error(), "decode backend runtime file") {
+		t.Fatalf("malformed runtime error = %v, want decode diagnostic", err)
+	}
+}
+
+func TestBackendConnectionRejectsStaleRuntimePID(t *testing.T) {
+	if _, supported := backendconn.ProcessAlive(os.Getpid()); !supported {
+		t.Skip("PID liveness check is not supported on this platform")
+	}
+	server := newBackendConnectionTestServer(t, "runtime-token")
+	appDataDir := t.TempDir()
+	writeTestRuntimeConnection(t, appDataDir, server.URL, "runtime-token", 99_999_999)
+	context := newRunContext(strings.NewReader(""), io.Discard, io.Discard, mapEnv(map[string]string{
+		backendconn.AppDataDirEnv: appDataDir,
+	}))
+	context.Globals.Timeout = time.Second
+
+	_, err := context.resolveBackendConnection(true)
+	if err == nil || !strings.Contains(err.Error(), "is stale") {
+		t.Fatalf("stale runtime error = %v, want stale diagnostic", err)
+	}
+}
+
+func TestBackendConnectionRejectsWrongHostAndToken(t *testing.T) {
+	appDataDir := t.TempDir()
+	writeRawRuntimeConnection(t, appDataDir, backendconn.RuntimeFile{
+		SchemaVersion: backendconn.RuntimeSchemaVersion,
+		Addr:          "http://192.0.2.10:41000",
+		Token:         "runtime-token",
+		PID:           os.Getpid(),
+		AppDataDir:    appDataDir,
+		StartedAt:     "2026-06-03T12:00:00Z",
+		Version:       "test",
+	})
+	context := newRunContext(strings.NewReader(""), io.Discard, io.Discard, mapEnv(map[string]string{
+		backendconn.AppDataDirEnv: appDataDir,
+	}))
+	context.Globals.Timeout = time.Second
+	_, err := context.resolveBackendConnection(true)
+	if err == nil || !strings.Contains(err.Error(), "host must be loopback") {
+		t.Fatalf("wrong host error = %v, want loopback diagnostic", err)
+	}
+
+	server := newBackendConnectionTestServer(t, "right-token")
+	appDataDir = t.TempDir()
+	writeTestRuntimeConnection(t, appDataDir, server.URL, "wrong-token", os.Getpid())
+	context = newRunContext(strings.NewReader(""), io.Discard, io.Discard, mapEnv(map[string]string{
+		backendconn.AppDataDirEnv: appDataDir,
+	}))
+	context.Globals.Timeout = time.Second
+	_, err = context.resolveBackendConnection(true)
+	if err == nil || !strings.Contains(err.Error(), "backend_auth_failed") {
+		t.Fatalf("wrong token error = %v, want auth diagnostic", err)
 	}
 }
 
@@ -110,17 +249,25 @@ func TestAPIEndpointsDeriveFromHTTPRegistry(t *testing.T) {
 func TestScriptedBackendWorkflowE2E(t *testing.T) {
 	t.Setenv("SETTA_E2E", "1")
 	t.Setenv("SETTA_E2E_CHAT_HARNESS", "scripted-workflow")
+	t.Setenv(backendconn.AddrEnv, "")
+	t.Setenv(backendconn.TokenEnv, "")
 
-	started := runBackendStart(t, t.TempDir())
+	appDataDir := t.TempDir()
+	t.Setenv(backendconn.AppDataDirEnv, appDataDir)
+	started := runBackendStart(t, appDataDir)
 	stopProcess(t, started.PID)
 
-	waitForHealth(t, started.Addr)
-	opened := runJSONCommand[httpapi.OpenWorkspaceResponse](t, "", "--backend-addr", started.Addr, "workspace", "open", t.TempDir(), "--json")
+	waitForHealth(t)
+	connection := runJSONCommand[backendConnection](t, "", "backend", "connection", "--json")
+	if connection.Data.Addr != started.Addr || connection.Data.Token != "" || !connection.Data.Authenticated {
+		t.Fatalf("backend connection = %+v, want authenticated connection without token", connection.Data)
+	}
+	opened := runJSONCommand[httpapi.OpenWorkspaceResponse](t, "", "workspace", "open", t.TempDir(), "--json")
 	if opened.Data.Workspace.ID == "" {
 		t.Fatal("opened workspace ID is empty")
 	}
 
-	conversation := runJSONCommand[chat.Conversation](t, "", "--backend-addr", started.Addr, "conversation", "create", "--workspace", opened.Data.Workspace.ID, "--title", "CLI E2E", "--json")
+	conversation := runJSONCommand[chat.Conversation](t, "", "conversation", "create", "--workspace", opened.Data.Workspace.ID, "--title", "CLI E2E", "--json")
 	if conversation.Data.ID == "" {
 		t.Fatal("conversation ID is empty")
 	}
@@ -128,7 +275,6 @@ func TestScriptedBackendWorkflowE2E(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Run([]string{
-		"--backend-addr", started.Addr,
 		"--timeout", "10s",
 		"chat", "send",
 		"--workspace", opened.Data.Workspace.ID,
@@ -145,7 +291,7 @@ func TestScriptedBackendWorkflowE2E(t *testing.T) {
 		t.Fatalf("events = %+v, want completed run update", events)
 	}
 
-	page := runJSONCommand[chat.MessagePage](t, "", "--backend-addr", started.Addr, "message", "page", "--workspace", opened.Data.Workspace.ID, "--conversation", conversation.Data.ID, "--limit", "20", "--json")
+	page := runJSONCommand[chat.MessagePage](t, "", "message", "page", "--workspace", opened.Data.Workspace.ID, "--conversation", conversation.Data.ID, "--limit", "20", "--json")
 	if len(page.Data.Messages) < 2 {
 		t.Fatalf("message count = %d, want at least user and assistant", len(page.Data.Messages))
 	}
@@ -157,21 +303,80 @@ func TestLiveCodexCLIWorkflow(t *testing.T) {
 	cliLoginCodexWithAPIKey(t, codexHome, openAIKey)
 	t.Setenv("CODEX_HOME", codexHome)
 	t.Setenv("OPENAI_API_KEY", openAIKey)
+	t.Setenv(backendconn.AddrEnv, "")
+	t.Setenv(backendconn.TokenEnv, "")
 
-	started := runBackendStart(t, cliTempDirWithRetryCleanup(t, "setta-cli-live-app-data-*"))
+	appDataDir := cliTempDirWithRetryCleanup(t, "setta-cli-live-app-data-*")
+	t.Setenv(backendconn.AppDataDirEnv, appDataDir)
+	started := runBackendStart(t, appDataDir)
 	stopProcess(t, started.PID)
-	waitForHealth(t, started.Addr)
+	waitForHealth(t)
 
-	opened := runJSONCommand[httpapi.OpenWorkspaceResponse](t, "", "--backend-addr", started.Addr, "workspace", "open", t.TempDir(), "--json")
-	conversation := runJSONCommand[chat.Conversation](t, "", "--backend-addr", started.Addr, "conversation", "create", "--workspace", opened.Data.Workspace.ID, "--title", "CLI live", "--json")
-	sent := runJSONCommand[chat.SendMessageResult](t, "Reply with one short sentence about Setta CLI.", "--backend-addr", started.Addr, "chat", "send", "--workspace", opened.Data.Workspace.ID, "--conversation", conversation.Data.ID, "--prompt-file", "-", "--json")
+	opened := runJSONCommand[httpapi.OpenWorkspaceResponse](t, "", "workspace", "open", t.TempDir(), "--json")
+	conversation := runJSONCommand[chat.Conversation](t, "", "conversation", "create", "--workspace", opened.Data.Workspace.ID, "--title", "CLI live", "--json")
+	sent := runJSONCommand[chat.SendMessageResult](t, "Reply with one short sentence about Setta CLI.", "chat", "send", "--workspace", opened.Data.Workspace.ID, "--conversation", conversation.Data.ID, "--prompt-file", "-", "--json")
 	t.Cleanup(func() {
-		cancelActiveRunBestEffort(started.Addr, opened.Data.Workspace.ID, conversation.Data.ID)
+		cancelActiveRunBestEffort(opened.Data.Workspace.ID, conversation.Data.ID)
 	})
 
-	page := waitForLiveCLIReply(t, started.Addr, opened.Data.Workspace.ID, conversation.Data.ID, sent.Data.Run.ID)
+	page := waitForLiveCLIReply(t, opened.Data.Workspace.ID, conversation.Data.ID, sent.Data.Run.ID)
 	if len(page.Messages) < 2 {
 		t.Fatalf("live CLI message count = %d, want at least user and assistant", len(page.Messages))
+	}
+}
+
+func newBackendConnectionTestServer(t *testing.T, token string) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/health" {
+			http.NotFound(response, request)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		if request.Header.Get("Authorization") != backendconn.BearerToken(token) {
+			response.WriteHeader(http.StatusUnauthorized)
+			_, _ = response.Write([]byte(`{"error":{"code":"backend_auth_failed","message":"backend authorization failed"}}`))
+			return
+		}
+		_, _ = response.Write([]byte(`{"ok":true,"name":"setta-backend","version":"test"}`))
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func writeTestRuntimeConnection(t *testing.T, appDataDir string, addr string, token string, pid int) {
+	t.Helper()
+	if err := backendconn.WriteRuntimeFile(backendconn.RuntimeFile{
+		SchemaVersion: backendconn.RuntimeSchemaVersion,
+		Addr:          addr,
+		Token:         token,
+		PID:           pid,
+		AppDataDir:    appDataDir,
+		StartedAt:     "2026-06-03T12:00:00Z",
+		Version:       "test",
+	}); err != nil {
+		t.Fatalf("write runtime connection: %v", err)
+	}
+}
+
+func writeRawRuntimeConnection(t *testing.T, appDataDir string, record backendconn.RuntimeFile) {
+	t.Helper()
+	path := backendconn.RuntimeFilePath(appDataDir)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("create runtime dir: %v", err)
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatalf("marshal raw runtime connection: %v", err)
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
+		t.Fatalf("write raw runtime connection: %v", err)
+	}
+}
+
+func mapEnv(values map[string]string) func(string) string {
+	return func(name string) string {
+		return values[name]
 	}
 }
 
@@ -207,20 +412,20 @@ func runBackendStart(t *testing.T, appDataDir string) backendStartOutput {
 	return output
 }
 
-func waitForHealth(t *testing.T, addr string) {
+func waitForHealth(t *testing.T) {
 	t.Helper()
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
-		exitCode := Run([]string{"--backend-addr", addr, "health", "--json"}, strings.NewReader(""), &stdout, &stderr, os.Getenv)
+		exitCode := Run([]string{"health", "--json"}, strings.NewReader(""), &stdout, &stderr, os.Getenv)
 		if exitCode == exitSuccess {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("backend %s did not become healthy", addr)
+	t.Fatal("backend did not become healthy")
 }
 
 func stopProcess(t *testing.T, pid int) {
@@ -237,13 +442,13 @@ func stopProcess(t *testing.T, pid int) {
 	})
 }
 
-func waitForLiveCLIReply(t *testing.T, addr string, workspaceID string, conversationID string, runID string) chat.MessagePage {
+func waitForLiveCLIReply(t *testing.T, workspaceID string, conversationID string, runID string) chat.MessagePage {
 	t.Helper()
 
 	deadline := time.Now().Add(90 * time.Second)
 	var lastPage chat.MessagePage
 	for time.Now().Before(deadline) {
-		page := runJSONCommand[chat.MessagePage](t, "", "--backend-addr", addr, "message", "page", "--workspace", workspaceID, "--conversation", conversationID, "--limit", "40", "--json")
+		page := runJSONCommand[chat.MessagePage](t, "", "message", "page", "--workspace", workspaceID, "--conversation", conversationID, "--limit", "40", "--json")
 		lastPage = page.Data
 		for _, message := range page.Data.Messages {
 			if message.RunID != runID || message.Role != chat.RoleAssistant {
@@ -265,10 +470,10 @@ func waitForLiveCLIReply(t *testing.T, addr string, workspaceID string, conversa
 	return chat.MessagePage{}
 }
 
-func cancelActiveRunBestEffort(addr string, workspaceID string, conversationID string) {
+func cancelActiveRunBestEffort(workspaceID string, conversationID string) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	_ = Run([]string{"--backend-addr", addr, "run", "cancel", "--workspace", workspaceID, "--conversation", conversationID, "--confirm", "--json"}, strings.NewReader(""), &stdout, &stderr, os.Getenv)
+	_ = Run([]string{"run", "cancel", "--workspace", workspaceID, "--conversation", conversationID, "--confirm", "--json"}, strings.NewReader(""), &stdout, &stderr, os.Getenv)
 }
 
 func messageText(message chat.ChatMessage) string {

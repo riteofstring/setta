@@ -58,6 +58,7 @@ func TestWorkspaceEndpointsOpenSelectReorderCloseAndRemoveRecent(t *testing.T) {
 func TestWorkspaceSessionEndpointReturnsCurrentSession(t *testing.T) {
 	handler := newWorkspaceHandler(t, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/workspace-session", nil)
+	authorizeTestRequest(request)
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
@@ -108,6 +109,7 @@ func TestWorkspaceEndpointMapsMalformedMetadataToCorruptState(t *testing.T) {
 func TestWorkspaceEndpointRejectsMalformedJSON(t *testing.T) {
 	handler := newWorkspaceHandler(t, nil, nil)
 	request := httptest.NewRequest(http.MethodPost, "/workspaces/select", bytes.NewBufferString("{"))
+	authorizeTestRequest(request)
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
@@ -179,6 +181,7 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 		t.Fatalf("new workspace service: %v", err)
 	}
 	return NewHandler(HandlerConfig{
+		AuthToken:        testAuthToken,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: service,
 	}), filepath.Dir(store.Path())
@@ -198,6 +201,7 @@ func postRaw[T any](t *testing.T, handler http.Handler, path string, body string
 	t.Helper()
 
 	request := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(body))
+	authorizeTestRequest(request)
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)

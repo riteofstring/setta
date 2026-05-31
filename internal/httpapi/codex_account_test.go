@@ -18,6 +18,7 @@ func TestCodexAccountEndpointsReadAndLogin(t *testing.T) {
 		},
 	}
 	handler := NewHandler(HandlerConfig{
+		AuthToken:           testAuthToken,
 		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
 		CodexAccountService: service,
 	})
@@ -41,7 +42,7 @@ func TestCodexAccountEndpointsReadAndLogin(t *testing.T) {
 }
 
 func TestCodexAccountEndpointsRequireService(t *testing.T) {
-	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
+	handler := NewHandler(HandlerConfig{AuthToken: testAuthToken, Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
 	response := getJSON[ErrorResponse](t, handler, "/codex/account", http.StatusServiceUnavailable)
 	if response.Error.Code != "codex_account_service_unavailable" {
 		t.Fatalf("error code = %q, want codex_account_service_unavailable", response.Error.Code)
@@ -89,6 +90,7 @@ func getJSON[T any](t *testing.T, handler http.Handler, path string, wantStatus 
 	t.Helper()
 
 	request := httptest.NewRequest(http.MethodGet, path, nil)
+	authorizeTestRequest(request)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != wantStatus {

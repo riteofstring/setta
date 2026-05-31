@@ -11,11 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"setta/internal/backendconn"
 )
 
 type backendStartOutput struct {
 	SchemaVersion int    `json:"schemaVersion"`
 	Addr          string `json:"addr"`
+	Token         string `json:"token"`
 	AppDataDir    string `json:"appDataDir"`
 	PID           int    `json:"pid"`
 	Version       string `json:"version"`
@@ -39,6 +42,18 @@ func backendStartSpec() CommandSpec {
 	}
 }
 
+func backendConnectionSpec() CommandSpec {
+	return CommandSpec{
+		Path:             []string{"backend", "connection"},
+		Summary:          "Print the resolved backend connection metadata.",
+		Usage:            "setta backend connection --json",
+		OutputSchemaName: "BackendConnection",
+		OptionalFlags:    []string{"--show-token"},
+		Examples:         []string{"setta backend connection --json"},
+		handler:          handleBackendConnection,
+	}
+}
+
 func handleBackendStart(context *Context, args []string) error {
 	flags := newFlagSet("backend start")
 	appDataDir := flags.String("app-data-dir", "", "directory for persisted Setta app state")
@@ -55,7 +70,11 @@ func handleBackendStart(context *Context, args []string) error {
 		return invalidError("backend start requires --app-data-dir")
 	}
 
-	command, commandArgs, commandDir, err := backendCommand(context, *appDataDir, *host, *port, *version)
+	token, err := backendconn.GenerateToken()
+	if err != nil {
+		return err
+	}
+	command, commandArgs, commandDir, err := backendCommand(context, *appDataDir, *host, *port, *version, token)
 	if err != nil {
 		return err
 	}
@@ -86,6 +105,7 @@ func handleBackendStart(context *Context, args []string) error {
 	output := backendStartOutput{
 		SchemaVersion: schemaVersion,
 		Addr:          backendHTTPAddr(ready.Addr),
+		Token:         token,
 		AppDataDir:    *appDataDir,
 		PID:           process.Process.Pid,
 		Version:       *version,
@@ -97,9 +117,29 @@ func handleBackendStart(context *Context, args []string) error {
 	return err
 }
 
-func backendCommand(context *Context, appDataDir string, host string, port int, version string) (string, []string, string, error) {
+func handleBackendConnection(context *Context, args []string) error {
+	flags := newFlagSet("backend connection")
+	showToken := flags.Bool("show-token", false, "include backend token in output")
+	if err := flags.Parse(args); err != nil {
+		return invalidError(err.Error())
+	}
+	if flags.NArg() != 0 {
+		return invalidError("backend connection does not accept positional arguments")
+	}
+	connection, err := context.resolveBackendConnection(true)
+	if err != nil {
+		return backendUnavailableError(err.Error())
+	}
+	if !*showToken {
+		connection.Token = ""
+	}
+	return context.writeCommandData([]string{"backend", "connection"}, connection)
+}
+
+func backendCommand(context *Context, appDataDir string, host string, port int, version string, token string) (string, []string, string, error) {
 	args := []string{
 		"--app-data-dir", appDataDir,
+		"--auth-token", token,
 		"--host", host,
 		"--port", fmt.Sprintf("%d", port),
 		"--version", version,

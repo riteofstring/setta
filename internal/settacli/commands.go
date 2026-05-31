@@ -51,14 +51,14 @@ func commandSpecs() []CommandSpec {
 		},
 		{
 			Path:             []string{"health"},
-			Summary:          "Read backend health through the configured backend address.",
-			Usage:            "setta [--backend-addr URL] health [--json]",
+			Summary:          "Read backend health through the configured backend connection.",
+			Usage:            "setta health [--json]",
 			RequiresBackend:  true,
 			OutputSchemaName: "BackendHealth",
 			RelatedOperations: []string{
 				"BackendHealth",
 			},
-			Examples: []string{"setta --backend-addr http://127.0.0.1:54321 health --json"},
+			Examples: []string{"setta health --json"},
 			handler:  handleHealth,
 		},
 		{
@@ -96,16 +96,17 @@ func commandSpecs() []CommandSpec {
 			handler:          handleErrors,
 		},
 		backendStartSpec(),
+		backendConnectionSpec(),
 		{
 			Path:             []string{"backend", "status"},
-			Summary:          "Read backend status from the configured backend address.",
-			Usage:            "setta [--backend-addr URL] backend status [--json]",
+			Summary:          "Read backend status from the configured backend connection.",
+			Usage:            "setta backend status [--json]",
 			RequiresBackend:  true,
 			OutputSchemaName: "BackendHealth",
 			RelatedOperations: []string{
 				"BackendHealth",
 			},
-			Examples: []string{"SETTA_BACKEND_ADDR=http://127.0.0.1:54321 setta backend status --json"},
+			Examples: []string{"setta backend status --json"},
 			handler:  handleBackendStatus,
 		},
 		apiEndpointsSpec(),

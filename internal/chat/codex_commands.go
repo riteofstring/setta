@@ -26,6 +26,7 @@ func (harness *CodexHarness) ExecuteCommand(ctx context.Context, request Harness
 
 type codexGoalContinuation struct {
 	harness  *CodexHarness
+	cleanup  func()
 	session  *codexapp.Session
 	threadID string
 
@@ -51,14 +52,14 @@ func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request 
 		}
 	}()
 
-	session, err := harness.manager.NewSession(ctx)
+	session, cleanup, err := harness.newCommandSession(ctx, request)
 	if err != nil {
 		return HarnessCommandResult{}, nil, commandError(ChatCommandErrorCodexRPC, "start codex app-server: "+err.Error(), err)
 	}
 	closeSession := true
 	defer func() {
 		if closeSession {
-			session.Close()
+			cleanup()
 		}
 	}()
 	session.AcceptUnscopedNotifications()
@@ -81,6 +82,7 @@ func (harness *CodexHarness) BeginGoalContinuation(ctx context.Context, request 
 	closeSession = false
 	continuationCreated = true
 	return result, &codexGoalContinuation{
+		cleanup:  cleanup,
 		harness:  harness,
 		session:  session,
 		threadID: thread.Ref.ThreadID,
@@ -100,7 +102,7 @@ func (continuation *codexGoalContinuation) Wait(ctx context.Context, request Tur
 
 func (continuation *codexGoalContinuation) Close() {
 	continuation.closeOnce.Do(func() {
-		continuation.session.Close()
+		continuation.cleanup()
 		continuation.harness.turnMu.Unlock()
 	})
 }
@@ -128,11 +130,11 @@ func (harness *CodexHarness) activeTurnForCommand(runID string) *codexActiveTurn
 }
 
 func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
-	session, err := harness.manager.NewSession(ctx)
+	session, cleanup, err := harness.newCommandSession(ctx, request)
 	if err != nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "start codex app-server: "+err.Error(), err)
 	}
-	defer session.Close()
+	defer cleanup()
 
 	if commandUsesExistingThread(request.Command, request.ThreadRef) {
 		return harness.executeExistingCommandThread(ctx, session, request)

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -131,76 +132,6 @@ type ExecuteChatCommandRequest struct {
 	ConfirmGoalReplacement bool   `json:"confirmGoalReplacement"`
 }
 
-type SetChatCodexModelRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	ModelID        string `json:"modelId"`
-}
-
-type SetChatCodexReasoningEffortRequest struct {
-	WorkspaceID     string               `json:"workspaceId"`
-	ConversationID  string               `json:"conversationId"`
-	ReasoningEffort chat.ReasoningEffort `json:"reasoningEffort"`
-}
-
-type CancelRunRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type GetActiveRunRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type GetActiveRunResponse struct {
-	HasActiveRun bool      `json:"hasActiveRun"`
-	Run          *chat.Run `json:"run"`
-}
-
-type ListRunsRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type ListRunsResponse struct {
-	Runs []chat.Run `json:"runs"`
-}
-
-type GetRunActivityRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	RunID       string `json:"runId"`
-	Limit       int    `json:"limit"`
-}
-
-type GetRunItemOutputRequest struct {
-	WorkspaceID  string `json:"workspaceId"`
-	RunID        string `json:"runId"`
-	RunItemID    string `json:"runItemId"`
-	AfterOrdinal int    `json:"afterOrdinal"`
-	Limit        int    `json:"limit"`
-}
-
-type ListDiagnosticsRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	RunID          string `json:"runId"`
-}
-
-type ListDiagnosticsResponse struct {
-	Diagnostics []chat.Diagnostic `json:"diagnostics"`
-}
-
-type SubmitApprovalRequest struct {
-	WorkspaceID    string                `json:"workspaceId"`
-	ConversationID string                `json:"conversationId"`
-	ApprovalID     string                `json:"approvalId"`
-	Approved       bool                  `json:"approved"`
-	Response       string                `json:"response"`
-	Answers        []chat.ApprovalAnswer `json:"answers"`
-	Cancelled      bool                  `json:"cancelled"`
-}
-
 type APIError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
@@ -256,6 +187,7 @@ type CodexAccountService interface {
 
 type HandlerConfig struct {
 	Metadata            BackendMetadata
+	AuthToken           string
 	ChatService         ChatService
 	CodexAccountService CodexAccountService
 	WorkspaceService    WorkspaceService
@@ -269,6 +201,9 @@ type handler struct {
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
+	if config.AuthToken == "" {
+		panic("backend auth token is required")
+	}
 	apiHandler := handler{
 		metadata:            config.Metadata,
 		chatService:         config.ChatService,
@@ -277,7 +212,26 @@ func NewHandler(config HandlerConfig) http.Handler {
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)
-	return mux
+	return requireBackendAuth(mux, config.AuthToken)
+}
+
+func requireBackendAuth(next http.Handler, token string) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if !backendRequestAuthorized(request, token) {
+			writeError(response, http.StatusUnauthorized, "backend_auth_failed", "backend authorization failed")
+			return
+		}
+		next.ServeHTTP(response, request)
+	})
+}
+
+func backendRequestAuthorized(request *http.Request, token string) bool {
+	header := request.Header.Get("Authorization")
+	prefix, value, ok := strings.Cut(header, " ")
+	if !ok || prefix != "Bearer" || value == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(value), []byte(token)) == 1
 }
 
 func (handler handler) health(response http.ResponseWriter, request *http.Request) {

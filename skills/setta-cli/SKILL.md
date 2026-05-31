@@ -11,12 +11,13 @@ Use the `setta` CLI as the durable Setta automation surface. Do not rely on inte
 
 1. Run `setta version --json`.
 2. Run `setta commands --json`.
-3. Before unfamiliar commands, run `setta help <command-path> --json`.
-4. Prefer `--json` for one-shot commands and `--ndjson` for streaming commands.
-5. Use `--no-input` for automation.
-6. Use explicit workspace, conversation, run, and approval IDs returned by JSON output.
-7. Use `--confirm` only when the user requested the destructive operation.
-8. Use `setta api ...` only when no workflow command covers the task.
+3. Run `setta backend connection --json` before backend-backed commands.
+4. Before unfamiliar commands, run `setta help <command-path> --json`.
+5. Prefer `--json` for one-shot commands and `--ndjson` for streaming commands.
+6. Use `--no-input` for automation.
+7. Use explicit workspace, conversation, run, and approval IDs returned by JSON output.
+8. Use `--confirm` only when the user requested the destructive operation.
+9. Use `setta api ...` only when no workflow command covers the task.
 
 ## References
 

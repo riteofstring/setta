@@ -17,14 +17,14 @@ setta api schema OpenWorkspace --json
 Call an endpoint with raw JSON:
 
 ```sh
-setta --backend-addr "$ADDR" api call OpenWorkspace --input request.json --json
-setta --backend-addr "$ADDR" api call ListConversations --input - --json
+setta api call OpenWorkspace --input request.json --json
+setta api call ListConversations --input - --json
 ```
 
 Stream backend events as NDJSON:
 
 ```sh
-setta --backend-addr "$ADDR" api stream EventStream --cursor "$LAST_EVENT_ID" --ndjson
+setta api stream EventStream --cursor "$LAST_EVENT_ID" --ndjson
 ```
 
 Endpoint request and response contracts are owned by the backend registry. Use `api schema` for current shapes instead of memorizing fields.

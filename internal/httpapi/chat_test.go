@@ -505,6 +505,7 @@ func TestChatEventStreamStreamsServerSentEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create event stream request: %v", err)
 	}
+	authorizeTestRequest(request)
 	response, err := server.Client().Do(request)
 	if err != nil {
 		t.Fatalf("open event stream: %v", err)
@@ -574,6 +575,7 @@ func newChatHandlerWithAppDataDir(t *testing.T, events []chat.FakeHarnessEvent) 
 		t.Fatalf("new chat service: %v", err)
 	}
 	return NewHandler(HandlerConfig{
+		AuthToken:        testAuthToken,
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,

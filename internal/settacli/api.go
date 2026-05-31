@@ -59,7 +59,7 @@ func apiCallSpec() CommandSpec {
 	return CommandSpec{
 		Path:             []string{"api", "call"},
 		Summary:          "Call a backend operation with a raw JSON request body.",
-		Usage:            "setta --backend-addr URL api call OPERATION --input request.json --json",
+		Usage:            "setta api call OPERATION --input request.json --json",
 		Mutates:          true,
 		RequiresBackend:  true,
 		OutputSchemaName: "CLISuccess",
@@ -73,7 +73,7 @@ func apiStreamSpec() CommandSpec {
 	return CommandSpec{
 		Path:             []string{"api", "stream"},
 		Summary:          "Stream a backend streaming operation as newline-delimited JSON.",
-		Usage:            "setta --backend-addr URL api stream EventStream --cursor STREAM:SEQUENCE --ndjson",
+		Usage:            "setta api stream EventStream --cursor STREAM:SEQUENCE --ndjson",
 		RequiresBackend:  true,
 		SupportsNDJSON:   true,
 		OutputSchemaName: "ChatEvent",

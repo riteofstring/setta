@@ -7,9 +7,12 @@ import (
 	"testing"
 )
 
+const testAuthToken = "test-token"
+
 func TestHealthEndpointReturnsStructuredJSON(t *testing.T) {
-	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
+	handler := NewHandler(HandlerConfig{AuthToken: testAuthToken, Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
 	request := httptest.NewRequest(http.MethodGet, "/health", nil)
+	authorizeTestRequest(request)
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
@@ -31,8 +34,9 @@ func TestHealthEndpointReturnsStructuredJSON(t *testing.T) {
 }
 
 func TestUnknownEndpointReturnsNotFound(t *testing.T) {
-	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
+	handler := NewHandler(HandlerConfig{AuthToken: testAuthToken, Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
 	request := httptest.NewRequest(http.MethodGet, "/missing", nil)
+	authorizeTestRequest(request)
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
@@ -40,4 +44,27 @@ func TestUnknownEndpointReturnsNotFound(t *testing.T) {
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusNotFound)
 	}
+}
+
+func TestHandlerRejectsMissingBackendAuth(t *testing.T) {
+	handler := NewHandler(HandlerConfig{AuthToken: testAuthToken, Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
+	request := httptest.NewRequest(http.MethodGet, "/health", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusUnauthorized)
+	}
+	var payload ErrorResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode unauthorized response: %v", err)
+	}
+	if payload.Error.Code != "backend_auth_failed" {
+		t.Fatalf("error code = %q, want backend_auth_failed", payload.Error.Code)
+	}
+}
+
+func authorizeTestRequest(request *http.Request) {
+	request.Header.Set("Authorization", "Bearer "+testAuthToken)
 }

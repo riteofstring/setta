@@ -194,6 +194,7 @@ async function runDeterministicWorkflowLaunch(results) {
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+      SETTA_E2E_REPO_ROOT: repoRoot,
     },
   });
   let failure = null;
@@ -810,6 +811,7 @@ async function runCodexProtocolWorkflow(results) {
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+      SETTA_E2E_REPO_ROOT: repoRoot,
     },
     harness: "codex",
   });
@@ -836,6 +838,19 @@ async function runCodexProtocolWorkflow(results) {
     ]);
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+
+    const cliConversationId = await createChat(context.client, backend, workspaceId);
+    await submitComposer(context.client, "setta cli env workflow", "Send message");
+    const cliRun = await waitForRunWithPrompt(
+      backend,
+      workspaceId,
+      cliConversationId,
+      "setta cli env workflow",
+      "completed",
+    );
+    await waitForTexts(context.client, ["setta cli implicit connection ok"]);
+    await assertAssistantCompleted(backend, workspaceId, cliConversationId, cliRun.id);
+    await assertNoCriticalDiagnostics(backend, workspaceId, cliConversationId);
 
     const exitConversationId = await createChat(context.client, backend, workspaceId);
     await submitComposer(context.client, "app-server exit workflow", "Send message");

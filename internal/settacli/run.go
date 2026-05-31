@@ -27,12 +27,13 @@ const (
 )
 
 type Globals struct {
-	JSON        bool
-	NoInput     bool
-	BackendAddr string
-	Timeout     time.Duration
-	Verbose     bool
-	Quiet       bool
+	JSON         bool
+	NoInput      bool
+	BackendAddr  string
+	BackendToken string
+	Timeout      time.Duration
+	Verbose      bool
+	Quiet        bool
 }
 
 type Context struct {
@@ -42,6 +43,8 @@ type Context struct {
 	Stdout   io.Writer
 	Stderr   io.Writer
 	Getenv   func(string) string
+
+	backendConnection *backendConnection
 }
 
 type cliError struct {
@@ -104,7 +107,7 @@ func dispatch(context *Context, remaining []string) error {
 		return invalidError(err.Error())
 	}
 	if command.RequiresBackend {
-		if _, err := context.backendAddr(); err != nil {
+		if _, err := context.cachedBackendConnection(); err != nil {
 			return backendUnavailableError(err.Error())
 		}
 	}
@@ -160,7 +163,7 @@ func parseBooleanGlobal(globals *Globals, arg string) bool {
 
 func parseSeparateValueGlobal(globals *Globals, args []string, index int) (int, bool, error) {
 	arg := args[index]
-	if arg != "--backend-addr" && arg != "--timeout" {
+	if arg != "--backend-addr" && arg != "--backend-token" && arg != "--timeout" {
 		return 0, false, nil
 	}
 	if index+1 >= len(args) {
@@ -174,7 +177,7 @@ func parseSeparateValueGlobal(globals *Globals, args []string, index int) (int, 
 
 func parseInlineValueGlobal(globals *Globals, arg string) (bool, error) {
 	name, value, ok := strings.Cut(arg, "=")
-	if !ok || (name != "--backend-addr" && name != "--timeout") {
+	if !ok || (name != "--backend-addr" && name != "--backend-token" && name != "--timeout") {
 		return false, nil
 	}
 	return true, setGlobalValue(globals, name, value)
@@ -187,6 +190,11 @@ func setGlobalValue(globals *Globals, name string, value string) error {
 			return errors.New("--backend-addr requires a value")
 		}
 		globals.BackendAddr = value
+	case "--backend-token":
+		if value == "" {
+			return errors.New("--backend-token requires a value")
+		}
+		globals.BackendToken = value
 	case "--timeout":
 		timeout, err := parseTimeout(value)
 		if err != nil {
@@ -215,22 +223,12 @@ func parseTimeout(value string) (time.Duration, error) {
 	return time.Duration(seconds) * time.Second, nil
 }
 
-func (context *Context) backendAddr() (string, error) {
-	if context.Globals.BackendAddr != "" {
-		return context.Globals.BackendAddr, nil
-	}
-	if value := context.Getenv("SETTA_BACKEND_ADDR"); value != "" {
-		return value, nil
-	}
-	return "", errors.New("backend address is required; pass --backend-addr or set SETTA_BACKEND_ADDR")
-}
-
 func (context *Context) client() (*settahttpclient.Client, error) {
-	addr, err := context.backendAddr()
+	connection, err := context.cachedBackendConnection()
 	if err != nil {
 		return nil, backendUnavailableError(err.Error())
 	}
-	client, err := settahttpclient.New(addr, context.Globals.Timeout)
+	client, err := settahttpclient.New(connection.Addr, context.Globals.Timeout, settahttpclient.WithAuthToken(connection.Token))
 	if err != nil {
 		return nil, backendUnavailableError(err.Error())
 	}
