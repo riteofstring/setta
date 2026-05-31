@@ -215,3 +215,59 @@ Additional scenario coverage:
 | Sampled pixels                          |    6,001 |
 | Non-background sampled pixels           |      476 |
 | Sampled color count                     |        8 |
+
+## Label Pooling and Debug Counters Update
+
+Date: 2026-06-04
+
+Artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260604T042340Z
+```
+
+The visual smoke workflow now verifies the screen-space label lifecycle and
+debug counters. The renderer exposes active label objects through
+`visibleLabelCount` and increments `labelSyncCount` when label position sync
+work runs. The run asserts that label sync advances after grouped node drag,
+empty-space pan, wheel zoom, grouped node drag at non-1x zoom, wheel pan, deep
+zoom, and pan while deeply zoomed, while React host renders stay unchanged.
+
+Additional scenario coverage:
+
+- `visibleLabelCount` matches the 4 visible screen-space label objects in the
+  current fixture.
+- `labelSyncCount` advances from 8 at initial render to 36 after grouped drag,
+  132 after empty-space pan, 140 after wheel zoom, 164 after grouped drag at
+  `1.78` zoom, 172 after wheel pan, 180 after deep zoom, and 188 after pan
+  while deeply zoomed.
+- Label sync keeps `reactRenderCount: 1` through grouped drag, pan, zoom, wheel
+  pan, deep zoom, and pan after deep zoom.
+- Existing deep zoom, pan after deep zoom, grouped drag at non-1x zoom,
+  selection, marquee, edge cancellation, and edge commit coverage still passes.
+
+| Metric                             |    Value |
+| ---------------------------------- | -------: |
+| Deep zoom camera zoom              |     4.00 |
+| Labels visible after deep zoom     |        1 |
+| Labels visible after deep-zoom pan |        1 |
+| Active visible label objects       |        4 |
+| Zoomed group-drag camera zoom      |     1.78 |
+| Initial label sync count           |        8 |
+| Label sync count after group drag  |       36 |
+| Label sync count after empty pan   |      132 |
+| Label sync count after wheel zoom  |      140 |
+| Label sync count after zoomed drag |      164 |
+| Label sync count after wheel pan   |      172 |
+| Final label sync count             |      188 |
+| Final edge count                   |        4 |
+| Group node drag updates            |       26 |
+| Pointer pan updates                |       12 |
+| Wheel pan updates                  |        2 |
+| Wheel zoom updates                 |        2 |
+| React host renders                 |        1 |
+| Average recent frame interval      |  9.26 ms |
+| Worst recent frame interval        | 86.30 ms |
+| Sampled pixels                     |    6,001 |
+| Non-background sampled pixels      |      476 |
+| Sampled color count                |        8 |

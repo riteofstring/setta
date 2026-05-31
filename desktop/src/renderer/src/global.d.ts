@@ -65,6 +65,7 @@ interface PixiWorkspaceDebugSnapshot {
     edgeCommitCount: number;
     edgeRedrawCount: number;
     frameCount: number;
+    labelSyncCount: number;
     marqueeUpdateCount: number;
     nodeDragUpdateCount: number;
     pointerPanUpdateCount: number;
@@ -72,6 +73,7 @@ interface PixiWorkspaceDebugSnapshot {
     recentFrameMs: number[];
     selectionChangeCount: number;
     temporaryEdgeUpdateCount: number;
+    visibleLabelCount: number;
     wheelPanUpdateCount: number;
     wheelZoomUpdateCount: number;
     worstFrameMs: number;

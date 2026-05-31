@@ -25,6 +25,7 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const cdpMetaModifier = 4;
 const cdpShiftModifier = 8;
+const expectedFixtureVisibleLabelCount = 4;
 
 if (options.help) {
   console.log(
@@ -141,6 +142,7 @@ try {
   assertCameraMoved(afterEscapeClear, afterPan, "empty-space pan after marquee interactions");
   assertLabelsAttachedToNodeCenters(afterPan, "empty-space pan");
   assertLabelsScreenSpace(afterPan, "empty-space pan");
+  assertLabelSyncAdvanced(afterEscapeClear, afterPan, "empty-space pan label sync");
   assertReactRenderCountUnchanged(afterEscapeClear, afterPan, "empty-space pan label sync");
 
   await dispatchWheel(context.client, {
@@ -151,23 +153,69 @@ try {
   await delay(200);
   const afterZoom = await getPixiSnapshot(context.client);
   assertZoomChanged(afterPan, afterZoom);
+  assertZoomAtLeast(afterZoom, 1.1, "zoomed group drag setup");
   assertLabelsAttachedToNodeCenters(afterZoom, "wheel zoom");
   assertLabelsScreenSpace(afterZoom, "wheel zoom");
+  assertLabelSyncAdvanced(afterPan, afterZoom, "wheel zoom label sync");
   assertReactRenderCountUnchanged(afterPan, afterZoom, "wheel zoom label sync");
+
+  const zoomGroupNodes = visibleNodes(afterZoom);
+  if (zoomGroupNodes.length < 2) {
+    throw new Error(
+      `fewer than two visible nodes were present for zoomed group drag coverage: ${JSON.stringify(afterZoom.graph.nodes)}`,
+    );
+  }
+  const [zoomGroupFirstNode, zoomGroupSecondNode] = zoomGroupNodes;
+  await dispatchMouseClick(context.client, {
+    x: zoomGroupFirstNode.screenX,
+    y: zoomGroupFirstNode.screenY,
+  });
+  await delay(100);
+  const afterZoomGroupFirstSelect = await getPixiSnapshot(context.client);
+  assertSelectedExactly(
+    afterZoomGroupFirstSelect,
+    [zoomGroupFirstNode.id],
+    "zoomed group first select",
+  );
+
+  await dispatchMouseClick(context.client, {
+    modifiers: cdpMetaModifier,
+    x: zoomGroupSecondNode.screenX,
+    y: zoomGroupSecondNode.screenY,
+  });
+  await delay(100);
+  const afterZoomGroupSelect = await getPixiSnapshot(context.client);
+  const zoomGroupNodeIds = [zoomGroupFirstNode.id, zoomGroupSecondNode.id];
+  assertSelectedExactly(afterZoomGroupSelect, zoomGroupNodeIds, "zoomed group select");
+  const zoomGroupPrimaryNode = nodeById(afterZoomGroupSelect, zoomGroupNodeIds[0]);
+  await dispatchMouseDrag(context.client, {
+    from: { x: zoomGroupPrimaryNode.screenX, y: zoomGroupPrimaryNode.screenY },
+    steps: 12,
+    to: { x: zoomGroupPrimaryNode.screenX + 52, y: zoomGroupPrimaryNode.screenY + 28 },
+  });
+  await delay(200);
+  const afterZoomGroupDrag = await getPixiSnapshot(context.client);
+  assertGroupDragMoved(afterZoomGroupSelect, afterZoomGroupDrag, zoomGroupNodeIds);
+  assertZoomUnchanged(afterZoomGroupSelect, afterZoomGroupDrag, "zoomed group node drag");
 
   await dispatchWheel(context.client, {
     deltaX: 34,
     deltaY: 28,
-    x: Math.floor(afterZoom.canvas.clientWidth / 2),
-    y: Math.floor(afterZoom.canvas.clientHeight / 2),
+    x: Math.floor(afterZoomGroupDrag.canvas.clientWidth / 2),
+    y: Math.floor(afterZoomGroupDrag.canvas.clientHeight / 2),
   });
   await delay(150);
   const afterWheelPan = await getPixiSnapshot(context.client);
-  assertCameraMoved(afterZoom, afterWheelPan, "trackpad-style wheel pan");
-  assertZoomUnchanged(afterZoom, afterWheelPan, "trackpad-style wheel pan");
+  assertCameraMoved(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan");
+  assertZoomUnchanged(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan");
   assertLabelsAttachedToNodeCenters(afterWheelPan, "trackpad-style wheel pan");
   assertLabelsScreenSpace(afterWheelPan, "trackpad-style wheel pan");
-  assertReactRenderCountUnchanged(afterZoom, afterWheelPan, "trackpad-style wheel pan label sync");
+  assertLabelSyncAdvanced(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan label sync");
+  assertReactRenderCountUnchanged(
+    afterZoomGroupDrag,
+    afterWheelPan,
+    "trackpad-style wheel pan label sync",
+  );
 
   const cancelPair = visiblePortPair(afterWheelPan);
   if (!cancelPair) {
@@ -216,6 +264,7 @@ try {
   assertLabelsAttachedToNodeCenters(afterDeepZoom, "deep label zoom");
   assertLabelsScreenSpace(afterDeepZoom, "deep label zoom");
   assertAtLeastOneVisibleLabel(afterDeepZoom, "deep label zoom");
+  assertLabelSyncAdvanced(afterEdgeDraw, afterDeepZoom, "deep label zoom sync");
   assertReactRenderCountUnchanged(afterEdgeDraw, afterDeepZoom, "deep label zoom sync");
   await captureScreenshot(context.client, join(artifactDir, "deep-zoom-labels.png"));
 
@@ -232,6 +281,7 @@ try {
   assertLabelsAttachedToNodeCenters(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelsScreenSpace(afterDeepZoomPan, "pan after deep label zoom");
   assertAtLeastOneVisibleLabel(afterDeepZoomPan, "pan after deep label zoom");
+  assertLabelSyncAdvanced(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom sync");
   assertReactRenderCountUnchanged(
     afterDeepZoom,
     afterDeepZoomPan,
@@ -261,6 +311,9 @@ try {
     afterPlainSelect,
     afterWheelPan,
     afterZoom,
+    afterZoomGroupDrag,
+    afterZoomGroupFirstSelect,
+    afterZoomGroupSelect,
     artifactDir,
     cancelPoint,
     commitPair,
@@ -473,6 +526,7 @@ function assertInitialSnapshot(snapshot) {
   assertLabelsAttachedToNodeCenters(snapshot, "initial render");
   assertLabelsScreenSpace(snapshot, "initial render");
   assertAtLeastOneVisibleLabel(snapshot, "initial render");
+  assertLabelDebugCounters(snapshot, "initial render");
 }
 
 function assertSelectionDebugShape(snapshot) {
@@ -600,6 +654,27 @@ function assertLabelsScreenSpace(snapshot, label) {
   }
 }
 
+function assertLabelDebugCounters(snapshot, label) {
+  assertNonNegativeInteger(snapshot.render.labelSyncCount, `${label} labelSyncCount`);
+  assertNonNegativeInteger(snapshot.render.visibleLabelCount, `${label} visibleLabelCount`);
+  const visibleNodeLabels = snapshot.graph.nodes.filter((node) => node.label?.visible).length;
+  if (snapshot.render.visibleLabelCount !== visibleNodeLabels) {
+    throw new Error(
+      `${label} visibleLabelCount did not match visible node labels: expected=${visibleNodeLabels} render=${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (snapshot.render.visibleLabelCount !== expectedFixtureVisibleLabelCount) {
+    throw new Error(
+      `${label} visibleLabelCount did not match fixture labels: expected=${expectedFixtureVisibleLabelCount} render=${JSON.stringify(snapshot.render)}`,
+    );
+  }
+}
+
+function assertLabelSyncAdvanced(before, after, label) {
+  assertRenderCounterAdvanced(before, after, "labelSyncCount", label);
+  assertLabelDebugCounters(after, label);
+}
+
 function assertAtLeastOneVisibleLabel(snapshot, label) {
   const visibleLabels = snapshot.graph.nodes.filter((node) => visiblePoint(snapshot, node.label));
   if (visibleLabels.length === 0) {
@@ -620,6 +695,12 @@ function assertReactRenderCountUnchanged(before, after, label) {
 function assertFiniteNumber(value, label) {
   if (!Number.isFinite(value)) {
     throw new Error(`${label} was not finite: ${String(value)}`);
+  }
+}
+
+function assertNonNegativeInteger(value, label) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} was not a non-negative integer: ${String(value)}`);
   }
 }
 
@@ -663,6 +744,7 @@ function assertGroupDragMoved(before, after, selectedNodeIds) {
   assertRenderCounterAdvanced(before, after, "edgeRedrawCount", "group node drag edge redraw");
   assertLabelsAttachedToNodeCenters(after, "group node drag");
   assertLabelsScreenSpace(after, "group node drag");
+  assertLabelSyncAdvanced(before, after, "group node drag label sync");
   assertReactRenderCountUnchanged(before, after, "group node drag label sync");
 
   const primaryBefore = nodeById(before, selectedNodeIds[0]);
@@ -954,6 +1036,7 @@ function assertRendererFramesHealthy(snapshot) {
     "cameraUpdateCount",
     "edgeCommitCount",
     "temporaryEdgeUpdateCount",
+    "labelSyncCount",
   ]);
 }
 

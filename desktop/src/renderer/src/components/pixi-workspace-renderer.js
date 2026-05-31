@@ -110,6 +110,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   let temporaryEdgeUpdateCount = 0;
   let wheelPanUpdateCount = 0;
   let wheelZoomUpdateCount = 0;
+  let labelSyncCount = 0;
   let lastCameraState = cameraState(viewport);
   const recentFrameMs = [];
 
@@ -122,7 +123,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     const container = nodeContainer(node);
     nodeContainers.set(node.id, container);
     nodeLayer.addChild(container);
-    createNodeLabel(node);
+    acquireLabel(node.id);
   }
   syncAllLabels();
   redrawEdges();
@@ -387,6 +388,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             edgeCommitCount,
             edgeRedrawCount,
             frameCount,
+            labelSyncCount,
             marqueeUpdateCount,
             nodeDragUpdateCount,
             pointerPanUpdateCount,
@@ -394,6 +396,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             recentFrameMs: [...recentFrameMs],
             selectionChangeCount,
             temporaryEdgeUpdateCount,
+            visibleLabelCount: visibleLabelCount(),
             wheelPanUpdateCount,
             wheelZoomUpdateCount,
             worstFrameMs: recentFrameMs.length === 0 ? 0 : Math.max(...recentFrameMs),
@@ -416,6 +419,9 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       window.removeEventListener("keydown", keyDown);
       if (debugEnabled) {
         delete window.__settaPixiWorkspaceDebug;
+      }
+      for (const nodeId of [...nodeLabels.keys()]) {
+        releaseLabel(nodeId);
       }
       app.destroy(true, { children: true, texture: true });
     },
@@ -455,7 +461,12 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     return container;
   }
 
-  function createNodeLabel(node) {
+  function acquireLabel(nodeId) {
+    const existingLabel = nodeLabels.get(nodeId);
+    if (existingLabel) {
+      return existingLabel;
+    }
+    const node = requireNode(nodeId);
     const label = new Text({
       style: {
         align: "center",
@@ -469,8 +480,19 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     label.anchor.set(0.5);
     label.eventMode = "none";
     label.roundPixels = true;
-    nodeLabels.set(node.id, label);
+    nodeLabels.set(nodeId, label);
     labelLayer.addChild(label);
+    return label;
+  }
+
+  function releaseLabel(nodeId) {
+    const label = nodeLabels.get(nodeId);
+    if (!label) {
+      return;
+    }
+    nodeLabels.delete(nodeId);
+    label.removeFromParent();
+    label.destroy();
   }
 
   function portContainer(node, port) {
@@ -865,6 +887,11 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
     label.position.set(Math.round(screen.x), Math.round(screen.y));
     label.scale.set(1);
+    labelSyncCount += 1;
+  }
+
+  function visibleLabelCount() {
+    return [...nodeLabels.values()].filter((label) => label.visible).length;
   }
 
   function setPortVisualState(nodeId, portId, state) {
