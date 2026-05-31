@@ -27,6 +27,11 @@ export async function assertProtocolNotificationActivity(
   const page = await backend.post("/chat/runs/activity", { limit: 100, runId, workspaceId });
   await assertRunActivityItem(page, "hook", (item) => item.title === "Hook: pre-command");
   await assertRunActivityItem(page, "approval_review", (item) => item.reviewId === "review_fake");
+  await assertRunActivityItem(
+    page,
+    "context_compaction",
+    (item) => item.title === "Context compaction" && item.status === "completed",
+  );
   await assertRunActivityItem(page, "file_change", (item) => item.title === "File change output");
   await assertRunActivityItem(page, "reasoning", (item) => item.hiddenText === "private reasoning");
   await assertRunActivityItem(
@@ -244,6 +249,8 @@ function emitProtocolCoverageTurn() {
   notify("hook/completed", hookPayload("completed"));
   notify("item/autoApprovalReview/started", autoApprovalReviewPayload("inProgress"));
   notify("item/autoApprovalReview/completed", autoApprovalReviewPayload("approved"));
+  notify("item/started", contextCompactionPayload("context_compaction_fake"));
+  notify("item/completed", contextCompactionPayload("context_compaction_fake"));
   notify("item/fileChange/outputDelta", {
     delta: "diff --git a/main.go b/main.go\\n",
     itemId: "file_item_fake",
@@ -318,6 +325,14 @@ function autoApprovalReviewPayload(status) {
     action: { command: "pwd", type: "command" },
     review: { status },
     reviewId: "review_fake",
+    threadId,
+    turnId,
+  };
+}
+
+function contextCompactionPayload(itemId) {
+  return {
+    item: { id: itemId, type: "contextCompaction" },
     threadId,
     turnId,
   };

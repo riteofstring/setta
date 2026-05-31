@@ -5,9 +5,7 @@ import "setta/internal/codexapp"
 var supportedCodexClientMethods = map[string]struct{}{
 	codexapp.CodexMethodConfigRead:           {},
 	codexapp.CodexMethodInitialize:           {},
-	codexapp.CodexMethodMcpServerStatusList:  {},
 	codexapp.CodexMethodModelList:            {},
-	codexapp.CodexMethodSkillsList:           {},
 	codexapp.CodexMethodThreadGoalClear:      {},
 	codexapp.CodexMethodThreadGoalGet:        {},
 	codexapp.CodexMethodThreadGoalSet:        {},
@@ -17,6 +15,10 @@ var supportedCodexClientMethods = map[string]struct{}{
 	codexapp.CodexMethodTurnInterrupt:        {},
 	codexapp.CodexMethodTurnStart:            {},
 	codexapp.CodexMethodTurnSteer:            {},
+}
+
+var unsupportedCodexAppServerNotifications = map[string]struct{}{
+	codexapp.CodexNotificationThreadCompacted: {},
 }
 
 var codexAppServerNotifications = codexapp.CodexNotificationValues

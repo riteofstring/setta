@@ -29,7 +29,6 @@ import { ConversationRow } from "./workspace-sidebar-conversation-row";
 import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
 import { ProjectFolderButton, SidebarIconButton } from "./sidebar-header-actions";
 import { SidebarShortcuts } from "./sidebar-shortcuts";
-import settaLogo from "../../../../img/logo/logo.svg";
 
 const activeWorkspaceRowHeight = 28;
 const recentWorkspaceRowHeight = 28;
@@ -51,7 +50,6 @@ interface WorkspaceSidebarProps {
   corruption: CorruptionSummary;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  deleteConversation: (conversationId: string) => Promise<void>;
   diagnostics: Diagnostic[];
   openLocalFolder: () => Promise<void>;
   openSettingsPane: () => void;
@@ -89,7 +87,6 @@ export function WorkspaceSidebar({
   corruption,
   createConversation,
   createWorkspaceConversation,
-  deleteConversation,
   diagnostics,
   openLocalFolder,
   openSettingsPane,
@@ -114,9 +111,6 @@ export function WorkspaceSidebar({
   const projectsEmpty = activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0;
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
-  const [pinnedConversationIdsByWorkspace, setPinnedConversationIdsByWorkspace] = useState<
-    Record<string, string[]>
-  >({});
 
   useEffect(() => {
     if (selectedWorkspaceId) {
@@ -138,22 +132,11 @@ export function WorkspaceSidebar({
     }));
   }
 
-  function togglePinnedProjectConversation(workspaceId: string, conversationId: string) {
-    setPinnedConversationIdsByWorkspace((current) => {
-      const currentIds = current[workspaceId] ?? [];
-      const nextIds = currentIds.includes(conversationId)
-        ? currentIds.filter((id) => id !== conversationId)
-        : [conversationId, ...currentIds];
-      return { ...current, [workspaceId]: nextIds };
-    });
-  }
-
   return (
     <aside
-      className="relative flex h-full min-h-0 w-full min-w-0 flex-col bg-[#202124] text-zinc-100"
+      className="flex h-full min-h-0 w-full min-w-0 flex-col bg-[#202124] text-zinc-100"
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
-      <SidebarChromeLogo visible={chromeInsetTop} />
       <div
         className={cn("shrink-0 px-1 pb-2", chromeInsetClass(chromeInsetTop))}
         data-testid="sidebar-shortcuts-shell"
@@ -201,11 +184,8 @@ export function WorkspaceSidebar({
                   conversations={conversations}
                   corruption={corruption}
                   createWorkspaceConversation={createWorkspaceConversation}
-                  deleteConversation={deleteConversation}
                   diagnostics={diagnostics}
                   expandedWorkspaceId={expandedWorkspaceId}
-                  onTogglePinnedConversation={togglePinnedProjectConversation}
-                  pinnedConversationIdsByWorkspace={pinnedConversationIdsByWorkspace}
                   selectConversation={selectConversation}
                   selectWorkspace={selectWorkspace}
                   selectedConversationId={selectedConversationId}
@@ -231,26 +211,6 @@ export function WorkspaceSidebar({
   );
 }
 
-function SidebarChromeLogo({ visible }: { visible: boolean }) {
-  if (!visible) {
-    return null;
-  }
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute top-0 right-2 z-10 flex h-10 items-center"
-      data-testid="sidebar-setta-logo"
-    >
-      <img
-        alt=""
-        className="h-[13px] w-auto opacity-45 grayscale"
-        draggable={false}
-        src={settaLogo}
-      />
-    </div>
-  );
-}
-
 function chromeInsetClass(enabled: boolean) {
   return enabled ? "pt-10" : "";
 }
@@ -263,11 +223,8 @@ function ProjectList({
   conversations,
   corruption,
   createWorkspaceConversation,
-  deleteConversation,
   diagnostics,
   expandedWorkspaceId,
-  onTogglePinnedConversation,
-  pinnedConversationIdsByWorkspace,
   selectConversation,
   selectWorkspace,
   selectedConversationId,
@@ -283,11 +240,8 @@ function ProjectList({
   conversations: ConversationListItem[];
   corruption: CorruptionSummary;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  deleteConversation: (conversationId: string) => Promise<void>;
   diagnostics: Diagnostic[];
   expandedWorkspaceId: string;
-  onTogglePinnedConversation: (workspaceId: string, conversationId: string) => void;
-  pinnedConversationIdsByWorkspace: Record<string, string[]>;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selectedConversationId: string;
@@ -312,11 +266,8 @@ function ProjectList({
         conversations={conversations}
         corruption={workspaceSelected ? corruption : null}
         createWorkspaceConversation={createWorkspaceConversation}
-        deleteConversation={deleteConversation}
         diagnostics={diagnostics}
         expanded={expandedWorkspaceId === workspace.id}
-        onTogglePinnedConversation={onTogglePinnedConversation}
-        pinnedConversationIds={pinnedConversationIdsByWorkspace[workspace.id] ?? []}
         selectConversation={selectConversation}
         selectWorkspace={selectWorkspace}
         selected={workspaceSelected}
@@ -366,11 +317,8 @@ function ProjectRow({
   conversations,
   corruption,
   createWorkspaceConversation,
-  deleteConversation,
   diagnostics,
   expanded,
-  onTogglePinnedConversation,
-  pinnedConversationIds,
   selectConversation,
   selectWorkspace,
   selected,
@@ -387,11 +335,8 @@ function ProjectRow({
   conversations: ConversationListItem[];
   corruption: CorruptionSummary | null;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  deleteConversation: (conversationId: string) => Promise<void>;
   diagnostics: Diagnostic[];
   expanded: boolean;
-  onTogglePinnedConversation: (workspaceId: string, conversationId: string) => void;
-  pinnedConversationIds: string[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selected: boolean;
@@ -443,7 +388,6 @@ function ProjectRow({
         </button>
         <WorkspaceCorruptionIndicator corruption={corruption} diagnostics={diagnostics} />
         <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
           <SidebarIconButton
             disabled={rowBusy}
             label={`New chat in ${workspace.displayName}`}
@@ -451,6 +395,7 @@ function ProjectRow({
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
           </SidebarIconButton>
+          <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
         </div>
       </div>
       {hasVisibleChats ? (
@@ -459,12 +404,7 @@ function ProjectRow({
             activeRun={activeRun}
             busy={chatBusy}
             conversations={conversations}
-            deleteConversation={deleteConversation}
             diagnostics={diagnostics}
-            onTogglePinned={(conversationId) =>
-              onTogglePinnedConversation(workspace.id, conversationId)
-            }
-            pinnedConversationIds={pinnedConversationIds}
             selectConversation={selectConversation}
             selectedConversationId={selectedConversationId}
             unreadConversationIds={unreadConversationIds}
@@ -640,9 +580,6 @@ function ConversationList({
   activeRun,
   busy,
   conversations,
-  deleteConversation,
-  onTogglePinned,
-  pinnedConversationIds,
   diagnostics,
   selectConversation,
   selectedConversationId,
@@ -652,9 +589,6 @@ function ConversationList({
   activeRun: Run | null;
   busy: boolean;
   conversations: ConversationListItem[];
-  deleteConversation: (conversationId: string) => Promise<void>;
-  onTogglePinned: (conversationId: string) => void;
-  pinnedConversationIds: string[];
   diagnostics: Diagnostic[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectedConversationId: string;
@@ -662,32 +596,16 @@ function ConversationList({
   unreadConversationIds: Record<string, true>;
 }) {
   const [visibleLimit, setVisibleLimit] = useState(chatHistoryLimit);
-  const pinnedConversationIdSet = useMemo(
-    () => new Set(pinnedConversationIds),
-    [pinnedConversationIds],
-  );
-  const orderedConversations = useMemo(() => {
-    const conversationsById = new Map(
-      conversations.map((item) => [item.conversation.id, item] as const),
-    );
-    const pinned = pinnedConversationIds
-      .map((id) => conversationsById.get(id))
-      .filter((item): item is ConversationListItem => item !== undefined);
-    const unpinned = conversations.filter(
-      (item) => !pinnedConversationIdSet.has(item.conversation.id),
-    );
-    return [...pinned, ...unpinned];
-  }, [conversations, pinnedConversationIdSet, pinnedConversationIds]);
-  const selectedIndex = orderedConversations.findIndex(
+  const selectedIndex = conversations.findIndex(
     (item) => item.conversation.id === selectedConversationId,
   );
   const effectiveLimit =
     selectedIndex >= visibleLimit
-      ? Math.min(orderedConversations.length, selectedIndex + 1)
+      ? Math.min(conversations.length, selectedIndex + 1)
       : visibleLimit;
   const visibleConversations = useMemo(
-    () => orderedConversations.slice(0, effectiveLimit),
-    [orderedConversations, effectiveLimit],
+    () => conversations.slice(0, effectiveLimit),
+    [conversations, effectiveLimit],
   );
   const corruptionLabelsByConversationId = useMemo(
     () => conversationCorruptionLabels(diagnostics),
@@ -704,18 +622,15 @@ function ConversationList({
         <ConversationRow
           activeRun={activeRun}
           busy={busy}
-          deleteConversation={deleteConversation}
           corruptionLabel={corruptionLabelsByConversationId.get(item.conversation.id) ?? null}
           item={item}
           key={item.conversation.id}
-          onTogglePinned={onTogglePinned}
-          pinned={pinnedConversationIdSet.has(item.conversation.id)}
           selectConversation={selectConversation}
           selected={item.conversation.id === selectedConversationId}
           unread={Boolean(unreadConversationIds[item.conversation.id])}
         />
       ))}
-      {visibleConversations.length < orderedConversations.length ? (
+      {visibleConversations.length < conversations.length ? (
         <button
           className="h-6 rounded-sm px-2 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
           onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}

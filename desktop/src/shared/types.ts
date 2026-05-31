@@ -4,15 +4,17 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
-  ChatMessage,
   CodexAccountState,
   Conversation,
   GetActiveRunResponse,
+  ImmediateSteeringResult,
   ListConversationsResponse,
   LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueEditResult,
   QueueMessageResult,
+  QueueRemoveResult,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
@@ -108,10 +110,12 @@ export interface SettaAPI {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
-    deleteConversation: (
+    editQueuedMessage: (
       workspaceId: string,
       conversationId: string,
-    ) => Promise<ListConversationsResponse>;
+      messageId: string,
+      prompt: string,
+    ) => Promise<QueueEditResult>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
@@ -141,6 +145,11 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<QueueMessageResult>;
+    removeQueuedMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+    ) => Promise<QueueRemoveResult>;
     runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
     runItemOutput: (
       workspaceId: string,
@@ -159,14 +168,13 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<SteerMessageResult>;
-    onEvent: (listener: (event: ChatEvent) => void) => () => void;
-    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
-    updateUserMessage: (
+    sendSteeringImmediately: (
       workspaceId: string,
       conversationId: string,
-      messageId: string,
-      text: string,
-    ) => Promise<ChatMessage>;
+      prompt?: string,
+    ) => Promise<ImmediateSteeringResult>;
+    onEvent: (listener: (event: ChatEvent) => void) => () => void;
+    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };
   codexAccount: {
     cancelLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
