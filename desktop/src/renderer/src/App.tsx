@@ -1,24 +1,17 @@
-import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
-import type { DesktopPlatform } from "@shared/types";
-import {
-  FolderOpen,
-  MessageSquareText,
-  PanelBottomOpen,
-  PanelLeftOpen,
-  PanelRightOpen,
-  Search,
-} from "lucide-react";
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { BackendHealth, WorkspaceSession, WorkspaceSummary } from "@generated/backend";
+import { CircleAlert, CircleCheck, FolderOpen, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
-import { EditorPicker } from "./components/editor-picker";
-import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspace-pane";
+import type {
+  BackendEventStreamStatus,
+  BackendProcessStatus,
+  RuntimeVersions,
+} from "@shared/types";
+import { ChatPanel } from "./components/chat-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
-import { Input } from "./components/ui/input";
-import { cn } from "./lib/utils";
+import { Separator } from "./components/ui/separator";
 import {
   type WorkspaceOperationKind,
   type WorkspaceOperation,
@@ -27,836 +20,138 @@ import {
 } from "./stores/workspace-store";
 import { useChatStore } from "./stores/chat-store";
 
+interface BackendState {
+  eventStream: BackendEventStreamStatus;
+  health: BackendHealth | null;
+  healthMessage: string;
+  process: BackendProcessStatus;
+}
+
+const initialBackendState: BackendState = {
+  eventStream: { message: "Event stream stopped", status: "stopped" },
+  health: null,
+  healthMessage: "",
+  process: { message: "Starting backend", status: "starting" },
+};
+
 export function App() {
+  const { backend, refreshHealth } = useBackendState();
+  const runtime = useRuntimeVersions();
   const workspace = useWorkspaceViewState();
-  const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
-  const panes = useWorkspacePaneState();
-  const platform = window.setta.app.platform;
-  const [maximizedPane, setMaximizedPane] = useState<MaximizedPane>(null);
-  const [projectPaneWidth, setProjectPaneWidth] = useState(220);
-  const [chatPaneWidth, setChatPaneWidth] = useState(360);
-  const [projectPaneOpen, setProjectPaneOpen] = useState(true);
-  const [chatPaneOpen, setChatPaneOpen] = useState(true);
-  const [chatSearchOpen, setChatSearchOpen] = useState(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
-  const openChatSearch = useCallback(() => {
-    setChatPaneOpen(true);
-    setChatSearchOpen(true);
-  }, []);
-  const openSearchPalette = useCallback(() => {
-    setCommandPaletteOpen(false);
-    setSearchPaletteOpen(true);
-  }, []);
-  const visibility = paneVisibility({
-    bottomPaneOpen: panes.bottom.open,
-    chatPaneOpen,
-    maximizedPane,
-    projectPaneOpen,
-    rightPaneOpen: panes.right.open,
-  });
-  const toggleMaximizedPane = useCallback(
-    (pane: NonNullable<MaximizedPane>) => {
-      setProjectPaneOpen(true);
-      if (pane === "chat") {
-        setChatPaneOpen(true);
-      }
-      if (pane === "right") {
-        panes.setPaneOpen("right", true);
-      }
-      if (pane === "bottom") {
-        panes.setPaneOpen("bottom", true);
-      }
-      setMaximizedPane((current) => (current === pane ? null : pane));
-    },
-    [panes],
-  );
+
   useEffect(() => {
     return window.setta.chat.onEvent((event) => {
       useChatStore.getState().handleEvent(event);
     });
   }, []);
 
-  useEffect(() => {
-    if (
-      isMaximizedPaneOpen(maximizedPane, {
-        bottom: panes.bottom.open,
-        chat: chatPaneOpen,
-        right: panes.right.open,
-      })
-    ) {
-      return;
-    }
-    setMaximizedPane(null);
-  }, [chatPaneOpen, maximizedPane, panes.bottom.open, panes.right.open]);
-
   return (
-    <div className="relative h-screen min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
-      <AppChromeControls
-        bottomPaneOpen={panes.bottom.open}
-        chatPaneOpen={chatPaneOpen}
-        commandPaletteOpen={commandPaletteOpen}
-        createConversation={chat.createConversation}
-        openChatSearch={openChatSearch}
-        openSearchPalette={openSearchPalette}
-        platform={platform}
-        projectPaneOpen={projectPaneOpen}
-        rightPaneOpen={panes.right.open}
-        searchPaletteOpen={searchPaletteOpen}
-        selectedWorkspace={workspace.selectedWorkspace}
-        setBottomPaneOpen={(open) => panes.setPaneOpen("bottom", open)}
-        setChatPaneOpen={setChatPaneOpen}
-        setCommandPaletteOpen={setCommandPaletteOpen}
-        setProjectPaneOpen={(open) => {
-          if (!open) {
-            setMaximizedPane(null);
-          }
-          setProjectPaneOpen(open);
-        }}
-        setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
-        setSearchPaletteOpen={setSearchPaletteOpen}
-      />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
-        <ProjectPane
-          chromeInsetTop={visibility.project}
-          chat={chat}
-          open={visibility.project}
-          openSearchPalette={openSearchPalette}
-          setWidth={setProjectPaneWidth}
-          width={projectPaneWidth}
-          workspace={workspace}
-        />
-        <WorkspaceArea
-          chat={chat}
-          chatPaneWidth={chatPaneWidth}
-          chatSearchOpen={chatSearchOpen}
-          maximizedPane={maximizedPane}
-          panes={panes}
-          setChatPaneWidth={setChatPaneWidth}
-          setChatSearchOpen={setChatSearchOpen}
-          toggleMaximizedPane={toggleMaximizedPane}
-          visibility={visibility}
-          workspace={workspace}
-        />
+    <div className="grid h-screen min-h-0 grid-rows-[56px_minmax(0,1fr)] overflow-hidden bg-zinc-50 text-zinc-950">
+      <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-5">
+        <div className="flex items-center gap-4">
+          <h1 className="text-base font-semibold">Setta</h1>
+          <BackendBadge backend={backend} />
+          <EventStreamBadge status={backend.eventStream} />
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-zinc-500">Electron {runtime.electron}</span>
+          <Button aria-label="Refresh backend health" onClick={() => void refreshHealth()}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
+      </header>
+      <main className="grid min-h-0 min-w-0 grid-cols-[260px_1fr] overflow-hidden">
+        <aside className="flex min-h-0 flex-col border-r border-zinc-200 bg-white">
+          <WorkspaceSidebar
+            activeWorkspaces={workspace.activeWorkspaces}
+            busy={workspace.busy}
+            closeWorkspace={workspace.closeWorkspace}
+            openLocalFolder={workspace.openLocalFolder}
+            recentWorkspaces={workspace.recentWorkspaces}
+            removeRecent={workspace.removeRecent}
+            reorderWorkspaces={workspace.reorderWorkspaces}
+            selectWorkspace={workspace.selectWorkspace}
+            selectedWorkspaceId={workspace.selectedWorkspaceId}
+          />
+          <Separator className="my-5" />
+          <dl className="space-y-3 px-4 pb-5 text-xs">
+            <div>
+              <dt className="text-zinc-500">Backend</dt>
+              <dd className="mt-1 break-words font-medium text-zinc-800">
+                {backend.healthMessage || backend.process.message}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-zinc-500">Runtime</dt>
+              <dd className="mt-1 text-zinc-800">Node {runtime.node}</dd>
+            </div>
+          </dl>
+        </aside>
+        <section className="grid min-h-0 min-w-0 grid-rows-[132px_minmax(0,1fr)] overflow-hidden">
+          <WorkspacePanel
+            error={workspace.error}
+            openLocalFolder={workspace.openLocalFolder}
+            operation={workspace.operation}
+            selectedWorkspace={workspace.selectedWorkspace}
+            status={workspace.status}
+          />
+          <ChatPanel workspace={workspace.selectedWorkspace} />
+        </section>
       </main>
     </div>
   );
 }
 
-type MaximizedPane = "bottom" | "chat" | "right" | null;
+function useBackendState() {
+  const [backend, setBackend] = useState<BackendState>(initialBackendState);
+  const refreshHealth = useCallback(async () => {
+    setBackend((current) => ({ ...current, health: null, healthMessage: "Checking" }));
+    try {
+      const health = await window.setta.backend.health();
+      setBackend((current) => ({
+        ...current,
+        health,
+        healthMessage: `${health.name} ${health.version}`,
+      }));
+    } catch (error) {
+      setBackend((current) => ({
+        ...current,
+        health: null,
+        healthMessage: error instanceof Error ? error.message : "Backend unavailable",
+      }));
+    }
+  }, []);
 
-interface PaneVisibility {
-  bottom: boolean;
-  chat: boolean;
-  content: boolean;
-  project: boolean;
-  right: boolean;
+  useEffect(() => {
+    void refreshHealth();
+  }, [refreshHealth]);
+  useEffect(() => {
+    return window.setta.backend.onProcessStatus((process) => {
+      setBackend((current) => ({ ...current, process }));
+    });
+  }, []);
+  useEffect(() => {
+    return window.setta.backend.onEventStreamStatus((eventStream) => {
+      setBackend((current) => ({ ...current, eventStream }));
+      if (eventStream.status === "resyncing") {
+        void useChatStore.getState().resyncActiveConversation();
+      }
+    });
+  }, []);
+
+  return { backend, refreshHealth };
 }
 
-function paneVisibility({
-  bottomPaneOpen,
-  chatPaneOpen,
-  maximizedPane,
-  projectPaneOpen,
-  rightPaneOpen,
-}: {
-  bottomPaneOpen: boolean;
-  chatPaneOpen: boolean;
-  maximizedPane: MaximizedPane;
-  projectPaneOpen: boolean;
-  rightPaneOpen: boolean;
-}): PaneVisibility {
-  const chat = panelIsVisible(chatPaneOpen, maximizedPane, "chat");
-  const right = panelIsVisible(rightPaneOpen, maximizedPane, "right");
-  const bottom = panelIsVisible(bottomPaneOpen, maximizedPane, "bottom");
+function useRuntimeVersions() {
+  const [versions, setVersions] = useState<RuntimeVersions | null>(null);
+  useEffect(() => {
+    void window.setta.app.versions().then(setVersions);
+  }, []);
   return {
-    bottom,
-    chat,
-    content: contentPanelsAreVisible(maximizedPane, chat, right),
-    project: projectPaneIsVisible(projectPaneOpen, maximizedPane),
-    right,
+    electron: versions?.electron ?? "--",
+    node: versions?.node ?? "--",
   };
-}
-
-function panelIsVisible(
-  open: boolean,
-  maximizedPane: MaximizedPane,
-  pane: NonNullable<MaximizedPane>,
-) {
-  return open && (maximizedPane === null || maximizedPane === pane);
-}
-
-function contentPanelsAreVisible(maximizedPane: MaximizedPane, chat: boolean, right: boolean) {
-  return maximizedPane !== "bottom" && (chat || right);
-}
-
-function projectPaneIsVisible(projectPaneOpen: boolean, maximizedPane: MaximizedPane) {
-  return projectPaneOpen || maximizedPane !== null;
-}
-
-function isMaximizedPaneOpen(
-  maximizedPane: MaximizedPane,
-  openPanes: { bottom: boolean; chat: boolean; right: boolean },
-) {
-  switch (maximizedPane) {
-    case "bottom":
-      return openPanes.bottom;
-    case "chat":
-      return openPanes.chat;
-    case "right":
-      return openPanes.right;
-    case null:
-      return true;
-    default:
-      return assertNever(maximizedPane);
-  }
-}
-
-function workspaceAreaRows(maximizedPane: MaximizedPane) {
-  return maximizedPane === "bottom"
-    ? "grid-rows-[minmax(0,1fr)]"
-    : "grid-rows-[minmax(0,1fr)_auto]";
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled app state: ${String(value)}`);
-}
-
-function WorkspaceArea({
-  chat,
-  chatPaneWidth,
-  chatSearchOpen,
-  maximizedPane,
-  panes,
-  setChatPaneWidth,
-  setChatSearchOpen,
-  toggleMaximizedPane,
-  visibility,
-  workspace,
-}: {
-  chat: ChatView;
-  chatPaneWidth: number;
-  chatSearchOpen: boolean;
-  maximizedPane: MaximizedPane;
-  panes: ReturnType<typeof useWorkspacePaneState>;
-  setChatPaneWidth: (width: number) => void;
-  setChatSearchOpen: (open: boolean) => void;
-  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
-  visibility: PaneVisibility;
-  workspace: WorkspaceViewState;
-}) {
-  return (
-    <div
-      className={cn(
-        "grid h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-900",
-        workspaceAreaRows(maximizedPane),
-      )}
-    >
-      {visibility.content ? (
-        <WorkspaceContentRow
-          chat={chat}
-          chatPaneWidth={chatPaneWidth}
-          chatSearchOpen={chatSearchOpen}
-          maximizedPane={maximizedPane}
-          panes={panes}
-          setChatPaneWidth={setChatPaneWidth}
-          setChatSearchOpen={setChatSearchOpen}
-          toggleMaximizedPane={toggleMaximizedPane}
-          visibility={visibility}
-          workspace={workspace}
-        />
-      ) : null}
-      {visibility.bottom ? (
-        <WorkspacePanePanel
-          activeTabId={panes.bottom.activeTabId}
-          chromeInsetTop={!visibility.content}
-          maximized={maximizedPane === "bottom"}
-          onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
-          onCreateTab={(kind) => panes.createTab("bottom", kind)}
-          onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
-          onToggleMaximized={() => toggleMaximizedPane("bottom")}
-          slot="bottom"
-          tabs={panes.bottom.tabs}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function WorkspaceContentRow({
-  chat,
-  chatPaneWidth,
-  chatSearchOpen,
-  maximizedPane,
-  panes,
-  setChatPaneWidth,
-  setChatSearchOpen,
-  toggleMaximizedPane,
-  visibility,
-  workspace,
-}: {
-  chat: ChatView;
-  chatPaneWidth: number;
-  chatSearchOpen: boolean;
-  maximizedPane: MaximizedPane;
-  panes: ReturnType<typeof useWorkspacePaneState>;
-  setChatPaneWidth: (width: number) => void;
-  setChatSearchOpen: (open: boolean) => void;
-  toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
-  visibility: PaneVisibility;
-  workspace: WorkspaceViewState;
-}) {
-  return (
-    <div className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900">
-      <ChatPane
-        chromeInsetTop={visibility.chat}
-        chat={chat}
-        chatSearchOpen={chatSearchOpen}
-        maximized={maximizedPane === "chat"}
-        onToggleMaximized={() => toggleMaximizedPane("chat")}
-        open={visibility.chat}
-        rightPaneOpen={visibility.right}
-        setChatSearchOpen={setChatSearchOpen}
-        setWidth={setChatPaneWidth}
-        width={chatPaneWidth}
-        workspace={workspace}
-      />
-      {visibility.right ? (
-        <div className="h-full min-w-[360px] flex-1">
-          <WorkspacePanePanel
-            activeTabId={panes.right.activeTabId}
-            chromeInsetTop={visibility.right}
-            maximized={maximizedPane === "right"}
-            onCloseTab={(tabId) => panes.closeTab("right", tabId)}
-            onCreateTab={(kind) => panes.createTab("right", kind)}
-            onSelectTab={(tabId) => panes.selectTab("right", tabId)}
-            onToggleMaximized={() => toggleMaximizedPane("right")}
-            slot="right"
-            tabs={panes.right.tabs}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
-
-function ProjectPane({
-  chromeInsetTop,
-  chat,
-  open,
-  openSearchPalette,
-  setWidth,
-  width,
-  workspace,
-}: {
-  chromeInsetTop: boolean;
-  chat: ChatView;
-  open: boolean;
-  openSearchPalette: () => void;
-  setWidth: (width: number) => void;
-  width: number;
-  workspace: WorkspaceViewState;
-}) {
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <ResizablePane
-      label="Resize project sidebar"
-      maxWidth={320}
-      minWidth={176}
-      onWidthChange={setWidth}
-      width={width}
-    >
-      <div className="h-full">
-        <WorkspaceSidebar
-          activeRun={chat.activeRun}
-          activeWorkspaces={workspace.activeWorkspaces}
-          busy={workspace.busy || chat.operation !== null}
-          chatBusy={chat.operation !== null || chat.status === "loading"}
-          closeWorkspace={workspace.closeWorkspace}
-          conversations={chat.conversations}
-          createConversation={chat.createConversation}
-          createWorkspaceConversation={chat.createWorkspaceConversation}
-          openLocalFolder={workspace.openLocalFolder}
-          openSearch={openSearchPalette}
-          recentWorkspaces={workspace.recentWorkspaces}
-          removeRecent={workspace.removeRecent}
-          selectConversation={chat.selectConversation}
-          selectWorkspace={workspace.selectWorkspace}
-          selectedConversationId={chat.selectedConversation?.id ?? ""}
-          selectedWorkspaceId={workspace.selectedWorkspaceId}
-          chromeInsetTop={chromeInsetTop}
-          sidebarWidth={width}
-          unreadConversationIds={chat.unreadConversationIds}
-        />
-      </div>
-    </ResizablePane>
-  );
-}
-
-function ChatPane({
-  chromeInsetTop,
-  chat,
-  chatSearchOpen,
-  maximized,
-  onToggleMaximized,
-  open,
-  rightPaneOpen,
-  setChatSearchOpen,
-  setWidth,
-  width,
-  workspace,
-}: {
-  chromeInsetTop: boolean;
-  chat: ChatView;
-  chatSearchOpen: boolean;
-  maximized: boolean;
-  onToggleMaximized: () => void;
-  open: boolean;
-  rightPaneOpen: boolean;
-  setChatSearchOpen: (open: boolean) => void;
-  setWidth: (width: number) => void;
-  width: number;
-  workspace: WorkspaceViewState;
-}) {
-  if (!open) {
-    return null;
-  }
-
-  const canToggleMaximized = maximized || rightPaneOpen;
-  const panel = (
-    <ChatPanel
-      chat={chat}
-      chromeInsetTop={chromeInsetTop}
-      maximized={maximized}
-      onToggleMaximized={canToggleMaximized ? onToggleMaximized : undefined}
-      searchOpen={chatSearchOpen}
-      setSearchOpen={setChatSearchOpen}
-      workspace={workspace.selectedWorkspace}
-    />
-  );
-  if (!rightPaneOpen) {
-    return <div className="h-full min-h-0 min-w-0 flex-1">{panel}</div>;
-  }
-
-  return (
-    <ResizablePane
-      label="Resize chat"
-      maxWidth={560}
-      minWidth={300}
-      onWidthChange={setWidth}
-      width={width}
-    >
-      {panel}
-    </ResizablePane>
-  );
-}
-
-function AppChromeControls({
-  bottomPaneOpen,
-  chatPaneOpen,
-  commandPaletteOpen,
-  createConversation,
-  openChatSearch,
-  openSearchPalette,
-  platform,
-  projectPaneOpen,
-  rightPaneOpen,
-  searchPaletteOpen,
-  selectedWorkspace,
-  setBottomPaneOpen,
-  setChatPaneOpen,
-  setCommandPaletteOpen,
-  setProjectPaneOpen,
-  setRightPaneOpen,
-  setSearchPaletteOpen,
-}: {
-  bottomPaneOpen: boolean;
-  chatPaneOpen: boolean;
-  commandPaletteOpen: boolean;
-  createConversation: (title?: string) => Promise<void>;
-  openChatSearch: () => void;
-  openSearchPalette: () => void;
-  platform: DesktopPlatform;
-  projectPaneOpen: boolean;
-  rightPaneOpen: boolean;
-  searchPaletteOpen: boolean;
-  selectedWorkspace: WorkspaceSummary | null;
-  setBottomPaneOpen: (open: boolean) => void;
-  setChatPaneOpen: (open: boolean) => void;
-  setCommandPaletteOpen: (open: boolean) => void;
-  setProjectPaneOpen: (open: boolean) => void;
-  setRightPaneOpen: (open: boolean) => void;
-  setSearchPaletteOpen: (open: boolean) => void;
-}) {
-  useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
-      if (!isModShortcut(event)) {
-        return;
-      }
-      const key = event.key.toLowerCase();
-      if (key === "k") {
-        event.preventDefault();
-        setSearchPaletteOpen(false);
-        setCommandPaletteOpen(true);
-        return;
-      }
-      if (key === "g") {
-        event.preventDefault();
-        openSearchPalette();
-        return;
-      }
-      if (key === "f") {
-        event.preventDefault();
-        setCommandPaletteOpen(false);
-        setSearchPaletteOpen(false);
-        openChatSearch();
-        return;
-      }
-      if (key === "n") {
-        event.preventDefault();
-        setCommandPaletteOpen(false);
-        setSearchPaletteOpen(false);
-        void createConversation();
-      }
-    };
-    window.addEventListener("keydown", handleShortcut);
-    return () => {
-      window.removeEventListener("keydown", handleShortcut);
-    };
-  }, [
-    createConversation,
-    openChatSearch,
-    openSearchPalette,
-    setCommandPaletteOpen,
-    setSearchPaletteOpen,
-  ]);
-
-  return (
-    <>
-      <ShellTopBar />
-      <FloatingPaneControls
-        bottomPaneOpen={bottomPaneOpen}
-        chatPaneOpen={chatPaneOpen}
-        platform={platform}
-        projectPaneOpen={projectPaneOpen}
-        rightPaneOpen={rightPaneOpen}
-        rootPath={selectedWorkspace?.rootPath ?? ""}
-        setBottomPaneOpen={setBottomPaneOpen}
-        setChatPaneOpen={setChatPaneOpen}
-        setProjectPaneOpen={setProjectPaneOpen}
-        setRightPaneOpen={setRightPaneOpen}
-      />
-      <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
-      <SearchPalette onOpenChange={setSearchPaletteOpen} open={searchPaletteOpen} />
-    </>
-  );
-}
-
-function ShellTopBar() {
-  return (
-    <div
-      aria-hidden="true"
-      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-9 bg-transparent"
-      data-testid="shell-top-bar"
-    />
-  );
-}
-
-function isModShortcut(event: KeyboardEvent) {
-  return event.metaKey || event.ctrlKey;
-}
-
-function ShellPaneToggle({
-  active,
-  children,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  children: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-label={label}
-      aria-pressed={active}
-      className={
-        active
-          ? "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-100 outline-none hover:bg-zinc-800 focus-visible:bg-zinc-800"
-          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
-      }
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
-function FloatingPaneControls({
-  bottomPaneOpen,
-  chatPaneOpen,
-  platform,
-  projectPaneOpen,
-  rightPaneOpen,
-  rootPath,
-  setBottomPaneOpen,
-  setChatPaneOpen,
-  setProjectPaneOpen,
-  setRightPaneOpen,
-}: {
-  bottomPaneOpen: boolean;
-  chatPaneOpen: boolean;
-  platform: DesktopPlatform;
-  projectPaneOpen: boolean;
-  rightPaneOpen: boolean;
-  rootPath: string;
-  setBottomPaneOpen: (open: boolean) => void;
-  setChatPaneOpen: (open: boolean) => void;
-  setProjectPaneOpen: (open: boolean) => void;
-  setRightPaneOpen: (open: boolean) => void;
-}) {
-  return (
-    <div
-      className={cn(
-        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-400",
-        floatingControlsRightInsetClass(platform),
-      )}
-    >
-      <div className="pointer-events-auto flex items-center gap-1">
-        <EditorPicker rootPath={rootPath} />
-        <ShellPaneToggle
-          active={projectPaneOpen}
-          label={projectPaneOpen ? "Hide project sidebar" : "Show project sidebar"}
-          onClick={() => setProjectPaneOpen(!projectPaneOpen)}
-        >
-          <PanelLeftOpen className="h-3.5 w-3.5" />
-        </ShellPaneToggle>
-        <ShellPaneToggle
-          active={chatPaneOpen}
-          label={chatPaneOpen ? "Hide chat pane" : "Show chat pane"}
-          onClick={() => setChatPaneOpen(!chatPaneOpen)}
-        >
-          <MessageSquareText className="h-3.5 w-3.5" />
-        </ShellPaneToggle>
-        <ShellPaneToggle
-          active={bottomPaneOpen}
-          label={bottomPaneOpen ? "Hide bottom pane" : "Show bottom pane"}
-          onClick={() => setBottomPaneOpen(!bottomPaneOpen)}
-        >
-          <PanelBottomOpen className="h-3.5 w-3.5" />
-        </ShellPaneToggle>
-        <ShellPaneToggle
-          active={rightPaneOpen}
-          label={rightPaneOpen ? "Hide right pane" : "Show right pane"}
-          onClick={() => setRightPaneOpen(!rightPaneOpen)}
-        >
-          <PanelRightOpen className="h-3.5 w-3.5" />
-        </ShellPaneToggle>
-      </div>
-    </div>
-  );
-}
-
-function floatingControlsRightInsetClass(platform: DesktopPlatform) {
-  return platform === "darwin" ? "right-2" : "right-36";
-}
-
-function CommandPalette({
-  onOpenChange,
-  open,
-}: {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-}) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    inputRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onOpenChange, open]);
-
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div
-      className="app-no-drag fixed inset-0 z-50 bg-black/35 px-3 pt-10"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onOpenChange(false);
-        }
-      }}
-      role="presentation"
-    >
-      <div className="mx-auto w-full max-w-lg overflow-hidden rounded-sm border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-xl">
-        <label className="flex h-8 items-center gap-1.5 border-b border-zinc-800 px-2">
-          <Search className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
-          <Input
-            className="h-7 border-0 bg-transparent px-0 text-xs shadow-none placeholder:text-zinc-600 focus-visible:border-0"
-            placeholder="Run a command"
-            ref={inputRef}
-          />
-        </label>
-        <div className="p-1">
-          {["Open Project", "Switch Workspace", "Search Chat", "Open Settings"].map((command) => (
-            <button
-              className="flex h-7 w-full items-center justify-between rounded-sm px-2 text-left text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white"
-              key={command}
-              onClick={() => onOpenChange(false)}
-              type="button"
-            >
-              <span>{command}</span>
-              {command === "Open Project" ? (
-                <kbd className="text-[10px] text-zinc-500">cmd o</kbd>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SearchPalette({
-  onOpenChange,
-  open,
-}: {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-}) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    inputRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onOpenChange, open]);
-
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div
-      className="app-no-drag fixed inset-0 z-50 bg-black/35 px-3 pt-10"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onOpenChange(false);
-        }
-      }}
-      role="presentation"
-    >
-      <div className="mx-auto w-full max-w-lg overflow-hidden rounded-sm border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-xl">
-        <label className="flex h-8 items-center gap-1.5 px-2">
-          <Search className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
-          <Input
-            className="h-7 border-0 bg-transparent px-0 text-xs shadow-none placeholder:text-zinc-600 focus-visible:border-0"
-            placeholder="Search chats, projects, files"
-            ref={inputRef}
-          />
-        </label>
-      </div>
-    </div>
-  );
-}
-
-function ResizablePane({
-  children,
-  label,
-  maxWidth,
-  minWidth,
-  onWidthChange,
-  width,
-}: {
-  children: ReactNode;
-  label: string;
-  maxWidth: number;
-  minWidth: number;
-  onWidthChange: (width: number) => void;
-  width: number;
-}) {
-  const startResize = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const startX = event.clientX;
-      const startWidth = width;
-      const previousCursor = document.body.style.cursor;
-      const previousUserSelect = document.body.style.userSelect;
-
-      const resize = (moveEvent: globalThis.PointerEvent) => {
-        onWidthChange(clamp(startWidth + moveEvent.clientX - startX, minWidth, maxWidth));
-      };
-      const stopResize = () => {
-        document.body.style.cursor = previousCursor;
-        document.body.style.userSelect = previousUserSelect;
-        window.removeEventListener("pointermove", resize);
-      };
-
-      event.preventDefault();
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      window.addEventListener("pointermove", resize);
-      window.addEventListener("pointerup", stopResize, { once: true });
-    },
-    [maxWidth, minWidth, onWidthChange, width],
-  );
-
-  return (
-    <div className="relative h-full min-h-0 shrink-0" style={{ width }}>
-      {children}
-      <div
-        aria-label={label}
-        aria-orientation="vertical"
-        className="absolute top-0 right-0 z-30 h-full w-2 translate-x-1 cursor-col-resize"
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft") {
-            event.preventDefault();
-            onWidthChange(clamp(width - 12, minWidth, maxWidth));
-          }
-          if (event.key === "ArrowRight") {
-            event.preventDefault();
-            onWidthChange(clamp(width + 12, minWidth, maxWidth));
-          }
-        }}
-        onPointerDown={startResize}
-        role="separator"
-        tabIndex={0}
-      />
-    </div>
-  );
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function useWorkspaceViewState() {
@@ -866,6 +161,7 @@ function useWorkspaceViewState() {
   const openLocalFolder = useWorkspaceStore((state) => state.openLocalFolder);
   const operation = useWorkspaceStore((state) => state.operation);
   const removeRecent = useWorkspaceStore((state) => state.removeRecent);
+  const reorderWorkspaces = useWorkspaceStore((state) => state.reorderWorkspaces);
   const selectWorkspace = useWorkspaceStore((state) => state.selectWorkspace);
   const session = useWorkspaceStore((state) => state.session);
   const status = useWorkspaceStore((state) => state.status);
@@ -884,6 +180,7 @@ function useWorkspaceViewState() {
     operation,
     recentWorkspaces: session?.recentWorkspaces ?? [],
     removeRecent,
+    reorderWorkspaces,
     selectWorkspace,
     selectedWorkspace,
     selectedWorkspaceId: session?.selectedWorkspaceId ?? "",
@@ -915,29 +212,29 @@ export function WorkspacePanel({
 }) {
   const busy = operation !== null || status === "loading";
   return (
-    <div id="workspace" className="border-b border-zinc-200 bg-white p-2">
-      <div className="flex h-full items-start justify-between gap-2">
+    <div id="workspace" className="border-b border-zinc-200 bg-white p-4">
+      <div className="flex h-full items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-xs font-semibold text-zinc-950">Workspace</h2>
+            <h2 className="text-sm font-semibold text-zinc-950">Workspace</h2>
             {status === "loading" ? <Badge variant="neutral">Loading</Badge> : null}
             {operation ? <Badge variant="neutral">{operationLabel(operation)}</Badge> : null}
           </div>
           {selectedWorkspace ? (
-            <div className="mt-3 min-w-0">
-              <div className="truncate text-xs font-semibold">{selectedWorkspace.displayName}</div>
+            <div className="mt-5 min-w-0">
+              <div className="truncate text-xl font-semibold">{selectedWorkspace.displayName}</div>
               <div
-                className="mt-1 truncate text-xs text-zinc-500"
+                className="mt-2 truncate text-sm text-zinc-500"
                 data-testid="selected-workspace-path"
               >
                 {selectedWorkspace.rootPath}
               </div>
             </div>
           ) : (
-            <div className="mt-3">
-              <div className="text-xs font-semibold">No workspace open</div>
+            <div className="mt-5">
+              <div className="text-xl font-semibold">No workspace open</div>
               <Button
-                className="mt-2 h-7 rounded-sm px-2 text-xs"
+                className="mt-4"
                 disabled={busy}
                 onClick={() => void openLocalFolder()}
                 variant="primary"
@@ -949,7 +246,7 @@ export function WorkspacePanel({
           )}
           {error ? (
             <div
-              className="mt-2 max-w-3xl rounded-sm border border-zinc-400 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-950"
+              className="mt-4 max-w-3xl rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
               data-testid="workspace-error"
             >
               {error}
@@ -974,4 +271,41 @@ const operationLabels = {
 
 function operationLabel(operation: WorkspaceOperationKind) {
   return operationLabels[operation];
+}
+
+function BackendBadge({ backend }: { backend: BackendState }) {
+  if (backend.process.status === "online") {
+    return (
+      <Badge data-testid="backend-status" variant="success">
+        <CircleCheck className="h-3.5 w-3.5" />
+        Online
+      </Badge>
+    );
+  }
+  if (backend.process.status === "offline" || backend.process.status === "failed") {
+    return (
+      <Badge data-testid="backend-status" variant="danger">
+        <CircleAlert className="h-3.5 w-3.5" />
+        {backend.process.status === "failed" ? "Failed" : "Offline"}
+      </Badge>
+    );
+  }
+  return <Badge data-testid="backend-status">Starting</Badge>;
+}
+
+function EventStreamBadge({ status }: { status: BackendEventStreamStatus }) {
+  if (status.status === "connected") {
+    return <Badge variant="success">Stream</Badge>;
+  }
+  if (status.status === "reconnecting" || status.status === "resyncing") {
+    return (
+      <Badge variant="neutral">
+        {status.status === "resyncing" ? "Resyncing" : "Reconnecting"}
+      </Badge>
+    );
+  }
+  if (status.status === "connecting") {
+    return <Badge variant="neutral">Connecting</Badge>;
+  }
+  return <Badge variant="neutral">Stream stopped</Badge>;
 }

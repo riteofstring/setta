@@ -234,5 +234,4 @@ the current view-mode system.
 
 ## Research Notes
 
-- `docs/plans/stack-research/setta-ui-stack-recommendation.md`
-- `docs/plans/stack-research/setta-desktop-shell-browser-summary.md`
+- `docs/plans/stack-research/setta-3-stack-recommendation.md`

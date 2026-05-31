@@ -494,58 +494,83 @@ if [[ ${#ts_files[@]} -gt 0 || ${#ts_test_files[@]} -gt 0 ]]; then
     status=1
   else
     declare -a ts_projects=()
-    for file_path in "${ts_files[@]}" "${ts_test_files[@]}"; do
-      if ts_project="$(find_ts_project "${file_path}")"; then
-        if ! has_ts_project "${ts_project}"; then
-          ts_projects+=("${ts_project}")
-        fi
-      else
-        echo "TypeScript/JavaScript file has no owning package.json: ${file_path}" >&2
-        status=1
-      fi
-    done
-
-    for ts_project in "${ts_projects[@]}"; do
-      declare -a project_ts_files=()
-      declare -a project_ts_test_files=()
+    if [[ ${#ts_files[@]} -gt 0 ]]; then
       for file_path in "${ts_files[@]}"; do
-        if project_path="$(project_relative_ts_path "${ts_project}" "${file_path}")"; then
-          project_ts_files+=("${project_path}")
+        if ts_project="$(find_ts_project "${file_path}")"; then
+          if ! has_ts_project "${ts_project}"; then
+            ts_projects+=("${ts_project}")
+          fi
+        else
+          echo "TypeScript/JavaScript file has no owning package.json: ${file_path}" >&2
+          status=1
         fi
       done
+    fi
+    if [[ ${#ts_test_files[@]} -gt 0 ]]; then
       for file_path in "${ts_test_files[@]}"; do
-        if project_path="$(project_relative_ts_path "${ts_project}" "${file_path}")"; then
-          project_ts_test_files+=("${project_path}")
+        if ts_project="$(find_ts_project "${file_path}")"; then
+          if ! has_ts_project "${ts_project}"; then
+            ts_projects+=("${ts_project}")
+          fi
+        else
+          echo "TypeScript/JavaScript file has no owning package.json: ${file_path}" >&2
+          status=1
         fi
       done
+    fi
 
-      if [[ ${#project_ts_files[@]} -gt 0 ]]; then
-        echo "TypeScript/JavaScript quality checks (${ts_project}, ${#project_ts_files[@]} files)..."
-        pnpm -C "${repo_root}/${ts_project}" exec eslint \
-          --no-warn-ignored \
-          --rule "complexity:[\"error\",$(effective_max "${ts_max}")]" \
-          --rule 'max-depth:["error",4]' \
-          --rule 'max-params:["error",5]' \
-          -- "${project_ts_files[@]}" || status=1
-      fi
-      if [[ ${#project_ts_test_files[@]} -gt 0 ]]; then
-        echo "TypeScript/JavaScript test complexity checks (${ts_project}, ${#project_ts_test_files[@]} files)..."
-        pnpm -C "${repo_root}/${ts_project}" exec eslint \
-          --no-warn-ignored \
-          --rule "complexity:[\"error\",$(effective_max "${ts_test_max}")]" \
-          -- "${project_ts_test_files[@]}" || status=1
-      fi
-      echo "TypeScript/JavaScript typecheck (${ts_project})..."
-      pnpm -C "${repo_root}/${ts_project}" run typecheck || status=1
-      echo "TypeScript/JavaScript tests (${ts_project})..."
-      pnpm -C "${repo_root}/${ts_project}" run test || status=1
-      echo "TypeScript/JavaScript build (${ts_project})..."
-      pnpm -C "${repo_root}/${ts_project}" run build || status=1
-      if pnpm -C "${repo_root}/${ts_project}" run | grep -q '^  deadcode$'; then
-        echo "TypeScript/JavaScript dead-code checks (${ts_project})..."
-        pnpm -C "${repo_root}/${ts_project}" run deadcode || status=1
-      fi
-    done
+    if [[ ${#ts_projects[@]} -gt 0 ]]; then
+      for ts_project in "${ts_projects[@]}"; do
+        declare -a project_ts_files=()
+        declare -a project_ts_test_files=()
+        if [[ ${#ts_files[@]} -gt 0 ]]; then
+          for file_path in "${ts_files[@]}"; do
+            if project_path="$(project_relative_ts_path "${ts_project}" "${file_path}")"; then
+              project_ts_files+=("${project_path}")
+            fi
+          done
+        fi
+        if [[ ${#ts_test_files[@]} -gt 0 ]]; then
+          for file_path in "${ts_test_files[@]}"; do
+            if project_path="$(project_relative_ts_path "${ts_project}" "${file_path}")"; then
+              project_ts_test_files+=("${project_path}")
+            fi
+          done
+        fi
+
+        if [[ ${#project_ts_files[@]} -gt 0 ]]; then
+          echo "TypeScript/JavaScript quality checks (${ts_project}, ${#project_ts_files[@]} files)..."
+          pnpm -C "${repo_root}/${ts_project}" exec eslint \
+            --no-warn-ignored \
+            --rule "complexity:[\"error\",$(effective_max "${ts_max}")]" \
+            --rule 'max-depth:["error",4]' \
+            --rule 'max-params:["error",5]' \
+            -- "${project_ts_files[@]}" || status=1
+        fi
+        if [[ ${#project_ts_test_files[@]} -gt 0 ]]; then
+          echo "TypeScript/JavaScript test complexity checks (${ts_project}, ${#project_ts_test_files[@]} files)..."
+          pnpm -C "${repo_root}/${ts_project}" exec eslint \
+            --no-warn-ignored \
+            --rule "complexity:[\"error\",$(effective_max "${ts_test_max}")]" \
+            -- "${project_ts_test_files[@]}" || status=1
+        fi
+        echo "TypeScript/JavaScript typecheck (${ts_project})..."
+        pnpm -C "${repo_root}/${ts_project}" run typecheck || status=1
+        echo "TypeScript/JavaScript tests (${ts_project})..."
+        pnpm -C "${repo_root}/${ts_project}" run test || status=1
+        echo "TypeScript/JavaScript build (${ts_project})..."
+        pnpm -C "${repo_root}/${ts_project}" run build || status=1
+        if pnpm -C "${repo_root}/${ts_project}" run | grep -q '^  deadcode$'; then
+          echo "TypeScript/JavaScript dead-code checks (${ts_project})..."
+          pnpm -C "${repo_root}/${ts_project}" run deadcode || status=1
+        fi
+        if [[ "${mode}" == "all" && "${ts_project}" == "desktop" ]] &&
+          [[ -x "${repo_root}/scripts/test_chat_workflows.sh" ]]; then
+          echo "Chat workflow integration checks (${ts_project})..."
+          "${repo_root}/scripts/test_chat_workflows.sh" --skip-build || status=1
+        fi
+      done
+    fi
   fi
 fi
 
