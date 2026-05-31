@@ -18,3 +18,30 @@ export async function assertNoCriticalDiagnostics(backend, workspaceId, conversa
     throw new Error(`critical diagnostics recorded: ${JSON.stringify(critical)}`);
   }
 }
+
+export async function waitForComposerFocus(waitForState, client) {
+  await waitForState(
+    client,
+    `(() => ({
+      focused: document.activeElement?.getAttribute("aria-label") === "Ask Setta",
+    }))()`,
+    (value) => value.focused,
+  );
+}
+
+export async function waitForModelPickerAbsent(waitForState, client) {
+  await waitForState(
+    client,
+    `(() => ({ open: Boolean(document.querySelector('[data-testid="model-picker"]')) }))()`,
+    (value) => !value.open,
+  );
+}
+
+export async function dispatchDocumentEscape(client) {
+  await client.evaluate(`(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+  })()`);
+}

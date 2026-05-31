@@ -13,6 +13,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
+  dispatchDocumentEscape,
+  waitForComposerFocus,
+  waitForModelPickerAbsent,
 } from "./chat-workflow-assertions.mjs";
 import { prepareLiveCodexEnv } from "./chat-live-env.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
@@ -677,6 +680,13 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await waitForTexts(client, ["Model set: scripted-fast"]);
   await submitComposer(client, "/model", "Send message");
   await waitForSelectedModel(client, "scripted-fast");
+  await waitForComposerFocus(waitForState, client);
+  await clickButtonByAria(client, "Close model picker");
+  await waitForModelPickerAbsent(waitForState, client);
+  await submitComposer(client, "/model", "Send message");
+  await waitForSelectedModel(client, "scripted-fast");
+  await dispatchDocumentEscape(client);
+  await waitForModelPickerAbsent(waitForState, client);
 
   await submitComposer(client, "/model scripted-careful", "Send message");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-careful");

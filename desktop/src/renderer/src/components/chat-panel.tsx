@@ -12,6 +12,7 @@ import {
   MessageSquarePlus,
   Minimize2,
   Square,
+  X,
 } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
@@ -388,6 +389,7 @@ function Composer({
   const [commandListKey, setCommandListKey] = useState("");
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
   const submittingRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
   const disabled = disabledOverride ?? (!selected || busy);
   const slashDraft = isSlashDraft(draft);
@@ -428,6 +430,26 @@ function Composer({
       cancelled = true;
     };
   }, [chat, commandListKey, running, slashDraft]);
+
+  useEffect(() => {
+    if (modelPicker?.result.action !== "model_picker") {
+      return;
+    }
+    textareaRef.current?.focus();
+
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      dismissModelPicker();
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [modelPicker]);
 
   async function sendDraft() {
     const prompt = draft.trim();
@@ -518,6 +540,7 @@ function Composer({
               draft={draft}
               modelPicker={modelPicker}
               onPickCommand={(command) => updateDraft(command.name + " ")}
+              onDismissModelPicker={dismissModelPicker}
               onPickModel={(model) => {
                 void executeModelSelection(model);
               }}
@@ -536,6 +559,8 @@ function Composer({
                       updateDraft(selectedSuggestion.name + " ");
                     }
                   },
+                  dismissModelPicker,
+                  modelPickerOpen: modelPicker?.result.action === "model_picker",
                   queueDraft,
                   running,
                   sendDraft,
@@ -544,6 +569,7 @@ function Composer({
                 });
               }}
               placeholder={placeholder}
+              ref={textareaRef}
               rows={2}
               value={draft}
             />
@@ -570,6 +596,11 @@ function Composer({
     }
   }
 
+  function dismissModelPicker() {
+    setModelPicker(null);
+    textareaRef.current?.focus();
+  }
+
   async function executeModelSelection(model: ChatModelOption) {
     if (!chat.selectedConversation || disabled || submittingRef.current) {
       return;
@@ -588,6 +619,7 @@ function Composer({
 export function CommandSuggestions({
   draft,
   modelPicker,
+  onDismissModelPicker,
   onPickCommand,
   onPickModel,
   selectedSuggestion,
@@ -595,6 +627,7 @@ export function CommandSuggestions({
 }: {
   draft: string;
   modelPicker: ChatCommandExecuteResult | null;
+  onDismissModelPicker: () => void;
   onPickCommand: (command: ChatCommandCapability) => void;
   onPickModel: (model: ChatModelOption) => void;
   selectedSuggestion: ChatCommandCapability | null;
@@ -607,6 +640,17 @@ export function CommandSuggestions({
         className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
         data-testid="model-picker"
       >
+        <div className="mb-1 flex justify-end border-b border-zinc-700/70 pb-1">
+          <button
+            aria-label="Close model picker"
+            className="grid h-6 w-6 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700/75 hover:text-zinc-100"
+            onClick={onDismissModelPicker}
+            title="Close model picker"
+            type="button"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
         {modelPicker.result.models.map((model) => {
           const selected = modelPickerOptionSelected(model, selectedModel);
           return (
@@ -742,6 +786,8 @@ function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible
 
 interface ComposerKeyActions {
   completeCommand: () => void;
+  dismissModelPicker: () => void;
+  modelPickerOpen: boolean;
   queueDraft: () => Promise<void>;
   running: boolean;
   sendDraft: () => Promise<void>;
@@ -753,6 +799,11 @@ export function handleComposerKeyDown(
   event: KeyboardEvent<HTMLTextAreaElement>,
   actions: ComposerKeyActions,
 ) {
+  if (isDismissShortcut(event, actions.modelPickerOpen)) {
+    event.preventDefault();
+    actions.dismissModelPicker();
+    return;
+  }
   if (isQueueShortcut(event)) {
     event.preventDefault();
     if (actions.slashDraft) {
@@ -772,6 +823,10 @@ export function handleComposerKeyDown(
   }
   event.preventDefault();
   void actions.sendDraft();
+}
+
+function isDismissShortcut(event: KeyboardEvent<HTMLTextAreaElement>, modelPickerOpen: boolean) {
+  return modelPickerOpen && event.key === "Escape";
 }
 
 function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
