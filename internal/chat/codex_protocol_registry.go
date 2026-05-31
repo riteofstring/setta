@@ -2,9 +2,7 @@ package chat
 
 var supportedCodexClientMethods = map[string]struct{}{
 	"initialize":             {},
-	"mcpServerStatus/list":   {},
 	"model/list":             {},
-	"skills/list":            {},
 	"thread/goal/clear":      {},
 	"thread/goal/get":        {},
 	"thread/goal/set":        {},
@@ -17,7 +15,6 @@ var supportedCodexClientMethods = map[string]struct{}{
 }
 
 var codexAppServer0135ServerRequests = []string{
-	"account/chatgptAuthTokens/refresh",
 	"attestation/generate",
 	"item/commandExecution/requestApproval",
 	"item/fileChange/requestApproval",

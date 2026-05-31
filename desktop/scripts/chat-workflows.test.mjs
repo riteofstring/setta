@@ -13,6 +13,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
+  dispatchDocumentEscape,
+  waitForComposerFocus,
+  waitForModelPickerAbsent,
 } from "./chat-workflow-assertions.mjs";
 import { prepareLiveCodexEnv } from "./chat-live-env.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
@@ -22,8 +25,7 @@ import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
 } from "./codex-protocol-workflow.mjs";
-import { stopElectron } from "./electron-process.mjs";
-import { runProviderAccountWorkflow } from "./provider-account-workflow.mjs";
+import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
@@ -31,9 +33,9 @@ const repoRoot = resolve(desktopRoot, "..");
 const options = parseArgs(process.argv.slice(2));
 const recordingRoot = chatWorkflowRecordingRoot(options);
 const pageLoadTimeoutMs = 20_000;
-const workflowTimeoutMs = 30_000;
+const workflowTimeoutMs = 15_000;
 const liveWorkflowTimeoutMs = 120_000;
-const cleanupRetryCount = 5;
+const shutdownTimeoutMs = 10_000;
 
 function parseArgs(args) {
   const parsed = {
@@ -80,7 +82,7 @@ function chatWorkflowRecordingRoot(parsed) {
 async function main() {
   assertBuildExists();
   if (!options.keepArtifacts && options.deterministic) {
-    await removeTree(recordingRoot);
+    await rm(recordingRoot, { force: true, recursive: true });
   }
   await mkdir(recordingRoot, { recursive: true });
 
@@ -102,15 +104,20 @@ async function main() {
 
 async function runDeterministicWorkflowLaunch(results) {
   const fixture = await createFixture("deterministic");
+  const fakeCodex = await installFakeCodexAppServer(fixture);
   const recordingDir = join(recordingRoot, "deterministic");
-  const context = await launchContext(fixture, recordingDir);
+  const context = await launchContext(fixture, recordingDir, {
+    extraEnv: {
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+    },
+  });
   let failure = null;
 
   try {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
-    await runWorkflowStep(results, recordingDir, "provider-accounts", context.client, async () => {
-      await runProviderAccountWorkflow({
+    await runWorkflowStep(results, recordingDir, "codex-account", context.client, async () => {
+      await runCodexAccountWorkflow({
         backend,
         clickButtonByAria,
         client: context.client,
@@ -139,23 +146,13 @@ async function runDeterministicWorkflowLaunch(results) {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runSlashCommandWorkflow(context.client, backend, workspaceId, conversationId);
     });
-    await runWorkflowStep(
-      results,
-      recordingDir,
-      "sidebar-chat-actions",
-      context.client,
-      async () => {
-        const conversationId = await createChat(context.client, backend, workspaceId);
-        await runSidebarChatActionsWorkflow(context.client, backend, workspaceId, conversationId);
-      },
-    );
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await removeTree(fixture.tempRoot);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   if (failure) {
@@ -166,7 +163,6 @@ async function runDeterministicWorkflowLaunch(results) {
       "/workspaces/open",
       "/chat/conversations/create",
       "/chat/messages/send",
-      "/chat/messages/update-user",
       "/chat/messages/queue",
       "/chat/messages/steer",
       "/chat/runs/active",
@@ -175,26 +171,23 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/approvals/submit",
       "/chat/commands/list",
       "/chat/commands/execute",
-      "/chat/conversations/delete",
-      "/provider-accounts",
-      "/provider-accounts/chatgpt-auth/clear",
-      "/provider-accounts/chatgpt-auth/save",
+      "/codex/account",
+      "/codex/account/login/start",
+      "/codex/account/logout",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
       "chat:create-conversation",
       "chat:send-message",
-      "chat:update-user-message",
       "chat:queue-message",
       "chat:steer-message",
       "chat:cancel-run",
       "chat:submit-approval",
       "chat:list-commands",
       "chat:execute-command",
-      "chat:delete-conversation",
-      "provider-accounts:clear-chatgpt-auth",
-      "provider-accounts:list",
-      "provider-accounts:save-chatgpt-auth",
+      "codex-account:logout",
+      "codex-account:read",
+      "codex-account:start-login",
     ],
   });
 }
@@ -245,6 +238,22 @@ async function runCodexProtocolWorkflow(results) {
     ]);
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+
+    const exitConversationId = await createChat(context.client, backend, workspaceId);
+    await submitComposer(context.client, "app-server exit workflow", "Send message");
+    const failedRun = await waitForRunWithPrompt(
+      backend,
+      workspaceId,
+      exitConversationId,
+      "app-server exit workflow",
+      "failed",
+    );
+    if (!failedRun.error.includes("codex app-server exited")) {
+      throw new Error(
+        `app-server exit run error did not mention exit: ${JSON.stringify(failedRun)}`,
+      );
+    }
+    await assertNoActiveRun(backend, workspaceId, exitConversationId);
     await captureScreenshot(context.client, join(recordingDir, "success.png"));
   } catch (error) {
     failure = error;
@@ -252,7 +261,7 @@ async function runCodexProtocolWorkflow(results) {
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await removeTree(fixture.tempRoot);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   if (failure) {
@@ -322,7 +331,7 @@ async function runRestartWorkflow(results) {
   } finally {
     await stopLaunchedContext(first);
     await stopLaunchedContext(second);
-    await removeTree(fixture.tempRoot);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
   }
 
   await assertRecordingEvidence(firstRecording, {
@@ -419,8 +428,8 @@ async function runLiveCodexWorkflow(results) {
   } finally {
     context.client?.close();
     await stopElectron(context.electron);
-    await removeTree(fixture.tempRoot);
-    await removeTree(liveEnv.codexHome);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
+    await rm(liveEnv.codexHome, { force: true, recursive: true });
   }
 
   if (failure) {
@@ -600,7 +609,7 @@ async function runFailWorkflow(client, backend, workspaceId, conversationId) {
   );
   await waitForTexts(client, ["queued follow-up after failure", "Queued"]);
   await submitComposer(client, "trigger scripted failure", "Send steering message");
-  await waitForText(client, "Scripted failure surfaced.");
+  await waitForTexts(client, ["Scripted failure surfaced.", "error"]);
   await assertQueuedRunNotPromoted(
     backend,
     workspaceId,
@@ -669,6 +678,15 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await clickModelByText(client, "scripted-fast");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-fast");
   await waitForTexts(client, ["Model set: scripted-fast"]);
+  await submitComposer(client, "/model", "Send message");
+  await waitForSelectedModel(client, "scripted-fast");
+  await waitForComposerFocus(waitForState, client);
+  await clickButtonByAria(client, "Close model picker");
+  await waitForModelPickerAbsent(waitForState, client);
+  await submitComposer(client, "/model", "Send message");
+  await waitForSelectedModel(client, "scripted-fast");
+  await dispatchDocumentEscape(client);
+  await waitForModelPickerAbsent(waitForState, client);
 
   await submitComposer(client, "/model scripted-careful", "Send message");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-careful");
@@ -704,7 +722,6 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
   await assertNoActiveRun(backend, workspaceId, conversationId);
   await assertTranscriptSequence(client, [
     "workflow hold for queue and steering",
-    "finish after slash command",
     "Active workflow complete.",
     "Goal paused.",
     "Model set: scripted-fast",
@@ -712,38 +729,10 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
     "model setting workflow",
     "Model for next turn: scripted-careful.",
     "workflow hold for queue and steering",
-    "finish after disabled model command",
     "Active workflow complete.",
   ]);
   await assertChatLayout(client);
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
-}
-
-async function runSidebarChatActionsWorkflow(client, backend, workspaceId, conversationId) {
-  const [prompt, editedPrompt] = ["sidebar actions workflow", "sidebar actions edited workflow"];
-  await submitComposer(client, prompt, "Send message");
-  const run = await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, "completed");
-  await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
-  await waitForTexts(client, [prompt, "Scripted response: " + prompt]);
-  await clickButtonByAria(client, "Copy message");
-  await clickButtonByAria(client, "Edit message");
-  await setInputValue(client, 'textarea[aria-label="Edit message text"]', editedPrompt);
-  await clickButtonByAria(client, "Save edit");
-  await waitForBackendState(
-    async () => backend.post("/chat/messages/page", { conversationId, limit: 20, workspaceId }),
-    (page) => page.transcript[0]?.triggerMessage?.parts?.[0]?.text === editedPrompt,
-  );
-  await waitForTexts(client, [editedPrompt]);
-  await clickButtonByAria(client, "Pin " + prompt);
-  await waitForButtonPressed(client, "Unpin " + prompt, true);
-  await clickButtonByAria(client, "Unpin " + prompt);
-  await waitForButtonPressed(client, "Pin " + prompt, false);
-  await clickButtonByAria(client, "Delete " + prompt);
-  await waitForBackendState(
-    async () => backend.post("/chat/conversations/list", { workspaceId }),
-    (value) => !value.conversations.some((item) => item.conversation.id === conversationId),
-  );
-  await waitForState(client, bodyTextExpression(), (value) => !value.body.includes(prompt));
 }
 
 async function openWorkspace(client, workspaceRoot, backend) {
@@ -812,30 +801,26 @@ async function setInputValue(client, selector, value) {
 }
 
 async function clickButtonByAria(client, label) {
-  await clickWorkflowButton(client, "aria-label", label);
+  await waitForState(client, buttonStateExpression("aria-label", label), (value) => value.ready);
+  const clicked = await client.evaluate(buttonClickExpression("aria-label", label));
+  if (!clicked) {
+    throw new Error(`button was not clickable: ${label}`);
+  }
 }
 
 async function clickButtonByText(client, text) {
-  await clickWorkflowButton(client, "text", text);
+  await waitForState(client, buttonStateExpression("text", text), (value) => value.ready);
+  const clicked = await client.evaluate(buttonClickExpression("text", text));
+  if (!clicked) {
+    throw new Error(`button was not clickable: ${text}`);
+  }
 }
 
-async function clickWorkflowButton(client, kind, value) {
-  await waitForState(client, buttonClickExpression(kind, value), Boolean);
-}
-
-async function waitForButtonPressed(client, label, pressed) {
-  await waitForState(
-    client,
-    `(() => {
-      const button = window.findWorkflowButton("aria-label", ${JSON.stringify(label)});
-      return {
-        body: document.body.innerText,
-        pressed: button?.getAttribute("aria-pressed") === "true",
-        ready: Boolean(button),
-      };
-    })()`,
-    (value) => value.ready && value.pressed === pressed,
-  );
+function buttonStateExpression(kind, value) {
+  return `(() => {
+    const button = findWorkflowButton(${JSON.stringify(kind)}, ${JSON.stringify(value)});
+    return { body: document.body.innerText, ready: Boolean(button && !button.disabled) };
+  })()`;
 }
 
 function buttonClickExpression(kind, value) {
@@ -874,6 +859,19 @@ async function waitForModelPicker(client) {
       return { body: document.body.innerText, ready: Boolean(picker) };
     })()`,
     (value) => value.ready && value.body.includes("scripted-fast"),
+  );
+}
+
+async function waitForSelectedModel(client, modelText) {
+  await waitForState(
+    client,
+    `(() => {
+      const picker = document.querySelector('[data-testid="model-picker"]');
+      const selected = Array.from(picker?.querySelectorAll('[data-selected="true"]') ?? [])
+        .map((button) => button.innerText);
+      return { selected };
+    })()`,
+    (value) => value.selected.length === 1 && value.selected[0].includes(modelText),
   );
 }
 
@@ -1121,25 +1119,17 @@ async function assertTranscriptSequence(client, expectedTexts) {
       })),
     };
   })()`);
-  let cursorOffset = 0;
-  let cursorRow = 0;
+  let cursor = 0;
   for (const expected of expectedTexts) {
-    let match = null;
-    for (let rowIndex = cursorRow; rowIndex < value.rows.length; rowIndex += 1) {
-      const textOffset = rowIndex === cursorRow ? cursorOffset : 0;
-      const index = value.rows[rowIndex].text.indexOf(expected, textOffset);
-      if (index !== -1) {
-        match = { rowIndex, textOffset: index + expected.length };
-        break;
-      }
-    }
-    if (!match) {
+    const index = value.rows.findIndex((row, rowIndex) => {
+      return rowIndex >= cursor && row.text.includes(expected);
+    });
+    if (index === -1) {
       throw new Error(
-        `transcript did not contain ${expected} after row ${cursorRow}: ${JSON.stringify(value.rows)}`,
+        `transcript did not contain ${expected} after index ${cursor}: ${JSON.stringify(value.rows)}`,
       );
     }
-    cursorOffset = match.textOffset;
-    cursorRow = match.rowIndex;
+    cursor = index + 1;
   }
 }
 
@@ -1239,22 +1229,8 @@ function messageText(message) {
   return message.parts.map((part) => part.text).join("");
 }
 
-async function removeTree(path) {
-  let lastError = null;
-  for (let attempt = 0; attempt < cleanupRetryCount; attempt += 1) {
-    try {
-      await rm(path, { force: true, maxRetries: 2, recursive: true, retryDelay: 100 });
-      return;
-    } catch (error) {
-      lastError = error;
-      await delay(100 * (attempt + 1));
-    }
-  }
-  throw lastError;
-}
-
 async function launchContext(fixture, recordingDir, options = {}) {
-  await removeTree(recordingDir);
+  await rm(recordingDir, { force: true, recursive: true });
   await mkdir(recordingDir, { recursive: true });
   const debugPort = await openPort();
   const electron = launchElectron(debugPort, fixture, recordingDir, options);
@@ -1283,13 +1259,13 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   const extraEnv = launchOptions.extraEnv ?? {};
   const e2eEnv = {
     SETTA_E2E: "1",
+    SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
     SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
     ...(options.visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
     ...(harness === "scripted-workflow" ? { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" } : {}),
   };
   const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
     cwd: desktopRoot,
-    detached: process.platform !== "win32",
     env: {
       ...process.env,
       ...extraEnv,
@@ -1363,6 +1339,28 @@ async function settaPageTarget(debugPort) {
   }
   const targets = await response.json();
   return targets.find((target) => target.type === "page" && target.title === "Setta") ?? null;
+}
+
+async function stopElectron(child) {
+  if (child.exitCode !== null || child.killed) {
+    return;
+  }
+  const exitPromise = onceExit(child);
+  child.kill("SIGTERM");
+  const exited = await Promise.race([
+    exitPromise.then(() => true),
+    delay(shutdownTimeoutMs).then(() => false),
+  ]);
+  if (!exited && child.exitCode === null) {
+    child.kill("SIGKILL");
+    await Promise.race([exitPromise, delay(3_000)]);
+  }
+}
+
+function onceExit(child) {
+  return new Promise((resolvePromise) => {
+    child.once("exit", resolvePromise);
+  });
 }
 
 function electronBin() {

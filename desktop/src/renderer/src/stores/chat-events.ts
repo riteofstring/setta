@@ -34,6 +34,7 @@ type RunItemUpsertEvent = Extract<
   AppliedChatEvent,
   { type: "chat.run_item.created" | "chat.run_item.updated" }
 >;
+type OtherChatEvent = Exclude<AppliedChatEvent, MessageUpsertEvent | RunItemUpsertEvent>;
 
 const messageUpsertEventTypes = new Set([
   "chat.message.created",
@@ -51,6 +52,10 @@ export function applyChatEvent(state: ChatStore, event: AppliedChatEvent): Event
   if (isRunItemUpsertEvent(event)) {
     return applyRunItemUpsertEvent(state, event);
   }
+  return applyOtherChatEvent(state, event);
+}
+
+function applyOtherChatEvent(state: ChatStore, event: OtherChatEvent): EventApplyResult {
   if (event.type === "chat.assistant_text_delta") {
     return applyAssistantTextDelta(state, event);
   }
@@ -87,6 +92,9 @@ export function applyChatEvent(state: ChatStore, event: AppliedChatEvent): Event
       diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
       status: "ready",
     });
+  }
+  if (event.type === "codex.account.changed") {
+    return unchangedEventResult();
   }
   return assertNever(event);
 }
@@ -187,9 +195,6 @@ function applyAssistantTextDelta(
 }
 
 function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
-  if (item.conversation.archivedAt !== "") {
-    return archivedConversationPatch(state, item);
-  }
   const selectedConversation =
     state.selectedConversation?.id === item.conversation.id
       ? item.conversation
@@ -197,28 +202,6 @@ function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem):
   return {
     conversations: upsertConversation(state.conversations, item),
     selectedConversation,
-  };
-}
-
-function archivedConversationPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
-  const conversations = state.conversations.filter(
-    (conversationItem) => conversationItem.conversation.id !== item.conversation.id,
-  );
-  if (state.selectedConversation?.id !== item.conversation.id) {
-    return {
-      conversations,
-      selectedConversation: state.selectedConversation,
-    };
-  }
-  return {
-    activeRun: null,
-    conversations,
-    hasMoreOlder: false,
-    messages: [],
-    olderBeforeOrdinal: 0,
-    queuedRuns: [],
-    selectedConversation: null,
-    transcript: [],
   };
 }
 

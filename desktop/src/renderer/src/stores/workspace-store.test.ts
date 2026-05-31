@@ -276,11 +276,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
-      deleteConversation: async () => ({
-        conversations: [],
-        corruption: emptyCorruption(),
-        diagnostics: [],
-      }),
       executeCommand: async () => ({
         conversation: emptyConversation(),
         message: null,
@@ -346,12 +341,24 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       submitApproval: async () => emptyRun(),
-      updateUserMessage: async () => emptyMessage(),
     },
-    providerAccounts: {
-      clearChatGPTAuth: async () => ({ accounts: [] }),
-      list: async () => ({ accounts: [] }),
-      saveChatGPTAuth: async () => ({ accounts: [] }),
+    codexAccount: {
+      cancelLogin: async () => emptyCodexAccountState(),
+      logout: async () => emptyCodexAccountState(),
+      read: async () => emptyCodexAccountState(),
+      refresh: async () => emptyCodexAccountState(),
+      startLogin: async () => ({
+        login: {
+          authUrl: "",
+          error: "",
+          loginId: "",
+          status: "succeeded",
+          type: "chatgpt",
+          userCode: "",
+          verificationUrl: "",
+        },
+        state: emptyCodexAccountState(),
+      }),
     },
     workspace: workspaceAPI,
   };
@@ -362,6 +369,16 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       setta: api,
     },
   });
+}
+
+function emptyCodexAccountState() {
+  return {
+    account: null,
+    diagnostic: "",
+    login: null,
+    requiresOpenaiAuth: true,
+    status: "unauthenticated" as const,
+  };
 }
 
 function emptyConversation() {

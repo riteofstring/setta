@@ -68,16 +68,10 @@ func ParseChatCommand(raw string) (ChatCommand, error) {
 		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "slash command name must use lowercase letters and hyphens: "+name, nil)
 	}
 	switch name {
-	case "goal", "goals":
+	case "goal":
 		return parseGoalCommand(raw, args), nil
-	case "mcp":
-		return ChatCommand{Args: args, Kind: ChatCommandMCP, Raw: raw}, nil
 	case "model":
 		return parseModelCommand(raw, args)
-	case "new":
-		return ChatCommand{Args: args, Kind: ChatCommandNew, Raw: raw}, nil
-	case "skills":
-		return ChatCommand{Args: args, Kind: ChatCommandSkills, Raw: raw}, nil
 	default:
 		return ChatCommand{}, commandError(ChatCommandErrorUnknownCommand, "unknown slash command: /"+name, nil)
 	}
@@ -177,14 +171,12 @@ type HarnessCommandListRequest struct {
 }
 
 type HarnessCommandResult struct {
-	Action         ChatCommandResultAction
-	DisplayMessage string
-	DisplayTitle   string
-	Goal           *ChatGoalState
-	Models         []ChatModelOption
-	SelectedModel  string
-	ThreadRef      HarnessThreadRef
-	HasThreadRef   bool
+	Action        ChatCommandResultAction
+	Goal          *ChatGoalState
+	Models        []ChatModelOption
+	SelectedModel string
+	ThreadRef     HarnessThreadRef
+	HasThreadRef  bool
 }
 
 type HarnessCommandListResult struct {
@@ -206,40 +198,12 @@ func defaultCommandCapabilities(activeRun *Run) []ChatCommandCapability {
 			Usage:       "/goal [objective|clear|pause|resume]",
 		},
 		{
-			Available:   true,
-			Description: "Alias for /goal.",
-			Kind:        ChatCommandGoal,
-			Name:        "/goals",
-			Usage:       "/goals [objective|clear|pause|resume]",
-		},
-		{
-			Available:   true,
-			Description: "Create and switch to a new chat in the current workspace.",
-			Kind:        ChatCommandNew,
-			Name:        "/new",
-			Usage:       "/new [title]",
-		},
-		{
 			Available:         modelAvailable,
 			Description:       "Open the model picker or set the model for future turns.",
 			Kind:              ChatCommandModel,
 			Name:              "/model",
 			UnavailableReason: modelReason,
 			Usage:             "/model [model-id]",
-		},
-		{
-			Available:   true,
-			Description: "List Codex skills available for this workspace.",
-			Kind:        ChatCommandSkills,
-			Name:        "/skills",
-			Usage:       "/skills",
-		},
-		{
-			Available:   true,
-			Description: "Show Codex MCP server status and tool inventory.",
-			Kind:        ChatCommandMCP,
-			Name:        "/mcp",
-			Usage:       "/mcp",
 		},
 	}
 }
@@ -251,14 +215,8 @@ func ensureCommandAvailable(command ChatCommand, activeRun *Run) error {
 	switch command.Kind {
 	case ChatCommandGoal:
 		return nil
-	case ChatCommandMCP:
-		return nil
 	case ChatCommandModel:
 		return commandError(ChatCommandErrorUnavailable, "model commands are unavailable while a run is active", nil)
-	case ChatCommandNew:
-		return nil
-	case ChatCommandSkills:
-		return nil
 	default:
 		return commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported chat command kind: %s", command.Kind), nil)
 	}
@@ -270,8 +228,6 @@ func commandNeedsThread(command ChatCommand) bool {
 		return true
 	case ChatCommandModel:
 		return command.Model != nil && command.Model.Action == ModelCommandSet
-	case ChatCommandMCP, ChatCommandNew, ChatCommandSkills:
-		return false
 	default:
 		return false
 	}

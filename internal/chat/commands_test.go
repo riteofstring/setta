@@ -52,28 +52,6 @@ func TestParseChatCommandModelCommands(t *testing.T) {
 	}
 }
 
-func TestParseChatCommandUtilityCommands(t *testing.T) {
-	tests := []struct {
-		raw  string
-		kind ChatCommandKind
-		args string
-	}{
-		{raw: "/goals", kind: ChatCommandGoal},
-		{raw: "/new Debug layout", kind: ChatCommandNew, args: "Debug layout"},
-		{raw: "/skills", kind: ChatCommandSkills},
-		{raw: "/mcp", kind: ChatCommandMCP},
-	}
-	for _, test := range tests {
-		command, err := ParseChatCommand(test.raw)
-		if err != nil {
-			t.Fatalf("parse %q: %v", test.raw, err)
-		}
-		if command.Kind != test.kind || command.Args != test.args {
-			t.Fatalf("parse %q = kind %s args %q, want kind %s args %q", test.raw, command.Kind, command.Args, test.kind, test.args)
-		}
-	}
-}
-
 func TestParseChatCommandRejectsMalformedAndUnknownInput(t *testing.T) {
 	tests := []struct {
 		raw  string

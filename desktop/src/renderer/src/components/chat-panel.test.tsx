@@ -11,6 +11,7 @@ import {
   ConversationBody,
   type ChatView,
   handleComposerKeyDown,
+  modelPickerOptionSelected,
   modelSelectionCommand,
 } from "./chat-panel";
 
@@ -25,6 +26,8 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
+      dismissModelPicker: vi.fn(),
+      modelPickerOpen: false,
       queueDraft,
       running: false,
       sendDraft,
@@ -44,6 +47,8 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
+      dismissModelPicker: vi.fn(),
+      modelPickerOpen: false,
       queueDraft: vi.fn(),
       running: false,
       sendDraft,
@@ -61,6 +66,8 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
+      dismissModelPicker: vi.fn(),
+      modelPickerOpen: false,
       queueDraft: vi.fn(),
       running: true,
       sendDraft: vi.fn(),
@@ -79,6 +86,8 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand,
+      dismissModelPicker: vi.fn(),
+      modelPickerOpen: false,
       queueDraft,
       running: false,
       sendDraft: vi.fn(),
@@ -89,6 +98,25 @@ describe("composer keyboard behavior", () => {
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(completeCommand).toHaveBeenCalledOnce();
     expect(queueDraft).not.toHaveBeenCalled();
+  });
+
+  test("dismisses the model picker on Escape", () => {
+    const event = keyboardEvent("Escape");
+    const dismissModelPicker = vi.fn();
+
+    handleComposerKeyDown(event, {
+      completeCommand: vi.fn(),
+      dismissModelPicker,
+      modelPickerOpen: true,
+      queueDraft: vi.fn(),
+      running: false,
+      sendDraft: vi.fn(),
+      slashDraft: false,
+      stopRun: vi.fn(),
+    });
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(dismissModelPicker).toHaveBeenCalledOnce();
   });
 });
 
@@ -105,6 +133,7 @@ describe("composer command helpers", () => {
       <CommandSuggestions
         draft="/"
         modelPicker={null}
+        onDismissModelPicker={vi.fn()}
         onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
         selectedSuggestion={null}
@@ -154,6 +183,7 @@ describe("composer command helpers", () => {
             },
           } as unknown as Parameters<typeof CommandSuggestions>[0]["modelPicker"]
         }
+        onDismissModelPicker={vi.fn()}
         onPickCommand={vi.fn()}
         onPickModel={vi.fn()}
         selectedSuggestion={null}
@@ -177,6 +207,21 @@ describe("composer command helpers", () => {
         model: "gpt-test",
       }),
     ).toBe("/model gpt-test");
+  });
+
+  test("prefers the selected model over the catalog default", () => {
+    const defaultModel = {
+      isDefault: true,
+      model: "scripted-fast",
+    };
+    const selectedModel = {
+      isDefault: false,
+      model: "scripted-careful",
+    };
+
+    expect(modelPickerOptionSelected(defaultModel, "")).toBe(true);
+    expect(modelPickerOptionSelected(defaultModel, "scripted-careful")).toBe(false);
+    expect(modelPickerOptionSelected(selectedModel, "scripted-careful")).toBe(true);
   });
 });
 

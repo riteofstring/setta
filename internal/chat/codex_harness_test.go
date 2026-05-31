@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/codexapp"
 	"setta/internal/workspace"
 )
 
@@ -33,13 +34,13 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 }
 
 func TestJSONRPCPendingCallFailsOnProcessExit(t *testing.T) {
-	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-pending-exit"))
+	client, err := startTestJSONRPCClient(testCodexConfig("jsonrpc-pending-exit"))
 	if err != nil {
 		t.Fatalf("start json rpc client: %v", err)
 	}
-	defer client.close()
+	defer client.Close()
 
-	_, err = client.call(context.Background(), "hold", map[string]any{})
+	_, err = client.Call(context.Background(), "hold", map[string]any{})
 	if err == nil {
 		t.Fatal("call succeeded, want app-server exit error")
 	}
@@ -49,11 +50,11 @@ func TestJSONRPCPendingCallFailsOnProcessExit(t *testing.T) {
 }
 
 func TestJSONRPCConcurrentPendingCallsObserveProcessExit(t *testing.T) {
-	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-exit-after-two-calls"))
+	client, err := startTestJSONRPCClient(testCodexConfig("jsonrpc-exit-after-two-calls"))
 	if err != nil {
 		t.Fatalf("start json rpc client: %v", err)
 	}
-	defer client.close()
+	defer client.Close()
 
 	first := callJSONRPCAsync(client, "hold")
 	second := callJSONRPCAsync(client, "hold")
@@ -68,14 +69,14 @@ func TestJSONRPCConcurrentPendingCallsObserveProcessExit(t *testing.T) {
 }
 
 func TestJSONRPCCloseFailsPendingCalls(t *testing.T) {
-	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-hold"))
+	client, err := startTestJSONRPCClient(testCodexConfig("jsonrpc-hold"))
 	if err != nil {
 		t.Fatalf("start json rpc client: %v", err)
 	}
 	done := callJSONRPCAsync(client, "hold")
 	waitForNotification(t, client, "hold/received")
 
-	client.close()
+	client.Close()
 
 	err = waitForJSONRPCError(t, done)
 	if !strings.Contains(err.Error(), "codex app-server client closed") {
@@ -84,13 +85,13 @@ func TestJSONRPCCloseFailsPendingCalls(t *testing.T) {
 }
 
 func TestJSONRPCMalformedResponseIDFailsPendingCall(t *testing.T) {
-	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-malformed-response-id"))
+	client, err := startTestJSONRPCClient(testCodexConfig("jsonrpc-malformed-response-id"))
 	if err != nil {
 		t.Fatalf("start json rpc client: %v", err)
 	}
-	defer client.close()
+	defer client.Close()
 
-	_, err = client.call(context.Background(), "badID", map[string]any{})
+	_, err = client.Call(context.Background(), "badID", map[string]any{})
 	if err == nil {
 		t.Fatal("call succeeded, want malformed response id error")
 	}
@@ -100,22 +101,22 @@ func TestJSONRPCMalformedResponseIDFailsPendingCall(t *testing.T) {
 }
 
 func TestJSONRPCRoutesStringIDServerRequest(t *testing.T) {
-	client, err := startJSONRPCClient(testCodexConfig("malformed-approval"))
+	client, err := startTestJSONRPCClient(testCodexConfig("malformed-approval"))
 	if err != nil {
 		t.Fatalf("start json rpc client: %v", err)
 	}
-	defer client.close()
-	if _, err := client.call(context.Background(), "initialize", map[string]any{}); err != nil {
+	defer client.Close()
+	if _, err := client.Call(context.Background(), "initialize", map[string]any{}); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
-	if _, err := client.call(context.Background(), "thread/start", map[string]any{}); err != nil {
+	if _, err := client.Call(context.Background(), "thread/start", map[string]any{}); err != nil {
 		t.Fatalf("thread/start: %v", err)
 	}
-	if _, err := client.call(context.Background(), "turn/start", map[string]any{}); err != nil {
+	if _, err := client.Call(context.Background(), "turn/start", map[string]any{}); err != nil {
 		t.Fatalf("turn/start: %v", err)
 	}
 	select {
-	case request := <-client.requests:
+	case request := <-client.Requests():
 		if request.Method != "item/commandExecution/requestApproval" {
 			t.Fatalf("request method = %q", request.Method)
 		}
@@ -345,20 +346,6 @@ func TestCodexHarnessDispatchesRegisteredDynamicTool(t *testing.T) {
 	item, ok := findLastRunItemType(sink.items, RunItemTypeDynamicToolCall)
 	if !ok || item.Status != RunItemStatusCompleted || item.Result != "tool ok" {
 		t.Fatalf("items = %+v, want completed registered dynamic tool item", sink.items)
-	}
-}
-
-func TestCodexHarnessReturnsUnavailableChatGPTAuthRefresh(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("chatgpt-auth-refresh-unavailable"))
-	sink := newRecordingSink()
-
-	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	if err != nil {
-		t.Fatalf("start turn: %v", err)
-	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_chatgpt_auth_unavailable" || sink.diagnostics[0].severity != DiagnosticSeverityError {
-		t.Fatalf("diagnostics = %+v, want auth unavailable diagnostic", sink.diagnostics)
 	}
 }
 
@@ -833,9 +820,7 @@ func codexHookRunFixture(status string) map[string]any {
 func TestCodexHarnessProtocolCoverageRegistry(t *testing.T) {
 	for _, method := range []string{
 		"initialize",
-		"mcpServerStatus/list",
 		"model/list",
-		"skills/list",
 		"thread/goal/clear",
 		"thread/goal/get",
 		"thread/goal/set",
@@ -1034,10 +1019,10 @@ func requireTurnOutcome(t *testing.T, completion TurnCompletion, outcome TurnOut
 	}
 }
 
-func callJSONRPCAsync(client *jsonRPCClient, method string) <-chan error {
+func callJSONRPCAsync(client *codexapp.Client, method string) <-chan error {
 	done := make(chan error, 1)
 	go func() {
-		_, err := client.call(context.Background(), method, map[string]any{})
+		_, err := client.Call(context.Background(), method, map[string]any{})
 		done <- err
 	}()
 	return done
@@ -1057,10 +1042,10 @@ func waitForJSONRPCError(t *testing.T, done <-chan error) error {
 	}
 }
 
-func waitForNotification(t *testing.T, client *jsonRPCClient, method string) {
+func waitForNotification(t *testing.T, client *codexapp.Client, method string) {
 	t.Helper()
 	select {
-	case message := <-client.notifications:
+	case message := <-client.Notifications():
 		if message.Method != method {
 			t.Fatalf("notification method = %q, want %q", message.Method, method)
 		}
@@ -1270,10 +1255,6 @@ func handleFakeServerResponse(mode string, state *fakeCodexState, message map[st
 		writeFakeAssistantDelta("dynamic tool completed")
 		writeFakeCompletedTurn("completed")
 		return true
-	case "chatgpt-auth-refresh-unavailable":
-		assertFakeErrorResponse(message, codexJSONRPCErrorCapabilityUnavailable, "ChatGPT auth token refresh is unavailable")
-		writeFakeCompletedTurn("completed")
-		return true
 	case "attestation-unavailable":
 		assertFakeErrorResponse(message, codexJSONRPCErrorCapabilityUnavailable, "attestation is unavailable")
 		writeFakeCompletedTurn("completed")
@@ -1319,12 +1300,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 			}},
 			"nextCursor": nil,
 		})
-		return fakeCommandDone(mode)
-	case "skills/list":
-		writeFakeResponse(message["id"], fakeSkillsListResponse())
-		return fakeCommandDone(mode)
-	case "mcpServerStatus/list":
-		writeFakeResponse(message["id"], fakeMCPServerStatusResponse())
 		return fakeCommandDone(mode)
 	case "thread/settings/update":
 		if mode == "command-model-set-already-current" {
@@ -1380,6 +1355,9 @@ func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool
 	case "turn-started-id":
 		writeFakeProviderTurnID()
 		return true, true
+	case "provider-item-turn-id":
+		writeFakeProviderItemTurnID()
+		return true, true
 	case "failed-turn":
 		writeFakeFailedTurn()
 		return true, true
@@ -1399,7 +1377,7 @@ func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool
 		state.approvalOutstanding = true
 		writeFakeMCPElicitationRequest(mode)
 		return true, false
-	case "dynamic-tool-unknown", "dynamic-tool-registered", "chatgpt-auth-refresh-unavailable", "attestation-unavailable", "attestation-provider":
+	case "dynamic-tool-unknown", "dynamic-tool-registered", "attestation-unavailable", "attestation-provider":
 		writeFakeImmediateServerRequest(mode, state)
 		return true, false
 	case "malformed-approval":

@@ -2,22 +2,24 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
   BackendHealth,
+  CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
-  ChatMessage,
-  ClearChatGPTAuthRequest,
+  CodexAccountState,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
+  LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
-  ProviderAccounts,
   QueueMessageResult,
+  RefreshCodexAccountRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
-  SaveChatGPTAuthRequest,
   SendMessageResult,
+  StartCodexLoginRequest,
+  StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
   WorkspaceSession,
@@ -34,7 +36,6 @@ export const ipcChannels = {
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
-  chatDeleteConversation: "chat:delete-conversation",
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
@@ -45,10 +46,11 @@ export const ipcChannels = {
   chatSendMessage: "chat:send-message",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
-  chatUpdateUserMessage: "chat:update-user-message",
-  providerAccountsClearChatGPTAuth: "provider-accounts:clear-chatgpt-auth",
-  providerAccountsList: "provider-accounts:list",
-  providerAccountsSaveChatGPTAuth: "provider-accounts:save-chatgpt-auth",
+  codexAccountCancelLogin: "codex-account:cancel-login",
+  codexAccountLogout: "codex-account:logout",
+  codexAccountRead: "codex-account:read",
+  codexAccountRefresh: "codex-account:refresh",
+  codexAccountStartLogin: "codex-account:start-login",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceRemoveRecent: "workspace:remove-recent",
@@ -101,10 +103,6 @@ interface IpcContract {
     args: [workspaceId: string, title: string];
     result: Conversation;
   };
-  chatDeleteConversation: {
-    args: [workspaceId: string, conversationId: string];
-    result: ListConversationsResponse;
-  };
   chatExecuteCommand: {
     args: [workspaceId: string, conversationId: string, raw: string];
     result: ChatCommandExecuteResult;
@@ -151,21 +149,25 @@ interface IpcContract {
     args: [input: SubmitApprovalRequest];
     result: Run;
   };
-  chatUpdateUserMessage: {
-    args: [workspaceId: string, conversationId: string, messageId: string, text: string];
-    result: ChatMessage;
+  codexAccountCancelLogin: {
+    args: [request: CancelCodexLoginRequest];
+    result: CodexAccountState;
   };
-  providerAccountsClearChatGPTAuth: {
-    args: [request: ClearChatGPTAuthRequest];
-    result: ProviderAccounts;
+  codexAccountLogout: {
+    args: [request: LogoutCodexAccountRequest];
+    result: CodexAccountState;
   };
-  providerAccountsList: {
+  codexAccountRead: {
     args: [];
-    result: ProviderAccounts;
+    result: CodexAccountState;
   };
-  providerAccountsSaveChatGPTAuth: {
-    args: [request: SaveChatGPTAuthRequest];
-    result: ProviderAccounts;
+  codexAccountRefresh: {
+    args: [request: RefreshCodexAccountRequest];
+    result: CodexAccountState;
+  };
+  codexAccountStartLogin: {
+    args: [request: StartCodexLoginRequest];
+    result: StartCodexLoginResponse;
   };
   workspaceClose: {
     args: [id: string];

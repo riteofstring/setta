@@ -12,6 +12,7 @@ import {
   MessageSquarePlus,
   Minimize2,
   Square,
+  X,
 } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
@@ -19,14 +20,12 @@ import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
 import { ChatTranscript } from "./chat-transcript";
-import { EditorPicker } from "./editor-picker";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
 export function ChatPanel({
   chat,
   chromeInsetTop = false,
-  avoidShellControls = false,
   maximized = false,
   onToggleMaximize,
   searchOpen,
@@ -34,7 +33,6 @@ export function ChatPanel({
   workspace,
 }: {
   chat: ChatView;
-  avoidShellControls?: boolean;
   chromeInsetTop?: boolean;
   maximized?: boolean;
   onToggleMaximize?: () => void;
@@ -47,7 +45,7 @@ export function ChatPanel({
       <section
         className={cn(
           "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
-          chromeInsetTop && "pt-10",
+          chromeInsetTop && "pt-8",
         )}
       >
         <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
@@ -58,36 +56,30 @@ export function ChatPanel({
   }
   return (
     <ChatWorkspace
-      avoidShellControls={avoidShellControls}
       chat={chat}
       chromeInsetTop={chromeInsetTop}
       maximized={maximized}
       onToggleMaximize={onToggleMaximize}
       searchOpen={searchOpen}
       setSearchOpen={setSearchOpen}
-      workspace={workspace}
     />
   );
 }
 
 function ChatWorkspace({
-  avoidShellControls,
   chat,
   chromeInsetTop,
   maximized,
   onToggleMaximize,
   searchOpen,
   setSearchOpen,
-  workspace,
 }: {
-  avoidShellControls: boolean;
   chat: ChatView;
   chromeInsetTop: boolean;
   maximized: boolean;
   onToggleMaximize?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
-  workspace: WorkspaceSummary;
 }) {
   const busy = isChatBusy(chat);
   const blocked = isChatBlocked(chat);
@@ -98,18 +90,15 @@ function ChatWorkspace({
   return (
     <section
       className={cn(
-        "relative flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 text-zinc-100",
-        chromeInsetTop && "pt-10",
+        "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100",
+        chromeInsetTop && "pt-8",
       )}
     >
-      <ChatPaneChromeActions
-        avoidShellControls={avoidShellControls}
-        maximized={maximized}
-        onToggleMaximize={onToggleMaximize}
-        rootPath={workspace.rootPath}
-      />
+      {onToggleMaximize ? (
+        <ChatMaximizeButton maximized={maximized} onToggleMaximize={onToggleMaximize} />
+      ) : null}
       <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
         data-conversation-id={selectedConversationId}
         data-run-status={activeRunStatus(chat) ?? ""}
         data-testid="chat-detail-pane"
@@ -128,32 +117,6 @@ function ChatWorkspace({
   );
 }
 
-function ChatPaneChromeActions({
-  avoidShellControls,
-  maximized,
-  onToggleMaximize,
-  rootPath,
-}: {
-  avoidShellControls: boolean;
-  maximized: boolean;
-  onToggleMaximize?: () => void;
-  rootPath: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "app-no-drag pointer-events-auto absolute top-1 z-50 flex items-center gap-1",
-        avoidShellControls ? "right-[min(8.5rem,calc(100%_-_6.5rem))]" : "right-1",
-      )}
-    >
-      {onToggleMaximize && !maximized ? (
-        <ChatMaximizeButton maximized={maximized} onToggleMaximize={onToggleMaximize} />
-      ) : null}
-      <EditorPicker rootPath={rootPath} />
-    </div>
-  );
-}
-
 function ChatMaximizeButton({
   maximized,
   onToggleMaximize,
@@ -165,7 +128,7 @@ function ChatMaximizeButton({
   return (
     <button
       aria-label={label}
-      className="app-no-drag grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
+      className="app-no-drag absolute top-0 right-1 z-50 grid h-8 w-7 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
       onClick={onToggleMaximize}
       title={label}
       type="button"
@@ -265,7 +228,6 @@ export function ConversationBody({
         setSearchOpen={setSearchOpen}
         submitApproval={chat.submitApproval}
         transcript={chat.transcript}
-        updateUserMessage={chat.updateUserMessage}
       />
     </div>
   );
@@ -317,7 +279,7 @@ function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
     <div className="grid min-h-0 place-items-center px-3 pb-[12vh]">
       <div
         className={cn(
-          "w-full max-w-2xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+          "w-full max-w-3xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
           departing && "translate-y-16 opacity-0",
         )}
       >
@@ -375,7 +337,7 @@ function ChatStateStatusIcon({
       aria-label={label}
       className={cn(
         "group/chat-state app-no-drag absolute left-2 z-40 grid h-7 w-7 place-items-center rounded-sm text-amber-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80",
-        chromeInsetTop ? "top-11" : "top-1",
+        chromeInsetTop ? "top-9" : "top-1",
       )}
       data-testid="workspace-corruption-status"
       role="status"
@@ -427,6 +389,7 @@ function Composer({
   const [commandListKey, setCommandListKey] = useState("");
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
   const submittingRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
   const disabled = disabledOverride ?? (!selected || busy);
   const slashDraft = isSlashDraft(draft);
@@ -467,6 +430,26 @@ function Composer({
       cancelled = true;
     };
   }, [chat, commandListKey, running, slashDraft]);
+
+  useEffect(() => {
+    if (modelPicker?.result.action !== "model_picker") {
+      return;
+    }
+    textareaRef.current?.focus();
+
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      dismissModelPicker();
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [modelPicker]);
 
   async function sendDraft() {
     const prompt = draft.trim();
@@ -544,7 +527,7 @@ function Composer({
         void sendDraft();
       }}
     >
-      <div className="relative mx-auto w-full max-w-2xl min-w-0">
+      <div className="relative mx-auto w-full max-w-3xl min-w-0">
         <div
           className={cn(
             "min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15",
@@ -557,6 +540,7 @@ function Composer({
               draft={draft}
               modelPicker={modelPicker}
               onPickCommand={(command) => updateDraft(command.name + " ")}
+              onDismissModelPicker={dismissModelPicker}
               onPickModel={(model) => {
                 void executeModelSelection(model);
               }}
@@ -575,6 +559,8 @@ function Composer({
                       updateDraft(selectedSuggestion.name + " ");
                     }
                   },
+                  dismissModelPicker,
+                  modelPickerOpen: modelPicker?.result.action === "model_picker",
                   queueDraft,
                   running,
                   sendDraft,
@@ -583,6 +569,7 @@ function Composer({
                 });
               }}
               placeholder={placeholder}
+              ref={textareaRef}
               rows={2}
               value={draft}
             />
@@ -609,6 +596,11 @@ function Composer({
     }
   }
 
+  function dismissModelPicker() {
+    setModelPicker(null);
+    textareaRef.current?.focus();
+  }
+
   async function executeModelSelection(model: ChatModelOption) {
     if (!chat.selectedConversation || disabled || submittingRef.current) {
       return;
@@ -627,6 +619,7 @@ function Composer({
 export function CommandSuggestions({
   draft,
   modelPicker,
+  onDismissModelPicker,
   onPickCommand,
   onPickModel,
   selectedSuggestion,
@@ -634,31 +627,56 @@ export function CommandSuggestions({
 }: {
   draft: string;
   modelPicker: ChatCommandExecuteResult | null;
+  onDismissModelPicker: () => void;
   onPickCommand: (command: ChatCommandCapability) => void;
   onPickModel: (model: ChatModelOption) => void;
   selectedSuggestion: ChatCommandCapability | null;
   suggestions: ChatCommandCapability[];
 }) {
   if (modelPicker?.result.action === "model_picker") {
+    const selectedModel = modelPicker.result.selectedModel;
     return (
       <div
         className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
         data-testid="model-picker"
       >
-        {modelPicker.result.models.map((model) => (
+        <div className="mb-1 flex justify-end border-b border-zinc-700/70 pb-1">
           <button
-            className="flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75"
-            key={model.id}
-            onClick={() => onPickModel(model)}
+            aria-label="Close model picker"
+            className="grid h-6 w-6 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700/75 hover:text-zinc-100"
+            onClick={onDismissModelPicker}
+            title="Close model picker"
             type="button"
           >
-            {model.isDefault ? <Check className="h-4 w-4 shrink-0 text-zinc-400" /> : null}
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium text-zinc-100">{model.displayName}</span>
-              <span className="block truncate text-[11px] text-zinc-400">{model.model}</span>
-            </span>
+            <X className="h-3.5 w-3.5" />
           </button>
-        ))}
+        </div>
+        {modelPicker.result.models.map((model) => {
+          const selected = modelPickerOptionSelected(model, selectedModel);
+          return (
+            <button
+              aria-current={selected ? "true" : undefined}
+              className={cn(
+                "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75",
+                selected && "bg-zinc-700/70",
+              )}
+              data-selected={selected ? "true" : undefined}
+              key={model.id}
+              onClick={() => onPickModel(model)}
+              type="button"
+            >
+              <span className="grid h-4 w-4 shrink-0 place-items-center">
+                {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium text-zinc-100">
+                  {model.displayName}
+                </span>
+                <span className="block truncate text-[11px] text-zinc-400">{model.model}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -732,6 +750,16 @@ export function modelSelectionCommand(model: ChatModelOption) {
   return `/model ${model.model}`;
 }
 
+export function modelPickerOptionSelected(
+  model: Pick<ChatModelOption, "isDefault" | "model">,
+  selectedModel: string,
+) {
+  if (selectedModel === "") {
+    return model.isDefault;
+  }
+  return model.model === selectedModel;
+}
+
 function composerTextareaLabel(selected: boolean) {
   return selected ? "Ask Setta" : "Start new chat";
 }
@@ -758,6 +786,8 @@ function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible
 
 interface ComposerKeyActions {
   completeCommand: () => void;
+  dismissModelPicker: () => void;
+  modelPickerOpen: boolean;
   queueDraft: () => Promise<void>;
   running: boolean;
   sendDraft: () => Promise<void>;
@@ -769,6 +799,11 @@ export function handleComposerKeyDown(
   event: KeyboardEvent<HTMLTextAreaElement>,
   actions: ComposerKeyActions,
 ) {
+  if (isDismissShortcut(event, actions.modelPickerOpen)) {
+    event.preventDefault();
+    actions.dismissModelPicker();
+    return;
+  }
   if (isQueueShortcut(event)) {
     event.preventDefault();
     if (actions.slashDraft) {
@@ -788,6 +823,10 @@ export function handleComposerKeyDown(
   }
   event.preventDefault();
   void actions.sendDraft();
+}
+
+function isDismissShortcut(event: KeyboardEvent<HTMLTextAreaElement>, modelPickerOpen: boolean) {
+  return modelPickerOpen && event.key === "Escape";
 }
 
 function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -880,7 +919,6 @@ export function useChatViewState(workspaceId: string | null) {
   const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
-  const deleteConversation = useChatStore((state) => state.deleteConversation);
   const error = useChatStore((state) => state.error);
   const executeCommand = useChatStore((state) => state.executeCommand);
   const diagnostics = useChatStore((state) => state.diagnostics);
@@ -912,7 +950,6 @@ export function useChatViewState(workspaceId: string | null) {
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcript = useChatStore((state) => state.transcript);
-  const updateUserMessage = useChatStore((state) => state.updateUserMessage);
   const unreadConversationIds = useChatStore((state) => state.unreadConversationIds);
 
   useEffect(() => {
@@ -928,7 +965,6 @@ export function useChatViewState(workspaceId: string | null) {
     corruption,
     createConversation,
     createWorkspaceConversation,
-    deleteConversation,
     diagnostics,
     error,
     executeCommand,
@@ -956,7 +992,6 @@ export function useChatViewState(workspaceId: string | null) {
     stopActiveRun,
     submitApproval,
     transcript,
-    updateUserMessage,
     unreadConversationIds,
   };
 }

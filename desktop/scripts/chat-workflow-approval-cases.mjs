@@ -137,19 +137,7 @@ async function acceptStructuredFormApproval({
   await submitComposer(client, "mcp elicitation form accept workflow", "Send message");
   await waitForTexts(client, ["MCP input requested: deploy", "Target", "Confirm"]);
   await setSelectValue(client, 'select[data-testid="structured-input-field-target"]', "staging");
-  await waitForSelectValue(
-    client,
-    waitForState,
-    'select[data-testid="structured-input-field-target"]',
-    "staging",
-  );
   await setCheckboxChecked(client, 'input[data-testid="structured-input-field-confirm"]', true);
-  await waitForCheckboxChecked(
-    client,
-    waitForState,
-    'input[data-testid="structured-input-field-confirm"]',
-    true,
-  );
   await clickButtonByText(client, "Submit");
   await waitForText(client, "MCP form accepted.");
   await waitForApprovalCardAbsent(client, waitForState);
@@ -243,10 +231,7 @@ async function setSelectValue(client, selector, value) {
     if (!(element instanceof HTMLSelectElement) || element.disabled) {
       return false;
     }
-    const previousValue = element.value;
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
-    descriptor.set.call(element, ${JSON.stringify(value)});
-    element._valueTracker?.setValue(previousValue);
+    element.value = ${JSON.stringify(value)};
     element.dispatchEvent(new Event("input", { bubbles: true }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
     return element.value === ${JSON.stringify(value)};
@@ -263,46 +248,13 @@ async function setCheckboxChecked(client, selector, checked) {
       return false;
     }
     if (element.checked !== ${JSON.stringify(checked)}) {
-      const previousChecked = element.checked;
       element.click();
-      element._valueTracker?.setValue(String(previousChecked));
-      element.dispatchEvent(new Event("input", { bubbles: true }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
     }
     return element.checked === ${JSON.stringify(checked)};
   })()`);
   if (!changed) {
     throw new Error(`checkbox was not editable: ${selector}`);
   }
-}
-
-async function waitForSelectValue(client, waitForState, selector, value) {
-  await waitForState(
-    client,
-    `(() => {
-      const element = document.querySelector(${JSON.stringify(selector)});
-      return {
-        ready: element instanceof HTMLSelectElement && element.value === ${JSON.stringify(value)},
-      };
-    })()`,
-    (state) => state.ready,
-  );
-}
-
-async function waitForCheckboxChecked(client, waitForState, selector, checked) {
-  await waitForState(
-    client,
-    `(() => {
-      const element = document.querySelector(${JSON.stringify(selector)});
-      return {
-        ready:
-          element instanceof HTMLInputElement &&
-          element.type === "checkbox" &&
-          element.checked === ${JSON.stringify(checked)},
-      };
-    })()`,
-    (state) => state.ready,
-  );
 }
 
 async function waitForRunActivityItem(backend, workspaceId, runId, isReady) {

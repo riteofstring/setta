@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strings"
 	"time"
 
+	"setta/internal/codexapp"
 	"setta/internal/workspace"
 )
 
@@ -32,7 +31,7 @@ func (harness *CodexHarness) executeActiveCommand(ctx context.Context, request H
 	if active == nil || active.threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is not available for the active run", nil)
 	}
-	return harness.executeCodexCommandRPC(ctx, active.client, active.threadID, "", request.Workspace, request.Command)
+	return harness.executeCodexCommandRPC(ctx, active.session, active.threadID, "", request.Command)
 }
 
 func (harness *CodexHarness) activeTurnForCommand(runID string) *codexActiveTurn {
@@ -43,30 +42,37 @@ func (harness *CodexHarness) activeTurnForCommand(runID string) *codexActiveTurn
 		return nil
 	}
 	return &codexActiveTurn{
-		client:   active.client,
+		session:  active.session,
 		threadID: active.threadID,
 		turnID:   active.turnID,
 	}
 }
 
 func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
-	client, err := startJSONRPCClient(harness.config)
+	session, err := harness.manager.NewSession(ctx)
 	if err != nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "start codex app-server: "+err.Error(), err)
 	}
-	defer client.close()
+	defer session.Close()
 
-	if err := harness.initializeCodex(ctx, client); err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, err.Error(), err)
+	if commandUsesExistingThread(request.Command, request.ThreadRef) {
+		thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
+		if err != nil {
+			return HarnessCommandResult{}, err
+		}
+		return harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Model, request.Command)
 	}
 	if !commandNeedsThread(request.Command) {
-		return harness.executeCodexCommandRPC(ctx, client, "", "", request.Workspace, request.Command)
+		return harness.executeCodexCommandRPC(ctx, session, "", "", request.Command)
 	}
-	thread, err := harness.startOrResumeCommandThread(ctx, client, request.Workspace, request.ThreadRef)
+	thread, err := harness.startOrResumeCommandThread(ctx, session, request.Workspace, request.ThreadRef)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
-	result, err := harness.executeCodexCommandRPC(ctx, client, thread.Ref.ThreadID, thread.Model, request.Workspace, request.Command)
+	if err := session.OwnThread(thread.Ref.ThreadID); err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "own codex command thread: "+err.Error(), err)
+	}
+	result, err := harness.executeCodexCommandRPC(ctx, session, thread.Ref.ThreadID, thread.Model, request.Command)
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
@@ -75,14 +81,26 @@ func (harness *CodexHarness) executeIdleCommand(ctx context.Context, request Har
 	return result, nil
 }
 
+func commandUsesExistingThread(command ChatCommand, threadRef HarnessThreadRef) bool {
+	if threadRef.ThreadID == "" || threadRef.Status != HarnessRefLinked {
+		return false
+	}
+	switch command.Kind {
+	case ChatCommandModel:
+		return command.Model != nil && command.Model.Action == ModelCommandShowPicker
+	default:
+		return false
+	}
+}
+
 type codexCommandThread struct {
 	Ref   HarnessThreadRef
 	Model string
 }
 
-func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, client *jsonRPCClient, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
+func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
-		result, err := client.call(ctx, "thread/resume", map[string]any{
+		result, err := session.Call(ctx, "thread/resume", map[string]any{
 			"approvalPolicy":        "on-request",
 			"approvalsReviewer":     "user",
 			"cwd":                   workspaceSummary.RootPath,
@@ -100,7 +118,7 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, cli
 		return thread, nil
 	}
 
-	result, err := client.call(ctx, "thread/start", map[string]any{
+	result, err := session.Call(ctx, "thread/start", map[string]any{
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceSummary.RootPath,
@@ -116,22 +134,18 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, cli
 	return thread, nil
 }
 
-func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, client *jsonRPCClient, threadID string, currentModel string, workspaceSummary workspace.WorkspaceSummary, command ChatCommand) (HarnessCommandResult, error) {
+func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, session *codexapp.Session, threadID string, currentModel string, command ChatCommand) (HarnessCommandResult, error) {
 	switch command.Kind {
 	case ChatCommandGoal:
-		return executeCodexGoalCommand(ctx, client, threadID, command)
-	case ChatCommandMCP:
-		return executeCodexMCPCommand(ctx, client)
+		return executeCodexGoalCommand(ctx, session, threadID, command)
 	case ChatCommandModel:
-		return executeCodexModelCommand(ctx, client, threadID, currentModel, command)
-	case ChatCommandSkills:
-		return executeCodexSkillsCommand(ctx, client, workspaceSummary)
+		return executeCodexModelCommand(ctx, session, threadID, currentModel, command)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("codex does not support chat command kind %s", command.Kind), nil)
 	}
 }
 
-func executeCodexGoalCommand(ctx context.Context, client *jsonRPCClient, threadID string, command ChatCommand) (HarnessCommandResult, error) {
+func executeCodexGoalCommand(ctx context.Context, session *codexapp.Session, threadID string, command ChatCommand) (HarnessCommandResult, error) {
 	if threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is required for goal commands", nil)
 	}
@@ -140,7 +154,7 @@ func executeCodexGoalCommand(ctx context.Context, client *jsonRPCClient, threadI
 	}
 	switch command.Goal.Action {
 	case GoalCommandShow:
-		raw, err := client.call(ctx, "thread/goal/get", map[string]any{"threadId": threadID})
+		raw, err := session.Call(ctx, "thread/goal/get", map[string]any{"threadId": threadID})
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/goal/get: "+err.Error(), err)
 		}
@@ -150,20 +164,20 @@ func executeCodexGoalCommand(ctx context.Context, client *jsonRPCClient, threadI
 		}
 		return HarnessCommandResult{Action: ChatCommandResultDisplay, Goal: goal}, nil
 	case GoalCommandSet:
-		raw, err := client.call(ctx, "thread/goal/set", map[string]any{
+		raw, err := session.Call(ctx, "thread/goal/set", map[string]any{
 			"objective": command.Goal.Objective,
 			"status":    "active",
 			"threadId":  threadID,
 		})
 		return goalMutationResult(raw, err, "thread/goal/set")
 	case GoalCommandClear:
-		_, err := client.call(ctx, "thread/goal/clear", map[string]any{"threadId": threadID})
+		_, err := session.Call(ctx, "thread/goal/clear", map[string]any{"threadId": threadID})
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/goal/clear: "+err.Error(), err)
 		}
 		return HarnessCommandResult{Action: ChatCommandResultDisplay}, nil
 	case GoalCommandPause, GoalCommandResume:
-		raw, err := client.call(ctx, "thread/goal/set", map[string]any{
+		raw, err := session.Call(ctx, "thread/goal/set", map[string]any{
 			"status":   command.Goal.Status,
 			"threadId": threadID,
 		})
@@ -184,13 +198,13 @@ func goalMutationResult(raw json.RawMessage, rpcErr error, method string) (Harne
 	return HarnessCommandResult{Action: ChatCommandResultDisplay, Goal: goal}, nil
 }
 
-func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, threadID string, currentModel string, command ChatCommand) (HarnessCommandResult, error) {
+func executeCodexModelCommand(ctx context.Context, session *codexapp.Session, threadID string, currentModel string, command ChatCommand) (HarnessCommandResult, error) {
 	if command.Model == nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "model command payload is required", nil)
 	}
 	switch command.Model.Action {
 	case ModelCommandShowPicker:
-		raw, err := client.call(ctx, "model/list", map[string]any{"includeHidden": true})
+		raw, err := session.Call(ctx, "model/list", map[string]any{"includeHidden": true})
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "model/list: "+err.Error(), err)
 		}
@@ -198,7 +212,7 @@ func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, thread
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "model/list response: "+err.Error(), err)
 		}
-		return HarnessCommandResult{Action: ChatCommandResultModelPicker, Models: models}, nil
+		return HarnessCommandResult{Action: ChatCommandResultModelPicker, Models: models, SelectedModel: currentModel}, nil
 	case ModelCommandSet:
 		if threadID == "" {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is required to set the model", nil)
@@ -209,14 +223,14 @@ func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, thread
 				SelectedModel: command.Model.ModelID,
 			}, nil
 		}
-		_, err := client.call(ctx, "thread/settings/update", map[string]any{
+		_, err := session.Call(ctx, "thread/settings/update", map[string]any{
 			"model":    command.Model.ModelID,
 			"threadId": threadID,
 		})
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
 		}
-		appliedModel, err := waitForCodexThreadSettingsUpdated(ctx, client, threadID, command.Model.ModelID)
+		appliedModel, err := waitForCodexThreadSettingsUpdated(ctx, session, threadID, command.Model.ModelID)
 		if err != nil {
 			return HarnessCommandResult{}, err
 		}
@@ -229,227 +243,7 @@ func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, thread
 	}
 }
 
-func executeCodexSkillsCommand(ctx context.Context, client *jsonRPCClient, workspaceSummary workspace.WorkspaceSummary) (HarnessCommandResult, error) {
-	raw, err := client.call(ctx, "skills/list", map[string]any{
-		"cwds":        []string{workspaceSummary.RootPath},
-		"forceReload": true,
-	})
-	if err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "skills/list: "+err.Error(), err)
-	}
-	message, err := skillsListMessageFromResponse(raw)
-	if err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "skills/list response: "+err.Error(), err)
-	}
-	return HarnessCommandResult{
-		Action:         ChatCommandResultDisplay,
-		DisplayTitle:   "Skills",
-		DisplayMessage: message,
-	}, nil
-}
-
-func executeCodexMCPCommand(ctx context.Context, client *jsonRPCClient) (HarnessCommandResult, error) {
-	raw, err := client.call(ctx, "mcpServerStatus/list", map[string]any{
-		"detail": "toolsAndAuthOnly",
-	})
-	if err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "mcpServerStatus/list: "+err.Error(), err)
-	}
-	message, err := mcpStatusMessageFromResponse(raw)
-	if err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "mcpServerStatus/list response: "+err.Error(), err)
-	}
-	return HarnessCommandResult{
-		Action:         ChatCommandResultDisplay,
-		DisplayTitle:   "MCP",
-		DisplayMessage: message,
-	}, nil
-}
-
-func skillsListMessageFromResponse(raw json.RawMessage) (string, error) {
-	response, err := objectValue(raw, "codex skills list response")
-	if err != nil {
-		return "", err
-	}
-	entries, err := requireObjectArray(response, "data", "codex skills list response")
-	if err != nil {
-		return "", err
-	}
-	summaries, err := collectSkillSummaries(entries)
-	if err != nil {
-		return "", err
-	}
-	sort.Strings(summaries.enabled)
-	return formatSkillsListMessage(summaries), nil
-}
-
-type skillsListSummaries struct {
-	enabled       []string
-	disabledCount int
-}
-
-func collectSkillSummaries(entries []map[string]any) (skillsListSummaries, error) {
-	summaries := skillsListSummaries{}
-	for entryIndex, entry := range entries {
-		skills, err := requireObjectArray(entry, "skills", fmt.Sprintf("codex skills list response.data[%d]", entryIndex))
-		if err != nil {
-			return summaries, err
-		}
-		for skillIndex, skill := range skills {
-			enabledSummary, enabled, err := skillSummaryFromResponse(entryIndex, skillIndex, skill)
-			if err != nil {
-				return summaries, err
-			}
-			if !enabled {
-				summaries.disabledCount += 1
-				continue
-			}
-			summaries.enabled = append(summaries.enabled, enabledSummary)
-		}
-	}
-	return summaries, nil
-}
-
-func skillSummaryFromResponse(entryIndex int, skillIndex int, skill map[string]any) (string, bool, error) {
-	label := fmt.Sprintf("codex skills list response.data[%d].skills[%d]", entryIndex, skillIndex)
-	name, err := requireString(skill, "name", label)
-	if err != nil {
-		return "", false, err
-	}
-	description, err := requireStringAllowEmpty(skill, "description", label)
-	if err != nil {
-		return "", false, err
-	}
-	path, err := requireString(skill, "path", label)
-	if err != nil {
-		return "", false, err
-	}
-	enabled, err := requireBool(skill, "enabled", label)
-	if err != nil {
-		return "", false, err
-	}
-	return formatSkillSummary(name, description, path), enabled, nil
-}
-
-func formatSkillsListMessage(summaries skillsListSummaries) string {
-	enabled := summaries.enabled
-	disabledCount := summaries.disabledCount
-	if len(enabled) == 0 {
-		if disabledCount == 0 {
-			return "No skills found for this workspace."
-		}
-		return fmt.Sprintf("No enabled skills found. %d disabled skill(s) are present.", disabledCount)
-	}
-	var builder strings.Builder
-	fmt.Fprintf(&builder, "Available skills (%d enabled", len(enabled))
-	if disabledCount > 0 {
-		fmt.Fprintf(&builder, ", %d disabled", disabledCount)
-	}
-	builder.WriteString("):")
-	limit := min(len(enabled), 20)
-	for _, item := range enabled[:limit] {
-		builder.WriteString("\n- ")
-		builder.WriteString(item)
-	}
-	if len(enabled) > limit {
-		fmt.Fprintf(&builder, "\n- ...and %d more", len(enabled)-limit)
-	}
-	return builder.String()
-}
-
-func formatSkillSummary(name string, description string, path string) string {
-	if description == "" {
-		return fmt.Sprintf("%s (%s)", name, path)
-	}
-	return fmt.Sprintf("%s: %s (%s)", name, description, path)
-}
-
-func mcpStatusMessageFromResponse(raw json.RawMessage) (string, error) {
-	response, err := objectValue(raw, "codex mcp status response")
-	if err != nil {
-		return "", err
-	}
-	servers, err := requireObjectArray(response, "data", "codex mcp status response")
-	if err != nil {
-		return "", err
-	}
-	if len(servers) == 0 {
-		return "No MCP servers configured.", nil
-	}
-	rows := make([]string, 0, len(servers))
-	for index, server := range servers {
-		label := fmt.Sprintf("codex mcp status response.data[%d]", index)
-		name, err := requireString(server, "name", label)
-		if err != nil {
-			return "", err
-		}
-		authStatus, err := requireString(server, "authStatus", label)
-		if err != nil {
-			return "", err
-		}
-		tools, err := optionalObjectMap(server, "tools", label)
-		if err != nil {
-			return "", err
-		}
-		toolNames := sortedKeys(tools)
-		rows = append(rows, formatMCPServerSummary(name, authStatus, toolNames))
-	}
-	sort.Strings(rows)
-	return "MCP servers:\n- " + strings.Join(rows, "\n- "), nil
-}
-
-func formatMCPServerSummary(name string, authStatus string, toolNames []string) string {
-	if len(toolNames) == 0 {
-		return fmt.Sprintf("%s: auth %s, no tools", name, authStatus)
-	}
-	if len(toolNames) > 8 {
-		return fmt.Sprintf("%s: auth %s, %d tools (%s, ...)", name, authStatus, len(toolNames), strings.Join(toolNames[:8], ", "))
-	}
-	return fmt.Sprintf("%s: auth %s, %d tools (%s)", name, authStatus, len(toolNames), strings.Join(toolNames, ", "))
-}
-
-func requireObjectArray(value map[string]any, name string, label string) ([]map[string]any, error) {
-	raw, ok := value[name]
-	if !ok || raw == nil {
-		return nil, fmt.Errorf("%s.%s is required", label, name)
-	}
-	items, ok := raw.([]any)
-	if !ok {
-		return nil, fmt.Errorf("%s.%s must be an array", label, name)
-	}
-	result := make([]map[string]any, 0, len(items))
-	for index, rawItem := range items {
-		item, ok := rawItem.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("%s.%s[%d] must be an object", label, name, index)
-		}
-		result = append(result, item)
-	}
-	return result, nil
-}
-
-func optionalObjectMap(value map[string]any, name string, label string) (map[string]any, error) {
-	raw, ok := value[name]
-	if !ok || raw == nil {
-		return map[string]any{}, nil
-	}
-	items, ok := raw.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("%s.%s must be an object", label, name)
-	}
-	return items, nil
-}
-
-func sortedKeys(values map[string]any) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func waitForCodexThreadSettingsUpdated(ctx context.Context, client *jsonRPCClient, threadID string, selectedModel string) (string, error) {
+func waitForCodexThreadSettingsUpdated(ctx context.Context, session *codexapp.Session, threadID string, selectedModel string) (string, error) {
 	waitCtx, cancel := context.WithTimeout(ctx, codexSettingsUpdatedTimeout)
 	defer cancel()
 
@@ -461,10 +255,19 @@ func waitForCodexThreadSettingsUpdated(ctx context.Context, client *jsonRPCClien
 				fmt.Sprintf("thread/settings/update did not emit thread/settings/updated for thread %s model %s: %v", threadID, selectedModel, waitCtx.Err()),
 				waitCtx.Err(),
 			)
-		case <-client.lifecycle.Done():
-			err := client.lifecycleError("codex app-server exited before thread/settings/updated")
-			return "", commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
-		case message := <-client.notifications:
+		case event, ok := <-session.Events():
+			if !ok {
+				err := fmt.Errorf("codex app-server session closed before thread/settings/updated")
+				return "", commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+			}
+			if event.Kind == codexapp.EventLifecycle {
+				err := fmt.Errorf("codex app-server exited before thread/settings/updated: %w", event.Err)
+				return "", commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+			}
+			if event.Kind != codexapp.EventNotification {
+				continue
+			}
+			message := event.Message
 			if message.Method != "thread/settings/updated" {
 				continue
 			}

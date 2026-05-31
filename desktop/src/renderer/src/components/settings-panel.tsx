@@ -1,6 +1,6 @@
 import { KeyRound, Settings2 } from "lucide-react";
 
-import { ProviderAccountsPanel } from "./provider-accounts-panel";
+import { CodexAccountPanel } from "./codex-account-panel";
 
 export function SettingsPanel() {
   return (
@@ -16,9 +16,9 @@ export function SettingsPanel() {
         <article className="mx-auto grid w-full max-w-3xl gap-3">
           <header className="flex h-8 items-center gap-2 text-zinc-400">
             <KeyRound className="h-4 w-4" />
-            <h2 className="text-xs font-semibold tracking-wide text-zinc-300">Provider Accounts</h2>
+            <h2 className="text-xs font-semibold tracking-wide text-zinc-300">Codex Account</h2>
           </header>
-          <ProviderAccountsPanel />
+          <CodexAccountPanel />
         </article>
       </div>
     </section>

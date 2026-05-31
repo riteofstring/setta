@@ -1,8 +1,7 @@
-import { Maximize2, Minimize2, Plus, Settings, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Maximize2, Minimize2, Settings, X } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
-import { FloatingMenu } from "./floating-menu";
 import { SettingsPanel } from "./settings-panel";
 
 type PaneSlot = "bottom" | "right";
@@ -75,8 +74,6 @@ const workspacePaneLabels = {
   settings: "Settings",
 } satisfies Record<WorkspacePaneKind, string>;
 
-const workspacePaneActions = ["settings"] satisfies WorkspacePaneKind[];
-
 const workspacePaneIntegrationPlan = {
   settings: {
     host: "renderer",
@@ -121,36 +118,27 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
 
 export function WorkspacePanePanel({
   activeTabId,
-  chromeInsetTop = false,
-  initialNewTabMenuOpen = false,
   maximized = false,
   onCloseTab,
-  onCreateTab,
   onSelectTab,
   onToggleMaximize,
-  showNewTabButton = true,
   slot,
   tabs,
 }: {
   activeTabId: string;
-  chromeInsetTop?: boolean;
-  initialNewTabMenuOpen?: boolean;
   maximized?: boolean;
   onCloseTab: (tabId: string) => void;
-  onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
   onToggleMaximize?: () => void;
-  showNewTabButton?: boolean;
   slot: PaneSlot;
   tabs: WorkspacePaneTab[];
 }) {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
   const paneLabel = slot === "right" ? "Workspace side pane" : "Workspace bottom pane";
-  const [newTabMenuOpen, setNewTabMenuOpen] = useState(initialNewTabMenuOpen);
   return (
     <section
       aria-label={paneLabel}
-      className={workspacePanePanelClass(slot, chromeInsetTop)}
+      className={workspacePanePanelClass(slot)}
       data-testid={`${slot}-workspace-pane`}
     >
       <header
@@ -158,7 +146,7 @@ export function WorkspacePanePanel({
         data-testid={`${slot}-workspace-pane-header`}
       >
         <nav
-          className="app-no-drag flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden"
+          className="app-no-drag flex min-w-0 flex-1 items-center gap-1"
           aria-label={`${paneLabel} tabs`}
         >
           {tabs.map((tab) => (
@@ -170,15 +158,6 @@ export function WorkspacePanePanel({
               tab={tab}
             />
           ))}
-          <WorkspacePaneNewTabSlot
-            onCreateTab={(kind) => {
-              setNewTabMenuOpen(false);
-              onCreateTab(kind);
-            }}
-            onOpenChange={setNewTabMenuOpen}
-            open={newTabMenuOpen}
-            show={showNewTabButton}
-          />
         </nav>
         {onToggleMaximize ? (
           <WorkspacePaneMaximizeButton
@@ -189,32 +168,9 @@ export function WorkspacePanePanel({
         ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
-        {activeTab ? (
-          <WorkspacePaneContent tab={activeTab} />
-        ) : (
-          <WorkspacePaneEmpty onCreateTab={() => onCreateTab("settings")} />
-        )}
+        {activeTab ? <WorkspacePaneContent tab={activeTab} /> : <WorkspacePaneEmpty />}
       </div>
     </section>
-  );
-}
-
-function WorkspacePaneNewTabSlot({
-  onCreateTab,
-  onOpenChange,
-  open,
-  show,
-}: {
-  onCreateTab: (kind: WorkspacePaneKind) => void;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  show: boolean;
-}) {
-  if (!show) {
-    return null;
-  }
-  return (
-    <WorkspacePaneNewTabMenu onCreateTab={onCreateTab} onOpenChange={onOpenChange} open={open} />
   );
 }
 
@@ -232,7 +188,7 @@ function WorkspacePaneMaximizeButton({
   return (
     <button
       aria-label={label}
-      className="app-no-drag grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
+      className="app-no-drag grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
       onClick={onToggleMaximize}
       title={label}
       type="button"
@@ -242,12 +198,12 @@ function WorkspacePaneMaximizeButton({
   );
 }
 
-function workspacePanePanelClass(slot: PaneSlot, chromeInsetTop: boolean) {
+function workspacePanePanelClass(slot: PaneSlot) {
   const slotClass =
     slot === "right"
-      ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
-      : "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100";
-  return cn(slotClass, chromeInsetTop && "pt-10");
+      ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100 transition-[width,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      : "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100 transition-[height,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]";
+  return cn(slotClass);
 }
 
 function WorkspacePaneTabButton({
@@ -264,143 +220,39 @@ function WorkspacePaneTabButton({
   return (
     <div
       className={cn(
-        "app-no-drag group relative flex h-7 min-w-0 max-w-40 items-center rounded-sm border px-1.5 text-xs transition-colors",
+        "app-no-drag group relative flex h-7 min-w-0 max-w-40 items-center gap-1 rounded-sm border px-1.5 text-xs transition-colors",
         active
           ? "border-zinc-700/70 bg-zinc-800/80 text-zinc-100"
           : "border-transparent text-zinc-500 hover:bg-zinc-900/80 hover:text-zinc-200",
       )}
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
-      <button
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 truncate pr-1 text-left outline-none focus-visible:text-zinc-50 focus-visible:underline focus-visible:decoration-zinc-400 focus-visible:underline-offset-2"
-        onClick={onSelect}
-        onPointerDown={(event) => event.stopPropagation()}
-        type="button"
-      >
-        <span className="relative grid h-4 w-4 shrink-0 place-items-center">
+      <span className="relative grid h-4 w-4 shrink-0 place-items-center">
+        <span className="grid h-4 w-4 place-items-center transition-opacity group-hover:opacity-0">
           {workspacePaneIcon(tab.kind, "h-3.5 w-3.5")}
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 grid place-items-center rounded-sm bg-zinc-800 text-zinc-100 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          >
-            <X className="h-3 w-3 stroke-[2.5]" />
-          </span>
         </span>
-        <span className="min-w-0 truncate">{tab.title}</span>
-      </button>
+        <button
+          aria-label={`Close ${tab.title}`}
+          className="pointer-events-none absolute inset-0 grid h-4 w-4 cursor-pointer place-items-center rounded-full bg-zinc-500/85 text-zinc-950 opacity-0 outline-none transition-colors group-hover:pointer-events-auto group-hover:opacity-100 hover:bg-zinc-300 focus:pointer-events-auto focus:opacity-100 focus-visible:bg-zinc-300"
+          onClick={onClose}
+          type="button"
+        >
+          <X className="h-2.5 w-2.5 stroke-[3]" />
+        </button>
+      </span>
       <button
-        aria-label={`Close ${tab.title}`}
-        className="absolute top-1.5 left-1.5 z-10 grid h-4 w-4 cursor-pointer place-items-center rounded-sm text-zinc-100 opacity-0 outline-none transition-opacity hover:bg-zinc-700 focus-visible:bg-zinc-700 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
-        }}
-        onPointerDown={(event) => event.stopPropagation()}
-        title={`Close ${tab.title}`}
+        className="min-w-0 flex-1 cursor-pointer truncate text-left outline-none focus-visible:text-zinc-50 focus-visible:underline focus-visible:decoration-zinc-400 focus-visible:underline-offset-2"
+        onClick={onSelect}
         type="button"
       >
-        <X className="h-3 w-3 stroke-[2.5]" />
+        {tab.title}
       </button>
     </div>
   );
 }
 
-function WorkspacePaneNewTabMenu({
-  onCreateTab,
-  onOpenChange,
-  open,
-}: {
-  onCreateTab: (kind: WorkspacePaneKind) => void;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-}) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const anchorRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) {
-        return;
-      }
-      onOpenChange(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onOpenChange, open]);
-
-  return (
-    <div className="app-no-drag relative shrink-0" ref={rootRef}>
-      <button
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="New pane tab"
-        className="grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-900 hover:text-zinc-300 focus-visible:bg-zinc-900 focus-visible:text-zinc-300"
-        onClick={() => onOpenChange(!open)}
-        onPointerDown={(event) => event.stopPropagation()}
-        ref={anchorRef}
-        title="New pane tab"
-        type="button"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-      <FloatingMenu
-        anchorRef={anchorRef}
-        ariaLabel="New pane tab options"
-        className="w-36 rounded-sm border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-black/35"
-        menuRef={menuRef}
-        open={open}
-        placement="bottom"
-        role="menu"
-      >
-        {workspacePaneActions.map((kind) => {
-          const label = workspacePaneLabels[kind];
-          return (
-            <button
-              className="flex h-6 w-full cursor-pointer items-center gap-2 px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
-              key={kind}
-              onClick={() => onCreateTab(kind)}
-              onPointerDown={(event) => event.stopPropagation()}
-              role="menuitem"
-              type="button"
-            >
-              {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0 text-zinc-500")}
-              <span className="truncate">{label}</span>
-            </button>
-          );
-        })}
-      </FloatingMenu>
-    </div>
-  );
-}
-
-function WorkspacePaneEmpty({ onCreateTab }: { onCreateTab: () => void }) {
-  return (
-    <div className="flex h-full items-center justify-center bg-zinc-950 px-4">
-      <button
-        className="inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
-        onClick={onCreateTab}
-        type="button"
-      >
-        <Settings className="h-3.5 w-3.5 shrink-0" />
-        <span>Settings</span>
-      </button>
-    </div>
-  );
+function WorkspacePaneEmpty() {
+  return <div aria-hidden="true" className="h-full bg-zinc-950" />;
 }
 
 function WorkspacePaneContent({ tab }: { tab: WorkspacePaneTab }) {

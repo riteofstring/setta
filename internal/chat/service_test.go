@@ -64,43 +64,6 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	}
 }
 
-func TestServiceDeleteConversationArchivesAndHidesConversation(t *testing.T) {
-	appDataDir := t.TempDir()
-	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	first, err := service.CreateConversation("workspace_api", "first")
-	if err != nil {
-		t.Fatalf("create first conversation: %v", err)
-	}
-	second, err := service.CreateConversation("workspace_api", "second")
-	if err != nil {
-		t.Fatalf("create second conversation: %v", err)
-	}
-
-	list, err := service.DeleteConversation("workspace_api", first.ID)
-	if err != nil {
-		t.Fatalf("delete conversation: %v", err)
-	}
-	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != second.ID {
-		t.Fatalf("conversations = %+v, want only second conversation", list.Conversations)
-	}
-	archived, err := service.store.LoadConversation("workspace_api", first.ID)
-	if err != nil {
-		t.Fatalf("load archived conversation: %v", err)
-	}
-	if archived.ArchivedAt == "" {
-		t.Fatal("archivedAt is empty, want archived conversation timestamp")
-	}
-
-	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	restartedList, err := restarted.ListConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list conversations after restart: %v", err)
-	}
-	if len(restartedList.Conversations) != 1 || restartedList.Conversations[0].Conversation.ID != second.ID {
-		t.Fatalf("restarted conversations = %+v, want only second conversation", restartedList.Conversations)
-	}
-}
-
 func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventError, Error: "codex app-server failed to start"}})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
