@@ -13,6 +13,7 @@ type EditorOpenMode = "app" | "finder";
 interface EditorDefinition {
   id: string;
   displayName: string;
+  iconFiles: string[];
   openMode: EditorOpenMode;
   paths: (homeDir: string) => string[];
 }
@@ -34,6 +35,7 @@ const editorDefinitions = [
   {
     displayName: "VS Code",
     id: "vscode",
+    iconFiles: ["Code.icns"],
     openMode: "app",
     paths: (homeDir) => [
       systemApplication("Visual Studio Code.app"),
@@ -43,24 +45,28 @@ const editorDefinitions = [
   {
     displayName: "Cursor",
     id: "cursor",
+    iconFiles: ["Cursor.icns"],
     openMode: "app",
     paths: (homeDir) => [systemApplication("Cursor.app"), userApplications(homeDir, "Cursor.app")],
   },
   {
     displayName: "Zed",
     id: "zed",
+    iconFiles: ["Zed.icns"],
     openMode: "app",
     paths: (homeDir) => [systemApplication("Zed.app"), userApplications(homeDir, "Zed.app")],
   },
   {
     displayName: "Finder",
     id: "finder",
+    iconFiles: ["Finder.icns"],
     openMode: "finder",
     paths: () => ["/System/Library/CoreServices/Finder.app"],
   },
   {
     displayName: "Terminal",
     id: "terminal",
+    iconFiles: ["Terminal.icns"],
     openMode: "app",
     paths: () => [
       "/System/Applications/Utilities/Terminal.app",
@@ -70,6 +76,7 @@ const editorDefinitions = [
   {
     displayName: "Ghostty",
     id: "ghostty",
+    iconFiles: ["Ghostty.icns"],
     openMode: "app",
     paths: (homeDir) => [
       systemApplication("Ghostty.app"),
@@ -79,6 +86,7 @@ const editorDefinitions = [
   {
     displayName: "Android Studio",
     id: "android-studio",
+    iconFiles: ["studio.icns"],
     openMode: "app",
     paths: (homeDir) => [
       systemApplication("Android Studio.app"),
@@ -88,7 +96,7 @@ const editorDefinitions = [
 ] satisfies EditorDefinition[];
 
 export async function listInstalledEditorApps(
-  getIconDataURL: (appPath: string) => Promise<string>,
+  getIconDataURL: (iconPath: string, appPath: string) => Promise<string>,
   options: EditorDiscoveryOptions = {},
 ): Promise<InstalledEditorApp[]> {
   const home = options.homeDir ?? homedir();
@@ -99,9 +107,13 @@ export async function listInstalledEditorApps(
       if (!appPath) {
         return null;
       }
+      const iconPath = await firstExistingPath(
+        definition.iconFiles.map((iconFile) => join(appPath, "Contents", "Resources", iconFile)),
+        exists,
+      );
       return {
         displayName: definition.displayName,
-        iconDataUrl: await iconDataURLOrEmpty(getIconDataURL, appPath),
+        iconDataUrl: await iconDataURLOrEmpty(getIconDataURL, iconPath ?? appPath, appPath),
         id: definition.id,
       };
     }),
@@ -158,11 +170,12 @@ async function pathExists(path: string) {
 }
 
 async function iconDataURLOrEmpty(
-  getIconDataURL: (appPath: string) => Promise<string>,
+  getIconDataURL: (iconPath: string, appPath: string) => Promise<string>,
+  iconPath: string,
   appPath: string,
 ) {
   try {
-    return await getIconDataURL(appPath);
+    return await getIconDataURL(iconPath, appPath);
   } catch {
     return "";
   }

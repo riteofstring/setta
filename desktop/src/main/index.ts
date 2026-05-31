@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -150,7 +150,11 @@ function registerIpc() {
     ipcMain,
     "appInstalledEditors",
     () => {
-      return listInstalledEditorApps(async (appPath) => {
+      return listInstalledEditorApps(async (iconPath, appPath) => {
+        const nativeIcon = nativeImage.createFromPath(iconPath);
+        if (!nativeIcon.isEmpty()) {
+          return nativeIcon.resize({ height: 32, width: 32 }).toDataURL();
+        }
         const icon = await app.getFileIcon(appPath, { size: "large" });
         return icon.toDataURL();
       });

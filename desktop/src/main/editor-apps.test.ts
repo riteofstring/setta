@@ -7,9 +7,12 @@ import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 describe("editor apps", () => {
   test("lists installed editors in shell menu order", async () => {
     const homeDir = "/Users/setta";
+    const cursorPath = join(homeDir, "Applications", "Cursor.app");
     const existingPaths = new Set([
-      join(homeDir, "Applications", "Cursor.app"),
+      cursorPath,
+      join(cursorPath, "Contents", "Resources", "Cursor.icns"),
       "/System/Library/CoreServices/Finder.app",
+      "/System/Library/CoreServices/Finder.app/Contents/Resources/Finder.icns",
     ]);
 
     const editors = await listInstalledEditorApps(async (appPath) => `icon:${appPath}`, {
@@ -20,12 +23,12 @@ describe("editor apps", () => {
     expect(editors).toEqual([
       {
         displayName: "Cursor",
-        iconDataUrl: `icon:${join(homeDir, "Applications", "Cursor.app")}`,
+        iconDataUrl: `icon:${join(cursorPath, "Contents", "Resources", "Cursor.icns")}`,
         id: "cursor",
       },
       {
         displayName: "Finder",
-        iconDataUrl: "icon:/System/Library/CoreServices/Finder.app",
+        iconDataUrl: "icon:/System/Library/CoreServices/Finder.app/Contents/Resources/Finder.icns",
         id: "finder",
       },
     ]);
