@@ -379,7 +379,7 @@ function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
   }
 
   return (
-    <div className="grid min-h-0 place-items-center px-3 py-8">
+    <div className="grid min-h-0 flex-1 place-items-center px-3 py-8">
       <div
         className={cn(
           "w-full max-w-2xl transform-gpu transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform motion-reduce:transition-none motion-reduce:will-change-auto",
