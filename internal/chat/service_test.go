@@ -35,15 +35,15 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	}
 
 	restarted := newTestService(t, appDataDir, resolver, NewFakeHarness(nil))
-	conversations, err := restarted.ListConversations("workspace_api")
+	list, err := restarted.ListConversations("workspace_api")
 	if err != nil {
 		t.Fatalf("list conversations after restart: %v", err)
 	}
-	if len(conversations) != 1 {
-		t.Fatalf("conversation count = %d, want 1", len(conversations))
+	if len(list.Conversations) != 1 {
+		t.Fatalf("conversation count = %d, want 1", len(list.Conversations))
 	}
-	if conversations[0].MessageCount != 2 {
-		t.Fatalf("message count = %d, want 2", conversations[0].MessageCount)
+	if list.Conversations[0].MessageCount != 2 {
+		t.Fatalf("message count = %d, want 2", list.Conversations[0].MessageCount)
 	}
 
 	latest, err := restarted.LoadMessagePage("workspace_api", conversation.ID, 0, 1)
@@ -985,7 +985,7 @@ func TestStoreRejectsMalformedConversationState(t *testing.T) {
 	}
 }
 
-func TestServiceListConversationsFailsOnMalformedConversationState(t *testing.T) {
+func TestServiceListConversationsReturnsValidItemsWithMalformedConversationState(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	goodConversation := Conversation{
@@ -1009,15 +1009,18 @@ func TestServiceListConversationsFailsOnMalformedConversationState(t *testing.T)
 	}
 	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
 
-	_, err := service.ListConversations("workspace_api")
-	if err == nil {
-		t.Fatal("list conversations succeeded, want corrupt state error")
+	list, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
 	}
-	if !IsCorruptStateError(err) {
-		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != goodConversation.ID {
+		t.Fatalf("conversations = %+v, want good conversation only", list.Conversations)
 	}
-	if !strings.Contains(err.Error(), `unknown field "extra"`) {
-		t.Fatalf("error = %q, want unknown field", err)
+	if !list.Corruption.HasCorruption || list.Corruption.Total != 1 {
+		t.Fatalf("corruption summary = %+v, want one corrupt record", list.Corruption)
+	}
+	if len(list.Diagnostics) != 1 || !strings.Contains(list.Diagnostics[0].Message, `unknown field "extra"`) {
+		t.Fatalf("diagnostics = %+v, want unknown field", list.Diagnostics)
 	}
 	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
 	if !strings.Contains(diagnostic.Message, `unknown field "extra"`) {

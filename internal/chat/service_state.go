@@ -10,30 +10,43 @@ func (service *Service) runsForConversationWithDiagnosticsLocked(workspaceID str
 	if err != nil {
 		return nil, err
 	}
-	if len(corrupt) > 0 {
-		service.recordCorruptStateDiagnosticLocked(corrupt[0], workspaceID, conversationID, "")
-		return nil, corrupt[0]
+	for _, finding := range corrupt {
+		service.recordCorruptStateFindingLocked(finding)
+		if finding.ConversationID == conversationID {
+			return nil, corruptFindingError(finding)
+		}
 	}
 	return runs, nil
 }
 
-func (service *Service) runsForWorkspaceWithDiagnostics(workspaceID string) ([]Run, error) {
+func (service *Service) validRunsForWorkspaceList(workspaceID string) ([]Run, []CorruptStateFinding, error) {
 	runs, corruptRuns, err := service.store.ScanRunsAllowingCorrupt(workspaceID)
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
-		return nil, err
+		return nil, nil, err
 	}
-	if len(corruptRuns) > 0 {
-		service.recordCorruptStateDiagnostic(corruptRuns[0], workspaceID, "", "")
-		return nil, corruptRuns[0]
-	}
+	findings := append([]CorruptStateFinding{}, corruptRuns...)
 	for _, run := range runs {
 		if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
-			service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, run.ID)
-			return nil, err
+			if !IsCorruptStateError(err) {
+				return nil, nil, err
+			}
+			findings = append(findings, corruptStateFinding(err, workspaceID, run.ConversationID, run.ID, corruptRunKind))
 		}
 	}
-	return runs, nil
+	valid := make([]Run, 0, len(runs))
+	corruptRunIDs := map[string]bool{}
+	for _, finding := range findings {
+		if finding.RecordKind == corruptRunKind && finding.RunID != "" {
+			corruptRunIDs[finding.RunID] = true
+		}
+	}
+	for _, run := range runs {
+		if !corruptRunIDs[run.ID] {
+			valid = append(valid, run)
+		}
+	}
+	return valid, findings, nil
 }
 
 func activeRunIDFromRuns(runs []Run, conversationID string) string {
@@ -89,10 +102,27 @@ func (service *Service) ListDiagnostics(workspaceID string, conversationID strin
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return nil, err
 	}
-	diagnostics, err := service.store.ListDiagnostics()
+	diagnostics, corrupt, err := service.store.ListDiagnosticsAllowingCorrupt()
 	if err != nil {
 		return nil, err
 	}
+	service.recordDiagnosticFindingsForWorkspace(workspaceID, corrupt)
+	return filterDiagnostics(diagnostics, workspaceID, conversationID, runID), nil
+}
+
+func (service *Service) recordDiagnosticFindingsForWorkspace(workspaceID string, findings []CorruptStateFinding) {
+	for _, finding := range findings {
+		if finding.WorkspaceID != "" && finding.WorkspaceID != workspaceID {
+			continue
+		}
+		if finding.WorkspaceID == "" {
+			finding.WorkspaceID = workspaceID
+		}
+		service.recordCorruptStateFinding(finding)
+	}
+}
+
+func filterDiagnostics(diagnostics []Diagnostic, workspaceID string, conversationID string, runID string) []Diagnostic {
 	filtered := make([]Diagnostic, 0, len(diagnostics))
 	for _, diagnostic := range diagnostics {
 		if diagnostic.WorkspaceID != workspaceID {
@@ -106,7 +136,7 @@ func (service *Service) ListDiagnostics(workspaceID string, conversationID strin
 		}
 		filtered = append(filtered, diagnostic)
 	}
-	return filtered, nil
+	return filtered
 }
 
 func (service *Service) queuedStateFromRunsLocked(workspaceID string, conversationID string, runs []Run) (QueueState, error) {

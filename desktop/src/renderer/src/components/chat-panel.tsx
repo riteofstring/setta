@@ -1,5 +1,14 @@
 import type { ConversationListItem, RunStatus, WorkspaceSummary } from "@generated/backend";
-import { MessageSquarePlus, Plus, Send, Square } from "lucide-react";
+import {
+  AlertTriangle,
+  Archive,
+  MessageSquarePlus,
+  Plus,
+  RotateCcw,
+  Send,
+  Square,
+  Trash2,
+} from "lucide-react";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
@@ -45,7 +54,7 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
           selectConversation={chat.selectConversation}
         />
       </aside>
-      <div className="grid min-h-0 min-w-0 grid-rows-[56px_minmax(0,1fr)_auto_auto] overflow-hidden">
+      <div className="grid min-h-0 min-w-0 grid-rows-[56px_auto_minmax(0,1fr)_auto_auto_auto] overflow-hidden">
         <header className="flex min-w-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">{chatTitle(chat, workspace)}</div>
@@ -53,6 +62,7 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
           </div>
           <RunBadge active={running} status={activeRunStatus(chat)} />
         </header>
+        <WorkspaceCorruptionPanel busy={busy} chat={chat} workspace={workspace} />
         <ConversationBody busy={busy} chat={chat} />
         <CriticalDiagnostics chat={chat} />
         <ChatError message={selectedConversationChatError(chat)} />
@@ -191,6 +201,82 @@ function ChatError({ message }: { message: string | null }) {
       {message}
     </div>
   );
+}
+
+function WorkspaceCorruptionPanel({
+  busy,
+  chat,
+  workspace,
+}: {
+  busy: boolean;
+  chat: ChatView;
+  workspace: WorkspaceSummary;
+}) {
+  if (!chat.corruption.hasCorruption && !chat.maintenanceNotice) {
+    return null;
+  }
+  const latestDiagnostic = chat.diagnostics
+    .filter((diagnostic) => diagnostic.severity === "critical")
+    .at(-1);
+  const affectedPath = latestDiagnostic?.context.path ?? "";
+  return (
+    <div
+      className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-950"
+      data-testid="workspace-corruption-warning"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <AlertTriangle className="h-4 w-4 flex-none" />
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">Chat state needs attention</div>
+          <div className="truncate text-xs text-amber-900">
+            {chat.maintenanceNotice ??
+              `${chat.corruption.total} corrupt records detected${affectedPath ? `: ${affectedPath}` : ""}`}
+          </div>
+        </div>
+        <Button
+          aria-label="Quarantine corrupt chat records"
+          disabled={busy || !chat.corruption.hasCorruption}
+          onClick={() =>
+            confirmMaintenance(workspace.id, "Quarantine corrupt chat records") &&
+            void chat.quarantineCorruptState()
+          }
+          type="button"
+          variant="secondary"
+        >
+          <Archive className="h-4 w-4" />
+          Quarantine
+        </Button>
+        <Button
+          aria-label="Reset workspace chat state"
+          disabled={busy}
+          onClick={() =>
+            confirmMaintenance(workspace.id, "Reset workspace chat state") &&
+            void chat.resetWorkspaceState()
+          }
+          type="button"
+          variant="secondary"
+        >
+          <Trash2 className="h-4 w-4" />
+          Reset
+        </Button>
+        <Button
+          aria-label="Clear chat quarantine"
+          disabled={busy}
+          onClick={() =>
+            confirmMaintenance(workspace.id, "Clear chat quarantine") && void chat.clearQuarantine()
+          }
+          type="button"
+          variant="secondary"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function confirmMaintenance(workspaceId: string, action: string) {
+  return window.confirm(`${action} for workspace ${workspaceId}?`);
 }
 
 function CriticalDiagnostics({ chat }: { chat: ChatView }) {
@@ -392,7 +478,9 @@ export function ComposerButton({
 
 function useChatViewState(workspaceId: string | null) {
   const activeRun = useChatStore((state) => state.activeRun);
+  const clearQuarantine = useChatStore((state) => state.clearQuarantine);
   const conversations = useChatStore((state) => state.conversations);
+  const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
   const error = useChatStore((state) => state.error);
   const diagnostics = useChatStore((state) => state.diagnostics);
@@ -400,11 +488,14 @@ function useChatViewState(workspaceId: string | null) {
   const loadOlder = useChatStore((state) => state.loadOlder);
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
+  const maintenanceNotice = useChatStore((state) => state.maintenanceNotice);
   const messageIds = useChatStore((state) => state.messageIds);
   const messages = useChatStore((state) => state.messages);
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
+  const quarantineCorruptState = useChatStore((state) => state.quarantineCorruptState);
   const queueMessage = useChatStore((state) => state.queueMessage);
+  const resetWorkspaceState = useChatStore((state) => state.resetWorkspaceState);
   const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
@@ -432,18 +523,23 @@ function useChatViewState(workspaceId: string | null) {
 
   return {
     activeRun,
+    clearQuarantine,
     conversations,
+    corruption,
     createConversation,
     diagnostics,
     error,
     hasMoreOlder,
     loadOlder,
     loadRunItemOutput,
+    maintenanceNotice,
     messageIds,
     messages,
     messagesById,
     operation,
+    quarantineCorruptState,
     queueMessage,
+    resetWorkspaceState,
     runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,

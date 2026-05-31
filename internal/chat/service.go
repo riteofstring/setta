@@ -121,37 +121,41 @@ func (service *Service) CloseEvents() {
 	service.events.Close()
 }
 
-func (service *Service) ListConversations(workspaceID string) ([]ConversationListItem, error) {
+func (service *Service) ListConversations(workspaceID string) (ConversationListResult, error) {
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
-		return nil, err
+		return ConversationListResult{}, err
 	}
 	conversations, corruptConversations, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
-		return nil, err
+		return ConversationListResult{}, err
 	}
-	if len(corruptConversations) > 0 {
-		service.recordCorruptStateDiagnostic(corruptConversations[0], workspaceID, "", "")
-		return nil, corruptConversations[0]
-	}
-	runs, err := service.runsForWorkspaceWithDiagnostics(workspaceID)
+	runs, corruptRuns, err := service.validRunsForWorkspaceList(workspaceID)
 	if err != nil {
-		return nil, err
+		return ConversationListResult{}, err
 	}
+	findings := append([]CorruptStateFinding{}, corruptConversations...)
+	findings = append(findings, corruptRuns...)
 	items := make([]ConversationListItem, 0, len(conversations))
 	for _, conversation := range conversations {
-		count, err := service.store.MessageCount(workspaceID, conversation.ID)
+		count, corruptMessages, err := service.store.MessageCountAllowingCorrupt(workspaceID, conversation.ID)
 		if err != nil {
 			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
-			return nil, err
+			return ConversationListResult{}, err
 		}
+		findings = append(findings, corruptMessages...)
 		items = append(items, ConversationListItem{
 			Conversation: conversation,
 			MessageCount: count,
 			ActiveRunID:  activeRunIDFromRuns(runs, conversation.ID),
 		})
 	}
-	return items, nil
+	diagnostics := service.recordCorruptStateFindings(findings)
+	return ConversationListResult{
+		Conversations: items,
+		Corruption:    corruptionSummary(findings),
+		Diagnostics:   diagnostics,
+	}, nil
 }
 
 func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {
@@ -1027,8 +1031,8 @@ func (service *Service) recoverInterruptedRuns() error {
 			return err
 		}
 		if len(corrupt) > 0 {
-			for _, corruptErr := range corrupt {
-				service.recordCorruptStateDiagnostic(corruptErr, workspaceID, "", "")
+			for _, finding := range corrupt {
+				service.recordCorruptStateFinding(finding)
 			}
 			continue
 		}

@@ -265,8 +265,13 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
+      clearQuarantine: async () => emptyMaintenanceResult(),
       createConversation: async () => emptyConversation(),
-      listConversations: async () => ({ conversations: [] }),
+      listConversations: async () => ({
+        conversations: [],
+        corruption: emptyCorruption(),
+        diagnostics: [],
+      }),
       messagePage: async () => ({
         conversation: emptyConversation(),
         hasMoreOlder: false,
@@ -277,6 +282,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         runItems: [],
       }),
       onEvent: () => () => {},
+      quarantineCorruptState: async () => emptyMaintenanceResult(),
       queueMessage: async () => ({
         conversation: emptyConversation(),
         page: emptyMessagePage(),
@@ -303,6 +309,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: emptyRun(),
         userMessage: emptyMessage(),
       }),
+      resetWorkspaceState: async () => emptyMaintenanceResult(),
       steerMessage: async () => ({
         conversation: emptyConversation(),
         page: emptyMessagePage(),
@@ -331,6 +338,27 @@ function emptyConversation() {
     schemaVersion: 1,
     title: "Test",
     updatedAt: "2026-05-29T20:00:00Z",
+    workspaceId: "workspace_api",
+  };
+}
+
+function emptyCorruption() {
+  return {
+    byKind: [],
+    bySeverity: [],
+    hasCorruption: false,
+    total: 0,
+  };
+}
+
+function emptyMaintenanceResult() {
+  return {
+    corruption: emptyCorruption(),
+    diagnostics: [],
+    manifestPath: "",
+    quarantined: [],
+    removedPaths: [],
+    validationRunAt: "2026-05-29T20:00:00Z",
     workspaceId: "workspace_api",
   };
 }

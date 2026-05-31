@@ -49,6 +49,9 @@ var apiEndpoints = []endpoint{
 	post[GetRunActivityRequest, chat.RunActivityPage]("GetRunActivity", "/chat/runs/activity", handler.getRunActivity),
 	post[GetRunItemOutputRequest, chat.RunItemOutputPage]("GetRunItemOutputPage", "/chat/runs/item-output", handler.getRunItemOutput),
 	post[ListDiagnosticsRequest, ListDiagnosticsResponse]("ListDiagnostics", "/chat/diagnostics/list", handler.listDiagnostics),
+	post[QuarantineCorruptChatStateRequest, chat.ChatMaintenanceResult]("QuarantineCorruptChatState", "/chat/maintenance/quarantine-corrupt", handler.quarantineCorruptChatState),
+	post[ResetWorkspaceChatStateRequest, chat.ChatMaintenanceResult]("ResetWorkspaceChatState", "/chat/maintenance/reset-workspace", handler.resetWorkspaceChatState),
+	post[ClearChatQuarantineRequest, chat.ChatMaintenanceResult]("ClearChatQuarantine", "/chat/maintenance/clear-quarantine", handler.clearChatQuarantine),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
 	stream("EventStream", "/events", handler.eventStream),
 }

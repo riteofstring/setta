@@ -44,6 +44,44 @@ export function decodeHarnessRefStatus(value: unknown, label = "HarnessRefStatus
   }
 }
 
+export type DiagnosticSource = "backend" | "event_stream" | "chat" | "workspace" | "provider";
+
+export function decodeDiagnosticSource(value: unknown, label = "DiagnosticSource"): DiagnosticSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "backend":
+      return decoded;
+    case "event_stream":
+      return decoded;
+    case "chat":
+      return decoded;
+    case "workspace":
+      return decoded;
+    case "provider":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DiagnosticSeverity = "info" | "warning" | "error" | "critical";
+
+export function decodeDiagnosticSeverity(value: unknown, label = "DiagnosticSeverity"): DiagnosticSeverity {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "info":
+      return decoded;
+    case "warning":
+      return decoded;
+    case "error":
+      return decoded;
+    case "critical":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type MessageRole = "user" | "assistant" | "system" | "developer" | "tool";
 
 export function decodeMessageRole(value: unknown, label = "MessageRole"): MessageRole {
@@ -242,44 +280,6 @@ export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): 
   }
 }
 
-export type DiagnosticSource = "backend" | "event_stream" | "chat" | "workspace" | "provider";
-
-export function decodeDiagnosticSource(value: unknown, label = "DiagnosticSource"): DiagnosticSource {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "backend":
-      return decoded;
-    case "event_stream":
-      return decoded;
-    case "chat":
-      return decoded;
-    case "workspace":
-      return decoded;
-    case "provider":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type DiagnosticSeverity = "info" | "warning" | "error" | "critical";
-
-export function decodeDiagnosticSeverity(value: unknown, label = "DiagnosticSeverity"): DiagnosticSeverity {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "info":
-      return decoded;
-    case "warning":
-      return decoded;
-    case "error":
-      return decoded;
-    case "critical":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export interface BackendHealth {
   ok: boolean;
   name: string;
@@ -356,8 +356,36 @@ export interface ConversationListItem {
   activeRunId: string;
 }
 
+export interface CorruptionCount {
+  key: string;
+  count: number;
+}
+
+export interface CorruptionSummary {
+  hasCorruption: boolean;
+  total: number;
+  byKind: CorruptionCount[];
+  bySeverity: CorruptionCount[];
+}
+
+export interface Diagnostic {
+  schemaVersion: number;
+  id: string;
+  source: DiagnosticSource;
+  severity: DiagnosticSeverity;
+  code: string;
+  message: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  occurredAt: string;
+  context: Record<string, string>;
+}
+
 export interface ListConversationsResponse {
   conversations: ConversationListItem[];
+  corruption: CorruptionSummary;
+  diagnostics: Diagnostic[];
 }
 
 export interface CreateConversationRequest {
@@ -594,22 +622,43 @@ export interface ListDiagnosticsRequest {
   runId: string;
 }
 
-export interface Diagnostic {
-  schemaVersion: number;
-  id: string;
-  source: DiagnosticSource;
-  severity: DiagnosticSeverity;
-  code: string;
-  message: string;
+export interface ListDiagnosticsResponse {
+  diagnostics: Diagnostic[];
+}
+
+export interface QuarantineCorruptChatStateRequest {
+  workspaceId: string;
+  confirmation: string;
+}
+
+export interface QuarantinedRecord {
+  originalPath: string;
+  quarantinePath: string;
+  recordKind: string;
   workspaceId: string;
   conversationId: string;
   runId: string;
-  occurredAt: string;
-  context: Record<string, string>;
+  error: string;
 }
 
-export interface ListDiagnosticsResponse {
+export interface ChatMaintenanceResult {
+  workspaceId: string;
+  corruption: CorruptionSummary;
   diagnostics: Diagnostic[];
+  quarantined: QuarantinedRecord[];
+  manifestPath: string;
+  removedPaths: string[];
+  validationRunAt: string;
+}
+
+export interface ResetWorkspaceChatStateRequest {
+  workspaceId: string;
+  confirmation: string;
+}
+
+export interface ClearChatQuarantineRequest {
+  workspaceId: string;
+  confirmation: string;
 }
 
 export interface ApprovalAnswer {
@@ -960,6 +1009,18 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/diagnostics/list",
   },
+  QuarantineCorruptChatState: {
+    method: "POST",
+    path: "/chat/maintenance/quarantine-corrupt",
+  },
+  ResetWorkspaceChatState: {
+    method: "POST",
+    path: "/chat/maintenance/reset-workspace",
+  },
+  ClearChatQuarantine: {
+    method: "POST",
+    path: "/chat/maintenance/clear-quarantine",
+  },
   SubmitApproval: {
     method: "POST",
     path: "/chat/approvals/submit",
@@ -1098,11 +1159,51 @@ export function decodeConversationListItem(value: unknown): ConversationListItem
   };
 }
 
+export function decodeCorruptionCount(value: unknown): CorruptionCount {
+  const record = assertRecord(value, "CorruptionCount");
+  assertKnownFields(record, "CorruptionCount", ["key", "count"]);
+  return {
+    key: decodeString(requireField(record, "key", "CorruptionCount"), "CorruptionCount.key"),
+    count: decodeInteger(requireField(record, "count", "CorruptionCount"), "CorruptionCount.count"),
+  };
+}
+
+export function decodeCorruptionSummary(value: unknown): CorruptionSummary {
+  const record = assertRecord(value, "CorruptionSummary");
+  assertKnownFields(record, "CorruptionSummary", ["hasCorruption", "total", "byKind", "bySeverity"]);
+  return {
+    hasCorruption: decodeBoolean(requireField(record, "hasCorruption", "CorruptionSummary"), "CorruptionSummary.hasCorruption"),
+    total: decodeInteger(requireField(record, "total", "CorruptionSummary"), "CorruptionSummary.total"),
+    byKind: decodeArray(requireField(record, "byKind", "CorruptionSummary"), "CorruptionSummary.byKind", (item) => decodeCorruptionCount(item)),
+    bySeverity: decodeArray(requireField(record, "bySeverity", "CorruptionSummary"), "CorruptionSummary.bySeverity", (item) => decodeCorruptionCount(item)),
+  };
+}
+
+export function decodeDiagnostic(value: unknown): Diagnostic {
+  const record = assertRecord(value, "Diagnostic");
+  assertKnownFields(record, "Diagnostic", ["schemaVersion", "id", "source", "severity", "code", "message", "workspaceId", "conversationId", "runId", "occurredAt", "context"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Diagnostic"), "Diagnostic.schemaVersion"),
+    id: decodeString(requireField(record, "id", "Diagnostic"), "Diagnostic.id"),
+    source: decodeDiagnosticSource(requireField(record, "source", "Diagnostic"), "Diagnostic.source"),
+    severity: decodeDiagnosticSeverity(requireField(record, "severity", "Diagnostic"), "Diagnostic.severity"),
+    code: decodeString(requireField(record, "code", "Diagnostic"), "Diagnostic.code"),
+    message: decodeString(requireField(record, "message", "Diagnostic"), "Diagnostic.message"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "Diagnostic"), "Diagnostic.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "Diagnostic"), "Diagnostic.conversationId"),
+    runId: decodeString(requireField(record, "runId", "Diagnostic"), "Diagnostic.runId"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "Diagnostic"), "Diagnostic.occurredAt"),
+    context: decodeStringRecord(requireField(record, "context", "Diagnostic"), "Diagnostic.context"),
+  };
+}
+
 export function decodeListConversationsResponse(value: unknown): ListConversationsResponse {
   const record = assertRecord(value, "ListConversationsResponse");
-  assertKnownFields(record, "ListConversationsResponse", ["conversations"]);
+  assertKnownFields(record, "ListConversationsResponse", ["conversations", "corruption", "diagnostics"]);
   return {
     conversations: decodeArray(requireField(record, "conversations", "ListConversationsResponse"), "ListConversationsResponse.conversations", (item) => decodeConversationListItem(item)),
+    corruption: decodeCorruptionSummary(requireField(record, "corruption", "ListConversationsResponse")),
+    diagnostics: decodeArray(requireField(record, "diagnostics", "ListConversationsResponse"), "ListConversationsResponse.diagnostics", (item) => decodeDiagnostic(item)),
   };
 }
 
@@ -1448,29 +1549,66 @@ export function decodeListDiagnosticsRequest(value: unknown): ListDiagnosticsReq
   };
 }
 
-export function decodeDiagnostic(value: unknown): Diagnostic {
-  const record = assertRecord(value, "Diagnostic");
-  assertKnownFields(record, "Diagnostic", ["schemaVersion", "id", "source", "severity", "code", "message", "workspaceId", "conversationId", "runId", "occurredAt", "context"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Diagnostic"), "Diagnostic.schemaVersion"),
-    id: decodeString(requireField(record, "id", "Diagnostic"), "Diagnostic.id"),
-    source: decodeDiagnosticSource(requireField(record, "source", "Diagnostic"), "Diagnostic.source"),
-    severity: decodeDiagnosticSeverity(requireField(record, "severity", "Diagnostic"), "Diagnostic.severity"),
-    code: decodeString(requireField(record, "code", "Diagnostic"), "Diagnostic.code"),
-    message: decodeString(requireField(record, "message", "Diagnostic"), "Diagnostic.message"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "Diagnostic"), "Diagnostic.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "Diagnostic"), "Diagnostic.conversationId"),
-    runId: decodeString(requireField(record, "runId", "Diagnostic"), "Diagnostic.runId"),
-    occurredAt: decodeString(requireField(record, "occurredAt", "Diagnostic"), "Diagnostic.occurredAt"),
-    context: decodeStringRecord(requireField(record, "context", "Diagnostic"), "Diagnostic.context"),
-  };
-}
-
 export function decodeListDiagnosticsResponse(value: unknown): ListDiagnosticsResponse {
   const record = assertRecord(value, "ListDiagnosticsResponse");
   assertKnownFields(record, "ListDiagnosticsResponse", ["diagnostics"]);
   return {
     diagnostics: decodeArray(requireField(record, "diagnostics", "ListDiagnosticsResponse"), "ListDiagnosticsResponse.diagnostics", (item) => decodeDiagnostic(item)),
+  };
+}
+
+export function decodeQuarantineCorruptChatStateRequest(value: unknown): QuarantineCorruptChatStateRequest {
+  const record = assertRecord(value, "QuarantineCorruptChatStateRequest");
+  assertKnownFields(record, "QuarantineCorruptChatStateRequest", ["workspaceId", "confirmation"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "QuarantineCorruptChatStateRequest"), "QuarantineCorruptChatStateRequest.workspaceId"),
+    confirmation: decodeString(requireField(record, "confirmation", "QuarantineCorruptChatStateRequest"), "QuarantineCorruptChatStateRequest.confirmation"),
+  };
+}
+
+export function decodeQuarantinedRecord(value: unknown): QuarantinedRecord {
+  const record = assertRecord(value, "QuarantinedRecord");
+  assertKnownFields(record, "QuarantinedRecord", ["originalPath", "quarantinePath", "recordKind", "workspaceId", "conversationId", "runId", "error"]);
+  return {
+    originalPath: decodeString(requireField(record, "originalPath", "QuarantinedRecord"), "QuarantinedRecord.originalPath"),
+    quarantinePath: decodeString(requireField(record, "quarantinePath", "QuarantinedRecord"), "QuarantinedRecord.quarantinePath"),
+    recordKind: decodeString(requireField(record, "recordKind", "QuarantinedRecord"), "QuarantinedRecord.recordKind"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "QuarantinedRecord"), "QuarantinedRecord.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "QuarantinedRecord"), "QuarantinedRecord.conversationId"),
+    runId: decodeString(requireField(record, "runId", "QuarantinedRecord"), "QuarantinedRecord.runId"),
+    error: decodeString(requireField(record, "error", "QuarantinedRecord"), "QuarantinedRecord.error"),
+  };
+}
+
+export function decodeChatMaintenanceResult(value: unknown): ChatMaintenanceResult {
+  const record = assertRecord(value, "ChatMaintenanceResult");
+  assertKnownFields(record, "ChatMaintenanceResult", ["workspaceId", "corruption", "diagnostics", "quarantined", "manifestPath", "removedPaths", "validationRunAt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMaintenanceResult"), "ChatMaintenanceResult.workspaceId"),
+    corruption: decodeCorruptionSummary(requireField(record, "corruption", "ChatMaintenanceResult")),
+    diagnostics: decodeArray(requireField(record, "diagnostics", "ChatMaintenanceResult"), "ChatMaintenanceResult.diagnostics", (item) => decodeDiagnostic(item)),
+    quarantined: decodeArray(requireField(record, "quarantined", "ChatMaintenanceResult"), "ChatMaintenanceResult.quarantined", (item) => decodeQuarantinedRecord(item)),
+    manifestPath: decodeString(requireField(record, "manifestPath", "ChatMaintenanceResult"), "ChatMaintenanceResult.manifestPath"),
+    removedPaths: decodeArray(requireField(record, "removedPaths", "ChatMaintenanceResult"), "ChatMaintenanceResult.removedPaths", (item) => decodeString(item, "ChatMaintenanceResult.removedPaths item")),
+    validationRunAt: decodeString(requireField(record, "validationRunAt", "ChatMaintenanceResult"), "ChatMaintenanceResult.validationRunAt"),
+  };
+}
+
+export function decodeResetWorkspaceChatStateRequest(value: unknown): ResetWorkspaceChatStateRequest {
+  const record = assertRecord(value, "ResetWorkspaceChatStateRequest");
+  assertKnownFields(record, "ResetWorkspaceChatStateRequest", ["workspaceId", "confirmation"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ResetWorkspaceChatStateRequest"), "ResetWorkspaceChatStateRequest.workspaceId"),
+    confirmation: decodeString(requireField(record, "confirmation", "ResetWorkspaceChatStateRequest"), "ResetWorkspaceChatStateRequest.confirmation"),
+  };
+}
+
+export function decodeClearChatQuarantineRequest(value: unknown): ClearChatQuarantineRequest {
+  const record = assertRecord(value, "ClearChatQuarantineRequest");
+  assertKnownFields(record, "ClearChatQuarantineRequest", ["workspaceId", "confirmation"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ClearChatQuarantineRequest"), "ClearChatQuarantineRequest.workspaceId"),
+    confirmation: decodeString(requireField(record, "confirmation", "ClearChatQuarantineRequest"), "ClearChatQuarantineRequest.confirmation"),
   };
 }
 
@@ -1995,6 +2133,9 @@ export interface BackendClient {
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
+  quarantineCorruptChatState: (request: QuarantineCorruptChatStateRequest) => Promise<ChatMaintenanceResult>;
+  resetWorkspaceChatState: (request: ResetWorkspaceChatStateRequest) => Promise<ChatMaintenanceResult>;
+  clearChatQuarantine: (request: ClearChatQuarantineRequest) => Promise<ChatMaintenanceResult>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
 }
 
@@ -2149,6 +2290,30 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDiagnosticsResponse,
       endpoint: backendEndpoints.ListDiagnostics,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    quarantineCorruptChatState: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatMaintenanceResult,
+      endpoint: backendEndpoints.QuarantineCorruptChatState,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    resetWorkspaceChatState: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatMaintenanceResult,
+      endpoint: backendEndpoints.ResetWorkspaceChatState,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    clearChatQuarantine: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatMaintenanceResult,
+      endpoint: backendEndpoints.ClearChatQuarantine,
       fetchImpl,
       requestPayload: request,
     }),

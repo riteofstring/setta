@@ -100,17 +100,65 @@ func (service *Service) recordCorruptStateDiagnosticLocked(err error, workspaceI
 	if err == nil || !IsCorruptStateError(err) {
 		return
 	}
-	_, diagnosticErr := service.recordDiagnosticLocked(diagnosticDraft{
-		Code:           "corrupt_chat_state",
-		Context:        map[string]string{"error": err.Error()},
-		ConversationID: conversationID,
-		Message:        err.Error(),
-		RunID:          runID,
-		Severity:       DiagnosticSeverityCritical,
-		Source:         DiagnosticSourceChat,
-		WorkspaceID:    workspaceID,
-	})
-	if diagnosticErr != nil {
-		return
+	finding := corruptStateFinding(err, workspaceID, conversationID, runID, "unknown")
+	service.recordCorruptStateFindingLocked(finding)
+}
+
+func (service *Service) recordCorruptStateFindings(findings []CorruptStateFinding) []Diagnostic {
+	if len(findings) == 0 {
+		return []Diagnostic{}
 	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.recordCorruptStateFindingsLocked(findings)
+}
+
+func (service *Service) recordCorruptStateFindingsLocked(findings []CorruptStateFinding) []Diagnostic {
+	diagnostics := make([]Diagnostic, 0, len(findings))
+	for _, finding := range findings {
+		diagnostic, ok := service.recordCorruptStateFindingLocked(finding)
+		if ok {
+			diagnostics = append(diagnostics, diagnostic)
+		}
+	}
+	return diagnostics
+}
+
+func (service *Service) recordCorruptStateFinding(finding CorruptStateFinding) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	service.recordCorruptStateFindingLocked(finding)
+}
+
+func (service *Service) recordCorruptStateFindingLocked(finding CorruptStateFinding) (Diagnostic, bool) {
+	if finding.Code == "" {
+		finding.Code = corruptChatStateCode
+	}
+	if finding.Severity == "" {
+		finding.Severity = DiagnosticSeverityCritical
+	}
+	id, err := service.newID("diagnostic")
+	if err != nil {
+		return Diagnostic{}, false
+	}
+	diagnostic := Diagnostic{
+		SchemaVersion:  SchemaVersion,
+		ID:             id,
+		Source:         DiagnosticSourceChat,
+		Severity:       finding.Severity,
+		Code:           finding.Code,
+		Message:        finding.Error,
+		WorkspaceID:    finding.WorkspaceID,
+		ConversationID: finding.ConversationID,
+		RunID:          finding.RunID,
+		OccurredAt:     timestamp(service.now()),
+		Context:        corruptFindingContext(finding),
+	}
+	if err := service.store.SaveDiagnostic(diagnostic); err != nil {
+		return diagnostic, true
+	}
+	if _, err := service.events.Publish(NewDiagnosticCreatedEvent(diagnostic)); err != nil {
+		return diagnostic, true
+	}
+	return diagnostic, true
 }

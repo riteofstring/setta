@@ -37,6 +37,8 @@ const api: SettaAPI = {
       invoke("chatActiveRun", workspaceId, conversationId),
     cancelRun: (workspaceId: string, conversationId: string) =>
       invoke("chatCancelRun", workspaceId, conversationId),
+    clearQuarantine: (workspaceId: string, confirmation: string) =>
+      invoke("chatClearQuarantine", workspaceId, confirmation),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
@@ -57,6 +59,10 @@ const api: SettaAPI = {
     },
     queueMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatQueueMessage", workspaceId, conversationId, prompt),
+    quarantineCorruptState: (workspaceId: string, confirmation: string) =>
+      invoke("chatQuarantineCorruptState", workspaceId, confirmation),
+    resetWorkspaceState: (workspaceId: string, confirmation: string) =>
+      invoke("chatResetWorkspaceState", workspaceId, confirmation),
     runActivity: (workspaceId: string, runId: string, limit: number) =>
       invoke("chatRunActivity", workspaceId, runId, limit),
     runItemOutput: (

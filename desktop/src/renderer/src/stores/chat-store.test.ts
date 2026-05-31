@@ -4,6 +4,8 @@ import type {
   ChatMessage,
   Conversation,
   ConversationListItem,
+  Diagnostic,
+  ListConversationsResponse,
   MessageDelivery,
   MessagePage,
   MessageRole,
@@ -28,11 +30,13 @@ describe("chat store", () => {
     useChatStore.setState({
       activeRun: null,
       conversations: [],
+      corruption: emptyCorruption(),
       diagnostics: [],
       error: null,
       hasMoreOlder: false,
       lastEventSequence: 0,
       lastEventStreamId: "",
+      maintenanceNotice: null,
       messageIds: [],
       messages: [],
       messagesById: {},
@@ -52,9 +56,9 @@ describe("chat store", () => {
 
   test("loads conversation metadata separately from the latest message page", async () => {
     const conversation = testConversation();
-    const listConversations = vi.fn().mockResolvedValue({
-      conversations: [conversationItem(conversation, 120)],
-    });
+    const listConversations = vi
+      .fn()
+      .mockResolvedValue(listResponse([conversationItem(conversation, 120)]));
     const messagePage = vi
       .fn()
       .mockResolvedValue(
@@ -72,12 +76,12 @@ describe("chat store", () => {
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
 
-  test("creates a new conversation even when the historical list is corrupt", async () => {
+  test("creates a new conversation when the historical list reports corruption", async () => {
     const conversation = testConversation();
     const createConversation = vi.fn().mockResolvedValue(conversation);
     const listConversations = vi
       .fn()
-      .mockRejectedValue(new Error("malformed chat state /tmp/run.json"));
+      .mockResolvedValue(listResponse([conversationItem(conversation, 0)], 1));
     const messagePage = vi.fn().mockResolvedValue(testPage(conversation, []));
     installSettaAPI({ chat: { createConversation, listConversations, messagePage } });
     useChatStore.setState({
@@ -94,7 +98,8 @@ describe("chat store", () => {
     expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
       "conversation_api",
     ]);
-    expect(useChatStore.getState().error).toContain("malformed chat state /tmp/run.json");
+    expect(useChatStore.getState().corruption.total).toBe(1);
+    expect(useChatStore.getState().error).toBeNull();
     expect(useChatStore.getState().status).toBe("ready");
   });
 
@@ -163,9 +168,9 @@ describe("chat store", () => {
     const run = testRun("running");
     installSettaAPI({
       chat: {
-        listConversations: vi.fn().mockResolvedValue({
-          conversations: [conversationItem(conversation, 2, run.id)],
-        }),
+        listConversations: vi
+          .fn()
+          .mockResolvedValue(listResponse([conversationItem(conversation, 2, run.id)])),
         sendMessage: vi.fn().mockResolvedValue({
           assistantMessage: message("message_assistant", 2, "assistant", "streaming", ""),
           conversation,
@@ -541,9 +546,9 @@ describe("chat store", () => {
 
   test("resync-required events reload the selected snapshot", async () => {
     const conversation = testConversation();
-    const listConversations = vi.fn().mockResolvedValue({
-      conversations: [conversationItem(conversation, 1)],
-    });
+    const listConversations = vi
+      .fn()
+      .mockResolvedValue(listResponse([conversationItem(conversation, 1)]));
     const messagePage = vi
       .fn()
       .mockResolvedValue(
@@ -565,9 +570,9 @@ describe("chat store", () => {
 
   test("resync-required events bypass sequence filtering after stream restart", async () => {
     const conversation = testConversation();
-    const listConversations = vi.fn().mockResolvedValue({
-      conversations: [conversationItem(conversation, 1)],
-    });
+    const listConversations = vi
+      .fn()
+      .mockResolvedValue(listResponse([conversationItem(conversation, 1)]));
     const messagePage = vi
       .fn()
       .mockResolvedValue(
@@ -602,6 +607,44 @@ interface SettaAPIOverrides {
   chat?: Partial<SettaAPI["chat"]>;
 }
 
+function emptyCorruption() {
+  return {
+    byKind: [],
+    bySeverity: [],
+    hasCorruption: false,
+    total: 0,
+  };
+}
+
+function listResponse(
+  conversations: ConversationListItem[],
+  corruptTotal = 0,
+  diagnostics: Diagnostic[] = [],
+): ListConversationsResponse {
+  return {
+    conversations,
+    corruption: {
+      byKind: corruptTotal > 0 ? [{ count: corruptTotal, key: "run" }] : [],
+      bySeverity: corruptTotal > 0 ? [{ count: corruptTotal, key: "critical" }] : [],
+      hasCorruption: corruptTotal > 0,
+      total: corruptTotal,
+    },
+    diagnostics,
+  };
+}
+
+function maintenanceResult() {
+  return {
+    corruption: emptyCorruption(),
+    diagnostics: [],
+    manifestPath: "",
+    quarantined: [],
+    removedPaths: [],
+    validationRunAt: "2026-05-29T20:00:00Z",
+    workspaceId: "workspace_api",
+  };
+}
+
 function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
@@ -625,10 +668,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
+      clearQuarantine: async () => maintenanceResult(),
       createConversation: async () => conversation,
-      listConversations: async () => ({ conversations: [] }),
+      listConversations: async () => listResponse([]),
       messagePage: async () => testPage(conversation, []),
       onEvent: () => () => {},
+      quarantineCorruptState: async () => maintenanceResult(),
       queueMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
@@ -655,6 +700,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("completed"),
         userMessage: message("message_user", 1, "user", "complete", "hello"),
       }),
+      resetWorkspaceState: async () => maintenanceResult(),
       steerMessage: async () => ({
         conversation,
         page: testPage(conversation, []),

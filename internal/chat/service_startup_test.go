@@ -63,19 +63,19 @@ func TestServiceStartupRecordsMalformedRunStateAndContinues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
-	conversations, err := service.ListConversations("workspace_clean")
+	cleanList, err := service.ListConversations("workspace_clean")
 	if err != nil {
 		t.Fatalf("list clean workspace conversations: %v", err)
 	}
-	if len(conversations) != 1 || conversations[0].Conversation.ID != "conversation_valid" {
-		t.Fatalf("clean conversations = %+v, want valid conversation", conversations)
+	if len(cleanList.Conversations) != 1 || cleanList.Conversations[0].Conversation.ID != "conversation_valid" {
+		t.Fatalf("clean conversations = %+v, want valid conversation", cleanList.Conversations)
 	}
-	_, err = service.ListConversations("workspace_api")
-	if err == nil {
-		t.Fatal("list corrupt workspace conversations succeeded, want corrupt state error")
+	corruptList, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list corrupt workspace conversations: %v", err)
 	}
-	if !IsCorruptStateError(err) {
-		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	if !corruptList.Corruption.HasCorruption || corruptList.Corruption.Total != 1 {
+		t.Fatalf("corruption = %+v, want one corrupt run", corruptList.Corruption)
 	}
 	diagnostics, err := store.ListDiagnostics()
 	if err != nil {
@@ -150,15 +150,15 @@ func TestServiceStartupRecordsMissingAssistantMessageAndContinues(t *testing.T) 
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
-	_, err = service.ListConversations("workspace_api")
-	if err == nil {
-		t.Fatal("list conversations succeeded, want corrupt state error")
+	list, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
 	}
-	if !IsCorruptStateError(err) {
-		t.Fatalf("list error = %T %v, want corrupt state", err, err)
+	if !list.Corruption.HasCorruption || list.Corruption.Total != 1 {
+		t.Fatalf("corruption = %+v, want missing assistant message", list.Corruption)
 	}
-	if !strings.Contains(err.Error(), "assistant message message_missing was not found") {
-		t.Fatalf("list error = %q, want missing assistant message", err)
+	if len(list.Diagnostics) != 1 || !strings.Contains(list.Diagnostics[0].Message, "assistant message message_missing was not found") {
+		t.Fatalf("diagnostics = %+v, want missing assistant message", list.Diagnostics)
 	}
 	diagnostics, err := store.ListDiagnostics()
 	if err != nil {

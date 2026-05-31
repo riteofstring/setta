@@ -373,6 +373,30 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatQuarantineCorruptState",
+    async (_event, workspaceId, confirmation) => {
+      return requireBackendClient().quarantineCorruptChatState({ confirmation, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatResetWorkspaceState",
+    async (_event, workspaceId, confirmation) => {
+      return requireBackendClient().resetWorkspaceChatState({ confirmation, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatClearQuarantine",
+    async (_event, workspaceId, confirmation) => {
+      return requireBackendClient().clearChatQuarantine({ confirmation, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatSubmitApproval",
     async (_event, input) => {
       return requireBackendClient().submitApproval(input);

@@ -71,10 +71,11 @@ func TestChatEndpointMapsMalformedDurableStateToCorruptState(t *testing.T) {
 	}
 }
 
-func TestChatEndpointsFailClosedOnMalformedRunState(t *testing.T) {
+func TestChatEndpointsListValidConversationsWithMalformedRunState(t *testing.T) {
 	handler, appDataDir := newChatHandlerWithAppDataDir(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
 	corruptConversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	validConversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID, Title: "Valid"}, http.StatusOK)
 	runPath := filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "runs", "run_bad.json")
 	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
 		t.Fatalf("create runs dir: %v", err)
@@ -88,11 +89,20 @@ func TestChatEndpointsFailClosedOnMalformedRunState(t *testing.T) {
 		t.Fatalf("write unowned malformed run: %v", err)
 	}
 
-	listErr := postJSON[ErrorResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+	list := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
 		WorkspaceID: opened.Workspace.ID,
-	}, http.StatusInternalServerError)
-	if listErr.Error.Code != "corrupt_chat_state" {
-		t.Fatalf("list error = %+v, want corrupt chat state", listErr.Error)
+	}, http.StatusOK)
+	if len(list.Conversations) != 2 {
+		t.Fatalf("conversations = %+v, want valid and corrupt-owner conversations", list.Conversations)
+	}
+	if !containsConversationListItem(list.Conversations, validConversation.ID) {
+		t.Fatalf("conversations = %+v, want valid conversation", list.Conversations)
+	}
+	if !list.Corruption.HasCorruption || list.Corruption.Total != 2 {
+		t.Fatalf("corruption = %+v, want two corrupt run findings", list.Corruption)
+	}
+	if len(list.Diagnostics) != 2 {
+		t.Fatalf("diagnostics = %+v, want two corrupt run diagnostics", list.Diagnostics)
 	}
 	diagnostics := postJSON[ListDiagnosticsResponse](t, handler, "/chat/diagnostics/list", ListDiagnosticsRequest{
 		WorkspaceID: opened.Workspace.ID,
@@ -115,6 +125,23 @@ func TestChatEndpointsFailClosedOnMalformedRunState(t *testing.T) {
 	}
 	if len(messages) != 0 {
 		t.Fatalf("send persisted messages despite corrupt run state: %v", messages)
+	}
+
+	quarantine := postJSON[chat.ChatMaintenanceResult](t, handler, "/chat/maintenance/quarantine-corrupt", QuarantineCorruptChatStateRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		Confirmation: opened.Workspace.ID,
+	}, http.StatusOK)
+	if quarantine.Corruption.HasCorruption || len(quarantine.Quarantined) != 2 {
+		t.Fatalf("quarantine result = %+v, want two records moved and clean validation", quarantine)
+	}
+	if _, err := os.Stat(quarantine.ManifestPath); err != nil {
+		t.Fatalf("manifest stat: %v", err)
+	}
+	cleanList := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if cleanList.Corruption.HasCorruption {
+		t.Fatalf("clean list corruption = %+v, want none after quarantine", cleanList.Corruption)
 	}
 }
 
@@ -452,4 +479,13 @@ func assertRunStatus(t *testing.T, runs []chat.Run, runID string, status chat.Ru
 		}
 	}
 	t.Fatalf("run %s was not returned in %+v", runID, runs)
+}
+
+func containsConversationListItem(items []chat.ConversationListItem, conversationID string) bool {
+	for _, item := range items {
+		if item.Conversation.ID == conversationID {
+			return true
+		}
+	}
+	return false
 }

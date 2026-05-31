@@ -78,11 +78,14 @@ describe("preload workspace API", () => {
     expect(Object.keys(api.chat).sort()).toEqual([
       "activeRun",
       "cancelRun",
+      "clearQuarantine",
       "createConversation",
       "listConversations",
       "messagePage",
       "onEvent",
+      "quarantineCorruptState",
       "queueMessage",
+      "resetWorkspaceState",
       "runActivity",
       "runItemOutput",
       "sendMessage",
@@ -100,6 +103,9 @@ describe("preload workspace API", () => {
     await api.chat.steerMessage("workspace_api", "conversation_api", "steer");
     await api.chat.cancelRun("workspace_api", "conversation_api");
     await api.chat.activeRun("workspace_api", "conversation_api");
+    await api.chat.quarantineCorruptState("workspace_api", "workspace_api");
+    await api.chat.resetWorkspaceState("workspace_api", "workspace_api");
+    await api.chat.clearQuarantine("workspace_api", "workspace_api");
     await api.chat.submitApproval({
       approvalId: "approval_api",
       approved: true,
@@ -183,7 +189,25 @@ describe("preload workspace API", () => {
       "workspace_api",
       "conversation_api",
     );
-    expect(invoke).toHaveBeenNthCalledWith(11, ipcChannels.chatSubmitApproval, {
+    expect(invoke).toHaveBeenNthCalledWith(
+      11,
+      ipcChannels.chatQuarantineCorruptState,
+      "workspace_api",
+      "workspace_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      12,
+      ipcChannels.chatResetWorkspaceState,
+      "workspace_api",
+      "workspace_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      13,
+      ipcChannels.chatClearQuarantine,
+      "workspace_api",
+      "workspace_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(14, ipcChannels.chatSubmitApproval, {
       approvalId: "approval_api",
       approved: true,
       answers: [],

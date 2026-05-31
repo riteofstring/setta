@@ -4,7 +4,9 @@ import type {
   ChatMessage,
   Conversation,
   ConversationListItem,
+  CorruptionSummary,
   Diagnostic,
+  ListConversationsResponse,
   MessagePage,
   Run,
   RunItem,
@@ -35,7 +37,9 @@ export interface RunItemOutputPageState {
 
 interface ChatStore {
   activeRun: Run | null;
+  clearQuarantine: () => Promise<void>;
   conversations: ConversationListItem[];
+  corruption: CorruptionSummary;
   diagnostics: Diagnostic[];
   error: string | null;
   hasMoreOlder: boolean;
@@ -51,13 +55,16 @@ interface ChatStore {
     limit?: number,
   ) => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
+  maintenanceNotice: string | null;
   messageIds: string[];
   messages: ChatMessage[];
   messagesById: Record<string, ChatMessage>;
   operation: ChatOperation;
+  quarantineCorruptState: () => Promise<void>;
   queueMessage: (prompt: string) => Promise<void>;
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
+  resetWorkspaceState: () => Promise<void>;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
@@ -86,11 +93,13 @@ type ChatPatch = Partial<
     ChatStore,
     | "activeRun"
     | "conversations"
+    | "corruption"
     | "diagnostics"
     | "error"
     | "hasMoreOlder"
     | "lastEventSequence"
     | "lastEventStreamId"
+    | "maintenanceNotice"
     | "messageIds"
     | "messages"
     | "messagesById"
@@ -109,6 +118,12 @@ type ChatPatch = Partial<
 >;
 
 const pageLimit = 40;
+const emptyCorruption: CorruptionSummary = {
+  byKind: [],
+  bySeverity: [],
+  hasCorruption: false,
+  total: 0,
+};
 let operationSequence = 0;
 let currentOperationId = 0;
 
@@ -150,9 +165,52 @@ export const useChatStore = create<ChatStore>((set, get) => {
     return window.setta.chat.listConversations(workspaceId);
   }
 
+  async function loadPostMaintenanceConversation(
+    workspaceId: string,
+    list: ListConversationsResponse,
+    selectedConversation: Conversation | null,
+  ) {
+    const nextConversation = conversationAfterMaintenance(list, selectedConversation);
+    if (!nextConversation) {
+      return { nextConversation, patch: emptyConversationPatch() };
+    }
+    return {
+      nextConversation,
+      patch: await loadConversationPage(workspaceId, nextConversation),
+    };
+  }
+
   return {
     activeRun: null,
+    clearQuarantine: async () => {
+      const workspaceId = get().workspaceId;
+      if (!workspaceId) {
+        return;
+      }
+      const operationId = beginOperation({
+        error: null,
+        maintenanceNotice: null,
+        operation: "refreshing",
+      });
+      try {
+        const result = await window.setta.chat.clearQuarantine(workspaceId, workspaceId);
+        const list = await reloadConversations(workspaceId);
+        commitCurrent(operationId, {
+          ...listPatch(list),
+          maintenanceNotice: formatMaintenanceNotice(
+            "Cleared quarantine",
+            result.removedPaths.length,
+            result.corruption.total,
+          ),
+          operation: null,
+          status: "ready",
+        });
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+      }
+    },
     conversations: [],
+    corruption: emptyCorruption,
     diagnostics: [],
     createConversation: async (title = "") => {
       const workspaceId = get().workspaceId;
@@ -163,11 +221,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       try {
         const conversation = await window.setta.chat.createConversation(workspaceId, title);
         const patch = await loadConversationPage(workspaceId, conversation);
-        const listPatch = await reloadConversationsPatch(
-          workspaceId,
-          conversation,
-          get().conversations,
-        );
+        const listPatch = await reloadConversationsPatch(workspaceId);
         commitCurrent(operationId, {
           ...patch,
           ...listPatch,
@@ -316,10 +370,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
       const operationId = beginOperation({
         activeRun: null,
         error: null,
+        corruption: emptyCorruption,
+        diagnostics: [],
         hasMoreOlder: false,
+        maintenanceNotice: null,
         messages: [],
         operation: "loading",
-        diagnostics: [],
         runItemOutputPagesByRunItemId: {},
         runItemOutputs: [],
         runItems: [],
@@ -335,7 +391,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           : emptyConversationPatch();
         commitCurrent(operationId, {
           ...patch,
-          conversations: list.conversations,
+          ...listPatch(list),
           operation: null,
           selectedConversation: first,
           status: "ready",
@@ -347,10 +403,45 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     lastEventSequence: 0,
     lastEventStreamId: "",
+    maintenanceNotice: null,
     messageIds: [],
     messages: [],
     messagesById: {},
     operation: null,
+    quarantineCorruptState: async () => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId) {
+        return;
+      }
+      const operationId = beginOperation({
+        error: null,
+        maintenanceNotice: null,
+        operation: "refreshing",
+      });
+      try {
+        const result = await window.setta.chat.quarantineCorruptState(workspaceId, workspaceId);
+        const list = await reloadConversations(workspaceId);
+        const { nextConversation, patch } = await loadPostMaintenanceConversation(
+          workspaceId,
+          list,
+          selectedConversation,
+        );
+        commitCurrent(operationId, {
+          ...patch,
+          ...listPatch(list),
+          maintenanceNotice: formatMaintenanceNotice(
+            "Quarantined records",
+            result.quarantined.length,
+            result.corruption.total,
+          ),
+          operation: null,
+          selectedConversation: nextConversation,
+          status: "ready",
+        });
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+      }
+    },
     queueMessage: async (prompt: string) => {
       const { activeRun, selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
@@ -390,7 +481,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           : emptyConversationPatch();
         commitCurrent(operationId, {
           ...patch,
-          conversations: list.conversations,
+          ...listPatch(list),
           operation: null,
           selectedConversation: nextConversation,
           status: "ready",
@@ -417,6 +508,34 @@ export const useChatStore = create<ChatStore>((set, get) => {
           ...patch,
           operation: null,
           selectedConversation: conversation,
+          status: "ready",
+        });
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+      }
+    },
+    resetWorkspaceState: async () => {
+      const workspaceId = get().workspaceId;
+      if (!workspaceId) {
+        return;
+      }
+      const operationId = beginOperation({
+        error: null,
+        maintenanceNotice: null,
+        operation: "refreshing",
+      });
+      try {
+        const result = await window.setta.chat.resetWorkspaceState(workspaceId, workspaceId);
+        const list = await reloadConversations(workspaceId);
+        commitCurrent(operationId, {
+          ...emptyConversationPatch(),
+          ...listPatch(list),
+          maintenanceNotice: formatMaintenanceNotice(
+            "Reset chat state",
+            result.removedPaths.length,
+            result.corruption.total,
+          ),
+          operation: null,
           status: "ready",
         });
       } catch (error) {
@@ -522,35 +641,36 @@ export const useChatStore = create<ChatStore>((set, get) => {
   };
 });
 
-async function reloadConversationsPatch(
-  workspaceId: string,
-  conversation: Conversation,
-  currentConversations: ConversationListItem[],
-): Promise<ChatPatch> {
-  try {
-    const list = await window.setta.chat.listConversations(workspaceId);
-    return { conversations: list.conversations };
-  } catch (error) {
-    return {
-      conversations: upsertConversation(
-        currentConversations,
-        conversationListItem(conversation, 0, ""),
-      ),
-      error: errorMessage(error),
-    };
-  }
+async function reloadConversationsPatch(workspaceId: string): Promise<ChatPatch> {
+  const list = await window.setta.chat.listConversations(workspaceId);
+  return listPatch(list);
 }
 
-function conversationListItem(
-  conversation: Conversation,
-  messageCount: number,
-  activeRunId: string,
-): ConversationListItem {
+function listPatch(list: ListConversationsResponse): ChatPatch {
   return {
-    activeRunId,
-    conversation,
-    messageCount,
+    conversations: list.conversations,
+    corruption: list.corruption,
+    diagnostics: list.diagnostics,
   };
+}
+
+function conversationAfterMaintenance(
+  list: ListConversationsResponse,
+  selectedConversation: Conversation | null,
+) {
+  if (selectedConversation) {
+    const matching = list.conversations.find(
+      (item) => item.conversation.id === selectedConversation.id,
+    );
+    if (matching) {
+      return matching.conversation;
+    }
+  }
+  return list.conversations[0]?.conversation ?? null;
+}
+
+function formatMaintenanceNotice(action: string, changedCount: number, remainingCount: number) {
+  return `${action}: ${changedCount}. Remaining corrupt records: ${remainingCount}.`;
 }
 
 function isUnexpectedStream(state: ChatStore, event: ChatEvent): boolean {
