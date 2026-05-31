@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 
 const sectionMinHeight = 40;
 const sectionMaxHeight = 520;
+const noScrollAnchoringStyle = { overflowAnchor: "none" } satisfies CSSProperties;
 
 export const defaultSidebarSections = {
   projects: { height: 280, open: true, resized: false },
@@ -81,7 +82,12 @@ export function SidebarAccordionSection({
         style={sectionBodyStyle({ height, open, resized })}
       >
         <div
-          className={resized && open ? "h-full min-h-0 overflow-y-auto" : "min-h-0 overflow-hidden"}
+          className={
+            resized && open
+              ? "h-full min-h-0 overflow-y-auto overscroll-contain"
+              : "min-h-0 overflow-hidden"
+          }
+          style={noScrollAnchoringStyle}
         >
           <div className="pb-4" ref={contentRef}>
             {children}
