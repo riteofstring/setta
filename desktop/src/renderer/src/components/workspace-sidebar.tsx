@@ -216,7 +216,7 @@ export function WorkspaceSidebar({
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <div
-        className={cn("shrink-0 px-1 pb-1", chromeInsetClass(chromeInsetTop))}
+        className={cn("shrink-0 px-1 pb-2", chromeInsetClass(chromeInsetTop))}
         data-testid="sidebar-shortcuts-shell"
       >
         <SidebarAccordionSection
@@ -240,7 +240,7 @@ export function WorkspaceSidebar({
         className="min-h-0 flex-1 overflow-y-auto px-1 pb-1"
         data-testid="sidebar-scrollable-sections"
       >
-        <div className="grid gap-1">
+        <div className="grid gap-2">
           <SidebarAccordionSection
             action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
             height={sections.projects.height}
