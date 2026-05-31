@@ -68,7 +68,7 @@ export function ChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-y-auto bg-[#05080f] px-4 pt-6 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-y-auto bg-zinc-900 px-4 pt-6 pb-2"
         onScroll={(event) => {
           const node = event.currentTarget;
           setPinned(node.scrollHeight - node.scrollTop - node.clientHeight < 24);
@@ -78,7 +78,7 @@ export function ChatTranscript({
         {hasMoreOlder ? (
           <div className="mb-3 flex justify-center">
             <Button
-              className="border-[#2d3a57] bg-[#111723] text-[#c9d1df] hover:bg-[#182033]"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
               onClick={() => void loadOlderAndPreserveScroll()}
               variant="secondary"
             >
@@ -89,7 +89,7 @@ export function ChatTranscript({
         ) : null}
         <div className="flex w-full min-w-0 flex-col gap-4">
           {messages.length === 0 ? (
-            <div className="py-16 text-center text-sm text-[#6f7fa4]" data-testid="empty-chat">
+            <div className="py-16 text-center text-sm text-zinc-500" data-testid="empty-chat">
               Start a conversation for this workspace.
             </div>
           ) : null}
@@ -108,7 +108,7 @@ export function ChatTranscript({
       {!pinned ? (
         <Button
           aria-label="Jump to latest"
-          className="absolute right-4 bottom-20 border-[#2d3a57] bg-[#111723] text-zinc-100 shadow-sm hover:bg-[#182033]"
+          className="absolute right-4 bottom-20 border-zinc-700 bg-zinc-900 text-zinc-100 shadow-sm hover:bg-zinc-800"
           onClick={() => {
             const node = scrollRef.current;
             if (!node) {
@@ -142,8 +142,8 @@ const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage 
       <div
         className={
           isUser
-            ? "max-w-[88%] overflow-hidden rounded-lg border border-[#2755f0] bg-[#1d2b62] px-3 py-2 text-sm leading-5 break-words text-zinc-50"
-            : "max-w-[88%] min-w-0 overflow-hidden rounded-lg border border-[#222c3d] bg-[#151a23] px-3 py-2 text-sm leading-5 text-[#d5d9e2]"
+            ? "max-w-[88%] overflow-hidden rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm leading-5 break-words text-zinc-50"
+            : "max-w-[88%] min-w-0 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm leading-5 text-zinc-200"
         }
       >
         {isUser ? (
@@ -152,10 +152,10 @@ const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage 
           <MarkdownText text={text || (message.status === "streaming" ? "..." : "")} />
         )}
         {message.status === "error" || message.status === "cancelled" ? (
-          <div className="mt-3 text-xs font-medium text-[#8190b8]">{message.status}</div>
+          <div className="mt-3 text-xs font-medium text-zinc-500">{message.status}</div>
         ) : null}
       </div>
-      <time className="text-xs text-[#6678a5]">{messageTime(message.createdAt)}</time>
+      <time className="text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
     </article>
   );
 });
@@ -166,7 +166,7 @@ function ToolMessage({ message, text }: { message: ChatMessage; text: string }) 
       <ToolCallFrame title="tool_output">
         <ToolBlock title="Result">{text || message.status}</ToolBlock>
       </ToolCallFrame>
-      <time className="mt-1 block text-xs text-[#6678a5]">{messageTime(message.createdAt)}</time>
+      <time className="mt-1 block text-xs text-zinc-500">{messageTime(message.createdAt)}</time>
     </article>
   );
 }
@@ -176,25 +176,25 @@ function ToolCallFrame({ children, title }: { children: ReactNode; title: string
   return (
     <div className="relative min-w-0">
       <button
-        className="flex h-6 w-full min-w-0 items-center gap-2 text-left text-xs text-[#c6ccd8]"
+        className="flex h-6 w-full min-w-0 items-center gap-2 text-left text-xs text-zinc-300"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        <Bot className="h-3.5 w-3.5 shrink-0 text-[#6e80ac]" />
-        <span className="rounded-full border border-[#30405e] bg-[#111827] px-2 py-0.5 text-[10px] font-semibold text-[#c9d1df]">
+        <Bot className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
           3
         </span>
         <span className="min-w-0 flex-1 truncate">Action: {title}</span>
         {open ? (
-          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-[#9aa7c7]" />
+          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
         ) : (
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#9aa7c7]" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
         )}
       </button>
       {open ? (
-        <div className="mt-1.5 min-w-0 border border-[#263147] bg-[#0d1119]">
-          <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)] border-b border-[#263147]">
-            <div className="grid bg-[#151b27]">
+        <div className="mt-1.5 min-w-0 border border-zinc-700 bg-zinc-950">
+          <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)] border-b border-zinc-700">
+            <div className="grid bg-zinc-900">
               <ToolRailIcon />
               <ToolRailIcon />
               <ToolRailIcon />
@@ -205,7 +205,7 @@ function ToolCallFrame({ children, title }: { children: ReactNode; title: string
               <ToolCommandRow active title={title} />
             </div>
           </div>
-          <div className="divide-y divide-[#263147]">{children}</div>
+          <div className="divide-y divide-zinc-700">{children}</div>
           <ToolCallActions />
         </div>
       ) : null}
@@ -215,7 +215,7 @@ function ToolCallFrame({ children, title }: { children: ReactNode; title: string
 
 function ToolRailIcon() {
   return (
-    <div className="grid h-7 place-items-center text-[#9aa7c7]">
+    <div className="grid h-7 place-items-center text-zinc-400">
       <Wrench className="h-3.5 w-3.5" />
     </div>
   );
@@ -224,22 +224,22 @@ function ToolRailIcon() {
 function ToolCommandRow({ active = false, title }: { active?: boolean; title: string }) {
   return (
     <button
-      className="grid h-7 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 text-left font-mono text-sm font-semibold text-[#c7cedd] hover:bg-[#121824]"
+      className="grid h-7 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 text-left font-mono text-sm font-semibold text-zinc-300 hover:bg-zinc-900"
       type="button"
     >
       <span className="truncate">{title}</span>
       <span className="flex items-center gap-2">
         {active ? (
           <>
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-[#182032] text-[#9aa7c7]">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-zinc-900 text-zinc-400">
               <Copy className="h-3.5 w-3.5" />
             </span>
-            <span className="font-sans text-xs font-semibold text-[#f5dc57]">&lt;1s</span>
-            <AlertCircle className="h-3.5 w-3.5 text-[#ff5b66]" />
-            <ChevronUp className="h-3.5 w-3.5 text-[#9aa7c7]" />
+            <span className="font-sans text-xs font-semibold text-zinc-300">&lt;1s</span>
+            <AlertCircle className="h-3.5 w-3.5 text-zinc-400" />
+            <ChevronUp className="h-3.5 w-3.5 text-zinc-400" />
           </>
         ) : (
-          <ChevronDown className="h-3.5 w-3.5 text-[#9aa7c7]" />
+          <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
         )}
       </span>
     </button>
@@ -248,17 +248,17 @@ function ToolCommandRow({ active = false, title }: { active?: boolean; title: st
 
 function ToolCallActions() {
   return (
-    <div className="absolute top-[5.75rem] right-2 flex w-8 flex-col items-center rounded-md border border-[#263147] bg-[#070b13] py-1 text-[#9aa7c7]">
+    <div className="absolute top-[5.75rem] right-2 flex w-8 flex-col items-center rounded-md border border-zinc-700 bg-zinc-950 py-1 text-zinc-400">
       <button
         aria-label="Copy tool call"
-        className="grid h-6 w-6 place-items-center rounded hover:bg-[#151b27]"
+        className="grid h-6 w-6 place-items-center rounded hover:bg-zinc-900"
         type="button"
       >
         <Copy className="h-3.5 w-3.5" />
       </button>
       <button
         aria-label="Rerun tool call"
-        className="grid h-6 w-6 place-items-center rounded hover:bg-[#151b27]"
+        className="grid h-6 w-6 place-items-center rounded hover:bg-zinc-900"
         type="button"
       >
         <RotateCcw className="h-3.5 w-3.5" />
@@ -270,8 +270,8 @@ function ToolCallActions() {
 function ToolBlock({ children, title }: { children: ReactNode; title: string }) {
   return (
     <section className="min-w-0 px-3 py-2">
-      <h4 className="text-[11px] font-bold tracking-[0.32em] text-[#9ba8c6] uppercase">{title}</h4>
-      <pre className="mt-1.5 max-w-full overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5 text-[#cbd2df]">
+      <h4 className="text-[11px] font-bold tracking-[0.32em] text-zinc-500 uppercase">{title}</h4>
+      <pre className="mt-1.5 max-w-full overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5 text-zinc-300">
         {renderToolBlockContent(children)}
       </pre>
     </section>
@@ -291,7 +291,7 @@ function renderToolBlockContent(children: ReactNode) {
       return part.text;
     }
     return (
-      <span className={part.kind === "key" ? "text-[#d6a7ff]" : "text-[#8ed2ff]"} key={index}>
+      <span className={part.kind === "key" ? "text-zinc-200" : "text-zinc-400"} key={index}>
         {part.text}
       </span>
     );

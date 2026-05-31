@@ -28,9 +28,9 @@ export function ChatPanel({
 }) {
   if (!workspace) {
     return (
-      <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-[#111827] bg-[#05080f] text-zinc-100">
+      <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-zinc-800 bg-zinc-900 text-zinc-100">
         <ChatHeader busy title="No workspace" />
-        <div className="grid min-h-0 flex-1 place-items-center px-6 text-center text-sm text-[#6f7fa4]">
+        <div className="grid min-h-0 flex-1 place-items-center px-6 text-center text-sm text-zinc-500">
           Open a workspace to start chat.
         </div>
       </section>
@@ -44,7 +44,7 @@ function ChatWorkspace({ chat, workspace }: { chat: ChatView; workspace: Workspa
   const running = chat.activeRun?.status === "running";
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-[#111827] bg-[#05080f] text-zinc-100">
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-zinc-800 bg-zinc-900 text-zinc-100">
       <ChatHeader
         busy={busy}
         onCreateConversation={() => void chat.createConversation()}
@@ -70,7 +70,7 @@ function ChatHeader({
 }) {
   return (
     <header className="shrink-0 px-4 pt-2 pb-0">
-      <div className="flex min-w-0 items-center gap-2 text-[#7f8eb4]">
+      <div className="flex min-w-0 items-center gap-2 text-zinc-400">
         <IconButton
           disabled={busy || !onCreateConversation}
           label="New chat"
@@ -85,7 +85,7 @@ function ChatHeader({
           <ListFilter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <Input
-            className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs text-zinc-100 shadow-none outline-none placeholder:text-[#4f5d7d] focus-visible:border-0"
+            className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs text-zinc-100 shadow-none outline-none placeholder:text-zinc-600 focus-visible:border-0"
             placeholder="Search in conversation"
             type="search"
           />
@@ -95,7 +95,7 @@ function ChatHeader({
         </IconButton>
       </div>
       <div className="sr-only">{title}</div>
-      <div className="mt-2 h-px bg-[#1f2635]" />
+      <div className="mt-2 h-px bg-zinc-800" />
     </header>
   );
 }
@@ -114,7 +114,7 @@ function IconButton({
   return (
     <button
       aria-label={label}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#91a0c6] hover:bg-[#101622] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={disabled}
       onClick={onClick}
       title={label}
@@ -152,9 +152,9 @@ function EmptyConversation({
   return (
     <div className="grid min-h-0 place-items-center px-6">
       <div className="text-center">
-        <MessageSquarePlus className="mx-auto h-8 w-8 text-[#7f8eb4]" />
+        <MessageSquarePlus className="mx-auto h-8 w-8 text-zinc-500" />
         <Button
-          className="mt-4 border-[#1d4ed8] bg-[#172554] text-white hover:bg-[#1e3a8a]"
+          className="mt-4 border-zinc-700 bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
           disabled={busy}
           onClick={() => void createConversation()}
           variant="primary"
@@ -199,13 +199,13 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
 
   return (
     <form
-      className="bg-[#05080f] px-4 pt-2 pb-4"
+      className="bg-zinc-900 px-4 pt-2 pb-4"
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
       }}
     >
-      <div className="flex min-w-0 items-center gap-2 rounded-md border border-[#2d3a57] bg-[#060a12] px-2 py-1">
+      <div className="flex min-w-0 items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1">
         <IconButton disabled={disabled} label="Add attachment">
           <Plus className="h-3.5 w-3.5" />
         </IconButton>
@@ -213,7 +213,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           <Mic className="h-3.5 w-3.5" />
         </IconButton>
         <Textarea
-          className="max-h-24 min-h-7 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-1 text-sm leading-5 text-zinc-100 shadow-none outline-none placeholder:text-[#7380a4] focus-visible:border-0"
+          className="max-h-24 min-h-7 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-1 text-sm leading-5 text-zinc-100 shadow-none outline-none placeholder:text-zinc-600 focus-visible:border-0"
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -251,7 +251,7 @@ function ComposerButton({
     return (
       <Button
         aria-label="Stop run"
-        className="h-7 w-7 shrink-0 border-[#2d3a57] bg-[#172554] px-0 text-zinc-100 hover:bg-[#1e3a8a]"
+        className="h-7 w-7 shrink-0 border-zinc-700 bg-zinc-800 px-0 text-zinc-100 hover:bg-zinc-700"
         disabled={chat.operation === "cancelling"}
         onClick={() => void chat.stopActiveRun()}
         title="Stop run"
@@ -265,7 +265,7 @@ function ComposerButton({
   return (
     <Button
       aria-label="Send message"
-      className="h-7 w-7 shrink-0 border-[#2d3a57] bg-[#24304a] px-0 text-[#91a0c6] hover:bg-[#2f3d5c] hover:text-white"
+      className="h-7 w-7 shrink-0 border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-white"
       disabled={!canSend}
       title="Send message"
       type="submit"
