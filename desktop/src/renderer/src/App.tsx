@@ -14,7 +14,6 @@ import {
 import type { PointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { RuntimeVersions } from "@shared/types";
 import settaLogo from "../../../img/logo/logo.svg";
 import { ChatPanel, useChatViewState } from "./components/chat-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -42,7 +41,6 @@ const initialBackendState: BackendState = {
 
 export function App() {
   const { backend, refreshHealth } = useBackendState();
-  const runtime = useRuntimeVersions();
   const workspace = useWorkspaceViewState();
   const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
@@ -60,7 +58,6 @@ export function App() {
         backend={backend}
         openLocalFolder={workspace.openLocalFolder}
         refreshHealth={refreshHealth}
-        runtime={runtime}
       />
       <main className="flex min-h-0 min-w-0 overflow-hidden bg-zinc-900">
         <ResizablePane
@@ -100,7 +97,6 @@ export function App() {
           error={workspace.error}
           openLocalFolder={workspace.openLocalFolder}
           operation={workspace.operation}
-          runtime={runtime}
           selectedWorkspace={workspace.selectedWorkspace}
           status={workspace.status}
         />
@@ -113,12 +109,10 @@ function AppMenuBar({
   backend,
   openLocalFolder,
   refreshHealth,
-  runtime,
 }: {
   backend: BackendState;
   openLocalFolder: () => Promise<void>;
   refreshHealth: () => Promise<void>;
-  runtime: ReturnType<typeof useRuntimeVersions>;
 }) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const menus = useMemo<MenubarMenu[]>(
@@ -190,7 +184,6 @@ function AppMenuBar({
         <kbd className="text-[10px] text-zinc-500">cmd k</kbd>
       </button>
       <div className="flex min-w-0 items-center justify-end gap-2 text-xs text-zinc-400">
-        <span className="truncate">Electron {runtime.electron}</span>
         <BackendBadge backend={backend} />
         <Button
           aria-label="Refresh backend health"
@@ -365,17 +358,6 @@ function useBackendState() {
   return { backend, refreshHealth };
 }
 
-function useRuntimeVersions() {
-  const [versions, setVersions] = useState<RuntimeVersions | null>(null);
-  useEffect(() => {
-    void window.setta.app.versions().then(setVersions);
-  }, []);
-  return {
-    electron: versions?.electron ?? "--",
-    node: versions?.node ?? "--",
-  };
-}
-
 function useWorkspaceViewState() {
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
   const error = useWorkspaceStore((state) => state.error);
@@ -422,7 +404,6 @@ function CanvasPanel({
   error,
   openLocalFolder,
   operation,
-  runtime,
   selectedWorkspace,
   status,
 }: {
@@ -430,7 +411,6 @@ function CanvasPanel({
   error: string | null;
   openLocalFolder: () => Promise<void>;
   operation: WorkspaceOperation;
-  runtime: ReturnType<typeof useRuntimeVersions>;
   selectedWorkspace: WorkspaceSummary | null;
   status: WorkspaceStatus;
 }) {
@@ -455,7 +435,6 @@ function CanvasPanel({
           error={error}
           openLocalFolder={openLocalFolder}
           operation={operation}
-          runtime={runtime}
           selectedWorkspace={selectedWorkspace}
           status={status}
         />
@@ -519,7 +498,6 @@ function CanvasStatus({
   error,
   openLocalFolder,
   operation,
-  runtime,
   selectedWorkspace,
   status,
 }: {
@@ -528,7 +506,6 @@ function CanvasStatus({
   error: string | null;
   openLocalFolder: () => Promise<void>;
   operation: WorkspaceOperation;
-  runtime: ReturnType<typeof useRuntimeVersions>;
   selectedWorkspace: WorkspaceSummary | null;
   status: WorkspaceStatus;
 }) {
@@ -554,14 +531,10 @@ function CanvasStatus({
           {error}
         </div>
       ) : null}
-      <dl className="grid grid-cols-2 gap-2 text-xs text-zinc-600">
+      <dl className="grid gap-2 text-xs text-zinc-600">
         <div>
           <dt>Backend</dt>
           <dd className="mt-1 truncate font-medium text-zinc-950">{backend.message}</dd>
-        </div>
-        <div>
-          <dt>Runtime</dt>
-          <dd className="mt-1 font-medium text-zinc-950">Node {runtime.node}</dd>
         </div>
       </dl>
     </aside>
