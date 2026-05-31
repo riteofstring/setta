@@ -9,8 +9,9 @@ import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shar
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
+import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
-import { createVSCodeWorkspaceURI, readWorkspaceGitInfo } from "./workspace-actions";
+import { readWorkspaceGitInfo } from "./workspace-actions";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
@@ -142,9 +143,22 @@ function registerIpc() {
   });
   handleIpc(
     ipcMain,
-    "appOpenWorkspaceInVSCode",
-    async (_event, rootPath) => {
-      await shell.openExternal(createVSCodeWorkspaceURI(rootPath));
+    "appInstalledEditors",
+    () => {
+      return listInstalledEditorApps(async (appPath) => {
+        const icon = await app.getFileIcon(appPath, { size: "normal" });
+        return icon.toDataURL();
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appOpenWorkspaceInEditor",
+    async (_event, editorId, rootPath) => {
+      await openWorkspaceInEditor(editorId, rootPath, {
+        openPath: shell.openPath,
+      });
     },
     ipcObserver,
   );

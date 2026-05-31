@@ -11,10 +11,16 @@ import type {
   SendMessageResult,
   WorkspaceSession,
 } from "@generated/backend";
-import type { RuntimeVersions, SubmitApprovalInput, WorkspaceGitInfo } from "./types";
+import type {
+  InstalledEditorApp,
+  RuntimeVersions,
+  SubmitApprovalInput,
+  WorkspaceGitInfo,
+} from "./types";
 
 export const ipcChannels = {
-  appOpenWorkspaceInVSCode: "app:open-workspace-in-vscode",
+  appInstalledEditors: "app:installed-editors",
+  appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
   appWorkspaceGitInfo: "app:workspace-git-info",
   backendHealth: "backend:health",
@@ -39,8 +45,12 @@ export const ipcEvents = {
 } as const;
 
 interface IpcContract {
-  appOpenWorkspaceInVSCode: {
-    args: [rootPath: string];
+  appInstalledEditors: {
+    args: [];
+    result: InstalledEditorApp[];
+  };
+  appOpenWorkspaceInEditor: {
+    args: [editorId: string, rootPath: string];
     result: void;
   };
   appVersions: {

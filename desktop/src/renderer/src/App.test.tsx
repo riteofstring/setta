@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
 import { ChatTranscript } from "./components/chat-transcript";
+import { EditorPicker } from "./components/editor-picker";
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 
@@ -157,6 +158,13 @@ describe("workspace renderer states", () => {
 
     expect(rowCount(html, "active-workspace-item")).toBeLessThan(30);
     expect(rowCount(html, "recent-workspace-item")).toBeLessThan(30);
+  });
+
+  test("renders the compact shell editor picker", () => {
+    const html = renderToString(<EditorPicker rootPath="/tmp/web" />);
+
+    expect(html).toContain("Choose editor");
+    expect(html).not.toContain("VS Code");
   });
 });
 

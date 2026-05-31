@@ -1,19 +1,11 @@
 import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
-import { basename, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { basename } from "node:path";
 import { promisify } from "node:util";
 
 import type { WorkspaceGitInfo } from "@shared/types";
 
 const execFileAsync = promisify(execFile);
-
-export function createVSCodeWorkspaceURI(rootPath: string) {
-  if (!rootPath) {
-    throw new Error("workspace path is required");
-  }
-  return `vscode://file${pathToFileURL(resolve(rootPath)).pathname}`;
-}
 
 export async function readWorkspaceGitInfo(rootPath: string): Promise<WorkspaceGitInfo> {
   if (!rootPath) {

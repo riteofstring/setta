@@ -307,7 +307,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
     app: {
-      openWorkspaceInVSCode: async () => {},
+      installedEditors: async () => [],
+      openWorkspaceInEditor: async () => {},
       versions: async (): Promise<RuntimeVersions> => ({
         app: "test",
         chrome: "test",

@@ -19,6 +19,12 @@ export interface RuntimeVersions {
   node: string;
 }
 
+export interface InstalledEditorApp {
+  id: string;
+  displayName: string;
+  iconDataUrl: string;
+}
+
 export interface WorkspaceGitInfo {
   branchName: string;
   commitShort: string;
@@ -38,7 +44,8 @@ export interface SubmitApprovalInput {
 
 export interface SettaAPI {
   app: {
-    openWorkspaceInVSCode: (rootPath: string) => Promise<void>;
+    installedEditors: () => Promise<InstalledEditorApp[]>;
+    openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;
     versions: () => Promise<RuntimeVersions>;
     workspaceGitInfo: (rootPath: string) => Promise<WorkspaceGitInfo>;
   };

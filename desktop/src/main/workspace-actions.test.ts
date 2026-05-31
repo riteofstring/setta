@@ -6,17 +6,11 @@ import { promisify } from "node:util";
 
 import { describe, expect, test } from "vitest";
 
-import { createVSCodeWorkspaceURI, readWorkspaceGitInfo } from "./workspace-actions";
+import { readWorkspaceGitInfo } from "./workspace-actions";
 
 const execFileAsync = promisify(execFile);
 
 describe("workspace actions", () => {
-  test("creates a vscode file URI for a workspace path", () => {
-    expect(createVSCodeWorkspaceURI("/tmp/Setta Project")).toBe(
-      "vscode://file/tmp/Setta%20Project",
-    );
-  });
-
   test("reads branch and worktree metadata from a temporary git worktree", async () => {
     const root = await mkdtemp(join(tmpdir(), "setta-workspace-actions-"));
     try {

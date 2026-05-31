@@ -1,7 +1,6 @@
 import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
 import {
   ChevronDown,
-  Code2,
   FolderOpen,
   GitBranch,
   Globe2,
@@ -18,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WorkspaceGitInfo } from "@shared/types";
 import settaLogo from "../../../img/logo/logo.svg";
 import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
+import { EditorPicker } from "./components/editor-picker";
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
@@ -319,7 +319,7 @@ function ShellWorkspaceControls({
 
   return (
     <div className="app-no-drag flex min-w-0 items-center justify-end gap-1">
-      <VSCodeButton rootPath={selectedWorkspace?.rootPath ?? ""} />
+      <EditorPicker rootPath={selectedWorkspace?.rootPath ?? ""} />
       <ShellDropdownButton
         disabled={!selectedWorkspace}
         icon={<GitBranch className="h-3.5 w-3.5" />}
@@ -333,39 +333,6 @@ function ShellWorkspaceControls({
         label={worktree.label}
       />
     </div>
-  );
-}
-
-function VSCodeButton({ rootPath }: { rootPath: string }) {
-  const [openError, setOpenError] = useState<string | null>(null);
-  const [opening, setOpening] = useState(false);
-
-  const openInVSCode = async () => {
-    if (!rootPath || opening) {
-      return;
-    }
-    setOpenError(null);
-    setOpening(true);
-    try {
-      await window.setta.app.openWorkspaceInVSCode(rootPath);
-    } catch (error) {
-      setOpenError(error instanceof Error ? error.message : "Unable to open workspace in VS Code");
-    } finally {
-      setOpening(false);
-    }
-  };
-
-  return (
-    <Button
-      aria-label="Open workspace in VS Code"
-      className="h-6 border-zinc-700 bg-zinc-800 px-2 text-[11px] text-zinc-300 hover:bg-zinc-700 hover:text-white disabled:opacity-40"
-      disabled={!rootPath || opening}
-      onClick={() => void openInVSCode()}
-      title={openError ?? "Open workspace in VS Code"}
-    >
-      <Code2 className="h-3.5 w-3.5" />
-      <span className="hidden sm:inline">{opening ? "Opening" : "VS Code"}</span>
-    </Button>
   );
 }
 

@@ -28,23 +28,27 @@ describe("preload workspace API", () => {
 
     const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.app).sort()).toEqual([
-      "openWorkspaceInVSCode",
+      "installedEditors",
+      "openWorkspaceInEditor",
       "versions",
       "workspaceGitInfo",
     ]);
 
-    await api.app.openWorkspaceInVSCode("/tmp/workspace_api");
+    await api.app.installedEditors();
+    await api.app.openWorkspaceInEditor("cursor", "/tmp/workspace_api");
     await api.app.versions();
     await api.app.workspaceGitInfo("/tmp/workspace_api");
 
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appInstalledEditors);
     expect(invoke).toHaveBeenNthCalledWith(
-      1,
-      ipcChannels.appOpenWorkspaceInVSCode,
+      2,
+      ipcChannels.appOpenWorkspaceInEditor,
+      "cursor",
       "/tmp/workspace_api",
     );
-    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.appVersions);
+    expect(invoke).toHaveBeenNthCalledWith(3, ipcChannels.appVersions);
     expect(invoke).toHaveBeenNthCalledWith(
-      3,
+      4,
       ipcChannels.appWorkspaceGitInfo,
       "/tmp/workspace_api",
     );
