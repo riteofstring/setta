@@ -16,7 +16,7 @@ const (
 	corruptTraceKind         = "trace"
 	corruptDiagnosticKind    = "diagnostic"
 
-	recoveryInspectState = "inspect_state"
+	recoveryQuarantineOrReset = "quarantine_or_reset"
 )
 
 func corruptStateFinding(err error, workspaceID string, conversationID string, runID string, recordKind string) CorruptStateFinding {
@@ -38,7 +38,7 @@ func corruptStateFinding(err error, workspaceID string, conversationID string, r
 		RunID:          runID,
 		RecordKind:     recordKind,
 		Error:          message,
-		RecoveryAction: recoveryInspectState,
+		RecoveryAction: recoveryQuarantineOrReset,
 	}
 }
 

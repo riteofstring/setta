@@ -2,84 +2,41 @@ import type {
   ChatCommandCapability,
   ChatCommandExecuteResult,
   ChatModelOption,
+  ConversationListItem,
+  RunStatus,
   WorkspaceSummary,
 } from "@generated/backend";
 import {
   AlertTriangle,
-  ArrowUp,
+  Archive,
   Check,
-  Maximize2,
   MessageSquarePlus,
-  Minimize2,
+  Plus,
+  RotateCcw,
+  Send,
   Square,
+  Trash2,
 } from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
-import { cn } from "../lib/utils";
 import { ChatTranscript } from "./chat-transcript";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
 
-export function ChatPanel({
-  chat,
-  chromeInsetTop = false,
-  maximized = false,
-  onToggleMaximize,
-  searchOpen,
-  setSearchOpen,
-  workspace,
-}: {
-  chat: ChatView;
-  chromeInsetTop?: boolean;
-  maximized?: boolean;
-  onToggleMaximize?: () => void;
-  searchOpen: boolean;
-  setSearchOpen: (open: boolean) => void;
-  workspace: WorkspaceSummary | null;
-}) {
+export function ChatPanel({ workspace }: { workspace: WorkspaceSummary | null }) {
   if (!workspace) {
     return (
-      <section
-        className={cn(
-          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
-          chromeInsetTop && "pt-8",
-        )}
-      >
-        <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
-          Open a workspace to start chat.
-        </div>
+      <section className="grid min-h-0 place-items-center border-l border-zinc-200 bg-zinc-50">
+        <div className="text-sm text-zinc-500">Open a workspace to start chat.</div>
       </section>
     );
   }
-  return (
-    <ChatWorkspace
-      chat={chat}
-      chromeInsetTop={chromeInsetTop}
-      maximized={maximized}
-      onToggleMaximize={onToggleMaximize}
-      searchOpen={searchOpen}
-      setSearchOpen={setSearchOpen}
-    />
-  );
+  return <ChatWorkspace workspace={workspace} />;
 }
 
-function ChatWorkspace({
-  chat,
-  chromeInsetTop,
-  maximized,
-  onToggleMaximize,
-  searchOpen,
-  setSearchOpen,
-}: {
-  chat: ChatView;
-  chromeInsetTop: boolean;
-  maximized: boolean;
-  onToggleMaximize?: () => void;
-  searchOpen: boolean;
-  setSearchOpen: (open: boolean) => void;
-}) {
+function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
+  const chat = useChatViewState(workspace.id);
   const busy = isChatBusy(chat);
   const blocked = isChatBlocked(chat);
   const composerBusy = isComposerBusy(chat);
@@ -87,28 +44,40 @@ function ChatWorkspace({
   const selectedConversationId = selectedChatConversationId(chat);
 
   return (
-    <section
-      className={cn(
-        "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100",
-        chromeInsetTop && "pt-8",
-      )}
-    >
-      {onToggleMaximize ? (
-        <ChatMaximizeButton maximized={maximized} onToggleMaximize={onToggleMaximize} />
-      ) : null}
+    <section className="grid min-h-0 min-w-0 grid-cols-[280px_1fr] overflow-hidden border-l border-zinc-200 bg-zinc-50">
+      <aside className="flex min-h-0 min-w-0 flex-col border-r border-zinc-200 bg-white">
+        <div className="flex h-14 items-center justify-between border-b border-zinc-200 px-4">
+          <h2 className="text-sm font-semibold">Chats</h2>
+          <Button
+            aria-label="New chat"
+            disabled={busy}
+            onClick={() => void chat.createConversation()}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <ConversationList
+          conversations={chat.conversations}
+          selectedConversationId={selectedConversationId}
+          selectConversation={chat.selectConversation}
+        />
+      </aside>
       <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
+        className="flex min-h-0 min-w-0 flex-col overflow-hidden"
         data-conversation-id={selectedConversationId}
         data-run-status={activeRunStatus(chat) ?? ""}
         data-testid="chat-detail-pane"
       >
-        <ChatStateStatusIcon chat={chat} chromeInsetTop={chromeInsetTop} />
-        <ConversationBody
-          busy={busy}
-          chat={chat}
-          searchOpen={searchOpen}
-          setSearchOpen={setSearchOpen}
-        />
+        <header className="flex h-14 flex-none min-w-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">{chatTitle(chat, workspace)}</div>
+            <div className="truncate text-xs text-zinc-500">{workspace.rootPath}</div>
+          </div>
+          <RunBadge active={running} status={activeRunStatus(chat)} />
+        </header>
+        <WorkspaceCorruptionPanel busy={busy} chat={chat} workspace={workspace} />
+        <ConversationBody busy={busy} chat={chat} />
+        <CriticalDiagnostics chat={chat} />
         <ChatError message={selectedConversationChatError(chat)} />
         <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
       </div>
@@ -116,28 +85,7 @@ function ChatWorkspace({
   );
 }
 
-function ChatMaximizeButton({
-  maximized,
-  onToggleMaximize,
-}: {
-  maximized: boolean;
-  onToggleMaximize: () => void;
-}) {
-  const label = maximized ? "Restore chat pane" : "Maximize chat pane";
-  return (
-    <button
-      aria-label={label}
-      className="app-no-drag absolute top-0 right-1 z-50 grid h-8 w-7 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
-      onClick={onToggleMaximize}
-      title={label}
-      type="button"
-    >
-      {maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-    </button>
-  );
-}
-
-export type ChatView = ReturnType<typeof useChatViewState>;
+type ChatView = ReturnType<typeof useChatViewState>;
 
 const composerBlockingOperations = new Set([
   "commanding",
@@ -167,6 +115,10 @@ function selectedChatConversationId(chat: ChatView) {
   return chat.selectedConversation?.id ?? "";
 }
 
+function chatTitle(chat: ChatView, workspace: WorkspaceSummary) {
+  return chat.selectedConversation?.title ?? workspace.displayName;
+}
+
 function activeRunStatus(chat: ChatView) {
   return chat.activeRun?.status ?? null;
 }
@@ -192,22 +144,12 @@ function ComposerSlot({
   return <Composer busy={busy} chat={chat} running={running} />;
 }
 
-export function ConversationBody({
-  busy,
-  chat,
-  searchOpen,
-  setSearchOpen,
-}: {
-  busy: boolean;
-  chat: ChatView;
-  searchOpen: boolean;
-  setSearchOpen: (open: boolean) => void;
-}) {
+export function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
   if (chat.error && !chat.selectedConversation) {
     return <ChatLoadError message={chat.error} />;
   }
   if (!chat.selectedConversation) {
-    return <EmptyConversation busy={busy} chat={chat} />;
+    return <EmptyConversation busy={busy} createConversation={chat.createConversation} />;
   }
   return (
     <div className="min-h-0 min-w-0 flex-1 overflow-hidden" data-testid="chat-transcript-region">
@@ -223,8 +165,6 @@ export function ConversationBody({
         runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
         runItemOutputsById={chat.runItemOutputsById}
         runItemsById={chat.runItemsById}
-        searchOpen={searchOpen}
-        setSearchOpen={setSearchOpen}
         submitApproval={chat.submitApproval}
         transcript={chat.transcript}
       />
@@ -236,74 +176,39 @@ function ChatLoadError({ message }: { message: string }) {
   return (
     <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-6">
       <div
-        className="max-w-2xl rounded-sm border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm break-words text-zinc-100"
+        className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm break-words text-red-800"
         data-testid="chat-load-error"
       >
         <div className="font-medium">Chat state is corrupt</div>
-        <div className="mt-2 text-zinc-300">{message}</div>
+        <div className="mt-2">{message}</div>
       </div>
     </div>
   );
 }
 
-function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
-  const [departing, setDeparting] = useState(false);
-  const mountedRef = useRef(true);
-  const running = chat.activeRun?.status === "running";
-  const disabled = busy || running || departing;
-
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  async function createAndSend(prompt: string) {
-    if (disabled) {
-      return;
-    }
-    setDeparting(true);
-    try {
-      await waitForComposerExit();
-      await chat.createConversation();
-      await chat.sendMessage(prompt);
-    } finally {
-      if (mountedRef.current) {
-        setDeparting(false);
-      }
-    }
-  }
-
+function EmptyConversation({
+  busy,
+  createConversation,
+}: {
+  busy: boolean;
+  createConversation: (title?: string) => Promise<void>;
+}) {
   return (
-    <div className="grid min-h-0 place-items-center px-3 pb-[12vh]">
-      <div
-        className={cn(
-          "w-full max-w-3xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-          departing && "translate-y-16 opacity-0",
-        )}
-      >
-        <h1 className="mb-8 text-center text-2xl font-normal tracking-normal text-zinc-100">
-          What should we build in setta?
-        </h1>
-        <Composer
-          busy={busy}
-          chat={chat}
-          disabled={disabled}
-          formClassName="bg-transparent px-0 pt-0 pb-0"
-          frameClassName="border-zinc-700 bg-zinc-800/90 shadow-xl shadow-black/20"
-          onSendPrompt={createAndSend}
-          placeholder="Do anything"
-          running={running}
-        />
+    <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-6">
+      <div className="text-center">
+        <MessageSquarePlus className="mx-auto h-8 w-8 text-zinc-400" />
+        <Button
+          className="mt-4"
+          disabled={busy}
+          onClick={() => void createConversation()}
+          variant="primary"
+        >
+          <Plus className="h-4 w-4" />
+          New Chat
+        </Button>
       </div>
     </div>
   );
-}
-
-function waitForComposerExit() {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 130);
-  });
 }
 
 function ChatError({ message }: { message: string | null }) {
@@ -311,85 +216,117 @@ function ChatError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <div className="border-t border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100">
+    <div className="border-t border-red-200 bg-red-50 px-5 py-2 text-sm text-red-700">
       {message}
     </div>
   );
 }
 
-function ChatStateStatusIcon({
+function WorkspaceCorruptionPanel({
+  busy,
   chat,
-  chromeInsetTop,
+  workspace,
 }: {
+  busy: boolean;
   chat: ChatView;
-  chromeInsetTop: boolean;
+  workspace: WorkspaceSummary;
 }) {
-  if (!chat.corruption.hasCorruption) {
+  if (!chat.corruption.hasCorruption && !chat.maintenanceNotice) {
     return null;
   }
   const latestDiagnostic = chat.diagnostics
     .filter((diagnostic) => diagnostic.severity === "critical")
     .at(-1);
-  const label = chatStateStatusLabel(chat, latestDiagnostic);
+  const affectedPath = latestDiagnostic?.context.path ?? "";
   return (
     <div
-      aria-label={label}
-      className={cn(
-        "group/chat-state app-no-drag absolute left-2 z-40 grid h-7 w-7 place-items-center rounded-sm text-amber-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80",
-        chromeInsetTop ? "top-9" : "top-1",
-      )}
-      data-testid="workspace-corruption-status"
-      role="status"
-      tabIndex={0}
-      title={label}
+      className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-950"
+      data-testid="workspace-corruption-warning"
     >
-      <AlertTriangle className="h-4 w-4" />
-      <div className="pointer-events-none absolute top-8 left-0 hidden w-72 rounded-sm border border-zinc-700/80 bg-zinc-950/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/chat-state:block group-focus/chat-state:block">
-        <div className="font-medium">Chat state issue</div>
-        <div className="mt-1 break-words text-zinc-300">{label}</div>
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <AlertTriangle className="h-4 w-4 flex-none" />
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">Chat state needs attention</div>
+          <div className="truncate text-xs text-amber-900">
+            {chat.maintenanceNotice ??
+              `${chat.corruption.total} corrupt records detected${affectedPath ? `: ${affectedPath}` : ""}`}
+          </div>
+        </div>
+        <Button
+          aria-label="Quarantine corrupt chat records"
+          disabled={busy || !chat.corruption.hasCorruption}
+          onClick={() =>
+            confirmMaintenance(workspace.id, "Quarantine corrupt chat records") &&
+            void chat.quarantineCorruptState()
+          }
+          type="button"
+          variant="secondary"
+        >
+          <Archive className="h-4 w-4" />
+          Quarantine
+        </Button>
+        <Button
+          aria-label="Reset workspace chat state"
+          disabled={busy}
+          onClick={() =>
+            confirmMaintenance(workspace.id, "Reset workspace chat state") &&
+            void chat.resetWorkspaceState()
+          }
+          type="button"
+          variant="secondary"
+        >
+          <Trash2 className="h-4 w-4" />
+          Reset
+        </Button>
+        <Button
+          aria-label="Clear chat quarantine"
+          disabled={busy}
+          onClick={() =>
+            confirmMaintenance(workspace.id, "Clear chat quarantine") && void chat.clearQuarantine()
+          }
+          type="button"
+          variant="secondary"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
 }
 
-function chatStateStatusLabel(
-  chat: ChatView,
-  diagnostic: ChatView["diagnostics"][number] | undefined,
-) {
-  const count = chat.corruption.total;
-  const noun = count === 1 ? "record" : "records";
-  const details = diagnostic
-    ? ` Latest issue: ${diagnostic.message}${diagnostic.context.path ? ` Path: ${diagnostic.context.path}` : ""}`
-    : "";
-  return `${count} corrupt chat ${noun} detected.${details}`;
+function confirmMaintenance(workspaceId: string, action: string) {
+  return window.confirm(`${action} for workspace ${workspaceId}?`);
 }
 
-function Composer({
-  busy,
-  chat,
-  disabled: disabledOverride,
-  formClassName,
-  frameClassName,
-  onSendPrompt,
-  placeholder = "",
-  running,
-}: {
-  busy: boolean;
-  chat: ChatView;
-  disabled?: boolean;
-  formClassName?: string;
-  frameClassName?: string;
-  onSendPrompt?: (prompt: string) => Promise<void>;
-  placeholder?: string;
-  running: boolean;
-}) {
+function CriticalDiagnostics({ chat }: { chat: ChatView }) {
+  const selectedConversationId = chat.selectedConversation?.id ?? "";
+  const activeRunId = chat.activeRun?.id ?? "";
+  const critical = chat.diagnostics
+    .filter(
+      (diagnostic) =>
+        diagnostic.severity === "critical" &&
+        ((diagnostic.conversationId !== "" &&
+          diagnostic.conversationId === selectedConversationId) ||
+          (diagnostic.runId !== "" && diagnostic.runId === activeRunId)),
+    )
+    .at(-1);
+  if (!critical) {
+    return null;
+  }
+  return (
+    <div className="border-t border-red-200 bg-red-50 px-5 py-2 text-sm text-red-800">
+      <span className="font-medium">{critical.code}</span>: {critical.message}
+    </div>
+  );
+}
+
+function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
   const [draft, setDraft] = useState("");
   const [commands, setCommands] = useState<ChatCommandCapability[]>([]);
   const [commandListKey, setCommandListKey] = useState("");
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
   const submittingRef = useRef(false);
-  const selected = chat.selectedConversation !== null;
-  const disabled = disabledOverride ?? (!selected || busy);
+  const disabled = !chat.selectedConversation || busy;
   const slashDraft = isSlashDraft(draft);
   const suggestions = commandSuggestions(commands, draft);
   const selectedSuggestion = suggestions[0] ?? null;
@@ -431,52 +368,29 @@ function Composer({
 
   async function sendDraft() {
     const prompt = draft.trim();
-    if (!canSubmitDraft(prompt)) {
+    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
     try {
-      await submitDraftPrompt(prompt);
+      if (slashDraft) {
+        const result = await chat.executeCommand(commandTextToExecute(prompt, selectedSuggestion));
+        if (result.result.action === "model_picker") {
+          setModelPicker(result);
+        } else {
+          setModelPicker(null);
+        }
+        setDraft("");
+      } else if (running) {
+        setDraft("");
+        await chat.steerMessage(prompt);
+      } else {
+        setDraft("");
+        await chat.sendMessage(prompt);
+      }
     } finally {
       submittingRef.current = false;
     }
-  }
-
-  function canSubmitDraft(prompt: string) {
-    return (
-      prompt !== "" &&
-      (chat.selectedConversation !== null || onSendPrompt !== undefined) &&
-      !disabled &&
-      !submittingRef.current
-    );
-  }
-
-  async function submitDraftPrompt(prompt: string) {
-    if (onSendPrompt) {
-      setDraft("");
-      await onSendPrompt(prompt);
-      return;
-    }
-    if (slashDraft) {
-      await executeSlashDraft(prompt);
-      return;
-    }
-    setDraft("");
-    if (running) {
-      await chat.steerMessage(prompt);
-      return;
-    }
-    await chat.sendMessage(prompt);
-  }
-
-  async function executeSlashDraft(prompt: string) {
-    const result = await chat.executeCommand(commandTextToExecute(prompt, selectedSuggestion));
-    if (result.result.action === "model_picker") {
-      setModelPicker(result);
-    } else {
-      setModelPicker(null);
-    }
-    setDraft("");
   }
 
   async function queueDraft() {
@@ -498,77 +412,62 @@ function Composer({
 
   return (
     <form
-      className={cn("bg-zinc-900 px-2 pt-1 pb-1.5", formClassName)}
+      className="flex-none border-t border-zinc-200 bg-white p-4"
       data-testid="chat-composer"
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
       }}
     >
-      <div className="relative mx-auto w-full max-w-3xl min-w-0">
-        <div
-          className={cn(
-            "min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15",
-            frameClassName,
-          )}
-        >
-          <div className="relative min-w-0">
-            <ComposerPlaceholder selected={selected} visible={draft === "" && placeholder === ""} />
-            <CommandSuggestions
-              draft={draft}
-              modelPicker={modelPicker}
-              onPickCommand={(command) => updateDraft(command.name + " ")}
-              onPickModel={(model) => {
-                void executeModelSelection(model);
-              }}
-              selectedSuggestion={selectedSuggestion}
-              suggestions={suggestions}
-            />
-            <Textarea
-              aria-label={composerTextareaLabel(selected)}
-              className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={disabled}
-              onChange={(event) => updateDraft(event.target.value)}
-              onKeyDown={(event) => {
-                handleComposerKeyDown(event, {
-                  completeCommand: () => {
-                    if (selectedSuggestion && draft.trim() !== selectedSuggestion.name) {
-                      updateDraft(selectedSuggestion.name + " ");
-                    }
-                  },
-                  queueDraft,
-                  running,
-                  sendDraft,
-                  slashDraft,
-                  stopRun: chat.stopActiveRun,
-                });
-              }}
-              placeholder={placeholder}
-              rows={2}
-              value={draft}
-            />
-          </div>
-          <div className="mt-1 flex min-w-0 items-center justify-end gap-1.5">
-            <div className="flex min-w-0 items-center gap-1">
-              <ComposerButton
-                canSend={!disabled && draft.trim() !== ""}
-                chat={chat}
-                queueDraft={queueDraft}
-                running={running}
-              />
-            </div>
-          </div>
+      <div className="mx-auto flex max-w-4xl min-w-0 items-end gap-3">
+        <div className="relative min-w-0 flex-1">
+          <CommandSuggestions
+            draft={draft}
+            modelPicker={modelPicker}
+            onPickCommand={(command) => setDraft(command.name + " ")}
+            onPickModel={(model) => {
+              void executeModelSelection(model);
+            }}
+            selectedSuggestion={selectedSuggestion}
+            suggestions={suggestions}
+          />
+          <textarea
+            className="min-h-11 w-full min-w-0 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500"
+            disabled={disabled}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              if (!isSlashDraft(event.target.value)) {
+                setModelPicker(null);
+              }
+            }}
+            onKeyDown={(event) =>
+              handleComposerKeyDown(event, {
+                completeCommand: () => {
+                  if (selectedSuggestion && draft.trim() !== selectedSuggestion.name) {
+                    setDraft(selectedSuggestion.name + " ");
+                  }
+                },
+                queueDraft,
+                running,
+                sendDraft,
+                slashDraft,
+                stopRun: chat.stopActiveRun,
+              })
+            }
+            placeholder={chat.selectedConversation ? "Ask Codex" : "Create a chat first"}
+            rows={2}
+            value={draft}
+          />
         </div>
+        <ComposerButton
+          canSend={!disabled && draft.trim() !== ""}
+          chat={chat}
+          queueDraft={queueDraft}
+          running={running}
+        />
       </div>
     </form>
   );
-
-  function updateDraft(nextDraft: string) {
-    setDraft(nextDraft);
-    if (!isSlashDraft(nextDraft)) {
-      setModelPicker(null);
-    }
-  }
 
   async function executeModelSelection(model: ChatModelOption) {
     if (!chat.selectedConversation || disabled || submittingRef.current) {
@@ -603,20 +502,20 @@ export function CommandSuggestions({
   if (modelPicker?.result.action === "model_picker") {
     return (
       <div
-        className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
+        className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white p-1 shadow-lg"
         data-testid="model-picker"
       >
         {modelPicker.result.models.map((model) => (
           <button
-            className="flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75"
+            className="flex w-full min-w-0 items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-zinc-50"
             key={model.id}
             onClick={() => onPickModel(model)}
             type="button"
           >
-            {model.isDefault ? <Check className="h-4 w-4 shrink-0 text-zinc-400" /> : null}
+            {model.isDefault ? <Check className="h-4 w-4 shrink-0 text-zinc-500" /> : null}
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium text-zinc-100">{model.displayName}</span>
-              <span className="block truncate text-[11px] text-zinc-400">{model.model}</span>
+              <span className="block truncate font-medium text-zinc-900">{model.displayName}</span>
+              <span className="block truncate text-xs text-zinc-500">{model.model}</span>
             </span>
           </button>
         ))}
@@ -628,23 +527,24 @@ export function CommandSuggestions({
   }
   return (
     <div
-      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
+      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-md border border-zinc-200 bg-white p-1 shadow-lg"
       data-testid="command-suggestions"
     >
       {suggestions.map((command) => (
         <button
-          className={cn(
-            "flex w-full min-w-0 items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75 disabled:opacity-50",
-            command === selectedSuggestion && "bg-zinc-700/80",
-          )}
+          className={
+            command === selectedSuggestion
+              ? "flex w-full min-w-0 items-center justify-between gap-3 rounded bg-zinc-100 px-2 py-2 text-left text-sm"
+              : "flex w-full min-w-0 items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm hover:bg-zinc-50"
+          }
           disabled={!command.available}
           key={command.name}
           onClick={() => onPickCommand(command)}
           type="button"
         >
           <span className="min-w-0">
-            <span className="block font-medium text-zinc-100">{command.name}</span>
-            <span className="block truncate text-[11px] text-zinc-400">
+            <span className="block font-medium text-zinc-900">{command.name}</span>
+            <span className="block truncate text-xs text-zinc-500">
               {command.available ? command.usage : command.unavailableReason}
             </span>
           </span>
@@ -691,30 +591,6 @@ export function commandTextToExecute(
 
 export function modelSelectionCommand(model: ChatModelOption) {
   return `/model ${model.model}`;
-}
-
-function composerTextareaLabel(selected: boolean) {
-  return selected ? "Ask Setta" : "Start new chat";
-}
-
-function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible: boolean }) {
-  if (!selected || !visible) {
-    return null;
-  }
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute top-0 left-0 flex h-4 items-center gap-1 text-xs leading-4 text-zinc-500"
-    >
-      <span>Ask</span>
-      <img
-        alt=""
-        className="h-[11px] w-auto translate-y-[3px] opacity-60 grayscale"
-        draggable={false}
-        src={settaLogo}
-      />
-    </div>
-  );
 }
 
 interface ComposerKeyActions {
@@ -785,62 +661,52 @@ export function ComposerButton({
 }) {
   if (running) {
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <Button
           aria-label="Send steering message"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
           disabled={!canSend}
-          title="Send steering message"
           type="submit"
           variant="primary"
         >
-          <ArrowUp className="h-4 w-4" />
+          <Send className="h-4 w-4" />
+          Send
         </Button>
         <Button
           aria-label="Queue follow-up"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
           disabled={!canSend || chat.operation === "queueing"}
           onClick={() => void queueDraft()}
-          title="Queue follow-up"
           type="button"
           variant="secondary"
         >
-          <MessageSquarePlus className="h-3.5 w-3.5" />
+          <MessageSquarePlus className="h-4 w-4" />
+          Queue
         </Button>
         <Button
           aria-label="Stop run"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
           disabled={chat.operation === "cancelling"}
           onClick={() => void chat.stopActiveRun()}
-          title="Stop run"
           type="button"
           variant="secondary"
         >
-          <Square className="h-3.5 w-3.5" />
+          <Square className="h-4 w-4" />
         </Button>
       </div>
     );
   }
   return (
-    <Button
-      aria-label="Send message"
-      className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
-      disabled={!canSend}
-      title="Send message"
-      type="submit"
-      variant="primary"
-    >
-      <ArrowUp className="h-4 w-4" />
+    <Button aria-label="Send message" disabled={!canSend} type="submit" variant="primary">
+      <Send className="h-4 w-4" />
+      Send
     </Button>
   );
 }
 
-export function useChatViewState(workspaceId: string | null) {
+function useChatViewState(workspaceId: string | null) {
   const activeRun = useChatStore((state) => state.activeRun);
+  const clearQuarantine = useChatStore((state) => state.clearQuarantine);
   const conversations = useChatStore((state) => state.conversations);
   const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
-  const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
   const error = useChatStore((state) => state.error);
   const executeCommand = useChatStore((state) => state.executeCommand);
   const diagnostics = useChatStore((state) => state.diagnostics);
@@ -849,11 +715,14 @@ export function useChatViewState(workspaceId: string | null) {
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
   const listCommands = useChatStore((state) => state.listCommands);
+  const maintenanceNotice = useChatStore((state) => state.maintenanceNotice);
   const messageIds = useChatStore((state) => state.messageIds);
   const messages = useChatStore((state) => state.messages);
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
+  const quarantineCorruptState = useChatStore((state) => state.quarantineCorruptState);
   const queueMessage = useChatStore((state) => state.queueMessage);
+  const resetWorkspaceState = useChatStore((state) => state.resetWorkspaceState);
   const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
@@ -872,7 +741,6 @@ export function useChatViewState(workspaceId: string | null) {
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcript = useChatStore((state) => state.transcript);
-  const unreadConversationIds = useChatStore((state) => state.unreadConversationIds);
 
   useEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
@@ -883,10 +751,10 @@ export function useChatViewState(workspaceId: string | null) {
 
   return {
     activeRun,
+    clearQuarantine,
     conversations,
     corruption,
     createConversation,
-    createWorkspaceConversation,
     diagnostics,
     error,
     executeCommand,
@@ -894,11 +762,14 @@ export function useChatViewState(workspaceId: string | null) {
     loadOlder,
     loadRunItemOutput,
     listCommands,
+    maintenanceNotice,
     messageIds,
     messages,
     messagesById,
     operation,
+    quarantineCorruptState,
     queueMessage,
+    resetWorkspaceState,
     runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
@@ -914,6 +785,81 @@ export function useChatViewState(workspaceId: string | null) {
     stopActiveRun,
     submitApproval,
     transcript,
-    unreadConversationIds,
   };
+}
+
+function ConversationList({
+  conversations,
+  selectedConversationId,
+  selectConversation,
+}: {
+  conversations: ConversationListItem[];
+  selectedConversationId: string;
+  selectConversation: (conversationId: string) => Promise<void>;
+}) {
+  const [visibleLimit, setVisibleLimit] = useState(80);
+  const selectedIndex = conversations.findIndex(
+    (item) => item.conversation.id === selectedConversationId,
+  );
+  const effectiveLimit =
+    selectedIndex >= visibleLimit
+      ? Math.min(conversations.length, selectedIndex + 1)
+      : visibleLimit;
+  const visibleConversations = useMemo(
+    () => conversations.slice(0, effectiveLimit),
+    [conversations, effectiveLimit],
+  );
+  if (visibleConversations.length === 0) {
+    return <div className="px-4 py-5 text-sm text-zinc-500">No chats yet</div>;
+  }
+  return (
+    <div className="min-h-0 overflow-y-auto p-2" data-testid="conversation-list">
+      {visibleConversations.map((item) => (
+        <button
+          className={
+            item.conversation.id === selectedConversationId
+              ? "mb-1 block w-full rounded-md bg-zinc-100 px-3 py-2 text-left"
+              : "mb-1 block w-full rounded-md px-3 py-2 text-left hover:bg-zinc-50"
+          }
+          data-testid="conversation-list-item"
+          key={item.conversation.id}
+          onClick={() => void selectConversation(item.conversation.id)}
+          type="button"
+        >
+          <div className="truncate text-sm font-medium text-zinc-900">
+            {item.conversation.title}
+          </div>
+          <div className="mt-1 text-xs text-zinc-500">{item.messageCount} messages</div>
+        </button>
+      ))}
+      {visibleConversations.length < conversations.length ? (
+        <Button
+          className="mt-2 w-full"
+          onClick={() => setVisibleLimit((current) => current + 80)}
+          variant="secondary"
+        >
+          More Chats
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+const runBadgeByStatus = {
+  cancelled: { label: "Cancelled", variant: "neutral" },
+  completed: { label: "Ready", variant: "success" },
+  failed: { label: "Failed", variant: "danger" },
+  queued: { label: "Queued", variant: "neutral" },
+  running: { label: "Running", variant: "neutral" },
+} satisfies Record<RunStatus, { label: string; variant: "danger" | "neutral" | "success" }>;
+
+function RunBadge({ active, status }: { active: boolean; status: RunStatus | null }) {
+  if (active) {
+    return <Badge variant="neutral">Running</Badge>;
+  }
+  if (status === null) {
+    return <Badge variant="success">Ready</Badge>;
+  }
+  const badge = runBadgeByStatus[status];
+  return <Badge variant={badge.variant}>{badge.label}</Badge>;
 }

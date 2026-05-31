@@ -2,25 +2,15 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import { decodeChatEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
-import type {
-  BackendEventStreamStatus,
-  BackendProcessStatus,
-  DesktopPlatform,
-  SettaAPI,
-} from "@shared/types";
+import type { BackendEventStreamStatus, BackendProcessStatus, SettaAPI } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
 
 const api: SettaAPI = {
   app: {
-    installedEditors: () => invoke("appInstalledEditors"),
-    openWorkspaceInEditor: (editorId: string, rootPath: string) =>
-      invoke("appOpenWorkspaceInEditor", editorId, rootPath),
     openExternalUrl: (url: string) => invoke("appOpenExternalUrl", url),
-    platform: process.platform as DesktopPlatform,
     versions: () => invoke("appVersions"),
-    workspaceGitInfo: (rootPath: string) => invoke("appWorkspaceGitInfo", rootPath),
   },
   backend: {
     health: () => invoke("backendHealth"),
@@ -48,6 +38,8 @@ const api: SettaAPI = {
       invoke("chatActiveRun", workspaceId, conversationId),
     cancelRun: (workspaceId: string, conversationId: string) =>
       invoke("chatCancelRun", workspaceId, conversationId),
+    clearQuarantine: (workspaceId: string, confirmation: string) =>
+      invoke("chatClearQuarantine", workspaceId, confirmation),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
     executeCommand: (workspaceId: string, conversationId: string, raw: string) =>
@@ -72,6 +64,10 @@ const api: SettaAPI = {
     },
     queueMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatQueueMessage", workspaceId, conversationId, prompt),
+    quarantineCorruptState: (workspaceId: string, confirmation: string) =>
+      invoke("chatQuarantineCorruptState", workspaceId, confirmation),
+    resetWorkspaceState: (workspaceId: string, confirmation: string) =>
+      invoke("chatResetWorkspaceState", workspaceId, confirmation),
     runActivity: (workspaceId: string, runId: string, limit: number) =>
       invoke("chatRunActivity", workspaceId, runId, limit),
     runItemOutput: (

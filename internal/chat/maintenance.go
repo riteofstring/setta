@@ -2,15 +2,147 @@ package chat
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
+
+const quarantineDirName = "quarantine"
 
 type diagnosticOwner struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 	RunID          string `json:"runId"`
+}
+
+func (service *Service) QuarantineCorruptChatState(workspaceID string, confirmation string) (ChatMaintenanceResult, error) {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	if err := requireMaintenanceConfirmation(workspaceID, confirmation); err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	findings, err := service.store.ValidateWorkspaceChatState(workspaceID)
+	if err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	diagnostics := service.recordCorruptStateFindingsLocked(findings)
+	operationID := ""
+	if len(findings) > 0 {
+		operationID, err = service.newID("quarantine")
+		if err != nil {
+			return ChatMaintenanceResult{}, fmt.Errorf("create quarantine id: %w", err)
+		}
+	}
+	manifest, manifestPath, err := service.store.QuarantineFindings(workspaceID, findings, operationID, timestamp(service.now()))
+	if err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	after, err := service.store.ValidateWorkspaceChatState(workspaceID)
+	if err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	return ChatMaintenanceResult{
+		WorkspaceID:     workspaceID,
+		Corruption:      corruptionSummary(after),
+		Diagnostics:     diagnostics,
+		Quarantined:     manifest.Records,
+		ManifestPath:    manifestPath,
+		RemovedPaths:    []string{},
+		ValidationRunAt: timestamp(service.now()),
+	}, nil
+}
+
+func (service *Service) ResetWorkspaceChatState(workspaceID string, confirmation string) (ChatMaintenanceResult, error) {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	if err := requireMaintenanceConfirmation(workspaceID, confirmation); err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	before, err := service.store.ValidateWorkspaceChatState(workspaceID)
+	if err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	diagnostics := service.recordCorruptStateFindingsLocked(before)
+	service.cancelActiveTurnsForWorkspaceLocked(workspaceID)
+	removed, err := service.store.ClearWorkspaceChatState(workspaceID)
+	if err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	after, err := service.store.ValidateWorkspaceChatState(workspaceID)
+	if err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	return ChatMaintenanceResult{
+		WorkspaceID:     workspaceID,
+		Corruption:      corruptionSummary(after),
+		Diagnostics:     diagnostics,
+		Quarantined:     []QuarantinedRecord{},
+		ManifestPath:    "",
+		RemovedPaths:    removed,
+		ValidationRunAt: timestamp(service.now()),
+	}, nil
+}
+
+func (service *Service) ClearChatQuarantine(workspaceID string, confirmation string) (ChatMaintenanceResult, error) {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	if err := requireMaintenanceConfirmation(workspaceID, confirmation); err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	removed, err := service.store.ClearChatQuarantine(workspaceID)
+	if err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	after, err := service.store.ValidateWorkspaceChatState(workspaceID)
+	if err != nil {
+		return ChatMaintenanceResult{}, err
+	}
+	return ChatMaintenanceResult{
+		WorkspaceID:     workspaceID,
+		Corruption:      corruptionSummary(after),
+		Diagnostics:     []Diagnostic{},
+		Quarantined:     []QuarantinedRecord{},
+		ManifestPath:    "",
+		RemovedPaths:    removed,
+		ValidationRunAt: timestamp(service.now()),
+	}, nil
+}
+
+func requireMaintenanceConfirmation(workspaceID string, confirmation string) error {
+	if workspaceID == "" {
+		return errors.New("workspace id is required")
+	}
+	if confirmation != workspaceID {
+		return fmt.Errorf("confirmation must match workspace id %s", workspaceID)
+	}
+	return nil
+}
+
+func (service *Service) cancelActiveTurnsForWorkspaceLocked(workspaceID string) {
+	for key, turn := range service.active {
+		if turn.workspaceID != workspaceID {
+			continue
+		}
+		turn.cancel()
+		delete(service.active, key)
+	}
 }
 
 func (store *Store) ValidateWorkspaceChatState(workspaceID string) ([]CorruptStateFinding, error) {
@@ -322,4 +454,154 @@ func (store *Store) scanDiagnosticAllowingCorrupt(workspaceID string, path strin
 		return corruptStateFinding(corruptStateError(path, err), workspaceID, owner.ConversationID, owner.RunID, corruptDiagnosticKind), true, nil
 	}
 	return CorruptStateFinding{}, false, nil
+}
+
+func (store *Store) QuarantineFindings(workspaceID string, findings []CorruptStateFinding, operationID string, createdAt string) (ChatQuarantineManifest, string, error) {
+	if len(findings) == 0 {
+		return ChatQuarantineManifest{SchemaVersion: SchemaVersion, WorkspaceID: workspaceID, CreatedAt: createdAt, Records: []QuarantinedRecord{}}, "", nil
+	}
+	if operationID == "" {
+		return ChatQuarantineManifest{}, "", errors.New("quarantine id is required")
+	}
+	baseDir := filepath.Join(store.appDataDir, quarantineDirName, workspaceID, operationID)
+	records := []QuarantinedRecord{}
+	seenPaths := map[string]bool{}
+	for _, finding := range findings {
+		if finding.Path == "" || seenPaths[finding.Path] {
+			continue
+		}
+		seenPaths[finding.Path] = true
+		relative, err := store.relativeAppDataPath(finding.Path)
+		if err != nil {
+			return ChatQuarantineManifest{}, "", err
+		}
+		destination := filepath.Join(baseDir, relative)
+		if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+			return ChatQuarantineManifest{}, "", &PersistenceError{Operation: "create quarantine directory", Path: filepath.Dir(destination), Err: err}
+		}
+		if err := os.Rename(finding.Path, destination); err != nil {
+			return ChatQuarantineManifest{}, "", &PersistenceError{Operation: "quarantine corrupt chat record", Path: finding.Path, Err: err}
+		}
+		records = append(records, QuarantinedRecord{
+			OriginalPath:   finding.Path,
+			QuarantinePath: destination,
+			RecordKind:     finding.RecordKind,
+			WorkspaceID:    finding.WorkspaceID,
+			ConversationID: finding.ConversationID,
+			RunID:          finding.RunID,
+			Error:          finding.Error,
+		})
+	}
+	manifest := ChatQuarantineManifest{
+		SchemaVersion: SchemaVersion,
+		ID:            operationID,
+		WorkspaceID:   workspaceID,
+		CreatedAt:     createdAt,
+		Records:       records,
+	}
+	manifestPath := filepath.Join(baseDir, "manifest.json")
+	if err := writeNewJSONFile(manifestPath, manifest); err != nil {
+		return ChatQuarantineManifest{}, "", err
+	}
+	return manifest, manifestPath, nil
+}
+
+func (store *Store) ClearWorkspaceChatState(workspaceID string) ([]string, error) {
+	paths := []string{
+		store.conversationsDir(workspaceID),
+		store.runsDir(workspaceID),
+	}
+	removed := []string{}
+	for _, path := range paths {
+		exists, err := pathExists(path)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+		if err := os.RemoveAll(path); err != nil {
+			return nil, &PersistenceError{Operation: "remove chat state", Path: path, Err: err}
+		}
+		removed = append(removed, path)
+	}
+	diagnostics, err := store.workspaceDiagnosticPaths(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range diagnostics {
+		if err := os.Remove(path); err != nil {
+			return nil, &PersistenceError{Operation: "remove chat diagnostic", Path: path, Err: err}
+		}
+		removed = append(removed, path)
+	}
+	sort.Strings(removed)
+	return removed, nil
+}
+
+func (store *Store) ClearChatQuarantine(workspaceID string) ([]string, error) {
+	path := filepath.Join(store.appDataDir, quarantineDirName, workspaceID)
+	exists, err := pathExists(path)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return []string{}, nil
+	}
+	if err := os.RemoveAll(path); err != nil {
+		return nil, &PersistenceError{Operation: "clear chat quarantine", Path: path, Err: err}
+	}
+	return []string{path}, nil
+}
+
+func (store *Store) workspaceDiagnosticPaths(workspaceID string) ([]string, error) {
+	dir := store.diagnosticsDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []string{}, nil
+		}
+		return nil, &PersistenceError{Operation: "list diagnostics", Path: dir, Err: err}
+	}
+	paths := []string{}
+	for _, entry := range entries {
+		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		owner := diagnosticOwner{}
+		if err := readJSONMetadataFile(path, &owner); err != nil {
+			if IsCorruptStateError(err) {
+				continue
+			}
+			return nil, err
+		}
+		if owner.WorkspaceID == workspaceID {
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	return paths, nil
+}
+
+func (store *Store) relativeAppDataPath(path string) (string, error) {
+	relative, err := filepath.Rel(store.appDataDir, path)
+	if err != nil {
+		return "", &PersistenceError{Operation: "prepare quarantine path", Path: path, Err: err}
+	}
+	if relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+		return "", fmt.Errorf("corrupt chat record path is outside app data: %s", path)
+	}
+	return relative, nil
+}
+
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, &PersistenceError{Operation: "stat path", Path: path, Err: err}
 }

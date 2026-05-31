@@ -127,6 +127,22 @@ func TestChatEndpointsListValidConversationsWithMalformedRunState(t *testing.T) 
 		t.Fatalf("send persisted messages despite corrupt run state: %v", messages)
 	}
 
+	quarantine := postJSON[chat.ChatMaintenanceResult](t, handler, "/chat/maintenance/quarantine-corrupt", QuarantineCorruptChatStateRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		Confirmation: opened.Workspace.ID,
+	}, http.StatusOK)
+	if quarantine.Corruption.HasCorruption || len(quarantine.Quarantined) != 2 {
+		t.Fatalf("quarantine result = %+v, want two records moved and clean validation", quarantine)
+	}
+	if _, err := os.Stat(quarantine.ManifestPath); err != nil {
+		t.Fatalf("manifest stat: %v", err)
+	}
+	cleanList := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if cleanList.Corruption.HasCorruption {
+		t.Fatalf("clean list corruption = %+v, want none after quarantine", cleanList.Corruption)
+	}
 }
 
 func TestChatEndpointsCancelActiveRun(t *testing.T) {

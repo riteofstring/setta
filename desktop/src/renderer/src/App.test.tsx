@@ -1,42 +1,25 @@
-import type {
-  ChatMessage,
-  ConversationListItem,
-  Run,
-  RunItem,
-  RunItemOutput,
-  TranscriptTurn,
-} from "@generated/backend";
+import type { ChatMessage, Run, RunItem, RunItemOutput, TranscriptTurn } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
-import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
-import { WorkspacePanePanel } from "./components/workspace-pane";
 
 describe("workspace renderer states", () => {
   test("renders the empty workspace state", () => {
     const html = renderToString(
       <>
         <WorkspaceSidebar
-          activeRun={null}
           activeWorkspaces={[]}
           busy={false}
-          chatBusy={false}
           closeWorkspace={async () => {}}
-          conversations={[]}
-          createConversation={async () => {}}
-          createWorkspaceConversation={async () => {}}
           openLocalFolder={async () => {}}
-          openSettingsPane={() => {}}
           recentWorkspaces={[]}
           removeRecent={async () => {}}
-          selectConversation={async () => {}}
+          reorderWorkspaces={async () => {}}
           selectWorkspace={async () => {}}
-          selectedConversationId=""
           selectedWorkspaceId=""
-          unreadConversationIds={{}}
         />
         <WorkspacePanel
           error={null}
@@ -49,15 +32,8 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain("No workspace open");
-    expect(html).toContain('data-testid="projects-section"');
-    expect(html).toContain('data-testid="sidebar-empty-space"');
-    expect(html).not.toContain("New setta gen");
-    expect(html).not.toContain("Plugins");
-    expect(html).not.toContain("Automations");
-    expect(html).not.toContain("Notifications / Logs");
-    expect(html).not.toContain("DB / Memories");
-    expect(html).not.toContain("New note");
-    expect(html).not.toContain("New rule");
+    expect(html).toContain("No active workspaces");
+    expect(html).toContain("No recent workspaces");
   });
 
   test("renders active selected and recent workspace state", () => {
@@ -76,23 +52,15 @@ describe("workspace renderer states", () => {
     const html = renderToString(
       <>
         <WorkspaceSidebar
-          activeRun={null}
           activeWorkspaces={[api, web]}
           busy={false}
-          chatBusy={false}
           closeWorkspace={async () => {}}
-          conversations={[conversationListItem("conversation_web", "Build web UI")]}
-          createConversation={async () => {}}
-          createWorkspaceConversation={async () => {}}
           openLocalFolder={async () => {}}
-          openSettingsPane={() => {}}
           recentWorkspaces={[web, api]}
           removeRecent={async () => {}}
-          selectConversation={async () => {}}
+          reorderWorkspaces={async () => {}}
           selectWorkspace={async () => {}}
-          selectedConversationId=""
           selectedWorkspaceId="workspace_web"
-          unreadConversationIds={{}}
         />
         <WorkspacePanel
           error={null}
@@ -108,12 +76,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("/tmp/web");
     expect(html).toContain("Active");
     expect(html).toContain('data-testid="active-workspace-list"');
-    expect(html).toContain('aria-label="New chat in web"');
-    expect(html).toContain("Build web UI");
-    expect(html).not.toContain('aria-label="Pin Build web UI"');
-    expect(html).not.toContain('aria-label="Delete Build web UI"');
-    expect(html).not.toContain("New terminal in web");
-    expect(html).not.toContain("New setta canvas in web");
+    expect(html).toContain('data-testid="recent-workspace-list"');
   });
 
   test("renders loading and error states", () => {
@@ -142,52 +105,20 @@ describe("workspace renderer states", () => {
 
     const html = renderToString(
       <WorkspaceSidebar
-        activeRun={null}
         activeWorkspaces={workspaces}
         busy={false}
-        chatBusy={false}
         closeWorkspace={async () => {}}
-        conversations={[]}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
         openLocalFolder={async () => {}}
-        openSettingsPane={() => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
-        selectConversation={async () => {}}
+        reorderWorkspaces={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId=""
         selectedWorkspaceId="workspace_0"
-        unreadConversationIds={{}}
       />,
     );
 
     expect(rowCount(html, "active-workspace-item")).toBeLessThan(30);
     expect(rowCount(html, "recent-workspace-item")).toBeLessThan(30);
-  });
-
-  test("renders only production-backed workspace pane and settings surfaces", () => {
-    const emptyPane = renderToString(
-      <WorkspacePanePanel
-        activeTabId=""
-        onCloseTab={() => {}}
-        onSelectTab={() => {}}
-        slot="right"
-        tabs={[]}
-      />,
-    );
-    const settings = renderToString(<SettingsPanel />);
-
-    expect(emptyPane).not.toContain("New pane tab");
-    expect(emptyPane).not.toContain("Browser");
-    expect(emptyPane).not.toContain("Canvas");
-    expect(emptyPane).not.toContain("Terminal");
-    expect(settings).toContain("Provider Accounts");
-    expect(settings).toContain("Codex ChatGPT");
-    expect(settings).not.toContain("Reset");
-    expect(settings).not.toContain("Shortcuts");
-    expect(settings).not.toContain("Storage");
-    expect(settings).not.toContain("Voice input");
   });
 });
 
@@ -822,23 +753,6 @@ function chatUserMessage(id: string, ordinal: number, runId: string): ChatMessag
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
-}
-
-function conversationListItem(id: string, title: string): ConversationListItem {
-  return {
-    activeRunId: "",
-    conversation: {
-      archivedAt: "",
-      createdAt: "2026-05-29T20:00:00Z",
-      harnessRefs: [],
-      id,
-      schemaVersion: 1,
-      title,
-      updatedAt: "2026-05-29T20:00:00Z",
-      workspaceId: "workspace_web",
-    },
-    messageCount: 0,
-  };
 }
 
 function chatMessage(id: string, ordinal: number): ChatMessage {

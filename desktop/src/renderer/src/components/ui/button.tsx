@@ -4,7 +4,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@renderer/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex h-7 items-center justify-center gap-1.5 rounded-sm border px-2 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
   {
     defaultVariants: {
       variant: "secondary",
@@ -21,6 +21,6 @@ const buttonVariants = cva(
 export interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {}
 
-export function Button({ className, type = "button", variant, ...props }: ButtonProps) {
-  return <button className={cn(buttonVariants({ variant }), className)} type={type} {...props} />;
+export function Button({ className, variant, ...props }: ButtonProps) {
+  return <button className={cn(buttonVariants({ variant }), className)} {...props} />;
 }

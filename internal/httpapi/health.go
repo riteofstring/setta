@@ -153,6 +153,21 @@ type ListDiagnosticsResponse struct {
 	Diagnostics []chat.Diagnostic `json:"diagnostics"`
 }
 
+type QuarantineCorruptChatStateRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	Confirmation string `json:"confirmation"`
+}
+
+type ResetWorkspaceChatStateRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	Confirmation string `json:"confirmation"`
+}
+
+type ClearChatQuarantineRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	Confirmation string `json:"confirmation"`
+}
+
 type SubmitApprovalRequest struct {
 	WorkspaceID    string                `json:"workspaceId"`
 	ConversationID string                `json:"conversationId"`
@@ -184,6 +199,7 @@ type WorkspaceService interface {
 type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
+	ClearChatQuarantine(workspaceID string, confirmation string) (chat.ChatMaintenanceResult, error)
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
 	ListDiagnostics(workspaceID string, conversationID string, runID string) ([]chat.Diagnostic, error)
 	ListConversations(workspaceID string) (chat.ConversationListResult, error)
@@ -194,6 +210,8 @@ type ChatService interface {
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
+	QuarantineCorruptChatState(workspaceID string, confirmation string) (chat.ChatMaintenanceResult, error)
+	ResetWorkspaceChatState(workspaceID string, confirmation string) (chat.ChatMaintenanceResult, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
 	SteerActiveRun(workspaceID string, conversationID string, prompt string) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
@@ -577,6 +595,57 @@ func (handler handler) listDiagnostics(response http.ResponseWriter, request *ht
 		return
 	}
 	writeJSON(response, http.StatusOK, ListDiagnosticsResponse{Diagnostics: diagnostics})
+}
+
+func (handler handler) quarantineCorruptChatState(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload QuarantineCorruptChatStateRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.QuarantineCorruptChatState(payload.WorkspaceID, payload.Confirmation)
+	if err != nil {
+		writeChatError(response, "quarantine_corrupt_chat_state_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) resetWorkspaceChatState(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ResetWorkspaceChatStateRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.ResetWorkspaceChatState(payload.WorkspaceID, payload.Confirmation)
+	if err != nil {
+		writeChatError(response, "reset_workspace_chat_state_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) clearChatQuarantine(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ClearChatQuarantineRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.ClearChatQuarantine(payload.WorkspaceID, payload.Confirmation)
+	if err != nil {
+		writeChatError(response, "clear_chat_quarantine_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
 }
 
 func (handler handler) submitApproval(response http.ResponseWriter, request *http.Request) {

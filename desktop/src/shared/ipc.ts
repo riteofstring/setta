@@ -4,6 +4,7 @@ import type {
   BackendHealth,
   ChatCommandExecuteResult,
   ChatCommandListResult,
+  ChatMaintenanceResult,
   ClearChatGPTAuthRequest,
   Conversation,
   GetActiveRunResponse,
@@ -21,23 +22,23 @@ import type {
   SubmitApprovalRequest,
   WorkspaceSession,
 } from "@generated/backend";
-import type { InstalledEditorApp, RuntimeVersions, WorkspaceGitInfo } from "./types";
+import type { RuntimeVersions } from "./types";
 
 export const ipcChannels = {
-  appInstalledEditors: "app:installed-editors",
   appOpenExternalUrl: "app:open-external-url",
-  appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
-  appWorkspaceGitInfo: "app:workspace-git-info",
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
+  chatClearQuarantine: "chat:clear-quarantine",
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
   chatMessagePage: "chat:message-page",
+  chatQuarantineCorruptState: "chat:quarantine-corrupt-state",
   chatQueueMessage: "chat:queue-message",
+  chatResetWorkspaceState: "chat:reset-workspace-state",
   chatRunActivity: "chat:run-activity",
   chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
@@ -62,25 +63,13 @@ export const ipcEvents = {
 } as const;
 
 interface IpcContract {
-  appInstalledEditors: {
-    args: [];
-    result: InstalledEditorApp[];
-  };
   appOpenExternalUrl: {
     args: [url: string];
-    result: void;
-  };
-  appOpenWorkspaceInEditor: {
-    args: [editorId: string, rootPath: string];
     result: void;
   };
   appVersions: {
     args: [];
     result: RuntimeVersions;
-  };
-  appWorkspaceGitInfo: {
-    args: [rootPath: string];
-    result: WorkspaceGitInfo;
   };
   backendHealth: {
     args: [];
@@ -98,6 +87,10 @@ interface IpcContract {
     args: [workspaceId: string, title: string];
     result: Conversation;
   };
+  chatClearQuarantine: {
+    args: [workspaceId: string, confirmation: string];
+    result: ChatMaintenanceResult;
+  };
   chatExecuteCommand: {
     args: [workspaceId: string, conversationId: string, raw: string];
     result: ChatCommandExecuteResult;
@@ -114,9 +107,17 @@ interface IpcContract {
     args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
     result: MessagePage;
   };
+  chatQuarantineCorruptState: {
+    args: [workspaceId: string, confirmation: string];
+    result: ChatMaintenanceResult;
+  };
   chatQueueMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];
     result: QueueMessageResult;
+  };
+  chatResetWorkspaceState: {
+    args: [workspaceId: string, confirmation: string];
+    result: ChatMaintenanceResult;
   };
   chatRunActivity: {
     args: [workspaceId: string, runId: string, limit: number];
