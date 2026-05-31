@@ -272,8 +272,11 @@ async function assertFloatingPaneControlsClickable({ client, waitForState }) {
       value.visiblePaneCount === 1 &&
       value.openPaneCount === "1" &&
       value.addChatNoDrag &&
+      value.addChatHitNoDrag &&
       value.searchNoDrag &&
-      value.settingsNoDrag,
+      value.searchHitNoDrag &&
+      value.settingsNoDrag &&
+      value.settingsHitNoDrag,
   );
   await clickElementCenterByAria(client, "Add chat pane");
   await waitForState(
@@ -381,7 +384,16 @@ function paneControlsClickStateExpression() {
     const addChat = button("Add chat pane");
     const search = button("Search chat panes");
     const settings = button("Add settings pane");
+    const hitNoDrag = (element) => {
+      if (!element) {
+        return false;
+      }
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return hit ? getComputedStyle(hit).webkitAppRegion === "no-drag" : false;
+    };
     return {
+      addChatHitNoDrag: hitNoDrag(addChat),
       addChatNoDrag: addChat?.classList.contains("app-no-drag") ?? false,
       chatPaneCount: visibleCells.filter((cell) => kind(cell) === "chat").length,
       openPaneCount:
@@ -392,8 +404,10 @@ function paneControlsClickStateExpression() {
       restoreButtonCount: [...document.querySelectorAll("button")].filter((candidate) =>
         candidate.getAttribute("aria-label")?.startsWith("Restore workspace pane"),
       ).length,
+      searchHitNoDrag: hitNoDrag(search),
       searchNoDrag: search?.classList.contains("app-no-drag") ?? false,
       searchOpen: Boolean(document.querySelector('input[placeholder="Search chat"]')),
+      settingsHitNoDrag: hitNoDrag(settings),
       settingsNoDrag: settings?.classList.contains("app-no-drag") ?? false,
       settingsPaneCount: visibleCells.filter((cell) => kind(cell) === "settings").length,
       visiblePaneCount: visibleCells.length,
