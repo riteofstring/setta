@@ -2,6 +2,8 @@ import {
   FileText,
   GitCompareArrows,
   Globe2,
+  Maximize2,
+  Minimize2,
   PanelTop,
   Plus,
   Settings,
@@ -168,17 +170,21 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
 export function WorkspacePanePanel({
   activeTabId,
   chromeInsetTop = false,
+  maximized = false,
   onCloseTab,
   onCreateTab,
   onSelectTab,
+  onToggleMaximized,
   slot,
   tabs,
 }: {
   activeTabId: string;
   chromeInsetTop?: boolean;
+  maximized?: boolean;
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
+  onToggleMaximized?: () => void;
   slot: PaneSlot;
   tabs: WorkspacePaneTab[];
 }) {
@@ -188,12 +194,7 @@ export function WorkspacePanePanel({
   return (
     <section
       aria-label={paneLabel}
-      className={cn(
-        slot === "right"
-          ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
-          : "flex h-72 min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100",
-        chromeInsetTop && "pt-9",
-      )}
+      className={workspacePanePanelClass({ chromeInsetTop, maximized, slot })}
       data-testid={`${slot}-workspace-pane`}
     >
       <header className="app-no-drag flex h-7 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5">
@@ -220,6 +221,13 @@ export function WorkspacePanePanel({
         ) : (
           <span className="min-w-0 flex-1" />
         )}
+        {onToggleMaximized ? (
+          <WorkspacePaneMaximizeButton
+            label={paneLabel}
+            maximized={maximized}
+            onClick={onToggleMaximized}
+          />
+        ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab ? (
@@ -229,6 +237,51 @@ export function WorkspacePanePanel({
         )}
       </div>
     </section>
+  );
+}
+
+function workspacePanePanelClass({
+  chromeInsetTop,
+  maximized,
+  slot,
+}: {
+  chromeInsetTop: boolean;
+  maximized: boolean;
+  slot: PaneSlot;
+}) {
+  const slotClass =
+    slot === "right"
+      ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
+      : bottomPanePanelClass(maximized);
+  return cn(slotClass, chromeInsetTop && "pt-9");
+}
+
+function bottomPanePanelClass(maximized: boolean) {
+  return maximized
+    ? "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100"
+    : "flex h-72 min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100";
+}
+
+function WorkspacePaneMaximizeButton({
+  label,
+  maximized,
+  onClick,
+}: {
+  label: string;
+  maximized: boolean;
+  onClick: () => void;
+}) {
+  const buttonLabel = maximized ? `Restore ${label}` : `Maximize ${label}`;
+  return (
+    <button
+      aria-label={buttonLabel}
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-900 hover:text-zinc-100 focus-visible:bg-zinc-900 focus-visible:text-zinc-100"
+      onClick={onClick}
+      title={buttonLabel}
+      type="button"
+    >
+      {maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+    </button>
   );
 }
 
