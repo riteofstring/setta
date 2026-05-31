@@ -1,5 +1,13 @@
-import { Maximize2, MessageSquareText, Minimize2, Plus, Settings, X } from "lucide-react";
-import type { DragEvent, ReactNode } from "react";
+import {
+  GripVertical,
+  Maximize2,
+  MessageSquareText,
+  Minimize2,
+  Plus,
+  Settings,
+  X,
+} from "lucide-react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
@@ -21,8 +29,6 @@ export type WorkspacePaneSplitTarget =
 type WorkspacePaneRuntime = "renderer-chat" | "renderer-settings";
 type WorkspacePaneHost = "renderer";
 export const maxWorkspacePaneCount = 4;
-const workspacePaneTabDragMimeType = "application/x-setta-workspace-pane-tab";
-
 export interface WorkspacePaneTab {
   id: string;
   kind: WorkspacePaneKind;
@@ -395,8 +401,7 @@ export function WorkspacePanePanel({
   onCloseTab,
   onCreateTab,
   onSelectTab,
-  onTabDragEnd,
-  onTabDragStart,
+  onTabPointerDown,
   onToggleMaximize,
   paneId,
   renderTabContent,
@@ -426,8 +431,7 @@ export function WorkspacePanePanel({
         onCloseTab={onCloseTab}
         onCreateTab={onCreateTab}
         onSelectTab={onSelectTab}
-        onTabDragEnd={onTabDragEnd}
-        onTabDragStart={onTabDragStart}
+        onTabPointerDown={onTabPointerDown}
         onToggleMaximize={onToggleMaximize}
         paneLabel={paneLabel}
         paneId={paneId}
@@ -458,8 +462,10 @@ interface WorkspacePanePanelProps {
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
-  onTabDragEnd?: () => void;
-  onTabDragStart?: (payload: WorkspacePaneTabDragPayload) => void;
+  onTabPointerDown?: (
+    payload: WorkspacePaneTabDragPayload,
+    event: ReactPointerEvent<HTMLElement>,
+  ) => void;
   onToggleMaximize?: () => void;
   paneId: string;
   renderTabContent?: (tab: WorkspacePaneTab) => ReactNode;
@@ -482,8 +488,7 @@ function WorkspacePaneHeader({
   onCloseTab,
   onCreateTab,
   onSelectTab,
-  onTabDragEnd,
-  onTabDragStart,
+  onTabPointerDown,
   onToggleMaximize,
   paneLabel,
   paneId,
@@ -504,8 +509,9 @@ function WorkspacePaneHeader({
   onCloseTab: (tabId: string) => void;
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
-  onTabDragEnd: (() => void) | undefined;
-  onTabDragStart: ((payload: WorkspacePaneTabDragPayload) => void) | undefined;
+  onTabPointerDown:
+    | ((payload: WorkspacePaneTabDragPayload, event: ReactPointerEvent<HTMLElement>) => void)
+    | undefined;
   onToggleMaximize: (() => void) | undefined;
   paneLabel: string;
   paneId: string;
@@ -538,8 +544,7 @@ function WorkspacePaneHeader({
         }}
         onNewTabMenuOpenChange={setNewTabMenuOpen}
         onSelectTab={onSelectTab}
-        onTabDragEnd={onTabDragEnd}
-        onTabDragStart={onTabDragStart}
+        onTabPointerDown={onTabPointerDown}
         paneLabel={paneLabel}
         paneId={paneId}
         showNewTabButton={showNewTabButton}
@@ -566,8 +571,7 @@ function WorkspacePaneTabNav({
   onCreateTab,
   onNewTabMenuOpenChange,
   onSelectTab,
-  onTabDragEnd,
-  onTabDragStart,
+  onTabPointerDown,
   paneLabel,
   paneId,
   showNewTabButton,
@@ -579,8 +583,9 @@ function WorkspacePaneTabNav({
   onCreateTab: (kind: WorkspacePaneKind) => void;
   onNewTabMenuOpenChange: (open: boolean) => void;
   onSelectTab: (tabId: string) => void;
-  onTabDragEnd: (() => void) | undefined;
-  onTabDragStart: ((payload: WorkspacePaneTabDragPayload) => void) | undefined;
+  onTabPointerDown:
+    | ((payload: WorkspacePaneTabDragPayload, event: ReactPointerEvent<HTMLElement>) => void)
+    | undefined;
   paneLabel: string;
   paneId: string;
   showNewTabButton: boolean;
@@ -596,8 +601,7 @@ function WorkspacePaneTabNav({
           active={tab.id === activeTabId}
           key={tab.id}
           onClose={() => onCloseTab(tab.id)}
-          onDragEnd={onTabDragEnd}
-          onDragStart={onTabDragStart}
+          onPointerDown={onTabPointerDown}
           onSelect={() => onSelectTab(tab.id)}
           paneId={paneId}
           tab={tab}
@@ -761,48 +765,39 @@ function workspacePaneSlotClass(slot: PaneSlot) {
 function WorkspacePaneTabButton({
   active,
   onClose,
-  onDragEnd,
-  onDragStart,
+  onPointerDown,
   onSelect,
   paneId,
   tab,
 }: {
   active: boolean;
   onClose: () => void;
-  onDragEnd: (() => void) | undefined;
-  onDragStart: ((payload: WorkspacePaneTabDragPayload) => void) | undefined;
+  onPointerDown:
+    | ((payload: WorkspacePaneTabDragPayload, event: ReactPointerEvent<HTMLElement>) => void)
+    | undefined;
   onSelect: () => void;
   paneId: string;
   tab: WorkspacePaneTab;
 }) {
   const dragTitle = `Drag ${tab.title} to split pane`;
-  const handleDragStart = (event: DragEvent<HTMLElement>) => {
+  const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     event.stopPropagation();
     const payload = { sourcePaneId: paneId, tabId: tab.id };
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData(workspacePaneTabDragMimeType, JSON.stringify(payload));
-    onDragStart?.(payload);
-  };
-  const handleDragEnd = (event: DragEvent<HTMLElement>) => {
-    event.stopPropagation();
-    onDragEnd?.();
+    onPointerDown?.(payload, event);
   };
 
   return (
     <div
       className={workspacePaneTabClass(tab.kind, active)}
-      draggable
-      onDragEnd={handleDragEnd}
-      onDragStart={handleDragStart}
+      draggable={false}
       data-testid={`workspace-pane-tab-${tab.id}`}
       title={dragTitle}
     >
       <button
         className="flex min-w-0 flex-1 cursor-grab items-center gap-1 truncate pr-1 text-left outline-none active:cursor-grabbing focus-visible:text-zinc-50 focus-visible:underline focus-visible:decoration-zinc-400 focus-visible:underline-offset-2"
-        draggable
+        draggable={false}
         onClick={onSelect}
-        onDragEnd={handleDragEnd}
-        onDragStart={handleDragStart}
+        onPointerDown={handlePointerDown}
         title={dragTitle}
         type="button"
       >
@@ -813,6 +808,10 @@ function WorkspacePaneTabButton({
           </span>
         </span>
         <span className="min-w-0 truncate">{tab.title}</span>
+        <GripVertical
+          aria-hidden="true"
+          className="h-3 w-3 shrink-0 text-zinc-600 opacity-70 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        />
       </button>
       <button
         aria-label={`Close ${tab.title}`}
@@ -830,32 +829,6 @@ function WorkspacePaneTabButton({
       </button>
     </div>
   );
-}
-
-export function readWorkspacePaneTabDragPayload(
-  event: DragEvent<HTMLElement>,
-): WorkspacePaneTabDragPayload | null {
-  const raw = event.dataTransfer.getData(workspacePaneTabDragMimeType);
-  if (!raw) {
-    return null;
-  }
-  const value = JSON.parse(raw) as unknown;
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("sourcePaneId" in value) ||
-    !("tabId" in value)
-  ) {
-    throw new Error("Workspace pane tab drag payload is malformed.");
-  }
-  const payload = value as Record<string, unknown>;
-  if (typeof payload.sourcePaneId !== "string" || typeof payload.tabId !== "string") {
-    throw new Error("Workspace pane tab drag payload fields must be strings.");
-  }
-  return {
-    sourcePaneId: payload.sourcePaneId,
-    tabId: payload.tabId,
-  };
 }
 
 function workspacePaneTabClass(kind: WorkspacePaneKind, active: boolean) {

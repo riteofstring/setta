@@ -25,6 +25,7 @@ import {
 } from "./codex-protocol-workflow.mjs";
 import { stopElectron } from "./electron-process.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
+import { runPaneTabSplitWorkflow } from "./pane-tab-split-workflow.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
@@ -225,6 +226,14 @@ async function runDeterministicWorkflowLaunch(results) {
         await runSidebarChatActionsWorkflow(context.client, backend, workspaceId, conversationId);
       },
     );
+    await runWorkflowStep(results, recordingDir, "pane-tab-split", context.client, async () => {
+      await runPaneTabSplitWorkflow({
+        captureScreenshot,
+        client: context.client,
+        recordingDir,
+        waitForState,
+      });
+    });
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});

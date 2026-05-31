@@ -8,7 +8,13 @@ import {
   Search,
   Settings,
 } from "lucide-react";
-import type { CSSProperties, Dispatch, ReactNode, SetStateAction } from "react";
+import type {
+  CSSProperties,
+  Dispatch,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+  SetStateAction,
+} from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
@@ -17,7 +23,6 @@ import { SettingsPanel } from "./components/settings-panel";
 import {
   maxWorkspacePaneCount,
   canSplitWorkspacePaneTab,
-  readWorkspacePaneTabDragPayload,
   WorkspacePanePanel,
   type WorkspacePaneKind,
   type WorkspacePaneLayout,
@@ -27,6 +32,10 @@ import {
   type WorkspacePaneTabDragPayload,
   useWorkspacePaneState,
 } from "./components/workspace-pane";
+import {
+  WorkspacePaneSplitDropOverlay,
+  workspacePaneSplitTargetFromPoint,
+} from "./components/workspace-pane-split-overlay";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
@@ -58,7 +67,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [workspaceColumnPercent, setWorkspaceColumnPercent] = useState(50);
   const [workspaceRowPercent, setWorkspaceRowPercent] = useState(50);
-  const [draggingPaneTab, setDraggingPaneTab] = useState<WorkspacePaneTabDragPayload | null>(null);
   const [chatSearchOpenByPaneId, setChatSearchOpenByPaneId] = useState<Record<string, boolean>>({});
   const openChatSearch = useCallback(() => {
     const chatPane = firstWorkspacePaneWithKind(panes.panes, "chat");
@@ -122,9 +130,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           closePane={panes.closePane}
           closeTab={panes.closeTab}
           createTab={panes.createTab}
-          draggingPaneTab={draggingPaneTab}
-          onTabDragEnd={() => setDraggingPaneTab(null)}
-          onTabDragStart={setDraggingPaneTab}
           maximizedPaneId={maximizedPaneId}
           panes={panes}
           platform={platform}
@@ -187,10 +192,7 @@ function WorkspaceArea({
   closePane,
   closeTab,
   createTab,
-  draggingPaneTab,
   maximizedPaneId,
-  onTabDragEnd,
-  onTabDragStart,
   panes,
   platform,
   projectPaneOpen,
@@ -209,10 +211,7 @@ function WorkspaceArea({
   closePane: (paneId: string) => void;
   closeTab: (paneId: string, tabId: string) => void;
   createTab: (paneId: string, kind: WorkspacePaneKind) => void;
-  draggingPaneTab: WorkspacePaneTabDragPayload | null;
   maximizedPaneId: string | null;
-  onTabDragEnd: () => void;
-  onTabDragStart: (payload: WorkspacePaneTabDragPayload) => void;
   panes: ReturnType<typeof useWorkspacePaneState>;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
@@ -226,17 +225,25 @@ function WorkspaceArea({
   workspaceRowPercent: number;
   workspace: WorkspaceViewState;
 }) {
+  const [draggingPaneTab, setDraggingPaneTab] = useState<WorkspacePaneTabDragPayload | null>(null);
+  const [draggingPaneTarget, setDraggingPaneTarget] = useState<WorkspacePaneSplitTarget | null>(
+    null,
+  );
   const visiblePanes = workspaceGridVisiblePanes(panes.panes, maximizedPaneId);
   const splitAllowed = draggingPaneTab
     ? canSplitWorkspacePaneTab(panes.panes, draggingPaneTab.sourcePaneId)
     : false;
+  const finishPaneTabDrag = useCallback(() => {
+    setDraggingPaneTab(null);
+    setDraggingPaneTarget(null);
+  }, []);
   const splitTabIntoTarget = useCallback(
     (payload: WorkspacePaneTabDragPayload, target: WorkspacePaneSplitTarget) => {
       panes.splitTab(payload.sourcePaneId, payload.tabId, target);
       setMaximizedPaneId(null);
-      onTabDragEnd();
+      finishPaneTabDrag();
     },
-    [onTabDragEnd, panes, setMaximizedPaneId],
+    [finishPaneTabDrag, panes, setMaximizedPaneId],
   );
   const gridRef = useWorkspacePaneGridResize({
     columnPercent: workspaceColumnPercent,
@@ -244,6 +251,60 @@ function WorkspaceArea({
     setColumnPercent: setWorkspaceColumnPercent,
     setRowPercent: setWorkspaceRowPercent,
   });
+  const handlePaneTabPointerDown = useCallback(
+    (payload: WorkspacePaneTabDragPayload, event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0 || !gridRef.current) {
+        return;
+      }
+      const grid = gridRef.current;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const bodyUserSelect = document.body.style.userSelect;
+      let dragging = false;
+      let latestTarget: WorkspacePaneSplitTarget | null = null;
+      const updateTarget = (clientX: number, clientY: number) => {
+        const target = workspacePaneSplitTargetFromPoint(
+          clientX,
+          clientY,
+          grid.getBoundingClientRect(),
+        );
+        latestTarget = target;
+        setDraggingPaneTarget(target);
+        return target;
+      };
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
+        if (!dragging && distance < 6) {
+          return;
+        }
+        if (!dragging) {
+          dragging = true;
+          document.body.style.userSelect = "none";
+          setDraggingPaneTab(payload);
+        }
+        updateTarget(moveEvent.clientX, moveEvent.clientY);
+        moveEvent.preventDefault();
+      };
+      const handleMouseUp = (upEvent: MouseEvent) => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.userSelect = bodyUserSelect;
+        if (!dragging) {
+          finishPaneTabDrag();
+          return;
+        }
+        const target = updateTarget(upEvent.clientX, upEvent.clientY) ?? latestTarget;
+        if (target && canSplitWorkspacePaneTab(panes.panes, payload.sourcePaneId)) {
+          splitTabIntoTarget(payload, target);
+          return;
+        }
+        finishPaneTabDrag();
+      };
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [finishPaneTabDrag, gridRef, panes.panes, splitTabIntoTarget],
+  );
 
   return (
     <div
@@ -289,8 +350,7 @@ function WorkspaceArea({
               onCloseTab={(tabId) => closeTab(pane.id, tabId)}
               onCreateTab={(kind) => createTab(pane.id, kind)}
               onSelectTab={(tabId) => selectTab(pane.id, tabId)}
-              onTabDragEnd={onTabDragEnd}
-              onTabDragStart={onTabDragStart}
+              onTabPointerDown={handlePaneTabPointerDown}
               onToggleMaximize={() => toggleMaximizedPane(pane.id)}
               paneId={pane.id}
               renderTabContent={(tab) => (
@@ -326,6 +386,7 @@ function WorkspaceArea({
         />
       </div>
       <WorkspacePaneSplitDropOverlay
+        activeTarget={draggingPaneTarget}
         canSplit={splitAllowed}
         draggingTab={draggingPaneTab}
         onDropTarget={splitTabIntoTarget}
@@ -632,98 +693,6 @@ function WorkspacePaneGridResizeHandle({
       }
       tabIndex={0}
     />
-  );
-}
-
-const workspacePaneSplitTargets = [
-  { cellClass: "col-start-1 row-start-1", label: "Top left", target: "top-left" },
-  { cellClass: "col-start-2 row-start-1", label: "Top", target: "top" },
-  { cellClass: "col-start-3 row-start-1", label: "Top right", target: "top-right" },
-  { cellClass: "col-start-1 row-start-2", label: "Left", target: "left" },
-  { cellClass: "col-start-3 row-start-2", label: "Right", target: "right" },
-  { cellClass: "col-start-1 row-start-3", label: "Bottom left", target: "bottom-left" },
-  { cellClass: "col-start-2 row-start-3", label: "Bottom", target: "bottom" },
-  { cellClass: "col-start-3 row-start-3", label: "Bottom right", target: "bottom-right" },
-] satisfies {
-  cellClass: string;
-  label: string;
-  target: WorkspacePaneSplitTarget;
-}[];
-
-function WorkspacePaneSplitDropOverlay({
-  canSplit,
-  draggingTab,
-  onDropTarget,
-}: {
-  canSplit: boolean;
-  draggingTab: WorkspacePaneTabDragPayload | null;
-  onDropTarget: (payload: WorkspacePaneTabDragPayload, target: WorkspacePaneSplitTarget) => void;
-}) {
-  if (!draggingTab) {
-    return null;
-  }
-  if (!canSplit) {
-    return (
-      <div className="pointer-events-none absolute inset-0 z-[70] grid place-items-center bg-zinc-950/35">
-        <div className="rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-300 shadow-xl shadow-black/35">
-          Four pane limit reached
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="pointer-events-none absolute inset-0 z-[70] grid grid-cols-3 grid-rows-3 gap-1 bg-zinc-950/20 p-2">
-      <div className="col-start-2 row-start-2 grid place-items-center">
-        <div className="rounded-sm border border-zinc-700/80 bg-zinc-950/90 px-2 py-1 text-[11px] font-medium text-zinc-400 shadow-lg shadow-black/30">
-          Split tab
-        </div>
-      </div>
-      {workspacePaneSplitTargets.map((target) => (
-        <WorkspacePaneSplitDropTarget
-          draggingTab={draggingTab}
-          key={target.target}
-          label={target.label}
-          onDropTarget={onDropTarget}
-          target={target.target}
-          targetClass={target.cellClass}
-        />
-      ))}
-    </div>
-  );
-}
-
-function WorkspacePaneSplitDropTarget({
-  draggingTab,
-  label,
-  onDropTarget,
-  target,
-  targetClass,
-}: {
-  draggingTab: WorkspacePaneTabDragPayload;
-  label: string;
-  onDropTarget: (payload: WorkspacePaneTabDragPayload, target: WorkspacePaneSplitTarget) => void;
-  target: WorkspacePaneSplitTarget;
-  targetClass: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "pointer-events-auto grid place-items-center rounded-sm border border-zinc-600/70 bg-zinc-900/65 text-[11px] font-semibold text-zinc-300 shadow-inner shadow-black/35 transition-colors",
-        "hover:border-zinc-400 hover:bg-zinc-800/85 hover:text-zinc-50",
-        targetClass,
-      )}
-      data-testid={`workspace-split-target-${target}`}
-      onDragOver={(event) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        onDropTarget(readWorkspacePaneTabDragPayload(event) ?? draggingTab, target);
-      }}
-    >
-      {label}
-    </div>
   );
 }
 
