@@ -977,6 +977,9 @@ func (service *Service) conversationListItemLocked(workspaceID string, conversat
 	if err != nil {
 		return ConversationListItem{}, err
 	}
+	if conversation.ArchivedAt != "" {
+		return ConversationListItem{Conversation: conversation}, nil
+	}
 	count, err := service.store.MessageCount(workspaceID, conversationID)
 	if err != nil {
 		return ConversationListItem{}, err
