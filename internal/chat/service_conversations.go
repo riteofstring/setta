@@ -1,202 +1,79 @@
 package chat
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
 
-func (service *Service) ListConversations(workspaceID string) (ConversationListResult, error) {
+func (service *Service) DeleteConversation(workspaceID string, conversationID string) (ConversationListResult, error) {
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return ConversationListResult{}, err
 	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
+	if strings.TrimSpace(conversationID) == "" {
+		return ConversationListResult{}, errors.New("conversation id is required")
+	}
 
-	conversations, corruptConversations, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
-	if err != nil {
-		service.recordCorruptStateDiagnosticLocked(err, workspaceID, "", "")
+	if err := service.archiveConversation(workspaceID, conversationID); err != nil {
 		return ConversationListResult{}, err
 	}
-	runs, corruptRuns, err := service.validRunsForWorkspaceListLocked(workspaceID)
-	if err != nil {
-		return ConversationListResult{}, err
-	}
-	findings := append([]CorruptStateFinding{}, corruptConversations...)
-	findings = append(findings, corruptRuns...)
-	items := make([]ConversationListItem, 0, len(conversations))
-	for _, conversation := range conversations {
-		count, corruptMessages, err := service.store.MessageCountAllowingCorrupt(workspaceID, conversation.ID)
-		if err != nil {
-			service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversation.ID, "")
-			return ConversationListResult{}, err
-		}
-		findings = append(findings, corruptMessages...)
-		readState, err := service.store.LoadConversationReadState(workspaceID, conversation.ID)
-		if err != nil {
-			service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversation.ID, "")
-			return ConversationListResult{}, err
-		}
-		items = append(items, ConversationListItem{
-			Conversation:             conversation,
-			MessageCount:             count,
-			ActiveRunID:              activeRunIDFromRuns(runs, conversation.ID),
-			ReadMarker:               readState.ReadMarker,
-			LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
-		})
-	}
-	diagnostics := service.recordCorruptStateFindingsLocked(findings)
-	return ConversationListResult{
-		Conversations: items,
-		Corruption:    corruptionSummary(findings),
-		Diagnostics:   diagnostics,
-	}, nil
+	return service.listConversations(workspaceID)
 }
 
-func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
-		return Conversation{}, err
-	}
-	now := timestamp(service.now())
-	id, err := service.newID("conversation")
-	if err != nil {
-		return Conversation{}, fmt.Errorf("create conversation id: %w", err)
-	}
-	title = strings.TrimSpace(title)
-	if title == "" {
-		title = "New chat"
-	}
-	conversation := Conversation{
-		SchemaVersion: SchemaVersion,
-		ID:            id,
-		WorkspaceID:   workspaceID,
-		Title:         title,
-		CreatedAt:     now,
-		UpdatedAt:     now,
-		ArchivedAt:    "",
-		HarnessRefs:   []HarnessThreadRef{},
-	}
-	if err := service.store.SaveConversation(conversation); err != nil {
-		return Conversation{}, err
-	}
-	if err := service.publishConversationUpdated(workspaceID, conversation.ID, ""); err != nil {
-		return Conversation{}, err
-	}
-	return conversation, nil
-}
-
-func (service *Service) MarkConversationRead(workspaceID string, conversationID string) (ConversationListItem, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
-		return ConversationListItem{}, err
-	}
+func (service *Service) archiveConversation(workspaceID string, conversationID string) error {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	if _, err := service.store.LoadConversation(workspaceID, conversationID); err != nil {
-		return ConversationListItem{}, err
-	}
-	if err := service.markConversationReadLocked(workspaceID, conversationID, timestamp(service.now())); err != nil {
-		return ConversationListItem{}, err
-	}
-	item, err := service.conversationListItemLocked(workspaceID, conversationID)
-	if err != nil {
-		return ConversationListItem{}, err
-	}
-	_, err = service.events.Publish(NewConversationUpdatedEvent(workspaceID, conversationID, "", item))
-	return item, err
-}
-
-func (service *Service) LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
-	if limit == 0 {
-		limit = defaultPageLimit
-	}
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
-		return MessagePage{}, err
-	}
-	service.mu.Lock()
-	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeOrdinal, limit)
-	service.mu.Unlock()
-	if err != nil {
-		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
-		return MessagePage{}, err
-	}
-	return page, nil
-}
-
-func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
-	page, err := service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
-	if err != nil {
-		return MessagePage{}, err
-	}
-	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, beforeOrdinal, page)
-	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
-		return MessagePage{}, err
-	}
-	return page, nil
-}
-
-func (service *Service) publishConversationUpdated(workspaceID string, conversationID string, runID string) error {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
-}
-
-func (service *Service) publishConversationUpdatedLocked(workspaceID string, conversationID string, runID string) error {
-	item, err := service.conversationListItemLocked(workspaceID, conversationID)
+	runs, err := service.runsForConversationForArchiveLocked(workspaceID, conversationID)
 	if err != nil {
 		return err
 	}
-	_, err = service.events.Publish(NewConversationUpdatedEvent(workspaceID, conversationID, runID, item))
-	return err
-}
+	if err := service.rejectConversationArchiveWithLiveRunLocked(workspaceID, conversationID, runs); err != nil {
+		return err
+	}
 
-func (service *Service) conversationListItemLocked(workspaceID string, conversationID string) (ConversationListItem, error) {
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
 	if err != nil {
-		return ConversationListItem{}, err
+		service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversationID, "")
+		return err
 	}
-	count, err := service.store.MessageCount(workspaceID, conversationID)
-	if err != nil {
-		return ConversationListItem{}, err
+	if conversation.ArchivedAt != "" {
+		return nil
 	}
-	activeRunID := ""
-	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
+
+	now := timestamp(service.now())
+	conversation.ArchivedAt = now
+	conversation.UpdatedAt = now
+	if err := service.store.SaveConversation(conversation); err != nil {
+		return err
+	}
+	return service.publishConversationUpdatedLocked(workspaceID, conversationID, "")
+}
+
+func (service *Service) runsForConversationForArchiveLocked(workspaceID string, conversationID string) ([]Run, error) {
+	runs, corrupt, err := service.store.ScanRunsForConversationAllowingCorrupt(workspaceID, conversationID)
 	if err != nil {
-		return ConversationListItem{}, err
+		return nil, err
+	}
+	for _, finding := range corrupt {
+		service.recordCorruptStateFindingLocked(finding)
+	}
+	return runs, nil
+}
+
+func (service *Service) rejectConversationArchiveWithLiveRunLocked(workspaceID string, conversationID string, runs []Run) error {
+	if active, ok := service.active[activeKey(workspaceID, conversationID)]; ok && active.workspaceID == workspaceID {
+		return fmt.Errorf("cannot delete conversation %s while run %s is active", conversationID, active.runID)
+	}
+	for _, run := range runs {
+		if run.Status == RunStatusQueued {
+			return fmt.Errorf("cannot delete conversation %s while run %s is queued", conversationID, run.ID)
+		}
 	}
 	if run, ok, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs); err != nil {
-		return ConversationListItem{}, err
+		return err
 	} else if ok {
-		activeRunID = run.ID
+		return fmt.Errorf("cannot delete conversation %s while run %s is active", conversationID, run.ID)
 	}
-	readState, err := service.store.LoadConversationReadState(workspaceID, conversationID)
-	if err != nil {
-		return ConversationListItem{}, err
-	}
-	return ConversationListItem{
-		ActiveRunID:              activeRunID,
-		Conversation:             conversation,
-		MessageCount:             count,
-		ReadMarker:               readState.ReadMarker,
-		LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
-	}, nil
-}
-
-func (service *Service) advanceReadRelevantMarkerLocked(workspaceID string, conversationID string, now string) error {
-	state, err := service.store.LoadConversationReadState(workspaceID, conversationID)
-	if err != nil {
-		return err
-	}
-	state.LatestReadRelevantMarker += 1
-	state.UpdatedAt = now
-	return service.store.SaveConversationReadState(workspaceID, state)
-}
-
-func (service *Service) markConversationReadLocked(workspaceID string, conversationID string, now string) error {
-	state, err := service.store.LoadConversationReadState(workspaceID, conversationID)
-	if err != nil {
-		return err
-	}
-	state.ReadMarker = state.LatestReadRelevantMarker
-	state.UpdatedAt = now
-	return service.store.SaveConversationReadState(workspaceID, state)
+	return nil
 }

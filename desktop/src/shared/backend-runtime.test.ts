@@ -71,49 +71,6 @@ describe("backend runtime requests", () => {
     expect(call.init.headers).toEqual({ "Content-Type": "application/json" });
   });
 
-  test("sends bearer auth when a token is configured", async () => {
-    const calls: FetchCall[] = [];
-    const fetchImpl: BackendFetch = async (input, init) => {
-      calls.push({ init, input });
-      return jsonResponse({ ok: true });
-    };
-
-    await requestBackend({
-      authToken: "test-token",
-      baseURL: "http://127.0.0.1:41000",
-      decodeErrorResponse: decodeRuntimeError,
-      decodeResponse: decodeOKPayload,
-      endpoint: { method: "GET", path: "/payload" },
-      fetchImpl,
-      requestPayload: undefined,
-    });
-
-    expect(onlyCall(calls).init.headers).toEqual({ Authorization: "Bearer test-token" });
-  });
-
-  test("combines bearer auth with JSON content type", async () => {
-    const calls: FetchCall[] = [];
-    const fetchImpl: BackendFetch = async (input, init) => {
-      calls.push({ init, input });
-      return jsonResponse({ ok: true });
-    };
-
-    await requestBackend({
-      authToken: "test-token",
-      baseURL: "http://127.0.0.1:41000",
-      decodeErrorResponse: decodeRuntimeError,
-      decodeResponse: decodeOKPayload,
-      endpoint: { method: "POST", path: "/payload" },
-      fetchImpl,
-      requestPayload: { id: "workspace_api" },
-    });
-
-    expect(onlyCall(calls).init.headers).toEqual({
-      Authorization: "Bearer test-token",
-      "Content-Type": "application/json",
-    });
-  });
-
   test("throws decoded backend error messages", async () => {
     await expect(
       requestBackend({

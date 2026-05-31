@@ -12,7 +12,7 @@ import {
   decodeUnknown,
   requestBackend,
   requireField,
-  type BackendClientOptions,
+  type BackendFetch,
 } from "@shared/backend-runtime";
 
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -211,9 +211,9 @@ export function decodeTextFormat(value: unknown, label = "TextFormat"): TextForm
   }
 }
 
-export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "context_compaction" | "notice" | "approval_review" | "hook" | "structured_input";
+export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "notice" | "approval_review" | "hook" | "structured_input";
 
-export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "context_compaction", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
+export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
 
 export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
   const decoded = decodeString(value, label);
@@ -243,8 +243,6 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
     case "terminal_interaction":
       return decoded;
     case "diff":
-      return decoded;
-    case "context_compaction":
       return decoded;
     case "notice":
       return decoded;
@@ -363,16 +361,22 @@ export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): 
   }
 }
 
-export type ChatCommandKind = "goal" | "model";
+export type ChatCommandKind = "goal" | "mcp" | "model" | "new" | "skills";
 
-export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+export const chatCommandKindValues = ["goal", "mcp", "model", "new", "skills"] as const satisfies readonly ChatCommandKind[];
 
 export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "goal":
       return decoded;
+    case "mcp":
+      return decoded;
     case "model":
+      return decoded;
+    case "new":
+      return decoded;
+    case "skills":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -589,8 +593,6 @@ export interface ConversationListItem {
   conversation: Conversation;
   messageCount: number;
   activeRunId: string;
-  readMarker: number;
-  latestReadRelevantMarker: number;
 }
 
 export interface CorruptionCount {
@@ -630,7 +632,7 @@ export interface CreateConversationRequest {
   title: string;
 }
 
-export interface MarkConversationReadRequest {
+export interface DeleteConversationRequest {
   workspaceId: string;
   conversationId: string;
 }
@@ -818,6 +820,13 @@ export interface SendMessageResult {
   page: MessagePage;
 }
 
+export interface UpdateUserMessageRequest {
+  workspaceId: string;
+  conversationId: string;
+  messageId: string;
+  text: string;
+}
+
 export interface QueueChatMessageRequest {
   workspaceId: string;
   conversationId: string;
@@ -832,35 +841,6 @@ export interface QueueMessageResult {
   page: MessagePage;
 }
 
-export interface EditQueuedChatMessageRequest {
-  workspaceId: string;
-  conversationId: string;
-  messageId: string;
-  prompt: string;
-}
-
-export interface QueueEditResult {
-  conversation: Conversation;
-  userMessage: ChatMessage;
-  run: Run;
-  queue: QueueState;
-  page: MessagePage;
-}
-
-export interface RemoveQueuedChatMessageRequest {
-  workspaceId: string;
-  conversationId: string;
-  messageId: string;
-}
-
-export interface QueueRemoveResult {
-  conversation: Conversation;
-  removedMessageId: string;
-  removedRunId: string;
-  queue: QueueState;
-  page: MessagePage;
-}
-
 export interface SteerChatMessageRequest {
   workspaceId: string;
   conversationId: string;
@@ -871,21 +851,6 @@ export interface SteerMessageResult {
   conversation: Conversation;
   userMessage: ChatMessage;
   run: Run;
-  page: MessagePage;
-}
-
-export interface SendSteeringImmediatelyRequest {
-  workspaceId: string;
-  conversationId: string;
-  prompt: string;
-}
-
-export interface ImmediateSteeringResult {
-  conversation: Conversation;
-  cancelledRun: Run;
-  replayedSteeringMessageIds: string[];
-  activeRun: Run;
-  queue: QueueState;
   page: MessagePage;
 }
 
@@ -1026,15 +991,6 @@ export interface ListDiagnosticsResponse {
   diagnostics: Diagnostic[];
 }
 
-export interface ListApprovalsRequest {
-  workspaceId: string;
-  conversationId: string;
-}
-
-export interface ListApprovalsResponse {
-  approvals: ApprovalRequest[];
-}
-
 export interface ApprovalAnswer {
   questionId: string;
   answers: string[];
@@ -1130,11 +1086,6 @@ export interface MessageUpdatedPayload {
   message: ChatMessage;
 }
 
-export interface MessageRemovedPayload {
-  messageId: string;
-  runId: string;
-}
-
 export interface RunUpdatedPayload {
   run: Run;
 }
@@ -1186,7 +1137,6 @@ export type ChatEvent =
   | ChatMessageSteeringSentEvent
   | ChatAssistantTextDeltaEvent
   | ChatMessageUpdatedEvent
-  | ChatMessageRemovedEvent
   | ChatRunUpdatedEvent
   | ChatRunItemCreatedEvent
   | ChatRunItemUpdatedEvent
@@ -1262,19 +1212,6 @@ export interface ChatMessageUpdatedEvent {
   conversationId: string;
   runId: string;
   payload: MessageUpdatedPayload;
-}
-
-export interface ChatMessageRemovedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.message.removed";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: MessageRemovedPayload;
 }
 
 export interface ChatRunUpdatedEvent {
@@ -1444,9 +1381,9 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/conversations/create",
   },
-  MarkConversationRead: {
+  DeleteConversation: {
     method: "POST",
-    path: "/chat/conversations/mark-read",
+    path: "/chat/conversations/delete",
   },
   GetMessagePage: {
     method: "POST",
@@ -1456,25 +1393,17 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/messages/send",
   },
+  UpdateUserMessage: {
+    method: "POST",
+    path: "/chat/messages/update-user",
+  },
   QueueChatMessage: {
     method: "POST",
     path: "/chat/messages/queue",
   },
-  EditQueuedChatMessage: {
-    method: "POST",
-    path: "/chat/messages/queue/edit",
-  },
-  RemoveQueuedChatMessage: {
-    method: "POST",
-    path: "/chat/messages/queue/remove",
-  },
   SteerChatMessage: {
     method: "POST",
     path: "/chat/messages/steer",
-  },
-  SendSteeringImmediately: {
-    method: "POST",
-    path: "/chat/messages/steer/immediate",
   },
   ListChatCommands: {
     method: "POST",
@@ -1515,10 +1444,6 @@ export const backendEndpoints = {
   ListDiagnostics: {
     method: "POST",
     path: "/chat/diagnostics/list",
-  },
-  ListApprovals: {
-    method: "POST",
-    path: "/chat/approvals/list",
   },
   SubmitApproval: {
     method: "POST",
@@ -1680,13 +1605,11 @@ export function decodeConversation(value: unknown): Conversation {
 
 export function decodeConversationListItem(value: unknown): ConversationListItem {
   const record = assertRecord(value, "ConversationListItem");
-  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "readMarker", "latestReadRelevantMarker"]);
+  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "ConversationListItem")),
     messageCount: decodeInteger(requireField(record, "messageCount", "ConversationListItem"), "ConversationListItem.messageCount"),
     activeRunId: decodeString(requireField(record, "activeRunId", "ConversationListItem"), "ConversationListItem.activeRunId"),
-    readMarker: decodeInteger(requireField(record, "readMarker", "ConversationListItem"), "ConversationListItem.readMarker"),
-    latestReadRelevantMarker: decodeInteger(requireField(record, "latestReadRelevantMarker", "ConversationListItem"), "ConversationListItem.latestReadRelevantMarker"),
   };
 }
 
@@ -1747,12 +1670,12 @@ export function decodeCreateConversationRequest(value: unknown): CreateConversat
   };
 }
 
-export function decodeMarkConversationReadRequest(value: unknown): MarkConversationReadRequest {
-  const record = assertRecord(value, "MarkConversationReadRequest");
-  assertKnownFields(record, "MarkConversationReadRequest", ["workspaceId", "conversationId"]);
+export function decodeDeleteConversationRequest(value: unknown): DeleteConversationRequest {
+  const record = assertRecord(value, "DeleteConversationRequest");
+  assertKnownFields(record, "DeleteConversationRequest", ["workspaceId", "conversationId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "MarkConversationReadRequest"), "MarkConversationReadRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "MarkConversationReadRequest"), "MarkConversationReadRequest.conversationId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "DeleteConversationRequest"), "DeleteConversationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "DeleteConversationRequest"), "DeleteConversationRequest.conversationId"),
   };
 }
 
@@ -1999,6 +1922,17 @@ export function decodeSendMessageResult(value: unknown): SendMessageResult {
   };
 }
 
+export function decodeUpdateUserMessageRequest(value: unknown): UpdateUserMessageRequest {
+  const record = assertRecord(value, "UpdateUserMessageRequest");
+  assertKnownFields(record, "UpdateUserMessageRequest", ["workspaceId", "conversationId", "messageId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.conversationId"),
+    messageId: decodeString(requireField(record, "messageId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.messageId"),
+    text: decodeString(requireField(record, "text", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.text"),
+  };
+}
+
 export function decodeQueueChatMessageRequest(value: unknown): QueueChatMessageRequest {
   const record = assertRecord(value, "QueueChatMessageRequest");
   assertKnownFields(record, "QueueChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
@@ -2021,51 +1955,6 @@ export function decodeQueueMessageResult(value: unknown): QueueMessageResult {
   };
 }
 
-export function decodeEditQueuedChatMessageRequest(value: unknown): EditQueuedChatMessageRequest {
-  const record = assertRecord(value, "EditQueuedChatMessageRequest");
-  assertKnownFields(record, "EditQueuedChatMessageRequest", ["workspaceId", "conversationId", "messageId", "prompt"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.conversationId"),
-    messageId: decodeString(requireField(record, "messageId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.messageId"),
-    prompt: decodeString(requireField(record, "prompt", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.prompt"),
-  };
-}
-
-export function decodeQueueEditResult(value: unknown): QueueEditResult {
-  const record = assertRecord(value, "QueueEditResult");
-  assertKnownFields(record, "QueueEditResult", ["conversation", "userMessage", "run", "queue", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "QueueEditResult")),
-    userMessage: decodeChatMessage(requireField(record, "userMessage", "QueueEditResult")),
-    run: decodeRun(requireField(record, "run", "QueueEditResult")),
-    queue: decodeQueueState(requireField(record, "queue", "QueueEditResult")),
-    page: decodeMessagePage(requireField(record, "page", "QueueEditResult")),
-  };
-}
-
-export function decodeRemoveQueuedChatMessageRequest(value: unknown): RemoveQueuedChatMessageRequest {
-  const record = assertRecord(value, "RemoveQueuedChatMessageRequest");
-  assertKnownFields(record, "RemoveQueuedChatMessageRequest", ["workspaceId", "conversationId", "messageId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "RemoveQueuedChatMessageRequest"), "RemoveQueuedChatMessageRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "RemoveQueuedChatMessageRequest"), "RemoveQueuedChatMessageRequest.conversationId"),
-    messageId: decodeString(requireField(record, "messageId", "RemoveQueuedChatMessageRequest"), "RemoveQueuedChatMessageRequest.messageId"),
-  };
-}
-
-export function decodeQueueRemoveResult(value: unknown): QueueRemoveResult {
-  const record = assertRecord(value, "QueueRemoveResult");
-  assertKnownFields(record, "QueueRemoveResult", ["conversation", "removedMessageId", "removedRunId", "queue", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "QueueRemoveResult")),
-    removedMessageId: decodeString(requireField(record, "removedMessageId", "QueueRemoveResult"), "QueueRemoveResult.removedMessageId"),
-    removedRunId: decodeString(requireField(record, "removedRunId", "QueueRemoveResult"), "QueueRemoveResult.removedRunId"),
-    queue: decodeQueueState(requireField(record, "queue", "QueueRemoveResult")),
-    page: decodeMessagePage(requireField(record, "page", "QueueRemoveResult")),
-  };
-}
-
 export function decodeSteerChatMessageRequest(value: unknown): SteerChatMessageRequest {
   const record = assertRecord(value, "SteerChatMessageRequest");
   assertKnownFields(record, "SteerChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
@@ -2084,29 +1973,6 @@ export function decodeSteerMessageResult(value: unknown): SteerMessageResult {
     userMessage: decodeChatMessage(requireField(record, "userMessage", "SteerMessageResult")),
     run: decodeRun(requireField(record, "run", "SteerMessageResult")),
     page: decodeMessagePage(requireField(record, "page", "SteerMessageResult")),
-  };
-}
-
-export function decodeSendSteeringImmediatelyRequest(value: unknown): SendSteeringImmediatelyRequest {
-  const record = assertRecord(value, "SendSteeringImmediatelyRequest");
-  assertKnownFields(record, "SendSteeringImmediatelyRequest", ["workspaceId", "conversationId", "prompt"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.conversationId"),
-    prompt: decodeString(requireField(record, "prompt", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.prompt"),
-  };
-}
-
-export function decodeImmediateSteeringResult(value: unknown): ImmediateSteeringResult {
-  const record = assertRecord(value, "ImmediateSteeringResult");
-  assertKnownFields(record, "ImmediateSteeringResult", ["conversation", "cancelledRun", "replayedSteeringMessageIds", "activeRun", "queue", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "ImmediateSteeringResult")),
-    cancelledRun: decodeRun(requireField(record, "cancelledRun", "ImmediateSteeringResult")),
-    replayedSteeringMessageIds: decodeArray(requireField(record, "replayedSteeringMessageIds", "ImmediateSteeringResult"), "ImmediateSteeringResult.replayedSteeringMessageIds", (item) => decodeString(item, "ImmediateSteeringResult.replayedSteeringMessageIds item")),
-    activeRun: decodeRun(requireField(record, "activeRun", "ImmediateSteeringResult")),
-    queue: decodeQueueState(requireField(record, "queue", "ImmediateSteeringResult")),
-    page: decodeMessagePage(requireField(record, "page", "ImmediateSteeringResult")),
   };
 }
 
@@ -2331,23 +2197,6 @@ export function decodeListDiagnosticsResponse(value: unknown): ListDiagnosticsRe
   };
 }
 
-export function decodeListApprovalsRequest(value: unknown): ListApprovalsRequest {
-  const record = assertRecord(value, "ListApprovalsRequest");
-  assertKnownFields(record, "ListApprovalsRequest", ["workspaceId", "conversationId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ListApprovalsRequest"), "ListApprovalsRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ListApprovalsRequest"), "ListApprovalsRequest.conversationId"),
-  };
-}
-
-export function decodeListApprovalsResponse(value: unknown): ListApprovalsResponse {
-  const record = assertRecord(value, "ListApprovalsResponse");
-  assertKnownFields(record, "ListApprovalsResponse", ["approvals"]);
-  return {
-    approvals: decodeArray(requireField(record, "approvals", "ListApprovalsResponse"), "ListApprovalsResponse.approvals", (item) => decodeApprovalRequest(item)),
-  };
-}
-
 export function decodeApprovalAnswer(value: unknown): ApprovalAnswer {
   const record = assertRecord(value, "ApprovalAnswer");
   assertKnownFields(record, "ApprovalAnswer", ["questionId", "answers", "value"]);
@@ -2511,15 +2360,6 @@ export function decodeMessageUpdatedPayload(value: unknown): MessageUpdatedPaylo
   };
 }
 
-export function decodeMessageRemovedPayload(value: unknown): MessageRemovedPayload {
-  const record = assertRecord(value, "MessageRemovedPayload");
-  assertKnownFields(record, "MessageRemovedPayload", ["messageId", "runId"]);
-  return {
-    messageId: decodeString(requireField(record, "messageId", "MessageRemovedPayload"), "MessageRemovedPayload.messageId"),
-    runId: decodeString(requireField(record, "runId", "MessageRemovedPayload"), "MessageRemovedPayload.runId"),
-  };
-}
-
 export function decodeRunUpdatedPayload(value: unknown): RunUpdatedPayload {
   const record = assertRecord(value, "RunUpdatedPayload");
   assertKnownFields(record, "RunUpdatedPayload", ["run"]);
@@ -2619,8 +2459,6 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatAssistantTextDeltaEventFromRecord(record);
     case "chat.message.updated":
       return decodeChatMessageUpdatedEventFromRecord(record);
-    case "chat.message.removed":
-      return decodeChatMessageRemovedEventFromRecord(record);
     case "chat.run.updated":
       return decodeChatRunUpdatedEventFromRecord(record);
     case "chat.run_item.created":
@@ -2763,30 +2601,6 @@ function decodeChatMessageUpdatedEventFromRecord(record: Record<string, unknown>
     conversationId: decodeString(requireField(record, "conversationId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.conversationId"),
     runId: decodeString(requireField(record, "runId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.runId"),
     payload: decodeMessageUpdatedPayload(requireField(record, "payload", "ChatMessageUpdatedEvent")),
-  };
-}
-
-export function decodeChatMessageRemovedEvent(value: unknown): ChatMessageRemovedEvent {
-  return decodeChatMessageRemovedEventFromRecord(assertRecord(value, "ChatMessageRemovedEvent"));
-}
-
-function decodeChatMessageRemovedEventFromRecord(record: Record<string, unknown>): ChatMessageRemovedEvent {
-  assertKnownFields(record, "ChatMessageRemovedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.type");
-  if (type !== "chat.message.removed") {
-    throw new Error("ChatMessageRemovedEvent.type must be chat.message.removed, got " + type);
-  }
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.eventId"),
-    type: "chat.message.removed",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.runId"),
-    payload: decodeMessageRemovedPayload(requireField(record, "payload", "ChatMessageRemovedEvent")),
   };
 }
 
@@ -3040,14 +2854,12 @@ export interface BackendClient {
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
-  markConversationRead: (request: MarkConversationReadRequest) => Promise<ConversationListItem>;
+  deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
+  updateUserMessage: (request: UpdateUserMessageRequest) => Promise<ChatMessage>;
   queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
-  editQueuedChatMessage: (request: EditQueuedChatMessageRequest) => Promise<QueueEditResult>;
-  removeQueuedChatMessage: (request: RemoveQueuedChatMessageRequest) => Promise<QueueRemoveResult>;
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
-  sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
@@ -3058,7 +2870,6 @@ export interface BackendClient {
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
-  listApprovals: (request: ListApprovalsRequest) => Promise<ListApprovalsResponse>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
   readCodexAccount: () => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
@@ -3067,12 +2878,9 @@ export interface BackendClient {
   logoutCodexAccount: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
 }
 
-export function createBackendClient(baseURL: string, options: BackendClientOptions = {}): BackendClient {
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const authToken = options.authToken ?? "";
+export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {
   return {
     backendHealth: () => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackendHealth,
@@ -3081,7 +2889,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: undefined,
     }),
     workspaceSession: () => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3090,7 +2897,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: undefined,
     }),
     openWorkspace: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeOpenWorkspaceResponse,
@@ -3099,7 +2905,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     selectWorkspace: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3108,7 +2913,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     closeWorkspace: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3117,7 +2921,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     reorderWorkspace: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3126,7 +2929,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     removeRecentWorkspace: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3135,7 +2937,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     listConversations: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListConversationsResponse,
@@ -3144,7 +2945,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     createConversation: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversation,
@@ -3152,17 +2952,15 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       fetchImpl,
       requestPayload: request,
     }),
-    markConversationRead: (request) => requestBackend({
-      authToken,
+    deleteConversation: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationListItem,
-      endpoint: backendEndpoints.MarkConversationRead,
+      decodeResponse: decodeListConversationsResponse,
+      endpoint: backendEndpoints.DeleteConversation,
       fetchImpl,
       requestPayload: request,
     }),
     getMessagePage: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeMessagePage,
@@ -3171,7 +2969,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     sendChatMessage: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSendMessageResult,
@@ -3179,8 +2976,15 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       fetchImpl,
       requestPayload: request,
     }),
+    updateUserMessage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatMessage,
+      endpoint: backendEndpoints.UpdateUserMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
     queueChatMessage: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueMessageResult,
@@ -3188,26 +2992,7 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       fetchImpl,
       requestPayload: request,
     }),
-    editQueuedChatMessage: (request) => requestBackend({
-      authToken,
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeQueueEditResult,
-      endpoint: backendEndpoints.EditQueuedChatMessage,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    removeQueuedChatMessage: (request) => requestBackend({
-      authToken,
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeQueueRemoveResult,
-      endpoint: backendEndpoints.RemoveQueuedChatMessage,
-      fetchImpl,
-      requestPayload: request,
-    }),
     steerChatMessage: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSteerMessageResult,
@@ -3215,17 +3000,7 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       fetchImpl,
       requestPayload: request,
     }),
-    sendSteeringImmediately: (request) => requestBackend({
-      authToken,
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeImmediateSteeringResult,
-      endpoint: backendEndpoints.SendSteeringImmediately,
-      fetchImpl,
-      requestPayload: request,
-    }),
     listChatCommands: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandListResult,
@@ -3234,7 +3009,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     executeChatCommand: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
@@ -3243,7 +3017,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     setChatCodexModel: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
@@ -3252,7 +3025,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     setChatCodexReasoningEffort: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
@@ -3261,7 +3033,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     cancelRun: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
@@ -3270,7 +3041,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     getActiveRun: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeGetActiveRunResponse,
@@ -3279,7 +3049,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     listRuns: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListRunsResponse,
@@ -3288,7 +3057,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     getRunActivity: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunActivityPage,
@@ -3297,7 +3065,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     getRunItemOutputPage: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunItemOutputPage,
@@ -3306,7 +3073,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     listDiagnostics: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDiagnosticsResponse,
@@ -3314,17 +3080,7 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       fetchImpl,
       requestPayload: request,
     }),
-    listApprovals: (request) => requestBackend({
-      authToken,
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeListApprovalsResponse,
-      endpoint: backendEndpoints.ListApprovals,
-      fetchImpl,
-      requestPayload: request,
-    }),
     submitApproval: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
@@ -3333,7 +3089,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     readCodexAccount: () => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
@@ -3342,7 +3097,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: undefined,
     }),
     refreshCodexAccount: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
@@ -3351,7 +3105,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     startCodexLogin: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeStartCodexLoginResponse,
@@ -3360,7 +3113,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     cancelCodexLogin: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
@@ -3369,7 +3121,6 @@ export function createBackendClient(baseURL: string, options: BackendClientOptio
       requestPayload: request,
     }),
     logoutCodexAccount: (request) => requestBackend({
-      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
