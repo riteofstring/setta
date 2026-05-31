@@ -35,6 +35,7 @@ interface ChatStore {
   operation: ChatOperation;
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
+  createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   selectedConversation: Conversation | null;
   selectConversation: (conversationId: string) => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
@@ -118,7 +119,20 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "creating" });
+      await get().createWorkspaceConversation(workspaceId, title);
+    },
+    createWorkspaceConversation: async (workspaceId, title = "") => {
+      const switchingWorkspace = get().workspaceId !== workspaceId;
+      const operationId = beginOperation({
+        activeRun: switchingWorkspace ? null : get().activeRun,
+        error: null,
+        hasMoreOlder: switchingWorkspace ? false : get().hasMoreOlder,
+        messages: switchingWorkspace ? [] : get().messages,
+        operation: "creating",
+        selectedConversation: switchingWorkspace ? null : get().selectedConversation,
+        status: switchingWorkspace ? "loading" : get().status,
+        workspaceId,
+      });
       try {
         const conversation = await window.setta.chat.createConversation(workspaceId, title);
         const list = await reloadConversations(workspaceId);
@@ -129,6 +143,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           operation: null,
           selectedConversation: conversation,
           status: "ready",
+          workspaceId,
         });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));

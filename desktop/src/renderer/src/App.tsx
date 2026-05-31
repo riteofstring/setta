@@ -387,6 +387,7 @@ function ProjectPane({
           closeWorkspace={workspace.closeWorkspace}
           conversations={chat.conversations}
           createConversation={chat.createConversation}
+          createWorkspaceConversation={chat.createWorkspaceConversation}
           openLocalFolder={workspace.openLocalFolder}
           openSearch={openSearchPalette}
           recentWorkspaces={workspace.recentWorkspaces}
