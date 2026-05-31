@@ -900,7 +900,7 @@ function ConversationRow({
     <div className="group/chat relative min-w-0">
       <button
         className={cn(
-          "grid h-7 w-full min-w-0 grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 pr-7 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
+          "grid h-7 w-full min-w-0 grid-cols-[18px_minmax(0,1fr)_2.25rem] items-center gap-2 rounded-sm px-2 text-left hover:bg-zinc-800/70 hover:text-zinc-100",
           selected ? "text-zinc-100" : "text-zinc-300",
         )}
         data-testid="conversation-list-item"
@@ -912,7 +912,10 @@ function ConversationRow({
         <span className="truncate text-xs">{item.conversation.title}</span>
         {responseAge ? (
           <time
-            className="pl-2 text-[11px] text-zinc-500"
+            className={cn(
+              "justify-self-end text-right text-[11px] text-zinc-500 opacity-100 transition-opacity duration-75 ease-out group-hover/chat:opacity-0 group-focus-within/chat:opacity-0",
+              pinned && "opacity-0",
+            )}
             dateTime={item.conversation.updatedAt}
             title={item.conversation.updatedAt}
           >
@@ -973,7 +976,7 @@ function ConversationPinButton({
     <button
       aria-label={label}
       className={cn(
-        "absolute top-1 right-1 grid h-5 w-5 place-items-center rounded-sm text-zinc-500 opacity-0 outline-none transition-opacity hover:bg-zinc-700/80 hover:text-zinc-100 focus-visible:bg-zinc-700/80 focus-visible:text-zinc-100 group-hover/chat:opacity-100",
+        "absolute top-1 right-2 grid h-5 w-5 place-items-center rounded-sm text-zinc-500 opacity-0 outline-none transition-opacity duration-75 ease-out hover:bg-zinc-700/80 hover:text-zinc-100 focus-visible:bg-zinc-700/80 focus-visible:text-zinc-100 group-hover/chat:opacity-100",
         pinned ? "opacity-100 text-zinc-300" : "",
       )}
       onClick={() => togglePinned(conversationId)}
