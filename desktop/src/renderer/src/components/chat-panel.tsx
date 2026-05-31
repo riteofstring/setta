@@ -1,9 +1,10 @@
 import type { WorkspaceSummary } from "@generated/backend";
-import { ArrowUp, ChevronDown, MessageSquarePlus, Mic, Plus, Settings, Square } from "lucide-react";
+import { ArrowUp, ChevronDown, MessageSquarePlus, Mic, Plus, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
+import { ChatPermissionsMenu } from "./chat-permissions-menu";
 import { ChatTranscript } from "./chat-transcript";
 import { SlashCommandPalette } from "./slash-command-palette";
 import { Button } from "./ui/button";
@@ -196,9 +197,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
               <IconButton disabled={disabled} label="Add attachment">
                 <Plus className="h-4 w-4" />
               </IconButton>
-              <ComposerMenuButton disabled={disabled} icon={<Settings className="h-4 w-4" />}>
-                Custom
-              </ComposerMenuButton>
+              <ChatPermissionsMenu disabled={disabled} />
             </div>
             <div className="flex min-w-0 items-center gap-2">
               <ComposerMenuButton disabled={disabled}>5.5 Extra High</ComposerMenuButton>
@@ -256,22 +255,13 @@ function ComposerButton({
   );
 }
 
-function ComposerMenuButton({
-  children,
-  disabled,
-  icon,
-}: {
-  children: ReactNode;
-  disabled: boolean;
-  icon?: ReactNode;
-}) {
+function ComposerMenuButton({ children, disabled }: { children: ReactNode; disabled: boolean }) {
   return (
     <button
       className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={disabled}
       type="button"
     >
-      {icon}
       <span className="truncate">{children}</span>
       <ChevronDown className="h-4 w-4 shrink-0" />
     </button>

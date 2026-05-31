@@ -2,6 +2,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
+import { ChatPermissionsMenu } from "./components/chat-permissions-menu";
 import { ChatTranscript } from "./components/chat-transcript";
 import { EditorPicker } from "./components/editor-picker";
 import { SettingsPanel } from "./components/settings-panel";
@@ -212,6 +213,17 @@ describe("chat renderer states", () => {
     expect(html).toContain("Plan mode");
     expect(html).toContain("Frontend Design");
     expect(html).toContain("Setta will keep working");
+    expect(html).not.toContain("Pet");
+    expect(html).not.toContain("Codex");
+  });
+
+  test("renders chat permission menu options", () => {
+    const html = renderToString(<ChatPermissionsMenu disabled={false} initialOpen />);
+
+    expect(html).toContain("Default permissions");
+    expect(html).toContain("Auto-review");
+    expect(html).toContain("Full access");
+    expect(html).toContain("Custom (config.toml)");
     expect(html).not.toContain("Pet");
     expect(html).not.toContain("Codex");
   });
