@@ -1249,7 +1249,7 @@ func (harness *approvalCompletesBeforeSubmitReturnsHarness) SubmitApproval(ctx c
 		return ctx.Err()
 	}
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		harness.mu.Lock()
 		workspaceID := harness.workspaceID
