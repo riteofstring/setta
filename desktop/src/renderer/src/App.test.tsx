@@ -24,6 +24,7 @@ describe("workspace renderer states", () => {
           conversations={[]}
           createConversation={async () => {}}
           openLocalFolder={async () => {}}
+          openSearch={() => {}}
           recentWorkspaces={[]}
           removeRecent={async () => {}}
           selectConversation={async () => {}}
@@ -90,6 +91,7 @@ describe("workspace renderer states", () => {
           ]}
           createConversation={async () => {}}
           openLocalFolder={async () => {}}
+          openSearch={() => {}}
           recentWorkspaces={[web, api, docs]}
           removeRecent={async () => {}}
           selectConversation={async () => {}}
@@ -112,6 +114,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Active");
     expect(html).toContain("Web chat");
     expect(html).toContain("New chat in web");
+    expect(html).toContain("Search");
     expect(html).toContain("More options for web");
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('data-testid="recent-workspace-list"');
@@ -151,6 +154,7 @@ describe("workspace renderer states", () => {
         conversations={[]}
         createConversation={async () => {}}
         openLocalFolder={async () => {}}
+        openSearch={() => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
         selectConversation={async () => {}}

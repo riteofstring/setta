@@ -14,6 +14,7 @@ import {
   Pencil,
   Pin,
   Plug,
+  Search,
   Trash2,
   Workflow,
   X,
@@ -41,6 +42,7 @@ interface WorkspaceSidebarProps {
   conversations: ConversationListItem[];
   createConversation: (title?: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
+  openSearch: () => void;
   recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
   selectConversation: (conversationId: string) => Promise<void>;
@@ -71,6 +73,7 @@ export function WorkspaceSidebar({
   conversations,
   createConversation,
   openLocalFolder,
+  openSearch,
   recentWorkspaces,
   removeRecent,
   selectConversation,
@@ -97,7 +100,11 @@ export function WorkspaceSidebar({
   return (
     <aside className="flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 pt-10 text-zinc-100">
       <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-3">
-        <SidebarNav busy={busy || chatBusy} createConversation={createConversation} />
+        <SidebarNav
+          busy={busy || chatBusy}
+          createConversation={createConversation}
+          openSearch={openSearch}
+        />
         <section className="mt-4 min-w-0">
           <ProjectHeading busy={busy} openLocalFolder={openLocalFolder} />
           {activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0 ? (
@@ -132,9 +139,11 @@ export function WorkspaceSidebar({
 function SidebarNav({
   busy,
   createConversation,
+  openSearch,
 }: {
   busy: boolean;
   createConversation: (title?: string) => Promise<void>;
+  openSearch: () => void;
 }) {
   return (
     <nav className="grid gap-0.5" aria-label="Primary">
@@ -143,6 +152,11 @@ function SidebarNav({
         icon={<PenLine className="h-3.5 w-3.5" />}
         label="New chat"
         onClick={() => void createConversation()}
+      />
+      <SidebarNavButton
+        icon={<Search className="h-3.5 w-3.5" />}
+        label="Search"
+        onClick={openSearch}
       />
       <SidebarNavButton icon={<Plug className="h-3.5 w-3.5" />} label="Plugins" />
       <SidebarNavButton icon={<Clock3 className="h-3.5 w-3.5" />} label="Automations" />

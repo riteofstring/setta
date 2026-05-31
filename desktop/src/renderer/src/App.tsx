@@ -41,10 +41,16 @@ export function App() {
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [chatPaneOpen, setChatPaneOpen] = useState(true);
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
   const [rightView, setRightView] = useState<RightView | null>("canvas");
   const openChatSearch = useCallback(() => {
     setChatPaneOpen(true);
     setChatSearchOpen(true);
+  }, []);
+  const openSearchPalette = useCallback(() => {
+    setCommandPaletteOpen(false);
+    setSearchPaletteOpen(true);
   }, []);
 
   useEffect(() => {
@@ -57,19 +63,25 @@ export function App() {
     <div className="relative h-screen min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
       <AppMenuBar
         chatPaneOpen={chatPaneOpen}
+        commandPaletteOpen={commandPaletteOpen}
         createConversation={chat.createConversation}
         openChatSearch={openChatSearch}
+        openSearchPalette={openSearchPalette}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={rightView !== null}
+        searchPaletteOpen={searchPaletteOpen}
         selectedWorkspace={workspace.selectedWorkspace}
         setChatPaneOpen={setChatPaneOpen}
+        setCommandPaletteOpen={setCommandPaletteOpen}
         setProjectPaneOpen={setProjectPaneOpen}
         setRightPaneOpen={(open) => setRightView(open ? "canvas" : null)}
+        setSearchPaletteOpen={setSearchPaletteOpen}
       />
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
         <ProjectPane
           chat={chat}
           open={projectPaneOpen}
+          openSearchPalette={openSearchPalette}
           setWidth={setProjectPaneWidth}
           width={projectPaneWidth}
           workspace={workspace}
@@ -95,12 +107,14 @@ type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
 function ProjectPane({
   chat,
   open,
+  openSearchPalette,
   setWidth,
   width,
   workspace,
 }: {
   chat: ChatView;
   open: boolean;
+  openSearchPalette: () => void;
   setWidth: (width: number) => void;
   width: number;
   workspace: WorkspaceViewState;
@@ -127,6 +141,7 @@ function ProjectPane({
           conversations={chat.conversations}
           createConversation={chat.createConversation}
           openLocalFolder={workspace.openLocalFolder}
+          openSearch={openSearchPalette}
           recentWorkspaces={workspace.recentWorkspaces}
           removeRecent={workspace.removeRecent}
           selectConversation={chat.selectConversation}
@@ -189,28 +204,35 @@ function ChatPane({
 
 function AppMenuBar({
   chatPaneOpen,
+  commandPaletteOpen,
   createConversation,
   openChatSearch,
+  openSearchPalette,
   projectPaneOpen,
   rightPaneOpen,
+  searchPaletteOpen,
   selectedWorkspace,
   setChatPaneOpen,
+  setCommandPaletteOpen,
   setProjectPaneOpen,
   setRightPaneOpen,
+  setSearchPaletteOpen,
 }: {
   chatPaneOpen: boolean;
+  commandPaletteOpen: boolean;
   createConversation: (title?: string) => Promise<void>;
   openChatSearch: () => void;
+  openSearchPalette: () => void;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
+  searchPaletteOpen: boolean;
   selectedWorkspace: WorkspaceSummary | null;
   setChatPaneOpen: (open: boolean) => void;
+  setCommandPaletteOpen: (open: boolean) => void;
   setProjectPaneOpen: (open: boolean) => void;
   setRightPaneOpen: (open: boolean) => void;
+  setSearchPaletteOpen: (open: boolean) => void;
 }) {
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
-
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if (!isModShortcut(event)) {
@@ -225,8 +247,7 @@ function AppMenuBar({
       }
       if (key === "g") {
         event.preventDefault();
-        setCommandPaletteOpen(false);
-        setSearchPaletteOpen(true);
+        openSearchPalette();
         return;
       }
       if (key === "f") {
@@ -247,7 +268,13 @@ function AppMenuBar({
     return () => {
       window.removeEventListener("keydown", handleShortcut);
     };
-  }, [createConversation, openChatSearch]);
+  }, [
+    createConversation,
+    openChatSearch,
+    openSearchPalette,
+    setCommandPaletteOpen,
+    setSearchPaletteOpen,
+  ]);
 
   return (
     <header className="app-drag fixed top-0 right-0 left-0 z-50 grid h-8 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center bg-zinc-900/95 py-0 pr-2 pl-20 text-zinc-100">
