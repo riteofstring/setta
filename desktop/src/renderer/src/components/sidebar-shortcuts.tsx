@@ -1,18 +1,14 @@
-import { Bell, Clock3, PenLine, Plug, Search } from "lucide-react";
+import { PenLine } from "lucide-react";
 import type { ReactNode } from "react";
-
-import settaSLogo from "../../../../img/logo/s-logo-only-og.svg";
 
 export function SidebarShortcuts({
   busy,
   createConversation,
   hasWorkspace,
-  openSearch,
 }: {
   busy: boolean;
   createConversation: (title?: string) => Promise<void>;
   hasWorkspace: boolean;
-  openSearch: () => void;
 }) {
   return (
     <nav className="grid gap-0.5" aria-label="Primary">
@@ -22,26 +18,6 @@ export function SidebarShortcuts({
         label="New chat"
         onClick={() => void createConversation()}
       />
-      <SidebarShortcutButton
-        disabled={busy || !hasWorkspace}
-        icon={
-          <img
-            alt=""
-            className="h-3.5 w-3.5 opacity-80 grayscale"
-            draggable={false}
-            src={settaSLogo}
-          />
-        }
-        label="New setta gen"
-      />
-      <SidebarShortcutButton
-        icon={<Search className="h-3.5 w-3.5" />}
-        label="Search"
-        onClick={openSearch}
-      />
-      <SidebarShortcutButton icon={<Plug className="h-3.5 w-3.5" />} label="Plugins" />
-      <SidebarShortcutButton icon={<Clock3 className="h-3.5 w-3.5" />} label="Automations" />
-      <SidebarShortcutButton icon={<Bell className="h-3.5 w-3.5" />} label="Notifications / Logs" />
     </nav>
   );
 }

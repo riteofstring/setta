@@ -77,7 +77,6 @@ export interface ChatStore {
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  deleteConversation: (conversationId: string) => Promise<void>;
   resetWorkspaceState: () => Promise<void>;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
@@ -100,7 +99,6 @@ export interface ChatStore {
     cancelled: boolean,
   ) => Promise<void>;
   unreadConversationIds: Record<string, true>;
-  updateUserMessage: (messageId: string, text: string) => Promise<void>;
   workspaceId: string | null;
   transcript: TranscriptTurn[];
 }
@@ -261,9 +259,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
           workspaceId: switchingWorkspace ? workspaceId : get().workspaceId,
         });
       }
-    },
-    deleteConversation: async () => {
-      temporaryNoop("deleteConversation");
     },
     error: null,
     hasMoreOlder: false,
@@ -708,17 +703,9 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     transcript: [],
     unreadConversationIds: {},
-    updateUserMessage: async () => {
-      temporaryNoop("updateUserMessage");
-    },
     workspaceId: null,
   };
 });
-
-function temporaryNoop(action: "deleteConversation" | "updateUserMessage") {
-  // Temporary no-op for new-layout controls without a setta-3 backend contract.
-  void action;
-}
 
 async function reloadConversationsPatch(workspaceId: string): Promise<ChatPatch> {
   const list = await window.setta.chat.listConversations(workspaceId);

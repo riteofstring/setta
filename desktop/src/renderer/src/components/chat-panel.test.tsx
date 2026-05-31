@@ -98,6 +98,21 @@ describe("composer command helpers", () => {
     expect(commandSuggestions(commands, "hello")).toEqual([]);
   });
 
+  test("does not render static slash commands when the backend has no suggestions", () => {
+    const html = renderToString(
+      <CommandSuggestions
+        draft="/"
+        modelPicker={null}
+        onPickCommand={vi.fn()}
+        onPickModel={vi.fn()}
+        selectedSuggestion={null}
+        suggestions={[]}
+      />,
+    );
+
+    expect(html).toBe("");
+  });
+
   test("enters selected command only when the draft is the command token", () => {
     const goal = commandCapability("/goal", true);
 

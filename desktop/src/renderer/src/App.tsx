@@ -8,10 +8,9 @@ import {
   PanelBottomOpen,
   PanelLeftOpen,
   PanelRightOpen,
-  Search,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
 import { EditorPicker } from "./components/editor-picker";
@@ -20,7 +19,6 @@ import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspac
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
-import { Input } from "./components/ui/input";
 import { cn } from "./lib/utils";
 import {
   type WorkspaceOperationKind,
@@ -43,15 +41,9 @@ export function App() {
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [chatPaneOpen, setChatPaneOpen] = useState(true);
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
   const openChatSearch = useCallback(() => {
     setChatPaneOpen(true);
     setChatSearchOpen(true);
-  }, []);
-  const openSearchPalette = useCallback(() => {
-    setCommandPaletteOpen(false);
-    setSearchPaletteOpen(true);
   }, []);
   const openSettingsPane = useCallback(() => {
     panes.createTab("right", "settings");
@@ -105,20 +97,16 @@ export function App() {
       <AppChromeControls
         bottomPaneOpen={panes.bottom.open}
         chatPaneOpen={chatPaneOpen}
-        commandPaletteOpen={commandPaletteOpen}
         createConversation={chat.createConversation}
         maximizedPane={maximizedPane}
         maximizeTarget={maximizeTarget}
         openChatSearch={openChatSearch}
-        openSearchPalette={openSearchPalette}
         platform={platform}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={panes.right.open}
-        searchPaletteOpen={searchPaletteOpen}
         selectedWorkspace={workspace.selectedWorkspace}
         setBottomPaneOpen={(open) => panes.setPaneOpen("bottom", open)}
         setChatPaneOpen={setChatPaneOpen}
-        setCommandPaletteOpen={setCommandPaletteOpen}
         setProjectPaneOpen={(open) => {
           if (!open) {
             setMaximizedPane(null);
@@ -126,7 +114,6 @@ export function App() {
           setProjectPaneOpen(open);
         }}
         setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
-        setSearchPaletteOpen={setSearchPaletteOpen}
         toggleMaximizedPane={toggleMaximizedPane}
       />
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900 transition-[gap] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
@@ -134,7 +121,6 @@ export function App() {
           chromeInsetTop={visibility.project}
           chat={chat}
           open={visibility.project}
-          openSearchPalette={openSearchPalette}
           openSettingsPane={openSettingsPane}
           setWidth={setProjectPaneWidth}
           width={projectPaneWidth}
@@ -359,7 +345,6 @@ function WorkspaceArea({
               activeTabId={panes.bottom.activeTabId}
               maximized={maximizedPane === "bottom"}
               onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
-              onCreateTab={(kind) => panes.createTab("bottom", kind)}
               onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
               onToggleMaximize={() => toggleMaximizedPane("bottom")}
               slot="bottom"
@@ -434,7 +419,6 @@ function WorkspaceContentRow({
             activeTabId={panes.right.activeTabId}
             maximized={maximizedPane === "right"}
             onCloseTab={(tabId) => panes.closeTab("right", tabId)}
-            onCreateTab={(kind) => panes.createTab("right", kind)}
             onSelectTab={(tabId) => panes.selectTab("right", tabId)}
             slot="right"
             tabs={panes.right.tabs}
@@ -451,7 +435,6 @@ function ProjectPane({
   chromeInsetTop,
   chat,
   open,
-  openSearchPalette,
   openSettingsPane,
   setWidth,
   width,
@@ -460,7 +443,6 @@ function ProjectPane({
   chromeInsetTop: boolean;
   chat: ChatView;
   open: boolean;
-  openSearchPalette: () => void;
   openSettingsPane: () => void;
   setWidth: (width: number) => void;
   width: number;
@@ -488,9 +470,7 @@ function ProjectPane({
           conversations={chat.conversations}
           createConversation={chat.createConversation}
           createWorkspaceConversation={chat.createWorkspaceConversation}
-          deleteConversation={chat.deleteConversation}
           openLocalFolder={workspace.openLocalFolder}
-          openSearch={openSearchPalette}
           openSettingsPane={openSettingsPane}
           recentWorkspaces={workspace.recentWorkspaces}
           removeRecent={workspace.removeRecent}
@@ -567,44 +547,34 @@ function ChatPane({
 function AppChromeControls({
   bottomPaneOpen,
   chatPaneOpen,
-  commandPaletteOpen,
   createConversation,
   maximizedPane,
   maximizeTarget,
   openChatSearch,
-  openSearchPalette,
   platform,
   projectPaneOpen,
   rightPaneOpen,
-  searchPaletteOpen,
   selectedWorkspace,
   setBottomPaneOpen,
   setChatPaneOpen,
-  setCommandPaletteOpen,
   setProjectPaneOpen,
   setRightPaneOpen,
-  setSearchPaletteOpen,
   toggleMaximizedPane,
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
-  commandPaletteOpen: boolean;
   createConversation: (title?: string) => Promise<void>;
   maximizedPane: MaximizedPane;
   maximizeTarget: NonNullable<MaximizedPane> | null;
   openChatSearch: () => void;
-  openSearchPalette: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
-  searchPaletteOpen: boolean;
   selectedWorkspace: WorkspaceSummary | null;
   setBottomPaneOpen: (open: boolean) => void;
   setChatPaneOpen: (open: boolean) => void;
-  setCommandPaletteOpen: (open: boolean) => void;
   setProjectPaneOpen: (open: boolean) => void;
   setRightPaneOpen: (open: boolean) => void;
-  setSearchPaletteOpen: (open: boolean) => void;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
   useEffect(() => {
@@ -613,28 +583,13 @@ function AppChromeControls({
         return;
       }
       const key = event.key.toLowerCase();
-      if (key === "k") {
-        event.preventDefault();
-        setSearchPaletteOpen(false);
-        setCommandPaletteOpen(true);
-        return;
-      }
-      if (key === "g") {
-        event.preventDefault();
-        openSearchPalette();
-        return;
-      }
       if (key === "f") {
         event.preventDefault();
-        setCommandPaletteOpen(false);
-        setSearchPaletteOpen(false);
         openChatSearch();
         return;
       }
       if (key === "n") {
         event.preventDefault();
-        setCommandPaletteOpen(false);
-        setSearchPaletteOpen(false);
         void createConversation();
       }
     };
@@ -642,13 +597,7 @@ function AppChromeControls({
     return () => {
       window.removeEventListener("keydown", handleShortcut);
     };
-  }, [
-    createConversation,
-    openChatSearch,
-    openSearchPalette,
-    setCommandPaletteOpen,
-    setSearchPaletteOpen,
-  ]);
+  }, [createConversation, openChatSearch]);
 
   return (
     <>
@@ -668,8 +617,6 @@ function AppChromeControls({
         setRightPaneOpen={setRightPaneOpen}
         toggleMaximizedPane={toggleMaximizedPane}
       />
-      <CommandPalette onOpenChange={setCommandPaletteOpen} open={commandPaletteOpen} />
-      <SearchPalette onOpenChange={setSearchPaletteOpen} open={searchPaletteOpen} />
     </>
   );
 }
@@ -852,127 +799,6 @@ function paneLabel(pane: NonNullable<MaximizedPane>) {
 
 function floatingControlsRightInsetClass(platform: DesktopPlatform) {
   return platform === "darwin" ? "right-2" : "right-36";
-}
-
-function CommandPalette({
-  onOpenChange,
-  open,
-}: {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-}) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    inputRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onOpenChange, open]);
-
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div
-      className="app-no-drag fixed inset-0 z-50 bg-black/35 px-3 pt-10"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onOpenChange(false);
-        }
-      }}
-      role="presentation"
-    >
-      <div className="mx-auto w-full max-w-lg overflow-hidden rounded-sm border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-xl">
-        <label className="flex h-8 items-center gap-1.5 border-b border-zinc-800 px-2">
-          <Search className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
-          <Input
-            className="h-7 border-0 bg-transparent px-0 text-xs shadow-none placeholder:text-zinc-600 focus-visible:border-0"
-            placeholder="Run a command"
-            ref={inputRef}
-          />
-        </label>
-        <div className="p-1">
-          {["Open Project", "Switch Workspace", "Search Chat", "Open Settings"].map((command) => (
-            <button
-              className="flex h-7 w-full items-center justify-between rounded-sm px-2 text-left text-[11px] text-zinc-300 hover:bg-zinc-800 hover:text-white"
-              key={command}
-              onClick={() => onOpenChange(false)}
-              type="button"
-            >
-              <span>{command}</span>
-              {command === "Open Project" ? (
-                <kbd className="text-[10px] text-zinc-500">cmd o</kbd>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SearchPalette({
-  onOpenChange,
-  open,
-}: {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-}) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    inputRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onOpenChange, open]);
-
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div
-      className="app-no-drag fixed inset-0 z-50 bg-black/35 px-3 pt-10"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onOpenChange(false);
-        }
-      }}
-      role="presentation"
-    >
-      <div className="mx-auto w-full max-w-lg overflow-hidden rounded-sm border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-xl">
-        <label className="flex h-8 items-center gap-1.5 px-2">
-          <Search className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
-          <Input
-            className="h-7 border-0 bg-transparent px-0 text-xs shadow-none placeholder:text-zinc-600 focus-visible:border-0"
-            placeholder="Search chats, projects, files"
-            ref={inputRef}
-          />
-        </label>
-      </div>
-    </div>
-  );
 }
 
 function useWorkspaceViewState() {

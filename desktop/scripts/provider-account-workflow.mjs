@@ -7,13 +7,12 @@ export async function runProviderAccountWorkflow({
   waitForTexts,
 }) {
   await clickButtonByAria(client, "Open settings");
-  await clickButtonByText(client, "Integrations");
-  await waitForText(client, "Accounts");
-  await clickButtonByAria(client, "Configure ChatGPT account");
+  await waitForText(client, "Provider Accounts");
+  await clickButtonBySelector(client, '[data-testid="provider-account-configure"]');
   await setInputValue(client, '[data-testid="provider-account-access-token"]', "access_token_e2e");
   await setInputValue(client, '[data-testid="provider-account-account-id"]', "account_e2e");
   await setSelectValue(client, '[data-testid="provider-account-plan-type"]', "pro");
-  await clickButtonByAria(client, "Save ChatGPT account");
+  await clickButtonBySelector(client, '[data-testid="provider-account-save"]');
   await waitForTexts(client, ["Configured", "account_e2e pro"]);
   const configured = await backend.get("/provider-accounts");
   const account = configured.accounts.find(
@@ -22,7 +21,7 @@ export async function runProviderAccountWorkflow({
   if (!account?.configured || account.accountId !== "account_e2e") {
     throw new Error(`provider account was not configured: ${JSON.stringify(configured)}`);
   }
-  await clickButtonByAria(client, "Clear ChatGPT account");
+  await clickButtonBySelector(client, '[data-testid="provider-account-clear"]');
   await waitForTexts(client, ["Empty", "ChatGPT auth is not configured"]);
   const cleared = await backend.get("/provider-accounts");
   const clearedAccount = cleared.accounts.find(
@@ -33,18 +32,17 @@ export async function runProviderAccountWorkflow({
   }
 }
 
-async function clickButtonByText(client, text) {
+async function clickButtonBySelector(client, selector) {
   const clicked = await client.evaluate(`(() => {
-    const buttons = Array.from(document.querySelectorAll("button"));
-    const button = buttons.find((candidate) => candidate.textContent?.trim() === ${JSON.stringify(text)});
-    if (!button || button.disabled) {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!(element instanceof HTMLButtonElement) || element.disabled) {
       return false;
     }
-    button.click();
+    element.click();
     return true;
   })()`);
   if (!clicked) {
-    throw new Error(`button was not clickable: ${text}`);
+    throw new Error(`button was not clickable: ${selector}`);
   }
 }
 

@@ -1,7 +1,7 @@
 import type { ChatGPTPlanType, ProviderAccountSummary } from "@generated/backend";
 import { chatGPTPlanTypeValues } from "@generated/backend";
 import { KeyRound, Save, Trash2, X } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -66,17 +66,18 @@ function useProviderAccountState() {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState<ProviderAccountForm>(emptyProviderAccountForm);
+  const mutationSequenceRef = useRef(0);
 
   const loadAccounts = useCallback(async () => {
-    setBusy(true);
+    const sequenceAtStart = mutationSequenceRef.current;
     setError("");
     try {
       const accounts = await window.setta.providerAccounts.list();
-      setAccount(codexChatGPTAccount(accounts.accounts));
+      if (sequenceAtStart === mutationSequenceRef.current) {
+        setAccount(codexChatGPTAccount(accounts.accounts));
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Account state unavailable");
-    } finally {
-      setBusy(false);
     }
   }, []);
 
@@ -96,6 +97,7 @@ function useProviderAccountState() {
 
   const saveAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    mutationSequenceRef.current += 1;
     setBusy(true);
     setError("");
     try {
@@ -115,6 +117,7 @@ function useProviderAccountState() {
   };
 
   const clearAuth = async () => {
+    mutationSequenceRef.current += 1;
     setBusy(true);
     setError("");
     try {
@@ -212,6 +215,7 @@ function ProviderAccountEditor({
         <Button
           aria-label="Save ChatGPT account"
           className="border-zinc-700 bg-zinc-100 text-zinc-950 hover:bg-white"
+          data-testid="provider-account-save"
           disabled={
             busy ||
             form.accessToken === "" ||
@@ -258,6 +262,7 @@ function ProviderAccountActions({
       <Button
         aria-label="Configure ChatGPT account"
         className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+        data-testid="provider-account-configure"
         disabled={busy}
         onClick={beginEdit}
       >
@@ -268,6 +273,7 @@ function ProviderAccountActions({
         <Button
           aria-label="Clear ChatGPT account"
           className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+          data-testid="provider-account-clear"
           disabled={busy}
           onClick={() => void clearAuth()}
         >

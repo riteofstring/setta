@@ -35,23 +35,7 @@ export function SidebarIconButton({
   );
 }
 
-export function SidebarHeaderIconButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <SidebarIconButton label={label} onClick={onClick}>
-      {icon}
-    </SidebarIconButton>
-  );
-}
-
-export function SidebarHeaderActionGroup({ children }: { children: ReactNode }) {
+function SidebarHeaderActionGroup({ children }: { children: ReactNode }) {
   return <div className="mr-0.5 flex shrink-0 items-center gap-0.5">{children}</div>;
 }
 

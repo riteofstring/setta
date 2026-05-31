@@ -1,15 +1,9 @@
 import type { ConversationListItem, Run, WorkspaceSummary } from "@generated/backend";
 import {
-  Archive,
   Ellipsis,
   FolderClosed,
   FolderOpen,
-  GitFork,
   MessageSquarePlus,
-  PenLine,
-  Pencil,
-  Pin,
-  Terminal,
   Trash2,
   Workflow,
   X,
@@ -26,25 +20,8 @@ import {
   type SidebarSectionState,
 } from "./sidebar-accordion";
 import { ConversationRow } from "./workspace-sidebar-conversation-row";
-import {
-  createSidebarListItem,
-  EmptySectionSpace,
-  MemoryIntegrationsContent,
-  NotesContent,
-  RulesContent,
-  SettaCanvasIcon,
-  SidebarIndentedListItems,
-  SidebarSettingsButton,
-  type SidebarUtilityKind,
-  type SidebarListItem,
-  UnorganizedChatsContent,
-} from "./sidebar-secondary-sections";
-import {
-  ProjectFolderButton,
-  SidebarHeaderActionGroup,
-  SidebarHeaderIconButton,
-  SidebarIconButton,
-} from "./sidebar-header-actions";
+import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
+import { ProjectFolderButton, SidebarIconButton } from "./sidebar-header-actions";
 import { SidebarShortcuts } from "./sidebar-shortcuts";
 
 const activeWorkspaceRowHeight = 28;
@@ -55,7 +32,6 @@ const projectMenuHeight = 200;
 const projectMenuInset = 8;
 const projectMenuWidth = 224;
 const workspaceListOverscan = 6;
-const emptyPinnedConversationIds: string[] = [];
 
 interface WorkspaceSidebarProps {
   activeRun: Run | null;
@@ -67,9 +43,7 @@ interface WorkspaceSidebarProps {
   conversations: ConversationListItem[];
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  deleteConversation: (conversationId: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
-  openSearch: () => void;
   openSettingsPane: () => void;
   recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
@@ -104,9 +78,7 @@ export function WorkspaceSidebar({
   conversations,
   createConversation,
   createWorkspaceConversation,
-  deleteConversation,
   openLocalFolder,
-  openSearch,
   openSettingsPane,
   recentWorkspaces,
   removeRecent,
@@ -118,9 +90,6 @@ export function WorkspaceSidebar({
   unreadConversationIds,
 }: WorkspaceSidebarProps) {
   const [expandedWorkspaceId, setExpandedWorkspaceId] = useState(selectedWorkspaceId);
-  const [pinnedProjectConversationIds, setPinnedProjectConversationIds] = useState<
-    Record<string, string[]>
-  >({});
   const activeWorkspaceIds = useMemo(
     () => new Set(activeWorkspaces.map((workspace) => workspace.id)),
     [activeWorkspaces],
@@ -136,12 +105,6 @@ export function WorkspaceSidebar({
   const selectedBranchLabel = branchHoverLabel(selectedGit);
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
-  const [standaloneItems, setStandaloneItems] = useState<SidebarListItem[]>([]);
-  const [projectUtilityItemsByWorkspace, setProjectUtilityItemsByWorkspace] = useState<
-    Record<string, SidebarListItem[]>
-  >({});
-  const [notes, setNotes] = useState<SidebarListItem[]>([]);
-  const [rules, setRules] = useState<SidebarListItem[]>([]);
 
   useEffect(() => {
     if (selectedWorkspaceId) {
@@ -161,54 +124,6 @@ export function WorkspaceSidebar({
       ...current,
       [sectionId]: { ...current[sectionId], height, resized: true },
     }));
-  }
-
-  function togglePinnedProjectConversation(workspaceId: string, conversationId: string) {
-    setPinnedProjectConversationIds((current) => {
-      const currentPinnedIds = current[workspaceId] ?? [];
-      const pinned = currentPinnedIds.includes(conversationId);
-      if (pinned) {
-        const nextPinnedIds = currentPinnedIds.filter((id) => id !== conversationId);
-        if (nextPinnedIds.length === 0) {
-          const next = { ...current };
-          delete next[workspaceId];
-          return next;
-        }
-        return { ...current, [workspaceId]: nextPinnedIds };
-      }
-      return {
-        ...current,
-        [workspaceId]: [conversationId, ...currentPinnedIds],
-      };
-    });
-  }
-
-  function createStandaloneItem(kind: SidebarUtilityKind) {
-    setStandaloneItems((current) => [
-      createSidebarListItem(kind, current, "standalone"),
-      ...current,
-    ]);
-  }
-
-  function createProjectUtilityItem(workspaceId: string, kind: SidebarUtilityKind) {
-    setProjectUtilityItemsByWorkspace((current) => {
-      const workspaceItems = current[workspaceId] ?? [];
-      return {
-        ...current,
-        [workspaceId]: [
-          createSidebarListItem(kind, workspaceItems, workspaceId),
-          ...workspaceItems,
-        ],
-      };
-    });
-  }
-
-  function createLocalNote() {
-    setNotes((current) => [createSidebarListItem("note", current, "notes"), ...current]);
-  }
-
-  function createLocalRule() {
-    setRules((current) => [createSidebarListItem("rule", current, "rules"), ...current]);
   }
 
   return (
@@ -233,7 +148,6 @@ export function WorkspaceSidebar({
             busy={busy || chatBusy}
             createConversation={createConversation}
             hasWorkspace={selectedWorkspaceId !== ""}
-            openSearch={openSearch}
           />
         </SidebarAccordionSection>
       </div>
@@ -263,18 +177,13 @@ export function WorkspaceSidebar({
                   chatBusy={chatBusy}
                   closeWorkspace={closeWorkspace}
                   conversations={conversations}
-                  createProjectUtilityItem={createProjectUtilityItem}
                   createWorkspaceConversation={createWorkspaceConversation}
-                  deleteConversation={deleteConversation}
                   expandedWorkspaceId={expandedWorkspaceId}
-                  projectUtilityItemsByWorkspace={projectUtilityItemsByWorkspace}
-                  pinnedConversationIdsByWorkspace={pinnedProjectConversationIds}
                   selectConversation={selectConversation}
                   selectWorkspace={selectWorkspace}
                   selectedConversationId={selectedConversationId}
                   selectedWorkspaceId={selectedWorkspaceId}
                   setExpandedWorkspaceId={setExpandedWorkspaceId}
-                  togglePinnedConversation={togglePinnedProjectConversation}
                   unreadConversationIds={unreadConversationIds}
                   workspaces={activeWorkspaces}
                 />
@@ -286,78 +195,9 @@ export function WorkspaceSidebar({
               </>
             )}
           </SidebarAccordionSection>
-          <SidebarAccordionSection
-            action={
-              <SidebarHeaderActionGroup>
-                <SidebarHeaderIconButton
-                  icon={<Terminal className="h-3.5 w-3.5" />}
-                  label="New standalone terminal"
-                  onClick={() => createStandaloneItem("terminal")}
-                />
-                <SidebarHeaderIconButton
-                  icon={<SettaCanvasIcon />}
-                  label="New standalone setta canvas"
-                  onClick={() => createStandaloneItem("canvas")}
-                />
-                <SidebarHeaderIconButton
-                  icon={<MessageSquarePlus className="h-3.5 w-3.5" />}
-                  label="New standalone chat"
-                  onClick={() => createStandaloneItem("chat")}
-                />
-              </SidebarHeaderActionGroup>
-            }
-            height={sections.chats.height}
-            onHeightChange={(height) => setSectionHeight("chats", height)}
-            onOpenChange={(open) => setSectionOpen("chats", open)}
-            open={sections.chats.open}
-            resized={sections.chats.resized}
-            testId="standalone-chat-section"
-            title="Chats"
-          >
-            <UnorganizedChatsContent chats={standaloneItems} />
-          </SidebarAccordionSection>
-          <SidebarAccordionSection
-            action={
-              <SidebarHeaderActionGroup>
-                <SidebarHeaderIconButton
-                  icon={<PenLine className="h-3.5 w-3.5" />}
-                  label="New note"
-                  onClick={createLocalNote}
-                />
-              </SidebarHeaderActionGroup>
-            }
-            height={sections.notes.height}
-            onHeightChange={(height) => setSectionHeight("notes", height)}
-            onOpenChange={(open) => setSectionOpen("notes", open)}
-            open={sections.notes.open}
-            resized={sections.notes.resized}
-            testId="notes-section"
-            title="Notes"
-          >
-            <NotesContent notes={notes} />
-          </SidebarAccordionSection>
-          <SidebarAccordionSection
-            action={
-              <SidebarHeaderIconButton
-                icon={<Workflow className="h-3.5 w-3.5" />}
-                label="New rule"
-                onClick={createLocalRule}
-              />
-            }
-            height={sections.rules.height}
-            onHeightChange={(height) => setSectionHeight("rules", height)}
-            onOpenChange={(open) => setSectionOpen("rules", open)}
-            open={sections.rules.open}
-            resized={sections.rules.resized}
-            testId="rules-section"
-            title="Rules"
-          >
-            <RulesContent rules={rules} />
-          </SidebarAccordionSection>
         </div>
       </div>
       <div className="grid shrink-0 gap-0.5 px-1 py-1" data-testid="sidebar-memory-footer">
-        <MemoryIntegrationsContent />
         <SidebarSettingsButton onOpenSettings={openSettingsPane} />
       </div>
     </aside>
@@ -375,18 +215,13 @@ function ProjectList({
   chatBusy,
   closeWorkspace,
   conversations,
-  createProjectUtilityItem,
   createWorkspaceConversation,
-  deleteConversation,
   expandedWorkspaceId,
-  projectUtilityItemsByWorkspace,
-  pinnedConversationIdsByWorkspace,
   selectConversation,
   selectWorkspace,
   selectedConversationId,
   selectedWorkspaceId,
   setExpandedWorkspaceId,
-  togglePinnedConversation,
   unreadConversationIds,
   workspaces,
 }: {
@@ -396,18 +231,13 @@ function ProjectList({
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
-  createProjectUtilityItem: (workspaceId: string, kind: SidebarUtilityKind) => void;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  deleteConversation: (conversationId: string) => Promise<void>;
   expandedWorkspaceId: string;
-  projectUtilityItemsByWorkspace: Record<string, SidebarListItem[]>;
-  pinnedConversationIdsByWorkspace: Record<string, string[]>;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selectedConversationId: string;
   selectedWorkspaceId: string;
   setExpandedWorkspaceId: (next: string) => void;
-  togglePinnedConversation: (workspaceId: string, conversationId: string) => void;
   unreadConversationIds: Record<string, true>;
   workspaces: WorkspaceSummary[];
 }) {
@@ -424,20 +254,13 @@ function ProjectList({
       chatBusy={chatBusy}
       closeWorkspace={closeWorkspace}
       conversations={conversations}
-      createProjectUtilityItem={createProjectUtilityItem}
       createWorkspaceConversation={createWorkspaceConversation}
-      deleteConversation={deleteConversation}
       expanded={expandedWorkspaceId === workspace.id}
-      pinnedConversationIds={
-        pinnedConversationIdsByWorkspace[workspace.id] ?? emptyPinnedConversationIds
-      }
-      projectUtilityItems={projectUtilityItemsByWorkspace[workspace.id] ?? []}
       selectConversation={selectConversation}
       selectWorkspace={selectWorkspace}
       selected={workspace.id === selectedWorkspaceId}
       selectedConversationId={selectedConversationId}
       setExpandedWorkspaceId={setExpandedWorkspaceId}
-      togglePinnedConversation={togglePinnedConversation}
       unreadConversationIds={unreadConversationIds}
       workspace={workspace}
     />
@@ -480,18 +303,13 @@ function ProjectRow({
   chatBusy,
   closeWorkspace,
   conversations,
-  createProjectUtilityItem,
   createWorkspaceConversation,
-  deleteConversation,
   expanded,
-  pinnedConversationIds,
-  projectUtilityItems,
   selectConversation,
   selectWorkspace,
   selected,
   selectedConversationId,
   setExpandedWorkspaceId,
-  togglePinnedConversation,
   unreadConversationIds,
   workspace,
 }: {
@@ -502,18 +320,13 @@ function ProjectRow({
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   conversations: ConversationListItem[];
-  createProjectUtilityItem: (workspaceId: string, kind: SidebarUtilityKind) => void;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  deleteConversation: (conversationId: string) => Promise<void>;
   expanded: boolean;
-  pinnedConversationIds: string[];
-  projectUtilityItems: SidebarListItem[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selected: boolean;
   selectedConversationId: string;
   setExpandedWorkspaceId: (next: string) => void;
-  togglePinnedConversation: (workspaceId: string, conversationId: string) => void;
   unreadConversationIds: Record<string, true>;
   workspace: WorkspaceSummary;
 }) {
@@ -526,14 +339,6 @@ function ProjectRow({
       await selectWorkspace(workspace.id);
     }
     await createWorkspaceConversation(workspace.id);
-  }
-
-  async function createProjectUtility(kind: SidebarUtilityKind) {
-    setExpandedWorkspaceId(workspace.id);
-    if (!selected) {
-      await selectWorkspace(workspace.id);
-    }
-    createProjectUtilityItem(workspace.id, kind);
   }
 
   return (
@@ -569,20 +374,6 @@ function ProjectRow({
         <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           <SidebarIconButton
             disabled={rowBusy}
-            label={`New terminal in ${workspace.displayName}`}
-            onClick={() => void createProjectUtility("terminal")}
-          >
-            <Terminal className="h-3.5 w-3.5" />
-          </SidebarIconButton>
-          <SidebarIconButton
-            disabled={rowBusy}
-            label={`New setta canvas in ${workspace.displayName}`}
-            onClick={() => void createProjectUtility("canvas")}
-          >
-            <SettaCanvasIcon />
-          </SidebarIconButton>
-          <SidebarIconButton
-            disabled={rowBusy}
             label={`New chat in ${workspace.displayName}`}
             onClick={() => void createProjectConversation()}
           >
@@ -593,18 +384,11 @@ function ProjectRow({
       </div>
       {hasVisibleChats ? (
         <div className="min-w-0">
-          <ProjectUtilityList items={projectUtilityItems} />
           <ConversationList
             activeRun={activeRun}
             branchLabel={branchLabel}
             busy={chatBusy}
             conversations={conversations}
-            deleteConversation={deleteConversation}
-            showEmpty={projectUtilityItems.length === 0}
-            onTogglePinned={(conversationId) =>
-              togglePinnedConversation(workspace.id, conversationId)
-            }
-            pinnedConversationIds={pinnedConversationIds}
             selectConversation={selectConversation}
             selectedConversationId={selectedConversationId}
             unreadConversationIds={unreadConversationIds}
@@ -684,12 +468,6 @@ function ProjectMoreMenu({
     };
   }, [open]);
 
-  const closeMenu = () => setOpen(false);
-  const runTemporaryProjectAction = (action: TemporaryProjectMenuAction) => {
-    temporaryProjectMenuNoop(action);
-    closeMenu();
-  };
-
   return (
     <div ref={menuRef} className="relative">
       <SidebarIconButton
@@ -713,31 +491,6 @@ function ProjectMoreMenu({
           style={menuPosition}
         >
           <ProjectMenuItem
-            icon={<Pin className="h-4 w-4" />}
-            label="Pin project"
-            onClick={() => runTemporaryProjectAction("pinProject")}
-          />
-          <ProjectMenuItem
-            icon={<FolderOpen className="h-4 w-4" />}
-            label="Open in Finder"
-            onClick={() => runTemporaryProjectAction("openInFinder")}
-          />
-          <ProjectMenuItem
-            icon={<GitFork className="h-4 w-4" />}
-            label="Create permanent worktree"
-            onClick={() => runTemporaryProjectAction("createPermanentWorktree")}
-          />
-          <ProjectMenuItem
-            icon={<Pencil className="h-4 w-4" />}
-            label="Rename project"
-            onClick={() => runTemporaryProjectAction("renameProject")}
-          />
-          <ProjectMenuItem
-            icon={<Archive className="h-4 w-4" />}
-            label="Archive chats"
-            onClick={() => runTemporaryProjectAction("archiveChats")}
-          />
-          <ProjectMenuItem
             icon={<X className="h-4 w-4" />}
             label="Remove"
             onClick={() => {
@@ -751,25 +504,6 @@ function ProjectMoreMenu({
   );
 }
 
-type TemporaryProjectMenuAction =
-  | "archiveChats"
-  | "createPermanentWorktree"
-  | "openInFinder"
-  | "pinProject"
-  | "renameProject";
-
-function temporaryProjectMenuNoop(action: TemporaryProjectMenuAction) {
-  // Temporary no-op for new-layout project menu controls without a setta-3 backend contract.
-  void action;
-}
-
-function ProjectUtilityList({ items }: { items: SidebarListItem[] }) {
-  if (items.length === 0) {
-    return null;
-  }
-  return <SidebarIndentedListItems items={items} />;
-}
-
 function ProjectMenuItem({
   icon,
   label,
@@ -777,7 +511,7 @@ function ProjectMenuItem({
 }: {
   icon: ReactNode;
   label: string;
-  onClick?: () => void;
+  onClick: () => void;
 }) {
   return (
     <button
@@ -797,9 +531,6 @@ function ConversationList({
   branchLabel,
   busy,
   conversations,
-  deleteConversation,
-  onTogglePinned,
-  pinnedConversationIds,
   selectConversation,
   selectedConversationId,
   showEmpty = true,
@@ -809,33 +540,22 @@ function ConversationList({
   branchLabel: string;
   busy: boolean;
   conversations: ConversationListItem[];
-  deleteConversation: (conversationId: string) => Promise<void>;
-  onTogglePinned: (conversationId: string) => void;
-  pinnedConversationIds: string[];
   selectConversation: (conversationId: string) => Promise<void>;
   selectedConversationId: string;
   showEmpty?: boolean;
   unreadConversationIds: Record<string, true>;
 }) {
   const [visibleLimit, setVisibleLimit] = useState(chatHistoryLimit);
-  const sortedConversations = useMemo(
-    () => orderProjectConversations(conversations, pinnedConversationIds),
-    [conversations, pinnedConversationIds],
-  );
-  const pinnedConversationIdsSet = useMemo(
-    () => new Set(pinnedConversationIds),
-    [pinnedConversationIds],
-  );
-  const selectedIndex = sortedConversations.findIndex(
+  const selectedIndex = conversations.findIndex(
     (item) => item.conversation.id === selectedConversationId,
   );
   const effectiveLimit =
     selectedIndex >= visibleLimit
-      ? Math.min(sortedConversations.length, selectedIndex + 1)
+      ? Math.min(conversations.length, selectedIndex + 1)
       : visibleLimit;
   const visibleConversations = useMemo(
-    () => sortedConversations.slice(0, effectiveLimit),
-    [effectiveLimit, sortedConversations],
+    () => conversations.slice(0, effectiveLimit),
+    [conversations, effectiveLimit],
   );
 
   if (visibleConversations.length === 0) {
@@ -851,15 +571,12 @@ function ConversationList({
           busy={busy}
           item={item}
           key={item.conversation.id}
-          onDeleteConversation={deleteConversation}
-          onTogglePinned={onTogglePinned}
-          pinned={pinnedConversationIdsSet.has(item.conversation.id)}
           selectConversation={selectConversation}
           selected={item.conversation.id === selectedConversationId}
           unread={Boolean(unreadConversationIds[item.conversation.id])}
         />
       ))}
-      {visibleConversations.length < sortedConversations.length ? (
+      {visibleConversations.length < conversations.length ? (
         <button
           className="h-6 rounded-sm px-2 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
           onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}
@@ -870,30 +587,6 @@ function ConversationList({
       ) : null}
     </div>
   );
-}
-
-function orderProjectConversations(
-  conversations: ConversationListItem[],
-  pinnedConversationIds: string[],
-) {
-  if (pinnedConversationIds.length === 0) {
-    return conversations;
-  }
-  const pinnedConversationIdsSet = new Set(pinnedConversationIds);
-  const pinnedOrder = new Map(pinnedConversationIds.map((id, index) => [id, index]));
-  return [...conversations].sort((left, right) => {
-    const leftPinned = pinnedConversationIdsSet.has(left.conversation.id);
-    const rightPinned = pinnedConversationIdsSet.has(right.conversation.id);
-    if (leftPinned && rightPinned) {
-      return (
-        (pinnedOrder.get(left.conversation.id) ?? 0) - (pinnedOrder.get(right.conversation.id) ?? 0)
-      );
-    }
-    if (leftPinned !== rightPinned) {
-      return leftPinned ? -1 : 1;
-    }
-    return 0;
-  });
 }
 
 function branchHoverLabel(git: WorkspaceGitState) {

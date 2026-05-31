@@ -1,33 +1,13 @@
-import {
-  FileText,
-  GitCompareArrows,
-  Globe2,
-  Maximize2,
-  Minimize2,
-  PanelTop,
-  Plus,
-  Settings,
-  StickyNote,
-  Terminal,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Maximize2, Minimize2, Settings, X } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
-import { FloatingMenu } from "./floating-menu";
 import { SettingsPanel } from "./settings-panel";
 
 type PaneSlot = "bottom" | "right";
-type WorkspacePaneKind = "browser" | "canvas" | "diffs" | "file" | "note" | "settings" | "terminal";
-type WorkspacePaneRuntime =
-  | "chromium-browser"
-  | "libghostty"
-  | "pierre-diffs"
-  | "pierre-trees"
-  | "renderer-note"
-  | "renderer-settings"
-  | "xyflow";
-type WorkspacePaneHost = "electron" | "native" | "renderer";
+export type WorkspacePaneKind = "settings";
+type WorkspacePaneRuntime = "renderer-settings";
+type WorkspacePaneHost = "renderer";
 
 export interface WorkspacePaneTab {
   id: string;
@@ -91,52 +71,13 @@ const emptyPaneState: WorkspacePaneState = {
 };
 
 const workspacePaneLabels = {
-  browser: "Browser",
-  canvas: "Canvas",
-  diffs: "Diffs",
-  file: "Files",
-  note: "Note",
   settings: "Settings",
-  terminal: "Terminal",
 } satisfies Record<WorkspacePaneKind, string>;
 
-const workspacePaneActions = [
-  "canvas",
-  "file",
-  "diffs",
-  "browser",
-  "terminal",
-  "note",
-] satisfies WorkspacePaneKind[];
-
 const workspacePaneIntegrationPlan = {
-  browser: {
-    host: "electron",
-    runtime: "chromium-browser",
-  },
-  canvas: {
-    host: "renderer",
-    runtime: "xyflow",
-  },
-  diffs: {
-    host: "renderer",
-    runtime: "pierre-diffs",
-  },
-  file: {
-    host: "renderer",
-    runtime: "pierre-trees",
-  },
-  note: {
-    host: "renderer",
-    runtime: "renderer-note",
-  },
   settings: {
     host: "renderer",
     runtime: "renderer-settings",
-  },
-  terminal: {
-    host: "native",
-    runtime: "libghostty",
   },
 } satisfies Record<
   WorkspacePaneKind,
@@ -177,20 +118,16 @@ function closeWorkspacePaneTab(pane: WorkspacePaneState, tabId: string): Workspa
 
 export function WorkspacePanePanel({
   activeTabId,
-  initialNewTabMenuOpen = false,
   maximized = false,
   onCloseTab,
-  onCreateTab,
   onSelectTab,
   onToggleMaximize,
   slot,
   tabs,
 }: {
   activeTabId: string;
-  initialNewTabMenuOpen?: boolean;
   maximized?: boolean;
   onCloseTab: (tabId: string) => void;
-  onCreateTab: (kind: WorkspacePaneKind) => void;
   onSelectTab: (tabId: string) => void;
   onToggleMaximize?: () => void;
   slot: PaneSlot;
@@ -198,11 +135,10 @@ export function WorkspacePanePanel({
 }) {
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
   const paneLabel = slot === "right" ? "Workspace side pane" : "Workspace bottom pane";
-  const [newTabMenuOpen, setNewTabMenuOpen] = useState(initialNewTabMenuOpen);
   return (
     <section
       aria-label={paneLabel}
-      className={workspacePanePanelClass({ maximized, slot })}
+      className={workspacePanePanelClass(slot)}
       data-testid={`${slot}-workspace-pane`}
     >
       <header
@@ -222,14 +158,6 @@ export function WorkspacePanePanel({
               tab={tab}
             />
           ))}
-          <WorkspacePaneNewTabMenu
-            onCreateTab={(kind) => {
-              setNewTabMenuOpen(false);
-              onCreateTab(kind);
-            }}
-            onOpenChange={setNewTabMenuOpen}
-            open={newTabMenuOpen}
-          />
         </nav>
         {onToggleMaximize ? (
           <WorkspacePaneMaximizeButton
@@ -240,11 +168,7 @@ export function WorkspacePanePanel({
         ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-hidden">
-        {activeTab ? (
-          <WorkspacePaneContent tab={activeTab} />
-        ) : (
-          <WorkspacePaneEmpty onCreateTab={onCreateTab} />
-        )}
+        {activeTab ? <WorkspacePaneContent tab={activeTab} /> : <WorkspacePaneEmpty />}
       </div>
     </section>
   );
@@ -274,16 +198,12 @@ function WorkspacePaneMaximizeButton({
   );
 }
 
-function workspacePanePanelClass({ slot }: { maximized: boolean; slot: PaneSlot }) {
+function workspacePanePanelClass(slot: PaneSlot) {
   const slotClass =
     slot === "right"
       ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100 transition-[width,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
-      : bottomPanePanelClass();
+      : "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100 transition-[height,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]";
   return cn(slotClass);
-}
-
-function bottomPanePanelClass() {
-  return "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100 transition-[height,padding] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]";
 }
 
 function WorkspacePaneTabButton({
@@ -331,189 +251,17 @@ function WorkspacePaneTabButton({
   );
 }
 
-function WorkspacePaneNewTabMenu({
-  onCreateTab,
-  onOpenChange,
-  open,
-}: {
-  onCreateTab: (kind: WorkspacePaneKind) => void;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-}) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const anchorRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) {
-        return;
-      }
-      onOpenChange(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onOpenChange, open]);
-
-  return (
-    <div className="app-no-drag relative shrink-0" ref={rootRef}>
-      <button
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="New pane tab"
-        className="grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-900 hover:text-zinc-100 focus-visible:bg-zinc-900 focus-visible:text-zinc-100"
-        onClick={() => onOpenChange(!open)}
-        ref={anchorRef}
-        title="New pane tab"
-        type="button"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-      <FloatingMenu
-        anchorRef={anchorRef}
-        className="w-36 rounded-sm border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-black/35"
-        menuRef={menuRef}
-        open={open}
-        placement="bottom"
-        role="menu"
-      >
-        {workspacePaneActions.map((kind) => {
-          const label = workspacePaneLabels[kind];
-          return (
-            <button
-              className="flex h-6 w-full cursor-pointer items-center gap-2 px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
-              key={kind}
-              onClick={() => onCreateTab(kind)}
-              role="menuitem"
-              type="button"
-            >
-              {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0 text-zinc-500")}
-              <span className="truncate">{label}</span>
-            </button>
-          );
-        })}
-      </FloatingMenu>
-    </div>
-  );
-}
-
-function WorkspacePaneActionButton({
-  kind,
-  onClick,
-  showLabel,
-}: {
-  kind: WorkspacePaneKind;
-  onClick: () => void;
-  showLabel: boolean;
-}) {
-  const label = workspacePaneLabels[kind];
-  return (
-    <button
-      aria-label={`New ${label}`}
-      className={
-        showLabel
-          ? "inline-flex h-6 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
-          : "inline-flex h-6 w-6 items-center justify-center rounded-sm text-zinc-400 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
-      }
-      onClick={onClick}
-      title={`New ${label}`}
-      type="button"
-    >
-      {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0")}
-      {showLabel ? <span>{label}</span> : null}
-    </button>
-  );
-}
-
-function WorkspacePaneEmpty({ onCreateTab }: { onCreateTab: (kind: WorkspacePaneKind) => void }) {
-  return (
-    <div className="flex h-full items-center justify-center px-4">
-      <div className="flex flex-wrap justify-center gap-1">
-        {workspacePaneActions.map((kind) => (
-          <WorkspacePaneActionButton
-            key={kind}
-            kind={kind}
-            onClick={() => onCreateTab(kind)}
-            showLabel
-          />
-        ))}
-      </div>
-    </div>
-  );
+function WorkspacePaneEmpty() {
+  return <div aria-hidden="true" className="h-full bg-zinc-950" />;
 }
 
 function WorkspacePaneContent({ tab }: { tab: WorkspacePaneTab }) {
   switch (tab.kind) {
-    case "browser":
-      return <BrowserPaneSurface />;
-    case "canvas":
-      return <CanvasPaneSurface />;
-    case "diffs":
-      return <DiffsPaneSurface />;
-    case "file":
-      return <FilesPaneSurface />;
-    case "note":
-      return <NotePaneSurface />;
     case "settings":
       return <SettingsPaneSurface />;
-    case "terminal":
-      return <TerminalPaneSurface />;
     default:
       return assertWorkspacePaneKind(tab.kind);
   }
-}
-
-function BrowserPaneSurface() {
-  return <WorkspacePaneRuntimeFrame kind="browser" />;
-}
-
-function CanvasPaneSurface() {
-  return <WorkspacePaneRuntimeFrame kind="canvas" />;
-}
-
-function DiffsPaneSurface() {
-  return <WorkspacePaneRuntimeFrame kind="diffs" />;
-}
-
-function FilesPaneSurface() {
-  return <WorkspacePaneRuntimeFrame kind="file" />;
-}
-
-function NotePaneSurface() {
-  const integration = workspacePaneIntegrationPlan.note;
-  return (
-    <div
-      className="h-full min-h-0 bg-zinc-900 p-2 text-xs text-zinc-500"
-      data-pane-host={integration.host}
-      data-pane-runtime={integration.runtime}
-    />
-  );
-}
-
-function TerminalPaneSurface() {
-  const integration = workspacePaneIntegrationPlan.terminal;
-  return (
-    <div
-      className="h-full bg-zinc-950 p-2 font-mono text-xs text-zinc-500"
-      data-pane-host={integration.host}
-      data-pane-runtime={integration.runtime}
-    >
-      <span className="text-zinc-300">$</span>
-    </div>
-  );
 }
 
 function SettingsPaneSurface() {
@@ -529,37 +277,10 @@ function SettingsPaneSurface() {
   );
 }
 
-function WorkspacePaneRuntimeFrame({
-  kind,
-}: {
-  kind: Exclude<WorkspacePaneKind, "settings" | "terminal">;
-}) {
-  const integration = workspacePaneIntegrationPlan[kind];
-  return (
-    <div
-      className="h-full min-h-0 bg-zinc-900"
-      data-pane-host={integration.host}
-      data-pane-runtime={integration.runtime}
-    />
-  );
-}
-
 function workspacePaneIcon(kind: WorkspacePaneKind, className: string) {
   switch (kind) {
-    case "browser":
-      return <Globe2 className={className} />;
-    case "canvas":
-      return <PanelTop className={className} />;
-    case "diffs":
-      return <GitCompareArrows className={className} />;
-    case "file":
-      return <FileText className={className} />;
-    case "note":
-      return <StickyNote className={className} />;
     case "settings":
       return <Settings className={className} />;
-    case "terminal":
-      return <Terminal className={className} />;
     default:
       return assertWorkspacePaneKind(kind);
   }

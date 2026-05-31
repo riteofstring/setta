@@ -7,11 +7,8 @@ const sectionMinHeight = 40;
 const sectionMaxHeight = 520;
 
 export const defaultSidebarSections = {
-  chats: { height: 70, open: true, resized: false },
-  notes: { height: 70, open: true, resized: false },
   projects: { height: 280, open: true, resized: false },
-  rules: { height: 86, open: true, resized: false },
-  shortcuts: { height: 146, open: true, resized: false },
+  shortcuts: { height: 42, open: true, resized: false },
 } satisfies Record<string, SidebarSectionState>;
 
 export type SidebarSectionId = keyof typeof defaultSidebarSections;

@@ -11,22 +11,17 @@ import {
   Check,
   Maximize2,
   MessageSquarePlus,
-  Mic,
   Minimize2,
   RotateCcw,
   Square,
   Trash2,
 } from "lucide-react";
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
-import { ChatModelMenu } from "./chat-model-menu";
-import { ChatPermissionsMenu } from "./chat-permissions-menu";
-import { ChatPlusMenu } from "./chat-plus-menu";
 import { ChatTranscript } from "./chat-transcript";
-import { SlashCommandPalette } from "./slash-command-palette";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
@@ -145,31 +140,6 @@ function ChatMaximizeButton({
       type="button"
     >
       {maximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-    </button>
-  );
-}
-
-function IconButton({
-  children,
-  disabled = false,
-  label,
-  onClick,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      aria-label={label}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-      disabled={disabled}
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
-      {children}
     </button>
   );
 }
@@ -472,17 +442,13 @@ function Composer({
   running: boolean;
 }) {
   const [draft, setDraft] = useState("");
-  const [slashPaletteDismissed, setSlashPaletteDismissed] = useState(false);
   const [commands, setCommands] = useState<ChatCommandCapability[]>([]);
   const [commandListKey, setCommandListKey] = useState("");
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
-  const composerFrameRef = useRef<HTMLDivElement | null>(null);
   const submittingRef = useRef(false);
   const selected = chat.selectedConversation !== null;
   const disabled = disabledOverride ?? (!selected || busy);
   const slashDraft = isSlashDraft(draft);
-  const slashQuery = slashCommandQuery(draft);
-  const slashPaletteOpen = composerSlashPaletteIsOpen(slashQuery, slashPaletteDismissed);
   const suggestions = commandSuggestions(commands, draft);
   const selectedSuggestion = suggestions[0] ?? null;
 
@@ -598,21 +564,11 @@ function Composer({
       }}
     >
       <div className="relative mx-auto w-full max-w-3xl min-w-0">
-        <SlashCommandPalette
-          anchorRef={composerFrameRef}
-          onSelect={(insertText) => {
-            updateDraft(insertText);
-            setSlashPaletteDismissed(true);
-          }}
-          open={slashPaletteOpen}
-          query={slashQuery ?? ""}
-        />
         <div
           className={cn(
             "min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15",
             frameClassName,
           )}
-          ref={composerFrameRef}
         >
           <div className="relative min-w-0">
             <ComposerPlaceholder selected={selected} visible={draft === "" && placeholder === ""} />
@@ -632,11 +588,6 @@ function Composer({
               disabled={disabled}
               onChange={(event) => updateDraft(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Escape" && slashPaletteOpen) {
-                  event.preventDefault();
-                  setSlashPaletteDismissed(true);
-                  return;
-                }
                 handleComposerKeyDown(event, {
                   completeCommand: () => {
                     if (selectedSuggestion && draft.trim() !== selectedSuggestion.name) {
@@ -655,16 +606,8 @@ function Composer({
               value={draft}
             />
           </div>
-          <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
+          <div className="mt-1 flex min-w-0 items-center justify-end gap-1.5">
             <div className="flex min-w-0 items-center gap-1">
-              <ChatPlusMenu disabled={disabled} />
-              <ChatPermissionsMenu disabled={disabled} />
-            </div>
-            <div className="flex min-w-0 items-center gap-1">
-              <ChatModelMenu disabled={disabled} />
-              <IconButton disabled={disabled} label="Voice input">
-                <Mic className="h-3.5 w-3.5" />
-              </IconButton>
               <ComposerButton
                 canSend={!disabled && draft.trim() !== ""}
                 chat={chat}
@@ -680,7 +623,6 @@ function Composer({
 
   function updateDraft(nextDraft: string) {
     setDraft(nextDraft);
-    setSlashPaletteDismissed((wasDismissed) => (nextDraft.startsWith("/") ? wasDismissed : false));
     if (!isSlashDraft(nextDraft)) {
       setModelPicker(null);
     }
@@ -807,17 +749,6 @@ export function commandTextToExecute(
 
 export function modelSelectionCommand(model: ChatModelOption) {
   return `/model ${model.model}`;
-}
-
-function slashCommandQuery(draft: string) {
-  if (!draft.startsWith("/") || draft.includes("\n")) {
-    return null;
-  }
-  return draft.slice(1);
-}
-
-function composerSlashPaletteIsOpen(slashQuery: string | null, dismissed: boolean) {
-  return slashQuery !== null && !dismissed;
 }
 
 function composerTextareaLabel(selected: boolean) {
@@ -969,7 +900,6 @@ export function useChatViewState(workspaceId: string | null) {
   const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
-  const deleteConversation = useChatStore((state) => state.deleteConversation);
   const error = useChatStore((state) => state.error);
   const executeCommand = useChatStore((state) => state.executeCommand);
   const diagnostics = useChatStore((state) => state.diagnostics);
@@ -1005,7 +935,6 @@ export function useChatViewState(workspaceId: string | null) {
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcript = useChatStore((state) => state.transcript);
   const unreadConversationIds = useChatStore((state) => state.unreadConversationIds);
-  const updateUserMessage = useChatStore((state) => state.updateUserMessage);
 
   useEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
@@ -1021,7 +950,6 @@ export function useChatViewState(workspaceId: string | null) {
     corruption,
     createConversation,
     createWorkspaceConversation,
-    deleteConversation,
     diagnostics,
     error,
     executeCommand,
@@ -1053,6 +981,5 @@ export function useChatViewState(workspaceId: string | null) {
     submitApproval,
     transcript,
     unreadConversationIds,
-    updateUserMessage,
   };
 }
