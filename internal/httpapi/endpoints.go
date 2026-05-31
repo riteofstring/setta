@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"setta/internal/chat"
-	"setta/internal/codexaccount"
+	"setta/internal/provideraccounts"
 	"setta/internal/workspacesession"
 )
 
@@ -40,14 +40,14 @@ var apiEndpoints = []endpoint{
 	post[RemoveRecentWorkspaceRequest, workspacesession.WorkspaceSession]("RemoveRecentWorkspace", "/workspaces/remove-recent", handler.removeRecentWorkspace),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
+	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),
 	post[GetMessagePageRequest, chat.MessagePage]("GetMessagePage", "/chat/messages/page", handler.getMessagePage),
 	post[SendChatMessageRequest, chat.SendMessageResult]("SendChatMessage", "/chat/messages/send", handler.sendChatMessage),
+	post[UpdateUserMessageRequest, chat.ChatMessage]("UpdateUserMessage", "/chat/messages/update-user", handler.updateUserMessage),
 	post[QueueChatMessageRequest, chat.QueueMessageResult]("QueueChatMessage", "/chat/messages/queue", handler.queueChatMessage),
 	post[SteerChatMessageRequest, chat.SteerMessageResult]("SteerChatMessage", "/chat/messages/steer", handler.steerChatMessage),
 	post[ListChatCommandsRequest, chat.ChatCommandListResult]("ListChatCommands", "/chat/commands/list", handler.listChatCommands),
 	post[ExecuteChatCommandRequest, chat.ChatCommandExecuteResult]("ExecuteChatCommand", "/chat/commands/execute", handler.executeChatCommand),
-	post[SetChatCodexModelRequest, chat.ChatCommandExecuteResult]("SetChatCodexModel", "/chat/codex/model/set", handler.setChatCodexModel),
-	post[SetChatCodexReasoningEffortRequest, chat.ChatCommandExecuteResult]("SetChatCodexReasoningEffort", "/chat/codex/reasoning-effort/set", handler.setChatCodexReasoningEffort),
 	post[CancelRunRequest, chat.Run]("CancelRun", "/chat/runs/cancel", handler.cancelRun),
 	post[GetActiveRunRequest, GetActiveRunResponse]("GetActiveRun", "/chat/runs/active", handler.getActiveRun),
 	post[ListRunsRequest, ListRunsResponse]("ListRuns", "/chat/runs/list", handler.listRuns),
@@ -55,11 +55,9 @@ var apiEndpoints = []endpoint{
 	post[GetRunItemOutputRequest, chat.RunItemOutputPage]("GetRunItemOutputPage", "/chat/runs/item-output", handler.getRunItemOutput),
 	post[ListDiagnosticsRequest, ListDiagnosticsResponse]("ListDiagnostics", "/chat/diagnostics/list", handler.listDiagnostics),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
-	get[codexaccount.CodexAccountState]("ReadCodexAccount", "/codex/account", handler.readCodexAccount),
-	post[codexaccount.RefreshCodexAccountRequest, codexaccount.CodexAccountState]("RefreshCodexAccount", "/codex/account/refresh", handler.refreshCodexAccount),
-	post[codexaccount.StartCodexLoginRequest, codexaccount.StartCodexLoginResponse]("StartCodexLogin", "/codex/account/login/start", handler.startCodexLogin),
-	post[codexaccount.CancelCodexLoginRequest, codexaccount.CodexAccountState]("CancelCodexLogin", "/codex/account/login/cancel", handler.cancelCodexLogin),
-	post[codexaccount.LogoutCodexAccountRequest, codexaccount.CodexAccountState]("LogoutCodexAccount", "/codex/account/logout", handler.logoutCodexAccount),
+	get[provideraccounts.ProviderAccounts]("ListProviderAccounts", "/provider-accounts", handler.listProviderAccounts),
+	post[provideraccounts.SaveChatGPTAuthRequest, provideraccounts.ProviderAccounts]("SaveChatGPTAuth", "/provider-accounts/chatgpt-auth/save", handler.saveChatGPTAuth),
+	post[provideraccounts.ClearChatGPTAuthRequest, provideraccounts.ProviderAccounts]("ClearChatGPTAuth", "/provider-accounts/chatgpt-auth/clear", handler.clearChatGPTAuth),
 	stream("EventStream", "/events", handler.eventStream),
 }
 

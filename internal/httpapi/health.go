@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,8 +10,8 @@ import (
 
 	"setta/internal/appstate"
 	"setta/internal/chat"
-	"setta/internal/codexaccount"
 	"setta/internal/jsonio"
+	"setta/internal/provideraccounts"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -70,6 +69,11 @@ type CreateConversationRequest struct {
 	Title       string `json:"title"`
 }
 
+type DeleteConversationRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
 type GetMessagePageRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
@@ -81,6 +85,13 @@ type SendChatMessageRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 	Prompt         string `json:"prompt"`
+}
+
+type UpdateUserMessageRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	MessageID      string `json:"messageId"`
+	Text           string `json:"text"`
 }
 
 type QueueChatMessageRequest struct {
@@ -101,22 +112,9 @@ type ListChatCommandsRequest struct {
 }
 
 type ExecuteChatCommandRequest struct {
-	WorkspaceID            string `json:"workspaceId"`
-	ConversationID         string `json:"conversationId"`
-	Raw                    string `json:"raw"`
-	ConfirmGoalReplacement bool   `json:"confirmGoalReplacement"`
-}
-
-type SetChatCodexModelRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
-	ModelID        string `json:"modelId"`
-}
-
-type SetChatCodexReasoningEffortRequest struct {
-	WorkspaceID     string               `json:"workspaceId"`
-	ConversationID  string               `json:"conversationId"`
-	ReasoningEffort chat.ReasoningEffort `json:"reasoningEffort"`
+	Raw            string `json:"raw"`
 }
 
 type CancelRunRequest struct {
@@ -199,6 +197,7 @@ type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
+	DeleteConversation(workspaceID string, conversationID string) (chat.ConversationListResult, error)
 	ListDiagnostics(workspaceID string, conversationID string, runID string) ([]chat.Diagnostic, error)
 	ListConversations(workspaceID string) (chat.ConversationListResult, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
@@ -206,45 +205,41 @@ type ChatService interface {
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
-	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
-	SetChatCodexModel(workspaceID string, conversationID string, modelID string) (chat.ChatCommandExecuteResult, error)
-	SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort chat.ReasoningEffort) (chat.ChatCommandExecuteResult, error)
 	SteerActiveRun(workspaceID string, conversationID string, prompt string) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
+	UpdateUserMessage(workspaceID string, conversationID string, messageID string, text string) (chat.ChatMessage, error)
 }
 
-type CodexAccountService interface {
-	CancelLogin(context.Context, codexaccount.CancelCodexLoginRequest) (codexaccount.CodexAccountState, error)
-	Logout(context.Context, codexaccount.LogoutCodexAccountRequest) (codexaccount.CodexAccountState, error)
-	Read(context.Context) (codexaccount.CodexAccountState, error)
-	Refresh(context.Context, codexaccount.RefreshCodexAccountRequest) (codexaccount.CodexAccountState, error)
-	StartLogin(context.Context, codexaccount.StartCodexLoginRequest) (codexaccount.StartCodexLoginResponse, error)
+type ProviderAccountService interface {
+	ClearChatGPTAuth() (provideraccounts.ProviderAccounts, error)
+	ListProviderAccounts() (provideraccounts.ProviderAccounts, error)
+	SaveChatGPTAuth(provideraccounts.SaveChatGPTAuthRequest) (provideraccounts.ProviderAccounts, error)
 }
 
 type HandlerConfig struct {
-	Metadata            BackendMetadata
-	ChatService         ChatService
-	CodexAccountService CodexAccountService
-	WorkspaceService    WorkspaceService
+	Metadata               BackendMetadata
+	ChatService            ChatService
+	ProviderAccountService ProviderAccountService
+	WorkspaceService       WorkspaceService
 }
 
 type handler struct {
-	metadata            BackendMetadata
-	chatService         ChatService
-	codexAccountService CodexAccountService
-	workspaceService    WorkspaceService
+	metadata               BackendMetadata
+	chatService            ChatService
+	providerAccountService ProviderAccountService
+	workspaceService       WorkspaceService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
-		metadata:            config.Metadata,
-		chatService:         config.ChatService,
-		codexAccountService: config.CodexAccountService,
-		workspaceService:    config.WorkspaceService,
+		metadata:               config.Metadata,
+		chatService:            config.ChatService,
+		providerAccountService: config.ProviderAccountService,
+		workspaceService:       config.WorkspaceService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)
@@ -390,6 +385,27 @@ func (handler handler) createConversation(response http.ResponseWriter, request 
 	writeJSON(response, http.StatusOK, conversation)
 }
 
+func (handler handler) deleteConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload DeleteConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.DeleteConversation(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "delete_conversation_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ListConversationsResponse{
+		Conversations: result.Conversations,
+		Corruption:    result.Corruption,
+		Diagnostics:   result.Diagnostics,
+	})
+}
+
 func (handler handler) getMessagePage(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -422,6 +438,23 @@ func (handler handler) sendChatMessage(response http.ResponseWriter, request *ht
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) updateUserMessage(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload UpdateUserMessageRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	message, err := service.UpdateUserMessage(payload.WorkspaceID, payload.ConversationID, payload.MessageID, payload.Text)
+	if err != nil {
+		writeChatError(response, "update_user_message_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, message)
 }
 
 func (handler handler) queueChatMessage(response http.ResponseWriter, request *http.Request) {
@@ -484,45 +517,9 @@ func (handler handler) executeChatCommand(response http.ResponseWriter, request 
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	result, err := service.ExecuteChatCommandWithOptions(payload.WorkspaceID, payload.ConversationID, payload.Raw, chat.ChatCommandExecutionOptions{
-		ConfirmGoalReplacement: payload.ConfirmGoalReplacement,
-	})
+	result, err := service.ExecuteChatCommand(payload.WorkspaceID, payload.ConversationID, payload.Raw)
 	if err != nil {
 		writeChatError(response, "execute_chat_command_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, result)
-}
-
-func (handler handler) setChatCodexModel(response http.ResponseWriter, request *http.Request) {
-	service := requireChatService(response, handler.chatService)
-	if service == nil {
-		return
-	}
-	var payload SetChatCodexModelRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	result, err := service.SetChatCodexModel(payload.WorkspaceID, payload.ConversationID, payload.ModelID)
-	if err != nil {
-		writeChatError(response, "set_chat_codex_model_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, result)
-}
-
-func (handler handler) setChatCodexReasoningEffort(response http.ResponseWriter, request *http.Request) {
-	service := requireChatService(response, handler.chatService)
-	if service == nil {
-		return
-	}
-	var payload SetChatCodexReasoningEffortRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	result, err := service.SetChatCodexReasoningEffort(payload.WorkspaceID, payload.ConversationID, payload.ReasoningEffort)
-	if err != nil {
-		writeChatError(response, "set_chat_codex_reasoning_effort_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
@@ -651,85 +648,51 @@ func (handler handler) submitApproval(response http.ResponseWriter, request *htt
 	writeJSON(response, http.StatusOK, run)
 }
 
-func (handler handler) readCodexAccount(response http.ResponseWriter, request *http.Request) {
-	service := requireCodexAccountService(response, handler.codexAccountService)
+func (handler handler) listProviderAccounts(response http.ResponseWriter, request *http.Request) {
+	service := requireProviderAccountService(response, handler.providerAccountService)
 	if service == nil {
 		return
 	}
-	state, err := service.Read(request.Context())
+	accounts, err := service.ListProviderAccounts()
 	if err != nil {
-		writeCodexAccountError(response, "read_codex_account_failed", err)
+		writeProviderAccountError(response, "list_provider_accounts_failed", err)
 		return
 	}
-	writeJSON(response, http.StatusOK, state)
+	writeJSON(response, http.StatusOK, accounts)
 }
 
-func (handler handler) refreshCodexAccount(response http.ResponseWriter, request *http.Request) {
-	service := requireCodexAccountService(response, handler.codexAccountService)
+func (handler handler) saveChatGPTAuth(response http.ResponseWriter, request *http.Request) {
+	service := requireProviderAccountService(response, handler.providerAccountService)
 	if service == nil {
 		return
 	}
-	var payload codexaccount.RefreshCodexAccountRequest
+	var payload provideraccounts.SaveChatGPTAuthRequest
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	state, err := service.Refresh(request.Context(), payload)
+	accounts, err := service.SaveChatGPTAuth(payload)
 	if err != nil {
-		writeCodexAccountError(response, "refresh_codex_account_failed", err)
+		writeProviderAccountError(response, "save_chatgpt_auth_failed", err)
 		return
 	}
-	writeJSON(response, http.StatusOK, state)
+	writeJSON(response, http.StatusOK, accounts)
 }
 
-func (handler handler) startCodexLogin(response http.ResponseWriter, request *http.Request) {
-	service := requireCodexAccountService(response, handler.codexAccountService)
+func (handler handler) clearChatGPTAuth(response http.ResponseWriter, request *http.Request) {
+	service := requireProviderAccountService(response, handler.providerAccountService)
 	if service == nil {
 		return
 	}
-	var payload codexaccount.StartCodexLoginRequest
+	var payload provideraccounts.ClearChatGPTAuthRequest
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	result, err := service.StartLogin(request.Context(), payload)
+	accounts, err := service.ClearChatGPTAuth()
 	if err != nil {
-		writeCodexAccountError(response, "start_codex_login_failed", err)
+		writeProviderAccountError(response, "clear_chatgpt_auth_failed", err)
 		return
 	}
-	writeJSON(response, http.StatusOK, result)
-}
-
-func (handler handler) cancelCodexLogin(response http.ResponseWriter, request *http.Request) {
-	service := requireCodexAccountService(response, handler.codexAccountService)
-	if service == nil {
-		return
-	}
-	var payload codexaccount.CancelCodexLoginRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	state, err := service.CancelLogin(request.Context(), payload)
-	if err != nil {
-		writeCodexAccountError(response, "cancel_codex_login_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, state)
-}
-
-func (handler handler) logoutCodexAccount(response http.ResponseWriter, request *http.Request) {
-	service := requireCodexAccountService(response, handler.codexAccountService)
-	if service == nil {
-		return
-	}
-	var payload codexaccount.LogoutCodexAccountRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	state, err := service.Logout(request.Context(), payload)
-	if err != nil {
-		writeCodexAccountError(response, "logout_codex_account_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, state)
+	writeJSON(response, http.StatusOK, accounts)
 }
 
 func (handler handler) eventStream(response http.ResponseWriter, request *http.Request) {
@@ -822,9 +785,9 @@ func requireChatService(response http.ResponseWriter, service ChatService) ChatS
 	return service
 }
 
-func requireCodexAccountService(response http.ResponseWriter, service CodexAccountService) CodexAccountService {
+func requireProviderAccountService(response http.ResponseWriter, service ProviderAccountService) ProviderAccountService {
 	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "codex_account_service_unavailable", "Codex account service is not available")
+		writeError(response, http.StatusServiceUnavailable, "provider_account_service_unavailable", "provider account service is not available")
 		return nil
 	}
 	return service
@@ -874,8 +837,16 @@ func writeChatError(response http.ResponseWriter, code string, err error) {
 	writeError(response, status, code, err.Error())
 }
 
-func writeCodexAccountError(response http.ResponseWriter, code string, err error) {
-	writeError(response, http.StatusBadRequest, code, err.Error())
+func writeProviderAccountError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if provideraccounts.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_provider_account_state", err.Error())
+		return
+	}
+	if provideraccounts.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
 }
 
 func writeError(response http.ResponseWriter, status int, code string, message string) {

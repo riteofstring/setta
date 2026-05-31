@@ -150,6 +150,7 @@ function testOpenWorkspaceRoot() {
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
+    backgroundColor: "#18181b",
     height: 820,
     minHeight: 620,
     minWidth: 960,
@@ -248,7 +249,7 @@ function registerIpc() {
     ipcMain,
     "appOpenExternalUrl",
     async (_event, rawURL) => {
-      await openExternalURL(rawURL);
+      await shell.openExternal(externalURL(rawURL));
     },
     ipcObserver,
   );
@@ -344,6 +345,14 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatDeleteConversation",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().deleteConversation({ conversationId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatMessagePage",
     async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
       return requireBackendClient().getMessagePage({
@@ -366,37 +375,8 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatExecuteCommand",
-    async (_event, workspaceId, conversationId, raw, confirmGoalReplacement) => {
-      return requireBackendClient().executeChatCommand({
-        confirmGoalReplacement,
-        conversationId,
-        raw,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSetCodexModel",
-    async (_event, workspaceId, conversationId, modelId) => {
-      return requireBackendClient().setChatCodexModel({
-        conversationId,
-        modelId,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "chatSetCodexReasoningEffort",
-    async (_event, workspaceId, conversationId, reasoningEffort) => {
-      return requireBackendClient().setChatCodexReasoningEffort({
-        conversationId,
-        reasoningEffort,
-        workspaceId,
-      });
+    async (_event, workspaceId, conversationId, raw) => {
+      return requireBackendClient().executeChatCommand({ conversationId, raw, workspaceId });
     },
     ipcObserver,
   );
@@ -473,41 +453,38 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "codexAccountRead",
+    "chatUpdateUserMessage",
+    async (_event, workspaceId, conversationId, messageId, text) => {
+      return requireBackendClient().updateUserMessage({
+        conversationId,
+        messageId,
+        text,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "providerAccountsList",
     async () => {
-      return requireBackendClient().readCodexAccount();
+      return requireBackendClient().listProviderAccounts();
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
-    "codexAccountRefresh",
+    "providerAccountsSaveChatGPTAuth",
     async (_event, request) => {
-      return requireBackendClient().refreshCodexAccount(request);
+      return requireBackendClient().saveChatGPTAuth(request);
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
-    "codexAccountStartLogin",
+    "providerAccountsClearChatGPTAuth",
     async (_event, request) => {
-      return requireBackendClient().startCodexLogin(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "codexAccountCancelLogin",
-    async (_event, request) => {
-      return requireBackendClient().cancelCodexLogin(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "codexAccountLogout",
-    async (_event, request) => {
-      return requireBackendClient().logoutCodexAccount(request);
+      return requireBackendClient().clearChatGPTAuth(request);
     },
     ipcObserver,
   );
@@ -519,15 +496,6 @@ function externalURL(rawURL: string) {
     throw new Error("external URL must use http or https: " + rawURL);
   }
   return url.toString();
-}
-
-async function openExternalURL(rawURL: string) {
-  const url = externalURL(rawURL);
-  if (process.env.SETTA_E2E_BLOCK_EXTERNAL_OPEN === "1") {
-    recorder?.recordAppEvent("external_url_open_blocked", { url });
-    return;
-  }
-  await shell.openExternal(url);
 }
 
 function requireBackendClient(): BackendClient {

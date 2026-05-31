@@ -126,7 +126,6 @@ async function main() {
   try {
     context = await launchCorruptContext(fixture.appDataDir);
     await waitForPartialCorruptChatState(context.client);
-    await assertWarningTooltips(context.client);
     await openCorruptConversation(context.client);
     await submitComposer(context.client, "resilient prompt", "Send message");
     await waitForTexts(context.client, ["resilient prompt", "Scripted response: resilient prompt"]);
@@ -204,7 +203,6 @@ async function createCorruptChatFixture(tempRoot) {
   });
   await writeJson(join(workspaceDir, "conversations", validConversationId, "conversation.json"), {
     archivedAt: "",
-    codexSettings: null,
     createdAt: now,
     harnessRefs: [],
     id: validConversationId,
@@ -285,7 +283,6 @@ async function createCorruptChatFixture(tempRoot) {
     join(workspaceDir, "conversations", secondValidConversationId, "conversation.json"),
     {
       archivedAt: "",
-      codexSettings: null,
       createdAt: now,
       harnessRefs: [],
       id: secondValidConversationId,
@@ -297,7 +294,6 @@ async function createCorruptChatFixture(tempRoot) {
   );
   await writeJson(join(workspaceDir, "conversations", conversationId, "conversation.json"), {
     archivedAt: "",
-    codexSettings: null,
     createdAt: now,
     harnessRefs: [],
     id: conversationId,
@@ -466,33 +462,19 @@ async function waitForPartialCorruptChatState(client) {
 function partialCorruptChatStateExpression() {
   return `(() => {
     const button = document.querySelector('button[aria-label="New chat"]');
-    const sidebar = document.querySelector('[data-testid="sidebar-scrollable-sections"]');
-    const detail = document.querySelector('[data-testid="chat-detail-pane"]');
     const status = document.querySelector('[data-testid="workspace-corruption-status"]');
     const statusLabel = status?.getAttribute("aria-label") ?? "";
     const conversations = Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]'));
-    const corruptConversation = conversations.find((conversation) =>
-      conversation.innerText.includes("Corrupt historical chat")
-    );
-    const conversationStatus = corruptConversation?.querySelector(
-      '[data-testid="conversation-corruption-status"]'
-    );
-    const conversationStatusLabel = conversationStatus?.getAttribute("aria-label") ?? "";
     const body = document.body.innerText;
     return {
       body,
       conversationCount: conversations.length,
-      conversationStatusLabel,
       newChatDisabled: button ? button.disabled : null,
       statusLabel,
       ready: Boolean(
         button &&
         status &&
-        sidebar?.contains(status) &&
-        !detail?.contains(status) &&
         statusLabel.includes("corrupt chat") &&
-        conversationStatus &&
-        conversationStatusLabel.includes("has pendingApproval while status is completed") &&
         conversations.length >= 3 &&
         body.includes("Valid historical chat") &&
         body.includes("Second valid chat") &&
@@ -509,77 +491,6 @@ async function openCorruptConversation(client) {
   await clickButtonByText(client, "Corrupt historical chat");
   await waitForCorruptionStatus(client, "has pendingApproval while status is completed");
   await waitForTexts(client, ["persisted valid message"]);
-}
-
-async function assertWarningTooltips(client) {
-  await hoverElement(client, '[data-testid="workspace-corruption-status"]');
-  await waitForState(client, visibleWorkspaceWarningExpression(), (value) => value.ready);
-  await hoverElement(client, '[data-testid="conversation-corruption-status"]');
-  await waitForState(client, visibleConversationWarningExpression(), (value) => value.ready);
-}
-
-async function hoverElement(client, selector) {
-  const point = await client.evaluate(`(() => {
-    const element = document.querySelector(${JSON.stringify(selector)});
-    if (!element) {
-      return null;
-    }
-    const rect = element.getBoundingClientRect();
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    };
-  })()`);
-  if (!point) {
-    throw new Error(`element was not available to hover: ${selector}`);
-  }
-  await client.call("Input.dispatchMouseEvent", {
-    type: "mouseMoved",
-    x: point.x,
-    y: point.y,
-  });
-  await delay(50);
-}
-
-function visibleWorkspaceWarningExpression() {
-  return `(() => {
-    const tooltip = document.querySelector('[data-testid="workspace-corruption-tooltip"]');
-    const text = tooltip?.innerText ?? "";
-    const style = tooltip ? window.getComputedStyle(tooltip) : null;
-    return {
-      display: style?.display ?? "",
-      text,
-      ready: Boolean(
-        tooltip &&
-        style?.display !== "none" &&
-        text.includes("Malformed chat data") &&
-        text.includes("corrupt chat")
-      ),
-    };
-  })()`;
-}
-
-function visibleConversationWarningExpression() {
-  return `(() => {
-    const cards = Array.from(document.querySelectorAll('[data-testid="conversation-hover-card"]'));
-    const visible = cards.find((card) => window.getComputedStyle(card).display !== "none");
-    const rect = visible?.getBoundingClientRect();
-    const text = visible?.innerText ?? "";
-    return {
-      bottom: rect?.bottom ?? null,
-      text,
-      top: rect?.top ?? null,
-      ready: Boolean(
-        visible &&
-        rect &&
-        rect.top >= 0 &&
-        rect.bottom <= window.innerHeight &&
-        text.includes("Corrupt historical chat") &&
-        text.includes("Malformed chat data") &&
-        text.includes("has pendingApproval while status is completed")
-      ),
-    };
-  })()`;
 }
 
 async function clickNewChat(client) {
@@ -704,18 +615,11 @@ async function waitForCorruptionStatus(client, expectedText) {
 
 function corruptionStatusExpression(expectedText) {
   return `(() => {
-    const sidebar = document.querySelector('[data-testid="sidebar-scrollable-sections"]');
-    const detail = document.querySelector('[data-testid="chat-detail-pane"]');
     const status = document.querySelector('[data-testid="workspace-corruption-status"]');
     const label = status?.getAttribute("aria-label") ?? "";
     return {
       label,
-      ready: Boolean(
-        status &&
-        sidebar?.contains(status) &&
-        !detail?.contains(status) &&
-        label.includes(${JSON.stringify(expectedText)})
-      ),
+      ready: Boolean(status && label.includes(${JSON.stringify(expectedText)})),
     };
   })()`;
 }

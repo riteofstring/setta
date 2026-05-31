@@ -53,6 +53,67 @@ func TestChatEndpointsCreateSendListAndPageMessages(t *testing.T) {
 	}
 }
 
+func TestChatEndpointsDeleteConversationRemovesItFromList(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	deleted := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "delete me",
+	}, http.StatusOK)
+	remaining := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "keep me",
+	}, http.StatusOK)
+
+	list := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/delete", DeleteConversationRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: deleted.ID,
+	}, http.StatusOK)
+	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != remaining.ID {
+		t.Fatalf("delete response conversations = %+v, want remaining conversation", list.Conversations)
+	}
+
+	relisted := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if len(relisted.Conversations) != 1 || relisted.Conversations[0].Conversation.ID != remaining.ID {
+		t.Fatalf("listed conversations = %+v, want remaining conversation", relisted.Conversations)
+	}
+}
+
+func TestChatEndpointUpdatesUserMessage(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	result := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "before edit",
+	}, http.StatusOK)
+	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, result.Run.ID, chat.MessageStatusComplete)
+
+	updated := postJSON[chat.ChatMessage](t, handler, "/chat/messages/update-user", UpdateUserMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		MessageID:      result.UserMessage.ID,
+		Text:           "after edit",
+	}, http.StatusOK)
+	if updated.Parts[0].Text != "after edit" {
+		t.Fatalf("updated text = %q, want after edit", updated.Parts[0].Text)
+	}
+
+	page := postJSON[chat.MessagePage](t, handler, "/chat/messages/page", GetMessagePageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Limit:          20,
+	}, http.StatusOK)
+	if len(page.Transcript) != 1 || page.Transcript[0].TriggerMessage.Parts[0].Text != "after edit" {
+		t.Fatalf("transcript = %+v, want edited trigger message", page.Transcript)
+	}
+}
+
 func TestChatEndpointMapsMalformedDurableStateToCorruptState(t *testing.T) {
 	handler, appDataDir := newChatHandlerWithAppDataDir(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
@@ -223,6 +284,14 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	if output.RunItemID != activity.Items[0].ID || len(output.Output) != 1 || output.Output[0].Text != "ok\n" {
 		t.Fatalf("item output page = %+v, want command output only", output)
 	}
+	waitForRunStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, queued.Run.ID, chat.RunStatusRunning)
+	waitForRunActivityHTTP(t, handler, opened.Workspace.ID, queued.Run.ID, "go test ./...")
+	postJSON[chat.SteerMessageResult](t, handler, "/chat/messages/steer", SteerChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "finish queued follow-up",
+	}, http.StatusOK)
+	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, queued.Run.ID, chat.MessageStatusComplete)
 }
 
 func TestChatCommandEndpointsListAndExecute(t *testing.T) {
@@ -234,8 +303,8 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 	}, http.StatusOK)
-	if len(list.Commands) != 2 {
-		t.Fatalf("commands = %+v, want goal and model", list.Commands)
+	if len(list.Commands) != 6 {
+		t.Fatalf("commands = %+v, want production slash commands", list.Commands)
 	}
 
 	result := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/commands/execute", ExecuteChatCommandRequest{
@@ -252,53 +321,13 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 	if len(result.Page.Conversation.HarnessRefs) != 1 {
 		t.Fatalf("harness refs = %+v, want command-created ref", result.Page.Conversation.HarnessRefs)
 	}
-	if result.Page.Goal == nil || result.Page.Goal.Status != "active" || result.Page.Goal.Objective != "finish renderer tests" {
-		t.Fatalf("page goal = %+v, want active command goal", result.Page.Goal)
-	}
-	if len(result.Page.Transcript) != 1 || result.Page.Transcript[0].TriggerMessage.Delivery != chat.MessageDeliveryGoal {
-		t.Fatalf("transcript = %+v, want internal goal trigger", result.Page.Transcript)
-	}
 
 	runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 	}, http.StatusOK)
-	if len(runs.Runs) != 1 {
-		t.Fatalf("runs = %+v, want one goal pursuit run", runs.Runs)
-	}
-	if runs.Runs[0].PromptSummary != "finish renderer tests" {
-		t.Fatalf("run prompt summary = %q, want objective", runs.Runs[0].PromptSummary)
-	}
-	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, runs.Runs[0].ID, chat.MessageStatusComplete)
-}
-
-func TestChatCodexModelSelectionEndpoints(t *testing.T) {
-	handler := newChatHandler(t, nil)
-	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
-
-	model := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/model/set", SetChatCodexModelRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-		ModelID:        "gpt-test",
-	}, http.StatusOK)
-	if model.Message == nil || model.Message.Parts[0].Text != "Model set: gpt-test" {
-		t.Fatalf("model result message = %+v, want model set", model.Message)
-	}
-	if model.Conversation.CodexSettings == nil || model.Conversation.CodexSettings.Model != "gpt-test" {
-		t.Fatalf("model settings = %+v, want gpt-test", model.Conversation.CodexSettings)
-	}
-
-	effort := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/reasoning-effort/set", SetChatCodexReasoningEffortRequest{
-		WorkspaceID:     opened.Workspace.ID,
-		ConversationID:  conversation.ID,
-		ReasoningEffort: chat.ReasoningEffortHigh,
-	}, http.StatusOK)
-	if effort.Message == nil || effort.Message.Parts[0].Text != "Reasoning set: High" {
-		t.Fatalf("effort result message = %+v, want reasoning set", effort.Message)
-	}
-	if effort.Conversation.CodexSettings == nil || effort.Conversation.CodexSettings.ReasoningEffort == nil || *effort.Conversation.CodexSettings.ReasoningEffort != chat.ReasoningEffortHigh {
-		t.Fatalf("effort settings = %+v, want high", effort.Conversation.CodexSettings)
+	if len(runs.Runs) != 0 {
+		t.Fatalf("runs = %+v, want none for command", runs.Runs)
 	}
 }
 
@@ -433,6 +462,7 @@ func newChatHandlerWithAppDataDir(t *testing.T, events []chat.FakeHarnessEvent) 
 	if err != nil {
 		t.Fatalf("new chat service: %v", err)
 	}
+	t.Cleanup(chatService.CloseEvents)
 	return NewHandler(HandlerConfig{
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
@@ -541,6 +571,47 @@ func waitForRunMessageStatusHTTP(t *testing.T, handler http.Handler, workspaceID
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for run %s status %s", runID, status)
+}
+
+func waitForRunStatusHTTP(t *testing.T, handler http.Handler, workspaceID string, conversationID string, runID string, status chat.RunStatus) chat.Run {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+		}, http.StatusOK)
+		for _, run := range runs.Runs {
+			if run.ID == runID && run.Status == status {
+				return run
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for run %s status %s", runID, status)
+	return chat.Run{}
+}
+
+func waitForRunActivityHTTP(t *testing.T, handler http.Handler, workspaceID string, runID string, command string) chat.RunActivityPage {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		activity := postJSON[chat.RunActivityPage](t, handler, "/chat/runs/activity", GetRunActivityRequest{
+			WorkspaceID: workspaceID,
+			RunID:       runID,
+			Limit:       20,
+		}, http.StatusOK)
+		for _, item := range activity.Items {
+			if item.Command == command {
+				return activity
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for run %s activity command %q", runID, command)
+	return chat.RunActivityPage{}
 }
 
 func assertRunStatus(t *testing.T, runs []chat.Run, runID string, status chat.RunStatus) {

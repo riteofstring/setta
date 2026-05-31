@@ -3,7 +3,6 @@ import type {
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
-  ChatGoalState,
   ChatMessage,
   Conversation,
   ConversationListItem,
@@ -11,13 +10,11 @@ import type {
   Diagnostic,
   ListConversationsResponse,
   MessagePage,
-  ReasoningEffort,
   Run,
   RunItem,
   RunItemOutput,
   TranscriptTurn,
 } from "@generated/backend";
-import type { ChatCommandExecutionOptions } from "@shared/types";
 import { create } from "zustand";
 
 import { applyChatEvent } from "./chat-events";
@@ -30,6 +27,8 @@ type ChatOperation =
   | "cancelling"
   | "creating"
   | "commanding"
+  | "deleting"
+  | "editing"
   | "loading"
   | "loadingOlder"
   | "queueing"
@@ -52,7 +51,6 @@ export interface ChatStore {
   corruption: CorruptionSummary;
   diagnostics: Diagnostic[];
   error: string | null;
-  goal: ChatGoalState | null;
   hasMoreOlder: boolean;
   handleEvent: (event: ChatEvent) => void;
   lastEventSequence: number;
@@ -73,16 +71,12 @@ export interface ChatStore {
   operation: ChatOperation;
   queuedRuns: QueuedRun[];
   queueMessage: (prompt: string) => Promise<void>;
-  executeCommand: (
-    raw: string,
-    options?: ChatCommandExecutionOptions,
-  ) => Promise<ChatCommandExecuteResult>;
-  setCodexModel: (modelId: string) => Promise<ChatCommandExecuteResult>;
-  setCodexReasoningEffort: (effort: ReasoningEffort) => Promise<ChatCommandExecuteResult>;
+  executeCommand: (raw: string) => Promise<ChatCommandExecuteResult>;
   listCommands: () => Promise<ChatCommandListResult | null>;
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  deleteConversation: (conversationId: string) => Promise<void>;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
@@ -103,6 +97,7 @@ export interface ChatStore {
     answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
+  updateUserMessage: (messageId: string, text: string) => Promise<void>;
   unreadConversationIds: Record<string, true>;
   workspaceId: string | null;
   transcript: TranscriptTurn[];
@@ -116,7 +111,6 @@ export type ChatPatch = Partial<
     | "corruption"
     | "diagnostics"
     | "error"
-    | "goal"
     | "hasMoreOlder"
     | "lastEventSequence"
     | "lastEventStreamId"
@@ -194,7 +188,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
     conversations: [],
     corruption: emptyCorruption,
     diagnostics: [],
-    goal: null,
     createConversation: async (title = "") => {
       const workspaceId = get().workspaceId;
       if (!workspaceId) {
@@ -222,6 +215,33 @@ export const useChatStore = create<ChatStore>((set, get) => {
           ...errorPatch(error),
           workspaceId: switchingWorkspace ? workspaceId : get().workspaceId,
         });
+      }
+    },
+    deleteConversation: async (conversationId: string) => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId || conversationId === "") {
+        return;
+      }
+      const operationId = beginOperation({ error: null, operation: "deleting" });
+      try {
+        const list = await window.setta.chat.deleteConversation(workspaceId, conversationId);
+        const nextConversation = nextConversationAfterDelete(
+          selectedConversation,
+          conversationId,
+          list,
+        );
+        const patch = nextConversation
+          ? await loadConversationPage(workspaceId, nextConversation)
+          : emptyConversationPatch();
+        commitCurrent(operationId, {
+          ...patch,
+          ...listPatch(list),
+          operation: null,
+          selectedConversation: nextConversation,
+          status: "ready",
+        });
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
       }
     },
     error: null,
@@ -365,7 +385,6 @@ export const useChatStore = create<ChatStore>((set, get) => {
         corruption: emptyCorruption,
         diagnostics: [],
         hasMoreOlder: false,
-        goal: null,
         messages: [],
         olderBeforeOrdinal: 0,
         operation: "loading",
@@ -426,69 +445,17 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operationId, errorPatch(error));
       }
     },
-    executeCommand: async (raw: string, options?: ChatCommandExecutionOptions) => {
+    executeCommand: async (raw: string) => {
       const { activeRun, selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
         throw new Error("No chat is selected");
       }
       const operationId = beginOperation({ error: null, operation: "commanding" });
       try {
-        const result =
-          options === undefined
-            ? await window.setta.chat.executeCommand(workspaceId, selectedConversation.id, raw)
-            : await window.setta.chat.executeCommand(
-                workspaceId,
-                selectedConversation.id,
-                raw,
-                options,
-              );
-        commitCurrentFromState(operationId, (current) => ({
-          ...commandOperationPatch(current, result, activeRun),
-          operation: null,
-          selectedConversation: result.conversation,
-          status: "ready",
-        }));
-        return result;
-      } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
-        throw error;
-      }
-    },
-    setCodexModel: async (modelId: string) => {
-      const { activeRun, selectedConversation, workspaceId } = get();
-      if (!workspaceId || !selectedConversation) {
-        throw new Error("No chat is selected");
-      }
-      const operationId = beginOperation({ error: null, operation: "commanding" });
-      try {
-        const result = await window.setta.chat.setCodexModel(
+        const result = await window.setta.chat.executeCommand(
           workspaceId,
           selectedConversation.id,
-          modelId,
-        );
-        commitCurrentFromState(operationId, (current) => ({
-          ...commandOperationPatch(current, result, activeRun),
-          operation: null,
-          selectedConversation: result.conversation,
-          status: "ready",
-        }));
-        return result;
-      } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
-        throw error;
-      }
-    },
-    setCodexReasoningEffort: async (effort: ReasoningEffort) => {
-      const { activeRun, selectedConversation, workspaceId } = get();
-      if (!workspaceId || !selectedConversation) {
-        throw new Error("No chat is selected");
-      }
-      const operationId = beginOperation({ error: null, operation: "commanding" });
-      try {
-        const result = await window.setta.chat.setCodexReasoningEffort(
-          workspaceId,
-          selectedConversation.id,
-          effort,
+          raw,
         );
         commitCurrentFromState(operationId, (current) => ({
           ...commandOperationPatch(current, result, activeRun),
@@ -655,6 +622,30 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     transcript: [],
+    updateUserMessage: async (messageId: string, text: string) => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        throw new Error("No chat is selected");
+      }
+      const operationId = beginOperation({ error: null, operation: "editing" });
+      try {
+        const message = await window.setta.chat.updateUserMessage(
+          workspaceId,
+          selectedConversation.id,
+          messageId,
+          text,
+        );
+        commitCurrentFromState(operationId, (current) => ({
+          messages: upsertMessage(current.messages, message),
+          operation: null,
+          status: "ready",
+          transcript: updateTranscriptMessage(current.transcript, message),
+        }));
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+        throw error;
+      }
+    },
     unreadConversationIds: {},
     workspaceId: null,
   };
@@ -671,6 +662,37 @@ function listPatch(list: ListConversationsResponse): ChatPatch {
     corruption: list.corruption,
     diagnostics: list.diagnostics,
   };
+}
+
+function nextConversationAfterDelete(
+  selectedConversation: Conversation | null,
+  deletedConversationId: string,
+  list: ListConversationsResponse,
+): Conversation | null {
+  if (!selectedConversation || selectedConversation.id === deletedConversationId) {
+    return list.conversations[0]?.conversation ?? null;
+  }
+  return (
+    list.conversations.find((item) => item.conversation.id === selectedConversation.id)
+      ?.conversation ?? selectedConversation
+  );
+}
+
+function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
+  const index = messages.findIndex((item) => item.id === message.id);
+  const next = index === -1 ? [...messages, message] : messages.with(index, message);
+  return next.toSorted((left, right) => left.ordinal - right.ordinal);
+}
+
+function updateTranscriptMessage(transcript: TranscriptTurn[], message: ChatMessage) {
+  return transcript.map((turn) => ({
+    ...turn,
+    assistantMessage: turn.assistantMessage?.id === message.id ? message : turn.assistantMessage,
+    steeringMessages: turn.steeringMessages.map((steeringMessage) =>
+      steeringMessage.id === message.id ? message : steeringMessage,
+    ),
+    triggerMessage: turn.triggerMessage.id === message.id ? message : turn.triggerMessage,
+  }));
 }
 
 function isUnexpectedStream(state: ChatStore, event: ChatEvent): boolean {
@@ -692,7 +714,6 @@ function hasSequenceGap(state: ChatStore, event: ChatEvent): boolean {
 function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
   return normalizeChatPatch({
     activeRun: activeRunFromCandidate(activeRun),
-    goal: page.goal,
     hasMoreOlder: page.hasMoreOlder,
     messages: messagesFromPage(page),
     olderBeforeOrdinal: page.olderBeforeOrdinal,
@@ -726,16 +747,14 @@ function commandOperationPatch(
   result: ChatCommandExecuteResult,
   fallbackActiveRun: RunningRun | null,
 ): ChatPatch {
+  if (result.result.kind === "new") {
+    return pagePatch(result.page, null);
+  }
   const terminalRunIds = terminalRunIdsFromTranscript(current.transcript);
   return terminalPreservingPagePatch(
     current,
     result.page,
-    activeRunFromCandidates(
-      terminalRunIds,
-      activeRunFromPage(result.page),
-      current.activeRun,
-      fallbackActiveRun,
-    ),
+    activeRunFromCandidates(terminalRunIds, current.activeRun, fallbackActiveRun),
     terminalRunIds,
   );
 }
@@ -805,16 +824,6 @@ function activeRunFromCandidates(
   return null;
 }
 
-function activeRunFromPage(page: MessagePage): RunningRun | null {
-  for (const turn of page.transcript) {
-    const activeRun = activeRunFromCandidate(turn.run);
-    if (activeRun) {
-      return activeRun;
-    }
-  }
-  return null;
-}
-
 function mergeOperationTranscript(
   currentTranscript: TranscriptTurn[],
   pageTranscript: TranscriptTurn[],
@@ -863,7 +872,6 @@ function mergeOperationMessages(
 function emptyConversationPatch(): ChatPatch {
   return normalizeChatPatch({
     activeRun: null,
-    goal: null,
     hasMoreOlder: false,
     messages: [],
     olderBeforeOrdinal: 0,

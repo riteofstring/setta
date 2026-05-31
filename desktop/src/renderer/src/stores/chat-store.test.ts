@@ -1,8 +1,6 @@
 import type {
   BackendHealth,
-  ChatCommandResult,
   ChatEvent,
-  ChatGoalState,
   ChatMessage,
   Conversation,
   ConversationListItem,
@@ -108,6 +106,72 @@ describe("chat store", () => {
     ]);
     expect(useChatStore.getState().corruption.total).toBe(1);
     expect(useChatStore.getState().error).toBeNull();
+    expect(useChatStore.getState().status).toBe("ready");
+  });
+
+  test("deletes the selected conversation and selects the next visible chat", async () => {
+    const selected = { ...testConversation(), id: "conversation_selected", title: "Selected" };
+    const remaining = { ...testConversation(), id: "conversation_remaining", title: "Remaining" };
+    const deleteConversation = vi
+      .fn()
+      .mockResolvedValue(listResponse([conversationItem(remaining, 0)]));
+    const messagePage = vi.fn().mockResolvedValue(testPage(remaining, []));
+    installSettaAPI({ chat: { deleteConversation, messagePage } });
+    useChatStore.setState({
+      conversations: [conversationItem(selected, 0), conversationItem(remaining, 0)],
+      messages: [message("message_selected", 1, "user", "complete", "selected")],
+      selectedConversation: selected,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().deleteConversation(selected.id);
+
+    expect(deleteConversation).toHaveBeenCalledWith("workspace_api", selected.id);
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", remaining.id, 0, 40);
+    expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
+      remaining.id,
+    ]);
+    expect(useChatStore.getState().selectedConversation?.id).toBe(remaining.id);
+    expect(useChatStore.getState().status).toBe("ready");
+  });
+
+  test("updates a user message in messages and transcript", async () => {
+    const conversation = testConversation();
+    const original = message("message_user", 1, "user", "complete", "before edit");
+    const updated = {
+      ...original,
+      parts: [{ ...original.parts[0], text: "after edit" }],
+      updatedAt: "2026-05-29T20:01:00Z",
+    };
+    const updateUserMessage = vi.fn().mockResolvedValue(updated);
+    installSettaAPI({ chat: { updateUserMessage } });
+    useChatStore.setState({
+      conversations: [conversationItem(conversation, 1)],
+      messages: [original],
+      selectedConversation: conversation,
+      status: "ready",
+      transcript: [
+        {
+          assistantMessage: null,
+          run: testRun("completed"),
+          steeringMessages: [],
+          triggerMessage: original,
+        },
+      ],
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().updateUserMessage(original.id, "after edit");
+
+    expect(updateUserMessage).toHaveBeenCalledWith(
+      "workspace_api",
+      conversation.id,
+      original.id,
+      "after edit",
+    );
+    expect(useChatStore.getState().messagesById[original.id]?.parts[0]?.text).toBe("after edit");
+    expect(useChatStore.getState().transcript[0]?.triggerMessage.parts[0]?.text).toBe("after edit");
     expect(useChatStore.getState().status).toBe("ready");
   });
 
@@ -358,6 +422,38 @@ describe("chat store", () => {
     expect(useChatStore.getState().transcript[0]?.run.status).toBe("failed");
   });
 
+  test("execute command updates from the backend page without creating an active run", async () => {
+    const conversation = testConversation();
+    const commandMessage = message("message_command", 1, "command", "complete", "Goal set: tests");
+    const executeCommand = vi.fn().mockResolvedValue({
+      conversation,
+      message: commandMessage,
+      page: testPage(conversation, [commandMessage]),
+      result: {
+        action: "display",
+        goal: { objective: "tests", status: "active", threadId: "thread_fake" },
+        kind: "goal",
+        message: "Goal set: tests",
+        models: [],
+        raw: "/goal tests",
+        selectedModel: "",
+        title: "Goal",
+      },
+    });
+    installSettaAPI({ chat: { executeCommand } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().executeCommand("/goal tests");
+
+    expect(executeCommand).toHaveBeenCalledWith("workspace_api", "conversation_api", "/goal tests");
+    expect(useChatStore.getState().messages.map((item) => item.role)).toContain("command");
+    expect(useChatStore.getState().activeRun).toBeNull();
+  });
+
   test("execute command response ignores a captured active run that completed before the response", async () => {
     const conversation = testConversation();
     const activeRun = testRun("running", "run_active");
@@ -408,13 +504,17 @@ describe("chat store", () => {
     commandResponse.resolve({
       conversation,
       message: commandMessage,
-      page: testPage(
-        conversation,
-        [activeAssistant, commandMessage],
-        false,
-        goalState("tests", "active"),
-      ),
-      result: goalCommandResult(),
+      page: testPage(conversation, [activeAssistant, commandMessage]),
+      result: {
+        action: "display",
+        goal: { objective: "tests", status: "active", threadId: "thread_fake" },
+        kind: "goal",
+        message: "Goal set: tests",
+        models: [],
+        raw: "/goal tests",
+        selectedModel: "",
+        title: "Goal",
+      },
     });
     await commandPromise;
 
@@ -828,6 +928,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
+      deleteConversation: async () => listResponse([]),
       executeCommand: async () => ({
         conversation,
         message: null,
@@ -839,44 +940,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           message: "Goal set: test",
           models: [],
           raw: "/goal test",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
           selectedModel: "",
           title: "Goal",
-        },
-      }),
-      setCodexModel: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "model",
-          message: "Model set: gpt-test",
-          models: [],
-          raw: "/model",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
-          selectedModel: "gpt-test",
-          title: "Model",
-        },
-      }),
-      setCodexReasoningEffort: async () => ({
-        conversation,
-        message: null,
-        page: testPage(conversation, []),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "model",
-          message: "Reasoning set: High",
-          models: [],
-          raw: "/model",
-          reasoningEfforts: [],
-          selectedReasoningEffort: "high",
-          selectedModel: "",
-          title: "Model",
         },
       }),
       listCommands: async () => ({
@@ -927,25 +992,14 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: message("message_steer", 3, "user", "complete", "steer", "steering"),
       }),
       submitApproval: async () => testRun("running"),
+      updateUserMessage: async () =>
+        message("message_user", 1, "user", "complete", "updated message"),
       ...overrides.chat,
     },
-    codexAccount: {
-      cancelLogin: async () => emptyCodexAccountState(),
-      logout: async () => emptyCodexAccountState(),
-      read: async () => emptyCodexAccountState(),
-      refresh: async () => emptyCodexAccountState(),
-      startLogin: async () => ({
-        login: {
-          authUrl: "",
-          error: "",
-          loginId: "",
-          status: "succeeded",
-          type: "chatgpt",
-          userCode: "",
-          verificationUrl: "",
-        },
-        state: emptyCodexAccountState(),
-      }),
+    providerAccounts: {
+      clearChatGPTAuth: async () => ({ accounts: [] }),
+      list: async () => ({ accounts: [] }),
+      saveChatGPTAuth: async () => ({ accounts: [] }),
     },
     workspace: {
       close: async () => workspaceSession(),
@@ -1170,10 +1224,9 @@ async function waitFor(done: () => boolean) {
   }
 }
 
-function testConversation(overrides: Partial<Conversation> = {}): Conversation {
+function testConversation(): Conversation {
   return {
     archivedAt: "",
-    codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
     id: "conversation_api",
@@ -1181,7 +1234,6 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
     title: "API chat",
     updatedAt: "2026-05-29T20:00:00Z",
     workspaceId: "workspace_api",
-    ...overrides,
   };
 }
 
@@ -1201,11 +1253,9 @@ function testPage(
   conversation: Conversation,
   messages: ChatMessage[],
   hasMoreOlder = false,
-  goal: ChatGoalState | null = null,
 ): MessagePage {
   return {
     conversation,
-    goal,
     hasMoreOlder,
     messages,
     olderBeforeOrdinal: messages[0]?.ordinal ?? 0,
@@ -1218,34 +1268,6 @@ function testPage(
     runItemOutputs: [],
     runItems: [],
     transcript: transcriptFromMessages(messages),
-  };
-}
-
-function goalState(objective: string, status: string): ChatGoalState {
-  return {
-    createdAt: 0,
-    objective,
-    status,
-    threadId: "thread_fake",
-    timeUsedSeconds: 0,
-    tokenBudget: null,
-    tokensUsed: 0,
-    updatedAt: 0,
-  };
-}
-
-function goalCommandResult(): ChatCommandResult {
-  return {
-    action: "display",
-    goal: goalState("tests", "active"),
-    kind: "goal",
-    message: "Goal set: tests",
-    models: [],
-    raw: "/goal tests",
-    reasoningEfforts: [],
-    selectedModel: "",
-    selectedReasoningEffort: null,
-    title: "Goal",
   };
 }
 
@@ -1420,16 +1442,6 @@ function workspaceSession(): WorkspaceSession {
     activeWorkspaces: [workspaceSummary()],
     recentWorkspaces: [],
     selectedWorkspaceId: "workspace_api",
-  };
-}
-
-function emptyCodexAccountState() {
-  return {
-    account: null,
-    diagnostic: "",
-    login: null,
-    requiresOpenaiAuth: true,
-    status: "unauthenticated" as const,
   };
 }
 

@@ -17,7 +17,6 @@ import (
 const (
 	conversationsDirName  = "conversations"
 	conversationFileName  = "conversation.json"
-	goalFileName          = "goal.json"
 	messagesDirName       = "messages"
 	runsDirName           = "runs"
 	runItemsDirName       = "items"
@@ -136,39 +135,6 @@ func (store *Store) LoadConversation(workspaceID string, conversationID string) 
 		return Conversation{}, corruptStateErrorf(path, "conversation file id %s does not match requested id %s", conversation.ID, conversationID)
 	}
 	return conversation, nil
-}
-
-func (store *Store) SaveGoal(workspaceID string, conversationID string, goal ChatGoalState) error {
-	if err := validateChatGoalState(goal); err != nil {
-		return err
-	}
-	return writeJSONFile(store.goalPath(workspaceID, conversationID), goal)
-}
-
-func (store *Store) LoadGoal(workspaceID string, conversationID string) (*ChatGoalState, error) {
-	path := store.goalPath(workspaceID, conversationID)
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, &PersistenceError{Operation: "stat goal", Path: path, Err: err}
-	}
-	var goal ChatGoalState
-	if err := readJSONFile(path, &goal); err != nil {
-		return nil, err
-	}
-	if err := validateChatGoalState(goal); err != nil {
-		return nil, corruptStateError(path, err)
-	}
-	return &goal, nil
-}
-
-func (store *Store) ClearGoal(workspaceID string, conversationID string) error {
-	path := store.goalPath(workspaceID, conversationID)
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return &PersistenceError{Operation: "remove goal", Path: path, Err: err}
-	}
-	return nil
 }
 
 func (store *Store) ListConversations(workspaceID string) ([]Conversation, error) {
@@ -835,10 +801,6 @@ func (store *Store) ListDiagnosticsAllowingCorrupt() ([]Diagnostic, []CorruptSta
 
 func (store *Store) conversationPath(workspaceID string, conversationID string) string {
 	return filepath.Join(store.conversationDir(workspaceID, conversationID), conversationFileName)
-}
-
-func (store *Store) goalPath(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), goalFileName)
 }
 
 func (store *Store) conversationsDir(workspaceID string) string {

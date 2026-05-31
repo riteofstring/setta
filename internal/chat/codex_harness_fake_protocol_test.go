@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"setta/internal/codexapp"
 )
 
 func writeFakeInitializeResponse(id any) {
@@ -18,19 +16,10 @@ func writeFakeInitializeResponse(id any) {
 	})
 }
 
-func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error) {
-	return codexapp.StartProcess(codexapp.ProcessConfig{
-		Command: config.Command,
-		Args:    config.Args,
-		Env:     config.Env,
-	})
-}
-
-func writeFakeThreadResponse(id any, model string, effort ReasoningEffort) {
+func writeFakeThreadResponse(id any, model string) {
 	writeFakeResponse(id, map[string]any{
-		"model":           model,
-		"reasoningEffort": string(effort),
-		"thread":          map[string]any{"id": "thread_fake"},
+		"model":  model,
+		"thread": map[string]any{"id": "thread_fake"},
 	})
 }
 
@@ -38,13 +27,6 @@ func writeFakeStreamTurn() {
 	writeFakeAssistantDelta("hello ")
 	writeFakeAssistantDelta("from codex")
 	writeFakeCompletedTurn("completed")
-}
-
-func writeFakeTurnStartedID(turnID string) {
-	writeFakeNotification("turn/started", map[string]any{
-		"threadId": "thread_fake",
-		"turnId":   turnID,
-	})
 }
 
 func writeFakeRemoteControlStatus(status string) {
@@ -454,6 +436,11 @@ func writeFakeImmediateServerRequest(mode string, state *fakeCodexState) {
 		writeFakeDynamicToolRequest("missingTool")
 	case "dynamic-tool-registered":
 		writeFakeDynamicToolRequest("fakeTool")
+	case "chatgpt-auth-refresh-unavailable":
+		writeFakeServerRequest("auth-1", "account/chatgptAuthTokens/refresh", map[string]any{
+			"previousAccountId": "account_fake",
+			"reason":            "expired",
+		})
 	case "attestation-unavailable", "attestation-provider":
 		writeFakeServerRequest("attestation-1", "attestation/generate", map[string]any{})
 	}
@@ -697,10 +684,6 @@ func assertFakeAnswer(answers map[string]any, questionID string, expected string
 
 func writeFakeResponse(id any, result any) {
 	writeFake(map[string]any{"id": id, "result": result})
-}
-
-func writeFakeErrorResponse(id any, code int, message string) {
-	writeFake(map[string]any{"id": id, "error": map[string]any{"code": code, "message": message}})
 }
 
 func writeFakeNotification(method string, params any) {

@@ -13,7 +13,6 @@ const (
 	FakeEventCancelled      = "cancelled"
 	FakeEventError          = "error"
 	FakeEventFailed         = "failed"
-	FakeEventGoalUpdated    = "goal_updated"
 	FakeEventRunItem        = "run_item"
 	FakeEventRunItemOutput  = "run_item_output"
 	FakeEventThreadLinked   = "thread_linked"
@@ -21,8 +20,6 @@ const (
 	FakeEventWaitForCancel  = "wait_for_cancel"
 	FakeEventWaitForSteer   = "wait_for_steer"
 )
-
-var errUnsupportedFakeHarnessEvent = errors.New("unsupported fake harness event")
 
 type FakeHarnessEvent struct {
 	Type            string
@@ -34,7 +31,6 @@ type FakeHarnessEvent struct {
 	ProviderItemID  string
 	Stream          string
 	RunItem         RunItem
-	Goal            *ChatGoalState
 	Approval        ApprovalRequest
 	WaitForApproval bool
 }
@@ -49,7 +45,6 @@ type FakeHarness struct {
 	approvals   []ApprovalResponse
 	goal        *ChatGoalState
 	model       string
-	reasoning   ReasoningEffort
 	steering    []SteerRequest
 	approvalChs map[string]chan ApprovalResponse
 	steerChs    map[string]chan SteerRequest
@@ -95,23 +90,6 @@ func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, 
 }
 
 func (harness *FakeHarness) handleEvent(ctx context.Context, request TurnRequest, sink TurnSink, event FakeHarnessEvent) error {
-	err := harness.handleImmediateEvent(ctx, request, sink, event)
-	if !errors.Is(err, errUnsupportedFakeHarnessEvent) {
-		return err
-	}
-	switch event.Type {
-	case FakeEventWaitForCancel:
-		<-ctx.Done()
-		return ctx.Err()
-	case FakeEventWaitForSteer:
-		_, err := harness.waitForSteer(ctx, request.Run.ID)
-		return err
-	default:
-		return fmt.Errorf("unsupported fake harness event type %s", event.Type)
-	}
-}
-
-func (harness *FakeHarness) handleImmediateEvent(ctx context.Context, request TurnRequest, sink TurnSink, event FakeHarnessEvent) error {
 	switch event.Type {
 	case FakeEventAssistantDelta:
 		return sink.AssistantTextDelta(event.ProviderItemID, event.Text)
@@ -119,11 +97,6 @@ func (harness *FakeHarness) handleImmediateEvent(ctx context.Context, request Tu
 		return harness.handleApprovalEvent(ctx, request.Run.ID, sink, event)
 	case FakeEventError:
 		return errors.New(event.Error)
-	case FakeEventGoalUpdated:
-		harness.mu.Lock()
-		harness.goal = event.Goal
-		harness.mu.Unlock()
-		return sink.GoalUpdated(event.Goal)
 	case FakeEventRunItem:
 		item := event.RunItem
 		if item.ProviderItemID == "" {
@@ -136,8 +109,14 @@ func (harness *FakeHarness) handleImmediateEvent(ctx context.Context, request Tu
 		return sink.ThreadLinked(event.ThreadID, event.SessionID, event.TurnID)
 	case FakeEventTrace:
 		return sink.Trace(event.Text, event.Error)
+	case FakeEventWaitForCancel:
+		<-ctx.Done()
+		return ctx.Err()
+	case FakeEventWaitForSteer:
+		_, err := harness.waitForSteer(ctx, request.Run.ID)
+		return err
 	default:
-		return errUnsupportedFakeHarnessEvent
+		return fmt.Errorf("unsupported fake harness event type %s", event.Type)
 	}
 }
 
@@ -207,11 +186,7 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 
 	harness.commands = append(harness.commands, request)
 	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
-	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		result.ThreadRef = request.ThreadRef
-		result.HasThreadRef = true
-	}
-	if request.ActiveRun == nil && commandNeedsThread(request.Command) && !commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
+	if request.ActiveRun == nil && commandNeedsThread(request.Command) {
 		ref := request.ThreadRef
 		if ref.ThreadID == "" {
 			ref = HarnessThreadRef{
@@ -227,30 +202,20 @@ func (harness *FakeHarness) ExecuteCommand(_ context.Context, request HarnessCom
 	switch request.Command.Kind {
 	case ChatCommandGoal:
 		return harness.executeGoalCommandLocked(request.Command, result)
+	case ChatCommandMCP:
+		result.DisplayTitle = "MCP"
+		result.DisplayMessage = "MCP servers:\n- fake: auth unsupported, 2 tools"
+		return result, nil
 	case ChatCommandModel:
 		return harness.executeModelCommandLocked(request.Command, result)
+	case ChatCommandSkills:
+		result.DisplayTitle = "Skills"
+		result.DisplayMessage = "Available skills:\n- fake-skill: Fake test skill"
+		return result, nil
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported fake command kind: %s", request.Command.Kind), nil)
 	}
 }
-
-type fakeGoalContinuation struct {
-	harness *FakeHarness
-}
-
-func (harness *FakeHarness) BeginGoalContinuation(ctx context.Context, request HarnessCommandRequest) (HarnessCommandResult, HarnessGoalContinuation, error) {
-	result, err := harness.ExecuteCommand(ctx, request)
-	if err != nil {
-		return HarnessCommandResult{}, nil, err
-	}
-	return result, &fakeGoalContinuation{harness: harness}, nil
-}
-
-func (continuation *fakeGoalContinuation) Wait(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	return continuation.harness.StartTurn(ctx, request, sink)
-}
-
-func (continuation *fakeGoalContinuation) Close() {}
 
 func (harness *FakeHarness) executeGoalCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
 	if command.Goal == nil {
@@ -258,24 +223,13 @@ func (harness *FakeHarness) executeGoalCommandLocked(command ChatCommand, result
 	}
 	switch command.Goal.Action {
 	case GoalCommandShow:
-	case GoalCommandEdit:
-		result.Action = ChatCommandResultGoalEditor
 	case GoalCommandSet:
 		harness.goal = &ChatGoalState{Objective: command.Goal.Objective, Status: "active", ThreadID: result.ThreadRef.ThreadID}
 	case GoalCommandClear:
-		if harness.goal == nil {
-			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
-		}
 		harness.goal = nil
 	case GoalCommandPause:
-		if harness.goal == nil {
-			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
-		}
 		harness.setGoalStatusLocked("paused", result.ThreadRef.ThreadID)
 	case GoalCommandResume:
-		if harness.goal == nil {
-			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
-		}
 		harness.setGoalStatusLocked("active", result.ThreadRef.ThreadID)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported goal command action: %s", command.Goal.Action), nil)
@@ -302,32 +256,9 @@ func (harness *FakeHarness) executeModelCommandLocked(command ChatCommand, resul
 	case ModelCommandShowPicker:
 		result.Action = ChatCommandResultModelPicker
 		result.Models = fakeModelOptions()
-		result.ReasoningEfforts = fakeReasoningEffortOptions()
-		result.SelectedModel = harness.model
-		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
 	case ModelCommandSet:
 		harness.model = command.Model.ModelID
 		result.SelectedModel = command.Model.ModelID
-		result.SelectedReasoningEffort = reasoningEffortResult(harness.reasoning)
-		if !result.HasThreadRef {
-			result.CodexSettings = &ChatCodexSettings{
-				Model:           harness.model,
-				ReasoningEffort: reasoningEffortResult(harness.reasoning),
-			}
-		}
-	case ModelCommandSetEffort:
-		if command.Model.ReasoningEffort == nil {
-			return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "reasoning effort is required", nil)
-		}
-		harness.reasoning = *command.Model.ReasoningEffort
-		result.SelectedModel = harness.model
-		result.SelectedReasoningEffort = reasoningEffortResult(*command.Model.ReasoningEffort)
-		if !result.HasThreadRef {
-			result.CodexSettings = &ChatCodexSettings{
-				Model:           harness.model,
-				ReasoningEffort: reasoningEffortResult(harness.reasoning),
-			}
-		}
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
 	}
@@ -379,50 +310,20 @@ func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {
 func fakeModelOptions() []ChatModelOption {
 	return []ChatModelOption{
 		{
-			Description:               "Fast scripted test model.",
-			DisplayName:               "Scripted Fast",
-			Hidden:                    false,
-			ID:                        "scripted-fast-catalog-id",
-			IsDefault:                 true,
-			Model:                     "scripted-fast",
-			DefaultReasoningEffort:    ReasoningEffortMedium,
-			SupportedReasoningEfforts: fakeReasoningEffortOptions(),
-		},
-		{
-			Description:               "Careful scripted test model.",
-			DisplayName:               "Scripted Careful",
-			Hidden:                    false,
-			ID:                        "scripted-careful",
-			IsDefault:                 false,
-			Model:                     "scripted-careful",
-			DefaultReasoningEffort:    ReasoningEffortMedium,
-			SupportedReasoningEfforts: fakeReasoningEffortOptions(),
-		},
-	}
-}
-
-func fakeReasoningEffortOptions() []ChatReasoningEffortOption {
-	return []ChatReasoningEffortOption{
-		{
-			Description: "Fast responses with lighter reasoning.",
-			DisplayName: reasoningEffortDisplayName(ReasoningEffortLow),
-			Effort:      ReasoningEffortLow,
-		},
-		{
-			Description: "Balances speed and reasoning depth for everyday tasks.",
-			DisplayName: reasoningEffortDisplayName(ReasoningEffortMedium),
-			Effort:      ReasoningEffortMedium,
+			Description: "Fast scripted test model.",
+			DisplayName: "Scripted Fast",
+			Hidden:      false,
+			ID:          "scripted-fast-catalog-id",
 			IsDefault:   true,
+			Model:       "scripted-fast",
 		},
 		{
-			Description: "Greater reasoning depth for complex problems.",
-			DisplayName: reasoningEffortDisplayName(ReasoningEffortHigh),
-			Effort:      ReasoningEffortHigh,
-		},
-		{
-			Description: "Extra high reasoning depth for complex problems.",
-			DisplayName: reasoningEffortDisplayName(ReasoningEffortXHigh),
-			Effort:      ReasoningEffortXHigh,
+			Description: "Careful scripted test model.",
+			DisplayName: "Scripted Careful",
+			Hidden:      false,
+			ID:          "scripted-careful",
+			IsDefault:   false,
+			Model:       "scripted-careful",
 		},
 	}
 }

@@ -287,11 +287,6 @@ func (service *Service) attachPageState(workspaceID string, conversationID strin
 		return err
 	}
 	page.Queue = queue
-	goal, err := service.store.LoadGoal(workspaceID, conversationID)
-	if err != nil {
-		return err
-	}
-	page.Goal = goal
 	if err := service.attachTranscriptToPageLocked(workspaceID, conversationID, page, runs); err != nil {
 		return err
 	}

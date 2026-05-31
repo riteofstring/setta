@@ -19,12 +19,8 @@ const (
 	ChatCommandErrorCodexThread        ChatCommandErrorCode = "codex_thread_unavailable"
 	ChatCommandErrorCodexRPC           ChatCommandErrorCode = "codex_app_server_rpc_failed"
 	ChatCommandErrorCodexProviderDrift ChatCommandErrorCode = "codex_provider_drift"
-	ChatCommandErrorGoalNotSet         ChatCommandErrorCode = "goal_not_set"
-	ChatCommandErrorGoalReplaceConfirm ChatCommandErrorCode = "goal_replacement_requires_confirmation"
 	ChatCommandErrorWrongEndpoint      ChatCommandErrorCode = "slash_command_wrong_endpoint"
 )
-
-const maxGoalObjectiveRunes = 4000
 
 type ChatCommandError struct {
 	Code    ChatCommandErrorCode
@@ -58,19 +54,6 @@ func commandError(code ChatCommandErrorCode, message string, err error) error {
 	return &ChatCommandError{Code: code, Message: message, Err: err}
 }
 
-func noGoalCommandError(action GoalCommandAction) error {
-	switch action {
-	case GoalCommandClear:
-		return commandError(ChatCommandErrorGoalNotSet, "No goal is set to clear.", nil)
-	case GoalCommandPause:
-		return commandError(ChatCommandErrorGoalNotSet, "No goal is set to pause.", nil)
-	case GoalCommandResume:
-		return commandError(ChatCommandErrorGoalNotSet, "No goal is set to resume.", nil)
-	default:
-		return commandError(ChatCommandErrorGoalNotSet, "No goal is set.", nil)
-	}
-}
-
 func ParseChatCommand(raw string) (ChatCommand, error) {
 	if !strings.HasPrefix(raw, "/") {
 		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "slash command must start with /", nil)
@@ -85,10 +68,16 @@ func ParseChatCommand(raw string) (ChatCommand, error) {
 		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "slash command name must use lowercase letters and hyphens: "+name, nil)
 	}
 	switch name {
-	case "goal":
-		return parseGoalCommand(raw, args)
+	case "goal", "goals":
+		return parseGoalCommand(raw, args), nil
+	case "mcp":
+		return ChatCommand{Args: args, Kind: ChatCommandMCP, Raw: raw}, nil
 	case "model":
 		return parseModelCommand(raw, args)
+	case "new":
+		return ChatCommand{Args: args, Kind: ChatCommandNew, Raw: raw}, nil
+	case "skills":
+		return ChatCommand{Args: args, Kind: ChatCommandSkills, Raw: raw}, nil
 	default:
 		return ChatCommand{}, commandError(ChatCommandErrorUnknownCommand, "unknown slash command: /"+name, nil)
 	}
@@ -117,23 +106,18 @@ func isValidCommandName(name string) bool {
 	return hasLetter
 }
 
-func parseGoalCommand(raw string, args string) (ChatCommand, error) {
+func parseGoalCommand(raw string, args string) ChatCommand {
 	switch args {
 	case "":
-		return goalChatCommand(raw, args, GoalCommandShow, "", ""), nil
-	case "edit":
-		return goalChatCommand(raw, args, GoalCommandEdit, "", ""), nil
+		return goalChatCommand(raw, args, GoalCommandShow, "", "")
 	case "clear":
-		return goalChatCommand(raw, args, GoalCommandClear, "", ""), nil
+		return goalChatCommand(raw, args, GoalCommandClear, "", "")
 	case "pause":
-		return goalChatCommand(raw, args, GoalCommandPause, "", "paused"), nil
+		return goalChatCommand(raw, args, GoalCommandPause, "", "paused")
 	case "resume":
-		return goalChatCommand(raw, args, GoalCommandResume, "", "active"), nil
+		return goalChatCommand(raw, args, GoalCommandResume, "", "active")
 	default:
-		if len([]rune(args)) > maxGoalObjectiveRunes {
-			return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("/goal objective must be %d characters or fewer", maxGoalObjectiveRunes), nil)
-		}
-		return goalChatCommand(raw, args, GoalCommandSet, args, "active"), nil
+		return goalChatCommand(raw, args, GoalCommandSet, args, "active")
 	}
 }
 
@@ -152,37 +136,24 @@ func goalChatCommand(raw string, args string, action GoalCommandAction, objectiv
 
 func parseModelCommand(raw string, args string) (ChatCommand, error) {
 	if args == "" {
-		return modelChatCommand(raw, args, ModelCommandShowPicker, "", nil), nil
+		return modelChatCommand(raw, args, ModelCommandShowPicker, ""), nil
 	}
-	return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "/model opens the model picker; use the picker to select a model or reasoning effort", nil)
+	if strings.ContainsAny(args, " \t\r\n") {
+		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "/model accepts exactly one model id", nil)
+	}
+	return modelChatCommand(raw, args, ModelCommandSet, args), nil
 }
 
-func modelChatCommand(raw string, args string, action ModelCommandAction, modelID string, effort *ReasoningEffort) ChatCommand {
+func modelChatCommand(raw string, args string, action ModelCommandAction, modelID string) ChatCommand {
 	return ChatCommand{
 		Args: args,
 		Kind: ChatCommandModel,
 		Model: &ModelCommand{
-			Action:          action,
-			ModelID:         modelID,
-			ReasoningEffort: effort,
+			Action:  action,
+			ModelID: modelID,
 		},
 		Raw: raw,
 	}
-}
-
-func modelSetChatCommand(modelID string) (ChatCommand, error) {
-	modelID = strings.TrimSpace(modelID)
-	if modelID == "" || strings.ContainsAny(modelID, " \t\r\n") {
-		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "model id is required and must not contain whitespace", nil)
-	}
-	return modelChatCommand("/model", "", ModelCommandSet, modelID, nil), nil
-}
-
-func reasoningEffortSetChatCommand(effort ReasoningEffort) (ChatCommand, error) {
-	if !validValue(effort, reasoningEffortValues) {
-		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "unsupported reasoning level: "+string(effort), nil)
-	}
-	return modelChatCommand("/model", "", ModelCommandSetEffort, "", reasoningEffortResult(effort)), nil
 }
 
 type HarnessCommandExecutor interface {
@@ -206,16 +177,14 @@ type HarnessCommandListRequest struct {
 }
 
 type HarnessCommandResult struct {
-	Action                  ChatCommandResultAction
-	CapabilityDiagnostic    string
-	CodexSettings           *ChatCodexSettings
-	Goal                    *ChatGoalState
-	Models                  []ChatModelOption
-	SelectedModel           string
-	ReasoningEfforts        []ChatReasoningEffortOption
-	SelectedReasoningEffort *ReasoningEffort
-	ThreadRef               HarnessThreadRef
-	HasThreadRef            bool
+	Action         ChatCommandResultAction
+	DisplayMessage string
+	DisplayTitle   string
+	Goal           *ChatGoalState
+	Models         []ChatModelOption
+	SelectedModel  string
+	ThreadRef      HarnessThreadRef
+	HasThreadRef   bool
 }
 
 type HarnessCommandListResult struct {
@@ -231,18 +200,46 @@ func defaultCommandCapabilities(activeRun *Run) []ChatCommandCapability {
 	return []ChatCommandCapability{
 		{
 			Available:   true,
-			Description: "Show, edit, set, pause, resume, or clear the active goal.",
+			Description: "Show, set, pause, resume, or clear the active goal.",
 			Kind:        ChatCommandGoal,
 			Name:        "/goal",
-			Usage:       "/goal [objective|edit|clear|pause|resume]",
+			Usage:       "/goal [objective|clear|pause|resume]",
+		},
+		{
+			Available:   true,
+			Description: "Alias for /goal.",
+			Kind:        ChatCommandGoal,
+			Name:        "/goals",
+			Usage:       "/goals [objective|clear|pause|resume]",
+		},
+		{
+			Available:   true,
+			Description: "Create and switch to a new chat in the current workspace.",
+			Kind:        ChatCommandNew,
+			Name:        "/new",
+			Usage:       "/new [title]",
 		},
 		{
 			Available:         modelAvailable,
-			Description:       "Open the model picker.",
+			Description:       "Open the model picker or set the model for future turns.",
 			Kind:              ChatCommandModel,
 			Name:              "/model",
 			UnavailableReason: modelReason,
-			Usage:             "/model",
+			Usage:             "/model [model-id]",
+		},
+		{
+			Available:   true,
+			Description: "List Codex skills available for this workspace.",
+			Kind:        ChatCommandSkills,
+			Name:        "/skills",
+			Usage:       "/skills",
+		},
+		{
+			Available:   true,
+			Description: "Show Codex MCP server status and tool inventory.",
+			Kind:        ChatCommandMCP,
+			Name:        "/mcp",
+			Usage:       "/mcp",
 		},
 	}
 }
@@ -254,8 +251,14 @@ func ensureCommandAvailable(command ChatCommand, activeRun *Run) error {
 	switch command.Kind {
 	case ChatCommandGoal:
 		return nil
+	case ChatCommandMCP:
+		return nil
 	case ChatCommandModel:
 		return commandError(ChatCommandErrorUnavailable, "model commands are unavailable while a run is active", nil)
+	case ChatCommandNew:
+		return nil
+	case ChatCommandSkills:
+		return nil
 	default:
 		return commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported chat command kind: %s", command.Kind), nil)
 	}
@@ -266,36 +269,12 @@ func commandNeedsThread(command ChatCommand) bool {
 	case ChatCommandGoal:
 		return true
 	case ChatCommandModel:
-		return command.Model != nil && (command.Model.Action == ModelCommandSet || command.Model.Action == ModelCommandSetEffort)
+		return command.Model != nil && command.Model.Action == ModelCommandSet
+	case ChatCommandMCP, ChatCommandNew, ChatCommandSkills:
+		return false
 	default:
 		return false
 	}
-}
-
-func reasoningEffortDisplayName(effort ReasoningEffort) string {
-	switch effort {
-	case ReasoningEffortNone:
-		return "None"
-	case ReasoningEffortMinimal:
-		return "Minimal"
-	case ReasoningEffortLow:
-		return "Low"
-	case ReasoningEffortMedium:
-		return "Medium"
-	case ReasoningEffortHigh:
-		return "High"
-	case ReasoningEffortXHigh:
-		return "Extra high"
-	default:
-		return string(effort)
-	}
-}
-
-func reasoningEffortResult(effort ReasoningEffort) *ReasoningEffort {
-	if effort == "" {
-		return nil
-	}
-	return &effort
 }
 
 func rejectSlashPromptForMessageEndpoint(prompt string) error {

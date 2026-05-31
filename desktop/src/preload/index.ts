@@ -50,18 +50,10 @@ const api: SettaAPI = {
       invoke("chatCancelRun", workspaceId, conversationId),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
-    executeCommand: (workspaceId: string, conversationId: string, raw: string, options) =>
-      invoke(
-        "chatExecuteCommand",
-        workspaceId,
-        conversationId,
-        raw,
-        options?.confirmGoalReplacement ?? false,
-      ),
-    setCodexModel: (workspaceId: string, conversationId: string, modelId: string) =>
-      invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
-    setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
-      invoke("chatSetCodexReasoningEffort", workspaceId, conversationId, effort),
+    deleteConversation: (workspaceId: string, conversationId: string) =>
+      invoke("chatDeleteConversation", workspaceId, conversationId),
+    executeCommand: (workspaceId: string, conversationId: string, raw: string) =>
+      invoke("chatExecuteCommand", workspaceId, conversationId, raw),
     listCommands: (workspaceId: string, conversationId: string) =>
       invoke("chatListCommands", workspaceId, conversationId),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
@@ -96,13 +88,17 @@ const api: SettaAPI = {
     steerMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSteerMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
+    updateUserMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      text: string,
+    ) => invoke("chatUpdateUserMessage", workspaceId, conversationId, messageId, text),
   },
-  codexAccount: {
-    cancelLogin: (request) => invoke("codexAccountCancelLogin", request),
-    logout: (request) => invoke("codexAccountLogout", request),
-    read: () => invoke("codexAccountRead"),
-    refresh: (request) => invoke("codexAccountRefresh", request),
-    startLogin: (request) => invoke("codexAccountStartLogin", request),
+  providerAccounts: {
+    clearChatGPTAuth: (request) => invoke("providerAccountsClearChatGPTAuth", request),
+    list: () => invoke("providerAccountsList"),
+    saveChatGPTAuth: (request) => invoke("providerAccountsSaveChatGPTAuth", request),
   },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),

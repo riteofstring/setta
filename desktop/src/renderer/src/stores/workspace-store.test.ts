@@ -276,6 +276,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
+      deleteConversation: async () => ({
+        conversations: [],
+        corruption: emptyCorruption(),
+        diagnostics: [],
+      }),
       executeCommand: async () => ({
         conversation: emptyConversation(),
         message: null,
@@ -287,8 +292,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           message: "Goal set: test",
           models: [],
           raw: "/goal test",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
           selectedModel: "",
           title: "Goal",
         },
@@ -299,7 +302,16 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         corruption: emptyCorruption(),
         diagnostics: [],
       }),
-      messagePage: async () => emptyMessagePage(),
+      messagePage: async () => ({
+        conversation: emptyConversation(),
+        hasMoreOlder: false,
+        messages: [],
+        olderBeforeOrdinal: 0,
+        queue: { messages: [], runs: [] },
+        runItemOutputs: [],
+        runItems: [],
+        transcript: [],
+      }),
       onEvent: () => () => {},
       queueMessage: async () => ({
         conversation: emptyConversation(),
@@ -327,40 +339,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: emptyRun(),
         userMessage: emptyMessage(),
       }),
-      setCodexModel: async () => ({
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "model",
-          message: "Model set: gpt-test",
-          models: [],
-          raw: "/model",
-          reasoningEfforts: [],
-          selectedReasoningEffort: null,
-          selectedModel: "gpt-test",
-          title: "Model",
-        },
-      }),
-      setCodexReasoningEffort: async () => ({
-        conversation: emptyConversation(),
-        message: null,
-        page: emptyMessagePage(),
-        result: {
-          action: "display",
-          goal: null,
-          kind: "model",
-          message: "Reasoning set: High",
-          models: [],
-          raw: "/model",
-          reasoningEfforts: [],
-          selectedReasoningEffort: "high",
-          selectedModel: "",
-          title: "Model",
-        },
-      }),
       steerMessage: async () => ({
         conversation: emptyConversation(),
         page: emptyMessagePage(),
@@ -368,24 +346,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       submitApproval: async () => emptyRun(),
+      updateUserMessage: async () => emptyMessage(),
     },
-    codexAccount: {
-      cancelLogin: async () => emptyCodexAccountState(),
-      logout: async () => emptyCodexAccountState(),
-      read: async () => emptyCodexAccountState(),
-      refresh: async () => emptyCodexAccountState(),
-      startLogin: async () => ({
-        login: {
-          authUrl: "",
-          error: "",
-          loginId: "",
-          status: "succeeded",
-          type: "chatgpt",
-          userCode: "",
-          verificationUrl: "",
-        },
-        state: emptyCodexAccountState(),
-      }),
+    providerAccounts: {
+      clearChatGPTAuth: async () => ({ accounts: [] }),
+      list: async () => ({ accounts: [] }),
+      saveChatGPTAuth: async () => ({ accounts: [] }),
     },
     workspace: workspaceAPI,
   };
@@ -398,20 +364,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   });
 }
 
-function emptyCodexAccountState() {
-  return {
-    account: null,
-    diagnostic: "",
-    login: null,
-    requiresOpenaiAuth: true,
-    status: "unauthenticated" as const,
-  };
-}
-
 function emptyConversation() {
   return {
     archivedAt: "",
-    codexSettings: null,
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
     id: "conversation_test",
@@ -450,7 +405,6 @@ function emptyMessage(): ChatMessage {
 function emptyMessagePage(): MessagePage {
   return {
     conversation: emptyConversation(),
-    goal: null,
     hasMoreOlder: false,
     messages: [],
     olderBeforeOrdinal: 0,

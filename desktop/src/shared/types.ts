@@ -1,25 +1,22 @@
 import type {
   BackendHealth,
-  CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
-  CodexAccountState,
+  ChatMessage,
+  ClearChatGPTAuthRequest,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
-  LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  ProviderAccounts,
   QueueMessageResult,
-  ReasoningEffort,
-  RefreshCodexAccountRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  SaveChatGPTAuthRequest,
   SendMessageResult,
-  StartCodexLoginRequest,
-  StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
   WorkspaceSession,
@@ -77,10 +74,6 @@ export type BackendEventStreamStatus =
   | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
   | { status: "stopped"; message: string };
 
-export interface ChatCommandExecutionOptions {
-  confirmGoalReplacement?: boolean;
-}
-
 export interface SettaAPI {
   app: {
     installedEditors: () => Promise<InstalledEditorApp[]>;
@@ -107,21 +100,14 @@ export interface SettaAPI {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
+    deleteConversation: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ListConversationsResponse>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
       raw: string,
-      options?: ChatCommandExecutionOptions,
-    ) => Promise<ChatCommandExecuteResult>;
-    setCodexModel: (
-      workspaceId: string,
-      conversationId: string,
-      modelId: string,
-    ) => Promise<ChatCommandExecuteResult>;
-    setCodexReasoningEffort: (
-      workspaceId: string,
-      conversationId: string,
-      effort: ReasoningEffort,
     ) => Promise<ChatCommandExecuteResult>;
     listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
@@ -156,12 +142,16 @@ export interface SettaAPI {
     ) => Promise<SteerMessageResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
+    updateUserMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      text: string,
+    ) => Promise<ChatMessage>;
   };
-  codexAccount: {
-    cancelLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
-    logout: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
-    read: () => Promise<CodexAccountState>;
-    refresh: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
-    startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
+  providerAccounts: {
+    clearChatGPTAuth: (request: ClearChatGPTAuthRequest) => Promise<ProviderAccounts>;
+    list: () => Promise<ProviderAccounts>;
+    saveChatGPTAuth: (request: SaveChatGPTAuthRequest) => Promise<ProviderAccounts>;
   };
 }

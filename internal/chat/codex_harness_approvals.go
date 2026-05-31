@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"setta/internal/codexapp"
 )
 
 type codexServerRequestPolicy string
@@ -16,13 +14,14 @@ const (
 )
 
 var supportedCodexServerRequests = map[string]codexServerRequestPolicy{
-	codexapp.CodexServerRequestAttestationGenerate:                 codexServerRequestImmediate,
-	codexapp.CodexServerRequestItemCommandExecutionRequestApproval: codexServerRequestDeferredApproval,
-	codexapp.CodexServerRequestItemFileChangeRequestApproval:       codexServerRequestDeferredApproval,
-	codexapp.CodexServerRequestItemPermissionsRequestApproval:      codexServerRequestDeferredApproval,
-	codexapp.CodexServerRequestItemToolCall:                        codexServerRequestImmediate,
-	codexapp.CodexServerRequestItemToolRequestUserInput:            codexServerRequestDeferredApproval,
-	codexapp.CodexServerRequestMcpServerElicitationRequest:         codexServerRequestDeferredApproval,
+	"account/chatgptAuthTokens/refresh":     codexServerRequestImmediate,
+	"attestation/generate":                  codexServerRequestImmediate,
+	"item/commandExecution/requestApproval": codexServerRequestDeferredApproval,
+	"item/fileChange/requestApproval":       codexServerRequestDeferredApproval,
+	"item/permissions/requestApproval":      codexServerRequestDeferredApproval,
+	"item/tool/call":                        codexServerRequestImmediate,
+	"item/tool/requestUserInput":            codexServerRequestDeferredApproval,
+	"mcpServer/elicitation/request":         codexServerRequestDeferredApproval,
 }
 
 func isSupportedCodexServerRequest(method string) bool {
@@ -61,19 +60,19 @@ type codexApprovalContext struct {
 type codexApprovalFactory func(map[string]any, codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error)
 
 var codexItemApprovalFactories = map[string]codexApprovalFactory{
-	codexapp.CodexServerRequestItemCommandExecutionRequestApproval: commandApprovalFromCodex,
-	codexapp.CodexServerRequestItemFileChangeRequestApproval:       fileChangeApprovalFromCodex,
-	codexapp.CodexServerRequestItemPermissionsRequestApproval:      permissionApprovalFromCodex,
-	codexapp.CodexServerRequestItemToolRequestUserInput:            userInputApprovalFromCodex,
+	"item/commandExecution/requestApproval": commandApprovalFromCodex,
+	"item/fileChange/requestApproval":       fileChangeApprovalFromCodex,
+	"item/permissions/requestApproval":      permissionApprovalFromCodex,
+	"item/tool/requestUserInput":            userInputApprovalFromCodex,
 }
 
 var codexThreadApprovalFactories = map[string]codexApprovalFactory{
-	codexapp.CodexServerRequestMcpServerElicitationRequest: mcpElicitationApprovalFromCodex,
+	"mcpServer/elicitation/request": mcpElicitationApprovalFromCodex,
 }
 
 var codexDecisionApprovalResponseMethods = map[string]struct{}{
-	codexapp.CodexServerRequestItemCommandExecutionRequestApproval: {},
-	codexapp.CodexServerRequestItemFileChangeRequestApproval:       {},
+	"item/commandExecution/requestApproval": {},
+	"item/fileChange/requestApproval":       {},
 }
 
 func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) (ApprovalRequest, codexApprovalDetails, error) {
@@ -306,12 +305,12 @@ func codexApprovalResult(pending codexPendingApproval, response ApprovalResponse
 		return codexApprovalReply{result: map[string]any{"decision": approvalDecision(response)}}, nil
 	}
 	switch pending.method {
-	case codexapp.CodexServerRequestItemPermissionsRequestApproval:
+	case "item/permissions/requestApproval":
 		if !response.Approved || response.Cancelled {
 			return codexApprovalReply{errorMessage: "permission request denied"}, nil
 		}
 		return codexApprovalReply{result: map[string]any{"permissions": pending.permissionProfile, "scope": "turn"}}, nil
-	case codexapp.CodexServerRequestItemToolRequestUserInput:
+	case "item/tool/requestUserInput":
 		if response.Cancelled {
 			return codexApprovalReply{errorMessage: "user input cancelled"}, nil
 		}
@@ -325,7 +324,7 @@ func codexApprovalResult(pending codexPendingApproval, response ApprovalResponse
 			answers[question.ID] = map[string]any{"answers": values}
 		}
 		return codexApprovalReply{result: map[string]any{"answers": answers}}, nil
-	case codexapp.CodexServerRequestMcpServerElicitationRequest:
+	case "mcpServer/elicitation/request":
 		return mcpElicitationApprovalResult(pending, response)
 	default:
 		return codexApprovalReply{}, fmt.Errorf("unsupported codex approval response method: %s", pending.method)

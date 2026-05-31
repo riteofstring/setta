@@ -2,7 +2,9 @@ package chat
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/workspace"
 )
@@ -23,71 +25,6 @@ func TestCodexHarnessExecutesIdleGoalCommandRPC(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessBeginsGoalContinuationFromCommandRPC(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-goal-continuation"))
-	request := testCommandRequest(t, "/goal finish renderer tests")
-
-	result, continuation, err := harness.BeginGoalContinuation(context.Background(), request)
-	if err != nil {
-		t.Fatalf("begin goal continuation: %v", err)
-	}
-	defer continuation.Close()
-	if !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
-		t.Fatalf("thread ref = %+v has=%v, want linked thread", result.ThreadRef, result.HasThreadRef)
-	}
-	if result.Goal == nil || result.Goal.Status != "active" {
-		t.Fatalf("goal = %+v, want active goal", result.Goal)
-	}
-
-	turnRequest := testTurnRequest(t)
-	turnRequest.Conversation = request.Conversation
-	turnRequest.Prompt = "finish renderer tests"
-	turnRequest.ThreadRef = result.ThreadRef
-	turnRequest.Workspace = request.Workspace
-	sink := newRecordingSink()
-	completion, err := continuation.Wait(context.Background(), turnRequest, sink)
-	if err != nil {
-		t.Fatalf("wait goal continuation: %v", err)
-	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-	if sink.text != "goal continuation" {
-		t.Fatalf("assistant text = %q, want goal continuation", sink.text)
-	}
-	if len(sink.goals) == 0 || sink.goals[len(sink.goals)-1] == nil || sink.goals[len(sink.goals)-1].Status != "complete" {
-		t.Fatalf("goals = %+v, want final complete goal", sink.goals)
-	}
-}
-
-func TestCodexHarnessGoalEditOpensEditor(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-goal-edit"))
-	request := testCommandRequest(t, "/goal edit")
-
-	result, err := harness.ExecuteCommand(context.Background(), request)
-	if err != nil {
-		t.Fatalf("execute command: %v", err)
-	}
-	if result.Action != ChatCommandResultGoalEditor {
-		t.Fatalf("action = %s, want goal editor", result.Action)
-	}
-	if result.Goal == nil || result.Goal.Objective != "finish renderer tests" {
-		t.Fatalf("goal = %+v, want editable goal", result.Goal)
-	}
-}
-
-func TestCodexHarnessGoalPauseRequiresExistingGoal(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-goal-pause-no-goal"))
-	request := testCommandRequest(t, "/goal pause")
-
-	_, err := harness.ExecuteCommand(context.Background(), request)
-	if err == nil {
-		t.Fatal("pause goal succeeded without goal")
-	}
-	commandErr, ok := IsChatCommandError(err)
-	if !ok || commandErr.Code != ChatCommandErrorGoalNotSet {
-		t.Fatalf("pause goal error = %#v, want no-goal command error", err)
-	}
-}
-
 func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-list"))
 	request := testCommandRequest(t, "/model")
@@ -102,120 +39,11 @@ func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	if result.HasThreadRef {
 		t.Fatalf("thread ref = %+v, want no thread for model picker", result.ThreadRef)
 	}
-	if result.SelectedModel != "gpt-test" {
-		t.Fatalf("selected model = %q, want config model", result.SelectedModel)
-	}
-	if result.SelectedReasoningEffort == nil || *result.SelectedReasoningEffort != ReasoningEffortXHigh {
-		t.Fatalf("selected reasoning effort = %v, want config effort", result.SelectedReasoningEffort)
-	}
-	if len(result.ReasoningEfforts) != 3 || result.ReasoningEfforts[2].Effort != ReasoningEffortXHigh {
-		t.Fatalf("reasoning efforts = %+v, want fake model efforts", result.ReasoningEfforts)
-	}
-}
-
-func TestCodexHarnessModelListFollowsPaginationAndHidesHiddenModels(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-model-list-paginated"))
-	request := testCommandRequest(t, "/model")
-
-	result, err := harness.ExecuteCommand(context.Background(), request)
-	if err != nil {
-		t.Fatalf("execute command: %v", err)
-	}
-	if len(result.Models) != 2 {
-		t.Fatalf("models = %+v, want two visible paginated models", result.Models)
-	}
-	if result.Models[0].Model != "gpt-test" || result.Models[1].Model != "gpt-test-2" {
-		t.Fatalf("models = %+v, want visible models from both pages", result.Models)
-	}
-	for _, model := range result.Models {
-		if model.Hidden {
-			t.Fatalf("models = %+v, want hidden models filtered", result.Models)
-		}
-	}
-}
-
-func TestCodexHarnessStoresReasoningEffortWithoutThread(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-effort-set-local"))
-	request := testTypedReasoningEffortCommandRequest(t, ReasoningEffortXHigh)
-
-	result, err := harness.ExecuteCommand(context.Background(), request)
-	if err != nil {
-		t.Fatalf("execute command: %v", err)
-	}
-	if result.HasThreadRef {
-		t.Fatalf("thread ref = %+v, want no thread for local model setting", result.ThreadRef)
-	}
-	if result.SelectedModel != "gpt-test" || result.SelectedReasoningEffort == nil || *result.SelectedReasoningEffort != ReasoningEffortXHigh {
-		t.Fatalf("result = %+v, want config model with selected reasoning effort", result)
-	}
-	if result.CodexSettings == nil || result.CodexSettings.Model != "gpt-test" || result.CodexSettings.ReasoningEffort == nil || *result.CodexSettings.ReasoningEffort != ReasoningEffortXHigh {
-		t.Fatalf("codex settings = %+v, want persisted local settings", result.CodexSettings)
-	}
-}
-
-func TestCodexHarnessStoresModelWithoutThread(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-model-set-local"))
-	request := testTypedModelCommandRequest(t, "gpt-test")
-
-	result, err := harness.ExecuteCommand(context.Background(), request)
-	if err != nil {
-		t.Fatalf("execute command: %v", err)
-	}
-	if result.HasThreadRef {
-		t.Fatalf("thread ref = %+v, want no thread for local model setting", result.ThreadRef)
-	}
-	if result.CodexSettings == nil || result.CodexSettings.Model != "gpt-test" || result.CodexSettings.ReasoningEffort == nil || *result.CodexSettings.ReasoningEffort != ReasoningEffortXHigh {
-		t.Fatalf("codex settings = %+v, want config reasoning preserved", result.CodexSettings)
-	}
-}
-
-func TestCodexHarnessAppliesConversationSettingsToInitialTurn(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("initial-settings"))
-	sink := newRecordingSink()
-	request := testTurnRequest(t)
-	effort := ReasoningEffortXHigh
-	request.Conversation.CodexSettings = &ChatCodexSettings{
-		Model:           "gpt-test",
-		ReasoningEffort: &effort,
-	}
-
-	completion, err := harness.StartTurn(context.Background(), request, sink)
-	if err != nil {
-		t.Fatalf("start turn: %v", err)
-	}
-	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
-
-	if sink.text != "hello from codex" {
-		t.Fatalf("assistant text = %q, want streamed response", sink.text)
-	}
-}
-
-func TestCodexHarnessExecutesModelListRPCAgainstLinkedThread(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-model-list-linked"))
-	request := testCommandRequest(t, "/model")
-	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
-
-	result, err := harness.ExecuteCommand(context.Background(), request)
-	if err != nil {
-		t.Fatalf("execute command: %v", err)
-	}
-	if result.Action != ChatCommandResultModelPicker || len(result.Models) != 1 || result.Models[0].ID != "gpt-test" {
-		t.Fatalf("result = %+v, want model picker with fake model", result)
-	}
-	if result.SelectedModel != "gpt-test" {
-		t.Fatalf("selected model = %q, want linked thread model", result.SelectedModel)
-	}
-	if result.SelectedReasoningEffort == nil || *result.SelectedReasoningEffort != ReasoningEffortHigh {
-		t.Fatalf("selected reasoning effort = %v, want linked thread effort", result.SelectedReasoningEffort)
-	}
-	if result.HasThreadRef {
-		t.Fatalf("thread ref = %+v, want model picker to avoid persisted thread ref updates", result.ThreadRef)
-	}
 }
 
 func TestCodexHarnessExecutesModelSetRPCAgainstLinkedThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set"))
-	request := testTypedModelCommandRequest(t, "gpt-test")
+	request := testCommandRequest(t, "/model gpt-test")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
@@ -227,43 +55,29 @@ func TestCodexHarnessExecutesModelSetRPCAgainstLinkedThread(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessTreatsModelSettingsUpdateAckAsSuccess(t *testing.T) {
+func TestCodexHarnessRequiresModelSettingsUpdatedNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set-no-notification"))
-	request := testTypedModelCommandRequest(t, "gpt-test")
+	request := testCommandRequest(t, "/model gpt-test")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
 
-	result, err := harness.ExecuteCommand(context.Background(), request)
-	if err != nil {
-		t.Fatalf("execute command: %v", err)
+	_, err := harness.ExecuteCommand(ctx, request)
+	if err == nil {
+		t.Fatal("execute command succeeded, want missing settings update notification error")
 	}
-	if result.SelectedModel != "gpt-test" {
-		t.Fatalf("selected model = %q, want acked model", result.SelectedModel)
+	commandErr, ok := IsChatCommandError(err)
+	if !ok || commandErr.Code != ChatCommandErrorCodexRPC {
+		t.Fatalf("error = %#v, want codex RPC command error", err)
 	}
-}
-
-func TestCodexHarnessDowngradesUnsupportedThreadSettingsUpdate(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-model-set-unsupported-settings-update"))
-	request := testTypedModelCommandRequest(t, "gpt-test")
-	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
-
-	result, err := harness.ExecuteCommand(context.Background(), request)
-	if err != nil {
-		t.Fatalf("execute command: %v", err)
-	}
-	if result.SelectedModel != "gpt-test" {
-		t.Fatalf("selected model = %q, want selected model despite unsupported settings update", result.SelectedModel)
-	}
-	if result.CapabilityDiagnostic != codexThreadSettingsUpdateDowngradeDiagnostic {
-		t.Fatalf("capability diagnostic = %q, want downgrade diagnostic", result.CapabilityDiagnostic)
-	}
-	if harness.isThreadSettingsUpdateSupported() {
-		t.Fatal("thread settings update remains supported, want capability downgrade")
+	if !strings.Contains(err.Error(), "thread/settings/updated") {
+		t.Fatalf("error = %q, want settings updated notification", err)
 	}
 }
 
 func TestCodexHarnessTreatsCurrentModelSetAsNoop(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set-already-current"))
-	request := testTypedModelCommandRequest(t, "gpt-test")
+	request := testCommandRequest(t, "/model gpt-test")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
@@ -275,31 +89,35 @@ func TestCodexHarnessTreatsCurrentModelSetAsNoop(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessExecutesReasoningEffortSetRPCAgainstLinkedThread(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-effort-set"))
-	request := testTypedReasoningEffortCommandRequest(t, ReasoningEffortHigh)
-	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+func TestCodexHarnessExecutesSkillsListRPC(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-skills-list"))
+	request := testCommandRequest(t, "/skills")
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if result.SelectedReasoningEffort == nil || *result.SelectedReasoningEffort != ReasoningEffortHigh || !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
-		t.Fatalf("result = %+v, want selected reasoning effort with linked thread", result)
+	if result.DisplayTitle != "Skills" || !strings.Contains(result.DisplayMessage, "fake-skill") {
+		t.Fatalf("result = %+v, want skills display text", result)
+	}
+	if result.HasThreadRef {
+		t.Fatalf("thread ref = %+v, want no thread for skills list", result.ThreadRef)
 	}
 }
 
-func TestCodexHarnessTreatsCurrentReasoningEffortSetAsNoop(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("command-effort-set-already-current"))
-	request := testTypedReasoningEffortCommandRequest(t, ReasoningEffortHigh)
-	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+func TestCodexHarnessExecutesMCPStatusRPC(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-mcp-status"))
+	request := testCommandRequest(t, "/mcp")
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if result.SelectedReasoningEffort == nil || *result.SelectedReasoningEffort != ReasoningEffortHigh || !result.HasThreadRef || result.ThreadRef.ThreadID != "thread_fake" {
-		t.Fatalf("result = %+v, want selected reasoning effort no-op with linked thread", result)
+	if result.DisplayTitle != "MCP" || !strings.Contains(result.DisplayMessage, "fake-mcp") || !strings.Contains(result.DisplayMessage, "fake_tool") {
+		t.Fatalf("result = %+v, want mcp display text", result)
+	}
+	if result.HasThreadRef {
+		t.Fatalf("thread ref = %+v, want no thread for mcp status", result.ThreadRef)
 	}
 }
 
@@ -309,29 +127,6 @@ func testCommandRequest(t *testing.T, raw string) HarnessCommandRequest {
 	if err != nil {
 		t.Fatalf("parse command %q: %v", raw, err)
 	}
-	return testCommandRequestFromCommand(t, command)
-}
-
-func testTypedModelCommandRequest(t *testing.T, modelID string) HarnessCommandRequest {
-	t.Helper()
-	command, err := modelSetChatCommand(modelID)
-	if err != nil {
-		t.Fatalf("build model command: %v", err)
-	}
-	return testCommandRequestFromCommand(t, command)
-}
-
-func testTypedReasoningEffortCommandRequest(t *testing.T, effort ReasoningEffort) HarnessCommandRequest {
-	t.Helper()
-	command, err := reasoningEffortSetChatCommand(effort)
-	if err != nil {
-		t.Fatalf("build effort command: %v", err)
-	}
-	return testCommandRequestFromCommand(t, command)
-}
-
-func testCommandRequestFromCommand(t *testing.T, command ChatCommand) HarnessCommandRequest {
-	t.Helper()
 	rootPath := t.TempDir()
 	return HarnessCommandRequest{
 		Command: command,
@@ -350,16 +145,7 @@ func testCommandRequestFromCommand(t *testing.T, command ChatCommand) HarnessCom
 
 func fakeCommandDone(mode string) bool {
 	switch mode {
-	case "command-goal-set",
-		"command-goal-edit",
-		"command-goal-pause-no-goal",
-		"command-model-list",
-		"command-model-list-paginated",
-		"command-model-list-linked",
-		"command-model-set",
-		"command-model-set-local",
-		"command-effort-set",
-		"command-effort-set-local":
+	case "command-goal-set", "command-model-list", "command-model-set", "command-skills-list", "command-mcp-status":
 		return true
 	default:
 		return false
@@ -367,16 +153,16 @@ func fakeCommandDone(mode string) bool {
 }
 
 func handleFakeCommandThread(mode string, state *fakeCodexState, message map[string]any) {
-	if !fakeCommandUsesThread(mode) {
+	if mode != "command-goal-set" && mode != "command-model-set" && mode != "command-model-set-no-notification" && mode != "command-model-set-already-current" {
 		return
 	}
 	method := message["method"]
 	params := fakeParams(message)
-	if fakeCommandStartsThread(mode) && method != "thread/start" {
+	if mode == "command-goal-set" && method != "thread/start" {
 		panic("goal set command should start a thread")
 	}
-	if fakeCommandResumesThread(mode) && method != "thread/resume" {
-		panic("linked model command should resume a linked thread")
+	if (mode == "command-model-set" || mode == "command-model-set-no-notification" || mode == "command-model-set-already-current") && method != "thread/resume" {
+		panic("model set command should resume a linked thread")
 	}
 	if params["approvalPolicy"] != "on-request" || params["approvalsReviewer"] != "user" {
 		panic("command thread start/resume missing approval params")
@@ -389,29 +175,6 @@ func handleFakeCommandThread(mode string, state *fakeCodexState, message map[str
 	}
 	state.commandThreadStarted = method == "thread/start"
 	state.commandThreadResumed = method == "thread/resume"
-}
-
-func fakeCommandUsesThread(mode string) bool {
-	return fakeCommandStartsThread(mode) || fakeCommandResumesThread(mode)
-}
-
-func fakeCommandStartsThread(mode string) bool {
-	return mode == "command-goal-set" || mode == "command-goal-continuation" || mode == "command-goal-edit" || mode == "command-goal-pause-no-goal"
-}
-
-func fakeCommandResumesThread(mode string) bool {
-	switch mode {
-	case "command-model-list-linked",
-		"command-model-set",
-		"command-model-set-no-notification",
-		"command-model-set-unsupported-settings-update",
-		"command-model-set-already-current",
-		"command-effort-set",
-		"command-effort-set-already-current":
-		return true
-	default:
-		return false
-	}
 }
 
 func assertFakeGoalSet(mode string, message map[string]any) {
@@ -429,15 +192,8 @@ func assertFakeGoalSet(mode string, message map[string]any) {
 
 func assertFakeModelList(message map[string]any) {
 	params := fakeParams(message)
-	if params["includeHidden"] != false {
-		panic("model list should hide hidden models by default")
-	}
-}
-
-func assertFakeConfigRead(message map[string]any) {
-	params := fakeParams(message)
-	if params["cwd"] == "" {
-		panic("config/read should include cwd")
+	if params["includeHidden"] != true {
+		panic("model list should include hidden models")
 	}
 }
 
@@ -448,35 +204,12 @@ func assertFakeModelSet(message map[string]any) {
 	}
 }
 
-func assertFakeEffortSet(message map[string]any) {
-	params := fakeParams(message)
-	if params["threadId"] != "thread_fake" || params["effort"] != "high" {
-		panic("reasoning effort set used wrong params")
-	}
-}
-
-func assertFakeInitialTurnSettings(message map[string]any) {
-	params := fakeParams(message)
-	if params["model"] != "gpt-test" || params["effort"] != "xhigh" {
-		panic("initial turn settings mismatch")
-	}
-}
-
 func fakeThreadResponseModel(mode string) string {
 	switch mode {
-	case "command-model-set", "command-model-set-no-notification", "command-model-set-unsupported-settings-update":
+	case "command-model-set", "command-model-set-no-notification":
 		return "gpt-old"
 	default:
 		return "gpt-test"
-	}
-}
-
-func fakeThreadResponseEffort(mode string) ReasoningEffort {
-	switch mode {
-	case "command-effort-set":
-		return ReasoningEffortMedium
-	default:
-		return ReasoningEffortHigh
 	}
 }
 
@@ -490,23 +223,11 @@ func writeFakeGoalResponse(id any, objective string, status string) {
 	})
 }
 
-func writeFakeThreadGoalUpdated(objective string, status string) {
-	writeFakeNotification("thread/goal/updated", map[string]any{
-		"goal": map[string]any{
-			"objective": objective,
-			"status":    status,
-			"threadId":  "thread_fake",
-		},
-		"threadId": "thread_fake",
-	})
-}
-
-func writeFakeThreadSettingsUpdated(model string, effort ReasoningEffort) {
+func writeFakeThreadSettingsUpdated(model string) {
 	writeFakeNotification("thread/settings/updated", map[string]any{
 		"threadId": "thread_fake",
 		"threadSettings": map[string]any{
-			"effort": string(effort),
-			"model":  model,
+			"model": model,
 		},
 	})
 }

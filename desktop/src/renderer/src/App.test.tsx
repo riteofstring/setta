@@ -1,8 +1,6 @@
 import type {
   ChatMessage,
   ConversationListItem,
-  CorruptionSummary,
-  Diagnostic,
   Run,
   RunItem,
   RunItemOutput,
@@ -28,10 +26,9 @@ describe("workspace renderer states", () => {
           chatBusy={false}
           closeWorkspace={async () => {}}
           conversations={[]}
-          corruption={emptyCorruption()}
           createConversation={async () => {}}
           createWorkspaceConversation={async () => {}}
-          diagnostics={[]}
+          deleteConversation={async () => {}}
           openLocalFolder={async () => {}}
           openSettingsPane={() => {}}
           recentWorkspaces={[]}
@@ -86,10 +83,9 @@ describe("workspace renderer states", () => {
           chatBusy={false}
           closeWorkspace={async () => {}}
           conversations={[conversationListItem("conversation_web", "Build web UI")]}
-          corruption={emptyCorruption()}
           createConversation={async () => {}}
           createWorkspaceConversation={async () => {}}
-          diagnostics={[]}
+          deleteConversation={async () => {}}
           openLocalFolder={async () => {}}
           openSettingsPane={() => {}}
           recentWorkspaces={[web, api]}
@@ -115,58 +111,14 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Active");
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('aria-label="New chat in web"');
+    expect(html.indexOf('aria-label="More options for web"')).toBeLessThan(
+      html.indexOf('aria-label="New chat in web"'),
+    );
     expect(html).toContain("Build web UI");
-    expect(html).not.toContain('data-testid="conversation-hover-card"');
-    expect(html).not.toContain('aria-label="Pin Build web UI"');
-    expect(html).not.toContain('aria-label="Delete Build web UI"');
+    expect(html).toContain("Pin Build web UI");
+    expect(html).toContain("Delete Build web UI");
     expect(html).not.toContain("New terminal in web");
     expect(html).not.toContain("New setta canvas in web");
-  });
-
-  test("renders chat corruption status in the project and conversation list", () => {
-    const web = {
-      displayName: "web",
-      id: "workspace_web",
-      lastOpenedAt: "2026-05-29T20:05:00Z",
-      rootPath: "/tmp/web",
-    };
-    const html = renderToString(
-      <WorkspaceSidebar
-        activeRun={null}
-        activeWorkspaces={[web]}
-        busy={false}
-        chatBusy={false}
-        closeWorkspace={async () => {}}
-        conversations={[conversationListItem("conversation_web", "Build web UI")]}
-        corruption={{
-          byKind: [{ count: 2, key: "run" }],
-          bySeverity: [{ count: 2, key: "critical" }],
-          hasCorruption: true,
-          total: 2,
-        }}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        diagnostics={[criticalDiagnostic("conversation_web")]}
-        openLocalFolder={async () => {}}
-        openSettingsPane={() => {}}
-        recentWorkspaces={[]}
-        removeRecent={async () => {}}
-        selectConversation={async () => {}}
-        selectWorkspace={async () => {}}
-        selectedConversationId="conversation_web"
-        selectedWorkspaceId="workspace_web"
-        unreadConversationIds={{}}
-      />,
-    );
-
-    expect(html).toContain('data-testid="workspace-corruption-status"');
-    expect(html).toContain('data-testid="workspace-corruption-tooltip"');
-    expect(html).toContain('data-testid="conversation-corruption-status"');
-    expect(html).toContain("Malformed chat data");
-    expect(html).toContain("2 corrupt chat records detected");
-    expect(html).toContain("1 corrupt chat record detected");
-    expect(html).toContain("assistant message message_missing was not found");
-    expect(html).toContain("Path: /tmp/run.json");
   });
 
   test("renders loading and error states", () => {
@@ -201,10 +153,9 @@ describe("workspace renderer states", () => {
         chatBusy={false}
         closeWorkspace={async () => {}}
         conversations={[]}
-        corruption={emptyCorruption()}
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
-        diagnostics={[]}
+        deleteConversation={async () => {}}
         openLocalFolder={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={workspaces}
@@ -225,7 +176,9 @@ describe("workspace renderer states", () => {
     const emptyPane = renderToString(
       <WorkspacePanePanel
         activeTabId=""
+        initialNewTabMenuOpen
         onCloseTab={() => {}}
+        onCreateTab={() => {}}
         onSelectTab={() => {}}
         slot="right"
         tabs={[]}
@@ -233,11 +186,13 @@ describe("workspace renderer states", () => {
     );
     const settings = renderToString(<SettingsPanel />);
 
-    expect(emptyPane).not.toContain("New pane tab");
+    expect(emptyPane).toContain("New pane tab");
+    expect(emptyPane).toContain("Settings");
     expect(emptyPane).not.toContain("Browser");
     expect(emptyPane).not.toContain("Canvas");
     expect(emptyPane).not.toContain("Terminal");
-    expect(settings).toContain("Codex Account");
+    expect(settings).toContain("Provider Accounts");
+    expect(settings).toContain("Codex ChatGPT");
     expect(settings).not.toContain("Reset");
     expect(settings).not.toContain("Shortcuts");
     expect(settings).not.toContain("Storage");
@@ -507,6 +462,41 @@ describe("chat renderer states", () => {
             type: "notice",
             workspaceId: "workspace_api",
           },
+          {
+            command: "",
+            completedAt: "",
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            cwd: "",
+            details: null,
+            diffSummary: "",
+            durationMs: 0,
+            error: "",
+            exitCode: 0,
+            filePaths: [],
+            hiddenText: "",
+            id: "item_agent_message",
+            noticeKind: "",
+            namespace: "",
+            noticeMessage: "",
+            patchStatus: "",
+            processId: "",
+            progress: "",
+            providerItemId: "agent_provider",
+            requestId: "",
+            result: "",
+            reviewId: "",
+            runId: "run_api",
+            schemaVersion: 1,
+            serverName: "",
+            startedAt: "2026-05-29T20:00:00Z",
+            status: "completed",
+            summary: "",
+            title: "",
+            toolName: "",
+            type: "agent_message",
+            workspaceId: "workspace_api",
+          },
         ]}
         submitApproval={async () => {}}
       />,
@@ -518,6 +508,8 @@ describe("chat renderer states", () => {
     expect(html).toContain("main.go");
     expect(html).toContain("halfway");
     expect(html).toContain("warning text");
+    expect(html).toContain('dateTime="2026-05-29T20:00:00Z"');
+    expect(html).not.toContain("assistant message");
   });
 
   test("renders load more for paged run output", () => {
@@ -739,6 +731,7 @@ function TestChatTranscript({
   runItemOutputs = [],
   runItems = [],
   transcript,
+  updateUserMessage = async () => {},
   ...props
 }: Omit<
   ChatTranscriptProps,
@@ -750,12 +743,14 @@ function TestChatTranscript({
   | "runItemOutputsById"
   | "runItemsById"
   | "transcript"
+  | "updateUserMessage"
 > & {
   messages?: ChatMessage[];
   runItemOutputPagesByRunItemId?: ChatTranscriptProps["runItemOutputPagesByRunItemId"];
   runItemOutputs?: RunItemOutput[];
   runItems?: RunItem[];
   transcript?: TranscriptTurn[];
+  updateUserMessage?: ChatTranscriptProps["updateUserMessage"];
 }) {
   const normalized = normalizedTranscriptFixture(messages, runItems, runItemOutputs);
   return (
@@ -769,6 +764,7 @@ function TestChatTranscript({
       runItemOutputsById={normalized.runItemOutputsById}
       runItemsById={normalized.runItemsById}
       transcript={transcript ?? transcriptFromMessages(messages)}
+      updateUserMessage={updateUserMessage}
     />
   );
 }
@@ -822,19 +818,22 @@ function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
 }
 
 function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
-  const runIds = [...new Set(messages.map((message) => message.runId).filter(Boolean))];
-  return runIds.map((runId) => {
+  const messagesByRunId = new Map<string, ChatMessage[]>();
+  for (const message of messages) {
+    if (message.runId === "") {
+      continue;
+    }
+    messagesByRunId.set(message.runId, [...(messagesByRunId.get(message.runId) ?? []), message]);
+  }
+  return Array.from(messagesByRunId.entries()).map(([runId, runMessages]) => {
     const triggerMessage =
-      messages.find((message) => message.runId === runId && message.role === "user") ??
+      runMessages.find((message) => message.role === "user") ??
       chatUserMessage(`message_user_${runId}`, 1, runId);
-    const assistantMessage =
-      messages.find((message) => message.runId === runId && message.role === "assistant") ?? null;
+    const assistantMessage = runMessages.find((message) => message.role === "assistant") ?? null;
     return {
       assistantMessage,
       run: transcriptRun(runId, triggerMessage.id, assistantMessage?.id ?? ""),
-      steeringMessages: messages.filter(
-        (message) => message.runId === runId && message.delivery === "steering",
-      ),
+      steeringMessages: runMessages.filter((message) => message.delivery === "steering"),
       triggerMessage,
     };
   });
@@ -883,7 +882,6 @@ function conversationListItem(id: string, title: string): ConversationListItem {
     activeRunId: "",
     conversation: {
       archivedAt: "",
-      codexSettings: null,
       createdAt: "2026-05-29T20:00:00Z",
       harnessRefs: [],
       id,
@@ -893,31 +891,6 @@ function conversationListItem(id: string, title: string): ConversationListItem {
       workspaceId: "workspace_web",
     },
     messageCount: 0,
-  };
-}
-
-function emptyCorruption(): CorruptionSummary {
-  return {
-    byKind: [],
-    bySeverity: [],
-    hasCorruption: false,
-    total: 0,
-  };
-}
-
-function criticalDiagnostic(conversationId: string): Diagnostic {
-  return {
-    code: "corrupt_chat_state",
-    context: { path: "/tmp/run.json" },
-    conversationId,
-    id: "diagnostic_api",
-    message: "run run_api assistant message message_missing was not found",
-    occurredAt: "2026-05-29T20:00:00Z",
-    runId: "run_api",
-    schemaVersion: 1,
-    severity: "critical",
-    source: "chat",
-    workspaceId: "workspace_web",
   };
 }
 

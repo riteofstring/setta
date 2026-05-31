@@ -15,7 +15,6 @@ func TestParseChatCommandGoalCommands(t *testing.T) {
 	}{
 		{raw: "/goal", action: GoalCommandShow},
 		{raw: "/goal   ", action: GoalCommandShow},
-		{raw: "/goal edit", action: GoalCommandEdit, args: "edit"},
 		{raw: "/goal finish renderer tests", action: GoalCommandSet, objective: "finish renderer tests", status: "active", args: "finish renderer tests"},
 		{raw: "/goal clear", action: GoalCommandClear, args: "clear"},
 		{raw: "/goal pause", action: GoalCommandPause, status: "paused", args: "pause"},
@@ -43,23 +42,35 @@ func TestParseChatCommandModelCommands(t *testing.T) {
 	if picker.Kind != ChatCommandModel || picker.Model == nil || picker.Model.Action != ModelCommandShowPicker {
 		t.Fatalf("picker command = %+v, want model picker", picker)
 	}
-}
 
-func TestModelSelectionCommandsAreTypedActions(t *testing.T) {
-	set, err := modelSetChatCommand("gpt-5.5")
+	set, err := ParseChatCommand("/model gpt-5.5")
 	if err != nil {
-		t.Fatalf("build model set command: %v", err)
+		t.Fatalf("parse /model gpt-5.5: %v", err)
 	}
 	if set.Model == nil || set.Model.Action != ModelCommandSet || set.Model.ModelID != "gpt-5.5" {
 		t.Fatalf("set command = %+v, want model set", set)
 	}
+}
 
-	effort, err := reasoningEffortSetChatCommand(ReasoningEffortHigh)
-	if err != nil {
-		t.Fatalf("build effort set command: %v", err)
+func TestParseChatCommandUtilityCommands(t *testing.T) {
+	tests := []struct {
+		raw  string
+		kind ChatCommandKind
+		args string
+	}{
+		{raw: "/goals", kind: ChatCommandGoal},
+		{raw: "/new Debug layout", kind: ChatCommandNew, args: "Debug layout"},
+		{raw: "/skills", kind: ChatCommandSkills},
+		{raw: "/mcp", kind: ChatCommandMCP},
 	}
-	if effort.Model == nil || effort.Model.Action != ModelCommandSetEffort || effort.Model.ReasoningEffort == nil || *effort.Model.ReasoningEffort != ReasoningEffortHigh {
-		t.Fatalf("effort command = %+v, want reasoning effort set", effort)
+	for _, test := range tests {
+		command, err := ParseChatCommand(test.raw)
+		if err != nil {
+			t.Fatalf("parse %q: %v", test.raw, err)
+		}
+		if command.Kind != test.kind || command.Args != test.args {
+			t.Fatalf("parse %q = kind %s args %q, want kind %s args %q", test.raw, command.Kind, command.Args, test.kind, test.args)
+		}
 	}
 }
 
@@ -74,9 +85,7 @@ func TestParseChatCommandRejectsMalformedAndUnknownInput(t *testing.T) {
 		{raw: "/Goal", code: ChatCommandErrorMalformedCommand, text: "lowercase"},
 		{raw: "/goal!", code: ChatCommandErrorMalformedCommand, text: "lowercase"},
 		{raw: "/unknown", code: ChatCommandErrorUnknownCommand, text: "unknown slash command"},
-		{raw: "/model gpt-5.5", code: ChatCommandErrorMalformedCommand, text: "opens the model picker"},
-		{raw: "/model effort high", code: ChatCommandErrorMalformedCommand, text: "opens the model picker"},
-		{raw: "/goal " + strings.Repeat("a", maxGoalObjectiveRunes+1), code: ChatCommandErrorMalformedCommand, text: "4000 characters or fewer"},
+		{raw: "/model gpt 5", code: ChatCommandErrorMalformedCommand, text: "exactly one model id"},
 	}
 	for _, test := range tests {
 		_, err := ParseChatCommand(test.raw)

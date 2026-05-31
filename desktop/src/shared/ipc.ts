@@ -2,25 +2,22 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
   BackendHealth,
-  CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
-  CodexAccountState,
+  ChatMessage,
+  ClearChatGPTAuthRequest,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
-  LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  ProviderAccounts,
   QueueMessageResult,
-  ReasoningEffort,
-  RefreshCodexAccountRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  SaveChatGPTAuthRequest,
   SendMessageResult,
-  StartCodexLoginRequest,
-  StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
   WorkspaceSession,
@@ -37,6 +34,7 @@ export const ipcChannels = {
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
+  chatDeleteConversation: "chat:delete-conversation",
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
@@ -45,15 +43,12 @@ export const ipcChannels = {
   chatRunActivity: "chat:run-activity",
   chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
-  chatSetCodexModel: "chat:set-codex-model",
-  chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
-  codexAccountCancelLogin: "codex-account:cancel-login",
-  codexAccountLogout: "codex-account:logout",
-  codexAccountRead: "codex-account:read",
-  codexAccountRefresh: "codex-account:refresh",
-  codexAccountStartLogin: "codex-account:start-login",
+  chatUpdateUserMessage: "chat:update-user-message",
+  providerAccountsClearChatGPTAuth: "provider-accounts:clear-chatgpt-auth",
+  providerAccountsList: "provider-accounts:list",
+  providerAccountsSaveChatGPTAuth: "provider-accounts:save-chatgpt-auth",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceRemoveRecent: "workspace:remove-recent",
@@ -106,21 +101,12 @@ interface IpcContract {
     args: [workspaceId: string, title: string];
     result: Conversation;
   };
+  chatDeleteConversation: {
+    args: [workspaceId: string, conversationId: string];
+    result: ListConversationsResponse;
+  };
   chatExecuteCommand: {
-    args: [
-      workspaceId: string,
-      conversationId: string,
-      raw: string,
-      confirmGoalReplacement: boolean,
-    ];
-    result: ChatCommandExecuteResult;
-  };
-  chatSetCodexModel: {
-    args: [workspaceId: string, conversationId: string, modelId: string];
-    result: ChatCommandExecuteResult;
-  };
-  chatSetCodexReasoningEffort: {
-    args: [workspaceId: string, conversationId: string, effort: ReasoningEffort];
+    args: [workspaceId: string, conversationId: string, raw: string];
     result: ChatCommandExecuteResult;
   };
   chatListConversations: {
@@ -165,25 +151,21 @@ interface IpcContract {
     args: [input: SubmitApprovalRequest];
     result: Run;
   };
-  codexAccountCancelLogin: {
-    args: [request: CancelCodexLoginRequest];
-    result: CodexAccountState;
+  chatUpdateUserMessage: {
+    args: [workspaceId: string, conversationId: string, messageId: string, text: string];
+    result: ChatMessage;
   };
-  codexAccountLogout: {
-    args: [request: LogoutCodexAccountRequest];
-    result: CodexAccountState;
+  providerAccountsClearChatGPTAuth: {
+    args: [request: ClearChatGPTAuthRequest];
+    result: ProviderAccounts;
   };
-  codexAccountRead: {
+  providerAccountsList: {
     args: [];
-    result: CodexAccountState;
+    result: ProviderAccounts;
   };
-  codexAccountRefresh: {
-    args: [request: RefreshCodexAccountRequest];
-    result: CodexAccountState;
-  };
-  codexAccountStartLogin: {
-    args: [request: StartCodexLoginRequest];
-    result: StartCodexLoginResponse;
+  providerAccountsSaveChatGPTAuth: {
+    args: [request: SaveChatGPTAuthRequest];
+    result: ProviderAccounts;
   };
   workspaceClose: {
     args: [id: string];

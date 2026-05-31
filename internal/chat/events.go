@@ -22,11 +22,9 @@ const (
 	EventTypeRunItemUpdated      = "chat.run_item.updated"
 	EventTypeRunItemOutputDelta  = "chat.run_item_output.delta"
 	EventTypeQueueUpdated        = "chat.queue.updated"
-	EventTypeGoalUpdated         = "chat.goal.updated"
 	EventTypeConversationUpdated = "chat.conversation.updated"
 	EventTypeResyncRequired      = "chat.resync_required"
 	EventTypeDiagnosticCreated   = "diagnostic.created"
-	EventTypeCodexAccountChanged = "codex.account.changed"
 )
 
 const (
@@ -115,10 +113,6 @@ type QueueUpdatedPayload struct {
 	Queue QueueState `json:"queue"`
 }
 
-type GoalUpdatedPayload struct {
-	Goal *ChatGoalState `json:"goal"`
-}
-
 type ConversationUpdatedPayload struct {
 	Item ConversationListItem `json:"item"`
 }
@@ -134,10 +128,6 @@ type ResyncRequiredPayload struct {
 
 type DiagnosticCreatedPayload struct {
 	Diagnostic Diagnostic `json:"diagnostic"`
-}
-
-type CodexAccountChangedPayload struct {
-	Reason string `json:"reason"`
 }
 
 type EventHub struct {
@@ -175,11 +165,9 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatRunItemUpdatedEvent", Type: EventTypeRunItemUpdated, Payload: reflect.TypeFor[RunItemUpdatedPayload]()},
 			{Name: "ChatRunItemOutputDeltaEvent", Type: EventTypeRunItemOutputDelta, Payload: reflect.TypeFor[RunItemOutputDeltaPayload]()},
 			{Name: "ChatQueueUpdatedEvent", Type: EventTypeQueueUpdated, Payload: reflect.TypeFor[QueueUpdatedPayload]()},
-			{Name: "ChatGoalUpdatedEvent", Type: EventTypeGoalUpdated, Payload: reflect.TypeFor[GoalUpdatedPayload]()},
 			{Name: "ChatConversationUpdatedEvent", Type: EventTypeConversationUpdated, Payload: reflect.TypeFor[ConversationUpdatedPayload]()},
 			{Name: "ChatResyncRequiredEvent", Type: EventTypeResyncRequired, Payload: reflect.TypeFor[ResyncRequiredPayload]()},
 			{Name: "DiagnosticCreatedEvent", Type: EventTypeDiagnosticCreated, Payload: reflect.TypeFor[DiagnosticCreatedPayload]()},
-			{Name: "CodexAccountChangedEvent", Type: EventTypeCodexAccountChanged, Payload: reflect.TypeFor[CodexAccountChangedPayload]()},
 		},
 	}
 }
@@ -221,13 +209,6 @@ func NewMessageCreatedEvent(workspaceID string, conversationID string, runID str
 		RunID:          runID,
 		Type:           EventTypeMessageCreated,
 		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewCodexAccountChangedEvent(reason string) EventDraft {
-	return EventDraft{
-		Payload: CodexAccountChangedPayload{Reason: reason},
-		Type:    EventTypeCodexAccountChanged,
 	}
 }
 
@@ -322,16 +303,6 @@ func NewQueueUpdatedEvent(workspaceID string, conversationID string, runID strin
 		Payload:        QueueUpdatedPayload{Queue: queue},
 		RunID:          runID,
 		Type:           EventTypeQueueUpdated,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewGoalUpdatedEvent(workspaceID string, conversationID string, runID string, goal *ChatGoalState) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        GoalUpdatedPayload{Goal: goal},
-		RunID:          runID,
-		Type:           EventTypeGoalUpdated,
 		WorkspaceID:    workspaceID,
 	}
 }
