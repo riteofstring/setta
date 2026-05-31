@@ -224,6 +224,9 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	if prompt == "" {
 		return SendMessageResult{}, errors.New("prompt is required")
 	}
+	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
+		return SendMessageResult{}, err
+	}
 	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
 	if err != nil {
 		return SendMessageResult{}, err
@@ -233,22 +236,8 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	defer service.mu.Unlock()
 
 	key := activeKey(workspaceID, conversationID)
-	if _, ok := service.active[key]; ok {
-		return SendMessageResult{}, fmt.Errorf("conversation already has an active turn: %s", conversationID)
-	}
-	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
-	if err != nil {
+	if err := service.ensureCanStartTurnLocked(workspaceID, conversationID, key); err != nil {
 		return SendMessageResult{}, err
-	}
-	if run, ok, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs); err != nil {
-		return SendMessageResult{}, err
-	} else if ok {
-		return SendMessageResult{}, fmt.Errorf("conversation already has an active run: %s", run.ID)
-	}
-	if state, err := service.queuedStateFromRunsLocked(workspaceID, conversationID, runs); err != nil {
-		return SendMessageResult{}, err
-	} else if len(state.Runs) > 0 {
-		return SendMessageResult{}, fmt.Errorf("conversation has queued messages: %s", conversationID)
 	}
 
 	now := timestamp(service.now())

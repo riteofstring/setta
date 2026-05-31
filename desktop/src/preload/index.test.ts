@@ -80,6 +80,8 @@ describe("preload workspace API", () => {
       "cancelRun",
       "clearQuarantine",
       "createConversation",
+      "executeCommand",
+      "listCommands",
       "listConversations",
       "messagePage",
       "onEvent",
@@ -95,6 +97,8 @@ describe("preload workspace API", () => {
 
     await api.chat.listConversations("workspace_api");
     await api.chat.createConversation("workspace_api", "Plan");
+    await api.chat.listCommands("workspace_api", "conversation_api");
+    await api.chat.executeCommand("workspace_api", "conversation_api", "/goal");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
     await api.chat.queueMessage("workspace_api", "conversation_api", "queued");
     await api.chat.runActivity("workspace_api", "run_api", 100);
@@ -134,6 +138,19 @@ describe("preload workspace API", () => {
     );
     expect(invoke).toHaveBeenNthCalledWith(
       3,
+      ipcChannels.chatListCommands,
+      "workspace_api",
+      "conversation_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      4,
+      ipcChannels.chatExecuteCommand,
+      "workspace_api",
+      "conversation_api",
+      "/goal",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      5,
       ipcChannels.chatMessagePage,
       "workspace_api",
       "conversation_api",
@@ -141,21 +158,21 @@ describe("preload workspace API", () => {
       40,
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      4,
+      6,
       ipcChannels.chatQueueMessage,
       "workspace_api",
       "conversation_api",
       "queued",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      5,
+      7,
       ipcChannels.chatRunActivity,
       "workspace_api",
       "run_api",
       100,
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      6,
+      8,
       ipcChannels.chatRunItemOutput,
       "workspace_api",
       "run_api",
@@ -164,50 +181,50 @@ describe("preload workspace API", () => {
       100,
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      7,
+      9,
       ipcChannels.chatSendMessage,
       "workspace_api",
       "conversation_api",
       "hello",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      8,
+      10,
       ipcChannels.chatSteerMessage,
       "workspace_api",
       "conversation_api",
       "steer",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      9,
+      11,
       ipcChannels.chatCancelRun,
       "workspace_api",
       "conversation_api",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      10,
+      12,
       ipcChannels.chatActiveRun,
       "workspace_api",
       "conversation_api",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      11,
+      13,
       ipcChannels.chatQuarantineCorruptState,
       "workspace_api",
       "workspace_api",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      12,
+      14,
       ipcChannels.chatResetWorkspaceState,
       "workspace_api",
       "workspace_api",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      13,
+      15,
       ipcChannels.chatClearQuarantine,
       "workspace_api",
       "workspace_api",
     );
-    expect(invoke).toHaveBeenNthCalledWith(14, ipcChannels.chatSubmitApproval, {
+    expect(invoke).toHaveBeenNthCalledWith(16, ipcChannels.chatSubmitApproval, {
       approvalId: "approval_api",
       approved: true,
       answers: [],

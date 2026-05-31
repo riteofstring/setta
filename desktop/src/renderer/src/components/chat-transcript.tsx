@@ -71,6 +71,10 @@ interface TranscriptIndexes {
   turns: TranscriptTurn[];
 }
 
+type TranscriptTimelineItem =
+  | { kind: "message"; message: ChatMessage; ordinal: number }
+  | { kind: "turn"; ordinal: number; turn: TranscriptTurn };
+
 function transcriptIndexes(props: {
   messageIds: string[] | undefined;
   messages: ChatMessage[];
@@ -127,6 +131,37 @@ function hydrateTranscriptTurns(
     steeringMessages: turn.steeringMessages.map((message) => messagesById[message.id] ?? message),
     triggerMessage: messagesById[turn.triggerMessage.id] ?? turn.triggerMessage,
   }));
+}
+
+function transcriptTimelineItems(indexes: TranscriptIndexes): TranscriptTimelineItem[] {
+  const turnMessageIds = new Set<string>();
+  const items: TranscriptTimelineItem[] = indexes.turns.map((turn) => {
+    turnMessageIds.add(turn.triggerMessage.id);
+    if (turn.assistantMessage) {
+      turnMessageIds.add(turn.assistantMessage.id);
+    }
+    for (const message of turn.steeringMessages) {
+      turnMessageIds.add(message.id);
+    }
+    return { kind: "turn", ordinal: turn.triggerMessage.ordinal, turn };
+  });
+  for (const messageId of indexes.messageIds) {
+    const message = indexes.messagesById[messageId];
+    if (!message || message.runId !== "" || turnMessageIds.has(message.id)) {
+      continue;
+    }
+    items.push({ kind: "message", message, ordinal: message.ordinal });
+  }
+  return items.toSorted((left, right) => {
+    if (left.ordinal === right.ordinal) {
+      return timelineItemID(left).localeCompare(timelineItemID(right));
+    }
+    return left.ordinal - right.ordinal;
+  });
+}
+
+function timelineItemID(item: TranscriptTimelineItem) {
+  return item.kind === "turn" ? item.turn.run.id : item.message.id;
 }
 
 function runItemIndexes(
@@ -190,6 +225,7 @@ function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
 
 const messageRowClassByRole = {
   assistant: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
+  command: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
   developer: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
   system: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
   tool: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
@@ -214,6 +250,8 @@ const assistantMessageContainerClass =
 
 const assistantMessageContainerClassByRole = {
   assistant: assistantMessageContainerClass,
+  command:
+    "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 break-words text-emerald-950",
   developer: assistantMessageContainerClass,
   system: assistantMessageContainerClass,
   tool: assistantMessageContainerClass,
@@ -328,26 +366,21 @@ export function ChatTranscript({
       backendTranscript,
     ],
   );
-  const firstItemIndex = transcript.turns[0]?.triggerMessage.ordinal ?? 0;
+  const timeline = useMemo(() => transcriptTimelineItems(transcript), [transcript]);
+  const firstItemIndex = timeline[0]?.ordinal ?? 0;
 
   useEffect(() => {
     if (!pinned) {
       return;
     }
     virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-  }, [
-    activeRun,
-    pinned,
-    transcript.turns.length,
-    transcript.runItemOutputsById,
-    transcript.runItemsById,
-  ]);
+  }, [activeRun, pinned, timeline.length, transcript.runItemOutputsById, transcript.runItemsById]);
 
   async function loadOlderAndPreserveScroll() {
     await loadOlder();
   }
 
-  if (transcript.turns.length === 0) {
+  if (timeline.length === 0) {
     return <EmptyChatTranscript activeRun={activeRun} submitApproval={submitApproval} />;
   }
 
@@ -362,13 +395,16 @@ export function ChatTranscript({
             <TranscriptHeader hasMoreOlder={hasMoreOlder} loadOlder={loadOlderAndPreserveScroll} />
           ),
         }}
-        data={transcript.turns}
+        data={timeline}
         data-testid="chat-transcript-scroller"
         firstItemIndex={firstItemIndex}
         followOutput={pinned ? "auto" : false}
         increaseViewportBy={{ bottom: 800, top: 400 }}
-        initialItemCount={Math.min(transcript.turns.length, 30)}
-        itemContent={(_, turn) => {
+        initialItemCount={Math.min(timeline.length, 30)}
+        itemContent={(_, item) => {
+          if (item.kind === "message") {
+            return <MessageRow message={item.message} />;
+          }
           return (
             <TranscriptTurnRow
               loadRunItemOutput={loadRunItemOutput}
@@ -377,7 +413,7 @@ export function ChatTranscript({
               runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
               runItemOutputsById={transcript.runItemOutputsById}
               runItemsById={transcript.runItemsById}
-              turn={turn}
+              turn={item.turn}
             />
           );
         }}
@@ -414,13 +450,9 @@ function EmptyChatTranscript({
   );
 }
 
-function TranscriptHeader({
-  hasMoreOlder,
-  loadOlder,
-}: {
-  hasMoreOlder: boolean;
-  loadOlder: () => Promise<void>;
-}) {
+type TranscriptHeaderProps = { hasMoreOlder: boolean; loadOlder: () => Promise<void> };
+
+function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
   if (!hasMoreOlder) {
     return null;
   }
@@ -434,13 +466,9 @@ function TranscriptHeader({
   );
 }
 
-function TranscriptFooter({
-  activeRun,
-  submitApproval,
-}: {
-  activeRun: Run | null;
-  submitApproval: SubmitApproval;
-}) {
+type TranscriptFooterProps = { activeRun: Run | null; submitApproval: SubmitApproval };
+
+function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) {
   if (!activeRun?.hasPendingApproval) {
     return null;
   }
@@ -605,6 +633,9 @@ function messageRowTestId(message: ChatMessage) {
   if (message.role === "assistant") {
     return "chat-assistant-turn-row";
   }
+  if (message.role === "command") {
+    return "chat-command-result-row";
+  }
   if (message.delivery === "queued") {
     return "chat-queued-turn-row";
   }
@@ -615,6 +646,8 @@ function MessageContent({ message }: { message: ChatMessage }) {
   const text = message.parts.map((part) => part.text).join("");
   switch (message.role) {
     case "user":
+      return <div className="whitespace-pre-wrap">{text}</div>;
+    case "command":
       return <div className="whitespace-pre-wrap">{text}</div>;
     case "assistant":
     case "developer":

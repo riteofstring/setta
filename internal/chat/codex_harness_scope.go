@@ -159,6 +159,21 @@ func requireCodexTurnMatch(message jsonRPCMessage, params map[string]any, expect
 	return failCodexNotificationScopeDrift(message, match, expectedThreadID, expectedTurnID, sink)
 }
 
+func turnStartedID(params map[string]any) (string, error) {
+	turnID, err := optionalString(params, "turnId", "codex turn started")
+	if err != nil {
+		return "", err
+	}
+	if turnID != "" {
+		return turnID, nil
+	}
+	turn, err := requireObject(params, "turn", "codex turn started")
+	if err != nil {
+		return "", err
+	}
+	return requireString(turn, "id", "codex turn started turn")
+}
+
 func failCodexNotificationScopeDrift(message jsonRPCMessage, match codexNotificationMatch, expectedThreadID string, expectedTurnID string, sink TurnSink) error {
 	err := fmt.Errorf("codex notification %s scope %s: expected thread %s turn %s, got thread %s turn %s", message.Method, match.Kind, expectedThreadID, expectedTurnID, match.ReceivedThreadID, match.ReceivedTurnID)
 	context := map[string]string{

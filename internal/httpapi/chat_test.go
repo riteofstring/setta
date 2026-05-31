@@ -241,6 +241,58 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	}
 }
 
+func TestChatCommandEndpointsListAndExecute(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+
+	list := postJSON[chat.ChatCommandListResult](t, handler, "/chat/commands/list", ListChatCommandsRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if len(list.Commands) != 2 {
+		t.Fatalf("commands = %+v, want goal and model", list.Commands)
+	}
+
+	result := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/commands/execute", ExecuteChatCommandRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Raw:            "/goal finish renderer tests",
+	}, http.StatusOK)
+	if result.Message == nil || result.Message.Role != chat.RoleCommand {
+		t.Fatalf("command result message = %+v, want command role", result.Message)
+	}
+	if result.Message.Parts[0].Text != "Goal set: finish renderer tests" {
+		t.Fatalf("command result text = %q, want goal set result", result.Message.Parts[0].Text)
+	}
+	if len(result.Page.Conversation.HarnessRefs) != 1 {
+		t.Fatalf("harness refs = %+v, want command-created ref", result.Page.Conversation.HarnessRefs)
+	}
+
+	runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	if len(runs.Runs) != 0 {
+		t.Fatalf("runs = %+v, want none for command", runs.Runs)
+	}
+}
+
+func TestChatCommandEndpointReturnsTypedUnknownCommandError(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/chat/commands/execute", ExecuteChatCommandRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Raw:            "/unknown",
+	}, http.StatusBadRequest)
+	if errResponse.Error.Code != "unknown_command" {
+		t.Fatalf("error code = %q, want unknown_command", errResponse.Error.Code)
+	}
+}
+
 func TestChatEndpointsSubmitApproval(t *testing.T) {
 	handler := newChatHandler(t, []chat.FakeHarnessEvent{
 		{

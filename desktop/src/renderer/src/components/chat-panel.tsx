@@ -1,7 +1,15 @@
-import type { ConversationListItem, RunStatus, WorkspaceSummary } from "@generated/backend";
+import type {
+  ChatCommandCapability,
+  ChatCommandExecuteResult,
+  ChatModelOption,
+  ConversationListItem,
+  RunStatus,
+  WorkspaceSummary,
+} from "@generated/backend";
 import {
   AlertTriangle,
   Archive,
+  Check,
   MessageSquarePlus,
   Plus,
   RotateCcw,
@@ -79,7 +87,13 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
 
 type ChatView = ReturnType<typeof useChatViewState>;
 
-const composerBlockingOperations = new Set(["creating", "loading", "loadingOlder", "refreshing"]);
+const composerBlockingOperations = new Set([
+  "commanding",
+  "creating",
+  "loading",
+  "loadingOlder",
+  "refreshing",
+]);
 
 function isChatBusy(chat: ChatView) {
   return chat.operation !== null || chat.status === "loading";
@@ -311,8 +325,49 @@ function CriticalDiagnostics({ chat }: { chat: ChatView }) {
 
 function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
   const [draft, setDraft] = useState("");
+  const [commands, setCommands] = useState<ChatCommandCapability[]>([]);
+  const [commandListKey, setCommandListKey] = useState("");
+  const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
   const submittingRef = useRef(false);
   const disabled = !chat.selectedConversation || busy;
+  const slashDraft = isSlashDraft(draft);
+  const suggestions = commandSuggestions(commands, draft);
+  const selectedSuggestion = suggestions[0] ?? null;
+
+  useEffect(() => {
+    if (!chat.selectedConversation) {
+      setCommands([]);
+      setCommandListKey("");
+      setModelPicker(null);
+      return;
+    }
+    if (!slashDraft) {
+      setCommands([]);
+      setCommandListKey("");
+      return;
+    }
+    const key = chat.selectedConversation.id + ":" + (running ? "running" : "idle");
+    if (commandListKey === key) {
+      return;
+    }
+    let cancelled = false;
+    setCommandListKey(key);
+    void chat
+      .listCommands()
+      .then((result) => {
+        if (!cancelled) {
+          setCommands(result?.commands ?? []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCommands([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chat, commandListKey, running, slashDraft]);
 
   async function sendDraft() {
     const prompt = draft.trim();
@@ -321,10 +376,19 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
     }
     submittingRef.current = true;
     try {
-      setDraft("");
-      if (running) {
+      if (slashDraft) {
+        const result = await chat.executeCommand(commandTextToExecute(prompt, selectedSuggestion));
+        if (result.result.action === "model_picker") {
+          setModelPicker(result);
+        } else {
+          setModelPicker(null);
+        }
+        setDraft("");
+      } else if (running) {
+        setDraft("");
         await chat.steerMessage(prompt);
       } else {
+        setDraft("");
         await chat.sendMessage(prompt);
       }
     } finally {
@@ -335,6 +399,9 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
   async function queueDraft() {
     const prompt = draft.trim();
     if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
+      return;
+    }
+    if (slashDraft) {
       return;
     }
     submittingRef.current = true;
@@ -356,22 +423,45 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
       }}
     >
       <div className="mx-auto flex max-w-4xl min-w-0 items-end gap-3">
-        <textarea
-          className="min-h-11 min-w-0 flex-1 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500"
-          disabled={disabled}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) =>
-            handleComposerKeyDown(event, {
-              queueDraft,
-              running,
-              sendDraft,
-              stopRun: chat.stopActiveRun,
-            })
-          }
-          placeholder={chat.selectedConversation ? "Ask Codex" : "Create a chat first"}
-          rows={2}
-          value={draft}
-        />
+        <div className="relative min-w-0 flex-1">
+          <CommandSuggestions
+            draft={draft}
+            modelPicker={modelPicker}
+            onPickCommand={(command) => setDraft(command.name + " ")}
+            onPickModel={(model) => {
+              void executeModelSelection(model);
+            }}
+            selectedSuggestion={selectedSuggestion}
+            suggestions={suggestions}
+          />
+          <textarea
+            className="min-h-11 w-full min-w-0 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500"
+            disabled={disabled}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              if (!isSlashDraft(event.target.value)) {
+                setModelPicker(null);
+              }
+            }}
+            onKeyDown={(event) =>
+              handleComposerKeyDown(event, {
+                completeCommand: () => {
+                  if (selectedSuggestion && draft.trim() !== selectedSuggestion.name) {
+                    setDraft(selectedSuggestion.name + " ");
+                  }
+                },
+                queueDraft,
+                running,
+                sendDraft,
+                slashDraft,
+                stopRun: chat.stopActiveRun,
+              })
+            }
+            placeholder={chat.selectedConversation ? "Ask Codex" : "Create a chat first"}
+            rows={2}
+            value={draft}
+          />
+        </div>
         <ComposerButton
           canSend={!disabled && draft.trim() !== ""}
           chat={chat}
@@ -381,12 +471,133 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
       </div>
     </form>
   );
+
+  async function executeModelSelection(model: ChatModelOption) {
+    if (!chat.selectedConversation || disabled || submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
+    try {
+      await chat.executeCommand(`/model ${model.id}`);
+      setDraft("");
+      setModelPicker(null);
+    } finally {
+      submittingRef.current = false;
+    }
+  }
+}
+
+export function CommandSuggestions({
+  draft,
+  modelPicker,
+  onPickCommand,
+  onPickModel,
+  selectedSuggestion,
+  suggestions,
+}: {
+  draft: string;
+  modelPicker: ChatCommandExecuteResult | null;
+  onPickCommand: (command: ChatCommandCapability) => void;
+  onPickModel: (model: ChatModelOption) => void;
+  selectedSuggestion: ChatCommandCapability | null;
+  suggestions: ChatCommandCapability[];
+}) {
+  if (modelPicker?.result.action === "model_picker") {
+    return (
+      <div
+        className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white p-1 shadow-lg"
+        data-testid="model-picker"
+      >
+        {modelPicker.result.models.map((model) => (
+          <button
+            className="flex w-full min-w-0 items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-zinc-50"
+            key={model.id}
+            onClick={() => onPickModel(model)}
+            type="button"
+          >
+            {model.isDefault ? <Check className="h-4 w-4 shrink-0 text-zinc-500" /> : null}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium text-zinc-900">{model.displayName}</span>
+              <span className="block truncate text-xs text-zinc-500">{model.id}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (!isSlashDraft(draft) || suggestions.length === 0) {
+    return null;
+  }
+  return (
+    <div
+      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-md border border-zinc-200 bg-white p-1 shadow-lg"
+      data-testid="command-suggestions"
+    >
+      {suggestions.map((command) => (
+        <button
+          className={
+            command === selectedSuggestion
+              ? "flex w-full min-w-0 items-center justify-between gap-3 rounded bg-zinc-100 px-2 py-2 text-left text-sm"
+              : "flex w-full min-w-0 items-center justify-between gap-3 rounded px-2 py-2 text-left text-sm hover:bg-zinc-50"
+          }
+          disabled={!command.available}
+          key={command.name}
+          onClick={() => onPickCommand(command)}
+          type="button"
+        >
+          <span className="min-w-0">
+            <span className="block font-medium text-zinc-900">{command.name}</span>
+            <span className="block truncate text-xs text-zinc-500">
+              {command.available ? command.usage : command.unavailableReason}
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function isSlashDraft(draft: string) {
+  return draft.startsWith("/");
+}
+
+export function commandSuggestions(commands: ChatCommandCapability[], draft: string) {
+  if (!isSlashDraft(draft)) {
+    return [];
+  }
+  const token = draft.slice(1).split(/\s+/, 1)[0] ?? "";
+  const prefix = "/" + token;
+  return commands.filter((command) => command.name.startsWith(prefix));
+}
+
+export function commandTextToExecute(
+  prompt: string,
+  selectedSuggestion: ChatCommandCapability | null,
+) {
+  if (!selectedSuggestion) {
+    return prompt;
+  }
+  const match = /^\/([^\s]*)(\s.*)?$/.exec(prompt);
+  if (!match) {
+    return prompt;
+  }
+  const token = "/" + match[1];
+  const rest = match[2] ?? "";
+  if (selectedSuggestion.name === token) {
+    return prompt;
+  }
+  if (selectedSuggestion.name.startsWith(token)) {
+    return selectedSuggestion.name + rest;
+  }
+  return prompt;
 }
 
 interface ComposerKeyActions {
+  completeCommand: () => void;
   queueDraft: () => Promise<void>;
   running: boolean;
   sendDraft: () => Promise<void>;
+  slashDraft: boolean;
   stopRun: () => Promise<void>;
 }
 
@@ -396,6 +607,10 @@ export function handleComposerKeyDown(
 ) {
   if (isQueueShortcut(event)) {
     event.preventDefault();
+    if (actions.slashDraft) {
+      actions.completeCommand();
+      return;
+    }
     void actions.queueDraft();
     return;
   }
@@ -492,11 +707,13 @@ function useChatViewState(workspaceId: string | null) {
   const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
   const error = useChatStore((state) => state.error);
+  const executeCommand = useChatStore((state) => state.executeCommand);
   const diagnostics = useChatStore((state) => state.diagnostics);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
+  const listCommands = useChatStore((state) => state.listCommands);
   const maintenanceNotice = useChatStore((state) => state.maintenanceNotice);
   const messageIds = useChatStore((state) => state.messageIds);
   const messages = useChatStore((state) => state.messages);
@@ -539,9 +756,11 @@ function useChatViewState(workspaceId: string | null) {
     createConversation,
     diagnostics,
     error,
+    executeCommand,
     hasMoreOlder,
     loadOlder,
     loadRunItemOutput,
+    listCommands,
     maintenanceNotice,
     messageIds,
     messages,

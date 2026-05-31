@@ -2,6 +2,8 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
   BackendHealth,
+  ChatCommandExecuteResult,
+  ChatCommandListResult,
   ChatMaintenanceResult,
   Conversation,
   GetActiveRunResponse,
@@ -26,7 +28,9 @@ export const ipcChannels = {
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
   chatClearQuarantine: "chat:clear-quarantine",
+  chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
+  chatListCommands: "chat:list-commands",
   chatMessagePage: "chat:message-page",
   chatQuarantineCorruptState: "chat:quarantine-corrupt-state",
   chatQueueMessage: "chat:queue-message",
@@ -76,9 +80,17 @@ interface IpcContract {
     args: [workspaceId: string, confirmation: string];
     result: ChatMaintenanceResult;
   };
+  chatExecuteCommand: {
+    args: [workspaceId: string, conversationId: string, raw: string];
+    result: ChatCommandExecuteResult;
+  };
   chatListConversations: {
     args: [workspaceId: string];
     result: ListConversationsResponse;
+  };
+  chatListCommands: {
+    args: [workspaceId: string, conversationId: string];
+    result: ChatCommandListResult;
   };
   chatMessagePage: {
     args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];

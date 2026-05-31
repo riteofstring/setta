@@ -82,7 +82,7 @@ export function decodeDiagnosticSeverity(value: unknown, label = "DiagnosticSeve
   }
 }
 
-export type MessageRole = "user" | "assistant" | "system" | "developer" | "tool";
+export type MessageRole = "user" | "assistant" | "system" | "developer" | "tool" | "command";
 
 export function decodeMessageRole(value: unknown, label = "MessageRole"): MessageRole {
   const decoded = decodeString(value, label);
@@ -96,6 +96,8 @@ export function decodeMessageRole(value: unknown, label = "MessageRole"): Messag
     case "developer":
       return decoded;
     case "tool":
+      return decoded;
+    case "command":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -274,6 +276,34 @@ export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): 
     case "answered":
       return decoded;
     case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ChatCommandKind = "goal" | "model";
+
+export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "goal":
+      return decoded;
+    case "model":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ChatCommandResultAction = "display" | "model_picker";
+
+export function decodeChatCommandResultAction(value: unknown, label = "ChatCommandResultAction"): ChatCommandResultAction {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "display":
+      return decoded;
+    case "model_picker":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -570,6 +600,63 @@ export interface SteerMessageResult {
   userMessage: ChatMessage;
   run: Run;
   page: MessagePage;
+}
+
+export interface ListChatCommandsRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface ChatCommandCapability {
+  kind: ChatCommandKind;
+  name: string;
+  usage: string;
+  description: string;
+  available: boolean;
+  unavailableReason: string;
+}
+
+export interface ChatCommandListResult {
+  commands: ChatCommandCapability[];
+}
+
+export interface ExecuteChatCommandRequest {
+  workspaceId: string;
+  conversationId: string;
+  raw: string;
+}
+
+export interface ChatGoalState {
+  threadId: string;
+  objective: string;
+  status: string;
+}
+
+export interface ChatModelOption {
+  id: string;
+  model: string;
+  displayName: string;
+  description: string;
+  hidden: boolean;
+  isDefault: boolean;
+}
+
+export interface ChatCommandResult {
+  action: ChatCommandResultAction;
+  kind: ChatCommandKind;
+  raw: string;
+  title: string;
+  message: string;
+  goal: ChatGoalState | null;
+  models: ChatModelOption[];
+  selectedModel: string;
+}
+
+export interface ChatCommandExecuteResult {
+  conversation: Conversation;
+  message: ChatMessage | null;
+  page: MessagePage;
+  result: ChatCommandResult;
 }
 
 export interface CancelRunRequest {
@@ -992,6 +1079,14 @@ export const backendEndpoints = {
   SteerChatMessage: {
     method: "POST",
     path: "/chat/messages/steer",
+  },
+  ListChatCommands: {
+    method: "POST",
+    path: "/chat/commands/list",
+  },
+  ExecuteChatCommand: {
+    method: "POST",
+    path: "/chat/commands/execute",
   },
   CancelRun: {
     method: "POST",
@@ -1468,6 +1563,95 @@ export function decodeSteerMessageResult(value: unknown): SteerMessageResult {
     userMessage: decodeChatMessage(requireField(record, "userMessage", "SteerMessageResult")),
     run: decodeRun(requireField(record, "run", "SteerMessageResult")),
     page: decodeMessagePage(requireField(record, "page", "SteerMessageResult")),
+  };
+}
+
+export function decodeListChatCommandsRequest(value: unknown): ListChatCommandsRequest {
+  const record = assertRecord(value, "ListChatCommandsRequest");
+  assertKnownFields(record, "ListChatCommandsRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListChatCommandsRequest"), "ListChatCommandsRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ListChatCommandsRequest"), "ListChatCommandsRequest.conversationId"),
+  };
+}
+
+export function decodeChatCommandCapability(value: unknown): ChatCommandCapability {
+  const record = assertRecord(value, "ChatCommandCapability");
+  assertKnownFields(record, "ChatCommandCapability", ["kind", "name", "usage", "description", "available", "unavailableReason"]);
+  return {
+    kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandCapability"), "ChatCommandCapability.kind"),
+    name: decodeString(requireField(record, "name", "ChatCommandCapability"), "ChatCommandCapability.name"),
+    usage: decodeString(requireField(record, "usage", "ChatCommandCapability"), "ChatCommandCapability.usage"),
+    description: decodeString(requireField(record, "description", "ChatCommandCapability"), "ChatCommandCapability.description"),
+    available: decodeBoolean(requireField(record, "available", "ChatCommandCapability"), "ChatCommandCapability.available"),
+    unavailableReason: decodeString(requireField(record, "unavailableReason", "ChatCommandCapability"), "ChatCommandCapability.unavailableReason"),
+  };
+}
+
+export function decodeChatCommandListResult(value: unknown): ChatCommandListResult {
+  const record = assertRecord(value, "ChatCommandListResult");
+  assertKnownFields(record, "ChatCommandListResult", ["commands"]);
+  return {
+    commands: decodeArray(requireField(record, "commands", "ChatCommandListResult"), "ChatCommandListResult.commands", (item) => decodeChatCommandCapability(item)),
+  };
+}
+
+export function decodeExecuteChatCommandRequest(value: unknown): ExecuteChatCommandRequest {
+  const record = assertRecord(value, "ExecuteChatCommandRequest");
+  assertKnownFields(record, "ExecuteChatCommandRequest", ["workspaceId", "conversationId", "raw"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ExecuteChatCommandRequest"), "ExecuteChatCommandRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ExecuteChatCommandRequest"), "ExecuteChatCommandRequest.conversationId"),
+    raw: decodeString(requireField(record, "raw", "ExecuteChatCommandRequest"), "ExecuteChatCommandRequest.raw"),
+  };
+}
+
+export function decodeChatGoalState(value: unknown): ChatGoalState {
+  const record = assertRecord(value, "ChatGoalState");
+  assertKnownFields(record, "ChatGoalState", ["threadId", "objective", "status"]);
+  return {
+    threadId: decodeString(requireField(record, "threadId", "ChatGoalState"), "ChatGoalState.threadId"),
+    objective: decodeString(requireField(record, "objective", "ChatGoalState"), "ChatGoalState.objective"),
+    status: decodeString(requireField(record, "status", "ChatGoalState"), "ChatGoalState.status"),
+  };
+}
+
+export function decodeChatModelOption(value: unknown): ChatModelOption {
+  const record = assertRecord(value, "ChatModelOption");
+  assertKnownFields(record, "ChatModelOption", ["id", "model", "displayName", "description", "hidden", "isDefault"]);
+  return {
+    id: decodeString(requireField(record, "id", "ChatModelOption"), "ChatModelOption.id"),
+    model: decodeString(requireField(record, "model", "ChatModelOption"), "ChatModelOption.model"),
+    displayName: decodeString(requireField(record, "displayName", "ChatModelOption"), "ChatModelOption.displayName"),
+    description: decodeString(requireField(record, "description", "ChatModelOption"), "ChatModelOption.description"),
+    hidden: decodeBoolean(requireField(record, "hidden", "ChatModelOption"), "ChatModelOption.hidden"),
+    isDefault: decodeBoolean(requireField(record, "isDefault", "ChatModelOption"), "ChatModelOption.isDefault"),
+  };
+}
+
+export function decodeChatCommandResult(value: unknown): ChatCommandResult {
+  const record = assertRecord(value, "ChatCommandResult");
+  assertKnownFields(record, "ChatCommandResult", ["action", "kind", "raw", "title", "message", "goal", "models", "selectedModel"]);
+  return {
+    action: decodeChatCommandResultAction(requireField(record, "action", "ChatCommandResult"), "ChatCommandResult.action"),
+    kind: decodeChatCommandKind(requireField(record, "kind", "ChatCommandResult"), "ChatCommandResult.kind"),
+    raw: decodeString(requireField(record, "raw", "ChatCommandResult"), "ChatCommandResult.raw"),
+    title: decodeString(requireField(record, "title", "ChatCommandResult"), "ChatCommandResult.title"),
+    message: decodeString(requireField(record, "message", "ChatCommandResult"), "ChatCommandResult.message"),
+    goal: decodeNullable(requireField(record, "goal", "ChatCommandResult"), "ChatCommandResult.goal", (item) => decodeChatGoalState(item)),
+    models: decodeArray(requireField(record, "models", "ChatCommandResult"), "ChatCommandResult.models", (item) => decodeChatModelOption(item)),
+    selectedModel: decodeString(requireField(record, "selectedModel", "ChatCommandResult"), "ChatCommandResult.selectedModel"),
+  };
+}
+
+export function decodeChatCommandExecuteResult(value: unknown): ChatCommandExecuteResult {
+  const record = assertRecord(value, "ChatCommandExecuteResult");
+  assertKnownFields(record, "ChatCommandExecuteResult", ["conversation", "message", "page", "result"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "ChatCommandExecuteResult")),
+    message: decodeNullable(requireField(record, "message", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.message", (item) => decodeChatMessage(item)),
+    page: decodeMessagePage(requireField(record, "page", "ChatCommandExecuteResult")),
+    result: decodeChatCommandResult(requireField(record, "result", "ChatCommandExecuteResult")),
   };
 }
 
@@ -2147,6 +2331,8 @@ export interface BackendClient {
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
   queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
+  listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
+  executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
   getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
   listRuns: (request: ListRunsRequest) => Promise<ListRunsResponse>;
@@ -2262,6 +2448,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSteerMessageResult,
       endpoint: backendEndpoints.SteerChatMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listChatCommands: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCommandListResult,
+      endpoint: backendEndpoints.ListChatCommands,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    executeChatCommand: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCommandExecuteResult,
+      endpoint: backendEndpoints.ExecuteChatCommand,
       fetchImpl,
       requestPayload: request,
     }),

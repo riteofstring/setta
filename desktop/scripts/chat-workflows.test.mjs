@@ -168,6 +168,10 @@ async function runDeterministicWorkflowLaunch(results) {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runApprovalsWorkflow(context.client, backend, workspaceId, conversationId);
     });
+    await runWorkflowStep(results, recordingDir, "slash-commands", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runSlashCommandWorkflow(context.client, backend, workspaceId, conversationId);
+    });
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -191,6 +195,8 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/runs/list",
       "/chat/runs/cancel",
       "/chat/approvals/submit",
+      "/chat/commands/list",
+      "/chat/commands/execute",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
@@ -200,6 +206,8 @@ async function runDeterministicWorkflowLaunch(results) {
       "chat:steer-message",
       "chat:cancel-run",
       "chat:submit-approval",
+      "chat:list-commands",
+      "chat:execute-command",
     ],
   });
 }
@@ -295,6 +303,13 @@ async function runRestartWorkflow(results) {
 
 async function runLiveCodexWorkflow(results) {
   const liveEnv = await prepareLiveCodexEnv();
+  if (!liveEnv) {
+    results.push("live-codex-electron-skipped-no-openai-api-key");
+    process.stdout.write(
+      "Electron chat workflow skipped: live-codex-electron (OPENAI_API_KEY absent in .env)\n",
+    );
+    return;
+  }
   const fixture = await createFixture("live-codex");
   const recordingDir = join(recordingRoot, "live-codex");
   const context = await launchContext(fixture, recordingDir, {
@@ -307,6 +322,22 @@ async function runLiveCodexWorkflow(results) {
     const backend = await backendProbe(recordingDir);
     const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
     const conversationId = await createChat(context.client, backend, workspaceId);
+    await submitComposer(context.client, "/goal verify live slash command", "Send message");
+    await waitForCommandResult(
+      backend,
+      workspaceId,
+      conversationId,
+      "Goal set: verify live slash command",
+      liveWorkflowTimeoutMs,
+    );
+    await waitForTexts(context.client, ["Goal set: verify live slash command"]);
+    await waitForLinkedCodexRef(backend, workspaceId, conversationId, liveWorkflowTimeoutMs);
+    await assertNoRunWithPrompt(
+      backend,
+      workspaceId,
+      conversationId,
+      "/goal verify live slash command",
+    );
     await submitComposer(
       context.client,
       "Reply with one short sentence containing the exact phrase setta live electron smoke.",
@@ -354,8 +385,14 @@ async function runLiveCodexWorkflow(results) {
       "/chat/runs/active",
       "/chat/runs/list",
       "/chat/diagnostics/list",
+      "/chat/commands/execute",
     ],
-    ipcChannels: ["workspace:open-local-folder", "chat:create-conversation", "chat:send-message"],
+    ipcChannels: [
+      "workspace:open-local-folder",
+      "chat:create-conversation",
+      "chat:send-message",
+      "chat:execute-command",
+    ],
   });
   results.push("live-codex-electron");
   process.stdout.write("Electron chat workflow passed: live-codex-electron\n");
@@ -363,6 +400,9 @@ async function runLiveCodexWorkflow(results) {
 
 async function prepareLiveCodexEnv() {
   const openAIKey = await openAIKeyFromDotEnv();
+  if (openAIKey === null) {
+    return null;
+  }
   const codexHome = await mkdtemp(join(tmpdir(), "setta-live-codex-home-"));
   await runCommand("codex", ["login", "--with-api-key"], {
     env: { ...process.env, CODEX_HOME: codexHome },
@@ -378,14 +418,18 @@ async function prepareLiveCodexEnv() {
 }
 
 async function openAIKeyFromDotEnv() {
-  const content = await readFile(join(repoRoot, ".env"), "utf8");
+  const dotEnvPath = join(repoRoot, ".env");
+  if (!existsSync(dotEnvPath)) {
+    return null;
+  }
+  const content = await readFile(dotEnvPath, "utf8");
   for (const line of content.split("\n")) {
     const parsed = parseDotEnvLine(line);
     if (parsed?.key === "OPENAI_API_KEY" && parsed.value !== "") {
       return parsed.value;
     }
   }
-  throw new Error("OPENAI_API_KEY is not present in .env");
+  return null;
 }
 
 function parseDotEnvLine(line) {
@@ -583,6 +627,95 @@ async function runApprovalsWorkflow(client, backend, workspaceId, conversationId
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 }
 
+async function runSlashCommandWorkflow(client, backend, workspaceId, conversationId) {
+  await submitComposer(client, "/goal finish renderer tests", "Send message");
+  await waitForCommandResult(
+    backend,
+    workspaceId,
+    conversationId,
+    "Goal set: finish renderer tests",
+  );
+  await waitForTexts(client, ["Goal set: finish renderer tests"]);
+  await waitForLinkedCodexRef(backend, workspaceId, conversationId);
+  await assertNoRunWithPrompt(backend, workspaceId, conversationId, "/goal finish renderer tests");
+
+  await submitComposer(client, "workflow hold for queue and steering", "Send message");
+  const activeRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "workflow hold for queue and steering",
+    "running",
+  );
+  await waitForText(client, "Workflow stream started.");
+  await submitComposer(client, "/goal pause", "Send steering message");
+  await waitForCommandResult(backend, workspaceId, conversationId, "Goal paused.");
+  await waitForTexts(client, ["Goal paused.", "Workflow stream started."]);
+  await assertNoRunWithPrompt(backend, workspaceId, conversationId, "/goal pause");
+  await assertTextAbsent(client, "Steered with /goal pause.");
+  await submitComposer(client, "finish after slash command", "Send steering message");
+  await waitForTexts(client, [
+    "Steered with finish after slash command.",
+    "Active workflow complete.",
+  ]);
+  await waitForRunStatus(backend, workspaceId, conversationId, activeRun.id, "completed");
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+
+  await submitComposer(client, "/model", "Send message");
+  await waitForModelPicker(client);
+  await clickModelById(client, "scripted-fast");
+  await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-fast");
+  await waitForTexts(client, ["Model set: scripted-fast"]);
+
+  await submitComposer(client, "/model scripted-careful", "Send message");
+  await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-careful");
+  await assertNoRunWithPrompt(backend, workspaceId, conversationId, "/model scripted-careful");
+  await submitComposer(client, "model setting workflow", "Send message");
+  const modelRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "model setting workflow",
+    "completed",
+  );
+  await assertAssistantCompleted(backend, workspaceId, conversationId, modelRun.id);
+  await waitForTexts(client, ["Model for next turn: scripted-careful."]);
+
+  await submitComposer(client, "workflow hold for queue and steering", "Send message");
+  const secondRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "workflow hold for queue and steering",
+    "running",
+  );
+  await waitForText(client, "Workflow stream started.");
+  await assertModelCommandDisabled(backend, workspaceId, conversationId);
+  await assertTextAbsent(client, "Model set: scripted-ultra");
+  await submitComposer(client, "finish after disabled model command", "Send steering message");
+  await waitForTexts(client, [
+    "Steered with finish after disabled model command.",
+    "Active workflow complete.",
+  ]);
+  await waitForRunStatus(backend, workspaceId, conversationId, secondRun.id, "completed");
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+  await assertTranscriptSequence(client, [
+    "workflow hold for queue and steering",
+    "finish after slash command",
+    "Active workflow complete.",
+    "Goal paused.",
+    "Model set: scripted-fast",
+    "Model set: scripted-careful",
+    "model setting workflow",
+    "Model for next turn: scripted-careful.",
+    "workflow hold for queue and steering",
+    "finish after disabled model command",
+    "Active workflow complete.",
+  ]);
+  await assertChatLayout(client);
+  await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+}
+
 async function approveDecisionWorkflow(client, prompt, title) {
   await submitComposer(client, prompt, "Send message");
   await waitForText(client, title);
@@ -714,6 +847,46 @@ async function assertTextAbsent(client, text) {
   }
 }
 
+async function waitForModelPicker(client) {
+  await waitForState(
+    client,
+    `(() => {
+      const picker = document.querySelector('[data-testid="model-picker"]');
+      return { body: document.body.innerText, ready: Boolean(picker) };
+    })()`,
+    (value) => value.ready && value.body.includes("scripted-fast"),
+  );
+}
+
+async function clickModelById(client, modelId) {
+  await waitForState(
+    client,
+    `(() => {
+      const picker = document.querySelector('[data-testid="model-picker"]');
+      const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
+      return {
+        ready: buttons.some((button) => button.innerText.includes(${JSON.stringify(modelId)})),
+      };
+    })()`,
+    (value) => value.ready,
+  );
+  const clicked = await client.evaluate(`(() => {
+    const picker = document.querySelector('[data-testid="model-picker"]');
+    const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
+    const button = buttons.find((candidate) =>
+      candidate.innerText.includes(${JSON.stringify(modelId)})
+    );
+    if (!button || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error(`model option was not clickable: ${modelId}`);
+  }
+}
+
 function bodyTextExpression() {
   return `(() => ({ body: document.body.innerText }))()`;
 }
@@ -814,6 +987,71 @@ async function waitForRunStatus(backend, workspaceId, conversationId, runId, sta
     (run) => run?.status === status,
     timeoutMs,
   );
+}
+
+async function assertNoRunWithPrompt(backend, workspaceId, conversationId, prompt) {
+  const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
+  if (list.runs.some((run) => run.promptSummary === prompt)) {
+    throw new Error(`slash command was recorded as a run prompt: ${prompt}`);
+  }
+}
+
+async function waitForCommandResult(
+  backend,
+  workspaceId,
+  conversationId,
+  expectedText,
+  timeoutMs = workflowTimeoutMs,
+) {
+  return waitForBackendState(
+    async () =>
+      backend.post("/chat/messages/page", {
+        conversationId,
+        limit: 80,
+        workspaceId,
+      }),
+    (page) =>
+      page.messages.some(
+        (message) => message.role === "command" && messageText(message).includes(expectedText),
+      ),
+    timeoutMs,
+  );
+}
+
+async function waitForLinkedCodexRef(
+  backend,
+  workspaceId,
+  conversationId,
+  timeoutMs = workflowTimeoutMs,
+) {
+  return waitForBackendState(
+    async () => backend.post("/chat/conversations/list", { workspaceId }),
+    (value) => {
+      const item = value.conversations.find(
+        (candidate) => candidate.conversation.id === conversationId,
+      );
+      return Boolean(
+        item?.conversation.harnessRefs.some(
+          (ref) => ref.harness === "codex" && ref.status === "linked" && ref.threadId !== "",
+        ),
+      );
+    },
+    timeoutMs,
+  );
+}
+
+async function assertModelCommandDisabled(backend, workspaceId, conversationId) {
+  const result = await backend.post("/chat/commands/list", { conversationId, workspaceId });
+  const modelCommand = result.commands.find((command) => command.kind === "model");
+  if (!modelCommand) {
+    throw new Error(`model command was not listed: ${JSON.stringify(result.commands)}`);
+  }
+  if (
+    modelCommand.available ||
+    modelCommand.unavailableReason !== "model commands are unavailable while a run is active"
+  ) {
+    throw new Error(`model command was not disabled while active: ${JSON.stringify(modelCommand)}`);
+  }
 }
 
 async function assertNoActiveRun(backend, workspaceId, conversationId) {

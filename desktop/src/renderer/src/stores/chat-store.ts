@@ -1,5 +1,7 @@
 import type {
   ApprovalAnswer,
+  ChatCommandExecuteResult,
+  ChatCommandListResult,
   ChatEvent,
   ChatMessage,
   Conversation,
@@ -22,6 +24,7 @@ type ChatOperation =
   | "approving"
   | "cancelling"
   | "creating"
+  | "commanding"
   | "loading"
   | "loadingOlder"
   | "queueing"
@@ -66,6 +69,8 @@ export interface ChatStore {
   operation: ChatOperation;
   quarantineCorruptState: () => Promise<void>;
   queueMessage: (prompt: string) => Promise<void>;
+  executeCommand: (raw: string) => Promise<ChatCommandExecuteResult>;
+  listCommands: () => Promise<ChatCommandListResult | null>;
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
   resetWorkspaceState: () => Promise<void>;
@@ -475,6 +480,37 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operationId, errorPatch(error));
       }
     },
+    executeCommand: async (raw: string) => {
+      const { activeRun, selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        throw new Error("No chat is selected");
+      }
+      const operationId = beginOperation({ error: null, operation: "commanding" });
+      try {
+        const result = await window.setta.chat.executeCommand(
+          workspaceId,
+          selectedConversation.id,
+          raw,
+        );
+        commitCurrentFromState(operationId, (current) => ({
+          ...commandOperationPatch(current, result, activeRun),
+          operation: null,
+          selectedConversation: result.conversation,
+          status: "ready",
+        }));
+        return result;
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+        throw error;
+      }
+    },
+    listCommands: async () => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        return null;
+      }
+      return window.setta.chat.listCommands(workspaceId, selectedConversation.id);
+    },
     resyncActiveConversation: async () => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId) {
@@ -729,6 +765,18 @@ function operationPagePatch(
       patch.messages,
       terminalRunIdsAfterOperation(current.activeRun, activeRun, returnedRun),
     );
+  }
+  return patch;
+}
+
+function commandOperationPatch(
+  current: ChatStore,
+  result: ChatCommandExecuteResult,
+  fallbackActiveRun: Run | null,
+): ChatPatch {
+  const patch = pagePatch(result.page, current.activeRun ?? fallbackActiveRun);
+  if (patch.messages) {
+    patch.messages = mergeOperationMessages(current.messages, patch.messages, new Set());
   }
   return patch;
 }

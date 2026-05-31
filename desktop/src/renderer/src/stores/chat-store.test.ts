@@ -293,6 +293,54 @@ describe("chat store", () => {
     ).toBe("error");
   });
 
+  test("execute command updates from the backend page without creating an active run", async () => {
+    const conversation = testConversation();
+    const commandMessage = message("message_command", 1, "command", "complete", "Goal set: tests");
+    const executeCommand = vi.fn().mockResolvedValue({
+      conversation,
+      message: commandMessage,
+      page: testPage(conversation, [commandMessage]),
+      result: {
+        action: "display",
+        goal: { objective: "tests", status: "active", threadId: "thread_fake" },
+        kind: "goal",
+        message: "Goal set: tests",
+        models: [],
+        raw: "/goal tests",
+        selectedModel: "",
+        title: "Goal",
+      },
+    });
+    installSettaAPI({ chat: { executeCommand } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().executeCommand("/goal tests");
+
+    expect(executeCommand).toHaveBeenCalledWith("workspace_api", "conversation_api", "/goal tests");
+    expect(useChatStore.getState().messages.map((item) => item.role)).toContain("command");
+    expect(useChatStore.getState().activeRun).toBeNull();
+  });
+
+  test("execute command preserves error state for caller handling", async () => {
+    const conversation = testConversation();
+    const executeCommand = vi.fn().mockRejectedValue(new Error("unknown slash command: /wat"));
+    installSettaAPI({ chat: { executeCommand } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await expect(useChatStore.getState().executeCommand("/wat")).rejects.toThrow(
+      "unknown slash command: /wat",
+    );
+    expect(useChatStore.getState().error).toBe("unknown slash command: /wat");
+  });
+
   test("submit approval passes the decision to the preload API", async () => {
     const submitApproval = vi.fn().mockResolvedValue(testRun("running"));
     installSettaAPI({ chat: { submitApproval } });
@@ -682,6 +730,33 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       cancelRun: async () => testRun("cancelled"),
       clearQuarantine: async () => maintenanceResult(),
       createConversation: async () => conversation,
+      executeCommand: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: {
+          action: "display",
+          goal: null,
+          kind: "goal",
+          message: "Goal set: test",
+          models: [],
+          raw: "/goal test",
+          selectedModel: "",
+          title: "Goal",
+        },
+      }),
+      listCommands: async () => ({
+        commands: [
+          {
+            available: true,
+            description: "Goal",
+            kind: "goal",
+            name: "/goal",
+            unavailableReason: "",
+            usage: "/goal",
+          },
+        ],
+      }),
       listConversations: async () => listResponse([]),
       messagePage: async () => testPage(conversation, []),
       onEvent: () => () => {},

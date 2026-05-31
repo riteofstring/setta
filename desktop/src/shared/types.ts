@@ -1,5 +1,7 @@
 import type {
   BackendHealth,
+  ChatCommandExecuteResult,
+  ChatCommandListResult,
   ChatEvent,
   ChatMaintenanceResult,
   Conversation,
@@ -65,6 +67,12 @@ export interface SettaAPI {
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     clearQuarantine: (workspaceId: string, confirmation: string) => Promise<ChatMaintenanceResult>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
+    executeCommand: (
+      workspaceId: string,
+      conversationId: string,
+      raw: string,
+    ) => Promise<ChatCommandExecuteResult>;
+    listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
     messagePage: (
       workspaceId: string,

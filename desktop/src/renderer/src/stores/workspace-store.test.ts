@@ -267,6 +267,22 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       cancelRun: async () => emptyRun(),
       clearQuarantine: async () => emptyMaintenanceResult(),
       createConversation: async () => emptyConversation(),
+      executeCommand: async () => ({
+        conversation: emptyConversation(),
+        message: null,
+        page: emptyMessagePage(),
+        result: {
+          action: "display",
+          goal: null,
+          kind: "goal",
+          message: "Goal set: test",
+          models: [],
+          raw: "/goal test",
+          selectedModel: "",
+          title: "Goal",
+        },
+      }),
+      listCommands: async () => ({ commands: [] }),
       listConversations: async () => ({
         conversations: [],
         corruption: emptyCorruption(),

@@ -213,6 +213,9 @@ func transcriptSteeringMessages(run Run, runMessages []ChatMessage) ([]ChatMessa
 
 func (service *Service) updateTranscriptPageCursor(page *MessagePage, allMessages []ChatMessage) {
 	beforeOrdinal := transcriptBeforeOrdinal(page.Transcript)
+	for _, message := range page.Messages {
+		beforeOrdinal = minPositiveOrdinal(beforeOrdinal, message.Ordinal)
+	}
 	if beforeOrdinal == 0 {
 		beforeOrdinal = page.OlderBeforeOrdinal
 	}

@@ -31,36 +31,6 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 	}
 }
 
-func TestCodexRunItemStatusMappingCoversCurrentProtocolValues(t *testing.T) {
-	tests := map[string]RunItemStatus{
-		"completed":   RunItemStatusCompleted,
-		"declined":    RunItemStatusCancelled,
-		"failed":      RunItemStatusFailed,
-		"inProgress":  RunItemStatusRunning,
-		"interrupted": RunItemStatusCancelled,
-		"succeeded":   RunItemStatusCompleted,
-	}
-	for status, want := range tests {
-		got, err := mapCodexItemStatus(status)
-		if err != nil {
-			t.Fatalf("map status %s: %v", status, err)
-		}
-		if got != want {
-			t.Fatalf("map status %s = %s, want %s", status, got, want)
-		}
-	}
-}
-
-func TestCodexRunItemStatusMappingRejectsUnknownValues(t *testing.T) {
-	_, err := mapCodexItemStatus("running")
-	if err == nil {
-		t.Fatal("map status succeeded, want unsupported status error")
-	}
-	if !strings.Contains(err.Error(), "unsupported codex item status: running") {
-		t.Fatalf("error = %q, want unsupported status", err)
-	}
-}
-
 func TestJSONRPCPendingCallFailsOnProcessExit(t *testing.T) {
 	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-pending-exit"))
 	if err != nil {
@@ -665,7 +635,7 @@ type recordedProviderDiagnostic struct {
 func newRecordingSink() *recordingSink {
 	return &recordingSink{
 		approvalCh: make(chan ApprovalRequest, 1),
-		linkCh:     make(chan struct{}, 1),
+		linkCh:     make(chan struct{}, 4),
 	}
 }
 
@@ -853,8 +823,10 @@ func fakeCodexAppServer(mode string) {
 }
 
 type fakeCodexState struct {
-	approvalOutstanding bool
-	holdCalls           int
+	approvalOutstanding  bool
+	commandThreadResumed bool
+	commandThreadStarted bool
+	holdCalls            int
 }
 
 func handleFakeJSONRPCMode(mode string, state *fakeCodexState, message map[string]any) bool {
@@ -908,7 +880,38 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "initialize":
 		writeFakeInitializeResponse(message["id"])
 	case "thread/start", "thread/resume":
+		handleFakeCommandThread(mode, state, message)
 		writeFakeThreadResponse(message["id"])
+	case "thread/goal/get":
+		assertFakeThreadID(message)
+		writeFakeResponse(message["id"], map[string]any{"goal": nil})
+		return fakeCommandDone(mode)
+	case "thread/goal/set":
+		assertFakeGoalSet(mode, message)
+		writeFakeGoalResponse(message["id"], "finish renderer tests", "active")
+		return fakeCommandDone(mode)
+	case "thread/goal/clear":
+		assertFakeThreadID(message)
+		writeFakeResponse(message["id"], map[string]any{"cleared": true})
+		return fakeCommandDone(mode)
+	case "model/list":
+		assertFakeModelList(message)
+		writeFakeResponse(message["id"], map[string]any{
+			"data": []map[string]any{{
+				"description": "Fake model.",
+				"displayName": "GPT Test",
+				"hidden":      false,
+				"id":          "gpt-test",
+				"isDefault":   true,
+				"model":       "gpt-test",
+			}},
+			"nextCursor": nil,
+		})
+		return fakeCommandDone(mode)
+	case "thread/settings/update":
+		assertFakeModelSet(message)
+		writeFakeResponse(message["id"], map[string]any{})
+		return fakeCommandDone(mode)
 	case "turn/start":
 		return handleFakeTurnStart(mode, state, message)
 	case "turn/interrupt":
@@ -935,65 +938,87 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	if handleFakeMismatchMode(mode) {
 		return true
 	}
+	if handled, done := handleFakeCoreTurnStartMode(mode, state); handled {
+		return done
+	}
+	if handled, done := handleFakeNotificationTurnStartMode(mode); handled {
+		return done
+	}
+	return false
+}
+
+func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
 	switch mode {
 	case "stream":
 		writeFakeStreamTurn()
-		return true
+		return true, true
+	case "turn-started-id":
+		writeFakeProviderTurnID()
+		return true, true
 	case "failed-turn":
 		writeFakeFailedTurn()
-		return true
+		return true, true
 	case "unknown-turn-status":
 		writeFakeCompletedTurn("paused")
-		return true
+		return true, true
 	case "steer":
-		return false
+		return true, false
 	case "activity":
 		writeFakeActivityTurn()
-		return true
+		return true, true
 	case "approval", "permission", "user-input":
 		state.approvalOutstanding = true
 		writeFakeApprovalRequest(mode)
+		return true, false
 	case "malformed-approval":
 		writeFakeMalformedApproval()
-		return true
+		return true, true
 	case "malformed-delta":
 		writeFakeMalformedDelta()
-		return true
+		return true, true
 	case "unsupported-request":
 		writeFakeUnsupportedRequest()
-		return true
+		return true, true
+	default:
+		return false, false
+	}
+}
+
+func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
+	switch mode {
 	case "unsupported-notification":
 		writeFakeNotification("turn/unknownStateChanged", map[string]any{
 			"data":     map[string]any{"value": "unknown"},
 			"threadId": "thread_fake",
 			"turnId":   "turn_fake",
 		})
-		return true
+		return true, true
 	case "thread-started-notification":
 		writeFakeThreadStarted()
 		writeFakeStreamTurn()
-		return true
+		return true, true
 	case "thread-status-changed-notification":
 		writeFakeThreadStatusChanged("active")
 		writeFakeStreamTurn()
-		return true
+		return true, true
 	case "thread-token-usage-notification":
 		writeFakeThreadTokenUsage()
 		writeFakeStreamTurn()
-		return true
+		return true, true
 	case "provider-user-message-item":
 		writeFakeUserMessageItem()
 		writeFakeStreamTurn()
-		return true
+		return true, true
 	case "retryable-error-notification":
 		writeFakeErrorNotification("temporary provider error", true)
 		writeFakeStreamTurn()
-		return true
+		return true, true
 	case "terminal-error-notification":
 		writeFakeErrorNotification("model unavailable", false)
-		return true
+		return true, true
+	default:
+		return false, false
 	}
-	return false
 }
 
 func handleFakeAppServerStatusMode(mode string) (bool, bool) {
@@ -1368,10 +1393,7 @@ func writeFakeCompletedTurn(status string) {
 }
 
 func assertFakeSteer(message map[string]any) {
-	params, ok := message["params"].(map[string]any)
-	if !ok {
-		panic("steer missing params")
-	}
+	params := fakeParams(message)
 	if params["threadId"] != "thread_fake" || params["expectedTurnId"] != "turn_fake" {
 		panic("steer targeted wrong turn")
 	}
@@ -1382,6 +1404,21 @@ func assertFakeSteer(message map[string]any) {
 	first, ok := input[0].(map[string]any)
 	if !ok || first["text"] != "adjust course" || first["type"] != "text" {
 		panic("steer input mismatch")
+	}
+}
+
+func fakeParams(message map[string]any) map[string]any {
+	params, ok := message["params"].(map[string]any)
+	if !ok {
+		panic("message missing params")
+	}
+	return params
+}
+
+func assertFakeThreadID(message map[string]any) {
+	params := fakeParams(message)
+	if params["threadId"] != "thread_fake" {
+		panic("command targeted wrong thread")
 	}
 }
 

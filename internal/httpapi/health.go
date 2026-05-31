@@ -93,6 +93,17 @@ type SteerChatMessageRequest struct {
 	Prompt         string `json:"prompt"`
 }
 
+type ListChatCommandsRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type ExecuteChatCommandRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	Raw            string `json:"raw"`
+}
+
 type CancelRunRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
@@ -195,6 +206,8 @@ type ChatService interface {
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
+	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
+	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
 	QuarantineCorruptChatState(workspaceID string, confirmation string) (chat.ChatMaintenanceResult, error)
 	ResetWorkspaceChatState(workspaceID string, confirmation string) (chat.ChatMaintenanceResult, error)
@@ -429,6 +442,40 @@ func (handler handler) steerChatMessage(response http.ResponseWriter, request *h
 	result, err := service.SteerActiveRun(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
 	if err != nil {
 		writeChatError(response, "steer_chat_message_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) listChatCommands(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ListChatCommandsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.ListCommands(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "list_chat_commands_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) executeChatCommand(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ExecuteChatCommandRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.ExecuteChatCommand(payload.WorkspaceID, payload.ConversationID, payload.Raw)
+	if err != nil {
+		writeChatError(response, "execute_chat_command_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
@@ -728,6 +775,10 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 
 func writeChatError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
+	if commandErr, ok := chat.IsChatCommandError(err); ok {
+		writeError(response, status, string(commandErr.Code), commandErr.Error())
+		return
+	}
 	if chat.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_chat_state", err.Error())
 		return

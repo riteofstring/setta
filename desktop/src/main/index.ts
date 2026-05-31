@@ -310,6 +310,22 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatListCommands",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().listChatCommands({ conversationId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatExecuteCommand",
+    async (_event, workspaceId, conversationId, raw) => {
+      return requireBackendClient().executeChatCommand({ conversationId, raw, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatSendMessage",
     async (_event, workspaceId, conversationId, prompt) => {
       return requireBackendClient().sendChatMessage({ conversationId, prompt, workspaceId });

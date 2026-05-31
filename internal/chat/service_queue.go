@@ -14,6 +14,9 @@ func (service *Service) QueueUserMessage(workspaceID string, conversationID stri
 	if prompt == "" {
 		return QueueMessageResult{}, errors.New("prompt is required")
 	}
+	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
+		return QueueMessageResult{}, err
+	}
 	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
 	if err != nil {
 		return QueueMessageResult{}, err
@@ -119,6 +122,9 @@ func (service *Service) SteerActiveRun(workspaceID string, conversationID string
 	prompt = strings.TrimSpace(prompt)
 	if prompt == "" {
 		return SteerMessageResult{}, errors.New("prompt is required")
+	}
+	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
+		return SteerMessageResult{}, err
 	}
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return SteerMessageResult{}, err

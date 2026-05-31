@@ -41,6 +41,10 @@ const api: SettaAPI = {
       invoke("chatClearQuarantine", workspaceId, confirmation),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
+    executeCommand: (workspaceId: string, conversationId: string, raw: string) =>
+      invoke("chatExecuteCommand", workspaceId, conversationId, raw),
+    listCommands: (workspaceId: string, conversationId: string) =>
+      invoke("chatListCommands", workspaceId, conversationId),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
     messagePage: (
       workspaceId: string,

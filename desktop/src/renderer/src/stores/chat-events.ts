@@ -106,7 +106,7 @@ function applyMessageUpsertEvent(state: ChatStore, event: MessageUpsertEvent): E
       status: "ready",
       transcript: updated.transcript,
     },
-    resync: !updated.updated,
+    resync: event.payload.message.runId !== "" && !updated.updated,
   };
 }
 

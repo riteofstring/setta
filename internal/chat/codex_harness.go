@@ -86,6 +86,7 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 }
 
 func (harness *CodexHarness) waitForTurn(ctx context.Context, client *jsonRPCClient, runID string, threadID string, turnID string, sink TurnSink) (TurnCompletion, error) {
+	activeTurnID := turnID
 	for {
 		select {
 		case <-ctx.Done():
@@ -93,7 +94,11 @@ func (harness *CodexHarness) waitForTurn(ctx context.Context, client *jsonRPCCli
 		case <-client.lifecycle.Done():
 			return TurnCompletion{}, client.terminalError("codex app-server exited before turn completed", client.lifecycle.Err())
 		case message := <-client.notifications:
-			result, err := handleCodexNotification(message, threadID, turnID, sink)
+			result, err := handleCodexNotification(message, threadID, activeTurnID, sink)
+			if err != nil {
+				return TurnCompletion{}, err
+			}
+			activeTurnID, err = harness.applyNotificationTurnID(runID, threadID, activeTurnID, result, sink)
 			if err != nil {
 				return TurnCompletion{}, err
 			}
@@ -101,7 +106,7 @@ func (harness *CodexHarness) waitForTurn(ctx context.Context, client *jsonRPCCli
 				return result.Completion, nil
 			}
 		case message := <-client.requests:
-			if err := harness.handleCodexServerRequest(message, runID, threadID, turnID, sink); err != nil {
+			if err := harness.handleCodexServerRequest(message, runID, threadID, activeTurnID, sink); err != nil {
 				_ = client.respondError(message.ID, -32601, err.Error())
 				return TurnCompletion{}, err
 			}
@@ -266,6 +271,7 @@ func startCodexTurn(ctx context.Context, client *jsonRPCClient, threadID string,
 
 type codexNotificationResult struct {
 	Completion TurnCompletion
+	TurnID     string
 }
 
 type codexNotificationHandler func(jsonRPCMessage, string, string, TurnSink) (codexNotificationResult, error)
@@ -515,7 +521,7 @@ func handleCodexAssistantDelta(message jsonRPCMessage, threadID string, turnID s
 	return codexNotificationResult{}, sink.AssistantTextDelta(itemID, delta)
 }
 
-func handleCodexTurnStarted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+func handleCodexTurnStarted(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {
 	params, err := objectValue(message.Params, "codex turn started params")
 	if err != nil {
 		return codexNotificationResult{}, err
@@ -523,7 +529,11 @@ func handleCodexTurnStarted(message jsonRPCMessage, threadID string, turnID stri
 	if err := requireCodexThreadMatch(message, params, threadID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	return codexNotificationResult{}, sink.Trace("codex_turn_started", turnID)
+	messageTurnID, err := turnStartedID(params)
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{TurnID: messageTurnID}, sink.Trace("codex_turn_started", messageTurnID)
 }
 
 func handleCodexItemUpsert(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, status RunItemStatus) (codexNotificationResult, error) {

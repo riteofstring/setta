@@ -16,6 +16,10 @@ type RunItemStatus string
 type RunItemType string
 type DiagnosticSeverity string
 type DiagnosticSource string
+type ChatCommandKind string
+type GoalCommandAction string
+type ModelCommandAction string
+type ChatCommandResultAction string
 
 const (
 	SchemaVersion = 1
@@ -27,6 +31,7 @@ const (
 	RoleSystem    MessageRole = "system"
 	RoleDeveloper MessageRole = "developer"
 	RoleTool      MessageRole = "tool"
+	RoleCommand   MessageRole = "command"
 
 	MessageStatusPending   MessageStatus = "pending"
 	MessageStatusStreaming MessageStatus = "streaming"
@@ -96,6 +101,21 @@ const (
 	DiagnosticSourceChat        DiagnosticSource = "chat"
 	DiagnosticSourceWorkspace   DiagnosticSource = "workspace"
 	DiagnosticSourceProvider    DiagnosticSource = "provider"
+
+	ChatCommandGoal  ChatCommandKind = "goal"
+	ChatCommandModel ChatCommandKind = "model"
+
+	GoalCommandShow   GoalCommandAction = "show"
+	GoalCommandSet    GoalCommandAction = "set"
+	GoalCommandClear  GoalCommandAction = "clear"
+	GoalCommandPause  GoalCommandAction = "pause"
+	GoalCommandResume GoalCommandAction = "resume"
+
+	ModelCommandShowPicker ModelCommandAction = "show_picker"
+	ModelCommandSet        ModelCommandAction = "set"
+
+	ChatCommandResultDisplay     ChatCommandResultAction = "display"
+	ChatCommandResultModelPicker ChatCommandResultAction = "model_picker"
 )
 
 type ContractValueSet struct {
@@ -111,6 +131,7 @@ var (
 		RoleSystem,
 		RoleDeveloper,
 		RoleTool,
+		RoleCommand,
 	}
 	messageStatusValues = []MessageStatus{
 		MessageStatusPending,
@@ -188,6 +209,25 @@ var (
 		DiagnosticSourceWorkspace,
 		DiagnosticSourceProvider,
 	}
+	chatCommandKindValues = []ChatCommandKind{
+		ChatCommandGoal,
+		ChatCommandModel,
+	}
+	goalCommandActionValues = []GoalCommandAction{
+		GoalCommandShow,
+		GoalCommandSet,
+		GoalCommandClear,
+		GoalCommandPause,
+		GoalCommandResume,
+	}
+	modelCommandActionValues = []ModelCommandAction{
+		ModelCommandShowPicker,
+		ModelCommandSet,
+	}
+	chatCommandResultActionValues = []ChatCommandResultAction{
+		ChatCommandResultDisplay,
+		ChatCommandResultModelPicker,
+	}
 )
 
 func ContractValueSets() []ContractValueSet {
@@ -206,6 +246,10 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
 		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
 		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},
+		{Name: "ChatCommandKind", Values: stringValues(chatCommandKindValues)},
+		{Name: "GoalCommandAction", Values: stringValues(goalCommandActionValues)},
+		{Name: "ModelCommandAction", Values: stringValues(modelCommandActionValues)},
+		{Name: "ChatCommandResultAction", Values: stringValues(chatCommandResultActionValues)},
 	}
 }
 
@@ -467,6 +511,71 @@ type ChatMaintenanceResult struct {
 	ValidationRunAt string              `json:"validationRunAt"`
 }
 
+type ChatCommand struct {
+	Kind  ChatCommandKind `json:"kind"`
+	Raw   string          `json:"raw"`
+	Args  string          `json:"args"`
+	Goal  *GoalCommand    `json:"goal"`
+	Model *ModelCommand   `json:"model"`
+}
+
+type GoalCommand struct {
+	Action    GoalCommandAction `json:"action"`
+	Objective string            `json:"objective"`
+	Status    string            `json:"status"`
+}
+
+type ModelCommand struct {
+	Action  ModelCommandAction `json:"action"`
+	ModelID string             `json:"modelId"`
+}
+
+type ChatGoalState struct {
+	ThreadID  string `json:"threadId"`
+	Objective string `json:"objective"`
+	Status    string `json:"status"`
+}
+
+type ChatModelOption struct {
+	ID          string `json:"id"`
+	Model       string `json:"model"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+	Hidden      bool   `json:"hidden"`
+	IsDefault   bool   `json:"isDefault"`
+}
+
+type ChatCommandCapability struct {
+	Kind              ChatCommandKind `json:"kind"`
+	Name              string          `json:"name"`
+	Usage             string          `json:"usage"`
+	Description       string          `json:"description"`
+	Available         bool            `json:"available"`
+	UnavailableReason string          `json:"unavailableReason"`
+}
+
+type ChatCommandListResult struct {
+	Commands []ChatCommandCapability `json:"commands"`
+}
+
+type ChatCommandResult struct {
+	Action        ChatCommandResultAction `json:"action"`
+	Kind          ChatCommandKind         `json:"kind"`
+	Raw           string                  `json:"raw"`
+	Title         string                  `json:"title"`
+	Message       string                  `json:"message"`
+	Goal          *ChatGoalState          `json:"goal"`
+	Models        []ChatModelOption       `json:"models"`
+	SelectedModel string                  `json:"selectedModel"`
+}
+
+type ChatCommandExecuteResult struct {
+	Conversation Conversation      `json:"conversation"`
+	Message      *ChatMessage      `json:"message"`
+	Page         MessagePage       `json:"page"`
+	Result       ChatCommandResult `json:"result"`
+}
+
 type MessagePage struct {
 	Conversation       Conversation     `json:"conversation"`
 	Messages           []ChatMessage    `json:"messages"`
@@ -516,6 +625,22 @@ func (approval ApprovalRequest) MarshalJSON() ([]byte, error) {
 		approval.Questions = []ApprovalQuestion{}
 	}
 	return json.Marshal(approvalAlias(approval))
+}
+
+func (result ChatCommandListResult) MarshalJSON() ([]byte, error) {
+	type resultAlias ChatCommandListResult
+	if result.Commands == nil {
+		result.Commands = []ChatCommandCapability{}
+	}
+	return json.Marshal(resultAlias(result))
+}
+
+func (result ChatCommandResult) MarshalJSON() ([]byte, error) {
+	type resultAlias ChatCommandResult
+	if result.Models == nil {
+		result.Models = []ChatModelOption{}
+	}
+	return json.Marshal(resultAlias(result))
 }
 
 func (question ApprovalQuestion) MarshalJSON() ([]byte, error) {

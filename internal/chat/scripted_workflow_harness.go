@@ -11,6 +11,9 @@ import (
 type ScriptedWorkflowHarness struct {
 	mu        sync.Mutex
 	approvals map[string]chan ApprovalResponse
+	commands  []HarnessCommandRequest
+	goal      *ChatGoalState
+	model     string
 	steers    map[string]chan SteerRequest
 }
 
@@ -35,6 +38,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "file approval workflow", Run: scriptedFileApprovalTurn},
 	{Prompt: "permission approval workflow", Run: scriptedPermissionApprovalTurn},
 	{Prompt: "user input approval workflow", Run: (*ScriptedWorkflowHarness).userInputApprovalTurn},
+	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 }
 
 func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
@@ -92,6 +96,90 @@ func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, respon
 	}
 	channel <- response
 	return nil
+}
+
+func (harness *ScriptedWorkflowHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
+	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
+}
+
+func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, request HarnessCommandRequest) (HarnessCommandResult, error) {
+	if err := ensureCommandAvailable(request.Command, request.ActiveRun); err != nil {
+		return HarnessCommandResult{}, err
+	}
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	harness.commands = append(harness.commands, request)
+	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
+	if request.ActiveRun == nil && commandNeedsThread(request.Command) {
+		ref := request.ThreadRef
+		if ref.ThreadID == "" {
+			ref = HarnessThreadRef{
+				Harness:   HarnessCodex,
+				SessionID: "scripted-session",
+				Status:    HarnessRefLinked,
+				ThreadID:  "scripted-thread-" + request.Conversation.ID,
+			}
+		}
+		result.ThreadRef = ref
+		result.HasThreadRef = true
+	}
+	switch request.Command.Kind {
+	case ChatCommandGoal:
+		return harness.executeGoalCommandLocked(request.Command, result)
+	case ChatCommandModel:
+		return harness.executeModelCommandLocked(request.Command, result)
+	default:
+		return HarnessCommandResult{}, fmt.Errorf("unsupported scripted command kind: %s", request.Command.Kind)
+	}
+}
+
+func (harness *ScriptedWorkflowHarness) executeGoalCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
+	if command.Goal == nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "goal command payload is required", nil)
+	}
+	switch command.Goal.Action {
+	case GoalCommandShow:
+	case GoalCommandSet:
+		harness.goal = &ChatGoalState{Objective: command.Goal.Objective, Status: "active", ThreadID: result.ThreadRef.ThreadID}
+	case GoalCommandClear:
+		harness.goal = nil
+	case GoalCommandPause:
+		harness.setGoalStatusLocked("paused", result.ThreadRef.ThreadID)
+	case GoalCommandResume:
+		harness.setGoalStatusLocked("active", result.ThreadRef.ThreadID)
+	default:
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported goal command action: %s", command.Goal.Action), nil)
+	}
+	result.Goal = harness.goal
+	return result, nil
+}
+
+func (harness *ScriptedWorkflowHarness) setGoalStatusLocked(status string, threadID string) {
+	if harness.goal == nil {
+		harness.goal = &ChatGoalState{ThreadID: threadID}
+	}
+	harness.goal.Status = status
+	if harness.goal.ThreadID == "" {
+		harness.goal.ThreadID = threadID
+	}
+}
+
+func (harness *ScriptedWorkflowHarness) executeModelCommandLocked(command ChatCommand, result HarnessCommandResult) (HarnessCommandResult, error) {
+	if command.Model == nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "model command payload is required", nil)
+	}
+	switch command.Model.Action {
+	case ModelCommandShowPicker:
+		result.Action = ChatCommandResultModelPicker
+		result.Models = fakeModelOptions()
+	case ModelCommandSet:
+		harness.model = command.Model.ModelID
+		result.SelectedModel = command.Model.ModelID
+	default:
+		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
+	}
+	return result, nil
 }
 
 func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -169,6 +257,16 @@ func (harness *ScriptedWorkflowHarness) userInputApprovalTurn(ctx context.Contex
 		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted user input was cancelled"}, nil
 	}
 	return scriptedReply(sink, request.Run.ID, "User input approval resolved.")
+}
+
+func (harness *ScriptedWorkflowHarness) modelSettingTurn(_ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	harness.mu.Lock()
+	model := harness.model
+	harness.mu.Unlock()
+	if model == "" {
+		model = "unset"
+	}
+	return scriptedReply(sink, request.Run.ID, "Model for next turn: "+model+".")
 }
 
 func (harness *ScriptedWorkflowHarness) requestAndWaitForApproval(ctx context.Context, runID string, sink TurnSink, approval ApprovalRequest) (ApprovalResponse, error) {
