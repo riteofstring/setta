@@ -8,10 +8,6 @@ describe("preload workspace API", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.doUnmock("electron");
-    vi.unstubAllEnvs();
-    vi.stubEnv("SETTA_E2E", "");
-    vi.stubEnv("SETTA_PIXI_WORKSPACE_DEBUG", "");
-    vi.stubEnv("SETTA_PIXI_WORKSPACE_PROTOTYPE", "");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -32,7 +28,6 @@ describe("preload workspace API", () => {
 
     const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.app).sort()).toEqual([
-      "flags",
       "installedEditors",
       "openExternalUrl",
       "openWorkspaceInEditor",
@@ -41,10 +36,6 @@ describe("preload workspace API", () => {
       "workspaceGitInfo",
     ]);
 
-    expect(api.app.flags).toEqual({
-      pixiWorkspaceDebug: false,
-      pixiWorkspacePrototype: false,
-    });
     await api.app.installedEditors();
     await api.app.openWorkspaceInEditor("vscode", "/tmp/api");
     await api.app.versions();
@@ -52,13 +43,20 @@ describe("preload workspace API", () => {
     await api.app.openExternalUrl("https://example.test/login");
 
     expect(api.app.platform).toBe(process.platform);
-    expectInvokeCalls(invoke, [
-      [ipcChannels.appInstalledEditors],
-      [ipcChannels.appOpenWorkspaceInEditor, "vscode", "/tmp/api"],
-      [ipcChannels.appVersions],
-      [ipcChannels.appWorkspaceGitInfo, "/tmp/api"],
-      [ipcChannels.appOpenExternalUrl, "https://example.test/login"],
-    ]);
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appInstalledEditors);
+    expect(invoke).toHaveBeenNthCalledWith(
+      2,
+      ipcChannels.appOpenWorkspaceInEditor,
+      "vscode",
+      "/tmp/api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(3, ipcChannels.appVersions);
+    expect(invoke).toHaveBeenNthCalledWith(4, ipcChannels.appWorkspaceGitInfo, "/tmp/api");
+    expect(invoke).toHaveBeenNthCalledWith(
+      5,
+      ipcChannels.appOpenExternalUrl,
+      "https://example.test/login",
+    );
   });
 
   test("exposes typed workspace methods through IPC", async () => {
@@ -81,7 +79,6 @@ describe("preload workspace API", () => {
     expect(Object.keys(api.workspace).sort()).toEqual([
       "close",
       "openLocalFolder",
-      "openPath",
       "removeRecent",
       "reorder",
       "select",
@@ -90,21 +87,20 @@ describe("preload workspace API", () => {
 
     await api.workspace.session();
     await api.workspace.openLocalFolder();
-    await api.workspace.openPath("/tmp/recent");
     await api.workspace.select("workspace_api");
     await api.workspace.close("workspace_api");
     await api.workspace.reorder(["workspace_web", "workspace_api"]);
     await api.workspace.removeRecent("workspace_web");
 
-    expectInvokeCalls(invoke, [
-      [ipcChannels.workspaceSession],
-      [ipcChannels.workspaceOpenLocalFolder],
-      [ipcChannels.workspaceOpenPath, "/tmp/recent"],
-      [ipcChannels.workspaceSelect, "workspace_api"],
-      [ipcChannels.workspaceClose, "workspace_api"],
-      [ipcChannels.workspaceReorder, ["workspace_web", "workspace_api"]],
-      [ipcChannels.workspaceRemoveRecent, "workspace_web"],
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.workspaceSession);
+    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.workspaceOpenLocalFolder);
+    expect(invoke).toHaveBeenNthCalledWith(3, ipcChannels.workspaceSelect, "workspace_api");
+    expect(invoke).toHaveBeenNthCalledWith(4, ipcChannels.workspaceClose, "workspace_api");
+    expect(invoke).toHaveBeenNthCalledWith(5, ipcChannels.workspaceReorder, [
+      "workspace_web",
+      "workspace_api",
     ]);
+    expect(invoke).toHaveBeenNthCalledWith(6, ipcChannels.workspaceRemoveRecent, "workspace_web");
   });
 
   test("exposes typed chat methods through IPC", async () => {
@@ -132,49 +128,39 @@ describe("preload workspace API", () => {
       "activeRun",
       "cancelRun",
       "createConversation",
-      "editQueuedMessage",
+      "deleteConversation",
       "executeCommand",
       "listCommands",
       "listConversations",
-      "markConversationRead",
       "messagePage",
       "onEvent",
       "queueMessage",
-      "removeQueuedMessage",
       "runActivity",
       "runItemOutput",
       "sendMessage",
-      "sendSteeringImmediately",
       "setCodexModel",
       "setCodexReasoningEffort",
       "steerMessage",
       "submitApproval",
+      "updateUserMessage",
     ]);
 
     await api.chat.listConversations("workspace_api");
     await api.chat.createConversation("workspace_api", "Plan");
+    await api.chat.deleteConversation("workspace_api", "conversation_api");
     await api.chat.listCommands("workspace_api", "conversation_api");
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal");
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal replacement", {
       confirmGoalReplacement: true,
     });
-    await api.chat.markConversationRead("workspace_api", "conversation_api");
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
     await api.chat.queueMessage("workspace_api", "conversation_api", "queued");
-    await api.chat.editQueuedMessage(
-      "workspace_api",
-      "conversation_api",
-      "message_queued",
-      "edited",
-    );
-    await api.chat.removeQueuedMessage("workspace_api", "conversation_api", "message_queued");
     await api.chat.runActivity("workspace_api", "run_api", 100);
     await api.chat.runItemOutput("workspace_api", "run_api", "item_api", 0, 100);
     await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
     await api.chat.setCodexModel("workspace_api", "conversation_api", "gpt-test");
     await api.chat.setCodexReasoningEffort("workspace_api", "conversation_api", "high");
     await api.chat.steerMessage("workspace_api", "conversation_api", "steer");
-    await api.chat.sendSteeringImmediately("workspace_api", "conversation_api", "now");
     await api.chat.cancelRun("workspace_api", "conversation_api");
     await api.chat.activeRun("workspace_api", "conversation_api");
     await api.chat.submitApproval({
@@ -186,6 +172,7 @@ describe("preload workspace API", () => {
       response: "",
       workspaceId: "workspace_api",
     });
+    await api.chat.updateUserMessage("workspace_api", "conversation_api", "message_user", "edit");
     const listener = vi.fn();
     const unsubscribe = api.chat.onEvent(listener);
     const event = chatEvent();
@@ -196,63 +183,134 @@ describe("preload workspace API", () => {
     handler({}, event);
     unsubscribe();
 
-    expectInvokeCalls(invoke, [
-      [ipcChannels.chatListConversations, "workspace_api"],
-      [ipcChannels.chatCreateConversation, "workspace_api", "Plan"],
-      [ipcChannels.chatListCommands, "workspace_api", "conversation_api"],
-      [ipcChannels.chatExecuteCommand, "workspace_api", "conversation_api", "/goal", false],
-      [
-        ipcChannels.chatExecuteCommand,
-        "workspace_api",
-        "conversation_api",
-        "/goal replacement",
-        true,
-      ],
-      [ipcChannels.chatMarkConversationRead, "workspace_api", "conversation_api"],
-      [ipcChannels.chatMessagePage, "workspace_api", "conversation_api", 10, 40],
-      [ipcChannels.chatQueueMessage, "workspace_api", "conversation_api", "queued"],
-      [
-        ipcChannels.chatEditQueuedMessage,
-        "workspace_api",
-        "conversation_api",
-        "message_queued",
-        "edited",
-      ],
-      [ipcChannels.chatRemoveQueuedMessage, "workspace_api", "conversation_api", "message_queued"],
-      [ipcChannels.chatRunActivity, "workspace_api", "run_api", 100],
-      [ipcChannels.chatRunItemOutput, "workspace_api", "run_api", "item_api", 0, 100],
-      [ipcChannels.chatSendMessage, "workspace_api", "conversation_api", "hello"],
-      [ipcChannels.chatSetCodexModel, "workspace_api", "conversation_api", "gpt-test"],
-      [ipcChannels.chatSetCodexReasoningEffort, "workspace_api", "conversation_api", "high"],
-      [ipcChannels.chatSteerMessage, "workspace_api", "conversation_api", "steer"],
-      [ipcChannels.chatSendSteeringImmediately, "workspace_api", "conversation_api", "now"],
-      [ipcChannels.chatCancelRun, "workspace_api", "conversation_api"],
-      [ipcChannels.chatActiveRun, "workspace_api", "conversation_api"],
-      [
-        ipcChannels.chatSubmitApproval,
-        {
-          approvalId: "approval_api",
-          approved: true,
-          answers: [],
-          cancelled: false,
-          conversationId: "conversation_api",
-          response: "",
-          workspaceId: "workspace_api",
-        },
-      ],
-    ]);
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.chatListConversations, "workspace_api");
+    expect(invoke).toHaveBeenNthCalledWith(
+      2,
+      ipcChannels.chatCreateConversation,
+      "workspace_api",
+      "Plan",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      3,
+      ipcChannels.chatDeleteConversation,
+      "workspace_api",
+      "conversation_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      4,
+      ipcChannels.chatListCommands,
+      "workspace_api",
+      "conversation_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      5,
+      ipcChannels.chatExecuteCommand,
+      "workspace_api",
+      "conversation_api",
+      "/goal",
+      false,
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      6,
+      ipcChannels.chatExecuteCommand,
+      "workspace_api",
+      "conversation_api",
+      "/goal replacement",
+      true,
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      7,
+      ipcChannels.chatMessagePage,
+      "workspace_api",
+      "conversation_api",
+      10,
+      40,
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      8,
+      ipcChannels.chatQueueMessage,
+      "workspace_api",
+      "conversation_api",
+      "queued",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      9,
+      ipcChannels.chatRunActivity,
+      "workspace_api",
+      "run_api",
+      100,
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      10,
+      ipcChannels.chatRunItemOutput,
+      "workspace_api",
+      "run_api",
+      "item_api",
+      0,
+      100,
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      11,
+      ipcChannels.chatSendMessage,
+      "workspace_api",
+      "conversation_api",
+      "hello",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      12,
+      ipcChannels.chatSetCodexModel,
+      "workspace_api",
+      "conversation_api",
+      "gpt-test",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      13,
+      ipcChannels.chatSetCodexReasoningEffort,
+      "workspace_api",
+      "conversation_api",
+      "high",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      14,
+      ipcChannels.chatSteerMessage,
+      "workspace_api",
+      "conversation_api",
+      "steer",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      15,
+      ipcChannels.chatCancelRun,
+      "workspace_api",
+      "conversation_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      16,
+      ipcChannels.chatActiveRun,
+      "workspace_api",
+      "conversation_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(17, ipcChannels.chatSubmitApproval, {
+      approvalId: "approval_api",
+      approved: true,
+      answers: [],
+      cancelled: false,
+      conversationId: "conversation_api",
+      response: "",
+      workspaceId: "workspace_api",
+    });
+    expect(invoke).toHaveBeenNthCalledWith(
+      18,
+      ipcChannels.chatUpdateUserMessage,
+      "workspace_api",
+      "conversation_api",
+      "message_user",
+      "edit",
+    );
     expect(on).toHaveBeenCalledWith(ipcEvents.chatEvent, expect.any(Function));
     expect(listener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.chatEvent, handler);
   });
 });
-
-function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {
-  expect(invoke).toHaveBeenCalledTimes(calls.length);
-  for (const call of calls) {
-    expect(invoke).toHaveBeenCalledWith(...call);
-  }
-}
 
 function chatEvent(): ChatEvent {
   return {
