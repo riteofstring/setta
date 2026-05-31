@@ -40,7 +40,7 @@ const initialBackendState: BackendState = {
 };
 
 export function App() {
-  const { backend, refreshHealth } = useBackendState();
+  const { refreshHealth } = useBackendState();
   const workspace = useWorkspaceViewState();
   const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
@@ -92,14 +92,7 @@ export function App() {
         >
           <ChatPanel chat={chat} workspace={workspace.selectedWorkspace} />
         </ResizablePane>
-        <CanvasPanel
-          backend={backend}
-          error={workspace.error}
-          openLocalFolder={workspace.openLocalFolder}
-          operation={workspace.operation}
-          selectedWorkspace={workspace.selectedWorkspace}
-          status={workspace.status}
-        />
+        <CanvasPanel />
       </main>
     </div>
   );
@@ -597,22 +590,7 @@ function useSelectedWorkspace(session: WorkspaceSession | null) {
   }, [session]);
 }
 
-function CanvasPanel({
-  backend,
-  error,
-  openLocalFolder,
-  operation,
-  selectedWorkspace,
-  status,
-}: {
-  backend: BackendState;
-  error: string | null;
-  openLocalFolder: () => Promise<void>;
-  operation: WorkspaceOperation;
-  selectedWorkspace: WorkspaceSummary | null;
-  status: WorkspaceStatus;
-}) {
-  const busy = operation !== null || status === "loading";
+function CanvasPanel() {
   return (
     <section className="flex min-w-0 flex-1 bg-zinc-900">
       <div className="relative m-2 ml-0 min-w-0 flex-1 overflow-hidden rounded-md border border-zinc-300 bg-zinc-100">
@@ -627,15 +605,6 @@ function CanvasPanel({
             </div>
           </div>
         </div>
-        <CanvasStatus
-          backend={backend}
-          busy={busy}
-          error={error}
-          openLocalFolder={openLocalFolder}
-          operation={operation}
-          selectedWorkspace={selectedWorkspace}
-          status={status}
-        />
       </div>
       <ViewTabRail />
     </section>
@@ -687,55 +656,6 @@ function ViewTabButton({
     >
       {children}
     </button>
-  );
-}
-
-function CanvasStatus({
-  backend,
-  busy,
-  error,
-  openLocalFolder,
-  operation,
-  selectedWorkspace,
-  status,
-}: {
-  backend: BackendState;
-  busy: boolean;
-  error: string | null;
-  openLocalFolder: () => Promise<void>;
-  operation: WorkspaceOperation;
-  selectedWorkspace: WorkspaceSummary | null;
-  status: WorkspaceStatus;
-}) {
-  return (
-    <aside className="absolute bottom-3 left-3 grid max-w-[380px] gap-2 rounded-md border border-zinc-300 bg-white/85 p-3 text-xs text-zinc-800">
-      <div className="flex items-center gap-2">
-        <span className="font-semibold text-zinc-950">
-          {selectedWorkspace?.displayName ?? "No workspace"}
-        </span>
-        {status === "loading" ? <Badge>Loading</Badge> : null}
-        {operation ? <Badge>{operationLabel(operation)}</Badge> : null}
-      </div>
-      {selectedWorkspace ? (
-        <div className="truncate text-xs text-zinc-600">{selectedWorkspace.rootPath}</div>
-      ) : (
-        <Button disabled={busy} onClick={() => void openLocalFolder()} variant="primary">
-          <FolderOpen className="h-4 w-4" />
-          Open Folder
-        </Button>
-      )}
-      {error ? (
-        <div className="break-words rounded-md border border-zinc-400 bg-white px-3 py-2 text-xs text-zinc-950">
-          {error}
-        </div>
-      ) : null}
-      <dl className="grid gap-2 text-xs text-zinc-600">
-        <div>
-          <dt>Backend</dt>
-          <dd className="mt-1 truncate font-medium text-zinc-950">{backend.message}</dd>
-        </div>
-      </dl>
-    </aside>
   );
 }
 
