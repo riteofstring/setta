@@ -696,7 +696,7 @@ function MessageActions({
 
 function ToolMessage({ message, text }: { message: ChatMessage; text: string }) {
   return (
-    <article className="min-w-0" data-testid="chat-message">
+    <article className="w-full max-w-[88%] min-w-0" data-testid="chat-message">
       <ToolCallFrame
         loading={message.status === "pending" || message.status === "streaming"}
         title="tool_output"
