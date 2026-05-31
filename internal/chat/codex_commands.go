@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"setta/internal/workspace"
 )
+
+const codexSettingsUpdatedTimeout = 15 * time.Second
 
 func (harness *CodexHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
 	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
@@ -196,12 +199,51 @@ func executeCodexModelCommand(ctx context.Context, client *jsonRPCClient, thread
 		if err != nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
 		}
+		appliedModel, err := waitForCodexThreadSettingsUpdated(ctx, client, threadID, command.Model.ModelID)
+		if err != nil {
+			return HarnessCommandResult{}, err
+		}
 		return HarnessCommandResult{
 			Action:        ChatCommandResultDisplay,
-			SelectedModel: command.Model.ModelID,
+			SelectedModel: appliedModel,
 		}, nil
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
+	}
+}
+
+func waitForCodexThreadSettingsUpdated(ctx context.Context, client *jsonRPCClient, threadID string, selectedModel string) (string, error) {
+	waitCtx, cancel := context.WithTimeout(ctx, codexSettingsUpdatedTimeout)
+	defer cancel()
+
+	for {
+		select {
+		case <-waitCtx.Done():
+			return "", commandError(
+				ChatCommandErrorCodexRPC,
+				fmt.Sprintf("thread/settings/update did not emit thread/settings/updated for thread %s model %s: %v", threadID, selectedModel, waitCtx.Err()),
+				waitCtx.Err(),
+			)
+		case <-client.lifecycle.Done():
+			err := client.lifecycleError("codex app-server exited before thread/settings/updated")
+			return "", commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+		case message := <-client.notifications:
+			if message.Method != "thread/settings/updated" {
+				continue
+			}
+			appliedModel, err := codexThreadSettingsUpdatedModel(message, threadID)
+			if err != nil {
+				return "", commandError(ChatCommandErrorCodexProviderDrift, "thread/settings/updated notification: "+err.Error(), err)
+			}
+			if appliedModel != selectedModel {
+				return "", commandError(
+					ChatCommandErrorCodexProviderDrift,
+					fmt.Sprintf("thread/settings/updated selected model %s, want %s", appliedModel, selectedModel),
+					nil,
+				)
+			}
+			return appliedModel, nil
+		}
 	}
 }
 

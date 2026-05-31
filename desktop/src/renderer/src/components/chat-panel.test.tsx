@@ -9,6 +9,7 @@ import {
   ComposerButton,
   ConversationBody,
   handleComposerKeyDown,
+  modelSelectionCommand,
 } from "./chat-panel";
 
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
@@ -125,7 +126,7 @@ describe("composer command helpers", () => {
                   description: "Fast scripted test model.",
                   displayName: "Scripted Fast",
                   hidden: false,
-                  id: "scripted-fast",
+                  id: "scripted-fast-catalog-id",
                   isDefault: true,
                   model: "scripted-fast",
                 },
@@ -145,6 +146,20 @@ describe("composer command helpers", () => {
 
     expect(html).toContain('data-testid="model-picker"');
     expect(html).toContain("scripted-fast");
+    expect(html).not.toContain("scripted-fast-catalog-id");
+  });
+
+  test("uses the model value when selecting from the model picker", () => {
+    expect(
+      modelSelectionCommand({
+        description: "Catalog id differs from the model setting.",
+        displayName: "GPT Test",
+        hidden: false,
+        id: "catalog-row-gpt-test",
+        isDefault: false,
+        model: "gpt-test",
+      }),
+    ).toBe("/model gpt-test");
   });
 });
 

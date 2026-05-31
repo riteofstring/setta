@@ -911,6 +911,10 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	case "thread/settings/update":
 		assertFakeModelSet(message)
 		writeFakeResponse(message["id"], map[string]any{})
+		if mode == "command-model-set-no-notification" {
+			return false
+		}
+		writeFakeThreadSettingsUpdated("gpt-test")
 		return fakeCommandDone(mode)
 	case "turn/start":
 		return handleFakeTurnStart(mode, state, message)

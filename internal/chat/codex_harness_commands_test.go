@@ -2,7 +2,9 @@ package chat
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/workspace"
 )
@@ -53,6 +55,26 @@ func TestCodexHarnessExecutesModelSetRPCAgainstLinkedThread(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessRequiresModelSettingsUpdatedNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-model-set-no-notification"))
+	request := testCommandRequest(t, "/model gpt-test")
+	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	_, err := harness.ExecuteCommand(ctx, request)
+	if err == nil {
+		t.Fatal("execute command succeeded, want missing settings update notification error")
+	}
+	commandErr, ok := IsChatCommandError(err)
+	if !ok || commandErr.Code != ChatCommandErrorCodexRPC {
+		t.Fatalf("error = %#v, want codex RPC command error", err)
+	}
+	if !strings.Contains(err.Error(), "thread/settings/updated") {
+		t.Fatalf("error = %q, want settings updated notification", err)
+	}
+}
+
 func testCommandRequest(t *testing.T, raw string) HarnessCommandRequest {
 	t.Helper()
 	command, err := ParseChatCommand(raw)
@@ -85,7 +107,7 @@ func fakeCommandDone(mode string) bool {
 }
 
 func handleFakeCommandThread(mode string, state *fakeCodexState, message map[string]any) {
-	if mode != "command-goal-set" && mode != "command-model-set" {
+	if mode != "command-goal-set" && mode != "command-model-set" && mode != "command-model-set-no-notification" {
 		return
 	}
 	method := message["method"]
@@ -93,7 +115,7 @@ func handleFakeCommandThread(mode string, state *fakeCodexState, message map[str
 	if mode == "command-goal-set" && method != "thread/start" {
 		panic("goal set command should start a thread")
 	}
-	if mode == "command-model-set" && method != "thread/resume" {
+	if (mode == "command-model-set" || mode == "command-model-set-no-notification") && method != "thread/resume" {
 		panic("model set command should resume a linked thread")
 	}
 	if params["approvalPolicy"] != "on-request" || params["approvalsReviewer"] != "user" {
@@ -142,6 +164,15 @@ func writeFakeGoalResponse(id any, objective string, status string) {
 			"objective": objective,
 			"status":    status,
 			"threadId":  "thread_fake",
+		},
+	})
+}
+
+func writeFakeThreadSettingsUpdated(model string) {
+	writeFakeNotification("thread/settings/updated", map[string]any{
+		"threadId": "thread_fake",
+		"threadSettings": map[string]any{
+			"model": model,
 		},
 	})
 }

@@ -663,7 +663,7 @@ async function runSlashCommandWorkflow(client, backend, workspaceId, conversatio
 
   await submitComposer(client, "/model", "Send message");
   await waitForModelPicker(client);
-  await clickModelById(client, "scripted-fast");
+  await clickModelByText(client, "scripted-fast");
   await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-fast");
   await waitForTexts(client, ["Model set: scripted-fast"]);
 
@@ -858,14 +858,14 @@ async function waitForModelPicker(client) {
   );
 }
 
-async function clickModelById(client, modelId) {
+async function clickModelByText(client, modelText) {
   await waitForState(
     client,
     `(() => {
       const picker = document.querySelector('[data-testid="model-picker"]');
       const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
       return {
-        ready: buttons.some((button) => button.innerText.includes(${JSON.stringify(modelId)})),
+        ready: buttons.some((button) => button.innerText.includes(${JSON.stringify(modelText)})),
       };
     })()`,
     (value) => value.ready,
@@ -874,7 +874,7 @@ async function clickModelById(client, modelId) {
     const picker = document.querySelector('[data-testid="model-picker"]');
     const buttons = Array.from(picker?.querySelectorAll("button") ?? []);
     const button = buttons.find((candidate) =>
-      candidate.innerText.includes(${JSON.stringify(modelId)})
+      candidate.innerText.includes(${JSON.stringify(modelText)})
     );
     if (!button || button.disabled) {
       return false;
@@ -883,7 +883,7 @@ async function clickModelById(client, modelId) {
     return true;
   })()`);
   if (!clicked) {
-    throw new Error(`model option was not clickable: ${modelId}`);
+    throw new Error(`model option was not clickable: ${modelText}`);
   }
 }
 

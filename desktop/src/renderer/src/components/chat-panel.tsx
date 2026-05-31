@@ -478,7 +478,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
     }
     submittingRef.current = true;
     try {
-      await chat.executeCommand(`/model ${model.id}`);
+      await chat.executeCommand(modelSelectionCommand(model));
       setDraft("");
       setModelPicker(null);
     } finally {
@@ -518,7 +518,7 @@ export function CommandSuggestions({
             {model.isDefault ? <Check className="h-4 w-4 shrink-0 text-zinc-500" /> : null}
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium text-zinc-900">{model.displayName}</span>
-              <span className="block truncate text-xs text-zinc-500">{model.id}</span>
+              <span className="block truncate text-xs text-zinc-500">{model.model}</span>
             </span>
           </button>
         ))}
@@ -590,6 +590,10 @@ export function commandTextToExecute(
     return selectedSuggestion.name + rest;
   }
   return prompt;
+}
+
+export function modelSelectionCommand(model: ChatModelOption) {
+  return `/model ${model.model}`;
 }
 
 interface ComposerKeyActions {

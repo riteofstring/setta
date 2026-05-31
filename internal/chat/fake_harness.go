@@ -305,7 +305,7 @@ func fakeModelOptions() []ChatModelOption {
 			Description: "Fast scripted test model.",
 			DisplayName: "Scripted Fast",
 			Hidden:      false,
-			ID:          "scripted-fast",
+			ID:          "scripted-fast-catalog-id",
 			IsDefault:   true,
 			Model:       "scripted-fast",
 		},
