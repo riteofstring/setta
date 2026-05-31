@@ -7,6 +7,7 @@ export async function runPaneTabSplitWorkflow({
   recordingDir,
   waitForState,
 }) {
+  await resetPaneTabSplitWorkflowPage(client, waitForState);
   const initial = await waitForState(client, paneTabSplitStateExpression(), (value) => {
     return Boolean(
       value.ready &&
@@ -105,6 +106,96 @@ export async function runPaneTabSplitWorkflow({
     throw new Error(`three-pane top split geometry is wrong: ${JSON.stringify(topSplit)}`);
   }
   await captureScreenshot(client, join(recordingDir, "pane-tab-split-three-pane.png"));
+  const settingsDrag = await waitForState(
+    client,
+    paneTabSettingsDragStateExpression(),
+    (value) => value.ready && value.settingsTabRect !== null && value.gridRect !== null,
+  );
+  const settingsStart = {
+    x: settingsDrag.settingsTabRect.left + Math.min(65, settingsDrag.settingsTabRect.width / 2),
+    y: settingsDrag.settingsTabRect.top + settingsDrag.settingsTabRect.height / 2,
+  };
+  const settingsEnd = {
+    x: settingsDrag.gridRect.left + settingsDrag.gridRect.width - 120,
+    y: settingsDrag.gridRect.top + 90,
+  };
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    type: "mouseMoved",
+    x: settingsStart.x,
+    y: settingsStart.y,
+  });
+  await delay(50);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    clickCount: 1,
+    type: "mousePressed",
+    x: settingsStart.x,
+    y: settingsStart.y,
+  });
+  for (let step = 1; step <= 12; step += 1) {
+    await client.call("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      type: "mouseMoved",
+      x: settingsStart.x + ((settingsEnd.x - settingsStart.x) * step) / 12,
+      y: settingsStart.y + ((settingsEnd.y - settingsStart.y) * step) / 12,
+    });
+    await delay(35);
+  }
+  await waitForState(
+    client,
+    paneTabSplitOverlayExpression(),
+    (value) =>
+      value.overlay &&
+      value.previewTarget === "top-right" &&
+      value.splitTargets === 0 &&
+      value.previewRect !== null &&
+      value.previewRect.width > 0,
+  );
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    clickCount: 1,
+    type: "mouseReleased",
+    x: settingsEnd.x,
+    y: settingsEnd.y,
+  });
+  const settingsTopRight = await waitForState(
+    client,
+    paneTabSettingsTopRightExpression(),
+    (value) =>
+      value.ready &&
+      value.topLeftKind === "chat" &&
+      value.topRightKind === "settings" &&
+      value.bottomKind === "chat" &&
+      value.bottomSpansFullWidth,
+  );
+  if (!settingsTopRight.topPanesShareRow) {
+    throw new Error(
+      `settings top-right split geometry is wrong: ${JSON.stringify(settingsTopRight)}`,
+    );
+  }
+  await captureScreenshot(client, join(recordingDir, "pane-tab-split-settings-top-right.png"));
+}
+
+async function resetPaneTabSplitWorkflowPage(client, waitForState) {
+  await client.call("Page.reload", { ignoreCache: true });
+  await waitForState(
+    client,
+    paneTabSplitStateExpression(),
+    (value) => value.ready && value.paneCount === 1,
+  );
+  await client.evaluate(`(() => {
+    window.findWorkflowButton = (kind, expected) => {
+      const buttons = Array.from(document.querySelectorAll("button"));
+      return buttons.find((button) => {
+        if (kind === "aria-label") {
+          return button.getAttribute("aria-label") === expected;
+        }
+        return button.innerText.trim() === expected;
+      }) ?? null;
+    };
+  })()`);
 }
 
 function paneTabSplitStateExpression() {
@@ -237,6 +328,80 @@ function paneTabThreePaneGeometryExpression() {
           Math.abs(topLeft.top - topRight.top) <= 2 &&
           Math.abs(topLeft.bottom - topRight.bottom) <= 2,
       ),
+    };
+  })()`;
+}
+
+function paneTabSettingsDragStateExpression() {
+  return `(() => {
+    const grid = document.querySelector('[data-testid="workspace-pane-grid-shell"]');
+    const settingsTab = [...document.querySelectorAll('[data-testid^="workspace-pane-tab-"]')].find(
+      (tab) => tab.innerText.includes("Settings"),
+    );
+    const rect = (element) => {
+      if (!element) {
+        return null;
+      }
+      const value = element.getBoundingClientRect();
+      return {
+        height: value.height,
+        left: value.left,
+        top: value.top,
+        width: value.width,
+      };
+    };
+    return {
+      gridRect: rect(grid),
+      ready: Boolean(grid && settingsTab),
+      settingsTabRect: rect(settingsTab),
+    };
+  })()`;
+}
+
+function paneTabSettingsTopRightExpression() {
+  return `(() => {
+    const grid = document.querySelector('[data-testid="workspace-pane-grid-shell"]');
+    const cells = [...document.querySelectorAll('[data-testid="workspace-pane-grid-cell"]')];
+    const rect = (element) => {
+      if (!element) {
+        return null;
+      }
+      const value = element.getBoundingClientRect();
+      return {
+        bottom: value.bottom,
+        height: value.height,
+        left: value.left,
+        right: value.right,
+        top: value.top,
+        width: value.width,
+      };
+    };
+    const kind = (cell) => cell?.querySelector("[data-pane-kind]")?.getAttribute("data-pane-kind") ?? null;
+    const gridRect = rect(grid);
+    const cellRects = cells.map(rect);
+    const bottom = cellRects[2] ?? null;
+    const topLeft = cellRects[0] ?? null;
+    const topRight = cellRects[1] ?? null;
+    return {
+      bottomKind: kind(cells[2]),
+      bottomSpansFullWidth: Boolean(
+        gridRect &&
+          bottom &&
+          bottom.left <= gridRect.left + 2 &&
+          bottom.right >= gridRect.right - 2 &&
+          bottom.top > gridRect.top + gridRect.height / 2 - 8,
+      ),
+      cellRects,
+      paneCount: cells.length,
+      ready: Boolean(gridRect && cells.length === 3),
+      topLeftKind: kind(cells[0]),
+      topPanesShareRow: Boolean(
+        topLeft &&
+          topRight &&
+          Math.abs(topLeft.top - topRight.top) <= 2 &&
+          Math.abs(topLeft.bottom - topRight.bottom) <= 2,
+      ),
+      topRightKind: kind(cells[1]),
     };
   })()`;
 }

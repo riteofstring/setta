@@ -24,6 +24,11 @@ interface WorkspacePaneLayoutState<TPane> {
 
 type PaneOrderToken = "new" | 0 | 1 | 2;
 
+interface WorkspacePaneSplitPlan {
+  layout: WorkspacePaneLayout;
+  order: PaneOrderToken[];
+}
+
 const spanningWorkspacePaneLayouts = new Set<WorkspacePaneLayout>([
   "bottom-split",
   "left-split",
@@ -53,6 +58,31 @@ const vacancyPaneOrder: Partial<Record<WorkspacePaneLayout, PaneOrderToken[]>> =
   "left-split": [0, 2, 1, "new"],
   "right-split": [0, 1, "new", 2],
   "top-split": [0, 1, 2, "new"],
+};
+
+const thirdPaneSplitPlanByLayout: Partial<
+  Record<WorkspacePaneLayout, Record<WorkspacePaneSplitTarget, WorkspacePaneSplitPlan>>
+> = {
+  columns: {
+    bottom: { layout: "top-split", order: [0, 1, "new"] },
+    "bottom-left": { layout: "top-split", order: [0, 1, "new"] },
+    "bottom-right": { layout: "top-split", order: [0, 1, "new"] },
+    left: { layout: "right-split", order: ["new", 0, 1] },
+    right: { layout: "left-split", order: [0, 1, "new"] },
+    top: { layout: "bottom-split", order: ["new", 0, 1] },
+    "top-left": { layout: "top-split", order: ["new", 1, 0] },
+    "top-right": { layout: "top-split", order: [0, "new", 1] },
+  },
+  rows: {
+    bottom: { layout: "top-split", order: [0, 1, "new"] },
+    "bottom-left": { layout: "bottom-split", order: [0, "new", 1] },
+    "bottom-right": { layout: "bottom-split", order: [0, 1, "new"] },
+    left: { layout: "right-split", order: ["new", 0, 1] },
+    right: { layout: "left-split", order: [0, 1, "new"] },
+    top: { layout: "bottom-split", order: ["new", 0, 1] },
+    "top-left": { layout: "top-split", order: ["new", 0, 1] },
+    "top-right": { layout: "top-split", order: [0, "new", 1] },
+  },
 };
 
 const thirdPaneLayoutByTarget = {
@@ -183,6 +213,13 @@ export function insertWorkspacePaneAtSplitTarget<TPane>(
   target: WorkspacePaneSplitTarget,
 ): WorkspacePaneLayoutState<TPane> {
   const count = panes.length + 1;
+  const thirdPanePlan = count === 3 ? thirdPaneSplitPlanByLayout[layout]?.[target] : undefined;
+  if (thirdPanePlan) {
+    return {
+      layout: thirdPanePlan.layout,
+      panes: applyWorkspacePaneOrder(panes, pane, thirdPanePlan.order, layout),
+    };
+  }
   const next = [...panes];
   next.splice(workspacePaneSplitInsertionIndex(layout, target, count), 0, pane);
   return {
@@ -215,10 +252,19 @@ function fillWorkspacePaneVacancy<TPane>(
   }
   return {
     layout: "grid",
-    panes: order.map((token) =>
-      token === "new" ? pane : requireWorkspacePane(panes, token, layout),
-    ),
+    panes: applyWorkspacePaneOrder(panes, pane, order, layout),
   };
+}
+
+function applyWorkspacePaneOrder<TPane>(
+  panes: TPane[],
+  pane: TPane,
+  order: PaneOrderToken[],
+  layout: WorkspacePaneLayout,
+) {
+  return order.map((token) =>
+    token === "new" ? pane : requireWorkspacePane(panes, token, layout),
+  );
 }
 
 function workspacePaneLayoutForSplitTarget(
