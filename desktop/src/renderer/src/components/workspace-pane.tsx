@@ -179,6 +179,10 @@ export function useWorkspacePaneState() {
     [],
   );
 
+  const moveTabToPane = useCallback((sourcePaneId: string, tabId: string, targetPaneId: string) => {
+    setState((current) => moveWorkspacePaneTabState(current, sourcePaneId, tabId, targetPaneId));
+  }, []);
+
   return {
     closeTab,
     closePane,
@@ -188,6 +192,7 @@ export function useWorkspacePaneState() {
     layout: state.layout,
     openTabKind,
     panes: state.panes,
+    moveTabToPane,
     selectTab,
     splitTab,
   };
@@ -300,6 +305,56 @@ function splitWorkspacePaneTabState(
   const sourceState = workspacePaneSplitSourceState(current, sourcePane, tab, counters.nextTabId);
   const pane = createWorkspacePane(`workspace_pane_${counters.nextPaneId()}`, sourceState.tab);
   return insertWorkspacePaneAtSplitTarget(sourceState.layout, sourceState.panes, pane, target);
+}
+
+function moveWorkspacePaneTabState(
+  current: WorkspacePaneCollectionState,
+  sourcePaneId: string,
+  tabId: string,
+  targetPaneId: string,
+): WorkspacePaneCollectionState {
+  if (sourcePaneId === targetPaneId) {
+    return current;
+  }
+  const sourcePane = current.panes.find((pane) => pane.id === sourcePaneId);
+  const targetPane = current.panes.find((pane) => pane.id === targetPaneId);
+  const tab = sourcePane?.tabs.find((candidate) => candidate.id === tabId);
+  if (!sourcePane || !targetPane || !tab) {
+    return current;
+  }
+  if (sourcePane.tabs.length === 1) {
+    const sourceIndex = current.panes.findIndex((pane) => pane.id === sourcePaneId);
+    const panes = current.panes
+      .filter((pane) => pane.id !== sourcePaneId)
+      .map((pane) => (pane.id === targetPaneId ? appendWorkspacePaneTab(pane, tab) : pane));
+    return {
+      layout: workspacePaneLayoutAfterRemoval(current.layout, sourceIndex, panes.length),
+      panes,
+    };
+  }
+  return {
+    ...current,
+    panes: current.panes.map((pane) => {
+      if (pane.id === sourcePaneId) {
+        return closeWorkspacePaneTab(pane, tab.id);
+      }
+      if (pane.id === targetPaneId) {
+        return appendWorkspacePaneTab(pane, tab);
+      }
+      return pane;
+    }),
+  };
+}
+
+function appendWorkspacePaneTab(
+  pane: WorkspacePaneState,
+  tab: WorkspacePaneTab,
+): WorkspacePaneState {
+  return {
+    ...pane,
+    activeTabId: tab.id,
+    tabs: [...pane.tabs, tab],
+  };
 }
 
 function workspacePaneSplitSourceState(

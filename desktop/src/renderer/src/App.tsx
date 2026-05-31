@@ -34,6 +34,8 @@ import {
 } from "./components/workspace-pane";
 import {
   WorkspacePaneSplitDropOverlay,
+  type WorkspacePaneMergeDropTarget,
+  workspacePaneMergeTargetFromPoint,
   workspacePaneSplitTargetFromPoint,
 } from "./components/workspace-pane-split-overlay";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -229,6 +231,8 @@ function WorkspaceArea({
   const [draggingPaneTarget, setDraggingPaneTarget] = useState<WorkspacePaneSplitTarget | null>(
     null,
   );
+  const [draggingPaneMergeTarget, setDraggingPaneMergeTarget] =
+    useState<WorkspacePaneMergeDropTarget | null>(null);
   const visiblePanes = workspaceGridVisiblePanes(panes.panes, maximizedPaneId);
   const splitAllowed = draggingPaneTab
     ? canSplitWorkspacePaneTab(panes.panes, draggingPaneTab.sourcePaneId)
@@ -236,7 +240,16 @@ function WorkspaceArea({
   const finishPaneTabDrag = useCallback(() => {
     setDraggingPaneTab(null);
     setDraggingPaneTarget(null);
+    setDraggingPaneMergeTarget(null);
   }, []);
+  const moveTabIntoPane = useCallback(
+    (payload: WorkspacePaneTabDragPayload, targetPaneId: string) => {
+      panes.moveTabToPane(payload.sourcePaneId, payload.tabId, targetPaneId);
+      setMaximizedPaneId(null);
+      finishPaneTabDrag();
+    },
+    [finishPaneTabDrag, panes, setMaximizedPaneId],
+  );
   const splitTabIntoTarget = useCallback(
     (payload: WorkspacePaneTabDragPayload, target: WorkspacePaneSplitTarget) => {
       panes.splitTab(payload.sourcePaneId, payload.tabId, target);
@@ -262,7 +275,21 @@ function WorkspaceArea({
       const bodyUserSelect = document.body.style.userSelect;
       let dragging = false;
       let latestTarget: WorkspacePaneSplitTarget | null = null;
+      let latestMergeTarget: WorkspacePaneMergeDropTarget | null = null;
       const updateTarget = (clientX: number, clientY: number) => {
+        const mergeTarget = workspacePaneMergeTargetFromPoint(
+          clientX,
+          clientY,
+          grid,
+          payload.sourcePaneId,
+        );
+        latestMergeTarget = mergeTarget;
+        setDraggingPaneMergeTarget(mergeTarget);
+        if (mergeTarget) {
+          latestTarget = null;
+          setDraggingPaneTarget(null);
+          return { mergeTarget, splitTarget: null };
+        }
         const target = workspacePaneSplitTargetFromPoint(
           clientX,
           clientY,
@@ -270,7 +297,7 @@ function WorkspaceArea({
         );
         latestTarget = target;
         setDraggingPaneTarget(target);
-        return target;
+        return { mergeTarget: null, splitTarget: target };
       };
       const handleMouseMove = (moveEvent: MouseEvent) => {
         const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
@@ -293,9 +320,15 @@ function WorkspaceArea({
           finishPaneTabDrag();
           return;
         }
-        const target = updateTarget(upEvent.clientX, upEvent.clientY) ?? latestTarget;
-        if (target && canSplitWorkspacePaneTab(panes.panes, payload.sourcePaneId)) {
-          splitTabIntoTarget(payload, target);
+        const target = updateTarget(upEvent.clientX, upEvent.clientY);
+        const mergeTarget = target.mergeTarget ?? latestMergeTarget;
+        if (mergeTarget) {
+          moveTabIntoPane(payload, mergeTarget.paneId);
+          return;
+        }
+        const splitTarget = target.splitTarget ?? latestTarget;
+        if (splitTarget && canSplitWorkspacePaneTab(panes.panes, payload.sourcePaneId)) {
+          splitTabIntoTarget(payload, splitTarget);
           return;
         }
         finishPaneTabDrag();
@@ -303,7 +336,7 @@ function WorkspaceArea({
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     },
-    [finishPaneTabDrag, gridRef, panes.panes, splitTabIntoTarget],
+    [finishPaneTabDrag, gridRef, moveTabIntoPane, panes.panes, splitTabIntoTarget],
   );
 
   return (
@@ -386,6 +419,7 @@ function WorkspaceArea({
         />
       </div>
       <WorkspacePaneSplitDropOverlay
+        activeMergeTarget={draggingPaneMergeTarget}
         activeTarget={draggingPaneTarget}
         canSplit={splitAllowed}
         draggingTab={draggingPaneTab}

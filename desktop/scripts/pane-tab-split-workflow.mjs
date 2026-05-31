@@ -106,6 +106,16 @@ export async function runPaneTabSplitWorkflow({
     throw new Error(`three-pane top split geometry is wrong: ${JSON.stringify(topSplit)}`);
   }
   await captureScreenshot(client, join(recordingDir, "pane-tab-split-three-pane.png"));
+  await dragSettingsPaneToTopRight({ captureScreenshot, client, recordingDir, waitForState });
+  await dragBottomChatTabIntoTopLeftPane({ captureScreenshot, client, recordingDir, waitForState });
+}
+
+async function dragSettingsPaneToTopRight({
+  captureScreenshot,
+  client,
+  recordingDir,
+  waitForState,
+}) {
   const settingsDrag = await waitForState(
     client,
     paneTabSettingsDragStateExpression(),
@@ -176,6 +186,79 @@ export async function runPaneTabSplitWorkflow({
     );
   }
   await captureScreenshot(client, join(recordingDir, "pane-tab-split-settings-top-right.png"));
+}
+
+async function dragBottomChatTabIntoTopLeftPane({
+  captureScreenshot,
+  client,
+  recordingDir,
+  waitForState,
+}) {
+  const mergeDrag = await waitForState(
+    client,
+    paneTabMergeDragStateExpression(),
+    (value) => value.ready && value.bottomTabRect !== null && value.topLeftHeaderRect !== null,
+  );
+  const mergeStart = {
+    x: mergeDrag.bottomTabRect.left + Math.min(55, mergeDrag.bottomTabRect.width / 2),
+    y: mergeDrag.bottomTabRect.top + mergeDrag.bottomTabRect.height / 2,
+  };
+  const mergeEnd = {
+    x: mergeDrag.topLeftHeaderRect.left + Math.min(90, mergeDrag.topLeftHeaderRect.width / 2),
+    y: mergeDrag.topLeftHeaderRect.top + mergeDrag.topLeftHeaderRect.height / 2,
+  };
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    type: "mouseMoved",
+    x: mergeStart.x,
+    y: mergeStart.y,
+  });
+  await delay(50);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    clickCount: 1,
+    type: "mousePressed",
+    x: mergeStart.x,
+    y: mergeStart.y,
+  });
+  for (let step = 1; step <= 12; step += 1) {
+    await client.call("Input.dispatchMouseEvent", {
+      button: "left",
+      buttons: 1,
+      type: "mouseMoved",
+      x: mergeStart.x + ((mergeEnd.x - mergeStart.x) * step) / 12,
+      y: mergeStart.y + ((mergeEnd.y - mergeStart.y) * step) / 12,
+    });
+    await delay(35);
+  }
+  await waitForState(
+    client,
+    paneTabMergeOverlayExpression(),
+    (value) =>
+      value.overlay &&
+      value.mergePaneId === mergeDrag.topLeftPaneId &&
+      value.previewRect !== null &&
+      value.previewRect.width > 0,
+  );
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    clickCount: 1,
+    type: "mouseReleased",
+    x: mergeEnd.x,
+    y: mergeEnd.y,
+  });
+  await waitForState(
+    client,
+    paneTabMergedIntoExistingPaneExpression(),
+    (value) =>
+      value.ready &&
+      value.paneCount === 2 &&
+      value.leftKind === "chat" &&
+      value.rightKind === "settings" &&
+      value.leftTabCount === 2 &&
+      value.rightTabCount === 1,
+  );
+  await captureScreenshot(client, join(recordingDir, "pane-tab-merge-existing-pane.png"));
 }
 
 async function resetPaneTabSplitWorkflowPage(client, waitForState) {
@@ -402,6 +485,73 @@ function paneTabSettingsTopRightExpression() {
           Math.abs(topLeft.bottom - topRight.bottom) <= 2,
       ),
       topRightKind: kind(cells[1]),
+    };
+  })()`;
+}
+
+function paneTabMergeDragStateExpression() {
+  return `(() => {
+    const cells = [...document.querySelectorAll('[data-testid="workspace-pane-grid-cell"]')];
+    const rect = (element) => {
+      if (!element) {
+        return null;
+      }
+      const value = element.getBoundingClientRect();
+      return {
+        height: value.height,
+        left: value.left,
+        top: value.top,
+        width: value.width,
+      };
+    };
+    const bottom = cells[2] ?? null;
+    const topLeft = cells[0] ?? null;
+    return {
+      bottomTabRect: rect(bottom?.querySelector('[data-testid^="workspace-pane-tab-"]')),
+      ready: cells.length === 3,
+      topLeftHeaderRect: rect(topLeft?.querySelector('[data-testid="grid-workspace-pane-header"]')),
+      topLeftPaneId: topLeft?.getAttribute("data-pane-id") ?? null,
+    };
+  })()`;
+}
+
+function paneTabMergeOverlayExpression() {
+  return `(() => {
+    const preview = document.querySelector('[data-testid="workspace-merge-preview"]');
+    const rect = (element) => {
+      if (!element) {
+        return null;
+      }
+      const value = element.getBoundingClientRect();
+      return {
+        height: value.height,
+        left: value.left,
+        top: value.top,
+        width: value.width,
+      };
+    };
+    return {
+      mergePaneId: preview?.getAttribute("data-merge-pane-id") ?? null,
+      overlay: Boolean(document.querySelector('[data-testid="workspace-split-overlay"]')),
+      previewRect: rect(preview),
+    };
+  })()`;
+}
+
+function paneTabMergedIntoExistingPaneExpression() {
+  return `(() => {
+    const cells = [...document.querySelectorAll('[data-testid="workspace-pane-grid-cell"]')];
+    const tabCount = (cell) =>
+      cell?.querySelectorAll('[data-testid^="workspace-pane-tab-"]').length ?? null;
+    const kind = (cell) =>
+      cell?.querySelector("[data-pane-kind]")?.getAttribute("data-pane-kind") ?? null;
+    return {
+      leftKind: kind(cells[0]),
+      leftTabCount: tabCount(cells[0]),
+      paneCount: cells.length,
+      ready: cells.length === 2,
+      rightKind: kind(cells[1]),
+      rightTabCount: tabCount(cells[1]),
     };
   })()`;
 }

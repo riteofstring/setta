@@ -22,12 +22,14 @@ const splitTargetByCell = {
 } satisfies Record<`${SplitRow}:${SplitColumn}`, WorkspacePaneSplitTarget | null>;
 
 export function WorkspacePaneSplitDropOverlay({
+  activeMergeTarget,
   activeTarget,
   canSplit,
   draggingTab,
   layout,
   paneCount,
 }: {
+  activeMergeTarget: WorkspacePaneMergeDropTarget | null;
   activeTarget: WorkspacePaneSplitTarget | null;
   canSplit: boolean;
   draggingTab: WorkspacePaneTabDragPayload | null;
@@ -37,7 +39,7 @@ export function WorkspacePaneSplitDropOverlay({
   if (!draggingTab) {
     return null;
   }
-  if (!canSplit) {
+  if (!canSplit && !activeMergeTarget) {
     return (
       <div className="pointer-events-none absolute inset-0 z-[70] grid place-items-center bg-zinc-950/35">
         <div className="rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-300 shadow-xl shadow-black/35">
@@ -58,7 +60,16 @@ export function WorkspacePaneSplitDropOverlay({
         gridTemplateRows: "minmax(0, 1fr) 1px minmax(0, 1fr)",
       }}
     >
-      {previewStyle ? (
+      {activeMergeTarget ? (
+        <div
+          className="absolute grid place-items-center rounded-sm border border-sky-200/95 bg-sky-500/16 text-[11px] font-medium uppercase tracking-[0.08em] text-sky-100 shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.18),0_18px_60px_rgb(0_0_0_/_0.45)] transition-[left,top,width,height,background-color,border-color] duration-75 ease-out"
+          data-merge-pane-id={activeMergeTarget.paneId}
+          data-testid="workspace-merge-preview"
+          style={activeMergeTarget.style}
+        >
+          Drop as tab
+        </div>
+      ) : previewStyle ? (
         <div
           className="rounded-sm border border-zinc-100/90 bg-zinc-500/18 shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.18),0_18px_60px_rgb(0_0_0_/_0.45)] transition-[grid-column,grid-row,background-color,border-color] duration-75 ease-out"
           data-split-target={activeTarget}
@@ -68,6 +79,41 @@ export function WorkspacePaneSplitDropOverlay({
       ) : null}
     </div>
   );
+}
+
+export interface WorkspacePaneMergeDropTarget {
+  paneId: string;
+  style: CSSProperties;
+}
+
+export function workspacePaneMergeTargetFromPoint(
+  clientX: number,
+  clientY: number,
+  grid: HTMLElement,
+  sourcePaneId: string,
+): WorkspacePaneMergeDropTarget | null {
+  const gridRect = grid.getBoundingClientRect();
+  const cells = Array.from(
+    grid.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-grid-cell"]'),
+  );
+  for (const cell of cells) {
+    const paneId = cell.getAttribute("data-pane-id");
+    if (!paneId || paneId === sourcePaneId) {
+      continue;
+    }
+    const header = cell.querySelector<HTMLElement>('[data-testid="grid-workspace-pane-header"]');
+    if (!header) {
+      continue;
+    }
+    const headerRect = header.getBoundingClientRect();
+    if (pointInsideRect(clientX, clientY, headerRect)) {
+      return {
+        paneId,
+        style: workspacePaneMergePreviewStyle(headerRect, gridRect),
+      };
+    }
+  }
+  return null;
 }
 
 export function workspacePaneSplitTargetFromPoint(
@@ -83,6 +129,21 @@ export function workspacePaneSplitTargetFromPoint(
     return null;
   }
   return splitTargetByCell[`${row}:${column}`];
+}
+
+function workspacePaneMergePreviewStyle(target: DOMRect, grid: DOMRect): CSSProperties {
+  return {
+    height: target.height,
+    left: target.left - grid.left,
+    top: target.top - grid.top,
+    width: target.width,
+  };
+}
+
+function pointInsideRect(clientX: number, clientY: number, rect: DOMRect) {
+  return (
+    clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+  );
 }
 
 function workspacePaneSplitPreviewStyle(
