@@ -1,5 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 const sectionMinHeight = 40;
 const sectionMaxHeight = 520;
@@ -42,6 +42,17 @@ export function SidebarAccordionSection({
   title: string;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !resized) {
+      return;
+    }
+    const nextHeight = constrainSectionHeight(height, measuredContentHeight(contentRef.current));
+    if (nextHeight !== height) {
+      onHeightChange(nextHeight);
+    }
+  }, [children, height, onHeightChange, open, resized]);
 
   return (
     <section className="group/section min-w-0" data-testid={testId}>
@@ -58,9 +69,14 @@ export function SidebarAccordionSection({
       </div>
       {open ? (
         <div className="relative min-h-0" ref={bodyRef} style={sectionBodyStyle(height, resized)}>
-          <div className={resized ? "h-full min-h-0 overflow-y-auto pb-1" : "pb-1"}>{children}</div>
+          <div className={resized ? "h-full min-h-0 overflow-y-auto" : ""}>
+            <div className="pb-1" ref={contentRef}>
+              {children}
+            </div>
+          </div>
           <SectionResizeHandle
             bodyRef={bodyRef}
+            contentRef={contentRef}
             height={height}
             label={`Resize ${title}`}
             onHeightChange={onHeightChange}
@@ -80,11 +96,13 @@ function sectionBodyStyle(height: number, resized: boolean): CSSProperties | und
 
 function SectionResizeHandle({
   bodyRef,
+  contentRef,
   height,
   label,
   onHeightChange,
 }: {
   bodyRef: { current: HTMLDivElement | null };
+  contentRef: { current: HTMLDivElement | null };
   height: number;
   label: string;
   onHeightChange: (height: number) => void;
@@ -96,7 +114,9 @@ function SectionResizeHandle({
 
     function resize(pointerEvent: PointerEvent) {
       const delta = pointerEvent.clientY - startY;
-      onHeightChange(clamp(startHeight + delta, sectionMinHeight, sectionMaxHeight));
+      onHeightChange(
+        constrainSectionHeight(startHeight + delta, measuredContentHeight(contentRef.current)),
+      );
     }
 
     function stopResize() {
@@ -119,6 +139,15 @@ function SectionResizeHandle({
       <div className="mx-auto mt-[3px] h-px w-10 rounded-full bg-zinc-600/80" />
     </div>
   );
+}
+
+export function constrainSectionHeight(value: number, contentHeight: number) {
+  const max = Math.max(1, Math.min(Math.ceil(contentHeight), sectionMaxHeight));
+  return clamp(value, Math.min(sectionMinHeight, max), max);
+}
+
+function measuredContentHeight(node: HTMLDivElement | null) {
+  return node ? node.getBoundingClientRect().height : sectionMaxHeight;
 }
 
 function clamp(value: number, min: number, max: number) {
