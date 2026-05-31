@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
+import { FloatingMenu } from "./floating-menu";
 
 interface PluginItem {
   accentClass: string;
@@ -58,7 +59,9 @@ export function ChatPlusMenu({
   const [planMode, setPlanMode] = useState(false);
   const [pluginSubmenuOpen, setPluginSubmenuOpen] = useState(initialPluginSubmenuOpen);
   const [pursueGoal, setPursueGoal] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -66,7 +69,8 @@ export function ChatPlusMenu({
     }
 
     function handlePointerDown(event: PointerEvent) {
-      if (menuRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) {
         return;
       }
       setOpen(false);
@@ -89,49 +93,51 @@ export function ChatPlusMenu({
   }, [open]);
 
   return (
-    <div className="relative" ref={menuRef}>
-      {open ? (
-        <div
-          aria-label="Add context"
-          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(280px,calc(100vw-2rem))] rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
-          role="menu"
+    <div className="relative" ref={rootRef}>
+      <FloatingMenu
+        anchorRef={anchorRef}
+        ariaLabel="Add context"
+        className="w-[min(280px,calc(100vw-2rem))] rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+        menuRef={menuRef}
+        open={open}
+        placement="top"
+        role="menu"
+      >
+        <MenuItem icon={<Paperclip />} label="Add photos & files" />
+        <MenuItem icon={<Monitor />} label="Attach Electron" />
+        <MenuDivider />
+        <SwitchMenuItem
+          checked={planMode}
+          icon={<CheckSquare />}
+          label="Plan mode"
+          onClick={() => setPlanMode((enabled) => !enabled)}
+        />
+        <SwitchMenuItem
+          checked={pursueGoal}
+          icon={<Target />}
+          label="Pursue goal"
+          onClick={() => setPursueGoal((enabled) => !enabled)}
+        />
+        <MenuDivider />
+        <button
+          aria-expanded={pluginSubmenuOpen}
+          aria-haspopup="menu"
+          className={cn(
+            "grid h-8 w-full grid-cols-[20px_minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75",
+            pluginSubmenuOpen ? "bg-zinc-700/80" : "",
+          )}
+          onClick={() => setPluginSubmenuOpen((isOpen) => !isOpen)}
+          onFocus={() => setPluginSubmenuOpen(true)}
+          onMouseEnter={() => setPluginSubmenuOpen(true)}
+          role="menuitem"
+          type="button"
         >
-          <MenuItem icon={<Paperclip />} label="Add photos & files" />
-          <MenuItem icon={<Monitor />} label="Attach Electron" />
-          <MenuDivider />
-          <SwitchMenuItem
-            checked={planMode}
-            icon={<CheckSquare />}
-            label="Plan mode"
-            onClick={() => setPlanMode((enabled) => !enabled)}
-          />
-          <SwitchMenuItem
-            checked={pursueGoal}
-            icon={<Target />}
-            label="Pursue goal"
-            onClick={() => setPursueGoal((enabled) => !enabled)}
-          />
-          <MenuDivider />
-          <button
-            aria-expanded={pluginSubmenuOpen}
-            aria-haspopup="menu"
-            className={cn(
-              "grid h-8 w-full grid-cols-[20px_minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75",
-              pluginSubmenuOpen ? "bg-zinc-700/80" : "",
-            )}
-            onClick={() => setPluginSubmenuOpen((isOpen) => !isOpen)}
-            onFocus={() => setPluginSubmenuOpen(true)}
-            onMouseEnter={() => setPluginSubmenuOpen(true)}
-            role="menuitem"
-            type="button"
-          >
-            <MenuIcon>{<Blocks />}</MenuIcon>
-            <span className="truncate">Plugins</span>
-            <ChevronRight className="h-3.5 w-3.5 text-zinc-400" aria-hidden="true" />
-          </button>
-          {pluginSubmenuOpen ? <PluginSubmenu /> : null}
-        </div>
-      ) : null}
+          <MenuIcon>{<Blocks />}</MenuIcon>
+          <span className="truncate">Plugins</span>
+          <ChevronRight className="h-3.5 w-3.5 text-zinc-400" aria-hidden="true" />
+        </button>
+        {pluginSubmenuOpen ? <PluginSubmenu /> : null}
+      </FloatingMenu>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
@@ -147,6 +153,7 @@ export function ChatPlusMenu({
             setPluginSubmenuOpen(false);
           }
         }}
+        ref={anchorRef}
         type="button"
       >
         <Plus className="h-3.5 w-3.5" />

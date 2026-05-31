@@ -2,6 +2,7 @@ import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
+import { FloatingMenu } from "./floating-menu";
 
 type ReasoningLevel = "low" | "medium" | "high" | "extra-high";
 
@@ -28,7 +29,9 @@ export function ChatModelMenu({
 }) {
   const [open, setOpen] = useState(initialOpen);
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("extra-high");
-  const menuRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -36,7 +39,8 @@ export function ChatModelMenu({
     }
 
     function handlePointerDown(event: PointerEvent) {
-      if (menuRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) {
         return;
       }
       setOpen(false);
@@ -57,40 +61,43 @@ export function ChatModelMenu({
   }, [open]);
 
   return (
-    <div className="relative" ref={menuRef}>
-      {open ? (
-        <div
-          aria-label="Chat model selection"
-          className="absolute right-0 bottom-[calc(100%+0.4rem)] z-50 w-[min(340px,calc(100vw-2rem))] rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
-          role="menu"
-        >
-          <div className="px-2 pt-1 pb-1 text-xs text-zinc-400">Reasoning</div>
-          {reasoningLevels.map((level) => (
-            <button
-              aria-checked={level.id === reasoningLevel}
-              className={cn(
-                "grid h-8 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75",
-                level.id === reasoningLevel ? "bg-zinc-700/80" : "",
-              )}
-              key={level.id}
-              onClick={() => {
-                setReasoningLevel(level.id);
-                setOpen(false);
-              }}
-              role="menuitemradio"
-              type="button"
-            >
-              <span className="truncate">{level.label}</span>
-              {level.id === reasoningLevel ? (
-                <Check className="h-3.5 w-3.5 text-zinc-100" aria-hidden="true" />
-              ) : null}
-            </button>
-          ))}
-          <div className="mx-2 my-1 h-px bg-zinc-700/80" />
-          <ModelSubmenuRow label="GPT-5.5" />
-          <ModelSubmenuRow label="Speed" />
-        </div>
-      ) : null}
+    <div className="relative" ref={rootRef}>
+      <FloatingMenu
+        align="right"
+        anchorRef={anchorRef}
+        ariaLabel="Chat model selection"
+        className="w-[min(340px,calc(100vw-2rem))] rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+        menuRef={menuRef}
+        open={open}
+        placement="top"
+        role="menu"
+      >
+        <div className="px-2 pt-1 pb-1 text-xs text-zinc-400">Reasoning</div>
+        {reasoningLevels.map((level) => (
+          <button
+            aria-checked={level.id === reasoningLevel}
+            className={cn(
+              "grid h-8 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75",
+              level.id === reasoningLevel ? "bg-zinc-700/80" : "",
+            )}
+            key={level.id}
+            onClick={() => {
+              setReasoningLevel(level.id);
+              setOpen(false);
+            }}
+            role="menuitemradio"
+            type="button"
+          >
+            <span className="truncate">{level.label}</span>
+            {level.id === reasoningLevel ? (
+              <Check className="h-3.5 w-3.5 text-zinc-100" aria-hidden="true" />
+            ) : null}
+          </button>
+        ))}
+        <div className="mx-2 my-1 h-px bg-zinc-700/80" />
+        <ModelSubmenuRow label="GPT-5.5" />
+        <ModelSubmenuRow label="Speed" />
+      </FloatingMenu>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
@@ -101,6 +108,7 @@ export function ChatModelMenu({
         )}
         disabled={disabled}
         onClick={() => setOpen((isOpen) => !isOpen)}
+        ref={anchorRef}
         type="button"
       >
         <span className="font-medium text-zinc-100">5.5</span>

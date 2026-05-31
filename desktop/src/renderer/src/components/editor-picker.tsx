@@ -4,6 +4,7 @@ import type { ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
+import { FloatingMenu } from "./floating-menu";
 
 type EditorPickerState =
   | { editors: InstalledEditorApp[]; status: "loading" }
@@ -23,6 +24,7 @@ export function EditorPicker({ rootPath }: { rootPath: string }) {
   const [openingEditorId, setOpeningEditorId] = useState("");
   const [openError, setOpenError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const selectedEditor = selectedEditorForState(state, selectedEditorId);
   const buttonState = editorPickerButtonState({
     openError,
@@ -42,7 +44,7 @@ export function EditorPicker({ rootPath }: { rootPath: string }) {
     setSelectedEditorId((current) => nextSelectedEditorId(current, state.editors));
   }, [state.editors]);
 
-  useCloseOnOutside(open, rootRef, () => setOpen(false));
+  useCloseOnOutside(open, rootRef, menuRef, () => setOpen(false));
 
   return (
     <div className="relative" ref={rootRef}>
@@ -63,6 +65,8 @@ export function EditorPicker({ rootPath }: { rootPath: string }) {
       </div>
       {open ? (
         <EditorPickerMenu
+          anchorRef={rootRef}
+          menuRef={menuRef}
           onOpenEditor={openEditor}
           onSelectEditor={setSelectedEditorId}
           onSetOpen={setOpen}
@@ -134,6 +138,7 @@ function useInstalledEditors(): EditorPickerState {
 function useCloseOnOutside(
   open: boolean,
   rootRef: RefObject<HTMLDivElement | null>,
+  menuRef: RefObject<HTMLDivElement | null>,
   onClose: () => void,
 ) {
   useEffect(() => {
@@ -141,7 +146,8 @@ function useCloseOnOutside(
       return;
     }
     const closeOnPointerDown = (event: globalThis.PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
         onClose();
       }
     };
@@ -156,7 +162,7 @@ function useCloseOnOutside(
       window.removeEventListener("pointerdown", closeOnPointerDown);
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [onClose, open, rootRef]);
+  }, [menuRef, onClose, open, rootRef]);
 }
 
 function useEditorOpener({
@@ -222,12 +228,16 @@ function editorPickerButtonState({
 }
 
 function EditorPickerMenu({
+  anchorRef,
+  menuRef,
   onOpenEditor,
   onSelectEditor,
   onSetOpen,
   selectedEditorId,
   state,
 }: {
+  anchorRef: RefObject<HTMLDivElement | null>;
+  menuRef: RefObject<HTMLDivElement | null>;
   onOpenEditor: (editor: InstalledEditorApp) => Promise<void>;
   onSelectEditor: (editorId: string) => void;
   onSetOpen: (open: boolean) => void;
@@ -235,8 +245,13 @@ function EditorPickerMenu({
   state: EditorPickerState;
 }) {
   return (
-    <div
-      className="absolute top-full right-0 z-50 mt-1 w-52 rounded-sm border border-zinc-700 bg-zinc-900/95 p-1.5 text-xs text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
+    <FloatingMenu
+      align="right"
+      anchorRef={anchorRef}
+      className="w-52 rounded-sm border border-zinc-700 bg-zinc-900/95 p-1.5 text-xs text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
+      menuRef={menuRef}
+      open
+      placement="bottom"
       role="menu"
     >
       {state.status === "ready" && state.editors.length > 0 ? (
@@ -253,7 +268,7 @@ function EditorPickerMenu({
       ) : (
         <div className="px-2 py-2 text-xs text-zinc-500">{editorPickerStatus(state)}</div>
       )}
-    </div>
+    </FloatingMenu>
   );
 }
 

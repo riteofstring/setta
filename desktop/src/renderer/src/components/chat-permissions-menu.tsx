@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
+import { FloatingMenu } from "./floating-menu";
 
 type PermissionModeId = "default" | "auto-review" | "full-access" | "custom";
 
@@ -35,7 +36,9 @@ export function ChatPermissionsMenu({
 }) {
   const [open, setOpen] = useState(initialOpen);
   const [selectedModeId, setSelectedModeId] = useState<PermissionModeId>("custom");
-  const menuRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -43,7 +46,8 @@ export function ChatPermissionsMenu({
     }
 
     function handlePointerDown(event: PointerEvent) {
-      if (menuRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) {
         return;
       }
       setOpen(false);
@@ -64,36 +68,38 @@ export function ChatPermissionsMenu({
   }, [open]);
 
   return (
-    <div className="relative" ref={menuRef}>
-      {open ? (
-        <div
-          aria-label="Chat permissions"
-          className="absolute bottom-[calc(100%+0.4rem)] left-0 z-50 w-[min(320px,calc(100vw-2rem))] rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
-          role="menu"
-        >
-          {permissionModes.map((mode) => (
-            <button
-              aria-checked={mode.id === selectedModeId}
-              className="grid h-8 w-full grid-cols-[20px_minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
-              key={mode.id}
-              onClick={() => {
-                setSelectedModeId(mode.id);
-                setOpen(false);
-              }}
-              role="menuitemradio"
-              type="button"
-            >
-              <span className="grid h-5 w-5 place-items-center text-zinc-300 [&>svg]:h-3.5 [&>svg]:w-3.5">
-                {mode.icon}
-              </span>
-              <span className="truncate">{mode.label}</span>
-              {mode.id === selectedModeId ? (
-                <Check className="h-3.5 w-3.5 text-zinc-300" aria-hidden="true" />
-              ) : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
+    <div className="relative" ref={rootRef}>
+      <FloatingMenu
+        anchorRef={anchorRef}
+        ariaLabel="Chat permissions"
+        className="w-[min(320px,calc(100vw-2rem))] rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1.5 text-zinc-100 shadow-2xl shadow-black/50 backdrop-blur"
+        menuRef={menuRef}
+        open={open}
+        placement="top"
+        role="menu"
+      >
+        {permissionModes.map((mode) => (
+          <button
+            aria-checked={mode.id === selectedModeId}
+            className="grid h-8 w-full grid-cols-[20px_minmax(0,1fr)_16px] items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-100 hover:bg-zinc-700/75"
+            key={mode.id}
+            onClick={() => {
+              setSelectedModeId(mode.id);
+              setOpen(false);
+            }}
+            role="menuitemradio"
+            type="button"
+          >
+            <span className="grid h-5 w-5 place-items-center text-zinc-300 [&>svg]:h-3.5 [&>svg]:w-3.5">
+              {mode.icon}
+            </span>
+            <span className="truncate">{mode.label}</span>
+            {mode.id === selectedModeId ? (
+              <Check className="h-3.5 w-3.5 text-zinc-300" aria-hidden="true" />
+            ) : null}
+          </button>
+        ))}
+      </FloatingMenu>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
@@ -104,6 +110,7 @@ export function ChatPermissionsMenu({
         )}
         disabled={disabled}
         onClick={() => setOpen((isOpen) => !isOpen)}
+        ref={anchorRef}
         type="button"
       >
         <Settings className="h-3.5 w-3.5 shrink-0" />

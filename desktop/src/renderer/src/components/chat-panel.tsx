@@ -223,6 +223,7 @@ function ChatError({ message }: { message: string | null }) {
 function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
   const [draft, setDraft] = useState("");
   const [slashPaletteDismissed, setSlashPaletteDismissed] = useState(false);
+  const composerFrameRef = useRef<HTMLDivElement | null>(null);
   const submittingRef = useRef(false);
   const disabled = !chat.selectedConversation || busy || running;
   const slashQuery = slashCommandQuery(draft);
@@ -257,6 +258,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
     >
       <div className="relative mx-auto w-full max-w-3xl min-w-0">
         <SlashCommandPalette
+          anchorRef={composerFrameRef}
           onSelect={(insertText) => {
             setDraft(insertText);
             setSlashPaletteDismissed(true);
@@ -264,7 +266,10 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           open={slashPaletteOpen}
           query={slashQuery ?? ""}
         />
-        <div className="min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15">
+        <div
+          className="min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15"
+          ref={composerFrameRef}
+        >
           <div className="relative min-w-0">
             {draft === "" ? (
               <ComposerPlaceholder selected={Boolean(chat.selectedConversation)} />

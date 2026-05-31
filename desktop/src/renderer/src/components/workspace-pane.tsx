@@ -10,9 +10,10 @@ import {
   Terminal,
   X,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
+import { FloatingMenu } from "./floating-menu";
 import { SettingsPanel } from "./settings-panel";
 
 type PaneSlot = "bottom" | "right";
@@ -339,41 +340,72 @@ function WorkspacePaneNewTabMenu({
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      onOpenChange(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onOpenChange(false);
+      }
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onOpenChange, open]);
+
   return (
-    <div className="relative shrink-0">
+    <div className="relative shrink-0" ref={rootRef}>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="New pane tab"
         className="grid h-6 w-6 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-900 hover:text-zinc-100 focus-visible:bg-zinc-900 focus-visible:text-zinc-100"
         onClick={() => onOpenChange(!open)}
+        ref={anchorRef}
         title="New pane tab"
         type="button"
       >
         <Plus className="h-3.5 w-3.5" />
       </button>
-      {open ? (
-        <div
-          className="absolute top-7 left-0 z-30 w-36 rounded-sm border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-black/35"
-          role="menu"
-        >
-          {workspacePaneActions.map((kind) => {
-            const label = workspacePaneLabels[kind];
-            return (
-              <button
-                className="flex h-6 w-full cursor-pointer items-center gap-2 px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
-                key={kind}
-                onClick={() => onCreateTab(kind)}
-                role="menuitem"
-                type="button"
-              >
-                {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0 text-zinc-500")}
-                <span className="truncate">{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      <FloatingMenu
+        anchorRef={anchorRef}
+        className="w-36 rounded-sm border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-black/35"
+        menuRef={menuRef}
+        open={open}
+        placement="bottom"
+        role="menu"
+      >
+        {workspacePaneActions.map((kind) => {
+          const label = workspacePaneLabels[kind];
+          return (
+            <button
+              className="flex h-6 w-full cursor-pointer items-center gap-2 px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
+              key={kind}
+              onClick={() => onCreateTab(kind)}
+              role="menuitem"
+              type="button"
+            >
+              {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0 text-zinc-500")}
+              <span className="truncate">{label}</span>
+            </button>
+          );
+        })}
+      </FloatingMenu>
     </div>
   );
 }

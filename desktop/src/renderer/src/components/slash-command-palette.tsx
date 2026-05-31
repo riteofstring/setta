@@ -23,8 +23,10 @@ import {
   Wrench,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import type { RefObject } from "react";
 
 import { cn } from "../lib/utils";
+import { FloatingMenu } from "./floating-menu";
 
 interface SlashCommand {
   description: string;
@@ -144,10 +146,12 @@ const slashCommandSections = [
 ] satisfies SlashCommandSection[];
 
 export function SlashCommandPalette({
+  anchorRef,
   onSelect,
   open,
   query,
 }: {
+  anchorRef?: RefObject<HTMLElement | null>;
   onSelect: (insertText: string) => void;
   open: boolean;
   query: string;
@@ -157,9 +161,8 @@ export function SlashCommandPalette({
   }
 
   const visibleSections = visibleSlashCommandSections(query);
-
-  return (
-    <div className="absolute right-0 bottom-[calc(100%+0.4rem)] left-0 z-40 max-h-[min(320px,calc(100vh-190px))] overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-[11px] text-zinc-100 shadow-xl shadow-black/45 backdrop-blur">
+  const content = (
+    <>
       {visibleSections.length > 0 ? (
         visibleSections.map((section) => (
           <SlashCommandSectionView
@@ -171,6 +174,26 @@ export function SlashCommandPalette({
       ) : (
         <div className="px-2 py-1.5 text-[11px] text-zinc-500">No matching commands</div>
       )}
+    </>
+  );
+
+  if (anchorRef) {
+    return (
+      <FloatingMenu
+        anchorRef={anchorRef}
+        className="max-h-[min(320px,calc(100vh-190px))] overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-[11px] text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
+        matchAnchorWidth
+        open={open}
+        placement="top"
+      >
+        {content}
+      </FloatingMenu>
+    );
+  }
+
+  return (
+    <div className="max-h-[min(320px,calc(100vh-190px))] overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-[11px] text-zinc-100 shadow-xl shadow-black/45 backdrop-blur">
+      {content}
     </div>
   );
 }
