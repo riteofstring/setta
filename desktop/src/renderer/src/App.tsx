@@ -993,8 +993,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
-          : "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
+          ? "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
+          : "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
       }
       disabled={disabled}
       onClick={onClick}
@@ -1026,7 +1026,7 @@ function FloatingPaneControls({
         floatingControlsRightInsetClass(platform),
       )}
     >
-      <div className="pointer-events-auto flex items-center gap-1">
+      <div className="app-no-drag pointer-events-auto flex items-center gap-1">
         <ShellPaneToggle active={false} label="Search chat panes" onClick={openChatSearch}>
           <Search className="h-3.5 w-3.5" />
         </ShellPaneToggle>
@@ -1048,7 +1048,7 @@ function FloatingPaneControls({
         </ShellPaneToggle>
         <div
           aria-label={`${paneCount} of ${maxWorkspacePaneCount} panes open`}
-          className="grid h-7 min-w-7 place-items-center rounded-sm px-1.5 text-[11px] font-semibold text-zinc-600"
+          className="app-no-drag grid h-7 min-w-7 place-items-center rounded-sm px-1.5 text-[11px] font-semibold text-zinc-600"
           title={`${paneCount}/${maxWorkspacePaneCount} panes`}
         >
           <span className="inline-flex items-center gap-1">

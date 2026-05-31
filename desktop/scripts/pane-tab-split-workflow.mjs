@@ -8,6 +8,8 @@ export async function runPaneTabSplitWorkflow({
   waitForState,
 }) {
   await resetPaneTabSplitWorkflowPage(client, waitForState);
+  await assertFloatingPaneControlsClickable({ client, waitForState });
+  await resetPaneTabSplitWorkflowPage(client, waitForState);
   const initial = await waitForState(client, paneTabSplitStateExpression(), (value) => {
     return Boolean(
       value.ready &&
@@ -261,6 +263,62 @@ async function dragBottomChatTabIntoTopLeftPane({
   await captureScreenshot(client, join(recordingDir, "pane-tab-merge-existing-pane.png"));
 }
 
+async function assertFloatingPaneControlsClickable({ client, waitForState }) {
+  await waitForState(
+    client,
+    paneControlsClickStateExpression(),
+    (value) =>
+      value.ready &&
+      value.visiblePaneCount === 1 &&
+      value.openPaneCount === "1" &&
+      value.addChatNoDrag &&
+      value.searchNoDrag &&
+      value.settingsNoDrag,
+  );
+  await clickElementCenterByAria(client, "Add chat pane");
+  await waitForState(
+    client,
+    paneControlsClickStateExpression(),
+    (value) =>
+      value.visiblePaneCount === 2 && value.openPaneCount === "2" && value.chatPaneCount === 2,
+  );
+  await clickElementCenterByAria(client, "Search chat panes");
+  await waitForState(
+    client,
+    paneControlsClickStateExpression(),
+    (value) => value.searchOpen && value.visiblePaneCount === 2,
+  );
+  await clickElementCenterByAria(client, "Add settings pane");
+  await waitForState(
+    client,
+    paneControlsClickStateExpression(),
+    (value) =>
+      value.visiblePaneCount === 3 &&
+      value.openPaneCount === "3" &&
+      value.chatPaneCount === 2 &&
+      value.settingsPaneCount === 1,
+  );
+  await clickElementCenterByAriaPrefix(client, "Maximize workspace pane");
+  await waitForState(
+    client,
+    paneControlsClickStateExpression(),
+    (value) =>
+      value.visiblePaneCount === 1 && value.openPaneCount === "3" && value.restoreButtonCount === 1,
+  );
+  await clickElementCenterByAriaPrefix(client, "Restore workspace pane");
+  await waitForState(
+    client,
+    paneControlsClickStateExpression(),
+    (value) => value.visiblePaneCount === 3 && value.openPaneCount === "3",
+  );
+  await clickElementCenterByAriaPrefix(client, "Close Workspace pane");
+  await waitForState(
+    client,
+    paneControlsClickStateExpression(),
+    (value) => value.visiblePaneCount === 2 && value.openPaneCount === "2",
+  );
+}
+
 async function resetPaneTabSplitWorkflowPage(client, waitForState) {
   await client.call("Page.reload", { ignoreCache: true });
   await waitForState(
@@ -307,6 +365,38 @@ function paneTabSplitStateExpression() {
       tabDraggable: tab?.getAttribute("draggable") ?? null,
       tabHasGrip: Boolean(tab?.querySelector(".lucide-grip-vertical")),
       tabRect: rect(tab),
+    };
+  })()`;
+}
+
+function paneControlsClickStateExpression() {
+  return `(() => {
+    const button = (label) =>
+      [...document.querySelectorAll("button")].find(
+        (candidate) => candidate.getAttribute("aria-label") === label,
+      ) ?? null;
+    const visibleCells = [...document.querySelectorAll('[data-testid="workspace-pane-grid-cell"]')];
+    const kind = (cell) =>
+      cell?.querySelector("[data-pane-kind]")?.getAttribute("data-pane-kind") ?? null;
+    const addChat = button("Add chat pane");
+    const search = button("Search chat panes");
+    const settings = button("Add settings pane");
+    return {
+      addChatNoDrag: addChat?.classList.contains("app-no-drag") ?? false,
+      chatPaneCount: visibleCells.filter((cell) => kind(cell) === "chat").length,
+      openPaneCount:
+        document
+          .querySelector('[data-testid="workspace-pane-grid-shell"]')
+          ?.getAttribute("data-pane-count") ?? null,
+      ready: Boolean(addChat && search && settings),
+      restoreButtonCount: [...document.querySelectorAll("button")].filter((candidate) =>
+        candidate.getAttribute("aria-label")?.startsWith("Restore workspace pane"),
+      ).length,
+      searchNoDrag: search?.classList.contains("app-no-drag") ?? false,
+      searchOpen: Boolean(document.querySelector('input[placeholder="Search chat"]')),
+      settingsNoDrag: settings?.classList.contains("app-no-drag") ?? false,
+      settingsPaneCount: visibleCells.filter((cell) => kind(cell) === "settings").length,
+      visiblePaneCount: visibleCells.length,
     };
   })()`;
 }
@@ -552,6 +642,66 @@ function paneTabMergedIntoExistingPaneExpression() {
       ready: cells.length === 2,
       rightKind: kind(cells[1]),
       rightTabCount: tabCount(cells[1]),
+    };
+  })()`;
+}
+
+async function clickElementCenterByAria(client, label) {
+  await clickElementCenter(client, ariaButtonCenterExpression({ label }));
+}
+
+async function clickElementCenterByAriaPrefix(client, prefix) {
+  await clickElementCenter(client, ariaButtonCenterExpression({ prefix }));
+}
+
+async function clickElementCenter(client, expression) {
+  const target = await client.evaluate(expression);
+  if (!target.ready) {
+    throw new Error(`button target was not clickable: ${JSON.stringify(target)}`);
+  }
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    type: "mouseMoved",
+    x: target.x,
+    y: target.y,
+  });
+  await delay(30);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    clickCount: 1,
+    type: "mousePressed",
+    x: target.x,
+    y: target.y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    clickCount: 1,
+    type: "mouseReleased",
+    x: target.x,
+    y: target.y,
+  });
+}
+
+function ariaButtonCenterExpression({ label, prefix }) {
+  const matchExpression =
+    label === undefined
+      ? `candidate.getAttribute("aria-label")?.startsWith(${JSON.stringify(prefix)})`
+      : `candidate.getAttribute("aria-label") === ${JSON.stringify(label)}`;
+  return `(() => {
+    const button = [...document.querySelectorAll("button")].find(
+      (candidate) => ${matchExpression},
+    );
+    if (!button || button.disabled) {
+      return { ready: false };
+    }
+    const rect = button.getBoundingClientRect();
+    return {
+      height: rect.height,
+      label: button.getAttribute("aria-label"),
+      ready: rect.width > 0 && rect.height > 0,
+      width: rect.width,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
     };
   })()`;
 }
