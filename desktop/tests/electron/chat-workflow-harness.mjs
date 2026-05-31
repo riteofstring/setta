@@ -13,7 +13,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { CDPClient } from "./cdp-client.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const desktopRoot = resolve(scriptDir, "..");
+const desktopRoot = resolve(scriptDir, "../..");
 const pageLoadTimeoutMs = 20_000;
 const sidebarWorkflowWorkspaceCount = 3000;
 const workflowTimeoutMs = 15_000;

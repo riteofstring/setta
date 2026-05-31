@@ -11,7 +11,7 @@ import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const desktopRoot = resolve(scriptDir, "..");
+const desktopRoot = resolve(scriptDir, "../..");
 const repoRoot = resolve(desktopRoot, "..");
 const options = parseArgs(process.argv.slice(2));
 const recordingDir = corruptChatRecordingDir(options);

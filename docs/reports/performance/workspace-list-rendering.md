@@ -36,7 +36,7 @@ Results:
 ## 2026-06-03 After Flat Sidebar Navigation Model
 
 Scenario: production desktop build launched by
-`node desktop/scripts/chat-workflows.test.mjs --deterministic-only` with
+`node desktop/tests/electron/chat-workflows.test.mjs --deterministic-only` with
 temporary app data seeded with 3,000 active workspaces and 3,000 inactive recent
 workspaces. The workflow created a backend conversation for active workspace
 1,500, scrolled the sidebar virtualizer to that workspace, selected it through
