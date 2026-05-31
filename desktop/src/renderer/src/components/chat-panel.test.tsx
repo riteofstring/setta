@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import {
+  ChatPanel,
   CommandSuggestions,
   commandSuggestions,
   commandTextToExecute,
@@ -11,9 +12,8 @@ import {
   goalEditorDraft,
   goalReplacementExecutionOptions,
   handleComposerKeyDown,
-  modelPickerOptionSelected,
-  reasoningEffortOptionSelected,
 } from "./chat-panel";
+import { modelPickerOptionSelected, reasoningEffortOptionSelected } from "./chat-composer-controls";
 
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
 
@@ -333,6 +333,30 @@ describe("composer controls", () => {
 });
 
 describe("conversation body states", () => {
+  test("renders one composer for an empty workspace chat", () => {
+    const html = renderToString(
+      <ChatPanel
+        chat={emptyWorkspaceChatView()}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        workspace={{
+          displayName: "setta-test-project",
+          id: "workspace_test",
+          lastOpenedAt: "2026-06-02T00:00:00Z",
+          rootPath: "/tmp/setta-test-project",
+        }}
+      />,
+    );
+
+    expect(countOccurrences(html, 'data-testid="chat-composer"')).toBe(1);
+    expect(html).toContain("What should we build in setta?");
+    expect(html).toContain("Ask");
+    expect(html).toContain("Custom");
+    expect(html).toContain("Model");
+    expect(html).toContain("Reasoning");
+    expect(html).not.toContain("Do anything");
+  });
+
   test("shows corrupt-state load errors instead of empty chat actions", () => {
     const html = renderToString(
       <ConversationBody
@@ -379,6 +403,24 @@ function composerButtonChat() {
     operation: null,
     stopActiveRun: async () => {},
   };
+}
+
+function emptyWorkspaceChatView() {
+  return {
+    activeRun: null,
+    createConversation: async () => {},
+    error: null,
+    goal: null,
+    operation: null,
+    selectedConversation: null,
+    sendMessage: async () => {},
+    status: "ready",
+    stopActiveRun: async () => {},
+  } as unknown as ConversationBodyProps["chat"];
+}
+
+function countOccurrences(value: string, needle: string) {
+  return value.split(needle).length - 1;
 }
 
 function goalState(objective: string, status: string) {
