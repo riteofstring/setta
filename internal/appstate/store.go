@@ -35,6 +35,11 @@ type PersistenceError struct {
 	Err       error
 }
 
+type CorruptStateError struct {
+	Path string
+	Err  error
+}
+
 func (err *PersistenceError) Error() string {
 	return fmt.Sprintf("%s %s: %v", err.Operation, err.Path, err.Err)
 }
@@ -46,6 +51,19 @@ func (err *PersistenceError) Unwrap() error {
 func IsPersistenceError(err error) bool {
 	var persistenceError *PersistenceError
 	return errors.As(err, &persistenceError)
+}
+
+func (err *CorruptStateError) Error() string {
+	return fmt.Sprintf("malformed app state %s: %v", err.Path, err.Err)
+}
+
+func (err *CorruptStateError) Unwrap() error {
+	return err.Err
+}
+
+func IsCorruptStateError(err error) bool {
+	var corruptStateError *CorruptStateError
+	return errors.As(err, &corruptStateError)
 }
 
 func NewStore(appDataDir string) (*Store, error) {
@@ -87,7 +105,7 @@ func (store *Store) Load() (State, error) {
 
 	var state State
 	if err := jsonio.DecodeSingle(file, &state); err != nil {
-		return State{}, fmt.Errorf("malformed app state %s: %w", store.statePath, err)
+		return State{}, corruptStateError(store.statePath, err)
 	}
 	if err := validateState(state, store.statePath); err != nil {
 		return State{}, err
@@ -133,7 +151,7 @@ func (store *Store) Save(state State) error {
 
 func validateState(state State, statePath string) error {
 	if state.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("malformed app state %s: unsupported schemaVersion %d", statePath, state.SchemaVersion)
+		return corruptStateErrorf(statePath, "unsupported schemaVersion %d", state.SchemaVersion)
 	}
 	recentIDs := map[string]bool{}
 	for _, summary := range state.RecentWorkspaces {
@@ -141,7 +159,7 @@ func validateState(state State, statePath string) error {
 			return err
 		}
 		if recentIDs[summary.ID] {
-			return fmt.Errorf("malformed app state %s: duplicate recent workspace id %s", statePath, summary.ID)
+			return corruptStateErrorf(statePath, "duplicate recent workspace id %s", summary.ID)
 		}
 		recentIDs[summary.ID] = true
 	}
@@ -149,37 +167,45 @@ func validateState(state State, statePath string) error {
 	activeIDs := map[string]bool{}
 	for _, id := range state.ActiveWorkspaceIDs {
 		if id == "" {
-			return fmt.Errorf("malformed app state %s: active workspace id is required", statePath)
+			return corruptStateErrorf(statePath, "active workspace id is required")
 		}
 		if activeIDs[id] {
-			return fmt.Errorf("malformed app state %s: duplicate active workspace id %s", statePath, id)
+			return corruptStateErrorf(statePath, "duplicate active workspace id %s", id)
 		}
 		if !recentIDs[id] {
-			return fmt.Errorf("malformed app state %s: active workspace id %s has no recent workspace metadata", statePath, id)
+			return corruptStateErrorf(statePath, "active workspace id %s has no recent workspace metadata", id)
 		}
 		activeIDs[id] = true
 	}
 	if state.SelectedWorkspaceID != "" && !activeIDs[state.SelectedWorkspaceID] {
-		return fmt.Errorf("malformed app state %s: selected workspace id %s is not active", statePath, state.SelectedWorkspaceID)
+		return corruptStateErrorf(statePath, "selected workspace id %s is not active", state.SelectedWorkspaceID)
 	}
 	return nil
 }
 
 func validateSummary(summary workspace.WorkspaceSummary, statePath string) error {
 	if summary.ID == "" {
-		return fmt.Errorf("malformed app state %s: recent workspace id is required", statePath)
+		return corruptStateErrorf(statePath, "recent workspace id is required")
 	}
 	if summary.RootPath == "" {
-		return fmt.Errorf("malformed app state %s: recent workspace rootPath is required", statePath)
+		return corruptStateErrorf(statePath, "recent workspace rootPath is required")
 	}
 	if !filepath.IsAbs(summary.RootPath) {
-		return fmt.Errorf("malformed app state %s: recent workspace rootPath must be absolute", statePath)
+		return corruptStateErrorf(statePath, "recent workspace rootPath must be absolute")
 	}
 	if summary.DisplayName == "" {
-		return fmt.Errorf("malformed app state %s: recent workspace displayName is required", statePath)
+		return corruptStateErrorf(statePath, "recent workspace displayName is required")
 	}
 	if _, err := time.Parse(time.RFC3339Nano, summary.LastOpenedAt); err != nil {
-		return fmt.Errorf("malformed app state %s: recent workspace lastOpenedAt must be RFC3339: %w", statePath, err)
+		return corruptStateError(statePath, fmt.Errorf("recent workspace lastOpenedAt must be RFC3339: %w", err))
 	}
 	return nil
+}
+
+func corruptStateError(path string, err error) error {
+	return &CorruptStateError{Path: path, Err: err}
+}
+
+func corruptStateErrorf(path string, format string, args ...any) error {
+	return corruptStateError(path, fmt.Errorf(format, args...))
 }

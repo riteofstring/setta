@@ -348,6 +348,7 @@ func eventTestMessage(id string, ordinal int) ChatMessage {
 			Text:   "hello",
 			Type:   MessagePartText,
 		}},
+		Delivery:      MessageDeliveryNormal,
 		Role:          RoleUser,
 		RunID:         "",
 		SchemaVersion: SchemaVersion,
