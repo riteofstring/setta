@@ -1,7 +1,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { WorkspacePanePanel, WorkspacePanel } from "./App";
+import { WorkspacePanel } from "./App";
 import { ChatModelMenu } from "./components/chat-model-menu";
 import { ChatPermissionsMenu } from "./components/chat-permissions-menu";
 import { ChatPlusMenu } from "./components/chat-plus-menu";
@@ -9,6 +9,7 @@ import { ChatTranscript } from "./components/chat-transcript";
 import { EditorPicker } from "./components/editor-picker";
 import { SettingsPanel } from "./components/settings-panel";
 import { SlashCommandPalette } from "./components/slash-command-palette";
+import { WorkspacePanePanel } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 
 describe("workspace renderer states", () => {
@@ -197,6 +198,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Canvas");
     expect(html).toContain("Terminal");
     expect(html).toContain("Browser");
+    expect(html).toContain("Diffs");
     expect(html).toContain("Files");
     expect(html).toContain("Settings");
   });
@@ -226,6 +228,7 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="bottom-workspace-pane"');
     expect(html).toContain('data-testid="workspace-pane-tab-terminal_tab"');
+    expect(html).toContain('data-pane-runtime="libghostty"');
     expect(html).toContain("Close Terminal");
     expect(html).toContain("$");
   });
@@ -249,7 +252,35 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain("Canvas");
+    expect(html).toContain('data-pane-runtime="xyflow"');
     expect(html).toContain('data-testid="workspace-pane-tab-canvas_tab"');
+  });
+
+  test("renders future pane runtime boundaries", () => {
+    const renderPane = (id: string, kind: "browser" | "diffs" | "file" | "settings") =>
+      renderToString(
+        <WorkspacePanePanel
+          activeTabId={id}
+          onCloseTab={() => {}}
+          onCreateTab={() => {}}
+          onSelectTab={() => {}}
+          slot="right"
+          tabs={[
+            {
+              id,
+              kind,
+              title: kind,
+            },
+          ]}
+        />,
+      );
+
+    expect(renderPane("browser_tab", "browser")).toContain('data-pane-runtime="chromium-browser"');
+    expect(renderPane("diffs_tab", "diffs")).toContain('data-pane-runtime="pierre-diffs"');
+    expect(renderPane("files_tab", "file")).toContain('data-pane-runtime="pierre-trees"');
+    expect(renderPane("settings_tab", "settings")).toContain(
+      'data-pane-runtime="renderer-settings"',
+    );
   });
 });
 
