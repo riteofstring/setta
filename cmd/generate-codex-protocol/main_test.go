@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -35,6 +33,41 @@ func TestMembersFromRootDiscoversMethodsAndParams(t *testing.T) {
 	}
 	if members[1].Method != "thread/goal/set" || members[1].ConstName != "ThreadGoalSet" || members[1].ParamsName != "ThreadGoalSetParams" {
 		t.Fatalf("second member = %+v, want thread/goal/set", members[1])
+	}
+}
+
+func TestRustStructSchemaDiscoversThreadSettingsUpdateParams(t *testing.T) {
+	source := `
+pub struct ThreadSettingsUpdateParams {
+    pub thread_id: String,
+    #[ts(optional = nullable)]
+    pub model: Option<String>,
+    #[ts(optional = nullable)]
+    pub effort: Option<ReasoningEffort>,
+    #[ts(optional = nullable)]
+    pub nested_effort: Option<Option<ReasoningEffort>>,
+}
+`
+
+	generator := testGeneratorWithRootSchemas("ReasoningEffort")
+	schema, ok, err := generator.rustStructSchema(source, "ThreadSettingsUpdateParams")
+	if err != nil {
+		t.Fatalf("rust struct schema: %v", err)
+	}
+	if !ok {
+		t.Fatal("ThreadSettingsUpdateParams was not discovered")
+	}
+	if !contains(schema.Required, "threadId") {
+		t.Fatalf("required = %+v, want threadId", schema.Required)
+	}
+	if schema.Properties["model"].Type == nil {
+		t.Fatalf("model schema = %+v, want nullable string", schema.Properties["model"])
+	}
+	if schema.Properties["effort"].AnyOf[0].Ref != "#/definitions/ReasoningEffort" {
+		t.Fatalf("effort schema = %+v, want ReasoningEffort ref", schema.Properties["effort"])
+	}
+	if schema.Properties["nestedEffort"].AnyOf[0].Ref != "#/definitions/ReasoningEffort" {
+		t.Fatalf("nestedEffort schema = %+v, want ReasoningEffort ref", schema.Properties["nestedEffort"])
 	}
 }
 
@@ -75,123 +108,40 @@ func TestAddRootSchemaRejectsConflictingDuplicateName(t *testing.T) {
 	}
 }
 
-func TestSupportedProtocolRegistrationAddsStructuredExperimentalClientMethod(t *testing.T) {
-	generator := testProtocolGenerator(t)
-	input := supportedProtocolInput{
-		ClientMethods: []supportedClientMethod{
-			{Method: "thread/start"},
-			{
-				Method:     "thread/settings/update",
-				ParamsName: "ThreadSettingsUpdateParams",
-				Source:     "checked experimental fixture",
-			},
-		},
-		Notifications:            []string{"thread/started"},
-		ServerRequests:           []string{"item/tool/call"},
-		UnsupportedNotifications: []string{"thread/compacted"},
-		Schemas:                  []string{"ExplicitFixture"},
-	}
-
-	if err := generator.applySupportedProtocol(input); err != nil {
-		t.Fatalf("apply supported protocol: %v", err)
-	}
-	if err := generator.collectSchemasFromSupported(input); err != nil {
-		t.Fatalf("collect schemas: %v", err)
-	}
-
-	if _, ok := membersByMethod(generator.clientMethods)["thread/settings/update"]; !ok {
-		t.Fatal("experimental method was not added to generated client methods")
-	}
-	if _, ok := generator.schemas["ThreadSettingsUpdateParams"]; !ok {
-		t.Fatal("ThreadSettingsUpdateParams schema was not collected")
-	}
-	if _, ok := generator.schemas["ExplicitFixture"]; !ok {
-		t.Fatal("explicit schema registration was not collected")
-	}
+func TestRustStructSchemaRejectsUnsupportedFieldType(t *testing.T) {
+	source := `
+pub struct ThreadSettingsUpdateParams {
+    pub thread_id: String,
+    pub unsupported: Option<UnexpectedType>,
 }
+`
 
-func TestSupportedProtocolRegistrationRejectsMissingMethod(t *testing.T) {
-	generator := testProtocolGenerator(t)
-	input := supportedProtocolInput{
-		Notifications: []string{"thread/missing"},
-	}
-
-	err := generator.applySupportedProtocol(input)
+	generator := testGeneratorWithRootSchemas("ReasoningEffort")
+	_, ok, err := generator.rustStructSchema(source, "ThreadSettingsUpdateParams")
 	if err == nil {
-		t.Fatal("apply supported protocol succeeded, want missing method error")
+		t.Fatal("rust struct schema succeeded, want unsupported field error")
 	}
-	if !strings.Contains(err.Error(), "notification thread/missing is missing from the structured protocol snapshot") {
-		t.Fatalf("error = %q, want missing notification", err)
+	if !ok {
+		t.Fatal("ThreadSettingsUpdateParams was not reported as discovered")
 	}
-}
-
-func TestSupportedProtocolRegistrationRejectsMissingSchema(t *testing.T) {
-	generator := testProtocolGenerator(t)
-	input := supportedProtocolInput{
-		Schemas: []string{"MissingFixture"},
-	}
-
-	err := generator.collectSchemasFromSupported(input)
-	if err == nil {
-		t.Fatal("collect schemas succeeded, want missing schema error")
-	}
-	if !strings.Contains(err.Error(), "supported schema MissingFixture: schema MissingFixture was not found in JSON snapshot") {
-		t.Fatalf("error = %q, want missing schema", err)
+	if !strings.Contains(err.Error(), "ThreadSettingsUpdateParams.unsupported has unsupported Rust field type Option<UnexpectedType>") {
+		t.Fatalf("error = %q, want unsupported field type", err)
 	}
 }
 
-func TestSupportedProtocolRegistrationRejectsSupportedDeprecatedNotification(t *testing.T) {
-	generator := testProtocolGenerator(t)
-	input := supportedProtocolInput{
-		Notifications:            []string{"thread/compacted"},
-		UnsupportedNotifications: []string{"thread/compacted"},
+func testGeneratorWithRootSchemas(names ...string) *generator {
+	rootSchemas := map[string]jsonSchema{}
+	for _, name := range names {
+		rootSchemas[name] = jsonSchema{Type: "string"}
 	}
-
-	err := generator.applySupportedProtocol(input)
-	if err == nil {
-		t.Fatal("apply supported protocol succeeded, want supported deprecated conflict")
-	}
-	if !strings.Contains(err.Error(), "notification thread/compacted cannot be both supported and unsupported") {
-		t.Fatalf("error = %q, want supported/unsupported conflict", err)
-	}
+	return &generator{rootSchemas: rootSchemas}
 }
 
-func testProtocolGenerator(t *testing.T) *generator {
-	t.Helper()
-
-	schemaDir := t.TempDir()
-	v2Dir := filepath.Join(schemaDir, "v2")
-	if err := os.MkdirAll(v2Dir, 0o755); err != nil {
-		t.Fatalf("create schema dir: %v", err)
-	}
-	for name, body := range map[string]string{
-		"ExplicitFixture":            `{"title":"ExplicitFixture","type":"object","properties":{"value":{"type":"string"}}}`,
-		"ThreadStartedNotification":  `{"title":"ThreadStartedNotification","type":"object","properties":{"threadId":{"type":"string"}}}`,
-		"ThreadSettingsUpdateParams": `{"title":"ThreadSettingsUpdateParams","type":"object","properties":{"threadId":{"type":"string"},"model":{"type":["string","null"]}},"required":["threadId"]}`,
-		"ToolCallRequest":            `{"title":"ToolCallRequest","type":"object","properties":{"itemId":{"type":"string"}}}`,
-	} {
-		if err := os.WriteFile(filepath.Join(v2Dir, name+".json"), []byte(body), 0o644); err != nil {
-			t.Fatalf("write schema %s: %v", name, err)
+func contains(values []string, value string) bool {
+	for _, candidate := range values {
+		if candidate == value {
+			return true
 		}
 	}
-	return &generator{
-		schemaDir: schemaDir,
-		rootSchemas: map[string]jsonSchema{
-			"ThreadStartParams": {Type: "object"},
-		},
-		rootSchemaRaw: map[string]string{},
-		clientMethods: []protocolMember{
-			{Method: "thread/start", ConstName: "ThreadStart", ParamsName: "ThreadStartParams", Source: "json"},
-		},
-		notifications: []protocolMember{
-			{Method: "thread/compacted", ConstName: "ThreadCompacted", ParamsName: "ThreadCompactedNotification", Source: "json"},
-			{Method: "thread/started", ConstName: "ThreadStarted", ParamsName: "ThreadStartedNotification", Source: "json"},
-		},
-		serverRequests: []protocolMember{
-			{Method: "item/tool/call", ConstName: "ItemToolCall", ParamsName: "ToolCallRequest", Source: "json"},
-		},
-		schemas:   map[string]jsonSchema{},
-		schemaRaw: map[string]string{},
-		queue:     []string{},
-	}
+	return false
 }
