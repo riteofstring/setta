@@ -25,18 +25,22 @@ import {
   type SidebarSectionId,
   type SidebarSectionState,
 } from "./sidebar-accordion";
+import {
+  selectSidebarNavigationItems,
+  type SidebarNavigationCommand,
+  type SidebarNavigationItem,
+} from "./workspace-sidebar-model";
 import { ConversationRow } from "./workspace-sidebar-conversation-row";
 import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
 import { ProjectFolderButton, SidebarIconButton } from "./sidebar-header-actions";
 import { SidebarShortcuts } from "./sidebar-shortcuts";
 
-const activeWorkspaceRowHeight = 28;
-const recentWorkspaceRowHeight = 28;
 const chatHistoryLimit = 80;
-const directProjectRenderLimit = 120;
 const projectMenuHeight = 200;
 const projectMenuInset = 8;
 const projectMenuWidth = 224;
+const sidebarNavigationMaxHeight = 360;
+const sidebarNavigationRowHeight = 28;
 const workspaceListOverscan = 6;
 
 interface WorkspaceSidebarProps {
@@ -52,6 +56,7 @@ interface WorkspaceSidebarProps {
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   diagnostics: Diagnostic[];
   openLocalFolder: () => Promise<void>;
+  openWorkspacePath: (rootPath: string) => Promise<void>;
   openSettingsPane: () => void;
   recentWorkspaces: WorkspaceSummary[];
   removeRecent: (id: string) => Promise<void>;
@@ -60,7 +65,6 @@ interface WorkspaceSidebarProps {
   selectedConversationId: string;
   selectedWorkspaceId: string;
   sidebarWidth?: number;
-  unreadConversationIds: Record<string, true>;
 }
 
 interface VirtualRange {
@@ -69,9 +73,8 @@ interface VirtualRange {
 }
 
 interface VirtualWorkspaceListProps {
-  itemTestId: string;
-  items: WorkspaceSummary[];
-  renderItem: (workspace: WorkspaceSummary) => ReactNode;
+  items: SidebarNavigationItem[];
+  renderItem: (item: SidebarNavigationItem) => ReactNode;
   rowHeight: number;
   testId: string;
 }
@@ -89,6 +92,7 @@ export function WorkspaceSidebar({
   createWorkspaceConversation,
   diagnostics,
   openLocalFolder,
+  openWorkspacePath,
   openSettingsPane,
   recentWorkspaces,
   removeRecent,
@@ -97,7 +101,6 @@ export function WorkspaceSidebar({
   selectedConversationId,
   selectedWorkspaceId,
   sidebarWidth = 220,
-  unreadConversationIds,
 }: WorkspaceSidebarProps) {
   const [expandedWorkspaceId, setExpandedWorkspaceId] = useState(selectedWorkspaceId);
   const activeWorkspaceIds = useMemo(
@@ -176,7 +179,7 @@ export function WorkspaceSidebar({
               <EmptySectionSpace />
             ) : (
               <>
-                <ProjectList
+                <ProjectNavigationList
                   activeRun={activeRun}
                   busy={busy}
                   chatBusy={chatBusy}
@@ -186,18 +189,15 @@ export function WorkspaceSidebar({
                   createWorkspaceConversation={createWorkspaceConversation}
                   diagnostics={diagnostics}
                   expandedWorkspaceId={expandedWorkspaceId}
+                  openWorkspacePath={openWorkspacePath}
+                  recentWorkspaces={recentWorkspaces}
+                  removeRecent={removeRecent}
                   selectConversation={selectConversation}
                   selectWorkspace={selectWorkspace}
                   selectedConversationId={selectedConversationId}
                   selectedWorkspaceId={selectedWorkspaceId}
                   setExpandedWorkspaceId={setExpandedWorkspaceId}
-                  unreadConversationIds={unreadConversationIds}
-                  workspaces={activeWorkspaces}
-                />
-                <RecentProjectList
-                  busy={busy}
-                  recentWorkspaces={inactiveRecentWorkspaces}
-                  removeRecent={removeRecent}
+                  activeWorkspaces={activeWorkspaces}
                 />
               </>
             )}
@@ -215,8 +215,9 @@ function chromeInsetClass(enabled: boolean) {
   return enabled ? "pt-10" : "";
 }
 
-function ProjectList({
+function ProjectNavigationList({
   activeRun,
+  activeWorkspaces,
   busy,
   chatBusy,
   closeWorkspace,
@@ -225,15 +226,17 @@ function ProjectList({
   createWorkspaceConversation,
   diagnostics,
   expandedWorkspaceId,
+  openWorkspacePath,
+  recentWorkspaces,
+  removeRecent,
   selectConversation,
   selectWorkspace,
   selectedConversationId,
   selectedWorkspaceId,
   setExpandedWorkspaceId,
-  unreadConversationIds,
-  workspaces,
 }: {
   activeRun: Run | null;
+  activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
   chatBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
@@ -242,186 +245,275 @@ function ProjectList({
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   diagnostics: Diagnostic[];
   expandedWorkspaceId: string;
+  openWorkspacePath: (rootPath: string) => Promise<void>;
+  recentWorkspaces: WorkspaceSummary[];
+  removeRecent: (id: string) => Promise<void>;
   selectConversation: (conversationId: string) => Promise<void>;
   selectWorkspace: (id: string) => Promise<void>;
   selectedConversationId: string;
   selectedWorkspaceId: string;
   setExpandedWorkspaceId: (next: string) => void;
-  unreadConversationIds: Record<string, true>;
-  workspaces: WorkspaceSummary[];
 }) {
-  if (workspaces.length === 0) {
+  const [visibleConversationLimit, setVisibleConversationLimit] = useState(chatHistoryLimit);
+  const items = useMemo(
+    () =>
+      selectSidebarNavigationItems({
+        activeWorkspaces,
+        conversations,
+        expandedWorkspaceId,
+        recentWorkspaces,
+        selectedConversationId,
+        selectedWorkspaceId,
+        visibleConversationLimit,
+      }),
+    [
+      activeWorkspaces,
+      conversations,
+      expandedWorkspaceId,
+      recentWorkspaces,
+      selectedConversationId,
+      selectedWorkspaceId,
+      visibleConversationLimit,
+    ],
+  );
+  const corruptionLabelsByConversationId = useMemo(
+    () => conversationCorruptionLabels(diagnostics),
+    [diagnostics],
+  );
+
+  if (items.length === 0) {
     return null;
   }
 
-  const renderProject = (workspace: WorkspaceSummary, allowProjectChats: boolean) => {
-    const workspaceSelected = workspace.id === selectedWorkspaceId;
-    return (
-      <ProjectRow
-        activeRun={activeRun}
-        allowProjectChats={allowProjectChats}
-        busy={busy}
-        chatBusy={chatBusy}
-        closeWorkspace={closeWorkspace}
-        conversations={conversations}
-        corruption={workspaceSelected ? corruption : null}
-        createWorkspaceConversation={createWorkspaceConversation}
-        diagnostics={diagnostics}
-        expanded={expandedWorkspaceId === workspace.id}
-        selectConversation={selectConversation}
-        selectWorkspace={selectWorkspace}
-        selected={workspaceSelected}
-        selectedConversationId={selectedConversationId}
-        setExpandedWorkspaceId={setExpandedWorkspaceId}
-        unreadConversationIds={unreadConversationIds}
-        workspace={workspace}
-      />
-    );
-  };
+  async function runCommand(command: SidebarNavigationCommand) {
+    switch (command.type) {
+      case "activateWorkspace":
+        await runActivateWorkspaceCommand(command);
+        return;
+      case "createWorkspaceConversation":
+        await runCreateWorkspaceConversationCommand(command);
+        return;
+      default:
+        await runBasicNavigationCommand(command);
+    }
+  }
 
-  if (workspaces.length > directProjectRenderLimit) {
-    return (
-      <div
-        className="h-52 overflow-hidden"
-        aria-label="Projects"
-        data-testid="active-workspace-list"
+  async function runActivateWorkspaceCommand(
+    command: Extract<SidebarNavigationCommand, { type: "activateWorkspace" }>,
+  ) {
+    setExpandedWorkspaceId(command.nextExpandedWorkspaceId);
+    if (command.selectWorkspace) {
+      await selectWorkspace(command.workspaceId);
+    }
+  }
+
+  async function runCreateWorkspaceConversationCommand(
+    command: Extract<SidebarNavigationCommand, { type: "createWorkspaceConversation" }>,
+  ) {
+    setExpandedWorkspaceId(command.workspaceId);
+    if (command.workspaceId !== selectedWorkspaceId) {
+      await selectWorkspace(command.workspaceId);
+    }
+    await createWorkspaceConversation(command.workspaceId);
+  }
+
+  async function runBasicNavigationCommand(
+    command: Exclude<
+      SidebarNavigationCommand,
+      Extract<
+        SidebarNavigationCommand,
+        { type: "activateWorkspace" | "createWorkspaceConversation" }
       >
-        <VirtualWorkspaceList
-          itemTestId="active-workspace-item"
-          items={workspaces}
-          renderItem={(workspace) => renderProject(workspace, false)}
-          rowHeight={activeWorkspaceRowHeight}
-          testId="active-workspace-list-virtual"
-        />
-      </div>
-    );
+    >,
+  ) {
+    switch (command.type) {
+      case "closeWorkspace":
+        await closeWorkspace(command.workspaceId);
+        return;
+      case "openRecentWorkspace":
+        await openWorkspacePath(command.rootPath);
+        return;
+      case "removeRecentWorkspace":
+        await removeRecent(command.workspaceId);
+        return;
+      case "selectConversation":
+        await selectConversation(command.conversationId);
+        return;
+      case "showMoreConversations":
+        setVisibleConversationLimit((current) => current + chatHistoryLimit);
+        return;
+      default:
+        assertNever(command);
+    }
   }
 
   return (
-    <div className="grid" aria-label="Projects" data-testid="active-workspace-list">
-      {workspaces.map((workspace) => (
-        <div data-testid="active-workspace-item" key={workspace.id}>
-          {renderProject(workspace, true)}
-        </div>
-      ))}
+    <div
+      className="min-h-0 overflow-hidden"
+      aria-label="Projects"
+      data-testid="active-workspace-list"
+      style={sidebarNavigationListStyle(items.length)}
+    >
+      <VirtualWorkspaceList
+        items={items}
+        renderItem={(item) => (
+          <SidebarNavigationRow
+            activeRun={activeRun}
+            busy={busy}
+            chatBusy={chatBusy}
+            corruption={corruption}
+            corruptionLabelsByConversationId={corruptionLabelsByConversationId}
+            diagnostics={diagnostics}
+            item={item}
+            runCommand={runCommand}
+          />
+        )}
+        rowHeight={sidebarNavigationRowHeight}
+        testId="sidebar-navigation-list"
+      />
     </div>
   );
 }
 
-function ProjectRow({
+function SidebarNavigationRow({
   activeRun,
-  allowProjectChats,
   busy,
   chatBusy,
-  closeWorkspace,
-  conversations,
   corruption,
-  createWorkspaceConversation,
+  corruptionLabelsByConversationId,
   diagnostics,
-  expanded,
-  selectConversation,
-  selectWorkspace,
-  selected,
-  selectedConversationId,
-  setExpandedWorkspaceId,
-  unreadConversationIds,
-  workspace,
+  item,
+  runCommand,
 }: {
   activeRun: Run | null;
-  allowProjectChats: boolean;
   busy: boolean;
   chatBusy: boolean;
-  closeWorkspace: (id: string) => Promise<void>;
-  conversations: ConversationListItem[];
-  corruption: CorruptionSummary | null;
-  createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  corruption: CorruptionSummary;
+  corruptionLabelsByConversationId: Map<string, string>;
   diagnostics: Diagnostic[];
-  expanded: boolean;
-  selectConversation: (conversationId: string) => Promise<void>;
-  selectWorkspace: (id: string) => Promise<void>;
-  selected: boolean;
-  selectedConversationId: string;
-  setExpandedWorkspaceId: (next: string) => void;
-  unreadConversationIds: Record<string, true>;
-  workspace: WorkspaceSummary;
+  item: SidebarNavigationItem;
+  runCommand: (command: SidebarNavigationCommand) => Promise<void>;
 }) {
-  const hasVisibleChats = allowProjectChats && selected && expanded;
-  const rowBusy = busy || chatBusy;
-
-  async function createProjectConversation() {
-    setExpandedWorkspaceId(workspace.id);
-    if (!selected) {
-      await selectWorkspace(workspace.id);
-    }
-    await createWorkspaceConversation(workspace.id);
-  }
-
-  return (
-    <div className="min-w-0">
-      <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center rounded-sm hover:bg-zinc-800/55">
-        <button
-          className="grid min-w-0 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 px-2 text-left"
-          data-testid="active-workspace-select"
-          disabled={busy}
-          onClick={() => {
-            setExpandedWorkspaceId(expanded ? "" : workspace.id);
-            if (!selected) {
-              void selectWorkspace(workspace.id);
-            }
-          }}
-          title={workspace.rootPath}
-          type="button"
-        >
-          {expanded ? (
-            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
-          ) : (
-            <FolderClosed className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
-          )}
-          <span
-            className={cn(
-              "truncate text-xs",
-              selected ? "font-medium text-zinc-100" : "text-zinc-400",
-            )}
-          >
-            {workspace.displayName}
-          </span>
-        </button>
-        <WorkspaceCorruptionIndicator corruption={corruption} diagnostics={diagnostics} />
-        <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <SidebarIconButton
-            disabled={rowBusy}
-            label={`New chat in ${workspace.displayName}`}
-            onClick={() => void createProjectConversation()}
-          >
-            <MessageSquarePlus className="h-3.5 w-3.5" />
-          </SidebarIconButton>
-          <ProjectMoreMenu busy={busy} closeWorkspace={closeWorkspace} workspace={workspace} />
-        </div>
-      </div>
-      {hasVisibleChats ? (
-        <div className="min-w-0">
-          <ConversationList
+  switch (item.kind) {
+    case "activeWorkspace":
+      return (
+        <ProjectRow
+          busy={busy}
+          chatBusy={chatBusy}
+          corruption={item.selected ? corruption : null}
+          diagnostics={diagnostics}
+          item={item}
+          runCommand={runCommand}
+        />
+      );
+    case "conversation":
+      return (
+        <div className="pl-4">
+          <ConversationRow
             activeRun={activeRun}
             busy={chatBusy}
-            conversations={conversations}
-            diagnostics={diagnostics}
-            selectConversation={selectConversation}
-            selectedConversationId={selectedConversationId}
-            unreadConversationIds={unreadConversationIds}
+            corruptionLabel={
+              corruptionLabelsByConversationId.get(item.conversation.conversation.id) ?? null
+            }
+            item={item.conversation}
+            selectConversation={() => runCommand(item.commands.primary)}
+            selected={item.selected}
+            unread={item.unread}
           />
         </div>
-      ) : null}
+      );
+    case "emptyConversationList":
+      return <div className="h-7 px-6 py-1 text-xs text-zinc-600">{item.label}</div>;
+    case "moreConversations":
+      return (
+        <button
+          className="h-7 w-full rounded-sm px-6 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
+          onClick={() => void runCommand(item.commands.primary)}
+          type="button"
+        >
+          {item.label}
+        </button>
+      );
+    case "recentWorkspace":
+      return <RecentWorkspaceRow busy={busy} item={item} runCommand={runCommand} />;
+    default:
+      return assertNever(item);
+  }
+}
+
+function ProjectRow({
+  busy,
+  chatBusy,
+  corruption,
+  diagnostics,
+  item,
+  runCommand,
+}: {
+  busy: boolean;
+  chatBusy: boolean;
+  corruption: CorruptionSummary | null;
+  diagnostics: Diagnostic[];
+  item: Extract<SidebarNavigationItem, { kind: "activeWorkspace" }>;
+  runCommand: (command: SidebarNavigationCommand) => Promise<void>;
+}) {
+  const rowBusy = busy || chatBusy;
+  const { workspace } = item;
+
+  return (
+    <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center rounded-sm hover:bg-zinc-800/55">
+      <button
+        aria-current={item.selected ? "page" : undefined}
+        aria-expanded={item.expanded}
+        className="grid min-w-0 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 px-2 text-left"
+        data-testid="active-workspace-select"
+        disabled={busy}
+        onClick={() => void runCommand(item.commands.primary)}
+        title={workspace.rootPath}
+        type="button"
+      >
+        {item.expanded ? (
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+        ) : (
+          <FolderClosed className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+        )}
+        <span
+          className={cn(
+            "truncate text-xs",
+            item.selected ? "font-medium text-zinc-100" : "text-zinc-400",
+          )}
+        >
+          {workspace.displayName}
+        </span>
+      </button>
+      <WorkspaceCorruptionIndicator corruption={corruption} diagnostics={diagnostics} />
+      <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <SidebarIconButton
+          disabled={rowBusy}
+          label={`New chat in ${workspace.displayName}`}
+          onClick={() => void runCommand(item.commands.createConversation)}
+        >
+          <MessageSquarePlus className="h-3.5 w-3.5" />
+        </SidebarIconButton>
+        <ProjectMoreMenu
+          busy={busy}
+          closeCommand={item.commands.close}
+          runCommand={runCommand}
+          workspace={workspace}
+        />
+      </div>
     </div>
   );
 }
 
 function ProjectMoreMenu({
   busy,
-  closeWorkspace,
+  closeCommand,
+  runCommand,
   workspace,
 }: {
   busy: boolean;
-  closeWorkspace: (id: string) => Promise<void>;
+  closeCommand: SidebarNavigationCommand;
+  runCommand: (command: SidebarNavigationCommand) => Promise<void>;
   workspace: WorkspaceSummary;
 }) {
   const [open, setOpen] = useState(false);
@@ -511,7 +603,7 @@ function ProjectMoreMenu({
             label="Remove"
             onClick={() => {
               setOpen(false);
-              void closeWorkspace(workspace.id);
+              void runCommand(closeCommand);
             }}
           />
         </div>
@@ -576,73 +668,6 @@ function WorkspaceCorruptionIndicator({
   );
 }
 
-function ConversationList({
-  activeRun,
-  busy,
-  conversations,
-  diagnostics,
-  selectConversation,
-  selectedConversationId,
-  showEmpty = true,
-  unreadConversationIds,
-}: {
-  activeRun: Run | null;
-  busy: boolean;
-  conversations: ConversationListItem[];
-  diagnostics: Diagnostic[];
-  selectConversation: (conversationId: string) => Promise<void>;
-  selectedConversationId: string;
-  showEmpty?: boolean;
-  unreadConversationIds: Record<string, true>;
-}) {
-  const [visibleLimit, setVisibleLimit] = useState(chatHistoryLimit);
-  const selectedIndex = conversations.findIndex(
-    (item) => item.conversation.id === selectedConversationId,
-  );
-  const effectiveLimit =
-    selectedIndex >= visibleLimit
-      ? Math.min(conversations.length, selectedIndex + 1)
-      : visibleLimit;
-  const visibleConversations = useMemo(
-    () => conversations.slice(0, effectiveLimit),
-    [conversations, effectiveLimit],
-  );
-  const corruptionLabelsByConversationId = useMemo(
-    () => conversationCorruptionLabels(diagnostics),
-    [diagnostics],
-  );
-
-  if (visibleConversations.length === 0) {
-    return showEmpty ? <div className="px-2 py-1 text-xs text-zinc-600">No chats</div> : null;
-  }
-
-  return (
-    <div className="grid py-0.5 pr-0.5" data-testid="conversation-list">
-      {visibleConversations.map((item) => (
-        <ConversationRow
-          activeRun={activeRun}
-          busy={busy}
-          corruptionLabel={corruptionLabelsByConversationId.get(item.conversation.id) ?? null}
-          item={item}
-          key={item.conversation.id}
-          selectConversation={selectConversation}
-          selected={item.conversation.id === selectedConversationId}
-          unread={Boolean(unreadConversationIds[item.conversation.id])}
-        />
-      ))}
-      {visibleConversations.length < conversations.length ? (
-        <button
-          className="h-6 rounded-sm px-2 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
-          onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}
-          type="button"
-        >
-          More chats
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 function conversationCorruptionLabels(diagnostics: Diagnostic[]) {
   const diagnosticsByConversationId = new Map<string, Diagnostic[]>();
   for (const diagnostic of diagnostics) {
@@ -679,57 +704,36 @@ function chatStateStatusLabel(count: number, diagnostic: Diagnostic | undefined)
   return `${count} corrupt chat ${noun} detected.${details}`;
 }
 
-function RecentProjectList({
-  busy,
-  recentWorkspaces,
-  removeRecent,
-}: {
-  busy: boolean;
-  recentWorkspaces: WorkspaceSummary[];
-  removeRecent: (id: string) => Promise<void>;
-}) {
-  if (recentWorkspaces.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-2 h-36 min-h-0 overflow-hidden" aria-label="Recent projects">
-      <VirtualWorkspaceList
-        itemTestId="recent-workspace-item"
-        items={recentWorkspaces}
-        renderItem={(workspace) => (
-          <RecentWorkspaceRow busy={busy} removeRecent={removeRecent} workspace={workspace} />
-        )}
-        rowHeight={recentWorkspaceRowHeight}
-        testId="recent-workspace-list"
-      />
-    </div>
-  );
-}
-
 function RecentWorkspaceRow({
   busy,
-  removeRecent,
-  workspace,
+  item,
+  runCommand,
 }: {
   busy: boolean;
-  removeRecent: (id: string) => Promise<void>;
-  workspace: WorkspaceSummary;
+  item: Extract<SidebarNavigationItem, { kind: "recentWorkspace" }>;
+  runCommand: (command: SidebarNavigationCommand) => Promise<void>;
 }) {
+  const { workspace } = item;
   return (
     <div
       className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60"
       title={workspace.rootPath}
     >
-      <div className="flex min-w-0 items-center gap-2 px-2">
+      <button
+        className="flex h-7 min-w-0 items-center gap-2 px-2 text-left"
+        data-testid="recent-workspace-open"
+        disabled={busy}
+        onClick={() => void runCommand(item.commands.primary)}
+        type="button"
+      >
         <Workflow className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
         <span className="truncate text-xs text-zinc-500">{workspace.displayName}</span>
-      </div>
+      </button>
       <SidebarIconButton
-        className="mr-0.5 opacity-0 group-hover:opacity-100"
+        className="mr-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100"
         disabled={busy}
         label="Remove recent workspace"
-        onClick={() => void removeRecent(workspace.id)}
+        onClick={() => void runCommand(item.commands.remove)}
       >
         <Trash2 className="h-3.5 w-3.5" />
       </SidebarIconButton>
@@ -737,13 +741,7 @@ function RecentWorkspaceRow({
   );
 }
 
-function VirtualWorkspaceList({
-  itemTestId,
-  items,
-  renderItem,
-  rowHeight,
-  testId,
-}: VirtualWorkspaceListProps) {
+function VirtualWorkspaceList({ items, renderItem, rowHeight, testId }: VirtualWorkspaceListProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
@@ -780,22 +778,49 @@ function VirtualWorkspaceList({
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
       <ul className="relative" style={virtualListStyle(items.length, rowHeight)}>
-        {visibleItems.map((workspace, offset) => {
+        {visibleItems.map((item, offset) => {
           const index = range.start + offset;
           return (
             <li
               className="absolute left-0 w-full"
-              data-testid={itemTestId}
-              key={workspace.id}
+              data-testid={sidebarItemTestId(item)}
+              key={item.id}
               style={virtualRowStyle(index, rowHeight)}
             >
-              {renderItem(workspace)}
+              {renderItem(item)}
             </li>
           );
         })}
       </ul>
     </div>
   );
+}
+
+function sidebarNavigationListStyle(itemCount: number): CSSProperties {
+  return {
+    height: Math.min(itemCount * sidebarNavigationRowHeight, sidebarNavigationMaxHeight),
+  };
+}
+
+function sidebarItemTestId(item: SidebarNavigationItem) {
+  switch (item.kind) {
+    case "activeWorkspace":
+      return "active-workspace-item";
+    case "conversation":
+      return "conversation-sidebar-item";
+    case "emptyConversationList":
+      return "conversation-empty-item";
+    case "moreConversations":
+      return "conversation-more-item";
+    case "recentWorkspace":
+      return "recent-workspace-item";
+    default:
+      return assertNever(item);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported sidebar navigation item: ${JSON.stringify(value)}`);
 }
 
 function virtualRange({

@@ -513,9 +513,11 @@ type TranscriptTurn struct {
 }
 
 type ConversationListItem struct {
-	Conversation Conversation `json:"conversation"`
-	MessageCount int          `json:"messageCount"`
-	ActiveRunID  string       `json:"activeRunId"`
+	Conversation             Conversation `json:"conversation"`
+	MessageCount             int          `json:"messageCount"`
+	ActiveRunID              string       `json:"activeRunId"`
+	ReadMarker               int          `json:"readMarker"`
+	LatestReadRelevantMarker int          `json:"latestReadRelevantMarker"`
 }
 
 type CorruptStateFinding struct {

@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -229,16 +228,6 @@ type codexCommandThreadSettings struct {
 	Model           string
 	ReasoningEffort ReasoningEffort
 }
-
-type codexThreadSettingsUpdateOutcome string
-
-const (
-	codexThreadSettingsUpdateAcked      codexThreadSettingsUpdateOutcome = "acked"
-	codexThreadSettingsUpdateDowngraded codexThreadSettingsUpdateOutcome = "downgraded"
-	codexThreadSettingsUpdateSkipped    codexThreadSettingsUpdateOutcome = "skipped"
-)
-
-const codexThreadSettingsUpdateDowngradeDiagnostic = "Codex does not support live thread settings updates in this session; Setta will stop retrying that experimental update."
 
 func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
@@ -569,18 +558,13 @@ func (harness *CodexHarness) executeCodexModelSetCommand(ctx context.Context, se
 		Model:           modelID,
 		ReasoningEffort: currentSettings.ReasoningEffort,
 	}
-	outcome, err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
+	if err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
 		Model:    &modelID,
 		ThreadID: threadID,
-	})
-	if err != nil {
+	}); err != nil {
 		return HarnessCommandResult{}, err
 	}
-	result := codexSettingsCommandResult(settings)
-	if outcome == codexThreadSettingsUpdateDowngraded {
-		result.CapabilityDiagnostic = codexThreadSettingsUpdateDowngradeDiagnostic
-	}
-	return result, nil
+	return codexSettingsCommandResult(settings), nil
 }
 
 func (harness *CodexHarness) executeCodexEffortSetCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, effort ReasoningEffort) (HarnessCommandResult, error) {
@@ -598,70 +582,25 @@ func (harness *CodexHarness) executeCodexEffortSetCommand(ctx context.Context, s
 		Model:           currentSettings.Model,
 		ReasoningEffort: effort,
 	}
-	outcome, err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
+	if err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
 		Effort:   &codexEffort,
 		ThreadID: threadID,
-	})
-	if err != nil {
+	}); err != nil {
 		return HarnessCommandResult{}, err
 	}
-	result := codexSettingsCommandResult(settings)
-	if outcome == codexThreadSettingsUpdateDowngraded {
-		result.CapabilityDiagnostic = codexThreadSettingsUpdateDowngradeDiagnostic
-	}
-	return result, nil
+	return codexSettingsCommandResult(settings), nil
 }
 
-func (harness *CodexHarness) callThreadSettingsUpdate(ctx context.Context, session *codexapp.Session, params codexapp.ThreadSettingsUpdateParams) (codexThreadSettingsUpdateOutcome, error) {
-	if !harness.isThreadSettingsUpdateSupported() {
-		return codexThreadSettingsUpdateSkipped, nil
-	}
+func (harness *CodexHarness) callThreadSettingsUpdate(ctx context.Context, session *codexapp.Session, params codexapp.ThreadSettingsUpdateParams) error {
 	_, err := session.Call(ctx, codexapp.CodexMethodThreadSettingsUpdate, params)
 	if err == nil {
-		return codexThreadSettingsUpdateAcked, nil
+		return nil
 	}
-	if isThreadSettingsUpdateUnsupported(err) {
-		harness.disableThreadSettingsUpdate()
-		return codexThreadSettingsUpdateDowngraded, nil
-	}
-	return codexThreadSettingsUpdateSkipped, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
-}
-
-func (harness *CodexHarness) isThreadSettingsUpdateSupported() bool {
-	harness.threadSettingsUpdateMu.Lock()
-	defer harness.threadSettingsUpdateMu.Unlock()
-	return harness.threadSettingsUpdateSupported
-}
-
-func (harness *CodexHarness) disableThreadSettingsUpdate() {
-	harness.threadSettingsUpdateMu.Lock()
-	defer harness.threadSettingsUpdateMu.Unlock()
-	harness.threadSettingsUpdateSupported = false
-}
-
-const (
-	codexJSONRPCErrorInvalidRequest = -32600
-	codexJSONRPCErrorMethodNotFound = -32601
-)
-
-func isThreadSettingsUpdateUnsupported(err error) bool {
-	var rpcErr *codexapp.RPCError
-	if !errors.As(err, &rpcErr) {
-		return false
-	}
-	if rpcErr.Code == codexJSONRPCErrorMethodNotFound {
-		return true
-	}
-	if rpcErr.Code != codexJSONRPCErrorInvalidRequest {
-		return false
-	}
-	switch rpcErr.Message {
-	case "thread/settings/update requires experimentalApi capability",
-		"Invalid request: unknown variant `thread/settings/update`":
-		return true
-	default:
-		return false
-	}
+	return commandError(
+		ChatCommandErrorCodexRPC,
+		"thread/settings/update is required for linked Codex model settings: "+err.Error(),
+		err,
+	)
 }
 
 func codexSettingsCommandResult(settings codexCommandThreadSettings) HarnessCommandResult {

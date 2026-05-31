@@ -7,6 +7,7 @@ import type {
   ChatCommandListResult,
   CodexAccountState,
   Conversation,
+  ConversationListItem,
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ListConversationsResponse,
@@ -44,6 +45,7 @@ export const ipcChannels = {
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
+  chatMarkConversationRead: "chat:mark-conversation-read",
   chatMessagePage: "chat:message-page",
   chatQueueMessage: "chat:queue-message",
   chatRemoveQueuedMessage: "chat:remove-queued-message",
@@ -62,6 +64,7 @@ export const ipcChannels = {
   codexAccountStartLogin: "codex-account:start-login",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
+  workspaceOpenPath: "workspace:open-path",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
   workspaceSelect: "workspace:select",
@@ -141,6 +144,10 @@ interface IpcContract {
     args: [workspaceId: string, conversationId: string];
     result: ChatCommandListResult;
   };
+  chatMarkConversationRead: {
+    args: [workspaceId: string, conversationId: string];
+    result: ConversationListItem;
+  };
   chatMessagePage: {
     args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
     result: MessagePage;
@@ -210,6 +217,10 @@ interface IpcContract {
   workspaceOpenLocalFolder: {
     args: [];
     result: OpenWorkspaceResponse | null;
+  };
+  workspaceOpenPath: {
+    args: [rootPath: string];
+    result: OpenWorkspaceResponse;
   };
   workspaceRemoveRecent: {
     args: [id: string];

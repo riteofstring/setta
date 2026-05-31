@@ -71,14 +71,10 @@ export async function runLiveCodexWorkflow(results, deps) {
       liveGoalPrompt,
       null,
     );
-    await waitForRunStatus(
-      backend,
-      workspaceId,
-      conversationId,
-      goalRun.id,
-      "completed",
-      liveWorkflowTimeoutMs,
-    );
+    await waitForRunStatus(backend, workspaceId, conversationId, goalRun.id, {
+      status: "completed",
+      timeoutMs: liveWorkflowTimeoutMs,
+    });
     await assertAssistantCompleted(backend, workspaceId, conversationId, goalRun.id);
     await waitForGoalStatus(
       backend,
@@ -111,14 +107,10 @@ export async function runLiveCodexWorkflow(results, deps) {
       "Reply with one short sentence containing the exact phrase setta live electron smoke.",
       null,
     );
-    await waitForRunStatus(
-      backend,
-      workspaceId,
-      conversationId,
-      run.id,
-      "completed",
-      liveWorkflowTimeoutMs,
-    );
+    await waitForRunStatus(backend, workspaceId, conversationId, run.id, {
+      status: "completed",
+      timeoutMs: liveWorkflowTimeoutMs,
+    });
     await assertNoActiveRun(backend, workspaceId, conversationId);
     await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
     await waitForAssistantTextRendered(context.client, liveWorkflowTimeoutMs);

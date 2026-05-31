@@ -466,6 +466,32 @@ describe("chat store", () => {
     });
   });
 
+  test("marks the selected conversation read with the backend summary", async () => {
+    const conversation = testConversation();
+    const readConversation = { ...conversation, updatedAt: "2026-05-29T20:00:01Z" };
+    const markConversationRead = vi
+      .fn()
+      .mockResolvedValue(
+        conversationItem(readConversation, 2, "", { latestReadRelevantMarker: 3, readMarker: 3 }),
+      );
+    installSettaAPI({ chat: { markConversationRead } });
+    useChatStore.setState({
+      conversations: [
+        conversationItem(conversation, 2, "", { latestReadRelevantMarker: 3, readMarker: 1 }),
+      ],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().markConversationRead(conversation.id);
+
+    expect(markConversationRead).toHaveBeenCalledWith("workspace_api", conversation.id);
+    expect(useChatStore.getState().conversations[0]?.readMarker).toBe(3);
+    expect(useChatStore.getState().conversations[0]?.latestReadRelevantMarker).toBe(3);
+    expect(useChatStore.getState().selectedConversation?.updatedAt).toBe("2026-05-29T20:00:01Z");
+  });
+
   test("prepends older pages without duplicating messages already visible", () => {
     const currentLatest = message("message_latest", 2, "assistant", "streaming", "latest");
     const staleLatest = replaceMessageText(currentLatest, "stale latest");
@@ -901,6 +927,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         ],
       }),
       listConversations: async () => listResponse([]),
+      markConversationRead: async () => conversationItem(conversation, 0),
       messagePage: async () => testPage(conversation, []),
       onEvent: () => () => {},
       queueMessage: async () => ({
@@ -974,6 +1001,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     workspace: {
       close: async () => workspaceSession(),
       openLocalFolder: async () => ({
+        session: workspaceSession(),
+        workspace: workspaceSummary(),
+      }),
+      openPath: async () => ({
         session: workspaceSession(),
         workspace: workspaceSummary(),
       }),
@@ -1213,11 +1244,17 @@ function conversationItem(
   conversation: Conversation,
   messageCount: number,
   activeRunId = "",
+  markers: { latestReadRelevantMarker: number; readMarker: number } = {
+    latestReadRelevantMarker: 0,
+    readMarker: 0,
+  },
 ): ConversationListItem {
   return {
     activeRunId,
     conversation,
+    latestReadRelevantMarker: markers.latestReadRelevantMarker,
     messageCount,
+    readMarker: markers.readMarker,
   };
 }
 
@@ -1364,7 +1401,6 @@ function transcriptTurn(run: Run, assistantMessage: ChatMessage): TranscriptTurn
     triggerMessage,
   };
 }
-
 function runItem(id: string, type: RunItemType, status: RunItemStatus): RunItem {
   return {
     command: "go test ./...",
@@ -1402,7 +1438,6 @@ function runItem(id: string, type: RunItemType, status: RunItemStatus): RunItem 
     workspaceId: "workspace_api",
   };
 }
-
 function runItemOutput(
   id: string,
   runItemId: string,
@@ -1419,13 +1454,11 @@ function runItemOutput(
     text,
   };
 }
-
 interface Deferred<T> {
   promise: Promise<T>;
   reject: (error: Error) => void;
   resolve: (value: T) => void;
 }
-
 function deferred<T>(): Deferred<T> {
   let resolve: Deferred<T>["resolve"] | null = null;
   let reject: Deferred<T>["reject"] | null = null;
@@ -1438,7 +1471,6 @@ function deferred<T>(): Deferred<T> {
   }
   return { promise, reject, resolve };
 }
-
 function workspaceSession(): WorkspaceSession {
   return {
     activeWorkspaces: [workspaceSummary()],

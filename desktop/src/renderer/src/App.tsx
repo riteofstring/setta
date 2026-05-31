@@ -473,6 +473,7 @@ function ProjectPane({
           createWorkspaceConversation={chat.createWorkspaceConversation}
           diagnostics={chat.diagnostics}
           openLocalFolder={workspace.openLocalFolder}
+          openWorkspacePath={workspace.openWorkspacePath}
           openSettingsPane={openSettingsPane}
           recentWorkspaces={workspace.recentWorkspaces}
           removeRecent={workspace.removeRecent}
@@ -482,7 +483,6 @@ function ProjectPane({
           selectedWorkspaceId={workspace.selectedWorkspaceId}
           chromeInsetTop={chromeInsetTop}
           sidebarWidth={width}
-          unreadConversationIds={chat.unreadConversationIds}
         />
       </div>
     </ResizablePane>
@@ -808,6 +808,7 @@ function useWorkspaceViewState() {
   const error = useWorkspaceStore((state) => state.error);
   const loadSession = useWorkspaceStore((state) => state.loadSession);
   const openLocalFolder = useWorkspaceStore((state) => state.openLocalFolder);
+  const openWorkspacePath = useWorkspaceStore((state) => state.openWorkspacePath);
   const operation = useWorkspaceStore((state) => state.operation);
   const removeRecent = useWorkspaceStore((state) => state.removeRecent);
   const selectWorkspace = useWorkspaceStore((state) => state.selectWorkspace);
@@ -825,6 +826,7 @@ function useWorkspaceViewState() {
     closeWorkspace,
     error,
     openLocalFolder,
+    openWorkspacePath,
     operation,
     recentWorkspaces: session?.recentWorkspaces ?? [],
     removeRecent,

@@ -33,6 +33,7 @@ describe("workspace renderer states", () => {
           createWorkspaceConversation={async () => {}}
           diagnostics={[]}
           openLocalFolder={async () => {}}
+          openWorkspacePath={async () => {}}
           openSettingsPane={() => {}}
           recentWorkspaces={[]}
           removeRecent={async () => {}}
@@ -40,7 +41,6 @@ describe("workspace renderer states", () => {
           selectWorkspace={async () => {}}
           selectedConversationId=""
           selectedWorkspaceId=""
-          unreadConversationIds={{}}
         />
         <WorkspacePanel
           error={null}
@@ -91,6 +91,7 @@ describe("workspace renderer states", () => {
           createWorkspaceConversation={async () => {}}
           diagnostics={[]}
           openLocalFolder={async () => {}}
+          openWorkspacePath={async () => {}}
           openSettingsPane={() => {}}
           recentWorkspaces={[web, api]}
           removeRecent={async () => {}}
@@ -98,7 +99,6 @@ describe("workspace renderer states", () => {
           selectWorkspace={async () => {}}
           selectedConversationId=""
           selectedWorkspaceId="workspace_web"
-          unreadConversationIds={{}}
         />
         <WorkspacePanel
           error={null}
@@ -148,6 +148,7 @@ describe("workspace renderer states", () => {
         createWorkspaceConversation={async () => {}}
         diagnostics={[criticalDiagnostic("conversation_web")]}
         openLocalFolder={async () => {}}
+        openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={[]}
         removeRecent={async () => {}}
@@ -155,7 +156,6 @@ describe("workspace renderer states", () => {
         selectWorkspace={async () => {}}
         selectedConversationId="conversation_web"
         selectedWorkspaceId="workspace_web"
-        unreadConversationIds={{}}
       />,
     );
 
@@ -200,25 +200,26 @@ describe("workspace renderer states", () => {
         busy={false}
         chatBusy={false}
         closeWorkspace={async () => {}}
-        conversations={[]}
+        conversations={[conversationListItem("conversation_workspace_0", "Large workspace chat")]}
         corruption={emptyCorruption()}
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
         diagnostics={[]}
         openLocalFolder={async () => {}}
+        openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={workspaces}
         removeRecent={async () => {}}
         selectConversation={async () => {}}
         selectWorkspace={async () => {}}
-        selectedConversationId=""
+        selectedConversationId="conversation_workspace_0"
         selectedWorkspaceId="workspace_0"
-        unreadConversationIds={{}}
       />,
     );
 
     expect(rowCount(html, "active-workspace-item")).toBeLessThan(30);
     expect(rowCount(html, "recent-workspace-item")).toBeLessThan(30);
+    expect(html).toContain("Large workspace chat");
   });
 
   test("renders only production-backed workspace pane and settings surfaces", () => {
@@ -1085,7 +1086,9 @@ function conversationListItem(id: string, title: string): ConversationListItem {
       updatedAt: "2026-05-29T20:00:00Z",
       workspaceId: "workspace_web",
     },
+    latestReadRelevantMarker: 0,
     messageCount: 0,
+    readMarker: 0,
   };
 }
 

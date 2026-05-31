@@ -6,6 +6,7 @@ import type {
   ChatEvent,
   CodexAccountState,
   Conversation,
+  ConversationListItem,
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ListConversationsResponse,
@@ -101,6 +102,7 @@ export interface SettaAPI {
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
+    openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
     select: (id: string) => Promise<WorkspaceSession>;
@@ -134,6 +136,10 @@ export interface SettaAPI {
     ) => Promise<ChatCommandExecuteResult>;
     listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
+    markConversationRead: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ConversationListItem>;
     messagePage: (
       workspaceId: string,
       conversationId: string,

@@ -589,6 +589,8 @@ export interface ConversationListItem {
   conversation: Conversation;
   messageCount: number;
   activeRunId: string;
+  readMarker: number;
+  latestReadRelevantMarker: number;
 }
 
 export interface CorruptionCount {
@@ -626,6 +628,11 @@ export interface ListConversationsResponse {
 export interface CreateConversationRequest {
   workspaceId: string;
   title: string;
+}
+
+export interface MarkConversationReadRequest {
+  workspaceId: string;
+  conversationId: string;
 }
 
 export interface GetMessagePageRequest {
@@ -1428,6 +1435,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/conversations/create",
   },
+  MarkConversationRead: {
+    method: "POST",
+    path: "/chat/conversations/mark-read",
+  },
   GetMessagePage: {
     method: "POST",
     path: "/chat/messages/page",
@@ -1656,11 +1667,13 @@ export function decodeConversation(value: unknown): Conversation {
 
 export function decodeConversationListItem(value: unknown): ConversationListItem {
   const record = assertRecord(value, "ConversationListItem");
-  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId"]);
+  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "readMarker", "latestReadRelevantMarker"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "ConversationListItem")),
     messageCount: decodeInteger(requireField(record, "messageCount", "ConversationListItem"), "ConversationListItem.messageCount"),
     activeRunId: decodeString(requireField(record, "activeRunId", "ConversationListItem"), "ConversationListItem.activeRunId"),
+    readMarker: decodeInteger(requireField(record, "readMarker", "ConversationListItem"), "ConversationListItem.readMarker"),
+    latestReadRelevantMarker: decodeInteger(requireField(record, "latestReadRelevantMarker", "ConversationListItem"), "ConversationListItem.latestReadRelevantMarker"),
   };
 }
 
@@ -1718,6 +1731,15 @@ export function decodeCreateConversationRequest(value: unknown): CreateConversat
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "CreateConversationRequest"), "CreateConversationRequest.workspaceId"),
     title: decodeString(requireField(record, "title", "CreateConversationRequest"), "CreateConversationRequest.title"),
+  };
+}
+
+export function decodeMarkConversationReadRequest(value: unknown): MarkConversationReadRequest {
+  const record = assertRecord(value, "MarkConversationReadRequest");
+  assertKnownFields(record, "MarkConversationReadRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "MarkConversationReadRequest"), "MarkConversationReadRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "MarkConversationReadRequest"), "MarkConversationReadRequest.conversationId"),
   };
 }
 
@@ -2988,6 +3010,7 @@ export interface BackendClient {
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
+  markConversationRead: (request: MarkConversationReadRequest) => Promise<ConversationListItem>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
   queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
@@ -3084,6 +3107,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversation,
       endpoint: backendEndpoints.CreateConversation,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    markConversationRead: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationListItem,
+      endpoint: backendEndpoints.MarkConversationRead,
       fetchImpl,
       requestPayload: request,
     }),

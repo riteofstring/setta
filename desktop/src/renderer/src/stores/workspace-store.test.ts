@@ -73,6 +73,7 @@ describe("workspace store", () => {
 
   test("select close reorder and remove recent replace state from backend responses", async () => {
     const selected = workspaceSession("workspace_api");
+    const opened = workspaceSession("workspace_web");
     const closed = { ...selected, activeWorkspaces: [], selectedWorkspaceId: "" };
     const reordered = {
       ...selected,
@@ -82,6 +83,10 @@ describe("workspace store", () => {
     installSettaAPI({
       workspace: {
         close: vi.fn().mockResolvedValue(closed),
+        openPath: vi.fn().mockResolvedValue({
+          session: opened,
+          workspace: firstWorkspace(opened),
+        }),
         removeRecent: vi.fn().mockResolvedValue(removed),
         reorder: vi.fn().mockResolvedValue(reordered),
         select: vi.fn().mockResolvedValue(selected),
@@ -96,6 +101,9 @@ describe("workspace store", () => {
 
     await useWorkspaceStore.getState().closeWorkspace("workspace_api");
     expect(useWorkspaceStore.getState().session).toEqual(closed);
+
+    await useWorkspaceStore.getState().openWorkspacePath("/tmp/web");
+    expect(useWorkspaceStore.getState().session).toEqual(opened);
 
     await useWorkspaceStore.getState().removeRecent("workspace_api");
     expect(useWorkspaceStore.getState().session).toEqual(removed);
@@ -238,6 +246,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const workspaceAPI: SettaAPI["workspace"] = {
     close: async () => fallbackSession,
     openLocalFolder: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
+    openPath: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
     select: async () => fallbackSession,
@@ -305,6 +314,13 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         conversations: [],
         corruption: emptyCorruption(),
         diagnostics: [],
+      }),
+      markConversationRead: async () => ({
+        activeRunId: "",
+        conversation: emptyConversation(),
+        latestReadRelevantMarker: 0,
+        messageCount: 0,
+        readMarker: 0,
       }),
       messagePage: async () => emptyMessagePage(),
       onEvent: () => () => {},

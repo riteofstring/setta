@@ -71,6 +71,8 @@ const api: SettaAPI = {
     listCommands: (workspaceId: string, conversationId: string) =>
       invoke("chatListCommands", workspaceId, conversationId),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
+    markConversationRead: (workspaceId: string, conversationId: string) =>
+      invoke("chatMarkConversationRead", workspaceId, conversationId),
     messagePage: (
       workspaceId: string,
       conversationId: string,
@@ -117,6 +119,7 @@ const api: SettaAPI = {
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
+    openPath: (rootPath: string) => invoke("workspaceOpenPath", rootPath),
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
     select: (id: string) => invoke("workspaceSelect", id),

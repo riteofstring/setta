@@ -304,6 +304,14 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "workspaceOpenPath",
+    async (_event, rootPath) => {
+      return requireBackendClient().openWorkspace({ rootPath });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workspaceClose",
     async (_event, id) => {
       return requireBackendClient().closeWorkspace({ id });
@@ -339,6 +347,14 @@ function registerIpc() {
     "chatCreateConversation",
     async (_event, workspaceId, title) => {
       return requireBackendClient().createConversation({ title, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatMarkConversationRead",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().markConversationRead({ conversationId, workspaceId });
     },
     ipcObserver,
   );
