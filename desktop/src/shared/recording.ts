@@ -5,6 +5,7 @@ export type RendererRecordedEvent =
   | RendererKeydownEvent
   | RendererSubmitEvent
   | RendererErrorEvent
+  | RendererLayoutSnapshotEvent
   | RendererUnhandledRejectionEvent;
 
 interface RendererRecordedEventBase {
@@ -52,4 +53,34 @@ interface RendererErrorEvent extends RendererRecordedEventBase {
 interface RendererUnhandledRejectionEvent extends RendererRecordedEventBase {
   reason: string;
   type: "unhandledrejection";
+}
+
+interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
+  activeRunStatus: string;
+  chatDetailPane: RendererRect | null;
+  composer: RendererRect | null;
+  queueSize: number;
+  selectedConversationId: string;
+  transcript: RendererScrollRect | null;
+  trigger: string;
+  type: "layout_snapshot";
+  viewport: {
+    height: number;
+    width: number;
+  };
+  visibleTurnIds: string[];
+}
+
+interface RendererRect {
+  bottom: number;
+  height: number;
+  left: number;
+  right: number;
+  top: number;
+  width: number;
+}
+
+interface RendererScrollRect extends RendererRect {
+  clientHeight: number;
+  scrollHeight: number;
 }

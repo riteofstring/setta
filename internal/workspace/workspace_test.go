@@ -116,6 +116,9 @@ func TestOpenLocalRejectsMalformedMetadata(t *testing.T) {
 	if !strings.Contains(err.Error(), "malformed workspace metadata") {
 		t.Fatalf("error = %q, want malformed metadata", err)
 	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
 }
 
 func TestOpenLocalRejectsTrailingMetadataJSON(t *testing.T) {
@@ -145,6 +148,9 @@ func TestOpenLocalRejectsUnknownMetadataFields(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), `unknown field "extra"`) {
 		t.Fatalf("error = %q, want unknown field", err)
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
 	}
 }
 
