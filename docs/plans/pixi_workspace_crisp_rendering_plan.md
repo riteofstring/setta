@@ -1,7 +1,7 @@
 # Pixi Workspace Crisp Rendering Plan
 
 - **Date:** June 4, 2026
-- **Status:** Phase 1, 2, 3, 4, and 5 implemented; Phase 5.5 planned and implementation-ready; Phase 6 planned and implementation-ready
+- **Status:** Phase 1, 2, 3, 4, 5, and 5.5 implemented; Phase 6 planned and implementation-ready
 - **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
@@ -10,7 +10,7 @@ Make nodes and labels remain crisp during deep zoom while preserving fast pan, z
 
 The original issue was that the workspace zoomed the whole Pixi viewport while node labels were Pixi `Text` objects inside the zoomed world. Each label was rasterized to a texture and then magnified, which made text blur at high zoom and made naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
 
-Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 is a focused UX correction for selected labels at low zoom. Phase 6 adds a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet.
+Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 added compact selected-label sizing at low zoom. Phase 6 adds a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet.
 
 The recommended production direction is:
 
@@ -34,16 +34,16 @@ The current prototype:
 - Validates node-label glyphs before constructing `BitmapText` labels.
 - Syncs label screen positions through `syncAllLabels()` and `syncLabelPosition(nodeId)`.
 - Exposes `labelSyncCount`, `visibleLabelCount`, label kind, label font family, and MSDF distance-field metadata in the debug snapshot.
-- Exposes `labelObjectCount`, `labelVisibilityMode`, and per-label visibility reasons in the debug snapshot.
+- Exposes `labelObjectCount`, `labelVisibilityMode`, per-label visibility reasons, per-label font-size buckets, and `compactSelectedLabelCount` in the debug snapshot.
 - Keeps label objects pooled while using zoom-based label LOD, viewport culling, and deterministic screen-space decluttering to toggle `label.visible`.
 - Creates node bodies, shadows, selection/hover outlines, ports, and grid lines with Pixi `Graphics`.
 - Builds node body, shadow, hover outline, and selected outline graphics from cached Pixi `GraphicsContext` helpers.
 - Toggles prebuilt selection/hover outline visibility instead of clearing and redrawing outline path geometry.
 - Exposes grid, node body, node shadow, node outline, and outline-visibility geometry counters in the debug snapshot.
-- Keeps selected labels visible in low-zoom `selected` mode, but they currently use the normal label font size and can visually dominate shrunken node bodies.
+- Keeps selected labels visible in low-zoom `selected` mode with a compact font-size bucket so they do not visually dominate shrunken node bodies.
 - Still uses O(number of nodes) scans for node hit testing, port hit-test broad-phase, marquee selection, and label visibility candidate discovery.
 - Keeps interaction state in the imperative renderer path, not React state.
-- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, node geometry counters, and unchanged React render count during label sync.
+- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, compact selected-label sizing, node geometry counters, and unchanged React render count during label sync.
 
 This plan should extend the existing renderer/controller path. Do not create a second Pixi implementation or introduce DOM labels for workspace nodes.
 
@@ -444,7 +444,7 @@ Expected result:
 
 ## Phase 5.5: Low-Zoom Selected Label Sizing
 
-Status: Planned; implementation-ready.
+Status: Implemented.
 
 Make selected labels in low-zoom `selected` mode useful without letting a screen-space label visually overpower a shrunken node body.
 
@@ -458,9 +458,9 @@ Scope:
 - Do not move selected labels above or below nodes in this phase.
 - Do not hide selected labels below a lower threshold in this phase. Treat hiding below something like `0.35x` as a future fallback only if compact selected labels still prove too noisy.
 
-Implementation decisions:
+Completed decisions:
 
-- Add a compact selected-label font-size bucket to `desktop/src/renderer/src/components/pixi-workspace-label-font-config.json`, for example:
+- Add a compact selected-label font-size bucket to `desktop/src/renderer/src/components/pixi-workspace-label-font-config.json`:
 
 ```json
 {
@@ -493,10 +493,10 @@ function nodeLabelFontSizeModeFor({
 - Keep selected labels centered on node centers. The selected label should remain attached to the node, just smaller in low-zoom selected mode.
 - In `visible-priority` and `all-visible` modes, selected labels keep the normal label font size.
 
-Implementation tasks:
+Completed work:
 
 - Add the compact selected font-size config field and export.
-- Add label font-size bucket state tracking, such as a `nodeLabelFontSizeModes` map keyed by node ID.
+- Track label font-size buckets in a renderer-owned mode map keyed by node ID.
 - Apply the font-size bucket from the same push-based label visibility path that sets `label.visible` and `visibilityReason`.
 - Add per-label debug metadata:
 
@@ -524,7 +524,7 @@ render: {
   - normal zoom and deep zoom labels report `fontSizeMode: "normal"` and the normal label font size
   - label scale and world scale remain `1`
   - React render count remains stable
-- Add manual screenshot inspection to confirm the low-zoom selected label no longer visually dominates the selected node.
+- Record manual screenshot inspection confirming the low-zoom selected label no longer visually dominates the selected node.
 
 Expected result:
 
@@ -678,7 +678,7 @@ Use this only if:
 
 Phase 5 before/after metrics are recorded in `docs/reports/performance/pixi-workspace-visual-smoke.md` under "Node Geometry Cleanup Update".
 
-Phase 5.5 does not need a new performance baseline, but it does need visual smoke coverage and manual screenshot inspection of low-zoom selected labels.
+Phase 5.5 visual smoke coverage and manual screenshot inspection are recorded in `docs/reports/performance/pixi-workspace-visual-smoke.md` under "Low-Zoom Selected Label Sizing Update".
 
 For Phase 6 specifically, baseline before implementation and append the result to `docs/reports/performance/pixi-workspace-visual-smoke.md`:
 
