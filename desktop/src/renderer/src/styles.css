@@ -199,10 +199,6 @@ select,
   position: absolute;
 }
 
-.niri-workspace-area[data-workspace-mode="workspace"] .niri-stage {
-  inset: 40px 0 0;
-}
-
 .niri-pane-host {
   background: color-mix(in oklch, var(--popover) 86%, var(--background));
   border-radius: 7px;

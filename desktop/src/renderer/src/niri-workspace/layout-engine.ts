@@ -371,7 +371,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   }
 
   private availablePaneHeight(viewportHeight: number): number {
-    return Math.max(1, viewportHeight - this.scene.padding * 2 - 28);
+    return Math.max(1, viewportHeight - this.scene.padding * 2);
   }
 
   private availableWidth(viewportWidth: number): number {
@@ -620,7 +620,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       .filter((pane): pane is NiriPane => pane !== undefined);
     const totalWeight = panes.reduce((total, pane) => total + pane.weight, 0);
     const totalGap = this.scene.rowGap * Math.max(0, panes.length - 1);
-    let y = yOffset + (this.scene.padding + 28) * scale;
+    let y = yOffset + this.scene.padding * scale;
 
     for (const pane of panes) {
       const height = Math.max(42, ((availableHeight - totalGap) * pane.weight) / totalWeight);
@@ -631,6 +631,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
         focused,
         height,
         maximizedViewport,
+        padding: this.scene.padding,
         paneId: pane.paneId,
         x,
         y,
@@ -798,7 +799,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
 
   private planeTopOffsets(viewportHeight: number): Map<number, number> {
     const offsets = new Map<number, number>();
-    const planeHeight = Math.max(1, viewportHeight - this.scene.padding);
+    const planeHeight = Math.max(1, viewportHeight);
     this.planeIndexes().forEach((planeIndex, order) => {
       offsets.set(planeIndex, order * (planeHeight + planeGap));
     });
@@ -819,7 +820,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
 
   private totalUnscaledPlaneHeight(viewportHeight: number): number {
     const planeCount = Math.max(1, this.planeIndexes().length);
-    const planeHeight = Math.max(1, viewportHeight - this.scene.padding);
+    const planeHeight = Math.max(1, viewportHeight);
     return planeCount * planeHeight + Math.max(0, planeCount - 1) * planeGap;
   }
 
@@ -837,7 +838,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
 
   private visiblePlaneIndexes(viewportHeight: number, verticalOffset: number): number[] {
     const planeOffsets = this.planeTopOffsets(viewportHeight);
-    const planeHeight = Math.max(1, viewportHeight - this.scene.padding);
+    const planeHeight = Math.max(1, viewportHeight);
     const overscanPlanes = 1;
     const visibleOrders = new Set<number>();
     const planeIndexes = this.planeIndexes();
@@ -1067,6 +1068,7 @@ function paneFrame({
   focused,
   height,
   maximizedViewport,
+  padding,
   paneId,
   x,
   y,
@@ -1076,6 +1078,7 @@ function paneFrame({
   focused: boolean;
   height: number;
   maximizedViewport: LayoutFrameInput["viewport"] | null;
+  padding: number;
   paneId: PaneId;
   x: number;
   y: number;
@@ -1098,11 +1101,11 @@ function paneFrame({
     };
   }
   return {
-    height: maximizedViewport.height,
+    height: Math.max(1, maximizedViewport.height - padding * 2),
     maximized: true,
-    width: maximizedViewport.width,
-    x: 0,
-    y: 0,
+    width: Math.max(1, maximizedViewport.width - padding * 2),
+    x: padding,
+    y: padding,
     z: 20,
   };
 }

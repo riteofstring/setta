@@ -202,7 +202,7 @@ describe("real niri workspace column sizing", () => {
     const firstRowItem = items.find((item) => item.paneId === "workspace_pane_0");
 
     expect(focusedItem?.focused).toBe(true);
-    expect(focusedItem?.y).toBe(38);
+    expect(focusedItem?.y).toBe(10);
     expect(firstRowItem?.y).toBeLessThan(0);
   });
 
@@ -289,7 +289,7 @@ describe("real niri workspace column sizing", () => {
     expect(items.find((item) => item.paneId === planePaneId)).toMatchObject({
       focused: true,
       x: 10,
-      y: 38,
+      y: 10,
     });
     expect(items.find((item) => item.paneId === "workspace_pane_0")?.y).toBeLessThan(0);
   });
@@ -366,7 +366,7 @@ describe("real niri workspace column sizing", () => {
     expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
   });
 
-  test("renders an active maximized pane as the full viewport without resizing columns", () => {
+  test("renders an active maximized pane as a viewport-sized framed pane without resizing columns", () => {
     const engine = createRealEngine();
     const items = renderFrame(
       engine,
@@ -380,11 +380,11 @@ describe("real niri workspace column sizing", () => {
     const maximizedItem = items.find((item) => item.paneId === "workspace_pane_1");
 
     expect(maximizedItem).toMatchObject({
-      height: viewport.height,
+      height: viewport.height - 20,
       maximized: true,
-      width: 1200,
-      x: 0,
-      y: 0,
+      width: 1180,
+      x: 10,
+      y: 10,
       z: 20,
     });
     expect(engine.toScene().columns.map((column) => column.widthSpec)).toEqual([
@@ -416,7 +416,7 @@ describe("real niri workspace column sizing", () => {
       maximized: false,
       width: 520,
       x: 10,
-      y: 38,
+      y: 10,
     });
     expect(previouslyMaximizedItem?.maximized).toBe(false);
   });
