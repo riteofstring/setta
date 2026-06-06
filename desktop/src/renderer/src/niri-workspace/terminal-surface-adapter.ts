@@ -1,9 +1,35 @@
 import type { FitAddon as XtermFitAddon } from "@xterm/addon-fit";
+import type { SearchAddon as XtermSearchAddon } from "@xterm/addon-search";
 import type { TerminalEvent, TerminalSessionSummary } from "@generated/backend";
 import type { Terminal as XtermTerminal } from "@xterm/xterm";
 import type { BackendProcessStatus } from "@shared/types";
 import "@xterm/xterm/css/xterm.css";
+import "./niri-terminal.css";
 
+import {
+  base64FromBytes,
+  browserClipboard,
+  bytesFromBase64,
+  errorMessage,
+  exitStatusLabel,
+  formatBytes,
+  isTerminalCopyShortcut,
+  isTerminalPasteShortcut,
+  isTerminalSearchShortcut,
+  statusLabel,
+  subscribeTerminalDisplaySettings,
+  terminalSearchOptions,
+} from "./terminal-ergonomics";
+import {
+  readTerminalDisplaySettings,
+  terminalTheme,
+  type TerminalDisplaySettings,
+} from "./terminal-display-settings";
+import {
+  renderXtermContent,
+  type TerminalPasteElements,
+  type TerminalSearchElements,
+} from "./terminal-surface-dom";
 import type {
   FreezeReason,
   NiriPane,
@@ -17,10 +43,11 @@ import type {
 } from "./types";
 
 const maxPendingOutputChunks = 640;
-const maxScrollbackRows = 1200;
 const defaultCols = 80;
 const defaultRows = 24;
 const inputChunkBytes = 64 * 1024;
+const largePasteWarningBytes = 16 * 1024;
+const maxPasteBytes = 1024 * 1024;
 const resizeDebounceMs = 80;
 
 interface Disposable {
@@ -30,6 +57,11 @@ interface Disposable {
 interface PendingTerminalOutput {
   byteCount: number;
   dataBase64: string;
+}
+
+interface PendingPaste {
+  byteCount: number;
+  text: string;
 }
 
 type TerminalStatusEvent = TerminalEvent & {
@@ -51,13 +83,21 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private lostSession = false;
   private pendingResize: { cols: number; rows: number } | null = null;
   private readonly pendingOutput: PendingTerminalOutput[] = [];
+  private pendingPaste: PendingPaste | null = null;
+  private pasteOverlay: TerminalPasteElements | null = null;
   private resizeTimer: number | null = null;
+  private search: TerminalSearchElements | null = null;
+  private searchAddon: XtermSearchAddon | null = null;
+  private searchResultCount = 0;
+  private searchResultIndex = -1;
   private sessionId: string | null = null;
   private sessionStatus = "";
+  private settings: TerminalDisplaySettings = readTerminalDisplaySettings();
   private startPromise: Promise<void> | null = null;
   private status: HTMLElement | null = null;
   private terminal: XtermTerminal | null = null;
   private terminalDisposables: Disposable[] = [];
+  private unsubscribeDisplaySettings: (() => void) | null = null;
   private unsubscribeBackendStatus: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
   private visible = false;
@@ -82,6 +122,21 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.status = content.status;
     this.exitOverlay = content.exitOverlay;
     this.exitOverlayMessage = content.exitOverlayMessage;
+    this.search = content.search;
+    this.pasteOverlay = content.pasteOverlay;
+    content.viewport.addEventListener("copy", (event) => this.handleCopyEvent(event), {
+      capture: true,
+    });
+    content.viewport.addEventListener("paste", (event) => this.handlePasteEvent(event), {
+      capture: true,
+    });
+    content.search.input.addEventListener("input", () => this.findNext(true));
+    content.search.input.addEventListener("keydown", (event) => this.handleSearchKeydown(event));
+    content.search.nextButton.addEventListener("click", () => this.findNext(false));
+    content.search.previousButton.addEventListener("click", () => this.findPrevious());
+    content.search.closeButton.addEventListener("click", () => this.closeSearch());
+    content.pasteOverlay.confirmButton.addEventListener("click", () => this.confirmPendingPaste());
+    content.pasteOverlay.cancelButton.addEventListener("click", () => this.cancelPendingPaste());
     content.restartButton.addEventListener("click", () => this.restartSession());
     content.closeButton.addEventListener("click", () => this.closeExitedSession());
     host.replaceChildren(content.root);
@@ -95,6 +150,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.unsubscribeBackendStatus =
       window.setta?.backend.onProcessStatus((status) => this.handleBackendProcessStatus(status)) ??
       null;
+    this.unsubscribeDisplaySettings = subscribeTerminalDisplaySettings((settings) => {
+      this.applyDisplaySettings(settings);
+    });
     void this.mountTerminal(content.viewport)
       .then(() => {
         this.startSession();
@@ -110,12 +168,17 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.unsubscribeEvents = null;
     this.unsubscribeBackendStatus?.();
     this.unsubscribeBackendStatus = null;
+    this.unsubscribeDisplaySettings?.();
+    this.unsubscribeDisplaySettings = null;
     this.disposeTerminal();
     this.host?.replaceChildren();
     this.host = null;
     this.status = null;
     this.exitOverlay = null;
     this.exitOverlayMessage = null;
+    this.search = null;
+    this.pasteOverlay = null;
+    this.pendingPaste = null;
     this.visible = false;
     this.startPromise = null;
     this.writeStats(0);
@@ -191,40 +254,50 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
 
   private async mountTerminal(viewport: HTMLElement): Promise<void> {
-    const [{ Terminal }, { FitAddon }] = await Promise.all([
+    const [{ Terminal }, { FitAddon }, { SearchAddon }, { WebLinksAddon }] = await Promise.all([
       import("@xterm/xterm"),
       import("@xterm/addon-fit"),
+      import("@xterm/addon-search"),
+      import("@xterm/addon-web-links"),
     ]);
     if (!this.host || this.destroyed || !this.host.contains(viewport)) {
       return;
     }
+    this.settings = readTerminalDisplaySettings();
     const terminal = new Terminal({
       allowProposedApi: false,
       convertEol: true,
       cursorBlink: true,
-      fontFamily:
-        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-      fontSize: 13,
+      fontFamily: this.settings.fontFamily,
+      fontSize: this.settings.fontSize,
       rows: defaultRows,
-      scrollback: maxScrollbackRows,
-      theme: {
-        background: "#09090b",
-        cursor: "#e4e4e7",
-        foreground: "#e4e4e7",
-        selectionBackground: "#3f3f46",
-      },
+      scrollback: this.settings.scrollback,
+      theme: terminalTheme(this.settings.themeId),
     });
     const fitAddon = new FitAddon();
+    const searchAddon = new SearchAddon({ highlightLimit: 1000 });
+    const webLinksAddon = new WebLinksAddon((event, uri) => {
+      this.openExternalUrl(event, uri);
+    });
     terminal.loadAddon(fitAddon);
+    terminal.loadAddon(searchAddon);
+    terminal.loadAddon(webLinksAddon);
+    terminal.attachCustomKeyEventHandler((event) => this.handleTerminalKeyEvent(event));
     terminal.open(viewport);
     this.terminal = terminal;
     this.fitAddon = fitAddon;
+    this.searchAddon = searchAddon;
     this.terminalDisposables = [
       terminal.onData((data) => {
         this.sendInput(data);
       }),
       terminal.onResize(({ cols, rows }) => {
         this.scheduleResize(cols, rows);
+      }),
+      searchAddon.onDidChangeResults((results) => {
+        this.searchResultIndex = results.resultIndex;
+        this.searchResultCount = results.resultCount;
+        this.renderSearchStatus();
       }),
     ];
     this.fitAndResize();
@@ -400,18 +473,272 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.syncHostState();
   }
 
+  private handleTerminalKeyEvent(event: KeyboardEvent): boolean {
+    event.stopPropagation();
+    if (event.type !== "keydown") {
+      return true;
+    }
+    if (isTerminalCopyShortcut(event)) {
+      event.preventDefault();
+      void this.copySelectionToClipboard();
+      return false;
+    }
+    if (isTerminalPasteShortcut(event)) {
+      event.preventDefault();
+      void this.pasteFromClipboard();
+      return false;
+    }
+    if (isTerminalSearchShortcut(event)) {
+      event.preventDefault();
+      this.openSearch();
+      return false;
+    }
+    return true;
+  }
+
+  private handleCopyEvent(event: ClipboardEvent): void {
+    const terminal = this.terminal;
+    if (!terminal?.hasSelection()) {
+      return;
+    }
+    const selection = terminal.getSelection();
+    event.clipboardData?.setData("text/plain", selection);
+    event.preventDefault();
+    terminal.clearSelection();
+    this.showStatus("Copied selection");
+  }
+
+  private handlePasteEvent(event: ClipboardEvent): void {
+    const text = event.clipboardData?.getData("text/plain") ?? "";
+    if (text.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    this.requestPaste(text);
+  }
+
+  private async copySelectionToClipboard(): Promise<void> {
+    const terminal = this.terminal;
+    if (!terminal?.hasSelection()) {
+      return;
+    }
+    const clipboard = browserClipboard();
+    if (!clipboard?.writeText) {
+      this.showStatus("Clipboard write is unavailable.");
+      return;
+    }
+    try {
+      await clipboard.writeText(terminal.getSelection());
+      terminal.clearSelection();
+      this.showStatus("Copied selection");
+    } catch (error) {
+      this.showStatus(`Copy failed: ${errorMessage(error)}`);
+    }
+  }
+
+  private async pasteFromClipboard(): Promise<void> {
+    const clipboard = browserClipboard();
+    if (!clipboard?.readText) {
+      this.showStatus("Clipboard read is unavailable.");
+      return;
+    }
+    try {
+      this.requestPaste(await clipboard.readText());
+    } catch (error) {
+      this.showStatus(`Paste failed: ${errorMessage(error)}`);
+    }
+  }
+
+  private requestPaste(text: string): void {
+    if (text.length === 0) {
+      return;
+    }
+    if (!this.sessionId) {
+      this.showStatus("Terminal session is not ready.");
+      return;
+    }
+    const byteCount = new TextEncoder().encode(text).byteLength;
+    if (byteCount > maxPasteBytes) {
+      this.pendingPaste = null;
+      this.showPasteOverlay(
+        `Paste is ${formatBytes(byteCount)}; limit is ${formatBytes(maxPasteBytes)}.`,
+        false,
+      );
+      this.showStatus("Paste rejected");
+      return;
+    }
+    if (byteCount >= largePasteWarningBytes) {
+      this.pendingPaste = { byteCount, text };
+      this.showPasteOverlay(`Paste ${formatBytes(byteCount)} into terminal?`, true);
+      this.showStatus("Paste waiting for confirmation");
+      return;
+    }
+    this.pasteText(text);
+  }
+
+  private confirmPendingPaste(): void {
+    const pending = this.pendingPaste;
+    if (!pending) {
+      this.hidePasteOverlay();
+      return;
+    }
+    this.pendingPaste = null;
+    this.hidePasteOverlay();
+    this.showStatus(`Pasting ${formatBytes(pending.byteCount)}`);
+    this.pasteText(pending.text);
+  }
+
+  private cancelPendingPaste(): void {
+    this.pendingPaste = null;
+    this.hidePasteOverlay();
+    this.showStatus("Paste cancelled");
+    this.terminal?.focus();
+  }
+
+  private pasteText(text: string): void {
+    const terminal = this.terminal;
+    if (!terminal) {
+      this.sendInput(text);
+      return;
+    }
+    terminal.paste(text);
+    terminal.focus();
+  }
+
   private sendInput(data: string): void {
     if (!this.sessionId) {
       return;
     }
     const bytes = new TextEncoder().encode(data);
-    for (let offset = 0; offset < bytes.length; offset += inputChunkBytes) {
-      const chunk = bytes.slice(offset, offset + inputChunkBytes);
-      void terminalAPI()?.input({
-        dataBase64: base64FromBytes(chunk),
-        sessionId: this.sessionId,
-      });
+    const api = terminalAPI();
+    if (!api) {
+      this.showStatus("Terminal preload API is unavailable.");
+      return;
     }
+    if (bytes.length <= inputChunkBytes) {
+      void api
+        .input({
+          dataBase64: base64FromBytes(bytes),
+          sessionId: this.sessionId,
+        })
+        .catch((error: unknown) => {
+          this.showStatus(`Terminal input failed: ${errorMessage(error)}`);
+        });
+      return;
+    }
+    void this.sendChunkedInput(api, this.sessionId, bytes);
+  }
+
+  private async sendChunkedInput(
+    api: NonNullable<ReturnType<typeof terminalAPI>>,
+    sessionId: string,
+    bytes: Uint8Array,
+  ): Promise<void> {
+    try {
+      for (let offset = 0; offset < bytes.length; offset += inputChunkBytes) {
+        const chunk = bytes.slice(offset, offset + inputChunkBytes);
+        await api.input({
+          dataBase64: base64FromBytes(chunk),
+          sessionId,
+        });
+      }
+    } catch (error) {
+      this.showStatus(`Terminal input failed: ${errorMessage(error)}`);
+    }
+  }
+
+  private openSearch(): void {
+    this.search?.root.removeAttribute("hidden");
+    this.search?.input.focus?.();
+    this.search?.input.select?.();
+    this.findNext(true);
+  }
+
+  private closeSearch(): void {
+    this.search?.root.setAttribute("hidden", "true");
+    this.searchAddon?.clearDecorations();
+    this.searchAddon?.clearActiveDecoration();
+    this.searchResultCount = 0;
+    this.searchResultIndex = -1;
+    this.renderSearchStatus();
+    this.terminal?.focus();
+  }
+
+  private findNext(incremental: boolean): void {
+    const query = this.search?.input.value.trim() ?? "";
+    if (query.length === 0) {
+      this.searchAddon?.clearDecorations();
+      this.searchResultCount = 0;
+      this.searchResultIndex = -1;
+      this.renderSearchStatus();
+      return;
+    }
+    const found = this.searchAddon?.findNext(query, terminalSearchOptions(incremental)) ?? false;
+    if (!found) {
+      this.searchResultCount = 0;
+      this.searchResultIndex = -1;
+      this.renderSearchStatus();
+    }
+  }
+
+  private findPrevious(): void {
+    const query = this.search?.input.value.trim() ?? "";
+    if (query.length === 0) {
+      return;
+    }
+    const found = this.searchAddon?.findPrevious(query, terminalSearchOptions(false)) ?? false;
+    if (!found) {
+      this.searchResultCount = 0;
+      this.searchResultIndex = -1;
+      this.renderSearchStatus();
+    }
+  }
+
+  private handleSearchKeydown(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this.closeSearch();
+      return;
+    }
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (event.shiftKey) {
+      this.findPrevious();
+      return;
+    }
+    this.findNext(false);
+  }
+
+  private renderSearchStatus(): void {
+    if (!this.search) {
+      return;
+    }
+    if (this.searchResultCount <= 0) {
+      this.search.status.textContent =
+        this.search.input.value.trim().length === 0 ? "" : "No matches";
+      return;
+    }
+    if (this.searchResultIndex < 0) {
+      this.search.status.textContent = `${this.searchResultCount} matches`;
+      return;
+    }
+    this.search.status.textContent = `${this.searchResultIndex + 1}/${this.searchResultCount}`;
+  }
+
+  private openExternalUrl(event: MouseEvent, uri: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const api = window.setta?.app;
+    if (!api) {
+      this.showStatus("External URL API is unavailable.");
+      return;
+    }
+    void api.openExternalUrl(uri).catch((error: unknown) => {
+      this.showStatus(`Link blocked: ${errorMessage(error)}`);
+    });
   }
 
   private handleBackendProcessStatus(status: BackendProcessStatus): void {
@@ -428,6 +755,21 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.startPromise = null;
     this.terminal?.clear();
     this.startSession();
+  }
+
+  private applyDisplaySettings(settings: TerminalDisplaySettings): void {
+    this.settings = settings;
+    const terminal = this.terminal;
+    if (!terminal) {
+      return;
+    }
+    terminal.options = {
+      fontFamily: settings.fontFamily,
+      fontSize: settings.fontSize,
+      scrollback: settings.scrollback,
+      theme: terminalTheme(settings.themeId),
+    };
+    this.fitAndResize();
   }
 
   private restartSession(): void {
@@ -530,6 +872,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.terminal?.dispose();
     this.terminal = null;
     this.fitAddon = null;
+    this.searchAddon = null;
   }
 
   private clearResizeTimer(): void {
@@ -556,6 +899,21 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
 
   private hideExitOverlay(): void {
     this.exitOverlay?.setAttribute("hidden", "true");
+  }
+
+  private showPasteOverlay(message: string, confirmable: boolean): void {
+    if (!this.pasteOverlay) {
+      return;
+    }
+    this.pasteOverlay.message.textContent = message;
+    this.pasteOverlay.confirmButton.hidden = !confirmable;
+    this.pasteOverlay.cancelButton.textContent = confirmable ? "Cancel" : "Dismiss";
+    this.pasteOverlay.root.removeAttribute("hidden");
+    this.pasteOverlay.cancelButton.focus?.();
+  }
+
+  private hidePasteOverlay(): void {
+    this.pasteOverlay?.root.setAttribute("hidden", "true");
   }
 
   private writeStats(dirtyRows: number): void {
@@ -612,101 +970,11 @@ function performanceNow(): number {
   return performance.now();
 }
 
-function renderXtermContent(
-  host: HTMLElement,
-  pane: NiriPane,
-): {
-  closeButton: HTMLButtonElement;
-  exitOverlay: HTMLElement;
-  exitOverlayMessage: HTMLElement;
-  restartButton: HTMLButtonElement;
-  root: HTMLElement;
-  status: HTMLElement;
-  viewport: HTMLElement;
-} {
-  const document = host.ownerDocument;
-  const root = document.createElement("div");
-  root.className = "niri-pane-content niri-terminal-surface niri-xterm-surface";
-
-  const header = document.createElement("div");
-  header.className = "niri-terminal-header";
-  const title = document.createElement("h2");
-  title.textContent = pane.title;
-  const status = document.createElement("span");
-  status.className = "niri-terminal-status";
-  header.append(title, status);
-
-  const viewport = document.createElement("div");
-  viewport.className = "niri-xterm-viewport";
-  viewport.setAttribute("aria-label", `${pane.title} terminal`);
-  viewport.addEventListener("keydown", stopTerminalKeyPropagation, { capture: true });
-
-  const exitOverlay = document.createElement("div");
-  exitOverlay.className = "niri-terminal-exit-overlay";
-  exitOverlay.setAttribute("hidden", "true");
-  const exitOverlayMessage = document.createElement("div");
-  exitOverlayMessage.className = "niri-terminal-exit-message";
-  const actions = document.createElement("div");
-  actions.className = "niri-terminal-exit-actions";
-  const restartButton = document.createElement("button");
-  restartButton.className = "niri-terminal-exit-action";
-  restartButton.type = "button";
-  restartButton.textContent = "Restart";
-  const closeButton = document.createElement("button");
-  closeButton.className = "niri-terminal-exit-action";
-  closeButton.type = "button";
-  closeButton.textContent = "Close";
-  actions.append(restartButton, closeButton);
-  exitOverlay.append(exitOverlayMessage, actions);
-
-  root.append(header, viewport, exitOverlay);
-  return { closeButton, exitOverlay, exitOverlayMessage, restartButton, root, status, viewport };
-}
-
-function stopTerminalKeyPropagation(event: KeyboardEvent): void {
-  event.stopPropagation();
-}
-
 function terminalAPI() {
   if (typeof window === "undefined") {
     return null;
   }
   return window.setta?.terminal ?? null;
-}
-
-function bytesFromBase64(dataBase64: string): Uint8Array {
-  const raw = window.atob(dataBase64);
-  const bytes = new Uint8Array(raw.length);
-  for (let index = 0; index < raw.length; index += 1) {
-    bytes[index] = raw.charCodeAt(index);
-  }
-  return bytes;
-}
-
-function base64FromBytes(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return window.btoa(binary);
-}
-
-function statusLabel(status: string, cwd: string): string {
-  if (status === "running") {
-    return cwd;
-  }
-  return status;
-}
-
-function exitStatusLabel(exitCode: number, message: string): string {
-  if (exitCode === 0) {
-    return "Terminal exited";
-  }
-  return message || `Terminal exited with code ${exitCode}`;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Terminal failed";
 }
 
 function assertNever(value: never): never {
