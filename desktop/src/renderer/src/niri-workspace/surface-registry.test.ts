@@ -94,6 +94,49 @@ describe("niri surface registry", () => {
     expect(recordingAdapter.events).toContain("viewport:resize:260x210");
   });
 
+  test("keeps browser viewport updates live but throttled during active resize", () => {
+    const pane = fakePane("browser");
+    const recordingAdapter = new RecordingSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => recordingAdapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    const activeStats = registry.syncHost(host, renderItem(pane, "live", 220, 180), {
+      resizePhase: "active",
+    });
+    const throttledStats = registry.syncHost(host, renderItem(pane, "live", 230, 190), {
+      resizePhase: "active",
+    });
+    const resumedStats = registry.syncHost(host, renderItem(pane, "live", 240, 200), {
+      resizePhase: "active",
+    });
+    const settledStats = registry.syncHost(host, renderItem(pane, "live", 260, 210), {
+      resizePhase: "settled",
+    });
+
+    expect(activeStats).toMatchObject({
+      browserViewportWrites: 1,
+      deferredHeavyViewportWrites: 0,
+      heavyViewportWrites: 0,
+    });
+    expect(throttledStats).toMatchObject({
+      browserViewportWrites: 0,
+      deferredHeavyViewportWrites: 0,
+    });
+    expect(resumedStats).toMatchObject({
+      browserViewportWrites: 1,
+      deferredHeavyViewportWrites: 0,
+    });
+    expect(settledStats).toMatchObject({
+      browserViewportWrites: 1,
+      deferredHeavyViewportWrites: 0,
+    });
+    expect(recordingAdapter.events).toContain("viewport:frame:220x180");
+    expect(recordingAdapter.events).not.toContain("viewport:frame:230x190");
+    expect(recordingAdapter.events).toContain("viewport:frame:240x200");
+    expect(recordingAdapter.events).toContain("viewport:resize:260x210");
+  });
+
   test("rehomes a live adapter without hiding the newly mounted host", () => {
     const browserPane = fakePane("browser");
     const fakeDomPane = fakePane("fake-dom", 1);

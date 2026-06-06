@@ -117,8 +117,9 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
   }
 
   private queueUpdate(): void {
+    const nativeBounds = this.nativeBounds();
     const update: NiriBrowserViewUpdate = {
-      bounds: this.absoluteBounds(),
+      bounds: nativeBounds.rect,
       focused: this.focused,
       paneId: this.pane.paneId,
       runtimeState: this.runtimeState,
@@ -130,14 +131,22 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
     this.batcher.queue(update);
   }
 
-  private absoluteBounds(): Rect {
+  private nativeBounds(): { rect: Rect; visible: boolean } {
     const workspace = this.host?.closest<HTMLElement>('[data-testid="niri-workspace-area"]');
-    const origin = workspace?.getBoundingClientRect();
+    const workspaceBounds = workspace?.getBoundingClientRect();
+    const unclipped = workspaceBounds
+      ? {
+          height: this.lastRect.height,
+          width: this.lastRect.width,
+          x: workspaceBounds.left + this.lastRect.x,
+          y: workspaceBounds.top + this.lastRect.y,
+        }
+      : { ...this.lastRect };
+    const rect = workspaceBounds ? intersectRects(unclipped, workspaceBounds) : unclipped;
+    const visible = rect.width > 0 && rect.height > 0;
     return {
-      height: this.lastRect.height,
-      width: this.lastRect.width,
-      x: (origin?.left ?? 0) + this.lastRect.x,
-      y: (origin?.top ?? 0) + this.lastRect.y,
+      rect: visible ? rect : { height: 1, width: 1, x: rect.x, y: rect.y },
+      visible,
     };
   }
 
@@ -150,6 +159,19 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
     this.host.dataset.browserRuntimeState = this.runtimeState;
     this.host.style.visibility = this.visible ? "visible" : "hidden";
   }
+}
+
+function intersectRects(subject: Rect, clip: DOMRect): Rect {
+  const x = Math.max(subject.x, clip.left);
+  const y = Math.max(subject.y, clip.top);
+  const right = Math.min(subject.x + subject.width, clip.right);
+  const bottom = Math.min(subject.y + subject.height, clip.bottom);
+  return {
+    height: Math.max(0, bottom - y),
+    width: Math.max(0, right - x),
+    x,
+    y,
+  };
 }
 
 function browserPaneURL(pane: NiriPane): string {

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import type { NiriBrowserViewUpdate } from "@shared/types";
+import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import {
   buildGitGraphBatch,
   selectGitGraphRenderer,
@@ -17,7 +19,7 @@ import {
   PixiCanvasSurfaceAdapter,
 } from "./surface-adapters";
 import { TerminalSessionState, TerminalSurfaceAdapter } from "./terminal-surface-adapter";
-import { createFakeHost } from "./test-dom-fakes";
+import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type { NiriPane } from "./types";
 
 describe("niri fake surface adapters", () => {
@@ -155,6 +157,54 @@ describe("niri fake surface adapters", () => {
     });
     expect(Number(host.dataset.canvasZoom)).toBeLessThan(0.35);
     expect(adapter.getCanvasStats().gpuMemoryEstimateBytes).toBeGreaterThan(0);
+  });
+
+  test("clips browser native bounds to the workspace viewport", () => {
+    const sent: NiriBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    const workspace = host.ownerDocument.createElement("section");
+    workspace.dataset.testid = "niri-workspace-area";
+    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
+    workspace.append(host);
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    adapter.setViewport({ height: 160, width: 200, x: -80, y: -20 }, "frame");
+
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 140, width: 120, x: 300, y: 50 },
+      visible: true,
+    });
+  });
+
+  test("pins fully clipped live browser native views to a 1px workspace boundary", () => {
+    const sent: NiriBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    const workspace = host.ownerDocument.createElement("section");
+    workspace.dataset.testid = "niri-workspace-area";
+    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
+    workspace.append(host);
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    adapter.setViewport({ height: 120, width: 100, x: -260, y: 20 }, "frame");
+
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 1, width: 1, x: 300, y: 70 },
+      visible: true,
+    });
   });
 
   test("drains terminal output floods with bounded dirty-row rendering", () => {

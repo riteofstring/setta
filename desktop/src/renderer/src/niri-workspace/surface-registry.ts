@@ -23,6 +23,7 @@ interface SurfaceRecord {
 
 interface HostRecord {
   adapter: SurfaceAdapter;
+  activeResizeBrowserFrame: number;
   focused: boolean | null;
   runtimeState: PaneRenderItem["runtimeState"] | null;
   surfaceId: SurfaceId;
@@ -50,6 +51,8 @@ export interface SurfaceViewportSyncStats {
 export interface SurfaceSyncOptions {
   resizePhase: ResizePhase;
 }
+
+const activeResizeBrowserBoundsInterval = 2;
 
 export class SurfaceRegistry {
   private readonly hostBySurfaceId = new Map<SurfaceId, HTMLElement>();
@@ -208,6 +211,7 @@ export class SurfaceRegistry {
       adapter.mount(host);
       this.metricAdapters.add(adapter);
       this.hostRecords.set(host, {
+        activeResizeBrowserFrame: 0,
         adapter,
         focused: null,
         runtimeState: null,
@@ -381,9 +385,16 @@ export class SurfaceRegistry {
     { defaultReason, hostRecord, options, stats }: ViewportSyncContext,
   ): void {
     const reason = options.resizePhase === "settled" ? "resize" : defaultReason;
-    if (
-      !viewportSyncRequired(adapter.kind, reason, hostRecord.viewport, rect, options.resizePhase)
-    ) {
+    const activeBrowserResize =
+      adapter.kind === "browser" && options.resizePhase === "active" && reason !== "mount";
+
+    if (!activeBrowserResize) {
+      hostRecord.activeResizeBrowserFrame = 0;
+    }
+    if (!viewportSyncRequired(adapter.kind, reason, hostRecord.viewport, rect)) {
+      return;
+    }
+    if (activeBrowserResize && !activeBrowserViewportSyncAllowed(hostRecord, options.resizePhase)) {
       return;
     }
     if (viewportSyncDeferred(adapter.kind, reason, options.resizePhase)) {
@@ -481,7 +492,6 @@ function recordViewportWrite(kind: SurfaceKind, stats: SurfaceViewportSyncStats)
 
 function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
   return (
-    kind === "browser" ||
     kind === "chat-dom" ||
     kind === "fake-canvas" ||
     kind === "fake-heavy-dom" ||
@@ -505,10 +515,9 @@ function viewportSyncRequired(
   reason: SurfaceViewportSyncReason,
   previousRect: Rect | null,
   nextRect: Rect,
-  resizePhase: ResizePhase,
 ): boolean {
   return (
-    browserViewportHeartbeatRequired(kind, resizePhase) ||
+    browserViewportHeartbeatRequired(kind) ||
     reason === "mount" ||
     reason === "resize" ||
     !previousRect ||
@@ -516,8 +525,19 @@ function viewportSyncRequired(
   );
 }
 
-function browserViewportHeartbeatRequired(kind: SurfaceKind, resizePhase: ResizePhase): boolean {
-  return kind === "browser" && resizePhase !== "active";
+function browserViewportHeartbeatRequired(kind: SurfaceKind): boolean {
+  return kind === "browser";
+}
+
+function activeBrowserViewportSyncAllowed(
+  hostRecord: HostRecord,
+  resizePhase: ResizePhase,
+): boolean {
+  if (!hostRecord.viewport || resizePhase !== "active") {
+    return true;
+  }
+  hostRecord.activeResizeBrowserFrame += 1;
+  return hostRecord.activeResizeBrowserFrame % activeResizeBrowserBoundsInterval === 1;
 }
 
 function isCanvasSurfaceKind(kind: SurfaceKind): boolean {

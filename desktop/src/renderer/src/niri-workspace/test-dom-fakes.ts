@@ -1,13 +1,17 @@
 interface FakeElement {
+  __fakeRect?: FakeRect;
   children: FakeElement[];
   className: string;
   dataset: Record<string, string>;
   ownerDocument: FakeDocument;
+  parentElement: FakeElement | null;
   style: Record<string, string>;
   textContent: string;
   addEventListener(type: string, listener: EventListener): void;
   append(...nodes: FakeElement[]): void;
+  closest(selector: string): FakeElement | null;
   dispatchEvent(event: Event): boolean;
+  getBoundingClientRect(): FakeRect;
   getContext?(kind: string): FakeCanvasContext | null;
   hasPointerCapture(pointerId: number): boolean;
   querySelector(selector: string): FakeElement | null;
@@ -38,6 +42,17 @@ interface FakeDocument {
   createElement(tagName: string): FakeElement;
 }
 
+interface FakeRect {
+  bottom: number;
+  height: number;
+  left: number;
+  right: number;
+  top: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
 export function createFakeHost(): HTMLElement {
   const document: FakeDocument = {
     createElement(tagName) {
@@ -45,6 +60,13 @@ export function createFakeHost(): HTMLElement {
     },
   };
   return createFakeElement(document, "article") as unknown as HTMLElement;
+}
+
+export function setFakeRect(
+  element: HTMLElement,
+  rect: { height: number; width: number; x: number; y: number },
+): void {
+  (element as unknown as { __fakeRect: FakeRect }).__fakeRect = fakeRect(rect);
 }
 
 function createFakeElement(document: FakeDocument, tagName: string): FakeElement {
@@ -58,6 +80,7 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
     className: "",
     dataset: {},
     ownerDocument: document,
+    parentElement: null,
     style: {},
     textContent: "",
     addEventListener(type, listener) {
@@ -66,7 +89,13 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
       listeners.set(type, typeListeners);
     },
     append(...nodes) {
+      for (const node of nodes) {
+        node.parentElement = this;
+      }
       this.children.push(...nodes);
+    },
+    closest(selector) {
+      return closestFakeElement(this, selector);
     },
     dispatchEvent(event) {
       const typeListeners = listeners.get(event.type);
@@ -78,6 +107,9 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
       }
       return !event.defaultPrevented;
     },
+    getBoundingClientRect() {
+      return this.__fakeRect ?? fakeRect({ height: 0, width: 0, x: 0, y: 0 });
+    },
     hasPointerCapture(pointerId) {
       return capturedPointers.has(pointerId);
     },
@@ -85,6 +117,12 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
       return findElement(this, selector);
     },
     replaceChildren(...nodes) {
+      for (const child of this.children) {
+        child.parentElement = null;
+      }
+      for (const node of nodes) {
+        node.parentElement = this;
+      }
       this.children = [...nodes];
     },
     releasePointerCapture(pointerId) {
@@ -131,6 +169,40 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
   return element;
 }
 
+function closestFakeElement(element: FakeElement, selector: string): FakeElement | null {
+  let current: FakeElement | null = element;
+  while (current) {
+    if (matchesSelector(current, selector)) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function fakeRect({
+  height,
+  width,
+  x,
+  y,
+}: {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}): FakeRect {
+  return {
+    bottom: y + height,
+    height,
+    left: x,
+    right: x + width,
+    top: y,
+    width,
+    x,
+    y,
+  };
+}
+
 function dataAttributeKey(name: string): string {
   return name
     .replace(/^data-/, "")
@@ -151,6 +223,10 @@ function findElement(element: FakeElement, selector: string): FakeElement | null
 }
 
 function matchesSelector(element: FakeElement, selector: string): boolean {
+  const exactDataMatch = selector.match(/^\[data-([a-z0-9-]+)="([^"]+)"\]$/i);
+  if (exactDataMatch) {
+    return element.dataset[dataAttributeKey(`data-${exactDataMatch[1]}`)] === exactDataMatch[2];
+  }
   const dataMatch = selector.match(/^\[data-([a-z0-9-]+)\]$/i);
   if (dataMatch) {
     return dataAttributeKey(`data-${dataMatch[1]}`) in element.dataset;
