@@ -7,6 +7,10 @@ import { initialEdges, initialNodes } from "./pixi-workspace-fixture";
 import { nodeLabelBitmapFontSize, validateNodeLabelGlyphs } from "./pixi-workspace-label-font";
 import { loadNodeLabelBitmapFont } from "./pixi-workspace-label-font-loader";
 import {
+  labelVisibilityModeForZoom,
+  syncNodeLabelVisibility,
+} from "./pixi-workspace-label-visibility";
+import {
   cameraState,
   capturePointer,
   clamp,
@@ -84,6 +88,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   const nodeContainers = new Map();
   const nodeBodies = new Map();
   const nodeLabels = new Map();
+  const nodeLabelVisibilityReasons = new Map();
   const nodeOutlines = new Map();
   const portVisuals = new Map();
   const portVisualStates = new Map();
@@ -360,6 +365,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
                   scaleY: label.scale.y,
                   text: label.text,
                   visible: label.visible,
+                  visibilityReason: nodeLabelVisibilityReasons.get(node.id) ?? "zoom-hidden",
                   worldScaleX: label.worldTransform.a,
                   worldScaleY: label.worldTransform.d,
                 },
@@ -395,7 +401,9 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             edgeCommitCount,
             edgeRedrawCount,
             frameCount,
+            labelObjectCount: nodeLabels.size,
             labelSyncCount,
+            labelVisibilityMode: labelVisibilityModeForZoom(camera.zoom),
             marqueeUpdateCount,
             nodeDragUpdateCount,
             pointerPanUpdateCount,
@@ -488,6 +496,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     label.eventMode = "none";
     label.roundPixels = true;
     nodeLabels.set(nodeId, label);
+    nodeLabelVisibilityReasons.set(nodeId, "zoom-hidden");
     labelLayer.addChild(label);
     return label;
   }
@@ -498,6 +507,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       return;
     }
     nodeLabels.delete(nodeId);
+    nodeLabelVisibilityReasons.delete(nodeId);
     label.removeFromParent();
     label.destroy();
   }
@@ -576,6 +586,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       container.y = node.y;
       syncLabelPosition(node.id);
     }
+    syncLabelVisibility();
     nodeDragUpdateCount += 1;
     redrawEdges();
   }
@@ -637,6 +648,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     }
     selectionChangeCount += 1;
     drawAllNodeOutlines();
+    syncLabelVisibility();
   }
 
   function drawAllNodeOutlines() {
@@ -886,6 +898,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     for (const node of nodes) {
       syncLabelPosition(node.id);
     }
+    syncLabelVisibility();
   }
 
   function syncLabelPosition(nodeId) {
@@ -899,6 +912,16 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
 
   function visibleLabelCount() {
     return [...nodeLabels.values()].filter((label) => label.visible).length;
+  }
+
+  function syncLabelVisibility() {
+    syncNodeLabelVisibility({
+      nodeLabels,
+      nodes,
+      selectedNodeIds,
+      viewport,
+      visibilityReasons: nodeLabelVisibilityReasons,
+    });
   }
 
   function setPortVisualState(nodeId, portId, state) {

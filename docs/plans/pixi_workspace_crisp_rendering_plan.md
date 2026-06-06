@@ -1,7 +1,7 @@
 # Pixi Workspace Crisp Rendering Plan
 
 - **Date:** June 4, 2026
-- **Status:** Phase 1, 2, and 3 implemented; Phase 4 planned and implementation-ready
+- **Status:** Phase 1, 2, 3, and 4 implemented; Phase 5 planned
 - **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
@@ -34,6 +34,8 @@ The current prototype:
 - Validates node-label glyphs before constructing `BitmapText` labels.
 - Syncs label screen positions through `syncAllLabels()` and `syncLabelPosition(nodeId)`.
 - Exposes `labelSyncCount`, `visibleLabelCount`, label kind, label font family, and MSDF distance-field metadata in the debug snapshot.
+- Exposes `labelObjectCount`, `labelVisibilityMode`, and per-label visibility reasons in the debug snapshot.
+- Keeps label objects pooled while using zoom-based label LOD, viewport culling, and deterministic screen-space decluttering to toggle `label.visible`.
 - Keeps interaction state in the imperative renderer path, not React state.
 - Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, and unchanged React render count during label sync.
 
@@ -233,7 +235,7 @@ Expected result:
 
 ## Phase 4: Label LOD, Decluttering, and Culling
 
-Status: Planned; implementation-ready.
+Status: Implemented.
 
 Add a simple production-shaped visibility policy for labels. This phase should only decide which existing pooled labels are visible; it should not add a spatial index, virtualize node bodies, or create a second renderer.
 

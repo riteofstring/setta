@@ -26,7 +26,14 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const cdpMetaModifier = 4;
 const cdpShiftModifier = 8;
 const expectedBitmapLabelFontFamily = "InterMSDF";
-const expectedFixtureVisibleLabelCount = 4;
+const labelVisibilityReasons = new Set([
+  "all-visible",
+  "decluttered",
+  "outside-viewport",
+  "selected",
+  "visible-priority",
+  "zoom-hidden",
+]);
 
 if (options.help) {
   console.log(
@@ -281,6 +288,7 @@ try {
   assertZoomUnchanged(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom");
   assertLabelsAttachedToNodeCenters(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelsScreenSpace(afterDeepZoomPan, "pan after deep label zoom");
+  assertAllVisibleModeLabels(afterDeepZoomPan, "pan after deep label zoom");
   assertAtLeastOneVisibleLabel(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelSyncAdvanced(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom sync");
   assertReactRenderCountUnchanged(
@@ -288,7 +296,52 @@ try {
     afterDeepZoomPan,
     "pan after deep label zoom sync",
   );
-  assertRendererFramesHealthy(afterDeepZoomPan);
+
+  const lowZoomTarget = visibleNodes(afterDeepZoomPan)[0];
+  if (!lowZoomTarget) {
+    throw new Error(
+      `no visible node was present for low-zoom label LOD coverage: ${JSON.stringify(afterDeepZoomPan.graph.nodes)}`,
+    );
+  }
+  await dispatchMouseClick(context.client, {
+    x: lowZoomTarget.screenX,
+    y: lowZoomTarget.screenY,
+  });
+  await delay(100);
+  const afterLowZoomSelect = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterLowZoomSelect, [lowZoomTarget.id], "low-zoom LOD target select");
+  assertReactRenderCountUnchanged(
+    afterDeepZoomPan,
+    afterLowZoomSelect,
+    "selection label visibility sync",
+  );
+
+  await dispatchWheel(context.client, {
+    deltaY: 1600,
+    x: nodeById(afterLowZoomSelect, lowZoomTarget.id).screenX,
+    y: nodeById(afterLowZoomSelect, lowZoomTarget.id).screenY,
+  });
+  await delay(250);
+  const afterLowZoom = await getPixiSnapshot(context.client);
+  assertLabelsAttachedToNodeCenters(afterLowZoom, "low zoom selected-mode LOD");
+  assertLabelsScreenSpace(afterLowZoom, "low zoom selected-mode LOD");
+  assertSelectedModeLabelVisibility(afterLowZoom, lowZoomTarget.id, "low zoom selected-mode LOD");
+  assertLabelSyncAdvanced(afterLowZoomSelect, afterLowZoom, "low zoom selected-mode label sync");
+  assertReactRenderCountUnchanged(
+    afterLowZoomSelect,
+    afterLowZoom,
+    "low zoom selected-mode label sync",
+  );
+  await captureScreenshot(context.client, join(artifactDir, "low-zoom-selected-label.png"));
+
+  const afterOffscreenPan = await panNodeLabelOutsideViewport(
+    context.client,
+    afterLowZoom,
+    lowZoomTarget.id,
+  );
+  assertNodeLabelOutsideViewport(afterOffscreenPan, lowZoomTarget.id, "offscreen label culling");
+  assertReactRenderCountUnchanged(afterLowZoom, afterOffscreenPan, "offscreen label culling");
+  assertRendererFramesHealthy(afterOffscreenPan);
   await captureScreenshot(context.client, join(artifactDir, "final.png"));
 
   const consoleRows = await readJsonLinesOptional(join(artifactDir, "renderer-console.jsonl"));
@@ -307,7 +360,10 @@ try {
     afterEscapeClear,
     afterEdgeDraw,
     afterGroupDrag,
+    afterLowZoom,
+    afterLowZoomSelect,
     afterMarquee,
+    afterOffscreenPan,
     afterPan,
     afterPlainSelect,
     afterWheelPan,
@@ -496,6 +552,27 @@ async function dispatchEdgeDrag(client, { from, screenshotPath, to }) {
   return during ?? getPixiSnapshot(client);
 }
 
+async function panNodeLabelOutsideViewport(client, snapshot, nodeId) {
+  let current = snapshot;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const node = nodeById(current, nodeId);
+    if (!node.label.visible && node.label.visibilityReason === "outside-viewport") {
+      return current;
+    }
+    await dispatchWheel(client, {
+      deltaX: node.screenX < current.canvas.clientWidth / 2 ? 900 : -900,
+      deltaY: 0,
+      x: Math.floor(current.canvas.clientWidth / 2),
+      y: Math.floor(current.canvas.clientHeight / 2),
+    });
+    await delay(100);
+    current = await getPixiSnapshot(client);
+  }
+  throw new Error(
+    `node label did not become offscreen-hidden after pan attempts: nodeId=${nodeId} snapshot=${JSON.stringify(current)}`,
+  );
+}
+
 function assertInitialSnapshot(snapshot) {
   if (snapshot.graph.nodeCount < 1) {
     throw new Error(`Pixi graph did not expose nodes: ${JSON.stringify(snapshot.graph)}`);
@@ -526,6 +603,7 @@ function assertInitialSnapshot(snapshot) {
   assertSelectionDebugShape(snapshot);
   assertLabelsAttachedToNodeCenters(snapshot, "initial render");
   assertLabelsScreenSpace(snapshot, "initial render");
+  assertLabelVisibilityMode(snapshot, "visible-priority", "initial render");
   assertAtLeastOneVisibleLabel(snapshot, "initial render");
   assertLabelDebugCounters(snapshot, "initial render");
 }
@@ -637,9 +715,6 @@ function assertLabelsScreenSpace(snapshot, label) {
     if (!node.label || node.label.text.length === 0) {
       throw new Error(`${label} node label was missing text: ${JSON.stringify(node)}`);
     }
-    if (!node.label.visible) {
-      throw new Error(`${label} node label was hidden: ${JSON.stringify(node)}`);
-    }
     if (node.label.eventMode !== "none") {
       throw new Error(`${label} node label was interactive: ${JSON.stringify(node)}`);
     }
@@ -671,18 +746,46 @@ function assertLabelBitmapFontMetadata(node, label) {
 }
 
 function assertLabelDebugCounters(snapshot, label) {
+  assertNonNegativeInteger(snapshot.render.labelObjectCount, `${label} labelObjectCount`);
   assertNonNegativeInteger(snapshot.render.labelSyncCount, `${label} labelSyncCount`);
   assertNonNegativeInteger(snapshot.render.visibleLabelCount, `${label} visibleLabelCount`);
+  assertLabelVisibilityModeValue(
+    snapshot.render.labelVisibilityMode,
+    `${label} labelVisibilityMode`,
+  );
+  if (snapshot.render.labelObjectCount !== snapshot.graph.nodeCount) {
+    throw new Error(
+      `${label} labelObjectCount did not match graph node count: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(snapshot.render)}`,
+    );
+  }
   const visibleNodeLabels = snapshot.graph.nodes.filter((node) => node.label?.visible).length;
   if (snapshot.render.visibleLabelCount !== visibleNodeLabels) {
     throw new Error(
       `${label} visibleLabelCount did not match visible node labels: expected=${visibleNodeLabels} render=${JSON.stringify(snapshot.render)}`,
     );
   }
-  if (snapshot.render.visibleLabelCount !== expectedFixtureVisibleLabelCount) {
-    throw new Error(
-      `${label} visibleLabelCount did not match fixture labels: expected=${expectedFixtureVisibleLabelCount} render=${JSON.stringify(snapshot.render)}`,
-    );
+  assertLabelVisibilityReasons(snapshot, label);
+}
+
+function assertLabelVisibilityReasons(snapshot, label) {
+  for (const node of snapshot.graph.nodes) {
+    if (!labelVisibilityReasons.has(node.label?.visibilityReason)) {
+      throw new Error(
+        `${label} node label reported invalid visibility reason: ${JSON.stringify(node)}`,
+      );
+    }
+    if (
+      node.label.visible &&
+      !["all-visible", "selected", "visible-priority"].includes(node.label.visibilityReason)
+    ) {
+      throw new Error(`${label} visible label used hidden reason: ${JSON.stringify(node)}`);
+    }
+    if (
+      !node.label.visible &&
+      !["decluttered", "outside-viewport", "zoom-hidden"].includes(node.label.visibilityReason)
+    ) {
+      throw new Error(`${label} hidden label used visible reason: ${JSON.stringify(node)}`);
+    }
   }
 }
 
@@ -692,11 +795,83 @@ function assertLabelSyncAdvanced(before, after, label) {
 }
 
 function assertAtLeastOneVisibleLabel(snapshot, label) {
-  const visibleLabels = snapshot.graph.nodes.filter((node) => visiblePoint(snapshot, node.label));
+  const visibleLabels = snapshot.graph.nodes.filter(
+    (node) => node.label?.visible && visiblePoint(snapshot, node.label),
+  );
   if (visibleLabels.length === 0) {
     throw new Error(
       `${label} did not leave any labels visible: nodes=${JSON.stringify(snapshot.graph.nodes)} camera=${JSON.stringify(snapshot.camera)}`,
     );
+  }
+}
+
+function assertLabelVisibilityMode(snapshot, expectedMode, label) {
+  assertLabelVisibilityModeValue(
+    snapshot.render.labelVisibilityMode,
+    `${label} labelVisibilityMode`,
+  );
+  if (snapshot.render.labelVisibilityMode !== expectedMode) {
+    throw new Error(
+      `${label} used wrong label visibility mode: expected=${expectedMode} render=${JSON.stringify(snapshot.render)}`,
+    );
+  }
+}
+
+function assertLabelVisibilityModeValue(value, label) {
+  if (!["all-visible", "selected", "visible-priority"].includes(value)) {
+    throw new Error(`${label} was invalid: ${String(value)}`);
+  }
+}
+
+function assertSelectedModeLabelVisibility(snapshot, selectedNodeId, label) {
+  assertLabelVisibilityMode(snapshot, "selected", label);
+  assertLabelDebugCounters(snapshot, label);
+  const selectedNode = nodeById(snapshot, selectedNodeId);
+  if (!nodeIntersectsCanvas(snapshot, selectedNode)) {
+    throw new Error(`${label} selected node was not in viewport: ${JSON.stringify(selectedNode)}`);
+  }
+  if (!selectedNode.label.visible || selectedNode.label.visibilityReason !== "selected") {
+    throw new Error(
+      `${label} selected in-viewport label was not visible: ${JSON.stringify(selectedNode)}`,
+    );
+  }
+  for (const node of snapshot.graph.nodes) {
+    if (node.id === selectedNodeId) {
+      continue;
+    }
+    if (node.label.visible) {
+      throw new Error(`${label} unselected label was visible: ${JSON.stringify(node)}`);
+    }
+    if (!["outside-viewport", "zoom-hidden"].includes(node.label.visibilityReason)) {
+      throw new Error(`${label} unselected label used wrong reason: ${JSON.stringify(node)}`);
+    }
+  }
+}
+
+function assertAllVisibleModeLabels(snapshot, label) {
+  assertLabelVisibilityMode(snapshot, "all-visible", label);
+  assertLabelDebugCounters(snapshot, label);
+  for (const node of snapshot.graph.nodes) {
+    if (nodeIntersectsCanvas(snapshot, node)) {
+      if (!node.label.visible || node.label.visibilityReason !== "all-visible") {
+        throw new Error(`${label} in-viewport label was not visible: ${JSON.stringify(node)}`);
+      }
+      continue;
+    }
+    if (node.label.visible || node.label.visibilityReason !== "outside-viewport") {
+      throw new Error(`${label} offscreen label was not culled: ${JSON.stringify(node)}`);
+    }
+  }
+}
+
+function assertNodeLabelOutsideViewport(snapshot, nodeId, label) {
+  assertLabelDebugCounters(snapshot, label);
+  const node = nodeById(snapshot, nodeId);
+  if (nodeIntersectsCanvas(snapshot, node)) {
+    throw new Error(`${label} node still intersected the viewport: ${JSON.stringify(node)}`);
+  }
+  if (node.label.visible || node.label.visibilityReason !== "outside-viewport") {
+    throw new Error(`${label} node label was not hidden as offscreen: ${JSON.stringify(node)}`);
   }
 }
 
@@ -846,6 +1021,16 @@ function nodeScreenBounds(snapshot, node) {
     right: node.screenX + halfWidth,
     top: node.screenY - halfHeight,
   };
+}
+
+function nodeIntersectsCanvas(snapshot, node) {
+  const bounds = nodeScreenBounds(snapshot, node);
+  return (
+    bounds.left <= snapshot.canvas.clientWidth &&
+    bounds.right >= 0 &&
+    bounds.top <= snapshot.canvas.clientHeight &&
+    bounds.bottom >= 0
+  );
 }
 
 function clampCanvasPoint(snapshot, point) {

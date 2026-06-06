@@ -39,6 +39,13 @@ interface PixiWorkspaceDebugSnapshot {
         scaleY: number;
         text: string;
         visible: boolean;
+        visibilityReason:
+          | "selected"
+          | "visible-priority"
+          | "all-visible"
+          | "outside-viewport"
+          | "zoom-hidden"
+          | "decluttered";
         worldScaleX: number;
         worldScaleY: number;
       };
@@ -69,7 +76,9 @@ interface PixiWorkspaceDebugSnapshot {
     edgeCommitCount: number;
     edgeRedrawCount: number;
     frameCount: number;
+    labelObjectCount: number;
     labelSyncCount: number;
+    labelVisibilityMode: "selected" | "visible-priority" | "all-visible";
     marqueeUpdateCount: number;
     nodeDragUpdateCount: number;
     pointerPanUpdateCount: number;

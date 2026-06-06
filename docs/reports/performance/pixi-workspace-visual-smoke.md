@@ -335,3 +335,63 @@ Additional scenario coverage:
 | Sampled pixels                     |     6,001 |
 | Non-background sampled pixels      |       476 |
 | Sampled color count                |         8 |
+
+## Label LOD and Culling Update
+
+Date: 2026-06-04
+
+Artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260604T154627Z
+```
+
+The visual smoke workflow now verifies phase 4 label LOD, decluttering, and
+viewport culling. The renderer keeps four pooled `BitmapText` label objects for
+the current four-node fixture, while `visibleLabelCount` reports only labels
+whose Pixi display object has `visible === true`.
+
+Additional scenario coverage:
+
+- Initial render at `1.00` zoom uses `visible-priority` mode with 4 pooled label
+  objects and 4 visible labels.
+- Deep zoom/pan at `4.00` zoom uses `all-visible` mode with 2 in-viewport labels
+  visible and 2 labels hidden as `outside-viewport`.
+- Low zoom at `0.31` uses `selected` mode with the selected in-viewport label
+  visible as `selected` and unselected labels hidden as `zoom-hidden`.
+- Panning the selected node outside the viewport keeps all 4 label objects
+  pooled and hides every label as `outside-viewport`.
+- Label visibility changes keep `reactRenderCount: 1` through selection, zoom,
+  and offscreen pan coverage.
+
+| Metric                                  |         Value |
+| --------------------------------------- | ------------: |
+| Initial label visibility mode           | visible-priority |
+| Deep zoom label visibility mode         |   all-visible |
+| Low zoom label visibility mode          |      selected |
+| Label object count                      |             4 |
+| Initial visible labels                  |             4 |
+| Deep zoom/pan visible labels            |             2 |
+| Low zoom selected-mode visible labels   |             1 |
+| Offscreen-pan visible labels            |             0 |
+| Initial label sync count                |             8 |
+| Label sync count after group drag       |            36 |
+| Label sync count after empty pan        |           132 |
+| Label sync count after wheel zoom       |           140 |
+| Label sync count after zoomed drag      |           164 |
+| Label sync count after wheel pan        |           172 |
+| Label sync count after deep zoom        |           180 |
+| Label sync count after deep-zoom pan    |           188 |
+| Label sync count after low zoom         |           196 |
+| Final label sync count                  |           204 |
+| Final edge count                        |             4 |
+| Group node drag updates                 |            26 |
+| Pointer pan updates                     |            12 |
+| Wheel pan updates                       |             3 |
+| Wheel zoom updates                      |             3 |
+| React host renders                      |             1 |
+| Average recent frame interval           |       9.53 ms |
+| Worst recent frame interval             |      79.90 ms |
+| Sampled pixels                          |         6,366 |
+| Non-background sampled pixels           |         1,150 |
+| Sampled color count                     |            33 |
