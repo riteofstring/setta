@@ -133,7 +133,7 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
 		return SendMessageResult{}, err
 	}
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
 		return SendMessageResult{}, err
 	}
@@ -235,6 +235,9 @@ func (service *Service) publishTurnStartEventsLocked(workspaceID string, convers
 }
 
 func (service *Service) CancelActiveRun(workspaceID string, conversationID string) (Run, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return Run{}, err
+	}
 	service.mu.Lock()
 	key := activeKey(workspaceID, conversationID)
 	active, ok := service.active[key]
@@ -329,7 +332,7 @@ func (service *Service) markTurnCancelledWithOptions(workspaceID string, convers
 }
 
 func (service *Service) ActiveRun(workspaceID string, conversationID string) (Run, bool, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
 		return Run{}, false, err
 	}
 	service.mu.Lock()
@@ -342,6 +345,12 @@ func (service *Service) ActiveRun(workspaceID string, conversationID string) (Ru
 }
 
 func (service *Service) SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []ApprovalAnswer, cancelled bool) (Run, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return Run{}, err
+	}
+	if err := validateStorageID("approval id", approvalID); err != nil {
+		return Run{}, err
+	}
 	run, err := service.pendingApprovalRun(workspaceID, conversationID, approvalID)
 	if err != nil {
 		return Run{}, err
@@ -556,7 +565,7 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, pendingSteering, run); err != nil {
 		return err
 	}
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.resolveWorkspaceForRequest(workspaceID)
 	if err != nil {
 		return err
 	}
@@ -939,11 +948,7 @@ func activeKey(workspaceID string, conversationID string) string {
 }
 
 func summarize(value string, limit int) string {
-	value = strings.Join(strings.Fields(value), " ")
-	if len(value) <= limit {
-		return value
-	}
-	return strings.TrimSpace(value[:limit])
+	return normalizedTextPreview(value, limit)
 }
 
 func promptFromMessage(message ChatMessage) string {

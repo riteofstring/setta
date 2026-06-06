@@ -6,7 +6,7 @@ import (
 )
 
 func (service *Service) ListConversations(workspaceID string) (ConversationListResult, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
 		return ConversationListResult{}, err
 	}
 	conversations, corruptConversations, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
@@ -50,7 +50,7 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 }
 
 func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
 		return Conversation{}, err
 	}
 	now := timestamp(service.now())
@@ -82,7 +82,7 @@ func (service *Service) CreateConversation(workspaceID string, title string) (Co
 }
 
 func (service *Service) MarkConversationRead(workspaceID string, conversationID string) (ConversationListItem, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
 		return ConversationListItem{}, err
 	}
 	service.mu.Lock()
@@ -106,7 +106,7 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	if limit == 0 {
 		limit = defaultPageLimit
 	}
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
 		return MessagePage{}, err
 	}
 	service.mu.Lock()

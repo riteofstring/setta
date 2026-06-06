@@ -125,6 +125,9 @@ func (store *Store) SaveConversation(conversation Conversation) error {
 }
 
 func (store *Store) LoadConversation(workspaceID string, conversationID string) (Conversation, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return Conversation{}, err
+	}
 	var conversation Conversation
 	path := store.conversationPath(workspaceID, conversationID)
 	if err := readJSONFile(path, &conversation); err != nil {
@@ -143,6 +146,9 @@ func (store *Store) LoadConversation(workspaceID string, conversationID string) 
 }
 
 func (store *Store) LoadConversationReadState(workspaceID string, conversationID string) (ConversationReadState, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return ConversationReadState{}, err
+	}
 	path := store.conversationReadPath(workspaceID, conversationID)
 	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -161,6 +167,9 @@ func (store *Store) LoadConversationReadState(workspaceID string, conversationID
 }
 
 func (store *Store) SaveConversationReadState(workspaceID string, state ConversationReadState) error {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return err
+	}
 	if err := validateConversationReadState(state, state.ConversationID); err != nil {
 		return err
 	}
@@ -168,6 +177,9 @@ func (store *Store) SaveConversationReadState(workspaceID string, state Conversa
 }
 
 func (store *Store) SaveGoal(workspaceID string, conversationID string, goal ChatGoalState) error {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return err
+	}
 	if err := validateChatGoalState(goal); err != nil {
 		return err
 	}
@@ -175,6 +187,9 @@ func (store *Store) SaveGoal(workspaceID string, conversationID string, goal Cha
 }
 
 func (store *Store) LoadGoal(workspaceID string, conversationID string) (*ChatGoalState, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return nil, err
+	}
 	path := store.goalPath(workspaceID, conversationID)
 	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -193,6 +208,9 @@ func (store *Store) LoadGoal(workspaceID string, conversationID string) (*ChatGo
 }
 
 func (store *Store) ClearGoal(workspaceID string, conversationID string) error {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return err
+	}
 	path := store.goalPath(workspaceID, conversationID)
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return &PersistenceError{Operation: "remove goal", Path: path, Err: err}
@@ -201,6 +219,9 @@ func (store *Store) ClearGoal(workspaceID string, conversationID string) error {
 }
 
 func (store *Store) ListConversations(workspaceID string) ([]Conversation, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, err
+	}
 	conversations, corrupt, err := store.ScanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
@@ -212,6 +233,9 @@ func (store *Store) ListConversations(workspaceID string) ([]Conversation, error
 }
 
 func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conversation, []CorruptStateFinding, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, nil, err
+	}
 	dir := store.conversationsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -247,6 +271,9 @@ func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conv
 }
 
 func (store *Store) SaveMessage(workspaceID string, message ChatMessage) error {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return err
+	}
 	if err := validateMessage(message); err != nil {
 		return err
 	}
@@ -254,6 +281,9 @@ func (store *Store) SaveMessage(workspaceID string, message ChatMessage) error {
 }
 
 func (store *Store) LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return MessagePage{}, err
+	}
 	if limit <= 0 {
 		return MessagePage{}, fmt.Errorf("message page limit must be positive: %d", limit)
 	}
@@ -285,6 +315,9 @@ func (store *Store) LoadMessagePage(workspaceID string, conversationID string, b
 }
 
 func (store *Store) LoadMessages(workspaceID string, conversationID string) ([]ChatMessage, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return nil, err
+	}
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
 		return nil, err
@@ -325,6 +358,9 @@ func readMessages(files []messageFile, conversationID string) ([]ChatMessage, er
 }
 
 func (store *Store) NextMessageOrdinal(workspaceID string, conversationID string) (int, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return 0, err
+	}
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
 		return 0, err
@@ -336,6 +372,9 @@ func (store *Store) NextMessageOrdinal(workspaceID string, conversationID string
 }
 
 func (store *Store) MessageCount(workspaceID string, conversationID string) (int, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return 0, err
+	}
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
 		return 0, err
@@ -344,6 +383,9 @@ func (store *Store) MessageCount(workspaceID string, conversationID string) (int
 }
 
 func (store *Store) MessageCountAllowingCorrupt(workspaceID string, conversationID string) (int, []CorruptStateFinding, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return 0, nil, err
+	}
 	files, corrupt, err := store.messageFilesAllowingCorrupt(workspaceID, conversationID)
 	if err != nil {
 		return 0, nil, err
@@ -352,6 +394,9 @@ func (store *Store) MessageCountAllowingCorrupt(workspaceID string, conversation
 }
 
 func (store *Store) FindMessageByID(workspaceID string, conversationID string, messageID string) (ChatMessage, bool, error) {
+	if err := validateStoreMessageIDs(workspaceID, conversationID, messageID); err != nil {
+		return ChatMessage{}, false, err
+	}
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
 		return ChatMessage{}, false, err
@@ -372,6 +417,9 @@ func (store *Store) FindMessageByID(workspaceID string, conversationID string, m
 }
 
 func (store *Store) LoadMessageByID(workspaceID string, conversationID string, messageID string) (ChatMessage, error) {
+	if err := validateStoreMessageIDs(workspaceID, conversationID, messageID); err != nil {
+		return ChatMessage{}, err
+	}
 	message, ok, err := store.FindMessageByID(workspaceID, conversationID, messageID)
 	if err != nil {
 		return ChatMessage{}, err
@@ -390,6 +438,9 @@ func (store *Store) SaveRun(run Run) error {
 }
 
 func (store *Store) LoadRun(workspaceID string, runID string) (Run, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return Run{}, err
+	}
 	var run Run
 	path := store.runPath(workspaceID, runID)
 	if err := readJSONFile(path, &run); err != nil {
@@ -408,6 +459,9 @@ func (store *Store) LoadRun(workspaceID string, runID string) (Run, error) {
 }
 
 func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, err
+	}
 	runs, corrupt, err := store.ScanRunsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
@@ -419,6 +473,9 @@ func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
 }
 
 func (store *Store) ScanRunsAllowingCorrupt(workspaceID string) ([]Run, []CorruptStateFinding, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, nil, err
+	}
 	dir := store.runsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -431,27 +488,17 @@ func (store *Store) ScanRunsAllowingCorrupt(workspaceID string) ([]Run, []Corrup
 	runs := make([]Run, 0, len(entries))
 	corrupt := []CorruptStateFinding{}
 	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+		run, finding, ok, err := store.scanRunAllowingCorrupt(workspaceID, entry)
+		if err != nil {
+			return nil, nil, err
+		}
+		if finding != nil {
+			corrupt = append(corrupt, *finding)
 			continue
 		}
-		runID := strings.TrimSuffix(entry.Name(), ".json")
-		owner, err := store.loadRunOwner(workspaceID, runID)
-		if err != nil {
-			if IsCorruptStateError(err) {
-				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, "", runID, corruptRunKind))
-				continue
-			}
-			return nil, nil, err
+		if ok {
+			runs = append(runs, run)
 		}
-		run, err := store.LoadRun(workspaceID, runID)
-		if err != nil {
-			if IsCorruptStateError(err) {
-				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, owner.ConversationID, runID, corruptRunKind))
-				continue
-			}
-			return nil, nil, err
-		}
-		runs = append(runs, run)
 	}
 	sort.SliceStable(runs, func(left int, right int) bool {
 		if runs[left].StartedAt == runs[right].StartedAt {
@@ -462,7 +509,34 @@ func (store *Store) ScanRunsAllowingCorrupt(workspaceID string) ([]Run, []Corrup
 	return runs, corrupt, nil
 }
 
+func (store *Store) scanRunAllowingCorrupt(workspaceID string, entry os.DirEntry) (Run, *CorruptStateFinding, bool, error) {
+	if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+		return Run{}, nil, false, nil
+	}
+	runID := strings.TrimSuffix(entry.Name(), ".json")
+	owner, err := store.loadRunOwner(workspaceID, runID)
+	if err != nil {
+		if IsCorruptStateError(err) {
+			finding := corruptStateFinding(err, workspaceID, "", runID, corruptRunKind)
+			return Run{}, &finding, false, nil
+		}
+		return Run{}, nil, false, err
+	}
+	run, err := store.LoadRun(workspaceID, runID)
+	if err != nil {
+		if IsCorruptStateError(err) {
+			finding := corruptStateFinding(err, workspaceID, owner.ConversationID, runID, corruptRunKind)
+			return Run{}, &finding, false, nil
+		}
+		return Run{}, nil, false, err
+	}
+	return run, nil, true, nil
+}
+
 func (store *Store) ScanRunsForConversationAllowingCorrupt(workspaceID string, conversationID string) ([]Run, []CorruptStateFinding, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return nil, nil, err
+	}
 	dir := store.runsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -524,6 +598,9 @@ func (store *Store) scanRunForConversation(workspaceID string, conversationID st
 }
 
 func (store *Store) ActiveRun(workspaceID string, conversationID string) (Run, bool, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return Run{}, false, err
+	}
 	runs, err := store.ListRuns(workspaceID)
 	if err != nil {
 		return Run{}, false, err
@@ -537,6 +614,9 @@ func (store *Store) ActiveRun(workspaceID string, conversationID string) (Run, b
 }
 
 func (store *Store) loadRunOwner(workspaceID string, runID string) (runOwner, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return runOwner{}, err
+	}
 	var owner runOwner
 	path := store.runPath(workspaceID, runID)
 	if err := readJSONMetadataFile(path, &owner); err != nil {
@@ -561,6 +641,9 @@ func (store *Store) loadRunOwner(workspaceID string, runID string) (runOwner, er
 }
 
 func (store *Store) QueuedState(workspaceID string, conversationID string) (QueueState, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return QueueState{}, err
+	}
 	runs, err := store.ListRuns(workspaceID)
 	if err != nil {
 		return QueueState{}, err
@@ -608,6 +691,9 @@ func queuedMessageOrdinal(messages []ChatMessage, messageID string) int {
 }
 
 func (store *Store) NextQueuedRun(workspaceID string, conversationID string) (Run, ChatMessage, bool, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return Run{}, ChatMessage{}, false, err
+	}
 	state, err := store.QueuedState(workspaceID, conversationID)
 	if err != nil {
 		return Run{}, ChatMessage{}, false, err
@@ -632,6 +718,9 @@ func (store *Store) SaveRunItem(item RunItem) error {
 }
 
 func (store *Store) LoadRunItems(workspaceID string, runID string) ([]RunItem, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return nil, err
+	}
 	dir := store.runItemsDir(workspaceID, runID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -668,6 +757,9 @@ func (store *Store) LoadRunItems(workspaceID string, runID string) ([]RunItem, e
 }
 
 func (store *Store) FindRunItemByProviderID(workspaceID string, runID string, providerItemID string) (RunItem, bool, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return RunItem{}, false, err
+	}
 	items, err := store.LoadRunItems(workspaceID, runID)
 	if err != nil {
 		return RunItem{}, false, err
@@ -681,6 +773,9 @@ func (store *Store) FindRunItemByProviderID(workspaceID string, runID string, pr
 }
 
 func (store *Store) SaveRunItemOutput(workspaceID string, runID string, output RunItemOutput) error {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return err
+	}
 	if err := validateRunItemOutput(output); err != nil {
 		return err
 	}
@@ -688,6 +783,9 @@ func (store *Store) SaveRunItemOutput(workspaceID string, runID string, output R
 }
 
 func (store *Store) LoadRunItemOutputs(workspaceID string, runID string) ([]RunItemOutput, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return nil, err
+	}
 	items, err := store.LoadRunItems(workspaceID, runID)
 	if err != nil {
 		return nil, err
@@ -704,6 +802,9 @@ func (store *Store) LoadRunItemOutputs(workspaceID string, runID string) ([]RunI
 }
 
 func (store *Store) LoadRunItemOutputsForItem(workspaceID string, runID string, runItemID string) ([]RunItemOutput, error) {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return nil, err
+	}
 	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
 	if err != nil {
 		return nil, err
@@ -730,6 +831,9 @@ func readRunItemOutputs(files []runItemOutputFile, runItemID string) ([]RunItemO
 }
 
 func (store *Store) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return RunItemOutputPage{}, err
+	}
 	if afterOrdinal < 0 {
 		return RunItemOutputPage{}, fmt.Errorf("run item output afterOrdinal must not be negative: %d", afterOrdinal)
 	}
@@ -775,6 +879,9 @@ func outputFilesAfterOrdinal(files []runItemOutputFile, afterOrdinal int) []runI
 }
 
 func (store *Store) validateRunItemBelongsToRun(workspaceID string, runID string, runItemID string) error {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return err
+	}
 	items, err := store.LoadRunItems(workspaceID, runID)
 	if err != nil {
 		return err
@@ -788,6 +895,9 @@ func (store *Store) validateRunItemBelongsToRun(workspaceID string, runID string
 }
 
 func (store *Store) NextRunItemOutputOrdinal(workspaceID string, runID string, runItemID string) (int, error) {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return 0, err
+	}
 	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
 	if err != nil {
 		return 0, err
@@ -799,6 +909,9 @@ func (store *Store) NextRunItemOutputOrdinal(workspaceID string, runID string, r
 }
 
 func (store *Store) SaveTraceEvent(workspaceID string, trace TraceEvent) error {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return err
+	}
 	if err := validateTraceEvent(trace); err != nil {
 		return err
 	}

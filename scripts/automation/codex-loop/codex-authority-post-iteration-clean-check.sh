@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/codex-authority-post-iteration-clean-check.sh --root-dir PATH [options]
+Usage: ./scripts/automation/codex-loop/codex-authority-post-iteration-clean-check.sh --root-dir PATH [options]
 
 Verify that a completed Codex iteration leaves the repo clean and that no
 delayed cleanup or generation drift appears during a short settle window.

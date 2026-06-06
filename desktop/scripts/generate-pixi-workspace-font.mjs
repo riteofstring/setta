@@ -11,7 +11,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoDesktopRoot = path.resolve(scriptDir, "..");
 const configPath = path.join(
   repoDesktopRoot,
-  "src/renderer/src/components/pixi-workspace-label-font-config.json",
+  "src/renderer/src/features/workspace-graph/pixi-workspace-label-font-config.json",
 );
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const sourceFontPath = path.join(

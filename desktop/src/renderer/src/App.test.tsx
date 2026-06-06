@@ -44,8 +44,10 @@ describe("workspace renderer states", () => {
       />,
     );
 
-    expect(html).toContain('data-testid="projects-section"');
-    expect(html).toContain('data-testid="sidebar-empty-space"');
+    expect(html).toContain("Shortcuts");
+    expect(html).toContain("Projects");
+    expect(hasAriaLabel(html, "New chat")).toBe(true);
+    expect(hasAriaLabel(html, "Open project folder")).toBe(true);
     expect(html).not.toContain("New setta gen");
     expect(html).not.toContain("Plugins");
     expect(html).not.toContain("Automations");
@@ -92,12 +94,11 @@ describe("workspace renderer states", () => {
     );
 
     expect(html).toContain("web");
-    expect(html).toContain('data-testid="active-workspace-list"');
-    expect(html).toContain('aria-label="New chat in web"');
+    expect(hasAriaLabel(html, "Projects")).toBe(true);
+    expect(hasAriaLabel(html, "New chat in web")).toBe(true);
     expect(html).toContain("Build web UI");
-    expect(html).not.toContain('data-testid="conversation-hover-card"');
-    expect(html).not.toContain('aria-label="Pin Build web UI"');
-    expect(html).not.toContain('aria-label="Delete Build web UI"');
+    expect(hasAriaLabel(html, "Pin Build web UI")).toBe(false);
+    expect(hasAriaLabel(html, "Delete Build web UI")).toBe(false);
     expect(html).not.toContain("New terminal in web");
     expect(html).not.toContain("New setta canvas in web");
   });
@@ -175,17 +176,8 @@ describe("workspace renderer states", () => {
       />,
     );
 
-    const conversationButton = html.match(
-      /<button(?=[^>]*data-testid="conversation-list-item")[^>]*>/,
-    )?.[0];
-    const workspaceNewChatButton = html.match(
-      /<button(?=[^>]*aria-label="New chat in web")[^>]*>/,
-    )?.[0];
-
-    expect(conversationButton).toBeDefined();
-    expect(workspaceNewChatButton).toBeDefined();
-    expect(conversationButton).not.toContain(' disabled=""');
-    expect(workspaceNewChatButton).not.toContain(' disabled=""');
+    expect(buttonDisabledByText(html, "Build web UI")).toBe(false);
+    expect(buttonDisabledByAriaLabel(html, "New chat in web")).toBe(false);
   });
 
   test("does not dim sidebar actions during workspace selection", () => {
@@ -219,17 +211,10 @@ describe("workspace renderer states", () => {
       />,
     );
 
-    const shortcutNewChatButton = html.match(/<button(?=[^>]*aria-label="New chat")[^>]*>/)?.[0];
-    const projectFolderButton = html.match(
-      /<button(?=[^>]*aria-label="Open project folder")[^>]*>/,
-    )?.[0];
-
     expect(sidebarWorkspaceBusy("selecting", "ready")).toBe(false);
     expect(sidebarWorkspaceBusy("opening", "ready")).toBe(true);
-    expect(shortcutNewChatButton).toBeDefined();
-    expect(projectFolderButton).toBeDefined();
-    expect(shortcutNewChatButton).not.toContain(' disabled=""');
-    expect(projectFolderButton).not.toContain(' disabled=""');
+    expect(buttonDisabledByAriaLabel(html, "New chat")).toBe(false);
+    expect(buttonDisabledByAriaLabel(html, "Open project folder")).toBe(false);
   });
 
   test("renders chat corruption status in the project and conversation list", () => {
@@ -272,9 +257,9 @@ describe("workspace renderer states", () => {
       />,
     );
 
-    expect(html).toContain('data-testid="workspace-corruption-status"');
-    expect(html).toContain('data-testid="workspace-corruption-tooltip"');
-    expect(html).toContain('data-testid="conversation-corruption-status"');
+    expect(html).toContain('role="status"');
+    expect(hasAriaLabelContaining(html, "2 corrupt chat records detected")).toBe(true);
+    expect(hasAriaLabelContaining(html, "1 corrupt chat record detected")).toBe(true);
     expect(html).toContain("Malformed chat data");
     expect(html).toContain("2 corrupt chat records detected");
     expect(html).toContain("1 corrupt chat record detected");
@@ -1157,6 +1142,42 @@ function chatAssistantMessage(
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
+}
+
+function hasAriaLabel(html: string, label: string) {
+  return html.includes(`aria-label="${escapeAttribute(label)}"`);
+}
+
+function hasAriaLabelContaining(html: string, text: string) {
+  const labels = [...html.matchAll(/aria-label="([^"]*)"/g)].map((match) => match[1] ?? "");
+  return labels.some((label) => label.includes(escapeAttribute(text)));
+}
+
+function buttonDisabledByAriaLabel(html: string, label: string) {
+  const button = buttonMarkupByPredicate(html, (markup) =>
+    markup.includes(`aria-label="${escapeAttribute(label)}"`),
+  );
+  expect(button).toBeDefined();
+  return buttonHasDisabledAttribute(button ?? "");
+}
+
+function buttonDisabledByText(html: string, text: string) {
+  const button = buttonMarkupByPredicate(html, (markup) => markup.includes(`>${text}</span>`));
+  expect(button).toBeDefined();
+  return buttonHasDisabledAttribute(button ?? "");
+}
+
+function buttonMarkupByPredicate(html: string, predicate: (markup: string) => boolean) {
+  const buttons = html.match(/<button\b[^>]*>.*?<\/button>/gs) ?? [];
+  return buttons.find(predicate);
+}
+
+function buttonHasDisabledAttribute(markup: string) {
+  return /<button\b[^>]*\sdisabled(=|\s|>)/.test(markup);
+}
+
+function escapeAttribute(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
 }
 
 function expectTextOrder(html: string, texts: string[]) {

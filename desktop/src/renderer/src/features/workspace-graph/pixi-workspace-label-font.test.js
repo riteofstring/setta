@@ -37,7 +37,10 @@ describe("pixi workspace label font", () => {
   });
 
   it("commits an XML BMFont descriptor that Pixi can parse with MSDF metadata", () => {
-    const descriptorUrl = new URL("../../public/fonts/inter-msdf/InterMSDF.fnt", import.meta.url);
+    const descriptorUrl = new URL(
+      "../../../public/fonts/inter-msdf/InterMSDF.fnt",
+      import.meta.url,
+    );
     const descriptor = readFileSync(descriptorUrl, "utf8");
 
     expect(descriptor).toContain("<font>");

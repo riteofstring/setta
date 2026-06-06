@@ -35,8 +35,8 @@ func TestCodexHarnessProtocolCoverageRegistry(t *testing.T) {
 		}
 	}
 	for method := range unsupportedCodexAppServerNotifications {
-		if !slices.Contains(codexapp.CodexNotificationValues, method) {
-			t.Fatalf("unsupported notification %s is not generated from the codex protocol snapshot", method)
+		if !slices.Contains(codexapp.CodexUnsupportedNotificationValues, method) {
+			t.Fatalf("unsupported notification %s is not registered as unsupported", method)
 		}
 		if slices.Contains(codexAppServerNotifications, method) {
 			t.Fatalf("unsupported notification %s is registered as supported", method)

@@ -2,181 +2,37 @@
 package codexapp
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 )
 
 const (
-	CodexMethodAccountLoginCancel                = "account/login/cancel"
-	CodexMethodAccountLoginStart                 = "account/login/start"
-	CodexMethodAccountLogout                     = "account/logout"
-	CodexMethodAccountRateLimitsRead             = "account/rateLimits/read"
-	CodexMethodAccountRead                       = "account/read"
-	CodexMethodAccountSendAddCreditsNudgeEmail   = "account/sendAddCreditsNudgeEmail"
-	CodexMethodAppList                           = "app/list"
-	CodexMethodCommandExec                       = "command/exec"
-	CodexMethodCommandExecResize                 = "command/exec/resize"
-	CodexMethodCommandExecTerminate              = "command/exec/terminate"
-	CodexMethodCommandExecWrite                  = "command/exec/write"
-	CodexMethodConfigBatchWrite                  = "config/batchWrite"
-	CodexMethodConfigMcpServerReload             = "config/mcpServer/reload"
-	CodexMethodConfigRead                        = "config/read"
-	CodexMethodConfigValueWrite                  = "config/value/write"
-	CodexMethodConfigRequirementsRead            = "configRequirements/read"
-	CodexMethodExperimentalFeatureEnablementSet  = "experimentalFeature/enablement/set"
-	CodexMethodExperimentalFeatureList           = "experimentalFeature/list"
-	CodexMethodExternalAgentConfigDetect         = "externalAgentConfig/detect"
-	CodexMethodExternalAgentConfigImport         = "externalAgentConfig/import"
-	CodexMethodFeedbackUpload                    = "feedback/upload"
-	CodexMethodFsCopy                            = "fs/copy"
-	CodexMethodFsCreateDirectory                 = "fs/createDirectory"
-	CodexMethodFsGetMetadata                     = "fs/getMetadata"
-	CodexMethodFsReadDirectory                   = "fs/readDirectory"
-	CodexMethodFsReadFile                        = "fs/readFile"
-	CodexMethodFsRemove                          = "fs/remove"
-	CodexMethodFsUnwatch                         = "fs/unwatch"
-	CodexMethodFsWatch                           = "fs/watch"
-	CodexMethodFsWriteFile                       = "fs/writeFile"
-	CodexMethodFuzzyFileSearch                   = "fuzzyFileSearch"
-	CodexMethodHooksList                         = "hooks/list"
-	CodexMethodInitialize                        = "initialize"
-	CodexMethodMarketplaceAdd                    = "marketplace/add"
-	CodexMethodMarketplaceRemove                 = "marketplace/remove"
-	CodexMethodMarketplaceUpgrade                = "marketplace/upgrade"
-	CodexMethodMcpServerOauthLogin               = "mcpServer/oauth/login"
-	CodexMethodMcpServerResourceRead             = "mcpServer/resource/read"
-	CodexMethodMcpServerToolCall                 = "mcpServer/tool/call"
-	CodexMethodMcpServerStatusList               = "mcpServerStatus/list"
-	CodexMethodModelList                         = "model/list"
-	CodexMethodModelProviderCapabilitiesRead     = "modelProvider/capabilities/read"
-	CodexMethodPermissionProfileList             = "permissionProfile/list"
-	CodexMethodPluginInstall                     = "plugin/install"
-	CodexMethodPluginInstalled                   = "plugin/installed"
-	CodexMethodPluginList                        = "plugin/list"
-	CodexMethodPluginRead                        = "plugin/read"
-	CodexMethodPluginShareCheckout               = "plugin/share/checkout"
-	CodexMethodPluginShareDelete                 = "plugin/share/delete"
-	CodexMethodPluginShareList                   = "plugin/share/list"
-	CodexMethodPluginShareSave                   = "plugin/share/save"
-	CodexMethodPluginShareUpdateTargets          = "plugin/share/updateTargets"
-	CodexMethodPluginSkillRead                   = "plugin/skill/read"
-	CodexMethodPluginUninstall                   = "plugin/uninstall"
-	CodexMethodReviewStart                       = "review/start"
-	CodexMethodSkillsConfigWrite                 = "skills/config/write"
-	CodexMethodSkillsExtraRootsSet               = "skills/extraRoots/set"
-	CodexMethodSkillsList                        = "skills/list"
-	CodexMethodThreadApproveGuardianDeniedAction = "thread/approveGuardianDeniedAction"
-	CodexMethodThreadArchive                     = "thread/archive"
-	CodexMethodThreadCompactStart                = "thread/compact/start"
-	CodexMethodThreadFork                        = "thread/fork"
-	CodexMethodThreadGoalClear                   = "thread/goal/clear"
-	CodexMethodThreadGoalGet                     = "thread/goal/get"
-	CodexMethodThreadGoalSet                     = "thread/goal/set"
-	CodexMethodThreadInjectItems                 = "thread/inject_items"
-	CodexMethodThreadList                        = "thread/list"
-	CodexMethodThreadLoadedList                  = "thread/loaded/list"
-	CodexMethodThreadMetadataUpdate              = "thread/metadata/update"
-	CodexMethodThreadNameSet                     = "thread/name/set"
-	CodexMethodThreadRead                        = "thread/read"
-	CodexMethodThreadResume                      = "thread/resume"
-	CodexMethodThreadRollback                    = "thread/rollback"
-	CodexMethodThreadSettingsUpdate              = "thread/settings/update"
-	CodexMethodThreadShellCommand                = "thread/shellCommand"
-	CodexMethodThreadStart                       = "thread/start"
-	CodexMethodThreadUnarchive                   = "thread/unarchive"
-	CodexMethodThreadUnsubscribe                 = "thread/unsubscribe"
-	CodexMethodTurnInterrupt                     = "turn/interrupt"
-	CodexMethodTurnStart                         = "turn/start"
-	CodexMethodTurnSteer                         = "turn/steer"
-	CodexMethodWindowsSandboxReadiness           = "windowsSandbox/readiness"
-	CodexMethodWindowsSandboxSetupStart          = "windowsSandbox/setupStart"
+	CodexMethodConfigRead           = "config/read"
+	CodexMethodInitialize           = "initialize"
+	CodexMethodModelList            = "model/list"
+	CodexMethodThreadGoalClear      = "thread/goal/clear"
+	CodexMethodThreadGoalGet        = "thread/goal/get"
+	CodexMethodThreadGoalSet        = "thread/goal/set"
+	CodexMethodThreadResume         = "thread/resume"
+	CodexMethodThreadSettingsUpdate = "thread/settings/update"
+	CodexMethodThreadStart          = "thread/start"
+	CodexMethodTurnInterrupt        = "turn/interrupt"
+	CodexMethodTurnStart            = "turn/start"
+	CodexMethodTurnSteer            = "turn/steer"
 )
 
 var CodexMethodValues = []string{
-	CodexMethodAccountLoginCancel,
-	CodexMethodAccountLoginStart,
-	CodexMethodAccountLogout,
-	CodexMethodAccountRateLimitsRead,
-	CodexMethodAccountRead,
-	CodexMethodAccountSendAddCreditsNudgeEmail,
-	CodexMethodAppList,
-	CodexMethodCommandExec,
-	CodexMethodCommandExecResize,
-	CodexMethodCommandExecTerminate,
-	CodexMethodCommandExecWrite,
-	CodexMethodConfigBatchWrite,
-	CodexMethodConfigMcpServerReload,
 	CodexMethodConfigRead,
-	CodexMethodConfigValueWrite,
-	CodexMethodConfigRequirementsRead,
-	CodexMethodExperimentalFeatureEnablementSet,
-	CodexMethodExperimentalFeatureList,
-	CodexMethodExternalAgentConfigDetect,
-	CodexMethodExternalAgentConfigImport,
-	CodexMethodFeedbackUpload,
-	CodexMethodFsCopy,
-	CodexMethodFsCreateDirectory,
-	CodexMethodFsGetMetadata,
-	CodexMethodFsReadDirectory,
-	CodexMethodFsReadFile,
-	CodexMethodFsRemove,
-	CodexMethodFsUnwatch,
-	CodexMethodFsWatch,
-	CodexMethodFsWriteFile,
-	CodexMethodFuzzyFileSearch,
-	CodexMethodHooksList,
 	CodexMethodInitialize,
-	CodexMethodMarketplaceAdd,
-	CodexMethodMarketplaceRemove,
-	CodexMethodMarketplaceUpgrade,
-	CodexMethodMcpServerOauthLogin,
-	CodexMethodMcpServerResourceRead,
-	CodexMethodMcpServerToolCall,
-	CodexMethodMcpServerStatusList,
 	CodexMethodModelList,
-	CodexMethodModelProviderCapabilitiesRead,
-	CodexMethodPermissionProfileList,
-	CodexMethodPluginInstall,
-	CodexMethodPluginInstalled,
-	CodexMethodPluginList,
-	CodexMethodPluginRead,
-	CodexMethodPluginShareCheckout,
-	CodexMethodPluginShareDelete,
-	CodexMethodPluginShareList,
-	CodexMethodPluginShareSave,
-	CodexMethodPluginShareUpdateTargets,
-	CodexMethodPluginSkillRead,
-	CodexMethodPluginUninstall,
-	CodexMethodReviewStart,
-	CodexMethodSkillsConfigWrite,
-	CodexMethodSkillsExtraRootsSet,
-	CodexMethodSkillsList,
-	CodexMethodThreadApproveGuardianDeniedAction,
-	CodexMethodThreadArchive,
-	CodexMethodThreadCompactStart,
-	CodexMethodThreadFork,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
 	CodexMethodThreadGoalSet,
-	CodexMethodThreadInjectItems,
-	CodexMethodThreadList,
-	CodexMethodThreadLoadedList,
-	CodexMethodThreadMetadataUpdate,
-	CodexMethodThreadNameSet,
-	CodexMethodThreadRead,
 	CodexMethodThreadResume,
-	CodexMethodThreadRollback,
 	CodexMethodThreadSettingsUpdate,
-	CodexMethodThreadShellCommand,
 	CodexMethodThreadStart,
-	CodexMethodThreadUnarchive,
-	CodexMethodThreadUnsubscribe,
 	CodexMethodTurnInterrupt,
 	CodexMethodTurnStart,
 	CodexMethodTurnSteer,
-	CodexMethodWindowsSandboxReadiness,
-	CodexMethodWindowsSandboxSetupStart,
 }
 
 const (
@@ -265,73 +121,6 @@ const (
 	CodexNotificationWindowsWorldWritableWarning             = "windows/worldWritableWarning"
 	CodexNotificationWindowsSandboxSetupCompleted            = "windowsSandbox/setupCompleted"
 )
-
-var CodexNotificationValues = []string{
-	CodexNotificationAccountLoginCompleted,
-	CodexNotificationAccountRateLimitsUpdated,
-	CodexNotificationAccountUpdated,
-	CodexNotificationAppListUpdated,
-	CodexNotificationCommandExecOutputDelta,
-	CodexNotificationConfigWarning,
-	CodexNotificationDeprecationNotice,
-	CodexNotificationError,
-	CodexNotificationExternalAgentConfigImportCompleted,
-	CodexNotificationFsChanged,
-	CodexNotificationFuzzyFileSearchSessionCompleted,
-	CodexNotificationFuzzyFileSearchSessionUpdated,
-	CodexNotificationGuardianWarning,
-	CodexNotificationHookCompleted,
-	CodexNotificationHookStarted,
-	CodexNotificationItemAgentMessageDelta,
-	CodexNotificationItemAutoApprovalReviewCompleted,
-	CodexNotificationItemAutoApprovalReviewStarted,
-	CodexNotificationItemCommandExecutionOutputDelta,
-	CodexNotificationItemCommandExecutionTerminalInteraction,
-	CodexNotificationItemCompleted,
-	CodexNotificationItemFileChangeOutputDelta,
-	CodexNotificationItemFileChangePatchUpdated,
-	CodexNotificationItemMcpToolCallProgress,
-	CodexNotificationItemPlanDelta,
-	CodexNotificationItemReasoningSummaryPartAdded,
-	CodexNotificationItemReasoningSummaryTextDelta,
-	CodexNotificationItemReasoningTextDelta,
-	CodexNotificationItemStarted,
-	CodexNotificationMcpServerOauthLoginCompleted,
-	CodexNotificationMcpServerStartupStatusUpdated,
-	CodexNotificationModelRerouted,
-	CodexNotificationModelVerification,
-	CodexNotificationProcessExited,
-	CodexNotificationProcessOutputDelta,
-	CodexNotificationRemoteControlStatusChanged,
-	CodexNotificationServerRequestResolved,
-	CodexNotificationSkillsChanged,
-	CodexNotificationThreadArchived,
-	CodexNotificationThreadClosed,
-	CodexNotificationThreadCompacted,
-	CodexNotificationThreadGoalCleared,
-	CodexNotificationThreadGoalUpdated,
-	CodexNotificationThreadNameUpdated,
-	CodexNotificationThreadRealtimeClosed,
-	CodexNotificationThreadRealtimeError,
-	CodexNotificationThreadRealtimeItemAdded,
-	CodexNotificationThreadRealtimeOutputAudioDelta,
-	CodexNotificationThreadRealtimeSdp,
-	CodexNotificationThreadRealtimeStarted,
-	CodexNotificationThreadRealtimeTranscriptDelta,
-	CodexNotificationThreadRealtimeTranscriptDone,
-	CodexNotificationThreadSettingsUpdated,
-	CodexNotificationThreadStarted,
-	CodexNotificationThreadStatusChanged,
-	CodexNotificationThreadTokenUsageUpdated,
-	CodexNotificationThreadUnarchived,
-	CodexNotificationTurnCompleted,
-	CodexNotificationTurnDiffUpdated,
-	CodexNotificationTurnPlanUpdated,
-	CodexNotificationTurnStarted,
-	CodexNotificationWarning,
-	CodexNotificationWindowsWorldWritableWarning,
-	CodexNotificationWindowsSandboxSetupCompleted,
-}
 
 var CodexSupportedMethodValues = []string{
 	CodexMethodConfigRead,
@@ -426,91 +215,6 @@ var CodexSupportedNotificationValues = []string{
 var CodexUnsupportedNotificationValues = []string{
 	CodexNotificationItemFileChangeOutputDelta,
 	CodexNotificationThreadCompacted,
-}
-
-type codexRequiredField struct {
-	name      string
-	allowNull bool
-}
-
-func decodeCodexObject(raw json.RawMessage, name string, validate func(json.RawMessage, string) error, target any) error {
-	if validate != nil {
-		if err := validate(raw, name); err != nil {
-			return err
-		}
-	}
-	if err := json.Unmarshal(raw, target); err != nil {
-		return fmt.Errorf("%s has invalid shape: %w", name, err)
-	}
-	return nil
-}
-
-func codexObjectFields(raw json.RawMessage, name string) (map[string]json.RawMessage, error) {
-	if len(bytes.TrimSpace(raw)) == 0 {
-		return nil, fmt.Errorf("%s is required", name)
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, fmt.Errorf("%s must be an object: %w", name, err)
-	}
-	if fields == nil {
-		return nil, fmt.Errorf("%s must be an object", name)
-	}
-	return fields, nil
-}
-
-func requireCodexFields(fields map[string]json.RawMessage, name string, required []codexRequiredField) error {
-	for _, field := range required {
-		value, ok := fields[field.name]
-		if !ok || (!field.allowNull && codexJSONNull(value)) {
-			return fmt.Errorf("%s.%s is required", name, field.name)
-		}
-	}
-	return nil
-}
-
-func validateCodexObjectField(fields map[string]json.RawMessage, field string, name string, allowNull bool, validate func(json.RawMessage, string) error) error {
-	value, ok := fields[field]
-	if !ok {
-		return nil
-	}
-	if codexJSONNull(value) {
-		if allowNull {
-			return nil
-		}
-		return fmt.Errorf("%s is required", name)
-	}
-	return validate(value, name)
-}
-
-func validateCodexObjectArrayField(fields map[string]json.RawMessage, field string, name string, allowNull bool, itemAllowNull bool, validate func(json.RawMessage, string) error) error {
-	value, ok := fields[field]
-	if !ok {
-		return nil
-	}
-	if codexJSONNull(value) {
-		if allowNull {
-			return nil
-		}
-		return fmt.Errorf("%s is required", name)
-	}
-	items := []json.RawMessage{}
-	if err := json.Unmarshal(value, &items); err != nil {
-		return fmt.Errorf("%s must be an array: %w", name, err)
-	}
-	for index, item := range items {
-		if itemAllowNull && codexJSONNull(item) {
-			continue
-		}
-		if err := validate(item, fmt.Sprintf("%s[%d]", name, index)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func codexJSONNull(raw json.RawMessage) bool {
-	return bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
 }
 
 type AbsolutePathBuf = string

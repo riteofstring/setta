@@ -241,10 +241,7 @@ func boundedJSON(raw json.RawMessage, limit int) string {
 }
 
 func boundedText(value string, limit int) string {
-	if limit <= 0 || len(value) <= limit {
-		return value
-	}
-	return value[:limit] + "...<truncated>"
+	return boundedTextPreview(value, limit, "...<truncated>")
 }
 
 func handleCodexAssistantDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/run-codex-plan-loop.sh --plan PATH --sentinel TEXT --name NAME [options] [-- <extra codex exec args>]
+Usage: ./scripts/automation/codex-loop/run-codex-plan-loop.sh --plan PATH --sentinel TEXT --name NAME [options] [-- <extra codex exec args>]
 
 Run Codex in a fresh-session loop for a repository plan document.
 
@@ -38,19 +38,20 @@ Options:
   --progress-log-interval-seconds N
                          Print at most one status progress line every N seconds.
                          Default: 120
-  --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
+  --bypass-approvals-and-sandbox
+                         Run with --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 EOF
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SOURCE_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 iterations="1000"
 output_dir=""
 state_dir=""
 model="gpt-5.5"
-yolo_mode="1"
+bypass_approvals_and_sandbox="0"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
 retry_sleep_seconds="15"
@@ -242,8 +243,8 @@ while [[ $# -gt 0 ]]; do
       progress_log_interval_seconds="$2"
       shift 2
       ;;
-    --no-yolo)
-      yolo_mode="0"
+    --bypass-approvals-and-sandbox)
+      bypass_approvals_and_sandbox="1"
       shift
       ;;
     --help|-h)
@@ -431,7 +432,7 @@ fi
 
 pre_iteration_command="$(
   shell_join \
-    "${SOURCE_ROOT_DIR}/scripts/codex-authority-cleanup-loop-check.sh" \
+    "${SOURCE_ROOT_DIR}/scripts/automation/codex-loop/codex-authority-cleanup-loop-check.sh" \
     --root-dir "${loop_root_dir}" \
     --output-dir "${output_dir}" \
     --state-dir "${state_dir}" \
@@ -444,13 +445,13 @@ pre_iteration_command="$(
 
 post_iteration_command="$(
   shell_join \
-    "${SOURCE_ROOT_DIR}/scripts/codex-authority-post-iteration-clean-check.sh" \
+    "${SOURCE_ROOT_DIR}/scripts/automation/codex-loop/codex-authority-post-iteration-clean-check.sh" \
     --root-dir "${loop_root_dir}" \
     --settle-seconds "${post_commit_settle_seconds}"
 )"
 
 loop_args=(
-  "${SOURCE_ROOT_DIR}/scripts/run-codex-loop.sh"
+  "${SOURCE_ROOT_DIR}/scripts/automation/codex-loop/run-codex-loop.sh"
   --prompt-file "${prompt_file}"
   --followup-prompt-file "${prompt_file}"
   --iterations "${iterations}"
@@ -473,8 +474,8 @@ loop_args=(
 if [[ -n "${model}" ]]; then
   loop_args+=(--model "${model}")
 fi
-if [[ "${yolo_mode}" == "1" ]]; then
-  loop_args+=(--yolo)
+if [[ "${bypass_approvals_and_sandbox}" == "1" ]]; then
+  loop_args+=(--bypass-approvals-and-sandbox)
 fi
 
 combined_codex_extra_args=("${default_codex_extra_args[@]}")
@@ -505,10 +506,10 @@ echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Retry sleep: ${retry_sleep_seconds}s"
 echo "Allowed consecutive clean Codex failures: ${allow_clean_failures}"
 echo "Post-commit settle check: ${post_commit_settle_seconds}s"
-if [[ "${yolo_mode}" == "1" ]]; then
-  echo "Yolo mode: enabled"
+if [[ "${bypass_approvals_and_sandbox}" == "1" ]]; then
+  echo "Approvals/sandbox bypass: enabled"
 else
-  echo "Yolo mode: disabled"
+  echo "Approvals/sandbox bypass: disabled"
 fi
 
 exec "${loop_args[@]}"

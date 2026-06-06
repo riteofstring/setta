@@ -178,7 +178,7 @@ Completed decisions:
 - Direct Pixi load target: the descriptor, not the PNG.
 - Normal graph labels must fail loudly if the font asset cannot load or if a label contains a glyph outside the generated charset.
 - Asset generation uses the focused `desktop/scripts/generate-pixi-workspace-font.mjs` script with the exact pinned `@pixi/msdf-bmfont-xml` dev dependency.
-- Font generation settings live in `desktop/src/renderer/src/components/pixi-workspace-label-font-config.json`.
+- Font generation settings live in `desktop/src/renderer/src/features/workspace-graph/pixi-workspace-label-font-config.json`.
 
 Asset layout:
 
@@ -362,7 +362,7 @@ Scope:
 
 Completed decisions:
 
-- Add `desktop/src/renderer/src/components/pixi-workspace-node-geometry.js`.
+- Add `desktop/src/renderer/src/features/workspace-graph/pixi-workspace-node-geometry.js`.
 - Move node geometry style constants into that helper module:
   - body corner radius `8`
   - body fill alpha `0.92`
@@ -412,7 +412,7 @@ Completed work:
 - Update `nodeContainer(node)` to construct body, shadow, hover outline, and selected outline graphics from cached contexts.
 - Replace `nodeOutlines` with a map that stores both outline graphics for each node.
 - Update hover, selection, and clear-selection flows to call the visibility-sync helper instead of clearing/redrawing outline graphics.
-- Keep `drawAllNodeOutlines()` as a compatibility wrapper that syncs outline visibility only.
+- Replace `drawAllNodeOutlines()` callers with the visibility-sync helper.
 - Add renderer debug snapshot fields:
 
 ```ts
@@ -464,7 +464,7 @@ Scope:
 
 Completed decisions:
 
-- Add a compact selected-label font-size bucket to `desktop/src/renderer/src/components/pixi-workspace-label-font-config.json`:
+- Add a compact selected-label font-size bucket to `desktop/src/renderer/src/features/workspace-graph/pixi-workspace-label-font-config.json`:
 
 ```json
 {

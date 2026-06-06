@@ -10,7 +10,7 @@ import (
 )
 
 func (service *Service) ListCommands(workspaceID string, conversationID string) (ChatCommandListResult, error) {
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
 		return ChatCommandListResult{}, err
 	}
@@ -74,7 +74,7 @@ func (service *Service) SetChatCodexReasoningEffort(workspaceID string, conversa
 }
 
 func (service *Service) executeChatCommand(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) (ChatCommandExecuteResult, error) {
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}

@@ -25,13 +25,14 @@ import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { prependOlderMessages, useChatStore } from "./chat-store";
-
 const eventStreamId = "event_stream_test";
 
 describe("chat store", () => {
   beforeEach(() => {
     useChatStore.setState({
       activeRun: null,
+      commandListError: null,
+      commandListStatus: "idle",
       conversationDetailsById: {},
       conversationListsByWorkspaceId: {},
       conversations: [],

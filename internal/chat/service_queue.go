@@ -17,7 +17,7 @@ func (service *Service) QueueUserMessage(workspaceID string, conversationID stri
 	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
 		return QueueMessageResult{}, err
 	}
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
 		return QueueMessageResult{}, err
 	}
@@ -43,7 +43,7 @@ func (service *Service) EditQueuedMessage(workspaceID string, conversationID str
 	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
 		return QueueEditResult{}, err
 	}
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.validateMessageMutationRequest(workspaceID, conversationID, messageID); err != nil {
 		return QueueEditResult{}, err
 	}
 
@@ -79,7 +79,7 @@ func (service *Service) EditQueuedMessage(workspaceID string, conversationID str
 }
 
 func (service *Service) RemoveQueuedMessage(workspaceID string, conversationID string, messageID string) (QueueRemoveResult, error) {
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.validateMessageMutationRequest(workspaceID, conversationID, messageID)
 	if err != nil {
 		return QueueRemoveResult{}, err
 	}
@@ -312,7 +312,7 @@ func (service *Service) SteerActiveRun(workspaceID string, conversationID string
 	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
 		return SteerMessageResult{}, err
 	}
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
 		return SteerMessageResult{}, err
 	}
 
@@ -347,7 +347,7 @@ func (service *Service) submitSteeringMessage(workspaceID string, conversationID
 }
 
 func (service *Service) SendSteeringImmediately(workspaceID string, conversationID string, prompt string) (ImmediateSteeringResult, error) {
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
 		return ImmediateSteeringResult{}, err
 	}

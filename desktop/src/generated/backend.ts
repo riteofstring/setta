@@ -5,6 +5,7 @@ import {
   assertRecord,
   decodeArray,
   decodeBoolean,
+  decodeBackendEventBase,
   decodeInteger,
   decodeStringRecord,
   decodeNullable,
@@ -2621,21 +2622,9 @@ export function decodeChatMessageCreatedEvent(value: unknown): ChatMessageCreate
 }
 
 function decodeChatMessageCreatedEventFromRecord(record: Record<string, unknown>): ChatMessageCreatedEvent {
-  assertKnownFields(record, "ChatMessageCreatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.type");
-  if (type !== "chat.message.created") {
-    throw new Error("ChatMessageCreatedEvent.type must be chat.message.created, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatMessageCreatedEvent", "chat.message.created");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.eventId"),
-    type: "chat.message.created",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.runId"),
+    ...base,
     payload: decodeMessageCreatedPayload(requireField(record, "payload", "ChatMessageCreatedEvent")),
   };
 }
@@ -2645,21 +2634,9 @@ export function decodeChatMessageQueuedEvent(value: unknown): ChatMessageQueuedE
 }
 
 function decodeChatMessageQueuedEventFromRecord(record: Record<string, unknown>): ChatMessageQueuedEvent {
-  assertKnownFields(record, "ChatMessageQueuedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.type");
-  if (type !== "chat.message.queued") {
-    throw new Error("ChatMessageQueuedEvent.type must be chat.message.queued, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatMessageQueuedEvent", "chat.message.queued");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.eventId"),
-    type: "chat.message.queued",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.runId"),
+    ...base,
     payload: decodeMessageQueuedPayload(requireField(record, "payload", "ChatMessageQueuedEvent")),
   };
 }
@@ -2669,21 +2646,9 @@ export function decodeChatMessageSteeringSentEvent(value: unknown): ChatMessageS
 }
 
 function decodeChatMessageSteeringSentEventFromRecord(record: Record<string, unknown>): ChatMessageSteeringSentEvent {
-  assertKnownFields(record, "ChatMessageSteeringSentEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.type");
-  if (type !== "chat.message.steering_sent") {
-    throw new Error("ChatMessageSteeringSentEvent.type must be chat.message.steering_sent, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatMessageSteeringSentEvent", "chat.message.steering_sent");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.eventId"),
-    type: "chat.message.steering_sent",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.runId"),
+    ...base,
     payload: decodeMessageSteeringSentPayload(requireField(record, "payload", "ChatMessageSteeringSentEvent")),
   };
 }
@@ -2693,21 +2658,9 @@ export function decodeChatAssistantTextDeltaEvent(value: unknown): ChatAssistant
 }
 
 function decodeChatAssistantTextDeltaEventFromRecord(record: Record<string, unknown>): ChatAssistantTextDeltaEvent {
-  assertKnownFields(record, "ChatAssistantTextDeltaEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.type");
-  if (type !== "chat.assistant_text_delta") {
-    throw new Error("ChatAssistantTextDeltaEvent.type must be chat.assistant_text_delta, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatAssistantTextDeltaEvent", "chat.assistant_text_delta");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.eventId"),
-    type: "chat.assistant_text_delta",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatAssistantTextDeltaEvent"), "ChatAssistantTextDeltaEvent.runId"),
+    ...base,
     payload: decodeAssistantTextDeltaPayload(requireField(record, "payload", "ChatAssistantTextDeltaEvent")),
   };
 }
@@ -2717,21 +2670,9 @@ export function decodeChatMessageUpdatedEvent(value: unknown): ChatMessageUpdate
 }
 
 function decodeChatMessageUpdatedEventFromRecord(record: Record<string, unknown>): ChatMessageUpdatedEvent {
-  assertKnownFields(record, "ChatMessageUpdatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.type");
-  if (type !== "chat.message.updated") {
-    throw new Error("ChatMessageUpdatedEvent.type must be chat.message.updated, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatMessageUpdatedEvent", "chat.message.updated");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.eventId"),
-    type: "chat.message.updated",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.runId"),
+    ...base,
     payload: decodeMessageUpdatedPayload(requireField(record, "payload", "ChatMessageUpdatedEvent")),
   };
 }
@@ -2741,21 +2682,9 @@ export function decodeChatMessageRemovedEvent(value: unknown): ChatMessageRemove
 }
 
 function decodeChatMessageRemovedEventFromRecord(record: Record<string, unknown>): ChatMessageRemovedEvent {
-  assertKnownFields(record, "ChatMessageRemovedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.type");
-  if (type !== "chat.message.removed") {
-    throw new Error("ChatMessageRemovedEvent.type must be chat.message.removed, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatMessageRemovedEvent", "chat.message.removed");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.eventId"),
-    type: "chat.message.removed",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.runId"),
+    ...base,
     payload: decodeMessageRemovedPayload(requireField(record, "payload", "ChatMessageRemovedEvent")),
   };
 }
@@ -2765,21 +2694,9 @@ export function decodeChatRunUpdatedEvent(value: unknown): ChatRunUpdatedEvent {
 }
 
 function decodeChatRunUpdatedEventFromRecord(record: Record<string, unknown>): ChatRunUpdatedEvent {
-  assertKnownFields(record, "ChatRunUpdatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.type");
-  if (type !== "chat.run.updated") {
-    throw new Error("ChatRunUpdatedEvent.type must be chat.run.updated, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatRunUpdatedEvent", "chat.run.updated");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.eventId"),
-    type: "chat.run.updated",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatRunUpdatedEvent"), "ChatRunUpdatedEvent.runId"),
+    ...base,
     payload: decodeRunUpdatedPayload(requireField(record, "payload", "ChatRunUpdatedEvent")),
   };
 }
@@ -2789,21 +2706,9 @@ export function decodeChatRunItemCreatedEvent(value: unknown): ChatRunItemCreate
 }
 
 function decodeChatRunItemCreatedEventFromRecord(record: Record<string, unknown>): ChatRunItemCreatedEvent {
-  assertKnownFields(record, "ChatRunItemCreatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.type");
-  if (type !== "chat.run_item.created") {
-    throw new Error("ChatRunItemCreatedEvent.type must be chat.run_item.created, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatRunItemCreatedEvent", "chat.run_item.created");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.eventId"),
-    type: "chat.run_item.created",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.runId"),
+    ...base,
     payload: decodeRunItemCreatedPayload(requireField(record, "payload", "ChatRunItemCreatedEvent")),
   };
 }
@@ -2813,21 +2718,9 @@ export function decodeChatRunItemUpdatedEvent(value: unknown): ChatRunItemUpdate
 }
 
 function decodeChatRunItemUpdatedEventFromRecord(record: Record<string, unknown>): ChatRunItemUpdatedEvent {
-  assertKnownFields(record, "ChatRunItemUpdatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.type");
-  if (type !== "chat.run_item.updated") {
-    throw new Error("ChatRunItemUpdatedEvent.type must be chat.run_item.updated, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatRunItemUpdatedEvent", "chat.run_item.updated");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.eventId"),
-    type: "chat.run_item.updated",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.runId"),
+    ...base,
     payload: decodeRunItemUpdatedPayload(requireField(record, "payload", "ChatRunItemUpdatedEvent")),
   };
 }
@@ -2837,21 +2730,9 @@ export function decodeChatRunItemOutputDeltaEvent(value: unknown): ChatRunItemOu
 }
 
 function decodeChatRunItemOutputDeltaEventFromRecord(record: Record<string, unknown>): ChatRunItemOutputDeltaEvent {
-  assertKnownFields(record, "ChatRunItemOutputDeltaEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.type");
-  if (type !== "chat.run_item_output.delta") {
-    throw new Error("ChatRunItemOutputDeltaEvent.type must be chat.run_item_output.delta, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatRunItemOutputDeltaEvent", "chat.run_item_output.delta");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.eventId"),
-    type: "chat.run_item_output.delta",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.runId"),
+    ...base,
     payload: decodeRunItemOutputDeltaPayload(requireField(record, "payload", "ChatRunItemOutputDeltaEvent")),
   };
 }
@@ -2861,21 +2742,9 @@ export function decodeChatQueueUpdatedEvent(value: unknown): ChatQueueUpdatedEve
 }
 
 function decodeChatQueueUpdatedEventFromRecord(record: Record<string, unknown>): ChatQueueUpdatedEvent {
-  assertKnownFields(record, "ChatQueueUpdatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.type");
-  if (type !== "chat.queue.updated") {
-    throw new Error("ChatQueueUpdatedEvent.type must be chat.queue.updated, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatQueueUpdatedEvent", "chat.queue.updated");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.eventId"),
-    type: "chat.queue.updated",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.runId"),
+    ...base,
     payload: decodeQueueUpdatedPayload(requireField(record, "payload", "ChatQueueUpdatedEvent")),
   };
 }
@@ -2885,21 +2754,9 @@ export function decodeChatGoalUpdatedEvent(value: unknown): ChatGoalUpdatedEvent
 }
 
 function decodeChatGoalUpdatedEventFromRecord(record: Record<string, unknown>): ChatGoalUpdatedEvent {
-  assertKnownFields(record, "ChatGoalUpdatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.type");
-  if (type !== "chat.goal.updated") {
-    throw new Error("ChatGoalUpdatedEvent.type must be chat.goal.updated, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatGoalUpdatedEvent", "chat.goal.updated");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.eventId"),
-    type: "chat.goal.updated",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatGoalUpdatedEvent"), "ChatGoalUpdatedEvent.runId"),
+    ...base,
     payload: decodeGoalUpdatedPayload(requireField(record, "payload", "ChatGoalUpdatedEvent")),
   };
 }
@@ -2909,21 +2766,9 @@ export function decodeChatConversationUpdatedEvent(value: unknown): ChatConversa
 }
 
 function decodeChatConversationUpdatedEventFromRecord(record: Record<string, unknown>): ChatConversationUpdatedEvent {
-  assertKnownFields(record, "ChatConversationUpdatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.type");
-  if (type !== "chat.conversation.updated") {
-    throw new Error("ChatConversationUpdatedEvent.type must be chat.conversation.updated, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatConversationUpdatedEvent", "chat.conversation.updated");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.eventId"),
-    type: "chat.conversation.updated",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatConversationUpdatedEvent"), "ChatConversationUpdatedEvent.runId"),
+    ...base,
     payload: decodeConversationUpdatedPayload(requireField(record, "payload", "ChatConversationUpdatedEvent")),
   };
 }
@@ -2933,21 +2778,9 @@ export function decodeChatResyncRequiredEvent(value: unknown): ChatResyncRequire
 }
 
 function decodeChatResyncRequiredEventFromRecord(record: Record<string, unknown>): ChatResyncRequiredEvent {
-  assertKnownFields(record, "ChatResyncRequiredEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.type");
-  if (type !== "chat.resync_required") {
-    throw new Error("ChatResyncRequiredEvent.type must be chat.resync_required, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "ChatResyncRequiredEvent", "chat.resync_required");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.eventId"),
-    type: "chat.resync_required",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatResyncRequiredEvent"), "ChatResyncRequiredEvent.runId"),
+    ...base,
     payload: decodeResyncRequiredPayload(requireField(record, "payload", "ChatResyncRequiredEvent")),
   };
 }
@@ -2957,21 +2790,9 @@ export function decodeDiagnosticCreatedEvent(value: unknown): DiagnosticCreatedE
 }
 
 function decodeDiagnosticCreatedEventFromRecord(record: Record<string, unknown>): DiagnosticCreatedEvent {
-  assertKnownFields(record, "DiagnosticCreatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.type");
-  if (type !== "diagnostic.created") {
-    throw new Error("DiagnosticCreatedEvent.type must be diagnostic.created, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "DiagnosticCreatedEvent", "diagnostic.created");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.eventId"),
-    type: "diagnostic.created",
-    emittedAt: decodeString(requireField(record, "emittedAt", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.runId"),
+    ...base,
     payload: decodeDiagnosticCreatedPayload(requireField(record, "payload", "DiagnosticCreatedEvent")),
   };
 }
@@ -2981,21 +2802,9 @@ export function decodeCodexAccountChangedEvent(value: unknown): CodexAccountChan
 }
 
 function decodeCodexAccountChangedEventFromRecord(record: Record<string, unknown>): CodexAccountChangedEvent {
-  assertKnownFields(record, "CodexAccountChangedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.type");
-  if (type !== "codex.account.changed") {
-    throw new Error("CodexAccountChangedEvent.type must be codex.account.changed, got " + type);
-  }
+  const base = decodeBackendEventBase(record, "CodexAccountChangedEvent", "codex.account.changed");
   return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.eventId"),
-    type: "codex.account.changed",
-    emittedAt: decodeString(requireField(record, "emittedAt", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "CodexAccountChangedEvent"), "CodexAccountChangedEvent.runId"),
+    ...base,
     payload: decodeCodexAccountChangedPayload(requireField(record, "payload", "CodexAccountChangedEvent")),
   };
 }

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "reac
 
 import { AppChromeControls, type MaximizedPane } from "./components/app-chrome-controls";
 import { ChatPanel, useChatViewState } from "./components/chat-panel";
-import { PixiWorkspacePrototype } from "./components/pixi-workspace-prototype";
+import { PixiWorkspacePrototype } from "./features/workspace-graph/pixi-workspace-prototype";
 import { ResizableBottomPane, ResizablePane } from "./components/resizable-pane";
 import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";

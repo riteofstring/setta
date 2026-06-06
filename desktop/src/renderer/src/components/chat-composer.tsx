@@ -91,6 +91,8 @@ export function Composer({
   const draftText = draft.trim();
   const suggestions = commandSuggestions(commands, draft);
   const selectedSuggestion = suggestions[0] ?? null;
+  const commandListError =
+    slashDraft && chat.commandListStatus === "failed" ? chat.commandListError : null;
   const hasPendingSteering = chat.pendingSteeringMessageIds.length > 0;
   const modelPickerOpen = isModelPickerOpen(modelPicker);
   const canSend = canSendComposerDraft(disabled, draftText);
@@ -302,6 +304,7 @@ export function Composer({
           <div className="relative min-w-0">
             <ComposerPlaceholder selected={selected} visible={draft === "" && placeholder === ""} />
             <CommandSuggestions
+              commandListError={commandListError}
               draft={draft}
               modelPicker={modelPicker}
               onPickCommand={(command) => updateDraft(command.name + " ")}
@@ -429,6 +432,7 @@ export function Composer({
 }
 
 export function CommandSuggestions({
+  commandListError,
   draft,
   modelPicker,
   onDismissModelPicker,
@@ -438,6 +442,7 @@ export function CommandSuggestions({
   selectedSuggestion,
   suggestions,
 }: {
+  commandListError?: string | null;
   draft: string;
   modelPicker: ChatCommandExecuteResult | null;
   onDismissModelPicker: () => void;
@@ -532,7 +537,22 @@ export function CommandSuggestions({
       </div>
     );
   }
-  if (!isSlashDraft(draft) || suggestions.length === 0) {
+  if (!isSlashDraft(draft)) {
+    return null;
+  }
+  if (commandListError) {
+    return (
+      <div
+        className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-red-800/80 bg-zinc-900/95 p-2 text-xs text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
+        data-testid="command-suggestions"
+        role="alert"
+      >
+        <div className="font-medium text-red-300">Slash commands unavailable</div>
+        <div className="mt-1 break-words text-zinc-300">{commandListError}</div>
+      </div>
+    );
+  }
+  if (suggestions.length === 0) {
     return null;
   }
   return (

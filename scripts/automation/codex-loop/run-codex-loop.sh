@@ -2,11 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 usage() {
   cat <<'EOF'
-Usage: run-codex-loop.sh --prompt-file PATH [options] [-- <extra codex exec args>]
+Usage: scripts/automation/codex-loop/run-codex-loop.sh --prompt-file PATH [options] [-- <extra codex exec args>]
 
 Runs `codex exec` in a loop.
 
@@ -75,13 +75,14 @@ Options:
                              Default: repo root
   --model NAME               Model passed to `codex exec --model`.
                              Default: gpt-5.5
-  --yolo                     Run with `--dangerously-bypass-approvals-and-sandbox`
+  --bypass-approvals-and-sandbox
+                             Run with `--dangerously-bypass-approvals-and-sandbox`
   --stop-on-error            Exit immediately after a failed iteration
   --help                     Show this help text
 
 Examples:
-  scripts/run-codex-loop.sh --prompt-file ./prompt.txt --iterations 5
-  scripts/run-codex-loop.sh --prompt-file ./start.txt --followup-prompt-file ./continue.txt --iterations 100 --new-session-every 10
+  scripts/automation/codex-loop/run-codex-loop.sh --prompt-file ./prompt.txt --iterations 5
+  scripts/automation/codex-loop/run-codex-loop.sh --prompt-file ./start.txt --followup-prompt-file ./continue.txt --iterations 100 --new-session-every 10
 EOF
 }
 
@@ -111,7 +112,7 @@ new_session_every="1"
 output_dir=""
 workdir="${ROOT_DIR}"
 model="gpt-5.5"
-yolo_mode="0"
+bypass_approvals_and_sandbox="0"
 stop_on_error="0"
 stop_on_pre_session_exit_code=""
 stop_on_pre_iteration_exit_code=""
@@ -217,8 +218,8 @@ while [[ $# -gt 0 ]]; do
       model="$2"
       shift 2
       ;;
-    --yolo)
-      yolo_mode="1"
+    --bypass-approvals-and-sandbox)
+      bypass_approvals_and_sandbox="1"
       shift
       ;;
     --stop-on-error)
@@ -695,7 +696,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   if [[ -n "${model}" ]]; then
     codex_args+=(--model "${model}")
   fi
-  if [[ "${yolo_mode}" == "1" ]]; then
+  if [[ "${bypass_approvals_and_sandbox}" == "1" ]]; then
     codex_args+=(--dangerously-bypass-approvals-and-sandbox)
   fi
   if [[ ${#codex_extra_args[@]} -gt 0 ]]; then

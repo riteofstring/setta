@@ -198,6 +198,25 @@ describe("composer command helpers", () => {
     expect(html).toBe("");
   });
 
+  test("shows slash command discovery failures while drafting a command", () => {
+    const html = renderToString(
+      <CommandSuggestions
+        commandListError="command registry failed"
+        draft="/"
+        modelPicker={null}
+        onDismissModelPicker={vi.fn()}
+        onPickCommand={vi.fn()}
+        onPickModel={vi.fn()}
+        onPickReasoningEffort={vi.fn()}
+        selectedSuggestion={null}
+        suggestions={[]}
+      />,
+    );
+
+    expect(html).toContain("Slash commands unavailable");
+    expect(html).toContain("command registry failed");
+  });
+
   test("enters selected command only when the draft is the command token", () => {
     const goal = commandCapability("/goal", true);
 
@@ -320,7 +339,7 @@ describe("composer command helpers", () => {
       />,
     );
 
-    expect(html).toContain('data-testid="model-picker"');
+    expect(html).toContain("Close model picker");
     expect(html).toContain("scripted-fast");
     expect(html).toContain("Reasoning");
     expect(html).toContain("High");
@@ -411,7 +430,6 @@ describe("conversation body states", () => {
       />,
     );
 
-    expect(html).toContain('data-testid="chat-load-error"');
     expect(html).toContain("Chat state is corrupt");
     expect(html).toContain("malformed chat state /tmp/run.json");
     expect(html).not.toContain("New Chat");
@@ -434,7 +452,6 @@ describe("conversation body states", () => {
 
     expect(html).toContain("Start a conversation for this workspace.");
     expect(html).not.toContain("What should we build in setta?");
-    expect(html).not.toContain('data-testid="chat-composer"');
   });
 
   test("renders workspace switching as loading instead of empty chat actions", () => {
@@ -455,7 +472,6 @@ describe("conversation body states", () => {
 
     expect(html).toContain("Loading workspace chats.");
     expect(html).not.toContain("What should we build in setta?");
-    expect(html).not.toContain('data-testid="chat-composer"');
   });
 });
 

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "./ui/button";
+import { truncateTextPreview } from "../lib/text-preview";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 
 const activityLabelByType = {
@@ -408,10 +409,7 @@ function outputsForItem(
 
 function outputPreview(outputs: RunItemOutput[]) {
   const text = outputs.map((output) => output.text).join("");
-  if (text.length <= 2000) {
-    return text;
-  }
-  return text.slice(0, 2000) + "\n...";
+  return truncateTextPreview(text, 2000, "\n...");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

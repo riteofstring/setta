@@ -73,12 +73,15 @@ export type { WorkspaceConversationListState } from "./chat-store-conversation-l
 export type { RunItemOutputPageState } from "./chat-store-normalization";
 
 type ChatStatus = "idle" | "loading" | "ready" | "error";
+type CommandListStatus = "idle" | "loading" | "loaded" | "failed";
 
 export interface ChatStore {
   activeRun: RunningRun | null;
   applyConversationList: (workspaceId: string, response: ListConversationsResponse) => void;
   applyConversationUpdatedEvent: (workspaceId: string, item: ConversationListItem) => void;
   clearClosedWorkspaceConversationLists: (activeWorkspaceIds: string[]) => void;
+  commandListError: string | null;
+  commandListStatus: CommandListStatus;
   conversationDetailsById: Record<string, ConversationDetailState | undefined>;
   conversationListsByWorkspaceId: Record<string, WorkspaceConversationListState | undefined>;
   conversations: ConversationListItem[];
@@ -151,6 +154,8 @@ export type ChatPatch = Partial<
   Pick<
     ChatStore,
     | "activeRun"
+    | "commandListError"
+    | "commandListStatus"
     | "conversationDetailsById"
     | "conversationListsByWorkspaceId"
     | "conversations"
@@ -301,6 +306,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
         return normalizeStatePatch(current, patch);
       });
     },
+    commandListError: null,
+    commandListStatus: "idle",
     conversationListsByWorkspaceId: {},
     conversationDetailsById: {},
     conversations: [],
@@ -719,9 +726,36 @@ export const useChatStore = create<ChatStore>((set, get) => {
     listCommands: async () => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
+        set({ commandListError: null, commandListStatus: "idle" });
         return null;
       }
-      return window.setta.chat.listCommands(workspaceId, selectedConversation.id);
+      const conversationId = selectedConversation.id;
+      set({ commandListError: null, commandListStatus: "loading" });
+      try {
+        const result = await window.setta.chat.listCommands(workspaceId, conversationId);
+        set((current) => {
+          if (
+            current.workspaceId !== workspaceId ||
+            current.selectedConversation?.id !== conversationId
+          ) {
+            return {};
+          }
+          return { commandListError: null, commandListStatus: "loaded" };
+        });
+        return result;
+      } catch (error) {
+        const message = errorMessage(error);
+        set((current) => {
+          if (
+            current.workspaceId !== workspaceId ||
+            current.selectedConversation?.id !== conversationId
+          ) {
+            return {};
+          }
+          return { commandListError: message, commandListStatus: "failed" };
+        });
+        throw error;
+      }
     },
     resyncActiveConversation: async () => {
       const { selectedConversation, workspaceId } = get();

@@ -83,6 +83,9 @@ func (store *Store) runItemOutputPath(workspaceID string, runID string, runItemI
 }
 
 func (store *Store) messageFiles(workspaceID string, conversationID string) ([]messageFile, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return nil, err
+	}
 	dir := store.messagesDir(workspaceID, conversationID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -112,6 +115,9 @@ func (store *Store) messageFiles(workspaceID string, conversationID string) ([]m
 }
 
 func (store *Store) messageFilesAllowingCorrupt(workspaceID string, conversationID string) ([]messageFile, []CorruptStateFinding, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return nil, nil, err
+	}
 	dir := store.messagesDir(workspaceID, conversationID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -148,6 +154,9 @@ func messageFileName(ordinal int, messageID string) string {
 }
 
 func (store *Store) runItemOutputFiles(workspaceID string, runID string, runItemID string) ([]runItemOutputFile, error) {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return nil, err
+	}
 	dir := store.runItemOutputsDir(workspaceID, runID, runItemID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {

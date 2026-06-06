@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/codex-authority-cleanup-loop-check.sh --root-dir PATH --output-dir PATH --state-dir PATH [options]
+Usage: ./scripts/automation/codex-loop/codex-authority-cleanup-loop-check.sh --root-dir PATH --output-dir PATH --state-dir PATH [options]
 
 Exit 0 while work remains.
 Exit the configured completion code only after the latest Codex response emits a

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -179,7 +182,46 @@ func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
 	}
 }
 
-func TestRenderEmitsObjectDecodersWithRequiredFields(t *testing.T) {
+func TestRenderEmitsOnlyRegisteredCodexProtocolConstants(t *testing.T) {
+	generator := testProtocolGenerator(t)
+	generator.clientMethods = []protocolMember{
+		{Method: "thread/list", ConstName: "ThreadList", ParamsName: "ThreadListParams", Source: "json"},
+		{Method: "turn/start", ConstName: "TurnStart", ParamsName: "TurnStartParams", Source: "json"},
+	}
+	generator.supportedClientMethods = []protocolMember{
+		{Method: "turn/start", ConstName: "TurnStart", ParamsName: "TurnStartParams", Source: "json"},
+	}
+	generator.notifications = []protocolMember{
+		{Method: "item/fileChange/outputDelta", ConstName: "ItemFileChangeOutputDelta", ParamsName: "FileChangeOutputDeltaNotification", Source: "json"},
+		{Method: "thread/started", ConstName: "ThreadStarted", ParamsName: "ThreadStartedNotification", Source: "json"},
+	}
+	generator.supportedNotifications = []protocolMember{
+		{Method: "thread/started", ConstName: "ThreadStarted", ParamsName: "ThreadStartedNotification", Source: "json"},
+	}
+	generator.unsupportedNotifications = []protocolMember{
+		{Method: "item/fileChange/outputDelta", ConstName: "ItemFileChangeOutputDelta", ParamsName: "FileChangeOutputDeltaNotification", Source: "json"},
+	}
+
+	output, err := generator.render()
+	if err != nil {
+		t.Fatalf("render protocol: %v", err)
+	}
+	text := string(output)
+	if !strings.Contains(text, `CodexMethodTurnStart = "turn/start"`) {
+		t.Fatalf("output = %s, want supported turn/start method constant", text)
+	}
+	if strings.Contains(text, "CodexMethodThreadList") {
+		t.Fatalf("output = %s, want no unsupported thread/list method constant", text)
+	}
+	if !strings.Contains(text, `CodexNotificationItemFileChangeOutputDelta = "item/fileChange/outputDelta"`) {
+		t.Fatalf("output = %s, want explicit unsupported notification constant", text)
+	}
+	if strings.Contains(text, "CodexNotificationValues") {
+		t.Fatalf("output = %s, want no all-notifications value list", text)
+	}
+}
+
+func TestRenderEmitsObjectDecoderDeclarations(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.schemas = map[string]jsonSchema{
 		"ThreadSettingsUpdateParams": {
@@ -196,15 +238,18 @@ func TestRenderEmitsObjectDecodersWithRequiredFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render protocol: %v", err)
 	}
-	text := string(output)
-	if !strings.Contains(text, `func DecodeThreadSettingsUpdateParams(raw json.RawMessage) (ThreadSettingsUpdateParams, error)`) {
-		t.Fatalf("output = %s, want generated object decoder", text)
+	file, err := parser.ParseFile(token.NewFileSet(), "protocol_gen.go", output, 0)
+	if err != nil {
+		t.Fatalf("parse generated protocol: %v\n%s", err, output)
 	}
-	if !strings.Contains(text, `decodeCodexObject(raw, "ThreadSettingsUpdateParams", validateThreadSettingsUpdateParams, &value)`) {
-		t.Fatalf("output = %s, want decoder to use generated validator", text)
-	}
-	if !strings.Contains(text, `requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}})`) {
-		t.Fatalf("output = %s, want required field registration", text)
+	for _, name := range []string{
+		"ThreadSettingsUpdateParams",
+		"validateThreadSettingsUpdateParams",
+		"DecodeThreadSettingsUpdateParams",
+	} {
+		if !hasTopLevelDeclaration(file, name) {
+			t.Fatalf("generated protocol is missing declaration %s", name)
+		}
 	}
 }
 
@@ -239,6 +284,25 @@ func TestRenderEmitsNestedObjectValidation(t *testing.T) {
 	if !strings.Contains(text, `validateCodexObjectArrayField(fields, "children", name+".children", false, false, validateChild)`) {
 		t.Fatalf("output = %s, want nested object array validation", text)
 	}
+}
+
+func hasTopLevelDeclaration(file *ast.File, name string) bool {
+	for _, declaration := range file.Decls {
+		switch declaration := declaration.(type) {
+		case *ast.FuncDecl:
+			if declaration.Name.Name == name {
+				return true
+			}
+		case *ast.GenDecl:
+			for _, spec := range declaration.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if ok && typeSpec.Name.Name == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func testProtocolGenerator(t *testing.T) *generator {

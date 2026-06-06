@@ -358,7 +358,7 @@ func validateRunAssistantMessageRecord(run Run, message ChatMessage) error {
 }
 
 func (service *Service) LoadRunActivityPage(workspaceID string, runID string, limit int) (RunActivityPage, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.validateRunRequest(workspaceID, runID); err != nil {
 		return RunActivityPage{}, err
 	}
 	if limit < 0 {
@@ -388,7 +388,7 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, li
 }
 
 func (service *Service) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.validateRunItemOutputRequest(workspaceID, runID, runItemID); err != nil {
 		return RunItemOutputPage{}, err
 	}
 	service.mu.Lock()

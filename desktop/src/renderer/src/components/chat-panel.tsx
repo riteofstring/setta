@@ -351,6 +351,8 @@ export function useChatViewState() {
   const activeRun = useChatStore((state) => state.activeRun);
   const conversations = useChatStore((state) => state.conversations);
   const corruption = useChatStore((state) => state.corruption);
+  const commandListError = useChatStore((state) => state.commandListError);
+  const commandListStatus = useChatStore((state) => state.commandListStatus);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
   const editQueuedMessage = useChatStore((state) => state.editQueuedMessage);
@@ -418,6 +420,8 @@ export function useChatViewState() {
 
   return {
     activeRun,
+    commandListError,
+    commandListStatus,
     conversations,
     corruption,
     createConversation,
