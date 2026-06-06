@@ -18,24 +18,26 @@ describe("sidebar accordion sizing", () => {
     expect(constrainSectionHeight(10, 120)).toBe(40);
   });
 
-  test("renders fast motion classes for expanded and collapsed sections", () => {
+  test("renders expanded and collapsed disclosure state", () => {
     const closed = renderAccordion(false);
     const open = renderAccordion(true);
 
-    expect(closed).toContain("duration-125");
-    expect(closed).toContain("grid-rows-[0fr]");
+    expect(closed).toContain('aria-expanded="false"');
     expect(closed).toContain('aria-hidden="true"');
-    expect(open).toContain("grid-rows-[1fr]");
-    expect(open).toContain("ease-[cubic-bezier(0.16,1,0.3,1)]");
+    expect(closed).toContain('data-state="closed"');
+    expect(closed).not.toContain('role="separator"');
+    expect(open).toContain('aria-expanded="true"');
+    expect(open).toContain('aria-hidden="false"');
+    expect(open).toContain('data-state="open"');
+    expect(open).toContain('role="separator"');
+    expect(open).toContain('aria-label="Resize Test"');
   });
 
-  test("keeps header actions hidden until section hover or focus", () => {
+  test("renders header actions in the section header", () => {
     const html = renderAccordion(true, createElement("button", { type: "button" }, "New"));
 
-    expect(html).toContain("opacity-0");
-    expect(html).toContain("duration-75");
-    expect(html).toContain("group-hover/section:opacity-100");
-    expect(html).toContain("group-focus-within/section:opacity-100");
+    expect(html).toContain(">Test</span>");
+    expect(html).toContain(">New</button>");
   });
 });
 

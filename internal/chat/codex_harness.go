@@ -380,7 +380,7 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
 			}
 		}
-		threadID, err := threadIDFromResponse(result)
+		threadID, err := threadIDFromResumeResponse(result)
 		if err != nil {
 			return "", &HarnessRefUnavailableError{
 				Err:      err,
@@ -400,7 +400,7 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 	if err != nil {
 		return "", fmt.Errorf("start codex thread: %w", err)
 	}
-	threadID, err := threadIDFromResponse(result)
+	threadID, err := threadIDFromStartResponse(result)
 	if err != nil {
 		return "", err
 	}
@@ -421,7 +421,7 @@ func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID str
 	if err != nil {
 		return "", fmt.Errorf("start codex turn: %w", err)
 	}
-	turnID, err := turnIDFromResponse(result)
+	turnID, err := turnIDFromStartResponse(result)
 	if err != nil {
 		return "", err
 	}

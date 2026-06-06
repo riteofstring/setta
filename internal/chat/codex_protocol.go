@@ -6,38 +6,42 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"setta/internal/codexapp"
 )
 
-func threadIDFromResponse(raw json.RawMessage) (string, error) {
-	response, err := objectValue(raw, "codex thread response")
+func threadIDFromStartResponse(raw json.RawMessage) (string, error) {
+	response, err := codexapp.DecodeThreadStartResponse(raw)
 	if err != nil {
 		return "", err
 	}
-	thread, err := requireObject(response, "thread", "codex thread response")
-	if err != nil {
-		return "", err
-	}
-	threadID, err := requireString(thread, "id", "codex thread response thread")
-	if err != nil {
-		return "", err
-	}
-	return threadID, nil
+	return threadIDFromCodexThread(response.Thread, "codex thread start response")
 }
 
-func turnIDFromResponse(raw json.RawMessage) (string, error) {
-	response, err := objectValue(raw, "codex turn response")
+func threadIDFromResumeResponse(raw json.RawMessage) (string, error) {
+	response, err := codexapp.DecodeThreadResumeResponse(raw)
 	if err != nil {
 		return "", err
 	}
-	turn, err := requireObject(response, "turn", "codex turn response")
+	return threadIDFromCodexThread(response.Thread, "codex thread resume response")
+}
+
+func threadIDFromCodexThread(thread codexapp.Thread, label string) (string, error) {
+	if thread.ID == "" {
+		return "", fmt.Errorf("%s.thread.id is required", label)
+	}
+	return thread.ID, nil
+}
+
+func turnIDFromStartResponse(raw json.RawMessage) (string, error) {
+	response, err := codexapp.DecodeTurnStartResponse(raw)
 	if err != nil {
 		return "", err
 	}
-	turnID, err := requireString(turn, "id", "codex turn response turn")
-	if err != nil {
-		return "", err
+	if response.Turn.ID == "" {
+		return "", fmt.Errorf("codex turn start response.turn.id is required")
 	}
-	return turnID, nil
+	return response.Turn.ID, nil
 }
 
 func objectValue(raw json.RawMessage, label string) (map[string]any, error) {

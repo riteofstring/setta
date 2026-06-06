@@ -241,7 +241,7 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, ses
 			}
 			return codexCommandThread{}, commandError(ChatCommandErrorCodexThread, refErr.Error(), refErr)
 		}
-		thread, err := commandThreadFromResponse(result)
+		thread, err := commandThreadFromResumeResponse(result)
 		if err != nil {
 			refErr := &HarnessRefUnavailableError{
 				Err:      err,
@@ -262,7 +262,7 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, ses
 	if err != nil {
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexRPC, "start codex thread: "+err.Error(), err)
 	}
-	thread, err := commandThreadFromResponse(result)
+	thread, err := commandThreadFromStartResponse(result)
 	if err != nil {
 		return codexCommandThread{}, commandError(ChatCommandErrorCodexProviderDrift, "start codex thread response: "+err.Error(), err)
 	}
@@ -603,35 +603,41 @@ func codexSettingsCommandResult(settings codexCommandThreadSettings) HarnessComm
 	}
 }
 
-func commandThreadFromResponse(raw json.RawMessage) (codexCommandThread, error) {
-	response, err := objectValue(raw, "codex thread response")
+func commandThreadFromStartResponse(raw json.RawMessage) (codexCommandThread, error) {
+	response, err := codexapp.DecodeThreadStartResponse(raw)
 	if err != nil {
 		return codexCommandThread{}, err
 	}
-	thread, err := requireObject(response, "thread", "codex thread response")
+	return commandThreadFromCodexResponse(response.Thread, response.Model, response.ReasoningEffort, "codex thread start response")
+}
+
+func commandThreadFromResumeResponse(raw json.RawMessage) (codexCommandThread, error) {
+	response, err := codexapp.DecodeThreadResumeResponse(raw)
 	if err != nil {
 		return codexCommandThread{}, err
 	}
-	threadID, err := requireString(thread, "id", "codex thread response thread")
+	return commandThreadFromCodexResponse(response.Thread, response.Model, response.ReasoningEffort, "codex thread resume response")
+}
+
+func commandThreadFromCodexResponse(thread codexapp.Thread, model string, responseEffort *codexapp.ReasoningEffort, label string) (codexCommandThread, error) {
+	threadID, err := threadIDFromCodexThread(thread, label)
 	if err != nil {
 		return codexCommandThread{}, err
 	}
-	sessionID, err := optionalString(thread, "sessionId", "codex thread response thread")
-	if err != nil {
-		return codexCommandThread{}, err
+	if model == "" {
+		return codexCommandThread{}, fmt.Errorf("%s.model is required", label)
 	}
-	model, err := requireString(response, "model", "codex thread response")
-	if err != nil {
-		return codexCommandThread{}, err
-	}
-	effort, err := optionalReasoningEffort(response, "reasoningEffort", "codex thread response")
-	if err != nil {
-		return codexCommandThread{}, err
+	effort := ReasoningEffort("")
+	if responseEffort != nil {
+		effort = ReasoningEffort(*responseEffort)
+		if !validValue(effort, reasoningEffortValues) {
+			return codexCommandThread{}, fmt.Errorf("%s.reasoningEffort has unsupported reasoning effort %s", label, effort)
+		}
 	}
 	return codexCommandThread{
 		Ref: HarnessThreadRef{
 			Harness:   HarnessCodex,
-			SessionID: sessionID,
+			SessionID: thread.SessionId,
 			Status:    HarnessRefLinked,
 			ThreadID:  threadID,
 		},
@@ -643,9 +649,9 @@ func commandThreadFromResponse(raw json.RawMessage) (codexCommandThread, error) 
 }
 
 func goalStateFromGetResponse(raw json.RawMessage) (*ChatGoalState, error) {
-	var response codexapp.ThreadGoalGetResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
-		return nil, fmt.Errorf("codex goal response must match protocol: %w", err)
+	response, err := codexapp.DecodeThreadGoalGetResponse(raw)
+	if err != nil {
+		return nil, err
 	}
 	if response.Goal == nil {
 		return nil, nil
@@ -654,9 +660,9 @@ func goalStateFromGetResponse(raw json.RawMessage) (*ChatGoalState, error) {
 }
 
 func goalStateFromSetResponse(raw json.RawMessage) (*ChatGoalState, error) {
-	var response codexapp.ThreadGoalSetResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
-		return nil, fmt.Errorf("codex goal response must match protocol: %w", err)
+	response, err := codexapp.DecodeThreadGoalSetResponse(raw)
+	if err != nil {
+		return nil, err
 	}
 	return goalStateFromCodex(response.Goal)
 }
@@ -679,14 +685,7 @@ func goalStateFromCodex(goal codexapp.ThreadGoal) (*ChatGoalState, error) {
 }
 
 func modelListResponseFromResponse(raw json.RawMessage) (codexapp.ModelListResponse, error) {
-	var response codexapp.ModelListResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
-		return codexapp.ModelListResponse{}, fmt.Errorf("codex model list response must match protocol: %w", err)
-	}
-	if response.Data == nil {
-		return codexapp.ModelListResponse{}, fmt.Errorf("codex model list response.data is required")
-	}
-	return response, nil
+	return codexapp.DecodeModelListResponse(raw)
 }
 
 func modelOptionFromCodex(item codexapp.Model, index int) (ChatModelOption, error) {

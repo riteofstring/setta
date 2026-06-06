@@ -179,6 +179,68 @@ func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
 	}
 }
 
+func TestRenderEmitsObjectDecodersWithRequiredFields(t *testing.T) {
+	generator := testProtocolGenerator(t)
+	generator.schemas = map[string]jsonSchema{
+		"ThreadSettingsUpdateParams": {
+			Type: "object",
+			Properties: map[string]jsonSchema{
+				"model":    {Type: []any{"string", "null"}},
+				"threadId": {Type: "string"},
+			},
+			Required: []string{"threadId"},
+		},
+	}
+
+	output, err := generator.render()
+	if err != nil {
+		t.Fatalf("render protocol: %v", err)
+	}
+	text := string(output)
+	if !strings.Contains(text, `func DecodeThreadSettingsUpdateParams(raw json.RawMessage) (ThreadSettingsUpdateParams, error)`) {
+		t.Fatalf("output = %s, want generated object decoder", text)
+	}
+	if !strings.Contains(text, `decodeCodexObject(raw, "ThreadSettingsUpdateParams", validateThreadSettingsUpdateParams, &value)`) {
+		t.Fatalf("output = %s, want decoder to use generated validator", text)
+	}
+	if !strings.Contains(text, `requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}})`) {
+		t.Fatalf("output = %s, want required field registration", text)
+	}
+}
+
+func TestRenderEmitsNestedObjectValidation(t *testing.T) {
+	generator := testProtocolGenerator(t)
+	generator.schemas = map[string]jsonSchema{
+		"Child": {
+			Type: "object",
+			Properties: map[string]jsonSchema{
+				"name": {Type: "string"},
+			},
+			Required: []string{"name"},
+		},
+		"Parent": {
+			Type: "object",
+			Properties: map[string]jsonSchema{
+				"child":    {Ref: "#/definitions/Child"},
+				"children": {Type: "array", Items: &jsonSchema{Ref: "#/definitions/Child"}},
+			},
+			Required: []string{"child", "children"},
+		},
+	}
+
+	output, err := generator.render()
+	if err != nil {
+		t.Fatalf("render protocol: %v", err)
+	}
+	text := string(output)
+	if !strings.Contains(text, `validateCodexObjectField(fields, "child", name+".child", false, validateChild)`) {
+		t.Fatalf("output = %s, want nested object validation", text)
+	}
+	if !strings.Contains(text, `validateCodexObjectArrayField(fields, "children", name+".children", false, false, validateChild)`) {
+		t.Fatalf("output = %s, want nested object array validation", text)
+	}
+}
+
 func testProtocolGenerator(t *testing.T) *generator {
 	t.Helper()
 

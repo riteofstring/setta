@@ -485,31 +485,32 @@ func fakeThreadResponseEffort(mode string) ReasoningEffort {
 
 func writeFakeGoalResponse(id any, objective string, status string) {
 	writeFakeResponse(id, map[string]any{
-		"goal": map[string]any{
-			"objective": objective,
-			"status":    status,
-			"threadId":  "thread_fake",
-		},
+		"goal": fakeThreadGoal(objective, status),
 	})
 }
 
 func writeFakeThreadGoalUpdated(objective string, status string) {
 	writeFakeNotification("thread/goal/updated", map[string]any{
-		"goal": map[string]any{
-			"objective": objective,
-			"status":    status,
-			"threadId":  "thread_fake",
-		},
+		"goal":     fakeThreadGoal(objective, status),
 		"threadId": "thread_fake",
 	})
 }
 
+func fakeThreadGoal(objective string, status string) map[string]any {
+	return map[string]any{
+		"createdAt":       1,
+		"objective":       objective,
+		"status":          status,
+		"threadId":        "thread_fake",
+		"timeUsedSeconds": 0,
+		"tokensUsed":      0,
+		"updatedAt":       1,
+	}
+}
+
 func writeFakeThreadSettingsUpdated(model string, effort ReasoningEffort) {
 	writeFakeNotification("thread/settings/updated", map[string]any{
-		"threadId": "thread_fake",
-		"threadSettings": map[string]any{
-			"effort": string(effort),
-			"model":  model,
-		},
+		"threadId":       "thread_fake",
+		"threadSettings": fakeCodexThreadSettings(model, effort),
 	})
 }

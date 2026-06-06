@@ -457,7 +457,7 @@ func TestCodexHarnessMapsRunActivity(t *testing.T) {
 	if !ok || commandItem.Command != "go test ./..." {
 		t.Fatalf("items = %+v, want command execution", sink.items)
 	}
-	if len(sink.outputs) != 1 || sink.outputs[0].text != "ok\n" {
+	if len(sink.outputs) != 1 || sink.outputs[0].stream != codexCommandExecutionOutputStream || sink.outputs[0].text != "ok\n" {
 		t.Fatalf("outputs = %+v, want command output", sink.outputs)
 	}
 	if !containsRunItemType(sink.items, RunItemTypeNotice) {
@@ -530,7 +530,7 @@ func TestCodexHarnessRejectsMalformedAssistantDelta(t *testing.T) {
 	if err == nil {
 		t.Fatal("start turn succeeded, want malformed delta error")
 	}
-	if !strings.Contains(err.Error(), "codex assistant delta.delta must be a string") {
+	if !strings.Contains(err.Error(), "AgentMessageDeltaNotification has invalid shape") {
 		t.Fatalf("error = %q, want malformed delta", err)
 	}
 }
@@ -1326,7 +1326,7 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 		assertFakeInitialTurnSettings(message)
 	}
 	writeFakeResponse(message["id"], map[string]any{
-		"turn": map[string]any{"id": "turn_fake", "items": []any{}, "status": "inProgress"},
+		"turn": fakeCodexTurn("inProgress"),
 	})
 	if handled, done := handleFakeAppServerStatusMode(mode); handled {
 		return done
@@ -1370,6 +1370,15 @@ func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool
 		return true, false
 	case "activity":
 		writeFakeActivityTurn()
+		return true, true
+	case "empty-deltas":
+		writeFakeEmptyDeltaTurn()
+		return true, true
+	case "empty-base64-output-deltas":
+		writeFakeEmptyBase64OutputDeltaTurn()
+		return true, true
+	case "unsupported-output-stream":
+		writeFakeUnsupportedOutputStreamTurn()
 		return true, true
 	case "approval", "permission", "user-input":
 		state.approvalOutstanding = true
@@ -1444,48 +1453,6 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		return true, true
 	case "protocol-coverage-notifications":
 		writeFakeProtocolCoverageNotifications()
-		return true, true
-	default:
-		return false, false
-	}
-}
-
-func handleFakeAppServerStatusMode(mode string) (bool, bool) {
-	switch mode {
-	case "remote-control-status":
-		writeFakeRemoteControlStatus("disabled")
-		writeFakeStreamTurn()
-		return true, true
-	case "malformed-remote-control-status":
-		writeFakeNotification("remoteControl/status/changed", map[string]any{
-			"environmentId":  nil,
-			"installationId": "installation_fake",
-			"serverName":     "fake.local",
-			"status":         7,
-		})
-		return true, true
-	case "mcp-server-startup-status":
-		writeFakeMCPServerStartupStatus("codex_apps", "starting", nil)
-		writeFakeStreamTurn()
-		return true, true
-	case "unknown-mcp-server-startup-status":
-		writeFakeMCPServerStartupStatus("codex_apps", "waking", nil)
-		return true, true
-	case "reasoning-summary-array":
-		writeFakeReasoningSummaryArrayItem()
-		writeFakeStreamTurn()
-		return true, true
-	case "empty-agent-message-item-text":
-		writeFakeEmptyAgentMessageItem()
-		writeFakeStreamTurn()
-		return true, true
-	case "account-rate-limits":
-		writeFakeAccountRateLimits()
-		writeFakeStreamTurn()
-		return true, true
-	case "thread-goal-cleared":
-		writeFakeThreadGoalCleared()
-		writeFakeStreamTurn()
 		return true, true
 	default:
 		return false, false
