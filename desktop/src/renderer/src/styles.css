@@ -220,6 +220,11 @@ select,
   background: color-mix(in oklch, var(--popover) 82%, var(--primary));
 }
 
+.niri-pane-host[data-runtime-state="snapshot"],
+.niri-pane-host[data-runtime-state="live-throttled"] {
+  background: color-mix(in oklch, var(--popover) 78%, var(--muted));
+}
+
 .niri-pane-content {
   display: grid;
   gap: 10px;
@@ -309,6 +314,7 @@ select,
   display: grid;
   gap: 6px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .niri-pane-rows span {
@@ -328,6 +334,43 @@ select,
 
 .niri-pane-rows span:nth-child(4) {
   width: 54%;
+}
+
+.niri-canvas-surface {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.niri-fake-canvas {
+  background: color-mix(in oklch, var(--background) 80%, var(--primary));
+  border-radius: 5px;
+  display: block;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+.niri-snapshot-surface {
+  align-content: center;
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--muted) 70%, transparent), transparent 54%),
+    color-mix(in oklch, var(--popover) 80%, var(--background));
+}
+
+.niri-snapshot-label {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.niri-snapshot-state {
+  color: var(--muted-foreground);
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .niri-debug-overlay {

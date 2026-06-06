@@ -37,6 +37,8 @@ describe("niri fake-pane layout engine", () => {
     expect(scene.panesPerColumn).toBe(5);
     expect(scene.columns).toHaveLength(100);
     expect(scene.paneById.get("niri_pane_0")?.surfaceKind).toBe("fake-dom");
+    expect(scene.panes.some((pane) => pane.surfaceKind === "fake-heavy-dom")).toBe(true);
+    expect(scene.panes.some((pane) => pane.surfaceKind === "fake-canvas")).toBe(true);
   });
 
   test("renders a deterministic 40-pane frame from 500 fake panes", () => {

@@ -2,9 +2,15 @@ export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
 
-export type SurfaceKind = "fake-dom";
+export type SurfaceKind = "fake-canvas" | "fake-dom" | "fake-heavy-dom" | "snapshot";
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
+
+export type ViewportChangeReason = "frame" | "mount" | "resize";
+
+export type FreezeReason = "hidden" | "runtime-policy" | "snapshot" | "teardown";
+
+export type ResumeReason = "focused" | "runtime-policy" | "visible";
 
 export interface Rect {
   height: number;
@@ -79,6 +85,48 @@ export interface PaneRenderItem {
   x: number;
   y: number;
   z: number;
+}
+
+export interface PaneSnapshot {
+  capturedAt: number;
+  label: string;
+  surfaceId: SurfaceId;
+}
+
+export interface SurfaceAdapter {
+  readonly kind: SurfaceKind;
+  readonly surfaceId: SurfaceId;
+
+  mount(host: HTMLElement): void;
+  unmount(): void;
+
+  setVisible(visible: boolean): void;
+  setFocused(focused: boolean): void;
+
+  setViewport(rect: Rect, reason: ViewportChangeReason): void;
+
+  freeze(reason: FreezeReason): void;
+  resume(reason: ResumeReason): void;
+
+  captureSnapshot?(): Promise<PaneSnapshot>;
+  destroy(): void;
+}
+
+export interface PaneRuntimeBudget {
+  maxLiveBrowserPanes: number;
+  maxLiveHeavyDomPanes: number;
+  maxLiveTerminalRenderers: number;
+  maxLiveWebGpuCanvases: number;
+  maxSnapshotPanes: number;
+}
+
+export interface PaneRuntimeSummary {
+  budget: PaneRuntimeBudget;
+  hidden: number;
+  live: number;
+  liveThrottled: number;
+  snapshot: number;
+  total: number;
 }
 
 export interface LayoutEngine {

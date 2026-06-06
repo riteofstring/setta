@@ -5,6 +5,7 @@ import type { NiriMetricsCollector } from "./metrics";
 import type { PerformanceReportWriter } from "./performance-report";
 import type { PaneRenderItem, Rect } from "./types";
 import type { PresentationEngine } from "./presentation-engine";
+import type { PaneRuntimePolicy } from "./runtime-policy";
 
 const focusStepIntervalMs = 120;
 
@@ -14,6 +15,7 @@ interface FrameSchedulerDependencies {
   metrics: NiriMetricsCollector;
   presentation: PresentationEngine;
   reportWriter: PerformanceReportWriter;
+  runtimePolicy: PaneRuntimePolicy;
   viewportProvider: () => Rect;
 }
 
@@ -31,6 +33,7 @@ export class FrameScheduler {
   private readonly metrics: NiriMetricsCollector;
   private readonly presentation: PresentationEngine;
   private readonly reportWriter: PerformanceReportWriter;
+  private readonly runtimePolicy: PaneRuntimePolicy;
   private readonly viewportProvider: () => Rect;
 
   constructor(dependencies: FrameSchedulerDependencies) {
@@ -39,6 +42,7 @@ export class FrameScheduler {
     this.metrics = dependencies.metrics;
     this.presentation = dependencies.presentation;
     this.reportWriter = dependencies.reportWriter;
+    this.runtimePolicy = dependencies.runtimePolicy;
     this.viewportProvider = dependencies.viewportProvider;
     this.clock = new AnimationClock(this.tick);
   }
@@ -99,6 +103,7 @@ export class FrameScheduler {
       },
       (item) => this.items.push(item),
     );
+    this.runtimePolicy.apply(this.items, movementPhase);
   }
 
   private tick = (timestamp: number, deltaMs: number): void => {
@@ -113,7 +118,7 @@ export class FrameScheduler {
       transformWrites: writeCounts.transformWrites,
       visiblePaneCount: this.items.length,
     });
-    this.presentation.updateDebugOverlay();
+    this.presentation.updateDebugOverlay(this.runtimePolicy.getSummary());
     this.writeReportWhenReady(frameStart);
   };
 

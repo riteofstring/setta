@@ -1,5 +1,6 @@
 import type { NiriMetricsCollector } from "./metrics";
-import type { NiriPane, PaneRenderItem } from "./types";
+import { SurfaceRegistry } from "./surface-registry";
+import type { NiriPane, PaneRenderItem, PaneRuntimeSummary } from "./types";
 
 interface PaneHostBinding {
   contentPaneId: string | null;
@@ -8,6 +9,7 @@ interface PaneHostBinding {
   lastHeight: number;
   lastMoving: boolean;
   lastOpacity: number;
+  lastRuntimeState: string;
   lastTransform: string;
   lastVisible: boolean;
   lastWidth: number;
@@ -22,6 +24,7 @@ export class PresentationEngine {
   constructor(
     panes: readonly NiriPane[],
     private readonly metrics: NiriMetricsCollector,
+    private readonly surfaceRegistry = new SurfaceRegistry(panes),
   ) {
     for (const pane of panes) {
       this.paneById.set(pane.paneId, pane);
@@ -41,7 +44,7 @@ export class PresentationEngine {
         this.hideBinding(binding);
         continue;
       }
-      if (!item.moving) {
+      if (!item.moving || binding.contentPaneId === item.paneId) {
         this.syncContent(binding, item);
       }
       transformWrites += this.syncFrame(binding, item);
@@ -58,6 +61,7 @@ export class PresentationEngine {
       lastHeight: -1,
       lastMoving: false,
       lastOpacity: -1,
+      lastRuntimeState: "",
       lastTransform: "",
       lastVisible: false,
       lastWidth: -1,
@@ -77,11 +81,12 @@ export class PresentationEngine {
     if (this.debugOverlay) {
       this.debugOverlay.textContent = "";
     }
+    this.surfaceRegistry.teardown();
     this.bindings = [];
     this.debugOverlay = null;
   }
 
-  updateDebugOverlay(): void {
+  updateDebugOverlay(runtimeSummary: PaneRuntimeSummary): void {
     if (!this.debugOverlay) {
       return;
     }
@@ -94,6 +99,8 @@ export class PresentationEngine {
       `writes ${snapshot.transformWrites}`,
       `long ${snapshot.longTasks}`,
       `react ${snapshot.reactCommitsDuringMovement}`,
+      `runtime ${runtimeSummary.live}/${runtimeSummary.snapshot}/${runtimeSummary.liveThrottled}/${runtimeSummary.hidden}`,
+      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} canvas ${runtimeSummary.budget.maxLiveWebGpuCanvases}`,
     ].join(" | ");
   }
 
@@ -101,6 +108,7 @@ export class PresentationEngine {
     if (!binding.lastVisible) {
       return;
     }
+    this.surfaceRegistry.releaseHost(binding.host);
     binding.host.style.opacity = "0";
     binding.host.style.pointerEvents = "none";
     binding.host.dataset.visible = "false";
@@ -108,7 +116,7 @@ export class PresentationEngine {
   }
 
   private syncContent(binding: PaneHostBinding, item: PaneRenderItem): void {
-    if (binding.contentPaneId === item.paneId) {
+    if (binding.contentPaneId !== item.paneId && item.moving) {
       return;
     }
     const pane = this.paneById.get(item.paneId);
@@ -117,12 +125,8 @@ export class PresentationEngine {
     }
     binding.contentPaneId = item.paneId;
     binding.host.dataset.paneId = item.paneId;
-    binding.host.dataset.surfaceKind = item.surfaceKind;
     binding.host.dataset.tone = pane.tone;
-    setText(binding.host, "[data-niri-pane-title]", pane.title);
-    setText(binding.host, "[data-niri-pane-subtitle]", pane.subtitle);
-    setText(binding.host, "[data-niri-pane-index]", String(pane.sequence + 1));
-    setText(binding.host, "[data-niri-pane-heat]", `${pane.heat}%`);
+    this.surfaceRegistry.syncHost(binding.host, item);
   }
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): number {
@@ -169,6 +173,10 @@ export class PresentationEngine {
       binding.host.style.pointerEvents = item.visible ? "auto" : "none";
       binding.lastVisible = item.visible;
     }
+    if (binding.lastRuntimeState !== item.runtimeState) {
+      binding.host.dataset.runtimeState = item.runtimeState;
+      binding.lastRuntimeState = item.runtimeState;
+    }
   }
 
   private syncTransform(binding: PaneHostBinding, item: PaneRenderItem): number {
@@ -179,12 +187,5 @@ export class PresentationEngine {
       return 1;
     }
     return 0;
-  }
-}
-
-function setText(host: HTMLElement, selector: string, value: string): void {
-  const target = host.querySelector(selector);
-  if (target) {
-    target.textContent = value;
   }
 }

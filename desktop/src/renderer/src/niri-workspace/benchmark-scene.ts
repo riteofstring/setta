@@ -1,4 +1,4 @@
-import type { NiriColumn, NiriPane, NiriWorkspaceScene } from "./types";
+import type { NiriColumn, NiriPane, NiriWorkspaceScene, SurfaceKind } from "./types";
 
 export const phaseOneFakePaneCount = 500;
 export const phaseOneVisiblePaneCount = 40;
@@ -64,16 +64,47 @@ export function generateBenchmarkScene({
 function createFakePane(columnId: string, sequence: number, rowIndex: number): NiriPane {
   const kind = workKinds[sequence % workKinds.length] ?? "notes";
   const tone = toneSequence[(sequence + rowIndex) % toneSequence.length] ?? "slate";
+  const surfaceKind = fakeSurfaceKind(sequence);
   return {
     columnId,
     heat: (sequence * 37) % 100,
     paneId: `niri_pane_${sequence}`,
     sequence,
-    subtitle: `fake ${kind} surface`,
+    subtitle: `${surfaceKindLabel(surfaceKind)} ${kind} surface`,
     surfaceId: `niri_surface_${sequence}`,
-    surfaceKind: "fake-dom",
+    surfaceKind,
     title: `Pane ${String(sequence + 1).padStart(3, "0")}`,
     tone,
     weight: 1 + ((sequence + rowIndex) % 3) * 0.12,
   };
+}
+
+function fakeSurfaceKind(sequence: number): SurfaceKind {
+  const slot = sequence % 12;
+  if (slot === 4) {
+    return "fake-canvas";
+  }
+  if (slot >= 5 && slot <= 7) {
+    return "fake-heavy-dom";
+  }
+  return "fake-dom";
+}
+
+function surfaceKindLabel(kind: SurfaceKind): string {
+  switch (kind) {
+    case "fake-canvas":
+      return "fake canvas";
+    case "fake-dom":
+      return "fake light";
+    case "fake-heavy-dom":
+      return "fake heavy";
+    case "snapshot":
+      return "snapshot";
+    default:
+      assertNever(kind);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled fake surface kind: ${String(value)}`);
 }

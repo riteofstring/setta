@@ -10,6 +10,8 @@ import {
   LocalStoragePerformanceReportWriter,
 } from "./performance-report";
 import { PresentationEngine } from "./presentation-engine";
+import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
+import { SurfaceRegistry } from "./surface-registry";
 import type { NiriPane, Rect } from "./types";
 
 export function NiriWorkspaceArea() {
@@ -34,6 +36,7 @@ export function NiriWorkspaceArea() {
       metrics: runtime.metrics,
       presentation: runtime.presentation,
       reportWriter: runtime.reportWriter,
+      runtimePolicy: runtime.runtimePolicy,
       viewportProvider: () => viewportRect(root),
     });
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -79,7 +82,8 @@ export function NiriWorkspaceArea() {
         data-testid="niri-debug-overlay"
         ref={debugRef}
       >
-        frame 0.00ms | p95 0.00ms | p99 0.00ms | visible 0 | writes 0 | long 0 | react 0
+        frame 0.00ms | p95 0.00ms | p99 0.00ms | visible 0 | writes 0 | long 0 | react 0 | runtime
+        0/0/0/0
       </div>
     </section>
   );
@@ -100,6 +104,8 @@ function FakePaneHost({
       data-focused="false"
       data-moving="false"
       data-pane-id={pane.paneId}
+      data-runtime-state="live"
+      data-surface-kind={pane.surfaceKind}
       data-testid="niri-fake-pane-host"
       data-tone={pane.tone}
       data-visible="true"
@@ -150,11 +156,13 @@ function createNiriRuntime() {
   const engine = new NiriLikeLayoutEngine(scene);
   const store = new NiriLayoutStore(engine, scene);
   const metrics = new NiriMetricsCollector();
+  const surfaceRegistry = new SurfaceRegistry(scene.panes);
   return {
     engine,
     metrics,
-    presentation: new PresentationEngine(scene.panes, metrics),
+    presentation: new PresentationEngine(scene.panes, metrics, surfaceRegistry),
     reportWriter: new LocalStoragePerformanceReportWriter(5000),
+    runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET),
     scene,
     store,
   };
