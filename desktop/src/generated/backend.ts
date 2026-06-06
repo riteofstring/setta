@@ -15,6 +15,88 @@ import {
   type BackendFetch,
 } from "@shared/backend-runtime";
 
+export type AppearanceColorMode = "dark" | "light";
+
+export const appearanceColorModeValues = ["dark", "light"] as const satisfies readonly AppearanceColorMode[];
+
+export function decodeAppearanceColorMode(value: unknown, label = "AppearanceColorMode"): AppearanceColorMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "dark":
+      return decoded;
+    case "light":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type AppearancePresetID = "setta_standard" | "tailwind_slate" | "tailwind_gray" | "tailwind_zinc" | "tailwind_neutral" | "tailwind_stone" | "tailwind_red" | "tailwind_orange" | "tailwind_amber" | "tailwind_yellow" | "tailwind_lime" | "tailwind_green" | "tailwind_emerald" | "tailwind_teal" | "tailwind_cyan" | "tailwind_sky" | "tailwind_blue" | "tailwind_indigo" | "tailwind_violet" | "tailwind_purple" | "tailwind_fuchsia" | "tailwind_pink" | "tailwind_rose" | "shadcn_mauve" | "shadcn_olive" | "shadcn_mist" | "shadcn_taupe";
+
+export const appearancePresetIDValues = ["setta_standard", "tailwind_slate", "tailwind_gray", "tailwind_zinc", "tailwind_neutral", "tailwind_stone", "tailwind_red", "tailwind_orange", "tailwind_amber", "tailwind_yellow", "tailwind_lime", "tailwind_green", "tailwind_emerald", "tailwind_teal", "tailwind_cyan", "tailwind_sky", "tailwind_blue", "tailwind_indigo", "tailwind_violet", "tailwind_purple", "tailwind_fuchsia", "tailwind_pink", "tailwind_rose", "shadcn_mauve", "shadcn_olive", "shadcn_mist", "shadcn_taupe"] as const satisfies readonly AppearancePresetID[];
+
+export function decodeAppearancePresetID(value: unknown, label = "AppearancePresetID"): AppearancePresetID {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "setta_standard":
+      return decoded;
+    case "tailwind_slate":
+      return decoded;
+    case "tailwind_gray":
+      return decoded;
+    case "tailwind_zinc":
+      return decoded;
+    case "tailwind_neutral":
+      return decoded;
+    case "tailwind_stone":
+      return decoded;
+    case "tailwind_red":
+      return decoded;
+    case "tailwind_orange":
+      return decoded;
+    case "tailwind_amber":
+      return decoded;
+    case "tailwind_yellow":
+      return decoded;
+    case "tailwind_lime":
+      return decoded;
+    case "tailwind_green":
+      return decoded;
+    case "tailwind_emerald":
+      return decoded;
+    case "tailwind_teal":
+      return decoded;
+    case "tailwind_cyan":
+      return decoded;
+    case "tailwind_sky":
+      return decoded;
+    case "tailwind_blue":
+      return decoded;
+    case "tailwind_indigo":
+      return decoded;
+    case "tailwind_violet":
+      return decoded;
+    case "tailwind_purple":
+      return decoded;
+    case "tailwind_fuchsia":
+      return decoded;
+    case "tailwind_pink":
+      return decoded;
+    case "tailwind_rose":
+      return decoded;
+    case "shadcn_mauve":
+      return decoded;
+    case "shadcn_olive":
+      return decoded;
+    case "shadcn_mist":
+      return decoded;
+    case "shadcn_taupe":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
@@ -211,9 +293,9 @@ export function decodeTextFormat(value: unknown, label = "TextFormat"): TextForm
   }
 }
 
-export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "context_compaction" | "notice" | "approval_review" | "hook" | "structured_input";
+export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "notice" | "approval_review" | "hook" | "structured_input";
 
-export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "context_compaction", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
+export const runItemTypeValues = ["agent_message", "plan", "reasoning", "command_execution", "file_change", "mcp_tool_call", "dynamic_tool_call", "collab_agent_tool_call", "web_search", "image_view", "image_generation", "terminal_interaction", "diff", "notice", "approval_review", "hook", "structured_input"] as const satisfies readonly RunItemType[];
 
 export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
   const decoded = decodeString(value, label);
@@ -243,8 +325,6 @@ export function decodeRunItemType(value: unknown, label = "RunItemType"): RunIte
     case "terminal_interaction":
       return decoded;
     case "diff":
-      return decoded;
-    case "context_compaction":
       return decoded;
     case "notice":
       return decoded;
@@ -363,16 +443,22 @@ export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): 
   }
 }
 
-export type ChatCommandKind = "goal" | "model";
+export type ChatCommandKind = "goal" | "mcp" | "model" | "new" | "skills";
 
-export const chatCommandKindValues = ["goal", "model"] as const satisfies readonly ChatCommandKind[];
+export const chatCommandKindValues = ["goal", "mcp", "model", "new", "skills"] as const satisfies readonly ChatCommandKind[];
 
 export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind"): ChatCommandKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "goal":
       return decoded;
+    case "mcp":
+      return decoded;
     case "model":
+      return decoded;
+    case "new":
+      return decoded;
+    case "skills":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -515,6 +601,102 @@ export interface BackendHealth {
   version: string;
 }
 
+export interface AppearanceTailwindPalette {
+  setta50: string;
+  setta100: string;
+  setta150: string;
+  setta200: string;
+  setta300: string;
+  setta400: string;
+  setta500: string;
+  setta600: string;
+  setta700: string;
+  setta750: string;
+  setta800: string;
+  setta850: string;
+  setta860: string;
+  setta875: string;
+  setta900: string;
+  setta925: string;
+  setta950: string;
+  setta975: string;
+}
+
+export interface AppearanceShadcnPalette {
+  background: string;
+  foreground: string;
+  card: string;
+  cardForeground: string;
+  popover: string;
+  popoverForeground: string;
+  primary: string;
+  primaryForeground: string;
+  secondary: string;
+  secondaryForeground: string;
+  muted: string;
+  mutedForeground: string;
+  accent: string;
+  accentForeground: string;
+  destructive: string;
+  destructiveForeground: string;
+  border: string;
+  input: string;
+  ring: string;
+  sidebar: string;
+  sidebarForeground: string;
+  sidebarAccent: string;
+  sidebarAccentForeground: string;
+}
+
+export interface AppearanceStatusPalette {
+  info: string;
+  infoForeground: string;
+  success: string;
+  successForeground: string;
+  warning: string;
+  warningForeground: string;
+  alert: string;
+  alertForeground: string;
+  critical: string;
+  criticalForeground: string;
+}
+
+export interface AppearanceColorScheme {
+  tailwind: AppearanceTailwindPalette;
+  shadcn: AppearanceShadcnPalette;
+  status: AppearanceStatusPalette;
+}
+
+export interface AppearanceFontScheme {
+  sans: string;
+  mono: string;
+  heading: string;
+}
+
+export interface AppearanceSettings {
+  schemaVersion: number;
+  mode: AppearanceColorMode;
+  light: AppearanceColorScheme;
+  dark: AppearanceColorScheme;
+  fonts: AppearanceFontScheme;
+}
+
+export interface AppearancePreset {
+  id: AppearancePresetID;
+  name: string;
+  description: string;
+  settings: AppearanceSettings;
+}
+
+export interface AppearancePresetList {
+  defaultPresetId: AppearancePresetID;
+  presets: AppearancePreset[];
+}
+
+export interface UpdateAppearanceSettingsRequest {
+  settings: AppearanceSettings;
+}
+
 export interface WorkspaceSummary {
   id: string;
   rootPath: string;
@@ -589,8 +771,6 @@ export interface ConversationListItem {
   conversation: Conversation;
   messageCount: number;
   activeRunId: string;
-  readMarker: number;
-  latestReadRelevantMarker: number;
 }
 
 export interface CorruptionCount {
@@ -630,7 +810,7 @@ export interface CreateConversationRequest {
   title: string;
 }
 
-export interface MarkConversationReadRequest {
+export interface DeleteConversationRequest {
   workspaceId: string;
   conversationId: string;
 }
@@ -818,6 +998,13 @@ export interface SendMessageResult {
   page: MessagePage;
 }
 
+export interface UpdateUserMessageRequest {
+  workspaceId: string;
+  conversationId: string;
+  messageId: string;
+  text: string;
+}
+
 export interface QueueChatMessageRequest {
   workspaceId: string;
   conversationId: string;
@@ -832,35 +1019,6 @@ export interface QueueMessageResult {
   page: MessagePage;
 }
 
-export interface EditQueuedChatMessageRequest {
-  workspaceId: string;
-  conversationId: string;
-  messageId: string;
-  prompt: string;
-}
-
-export interface QueueEditResult {
-  conversation: Conversation;
-  userMessage: ChatMessage;
-  run: Run;
-  queue: QueueState;
-  page: MessagePage;
-}
-
-export interface RemoveQueuedChatMessageRequest {
-  workspaceId: string;
-  conversationId: string;
-  messageId: string;
-}
-
-export interface QueueRemoveResult {
-  conversation: Conversation;
-  removedMessageId: string;
-  removedRunId: string;
-  queue: QueueState;
-  page: MessagePage;
-}
-
 export interface SteerChatMessageRequest {
   workspaceId: string;
   conversationId: string;
@@ -871,21 +1029,6 @@ export interface SteerMessageResult {
   conversation: Conversation;
   userMessage: ChatMessage;
   run: Run;
-  page: MessagePage;
-}
-
-export interface SendSteeringImmediatelyRequest {
-  workspaceId: string;
-  conversationId: string;
-  prompt: string;
-}
-
-export interface ImmediateSteeringResult {
-  conversation: Conversation;
-  cancelledRun: Run;
-  replayedSteeringMessageIds: string[];
-  activeRun: Run;
-  queue: QueueState;
   page: MessagePage;
 }
 
@@ -1121,11 +1264,6 @@ export interface MessageUpdatedPayload {
   message: ChatMessage;
 }
 
-export interface MessageRemovedPayload {
-  messageId: string;
-  runId: string;
-}
-
 export interface RunUpdatedPayload {
   run: Run;
 }
@@ -1177,7 +1315,6 @@ export type ChatEvent =
   | ChatMessageSteeringSentEvent
   | ChatAssistantTextDeltaEvent
   | ChatMessageUpdatedEvent
-  | ChatMessageRemovedEvent
   | ChatRunUpdatedEvent
   | ChatRunItemCreatedEvent
   | ChatRunItemUpdatedEvent
@@ -1253,19 +1390,6 @@ export interface ChatMessageUpdatedEvent {
   conversationId: string;
   runId: string;
   payload: MessageUpdatedPayload;
-}
-
-export interface ChatMessageRemovedEvent {
-  schemaVersion: number;
-  streamId: string;
-  sequence: number;
-  eventId: string;
-  type: "chat.message.removed";
-  emittedAt: string;
-  workspaceId: string;
-  conversationId: string;
-  runId: string;
-  payload: MessageRemovedPayload;
 }
 
 export interface ChatRunUpdatedEvent {
@@ -1403,6 +1527,18 @@ export const backendEndpoints = {
     method: "GET",
     path: "/health",
   },
+  ReadAppearanceSettings: {
+    method: "GET",
+    path: "/appearance/settings",
+  },
+  ReadAppearancePresets: {
+    method: "GET",
+    path: "/appearance/presets",
+  },
+  UpdateAppearanceSettings: {
+    method: "POST",
+    path: "/appearance/settings",
+  },
   WorkspaceSession: {
     method: "GET",
     path: "/workspace-session",
@@ -1435,9 +1571,9 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/conversations/create",
   },
-  MarkConversationRead: {
+  DeleteConversation: {
     method: "POST",
-    path: "/chat/conversations/mark-read",
+    path: "/chat/conversations/delete",
   },
   GetMessagePage: {
     method: "POST",
@@ -1447,25 +1583,17 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/messages/send",
   },
+  UpdateUserMessage: {
+    method: "POST",
+    path: "/chat/messages/update-user",
+  },
   QueueChatMessage: {
     method: "POST",
     path: "/chat/messages/queue",
   },
-  EditQueuedChatMessage: {
-    method: "POST",
-    path: "/chat/messages/queue/edit",
-  },
-  RemoveQueuedChatMessage: {
-    method: "POST",
-    path: "/chat/messages/queue/remove",
-  },
   SteerChatMessage: {
     method: "POST",
     path: "/chat/messages/steer",
-  },
-  SendSteeringImmediately: {
-    method: "POST",
-    path: "/chat/messages/steer/immediate",
   },
   ListChatCommands: {
     method: "POST",
@@ -1544,6 +1672,138 @@ export function decodeBackendHealth(value: unknown): BackendHealth {
     ok: decodeBoolean(requireField(record, "ok", "BackendHealth"), "BackendHealth.ok"),
     name: decodeString(requireField(record, "name", "BackendHealth"), "BackendHealth.name"),
     version: decodeString(requireField(record, "version", "BackendHealth"), "BackendHealth.version"),
+  };
+}
+
+export function decodeAppearanceTailwindPalette(value: unknown): AppearanceTailwindPalette {
+  const record = assertRecord(value, "AppearanceTailwindPalette");
+  assertKnownFields(record, "AppearanceTailwindPalette", ["setta50", "setta100", "setta150", "setta200", "setta300", "setta400", "setta500", "setta600", "setta700", "setta750", "setta800", "setta850", "setta860", "setta875", "setta900", "setta925", "setta950", "setta975"]);
+  return {
+    setta50: decodeString(requireField(record, "setta50", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta50"),
+    setta100: decodeString(requireField(record, "setta100", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta100"),
+    setta150: decodeString(requireField(record, "setta150", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta150"),
+    setta200: decodeString(requireField(record, "setta200", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta200"),
+    setta300: decodeString(requireField(record, "setta300", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta300"),
+    setta400: decodeString(requireField(record, "setta400", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta400"),
+    setta500: decodeString(requireField(record, "setta500", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta500"),
+    setta600: decodeString(requireField(record, "setta600", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta600"),
+    setta700: decodeString(requireField(record, "setta700", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta700"),
+    setta750: decodeString(requireField(record, "setta750", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta750"),
+    setta800: decodeString(requireField(record, "setta800", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta800"),
+    setta850: decodeString(requireField(record, "setta850", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta850"),
+    setta860: decodeString(requireField(record, "setta860", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta860"),
+    setta875: decodeString(requireField(record, "setta875", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta875"),
+    setta900: decodeString(requireField(record, "setta900", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta900"),
+    setta925: decodeString(requireField(record, "setta925", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta925"),
+    setta950: decodeString(requireField(record, "setta950", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta950"),
+    setta975: decodeString(requireField(record, "setta975", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta975"),
+  };
+}
+
+export function decodeAppearanceShadcnPalette(value: unknown): AppearanceShadcnPalette {
+  const record = assertRecord(value, "AppearanceShadcnPalette");
+  assertKnownFields(record, "AppearanceShadcnPalette", ["background", "foreground", "card", "cardForeground", "popover", "popoverForeground", "primary", "primaryForeground", "secondary", "secondaryForeground", "muted", "mutedForeground", "accent", "accentForeground", "destructive", "destructiveForeground", "border", "input", "ring", "sidebar", "sidebarForeground", "sidebarAccent", "sidebarAccentForeground"]);
+  return {
+    background: decodeString(requireField(record, "background", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.background"),
+    foreground: decodeString(requireField(record, "foreground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.foreground"),
+    card: decodeString(requireField(record, "card", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.card"),
+    cardForeground: decodeString(requireField(record, "cardForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.cardForeground"),
+    popover: decodeString(requireField(record, "popover", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.popover"),
+    popoverForeground: decodeString(requireField(record, "popoverForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.popoverForeground"),
+    primary: decodeString(requireField(record, "primary", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.primary"),
+    primaryForeground: decodeString(requireField(record, "primaryForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.primaryForeground"),
+    secondary: decodeString(requireField(record, "secondary", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.secondary"),
+    secondaryForeground: decodeString(requireField(record, "secondaryForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.secondaryForeground"),
+    muted: decodeString(requireField(record, "muted", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.muted"),
+    mutedForeground: decodeString(requireField(record, "mutedForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.mutedForeground"),
+    accent: decodeString(requireField(record, "accent", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.accent"),
+    accentForeground: decodeString(requireField(record, "accentForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.accentForeground"),
+    destructive: decodeString(requireField(record, "destructive", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.destructive"),
+    destructiveForeground: decodeString(requireField(record, "destructiveForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.destructiveForeground"),
+    border: decodeString(requireField(record, "border", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.border"),
+    input: decodeString(requireField(record, "input", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.input"),
+    ring: decodeString(requireField(record, "ring", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.ring"),
+    sidebar: decodeString(requireField(record, "sidebar", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.sidebar"),
+    sidebarForeground: decodeString(requireField(record, "sidebarForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.sidebarForeground"),
+    sidebarAccent: decodeString(requireField(record, "sidebarAccent", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.sidebarAccent"),
+    sidebarAccentForeground: decodeString(requireField(record, "sidebarAccentForeground", "AppearanceShadcnPalette"), "AppearanceShadcnPalette.sidebarAccentForeground"),
+  };
+}
+
+export function decodeAppearanceStatusPalette(value: unknown): AppearanceStatusPalette {
+  const record = assertRecord(value, "AppearanceStatusPalette");
+  assertKnownFields(record, "AppearanceStatusPalette", ["info", "infoForeground", "success", "successForeground", "warning", "warningForeground", "alert", "alertForeground", "critical", "criticalForeground"]);
+  return {
+    info: decodeString(requireField(record, "info", "AppearanceStatusPalette"), "AppearanceStatusPalette.info"),
+    infoForeground: decodeString(requireField(record, "infoForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.infoForeground"),
+    success: decodeString(requireField(record, "success", "AppearanceStatusPalette"), "AppearanceStatusPalette.success"),
+    successForeground: decodeString(requireField(record, "successForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.successForeground"),
+    warning: decodeString(requireField(record, "warning", "AppearanceStatusPalette"), "AppearanceStatusPalette.warning"),
+    warningForeground: decodeString(requireField(record, "warningForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.warningForeground"),
+    alert: decodeString(requireField(record, "alert", "AppearanceStatusPalette"), "AppearanceStatusPalette.alert"),
+    alertForeground: decodeString(requireField(record, "alertForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.alertForeground"),
+    critical: decodeString(requireField(record, "critical", "AppearanceStatusPalette"), "AppearanceStatusPalette.critical"),
+    criticalForeground: decodeString(requireField(record, "criticalForeground", "AppearanceStatusPalette"), "AppearanceStatusPalette.criticalForeground"),
+  };
+}
+
+export function decodeAppearanceColorScheme(value: unknown): AppearanceColorScheme {
+  const record = assertRecord(value, "AppearanceColorScheme");
+  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status"]);
+  return {
+    tailwind: decodeAppearanceTailwindPalette(requireField(record, "tailwind", "AppearanceColorScheme")),
+    shadcn: decodeAppearanceShadcnPalette(requireField(record, "shadcn", "AppearanceColorScheme")),
+    status: decodeAppearanceStatusPalette(requireField(record, "status", "AppearanceColorScheme")),
+  };
+}
+
+export function decodeAppearanceFontScheme(value: unknown): AppearanceFontScheme {
+  const record = assertRecord(value, "AppearanceFontScheme");
+  assertKnownFields(record, "AppearanceFontScheme", ["sans", "mono", "heading"]);
+  return {
+    sans: decodeString(requireField(record, "sans", "AppearanceFontScheme"), "AppearanceFontScheme.sans"),
+    mono: decodeString(requireField(record, "mono", "AppearanceFontScheme"), "AppearanceFontScheme.mono"),
+    heading: decodeString(requireField(record, "heading", "AppearanceFontScheme"), "AppearanceFontScheme.heading"),
+  };
+}
+
+export function decodeAppearanceSettings(value: unknown): AppearanceSettings {
+  const record = assertRecord(value, "AppearanceSettings");
+  assertKnownFields(record, "AppearanceSettings", ["schemaVersion", "mode", "light", "dark", "fonts"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "AppearanceSettings"), "AppearanceSettings.schemaVersion"),
+    mode: decodeAppearanceColorMode(requireField(record, "mode", "AppearanceSettings"), "AppearanceSettings.mode"),
+    light: decodeAppearanceColorScheme(requireField(record, "light", "AppearanceSettings")),
+    dark: decodeAppearanceColorScheme(requireField(record, "dark", "AppearanceSettings")),
+    fonts: decodeAppearanceFontScheme(requireField(record, "fonts", "AppearanceSettings")),
+  };
+}
+
+export function decodeAppearancePreset(value: unknown): AppearancePreset {
+  const record = assertRecord(value, "AppearancePreset");
+  assertKnownFields(record, "AppearancePreset", ["id", "name", "description", "settings"]);
+  return {
+    id: decodeAppearancePresetID(requireField(record, "id", "AppearancePreset"), "AppearancePreset.id"),
+    name: decodeString(requireField(record, "name", "AppearancePreset"), "AppearancePreset.name"),
+    description: decodeString(requireField(record, "description", "AppearancePreset"), "AppearancePreset.description"),
+    settings: decodeAppearanceSettings(requireField(record, "settings", "AppearancePreset")),
+  };
+}
+
+export function decodeAppearancePresetList(value: unknown): AppearancePresetList {
+  const record = assertRecord(value, "AppearancePresetList");
+  assertKnownFields(record, "AppearancePresetList", ["defaultPresetId", "presets"]);
+  return {
+    defaultPresetId: decodeAppearancePresetID(requireField(record, "defaultPresetId", "AppearancePresetList"), "AppearancePresetList.defaultPresetId"),
+    presets: decodeArray(requireField(record, "presets", "AppearancePresetList"), "AppearancePresetList.presets", (item) => decodeAppearancePreset(item)),
+  };
+}
+
+export function decodeUpdateAppearanceSettingsRequest(value: unknown): UpdateAppearanceSettingsRequest {
+  const record = assertRecord(value, "UpdateAppearanceSettingsRequest");
+  assertKnownFields(record, "UpdateAppearanceSettingsRequest", ["settings"]);
+  return {
+    settings: decodeAppearanceSettings(requireField(record, "settings", "UpdateAppearanceSettingsRequest")),
   };
 }
 
@@ -1667,13 +1927,11 @@ export function decodeConversation(value: unknown): Conversation {
 
 export function decodeConversationListItem(value: unknown): ConversationListItem {
   const record = assertRecord(value, "ConversationListItem");
-  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "readMarker", "latestReadRelevantMarker"]);
+  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "ConversationListItem")),
     messageCount: decodeInteger(requireField(record, "messageCount", "ConversationListItem"), "ConversationListItem.messageCount"),
     activeRunId: decodeString(requireField(record, "activeRunId", "ConversationListItem"), "ConversationListItem.activeRunId"),
-    readMarker: decodeInteger(requireField(record, "readMarker", "ConversationListItem"), "ConversationListItem.readMarker"),
-    latestReadRelevantMarker: decodeInteger(requireField(record, "latestReadRelevantMarker", "ConversationListItem"), "ConversationListItem.latestReadRelevantMarker"),
   };
 }
 
@@ -1734,12 +1992,12 @@ export function decodeCreateConversationRequest(value: unknown): CreateConversat
   };
 }
 
-export function decodeMarkConversationReadRequest(value: unknown): MarkConversationReadRequest {
-  const record = assertRecord(value, "MarkConversationReadRequest");
-  assertKnownFields(record, "MarkConversationReadRequest", ["workspaceId", "conversationId"]);
+export function decodeDeleteConversationRequest(value: unknown): DeleteConversationRequest {
+  const record = assertRecord(value, "DeleteConversationRequest");
+  assertKnownFields(record, "DeleteConversationRequest", ["workspaceId", "conversationId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "MarkConversationReadRequest"), "MarkConversationReadRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "MarkConversationReadRequest"), "MarkConversationReadRequest.conversationId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "DeleteConversationRequest"), "DeleteConversationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "DeleteConversationRequest"), "DeleteConversationRequest.conversationId"),
   };
 }
 
@@ -1986,6 +2244,17 @@ export function decodeSendMessageResult(value: unknown): SendMessageResult {
   };
 }
 
+export function decodeUpdateUserMessageRequest(value: unknown): UpdateUserMessageRequest {
+  const record = assertRecord(value, "UpdateUserMessageRequest");
+  assertKnownFields(record, "UpdateUserMessageRequest", ["workspaceId", "conversationId", "messageId", "text"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.conversationId"),
+    messageId: decodeString(requireField(record, "messageId", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.messageId"),
+    text: decodeString(requireField(record, "text", "UpdateUserMessageRequest"), "UpdateUserMessageRequest.text"),
+  };
+}
+
 export function decodeQueueChatMessageRequest(value: unknown): QueueChatMessageRequest {
   const record = assertRecord(value, "QueueChatMessageRequest");
   assertKnownFields(record, "QueueChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
@@ -2008,51 +2277,6 @@ export function decodeQueueMessageResult(value: unknown): QueueMessageResult {
   };
 }
 
-export function decodeEditQueuedChatMessageRequest(value: unknown): EditQueuedChatMessageRequest {
-  const record = assertRecord(value, "EditQueuedChatMessageRequest");
-  assertKnownFields(record, "EditQueuedChatMessageRequest", ["workspaceId", "conversationId", "messageId", "prompt"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.conversationId"),
-    messageId: decodeString(requireField(record, "messageId", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.messageId"),
-    prompt: decodeString(requireField(record, "prompt", "EditQueuedChatMessageRequest"), "EditQueuedChatMessageRequest.prompt"),
-  };
-}
-
-export function decodeQueueEditResult(value: unknown): QueueEditResult {
-  const record = assertRecord(value, "QueueEditResult");
-  assertKnownFields(record, "QueueEditResult", ["conversation", "userMessage", "run", "queue", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "QueueEditResult")),
-    userMessage: decodeChatMessage(requireField(record, "userMessage", "QueueEditResult")),
-    run: decodeRun(requireField(record, "run", "QueueEditResult")),
-    queue: decodeQueueState(requireField(record, "queue", "QueueEditResult")),
-    page: decodeMessagePage(requireField(record, "page", "QueueEditResult")),
-  };
-}
-
-export function decodeRemoveQueuedChatMessageRequest(value: unknown): RemoveQueuedChatMessageRequest {
-  const record = assertRecord(value, "RemoveQueuedChatMessageRequest");
-  assertKnownFields(record, "RemoveQueuedChatMessageRequest", ["workspaceId", "conversationId", "messageId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "RemoveQueuedChatMessageRequest"), "RemoveQueuedChatMessageRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "RemoveQueuedChatMessageRequest"), "RemoveQueuedChatMessageRequest.conversationId"),
-    messageId: decodeString(requireField(record, "messageId", "RemoveQueuedChatMessageRequest"), "RemoveQueuedChatMessageRequest.messageId"),
-  };
-}
-
-export function decodeQueueRemoveResult(value: unknown): QueueRemoveResult {
-  const record = assertRecord(value, "QueueRemoveResult");
-  assertKnownFields(record, "QueueRemoveResult", ["conversation", "removedMessageId", "removedRunId", "queue", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "QueueRemoveResult")),
-    removedMessageId: decodeString(requireField(record, "removedMessageId", "QueueRemoveResult"), "QueueRemoveResult.removedMessageId"),
-    removedRunId: decodeString(requireField(record, "removedRunId", "QueueRemoveResult"), "QueueRemoveResult.removedRunId"),
-    queue: decodeQueueState(requireField(record, "queue", "QueueRemoveResult")),
-    page: decodeMessagePage(requireField(record, "page", "QueueRemoveResult")),
-  };
-}
-
 export function decodeSteerChatMessageRequest(value: unknown): SteerChatMessageRequest {
   const record = assertRecord(value, "SteerChatMessageRequest");
   assertKnownFields(record, "SteerChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
@@ -2071,29 +2295,6 @@ export function decodeSteerMessageResult(value: unknown): SteerMessageResult {
     userMessage: decodeChatMessage(requireField(record, "userMessage", "SteerMessageResult")),
     run: decodeRun(requireField(record, "run", "SteerMessageResult")),
     page: decodeMessagePage(requireField(record, "page", "SteerMessageResult")),
-  };
-}
-
-export function decodeSendSteeringImmediatelyRequest(value: unknown): SendSteeringImmediatelyRequest {
-  const record = assertRecord(value, "SendSteeringImmediatelyRequest");
-  assertKnownFields(record, "SendSteeringImmediatelyRequest", ["workspaceId", "conversationId", "prompt"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.conversationId"),
-    prompt: decodeString(requireField(record, "prompt", "SendSteeringImmediatelyRequest"), "SendSteeringImmediatelyRequest.prompt"),
-  };
-}
-
-export function decodeImmediateSteeringResult(value: unknown): ImmediateSteeringResult {
-  const record = assertRecord(value, "ImmediateSteeringResult");
-  assertKnownFields(record, "ImmediateSteeringResult", ["conversation", "cancelledRun", "replayedSteeringMessageIds", "activeRun", "queue", "page"]);
-  return {
-    conversation: decodeConversation(requireField(record, "conversation", "ImmediateSteeringResult")),
-    cancelledRun: decodeRun(requireField(record, "cancelledRun", "ImmediateSteeringResult")),
-    replayedSteeringMessageIds: decodeArray(requireField(record, "replayedSteeringMessageIds", "ImmediateSteeringResult"), "ImmediateSteeringResult.replayedSteeringMessageIds", (item) => decodeString(item, "ImmediateSteeringResult.replayedSteeringMessageIds item")),
-    activeRun: decodeRun(requireField(record, "activeRun", "ImmediateSteeringResult")),
-    queue: decodeQueueState(requireField(record, "queue", "ImmediateSteeringResult")),
-    page: decodeMessagePage(requireField(record, "page", "ImmediateSteeringResult")),
   };
 }
 
@@ -2481,15 +2682,6 @@ export function decodeMessageUpdatedPayload(value: unknown): MessageUpdatedPaylo
   };
 }
 
-export function decodeMessageRemovedPayload(value: unknown): MessageRemovedPayload {
-  const record = assertRecord(value, "MessageRemovedPayload");
-  assertKnownFields(record, "MessageRemovedPayload", ["messageId", "runId"]);
-  return {
-    messageId: decodeString(requireField(record, "messageId", "MessageRemovedPayload"), "MessageRemovedPayload.messageId"),
-    runId: decodeString(requireField(record, "runId", "MessageRemovedPayload"), "MessageRemovedPayload.runId"),
-  };
-}
-
 export function decodeRunUpdatedPayload(value: unknown): RunUpdatedPayload {
   const record = assertRecord(value, "RunUpdatedPayload");
   assertKnownFields(record, "RunUpdatedPayload", ["run"]);
@@ -2589,8 +2781,6 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatAssistantTextDeltaEventFromRecord(record);
     case "chat.message.updated":
       return decodeChatMessageUpdatedEventFromRecord(record);
-    case "chat.message.removed":
-      return decodeChatMessageRemovedEventFromRecord(record);
     case "chat.run.updated":
       return decodeChatRunUpdatedEventFromRecord(record);
     case "chat.run_item.created":
@@ -2733,30 +2923,6 @@ function decodeChatMessageUpdatedEventFromRecord(record: Record<string, unknown>
     conversationId: decodeString(requireField(record, "conversationId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.conversationId"),
     runId: decodeString(requireField(record, "runId", "ChatMessageUpdatedEvent"), "ChatMessageUpdatedEvent.runId"),
     payload: decodeMessageUpdatedPayload(requireField(record, "payload", "ChatMessageUpdatedEvent")),
-  };
-}
-
-export function decodeChatMessageRemovedEvent(value: unknown): ChatMessageRemovedEvent {
-  return decodeChatMessageRemovedEventFromRecord(assertRecord(value, "ChatMessageRemovedEvent"));
-}
-
-function decodeChatMessageRemovedEventFromRecord(record: Record<string, unknown>): ChatMessageRemovedEvent {
-  assertKnownFields(record, "ChatMessageRemovedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
-  const type = decodeString(requireField(record, "type", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.type");
-  if (type !== "chat.message.removed") {
-    throw new Error("ChatMessageRemovedEvent.type must be chat.message.removed, got " + type);
-  }
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.schemaVersion"),
-    streamId: decodeString(requireField(record, "streamId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.streamId"),
-    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.sequence"),
-    eventId: decodeString(requireField(record, "eventId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.eventId"),
-    type: "chat.message.removed",
-    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.conversationId"),
-    runId: decodeString(requireField(record, "runId", "ChatMessageRemovedEvent"), "ChatMessageRemovedEvent.runId"),
-    payload: decodeMessageRemovedPayload(requireField(record, "payload", "ChatMessageRemovedEvent")),
   };
 }
 
@@ -3002,6 +3168,9 @@ function decodeCodexAccountChangedEventFromRecord(record: Record<string, unknown
 
 export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
+  readAppearanceSettings: () => Promise<AppearanceSettings>;
+  readAppearancePresets: () => Promise<AppearancePresetList>;
+  updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
   workspaceSession: () => Promise<WorkspaceSession>;
   openWorkspace: (request: OpenWorkspaceRequest) => Promise<OpenWorkspaceResponse>;
   selectWorkspace: (request: SelectWorkspaceRequest) => Promise<WorkspaceSession>;
@@ -3010,14 +3179,12 @@ export interface BackendClient {
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
-  markConversationRead: (request: MarkConversationReadRequest) => Promise<ConversationListItem>;
+  deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
+  updateUserMessage: (request: UpdateUserMessageRequest) => Promise<ChatMessage>;
   queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
-  editQueuedChatMessage: (request: EditQueuedChatMessageRequest) => Promise<QueueEditResult>;
-  removeQueuedChatMessage: (request: RemoveQueuedChatMessageRequest) => Promise<QueueRemoveResult>;
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
-  sendSteeringImmediately: (request: SendSteeringImmediatelyRequest) => Promise<ImmediateSteeringResult>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
   setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
@@ -3045,6 +3212,30 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       endpoint: backendEndpoints.BackendHealth,
       fetchImpl,
       requestPayload: undefined,
+    }),
+    readAppearanceSettings: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAppearanceSettings,
+      endpoint: backendEndpoints.ReadAppearanceSettings,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    readAppearancePresets: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAppearancePresetList,
+      endpoint: backendEndpoints.ReadAppearancePresets,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    updateAppearanceSettings: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAppearanceSettings,
+      endpoint: backendEndpoints.UpdateAppearanceSettings,
+      fetchImpl,
+      requestPayload: request,
     }),
     workspaceSession: () => requestBackend({
       baseURL,
@@ -3110,11 +3301,11 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
-    markConversationRead: (request) => requestBackend({
+    deleteConversation: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationListItem,
-      endpoint: backendEndpoints.MarkConversationRead,
+      decodeResponse: decodeListConversationsResponse,
+      endpoint: backendEndpoints.DeleteConversation,
       fetchImpl,
       requestPayload: request,
     }),
@@ -3134,6 +3325,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    updateUserMessage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatMessage,
+      endpoint: backendEndpoints.UpdateUserMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
     queueChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -3142,35 +3341,11 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
-    editQueuedChatMessage: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeQueueEditResult,
-      endpoint: backendEndpoints.EditQueuedChatMessage,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    removeQueuedChatMessage: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeQueueRemoveResult,
-      endpoint: backendEndpoints.RemoveQueuedChatMessage,
-      fetchImpl,
-      requestPayload: request,
-    }),
     steerChatMessage: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSteerMessageResult,
       endpoint: backendEndpoints.SteerChatMessage,
-      fetchImpl,
-      requestPayload: request,
-    }),
-    sendSteeringImmediately: (request) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeImmediateSteeringResult,
-      endpoint: backendEndpoints.SendSteeringImmediately,
       fetchImpl,
       requestPayload: request,
     }),

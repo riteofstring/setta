@@ -17,7 +17,6 @@ const (
 	EventTypeMessageSteeringSent = "chat.message.steering_sent"
 	EventTypeAssistantTextDelta  = "chat.assistant_text_delta"
 	EventTypeMessageUpdated      = "chat.message.updated"
-	EventTypeMessageRemoved      = "chat.message.removed"
 	EventTypeRunUpdated          = "chat.run.updated"
 	EventTypeRunItemCreated      = "chat.run_item.created"
 	EventTypeRunItemUpdated      = "chat.run_item.updated"
@@ -96,11 +95,6 @@ type MessageUpdatedPayload struct {
 	Message ChatMessage `json:"message"`
 }
 
-type MessageRemovedPayload struct {
-	MessageID string `json:"messageId"`
-	RunID     string `json:"runId"`
-}
-
 type RunUpdatedPayload struct {
 	Run Run `json:"run"`
 }
@@ -176,7 +170,6 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatMessageSteeringSentEvent", Type: EventTypeMessageSteeringSent, Payload: reflect.TypeFor[MessageSteeringSentPayload]()},
 			{Name: "ChatAssistantTextDeltaEvent", Type: EventTypeAssistantTextDelta, Payload: reflect.TypeFor[AssistantTextDeltaPayload]()},
 			{Name: "ChatMessageUpdatedEvent", Type: EventTypeMessageUpdated, Payload: reflect.TypeFor[MessageUpdatedPayload]()},
-			{Name: "ChatMessageRemovedEvent", Type: EventTypeMessageRemoved, Payload: reflect.TypeFor[MessageRemovedPayload]()},
 			{Name: "ChatRunUpdatedEvent", Type: EventTypeRunUpdated, Payload: reflect.TypeFor[RunUpdatedPayload]()},
 			{Name: "ChatRunItemCreatedEvent", Type: EventTypeRunItemCreated, Payload: reflect.TypeFor[RunItemCreatedPayload]()},
 			{Name: "ChatRunItemUpdatedEvent", Type: EventTypeRunItemUpdated, Payload: reflect.TypeFor[RunItemUpdatedPayload]()},
@@ -279,16 +272,6 @@ func NewMessageUpdatedEvent(workspaceID string, conversationID string, runID str
 		Payload:        MessageUpdatedPayload{Message: message},
 		RunID:          runID,
 		Type:           EventTypeMessageUpdated,
-		WorkspaceID:    workspaceID,
-	}
-}
-
-func NewMessageRemovedEvent(workspaceID string, conversationID string, runID string, messageID string) EventDraft {
-	return EventDraft{
-		ConversationID: conversationID,
-		Payload:        MessageRemovedPayload{MessageID: messageID, RunID: runID},
-		RunID:          runID,
-		Type:           EventTypeMessageRemoved,
 		WorkspaceID:    workspaceID,
 	}
 }

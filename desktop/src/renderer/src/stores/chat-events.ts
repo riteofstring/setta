@@ -56,77 +56,59 @@ export function applyChatEvent(state: ChatStore, event: AppliedChatEvent): Event
 }
 
 function applyOtherChatEvent(state: ChatStore, event: OtherChatEvent): EventApplyResult {
+  if (event.type === "chat.assistant_text_delta") {
+    return applyAssistantTextDelta(state, event);
+  }
+  if (event.type === "chat.run.updated") {
+    return selectedConversationEventResult(state, event, {
+      activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
+      status: "ready",
+      transcript: updateTranscriptRun(state.transcript, event.payload.run),
+    });
+  }
+  if (event.type === "chat.run_item_output.delta") {
+    return selectedConversationEventResult(state, event, {
+      runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
+      status: "ready",
+    });
+  }
+  if (event.type === "chat.queue.updated") {
+    const queuedTranscript = mergeQueueTranscript(
+      state.transcript,
+      event.payload.queue.runs,
+      event.payload.queue.messages,
+    );
+    return selectedConversationEventResult(
+      state,
+      event,
+      {
+        messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
+        queuedRuns: queuedRunsFromQueue(event.payload.queue.runs),
+        status: "ready",
+        transcript: queuedTranscript.transcript,
+      },
+      queuedTranscript.resync,
+    );
+  }
+  if (event.type === "chat.goal.updated") {
+    return selectedConversationEventResult(state, event, {
+      goal: event.payload.goal,
+      status: "ready",
+    });
+  }
+  if (event.type === "chat.conversation.updated") {
+    return workspaceEventResult(state, event, conversationUpdatedPatch(state, event.payload.item));
+  }
+  if (event.type === "diagnostic.created") {
+    return workspaceEventResult(state, event, {
+      diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
+      status: "ready",
+    });
+  }
   if (event.type === "codex.account.changed") {
     return unchangedEventResult();
   }
-  return applyConversationOrWorkspaceEvent(state, event);
-}
-
-function applyConversationOrWorkspaceEvent(
-  state: ChatStore,
-  event: Exclude<OtherChatEvent, { type: "codex.account.changed" }>,
-): EventApplyResult {
-  switch (event.type) {
-    case "chat.message.removed":
-      return applyMessageRemovedEvent(state, event);
-    case "chat.assistant_text_delta":
-      return applyAssistantTextDelta(state, event);
-    case "chat.run.updated":
-      return selectedConversationEventResult(state, event, {
-        activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
-        status: "ready",
-        transcript: updateTranscriptRun(state.transcript, event.payload.run),
-      });
-    case "chat.run_item_output.delta":
-      return selectedConversationEventResult(state, event, {
-        runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
-        status: "ready",
-      });
-    case "chat.queue.updated":
-      return selectedConversationEventResult(
-        state,
-        event,
-        {
-          messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
-          queuedRuns: queuedRunsFromQueue(event.payload.queue.runs),
-          status: "ready",
-        },
-        true,
-      );
-    case "chat.goal.updated":
-      return selectedConversationEventResult(state, event, {
-        goal: event.payload.goal,
-        status: "ready",
-      });
-    case "chat.conversation.updated":
-      return {
-        patch: conversationUpdatedPatch(state, event.workspaceId, event.payload.item),
-        resync: false,
-      };
-    case "diagnostic.created":
-      return { patch: diagnosticCreatedPatch(state, event), resync: false };
-    default:
-      return assertNever(event);
-  }
-}
-
-function applyMessageRemovedEvent(
-  state: ChatStore,
-  event: Extract<OtherChatEvent, { type: "chat.message.removed" }>,
-) {
-  return selectedConversationEventResult(state, event, {
-    editingQueuedMessageId: clearedMessageOperationID(
-      state.editingQueuedMessageId,
-      event.payload.messageId,
-    ),
-    messages: removeMessage(state.messages, event.payload.messageId),
-    removingQueuedMessageId: clearedMessageOperationID(
-      state.removingQueuedMessageId,
-      event.payload.messageId,
-    ),
-    status: "ready",
-    transcript: removeTranscriptMessage(state.transcript, event.payload.messageId),
-  });
+  return assertNever(event);
 }
 
 function isMessageUpsertEvent(event: AppliedChatEvent): event is MessageUpsertEvent {
@@ -171,6 +153,17 @@ function selectedConversationEventResult(
   return { patch, resync };
 }
 
+function workspaceEventResult(
+  state: ChatStore,
+  event: ChatEvent,
+  patch: ChatPatch,
+): EventApplyResult {
+  if (state.workspaceId !== event.workspaceId) {
+    return unchangedEventResult();
+  }
+  return { patch, resync: false };
+}
+
 function applyAssistantTextDelta(
   state: ChatStore,
   event: Extract<ChatEvent, { type: "chat.assistant_text_delta" }>,
@@ -213,56 +206,40 @@ function applyAssistantTextDelta(
   };
 }
 
-function conversationUpdatedPatch(
-  state: ChatStore,
-  workspaceId: string,
-  item: ConversationListItem,
-): ChatPatch {
-  const patch: ChatPatch = {};
-  const summary = state.conversationListsByWorkspaceId[workspaceId];
-  if (summary) {
-    patch.conversationListsByWorkspaceId = {
-      ...state.conversationListsByWorkspaceId,
-      [workspaceId]: {
-        ...summary,
-        conversations: upsertConversation(summary.conversations, item),
-      },
-    };
+function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
+  if (item.conversation.archivedAt !== "") {
+    return archivedConversationPatch(state, item);
   }
-  if (state.workspaceId === workspaceId) {
-    Object.assign(patch, {
-      conversations: upsertConversation(state.conversations, item),
-      selectedConversation:
-        state.selectedConversation?.id === item.conversation.id
-          ? item.conversation
-          : state.selectedConversation,
-    });
-  }
-  return patch;
+  const selectedConversation =
+    state.selectedConversation?.id === item.conversation.id
+      ? item.conversation
+      : state.selectedConversation;
+  return {
+    conversations: upsertConversation(state.conversations, item),
+    selectedConversation,
+  };
 }
 
-function diagnosticCreatedPatch(
-  state: ChatStore,
-  event: Extract<OtherChatEvent, { type: "diagnostic.created" }>,
-): ChatPatch {
-  const patch: ChatPatch = {};
-  const summary = state.conversationListsByWorkspaceId[event.workspaceId];
-  if (summary) {
-    patch.conversationListsByWorkspaceId = {
-      ...state.conversationListsByWorkspaceId,
-      [event.workspaceId]: {
-        ...summary,
-        diagnostics: upsertDiagnostic(summary.diagnostics, event.payload.diagnostic),
-      },
+function archivedConversationPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
+  const conversations = state.conversations.filter(
+    (conversationItem) => conversationItem.conversation.id !== item.conversation.id,
+  );
+  if (state.selectedConversation?.id !== item.conversation.id) {
+    return {
+      conversations,
+      selectedConversation: state.selectedConversation,
     };
   }
-  if (state.workspaceId === event.workspaceId) {
-    Object.assign(patch, {
-      diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
-      status: "ready",
-    });
-  }
-  return patch;
+  return {
+    activeRun: null,
+    conversations,
+    hasMoreOlder: false,
+    messages: [],
+    olderBeforeOrdinal: 0,
+    queuedRuns: [],
+    selectedConversation: null,
+    transcript: [],
+  };
 }
 
 function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {
@@ -284,6 +261,51 @@ function activeRunFromRunEvent(current: RunningRun | null, run: Run): RunningRun
 
 function queuedRunsFromQueue(runs: Run[]): QueuedRun[] {
   return runs.filter((run): run is QueuedRun => run.status === "queued");
+}
+
+function mergeQueueTranscript(
+  transcript: TranscriptTurn[],
+  runs: Run[],
+  messages: ChatMessage[],
+): { resync: boolean; transcript: TranscriptTurn[] } {
+  const queuedRuns = queuedRunsFromQueue(runs);
+  const messagesById = new Map(messages.map((message) => [message.id, message]));
+  const queuedTurnsByRunId = new Map<string, TranscriptTurn>();
+  for (const run of queuedRuns) {
+    const triggerMessage = messagesById.get(run.triggerMessageId);
+    if (!triggerMessage) {
+      return { resync: true, transcript };
+    }
+    queuedTurnsByRunId.set(run.id, {
+      assistantMessage: null,
+      run,
+      steeringMessages: [],
+      triggerMessage,
+    });
+  }
+
+  const merged: TranscriptTurn[] = [];
+  for (const turn of transcript) {
+    const queuedTurn = queuedTurnsByRunId.get(turn.run.id);
+    if (queuedTurn) {
+      merged.push(queuedTurn);
+      queuedTurnsByRunId.delete(turn.run.id);
+      continue;
+    }
+    if (turn.run.status === "queued") {
+      continue;
+    }
+    merged.push(turn);
+  }
+  merged.push(...queuedTurnsByRunId.values());
+  return { resync: false, transcript: merged.toSorted(compareTranscriptTurns) };
+}
+
+function compareTranscriptTurns(left: TranscriptTurn, right: TranscriptTurn) {
+  if (left.triggerMessage.ordinal === right.triggerMessage.ordinal) {
+    return left.run.id.localeCompare(right.run.id);
+  }
+  return left.triggerMessage.ordinal - right.triggerMessage.ordinal;
 }
 
 function updateTranscriptRun(transcript: TranscriptTurn[], run: Run): TranscriptTurn[] {
@@ -359,29 +381,8 @@ function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessa
   return next.toSorted((left, right) => left.ordinal - right.ordinal);
 }
 
-function removeMessage(messages: ChatMessage[], messageId: string): ChatMessage[] {
-  return messages.filter((message) => message.id !== messageId);
-}
-
-function clearedMessageOperationID(currentID: string | null, removedMessageID: string) {
-  return currentID === removedMessageID ? null : currentID;
-}
-
 function mergeQueueMessages(messages: ChatMessage[], queuedMessages: ChatMessage[]): ChatMessage[] {
   return queuedMessages.reduce(upsertMessage, messages);
-}
-
-function removeTranscriptMessage(
-  transcript: TranscriptTurn[],
-  messageId: string,
-): TranscriptTurn[] {
-  return transcript
-    .filter((turn) => turn.triggerMessage.id !== messageId)
-    .map((turn) => ({
-      ...turn,
-      assistantMessage: turn.assistantMessage?.id === messageId ? null : turn.assistantMessage,
-      steeringMessages: turn.steeringMessages.filter((message) => message.id !== messageId),
-    }));
 }
 
 function upsertRunItem(items: RunItem[], item: RunItem): RunItem[] {
