@@ -13,7 +13,7 @@ import {
   type ChatEvent,
   type WorkflowEvent,
 } from "@generated/backend";
-import { handleIpc, ipcEvents } from "@shared/ipc";
+import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
@@ -21,6 +21,7 @@ import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
+import { createElectronWebContentsViewRegistry } from "./niri-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
@@ -36,6 +37,9 @@ let quitting = false;
 let recorder: SessionRecorder | null = null;
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
 const execFileAsync = promisify(execFile);
+const compactWindowMinHeight = 320;
+const compactWindowMinWidth = 320;
+const niriBrowserViews = createElectronWebContentsViewRegistry();
 
 function desktopRoot() {
   return process.cwd();
@@ -191,9 +195,10 @@ function testOpenWorkspaceRoot() {
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
+    backgroundColor: "#18181b",
     height: 820,
-    minHeight: 620,
-    minWidth: 960,
+    minHeight: compactWindowMinHeight,
+    minWidth: compactWindowMinWidth,
     show: false,
     ...(process.platform === "darwin"
       ? {
@@ -222,13 +227,19 @@ async function createWindow() {
     }
   });
   mainWindow.on("closed", () => {
+    niriBrowserViews.teardownAll();
     mainWindow = null;
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+    await mainWindow.loadURL(rendererURLWithE2EQuery(process.env.ELECTRON_RENDERER_URL));
   } else {
-    await mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    const query = rendererE2EQuery();
+    if (query) {
+      await mainWindow.loadFile(join(__dirname, "../renderer/index.html"), { query });
+    } else {
+      await mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    }
   }
   if (mainWindow) {
     setTimeout(() => {
@@ -239,6 +250,26 @@ async function createWindow() {
   }
 }
 
+function rendererURLWithE2EQuery(rawURL: string): string {
+  const query = rendererE2EQuery();
+  if (!query) {
+    return rawURL;
+  }
+  const url = new URL(rawURL);
+  for (const [key, value] of Object.entries(query)) {
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
+}
+
+function rendererE2EQuery(): Record<string, string> | null {
+  const niriScene = process.env.SETTA_E2E_NIRI_SCENE;
+  if (!niriScene) {
+    return null;
+  }
+  return { niriScene };
+}
+
 function registerIpc() {
   if (ipcRegistered) {
     return;
@@ -247,6 +278,9 @@ function registerIpc() {
   const ipcObserver = recorder?.createIpcObserver();
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
+  });
+  ipcMain.on(ipcMessages.niriBrowserViewBatch, (event, batch) => {
+    niriBrowserViews.applyBatch(event, batch);
   });
   handleIpc(
     ipcMain,
@@ -724,6 +758,22 @@ function registerIpc() {
     "codexAccountLogout",
     async (_event, request) => {
       return requireBackendClient().logoutCodexAccount(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "niriBrowserViewStats",
+    () => {
+      return niriBrowserViews.readStats();
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "niriBrowserViewsTeardown",
+    (_event, workspaceId) => {
+      return niriBrowserViews.teardownWorkspace(workspaceId);
     },
     ipcObserver,
   );

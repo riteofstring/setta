@@ -11,7 +11,8 @@ import type {
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { sidebarWorkspaceBusy } from "./App";
+import { App, sidebarWorkspaceBusy } from "./App";
+import { compactPaneWidth } from "./app-layout";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { useChatStore } from "./stores/chat-store";
@@ -21,6 +22,61 @@ beforeEach(() => {
 });
 
 describe("workspace renderer states", () => {
+  test("renders a preload contract error when the Electron API is missing", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {},
+    });
+
+    const html = renderToString(<App />);
+
+    expect(html).toContain('data-testid="app-runtime-contract-error"');
+    expect(html).toContain("Setta preload API is unavailable.");
+    expect(html).toContain("window.setta");
+  });
+
+  test("renders the real niri workspace inside the preserved shell", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        setta: {
+          app: {
+            flags: {
+              pixiWorkspaceDebug: false,
+              pixiWorkspacePrototype: false,
+              pixiWorkspaceSyntheticGraph: null,
+            },
+            platform: "darwin",
+          },
+          backend: { onEventStreamStatus: () => () => {} },
+          chat: { onEvent: () => () => {} },
+        },
+      },
+    });
+
+    const html = renderToString(<App />);
+
+    expect(html).toContain('data-testid="shell-top-bar"');
+    expect(html).toContain('aria-label="Hide project sidebar"');
+    expect(html).toContain('data-testid="niri-workspace-area"');
+    expect(html).toContain('data-testid="niri-presentation-engine"');
+    expect(rowCount(html, "niri-fake-pane-host")).toBe(18);
+    expect(html).toContain('data-pane-count="6"');
+    expect(html).toContain('data-workspace-mode="workspace"');
+    expect(html).toContain('data-testid="niri-workspace-status"');
+    expect(html).toContain('data-testid="niri-workspace-toolbar"');
+    expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
+    expect(html).not.toContain('data-testid="bottom-workspace-pane"');
+    expect(html).not.toContain('data-testid="right-workspace-pane"');
+    expect(html).toContain("bg-background");
+  });
+
+  test("caps project pane widths at compact viewport sizes without growing stored widths", () => {
+    expect(compactPaneWidth(360, 560, 128, 0.28)).toBe(156);
+    expect(compactPaneWidth(140, 560, 128, 0.28)).toBe(140);
+    expect(compactPaneWidth(360, 900, 128, 0.28)).toBe(360);
+  });
+
   test("renders the empty workspace state", () => {
     const html = renderToString(
       <WorkspaceSidebar

@@ -18,5 +18,9 @@
     "vitest.config.ts"
   ],
   "ignore": ["out/**", "dist/**", "src/generated/**"],
+  "ignoreFiles": ["src/renderer/src/components/workspace-pane-split-overlay.tsx"],
+  "ignoreIssues": {
+    "src/renderer/src/components/workspace-pane.tsx": ["exports", "types"]
+  },
   "ignoreDependencies": ["@types/node", "@types/react", "@types/react-dom", "tailwindcss", "vite"]
 }

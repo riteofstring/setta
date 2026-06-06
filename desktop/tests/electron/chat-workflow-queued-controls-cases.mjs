@@ -4,7 +4,6 @@ export async function runQueuedControlsWorkflow({
   assertChatLayout,
   assertNoActiveRun,
   assertNoCriticalDiagnostics,
-  assertTextAbsent,
   assertTranscriptSequence,
   backend,
   clickButtonByAria,
@@ -102,7 +101,7 @@ export async function runQueuedControlsWorkflow({
     conversationId,
     "queued follow-up two from active run",
   );
-  await assertTextAbsent(client, "queued follow-up two from active run");
+  await waitForTextAbsent(waitForState, client, "queued follow-up two from active run");
 
   await submitComposer(client, "immediate replay workflow", "Send steering message");
   await waitForTexts(client, ["immediate replay workflow", "Steering pending"]);
@@ -279,6 +278,14 @@ async function waitForNoRunWithPrompt(
   await waitForBackendState(
     async () => backend.post("/chat/runs/list", { conversationId, workspaceId }),
     (list) => !list.runs.some((run) => run.promptSummary === prompt),
+  );
+}
+
+async function waitForTextAbsent(waitForState, client, text) {
+  await waitForState(
+    client,
+    `(() => ({ body: document.body.innerText }))()`,
+    (value) => !value.body.includes(text),
   );
 }
 

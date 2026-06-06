@@ -380,6 +380,7 @@ async function launchCorruptContext(appDataDir) {
   await client.call("Runtime.enable");
   await installPageHelpers(client);
   await client.evaluate("window.confirm = () => true");
+  await pauseNiriBenchmarkForChatWorkflow(client);
   return { client, electron };
 }
 
@@ -461,6 +462,67 @@ async function waitForPartialCorruptChatState(client) {
   if (state.newChatDisabled) {
     throw new Error(`New chat is disabled with partial corrupt state: ${state.body}`);
   }
+}
+
+async function pauseNiriBenchmarkForChatWorkflow(client) {
+  let lastState = null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await dispatchNiriArrowKey(client, "ArrowLeft");
+    const state = await waitForNiriChatSurfaceReady(client, 1_200);
+    if (state.ready) {
+      return;
+    }
+    lastState = state.value;
+  }
+  throw new Error(`niri chat surface was not ready after navigation: ${JSON.stringify(lastState)}`);
+}
+
+async function dispatchNiriArrowKey(client, key) {
+  await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: ${JSON.stringify(key)},
+    }));
+  })()`);
+}
+
+async function waitForNiriChatSurfaceReady(client, timeoutMs) {
+  const startedAt = Date.now();
+  let lastValue = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    lastValue = await client.evaluate(niriChatSurfaceReadyExpression());
+    if (niriChatSurfaceReady(lastValue)) {
+      return { ready: true, value: lastValue };
+    }
+    await delay(100);
+  }
+  return { ready: false, value: lastValue };
+}
+
+function niriChatSurfaceReady(value) {
+  return (
+    !value.niriMounted ||
+    (value.chatMounted &&
+      value.hostRuntimeState === "live" &&
+      value.hostMoving === "false" &&
+      value.hostVisible === "true")
+  );
+}
+
+function niriChatSurfaceReadyExpression() {
+  return `(() => {
+    const niri = document.querySelector('[data-testid="niri-workspace-area"]');
+    const chatSurface = document.querySelector('[data-testid="niri-chat-dom-surface"]');
+    const host = chatSurface?.closest('[data-testid="niri-fake-pane-host"]');
+    return {
+      chatMounted: Boolean(document.querySelector('[data-testid="chat-detail-pane"]')),
+      hostMoving: host?.getAttribute("data-moving") ?? "",
+      hostRuntimeState: host?.getAttribute("data-runtime-state") ?? "",
+      hostVisible: host?.getAttribute("data-visible") ?? "",
+      niriMounted: Boolean(niri),
+    };
+  })()`;
 }
 
 function partialCorruptChatStateExpression() {

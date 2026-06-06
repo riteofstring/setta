@@ -8,15 +8,18 @@ import type {
   CodexAccountState,
   Conversation,
   ConversationListItem,
+  DeleteWorkflowDefinitionResponse,
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ListConversationsResponse,
+  ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
@@ -28,17 +31,19 @@ import type {
   SteerMessageResult,
   SubmitApprovalRequest,
   SubmitWorkflowApprovalRequest,
-  DeleteWorkflowDefinitionResponse,
-  ListWorkflowDefinitionsResponse,
+  WorkflowDefinition,
   WorkflowExecution,
   WorkflowExecutionEventPage,
-  WorkflowDefinition,
-  ReadWorkflowGraphProjectionResponse,
   WorkflowGraph,
   WorkflowValidationResult,
   WorkspaceSession,
 } from "@generated/backend";
-import type { InstalledEditorApp, RuntimeVersions, WorkspaceGitInfo } from "./types";
+import type {
+  InstalledEditorApp,
+  NiriBrowserViewStats,
+  RuntimeVersions,
+  WorkspaceGitInfo,
+} from "./types";
 
 export const ipcChannels = {
   appInstalledEditors: "app:installed-editors",
@@ -61,16 +66,18 @@ export const ipcChannels = {
   chatRunActivity: "chat:run-activity",
   chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
+  chatSendSteeringImmediately: "chat:send-steering-immediately",
   chatSetCodexModel: "chat:set-codex-model",
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
   chatSteerMessage: "chat:steer-message",
-  chatSendSteeringImmediately: "chat:send-steering-immediately",
   chatSubmitApproval: "chat:submit-approval",
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
+  niriBrowserViewStats: "niri:browser-view-stats",
+  niriBrowserViewsTeardown: "niri:browser-views-teardown",
   workflowCancelExecution: "workflow:cancel-execution",
   workflowCreateDefinition: "workflow:create-definition",
   workflowDeleteDefinition: "workflow:delete-definition",
@@ -92,11 +99,16 @@ export const ipcChannels = {
   workspaceSession: "workspace:session",
 } as const;
 
+export const ipcMessages = {
+  niriBrowserViewBatch: "niri:browser-view-batch",
+} as const;
+
 export const ipcEvents = {
   backendEventStreamStatus: "backend:event-stream-status",
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
+  niriBrowserViewKey: "niri:browser-view-key",
   workflowEvent: "workflow:event",
 } as const;
 
@@ -231,6 +243,14 @@ interface IpcContract {
   codexAccountStartLogin: {
     args: [request: StartCodexLoginRequest];
     result: StartCodexLoginResponse;
+  };
+  niriBrowserViewStats: {
+    args: [];
+    result: NiriBrowserViewStats;
+  };
+  niriBrowserViewsTeardown: {
+    args: [workspaceId: string];
+    result: NiriBrowserViewStats;
   };
   workflowCancelExecution: {
     args: [workspaceId: string, executionId: string];

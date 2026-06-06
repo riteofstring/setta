@@ -7,9 +7,11 @@ import type {
   CodexAccountState,
   Conversation,
   ConversationListItem,
+  DeleteWorkflowDefinitionResponse,
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ListConversationsResponse,
+  ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
@@ -28,8 +30,6 @@ import type {
   SteerMessageResult,
   SubmitApprovalRequest,
   SubmitWorkflowApprovalRequest,
-  DeleteWorkflowDefinitionResponse,
-  ListWorkflowDefinitionsResponse,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
@@ -70,6 +70,52 @@ export interface WorkspaceGitInfo {
   commitShort: string;
   worktreeName: string;
   worktreeRoot: string;
+}
+
+export type NiriBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
+
+export interface NiriBrowserViewUpdate {
+  bounds: {
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+  };
+  focused: boolean;
+  paneId: string;
+  runtimeState: NiriBrowserViewRuntimeState;
+  surfaceId: string;
+  title: string;
+  url: string;
+  visible: boolean;
+}
+
+export interface NiriBrowserViewBatch {
+  focusedSurfaceId: string | null;
+  totalBrowserPanes: number;
+  updates: NiriBrowserViewUpdate[];
+  visibleBrowserPanes: number;
+  workspaceId: string;
+}
+
+export interface NiriBrowserViewKeyEvent {
+  key: "ArrowDown" | "ArrowLeft" | "ArrowRight" | "ArrowUp";
+  surfaceId: string;
+  workspaceId: string;
+}
+
+export interface NiriBrowserViewStats {
+  boundsBatchCount: number;
+  boundsUpdateCount: number;
+  destroyed: number;
+  focusedSurfaceId: string | null;
+  hidden: number;
+  live: number;
+  registered: number;
+  teardownCount: number;
+  totalBrowserPanes: number;
+  visibleBrowserPanes: number;
+  workspaceId: string | null;
 }
 
 export type BackendProcessStatus =
@@ -116,6 +162,12 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
+  };
+  niriNativeViews?: {
+    batchBrowserViewUpdates: (batch: NiriBrowserViewBatch) => void;
+    onBrowserViewKey: (listener: (event: NiriBrowserViewKeyEvent) => void) => () => void;
+    readBrowserViewStats: () => Promise<NiriBrowserViewStats>;
+    teardownBrowserViews: (workspaceId: string) => Promise<NiriBrowserViewStats>;
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
@@ -187,16 +239,16 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<SendMessageResult>;
-    steerMessage: (
-      workspaceId: string,
-      conversationId: string,
-      prompt: string,
-    ) => Promise<SteerMessageResult>;
     sendSteeringImmediately: (
       workspaceId: string,
       conversationId: string,
       prompt?: string,
     ) => Promise<ImmediateSteeringResult>;
+    steerMessage: (
+      workspaceId: string,
+      conversationId: string,
+      prompt: string,
+    ) => Promise<SteerMessageResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };
