@@ -1,7 +1,7 @@
 # Pixi Workspace Crisp Rendering Plan
 
 - **Date:** June 4, 2026
-- **Status:** Phase 1, 2, 3, and 4 implemented; Phase 5 planned
+- **Status:** Phase 1, 2, 3, and 4 implemented; Phase 5 planned and implementation-ready
 - **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
@@ -10,7 +10,7 @@ Make nodes and labels remain crisp during deep zoom while preserving fast pan, z
 
 The original issue was that the workspace zoomed the whole Pixi viewport while node labels were Pixi `Text` objects inside the zoomed world. Each label was rasterized to a texture and then magnified, which made text blur at high zoom and made naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
 
-Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. The next work is adding label LOD, decluttering, and culling without changing graph state ownership.
+Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. The next work is cleaning up node geometry construction so repeated shapes and technical lines are cheaper and more observable before any larger renderer boundary changes.
 
 The recommended production direction is:
 
@@ -36,8 +36,11 @@ The current prototype:
 - Exposes `labelSyncCount`, `visibleLabelCount`, label kind, label font family, and MSDF distance-field metadata in the debug snapshot.
 - Exposes `labelObjectCount`, `labelVisibilityMode`, and per-label visibility reasons in the debug snapshot.
 - Keeps label objects pooled while using zoom-based label LOD, viewport culling, and deterministic screen-space decluttering to toggle `label.visible`.
+- Creates node bodies, shadows, selection/hover outlines, ports, and grid lines with Pixi `Graphics`.
+- Creates node body and shadow geometry once per fixture node, but does not yet use cached `GraphicsContext` helpers for repeated shapes and states.
+- Redraws selection/hover outline graphics only when interaction state changes, not during camera pan or zoom.
 - Keeps interaction state in the imperative renderer path, not React state.
-- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, and unchanged React render count during label sync.
+- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, and unchanged React render count during label sync.
 
 This plan should extend the existing renderer/controller path. Do not create a second Pixi implementation or introduce DOM labels for workspace nodes.
 
@@ -76,6 +79,7 @@ The label layer must not inherit the viewport scale. Label positions are compute
 - No per-frame Pixi `Text` texture regeneration during wheel, pinch, pan, drag, or marquee interactions.
 - No `cacheAsTexture()` for the full viewport, per-node containers, or every label.
 - No full Pixi scene rebuild on pan or zoom.
+- No node body, node shadow, node outline geometry, or grid geometry rebuild during camera pan or zoom.
 - Pool display objects for labels and future visible-node virtualization.
 - Profile before introducing custom mesh or shader renderers.
 
@@ -337,19 +341,103 @@ Expected result:
 
 ## Phase 5: Node Geometry Cleanup
 
+Status: Planned; implementation-ready.
+
 Improve crispness and batching for node geometry without jumping straight to custom shaders.
+
+Scope:
+
+- Keep the existing Pixi `Graphics` renderer path.
+- Keep graph geometry in the existing world-space `viewport` layers.
+- Limit this phase to node body, node shadow, node selection/hover outline, and grid-line geometry.
+- Do not change edge geometry, port state rendering, label LOD, spatial indexing, pointer hit testing, graph data, or React state.
+- Do not introduce custom `Mesh`, shaders, sprites, texture atlases, or `cacheAsTexture()`.
+
+Implementation decisions:
+
+- Add a small node-geometry helper module near the renderer, for example `pixi-workspace-node-geometry.js`.
+- Move node geometry style constants into that helper module:
+  - body corner radius `8`
+  - body fill alpha `0.92`
+  - body stroke color `0xffffff`
+  - body stroke alpha `0.55`
+  - body stroke width `1.5`
+  - shadow offset `(7, 9)`
+  - shadow alpha `0.14`
+  - hover outline inset `5`, radius `12`, alpha `0.42`, width `2`
+  - selected outline inset `5`, radius `12`, alpha `0.95`, width `3`
+- Add cached Pixi `GraphicsContext` helpers:
+
+```ts
+function nodeBodyContextFor(node: NodeFixture): GraphicsContext;
+function nodeShadowContextFor(node: NodeFixture): GraphicsContext;
+function nodeOutlineContextFor(
+  node: NodeFixture,
+  state: "hovered" | "selected",
+): GraphicsContext;
+```
+
+- Key `nodeBodyContextFor(...)` by dimensions and body style, including node fill color. The current fixture may still produce one body context per differently colored node; the cache is still the production-shaped boundary for repeated future node types.
+- Key `nodeShadowContextFor(...)` by dimensions, radius, offset, alpha, and color. This should share for fixture nodes that have the same size.
+- Key `nodeOutlineContextFor(...)` by dimensions, radius, inset, outline state, stroke width, stroke alpha, and stroke color.
+- Use `new Graphics(sharedContext)` for body, shadow, hover outline, and selected outline display objects.
+- Replace the current mutable single-outline graphics with two prebuilt outline graphics per node:
+  - `hoverOutline`, initially hidden
+  - `selectedOutline`, initially hidden
+- Replace `drawNodeOutline(nodeId)` with a helper that toggles outline visibility:
+
+```ts
+function syncNodeOutlineVisibility(nodeId: string) {
+  selectedOutline.visible = selectedNodeIds.has(nodeId);
+  hoverOutline.visible = !selectedOutline.visible && hoveredNodeIds.has(nodeId);
+}
+```
+
+- Keep selected outline visually dominant over hover outline when both states are true.
+- Keep `body.eventMode`, `body.cursor`, and `body.hitArea` unchanged so pointer behavior stays on the body graphics.
+- Keep node container movement as transform updates only during drag.
+- Keep grid geometry built once during renderer initialization. Use `pixelLine: true` only for grid and other 1px technical hairlines where visual inspection confirms it improves sharpness. Do not force `pixelLine` on thicker stylistic strokes such as selected outlines.
+- Leave port visuals alone in this phase. They are stateful interaction affordances and can get their own state-context cleanup later if profiling points there.
 
 Implementation tasks:
 
-- Evaluate Pixi v8 `GraphicsContext` sharing for repeated node body shapes and states.
-- Use screen-stable stroke settings such as `pixelLine` where appropriate for outlines, grid lines, and technical hairlines.
-- Avoid clearing and rebuilding node body graphics during camera movement.
-- Keep selection and hover outlines as reusable graphics, updated only when interaction state changes.
-- Benchmark before and after with visual smoke and performance reports.
+- Add node geometry context caches and exported cache-size/debug helpers.
+- Update `nodeContainer(node)` to construct body, shadow, hover outline, and selected outline graphics from cached contexts.
+- Replace `nodeOutlines` with a map that stores both outline graphics for each node.
+- Update hover, selection, and clear-selection flows to call the visibility-sync helper instead of clearing/redrawing outline graphics.
+- Keep `drawAllNodeOutlines()` as a compatibility wrapper if useful, but have it call visibility sync only.
+- Add renderer debug snapshot fields:
+
+```ts
+render: {
+  gridDrawCount: number;
+  nodeBodyContextCount: number;
+  nodeBodyGraphicsCount: number;
+  nodeOutlineContextCount: number;
+  nodeOutlineGraphicsCount: number;
+  nodeOutlineVisibilityUpdateCount: number;
+  nodeShadowContextCount: number;
+  nodeShadowGraphicsCount: number;
+};
+```
+
+- Increment `gridDrawCount` only when grid geometry is created.
+- Increment `nodeOutlineVisibilityUpdateCount` only when outline visibility sync work runs.
+- Assert context counts are stable across camera pan, wheel pan, wheel zoom, deep zoom, and node drag.
+- Assert `gridDrawCount` remains unchanged across camera pan, wheel pan, wheel zoom, deep zoom, and node drag.
+- Assert body, shadow, and outline graphics counts match the fixture node expectations:
+  - body graphics count equals node count
+  - shadow graphics count equals node count
+  - outline graphics count equals `nodeCount * 2`
+- Preserve all existing interaction behavior and label assertions.
 
 Expected result:
 
 - Lower geometry overhead and sharper technical lines without changing the renderer architecture.
+- Node body, shadow, and outline geometry construction is centralized and cache-backed.
+- Camera movement only changes viewport transforms and label visibility/position; it does not rebuild node or grid geometry.
+- Selection and hover update outline visibility, not outline path geometry.
+- The implementation provides debug counters that make future geometry regressions visible in smoke output.
 
 ## Phase 6: Spatial Index and Large-Graph Renderer Boundary
 
@@ -390,6 +478,15 @@ Use this only if:
 
 ## Verification
 
+For Phase 5 specifically, baseline before implementation and append the result to `docs/reports/performance/pixi-workspace-visual-smoke.md`:
+
+```sh
+pnpm -C desktop build
+./scripts/test_pixi_workspace_visual.sh --skip-build --keep-artifacts
+```
+
+After Phase 5 implementation, rerun the same visual smoke workflow and append a before/after "Node Geometry Cleanup Update" section under `docs/reports/performance/`. Include artifact paths, frame timing metrics, geometry debug counters, and any visible sharpness observations.
+
 Focused checks during implementation:
 
 ```sh
@@ -418,6 +515,9 @@ Extend the Pixi visual smoke workflow to cover:
 - After Phase 4, label visibility mode changes deterministically across low, normal, and deep zoom.
 - After Phase 4, `visibleLabelCount` matches currently visible labels, not total fixture nodes.
 - After Phase 4, low zoom hides unselected labels, selected in-viewport labels remain visible, and offscreen labels are hidden.
+- After Phase 5, node body, shadow, outline, and grid geometry counters are present in the debug snapshot.
+- After Phase 5, node geometry context counts and `gridDrawCount` remain stable across camera pan, wheel pan, wheel zoom, node drag, and deep zoom.
+- After Phase 5, selection and hover update outline visibility without changing node body, shadow, or grid geometry counters.
 - React render count remains stable during label sync.
 - Existing pan, zoom, selection, marquee, group drag, and edge drawing flows still pass.
 
@@ -428,6 +528,8 @@ Manual verification:
 - Verify labels do not jitter objectionably when panning slowly.
 - Verify labels remain aligned with node centers after group drag.
 - Verify label LOD changes do not create visible popping during ordinary zoom gestures beyond the intended mode thresholds.
+- Verify node body strokes, selected/hover outlines, and grid hairlines remain visually acceptable at minimum, normal, and maximum zoom.
+- Verify node drag, selection, hover, and edge drawing still target the expected hit areas after body graphics are constructed from shared contexts.
 - Record before/after screenshots and metrics under `docs/reports/performance/`.
 
 ## Non-Goals
