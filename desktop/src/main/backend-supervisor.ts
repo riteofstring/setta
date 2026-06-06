@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
@@ -11,6 +12,7 @@ export interface BackendReadyEvent {
 
 export interface BackendLaunchOptions {
   args: string[];
+  authToken: string;
   command: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
@@ -37,6 +39,7 @@ export interface BackendHandle {
   mode: "external" | "spawned";
   recentLogs: () => string[];
   stop: () => Promise<void>;
+  token: string;
   url: string;
 }
 
@@ -49,30 +52,40 @@ function resolveBackendLaunchOptions(
   env: NodeJS.ProcessEnv,
 ): BackendLaunchOptions {
   const readyTimeoutMs = positiveIntegerEnv(env.SETTA_BACKEND_READY_TIMEOUT_MS, 10_000);
+  const authToken = randomBackendToken();
   return {
     args: ["run", "./cmd/setta-backend", "--app-data-dir", appDataDir],
+    authToken,
     command: `${repoRoot}/scripts/go.sh`,
     cwd: repoRoot,
     env: {
       ...env,
       SETTA_BACKEND_PORT: "0",
+      SETTA_BACKEND_TOKEN: authToken,
     },
     readyTimeoutMs,
   };
 }
 
-function externalBackendHandle(rawURL: string): BackendHandle {
+function externalBackendHandle(rawURL: string, token: string | undefined): BackendHandle {
+  if (token === undefined || token === "") {
+    throw new Error("SETTA_BACKEND_TOKEN is required when SETTA_BACKEND_URL is set");
+  }
   const url = validateExternalURL(rawURL);
   return {
     events: new EventEmitter(),
     mode: "external",
     recentLogs: () => [],
     stop: async () => {},
+    token,
     url,
   };
 }
 
 export async function startSpawnedBackend(options: BackendLaunchOptions): Promise<BackendHandle> {
+  if (options.authToken === "") {
+    throw new Error("backend auth token is required");
+  }
   const child = spawn(options.command, options.args, {
     cwd: options.cwd,
     detached: process.platform !== "win32",
@@ -98,6 +111,7 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
     mode: "spawned",
     recentLogs: () => [...logs],
     stop: () => stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise),
+    token: options.authToken,
     url: `http://${ready.addr}`,
   };
 }
@@ -108,7 +122,7 @@ export async function startBackend(
   env: NodeJS.ProcessEnv,
 ): Promise<BackendHandle> {
   if (env.SETTA_BACKEND_URL) {
-    return externalBackendHandle(env.SETTA_BACKEND_URL);
+    return externalBackendHandle(env.SETTA_BACKEND_URL, env.SETTA_BACKEND_TOKEN);
   }
   return startSpawnedBackend(resolveBackendLaunchOptions(repoRoot, appDataDir, env));
 }
@@ -283,6 +297,10 @@ function positiveIntegerEnv(rawValue: string | undefined, fallback: number): num
     throw new Error(`SETTA_BACKEND_READY_TIMEOUT_MS must be a positive integer: ${rawValue}`);
   }
   return value;
+}
+
+function randomBackendToken(): string {
+  return randomBytes(32).toString("base64url");
 }
 
 function validateExternalURL(rawURL: string): string {

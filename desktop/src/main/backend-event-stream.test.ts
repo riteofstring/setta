@@ -55,6 +55,31 @@ describe("backend event stream", () => {
     expect(lifecycle).toHaveBeenCalledWith(expect.objectContaining({ status: "connected" }));
   });
 
+  test("sends bearer auth to the backend event stream", async () => {
+    const event = messageCreatedEvent(1);
+    const forwarded: ChatEvent[] = [];
+    const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
+      expect(init.headers).toEqual({ Authorization: "Bearer test-token" });
+      return new Response(textStream(sseFrame(event)), { status: 200 });
+    });
+
+    const stream = startBackendEventStream({
+      authToken: "test-token",
+      baseURL: "http://127.0.0.1:41000",
+      fetchImpl,
+      reconnect: {
+        initialDelayMs: 10_000,
+        maxDelayMs: 10_000,
+      },
+      sendEvent: (payload) => {
+        forwarded.push(payload);
+      },
+    });
+
+    await waitFor(() => forwarded.length === 1);
+    await stream.stop();
+  });
+
   test("reports malformed event payloads as resyncing and reconnects after the bad event", async () => {
     const nextEvent = messageCreatedEvent(2);
     const forwarded: ChatEvent[] = [];

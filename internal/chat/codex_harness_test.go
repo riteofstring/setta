@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -1258,6 +1259,9 @@ func handleFakeServerResponse(mode string, state *fakeCodexState, message map[st
 func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[string]any) bool {
 	switch message["method"] {
 	case "initialize":
+		if mode == "env-context" {
+			assertFakeSettaEnv()
+		}
 		writeFakeInitializeResponse(message["id"])
 	case "config/read":
 		assertFakeConfigRead(message)
@@ -1272,7 +1276,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		return mode == "command-model-set-local" || mode == "command-effort-set-local"
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
-		assertFakeDynamicToolsThreadParams(mode, message)
 		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
 	case "thread/goal/get":
 		return handleFakeGoalGet(mode, message)
@@ -1302,6 +1305,23 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 	return false
 }
 
+func assertFakeSettaEnv() {
+	expected := map[string]string{
+		"SETTA_BACKEND_ADDR":    "http://127.0.0.1:41000",
+		"SETTA_BACKEND_TOKEN":   "backend-token",
+		"SETTA_APP_DATA_DIR":    "/tmp/setta-app-data",
+		"SETTA_WORKSPACE_ID":    "workspace_api",
+		"SETTA_WORKSPACE_ROOT":  "/tmp/setta-env-workspace",
+		"SETTA_CONVERSATION_ID": "conversation_api",
+		"SETTA_RUN_ID":          "run_fake",
+	}
+	for name, value := range expected {
+		if got := os.Getenv(name); got != value {
+			panic(fmt.Sprintf("%s = %q, want %q", name, got, value))
+		}
+	}
+}
+
 func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]any) bool {
 	if mode == "initial-settings" {
 		assertFakeInitialTurnSettings(message)
@@ -1326,10 +1346,7 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 
 func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
 	switch mode {
-	case "stream":
-		writeFakeStreamTurn()
-		return true, true
-	case "dynamic-tools-thread-start", "dynamic-tools-thread-resume":
+	case "stream", "env-context":
 		writeFakeStreamTurn()
 		return true, true
 	case "initial-settings":

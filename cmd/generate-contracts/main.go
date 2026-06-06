@@ -522,7 +522,7 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 	for _, name := range imports {
 		fmt.Fprintf(buffer, "  %s,\n", name)
 	}
-	buffer.WriteString("  type BackendFetch,\n")
+	buffer.WriteString("  type BackendClientOptions,\n")
 	buffer.WriteString("} from \"@shared/backend-runtime\";\n\n")
 }
 
@@ -726,7 +726,9 @@ func renderClient(buffer *bytes.Buffer, specs contractSpec) {
 		renderClientMethod(buffer, endpoint, true)
 	}
 	buffer.WriteString("}\n\n")
-	buffer.WriteString("export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {\n")
+	buffer.WriteString("export function createBackendClient(baseURL: string, options: BackendClientOptions = {}): BackendClient {\n")
+	buffer.WriteString("  const fetchImpl = options.fetchImpl ?? fetch;\n")
+	buffer.WriteString("  const authToken = options.authToken ?? \"\";\n")
 	buffer.WriteString("  return {\n")
 	for _, endpoint := range specs.Endpoints {
 		if endpoint.Streaming {
@@ -761,6 +763,7 @@ func renderClientOperation(buffer *bytes.Buffer, endpoint endpointSpec, errorRes
 }
 
 func renderRequestBackendProperties(buffer *bytes.Buffer, endpoint endpointSpec, errorResponse reflect.Type, requestPayload string) {
+	buffer.WriteString("      authToken,\n")
 	buffer.WriteString("      baseURL,\n")
 	fmt.Fprintf(buffer, "      decodeErrorResponse: %s,\n", decoderFunctionName(errorResponse))
 	fmt.Fprintf(buffer, "      decodeResponse: %s,\n", decoderFunctionName(endpoint.Response))

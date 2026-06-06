@@ -2,7 +2,6 @@
   "entry": [
     "electron.vite.config.ts",
     "eslint.config.mjs",
-    "scripts/generate-pixi-workspace-font.mjs",
     "src/main/index.ts",
     "src/preload/index.ts",
     "src/renderer/src/main.tsx",
@@ -11,8 +10,6 @@
   "project": [
     "electron.vite.config.ts",
     "eslint.config.mjs",
-    "scripts/**/*.mjs",
-    "src/**/*.js",
     "src/**/*.ts",
     "src/**/*.tsx",
     "vitest.config.ts"

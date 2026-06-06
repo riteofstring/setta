@@ -9,11 +9,13 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"setta/internal/appstate"
+	"setta/internal/backendconn"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
@@ -28,9 +30,12 @@ type Config struct {
 	Host            string
 	Port            int
 	Version         string
+	AuthToken       string
 	Stdout          io.Writer
 	Stderr          io.Writer
 	ShutdownTimeout time.Duration
+
+	backendURL string
 }
 
 type ChatHarnessMode string
@@ -48,6 +53,7 @@ type ReadyEvent struct {
 type Server struct {
 	closeCodex  func(context.Context) error
 	closeEvents func()
+	appDataDir  string
 	server      *http.Server
 	listener    net.Listener
 	done        chan error
@@ -73,31 +79,21 @@ func DefaultConfig() Config {
 	}
 }
 
-func (config Config) Validate() error {
-	if config.AppDataDir == "" {
-		return errors.New("app data directory is required")
+func ValidateConfig(config Config) error {
+	if err := validateAppDataDir(config.AppDataDir); err != nil {
+		return err
 	}
-	if !filepath.IsAbs(config.AppDataDir) {
-		return fmt.Errorf("app data directory must be absolute: %s", config.AppDataDir)
+	if err := validateChatHarness(config.ChatHarness); err != nil {
+		return err
 	}
-	if !validChatHarnessMode(config.ChatHarness) {
-		return fmt.Errorf("unsupported chat harness mode: %s", config.ChatHarness)
-	}
-	if config.Host == "" {
-		return errors.New("host is required")
-	}
-	addr, err := netip.ParseAddr(config.Host)
-	if err != nil {
-		return fmt.Errorf("host must be a numeric IP address: %w", err)
-	}
-	if !addr.IsLoopback() {
-		return fmt.Errorf("host must be loopback: %s", config.Host)
-	}
-	if config.Port < 0 || config.Port > 65535 {
-		return fmt.Errorf("port must be between 0 and 65535: %d", config.Port)
+	if err := validateBackendAddress(config.Host, config.Port); err != nil {
+		return err
 	}
 	if config.Version == "" {
 		return errors.New("version is required")
+	}
+	if config.AuthToken == "" {
+		return errors.New("backend auth token is required")
 	}
 	if config.ShutdownTimeout <= 0 {
 		return errors.New("shutdown timeout must be positive")
@@ -105,9 +101,43 @@ func (config Config) Validate() error {
 	return nil
 }
 
+func validateAppDataDir(appDataDir string) error {
+	if appDataDir == "" {
+		return errors.New("app data directory is required")
+	}
+	if !filepath.IsAbs(appDataDir) {
+		return fmt.Errorf("app data directory must be absolute: %s", appDataDir)
+	}
+	return nil
+}
+
+func validateChatHarness(mode ChatHarnessMode) error {
+	if !validChatHarnessMode(mode) {
+		return fmt.Errorf("unsupported chat harness mode: %s", mode)
+	}
+	return nil
+}
+
+func validateBackendAddress(host string, port int) error {
+	if host == "" {
+		return errors.New("host is required")
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return fmt.Errorf("host must be a numeric IP address: %w", err)
+	}
+	if !addr.IsLoopback() {
+		return fmt.Errorf("host must be loopback: %s", host)
+	}
+	if port < 0 || port > 65535 {
+		return fmt.Errorf("port must be between 0 and 65535: %d", port)
+	}
+	return nil
+}
+
 func Start(ctx context.Context, config Config) (*Server, error) {
 	config = normalizeConfig(config)
-	if err := config.Validate(); err != nil {
+	if err := ValidateConfig(config); err != nil {
 		return nil, err
 	}
 
@@ -116,15 +146,22 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bind backend listener: %w", err)
 	}
+	config.backendURL = "http://" + listener.Addr().String()
 	services, err := buildRuntimeServices(config)
 	if err != nil {
 		_ = listener.Close()
+		return nil, err
+	}
+	if err := writeRuntimeConnectionFile(config); err != nil {
+		_ = listener.Close()
+		cleanupRuntimeServices(context.Background(), services)
 		return nil, err
 	}
 
 	server := &Server{
 		closeCodex:  services.codexManager.Shutdown,
 		closeEvents: services.chatService.CloseEvents,
+		appDataDir:  config.AppDataDir,
 		server:      newHTTPServer(config, services),
 		listener:    listener,
 		done:        make(chan error, 1),
@@ -132,6 +169,8 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 
 	if err := json.NewEncoder(config.Stdout).Encode(ReadyEvent{Event: "ready", Addr: listener.Addr().String()}); err != nil {
 		_ = listener.Close()
+		_ = backendconn.RemoveRuntimeFile(config.AppDataDir)
+		cleanupRuntimeServices(context.Background(), services)
 		return nil, fmt.Errorf("write ready event: %w", err)
 	}
 
@@ -160,10 +199,11 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		Process: codexapp.ProcessConfig{
 			Command: "codex",
 			Args:    []string{"app-server", "--listen", "stdio://"},
+			Env:     settaAgentBaseEnv(config),
 		},
 		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
 	})
-	harness, err := chatHarness(config.ChatHarness, codexManager)
+	harness, err := chatHarness(config)
 	if err != nil {
 		return runtimeServices{}, err
 	}
@@ -191,6 +231,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 				Name:    httpapi.BackendName,
 				Version: config.Version,
 			},
+			AuthToken:           config.AuthToken,
 			ChatService:         services.chatService,
 			CodexAccountService: services.codexAccountService,
 			WorkspaceService:    services.workspaceService,
@@ -214,6 +255,9 @@ func (server *Server) Shutdown(ctx context.Context) error {
 		if err := server.closeCodex(ctx); err != nil && shutdownErr == nil {
 			shutdownErr = err
 		}
+	}
+	if err := backendconn.RemoveRuntimeFile(server.appDataDir); err != nil && shutdownErr == nil {
+		shutdownErr = err
 	}
 	return shutdownErr
 }
@@ -243,14 +287,38 @@ func normalizeConfig(config Config) Config {
 	return config
 }
 
-func chatHarness(mode ChatHarnessMode, codexManager *codexapp.Manager) (chat.Harness, error) {
-	switch mode {
+func writeRuntimeConnectionFile(config Config) error {
+	return backendconn.WriteRuntimeFile(backendconn.RuntimeFile{
+		SchemaVersion: backendconn.RuntimeSchemaVersion,
+		Addr:          config.backendURL,
+		Token:         config.AuthToken,
+		PID:           os.Getpid(),
+		AppDataDir:    config.AppDataDir,
+		StartedAt:     time.Now().UTC().Format(time.RFC3339Nano),
+		Version:       config.Version,
+	})
+}
+
+func cleanupRuntimeServices(ctx context.Context, services runtimeServices) {
+	if services.chatService != nil {
+		services.chatService.CloseEvents()
+	}
+	if services.codexManager != nil {
+		_ = services.codexManager.Shutdown(ctx)
+	}
+}
+
+func chatHarness(config Config) (chat.Harness, error) {
+	switch config.ChatHarness {
 	case ChatHarnessCodex:
-		return chat.NewCodexHarness(chat.CodexHarnessConfig{Manager: codexManager}), nil
+		return chat.NewCodexHarness(chat.CodexHarnessConfig{
+			Env:        settaAgentBaseEnv(config),
+			SessionEnv: settaAgentSessionEnv,
+		}), nil
 	case ChatHarnessScriptedWorkflow:
 		return chat.NewScriptedWorkflowHarness(), nil
 	default:
-		return nil, fmt.Errorf("unsupported chat harness mode: %s", mode)
+		return nil, fmt.Errorf("unsupported chat harness mode: %s", config.ChatHarness)
 	}
 }
 
@@ -261,4 +329,29 @@ func validChatHarnessMode(mode ChatHarnessMode) bool {
 	default:
 		return false
 	}
+}
+
+func settaAgentBaseEnv(config Config) []string {
+	return []string{
+		backendconn.AddrEnv + "=" + config.backendURL,
+		backendconn.TokenEnv + "=" + config.AuthToken,
+		backendconn.AppDataDirEnv + "=" + config.AppDataDir,
+	}
+}
+
+func settaAgentSessionEnv(envContext chat.CodexSessionEnvContext) []string {
+	env := []string{}
+	if envContext.Workspace.ID != "" {
+		env = append(env,
+			"SETTA_WORKSPACE_ID="+envContext.Workspace.ID,
+			"SETTA_WORKSPACE_ROOT="+envContext.Workspace.RootPath,
+		)
+	}
+	if envContext.Conversation.ID != "" {
+		env = append(env, "SETTA_CONVERSATION_ID="+envContext.Conversation.ID)
+	}
+	if envContext.Run != nil && envContext.Run.ID != "" {
+		env = append(env, "SETTA_RUN_ID="+envContext.Run.ID)
+	}
+	return env
 }

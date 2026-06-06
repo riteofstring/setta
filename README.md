@@ -39,7 +39,7 @@ pnpm -C desktop dev
 Run the Go backend directly only for backend-only or manual API development:
 
 ```sh
-./scripts/go.sh run ./cmd/setta-backend
+SETTA_BACKEND_TOKEN=dev-token ./scripts/go.sh run ./cmd/setta-backend
 ```
 
 If the repo Go wrapper cannot find the required Go version, install the

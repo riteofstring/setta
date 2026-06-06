@@ -6,15 +6,23 @@ import (
 	"sync"
 
 	"setta/internal/codexapp"
+	"setta/internal/workspace"
 )
 
 type CodexHarnessConfig struct {
 	Command             string
 	Args                []string
 	Env                 []string
+	SessionEnv          func(CodexSessionEnvContext) []string
 	Manager             *codexapp.Manager
 	Tools               *AgentToolRegistry
 	AttestationProvider AttestationProvider
+}
+
+type CodexSessionEnvContext struct {
+	Workspace    workspace.WorkspaceSummary
+	Conversation Conversation
+	Run          *Run
 }
 
 type CodexHarness struct {
@@ -29,7 +37,6 @@ type CodexHarness struct {
 }
 
 type codexActiveTurn struct {
-	request  TurnRequest
 	session  *codexapp.Session
 	threadID string
 	turnID   string
@@ -69,11 +76,8 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 	if len(config.Args) == 0 {
 		config.Args = []string{"app-server", "--listen", "stdio://"}
 	}
-	if config.Tools == nil {
-		config.Tools = mustNewSettaAgentToolRegistry()
-	}
 	manager := config.Manager
-	if manager == nil {
+	if manager == nil && config.SessionEnv == nil {
 		manager = codexapp.NewManager(codexapp.ManagerConfig{
 			Process: codexapp.ProcessConfig{
 				Command: config.Command,
@@ -99,14 +103,14 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	harness.turnMu.Lock()
 	defer harness.turnMu.Unlock()
 
-	session, err := harness.manager.NewSession(ctx)
+	session, cleanup, err := harness.newTurnSession(ctx, request)
 	if err != nil {
 		return TurnCompletion{}, err
 	}
+	defer cleanup()
 	session.AcceptUnscopedNotifications()
 	session.AcceptUnscopedRequests()
-	defer session.Close()
-	harness.registerActive(request.Run.ID, session, request)
+	harness.registerActive(request.Run.ID, session)
 	defer harness.unregisterActive(request.Run.ID)
 
 	threadID, err := harness.startOrResumeThread(ctx, session, request)
@@ -125,6 +129,59 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 		return TurnCompletion{}, err
 	}
 	return harness.waitForTurn(ctx, session, request.Run.ID, threadID, turnID, sink)
+}
+
+func (harness *CodexHarness) newTurnSession(ctx context.Context, request TurnRequest) (*codexapp.Session, func(), error) {
+	run := request.Run
+	return harness.newSession(ctx, harness.sessionEnv(CodexSessionEnvContext{
+		Workspace:    request.Workspace,
+		Conversation: request.Conversation,
+		Run:          &run,
+	}))
+}
+
+func (harness *CodexHarness) newCommandSession(ctx context.Context, request HarnessCommandRequest) (*codexapp.Session, func(), error) {
+	return harness.newSession(ctx, harness.sessionEnv(CodexSessionEnvContext{
+		Workspace:    request.Workspace,
+		Conversation: request.Conversation,
+		Run:          request.ActiveRun,
+	}))
+}
+
+func (harness *CodexHarness) newSession(ctx context.Context, env []string) (*codexapp.Session, func(), error) {
+	if harness.manager != nil {
+		session, err := harness.manager.NewSession(ctx)
+		if err != nil {
+			return nil, func() {}, err
+		}
+		return session, session.Close, nil
+	}
+	manager := codexapp.NewManager(codexapp.ManagerConfig{
+		Process: codexapp.ProcessConfig{
+			Command: harness.config.Command,
+			Args:    harness.config.Args,
+			Env:     env,
+		},
+		InitializeParams: CodexInitializeParams(harness.config),
+	})
+	session, err := manager.NewSession(ctx)
+	if err != nil {
+		_ = manager.Shutdown(context.Background())
+		return nil, func() {}, err
+	}
+	cleanup := func() {
+		session.Close()
+		_ = manager.Shutdown(context.Background())
+	}
+	return session, cleanup, nil
+}
+
+func (harness *CodexHarness) sessionEnv(envContext CodexSessionEnvContext) []string {
+	env := append([]string{}, harness.config.Env...)
+	if harness.config.SessionEnv != nil {
+		env = append(env, harness.config.SessionEnv(envContext)...)
+	}
+	return env
 }
 
 func (harness *CodexHarness) waitForTurn(ctx context.Context, session *codexapp.Session, runID string, threadID string, turnID string, sink TurnSink) (TurnCompletion, error) {
@@ -371,7 +428,14 @@ func CodexInitializeParams(config CodexHarnessConfig) map[string]any {
 
 func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *codexapp.Session, request TurnRequest) (string, error) {
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, codexThreadResumeParams(request.Workspace.RootPath, request.ThreadRef.ThreadID))
+		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, map[string]any{
+			"approvalPolicy":        "on-request",
+			"approvalsReviewer":     "user",
+			"cwd":                   request.Workspace.RootPath,
+			"excludeTurns":          true,
+			"runtimeWorkspaceRoots": []string{request.Workspace.RootPath},
+			"threadId":              request.ThreadRef.ThreadID,
+		})
 		if err != nil {
 			return "", &HarnessRefUnavailableError{
 				Err:      err,
@@ -392,11 +456,12 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 		return threadID, nil
 	}
 
-	params, err := harness.codexThreadStartParams(request.Workspace.RootPath)
-	if err != nil {
-		return "", err
-	}
-	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
+	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, map[string]any{
+		"approvalPolicy":        "on-request",
+		"approvalsReviewer":     "user",
+		"cwd":                   request.Workspace.RootPath,
+		"runtimeWorkspaceRoots": []string{request.Workspace.RootPath},
+	})
 	if err != nil {
 		return "", fmt.Errorf("start codex thread: %w", err)
 	}
@@ -473,10 +538,10 @@ func (harness *CodexHarness) handleCodexServerRequest(ctx context.Context, messa
 	return sink.ApprovalRequested(approval)
 }
 
-func (harness *CodexHarness) registerActive(runID string, session *codexapp.Session, request TurnRequest) {
+func (harness *CodexHarness) registerActive(runID string, session *codexapp.Session) {
 	harness.mu.Lock()
 	defer harness.mu.Unlock()
-	harness.active[runID] = &codexActiveTurn{request: request, session: session}
+	harness.active[runID] = &codexActiveTurn{session: session}
 }
 
 func (harness *CodexHarness) updateActiveTurn(runID string, threadID string, turnID string) {

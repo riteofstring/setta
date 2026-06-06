@@ -1,0 +1,4 @@
+interface:
+  display_name: "Setta CLI"
+  short_description: "Operate Setta through its CLI"
+  default_prompt: "Use $setta-cli to inspect Setta CLI commands and operate a workspace safely."

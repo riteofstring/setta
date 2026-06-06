@@ -434,6 +434,40 @@ func TestServiceSupervisorDoesNotRecordDiagnosticsForSuccessfulTurn(t *testing.T
 	}
 }
 
+func TestServiceListConversationsWaitsForStateLock(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
+	if _, err := service.CreateConversation("workspace_api", ""); err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	service.mu.Lock()
+	started := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		close(started)
+		_, err := service.ListConversations("workspace_api")
+		done <- err
+	}()
+
+	<-started
+	select {
+	case err := <-done:
+		service.mu.Unlock()
+		t.Fatalf("ListConversations returned while state lock was held: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	service.mu.Unlock()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("list conversations after lock release: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for ListConversations after lock release")
+	}
+}
+
 func TestServiceStartIDFailureLeavesNoMisleadingActiveTurn(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
 	conversation, err := service.CreateConversation("workspace_api", "")

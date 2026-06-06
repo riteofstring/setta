@@ -12,7 +12,7 @@ import {
   decodeUnknown,
   requestBackend,
   requireField,
-  type BackendFetch,
+  type BackendClientOptions,
 } from "@shared/backend-runtime";
 
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -1026,6 +1026,15 @@ export interface ListDiagnosticsResponse {
   diagnostics: Diagnostic[];
 }
 
+export interface ListApprovalsRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface ListApprovalsResponse {
+  approvals: ApprovalRequest[];
+}
+
 export interface ApprovalAnswer {
   questionId: string;
   answers: string[];
@@ -1506,6 +1515,10 @@ export const backendEndpoints = {
   ListDiagnostics: {
     method: "POST",
     path: "/chat/diagnostics/list",
+  },
+  ListApprovals: {
+    method: "POST",
+    path: "/chat/approvals/list",
   },
   SubmitApproval: {
     method: "POST",
@@ -2318,6 +2331,23 @@ export function decodeListDiagnosticsResponse(value: unknown): ListDiagnosticsRe
   };
 }
 
+export function decodeListApprovalsRequest(value: unknown): ListApprovalsRequest {
+  const record = assertRecord(value, "ListApprovalsRequest");
+  assertKnownFields(record, "ListApprovalsRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListApprovalsRequest"), "ListApprovalsRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ListApprovalsRequest"), "ListApprovalsRequest.conversationId"),
+  };
+}
+
+export function decodeListApprovalsResponse(value: unknown): ListApprovalsResponse {
+  const record = assertRecord(value, "ListApprovalsResponse");
+  assertKnownFields(record, "ListApprovalsResponse", ["approvals"]);
+  return {
+    approvals: decodeArray(requireField(record, "approvals", "ListApprovalsResponse"), "ListApprovalsResponse.approvals", (item) => decodeApprovalRequest(item)),
+  };
+}
+
 export function decodeApprovalAnswer(value: unknown): ApprovalAnswer {
   const record = assertRecord(value, "ApprovalAnswer");
   assertKnownFields(record, "ApprovalAnswer", ["questionId", "answers", "value"]);
@@ -3028,6 +3058,7 @@ export interface BackendClient {
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
   listDiagnostics: (request: ListDiagnosticsRequest) => Promise<ListDiagnosticsResponse>;
+  listApprovals: (request: ListApprovalsRequest) => Promise<ListApprovalsResponse>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
   readCodexAccount: () => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
@@ -3036,9 +3067,12 @@ export interface BackendClient {
   logoutCodexAccount: (request: LogoutCodexAccountRequest) => Promise<CodexAccountState>;
 }
 
-export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {
+export function createBackendClient(baseURL: string, options: BackendClientOptions = {}): BackendClient {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const authToken = options.authToken ?? "";
   return {
     backendHealth: () => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeBackendHealth,
@@ -3047,6 +3081,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: undefined,
     }),
     workspaceSession: () => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3055,6 +3090,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: undefined,
     }),
     openWorkspace: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeOpenWorkspaceResponse,
@@ -3063,6 +3099,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     selectWorkspace: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3071,6 +3108,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     closeWorkspace: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3079,6 +3117,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     reorderWorkspace: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3087,6 +3126,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     removeRecentWorkspace: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
@@ -3095,6 +3135,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     listConversations: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListConversationsResponse,
@@ -3103,6 +3144,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     createConversation: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversation,
@@ -3111,6 +3153,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     markConversationRead: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationListItem,
@@ -3119,6 +3162,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     getMessagePage: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeMessagePage,
@@ -3127,6 +3171,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     sendChatMessage: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSendMessageResult,
@@ -3135,6 +3180,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     queueChatMessage: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueMessageResult,
@@ -3143,6 +3189,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     editQueuedChatMessage: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueEditResult,
@@ -3151,6 +3198,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     removeQueuedChatMessage: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeQueueRemoveResult,
@@ -3159,6 +3207,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     steerChatMessage: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSteerMessageResult,
@@ -3167,6 +3216,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     sendSteeringImmediately: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeImmediateSteeringResult,
@@ -3175,6 +3225,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     listChatCommands: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandListResult,
@@ -3183,6 +3234,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     executeChatCommand: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
@@ -3191,6 +3243,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     setChatCodexModel: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
@@ -3199,6 +3252,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     setChatCodexReasoningEffort: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
@@ -3207,6 +3261,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     cancelRun: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
@@ -3215,6 +3270,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     getActiveRun: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeGetActiveRunResponse,
@@ -3223,6 +3279,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     listRuns: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListRunsResponse,
@@ -3231,6 +3288,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     getRunActivity: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunActivityPage,
@@ -3239,6 +3297,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     getRunItemOutputPage: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunItemOutputPage,
@@ -3247,6 +3306,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     listDiagnostics: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeListDiagnosticsResponse,
@@ -3254,7 +3314,17 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    listApprovals: (request) => requestBackend({
+      authToken,
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeListApprovalsResponse,
+      endpoint: backendEndpoints.ListApprovals,
+      fetchImpl,
+      requestPayload: request,
+    }),
     submitApproval: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRun,
@@ -3263,6 +3333,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     readCodexAccount: () => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
@@ -3271,6 +3342,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: undefined,
     }),
     refreshCodexAccount: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
@@ -3279,6 +3351,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     startCodexLogin: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeStartCodexLoginResponse,
@@ -3287,6 +3360,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     cancelCodexLogin: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,
@@ -3295,6 +3369,7 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
     }),
     logoutCodexAccount: (request) => requestBackend({
+      authToken,
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCodexAccountState,

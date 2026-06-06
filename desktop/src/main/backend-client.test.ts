@@ -4,9 +4,9 @@ import { describe, expect, test } from "vitest";
 describe("generated backend client", () => {
   test("decodes success responses", async () => {
     const session = workspaceSession();
-    const client = createBackendClient("http://127.0.0.1:41000", async () =>
-      jsonResponse({ session, workspace: session.activeWorkspaces[0] }),
-    );
+    const client = createBackendClient("http://127.0.0.1:41000", {
+      fetchImpl: async () => jsonResponse({ session, workspace: session.activeWorkspaces[0] }),
+    });
 
     const response = await client.openWorkspace({ rootPath: "/tmp/api" });
 
@@ -15,17 +15,18 @@ describe("generated backend client", () => {
   });
 
   test("throws backend error messages", async () => {
-    const client = createBackendClient("http://127.0.0.1:41000", async () =>
-      jsonResponse(
-        {
-          error: {
-            code: "select_workspace_failed",
-            message: "workspace is not active: workspace_missing",
+    const client = createBackendClient("http://127.0.0.1:41000", {
+      fetchImpl: async () =>
+        jsonResponse(
+          {
+            error: {
+              code: "select_workspace_failed",
+              message: "workspace is not active: workspace_missing",
+            },
           },
-        },
-        400,
-      ),
-    );
+          400,
+        ),
+    });
 
     await expect(client.selectWorkspace({ id: "workspace_missing" })).rejects.toThrow(
       "workspace is not active: workspace_missing",
@@ -33,13 +34,14 @@ describe("generated backend client", () => {
   });
 
   test("fails loudly for malformed success responses", async () => {
-    const client = createBackendClient("http://127.0.0.1:41000", async () =>
-      jsonResponse({
-        activeWorkspaces: "not an array",
-        recentWorkspaces: [],
-        selectedWorkspaceId: "",
-      }),
-    );
+    const client = createBackendClient("http://127.0.0.1:41000", {
+      fetchImpl: async () =>
+        jsonResponse({
+          activeWorkspaces: "not an array",
+          recentWorkspaces: [],
+          selectedWorkspaceId: "",
+        }),
+    });
 
     await expect(client.workspaceSession()).rejects.toThrow(
       "WorkspaceSession.activeWorkspaces must be an array",
@@ -47,14 +49,15 @@ describe("generated backend client", () => {
   });
 
   test("rejects unknown response fields", async () => {
-    const client = createBackendClient("http://127.0.0.1:41000", async () =>
-      jsonResponse({
-        extra: true,
-        name: "setta-backend",
-        ok: true,
-        version: "test",
-      }),
-    );
+    const client = createBackendClient("http://127.0.0.1:41000", {
+      fetchImpl: async () =>
+        jsonResponse({
+          extra: true,
+          name: "setta-backend",
+          ok: true,
+          version: "test",
+        }),
+    });
 
     await expect(client.backendHealth()).rejects.toThrow(
       "BackendHealth contains unknown field extra",
@@ -62,12 +65,13 @@ describe("generated backend client", () => {
   });
 
   test("decodes inactive chat run responses", async () => {
-    const client = createBackendClient("http://127.0.0.1:41000", async () =>
-      jsonResponse({
-        hasActiveRun: false,
-        run: null,
-      }),
-    );
+    const client = createBackendClient("http://127.0.0.1:41000", {
+      fetchImpl: async () =>
+        jsonResponse({
+          hasActiveRun: false,
+          run: null,
+        }),
+    });
 
     const response = await client.getActiveRun({
       conversationId: "conversation_api",
@@ -80,9 +84,11 @@ describe("generated backend client", () => {
 
   test("GET endpoints do not send JSON bodies", async () => {
     const calls: FetchCall[] = [];
-    const client = createBackendClient("http://127.0.0.1:41000", async (input, init) => {
-      calls.push({ init, input });
-      return jsonResponse(workspaceSession());
+    const client = createBackendClient("http://127.0.0.1:41000", {
+      fetchImpl: async (input, init) => {
+        calls.push({ init, input });
+        return jsonResponse(workspaceSession());
+      },
     });
 
     await client.workspaceSession();
@@ -96,9 +102,11 @@ describe("generated backend client", () => {
 
   test("POST endpoints send request payloads as JSON", async () => {
     const calls: FetchCall[] = [];
-    const client = createBackendClient("http://127.0.0.1:41000", async (input, init) => {
-      calls.push({ init, input });
-      return jsonResponse(workspaceSession());
+    const client = createBackendClient("http://127.0.0.1:41000", {
+      fetchImpl: async (input, init) => {
+        calls.push({ init, input });
+        return jsonResponse(workspaceSession());
+      },
     });
 
     await client.reorderWorkspace({ ids: ["workspace_web", "workspace_api"] });
@@ -108,6 +116,25 @@ describe("generated backend client", () => {
     expect(call.init.method).toBe("POST");
     expect(call.init.body).toBe(JSON.stringify({ ids: ["workspace_web", "workspace_api"] }));
     expect(call.init.headers).toEqual({ "Content-Type": "application/json" });
+  });
+
+  test("sends bearer auth when configured", async () => {
+    const calls: FetchCall[] = [];
+    const client = createBackendClient("http://127.0.0.1:41000", {
+      authToken: "test-token",
+      fetchImpl: async (input, init) => {
+        calls.push({ init, input });
+        return jsonResponse({
+          name: "setta-backend",
+          ok: true,
+          version: "test",
+        });
+      },
+    });
+
+    await client.backendHealth();
+
+    expect(onlyCall(calls).init.headers).toEqual({ Authorization: "Bearer test-token" });
   });
 });
 

@@ -13,7 +13,13 @@ type BackendPayloadDecoder<T> = (value: unknown) => T;
 
 export type BackendFetch = (input: URL, init: RequestInit) => Promise<Response>;
 
+export interface BackendClientOptions {
+  authToken?: string;
+  fetchImpl?: BackendFetch;
+}
+
 interface BackendRequest<ResponsePayload, ErrorPayload extends BackendErrorPayload> {
+  authToken?: string;
   baseURL: string;
   decodeErrorResponse: BackendPayloadDecoder<ErrorPayload>;
   decodeResponse: BackendPayloadDecoder<ResponsePayload>;
@@ -112,12 +118,26 @@ export function decodeUnknown(value: unknown, _label: string): unknown {
 export async function requestBackend<ResponsePayload, ErrorPayload extends BackendErrorPayload>(
   request: BackendRequest<ResponsePayload, ErrorPayload>,
 ): Promise<ResponsePayload> {
-  const { baseURL, decodeErrorResponse, decodeResponse, endpoint, fetchImpl, requestPayload } =
-    request;
+  const {
+    authToken,
+    baseURL,
+    decodeErrorResponse,
+    decodeResponse,
+    endpoint,
+    fetchImpl,
+    requestPayload,
+  } = request;
   const init: RequestInit = { method: endpoint.method };
+  const headers: Record<string, string> = {};
   if (requestPayload !== undefined) {
     init.body = JSON.stringify(requestPayload);
-    init.headers = { "Content-Type": "application/json" };
+    headers["Content-Type"] = "application/json";
+  }
+  if (authToken !== undefined && authToken !== "") {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+  if (Object.keys(headers).length > 0) {
+    init.headers = headers;
   }
 
   const response = await fetchImpl(new URL(endpoint.path, baseURL), init);

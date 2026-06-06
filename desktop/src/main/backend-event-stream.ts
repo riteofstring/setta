@@ -8,6 +8,7 @@ export interface BackendEventStream {
 }
 
 interface BackendEventStreamOptions {
+  authToken?: string;
   baseURL: string;
   fetchImpl?: BackendFetch;
   observer?: BackendEventStreamObserver;
@@ -45,6 +46,7 @@ interface EventCursor {
 
 interface StreamOnceOptions {
   attempt: number;
+  authToken: string;
   baseURL: string;
   cursor: EventCursor;
   fetchImpl: BackendFetch;
@@ -74,6 +76,7 @@ export function startBackendEventStream(options: BackendEventStreamOptions): Bac
   const reconnect = { ...defaultReconnect, ...options.reconnect };
   const sleep = reconnect.sleep ?? sleepWithAbort;
   const done = runEventStreamLoop({
+    authToken: options.authToken ?? "",
     baseURL: options.baseURL,
     fetchImpl,
     observer: options.observer,
@@ -93,6 +96,7 @@ export function startBackendEventStream(options: BackendEventStreamOptions): Bac
 }
 
 async function runEventStreamLoop(options: {
+  authToken: string;
   baseURL: string;
   fetchImpl: BackendFetch;
   observer: BackendEventStreamObserver | undefined;
@@ -118,6 +122,7 @@ async function runEventStreamLoop(options: {
 
 async function runStreamAttempt(options: {
   attempt: number;
+  authToken: string;
   baseURL: string;
   cursor: EventCursor;
   fetchImpl: BackendFetch;
@@ -191,6 +196,9 @@ function recordStreamError(
 
 async function streamOnce(options: StreamOnceOptions): Promise<EventCursor> {
   const headers: Record<string, string> = {};
+  if (options.authToken !== "") {
+    headers.Authorization = `Bearer ${options.authToken}`;
+  }
   if (options.cursor.streamId !== "") {
     headers["Last-Event-ID"] = encodeEventCursor(options.cursor);
   }

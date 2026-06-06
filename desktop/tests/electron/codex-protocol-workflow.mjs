@@ -39,24 +39,6 @@ export async function assertProtocolNotificationActivity(
     "command_execution",
     (item) => item.processId === "process_fake",
   );
-  await assertRunActivityItem(
-    page,
-    "dynamic_tool_call",
-    (item) =>
-      item.status === "completed" &&
-      item.namespace === "setta" &&
-      item.toolName === "workspace_context" &&
-      item.result.includes("rootPath"),
-  );
-  await assertRunActivityItem(
-    page,
-    "dynamic_tool_call",
-    (item) =>
-      item.status === "failed" &&
-      item.namespace === "setta" &&
-      item.toolName === "missing_tool" &&
-      item.error.includes("unsupported dynamic tool"),
-  );
 
   const outputItem = page.items.find(
     (item) => item.type === "file_change" && item.title === "File change output",
@@ -102,12 +84,12 @@ async function assertRunActivityItem(page, type, matches) {
 }
 
 function fakeCodexAppServerScript() {
-  return `import readline from "node:readline";
+  return `import { execFile } from "node:child_process";
+import readline from "node:readline";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
 let account = null;
-let pendingDynamicTool = null;
 const rl = readline.createInterface({ input: process.stdin });
 
 rl.on("line", (line) => {
@@ -119,10 +101,6 @@ rl.on("line", (line) => {
 });
 
 function handleMessage(message) {
-  if (pendingDynamicTool && message.method === undefined) {
-    handleDynamicToolResponse(message);
-    return;
-  }
   switch (message.method) {
     case "initialize":
       respond(message.id, {
@@ -157,14 +135,7 @@ function handleMessage(message) {
       notify("account/updated", { authMode: null, planType: null });
       return;
     case "thread/start":
-      assertThreadStartDeveloperInstructions(message.params);
-      assertThreadStartDynamicTools(message.params);
-      respond(message.id, { model: "gpt-test", thread: { id: threadId } });
-      return;
     case "thread/resume":
-      if (message.params?.dynamicTools !== undefined) {
-        throw new Error("thread/resume should not include dynamicTools");
-      }
       respond(message.id, { model: "gpt-test", thread: { id: threadId } });
       return;
     case "turn/start":
@@ -173,8 +144,8 @@ function handleMessage(message) {
         setTimeout(() => process.exit(42), 5);
         return;
       }
-      if (turnInputText(message).includes("protocol notification workflow")) {
-        setTimeout(() => requestDynamicTool("workspace_context", "tool_context", "workspace_context"), 5);
+      if (turnInputText(message).includes("setta cli env workflow")) {
+        setTimeout(emitSettaCLIEnvTurn, 5);
         return;
       }
       setTimeout(emitProtocolCoverageTurn, 5);
@@ -215,103 +186,6 @@ function handleMessage(message) {
       return;
     default:
       respond(message.id, {});
-  }
-}
-
-function assertThreadStartDeveloperInstructions(params) {
-  const instructions = params?.developerInstructions;
-  if (
-    typeof instructions !== "string" ||
-    !instructions.includes("available dynamic tool") ||
-    !instructions.includes("Do not invent dynamic tool names")
-  ) {
-    throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
-  }
-}
-
-function assertThreadStartDynamicTools(params) {
-  const tools = params?.dynamicTools;
-  if (!Array.isArray(tools) || tools.length === 0) {
-    throw new Error("thread/start missing dynamicTools");
-  }
-  const workspaceContext = tools.find(
-    (tool) => tool?.namespace === "setta" && tool?.name === "workspace_context",
-  );
-  if (!workspaceContext) {
-    throw new Error("thread/start missing setta.workspace_context dynamic tool");
-  }
-  if (workspaceContext.deferLoading !== undefined) {
-    throw new Error("workspace_context should be visible");
-  }
-  if (
-    typeof workspaceContext.description !== "string" ||
-    !workspaceContext.description.includes("workspace")
-  ) {
-    throw new Error("workspace_context description missing workspace terms");
-  }
-  if (
-    workspaceContext.inputSchema?.type !== "object" ||
-    workspaceContext.inputSchema?.additionalProperties !== false
-  ) {
-    throw new Error("workspace_context input schema mismatch");
-  }
-}
-
-function requestDynamicTool(tool, id, kind) {
-  pendingDynamicTool = { id, kind };
-  write({
-    id,
-    method: "item/tool/call",
-    params: {
-      arguments: {},
-      callId: id + "_call",
-      namespace: "setta",
-      threadId,
-      tool,
-      turnId,
-    },
-  });
-}
-
-function handleDynamicToolResponse(message) {
-  const pending = pendingDynamicTool;
-  pendingDynamicTool = null;
-  if (message.id !== pending.id) {
-    throw new Error("dynamic tool response id mismatch");
-  }
-  if (pending.kind === "workspace_context") {
-    assertWorkspaceContextToolResponse(message);
-    requestDynamicTool("missing_tool", "tool_missing", "missing_tool");
-    return;
-  }
-  if (pending.kind === "missing_tool") {
-    assertUnsupportedDynamicToolResponse(message);
-    emitProtocolCoverageTurn();
-    return;
-  }
-  throw new Error("unknown pending dynamic tool kind: " + pending.kind);
-}
-
-function assertWorkspaceContextToolResponse(message) {
-  if (message.error) {
-    throw new Error("workspace_context returned error: " + JSON.stringify(message.error));
-  }
-  const items = message.result?.contentItems;
-  if (message.result?.success !== true || !Array.isArray(items) || items.length !== 1) {
-    throw new Error("workspace_context result mismatch: " + JSON.stringify(message.result));
-  }
-  const text = items[0]?.text ?? "";
-  if (items[0]?.type !== "inputText" || !text.includes('"rootPath"') || !text.includes('"threadId"')) {
-    throw new Error("workspace_context content mismatch: " + JSON.stringify(items));
-  }
-}
-
-function assertUnsupportedDynamicToolResponse(message) {
-  if (message.result) {
-    throw new Error("unsupported dynamic tool unexpectedly returned result");
-  }
-  if (message.error?.code !== -32002 || !message.error?.message?.includes("unsupported dynamic tool")) {
-    throw new Error("unsupported dynamic tool error mismatch: " + JSON.stringify(message.error));
   }
 }
 
@@ -433,6 +307,75 @@ function emitProtocolCoverageTurn() {
   notify("turn/completed", {
     threadId,
     turn: { id: turnId, items: [], status: "completed" },
+  });
+}
+
+function emitSettaCLIEnvTurn() {
+  const repoRoot = process.env.SETTA_E2E_REPO_ROOT;
+  if (!repoRoot) {
+    emitSettaCLIEnvFailure("SETTA_E2E_REPO_ROOT was not set");
+    return;
+  }
+  execFile(
+    repoRoot + "/scripts/go.sh",
+    ["run", "./cmd/setta", "backend", "connection", "--json"],
+    {
+      cwd: repoRoot,
+      env: process.env,
+      timeout: 30000,
+    },
+    (error, stdout, stderr) => {
+      if (error) {
+        emitSettaCLIEnvFailure(String(error.message ?? error) + "\\n" + stderr);
+        return;
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(stdout);
+      } catch (parseError) {
+        emitSettaCLIEnvFailure("failed to parse setta CLI output: " + stdout + "\\n" + parseError);
+        return;
+      }
+      const connection = parsed.data;
+      if (!connection?.authenticated || connection?.source !== "environment" || "token" in connection) {
+        emitSettaCLIEnvFailure("unexpected setta CLI connection output: " + stdout);
+        return;
+      }
+      notify("item/agentMessage/delta", {
+        delta:
+          "setta cli implicit connection ok " +
+          process.env.SETTA_WORKSPACE_ID +
+          " " +
+          process.env.SETTA_CONVERSATION_ID +
+          " " +
+          process.env.SETTA_RUN_ID,
+        itemId: "setta_cli_message_fake",
+        threadId,
+        turnId,
+      });
+      notify("turn/completed", {
+        threadId,
+        turn: { id: turnId, items: [], status: "completed" },
+      });
+    },
+  );
+}
+
+function emitSettaCLIEnvFailure(message) {
+  notify("item/agentMessage/delta", {
+    delta: "setta cli implicit connection failed: " + message,
+    itemId: "setta_cli_message_fake",
+    threadId,
+    turnId,
+  });
+  notify("turn/completed", {
+    threadId,
+    turn: {
+      error: { message },
+      id: turnId,
+      items: [],
+      status: "failed",
+    },
   });
 }
 
