@@ -102,14 +102,31 @@ func WithEventHub(events *EventHub) Option {
 	}
 }
 
-func WithCodexChatService(chatService CodexChatService) Option {
+func WithCodexChatService(chatService *chat.Service) Option {
+	return WithCodexChatClient(chatService)
+}
+
+func WithCodexChatClient(chatService CodexChatService) Option {
 	return func(service *Service) {
 		service.codexChatService = chatService
 	}
 }
 
-func (service *Service) SubscribeEvents() *EventSubscription {
-	return service.events.Subscribe()
+func (service *Service) SubscribeEvents(cursor WorkflowEventCursor) (*EventSubscription, error) {
+	if err := validateWorkflowEventCursor(cursor); err != nil {
+		return nil, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	replay := []WorkflowEventEnvelope{}
+	if cursor.StreamID != "" {
+		var err error
+		replay, err = service.store.LoadWorkflowEventStreamAfter(cursor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return service.events.Subscribe(replay), nil
 }
 
 func (service *Service) CloseEvents() {
@@ -325,24 +342,29 @@ func (service *Service) CancelExecution(workspaceID string, executionID string) 
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowExecution{}, err
 	}
-	if err := service.cancelActiveActionRunners(workspaceID, executionID); err != nil {
-		return WorkflowExecution{}, err
-	}
 	service.mu.Lock()
-	defer service.mu.Unlock()
 	execution, err := service.store.LoadExecution(workspaceID, executionID)
 	if err != nil {
+		service.mu.Unlock()
 		return WorkflowExecution{}, err
 	}
 	if execution.Status == ExecutionStatusCancelled {
+		service.mu.Unlock()
 		return execution, nil
 	}
+	cancelDispatches := service.activeActionCancelRequestsLocked(workspaceID, execution, "")
 	transition, err := CancelExecution(execution, service.transitionContext())
 	if err != nil {
+		service.mu.Unlock()
 		return WorkflowExecution{}, err
 	}
 	if err := service.persistTransition(transition); err != nil {
+		service.mu.Unlock()
 		return WorkflowExecution{}, err
+	}
+	service.mu.Unlock()
+	if err := service.cancelActionRunners(cancelDispatches); err != nil {
+		return transition.Execution, err
 	}
 	return transition.Execution, nil
 }
@@ -500,13 +522,14 @@ func (service *Service) loadExecutionAndVersion(workspaceID string, executionID 
 }
 
 func (service *Service) persistTransition(transition WorkflowTransition) error {
-	if err := service.store.AppendExecutionEvents(transition.Execution.WorkspaceID, transition.Execution.ID, transition.Events); err != nil {
+	events, err := service.store.AppendExecutionEvents(transition.Execution.WorkspaceID, transition.Execution.ID, transition.Events)
+	if err != nil {
 		return err
 	}
 	if err := service.store.SaveExecution(transition.Execution); err != nil {
 		return err
 	}
-	service.events.Publish(transition.Events)
+	service.events.Publish(events)
 	return nil
 }
 

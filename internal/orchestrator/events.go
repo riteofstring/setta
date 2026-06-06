@@ -2,38 +2,55 @@ package orchestrator
 
 import "sync"
 
-const defaultSubscriberBufferSize = 128
+const (
+	WorkflowEventStreamID       = "workflow_events"
+	defaultSubscriberBufferSize = 128
+)
+
+type WorkflowEventCursor struct {
+	StreamID string
+	Sequence int
+}
+
+type WorkflowEventEnvelope struct {
+	StreamID string
+	Sequence int
+	Event    WorkflowEvent
+}
 
 type EventHub struct {
 	mu          sync.Mutex
 	closed      bool
-	subscribers map[chan WorkflowEvent]struct{}
+	subscribers map[chan WorkflowEventEnvelope]struct{}
 }
 
 type EventSubscription struct {
-	Events <-chan WorkflowEvent
+	Events <-chan WorkflowEventEnvelope
 
 	hub     *EventHub
-	channel chan WorkflowEvent
+	channel chan WorkflowEventEnvelope
 }
 
 func NewEventHub() *EventHub {
-	return &EventHub{subscribers: map[chan WorkflowEvent]struct{}{}}
+	return &EventHub{subscribers: map[chan WorkflowEventEnvelope]struct{}{}}
 }
 
-func (hub *EventHub) Subscribe() *EventSubscription {
-	channel := make(chan WorkflowEvent, defaultSubscriberBufferSize)
+func (hub *EventHub) Subscribe(replay []WorkflowEventEnvelope) *EventSubscription {
+	channel := make(chan WorkflowEventEnvelope, defaultSubscriberBufferSize+len(replay))
 	hub.mu.Lock()
 	defer hub.mu.Unlock()
 	if hub.closed {
 		close(channel)
 		return &EventSubscription{Events: channel, hub: hub, channel: channel}
 	}
+	for _, event := range replay {
+		channel <- event
+	}
 	hub.subscribers[channel] = struct{}{}
 	return &EventSubscription{Events: channel, hub: hub, channel: channel}
 }
 
-func (hub *EventHub) Publish(events []WorkflowEvent) {
+func (hub *EventHub) Publish(events []WorkflowEventEnvelope) {
 	hub.mu.Lock()
 	defer hub.mu.Unlock()
 	if hub.closed {
@@ -44,6 +61,8 @@ func (hub *EventHub) Publish(events []WorkflowEvent) {
 			select {
 			case subscriber <- event:
 			default:
+				close(subscriber)
+				delete(hub.subscribers, subscriber)
 			}
 		}
 	}

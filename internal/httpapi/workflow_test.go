@@ -120,6 +120,41 @@ func TestWorkflowEventStreamPushesWorkflowEvents(t *testing.T) {
 	}
 }
 
+func TestWorkflowEventStreamReplaysFromLastEventID(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	workspaceRoot := t.TempDir()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: workspaceRoot}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Replay workflow",
+		Graph:       httpWorkflowActionGraph(),
+	}, http.StatusOK)
+	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+
+	response, err := http.Get(server.URL + "/workflows/events?lastEventId=workflow_events:1")
+	if err != nil {
+		t.Fatalf("open workflow event replay stream: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("event stream status = %d, want 200", response.StatusCode)
+	}
+
+	event := readServerSentWorkflowEvent(t, bufio.NewReader(response.Body))
+	if event.ExecutionID != started.ID {
+		t.Fatalf("replayed event execution id = %s, want %s", event.ExecutionID, started.ID)
+	}
+	if event.Ordinal != 2 || event.Type != orchestrator.EventNodeScheduled {
+		t.Fatalf("replayed event ordinal/type = %d/%s, want 2/%s", event.Ordinal, event.Type, orchestrator.EventNodeScheduled)
+	}
+}
+
 func httpWorkflowActionGraph() orchestrator.WorkflowGraph {
 	return orchestrator.WorkflowGraph{
 		Nodes: []orchestrator.WorkflowNode{

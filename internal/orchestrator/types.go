@@ -99,6 +99,7 @@ const (
 	TerminalReasonActionCancelled    WorkflowTerminalReason = "action_cancelled"
 	TerminalReasonExecutionCancelled WorkflowTerminalReason = "execution_cancelled"
 	TerminalReasonInterrupted        WorkflowTerminalReason = "interrupted"
+	TerminalReasonRoutingFailed      WorkflowTerminalReason = "routing_failed"
 
 	ActionCompletionCompleted        WorkflowActionCompletionStatus = "completed"
 	ActionCompletionFailed           WorkflowActionCompletionStatus = "failed"
@@ -199,6 +200,7 @@ var (
 		TerminalReasonActionCancelled,
 		TerminalReasonExecutionCancelled,
 		TerminalReasonInterrupted,
+		TerminalReasonRoutingFailed,
 	}
 	workflowActionCompletionStatusValues = []WorkflowActionCompletionStatus{
 		ActionCompletionCompleted,

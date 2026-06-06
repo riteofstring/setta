@@ -1,7 +1,9 @@
 package orchestrator
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,7 +19,90 @@ func TestServicePersistsVersionsExecutionsEventsAndRecoversInterruptedRuns(t *te
 	assertInterruptedExecutionRecovered(t, store, resolver, workspaceID, running.ID)
 }
 
+func TestServiceCancelsSiblingRunnerWhenActionFails(t *testing.T) {
+	runner := newRecordingActionRunner()
+	_, _, service, workspaceID := newTestWorkflowServiceWithRunner(t, runner)
+	definition, err := service.CreateDefinition(workspaceID, "Parallel", "", parallelActionGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	branchA := latestNodeExecutionForTest(t, started, "branch_a")
+	branchB := latestNodeExecutionForTest(t, started, "branch_b")
+	if branchA.Status != NodeExecutionStatusRunning || branchB.Status != NodeExecutionStatusRunning {
+		t.Fatalf("branch statuses = %s/%s, want running/running", branchA.Status, branchB.Status)
+	}
+
+	failed, err := service.CompleteAction(workspaceID, started.ID, branchA.ID, WorkflowActionResult{Status: ActionCompletionFailed, Error: "boom"})
+	if err != nil {
+		t.Fatalf("complete failed branch: %v", err)
+	}
+	if failed.Status != ExecutionStatusFailed {
+		t.Fatalf("execution status = %s, want failed", failed.Status)
+	}
+	cancelled := runner.cancelRequestForNodeExecution(branchB.ID)
+	if cancelled.NodeExecution.ID != branchB.ID {
+		t.Fatalf("cancelled node execution = %+v, want %s", cancelled.NodeExecution, branchB.ID)
+	}
+	if runnerRefValue(cancelled.RunnerRefs, "test.runner") != branchB.ID {
+		t.Fatalf("cancel refs = %+v, want test runner ref %s", cancelled.RunnerRefs, branchB.ID)
+	}
+}
+
+func TestServiceCancelsRunnerRefsThatAttachAfterExecutionCancellation(t *testing.T) {
+	runner := newBlockingActionRunner()
+	_, _, service, workspaceID := newTestWorkflowServiceWithRunner(t, runner)
+	definition, err := service.CreateDefinition(workspaceID, "In-flight", "", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	type startResult struct {
+		execution WorkflowExecution
+		err       error
+	}
+	started := make(chan startResult, 1)
+	go func() {
+		execution, err := service.StartExecution(workspaceID, definition.ID, "")
+		started <- startResult{execution: execution, err: err}
+	}()
+
+	request := runner.waitForStart(t)
+	cancelled, err := service.CancelExecution(workspaceID, request.Execution.ID)
+	if err != nil {
+		t.Fatalf("cancel execution while runner start is blocked: %v", err)
+	}
+	if cancelled.Status != ExecutionStatusCancelled {
+		t.Fatalf("cancelled status = %s, want cancelled", cancelled.Status)
+	}
+
+	runner.releaseStart()
+	result := <-started
+	if result.err != nil {
+		t.Fatalf("start execution returned error: %v", result.err)
+	}
+	if result.execution.Status != ExecutionStatusCancelled {
+		t.Fatalf("start execution result status = %s, want cancelled", result.execution.Status)
+	}
+	cancelledWithRefs := runner.cancelRequestWithRef(request.NodeExecution.ID, "test.runner")
+	if cancelledWithRefs.NodeExecution.ID != request.NodeExecution.ID {
+		t.Fatalf("late cancel request = %+v, want node execution %s", cancelledWithRefs.NodeExecution, request.NodeExecution.ID)
+	}
+}
+
 func newTestWorkflowService(t *testing.T) (*Store, testWorkspaceResolver, *Service, string) {
+	t.Helper()
+	return newTestWorkflowServiceWithOptions(t)
+}
+
+func newTestWorkflowServiceWithRunner(t *testing.T, runner ActionRunner) (*Store, testWorkspaceResolver, *Service, string) {
+	t.Helper()
+	return newTestWorkflowServiceWithOptions(t, WithRunnerRegistry(DefaultRunnerRegistry().WithRunner(runner)))
+}
+
+func newTestWorkflowServiceWithOptions(t *testing.T, options ...Option) (*Store, testWorkspaceResolver, *Service, string) {
 	t.Helper()
 	appDataDir := t.TempDir()
 	workspaceID := "workspace_test"
@@ -34,7 +119,8 @@ func newTestWorkflowService(t *testing.T) (*Store, testWorkspaceResolver, *Servi
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
-	service, err := NewService(store, resolver, WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t)))
+	serviceOptions := append([]Option{WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t))}, options...)
+	service, err := NewService(store, resolver, serviceOptions...)
 	if err != nil {
 		t.Fatalf("create service: %v", err)
 	}
@@ -149,6 +235,25 @@ func actionGraph(actionID string) WorkflowGraph {
 	}
 }
 
+func parallelActionGraph() WorkflowGraph {
+	return WorkflowGraph{
+		Nodes: []WorkflowNode{
+			{ID: "start", Kind: NodeKindStart},
+			testActionNode("branch_a"),
+			testActionNode("branch_b"),
+			{ID: "join", Kind: NodeKindGatewayAND, Gateway: &WorkflowGatewayConfig{}},
+			{ID: "end", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "start_a", FromNodeID: "start", ToNodeID: "branch_a", Kind: EdgeKindNormal},
+			{ID: "start_b", FromNodeID: "start", ToNodeID: "branch_b", Kind: EdgeKindNormal},
+			{ID: "a_join", FromNodeID: "branch_a", ToNodeID: "join", Kind: EdgeKindNormal},
+			{ID: "b_join", FromNodeID: "branch_b", ToNodeID: "join", Kind: EdgeKindNormal},
+			{ID: "join_end", FromNodeID: "join", ToNodeID: "end", Kind: EdgeKindNormal},
+		},
+	}
+}
+
 func startEndGraph() WorkflowGraph {
 	return WorkflowGraph{
 		Nodes: []WorkflowNode{
@@ -159,6 +264,86 @@ func startEndGraph() WorkflowGraph {
 			{ID: "start_end", FromNodeID: "start", ToNodeID: "end", Kind: EdgeKindNormal},
 		},
 	}
+}
+
+type recordingActionRunner struct {
+	mu      sync.Mutex
+	cancels []ActionCancelRequest
+}
+
+func newRecordingActionRunner() *recordingActionRunner {
+	return &recordingActionRunner{}
+}
+
+func (runner *recordingActionRunner) Kind() WorkflowActionKind {
+	return ActionKindAgentCodex
+}
+
+func (runner *recordingActionRunner) Start(_ context.Context, request ActionStartRequest) (ActionStartResult, error) {
+	return ActionStartResult{RunnerRefs: []WorkflowActionRunnerRef{{Kind: "test.runner", ID: request.NodeExecution.ID}}}, nil
+}
+
+func (runner *recordingActionRunner) Cancel(_ context.Context, request ActionCancelRequest) error {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	runner.cancels = append(runner.cancels, request)
+	return nil
+}
+
+func (runner *recordingActionRunner) cancelRequestForNodeExecution(nodeExecutionID string) ActionCancelRequest {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	for _, request := range runner.cancels {
+		if request.NodeExecution.ID == nodeExecutionID {
+			return request
+		}
+	}
+	return ActionCancelRequest{}
+}
+
+type blockingActionRunner struct {
+	recordingActionRunner
+	release chan struct{}
+	started chan ActionStartRequest
+}
+
+func newBlockingActionRunner() *blockingActionRunner {
+	return &blockingActionRunner{
+		release: make(chan struct{}),
+		started: make(chan ActionStartRequest, 1),
+	}
+}
+
+func (runner *blockingActionRunner) Start(_ context.Context, request ActionStartRequest) (ActionStartResult, error) {
+	runner.started <- request
+	<-runner.release
+	return ActionStartResult{RunnerRefs: []WorkflowActionRunnerRef{{Kind: "test.runner", ID: request.NodeExecution.ID}}}, nil
+}
+
+func (runner *blockingActionRunner) waitForStart(t *testing.T) ActionStartRequest {
+	t.Helper()
+	select {
+	case request := <-runner.started:
+		return request
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for runner start")
+		return ActionStartRequest{}
+	}
+}
+
+func (runner *blockingActionRunner) releaseStart() {
+	close(runner.release)
+}
+
+func (runner *blockingActionRunner) cancelRequestWithRef(nodeExecutionID string, refKind string) ActionCancelRequest {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	for _, request := range runner.cancels {
+		if request.NodeExecution.ID == nodeExecutionID && runnerRefValue(request.RunnerRefs, refKind) != "" {
+			return request
+		}
+	}
+	return ActionCancelRequest{}
 }
 
 func fixedTestClock(t *testing.T) func() time.Time {

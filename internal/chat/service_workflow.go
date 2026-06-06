@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"setta/internal/workspace"
 )
 
 type WorkflowAgentTurnRequest struct {
@@ -20,24 +22,38 @@ type WorkflowAgentTurnRequest struct {
 }
 
 func (service *Service) SendWorkflowAgentTurn(workspaceID string, request WorkflowAgentTurnRequest) (SendMessageResult, error) {
-	prompt := strings.TrimSpace(request.Prompt)
-	if prompt == "" {
-		return SendMessageResult{}, errors.New("workflow agent prompt is required")
-	}
-	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
-		return SendMessageResult{}, err
-	}
-	workspaceSummary, err := service.resolveWorkspaceForRequest(workspaceID)
+	prompt, workspaceSummary, err := service.validateWorkflowAgentTurn(workspaceID, request)
 	if err != nil {
-		return SendMessageResult{}, err
-	}
-	if err := validateWorkflowAgentTurnRequest(request); err != nil {
 		return SendMessageResult{}, err
 	}
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
+	return service.sendWorkflowAgentTurnLocked(workspaceID, request, prompt, workspaceSummary)
+}
 
+func (service *Service) validateWorkflowAgentTurn(workspaceID string, request WorkflowAgentTurnRequest) (string, workspace.WorkspaceSummary, error) {
+	prompt := strings.TrimSpace(request.Prompt)
+	if prompt == "" {
+		return "", workspace.WorkspaceSummary{}, errors.New("workflow agent prompt is required")
+	}
+	if err := rejectSlashPromptForMessageEndpoint(prompt); err != nil {
+		return "", workspace.WorkspaceSummary{}, err
+	}
+	workspaceSummary, err := service.resolveWorkspaceForRequest(workspaceID)
+	if err != nil {
+		return "", workspace.WorkspaceSummary{}, err
+	}
+	if err := validateWorkflowAgentTurnRequest(request); err != nil {
+		return "", workspace.WorkspaceSummary{}, err
+	}
+	return prompt, workspaceSummary, nil
+}
+
+func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request WorkflowAgentTurnRequest, prompt string, workspaceSummary workspace.WorkspaceSummary) (SendMessageResult, error) {
+	if existing, ok, err := service.existingWorkflowAgentTurnLocked(workspaceID, request); err != nil || ok {
+		return existing, err
+	}
 	conversation, err := service.workflowAgentConversationLocked(workspaceID, request)
 	if err != nil {
 		return SendMessageResult{}, err
@@ -83,6 +99,66 @@ func (service *Service) SendWorkflowAgentTurn(workspaceID string, request Workfl
 		Run:              run,
 		Page:             page,
 	}, nil
+}
+
+func (service *Service) existingWorkflowAgentTurnLocked(workspaceID string, request WorkflowAgentTurnRequest) (SendMessageResult, bool, error) {
+	conversation, ok, err := service.findExactWorkflowConversationLocked(workspaceID, request)
+	if err != nil || !ok {
+		return SendMessageResult{}, false, err
+	}
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversation.ID)
+	if err != nil {
+		return SendMessageResult{}, false, err
+	}
+	if len(runs) == 0 {
+		return SendMessageResult{}, false, nil
+	}
+	run := runs[0]
+	if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
+		service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversation.ID, run.ID)
+		return SendMessageResult{}, false, err
+	}
+	userMessage, ok, err := service.store.FindMessageByID(workspaceID, conversation.ID, run.TriggerMessageID)
+	if err != nil {
+		return SendMessageResult{}, false, err
+	}
+	if !ok {
+		return SendMessageResult{}, false, corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
+	}
+	assistantMessage, ok, err := service.store.FindMessageByID(workspaceID, conversation.ID, run.AssistantMessageID)
+	if err != nil {
+		return SendMessageResult{}, false, err
+	}
+	if !ok {
+		return SendMessageResult{}, false, corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
+	}
+	page, err := service.loadMessagePageLocked(workspaceID, conversation.ID, 0, defaultPageLimit)
+	if err != nil {
+		return SendMessageResult{}, false, err
+	}
+	return SendMessageResult{
+		Conversation:     conversation,
+		UserMessage:      userMessage,
+		AssistantMessage: assistantMessage,
+		Run:              run,
+		Page:             page,
+	}, true, nil
+}
+
+func (service *Service) findExactWorkflowConversationLocked(workspaceID string, request WorkflowAgentTurnRequest) (Conversation, bool, error) {
+	conversations, corrupt, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
+	if err != nil {
+		return Conversation{}, false, err
+	}
+	if len(corrupt) > 0 {
+		return Conversation{}, false, corruptFindingError(corrupt[0])
+	}
+	for _, conversation := range conversations {
+		if conversationMatchesWorkflowNodeExecution(conversation, request) {
+			return conversation, true, nil
+		}
+	}
+	return Conversation{}, false, nil
 }
 
 func validateWorkflowAgentTurnRequest(request WorkflowAgentTurnRequest) error {
@@ -148,6 +224,11 @@ func conversationMatchesWorkflowNode(conversation Conversation, request Workflow
 		conversation.Workflow.DefinitionVersionID == request.DefinitionVersionID &&
 		conversation.Workflow.ExecutionID == request.ExecutionID &&
 		conversation.Workflow.NodeID == request.NodeID
+}
+
+func conversationMatchesWorkflowNodeExecution(conversation Conversation, request WorkflowAgentTurnRequest) bool {
+	return conversationMatchesWorkflowNode(conversation, request) &&
+		conversation.Workflow.NodeExecutionID == request.NodeExecutionID
 }
 
 func (service *Service) newWorkflowAgentConversation(workspaceID string, request WorkflowAgentTurnRequest) (Conversation, error) {

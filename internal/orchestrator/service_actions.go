@@ -8,9 +8,14 @@ import (
 	"setta/internal/chat"
 )
 
+type actionCancelDispatch struct {
+	runner  ActionRunner
+	request ActionCancelRequest
+}
+
 func (service *Service) dispatchReadyActions(workspaceID string, executionID string) (WorkflowExecution, error) {
 	for {
-		runner, request, execution, ok, err := service.nextReadyActionStart(workspaceID, executionID)
+		runner, request, execution, ok, err := service.beginNextReadyActionStart(workspaceID, executionID)
 		if err != nil || !ok {
 			return execution, err
 		}
@@ -21,13 +26,20 @@ func (service *Service) dispatchReadyActions(workspaceID string, executionID str
 				Error:  fmt.Sprintf("start action runner: %v", err),
 			})
 		}
-		if _, _, err := service.startActionIfReady(workspaceID, executionID, request.NodeExecution.ID, start.RunnerRefs); err != nil {
+		execution, cancelDispatch, err := service.attachRunnerRefsAfterStart(workspaceID, executionID, request.NodeExecution.ID, start.RunnerRefs, runner)
+		if err != nil {
 			return WorkflowExecution{}, err
+		}
+		if cancelDispatch != nil {
+			if err := service.cancelActionRunners([]actionCancelDispatch{*cancelDispatch}); err != nil {
+				return execution, err
+			}
+			return execution, nil
 		}
 	}
 }
 
-func (service *Service) nextReadyActionStart(workspaceID string, executionID string) (ActionRunner, ActionStartRequest, WorkflowExecution, bool, error) {
+func (service *Service) beginNextReadyActionStart(workspaceID string, executionID string) (ActionRunner, ActionStartRequest, WorkflowExecution, bool, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -50,134 +62,162 @@ func (service *Service) nextReadyActionStart(workspaceID string, executionID str
 		if !ok {
 			return nil, ActionStartRequest{}, WorkflowExecution{}, false, fmt.Errorf("node execution %s references unknown node %s", nodeExecution.ID, nodeExecution.NodeID)
 		}
+		transition, err := StartAction(execution, nodeExecution.ID, []WorkflowActionRunnerRef{}, service.transitionContext())
+		if err != nil {
+			return nil, ActionStartRequest{}, WorkflowExecution{}, false, err
+		}
+		if err := service.persistTransition(transition); err != nil {
+			return nil, ActionStartRequest{}, WorkflowExecution{}, false, err
+		}
+		startedNodeExecution := nodeExecutionByID(transition.Execution, nodeExecution.ID)
 		return runner, ActionStartRequest{
 			WorkspaceID:         workspaceID,
 			DefinitionID:        execution.DefinitionID,
 			DefinitionVersionID: execution.DefinitionVersionID,
-			Execution:           execution,
+			Execution:           transition.Execution,
 			Node:                node,
-			NodeExecution:       nodeExecution,
-		}, execution, true, nil
+			NodeExecution:       startedNodeExecution,
+		}, transition.Execution, true, nil
 	}
 	return nil, ActionStartRequest{}, execution, false, nil
 }
 
-func (service *Service) startActionIfReady(workspaceID string, executionID string, nodeExecutionID string, refs []WorkflowActionRunnerRef) (WorkflowExecution, bool, error) {
+func (service *Service) attachRunnerRefsAfterStart(workspaceID string, executionID string, nodeExecutionID string, refs []WorkflowActionRunnerRef, runner ActionRunner) (WorkflowExecution, *actionCancelDispatch, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
 	execution, err := service.store.LoadExecution(workspaceID, executionID)
 	if err != nil {
-		return WorkflowExecution{}, false, err
+		return WorkflowExecution{}, nil, err
 	}
 	index := nodeExecutionIndex(execution, nodeExecutionID)
 	if index < 0 {
-		return WorkflowExecution{}, false, fmt.Errorf("node execution %s was not found", nodeExecutionID)
+		return WorkflowExecution{}, nil, fmt.Errorf("node execution %s was not found", nodeExecutionID)
 	}
-	if execution.NodeExecutions[index].Status != NodeExecutionStatusReady {
-		return execution, false, nil
-	}
-	transition, err := StartAction(execution, nodeExecutionID, refs, service.transitionContext())
+	transition, err := AttachRunnerRefs(execution, nodeExecutionID, refs, service.transitionContext())
 	if err != nil {
-		return WorkflowExecution{}, false, err
+		return WorkflowExecution{}, nil, err
 	}
 	if err := service.persistTransition(transition); err != nil {
-		return WorkflowExecution{}, false, err
+		return WorkflowExecution{}, nil, err
 	}
-	return transition.Execution, true, nil
+	nodeExecution := transition.Execution.NodeExecutions[index]
+	if transition.Execution.Status == ExecutionStatusRunning && isActiveNodeExecutionStatus(nodeExecution.Status) {
+		return transition.Execution, nil, nil
+	}
+	return transition.Execution, &actionCancelDispatch{
+		runner: runner,
+		request: ActionCancelRequest{
+			WorkspaceID:   workspaceID,
+			ExecutionID:   executionID,
+			NodeExecution: nodeExecution,
+			RunnerRefs:    append([]WorkflowActionRunnerRef{}, nodeExecution.RunnerRefs...),
+		},
+	}, nil
 }
 
 func (service *Service) completeActionWithoutDispatch(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult) (WorkflowExecution, error) {
 	service.mu.Lock()
-	defer service.mu.Unlock()
-	return service.completeActionLocked(workspaceID, executionID, nodeExecutionID, result, nil)
+	execution, cancelDispatches, err := service.completeActionLocked(workspaceID, executionID, nodeExecutionID, result, nil)
+	service.mu.Unlock()
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	if err := service.cancelActionRunners(cancelDispatches); err != nil {
+		return execution, err
+	}
+	return execution, nil
 }
 
 func (service *Service) completeChatActionRun(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult, refs []WorkflowActionRunnerRef) (WorkflowExecution, error) {
 	service.mu.Lock()
-	defer service.mu.Unlock()
-	return service.completeActionLocked(workspaceID, executionID, nodeExecutionID, result, refs)
-}
-
-func (service *Service) completeActionLocked(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult, refs []WorkflowActionRunnerRef) (WorkflowExecution, error) {
-	execution, version, err := service.loadExecutionAndVersion(workspaceID, executionID)
+	execution, cancelDispatches, err := service.completeActionLocked(workspaceID, executionID, nodeExecutionID, result, refs)
+	service.mu.Unlock()
 	if err != nil {
 		return WorkflowExecution{}, err
 	}
+	if err := service.cancelActionRunners(cancelDispatches); err != nil {
+		return execution, err
+	}
+	return execution, nil
+}
+
+func (service *Service) completeActionLocked(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult, refs []WorkflowActionRunnerRef) (WorkflowExecution, []actionCancelDispatch, error) {
+	execution, version, err := service.loadExecutionAndVersion(workspaceID, executionID)
+	if err != nil {
+		return WorkflowExecution{}, nil, err
+	}
 	if execution.Status != ExecutionStatusRunning {
-		return execution, nil
+		return execution, nil, nil
 	}
 	index := nodeExecutionIndex(execution, nodeExecutionID)
 	if index < 0 {
-		return WorkflowExecution{}, fmt.Errorf("node execution %s was not found", nodeExecutionID)
+		return WorkflowExecution{}, nil, fmt.Errorf("node execution %s was not found", nodeExecutionID)
 	}
 	switch execution.NodeExecutions[index].Status {
 	case NodeExecutionStatusReady:
 		startTransition, err := StartAction(execution, nodeExecutionID, refs, service.transitionContext())
 		if err != nil {
-			return WorkflowExecution{}, err
+			return WorkflowExecution{}, nil, err
 		}
 		if err := service.persistTransition(startTransition); err != nil {
-			return WorkflowExecution{}, err
+			return WorkflowExecution{}, nil, err
 		}
 		execution = startTransition.Execution
 	case NodeExecutionStatusRunning, NodeExecutionStatusWaitingApproval:
 		execution.NodeExecutions[index].RunnerRefs = mergeRunnerRefs(execution.NodeExecutions[index].RunnerRefs, refs)
 	default:
-		return execution, nil
+		return execution, nil, nil
 	}
+	cancelDispatches := service.activeActionCancelRequestsLocked(workspaceID, execution, nodeExecutionID)
 	transition, err := CompleteAction(execution, version.Graph, nodeExecutionID, result, service.transitionContext())
 	if err != nil {
-		return WorkflowExecution{}, err
+		return WorkflowExecution{}, nil, err
 	}
 	if err := service.persistTransition(transition); err != nil {
-		return WorkflowExecution{}, err
+		return WorkflowExecution{}, nil, err
 	}
-	return transition.Execution, nil
+	if !isTerminalExecutionStatus(transition.Execution.Status) {
+		cancelDispatches = nil
+	}
+	return transition.Execution, cancelDispatches, nil
 }
 
-func (service *Service) cancelActiveActionRunners(workspaceID string, executionID string) error {
-	service.mu.Lock()
-	execution, err := service.store.LoadExecution(workspaceID, executionID)
-	if err != nil {
-		service.mu.Unlock()
-		return err
-	}
-	requests := []struct {
-		runner  ActionRunner
-		request ActionCancelRequest
-	}{}
-	if execution.Status == ExecutionStatusRunning {
-		for _, nodeExecution := range execution.NodeExecutions {
-			if nodeExecution.ActionKind == nil || !isActiveNodeExecutionStatus(nodeExecution.Status) {
-				continue
-			}
-			runner, ok := service.runnerRegistry.Runner(*nodeExecution.ActionKind)
-			if !ok {
-				continue
-			}
-			requests = append(requests, struct {
-				runner  ActionRunner
-				request ActionCancelRequest
-			}{
-				runner: runner,
-				request: ActionCancelRequest{
-					WorkspaceID:   workspaceID,
-					ExecutionID:   executionID,
-					NodeExecution: nodeExecution,
-					RunnerRefs:    append([]WorkflowActionRunnerRef{}, nodeExecution.RunnerRefs...),
-				},
-			})
-		}
-	}
-	service.mu.Unlock()
-
+func (service *Service) cancelActionRunners(requests []actionCancelDispatch) error {
 	for _, item := range requests {
 		if err := item.runner.Cancel(context.Background(), item.request); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (service *Service) activeActionCancelRequestsLocked(workspaceID string, execution WorkflowExecution, excludedNodeExecutionID string) []actionCancelDispatch {
+	if execution.Status != ExecutionStatusRunning {
+		return []actionCancelDispatch{}
+	}
+	requests := []actionCancelDispatch{}
+	for _, nodeExecution := range execution.NodeExecutions {
+		if nodeExecution.ID == excludedNodeExecutionID ||
+			nodeExecution.ActionKind == nil ||
+			!isActiveNodeExecutionStatus(nodeExecution.Status) {
+			continue
+		}
+		runner, ok := service.runnerRegistry.Runner(*nodeExecution.ActionKind)
+		if !ok {
+			continue
+		}
+		requests = append(requests, actionCancelDispatch{
+			runner: runner,
+			request: ActionCancelRequest{
+				WorkspaceID:   workspaceID,
+				ExecutionID:   execution.ID,
+				NodeExecution: nodeExecution,
+				RunnerRefs:    append([]WorkflowActionRunnerRef{}, nodeExecution.RunnerRefs...),
+			},
+		})
+	}
+	return requests
 }
 
 func (service *Service) startChatEventReconciler() error {
@@ -231,12 +271,14 @@ func (service *Service) reconcileTerminalChatRun(run chat.Run) {
 		return
 	}
 	activity, err := service.codexChatService.LoadRunActivityPage(run.WorkspaceID, run.ID, 1000)
+	var result WorkflowActionResult
 	if err != nil {
-		return
-	}
-	result, err := workflowActionResultFromChatRun(run, activity)
-	if err != nil {
-		return
+		result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("load chat run activity: %v", err))
+	} else {
+		result, err = workflowActionResultFromChatRun(run, activity)
+		if err != nil {
+			result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("decode workflow result: %v", err))
+		}
 	}
 	refs := workflowRunRefs(run, owner.conversation)
 	execution, err := service.completeChatActionRun(run.WorkspaceID, owner.execution.ID, owner.nodeExecution.ID, result, refs)

@@ -18,6 +18,7 @@ const (
 )
 
 type CodexChatService interface {
+	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
@@ -65,6 +66,11 @@ func (runner *CodexActionRunner) Start(_ context.Context, request ActionStartReq
 func (runner *CodexActionRunner) Cancel(_ context.Context, request ActionCancelRequest) error {
 	conversationID := runnerRefValue(request.RunnerRefs, RunnerRefChatConversation)
 	if conversationID == "" {
+		return nil
+	}
+	if _, ok, err := runner.chatService.ActiveRun(request.WorkspaceID, conversationID); err != nil {
+		return err
+	} else if !ok {
 		return nil
 	}
 	if _, err := runner.chatService.CancelActiveRun(request.WorkspaceID, conversationID); err != nil {
@@ -138,6 +144,21 @@ func workflowActionResultFromChatRun(run chat.Run, activity chat.RunActivityPage
 	result.Output = output
 	result.FilePaths = filePaths
 	return result, nil
+}
+
+func workflowActionResultFromChatRunReconcileError(run chat.Run, message string) WorkflowActionResult {
+	switch run.Status {
+	case chat.RunStatusCancelled:
+		return WorkflowActionResult{
+			Status: ActionCompletionCancelled,
+			Error:  nonEmpty(run.Error, message),
+		}
+	default:
+		return WorkflowActionResult{
+			Status: ActionCompletionFailed,
+			Error:  nonEmpty(run.Error, message),
+		}
+	}
 }
 
 func workflowResultPayloadFromActivity(activity chat.RunActivityPage) ([]WorkflowActionSignal, json.RawMessage, []string, error) {

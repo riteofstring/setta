@@ -17,7 +17,10 @@ func TestCodexRunnerCompletesWorkflowThroughWorkflowOwnedChat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create definition: %v", err)
 	}
-	subscription := workflowService.SubscribeEvents()
+	subscription, err := workflowService.SubscribeEvents(WorkflowEventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe workflow events: %v", err)
+	}
 	defer subscription.Unsubscribe()
 
 	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
@@ -191,7 +194,8 @@ func waitForWorkflowEvent(t *testing.T, subscription *EventSubscription, executi
 	deadline := time.After(2 * time.Second)
 	for {
 		select {
-		case event := <-subscription.Events:
+		case envelope := <-subscription.Events:
+			event := envelope.Event
 			if event.ExecutionID == executionID && event.Type == eventType {
 				return
 			}

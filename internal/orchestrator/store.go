@@ -16,6 +16,7 @@ import (
 
 const (
 	workflowsDirName   = "workflows"
+	workflowEventsName = "workflow-events"
 	definitionsDirName = "definitions"
 	versionsDirName    = "versions"
 	executionsDirName  = "executions"
@@ -41,6 +42,18 @@ type CorruptStateError struct {
 type eventFile struct {
 	ordinal int
 	path    string
+}
+
+type workflowEventStreamFile struct {
+	sequence int
+	path     string
+}
+
+type workflowEventStreamRecord struct {
+	SchemaVersion int           `json:"schemaVersion"`
+	StreamID      string        `json:"streamId"`
+	Sequence      int           `json:"sequence"`
+	Event         WorkflowEvent `json:"event"`
 }
 
 func (err *PersistenceError) Error() string {
@@ -252,22 +265,40 @@ func (store *Store) WorkspaceIDs() ([]string, error) {
 	return ids, nil
 }
 
-func (store *Store) AppendExecutionEvents(workspaceID string, executionID string, events []WorkflowEvent) error {
+func (store *Store) AppendExecutionEvents(workspaceID string, executionID string, events []WorkflowEvent) ([]WorkflowEventEnvelope, error) {
 	if err := validateStoreIDs("workspace id", workspaceID, "execution id", executionID); err != nil {
-		return err
+		return nil, err
 	}
+	envelopes := make([]WorkflowEventEnvelope, 0, len(events))
 	for _, event := range events {
 		if err := validateEventRecord(event); err != nil {
-			return err
+			return nil, err
 		}
 		if event.WorkspaceID != workspaceID || event.ExecutionID != executionID {
-			return fmt.Errorf("workflow event %s belongs to workspace %s execution %s, not workspace %s execution %s", event.ID, event.WorkspaceID, event.ExecutionID, workspaceID, executionID)
+			return nil, fmt.Errorf("workflow event %s belongs to workspace %s execution %s, not workspace %s execution %s", event.ID, event.WorkspaceID, event.ExecutionID, workspaceID, executionID)
 		}
 		if err := writeNewWorkflowJSONFile(store.eventPath(workspaceID, executionID, event.Ordinal, event.ID), event); err != nil {
-			return err
+			return nil, err
 		}
+		sequence, err := store.nextWorkflowEventStreamSequence()
+		if err != nil {
+			return nil, err
+		}
+		record := workflowEventStreamRecord{
+			SchemaVersion: SchemaVersion,
+			StreamID:      WorkflowEventStreamID,
+			Sequence:      sequence,
+			Event:         event,
+		}
+		if err := validateWorkflowEventStreamRecord(record); err != nil {
+			return nil, err
+		}
+		if err := writeNewWorkflowJSONFile(store.workflowEventStreamPath(sequence, event.ID), record); err != nil {
+			return nil, err
+		}
+		envelopes = append(envelopes, workflowEventEnvelopeFromRecord(record))
 	}
-	return nil
+	return envelopes, nil
 }
 
 func (store *Store) LoadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (WorkflowExecutionEventPage, error) {
@@ -299,6 +330,28 @@ func (store *Store) LoadExecutionEventPage(workspaceID string, executionID strin
 		HasMoreOlder:       hasMoreOlder,
 		OlderBeforeOrdinal: olderBeforeOrdinal,
 	}, nil
+}
+
+func (store *Store) LoadWorkflowEventStreamAfter(cursor WorkflowEventCursor) ([]WorkflowEventEnvelope, error) {
+	if err := validateWorkflowEventCursor(cursor); err != nil {
+		return nil, err
+	}
+	files, err := store.workflowEventStreamFiles()
+	if err != nil {
+		return nil, err
+	}
+	events := []WorkflowEventEnvelope{}
+	for _, file := range files {
+		if file.sequence <= cursor.Sequence {
+			continue
+		}
+		record, err := readWorkflowEventStreamRecord(file)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, workflowEventEnvelopeFromRecord(record))
+	}
+	return events, nil
 }
 
 func selectEventFiles(files []eventFile, beforeOrdinal int, limit int) ([]eventFile, bool) {
@@ -338,6 +391,39 @@ func readEventFile(file eventFile) (WorkflowEvent, error) {
 	return event, nil
 }
 
+func (store *Store) nextWorkflowEventStreamSequence() (int, error) {
+	files, err := store.workflowEventStreamFiles()
+	if err != nil {
+		return 0, err
+	}
+	if len(files) == 0 {
+		return 1, nil
+	}
+	return files[len(files)-1].sequence + 1, nil
+}
+
+func readWorkflowEventStreamRecord(file workflowEventStreamFile) (workflowEventStreamRecord, error) {
+	var record workflowEventStreamRecord
+	if err := readWorkflowJSONFile(file.path, &record); err != nil {
+		return workflowEventStreamRecord{}, err
+	}
+	if err := validateWorkflowEventStreamRecord(record); err != nil {
+		return workflowEventStreamRecord{}, corruptStateError(file.path, err)
+	}
+	if record.Sequence != file.sequence {
+		return workflowEventStreamRecord{}, corruptStateErrorf(file.path, "workflow event stream record sequence %d does not match filename sequence %d", record.Sequence, file.sequence)
+	}
+	return record, nil
+}
+
+func workflowEventEnvelopeFromRecord(record workflowEventStreamRecord) WorkflowEventEnvelope {
+	return WorkflowEventEnvelope{
+		StreamID: record.StreamID,
+		Sequence: record.Sequence,
+		Event:    record.Event,
+	}
+}
+
 func (store *Store) definitionPath(workspaceID string, definitionID string) string {
 	return filepath.Join(store.definitionsDir(workspaceID), definitionID+".json")
 }
@@ -370,6 +456,14 @@ func (store *Store) eventPath(workspaceID string, executionID string, ordinal in
 	return filepath.Join(store.eventsDir(workspaceID, executionID), fmt.Sprintf("%012d_%s.json", ordinal, eventID))
 }
 
+func (store *Store) workflowEventStreamDir() string {
+	return filepath.Join(store.appDataDir, workflowEventsName)
+}
+
+func (store *Store) workflowEventStreamPath(sequence int, eventID string) string {
+	return filepath.Join(store.workflowEventStreamDir(), fmt.Sprintf("%012d_%s.json", sequence, eventID))
+}
+
 func (store *Store) workflowsDir(workspaceID string) string {
 	return filepath.Join(store.appDataDir, "workspaces", workspaceID, workflowsDirName)
 }
@@ -399,6 +493,35 @@ func (store *Store) eventFiles(workspaceID string, executionID string) ([]eventF
 	}
 	sort.SliceStable(files, func(left int, right int) bool {
 		return files[left].ordinal < files[right].ordinal
+	})
+	return files, nil
+}
+
+func (store *Store) workflowEventStreamFiles() ([]workflowEventStreamFile, error) {
+	dir := store.workflowEventStreamDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []workflowEventStreamFile{}, nil
+		}
+		return nil, &PersistenceError{Operation: "list workflow event stream", Path: dir, Err: err}
+	}
+	files := []workflowEventStreamFile{}
+	for _, entry := range entries {
+		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+			continue
+		}
+		sequence, ok := ordinalFromDataFileName(entry.Name())
+		if !ok {
+			return nil, corruptStateErrorf(filepath.Join(dir, entry.Name()), "malformed workflow event stream filename")
+		}
+		files = append(files, workflowEventStreamFile{
+			sequence: sequence,
+			path:     filepath.Join(dir, entry.Name()),
+		})
+	}
+	sort.SliceStable(files, func(left int, right int) bool {
+		return files[left].sequence < files[right].sequence
 	})
 	return files, nil
 }
@@ -481,6 +604,35 @@ func validateEventRecord(event WorkflowEvent) error {
 	}
 	if event.CreatedAt == "" {
 		return fmt.Errorf("workflow event %s createdAt is required", event.ID)
+	}
+	return nil
+}
+
+func validateWorkflowEventCursor(cursor WorkflowEventCursor) error {
+	if cursor.Sequence < 0 {
+		return fmt.Errorf("workflow event stream sequence must be non-negative: %d", cursor.Sequence)
+	}
+	if cursor.Sequence > 0 && cursor.StreamID == "" {
+		return errors.New("workflow event stream id is required for non-zero sequence")
+	}
+	if cursor.StreamID != "" && cursor.StreamID != WorkflowEventStreamID {
+		return fmt.Errorf("unsupported workflow event stream id %s", cursor.StreamID)
+	}
+	return nil
+}
+
+func validateWorkflowEventStreamRecord(record workflowEventStreamRecord) error {
+	if record.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("unsupported schemaVersion %d", record.SchemaVersion)
+	}
+	if record.StreamID != WorkflowEventStreamID {
+		return fmt.Errorf("unsupported workflow event stream id %s", record.StreamID)
+	}
+	if record.Sequence <= 0 {
+		return fmt.Errorf("workflow event stream sequence must be positive: %d", record.Sequence)
+	}
+	if err := validateEventRecord(record.Event); err != nil {
+		return err
 	}
 	return nil
 }

@@ -85,7 +85,9 @@ func CompleteAction(execution WorkflowExecution, graph WorkflowGraph, nodeExecut
 	}
 	if execution.Status == ExecutionStatusRunning {
 		if err := advanceExecution(&execution, graph, context, &events); err != nil {
-			return WorkflowTransition{}, err
+			if terminalErr := failExecution(&execution, &events, context, TerminalReasonRoutingFailed, err.Error()); terminalErr != nil {
+				return WorkflowTransition{}, terminalErr
+			}
 		}
 	}
 	refreshActiveNodeExecutionIDs(&execution)
@@ -122,6 +124,20 @@ func StartAction(execution WorkflowExecution, nodeExecutionID string, runnerRefs
 	return WorkflowTransition{Execution: execution, Events: events}, nil
 }
 
+func AttachRunnerRefs(execution WorkflowExecution, nodeExecutionID string, runnerRefs []WorkflowActionRunnerRef, context TransitionContext) (WorkflowTransition, error) {
+	if err := validateTransitionContext(context); err != nil {
+		return WorkflowTransition{}, err
+	}
+	index := nodeExecutionIndex(execution, nodeExecutionID)
+	if index < 0 {
+		return WorkflowTransition{}, fmt.Errorf("node execution %s was not found", nodeExecutionID)
+	}
+	execution.NodeExecutions[index].RunnerRefs = mergeRunnerRefs(execution.NodeExecutions[index].RunnerRefs, runnerRefs)
+	execution.UpdatedAt = context.Now
+	refreshActiveNodeExecutionIDs(&execution)
+	return WorkflowTransition{Execution: execution, Events: []WorkflowEvent{}}, nil
+}
+
 func applyActionCompletion(execution *WorkflowExecution, graph WorkflowGraph, nodeExecution *WorkflowNodeExecution, result WorkflowActionResult, context TransitionContext, events *[]WorkflowEvent) error {
 	switch result.Status {
 	case ActionCompletionCompleted:
@@ -146,7 +162,10 @@ func applyActionCompleted(execution *WorkflowExecution, graph WorkflowGraph, nod
 	}); err != nil {
 		return err
 	}
-	return emitMatchingOutgoingTokens(execution, graph, context, nodeExecution.NodeID, nodeExecution.Iteration, allMatchingEdges)
+	if err := emitMatchingOutgoingTokens(execution, graph, context, nodeExecution.NodeID, nodeExecution.Iteration, allMatchingEdges); err != nil {
+		return failExecution(execution, events, context, TerminalReasonRoutingFailed, err.Error())
+	}
+	return nil
 }
 
 func applyActionFailed(execution *WorkflowExecution, nodeExecution *WorkflowNodeExecution, result WorkflowActionResult, context TransitionContext, events *[]WorkflowEvent) error {
@@ -214,19 +233,7 @@ func InterruptExecution(execution WorkflowExecution, context TransitionContext, 
 	if execution.Status != ExecutionStatusRunning {
 		return WorkflowTransition{Execution: execution}, nil
 	}
-	for index := range execution.NodeExecutions {
-		if isActiveNodeExecutionStatus(execution.NodeExecutions[index].Status) {
-			execution.NodeExecutions[index].Status = NodeExecutionStatusFailed
-			execution.NodeExecutions[index].CompletedAt = context.Now
-			execution.NodeExecutions[index].Error = message
-		}
-	}
-	for index := range execution.Tokens {
-		if execution.Tokens[index].Status == TokenStatusActive {
-			execution.Tokens[index].Status = TokenStatusCancelled
-			execution.Tokens[index].CompletedAt = context.Now
-		}
-	}
+	closeActiveWork(&execution, context.Now, NodeExecutionStatusFailed, message)
 	events := []WorkflowEvent{}
 	if err := failExecution(&execution, &events, context, TerminalReasonInterrupted, message); err != nil {
 		return WorkflowTransition{}, err
@@ -698,57 +705,6 @@ func appendEvent(execution *WorkflowExecution, events *[]WorkflowEvent, context 
 	return nil
 }
 
-func completeExecution(execution *WorkflowExecution, events *[]WorkflowEvent, context TransitionContext, reason WorkflowTerminalReason, message string) error {
-	execution.Status = ExecutionStatusCompleted
-	execution.TerminalReason = terminalReasonPtr(reason)
-	execution.CompletedAt = context.Now
-	execution.UpdatedAt = context.Now
-	return appendEvent(execution, events, context, EventExecutionCompleted, WorkflowEvent{Message: message})
-}
-
-func failExecution(execution *WorkflowExecution, events *[]WorkflowEvent, context TransitionContext, reason WorkflowTerminalReason, message string) error {
-	execution.Status = ExecutionStatusFailed
-	execution.TerminalReason = terminalReasonPtr(reason)
-	execution.Error = message
-	execution.CompletedAt = context.Now
-	execution.UpdatedAt = context.Now
-	return appendEvent(execution, events, context, EventExecutionFailed, WorkflowEvent{Message: message})
-}
-
-func stopExecution(execution *WorkflowExecution, events *[]WorkflowEvent, context TransitionContext, reason WorkflowTerminalReason, message string) error {
-	execution.Status = ExecutionStatusStopped
-	execution.TerminalReason = terminalReasonPtr(reason)
-	execution.Error = message
-	execution.CompletedAt = context.Now
-	execution.UpdatedAt = context.Now
-	return appendEvent(execution, events, context, EventExecutionStopped, WorkflowEvent{Message: message})
-}
-
-func cancelExecution(execution *WorkflowExecution, events *[]WorkflowEvent, context TransitionContext, reason WorkflowTerminalReason, message string) error {
-	for index := range execution.NodeExecutions {
-		if isActiveNodeExecutionStatus(execution.NodeExecutions[index].Status) {
-			execution.NodeExecutions[index].Status = NodeExecutionStatusCancelled
-			execution.NodeExecutions[index].CompletedAt = context.Now
-		}
-	}
-	for index := range execution.Tokens {
-		if execution.Tokens[index].Status == TokenStatusActive {
-			execution.Tokens[index].Status = TokenStatusCancelled
-			execution.Tokens[index].CompletedAt = context.Now
-		}
-	}
-	execution.Status = ExecutionStatusCancelled
-	execution.TerminalReason = terminalReasonPtr(reason)
-	execution.Error = message
-	execution.CompletedAt = context.Now
-	execution.UpdatedAt = context.Now
-	return appendEvent(execution, events, context, EventExecutionCancelled, WorkflowEvent{Message: message})
-}
-
-func terminalReasonPtr(reason WorkflowTerminalReason) *WorkflowTerminalReason {
-	return &reason
-}
-
 func conditionMatches(condition WorkflowCondition, execution WorkflowExecution) bool {
 	matched := conditionMatchesRaw(condition, execution)
 	if condition.Invert {
@@ -933,6 +889,14 @@ func nodeExecutionIndex(execution WorkflowExecution, nodeExecutionID string) int
 	return -1
 }
 
+func nodeExecutionByID(execution WorkflowExecution, nodeExecutionID string) WorkflowNodeExecution {
+	index := nodeExecutionIndex(execution, nodeExecutionID)
+	if index < 0 {
+		return WorkflowNodeExecution{}
+	}
+	return execution.NodeExecutions[index]
+}
+
 func nextNodeAttempt(execution WorkflowExecution, nodeID string) int {
 	attempt := 1
 	for _, nodeExecution := range execution.NodeExecutions {
@@ -987,6 +951,13 @@ func refreshActiveNodeExecutionIDs(execution *WorkflowExecution) {
 
 func isActiveNodeExecutionStatus(status WorkflowNodeExecutionStatus) bool {
 	return status == NodeExecutionStatusReady || status == NodeExecutionStatusRunning || status == NodeExecutionStatusWaitingApproval
+}
+
+func isTerminalExecutionStatus(status WorkflowExecutionStatus) bool {
+	return status == ExecutionStatusCompleted ||
+		status == ExecutionStatusFailed ||
+		status == ExecutionStatusStopped ||
+		status == ExecutionStatusCancelled
 }
 
 func nonEmpty(value string, fallback string) string {

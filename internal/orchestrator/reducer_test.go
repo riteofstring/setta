@@ -316,6 +316,77 @@ func TestActionFailureFailsExecution(t *testing.T) {
 	}
 }
 
+func TestRoutingFailureFailsExecutionAndClearsActiveWork(t *testing.T) {
+	graph := WorkflowGraph{
+		Nodes: []WorkflowNode{
+			{ID: "start", Kind: NodeKindStart},
+			testActionNode("classify"),
+			{ID: "route", Kind: NodeKindGatewayXOR, Gateway: &WorkflowGatewayConfig{}},
+			{ID: "end_yes", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "start_classify", FromNodeID: "start", ToNodeID: "classify", Kind: EdgeKindNormal},
+			{ID: "classify_route", FromNodeID: "classify", ToNodeID: "route", Kind: EdgeKindNormal},
+			{ID: "route_yes", FromNodeID: "route", ToNodeID: "end_yes", Kind: EdgeKindNormal, Condition: signalCondition("classify", "route", "yes")},
+		},
+	}
+	transition := startTestExecution(t, graph)
+	execution, classify := startActionForTest(t, transition.Execution, "classify")
+	next, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{
+		Status:  ActionCompletionCompleted,
+		Signals: []WorkflowActionSignal{{Name: "route", Value: "no"}},
+	}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete unroutable action: %v", err)
+	}
+	if next.Execution.Status != ExecutionStatusFailed {
+		t.Fatalf("execution status = %s, want failed", next.Execution.Status)
+	}
+	if terminalReasonValue(next.Execution) != TerminalReasonRoutingFailed {
+		t.Fatalf("terminal reason = %v, want routing_failed", next.Execution.TerminalReason)
+	}
+	assertNoActiveWorkflowWork(t, next.Execution)
+	assertEventType(t, next.Events, EventExecutionFailed)
+}
+
+func TestActionFailureCancelsSiblingActiveNodes(t *testing.T) {
+	graph := WorkflowGraph{
+		Nodes: []WorkflowNode{
+			{ID: "start", Kind: NodeKindStart},
+			testActionNode("branch_a"),
+			testActionNode("branch_b"),
+			{ID: "join", Kind: NodeKindGatewayAND, Gateway: &WorkflowGatewayConfig{}},
+			{ID: "end", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "start_a", FromNodeID: "start", ToNodeID: "branch_a", Kind: EdgeKindNormal},
+			{ID: "start_b", FromNodeID: "start", ToNodeID: "branch_b", Kind: EdgeKindNormal},
+			{ID: "a_join", FromNodeID: "branch_a", ToNodeID: "join", Kind: EdgeKindNormal},
+			{ID: "b_join", FromNodeID: "branch_b", ToNodeID: "join", Kind: EdgeKindNormal},
+			{ID: "join_end", FromNodeID: "join", ToNodeID: "end", Kind: EdgeKindNormal},
+		},
+	}
+	transition := startTestExecution(t, graph)
+	execution, branchA := startActionForTest(t, transition.Execution, "branch_a")
+	execution, branchB := startActionForTest(t, execution, "branch_b")
+	next, err := CompleteAction(execution, graph, branchA.ID, WorkflowActionResult{Status: ActionCompletionFailed, Error: "boom"}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete failed branch: %v", err)
+	}
+	if next.Execution.Status != ExecutionStatusFailed {
+		t.Fatalf("execution status = %s, want failed", next.Execution.Status)
+	}
+	failedBranch := nodeExecutionByIDForTest(t, next.Execution, branchA.ID)
+	if failedBranch.Status != NodeExecutionStatusFailed || failedBranch.Error != "boom" {
+		t.Fatalf("failed branch = %+v, want failed with action error", failedBranch)
+	}
+	cancelledBranch := nodeExecutionByIDForTest(t, next.Execution, branchB.ID)
+	if cancelledBranch.Status != NodeExecutionStatusCancelled {
+		t.Fatalf("sibling branch status = %s, want cancelled", cancelledBranch.Status)
+	}
+	assertNoActiveWorkflowWork(t, next.Execution)
+}
+
 func TestCancellationCancelsActiveNodeExecutions(t *testing.T) {
 	graph := WorkflowGraph{
 		Nodes: []WorkflowNode{
@@ -518,6 +589,23 @@ func assertEventType(t *testing.T, events []WorkflowEvent, eventType WorkflowEve
 		}
 	}
 	t.Fatalf("event type %s was not found in %+v", eventType, events)
+}
+
+func assertNoActiveWorkflowWork(t *testing.T, execution WorkflowExecution) {
+	t.Helper()
+	if len(execution.ActiveNodeExecutionIDs) != 0 {
+		t.Fatalf("active node execution ids = %+v, want none", execution.ActiveNodeExecutionIDs)
+	}
+	for _, nodeExecution := range execution.NodeExecutions {
+		if isActiveNodeExecutionStatus(nodeExecution.Status) {
+			t.Fatalf("node execution %s is still active: %+v", nodeExecution.ID, nodeExecution)
+		}
+	}
+	for _, token := range execution.Tokens {
+		if token.Status == TokenStatusActive {
+			t.Fatalf("token %s is still active: %+v", token.ID, token)
+		}
+	}
 }
 
 func nodeExecutionCount(execution WorkflowExecution, nodeID string) int {

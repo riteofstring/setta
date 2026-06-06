@@ -560,9 +560,9 @@ export function decodeWorkflowExecutionStatus(value: unknown, label = "WorkflowE
   }
 }
 
-export type WorkflowTerminalReason = "end_reached" | "limit_reached" | "action_failed" | "action_cancelled" | "execution_cancelled" | "interrupted";
+export type WorkflowTerminalReason = "end_reached" | "limit_reached" | "action_failed" | "action_cancelled" | "execution_cancelled" | "interrupted" | "routing_failed";
 
-export const workflowTerminalReasonValues = ["end_reached", "limit_reached", "action_failed", "action_cancelled", "execution_cancelled", "interrupted"] as const satisfies readonly WorkflowTerminalReason[];
+export const workflowTerminalReasonValues = ["end_reached", "limit_reached", "action_failed", "action_cancelled", "execution_cancelled", "interrupted", "routing_failed"] as const satisfies readonly WorkflowTerminalReason[];
 
 export function decodeWorkflowTerminalReason(value: unknown, label = "WorkflowTerminalReason"): WorkflowTerminalReason {
   const decoded = decodeString(value, label);
@@ -578,6 +578,8 @@ export function decodeWorkflowTerminalReason(value: unknown, label = "WorkflowTe
     case "execution_cancelled":
       return decoded;
     case "interrupted":
+      return decoded;
+    case "routing_failed":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
