@@ -1,30 +1,26 @@
 package chat
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
-
-	"setta/internal/jsonio"
 )
 
 const (
-	conversationsDirName  = "conversations"
-	conversationFileName  = "conversation.json"
-	goalFileName          = "goal.json"
-	messagesDirName       = "messages"
-	runsDirName           = "runs"
-	runItemsDirName       = "items"
-	runItemFileName       = "item.json"
-	runItemOutputsDirName = "outputs"
-	tracesDirName         = "traces"
-	diagnosticsDirName    = "diagnostics"
+	conversationsDirName     = "conversations"
+	conversationFileName     = "conversation.json"
+	conversationReadFileName = "read-state.json"
+	goalFileName             = "goal.json"
+	messagesDirName          = "messages"
+	runsDirName              = "runs"
+	runItemsDirName          = "items"
+	runItemFileName          = "item.json"
+	runItemOutputsDirName    = "outputs"
+	tracesDirName            = "traces"
+	diagnosticsDirName       = "diagnostics"
 )
 
 type Store struct {
@@ -56,6 +52,14 @@ type runOwner struct {
 	ID             string `json:"id"`
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
+}
+
+type ConversationReadState struct {
+	SchemaVersion            int    `json:"schemaVersion"`
+	ConversationID           string `json:"conversationId"`
+	ReadMarker               int    `json:"readMarker"`
+	LatestReadRelevantMarker int    `json:"latestReadRelevantMarker"`
+	UpdatedAt                string `json:"updatedAt"`
 }
 
 func (err *PersistenceError) Error() string {
@@ -121,6 +125,9 @@ func (store *Store) SaveConversation(conversation Conversation) error {
 }
 
 func (store *Store) LoadConversation(workspaceID string, conversationID string) (Conversation, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return Conversation{}, err
+	}
 	var conversation Conversation
 	path := store.conversationPath(workspaceID, conversationID)
 	if err := readJSONFile(path, &conversation); err != nil {
@@ -138,7 +145,41 @@ func (store *Store) LoadConversation(workspaceID string, conversationID string) 
 	return conversation, nil
 }
 
+func (store *Store) LoadConversationReadState(workspaceID string, conversationID string) (ConversationReadState, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return ConversationReadState{}, err
+	}
+	path := store.conversationReadPath(workspaceID, conversationID)
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return emptyConversationReadState(conversationID), nil
+		}
+		return ConversationReadState{}, &PersistenceError{Operation: "stat conversation read state", Path: path, Err: err}
+	}
+	var state ConversationReadState
+	if err := readJSONFile(path, &state); err != nil {
+		return ConversationReadState{}, err
+	}
+	if err := validateConversationReadState(state, conversationID); err != nil {
+		return ConversationReadState{}, corruptStateError(path, err)
+	}
+	return state, nil
+}
+
+func (store *Store) SaveConversationReadState(workspaceID string, state ConversationReadState) error {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return err
+	}
+	if err := validateConversationReadState(state, state.ConversationID); err != nil {
+		return err
+	}
+	return writeJSONFile(store.conversationReadPath(workspaceID, state.ConversationID), state)
+}
+
 func (store *Store) SaveGoal(workspaceID string, conversationID string, goal ChatGoalState) error {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return err
+	}
 	if err := validateChatGoalState(goal); err != nil {
 		return err
 	}
@@ -146,6 +187,9 @@ func (store *Store) SaveGoal(workspaceID string, conversationID string, goal Cha
 }
 
 func (store *Store) LoadGoal(workspaceID string, conversationID string) (*ChatGoalState, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return nil, err
+	}
 	path := store.goalPath(workspaceID, conversationID)
 	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -164,6 +208,9 @@ func (store *Store) LoadGoal(workspaceID string, conversationID string) (*ChatGo
 }
 
 func (store *Store) ClearGoal(workspaceID string, conversationID string) error {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return err
+	}
 	path := store.goalPath(workspaceID, conversationID)
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return &PersistenceError{Operation: "remove goal", Path: path, Err: err}
@@ -172,6 +219,9 @@ func (store *Store) ClearGoal(workspaceID string, conversationID string) error {
 }
 
 func (store *Store) ListConversations(workspaceID string) ([]Conversation, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, err
+	}
 	conversations, corrupt, err := store.ScanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
@@ -183,6 +233,9 @@ func (store *Store) ListConversations(workspaceID string) ([]Conversation, error
 }
 
 func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conversation, []CorruptStateFinding, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, nil, err
+	}
 	dir := store.conversationsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -218,6 +271,9 @@ func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conv
 }
 
 func (store *Store) SaveMessage(workspaceID string, message ChatMessage) error {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return err
+	}
 	if err := validateMessage(message); err != nil {
 		return err
 	}
@@ -225,6 +281,9 @@ func (store *Store) SaveMessage(workspaceID string, message ChatMessage) error {
 }
 
 func (store *Store) LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return MessagePage{}, err
+	}
 	if limit <= 0 {
 		return MessagePage{}, fmt.Errorf("message page limit must be positive: %d", limit)
 	}
@@ -256,6 +315,9 @@ func (store *Store) LoadMessagePage(workspaceID string, conversationID string, b
 }
 
 func (store *Store) LoadMessages(workspaceID string, conversationID string) ([]ChatMessage, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return nil, err
+	}
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
 		return nil, err
@@ -296,6 +358,9 @@ func readMessages(files []messageFile, conversationID string) ([]ChatMessage, er
 }
 
 func (store *Store) NextMessageOrdinal(workspaceID string, conversationID string) (int, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return 0, err
+	}
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
 		return 0, err
@@ -307,6 +372,9 @@ func (store *Store) NextMessageOrdinal(workspaceID string, conversationID string
 }
 
 func (store *Store) MessageCount(workspaceID string, conversationID string) (int, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return 0, err
+	}
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
 		return 0, err
@@ -315,6 +383,9 @@ func (store *Store) MessageCount(workspaceID string, conversationID string) (int
 }
 
 func (store *Store) MessageCountAllowingCorrupt(workspaceID string, conversationID string) (int, []CorruptStateFinding, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return 0, nil, err
+	}
 	files, corrupt, err := store.messageFilesAllowingCorrupt(workspaceID, conversationID)
 	if err != nil {
 		return 0, nil, err
@@ -323,6 +394,9 @@ func (store *Store) MessageCountAllowingCorrupt(workspaceID string, conversation
 }
 
 func (store *Store) FindMessageByID(workspaceID string, conversationID string, messageID string) (ChatMessage, bool, error) {
+	if err := validateStoreMessageIDs(workspaceID, conversationID, messageID); err != nil {
+		return ChatMessage{}, false, err
+	}
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
 		return ChatMessage{}, false, err
@@ -343,6 +417,9 @@ func (store *Store) FindMessageByID(workspaceID string, conversationID string, m
 }
 
 func (store *Store) LoadMessageByID(workspaceID string, conversationID string, messageID string) (ChatMessage, error) {
+	if err := validateStoreMessageIDs(workspaceID, conversationID, messageID); err != nil {
+		return ChatMessage{}, err
+	}
 	message, ok, err := store.FindMessageByID(workspaceID, conversationID, messageID)
 	if err != nil {
 		return ChatMessage{}, err
@@ -361,6 +438,9 @@ func (store *Store) SaveRun(run Run) error {
 }
 
 func (store *Store) LoadRun(workspaceID string, runID string) (Run, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return Run{}, err
+	}
 	var run Run
 	path := store.runPath(workspaceID, runID)
 	if err := readJSONFile(path, &run); err != nil {
@@ -379,6 +459,9 @@ func (store *Store) LoadRun(workspaceID string, runID string) (Run, error) {
 }
 
 func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, err
+	}
 	runs, corrupt, err := store.ScanRunsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
@@ -390,6 +473,9 @@ func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
 }
 
 func (store *Store) ScanRunsAllowingCorrupt(workspaceID string) ([]Run, []CorruptStateFinding, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, nil, err
+	}
 	dir := store.runsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -402,27 +488,17 @@ func (store *Store) ScanRunsAllowingCorrupt(workspaceID string) ([]Run, []Corrup
 	runs := make([]Run, 0, len(entries))
 	corrupt := []CorruptStateFinding{}
 	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+		run, finding, ok, err := store.scanRunAllowingCorrupt(workspaceID, entry)
+		if err != nil {
+			return nil, nil, err
+		}
+		if finding != nil {
+			corrupt = append(corrupt, *finding)
 			continue
 		}
-		runID := strings.TrimSuffix(entry.Name(), ".json")
-		owner, err := store.loadRunOwner(workspaceID, runID)
-		if err != nil {
-			if IsCorruptStateError(err) {
-				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, "", runID, corruptRunKind))
-				continue
-			}
-			return nil, nil, err
+		if ok {
+			runs = append(runs, run)
 		}
-		run, err := store.LoadRun(workspaceID, runID)
-		if err != nil {
-			if IsCorruptStateError(err) {
-				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, owner.ConversationID, runID, corruptRunKind))
-				continue
-			}
-			return nil, nil, err
-		}
-		runs = append(runs, run)
 	}
 	sort.SliceStable(runs, func(left int, right int) bool {
 		if runs[left].StartedAt == runs[right].StartedAt {
@@ -433,7 +509,34 @@ func (store *Store) ScanRunsAllowingCorrupt(workspaceID string) ([]Run, []Corrup
 	return runs, corrupt, nil
 }
 
+func (store *Store) scanRunAllowingCorrupt(workspaceID string, entry os.DirEntry) (Run, *CorruptStateFinding, bool, error) {
+	if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+		return Run{}, nil, false, nil
+	}
+	runID := strings.TrimSuffix(entry.Name(), ".json")
+	owner, err := store.loadRunOwner(workspaceID, runID)
+	if err != nil {
+		if IsCorruptStateError(err) {
+			finding := corruptStateFinding(err, workspaceID, "", runID, corruptRunKind)
+			return Run{}, &finding, false, nil
+		}
+		return Run{}, nil, false, err
+	}
+	run, err := store.LoadRun(workspaceID, runID)
+	if err != nil {
+		if IsCorruptStateError(err) {
+			finding := corruptStateFinding(err, workspaceID, owner.ConversationID, runID, corruptRunKind)
+			return Run{}, &finding, false, nil
+		}
+		return Run{}, nil, false, err
+	}
+	return run, nil, true, nil
+}
+
 func (store *Store) ScanRunsForConversationAllowingCorrupt(workspaceID string, conversationID string) ([]Run, []CorruptStateFinding, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return nil, nil, err
+	}
 	dir := store.runsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -495,6 +598,9 @@ func (store *Store) scanRunForConversation(workspaceID string, conversationID st
 }
 
 func (store *Store) ActiveRun(workspaceID string, conversationID string) (Run, bool, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return Run{}, false, err
+	}
 	runs, err := store.ListRuns(workspaceID)
 	if err != nil {
 		return Run{}, false, err
@@ -508,6 +614,9 @@ func (store *Store) ActiveRun(workspaceID string, conversationID string) (Run, b
 }
 
 func (store *Store) loadRunOwner(workspaceID string, runID string) (runOwner, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return runOwner{}, err
+	}
 	var owner runOwner
 	path := store.runPath(workspaceID, runID)
 	if err := readJSONMetadataFile(path, &owner); err != nil {
@@ -532,6 +641,9 @@ func (store *Store) loadRunOwner(workspaceID string, runID string) (runOwner, er
 }
 
 func (store *Store) QueuedState(workspaceID string, conversationID string) (QueueState, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return QueueState{}, err
+	}
 	runs, err := store.ListRuns(workspaceID)
 	if err != nil {
 		return QueueState{}, err
@@ -579,6 +691,9 @@ func queuedMessageOrdinal(messages []ChatMessage, messageID string) int {
 }
 
 func (store *Store) NextQueuedRun(workspaceID string, conversationID string) (Run, ChatMessage, bool, error) {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return Run{}, ChatMessage{}, false, err
+	}
 	state, err := store.QueuedState(workspaceID, conversationID)
 	if err != nil {
 		return Run{}, ChatMessage{}, false, err
@@ -603,6 +718,9 @@ func (store *Store) SaveRunItem(item RunItem) error {
 }
 
 func (store *Store) LoadRunItems(workspaceID string, runID string) ([]RunItem, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return nil, err
+	}
 	dir := store.runItemsDir(workspaceID, runID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -639,6 +757,9 @@ func (store *Store) LoadRunItems(workspaceID string, runID string) ([]RunItem, e
 }
 
 func (store *Store) FindRunItemByProviderID(workspaceID string, runID string, providerItemID string) (RunItem, bool, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return RunItem{}, false, err
+	}
 	items, err := store.LoadRunItems(workspaceID, runID)
 	if err != nil {
 		return RunItem{}, false, err
@@ -652,6 +773,9 @@ func (store *Store) FindRunItemByProviderID(workspaceID string, runID string, pr
 }
 
 func (store *Store) SaveRunItemOutput(workspaceID string, runID string, output RunItemOutput) error {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return err
+	}
 	if err := validateRunItemOutput(output); err != nil {
 		return err
 	}
@@ -659,6 +783,9 @@ func (store *Store) SaveRunItemOutput(workspaceID string, runID string, output R
 }
 
 func (store *Store) LoadRunItemOutputs(workspaceID string, runID string) ([]RunItemOutput, error) {
+	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
+		return nil, err
+	}
 	items, err := store.LoadRunItems(workspaceID, runID)
 	if err != nil {
 		return nil, err
@@ -675,6 +802,9 @@ func (store *Store) LoadRunItemOutputs(workspaceID string, runID string) ([]RunI
 }
 
 func (store *Store) LoadRunItemOutputsForItem(workspaceID string, runID string, runItemID string) ([]RunItemOutput, error) {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return nil, err
+	}
 	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
 	if err != nil {
 		return nil, err
@@ -701,6 +831,9 @@ func readRunItemOutputs(files []runItemOutputFile, runItemID string) ([]RunItemO
 }
 
 func (store *Store) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return RunItemOutputPage{}, err
+	}
 	if afterOrdinal < 0 {
 		return RunItemOutputPage{}, fmt.Errorf("run item output afterOrdinal must not be negative: %d", afterOrdinal)
 	}
@@ -746,6 +879,9 @@ func outputFilesAfterOrdinal(files []runItemOutputFile, afterOrdinal int) []runI
 }
 
 func (store *Store) validateRunItemBelongsToRun(workspaceID string, runID string, runItemID string) error {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return err
+	}
 	items, err := store.LoadRunItems(workspaceID, runID)
 	if err != nil {
 		return err
@@ -759,6 +895,9 @@ func (store *Store) validateRunItemBelongsToRun(workspaceID string, runID string
 }
 
 func (store *Store) NextRunItemOutputOrdinal(workspaceID string, runID string, runItemID string) (int, error) {
+	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
+		return 0, err
+	}
 	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
 	if err != nil {
 		return 0, err
@@ -770,6 +909,9 @@ func (store *Store) NextRunItemOutputOrdinal(workspaceID string, runID string, r
 }
 
 func (store *Store) SaveTraceEvent(workspaceID string, trace TraceEvent) error {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return err
+	}
 	if err := validateTraceEvent(trace); err != nil {
 		return err
 	}
@@ -831,284 +973,4 @@ func (store *Store) ListDiagnosticsAllowingCorrupt() ([]Diagnostic, []CorruptSta
 		return diagnostics[left].OccurredAt < diagnostics[right].OccurredAt
 	})
 	return diagnostics, corrupt, nil
-}
-
-func (store *Store) conversationPath(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), conversationFileName)
-}
-
-func (store *Store) goalPath(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), goalFileName)
-}
-
-func (store *Store) conversationsDir(workspaceID string) string {
-	return filepath.Join(store.appDataDir, "workspaces", workspaceID, conversationsDirName)
-}
-
-func (store *Store) conversationDir(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationsDir(workspaceID), conversationID)
-}
-
-func (store *Store) messagesDir(workspaceID string, conversationID string) string {
-	return filepath.Join(store.conversationDir(workspaceID, conversationID), messagesDirName)
-}
-
-func (store *Store) messagePath(workspaceID string, conversationID string, ordinal int, messageID string) string {
-	return filepath.Join(store.messagesDir(workspaceID, conversationID), messageFileName(ordinal, messageID))
-}
-
-func (store *Store) runsDir(workspaceID string) string {
-	return filepath.Join(store.appDataDir, "workspaces", workspaceID, runsDirName)
-}
-
-func (store *Store) runPath(workspaceID string, runID string) string {
-	return filepath.Join(store.runsDir(workspaceID), runID+".json")
-}
-
-func (store *Store) tracePath(workspaceID string, runID string, traceID string) string {
-	return filepath.Join(store.runsDir(workspaceID), runID, tracesDirName, traceID+".json")
-}
-
-func (store *Store) diagnosticsDir() string {
-	return filepath.Join(store.appDataDir, diagnosticsDirName)
-}
-
-func (store *Store) diagnosticPath(diagnosticID string) string {
-	return filepath.Join(store.diagnosticsDir(), diagnosticID+".json")
-}
-
-func (store *Store) runItemsDir(workspaceID string, runID string) string {
-	return filepath.Join(store.runsDir(workspaceID), runID, runItemsDirName)
-}
-
-func (store *Store) runItemDir(workspaceID string, runID string, runItemID string) string {
-	return filepath.Join(store.runItemsDir(workspaceID, runID), runItemID)
-}
-
-func (store *Store) runItemPath(workspaceID string, runID string, runItemID string) string {
-	return filepath.Join(store.runItemDir(workspaceID, runID, runItemID), runItemFileName)
-}
-
-func (store *Store) runItemOutputsDir(workspaceID string, runID string, runItemID string) string {
-	return filepath.Join(store.runItemDir(workspaceID, runID, runItemID), runItemOutputsDirName)
-}
-
-func (store *Store) runItemOutputPath(workspaceID string, runID string, runItemID string, ordinal int, outputID string) string {
-	return filepath.Join(store.runItemOutputsDir(workspaceID, runID, runItemID), messageFileName(ordinal, outputID))
-}
-
-func (store *Store) messageFiles(workspaceID string, conversationID string) ([]messageFile, error) {
-	dir := store.messagesDir(workspaceID, conversationID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []messageFile{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list messages", Path: dir, Err: err}
-	}
-	files := make([]messageFile, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		ordinal, ok := ordinalFromMessageFileName(entry.Name())
-		if !ok {
-			return nil, corruptStateErrorf(filepath.Join(dir, entry.Name()), "malformed message filename")
-		}
-		files = append(files, messageFile{
-			ordinal: ordinal,
-			path:    filepath.Join(dir, entry.Name()),
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].ordinal < files[right].ordinal
-	})
-	return files, nil
-}
-
-func (store *Store) messageFilesAllowingCorrupt(workspaceID string, conversationID string) ([]messageFile, []CorruptStateFinding, error) {
-	dir := store.messagesDir(workspaceID, conversationID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []messageFile{}, nil, nil
-		}
-		return nil, nil, &PersistenceError{Operation: "list messages", Path: dir, Err: err}
-	}
-	files := make([]messageFile, 0, len(entries))
-	corrupt := []CorruptStateFinding{}
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		path := filepath.Join(dir, entry.Name())
-		ordinal, ok := ordinalFromMessageFileName(entry.Name())
-		if !ok {
-			corrupt = append(corrupt, corruptStateFinding(corruptStateErrorf(path, "malformed message filename"), workspaceID, conversationID, "", corruptMessageKind))
-			continue
-		}
-		files = append(files, messageFile{
-			ordinal: ordinal,
-			path:    path,
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].ordinal < files[right].ordinal
-	})
-	return files, corrupt, nil
-}
-
-func messageFileName(ordinal int, messageID string) string {
-	return fmt.Sprintf("%012d_%s.json", ordinal, messageID)
-}
-
-func (store *Store) runItemOutputFiles(workspaceID string, runID string, runItemID string) ([]runItemOutputFile, error) {
-	dir := store.runItemOutputsDir(workspaceID, runID, runItemID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []runItemOutputFile{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list run item outputs", Path: dir, Err: err}
-	}
-	files := make([]runItemOutputFile, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		ordinal, ok := ordinalFromMessageFileName(entry.Name())
-		if !ok {
-			return nil, corruptStateErrorf(filepath.Join(dir, entry.Name()), "malformed run item output filename")
-		}
-		files = append(files, runItemOutputFile{
-			ordinal: ordinal,
-			path:    filepath.Join(dir, entry.Name()),
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].ordinal < files[right].ordinal
-	})
-	return files, nil
-}
-
-func isDataJSONFile(name string) bool {
-	return filepath.Ext(name) == ".json" && !strings.HasPrefix(name, ".")
-}
-
-func ordinalFromMessageFileName(name string) (int, bool) {
-	prefix, _, ok := strings.Cut(name, "_")
-	if !ok {
-		return 0, false
-	}
-	ordinal, err := strconv.Atoi(prefix)
-	if err != nil || ordinal <= 0 {
-		return 0, false
-	}
-	return ordinal, true
-}
-
-func writeJSONFile(path string, payload any) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return &PersistenceError{Operation: "create directory", Path: dir, Err: err}
-	}
-
-	file, err := os.CreateTemp(dir, ".tmp-*.json")
-	if err != nil {
-		return &PersistenceError{Operation: "create temp file", Path: dir, Err: err}
-	}
-	tempPath := file.Name()
-	removeTemp := true
-	defer func() {
-		if removeTemp {
-			_ = os.Remove(tempPath)
-		}
-	}()
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(payload); err != nil {
-		_ = file.Close()
-		return &PersistenceError{Operation: "write temp file", Path: tempPath, Err: err}
-	}
-	if err := file.Close(); err != nil {
-		return &PersistenceError{Operation: "close temp file", Path: tempPath, Err: err}
-	}
-	if err := os.Rename(tempPath, path); err != nil {
-		return &PersistenceError{Operation: "replace file", Path: path, Err: err}
-	}
-	removeTemp = false
-	return nil
-}
-
-func writeNewJSONFile(path string, payload any) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return &PersistenceError{Operation: "create directory", Path: dir, Err: err}
-	}
-
-	file, err := os.CreateTemp(dir, ".tmp-*.json")
-	if err != nil {
-		return &PersistenceError{Operation: "create temp file", Path: dir, Err: err}
-	}
-	tempPath := file.Name()
-	defer func() {
-		_ = os.Remove(tempPath)
-	}()
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(payload); err != nil {
-		_ = file.Close()
-		return &PersistenceError{Operation: "write temp file", Path: tempPath, Err: err}
-	}
-	if err := file.Close(); err != nil {
-		return &PersistenceError{Operation: "close temp file", Path: tempPath, Err: err}
-	}
-	if err := os.Link(tempPath, path); err != nil {
-		return &PersistenceError{Operation: "create file", Path: path, Err: err}
-	}
-	return nil
-}
-
-func readJSONFile(path string, target any) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return &PersistenceError{Operation: "read file", Path: path, Err: err}
-	}
-	defer file.Close()
-
-	if err := jsonio.DecodeSingle(file, target); err != nil {
-		return corruptStateError(path, err)
-	}
-	return nil
-}
-
-func readJSONMetadataFile(path string, target any) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return &PersistenceError{Operation: "read file", Path: path, Err: err}
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(target); err != nil {
-		return corruptStateError(path, err)
-	}
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return corruptStateError(path, jsonio.ErrMultipleValues)
-		}
-		return corruptStateError(path, err)
-	}
-	return nil
-}
-
-func corruptStateError(path string, err error) error {
-	return &CorruptStateError{Path: path, Err: err}
-}
-
-func corruptStateErrorf(path string, format string, args ...any) error {
-	return corruptStateError(path, fmt.Errorf(format, args...))
 }

@@ -2,6 +2,7 @@ import {
   assertKnownFields,
   assertRecord,
   decodeArray,
+  decodeBackendEventBase,
   decodeBoolean,
   decodeInteger,
   decodeString,
@@ -43,6 +44,37 @@ describe("backend runtime decoders", () => {
     expect(() => decodeArray("a", "Payload.items", (value) => decodeString(value, "Item"))).toThrow(
       "Payload.items must be an array",
     );
+  });
+
+  test("decodes backend event base fields", () => {
+    const base = decodeBackendEventBase(
+      {
+        conversationId: "conversation_api",
+        emittedAt: "2026-06-05T20:00:00Z",
+        eventId: "event_stream:1",
+        payload: {},
+        runId: "run_api",
+        schemaVersion: 1,
+        sequence: 1,
+        streamId: "event_stream",
+        type: "chat.message.created",
+        workspaceId: "workspace_api",
+      },
+      "ChatMessageCreatedEvent",
+      "chat.message.created",
+    );
+
+    expect(base).toEqual({
+      conversationId: "conversation_api",
+      emittedAt: "2026-06-05T20:00:00Z",
+      eventId: "event_stream:1",
+      runId: "run_api",
+      schemaVersion: 1,
+      sequence: 1,
+      streamId: "event_stream",
+      type: "chat.message.created",
+      workspaceId: "workspace_api",
+    });
   });
 });
 

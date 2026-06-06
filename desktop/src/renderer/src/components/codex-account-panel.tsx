@@ -11,11 +11,11 @@ export function CodexAccountPanel() {
     <section className="grid gap-3" data-testid="codex-account-panel">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <KeyRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <h3 className="truncate text-xs font-semibold text-foreground">Codex Account</h3>
+          <KeyRound className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+          <h3 className="truncate text-xs font-semibold text-zinc-100">Codex Account</h3>
         </div>
         <Badge
-          className="border-border bg-muted text-muted-foreground"
+          className="border-zinc-600 bg-zinc-800 text-zinc-300"
           data-testid="codex-account-status"
           variant={accountBadgeVariant(account.state)}
         >
@@ -23,10 +23,7 @@ export function CodexAccountPanel() {
         </Badge>
       </div>
 
-      <div
-        className="break-words text-xs text-muted-foreground"
-        data-testid="codex-account-summary"
-      >
+      <div className="break-words text-xs text-zinc-400" data-testid="codex-account-summary">
         {accountSummary(account.state)}
       </div>
 
@@ -175,7 +172,7 @@ function CodexAccountActions({
         {state.status === "signed_in" ? (
           <Button
             aria-label="Sign out of Codex"
-            className="border-border bg-muted text-muted-foreground hover:bg-accent"
+            className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
             data-testid="codex-account-logout"
             disabled={busy}
             onClick={() => void logout()}
@@ -186,7 +183,7 @@ function CodexAccountActions({
         ) : (
           <Button
             aria-label="Sign in to Codex with ChatGPT"
-            className="border-border bg-secondary text-foreground hover:bg-card"
+            className="border-zinc-700 bg-zinc-100 text-zinc-950 hover:bg-white"
             data-testid="codex-account-login"
             disabled={busy || state.status === "login_in_progress"}
             onClick={() => void startLogin()}
@@ -199,7 +196,7 @@ function CodexAccountActions({
         {state.status !== "signed_in" ? (
           <Button
             aria-label="Start Codex device login"
-            className="border-border bg-muted text-muted-foreground hover:bg-accent"
+            className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
             data-testid="codex-account-device-login"
             disabled={busy || state.status === "login_in_progress"}
             onClick={() => void startDeviceLogin()}
@@ -211,7 +208,7 @@ function CodexAccountActions({
         {state.login?.status === "in_progress" && state.login.loginId !== "" ? (
           <Button
             aria-label="Cancel Codex login"
-            className="border-border bg-muted text-muted-foreground hover:bg-accent"
+            className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
             data-testid="codex-account-cancel-login"
             disabled={busy}
             onClick={() => void cancelLogin(state.login?.loginId ?? "")}
@@ -222,7 +219,7 @@ function CodexAccountActions({
         ) : null}
         <Button
           aria-label="Refresh Codex account state"
-          className="border-border bg-muted text-muted-foreground hover:bg-accent"
+          className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
           data-testid="codex-account-refresh"
           disabled={busy}
           onClick={() => void refresh()}
@@ -257,7 +254,7 @@ function CodexAPIKeyForm({
     <form className="flex min-w-0 gap-2" onSubmit={(event) => void submit(event)}>
       <input
         aria-label="OpenAI API key"
-        className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-ring"
+        className="h-7 min-w-0 flex-1 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 outline-none focus:border-zinc-500"
         data-testid="codex-account-api-key"
         onChange={(event) => setAPIKey(event.target.value)}
         type="password"
@@ -265,7 +262,7 @@ function CodexAPIKeyForm({
       />
       <Button
         aria-label="Use OpenAI API key for Codex"
-        className="border-border bg-muted text-muted-foreground hover:bg-accent"
+        className="border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
         data-testid="codex-account-api-key-login"
         disabled={busy || apiKey === ""}
         type="submit"
@@ -283,14 +280,11 @@ function CodexLoginDetails({ login }: { login: CodexLoginState | null }) {
   }
   if (login.type === "chatgptDeviceCode") {
     return (
-      <div
-        className="grid gap-1 text-xs text-muted-foreground"
-        data-testid="codex-account-device-code"
-      >
-        <div className="font-mono text-foreground">{login.userCode}</div>
+      <div className="grid gap-1 text-xs text-zinc-400" data-testid="codex-account-device-code">
+        <div className="font-mono text-zinc-200">{login.userCode}</div>
         {login.verificationUrl !== "" ? (
           <button
-            className="w-fit text-left text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground"
+            className="w-fit text-left text-zinc-300 underline decoration-zinc-600 underline-offset-2 hover:text-zinc-100"
             onClick={() => void window.setta.app.openExternalUrl(login.verificationUrl)}
             type="button"
           >
@@ -308,7 +302,7 @@ function CodexAccountError({ error }: { error: string }) {
     return null;
   }
   return (
-    <div className="break-words text-xs text-status-critical" data-testid="codex-account-error">
+    <div className="break-words text-xs text-red-400" data-testid="codex-account-error">
       {error}
     </div>
   );

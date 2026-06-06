@@ -10,7 +10,7 @@ import (
 )
 
 func (service *Service) ListCommands(workspaceID string, conversationID string) (ChatCommandListResult, error) {
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
 		return ChatCommandListResult{}, err
 	}
@@ -38,7 +38,7 @@ func (service *Service) ListCommands(workspaceID string, conversationID string) 
 	if result.Commands == nil {
 		result.Commands = []ChatCommandCapability{}
 	}
-	return ChatCommandListResult(result), nil
+	return ChatCommandListResult{Commands: result.Commands}, nil
 }
 
 type ChatCommandExecutionOptions struct {
@@ -74,12 +74,9 @@ func (service *Service) SetChatCodexReasoningEffort(workspaceID string, conversa
 }
 
 func (service *Service) executeChatCommand(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) (ChatCommandExecuteResult, error) {
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	workspaceSummary, err := service.validateConversationRequest(workspaceID, conversationID)
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
-	}
-	if command.Kind == ChatCommandNew {
-		return service.executeNewChatCommand(workspaceSummary.ID, command)
 	}
 	executor, err := service.commandExecutor()
 	if err != nil {
@@ -201,34 +198,6 @@ func shouldRetryCommandWithMissingHarnessRef(command ChatCommand, err error) boo
 	}
 	var refErr *HarnessRefUnavailableError
 	return errors.As(err, &refErr)
-}
-
-func (service *Service) executeNewChatCommand(workspaceID string, command ChatCommand) (ChatCommandExecuteResult, error) {
-	conversation, err := service.CreateConversation(workspaceID, command.Args)
-	if err != nil {
-		return ChatCommandExecuteResult{}, err
-	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	page, err := service.loadMessagePageLocked(workspaceID, conversation.ID, 0, defaultPageLimit)
-	if err != nil {
-		return ChatCommandExecuteResult{}, err
-	}
-	return ChatCommandExecuteResult{
-		Conversation: conversation,
-		Message:      nil,
-		Page:         page,
-		Result: ChatCommandResult{
-			Action:        ChatCommandResultDisplay,
-			Kind:          ChatCommandNew,
-			Raw:           command.Raw,
-			Title:         "New chat",
-			Message:       "Started new chat: " + conversation.Title,
-			Goal:          nil,
-			Models:        []ChatModelOption{},
-			SelectedModel: "",
-		},
-	}, nil
 }
 
 func (service *Service) commandExecutor() (HarnessCommandExecutor, error) {
@@ -525,8 +494,6 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 		ReasoningEfforts:        nonNilReasoningEfforts(harnessResult.ReasoningEfforts),
 		SelectedModel:           harnessResult.SelectedModel,
 		SelectedReasoningEffort: harnessResult.SelectedReasoningEffort,
-		Title:                   harnessResult.DisplayTitle,
-		Message:                 harnessResult.DisplayMessage,
 	}
 	result.Title, result.Message = commandResultText(command, result)
 	if harnessResult.CapabilityDiagnostic != "" {
@@ -550,20 +517,11 @@ func nonNilReasoningEfforts(efforts []ChatReasoningEffortOption) []ChatReasoning
 }
 
 func commandResultText(command ChatCommand, result ChatCommandResult) (string, string) {
-	if result.Title != "" || result.Message != "" {
-		return result.Title, result.Message
-	}
 	switch command.Kind {
 	case ChatCommandGoal:
 		return goalCommandResultText(command, result.Goal)
-	case ChatCommandMCP:
-		return "MCP", "MCP status checked."
 	case ChatCommandModel:
 		return modelCommandResultText(command, result)
-	case ChatCommandNew:
-		return "New chat", "Started new chat."
-	case ChatCommandSkills:
-		return "Skills", "Skills listed."
 	default:
 		return "Command", "Command completed."
 	}

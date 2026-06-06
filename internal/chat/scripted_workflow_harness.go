@@ -10,17 +10,16 @@ import (
 )
 
 type ScriptedWorkflowHarness struct {
-	mu        sync.Mutex
-	approvals map[string]chan ApprovalResponse
-	commands  []HarnessCommandRequest
-	goal      *ChatGoalState
-	model     string
-	reasoning ReasoningEffort
-	steers    map[string]chan SteerRequest
+	mu                       sync.Mutex
+	approvals                map[string]chan ApprovalResponse
+	commands                 []HarnessCommandRequest
+	goal                     *ChatGoalState
+	model                    string
+	phase4ConsolidatorCounts map[string]int
+	phase4ReviewerBarriers   map[string]map[string]chan struct{}
+	reasoning                ReasoningEffort
+	steers                   map[string]chan SteerRequest
 }
-
-var _ HarnessCommandExecutor = (*ScriptedWorkflowHarness)(nil)
-var _ HarnessGoalContinuationStarter = (*ScriptedWorkflowHarness)(nil)
 
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
 
@@ -31,6 +30,7 @@ type scriptedWorkflowFixture struct {
 
 var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow hold for queue and steering", Run: (*ScriptedWorkflowHarness).workflowTurn},
+	{Prompt: "immediate replay workflow", Run: (*ScriptedWorkflowHarness).workflowTurn},
 	{Prompt: "queued follow-up from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up one from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up two from active run", Run: scriptedQueuedReply},
@@ -47,36 +47,29 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "mcp elicitation form cancel workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormCancelTurn},
 	{Prompt: "mcp elicitation url decline workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationURLDeclineTurn},
 	{Prompt: "dynamic tool workflow", Run: scriptedDynamicToolTurn},
-	{Prompt: "ui showcase workflow", Run: scriptedUIShowcaseTurn},
+	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
+	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
+	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
+	{Prompt: "phase4 reviewer c workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
+	{Prompt: "phase4 consolidator workflow", Run: (*ScriptedWorkflowHarness).phase4ConsolidatorTurn},
+	{Prompt: "phase4 fix workflow", Run: scriptedPhase4FixTurn},
 	{Prompt: "pre-turn model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 }
 
-var scriptedUIShowcaseOutputByType = map[RunItemType]string{
-	RunItemTypeAgentMessage:        "agent message provider item received\n",
-	RunItemTypePlan:                "plan item persisted\n",
-	RunItemTypeReasoning:           "reasoning summary stored\n",
-	RunItemTypeCommandExecution:    "package chat\n\nfunc Example() {}\n",
-	RunItemTypeFileChange:          "updated internal/chat/showcase.go\n",
-	RunItemTypeMCPToolCall:         "# README\n\nfixture content\n",
-	RunItemTypeDynamicToolCall:     `{"ok":true,"kind":"dynamic_tool"}` + "\n",
-	RunItemTypeCollabAgentToolCall: "subagent notes: no visual blockers\n",
-	RunItemTypeWebSearch:           "Search result 1\nSearch result 2\nSearch result 3\n",
-	RunItemTypeImageView:           "opened screenshots/chat.png\n",
-	RunItemTypeImageGeneration:     "generated image id image_showcase\n",
-	RunItemTypeTerminalInteraction: "VITE ready in 512 ms\n",
-	RunItemTypeDiff:                "--- a/showcase.go\n+++ b/showcase.go\n@@\n+showcase\n",
-	RunItemTypeNotice:              "notice emitted\n",
-	RunItemTypeApprovalReview:      "review decision: approved\n",
-	RunItemTypeHook:                "hook stderr: style-only warning\n",
-	RunItemTypeStructuredInput:     "structured schema presented\n",
-}
-
 func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
 	return &ScriptedWorkflowHarness{
-		approvals: map[string]chan ApprovalResponse{},
-		steers:    map[string]chan SteerRequest{},
+		approvals:                map[string]chan ApprovalResponse{},
+		phase4ConsolidatorCounts: map[string]int{},
+		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
+		steers:                   map[string]chan SteerRequest{},
 	}
+}
+
+func (harness *ScriptedWorkflowHarness) ActiveRunCount() int {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+	return len(harness.steers)
 }
 
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -159,20 +152,29 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 	defer harness.mu.Unlock()
 
 	harness.commands = append(harness.commands, request)
-	result := commandDisplayResult(request, "scripted-session", "scripted-thread-")
+	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
+	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
+		result.ThreadRef = request.ThreadRef
+		result.HasThreadRef = true
+	}
+	if request.ActiveRun == nil && commandNeedsThread(request.Command) && !commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
+		ref := request.ThreadRef
+		if ref.ThreadID == "" {
+			ref = HarnessThreadRef{
+				Harness:   HarnessCodex,
+				SessionID: "scripted-session",
+				Status:    HarnessRefLinked,
+				ThreadID:  "scripted-thread-" + request.Conversation.ID,
+			}
+		}
+		result.ThreadRef = ref
+		result.HasThreadRef = true
+	}
 	switch request.Command.Kind {
 	case ChatCommandGoal:
 		return harness.executeGoalCommandLocked(request.Command, result)
-	case ChatCommandMCP:
-		result.DisplayTitle = "MCP"
-		result.DisplayMessage = "MCP servers:\n- scripted: auth unsupported, 2 tools"
-		return result, nil
 	case ChatCommandModel:
 		return harness.executeModelCommandLocked(request.Command, result)
-	case ChatCommandSkills:
-		result.DisplayTitle = "Skills"
-		result.DisplayMessage = "Available skills:\n- scripted-skill: Scripted workflow skill"
-		return result, nil
 	default:
 		return HarnessCommandResult{}, fmt.Errorf("unsupported scripted command kind: %s", request.Command.Kind)
 	}
@@ -453,202 +455,154 @@ func scriptedDynamicToolTurn(_ *ScriptedWorkflowHarness, _ context.Context, requ
 	return scriptedReply(sink, request.Run.ID, "Dynamic tool workflow complete.")
 }
 
-func scriptedUIShowcaseTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "UI showcase started. "); err != nil {
+func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	item := RunItem{
+		ProviderItemID: "provider_workflow_result_" + request.Run.ID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusCompleted,
+		Title:          "Workflow result",
+		Namespace:      SettaAgentToolNamespace,
+		ToolName:       SettaWorkflowResultAgentToolName,
+		Details: json.RawMessage(`{
+			"signals": [
+				{"name": "route", "value": "yes"},
+				{"name": "decision", "value": "exit"}
+			],
+			"output": {"summary": "scripted workflow result"},
+			"filePaths": ["reports/workflow-result.md"]
+		}`),
+		Result: "workflow result recorded",
+	}
+	if err := sink.RunItemUpsert(item); err != nil {
 		return TurnCompletion{}, err
 	}
-	for _, item := range scriptedUIShowcaseRunItems(request.Run.ID) {
-		if err := sink.RunItemUpsert(item); err != nil {
-			return TurnCompletion{}, err
+	return scriptedReply(sink, request.Run.ID, "Workflow result action complete.")
+}
+
+func (harness *ScriptedWorkflowHarness) phase4ReviewerTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Phase 4 reviewer active. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	key := phase4WorkflowExecutionKey(request)
+	released := harness.joinPhase4ReviewerBarrier(key, request.Run.ID)
+	defer harness.leavePhase4ReviewerBarrier(key, request.Run.ID)
+
+	select {
+	case <-released:
+		return scriptedReply(sink, request.Run.ID, "Phase 4 reviewer complete.")
+	case <-ctx.Done():
+		return TurnCompletion{}, ctx.Err()
+	}
+}
+
+func (harness *ScriptedWorkflowHarness) phase4ConsolidatorTurn(_ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	decision, attempt := harness.nextPhase4ConsolidatorDecision(request)
+	output, err := json.Marshal(struct {
+		Attempt  int    `json:"attempt"`
+		Decision string `json:"decision"`
+		Summary  string `json:"summary"`
+	}{
+		Attempt:  attempt,
+		Decision: decision,
+		Summary:  "phase 4 consolidator " + decision,
+	})
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	actionable := "no"
+	if decision == "continue" {
+		actionable = "yes"
+	}
+	details, err := json.Marshal(SettaWorkflowResultPayload{
+		Signals: []SettaWorkflowResultSignal{
+			{Name: "decision", Value: decision},
+			{Name: "actionable", Value: actionable},
+		},
+		Output:    output,
+		FilePaths: []string{"reports/phase4-consolidator.md"},
+	})
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	item := RunItem{
+		ProviderItemID: "provider_phase4_workflow_result_" + request.Run.ID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusCompleted,
+		Title:          "Phase 4 workflow result",
+		Namespace:      SettaAgentToolNamespace,
+		ToolName:       SettaWorkflowResultAgentToolName,
+		Details:        details,
+		Result:         "phase 4 workflow result recorded",
+	}
+	if err := sink.RunItemUpsert(item); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Phase 4 consolidator "+decision+".")
+}
+
+func scriptedPhase4FixTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	return scriptedReply(sink, request.Run.ID, "Phase 4 fix complete.")
+}
+
+func (harness *ScriptedWorkflowHarness) joinPhase4ReviewerBarrier(key string, runID string) <-chan struct{} {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	group := harness.phase4ReviewerBarriers[key]
+	if group == nil {
+		group = map[string]chan struct{}{}
+		harness.phase4ReviewerBarriers[key] = group
+	}
+	released := make(chan struct{})
+	group[runID] = released
+	if len(group) >= 3 {
+		for _, channel := range group {
+			close(channel)
 		}
-		if output := scriptedUIShowcaseOutput(item.Type); output != "" {
-			if err := sink.RunItemOutputDelta(item.ProviderItemID, scriptedUIShowcaseOutputStream(item), output); err != nil {
-				return TurnCompletion{}, err
-			}
-		}
+		delete(harness.phase4ReviewerBarriers, key)
 	}
-	return scriptedReply(sink, request.Run.ID, "UI showcase complete.")
+	return released
 }
 
-func scriptedUIShowcaseRunItems(runID string) []RunItem {
-	return []RunItem{
-		{
-			ProviderItemID: "provider_ui_agent_message_" + runID,
-			Type:           RunItemTypeAgentMessage,
-			Status:         RunItemStatusCompleted,
-			Title:          "Agent message item",
-			Summary:        "Assistant message activity generated from provider item updates.",
-		},
-		{
-			ProviderItemID: "provider_ui_plan_" + runID,
-			Type:           RunItemTypePlan,
-			Status:         RunItemStatusCompleted,
-			Title:          "Plan update",
-			Progress:       "1. Inspect chat surfaces\n2. Add showcase activity\n3. Verify styling hooks\n",
-			Summary:        "A multi-step plan activity.",
-		},
-		{
-			ProviderItemID: "provider_ui_reasoning_" + runID,
-			Type:           RunItemTypeReasoning,
-			Status:         RunItemStatusCompleted,
-			Title:          "Reasoning summary",
-			Progress:       "Checked the render matrix and selected representative fields for each activity type.\n",
-			HiddenText:     "private reasoning placeholder",
-			Summary:        "Visible reasoning summary.",
-		},
-		{
-			ProviderItemID: "provider_ui_command_" + runID,
-			Type:           RunItemTypeCommandExecution,
-			Status:         RunItemStatusCompleted,
-			Title:          "Command execution",
-			Command:        "sed -n '1,120p' internal/chat/scripted_workflow_harness.go",
-			Cwd:            "/tmp/setta-workspace",
-			ExitCode:       0,
-			DurationMs:     128,
-			ProcessID:      "proc-showcase",
-			Summary:        "Read a source file through a command.",
-		},
-		{
-			ProviderItemID: "provider_ui_file_change_" + runID,
-			Type:           RunItemTypeFileChange,
-			Status:         RunItemStatusCompleted,
-			Title:          "File change",
-			FilePaths:      []string{"/tmp/setta-workspace/internal/chat/showcase.go"},
-			PatchStatus:    "updated",
-			Summary:        "Updated a fake file to exercise file path chips.",
-		},
-		{
-			ProviderItemID: "provider_ui_mcp_" + runID,
-			Type:           RunItemTypeMCPToolCall,
-			Status:         RunItemStatusRunning,
-			Title:          "MCP tool call",
-			ServerName:     "filesystem",
-			ToolName:       "read_text_file",
-			Progress:       "Reading fixture content",
-			RequestID:      "mcp-request-showcase",
-			Details:        json.RawMessage(`{"path":"/tmp/setta-workspace/README.md"}`),
-		},
-		{
-			ProviderItemID: "provider_ui_dynamic_tool_" + runID,
-			Type:           RunItemTypeDynamicToolCall,
-			Status:         RunItemStatusCompleted,
-			Title:          "Dynamic tool call",
-			Namespace:      "setta",
-			ToolName:       "styleProbe",
-			Result:         "tool returned structured data",
-			Details:        json.RawMessage(`{"selectors":["[data-testid=chat-transcript-region]"],"ok":true}`),
-		},
-		{
-			ProviderItemID: "provider_ui_collab_agent_" + runID,
-			Type:           RunItemTypeCollabAgentToolCall,
-			Status:         RunItemStatusCompleted,
-			Title:          "Collab agent tool call",
-			Namespace:      "multi_agent",
-			ToolName:       "review_ui",
-			Result:         "subagent completed review",
-			Details:        json.RawMessage(`{"agent":"ui-reviewer","findingCount":0}`),
-		},
-		{
-			ProviderItemID: "provider_ui_web_search_" + runID,
-			Type:           RunItemTypeWebSearch,
-			Status:         RunItemStatusCompleted,
-			Title:          "Web search",
-			ToolName:       "web_search",
-			Result:         "Found three relevant sources",
-			Details:        json.RawMessage(`{"query":"codex chat activity styling","results":3}`),
-		},
-		{
-			ProviderItemID: "provider_ui_image_view_" + runID,
-			Type:           RunItemTypeImageView,
-			Status:         RunItemStatusCompleted,
-			Title:          "Image view",
-			FilePaths:      []string{"/tmp/setta-workspace/screenshots/chat.png"},
-			Summary:        "Viewed a screenshot artifact.",
-			Details:        json.RawMessage(`{"width":1440,"height":900}`),
-		},
-		{
-			ProviderItemID: "provider_ui_image_generation_" + runID,
-			Type:           RunItemTypeImageGeneration,
-			Status:         RunItemStatusCompleted,
-			Title:          "Image generation",
-			Summary:        "Generated a mock visual asset.",
-			Result:         "image asset ready",
-			Details:        json.RawMessage(`{"prompt":"chat UI texture","mimeType":"image/png"}`),
-		},
-		{
-			ProviderItemID: "provider_ui_terminal_" + runID,
-			Type:           RunItemTypeTerminalInteraction,
-			Status:         RunItemStatusRunning,
-			Title:          "Terminal interaction",
-			Command:        "npm run dev",
-			Cwd:            "/tmp/setta-workspace",
-			ProcessID:      "pty-showcase",
-			Progress:       "Interactive process is waiting for input",
-		},
-		{
-			ProviderItemID: "provider_ui_diff_" + runID,
-			Type:           RunItemTypeDiff,
-			Status:         RunItemStatusCompleted,
-			Title:          "Diff",
-			DiffSummary:    "2 files changed, 24 insertions(+), 3 deletions(-)",
-			FilePaths:      []string{"/tmp/setta-workspace/internal/chat/showcase.go", "/tmp/setta-workspace/desktop/src/styles.css"},
-		},
-		{
-			ProviderItemID: "provider_ui_notice_" + runID,
-			Type:           RunItemTypeNotice,
-			Status:         RunItemStatusCompleted,
-			Title:          "Notice",
-			NoticeKind:     "warning",
-			NoticeMessage:  "This is a scripted warning notice for styling.",
-		},
-		{
-			ProviderItemID: "provider_ui_approval_review_" + runID,
-			Type:           RunItemTypeApprovalReview,
-			Status:         RunItemStatusCompleted,
-			Title:          "Approval review",
-			ReviewID:       "review-showcase",
-			Result:         "approved",
-			Summary:        "Auto-review approved the requested action.",
-			Details:        json.RawMessage(`{"decision":"approved","risk":"low"}`),
-		},
-		{
-			ProviderItemID: "provider_ui_hook_" + runID,
-			Type:           RunItemTypeHook,
-			Status:         RunItemStatusFailed,
-			Title:          "Hook",
-			Error:          "pre-command hook returned a style-only warning",
-			Summary:        "Hook output with failed status styling.",
-			Details:        json.RawMessage(`{"hook":"pre-command","durationMs":42}`),
-		},
-		{
-			ProviderItemID: "provider_ui_structured_input_" + runID,
-			Type:           RunItemTypeStructuredInput,
-			Status:         RunItemStatusPending,
-			Title:          "Structured input",
-			ServerName:     "deploy",
-			RequestID:      "structured-request-showcase",
-			Summary:        "MCP elicitation form schema.",
-			Details: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"environment": {"type": "string", "enum": ["staging", "production"]},
-					"confirm": {"type": "boolean"}
-				},
-				"required": ["environment", "confirm"]
-			}`),
-		},
+func (harness *ScriptedWorkflowHarness) leavePhase4ReviewerBarrier(key string, runID string) {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	group := harness.phase4ReviewerBarriers[key]
+	if group == nil {
+		return
+	}
+	delete(group, runID)
+	if len(group) == 0 {
+		delete(harness.phase4ReviewerBarriers, key)
 	}
 }
 
-func scriptedUIShowcaseOutput(itemType RunItemType) string {
-	return scriptedUIShowcaseOutputByType[itemType]
+func (harness *ScriptedWorkflowHarness) nextPhase4ConsolidatorDecision(request TurnRequest) (string, int) {
+	key := phase4WorkflowNodeKey(request)
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	harness.phase4ConsolidatorCounts[key]++
+	attempt := harness.phase4ConsolidatorCounts[key]
+	if attempt == 1 {
+		return "continue", attempt
+	}
+	return "exit", attempt
 }
 
-func scriptedUIShowcaseOutputStream(item RunItem) string {
-	if item.Status == RunItemStatusFailed {
-		return "stderr"
+func phase4WorkflowExecutionKey(request TurnRequest) string {
+	if request.Conversation.Workflow == nil {
+		return request.Run.ID
 	}
-	return "stdout"
+	return request.Conversation.Workflow.ExecutionID
+}
+
+func phase4WorkflowNodeKey(request TurnRequest) string {
+	if request.Conversation.Workflow == nil {
+		return request.Run.ID
+	}
+	return request.Conversation.Workflow.ExecutionID + "/" + request.Conversation.Workflow.NodeID
 }
 
 func (harness *ScriptedWorkflowHarness) modelSettingTurn(_ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

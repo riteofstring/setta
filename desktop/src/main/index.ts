@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import { createBackendClient, type BackendClient, type ChatEvent } from "@generated/backend";
-import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
+import { handleIpc, ipcEvents } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
@@ -16,7 +16,6 @@ import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
-import { createElectronWebContentsViewRegistry } from "./niri-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { readWorkspaceGitInfo } from "./workspace-actions";
 
@@ -29,9 +28,6 @@ let quitting = false;
 let recorder: SessionRecorder | null = null;
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
 const execFileAsync = promisify(execFile);
-const compactWindowMinHeight = 320;
-const compactWindowMinWidth = 320;
-const niriBrowserViews = createElectronWebContentsViewRegistry();
 
 function desktopRoot() {
   return process.cwd();
@@ -154,10 +150,9 @@ function testOpenWorkspaceRoot() {
 
 async function createWindow() {
   mainWindow = new BrowserWindow({
-    backgroundColor: "#18181b",
     height: 820,
-    minHeight: compactWindowMinHeight,
-    minWidth: compactWindowMinWidth,
+    minHeight: 620,
+    minWidth: 960,
     show: false,
     ...(process.platform === "darwin"
       ? {
@@ -186,19 +181,13 @@ async function createWindow() {
     }
   });
   mainWindow.on("closed", () => {
-    niriBrowserViews.teardownAll();
     mainWindow = null;
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    await mainWindow.loadURL(rendererURLWithE2EQuery(process.env.ELECTRON_RENDERER_URL));
+    await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
-    const query = rendererE2EQuery();
-    if (query) {
-      await mainWindow.loadFile(join(__dirname, "../renderer/index.html"), { query });
-    } else {
-      await mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
-    }
+    await mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
   if (mainWindow) {
     setTimeout(() => {
@@ -209,26 +198,6 @@ async function createWindow() {
   }
 }
 
-function rendererURLWithE2EQuery(rawURL: string): string {
-  const query = rendererE2EQuery();
-  if (!query) {
-    return rawURL;
-  }
-  const url = new URL(rawURL);
-  for (const [key, value] of Object.entries(query)) {
-    url.searchParams.set(key, value);
-  }
-  return url.toString();
-}
-
-function rendererE2EQuery(): Record<string, string> | null {
-  const niriScene = process.env.SETTA_E2E_NIRI_SCENE;
-  if (!niriScene) {
-    return null;
-  }
-  return { niriScene };
-}
-
 function registerIpc() {
   if (ipcRegistered) {
     return;
@@ -237,9 +206,6 @@ function registerIpc() {
   const ipcObserver = recorder?.createIpcObserver();
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
-  });
-  ipcMain.on(ipcMessages.niriBrowserViewBatch, (event, batch) => {
-    niriBrowserViews.applyBatch(event, batch);
   });
   handleIpc(
     ipcMain,
@@ -296,30 +262,6 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "appearanceRead",
-    async () => {
-      return requireBackendClient().readAppearanceSettings();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "appearancePresets",
-    async () => {
-      return requireBackendClient().readAppearancePresets();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "appearanceUpdate",
-    async (_event, request) => {
-      return requireBackendClient().updateAppearanceSettings(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "workspaceSession",
     async () => {
       return requireBackendClient().workspaceSession();
@@ -357,6 +299,14 @@ function registerIpc() {
     "workspaceSelect",
     async (_event, id) => {
       return requireBackendClient().selectWorkspace({ id });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workspaceOpenPath",
+    async (_event, rootPath) => {
+      return requireBackendClient().openWorkspace({ rootPath });
     },
     ipcObserver,
   );
@@ -402,9 +352,9 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "chatDeleteConversation",
+    "chatMarkConversationRead",
     async (_event, workspaceId, conversationId) => {
-      return requireBackendClient().deleteConversation({ conversationId, workspaceId });
+      return requireBackendClient().markConversationRead({ conversationId, workspaceId });
     },
     ipcObserver,
   );
@@ -484,9 +434,46 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatEditQueuedMessage",
+    async (_event, workspaceId, conversationId, messageId, prompt) => {
+      return requireBackendClient().editQueuedChatMessage({
+        conversationId,
+        messageId,
+        prompt,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatRemoveQueuedMessage",
+    async (_event, workspaceId, conversationId, messageId) => {
+      return requireBackendClient().removeQueuedChatMessage({
+        conversationId,
+        messageId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatSteerMessage",
     async (_event, workspaceId, conversationId, prompt) => {
       return requireBackendClient().steerChatMessage({ conversationId, prompt, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSendSteeringImmediately",
+    async (_event, workspaceId, conversationId, prompt) => {
+      return requireBackendClient().sendSteeringImmediately({
+        conversationId,
+        prompt,
+        workspaceId,
+      });
     },
     ipcObserver,
   );
@@ -539,12 +526,100 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "chatUpdateUserMessage",
-    async (_event, workspaceId, conversationId, messageId, text) => {
-      return requireBackendClient().updateUserMessage({
-        conversationId,
-        messageId,
-        text,
+    "workflowListDefinitions",
+    async (_event, workspaceId) => {
+      return requireBackendClient().listWorkflowDefinitions({ workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowCreateDefinition",
+    async (_event, workspaceId, name, description, graph) => {
+      return requireBackendClient().createWorkflowDefinition({
+        description,
+        graph,
+        name,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowReadDefinition",
+    async (_event, workspaceId, definitionId) => {
+      return requireBackendClient().readWorkflowDefinition({ definitionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowUpdateDefinition",
+    async (_event, ...args) => {
+      const [workspaceId, definitionId, name, description, graph] = args;
+      return requireBackendClient().updateWorkflowDefinition({
+        definitionId,
+        description,
+        graph,
+        name,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowDeleteDefinition",
+    async (_event, workspaceId, definitionId) => {
+      return requireBackendClient().deleteWorkflowDefinition({ definitionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowValidateDefinition",
+    async (_event, workspaceId, graph) => {
+      return requireBackendClient().validateWorkflowDefinition({ graph, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowStartExecution",
+    async (_event, workspaceId, definitionId, versionId) => {
+      return requireBackendClient().startWorkflowExecution({
+        definitionId,
+        versionId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowCancelExecution",
+    async (_event, workspaceId, executionId) => {
+      return requireBackendClient().cancelWorkflowExecution({ executionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowReadExecution",
+    async (_event, workspaceId, executionId) => {
+      return requireBackendClient().readWorkflowExecution({ executionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowExecutionEvents",
+    async (_event, workspaceId, executionId, beforeOrdinal, limit) => {
+      return requireBackendClient().getWorkflowExecutionEvents({
+        beforeOrdinal,
+        executionId,
+        limit,
         workspaceId,
       });
     },
@@ -587,22 +662,6 @@ function registerIpc() {
     "codexAccountLogout",
     async (_event, request) => {
       return requireBackendClient().logoutCodexAccount(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "niriBrowserViewStats",
-    () => {
-      return niriBrowserViews.readStats();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "niriBrowserViewsTeardown",
-    (_event, workspaceId) => {
-      return niriBrowserViews.teardownWorkspace(workspaceId);
     },
     ipcObserver,
   );

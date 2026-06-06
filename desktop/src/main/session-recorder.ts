@@ -492,10 +492,16 @@ function errorPayload(error: unknown) {
 }
 
 function truncate(value: string): string {
-  if (value.length <= maxStringLength) {
+  const codePoints = Array.from(value);
+  if (codePoints.length <= maxStringLength) {
     return value;
   }
-  return value.slice(0, maxStringLength - 1) + "...";
+  return (
+    codePoints
+      .slice(0, maxStringLength - 3)
+      .join("")
+      .trimEnd() + "..."
+  );
 }
 
 function slug(value: string): string {

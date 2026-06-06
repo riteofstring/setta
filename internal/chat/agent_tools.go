@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+
+	"setta/internal/workspace"
 )
 
 type AgentToolRegistry struct {
@@ -38,6 +41,7 @@ type AgentTool struct {
 	Namespace              string
 	InputSchema            AgentToolSchema
 	OutputSchema           AgentToolSchema
+	DeferLoading           bool
 	PermissionRequirements []AgentToolPermissionRequirement
 	AuditMetadata          AgentToolAuditMetadata
 	Handler                AgentToolHandler
@@ -46,13 +50,14 @@ type AgentTool struct {
 type AgentToolHandler func(context.Context, AgentToolCall) (AgentToolResult, error)
 
 type AgentToolSchema struct {
-	Type        AgentToolSchemaType
-	Title       string
-	Description string
-	Required    []string
-	Properties  map[string]AgentToolSchema
-	Items       *AgentToolSchema
-	Enum        []string
+	Type                 AgentToolSchemaType
+	Title                string
+	Description          string
+	Required             []string
+	Properties           map[string]AgentToolSchema
+	Items                *AgentToolSchema
+	Enum                 []string
+	AdditionalProperties *bool
 }
 
 type AgentToolPermissionKind string
@@ -91,6 +96,16 @@ type AgentToolCall struct {
 	Arguments json.RawMessage
 }
 
+type AgentToolRuntimeContext struct {
+	Workspace    workspace.WorkspaceSummary
+	Conversation Conversation
+	Run          Run
+	ThreadID     string
+	TurnID       string
+}
+
+type agentToolRuntimeContextKey struct{}
+
 type AgentToolResult struct {
 	ContentItems []AgentToolContentItem
 	Success      bool
@@ -128,6 +143,9 @@ func (registry *AgentToolRegistry) Register(tool AgentTool) error {
 	if tool.AuditMetadata.DisplayName == "" {
 		return fmt.Errorf("agent tool %s audit display name is required", tool.Name)
 	}
+	if tool.AuditMetadata.Description == "" {
+		return fmt.Errorf("agent tool %s audit description is required", tool.Name)
+	}
 	if tool.AuditMetadata.Category == "" {
 		return fmt.Errorf("agent tool %s audit category is required", tool.Name)
 	}
@@ -148,6 +166,31 @@ func (registry *AgentToolRegistry) Lookup(namespace string, name string) (AgentT
 	}
 	tool, ok := registry.tools[agentToolKey(namespace, name)]
 	return tool, ok
+}
+
+func (registry *AgentToolRegistry) Tools() []AgentTool {
+	if registry == nil {
+		return []AgentTool{}
+	}
+	keys := make([]string, 0, len(registry.tools))
+	for key := range registry.tools {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	tools := make([]AgentTool, 0, len(keys))
+	for _, key := range keys {
+		tools = append(tools, registry.tools[key])
+	}
+	return tools
+}
+
+func ContextWithAgentToolRuntime(ctx context.Context, runtime AgentToolRuntimeContext) context.Context {
+	return context.WithValue(ctx, agentToolRuntimeContextKey{}, runtime)
+}
+
+func AgentToolRuntimeFromContext(ctx context.Context) (AgentToolRuntimeContext, bool) {
+	runtime, ok := ctx.Value(agentToolRuntimeContextKey{}).(AgentToolRuntimeContext)
+	return runtime, ok
 }
 
 func agentToolKey(namespace string, name string) string {
@@ -179,6 +222,9 @@ func validateAgentToolSchemaShape(schema AgentToolSchema, label string) error {
 	}
 	if schema.Type != AgentToolSchemaObject && len(schema.Properties) > 0 {
 		return fmt.Errorf("%s properties are only valid for objects", label)
+	}
+	if schema.Type != AgentToolSchemaObject && schema.AdditionalProperties != nil {
+		return fmt.Errorf("%s additionalProperties is only valid for objects", label)
 	}
 	return nil
 }

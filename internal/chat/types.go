@@ -92,6 +92,7 @@ const (
 	RunItemTypeImageGeneration     RunItemType = "image_generation"
 	RunItemTypeTerminalInteraction RunItemType = "terminal_interaction"
 	RunItemTypeDiff                RunItemType = "diff"
+	RunItemTypeContextCompaction   RunItemType = "context_compaction"
 	RunItemTypeNotice              RunItemType = "notice"
 	RunItemTypeApprovalReview      RunItemType = "approval_review"
 	RunItemTypeHook                RunItemType = "hook"
@@ -108,11 +109,8 @@ const (
 	DiagnosticSourceWorkspace   DiagnosticSource = "workspace"
 	DiagnosticSourceProvider    DiagnosticSource = "provider"
 
-	ChatCommandGoal   ChatCommandKind = "goal"
-	ChatCommandMCP    ChatCommandKind = "mcp"
-	ChatCommandModel  ChatCommandKind = "model"
-	ChatCommandNew    ChatCommandKind = "new"
-	ChatCommandSkills ChatCommandKind = "skills"
+	ChatCommandGoal  ChatCommandKind = "goal"
+	ChatCommandModel ChatCommandKind = "model"
 
 	GoalCommandShow   GoalCommandAction = "show"
 	GoalCommandSet    GoalCommandAction = "set"
@@ -215,6 +213,7 @@ var (
 		RunItemTypeImageGeneration,
 		RunItemTypeTerminalInteraction,
 		RunItemTypeDiff,
+		RunItemTypeContextCompaction,
 		RunItemTypeNotice,
 		RunItemTypeApprovalReview,
 		RunItemTypeHook,
@@ -235,10 +234,7 @@ var (
 	}
 	chatCommandKindValues = []ChatCommandKind{
 		ChatCommandGoal,
-		ChatCommandMCP,
 		ChatCommandModel,
-		ChatCommandNew,
-		ChatCommandSkills,
 	}
 	goalCommandActionValues = []GoalCommandAction{
 		GoalCommandShow,
@@ -306,20 +302,30 @@ func stringValues[T ~string](values []T) []string {
 }
 
 type Conversation struct {
-	SchemaVersion int                `json:"schemaVersion"`
-	ID            string             `json:"id"`
-	WorkspaceID   string             `json:"workspaceId"`
-	Title         string             `json:"title"`
-	CreatedAt     string             `json:"createdAt"`
-	UpdatedAt     string             `json:"updatedAt"`
-	ArchivedAt    string             `json:"archivedAt"`
-	CodexSettings *ChatCodexSettings `json:"codexSettings"`
-	HarnessRefs   []HarnessThreadRef `json:"harnessRefs"`
+	SchemaVersion int                           `json:"schemaVersion"`
+	ID            string                        `json:"id"`
+	WorkspaceID   string                        `json:"workspaceId"`
+	Title         string                        `json:"title"`
+	Internal      bool                          `json:"internal"`
+	CreatedAt     string                        `json:"createdAt"`
+	UpdatedAt     string                        `json:"updatedAt"`
+	ArchivedAt    string                        `json:"archivedAt"`
+	CodexSettings *ChatCodexSettings            `json:"codexSettings"`
+	HarnessRefs   []HarnessThreadRef            `json:"harnessRefs"`
+	Workflow      *ConversationWorkflowMetadata `json:"workflow"`
 }
 
 type ChatCodexSettings struct {
 	Model           string           `json:"model"`
 	ReasoningEffort *ReasoningEffort `json:"reasoningEffort"`
+}
+
+type ConversationWorkflowMetadata struct {
+	DefinitionID        string `json:"definitionId"`
+	DefinitionVersionID string `json:"definitionVersionId"`
+	ExecutionID         string `json:"executionId"`
+	NodeID              string `json:"nodeId"`
+	NodeExecutionID     string `json:"nodeExecutionId"`
 }
 
 type ChatMessage struct {
@@ -517,9 +523,11 @@ type TranscriptTurn struct {
 }
 
 type ConversationListItem struct {
-	Conversation Conversation `json:"conversation"`
-	MessageCount int          `json:"messageCount"`
-	ActiveRunID  string       `json:"activeRunId"`
+	Conversation             Conversation `json:"conversation"`
+	MessageCount             int          `json:"messageCount"`
+	ActiveRunID              string       `json:"activeRunId"`
+	ReadMarker               int          `json:"readMarker"`
+	LatestReadRelevantMarker int          `json:"latestReadRelevantMarker"`
 }
 
 type CorruptStateFinding struct {
@@ -673,6 +681,31 @@ type SteerMessageResult struct {
 	UserMessage  ChatMessage  `json:"userMessage"`
 	Run          Run          `json:"run"`
 	Page         MessagePage  `json:"page"`
+}
+
+type QueueEditResult struct {
+	Conversation Conversation `json:"conversation"`
+	UserMessage  ChatMessage  `json:"userMessage"`
+	Run          Run          `json:"run"`
+	Queue        QueueState   `json:"queue"`
+	Page         MessagePage  `json:"page"`
+}
+
+type QueueRemoveResult struct {
+	Conversation     Conversation `json:"conversation"`
+	RemovedMessageID string       `json:"removedMessageId"`
+	RemovedRunID     string       `json:"removedRunId"`
+	Queue            QueueState   `json:"queue"`
+	Page             MessagePage  `json:"page"`
+}
+
+type ImmediateSteeringResult struct {
+	Conversation               Conversation `json:"conversation"`
+	CancelledRun               Run          `json:"cancelledRun"`
+	ReplayedSteeringMessageIDs []string     `json:"replayedSteeringMessageIds"`
+	ActiveRun                  Run          `json:"activeRun"`
+	Queue                      QueueState   `json:"queue"`
+	Page                       MessagePage  `json:"page"`
 }
 
 func (approval ApprovalRequest) MarshalJSON() ([]byte, error) {

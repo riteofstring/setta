@@ -36,6 +36,13 @@ The convenience script checks the repo Go wrapper and then runs:
 pnpm -C desktop dev
 ```
 
+The repo-owned supply-chain release-age policy lives in
+`supply_chain_policy.env`. `./update_dependencies.sh` and
+`./scripts/check_supply_chain.sh` read that file directly, and
+`./configure_supply_chain.sh --local-only --days 7` updates the policy plus
+package-local pnpm config files such as `desktop/.npmrc`. Environment
+variables do not override the checked-in release-age policy.
+
 Run the Go backend directly only for backend-only or manual API development:
 
 ```sh

@@ -1,20 +1,21 @@
 import type {
-  AppearancePresetList,
-  AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
-  ChatMessage,
   CodexAccountState,
   Conversation,
+  ConversationListItem,
   GetActiveRunResponse,
+  ImmediateSteeringResult,
   ListConversationsResponse,
   LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueEditResult,
   QueueMessageResult,
+  QueueRemoveResult,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
@@ -25,7 +26,13 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
-  UpdateAppearanceSettingsRequest,
+  DeleteWorkflowDefinitionResponse,
+  ListWorkflowDefinitionsResponse,
+  WorkflowDefinition,
+  WorkflowExecution,
+  WorkflowExecutionEventPage,
+  WorkflowGraph,
+  WorkflowValidationResult,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -62,52 +69,6 @@ export interface WorkspaceGitInfo {
   worktreeRoot: string;
 }
 
-export type NiriBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
-
-export interface NiriBrowserViewUpdate {
-  bounds: {
-    height: number;
-    width: number;
-    x: number;
-    y: number;
-  };
-  focused: boolean;
-  paneId: string;
-  runtimeState: NiriBrowserViewRuntimeState;
-  surfaceId: string;
-  title: string;
-  url: string;
-  visible: boolean;
-}
-
-export interface NiriBrowserViewBatch {
-  focusedSurfaceId: string | null;
-  totalBrowserPanes: number;
-  updates: NiriBrowserViewUpdate[];
-  visibleBrowserPanes: number;
-  workspaceId: string;
-}
-
-export interface NiriBrowserViewKeyEvent {
-  key: "ArrowDown" | "ArrowLeft" | "ArrowRight" | "ArrowUp";
-  surfaceId: string;
-  workspaceId: string;
-}
-
-export interface NiriBrowserViewStats {
-  boundsBatchCount: number;
-  boundsUpdateCount: number;
-  destroyed: number;
-  focusedSurfaceId: string | null;
-  hidden: number;
-  live: number;
-  registered: number;
-  teardownCount: number;
-  totalBrowserPanes: number;
-  visibleBrowserPanes: number;
-  workspaceId: string | null;
-}
-
 export type BackendProcessStatus =
   | { status: "starting"; message: string }
   | { status: "online"; url: string; mode: "external" | "spawned"; message: string }
@@ -133,6 +94,14 @@ export interface ChatCommandExecutionOptions {
 
 export interface SettaAPI {
   app: {
+    flags: {
+      pixiWorkspaceDebug: boolean;
+      pixiWorkspacePrototype: boolean;
+      pixiWorkspaceSyntheticGraph: {
+        edgesPerNode: number;
+        nodeCount: number;
+      } | null;
+    };
     installedEditors: () => Promise<InstalledEditorApp[]>;
     openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;
     openExternalUrl: (url: string) => Promise<void>;
@@ -145,20 +114,10 @@ export interface SettaAPI {
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
-  niriNativeViews?: {
-    batchBrowserViewUpdates: (batch: NiriBrowserViewBatch) => void;
-    onBrowserViewKey: (listener: (event: NiriBrowserViewKeyEvent) => void) => () => void;
-    readBrowserViewStats: () => Promise<NiriBrowserViewStats>;
-    teardownBrowserViews: (workspaceId: string) => Promise<NiriBrowserViewStats>;
-  };
-  appearance: {
-    presets: () => Promise<AppearancePresetList>;
-    read: () => Promise<AppearanceSettings>;
-    update: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
-  };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
+    openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
     select: (id: string) => Promise<WorkspaceSession>;
@@ -168,10 +127,12 @@ export interface SettaAPI {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
-    deleteConversation: (
+    editQueuedMessage: (
       workspaceId: string,
       conversationId: string,
-    ) => Promise<ListConversationsResponse>;
+      messageId: string,
+      prompt: string,
+    ) => Promise<QueueEditResult>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
@@ -190,6 +151,10 @@ export interface SettaAPI {
     ) => Promise<ChatCommandExecuteResult>;
     listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
+    markConversationRead: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ConversationListItem>;
     messagePage: (
       workspaceId: string,
       conversationId: string,
@@ -201,6 +166,11 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<QueueMessageResult>;
+    removeQueuedMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+    ) => Promise<QueueRemoveResult>;
     runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
     runItemOutput: (
       workspaceId: string,
@@ -219,14 +189,13 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<SteerMessageResult>;
-    onEvent: (listener: (event: ChatEvent) => void) => () => void;
-    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
-    updateUserMessage: (
+    sendSteeringImmediately: (
       workspaceId: string,
       conversationId: string,
-      messageId: string,
-      text: string,
-    ) => Promise<ChatMessage>;
+      prompt?: string,
+    ) => Promise<ImmediateSteeringResult>;
+    onEvent: (listener: (event: ChatEvent) => void) => () => void;
+    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };
   codexAccount: {
     cancelLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;
@@ -234,5 +203,43 @@ export interface SettaAPI {
     read: () => Promise<CodexAccountState>;
     refresh: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
     startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
+  };
+  workflow: {
+    cancelExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
+    createDefinition: (
+      workspaceId: string,
+      name: string,
+      description: string,
+      graph: WorkflowGraph,
+    ) => Promise<WorkflowDefinition>;
+    deleteDefinition: (
+      workspaceId: string,
+      definitionId: string,
+    ) => Promise<DeleteWorkflowDefinitionResponse>;
+    executionEvents: (
+      workspaceId: string,
+      executionId: string,
+      beforeOrdinal: number,
+      limit: number,
+    ) => Promise<WorkflowExecutionEventPage>;
+    listDefinitions: (workspaceId: string) => Promise<ListWorkflowDefinitionsResponse>;
+    readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
+    readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
+    startExecution: (
+      workspaceId: string,
+      definitionId: string,
+      versionId?: string,
+    ) => Promise<WorkflowExecution>;
+    updateDefinition: (
+      workspaceId: string,
+      definitionId: string,
+      name: string,
+      description: string,
+      graph: WorkflowGraph,
+    ) => Promise<WorkflowDefinition>;
+    validateDefinition: (
+      workspaceId: string,
+      graph: WorkflowGraph,
+    ) => Promise<WorkflowValidationResult>;
   };
 }
