@@ -1,7 +1,7 @@
 # Pixi Workspace Crisp Rendering Plan
 
 - **Date:** June 4, 2026
-- **Status:** Phase 1, 2, 3, and 4 implemented; Phase 5 planned and implementation-ready
+- **Status:** Phase 1, 2, 3, 4, and 5 implemented; Phase 5.5 planned and implementation-ready; Phase 6 planned and implementation-ready
 - **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
@@ -10,7 +10,7 @@ Make nodes and labels remain crisp during deep zoom while preserving fast pan, z
 
 The original issue was that the workspace zoomed the whole Pixi viewport while node labels were Pixi `Text` objects inside the zoomed world. Each label was rasterized to a texture and then magnified, which made text blur at high zoom and made naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
 
-Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. The next work is cleaning up node geometry construction so repeated shapes and technical lines are cheaper and more observable before any larger renderer boundary changes.
+Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 is a focused UX correction for selected labels at low zoom. Phase 6 adds a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet.
 
 The recommended production direction is:
 
@@ -37,10 +37,13 @@ The current prototype:
 - Exposes `labelObjectCount`, `labelVisibilityMode`, and per-label visibility reasons in the debug snapshot.
 - Keeps label objects pooled while using zoom-based label LOD, viewport culling, and deterministic screen-space decluttering to toggle `label.visible`.
 - Creates node bodies, shadows, selection/hover outlines, ports, and grid lines with Pixi `Graphics`.
-- Creates node body and shadow geometry once per fixture node, but does not yet use cached `GraphicsContext` helpers for repeated shapes and states.
-- Redraws selection/hover outline graphics only when interaction state changes, not during camera pan or zoom.
+- Builds node body, shadow, hover outline, and selected outline graphics from cached Pixi `GraphicsContext` helpers.
+- Toggles prebuilt selection/hover outline visibility instead of clearing and redrawing outline path geometry.
+- Exposes grid, node body, node shadow, node outline, and outline-visibility geometry counters in the debug snapshot.
+- Keeps selected labels visible in low-zoom `selected` mode, but they currently use the normal label font size and can visually dominate shrunken node bodies.
+- Still uses O(number of nodes) scans for node hit testing, port hit-test broad-phase, marquee selection, and label visibility candidate discovery.
 - Keeps interaction state in the imperative renderer path, not React state.
-- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, and unchanged React render count during label sync.
+- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, node geometry counters, and unchanged React render count during label sync.
 
 This plan should extend the existing renderer/controller path. Do not create a second Pixi implementation or introduce DOM labels for workspace nodes.
 
@@ -341,7 +344,7 @@ Expected result:
 
 ## Phase 5: Node Geometry Cleanup
 
-Status: Planned; implementation-ready.
+Status: Implemented.
 
 Improve crispness and batching for node geometry without jumping straight to custom shaders.
 
@@ -353,9 +356,9 @@ Scope:
 - Do not change edge geometry, port state rendering, label LOD, spatial indexing, pointer hit testing, graph data, or React state.
 - Do not introduce custom `Mesh`, shaders, sprites, texture atlases, or `cacheAsTexture()`.
 
-Implementation decisions:
+Completed decisions:
 
-- Add a small node-geometry helper module near the renderer, for example `pixi-workspace-node-geometry.js`.
+- Add `desktop/src/renderer/src/components/pixi-workspace-node-geometry.js`.
 - Move node geometry style constants into that helper module:
   - body corner radius `8`
   - body fill alpha `0.92`
@@ -377,7 +380,7 @@ function nodeOutlineContextFor(
 ): GraphicsContext;
 ```
 
-- Key `nodeBodyContextFor(...)` by dimensions and body style, including node fill color. The current fixture may still produce one body context per differently colored node; the cache is still the production-shaped boundary for repeated future node types.
+- Key `nodeBodyContextFor(...)` by dimensions and body style, including node fill color. The current fixture produces one body context per differently colored node; the cache is still the production-shaped boundary for repeated future node types.
 - Key `nodeShadowContextFor(...)` by dimensions, radius, offset, alpha, and color. This should share for fixture nodes that have the same size.
 - Key `nodeOutlineContextFor(...)` by dimensions, radius, inset, outline state, stroke width, stroke alpha, and stroke color.
 - Use `new Graphics(sharedContext)` for body, shadow, hover outline, and selected outline display objects.
@@ -399,13 +402,13 @@ function syncNodeOutlineVisibility(nodeId: string) {
 - Keep grid geometry built once during renderer initialization. Use `pixelLine: true` only for grid and other 1px technical hairlines where visual inspection confirms it improves sharpness. Do not force `pixelLine` on thicker stylistic strokes such as selected outlines.
 - Leave port visuals alone in this phase. They are stateful interaction affordances and can get their own state-context cleanup later if profiling points there.
 
-Implementation tasks:
+Completed work:
 
 - Add node geometry context caches and exported cache-size/debug helpers.
 - Update `nodeContainer(node)` to construct body, shadow, hover outline, and selected outline graphics from cached contexts.
 - Replace `nodeOutlines` with a map that stores both outline graphics for each node.
 - Update hover, selection, and clear-selection flows to call the visibility-sync helper instead of clearing/redrawing outline graphics.
-- Keep `drawAllNodeOutlines()` as a compatibility wrapper if useful, but have it call visibility sync only.
+- Keep `drawAllNodeOutlines()` as a compatibility wrapper that syncs outline visibility only.
 - Add renderer debug snapshot fields:
 
 ```ts
@@ -439,26 +442,221 @@ Expected result:
 - Selection and hover update outline visibility, not outline path geometry.
 - The implementation provides debug counters that make future geometry regressions visible in smoke output.
 
-## Phase 6: Spatial Index and Large-Graph Renderer Boundary
+## Phase 5.5: Low-Zoom Selected Label Sizing
 
-Only after the prototype needs larger graphs, add an application-level spatial index.
+Status: Planned; implementation-ready.
+
+Make selected labels in low-zoom `selected` mode useful without letting a screen-space label visually overpower a shrunken node body.
+
+Scope:
+
+- Keep labels in the existing screen-space Pixi label layer.
+- Keep normal labels as MSDF `BitmapText`.
+- Change only label font-size buckets for labels whose visibility reason is `selected` while the active label visibility mode is `selected`.
+- Do not continuously scale labels with zoom.
+- Do not change label LOD thresholds, label positioning, label decluttering, MSDF font generation, node geometry, spatial indexing, pointer hit testing, graph data, or React state.
+- Do not move selected labels above or below nodes in this phase.
+- Do not hide selected labels below a lower threshold in this phase. Treat hiding below something like `0.35x` as a future fallback only if compact selected labels still prove too noisy.
+
+Implementation decisions:
+
+- Add a compact selected-label font-size bucket to `desktop/src/renderer/src/components/pixi-workspace-label-font-config.json`, for example:
+
+```json
+{
+  "compactSelectedFontSize": 12
+}
+```
+
+- Export the compact selected-label font size from `pixi-workspace-label-font.js`.
+- Add a small bucket helper near the label visibility code:
+
+```ts
+type NodeLabelFontSizeMode = "normal" | "compact-selected";
+
+function nodeLabelFontSizeModeFor({
+  labelVisibilityMode,
+  visibilityReason,
+}: {
+  labelVisibilityMode: "selected" | "visible-priority" | "all-visible";
+  visibilityReason: string;
+}): NodeLabelFontSizeMode {
+  return labelVisibilityMode === "selected" && visibilityReason === "selected"
+    ? "compact-selected"
+    : "normal";
+}
+```
+
+- Apply the compact size only when the helper returns `compact-selected`; otherwise use the normal `nodeLabelBitmapFontSize`.
+- Update the `BitmapText` font size only when the size bucket changes. Do not write label font size every wheel frame when the bucket is unchanged.
+- Keep `label.scale` and `label.worldTransform` at `1`; the adjustment is a `BitmapText` font-size bucket, not viewport scaling.
+- Keep selected labels centered on node centers. The selected label should remain attached to the node, just smaller in low-zoom selected mode.
+- In `visible-priority` and `all-visible` modes, selected labels keep the normal label font size.
 
 Implementation tasks:
 
-- Introduce a spatial index for node bounds.
-- Use it for:
-  - Visible-node filtering.
-  - Pointer hit testing.
-  - Label visibility.
-  - Future edge culling.
-- Keep Pixi display objects as rendering projections, not graph state owners.
-- Pool visible node, port, edge, and label views.
+- Add the compact selected font-size config field and export.
+- Add label font-size bucket state tracking, such as a `nodeLabelFontSizeModes` map keyed by node ID.
+- Apply the font-size bucket from the same push-based label visibility path that sets `label.visible` and `visibilityReason`.
+- Add per-label debug metadata:
+
+```ts
+label: {
+  fontSize: number;
+  fontSizeMode: "normal" | "compact-selected";
+};
+```
+
+- Add renderer debug snapshot fields:
+
+```ts
+render: {
+  compactSelectedLabelCount: number;
+};
+```
+
+- Update `desktop/src/renderer/src/global.d.ts` for the new debug fields.
+- Update visual smoke assertions:
+  - low zoom enters `selected` mode
+  - the selected in-viewport label remains visible with `visibilityReason: "selected"`
+  - that selected low-zoom label reports `fontSizeMode: "compact-selected"` and `fontSize: 12`
+  - unselected labels remain hidden in `selected` mode
+  - normal zoom and deep zoom labels report `fontSizeMode: "normal"` and the normal label font size
+  - label scale and world scale remain `1`
+  - React render count remains stable
+- Add manual screenshot inspection to confirm the low-zoom selected label no longer visually dominates the selected node.
 
 Expected result:
 
-- Large graph performance depends on visible graph size and LOD, not total graph size.
+- A selected node remains identifiable at low zoom.
+- The selected label no longer appears oversized relative to the shrunken node body.
+- The renderer keeps the crisp screen-space label architecture and avoids continuous zoom-dependent text scaling.
 
-## Phase 7: Optional Custom Mesh or Shader Rendering
+## Phase 6: Node Bounds Spatial Index
+
+Status: Planned; implementation-ready.
+
+Add an application-level spatial index for node bounds and use it as the broad-phase query path for current O(number of nodes) renderer operations. This phase should make the renderer's query boundaries production-shaped without virtualizing display objects yet.
+
+Scope:
+
+- Index node world-space axis-aligned bounds only.
+- Use the index for broad-phase candidates in:
+  - node hit testing
+  - marquee selection
+  - label visibility viewport queries
+  - port hit-test node candidate narrowing
+- Keep all Pixi display objects created for the current fixture, including nodes, ports, edges, and labels.
+- Do not add visible-node display-object pooling in this phase.
+- Do not add edge culling in this phase.
+- Do not change graph data ownership, node ordering, selection semantics, z-order, pointer capture behavior, label LOD thresholds, or React state.
+- Do not add polling; index updates must be driven by node lifecycle and drag mutations.
+
+Implementation decisions:
+
+- Add a focused helper module, for example `pixi-workspace-spatial-index.js`.
+- Prefer a proven R-tree implementation such as `rbush` for the node bounds index. If adding it as a dependency, pin the direct dependency exactly, update the lockfile through `./update_dependencies.sh`, and run `./scripts/check_supply_chain.sh`.
+- Keep the helper API small and explicit:
+
+```ts
+type IndexedNodeBounds = {
+  id: string;
+  maxX: number;
+  maxY: number;
+  minX: number;
+  minY: number;
+  order: number;
+};
+
+function createNodeSpatialIndex(nodes: NodeFixture[]): NodeSpatialIndex;
+
+type NodeSpatialIndex = {
+  count(): number;
+  rebuild(nodes: NodeFixture[]): void;
+  search(bounds: RectangleLike): NodeFixture[];
+  searchIds(bounds: RectangleLike): Set<string>;
+  pick(point: { x: number; y: number }): NodeFixture | null;
+  update(node: NodeFixture): void;
+};
+```
+
+- Store node ID and current node order in each indexed item.
+- Treat the index as broad-phase only. Every query result must still pass the existing exact geometry check:
+  - point-in-node-rectangle for node hit testing
+  - `rectanglesIntersect(...)` for marquee and viewport filtering
+  - screen-space distance checks for port hit testing
+- Preserve z-order for node hit testing by selecting the highest current node order from exact-matching candidates.
+- Preserve fixture order for marquee selection by filtering the canonical `nodes` array against the candidate ID set.
+- For port hit testing, query nodes whose bounds intersect a world-space point rectangle inflated by `portHitRadiusScreen / viewport.scaled`, then keep the existing exact per-port distance check.
+- For label visibility, query nodes intersecting the current viewport world bounds and pass a visible-node ID set into the label visibility helper. Keep selected-node overrides exact and deterministic.
+- Reinsert dragged nodes in the index as their world bounds change. Update the index after mutating each dragged node's `x` and `y`, before label visibility, hit testing, or edge redraw depends on the new bounds.
+- Rebuild the index only on renderer initialization and future node add/remove lifecycle events. The current fixture has no add/remove path, so drag updates should be the only non-initial mutations.
+- Fail loudly if an index update targets an unknown node ID.
+
+Implementation tasks:
+
+- Add focused unit tests for the spatial-index helper:
+  - build returns all nodes for a full-bounds query
+  - search returns the same node IDs as a naive `nodeBounds` scan for deterministic fixture queries
+  - point picking preserves topmost node order when bounds overlap
+  - update removes stale bounds and inserts new bounds after a node moves
+  - unknown-node update fails specifically
+- Wire the index into renderer initialization after the mutable fixture node copies are created.
+- Replace `hitTestNodeAtScreen(screen)` with index-backed broad-phase candidate lookup plus exact point filtering.
+- Replace marquee candidate discovery with index-backed bounds lookup plus exact intersection filtering.
+- Replace label visibility viewport candidate discovery with an index-backed visible-node ID set.
+- Replace the port hit-test outer node scan with index-backed node candidate lookup while preserving exact per-port distance and role filtering.
+- Update the node-drag path to reinsert dragged nodes in the index after each world-position mutation.
+- Add renderer debug snapshot fields:
+
+```ts
+render: {
+  spatialIndexCandidateCount: number;
+  spatialIndexNodeCount: number;
+  spatialIndexQueryCount: number;
+  spatialIndexRebuildCount: number;
+  spatialIndexUpdateCount: number;
+  lastLabelVisibilityCandidateCount: number;
+  lastMarqueeCandidateCount: number;
+  lastNodeHitCandidateCount: number;
+  lastPortHitCandidateCount: number;
+};
+```
+
+- Increment `spatialIndexQueryCount` once per index-backed query.
+- Track candidate counts before exact filtering so the smoke output can show broad-phase behavior.
+- Keep candidate counts non-negative and no larger than node count for current node queries.
+- Keep existing node hit, marquee, selection, edge drawing, label visibility, and group-drag behavior unchanged.
+- Add a deterministic large synthetic index test with enough generated nodes to exercise query reduction. Do not use timing as the only assertion; assert exact IDs against a naive scan and record query/candidate metrics for the performance report.
+
+Expected result:
+
+- Renderer query paths have a reusable broad-phase node index.
+- Hit testing, marquee selection, label visibility, and port hit-test broad-phase can scale with candidate set size instead of always scanning every node.
+- Node drag keeps the index up to date without polling or rebuilding the full index.
+- The debug snapshot exposes enough counters to catch accidental O(number of nodes) query regressions.
+
+## Phase 7: Visible Object Pools and Edge Culling
+
+Status: Future.
+
+Use the Phase 6 spatial index as the foundation for display-object virtualization and edge culling once the prototype needs larger graphs.
+
+Implementation tasks:
+
+- Pool visible node containers instead of assuming one Pixi node container per graph node.
+- Pool visible port visuals with their parent node views.
+- Pool visible normal labels while preserving selected-label overrides.
+- Add an edge bounds index or endpoint-driven edge visibility policy.
+- Cull edge adornments, labels, arrowheads, and handles according to zoom LOD.
+- Keep graph state separate from Pixi display objects.
+- Preserve deterministic hit testing and selection while views enter and leave the visible pool.
+
+Expected result:
+
+- Large graph rendering cost depends on visible and important graph elements, not total graph size.
+
+## Phase 8: Optional Custom Mesh or Shader Rendering
 
 Do not implement this until profiling shows Pixi graphics are the bottleneck.
 
@@ -478,14 +676,18 @@ Use this only if:
 
 ## Verification
 
-For Phase 5 specifically, baseline before implementation and append the result to `docs/reports/performance/pixi-workspace-visual-smoke.md`:
+Phase 5 before/after metrics are recorded in `docs/reports/performance/pixi-workspace-visual-smoke.md` under "Node Geometry Cleanup Update".
+
+Phase 5.5 does not need a new performance baseline, but it does need visual smoke coverage and manual screenshot inspection of low-zoom selected labels.
+
+For Phase 6 specifically, baseline before implementation and append the result to `docs/reports/performance/pixi-workspace-visual-smoke.md`:
 
 ```sh
 pnpm -C desktop build
 ./scripts/test_pixi_workspace_visual.sh --skip-build --keep-artifacts
 ```
 
-After Phase 5 implementation, rerun the same visual smoke workflow and append a before/after "Node Geometry Cleanup Update" section under `docs/reports/performance/`. Include artifact paths, frame timing metrics, geometry debug counters, and any visible sharpness observations.
+After Phase 6 implementation, rerun the same visual smoke workflow and append a before/after "Spatial Index Broad-Phase Update" section under `docs/reports/performance/`. Include artifact paths, frame timing metrics, spatial index debug counters, candidate counts, and any behavior notes from hit testing, marquee selection, port targeting, and label visibility.
 
 Focused checks during implementation:
 
@@ -503,6 +705,12 @@ After source/test/doc edits are stable:
 ./check_quality.sh --all
 ```
 
+If Phase 6 adds a dependency such as `rbush`, run:
+
+```sh
+./scripts/check_supply_chain.sh
+```
+
 Extend the Pixi visual smoke workflow to cover:
 
 - Deep zoom on node labels.
@@ -518,6 +726,14 @@ Extend the Pixi visual smoke workflow to cover:
 - After Phase 5, node body, shadow, outline, and grid geometry counters are present in the debug snapshot.
 - After Phase 5, node geometry context counts and `gridDrawCount` remain stable across camera pan, wheel pan, wheel zoom, node drag, and deep zoom.
 - After Phase 5, selection and hover update outline visibility without changing node body, shadow, or grid geometry counters.
+- After Phase 5.5, low zoom selected labels remain visible with `fontSizeMode: "compact-selected"` and compact font size.
+- After Phase 5.5, normal and deep zoom labels keep `fontSizeMode: "normal"` and the normal label font size.
+- After Phase 5.5, label local/world scale remains `1`; font-size buckets must not become viewport scaling.
+- After Phase 6, spatial index counters are present in the debug snapshot.
+- After Phase 6, `spatialIndexNodeCount` matches `graph.nodeCount`.
+- After Phase 6, node hit testing, marquee selection, port targeting, label visibility, and group drag advance the relevant spatial query/update counters.
+- After Phase 6, node drag updates the index and subsequent hit testing uses the moved bounds.
+- After Phase 6, deterministic large synthetic index tests match naive scan results while showing reduced candidate sets for localized queries.
 - React render count remains stable during label sync.
 - Existing pan, zoom, selection, marquee, group drag, and edge drawing flows still pass.
 
@@ -528,8 +744,10 @@ Manual verification:
 - Verify labels do not jitter objectionably when panning slowly.
 - Verify labels remain aligned with node centers after group drag.
 - Verify label LOD changes do not create visible popping during ordinary zoom gestures beyond the intended mode thresholds.
+- Verify the low-zoom selected label is legible but does not visually dominate the selected node.
 - Verify node body strokes, selected/hover outlines, and grid hairlines remain visually acceptable at minimum, normal, and maximum zoom.
 - Verify node drag, selection, hover, and edge drawing still target the expected hit areas after body graphics are constructed from shared contexts.
+- Verify node click, marquee, port hover/targeting, edge cancellation, edge commit, and label visibility still behave correctly after the spatial index becomes the broad-phase query path.
 - Record before/after screenshots and metrics under `docs/reports/performance/`.
 
 ## Non-Goals
