@@ -13,7 +13,7 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 
 	appDataDir := t.TempDir()
 
-	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--auth-token", "test-token", "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv)
+	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -25,9 +25,6 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	}
 	if config.AppDataDir != appDataDir {
 		t.Fatalf("app data dir = %q, want %q", config.AppDataDir, appDataDir)
-	}
-	if config.AuthToken != "test-token" {
-		t.Fatalf("auth token = %q, want test-token", config.AuthToken)
 	}
 }
 
@@ -50,7 +47,7 @@ func TestConfigFromArgsUsesScriptedWorkflowHarnessEnvWithE2EGuard(t *testing.T) 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir(), "--auth-token", "test-token"}, &stdout, &stderr, func(name string) string {
+	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
 		if name == "SETTA_E2E" {
 			return "1"
 		}
@@ -71,7 +68,7 @@ func TestConfigFromArgsRejectsScriptedWorkflowHarnessWithoutE2EGuard(t *testing.
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir(), "--auth-token", "test-token"}, &stdout, &stderr, func(name string) string {
+	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
 		if name == "SETTA_E2E_CHAT_HARNESS" {
 			return string(runtime.ChatHarnessScriptedWorkflow)
 		}

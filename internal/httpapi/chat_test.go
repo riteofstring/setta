@@ -466,26 +466,12 @@ func TestChatEndpointsSubmitApproval(t *testing.T) {
 	}, http.StatusOK)
 
 	active := waitForActiveApproval(t, handler, opened.Workspace.ID, conversation.ID)
-	approvals := postJSON[ListApprovalsResponse](t, handler, "/chat/approvals/list", ListApprovalsRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-	}, http.StatusOK)
-	if len(approvals.Approvals) != 1 || approvals.Approvals[0].ID != active.Run.PendingApproval.ID {
-		t.Fatalf("approvals = %+v, want active pending approval", approvals.Approvals)
-	}
 	postJSON[chat.Run](t, handler, "/chat/approvals/submit", SubmitApprovalRequest{
 		WorkspaceID:    opened.Workspace.ID,
 		ConversationID: conversation.ID,
 		ApprovalID:     active.Run.PendingApproval.ID,
 		Approved:       true,
 	}, http.StatusOK)
-	emptyApprovals := postJSON[ListApprovalsResponse](t, handler, "/chat/approvals/list", ListApprovalsRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-	}, http.StatusOK)
-	if len(emptyApprovals.Approvals) != 0 {
-		t.Fatalf("approvals after submit = %+v, want empty", emptyApprovals.Approvals)
-	}
 
 	page := waitForAssistantStatus(t, handler, opened.Workspace.ID, conversation.ID, chat.MessageStatusComplete)
 	if page.Messages[1].Parts[0].Text != "done" {
@@ -505,7 +491,6 @@ func TestChatEventStreamStreamsServerSentEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create event stream request: %v", err)
 	}
-	authorizeTestRequest(request)
 	response, err := server.Client().Do(request)
 	if err != nil {
 		t.Fatalf("open event stream: %v", err)
@@ -575,7 +560,6 @@ func newChatHandlerWithAppDataDir(t *testing.T, events []chat.FakeHarnessEvent) 
 		t.Fatalf("new chat service: %v", err)
 	}
 	return NewHandler(HandlerConfig{
-		AuthToken:        testAuthToken,
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,

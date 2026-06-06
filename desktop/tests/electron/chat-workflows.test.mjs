@@ -194,7 +194,6 @@ async function runDeterministicWorkflowLaunch(results) {
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-      SETTA_E2E_REPO_ROOT: repoRoot,
     },
   });
   let failure = null;
@@ -681,7 +680,6 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
         ]);
 
         await clickButtonByText(context.client, fixture.secondWorkspace.displayName);
-        await waitForSelectedWorkspace(context.client, fixture.secondWorkspace.displayName);
         await waitForBackendState(
           async () => backend.get("/workspace-session"),
           (value) => value.selectedWorkspaceId === fixture.secondWorkspace.id,
@@ -693,8 +691,6 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
         );
 
         await clickButtonByText(context.client, fixture.firstWorkspace.displayName);
-        await waitForSelectedWorkspace(context.client, fixture.firstWorkspace.displayName);
-        await waitForNoSelectedConversation(context.client);
         await waitForBackendState(
           async () => backend.get("/workspace-session"),
           (value) => value.selectedWorkspaceId === fixture.firstWorkspace.id,
@@ -769,16 +765,6 @@ async function waitForSidebarConversationRow(client, text, { unread }) {
   );
 }
 
-async function waitForSelectedWorkspace(client, displayName) {
-  await waitForState(client, selectedWorkspaceRowsExpression(), (value) =>
-    value.rows.some((row) => row.text.includes(displayName) && row.current),
-  );
-}
-
-async function waitForNoSelectedConversation(client) {
-  await waitForState(client, chatDetailPaneExpression(), (value) => value.conversationId === "");
-}
-
 function conversationRowsExpression() {
   return `(() => ({
     rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map((row) => ({
@@ -788,22 +774,6 @@ function conversationRowsExpression() {
   }))()`;
 }
 
-function selectedWorkspaceRowsExpression() {
-  return `(() => ({
-    rows: Array.from(document.querySelectorAll('[data-testid="active-workspace-select"]')).map((row) => ({
-      current: row.getAttribute("aria-current") === "page",
-      text: row.innerText,
-    })),
-  }))()`;
-}
-
-function chatDetailPaneExpression() {
-  return `(() => {
-    const pane = document.querySelector('[data-testid="chat-detail-pane"]');
-    return { conversationId: pane?.getAttribute("data-conversation-id") ?? null };
-  })()`;
-}
-
 async function runCodexProtocolWorkflow(results) {
   const fixture = await createFixture("codex-protocol");
   const fakeCodex = await installFakeCodexAppServer(fixture);
@@ -811,7 +781,6 @@ async function runCodexProtocolWorkflow(results) {
   const context = await launchContext(fixture, recordingDir, {
     extraEnv: {
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
-      SETTA_E2E_REPO_ROOT: repoRoot,
     },
     harness: "codex",
   });
@@ -838,19 +807,6 @@ async function runCodexProtocolWorkflow(results) {
     ]);
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
-
-    const cliConversationId = await createChat(context.client, backend, workspaceId);
-    await submitComposer(context.client, "setta cli env workflow", "Send message");
-    const cliRun = await waitForRunWithPrompt(
-      backend,
-      workspaceId,
-      cliConversationId,
-      "setta cli env workflow",
-      "completed",
-    );
-    await waitForTexts(context.client, ["setta cli implicit connection ok"]);
-    await assertAssistantCompleted(backend, workspaceId, cliConversationId, cliRun.id);
-    await assertNoCriticalDiagnostics(backend, workspaceId, cliConversationId);
 
     const exitConversationId = await createChat(context.client, backend, workspaceId);
     await submitComposer(context.client, "app-server exit workflow", "Send message");

@@ -66,7 +66,6 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 	flagSet.StringVar(&config.AppDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
-	flagSet.StringVar(&config.AuthToken, "auth-token", envOrDefault(getenv, "SETTA_BACKEND_TOKEN", config.AuthToken), "backend bearer token")
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
@@ -80,7 +79,7 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	if err := flagSet.Parse(args); err != nil {
 		return config, err
 	}
-	if err := runtime.ValidateConfig(config); err != nil {
+	if err := config.Validate(); err != nil {
 		return config, fmt.Errorf("invalid configuration: %w", err)
 	}
 	return config, nil

@@ -49,7 +49,6 @@ async function prepareBackend(appDataDir: string) {
       url: backend.url,
     });
     recorder?.recordAppEvent("backend_started", {
-      appDataDir,
       mode: backend.mode,
       url: backend.url,
     });
@@ -84,7 +83,6 @@ function startChatEventStream() {
   }
   void stopChatEventStream();
   backendEventStream = startBackendEventStream({
-    authToken: backend.token,
     baseURL: backend.url,
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     observer: {
@@ -589,10 +587,7 @@ function requireBackendClient(): BackendClient {
   if (!backend) {
     throw new Error(backendStartupError ?? "backend is not running");
   }
-  return createBackendClient(backend.url, {
-    authToken: backend.token,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
-  });
+  return createBackendClient(backend.url, recorder?.createBackendFetch(fetch) ?? fetch);
 }
 
 async function readEditorIconDataURL(iconPath: string, appPath: string) {

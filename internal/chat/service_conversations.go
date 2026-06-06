@@ -9,15 +9,12 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return ConversationListResult{}, err
 	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
 	conversations, corruptConversations, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
-		service.recordCorruptStateDiagnosticLocked(err, workspaceID, "", "")
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
 		return ConversationListResult{}, err
 	}
-	runs, corruptRuns, err := service.validRunsForWorkspaceListLocked(workspaceID)
+	runs, corruptRuns, err := service.validRunsForWorkspaceList(workspaceID)
 	if err != nil {
 		return ConversationListResult{}, err
 	}
@@ -27,13 +24,13 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 	for _, conversation := range conversations {
 		count, corruptMessages, err := service.store.MessageCountAllowingCorrupt(workspaceID, conversation.ID)
 		if err != nil {
-			service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversation.ID, "")
+			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
 			return ConversationListResult{}, err
 		}
 		findings = append(findings, corruptMessages...)
 		readState, err := service.store.LoadConversationReadState(workspaceID, conversation.ID)
 		if err != nil {
-			service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversation.ID, "")
+			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
 			return ConversationListResult{}, err
 		}
 		items = append(items, ConversationListItem{
@@ -44,7 +41,7 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 			LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
 		})
 	}
-	diagnostics := service.recordCorruptStateFindingsLocked(findings)
+	diagnostics := service.recordCorruptStateFindings(findings)
 	return ConversationListResult{
 		Conversations: items,
 		Corruption:    corruptionSummary(findings),

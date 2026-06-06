@@ -6,23 +6,15 @@ import (
 	"sync"
 
 	"setta/internal/codexapp"
-	"setta/internal/workspace"
 )
 
 type CodexHarnessConfig struct {
 	Command             string
 	Args                []string
 	Env                 []string
-	SessionEnv          func(CodexSessionEnvContext) []string
 	Manager             *codexapp.Manager
 	Tools               *AgentToolRegistry
 	AttestationProvider AttestationProvider
-}
-
-type CodexSessionEnvContext struct {
-	Workspace    workspace.WorkspaceSummary
-	Conversation Conversation
-	Run          *Run
 }
 
 type CodexHarness struct {
@@ -77,7 +69,7 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 		config.Args = []string{"app-server", "--listen", "stdio://"}
 	}
 	manager := config.Manager
-	if manager == nil && config.SessionEnv == nil {
+	if manager == nil {
 		manager = codexapp.NewManager(codexapp.ManagerConfig{
 			Process: codexapp.ProcessConfig{
 				Command: config.Command,
@@ -103,13 +95,13 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	harness.turnMu.Lock()
 	defer harness.turnMu.Unlock()
 
-	session, cleanup, err := harness.newTurnSession(ctx, request)
+	session, err := harness.manager.NewSession(ctx)
 	if err != nil {
 		return TurnCompletion{}, err
 	}
-	defer cleanup()
 	session.AcceptUnscopedNotifications()
 	session.AcceptUnscopedRequests()
+	defer session.Close()
 	harness.registerActive(request.Run.ID, session)
 	defer harness.unregisterActive(request.Run.ID)
 
@@ -129,59 +121,6 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 		return TurnCompletion{}, err
 	}
 	return harness.waitForTurn(ctx, session, request.Run.ID, threadID, turnID, sink)
-}
-
-func (harness *CodexHarness) newTurnSession(ctx context.Context, request TurnRequest) (*codexapp.Session, func(), error) {
-	run := request.Run
-	return harness.newSession(ctx, harness.sessionEnv(CodexSessionEnvContext{
-		Workspace:    request.Workspace,
-		Conversation: request.Conversation,
-		Run:          &run,
-	}))
-}
-
-func (harness *CodexHarness) newCommandSession(ctx context.Context, request HarnessCommandRequest) (*codexapp.Session, func(), error) {
-	return harness.newSession(ctx, harness.sessionEnv(CodexSessionEnvContext{
-		Workspace:    request.Workspace,
-		Conversation: request.Conversation,
-		Run:          request.ActiveRun,
-	}))
-}
-
-func (harness *CodexHarness) newSession(ctx context.Context, env []string) (*codexapp.Session, func(), error) {
-	if harness.manager != nil {
-		session, err := harness.manager.NewSession(ctx)
-		if err != nil {
-			return nil, func() {}, err
-		}
-		return session, session.Close, nil
-	}
-	manager := codexapp.NewManager(codexapp.ManagerConfig{
-		Process: codexapp.ProcessConfig{
-			Command: harness.config.Command,
-			Args:    harness.config.Args,
-			Env:     env,
-		},
-		InitializeParams: CodexInitializeParams(harness.config),
-	})
-	session, err := manager.NewSession(ctx)
-	if err != nil {
-		_ = manager.Shutdown(context.Background())
-		return nil, func() {}, err
-	}
-	cleanup := func() {
-		session.Close()
-		_ = manager.Shutdown(context.Background())
-	}
-	return session, cleanup, nil
-}
-
-func (harness *CodexHarness) sessionEnv(envContext CodexSessionEnvContext) []string {
-	env := append([]string{}, harness.config.Env...)
-	if harness.config.SessionEnv != nil {
-		env = append(env, harness.config.SessionEnv(envContext)...)
-	}
-	return env
 }
 
 func (harness *CodexHarness) waitForTurn(ctx context.Context, session *codexapp.Session, runID string, threadID string, turnID string, sink TurnSink) (TurnCompletion, error) {

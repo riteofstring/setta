@@ -477,11 +477,6 @@ if [[ ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then
   fi
 fi
 
-if [[ "${mode}" == "all" && -x "${repo_root}/scripts/test_setta_cli_workflows.sh" ]]; then
-  echo "Setta CLI workflow integration checks..."
-  "${repo_root}/scripts/test_setta_cli_workflows.sh" || status=1
-fi
-
 if [[ ${#format_projects[@]} -gt 0 ]]; then
   if ! command -v pnpm >/dev/null 2>&1; then
     echo "pnpm is required for project formatting checks." >&2

@@ -84,8 +84,7 @@ async function assertRunActivityItem(page, type, matches) {
 }
 
 function fakeCodexAppServerScript() {
-  return `import { execFile } from "node:child_process";
-import readline from "node:readline";
+  return `import readline from "node:readline";
 
 const threadId = "thread_fake";
 const turnId = "turn_fake";
@@ -142,10 +141,6 @@ function handleMessage(message) {
       respond(message.id, { turn: { id: turnId } });
       if (turnInputText(message).includes("app-server exit workflow")) {
         setTimeout(() => process.exit(42), 5);
-        return;
-      }
-      if (turnInputText(message).includes("setta cli env workflow")) {
-        setTimeout(emitSettaCLIEnvTurn, 5);
         return;
       }
       setTimeout(emitProtocolCoverageTurn, 5);
@@ -307,75 +302,6 @@ function emitProtocolCoverageTurn() {
   notify("turn/completed", {
     threadId,
     turn: { id: turnId, items: [], status: "completed" },
-  });
-}
-
-function emitSettaCLIEnvTurn() {
-  const repoRoot = process.env.SETTA_E2E_REPO_ROOT;
-  if (!repoRoot) {
-    emitSettaCLIEnvFailure("SETTA_E2E_REPO_ROOT was not set");
-    return;
-  }
-  execFile(
-    repoRoot + "/scripts/go.sh",
-    ["run", "./cmd/setta", "backend", "connection", "--json"],
-    {
-      cwd: repoRoot,
-      env: process.env,
-      timeout: 30000,
-    },
-    (error, stdout, stderr) => {
-      if (error) {
-        emitSettaCLIEnvFailure(String(error.message ?? error) + "\\n" + stderr);
-        return;
-      }
-      let parsed;
-      try {
-        parsed = JSON.parse(stdout);
-      } catch (parseError) {
-        emitSettaCLIEnvFailure("failed to parse setta CLI output: " + stdout + "\\n" + parseError);
-        return;
-      }
-      const connection = parsed.data;
-      if (!connection?.authenticated || connection?.source !== "environment" || "token" in connection) {
-        emitSettaCLIEnvFailure("unexpected setta CLI connection output: " + stdout);
-        return;
-      }
-      notify("item/agentMessage/delta", {
-        delta:
-          "setta cli implicit connection ok " +
-          process.env.SETTA_WORKSPACE_ID +
-          " " +
-          process.env.SETTA_CONVERSATION_ID +
-          " " +
-          process.env.SETTA_RUN_ID,
-        itemId: "setta_cli_message_fake",
-        threadId,
-        turnId,
-      });
-      notify("turn/completed", {
-        threadId,
-        turn: { id: turnId, items: [], status: "completed" },
-      });
-    },
-  );
-}
-
-function emitSettaCLIEnvFailure(message) {
-  notify("item/agentMessage/delta", {
-    delta: "setta cli implicit connection failed: " + message,
-    itemId: "setta_cli_message_fake",
-    threadId,
-    turnId,
-  });
-  notify("turn/completed", {
-    threadId,
-    turn: {
-      error: { message },
-      id: turnId,
-      items: [],
-      status: "failed",
-    },
   });
 }
 

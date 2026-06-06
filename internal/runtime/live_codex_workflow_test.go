@@ -160,7 +160,6 @@ func getRuntimeJSON[T any](t *testing.T, client *http.Client, baseURL string, pa
 	if err != nil {
 		t.Fatalf("create GET %s: %v", path, err)
 	}
-	authorizeRuntimeRequest(request)
 	return doRuntimeJSON[T](t, client, request, http.StatusOK)
 }
 
@@ -176,7 +175,6 @@ func postRuntimeJSON[T any](t *testing.T, client *http.Client, baseURL string, p
 		t.Fatalf("create POST %s: %v", path, err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	authorizeRuntimeRequest(request)
 	return doRuntimeJSON[T](t, client, request, wantStatus)
 }
 
@@ -212,16 +210,11 @@ func cancelRuntimeActiveRunBestEffort(client *http.Client, baseURL string, works
 		return
 	}
 	request.Header.Set("Content-Type", "application/json")
-	authorizeRuntimeRequest(request)
 	response, err := client.Do(request)
 	if err != nil {
 		return
 	}
 	_ = response.Body.Close()
-}
-
-func authorizeRuntimeRequest(request *http.Request) {
-	request.Header.Set("Authorization", "Bearer "+testAuthToken)
 }
 
 func runtimeMessageText(message chat.ChatMessage) string {
