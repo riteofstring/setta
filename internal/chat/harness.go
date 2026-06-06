@@ -97,5 +97,6 @@ type TurnSink interface {
 	RunItemOutputDelta(providerItemID string, stream string, text string) error
 	RunItemUpsert(item RunItem) error
 	ThreadLinked(threadID string, sessionID string, turnID string) error
+	UserMessageCommitted(text string) error
 	Trace(eventType string, message string) error
 }

@@ -32,6 +32,8 @@ describe("chat store", () => {
   beforeEach(() => {
     useChatStore.setState({
       activeRun: null,
+      conversationDetailsById: {},
+      conversationListsByWorkspaceId: {},
       conversations: [],
       corruption: emptyCorruption(),
       diagnostics: [],
@@ -39,6 +41,7 @@ describe("chat store", () => {
       hasMoreOlder: false,
       lastEventSequence: 0,
       lastEventStreamId: "",
+      editingQueuedMessageId: null,
       messageIds: [],
       messages: [],
       messagesById: {},
@@ -52,12 +55,14 @@ describe("chat store", () => {
       runItems: [],
       runItemIdsByRunId: {},
       runItemsById: {},
+      removingQueuedMessageId: null,
       selectedConversation: null,
       status: "idle",
       transcript: [],
       workspaceId: null,
     });
   });
+
   test("loads conversation metadata separately from the latest message page", async () => {
     const conversation = testConversation();
     const listConversations = vi
@@ -82,6 +87,7 @@ describe("chat store", () => {
     expect(listConversations).toHaveBeenCalledWith("workspace_api");
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
+
   test("creates a new conversation when the historical list reports corruption", async () => {
     const conversation = testConversation();
     const createConversation = vi.fn().mockResolvedValue(conversation);
@@ -108,70 +114,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().error).toBeNull();
     expect(useChatStore.getState().status).toBe("ready");
   });
-  test("deletes the selected conversation and selects the next visible chat", async () => {
-    const selected = { ...testConversation(), id: "conversation_selected", title: "Selected" };
-    const remaining = { ...testConversation(), id: "conversation_remaining", title: "Remaining" };
-    const deleteConversation = vi
-      .fn()
-      .mockResolvedValue(listResponse([conversationItem(remaining, 0)]));
-    const messagePage = vi.fn().mockResolvedValue(testPage(remaining, []));
-    installSettaAPI({ chat: { deleteConversation, messagePage } });
-    useChatStore.setState({
-      conversations: [conversationItem(selected, 0), conversationItem(remaining, 0)],
-      messages: [message("message_selected", 1, "user", "complete", "selected")],
-      selectedConversation: selected,
-      status: "ready",
-      workspaceId: "workspace_api",
-    });
 
-    await useChatStore.getState().deleteConversation(selected.id);
-
-    expect(deleteConversation).toHaveBeenCalledWith("workspace_api", selected.id);
-    expect(messagePage).toHaveBeenCalledWith("workspace_api", remaining.id, 0, 40);
-    expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
-      remaining.id,
-    ]);
-    expect(useChatStore.getState().selectedConversation?.id).toBe(remaining.id);
-    expect(useChatStore.getState().status).toBe("ready");
-  });
-  test("updates a user message in messages and transcript", async () => {
-    const conversation = testConversation();
-    const original = message("message_user", 1, "user", "complete", "before edit");
-    const updated = {
-      ...original,
-      parts: [{ ...original.parts[0], text: "after edit" }],
-      updatedAt: "2026-05-29T20:01:00Z",
-    };
-    const updateUserMessage = vi.fn().mockResolvedValue(updated);
-    installSettaAPI({ chat: { updateUserMessage } });
-    useChatStore.setState({
-      conversations: [conversationItem(conversation, 1)],
-      messages: [original],
-      selectedConversation: conversation,
-      status: "ready",
-      transcript: [
-        {
-          assistantMessage: null,
-          run: testRun("completed"),
-          steeringMessages: [],
-          triggerMessage: original,
-        },
-      ],
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().updateUserMessage(original.id, "after edit");
-
-    expect(updateUserMessage).toHaveBeenCalledWith(
-      "workspace_api",
-      conversation.id,
-      original.id,
-      "after edit",
-    );
-    expect(useChatStore.getState().messagesById[original.id]?.parts[0]?.text).toBe("after edit");
-    expect(useChatStore.getState().transcript[0]?.triggerMessage.parts[0]?.text).toBe("after edit");
-    expect(useChatStore.getState().status).toBe("ready");
-  });
   test("prepends older message pages without replacing the latest page", async () => {
     const conversation = testConversation();
     installSettaAPI({
@@ -200,6 +143,7 @@ describe("chat store", () => {
     ]);
     expect(useChatStore.getState().hasMoreOlder).toBe(false);
   });
+
   test("older message pages merge with current messages when the request finishes", async () => {
     const conversation = testConversation();
     const olderPage = deferred<MessagePage>();
@@ -232,6 +176,7 @@ describe("chat store", () => {
     ]);
     expect(useChatStore.getState().messages[1]).toBe(refreshedLatest);
   });
+
   test("send message updates from the backend page and active run", async () => {
     const conversation = testConversation();
     const run = testRun("running");
@@ -264,6 +209,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().messages).toHaveLength(2);
     expect(useChatStore.getState().operation).toBeNull();
   });
+
   test("queue message updates from the backend page", async () => {
     const conversation = testConversation();
     const queued = message("message_queued", 1, "user", "pending", "queued", "queued");
@@ -286,6 +232,7 @@ describe("chat store", () => {
     expect(queueMessage).toHaveBeenCalledWith("workspace_api", "conversation_api", "queued");
     expect(useChatStore.getState().messages[0]?.delivery).toBe("queued");
   });
+
   test("queue message response ignores a captured active run that completed before the response", async () => {
     const conversation = testConversation();
     const activeRun = testRun("running", "run_active");
@@ -345,6 +292,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().activeRun).toBeNull();
     expect(useChatStore.getState().queuedRuns.map((run) => run.id)).toEqual(["run_queued"]);
   });
+
   test("steer message updates from the backend page", async () => {
     const conversation = testConversation();
     const steering = message("message_steer", 3, "user", "complete", "steer", "steering");
@@ -369,6 +317,7 @@ describe("chat store", () => {
       true,
     );
   });
+
   test("operation responses do not resurrect terminal run events", async () => {
     const conversation = testConversation();
     const steerResponse = deferred<Awaited<ReturnType<SettaAPI["chat"]["steerMessage"]>>>();
@@ -412,6 +361,7 @@ describe("chat store", () => {
     ).toBe("error");
     expect(useChatStore.getState().transcript[0]?.run.status).toBe("failed");
   });
+
   test("execute command response ignores a captured active run that completed before the response", async () => {
     const conversation = testConversation();
     const activeRun = testRun("running", "run_active");
@@ -479,6 +429,7 @@ describe("chat store", () => {
     ).toBe("complete");
     expect(useChatStore.getState().transcript[0]?.run.status).toBe("completed");
   });
+
   test("execute command preserves error state for caller handling", async () => {
     const conversation = testConversation();
     const executeCommand = vi.fn().mockRejectedValue(new Error("unknown slash command: /wat"));
@@ -494,6 +445,7 @@ describe("chat store", () => {
     );
     expect(useChatStore.getState().error).toBe("unknown slash command: /wat");
   });
+
   test("submit approval passes the decision to the preload API", async () => {
     const submitApproval = vi.fn().mockResolvedValue(testRun("running"));
     installSettaAPI({ chat: { submitApproval } });
@@ -515,6 +467,33 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
   });
+
+  test("marks the selected conversation read with the backend summary", async () => {
+    const conversation = testConversation();
+    const readConversation = { ...conversation, updatedAt: "2026-05-29T20:00:01Z" };
+    const markConversationRead = vi
+      .fn()
+      .mockResolvedValue(
+        conversationItem(readConversation, 2, "", { latestReadRelevantMarker: 3, readMarker: 3 }),
+      );
+    installSettaAPI({ chat: { markConversationRead } });
+    useChatStore.setState({
+      conversations: [
+        conversationItem(conversation, 2, "", { latestReadRelevantMarker: 3, readMarker: 1 }),
+      ],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().markConversationRead(conversation.id);
+
+    expect(markConversationRead).toHaveBeenCalledWith("workspace_api", conversation.id);
+    expect(useChatStore.getState().conversations[0]?.readMarker).toBe(3);
+    expect(useChatStore.getState().conversations[0]?.latestReadRelevantMarker).toBe(3);
+    expect(useChatStore.getState().selectedConversation?.updatedAt).toBe("2026-05-29T20:00:01Z");
+  });
+
   test("prepends older pages without duplicating messages already visible", () => {
     const currentLatest = message("message_latest", 2, "assistant", "streaming", "latest");
     const staleLatest = replaceMessageText(currentLatest, "stale latest");
@@ -527,6 +506,7 @@ describe("chat store", () => {
     expect(merged.map((item) => item.id)).toEqual(["message_old", "message_latest"]);
     expect(merged[1]).toBe(currentLatest);
   });
+
   test("applies pushed chat events to the active conversation", () => {
     const conversation = testConversation();
     const user = message("message_user", 1, "user", "complete", "hello");
@@ -564,6 +544,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().selectedConversation?.title).toBe("Updated chat");
     expect(useChatStore.getState().conversations[0]?.messageCount).toBe(2);
   });
+
   test("queued run events do not replace the active running run", () => {
     const conversation = testConversation();
     const activeRun = testRun("running");
@@ -584,6 +565,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().activeRun?.id).toBe(activeRun.id);
     expect(useChatStore.getState().activeRun?.status).toBe("running");
   });
+
   test("applies run activity events incrementally", () => {
     const conversation = testConversation();
     const item = runItem("run_item_command", "command_execution", "running");
@@ -605,6 +587,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().runItemIdsByRunId.run_api).toEqual([completed.id]);
     expect(useChatStore.getState().runItemOutputIdsByRunItemId[completed.id]).toEqual([output.id]);
   });
+
   test("lazy-loads run activity without dropping embedded output", async () => {
     const item = runItem("run_item_command", "command_execution", "running");
     const completed: RunItem = { ...item, status: "completed" };
@@ -628,6 +611,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().runItems).toEqual([completed]);
     expect(useChatStore.getState().runItemOutputs).toEqual([firstOutput, secondOutput]);
   });
+
   test("lazy-loads run item output for only the expanded row", async () => {
     const itemA = runItem("run_item_a", "command_execution", "completed");
     const itemB = runItem("run_item_b", "command_execution", "completed");
@@ -652,6 +636,7 @@ describe("chat store", () => {
     expect(runItemOutputPage).toHaveBeenCalledWith("workspace_api", "run_api", itemB.id, 0, 200);
     expect(useChatStore.getState().runItemOutputs).toEqual([outputA, outputB]);
   });
+
   test("tracks run item output pagination per item", async () => {
     const itemA = runItem("run_item_a", "command_execution", "completed");
     const itemB = runItem("run_item_b", "command_execution", "completed");
@@ -714,6 +699,7 @@ describe("chat store", () => {
       loadedThroughOrdinal: 1,
     });
   });
+
   test("ignores pushed message events for unrelated conversations", () => {
     const conversation = testConversation();
     useChatStore.setState({
@@ -735,6 +721,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_existing"]);
     expect(useChatStore.getState().lastEventSequence).toBe(1);
   });
+
   test("records pushed critical diagnostics for the active workspace", () => {
     useChatStore.setState({ workspaceId: "workspace_api" });
 
@@ -747,6 +734,7 @@ describe("chat store", () => {
       }),
     ]);
   });
+
   test("resync-required events reload the selected snapshot", async () => {
     const conversation = testConversation();
     const listConversations = vi
@@ -770,6 +758,7 @@ describe("chat store", () => {
     expect(listConversations).toHaveBeenCalledWith("workspace_api");
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
+
   test("resync-required events bypass sequence filtering after stream restart", async () => {
     const conversation = testConversation();
     const listConversations = vi
@@ -808,6 +797,7 @@ describe("chat store", () => {
 interface SettaAPIOverrides {
   chat?: Partial<SettaAPI["chat"]>;
 }
+
 function emptyCorruption() {
   return {
     byKind: [],
@@ -816,6 +806,7 @@ function emptyCorruption() {
     total: 0,
   };
 }
+
 function listResponse(
   conversations: ConversationListItem[],
   corruptTotal = 0,
@@ -836,6 +827,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
     app: {
+      flags: { pixiWorkspaceDebug: false, pixiWorkspacePrototype: false },
       installedEditors: async () => [],
       openWorkspaceInEditor: async () => {},
       openExternalUrl: async () => {},
@@ -862,22 +854,17 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       onEventStreamStatus: () => () => {},
       onProcessStatus: () => () => {},
     },
-    appearance: {
-      presets: async () => {
-        throw new Error("appearance presets are not used by chat store tests");
-      },
-      read: async () => {
-        throw new Error("appearance read is not used by chat store tests");
-      },
-      update: async () => {
-        throw new Error("appearance update is not used by chat store tests");
-      },
-    },
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
-      deleteConversation: async () => listResponse([]),
+      editQueuedMessage: async () => ({
+        conversation,
+        page: testPage(conversation, []),
+        queue: { messages: [], runs: [] },
+        run: testRun("queued"),
+        userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
+      }),
       executeCommand: async () => ({
         conversation,
         message: null,
@@ -942,6 +929,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         ],
       }),
       listConversations: async () => listResponse([]),
+      markConversationRead: async () => conversationItem(conversation, 0),
       messagePage: async () => testPage(conversation, []),
       onEvent: () => () => {},
       queueMessage: async () => ({
@@ -963,6 +951,13 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         runId: "run_api",
         runItemId: "run_item_api",
       }),
+      removeQueuedMessage: async () => ({
+        conversation,
+        page: testPage(conversation, []),
+        queue: { messages: [], runs: [] },
+        removedMessageId: "message_queued",
+        removedRunId: "run_queued",
+      }),
       sendMessage: async () => ({
         assistantMessage: message("message_assistant", 2, "assistant", "complete", "done"),
         conversation,
@@ -976,9 +971,15 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("running"),
         userMessage: message("message_steer", 3, "user", "complete", "steer", "steering"),
       }),
+      sendSteeringImmediately: async () => ({
+        activeRun: testRun("running"),
+        cancelledRun: testRun("cancelled"),
+        conversation,
+        page: testPage(conversation, []),
+        queue: { messages: [], runs: [] },
+        replayedSteeringMessageIds: [],
+      }),
       submitApproval: async () => testRun("running"),
-      updateUserMessage: async () =>
-        message("message_user", 1, "user", "complete", "updated message"),
       ...overrides.chat,
     },
     codexAccount: {
@@ -1005,6 +1006,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         session: workspaceSession(),
         workspace: workspaceSummary(),
       }),
+      openPath: async () => ({
+        session: workspaceSession(),
+        workspace: workspaceSummary(),
+      }),
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
       select: async () => workspaceSession(),
@@ -1019,6 +1024,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     },
   });
 }
+
 function messageCreatedEvent(
   sequence: number,
   chatMessage: ChatMessage,
@@ -1040,6 +1046,7 @@ function messageCreatedEvent(
     workspaceId: "workspace_api",
   };
 }
+
 function assistantDeltaEvent(
   sequence: number,
   messageId: string,
@@ -1065,6 +1072,7 @@ function assistantDeltaEvent(
     workspaceId: "workspace_api",
   };
 }
+
 function runUpdatedEvent(sequence: number, run: Run, streamId = eventStreamId): ChatEvent {
   return {
     conversationId: run.conversationId,
@@ -1079,6 +1087,7 @@ function runUpdatedEvent(sequence: number, run: Run, streamId = eventStreamId): 
     workspaceId: run.workspaceId,
   };
 }
+
 function runItemCreatedEvent(sequence: number, item: RunItem, streamId = eventStreamId): ChatEvent {
   return {
     conversationId: item.conversationId,
@@ -1093,6 +1102,7 @@ function runItemCreatedEvent(sequence: number, item: RunItem, streamId = eventSt
     workspaceId: item.workspaceId,
   };
 }
+
 function runItemUpdatedEvent(sequence: number, item: RunItem, streamId = eventStreamId): ChatEvent {
   return {
     conversationId: item.conversationId,
@@ -1107,6 +1117,7 @@ function runItemUpdatedEvent(sequence: number, item: RunItem, streamId = eventSt
     workspaceId: item.workspaceId,
   };
 }
+
 function runItemOutputDeltaEvent(
   sequence: number,
   output: RunItemOutput,
@@ -1125,6 +1136,7 @@ function runItemOutputDeltaEvent(
     workspaceId: "workspace_api",
   };
 }
+
 function conversationUpdatedEvent(
   sequence: number,
   item: ConversationListItem,
@@ -1143,6 +1155,7 @@ function conversationUpdatedEvent(
     workspaceId: item.conversation.workspaceId,
   };
 }
+
 function diagnosticCreatedEvent(sequence: number, streamId = eventStreamId): ChatEvent {
   return {
     conversationId: "conversation_api",
@@ -1171,6 +1184,7 @@ function diagnosticCreatedEvent(sequence: number, streamId = eventStreamId): Cha
     workspaceId: "workspace_api",
   };
 }
+
 function resyncRequiredEvent(
   sequence: number,
   options: {
@@ -1212,6 +1226,7 @@ async function waitFor(done: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
+
 function testConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     archivedAt: "",
@@ -1226,17 +1241,25 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
     ...overrides,
   };
 }
+
 function conversationItem(
   conversation: Conversation,
   messageCount: number,
   activeRunId = "",
+  markers: { latestReadRelevantMarker: number; readMarker: number } = {
+    latestReadRelevantMarker: 0,
+    readMarker: 0,
+  },
 ): ConversationListItem {
   return {
     activeRunId,
     conversation,
+    latestReadRelevantMarker: markers.latestReadRelevantMarker,
     messageCount,
+    readMarker: markers.readMarker,
   };
 }
+
 function testPage(
   conversation: Conversation,
   messages: ChatMessage[],
@@ -1260,6 +1283,7 @@ function testPage(
     transcript: transcriptFromMessages(messages),
   };
 }
+
 function goalState(objective: string, status: string): ChatGoalState {
   return {
     createdAt: 0,
@@ -1272,6 +1296,7 @@ function goalState(objective: string, status: string): ChatGoalState {
     updatedAt: 0,
   };
 }
+
 function goalCommandResult(): ChatCommandResult {
   return {
     action: "display",
@@ -1286,6 +1311,7 @@ function goalCommandResult(): ChatCommandResult {
     title: "Goal",
   };
 }
+
 function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
   const runIds = [...new Set(messages.map((item) => item.runId).filter((runId) => runId !== ""))];
   return runIds.map((runId) => {
@@ -1310,6 +1336,7 @@ function transcriptFromMessages(messages: ChatMessage[]): TranscriptTurn[] {
     };
   });
 }
+
 function message(
   id: string,
   ordinal: number,
@@ -1335,6 +1362,7 @@ function message(
     updatedAt: "2026-05-29T20:00:00Z",
   };
 }
+
 function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
   const [part, ...rest] = message.parts;
   if (!part) {
@@ -1346,6 +1374,7 @@ function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
     updatedAt: "2026-05-29T20:00:01Z",
   };
 }
+
 function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { status: T } {
   const run = {
     assistantMessageId: "message_assistant",
@@ -1364,6 +1393,7 @@ function testRun<T extends RunStatus>(status: T, runId = "run_api"): Run & { sta
   } satisfies Run;
   return run as Run & { status: T };
 }
+
 function transcriptTurn(run: Run, assistantMessage: ChatMessage): TranscriptTurn {
   const triggerMessage = message("message_user", 1, "user", "complete", "hello", "normal", run.id);
   return {
@@ -1426,7 +1456,6 @@ function runItemOutput(
     text,
   };
 }
-
 interface Deferred<T> {
   promise: Promise<T>;
   reject: (error: Error) => void;
@@ -1460,6 +1489,7 @@ function emptyCodexAccountState() {
     status: "unauthenticated" as const,
   };
 }
+
 function workspaceSummary() {
   return {
     displayName: "api",

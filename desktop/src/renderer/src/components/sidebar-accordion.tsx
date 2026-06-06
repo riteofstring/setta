@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 
 const sectionMinHeight = 40;
 const sectionMaxHeight = 520;
+const noScrollAnchoringStyle = { overflowAnchor: "none" } satisfies CSSProperties;
 
 export const defaultSidebarSections = {
   projects: { height: 280, open: true, resized: false },
@@ -58,7 +59,7 @@ export function SidebarAccordionSection({
       <div className="flex h-6 items-center justify-between gap-1 pl-2 pr-0.5">
         <button
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+          className="flex min-w-0 flex-1 items-center text-left text-xs font-medium text-zinc-500 hover:text-zinc-200"
           onClick={() => onOpenChange(!open)}
           type="button"
         >
@@ -81,7 +82,12 @@ export function SidebarAccordionSection({
         style={sectionBodyStyle({ height, open, resized })}
       >
         <div
-          className={resized && open ? "h-full min-h-0 overflow-y-auto" : "min-h-0 overflow-hidden"}
+          className={
+            resized && open
+              ? "h-full min-h-0 overflow-y-auto overscroll-contain"
+              : "min-h-0 overflow-hidden"
+          }
+          style={noScrollAnchoringStyle}
         >
           <div className="pb-4" ref={contentRef}>
             {children}
@@ -158,7 +164,7 @@ function SectionResizeHandle({
       onPointerDown={beginResize}
       role="separator"
     >
-      <div className="mx-auto mt-2 h-px w-10 rounded-full bg-muted-foreground/80" />
+      <div className="mx-auto mt-2 h-px w-10 rounded-full bg-zinc-600/80" />
     </div>
   );
 }
