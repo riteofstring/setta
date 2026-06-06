@@ -9,8 +9,6 @@ import {
   assertBuildExists,
   captureScreenshot,
   createElectronFixture,
-  dispatchMouseDrag,
-  dispatchWheel,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   readJsonLinesOptional,
@@ -21,6 +19,15 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  dispatchPixiMouseClick,
+  dispatchPixiMouseDrag,
+  dispatchPixiMouseMove,
+  dispatchPixiWheel,
+  maximizePixiWorkspacePane,
+  openPixiWorkspacePane,
+  pagePointForCanvasPoint,
+} from "./pixi-workspace-niri-helpers.mjs";
 import {
   assertNonNegativeInteger,
   assertReactRenderCountUnchanged,
@@ -57,6 +64,7 @@ const artifactRoot =
   options.artifactDir || timestampedRecordingDir("pixi-workspace-scale-validation");
 await writeLatestRecordingPointer("pixi-workspace-scale-validation", artifactRoot);
 const scenarioResults = [];
+let pixiSurfaceId = null;
 
 try {
   for (const nodeCount of scaleNodeCounts) {
@@ -122,14 +130,16 @@ async function launchScaleScenario({ artifactDir, edgesPerNode, fixture, nodeCou
     artifactDir,
     extraEnv: {
       SETTA_PIXI_WORKSPACE_DEBUG: "1",
-      SETTA_PIXI_WORKSPACE_PROTOTYPE: "1",
       SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE: String(edgesPerNode),
       SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT: String(nodeCount),
     },
     fixture,
     visible: options.visible,
   });
+  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]', scenarioTimeoutMs);
+  await openPixiWorkspacePane(context.client, { timeoutMs: scenarioTimeoutMs });
   await waitForSelector(context.client, '[data-testid="pixi-workspace"]', scenarioTimeoutMs);
+  pixiSurfaceId = await maximizePixiWorkspacePane(context.client);
   return context;
 }
 
@@ -420,6 +430,7 @@ async function writeScaleScenarioFailure({ artifactDir, context, edgesPerNode, e
 }
 
 async function waitForPixiSnapshot(client, predicate, timeoutMs) {
+  const surfaceId = JSON.stringify(pixiSurfaceId);
   return waitForState(
     client,
     `(() => {
@@ -427,7 +438,7 @@ async function waitForPixiSnapshot(client, predicate, timeoutMs) {
       if (!api) {
         return { ready: false };
       }
-      const snapshot = api.getSnapshot();
+      const snapshot = api.getSnapshot(${surfaceId});
       return { ready: true, snapshot };
     })()`,
     (value) => value.ready && predicate(value.snapshot),
@@ -436,76 +447,41 @@ async function waitForPixiSnapshot(client, predicate, timeoutMs) {
 }
 
 async function getPixiSnapshot(client) {
+  const surfaceId = JSON.stringify(pixiSurfaceId);
   return client.evaluate(`(() => {
     const api = window.__settaPixiWorkspaceDebug;
     if (!api) {
       throw new Error("Pixi workspace debug API is not installed");
     }
-    return api.getSnapshot();
+    return api.getSnapshot(${surfaceId});
   })()`);
 }
 
 async function dispatchMouseClick(client, { x, y }) {
-  await client.call("Input.dispatchMouseEvent", {
-    button: "none",
-    type: "mouseMoved",
-    x,
-    y,
-  });
-  await client.call("Input.dispatchMouseEvent", {
-    button: "left",
-    buttons: 1,
-    clickCount: 1,
-    type: "mousePressed",
-    x,
-    y,
-  });
-  await delay(16);
-  await client.call("Input.dispatchMouseEvent", {
-    button: "left",
-    buttons: 0,
-    clickCount: 1,
-    type: "mouseReleased",
-    x,
-    y,
-  });
+  await dispatchPixiMouseClick(client, pixiSurfaceId, { x, y });
 }
 
 async function dispatchMouseMove(client, { x, y }) {
-  await client.evaluate(`(() => {
-    const canvas = document.querySelector('[data-testid="pixi-workspace-canvas"]');
-    if (!canvas) {
-      throw new Error("Pixi workspace canvas is missing");
-    }
-    const rect = canvas.getBoundingClientRect();
-    canvas.dispatchEvent(new PointerEvent("pointermove", {
-      bubbles: true,
-      buttons: 0,
-      cancelable: true,
-      clientX: rect.left + ${JSON.stringify(x)},
-      clientY: rect.top + ${JSON.stringify(y)},
-      isPrimary: true,
-      pointerId: 1,
-      pointerType: "mouse",
-    }));
-  })()`);
+  await dispatchPixiMouseMove(client, pixiSurfaceId, { x, y });
 }
 
 async function dispatchEdgeDrag(client, { from, screenshotPath, to }) {
   const steps = 14;
+  const pageFrom = await pagePointForCanvasPoint(client, pixiSurfaceId, from);
+  const pageTo = await pagePointForCanvasPoint(client, pixiSurfaceId, to);
   await client.call("Input.dispatchMouseEvent", {
     button: "none",
     type: "mouseMoved",
-    x: from.x,
-    y: from.y,
+    x: pageFrom.x,
+    y: pageFrom.y,
   });
   await client.call("Input.dispatchMouseEvent", {
     button: "left",
     buttons: 1,
     clickCount: 1,
     type: "mousePressed",
-    x: from.x,
-    y: from.y,
+    x: pageFrom.x,
+    y: pageFrom.y,
   });
   let during = null;
   for (let step = 1; step <= steps; step += 1) {
@@ -514,8 +490,8 @@ async function dispatchEdgeDrag(client, { from, screenshotPath, to }) {
       button: "left",
       buttons: 1,
       type: "mouseMoved",
-      x: from.x + (to.x - from.x) * progress,
-      y: from.y + (to.y - from.y) * progress,
+      x: pageFrom.x + (pageTo.x - pageFrom.x) * progress,
+      y: pageFrom.y + (pageTo.y - pageFrom.y) * progress,
     });
     await delay(16);
     if (step === Math.floor(steps / 2)) {
@@ -528,10 +504,18 @@ async function dispatchEdgeDrag(client, { from, screenshotPath, to }) {
     buttons: 0,
     clickCount: 1,
     type: "mouseReleased",
-    x: to.x,
-    y: to.y,
+    x: pageTo.x,
+    y: pageTo.y,
   });
   return during ?? getPixiSnapshot(client);
+}
+
+async function dispatchMouseDrag(client, { from, modifiers = 0, steps = 12, to }) {
+  await dispatchPixiMouseDrag(client, pixiSurfaceId, { from, modifiers, steps, to });
+}
+
+async function dispatchWheel(client, { deltaX = 0, deltaY = 0, modifiers = 0, x, y }) {
+  await dispatchPixiWheel(client, pixiSurfaceId, { deltaX, deltaY, modifiers, x, y });
 }
 
 function assertScaleSnapshot(snapshot, { edgesPerNode, label, nodeCount }) {

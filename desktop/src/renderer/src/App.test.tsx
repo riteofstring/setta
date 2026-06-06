@@ -43,7 +43,6 @@ describe("workspace renderer states", () => {
           app: {
             flags: {
               pixiWorkspaceDebug: false,
-              pixiWorkspacePrototype: false,
               pixiWorkspaceSyntheticGraph: null,
             },
             platform: "darwin",

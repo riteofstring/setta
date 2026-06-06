@@ -14,6 +14,7 @@ import {
   labelVisibilityModeForZoom,
   syncNodeLabelVisibility,
 } from "./pixi-workspace-label-visibility";
+import { registerPixiWorkspaceDebugSurface } from "./pixi-workspace-debug-registry";
 import {
   countNodeOutlineGraphics,
   drawWorkspaceGrid,
@@ -62,6 +63,7 @@ const portHitRadiusScreen = 18;
 
 export async function createPixiWorkspaceRenderer({
   debugEnabled,
+  debugSurfaceId = "pixi-workspace",
   graph = { edges: initialEdges, nodes: initialNodes },
   host,
   reactRenderCount,
@@ -354,9 +356,9 @@ export async function createPixiWorkspaceRenderer({
     }
   });
 
-  if (debugEnabled) {
-    window.__settaPixiWorkspaceDebug = {
-      getSnapshot: () => {
+  const unregisterDebugSurface = debugEnabled
+    ? registerPixiWorkspaceDebugSurface(debugSurfaceId, () => {
+        const canvasRect = app.canvas.getBoundingClientRect();
         const visual = samplePixiVisualState(app.renderer, app.stage, backgroundColor);
         const camera = cameraState(viewport);
         const nodeGeometryContexts = nodeGeometryContextCounts();
@@ -367,9 +369,13 @@ export async function createPixiWorkspaceRenderer({
         return {
           camera,
           canvas: {
+            bottom: canvasRect.bottom,
             clientHeight: app.canvas.clientHeight,
             clientWidth: app.canvas.clientWidth,
             height: app.canvas.height,
+            left: canvasRect.left,
+            right: canvasRect.right,
+            top: canvasRect.top,
             width: app.canvas.width,
           },
           graph: {
@@ -471,11 +477,11 @@ export async function createPixiWorkspaceRenderer({
             wheelZoomUpdateCount,
             worstFrameMs: recentFrameMs.length === 0 ? 0 : Math.max(...recentFrameMs),
           },
+          surfaceId: debugSurfaceId,
           visual,
         };
-      },
-    };
-  }
+      })
+    : null;
 
   return {
     destroy: () => {
@@ -488,9 +494,7 @@ export async function createPixiWorkspaceRenderer({
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("pointercancel", pointerCancel);
       window.removeEventListener("keydown", keyDown);
-      if (debugEnabled) {
-        delete window.__settaPixiWorkspaceDebug;
-      }
+      unregisterDebugSurface?.();
       for (const nodeId of [...nodeLabels.keys()]) {
         releaseLabel(nodeId);
       }
@@ -835,7 +839,6 @@ export async function createPixiWorkspaceRenderer({
     marqueeUpdateCount += 1;
     viewport.plugins.resume("decelerate");
   }
-
   function updateActiveTargetPort(screen) {
     const targetPort = hitTestPortAtScreen(screen, {
       excludeNodeId: drawingEdge?.sourceNodeId ?? null,
@@ -854,7 +857,6 @@ export async function createPixiWorkspaceRenderer({
       setPortVisualState(targetPort.nodeId, targetPort.portId, "target");
     }
   }
-
   function commitEdge(edgeDrawing, targetPort) {
     edges.push({
       id: `drawn-${nextEdgeSequence}`,
@@ -867,7 +869,6 @@ export async function createPixiWorkspaceRenderer({
     edgeCommitCount += 1;
     redrawEdges();
   }
-
   function hitTestPortAtScreen(screen, { excludeNodeId, role }) {
     let bestPort = null;
     let bestDistance = Infinity;
@@ -902,7 +903,6 @@ export async function createPixiWorkspaceRenderer({
     }
     return picked;
   }
-
   function panCameraByScreenDelta(deltaX, deltaY) {
     if (deltaX === 0 && deltaY === 0) {
       return;
@@ -973,7 +973,6 @@ export async function createPixiWorkspaceRenderer({
   function firstSelectedNodeId() {
     return selectedNodeIds.values().next().value ?? null;
   }
-
   function requireNode(nodeId) {
     const node = nodes.find((candidate) => candidate.id === nodeId);
     if (!node) {

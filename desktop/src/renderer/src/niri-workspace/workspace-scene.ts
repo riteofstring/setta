@@ -156,9 +156,9 @@ function createDefaultRealWorkspaceScene(
     createPane({
       columnId: "workspace_column_5",
       sequence: 5,
-      subtitle: "interactive canvas placeholder",
+      subtitle: "workflow graph",
       surfaceKind: "pixi-canvas",
-      title: "Canvas",
+      title: "Workflow Graph",
       tone: "cyan",
     }),
   ];

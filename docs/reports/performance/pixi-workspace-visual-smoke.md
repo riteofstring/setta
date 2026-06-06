@@ -4,11 +4,11 @@ Date: 2026-06-03
 
 ## Scope
 
-Baseline from the first Pixi workspace visual smoke workflow. The run launched
-the built Electron app with temporary app data and:
+Baseline from the first Pixi workspace visual smoke workflow. This historical
+run used the now-removed fullscreen prototype path and launched the built
+Electron app with temporary app data and Pixi workspace debug enabled.
 
 ```text
-SETTA_PIXI_WORKSPACE_PROTOTYPE=1
 SETTA_PIXI_WORKSPACE_DEBUG=1
 ```
 

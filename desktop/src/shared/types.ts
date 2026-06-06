@@ -145,7 +145,6 @@ export interface SettaAPI {
   app: {
     flags: {
       pixiWorkspaceDebug: boolean;
-      pixiWorkspacePrototype: boolean;
       pixiWorkspaceSyntheticGraph: {
         edgesPerNode: number;
         nodeCount: number;

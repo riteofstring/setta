@@ -141,37 +141,6 @@ export function renderFakeCanvasContent(
   return { canvas, root };
 }
 
-export function renderPixiCanvasContent(
-  host: HTMLElement,
-  pane: NiriPane,
-): { canvas: HTMLCanvasElement; root: HTMLElement } {
-  const document = host.ownerDocument;
-  const root = document.createElement("div");
-  root.className = "niri-pane-content niri-canvas-surface niri-pixi-canvas-surface";
-
-  const header = document.createElement("div");
-  header.className = "niri-pane-header";
-  const index = document.createElement("span");
-  index.className = "niri-pane-index";
-  index.textContent = String(pane.sequence + 1);
-  const titleBlock = document.createElement("div");
-  titleBlock.className = "min-w-0";
-  const title = document.createElement("h2");
-  title.textContent = pane.title;
-  const subtitle = document.createElement("p");
-  subtitle.textContent = "Pixi/WebGPU adapter boundary";
-  titleBlock.append(title, subtitle);
-  header.append(index, titleBlock);
-
-  const canvas = document.createElement("canvas");
-  canvas.className = "niri-pixi-canvas";
-  canvas.setAttribute("aria-label", `${pane.title} infinite canvas`);
-  canvas.setAttribute("role", "img");
-
-  root.append(header, canvas);
-  return { canvas, root };
-}
-
 export function renderSnapshotContent(
   host: HTMLElement,
   pane: NiriPane,
@@ -227,7 +196,7 @@ const staticSnapshotRenderers = {
   "fake-heavy-dom": renderWrappedGenericSnapshot,
   "fake-long-chat": renderWrappedGenericSnapshot,
   "git-graph": renderWrappedGenericSnapshot,
-  "pixi-canvas": renderWrappedPixiCanvasSnapshot,
+  "pixi-canvas": () => null,
   "settings-dom": renderWrappedGenericSnapshot,
   snapshot: () => null,
   terminal: renderWrappedGenericSnapshot,
@@ -248,10 +217,6 @@ function renderWrappedEmptyFrameSnapshot(host: HTMLElement, pane: NiriPane): HTM
 
 function renderWrappedFakeCanvasSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
   return wrapStaticSnapshotTexture(host, renderFakeCanvasContent(host, pane).root);
-}
-
-function renderWrappedPixiCanvasSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
-  return wrapStaticSnapshotTexture(host, renderPixiCanvasContent(host, pane).root);
 }
 
 function wrapStaticSnapshotTexture(host: HTMLElement, child: HTMLElement): HTMLElement {

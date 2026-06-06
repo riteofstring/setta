@@ -11,7 +11,6 @@ describe("preload workspace API", () => {
     vi.unstubAllEnvs();
     vi.stubEnv("SETTA_E2E", "");
     vi.stubEnv("SETTA_PIXI_WORKSPACE_DEBUG", "");
-    vi.stubEnv("SETTA_PIXI_WORKSPACE_PROTOTYPE", "");
     vi.stubEnv("SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE", "");
     vi.stubEnv("SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT", "");
   });
@@ -45,7 +44,6 @@ describe("preload workspace API", () => {
 
     expect(api.app.flags).toEqual({
       pixiWorkspaceDebug: false,
-      pixiWorkspacePrototype: false,
       pixiWorkspaceSyntheticGraph: null,
     });
     await api.app.installedEditors();

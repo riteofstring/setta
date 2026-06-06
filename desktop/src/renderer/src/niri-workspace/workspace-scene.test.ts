@@ -54,7 +54,7 @@ describe("real niri workspace scene", () => {
         const paneId = column.paneIds[0];
         return paneId ? result.scene.paneById.get(paneId)?.title : "";
       }),
-    ).toEqual(["Chat", "Browser", "Terminal", "Settings", "Git Graph", "Canvas"]);
+    ).toEqual(["Chat", "Browser", "Terminal", "Settings", "Git Graph", "Workflow Graph"]);
     expect(result.scene.paneById.get("workspace_pane_0")).toMatchObject({
       subtitle: "Repo",
       surfaceKind: "chat-dom",

@@ -13,7 +13,6 @@ import {
 import { type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizablePane } from "./components/resizable-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
-import { PixiWorkspacePrototype } from "./features/workspace-graph/pixi-workspace-prototype";
 import { cn } from "./lib/utils";
 import {
   NiriWorkspaceArea,
@@ -30,9 +29,6 @@ export function App() {
   const setta = readSettaApi();
   if (!setta) {
     return <AppRuntimeContractError />;
-  }
-  if (setta.app.flags.pixiWorkspacePrototype) {
-    return <PixiWorkspacePrototype debugEnabled={setta.app.flags.pixiWorkspaceDebug} />;
   }
   return <SettaApp setta={setta} />;
 }

@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
+import { PixiWorkspaceSurface } from "../features/workspace-graph/pixi-workspace-surface";
 import { FakeLongChatSurface, NiriChatSurface, NiriSettingsSurface } from "./niri-dom-surfaces";
 import type {
+  CanvasSurfaceStats,
   FreezeReason,
   NiriPane,
   PaneSnapshot,
@@ -136,6 +138,20 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     });
   }
 
+  getCanvasStats(): CanvasSurfaceStats {
+    if (this.kind !== "pixi-canvas") {
+      return emptyCanvasStats();
+    }
+    const snapshot = pixiWorkspaceDebugSnapshot(this.surfaceId);
+    return {
+      drawCalls: 0,
+      farZoomSimplified: false,
+      gpuMemoryEstimateBytes: null,
+      liveCanvasPaneCount: this.visible && !this.frozen && this.host ? 1 : 0,
+      renderedFrames: snapshot?.render.frameCount ?? 0,
+    };
+  }
+
   destroy(): void {
     if (this.destroyed) {
       return;
@@ -184,6 +200,18 @@ export function createReactDomSurfaceAdapter(
   if (pane.surfaceKind === "fake-long-chat") {
     return new ReactDomSurfaceAdapter(pane, () => <FakeLongChatSurface pane={pane} />, rootFactory);
   }
+  if (pane.surfaceKind === "pixi-canvas") {
+    return new ReactDomSurfaceAdapter(
+      pane,
+      () => (
+        <PixiWorkspaceSurface
+          debugEnabled={pixiWorkspaceDebugEnabled()}
+          surfaceId={pane.surfaceId}
+        />
+      ),
+      rootFactory,
+    );
+  }
   if (pane.surfaceKind === "settings-dom") {
     return new ReactDomSurfaceAdapter(
       pane,
@@ -194,12 +222,41 @@ export function createReactDomSurfaceAdapter(
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
 
+function pixiWorkspaceDebugEnabled(): boolean {
+  return typeof window !== "undefined" && Boolean(window.setta?.app.flags.pixiWorkspaceDebug);
+}
+
 function performanceNow(): number {
   if (typeof performance === "undefined") {
     return Date.now();
   }
   return performance.now();
 }
+
+function emptyCanvasStats(): CanvasSurfaceStats {
+  return {
+    drawCalls: 0,
+    farZoomSimplified: false,
+    gpuMemoryEstimateBytes: null,
+    liveCanvasPaneCount: 0,
+    renderedFrames: 0,
+  };
+}
+
+function pixiWorkspaceDebugSnapshot(surfaceId: SurfaceId): PixiDebugSnapshot | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const api = window.__settaPixiWorkspaceDebug;
+  if (!api || !api.getSurfaceIds().includes(surfaceId)) {
+    return null;
+  }
+  return api.getSnapshot(surfaceId);
+}
+
+type PixiDebugSnapshot = ReturnType<
+  NonNullable<Window["__settaPixiWorkspaceDebug"]>["getSnapshot"]
+>;
 
 function deferReactRootUnmount(root: ReactSurfaceRoot): void {
   if (typeof queueMicrotask === "function") {

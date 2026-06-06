@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  createReactDomSurfaceAdapter,
   ReactDomSurfaceAdapter,
   type ReactSurfaceRoot,
   type ReactSurfaceRootFactory,
@@ -74,6 +75,29 @@ describe("niri React DOM surface adapter", () => {
     adapter.setFocused(false);
 
     expect(focusStates).toEqual([false, true, false]);
+  });
+
+  test("mounts Pixi canvas as a React surface with canvas runtime stats", () => {
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return new RecordingRoot([]);
+      },
+    };
+    const host = createFakeHost();
+    const adapter = createReactDomSurfaceAdapter(fakePane("pixi-canvas"), rootFactory);
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+
+    expect(host.dataset.surfaceKind).toBe("pixi-canvas");
+    expect(adapter.getCanvasStats()).toMatchObject({
+      liveCanvasPaneCount: 1,
+      renderedFrames: 0,
+    });
+
+    adapter.setVisible(false);
+
+    expect(adapter.getCanvasStats().liveCanvasPaneCount).toBe(0);
   });
 });
 

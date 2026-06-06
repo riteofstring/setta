@@ -1,6 +1,6 @@
 # Pixi Workspace Visual Tooling
 
-Use this workflow when developing or reviewing the Pixi workspace prototype.
+Use this workflow when developing or reviewing the Pixi workspace surface in niri.
 
 Run the hidden visual smoke workflow:
 
@@ -29,13 +29,12 @@ The latest run is available at:
 The smoke workflow launches Electron with temporary app data and:
 
 ```text
-SETTA_PIXI_WORKSPACE_PROTOTYPE=1
 SETTA_PIXI_WORKSPACE_DEBUG=1
 ```
 
-It captures screenshots, verifies the canvas is nonblank through the Pixi debug
-snapshot API, drives pan and zoom gestures, drags a hard-coded node, cancels a
-temporary edge, commits a port-to-port edge, and writes `summary.json`.
+It captures screenshots, verifies the niri-hosted canvas is nonblank through the
+Pixi debug snapshot API, drives pan and zoom gestures, drags a hard-coded node,
+cancels a temporary edge, commits a port-to-port edge, and writes `summary.json`.
 
 To attach Chrome DevTools MCP to the latest visual run while it is still open:
 
@@ -58,11 +57,11 @@ when you need the production Electron path:
 pnpm -C desktop build
 ```
 
-Then launch the prototype with a visible app window:
+Then launch the niri app with a visible app window:
 
 ```sh
 cd desktop
-SETTA_PIXI_WORKSPACE_PROTOTYPE=1 SETTA_PIXI_WORKSPACE_DEBUG=1 pnpm exec electron .
+SETTA_PIXI_WORKSPACE_DEBUG=1 pnpm exec electron .
 ```
 
 Verify:

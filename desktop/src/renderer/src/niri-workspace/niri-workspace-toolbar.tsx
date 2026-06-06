@@ -132,8 +132,8 @@ export const openPaneActions = [
   },
   {
     Icon: Columns2,
-    label: "Canvas",
-    request: openPaneRequest("Canvas", "canvas placeholder", "pixi-canvas", "cyan"),
+    label: "Workflow Graph",
+    request: openPaneRequest("Workflow Graph", "workflow graph", "pixi-canvas", "cyan"),
     shortcutKey: "v",
   },
 ] satisfies Array<{

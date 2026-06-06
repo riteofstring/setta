@@ -30,6 +30,7 @@ interface PixiWorkspaceGraph {
 
 interface CreatePixiWorkspaceRendererOptions {
   debugEnabled: boolean;
+  debugSurfaceId?: string;
   graph?: PixiWorkspaceGraph;
   host: HTMLElement;
   reactRenderCount: () => number;

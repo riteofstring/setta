@@ -10,7 +10,13 @@ import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcr
 import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
 import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
 
-export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean }) {
+export function PixiWorkspaceSurface({
+  debugEnabled,
+  surfaceId,
+}: {
+  debugEnabled: boolean;
+  surfaceId: string;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const workflowTargetRef = useRef<WorkflowProjectionTarget | null>(null);
   const reactRenderCount = useRef(0);
@@ -34,10 +40,10 @@ export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean
     () => (workflowProjection === null ? null : pendingWorkflowApproval(workflowProjection)),
     [workflowProjection],
   );
-  const rendererReady = syntheticGraph !== null || workflowProjectionReady;
+  const loadingProjection = syntheticGraph === null && !workflowProjectionReady;
 
   useEffect(() => {
-    if (!rendererReady) {
+    if (!graph) {
       return;
     }
     const host = hostRef.current;
@@ -45,6 +51,7 @@ export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean
       return;
     }
 
+    host.replaceChildren();
     let disposed = false;
     let destroyRenderer: (() => void) | null = null;
 
@@ -52,6 +59,7 @@ export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean
       .then(async ({ createPixiWorkspaceRenderer }) => {
         const renderer = await createPixiWorkspaceRenderer({
           debugEnabled,
+          debugSurfaceId: surfaceId,
           graph,
           host,
           reactRenderCount: () => reactRenderCount.current,
@@ -63,27 +71,32 @@ export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean
         destroyRenderer = () => renderer.destroy();
       })
       .catch((error: unknown) => {
-        console.error("Failed to initialize Pixi workspace prototype", error);
+        console.error("Failed to initialize Pixi workspace surface", error);
       });
 
     return () => {
       disposed = true;
       destroyRenderer?.();
-      if (debugEnabled) {
-        delete window.__settaPixiWorkspaceDebug;
-      }
+      host.replaceChildren();
     };
-  }, [debugEnabled, graph, rendererReady]);
+  }, [debugEnabled, graph, surfaceId]);
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-zinc-950">
-      <div ref={hostRef} className="h-full w-full" data-testid="pixi-workspace" />
+    <section className="niri-pixi-workspace-surface" data-testid="niri-pixi-workspace-surface">
+      <div
+        ref={hostRef}
+        className="niri-pixi-workspace-host"
+        data-surface-id={surfaceId}
+        data-testid="pixi-workspace"
+      />
+      {loadingProjection ? <PixiWorkspaceState label="Loading workflow graph" /> : null}
+      {!loadingProjection && !graph ? <PixiWorkspaceState label="No workflow graph" /> : null}
       <WorkflowApprovalOverlay
         pendingApproval={pendingApproval}
         projection={workflowProjection}
         setWorkflowProjection={setWorkflowProjection}
       />
-    </div>
+    </section>
   );
 }
 
@@ -187,6 +200,10 @@ function pendingWorkflowApproval(
     }
   }
   return null;
+}
+
+function PixiWorkspaceState({ label }: { label: string }) {
+  return <div className="niri-pixi-workspace-state">{label}</div>;
 }
 
 function WorkflowApprovalOverlay({

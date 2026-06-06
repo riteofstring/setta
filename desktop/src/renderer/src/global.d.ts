@@ -2,9 +2,13 @@ import type { SettaAPI } from "@shared/types";
 
 interface PixiWorkspaceDebugSnapshot {
   canvas: {
+    bottom: number;
     clientHeight: number;
     clientWidth: number;
     height: number;
+    left: number;
+    right: number;
+    top: number;
     width: number;
   };
   camera: {
@@ -65,6 +69,13 @@ interface PixiWorkspaceDebugSnapshot {
       x: number;
       y: number;
     }>;
+    workflow: {
+      definitionId: string;
+      definitionName: string;
+      executionId: string;
+      executionStatus: string;
+      workspaceId: string;
+    } | null;
   };
   interaction: {
     drawingEdge: boolean;
@@ -115,6 +126,7 @@ interface PixiWorkspaceDebugSnapshot {
     wheelZoomUpdateCount: number;
     worstFrameMs: number;
   };
+  surfaceId: string;
   visual: {
     hasNonBackgroundPixels: boolean;
     nonBackgroundPixelCount: number;
@@ -124,7 +136,10 @@ interface PixiWorkspaceDebugSnapshot {
 }
 
 interface PixiWorkspaceDebugApi {
-  getSnapshot: () => PixiWorkspaceDebugSnapshot;
+  __renderers: Map<string, () => PixiWorkspaceDebugSnapshot>;
+  getSnapshot: (surfaceId?: string) => PixiWorkspaceDebugSnapshot;
+  getSnapshots: () => Record<string, PixiWorkspaceDebugSnapshot>;
+  getSurfaceIds: () => string[];
 }
 
 declare global {
