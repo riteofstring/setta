@@ -47,6 +47,7 @@ export class PresentationEngine {
     }
 
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
+    this.metrics.recordCanvasStats(this.surfaceRegistry.canvasStats());
     return { nativeBoundsUpdates: nativeFlush?.batchSent ? 1 : 0, transformWrites };
   }
 
@@ -114,6 +115,9 @@ export class PresentationEngine {
       `native ${snapshot.nativeBoundsUpdates}`,
       `long ${snapshot.longTasks}`,
       `react ${snapshot.reactCommitsDuringMovement}`,
+      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${formatBytes(
+        snapshot.canvasGpuMemoryEstimateBytes,
+      )}`,
       `runtime ${runtimeSummary.live}/${runtimeSummary.snapshot}/${runtimeSummary.liveThrottled}/${runtimeSummary.hidden}`,
       `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} canvas ${runtimeSummary.budget.maxLiveWebGpuCanvases}`,
     ].join(" | ");
@@ -207,4 +211,14 @@ export class PresentationEngine {
     }
     return 0;
   }
+}
+
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) {
+    return "n/a";
+  }
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)}KiB`;
+  }
+  return `${(bytes / 1024 / 1024).toFixed(1)}MiB`;
 }

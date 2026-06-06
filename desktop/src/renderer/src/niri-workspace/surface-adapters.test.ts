@@ -4,6 +4,7 @@ import {
   FakeCanvasSurfaceAdapter,
   FakeHeavyDomSurfaceAdapter,
   type FrameLoop,
+  PixiCanvasSurfaceAdapter,
 } from "./surface-adapters";
 import { createFakeHost } from "./test-dom-fakes";
 import type { NiriPane } from "./types";
@@ -71,6 +72,79 @@ describe("niri fake surface adapters", () => {
     expect(adapter.isRendering).toBe(false);
     expect(loop.pendingCount).toBe(0);
   });
+
+  test("keeps Pixi canvas rendering paused when hidden, frozen, or unmounted", () => {
+    const loop = new ManualFrameLoop();
+    const host = createFakeHost();
+    const adapter = new PixiCanvasSurfaceAdapter(fakePane("pixi-canvas"), loop);
+
+    adapter.mount(host);
+    adapter.setViewport({ height: 120, width: 180, x: 0, y: 0 }, "mount");
+    adapter.setVisible(true);
+
+    expect(adapter.isRendering).toBe(true);
+    expect(loop.pendingCount).toBe(1);
+
+    loop.runNext();
+
+    expect(adapter.getCanvasStats()).toMatchObject({
+      drawCalls: 8,
+      liveCanvasPaneCount: 1,
+      renderedFrames: 1,
+    });
+    expect(loop.pendingCount).toBe(0);
+
+    adapter.setVisible(false);
+    loop.runAll();
+
+    expect(adapter.isRendering).toBe(false);
+    expect(adapter.getCanvasStats().liveCanvasPaneCount).toBe(0);
+
+    adapter.setVisible(true);
+    adapter.freeze("snapshot");
+    loop.runAll();
+
+    expect(adapter.isRendering).toBe(false);
+    expect(adapter.getCanvasStats().drawCalls).toBe(0);
+
+    adapter.resume("visible");
+    loop.runNext();
+
+    expect(adapter.getCanvasStats()).toMatchObject({
+      drawCalls: 8,
+      liveCanvasPaneCount: 1,
+      renderedFrames: 2,
+    });
+
+    adapter.unmount();
+
+    expect(adapter.isRendering).toBe(false);
+    expect(loop.pendingCount).toBe(0);
+  });
+
+  test("reports simplified Pixi canvas stats after far zoom", () => {
+    const loop = new ManualFrameLoop();
+    const host = createFakeHost();
+    const adapter = new PixiCanvasSurfaceAdapter(fakePane("pixi-canvas"), loop);
+
+    adapter.mount(host);
+    adapter.setViewport({ height: 120, width: 180, x: 0, y: 0 }, "mount");
+    adapter.setVisible(true);
+    loop.runNext();
+
+    for (let index = 0; index < 12; index += 1) {
+      host.dispatchEvent(fakeWheelEvent(100));
+    }
+    loop.runNext();
+
+    expect(adapter.getCanvasStats()).toMatchObject({
+      drawCalls: 3,
+      farZoomSimplified: true,
+      liveCanvasPaneCount: 1,
+    });
+    expect(Number(host.dataset.canvasZoom)).toBeLessThan(0.35);
+    expect(adapter.getCanvasStats().gpuMemoryEstimateBytes).toBeGreaterThan(0);
+  });
 });
 
 class ManualFrameLoop implements FrameLoop {
@@ -107,6 +181,18 @@ class ManualFrameLoop implements FrameLoop {
     this.callbacks.delete(handle);
     callback(0);
   }
+}
+
+function fakeWheelEvent(deltaY: number): Event {
+  const event = {
+    defaultPrevented: false,
+    deltaY,
+    preventDefault() {
+      event.defaultPrevented = true;
+    },
+    type: "wheel",
+  };
+  return event as unknown as Event;
 }
 
 function fakePane(surfaceKind: NiriPane["surfaceKind"]): NiriPane {

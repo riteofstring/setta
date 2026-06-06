@@ -5,17 +5,33 @@ interface FakeElement {
   ownerDocument: FakeDocument;
   style: Record<string, string>;
   textContent: string;
+  addEventListener(type: string, listener: EventListener): void;
   append(...nodes: FakeElement[]): void;
+  dispatchEvent(event: Event): boolean;
   getContext?(kind: string): FakeCanvasContext | null;
+  hasPointerCapture(pointerId: number): boolean;
   querySelector(selector: string): FakeElement | null;
   replaceChildren(...nodes: FakeElement[]): void;
+  releasePointerCapture(pointerId: number): void;
+  removeEventListener(type: string, listener: EventListener): void;
+  setPointerCapture(pointerId: number): void;
   setAttribute(name: string, value: string): void;
 }
 
 interface FakeCanvasContext {
+  beginPath(): void;
   clearRect(): void;
   fillRect(): void;
   fillStyle: string;
+  lineTo(): void;
+  lineWidth: number;
+  moveTo(): void;
+  restore(): void;
+  save(): void;
+  scale(): void;
+  stroke(): void;
+  strokeStyle: string;
+  translate(): void;
 }
 
 interface FakeDocument {
@@ -32,6 +48,8 @@ export function createFakeHost(): HTMLElement {
 }
 
 function createFakeElement(document: FakeDocument, tagName: string): FakeElement {
+  const listeners = new Map<string, Set<EventListener>>();
+  const capturedPointers = new Set<number>();
   const element: FakeElement & {
     height?: number;
     width?: number;
@@ -42,14 +60,41 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
     ownerDocument: document,
     style: {},
     textContent: "",
+    addEventListener(type, listener) {
+      const typeListeners = listeners.get(type) ?? new Set<EventListener>();
+      typeListeners.add(listener);
+      listeners.set(type, typeListeners);
+    },
     append(...nodes) {
       this.children.push(...nodes);
+    },
+    dispatchEvent(event) {
+      const typeListeners = listeners.get(event.type);
+      if (!typeListeners) {
+        return true;
+      }
+      for (const listener of typeListeners) {
+        listener.call(this as unknown as EventTarget, event);
+      }
+      return !event.defaultPrevented;
+    },
+    hasPointerCapture(pointerId) {
+      return capturedPointers.has(pointerId);
     },
     querySelector(selector) {
       return findElement(this, selector);
     },
     replaceChildren(...nodes) {
       this.children = [...nodes];
+    },
+    releasePointerCapture(pointerId) {
+      capturedPointers.delete(pointerId);
+    },
+    removeEventListener(type, listener) {
+      listeners.get(type)?.delete(listener);
+    },
+    setPointerCapture(pointerId) {
+      capturedPointers.add(pointerId);
     },
     setAttribute(name, value) {
       if (name.startsWith("data-")) {
@@ -66,9 +111,19 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
         return null;
       }
       return {
+        beginPath() {},
         clearRect() {},
         fillRect() {},
         fillStyle: "",
+        lineTo() {},
+        lineWidth: 1,
+        moveTo() {},
+        restore() {},
+        save() {},
+        scale() {},
+        stroke() {},
+        strokeStyle: "",
+        translate() {},
       };
     };
   }

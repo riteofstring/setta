@@ -349,6 +349,24 @@ select,
   width: 100%;
 }
 
+.niri-pixi-canvas-surface {
+  cursor: grab;
+}
+
+.niri-pane-host[data-canvas-dragging="true"] .niri-pixi-canvas-surface {
+  cursor: grabbing;
+}
+
+.niri-pixi-canvas {
+  background: color-mix(in oklch, var(--background) 88%, black);
+  border-radius: 5px;
+  display: block;
+  height: 100%;
+  min-height: 0;
+  touch-action: none;
+  width: 100%;
+}
+
 .niri-snapshot-surface {
   align-content: center;
   background:

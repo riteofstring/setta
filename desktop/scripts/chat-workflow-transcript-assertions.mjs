@@ -102,10 +102,14 @@ async function collectTranscriptRows(client) {
 
 async function readSelectedConversationTranscriptRows(client) {
   return client.evaluate(`(async () => {
-    const detail = document.querySelector('[data-testid="chat-detail-pane"]');
-    const conversationId = detail?.getAttribute("data-conversation-id") ?? "";
     const session = await window.setta.workspace.session();
-    const workspaceId = session.selectedWorkspaceId ?? "";
+    const workspaceId = session.selectedWorkspaceId ?? session.activeWorkspaces[0]?.id ?? "";
+    const detail = document.querySelector('[data-testid="chat-detail-pane"][data-conversation-id]');
+    let conversationId = detail?.getAttribute("data-conversation-id") ?? "";
+    if (workspaceId && !conversationId) {
+      const list = await window.setta.chat.listConversations(workspaceId);
+      conversationId = list.conversations[0]?.conversation.id ?? "";
+    }
     const textOf = (message) => message.parts.map((part) => part.text).join("");
     if (!workspaceId || !conversationId) {
       return {

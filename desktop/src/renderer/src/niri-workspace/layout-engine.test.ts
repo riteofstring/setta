@@ -28,11 +28,12 @@ describe("niri browser-pane layout engine", () => {
     });
   });
 
-  test("generates the Phase 4 browser-pane benchmark scene", () => {
+  test("generates the Phase 5 canvas-pane benchmark scene without losing browser panes", () => {
     const scene = generateBenchmarkScene();
     const browserPanes = scene.panes.filter((pane) => pane.surfaceKind === "browser");
+    const pixiCanvasPanes = scene.panes.filter((pane) => pane.surfaceKind === "pixi-canvas");
 
-    expect(scene.id).toBe("phase-4-browser-pane-benchmark");
+    expect(scene.id).toBe("phase-5-canvas-pane-benchmark");
     expect(scene.totalPanes).toBe(phaseOneFakePaneCount);
     expect(scene.targetVisiblePanes).toBe(phaseOneVisiblePaneCount);
     expect(scene.visibleColumnCount).toBe(8);
@@ -42,14 +43,16 @@ describe("niri browser-pane layout engine", () => {
     expect(scene.paneById.get("niri_pane_1")?.surfaceKind).toBe("fake-long-chat");
     expect(scene.paneById.get("niri_pane_2")?.surfaceKind).toBe("settings-dom");
     expect(scene.paneById.get("niri_pane_3")?.surfaceKind).toBe("chat-dom");
+    expect(scene.paneById.get("niri_pane_4")?.surfaceKind).toBe("pixi-canvas");
     expect(scene.panes.some((pane) => pane.surfaceKind === "fake-heavy-dom")).toBe(true);
     expect(scene.panes.some((pane) => pane.surfaceKind === "fake-canvas")).toBe(true);
+    expect(pixiCanvasPanes.length).toBeGreaterThanOrEqual(4);
     expect(browserPanes.length).toBeGreaterThanOrEqual(20);
     expect(
       scene.panes
         .slice(0, phaseOneVisiblePaneCount)
         .filter((pane) => pane.surfaceKind === "browser"),
-    ).toHaveLength(7);
+    ).toHaveLength(4);
   });
 
   test("renders a deterministic 40-pane frame from 500 fake panes", () => {

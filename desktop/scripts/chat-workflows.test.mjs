@@ -619,7 +619,7 @@ async function runCancelWorkflow(client, backend, workspaceId, conversationId) {
     "queued follow-up after cancel",
     "queued",
   );
-  await waitForTexts(client, ["queued follow-up after cancel", "Queued"]);
+  await waitForTexts(client, ["queued follow-up after cancel"]);
   await clickButtonByAria(client, "Stop run");
   await assertQueuedRunNotPromoted(
     backend,
@@ -629,6 +629,7 @@ async function runCancelWorkflow(client, backend, workspaceId, conversationId) {
     queuedRun.id,
     "cancelled",
   );
+  await waitForTexts(client, ["queued follow-up after cancel", "Queued"]);
   await assertRendererQueueMatchesBackend(client, "queued follow-up after cancel");
   await assertTextAbsent(client, "Queued response for queued follow-up after cancel.");
 }
@@ -651,7 +652,7 @@ async function runFailWorkflow(client, backend, workspaceId, conversationId) {
     "queued follow-up after failure",
     "queued",
   );
-  await waitForTexts(client, ["queued follow-up after failure", "Queued"]);
+  await waitForTexts(client, ["queued follow-up after failure"]);
   await submitComposer(client, "trigger scripted failure", "Send steering message");
   await waitForBackendTranscriptTexts(backend, workspaceId, conversationId, [
     "Scripted failure surfaced.",
@@ -664,6 +665,7 @@ async function runFailWorkflow(client, backend, workspaceId, conversationId) {
     queuedRun.id,
     "failed",
   );
+  await waitForTexts(client, ["queued follow-up after failure", "Queued"]);
   await assertRendererQueueMatchesBackend(client, "queued follow-up after failure");
   await assertTextAbsent(client, "Queued response for queued follow-up after failure.");
 }

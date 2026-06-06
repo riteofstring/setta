@@ -6,6 +6,22 @@ export const phaseOneVisiblePaneCount = 40;
 const defaultPanesPerColumn = 5;
 const toneSequence = ["cyan", "green", "orange", "pink", "slate"] as const;
 const workKinds = ["notes", "diff", "trace", "task", "search"] as const;
+const seededSurfaceKinds = new Map<number, SurfaceKind>([
+  [1, "fake-long-chat"],
+  [2, "settings-dom"],
+  [3, "chat-dom"],
+]);
+const surfaceKindLabels = {
+  browser: "browser",
+  "chat-dom": "real chat",
+  "fake-canvas": "fake canvas",
+  "fake-dom": "fake light",
+  "fake-heavy-dom": "fake heavy",
+  "fake-long-chat": "fake long chat",
+  "pixi-canvas": "Pixi canvas",
+  "settings-dom": "real settings",
+  snapshot: "snapshot",
+} satisfies Record<SurfaceKind, string>;
 
 export interface BenchmarkSceneOptions {
   paneCount?: number;
@@ -49,7 +65,7 @@ export function generateBenchmarkScene({
   return {
     columnGap: 8,
     columns,
-    id: "phase-4-browser-pane-benchmark",
+    id: "phase-5-canvas-pane-benchmark",
     paneById,
     panes,
     panesPerColumn,
@@ -80,21 +96,16 @@ function createFakePane(columnId: string, sequence: number, rowIndex: number): N
 }
 
 function fakeSurfaceKind(sequence: number): SurfaceKind {
-  switch (sequence) {
-    case 1:
-      return "fake-long-chat";
-    case 2:
-      return "settings-dom";
-    case 3:
-      return "chat-dom";
-    default:
-      break;
+  const seededKind = seededSurfaceKinds.get(sequence);
+  if (seededKind) {
+    return seededKind;
   }
-
-  if (sequence >= 8 && (sequence - 8) % 5 === 0) {
+  if (isBrowserPaneSequence(sequence)) {
     return "browser";
   }
-
+  if (isPixiCanvasPaneSequence(sequence)) {
+    return "pixi-canvas";
+  }
   const slot = sequence % 12;
   if (slot === 4) {
     return "fake-canvas";
@@ -105,29 +116,14 @@ function fakeSurfaceKind(sequence: number): SurfaceKind {
   return "fake-dom";
 }
 
-function surfaceKindLabel(kind: SurfaceKind): string {
-  switch (kind) {
-    case "chat-dom":
-      return "real chat";
-    case "fake-canvas":
-      return "fake canvas";
-    case "fake-dom":
-      return "fake light";
-    case "fake-heavy-dom":
-      return "fake heavy";
-    case "fake-long-chat":
-      return "fake long chat";
-    case "settings-dom":
-      return "real settings";
-    case "snapshot":
-      return "snapshot";
-    case "browser":
-      return "browser";
-    default:
-      assertNever(kind);
-  }
+function isBrowserPaneSequence(sequence: number): boolean {
+  return sequence >= 8 && (sequence - 8) % 8 === 0;
 }
 
-function assertNever(value: never): never {
-  throw new Error(`Unhandled fake surface kind: ${String(value)}`);
+function isPixiCanvasPaneSequence(sequence: number): boolean {
+  return sequence >= 4 && (sequence - 4) % 120 === 0;
+}
+
+function surfaceKindLabel(kind: SurfaceKind): string {
+  return surfaceKindLabels[kind];
 }

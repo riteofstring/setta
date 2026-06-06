@@ -9,6 +9,7 @@ export type SurfaceKind =
   | "fake-dom"
   | "fake-heavy-dom"
   | "fake-long-chat"
+  | "pixi-canvas"
   | "settings-dom"
   | "snapshot";
 
@@ -101,6 +102,14 @@ export interface PaneSnapshot {
   surfaceId: SurfaceId;
 }
 
+export interface CanvasSurfaceStats {
+  drawCalls: number;
+  farZoomSimplified: boolean;
+  gpuMemoryEstimateBytes: number | null;
+  liveCanvasPaneCount: number;
+  renderedFrames: number;
+}
+
 export interface SurfaceAdapter {
   readonly kind: SurfaceKind;
   readonly surfaceId: SurfaceId;
@@ -117,6 +126,7 @@ export interface SurfaceAdapter {
   resume(reason: ResumeReason): void;
 
   captureSnapshot?(): Promise<PaneSnapshot>;
+  getCanvasStats?(): CanvasSurfaceStats;
   destroy(): void;
 }
 
@@ -158,6 +168,9 @@ export interface NiriFrameMetrics {
   p95FrameTime: number;
   p99FrameTime: number;
   reactCommitsDuringMovement: number;
+  canvasDrawCalls: number;
+  canvasGpuMemoryEstimateBytes: number | null;
+  liveCanvasPaneCount: number;
   transformWrites: number;
   visiblePaneCount: number;
 }

@@ -18,7 +18,7 @@ describe("niri pane runtime policy", () => {
       renderItem("focused-heavy", "fake-heavy-dom", true),
       renderItem("heavy-over-budget", "fake-heavy-dom", false),
       renderItem("canvas-live", "fake-canvas", false),
-      renderItem("canvas-over-budget", "fake-canvas", false),
+      renderItem("canvas-over-budget", "pixi-canvas", false),
     ];
     const summary = new PaneRuntimePolicy(budget).apply(items, "idle");
 
@@ -44,7 +44,7 @@ describe("niri pane runtime policy", () => {
       renderItem("moving-heavy", "fake-heavy-dom", false),
       renderItem("moving-long-chat", "fake-long-chat", false),
       renderItem("moving-chat", "chat-dom", false),
-      renderItem("moving-canvas", "fake-canvas", false),
+      renderItem("moving-canvas", "pixi-canvas", false),
       renderItem("moving-light", "fake-dom", false),
       renderItem("moving-settings", "settings-dom", false),
     ];

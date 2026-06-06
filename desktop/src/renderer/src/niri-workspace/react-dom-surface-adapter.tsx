@@ -159,26 +159,16 @@ export function createReactDomSurfaceAdapter(
   pane: NiriPane,
   rootFactory?: ReactSurfaceRootFactory,
 ): ReactDomSurfaceAdapter {
-  switch (pane.surfaceKind) {
-    case "chat-dom":
-      return new ReactDomSurfaceAdapter(pane, () => <NiriChatSurface />, rootFactory);
-    case "fake-long-chat":
-      return new ReactDomSurfaceAdapter(
-        pane,
-        () => <FakeLongChatSurface pane={pane} />,
-        rootFactory,
-      );
-    case "settings-dom":
-      return new ReactDomSurfaceAdapter(pane, () => <NiriSettingsSurface />, rootFactory);
-    case "browser":
-    case "fake-canvas":
-    case "fake-dom":
-    case "fake-heavy-dom":
-    case "snapshot":
-      throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
-    default:
-      assertNever(pane.surfaceKind);
+  if (pane.surfaceKind === "chat-dom") {
+    return new ReactDomSurfaceAdapter(pane, () => <NiriChatSurface />, rootFactory);
   }
+  if (pane.surfaceKind === "fake-long-chat") {
+    return new ReactDomSurfaceAdapter(pane, () => <FakeLongChatSurface pane={pane} />, rootFactory);
+  }
+  if (pane.surfaceKind === "settings-dom") {
+    return new ReactDomSurfaceAdapter(pane, () => <NiriSettingsSurface />, rootFactory);
+  }
+  throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
 
 function performanceNow(): number {
@@ -186,8 +176,4 @@ function performanceNow(): number {
     return Date.now();
   }
   return performance.now();
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled niri React DOM surface kind: ${String(value)}`);
 }

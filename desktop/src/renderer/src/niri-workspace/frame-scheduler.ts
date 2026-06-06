@@ -8,6 +8,7 @@ import type { PresentationEngine } from "./presentation-engine";
 import type { PaneRuntimePolicy } from "./runtime-policy";
 
 const focusStepIntervalMs = 120;
+const benchmarkWarmupMs = 2000;
 
 interface FrameSchedulerDependencies {
   engine: NiriLikeLayoutEngine;
@@ -26,6 +27,7 @@ export class FrameScheduler {
   private items: PaneRenderItem[] = [];
   private lastFocusStepTimestamp = 0;
   private longTaskObserver: PerformanceObserver | null = null;
+  private measurementStartedAt = 0;
   private reportWritten = false;
   private startedAt = 0;
 
@@ -74,7 +76,7 @@ export class FrameScheduler {
     }
     this.lastFocusStepTimestamp = timestamp;
     const snapshot = this.layoutStore.getSnapshot();
-    const lastColumn = Math.max(0, this.engine.columnCount() - 1);
+    const lastColumn = Math.max(0, this.layoutStore.visibleColumnCount() - 1);
     if (snapshot.focusedColumnIndex >= lastColumn) {
       this.benchmarkDirection = "left";
     } else if (snapshot.focusedColumnIndex <= 0) {
@@ -127,11 +129,24 @@ export class FrameScheduler {
       visiblePaneCount: this.items.length,
     });
     this.presentation.updateDebugOverlay(this.runtimePolicy.getSummary());
+    this.startMeasurementAfterWarmup(frameStart);
     this.writeReportWhenReady(frameStart);
   };
 
+  private startMeasurementAfterWarmup(timestamp: number): void {
+    if (this.measurementStartedAt > 0 || timestamp - this.startedAt < benchmarkWarmupMs) {
+      return;
+    }
+    this.metrics.reset();
+    this.measurementStartedAt = timestamp;
+  }
+
   private writeReportWhenReady(timestamp: number): void {
-    if (this.reportWritten || timestamp - this.startedAt < 5000) {
+    if (
+      this.reportWritten ||
+      this.measurementStartedAt === 0 ||
+      timestamp - this.measurementStartedAt < 5000
+    ) {
       return;
     }
     this.reportWritten = true;

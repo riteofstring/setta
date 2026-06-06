@@ -41,6 +41,10 @@ export class NiriLayoutStore {
     return this.engine.focusedPaneAt(this.focusedColumnIndex, this.focusedRowIndex);
   }
 
+  visibleColumnCount(): number {
+    return this.scene.visibleColumnCount;
+  }
+
   getSnapshot(): NiriLayoutSnapshot {
     return {
       focusedColumnIndex: this.focusedColumnIndex,

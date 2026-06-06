@@ -1,5 +1,6 @@
 import { createDefaultSurfaceAdapter, SnapshotSurfaceAdapter } from "./surface-adapters";
 import type {
+  CanvasSurfaceStats,
   FreezeReason,
   NiriPane,
   PaneRenderItem,
@@ -51,6 +52,43 @@ export class SurfaceRegistry {
       }
     }
     return count;
+  }
+
+  canvasStats(): CanvasSurfaceStats {
+    let drawCalls = 0;
+    let farZoomSimplified = false;
+    let gpuMemoryEstimateBytes = 0;
+    let hasGpuMemoryEstimate = false;
+    let liveCanvasPaneCount = 0;
+    let renderedFrames = 0;
+
+    const adapters = new Set<SurfaceAdapter>();
+    for (const record of this.hostRecords.values()) {
+      adapters.add(record.adapter);
+    }
+
+    for (const adapter of adapters) {
+      const stats = adapter.getCanvasStats?.();
+      if (!stats) {
+        continue;
+      }
+      drawCalls += stats.drawCalls;
+      farZoomSimplified = farZoomSimplified || stats.farZoomSimplified;
+      liveCanvasPaneCount += stats.liveCanvasPaneCount;
+      renderedFrames += stats.renderedFrames;
+      if (stats.gpuMemoryEstimateBytes !== null) {
+        gpuMemoryEstimateBytes += stats.gpuMemoryEstimateBytes;
+        hasGpuMemoryEstimate = true;
+      }
+    }
+
+    return {
+      drawCalls,
+      farZoomSimplified,
+      gpuMemoryEstimateBytes: hasGpuMemoryEstimate ? gpuMemoryEstimateBytes : null,
+      liveCanvasPaneCount,
+      renderedFrames,
+    };
   }
 
   releaseHost(host: HTMLElement, reason: FreezeReason = "hidden"): void {

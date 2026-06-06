@@ -1,4 +1,4 @@
-import type { NiriFrameMetrics } from "./types";
+import type { CanvasSurfaceStats, NiriFrameMetrics } from "./types";
 
 const maxRecordedFrames = 720;
 const targetFrameMs = 8.33;
@@ -8,6 +8,7 @@ export class NiriMetricsCollector {
   private droppedFrames = 0;
   private frameTimes: number[] = [];
   private latestFrameTime = 0;
+  private latestCanvasStats: CanvasSurfaceStats = emptyCanvasStats();
   private latestNativeBoundsUpdates = 0;
   private latestTransformWrites = 0;
   private latestVisiblePaneCount = 0;
@@ -46,10 +47,27 @@ export class NiriMetricsCollector {
     this.longTasks += 1;
   }
 
+  recordCanvasStats(stats: CanvasSurfaceStats): void {
+    this.latestCanvasStats = stats;
+  }
+
   recordReactCommit(): void {
     if (this.currentFrameMoving) {
       this.reactCommitsDuringMovement += 1;
     }
+  }
+
+  reset(): void {
+    this.currentFrameMoving = false;
+    this.droppedFrames = 0;
+    this.frameTimes = [];
+    this.latestFrameTime = 0;
+    this.latestCanvasStats = emptyCanvasStats();
+    this.latestNativeBoundsUpdates = 0;
+    this.latestTransformWrites = 0;
+    this.latestVisiblePaneCount = 0;
+    this.longTasks = 0;
+    this.reactCommitsDuringMovement = 0;
   }
 
   snapshot(): NiriFrameMetrics {
@@ -63,10 +81,23 @@ export class NiriMetricsCollector {
       p95FrameTime: percentile(this.frameTimes, 0.95),
       p99FrameTime: percentile(this.frameTimes, 0.99),
       reactCommitsDuringMovement: this.reactCommitsDuringMovement,
+      canvasDrawCalls: this.latestCanvasStats.drawCalls,
+      canvasGpuMemoryEstimateBytes: this.latestCanvasStats.gpuMemoryEstimateBytes,
+      liveCanvasPaneCount: this.latestCanvasStats.liveCanvasPaneCount,
       transformWrites: this.latestTransformWrites,
       visiblePaneCount: this.latestVisiblePaneCount,
     };
   }
+}
+
+function emptyCanvasStats(): CanvasSurfaceStats {
+  return {
+    drawCalls: 0,
+    farZoomSimplified: false,
+    gpuMemoryEstimateBytes: null,
+    liveCanvasPaneCount: 0,
+    renderedFrames: 0,
+  };
 }
 
 function percentile(values: number[], quantile: number): number {

@@ -14,6 +14,18 @@ export const DEFAULT_PANE_BUDGET: PaneRuntimeBudget = {
   maxSnapshotPanes: 64,
 };
 
+type AlwaysLiveSurfaceKind = "fake-dom" | "settings-dom";
+type LiveCanvasSurfaceKind = "fake-canvas" | "pixi-canvas";
+type LiveHeavyDomSurfaceKind = "chat-dom" | "fake-heavy-dom" | "fake-long-chat";
+
+const liveCanvasSurfaceKinds = new Set<SurfaceKind>(["fake-canvas", "pixi-canvas"]);
+const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
+  "chat-dom",
+  "fake-heavy-dom",
+  "fake-long-chat",
+]);
+const alwaysLiveSurfaceKinds = new Set<SurfaceKind>(["fake-dom", "settings-dom"]);
+
 export class PaneRuntimePolicy {
   private summary: PaneRuntimeSummary = emptySummary(DEFAULT_PANE_BUDGET);
 
@@ -78,24 +90,12 @@ export class PaneRuntimePolicy {
       liveWebGpuCanvases: number;
     },
   ): void {
-    switch (kind) {
-      case "browser":
-        counters.liveBrowserPanes += 1;
-        return;
-      case "chat-dom":
-      case "fake-heavy-dom":
-      case "fake-long-chat":
-        counters.liveHeavyDom += 1;
-        return;
-      case "fake-canvas":
-        counters.liveWebGpuCanvases += 1;
-        return;
-      case "fake-dom":
-      case "settings-dom":
-      case "snapshot":
-        return;
-      default:
-        assertNever(kind);
+    if (kind === "browser") {
+      counters.liveBrowserPanes += 1;
+    } else if (isLiveHeavyDomSurfaceKind(kind)) {
+      counters.liveHeavyDom += 1;
+    } else if (isLiveCanvasSurfaceKind(kind)) {
+      counters.liveWebGpuCanvases += 1;
     }
   }
 
@@ -129,24 +129,25 @@ export class PaneRuntimePolicy {
       snapshot: number;
     },
   ): PaneRuntimeState {
-    switch (kind) {
-      case "fake-dom":
-      case "settings-dom":
-        return "live";
-      case "chat-dom":
-      case "fake-heavy-dom":
-        return this.runtimeStateForHeavyDom(movementPhase, counters);
-      case "fake-long-chat":
-        return this.runtimeStateForBudgetedHeavyDom(counters);
-      case "fake-canvas":
-        return this.runtimeStateForCanvas(movementPhase, counters);
-      case "browser":
-        return this.runtimeStateForBrowser(movementPhase, counters);
-      case "snapshot":
-        return this.snapshotOrThrottle(counters);
-      default:
-        assertNever(kind);
+    if (isAlwaysLiveSurfaceKind(kind)) {
+      return "live";
     }
+    if (kind === "chat-dom" || kind === "fake-heavy-dom") {
+      return this.runtimeStateForHeavyDom(movementPhase, counters);
+    }
+    if (kind === "fake-long-chat") {
+      return this.runtimeStateForBudgetedHeavyDom(counters);
+    }
+    if (isLiveCanvasSurfaceKind(kind)) {
+      return this.runtimeStateForCanvas(movementPhase, counters);
+    }
+    if (kind === "browser") {
+      return this.runtimeStateForBrowser(movementPhase, counters);
+    }
+    if (kind === "snapshot") {
+      return this.snapshotOrThrottle(counters);
+    }
+    assertNever(kind);
   }
 
   private runtimeStateForCanvas(
@@ -210,6 +211,18 @@ export class PaneRuntimePolicy {
     }
     return "live-throttled";
   }
+}
+
+function isAlwaysLiveSurfaceKind(kind: SurfaceKind): kind is AlwaysLiveSurfaceKind {
+  return alwaysLiveSurfaceKinds.has(kind);
+}
+
+function isLiveCanvasSurfaceKind(kind: SurfaceKind): kind is LiveCanvasSurfaceKind {
+  return liveCanvasSurfaceKinds.has(kind);
+}
+
+function isLiveHeavyDomSurfaceKind(kind: SurfaceKind): kind is LiveHeavyDomSurfaceKind {
+  return liveHeavyDomSurfaceKinds.has(kind);
 }
 
 function emptySummary(budget: PaneRuntimeBudget): PaneRuntimeSummary {

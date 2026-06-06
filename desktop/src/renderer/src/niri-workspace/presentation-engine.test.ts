@@ -4,7 +4,7 @@ import { generateBenchmarkScene } from "./benchmark-scene";
 import { NiriMetricsCollector } from "./metrics";
 import { PresentationEngine } from "./presentation-engine";
 import { SurfaceRegistry } from "./surface-registry";
-import type { NiriPane, PaneRenderItem, SurfaceAdapter } from "./types";
+import type { CanvasSurfaceStats, NiriPane, PaneRenderItem, SurfaceAdapter } from "./types";
 
 describe("niri presentation engine", () => {
   test("defers pane content writes while panes are moving", () => {
@@ -43,6 +43,36 @@ describe("niri presentation engine", () => {
     expect(textFor(host, "[data-niri-pane-title]")).toBe("Pane 009");
     expect(host.dataset.paneId).toBe("niri_pane_8");
     expect(host.dataset.surfaceKind).toBe("browser");
+  });
+
+  test("surfaces canvas draw stats in the debug overlay", () => {
+    const scene = generateBenchmarkScene({ paneCount: 5, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const overlay = { textContent: "" } as HTMLElement;
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], overlay);
+
+    presentation.apply([renderItem("niri_pane_4", "niri_surface_4", false, "pixi-canvas")]);
+    presentation.updateDebugOverlay({
+      budget: {
+        maxLiveBrowserPanes: 6,
+        maxLiveHeavyDomPanes: 12,
+        maxLiveTerminalRenderers: 8,
+        maxLiveWebGpuCanvases: 4,
+        maxSnapshotPanes: 64,
+      },
+      hidden: 0,
+      live: 1,
+      liveThrottled: 0,
+      snapshot: 0,
+      total: 1,
+    });
+
+    expect(overlay.textContent).toContain("canvas 1/7/512KiB");
   });
 });
 
@@ -119,6 +149,25 @@ class TitleSurfaceAdapter implements SurfaceAdapter {
   resume(): void {}
 
   destroy(): void {}
+
+  getCanvasStats(): CanvasSurfaceStats {
+    if (this.kind !== "pixi-canvas") {
+      return {
+        drawCalls: 0,
+        farZoomSimplified: false,
+        gpuMemoryEstimateBytes: null,
+        liveCanvasPaneCount: 0,
+        renderedFrames: 0,
+      };
+    }
+    return {
+      drawCalls: 7,
+      farZoomSimplified: false,
+      gpuMemoryEstimateBytes: 512 * 1024,
+      liveCanvasPaneCount: 1,
+      renderedFrames: 3,
+    };
+  }
 }
 
 function setText(host: HTMLElement, selector: string, value: string): void {
