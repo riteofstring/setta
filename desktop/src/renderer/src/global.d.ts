@@ -83,6 +83,10 @@ interface PixiWorkspaceDebugSnapshot {
     labelObjectCount: number;
     labelSyncCount: number;
     labelVisibilityMode: "selected" | "visible-priority" | "all-visible";
+    lastLabelVisibilityCandidateCount: number;
+    lastMarqueeCandidateCount: number;
+    lastNodeHitCandidateCount: number;
+    lastPortHitCandidateCount: number;
     marqueeUpdateCount: number;
     nodeBodyContextCount: number;
     nodeBodyGraphicsCount: number;
@@ -96,6 +100,11 @@ interface PixiWorkspaceDebugSnapshot {
     reactRenderCount: number;
     recentFrameMs: number[];
     selectionChangeCount: number;
+    spatialIndexCandidateCount: number;
+    spatialIndexNodeCount: number;
+    spatialIndexQueryCount: number;
+    spatialIndexRebuildCount: number;
+    spatialIndexUpdateCount: number;
     temporaryEdgeUpdateCount: number;
     visibleLabelCount: number;
     wheelPanUpdateCount: number;

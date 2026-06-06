@@ -520,3 +520,64 @@ Additional scenario coverage:
 | Final sampled pixels                        |           6,366 |
 | Final non-background sampled pixels         |           4,615 |
 | Final sampled color count                   |              61 |
+
+## Spatial Index Broad-Phase Update
+
+Date: 2026-06-04
+
+Before artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260605T002609Z
+```
+
+After artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260605T004052Z
+```
+
+Phase 6 adds a renderer-owned node-bounds spatial index for broad-phase node
+hit testing, marquee selection, label visibility viewport candidates, and port
+hit-test candidate narrowing. The renderer still keeps all fixture Pixi display
+objects alive, preserves exact geometry checks after every index query, and
+updates dragged node bounds in the index from the imperative drag path.
+
+Additional scenario coverage:
+
+- Spatial index debug counters are present and `spatialIndexNodeCount` matches
+  `graph.nodeCount`.
+- Candidate counts remain non-negative and no larger than the fixture node
+  count.
+- Node hover/click hit tests, marquee selection, port targeting, label
+  visibility after pan, and group drag advance spatial query/update counters.
+- A node is reselected at its moved screen center after group drag, verifying
+  subsequent hit testing uses the updated bounds.
+- Deterministic unit coverage compares fixture and large synthetic index queries
+  against naive scans and verifies update/removal and topmost picking behavior.
+- The synthetic 1,000-node unit query returns 1 indexed candidate matching the
+  naive scan, which exercises localized query reduction without relying on
+  timing.
+
+| Metric                                      | Phase 5.5 baseline | Phase 6 after |
+| ------------------------------------------- | -----------------: | ------------: |
+| Deep zoom/pan average frame interval        |            9.35 ms |       9.35 ms |
+| Deep zoom/pan worst frame interval          |          102.40 ms |      99.90 ms |
+| Final average recent frame interval         |            9.54 ms |      10.00 ms |
+| Final worst recent frame interval           |           78.80 ms |     108.90 ms |
+| Spatial index node count                    |                n/a |             4 |
+| Spatial index rebuild count                 |                n/a |             1 |
+| Final spatial index query count             |                n/a |           151 |
+| Final spatial index update count            |                n/a |            52 |
+| Pan label visibility candidates             |                n/a |             4 |
+| Marquee candidates                          |                n/a |             2 |
+| Moved-node hit candidates                   |                n/a |             1 |
+| Edge target port candidates                 |                n/a |             1 |
+| Final label visibility candidates           |                n/a |             0 |
+| Final visible labels                        |                  0 |             0 |
+| Final label sync count                      |                204 |           204 |
+| Final edge count                            |                  4 |             4 |
+| React host renders                          |                  1 |             1 |
+| Final sampled pixels                        |              6,366 |         6,366 |
+| Final non-background sampled pixels         |              4,615 |         4,616 |
+| Final sampled color count                   |                 62 |            61 |

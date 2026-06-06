@@ -51,6 +51,15 @@ export function nodeBounds(node) {
   };
 }
 
+export function pointInsideNodeBounds(point, node) {
+  return (
+    point.x >= node.x &&
+    point.x <= node.x + node.width &&
+    point.y >= node.y &&
+    point.y <= node.y + node.height
+  );
+}
+
 export function rectanglesIntersect(left, right) {
   return (
     left.x <= right.x + right.width &&

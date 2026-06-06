@@ -22,6 +22,7 @@ import {
   nodeOutlineContextFor,
   nodeShadowContextFor,
 } from "./pixi-workspace-node-geometry";
+import { createPixiWorkspaceSpatialQueries } from "./pixi-workspace-renderer-spatial-queries";
 import {
   cameraState,
   capturePointer,
@@ -34,14 +35,13 @@ import {
   isSelectionToggleEvent,
   isZoomWheel,
   marqueeBounds,
-  nodeBounds,
   normalizedWheelDelta,
   parsePortKey,
+  pointInsideNodeBounds,
   portKey,
   ports,
   portLocalPosition,
   portWorldPosition,
-  rectanglesIntersect,
   releasePointer,
   requirePort,
   samplePixiVisualState,
@@ -101,6 +101,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
 
   const nodes = initialNodes.map((node) => ({ ...node }));
   const edges = initialEdges.map((edge) => ({ ...edge }));
+  const spatialQueries = createPixiWorkspaceSpatialQueries({ nodes, viewport });
   const nodeContainers = new Map();
   const nodeBodies = new Map();
   const nodeShadows = new Map();
@@ -451,6 +452,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             reactRenderCount: reactRenderCount(),
             recentFrameMs: [...recentFrameMs],
             selectionChangeCount,
+            ...spatialQueries.debugSnapshot(),
             temporaryEdgeUpdateCount,
             visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
             wheelPanUpdateCount,
@@ -624,6 +626,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       node.y = world.y - draggedNode.offsetY;
       container.x = node.x;
       container.y = node.y;
+      spatialQueries.updateNode(node);
       syncLabelPosition(node.id);
     }
     syncLabelVisibility();
@@ -799,8 +802,9 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       return;
     }
     const bounds = marqueeBounds(drawingMarquee);
+    const candidateNodeIds = spatialQueries.marqueeCandidateIds(bounds);
     const intersectingNodeIds = nodes
-      .filter((node) => rectanglesIntersect(bounds, nodeBounds(node)))
+      .filter((node) => candidateNodeIds.has(node.id))
       .map((node) => node.id);
     setSelectedNodeIds(intersectingNodeIds);
     finishMarqueeSelection();
@@ -855,7 +859,8 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   function hitTestPortAtScreen(screen, { excludeNodeId, role }) {
     let bestPort = null;
     let bestDistance = Infinity;
-    for (const node of nodes) {
+    const candidates = spatialQueries.portHitCandidatesAtScreen(screen, portHitRadiusScreen);
+    for (const node of candidates) {
       if (node.id === excludeNodeId) {
         continue;
       }
@@ -876,19 +881,14 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   }
 
   function hitTestNodeAtScreen(screen) {
-    const world = viewport.toWorld(screen);
-    for (let index = nodes.length - 1; index >= 0; index -= 1) {
-      const node = nodes[index];
-      if (
-        world.x >= node.x &&
-        world.x <= node.x + node.width &&
-        world.y >= node.y &&
-        world.y <= node.y + node.height
-      ) {
-        return node;
+    const { candidates, world } = spatialQueries.nodeHitCandidatesAtScreen(screen);
+    let picked = null;
+    for (const node of candidates) {
+      if (pointInsideNodeBounds(world, node)) {
+        picked = node;
       }
     }
-    return null;
+    return picked;
   }
 
   function panCameraByScreenDelta(deltaX, deltaY) {
@@ -938,6 +938,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       normalFontSize: nodeLabelBitmapFontSize,
       selectedNodeIds,
       viewport,
+      visibleNodeIds: spatialQueries.labelVisibleNodeIds(),
       visibilityReasons: nodeLabelVisibilityReasons,
     });
   }

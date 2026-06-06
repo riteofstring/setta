@@ -1,7 +1,7 @@
 # Pixi Workspace Crisp Rendering Plan
 
 - **Date:** June 4, 2026
-- **Status:** Phase 1, 2, 3, 4, 5, and 5.5 implemented; Phase 6 planned and implementation-ready
+- **Status:** Phase 1, 2, 3, 4, 5, 5.5, and 6 implemented
 - **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
@@ -10,7 +10,7 @@ Make nodes and labels remain crisp during deep zoom while preserving fast pan, z
 
 The original issue was that the workspace zoomed the whole Pixi viewport while node labels were Pixi `Text` objects inside the zoomed world. Each label was rasterized to a texture and then magnified, which made text blur at high zoom and made naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
 
-Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 added compact selected-label sizing at low zoom. Phase 6 adds a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet.
+Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 added compact selected-label sizing at low zoom. Phase 6 added a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet.
 
 The recommended production direction is:
 
@@ -41,9 +41,10 @@ The current prototype:
 - Toggles prebuilt selection/hover outline visibility instead of clearing and redrawing outline path geometry.
 - Exposes grid, node body, node shadow, node outline, and outline-visibility geometry counters in the debug snapshot.
 - Keeps selected labels visible in low-zoom `selected` mode with a compact font-size bucket so they do not visually dominate shrunken node bodies.
-- Still uses O(number of nodes) scans for node hit testing, port hit-test broad-phase, marquee selection, and label visibility candidate discovery.
+- Uses a renderer-owned node-bounds spatial index for broad-phase node hit testing, port hit-test candidate narrowing, marquee selection, and label visibility viewport candidate discovery.
+- Updates dragged node bounds in the spatial index from the imperative drag path without polling or rebuilding.
 - Keeps interaction state in the imperative renderer path, not React state.
-- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, compact selected-label sizing, node geometry counters, and unchanged React render count during label sync.
+- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, compact selected-label sizing, node geometry counters, spatial index counters/candidates/drag updates, moved-node hit testing after drag, and unchanged React render count during label sync.
 
 This plan should extend the existing renderer/controller path. Do not create a second Pixi implementation or introduce DOM labels for workspace nodes.
 
@@ -534,7 +535,7 @@ Expected result:
 
 ## Phase 6: Node Bounds Spatial Index
 
-Status: Planned; implementation-ready.
+Status: Implemented.
 
 Add an application-level spatial index for node bounds and use it as the broad-phase query path for current O(number of nodes) renderer operations. This phase should make the renderer's query boundaries production-shaped without virtualizing display objects yet.
 

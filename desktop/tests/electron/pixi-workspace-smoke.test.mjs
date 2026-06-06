@@ -21,6 +21,19 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  assertFiniteNumber,
+  assertNonNegativeInteger,
+  assertReactRenderCountUnchanged,
+  assertRenderCounterAdvanced,
+  assertRendererFramesHealthy,
+  assertSpatialIndexCandidateAtLeast,
+  assertSpatialIndexDebugCounters,
+  assertSpatialIndexQueryAdvanced,
+  assertSpatialIndexUpdatesAdvanced,
+  setsEqual,
+  visiblePoint,
+} from "./pixi-workspace-smoke-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const cdpMetaModifier = 4;
@@ -97,12 +110,26 @@ try {
   assertSelectedExactly(afterHover, [], "node hover");
   assertOutlineVisibilityUpdated(initial, afterHover, "node hover outline");
   assertGeometryConstructionCountersStable(initial, afterHover, "node hover geometry");
+  assertSpatialIndexQueryAdvanced(initial, afterHover, "node hover hit test");
+  assertSpatialIndexCandidateAtLeast(
+    afterHover,
+    "lastNodeHitCandidateCount",
+    1,
+    "node hover hit test",
+  );
 
   await dispatchMouseClick(context.client, { x: firstNode.screenX, y: firstNode.screenY });
   await delay(100);
   const afterPlainSelect = await getPixiSnapshot(context.client);
   assertSelectedExactly(afterPlainSelect, [firstNode.id], "plain node click");
   assertOutlineVisibilityUpdated(afterHover, afterPlainSelect, "plain node click outline");
+  assertSpatialIndexQueryAdvanced(afterHover, afterPlainSelect, "plain node click hit test");
+  assertSpatialIndexCandidateAtLeast(
+    afterPlainSelect,
+    "lastNodeHitCandidateCount",
+    1,
+    "plain node click hit test",
+  );
   assertGeometryConstructionCountersStable(
     afterHover,
     afterPlainSelect,
@@ -144,6 +171,17 @@ try {
   await delay(150);
   const afterMarquee = await getPixiSnapshot(context.client);
   assertMarqueeCommitted(afterEmptySelectionClear, duringMarquee, afterMarquee, marquee.nodeIds);
+  assertSpatialIndexQueryAdvanced(
+    afterEmptySelectionClear,
+    afterMarquee,
+    "marquee selection spatial query",
+  );
+  assertSpatialIndexCandidateAtLeast(
+    afterMarquee,
+    "lastMarqueeCandidateCount",
+    marquee.nodeIds.length,
+    "marquee selection spatial query",
+  );
   assertGeometryConstructionCountersStable(
     afterEmptySelectionClear,
     afterMarquee,
@@ -160,10 +198,36 @@ try {
   await delay(200);
   const afterGroupDrag = await getPixiSnapshot(context.client);
   assertGroupDragMoved(afterMarquee, afterGroupDrag, selectedGroupNodeIds);
+  assertSpatialIndexUpdatesAdvanced(afterMarquee, afterGroupDrag, "group node drag spatial index");
   assertGeometryConstructionCountersStable(
     afterMarquee,
     afterGroupDrag,
     "group node drag geometry",
+  );
+
+  await dispatchEscape(context.client);
+  await delay(100);
+  const afterGroupDragClear = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterGroupDragClear, [], "Escape clear after group drag");
+
+  const movedGroupPrimaryNode = nodeById(afterGroupDragClear, selectedGroupNodeIds[0]);
+  await dispatchMouseClick(context.client, {
+    x: movedGroupPrimaryNode.screenX,
+    y: movedGroupPrimaryNode.screenY,
+  });
+  await delay(100);
+  const afterMovedNodeReselect = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterMovedNodeReselect, [movedGroupPrimaryNode.id], "moved node reselect");
+  assertSpatialIndexQueryAdvanced(
+    afterGroupDragClear,
+    afterMovedNodeReselect,
+    "moved node hit test",
+  );
+  assertSpatialIndexCandidateAtLeast(
+    afterMovedNodeReselect,
+    "lastNodeHitCandidateCount",
+    1,
+    "moved node hit test",
   );
 
   await dispatchEscape(context.client);
@@ -185,6 +249,13 @@ try {
   assertLabelsAttachedToNodeCenters(afterPan, "empty-space pan");
   assertLabelsScreenSpace(afterPan, "empty-space pan");
   assertLabelSyncAdvanced(afterEscapeClear, afterPan, "empty-space pan label sync");
+  assertSpatialIndexQueryAdvanced(afterEscapeClear, afterPan, "empty-space pan label visibility");
+  assertSpatialIndexCandidateAtLeast(
+    afterPan,
+    "lastLabelVisibilityCandidateCount",
+    1,
+    "empty-space pan label visibility",
+  );
   assertReactRenderCountUnchanged(afterEscapeClear, afterPan, "empty-space pan label sync");
   assertGeometryConstructionCountersStable(afterEscapeClear, afterPan, "empty-space pan geometry");
 
@@ -302,6 +373,13 @@ try {
   await delay(200);
   const afterEdgeDraw = await getPixiSnapshot(context.client);
   assertEdgeCommitted(afterCancel, duringEdgeDraw, afterEdgeDraw, commitPair);
+  assertSpatialIndexQueryAdvanced(afterCancel, afterEdgeDraw, "edge drawing port targeting");
+  assertSpatialIndexCandidateAtLeast(
+    afterEdgeDraw,
+    "lastPortHitCandidateCount",
+    1,
+    "edge drawing port targeting",
+  );
   const deepZoomTarget = visibleNodes(afterEdgeDraw)[0];
   if (!deepZoomTarget) {
     throw new Error(
@@ -434,10 +512,12 @@ try {
     afterEscapeClear,
     afterEdgeDraw,
     afterGroupDrag,
+    afterGroupDragClear,
     afterHover,
     afterLowZoom,
     afterLowZoomSelect,
     afterMarquee,
+    afterMovedNodeReselect,
     afterOffscreenPan,
     afterPan,
     afterPlainSelect,
@@ -703,6 +783,13 @@ function assertInitialSnapshot(snapshot) {
   assertAtLeastOneVisibleLabel(snapshot, "initial render");
   assertLabelDebugCounters(snapshot, "initial render");
   assertNodeGeometryDebugCounters(snapshot, "initial render");
+  assertSpatialIndexDebugCounters(snapshot, "initial render");
+  assertSpatialIndexCandidateAtLeast(
+    snapshot,
+    "lastLabelVisibilityCandidateCount",
+    1,
+    "initial label visibility query",
+  );
 }
 
 function assertSelectionDebugShape(snapshot) {
@@ -1094,26 +1181,6 @@ function assertNodeLabelOutsideViewport(snapshot, nodeId, label) {
   }
 }
 
-function assertReactRenderCountUnchanged(before, after, label) {
-  if (after.render.reactRenderCount !== before.render.reactRenderCount) {
-    throw new Error(
-      `${label} changed React render count: before=${before.render.reactRenderCount} after=${after.render.reactRenderCount}`,
-    );
-  }
-}
-
-function assertFiniteNumber(value, label) {
-  if (!Number.isFinite(value)) {
-    throw new Error(`${label} was not finite: ${String(value)}`);
-  }
-}
-
-function assertNonNegativeInteger(value, label) {
-  if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${label} was not a non-negative integer: ${String(value)}`);
-  }
-}
-
 function assertMarqueeCommitted(before, during, after, targetNodeIds) {
   if (!during.interaction.drawingMarquee) {
     throw new Error(
@@ -1391,14 +1458,6 @@ function assertEdgeCountIncreasedByOne(before, after) {
   }
 }
 
-function assertRenderCounterAdvanced(before, after, counter, label) {
-  if (after.render[counter] <= before.render[counter]) {
-    throw new Error(
-      `${label} counter did not advance: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
-    );
-  }
-}
-
 function newCommittedEdge(before, after) {
   const beforeEdgeIds = new Set(before.graph.edges.map((edge) => edge.id));
   const committedEdge = after.graph.edges.find((edge) => !beforeEdgeIds.has(edge.id));
@@ -1422,15 +1481,6 @@ function assertCommittedEdgeMatchesPair(committedEdge, pair) {
   }
 }
 
-function visiblePoint(snapshot, point) {
-  return (
-    point.screenX > 24 &&
-    point.screenY > 24 &&
-    point.screenX < snapshot.canvas.clientWidth - 24 &&
-    point.screenY < snapshot.canvas.clientHeight - 24
-  );
-}
-
 function edgeKey(edge) {
   return edgeKeyFromParts(
     edge.sourceNodeId,
@@ -1442,55 +1492,4 @@ function edgeKey(edge) {
 
 function edgeKeyFromParts(sourceNodeId, sourcePortId, targetNodeId, targetPortId) {
   return `${sourceNodeId}:${sourcePortId}->${targetNodeId}:${targetPortId}`;
-}
-
-function assertRendererFramesHealthy(snapshot) {
-  assertFrameTimingsHealthy(snapshot);
-  assertPositiveRenderCounters(snapshot, [
-    "nodeDragUpdateCount",
-    "pointerPanUpdateCount",
-    "marqueeUpdateCount",
-    "selectionChangeCount",
-    "wheelPanUpdateCount",
-    "wheelZoomUpdateCount",
-    "cameraUpdateCount",
-    "edgeCommitCount",
-    "temporaryEdgeUpdateCount",
-    "labelSyncCount",
-    "nodeOutlineVisibilityUpdateCount",
-  ]);
-}
-
-function assertFrameTimingsHealthy(snapshot) {
-  if (snapshot.render.frameCount <= 0) {
-    throw new Error(`Pixi ticker did not advance: ${JSON.stringify(snapshot.render)}`);
-  }
-  if (
-    !Number.isFinite(snapshot.render.averageFrameMs) ||
-    !Number.isFinite(snapshot.render.worstFrameMs)
-  ) {
-    throw new Error(`Pixi frame timings were not finite: ${JSON.stringify(snapshot.render)}`);
-  }
-}
-
-function assertPositiveRenderCounters(snapshot, counters) {
-  for (const counter of counters) {
-    if (snapshot.render[counter] <= 0) {
-      throw new Error(
-        `Pixi render counter did not advance: ${counter} render=${JSON.stringify(snapshot.render)}`,
-      );
-    }
-  }
-}
-
-function setsEqual(left, right) {
-  if (left.size !== right.size) {
-    return false;
-  }
-  for (const value of left) {
-    if (!right.has(value)) {
-      return false;
-    }
-  }
-  return true;
 }
