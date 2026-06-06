@@ -132,7 +132,7 @@ func (harness *CodexHarness) handleImmediateCodexServerRequest(ctx context.Conte
 	}
 }
 
-func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) error {
+func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, message jsonRPCMessage, _ string, threadID string, turnID string, sink TurnSink) error {
 	params, err := objectValue(message.Params, "codex dynamic tool call params")
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 		}
 		return message.RespondError(codexJSONRPCErrorToolUnavailable, messageText)
 	}
-	result, err := tool.Handler(harness.agentToolRuntimeContext(ctx, runID, threadID, turnID), call)
+	result, err := tool.Handler(ctx, call)
 	if err != nil {
 		messageText := "dynamic tool failed: " + err.Error()
 		item.Status = RunItemStatusFailed
@@ -176,26 +176,6 @@ func (harness *CodexHarness) handleCodexDynamicToolCall(ctx context.Context, mes
 	return message.RespondResult(map[string]any{
 		"contentItems": codexDynamicToolContentItems(result.ContentItems),
 		"success":      result.Success,
-	})
-}
-
-func (harness *CodexHarness) agentToolRuntimeContext(ctx context.Context, runID string, threadID string, turnID string) context.Context {
-	harness.mu.Lock()
-	active := harness.active[runID]
-	var request TurnRequest
-	if active != nil {
-		request = active.request
-	}
-	harness.mu.Unlock()
-	if request.Run.ID == "" {
-		return ctx
-	}
-	return ContextWithAgentToolRuntime(ctx, AgentToolRuntimeContext{
-		Workspace:    request.Workspace,
-		Conversation: request.Conversation,
-		Run:          request.Run,
-		ThreadID:     threadID,
-		TurnID:       turnID,
 	})
 }
 

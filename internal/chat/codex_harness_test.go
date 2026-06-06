@@ -1272,7 +1272,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		return mode == "command-model-set-local" || mode == "command-effort-set-local"
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
-		assertFakeDynamicToolsThreadParams(mode, message)
 		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
 	case "thread/goal/get":
 		return handleFakeGoalGet(mode, message)
@@ -1327,9 +1326,6 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
 	switch mode {
 	case "stream":
-		writeFakeStreamTurn()
-		return true, true
-	case "dynamic-tools-thread-start", "dynamic-tools-thread-resume":
 		writeFakeStreamTurn()
 		return true, true
 	case "initial-settings":

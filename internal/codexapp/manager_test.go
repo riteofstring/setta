@@ -99,32 +99,6 @@ func TestManagerDeliversLifecycleFailureToActiveSession(t *testing.T) {
 	}
 }
 
-func TestManagerDrainsNotificationsBeforeLifecycleOnExit(t *testing.T) {
-	manager := newTestManager("notify-then-exit")
-	defer shutdownTestManager(t, manager)
-
-	session, err := manager.NewSession(context.Background())
-	if err != nil {
-		t.Fatalf("new session: %v", err)
-	}
-	defer session.Close()
-	if err := session.OwnThread("thread_a"); err != nil {
-		t.Fatalf("own thread: %v", err)
-	}
-
-	if _, err := session.Call(context.Background(), "notifyThenExit", map[string]any{}); err != nil {
-		t.Fatalf("notifyThenExit: %v", err)
-	}
-	event := readSessionEvent(t, session)
-	if event.Kind != EventNotification || event.Message.Method != "thread/settings/updated" {
-		t.Fatalf("first event = %+v, want queued notification before lifecycle", event)
-	}
-	event = readSessionEvent(t, session)
-	if event.Kind != EventLifecycle || event.Err == nil {
-		t.Fatalf("second event = %+v, want lifecycle failure", event)
-	}
-}
-
 func TestManagerRoutesNotificationToOwnedThread(t *testing.T) {
 	manager := newTestManager("steady")
 	defer shutdownTestManager(t, manager)
@@ -618,10 +592,6 @@ func handleFakeMessage(mode string, state *fakeState, message map[string]any) bo
 		writeFakeNotification("never/received", map[string]any{})
 	case "initCount":
 		writeFakeResponse(message["id"], map[string]any{"count": state.initCount})
-	case "notifyThenExit":
-		writeFakeResponse(message["id"], map[string]any{"ok": true})
-		writeFakeNotification("thread/settings/updated", map[string]any{"threadId": "thread_a"})
-		return true
 	case "exit":
 		return true
 	default:
