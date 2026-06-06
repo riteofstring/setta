@@ -823,11 +823,11 @@ function listResponse(
     diagnostics,
   };
 }
+
 function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
     app: {
-      flags: { pixiWorkspaceDebug: false, pixiWorkspacePrototype: false },
       installedEditors: async () => [],
       openWorkspaceInEditor: async () => {},
       openExternalUrl: async () => {},
