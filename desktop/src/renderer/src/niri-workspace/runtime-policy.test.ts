@@ -182,6 +182,7 @@ function renderItem(paneId: string, surfaceKind: SurfaceKind, focused: boolean):
   return {
     focused,
     height: 120,
+    maximized: false,
     moving: false,
     opacity: 1,
     paneId,

@@ -174,6 +174,30 @@ export function NiriWorkspaceArea({
         scheduler,
         state: trackpadNavigationRef.current,
       });
+    const handleClick = (event: MouseEvent) => {
+      if (
+        runtime.mode !== "workspace" ||
+        runtime.store.getSnapshot().presentationMode === "overview" ||
+        !(event.target instanceof Element)
+      ) {
+        return;
+      }
+      const button = event.target.closest<HTMLButtonElement>(
+        '.niri-pane-maximize-button[data-niri-pane-maximize-button="true"]',
+      );
+      if (!button) {
+        return;
+      }
+      const host = button.closest<HTMLElement>('[data-testid="niri-fake-pane-host"]');
+      const paneId = button.dataset.paneId ?? host?.dataset.paneId;
+      if (!paneId) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      scheduler.pauseBenchmark();
+      runLayoutAction(() => runtime.store.togglePaneMaximized(paneId));
+    };
     const handlePointerDown = (event: PointerEvent) => {
       if (
         runtime.mode !== "workspace" ||
@@ -237,6 +261,7 @@ export function NiriWorkspaceArea({
     window.addEventListener("pointermove", handlePointerMove, { capture: true });
     window.addEventListener("pointerup", handlePointerUp, { capture: true });
     window.addEventListener("pointercancel", handlePointerUp, { capture: true });
+    root.addEventListener("click", handleClick, { capture: true });
     root.addEventListener("pointerdown", handlePointerDown, { capture: true });
     root.addEventListener("wheel", handleWheel, { capture: true, passive: false });
     scheduler.start();
@@ -247,6 +272,7 @@ export function NiriWorkspaceArea({
       window.removeEventListener("pointermove", handlePointerMove, { capture: true });
       window.removeEventListener("pointerup", handlePointerUp, { capture: true });
       window.removeEventListener("pointercancel", handlePointerUp, { capture: true });
+      root.removeEventListener("click", handleClick, { capture: true });
       root.removeEventListener("pointerdown", handlePointerDown, { capture: true });
       root.removeEventListener("wheel", handleWheel, { capture: true });
       paneResizeSessionRef.current = null;
@@ -259,6 +285,7 @@ export function NiriWorkspaceArea({
       aria-label={runtime.mode === "benchmark" ? "Niri benchmark workspace" : "Niri workspace"}
       className="niri-workspace-area relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
       data-browser-pane-count={runtime.browserPaneCount}
+      data-maximized-pane-id={layoutSnapshot.maximizedPaneId ?? ""}
       data-pane-count={currentScene.totalPanes}
       data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}
@@ -609,6 +636,7 @@ function FakePaneHost({ refCallback }: { refCallback: (host: HTMLDivElement | nu
     <article
       className="niri-pane-host app-no-drag"
       data-focused="false"
+      data-maximized="false"
       data-moving="false"
       data-pane-id=""
       data-runtime-state="live"

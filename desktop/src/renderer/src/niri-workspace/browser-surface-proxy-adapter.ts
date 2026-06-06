@@ -16,6 +16,7 @@ export interface BrowserViewUpdateQueue {
 }
 
 const minimumNativeVisiblePixels = 96;
+const nativePaneControlStripPx = 30;
 const nativeResizeHandleGutterPx = 10;
 
 export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
@@ -157,10 +158,13 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
     const rect = clipBounds ? intersectRects(unclipped, clipBounds) : unclipped;
     const nativeRect = {
       ...rect,
+      height: Math.max(1, rect.height - nativePaneControlStripPx),
       width: Math.max(1, rect.width - nativeResizeHandleGutterPx),
+      y: rect.y + nativePaneControlStripPx,
     };
     const visible =
-      nativeRect.width >= minimumNativeVisiblePixels && rect.height >= minimumNativeVisiblePixels;
+      nativeRect.width >= minimumNativeVisiblePixels &&
+      nativeRect.height >= minimumNativeVisiblePixels;
     return {
       rect: visible ? nativeRect : { height: 1, width: 1, x: rect.x, y: rect.y },
       visible,

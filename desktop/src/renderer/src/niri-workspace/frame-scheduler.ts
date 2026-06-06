@@ -114,6 +114,7 @@ export class FrameScheduler {
     this.engine.renderFrame(
       {
         focusedPaneId: snapshot.focusedPaneId,
+        maximizedPaneId: snapshot.maximizedPaneId,
         movementPhase,
         presentationMode: snapshot.presentationMode,
         scrollColumn: snapshot.scrollColumn,

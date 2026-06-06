@@ -138,6 +138,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       availableHeight,
       input.scrollRow,
     );
+    const activeMaximizedPaneId = activeMaximizedPaneIdFor(input);
 
     for (const columnIndex of this.renderedColumnIndexes(input.viewport.width, scrollColumn)) {
       const column = this.columns[columnIndex];
@@ -148,8 +149,10 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       const x = this.scene.padding + (geometry.offsets[column.index] ?? 0) - scrollOffset;
       this.pushColumnItems({
         availableHeight,
+        activeMaximizedPaneId,
         column,
         columnWidth,
+        maximizedViewport: input.viewport,
         focusedPaneId: input.focusedPaneId,
         moving: input.movementPhase === "moving",
         presentationMode: input.presentationMode,
@@ -423,9 +426,11 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
 
   private pushColumnItems({
     availableHeight,
+    activeMaximizedPaneId = null,
     column,
     columnWidth,
     focusedPaneId,
+    maximizedViewport = null,
     moving,
     presentationMode,
     push,
@@ -434,9 +439,11 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     yOffset = 0,
   }: {
     availableHeight: number;
+    activeMaximizedPaneId?: PaneId | null;
     column: NiriColumn;
     columnWidth: number;
     focusedPaneId: PaneId;
+    maximizedViewport?: LayoutFrameInput["viewport"] | null;
     moving: boolean;
     presentationMode: LayoutFrameInput["presentationMode"];
     push: (item: PaneRenderItem) => void;
@@ -454,9 +461,20 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     for (const pane of panes) {
       const height = Math.max(42, ((availableHeight - totalGap) * pane.weight) / totalWeight);
       const focused = pane.paneId === focusedPaneId;
-      push({
+      const frame = paneFrame({
+        activeMaximizedPaneId,
+        columnWidth,
         focused,
         height,
+        maximizedViewport,
+        paneId: pane.paneId,
+        x,
+        y,
+      });
+      push({
+        focused,
+        height: frame.height,
+        maximized: frame.maximized,
         moving,
         opacity: 1,
         paneId: pane.paneId,
@@ -467,10 +485,10 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
         surfaceId: pane.surfaceId,
         surfaceKind: pane.surfaceKind,
         visible: true,
-        width: columnWidth,
-        x,
-        y,
-        z: focused ? 2 : 1,
+        width: frame.width,
+        x: frame.x,
+        y: frame.y,
+        z: frame.z,
       });
       y += (height + this.scene.rowGap) * scale;
     }
@@ -686,6 +704,59 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function activeMaximizedPaneIdFor(input: LayoutFrameInput): PaneId | null {
+  if (input.maximizedPaneId !== input.focusedPaneId) {
+    return null;
+  }
+  return input.maximizedPaneId;
+}
+
+function paneFrame({
+  activeMaximizedPaneId,
+  columnWidth,
+  focused,
+  height,
+  maximizedViewport,
+  paneId,
+  x,
+  y,
+}: {
+  activeMaximizedPaneId: PaneId | null;
+  columnWidth: number;
+  focused: boolean;
+  height: number;
+  maximizedViewport: LayoutFrameInput["viewport"] | null;
+  paneId: PaneId;
+  x: number;
+  y: number;
+}): {
+  height: number;
+  maximized: boolean;
+  width: number;
+  x: number;
+  y: number;
+  z: number;
+} {
+  if (paneId !== activeMaximizedPaneId || !maximizedViewport) {
+    return {
+      height,
+      maximized: false,
+      width: columnWidth,
+      x,
+      y,
+      z: focused ? 2 : 1,
+    };
+  }
+  return {
+    height: maximizedViewport.height,
+    maximized: true,
+    width: maximizedViewport.width,
+    x: 0,
+    y: 0,
+    z: 20,
+  };
 }
 
 function nearestColumnWidthPreset(value: number): number {

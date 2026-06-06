@@ -177,7 +177,7 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 160, width: 200, x: -80, y: -20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 140, width: 110, x: 300, y: 90 },
+      bounds: { height: 110, width: 110, x: 300, y: 120 },
       visible: true,
     });
   });
@@ -200,7 +200,7 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 160, width: 200, x: 80, y: 0 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 160, width: 190, x: 380, y: 78 },
+      bounds: { height: 130, width: 190, x: 380, y: 108 },
       visible: true,
     });
   });
@@ -222,14 +222,14 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 160, width: 200, x: 80, y: 20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 160, width: 190, x: 380, y: 110 },
+      bounds: { height: 130, width: 190, x: 380, y: 140 },
       visible: false,
     });
 
     adapter.setFocused(true);
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 160, width: 190, x: 380, y: 110 },
+      bounds: { height: 130, width: 190, x: 380, y: 140 },
       visible: true,
     });
   });
@@ -258,7 +258,7 @@ describe("niri fake surface adapters", () => {
     expect(sent.at(-3)).toMatchObject({ visible: true });
     expect(sent.at(-2)).toMatchObject({ visible: false });
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 160, width: 190, x: 420, y: 130 },
+      bounds: { height: 130, width: 190, x: 420, y: 160 },
       visible: true,
     });
   });

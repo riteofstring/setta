@@ -220,6 +220,35 @@ describe("niri layout store", () => {
       { unit: "px", value: 520 },
     ]);
   });
+
+  test("tracks maximized pane state without applying it to the next focused pane", () => {
+    const store = createStore();
+
+    store.togglePaneMaximized("workspace_pane_1");
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: "workspace_pane_1",
+      maximizedPaneId: "workspace_pane_1",
+    });
+
+    store.moveFocus("right");
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 2,
+      focusedPaneId: "workspace_pane_2",
+      maximizedPaneId: "workspace_pane_1",
+    });
+  });
+
+  test("clears maximized state when the maximized pane is closed", () => {
+    const store = createStore();
+
+    store.togglePaneMaximized("workspace_pane_0");
+    store.closeFocusedPane();
+
+    expect(store.getSnapshot().maximizedPaneId).toBeNull();
+  });
 });
 
 function createStore(): NiriLayoutStore {

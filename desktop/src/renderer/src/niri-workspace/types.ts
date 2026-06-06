@@ -90,6 +90,7 @@ export interface OpenPaneRequest {
 
 export interface LayoutFrameInput {
   focusedPaneId: PaneId;
+  maximizedPaneId: PaneId | null;
   movementPhase: "idle" | "moving";
   presentationMode: NiriPresentationMode;
   scrollColumn: number;
@@ -100,6 +101,7 @@ export interface LayoutFrameInput {
 export interface PaneRenderItem {
   focused: boolean;
   height: number;
+  maximized: boolean;
   moving: boolean;
   opacity: number;
   paneId: PaneId;

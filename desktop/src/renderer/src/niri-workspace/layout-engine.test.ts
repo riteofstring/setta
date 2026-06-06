@@ -297,6 +297,61 @@ describe("real niri workspace column sizing", () => {
     expect(focusedItem?.x).toBeGreaterThanOrEqual(10);
     expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
   });
+
+  test("renders an active maximized pane as the full viewport without resizing columns", () => {
+    const engine = createRealEngine();
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      1,
+      "workspace_pane_1",
+      "normal",
+      0,
+      "workspace_pane_1",
+    );
+    const maximizedItem = items.find((item) => item.paneId === "workspace_pane_1");
+
+    expect(maximizedItem).toMatchObject({
+      height: viewport.height,
+      maximized: true,
+      width: 1200,
+      x: 0,
+      y: 0,
+      z: 20,
+    });
+    expect(engine.toScene().columns.map((column) => column.widthSpec)).toEqual([
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+    ]);
+  });
+
+  test("does not inherit viewport scaling when focus moves away from a maximized pane", () => {
+    const engine = createRealEngine();
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      2,
+      "workspace_pane_2",
+      "normal",
+      0,
+      "workspace_pane_1",
+    );
+    const focusedItem = items.find((item) => item.paneId === "workspace_pane_2");
+    const previouslyMaximizedItem = items.find((item) => item.paneId === "workspace_pane_1");
+
+    expect(focusedItem).toMatchObject({
+      focused: true,
+      maximized: false,
+      width: 520,
+      x: 10,
+      y: 38,
+    });
+    expect(previouslyMaximizedItem?.maximized).toBe(false);
+  });
 });
 
 function renderFrame(
@@ -306,11 +361,13 @@ function renderFrame(
   focusedPaneId: string,
   presentationMode: "normal" | "overview" = "normal",
   scrollRow = 0,
+  maximizedPaneId: string | null = null,
 ): PaneRenderItem[] {
   const items: PaneRenderItem[] = [];
   engine.renderFrame(
     {
       focusedPaneId,
+      maximizedPaneId,
       movementPhase: "moving",
       presentationMode,
       scrollColumn,

@@ -14,6 +14,7 @@ export interface NiriLayoutSnapshot {
   focusedColumnIndex: number;
   focusedPaneId: PaneId;
   focusedRowIndex: number;
+  maximizedPaneId: PaneId | null;
   presentationMode: NiriPresentationMode;
   scrollColumn: number;
   scrollRow: number;
@@ -28,6 +29,7 @@ export class NiriLayoutStore {
   private focusedColumnIndex = 0;
   private focusedRowIndex = 0;
   private listeners = new Set<LayoutStoreListener>();
+  private maximizedPaneId: PaneId | null = null;
   private snapshot: NiriLayoutSnapshot | null = null;
   private scrollColumn = 0;
   private scrollRow = 0;
@@ -81,6 +83,7 @@ export class NiriLayoutStore {
         focusedColumnIndex: this.focusedColumnIndex,
         focusedPaneId: this.focusedPaneId(),
         focusedRowIndex: this.focusedRowIndex,
+        maximizedPaneId: this.maximizedPaneId,
         presentationMode: this.presentationMode,
         scrollColumn: this.scrollColumn,
         scrollRow: this.scrollRow,
@@ -96,6 +99,7 @@ export class NiriLayoutStore {
       focusedColumnIndex: this.focusedColumnIndex,
       focusedPaneId: this.focusedPaneId(),
       focusedRowIndex: this.focusedRowIndex,
+      maximizedPaneId: this.maximizedPaneId,
       presentationMode: this.presentationMode,
       scrollColumn: this.scrollColumn,
       scrollRow: this.scrollRow,
@@ -130,6 +134,9 @@ export class NiriLayoutStore {
     const closedPaneId = this.focusedPaneId();
     const closedLocation = this.engine.paneLocation(closedPaneId);
     this.engine.closePane(closedPaneId);
+    if (this.maximizedPaneId === closedPaneId) {
+      this.maximizedPaneId = null;
+    }
     const nextPaneId = closedLocation
       ? this.engine.focusedPaneAt(
           Math.min(closedLocation.columnIndex, Math.max(0, this.engine.columnCount() - 1)),
@@ -252,6 +259,15 @@ export class NiriLayoutStore {
       return;
     }
     this.lockFocusedColumn(viewport);
+  }
+
+  togglePaneMaximized(paneId: PaneId): void {
+    if (!this.engine.paneLocation(paneId)) {
+      return;
+    }
+    this.maximizedPaneId = this.maximizedPaneId === paneId ? null : paneId;
+    this.setFocusedPane(paneId);
+    this.notify();
   }
 
   toggleOverviewMode(): void {

@@ -292,6 +292,7 @@ function renderItem(
   return {
     focused: false,
     height,
+    maximized: false,
     moving: false,
     opacity: 1,
     paneId: pane.paneId,

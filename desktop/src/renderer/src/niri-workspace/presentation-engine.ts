@@ -18,6 +18,7 @@ interface PaneHostBinding {
   host: HTMLElement;
   lastFocused: boolean | null;
   lastHeight: number;
+  lastMaximized: boolean | null;
   lastMoving: boolean | null;
   lastOpacity: number;
   lastPresentationMode: string | null;
@@ -72,6 +73,7 @@ export class PresentationEngine {
       host,
       lastFocused: null,
       lastHeight: -1,
+      lastMaximized: null,
       lastMoving: null,
       lastOpacity: -1,
       lastPresentationMode: null,
@@ -82,6 +84,67 @@ export class PresentationEngine {
       lastZ: -1,
     }));
     this.debugOverlay = debugOverlay;
+  }
+
+  syncPanes(panes: readonly NiriPane[]): void {
+    for (const pane of panes) {
+      this.paneById.set(pane.paneId, pane);
+      this.surfaceRegistry.ensurePane(pane);
+    }
+  }
+
+  teardown(): void {
+    for (const binding of this.bindings) {
+      binding.host.removeAttribute("data-focused");
+      binding.host.removeAttribute("data-maximized");
+      binding.host.removeAttribute("data-moving");
+      binding.host.removeAttribute("data-pane-id");
+      binding.host.removeAttribute("data-presentation-mode");
+      binding.host.removeAttribute("data-visible");
+      this.maximizeButtonForHost(binding.host)?.remove();
+      binding.host.style.cssText = "";
+    }
+    if (this.debugOverlay) {
+      this.debugOverlay.textContent = "";
+    }
+    this.surfaceRegistry.teardown();
+    void this.nativeViewBoundsBatcher?.teardown().catch((error: unknown) => {
+      console.error(
+        "failed to teardown niri native browser views",
+        error instanceof Error ? error.message : error,
+      );
+    });
+    this.bindings = [];
+    this.debugOverlay = null;
+  }
+
+  updateDebugOverlay(runtimeSummary: PaneRuntimeSummary): void {
+    if (!this.debugOverlay) {
+      return;
+    }
+    const snapshot = this.metrics.snapshot();
+    this.debugOverlay.textContent = [
+      `frame ${snapshot.frameTime.toFixed(2)}ms`,
+      `p95 ${snapshot.p95FrameTime.toFixed(2)}ms`,
+      `p99 ${snapshot.p99FrameTime.toFixed(2)}ms`,
+      `visible ${snapshot.visiblePaneCount}`,
+      `writes ${snapshot.transformWrites}/${snapshot.boxWrites}`,
+      `native ${snapshot.nativeBoundsUpdates}`,
+      `long ${snapshot.longTasks}`,
+      `react ${snapshot.reactCommitsDuringMovement}`,
+      `resize ${snapshot.resize.frameCount}/${snapshot.resize.p95FrameTime.toFixed(
+        2,
+      )}/${snapshot.resize.deferredHeavyViewportWrites}/${snapshot.resize.heavyViewportWrites}/${snapshot.reactCommitsDuringResize}`,
+      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${formatBytes(
+        snapshot.canvasGpuMemoryEstimateBytes,
+      )}`,
+      `terminal ${snapshot.liveTerminalRendererCount}/${snapshot.terminalDirtyRows}/${snapshot.terminalPendingOutputChunks}`,
+      `graph ${snapshot.liveGitGraphPaneCount}/${snapshot.gitGraphRenderer ?? "none"}/${Math.round(
+        snapshot.gitGraphProgress * 100,
+      )}%/${snapshot.gitGraphWorkerBatches}${snapshot.gitGraphWorkerPending ? "+" : ""}`,
+      `runtime ${runtimeSummary.live}/${runtimeSummary.snapshot}/${runtimeSummary.liveThrottled}/${runtimeSummary.hidden}`,
+      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} canvas ${runtimeSummary.budget.maxLiveWebGpuCanvases} terminal ${runtimeSummary.budget.maxLiveTerminalRenderers}`,
+    ].join(" | ");
   }
 
   private assignItemsToBindings(
@@ -150,13 +213,6 @@ export class PresentationEngine {
     return null;
   }
 
-  syncPanes(panes: readonly NiriPane[]): void {
-    for (const pane of panes) {
-      this.paneById.set(pane.paneId, pane);
-      this.surfaceRegistry.ensurePane(pane);
-    }
-  }
-
   private applyBinding(
     binding: PaneHostBinding,
     item: PaneRenderItem | undefined,
@@ -166,76 +222,55 @@ export class PresentationEngine {
       this.hideBinding(binding);
       return emptyPresentationWriteCounts();
     }
-    if (this.shouldSyncContent(binding, item)) {
-      return addPresentationWriteCounts(
-        this.syncContent(binding, item, options),
-        this.syncFrame(binding, item),
-      );
-    }
-    return this.syncFrame(binding, item);
-  }
-
-  teardown(): void {
-    for (const binding of this.bindings) {
-      binding.host.removeAttribute("data-focused");
-      binding.host.removeAttribute("data-moving");
-      binding.host.removeAttribute("data-pane-id");
-      binding.host.removeAttribute("data-presentation-mode");
-      binding.host.removeAttribute("data-visible");
-      binding.host.style.cssText = "";
-    }
-    if (this.debugOverlay) {
-      this.debugOverlay.textContent = "";
-    }
-    this.surfaceRegistry.teardown();
-    void this.nativeViewBoundsBatcher?.teardown().catch((error: unknown) => {
-      console.error(
-        "failed to teardown niri native browser views",
-        error instanceof Error ? error.message : error,
-      );
-    });
-    this.bindings = [];
-    this.debugOverlay = null;
-  }
-
-  updateDebugOverlay(runtimeSummary: PaneRuntimeSummary): void {
-    if (!this.debugOverlay) {
-      return;
-    }
-    const snapshot = this.metrics.snapshot();
-    this.debugOverlay.textContent = [
-      `frame ${snapshot.frameTime.toFixed(2)}ms`,
-      `p95 ${snapshot.p95FrameTime.toFixed(2)}ms`,
-      `p99 ${snapshot.p99FrameTime.toFixed(2)}ms`,
-      `visible ${snapshot.visiblePaneCount}`,
-      `writes ${snapshot.transformWrites}/${snapshot.boxWrites}`,
-      `native ${snapshot.nativeBoundsUpdates}`,
-      `long ${snapshot.longTasks}`,
-      `react ${snapshot.reactCommitsDuringMovement}`,
-      `resize ${snapshot.resize.frameCount}/${snapshot.resize.p95FrameTime.toFixed(
-        2,
-      )}/${snapshot.resize.deferredHeavyViewportWrites}/${snapshot.resize.heavyViewportWrites}/${snapshot.reactCommitsDuringResize}`,
-      `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${formatBytes(
-        snapshot.canvasGpuMemoryEstimateBytes,
-      )}`,
-      `terminal ${snapshot.liveTerminalRendererCount}/${snapshot.terminalDirtyRows}/${snapshot.terminalPendingOutputChunks}`,
-      `graph ${snapshot.liveGitGraphPaneCount}/${snapshot.gitGraphRenderer ?? "none"}/${Math.round(
-        snapshot.gitGraphProgress * 100,
-      )}%/${snapshot.gitGraphWorkerBatches}${snapshot.gitGraphWorkerPending ? "+" : ""}`,
-      `runtime ${runtimeSummary.live}/${runtimeSummary.snapshot}/${runtimeSummary.liveThrottled}/${runtimeSummary.hidden}`,
-      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} canvas ${runtimeSummary.budget.maxLiveWebGpuCanvases} terminal ${runtimeSummary.budget.maxLiveTerminalRenderers}`,
-    ].join(" | ");
+    const writeCounts = this.shouldSyncContent(binding, item)
+      ? addPresentationWriteCounts(
+          this.syncContent(binding, item, options),
+          this.syncFrame(binding, item),
+        )
+      : this.syncFrame(binding, item);
+    this.syncPaneControls(binding, item);
+    return writeCounts;
   }
 
   private hideBinding(binding: PaneHostBinding): void {
     this.surfaceRegistry.releaseHost(binding.host);
     binding.contentPaneId = null;
+    binding.host.dataset.maximized = "false";
     binding.host.dataset.paneId = "";
     binding.host.style.opacity = "0";
     binding.host.style.pointerEvents = "none";
+    binding.lastMaximized = false;
     binding.lastOpacity = 0;
     binding.host.dataset.visible = "false";
     binding.lastVisible = false;
+  }
+
+  private syncPaneControls(binding: PaneHostBinding, item: PaneRenderItem): void {
+    const button = this.ensureMaximizeButton(binding.host);
+    button.dataset.paneId = item.paneId;
+    const label = item.maximized ? "Restore pane size" : "Maximize pane";
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  }
+
+  private ensureMaximizeButton(host: HTMLElement): HTMLButtonElement {
+    const existing = this.maximizeButtonForHost(host);
+    if (existing) {
+      return existing;
+    }
+    const button = host.ownerDocument.createElement("button");
+    button.className = "niri-pane-maximize-button";
+    button.dataset.niriPaneMaximizeButton = "true";
+    button.type = "button";
+    host.append(button);
+    return button;
+  }
+
+  private maximizeButtonForHost(host: HTMLElement): HTMLButtonElement | null {
+    const existing = Array.from(host.children).find((child) =>
+      child.classList.contains("niri-pane-maximize-button"),
+    );
+    return existing ? (existing as HTMLButtonElement) : null;
   }
 
   private syncContent(
@@ -276,7 +311,8 @@ export class PresentationEngine {
   }
 
   private hostContentMissing(binding: PaneHostBinding): boolean {
-    return binding.host.childElementCount === 0;
+    const chromeChildCount = this.maximizeButtonForHost(binding.host) ? 1 : 0;
+    return binding.host.childElementCount <= chromeChildCount || !binding.host.dataset.surfaceId;
   }
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {
@@ -315,29 +351,56 @@ export class PresentationEngine {
   }
 
   private syncState(binding: PaneHostBinding, item: PaneRenderItem): void {
-    if (binding.lastFocused !== item.focused) {
-      binding.host.dataset.focused = String(item.focused);
-      binding.lastFocused = item.focused;
+    this.syncBooleanState(binding, "focused", "lastFocused", item.focused);
+    this.syncBooleanState(binding, "moving", "lastMoving", item.moving);
+    this.syncBooleanState(binding, "maximized", "lastMaximized", item.maximized);
+    const presentationModeChanged = this.syncPresentationMode(binding, item);
+    this.syncVisibleState(binding, item, presentationModeChanged);
+    this.syncRuntimeState(binding, item);
+  }
+
+  private syncBooleanState(
+    binding: PaneHostBinding,
+    datasetKey: "focused" | "maximized" | "moving",
+    cacheKey: "lastFocused" | "lastMaximized" | "lastMoving",
+    value: boolean,
+  ): void {
+    if (binding[cacheKey] === value) {
+      return;
     }
-    if (binding.lastMoving !== item.moving) {
-      binding.host.dataset.moving = String(item.moving);
-      binding.lastMoving = item.moving;
+    binding.host.dataset[datasetKey] = String(value);
+    binding[cacheKey] = value;
+  }
+
+  private syncPresentationMode(binding: PaneHostBinding, item: PaneRenderItem): boolean {
+    if (binding.lastPresentationMode === item.presentationMode) {
+      return false;
     }
-    const presentationModeChanged = binding.lastPresentationMode !== item.presentationMode;
-    if (presentationModeChanged) {
-      binding.host.dataset.presentationMode = item.presentationMode;
-      binding.lastPresentationMode = item.presentationMode;
+    binding.host.dataset.presentationMode = item.presentationMode;
+    binding.lastPresentationMode = item.presentationMode;
+    return true;
+  }
+
+  private syncVisibleState(
+    binding: PaneHostBinding,
+    item: PaneRenderItem,
+    presentationModeChanged: boolean,
+  ): void {
+    if (binding.lastVisible === item.visible && !presentationModeChanged) {
+      return;
     }
-    if (binding.lastVisible !== item.visible || presentationModeChanged) {
-      binding.host.dataset.visible = String(item.visible);
-      binding.host.style.pointerEvents =
-        item.visible && item.presentationMode !== "overview" ? "auto" : "none";
-      binding.lastVisible = item.visible;
+    binding.host.dataset.visible = String(item.visible);
+    binding.host.style.pointerEvents =
+      item.visible && item.presentationMode !== "overview" ? "auto" : "none";
+    binding.lastVisible = item.visible;
+  }
+
+  private syncRuntimeState(binding: PaneHostBinding, item: PaneRenderItem): void {
+    if (binding.lastRuntimeState === item.runtimeState) {
+      return;
     }
-    if (binding.lastRuntimeState !== item.runtimeState) {
-      binding.host.dataset.runtimeState = item.runtimeState;
-      binding.lastRuntimeState = item.runtimeState;
-    }
+    binding.host.dataset.runtimeState = item.runtimeState;
+    binding.lastRuntimeState = item.runtimeState;
   }
 
   private syncTransform(binding: PaneHostBinding, item: PaneRenderItem): number {

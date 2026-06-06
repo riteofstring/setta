@@ -219,6 +219,30 @@ describe("niri presentation engine", () => {
     expect(host.style.pointerEvents).toBe("none");
   });
 
+  test("adds pane maximize chrome and marks active maximized panes", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply(
+      [{ ...renderItem("niri_pane_0", "niri_surface_0", false), maximized: true }],
+      {
+        resizePhase: "idle",
+      },
+    );
+
+    const button = host.querySelector(".niri-pane-maximize-button") as HTMLButtonElement | null;
+
+    expect(host.dataset.maximized).toBe("true");
+    expect(button?.dataset.paneId).toBe("niri_pane_0");
+    expect(button?.getAttribute("aria-label")).toBe("Restore pane size");
+  });
+
   test("surfaces canvas draw stats in the debug overlay", () => {
     const scene = generateBenchmarkScene({ paneCount: 5, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");
@@ -253,6 +277,7 @@ describe("niri presentation engine", () => {
 });
 
 function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTMLElement {
+  const children = fakeChildren(childElementCount);
   const nodes = new Map<string, { textContent: string }>([
     ["[data-niri-pane-heat]", { textContent: "" }],
     ["[data-niri-pane-index]", { textContent: "1" }],
@@ -260,15 +285,80 @@ function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTM
     ["[data-niri-pane-title]", { textContent: title }],
   ]);
   const host = {
-    childElementCount,
-    dataset: { paneId },
-    querySelector: (selector: string) => nodes.get(selector) ?? null,
+    append: (child: FakeElement) => {
+      children.push(child);
+    },
+    children,
+    dataset: {
+      paneId,
+      ...(childElementCount > 0 ? { surfaceId: paneId.replace("_pane_", "_surface_") } : {}),
+    },
+    get childElementCount() {
+      return children.length;
+    },
+    ownerDocument: {
+      createElement: (tagName: string) => fakeElement(tagName),
+    },
+    querySelector: (selector: string) =>
+      selector === ".niri-pane-maximize-button"
+        ? (children.find((child) => child.classList.contains("niri-pane-maximize-button")) ?? null)
+        : (nodes.get(selector) ?? null),
     removeAttribute: (name: string) => {
       delete (host.dataset as Record<string, string>)[name.replace(/^data-/, "")];
     },
     style: {},
   };
   return host as unknown as HTMLElement;
+}
+
+interface FakeElement {
+  classList: {
+    add: (value: string) => void;
+    contains: (value: string) => boolean;
+  };
+  dataset: Record<string, string>;
+  getAttribute: (name: string) => string | null;
+  remove: () => void;
+  setAttribute: (name: string, value: string) => void;
+  title: string;
+  type: string;
+}
+
+function fakeChildren(count: number): FakeElement[] {
+  return Array.from({ length: count }, () => fakeElement("div"));
+}
+
+function fakeElement(tagName: string): FakeElement {
+  const classNames = new Set<string>();
+  const attributes = new Map<string, string>();
+  attributes.set("data-tag-name", tagName);
+  return {
+    classList: {
+      add: (value: string) => {
+        classNames.add(value);
+      },
+      contains: (value: string) => classNames.has(value),
+    },
+    dataset: {},
+    get className() {
+      return [...classNames].join(" ");
+    },
+    set className(value: string) {
+      classNames.clear();
+      for (const className of value.split(/\s+/u)) {
+        if (className.length > 0) {
+          classNames.add(className);
+        }
+      }
+    },
+    getAttribute: (name: string) => attributes.get(name) ?? null,
+    remove: () => {},
+    setAttribute: (name: string, value: string) => {
+      attributes.set(name, value);
+    },
+    title: "",
+    type: "",
+  } as FakeElement;
 }
 
 function renderItem(
@@ -281,6 +371,7 @@ function renderItem(
   return {
     focused: false,
     height: 120,
+    maximized: false,
     moving,
     opacity: 1,
     paneId,
@@ -324,6 +415,7 @@ class TitleSurfaceAdapter implements SurfaceAdapter {
   }
 
   mount(host: HTMLElement): void {
+    host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
     setText(host, "[data-niri-pane-title]", this.pane.title);
   }
