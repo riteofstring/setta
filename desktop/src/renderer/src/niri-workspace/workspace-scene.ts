@@ -3,6 +3,7 @@ import type {
   NiriColumn,
   NiriPane,
   NiriWorkspaceScene,
+  PaneLimitPolicy,
   PaneId,
   SurfaceKind,
 } from "./types";
@@ -11,6 +12,14 @@ const realWorkspaceVisibleColumnCount = 3;
 const realWorkspaceStorageVersion = 4;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
+export const defaultRealWorkspacePaneLimits = {
+  browser: 10,
+  "chat-dom": 10,
+  "git-graph": 1,
+  "pixi-canvas": 10,
+  "settings-dom": 1,
+  terminal: 10,
+} satisfies PaneLimitPolicy;
 
 export interface RealWorkspaceSceneOptions {
   storageKey: string;

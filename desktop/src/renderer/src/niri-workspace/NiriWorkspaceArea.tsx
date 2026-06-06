@@ -49,7 +49,11 @@ import {
   interpretNiriTrackpadWheel,
 } from "./trackpad-navigation";
 import { useWorkspaceStore } from "../stores/workspace-store";
-import { createRealWorkspaceScene, persistRealWorkspaceScene } from "./workspace-scene";
+import {
+  createRealWorkspaceScene,
+  defaultRealWorkspacePaneLimits,
+  persistRealWorkspaceScene,
+} from "./workspace-scene";
 import type { NiriPane, OpenPaneRequest, Rect, SurfaceKind } from "./types";
 
 type NiriSceneMode = "benchmark" | "workspace";
@@ -494,6 +498,17 @@ function NiriWorkspaceToolbar({
   store: NiriLayoutStore;
 }) {
   const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
+  const newFrameItems = openPaneActions.map(({ Icon, label, request }) => {
+    const limitState = store.paneLimitState(request);
+    const capped = limitState.limit !== null;
+    return {
+      Icon,
+      disabled: !limitState.allowed,
+      label,
+      meta: capped ? `${limitState.count}/${limitState.limit}` : undefined,
+      onSelect: () => openPane(request),
+    };
+  });
   return (
     <div className="niri-workspace-toolbar app-no-drag" data-testid="niri-workspace-toolbar">
       <div className="niri-workspace-toolbar-group" data-testid="niri-focused-pane-label">
@@ -540,11 +555,7 @@ function NiriWorkspaceToolbar({
         <NiriToolbarMenu
           displayLabel="New frame"
           Icon={Plus}
-          items={openPaneActions.map(({ Icon, label, request }) => ({
-            Icon,
-            label,
-            onSelect: () => openPane(request),
-          }))}
+          items={newFrameItems}
           label="New frame"
         />
       </div>
@@ -578,8 +589,10 @@ function NiriToolbarButton({
 }
 
 interface NiriToolbarMenuItem {
+  disabled?: boolean;
   Icon: ComponentType<{ className?: string }>;
   label: string;
+  meta?: string;
   onSelect: () => void;
 }
 
@@ -649,20 +662,26 @@ function NiriToolbarMenu({
         placement="bottom"
         role="menu"
       >
-        {items.map(({ Icon: ItemIcon, label: itemLabel, onSelect }) => (
+        {items.map(({ disabled = false, Icon: ItemIcon, label: itemLabel, meta, onSelect }) => (
           <button
             className="niri-workspace-toolbar-menu-item"
+            disabled={disabled}
             key={itemLabel}
             onClick={() => {
+              if (disabled) {
+                return;
+              }
               setOpen(false);
               onSelect();
             }}
             onPointerDown={(event) => event.stopPropagation()}
             role="menuitem"
+            title={disabled ? `${itemLabel} limit reached` : itemLabel}
             type="button"
           >
             <ItemIcon className="h-3.5 w-3.5 shrink-0" />
             <span>{itemLabel}</span>
+            {meta ? <span className="niri-workspace-toolbar-menu-item-meta">{meta}</span> : null}
           </button>
         ))}
       </FloatingMenu>
@@ -773,7 +792,9 @@ function createNiriRuntime({
       : null;
   const scene = realScene?.scene ?? generateBenchmarkScene();
   const engine = new NiriLikeLayoutEngine(scene);
-  const store = new NiriLayoutStore(engine, scene, realScene?.focusedPaneId);
+  const store = new NiriLayoutStore(engine, scene, realScene?.focusedPaneId, {
+    paneLimits: mode === "workspace" ? defaultRealWorkspacePaneLimits : undefined,
+  });
   const metrics = new NiriMetricsCollector();
   const browserPaneCount = scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
   const nativeViewBoundsBatcher = new NativeViewBoundsBatcher({

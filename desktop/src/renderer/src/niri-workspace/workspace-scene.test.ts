@@ -2,7 +2,11 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { NiriLikeLayoutEngine } from "./layout-engine";
 import { NiriLayoutStore } from "./layout-store";
-import { createRealWorkspaceScene, persistRealWorkspaceScene } from "./workspace-scene";
+import {
+  createRealWorkspaceScene,
+  defaultRealWorkspacePaneLimits,
+  persistRealWorkspaceScene,
+} from "./workspace-scene";
 
 describe("real niri workspace scene", () => {
   afterEach(() => {
@@ -56,6 +60,17 @@ describe("real niri workspace scene", () => {
       title: "Chat",
     });
     expect(result.scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("browser");
+  });
+
+  test("defines default pane limits for addable real workspace surfaces", () => {
+    expect(defaultRealWorkspacePaneLimits).toEqual({
+      browser: 10,
+      "chat-dom": 10,
+      "git-graph": 1,
+      "pixi-canvas": 10,
+      "settings-dom": 1,
+      terminal: 10,
+    });
   });
 
   test("persists and restores the real workspace layout", () => {

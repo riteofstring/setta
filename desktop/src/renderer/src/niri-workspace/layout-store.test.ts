@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { NiriLikeLayoutEngine } from "./layout-engine";
 import { NiriLayoutStore } from "./layout-store";
-import type { Rect } from "./types";
+import type { PaneLimitPolicy, Rect } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
 const viewport: Rect = {
@@ -136,6 +136,35 @@ describe("niri layout store", () => {
 
     expect(store.getSnapshot()).not.toBe(firstSnapshot);
     expect(store.getSnapshot()).toBe(store.getSnapshot());
+  });
+
+  test("enforces configured pane limits for explicit opens", () => {
+    const store = createStore({
+      "chat-dom": 10,
+      "settings-dom": 1,
+    });
+
+    expect(store.paneLimitState({ surfaceKind: "settings-dom" })).toEqual({
+      allowed: false,
+      count: 1,
+      limit: 1,
+      surfaceKind: "settings-dom",
+    });
+    expect(store.canOpenPane({ surfaceKind: "settings-dom" })).toBe(false);
+    expect(() => store.openPane({ surfaceKind: "settings-dom", title: "Settings" })).toThrow(
+      "niri pane limit reached for settings-dom",
+    );
+
+    expect(store.canOpenPane({ surfaceKind: "chat-dom" })).toBe(true);
+    for (let index = 1; index < 10; index += 1) {
+      store.openPane({ surfaceKind: "chat-dom", title: `Chat ${index}` });
+    }
+    expect(store.paneLimitState({ surfaceKind: "chat-dom" })).toEqual({
+      allowed: false,
+      count: 10,
+      limit: 10,
+      surfaceKind: "chat-dom",
+    });
   });
 
   test("uses the current row count inside a stacked column", () => {
@@ -289,7 +318,7 @@ describe("niri layout store", () => {
   });
 });
 
-function createStore(): NiriLayoutStore {
+function createStore(paneLimits?: PaneLimitPolicy): NiriLayoutStore {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {},
@@ -298,5 +327,7 @@ function createStore(): NiriLayoutStore {
     storageKey: "setta:niri-workspace:store-test",
     workspaceName: "Repo",
   });
-  return new NiriLayoutStore(new NiriLikeLayoutEngine(scene), scene, focusedPaneId);
+  return new NiriLayoutStore(new NiriLikeLayoutEngine(scene), scene, focusedPaneId, {
+    paneLimits,
+  });
 }

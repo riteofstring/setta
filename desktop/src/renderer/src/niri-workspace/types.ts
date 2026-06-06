@@ -89,6 +89,8 @@ export interface OpenPaneRequest {
   widthSpec?: ColumnWidthSpec;
 }
 
+export type PaneLimitPolicy = Partial<Record<SurfaceKind, number>>;
+
 export interface LayoutFrameInput {
   focusedPaneId: PaneId;
   maximizedPaneId: PaneId | null;

@@ -5,6 +5,7 @@ import type {
   NiriPresentationMode,
   NiriWorkspaceScene,
   OpenPaneRequest,
+  PaneLimitPolicy,
   PaneId,
   Rect,
   SurfaceKind,
@@ -26,6 +27,17 @@ type LayoutStoreListener = (snapshot: NiriLayoutSnapshot) => void;
 const scrollAnimationTimeConstantMs = 140;
 const defaultViewportHeight = 900;
 
+export interface NiriPaneLimitState {
+  allowed: boolean;
+  count: number;
+  limit: number | null;
+  surfaceKind: SurfaceKind | null;
+}
+
+interface NiriLayoutStoreOptions {
+  paneLimits?: PaneLimitPolicy;
+}
+
 export class NiriLayoutStore {
   private focusedColumnIndex = 0;
   private focusedRowIndex = 0;
@@ -43,6 +55,7 @@ export class NiriLayoutStore {
     private readonly engine: NiriLikeLayoutEngine,
     private readonly scene: NiriWorkspaceScene,
     initialFocusedPaneId?: PaneId,
+    private readonly options: NiriLayoutStoreOptions = {},
   ) {
     if (initialFocusedPaneId) {
       this.setFocusedPane(initialFocusedPaneId);
@@ -173,6 +186,10 @@ export class NiriLayoutStore {
   }
 
   openPane(request: OpenPaneRequest): PaneId {
+    const limitState = this.paneLimitState(request);
+    if (!limitState.allowed) {
+      throw new Error(`niri pane limit reached for ${limitState.surfaceKind}`);
+    }
     const columnId = request.columnId;
     const paneId = this.engine.openPane({
       ...request,
@@ -182,6 +199,30 @@ export class NiriLayoutStore {
     this.setFocusedPane(paneId);
     this.notify();
     return paneId;
+  }
+
+  canOpenPane(request: OpenPaneRequest): boolean {
+    return this.paneLimitState(request).allowed;
+  }
+
+  paneLimitState(request: OpenPaneRequest): NiriPaneLimitState {
+    const surfaceKind = request.surfaceKind ?? null;
+    if (!surfaceKind) {
+      return {
+        allowed: true,
+        count: 0,
+        limit: null,
+        surfaceKind,
+      };
+    }
+    const limit = this.options.paneLimits?.[surfaceKind] ?? null;
+    const count = this.toScene().panes.filter((pane) => pane.surfaceKind === surfaceKind).length;
+    return {
+      allowed: limit === null || count < limit,
+      count,
+      limit,
+      surfaceKind,
+    };
   }
 
   splitFocusedPane(direction: "up" | "down" | "left" | "right"): PaneId {

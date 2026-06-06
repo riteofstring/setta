@@ -453,11 +453,28 @@ select,
   width: 100%;
 }
 
+.niri-workspace-toolbar-menu-item:disabled {
+  cursor: default;
+  opacity: 0.46;
+}
+
 .niri-workspace-toolbar-menu-item:hover,
 .niri-workspace-toolbar-menu-item:focus-visible {
   background: color-mix(in oklch, var(--accent) 82%, transparent);
   color: var(--foreground);
   outline: none;
+}
+
+.niri-workspace-toolbar-menu-item:disabled:hover {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.niri-workspace-toolbar-menu-item-meta {
+  color: color-mix(in oklch, var(--muted-foreground) 74%, transparent);
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  margin-left: auto;
 }
 
 .niri-pane-content {
