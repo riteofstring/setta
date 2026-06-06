@@ -428,6 +428,7 @@ export async function createPixiWorkspaceRenderer({
                 y: node.y,
               };
             }),
+            workflow: graph.workflow ?? null,
           },
           interaction: {
             drawingEdge: Boolean(drawingEdge),

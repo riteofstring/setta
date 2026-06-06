@@ -622,6 +622,54 @@ export function decodeWorkflowTokenStatus(value: unknown, label = "WorkflowToken
   }
 }
 
+export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval";
+
+export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval"] as const satisfies readonly WorkflowGraphNodeStatus[];
+
+export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowGraphNodeStatus"): WorkflowGraphNodeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "not_started":
+      return decoded;
+    case "pending":
+      return decoded;
+    case "ready":
+      return decoded;
+    case "running":
+      return decoded;
+    case "succeeded":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "waiting_approval":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type WorkflowGraphEdgeStatus = "inactive" | "active" | "completed" | "cancelled";
+
+export const workflowGraphEdgeStatusValues = ["inactive", "active", "completed", "cancelled"] as const satisfies readonly WorkflowGraphEdgeStatus[];
+
+export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowGraphEdgeStatus"): WorkflowGraphEdgeStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "inactive":
+      return decoded;
+    case "active":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkflowEventType = "workflow.execution.started" | "workflow.node.scheduled" | "workflow.action.started" | "workflow.action.completed" | "workflow.action.failed" | "workflow.action.cancelled" | "workflow.action.waiting_approval" | "workflow.gateway.resolved" | "workflow.loop.advanced" | "workflow.execution.completed" | "workflow.execution.failed" | "workflow.execution.stopped" | "workflow.execution.cancelled";
 
 export const workflowEventTypeValues = ["workflow.execution.started", "workflow.node.scheduled", "workflow.action.started", "workflow.action.completed", "workflow.action.failed", "workflow.action.cancelled", "workflow.action.waiting_approval", "workflow.gateway.resolved", "workflow.loop.advanced", "workflow.execution.completed", "workflow.execution.failed", "workflow.execution.stopped", "workflow.execution.cancelled"] as const satisfies readonly WorkflowEventType[];
@@ -1529,6 +1577,61 @@ export interface ReadWorkflowExecutionRequest {
   executionId: string;
 }
 
+export interface ReadWorkflowGraphProjectionRequest {
+  workspaceId: string;
+  definitionId: string;
+  versionId: string;
+  executionId: string;
+}
+
+export interface WorkflowGraphNode {
+  id: string;
+  kind: WorkflowNodeKind;
+  title: string;
+  label: string;
+  status: WorkflowGraphNodeStatus;
+  active: boolean;
+  executionCount: number;
+  latestNodeExecutionId: string;
+  latestAttempt: number;
+  latestIteration: number;
+  actionKind: WorkflowActionKind | null;
+  signals: WorkflowActionSignal[];
+  filePaths: string[];
+  error: string;
+}
+
+export interface WorkflowGraphEdge {
+  id: string;
+  kind: WorkflowEdgeKind;
+  fromNodeId: string;
+  toNodeId: string;
+  status: WorkflowGraphEdgeStatus;
+  activeTokenCount: number;
+  completedTokenCount: number;
+  cancelledTokenCount: number;
+}
+
+export interface WorkflowGraphProjection {
+  schemaVersion: number;
+  workspaceId: string;
+  definitionId: string;
+  definitionVersionId: string;
+  definitionName: string;
+  definitionDescription: string;
+  executionId: string;
+  executionStatus: WorkflowExecutionStatus | null;
+  terminalReason: WorkflowTerminalReason | null;
+  lastEventOrdinal: number;
+  updatedAt: string;
+  nodes: WorkflowGraphNode[];
+  edges: WorkflowGraphEdge[];
+}
+
+export interface ReadWorkflowGraphProjectionResponse {
+  projection: WorkflowGraphProjection | null;
+}
+
 export interface GetWorkflowExecutionEventsRequest {
   workspaceId: string;
   executionId: string;
@@ -2064,6 +2167,10 @@ export const backendEndpoints = {
   ReadWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/read",
+  },
+  ReadWorkflowGraphProjection: {
+    method: "POST",
+    path: "/workflows/graph/read",
   },
   GetWorkflowExecutionEvents: {
     method: "POST",
@@ -3248,6 +3355,81 @@ export function decodeReadWorkflowExecutionRequest(value: unknown): ReadWorkflow
   };
 }
 
+export function decodeReadWorkflowGraphProjectionRequest(value: unknown): ReadWorkflowGraphProjectionRequest {
+  const record = assertRecord(value, "ReadWorkflowGraphProjectionRequest");
+  assertKnownFields(record, "ReadWorkflowGraphProjectionRequest", ["workspaceId", "definitionId", "versionId", "executionId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkflowGraphProjectionRequest"), "ReadWorkflowGraphProjectionRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "ReadWorkflowGraphProjectionRequest"), "ReadWorkflowGraphProjectionRequest.definitionId"),
+    versionId: decodeString(requireField(record, "versionId", "ReadWorkflowGraphProjectionRequest"), "ReadWorkflowGraphProjectionRequest.versionId"),
+    executionId: decodeString(requireField(record, "executionId", "ReadWorkflowGraphProjectionRequest"), "ReadWorkflowGraphProjectionRequest.executionId"),
+  };
+}
+
+export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
+  const record = assertRecord(value, "WorkflowGraphNode");
+  assertKnownFields(record, "WorkflowGraphNode", ["id", "kind", "title", "label", "status", "active", "executionCount", "latestNodeExecutionId", "latestAttempt", "latestIteration", "actionKind", "signals", "filePaths", "error"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkflowGraphNode"), "WorkflowGraphNode.id"),
+    kind: decodeWorkflowNodeKind(requireField(record, "kind", "WorkflowGraphNode"), "WorkflowGraphNode.kind"),
+    title: decodeString(requireField(record, "title", "WorkflowGraphNode"), "WorkflowGraphNode.title"),
+    label: decodeString(requireField(record, "label", "WorkflowGraphNode"), "WorkflowGraphNode.label"),
+    status: decodeWorkflowGraphNodeStatus(requireField(record, "status", "WorkflowGraphNode"), "WorkflowGraphNode.status"),
+    active: decodeBoolean(requireField(record, "active", "WorkflowGraphNode"), "WorkflowGraphNode.active"),
+    executionCount: decodeInteger(requireField(record, "executionCount", "WorkflowGraphNode"), "WorkflowGraphNode.executionCount"),
+    latestNodeExecutionId: decodeString(requireField(record, "latestNodeExecutionId", "WorkflowGraphNode"), "WorkflowGraphNode.latestNodeExecutionId"),
+    latestAttempt: decodeInteger(requireField(record, "latestAttempt", "WorkflowGraphNode"), "WorkflowGraphNode.latestAttempt"),
+    latestIteration: decodeInteger(requireField(record, "latestIteration", "WorkflowGraphNode"), "WorkflowGraphNode.latestIteration"),
+    actionKind: decodeNullable(requireField(record, "actionKind", "WorkflowGraphNode"), "WorkflowGraphNode.actionKind", (item) => decodeWorkflowActionKind(item, "WorkflowGraphNode.actionKind")),
+    signals: decodeArray(requireField(record, "signals", "WorkflowGraphNode"), "WorkflowGraphNode.signals", (item) => decodeWorkflowActionSignal(item)),
+    filePaths: decodeArray(requireField(record, "filePaths", "WorkflowGraphNode"), "WorkflowGraphNode.filePaths", (item) => decodeString(item, "WorkflowGraphNode.filePaths item")),
+    error: decodeString(requireField(record, "error", "WorkflowGraphNode"), "WorkflowGraphNode.error"),
+  };
+}
+
+export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
+  const record = assertRecord(value, "WorkflowGraphEdge");
+  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkflowGraphEdge"), "WorkflowGraphEdge.id"),
+    kind: decodeWorkflowEdgeKind(requireField(record, "kind", "WorkflowGraphEdge"), "WorkflowGraphEdge.kind"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.toNodeId"),
+    status: decodeWorkflowGraphEdgeStatus(requireField(record, "status", "WorkflowGraphEdge"), "WorkflowGraphEdge.status"),
+    activeTokenCount: decodeInteger(requireField(record, "activeTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.activeTokenCount"),
+    completedTokenCount: decodeInteger(requireField(record, "completedTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.completedTokenCount"),
+    cancelledTokenCount: decodeInteger(requireField(record, "cancelledTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.cancelledTokenCount"),
+  };
+}
+
+export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProjection {
+  const record = assertRecord(value, "WorkflowGraphProjection");
+  assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionName", "definitionDescription", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "nodes", "edges"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowGraphProjection"), "WorkflowGraphProjection.schemaVersion"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowGraphProjection"), "WorkflowGraphProjection.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionId"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionVersionId"),
+    definitionName: decodeString(requireField(record, "definitionName", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionName"),
+    definitionDescription: decodeString(requireField(record, "definitionDescription", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionDescription"),
+    executionId: decodeString(requireField(record, "executionId", "WorkflowGraphProjection"), "WorkflowGraphProjection.executionId"),
+    executionStatus: decodeNullable(requireField(record, "executionStatus", "WorkflowGraphProjection"), "WorkflowGraphProjection.executionStatus", (item) => decodeWorkflowExecutionStatus(item, "WorkflowGraphProjection.executionStatus")),
+    terminalReason: decodeNullable(requireField(record, "terminalReason", "WorkflowGraphProjection"), "WorkflowGraphProjection.terminalReason", (item) => decodeWorkflowTerminalReason(item, "WorkflowGraphProjection.terminalReason")),
+    lastEventOrdinal: decodeInteger(requireField(record, "lastEventOrdinal", "WorkflowGraphProjection"), "WorkflowGraphProjection.lastEventOrdinal"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowGraphProjection"), "WorkflowGraphProjection.updatedAt"),
+    nodes: decodeArray(requireField(record, "nodes", "WorkflowGraphProjection"), "WorkflowGraphProjection.nodes", (item) => decodeWorkflowGraphNode(item)),
+    edges: decodeArray(requireField(record, "edges", "WorkflowGraphProjection"), "WorkflowGraphProjection.edges", (item) => decodeWorkflowGraphEdge(item)),
+  };
+}
+
+export function decodeReadWorkflowGraphProjectionResponse(value: unknown): ReadWorkflowGraphProjectionResponse {
+  const record = assertRecord(value, "ReadWorkflowGraphProjectionResponse");
+  assertKnownFields(record, "ReadWorkflowGraphProjectionResponse", ["projection"]);
+  return {
+    projection: decodeNullable(requireField(record, "projection", "ReadWorkflowGraphProjectionResponse"), "ReadWorkflowGraphProjectionResponse.projection", (item) => decodeWorkflowGraphProjection(item)),
+  };
+}
+
 export function decodeGetWorkflowExecutionEventsRequest(value: unknown): GetWorkflowExecutionEventsRequest {
   const record = assertRecord(value, "GetWorkflowExecutionEventsRequest");
   assertKnownFields(record, "GetWorkflowExecutionEventsRequest", ["workspaceId", "executionId", "beforeOrdinal", "limit"]);
@@ -3795,6 +3977,7 @@ export interface BackendClient {
   startWorkflowExecution: (request: StartWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
+  readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
   readCodexAccount: () => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
@@ -4098,6 +4281,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.ReadWorkflowExecution,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkflowGraphProjection: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeReadWorkflowGraphProjectionResponse,
+      endpoint: backendEndpoints.ReadWorkflowGraphProjection,
       fetchImpl,
       requestPayload: request,
     }),

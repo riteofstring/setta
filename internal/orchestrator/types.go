@@ -12,6 +12,8 @@ type WorkflowLoopLimitPolicy string
 type WorkflowExecutionStatus string
 type WorkflowNodeExecutionStatus string
 type WorkflowTokenStatus string
+type WorkflowGraphNodeStatus string
+type WorkflowGraphEdgeStatus string
 type WorkflowEventType string
 type WorkflowValidationSeverity string
 type WorkflowTerminalReason string
@@ -59,6 +61,20 @@ const (
 	TokenStatusActive    WorkflowTokenStatus = "active"
 	TokenStatusCompleted WorkflowTokenStatus = "completed"
 	TokenStatusCancelled WorkflowTokenStatus = "cancelled"
+
+	GraphNodeStatusNotStarted      WorkflowGraphNodeStatus = "not_started"
+	GraphNodeStatusPending         WorkflowGraphNodeStatus = "pending"
+	GraphNodeStatusReady           WorkflowGraphNodeStatus = "ready"
+	GraphNodeStatusRunning         WorkflowGraphNodeStatus = "running"
+	GraphNodeStatusSucceeded       WorkflowGraphNodeStatus = "succeeded"
+	GraphNodeStatusFailed          WorkflowGraphNodeStatus = "failed"
+	GraphNodeStatusCancelled       WorkflowGraphNodeStatus = "cancelled"
+	GraphNodeStatusWaitingApproval WorkflowGraphNodeStatus = "waiting_approval"
+
+	GraphEdgeStatusInactive  WorkflowGraphEdgeStatus = "inactive"
+	GraphEdgeStatusActive    WorkflowGraphEdgeStatus = "active"
+	GraphEdgeStatusCompleted WorkflowGraphEdgeStatus = "completed"
+	GraphEdgeStatusCancelled WorkflowGraphEdgeStatus = "cancelled"
 
 	EventExecutionStarted   WorkflowEventType = "workflow.execution.started"
 	EventNodeScheduled      WorkflowEventType = "workflow.node.scheduled"
@@ -141,6 +157,22 @@ var (
 		TokenStatusCompleted,
 		TokenStatusCancelled,
 	}
+	workflowGraphNodeStatusValues = []WorkflowGraphNodeStatus{
+		GraphNodeStatusNotStarted,
+		GraphNodeStatusPending,
+		GraphNodeStatusReady,
+		GraphNodeStatusRunning,
+		GraphNodeStatusSucceeded,
+		GraphNodeStatusFailed,
+		GraphNodeStatusCancelled,
+		GraphNodeStatusWaitingApproval,
+	}
+	workflowGraphEdgeStatusValues = []WorkflowGraphEdgeStatus{
+		GraphEdgeStatusInactive,
+		GraphEdgeStatusActive,
+		GraphEdgeStatusCompleted,
+		GraphEdgeStatusCancelled,
+	}
 	workflowEventTypeValues = []WorkflowEventType{
 		EventExecutionStarted,
 		EventNodeScheduled,
@@ -191,6 +223,8 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "WorkflowExecutionStatus", Values: stringValues(workflowExecutionStatusValues)},
 		{Name: "WorkflowNodeExecutionStatus", Values: stringValues(workflowNodeExecutionStatusValues)},
 		{Name: "WorkflowTokenStatus", Values: stringValues(workflowTokenStatusValues)},
+		{Name: "WorkflowGraphNodeStatus", Values: stringValues(workflowGraphNodeStatusValues)},
+		{Name: "WorkflowGraphEdgeStatus", Values: stringValues(workflowGraphEdgeStatusValues)},
 		{Name: "WorkflowEventType", Values: stringValues(workflowEventTypeValues)},
 		{Name: "WorkflowValidationSeverity", Values: stringValues(workflowValidationSeverityValues)},
 		{Name: "WorkflowTerminalReason", Values: stringValues(workflowTerminalReasonValues)},
@@ -396,4 +430,48 @@ type WorkflowExecutionEventPage struct {
 	Events             []WorkflowEvent `json:"events"`
 	HasMoreOlder       bool            `json:"hasMoreOlder"`
 	OlderBeforeOrdinal int             `json:"olderBeforeOrdinal"`
+}
+
+type WorkflowGraphProjection struct {
+	SchemaVersion         int                      `json:"schemaVersion"`
+	WorkspaceID           string                   `json:"workspaceId"`
+	DefinitionID          string                   `json:"definitionId"`
+	DefinitionVersionID   string                   `json:"definitionVersionId"`
+	DefinitionName        string                   `json:"definitionName"`
+	DefinitionDescription string                   `json:"definitionDescription"`
+	ExecutionID           string                   `json:"executionId"`
+	ExecutionStatus       *WorkflowExecutionStatus `json:"executionStatus"`
+	TerminalReason        *WorkflowTerminalReason  `json:"terminalReason"`
+	LastEventOrdinal      int                      `json:"lastEventOrdinal"`
+	UpdatedAt             string                   `json:"updatedAt"`
+	Nodes                 []WorkflowGraphNode      `json:"nodes"`
+	Edges                 []WorkflowGraphEdge      `json:"edges"`
+}
+
+type WorkflowGraphNode struct {
+	ID                    string                  `json:"id"`
+	Kind                  WorkflowNodeKind        `json:"kind"`
+	Title                 string                  `json:"title"`
+	Label                 string                  `json:"label"`
+	Status                WorkflowGraphNodeStatus `json:"status"`
+	Active                bool                    `json:"active"`
+	ExecutionCount        int                     `json:"executionCount"`
+	LatestNodeExecutionID string                  `json:"latestNodeExecutionId"`
+	LatestAttempt         int                     `json:"latestAttempt"`
+	LatestIteration       int                     `json:"latestIteration"`
+	ActionKind            *WorkflowActionKind     `json:"actionKind"`
+	Signals               []WorkflowActionSignal  `json:"signals"`
+	FilePaths             []string                `json:"filePaths"`
+	Error                 string                  `json:"error"`
+}
+
+type WorkflowGraphEdge struct {
+	ID                  string                  `json:"id"`
+	Kind                WorkflowEdgeKind        `json:"kind"`
+	FromNodeID          string                  `json:"fromNodeId"`
+	ToNodeID            string                  `json:"toNodeId"`
+	Status              WorkflowGraphEdgeStatus `json:"status"`
+	ActiveTokenCount    int                     `json:"activeTokenCount"`
+	CompletedTokenCount int                     `json:"completedTokenCount"`
+	CancelledTokenCount int                     `json:"cancelledTokenCount"`
 }

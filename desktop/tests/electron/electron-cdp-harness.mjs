@@ -128,15 +128,28 @@ export function assertBuildExists() {
 
 export async function waitForState(client, expression, isReady, timeoutMs = stateWaitTimeoutMs) {
   const startedAt = Date.now();
+  let lastError = null;
   let lastValue = null;
   while (Date.now() - startedAt < timeoutMs) {
-    lastValue = await client.evaluate(expression);
+    try {
+      lastValue = await client.evaluate(expression);
+    } catch (error) {
+      if (!isPageNavigationTransient(error)) {
+        throw error;
+      }
+      lastError = error;
+      await delay(100);
+      continue;
+    }
     if (isReady(lastValue)) {
       return lastValue;
     }
     await delay(100);
   }
-  throw new Error(`timed out waiting for Electron CDP state: ${JSON.stringify(lastValue)}`);
+  const errorMessage = lastError instanceof Error ? ` lastError=${lastError.message}` : "";
+  throw new Error(
+    `timed out waiting for Electron CDP state: ${JSON.stringify(lastValue)}${errorMessage}`,
+  );
 }
 
 export async function waitForSelector(client, selector, timeoutMs = stateWaitTimeoutMs) {
@@ -152,6 +165,16 @@ export async function captureScreenshot(client, path) {
   await mkdir(dirname(path), { recursive: true });
   const image = await client.call("Page.captureScreenshot", { format: "png" });
   await writeFile(path, Buffer.from(image.data, "base64"));
+}
+
+export async function reloadPage(client) {
+  try {
+    await client.call("Page.reload", { ignoreCache: true });
+  } catch (error) {
+    if (!isPageNavigationTransient(error)) {
+      throw error;
+    }
+  }
 }
 
 export async function dispatchMouseDrag(client, { from, modifiers = 0, steps = 12, to }) {
@@ -277,6 +300,14 @@ function launchElectron({ artifactDir, debugPort, extraEnv, fixture, visible }) 
   electron.stdout.on("data", (data) => appendLog(electron.logs, data));
   electron.stderr.on("data", (data) => appendLog(electron.logs, data));
   return electron;
+}
+
+function isPageNavigationTransient(error) {
+  return (
+    error instanceof Error &&
+    error.message.includes('"code":-32000') &&
+    error.message.includes("Inspected target navigated or closed")
+  );
 }
 
 async function connectToSettaPage(debugPort) {

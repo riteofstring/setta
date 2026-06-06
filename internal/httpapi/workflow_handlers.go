@@ -154,6 +154,27 @@ func (handler handler) readWorkflowExecution(response http.ResponseWriter, reque
 	writeJSON(response, http.StatusOK, execution)
 }
 
+func (handler handler) readWorkflowGraphProjection(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload ReadWorkflowGraphProjectionRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, ok, err := service.ReadGraphProjection(payload.WorkspaceID, payload.DefinitionID, payload.VersionID, payload.ExecutionID)
+	if err != nil {
+		writeWorkflowError(response, "read_workflow_graph_projection_failed", err)
+		return
+	}
+	if !ok {
+		writeJSON(response, http.StatusOK, ReadWorkflowGraphProjectionResponse{})
+		return
+	}
+	writeJSON(response, http.StatusOK, ReadWorkflowGraphProjectionResponse{Projection: &projection})
+}
+
 func (handler handler) getWorkflowExecutionEvents(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

@@ -70,6 +70,19 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	if read.Status != orchestrator.ExecutionStatusCancelled {
 		t.Fatalf("read execution status = %s, want cancelled", read.Status)
 	}
+	projection := postJSON[ReadWorkflowGraphProjectionResponse](t, handler, "/workflows/graph/read", ReadWorkflowGraphProjectionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		ExecutionID: execution.ID,
+	}, http.StatusOK)
+	if projection.Projection == nil {
+		t.Fatal("workflow graph projection was nil")
+	}
+	if projection.Projection.ExecutionID != execution.ID {
+		t.Fatalf("projection execution id = %s, want %s", projection.Projection.ExecutionID, execution.ID)
+	}
+	if got := projectedHTTPNodeStatus(projection.Projection, "work"); got != orchestrator.GraphNodeStatusCancelled {
+		t.Fatalf("projected work status = %s, want cancelled", got)
+	}
 }
 
 func TestWorkflowEventStreamPushesWorkflowEvents(t *testing.T) {
@@ -151,4 +164,13 @@ func readServerSentWorkflowEvent(t *testing.T, reader *bufio.Reader) orchestrato
 			data = strings.TrimPrefix(line, "data: ")
 		}
 	}
+}
+
+func projectedHTTPNodeStatus(projection *orchestrator.WorkflowGraphProjection, nodeID string) orchestrator.WorkflowGraphNodeStatus {
+	for _, node := range projection.Nodes {
+		if node.ID == nodeID {
+			return node.Status
+		}
+	}
+	return ""
 }

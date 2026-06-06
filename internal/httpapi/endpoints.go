@@ -69,6 +69,7 @@ var apiEndpoints = []endpoint{
 	post[StartWorkflowExecutionRequest, orchestrator.WorkflowExecution]("StartWorkflowExecution", "/workflows/executions/start", handler.startWorkflowExecution),
 	post[CancelWorkflowExecutionRequest, orchestrator.WorkflowExecution]("CancelWorkflowExecution", "/workflows/executions/cancel", handler.cancelWorkflowExecution),
 	post[ReadWorkflowExecutionRequest, orchestrator.WorkflowExecution]("ReadWorkflowExecution", "/workflows/executions/read", handler.readWorkflowExecution),
+	post[ReadWorkflowGraphProjectionRequest, ReadWorkflowGraphProjectionResponse]("ReadWorkflowGraphProjection", "/workflows/graph/read", handler.readWorkflowGraphProjection),
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
 	stream("WorkflowEventStream", "/workflows/events", handler.workflowEventStream),
 	get[codexaccount.CodexAccountState]("ReadCodexAccount", "/codex/account", handler.readCodexAccount),

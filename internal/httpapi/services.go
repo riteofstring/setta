@@ -62,6 +62,7 @@ type WorkflowService interface {
 	ReadDefinition(workspaceID string, definitionID string) (orchestrator.WorkflowDefinition, error)
 	ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
 	ReadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (orchestrator.WorkflowExecutionEventPage, error)
+	ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error)
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
 	SubscribeEvents() *orchestrator.EventSubscription
 	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)

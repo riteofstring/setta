@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import { decodeChatEvent } from "@generated/backend";
+import { decodeChatEvent, decodeWorkflowEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
 import type {
   BackendEventStreamStatus,
@@ -132,7 +132,18 @@ const api: SettaAPI = {
       invoke("workflowDeleteDefinition", workspaceId, definitionId),
     executionEvents: (workspaceId, executionId, beforeOrdinal, limit) =>
       invoke("workflowExecutionEvents", workspaceId, executionId, beforeOrdinal, limit),
+    graphProjection: (workspaceId, definitionId = "", versionId = "", executionId = "") =>
+      invoke("workflowGraphProjection", workspaceId, definitionId, versionId, executionId),
     listDefinitions: (workspaceId) => invoke("workflowListDefinitions", workspaceId),
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeWorkflowEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.workflowEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.workflowEvent, handler);
+      };
+    },
     readDefinition: (workspaceId, definitionId) =>
       invoke("workflowReadDefinition", workspaceId, definitionId),
     readExecution: (workspaceId, executionId) =>

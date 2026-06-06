@@ -7,7 +7,12 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
-import { createBackendClient, type BackendClient, type ChatEvent } from "@generated/backend";
+import {
+  createBackendClient,
+  type BackendClient,
+  type ChatEvent,
+  type WorkflowEvent,
+} from "@generated/backend";
 import { handleIpc, ipcEvents } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
@@ -17,10 +22,13 @@ import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
+import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
+import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
 import { readWorkspaceGitInfo } from "./workspace-actions";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
+let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
@@ -60,7 +68,7 @@ async function prepareBackend(appDataDir: string) {
     });
     backend.events.on("exit", (exit) => {
       recorder?.recordBackendExit(exit);
-      void stopChatEventStream();
+      void stopBackendEventStreams();
       if (!exit.expected) {
         emitBackendProcessStatus({ message: "Backend exited unexpectedly", status: "offline" });
         mainWindow?.webContents.send(ipcEvents.backendUnexpectedExit, exit);
@@ -68,6 +76,7 @@ async function prepareBackend(appDataDir: string) {
       }
     });
     startChatEventStream();
+    startWorkflowEventStreamForwarding();
   } catch (error) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
@@ -103,10 +112,32 @@ function startChatEventStream() {
   });
 }
 
+function startWorkflowEventStreamForwarding() {
+  if (!backend) {
+    return;
+  }
+  void stopWorkflowEventStreamForwarding();
+  workflowEventStream = startWorkflowEventStream({
+    baseURL: backend.url,
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    sendEvent: forwardWorkflowEvent,
+  });
+}
+
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
   await stream?.stop();
+}
+
+async function stopWorkflowEventStreamForwarding() {
+  const stream = workflowEventStream;
+  workflowEventStream = null;
+  await stream?.stop();
+}
+
+async function stopBackendEventStreams() {
+  await Promise.all([stopChatEventStream(), stopWorkflowEventStreamForwarding()]);
 }
 
 function emitBackendProcessStatus(status: BackendProcessStatus) {
@@ -123,6 +154,16 @@ function sendBackendStatuses(window: BrowserWindow) {
 
 function forwardChatEvent(event: ChatEvent) {
   forwardChatEventToWindows(BrowserWindow.getAllWindows(), event);
+}
+
+function forwardWorkflowEvent(event: WorkflowEvent) {
+  recorder?.recordAppEvent("workflow_event_forwarded", {
+    eventId: event.id,
+    executionId: event.executionId,
+    ordinal: event.ordinal,
+    type: event.type,
+  });
+  forwardWorkflowEventToWindows(BrowserWindow.getAllWindows(), event);
 }
 
 function settaAppDataDir() {
@@ -627,6 +668,19 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "workflowGraphProjection",
+    async (_event, workspaceId, definitionId, versionId, executionId) => {
+      return requireBackendClient().readWorkflowGraphProjection({
+        definitionId,
+        executionId,
+        versionId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "codexAccountRead",
     async () => {
       return requireBackendClient().readCodexAccount();
@@ -719,7 +773,7 @@ async function convertIcnsToDataURL(iconPath: string) {
 }
 
 async function stopBackend() {
-  await stopChatEventStream();
+  await stopBackendEventStreams();
   await backend?.stop();
   backend = null;
 }

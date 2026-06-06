@@ -1,7 +1,7 @@
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { ChatEvent, WorkflowGraph } from "@generated/backend";
+import type { ChatEvent, WorkflowEvent, WorkflowGraph } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 
 describe("preload workspace API", () => {
@@ -252,6 +252,8 @@ describe("preload workspace API", () => {
   test("exposes typed workflow methods through IPC", async () => {
     const exposed: Record<string, unknown> = {};
     const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
     vi.doMock("electron", () => ({
       contextBridge: {
         exposeInMainWorld: (name: string, api: unknown) => {
@@ -260,6 +262,8 @@ describe("preload workspace API", () => {
       },
       ipcRenderer: {
         invoke,
+        on,
+        removeListener,
       },
     }));
 
@@ -272,7 +276,9 @@ describe("preload workspace API", () => {
       "createDefinition",
       "deleteDefinition",
       "executionEvents",
+      "graphProjection",
       "listDefinitions",
+      "onEvent",
       "readDefinition",
       "readExecution",
       "startExecution",
@@ -301,6 +307,23 @@ describe("preload workspace API", () => {
     await api.workflow.cancelExecution("workspace_api", "workflow_execution_api");
     await api.workflow.readExecution("workspace_api", "workflow_execution_api");
     await api.workflow.executionEvents("workspace_api", "workflow_execution_api", 10, 20);
+    await api.workflow.graphProjection("workspace_api");
+    await api.workflow.graphProjection(
+      "workspace_api",
+      "workflow_definition_api",
+      "workflow_version_api",
+      "workflow_execution_api",
+    );
+
+    const event = workflowEvent();
+    const listener = vi.fn();
+    const unsubscribe = api.workflow.onEvent(listener);
+    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.workflowEvent)?.[1];
+    if (typeof handler !== "function") {
+      throw new Error("workflow event handler was not registered");
+    }
+    handler({}, event);
+    unsubscribe();
 
     expectInvokeCalls(invoke, [
       [ipcChannels.workflowListDefinitions, "workspace_api"],
@@ -326,7 +349,18 @@ describe("preload workspace API", () => {
       [ipcChannels.workflowCancelExecution, "workspace_api", "workflow_execution_api"],
       [ipcChannels.workflowReadExecution, "workspace_api", "workflow_execution_api"],
       [ipcChannels.workflowExecutionEvents, "workspace_api", "workflow_execution_api", 10, 20],
+      [ipcChannels.workflowGraphProjection, "workspace_api", "", "", ""],
+      [
+        ipcChannels.workflowGraphProjection,
+        "workspace_api",
+        "workflow_definition_api",
+        "workflow_version_api",
+        "workflow_execution_api",
+      ],
     ]);
+    expect(on).toHaveBeenCalledWith(ipcEvents.workflowEvent, expect.any(Function));
+    expect(listener).toHaveBeenCalledWith(event);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workflowEvent, handler);
   });
 });
 
@@ -369,6 +403,25 @@ function chatEvent(): ChatEvent {
     sequence: 1,
     streamId: "event_stream_test",
     type: "chat.message.created",
+    workspaceId: "workspace_api",
+  };
+}
+
+function workflowEvent(): WorkflowEvent {
+  return {
+    createdAt: "2026-06-05T12:00:00Z",
+    definitionId: "workflow_definition_api",
+    definitionVersionId: "workflow_version_api",
+    details: {},
+    executionId: "workflow_execution_api",
+    id: "workflow_event_api",
+    message: "workflow started",
+    nodeExecutionId: "",
+    nodeId: "",
+    ordinal: 1,
+    schemaVersion: 1,
+    tokenId: "",
+    type: "workflow.execution.started",
     workspaceId: "workspace_api",
   };
 }

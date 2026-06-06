@@ -14,6 +14,7 @@ import {
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   readJsonLinesOptional,
+  reloadPage,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -34,6 +35,11 @@ import {
   setsEqual,
   visiblePoint,
 } from "./pixi-workspace-smoke-assertions.mjs";
+import {
+  assertWorkflowProjectionSnapshot,
+  createWorkflowProjectionFixture,
+  isWorkflowProjectionSnapshotReady,
+} from "./workflow-projection-smoke-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const cdpMetaModifier = 4;
@@ -79,6 +85,7 @@ try {
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
       SETTA_PIXI_WORKSPACE_DEBUG: "1",
       SETTA_PIXI_WORKSPACE_PROTOTYPE: "1",
     },
@@ -86,14 +93,16 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="pixi-workspace"]');
-  const initial = await waitForPixiSnapshot(context.client, (snapshot) => {
-    return (
-      snapshot.canvas.clientWidth > 0 &&
-      snapshot.canvas.clientHeight > 0 &&
-      snapshot.render.frameCount > 2 &&
-      snapshot.visual.hasNonBackgroundPixels
-    );
-  });
+  const workflowProjection = await createWorkflowProjectionFixture(
+    context.client,
+    fixture.workspaceRoot,
+  );
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="pixi-workspace"]');
+  const initial = await waitForPixiSnapshot(context.client, (snapshot) =>
+    isWorkflowProjectionSnapshotReady(snapshot, workflowProjection),
+  );
+  assertWorkflowProjectionSnapshot(initial, workflowProjection);
   assertInitialSnapshot(initial);
   await captureScreenshot(context.client, join(artifactDir, "initial.png"));
 
@@ -527,13 +536,9 @@ try {
     afterZoomGroupFirstSelect,
     afterZoomGroupSelect,
     artifactDir,
-    cancelPoint,
-    commitPair,
-    duringCancelledEdge,
     duringEdgeDraw,
     duringMarquee,
     initial,
-    marquee,
     status: "passed",
   });
   console.log(`Pixi workspace visual smoke passed: ${artifactDir}`);

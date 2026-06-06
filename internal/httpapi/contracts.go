@@ -236,6 +236,17 @@ type ReadWorkflowExecutionRequest struct {
 	ExecutionID string `json:"executionId"`
 }
 
+type ReadWorkflowGraphProjectionRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	DefinitionID string `json:"definitionId"`
+	VersionID    string `json:"versionId"`
+	ExecutionID  string `json:"executionId"`
+}
+
+type ReadWorkflowGraphProjectionResponse struct {
+	Projection *orchestrator.WorkflowGraphProjection `json:"projection"`
+}
+
 type GetWorkflowExecutionEventsRequest struct {
 	WorkspaceID   string `json:"workspaceId"`
 	ExecutionID   string `json:"executionId"`

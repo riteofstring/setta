@@ -19,6 +19,13 @@ interface PixiWorkspaceEdge {
 interface PixiWorkspaceGraph {
   edges: PixiWorkspaceEdge[];
   nodes: PixiWorkspaceNode[];
+  workflow?: {
+    definitionId: string;
+    definitionName: string;
+    executionId: string;
+    executionStatus: string;
+    workspaceId: string;
+  } | null;
 }
 
 interface CreatePixiWorkspaceRendererOptions {

@@ -29,9 +29,10 @@ import type {
   SubmitApprovalRequest,
   DeleteWorkflowDefinitionResponse,
   ListWorkflowDefinitionsResponse,
-  WorkflowDefinition,
   WorkflowExecution,
   WorkflowExecutionEventPage,
+  WorkflowDefinition,
+  ReadWorkflowGraphProjectionResponse,
   WorkflowGraph,
   WorkflowValidationResult,
   WorkspaceSession,
@@ -73,6 +74,7 @@ export const ipcChannels = {
   workflowCreateDefinition: "workflow:create-definition",
   workflowDeleteDefinition: "workflow:delete-definition",
   workflowExecutionEvents: "workflow:execution-events",
+  workflowGraphProjection: "workflow:graph-projection",
   workflowListDefinitions: "workflow:list-definitions",
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
@@ -93,6 +95,7 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
+  workflowEvent: "workflow:event",
 } as const;
 
 interface IpcContract {
@@ -242,6 +245,10 @@ interface IpcContract {
   workflowExecutionEvents: {
     args: [workspaceId: string, executionId: string, beforeOrdinal: number, limit: number];
     result: WorkflowExecutionEventPage;
+  };
+  workflowGraphProjection: {
+    args: [workspaceId: string, definitionId: string, versionId: string, executionId: string];
+    result: ReadWorkflowGraphProjectionResponse;
   };
   workflowListDefinitions: {
     args: [workspaceId: string];

@@ -16,6 +16,7 @@ import type {
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
@@ -29,6 +30,7 @@ import type {
   DeleteWorkflowDefinitionResponse,
   ListWorkflowDefinitionsResponse,
   WorkflowDefinition,
+  WorkflowEvent,
   WorkflowExecution,
   WorkflowExecutionEventPage,
   WorkflowGraph,
@@ -222,7 +224,14 @@ export interface SettaAPI {
       beforeOrdinal: number,
       limit: number,
     ) => Promise<WorkflowExecutionEventPage>;
+    graphProjection: (
+      workspaceId: string,
+      definitionId?: string,
+      versionId?: string,
+      executionId?: string,
+    ) => Promise<ReadWorkflowGraphProjectionResponse>;
     listDefinitions: (workspaceId: string) => Promise<ListWorkflowDefinitionsResponse>;
+    onEvent: (listener: (event: WorkflowEvent) => void) => () => void;
     readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
     readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
     startExecution: (

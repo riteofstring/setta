@@ -356,6 +356,20 @@ func (service *Service) ReadExecution(workspaceID string, executionID string) (W
 	return service.store.LoadExecution(workspaceID, executionID)
 }
 
+func (service *Service) ReadGraphProjection(workspaceID string, definitionID string, versionID string, executionID string) (WorkflowGraphProjection, bool, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return WorkflowGraphProjection{}, false, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	if executionID != "" {
+		projection, err := service.readExecutionGraphProjectionLocked(workspaceID, definitionID, versionID, executionID)
+		return projection, true, err
+	}
+	projection, ok, err := service.readDefinitionGraphProjectionLocked(workspaceID, definitionID, versionID)
+	return projection, ok, err
+}
+
 func (service *Service) ReadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (WorkflowExecutionEventPage, error) {
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowExecutionEventPage{}, err
@@ -369,6 +383,80 @@ func (service *Service) ReadExecutionEventPage(workspaceID string, executionID s
 		return WorkflowExecutionEventPage{}, err
 	}
 	return service.store.LoadExecutionEventPage(workspaceID, executionID, beforeOrdinal, limit)
+}
+
+func (service *Service) readExecutionGraphProjectionLocked(workspaceID string, definitionID string, versionID string, executionID string) (WorkflowGraphProjection, error) {
+	execution, err := service.store.LoadExecution(workspaceID, executionID)
+	if err != nil {
+		return WorkflowGraphProjection{}, err
+	}
+	if definitionID != "" && definitionID != execution.DefinitionID {
+		return WorkflowGraphProjection{}, fmt.Errorf("workflow execution %s belongs to definition %s, not %s", executionID, execution.DefinitionID, definitionID)
+	}
+	if versionID != "" && versionID != execution.DefinitionVersionID {
+		return WorkflowGraphProjection{}, fmt.Errorf("workflow execution %s uses version %s, not %s", executionID, execution.DefinitionVersionID, versionID)
+	}
+	version, err := service.store.LoadDefinitionVersion(workspaceID, execution.DefinitionID, execution.DefinitionVersionID)
+	if err != nil {
+		return WorkflowGraphProjection{}, err
+	}
+	return buildWorkflowGraphProjection(version, &execution, execution.UpdatedAt)
+}
+
+func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, definitionID string, versionID string) (WorkflowGraphProjection, bool, error) {
+	definition, ok, err := service.resolveProjectionDefinitionLocked(workspaceID, definitionID, versionID)
+	if err != nil || !ok {
+		return WorkflowGraphProjection{}, ok, err
+	}
+	if versionID == "" {
+		versionID = definition.CurrentVersionID
+	}
+	version, err := service.store.LoadDefinitionVersion(workspaceID, definition.ID, versionID)
+	if err != nil {
+		return WorkflowGraphProjection{}, false, err
+	}
+	execution, err := service.latestExecutionForDefinitionVersionLocked(workspaceID, definition.ID, version.ID)
+	if err != nil {
+		return WorkflowGraphProjection{}, false, err
+	}
+	if execution != nil {
+		projection, err := buildWorkflowGraphProjection(version, execution, definition.UpdatedAt)
+		return projection, true, err
+	}
+	projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt)
+	return projection, true, err
+}
+
+func (service *Service) resolveProjectionDefinitionLocked(workspaceID string, definitionID string, versionID string) (WorkflowDefinition, bool, error) {
+	if definitionID != "" {
+		definition, err := service.store.LoadDefinition(workspaceID, definitionID)
+		return definition, true, err
+	}
+	if versionID != "" {
+		return WorkflowDefinition{}, false, errors.New("workflow definition id is required when version id is provided")
+	}
+	definitions, err := service.store.ListDefinitions(workspaceID)
+	if err != nil {
+		return WorkflowDefinition{}, false, err
+	}
+	if len(definitions) == 0 {
+		return WorkflowDefinition{}, false, nil
+	}
+	return definitions[0], true, nil
+}
+
+func (service *Service) latestExecutionForDefinitionVersionLocked(workspaceID string, definitionID string, versionID string) (*WorkflowExecution, error) {
+	executions, err := service.store.ListExecutions(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	for _, execution := range executions {
+		if execution.DefinitionID == definitionID && execution.DefinitionVersionID == versionID {
+			matched := execution
+			return &matched, nil
+		}
+	}
+	return nil, nil
 }
 
 func (service *Service) recoverInterruptedExecutions() error {
