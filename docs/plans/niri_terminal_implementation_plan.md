@@ -29,20 +29,31 @@ The app should support terminal preferences through profiles and external
 terminal launchers. It should not model Ghostty, WezTerm, zsh, bash, or Windows
 Terminal as separate Niri surface kinds.
 
+## Implementation Status
+
+- Phase 0 is complete: benchmark terminal workload uses `fake-terminal`, while
+  workspace-mode `terminal` is reserved for the product terminal surface.
+- Phase 1 is complete: the product terminal pane is backed by xterm.js in the
+  renderer, generated HTTP contracts, a dedicated `/terminals/events` stream,
+  and `internal/terminal` PTY sessions owned by Go.
+- Phase 2 is next: session lifecycle, replay, buffering, process cleanup,
+  renderer reload behavior, and close confirmation.
+
 ## Current State
 
-The Niri workspace has a `SurfaceKind` value named `terminal`, but it is not a
-real terminal. The current adapter:
+The Niri workspace now has two terminal-like surface kinds:
 
-- Seeds generated text lines.
-- Renders a virtualized terminal-like DOM surface.
-- Drains synthetic output on `requestAnimationFrame`.
-- Reports terminal-like metrics for performance probes.
-- Does not spawn a shell, own a PTY, read process output, write input, or resize
-  an operating-system terminal.
+- `terminal`: the product embedded terminal pane. It uses xterm.js in the
+  renderer, generated preload/main/backend contracts, and Go-owned PTY sessions.
+- `fake-terminal`: the synthetic benchmark surface. It keeps generated
+  terminal-like output for Niri performance probes without spawning shells.
 
-This fake surface is useful for layout and performance benchmarking, but it must
-not remain the product terminal.
+The Phase 1 implementation is intentionally minimal. It can create a shell,
+stream output, send input, resize, attach to an existing running session by
+`workspaceId` and `paneId`, and close a session. It does not yet provide robust
+detached replay, explicit buffer truncation events, process-group cleanup,
+terminate-then-kill escalation, renderer reload recovery coverage, or close
+confirmation UI.
 
 ## Design Decisions
 
@@ -137,19 +148,19 @@ profiles should wait for explicit user action before launching.
 
 ## Benchmark Surface Split
 
-The current fake terminal is still useful for Niri performance probes. Before
-turning `surfaceKind: "terminal"` into a real PTY-backed adapter, split the fake
-surface out explicitly.
+The fake terminal remains useful for Niri performance probes. The split is now
+implemented: benchmark scenes use `fake-terminal`, while workspace-mode
+`terminal` means a real embedded terminal.
 
-Recommended cleanup:
+The split was implemented by:
 
-1. Rename the current `TerminalSurfaceAdapter` to
+1. Renaming the previous synthetic `TerminalSurfaceAdapter` to
    `SyntheticTerminalSurfaceAdapter`.
-2. Add a benchmark-only or fake surface kind such as `fake-terminal` if the
-   benchmark scene still needs synthetic terminal output.
-3. Keep runtime policy and metrics able to count synthetic terminal renderers
+2. Adding the benchmark-only `fake-terminal` surface kind for scenes that need
+   synthetic terminal output.
+3. Keeping runtime policy and metrics able to count synthetic terminal renderers
    as terminal-like workload when running benchmark scenes.
-4. Ensure workspace-mode `surfaceKind: "terminal"` always means a real embedded
+4. Ensuring workspace-mode `surfaceKind: "terminal"` always means a real embedded
    terminal.
 
 This avoids spawning hundreds of real shells during benchmark scenes and avoids
@@ -157,7 +168,7 @@ confusing product behavior with performance fixtures.
 
 ## Backend Architecture
 
-Add a terminal package under `internal/terminal` or `internal/terminals`.
+The Phase 1 implementation uses `internal/terminal`.
 
 Core types:
 
@@ -214,8 +225,9 @@ Backend responsibilities:
 ### PTY Library Choice
 
 Phase 1 targets macOS/Linux first, with macOS as the primary development path.
-Use `github.com/creack/pty` or a small Unix PTY adapter around it. Platform-gate
-Windows with a specific unsupported error until a ConPTY adapter is implemented.
+The current Unix PTY adapter uses `github.com/creack/pty`. Windows is
+platform-gated with a specific unsupported error until a ConPTY adapter is
+implemented.
 
 The first implementation should prioritize one reliable backend over a broad but
 shallow platform promise. If Windows is not implemented, the terminal pane must
@@ -292,8 +304,8 @@ before cleanup and before finishing the implementation.
 
 ## Terminal Event Stream
 
-The existing app uses HTTP JSON and SSE. Phase 1 should fit that model instead
-of inventing a second ungenerated API.
+The existing app uses HTTP JSON and SSE. Phase 1 fits that model instead of
+inventing a second ungenerated API.
 
 Use a dedicated terminal SSE stream, separate from the chat event stream.
 Terminal output is higher-volume and has different reconnect semantics, so chat
@@ -324,6 +336,7 @@ Event types:
 - `terminal.exited`
 - `terminal.closed`
 - `terminal.error`
+- `terminal.bufferTruncated` in Phase 2
 
 Output payload:
 
@@ -350,6 +363,14 @@ Phase 2 transport upgrade:
   transport for terminal streams.
 - Keep the session API stable so the transport can change without changing Niri
   pane semantics.
+
+Phase 2 replay upgrade:
+
+- Store bounded per-session output chunks in the backend while views or streams
+  are detached.
+- Replay available chunks after reconnect or renderer reload.
+- Emit `terminal.bufferTruncated` when replay cannot cover missed output.
+- Do not silently drop output events without exposing truncation state.
 
 ## Electron Main And Preload
 
@@ -551,6 +572,8 @@ templates.
 
 ### Phase 0: Prepare Niri Surface Boundaries
 
+Status: complete.
+
 Goal: make the fake terminal clearly fake and reserve `terminal` for product
 terminal behavior.
 
@@ -569,6 +592,8 @@ Definition of done:
 - Benchmark scenes still run without spawning real shells.
 
 ### Phase 1: Minimal Real Embedded Terminal
+
+Status: complete.
 
 Goal: one real terminal pane can run a shell in a workspace.
 
@@ -611,9 +636,18 @@ Definition of done:
 
 ### Phase 2: Robust Session Lifecycle
 
+Status: ready to implement.
+
 Goal: terminal sessions behave correctly under common app lifecycle events.
 
-Tasks:
+Start with:
+
+- Add bounded per-session output storage in the backend.
+- Make terminal subscriptions replay from cursor when data is still available.
+- Add `terminal.bufferTruncated` to Go-owned contracts and regenerate TypeScript.
+- Replace silent event drops with observable truncation or backpressure behavior.
+
+Backend tasks:
 
 - Bounded detached-session output buffering.
 - Start with 1-4 MB per session and a 5-10 minute detached-session time limit.
@@ -621,16 +655,29 @@ Tasks:
 - Output batching and backpressure.
 - Process group cleanup on Unix.
 - ConPTY/job cleanup if Windows is supported.
+- Terminate first, then kill after a timeout when force closing.
+
+Renderer and Electron tasks:
+
 - Renderer reload attach by `workspaceId` and `paneId`.
+- Replay buffered output when attaching to an existing session.
 - Clear lost-session state when backend restarts.
 - Exit overlay with restart and close actions.
 - Confirm close for active sessions; exited sessions close immediately.
-- Terminate first, then kill after a timeout when force closing.
+
+Test tasks:
+
 - Tests for cleanup and reattach paths.
+- E2E hide/show while output streams.
+- E2E renderer reload attach or specific lost-session state.
+- E2E backend crash/lost-session state.
+- E2E close cleanup with a long-running command.
 
 Definition of done:
 
 - Hidden panes do not block child processes.
+- Detached panes can replay buffered output when reattached.
+- Buffer overflow is visible through a truncation event/state.
 - Closing panes does not leak processes.
 - Renderer reload either reattaches or shows a specific lost-session state.
 - Backend crash produces a specific terminal lost state.
@@ -727,6 +774,8 @@ Focused backend checks:
 - Process cleanup tests.
 - Request validation tests for all terminal HTTP endpoints.
 - Event stream ordering and reconnect cursor tests.
+- Event stream replay and buffer-truncation tests.
+- Output flood tests that verify bounded memory and observable truncation.
 
 Focused renderer checks:
 
@@ -746,11 +795,15 @@ Electron E2E checks:
 - Hide/show the pane while output streams.
 - Close the pane and assert the backend session exits.
 - Reload renderer and assert attach or specific lost-session behavior.
+- Disconnect and reconnect the terminal event stream while output is produced.
+- Force backend restart and assert terminal panes show a specific lost-session
+  state.
 
 Performance checks:
 
 - Preserve existing Niri performance probes.
 - Add a terminal output flood scenario with a disposable shell command.
+- Verify terminal output floods do not starve chat/workflow event forwarding.
 - Record before/after performance results under `docs/reports/performance/` for
   performance-relevant refactors.
 
