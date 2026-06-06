@@ -21,6 +21,7 @@ interface FrameSchedulerDependencies {
 
 export class FrameScheduler {
   private benchmarkDirection: "left" | "right" = "right";
+  private benchmarkPaused = false;
   private clock: AnimationClock;
   private items: PaneRenderItem[] = [];
   private lastFocusStepTimestamp = 0;
@@ -53,6 +54,10 @@ export class FrameScheduler {
     this.clock.start();
   }
 
+  pauseBenchmark(): void {
+    this.benchmarkPaused = true;
+  }
+
   teardown(): void {
     this.clock.stop();
     this.longTaskObserver?.disconnect();
@@ -61,6 +66,9 @@ export class FrameScheduler {
   }
 
   private advanceBenchmarkFocus(timestamp: number): void {
+    if (this.benchmarkPaused) {
+      return;
+    }
     if (timestamp - this.lastFocusStepTimestamp < focusStepIntervalMs) {
       return;
     }

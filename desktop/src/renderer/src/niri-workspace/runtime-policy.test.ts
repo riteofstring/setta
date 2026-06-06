@@ -42,8 +42,11 @@ describe("niri pane runtime policy", () => {
     const items = [
       renderItem("focused-canvas", "fake-canvas", true),
       renderItem("moving-heavy", "fake-heavy-dom", false),
+      renderItem("moving-long-chat", "fake-long-chat", false),
+      renderItem("moving-chat", "chat-dom", false),
       renderItem("moving-canvas", "fake-canvas", false),
       renderItem("moving-light", "fake-dom", false),
+      renderItem("moving-settings", "settings-dom", false),
     ];
 
     const summary = new PaneRuntimePolicy(budget).apply(items, "moving");
@@ -51,10 +54,13 @@ describe("niri pane runtime policy", () => {
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
       ["focused-canvas", "live"],
       ["moving-heavy", "snapshot"],
+      ["moving-long-chat", "live"],
+      ["moving-chat", "snapshot"],
       ["moving-canvas", "snapshot"],
       ["moving-light", "live"],
+      ["moving-settings", "live"],
     ]);
-    expect(summary.snapshot).toBe(2);
+    expect(summary.snapshot).toBe(3);
     expect(summary.budget.maxLiveWebGpuCanvases).toBe(1);
   });
 

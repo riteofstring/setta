@@ -1,3 +1,4 @@
+import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
 import type {
   FreezeReason,
   NiriPane,
@@ -365,8 +366,12 @@ export class FakeCanvasSurfaceAdapter implements SurfaceAdapter {
   }
 }
 
-export function createFakeSurfaceAdapter(pane: NiriPane): SurfaceAdapter {
+export function createDefaultSurfaceAdapter(pane: NiriPane): SurfaceAdapter {
   switch (pane.surfaceKind) {
+    case "chat-dom":
+    case "fake-long-chat":
+    case "settings-dom":
+      return createReactDomSurfaceAdapter(pane);
     case "fake-canvas":
       return new FakeCanvasSurfaceAdapter(pane);
     case "fake-dom":

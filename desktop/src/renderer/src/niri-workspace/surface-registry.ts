@@ -1,4 +1,4 @@
-import { createFakeSurfaceAdapter, SnapshotSurfaceAdapter } from "./surface-adapters";
+import { createDefaultSurfaceAdapter, SnapshotSurfaceAdapter } from "./surface-adapters";
 import type {
   FreezeReason,
   NiriPane,
@@ -28,7 +28,7 @@ export class SurfaceRegistry {
 
   constructor(
     panes: readonly NiriPane[],
-    private readonly adapterFactory: SurfaceAdapterFactory = createFakeSurfaceAdapter,
+    private readonly adapterFactory: SurfaceAdapterFactory = createDefaultSurfaceAdapter,
   ) {
     for (const pane of panes) {
       this.records.set(pane.surfaceId, {
@@ -99,11 +99,9 @@ export class SurfaceRegistry {
     }
     for (const record of this.records.values()) {
       record.adapter.freeze("teardown");
-      record.adapter.destroy();
-      record.snapshotAdapter.destroy();
+      record.snapshotAdapter.freeze();
     }
     this.hostRecords.clear();
-    this.records.clear();
   }
 
   private adapterForRuntimeState(

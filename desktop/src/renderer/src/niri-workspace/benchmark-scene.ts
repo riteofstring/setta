@@ -80,6 +80,17 @@ function createFakePane(columnId: string, sequence: number, rowIndex: number): N
 }
 
 function fakeSurfaceKind(sequence: number): SurfaceKind {
+  switch (sequence) {
+    case 1:
+      return "fake-long-chat";
+    case 2:
+      return "settings-dom";
+    case 3:
+      return "chat-dom";
+    default:
+      break;
+  }
+
   const slot = sequence % 12;
   if (slot === 4) {
     return "fake-canvas";
@@ -92,12 +103,18 @@ function fakeSurfaceKind(sequence: number): SurfaceKind {
 
 function surfaceKindLabel(kind: SurfaceKind): string {
   switch (kind) {
+    case "chat-dom":
+      return "real chat";
     case "fake-canvas":
       return "fake canvas";
     case "fake-dom":
       return "fake light";
     case "fake-heavy-dom":
       return "fake heavy";
+    case "fake-long-chat":
+      return "fake long chat";
+    case "settings-dom":
+      return "real settings";
     case "snapshot":
       return "snapshot";
     default:

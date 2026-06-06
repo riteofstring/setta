@@ -77,13 +77,16 @@ export class PaneRuntimePolicy {
     },
   ): void {
     switch (kind) {
+      case "chat-dom":
       case "fake-heavy-dom":
+      case "fake-long-chat":
         counters.liveHeavyDom += 1;
         return;
       case "fake-canvas":
         counters.liveWebGpuCanvases += 1;
         return;
       case "fake-dom":
+      case "settings-dom":
       case "snapshot":
         return;
       default:
@@ -107,17 +110,33 @@ export class PaneRuntimePolicy {
       return "live";
     }
 
-    switch (item.surfaceKind) {
+    return this.runtimeStateForUnfocusedVisibleKind(item.surfaceKind, movementPhase, counters);
+  }
+
+  private runtimeStateForUnfocusedVisibleKind(
+    kind: SurfaceKind,
+    movementPhase: "idle" | "moving",
+    counters: {
+      liveHeavyDom: number;
+      liveWebGpuCanvases: number;
+      snapshot: number;
+    },
+  ): PaneRuntimeState {
+    switch (kind) {
       case "fake-dom":
+      case "settings-dom":
         return "live";
+      case "chat-dom":
       case "fake-heavy-dom":
         return this.runtimeStateForHeavyDom(movementPhase, counters);
+      case "fake-long-chat":
+        return this.runtimeStateForBudgetedHeavyDom(counters);
       case "fake-canvas":
         return this.runtimeStateForCanvas(movementPhase, counters);
       case "snapshot":
         return this.snapshotOrThrottle(counters);
       default:
-        assertNever(item.surfaceKind);
+        assertNever(kind);
     }
   }
 
@@ -147,6 +166,16 @@ export class PaneRuntimePolicy {
     if (movementPhase === "moving") {
       return this.snapshotOrThrottle(counters);
     }
+    if (counters.liveHeavyDom >= this.budget.maxLiveHeavyDomPanes) {
+      return this.snapshotOrThrottle(counters);
+    }
+    return "live";
+  }
+
+  private runtimeStateForBudgetedHeavyDom(counters: {
+    liveHeavyDom: number;
+    snapshot: number;
+  }): PaneRuntimeState {
     if (counters.liveHeavyDom >= this.budget.maxLiveHeavyDomPanes) {
       return this.snapshotOrThrottle(counters);
     }

@@ -2,7 +2,14 @@ export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
 
-export type SurfaceKind = "fake-canvas" | "fake-dom" | "fake-heavy-dom" | "snapshot";
+export type SurfaceKind =
+  | "chat-dom"
+  | "fake-canvas"
+  | "fake-dom"
+  | "fake-heavy-dom"
+  | "fake-long-chat"
+  | "settings-dom"
+  | "snapshot";
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 

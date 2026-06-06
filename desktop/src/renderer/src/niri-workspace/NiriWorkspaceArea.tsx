@@ -39,11 +39,15 @@ export function NiriWorkspaceArea() {
       runtimePolicy: runtime.runtimePolicy,
       viewportProvider: () => viewportRect(root),
     });
+    if (!niriAutoBenchmarkEnabled()) {
+      scheduler.pauseBenchmark();
+    }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isArrowKey(event.key)) {
         return;
       }
       event.preventDefault();
+      scheduler.pauseBenchmark();
       runtime.store.moveFocus(arrowDirection(event.key));
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -170,6 +174,10 @@ function createNiriRuntime() {
 
 function isArrowKey(key: string): key is "ArrowDown" | "ArrowLeft" | "ArrowRight" | "ArrowUp" {
   return key === "ArrowDown" || key === "ArrowLeft" || key === "ArrowRight" || key === "ArrowUp";
+}
+
+function niriAutoBenchmarkEnabled(): boolean {
+  return new URLSearchParams(window.location.search).get("niriAuto") !== "false";
 }
 
 function viewportRect(element: HTMLElement): Rect {

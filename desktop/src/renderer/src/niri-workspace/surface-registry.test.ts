@@ -50,6 +50,22 @@ describe("niri surface registry", () => {
     expect(recordingAdapter.events.at(-2)).toBe("freeze:hidden");
     expect(recordingAdapter.events.at(-1)).toBe("unmount");
   });
+
+  test("keeps adapter records reusable after teardown releases mounted hosts", () => {
+    const pane = fakePane("fake-dom");
+    const recordingAdapter = new RecordingSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => recordingAdapter);
+    const firstHost = createFakeHost();
+    const secondHost = createFakeHost();
+
+    registry.syncHost(firstHost, renderItem(pane, "live"));
+    registry.teardown();
+    registry.syncHost(secondHost, renderItem(pane, "live"));
+
+    expect(recordingAdapter.events.filter((event) => event === "mount:surface")).toHaveLength(2);
+    expect(recordingAdapter.events).toContain("freeze:teardown");
+    expect(secondHost.dataset.surfaceKind).toBe("fake-dom");
+  });
 });
 
 class RecordingSurfaceAdapter implements SurfaceAdapter {
