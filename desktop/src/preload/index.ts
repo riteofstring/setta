@@ -11,9 +11,15 @@ import type {
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
+const appFlags = {
+  pixiWorkspaceDebug:
+    process.env.SETTA_E2E === "1" || process.env.SETTA_PIXI_WORKSPACE_DEBUG === "1",
+  pixiWorkspacePrototype: process.env.SETTA_PIXI_WORKSPACE_PROTOTYPE === "1",
+};
 
 const api: SettaAPI = {
   app: {
+    flags: appFlags,
     installedEditors: () => invoke("appInstalledEditors"),
     openWorkspaceInEditor: (editorId: string, rootPath: string) =>
       invoke("appOpenWorkspaceInEditor", editorId, rootPath),
