@@ -313,6 +313,42 @@ describe("real niri workspace column sizing", () => {
     expect(items.find((item) => item.paneId === "workspace_pane_0")?.y).toBeLessThan(0);
   });
 
+  test("split to plane below inserts at the focused horizontal slot", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:split-plane-slot",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    store.focusPaneBySurfaceKind("pixi-canvas");
+    const firstLowerPaneId = store.splitFocusedPaneToPlane("down");
+    store.focusPaneBySurfaceKind("git-graph");
+
+    const focusedPaneIdBeforeSplit = store.focusedPaneId();
+    const secondLowerPaneId = store.splitFocusedPaneToPlane("down");
+    const updatedScene = engine.toScene();
+    const firstLowerColumn = updatedScene.columns.find((column) =>
+      column.paneIds.includes(firstLowerPaneId),
+    );
+    const secondLowerColumn = updatedScene.columns.find((column) =>
+      column.paneIds.includes(secondLowerPaneId),
+    );
+    const overviewItems = renderFrame(
+      engine,
+      { ...viewport, width: 1800 },
+      0,
+      secondLowerPaneId,
+      "overview",
+    );
+    const focusedPaneItem = overviewItems.find((item) => item.paneId === focusedPaneIdBeforeSplit);
+    const lowerPaneItem = overviewItems.find((item) => item.paneId === secondLowerPaneId);
+
+    expect(firstLowerColumn?.slotIndex).toBe(5);
+    expect(secondLowerColumn?.slotIndex).toBe(4);
+    expect(lowerPaneItem?.x).toBe(focusedPaneItem?.x);
+    expect(lowerPaneItem?.y).toBeGreaterThan(focusedPaneItem?.y ?? 0);
+  });
+
   test("up and down navigation crosses horizontal planes by visual position", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storageKey: "setta:niri-workspace:plane-navigation",

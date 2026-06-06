@@ -63,6 +63,7 @@ export function generateBenchmarkScene({
       index: columnIndex,
       paneIds,
       planeIndex: 0,
+      slotIndex: columnIndex,
       widthSpec: { unit: "proportion", value: 1 / visibleColumnCount },
     });
   }

@@ -10,6 +10,17 @@ import type {
   PaneId,
   PaneRenderItem,
 } from "./types";
+import {
+  columnSlotIndex,
+  compareColumnsByPlaneAndSlot,
+  nextSlotIndexForPlane,
+  normalizeColumnSlots,
+  planeHasSlot,
+  shiftPlaneSlotsAtOrAfter,
+  slotIndexForDenseInsertion,
+  slotOffsetsForColumns,
+} from "./column-slots";
+import { activeMaximizedPaneIdFor, paneFrame } from "./pane-frame";
 
 type PaneDirection = "up" | "down" | "left" | "right";
 type PaneLocation = {
@@ -33,13 +44,15 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   private nextPaneSequence: number;
 
   constructor(private readonly scene: NiriWorkspaceScene) {
-    this.columns = scene.columns.map((column) => ({
-      ...column,
-      idealWidthSpec: { ...column.idealWidthSpec },
-      paneIds: [...column.paneIds],
-      planeIndex: column.planeIndex,
-      widthSpec: { ...column.widthSpec },
-    }));
+    this.columns = normalizeColumnSlots(
+      scene.columns.map((column) => ({
+        ...column,
+        idealWidthSpec: { ...column.idealWidthSpec },
+        paneIds: [...column.paneIds],
+        planeIndex: column.planeIndex,
+        widthSpec: { ...column.widthSpec },
+      })),
+    );
     this.paneById = new Map(scene.paneById);
     this.nextColumnSequence = nextNumericSuffix(
       this.columns,
@@ -284,7 +297,11 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       return this.openPane({});
     }
     const targetPlaneIndex = source.planeIndex + (direction === "up" ? -1 : 1);
-    const columnId = this.insertColumnInPlane(targetPlaneIndex, source.planeColumnIndex).columnId;
+    const sourceColumn = this.columns[source.columnIndex];
+    const columnId = this.insertColumnInPlaneSlot(
+      targetPlaneIndex,
+      sourceColumn ? columnSlotIndex(sourceColumn) : source.planeColumnIndex,
+    ).columnId;
     return this.openPane({ columnId });
   }
 
@@ -357,6 +374,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       index,
       paneIds: [...column.paneIds],
       planeIndex: column.planeIndex,
+      slotIndex: columnSlotIndex(column),
       widthSpec: { ...column.widthSpec },
     }));
     const panes = [...this.paneById.values()].sort((left, right) => left.sequence - right.sequence);
@@ -389,6 +407,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       planeIndex,
       previousProportionWidth:
         normalizedWidthSpec.unit === "proportion" ? normalizedWidthSpec.value : undefined,
+      slotIndex: nextSlotIndexForPlane(this.columnsInPlane(planeIndex)),
       widthSpec: { ...normalizedWidthSpec },
     };
     this.columns.push(column);
@@ -407,11 +426,15 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   private columnGeometry(viewportWidth: number): ColumnGeometry {
     const widths = this.columns.map((column) => this.resolveColumnWidth(column, viewportWidth));
     const offsets = Array.from({ length: this.columns.length }, () => 0);
+    const slotOffsets = slotOffsetsForColumns({
+      columnGap: this.scene.columnGap,
+      columns: this.columns,
+      defaultWidth: this.resolveColumnWidthSpec(this.scene.defaultColumnWidthSpec, viewportWidth),
+      widths,
+    });
     for (const planeIndex of this.planeIndexes()) {
-      let nextOffset = 0;
       for (const column of this.columnsInPlane(planeIndex)) {
-        offsets[column.index] = nextOffset;
-        nextOffset += (widths[column.index] ?? minimumColumnWidth) + this.scene.columnGap;
+        offsets[column.index] = slotOffsets.get(columnSlotIndex(column)) ?? 0;
       }
     }
     return { offsets, widths };
@@ -461,27 +484,35 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     planeColumnIndex: number,
     widthSpec: ColumnWidthSpec = this.scene.defaultColumnWidthSpec,
   ): NiriColumn {
+    return this.insertColumnInPlaneSlot(
+      planeIndex,
+      slotIndexForDenseInsertion(this.columnsInPlane(planeIndex), planeColumnIndex),
+      widthSpec,
+    );
+  }
+
+  private insertColumnInPlaneSlot(
+    planeIndex: number,
+    slotIndex: number,
+    widthSpec: ColumnWidthSpec = this.scene.defaultColumnWidthSpec,
+  ): NiriColumn {
     const normalizedWidthSpec = normalizedColumnWidthSpec(widthSpec);
-    const planeColumns = this.columnsInPlane(planeIndex);
-    const clampedPlaneColumnIndex = clamp(planeColumnIndex, 0, planeColumns.length);
-    const beforeColumn = planeColumns[clampedPlaneColumnIndex];
-    const afterColumn = planeColumns[clampedPlaneColumnIndex - 1];
-    const globalIndex = beforeColumn
-      ? beforeColumn.index
-      : afterColumn
-        ? afterColumn.index + 1
-        : this.firstColumnIndexAfterPlane(planeIndex);
+    const normalizedSlotIndex = Math.max(0, Math.floor(slotIndex));
+    if (planeHasSlot(this.columnsInPlane(planeIndex), normalizedSlotIndex)) {
+      this.columns = shiftPlaneSlotsAtOrAfter(this.columns, planeIndex, normalizedSlotIndex);
+    }
     const column: NiriColumn = {
       columnId: this.nextColumnId(),
       idealWidthSpec: { ...normalizedWidthSpec },
-      index: globalIndex,
+      index: this.columns.length,
       paneIds: [],
       planeIndex,
       previousProportionWidth:
         normalizedWidthSpec.unit === "proportion" ? normalizedWidthSpec.value : undefined,
+      slotIndex: normalizedSlotIndex,
       widthSpec: { ...normalizedWidthSpec },
     };
-    this.columns.splice(globalIndex, 0, column);
+    this.columns.push(column);
     this.reindexColumns();
     return this.requireColumn(column.columnId);
   }
@@ -762,11 +793,6 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     return this.columns.filter((column) => column.planeIndex === planeIndex);
   }
 
-  private firstColumnIndexAfterPlane(planeIndex: number): number {
-    const laterColumn = this.columns.find((column) => column.planeIndex > planeIndex);
-    return laterColumn?.index ?? this.columns.length;
-  }
-
   private maxUnscaledPlaneWidth(geometry: ColumnGeometry): number {
     return Math.max(
       minimumColumnWidth,
@@ -835,7 +861,9 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   }
 
   private reindexColumns(): void {
-    this.columns = this.columns.map((column, index) => ({ ...column, index }));
+    this.columns = this.columns
+      .toSorted(compareColumnsByPlaneAndSlot)
+      .map((column, index) => ({ ...column, index, slotIndex: columnSlotIndex(column) }));
   }
 
   private scrollOffsetForPlane(
@@ -991,7 +1019,10 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   }
 
   private resolveColumnWidth(column: NiriColumn, viewportWidth: number): number {
-    const spec = column.widthSpec;
+    return this.resolveColumnWidthSpec(column.widthSpec, viewportWidth);
+  }
+
+  private resolveColumnWidthSpec(spec: ColumnWidthSpec, viewportWidth: number): number {
     if (spec.unit === "px") {
       return Math.max(minimumColumnWidth, Math.round(spec.value));
     }
@@ -1081,61 +1112,6 @@ function addColumnIndex(target: Set<number>, column: NiriColumn | undefined): vo
 
 function sortedColumnIndexes(indexes: ReadonlySet<number>): number[] {
   return [...indexes].sort((left, right) => left - right);
-}
-
-function activeMaximizedPaneIdFor(input: LayoutFrameInput): PaneId | null {
-  if (input.maximizedPaneId !== input.focusedPaneId) {
-    return null;
-  }
-  return input.maximizedPaneId;
-}
-
-function paneFrame({
-  activeMaximizedPaneId,
-  columnWidth,
-  focused,
-  height,
-  maximizedViewport,
-  padding,
-  paneId,
-  x,
-  y,
-}: {
-  activeMaximizedPaneId: PaneId | null;
-  columnWidth: number;
-  focused: boolean;
-  height: number;
-  maximizedViewport: LayoutFrameInput["viewport"] | null;
-  padding: number;
-  paneId: PaneId;
-  x: number;
-  y: number;
-}): {
-  height: number;
-  maximized: boolean;
-  width: number;
-  x: number;
-  y: number;
-  z: number;
-} {
-  if (paneId !== activeMaximizedPaneId || !maximizedViewport) {
-    return {
-      height,
-      maximized: false,
-      width: columnWidth,
-      x,
-      y,
-      z: focused ? 2 : 1,
-    };
-  }
-  return {
-    height: Math.max(1, maximizedViewport.height - padding * 2),
-    maximized: true,
-    width: Math.max(1, maximizedViewport.width - padding * 2),
-    x: padding,
-    y: padding,
-    z: 20,
-  };
 }
 
 function nearestPaneByVerticalCenter(

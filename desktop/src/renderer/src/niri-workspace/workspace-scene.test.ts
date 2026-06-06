@@ -32,6 +32,7 @@ describe("real niri workspace scene", () => {
     expect(result.scene.visibleColumnCount).toBe(3);
     expect(result.scene.totalPanes).toBe(6);
     expect(result.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
+    expect(result.scene.columns.map((column) => column.slotIndex)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(result.scene.columns.map((column) => column.widthSpec)).toEqual([
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },

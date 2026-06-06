@@ -97,6 +97,7 @@ export function persistRealWorkspaceScene(
       idealWidthSpec: { ...column.idealWidthSpec },
       index,
       paneIds: [...column.paneIds],
+      slotIndex: normalizedStoredSlotIndex(column.slotIndex, index),
       widthSpec: { ...column.widthSpec },
     })),
     focusedPaneId,
@@ -168,6 +169,7 @@ function createDefaultRealWorkspaceScene(
       index: 0,
       paneIds: ["workspace_pane_0"],
       planeIndex: 0,
+      slotIndex: 0,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -176,6 +178,7 @@ function createDefaultRealWorkspaceScene(
       index: 1,
       paneIds: ["workspace_pane_1"],
       planeIndex: 0,
+      slotIndex: 1,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -184,6 +187,7 @@ function createDefaultRealWorkspaceScene(
       index: 2,
       paneIds: ["workspace_pane_2"],
       planeIndex: 0,
+      slotIndex: 2,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -192,6 +196,7 @@ function createDefaultRealWorkspaceScene(
       index: 3,
       paneIds: ["workspace_pane_3"],
       planeIndex: 0,
+      slotIndex: 3,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -200,6 +205,7 @@ function createDefaultRealWorkspaceScene(
       index: 4,
       paneIds: ["workspace_pane_4"],
       planeIndex: 0,
+      slotIndex: 4,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -208,6 +214,7 @@ function createDefaultRealWorkspaceScene(
       index: 5,
       paneIds: ["workspace_pane_5"],
       planeIndex: 0,
+      slotIndex: 5,
       widthSpec: defaultRealColumnWidth,
     },
   ]);
@@ -245,6 +252,7 @@ function sceneFromPanesAndColumns(
   const storedPaneById = new Map(storedPanes.map((pane) => [pane.paneId, pane]));
   const ownerColumnByPaneId = new Map<PaneId, string>();
   const usedSurfaceIds = new Set<string>();
+  const nextSlotIndexByPlane = new Map<number, number>();
   const normalizedColumns = columns
     .map((column) => {
       const paneIds = column.paneIds.filter((paneId) => storedPaneById.has(paneId));
@@ -257,14 +265,20 @@ function sceneFromPanesAndColumns(
       };
     })
     .filter((column) => column.paneIds.length > 0)
-    .map((column, index) => ({
-      ...column,
-      idealWidthSpec: { ...column.idealWidthSpec },
-      index,
-      paneIds: [...column.paneIds],
-      planeIndex: column.planeIndex,
-      widthSpec: { ...column.widthSpec },
-    }));
+    .map((column, index) => {
+      const fallbackSlotIndex = nextSlotIndexByPlane.get(column.planeIndex) ?? 0;
+      const slotIndex = normalizedStoredSlotIndex(column.slotIndex, fallbackSlotIndex);
+      nextSlotIndexByPlane.set(column.planeIndex, Math.max(fallbackSlotIndex, slotIndex) + 1);
+      return {
+        ...column,
+        idealWidthSpec: { ...column.idealWidthSpec },
+        index,
+        paneIds: [...column.paneIds],
+        planeIndex: column.planeIndex,
+        slotIndex,
+        widthSpec: { ...column.widthSpec },
+      };
+    });
   const normalizedPanes = storedPanes
     .filter((pane) => ownerColumnByPaneId.has(pane.paneId))
     .map((pane) => ({
@@ -401,6 +415,7 @@ function isStoredColumn(value: unknown): value is NiriColumn {
     typeof candidate.index === "number" &&
     Array.isArray(candidate.paneIds) &&
     typeof candidate.planeIndex === "number" &&
+    isOptionalFiniteNumber(candidate.slotIndex) &&
     isColumnWidthSpec(candidate.widthSpec)
   );
 }
@@ -428,4 +443,15 @@ function isPaneTone(value: unknown): value is NiriPane["tone"] {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isOptionalFiniteNumber(value: unknown): boolean {
+  return value === undefined || isFiniteNumber(value);
+}
+
+function normalizedStoredSlotIndex(slotIndex: number | undefined, fallbackIndex: number): number {
+  if (!isFiniteNumber(slotIndex)) {
+    return Math.max(0, Math.floor(fallbackIndex));
+  }
+  return Math.max(0, Math.floor(slotIndex));
 }

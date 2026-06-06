@@ -60,6 +60,7 @@ export interface NiriColumn {
   paneIds: PaneId[];
   planeIndex: number;
   previousProportionWidth?: number;
+  slotIndex?: number;
   widthSpec: ColumnWidthSpec;
 }
 
