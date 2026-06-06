@@ -85,16 +85,10 @@ func ParseChatCommand(raw string) (ChatCommand, error) {
 		return ChatCommand{}, commandError(ChatCommandErrorMalformedCommand, "slash command name must use lowercase letters and hyphens: "+name, nil)
 	}
 	switch name {
-	case "goal", "goals":
+	case "goal":
 		return parseGoalCommand(raw, args)
-	case "mcp":
-		return ChatCommand{Args: args, Kind: ChatCommandMCP, Raw: raw}, nil
 	case "model":
 		return parseModelCommand(raw, args)
-	case "new":
-		return ChatCommand{Args: args, Kind: ChatCommandNew, Raw: raw}, nil
-	case "skills":
-		return ChatCommand{Args: args, Kind: ChatCommandSkills, Raw: raw}, nil
 	default:
 		return ChatCommand{}, commandError(ChatCommandErrorUnknownCommand, "unknown slash command: /"+name, nil)
 	}
@@ -215,8 +209,6 @@ type HarnessCommandResult struct {
 	Action                  ChatCommandResultAction
 	CapabilityDiagnostic    string
 	CodexSettings           *ChatCodexSettings
-	DisplayMessage          string
-	DisplayTitle            string
 	Goal                    *ChatGoalState
 	Models                  []ChatModelOption
 	SelectedModel           string
@@ -228,35 +220,6 @@ type HarnessCommandResult struct {
 
 type HarnessCommandListResult struct {
 	Commands []ChatCommandCapability
-}
-
-func commandDisplayResult(request HarnessCommandRequest, fallbackSessionID string, fallbackThreadPrefix string) HarnessCommandResult {
-	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
-	ref, ok := commandResultThreadRef(request, fallbackSessionID, fallbackThreadPrefix)
-	if ok {
-		result.ThreadRef = ref
-		result.HasThreadRef = true
-	}
-	return result
-}
-
-func commandResultThreadRef(request HarnessCommandRequest, fallbackSessionID string, fallbackThreadPrefix string) (HarnessThreadRef, bool) {
-	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		return request.ThreadRef, true
-	}
-	if request.ActiveRun != nil || !commandNeedsThread(request.Command) || commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
-		return HarnessThreadRef{}, false
-	}
-	ref := request.ThreadRef
-	if ref.ThreadID == "" {
-		ref = HarnessThreadRef{
-			Harness:   HarnessCodex,
-			SessionID: fallbackSessionID,
-			Status:    HarnessRefLinked,
-			ThreadID:  fallbackThreadPrefix + request.Conversation.ID,
-		}
-	}
-	return ref, true
 }
 
 func defaultCommandCapabilities(activeRun *Run) []ChatCommandCapability {
@@ -274,40 +237,12 @@ func defaultCommandCapabilities(activeRun *Run) []ChatCommandCapability {
 			Usage:       "/goal [objective|edit|clear|pause|resume]",
 		},
 		{
-			Available:   true,
-			Description: "Alias for /goal.",
-			Kind:        ChatCommandGoal,
-			Name:        "/goals",
-			Usage:       "/goals [objective|clear|pause|resume]",
-		},
-		{
-			Available:   true,
-			Description: "Create and switch to a new chat in the current workspace.",
-			Kind:        ChatCommandNew,
-			Name:        "/new",
-			Usage:       "/new [title]",
-		},
-		{
 			Available:         modelAvailable,
 			Description:       "Open the model picker.",
 			Kind:              ChatCommandModel,
 			Name:              "/model",
 			UnavailableReason: modelReason,
 			Usage:             "/model",
-		},
-		{
-			Available:   true,
-			Description: "List Codex skills available for this workspace.",
-			Kind:        ChatCommandSkills,
-			Name:        "/skills",
-			Usage:       "/skills",
-		},
-		{
-			Available:   true,
-			Description: "Show Codex MCP server status and tool inventory.",
-			Kind:        ChatCommandMCP,
-			Name:        "/mcp",
-			Usage:       "/mcp",
 		},
 	}
 }
@@ -319,14 +254,8 @@ func ensureCommandAvailable(command ChatCommand, activeRun *Run) error {
 	switch command.Kind {
 	case ChatCommandGoal:
 		return nil
-	case ChatCommandMCP:
-		return nil
 	case ChatCommandModel:
 		return commandError(ChatCommandErrorUnavailable, "model commands are unavailable while a run is active", nil)
-	case ChatCommandNew:
-		return nil
-	case ChatCommandSkills:
-		return nil
 	default:
 		return commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("unsupported chat command kind: %s", command.Kind), nil)
 	}
@@ -338,8 +267,6 @@ func commandNeedsThread(command ChatCommand) bool {
 		return true
 	case ChatCommandModel:
 		return command.Model != nil && (command.Model.Action == ModelCommandSet || command.Model.Action == ModelCommandSetEffort)
-	case ChatCommandMCP, ChatCommandNew, ChatCommandSkills:
-		return false
 	default:
 		return false
 	}

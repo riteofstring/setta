@@ -573,6 +573,25 @@ func TestCodexHarnessReportsUnsupportedNotificationAsProviderDrift(t *testing.T)
 	}
 }
 
+func TestCodexHarnessRejectsDeprecatedThreadCompactedNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("deprecated-thread-compacted-notification"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want deprecated thread compacted notification error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex app-server notification: thread/compacted") {
+		t.Fatalf("error = %q, want unsupported thread/compacted notification", err)
+	}
+	if containsRunItemType(sink.items, RunItemTypeNotice) {
+		t.Fatalf("items = %+v, want no deprecated compaction notice", sink.items)
+	}
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_notification_unsupported" {
+		t.Fatalf("diagnostics = %+v, want unsupported notification diagnostic", sink.diagnostics)
+	}
+}
+
 func TestCodexHarnessHandlesRemoteControlStatusAsGlobalNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("remote-control-status"))
 	sink := newRecordingSink()
@@ -754,6 +773,7 @@ func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
 	}
 	requireRunItemType(t, sink.items, RunItemTypeHook)
 	requireRunItemType(t, sink.items, RunItemTypeApprovalReview)
+	requireRunItemType(t, sink.items, RunItemTypeContextCompaction)
 	requireRunItemType(t, sink.items, RunItemTypeFileChange)
 	reasoning := requireRunItemType(t, sink.items, RunItemTypeReasoning)
 	if reasoning.HiddenText != "private reasoning" {
@@ -1058,6 +1078,10 @@ func (sink *recordingSink) ThreadLinked(threadID string, _ string, turnID string
 	return nil
 }
 
+func (sink *recordingSink) UserMessageCommitted(string) error {
+	return nil
+}
+
 func (sink *recordingSink) Trace(string, string) error {
 	return nil
 }
@@ -1259,12 +1283,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		return fakeCommandDone(mode)
 	case "model/list":
 		return handleFakeModelList(mode, state, message)
-	case "skills/list":
-		writeFakeResponse(message["id"], fakeSkillsListResponse())
-		return fakeCommandDone(mode)
-	case "mcpServerStatus/list":
-		writeFakeResponse(message["id"], fakeMCPServerStatusResponse())
-		return fakeCommandDone(mode)
 	case "thread/settings/update":
 		return handleFakeThreadSettingsUpdate(mode, message)
 	case "turn/start":
@@ -1360,6 +1378,12 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 	case "unsupported-notification":
 		writeFakeNotification("turn/unknownStateChanged", map[string]any{
 			"data":     map[string]any{"value": "unknown"},
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
+		return true, true
+	case "deprecated-thread-compacted-notification":
+		writeFakeNotification("thread/compacted", map[string]any{
 			"threadId": "thread_fake",
 			"turnId":   "turn_fake",
 		})
