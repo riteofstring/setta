@@ -56,6 +56,50 @@ func TestServiceTranscriptInterleavesPromotedQueuedTurns(t *testing.T) {
 	}
 }
 
+func TestServiceTranscriptOrdersImmediateReplayBeforePreservedQueue(t *testing.T) {
+	harness := NewFakeHarnessByPrompt(map[string][]FakeHarnessEvent{
+		"A1": {
+			{Type: FakeEventThreadLinked, ThreadID: "thread_active", SessionID: "session_fake", TurnID: "turn_active"},
+			{Type: FakeEventAssistantDelta, Text: "A1 partial"},
+			{Type: FakeEventWaitForCancel},
+		},
+		"S1": {{Type: FakeEventAssistantDelta, Text: "S1 reply"}},
+		"Q1": {{Type: FakeEventAssistantDelta, Text: "Q1 reply"}},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	if err != nil {
+		t.Fatalf("send active: %v", err)
+	}
+	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_active")
+	queued, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q1")
+	if err != nil {
+		t.Fatalf("queue q1: %v", err)
+	}
+	replay, err := service.SendSteeringImmediately("workspace_api", conversation.ID, "S1")
+	if err != nil {
+		t.Fatalf("send steering immediately: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, active.Run.ID, RunStatusCancelled)
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, replay.ActiveRun.ID, RunStatusCompleted)
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, queued.Run.ID, RunStatusCompleted)
+
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 40)
+	if err != nil {
+		t.Fatalf("load page: %v", err)
+	}
+	if got, want := transcriptMessageTexts(page.Transcript), []string{"A1", "A1 partial", "S1", "S1 reply", "Q1", "Q1 reply"}; !equalStrings(got, want) {
+		t.Fatalf("transcript texts = %+v, want execution-order transcript %+v", got, want)
+	}
+	if got, want := messageTexts(page.Messages), []string{"A1", "A1 partial", "Q1", "S1", "S1 reply", "Q1 reply"}; !equalStrings(got, want) {
+		t.Fatalf("durable message texts = %+v, want creation-order messages %+v", got, want)
+	}
+}
+
 func TestServiceTranscriptIncludesQueuedTurnWithoutAssistant(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventWaitForCancel}})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
