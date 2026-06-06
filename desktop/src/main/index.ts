@@ -191,9 +191,14 @@ async function createWindow() {
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+    await mainWindow.loadURL(rendererURLWithE2EQuery(process.env.ELECTRON_RENDERER_URL));
   } else {
-    await mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    const query = rendererE2EQuery();
+    if (query) {
+      await mainWindow.loadFile(join(__dirname, "../renderer/index.html"), { query });
+    } else {
+      await mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    }
   }
   if (mainWindow) {
     setTimeout(() => {
@@ -202,6 +207,26 @@ async function createWindow() {
       }
     }, 0);
   }
+}
+
+function rendererURLWithE2EQuery(rawURL: string): string {
+  const query = rendererE2EQuery();
+  if (!query) {
+    return rawURL;
+  }
+  const url = new URL(rawURL);
+  for (const [key, value] of Object.entries(query)) {
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
+}
+
+function rendererE2EQuery(): Record<string, string> | null {
+  const niriScene = process.env.SETTA_E2E_NIRI_SCENE;
+  if (!niriScene) {
+    return null;
+  }
+  return { niriScene };
 }
 
 function registerIpc() {

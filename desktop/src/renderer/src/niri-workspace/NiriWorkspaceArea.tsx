@@ -1,4 +1,28 @@
-import { Profiler, useEffect, useMemo, useRef } from "react";
+import {
+  AppWindow,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  Columns2,
+  GitBranch,
+  MessageSquarePlus,
+  Settings,
+  SplitSquareHorizontal,
+  SplitSquareVertical,
+  Terminal,
+  Trash2,
+} from "lucide-react";
+import {
+  Profiler,
+  type ComponentType,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { generateBenchmarkScene, phaseOneVisiblePaneCount } from "./benchmark-scene";
@@ -17,30 +41,67 @@ import { PresentationEngine } from "./presentation-engine";
 import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
 import { createDefaultSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
-import type { NiriPane, Rect } from "./types";
+import { useWorkspaceStore } from "../stores/workspace-store";
+import { createRealWorkspaceScene, persistRealWorkspaceScene } from "./workspace-scene";
+import type { NiriPane, OpenPaneRequest, Rect, SurfaceKind } from "./types";
+
+type NiriSceneMode = "benchmark" | "workspace";
+
+const realWorkspaceHostPoolSize = 12;
 
 export function NiriWorkspaceArea() {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const debugRef = useRef<HTMLDivElement | null>(null);
   const hostRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const runtime = useMemo(createNiriRuntime, []);
-  const initialPanes = runtime.scene.panes.slice(0, phaseOneVisiblePaneCount);
+  const workspace = useSelectedWorkspaceSummary();
+  const mode = niriSceneMode();
+  const runtime = useMemo(
+    () =>
+      createNiriRuntime({
+        mode,
+        workspaceId: workspace?.id ?? "empty",
+        workspaceName: workspace?.displayName ?? "No workspace",
+      }),
+    [mode, workspace?.displayName, workspace?.id],
+  );
+  const layoutSnapshot = useNiriLayoutSnapshot(runtime.store);
+  const currentScene = runtime.store.toScene();
+  const persistLayout = useCallback(() => {
+    runtime.presentation.syncPanes(runtime.store.toScene().panes);
+    if (runtime.mode === "workspace") {
+      persistRealWorkspaceScene(
+        runtime.layoutStorageKey,
+        runtime.store.toScene(),
+        runtime.store.focusedPaneId(),
+      );
+    }
+  }, [runtime]);
+  const runLayoutAction = useCallback(
+    (action: () => void) => {
+      action();
+      persistLayout();
+    },
+    [persistLayout],
+  );
 
   useEffect(() => {
     const root = rootRef.current;
+    const stage = stageRef.current;
     const hosts = hostRefs.current.filter((host): host is HTMLDivElement => host !== null);
-    if (!root || hosts.length !== phaseOneVisiblePaneCount) {
+    if (!root || !stage || hosts.length !== runtime.hostPoolSize) {
       throw new Error("niri workspace host pool did not mount");
     }
 
     runtime.presentation.mount(hosts, debugRef.current);
-    installWindowReportHooks();
-    const viewportProvider = () => viewportRect(root);
-    const uninstallResizeReportHooks = installWindowResizeReportHooks({
-      metrics: runtime.metrics,
+    if (runtime.mode === "benchmark") {
+      installWindowReportHooks();
+    }
+    const viewportProvider = () => viewportRect(stage);
+    const uninstallResizeReportHooks = installResizeReportHooksForRuntime(
+      runtime,
       viewportProvider,
-      writer: runtime.resizeReportWriter,
-    });
+    );
     const scheduler = new FrameScheduler({
       engine: runtime.engine,
       layoutStore: runtime.store,
@@ -50,17 +111,17 @@ export function NiriWorkspaceArea() {
       runtimePolicy: runtime.runtimePolicy,
       viewportProvider,
     });
-    if (!niriAutoBenchmarkEnabled()) {
+    if (!niriBenchmarkShouldRun(runtime.mode)) {
       scheduler.pauseBenchmark();
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isArrowKey(event.key)) {
-        return;
-      }
-      event.preventDefault();
-      scheduler.pauseBenchmark();
-      runtime.store.moveFocus(arrowDirection(event.key));
-    };
+    const handleKeyDown = (event: KeyboardEvent) =>
+      handleNiriWorkspaceKeyDown({
+        event,
+        persistLayout,
+        runLayoutAction,
+        runtime,
+        scheduler,
+      });
     const unsubscribeNativeKey =
       window.setta.niriNativeViews?.onBrowserViewKey((event) => {
         if (event.workspaceId !== runtime.scene.id) {
@@ -68,6 +129,7 @@ export function NiriWorkspaceArea() {
         }
         scheduler.pauseBenchmark();
         runtime.store.moveFocus(arrowDirection(event.key));
+        persistLayout();
       }) ?? (() => {});
     window.addEventListener("keydown", handleKeyDown);
     scheduler.start();
@@ -77,25 +139,32 @@ export function NiriWorkspaceArea() {
       window.removeEventListener("keydown", handleKeyDown);
       scheduler.teardown();
     };
-  }, [runtime]);
+  }, [persistLayout, runLayoutAction, runtime]);
 
   return (
     <section
-      aria-label="Niri terminal and git graph workspace prototype"
+      aria-label={runtime.mode === "benchmark" ? "Niri benchmark workspace" : "Niri workspace"}
       className="niri-workspace-area relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
       data-browser-pane-count={runtime.browserPaneCount}
-      data-pane-count={runtime.scene.totalPanes}
+      data-pane-count={currentScene.totalPanes}
+      data-workspace-mode={runtime.mode}
       data-workspace-id={runtime.scene.id}
       data-testid="niri-workspace-area"
       ref={rootRef}
     >
-      <div className="niri-stage" data-testid="niri-presentation-engine">
+      {runtime.mode === "workspace" ? (
+        <NiriWorkspaceToolbar
+          focusedPaneId={layoutSnapshot.focusedPaneId}
+          openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
+          runLayoutAction={runLayoutAction}
+          store={runtime.store}
+        />
+      ) : null}
+      <div className="niri-stage" data-testid="niri-presentation-engine" ref={stageRef}>
         <Profiler id="niri-fake-pane-hosts" onRender={() => runtime.metrics.recordReactCommit()}>
-          {initialPanes.map((pane, index) => (
+          {Array.from({ length: runtime.hostPoolSize }, (_, index) => (
             <FakePaneHost
-              index={index}
               key={`niri_host_${index}`}
-              pane={pane}
               refCallback={(host) => {
                 hostRefs.current[index] = host;
               }}
@@ -116,50 +185,237 @@ export function NiriWorkspaceArea() {
   );
 }
 
-function FakePaneHost({
-  index,
-  pane,
-  refCallback,
+type NiriRuntime = ReturnType<typeof createNiriRuntime>;
+
+function installResizeReportHooksForRuntime(
+  runtime: NiriRuntime,
+  viewportProvider: () => Rect,
+): () => void {
+  if (runtime.mode !== "benchmark") {
+    return () => {};
+  }
+  return installWindowResizeReportHooks({
+    metrics: runtime.metrics,
+    viewportProvider,
+    writer: runtime.resizeReportWriter,
+  });
+}
+
+function niriBenchmarkShouldRun(mode: NiriSceneMode): boolean {
+  return mode === "benchmark" && niriAutoBenchmarkEnabled();
+}
+
+function handleNiriWorkspaceKeyDown({
+  event,
+  persistLayout,
+  runLayoutAction,
+  runtime,
+  scheduler,
 }: {
-  index: number;
-  pane: NiriPane;
-  refCallback: (host: HTMLDivElement | null) => void;
+  event: KeyboardEvent;
+  persistLayout: () => void;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+  scheduler: FrameScheduler;
+}): void {
+  if (!isArrowKey(event.key)) {
+    handleNiriWorkspaceCommandKey({ event, runLayoutAction, runtime });
+    return;
+  }
+  event.preventDefault();
+  scheduler.pauseBenchmark();
+  if (event.shiftKey) {
+    runLayoutAction(() => runtime.store.moveFocusedPane(arrowDirection(event.key)));
+    return;
+  }
+  runtime.store.moveFocus(arrowDirection(event.key));
+  persistLayout();
+}
+
+function handleNiriWorkspaceCommandKey({
+  event,
+  runLayoutAction,
+  runtime,
+}: {
+  event: KeyboardEvent;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+}): void {
+  if (event.metaKey && event.key === "Enter") {
+    event.preventDefault();
+    runLayoutAction(() => runtime.store.splitFocusedPane(event.shiftKey ? "down" : "right"));
+  } else if (event.metaKey && (event.key === "Backspace" || event.key === "Delete")) {
+    event.preventDefault();
+    runLayoutAction(() => {
+      runtime.store.closeFocusedPane();
+    });
+  }
+}
+
+function NiriWorkspaceToolbar({
+  focusedPaneId,
+  openPane,
+  runLayoutAction,
+  store,
+}: {
+  focusedPaneId: string;
+  openPane: (request: OpenPaneRequest) => void;
+  runLayoutAction: (action: () => void) => void;
+  store: NiriLayoutStore;
 }) {
+  return (
+    <div className="niri-workspace-toolbar app-no-drag" data-testid="niri-workspace-toolbar">
+      <div className="niri-workspace-toolbar-group" data-testid="niri-focused-pane-label">
+        <span>{focusedPaneId}</span>
+      </div>
+      <div className="niri-workspace-toolbar-group">
+        <NiriToolbarButton
+          label="Split pane right"
+          onClick={() => runLayoutAction(() => store.splitFocusedPane("right"))}
+        >
+          <SplitSquareHorizontal className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+        <NiriToolbarButton
+          label="Split pane down"
+          onClick={() => runLayoutAction(() => store.splitFocusedPane("down"))}
+        >
+          <SplitSquareVertical className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+        <NiriToolbarButton
+          label="Close focused pane"
+          onClick={() =>
+            runLayoutAction(() => {
+              store.closeFocusedPane();
+            })
+          }
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+      </div>
+      <div className="niri-workspace-toolbar-group">
+        <NiriToolbarButton
+          label="Move pane left"
+          onClick={() => runLayoutAction(() => store.moveFocusedPane("left"))}
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+        <NiriToolbarButton
+          label="Move pane right"
+          onClick={() => runLayoutAction(() => store.moveFocusedPane("right"))}
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+        <NiriToolbarButton
+          label="Move pane up"
+          onClick={() => runLayoutAction(() => store.moveFocusedPane("up"))}
+        >
+          <ArrowUp className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+        <NiriToolbarButton
+          label="Move pane down"
+          onClick={() => runLayoutAction(() => store.moveFocusedPane("down"))}
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+      </div>
+      <div className="niri-workspace-toolbar-group">
+        {openPaneActions.map(({ Icon, label, request }) => (
+          <NiriToolbarButton key={label} label={label} onClick={() => openPane(request)}>
+            <Icon className="h-3.5 w-3.5" />
+          </NiriToolbarButton>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NiriToolbarButton({
+  children,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="niri-workspace-toolbar-button"
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+const openPaneActions = [
+  {
+    Icon: MessageSquarePlus,
+    label: "Open chat pane",
+    request: openPaneRequest("Chat", "chat workspace surface", "chat-dom", "cyan"),
+  },
+  {
+    Icon: AppWindow,
+    label: "Open browser pane",
+    request: openPaneRequest("Browser", "native browser proxy", "browser", "orange"),
+  },
+  {
+    Icon: Terminal,
+    label: "Open terminal pane",
+    request: openPaneRequest("Terminal", "command surface", "terminal", "green"),
+  },
+  {
+    Icon: Settings,
+    label: "Open settings pane",
+    request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
+  },
+  {
+    Icon: GitBranch,
+    label: "Open graph pane",
+    request: openPaneRequest("Git Graph", "repository graph", "git-graph", "pink"),
+  },
+  {
+    Icon: Columns2,
+    label: "Open canvas pane",
+    request: openPaneRequest("Canvas", "canvas placeholder", "pixi-canvas", "cyan"),
+  },
+] satisfies Array<{
+  Icon: ComponentType<{ className?: string }>;
+  label: string;
+  request: OpenPaneRequest;
+}>;
+
+function openPaneRequest(
+  title: string,
+  subtitle: string,
+  surfaceKind: SurfaceKind,
+  tone: NiriPane["tone"],
+): OpenPaneRequest {
+  return {
+    subtitle,
+    surfaceKind,
+    title,
+    tone,
+  };
+}
+
+function FakePaneHost({ refCallback }: { refCallback: (host: HTMLDivElement | null) => void }) {
   return (
     <article
       className="niri-pane-host app-no-drag"
       data-focused="false"
       data-moving="false"
-      data-pane-id={pane.paneId}
+      data-pane-id=""
       data-runtime-state="live"
-      data-surface-kind={pane.surfaceKind}
+      data-surface-kind=""
       data-testid="niri-fake-pane-host"
-      data-tone={pane.tone}
-      data-visible="true"
+      data-tone="slate"
+      data-visible="false"
       ref={refCallback}
-    >
-      <div className="niri-pane-content">
-        <div className="niri-pane-header">
-          <span className="niri-pane-index" data-niri-pane-index>
-            {index + 1}
-          </span>
-          <div className="min-w-0">
-            <h2 data-niri-pane-title>{pane.title}</h2>
-            <p data-niri-pane-subtitle>{pane.subtitle}</p>
-          </div>
-        </div>
-        <div className="niri-pane-meter">
-          <span>load</span>
-          <strong data-niri-pane-heat>{pane.heat}%</strong>
-        </div>
-        <div className="niri-pane-rows" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
-    </article>
+    />
   );
 }
 
@@ -178,10 +434,26 @@ function arrowDirection(key: string): "up" | "down" | "left" | "right" {
   }
 }
 
-function createNiriRuntime() {
-  const scene = generateBenchmarkScene();
+function createNiriRuntime({
+  mode,
+  workspaceId,
+  workspaceName,
+}: {
+  mode: NiriSceneMode;
+  workspaceId: string;
+  workspaceName: string;
+}) {
+  const layoutStorageKey = `setta:niri-workspace:${workspaceId}`;
+  const realScene =
+    mode === "workspace"
+      ? createRealWorkspaceScene({
+          storageKey: layoutStorageKey,
+          workspaceName,
+        })
+      : null;
+  const scene = realScene?.scene ?? generateBenchmarkScene();
   const engine = new NiriLikeLayoutEngine(scene);
-  const store = new NiriLayoutStore(engine, scene);
+  const store = new NiriLayoutStore(engine, scene, realScene?.focusedPaneId);
   const metrics = new NiriMetricsCollector();
   const browserPaneCount = scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
   const nativeViewBoundsBatcher = new NativeViewBoundsBatcher({
@@ -198,13 +470,16 @@ function createNiriRuntime() {
     engine,
     metrics,
     browserPaneCount,
+    hostPoolSize: mode === "benchmark" ? phaseOneVisiblePaneCount : realWorkspaceHostPoolSize,
+    layoutStorageKey,
+    mode,
     presentation: new PresentationEngine(
       scene.panes,
       metrics,
       surfaceRegistry,
       nativeViewBoundsBatcher,
     ),
-    reportWriter: new LocalStoragePerformanceReportWriter(5000),
+    reportWriter: mode === "benchmark" ? new LocalStoragePerformanceReportWriter(5000) : null,
     resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),
     runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET),
     scene,
@@ -216,8 +491,38 @@ function isArrowKey(key: string): key is "ArrowDown" | "ArrowLeft" | "ArrowRight
   return key === "ArrowDown" || key === "ArrowLeft" || key === "ArrowRight" || key === "ArrowUp";
 }
 
+function niriSceneMode(): NiriSceneMode {
+  if (typeof window === "undefined") {
+    return "workspace";
+  }
+  return new URLSearchParams(window.location?.search ?? "").get("niriScene") === "benchmark"
+    ? "benchmark"
+    : "workspace";
+}
+
 function niriAutoBenchmarkEnabled(): boolean {
-  return new URLSearchParams(window.location.search).get("niriAuto") !== "false";
+  return new URLSearchParams(window.location?.search ?? "").get("niriAuto") !== "false";
+}
+
+function useNiriLayoutSnapshot(store: NiriLayoutStore) {
+  return useSyncExternalStore(
+    (listener) => store.subscribe(listener),
+    () => store.getSnapshot(),
+    () => store.getSnapshot(),
+  );
+}
+
+function useSelectedWorkspaceSummary() {
+  const session = useWorkspaceStore((state) => state.session);
+  return useMemo(() => {
+    if (!session) {
+      return null;
+    }
+    return (
+      session.activeWorkspaces.find((workspace) => workspace.id === session.selectedWorkspaceId) ??
+      null
+    );
+  }, [session]);
 }
 
 function viewportRect(element: HTMLElement): Rect {

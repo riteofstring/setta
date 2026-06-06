@@ -73,7 +73,11 @@ export interface NiriWorkspaceScene {
 
 export interface OpenPaneRequest {
   columnId?: ColumnId;
+  subtitle?: string;
+  surfaceKind?: SurfaceKind;
   title?: string;
+  tone?: NiriPane["tone"];
+  weight?: number;
 }
 
 export interface LayoutFrameInput {

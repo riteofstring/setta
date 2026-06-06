@@ -187,6 +187,7 @@ function launchElectron(debugPort, fixture, recordingDir) {
       SETTA_APP_DATA_DIR: fixture.appDataDir,
       SETTA_E2E: "1",
       SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
+      SETTA_E2E_NIRI_SCENE: "benchmark",
       SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
       ...(options.visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
       SETTA_RECORD_INCLUDE_PAYLOADS: "1",

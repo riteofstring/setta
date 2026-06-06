@@ -85,6 +85,17 @@ export class SurfaceRegistry {
     return this.requireRecord(surfaceId).adapter;
   }
 
+  ensurePane(pane: NiriPane): void {
+    if (this.records.has(pane.surfaceId)) {
+      return;
+    }
+    this.records.set(pane.surfaceId, {
+      adapter: this.adapterFactory(pane),
+      pane,
+      snapshotAdapter: new SnapshotSurfaceAdapter(pane),
+    });
+  }
+
   liveAdapterCountByKind(kind: SurfaceKind): number {
     let count = 0;
     for (const record of this.records.values()) {

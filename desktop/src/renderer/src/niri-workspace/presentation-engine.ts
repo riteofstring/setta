@@ -16,13 +16,13 @@ export interface PresentationWriteCounts extends SurfaceViewportSyncStats {
 interface PaneHostBinding {
   contentPaneId: string | null;
   host: HTMLElement;
-  lastFocused: boolean;
+  lastFocused: boolean | null;
   lastHeight: number;
-  lastMoving: boolean;
+  lastMoving: boolean | null;
   lastOpacity: number;
-  lastRuntimeState: string;
+  lastRuntimeState: string | null;
   lastTransform: string;
-  lastVisible: boolean;
+  lastVisible: boolean | null;
   lastWidth: number;
   lastZ: number;
 }
@@ -68,17 +68,24 @@ export class PresentationEngine {
     this.bindings = hosts.map((host) => ({
       contentPaneId: host.dataset.paneId ?? null,
       host,
-      lastFocused: false,
+      lastFocused: null,
       lastHeight: -1,
-      lastMoving: false,
+      lastMoving: null,
       lastOpacity: -1,
-      lastRuntimeState: "",
+      lastRuntimeState: null,
       lastTransform: "",
-      lastVisible: false,
+      lastVisible: null,
       lastWidth: -1,
       lastZ: -1,
     }));
     this.debugOverlay = debugOverlay;
+  }
+
+  syncPanes(panes: readonly NiriPane[]): void {
+    for (const pane of panes) {
+      this.paneById.set(pane.paneId, pane);
+      this.surfaceRegistry.ensurePane(pane);
+    }
   }
 
   private applyBinding(
@@ -151,10 +158,9 @@ export class PresentationEngine {
   }
 
   private hideBinding(binding: PaneHostBinding): void {
-    if (!binding.lastVisible) {
-      return;
-    }
     this.surfaceRegistry.releaseHost(binding.host);
+    binding.contentPaneId = null;
+    binding.host.dataset.paneId = "";
     binding.host.style.opacity = "0";
     binding.host.style.pointerEvents = "none";
     binding.host.dataset.visible = "false";

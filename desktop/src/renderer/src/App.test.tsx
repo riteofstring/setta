@@ -39,7 +39,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("window.setta");
   });
 
-  test("renders the niri fake-pane workspace inside the preserved shell", () => {
+  test("renders the real niri workspace inside the preserved shell", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
@@ -57,9 +57,11 @@ describe("workspace renderer states", () => {
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('data-testid="niri-workspace-area"');
     expect(html).toContain('data-testid="niri-presentation-engine"');
-    expect(rowCount(html, "niri-fake-pane-host")).toBe(40);
-    expect(html).toContain('data-pane-count="500"');
-    expect(html).toContain('data-testid="niri-benchmark-status"');
+    expect(rowCount(html, "niri-fake-pane-host")).toBe(12);
+    expect(html).toContain('data-pane-count="6"');
+    expect(html).toContain('data-workspace-mode="workspace"');
+    expect(html).toContain('data-testid="niri-workspace-status"');
+    expect(html).toContain('data-testid="niri-workspace-toolbar"');
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
     expect(html).not.toContain('data-testid="chat-pane-surface"');
     expect(html).not.toContain('data-testid="settings-pane-surface"');

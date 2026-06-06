@@ -16,7 +16,7 @@ interface FrameSchedulerDependencies {
   layoutStore: NiriLayoutStore;
   metrics: NiriMetricsCollector;
   presentation: PresentationEngine;
-  reportWriter: PerformanceReportWriter;
+  reportWriter: PerformanceReportWriter | null;
   runtimePolicy: PaneRuntimePolicy;
   viewportProvider: () => Rect;
 }
@@ -37,7 +37,7 @@ export class FrameScheduler {
   private readonly layoutStore: NiriLayoutStore;
   private readonly metrics: NiriMetricsCollector;
   private readonly presentation: PresentationEngine;
-  private readonly reportWriter: PerformanceReportWriter;
+  private readonly reportWriter: PerformanceReportWriter | null;
   private readonly runtimePolicy: PaneRuntimePolicy;
   private readonly viewportProvider: () => Rect;
 
@@ -169,6 +169,7 @@ export class FrameScheduler {
 
   private writeReportWhenReady(timestamp: number): void {
     if (
+      !this.reportWriter ||
       this.reportWritten ||
       this.measurementStartedAt === 0 ||
       timestamp - this.measurementStartedAt < 5000

@@ -43,8 +43,20 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     return this.columns.length;
   }
 
+  firstPaneId(): PaneId | null {
+    return this.columns[0]?.paneIds[0] ?? null;
+  }
+
   focusedPaneAt(columnIndex: number, rowIndex: number): PaneId {
     return this.requirePaneAt(columnIndex, rowIndex).paneId;
+  }
+
+  paneCount(): number {
+    return this.paneById.size;
+  }
+
+  paneLocation(paneId: PaneId): PaneLocation | null {
+    return this.locationForPane(paneId);
   }
 
   moveFocus(direction: PaneDirection): void {
@@ -83,12 +95,12 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       heat: (sequence * 37) % 100,
       paneId: `niri_pane_${sequence}`,
       sequence,
-      subtitle: "fake prototype surface",
+      subtitle: request.subtitle ?? "workspace surface",
       surfaceId: `niri_surface_${sequence}`,
-      surfaceKind: "fake-dom",
+      surfaceKind: request.surfaceKind ?? "fake-dom",
       title: request.title ?? `Pane ${String(sequence + 1).padStart(3, "0")}`,
-      tone: "slate",
-      weight: 1,
+      tone: request.tone ?? "slate",
+      weight: request.weight ?? 1,
     };
     this.paneById.set(pane.paneId, pane);
     targetColumn.paneIds.push(pane.paneId);
@@ -156,6 +168,25 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     const createdPaneId = this.openPane({ columnId: this.columns[source.columnIndex]?.columnId });
     this.insertPaneBesideSource(createdPaneId, source, direction);
     return createdPaneId;
+  }
+
+  toScene(id: string = this.scene.id): NiriWorkspaceScene {
+    const columns = this.columns.map((column, index) => ({
+      ...column,
+      index,
+      paneIds: [...column.paneIds],
+    }));
+    const panes = [...this.paneById.values()].sort((left, right) => left.sequence - right.sequence);
+    return {
+      ...this.scene,
+      columns,
+      id,
+      paneById: new Map(panes.map((pane) => [pane.paneId, pane])),
+      panes,
+      panesPerColumn: Math.max(1, ...columns.map((column) => column.paneIds.length)),
+      totalPanes: panes.length,
+      visibleColumnCount: Math.min(this.scene.visibleColumnCount, Math.max(1, columns.length)),
+    };
   }
 
   private appendColumn(): NiriColumn {
