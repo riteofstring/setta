@@ -2,7 +2,6 @@ package chat
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -37,64 +36,43 @@ type codexProcessExitEvent struct {
 	stderr    string
 }
 
-type codexBase64OutputDelta struct {
-	deltaBase64 string
-	stream      string
-}
-
 func handleCodexCommandExecOutputDelta(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := codexapp.DecodeCommandExecOutputDeltaNotification(message.Params)
+	params, err := objectValue(message.Params, "codex command exec output delta params")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	delta, err := codexBase64OutputDeltaFromCommandExec(params)
+	processID, err := requireString(params, "processId", "codex command exec output delta")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	return handleCodexBase64OutputDelta(delta, "command_exec_"+params.ProcessId, params.ProcessId, "codex command exec output delta", RunItemTypeCommandExecution, "Command execution", sink)
+	return handleCodexBase64OutputDelta(params, "command_exec_"+processID, processID, "codex command exec output delta", RunItemTypeCommandExecution, "Command execution", sink)
 }
 
 func handleCodexProcessOutputDelta(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := codexapp.DecodeProcessOutputDeltaNotification(message.Params)
+	params, err := objectValue(message.Params, "codex process output delta params")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	delta, err := codexBase64OutputDeltaFromProcess(params)
+	processID, err := requireString(params, "processHandle", "codex process output delta")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	return handleCodexBase64OutputDelta(delta, "process_"+params.ProcessHandle, params.ProcessHandle, "codex process output delta", RunItemTypeCommandExecution, "Process output", sink)
+	return handleCodexBase64OutputDelta(params, "process_"+processID, processID, "codex process output delta", RunItemTypeCommandExecution, "Process output", sink)
 }
 
-func codexBase64OutputDeltaFromCommandExec(params codexapp.CommandExecOutputDeltaNotification) (codexBase64OutputDelta, error) {
-	stream, err := codexOutputStreamFromRaw(params.Stream, "codex command exec output delta")
+func handleCodexBase64OutputDelta(params map[string]any, providerItemID string, processID string, label string, itemType RunItemType, title string, sink TurnSink) (codexNotificationResult, error) {
+	stream, err := requireKnownOutputStream(params, "stream", label)
 	if err != nil {
-		return codexBase64OutputDelta{}, err
+		return codexNotificationResult{}, err
 	}
-	return codexBase64OutputDelta{deltaBase64: params.DeltaBase64, stream: stream}, nil
-}
-
-func codexBase64OutputDeltaFromProcess(params codexapp.ProcessOutputDeltaNotification) (codexBase64OutputDelta, error) {
-	stream, err := codexOutputStreamFromRaw(params.Stream, "codex process output delta")
+	deltaBase64, err := requireStringAllowEmpty(params, "deltaBase64", label)
 	if err != nil {
-		return codexBase64OutputDelta{}, err
+		return codexNotificationResult{}, err
 	}
-	return codexBase64OutputDelta{deltaBase64: params.DeltaBase64, stream: stream}, nil
-}
-
-func codexOutputStreamFromRaw(raw json.RawMessage, label string) (string, error) {
-	var stream string
-	if err := json.Unmarshal(raw, &stream); err != nil {
-		return "", fmt.Errorf("%s.stream must be a string: %w", label, err)
+	if _, err := requireBool(params, "capReached", label); err != nil {
+		return codexNotificationResult{}, err
 	}
-	if _, ok := codexOutputStreams[stream]; !ok {
-		return "", fmt.Errorf("unsupported codex output stream: %s", stream)
-	}
-	return stream, nil
-}
-
-func handleCodexBase64OutputDelta(delta codexBase64OutputDelta, providerItemID string, processID string, label string, itemType RunItemType, title string, sink TurnSink) (codexNotificationResult, error) {
-	data, err := base64.StdEncoding.DecodeString(delta.deltaBase64)
+	data, err := base64.StdEncoding.DecodeString(deltaBase64)
 	if err != nil {
 		return codexNotificationResult{}, fmt.Errorf("%s.deltaBase64 must be base64: %w", label, err)
 	}
@@ -110,7 +88,7 @@ func handleCodexBase64OutputDelta(delta codexBase64OutputDelta, providerItemID s
 	if len(data) == 0 {
 		return codexNotificationResult{}, nil
 	}
-	return codexNotificationResult{}, sink.RunItemOutputDelta(providerItemID, delta.stream, string(data))
+	return codexNotificationResult{}, sink.RunItemOutputDelta(providerItemID, stream, string(data))
 }
 
 func handleCodexProcessExited(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
@@ -129,16 +107,33 @@ func handleCodexProcessExited(message jsonRPCMessage, _ string, _ string, sink T
 }
 
 func codexProcessExitEventFromMessage(message jsonRPCMessage) (codexProcessExitEvent, error) {
-	params, err := codexapp.DecodeProcessExitedNotification(message.Params)
+	params, err := objectValue(message.Params, "codex process exited params")
 	if err != nil {
 		return codexProcessExitEvent{}, err
 	}
-	return codexProcessExitEvent{
-		processID: params.ProcessHandle,
-		exitCode:  params.ExitCode,
-		stdout:    params.Stdout,
-		stderr:    params.Stderr,
-	}, nil
+	processID, err := requireString(params, "processHandle", "codex process exited")
+	if err != nil {
+		return codexProcessExitEvent{}, err
+	}
+	exitCode, err := requireInt(params, "exitCode", "codex process exited")
+	if err != nil {
+		return codexProcessExitEvent{}, err
+	}
+	stdout, err := requireStringAllowEmpty(params, "stdout", "codex process exited")
+	if err != nil {
+		return codexProcessExitEvent{}, err
+	}
+	stderr, err := requireStringAllowEmpty(params, "stderr", "codex process exited")
+	if err != nil {
+		return codexProcessExitEvent{}, err
+	}
+	if _, err := requireBool(params, "stdoutCapReached", "codex process exited"); err != nil {
+		return codexProcessExitEvent{}, err
+	}
+	if _, err := requireBool(params, "stderrCapReached", "codex process exited"); err != nil {
+		return codexProcessExitEvent{}, err
+	}
+	return codexProcessExitEvent{processID: processID, exitCode: exitCode, stdout: stdout, stderr: stderr}, nil
 }
 
 func processExitRunItem(providerItemID string, event codexProcessExitEvent) RunItem {
@@ -173,24 +168,59 @@ func emitProcessExitOutputs(sink TurnSink, providerItemID string, stdout string,
 	return nil
 }
 
-func handleCodexReasoningTextDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := codexapp.DecodeReasoningTextDeltaNotification(message.Params)
+func handleCodexFileChangeOutputDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex file change output delta params")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if err := requireCodexTurnIDMatch(message, threadID, turnID, params.ThreadID, params.TurnID, sink); err != nil {
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
 		return codexNotificationResult{}, err
 	}
-	if params.Delta == "" {
-		return codexNotificationResult{}, nil
+	itemID, err := requireString(params, "itemId", "codex file change output delta")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	delta, err := requireString(params, "delta", "codex file change output delta")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if err := sink.RunItemUpsert(RunItem{
+		ProviderItemID: itemID,
+		Type:           RunItemTypeFileChange,
+		Status:         RunItemStatusRunning,
+		Title:          "File change output",
+	}); err != nil {
+		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{}, sink.RunItemOutputDelta(itemID, "patch", delta)
+}
+
+func handleCodexReasoningTextDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex reasoning text delta params")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
+	}
+	itemID, err := requireString(params, "itemId", "codex reasoning text delta")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	delta, err := requireString(params, "delta", "codex reasoning text delta")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if _, err := requireInt(params, "contentIndex", "codex reasoning text delta"); err != nil {
+		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(RunItem{
-		ProviderItemID: params.ItemId,
+		ProviderItemID: itemID,
 		Type:           RunItemTypeReasoning,
 		Status:         RunItemStatusRunning,
 		Title:          "Reasoning text",
 		Summary:        "Reasoning text received",
-		HiddenText:     params.Delta,
+		HiddenText:     delta,
 	})
 }
 
@@ -541,6 +571,17 @@ func handleCodexRealtimeIgnored(message jsonRPCMessage, threadID string, _ strin
 		context["error"] = errorMessage
 	}
 	return codexNotificationResult{}, sink.ProviderDiagnostic("codex_realtime_notification_ignored", "Codex realtime notification ignored because realtime is not enabled in Setta", context, false, DiagnosticSeverityWarning)
+}
+
+func requireKnownOutputStream(value map[string]any, name string, label string) (string, error) {
+	stream, err := requireString(value, name, label)
+	if err != nil {
+		return "", err
+	}
+	if _, ok := codexOutputStreams[stream]; !ok {
+		return "", fmt.Errorf("unsupported codex output stream: %s", stream)
+	}
+	return stream, nil
 }
 
 func requireInt(value map[string]any, name string, label string) (int, error) {

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
@@ -55,6 +56,10 @@ type RemoveRecentWorkspaceRequest struct {
 	ID string `json:"id"`
 }
 
+type UpdateAppearanceSettingsRequest struct {
+	Settings appearance.AppearanceSettings `json:"settings"`
+}
+
 type ListConversationsRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 }
@@ -70,7 +75,7 @@ type CreateConversationRequest struct {
 	Title       string `json:"title"`
 }
 
-type MarkConversationReadRequest struct {
+type DeleteConversationRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 }
@@ -88,35 +93,23 @@ type SendChatMessageRequest struct {
 	Prompt         string `json:"prompt"`
 }
 
+type UpdateUserMessageRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	MessageID      string `json:"messageId"`
+	Text           string `json:"text"`
+}
+
 type QueueChatMessageRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 	Prompt         string `json:"prompt"`
 }
 
-type EditQueuedChatMessageRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	Prompt         string `json:"prompt"`
-}
-
-type RemoveQueuedChatMessageRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-}
-
 type SteerChatMessageRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 	Prompt         string `json:"prompt"`
-}
-
-type SendSteeringImmediatelyRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	Prompt         string `json:"prompt,omitempty"`
 }
 
 type ListChatCommandsRequest struct {
@@ -219,30 +212,33 @@ type WorkspaceService interface {
 	Session() workspacesession.WorkspaceSession
 }
 
+type AppearanceService interface {
+	Read(context.Context) (appearance.AppearanceSettings, error)
+	Update(context.Context, appearance.AppearanceSettings) (appearance.AppearanceSettings, error)
+}
+
 type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
+	DeleteConversation(workspaceID string, conversationID string) (chat.ConversationListResult, error)
 	ListDiagnostics(workspaceID string, conversationID string, runID string) ([]chat.Diagnostic, error)
 	ListConversations(workspaceID string) (chat.ConversationListResult, error)
-	MarkConversationRead(workspaceID string, conversationID string) (chat.ConversationListItem, error)
 	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
 	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
-	EditQueuedMessage(workspaceID string, conversationID string, messageID string, prompt string) (chat.QueueEditResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
-	RemoveQueuedMessage(workspaceID string, conversationID string, messageID string) (chat.QueueRemoveResult, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
-	SendSteeringImmediately(workspaceID string, conversationID string, prompt string) (chat.ImmediateSteeringResult, error)
 	SetChatCodexModel(workspaceID string, conversationID string, modelID string) (chat.ChatCommandExecuteResult, error)
 	SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort chat.ReasoningEffort) (chat.ChatCommandExecuteResult, error)
 	SteerActiveRun(workspaceID string, conversationID string, prompt string) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
+	UpdateUserMessage(workspaceID string, conversationID string, messageID string, text string) (chat.ChatMessage, error)
 }
 
 type CodexAccountService interface {
@@ -254,6 +250,7 @@ type CodexAccountService interface {
 }
 
 type HandlerConfig struct {
+	AppearanceService   AppearanceService
 	Metadata            BackendMetadata
 	ChatService         ChatService
 	CodexAccountService CodexAccountService
@@ -261,6 +258,7 @@ type HandlerConfig struct {
 }
 
 type handler struct {
+	appearanceService   AppearanceService
 	metadata            BackendMetadata
 	chatService         ChatService
 	codexAccountService CodexAccountService
@@ -269,6 +267,7 @@ type handler struct {
 
 func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
+		appearanceService:   config.AppearanceService,
 		metadata:            config.Metadata,
 		chatService:         config.ChatService,
 		codexAccountService: config.CodexAccountService,
@@ -285,6 +284,40 @@ func (handler handler) health(response http.ResponseWriter, request *http.Reques
 		Name:    handler.metadata.Name,
 		Version: handler.metadata.Version,
 	})
+}
+
+func (handler handler) readAppearanceSettings(response http.ResponseWriter, request *http.Request) {
+	service := requireAppearanceService(response, handler.appearanceService)
+	if service == nil {
+		return
+	}
+	settings, err := service.Read(request.Context())
+	if err != nil {
+		writeAppearanceError(response, "read_appearance_settings_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, settings)
+}
+
+func (handler handler) readAppearancePresets(response http.ResponseWriter, request *http.Request) {
+	writeJSON(response, http.StatusOK, appearance.DefaultPresetList())
+}
+
+func (handler handler) updateAppearanceSettings(response http.ResponseWriter, request *http.Request) {
+	service := requireAppearanceService(response, handler.appearanceService)
+	if service == nil {
+		return
+	}
+	var payload UpdateAppearanceSettingsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	settings, err := service.Update(request.Context(), payload.Settings)
+	if err != nil {
+		writeAppearanceError(response, "update_appearance_settings_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, settings)
 }
 
 func (handler handler) workspaceSession(response http.ResponseWriter, request *http.Request) {
@@ -418,21 +451,25 @@ func (handler handler) createConversation(response http.ResponseWriter, request 
 	writeJSON(response, http.StatusOK, conversation)
 }
 
-func (handler handler) markConversationRead(response http.ResponseWriter, request *http.Request) {
+func (handler handler) deleteConversation(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
 		return
 	}
-	var payload MarkConversationReadRequest
+	var payload DeleteConversationRequest
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	item, err := service.MarkConversationRead(payload.WorkspaceID, payload.ConversationID)
+	result, err := service.DeleteConversation(payload.WorkspaceID, payload.ConversationID)
 	if err != nil {
-		writeChatError(response, "mark_conversation_read_failed", err)
+		writeChatError(response, "delete_conversation_failed", err)
 		return
 	}
-	writeJSON(response, http.StatusOK, item)
+	writeJSON(response, http.StatusOK, ListConversationsResponse{
+		Conversations: result.Conversations,
+		Corruption:    result.Corruption,
+		Diagnostics:   result.Diagnostics,
+	})
 }
 
 func (handler handler) getMessagePage(response http.ResponseWriter, request *http.Request) {
@@ -469,6 +506,23 @@ func (handler handler) sendChatMessage(response http.ResponseWriter, request *ht
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) updateUserMessage(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload UpdateUserMessageRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	message, err := service.UpdateUserMessage(payload.WorkspaceID, payload.ConversationID, payload.MessageID, payload.Text)
+	if err != nil {
+		writeChatError(response, "update_user_message_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, message)
+}
+
 func (handler handler) queueChatMessage(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -486,40 +540,6 @@ func (handler handler) queueChatMessage(response http.ResponseWriter, request *h
 	writeJSON(response, http.StatusOK, result)
 }
 
-func (handler handler) editQueuedChatMessage(response http.ResponseWriter, request *http.Request) {
-	service := requireChatService(response, handler.chatService)
-	if service == nil {
-		return
-	}
-	var payload EditQueuedChatMessageRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	result, err := service.EditQueuedMessage(payload.WorkspaceID, payload.ConversationID, payload.MessageID, payload.Prompt)
-	if err != nil {
-		writeChatError(response, "edit_queued_chat_message_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, result)
-}
-
-func (handler handler) removeQueuedChatMessage(response http.ResponseWriter, request *http.Request) {
-	service := requireChatService(response, handler.chatService)
-	if service == nil {
-		return
-	}
-	var payload RemoveQueuedChatMessageRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	result, err := service.RemoveQueuedMessage(payload.WorkspaceID, payload.ConversationID, payload.MessageID)
-	if err != nil {
-		writeChatError(response, "remove_queued_chat_message_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, result)
-}
-
 func (handler handler) steerChatMessage(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -532,23 +552,6 @@ func (handler handler) steerChatMessage(response http.ResponseWriter, request *h
 	result, err := service.SteerActiveRun(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
 	if err != nil {
 		writeChatError(response, "steer_chat_message_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, result)
-}
-
-func (handler handler) sendSteeringImmediately(response http.ResponseWriter, request *http.Request) {
-	service := requireChatService(response, handler.chatService)
-	if service == nil {
-		return
-	}
-	var payload SendSteeringImmediatelyRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	result, err := service.SendSteeringImmediately(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
-	if err != nil {
-		writeChatError(response, "send_steering_immediately_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, result)
@@ -910,6 +913,14 @@ func requireWorkspaceService(response http.ResponseWriter, service WorkspaceServ
 	return service
 }
 
+func requireAppearanceService(response http.ResponseWriter, service AppearanceService) AppearanceService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "appearance_service_unavailable", "appearance service is not available")
+		return nil
+	}
+	return service
+}
+
 func requireChatService(response http.ResponseWriter, service ChatService) ChatService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "chat_service_unavailable", "chat service is not available")
@@ -954,14 +965,22 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 	writeError(response, status, code, err.Error())
 }
 
+func writeAppearanceError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if appearance.IsCorruptSettingsError(err) {
+		writeError(response, status, code, err.Error())
+		return
+	}
+	if appearance.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
 func writeChatError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
 	if commandErr, ok := chat.IsChatCommandError(err); ok {
 		writeError(response, status, string(commandErr.Code), commandErr.Error())
-		return
-	}
-	if operationErr, ok := chat.IsChatOperationError(err); ok {
-		writeError(response, http.StatusConflict, string(operationErr.Code), operationErr.Error())
 		return
 	}
 	if chat.IsCorruptStateError(err) {
