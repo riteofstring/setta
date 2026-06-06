@@ -2,6 +2,7 @@ import labelFontConfig from "./pixi-workspace-label-font-config.json";
 
 export const nodeLabelBitmapFontFamily = labelFontConfig.fontFamily;
 export const nodeLabelBitmapFontSize = labelFontConfig.fontSize;
+export const compactSelectedNodeLabelBitmapFontSize = labelFontConfig.compactSelectedFontSize;
 export const nodeLabelBitmapFontUrl = labelFontConfig.fontUrl;
 export const supportedNodeLabelGlyphs = glyphsFromRanges(labelFontConfig.glyphRanges);
 

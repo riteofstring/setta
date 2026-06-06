@@ -30,6 +30,8 @@ interface PixiWorkspaceDebugSnapshot {
         fontDistanceFieldRange: number;
         fontDistanceFieldType: "msdf";
         fontFamily: string;
+        fontSize: number;
+        fontSizeMode: "normal" | "compact-selected";
         globalX: number;
         globalY: number;
         kind: "bitmap-text";
@@ -76,6 +78,7 @@ interface PixiWorkspaceDebugSnapshot {
     edgeCommitCount: number;
     edgeRedrawCount: number;
     frameCount: number;
+    compactSelectedLabelCount: number;
     gridDrawCount: number;
     labelObjectCount: number;
     labelSyncCount: number;

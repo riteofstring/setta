@@ -8,6 +8,7 @@ import {
   nodeLabelBitmapFontFamily,
   nodeLabelBitmapFontSize,
   nodeLabelBitmapFontUrl,
+  compactSelectedNodeLabelBitmapFontSize,
   supportedNodeLabelGlyphs,
   validateNodeLabelGlyphs,
 } from "./pixi-workspace-label-font";
@@ -30,6 +31,7 @@ describe("pixi workspace label font", () => {
   it("exposes the committed bitmap font target", () => {
     expect(nodeLabelBitmapFontFamily).toBe("InterMSDF");
     expect(nodeLabelBitmapFontSize).toBe(16);
+    expect(compactSelectedNodeLabelBitmapFontSize).toBe(12);
     expect(nodeLabelBitmapFontUrl).toBe("fonts/inter-msdf/InterMSDF.fnt");
     expect(supportedNodeLabelGlyphs).toContain("A");
   });

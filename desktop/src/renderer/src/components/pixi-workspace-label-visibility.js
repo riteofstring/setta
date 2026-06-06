@@ -4,8 +4,11 @@ const labelDeclutterPaddingX = 8;
 const labelDeclutterPaddingY = 4;
 
 export function syncNodeLabelVisibility({
+  compactSelectedFontSize,
+  fontSizeModes,
   nodeLabels,
   nodes,
+  normalFontSize,
   selectedNodeIds,
   viewport,
   visibilityReasons,
@@ -16,8 +19,12 @@ export function syncNodeLabelVisibility({
     for (const node of nodes) {
       const inViewport = nodeIntersectsViewport(node, worldBounds);
       setLabelVisibility({
+        compactSelectedFontSize,
+        fontSizeModes,
+        labelVisibilityMode: mode,
         nodeId: node.id,
         nodeLabels,
+        normalFontSize,
         reason: inViewport ? "all-visible" : "outside-viewport",
         visibilityReasons,
         visible: inViewport,
@@ -31,8 +38,12 @@ export function syncNodeLabelVisibility({
       const inViewport = nodeIntersectsViewport(node, worldBounds);
       const selected = selectedNodeIds.has(node.id);
       setLabelVisibility({
+        compactSelectedFontSize,
+        fontSizeModes,
+        labelVisibilityMode: mode,
         nodeId: node.id,
         nodeLabels,
+        normalFontSize,
         reason: inViewport ? (selected ? "selected" : "zoom-hidden") : "outside-viewport",
         visibilityReasons,
         visible: selected && inViewport,
@@ -42,8 +53,12 @@ export function syncNodeLabelVisibility({
   }
 
   syncVisiblePriorityLabelVisibility({
+    compactSelectedFontSize,
+    fontSizeModes,
+    labelVisibilityMode: mode,
     nodeLabels,
     nodes,
+    normalFontSize,
     selectedNodeIds,
     visibilityReasons,
     worldBounds,
@@ -60,9 +75,19 @@ export function labelVisibilityModeForZoom(zoom) {
   return "all-visible";
 }
 
+function nodeLabelFontSizeModeFor({ labelVisibilityMode, visibilityReason }) {
+  return labelVisibilityMode === "selected" && visibilityReason === "selected"
+    ? "compact-selected"
+    : "normal";
+}
+
 function syncVisiblePriorityLabelVisibility({
+  compactSelectedFontSize,
+  fontSizeModes,
+  labelVisibilityMode,
   nodeLabels,
   nodes,
+  normalFontSize,
   selectedNodeIds,
   visibilityReasons,
   worldBounds,
@@ -71,8 +96,12 @@ function syncVisiblePriorityLabelVisibility({
   for (const node of nodes.filter((candidate) => selectedNodeIds.has(candidate.id))) {
     if (!nodeIntersectsViewport(node, worldBounds)) {
       setLabelVisibility({
+        compactSelectedFontSize,
+        fontSizeModes,
+        labelVisibilityMode,
         nodeId: node.id,
         nodeLabels,
+        normalFontSize,
         reason: "outside-viewport",
         visibilityReasons,
         visible: false,
@@ -80,8 +109,12 @@ function syncVisiblePriorityLabelVisibility({
       continue;
     }
     setLabelVisibility({
+      compactSelectedFontSize,
+      fontSizeModes,
+      labelVisibilityMode,
       nodeId: node.id,
       nodeLabels,
+      normalFontSize,
       reason: "selected",
       visibilityReasons,
       visible: true,
@@ -94,8 +127,12 @@ function syncVisiblePriorityLabelVisibility({
     }
     if (!nodeIntersectsViewport(node, worldBounds)) {
       setLabelVisibility({
+        compactSelectedFontSize,
+        fontSizeModes,
+        labelVisibilityMode,
         nodeId: node.id,
         nodeLabels,
+        normalFontSize,
         reason: "outside-viewport",
         visibilityReasons,
         visible: false,
@@ -105,8 +142,12 @@ function syncVisiblePriorityLabelVisibility({
     const bounds = inflatedLabelScreenBounds(requireNodeLabel(nodeLabels, node.id));
     if (acceptedBoxes.some((accepted) => screenBoundsIntersect(accepted, bounds))) {
       setLabelVisibility({
+        compactSelectedFontSize,
+        fontSizeModes,
+        labelVisibilityMode,
         nodeId: node.id,
         nodeLabels,
+        normalFontSize,
         reason: "decluttered",
         visibilityReasons,
         visible: false,
@@ -114,8 +155,12 @@ function syncVisiblePriorityLabelVisibility({
       continue;
     }
     setLabelVisibility({
+      compactSelectedFontSize,
+      fontSizeModes,
+      labelVisibilityMode,
       nodeId: node.id,
       nodeLabels,
+      normalFontSize,
       reason: "visible-priority",
       visibilityReasons,
       visible: true,
@@ -124,10 +169,47 @@ function syncVisiblePriorityLabelVisibility({
   }
 }
 
-function setLabelVisibility({ nodeId, nodeLabels, reason, visibilityReasons, visible }) {
+function setLabelVisibility({
+  compactSelectedFontSize,
+  fontSizeModes,
+  labelVisibilityMode,
+  nodeId,
+  nodeLabels,
+  normalFontSize,
+  reason,
+  visibilityReasons,
+  visible,
+}) {
   const label = requireNodeLabel(nodeLabels, nodeId);
   label.visible = visible;
   visibilityReasons.set(nodeId, reason);
+  syncLabelFontSize({
+    compactSelectedFontSize,
+    fontSizeModes,
+    label,
+    labelVisibilityMode,
+    nodeId,
+    normalFontSize,
+    visibilityReason: reason,
+  });
+}
+
+function syncLabelFontSize({
+  compactSelectedFontSize,
+  fontSizeModes,
+  label,
+  labelVisibilityMode,
+  nodeId,
+  normalFontSize,
+  visibilityReason,
+}) {
+  const nextMode = nodeLabelFontSizeModeFor({ labelVisibilityMode, visibilityReason });
+  if (fontSizeModes.get(nodeId) === nextMode) {
+    return;
+  }
+
+  fontSizeModes.set(nodeId, nextMode);
+  label.style.fontSize = nextMode === "compact-selected" ? compactSelectedFontSize : normalFontSize;
 }
 
 function viewportWorldBounds(viewport) {

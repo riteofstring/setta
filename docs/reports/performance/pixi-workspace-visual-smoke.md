@@ -467,3 +467,56 @@ Geometry construction counters remained stable at `gridDrawCount: 1`,
 `nodeOutlineContextCount: 6`, and `nodeOutlineGraphicsCount: 8` from initial
 render through hover, selection, pan, zoom, zoomed group drag, wheel pan, deep
 zoom, low zoom, and offscreen pan snapshots.
+
+## Low-Zoom Selected Label Sizing Update
+
+Date: 2026-06-04
+
+Artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260604T165928Z
+```
+
+Phase 5.5 adds a compact selected-label font-size bucket for low-zoom
+`selected` label visibility mode. The renderer still uses screen-space MSDF
+`BitmapText` labels, keeps label scale at `1`, and applies the compact bucket
+only when a visible label has `visibilityReason: "selected"` while the active
+label visibility mode is `selected`.
+
+Additional scenario coverage:
+
+- Initial `visible-priority` mode reports all labels as `fontSizeMode: "normal"`
+  with `fontSize: 16` and `compactSelectedLabelCount: 0`.
+- A selected label in deep-zoom `all-visible` mode remains normal-sized at
+  `fontSize: 16`.
+- Low zoom at `0.31` enters `selected` mode with one selected in-viewport label
+  visible as `selected`, `fontSizeMode: "compact-selected"`, and `fontSize: 12`.
+- Unselected low-zoom labels remain hidden and normal-sized.
+- The selected low-zoom label reports `scaleX`, `scaleY`, `worldScaleX`, and
+  `worldScaleY` as `1`.
+- Manual inspection of `low-zoom-selected-label.png` confirmed the selected
+  label stays centered and legible without visually overpowering the shrunken
+  selected node.
+
+| Metric                                      | Phase 5.5 after |
+| ------------------------------------------- | --------------: |
+| Initial label visibility mode               | visible-priority |
+| Initial compact selected labels             |               0 |
+| Deep zoom label visibility mode             |     all-visible |
+| Deep zoom compact selected labels           |               0 |
+| Low zoom                                    |            0.31 |
+| Low zoom label visibility mode              |        selected |
+| Low zoom visible labels                     |               1 |
+| Low zoom compact selected labels            |               1 |
+| Low zoom selected label font size           |              12 |
+| Low zoom selected label local/world scale   |            1.00 |
+| Final visible labels                        |               0 |
+| Final compact selected labels               |               0 |
+| Final label sync count                      |             204 |
+| React host renders                          |               1 |
+| Final average recent frame interval         |        9.72 ms |
+| Final worst recent frame interval           |       83.60 ms |
+| Final sampled pixels                        |           6,366 |
+| Final non-background sampled pixels         |           4,615 |
+| Final sampled color count                   |              61 |

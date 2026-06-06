@@ -4,7 +4,11 @@ import { Application, BitmapText, Container, Graphics, Point, Rectangle } from "
 import { Viewport } from "pixi-viewport";
 
 import { initialEdges, initialNodes } from "./pixi-workspace-fixture";
-import { nodeLabelBitmapFontSize, validateNodeLabelGlyphs } from "./pixi-workspace-label-font";
+import {
+  compactSelectedNodeLabelBitmapFontSize,
+  nodeLabelBitmapFontSize,
+  validateNodeLabelGlyphs,
+} from "./pixi-workspace-label-font";
 import { loadNodeLabelBitmapFont } from "./pixi-workspace-label-font-loader";
 import {
   labelVisibilityModeForZoom,
@@ -101,6 +105,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   const nodeBodies = new Map();
   const nodeShadows = new Map();
   const nodeLabels = new Map();
+  const nodeLabelFontSizeModes = new Map();
   const nodeLabelVisibilityReasons = new Map();
   const nodeOutlines = new Map();
   const portVisuals = new Map();
@@ -381,6 +386,8 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
                   fontDistanceFieldRange: loadedNodeLabelFont.distanceField.range,
                   fontDistanceFieldType: loadedNodeLabelFont.distanceField.type,
                   fontFamily: label.style.fontFamily,
+                  fontSize: label.style.fontSize,
+                  fontSizeMode: nodeLabelFontSizeModes.get(node.id) ?? "normal",
                   globalX: labelGlobal.x,
                   globalY: labelGlobal.y,
                   kind: "bitmap-text",
@@ -427,6 +434,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             edgeRedrawCount,
             frameCount,
             gridDrawCount,
+            compactSelectedLabelCount: compactSelectedLabelCount(),
             labelObjectCount: nodeLabels.size,
             labelSyncCount,
             labelVisibilityMode: labelVisibilityModeForZoom(camera.zoom),
@@ -526,6 +534,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     label.eventMode = "none";
     label.roundPixels = true;
     nodeLabels.set(nodeId, label);
+    nodeLabelFontSizeModes.set(nodeId, "normal");
     nodeLabelVisibilityReasons.set(nodeId, "zoom-hidden");
     labelLayer.addChild(label);
     return label;
@@ -537,6 +546,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       return;
     }
     nodeLabels.delete(nodeId);
+    nodeLabelFontSizeModes.delete(nodeId);
     nodeLabelVisibilityReasons.delete(nodeId);
     label.removeFromParent();
     label.destroy();
@@ -921,12 +931,20 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
 
   function syncLabelVisibility() {
     syncNodeLabelVisibility({
+      compactSelectedFontSize: compactSelectedNodeLabelBitmapFontSize,
+      fontSizeModes: nodeLabelFontSizeModes,
       nodeLabels,
       nodes,
+      normalFontSize: nodeLabelBitmapFontSize,
       selectedNodeIds,
       viewport,
       visibilityReasons: nodeLabelVisibilityReasons,
     });
+  }
+
+  function compactSelectedLabelCount() {
+    return [...nodeLabelFontSizeModes.values()].filter((mode) => mode === "compact-selected")
+      .length;
   }
 
   function setPortVisualState(nodeId, portId, state) {

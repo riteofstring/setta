@@ -3,6 +3,7 @@
   "fieldType": "msdf",
   "fontFamily": "InterMSDF",
   "fontSize": 16,
+  "compactSelectedFontSize": 12,
   "fontUrl": "fonts/inter-msdf/InterMSDF.fnt",
   "generationFontSize": 48,
   "glyphRanges": [[32, 126]],

@@ -26,6 +26,8 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const cdpMetaModifier = 4;
 const cdpShiftModifier = 8;
 const expectedBitmapLabelFontFamily = "InterMSDF";
+const expectedBitmapLabelFontSize = 16;
+const expectedCompactSelectedLabelFontSize = 12;
 const labelVisibilityReasons = new Set([
   "all-visible",
   "decluttered",
@@ -197,6 +199,7 @@ try {
   assertZoomAtLeast(afterZoom, 1.1, "zoomed group drag setup");
   assertLabelsAttachedToNodeCenters(afterZoom, "wheel zoom");
   assertLabelsScreenSpace(afterZoom, "wheel zoom");
+  assertLabelSizing(afterZoom, { label: "wheel zoom" });
   assertLabelSyncAdvanced(afterPan, afterZoom, "wheel zoom label sync");
   assertReactRenderCountUnchanged(afterPan, afterZoom, "wheel zoom label sync");
   assertGeometryConstructionCountersStable(afterPan, afterZoom, "wheel zoom geometry");
@@ -315,6 +318,7 @@ try {
   assertZoomAtLeast(afterDeepZoom, 3, "deep label zoom");
   assertLabelsAttachedToNodeCenters(afterDeepZoom, "deep label zoom");
   assertLabelsScreenSpace(afterDeepZoom, "deep label zoom");
+  assertLabelSizing(afterDeepZoom, { label: "deep label zoom" });
   assertAtLeastOneVisibleLabel(afterDeepZoom, "deep label zoom");
   assertLabelSyncAdvanced(afterEdgeDraw, afterDeepZoom, "deep label zoom sync");
   assertReactRenderCountUnchanged(afterEdgeDraw, afterDeepZoom, "deep label zoom sync");
@@ -337,6 +341,7 @@ try {
   assertZoomUnchanged(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom");
   assertLabelsAttachedToNodeCenters(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelsScreenSpace(afterDeepZoomPan, "pan after deep label zoom");
+  assertLabelSizing(afterDeepZoomPan, { label: "pan after deep label zoom" });
   assertAllVisibleModeLabels(afterDeepZoomPan, "pan after deep label zoom");
   assertAtLeastOneVisibleLabel(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelSyncAdvanced(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom sync");
@@ -364,6 +369,7 @@ try {
   await delay(100);
   const afterLowZoomSelect = await getPixiSnapshot(context.client);
   assertSelectedExactly(afterLowZoomSelect, [lowZoomTarget.id], "low-zoom LOD target select");
+  assertLabelSizing(afterLowZoomSelect, { label: "low-zoom LOD target select" });
   assertReactRenderCountUnchanged(
     afterDeepZoomPan,
     afterLowZoomSelect,
@@ -380,6 +386,10 @@ try {
   assertLabelsAttachedToNodeCenters(afterLowZoom, "low zoom selected-mode LOD");
   assertLabelsScreenSpace(afterLowZoom, "low zoom selected-mode LOD");
   assertSelectedModeLabelVisibility(afterLowZoom, lowZoomTarget.id, "low zoom selected-mode LOD");
+  assertLabelSizing(afterLowZoom, {
+    compactNodeId: lowZoomTarget.id,
+    label: "low zoom selected-mode LOD",
+  });
   assertLabelSyncAdvanced(afterLowZoomSelect, afterLowZoom, "low zoom selected-mode label sync");
   assertReactRenderCountUnchanged(
     afterLowZoomSelect,
@@ -688,6 +698,7 @@ function assertInitialSnapshot(snapshot) {
   assertSelectionDebugShape(snapshot);
   assertLabelsAttachedToNodeCenters(snapshot, "initial render");
   assertLabelsScreenSpace(snapshot, "initial render");
+  assertLabelSizing(snapshot, { label: "initial render" });
   assertLabelVisibilityMode(snapshot, "visible-priority", "initial render");
   assertAtLeastOneVisibleLabel(snapshot, "initial render");
   assertLabelDebugCounters(snapshot, "initial render");
@@ -829,9 +840,15 @@ function assertLabelBitmapFontMetadata(node, label) {
   if (node.label.fontDistanceFieldType !== "msdf" || node.label.fontDistanceFieldRange !== 4) {
     throw new Error(`${label} node label did not use an MSDF font: ${JSON.stringify(node)}`);
   }
+  assertLabelFontSizeModeValue(node.label.fontSizeMode, `${label} ${node.id} fontSizeMode`);
+  assertFiniteNumber(node.label.fontSize, `${label} ${node.id} label.fontSize`);
 }
 
 function assertLabelDebugCounters(snapshot, label) {
+  assertNonNegativeInteger(
+    snapshot.render.compactSelectedLabelCount,
+    `${label} compactSelectedLabelCount`,
+  );
   assertNonNegativeInteger(snapshot.render.labelObjectCount, `${label} labelObjectCount`);
   assertNonNegativeInteger(snapshot.render.labelSyncCount, `${label} labelSyncCount`);
   assertNonNegativeInteger(snapshot.render.visibleLabelCount, `${label} visibleLabelCount`);
@@ -850,7 +867,16 @@ function assertLabelDebugCounters(snapshot, label) {
       `${label} visibleLabelCount did not match visible node labels: expected=${visibleNodeLabels} render=${JSON.stringify(snapshot.render)}`,
     );
   }
+  const compactNodeLabels = snapshot.graph.nodes.filter(
+    (node) => node.label?.fontSizeMode === "compact-selected",
+  ).length;
+  if (snapshot.render.compactSelectedLabelCount !== compactNodeLabels) {
+    throw new Error(
+      `${label} compactSelectedLabelCount did not match compact node labels: expected=${compactNodeLabels} render=${JSON.stringify(snapshot.render)}`,
+    );
+  }
   assertLabelVisibilityReasons(snapshot, label);
+  assertLabelFontSizeModes(snapshot, label);
 }
 
 function assertNodeGeometryDebugCounters(snapshot, label) {
@@ -970,6 +996,49 @@ function assertLabelVisibilityMode(snapshot, expectedMode, label) {
 function assertLabelVisibilityModeValue(value, label) {
   if (!["all-visible", "selected", "visible-priority"].includes(value)) {
     throw new Error(`${label} was invalid: ${String(value)}`);
+  }
+}
+
+function assertLabelFontSizeModeValue(value, label) {
+  if (!["compact-selected", "normal"].includes(value)) {
+    throw new Error(`${label} was invalid: ${String(value)}`);
+  }
+}
+
+function assertLabelFontSizeModes(snapshot, label) {
+  for (const node of snapshot.graph.nodes) {
+    assertLabelFontSizeModeValue(node.label?.fontSizeMode, `${label} ${node.id} fontSizeMode`);
+    const expectedSize =
+      node.label.fontSizeMode === "compact-selected"
+        ? expectedCompactSelectedLabelFontSize
+        : expectedBitmapLabelFontSize;
+    if (node.label.fontSize !== expectedSize) {
+      throw new Error(
+        `${label} label reported wrong font size: expected=${expectedSize} node=${JSON.stringify(node)}`,
+      );
+    }
+  }
+}
+
+function assertLabelSizing(snapshot, { compactNodeId = null, label }) {
+  assertLabelDebugCounters(snapshot, label);
+  const expectedCompactCount = compactNodeId ? 1 : 0;
+  if (snapshot.render.compactSelectedLabelCount !== expectedCompactCount) {
+    throw new Error(
+      `${label} reported wrong compact label count: expected=${expectedCompactCount} render=${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  for (const node of snapshot.graph.nodes) {
+    const compact = node.id === compactNodeId;
+    const expectedMode = compact ? "compact-selected" : "normal";
+    const expectedSize = compact
+      ? expectedCompactSelectedLabelFontSize
+      : expectedBitmapLabelFontSize;
+    if (node.label.fontSizeMode !== expectedMode || node.label.fontSize !== expectedSize) {
+      throw new Error(
+        `${label} label used wrong sizing: expectedMode=${expectedMode} expectedSize=${expectedSize} node=${JSON.stringify(node)}`,
+      );
+    }
   }
 }
 
