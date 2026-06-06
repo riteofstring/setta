@@ -131,6 +131,9 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 			t.Fatalf("submit approval: %v", err)
 		}
 		waitForRunStatus(t, service, "workspace_api", conversation.ID, submitted.ID, RunStatusCompleted)
+		receiveEventsUntil(t, subscription, func(event Event) bool {
+			return event.Type == EventTypeConversationUpdated && event.RunID == submitted.ID
+		})
 	})
 
 	t.Run("cancellation", func(t *testing.T) {

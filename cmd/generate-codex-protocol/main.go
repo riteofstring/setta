@@ -24,18 +24,22 @@ type protocolMember struct {
 }
 
 type generator struct {
-	repoRoot       string
-	schemaDir      string
-	rustDir        string
-	outputPath     string
-	rootSchemas    map[string]jsonSchema
-	rootSchemaRaw  map[string]string
-	clientMethods  []protocolMember
-	serverRequests []protocolMember
-	notifications  []protocolMember
-	schemas        map[string]jsonSchema
-	schemaRaw      map[string]string
-	queue          []string
+	repoRoot                 string
+	schemaDir                string
+	supportedPath            string
+	outputPath               string
+	rootSchemas              map[string]jsonSchema
+	rootSchemaRaw            map[string]string
+	clientMethods            []protocolMember
+	serverRequests           []protocolMember
+	notifications            []protocolMember
+	supportedClientMethods   []protocolMember
+	supportedServerRequests  []protocolMember
+	supportedNotifications   []protocolMember
+	unsupportedNotifications []protocolMember
+	schemas                  map[string]jsonSchema
+	schemaRaw                map[string]string
+	queue                    []string
 }
 
 type protocolRoots struct {
@@ -47,6 +51,7 @@ type protocolRoots struct {
 func main() {
 	output := flag.String("out", "internal/codexapp/protocol_gen.go", "generated Go output path")
 	schemaDir := flag.String("schema", "internal/codexapp/protocolschema", "checked-in Codex protocol schema snapshot")
+	supported := flag.String("supported", "internal/codexapp/protocolschema/supported_protocol.json", "checked-in supported Codex protocol registration")
 	flag.Parse()
 
 	repoRoot, err := os.Getwd()
@@ -56,7 +61,7 @@ func main() {
 	generator := &generator{
 		repoRoot:      repoRoot,
 		schemaDir:     filepath.Join(repoRoot, *schemaDir, "json"),
-		rustDir:       filepath.Join(repoRoot, *schemaDir, "rust", "protocol"),
+		supportedPath: filepath.Join(repoRoot, *supported),
 		outputPath:    filepath.Join(repoRoot, *output),
 		rootSchemas:   map[string]jsonSchema{},
 		rootSchemaRaw: map[string]string{},
@@ -81,11 +86,14 @@ func (generator *generator) run() error {
 	if err := generator.loadProtocolMembers(roots); err != nil {
 		return err
 	}
-	usage, err := generator.discoverUsage()
+	supported, err := generator.loadSupportedProtocol()
 	if err != nil {
 		return err
 	}
-	if err := generator.collectSchemasFromUsage(usage); err != nil {
+	if err := generator.applySupportedProtocol(supported); err != nil {
+		return err
+	}
+	if err := generator.collectSchemasFromSupported(supported); err != nil {
 		return err
 	}
 
@@ -121,11 +129,7 @@ func (generator *generator) loadProtocolMembers(roots protocolRoots) error {
 	if err != nil {
 		return err
 	}
-	experimental, err := generator.experimentalClientMethods()
-	if err != nil {
-		return err
-	}
-	generator.clientMethods = mergeMembers(clientMethods, experimental)
+	generator.clientMethods = clientMethods
 	generator.serverRequests, err = membersFromRoot(roots.ServerRequest, "server request")
 	if err != nil {
 		return err
@@ -263,172 +267,6 @@ func mergeMembers(base []protocolMember, extra []protocolMember) []protocolMembe
 	return result
 }
 
-func (generator *generator) experimentalClientMethods() ([]protocolMember, error) {
-	commonPath := filepath.Join(generator.rustDir, "common.rs")
-	data, err := os.ReadFile(commonPath)
-	if err != nil {
-		return nil, fmt.Errorf("read experimental protocol source: %w", err)
-	}
-	pattern := regexp.MustCompile(`(?s)([A-Za-z][A-Za-z0-9]*)\s*=>\s*"([^"]+)"\s*\{\s*params:\s*v2::([A-Za-z][A-Za-z0-9]*)[^}]*?response:\s*v2::([A-Za-z][A-Za-z0-9]*)`)
-	text := string(data)
-	matches := pattern.FindAllStringSubmatchIndex(text, -1)
-	members := []protocolMember{}
-	for _, match := range matches {
-		start := match[0]
-		prefixStart := start - 200
-		if prefixStart < 0 {
-			prefixStart = 0
-		}
-		if !strings.Contains(text[prefixStart:start], "#[experimental") {
-			continue
-		}
-		method := text[match[4]:match[5]]
-		if strings.HasPrefix(method, "mock/") {
-			continue
-		}
-		members = append(members, protocolMember{
-			Method:     method,
-			ConstName:  methodConstName(method),
-			ParamsName: text[match[6]:match[7]],
-			Source:     "rust",
-		})
-	}
-	sort.Slice(members, func(left int, right int) bool {
-		return members[left].Method < members[right].Method
-	})
-	return members, nil
-}
-
-type usageSet struct {
-	clientMethods  map[string]bool
-	notifications  map[string]bool
-	serverRequests map[string]bool
-}
-
-type usageMatchers struct {
-	clientMethods           map[string]bool
-	notifications           map[string]bool
-	serverRequests          map[string]bool
-	methodConstNames        map[string]string
-	notificationConstNames  map[string]string
-	serverRequestConstNames map[string]string
-}
-
-func (generator *generator) discoverUsage() (usageSet, error) {
-	usage := newUsageSet()
-	matchers := generator.usageMatchers()
-	err := filepath.WalkDir(filepath.Join(generator.repoRoot, "internal", "chat"), func(path string, entry fs.DirEntry, err error) error {
-		return discoverUsagePath(&usage, matchers, path, entry, err)
-	})
-	if err != nil {
-		return usageSet{}, fmt.Errorf("discover Codex protocol usage: %w", err)
-	}
-	return usage, nil
-}
-
-func newUsageSet() usageSet {
-	return usageSet{
-		clientMethods:  map[string]bool{},
-		notifications:  map[string]bool{},
-		serverRequests: map[string]bool{},
-	}
-}
-
-func (generator *generator) usageMatchers() usageMatchers {
-	return usageMatchers{
-		clientMethods:           memberMethodSet(generator.clientMethods),
-		notifications:           memberMethodSet(generator.notifications),
-		serverRequests:          memberMethodSet(generator.serverRequests),
-		methodConstNames:        memberConstMethodSet(generator.clientMethods, "CodexMethod"),
-		notificationConstNames:  memberConstMethodSet(generator.notifications, "CodexNotification"),
-		serverRequestConstNames: memberConstMethodSet(generator.serverRequests, "CodexServerRequest"),
-	}
-}
-
-func discoverUsagePath(usage *usageSet, matchers usageMatchers, path string, entry fs.DirEntry, walkErr error) error {
-	if walkErr != nil {
-		return walkErr
-	}
-	if entry.IsDir() || !strings.HasSuffix(path, ".go") {
-		return nil
-	}
-	if strings.HasSuffix(path, "codex_protocol_registry.go") {
-		return nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	recordUsageFromText(usage, matchers, string(data))
-	return nil
-}
-
-func recordUsageFromText(usage *usageSet, matchers usageMatchers, text string) {
-	for value := range stringLiterals(text) {
-		recordLiteralUsage(usage, matchers, value)
-	}
-	recordConstantUsage(usage.clientMethods, matchers.methodConstNames, text)
-	recordConstantUsage(usage.notifications, matchers.notificationConstNames, text)
-	recordConstantUsage(usage.serverRequests, matchers.serverRequestConstNames, text)
-}
-
-func recordLiteralUsage(usage *usageSet, matchers usageMatchers, value string) {
-	switch {
-	case matchers.clientMethods[value]:
-		usage.clientMethods[value] = true
-	case matchers.notifications[value]:
-		usage.notifications[value] = true
-	case matchers.serverRequests[value]:
-		usage.serverRequests[value] = true
-	}
-}
-
-func recordConstantUsage(used map[string]bool, constants map[string]string, text string) {
-	for constName, method := range constants {
-		if strings.Contains(text, "codexapp."+constName) {
-			used[method] = true
-		}
-	}
-}
-
-func memberMethodSet(members []protocolMember) map[string]bool {
-	set := map[string]bool{}
-	for _, member := range members {
-		set[member.Method] = true
-	}
-	return set
-}
-
-func memberConstMethodSet(members []protocolMember, prefix string) map[string]string {
-	set := map[string]string{}
-	for _, member := range members {
-		set[prefix+member.ConstName] = member.Method
-	}
-	return set
-}
-
-func stringLiterals(text string) map[string]bool {
-	pattern := regexp.MustCompile(`"([A-Za-z0-9_/\.-]+)"`)
-	values := map[string]bool{}
-	for _, match := range pattern.FindAllStringSubmatch(text, -1) {
-		values[match[1]] = true
-	}
-	return values
-}
-
-func (generator *generator) collectSchemasFromUsage(usage usageSet) error {
-	if err := generator.collectClientMethodSchemas(usage.clientMethods); err != nil {
-		return err
-	}
-	if err := generator.collectMemberSchemas(generator.notifications, usage.notifications, "notification params"); err != nil {
-		return err
-	}
-	if err := generator.collectMemberSchemas(generator.serverRequests, usage.serverRequests, "server request params"); err != nil {
-		return err
-	}
-	return generator.walkSchemaQueue()
-}
-
 func (generator *generator) collectClientMethodSchemas(used map[string]bool) error {
 	byMethod := membersByMethod(generator.clientMethods)
 	for method := range used {
@@ -497,7 +335,7 @@ func (generator *generator) enqueueNamedSchema(name string) error {
 	}
 	if err := generator.enqueueSchemaFile(name); err != nil {
 		if errors.Is(err, errSchemaFileMissing) {
-			return generator.enqueueRustStruct(name)
+			return fmt.Errorf("schema %s was not found in JSON snapshot", name)
 		}
 		return err
 	}
@@ -623,134 +461,6 @@ func schemaCanonicalText(name string, schema jsonSchema) (string, error) {
 	return string(canonicalJSON(data)), nil
 }
 
-func (generator *generator) enqueueRustStruct(name string) error {
-	if _, ok := generator.schemas[name]; ok {
-		return nil
-	}
-	path := filepath.Join(generator.rustDir, "v2", "thread.rs")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read Rust protocol source for %s: %w", name, err)
-	}
-	schema, ok, err := generator.rustStructSchema(string(data), name)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("schema %s was not found in JSON snapshot or Rust protocol source", name)
-	}
-	return generator.addSchema(name, schema)
-}
-
-func (generator *generator) rustStructSchema(text string, name string) (jsonSchema, bool, error) {
-	pattern := regexp.MustCompile(`(?s)pub struct ` + regexp.QuoteMeta(name) + ` \{(.*?)\n\}`)
-	match := pattern.FindStringSubmatch(text)
-	if match == nil {
-		return jsonSchema{}, false, nil
-	}
-	properties := map[string]jsonSchema{}
-	required := []string{}
-	fieldPattern := regexp.MustCompile(`(?m)^\s*pub ([a-zA-Z0-9_]+): ([^,]+),`)
-	for _, field := range fieldPattern.FindAllStringSubmatch(match[1], -1) {
-		jsonName := lowerCamelFromSnake(field[1])
-		rustType := strings.TrimSpace(field[2])
-		schema, isRequired, err := generator.rustTypeSchema(rustType)
-		if err != nil {
-			return jsonSchema{}, true, fmt.Errorf("%s.%s has unsupported Rust field type %s: %w", name, field[1], rustType, err)
-		}
-		properties[jsonName] = schema
-		if isRequired {
-			required = append(required, jsonName)
-		}
-	}
-	sort.Strings(required)
-	return jsonSchema{
-		Title:      name,
-		Type:       "object",
-		Properties: properties,
-		Required:   required,
-	}, true, nil
-}
-
-func (generator *generator) rustTypeSchema(typeName string) (jsonSchema, bool, error) {
-	if typeName == "String" || typeName == "PathBuf" {
-		return jsonSchema{Type: "string"}, true, nil
-	}
-	if strings.HasPrefix(typeName, "Option<") {
-		inner, ok := rustGenericInner(typeName, "Option")
-		if !ok {
-			return jsonSchema{}, false, fmt.Errorf("malformed Option type")
-		}
-		schema, _, err := generator.rustTypeSchema(inner)
-		if err != nil {
-			return jsonSchema{}, false, err
-		}
-		nullable, err := nullableSchema(schema)
-		if err != nil {
-			return jsonSchema{}, false, err
-		}
-		return nullable, false, nil
-	}
-	if isRustNamedType(typeName) {
-		if _, ok := generator.rootSchemas[typeName]; ok {
-			return jsonSchema{Ref: "#/definitions/" + typeName}, false, nil
-		}
-	}
-	return jsonSchema{}, false, fmt.Errorf("unsupported Rust type")
-}
-
-func isRustNamedType(typeName string) bool {
-	if typeName == "" {
-		return false
-	}
-	for index, char := range typeName {
-		if index == 0 {
-			if !unicode.IsLetter(char) {
-				return false
-			}
-			continue
-		}
-		if !unicode.IsLetter(char) && !unicode.IsDigit(char) && char != '_' {
-			return false
-		}
-	}
-	return true
-}
-
-func rustGenericInner(typeName string, genericName string) (string, bool) {
-	prefix := genericName + "<"
-	if !strings.HasPrefix(typeName, prefix) || !strings.HasSuffix(typeName, ">") {
-		return "", false
-	}
-	inner := strings.TrimSpace(typeName[len(prefix) : len(typeName)-1])
-	return inner, inner != ""
-}
-
-func nullableSchema(schema jsonSchema) (jsonSchema, error) {
-	if schemaAllowsNull(schema) {
-		return schema, nil
-	}
-	if schema.Ref != "" {
-		return jsonSchema{AnyOf: []jsonSchema{schema, jsonSchema{Type: "null"}}}, nil
-	}
-	if text := typeString(schema.Type); text != "" {
-		return jsonSchema{Type: []any{text, "null"}}, nil
-	}
-	return jsonSchema{}, fmt.Errorf("unsupported nullable schema")
-}
-
-func schemaAllowsNull(schema jsonSchema) bool {
-	if schemaTypeAllows(schema.Type, "null") {
-		return true
-	}
-	for _, entry := range schema.AnyOf {
-		if schemaTypeAllows(entry.Type, "null") {
-			return true
-		}
-	}
-	return false
-}
-
 func (generator *generator) walkSchemaQueue() error {
 	for len(generator.queue) > 0 {
 		name := generator.queue[0]
@@ -817,10 +527,19 @@ func (generator *generator) render() ([]byte, error) {
 	var buffer bytes.Buffer
 	buffer.WriteString("// Code generated by cmd/generate-codex-protocol. DO NOT EDIT.\n")
 	buffer.WriteString("package codexapp\n\n")
-	buffer.WriteString("import \"encoding/json\"\n\n")
+	buffer.WriteString("import (\n")
+	buffer.WriteString("\t\"bytes\"\n")
+	buffer.WriteString("\t\"encoding/json\"\n")
+	buffer.WriteString("\t\"fmt\"\n")
+	buffer.WriteString(")\n\n")
 	renderMethodConstants(&buffer, "CodexMethod", generator.clientMethods)
-	renderMethodConstants(&buffer, "CodexServerRequest", generator.serverRequests)
+	renderMethodConstants(&buffer, "CodexServerRequest", generator.supportedServerRequests)
 	renderMethodConstants(&buffer, "CodexNotification", generator.notifications)
+	renderProtocolMemberValues(&buffer, "CodexSupportedMethodValues", "CodexMethod", generator.supportedClientMethods)
+	renderProtocolMemberValues(&buffer, "CodexSupportedServerRequestValues", "CodexServerRequest", generator.supportedServerRequests)
+	renderProtocolMemberValues(&buffer, "CodexSupportedNotificationValues", "CodexNotification", generator.supportedNotifications)
+	renderProtocolMemberValues(&buffer, "CodexUnsupportedNotificationValues", "CodexNotification", generator.unsupportedNotifications)
+	renderDecodeHelper(&buffer)
 	if err := generator.renderSchemas(&buffer); err != nil {
 		return nil, err
 	}
@@ -834,6 +553,14 @@ func renderMethodConstants(buffer *bytes.Buffer, prefix string, members []protoc
 	}
 	buffer.WriteString(")\n\n")
 	fmt.Fprintf(buffer, "var %sValues = []string{\n", prefix)
+	for _, member := range members {
+		fmt.Fprintf(buffer, "\t%s%s,\n", prefix, member.ConstName)
+	}
+	buffer.WriteString("}\n\n")
+}
+
+func renderProtocolMemberValues(buffer *bytes.Buffer, name string, prefix string, members []protocolMember) {
+	fmt.Fprintf(buffer, "var %s = []string{\n", name)
 	for _, member := range members {
 		fmt.Fprintf(buffer, "\t%s%s,\n", prefix, member.ConstName)
 	}
@@ -882,29 +609,6 @@ func renderStringEnum(buffer *bytes.Buffer, typeName string, values []string) {
 
 func isObjectSchema(schema jsonSchema) bool {
 	return schema.Type == "object" || len(schema.Properties) > 0
-}
-
-func (generator *generator) renderObjectSchema(buffer *bytes.Buffer, typeName string, schema jsonSchema) error {
-	required := requiredFields(schema.Required)
-	fmt.Fprintf(buffer, "type %s struct {\n", typeName)
-	for _, propertyName := range sortedPropertyNames(schema.Properties) {
-		property := schema.Properties[propertyName]
-		goType, err := generator.goType(property, required[propertyName])
-		if err != nil {
-			return fmt.Errorf("%s.%s: %w", typeName, propertyName, err)
-		}
-		fmt.Fprintf(buffer, "\t%s %s `json:%q`\n", exportedFieldName(propertyName), goType, jsonFieldTag(propertyName, required[propertyName]))
-	}
-	buffer.WriteString("}\n\n")
-	return nil
-}
-
-func requiredFields(fields []string) map[string]bool {
-	required := map[string]bool{}
-	for _, field := range fields {
-		required[field] = true
-	}
-	return required
 }
 
 func sortedPropertyNames(properties map[string]jsonSchema) []string {
@@ -1176,15 +880,4 @@ func upperFirst(value string) string {
 	runes := []rune(value)
 	runes[0] = unicode.ToUpper(runes[0])
 	return string(runes)
-}
-
-func lowerCamelFromSnake(value string) string {
-	parts := strings.Split(value, "_")
-	if len(parts) == 0 {
-		return value
-	}
-	for index := 1; index < len(parts); index++ {
-		parts[index] = upperFirst(parts[index])
-	}
-	return strings.Join(parts, "")
 }

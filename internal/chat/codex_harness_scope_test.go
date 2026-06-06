@@ -99,6 +99,7 @@ func writeFakeMismatchedAssistantDelta() {
 func writeFakeMismatchedItemUpsert() {
 	writeFakeTurnStartedID("turn_fake")
 	writeFakeNotification("item/started", map[string]any{
+		"startedAtMs": 1,
 		"item": map[string]any{
 			"command": "go test ./...",
 			"id":      "command_fake",
@@ -115,7 +116,6 @@ func writeFakeMismatchedOutputDelta() {
 	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
 		"delta":    "wrong\n",
 		"itemId":   "command_fake",
-		"stream":   "stdout",
 		"threadId": "thread_fake",
 		"turnId":   "turn_other",
 	})

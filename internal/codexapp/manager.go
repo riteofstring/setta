@@ -241,7 +241,19 @@ func (manager *Manager) dispatchLoop(client *Client) {
 		case message := <-client.Requests():
 			manager.dispatchRequest(message)
 		case <-client.Done():
+			manager.drainClientNotifications(client)
 			manager.handleClientDone(client)
+			return
+		}
+	}
+}
+
+func (manager *Manager) drainClientNotifications(client *Client) {
+	for {
+		select {
+		case message := <-client.Notifications():
+			manager.dispatchNotification(message)
+		default:
 			return
 		}
 	}
