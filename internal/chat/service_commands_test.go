@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -336,6 +337,52 @@ func TestServiceExecutesActiveGoalCommandWithoutSteering(t *testing.T) {
 	}
 }
 
+func TestServiceExecutesNewCommandByCreatingConversation(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/new Follow up")
+	if err != nil {
+		t.Fatalf("execute new command: %v", err)
+	}
+	if result.Conversation.ID == conversation.ID || result.Conversation.Title != "Follow up" {
+		t.Fatalf("conversation = %+v, want new titled conversation", result.Conversation)
+	}
+	if result.Message != nil {
+		t.Fatalf("message = %+v, want no command transcript message in new conversation", result.Message)
+	}
+	if result.Page.Conversation.ID != result.Conversation.ID || len(result.Page.Messages) != 0 {
+		t.Fatalf("page = %+v, want empty new conversation page", result.Page)
+	}
+}
+
+func TestServiceExecutesSkillsAndMCPCommands(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	for _, test := range []struct {
+		raw  string
+		text string
+	}{
+		{raw: "/skills", text: "fake-skill"},
+		{raw: "/mcp", text: "fake"},
+	} {
+		result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, test.raw)
+		if err != nil {
+			t.Fatalf("execute %s: %v", test.raw, err)
+		}
+		if result.Message == nil || !strings.Contains(result.Message.Parts[0].Text, test.text) {
+			t.Fatalf("%s message = %+v, want text containing %q", test.raw, result.Message, test.text)
+		}
+	}
+}
+
 type refUnavailableCommandHarness struct {
 	*FakeHarness
 	calls int
@@ -391,6 +438,9 @@ func TestServiceListsCommandAvailability(t *testing.T) {
 		t.Fatalf("list active commands: %v", err)
 	}
 	assertCommandAvailable(t, active.Commands, ChatCommandGoal, true)
+	assertCommandAvailable(t, active.Commands, ChatCommandNew, true)
+	assertCommandAvailable(t, active.Commands, ChatCommandSkills, true)
+	assertCommandAvailable(t, active.Commands, ChatCommandMCP, true)
 	assertCommandAvailable(t, active.Commands, ChatCommandModel, false)
 }
 

@@ -10,11 +10,9 @@ import {
   PanelRightOpen,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ChatPanel, useChatViewState } from "./components/chat-panel";
-import { EditorPicker } from "./components/editor-picker";
-import { PixiWorkspacePrototype } from "./components/pixi-workspace-prototype";
+import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizableBottomPane, ResizablePane } from "./components/resizable-pane";
 import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -30,19 +28,11 @@ import {
 import { useChatStore } from "./stores/chat-store";
 
 export function App() {
-  const flags = window.setta.app.flags;
-  if (flags.pixiWorkspacePrototype) {
-    return <PixiWorkspacePrototype debugEnabled={flags.pixiWorkspaceDebug} />;
-  }
-  return <AppShell />;
-}
-
-function AppShell() {
   const workspace = useWorkspaceViewState();
+  const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
   const panes = useWorkspacePaneState();
   const platform = window.setta.app.platform;
   useBackendResyncStatus();
-  useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [maximizedPane, setMaximizedPane] = useState<MaximizedPane>(null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(220);
   const [chatPaneWidth, setChatPaneWidth] = useState(360);
@@ -102,17 +92,17 @@ function AppShell() {
   }, [chatPaneOpen, maximizedPane, panes.bottom.open, panes.right.open]);
 
   return (
-    <div className="relative h-screen min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
+    <div className="fixed inset-0 min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
       <AppChromeControls
         bottomPaneOpen={panes.bottom.open}
         chatPaneOpen={chatPaneOpen}
+        createConversation={chat.createConversation}
         maximizedPane={maximizedPane}
         maximizeTarget={maximizeTarget}
         openChatSearch={openChatSearch}
         platform={platform}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={panes.right.open}
-        selectedWorkspace={workspace.selectedWorkspace}
         setBottomPaneOpen={(open) => panes.setPaneOpen("bottom", open)}
         setChatPaneOpen={setChatPaneOpen}
         setProjectPaneOpen={(open) => {
@@ -124,9 +114,10 @@ function AppShell() {
         setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
         toggleMaximizedPane={toggleMaximizedPane}
       />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900 transition-[gap] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
+      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
         <ProjectPane
           chromeInsetTop={visibility.project}
+          chat={chat}
           open={visibility.project}
           openSettingsPane={openSettingsPane}
           setWidth={setProjectPaneWidth}
@@ -135,6 +126,7 @@ function AppShell() {
         />
         <WorkspaceArea
           bottomPaneHeight={bottomPaneHeight}
+          chat={chat}
           chatPaneWidth={chatPaneWidth}
           chatSearchOpen={chatSearchOpen}
           maximizedPane={maximizedPane}
@@ -159,17 +151,6 @@ function useBackendResyncStatus() {
       }
     });
   }, []);
-}
-
-function useSelectedWorkspaceChatSync(workspaceId: string | null) {
-  const loadWorkspace = useChatStore((state) => state.loadWorkspace);
-  const storeWorkspaceId = useChatStore((state) => state.workspaceId);
-  useLayoutEffect(() => {
-    if (!workspaceId || workspaceId === storeWorkspaceId) {
-      return;
-    }
-    void loadWorkspace(workspaceId);
-  }, [loadWorkspace, storeWorkspaceId, workspaceId]);
 }
 
 type MaximizedPane = "bottom" | "chat" | "right" | null;
@@ -287,6 +268,7 @@ function assertNever(value: never): never {
 
 function WorkspaceArea({
   bottomPaneHeight,
+  chat,
   chatPaneWidth,
   chatSearchOpen,
   maximizedPane,
@@ -299,6 +281,7 @@ function WorkspaceArea({
   workspace,
 }: {
   bottomPaneHeight: number;
+  chat: ChatView;
   chatPaneWidth: number;
   chatSearchOpen: boolean;
   maximizedPane: MaximizedPane;
@@ -317,16 +300,16 @@ function WorkspaceArea({
     <div
       className={cn(
         "relative grid h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-900",
-        "transition-[grid-template-rows] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         workspaceAreaRows(maximizedPane),
       )}
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-8 z-40 h-px bg-zinc-800"
+        className="pointer-events-none absolute inset-x-0 top-10 z-40 h-px bg-zinc-800"
       />
       {contentPresent ? (
         <WorkspaceContentRow
+          chat={chat}
           chatPaneWidth={chatPaneWidth}
           chatSearchOpen={chatSearchOpen}
           maximizedPane={maximizedPane}
@@ -342,10 +325,8 @@ function WorkspaceArea({
       {bottomPresent ? (
         <div
           className={cn(
-            "min-h-0 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-            visibility.bottom
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-3 opacity-0",
+            "min-h-0",
+            !visibility.bottom && "pointer-events-none translate-y-3 opacity-0",
           )}
         >
           <ResizableBottomPane
@@ -357,8 +338,10 @@ function WorkspaceArea({
           >
             <WorkspacePanePanel
               activeTabId={panes.bottom.activeTabId}
+              chromeInsetTop={maximizedPane === "bottom"}
               maximized={maximizedPane === "bottom"}
               onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
+              onCreateTab={(kind) => panes.createTab("bottom", kind)}
               onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
               onToggleMaximize={() => toggleMaximizedPane("bottom")}
               slot="bottom"
@@ -372,6 +355,7 @@ function WorkspaceArea({
 }
 
 function WorkspaceContentRow({
+  chat,
   chatPaneWidth,
   chatSearchOpen,
   maximizedPane,
@@ -383,6 +367,7 @@ function WorkspaceContentRow({
   visibility,
   workspace,
 }: {
+  chat: ChatView;
   chatPaneWidth: number;
   chatSearchOpen: boolean;
   maximizedPane: MaximizedPane;
@@ -401,12 +386,12 @@ function WorkspaceContentRow({
     <div
       className={cn(
         "flex min-h-0 min-w-0 overflow-hidden bg-zinc-900",
-        "transition-[gap,opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
+        !visible && "pointer-events-none translate-y-2 opacity-0",
       )}
     >
       <ChatPane
         chromeInsetTop={visibility.chat}
+        chat={chat}
         chatSearchOpen={chatSearchOpen}
         maximized={maximizedPane === "chat"}
         open={visibility.chat}
@@ -420,16 +405,15 @@ function WorkspaceContentRow({
       {rightPresent ? (
         <div
           className={cn(
-            "h-full min-w-[360px] flex-1 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-            visibility.right
-              ? "translate-x-0 opacity-100"
-              : "pointer-events-none translate-x-4 opacity-0",
+            "h-full min-w-[360px] flex-1",
+            !visibility.right && "pointer-events-none translate-x-4 opacity-0",
           )}
         >
           <WorkspacePanePanel
             activeTabId={panes.right.activeTabId}
             maximized={maximizedPane === "right"}
             onCloseTab={(tabId) => panes.closeTab("right", tabId)}
+            onCreateTab={(kind) => panes.createTab("right", kind)}
             onSelectTab={(tabId) => panes.selectTab("right", tabId)}
             slot="right"
             tabs={panes.right.tabs}
@@ -444,6 +428,7 @@ type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
 
 function ProjectPane({
   chromeInsetTop,
+  chat,
   open,
   openSettingsPane,
   setWidth,
@@ -451,6 +436,7 @@ function ProjectPane({
   workspace,
 }: {
   chromeInsetTop: boolean;
+  chat: ChatView;
   open: boolean;
   openSettingsPane: () => void;
   setWidth: (width: number) => void;
@@ -460,36 +446,6 @@ function ProjectPane({
   if (!open) {
     return null;
   }
-
-  return (
-    <ProjectPaneContent
-      chromeInsetTop={chromeInsetTop}
-      openSettingsPane={openSettingsPane}
-      setWidth={setWidth}
-      width={width}
-      workspace={workspace}
-    />
-  );
-}
-
-function ProjectPaneContent({
-  chromeInsetTop,
-  openSettingsPane,
-  setWidth,
-  width,
-  workspace,
-}: {
-  chromeInsetTop: boolean;
-  openSettingsPane: () => void;
-  setWidth: (width: number) => void;
-  width: number;
-  workspace: WorkspaceViewState;
-}) {
-  const activeRun = useChatStore((state) => state.activeRun);
-  const createConversation = useChatStore((state) => state.createConversation);
-  const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
-  const selectConversation = useChatStore((state) => state.selectConversation);
-  const selectedConversationId = useChatStore((state) => state.selectedConversation?.id ?? "");
 
   return (
     <ResizablePane
@@ -501,38 +457,37 @@ function ProjectPaneContent({
     >
       <div className="h-full">
         <WorkspaceSidebar
-          activeRun={activeRun}
+          activeRun={chat.activeRun}
           activeWorkspaces={workspace.activeWorkspaces}
-          busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
+          busy={workspace.busy || chat.operation !== null}
+          chatBusy={chat.operation !== null || chat.status === "loading"}
           closeWorkspace={workspace.closeWorkspace}
-          createConversation={createConversation}
-          createWorkspaceConversation={createWorkspaceConversation}
+          conversations={chat.conversations}
+          corruption={chat.corruption}
+          createConversation={chat.createConversation}
+          createWorkspaceConversation={chat.createWorkspaceConversation}
+          deleteConversation={chat.deleteConversation}
+          diagnostics={chat.diagnostics}
           openLocalFolder={workspace.openLocalFolder}
-          openWorkspacePath={workspace.openWorkspacePath}
           openSettingsPane={openSettingsPane}
           recentWorkspaces={workspace.recentWorkspaces}
           removeRecent={workspace.removeRecent}
-          selectConversation={selectConversation}
+          selectConversation={chat.selectConversation}
           selectWorkspace={workspace.selectWorkspace}
-          selectedConversationId={selectedConversationId}
+          selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectedWorkspaceId={workspace.selectedWorkspaceId}
           chromeInsetTop={chromeInsetTop}
           sidebarWidth={width}
+          unreadConversationIds={chat.unreadConversationIds}
         />
       </div>
     </ResizablePane>
   );
 }
 
-export function sidebarWorkspaceBusy(
-  operation: WorkspaceOperation,
-  status: WorkspaceStatus,
-): boolean {
-  return status === "loading" || (operation !== null && operation !== "selecting");
-}
-
 function ChatPane({
   chromeInsetTop,
+  chat,
   chatSearchOpen,
   maximized,
   open,
@@ -544,6 +499,7 @@ function ChatPane({
   workspace,
 }: {
   chromeInsetTop: boolean;
+  chat: ChatView;
   chatSearchOpen: boolean;
   maximized: boolean;
   open: boolean;
@@ -558,45 +514,9 @@ function ChatPane({
     return null;
   }
 
-  return (
-    <ChatPaneContent
-      chromeInsetTop={chromeInsetTop}
-      chatSearchOpen={chatSearchOpen}
-      maximized={maximized}
-      rightPaneOpen={rightPaneOpen}
-      setChatSearchOpen={setChatSearchOpen}
-      setWidth={setWidth}
-      toggleMaximize={toggleMaximize}
-      width={width}
-      workspace={workspace}
-    />
-  );
-}
-
-function ChatPaneContent({
-  chromeInsetTop,
-  chatSearchOpen,
-  maximized,
-  rightPaneOpen,
-  setChatSearchOpen,
-  setWidth,
-  toggleMaximize,
-  width,
-  workspace,
-}: {
-  chromeInsetTop: boolean;
-  chatSearchOpen: boolean;
-  maximized: boolean;
-  rightPaneOpen: boolean;
-  setChatSearchOpen: (open: boolean) => void;
-  setWidth: (width: number) => void;
-  toggleMaximize: () => void;
-  width: number;
-  workspace: WorkspaceViewState;
-}) {
-  const chat = useChatViewState();
   const panel = (
     <ChatPanel
+      avoidShellControls={!rightPaneOpen || maximized}
       chat={chat}
       chromeInsetTop={chromeInsetTop}
       maximized={maximized}
@@ -626,13 +546,13 @@ function ChatPaneContent({
 function AppChromeControls({
   bottomPaneOpen,
   chatPaneOpen,
+  createConversation,
   maximizedPane,
   maximizeTarget,
   openChatSearch,
   platform,
   projectPaneOpen,
   rightPaneOpen,
-  selectedWorkspace,
   setBottomPaneOpen,
   setChatPaneOpen,
   setProjectPaneOpen,
@@ -641,20 +561,19 @@ function AppChromeControls({
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
+  createConversation: (title?: string) => Promise<void>;
   maximizedPane: MaximizedPane;
   maximizeTarget: NonNullable<MaximizedPane> | null;
   openChatSearch: () => void;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
-  selectedWorkspace: WorkspaceSummary | null;
   setBottomPaneOpen: (open: boolean) => void;
   setChatPaneOpen: (open: boolean) => void;
   setProjectPaneOpen: (open: boolean) => void;
   setRightPaneOpen: (open: boolean) => void;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
-  const createConversation = useChatStore((state) => state.createConversation);
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if (!isModShortcut(event)) {
@@ -680,18 +599,20 @@ function AppChromeControls({
   return (
     <>
       <ShellTopBar />
+      <FloatingProjectPaneControl
+        active={projectPaneOpen}
+        platform={platform}
+        setProjectPaneOpen={setProjectPaneOpen}
+      />
       <FloatingPaneControls
         bottomPaneOpen={bottomPaneOpen}
         chatPaneOpen={chatPaneOpen}
         platform={platform}
-        projectPaneOpen={projectPaneOpen}
         rightPaneOpen={rightPaneOpen}
-        rootPath={selectedWorkspace?.rootPath ?? ""}
         maximizedPane={maximizedPane}
         maximizeTarget={maximizeTarget}
         setBottomPaneOpen={setBottomPaneOpen}
         setChatPaneOpen={setChatPaneOpen}
-        setProjectPaneOpen={setProjectPaneOpen}
         setRightPaneOpen={setRightPaneOpen}
         toggleMaximizedPane={toggleMaximizedPane}
       />
@@ -699,11 +620,38 @@ function AppChromeControls({
   );
 }
 
+function FloatingProjectPaneControl({
+  active,
+  platform,
+  setProjectPaneOpen,
+}: {
+  active: boolean;
+  platform: DesktopPlatform;
+  setProjectPaneOpen: (open: boolean) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "app-no-drag fixed top-1 z-50 text-zinc-500",
+        floatingProjectControlLeftInsetClass(platform),
+      )}
+    >
+      <ShellPaneToggle
+        active={active}
+        label={active ? "Hide project sidebar" : "Show project sidebar"}
+        onClick={() => setProjectPaneOpen(!active)}
+      >
+        <PanelLeftOpen className="h-3.5 w-3.5" />
+      </ShellPaneToggle>
+    </div>
+  );
+}
+
 function ShellTopBar() {
   return (
     <div
       aria-hidden="true"
-      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-8 bg-transparent"
+      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-10 bg-transparent"
       data-testid="shell-top-bar"
     />
   );
@@ -732,8 +680,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-100 outline-none hover:bg-zinc-800 focus-visible:bg-zinc-800"
-          : "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+          ? "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
+          : "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
       }
       disabled={disabled}
       onClick={onClick}
@@ -749,47 +697,33 @@ function FloatingPaneControls({
   bottomPaneOpen,
   chatPaneOpen,
   platform,
-  projectPaneOpen,
   rightPaneOpen,
-  rootPath,
   maximizedPane,
   maximizeTarget,
   setBottomPaneOpen,
   setChatPaneOpen,
-  setProjectPaneOpen,
   setRightPaneOpen,
   toggleMaximizedPane,
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
   platform: DesktopPlatform;
-  projectPaneOpen: boolean;
   rightPaneOpen: boolean;
-  rootPath: string;
   maximizedPane: MaximizedPane;
   maximizeTarget: NonNullable<MaximizedPane> | null;
   setBottomPaneOpen: (open: boolean) => void;
   setChatPaneOpen: (open: boolean) => void;
-  setProjectPaneOpen: (open: boolean) => void;
   setRightPaneOpen: (open: boolean) => void;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
   return (
     <div
       className={cn(
-        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-400",
+        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-500",
         floatingControlsRightInsetClass(platform),
       )}
     >
-      <div className="pointer-events-auto flex items-center gap-1 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
-        <EditorPicker rootPath={rootPath} />
-        <ShellPaneToggle
-          active={projectPaneOpen}
-          label={projectPaneOpen ? "Hide project sidebar" : "Show project sidebar"}
-          onClick={() => setProjectPaneOpen(!projectPaneOpen)}
-        >
-          <PanelLeftOpen className="h-3.5 w-3.5" />
-        </ShellPaneToggle>
+      <div className="pointer-events-auto flex items-center gap-1">
         <ShellPaneToggle
           active={chatPaneOpen}
           label={chatPaneOpen ? "Hide chat pane" : "Show chat pane"}
@@ -804,6 +738,11 @@ function FloatingPaneControls({
         >
           <PanelBottomOpen className="h-3.5 w-3.5" />
         </ShellPaneToggle>
+        <TopBarMaximizeButton
+          maximizedPane={maximizedPane}
+          maximizeTarget={maximizeTarget}
+          toggleMaximizedPane={toggleMaximizedPane}
+        />
         <ShellPaneToggle
           active={rightPaneOpen}
           label={rightPaneOpen ? "Hide right pane" : "Show right pane"}
@@ -811,11 +750,6 @@ function FloatingPaneControls({
         >
           <PanelRightOpen className="h-3.5 w-3.5" />
         </ShellPaneToggle>
-        <TopBarMaximizeButton
-          maximizedPane={maximizedPane}
-          maximizeTarget={maximizeTarget}
-          toggleMaximizedPane={toggleMaximizedPane}
-        />
       </div>
     </div>
   );
@@ -830,27 +764,22 @@ function TopBarMaximizeButton({
   maximizeTarget: NonNullable<MaximizedPane> | null;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
+  if (maximizeTarget === null) {
+    return null;
+  }
   const active = maximizeTarget !== null && maximizedPane === maximizeTarget;
-  const label =
-    maximizeTarget === null ? "Maximize pane" : maximizeButtonLabel(maximizeTarget, active);
+  const label = maximizeButtonLabel(maximizeTarget, active);
   return (
     <button
-      aria-hidden={maximizeTarget === null}
       aria-label={label}
       className={cn(
         "inline-flex h-7 w-7 items-center justify-center rounded-sm outline-none transition-[opacity,transform,background-color,color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         active
-          ? "text-zinc-100 hover:bg-zinc-800 focus-visible:bg-zinc-800"
-          : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100",
-        maximizeTarget === null && "pointer-events-none translate-x-1 opacity-0",
+          ? "text-zinc-300 hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
+          : "text-zinc-600 hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300",
       )}
-      disabled={maximizeTarget === null}
-      onClick={() => {
-        if (maximizeTarget !== null) {
-          toggleMaximizedPane(maximizeTarget);
-        }
-      }}
-      title={maximizeTarget === null ? undefined : label}
+      onClick={() => toggleMaximizedPane(maximizeTarget)}
+      title={label}
       type="button"
     >
       {active ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -879,12 +808,15 @@ function floatingControlsRightInsetClass(platform: DesktopPlatform) {
   return platform === "darwin" ? "right-2" : "right-36";
 }
 
+function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
+  return platform === "darwin" ? "left-[74px]" : "left-2";
+}
+
 function useWorkspaceViewState() {
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
   const error = useWorkspaceStore((state) => state.error);
   const loadSession = useWorkspaceStore((state) => state.loadSession);
   const openLocalFolder = useWorkspaceStore((state) => state.openLocalFolder);
-  const openWorkspacePath = useWorkspaceStore((state) => state.openWorkspacePath);
   const operation = useWorkspaceStore((state) => state.operation);
   const removeRecent = useWorkspaceStore((state) => state.removeRecent);
   const selectWorkspace = useWorkspaceStore((state) => state.selectWorkspace);
@@ -902,7 +834,6 @@ function useWorkspaceViewState() {
     closeWorkspace,
     error,
     openLocalFolder,
-    openWorkspacePath,
     operation,
     recentWorkspaces: session?.recentWorkspaces ?? [],
     removeRecent,

@@ -19,6 +19,9 @@ type ScriptedWorkflowHarness struct {
 	steers    map[string]chan SteerRequest
 }
 
+var _ HarnessCommandExecutor = (*ScriptedWorkflowHarness)(nil)
+var _ HarnessGoalContinuationStarter = (*ScriptedWorkflowHarness)(nil)
+
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
 
 type scriptedWorkflowFixture struct {
@@ -28,7 +31,6 @@ type scriptedWorkflowFixture struct {
 
 var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "workflow hold for queue and steering", Run: (*ScriptedWorkflowHarness).workflowTurn},
-	{Prompt: "immediate replay workflow", Run: (*ScriptedWorkflowHarness).workflowTurn},
 	{Prompt: "queued follow-up from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up one from active run", Run: scriptedQueuedReply},
 	{Prompt: "queued follow-up two from active run", Run: scriptedQueuedReply},
@@ -136,29 +138,20 @@ func (harness *ScriptedWorkflowHarness) ExecuteCommand(_ context.Context, reques
 	defer harness.mu.Unlock()
 
 	harness.commands = append(harness.commands, request)
-	result := HarnessCommandResult{Action: ChatCommandResultDisplay}
-	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		result.ThreadRef = request.ThreadRef
-		result.HasThreadRef = true
-	}
-	if request.ActiveRun == nil && commandNeedsThread(request.Command) && !commandUsesLocalCodexSettings(request.Command, request.ThreadRef) {
-		ref := request.ThreadRef
-		if ref.ThreadID == "" {
-			ref = HarnessThreadRef{
-				Harness:   HarnessCodex,
-				SessionID: "scripted-session",
-				Status:    HarnessRefLinked,
-				ThreadID:  "scripted-thread-" + request.Conversation.ID,
-			}
-		}
-		result.ThreadRef = ref
-		result.HasThreadRef = true
-	}
+	result := commandDisplayResult(request, "scripted-session", "scripted-thread-")
 	switch request.Command.Kind {
 	case ChatCommandGoal:
 		return harness.executeGoalCommandLocked(request.Command, result)
+	case ChatCommandMCP:
+		result.DisplayTitle = "MCP"
+		result.DisplayMessage = "MCP servers:\n- scripted: auth unsupported, 2 tools"
+		return result, nil
 	case ChatCommandModel:
 		return harness.executeModelCommandLocked(request.Command, result)
+	case ChatCommandSkills:
+		result.DisplayTitle = "Skills"
+		result.DisplayMessage = "Available skills:\n- scripted-skill: Scripted workflow skill"
+		return result, nil
 	default:
 		return HarnessCommandResult{}, fmt.Errorf("unsupported scripted command kind: %s", request.Command.Kind)
 	}

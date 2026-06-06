@@ -64,6 +64,43 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	}
 }
 
+func TestServiceDeleteConversationArchivesAndHidesConversation(t *testing.T) {
+	appDataDir := t.TempDir()
+	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	first, err := service.CreateConversation("workspace_api", "first")
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	second, err := service.CreateConversation("workspace_api", "second")
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	list, err := service.DeleteConversation("workspace_api", first.ID)
+	if err != nil {
+		t.Fatalf("delete conversation: %v", err)
+	}
+	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != second.ID {
+		t.Fatalf("conversations = %+v, want only second conversation", list.Conversations)
+	}
+	archived, err := service.store.LoadConversation("workspace_api", first.ID)
+	if err != nil {
+		t.Fatalf("load archived conversation: %v", err)
+	}
+	if archived.ArchivedAt == "" {
+		t.Fatal("archivedAt is empty, want archived conversation timestamp")
+	}
+
+	restarted := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	restartedList, err := restarted.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations after restart: %v", err)
+	}
+	if len(restartedList.Conversations) != 1 || restartedList.Conversations[0].Conversation.ID != second.ID {
+		t.Fatalf("restarted conversations = %+v, want only second conversation", restartedList.Conversations)
+	}
+}
+
 func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventError, Error: "codex app-server failed to start"}})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
@@ -625,21 +662,14 @@ func TestServiceSteeringPersistsMessageAndCallsHarness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("steer active: %v", err)
 	}
-	if result.UserMessage.Delivery != MessageDeliverySteering || result.UserMessage.Status != MessageStatusPending {
-		t.Fatalf("steering message = %+v, want pending steering", result.UserMessage)
+	if result.UserMessage.Delivery != MessageDeliverySteering || result.UserMessage.Status != MessageStatusComplete {
+		t.Fatalf("steering message = %+v, want complete steering", result.UserMessage)
 	}
 	requests := harness.SteeringRequests()
 	if len(requests) != 1 || requests[0].Text != "S1" || requests[0].TurnID != "turn_fake" {
 		t.Fatalf("steering requests = %+v, want S1 for active turn", requests)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
-	committed, err := service.store.LoadMessageByID("workspace_api", conversation.ID, result.UserMessage.ID)
-	if err != nil {
-		t.Fatalf("load steering message: %v", err)
-	}
-	if committed.Status != MessageStatusComplete {
-		t.Fatalf("committed steering status = %s, want complete", committed.Status)
-	}
 }
 
 func TestServiceSteeringRequiresStartedTurn(t *testing.T) {

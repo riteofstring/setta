@@ -1,7 +1,8 @@
 import type { RunItem, RunItemOutput, RunItemType } from "@generated/backend";
 import {
   AlertTriangle,
-  Archive,
+  ChevronDown,
+  ChevronUp,
   FileText,
   ListChecks,
   Terminal,
@@ -9,6 +10,8 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { cn } from "../lib/utils";
+import { BrailleSpinner } from "./ascii-spinner";
 import { Button } from "./ui/button";
 import type { RunItemOutputPageState } from "../stores/chat-store";
 
@@ -17,7 +20,6 @@ const activityLabelByType = {
   approval_review: "approval review",
   collab_agent_tool_call: "collab agent tool call",
   command_execution: "command execution",
-  context_compaction: "context compaction",
   diff: "diff",
   dynamic_tool_call: "dynamic tool call",
   file_change: "file change",
@@ -38,7 +40,6 @@ const activityIconByType = {
   approval_review: AlertTriangle,
   collab_agent_tool_call: Wrench,
   command_execution: Terminal,
-  context_compaction: Archive,
   diff: FileText,
   dynamic_tool_call: Wrench,
   file_change: FileText,
@@ -59,7 +60,6 @@ const activityIconClassByType = {
   approval_review: "h-4 w-4 shrink-0 text-amber-600",
   collab_agent_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
   command_execution: "h-4 w-4 shrink-0 text-zinc-500",
-  context_compaction: "h-4 w-4 shrink-0 text-zinc-500",
   diff: "h-4 w-4 shrink-0 text-zinc-500",
   dynamic_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
   file_change: "h-4 w-4 shrink-0 text-zinc-500",
@@ -94,7 +94,7 @@ export function RunActivityRows({
   outputsById: Record<string, RunItemOutput>;
 }) {
   return (
-    <div className="mt-4 space-y-2 border-t border-zinc-100 pt-3">
+    <div className="mt-3 w-full min-w-0 max-w-full overflow-hidden space-y-1.5 border-t border-zinc-800/80 pt-2.5">
       {items.map((item) => (
         <RunActivityRow
           item={item}
@@ -127,7 +127,7 @@ function RunActivityRow({
   const outputText = outputPreview(outputs);
   return (
     <details
-      className="group rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
+      className="group relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-zinc-100"
       data-testid="run-activity-row"
       onToggle={(event) => {
         if (!event.currentTarget.open || outputPage?.loading || outputPage) {
@@ -136,12 +136,13 @@ function RunActivityRow({
         void loadRunItemOutput(item.runId, item.id, 0);
       }}
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2">
+      <summary className="flex h-6 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-zinc-300 marker:hidden">
         <ActivityIcon type={item.type} />
-        <span className="min-w-0 flex-1 truncate font-medium text-zinc-800">
+        <ToolDisclosureIcon />
+        <span className="min-w-0 flex-1 truncate font-medium text-zinc-300">
           {activityTitle(item)}
         </span>
-        <span className="shrink-0 text-xs text-zinc-500">{item.status}</span>
+        <RunActivityStatus item={item} />
       </summary>
       <RunActivityDetails
         item={item}
@@ -167,23 +168,25 @@ function RunActivityDetails({
   outputText: string;
 }) {
   return (
-    <div className="mt-2 space-y-2 text-xs text-zinc-600">
-      <RunActivityCwd cwd={item.cwd} />
-      <RunActivityCommand command={item.command} />
-      <RunActivityFiles paths={item.filePaths} />
-      <RunActivityMetadata item={item} />
-      <OptionalRunActivityText value={item.progress} />
-      <OptionalRunActivityText value={item.result} />
-      <OptionalRunActivityText className="font-medium text-red-600" value={item.error} />
-      <OptionalRunActivityText value={item.noticeMessage} />
-      <OptionalRunActivityText value={item.diffSummary} />
-      <RunActivityJSONDetails details={item.details} />
-      <RunActivityExit durationMs={item.durationMs} exitCode={item.exitCode} />
-      <RunActivityOutput
-        loadMoreOutput={loadMoreOutput}
-        outputPage={outputPage}
-        outputText={outputText}
-      />
+    <div className="mt-1.5 w-full min-w-0 max-w-full overflow-hidden border-l border-zinc-700/70 pl-2">
+      <div className="w-full min-w-0 max-w-full overflow-hidden space-y-1.5 text-xs text-zinc-400">
+        <RunActivityCwd cwd={item.cwd} />
+        <RunActivityCommand command={item.command} />
+        <RunActivityFiles paths={item.filePaths} />
+        <RunActivityMetadata item={item} />
+        <RunActivityTextBlock title="Progress" value={item.progress} />
+        <RunActivityTextBlock title="Result" value={item.result} />
+        <RunActivityTextBlock tone="error" title="Error" value={item.error} />
+        <RunActivityTextBlock title="Notice" value={item.noticeMessage} />
+        <RunActivityTextBlock title="Diff" value={item.diffSummary} />
+        <RunActivityJSONDetails details={item.details} />
+        <RunActivityExit durationMs={item.durationMs} exitCode={item.exitCode} />
+        <RunActivityOutput
+          loadMoreOutput={loadMoreOutput}
+          outputPage={outputPage}
+          outputText={outputText}
+        />
+      </div>
     </div>
   );
 }
@@ -192,33 +195,21 @@ function RunActivityCwd({ cwd }: { cwd: string }) {
   if (!cwd) {
     return null;
   }
-  return <div className="break-all font-mono">{cwd}</div>;
+  return <RunActivityTextBlock monospace title="Cwd" value={cwd} />;
 }
 
 function RunActivityCommand({ command }: { command: string }) {
   if (!command) {
     return null;
   }
-  return (
-    <pre className="max-h-28 overflow-auto rounded border border-zinc-200 bg-white p-2">
-      {command}
-    </pre>
-  );
+  return <RunActivityPreBlock title="Command" value={command} />;
 }
 
 function RunActivityFiles({ paths }: { paths: string[] }) {
   if (paths.length === 0) {
     return null;
   }
-  return (
-    <div className="space-y-1">
-      {paths.map((path) => (
-        <div className="break-all font-mono" key={path}>
-          {path}
-        </div>
-      ))}
-    </div>
-  );
+  return <RunActivityPreBlock title="Files" value={paths.join("\n")} />;
 }
 
 function RunActivityMetadata({ item }: { item: RunItem }) {
@@ -230,7 +221,7 @@ function RunActivityMetadata({ item }: { item: RunItem }) {
     <div className="flex flex-wrap gap-1.5">
       {entries.map((entry) => (
         <span
-          className="max-w-full truncate rounded border border-zinc-200 bg-white px-2 py-0.5 font-mono"
+          className="max-w-full truncate rounded-sm border border-zinc-700 bg-zinc-950 px-2 py-0.5 font-mono text-zinc-300"
           key={entry.label}
         >
           {entry.label}: {entry.value}
@@ -249,11 +240,52 @@ function runActivityMetadata(item: RunItem) {
   ].filter((entry) => entry.value !== "");
 }
 
-function OptionalRunActivityText({ className, value }: { className?: string; value: string }) {
+function RunActivityTextBlock({
+  monospace = false,
+  title,
+  tone = "normal",
+  value,
+}: {
+  monospace?: boolean;
+  title: string;
+  tone?: "error" | "normal";
+  value: string;
+}) {
   if (!value) {
     return null;
   }
-  return <div className={className}>{value}</div>;
+  return (
+    <section className="min-w-0">
+      <h4 className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+        {title}
+      </h4>
+      <div
+        className={cn(
+          "mt-0.5 break-words text-zinc-300",
+          monospace && "break-all font-mono",
+          tone === "error" && "font-medium text-red-400",
+        )}
+      >
+        {value}
+      </div>
+    </section>
+  );
+}
+
+function RunActivityPreBlock({ title, value }: { title: string; value: string }) {
+  if (!value) {
+    return null;
+  }
+  return (
+    <section className="min-w-0">
+      <h4 className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+        {title}
+      </h4>
+      <pre className="mt-1 max-h-32 w-full min-w-0 max-w-full overflow-auto whitespace-pre-wrap rounded-sm border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs leading-5 text-zinc-300">
+        {value}
+      </pre>
+    </section>
+  );
 }
 
 function RunActivityJSONDetails({ details }: { details: unknown }) {
@@ -261,9 +293,7 @@ function RunActivityJSONDetails({ details }: { details: unknown }) {
   if (!text) {
     return null;
   }
-  return (
-    <pre className="max-h-32 overflow-auto rounded border border-zinc-200 bg-white p-2">{text}</pre>
-  );
+  return <RunActivityPreBlock title="Details" value={text} />;
 }
 
 function runActivityDetailsText(details: unknown) {
@@ -284,10 +314,10 @@ function RunActivityExit({ durationMs, exitCode }: { durationMs: number; exitCod
     return null;
   }
   return (
-    <div>
-      {exitCode > 0 ? `exit ${exitCode}` : "exit 0"}
-      {durationMs > 0 ? ` / ${durationMs}ms` : ""}
-    </div>
+    <RunActivityTextBlock
+      title="Exit"
+      value={`${exitCode > 0 ? `exit ${exitCode}` : "exit 0"}${durationMs > 0 ? ` / ${durationMs}ms` : ""}`}
+    />
   );
 }
 
@@ -304,7 +334,7 @@ function RunActivityOutput({
     return null;
   }
   return (
-    <div className="space-y-2">
+    <div className="w-full min-w-0 max-w-full overflow-hidden space-y-2">
       <RunActivityOutputText outputText={outputText} />
       <RunActivityOutputError outputPage={outputPage} />
       <RunActivityOutputLoadMore loadMoreOutput={loadMoreOutput} outputPage={outputPage} />
@@ -321,11 +351,7 @@ function RunActivityOutputText({ outputText }: { outputText: string }) {
   if (!outputText) {
     return null;
   }
-  return (
-    <pre className="max-h-32 overflow-auto rounded border border-zinc-200 bg-white p-2">
-      {outputText}
-    </pre>
-  );
+  return <RunActivityPreBlock title="Output" value={outputText} />;
 }
 
 function RunActivityOutputError({
@@ -336,7 +362,7 @@ function RunActivityOutputError({
   if (!outputPage?.error) {
     return null;
   }
-  return <div className="font-medium text-red-600">{outputPage.error}</div>;
+  return <div className="font-medium text-red-400">{outputPage.error}</div>;
 }
 
 function RunActivityOutputLoadMore({
@@ -351,6 +377,7 @@ function RunActivityOutputLoadMore({
   }
   return (
     <Button
+      className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
       disabled={outputPage.loading}
       onClick={loadMoreOutput}
       type="button"
@@ -369,12 +396,32 @@ function RunActivityOutputLoading({
   if (!outputPage?.loading) {
     return null;
   }
-  return <div className="text-zinc-500">Loading output...</div>;
+  return <BrailleSpinner className="text-zinc-500" label="Loading tool output" />;
 }
 
 function ActivityIcon({ type }: { type: RunItemType }) {
   const Icon = activityIconByType[type];
   return <Icon className={activityIconClassByType[type]} />;
+}
+
+function ToolDisclosureIcon() {
+  return (
+    <>
+      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-open:hidden" />
+      <ChevronUp className="hidden h-3.5 w-3.5 shrink-0 text-zinc-400 group-open:block" />
+    </>
+  );
+}
+
+function RunActivityStatus({ item }: { item: RunItem }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-[11px] text-zinc-500">
+      {item.status === "running" || item.status === "pending" ? (
+        <BrailleSpinner className="text-zinc-500" label={`${activityTitle(item)} running`} />
+      ) : null}
+      <span>{item.status}</span>
+    </span>
+  );
 }
 
 function activityTitle(item: RunItem) {

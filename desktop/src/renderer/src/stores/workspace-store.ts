@@ -15,7 +15,6 @@ interface WorkspaceStore {
   loadSession: () => Promise<void>;
   closeWorkspace: (id: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
-  openWorkspacePath: (rootPath: string) => Promise<void>;
   operation: WorkspaceOperation;
   removeRecent: (id: string) => Promise<void>;
   reorderWorkspaces: (ids: string[]) => Promise<void>;
@@ -90,12 +89,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => {
           response === null
             ? { operation: null }
             : { operation: null, session: response.session, status: "ready" },
-      ),
-    openWorkspacePath: (rootPath: string) =>
-      runWorkspaceOperation(
-        "opening",
-        () => window.setta.workspace.openPath(rootPath),
-        (response) => ({ operation: null, session: response.session, status: "ready" }),
       ),
     operation: null,
     removeRecent: (id: string) =>

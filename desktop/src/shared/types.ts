@@ -1,21 +1,19 @@
 import type {
+  AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
+  ChatMessage,
   CodexAccountState,
   Conversation,
-  ConversationListItem,
   GetActiveRunResponse,
-  ImmediateSteeringResult,
   ListConversationsResponse,
   LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
-  QueueEditResult,
   QueueMessageResult,
-  QueueRemoveResult,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
@@ -26,6 +24,7 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
+  UpdateAppearanceSettingsRequest,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -87,10 +86,6 @@ export interface ChatCommandExecutionOptions {
 
 export interface SettaAPI {
   app: {
-    flags: {
-      pixiWorkspaceDebug: boolean;
-      pixiWorkspacePrototype: boolean;
-    };
     installedEditors: () => Promise<InstalledEditorApp[]>;
     openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;
     openExternalUrl: (url: string) => Promise<void>;
@@ -103,10 +98,13 @@ export interface SettaAPI {
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
+  appearance: {
+    read: () => Promise<AppearanceSettings>;
+    update: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
+  };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
-    openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
     select: (id: string) => Promise<WorkspaceSession>;
@@ -116,12 +114,10 @@ export interface SettaAPI {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
-    editQueuedMessage: (
+    deleteConversation: (
       workspaceId: string,
       conversationId: string,
-      messageId: string,
-      prompt: string,
-    ) => Promise<QueueEditResult>;
+    ) => Promise<ListConversationsResponse>;
     executeCommand: (
       workspaceId: string,
       conversationId: string,
@@ -140,10 +136,6 @@ export interface SettaAPI {
     ) => Promise<ChatCommandExecuteResult>;
     listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
-    markConversationRead: (
-      workspaceId: string,
-      conversationId: string,
-    ) => Promise<ConversationListItem>;
     messagePage: (
       workspaceId: string,
       conversationId: string,
@@ -155,11 +147,6 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<QueueMessageResult>;
-    removeQueuedMessage: (
-      workspaceId: string,
-      conversationId: string,
-      messageId: string,
-    ) => Promise<QueueRemoveResult>;
     runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
     runItemOutput: (
       workspaceId: string,
@@ -178,13 +165,14 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<SteerMessageResult>;
-    sendSteeringImmediately: (
-      workspaceId: string,
-      conversationId: string,
-      prompt?: string,
-    ) => Promise<ImmediateSteeringResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
+    updateUserMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      text: string,
+    ) => Promise<ChatMessage>;
   };
   codexAccount: {
     cancelLogin: (request: CancelCodexLoginRequest) => Promise<CodexAccountState>;

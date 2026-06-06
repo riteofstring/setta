@@ -125,6 +125,111 @@ func (service *Service) PublishCodexAccountChanged(reason string) {
 	_, _ = service.events.Publish(NewCodexAccountChangedEvent(reason))
 }
 
+func (service *Service) ListConversations(workspaceID string) (ConversationListResult, error) {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return ConversationListResult{}, err
+	}
+	return service.listConversations(workspaceID)
+}
+
+func (service *Service) listConversations(workspaceID string) (ConversationListResult, error) {
+	conversations, corruptConversations, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
+	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
+		return ConversationListResult{}, err
+	}
+	runs, corruptRuns, err := service.validRunsForWorkspaceList(workspaceID)
+	if err != nil {
+		return ConversationListResult{}, err
+	}
+	findings := append([]CorruptStateFinding{}, corruptConversations...)
+	findings = append(findings, corruptRuns...)
+	items := make([]ConversationListItem, 0, len(conversations))
+	for _, conversation := range conversations {
+		if conversation.ArchivedAt != "" {
+			continue
+		}
+		count, corruptMessages, err := service.store.MessageCountAllowingCorrupt(workspaceID, conversation.ID)
+		if err != nil {
+			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
+			return ConversationListResult{}, err
+		}
+		findings = append(findings, corruptMessages...)
+		items = append(items, ConversationListItem{
+			Conversation: conversation,
+			MessageCount: count,
+			ActiveRunID:  activeRunIDFromRuns(runs, conversation.ID),
+		})
+	}
+	diagnostics := service.recordCorruptStateFindings(findings)
+	return ConversationListResult{
+		Conversations: items,
+		Corruption:    corruptionSummary(findings),
+		Diagnostics:   diagnostics,
+	}, nil
+}
+
+func (service *Service) CreateConversation(workspaceID string, title string) (Conversation, error) {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return Conversation{}, err
+	}
+	now := timestamp(service.now())
+	id, err := service.newID("conversation")
+	if err != nil {
+		return Conversation{}, fmt.Errorf("create conversation id: %w", err)
+	}
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = "New chat"
+	}
+	conversation := Conversation{
+		SchemaVersion: SchemaVersion,
+		ID:            id,
+		WorkspaceID:   workspaceID,
+		Title:         title,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		ArchivedAt:    "",
+		HarnessRefs:   []HarnessThreadRef{},
+	}
+	if err := service.store.SaveConversation(conversation); err != nil {
+		return Conversation{}, err
+	}
+	if err := service.publishConversationUpdated(workspaceID, conversation.ID, ""); err != nil {
+		return Conversation{}, err
+	}
+	return conversation, nil
+}
+
+func (service *Service) LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
+	if limit == 0 {
+		limit = defaultPageLimit
+	}
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return MessagePage{}, err
+	}
+	service.mu.Lock()
+	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeOrdinal, limit)
+	service.mu.Unlock()
+	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
+		return MessagePage{}, err
+	}
+	return page, nil
+}
+
+func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
+	page, err := service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, beforeOrdinal, page)
+	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
+		return MessagePage{}, err
+	}
+	return page, nil
+}
+
 func (service *Service) SendUserMessage(workspaceID string, conversationID string, prompt string) (SendMessageResult, error) {
 	prompt = strings.TrimSpace(prompt)
 	if prompt == "" {
@@ -279,10 +384,6 @@ func (service *Service) markTurnCancelled(workspaceID string, conversationID str
 }
 
 func (service *Service) markTurnCancelledWithReason(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string) (Run, error) {
-	return service.markTurnCancelledWithOptions(workspaceID, conversationID, runID, runError, traceType, traceMessage, true)
-}
-
-func (service *Service) markTurnCancelledWithOptions(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string, reconcilePendingSteering bool) (Run, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -314,15 +415,17 @@ func (service *Service) markTurnCancelledWithOptions(workspaceID string, convers
 	}
 	message = records.AssistantMessage
 	run = records.Run
-	pendingSteering, err := service.markTerminalPendingSteeringLocked(workspaceID, conversationID, run.ID, MessageStatusCancelled, reconcilePendingSteering)
-	if err != nil {
-		return Run{}, err
-	}
 	if err := service.traceLocked(workspaceID, run.ID, traceType, traceMessage); err != nil {
 		return Run{}, err
 	}
 	delete(service.active, key)
-	if err := service.publishTerminalTurnLocked(workspaceID, conversationID, message, run, pendingSteering); err != nil {
+	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, message)); err != nil {
+		return Run{}, err
+	}
+	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
+		return Run{}, err
+	}
+	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
 		return Run{}, err
 	}
 	return run, nil
@@ -548,12 +651,8 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 	if err != nil {
 		return err
 	}
-	pendingSteering, err := service.markPendingSteeringMessagesLocked(workspaceID, conversationID, run.ID, MessageStatusComplete)
-	if err != nil {
-		return err
-	}
 	delete(service.active, activeKey(workspaceID, conversationID))
-	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, pendingSteering, run); err != nil {
+	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, run); err != nil {
 		return err
 	}
 	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
@@ -585,17 +684,11 @@ func (service *Service) saveCompletedTurnLocked(workspaceID string, run Run, mes
 	return message, run, nil
 }
 
-func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, pendingSteering []ChatMessage, run Run) error {
+func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, run Run) error {
 	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, message)); err != nil {
 		return err
 	}
-	if err := service.publishMessageUpdatesLocked(workspaceID, conversationID, run.ID, pendingSteering); err != nil {
-		return err
-	}
 	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
-		return err
-	}
-	if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, run.CompletedAt); err != nil {
 		return err
 	}
 	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
@@ -637,12 +730,17 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	if err := service.traceLocked(workspaceID, run.ID, "error_received", message); err != nil {
 		return err
 	}
-	pendingSteering, err := service.markTerminalPendingSteeringLocked(workspaceID, conversationID, run.ID, MessageStatusError, true)
-	if err != nil {
+	delete(service.active, key)
+	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, assistant)); err != nil {
 		return err
 	}
-	delete(service.active, key)
-	return service.publishTerminalTurnLocked(workspaceID, conversationID, assistant, run, pendingSteering)
+	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
+		return err
+	}
+	if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (service *Service) overlayActiveAssistantMessageLocked(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {
@@ -760,13 +858,8 @@ func (service *Service) saveApprovalRequestLocked(workspaceID string, run Run, a
 	if err := service.traceLocked(workspaceID, run.ID, "approval_requested", "Approval requested"); err != nil {
 		return err
 	}
-	if _, err := service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
-		return err
-	}
-	if err := service.advanceReadRelevantMarkerLocked(workspaceID, run.ConversationID, approval.CreatedAt); err != nil {
-		return err
-	}
-	return service.publishConversationUpdatedLocked(workspaceID, run.ConversationID, run.ID)
+	_, err := service.events.Publish(NewRunUpdatedEvent(run))
+	return err
 }
 
 func (service *Service) resolveApproval(workspaceID string, _ string, runID string, approvalID string, approved bool, response string) error {
@@ -795,13 +888,8 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	if err := service.traceLocked(workspaceID, run.ID, "approval_resolved", message); err != nil {
 		return err
 	}
-	if _, err = service.events.Publish(NewRunUpdatedEvent(run)); err != nil {
-		return err
-	}
-	if err := service.advanceReadRelevantMarkerLocked(workspaceID, run.ConversationID, timestamp(service.now())); err != nil {
-		return err
-	}
-	return service.publishConversationUpdatedLocked(workspaceID, run.ConversationID, run.ID)
+	_, err = service.events.Publish(NewRunUpdatedEvent(run))
+	return err
 }
 
 func (service *Service) linkThread(workspaceID string, conversationID string, runID string, threadID string, sessionID string, turnID string) error {
@@ -869,6 +957,47 @@ func (service *Service) markHarnessRefUnavailable(workspaceID string, conversati
 	return nil
 }
 
+func (service *Service) publishConversationUpdated(workspaceID string, conversationID string, runID string) error {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
+}
+
+func (service *Service) publishConversationUpdatedLocked(workspaceID string, conversationID string, runID string) error {
+	item, err := service.conversationListItemLocked(workspaceID, conversationID)
+	if err != nil {
+		return err
+	}
+	_, err = service.events.Publish(NewConversationUpdatedEvent(workspaceID, conversationID, runID, item))
+	return err
+}
+
+func (service *Service) conversationListItemLocked(workspaceID string, conversationID string) (ConversationListItem, error) {
+	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
+	if err != nil {
+		return ConversationListItem{}, err
+	}
+	count, err := service.store.MessageCount(workspaceID, conversationID)
+	if err != nil {
+		return ConversationListItem{}, err
+	}
+	activeRunID := ""
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
+	if err != nil {
+		return ConversationListItem{}, err
+	}
+	if run, ok, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs); err != nil {
+		return ConversationListItem{}, err
+	} else if ok {
+		activeRunID = run.ID
+	}
+	return ConversationListItem{
+		ActiveRunID:  activeRunID,
+		Conversation: conversation,
+		MessageCount: count,
+	}, nil
+}
+
 func (service *Service) trace(workspaceID string, runID string, eventType string, message string) error {
 	service.mu.Lock()
 	defer service.mu.Unlock()
@@ -888,6 +1017,105 @@ func (service *Service) traceLocked(workspaceID string, runID string, eventType 
 		CreatedAt:     timestamp(service.now()),
 		Message:       message,
 	})
+}
+
+func (service *Service) recoverInterruptedRuns() error {
+	workspaceIDs, err := service.store.WorkspaceIDs()
+	if err != nil {
+		return err
+	}
+	now := timestamp(service.now())
+	for _, workspaceID := range workspaceIDs {
+		runs, corrupt, err := service.store.ScanRunsAllowingCorrupt(workspaceID)
+		if err != nil {
+			return err
+		}
+		if len(corrupt) > 0 {
+			for _, finding := range corrupt {
+				service.recordCorruptStateFinding(finding)
+			}
+			continue
+		}
+		for _, run := range runs {
+			if run.Status != RunStatusRunning {
+				continue
+			}
+			if err := service.recoverInterruptedRun(workspaceID, run, now); err != nil {
+				if IsCorruptStateError(err) {
+					service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, run.ID)
+					continue
+				}
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (service *Service) recoverInterruptedRun(workspaceID string, run Run, now string) error {
+	message, ok, err := service.store.FindMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
+	}
+	if err := validateRunAssistantMessageRecord(run, message); err != nil {
+		return corruptStateError(service.store.runPath(workspaceID, run.ID), err)
+	}
+	message.Status = MessageStatusError
+	message.UpdatedAt = now
+	run.Status = RunStatusFailed
+	run.CompletedAt = now
+	run.Error = "run interrupted by backend restart"
+	run.PendingApproval = nil
+	if _, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: message, Run: run}); err != nil {
+		return err
+	}
+	return service.traceLocked(workspaceID, run.ID, "error_received", run.Error)
+}
+
+type turnSink struct {
+	service        *Service
+	workspaceID    string
+	conversationID string
+	runID          string
+}
+
+func (sink turnSink) AssistantTextDelta(providerItemID string, text string) error {
+	return sink.service.appendAssistantDelta(sink.workspaceID, sink.conversationID, sink.runID, providerItemID, text)
+}
+
+func (sink turnSink) ApprovalRequested(approval ApprovalRequest) error {
+	return sink.service.requestApproval(sink.workspaceID, sink.conversationID, sink.runID, approval)
+}
+
+func (sink turnSink) ApprovalResolved(approvalID string, approved bool, response string) error {
+	return sink.service.resolveApproval(sink.workspaceID, sink.conversationID, sink.runID, approvalID, approved, response)
+}
+
+func (sink turnSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool, severity DiagnosticSeverity) error {
+	return sink.service.recordProviderDiagnostic(sink.workspaceID, sink.conversationID, sink.runID, code, message, context, resyncRequired, severity)
+}
+
+func (sink turnSink) GoalUpdated(goal *ChatGoalState) error {
+	return sink.service.updateGoalState(sink.workspaceID, sink.conversationID, sink.runID, goal)
+}
+
+func (sink turnSink) RunItemOutputDelta(providerItemID string, stream string, text string) error {
+	return sink.service.appendRunItemOutput(sink.workspaceID, sink.conversationID, sink.runID, providerItemID, stream, text)
+}
+
+func (sink turnSink) RunItemUpsert(item RunItem) error {
+	return sink.service.upsertRunItem(sink.workspaceID, sink.conversationID, sink.runID, item)
+}
+
+func (sink turnSink) ThreadLinked(threadID string, sessionID string, turnID string) error {
+	return sink.service.linkThread(sink.workspaceID, sink.conversationID, sink.runID, threadID, sessionID, turnID)
+}
+
+func (sink turnSink) Trace(eventType string, message string) error {
+	return sink.service.trace(sink.workspaceID, sink.runID, eventType, message)
 }
 
 func updateConversationAfterPrompt(conversation Conversation, prompt string, now string) Conversation {
