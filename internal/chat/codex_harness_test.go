@@ -457,7 +457,7 @@ func TestCodexHarnessMapsRunActivity(t *testing.T) {
 	if !ok || commandItem.Command != "go test ./..." {
 		t.Fatalf("items = %+v, want command execution", sink.items)
 	}
-	if len(sink.outputs) != 1 || sink.outputs[0].text != "ok\n" {
+	if len(sink.outputs) != 1 || sink.outputs[0].stream != codexCommandExecutionOutputStream || sink.outputs[0].text != "ok\n" {
 		t.Fatalf("outputs = %+v, want command output", sink.outputs)
 	}
 	if !containsRunItemType(sink.items, RunItemTypeNotice) {
@@ -530,7 +530,7 @@ func TestCodexHarnessRejectsMalformedAssistantDelta(t *testing.T) {
 	if err == nil {
 		t.Fatal("start turn succeeded, want malformed delta error")
 	}
-	if !strings.Contains(err.Error(), "codex assistant delta.delta must be a string") {
+	if !strings.Contains(err.Error(), "AgentMessageDeltaNotification has invalid shape") {
 		t.Fatalf("error = %q, want malformed delta", err)
 	}
 }
@@ -567,6 +567,44 @@ func TestCodexHarnessReportsUnsupportedNotificationAsProviderDrift(t *testing.T)
 	}
 	if containsRunItemType(sink.items, RunItemTypeNotice) {
 		t.Fatalf("items = %+v, want no unsupported notification notice", sink.items)
+	}
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_notification_unsupported" {
+		t.Fatalf("diagnostics = %+v, want unsupported notification diagnostic", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessRejectsDeprecatedThreadCompactedNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("deprecated-thread-compacted-notification"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want deprecated thread compacted notification error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex app-server notification: thread/compacted") {
+		t.Fatalf("error = %q, want unsupported thread/compacted notification", err)
+	}
+	if containsRunItemType(sink.items, RunItemTypeNotice) {
+		t.Fatalf("items = %+v, want no deprecated compaction notice", sink.items)
+	}
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_notification_unsupported" {
+		t.Fatalf("diagnostics = %+v, want unsupported notification diagnostic", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessRejectsDeprecatedFileChangeOutputDeltaNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("deprecated-file-change-output-delta-notification"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want deprecated file change output delta notification error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex app-server notification: item/fileChange/outputDelta") {
+		t.Fatalf("error = %q, want unsupported file change output delta notification", err)
+	}
+	if containsRunItemType(sink.items, RunItemTypeFileChange) {
+		t.Fatalf("items = %+v, want no deprecated file change output item", sink.items)
 	}
 	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_notification_unsupported" {
 		t.Fatalf("diagnostics = %+v, want unsupported notification diagnostic", sink.diagnostics)
@@ -754,6 +792,7 @@ func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
 	}
 	requireRunItemType(t, sink.items, RunItemTypeHook)
 	requireRunItemType(t, sink.items, RunItemTypeApprovalReview)
+	requireRunItemType(t, sink.items, RunItemTypeContextCompaction)
 	requireRunItemType(t, sink.items, RunItemTypeFileChange)
 	reasoning := requireRunItemType(t, sink.items, RunItemTypeReasoning)
 	if reasoning.HiddenText != "private reasoning" {
@@ -1058,6 +1097,10 @@ func (sink *recordingSink) ThreadLinked(threadID string, _ string, turnID string
 	return nil
 }
 
+func (sink *recordingSink) UserMessageCommitted(string) error {
+	return nil
+}
+
 func (sink *recordingSink) Trace(string, string) error {
 	return nil
 }
@@ -1248,6 +1291,7 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		return mode == "command-model-set-local" || mode == "command-effort-set-local"
 	case "thread/start", "thread/resume":
 		handleFakeCommandThread(mode, state, message)
+		assertFakeDynamicToolsThreadParams(mode, message)
 		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
 	case "thread/goal/get":
 		return handleFakeGoalGet(mode, message)
@@ -1259,12 +1303,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		return fakeCommandDone(mode)
 	case "model/list":
 		return handleFakeModelList(mode, state, message)
-	case "skills/list":
-		writeFakeResponse(message["id"], fakeSkillsListResponse())
-		return fakeCommandDone(mode)
-	case "mcpServerStatus/list":
-		writeFakeResponse(message["id"], fakeMCPServerStatusResponse())
-		return fakeCommandDone(mode)
 	case "thread/settings/update":
 		return handleFakeThreadSettingsUpdate(mode, message)
 	case "turn/start":
@@ -1288,7 +1326,7 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 		assertFakeInitialTurnSettings(message)
 	}
 	writeFakeResponse(message["id"], map[string]any{
-		"turn": map[string]any{"id": "turn_fake", "items": []any{}, "status": "inProgress"},
+		"turn": fakeCodexTurn("inProgress"),
 	})
 	if handled, done := handleFakeAppServerStatusMode(mode); handled {
 		return done
@@ -1310,6 +1348,9 @@ func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool
 	case "stream":
 		writeFakeStreamTurn()
 		return true, true
+	case "dynamic-tools-thread-start", "dynamic-tools-thread-resume":
+		writeFakeStreamTurn()
+		return true, true
 	case "initial-settings":
 		writeFakeStreamTurn()
 		return true, true
@@ -1329,6 +1370,15 @@ func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool
 		return true, false
 	case "activity":
 		writeFakeActivityTurn()
+		return true, true
+	case "empty-deltas":
+		writeFakeEmptyDeltaTurn()
+		return true, true
+	case "empty-base64-output-deltas":
+		writeFakeEmptyBase64OutputDeltaTurn()
+		return true, true
+	case "unsupported-output-stream":
+		writeFakeUnsupportedOutputStreamTurn()
 		return true, true
 	case "approval", "permission", "user-input":
 		state.approvalOutstanding = true
@@ -1364,6 +1414,20 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 			"turnId":   "turn_fake",
 		})
 		return true, true
+	case "deprecated-thread-compacted-notification":
+		writeFakeNotification("thread/compacted", map[string]any{
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
+		return true, true
+	case "deprecated-file-change-output-delta-notification":
+		writeFakeNotification("item/fileChange/outputDelta", map[string]any{
+			"delta":    "legacy patch output",
+			"itemId":   "item_file_change_legacy",
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
+		return true, true
 	case "thread-started-notification":
 		writeFakeThreadStarted()
 		writeFakeStreamTurn()
@@ -1389,48 +1453,6 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		return true, true
 	case "protocol-coverage-notifications":
 		writeFakeProtocolCoverageNotifications()
-		return true, true
-	default:
-		return false, false
-	}
-}
-
-func handleFakeAppServerStatusMode(mode string) (bool, bool) {
-	switch mode {
-	case "remote-control-status":
-		writeFakeRemoteControlStatus("disabled")
-		writeFakeStreamTurn()
-		return true, true
-	case "malformed-remote-control-status":
-		writeFakeNotification("remoteControl/status/changed", map[string]any{
-			"environmentId":  nil,
-			"installationId": "installation_fake",
-			"serverName":     "fake.local",
-			"status":         7,
-		})
-		return true, true
-	case "mcp-server-startup-status":
-		writeFakeMCPServerStartupStatus("codex_apps", "starting", nil)
-		writeFakeStreamTurn()
-		return true, true
-	case "unknown-mcp-server-startup-status":
-		writeFakeMCPServerStartupStatus("codex_apps", "waking", nil)
-		return true, true
-	case "reasoning-summary-array":
-		writeFakeReasoningSummaryArrayItem()
-		writeFakeStreamTurn()
-		return true, true
-	case "empty-agent-message-item-text":
-		writeFakeEmptyAgentMessageItem()
-		writeFakeStreamTurn()
-		return true, true
-	case "account-rate-limits":
-		writeFakeAccountRateLimits()
-		writeFakeStreamTurn()
-		return true, true
-	case "thread-goal-cleared":
-		writeFakeThreadGoalCleared()
-		writeFakeStreamTurn()
 		return true, true
 	default:
 		return false, false

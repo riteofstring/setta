@@ -80,7 +80,7 @@ func (service *Service) activeRunFromRunsLocked(workspaceID string, conversation
 }
 
 func (service *Service) ListRuns(workspaceID string, conversationID string) ([]Run, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
 		return nil, err
 	}
 	service.mu.Lock()
@@ -99,7 +99,10 @@ func (service *Service) ListRuns(workspaceID string, conversationID string) ([]R
 }
 
 func (service *Service) ListDiagnostics(workspaceID string, conversationID string, runID string) ([]Diagnostic, error) {
-	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+	if err := service.validateOptionalDiagnosticFilters(workspaceID, conversationID, runID); err != nil {
+		return nil, err
+	}
+	if _, err := service.resolveWorkspaceForRequest(workspaceID); err != nil {
 		return nil, err
 	}
 	diagnostics, corrupt, err := service.store.ListDiagnosticsAllowingCorrupt()

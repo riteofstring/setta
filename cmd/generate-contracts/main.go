@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
@@ -137,9 +136,6 @@ func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContract
 
 func contractValueSets() []chat.ContractValueSet {
 	sets := chat.ContractValueSets()
-	for _, set := range appearance.ContractValueSets() {
-		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
-	}
 	for _, set := range codexaccount.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
@@ -503,6 +499,9 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 	if helpers.Boolean {
 		imports = append(imports, "decodeBoolean")
 	}
+	if len(specs.Events) > 0 {
+		imports = append(imports, "decodeBackendEventBase")
+	}
 	if helpers.Integer {
 		imports = append(imports, "decodeInteger")
 	}
@@ -628,30 +627,9 @@ func renderEventDecoder(buffer *bytes.Buffer, event eventSpec) {
 	fmt.Fprintf(buffer, "  return decode%sFromRecord(assertRecord(value, %q));\n", event.Name, event.Name)
 	buffer.WriteString("}\n\n")
 	fmt.Fprintf(buffer, "function decode%sFromRecord(record: Record<string, unknown>): %s {\n", event.Name, event.Name)
-	fmt.Fprintf(buffer, "  assertKnownFields(record, %q, [\"schemaVersion\", \"streamId\", \"sequence\", \"eventId\", \"type\", \"emittedAt\", \"workspaceId\", \"conversationId\", \"runId\", \"payload\"]);\n", event.Name)
-	buffer.WriteString("  const type = decodeString(requireField(record, \"type\", ")
-	fmt.Fprintf(buffer, "%q), %q);\n", event.Name, event.Name+".type")
-	fmt.Fprintf(buffer, "  if (type !== %q) {\n", event.Type)
-	fmt.Fprintf(buffer, "    throw new Error(%q + type);\n", event.Name+".type must be "+event.Type+", got ")
-	buffer.WriteString("  }\n")
+	fmt.Fprintf(buffer, "  const base = decodeBackendEventBase(record, %q, %q);\n", event.Name, event.Type)
 	buffer.WriteString("  return {\n")
-	buffer.WriteString("    schemaVersion: decodeInteger(requireField(record, \"schemaVersion\", ")
-	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".schemaVersion")
-	buffer.WriteString("    streamId: decodeString(requireField(record, \"streamId\", ")
-	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".streamId")
-	buffer.WriteString("    sequence: decodeInteger(requireField(record, \"sequence\", ")
-	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".sequence")
-	buffer.WriteString("    eventId: decodeString(requireField(record, \"eventId\", ")
-	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".eventId")
-	fmt.Fprintf(buffer, "    type: %q,\n", event.Type)
-	buffer.WriteString("    emittedAt: decodeString(requireField(record, \"emittedAt\", ")
-	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".emittedAt")
-	buffer.WriteString("    workspaceId: decodeString(requireField(record, \"workspaceId\", ")
-	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".workspaceId")
-	buffer.WriteString("    conversationId: decodeString(requireField(record, \"conversationId\", ")
-	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".conversationId")
-	buffer.WriteString("    runId: decodeString(requireField(record, \"runId\", ")
-	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".runId")
+	buffer.WriteString("    ...base,\n")
 	fmt.Fprintf(buffer, "    payload: %s(requireField(record, \"payload\", %q)),\n", decoderFunctionName(event.Payload), event.Name)
 	buffer.WriteString("  };\n")
 	buffer.WriteString("}\n\n")
@@ -692,7 +670,6 @@ func decoderHelperUsage(specs []interfaceSpec, events []eventSpec) decoderHelper
 		}
 	}
 	if len(events) > 0 {
-		helpers.Integer = true
 		helpers.String = true
 	}
 	return helpers
