@@ -30,6 +30,7 @@ import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
 import { createDefaultSurfaceAdapter, EmptyFrameSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
 import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
+import { eventTargetsTerminalSurface } from "./terminal-surface-utils";
 import {
   createNiriTrackpadNavigationState,
   interpretNiriTrackpadWheel,
@@ -504,6 +505,9 @@ function handleNiriWorkspaceKeyDown({
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
 }): void {
+  if (eventTargetsTerminalSurface(event)) {
+    return;
+  }
   if (event.metaKey && event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
     event.preventDefault();
     scheduler.pauseBenchmark();

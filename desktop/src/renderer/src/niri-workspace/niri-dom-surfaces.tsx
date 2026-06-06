@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChatPanel, useChatViewState } from "../components/chat-panel";
 import { SettingsPanel } from "../components/settings-panel";
 import { useWorkspaceStore } from "../stores/workspace-store";
+import { eventTargetsTerminalSurface } from "./terminal-surface-utils";
 import type { NiriPane } from "./types";
 
 const fakeLongChatMessageCount = 180;
@@ -56,6 +57,9 @@ export function NiriChatSurface() {
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => {
     const handleSearchShortcut = (event: KeyboardEvent) => {
+      if (eventTargetsTerminalSurface(event)) {
+        return;
+      }
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "f") {
         return;
       }

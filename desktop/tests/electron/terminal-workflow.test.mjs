@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* global console */
 
+import { Buffer } from "node:buffer";
 import { basename, join } from "node:path";
 import process from "node:process";
 import { readFile } from "node:fs/promises";
@@ -24,6 +25,10 @@ import {
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const terminalOutputPrefix = "SETTA_TERMINAL_E2E_OUTPUT:";
+const terminalBackspaceOutput = "SETTA_TERMINAL_BACKSPACE_OK";
+const terminalBackspaceCommandPrefix = "printf 'SETTA_TERMINAL_BACKSPACE_%s\\n' XXX";
+const terminalBackspaceCommandSuffix = "OK";
+const terminalCtrlCOutput = "SETTA_TERMINAL_CTRL_C_OK";
 const terminalCommand = "printf 'SETTA_TERMINAL_%s:%s\\n' 'E2E_OUTPUT' \"$PWD\"";
 const terminalLongRunningPidFile = ".setta-terminal-e2e-long-running.pid";
 const terminalLongRunningCommand = `sh -c 'printf "%s\\\\n" "$$" > ${terminalLongRunningPidFile}; trap "" TERM; while :; do sleep 1; done'`;
@@ -62,6 +67,8 @@ try {
   await maximizeTerminalPane(context.client);
   await waitForTerminalReady(context.client);
   await focusTerminal(context.client);
+  await assertTerminalBackspaceKey(context.client);
+  await assertTerminalCtrlCKey(context.client);
   await sendTerminalCommand(context.client, terminalCommand);
   terminalState = await waitForTerminalText(context.client, terminalOutputPrefix);
   const sessionIdBeforeReload = terminalState.sessionId;
@@ -194,6 +201,30 @@ async function focusTerminal(client) {
 
 async function sendTerminalCommand(client, text) {
   await client.call("Input.insertText", { text });
+  await pressTerminalEnter(client);
+  await delay(100);
+}
+
+async function assertTerminalBackspaceKey(client) {
+  await client.call("Input.insertText", { text: terminalBackspaceCommandPrefix });
+  await dispatchTerminalBackspace(client);
+  await dispatchTerminalBackspace(client);
+  await dispatchTerminalBackspace(client);
+  await client.call("Input.insertText", { text: terminalBackspaceCommandSuffix });
+  await pressTerminalEnter(client);
+  await waitForTerminalText(client, terminalBackspaceOutput);
+}
+
+async function assertTerminalCtrlCKey(client) {
+  await sendTerminalCommand(client, "sleep 30");
+  await delay(300);
+  await dispatchTerminalCtrlC(client);
+  await delay(100);
+  await sendTerminalCommand(client, "printf 'SETTA_TERMINAL_%s_C_OK\\n' CTRL");
+  await waitForTerminalText(client, terminalCtrlCOutput);
+}
+
+async function pressTerminalEnter(client) {
   await client.call("Input.dispatchKeyEvent", {
     code: "Enter",
     key: "Enter",
@@ -209,7 +240,48 @@ async function sendTerminalCommand(client, text) {
     type: "keyUp",
     windowsVirtualKeyCode: 13,
   });
-  await delay(100);
+}
+
+async function dispatchTerminalBackspace(client) {
+  await dispatchTerminalKey(client, {
+    code: "Backspace",
+    key: "Backspace",
+    nativeVirtualKeyCode: 8,
+    windowsVirtualKeyCode: 8,
+  });
+}
+
+async function dispatchTerminalCtrlC(client) {
+  await dispatchTerminalKey(client, {
+    code: "KeyC",
+    key: "c",
+    modifiers: 2,
+    nativeVirtualKeyCode: 67,
+    windowsVirtualKeyCode: 67,
+  });
+}
+
+async function dispatchTerminalKey(
+  client,
+  { code, key, modifiers = 0, nativeVirtualKeyCode, windowsVirtualKeyCode },
+) {
+  await client.call("Input.dispatchKeyEvent", {
+    code,
+    key,
+    modifiers,
+    nativeVirtualKeyCode,
+    type: "rawKeyDown",
+    windowsVirtualKeyCode,
+  });
+  await client.call("Input.dispatchKeyEvent", {
+    code,
+    key,
+    modifiers,
+    nativeVirtualKeyCode,
+    type: "keyUp",
+    windowsVirtualKeyCode,
+  });
+  await delay(50);
 }
 
 async function waitForLongRunningPid(workspaceRoot) {
@@ -447,6 +519,8 @@ async function assertTerminalRecordingEvidence(recordingDir) {
       throw new Error(`recording missing successful terminal IPC channel: ${channel}`);
     }
   }
+  assertTerminalInputByte(ipc, 0x7f, "Backspace");
+  assertTerminalInputByte(ipc, 0x03, "Ctrl-C");
 
   const backend = await readJsonLinesOptional(join(recordingDir, "backend-http.jsonl"));
   for (const path of [
@@ -469,6 +543,22 @@ async function assertTerminalRecordingEvidence(recordingDir) {
   }
   if (!events.some((entry) => terminalEventMatches(entry, "terminal.closed"))) {
     throw new Error("recording missing forwarded terminal closed event");
+  }
+}
+
+function assertTerminalInputByte(ipc, byte, label) {
+  const found = ipc.some((entry) => {
+    if (entry.type !== "ipc_start" || entry.channel !== "terminal:input") {
+      return false;
+    }
+    const request = entry.args?.[0];
+    if (!request || typeof request.dataBase64 !== "string") {
+      return false;
+    }
+    return Buffer.from(request.dataBase64, "base64").includes(byte);
+  });
+  if (!found) {
+    throw new Error(`recording missing terminal input byte for ${label}: 0x${byte.toString(16)}`);
   }
 }
 

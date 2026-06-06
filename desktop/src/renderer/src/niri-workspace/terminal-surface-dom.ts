@@ -50,7 +50,6 @@ export function renderXtermContent(host: HTMLElement, pane: NiriPane): TerminalS
   viewport.className = "niri-xterm-viewport";
   viewport.setAttribute("data-terminal-viewport", "true");
   viewport.setAttribute("aria-label", `${pane.title} terminal`);
-  viewport.addEventListener("keydown", stopTerminalKeyPropagation, { capture: true });
 
   const search = renderTerminalSearch(document);
   const pasteOverlay = renderTerminalPasteOverlay(document);
@@ -159,8 +158,4 @@ function renderTerminalPasteOverlay(document: Document): TerminalPasteElements {
   actions.append(confirmButton, cancelButton);
   root.append(message, actions);
   return { cancelButton, confirmButton, message, root };
-}
-
-function stopTerminalKeyPropagation(event: KeyboardEvent): void {
-  event.stopPropagation();
 }
