@@ -49,7 +49,7 @@ export function generateBenchmarkScene({
   return {
     columnGap: 8,
     columns,
-    id: "phase-1-fake-pane-benchmark",
+    id: "phase-4-browser-pane-benchmark",
     paneById,
     panes,
     panesPerColumn,
@@ -91,6 +91,10 @@ function fakeSurfaceKind(sequence: number): SurfaceKind {
       break;
   }
 
+  if (sequence >= 8 && (sequence - 8) % 5 === 0) {
+    return "browser";
+  }
+
   const slot = sequence % 12;
   if (slot === 4) {
     return "fake-canvas";
@@ -117,6 +121,8 @@ function surfaceKindLabel(kind: SurfaceKind): string {
       return "real settings";
     case "snapshot":
       return "snapshot";
+    case "browser":
+      return "browser";
     default:
       assertNever(kind);
   }

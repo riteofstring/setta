@@ -27,6 +27,23 @@ describe("niri presentation engine", () => {
     expect(textFor(host, "[data-niri-pane-title]")).toBe("Pane 002");
     expect(host.dataset.paneId).toBe("niri_pane_1");
   });
+
+  test("syncs browser surface content during movement so native bounds can update", () => {
+    const scene = generateBenchmarkScene({ paneCount: 14, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("niri_pane_8", "niri_surface_8", true, "browser")]);
+
+    expect(textFor(host, "[data-niri-pane-title]")).toBe("Pane 009");
+    expect(host.dataset.paneId).toBe("niri_pane_8");
+    expect(host.dataset.surfaceKind).toBe("browser");
+  });
 });
 
 function fakePaneHost(paneId: string, title: string): HTMLElement {
@@ -47,7 +64,12 @@ function fakePaneHost(paneId: string, title: string): HTMLElement {
   return host as unknown as HTMLElement;
 }
 
-function renderItem(paneId: string, surfaceId: string, moving: boolean): PaneRenderItem {
+function renderItem(
+  paneId: string,
+  surfaceId: string,
+  moving: boolean,
+  surfaceKind: PaneRenderItem["surfaceKind"] = "fake-dom",
+): PaneRenderItem {
   return {
     focused: false,
     height: 120,
@@ -57,7 +79,7 @@ function renderItem(paneId: string, surfaceId: string, moving: boolean): PaneRen
     resizing: false,
     runtimeState: "live",
     surfaceId,
-    surfaceKind: "fake-dom",
+    surfaceKind,
     visible: true,
     width: 160,
     x: 0,

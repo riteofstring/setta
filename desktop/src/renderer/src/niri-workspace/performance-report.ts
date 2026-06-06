@@ -2,7 +2,7 @@ import { phaseOneFakePaneCount, phaseOneVisiblePaneCount } from "./benchmark-sce
 import type { NiriMetricsCollector } from "./metrics";
 import type { NiriPerformanceReport, Rect } from "./types";
 
-const phaseOneReportKey = "setta:niri:phase-one:reports";
+const phaseFourReportKey = "setta:niri:phase-four:reports";
 const targetFrameMs = 8.33;
 
 export interface PerformanceReportWriter {
@@ -13,10 +13,10 @@ export class LocalStoragePerformanceReportWriter implements PerformanceReportWri
   constructor(private readonly durationMs: number) {}
 
   write(metrics: NiriMetricsCollector, viewport: Rect): NiriPerformanceReport {
-    const report = createPhaseOnePerformanceReport(metrics, viewport, this.durationMs);
+    const report = createPhaseFourPerformanceReport(metrics, viewport, this.durationMs);
     const reports = readReports();
     reports.push(report);
-    window.localStorage.setItem(phaseOneReportKey, JSON.stringify(reports));
+    window.localStorage.setItem(phaseFourReportKey, JSON.stringify(reports));
     window.dispatchEvent(new CustomEvent("setta:niri-performance-report", { detail: report }));
     installWindowReportHooks(reports);
     return report;
@@ -28,14 +28,14 @@ export function installWindowReportHooks(
 ) {
   const target = window as Window &
     typeof globalThis & {
-      __settaNiriPhaseOneReports?: readonly NiriPerformanceReport[];
-      __settaNiriReadPhaseOneReports?: () => readonly NiriPerformanceReport[];
+      __settaNiriPhaseFourReports?: readonly NiriPerformanceReport[];
+      __settaNiriReadPhaseFourReports?: () => readonly NiriPerformanceReport[];
     };
-  target.__settaNiriPhaseOneReports = reports;
-  target.__settaNiriReadPhaseOneReports = () => readReports();
+  target.__settaNiriPhaseFourReports = reports;
+  target.__settaNiriReadPhaseFourReports = () => readReports();
 }
 
-function createPhaseOnePerformanceReport(
+function createPhaseFourPerformanceReport(
   metrics: NiriMetricsCollector,
   viewport: Rect,
   durationMs: number,
@@ -44,13 +44,14 @@ function createPhaseOnePerformanceReport(
   const passed =
     snapshot.visiblePaneCount === phaseOneVisiblePaneCount &&
     snapshot.p95FrameTime <= targetFrameMs &&
+    snapshot.nativeBoundsUpdates <= 1 &&
     snapshot.reactCommitsDuringMovement === 0;
 
   return {
     benchmark: {
       durationMs,
       expectedVisiblePanes: phaseOneVisiblePaneCount,
-      name: "Phase 1 fake-pane shell",
+      name: "Phase 4 browser-pane scene",
       targetFrameMs,
       totalPanes: phaseOneFakePaneCount,
     },
@@ -62,7 +63,7 @@ function createPhaseOnePerformanceReport(
     },
     metrics: snapshot,
     notes: [
-      "Fake-pane Phase 1 shell only: no real chat, settings, browser, terminal, or Pixi surfaces.",
+      "Phase 4 scene: browser proxy panes use Electron WebContentsView in the desktop shell and DOM fallback in browser inspection.",
       "Performance report is appended in localStorage and exposed on window for probe collection.",
     ],
     result: passed ? "pass" : "fail",
@@ -71,13 +72,13 @@ function createPhaseOnePerformanceReport(
 }
 
 function readReports(): NiriPerformanceReport[] {
-  const raw = window.localStorage.getItem(phaseOneReportKey);
+  const raw = window.localStorage.getItem(phaseFourReportKey);
   if (!raw) {
     return [];
   }
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed)) {
-    throw new Error("niri Phase 1 performance reports must be a JSON array");
+    throw new Error("niri Phase 4 performance reports must be a JSON array");
   }
   return parsed as NiriPerformanceReport[];
 }

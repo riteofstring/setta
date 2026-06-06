@@ -15,22 +15,24 @@ const viewport: Rect = {
   y: 0,
 };
 
-describe("niri fake-pane layout engine", () => {
-  test("keeps the Phase 1 public surface contract explicit", () => {
+describe("niri browser-pane layout engine", () => {
+  test("keeps the Phase 4 public surface contract explicit", () => {
     const runtimeState: PaneRuntimeState = "live";
     const surfaceId: SurfaceId = "niri_surface_contract";
-    const surfaceKind: SurfaceKind = "fake-dom";
+    const surfaceKind: SurfaceKind = "browser";
 
     expect({ runtimeState, surfaceId, surfaceKind }).toEqual({
       runtimeState: "live",
       surfaceId: "niri_surface_contract",
-      surfaceKind: "fake-dom",
+      surfaceKind: "browser",
     });
   });
 
-  test("generates the Phase 1 benchmark scene", () => {
+  test("generates the Phase 4 browser-pane benchmark scene", () => {
     const scene = generateBenchmarkScene();
+    const browserPanes = scene.panes.filter((pane) => pane.surfaceKind === "browser");
 
+    expect(scene.id).toBe("phase-4-browser-pane-benchmark");
     expect(scene.totalPanes).toBe(phaseOneFakePaneCount);
     expect(scene.targetVisiblePanes).toBe(phaseOneVisiblePaneCount);
     expect(scene.visibleColumnCount).toBe(8);
@@ -42,6 +44,12 @@ describe("niri fake-pane layout engine", () => {
     expect(scene.paneById.get("niri_pane_3")?.surfaceKind).toBe("chat-dom");
     expect(scene.panes.some((pane) => pane.surfaceKind === "fake-heavy-dom")).toBe(true);
     expect(scene.panes.some((pane) => pane.surfaceKind === "fake-canvas")).toBe(true);
+    expect(browserPanes.length).toBeGreaterThanOrEqual(20);
+    expect(
+      scene.panes
+        .slice(0, phaseOneVisiblePaneCount)
+        .filter((pane) => pane.surfaceKind === "browser"),
+    ).toHaveLength(7);
   });
 
   test("renders a deterministic 40-pane frame from 500 fake panes", () => {

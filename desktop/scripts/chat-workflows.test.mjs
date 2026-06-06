@@ -14,10 +14,12 @@ import {
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
 } from "./chat-workflow-assertions.mjs";
+import { assertChatLayout } from "./chat-workflow-layout-assertions.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
+import { assertTranscriptSequence } from "./chat-workflow-transcript-assertions.mjs";
 import { CDPClient } from "./cdp-client.mjs";
 import {
   assertProtocolNotificationActivity,
@@ -397,6 +399,7 @@ async function runRestartWorkflow(results) {
     await stopLaunchedContext(first);
 
     second = await launchContext(fixture, secondRecording);
+    await pauseNiriBenchmarkForChatWorkflow(second.client);
     await waitForTexts(second.client, [
       "workspace-root",
       "workflow hold for queue and steering",
@@ -508,13 +511,16 @@ async function runHappyPathWorkflow(
       await waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, "queued"),
     );
   }
-  await waitForTexts(client, [...queuedPrompts, "Queued"]);
+  await assertBackendQueuePrompts(backend, workspaceId, conversationId, queuedPrompts);
+  await waitForTexts(client, [queuedPrompts.at(-1), "Queued"]);
   await submitComposer(client, "steer active run", "Send steering message");
-  await waitForTexts(client, [
+  const completedTexts = [
     "Steered with steer active run.",
     "Active workflow complete.",
     ...queuedPrompts.map((prompt) => `Queued response for ${prompt}.`),
-  ]);
+  ];
+  await waitForBackendTranscriptTexts(backend, workspaceId, conversationId, completedTexts);
+  await waitForTexts(client, [`Queued response for ${queuedPrompts.at(-1)}.`]);
   await waitForRunStatus(backend, workspaceId, conversationId, activeRun.id, "completed");
   for (const run of queuedRuns) {
     await waitForRunStatus(backend, workspaceId, conversationId, run.id, "completed");
@@ -647,7 +653,9 @@ async function runFailWorkflow(client, backend, workspaceId, conversationId) {
   );
   await waitForTexts(client, ["queued follow-up after failure", "Queued"]);
   await submitComposer(client, "trigger scripted failure", "Send steering message");
-  await waitForText(client, "Scripted failure surfaced.");
+  await waitForBackendTranscriptTexts(backend, workspaceId, conversationId, [
+    "Scripted failure surfaced.",
+  ]);
   await assertQueuedRunNotPromoted(
     backend,
     workspaceId,
@@ -712,6 +720,7 @@ async function openWorkspace(client, workspaceRoot, backend) {
     async () => backend.get("/workspace-session"),
     (value) => Boolean(value.selectedWorkspaceId),
   );
+  await pauseNiriBenchmarkForChatWorkflow(client);
   return session.selectedWorkspaceId;
 }
 
@@ -817,6 +826,27 @@ async function waitForTexts(client, texts) {
   );
 }
 
+async function pauseNiriBenchmarkForChatWorkflow(client) {
+  await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowLeft",
+    }));
+  })()`);
+  await waitForState(client, niriChatSurfaceReadyExpression(), (value) => {
+    if (!value.niriMounted) {
+      return true;
+    }
+    return (
+      value.chatMounted &&
+      value.hostRuntimeState === "live" &&
+      value.hostMoving === "false" &&
+      value.hostVisible === "true"
+    );
+  });
+}
+
 async function assertTextAbsent(client, text) {
   const body = await client.evaluate("document.body.innerText");
   if (body.includes(text)) {
@@ -825,7 +855,50 @@ async function assertTextAbsent(client, text) {
 }
 
 function bodyTextExpression() {
-  return `(() => ({ body: document.body.innerText }))()`;
+  return `(async () => {
+    const detail = document.querySelector('[data-testid="chat-detail-pane"]');
+    const conversationId = detail?.getAttribute("data-conversation-id") ?? "";
+    let transcriptText = "";
+    if (conversationId && window.setta?.workspace && window.setta?.chat) {
+      const session = await window.setta.workspace.session();
+      const workspaceId = session.selectedWorkspaceId ?? "";
+      if (workspaceId) {
+        const page = await window.setta.chat.messagePage(workspaceId, conversationId, 0, 100);
+        const textOf = (message) => message.parts.map((part) => part.text).join("");
+        const texts = page.messages
+          .toSorted((left, right) => left.ordinal - right.ordinal)
+          .map((message) => textOf(message));
+        for (const turn of page.transcript) {
+          if (turn.triggerMessage) {
+            texts.push(textOf(turn.triggerMessage));
+          }
+          for (const message of turn.steeringMessages) {
+            texts.push(textOf(message));
+          }
+          if (turn.assistantMessage) {
+            texts.push(textOf(turn.assistantMessage));
+          }
+        }
+        transcriptText = texts.join("\\n");
+      }
+    }
+    return { body: [document.body.innerText, transcriptText].filter(Boolean).join("\\n") };
+  })()`;
+}
+
+function niriChatSurfaceReadyExpression() {
+  return `(() => {
+    const niri = document.querySelector('[data-testid="niri-workspace-area"]');
+    const chatSurface = document.querySelector('[data-testid="niri-chat-dom-surface"]');
+    const host = chatSurface?.closest('[data-testid="niri-fake-pane-host"]');
+    return {
+      chatMounted: Boolean(document.querySelector('[data-testid="chat-detail-pane"]')),
+      hostMoving: host?.getAttribute("data-moving") ?? "",
+      hostRuntimeState: host?.getAttribute("data-runtime-state") ?? "",
+      hostVisible: host?.getAttribute("data-visible") ?? "",
+      niriMounted: Boolean(niri),
+    };
+  })()`;
 }
 
 async function waitForState(client, expression, isReady, timeoutMs = workflowTimeoutMs) {
@@ -1022,6 +1095,32 @@ async function assertNoActiveRun(backend, workspaceId, conversationId) {
   }
 }
 
+async function assertBackendQueuePrompts(backend, workspaceId, conversationId, prompts) {
+  const page = await waitForBackendState(
+    async () => backend.post("/chat/messages/page", { conversationId, limit: 40, workspaceId }),
+    (value) =>
+      prompts.every((prompt) =>
+        value.queue.runs.some((run) => run.promptSummary === prompt && run.status === "queued"),
+      ),
+  );
+  const queuedTexts = page.queue.messages.map((message) => messageText(message));
+  for (const prompt of prompts) {
+    if (!queuedTexts.includes(prompt)) {
+      throw new Error(`queued prompt ${prompt} was missing from backend page queue`);
+    }
+  }
+}
+
+async function waitForBackendTranscriptTexts(backend, workspaceId, conversationId, texts) {
+  await waitForBackendState(
+    async () => backend.post("/chat/messages/page", { conversationId, limit: 40, workspaceId }),
+    (page) => {
+      const transcriptText = page.messages.map((message) => messageText(message)).join("\n");
+      return texts.every((text) => transcriptText.includes(text));
+    },
+  );
+}
+
 async function assertRunsDrainedSequentially(backend, workspaceId, conversationId, runIds) {
   const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
   const runsById = new Map(list.runs.map((run) => [run.id, run]));
@@ -1048,38 +1147,6 @@ async function assertRunsDrainedSequentially(backend, workspaceId, conversationI
   }
 }
 
-async function assertTranscriptSequence(client, expectedTexts) {
-  const value = await client.evaluate(`(() => {
-    const rows = Array.from(document.querySelectorAll('[data-chat-message="true"]'));
-    return {
-      rows: rows.map((row) => ({
-        role: row.getAttribute("data-message-role"),
-        text: row.innerText.trim(),
-      })),
-    };
-  })()`);
-  let cursorOffset = 0;
-  let cursorRow = 0;
-  for (const expected of expectedTexts) {
-    let match = null;
-    for (let rowIndex = cursorRow; rowIndex < value.rows.length; rowIndex += 1) {
-      const textOffset = rowIndex === cursorRow ? cursorOffset : 0;
-      const index = value.rows[rowIndex].text.indexOf(expected, textOffset);
-      if (index !== -1) {
-        match = { rowIndex, textOffset: index + expected.length };
-        break;
-      }
-    }
-    if (!match) {
-      throw new Error(
-        `transcript did not contain ${expected} after row ${cursorRow}: ${JSON.stringify(value.rows)}`,
-      );
-    }
-    cursorOffset = match.textOffset;
-    cursorRow = match.rowIndex;
-  }
-}
-
 async function assertNoVisibleUserMessage(client, text) {
   const value = await client.evaluate(`(() => {
     const rows = Array.from(document.querySelectorAll('[data-chat-message="true"]'));
@@ -1092,43 +1159,6 @@ async function assertNoVisibleUserMessage(client, text) {
   const matches = value.rows.filter((rowText) => rowText.includes(text));
   if (matches.length > 0) {
     throw new Error(`found visible user message ${text}: ${JSON.stringify(value.rows)}`);
-  }
-}
-
-async function assertChatLayout(client) {
-  const metrics = await client.evaluate(`(() => {
-    const rect = (element) => {
-      if (!element) return null;
-      const box = element.getBoundingClientRect();
-      return {
-        bottom: box.bottom,
-        height: box.height,
-        top: box.top,
-      };
-    };
-    const pane = document.querySelector('[data-testid="chat-detail-pane"]');
-    const transcript = document.querySelector('[data-testid="chat-transcript-region"]');
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    const composer = document.querySelector('[data-testid="chat-composer"]');
-    return {
-      composer: rect(composer),
-      pane: rect(pane),
-      scrollerClientHeight: scroller?.clientHeight ?? 0,
-      scrollerScrollHeight: scroller?.scrollHeight ?? 0,
-      transcript: rect(transcript),
-    };
-  })()`);
-  if (!metrics.pane || !metrics.transcript || !metrics.composer) {
-    throw new Error(`chat layout metrics missing required regions: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.transcript.height < 160 || metrics.scrollerClientHeight < 120) {
-    throw new Error(`transcript region collapsed: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.transcript.bottom > metrics.composer.top + 1) {
-    throw new Error(`transcript overlaps composer: ${JSON.stringify(metrics)}`);
-  }
-  if (metrics.composer.bottom > metrics.pane.bottom + 1) {
-    throw new Error(`composer escapes chat pane: ${JSON.stringify(metrics)}`);
   }
 }
 

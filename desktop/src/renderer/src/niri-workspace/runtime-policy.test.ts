@@ -80,6 +80,50 @@ describe("niri pane runtime policy", () => {
     expect(items.map((item) => item.runtimeState)).toEqual(["live-throttled", "live-throttled"]);
     expect(summary.liveThrottled).toBe(2);
   });
+
+  test("keeps focused browser panes live while enforcing browser live budget", () => {
+    const items = [
+      renderItem("focused-browser", "browser", true),
+      renderItem("browser-1", "browser", false),
+      renderItem("browser-2", "browser", false),
+    ];
+    const oneBrowser = {
+      ...budget,
+      maxLiveBrowserPanes: 1,
+    };
+
+    const summary = new PaneRuntimePolicy(oneBrowser).apply(items, "idle");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["focused-browser", "live"],
+      ["browser-1", "snapshot"],
+      ["browser-2", "snapshot"],
+    ]);
+    expect(summary.live).toBe(1);
+    expect(summary.snapshot).toBe(2);
+  });
+
+  test("keeps browser panes live during movement until the browser budget is full", () => {
+    const items = [
+      renderItem("browser-1", "browser", false),
+      renderItem("browser-2", "browser", false),
+      renderItem("browser-over-budget", "browser", false),
+    ];
+    const twoBrowsers = {
+      ...budget,
+      maxLiveBrowserPanes: 2,
+    };
+
+    const summary = new PaneRuntimePolicy(twoBrowsers).apply(items, "moving");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["browser-1", "live"],
+      ["browser-2", "live"],
+      ["browser-over-budget", "snapshot"],
+    ]);
+    expect(summary.live).toBe(2);
+    expect(summary.snapshot).toBe(1);
+  });
 });
 
 function renderItem(paneId: string, surfaceKind: SurfaceKind, focused: boolean): PaneRenderItem {

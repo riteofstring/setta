@@ -62,6 +62,52 @@ export interface WorkspaceGitInfo {
   worktreeRoot: string;
 }
 
+export type NiriBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
+
+export interface NiriBrowserViewUpdate {
+  bounds: {
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+  };
+  focused: boolean;
+  paneId: string;
+  runtimeState: NiriBrowserViewRuntimeState;
+  surfaceId: string;
+  title: string;
+  url: string;
+  visible: boolean;
+}
+
+export interface NiriBrowserViewBatch {
+  focusedSurfaceId: string | null;
+  totalBrowserPanes: number;
+  updates: NiriBrowserViewUpdate[];
+  visibleBrowserPanes: number;
+  workspaceId: string;
+}
+
+export interface NiriBrowserViewKeyEvent {
+  key: "ArrowDown" | "ArrowLeft" | "ArrowRight" | "ArrowUp";
+  surfaceId: string;
+  workspaceId: string;
+}
+
+export interface NiriBrowserViewStats {
+  boundsBatchCount: number;
+  boundsUpdateCount: number;
+  destroyed: number;
+  focusedSurfaceId: string | null;
+  hidden: number;
+  live: number;
+  registered: number;
+  teardownCount: number;
+  totalBrowserPanes: number;
+  visibleBrowserPanes: number;
+  workspaceId: string | null;
+}
+
 export type BackendProcessStatus =
   | { status: "starting"; message: string }
   | { status: "online"; url: string; mode: "external" | "spawned"; message: string }
@@ -98,6 +144,12 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
+  };
+  niriNativeViews?: {
+    batchBrowserViewUpdates: (batch: NiriBrowserViewBatch) => void;
+    onBrowserViewKey: (listener: (event: NiriBrowserViewKeyEvent) => void) => () => void;
+    readBrowserViewStats: () => Promise<NiriBrowserViewStats>;
+    teardownBrowserViews: (workspaceId: string) => Promise<NiriBrowserViewStats>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

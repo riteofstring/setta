@@ -1,11 +1,12 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import { decodeChatEvent } from "@generated/backend";
-import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
+import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import type {
   BackendEventStreamStatus,
   BackendProcessStatus,
   DesktopPlatform,
+  NiriBrowserViewKeyEvent,
   SettaAPI,
 } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
@@ -42,6 +43,22 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.backendProcessStatus, handler);
       };
     },
+  },
+  niriNativeViews: {
+    batchBrowserViewUpdates: (batch) => {
+      ipcRenderer.send(ipcMessages.niriBrowserViewBatch, batch);
+    },
+    onBrowserViewKey: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeNiriBrowserViewKeyEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.niriBrowserViewKey, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.niriBrowserViewKey, handler);
+      };
+    },
+    readBrowserViewStats: () => invoke("niriBrowserViewStats"),
+    teardownBrowserViews: (workspaceId: string) => invoke("niriBrowserViewsTeardown", workspaceId),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),
@@ -192,6 +209,19 @@ function decodeBackendEventStreamStatus(value: unknown): BackendEventStreamStatu
     return { message, status };
   }
   throw new Error("BackendEventStreamStatus.status is unsupported: " + status);
+}
+
+function decodeNiriBrowserViewKeyEvent(value: unknown): NiriBrowserViewKeyEvent {
+  const record = assertStatusRecord(value, "NiriBrowserViewKeyEvent");
+  const key = stringField(record, "key", "NiriBrowserViewKeyEvent");
+  if (key !== "ArrowDown" && key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp") {
+    throw new Error("NiriBrowserViewKeyEvent.key is unsupported: " + key);
+  }
+  return {
+    key,
+    surfaceId: stringField(record, "surfaceId", "NiriBrowserViewKeyEvent"),
+    workspaceId: stringField(record, "workspaceId", "NiriBrowserViewKeyEvent"),
+  };
 }
 
 function assertStatusRecord(value: unknown, label: string): Record<string, unknown> {

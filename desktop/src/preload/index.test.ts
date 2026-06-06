@@ -132,6 +132,74 @@ describe("preload workspace API", () => {
     expect(invoke).toHaveBeenNthCalledWith(3, ipcChannels.appearanceUpdate, request);
   });
 
+  test("exposes typed niri native view methods through IPC", async () => {
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    const send = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+        on,
+        removeListener,
+        send,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
+    const batch = {
+      focusedSurfaceId: "surface_browser",
+      totalBrowserPanes: 24,
+      updates: [],
+      visibleBrowserPanes: 6,
+      workspaceId: "phase-4-browser-pane-benchmark",
+    };
+    if (!api.niriNativeViews) {
+      throw new Error("niri native view API was not exposed");
+    }
+    api.niriNativeViews.batchBrowserViewUpdates(batch);
+    await api.niriNativeViews.readBrowserViewStats();
+    await api.niriNativeViews.teardownBrowserViews("phase-4-browser-pane-benchmark");
+    const listener = vi.fn();
+    const unsubscribe = api.niriNativeViews.onBrowserViewKey(listener);
+    const handler = on.mock.calls[0]?.[1];
+    if (typeof handler !== "function") {
+      throw new Error("niri browser view key handler was not registered");
+    }
+    handler(
+      {},
+      {
+        key: "ArrowRight",
+        surfaceId: "surface_browser",
+        workspaceId: "phase-4-browser-pane-benchmark",
+      },
+    );
+    unsubscribe();
+
+    expect(send).toHaveBeenCalledWith("niri:browser-view-batch", batch);
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.niriBrowserViewStats);
+    expect(invoke).toHaveBeenNthCalledWith(
+      2,
+      ipcChannels.niriBrowserViewsTeardown,
+      "phase-4-browser-pane-benchmark",
+    );
+    expect(on).toHaveBeenCalledWith("niri:browser-view-key", expect.any(Function));
+    expect(listener).toHaveBeenCalledWith({
+      key: "ArrowRight",
+      surfaceId: "surface_browser",
+      workspaceId: "phase-4-browser-pane-benchmark",
+    });
+    expect(removeListener).toHaveBeenCalledWith("niri:browser-view-key", handler);
+  });
+
   test("exposes typed chat methods through IPC", async () => {
     const exposed: Record<string, unknown> = {};
     const invoke = vi.fn();

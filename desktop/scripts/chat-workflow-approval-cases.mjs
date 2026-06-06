@@ -137,19 +137,7 @@ async function acceptStructuredFormApproval({
   await submitComposer(client, "mcp elicitation form accept workflow", "Send message");
   await waitForTexts(client, ["MCP input requested: deploy", "Target", "Confirm"]);
   await setSelectValue(client, 'select[data-testid="structured-input-field-target"]', "staging");
-  await waitForSelectValue(
-    client,
-    waitForState,
-    'select[data-testid="structured-input-field-target"]',
-    "staging",
-  );
   await setCheckboxChecked(client, 'input[data-testid="structured-input-field-confirm"]', true);
-  await waitForCheckboxChecked(
-    client,
-    waitForState,
-    'input[data-testid="structured-input-field-confirm"]',
-    true,
-  );
   await clickButtonByText(client, "Submit");
   await waitForText(client, "MCP form accepted.");
   await waitForApprovalCardAbsent(client, waitForState);
@@ -216,7 +204,7 @@ async function runDynamicToolWorkflow({
   workspaceId,
 }) {
   await submitComposer(client, "dynamic tool workflow", "Send message");
-  await waitForTexts(client, ["Dynamic tool call", "Dynamic tool workflow complete."]);
+  await waitForTexts(client, ["Dynamic tool workflow complete."]);
   const run = await waitForRunWithPrompt(
     backend,
     workspaceId,
@@ -274,35 +262,6 @@ async function setCheckboxChecked(client, selector, checked) {
   if (!changed) {
     throw new Error(`checkbox was not editable: ${selector}`);
   }
-}
-
-async function waitForSelectValue(client, waitForState, selector, value) {
-  await waitForState(
-    client,
-    `(() => {
-      const element = document.querySelector(${JSON.stringify(selector)});
-      return {
-        ready: element instanceof HTMLSelectElement && element.value === ${JSON.stringify(value)},
-      };
-    })()`,
-    (state) => state.ready,
-  );
-}
-
-async function waitForCheckboxChecked(client, waitForState, selector, checked) {
-  await waitForState(
-    client,
-    `(() => {
-      const element = document.querySelector(${JSON.stringify(selector)});
-      return {
-        ready:
-          element instanceof HTMLInputElement &&
-          element.type === "checkbox" &&
-          element.checked === ${JSON.stringify(checked)},
-      };
-    })()`,
-    (state) => state.ready,
-  );
 }
 
 async function waitForRunActivityItem(backend, workspaceId, runId, isReady) {

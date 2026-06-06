@@ -487,6 +487,38 @@ window.setta = {
     onEventStreamStatus: subscribeNoop,
     onProcessStatus: subscribeNoop,
   },
+  niriNativeViews: {
+    batchBrowserViewUpdates: () => {},
+    onBrowserViewKey: subscribeNoop,
+    readBrowserViewStats: () =>
+      resolveValue({
+        boundsBatchCount: 0,
+        boundsUpdateCount: 0,
+        destroyed: 0,
+        focusedSurfaceId: null,
+        hidden: 0,
+        live: 0,
+        registered: 0,
+        teardownCount: 0,
+        totalBrowserPanes: 0,
+        visibleBrowserPanes: 0,
+        workspaceId: null,
+      }),
+    teardownBrowserViews: () =>
+      resolveValue({
+        boundsBatchCount: 0,
+        boundsUpdateCount: 0,
+        destroyed: 0,
+        focusedSurfaceId: null,
+        hidden: 0,
+        live: 0,
+        registered: 0,
+        teardownCount: 1,
+        totalBrowserPanes: 0,
+        visibleBrowserPanes: 0,
+        workspaceId: null,
+      }),
+  },
   chat: {
     activeRun: () => resolveValue({ hasActiveRun: false, run: null }),
     cancelRun: rejectBrowserAction,

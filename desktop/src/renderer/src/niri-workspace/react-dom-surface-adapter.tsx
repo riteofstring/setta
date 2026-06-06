@@ -170,6 +170,7 @@ export function createReactDomSurfaceAdapter(
       );
     case "settings-dom":
       return new ReactDomSurfaceAdapter(pane, () => <NiriSettingsSurface />, rootFactory);
+    case "browser":
     case "fake-canvas":
     case "fake-dom":
     case "fake-heavy-dom":

@@ -3,6 +3,7 @@ export type ColumnId = string;
 export type SurfaceId = string;
 
 export type SurfaceKind =
+  | "browser"
   | "chat-dom"
   | "fake-canvas"
   | "fake-dom"

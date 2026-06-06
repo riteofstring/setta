@@ -76,7 +76,12 @@ async function main() {
     join(artifactDir, "summary.json"),
     JSON.stringify(
       {
-        artifacts: ["01-launch.png", "02-niri-phase1.png", "03-compact-window.png"],
+        artifacts: [
+          "01-launch.png",
+          "02-niri-phase4.png",
+          "03-compact-window.png",
+          "04-native-teardown.json",
+        ],
         outDir: artifactDir,
         status: "passed",
       },
@@ -90,14 +95,15 @@ async function main() {
 async function runNiriProbe(client) {
   await captureProbeState(client, "01-launch");
 
-  await waitForText(client, "500/40");
+  await waitForText(client, "500/40+B");
   await waitForNiriReady(client);
-  await captureProbeState(client, "02-niri-phase1");
+  await captureProbeState(client, "02-niri-phase4");
 
   await resizeElectronWindow(client, 320, 320);
   await waitForViewportSize(client, 320, 320);
   const compactState = await captureProbeState(client, "03-compact-window");
   assertCompactNiriState(compactState);
+  await assertNativeViewTeardown(client);
 }
 
 async function captureFailureState(client) {
@@ -231,10 +237,11 @@ async function captureScreenshot(client, path) {
 }
 
 async function readDomState(client) {
-  return client.evaluate(`(() => {
+  return client.evaluate(`(async () => {
     const root = document.documentElement;
     const style = getComputedStyle(root);
-    const latestReport = window.__settaNiriReadPhaseOneReports?.().at(-1) ?? null;
+    const latestReport = window.__settaNiriReadPhaseFourReports?.().at(-1) ?? null;
+    const nativeStats = await window.setta.niriNativeViews.readBrowserViewStats();
     const elementState = (selector) => {
       const element = document.querySelector(selector);
       if (!element) {
@@ -270,11 +277,14 @@ async function readDomState(client) {
         right: elementState('[data-testid="right-workspace-pane"]'),
       },
       niri: {
+        browserPaneCount: document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-browser-pane-count") ?? "",
         debugText: document.querySelector('[data-testid="niri-debug-overlay"]')?.textContent ?? "",
         hostCount: document.querySelectorAll('[data-testid="niri-fake-pane-host"]').length,
         latestReport,
+        nativeStats,
         paneCount: document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-pane-count") ?? "",
         workspace: elementState('[data-testid="niri-workspace-area"]'),
+        workspaceId: document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-workspace-id") ?? "",
       },
       cssVariables: {
         background: style.getPropertyValue("--background").trim(),
@@ -297,6 +307,7 @@ function assertCompactNiriState(state) {
   if (!state.niri.workspace.visible || state.niri.hostCount !== 40) {
     throw new Error(`compact window lost niri workspace hosts: ${JSON.stringify(state.niri)}`);
   }
+  assertBrowserPaneStats(state.niri);
   if (!state.shell.topBar.present || !state.shell.projectSidebar.visible) {
     throw new Error(`compact window lost shell/sidebar: ${JSON.stringify(state.shell)}`);
   }
@@ -305,12 +316,15 @@ function assertCompactNiriState(state) {
 async function waitForNiriReady(client) {
   return waitForState(
     client,
-    `(() => {
-      const report = window.__settaNiriReadPhaseOneReports?.().at(-1) ?? null;
+    `(async () => {
+      const report = window.__settaNiriReadPhaseFourReports?.().at(-1) ?? null;
+      const nativeStats = await window.setta.niriNativeViews.readBrowserViewStats();
       const debugText = document.querySelector('[data-testid="niri-debug-overlay"]')?.textContent ?? "";
       return {
+        browserPaneCount: document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-browser-pane-count") ?? "",
         debugText,
         hostCount: document.querySelectorAll('[data-testid="niri-fake-pane-host"]').length,
+        nativeStats,
         paneCount: document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-pane-count") ?? "",
         report,
         workspaceReady: Boolean(document.querySelector('[data-testid="niri-workspace-area"]')),
@@ -322,21 +336,93 @@ async function waitForNiriReady(client) {
 }
 
 function niriReadyState(value) {
-  return niriShellReady(value) && niriMetricsReady(value) && niriReportReady(value);
+  return (
+    niriShellReady(value) &&
+    niriMetricsReady(value) &&
+    niriNativeViewsReady(value) &&
+    niriReportReady(value)
+  );
 }
 
 function niriMetricsReady(value) {
-  return value.debugText.includes("visible 40") && value.debugText.includes("react 0");
+  return (
+    value.debugText.includes("visible 40") &&
+    value.debugText.includes("native") &&
+    value.debugText.includes("react 0")
+  );
+}
+
+function niriNativeViewsReady(value) {
+  const stats = value.nativeStats;
+  return (
+    Number(value.browserPaneCount) >= 20 &&
+    nativeBrowserPaneCountsReady(stats) &&
+    nativeBrowserBoundsReady(stats)
+  );
+}
+
+function nativeBrowserBoundsReady(stats) {
+  return stats?.boundsBatchCount > 0 && stats?.boundsUpdateCount > 0;
+}
+
+function nativeBrowserPaneCountsReady(stats) {
+  return (
+    stats?.totalBrowserPanes >= 20 &&
+    boundedCount(stats?.visibleBrowserPanes, 4, 8) &&
+    boundedCount(stats?.live, 4, 8)
+  );
+}
+
+function boundedCount(value, min, max) {
+  return value >= min && value <= max;
 }
 
 function niriReportReady(value) {
   return (
-    value.report?.result === "pass" && value.report?.environment?.rendererMode === "production"
+    value.report?.benchmark?.name === "Phase 4 browser-pane scene" &&
+    value.report?.result === "pass" &&
+    value.report?.environment?.rendererMode === "production"
   );
 }
 
 function niriShellReady(value) {
   return value.workspaceReady && value.paneCount === "500" && value.hostCount === 40;
+}
+
+function assertBrowserPaneStats(niri) {
+  if (Number(niri.browserPaneCount) < 20) {
+    throw new Error(`browser-pane scene has too few browser panes: ${JSON.stringify(niri)}`);
+  }
+  if (niri.nativeStats.live < 4 || niri.nativeStats.live > 8) {
+    throw new Error(
+      `native browser live budget is outside Phase 4 target: ${JSON.stringify(niri)}`,
+    );
+  }
+  if (niri.nativeStats.visibleBrowserPanes < 4 || niri.nativeStats.visibleBrowserPanes > 8) {
+    throw new Error(
+      `visible browser pane count is outside Phase 4 target: ${JSON.stringify(niri)}`,
+    );
+  }
+}
+
+async function assertNativeViewTeardown(client) {
+  const stats = await client.evaluate(`(async () => {
+    const workspaceId = document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-workspace-id") ?? "";
+    if (!workspaceId) {
+      throw new Error("missing niri workspace id for native teardown");
+    }
+    return window.setta.niriNativeViews.teardownBrowserViews(workspaceId);
+  })()`);
+  await writeFile(
+    join(artifactDir, "04-native-teardown.json"),
+    JSON.stringify(stats, null, 2) + "\n",
+  );
+  if (stats.registered !== 0 || stats.live !== 0) {
+    throw new Error(`native browser views survived teardown: ${JSON.stringify(stats)}`);
+  }
+  if (stats.teardownCount < 1) {
+    throw new Error(`native browser teardown was not recorded: ${JSON.stringify(stats)}`);
+  }
 }
 
 async function waitForText(client, text) {

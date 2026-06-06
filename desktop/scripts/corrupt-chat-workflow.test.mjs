@@ -389,6 +389,7 @@ async function launchCorruptContext(appDataDir) {
   await client.call("Runtime.enable");
   await installPageHelpers(client);
   await client.evaluate("window.confirm = () => true");
+  await pauseNiriBenchmarkForChatWorkflow(client);
   return { client, electron };
 }
 
@@ -470,6 +471,42 @@ async function waitForPartialCorruptChatState(client) {
   if (state.newChatDisabled) {
     throw new Error(`New chat is disabled with partial corrupt state: ${state.body}`);
   }
+}
+
+async function pauseNiriBenchmarkForChatWorkflow(client) {
+  await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowLeft",
+    }));
+  })()`);
+  await waitForState(client, niriChatSurfaceReadyExpression(), (value) => {
+    if (!value.niriMounted) {
+      return true;
+    }
+    return (
+      value.chatMounted &&
+      value.hostRuntimeState === "live" &&
+      value.hostMoving === "false" &&
+      value.hostVisible === "true"
+    );
+  });
+}
+
+function niriChatSurfaceReadyExpression() {
+  return `(() => {
+    const niri = document.querySelector('[data-testid="niri-workspace-area"]');
+    const chatSurface = document.querySelector('[data-testid="niri-chat-dom-surface"]');
+    const host = chatSurface?.closest('[data-testid="niri-fake-pane-host"]');
+    return {
+      chatMounted: Boolean(document.querySelector('[data-testid="chat-detail-pane"]')),
+      hostMoving: host?.getAttribute("data-moving") ?? "",
+      hostRuntimeState: host?.getAttribute("data-runtime-state") ?? "",
+      hostVisible: host?.getAttribute("data-visible") ?? "",
+      niriMounted: Boolean(niri),
+    };
+  })()`;
 }
 
 function partialCorruptChatStateExpression() {

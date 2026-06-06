@@ -24,6 +24,7 @@ export class PaneRuntimePolicy {
   apply(items: PaneRenderItem[], movementPhase: "idle" | "moving"): PaneRuntimeSummary {
     const counters = {
       hidden: 0,
+      liveBrowserPanes: 0,
       live: 0,
       liveHeavyDom: 0,
       liveThrottled: 0,
@@ -73,10 +74,14 @@ export class PaneRuntimePolicy {
     kind: SurfaceKind,
     counters: {
       liveHeavyDom: number;
+      liveBrowserPanes: number;
       liveWebGpuCanvases: number;
     },
   ): void {
     switch (kind) {
+      case "browser":
+        counters.liveBrowserPanes += 1;
+        return;
       case "chat-dom":
       case "fake-heavy-dom":
       case "fake-long-chat":
@@ -98,6 +103,7 @@ export class PaneRuntimePolicy {
     item: PaneRenderItem,
     movementPhase: "idle" | "moving",
     counters: {
+      liveBrowserPanes: number;
       liveHeavyDom: number;
       liveWebGpuCanvases: number;
       snapshot: number;
@@ -117,6 +123,7 @@ export class PaneRuntimePolicy {
     kind: SurfaceKind,
     movementPhase: "idle" | "moving",
     counters: {
+      liveBrowserPanes: number;
       liveHeavyDom: number;
       liveWebGpuCanvases: number;
       snapshot: number;
@@ -133,6 +140,8 @@ export class PaneRuntimePolicy {
         return this.runtimeStateForBudgetedHeavyDom(counters);
       case "fake-canvas":
         return this.runtimeStateForCanvas(movementPhase, counters);
+      case "browser":
+        return this.runtimeStateForBrowser(movementPhase, counters);
       case "snapshot":
         return this.snapshotOrThrottle(counters);
       default:
@@ -151,6 +160,19 @@ export class PaneRuntimePolicy {
       return this.snapshotOrThrottle(counters);
     }
     if (counters.liveWebGpuCanvases >= this.budget.maxLiveWebGpuCanvases) {
+      return this.snapshotOrThrottle(counters);
+    }
+    return "live";
+  }
+
+  private runtimeStateForBrowser(
+    _movementPhase: "idle" | "moving",
+    counters: {
+      liveBrowserPanes: number;
+      snapshot: number;
+    },
+  ): PaneRuntimeState {
+    if (counters.liveBrowserPanes >= this.budget.maxLiveBrowserPanes) {
       return this.snapshotOrThrottle(counters);
     }
     return "live";

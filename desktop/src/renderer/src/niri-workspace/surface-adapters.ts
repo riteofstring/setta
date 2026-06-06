@@ -1,3 +1,4 @@
+import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
 import type {
   FreezeReason,
@@ -10,6 +11,10 @@ import type {
   SurfaceKind,
   ViewportChangeReason,
 } from "./types";
+
+const noopBrowserViewQueue = {
+  queue() {},
+};
 
 export interface FrameLoop {
   cancelFrame(handle: number): void;
@@ -368,6 +373,8 @@ export class FakeCanvasSurfaceAdapter implements SurfaceAdapter {
 
 export function createDefaultSurfaceAdapter(pane: NiriPane): SurfaceAdapter {
   switch (pane.surfaceKind) {
+    case "browser":
+      return new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue);
     case "chat-dom":
     case "fake-long-chat":
     case "settings-dom":

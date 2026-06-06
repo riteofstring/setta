@@ -7,7 +7,11 @@ export async function runPaneTabSplitWorkflow({
   recordingDir,
   waitForState,
 }) {
-  await resetPaneTabSplitWorkflowPage(client, waitForState);
+  const mode = await resetPaneTabSplitWorkflowPage(client, waitForState);
+  if (mode === "niri") {
+    await runNiriPresentationWorkflow({ captureScreenshot, client, recordingDir, waitForState });
+    return;
+  }
   await assertFloatingPaneControlsClickable({ client, waitForState });
   await resetPaneTabSplitWorkflowPage(client, waitForState);
   const initial = await waitForState(client, paneTabSplitStateExpression(), (value) => {
@@ -329,22 +333,174 @@ function paneControlReadyForNativeClick(value, prefix) {
 
 async function resetPaneTabSplitWorkflowPage(client, waitForState) {
   await client.call("Page.reload", { ignoreCache: true });
+  const presentation = await waitForState(
+    client,
+    workspacePresentationModeExpression(),
+    (value) =>
+      (value.mode === "classic" && value.classic.paneCount === 1) ||
+      (value.mode === "niri" && niriPresentationReady(value.niri)),
+  );
+  if (presentation.mode === "classic") {
+    await client.evaluate(`(() => {
+      window.findWorkflowButton = (kind, expected) => {
+        const buttons = Array.from(document.querySelectorAll("button"));
+        return buttons.find((button) => {
+          if (kind === "aria-label") {
+            return button.getAttribute("aria-label") === expected;
+          }
+          return button.innerText.trim() === expected;
+        }) ?? null;
+      };
+    })()`);
+  }
+  return presentation.mode;
+}
+
+async function runNiriPresentationWorkflow({
+  captureScreenshot,
+  client,
+  recordingDir,
+  waitForState,
+}) {
+  await client.evaluate(niriArrowKeyExpression("ArrowLeft"));
+  const initial = await waitForState(
+    client,
+    niriPresentationStateExpression(),
+    niriPresentationReady,
+  );
+  await captureScreenshot(client, join(recordingDir, "niri-presentation-workspace.png"));
+  await client.evaluate(niriArrowKeyExpression("ArrowRight"));
   await waitForState(
     client,
-    paneTabSplitStateExpression(),
-    (value) => value.ready && value.paneCount === 1,
+    niriPresentationStateExpression(),
+    (value) => niriPresentationReady(value) && value.focusedPaneId !== initial.focusedPaneId,
   );
-  await client.evaluate(`(() => {
-    window.findWorkflowButton = (kind, expected) => {
-      const buttons = Array.from(document.querySelectorAll("button"));
-      return buttons.find((button) => {
-        if (kind === "aria-label") {
-          return button.getAttribute("aria-label") === expected;
-        }
-        return button.innerText.trim() === expected;
-      }) ?? null;
+}
+
+function workspacePresentationModeExpression() {
+  return `(async () => {
+    const classicTab = document.querySelector('[data-testid^="workspace-pane-tab-"]');
+    const classicGrid = document.querySelector('[data-testid="workspace-pane-grid-shell"]');
+    const niriWorkspace = document.querySelector('[data-testid="niri-workspace-area"]');
+    const classic = {
+      paneCount: document.querySelectorAll('[data-testid="workspace-pane-grid-cell"]').length,
+      ready: Boolean(classicTab && classicGrid),
     };
-  })()`);
+    const niri = await (${niriPresentationStateFunctionSource()})();
+    return {
+      classic,
+      mode: niriWorkspace ? "niri" : classic.ready ? "classic" : "loading",
+      niri,
+    };
+  })()`;
+}
+
+function niriPresentationStateExpression() {
+  return `(async () => (${niriPresentationStateFunctionSource()})())()`;
+}
+
+function niriPresentationStateFunctionSource() {
+  return `async () => {
+    const rect = (element) => {
+      if (!element) {
+        return null;
+      }
+      const box = element.getBoundingClientRect();
+      return {
+        height: Math.round(box.height),
+        width: Math.round(box.width),
+      };
+    };
+    const workspace = document.querySelector('[data-testid="niri-workspace-area"]');
+    const hosts = [...document.querySelectorAll('[data-testid="niri-fake-pane-host"]')];
+    const nativeStats = await window.setta.niriNativeViews?.readBrowserViewStats?.();
+    return {
+      browserPaneCount: Number(workspace?.getAttribute("data-browser-pane-count") ?? 0),
+      debugText: document.querySelector('[data-testid="niri-debug-overlay"]')?.textContent ?? "",
+      focusedPaneId:
+        hosts.find((host) => host.getAttribute("data-focused") === "true")?.getAttribute("data-pane-id") ?? "",
+      hostCount: hosts.length,
+      liveBrowserViews: nativeStats?.live ?? 0,
+      movingHostCount: hosts.filter((host) => host.getAttribute("data-moving") === "true").length,
+      nativeBoundsBatchCount: nativeStats?.boundsBatchCount ?? 0,
+      nativeBoundsUpdateCount: nativeStats?.boundsUpdateCount ?? 0,
+      paneCount: Number(workspace?.getAttribute("data-pane-count") ?? 0),
+      projectSidebar: rect(document.querySelector(".setta-sidebar-surface")),
+      settingsPaneMounted: Boolean(document.querySelector('[data-testid="niri-settings-dom-surface"]')),
+      topBar: rect(document.querySelector('[data-testid="shell-top-bar"]')),
+      totalBrowserPanes: nativeStats?.totalBrowserPanes ?? 0,
+      visibleBrowserPanes: nativeStats?.visibleBrowserPanes ?? 0,
+      visibleHostCount: hosts.filter((host) => host.getAttribute("data-visible") === "true").length,
+      workspace: rect(workspace),
+    };
+  }`;
+}
+
+function niriPresentationReady(value) {
+  return [
+    niriPaneCountsReady,
+    niriDebugMetricsReady,
+    niriFocusReady,
+    niriNativeBoundsReady,
+    niriBrowserBudgetReady,
+    niriShellMounted,
+  ].every((check) => check(value));
+}
+
+function niriPaneCountsReady(value) {
+  return (
+    value.paneCount === 500 &&
+    value.browserPaneCount >= 20 &&
+    value.hostCount === 40 &&
+    value.visibleHostCount === 40
+  );
+}
+
+function niriDebugMetricsReady(value) {
+  return (
+    value.debugText.includes("visible 40") &&
+    value.debugText.includes("native") &&
+    value.debugText.includes("react 0")
+  );
+}
+
+function niriFocusReady(value) {
+  return value.focusedPaneId !== "" && value.movingHostCount === 0;
+}
+
+function niriNativeBoundsReady(value) {
+  return value.nativeBoundsBatchCount > 0 && value.nativeBoundsUpdateCount > 0;
+}
+
+function niriBrowserBudgetReady(value) {
+  return (
+    value.totalBrowserPanes >= 20 &&
+    countInRange(value.liveBrowserViews, 4, 8) &&
+    countInRange(value.visibleBrowserPanes, 4, 8)
+  );
+}
+
+function niriShellMounted(value) {
+  return (
+    value.projectSidebar?.width > 0 &&
+    value.settingsPaneMounted &&
+    value.topBar?.height > 0 &&
+    value.workspace?.width > 0
+  );
+}
+
+function countInRange(value, min, max) {
+  return value >= min && value <= max;
+}
+
+function niriArrowKeyExpression(key) {
+  return `(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: ${JSON.stringify(key)},
+    }));
+  })()`;
 }
 
 function paneTabSplitStateExpression() {

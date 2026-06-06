@@ -1,16 +1,19 @@
 import { Profiler, useEffect, useMemo, useRef } from "react";
 
+import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { generateBenchmarkScene, phaseOneVisiblePaneCount } from "./benchmark-scene";
 import { FrameScheduler } from "./frame-scheduler";
 import { NiriLikeLayoutEngine } from "./layout-engine";
 import { NiriLayoutStore } from "./layout-store";
 import { NiriMetricsCollector } from "./metrics";
+import { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
 import {
   installWindowReportHooks,
   LocalStoragePerformanceReportWriter,
 } from "./performance-report";
 import { PresentationEngine } from "./presentation-engine";
 import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
+import { createDefaultSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
 import type { NiriPane, Rect } from "./types";
 
@@ -50,9 +53,18 @@ export function NiriWorkspaceArea() {
       scheduler.pauseBenchmark();
       runtime.store.moveFocus(arrowDirection(event.key));
     };
+    const unsubscribeNativeKey =
+      window.setta.niriNativeViews?.onBrowserViewKey((event) => {
+        if (event.workspaceId !== runtime.scene.id) {
+          return;
+        }
+        scheduler.pauseBenchmark();
+        runtime.store.moveFocus(arrowDirection(event.key));
+      }) ?? (() => {});
     window.addEventListener("keydown", handleKeyDown);
     scheduler.start();
     return () => {
+      unsubscribeNativeKey();
       window.removeEventListener("keydown", handleKeyDown);
       scheduler.teardown();
     };
@@ -60,9 +72,11 @@ export function NiriWorkspaceArea() {
 
   return (
     <section
-      aria-label="Niri fake-pane workspace prototype"
+      aria-label="Niri browser-pane workspace prototype"
       className="niri-workspace-area relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
+      data-browser-pane-count={runtime.browserPaneCount}
       data-pane-count={runtime.scene.totalPanes}
+      data-workspace-id={runtime.scene.id}
       data-testid="niri-workspace-area"
       ref={rootRef}
     >
@@ -160,11 +174,27 @@ function createNiriRuntime() {
   const engine = new NiriLikeLayoutEngine(scene);
   const store = new NiriLayoutStore(engine, scene);
   const metrics = new NiriMetricsCollector();
-  const surfaceRegistry = new SurfaceRegistry(scene.panes);
+  const browserPaneCount = scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
+  const nativeViewBoundsBatcher = new NativeViewBoundsBatcher({
+    totalBrowserPanes: browserPaneCount,
+    workspaceId: scene.id,
+  });
+  const surfaceRegistry = new SurfaceRegistry(scene.panes, (pane) => {
+    if (pane.surfaceKind === "browser") {
+      return new BrowserSurfaceProxyAdapter(pane, nativeViewBoundsBatcher);
+    }
+    return createDefaultSurfaceAdapter(pane);
+  });
   return {
     engine,
     metrics,
-    presentation: new PresentationEngine(scene.panes, metrics, surfaceRegistry),
+    browserPaneCount,
+    presentation: new PresentationEngine(
+      scene.panes,
+      metrics,
+      surfaceRegistry,
+      nativeViewBoundsBatcher,
+    ),
     reportWriter: new LocalStoragePerformanceReportWriter(5000),
     runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET),
     scene,

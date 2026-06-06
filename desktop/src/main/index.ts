@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import { createBackendClient, type BackendClient, type ChatEvent } from "@generated/backend";
-import { handleIpc, ipcEvents } from "@shared/ipc";
+import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
@@ -16,6 +16,7 @@ import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
+import { createElectronWebContentsViewRegistry } from "./niri-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { readWorkspaceGitInfo } from "./workspace-actions";
 
@@ -30,6 +31,7 @@ const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAl
 const execFileAsync = promisify(execFile);
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
+const niriBrowserViews = createElectronWebContentsViewRegistry();
 
 function desktopRoot() {
   return process.cwd();
@@ -184,6 +186,7 @@ async function createWindow() {
     }
   });
   mainWindow.on("closed", () => {
+    niriBrowserViews.teardownAll();
     mainWindow = null;
   });
 
@@ -209,6 +212,9 @@ function registerIpc() {
   const ipcObserver = recorder?.createIpcObserver();
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
+  });
+  ipcMain.on(ipcMessages.niriBrowserViewBatch, (event, batch) => {
+    niriBrowserViews.applyBatch(event, batch);
   });
   handleIpc(
     ipcMain,
@@ -556,6 +562,22 @@ function registerIpc() {
     "codexAccountLogout",
     async (_event, request) => {
       return requireBackendClient().logoutCodexAccount(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "niriBrowserViewStats",
+    () => {
+      return niriBrowserViews.readStats();
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "niriBrowserViewsTeardown",
+    (_event, workspaceId) => {
+      return niriBrowserViews.teardownWorkspace(workspaceId);
     },
     ipcObserver,
   );

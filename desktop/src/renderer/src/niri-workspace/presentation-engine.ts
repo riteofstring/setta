@@ -1,4 +1,5 @@
 import type { NiriMetricsCollector } from "./metrics";
+import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
 import { SurfaceRegistry } from "./surface-registry";
 import type { NiriPane, PaneRenderItem, PaneRuntimeSummary } from "./types";
 
@@ -25,6 +26,7 @@ export class PresentationEngine {
     panes: readonly NiriPane[],
     private readonly metrics: NiriMetricsCollector,
     private readonly surfaceRegistry = new SurfaceRegistry(panes),
+    private readonly nativeViewBoundsBatcher: NativeViewBoundsBatcher | null = null,
   ) {
     for (const pane of panes) {
       this.paneById.set(pane.paneId, pane);
@@ -33,6 +35,7 @@ export class PresentationEngine {
 
   apply(items: PaneRenderItem[]): { nativeBoundsUpdates: number; transformWrites: number } {
     let transformWrites = 0;
+    this.nativeViewBoundsBatcher?.beginFrame();
 
     for (let index = 0; index < this.bindings.length; index += 1) {
       const binding = this.bindings[index];
@@ -40,17 +43,11 @@ export class PresentationEngine {
         continue;
       }
       const item = items[index];
-      if (!item) {
-        this.hideBinding(binding);
-        continue;
-      }
-      if (!item.moving || binding.contentPaneId === item.paneId) {
-        this.syncContent(binding, item);
-      }
-      transformWrites += this.syncFrame(binding, item);
+      transformWrites += this.applyBinding(binding, item);
     }
 
-    return { nativeBoundsUpdates: 0, transformWrites };
+    const nativeFlush = this.nativeViewBoundsBatcher?.flush();
+    return { nativeBoundsUpdates: nativeFlush?.batchSent ? 1 : 0, transformWrites };
   }
 
   mount(hosts: readonly HTMLElement[], debugOverlay: HTMLElement | null): void {
@@ -70,6 +67,17 @@ export class PresentationEngine {
     this.debugOverlay = debugOverlay;
   }
 
+  private applyBinding(binding: PaneHostBinding, item: PaneRenderItem | undefined): number {
+    if (!item) {
+      this.hideBinding(binding);
+      return 0;
+    }
+    if (this.shouldSyncContent(binding, item)) {
+      this.syncContent(binding, item);
+    }
+    return this.syncFrame(binding, item);
+  }
+
   teardown(): void {
     for (const binding of this.bindings) {
       binding.host.removeAttribute("data-focused");
@@ -82,6 +90,12 @@ export class PresentationEngine {
       this.debugOverlay.textContent = "";
     }
     this.surfaceRegistry.teardown();
+    void this.nativeViewBoundsBatcher?.teardown().catch((error: unknown) => {
+      console.error(
+        "failed to teardown niri native browser views",
+        error instanceof Error ? error.message : error,
+      );
+    });
     this.bindings = [];
     this.debugOverlay = null;
   }
@@ -97,6 +111,7 @@ export class PresentationEngine {
       `p99 ${snapshot.p99FrameTime.toFixed(2)}ms`,
       `visible ${snapshot.visiblePaneCount}`,
       `writes ${snapshot.transformWrites}`,
+      `native ${snapshot.nativeBoundsUpdates}`,
       `long ${snapshot.longTasks}`,
       `react ${snapshot.reactCommitsDuringMovement}`,
       `runtime ${runtimeSummary.live}/${runtimeSummary.snapshot}/${runtimeSummary.liveThrottled}/${runtimeSummary.hidden}`,
@@ -116,7 +131,7 @@ export class PresentationEngine {
   }
 
   private syncContent(binding: PaneHostBinding, item: PaneRenderItem): void {
-    if (binding.contentPaneId !== item.paneId && item.moving) {
+    if (binding.contentPaneId !== item.paneId && item.moving && item.surfaceKind !== "browser") {
       return;
     }
     const pane = this.paneById.get(item.paneId);
@@ -127,6 +142,10 @@ export class PresentationEngine {
     binding.host.dataset.paneId = item.paneId;
     binding.host.dataset.tone = pane.tone;
     this.surfaceRegistry.syncHost(binding.host, item);
+  }
+
+  private shouldSyncContent(binding: PaneHostBinding, item: PaneRenderItem): boolean {
+    return !item.moving || binding.contentPaneId === item.paneId || item.surfaceKind === "browser";
   }
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): number {
