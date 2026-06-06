@@ -13,15 +13,18 @@ import (
 	"strconv"
 	"time"
 
+	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/httpapi"
-	"setta/internal/orchestrator"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
+
+var _ httpapi.AppearanceService = (*appearance.Service)(nil)
+var _ httpapi.ChatService = (*chat.Service)(nil)
 
 type Config struct {
 	AppDataDir      string
@@ -47,20 +50,19 @@ type ReadyEvent struct {
 }
 
 type Server struct {
-	closeCodex          func(context.Context) error
-	closeEvents         func()
-	closeWorkflowEvents func()
-	server              *http.Server
-	listener            net.Listener
-	done                chan error
+	closeCodex  func(context.Context) error
+	closeEvents func()
+	server      *http.Server
+	listener    net.Listener
+	done        chan error
 }
 
 type runtimeServices struct {
+	appearanceService   *appearance.Service
 	chatService         *chat.Service
 	codexAccountService *codexaccount.Service
 	codexManager        *codexapp.Manager
 	workspaceService    *workspacesession.Service
-	workflowService     *orchestrator.Service
 }
 
 func DefaultConfig() Config {
@@ -126,12 +128,11 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	}
 
 	server := &Server{
-		closeCodex:          services.codexManager.Shutdown,
-		closeEvents:         services.chatService.CloseEvents,
-		closeWorkflowEvents: services.workflowService.CloseEvents,
-		server:              newHTTPServer(config, services),
-		listener:            listener,
-		done:                make(chan error, 1),
+		closeCodex:  services.codexManager.Shutdown,
+		closeEvents: services.chatService.CloseEvents,
+		server:      newHTTPServer(config, services),
+		listener:    listener,
+		done:        make(chan error, 1),
 	}
 
 	if err := json.NewEncoder(config.Stdout).Encode(ReadyEvent{Event: "ready", Addr: listener.Addr().String()}); err != nil {
@@ -156,6 +157,14 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("load workspace session: %w", err)
 	}
+	appearanceStore, err := appearance.NewStore(config.AppDataDir)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create appearance settings store: %w", err)
+	}
+	appearanceService, err := appearance.NewService(appearanceStore)
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("load appearance settings: %w", err)
+	}
 	chatStore, err := chat.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create chat store: %w", err)
@@ -175,25 +184,17 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create chat service: %w", err)
 	}
-	workflowStore, err := orchestrator.NewStore(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create workflow store: %w", err)
-	}
-	workflowService, err := orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create workflow service: %w", err)
-	}
 	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create Codex account service: %w", err)
 	}
 
 	return runtimeServices{
+		appearanceService:   appearanceService,
 		chatService:         chatService,
 		codexAccountService: codexAccountService,
 		codexManager:        codexManager,
 		workspaceService:    workspaceService,
-		workflowService:     workflowService,
 	}, nil
 }
 
@@ -204,10 +205,10 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 				Name:    httpapi.BackendName,
 				Version: config.Version,
 			},
+			AppearanceService:   services.appearanceService,
 			ChatService:         services.chatService,
 			CodexAccountService: services.codexAccountService,
 			WorkspaceService:    services.workspaceService,
-			WorkflowService:     services.workflowService,
 		}),
 	}
 }
@@ -222,9 +223,6 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	}
 	if server.closeEvents != nil {
 		server.closeEvents()
-	}
-	if server.closeWorkflowEvents != nil {
-		server.closeWorkflowEvents()
 	}
 	shutdownErr := server.server.Shutdown(ctx)
 	if server.closeCodex != nil {

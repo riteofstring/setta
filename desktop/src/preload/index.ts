@@ -1,26 +1,20 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import { decodeChatEvent } from "@generated/backend";
-import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
+import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import type {
   BackendEventStreamStatus,
   BackendProcessStatus,
   DesktopPlatform,
+  NiriBrowserViewKeyEvent,
   SettaAPI,
 } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
-const appFlags = {
-  pixiWorkspaceDebug:
-    process.env.SETTA_E2E === "1" || process.env.SETTA_PIXI_WORKSPACE_DEBUG === "1",
-  pixiWorkspacePrototype: process.env.SETTA_PIXI_WORKSPACE_PROTOTYPE === "1",
-  pixiWorkspaceSyntheticGraph: parsePixiWorkspaceSyntheticGraph(process.env),
-};
 
 const api: SettaAPI = {
   app: {
-    flags: appFlags,
     installedEditors: () => invoke("appInstalledEditors"),
     openWorkspaceInEditor: (editorId: string, rootPath: string) =>
       invoke("appOpenWorkspaceInEditor", editorId, rootPath),
@@ -50,6 +44,27 @@ const api: SettaAPI = {
       };
     },
   },
+  niriNativeViews: {
+    batchBrowserViewUpdates: (batch) => {
+      ipcRenderer.send(ipcMessages.niriBrowserViewBatch, batch);
+    },
+    onBrowserViewKey: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeNiriBrowserViewKeyEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.niriBrowserViewKey, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.niriBrowserViewKey, handler);
+      };
+    },
+    readBrowserViewStats: () => invoke("niriBrowserViewStats"),
+    teardownBrowserViews: (workspaceId: string) => invoke("niriBrowserViewsTeardown", workspaceId),
+  },
+  appearance: {
+    presets: () => invoke("appearancePresets"),
+    read: () => invoke("appearanceRead"),
+    update: (request) => invoke("appearanceUpdate", request),
+  },
   chat: {
     activeRun: (workspaceId: string, conversationId: string) =>
       invoke("chatActiveRun", workspaceId, conversationId),
@@ -57,12 +72,8 @@ const api: SettaAPI = {
       invoke("chatCancelRun", workspaceId, conversationId),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
-    editQueuedMessage: (
-      workspaceId: string,
-      conversationId: string,
-      messageId: string,
-      prompt: string,
-    ) => invoke("chatEditQueuedMessage", workspaceId, conversationId, messageId, prompt),
+    deleteConversation: (workspaceId: string, conversationId: string) =>
+      invoke("chatDeleteConversation", workspaceId, conversationId),
     executeCommand: (workspaceId: string, conversationId: string, raw: string, options) =>
       invoke(
         "chatExecuteCommand",
@@ -78,8 +89,6 @@ const api: SettaAPI = {
     listCommands: (workspaceId: string, conversationId: string) =>
       invoke("chatListCommands", workspaceId, conversationId),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
-    markConversationRead: (workspaceId: string, conversationId: string) =>
-      invoke("chatMarkConversationRead", workspaceId, conversationId),
     messagePage: (
       workspaceId: string,
       conversationId: string,
@@ -97,8 +106,6 @@ const api: SettaAPI = {
     },
     queueMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatQueueMessage", workspaceId, conversationId, prompt),
-    removeQueuedMessage: (workspaceId: string, conversationId: string, messageId: string) =>
-      invoke("chatRemoveQueuedMessage", workspaceId, conversationId, messageId),
     runActivity: (workspaceId: string, runId: string, limit: number) =>
       invoke("chatRunActivity", workspaceId, runId, limit),
     runItemOutput: (
@@ -110,11 +117,15 @@ const api: SettaAPI = {
     ) => invoke("chatRunItemOutput", workspaceId, runId, runItemId, afterOrdinal, limit),
     sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSendMessage", workspaceId, conversationId, prompt),
-    sendSteeringImmediately: (workspaceId: string, conversationId: string, prompt = "") =>
-      invoke("chatSendSteeringImmediately", workspaceId, conversationId, prompt),
     steerMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSteerMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
+    updateUserMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      text: string,
+    ) => invoke("chatUpdateUserMessage", workspaceId, conversationId, messageId, text),
   },
   codexAccount: {
     cancelLogin: (request) => invoke("codexAccountCancelLogin", request),
@@ -123,31 +134,9 @@ const api: SettaAPI = {
     refresh: (request) => invoke("codexAccountRefresh", request),
     startLogin: (request) => invoke("codexAccountStartLogin", request),
   },
-  workflow: {
-    cancelExecution: (workspaceId, executionId) =>
-      invoke("workflowCancelExecution", workspaceId, executionId),
-    createDefinition: (workspaceId, name, description, graph) =>
-      invoke("workflowCreateDefinition", workspaceId, name, description, graph),
-    deleteDefinition: (workspaceId, definitionId) =>
-      invoke("workflowDeleteDefinition", workspaceId, definitionId),
-    executionEvents: (workspaceId, executionId, beforeOrdinal, limit) =>
-      invoke("workflowExecutionEvents", workspaceId, executionId, beforeOrdinal, limit),
-    listDefinitions: (workspaceId) => invoke("workflowListDefinitions", workspaceId),
-    readDefinition: (workspaceId, definitionId) =>
-      invoke("workflowReadDefinition", workspaceId, definitionId),
-    readExecution: (workspaceId, executionId) =>
-      invoke("workflowReadExecution", workspaceId, executionId),
-    startExecution: (workspaceId, definitionId, versionId = "") =>
-      invoke("workflowStartExecution", workspaceId, definitionId, versionId),
-    updateDefinition: (workspaceId, definitionId, name, description, graph) =>
-      invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),
-    validateDefinition: (workspaceId, graph) =>
-      invoke("workflowValidateDefinition", workspaceId, graph),
-  },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
-    openPath: (rootPath: string) => invoke("workspaceOpenPath", rootPath),
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
     select: (id: string) => invoke("workspaceSelect", id),
@@ -157,37 +146,6 @@ const api: SettaAPI = {
 
 installRendererRecorder(ipcRenderer);
 contextBridge.exposeInMainWorld("setta", api);
-
-function parsePixiWorkspaceSyntheticGraph(env: NodeJS.ProcessEnv) {
-  const nodeCount = optionalPositiveIntegerEnv(
-    env.SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT,
-    "SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT",
-  );
-  const edgesPerNode = optionalPositiveIntegerEnv(
-    env.SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE,
-    "SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE",
-  );
-  if (nodeCount === null && edgesPerNode === null) {
-    return null;
-  }
-  if (nodeCount === null || edgesPerNode === null) {
-    throw new Error(
-      "SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT and SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE must be set together",
-    );
-  }
-  return { edgesPerNode, nodeCount };
-}
-
-function optionalPositiveIntegerEnv(value: string | undefined, name: string) {
-  if (value === undefined || value === "") {
-    return null;
-  }
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer: ${value}`);
-  }
-  return parsed;
-}
 
 function decodeBackendProcessStatus(value: unknown): BackendProcessStatus {
   const record = assertStatusRecord(value, "BackendProcessStatus");
@@ -251,6 +209,19 @@ function decodeBackendEventStreamStatus(value: unknown): BackendEventStreamStatu
     return { message, status };
   }
   throw new Error("BackendEventStreamStatus.status is unsupported: " + status);
+}
+
+function decodeNiriBrowserViewKeyEvent(value: unknown): NiriBrowserViewKeyEvent {
+  const record = assertStatusRecord(value, "NiriBrowserViewKeyEvent");
+  const key = stringField(record, "key", "NiriBrowserViewKeyEvent");
+  if (key !== "ArrowDown" && key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp") {
+    throw new Error("NiriBrowserViewKeyEvent.key is unsupported: " + key);
+  }
+  return {
+    key,
+    surfaceId: stringField(record, "surfaceId", "NiriBrowserViewKeyEvent"),
+    workspaceId: stringField(record, "workspaceId", "NiriBrowserViewKeyEvent"),
+  };
 }
 
 function assertStatusRecord(value: unknown, label: string): Record<string, unknown> {

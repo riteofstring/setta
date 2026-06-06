@@ -27,63 +27,11 @@ func startTestJSONRPCClient(config CodexHarnessConfig) (*codexapp.Client, error)
 }
 
 func writeFakeThreadResponse(id any, model string, effort ReasoningEffort) {
-	writeFakeResponse(id, fakeCodexThreadResponse(model, effort))
-}
-
-func fakeCodexThreadResponse(model string, effort ReasoningEffort) map[string]any {
-	return map[string]any{
-		"approvalPolicy":    "on-request",
-		"approvalsReviewer": "user",
-		"cwd":               "/tmp/setta-fake",
-		"model":             model,
-		"modelProvider":     "fake",
-		"reasoningEffort":   string(effort),
-		"sandbox":           "workspace-write",
-		"thread":            fakeCodexThread(),
-	}
-}
-
-func fakeCodexThread() map[string]any {
-	return map[string]any{
-		"cliVersion":    "fake",
-		"createdAt":     1,
-		"cwd":           "/tmp/setta-fake",
-		"ephemeral":     true,
-		"id":            "thread_fake",
-		"modelProvider": "fake",
-		"preview":       "",
-		"sessionId":     "session_fake",
-		"source":        "user",
-		"status":        map[string]any{"type": "idle"},
-		"turns":         []any{},
-		"updatedAt":     1,
-	}
-}
-
-func fakeCodexTurn(status string) map[string]any {
-	return map[string]any{
-		"id":     "turn_fake",
-		"items":  []any{},
-		"status": status,
-	}
-}
-
-func fakeCodexThreadSettings(model string, effort ReasoningEffort) map[string]any {
-	return map[string]any{
-		"approvalPolicy":    "on-request",
-		"approvalsReviewer": "user",
-		"collaborationMode": map[string]any{
-			"mode": "default",
-			"settings": map[string]any{
-				"model": model,
-			},
-		},
-		"cwd":           "/tmp/setta-fake",
-		"effort":        string(effort),
-		"model":         model,
-		"modelProvider": "fake",
-		"sandboxPolicy": "workspace-write",
-	}
+	writeFakeResponse(id, map[string]any{
+		"model":           model,
+		"reasoningEffort": string(effort),
+		"thread":          map[string]any{"id": "thread_fake"},
+	})
 }
 
 func writeFakeStreamTurn() {
@@ -118,7 +66,6 @@ func writeFakeMCPServerStartupStatus(name string, status string, errorMessage an
 
 func writeFakeReasoningSummaryArrayItem() {
 	writeFakeNotification("item/completed", map[string]any{
-		"completedAtMs": 1,
 		"item": map[string]any{
 			"content": []string{},
 			"id":      "reasoning_summary_array_fake",
@@ -132,7 +79,6 @@ func writeFakeReasoningSummaryArrayItem() {
 
 func writeFakeEmptyAgentMessageItem() {
 	writeFakeNotification("item/started", map[string]any{
-		"startedAtMs": 1,
 		"item": map[string]any{
 			"id":   "agent_message_empty_fake",
 			"text": "",
@@ -165,7 +111,9 @@ func writeFakeThreadGoalCleared() {
 
 func writeFakeThreadStarted() {
 	writeFakeNotification("thread/started", map[string]any{
-		"thread": fakeCodexThread(),
+		"thread": map[string]any{
+			"id": "thread_fake",
+		},
 	})
 }
 
@@ -203,7 +151,6 @@ func writeFakeThreadTokenUsage() {
 
 func writeFakeUserMessageItem() {
 	writeFakeNotification("item/started", map[string]any{
-		"startedAtMs": 1,
 		"item": map[string]any{
 			"content": []any{map[string]any{
 				"text": "hello",
@@ -253,16 +200,14 @@ func writeFakeActivityTurn() {
 		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/reasoning/summaryTextDelta", map[string]any{
-		"delta":        "checked plan",
-		"itemId":       "reasoning_fake",
-		"summaryIndex": 0,
-		"threadId":     "thread_fake",
-		"turnId":       "turn_fake",
+		"delta":    "checked plan",
+		"itemId":   "reasoning_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/started", map[string]any{
-		"startedAtMs": 1,
-		"threadId":    "thread_fake",
-		"turnId":      "turn_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
 		"item": map[string]any{
 			"id":      "command_fake",
 			"type":    "commandExecution",
@@ -274,6 +219,7 @@ func writeFakeActivityTurn() {
 	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
 		"delta":    "ok\n",
 		"itemId":   "command_fake",
+		"stream":   "stdout",
 		"threadId": "thread_fake",
 		"turnId":   "turn_fake",
 	})
@@ -296,9 +242,8 @@ func writeFakeActivityTurn() {
 		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/completed", map[string]any{
-		"completedAtMs": 1,
-		"threadId":      "thread_fake",
-		"turnId":        "turn_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
 		"item": map[string]any{
 			"durationMs": 42,
 			"exitCode":   0,
@@ -310,74 +255,6 @@ func writeFakeActivityTurn() {
 		},
 	})
 	writeFakeCompletedTurn("completed")
-}
-
-func writeFakeEmptyDeltaTurn() {
-	writeFakeNotification("turn/started", map[string]any{
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("item/agentMessage/delta", map[string]any{
-		"delta":    "",
-		"itemId":   "item_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("item/plan/delta", map[string]any{
-		"delta":    "",
-		"itemId":   "plan_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeNotification("item/reasoning/summaryTextDelta", map[string]any{
-		"delta":        "",
-		"itemId":       "reasoning_fake",
-		"summaryIndex": 0,
-		"threadId":     "thread_fake",
-		"turnId":       "turn_fake",
-	})
-	writeFakeNotification("item/reasoning/textDelta", map[string]any{
-		"contentIndex": 0,
-		"delta":        "",
-		"itemId":       "reasoning_text_fake",
-		"threadId":     "thread_fake",
-		"turnId":       "turn_fake",
-	})
-	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
-		"delta":    "",
-		"itemId":   "command_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
-	writeFakeAssistantDelta("after empty")
-	writeFakeCompletedTurn("completed")
-}
-
-func writeFakeEmptyBase64OutputDeltaTurn() {
-	writeFakeNotification("command/exec/outputDelta", map[string]any{
-		"capReached":  false,
-		"deltaBase64": "",
-		"processId":   "command_process_fake",
-		"stream":      "stdout",
-	})
-	writeFakeNotification("process/outputDelta", map[string]any{
-		"capReached":    false,
-		"deltaBase64":   "",
-		"processHandle": "process_fake",
-		"stream":        "stderr",
-	})
-	writeFakeAssistantDelta("after empty outputs")
-	writeFakeCompletedTurn("completed")
-}
-
-func writeFakeUnsupportedOutputStreamTurn() {
-	writeFakeNotification("command/exec/outputDelta", map[string]any{
-		"capReached":  false,
-		"deltaBase64": "b2sK",
-		"processId":   "command_process_fake",
-		"stream":      "stdlog",
-	})
-	time.Sleep(2 * time.Second)
 }
 
 func writeFakeProtocolCoverageNotifications() {
@@ -435,14 +312,11 @@ func writeFakeProtocolCoverageNotifications() {
 	})
 	writeFakeAutoApprovalReview("item/autoApprovalReview/started", "inProgress")
 	writeFakeAutoApprovalReview("item/autoApprovalReview/completed", "approved")
-	writeFakeContextCompaction("item/started", "context_compaction_fake")
-	writeFakeContextCompaction("item/completed", "context_compaction_fake")
-	writeFakeNotification("item/fileChange/patchUpdated", map[string]any{
-		"changedPaths": []string{"/tmp/workspace/main.go"},
-		"itemId":       "file_fake",
-		"status":       "updated",
-		"threadId":     "thread_fake",
-		"turnId":       "turn_fake",
+	writeFakeNotification("item/fileChange/outputDelta", map[string]any{
+		"delta":    "patch output\n",
+		"itemId":   "file_output_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
 	})
 	writeFakeNotification("item/reasoning/textDelta", map[string]any{
 		"contentIndex": 0,
@@ -506,24 +380,6 @@ func writeFakeAutoApprovalReview(method string, status string) {
 		"threadId":     "thread_fake",
 		"turnId":       "turn_fake",
 	})
-}
-
-func writeFakeContextCompaction(method string, itemID string) {
-	payload := map[string]any{
-		"item": map[string]any{
-			"id":   itemID,
-			"type": "contextCompaction",
-		},
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	}
-	switch method {
-	case "item/started":
-		payload["startedAtMs"] = 1
-	case "item/completed":
-		payload["completedAtMs"] = 2
-	}
-	writeFakeNotification(method, payload)
 }
 
 func writeFakeRealtimeNotifications() {
@@ -697,7 +553,7 @@ func writeFakeAssistantDelta(delta string) {
 func writeFakeCompletedTurn(status string) {
 	writeFakeNotification("turn/completed", map[string]any{
 		"threadId": "thread_fake",
-		"turn":     fakeCodexTurn(status),
+		"turn":     map[string]any{"id": "turn_fake", "items": []any{}, "status": status},
 	})
 }
 
@@ -729,68 +585,6 @@ func assertFakeThreadID(message map[string]any) {
 	if params["threadId"] != "thread_fake" {
 		panic("command targeted wrong thread")
 	}
-}
-
-func assertFakeDynamicToolsThreadParams(mode string, message map[string]any) {
-	switch mode {
-	case "dynamic-tools-thread-start":
-		if message["method"] != "thread/start" {
-			panic("dynamic tools start test should start a thread")
-		}
-		params := fakeParams(message)
-		assertFakeCodexDeveloperInstructions(params)
-		tools, ok := params["dynamicTools"].([]any)
-		if !ok || len(tools) != 2 {
-			panic("thread/start missing dynamic tools")
-		}
-		visible := fakeDynamicToolByName(tools, "workspace_context")
-		if visible == nil {
-			panic("workspace_context dynamic tool missing")
-		}
-		if visible["namespace"] != "setta" || visible["deferLoading"] != nil {
-			panic("workspace_context dynamic tool exposure mismatch")
-		}
-		schema, ok := visible["inputSchema"].(map[string]any)
-		if !ok || schema["type"] != "object" {
-			panic("workspace_context dynamic tool schema mismatch")
-		}
-		deferred := fakeDynamicToolByName(tools, "workspace_archive")
-		if deferred == nil {
-			panic("workspace_archive dynamic tool missing")
-		}
-		if deferred["namespace"] != "setta" || deferred["deferLoading"] != true {
-			panic("workspace_archive dynamic tool exposure mismatch")
-		}
-	case "dynamic-tools-thread-resume":
-		if message["method"] != "thread/resume" {
-			panic("dynamic tools resume test should resume a thread")
-		}
-		params := fakeParams(message)
-		if _, ok := params["dynamicTools"]; ok {
-			panic("thread/resume should not include dynamicTools")
-		}
-	}
-}
-
-func assertFakeCodexDeveloperInstructions(params map[string]any) {
-	instructions, ok := params["developerInstructions"].(string)
-	if !ok || instructions == "" {
-		panic("thread/start missing developer instructions")
-	}
-	if !strings.Contains(instructions, "available dynamic tool") ||
-		!strings.Contains(instructions, "Do not invent dynamic tool names") {
-		panic("thread/start developer instructions missing Setta dynamic tool guidance")
-	}
-}
-
-func fakeDynamicToolByName(tools []any, name string) map[string]any {
-	for _, raw := range tools {
-		tool, ok := raw.(map[string]any)
-		if ok && tool["name"] == name {
-			return tool
-		}
-	}
-	return nil
 }
 
 func assertFakePermissionApproval(message map[string]any) {

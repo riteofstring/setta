@@ -6,42 +6,38 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"setta/internal/codexapp"
 )
 
-func threadIDFromStartResponse(raw json.RawMessage) (string, error) {
-	response, err := codexapp.DecodeThreadStartResponse(raw)
+func threadIDFromResponse(raw json.RawMessage) (string, error) {
+	response, err := objectValue(raw, "codex thread response")
 	if err != nil {
 		return "", err
 	}
-	return threadIDFromCodexThread(response.Thread, "codex thread start response")
-}
-
-func threadIDFromResumeResponse(raw json.RawMessage) (string, error) {
-	response, err := codexapp.DecodeThreadResumeResponse(raw)
+	thread, err := requireObject(response, "thread", "codex thread response")
 	if err != nil {
 		return "", err
 	}
-	return threadIDFromCodexThread(response.Thread, "codex thread resume response")
-}
-
-func threadIDFromCodexThread(thread codexapp.Thread, label string) (string, error) {
-	if thread.ID == "" {
-		return "", fmt.Errorf("%s.thread.id is required", label)
-	}
-	return thread.ID, nil
-}
-
-func turnIDFromStartResponse(raw json.RawMessage) (string, error) {
-	response, err := codexapp.DecodeTurnStartResponse(raw)
+	threadID, err := requireString(thread, "id", "codex thread response thread")
 	if err != nil {
 		return "", err
 	}
-	if response.Turn.ID == "" {
-		return "", fmt.Errorf("codex turn start response.turn.id is required")
+	return threadID, nil
+}
+
+func turnIDFromResponse(raw json.RawMessage) (string, error) {
+	response, err := objectValue(raw, "codex turn response")
+	if err != nil {
+		return "", err
 	}
-	return response.Turn.ID, nil
+	turn, err := requireObject(response, "turn", "codex turn response")
+	if err != nil {
+		return "", err
+	}
+	turnID, err := requireString(turn, "id", "codex turn response turn")
+	if err != nil {
+		return "", err
+	}
+	return turnID, nil
 }
 
 func objectValue(raw json.RawMessage, label string) (map[string]any, error) {
@@ -280,8 +276,6 @@ func codexRunItemTextFieldsFromItem(item map[string]any) (codexRunItemTextFields
 			return codexRunItemTextFields{}, err
 		}
 		return codexRunItemTextFields{title: "Reasoning summary", summary: summary}, nil
-	case "contextCompaction":
-		return codexRunItemTextFields{title: "Context compaction"}, nil
 	default:
 		return codexRunItemTextFields{}, nil
 	}
@@ -360,7 +354,6 @@ var codexRunItemTypeByCodexType = map[string]RunItemType{
 	"imageView":           RunItemTypeImageView,
 	"mcpToolCall":         RunItemTypeMCPToolCall,
 	"plan":                RunItemTypePlan,
-	"contextCompaction":   RunItemTypeContextCompaction,
 	"reasoning":           RunItemTypeReasoning,
 	"terminalInteraction": RunItemTypeTerminalInteraction,
 	"webSearch":           RunItemTypeWebSearch,

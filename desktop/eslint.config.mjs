@@ -22,14 +22,4 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": "error",
     },
   },
-  {
-    files: ["src/main/test-fixtures/**/*.mjs"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      globals: {
-        ...globals.node,
-      },
-      sourceType: "module",
-    },
-  },
 );
