@@ -56,7 +56,7 @@ describe("niri WebContentsView registry", () => {
     ]);
   });
 
-  test("hides views absent from the next batch and destroys them on teardown", () => {
+  test("keeps absent views live until an explicit hidden update and destroys them on teardown", () => {
     const owner = new FakeOwnerWindow();
     const view = new FakeNativeView();
     const registry = new WebContentsViewRegistry({
@@ -65,9 +65,11 @@ describe("niri WebContentsView registry", () => {
     });
 
     registry.applyBatch(fakeEvent(), batch([update("surface-1", false)]));
-    const hiddenStats = registry.applyBatch(fakeEvent(), batch([]));
+    const unchangedStats = registry.applyBatch(fakeEvent(), batch([]));
+    const hiddenStats = registry.applyBatch(fakeEvent(), batch([hiddenUpdate("surface-1")]));
     const teardownStats = registry.teardownWorkspace("phase-4-browser-pane-benchmark");
 
+    expect(unchangedStats).toMatchObject({ hidden: 0, live: 1, registered: 1 });
     expect(hiddenStats).toMatchObject({ hidden: 1, live: 0, registered: 1 });
     expect(view.visible).toBe(false);
     expect(owner.contentView.children).toHaveLength(0);
@@ -90,6 +92,14 @@ class FakeContentView {
   removeChildView(view: FakeNativeView): void {
     this.children = this.children.filter((candidate) => candidate !== view);
   }
+}
+
+function hiddenUpdate(surfaceId: string): NiriBrowserViewBatch["updates"][number] {
+  return {
+    ...update(surfaceId, false),
+    runtimeState: "hidden",
+    visible: false,
+  };
 }
 
 class FakeNativeView {

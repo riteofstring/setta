@@ -474,24 +474,49 @@ async function waitForPartialCorruptChatState(client) {
 }
 
 async function pauseNiriBenchmarkForChatWorkflow(client) {
+  let lastState = null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await dispatchNiriArrowKey(client, "ArrowLeft");
+    const state = await waitForNiriChatSurfaceReady(client, 1_200);
+    if (state.ready) {
+      return;
+    }
+    lastState = state.value;
+  }
+  throw new Error(`niri chat surface was not ready after navigation: ${JSON.stringify(lastState)}`);
+}
+
+async function dispatchNiriArrowKey(client, key) {
   await client.evaluate(`(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
-      key: "ArrowLeft",
+      key: ${JSON.stringify(key)},
     }));
   })()`);
-  await waitForState(client, niriChatSurfaceReadyExpression(), (value) => {
-    if (!value.niriMounted) {
-      return true;
+}
+
+async function waitForNiriChatSurfaceReady(client, timeoutMs) {
+  const startedAt = Date.now();
+  let lastValue = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    lastValue = await client.evaluate(niriChatSurfaceReadyExpression());
+    if (niriChatSurfaceReady(lastValue)) {
+      return { ready: true, value: lastValue };
     }
-    return (
-      value.chatMounted &&
+    await delay(100);
+  }
+  return { ready: false, value: lastValue };
+}
+
+function niriChatSurfaceReady(value) {
+  return (
+    !value.niriMounted ||
+    (value.chatMounted &&
       value.hostRuntimeState === "live" &&
       value.hostMoving === "false" &&
-      value.hostVisible === "true"
-    );
-  });
+      value.hostVisible === "true")
+  );
 }
 
 function niriChatSurfaceReadyExpression() {

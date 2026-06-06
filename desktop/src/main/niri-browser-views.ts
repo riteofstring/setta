@@ -83,7 +83,6 @@ export class WebContentsViewRegistry {
     this.stats.visibleBrowserPanes = batch.visibleBrowserPanes;
     this.stats.workspaceId = batch.workspaceId;
 
-    const liveSurfaceIds = new Set<string>();
     for (const update of batch.updates) {
       if (update.runtimeState === "destroyed") {
         this.destroyRecord(update.surfaceId);
@@ -93,14 +92,7 @@ export class WebContentsViewRegistry {
         this.hideRecord(update.surfaceId);
         continue;
       }
-      liveSurfaceIds.add(update.surfaceId);
       this.upsertLiveRecord(ownerWindow, batch.workspaceId, update);
-    }
-
-    for (const [surfaceId, record] of this.records) {
-      if (record.workspaceId === batch.workspaceId && !liveSurfaceIds.has(surfaceId)) {
-        this.hideRecord(surfaceId);
-      }
     }
 
     this.routeFocus(ownerWindow, batch.focusedSurfaceId);
@@ -225,6 +217,7 @@ export class WebContentsViewRegistry {
     this.stats.hidden = hidden;
     this.stats.live = live;
     this.stats.registered = this.records.size;
+    this.stats.visibleBrowserPanes = live;
   }
 
   private requireOwnerWindow(event: IpcMainEvent): OwnerWindow {

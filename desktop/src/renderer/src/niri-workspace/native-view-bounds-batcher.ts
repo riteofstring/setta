@@ -22,6 +22,7 @@ export interface NativeViewBoundsFlushResult {
 export class NativeViewBoundsBatcher {
   private currentFrameSurfaceIds = new Set<string>();
   private focusedSurfaceId: string | null = null;
+  private lastLiveUpdates = new Map<string, NiriBrowserViewUpdate>();
   private previousFrameSurfaceIds = new Set<string>();
   private readonly updates = new Map<string, NiriBrowserViewUpdate>();
 
@@ -42,11 +43,8 @@ export class NativeViewBoundsBatcher {
       return { batchSent: false, updateCount: this.updates.size };
     }
 
-    const updates = [...this.updates.values()];
-    const shouldSend =
-      updates.length > 0 ||
-      this.previousFrameSurfaceIds.size > 0 ||
-      this.currentFrameSurfaceIds.size > 0;
+    const updates = this.updatesForFlush();
+    const shouldSend = updates.length > 0;
 
     if (!shouldSend) {
       return { batchSent: false, updateCount: 0 };
@@ -60,25 +58,60 @@ export class NativeViewBoundsBatcher {
       workspaceId: this.options.workspaceId,
     });
     this.previousFrameSurfaceIds = new Set(this.currentFrameSurfaceIds);
+    this.lastLiveUpdates = liveUpdatesFor(updates);
     return { batchSent: true, updateCount: updates.length };
   }
 
   queue(update: NiriBrowserViewUpdate): void {
-    this.currentFrameSurfaceIds.add(update.surfaceId);
     if (update.focused && update.visible && update.runtimeState === "live") {
       this.focusedSurfaceId = update.surfaceId;
+    }
+    if (update.visible && update.runtimeState === "live") {
+      this.currentFrameSurfaceIds.add(update.surfaceId);
     }
     this.updates.set(update.surfaceId, update);
   }
 
+  private updatesForFlush(): NiriBrowserViewUpdate[] {
+    if (this.updates.size === 0) {
+      return [];
+    }
+
+    const liveUpdates = new Map(this.lastLiveUpdates);
+    const nonLiveUpdates: NiriBrowserViewUpdate[] = [];
+    for (const update of this.updates.values()) {
+      if (update.visible && update.runtimeState === "live") {
+        liveUpdates.set(update.surfaceId, update);
+      } else {
+        liveUpdates.delete(update.surfaceId);
+        nonLiveUpdates.push(update);
+      }
+    }
+    this.currentFrameSurfaceIds = new Set(
+      [...liveUpdates.values()].map((update) => update.surfaceId),
+    );
+    return [...liveUpdates.values(), ...nonLiveUpdates];
+  }
+
   async teardown(): Promise<NiriBrowserViewStats | null> {
     this.beginFrame();
+    this.lastLiveUpdates.clear();
     this.previousFrameSurfaceIds.clear();
     if (!this.bridge) {
       return null;
     }
     return this.bridge.teardownBrowserViews(this.options.workspaceId);
   }
+}
+
+function liveUpdatesFor(updates: NiriBrowserViewUpdate[]): Map<string, NiriBrowserViewUpdate> {
+  const liveUpdates = new Map<string, NiriBrowserViewUpdate>();
+  for (const update of updates) {
+    if (update.visible && update.runtimeState === "live") {
+      liveUpdates.set(update.surfaceId, update);
+    }
+  }
+  return liveUpdates;
 }
 
 function nativeViewBridge(): NativeViewBridge | null {

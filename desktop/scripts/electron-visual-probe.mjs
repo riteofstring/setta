@@ -79,8 +79,9 @@ async function main() {
         artifacts: [
           "01-launch.png",
           "02-niri-phase6.png",
-          "03-compact-window.png",
-          "04-native-teardown.json",
+          "03-resize-hardening.png",
+          "04-compact-window.png",
+          "05-native-teardown.json",
         ],
         outDir: artifactDir,
         status: "passed",
@@ -99,9 +100,12 @@ async function runNiriProbe(client) {
   await waitForNiriReady(client);
   await captureProbeState(client, "02-niri-phase6");
 
+  await runResizeHardeningProbe(client);
+  await captureProbeState(client, "03-resize-hardening");
+
   await resizeElectronWindow(client, 320, 320);
   await waitForViewportSize(client, 320, 320);
-  const compactState = await captureProbeState(client, "03-compact-window");
+  const compactState = await captureProbeState(client, "04-compact-window");
   assertCompactNiriState(compactState);
   await assertNativeViewTeardown(client);
 }
@@ -236,11 +240,38 @@ async function captureScreenshot(client, path) {
   await writeFile(path, Buffer.from(image.data, "base64"));
 }
 
+async function runResizeHardeningProbe(client) {
+  const report = await client.evaluate(`(async () => {
+    window.__settaNiriResetResizeMetrics?.();
+    const sizes = [
+      [1040, 800],
+      [980, 760],
+      [900, 720],
+      [820, 680],
+      [760, 640],
+      [700, 600],
+      [640, 560],
+      [720, 620],
+      [840, 700],
+      [960, 780],
+      [1060, 820],
+    ];
+    for (const [width, height] of sizes) {
+      window.resizeTo(width, height);
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 24)));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 360));
+    return window.__settaNiriWritePhaseSixFiveResizeReport?.() ?? null;
+  })()`);
+  assertResizeReport(report);
+}
+
 async function readDomState(client) {
   return client.evaluate(`(async () => {
     const root = document.documentElement;
     const style = getComputedStyle(root);
     const latestReport = window.__settaNiriReadPhaseSixReports?.().at(-1) ?? null;
+    const latestResizeReport = window.__settaNiriReadPhaseSixFiveResizeReports?.().at(-1) ?? null;
     const nativeStats = await window.setta.niriNativeViews.readBrowserViewStats();
     const elementState = (selector) => {
       const element = document.querySelector(selector);
@@ -281,6 +312,7 @@ async function readDomState(client) {
         debugText: document.querySelector('[data-testid="niri-debug-overlay"]')?.textContent ?? "",
         hostCount: document.querySelectorAll('[data-testid="niri-fake-pane-host"]').length,
         latestReport,
+        latestResizeReport,
         nativeStats,
         paneCount: document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-pane-count") ?? "",
         workspace: elementState('[data-testid="niri-workspace-area"]'),
@@ -396,6 +428,45 @@ function phaseSixReportMetricsReady(metrics) {
   return metrics?.terminalDirtyRows > 0 && metrics?.gitGraphWorkerBatches > 0;
 }
 
+function assertResizeReport(report) {
+  if (!phaseSixFiveResizeReportReady(report)) {
+    throw new Error(`Phase 6.5 resize report failed readiness: ${JSON.stringify(report)}`);
+  }
+}
+
+function phaseSixFiveResizeReportReady(report) {
+  return phaseSixFiveResizeReportIdentityReady(report) && phaseSixFiveResizeMetricsReady(report);
+}
+
+function phaseSixFiveResizeReportIdentityReady(report) {
+  return (
+    report?.benchmark?.name === "Phase 6.5 resize hardening scene" &&
+    report?.result === "pass" &&
+    report?.environment?.rendererMode === "production"
+  );
+}
+
+function phaseSixFiveResizeMetricsReady(report) {
+  const resize = report?.metrics?.resize;
+  return (
+    phaseSixFiveResizeFrameMetricsReady(resize) &&
+    phaseSixFiveResizeViewportMetricsReady(resize) &&
+    report?.metrics?.reactCommitsDuringResize === 0
+  );
+}
+
+function phaseSixFiveResizeFrameMetricsReady(resize) {
+  return resize?.frameCount > 0 && resize?.settledFrameCount > 0;
+}
+
+function phaseSixFiveResizeViewportMetricsReady(resize) {
+  return (
+    resize?.finalViewportCommits > 0 &&
+    resize?.deferredHeavyViewportWrites > 0 &&
+    resize?.heavyViewportWrites > 0
+  );
+}
+
 function niriShellReady(value) {
   return value.workspaceReady && value.paneCount === "500" && value.hostCount === 40;
 }
@@ -425,7 +496,7 @@ async function assertNativeViewTeardown(client) {
     return window.setta.niriNativeViews.teardownBrowserViews(workspaceId);
   })()`);
   await writeFile(
-    join(artifactDir, "04-native-teardown.json"),
+    join(artifactDir, "05-native-teardown.json"),
     JSON.stringify(stats, null, 2) + "\n",
   );
   if (stats.registered !== 0 || stats.live !== 0) {

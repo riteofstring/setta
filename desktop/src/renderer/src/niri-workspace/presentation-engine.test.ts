@@ -17,12 +17,16 @@ describe("niri presentation engine", () => {
     );
     presentation.mount([host], null);
 
-    presentation.apply([renderItem("niri_pane_1", "niri_surface_1", true)]);
+    presentation.apply([renderItem("niri_pane_1", "niri_surface_1", true)], {
+      resizePhase: "idle",
+    });
 
     expect(textFor(host, "[data-niri-pane-title]")).toBe("Pane 001");
     expect(host.dataset.paneId).toBe("niri_pane_0");
 
-    presentation.apply([renderItem("niri_pane_1", "niri_surface_1", false)]);
+    presentation.apply([renderItem("niri_pane_1", "niri_surface_1", false)], {
+      resizePhase: "idle",
+    });
 
     expect(textFor(host, "[data-niri-pane-title]")).toBe("Pane 002");
     expect(host.dataset.paneId).toBe("niri_pane_1");
@@ -38,7 +42,9 @@ describe("niri presentation engine", () => {
     );
     presentation.mount([host], null);
 
-    presentation.apply([renderItem("niri_pane_8", "niri_surface_8", true, "browser")]);
+    presentation.apply([renderItem("niri_pane_8", "niri_surface_8", true, "browser")], {
+      resizePhase: "idle",
+    });
 
     expect(textFor(host, "[data-niri-pane-title]")).toBe("Pane 009");
     expect(host.dataset.paneId).toBe("niri_pane_8");
@@ -56,7 +62,9 @@ describe("niri presentation engine", () => {
     );
     presentation.mount([host], overlay);
 
-    presentation.apply([renderItem("niri_pane_4", "niri_surface_4", false, "pixi-canvas")]);
+    presentation.apply([renderItem("niri_pane_4", "niri_surface_4", false, "pixi-canvas")], {
+      resizePhase: "idle",
+    });
     presentation.updateDebugOverlay({
       budget: {
         maxLiveBrowserPanes: 6,

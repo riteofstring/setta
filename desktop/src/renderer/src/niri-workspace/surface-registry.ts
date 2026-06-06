@@ -6,6 +6,7 @@ import type {
   NiriPane,
   PaneRenderItem,
   Rect,
+  ResizePhase,
   SurfaceAdapter,
   SurfaceId,
   SurfaceKind,
@@ -22,10 +23,36 @@ interface SurfaceRecord {
 
 interface HostRecord {
   adapter: SurfaceAdapter;
+  focused: boolean | null;
+  runtimeState: PaneRenderItem["runtimeState"] | null;
   surfaceId: SurfaceId;
+  viewport: Rect | null;
+  visible: boolean | null;
+}
+
+interface ViewportSyncContext {
+  defaultReason: "frame" | "mount";
+  hostRecord: HostRecord;
+  options: SurfaceSyncOptions;
+  stats: SurfaceViewportSyncStats;
+}
+
+export interface SurfaceViewportSyncStats {
+  browserViewportWrites: number;
+  canvasViewportWrites: number;
+  deferredHeavyViewportWrites: number;
+  gitGraphViewportWrites: number;
+  heavyViewportWrites: number;
+  surfaceViewportWrites: number;
+  terminalViewportWrites: number;
+}
+
+export interface SurfaceSyncOptions {
+  resizePhase: ResizePhase;
 }
 
 export class SurfaceRegistry {
+  private readonly hostBySurfaceId = new Map<SurfaceId, HTMLElement>();
   private readonly hostRecords = new Map<HTMLElement, HostRecord>();
   private readonly metricAdapters = new Set<SurfaceAdapter>();
   private readonly records = new Map<SurfaceId, SurfaceRecord>();
@@ -153,9 +180,14 @@ export class SurfaceRegistry {
     hostRecord.adapter.freeze(reason);
     hostRecord.adapter.unmount();
     this.hostRecords.delete(host);
+    this.clearSurfaceHost(hostRecord.surfaceId, host);
   }
 
-  syncHost(host: HTMLElement, item: PaneRenderItem): void {
+  syncHost(
+    host: HTMLElement,
+    item: PaneRenderItem,
+    options: SurfaceSyncOptions,
+  ): SurfaceViewportSyncStats {
     const rect: Rect = {
       height: item.height,
       width: item.width,
@@ -165,24 +197,42 @@ export class SurfaceRegistry {
     const record = this.requireRecord(item.surfaceId);
     const adapter = this.adapterForRuntimeState(record, item.runtimeState);
     const existing = this.hostRecords.get(host);
+    const mountedNewAdapter = !existing || existing.adapter !== adapter;
+    const stats = emptySurfaceViewportSyncStats();
 
-    if (!existing || existing.adapter !== adapter) {
+    if (mountedNewAdapter) {
       if (existing) {
-        existing.adapter.setVisible(false);
-        existing.adapter.unmount();
+        this.unmountHostRecord(host, existing);
       }
+      this.detachPreviousHostForSurface(item.surfaceId, host, adapter);
       adapter.mount(host);
       this.metricAdapters.add(adapter);
       this.hostRecords.set(host, {
         adapter,
+        focused: null,
+        runtimeState: null,
         surfaceId: item.surfaceId,
+        viewport: null,
+        visible: null,
       });
+      this.hostBySurfaceId.set(item.surfaceId, host);
     }
 
-    this.syncRuntimeLifecycle(record.adapter, item);
-    adapter.setVisible(item.visible && item.runtimeState !== "hidden");
-    adapter.setFocused(item.focused);
-    adapter.setViewport(rect, existing ? "frame" : "mount");
+    const hostRecord = this.hostRecords.get(host);
+    if (!hostRecord) {
+      throw new Error(`missing niri surface host record for ${item.surfaceId}`);
+    }
+
+    this.syncRuntimeLifecycle(record.adapter, item, hostRecord);
+    this.syncVisibility(adapter, item, hostRecord);
+    this.syncFocus(adapter, item, hostRecord);
+    this.syncViewport(adapter, rect, {
+      defaultReason: mountedNewAdapter ? "mount" : "frame",
+      hostRecord,
+      options,
+      stats,
+    });
+    return stats;
   }
 
   teardown(): void {
@@ -194,7 +244,56 @@ export class SurfaceRegistry {
       record.snapshotAdapter.freeze();
     }
     this.hostRecords.clear();
+    this.hostBySurfaceId.clear();
     this.metricAdapters.clear();
+  }
+
+  private clearSurfaceHost(surfaceId: SurfaceId, host: HTMLElement): void {
+    if (this.hostBySurfaceId.get(surfaceId) === host) {
+      this.hostBySurfaceId.delete(surfaceId);
+    }
+  }
+
+  private detachPreviousHostForSurface(
+    surfaceId: SurfaceId,
+    nextHost: HTMLElement,
+    adapter: SurfaceAdapter,
+  ): void {
+    const previousHost = this.hostBySurfaceId.get(surfaceId);
+    if (!previousHost || previousHost === nextHost) {
+      return;
+    }
+
+    const previousRecord = this.hostRecords.get(previousHost);
+    if (!previousRecord) {
+      this.hostBySurfaceId.delete(surfaceId);
+      return;
+    }
+
+    if (previousRecord.adapter !== adapter) {
+      this.unmountHostRecord(previousHost, previousRecord);
+      return;
+    }
+
+    previousHost.replaceChildren();
+    delete previousHost.dataset.browserRuntimeState;
+    delete previousHost.dataset.surfaceFocused;
+    delete previousHost.dataset.surfaceId;
+    delete previousHost.dataset.surfaceKind;
+    delete previousHost.dataset.surfaceViewport;
+    delete previousHost.dataset.surfaceVisible;
+    delete previousHost.dataset.viewportReason;
+    previousHost.removeAttribute?.("data-freeze-reason");
+    previousHost.removeAttribute?.("data-resume-reason");
+    this.hostRecords.delete(previousHost);
+    this.hostBySurfaceId.delete(surfaceId);
+  }
+
+  private unmountHostRecord(host: HTMLElement, hostRecord: HostRecord): void {
+    hostRecord.adapter.setVisible(false);
+    hostRecord.adapter.unmount();
+    this.hostRecords.delete(host);
+    this.clearSurfaceHost(hostRecord.surfaceId, host);
   }
 
   private adapterForRuntimeState(
@@ -222,33 +321,83 @@ export class SurfaceRegistry {
     return record;
   }
 
-  private syncRuntimeLifecycle(adapter: SurfaceAdapter, item: PaneRenderItem): void {
+  private syncRuntimeLifecycle(
+    adapter: SurfaceAdapter,
+    item: PaneRenderItem,
+    hostRecord: HostRecord,
+  ): void {
+    const focusedChanged = hostRecord.focused !== item.focused;
+    if (hostRecord.runtimeState === item.runtimeState && !focusedChanged) {
+      return;
+    }
+
     switch (item.runtimeState) {
       case "destroyed":
         adapter.freeze("teardown");
         adapter.destroy();
         return;
       case "hidden":
-        adapter.setVisible(false);
         adapter.freeze("hidden");
-        return;
+        break;
       case "live":
-        adapter.setVisible(item.visible);
         adapter.resume(item.focused ? "focused" : "visible");
-        return;
+        break;
       case "live-throttled":
-        adapter.setVisible(false);
         adapter.freeze("runtime-policy");
-        return;
+        break;
       case "snapshot":
-        adapter.setVisible(false);
         adapter.freeze("snapshot");
-        return;
+        break;
       default:
         assertNever(item.runtimeState);
     }
+    hostRecord.runtimeState = item.runtimeState;
+  }
+
+  private syncVisibility(
+    adapter: SurfaceAdapter,
+    item: PaneRenderItem,
+    hostRecord: HostRecord,
+  ): void {
+    const visible = item.visible && item.runtimeState !== "hidden";
+    if (hostRecord.visible === visible) {
+      return;
+    }
+    adapter.setVisible(visible);
+    hostRecord.visible = visible;
+  }
+
+  private syncFocus(adapter: SurfaceAdapter, item: PaneRenderItem, hostRecord: HostRecord): void {
+    if (hostRecord.focused === item.focused) {
+      return;
+    }
+    adapter.setFocused(item.focused);
+    hostRecord.focused = item.focused;
+  }
+
+  private syncViewport(
+    adapter: SurfaceAdapter,
+    rect: Rect,
+    { defaultReason, hostRecord, options, stats }: ViewportSyncContext,
+  ): void {
+    const reason = options.resizePhase === "settled" ? "resize" : defaultReason;
+    if (
+      !viewportSyncRequired(adapter.kind, reason, hostRecord.viewport, rect, options.resizePhase)
+    ) {
+      return;
+    }
+    if (viewportSyncDeferred(adapter.kind, reason, options.resizePhase)) {
+      stats.deferredHeavyViewportWrites += 1;
+      return;
+    }
+
+    adapter.setViewport(rect, reason);
+    hostRecord.viewport = { ...rect };
+    recordViewportWrite(adapter.kind, stats);
   }
 }
+
+type SurfaceViewportSyncReason = "frame" | "mount" | "resize";
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled niri surface registry value: ${String(value)}`);
@@ -300,4 +449,86 @@ function emptyGitGraphAggregate(): GitGraphStatsAggregate {
 
 function isUntouchedGitGraphStats(stats: GitGraphSurfaceStats): boolean {
   return stats.renderedNodes === 0 && stats.liveGraphPaneCount === 0 && !stats.workerPending;
+}
+
+function emptySurfaceViewportSyncStats(): SurfaceViewportSyncStats {
+  return {
+    browserViewportWrites: 0,
+    canvasViewportWrites: 0,
+    deferredHeavyViewportWrites: 0,
+    gitGraphViewportWrites: 0,
+    heavyViewportWrites: 0,
+    surfaceViewportWrites: 0,
+    terminalViewportWrites: 0,
+  };
+}
+
+function recordViewportWrite(kind: SurfaceKind, stats: SurfaceViewportSyncStats): void {
+  stats.surfaceViewportWrites += 1;
+  if (resizeDefersSurfaceViewport(kind)) {
+    stats.heavyViewportWrites += 1;
+  }
+  if (kind === "browser") {
+    stats.browserViewportWrites += 1;
+  } else if (isCanvasSurfaceKind(kind)) {
+    stats.canvasViewportWrites += 1;
+  } else if (kind === "git-graph") {
+    stats.gitGraphViewportWrites += 1;
+  } else if (kind === "terminal") {
+    stats.terminalViewportWrites += 1;
+  }
+}
+
+function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
+  return (
+    kind === "browser" ||
+    kind === "chat-dom" ||
+    kind === "fake-canvas" ||
+    kind === "fake-heavy-dom" ||
+    kind === "fake-long-chat" ||
+    kind === "git-graph" ||
+    kind === "pixi-canvas" ||
+    kind === "terminal"
+  );
+}
+
+function viewportSyncDeferred(
+  kind: SurfaceKind,
+  reason: SurfaceViewportSyncReason,
+  resizePhase: ResizePhase,
+): boolean {
+  return resizePhase === "active" && reason !== "mount" && resizeDefersSurfaceViewport(kind);
+}
+
+function viewportSyncRequired(
+  kind: SurfaceKind,
+  reason: SurfaceViewportSyncReason,
+  previousRect: Rect | null,
+  nextRect: Rect,
+  resizePhase: ResizePhase,
+): boolean {
+  return (
+    browserViewportHeartbeatRequired(kind, resizePhase) ||
+    reason === "mount" ||
+    reason === "resize" ||
+    !previousRect ||
+    !sameRect(previousRect, nextRect)
+  );
+}
+
+function browserViewportHeartbeatRequired(kind: SurfaceKind, resizePhase: ResizePhase): boolean {
+  return kind === "browser" && resizePhase !== "active";
+}
+
+function isCanvasSurfaceKind(kind: SurfaceKind): boolean {
+  return kind === "fake-canvas" || kind === "pixi-canvas";
+}
+
+function sameRect(left: Rect, right: Rect): boolean {
+  return (
+    left.height === right.height &&
+    left.width === right.width &&
+    left.x === right.x &&
+    left.y === right.y
+  );
 }

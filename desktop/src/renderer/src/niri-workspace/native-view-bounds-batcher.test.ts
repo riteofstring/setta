@@ -38,7 +38,7 @@ describe("niri native view bounds batcher", () => {
     ]);
   });
 
-  test("sends an empty batch when previous browser views leave the visible frame", () => {
+  test("does not send idle heartbeat batches after unchanged browser bounds", () => {
     const sent: NiriBrowserViewBatch[] = [];
     const batcher = new NativeViewBoundsBatcher(
       {
@@ -59,11 +59,42 @@ describe("niri native view bounds batcher", () => {
     batcher.beginFrame();
     const result = batcher.flush();
 
-    expect(result).toEqual({ batchSent: true, updateCount: 0 });
-    expect(sent.at(-1)).toMatchObject({
-      updates: [],
-      visibleBrowserPanes: 0,
-    });
+    expect(result).toEqual({ batchSent: false, updateCount: 0 });
+    expect(sent).toHaveLength(1);
+  });
+
+  test("carries unchanged live browser updates when one surface hides", () => {
+    const sent: NiriBrowserViewBatch[] = [];
+    const batcher = new NativeViewBoundsBatcher(
+      {
+        totalBrowserPanes: 24,
+        workspaceId: "phase-4-browser-pane-benchmark",
+      },
+      {
+        batchBrowserViewUpdates: (batch) => {
+          sent.push(batch);
+        },
+        teardownBrowserViews: vi.fn(async () => stats()),
+      },
+    );
+
+    batcher.beginFrame();
+    batcher.queue(update("browser-surface-1", true));
+    batcher.queue(update("browser-surface-2", false));
+    batcher.flush();
+
+    batcher.beginFrame();
+    batcher.queue(hiddenUpdate("browser-surface-1"));
+    const result = batcher.flush();
+
+    expect(result).toEqual({ batchSent: true, updateCount: 2 });
+    expect(sent.at(-1)?.visibleBrowserPanes).toBe(1);
+    expect(
+      sent.at(-1)?.updates.map((candidate) => [candidate.surfaceId, candidate.visible]),
+    ).toEqual([
+      ["browser-surface-2", true],
+      ["browser-surface-1", false],
+    ]);
   });
 });
 
@@ -93,5 +124,13 @@ function update(surfaceId: string, focused: boolean) {
     title: surfaceId,
     url: "data:text/html,ok",
     visible: true,
+  };
+}
+
+function hiddenUpdate(surfaceId: string) {
+  return {
+    ...update(surfaceId, false),
+    runtimeState: "hidden" as const,
+    visible: false,
   };
 }

@@ -6,6 +6,7 @@ import type { PerformanceReportWriter } from "./performance-report";
 import type { PaneRenderItem, Rect } from "./types";
 import type { PresentationEngine } from "./presentation-engine";
 import type { PaneRuntimePolicy } from "./runtime-policy";
+import { ResizePhaseTracker } from "./resize-phase-tracker";
 
 const focusStepIntervalMs = 120;
 const benchmarkWarmupMs = 2000;
@@ -29,6 +30,7 @@ export class FrameScheduler {
   private longTaskObserver: PerformanceObserver | null = null;
   private measurementStartedAt = 0;
   private reportWritten = false;
+  private resizePhaseTracker = new ResizePhaseTracker();
   private startedAt = 0;
 
   private readonly engine: NiriLikeLayoutEngine;
@@ -98,12 +100,16 @@ export class FrameScheduler {
     this.longTaskObserver.observe({ type: "longtask", buffered: true });
   }
 
-  private renderFrame(deltaMs: number): void {
-    const viewport = this.viewportProvider();
-    const movementPhase = this.layoutStore.advanceFrame(deltaMs);
+  private renderFrame(
+    deltaMs: number,
+    viewport: Rect,
+    resizePhase: "active" | "idle" | "settled",
+  ): "active" | "idle" | "settled" {
+    const movementPhase =
+      resizePhase === "active" ? "moving" : this.layoutStore.advanceFrame(deltaMs);
     const snapshot = this.layoutStore.getSnapshot();
     this.items.length = 0;
-    this.metrics.beginFrame(movementPhase === "moving");
+    this.metrics.beginFrame({ moving: movementPhase === "moving", resizePhase });
     this.engine.renderFrame(
       {
         focusedPaneId: snapshot.focusedPaneId,
@@ -113,18 +119,38 @@ export class FrameScheduler {
       },
       (item) => this.items.push(item),
     );
-    this.runtimePolicy.apply(this.items, movementPhase);
+    for (const item of this.items) {
+      item.resizing = resizePhase === "active";
+    }
+    this.runtimePolicy.apply(this.items, resizePhase === "active" ? "moving" : movementPhase);
+    if (resizePhase === "settled") {
+      this.metrics.recordResizeFinalViewport(viewport);
+    }
+    return resizePhase;
   }
 
   private tick = (timestamp: number, deltaMs: number): void => {
     const frameStart = performance.now();
-    this.advanceBenchmarkFocus(timestamp);
-    this.renderFrame(deltaMs);
-    const writeCounts = this.presentation.apply(this.items);
+    const viewport = this.viewportProvider();
+    const resizePhase = this.resizePhaseTracker.sample(viewport, timestamp);
+    if (resizePhase === "idle") {
+      this.advanceBenchmarkFocus(timestamp);
+    }
+    const resizePhaseAfterRender = this.renderFrame(deltaMs, viewport, resizePhase);
+    const writeCounts = this.presentation.apply(this.items, { resizePhase });
     const frameTime = performance.now() - frameStart;
     this.metrics.recordFrame({
+      boxWrites: writeCounts.boxWrites,
+      browserViewportWrites: writeCounts.browserViewportWrites,
+      canvasViewportWrites: writeCounts.canvasViewportWrites,
+      deferredHeavyViewportWrites: writeCounts.deferredHeavyViewportWrites,
       frameTime,
+      gitGraphViewportWrites: writeCounts.gitGraphViewportWrites,
+      heavyViewportWrites: writeCounts.heavyViewportWrites,
       nativeBoundsUpdates: writeCounts.nativeBoundsUpdates,
+      resizePhase: resizePhaseAfterRender,
+      surfaceViewportWrites: writeCounts.surfaceViewportWrites,
+      terminalViewportWrites: writeCounts.terminalViewportWrites,
       transformWrites: writeCounts.transformWrites,
       visiblePaneCount: this.items.length,
     });

@@ -19,6 +19,8 @@ export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden"
 
 export type ViewportChangeReason = "frame" | "mount" | "resize";
 
+export type ResizePhase = "active" | "idle" | "settled";
+
 export type FreezeReason = "hidden" | "runtime-policy" | "snapshot" | "teardown";
 
 export type ResumeReason = "focused" | "runtime-policy" | "visible";
@@ -194,6 +196,8 @@ export interface NiriFrameMetrics {
   p95FrameTime: number;
   p99FrameTime: number;
   reactCommitsDuringMovement: number;
+  reactCommitsDuringResize: number;
+  resize: NiriResizeMetrics;
   canvasDrawCalls: number;
   canvasGpuMemoryEstimateBytes: number | null;
   gitGraphProgress: number;
@@ -207,8 +211,32 @@ export interface NiriFrameMetrics {
   terminalDirtyRows: number;
   terminalDroppedOutputChunks: number;
   terminalPendingOutputChunks: number;
+  boxWrites: number;
   transformWrites: number;
   visiblePaneCount: number;
+}
+
+export interface NiriResizeMetrics {
+  active: boolean;
+  boxWrites: number;
+  browserViewportWrites: number;
+  canvasViewportWrites: number;
+  deferredHeavyViewportWrites: number;
+  finalViewport: Rect | null;
+  finalViewportCommits: number;
+  frameCount: number;
+  frameTime: number;
+  gitGraphViewportWrites: number;
+  heavyViewportWrites: number;
+  longTasks: number;
+  nativeBoundsUpdates: number;
+  p50FrameTime: number;
+  p95FrameTime: number;
+  p99FrameTime: number;
+  settledFrameCount: number;
+  surfaceViewportWrites: number;
+  terminalViewportWrites: number;
+  transformWrites: number;
 }
 
 export interface NiriPerformanceReport {

@@ -8,8 +8,10 @@ import { NiriLayoutStore } from "./layout-store";
 import { NiriMetricsCollector } from "./metrics";
 import { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
 import {
+  installWindowResizeReportHooks,
   installWindowReportHooks,
   LocalStoragePerformanceReportWriter,
+  LocalStorageResizePerformanceReportWriter,
 } from "./performance-report";
 import { PresentationEngine } from "./presentation-engine";
 import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
@@ -33,6 +35,12 @@ export function NiriWorkspaceArea() {
 
     runtime.presentation.mount(hosts, debugRef.current);
     installWindowReportHooks();
+    const viewportProvider = () => viewportRect(root);
+    const uninstallResizeReportHooks = installWindowResizeReportHooks({
+      metrics: runtime.metrics,
+      viewportProvider,
+      writer: runtime.resizeReportWriter,
+    });
     const scheduler = new FrameScheduler({
       engine: runtime.engine,
       layoutStore: runtime.store,
@@ -40,7 +48,7 @@ export function NiriWorkspaceArea() {
       presentation: runtime.presentation,
       reportWriter: runtime.reportWriter,
       runtimePolicy: runtime.runtimePolicy,
-      viewportProvider: () => viewportRect(root),
+      viewportProvider,
     });
     if (!niriAutoBenchmarkEnabled()) {
       scheduler.pauseBenchmark();
@@ -64,6 +72,7 @@ export function NiriWorkspaceArea() {
     window.addEventListener("keydown", handleKeyDown);
     scheduler.start();
     return () => {
+      uninstallResizeReportHooks();
       unsubscribeNativeKey();
       window.removeEventListener("keydown", handleKeyDown);
       scheduler.teardown();
@@ -101,7 +110,7 @@ export function NiriWorkspaceArea() {
         ref={debugRef}
       >
         frame 0.00ms | p95 0.00ms | p99 0.00ms | visible 0 | writes 0 | long 0 | react 0 | runtime
-        0/0/0/0 | terminal 0/0/0 | graph 0/none/0%/0
+        0/0/0/0 | resize 0/0.00/0/0/0 | terminal 0/0/0 | graph 0/none/0%/0
       </div>
     </section>
   );
@@ -196,6 +205,7 @@ function createNiriRuntime() {
       nativeViewBoundsBatcher,
     ),
     reportWriter: new LocalStoragePerformanceReportWriter(5000),
+    resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),
     runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET),
     scene,
     store,

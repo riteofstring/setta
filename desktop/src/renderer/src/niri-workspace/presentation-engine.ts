@@ -1,7 +1,17 @@
 import type { NiriMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
-import { SurfaceRegistry } from "./surface-registry";
-import type { NiriPane, PaneRenderItem, PaneRuntimeSummary } from "./types";
+import { SurfaceRegistry, type SurfaceViewportSyncStats } from "./surface-registry";
+import type { NiriPane, PaneRenderItem, PaneRuntimeSummary, ResizePhase } from "./types";
+
+export interface PresentationApplyOptions {
+  resizePhase: ResizePhase;
+}
+
+export interface PresentationWriteCounts extends SurfaceViewportSyncStats {
+  boxWrites: number;
+  nativeBoundsUpdates: number;
+  transformWrites: number;
+}
 
 interface PaneHostBinding {
   contentPaneId: string | null;
@@ -33,8 +43,8 @@ export class PresentationEngine {
     }
   }
 
-  apply(items: PaneRenderItem[]): { nativeBoundsUpdates: number; transformWrites: number } {
-    let transformWrites = 0;
+  apply(items: PaneRenderItem[], options: PresentationApplyOptions): PresentationWriteCounts {
+    const writeCounts = emptyPresentationWriteCounts();
     this.nativeViewBoundsBatcher?.beginFrame();
 
     for (let index = 0; index < this.bindings.length; index += 1) {
@@ -43,14 +53,15 @@ export class PresentationEngine {
         continue;
       }
       const item = items[index];
-      transformWrites += this.applyBinding(binding, item);
+      addPresentationWriteCounts(writeCounts, this.applyBinding(binding, item, options));
     }
 
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
     this.metrics.recordCanvasStats(this.surfaceRegistry.canvasStats());
     this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
     this.metrics.recordTerminalStats(this.surfaceRegistry.terminalStats());
-    return { nativeBoundsUpdates: nativeFlush?.batchSent ? 1 : 0, transformWrites };
+    writeCounts.nativeBoundsUpdates = nativeFlush?.batchSent ? 1 : 0;
+    return writeCounts;
   }
 
   mount(hosts: readonly HTMLElement[], debugOverlay: HTMLElement | null): void {
@@ -70,13 +81,20 @@ export class PresentationEngine {
     this.debugOverlay = debugOverlay;
   }
 
-  private applyBinding(binding: PaneHostBinding, item: PaneRenderItem | undefined): number {
+  private applyBinding(
+    binding: PaneHostBinding,
+    item: PaneRenderItem | undefined,
+    options: PresentationApplyOptions,
+  ): PresentationWriteCounts {
     if (!item) {
       this.hideBinding(binding);
-      return 0;
+      return emptyPresentationWriteCounts();
     }
     if (this.shouldSyncContent(binding, item)) {
-      this.syncContent(binding, item);
+      return addPresentationWriteCounts(
+        this.syncContent(binding, item, options),
+        this.syncFrame(binding, item),
+      );
     }
     return this.syncFrame(binding, item);
   }
@@ -113,10 +131,13 @@ export class PresentationEngine {
       `p95 ${snapshot.p95FrameTime.toFixed(2)}ms`,
       `p99 ${snapshot.p99FrameTime.toFixed(2)}ms`,
       `visible ${snapshot.visiblePaneCount}`,
-      `writes ${snapshot.transformWrites}`,
+      `writes ${snapshot.transformWrites}/${snapshot.boxWrites}`,
       `native ${snapshot.nativeBoundsUpdates}`,
       `long ${snapshot.longTasks}`,
       `react ${snapshot.reactCommitsDuringMovement}`,
+      `resize ${snapshot.resize.frameCount}/${snapshot.resize.p95FrameTime.toFixed(
+        2,
+      )}/${snapshot.resize.deferredHeavyViewportWrites}/${snapshot.resize.heavyViewportWrites}/${snapshot.reactCommitsDuringResize}`,
       `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${formatBytes(
         snapshot.canvasGpuMemoryEstimateBytes,
       )}`,
@@ -140,9 +161,13 @@ export class PresentationEngine {
     binding.lastVisible = false;
   }
 
-  private syncContent(binding: PaneHostBinding, item: PaneRenderItem): void {
+  private syncContent(
+    binding: PaneHostBinding,
+    item: PaneRenderItem,
+    options: PresentationApplyOptions,
+  ): PresentationWriteCounts {
     if (binding.contentPaneId !== item.paneId && item.moving && item.surfaceKind !== "browser") {
-      return;
+      return emptyPresentationWriteCounts();
     }
     const pane = this.paneById.get(item.paneId);
     if (!pane) {
@@ -151,30 +176,38 @@ export class PresentationEngine {
     binding.contentPaneId = item.paneId;
     binding.host.dataset.paneId = item.paneId;
     binding.host.dataset.tone = pane.tone;
-    this.surfaceRegistry.syncHost(binding.host, item);
+    return {
+      ...emptyPresentationWriteCounts(),
+      ...this.surfaceRegistry.syncHost(binding.host, item, options),
+    };
   }
 
   private shouldSyncContent(binding: PaneHostBinding, item: PaneRenderItem): boolean {
     return !item.moving || binding.contentPaneId === item.paneId || item.surfaceKind === "browser";
   }
 
-  private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): number {
-    const transformWrites = this.syncTransform(binding, item);
-    this.syncBox(binding, item);
+  private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {
+    const writeCounts = emptyPresentationWriteCounts();
+    writeCounts.transformWrites = this.syncTransform(binding, item);
+    writeCounts.boxWrites = this.syncBox(binding, item);
     this.syncLayer(binding, item);
     this.syncState(binding, item);
-    return transformWrites;
+    return writeCounts;
   }
 
-  private syncBox(binding: PaneHostBinding, item: PaneRenderItem): void {
+  private syncBox(binding: PaneHostBinding, item: PaneRenderItem): number {
+    let boxWrites = 0;
     if (binding.lastWidth !== item.width) {
       binding.host.style.width = `${item.width.toFixed(2)}px`;
       binding.lastWidth = item.width;
+      boxWrites += 1;
     }
     if (binding.lastHeight !== item.height) {
       binding.host.style.height = `${item.height.toFixed(2)}px`;
       binding.lastHeight = item.height;
+      boxWrites += 1;
     }
+    return boxWrites;
   }
 
   private syncLayer(binding: PaneHostBinding, item: PaneRenderItem): void {
@@ -227,4 +260,36 @@ function formatBytes(bytes: number | null): string {
     return `${Math.round(bytes / 1024)}KiB`;
   }
   return `${(bytes / 1024 / 1024).toFixed(1)}MiB`;
+}
+
+function emptyPresentationWriteCounts(): PresentationWriteCounts {
+  return {
+    boxWrites: 0,
+    browserViewportWrites: 0,
+    canvasViewportWrites: 0,
+    deferredHeavyViewportWrites: 0,
+    gitGraphViewportWrites: 0,
+    heavyViewportWrites: 0,
+    nativeBoundsUpdates: 0,
+    surfaceViewportWrites: 0,
+    terminalViewportWrites: 0,
+    transformWrites: 0,
+  };
+}
+
+function addPresentationWriteCounts(
+  target: PresentationWriteCounts,
+  source: PresentationWriteCounts,
+): PresentationWriteCounts {
+  target.boxWrites += source.boxWrites;
+  target.browserViewportWrites += source.browserViewportWrites;
+  target.canvasViewportWrites += source.canvasViewportWrites;
+  target.deferredHeavyViewportWrites += source.deferredHeavyViewportWrites;
+  target.gitGraphViewportWrites += source.gitGraphViewportWrites;
+  target.heavyViewportWrites += source.heavyViewportWrites;
+  target.nativeBoundsUpdates += source.nativeBoundsUpdates;
+  target.surfaceViewportWrites += source.surfaceViewportWrites;
+  target.terminalViewportWrites += source.terminalViewportWrites;
+  target.transformWrites += source.transformWrites;
+  return target;
 }
