@@ -80,9 +80,13 @@ func ValidateGraph(graph WorkflowGraph, registry RunnerRegistry) WorkflowValidat
 		startNodeID: "",
 	}
 	validator.validate()
+	diagnostics := validator.diagnostics
+	if diagnostics == nil {
+		diagnostics = []WorkflowValidationDiagnostic{}
+	}
 	return WorkflowValidationResult{
 		Valid:       !validator.hasErrors(),
-		Diagnostics: validator.diagnostics,
+		Diagnostics: diagnostics,
 	}
 }
 

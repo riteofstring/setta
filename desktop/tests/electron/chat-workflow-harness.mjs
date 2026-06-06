@@ -203,13 +203,16 @@ function buttonClickExpression(kind, value) {
   })()`;
 }
 
-export async function waitForText(client, text) {
-  await waitForTexts(client, [text]);
+export async function waitForText(client, text, timeoutMs = workflowTimeoutMs) {
+  await waitForTexts(client, [text], timeoutMs);
 }
 
-export async function waitForTexts(client, texts) {
-  await waitForState(client, bodyTextExpression(), (value) =>
-    texts.every((text) => value.body.includes(text)),
+export async function waitForTexts(client, texts, timeoutMs = workflowTimeoutMs) {
+  await waitForState(
+    client,
+    bodyTextExpression(),
+    (value) => texts.every((text) => value.body.includes(text)),
+    timeoutMs,
   );
 }
 

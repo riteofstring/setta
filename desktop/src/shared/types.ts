@@ -26,6 +26,13 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
+  DeleteWorkflowDefinitionResponse,
+  ListWorkflowDefinitionsResponse,
+  WorkflowDefinition,
+  WorkflowExecution,
+  WorkflowExecutionEventPage,
+  WorkflowGraph,
+  WorkflowValidationResult,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -196,5 +203,43 @@ export interface SettaAPI {
     read: () => Promise<CodexAccountState>;
     refresh: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
     startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
+  };
+  workflow: {
+    cancelExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
+    createDefinition: (
+      workspaceId: string,
+      name: string,
+      description: string,
+      graph: WorkflowGraph,
+    ) => Promise<WorkflowDefinition>;
+    deleteDefinition: (
+      workspaceId: string,
+      definitionId: string,
+    ) => Promise<DeleteWorkflowDefinitionResponse>;
+    executionEvents: (
+      workspaceId: string,
+      executionId: string,
+      beforeOrdinal: number,
+      limit: number,
+    ) => Promise<WorkflowExecutionEventPage>;
+    listDefinitions: (workspaceId: string) => Promise<ListWorkflowDefinitionsResponse>;
+    readDefinition: (workspaceId: string, definitionId: string) => Promise<WorkflowDefinition>;
+    readExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
+    startExecution: (
+      workspaceId: string,
+      definitionId: string,
+      versionId?: string,
+    ) => Promise<WorkflowExecution>;
+    updateDefinition: (
+      workspaceId: string,
+      definitionId: string,
+      name: string,
+      description: string,
+      graph: WorkflowGraph,
+    ) => Promise<WorkflowDefinition>;
+    validateDefinition: (
+      workspaceId: string,
+      graph: WorkflowGraph,
+    ) => Promise<WorkflowValidationResult>;
   };
 }

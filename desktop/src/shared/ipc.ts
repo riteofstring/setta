@@ -27,6 +27,13 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
+  DeleteWorkflowDefinitionResponse,
+  ListWorkflowDefinitionsResponse,
+  WorkflowDefinition,
+  WorkflowExecution,
+  WorkflowExecutionEventPage,
+  WorkflowGraph,
+  WorkflowValidationResult,
   WorkspaceSession,
 } from "@generated/backend";
 import type { InstalledEditorApp, RuntimeVersions, WorkspaceGitInfo } from "./types";
@@ -62,6 +69,16 @@ export const ipcChannels = {
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
+  workflowCancelExecution: "workflow:cancel-execution",
+  workflowCreateDefinition: "workflow:create-definition",
+  workflowDeleteDefinition: "workflow:delete-definition",
+  workflowExecutionEvents: "workflow:execution-events",
+  workflowListDefinitions: "workflow:list-definitions",
+  workflowReadDefinition: "workflow:read-definition",
+  workflowReadExecution: "workflow:read-execution",
+  workflowStartExecution: "workflow:start-execution",
+  workflowUpdateDefinition: "workflow:update-definition",
+  workflowValidateDefinition: "workflow:validate-definition",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
@@ -209,6 +226,52 @@ interface IpcContract {
   codexAccountStartLogin: {
     args: [request: StartCodexLoginRequest];
     result: StartCodexLoginResponse;
+  };
+  workflowCancelExecution: {
+    args: [workspaceId: string, executionId: string];
+    result: WorkflowExecution;
+  };
+  workflowCreateDefinition: {
+    args: [workspaceId: string, name: string, description: string, graph: WorkflowGraph];
+    result: WorkflowDefinition;
+  };
+  workflowDeleteDefinition: {
+    args: [workspaceId: string, definitionId: string];
+    result: DeleteWorkflowDefinitionResponse;
+  };
+  workflowExecutionEvents: {
+    args: [workspaceId: string, executionId: string, beforeOrdinal: number, limit: number];
+    result: WorkflowExecutionEventPage;
+  };
+  workflowListDefinitions: {
+    args: [workspaceId: string];
+    result: ListWorkflowDefinitionsResponse;
+  };
+  workflowReadDefinition: {
+    args: [workspaceId: string, definitionId: string];
+    result: WorkflowDefinition;
+  };
+  workflowReadExecution: {
+    args: [workspaceId: string, executionId: string];
+    result: WorkflowExecution;
+  };
+  workflowStartExecution: {
+    args: [workspaceId: string, definitionId: string, versionId: string];
+    result: WorkflowExecution;
+  };
+  workflowUpdateDefinition: {
+    args: [
+      workspaceId: string,
+      definitionId: string,
+      name: string,
+      description: string,
+      graph: WorkflowGraph,
+    ];
+    result: WorkflowDefinition;
+  };
+  workflowValidateDefinition: {
+    args: [workspaceId: string, graph: WorkflowGraph];
+    result: WorkflowValidationResult;
   };
   workspaceClose: {
     args: [id: string];

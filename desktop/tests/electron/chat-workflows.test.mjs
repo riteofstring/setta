@@ -61,6 +61,7 @@ import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs
 import { runQueuedControlsWorkflow } from "./chat-workflow-queued-controls-cases.mjs";
 import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
 import { runUnreadConversationWorkflow } from "./chat-workflow-unread-cases.mjs";
+import { runBackendOrchestratorWorkflowLaunch } from "./backend-orchestrator-workflow.mjs";
 import {
   assertProtocolNotificationActivity,
   installFakeCodexAppServer,
@@ -153,6 +154,7 @@ async function main() {
     process.stdout.write("Electron chat workflow passed: unread-conversations\n");
     await runCodexProtocolWorkflow(results);
     await runRestartWorkflow(results);
+    await runBackendOrchestratorWorkflowLaunch(results, recordingRoot);
   }
   if (options.live) {
     await runLiveCodexWorkflow(results, {
@@ -970,13 +972,17 @@ async function runRestartWorkflow(results) {
     await stopLaunchedContext(first);
 
     second = await launchContext(fixture, secondRecording);
-    await waitForTexts(second.client, [
-      "workspace-root",
-      "workflow hold for queue and steering",
-      "Queued response for queued follow-up one from active run.",
-      "Queued response for queued follow-up two from active run.",
-      "Queued response for queued follow-up three from active run.",
-    ]);
+    await waitForTexts(
+      second.client,
+      [
+        "workspace-root",
+        "workflow hold for queue and steering",
+        "Queued response for queued follow-up one from active run.",
+        "Queued response for queued follow-up two from active run.",
+        "Queued response for queued follow-up three from active run.",
+      ],
+      30_000,
+    );
     await assertTranscriptSequence(second.client, [
       "workflow hold for queue and steering",
       "Active workflow complete.",

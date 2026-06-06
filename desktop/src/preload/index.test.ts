@@ -1,7 +1,7 @@
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { ChatEvent } from "@generated/backend";
+import type { ChatEvent, WorkflowGraph } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 
 describe("preload workspace API", () => {
@@ -248,6 +248,86 @@ describe("preload workspace API", () => {
     expect(listener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.chatEvent, handler);
   });
+
+  test("exposes typed workflow methods through IPC", async () => {
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
+    const graph = workflowGraph();
+    expect(Object.keys(api.workflow).sort()).toEqual([
+      "cancelExecution",
+      "createDefinition",
+      "deleteDefinition",
+      "executionEvents",
+      "listDefinitions",
+      "readDefinition",
+      "readExecution",
+      "startExecution",
+      "updateDefinition",
+      "validateDefinition",
+    ]);
+
+    await api.workflow.listDefinitions("workspace_api");
+    await api.workflow.createDefinition("workspace_api", "Review", "phase 4", graph);
+    await api.workflow.readDefinition("workspace_api", "workflow_definition_api");
+    await api.workflow.updateDefinition(
+      "workspace_api",
+      "workflow_definition_api",
+      "Review updated",
+      "phase 4 updated",
+      graph,
+    );
+    await api.workflow.deleteDefinition("workspace_api", "workflow_definition_api");
+    await api.workflow.validateDefinition("workspace_api", graph);
+    await api.workflow.startExecution("workspace_api", "workflow_definition_api");
+    await api.workflow.startExecution(
+      "workspace_api",
+      "workflow_definition_api",
+      "workflow_version_api",
+    );
+    await api.workflow.cancelExecution("workspace_api", "workflow_execution_api");
+    await api.workflow.readExecution("workspace_api", "workflow_execution_api");
+    await api.workflow.executionEvents("workspace_api", "workflow_execution_api", 10, 20);
+
+    expectInvokeCalls(invoke, [
+      [ipcChannels.workflowListDefinitions, "workspace_api"],
+      [ipcChannels.workflowCreateDefinition, "workspace_api", "Review", "phase 4", graph],
+      [ipcChannels.workflowReadDefinition, "workspace_api", "workflow_definition_api"],
+      [
+        ipcChannels.workflowUpdateDefinition,
+        "workspace_api",
+        "workflow_definition_api",
+        "Review updated",
+        "phase 4 updated",
+        graph,
+      ],
+      [ipcChannels.workflowDeleteDefinition, "workspace_api", "workflow_definition_api"],
+      [ipcChannels.workflowValidateDefinition, "workspace_api", graph],
+      [ipcChannels.workflowStartExecution, "workspace_api", "workflow_definition_api", ""],
+      [
+        ipcChannels.workflowStartExecution,
+        "workspace_api",
+        "workflow_definition_api",
+        "workflow_version_api",
+      ],
+      [ipcChannels.workflowCancelExecution, "workspace_api", "workflow_execution_api"],
+      [ipcChannels.workflowReadExecution, "workspace_api", "workflow_execution_api"],
+      [ipcChannels.workflowExecutionEvents, "workspace_api", "workflow_execution_api", 10, 20],
+    ]);
+  });
 });
 
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {
@@ -290,5 +370,37 @@ function chatEvent(): ChatEvent {
     streamId: "event_stream_test",
     type: "chat.message.created",
     workspaceId: "workspace_api",
+  };
+}
+
+function workflowGraph(): WorkflowGraph {
+  return {
+    edges: [
+      {
+        condition: null,
+        fromNodeId: "start",
+        id: "start_end",
+        kind: "normal",
+        toNodeId: "end",
+      },
+    ],
+    nodes: [
+      {
+        action: null,
+        gateway: null,
+        id: "start",
+        kind: "start",
+        loopGuard: null,
+        title: "Start",
+      },
+      {
+        action: null,
+        gateway: null,
+        id: "end",
+        kind: "end",
+        loopGuard: null,
+        title: "End",
+      },
+    ],
   };
 }

@@ -386,6 +386,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    workflow: unimplementedWorkflowAPI(),
     workspace: {
       close: async () => workspaceSession(),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
@@ -401,6 +402,24 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     configurable: true,
     value: { setta: api },
   });
+}
+
+function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
+  const unavailable = async (): Promise<never> => {
+    throw new Error("workflow API is not implemented in this test");
+  };
+  return {
+    cancelExecution: unavailable,
+    createDefinition: unavailable,
+    deleteDefinition: unavailable,
+    executionEvents: unavailable,
+    listDefinitions: unavailable,
+    readDefinition: unavailable,
+    readExecution: unavailable,
+    startExecution: unavailable,
+    updateDefinition: unavailable,
+    validateDefinition: unavailable,
+  };
 }
 
 function commandResult(kind: "goal" | "model") {

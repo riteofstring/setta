@@ -798,7 +798,6 @@ describe("chat store", () => {
 interface SettaAPIOverrides {
   chat?: Partial<SettaAPI["chat"]>;
 }
-
 function emptyCorruption() {
   return {
     byKind: [],
@@ -1000,6 +999,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    workflow: {} as SettaAPI["workflow"],
     workspace: {
       close: async () => workspaceSession(),
       openLocalFolder: async () => ({

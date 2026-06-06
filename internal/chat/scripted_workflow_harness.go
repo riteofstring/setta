@@ -10,13 +10,15 @@ import (
 )
 
 type ScriptedWorkflowHarness struct {
-	mu        sync.Mutex
-	approvals map[string]chan ApprovalResponse
-	commands  []HarnessCommandRequest
-	goal      *ChatGoalState
-	model     string
-	reasoning ReasoningEffort
-	steers    map[string]chan SteerRequest
+	mu                       sync.Mutex
+	approvals                map[string]chan ApprovalResponse
+	commands                 []HarnessCommandRequest
+	goal                     *ChatGoalState
+	model                    string
+	phase4ConsolidatorCounts map[string]int
+	phase4ReviewerBarriers   map[string]map[string]chan struct{}
+	reasoning                ReasoningEffort
+	steers                   map[string]chan SteerRequest
 }
 
 type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
@@ -46,14 +48,21 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "mcp elicitation url decline workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationURLDeclineTurn},
 	{Prompt: "dynamic tool workflow", Run: scriptedDynamicToolTurn},
 	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
+	{Prompt: "phase4 reviewer a workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
+	{Prompt: "phase4 reviewer b workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
+	{Prompt: "phase4 reviewer c workflow", Run: (*ScriptedWorkflowHarness).phase4ReviewerTurn},
+	{Prompt: "phase4 consolidator workflow", Run: (*ScriptedWorkflowHarness).phase4ConsolidatorTurn},
+	{Prompt: "phase4 fix workflow", Run: scriptedPhase4FixTurn},
 	{Prompt: "pre-turn model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 }
 
 func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
 	return &ScriptedWorkflowHarness{
-		approvals: map[string]chan ApprovalResponse{},
-		steers:    map[string]chan SteerRequest{},
+		approvals:                map[string]chan ApprovalResponse{},
+		phase4ConsolidatorCounts: map[string]int{},
+		phase4ReviewerBarriers:   map[string]map[string]chan struct{}{},
+		steers:                   map[string]chan SteerRequest{},
 	}
 }
 
@@ -468,6 +477,132 @@ func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, r
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Workflow result action complete.")
+}
+
+func (harness *ScriptedWorkflowHarness) phase4ReviewerTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Phase 4 reviewer active. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	key := phase4WorkflowExecutionKey(request)
+	released := harness.joinPhase4ReviewerBarrier(key, request.Run.ID)
+	defer harness.leavePhase4ReviewerBarrier(key, request.Run.ID)
+
+	select {
+	case <-released:
+		return scriptedReply(sink, request.Run.ID, "Phase 4 reviewer complete.")
+	case <-ctx.Done():
+		return TurnCompletion{}, ctx.Err()
+	}
+}
+
+func (harness *ScriptedWorkflowHarness) phase4ConsolidatorTurn(_ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	decision, attempt := harness.nextPhase4ConsolidatorDecision(request)
+	output, err := json.Marshal(struct {
+		Attempt  int    `json:"attempt"`
+		Decision string `json:"decision"`
+		Summary  string `json:"summary"`
+	}{
+		Attempt:  attempt,
+		Decision: decision,
+		Summary:  "phase 4 consolidator " + decision,
+	})
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	actionable := "no"
+	if decision == "continue" {
+		actionable = "yes"
+	}
+	details, err := json.Marshal(SettaWorkflowResultPayload{
+		Signals: []SettaWorkflowResultSignal{
+			{Name: "decision", Value: decision},
+			{Name: "actionable", Value: actionable},
+		},
+		Output:    output,
+		FilePaths: []string{"reports/phase4-consolidator.md"},
+	})
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	item := RunItem{
+		ProviderItemID: "provider_phase4_workflow_result_" + request.Run.ID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusCompleted,
+		Title:          "Phase 4 workflow result",
+		Namespace:      SettaAgentToolNamespace,
+		ToolName:       SettaWorkflowResultAgentToolName,
+		Details:        details,
+		Result:         "phase 4 workflow result recorded",
+	}
+	if err := sink.RunItemUpsert(item); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Phase 4 consolidator "+decision+".")
+}
+
+func scriptedPhase4FixTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	return scriptedReply(sink, request.Run.ID, "Phase 4 fix complete.")
+}
+
+func (harness *ScriptedWorkflowHarness) joinPhase4ReviewerBarrier(key string, runID string) <-chan struct{} {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	group := harness.phase4ReviewerBarriers[key]
+	if group == nil {
+		group = map[string]chan struct{}{}
+		harness.phase4ReviewerBarriers[key] = group
+	}
+	released := make(chan struct{})
+	group[runID] = released
+	if len(group) >= 3 {
+		for _, channel := range group {
+			close(channel)
+		}
+		delete(harness.phase4ReviewerBarriers, key)
+	}
+	return released
+}
+
+func (harness *ScriptedWorkflowHarness) leavePhase4ReviewerBarrier(key string, runID string) {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	group := harness.phase4ReviewerBarriers[key]
+	if group == nil {
+		return
+	}
+	delete(group, runID)
+	if len(group) == 0 {
+		delete(harness.phase4ReviewerBarriers, key)
+	}
+}
+
+func (harness *ScriptedWorkflowHarness) nextPhase4ConsolidatorDecision(request TurnRequest) (string, int) {
+	key := phase4WorkflowNodeKey(request)
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	harness.phase4ConsolidatorCounts[key]++
+	attempt := harness.phase4ConsolidatorCounts[key]
+	if attempt == 1 {
+		return "continue", attempt
+	}
+	return "exit", attempt
+}
+
+func phase4WorkflowExecutionKey(request TurnRequest) string {
+	if request.Conversation.Workflow == nil {
+		return request.Run.ID
+	}
+	return request.Conversation.Workflow.ExecutionID
+}
+
+func phase4WorkflowNodeKey(request TurnRequest) string {
+	if request.Conversation.Workflow == nil {
+		return request.Run.ID
+	}
+	return request.Conversation.Workflow.ExecutionID + "/" + request.Conversation.Workflow.NodeID
 }
 
 func (harness *ScriptedWorkflowHarness) modelSettingTurn(_ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

@@ -51,6 +51,16 @@ func TestStartToEndCompletes(t *testing.T) {
 	assertEventType(t, transition.Events, EventExecutionCompleted)
 }
 
+func TestValidateGraphValidResultUsesEmptyDiagnosticsArray(t *testing.T) {
+	result := ValidateGraph(startEndGraph(), DefaultRunnerRegistry())
+	if !result.Valid {
+		t.Fatalf("validation diagnostics = %+v, want valid graph", result.Diagnostics)
+	}
+	if result.Diagnostics == nil {
+		t.Fatal("diagnostics = nil, want empty slice for generated contract decoding")
+	}
+}
+
 func TestANDFanOutJoinWaitsForAllBranches(t *testing.T) {
 	graph := WorkflowGraph{
 		Nodes: []WorkflowNode{

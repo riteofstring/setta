@@ -123,6 +123,27 @@ const api: SettaAPI = {
     refresh: (request) => invoke("codexAccountRefresh", request),
     startLogin: (request) => invoke("codexAccountStartLogin", request),
   },
+  workflow: {
+    cancelExecution: (workspaceId, executionId) =>
+      invoke("workflowCancelExecution", workspaceId, executionId),
+    createDefinition: (workspaceId, name, description, graph) =>
+      invoke("workflowCreateDefinition", workspaceId, name, description, graph),
+    deleteDefinition: (workspaceId, definitionId) =>
+      invoke("workflowDeleteDefinition", workspaceId, definitionId),
+    executionEvents: (workspaceId, executionId, beforeOrdinal, limit) =>
+      invoke("workflowExecutionEvents", workspaceId, executionId, beforeOrdinal, limit),
+    listDefinitions: (workspaceId) => invoke("workflowListDefinitions", workspaceId),
+    readDefinition: (workspaceId, definitionId) =>
+      invoke("workflowReadDefinition", workspaceId, definitionId),
+    readExecution: (workspaceId, executionId) =>
+      invoke("workflowReadExecution", workspaceId, executionId),
+    startExecution: (workspaceId, definitionId, versionId = "") =>
+      invoke("workflowStartExecution", workspaceId, definitionId, versionId),
+    updateDefinition: (workspaceId, definitionId, name, description, graph) =>
+      invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),
+    validateDefinition: (workspaceId, graph) =>
+      invoke("workflowValidateDefinition", workspaceId, graph),
+  },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
