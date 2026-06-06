@@ -63,7 +63,7 @@ async function main() {
 
   try {
     context = await launchContext(fixture, artifactDir);
-    await runAppearanceProbe(context.client);
+    await runNiriProbe(context.client);
   } catch (error) {
     failure = error;
     await captureFailureState(context?.client);
@@ -76,13 +76,7 @@ async function main() {
     join(artifactDir, "summary.json"),
     JSON.stringify(
       {
-        artifacts: [
-          "01-launch.png",
-          "02-appearance-dark.png",
-          "03-appearance-light.png",
-          "04-appearance-dark-restored.png",
-          "05-compact-window.png",
-        ],
+        artifacts: ["01-launch.png", "02-niri-phase1.png", "03-compact-window.png"],
         outDir: artifactDir,
         status: "passed",
       },
@@ -93,26 +87,17 @@ async function main() {
   process.stdout.write(`Electron visual probe passed. Artifacts: ${artifactDir}\n`);
 }
 
-async function runAppearanceProbe(client) {
+async function runNiriProbe(client) {
   await captureProbeState(client, "01-launch");
 
-  await waitForText(client, "Settings");
-  await clickButton(client, "aria-label", "Open settings");
-  await waitForAppearanceReady(client);
-  await captureProbeState(client, "02-appearance-dark");
-
-  await clickButton(client, "text", "Light");
-  await waitForColorMode(client, "light");
-  await captureProbeState(client, "03-appearance-light");
-
-  await clickButton(client, "text", "Dark");
-  await waitForColorMode(client, "dark");
-  await captureProbeState(client, "04-appearance-dark-restored");
+  await waitForText(client, "500/40");
+  await waitForNiriReady(client);
+  await captureProbeState(client, "02-niri-phase1");
 
   await resizeElectronWindow(client, 320, 320);
   await waitForViewportSize(client, 320, 320);
-  const compactState = await captureProbeState(client, "05-compact-window");
-  assertCompactWindowState(compactState);
+  const compactState = await captureProbeState(client, "03-compact-window");
+  assertCompactNiriState(compactState);
 }
 
 async function captureFailureState(client) {
@@ -249,8 +234,7 @@ async function readDomState(client) {
   return client.evaluate(`(() => {
     const root = document.documentElement;
     const style = getComputedStyle(root);
-    const panel = document.querySelector('[data-testid="appearance-settings"]');
-    const settingsPanel = document.querySelector('[data-testid="settings-panel"]');
+    const latestReport = window.__settaNiriReadPhaseOneReports?.().at(-1) ?? null;
     const elementState = (selector) => {
       const element = document.querySelector(selector);
       if (!element) {
@@ -274,11 +258,23 @@ async function readDomState(client) {
         height: window.innerHeight,
         width: window.innerWidth,
       },
+      shell: {
+        benchmarkStatus: elementState('[data-testid="niri-benchmark-status"]'),
+        projectSidebar: elementState(".setta-sidebar-surface"),
+        topBar: elementState('[data-testid="shell-top-bar"]'),
+      },
       panes: {
         bottom: elementState('[data-testid="bottom-workspace-pane"]'),
         chat: elementState('[data-testid="chat-detail-pane"]'),
         project: elementState(".setta-sidebar-surface"),
         right: elementState('[data-testid="right-workspace-pane"]'),
+      },
+      niri: {
+        debugText: document.querySelector('[data-testid="niri-debug-overlay"]')?.textContent ?? "",
+        hostCount: document.querySelectorAll('[data-testid="niri-fake-pane-host"]').length,
+        latestReport,
+        paneCount: document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-pane-count") ?? "",
+        workspace: elementState('[data-testid="niri-workspace-area"]'),
       },
       cssVariables: {
         background: style.getPropertyValue("--background").trim(),
@@ -288,61 +284,59 @@ async function readDomState(client) {
         settaLogo: style.getPropertyValue("--setta-logo").trim(),
         sidebar: style.getPropertyValue("--sidebar").trim(),
       },
-      hasAppearanceSettings: Boolean(panel),
-      hasSettingsPanel: Boolean(settingsPanel),
-      settingsText: panel?.innerText.slice(0, 12000) ?? "",
       title: document.title,
       url: location.href,
     };
   })()`);
 }
 
-function assertCompactWindowState(state) {
+function assertCompactNiriState(state) {
   if (state.viewport.width > 320 || state.viewport.height > 320) {
     throw new Error(`compact window did not resize to 320px: ${JSON.stringify(state.viewport)}`);
   }
-  if (!state.hasSettingsPanel || !state.hasAppearanceSettings) {
-    throw new Error("compact window lost the settings panel");
+  if (!state.niri.workspace.visible || state.niri.hostCount !== 40) {
+    throw new Error(`compact window lost niri workspace hosts: ${JSON.stringify(state.niri)}`);
   }
-  if (!state.panes.right.visible) {
-    throw new Error(`compact window right pane is not visible: ${JSON.stringify(state.panes)}`);
-  }
-  if (state.panes.project.visible || state.panes.chat.visible) {
-    throw new Error(
-      `compact window should show one horizontal content pane: ${JSON.stringify(state.panes)}`,
-    );
+  if (!state.shell.topBar.present || !state.shell.projectSidebar.visible) {
+    throw new Error(`compact window lost shell/sidebar: ${JSON.stringify(state.shell)}`);
   }
 }
 
-async function waitForAppearanceReady(client) {
+async function waitForNiriReady(client) {
   return waitForState(
     client,
     `(() => {
-      const panel = document.querySelector('[data-testid="appearance-settings"]');
-      const text = panel?.innerText ?? "";
+      const report = window.__settaNiriReadPhaseOneReports?.().at(-1) ?? null;
+      const debugText = document.querySelector('[data-testid="niri-debug-overlay"]')?.textContent ?? "";
       return {
-        colorMode: document.documentElement.dataset.colorMode ?? "",
-        hasPresetChooser: text.includes("Color Presets") && text.includes("27 options") && Boolean(panel?.querySelector('[role="combobox"]')),
-        loading: text.includes("Loading theme settings"),
-        panelReady: Boolean(panel),
-        text: text.slice(0, 4000),
+        debugText,
+        hostCount: document.querySelectorAll('[data-testid="niri-fake-pane-host"]').length,
+        paneCount: document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute("data-pane-count") ?? "",
+        report,
+        workspaceReady: Boolean(document.querySelector('[data-testid="niri-workspace-area"]')),
       };
     })()`,
-    (value) => value.panelReady && value.hasPresetChooser && !value.loading,
+    niriReadyState,
     probeTimeoutMs,
   );
 }
 
-async function waitForColorMode(client, mode) {
-  return waitForState(
-    client,
-    `(() => ({
-      colorMode: document.documentElement.dataset.colorMode ?? "",
-      rootClasses: Array.from(document.documentElement.classList),
-    }))()`,
-    (value) => value.colorMode === mode,
-    probeTimeoutMs,
+function niriReadyState(value) {
+  return niriShellReady(value) && niriMetricsReady(value) && niriReportReady(value);
+}
+
+function niriMetricsReady(value) {
+  return value.debugText.includes("visible 40") && value.debugText.includes("react 0");
+}
+
+function niriReportReady(value) {
+  return (
+    value.report?.result === "pass" && value.report?.environment?.rendererMode === "production"
   );
+}
+
+function niriShellReady(value) {
+  return value.workspaceReady && value.paneCount === "500" && value.hostCount === 40;
 }
 
 async function waitForText(client, text) {
@@ -352,20 +346,6 @@ async function waitForText(client, text) {
     (value) => value.body.includes(text),
     probeTimeoutMs,
   );
-}
-
-async function clickButton(client, kind, value) {
-  const clicked = await client.evaluate(`(() => {
-    const button = window.settaVisualProbeButton(${JSON.stringify(kind)}, ${JSON.stringify(value)});
-    if (!button || button.disabled) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!clicked) {
-    throw new Error(`visual probe could not click ${kind} button: ${value}`);
-  }
 }
 
 async function resizeElectronWindow(client, width, height) {
