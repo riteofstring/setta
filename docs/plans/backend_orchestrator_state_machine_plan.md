@@ -1,7 +1,7 @@
 # Backend Orchestrator State Machine Plan
 
 - **Date:** June 5, 2026
-- **Status:** Proposed
+- **Status:** Phase 1 and Phase 2 implemented; Phase 3 ready to implement
 - **Scope:** Add backend-owned workflow/state-machine execution for the graph-based AI agent orchestrator. The frontend may render definitions and execution state later, but backend services own all graph logic, state transitions, persistence, scheduling, and action execution.
 
 ## Goal
@@ -294,6 +294,8 @@ When workflow execution touches Codex harness behavior, chat run lifecycle, appr
 
 ### Phase 1: Definition Model And Validation
 
+Status: Implemented.
+
 - Add Go-owned workflow definition types.
 - Add node, edge, gateway, loop, and Codex action config types.
 - Add validation with precise diagnostics.
@@ -302,6 +304,8 @@ When workflow execution touches Codex harness behavior, chat run lifecycle, appr
 
 ### Phase 2: Durable Execution Core
 
+Status: Implemented.
+
 - Add execution, node execution, token, and event log records.
 - Implement reducer-style execution transitions.
 - Implement start, end, basic action placeholder, AND join, XOR, OR, and loop guard behavior.
@@ -309,11 +313,23 @@ When workflow execution touches Codex harness behavior, chat run lifecycle, appr
 
 ### Phase 3: Codex Action Runner
 
+Status: Ready to implement.
+
 - Register `agent.codex`.
-- Connect Codex action execution through existing production backend paths.
-- Persist runner references and stream output into workflow activity.
-- Support cancellation and structured completion signals.
+- Add workflow-owned/internal chat metadata before creating workflow agent chats.
+- Exclude workflow-owned chats from normal master chat lists while keeping them readable by workflow UI, such as a future node details pane.
+- Add a narrow backend chat service method for workflow agent turns so workflow execution does not use public master-chat behavior directly.
+- Add an action runner/adapter boundary for `agent.codex`.
+- Connect Codex action execution through existing production backend chat, harness, streaming, approval, transcript, and persistence paths.
+- Persist runner references on workflow node executions, including hidden/internal conversation IDs, chat run IDs, and Codex thread/session/turn IDs when available.
+- Reconcile chat/Codex terminal status back into `CompleteAction`.
+- Support cancellation propagation from workflow execution to active workflow-owned chat/Codex runs.
+- Support structured completion signals when a Setta-owned signal/result tool is used.
 - Add deterministic fake-harness workflow tests.
+
+Phase 3 should preserve the reducer/action-runner boundary. The reducer should not call Codex directly. It should produce durable node execution state and consume terminal action results from the runner path.
+
+The action lifecycle should distinguish durable scheduling from actual runner startup. If an action node is marked `workflow.action.started`, the runner should either already have started through a durable backend path or have enough persisted runner references for restart reconciliation.
 
 ### Phase 4: First End-To-End Workflow
 
@@ -358,4 +374,3 @@ When workflow execution touches Codex harness behavior, chat run lifecycle, appr
 
 - The exact enum names and metadata fields for workflow-owned internal chats, including workflow definition ID, workflow execution ID, node ID, node execution ID, and visibility.
 - Which chat operations are allowed directly from a workflow node details pane and which must route through orchestrator APIs, especially cancellation, steering, editing, and deletion.
-- The first set of built-in condition predicates and how they are represented in generated TypeScript contracts.
