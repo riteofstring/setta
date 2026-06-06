@@ -104,6 +104,51 @@ func TestANDFanOutJoinWaitsForAllBranches(t *testing.T) {
 	assertNodeSucceeded(t, afterSecond.Execution, "join")
 }
 
+func TestANDGatewayDeadlockWithoutActiveWorkFails(t *testing.T) {
+	graph := WorkflowGraph{
+		Nodes: []WorkflowNode{
+			{ID: "start", Kind: NodeKindStart},
+			testActionNode("classify"),
+			{ID: "route", Kind: NodeKindGatewayOR, Gateway: &WorkflowGatewayConfig{}},
+			testActionNode("branch_a"),
+			testActionNode("branch_b"),
+			{ID: "join", Kind: NodeKindGatewayAND, Gateway: &WorkflowGatewayConfig{}},
+			{ID: "end", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "start_classify", FromNodeID: "start", ToNodeID: "classify", Kind: EdgeKindNormal},
+			{ID: "classify_route", FromNodeID: "classify", ToNodeID: "route", Kind: EdgeKindNormal},
+			{ID: "route_a", FromNodeID: "route", ToNodeID: "branch_a", Kind: EdgeKindNormal, Condition: signalCondition("classify", "branch", "a")},
+			{ID: "route_b", FromNodeID: "route", ToNodeID: "branch_b", Kind: EdgeKindNormal, Condition: signalCondition("classify", "branch", "b")},
+			{ID: "a_join", FromNodeID: "branch_a", ToNodeID: "join", Kind: EdgeKindNormal},
+			{ID: "b_join", FromNodeID: "branch_b", ToNodeID: "join", Kind: EdgeKindNormal},
+			{ID: "join_end", FromNodeID: "join", ToNodeID: "end", Kind: EdgeKindNormal},
+		},
+	}
+	transition := startTestExecution(t, graph)
+	execution, classify := startActionForTest(t, transition.Execution, "classify")
+	routed, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{
+		Status:  ActionCompletionCompleted,
+		Signals: []WorkflowActionSignal{{Name: "branch", Value: "b"}},
+	}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete classifier: %v", err)
+	}
+	execution, branchB := startActionForTest(t, routed.Execution, "branch_b")
+
+	next, err := CompleteAction(execution, graph, branchB.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete branch b: %v", err)
+	}
+	if next.Execution.Status != ExecutionStatusFailed {
+		t.Fatalf("execution status = %s, want failed", next.Execution.Status)
+	}
+	if terminalReasonValue(next.Execution) != TerminalReasonRoutingFailed {
+		t.Fatalf("terminal reason = %v, want routing_failed", next.Execution.TerminalReason)
+	}
+	assertEventType(t, next.Events, EventExecutionFailed)
+}
+
 func TestXORGatewaySelectsExactlyOneBranchFromStructuredSignal(t *testing.T) {
 	graph := WorkflowGraph{
 		Nodes: []WorkflowNode{
@@ -222,6 +267,106 @@ func TestORGatewayReleasesAllMatchingBranches(t *testing.T) {
 		t.Fatalf("execution status = %s, want completed", afterC.Execution.Status)
 	}
 	assertNodeSucceeded(t, afterC.Execution, "join")
+}
+
+func TestORGatewayLateArrivalCompletesAfterEndReached(t *testing.T) {
+	graph := lateGatewayArrivalGraph(NodeKindGatewayOR)
+	transition := startTestExecution(t, graph)
+	execution, fast := startActionForTest(t, transition.Execution, "fast")
+	execution, slow := startActionForTest(t, execution, "slow")
+
+	afterFast, err := CompleteAction(execution, graph, fast.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete fast branch: %v", err)
+	}
+	if afterFast.Execution.Status != ExecutionStatusRunning {
+		t.Fatalf("execution status after first branch = %s, want running while slow branch is active", afterFast.Execution.Status)
+	}
+	assertNodeSucceeded(t, afterFast.Execution, "end")
+
+	afterSlow, err := CompleteAction(afterFast.Execution, graph, slow.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete slow branch: %v", err)
+	}
+	if afterSlow.Execution.Status != ExecutionStatusCompleted {
+		t.Fatalf("execution status after late arrival = %s, want completed", afterSlow.Execution.Status)
+	}
+	if terminalReasonValue(afterSlow.Execution) != TerminalReasonEndReached {
+		t.Fatalf("terminal reason = %v, want end_reached", afterSlow.Execution.TerminalReason)
+	}
+	assertNoActiveWorkflowWork(t, afterSlow.Execution)
+}
+
+func TestXORGatewayLateArrivalCompletesAfterEndReached(t *testing.T) {
+	graph := lateGatewayArrivalGraph(NodeKindGatewayXOR)
+	transition := startTestExecution(t, graph)
+	execution, fast := startActionForTest(t, transition.Execution, "fast")
+	execution, slow := startActionForTest(t, execution, "slow")
+
+	afterFast, err := CompleteAction(execution, graph, fast.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete fast branch: %v", err)
+	}
+	if afterFast.Execution.Status != ExecutionStatusRunning {
+		t.Fatalf("execution status after first branch = %s, want running while slow branch is active", afterFast.Execution.Status)
+	}
+	assertNodeSucceeded(t, afterFast.Execution, "end")
+
+	afterSlow, err := CompleteAction(afterFast.Execution, graph, slow.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete slow branch: %v", err)
+	}
+	if afterSlow.Execution.Status != ExecutionStatusCompleted {
+		t.Fatalf("execution status after late arrival = %s, want completed", afterSlow.Execution.Status)
+	}
+	if terminalReasonValue(afterSlow.Execution) != TerminalReasonEndReached {
+		t.Fatalf("terminal reason = %v, want end_reached", afterSlow.Execution.TerminalReason)
+	}
+	assertNoActiveWorkflowWork(t, afterSlow.Execution)
+}
+
+func TestValidateGraphRejectsPartialANDRequiredIncoming(t *testing.T) {
+	graph := WorkflowGraph{
+		Nodes: []WorkflowNode{
+			{ID: "start", Kind: NodeKindStart},
+			testActionNode("branch_a"),
+			testActionNode("branch_b"),
+			{ID: "join", Kind: NodeKindGatewayAND, Gateway: &WorkflowGatewayConfig{RequiredIncoming: []string{"a_join"}}},
+			{ID: "end", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "start_a", FromNodeID: "start", ToNodeID: "branch_a", Kind: EdgeKindNormal},
+			{ID: "start_b", FromNodeID: "start", ToNodeID: "branch_b", Kind: EdgeKindNormal},
+			{ID: "a_join", FromNodeID: "branch_a", ToNodeID: "join", Kind: EdgeKindNormal},
+			{ID: "b_join", FromNodeID: "branch_b", ToNodeID: "join", Kind: EdgeKindNormal},
+			{ID: "join_end", FromNodeID: "join", ToNodeID: "end", Kind: EdgeKindNormal},
+		},
+	}
+
+	result := ValidateGraph(graph, DefaultRunnerRegistry())
+	if result.Valid {
+		t.Fatalf("validation unexpectedly passed: %+v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result, "and_gateway_required_inputs_must_cover_all_inputs")
+}
+
+func TestValidateGraphRejectsEndNodeOutputs(t *testing.T) {
+	graph := WorkflowGraph{
+		Nodes: []WorkflowNode{
+			{ID: "start", Kind: NodeKindStart},
+			{ID: "end", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "start_end", FromNodeID: "start", ToNodeID: "end", Kind: EdgeKindNormal},
+			{ID: "end_start", FromNodeID: "end", ToNodeID: "start", Kind: EdgeKindNormal},
+		},
+	}
+
+	result := ValidateGraph(graph, DefaultRunnerRegistry())
+	if result.Valid {
+		t.Fatalf("validation unexpectedly passed: %+v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result, "end_node_output_forbidden")
 }
 
 func TestLoopGuardContinuesUntilStructuredExit(t *testing.T) {
@@ -512,6 +657,25 @@ func conditionRoutingGraph(condition *WorkflowCondition) WorkflowGraph {
 			{ID: "classify_route", FromNodeID: "classify", ToNodeID: "route", Kind: EdgeKindNormal},
 			{ID: "route_match", FromNodeID: "route", ToNodeID: "end_match", Kind: EdgeKindNormal, Condition: condition},
 			{ID: "route_default", FromNodeID: "route", ToNodeID: "end_default", Kind: EdgeKindNormal, Condition: &WorkflowCondition{Kind: ConditionAlways, Invert: true}},
+		},
+	}
+}
+
+func lateGatewayArrivalGraph(kind WorkflowNodeKind) WorkflowGraph {
+	return WorkflowGraph{
+		Nodes: []WorkflowNode{
+			{ID: "start", Kind: NodeKindStart},
+			testActionNode("fast"),
+			testActionNode("slow"),
+			{ID: "route", Kind: kind, Gateway: &WorkflowGatewayConfig{}},
+			{ID: "end", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "start_fast", FromNodeID: "start", ToNodeID: "fast", Kind: EdgeKindNormal},
+			{ID: "start_slow", FromNodeID: "start", ToNodeID: "slow", Kind: EdgeKindNormal},
+			{ID: "fast_route", FromNodeID: "fast", ToNodeID: "route", Kind: EdgeKindNormal},
+			{ID: "slow_route", FromNodeID: "slow", ToNodeID: "route", Kind: EdgeKindNormal},
+			{ID: "route_end", FromNodeID: "route", ToNodeID: "end", Kind: EdgeKindNormal},
 		},
 	}
 }

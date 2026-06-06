@@ -274,8 +274,29 @@ func advanceExecution(execution *WorkflowExecution, graph WorkflowGraph, context
 			break
 		}
 	}
+	if err := settleExecution(execution, graph, context, events); err != nil {
+		return err
+	}
 	refreshActiveNodeExecutionIDs(execution)
 	return nil
+}
+
+// settleExecution owns reducer quiescence: after token advancement stalls, a
+// running execution may only wait on active node executions.
+func settleExecution(execution *WorkflowExecution, graph WorkflowGraph, context TransitionContext, events *[]WorkflowEvent) error {
+	if execution.Status != ExecutionStatusRunning {
+		return nil
+	}
+	if hasActiveNodeExecutions(*execution) {
+		return nil
+	}
+	if hasActiveTokens(*execution) {
+		return failExecution(execution, events, context, TerminalReasonRoutingFailed, "workflow execution has blocked tokens but no active actions can unblock them")
+	}
+	if executionReachedEndNode(*execution, graph) {
+		return completeExecution(execution, events, context, TerminalReasonEndReached, "workflow execution completed")
+	}
+	return failExecution(execution, events, context, TerminalReasonRoutingFailed, "workflow execution has no active work before reaching an end node")
 }
 
 func processToken(execution *WorkflowExecution, graph WorkflowGraph, tokenIndex int, context TransitionContext, events *[]WorkflowEvent) (bool, error) {
@@ -342,11 +363,6 @@ func processEndToken(execution *WorkflowExecution, tokenIndex int, node Workflow
 	}); err != nil {
 		return false, err
 	}
-	if !hasActiveTokens(*execution) && !hasActiveNodeExecutions(*execution) {
-		if err := completeExecution(execution, events, context, TerminalReasonEndReached, "workflow execution completed"); err != nil {
-			return false, err
-		}
-	}
 	return true, nil
 }
 
@@ -390,17 +406,22 @@ func processActionToken(execution *WorkflowExecution, tokenIndex int, node Workf
 }
 
 func processANDGatewayToken(execution *WorkflowExecution, graph WorkflowGraph, tokenIndex int, node WorkflowNode, context TransitionContext, events *[]WorkflowEvent) (bool, error) {
+	iteration := execution.Tokens[tokenIndex].Iteration
+	tokenIndexes := activeTokenIndexesForNodeAndIteration(*execution, node.ID, iteration)
+	if gatewayAlreadyResolved(*execution, node.ID, iteration) {
+		if err := consumeGatewayArrivals(execution, tokenIndexes, context.Now); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
 	required := requiredIncomingEdgeIDs(node, graph)
-	tokenIndexes := activeTokenIndexesForNodeAndIteration(*execution, node.ID, execution.Tokens[tokenIndex].Iteration)
 	if !activeTokensCoverEdges(*execution, tokenIndexes, required) {
 		return false, nil
 	}
-	for _, index := range tokenIndexesForEdges(*execution, tokenIndexes, required) {
-		if err := consumeToken(execution, index, context.Now); err != nil {
-			return false, err
-		}
+	if err := consumeGatewayArrivals(execution, tokenIndexes, context.Now); err != nil {
+		return false, err
 	}
-	nodeExecution, err := addControlNodeExecution(execution, context, node.ID, execution.Tokens[tokenIndex].Iteration)
+	nodeExecution, err := addControlNodeExecution(execution, context, node.ID, iteration)
 	if err != nil {
 		return false, err
 	}
@@ -411,7 +432,7 @@ func processANDGatewayToken(execution *WorkflowExecution, graph WorkflowGraph, t
 	}); err != nil {
 		return false, err
 	}
-	if err := emitMatchingOutgoingTokens(execution, graph, context, node.ID, execution.Tokens[tokenIndex].Iteration, allMatchingEdges); err != nil {
+	if err := emitMatchingOutgoingTokens(execution, graph, context, node.ID, iteration, allMatchingEdges); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -420,13 +441,14 @@ func processANDGatewayToken(execution *WorkflowExecution, graph WorkflowGraph, t
 func processORGatewayToken(execution *WorkflowExecution, graph WorkflowGraph, tokenIndex int, node WorkflowNode, context TransitionContext, events *[]WorkflowEvent) (bool, error) {
 	iteration := execution.Tokens[tokenIndex].Iteration
 	tokenIndexes := activeTokenIndexesForNodeAndIteration(*execution, node.ID, iteration)
-	for _, index := range tokenIndexes {
-		if err := consumeToken(execution, index, context.Now); err != nil {
+	if gatewayAlreadyResolved(*execution, node.ID, iteration) {
+		if err := consumeGatewayArrivals(execution, tokenIndexes, context.Now); err != nil {
 			return false, err
 		}
-	}
-	if gatewayAlreadyResolved(*execution, node.ID, iteration) {
 		return true, nil
+	}
+	if err := consumeGatewayArrivals(execution, tokenIndexes, context.Now); err != nil {
+		return false, err
 	}
 	nodeExecution, err := addControlNodeExecution(execution, context, node.ID, iteration)
 	if err != nil {
@@ -448,17 +470,20 @@ func processORGatewayToken(execution *WorkflowExecution, graph WorkflowGraph, to
 func processXORGatewayToken(execution *WorkflowExecution, graph WorkflowGraph, tokenIndex int, node WorkflowNode, context TransitionContext, events *[]WorkflowEvent) (bool, error) {
 	iteration := execution.Tokens[tokenIndex].Iteration
 	tokenIndexes := activeTokenIndexesForNodeAndIteration(*execution, node.ID, iteration)
+	if gatewayAlreadyResolved(*execution, node.ID, iteration) {
+		if err := consumeGatewayArrivals(execution, tokenIndexes, context.Now); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
 	if len(tokenIndexes) > 1 {
 		if err := failExecution(execution, events, context, TerminalReasonActionFailed, fmt.Sprintf("XOR gateway %s received %d simultaneous inputs", node.ID, len(tokenIndexes))); err != nil {
 			return false, err
 		}
 		return true, nil
 	}
-	if err := consumeToken(execution, tokenIndex, context.Now); err != nil {
+	if err := consumeGatewayArrivals(execution, tokenIndexes, context.Now); err != nil {
 		return false, err
-	}
-	if gatewayAlreadyResolved(*execution, node.ID, iteration) {
-		return true, nil
 	}
 	nodeExecution, err := addControlNodeExecution(execution, context, node.ID, iteration)
 	if err != nil {
@@ -844,36 +869,15 @@ func activeTokenIndexesForNodeAndIteration(execution WorkflowExecution, nodeID s
 	return indexes
 }
 
-func activeTokensCoverEdges(execution WorkflowExecution, tokenIndexes []int, edgeIDs []string) bool {
-	active := map[string]bool{}
-	for _, index := range tokenIndexes {
-		active[execution.Tokens[index].EdgeID] = true
-	}
-	for _, edgeID := range edgeIDs {
-		if !active[edgeID] {
-			return false
+func executionReachedEndNode(execution WorkflowExecution, graph WorkflowGraph) bool {
+	endNodeIDs := map[string]bool{}
+	for _, node := range graph.Nodes {
+		if node.Kind == NodeKindEnd {
+			endNodeIDs[node.ID] = true
 		}
 	}
-	return true
-}
-
-func tokenIndexesForEdges(execution WorkflowExecution, tokenIndexes []int, edgeIDs []string) []int {
-	required := map[string]bool{}
-	for _, edgeID := range edgeIDs {
-		required[edgeID] = true
-	}
-	result := []int{}
-	for _, index := range tokenIndexes {
-		if required[execution.Tokens[index].EdgeID] {
-			result = append(result, index)
-		}
-	}
-	return result
-}
-
-func gatewayAlreadyResolved(execution WorkflowExecution, nodeID string, iteration int) bool {
 	for _, nodeExecution := range execution.NodeExecutions {
-		if nodeExecution.NodeID == nodeID && nodeExecution.Iteration == iteration && nodeExecution.Status == NodeExecutionStatusSucceeded {
+		if endNodeIDs[nodeExecution.NodeID] && nodeExecution.Status == NodeExecutionStatusSucceeded {
 			return true
 		}
 	}

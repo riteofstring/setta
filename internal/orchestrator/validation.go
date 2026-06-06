@@ -171,6 +171,9 @@ func (validator *graphValidator) validateNodes() {
 			}
 		case NodeKindEnd:
 			validator.validateNoSpecialConfig(node)
+			if len(validator.outgoing[node.ID]) > 0 {
+				validator.addNodeDiagnostic("end_node_output_forbidden", fmt.Sprintf("end node %s must not have outgoing edges", node.ID), node.ID)
+			}
 		case NodeKindAction:
 			validator.validateActionNode(node)
 		case NodeKindGatewayAND, NodeKindGatewayOR, NodeKindGatewayXOR:
@@ -232,7 +235,13 @@ func (validator *graphValidator) validateGatewayNode(node WorkflowNode) {
 }
 
 func (validator *graphValidator) validateGatewayRequiredIncoming(node WorkflowNode) {
+	required := map[string]bool{}
 	for _, edgeID := range node.Gateway.RequiredIncoming {
+		if required[edgeID] {
+			validator.addNodeDiagnostic("gateway_required_input_duplicate", fmt.Sprintf("gateway node %s requires incoming edge %s more than once", node.ID, edgeID), node.ID)
+			continue
+		}
+		required[edgeID] = true
 		edge, ok := validator.edgesByID[edgeID]
 		if !ok {
 			validator.addNodeDiagnostic("gateway_required_input_missing", fmt.Sprintf("gateway node %s requires unknown incoming edge %s", node.ID, edgeID), node.ID)
@@ -240,6 +249,18 @@ func (validator *graphValidator) validateGatewayRequiredIncoming(node WorkflowNo
 		}
 		if edge.ToNodeID != node.ID {
 			validator.addNodeDiagnostic("gateway_required_input_wrong_node", fmt.Sprintf("gateway node %s requires edge %s, but that edge targets %s", node.ID, edgeID, edge.ToNodeID), node.ID)
+		}
+	}
+	if len(required) == 0 {
+		return
+	}
+	if node.Kind != NodeKindGatewayAND {
+		validator.addNodeDiagnostic("gateway_required_inputs_only_and", fmt.Sprintf("gateway node %s declares requiredIncoming, but only AND gateways support required incoming edges", node.ID), node.ID)
+		return
+	}
+	for _, edge := range validator.incoming[node.ID] {
+		if !required[edge.ID] {
+			validator.addNodeDiagnostic("and_gateway_required_inputs_must_cover_all_inputs", fmt.Sprintf("AND gateway %s requiredIncoming must include incoming edge %s", node.ID, edge.ID), node.ID)
 		}
 	}
 }

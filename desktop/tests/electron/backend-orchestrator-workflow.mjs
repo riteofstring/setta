@@ -76,6 +76,9 @@ async function exerciseBackendOrchestratorFirstLaunch({
   await runOrchestratorStep(results, "backend-orchestrator-success", async () => {
     await runPhase4WorkflowSuccess(context.client, backend, firstRecording, workspaceId);
   });
+  await runOrchestratorStep(results, "backend-orchestrator-late-gateway-arrival", async () => {
+    await runLateGatewayArrivalWorkflow(context.client, backend, workspaceId);
+  });
   await runOrchestratorStep(results, "backend-orchestrator-limits", async () => {
     await runPhase4WorkflowLimitPolicies(context.client, workspaceId);
   });
@@ -124,6 +127,7 @@ async function assertBackendOrchestratorRecordingEvidence(firstRecording, second
       "/workflows/executions/events",
       "/workflows/events",
       "/workflows/executions/cancel",
+      "/chat/messages/steer",
       "/chat/conversations/list",
       "/chat/messages/page",
       "/chat/runs/list",
@@ -205,6 +209,47 @@ async function runPhase4WorkflowSuccess(client, backend, recordingDir, workspace
   assertParallelReviewersStartedBeforeCompletion(page.events);
 }
 
+async function runLateGatewayArrivalWorkflow(client, backend, workspaceId) {
+  const graph = lateGatewayArrivalWorkflowGraph();
+  const validation = await rendererWorkflow(client, "validateDefinition", [workspaceId, graph]);
+  if (!validation.valid) {
+    throw new Error(
+      `late gateway arrival graph validation failed: ${JSON.stringify(validation.diagnostics)}`,
+    );
+  }
+  const definition = await rendererWorkflow(client, "createDefinition", [
+    workspaceId,
+    "Late gateway arrival",
+    "Late branch completion after end fixture",
+    graph,
+  ]);
+  const started = await rendererWorkflow(client, "startExecution", [workspaceId, definition.id]);
+  const reachedEnd = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    started.id,
+    hasReachedEndWithSlowBranchActive,
+  );
+  const slow = latestNodeExecution(reachedEnd, "slow");
+  await backend.post("/chat/messages/steer", {
+    conversationId: runnerRef(slow, "chat.conversation"),
+    prompt: "finish late branch",
+    workspaceId,
+  });
+
+  const execution = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    started.id,
+    (value) => value.status === "completed",
+  );
+  assertWorkflowTerminal(execution, "completed", "end_reached");
+  assertNodeStatus(execution, "fast", "succeeded");
+  assertNodeStatus(execution, "slow", "succeeded");
+  assertNodeExecutionCount(execution, "route", 1);
+  assertNodeExecutionCount(execution, "end", 1);
+}
+
 async function assertDefinitionListed(client, workspaceId, definitionId) {
   const definitions = await rendererWorkflow(client, "listDefinitions", [workspaceId]);
   if (!definitions.definitions.some((item) => item.id === definitionId)) {
@@ -284,6 +329,17 @@ async function runPhase4WorkflowCancellation(client, backend, workspaceId) {
 function hasRunningWork(execution) {
   const work = latestNodeExecution(execution, "work");
   return work?.status === "running" && runnerRef(work, "chat.conversation") !== "";
+}
+
+function hasReachedEndWithSlowBranchActive(execution) {
+  const slow = latestNodeExecution(execution, "slow");
+  const end = latestNodeExecution(execution, "end");
+  return (
+    execution.status === "running" &&
+    slow?.status === "running" &&
+    runnerRef(slow, "chat.conversation") !== "" &&
+    end?.status === "succeeded"
+  );
 }
 
 async function startPhase4WorkflowForRecovery(client, workspaceId) {
@@ -610,10 +666,40 @@ function cancellationWorkflowGraph() {
   };
 }
 
+function lateGatewayArrivalWorkflowGraph() {
+  return {
+    nodes: [
+      workflowControlNode("start", "start"),
+      workflowCodexNode("fast", "workflow result action", true),
+      workflowCodexNode("slow", "workflow hold for queue and steering", true),
+      workflowGatewayNode("route", "gateway.or"),
+      workflowControlNode("end", "end"),
+    ],
+    edges: [
+      workflowEdge("start_fast", "start", "fast"),
+      workflowEdge("start_slow", "start", "slow"),
+      workflowEdge("fast_route", "fast", "route"),
+      workflowEdge("slow_route", "slow", "route"),
+      workflowEdge("route_end", "route", "end"),
+    ],
+  };
+}
+
 function workflowControlNode(id, kind) {
   return {
     action: null,
     gateway: null,
+    id,
+    kind,
+    loopGuard: null,
+    title: id,
+  };
+}
+
+function workflowGatewayNode(id, kind) {
+  return {
+    action: null,
+    gateway: { requiredIncoming: [] },
     id,
     kind,
     loopGuard: null,
