@@ -73,7 +73,6 @@ describe("workspace store", () => {
 
   test("select close reorder and remove recent replace state from backend responses", async () => {
     const selected = workspaceSession("workspace_api");
-    const opened = workspaceSession("workspace_web");
     const closed = { ...selected, activeWorkspaces: [], selectedWorkspaceId: "" };
     const reordered = {
       ...selected,
@@ -83,10 +82,6 @@ describe("workspace store", () => {
     installSettaAPI({
       workspace: {
         close: vi.fn().mockResolvedValue(closed),
-        openPath: vi.fn().mockResolvedValue({
-          session: opened,
-          workspace: firstWorkspace(opened),
-        }),
         removeRecent: vi.fn().mockResolvedValue(removed),
         reorder: vi.fn().mockResolvedValue(reordered),
         select: vi.fn().mockResolvedValue(selected),
@@ -101,9 +96,6 @@ describe("workspace store", () => {
 
     await useWorkspaceStore.getState().closeWorkspace("workspace_api");
     expect(useWorkspaceStore.getState().session).toEqual(closed);
-
-    await useWorkspaceStore.getState().openWorkspacePath("/tmp/web");
-    expect(useWorkspaceStore.getState().session).toEqual(opened);
 
     await useWorkspaceStore.getState().removeRecent("workspace_api");
     expect(useWorkspaceStore.getState().session).toEqual(removed);
@@ -246,7 +238,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const workspaceAPI: SettaAPI["workspace"] = {
     close: async () => fallbackSession,
     openLocalFolder: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
-    openPath: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
     select: async () => fallbackSession,
@@ -255,10 +246,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   };
   const api: SettaAPI = {
     app: {
-      flags: {
-        pixiWorkspaceDebug: false,
-        pixiWorkspacePrototype: false,
-      },
       installedEditors: async () => [],
       openWorkspaceInEditor: async () => {},
       openExternalUrl: async () => {},
@@ -289,12 +276,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
-      editQueuedMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        run: emptyRun(),
-        userMessage: emptyMessage(),
+      deleteConversation: async () => ({
+        conversations: [],
+        corruption: emptyCorruption(),
+        diagnostics: [],
       }),
       executeCommand: async () => ({
         conversation: emptyConversation(),
@@ -319,13 +304,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         corruption: emptyCorruption(),
         diagnostics: [],
       }),
-      markConversationRead: async () => ({
-        activeRunId: "",
-        conversation: emptyConversation(),
-        latestReadRelevantMarker: 0,
-        messageCount: 0,
-        readMarker: 0,
-      }),
       messagePage: async () => emptyMessagePage(),
       onEvent: () => () => {},
       queueMessage: async () => ({
@@ -346,13 +324,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         output: [],
         runId: "run_test",
         runItemId: "run_item_test",
-      }),
-      removeQueuedMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        removedMessageId: "message_test",
-        removedRunId: "run_test",
       }),
       sendMessage: async () => ({
         assistantMessage: emptyMessage(),
@@ -401,15 +372,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: emptyRun(),
         userMessage: emptyMessage(),
       }),
-      sendSteeringImmediately: async () => ({
-        activeRun: emptyRun(),
-        cancelledRun: emptyRun(),
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        replayedSteeringMessageIds: [],
-      }),
       submitApproval: async () => emptyRun(),
+      updateUserMessage: async () => emptyMessage(),
     },
     codexAccount: {
       cancelLogin: async () => emptyCodexAccountState(),

@@ -276,8 +276,6 @@ func codexRunItemTextFieldsFromItem(item map[string]any) (codexRunItemTextFields
 			return codexRunItemTextFields{}, err
 		}
 		return codexRunItemTextFields{title: "Reasoning summary", summary: summary}, nil
-	case "contextCompaction":
-		return codexRunItemTextFields{title: "Context compaction"}, nil
 	default:
 		return codexRunItemTextFields{}, nil
 	}
@@ -356,7 +354,6 @@ var codexRunItemTypeByCodexType = map[string]RunItemType{
 	"imageView":           RunItemTypeImageView,
 	"mcpToolCall":         RunItemTypeMCPToolCall,
 	"plan":                RunItemTypePlan,
-	"contextCompaction":   RunItemTypeContextCompaction,
 	"reasoning":           RunItemTypeReasoning,
 	"terminalInteraction": RunItemTypeTerminalInteraction,
 	"webSearch":           RunItemTypeWebSearch,
