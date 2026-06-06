@@ -1,7 +1,7 @@
 # Pixi Workspace Crisp Rendering Plan
 
 - **Date:** June 4, 2026
-- **Status:** Phase 1, 2, 3, 4, 5, 5.5, and 6 implemented
+- **Status:** Phase 1, 2, 3, 4, 5, 5.5, and 6 implemented; Phase 6.5 planned and implementation-ready; Phase 7 future and gated by Phase 6.5 evidence
 - **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
@@ -10,7 +10,7 @@ Make nodes and labels remain crisp during deep zoom while preserving fast pan, z
 
 The original issue was that the workspace zoomed the whole Pixi viewport while node labels were Pixi `Text` objects inside the zoomed world. Each label was rasterized to a texture and then magnified, which made text blur at high zoom and made naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
 
-Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 added compact selected-label sizing at low zoom. Phase 6 added a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet.
+Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 added compact selected-label sizing at low zoom. Phase 6 added a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet. Phase 6.5 validates larger synthetic graph sizes before Phase 7 introduces visible-object pooling or edge culling.
 
 The recommended production direction is:
 
@@ -19,6 +19,7 @@ The recommended production direction is:
 - Pool visible label objects and update their screen positions imperatively.
 - Use MSDF/SDF `BitmapText` for normal graph labels.
 - Add LOD and culling before optimizing node geometry with custom shaders.
+- Measure representative large-graph scenarios before adding visible-object virtualization.
 
 ## Current State
 
@@ -43,6 +44,7 @@ The current prototype:
 - Keeps selected labels visible in low-zoom `selected` mode with a compact font-size bucket so they do not visually dominate shrunken node bodies.
 - Uses a renderer-owned node-bounds spatial index for broad-phase node hit testing, port hit-test candidate narrowing, marquee selection, and label visibility viewport candidate discovery.
 - Updates dragged node bounds in the spatial index from the imperative drag path without polling or rebuilding.
+- Does not yet have representative large-graph scale validation proving that visible-object pooling or edge culling is the next bottleneck.
 - Keeps interaction state in the imperative renderer path, not React state.
 - Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, compact selected-label sizing, node geometry counters, spatial index counters/candidates/drag updates, moved-node hit testing after drag, and unchanged React render count during label sync.
 
@@ -85,6 +87,7 @@ The label layer must not inherit the viewport scale. Label positions are compute
 - No full Pixi scene rebuild on pan or zoom.
 - No node body, node shadow, node outline geometry, or grid geometry rebuild during camera pan or zoom.
 - Pool display objects for labels and future visible-node virtualization.
+- Measure representative graph sizes before introducing visible-node virtualization or broad edge culling.
 - Profile before introducing custom mesh or shader renderers.
 
 ## Phase 1: Screen-Space Pixi Label Layer
@@ -637,21 +640,81 @@ Expected result:
 - Node drag keeps the index up to date without polling or rebuilding the full index.
 - The debug snapshot exposes enough counters to catch accidental O(number of nodes) query regressions.
 
+## Phase 6.5: Large-Graph Scale Validation
+
+Status: Planned; implementation-ready.
+
+Measure the Phase 6 renderer at representative graph sizes before deciding whether Phase 7's visible-object pooling and edge culling are worth their added lifecycle complexity.
+
+Scope:
+
+- Use deterministic synthetic graph data that runs through the production Pixi renderer path.
+- Keep the default smoke fixture small and fast; large graph scenarios should be opt-in or isolated so ordinary checks do not become slow or flaky.
+- Measure at least 500, 1,000, 2,500, and 5,000 nodes.
+- Include edge densities that reflect expected product usage, such as sparse `~1 edge per node` and moderate `~2 edges per node` cases.
+- Exercise initial render, pan, wheel zoom, node hover/click hit testing, marquee selection, label visibility, port targeting, and node drag.
+- Keep all Phase 6 spatial-index exactness checks in place.
+- Do not add visible-node pooling, port pooling, label virtualization, edge culling, custom meshes, shaders, graph-model changes, or backend changes in this phase.
+- Do not rely on wall-clock timing as the only proof. Use deterministic counters and candidate counts for assertions, and record timing as performance evidence.
+
+Implementation decisions:
+
+- Prefer a focused synthetic performance harness over expanding the default visual smoke test.
+- Reuse the existing renderer debug snapshot rather than adding React state or DOM inspection to hot paths.
+- Add display-object scale counters where needed, for example:
+
+```ts
+render: {
+  edgeGraphicsCount: number;
+  nodeContainerCount: number;
+  portGraphicsCount: number;
+  totalPixiDisplayObjectCount: number;
+};
+```
+
+- Keep timing thresholds report-only unless a local or CI baseline is stable enough to avoid flaky failures.
+- Hard assertions should cover correctness and counter sanity:
+  - spatial index node count matches graph node count
+  - localized hit, marquee, port, and label queries return the same results as exact checks
+  - candidate counts remain no larger than graph node count
+  - localized query candidate counts are materially smaller than graph node count for large synthetic graphs
+  - React render count remains stable during imperative interactions
+  - display-object counters match expected graph size and density
+- Record frame timing, interaction counters, candidate counts, visible label counts, display-object counts, and screenshot artifact paths under `docs/reports/performance/pixi-workspace-scale-validation.md`.
+
+Decision gate:
+
+- Proceed to Phase 7 if the Phase 6.5 report shows the target graph sizes miss the interaction budget and evidence points to display-object count, edge graphics, port graphics, or label display objects as the bottleneck.
+- Start Phase 7 with edge culling if edge count or edge graphics dominate before node and port display-object count does.
+- Start Phase 7 with visible node/port pooling only if node and port display-object count is the measured bottleneck.
+- Do not proceed to Phase 7 if Phase 6 performance is already acceptable at target graph sizes, or if profiling points to an unrelated bottleneck that should be fixed directly.
+
+Expected result:
+
+- The next renderer optimization is evidence-driven.
+- Phase 7 has a clear target, such as edge culling or visible node/port pooling, instead of implementing all virtualization mechanisms by default.
+- The project has a reusable large-graph performance report format for future renderer changes.
+
 ## Phase 7: Visible Object Pools and Edge Culling
 
-Status: Future.
+Status: Future; gated by Phase 6.5 evidence.
 
-Use the Phase 6 spatial index as the foundation for display-object virtualization and edge culling once the prototype needs larger graphs.
+Use the Phase 6 spatial index as the foundation for display-object virtualization and edge culling only after Phase 6.5 shows that current large-graph performance is limited by display-object count or edge rendering.
+
+Do not implement every item in this phase by default. Pick the smallest sub-phase that matches the measured bottleneck.
 
 Implementation tasks:
 
-- Pool visible node containers instead of assuming one Pixi node container per graph node.
-- Pool visible port visuals with their parent node views.
-- Pool visible normal labels while preserving selected-label overrides.
-- Add an edge bounds index or endpoint-driven edge visibility policy.
-- Cull edge adornments, labels, arrowheads, and handles according to zoom LOD.
 - Keep graph state separate from Pixi display objects.
-- Preserve deterministic hit testing and selection while views enter and leave the visible pool.
+- If edges dominate, add edge culling first:
+  - add an edge bounds index or endpoint-driven edge visibility policy
+  - cull edge adornments, labels, arrowheads, and handles according to viewport bounds and zoom LOD
+  - preserve exact port targeting and edge interaction behavior
+- If node or port display-object count dominates, add visible node and port pooling:
+  - pool visible node containers instead of assuming one Pixi node container per graph node
+  - pool visible port visuals with their parent node views
+  - preserve deterministic hit testing and selection while views enter and leave the visible pool
+- If label display-object count dominates after Phase 4 LOD and Phase 5.5 sizing, add visible normal-label pooling while preserving selected-label overrides.
 
 Expected result:
 
@@ -681,14 +744,18 @@ Phase 5 before/after metrics are recorded in `docs/reports/performance/pixi-work
 
 Phase 5.5 visual smoke coverage and manual screenshot inspection are recorded in `docs/reports/performance/pixi-workspace-visual-smoke.md` under "Low-Zoom Selected Label Sizing Update".
 
-For Phase 6 specifically, baseline before implementation and append the result to `docs/reports/performance/pixi-workspace-visual-smoke.md`:
+Phase 6 before/after metrics are recorded in `docs/reports/performance/pixi-workspace-visual-smoke.md` under "Spatial Index Broad-Phase Update".
+
+For Phase 6.5 specifically, create or update the synthetic scale-validation harness, then append results to `docs/reports/performance/pixi-workspace-scale-validation.md`. The report should include graph sizes, edge densities, artifact paths, frame timing metrics, spatial index counters, candidate counts, display-object counts, visible label counts, and a recommendation on whether Phase 7 should start with edge culling, visible node/port pooling, label pooling, or no virtualization work yet.
+
+Suggested Phase 6.5 workflow:
 
 ```sh
 pnpm -C desktop build
 ./scripts/test_pixi_workspace_visual.sh --skip-build --keep-artifacts
 ```
 
-After Phase 6 implementation, rerun the same visual smoke workflow and append a before/after "Spatial Index Broad-Phase Update" section under `docs/reports/performance/`. Include artifact paths, frame timing metrics, spatial index debug counters, candidate counts, and any behavior notes from hit testing, marquee selection, port targeting, and label visibility.
+If the focused synthetic harness uses a separate script, keep the default visual smoke workflow intact and document the exact command in the Phase 6.5 report.
 
 Focused checks during implementation:
 
@@ -706,7 +773,7 @@ After source/test/doc edits are stable:
 ./check_quality.sh --all
 ```
 
-If Phase 6 adds a dependency such as `rbush`, run:
+If Phase 6.5 or a future renderer phase adds or updates a dependency, run:
 
 ```sh
 ./scripts/check_supply_chain.sh
@@ -735,6 +802,10 @@ Extend the Pixi visual smoke workflow to cover:
 - After Phase 6, node hit testing, marquee selection, port targeting, label visibility, and group drag advance the relevant spatial query/update counters.
 - After Phase 6, node drag updates the index and subsequent hit testing uses the moved bounds.
 - After Phase 6, deterministic large synthetic index tests match naive scan results while showing reduced candidate sets for localized queries.
+- After Phase 6.5, the synthetic scale-validation harness covers at least 500, 1,000, 2,500, and 5,000 nodes.
+- After Phase 6.5, the report includes edge densities, frame timing metrics, spatial index counters, candidate counts, display-object counts, visible label counts, and artifact paths.
+- After Phase 6.5, localized large-graph queries return the same results as exact checks while producing candidate sets materially smaller than graph node count.
+- After Phase 6.5, the report recommends edge culling, visible node/port pooling, label pooling, or no Phase 7 work yet based on measured bottlenecks.
 - React render count remains stable during label sync.
 - Existing pan, zoom, selection, marquee, group drag, and edge drawing flows still pass.
 
@@ -749,7 +820,8 @@ Manual verification:
 - Verify node body strokes, selected/hover outlines, and grid hairlines remain visually acceptable at minimum, normal, and maximum zoom.
 - Verify node drag, selection, hover, and edge drawing still target the expected hit areas after body graphics are constructed from shared contexts.
 - Verify node click, marquee, port hover/targeting, edge cancellation, edge commit, and label visibility still behave correctly after the spatial index becomes the broad-phase query path.
-- Record before/after screenshots and metrics under `docs/reports/performance/`.
+- Inspect representative Phase 6.5 large-graph screenshots for blank canvases, missing labels at expected zooms, and obvious culling or interaction artifacts.
+- Record screenshots and metrics under `docs/reports/performance/`.
 
 ## Non-Goals
 
@@ -758,4 +830,4 @@ Manual verification:
 - No accessibility layer in this slice.
 - No custom shader node renderer unless profiling justifies it.
 - No backend, generated contract, persistence, undo/redo, or semantic graph-model changes.
-- No full graph virtualization until graph size requires it.
+- No full graph virtualization until Phase 6.5 evidence shows graph size requires it.
