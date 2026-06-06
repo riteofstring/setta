@@ -34,14 +34,8 @@ func validateConversationIdentity(conversation Conversation) error {
 	if conversation.ID == "" {
 		return fmt.Errorf("conversation id is required")
 	}
-	if err := validateConversationID(conversation.ID); err != nil {
-		return err
-	}
 	if conversation.WorkspaceID == "" {
 		return fmt.Errorf("conversation %s workspaceId is required", conversation.ID)
-	}
-	if err := validateWorkspaceID(conversation.WorkspaceID); err != nil {
-		return fmt.Errorf("conversation %s %w", conversation.ID, err)
 	}
 	if conversation.Title == "" {
 		return fmt.Errorf("conversation %s title is required", conversation.ID)
@@ -58,46 +52,6 @@ func validateConversationTimestamps(conversation Conversation) error {
 	}
 	if conversation.ArchivedAt != "" {
 		if err := validateTimestamp(conversation.ArchivedAt, "conversation "+conversation.ID+" archivedAt"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func emptyConversationReadState(conversationID string) ConversationReadState {
-	return ConversationReadState{
-		SchemaVersion:            SchemaVersion,
-		ConversationID:           conversationID,
-		ReadMarker:               0,
-		LatestReadRelevantMarker: 0,
-		UpdatedAt:                "",
-	}
-}
-
-func validateConversationReadState(state ConversationReadState, conversationID string) error {
-	if state.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("conversation read state %s has unsupported schemaVersion %d", state.ConversationID, state.SchemaVersion)
-	}
-	if state.ConversationID == "" {
-		return fmt.Errorf("conversation read state conversationId is required")
-	}
-	if err := validateConversationID(state.ConversationID); err != nil {
-		return err
-	}
-	if state.ConversationID != conversationID {
-		return fmt.Errorf("conversation read state %s does not match requested conversation %s", state.ConversationID, conversationID)
-	}
-	if state.ReadMarker < 0 {
-		return fmt.Errorf("conversation read state %s readMarker must be non-negative", state.ConversationID)
-	}
-	if state.LatestReadRelevantMarker < 0 {
-		return fmt.Errorf("conversation read state %s latestReadRelevantMarker must be non-negative", state.ConversationID)
-	}
-	if state.ReadMarker > state.LatestReadRelevantMarker {
-		return fmt.Errorf("conversation read state %s readMarker exceeds latestReadRelevantMarker", state.ConversationID)
-	}
-	if state.UpdatedAt != "" {
-		if err := validateTimestamp(state.UpdatedAt, "conversation read state "+state.ConversationID+" updatedAt"); err != nil {
 			return err
 		}
 	}
@@ -161,17 +115,8 @@ func validateMessageIdentity(message ChatMessage) error {
 	if message.ID == "" {
 		return fmt.Errorf("message id is required")
 	}
-	if err := validateMessageID(message.ID); err != nil {
-		return err
-	}
 	if message.ConversationID == "" {
 		return fmt.Errorf("message %s conversationId is required", message.ID)
-	}
-	if err := validateConversationID(message.ConversationID); err != nil {
-		return fmt.Errorf("message %s %w", message.ID, err)
-	}
-	if err := validateOptionalStorageID("run id", message.RunID); err != nil {
-		return fmt.Errorf("message %s %w", message.ID, err)
 	}
 	if !validValue(message.Role, messageRoleValues) {
 		return fmt.Errorf("message %s has unsupported role %s", message.ID, message.Role)
@@ -204,9 +149,6 @@ func validateMessageState(message ChatMessage) error {
 func validateMessagePart(messageID string, part MessagePart) error {
 	if part.ID == "" {
 		return fmt.Errorf("message %s part id is required", messageID)
-	}
-	if err := validateStorageID("message part id", part.ID); err != nil {
-		return fmt.Errorf("message %s %w", messageID, err)
 	}
 	if part.Type != MessagePartText {
 		return fmt.Errorf("message %s part %s has unsupported type %s", messageID, part.ID, part.Type)
@@ -269,43 +211,17 @@ func validateRun(run Run) error {
 }
 
 func validateRunIdentity(run Run) error {
-	if err := validateRunOwnerIdentity(run); err != nil {
-		return err
-	}
-	if err := validateRunMessageRefs(run); err != nil {
-		return err
-	}
-	return validateRunHarness(run)
-}
-
-func validateRunOwnerIdentity(run Run) error {
 	if run.ID == "" {
 		return fmt.Errorf("run id is required")
-	}
-	if err := validateRunID(run.ID); err != nil {
-		return err
 	}
 	if run.WorkspaceID == "" {
 		return fmt.Errorf("run %s workspaceId is required", run.ID)
 	}
-	if err := validateWorkspaceID(run.WorkspaceID); err != nil {
-		return fmt.Errorf("run %s %w", run.ID, err)
-	}
 	if run.ConversationID == "" {
 		return fmt.Errorf("run %s conversationId is required", run.ID)
 	}
-	if err := validateConversationID(run.ConversationID); err != nil {
-		return fmt.Errorf("run %s %w", run.ID, err)
-	}
-	return nil
-}
-
-func validateRunMessageRefs(run Run) error {
 	if run.TriggerMessageID == "" {
 		return fmt.Errorf("run %s triggerMessageId is required", run.ID)
-	}
-	if err := validateMessageID(run.TriggerMessageID); err != nil {
-		return fmt.Errorf("run %s triggerMessageId: %w", run.ID, err)
 	}
 	if run.Status == RunStatusQueued {
 		if run.AssistantMessageID != "" {
@@ -313,13 +229,7 @@ func validateRunMessageRefs(run Run) error {
 		}
 	} else if run.AssistantMessageID == "" {
 		return fmt.Errorf("run %s assistantMessageId is required unless queued", run.ID)
-	} else if err := validateMessageID(run.AssistantMessageID); err != nil {
-		return fmt.Errorf("run %s assistantMessageId: %w", run.ID, err)
 	}
-	return nil
-}
-
-func validateRunHarness(run Run) error {
 	if run.Harness == "" {
 		return fmt.Errorf("run %s harness is required", run.ID)
 	}
@@ -369,17 +279,8 @@ func validateApprovalIdentity(approval ApprovalRequest) error {
 	if approval.ID == "" {
 		return fmt.Errorf("approval id is required")
 	}
-	if err := validateStorageID("approval id", approval.ID); err != nil {
-		return err
-	}
 	if approval.RunID == "" {
 		return fmt.Errorf("approval %s runId is required", approval.ID)
-	}
-	if err := validateRunID(approval.RunID); err != nil {
-		return fmt.Errorf("approval %s %w", approval.ID, err)
-	}
-	if err := validateOptionalStorageID("run item id", approval.RunItemID); err != nil {
-		return fmt.Errorf("approval %s %w", approval.ID, err)
 	}
 	if !validValue(approval.Kind, approvalKindValues) {
 		return fmt.Errorf("approval %s has unsupported kind %s", approval.ID, approval.Kind)
@@ -425,14 +326,8 @@ func validateTraceEvent(trace TraceEvent) error {
 	if trace.ID == "" {
 		return fmt.Errorf("trace id is required")
 	}
-	if err := validateStorageID("trace id", trace.ID); err != nil {
-		return err
-	}
 	if trace.RunID == "" {
 		return fmt.Errorf("trace %s runId is required", trace.ID)
-	}
-	if err := validateRunID(trace.RunID); err != nil {
-		return fmt.Errorf("trace %s %w", trace.ID, err)
 	}
 	if trace.Type == "" {
 		return fmt.Errorf("trace %s type is required", trace.ID)
@@ -447,39 +342,9 @@ func validateDiagnostic(diagnostic Diagnostic) error {
 	if diagnostic.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("diagnostic %s has unsupported schemaVersion %d", diagnostic.ID, diagnostic.SchemaVersion)
 	}
-	if err := validateDiagnosticIdentity(diagnostic); err != nil {
-		return err
-	}
-	if err := validateDiagnosticScope(diagnostic); err != nil {
-		return err
-	}
-	return validateDiagnosticState(diagnostic)
-}
-
-func validateDiagnosticIdentity(diagnostic Diagnostic) error {
 	if diagnostic.ID == "" {
 		return fmt.Errorf("diagnostic id is required")
 	}
-	if err := validateStorageID("diagnostic id", diagnostic.ID); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateDiagnosticScope(diagnostic Diagnostic) error {
-	if err := validateOptionalStorageID("workspace id", diagnostic.WorkspaceID); err != nil {
-		return fmt.Errorf("diagnostic %s %w", diagnostic.ID, err)
-	}
-	if err := validateOptionalStorageID("conversation id", diagnostic.ConversationID); err != nil {
-		return fmt.Errorf("diagnostic %s %w", diagnostic.ID, err)
-	}
-	if err := validateOptionalStorageID("run id", diagnostic.RunID); err != nil {
-		return fmt.Errorf("diagnostic %s %w", diagnostic.ID, err)
-	}
-	return nil
-}
-
-func validateDiagnosticState(diagnostic Diagnostic) error {
 	if !validValue(diagnostic.Source, diagnosticSourceValues) {
 		return fmt.Errorf("diagnostic %s has unsupported source %s", diagnostic.ID, diagnostic.Source)
 	}
@@ -527,26 +392,14 @@ func validateRunItemIdentity(item RunItem) error {
 	if item.ID == "" {
 		return fmt.Errorf("run item id is required")
 	}
-	if err := validateRunItemID(item.ID); err != nil {
-		return err
-	}
 	if item.WorkspaceID == "" {
 		return fmt.Errorf("run item %s workspaceId is required", item.ID)
-	}
-	if err := validateWorkspaceID(item.WorkspaceID); err != nil {
-		return fmt.Errorf("run item %s %w", item.ID, err)
 	}
 	if item.ConversationID == "" {
 		return fmt.Errorf("run item %s conversationId is required", item.ID)
 	}
-	if err := validateConversationID(item.ConversationID); err != nil {
-		return fmt.Errorf("run item %s %w", item.ID, err)
-	}
 	if item.RunID == "" {
 		return fmt.Errorf("run item %s runId is required", item.ID)
-	}
-	if err := validateRunID(item.RunID); err != nil {
-		return fmt.Errorf("run item %s %w", item.ID, err)
 	}
 	if item.ProviderItemID == "" {
 		return fmt.Errorf("run item %s providerItemId is required", item.ID)
@@ -588,14 +441,8 @@ func validateRunItemOutput(output RunItemOutput) error {
 	if output.ID == "" {
 		return fmt.Errorf("run item output id is required")
 	}
-	if err := validateStorageID("run item output id", output.ID); err != nil {
-		return err
-	}
 	if output.RunItemID == "" {
 		return fmt.Errorf("run item output %s runItemId is required", output.ID)
-	}
-	if err := validateRunItemID(output.RunItemID); err != nil {
-		return fmt.Errorf("run item output %s %w", output.ID, err)
 	}
 	if output.Stream == "" {
 		return fmt.Errorf("run item output %s stream is required", output.ID)

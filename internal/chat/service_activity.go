@@ -52,7 +52,6 @@ func (service *Service) runningActiveTurnLocked(workspaceID string, conversation
 
 func (service *Service) applyAssistantDeltaLocked(workspaceID string, conversationID string, run Run, active activeTurn, delta string) (activeTurn, error) {
 	message := active.assistantMessage
-	hadAssistantText := message.Parts[0].Text != ""
 	message.Parts[0].Text += delta
 	now := service.now()
 	message.UpdatedAt = timestamp(now)
@@ -60,14 +59,6 @@ func (service *Service) applyAssistantDeltaLocked(workspaceID string, conversati
 	active.assistantMessage = message
 	if _, err := service.events.Publish(NewAssistantTextDeltaEvent(workspaceID, conversationID, run.ID, message.ID, partID, delta, message.UpdatedAt)); err != nil {
 		return activeTurn{}, err
-	}
-	if !hadAssistantText && delta != "" {
-		if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, message.UpdatedAt); err != nil {
-			return activeTurn{}, err
-		}
-		if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
-			return activeTurn{}, err
-		}
 	}
 	if active.lastPersistedAt.IsZero() || now.Sub(active.lastPersistedAt) >= deltaPersistInterval {
 		if err := service.store.SaveMessage(workspaceID, message); err != nil {
@@ -358,7 +349,7 @@ func validateRunAssistantMessageRecord(run Run, message ChatMessage) error {
 }
 
 func (service *Service) LoadRunActivityPage(workspaceID string, runID string, limit int) (RunActivityPage, error) {
-	if _, err := service.validateRunRequest(workspaceID, runID); err != nil {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return RunActivityPage{}, err
 	}
 	if limit < 0 {
@@ -388,7 +379,7 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, li
 }
 
 func (service *Service) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
-	if _, err := service.validateRunItemOutputRequest(workspaceID, runID, runItemID); err != nil {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return RunItemOutputPage{}, err
 	}
 	service.mu.Lock()

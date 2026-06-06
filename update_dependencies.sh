@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SETTA_MIN_RELEASE_AGE_DAYS="${SETTA_MIN_RELEASE_AGE_DAYS:-7}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if ! [[ "${SETTA_MIN_RELEASE_AGE_DAYS}" =~ ^[0-9]+$ ]]; then
+  echo "Minimum release age must be a non-negative integer: ${SETTA_MIN_RELEASE_AGE_DAYS}" >&2
+  exit 1
+fi
 
 resolve_python() {
   if command -v python3 >/dev/null 2>&1; then
@@ -16,10 +22,6 @@ resolve_python() {
   exit 1
 }
 
-load_min_release_age_days() {
-  "${python_bin}" "${repo_root}/scripts/read_supply_chain_policy.py" --repo-root "${repo_root}"
-}
-
 discover_pnpm_projects() {
   find "${repo_root}" \
     \( -path "${repo_root}/.git" -o -path "${repo_root}/.tools" -o -path "*/node_modules" -o -path "*/dist" -o -path "*/build" \) -prune \
@@ -29,7 +31,6 @@ discover_pnpm_projects() {
 }
 
 python_bin="$(resolve_python)"
-min_release_age_days="$(load_min_release_age_days)"
 found_dependency_manifest=0
 
 if [[ -f "${repo_root}/go.mod" ]]; then
@@ -37,7 +38,7 @@ if [[ -f "${repo_root}/go.mod" ]]; then
   echo "Refreshing Go module metadata..."
   "${repo_root}/scripts/go.sh" mod tidy
   "${python_bin}" "${repo_root}/scripts/check_go_module_release_age.py" \
-    --days "${min_release_age_days}" \
+    --days "${SETTA_MIN_RELEASE_AGE_DAYS}" \
     --repo-root "${repo_root}"
 fi
 
@@ -52,7 +53,7 @@ while IFS= read -r project_dir; do
   pnpm -C "${repo_root}/${project_dir}" install --lockfile-only
   if [[ -f "${repo_root}/${project_dir}/pnpm-lock.yaml" ]]; then
     "${python_bin}" "${repo_root}/scripts/check_pnpm_lock_release_age.py" \
-      --days "${min_release_age_days}" \
+      --days "${SETTA_MIN_RELEASE_AGE_DAYS}" \
       --lockfile "${repo_root}/${project_dir}/pnpm-lock.yaml"
     pnpm -C "${repo_root}/${project_dir}" install --frozen-lockfile
   fi

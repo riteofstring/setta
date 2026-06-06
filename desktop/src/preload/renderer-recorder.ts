@@ -250,16 +250,10 @@ function round(value: number): number {
 }
 
 function truncate(value: string): string {
-  const codePoints = Array.from(value);
-  if (codePoints.length <= maxTextLength) {
+  if (value.length <= maxTextLength) {
     return value;
   }
-  return (
-    codePoints
-      .slice(0, maxTextLength - 3)
-      .join("")
-      .trimEnd() + "..."
-  );
+  return value.slice(0, maxTextLength - 1) + "...";
 }
 
 function layoutSnapshotTrigger(event: Event): string {

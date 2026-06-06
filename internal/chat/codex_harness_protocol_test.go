@@ -98,7 +98,6 @@ func writeFakeProviderTurnID() {
 
 func writeFakeProviderItemTurnID() {
 	writeFakeNotification("item/started", map[string]any{
-		"startedAtMs": 1,
 		"item": map[string]any{
 			"id":   "agent_message_provider_fake",
 			"text": "",

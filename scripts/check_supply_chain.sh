@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SETTA_MIN_RELEASE_AGE_DAYS="${SETTA_MIN_RELEASE_AGE_DAYS:-7}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly GOVULNCHECK_VERSION="v1.3.0"
+
+if ! [[ "${SETTA_MIN_RELEASE_AGE_DAYS}" =~ ^[0-9]+$ ]]; then
+  echo "Minimum release age must be a non-negative integer: ${SETTA_MIN_RELEASE_AGE_DAYS}" >&2
+  exit 1
+fi
 
 resolve_python() {
   if command -v python3 >/dev/null 2>&1; then
@@ -15,10 +21,6 @@ resolve_python() {
   fi
   echo "python3 or python is required for supply-chain checks." >&2
   exit 1
-}
-
-load_min_release_age_days() {
-  "${python_bin}" "${repo_root}/scripts/read_supply_chain_policy.py" --repo-root "${repo_root}"
 }
 
 discover_pnpm_projects() {
@@ -39,7 +41,7 @@ check_go_supply_chain() {
 
   echo "Go module release-age check..."
   "${python_bin}" "${repo_root}/scripts/check_go_module_release_age.py" \
-    --days "${min_release_age_days}" \
+    --days "${SETTA_MIN_RELEASE_AGE_DAYS}" \
     --repo-root "${repo_root}"
 
   echo "Go vulnerability audit..."
@@ -61,10 +63,8 @@ check_pnpm_lock_sync() {
   return "${status}"
 }
 
-check_npmrc_release_age_policy() {
-  "${python_bin}" "${repo_root}/scripts/check_npmrc_release_age_keys.py" \
-    --repo-root "${repo_root}" \
-    --days "${min_release_age_days}"
+check_npmrc_release_age_keys() {
+  "${python_bin}" "${repo_root}/scripts/check_npmrc_release_age_keys.py" --repo-root "${repo_root}"
 }
 
 check_pnpm_project() {
@@ -83,7 +83,7 @@ check_pnpm_project() {
 
   echo "pnpm release-age check (${project_dir})..."
   "${python_bin}" "${repo_root}/scripts/check_pnpm_lock_release_age.py" \
-    --days "${min_release_age_days}" \
+    --days "${SETTA_MIN_RELEASE_AGE_DAYS}" \
     --lockfile "${repo_root}/${project_dir}/pnpm-lock.yaml"
 
   echo "pnpm vulnerability audit (${project_dir})..."
@@ -91,10 +91,9 @@ check_pnpm_project() {
 }
 
 python_bin="$(resolve_python)"
-min_release_age_days="$(load_min_release_age_days)"
 
-echo "npmrc release-age policy checks..."
-check_npmrc_release_age_policy
+echo "npmrc release-age key checks..."
+check_npmrc_release_age_keys
 
 check_go_supply_chain
 
