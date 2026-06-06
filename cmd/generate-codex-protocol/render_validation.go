@@ -12,7 +12,7 @@ func (generator *generator) renderObjectSchema(buffer *bytes.Buffer, typeName st
 	fmt.Fprintf(buffer, "type %s struct {\n", typeName)
 	for _, propertyName := range sortedPropertyNames(schema.Properties) {
 		property := schema.Properties[propertyName]
-		goType, err := generator.goType(property, required[propertyName])
+		goType, err := generator.goTypeForProperty(typeName, propertyName, property, required[propertyName])
 		if err != nil {
 			return fmt.Errorf("%s.%s: %w", typeName, propertyName, err)
 		}
@@ -22,6 +22,28 @@ func (generator *generator) renderObjectSchema(buffer *bytes.Buffer, typeName st
 	generator.renderObjectValidator(buffer, typeName, schema)
 	renderObjectDecoder(buffer, typeName)
 	return nil
+}
+
+func (generator *generator) goTypeForProperty(typeName string, propertyName string, schema jsonSchema, required bool) (string, error) {
+	if override, ok := goTypeOverride(typeName, propertyName, schema, required); ok {
+		return override, nil
+	}
+	return generator.goType(schema, required)
+}
+
+func goTypeOverride(typeName string, propertyName string, schema jsonSchema, required bool) (string, bool) {
+	if typeName == "ThreadSettingsUpdateParams" && propertyName == "serviceTier" && optionalNullableString(schema, required) {
+		return "*CodexNullableString", true
+	}
+	return "", false
+}
+
+func optionalNullableString(schema jsonSchema, required bool) bool {
+	if required {
+		return false
+	}
+	nullable, inner := nullableInner(schema)
+	return nullable && typeString(inner.Type) == "string"
 }
 
 func (generator *generator) renderObjectValidator(buffer *bytes.Buffer, typeName string, schema jsonSchema) {

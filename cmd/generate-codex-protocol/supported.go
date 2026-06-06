@@ -17,9 +17,10 @@ type supportedProtocolInput struct {
 }
 
 type supportedClientMethod struct {
-	Method     string `json:"method"`
-	ParamsName string `json:"paramsName,omitempty"`
-	Source     string `json:"source,omitempty"`
+	Method       string `json:"method"`
+	ParamsName   string `json:"paramsName,omitempty"`
+	Source       string `json:"source,omitempty"`
+	Experimental bool   `json:"experimental,omitempty"`
 }
 
 func (generator *generator) loadSupportedProtocol() (supportedProtocolInput, error) {
@@ -95,34 +96,61 @@ func (generator *generator) supportedClientMethodMembers(input []supportedClient
 			return nil, nil, fmt.Errorf("client method %s registered more than once", entry.Method)
 		}
 		seen[entry.Method] = true
-		if member, ok := byMethod[entry.Method]; ok {
-			if entry.ParamsName != "" && entry.ParamsName != member.ParamsName {
-				return nil, nil, fmt.Errorf("client method %s paramsName = %s, upstream has %s", entry.Method, entry.ParamsName, member.ParamsName)
-			}
-			supported = append(supported, member)
-			continue
-		}
-		if entry.ParamsName == "" {
-			return nil, nil, fmt.Errorf("client method %s is not in the structured protocol snapshot and has no paramsName", entry.Method)
-		}
-		if entry.Source == "" {
-			return nil, nil, fmt.Errorf("client method %s is not in the structured protocol snapshot and has no source", entry.Method)
-		}
-		if _, err := generator.schemaFilePath(entry.ParamsName); err != nil {
-			return nil, nil, fmt.Errorf("client method %s params %s: %w", entry.Method, entry.ParamsName, err)
-		}
-		member := protocolMember{
-			Method:     entry.Method,
-			ConstName:  methodConstName(entry.Method),
-			ParamsName: entry.ParamsName,
-			Source:     entry.Source,
+		member, isCustom, err := generator.supportedClientMethodMember(entry, byMethod)
+		if err != nil {
+			return nil, nil, err
 		}
 		supported = append(supported, member)
-		custom = append(custom, member)
+		if isCustom {
+			custom = append(custom, member)
+		}
 	}
 	sortMembers(supported)
 	sortMembers(custom)
 	return supported, custom, nil
+}
+
+func (generator *generator) supportedClientMethodMember(entry supportedClientMethod, byMethod map[string]protocolMember) (protocolMember, bool, error) {
+	if member, ok := byMethod[entry.Method]; ok {
+		return stableClientMethodMember(entry, member)
+	}
+	member, err := generator.experimentalClientMethodMember(entry)
+	if err != nil {
+		return protocolMember{}, false, err
+	}
+	return member, true, nil
+}
+
+func stableClientMethodMember(entry supportedClientMethod, member protocolMember) (protocolMember, bool, error) {
+	if entry.Experimental {
+		return protocolMember{}, false, fmt.Errorf("client method %s is already in the stable structured protocol snapshot and cannot be registered as experimental", entry.Method)
+	}
+	if entry.ParamsName != "" && entry.ParamsName != member.ParamsName {
+		return protocolMember{}, false, fmt.Errorf("client method %s paramsName = %s, upstream has %s", entry.Method, entry.ParamsName, member.ParamsName)
+	}
+	return member, false, nil
+}
+
+func (generator *generator) experimentalClientMethodMember(entry supportedClientMethod) (protocolMember, error) {
+	if entry.ParamsName == "" {
+		return protocolMember{}, fmt.Errorf("client method %s is not in the structured protocol snapshot and has no paramsName", entry.Method)
+	}
+	if entry.Source == "" {
+		return protocolMember{}, fmt.Errorf("client method %s is not in the structured protocol snapshot and has no source", entry.Method)
+	}
+	if !entry.Experimental {
+		return protocolMember{}, fmt.Errorf("client method %s is not in the stable structured protocol snapshot and must be registered as experimental", entry.Method)
+	}
+	if _, err := generator.experimentalSchemaFilePath(entry.ParamsName); err != nil {
+		return protocolMember{}, fmt.Errorf("client method %s params %s: %w", entry.Method, entry.ParamsName, err)
+	}
+	return protocolMember{
+		Method:       entry.Method,
+		ConstName:    methodConstName(entry.Method),
+		ParamsName:   entry.ParamsName,
+		Source:       entry.Source,
+		Experimental: true,
+	}, nil
 }
 
 func registeredMembers(methods []string, available []protocolMember, label string) ([]protocolMember, error) {

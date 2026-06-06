@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,15 +16,17 @@ import (
 )
 
 type protocolMember struct {
-	Method     string
-	ConstName  string
-	ParamsName string
-	Source     string
+	Method       string
+	ConstName    string
+	ParamsName   string
+	Source       string
+	Experimental bool
 }
 
 type generator struct {
 	repoRoot                 string
 	schemaDir                string
+	experimentalSchemaDir    string
 	supportedPath            string
 	outputPath               string
 	rootSchemas              map[string]jsonSchema
@@ -51,6 +52,7 @@ type protocolRoots struct {
 func main() {
 	output := flag.String("out", "internal/codexapp/protocol_gen.go", "generated Go output path")
 	schemaDir := flag.String("schema", "internal/codexapp/protocolschema", "checked-in Codex protocol schema snapshot")
+	experimentalSchemaDir := flag.String("experimental-schema", "internal/codexapp/protocolschema/json_experimental", "checked-in generated Codex experimental protocol schema snapshot")
 	supported := flag.String("supported", "internal/codexapp/protocolschema/supported_protocol.json", "checked-in supported Codex protocol registration")
 	flag.Parse()
 
@@ -59,14 +61,15 @@ func main() {
 		fatalf("find repo root: %v", err)
 	}
 	generator := &generator{
-		repoRoot:      repoRoot,
-		schemaDir:     filepath.Join(repoRoot, *schemaDir, "json"),
-		supportedPath: filepath.Join(repoRoot, *supported),
-		outputPath:    filepath.Join(repoRoot, *output),
-		rootSchemas:   map[string]jsonSchema{},
-		rootSchemaRaw: map[string]string{},
-		schemas:       map[string]jsonSchema{},
-		schemaRaw:     map[string]string{},
+		repoRoot:              repoRoot,
+		schemaDir:             filepath.Join(repoRoot, *schemaDir, "json"),
+		experimentalSchemaDir: filepath.Join(repoRoot, *experimentalSchemaDir),
+		supportedPath:         filepath.Join(repoRoot, *supported),
+		outputPath:            filepath.Join(repoRoot, *output),
+		rootSchemas:           map[string]jsonSchema{},
+		rootSchemaRaw:         map[string]string{},
+		schemas:               map[string]jsonSchema{},
+		schemaRaw:             map[string]string{},
 	}
 	if err := generator.run(); err != nil {
 		fatalf("generate codex protocol: %v", err)
@@ -291,7 +294,7 @@ func membersByMethod(members []protocolMember) map[string]protocolMember {
 
 func (generator *generator) collectClientMethodSchema(member protocolMember) error {
 	if member.ParamsName != "" {
-		if err := generator.enqueueNamedSchema(member.ParamsName); err != nil {
+		if err := generator.enqueueNamedClientSchema(member); err != nil {
 			return fmt.Errorf("%s params: %w", member.Method, err)
 		}
 	}
@@ -299,7 +302,7 @@ func (generator *generator) collectClientMethodSchema(member protocolMember) err
 	if responseName == "" {
 		return nil
 	}
-	if err := generator.enqueueSchemaFile(responseName); err != nil && !errors.Is(err, errSchemaFileMissing) {
+	if err := generator.enqueueClientSchemaFile(member, responseName); err != nil && !errors.Is(err, errSchemaFileMissing) {
 		return fmt.Errorf("%s response: %w", member.Method, err)
 	}
 	return nil
@@ -342,6 +345,26 @@ func (generator *generator) enqueueNamedSchema(name string) error {
 	return nil
 }
 
+func (generator *generator) enqueueNamedClientSchema(member protocolMember) error {
+	if member.Experimental {
+		return generator.enqueueNamedExperimentalSchema(member.ParamsName)
+	}
+	return generator.enqueueNamedSchema(member.ParamsName)
+}
+
+func (generator *generator) enqueueNamedExperimentalSchema(name string) error {
+	if _, ok := generator.schemas[name]; ok {
+		return nil
+	}
+	if err := generator.enqueueExperimentalSchemaFile(name); err != nil {
+		if errors.Is(err, errSchemaFileMissing) {
+			return fmt.Errorf("schema %s was not found in generated experimental JSON snapshot", name)
+		}
+		return err
+	}
+	return nil
+}
+
 func (generator *generator) enqueueSchemaFile(name string) error {
 	if _, ok := generator.schemas[name]; ok {
 		return nil
@@ -350,6 +373,28 @@ func (generator *generator) enqueueSchemaFile(name string) error {
 	if err != nil {
 		return err
 	}
+	return generator.enqueueSchemaFileAtPath(name, path)
+}
+
+func (generator *generator) enqueueClientSchemaFile(member protocolMember, name string) error {
+	if member.Experimental {
+		return generator.enqueueExperimentalSchemaFile(name)
+	}
+	return generator.enqueueSchemaFile(name)
+}
+
+func (generator *generator) enqueueExperimentalSchemaFile(name string) error {
+	if _, ok := generator.schemas[name]; ok {
+		return nil
+	}
+	path, err := generator.experimentalSchemaFilePath(name)
+	if err != nil {
+		return err
+	}
+	return generator.enqueueSchemaFileAtPath(name, path)
+}
+
+func (generator *generator) enqueueSchemaFileAtPath(name string, path string) error {
 	schema, err := readSchema(path)
 	if err != nil {
 		return err
@@ -366,9 +411,18 @@ func (generator *generator) enqueueSchemaFile(name string) error {
 }
 
 func (generator *generator) schemaFilePath(name string) (string, error) {
+	return schemaFilePathIn(generator.schemaDir, name)
+}
+
+func (generator *generator) experimentalSchemaFilePath(name string) (string, error) {
+	return schemaFilePathIn(generator.experimentalSchemaDir, name)
+}
+
+func schemaFilePathIn(dir string, name string) (string, error) {
 	for _, path := range []string{
-		filepath.Join(generator.schemaDir, "v2", name+".json"),
-		filepath.Join(generator.schemaDir, name+".json"),
+		filepath.Join(dir, "v2", name+".json"),
+		filepath.Join(dir, "v1", name+".json"),
+		filepath.Join(dir, name+".json"),
 	} {
 		exists, err := fileExists(path)
 		if err != nil {
@@ -378,14 +432,7 @@ func (generator *generator) schemaFilePath(name string) (string, error) {
 			return path, nil
 		}
 	}
-	foundPath, ok, err := generator.findSchemaFile(name)
-	if err != nil {
-		return "", err
-	}
-	if !ok {
-		return "", errSchemaFileMissing
-	}
-	return foundPath, nil
+	return "", errSchemaFileMissing
 }
 
 func fileExists(path string) (bool, error) {
@@ -396,25 +443,6 @@ func fileExists(path string) (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-func (generator *generator) findSchemaFile(name string) (string, bool, error) {
-	target := name + ".json"
-	found := ""
-	err := filepath.WalkDir(generator.schemaDir, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() || entry.Name() != target {
-			return nil
-		}
-		found = path
-		return filepath.SkipAll
-	})
-	if err != nil {
-		return "", false, err
-	}
-	return found, found != "", nil
 }
 
 func (generator *generator) addRootSchema(name string, schema jsonSchema) error {

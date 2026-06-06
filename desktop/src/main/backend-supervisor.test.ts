@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 
 import { parseReadyLine, startSpawnedBackend, type BackendHandle } from "./backend-supervisor";
 
@@ -23,15 +24,7 @@ describe("parseReadyLine", () => {
 describe("startSpawnedBackend", () => {
   test("captures logs and stops a ready backend process", async () => {
     const handle = await startSpawnedBackend({
-      args: [
-        "-e",
-        [
-          "console.error('stderr log')",
-          "console.log('stdout log')",
-          "console.log(JSON.stringify({ event: 'ready', addr: '127.0.0.1:41000' }))",
-          "setInterval(() => {}, 1000)",
-        ].join(";"),
-      ],
+      args: [backendSupervisorFixture("ready-with-logs")],
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
@@ -48,14 +41,7 @@ describe("startSpawnedBackend", () => {
 
   test("continues capturing stdout after readiness", async () => {
     const handle = await startSpawnedBackend({
-      args: [
-        "-e",
-        [
-          "console.log(JSON.stringify({ event: 'ready', addr: '127.0.0.1:41002' }))",
-          "setTimeout(() => console.log('post-ready stdout'), 20)",
-          "setInterval(() => {}, 1000)",
-        ].join(";"),
-      ],
+      args: [backendSupervisorFixture("post-ready-stdout")],
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
@@ -77,20 +63,14 @@ describe("startSpawnedBackend", () => {
 
     try {
       const start = startSpawnedBackend({
-        args: [
-          "-e",
-          [
-            "const fs = require('node:fs')",
-            `const markerPath = ${JSON.stringify(markerPath)}`,
-            `const readyForSignalPath = ${JSON.stringify(readyForSignalPath)}`,
-            "process.on('SIGTERM', () => { fs.writeFileSync(markerPath, 'terminated'); process.exit(0) })",
-            "fs.writeFileSync(readyForSignalPath, 'ready')",
-            "setInterval(() => {}, 1000)",
-          ].join(";"),
-        ],
+        args: [backendSupervisorFixture("timeout-on-ready")],
         command: process.execPath,
         cwd: process.cwd(),
-        env: process.env,
+        env: {
+          ...process.env,
+          SETTA_BACKEND_SUPERVISOR_READY_FOR_SIGNAL: readyForSignalPath,
+          SETTA_BACKEND_SUPERVISOR_TERMINATED: markerPath,
+        },
         readyTimeoutMs: 2000,
       });
       void start.catch(() => {});
@@ -106,13 +86,7 @@ describe("startSpawnedBackend", () => {
   test("reports backend logs when the process exits before readiness", async () => {
     await expect(
       startSpawnedBackend({
-        args: [
-          "-e",
-          [
-            "console.error('start backend: load workspace session: malformed app state')",
-            "process.exit(1)",
-          ].join(";"),
-        ],
+        args: [backendSupervisorFixture("exit-before-ready")],
         command: process.execPath,
         cwd: process.cwd(),
         env: process.env,
@@ -129,13 +103,7 @@ describe("startSpawnedBackend", () => {
 
   test("reports unexpected exit after readiness", async () => {
     const handle = await startSpawnedBackend({
-      args: [
-        "-e",
-        [
-          "console.log(JSON.stringify({ event: 'ready', addr: '127.0.0.1:41001' }))",
-          "setTimeout(() => process.exit(12), 20)",
-        ].join(";"),
-      ],
+      args: [backendSupervisorFixture("exit-after-ready")],
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
@@ -149,6 +117,10 @@ describe("startSpawnedBackend", () => {
     expect(exit).toEqual({ code: 12, expected: false, signal: null });
   });
 });
+
+function backendSupervisorFixture(name: string): string {
+  return fileURLToPath(new URL(`./test-fixtures/backend-supervisor/${name}.mjs`, import.meta.url));
+}
 
 function waitForLog(handle: BackendHandle, expectedLine: string): Promise<void> {
   if (handle.recentLogs().includes(expectedLine)) {

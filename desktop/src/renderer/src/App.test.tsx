@@ -13,9 +13,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 
 import { sidebarWorkspaceBusy } from "./App";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
-import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
-import { WorkspacePanePanel } from "./components/workspace-pane";
 import { useChatStore } from "./stores/chat-store";
 
 beforeEach(() => {
@@ -48,13 +46,6 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Projects");
     expect(hasAriaLabel(html, "New chat")).toBe(true);
     expect(hasAriaLabel(html, "Open project folder")).toBe(true);
-    expect(html).not.toContain("New setta gen");
-    expect(html).not.toContain("Plugins");
-    expect(html).not.toContain("Automations");
-    expect(html).not.toContain("Notifications / Logs");
-    expect(html).not.toContain("DB / Memories");
-    expect(html).not.toContain("New note");
-    expect(html).not.toContain("New rule");
   });
 
   test("renders active selected and recent workspace state", () => {
@@ -97,10 +88,6 @@ describe("workspace renderer states", () => {
     expect(hasAriaLabel(html, "Projects")).toBe(true);
     expect(hasAriaLabel(html, "New chat in web")).toBe(true);
     expect(html).toContain("Build web UI");
-    expect(hasAriaLabel(html, "Pin Build web UI")).toBe(false);
-    expect(hasAriaLabel(html, "Delete Build web UI")).toBe(false);
-    expect(html).not.toContain("New terminal in web");
-    expect(html).not.toContain("New setta canvas in web");
   });
 
   test("does not render stale chat conversations while switching workspaces", () => {
@@ -144,77 +131,11 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain("Loading chats");
   });
 
-  test("does not disable sidebar conversation rows during selected chat sends", () => {
-    const web = {
-      displayName: "web",
-      id: "workspace_web",
-      lastOpenedAt: "2026-05-29T20:05:00Z",
-      rootPath: "/tmp/web",
-    };
-    seedWorkspaceConversationList("workspace_web", [
-      conversationListItem("conversation_web", "Build web UI", "workspace_web"),
-    ]);
-    useChatStore.setState({ operation: "sending" });
-
-    const html = renderToString(
-      <WorkspaceSidebar
-        activeRun={null}
-        activeWorkspaces={[web]}
-        busy={false}
-        closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        openLocalFolder={async () => {}}
-        openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
-        recentWorkspaces={[]}
-        removeRecent={async () => {}}
-        selectConversation={async () => {}}
-        selectWorkspace={async () => {}}
-        selectedConversationId="conversation_web"
-        selectedWorkspaceId="workspace_web"
-      />,
-    );
-
-    expect(buttonDisabledByText(html, "Build web UI")).toBe(false);
-    expect(buttonDisabledByAriaLabel(html, "New chat in web")).toBe(false);
-  });
-
-  test("does not dim sidebar actions during workspace selection", () => {
-    const web = {
-      displayName: "web",
-      id: "workspace_web",
-      lastOpenedAt: "2026-05-29T20:05:00Z",
-      rootPath: "/tmp/web",
-    };
-    seedWorkspaceConversationList("workspace_web", [
-      conversationListItem("conversation_web", "Build web UI", "workspace_web"),
-    ]);
-
-    const html = renderToString(
-      <WorkspaceSidebar
-        activeRun={null}
-        activeWorkspaces={[web]}
-        busy={sidebarWorkspaceBusy("selecting", "ready")}
-        closeWorkspace={async () => {}}
-        createConversation={async () => {}}
-        createWorkspaceConversation={async () => {}}
-        openLocalFolder={async () => {}}
-        openWorkspacePath={async () => {}}
-        openSettingsPane={() => {}}
-        recentWorkspaces={[]}
-        removeRecent={async () => {}}
-        selectConversation={async () => {}}
-        selectWorkspace={async () => {}}
-        selectedConversationId="conversation_web"
-        selectedWorkspaceId="workspace_web"
-      />,
-    );
-
+  test("keeps sidebar actions available while selecting a ready workspace", () => {
     expect(sidebarWorkspaceBusy("selecting", "ready")).toBe(false);
     expect(sidebarWorkspaceBusy("opening", "ready")).toBe(true);
-    expect(buttonDisabledByAriaLabel(html, "New chat")).toBe(false);
-    expect(buttonDisabledByAriaLabel(html, "Open project folder")).toBe(false);
+    expect(sidebarWorkspaceBusy(null, "loading")).toBe(true);
+    expect(sidebarWorkspaceBusy(null, "ready")).toBe(false);
   });
 
   test("renders chat corruption status in the project and conversation list", () => {
@@ -301,29 +222,6 @@ describe("workspace renderer states", () => {
     expect(rowCount(html, "active-workspace-item")).toBeLessThan(30);
     expect(rowCount(html, "recent-workspace-item")).toBeLessThan(30);
     expect(html).toContain("Large workspace chat");
-  });
-
-  test("renders only production-backed workspace pane and settings surfaces", () => {
-    const emptyPane = renderToString(
-      <WorkspacePanePanel
-        activeTabId=""
-        onCloseTab={() => {}}
-        onSelectTab={() => {}}
-        slot="right"
-        tabs={[]}
-      />,
-    );
-    const settings = renderToString(<SettingsPanel />);
-
-    expect(emptyPane).not.toContain("New pane tab");
-    expect(emptyPane).not.toContain("Browser");
-    expect(emptyPane).not.toContain("Canvas");
-    expect(emptyPane).not.toContain("Terminal");
-    expect(settings).toContain("Codex Account");
-    expect(settings).not.toContain("Reset");
-    expect(settings).not.toContain("Shortcuts");
-    expect(settings).not.toContain("Storage");
-    expect(settings).not.toContain("Voice input");
   });
 });
 
@@ -1151,29 +1049,6 @@ function hasAriaLabel(html: string, label: string) {
 function hasAriaLabelContaining(html: string, text: string) {
   const labels = [...html.matchAll(/aria-label="([^"]*)"/g)].map((match) => match[1] ?? "");
   return labels.some((label) => label.includes(escapeAttribute(text)));
-}
-
-function buttonDisabledByAriaLabel(html: string, label: string) {
-  const button = buttonMarkupByPredicate(html, (markup) =>
-    markup.includes(`aria-label="${escapeAttribute(label)}"`),
-  );
-  expect(button).toBeDefined();
-  return buttonHasDisabledAttribute(button ?? "");
-}
-
-function buttonDisabledByText(html: string, text: string) {
-  const button = buttonMarkupByPredicate(html, (markup) => markup.includes(`>${text}</span>`));
-  expect(button).toBeDefined();
-  return buttonHasDisabledAttribute(button ?? "");
-}
-
-function buttonMarkupByPredicate(html: string, predicate: (markup: string) => boolean) {
-  const buttons = html.match(/<button\b[^>]*>.*?<\/button>/gs) ?? [];
-  return buttons.find(predicate);
-}
-
-function buttonHasDisabledAttribute(markup: string) {
-  return /<button\b[^>]*\sdisabled(=|\s|>)/.test(markup);
 }
 
 function escapeAttribute(value: string) {

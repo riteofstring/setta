@@ -37,9 +37,24 @@ for path in "${schema_source}" "${common_source}" "${thread_source}"; do
   fi
 done
 
-rm -rf "${snapshot_dir}/json" "${snapshot_dir}/rust"
-mkdir -p "${snapshot_dir}/json" "${snapshot_dir}/rust/protocol/v2"
+experimental_schema_root="$(mktemp -d)"
+cleanup() {
+  rm -rf "${experimental_schema_root}"
+}
+trap cleanup EXIT
+
+cargo run \
+  --manifest-path "${codex_repo}/codex-rs/Cargo.toml" \
+  -p codex-app-server-protocol \
+  --bin write_schema_fixtures \
+  -- \
+  --schema-root "${experimental_schema_root}" \
+  --experimental
+
+rm -rf "${snapshot_dir}/json" "${snapshot_dir}/json_experimental" "${snapshot_dir}/rust"
+mkdir -p "${snapshot_dir}/json" "${snapshot_dir}/json_experimental/v2" "${snapshot_dir}/rust/protocol/v2"
 cp -R "${schema_source}/." "${snapshot_dir}/json/"
+cp "${experimental_schema_root}/json/v2/ThreadSettingsUpdateParams.json" "${snapshot_dir}/json_experimental/v2/ThreadSettingsUpdateParams.json"
 cp "${common_source}" "${snapshot_dir}/rust/protocol/common.rs"
 cp "${thread_source}" "${snapshot_dir}/rust/protocol/v2/thread.rs"
 

@@ -28,3 +28,24 @@ func TestDecodeThreadSettingsUpdateParamsAcceptsValidPayload(t *testing.T) {
 		t.Fatalf("model = %v, want gpt-test", params.Model)
 	}
 }
+
+func TestThreadSettingsUpdateParamsCanMarshalExplicitNullServiceTier(t *testing.T) {
+	encoded, err := json.Marshal(ThreadSettingsUpdateParams{
+		ServiceTier: CodexNullString(),
+		ThreadID:    "thread_api",
+	})
+	if err != nil {
+		t.Fatalf("marshal explicit null service tier: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"serviceTier":null`) {
+		t.Fatalf("encoded = %s, want explicit null serviceTier", encoded)
+	}
+
+	omitted, err := json.Marshal(ThreadSettingsUpdateParams{ThreadID: "thread_api"})
+	if err != nil {
+		t.Fatalf("marshal omitted service tier: %v", err)
+	}
+	if strings.Contains(string(omitted), "serviceTier") {
+		t.Fatalf("encoded = %s, want omitted serviceTier", omitted)
+	}
+}

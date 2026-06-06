@@ -84,9 +84,10 @@ func TestSupportedProtocolRegistrationAddsStructuredExperimentalClientMethod(t *
 		ClientMethods: []supportedClientMethod{
 			{Method: "thread/start"},
 			{
-				Method:     "thread/settings/update",
-				ParamsName: "ThreadSettingsUpdateParams",
-				Source:     "checked experimental fixture",
+				Experimental: true,
+				Method:       "thread/settings/update",
+				ParamsName:   "ThreadSettingsUpdateParams",
+				Source:       "generated experimental fixture",
 			},
 		},
 		Notifications:            []string{"thread/started"},
@@ -110,6 +111,27 @@ func TestSupportedProtocolRegistrationAddsStructuredExperimentalClientMethod(t *
 	}
 	if _, ok := generator.schemas["ExplicitFixture"]; !ok {
 		t.Fatal("explicit schema registration was not collected")
+	}
+}
+
+func TestSupportedProtocolRegistrationRejectsUnclassifiedCustomClientMethod(t *testing.T) {
+	generator := testProtocolGenerator(t)
+	input := supportedProtocolInput{
+		ClientMethods: []supportedClientMethod{
+			{
+				Method:     "thread/settings/update",
+				ParamsName: "ThreadSettingsUpdateParams",
+				Source:     "generated experimental fixture",
+			},
+		},
+	}
+
+	err := generator.applySupportedProtocol(input)
+	if err == nil {
+		t.Fatal("apply supported protocol succeeded, want unclassified custom method error")
+	}
+	if !strings.Contains(err.Error(), "client method thread/settings/update is not in the stable structured protocol snapshot and must be registered as experimental") {
+		t.Fatalf("error = %q, want experimental classification", err)
 	}
 }
 
@@ -253,6 +275,28 @@ func TestRenderEmitsObjectDecoderDeclarations(t *testing.T) {
 	}
 }
 
+func TestRenderPreservesThreadSettingsServiceTierNullSemantics(t *testing.T) {
+	generator := testProtocolGenerator(t)
+	generator.schemas = map[string]jsonSchema{
+		"ThreadSettingsUpdateParams": {
+			Type: "object",
+			Properties: map[string]jsonSchema{
+				"serviceTier": {Type: []any{"string", "null"}},
+				"threadId":    {Type: "string"},
+			},
+			Required: []string{"threadId"},
+		},
+	}
+
+	output, err := generator.render()
+	if err != nil {
+		t.Fatalf("render protocol: %v", err)
+	}
+	if !strings.Contains(string(output), "ServiceTier *CodexNullableString `json:\"serviceTier,omitempty\"`") {
+		t.Fatalf("output = %s, want nullable serviceTier override", output)
+	}
+}
+
 func TestRenderEmitsNestedObjectValidation(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.schemas = map[string]jsonSchema{
@@ -309,22 +353,34 @@ func testProtocolGenerator(t *testing.T) *generator {
 	t.Helper()
 
 	schemaDir := t.TempDir()
+	experimentalSchemaDir := t.TempDir()
 	v2Dir := filepath.Join(schemaDir, "v2")
+	experimentalV2Dir := filepath.Join(experimentalSchemaDir, "v2")
 	if err := os.MkdirAll(v2Dir, 0o755); err != nil {
 		t.Fatalf("create schema dir: %v", err)
 	}
+	if err := os.MkdirAll(experimentalV2Dir, 0o755); err != nil {
+		t.Fatalf("create experimental schema dir: %v", err)
+	}
 	for name, body := range map[string]string{
-		"ExplicitFixture":            `{"title":"ExplicitFixture","type":"object","properties":{"value":{"type":"string"}}}`,
-		"ThreadStartedNotification":  `{"title":"ThreadStartedNotification","type":"object","properties":{"threadId":{"type":"string"}}}`,
-		"ThreadSettingsUpdateParams": `{"title":"ThreadSettingsUpdateParams","type":"object","properties":{"threadId":{"type":"string"},"model":{"type":["string","null"]}},"required":["threadId"]}`,
-		"ToolCallRequest":            `{"title":"ToolCallRequest","type":"object","properties":{"itemId":{"type":"string"}}}`,
+		"ExplicitFixture":           `{"title":"ExplicitFixture","type":"object","properties":{"value":{"type":"string"}}}`,
+		"ThreadStartedNotification": `{"title":"ThreadStartedNotification","type":"object","properties":{"threadId":{"type":"string"}}}`,
+		"ToolCallRequest":           `{"title":"ToolCallRequest","type":"object","properties":{"itemId":{"type":"string"}}}`,
 	} {
 		if err := os.WriteFile(filepath.Join(v2Dir, name+".json"), []byte(body), 0o644); err != nil {
 			t.Fatalf("write schema %s: %v", name, err)
 		}
 	}
+	if err := os.WriteFile(
+		filepath.Join(experimentalV2Dir, "ThreadSettingsUpdateParams.json"),
+		[]byte(`{"title":"ThreadSettingsUpdateParams","type":"object","properties":{"threadId":{"type":"string"},"model":{"type":["string","null"]},"serviceTier":{"type":["string","null"]}},"required":["threadId"]}`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write experimental ThreadSettingsUpdateParams schema: %v", err)
+	}
 	return &generator{
-		schemaDir: schemaDir,
+		schemaDir:             schemaDir,
+		experimentalSchemaDir: experimentalSchemaDir,
 		rootSchemas: map[string]jsonSchema{
 			"ThreadStartParams": {Type: "object"},
 		},

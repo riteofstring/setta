@@ -9,8 +9,9 @@
     { "method": "thread/resume" },
     {
       "method": "thread/settings/update",
+      "experimental": true,
       "paramsName": "ThreadSettingsUpdateParams",
-      "source": "Experimental upstream Codex protocol method from internal/codexapp/protocolschema/rust/protocol/common.rs and v2/thread.rs. The checked JSON schema in json/experimental/ThreadSettingsUpdateParams.json is maintained until upstream publishes this method in the structured JSON snapshot."
+      "source": "Experimental upstream Codex protocol method from internal/codexapp/protocolschema/rust/protocol/common.rs and v2/thread.rs. The checked JSON schema is copied from Codex schema fixtures generated with --experimental into json_experimental/v2/ThreadSettingsUpdateParams.json."
     },
     { "method": "thread/start" },
     { "method": "turn/interrupt" },
@@ -94,7 +95,5 @@
     "item/fileChange/outputDelta",
     "thread/compacted"
   ],
-  "schemas": [
-    "ThreadSettingsUpdateParams"
-  ]
+  "schemas": []
 }

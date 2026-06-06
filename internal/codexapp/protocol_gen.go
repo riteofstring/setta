@@ -4120,18 +4120,18 @@ func DecodeThreadSettings(raw json.RawMessage) (ThreadSettings, error) {
 }
 
 type ThreadSettingsUpdateParams struct {
-	ApprovalPolicy    *AskForApproval    `json:"approvalPolicy,omitempty"`
-	ApprovalsReviewer *ApprovalsReviewer `json:"approvalsReviewer,omitempty"`
-	CollaborationMode *CollaborationMode `json:"collaborationMode,omitempty"`
-	CWD               *string            `json:"cwd,omitempty"`
-	Effort            *ReasoningEffort   `json:"effort,omitempty"`
-	Model             *string            `json:"model,omitempty"`
-	Permissions       *string            `json:"permissions,omitempty"`
-	Personality       *Personality       `json:"personality,omitempty"`
-	SandboxPolicy     *SandboxPolicy     `json:"sandboxPolicy,omitempty"`
-	ServiceTier       *string            `json:"serviceTier,omitempty"`
-	Summary           *ReasoningSummary  `json:"summary,omitempty"`
-	ThreadID          string             `json:"threadId"`
+	ApprovalPolicy    *AskForApproval      `json:"approvalPolicy,omitempty"`
+	ApprovalsReviewer *ApprovalsReviewer   `json:"approvalsReviewer,omitempty"`
+	CollaborationMode *CollaborationMode   `json:"collaborationMode,omitempty"`
+	CWD               *string              `json:"cwd,omitempty"`
+	Effort            *ReasoningEffort     `json:"effort,omitempty"`
+	Model             *string              `json:"model,omitempty"`
+	Permissions       *string              `json:"permissions,omitempty"`
+	Personality       *Personality         `json:"personality,omitempty"`
+	SandboxPolicy     *SandboxPolicy       `json:"sandboxPolicy,omitempty"`
+	ServiceTier       *CodexNullableString `json:"serviceTier,omitempty"`
+	Summary           *ReasoningSummary    `json:"summary,omitempty"`
+	ThreadID          string               `json:"threadId"`
 }
 
 func validateThreadSettingsUpdateParams(raw json.RawMessage, name string) error {
