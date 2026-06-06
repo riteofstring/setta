@@ -168,6 +168,33 @@ func emitProcessExitOutputs(sink TurnSink, providerItemID string, stdout string,
 	return nil
 }
 
+func handleCodexFileChangeOutputDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex file change output delta params")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
+	}
+	itemID, err := requireString(params, "itemId", "codex file change output delta")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	delta, err := requireString(params, "delta", "codex file change output delta")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if err := sink.RunItemUpsert(RunItem{
+		ProviderItemID: itemID,
+		Type:           RunItemTypeFileChange,
+		Status:         RunItemStatusRunning,
+		Title:          "File change output",
+	}); err != nil {
+		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{}, sink.RunItemOutputDelta(itemID, "patch", delta)
+}
+
 func handleCodexReasoningTextDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
 	params, err := objectValue(message.Params, "codex reasoning text delta params")
 	if err != nil {

@@ -11,6 +11,7 @@ const (
 	CodexMethodAccountRead                       = "account/read"
 	CodexMethodAccountSendAddCreditsNudgeEmail   = "account/sendAddCreditsNudgeEmail"
 	CodexMethodAppList                           = "app/list"
+	CodexMethodCollaborationModeList             = "collaborationMode/list"
 	CodexMethodCommandExec                       = "command/exec"
 	CodexMethodCommandExecResize                 = "command/exec/resize"
 	CodexMethodCommandExecTerminate              = "command/exec/terminate"
@@ -20,6 +21,7 @@ const (
 	CodexMethodConfigRead                        = "config/read"
 	CodexMethodConfigValueWrite                  = "config/value/write"
 	CodexMethodConfigRequirementsRead            = "configRequirements/read"
+	CodexMethodEnvironmentAdd                    = "environment/add"
 	CodexMethodExperimentalFeatureEnablementSet  = "experimentalFeature/enablement/set"
 	CodexMethodExperimentalFeatureList           = "experimentalFeature/list"
 	CodexMethodExternalAgentConfigDetect         = "externalAgentConfig/detect"
@@ -58,12 +60,17 @@ const (
 	CodexMethodPluginShareUpdateTargets          = "plugin/share/updateTargets"
 	CodexMethodPluginSkillRead                   = "plugin/skill/read"
 	CodexMethodPluginUninstall                   = "plugin/uninstall"
+	CodexMethodProcessKill                       = "process/kill"
+	CodexMethodProcessResizePty                  = "process/resizePty"
+	CodexMethodProcessSpawn                      = "process/spawn"
+	CodexMethodProcessWriteStdin                 = "process/writeStdin"
 	CodexMethodReviewStart                       = "review/start"
 	CodexMethodSkillsConfigWrite                 = "skills/config/write"
 	CodexMethodSkillsExtraRootsSet               = "skills/extraRoots/set"
 	CodexMethodSkillsList                        = "skills/list"
 	CodexMethodThreadApproveGuardianDeniedAction = "thread/approveGuardianDeniedAction"
 	CodexMethodThreadArchive                     = "thread/archive"
+	CodexMethodThreadBackgroundTerminalsClean    = "thread/backgroundTerminals/clean"
 	CodexMethodThreadCompactStart                = "thread/compact/start"
 	CodexMethodThreadFork                        = "thread/fork"
 	CodexMethodThreadGoalClear                   = "thread/goal/clear"
@@ -72,14 +79,23 @@ const (
 	CodexMethodThreadInjectItems                 = "thread/inject_items"
 	CodexMethodThreadList                        = "thread/list"
 	CodexMethodThreadLoadedList                  = "thread/loaded/list"
+	CodexMethodThreadMemoryModeSet               = "thread/memoryMode/set"
 	CodexMethodThreadMetadataUpdate              = "thread/metadata/update"
 	CodexMethodThreadNameSet                     = "thread/name/set"
 	CodexMethodThreadRead                        = "thread/read"
+	CodexMethodThreadRealtimeAppendAudio         = "thread/realtime/appendAudio"
+	CodexMethodThreadRealtimeAppendText          = "thread/realtime/appendText"
+	CodexMethodThreadRealtimeListVoices          = "thread/realtime/listVoices"
+	CodexMethodThreadRealtimeStart               = "thread/realtime/start"
+	CodexMethodThreadRealtimeStop                = "thread/realtime/stop"
 	CodexMethodThreadResume                      = "thread/resume"
 	CodexMethodThreadRollback                    = "thread/rollback"
+	CodexMethodThreadSearch                      = "thread/search"
 	CodexMethodThreadSettingsUpdate              = "thread/settings/update"
 	CodexMethodThreadShellCommand                = "thread/shellCommand"
 	CodexMethodThreadStart                       = "thread/start"
+	CodexMethodThreadTurnsItemsList              = "thread/turns/items/list"
+	CodexMethodThreadTurnsList                   = "thread/turns/list"
 	CodexMethodThreadUnarchive                   = "thread/unarchive"
 	CodexMethodThreadUnsubscribe                 = "thread/unsubscribe"
 	CodexMethodTurnInterrupt                     = "turn/interrupt"
@@ -97,6 +113,7 @@ var CodexMethodValues = []string{
 	CodexMethodAccountRead,
 	CodexMethodAccountSendAddCreditsNudgeEmail,
 	CodexMethodAppList,
+	CodexMethodCollaborationModeList,
 	CodexMethodCommandExec,
 	CodexMethodCommandExecResize,
 	CodexMethodCommandExecTerminate,
@@ -106,6 +123,7 @@ var CodexMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodConfigValueWrite,
 	CodexMethodConfigRequirementsRead,
+	CodexMethodEnvironmentAdd,
 	CodexMethodExperimentalFeatureEnablementSet,
 	CodexMethodExperimentalFeatureList,
 	CodexMethodExternalAgentConfigDetect,
@@ -144,12 +162,17 @@ var CodexMethodValues = []string{
 	CodexMethodPluginShareUpdateTargets,
 	CodexMethodPluginSkillRead,
 	CodexMethodPluginUninstall,
+	CodexMethodProcessKill,
+	CodexMethodProcessResizePty,
+	CodexMethodProcessSpawn,
+	CodexMethodProcessWriteStdin,
 	CodexMethodReviewStart,
 	CodexMethodSkillsConfigWrite,
 	CodexMethodSkillsExtraRootsSet,
 	CodexMethodSkillsList,
 	CodexMethodThreadApproveGuardianDeniedAction,
 	CodexMethodThreadArchive,
+	CodexMethodThreadBackgroundTerminalsClean,
 	CodexMethodThreadCompactStart,
 	CodexMethodThreadFork,
 	CodexMethodThreadGoalClear,
@@ -158,14 +181,23 @@ var CodexMethodValues = []string{
 	CodexMethodThreadInjectItems,
 	CodexMethodThreadList,
 	CodexMethodThreadLoadedList,
+	CodexMethodThreadMemoryModeSet,
 	CodexMethodThreadMetadataUpdate,
 	CodexMethodThreadNameSet,
 	CodexMethodThreadRead,
+	CodexMethodThreadRealtimeAppendAudio,
+	CodexMethodThreadRealtimeAppendText,
+	CodexMethodThreadRealtimeListVoices,
+	CodexMethodThreadRealtimeStart,
+	CodexMethodThreadRealtimeStop,
 	CodexMethodThreadResume,
 	CodexMethodThreadRollback,
+	CodexMethodThreadSearch,
 	CodexMethodThreadSettingsUpdate,
 	CodexMethodThreadShellCommand,
 	CodexMethodThreadStart,
+	CodexMethodThreadTurnsItemsList,
+	CodexMethodThreadTurnsList,
 	CodexMethodThreadUnarchive,
 	CodexMethodThreadUnsubscribe,
 	CodexMethodTurnInterrupt,
@@ -176,7 +208,10 @@ var CodexMethodValues = []string{
 }
 
 const (
+	CodexServerRequestAccountChatgptAuthTokensRefresh     = "account/chatgptAuthTokens/refresh"
+	CodexServerRequestApplyPatchApproval                  = "applyPatchApproval"
 	CodexServerRequestAttestationGenerate                 = "attestation/generate"
+	CodexServerRequestExecCommandApproval                 = "execCommandApproval"
 	CodexServerRequestItemCommandExecutionRequestApproval = "item/commandExecution/requestApproval"
 	CodexServerRequestItemFileChangeRequestApproval       = "item/fileChange/requestApproval"
 	CodexServerRequestItemPermissionsRequestApproval      = "item/permissions/requestApproval"
@@ -186,7 +221,10 @@ const (
 )
 
 var CodexServerRequestValues = []string{
+	CodexServerRequestAccountChatgptAuthTokensRefresh,
+	CodexServerRequestApplyPatchApproval,
 	CodexServerRequestAttestationGenerate,
+	CodexServerRequestExecCommandApproval,
 	CodexServerRequestItemCommandExecutionRequestApproval,
 	CodexServerRequestItemFileChangeRequestApproval,
 	CodexServerRequestItemPermissionsRequestApproval,
@@ -327,101 +365,6 @@ var CodexNotificationValues = []string{
 	CodexNotificationWarning,
 	CodexNotificationWindowsWorldWritableWarning,
 	CodexNotificationWindowsSandboxSetupCompleted,
-}
-
-var CodexSupportedMethodValues = []string{
-	CodexMethodConfigRead,
-	CodexMethodInitialize,
-	CodexMethodModelList,
-	CodexMethodThreadGoalClear,
-	CodexMethodThreadGoalGet,
-	CodexMethodThreadGoalSet,
-	CodexMethodThreadResume,
-	CodexMethodThreadSettingsUpdate,
-	CodexMethodThreadStart,
-	CodexMethodTurnInterrupt,
-	CodexMethodTurnStart,
-	CodexMethodTurnSteer,
-}
-
-var CodexSupportedServerRequestValues = []string{
-	CodexServerRequestAttestationGenerate,
-	CodexServerRequestItemCommandExecutionRequestApproval,
-	CodexServerRequestItemFileChangeRequestApproval,
-	CodexServerRequestItemPermissionsRequestApproval,
-	CodexServerRequestItemToolCall,
-	CodexServerRequestItemToolRequestUserInput,
-	CodexServerRequestMcpServerElicitationRequest,
-}
-
-var CodexSupportedNotificationValues = []string{
-	CodexNotificationAccountLoginCompleted,
-	CodexNotificationAccountRateLimitsUpdated,
-	CodexNotificationAccountUpdated,
-	CodexNotificationAppListUpdated,
-	CodexNotificationCommandExecOutputDelta,
-	CodexNotificationConfigWarning,
-	CodexNotificationDeprecationNotice,
-	CodexNotificationError,
-	CodexNotificationExternalAgentConfigImportCompleted,
-	CodexNotificationFsChanged,
-	CodexNotificationFuzzyFileSearchSessionCompleted,
-	CodexNotificationFuzzyFileSearchSessionUpdated,
-	CodexNotificationGuardianWarning,
-	CodexNotificationHookCompleted,
-	CodexNotificationHookStarted,
-	CodexNotificationItemAgentMessageDelta,
-	CodexNotificationItemAutoApprovalReviewCompleted,
-	CodexNotificationItemAutoApprovalReviewStarted,
-	CodexNotificationItemCommandExecutionOutputDelta,
-	CodexNotificationItemCommandExecutionTerminalInteraction,
-	CodexNotificationItemCompleted,
-	CodexNotificationItemFileChangePatchUpdated,
-	CodexNotificationItemMcpToolCallProgress,
-	CodexNotificationItemPlanDelta,
-	CodexNotificationItemReasoningSummaryPartAdded,
-	CodexNotificationItemReasoningSummaryTextDelta,
-	CodexNotificationItemReasoningTextDelta,
-	CodexNotificationItemStarted,
-	CodexNotificationMcpServerOauthLoginCompleted,
-	CodexNotificationMcpServerStartupStatusUpdated,
-	CodexNotificationModelRerouted,
-	CodexNotificationModelVerification,
-	CodexNotificationProcessExited,
-	CodexNotificationProcessOutputDelta,
-	CodexNotificationRemoteControlStatusChanged,
-	CodexNotificationServerRequestResolved,
-	CodexNotificationSkillsChanged,
-	CodexNotificationThreadArchived,
-	CodexNotificationThreadClosed,
-	CodexNotificationThreadGoalCleared,
-	CodexNotificationThreadGoalUpdated,
-	CodexNotificationThreadNameUpdated,
-	CodexNotificationThreadRealtimeClosed,
-	CodexNotificationThreadRealtimeError,
-	CodexNotificationThreadRealtimeItemAdded,
-	CodexNotificationThreadRealtimeOutputAudioDelta,
-	CodexNotificationThreadRealtimeSdp,
-	CodexNotificationThreadRealtimeStarted,
-	CodexNotificationThreadRealtimeTranscriptDelta,
-	CodexNotificationThreadRealtimeTranscriptDone,
-	CodexNotificationThreadSettingsUpdated,
-	CodexNotificationThreadStarted,
-	CodexNotificationThreadStatusChanged,
-	CodexNotificationThreadTokenUsageUpdated,
-	CodexNotificationThreadUnarchived,
-	CodexNotificationTurnCompleted,
-	CodexNotificationTurnDiffUpdated,
-	CodexNotificationTurnPlanUpdated,
-	CodexNotificationTurnStarted,
-	CodexNotificationWarning,
-	CodexNotificationWindowsWorldWritableWarning,
-	CodexNotificationWindowsSandboxSetupCompleted,
-}
-
-var CodexUnsupportedNotificationValues = []string{
-	CodexNotificationItemFileChangeOutputDelta,
-	CodexNotificationThreadCompacted,
 }
 
 type AbsolutePathBuf = string
@@ -754,6 +697,11 @@ type ConfigWarningNotification struct {
 	Summary string     `json:"summary"`
 }
 
+type ContextCompactedNotification struct {
+	ThreadID string `json:"threadId"`
+	TurnID   string `json:"turnId"`
+}
+
 type CreditsSnapshot struct {
 	Balance    *string `json:"balance,omitempty"`
 	HasCredits bool    `json:"hasCredits"`
@@ -792,6 +740,13 @@ type ErrorNotification struct {
 }
 
 type ExternalAgentConfigImportCompletedNotification struct {
+}
+
+type FileChangeOutputDeltaNotification struct {
+	Delta    string `json:"delta"`
+	ItemId   string `json:"itemId"`
+	ThreadID string `json:"threadId"`
+	TurnID   string `json:"turnId"`
 }
 
 type FileChangePatchUpdatedNotification struct {

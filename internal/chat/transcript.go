@@ -108,20 +108,11 @@ func sortTranscriptMessagesByRun(messagesByRunID map[string][]ChatMessage) {
 
 func sortTranscriptTurns(turns []TranscriptTurn) {
 	sort.SliceStable(turns, func(left int, right int) bool {
-		leftOrdinal := transcriptTurnSortOrdinal(turns[left])
-		rightOrdinal := transcriptTurnSortOrdinal(turns[right])
-		if leftOrdinal == rightOrdinal {
+		if turns[left].TriggerMessage.Ordinal == turns[right].TriggerMessage.Ordinal {
 			return turns[left].Run.ID < turns[right].Run.ID
 		}
-		return leftOrdinal < rightOrdinal
+		return turns[left].TriggerMessage.Ordinal < turns[right].TriggerMessage.Ordinal
 	})
-}
-
-func transcriptTurnSortOrdinal(turn TranscriptTurn) int {
-	if turn.TriggerMessage.Delivery == MessageDeliveryQueued && turn.AssistantMessage != nil {
-		return turn.AssistantMessage.Ordinal
-	}
-	return turn.TriggerMessage.Ordinal
 }
 
 func upsertMessageForProjection(messages []ChatMessage, message ChatMessage) []ChatMessage {
