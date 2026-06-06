@@ -82,7 +82,12 @@ function applyConversationOrWorkspaceEvent(
         runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
         status: "ready",
       });
-    case "chat.queue.updated":
+    case "chat.queue.updated": {
+      const queuedTranscript = mergeQueueTranscript(
+        state.transcript,
+        event.payload.queue.runs,
+        event.payload.queue.messages,
+      );
       return selectedConversationEventResult(
         state,
         event,
@@ -90,9 +95,11 @@ function applyConversationOrWorkspaceEvent(
           messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
           queuedRuns: queuedRunsFromQueue(event.payload.queue.runs),
           status: "ready",
+          transcript: queuedTranscript.transcript,
         },
-        true,
+        queuedTranscript.resync,
       );
+    }
     case "chat.goal.updated":
       return selectedConversationEventResult(state, event, {
         goal: event.payload.goal,
@@ -284,6 +291,51 @@ function activeRunFromRunEvent(current: RunningRun | null, run: Run): RunningRun
 
 function queuedRunsFromQueue(runs: Run[]): QueuedRun[] {
   return runs.filter((run): run is QueuedRun => run.status === "queued");
+}
+
+function mergeQueueTranscript(
+  transcript: TranscriptTurn[],
+  runs: Run[],
+  messages: ChatMessage[],
+): { resync: boolean; transcript: TranscriptTurn[] } {
+  const queuedRuns = queuedRunsFromQueue(runs);
+  const messagesById = new Map(messages.map((message) => [message.id, message]));
+  const queuedTurnsByRunId = new Map<string, TranscriptTurn>();
+  for (const run of queuedRuns) {
+    const triggerMessage = messagesById.get(run.triggerMessageId);
+    if (!triggerMessage) {
+      return { resync: true, transcript };
+    }
+    queuedTurnsByRunId.set(run.id, {
+      assistantMessage: null,
+      run,
+      steeringMessages: [],
+      triggerMessage,
+    });
+  }
+
+  const merged: TranscriptTurn[] = [];
+  for (const turn of transcript) {
+    const queuedTurn = queuedTurnsByRunId.get(turn.run.id);
+    if (queuedTurn) {
+      merged.push(queuedTurn);
+      queuedTurnsByRunId.delete(turn.run.id);
+      continue;
+    }
+    if (turn.run.status === "queued") {
+      continue;
+    }
+    merged.push(turn);
+  }
+  merged.push(...queuedTurnsByRunId.values());
+  return { resync: false, transcript: merged.toSorted(compareTranscriptTurns) };
+}
+
+function compareTranscriptTurns(left: TranscriptTurn, right: TranscriptTurn) {
+  if (left.triggerMessage.ordinal === right.triggerMessage.ordinal) {
+    return left.run.id.localeCompare(right.run.id);
+  }
+  return left.triggerMessage.ordinal - right.triggerMessage.ordinal;
 }
 
 function updateTranscriptRun(transcript: TranscriptTurn[], run: Run): TranscriptTurn[] {

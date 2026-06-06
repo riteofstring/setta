@@ -75,6 +75,25 @@ func TestServiceStartsLoginAndPublishesNotificationChanges(t *testing.T) {
 	}
 }
 
+func TestServiceClearsLoginWhenSuccessfulCompletionArrivesAfterAccountUpdate(t *testing.T) {
+	service := &Service{}
+	service.setLogin(CodexLoginState{
+		LoginID: "login_fake",
+		Status:  LoginStatusInProgress,
+		Type:    LoginTypeChatGPT,
+	})
+	service.handleAccountUpdated(codexapp.Message{Params: json.RawMessage(`{"authMode":"chatgpt"}`)})
+	service.handleLoginCompleted(codexapp.Message{Params: json.RawMessage(`{
+		"error": null,
+		"loginId": "login_fake",
+		"success": true
+	}`)})
+
+	if login := service.currentLogin(); login != nil {
+		t.Fatalf("login = %+v, want cleared login after successful completion", login)
+	}
+}
+
 func TestServiceLogoutClearsAccount(t *testing.T) {
 	service, manager, _ := newTestService(t, "signed-in")
 	defer shutdownManager(t, manager)

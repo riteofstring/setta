@@ -38,7 +38,12 @@ import type {
   WorkflowValidationResult,
   WorkspaceSession,
 } from "@generated/backend";
-import type { InstalledEditorApp, RuntimeVersions, WorkspaceGitInfo } from "./types";
+import type {
+  InstalledEditorApp,
+  NiriBrowserViewStats,
+  RuntimeVersions,
+  WorkspaceGitInfo,
+} from "./types";
 
 export const ipcChannels = {
   appInstalledEditors: "app:installed-editors",
@@ -71,6 +76,8 @@ export const ipcChannels = {
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
+  niriBrowserViewStats: "niri:browser-view-stats",
+  niriBrowserViewsTeardown: "niri:browser-views-teardown",
   workflowCancelExecution: "workflow:cancel-execution",
   workflowCreateDefinition: "workflow:create-definition",
   workflowDeleteDefinition: "workflow:delete-definition",
@@ -92,11 +99,16 @@ export const ipcChannels = {
   workspaceSession: "workspace:session",
 } as const;
 
+export const ipcMessages = {
+  niriBrowserViewBatch: "niri:browser-view-batch",
+} as const;
+
 export const ipcEvents = {
   backendEventStreamStatus: "backend:event-stream-status",
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
+  niriBrowserViewKey: "niri:browser-view-key",
   workflowEvent: "workflow:event",
 } as const;
 
@@ -231,6 +243,14 @@ interface IpcContract {
   codexAccountStartLogin: {
     args: [request: StartCodexLoginRequest];
     result: StartCodexLoginResponse;
+  };
+  niriBrowserViewStats: {
+    args: [];
+    result: NiriBrowserViewStats;
+  };
+  niriBrowserViewsTeardown: {
+    args: [workspaceId: string];
+    result: NiriBrowserViewStats;
   };
   workflowCancelExecution: {
     args: [workspaceId: string, executionId: string];
