@@ -1,7 +1,7 @@
 # Backend Orchestrator State Machine Plan
 
 - **Date:** June 5, 2026
-- **Status:** Phase 1 through Phase 5 implemented; Phase 6 ready to implement
+- **Status:** Phase 1 through Phase 5 implemented; additional action runners deferred as future work
 - **Scope:** Add backend-owned workflow/state-machine execution for the graph-based AI agent orchestrator. The frontend may render definitions and execution state later, but backend services own all graph logic, state transitions, persistence, scheduling, and action execution.
 
 ## Goal
@@ -354,7 +354,9 @@ Status: Implemented.
 - Keep Pixi interactions as controls and projections, not orchestration authority.
 - Add frontend workflow smoke coverage only after backend semantics are stable.
 
-### Phase 6: Additional Action Runners
+### Future Work: Additional Action Runners
+
+Additional action runners are not required for the initial Codex-backed workflow v1. Add them when a specific next runner is selected and its safety, permissions, and lifecycle requirements are clear.
 
 - Add new action kinds behind the existing runner registry.
 - Keep each runner config typed.
