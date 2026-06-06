@@ -30,6 +30,12 @@
 ## UI Rules
 
 - Frontend code must handle very large DOMs efficiently.
+- Keep a browser-rendered target available for the renderer UI, suitable for Chrome DevTools MCP inspection. If the target is missing or broken, add or repair it before doing substantial UI work.
+- After making UI changes, inspect the changed surface through Chrome DevTools MCP against the browser-rendered target. Use accessibility snapshots and screenshots as appropriate, and explicitly report any skipped visual inspection with the reason.
+- Use the Electron visual probe for UI changes that depend on real Electron behavior: main/preload IPC, registered handlers, app startup, window chrome, native dialogs, app data persistence, or differences between dev renderer and built Electron output. Run `pnpm -C desktop test:electron:visual`; it writes screenshots, DOM state, accessibility text, renderer console logs, Electron logs, and recording JSONL files to `.codex/electron/latest`.
+- For renderer-only layout or color iteration, prefer the browser-rendered target with Chrome DevTools MCP first because it gives the fastest visual feedback. If the same change affects Electron shell behavior or preload contracts, follow with the Electron visual probe.
+- When a visual probe reveals a user-facing regression, preserve the repro path as a focused automated check where practical. Use screenshots and accessibility snapshots as inspection artifacts; assert behavior with roles, text, state, IPC records, or backend records rather than treating screenshots as the only oracle.
+- Do not rely on borders, boxes, or divider lines as the primary way to group UI. Prefer consistent whitespace, spacing, alignment, and subtle surface contrast. Nested boxes should be avoided because they make the app feel busy; introduce borders and lines only in minimal, selective places where they clarify structure. The target look is minimalist, sleek, compact, readable, and spacious enough for sustained human use.
 - Treat frontend performance verification as first-class. Prefer automated guardrails; use chrome-devtools profiling when deeper analysis is needed.
 - For performance-relevant refactors, baseline first, re-measure after, and record before/after results as append-only reports.
 - Avoid div soup.

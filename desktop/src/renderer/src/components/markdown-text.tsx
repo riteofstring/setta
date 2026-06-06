@@ -9,7 +9,7 @@ export const MarkdownText = memo(function MarkdownText({ text }: { text: string 
         if (block.kind === "code") {
           return (
             <pre
-              className="min-w-0 max-w-full overflow-x-auto rounded-sm border border-zinc-700 bg-zinc-950 p-2 text-xs leading-5 text-zinc-50"
+              className="min-w-0 max-w-full overflow-x-auto rounded-sm border border-border bg-popover p-2 text-xs leading-5 text-foreground"
               key={index}
             >
               <code>{block.text}</code>
@@ -92,7 +92,7 @@ function renderInlineMarkdown(text: string) {
     if (token.startsWith("`")) {
       nodes.push(
         <code
-          className="break-all rounded bg-zinc-800 px-1 py-0.5 text-[0.85em] text-zinc-100"
+          className="break-all rounded bg-muted px-1 py-0.5 text-[0.85em] text-foreground"
           key={index}
         >
           {token.slice(1, -1)}

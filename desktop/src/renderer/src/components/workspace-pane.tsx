@@ -154,7 +154,7 @@ export function WorkspacePanePanel({
       data-testid={`${slot}-workspace-pane`}
     >
       <header
-        className="app-drag relative z-40 flex h-8 shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5"
+        className={workspacePaneHeaderClass(slot)}
         data-testid={`${slot}-workspace-pane-header`}
       >
         <nav
@@ -232,7 +232,7 @@ function WorkspacePaneMaximizeButton({
   return (
     <button
       aria-label={label}
-      className="app-no-drag grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
+      className="app-no-drag grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground"
       onClick={onToggleMaximize}
       title={label}
       type="button"
@@ -245,9 +245,16 @@ function WorkspacePaneMaximizeButton({
 function workspacePanePanelClass(slot: PaneSlot, chromeInsetTop: boolean) {
   const slotClass =
     slot === "right"
-      ? "flex h-full min-h-0 flex-col border-l border-zinc-800 bg-zinc-950 text-zinc-100"
-      : "flex h-full min-h-0 flex-col border-t border-zinc-800 bg-zinc-950 text-zinc-100";
+      ? "flex h-full min-h-0 flex-col border-l border-border bg-popover text-foreground"
+      : "flex h-full min-h-0 flex-col border-t border-border bg-popover text-foreground";
   return cn(slotClass, chromeInsetTop && "pt-10");
+}
+
+function workspacePaneHeaderClass(slot: PaneSlot) {
+  return cn(
+    "app-drag relative z-40 flex shrink-0 items-center gap-1 px-1.5",
+    slot === "right" ? "h-10" : "h-8 border-b border-border",
+  );
 }
 
 function WorkspacePaneTabButton({
@@ -264,15 +271,15 @@ function WorkspacePaneTabButton({
   return (
     <div
       className={cn(
-        "app-no-drag group relative flex h-7 min-w-0 max-w-40 items-center rounded-sm border px-1.5 text-xs transition-colors",
+        "app-no-drag group relative flex h-7 min-w-0 max-w-40 items-center rounded-sm border px-1.5 text-xs transition-colors max-[560px]:max-w-7",
         active
-          ? "border-zinc-700/70 bg-zinc-800/80 text-zinc-100"
-          : "border-transparent text-zinc-500 hover:bg-zinc-900/80 hover:text-zinc-200",
+          ? "border-border/70 bg-muted/80 text-foreground"
+          : "border-transparent text-muted-foreground hover:bg-popover/80 hover:text-foreground",
       )}
       data-testid={`workspace-pane-tab-${tab.id}`}
     >
       <button
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 truncate pr-1 text-left outline-none focus-visible:text-zinc-50 focus-visible:underline focus-visible:decoration-zinc-400 focus-visible:underline-offset-2"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 truncate pr-1 text-left outline-none focus-visible:text-foreground focus-visible:underline focus-visible:decoration-ring focus-visible:underline-offset-2"
         onClick={onSelect}
         onPointerDown={(event) => event.stopPropagation()}
         type="button"
@@ -281,16 +288,16 @@ function WorkspacePaneTabButton({
           {workspacePaneIcon(tab.kind, "h-3.5 w-3.5")}
           <span
             aria-hidden="true"
-            className="absolute inset-0 grid place-items-center rounded-sm bg-zinc-800 text-zinc-100 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            className="absolute inset-0 grid place-items-center rounded-sm bg-muted text-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <X className="h-3 w-3 stroke-[2.5]" />
           </span>
         </span>
-        <span className="min-w-0 truncate">{tab.title}</span>
+        <span className="min-w-0 truncate max-[560px]:hidden">{tab.title}</span>
       </button>
       <button
         aria-label={`Close ${tab.title}`}
-        className="absolute top-1.5 left-1.5 z-10 grid h-4 w-4 cursor-pointer place-items-center rounded-sm text-zinc-100 opacity-0 outline-none transition-opacity hover:bg-zinc-700 focus-visible:bg-zinc-700 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+        className="absolute top-1.5 left-1.5 z-10 grid h-4 w-4 cursor-pointer place-items-center rounded-sm text-foreground opacity-0 outline-none transition-opacity hover:bg-accent focus-visible:bg-accent focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -349,7 +356,7 @@ function WorkspacePaneNewTabMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="New pane tab"
-        className="grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-900 hover:text-zinc-300 focus-visible:bg-zinc-900 focus-visible:text-zinc-300"
+        className="grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-muted-foreground outline-none hover:bg-background hover:text-muted-foreground focus-visible:bg-background focus-visible:text-muted-foreground"
         onClick={() => onOpenChange(!open)}
         onPointerDown={(event) => event.stopPropagation()}
         ref={anchorRef}
@@ -361,7 +368,7 @@ function WorkspacePaneNewTabMenu({
       <FloatingMenu
         anchorRef={anchorRef}
         ariaLabel="New pane tab options"
-        className="w-36 rounded-sm border border-zinc-800 bg-zinc-900 py-1 shadow-xl shadow-black/35"
+        className="w-36 rounded-sm border border-border bg-background py-1 shadow-xl shadow-black/35"
         menuRef={menuRef}
         open={open}
         placement="bottom"
@@ -371,14 +378,14 @@ function WorkspacePaneNewTabMenu({
           const label = workspacePaneLabels[kind];
           return (
             <button
-              className="flex h-6 w-full cursor-pointer items-center gap-2 px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
+              className="flex h-6 w-full cursor-pointer items-center gap-2 px-2 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
               key={kind}
               onClick={() => onCreateTab(kind)}
               onPointerDown={(event) => event.stopPropagation()}
               role="menuitem"
               type="button"
             >
-              {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0 text-zinc-500")}
+              {workspacePaneIcon(kind, "h-3.5 w-3.5 shrink-0 text-muted-foreground")}
               <span className="truncate">{label}</span>
             </button>
           );
@@ -390,9 +397,9 @@ function WorkspacePaneNewTabMenu({
 
 function WorkspacePaneEmpty({ onCreateTab }: { onCreateTab: () => void }) {
   return (
-    <div className="flex h-full items-center justify-center bg-zinc-950 px-4">
+    <div className="flex h-full items-center justify-center bg-popover px-4">
       <button
-        className="inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs text-zinc-400 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+        className="inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground"
         onClick={onCreateTab}
         type="button"
       >

@@ -12,12 +12,77 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { WorkspacePanel } from "./App";
+import { compactBottomPaneHeight, compactPaneWidth, paneVisibility } from "./app-layout";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { WorkspacePanePanel } from "./components/workspace-pane";
 
 describe("workspace renderer states", () => {
+  test("caps pane widths at compact viewport sizes without growing stored widths", () => {
+    expect(compactPaneWidth(360, 560, 160, 0.34)).toBe(190);
+    expect(compactPaneWidth(360, 320, 160, 0.34)).toBe(160);
+    expect(compactPaneWidth(140, 560, 128, 0.28)).toBe(140);
+    expect(compactPaneWidth(360, 900, 160, 0.34)).toBe(360);
+  });
+
+  test("caps bottom pane height at compact viewport sizes", () => {
+    expect(compactBottomPaneHeight(288, 320)).toBe(108);
+    expect(compactBottomPaneHeight(72, 320)).toBe(72);
+    expect(compactBottomPaneHeight(288, 900)).toBe(288);
+  });
+
+  test("uses a single horizontal content pane at narrow viewport sizes", () => {
+    expect(
+      paneVisibility({
+        bottomPaneOpen: true,
+        chatPaneOpen: true,
+        maximizedPane: null,
+        projectPaneOpen: true,
+        rightPaneOpen: true,
+        viewportWidth: 320,
+      }),
+    ).toEqual({
+      bottom: true,
+      chat: false,
+      content: true,
+      project: false,
+      right: true,
+    });
+    expect(
+      paneVisibility({
+        bottomPaneOpen: false,
+        chatPaneOpen: true,
+        maximizedPane: null,
+        projectPaneOpen: true,
+        rightPaneOpen: false,
+        viewportWidth: 320,
+      }),
+    ).toEqual({
+      bottom: false,
+      chat: true,
+      content: true,
+      project: false,
+      right: false,
+    });
+    expect(
+      paneVisibility({
+        bottomPaneOpen: false,
+        chatPaneOpen: false,
+        maximizedPane: null,
+        projectPaneOpen: true,
+        rightPaneOpen: false,
+        viewportWidth: 320,
+      }),
+    ).toEqual({
+      bottom: false,
+      chat: false,
+      content: false,
+      project: true,
+      right: false,
+    });
+  });
+
   test("renders the empty workspace state", () => {
     const html = renderToString(
       <>

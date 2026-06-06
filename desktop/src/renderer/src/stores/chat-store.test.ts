@@ -863,6 +863,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       onProcessStatus: () => () => {},
     },
     appearance: {
+      presets: async () => {
+        throw new Error("appearance presets are not used by chat store tests");
+      },
       read: async () => {
         throw new Error("appearance read is not used by chat store tests");
       },

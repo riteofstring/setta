@@ -7,6 +7,7 @@
   "scripts": {
     "build": "pnpm typecheck && electron-vite build",
     "dev": "electron-vite dev",
+    "dev:renderer": "vite --host 127.0.0.1 --config vite.renderer.config.ts",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "deadcode": "knip --no-config-hints",
@@ -14,6 +15,7 @@
     "test": "vitest run src",
     "test:electron": "pnpm build && pnpm test:electron:built",
     "test:electron:built": "node scripts/chat-workflows.test.mjs && node scripts/corrupt-chat-workflow.test.mjs",
+    "test:electron:visual": "pnpm build && node scripts/electron-visual-probe.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

@@ -24,7 +24,7 @@ export function UserMessageEditor({
 
   return (
     <form
-      className="w-full max-w-full overflow-hidden rounded-sm bg-zinc-800 px-2 py-1 text-[13px] leading-5 text-zinc-50"
+      className="w-full max-w-full overflow-hidden rounded-sm bg-muted px-2 py-1 text-[13px] leading-5 text-foreground"
       onSubmit={(event) => {
         event.preventDefault();
         onSave();
@@ -32,7 +32,7 @@ export function UserMessageEditor({
     >
       <textarea
         aria-label="Edit message text"
-        className="max-h-40 min-h-14 w-full resize-y bg-transparent p-0 text-[13px] leading-5 text-zinc-50 outline-none placeholder:text-zinc-500"
+        className="max-h-40 min-h-14 w-full resize-y bg-transparent p-0 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
         disabled={saving}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
@@ -53,7 +53,7 @@ export function UserMessageEditor({
       <div className="mt-1 flex justify-end gap-1">
         <button
           aria-label="Cancel edit"
-          className="grid h-5 w-5 place-items-center rounded-sm text-zinc-500 hover:bg-zinc-700 hover:text-zinc-100"
+          className="grid h-5 w-5 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
           disabled={saving}
           onClick={onCancel}
           title="Cancel edit"
@@ -63,7 +63,7 @@ export function UserMessageEditor({
         </button>
         <button
           aria-label="Save edit"
-          className="grid h-5 w-5 place-items-center rounded-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-50 disabled:pointer-events-none disabled:text-zinc-600"
+          className="grid h-5 w-5 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:text-muted-foreground"
           disabled={saving || draft.trim() === ""}
           title="Save edit"
           type="submit"
@@ -91,7 +91,7 @@ export function MessageActions({
     <div className="flex shrink-0 items-center gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100">
       <button
         aria-label="Copy message"
-        className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+        className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
         onClick={() => void navigator.clipboard.writeText(text)}
         title="Copy message"
         type="button"
@@ -101,7 +101,7 @@ export function MessageActions({
       {canEdit ? (
         <button
           aria-label="Edit message"
-          className="grid h-6 w-6 place-items-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+          className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
           onClick={onEdit}
           title="Edit message"
           type="button"
@@ -120,7 +120,7 @@ export function MessageTimestamp({ message }: { message: ChatMessage }) {
   }
   return (
     <time
-      className="mt-1 block text-[11px] leading-none text-zinc-500"
+      className="mt-1 block text-[11px] leading-none text-muted-foreground"
       dateTime={message.createdAt}
       title={fullMessageTime(message.createdAt)}
     >

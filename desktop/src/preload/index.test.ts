@@ -120,14 +120,16 @@ describe("preload workspace API", () => {
     await import("./index");
 
     const api = exposed.setta as SettaAPI;
-    expect(Object.keys(api.appearance).sort()).toEqual(["read", "update"]);
+    expect(Object.keys(api.appearance).sort()).toEqual(["presets", "read", "update"]);
     const request = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
 
+    await api.appearance.presets();
     await api.appearance.read();
     await api.appearance.update(request);
 
-    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appearanceRead);
-    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.appearanceUpdate, request);
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appearancePresets);
+    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.appearanceRead);
+    expect(invoke).toHaveBeenNthCalledWith(3, ipcChannels.appearanceUpdate, request);
   });
 
   test("exposes typed chat methods through IPC", async () => {

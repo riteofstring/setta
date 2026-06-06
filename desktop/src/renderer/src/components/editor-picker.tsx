@@ -48,13 +48,13 @@ export function EditorPicker({ className, rootPath }: { className?: string; root
 
   return (
     <div className={cn("app-no-drag relative shrink-0", className)} ref={rootRef}>
-      <div className="inline-flex h-7 items-center overflow-hidden rounded-sm text-zinc-400">
+      <div className="inline-flex h-7 items-center overflow-hidden rounded-sm text-muted-foreground">
         <EditorOpenButton editor={selectedEditor} onOpenEditor={openEditor} state={buttonState} />
         <button
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Choose editor"
-          className="app-no-drag grid h-7 w-4 place-items-center rounded-r-sm border-l border-zinc-800/70 text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300 disabled:pointer-events-none disabled:opacity-40"
+          className="app-no-drag grid h-7 w-4 place-items-center rounded-r-sm border-l border-border/70 text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground disabled:pointer-events-none disabled:opacity-40"
           disabled={!rootPath}
           onClick={() => setOpen((current) => !current)}
           title="Choose editor"
@@ -90,7 +90,7 @@ function EditorOpenButton({
   return (
     <button
       aria-label={state.title}
-      className="app-no-drag grid h-7 w-7 place-items-center rounded-l-sm outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300 disabled:pointer-events-none disabled:opacity-40"
+      className="app-no-drag grid h-7 w-7 place-items-center rounded-l-sm outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground disabled:pointer-events-none disabled:opacity-40"
       disabled={state.disabled}
       onClick={() => void onOpenEditor(editor)}
       title={state.title}
@@ -248,7 +248,7 @@ function EditorPickerMenu({
     <FloatingMenu
       align="right"
       anchorRef={anchorRef}
-      className="w-52 rounded-sm border border-zinc-700 bg-zinc-900/95 p-1.5 text-xs text-zinc-100 shadow-2xl shadow-black/45 backdrop-blur"
+      className="w-52 rounded-sm border border-border bg-popover/95 p-1.5 text-xs text-foreground shadow-2xl shadow-black/45 backdrop-blur"
       menuRef={menuRef}
       open
       placement="bottom"
@@ -266,7 +266,7 @@ function EditorPickerMenu({
           />
         ))
       ) : (
-        <div className="px-2 py-2 text-xs text-zinc-500">{editorPickerStatus(state)}</div>
+        <div className="px-2 py-2 text-xs text-muted-foreground">{editorPickerStatus(state)}</div>
       )}
     </FloatingMenu>
   );
@@ -288,8 +288,8 @@ function EditorMenuItem({
   return (
     <button
       className={cn(
-        "flex h-7 w-full items-center gap-2 rounded-sm px-2 text-left text-zinc-300 outline-none transition-colors hover:bg-zinc-800 hover:text-zinc-50 focus-visible:bg-zinc-800 focus-visible:text-zinc-50",
-        selected ? "bg-zinc-800/80 text-zinc-50" : "",
+        "flex h-7 w-full items-center gap-2 rounded-sm px-2 text-left text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground",
+        selected ? "bg-muted/80 text-foreground" : "",
       )}
       onClick={() => {
         onSelectEditor(editor.id);
@@ -343,38 +343,38 @@ interface EditorFallbackIconDefinition {
 }
 
 const defaultEditorFallbackIcon = {
-  className: "border-zinc-600 bg-zinc-800 text-zinc-300",
+  className: "border-border bg-muted text-muted-foreground",
   mark: <Code2 className="h-3 w-3" />,
 } satisfies EditorFallbackIconDefinition;
 
 const editorFallbackIcons: Record<string, EditorFallbackIconDefinition> = {
   "android-studio": {
-    className: "border-emerald-400/40 bg-emerald-600/90 text-white",
+    className: "border-emerald-400/40 bg-emerald-600/90 text-primary-foreground",
     mark: "A",
   },
   cursor: {
-    className: "border-zinc-600 bg-zinc-950 text-zinc-200",
+    className: "border-border bg-popover text-foreground",
     mark: "C",
   },
   default: defaultEditorFallbackIcon,
   finder: {
-    className: "border-sky-300/40 bg-sky-500/90 text-white",
+    className: "border-sky-300/40 bg-sky-500/90 text-primary-foreground",
     mark: "F",
   },
   ghostty: {
-    className: "border-indigo-300/40 bg-indigo-600/90 text-white",
+    className: "border-indigo-300/40 bg-indigo-600/90 text-primary-foreground",
     mark: ">",
   },
   terminal: {
-    className: "border-zinc-600 bg-zinc-950 text-zinc-100",
+    className: "border-border bg-popover text-foreground",
     mark: ">",
   },
   vscode: {
-    className: "border-sky-300/40 bg-sky-600/90 text-white",
+    className: "border-sky-300/40 bg-sky-600/90 text-primary-foreground",
     mark: "<>",
   },
   zed: {
-    className: "border-zinc-500/60 bg-zinc-800 text-zinc-100",
+    className: "border-border/60 bg-muted text-foreground",
     mark: "Z",
   },
 };

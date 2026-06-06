@@ -158,7 +158,7 @@ const messageStatusLabelByStatus = {
 } satisfies Record<MessageStatus, string | null>;
 
 const assistantMessageContainerClass =
-  "min-w-0 max-w-full overflow-hidden text-[13px] leading-5 break-words text-zinc-200";
+  "min-w-0 max-w-full overflow-hidden text-[13px] leading-5 break-words text-foreground";
 
 const assistantMessageContainerClassByRole = {
   assistant: assistantMessageContainerClass,
@@ -172,11 +172,11 @@ const assistantMessageContainerClassByRole = {
 const userMessageContainerClassByDelivery = {
   goal: "max-w-[78%] overflow-hidden rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-[13px] leading-5 break-words text-emerald-100",
   normal:
-    "min-w-0 max-w-[calc(100%-3.5rem)] overflow-hidden rounded-sm bg-zinc-800 px-2 py-1 text-[13px] leading-5 break-words text-zinc-50",
+    "min-w-0 max-w-[calc(100%-3.5rem)] overflow-hidden rounded-sm bg-muted px-2 py-1 text-[13px] leading-5 break-words text-foreground",
   queued:
-    "min-w-0 max-w-[calc(100%-3.5rem)] overflow-hidden rounded-sm border border-dashed border-zinc-700 bg-zinc-900 px-2 py-1 text-[13px] leading-5 break-words text-zinc-300",
+    "min-w-0 max-w-[calc(100%-3.5rem)] overflow-hidden rounded-sm border border-dashed border-border bg-background px-2 py-1 text-[13px] leading-5 break-words text-muted-foreground",
   steering:
-    "min-w-0 max-w-[calc(100%-3.5rem)] overflow-hidden rounded-sm border border-blue-400/40 bg-blue-950/30 px-2 py-1 text-[13px] leading-5 break-words text-blue-100",
+    "min-w-0 max-w-[calc(100%-3.5rem)] overflow-hidden rounded-sm border border-primary/40 bg-primary/10 px-2 py-1 text-[13px] leading-5 break-words text-foreground",
 } satisfies Record<MessageDelivery, string>;
 
 type SubmitApproval = ChatTranscriptProps["submitApproval"];
@@ -289,7 +289,7 @@ export function ChatTranscript({
             setPinned(true);
           }
         }}
-        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-zinc-900 pt-4 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-background pt-4 pb-2"
         components={{
           Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
           Header: () => (
@@ -350,11 +350,11 @@ function EmptyChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-zinc-900 px-3 pt-4 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-background px-3 pt-4 pb-2"
         data-testid="chat-transcript-scroller"
       >
         <div
-          className="mx-auto w-full max-w-2xl py-16 text-center text-xs text-zinc-500"
+          className="mx-auto w-full max-w-2xl py-16 text-center text-xs text-muted-foreground"
           data-testid="empty-chat"
         >
           Start a conversation for this workspace.
@@ -374,7 +374,7 @@ function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
   return (
     <div className="mb-2 flex justify-center">
       <Button
-        className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+        className="border-border bg-background text-foreground hover:bg-accent"
         onClick={() => void loadOlder()}
         variant="secondary"
       >
@@ -434,7 +434,7 @@ function JumpToLatestButton({
       <div className="flex w-full max-w-2xl justify-end">
         <Button
           aria-label="Jump to latest"
-          className="pointer-events-auto h-7 w-7 rounded-sm border-zinc-700 bg-zinc-800/95 px-0 text-zinc-200 shadow-lg shadow-black/30 hover:bg-zinc-700 hover:text-zinc-50"
+          className="pointer-events-auto h-7 w-7 rounded-sm border-border bg-muted/95 px-0 text-foreground shadow-lg shadow-black/30 hover:bg-accent hover:text-foreground"
           onClick={() => {
             virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
             setPinned(true);
@@ -591,10 +591,10 @@ function ChatSearchBar({ search }: { search: TranscriptSearchController }) {
 
   return (
     <div className="pointer-events-none absolute top-2 right-3 left-3 z-20 flex justify-end">
-      <div className="pointer-events-auto flex h-7 w-full max-w-xs min-w-0 items-center gap-1 rounded-sm border border-zinc-700/90 bg-zinc-800/95 px-1.5 text-zinc-100 shadow-xl shadow-black/40 backdrop-blur">
-        <Search className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
+      <div className="pointer-events-auto flex h-7 w-full max-w-xs min-w-0 items-center gap-1 rounded-sm border border-border/90 bg-muted/95 px-1.5 text-foreground shadow-xl shadow-black/40 backdrop-blur">
+        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <Input
-          className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-xs text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:border-0"
+          className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-xs text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-0"
           onChange={(event) => search.setQuery(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -615,7 +615,7 @@ function ChatSearchBar({ search }: { search: TranscriptSearchController }) {
           ref={search.inputRef}
           value={search.query}
         />
-        <span className="min-w-8 text-right text-[11px] text-zinc-500">{resultLabel}</span>
+        <span className="min-w-8 text-right text-[11px] text-muted-foreground">{resultLabel}</span>
         <SearchNavButton
           disabled={search.matchCount === 0}
           label="Previous result"
@@ -652,7 +652,7 @@ function SearchNavButton({
   return (
     <button
       aria-label={label}
-      className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-600"
+      className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:text-muted-foreground"
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -849,7 +849,7 @@ const MessageRow = memo(function MessageRow({
 function messageRowClass(message: ChatMessage, activeSearchMatch: boolean) {
   return cn(
     messageRowClassByRole[message.role],
-    activeSearchMatch && "rounded-sm bg-blue-400/5 ring-1 ring-blue-400/50",
+    activeSearchMatch && "rounded-sm bg-primary/5 ring-1 ring-primary/50",
   );
 }
 
@@ -875,7 +875,9 @@ function MessageContent({ message }: { message: ChatMessage }) {
       return <div className="whitespace-pre-wrap">{text}</div>;
     case "assistant":
       if (assistantMessageIsWaiting(message)) {
-        return <BrailleSpinner className="text-zinc-500" label="Assistant response running" />;
+        return (
+          <BrailleSpinner className="text-muted-foreground" label="Assistant response running" />
+        );
       }
       return <MarkdownText text={text} />;
     case "developer":
@@ -913,7 +915,7 @@ function MessageStatus({ message }: { message: ChatMessage }) {
   if (label === null) {
     return null;
   }
-  return <div className="mt-3 text-xs font-medium text-red-400">{label}</div>;
+  return <div className="mt-3 text-xs font-medium text-status-critical">{label}</div>;
 }
 
 function activityItemsForMessage(
@@ -971,13 +973,13 @@ function ApprovalCard({
 }) {
   return (
     <section
-      className="min-w-0 rounded-sm border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm break-words text-zinc-100"
+      className="min-w-0 rounded-sm border border-border bg-background px-3 py-2 text-sm break-words text-foreground"
       data-testid="approval-card"
     >
       <div className="font-semibold">{approval.title}</div>
-      {approval.body ? <div className="mt-1 text-zinc-300">{approval.body}</div> : null}
+      {approval.body ? <div className="mt-1 text-muted-foreground">{approval.body}</div> : null}
       {approval.command ? (
-        <pre className="mt-3 max-w-full overflow-x-auto rounded-sm border border-zinc-700 bg-zinc-950 p-2 text-xs text-zinc-200">
+        <pre className="mt-3 max-w-full overflow-x-auto rounded-sm border border-border bg-popover p-2 text-xs text-foreground">
           {approval.command}
         </pre>
       ) : null}
@@ -985,7 +987,7 @@ function ApprovalCard({
         <div className="mt-2 break-all font-mono text-xs">{approval.filePath}</div>
       ) : null}
       {approval.permission ? (
-        <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap rounded-sm border border-zinc-700 bg-zinc-950 p-2 text-xs text-zinc-200">
+        <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap rounded-sm border border-border bg-popover p-2 text-xs text-foreground">
           {approval.permission}
         </pre>
       ) : null}
@@ -1025,7 +1027,7 @@ function ApprovalControls({
     case "structured_input":
       if (approval.structuredInput === null) {
         return (
-          <div className="mt-3 font-medium text-red-700">
+          <div className="mt-3 font-medium text-status-critical">
             Approval request is missing structured input metadata.
           </div>
         );
@@ -1059,7 +1061,7 @@ function DecisionApproval({
   return (
     <div className="mt-3 flex gap-2">
       <Button
-        className="border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
+        className="border-border bg-secondary text-foreground hover:bg-card"
         onClick={() => void submitApproval(approvalId, true, "", [], false)}
         variant="primary"
       >
@@ -1067,7 +1069,7 @@ function DecisionApproval({
         Approve
       </Button>
       <Button
-        className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+        className="border-border bg-background text-foreground hover:bg-accent"
         onClick={() => void submitApproval(approvalId, false, "", [], false)}
         variant="secondary"
       >
@@ -1088,7 +1090,9 @@ function UserInputApproval({
   const [answersByQuestion, setAnswersByQuestion] = useState<Record<string, string>>({});
   if (questions.length === 0) {
     return (
-      <div className="mt-3 font-medium text-red-700">Approval request is missing questions.</div>
+      <div className="mt-3 font-medium text-status-critical">
+        Approval request is missing questions.
+      </div>
     );
   }
   const complete = questions.every(
@@ -1114,8 +1118,8 @@ function UserInputApproval({
                   <Button
                     className={
                       answer === option
-                        ? "border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
-                        : "border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+                        ? "border-border bg-secondary text-foreground hover:bg-card"
+                        : "border-border bg-background text-foreground hover:bg-accent"
                     }
                     key={option}
                     onClick={() => setQuestionAnswer(setAnswersByQuestion, question.id, option)}
@@ -1128,7 +1132,7 @@ function UserInputApproval({
               </div>
             ) : null}
             <input
-              className="w-full rounded-sm border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-400"
+              className="w-full rounded-sm border border-border bg-popover px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
               onChange={(event) =>
                 setQuestionAnswer(setAnswersByQuestion, question.id, event.target.value)
               }
@@ -1140,7 +1144,7 @@ function UserInputApproval({
       })}
       <div className="flex gap-2">
         <Button
-          className="border-zinc-200 bg-zinc-100 text-zinc-950 hover:bg-white"
+          className="border-border bg-secondary text-foreground hover:bg-card"
           disabled={!complete}
           onClick={() => void submitApproval(answers, false)}
           type="button"
@@ -1150,7 +1154,7 @@ function UserInputApproval({
           Answer
         </Button>
         <Button
-          className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+          className="border-border bg-background text-foreground hover:bg-accent"
           onClick={() => void submitApproval([], true)}
           type="button"
           variant="secondary"

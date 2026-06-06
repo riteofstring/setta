@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
+  AppearancePresetList,
   AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
@@ -36,6 +37,7 @@ export const ipcChannels = {
   appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
   appWorkspaceGitInfo: "app:workspace-git-info",
+  appearancePresets: "appearance:presets",
   appearanceRead: "appearance:read",
   appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
@@ -100,6 +102,10 @@ interface IpcContract {
   appearanceRead: {
     args: [];
     result: AppearanceSettings;
+  };
+  appearancePresets: {
+    args: [];
+    result: AppearancePresetList;
   };
   appearanceUpdate: {
     args: [request: UpdateAppearanceSettingsRequest];

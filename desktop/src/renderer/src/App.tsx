@@ -18,6 +18,22 @@ import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspac
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
+import {
+  bottomPaneDefaultHeight,
+  bottomPaneMinHeight,
+  chatPaneDefaultWidth,
+  chatPaneMaxWidth,
+  chatPaneMinWidth,
+  compactBottomPaneHeight,
+  compactChatPaneWidth,
+  compactProjectPaneWidth,
+  type MaximizedPane,
+  paneVisibility,
+  type PaneVisibility,
+  projectPaneDefaultWidth,
+  projectPaneMaxWidth,
+  projectPaneMinWidth,
+} from "./app-layout";
 import { cn } from "./lib/utils";
 import {
   type WorkspaceOperationKind,
@@ -26,20 +42,26 @@ import {
   useWorkspaceStore,
 } from "./stores/workspace-store";
 import { useChatStore } from "./stores/chat-store";
+import { useAppearanceStore } from "./stores/appearance-store";
 
 export function App() {
   const workspace = useWorkspaceViewState();
   const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
   const panes = useWorkspacePaneState();
   const platform = window.setta.app.platform;
+  const viewport = useViewportSize();
+  useAppearanceSettings();
   useBackendResyncStatus();
   const [maximizedPane, setMaximizedPane] = useState<MaximizedPane>(null);
-  const [projectPaneWidth, setProjectPaneWidth] = useState(220);
-  const [chatPaneWidth, setChatPaneWidth] = useState(360);
-  const [bottomPaneHeight, setBottomPaneHeight] = useState(288);
+  const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
+  const [chatPaneWidth, setChatPaneWidth] = useState(chatPaneDefaultWidth);
+  const [bottomPaneHeight, setBottomPaneHeight] = useState(bottomPaneDefaultHeight);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [chatPaneOpen, setChatPaneOpen] = useState(true);
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
+  const effectiveChatPaneWidth = compactChatPaneWidth(chatPaneWidth, viewport.width);
+  const effectiveBottomPaneHeight = compactBottomPaneHeight(bottomPaneHeight, viewport.height);
   const openChatSearch = useCallback(() => {
     setChatPaneOpen(true);
     setChatSearchOpen(true);
@@ -54,6 +76,7 @@ export function App() {
     maximizedPane,
     projectPaneOpen,
     rightPaneOpen: panes.right.open,
+    viewportWidth: viewport.width,
   });
   const maximizeTarget = topBarMaximizeTarget(visibility, maximizedPane);
   const toggleMaximizedPane = useCallback(
@@ -92,7 +115,7 @@ export function App() {
   }, [chatPaneOpen, maximizedPane, panes.bottom.open, panes.right.open]);
 
   return (
-    <div className="fixed inset-0 min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
+    <div className="fixed inset-0 min-h-0 overflow-hidden bg-background text-foreground">
       <AppChromeControls
         bottomPaneOpen={panes.bottom.open}
         chatPaneOpen={chatPaneOpen}
@@ -114,20 +137,20 @@ export function App() {
         setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
         toggleMaximizedPane={toggleMaximizedPane}
       />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
+      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background">
         <ProjectPane
           chromeInsetTop={visibility.project}
           chat={chat}
           open={visibility.project}
           openSettingsPane={openSettingsPane}
           setWidth={setProjectPaneWidth}
-          width={projectPaneWidth}
+          width={effectiveProjectPaneWidth}
           workspace={workspace}
         />
         <WorkspaceArea
-          bottomPaneHeight={bottomPaneHeight}
+          bottomPaneHeight={effectiveBottomPaneHeight}
           chat={chat}
-          chatPaneWidth={chatPaneWidth}
+          chatPaneWidth={effectiveChatPaneWidth}
           chatSearchOpen={chatSearchOpen}
           maximizedPane={maximizedPane}
           panes={panes}
@@ -153,55 +176,12 @@ function useBackendResyncStatus() {
   }, []);
 }
 
-type MaximizedPane = "bottom" | "chat" | "right" | null;
+function useAppearanceSettings() {
+  const loadAppearance = useAppearanceStore((state) => state.load);
 
-interface PaneVisibility {
-  bottom: boolean;
-  chat: boolean;
-  content: boolean;
-  project: boolean;
-  right: boolean;
-}
-
-function paneVisibility({
-  bottomPaneOpen,
-  chatPaneOpen,
-  maximizedPane,
-  projectPaneOpen,
-  rightPaneOpen,
-}: {
-  bottomPaneOpen: boolean;
-  chatPaneOpen: boolean;
-  maximizedPane: MaximizedPane;
-  projectPaneOpen: boolean;
-  rightPaneOpen: boolean;
-}): PaneVisibility {
-  const chat = panelIsVisible(chatPaneOpen, maximizedPane, "chat");
-  const right = panelIsVisible(rightPaneOpen, maximizedPane, "right");
-  const bottom = panelIsVisible(bottomPaneOpen, maximizedPane, "bottom");
-  return {
-    bottom,
-    chat,
-    content: contentPanelsAreVisible(maximizedPane, chat, right),
-    project: projectPaneIsVisible(projectPaneOpen, maximizedPane),
-    right,
-  };
-}
-
-function panelIsVisible(
-  open: boolean,
-  maximizedPane: MaximizedPane,
-  pane: NonNullable<MaximizedPane>,
-) {
-  return open && (maximizedPane === null || maximizedPane === pane);
-}
-
-function contentPanelsAreVisible(maximizedPane: MaximizedPane, chat: boolean, right: boolean) {
-  return maximizedPane !== "bottom" && (chat || right);
-}
-
-function projectPaneIsVisible(projectPaneOpen: boolean, maximizedPane: MaximizedPane) {
-  return projectPaneOpen || maximizedPane !== null;
+  useEffect(() => {
+    void loadAppearance();
+  }, [loadAppearance]);
 }
 
 function isMaximizedPaneOpen(
@@ -241,6 +221,25 @@ function usePanePresence(open: boolean) {
   }, [open]);
 
   return present;
+}
+
+function useViewportSize() {
+  const [size, setSize] = useState(() => ({
+    height: window.innerHeight,
+    width: window.innerWidth,
+  }));
+
+  useEffect(() => {
+    const handleResize = () =>
+      setSize({
+        height: window.innerHeight,
+        width: window.innerWidth,
+      });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return size;
 }
 
 function topBarMaximizeTarget(
@@ -299,13 +298,13 @@ function WorkspaceArea({
   return (
     <div
       className={cn(
-        "relative grid h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-900",
+        "relative grid h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background",
         workspaceAreaRows(maximizedPane),
       )}
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-10 z-40 h-px bg-zinc-800"
+        className="pointer-events-none absolute inset-x-0 top-10 z-40 h-px bg-muted"
       />
       {contentPresent ? (
         <WorkspaceContentRow
@@ -333,7 +332,7 @@ function WorkspaceArea({
             height={bottomPaneHeight}
             label="Resize bottom pane"
             maximized={maximizedPane === "bottom"}
-            minHeight={140}
+            minHeight={bottomPaneMinHeight}
             onHeightChange={setBottomPaneHeight}
           >
             <WorkspacePanePanel
@@ -385,7 +384,7 @@ function WorkspaceContentRow({
   return (
     <div
       className={cn(
-        "flex min-h-0 min-w-0 overflow-hidden bg-zinc-900",
+        "flex min-h-0 min-w-0 overflow-hidden bg-background",
         !visible && "pointer-events-none translate-y-2 opacity-0",
       )}
     >
@@ -405,12 +404,13 @@ function WorkspaceContentRow({
       {rightPresent ? (
         <div
           className={cn(
-            "h-full min-w-[360px] flex-1",
+            "h-full min-w-0 flex-1 basis-0",
             !visibility.right && "pointer-events-none translate-x-4 opacity-0",
           )}
         >
           <WorkspacePanePanel
             activeTabId={panes.right.activeTabId}
+            chromeInsetTop={!visibility.project && !visibility.chat}
             maximized={maximizedPane === "right"}
             onCloseTab={(tabId) => panes.closeTab("right", tabId)}
             onCreateTab={(kind) => panes.createTab("right", kind)}
@@ -450,8 +450,8 @@ function ProjectPane({
   return (
     <ResizablePane
       label="Resize project sidebar"
-      maxWidth={320}
-      minWidth={176}
+      maxWidth={projectPaneMaxWidth}
+      minWidth={projectPaneMinWidth}
       onWidthChange={setWidth}
       width={width}
     >
@@ -533,8 +533,8 @@ function ChatPane({
   return (
     <ResizablePane
       label="Resize chat"
-      maxWidth={560}
-      minWidth={300}
+      maxWidth={chatPaneMaxWidth}
+      minWidth={chatPaneMinWidth}
       onWidthChange={setWidth}
       width={width}
     >
@@ -632,7 +632,7 @@ function FloatingProjectPaneControl({
   return (
     <div
       className={cn(
-        "app-no-drag fixed top-1 z-50 text-zinc-500",
+        "app-no-drag fixed top-1 z-50 text-muted-foreground",
         floatingProjectControlLeftInsetClass(platform),
       )}
     >
@@ -680,8 +680,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
-          : "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
+          ? "inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 focus-visible:bg-accent/80"
+          : "inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground"
       }
       disabled={disabled}
       onClick={onClick}
@@ -719,7 +719,7 @@ function FloatingPaneControls({
   return (
     <div
       className={cn(
-        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-500",
+        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-muted-foreground",
         floatingControlsRightInsetClass(platform),
       )}
     >
@@ -775,8 +775,8 @@ function TopBarMaximizeButton({
       className={cn(
         "inline-flex h-7 w-7 items-center justify-center rounded-sm outline-none transition-[opacity,transform,background-color,color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         active
-          ? "text-zinc-300 hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
-          : "text-zinc-600 hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300",
+          ? "text-muted-foreground hover:bg-accent/80 focus-visible:bg-accent/80"
+          : "text-muted-foreground hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground",
       )}
       onClick={() => toggleMaximizedPane(maximizeTarget)}
       title={label}
@@ -868,11 +868,11 @@ export function WorkspacePanel({
 }) {
   const busy = operation !== null || status === "loading";
   return (
-    <div id="workspace" className="border-b border-zinc-200 bg-white p-2">
+    <div id="workspace" className="border-b border-border bg-card p-2">
       <div className="flex h-full items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-xs font-semibold text-zinc-950">Workspace</h2>
+            <h2 className="text-xs font-semibold text-foreground">Workspace</h2>
             {status === "loading" ? <Badge variant="neutral">Loading</Badge> : null}
             {operation ? <Badge variant="neutral">{operationLabel(operation)}</Badge> : null}
           </div>
@@ -880,7 +880,7 @@ export function WorkspacePanel({
             <div className="mt-3 min-w-0">
               <div className="truncate text-xs font-semibold">{selectedWorkspace.displayName}</div>
               <div
-                className="mt-1 truncate text-xs text-zinc-500"
+                className="mt-1 truncate text-xs text-muted-foreground"
                 data-testid="selected-workspace-path"
               >
                 {selectedWorkspace.rootPath}
@@ -902,7 +902,7 @@ export function WorkspacePanel({
           )}
           {error ? (
             <div
-              className="mt-2 max-w-3xl rounded-sm border border-zinc-400 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-950"
+              className="mt-2 max-w-3xl rounded-sm border border-border bg-card px-2 py-1.5 text-xs text-foreground"
               data-testid="workspace-error"
             >
               {error}

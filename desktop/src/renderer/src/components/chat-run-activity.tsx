@@ -56,23 +56,23 @@ const activityIconByType = {
 } satisfies Record<RunItemType, LucideIcon>;
 
 const activityIconClassByType = {
-  agent_message: "h-4 w-4 shrink-0 text-zinc-500",
-  approval_review: "h-4 w-4 shrink-0 text-amber-600",
-  collab_agent_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
-  command_execution: "h-4 w-4 shrink-0 text-zinc-500",
-  diff: "h-4 w-4 shrink-0 text-zinc-500",
-  dynamic_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
-  file_change: "h-4 w-4 shrink-0 text-zinc-500",
-  hook: "h-4 w-4 shrink-0 text-zinc-500",
-  image_generation: "h-4 w-4 shrink-0 text-zinc-500",
-  image_view: "h-4 w-4 shrink-0 text-zinc-500",
-  mcp_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
-  notice: "h-4 w-4 shrink-0 text-amber-600",
-  plan: "h-4 w-4 shrink-0 text-zinc-500",
-  reasoning: "h-4 w-4 shrink-0 text-zinc-500",
-  structured_input: "h-4 w-4 shrink-0 text-zinc-500",
-  terminal_interaction: "h-4 w-4 shrink-0 text-zinc-500",
-  web_search: "h-4 w-4 shrink-0 text-zinc-500",
+  agent_message: "h-4 w-4 shrink-0 text-muted-foreground",
+  approval_review: "h-4 w-4 shrink-0 text-status-warning",
+  collab_agent_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
+  command_execution: "h-4 w-4 shrink-0 text-muted-foreground",
+  diff: "h-4 w-4 shrink-0 text-muted-foreground",
+  dynamic_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
+  file_change: "h-4 w-4 shrink-0 text-muted-foreground",
+  hook: "h-4 w-4 shrink-0 text-muted-foreground",
+  image_generation: "h-4 w-4 shrink-0 text-muted-foreground",
+  image_view: "h-4 w-4 shrink-0 text-muted-foreground",
+  mcp_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
+  notice: "h-4 w-4 shrink-0 text-status-warning",
+  plan: "h-4 w-4 shrink-0 text-muted-foreground",
+  reasoning: "h-4 w-4 shrink-0 text-muted-foreground",
+  structured_input: "h-4 w-4 shrink-0 text-muted-foreground",
+  terminal_interaction: "h-4 w-4 shrink-0 text-muted-foreground",
+  web_search: "h-4 w-4 shrink-0 text-muted-foreground",
 } satisfies Record<RunItemType, string>;
 
 export function RunActivityRows({
@@ -94,7 +94,7 @@ export function RunActivityRows({
   outputsById: Record<string, RunItemOutput>;
 }) {
   return (
-    <div className="mt-3 w-full min-w-0 max-w-full overflow-hidden space-y-1.5 border-t border-zinc-800/80 pt-2.5">
+    <div className="mt-3 w-full min-w-0 max-w-full overflow-hidden space-y-1.5 border-t border-border/80 pt-2.5">
       {items.map((item) => (
         <RunActivityRow
           item={item}
@@ -127,7 +127,7 @@ function RunActivityRow({
   const outputText = outputPreview(outputs);
   return (
     <details
-      className="group relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-zinc-100"
+      className="group relative w-full min-w-0 max-w-full overflow-hidden rounded-sm text-xs text-foreground"
       data-testid="run-activity-row"
       onToggle={(event) => {
         if (!event.currentTarget.open || outputPage?.loading || outputPage) {
@@ -136,10 +136,10 @@ function RunActivityRow({
         void loadRunItemOutput(item.runId, item.id, 0);
       }}
     >
-      <summary className="flex h-6 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-zinc-300 marker:hidden">
+      <summary className="flex h-6 min-w-0 cursor-pointer list-none items-center gap-1.5 text-left text-xs text-muted-foreground marker:hidden">
         <ActivityIcon type={item.type} />
         <ToolDisclosureIcon />
-        <span className="min-w-0 flex-1 truncate font-medium text-zinc-300">
+        <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground">
           {activityTitle(item)}
         </span>
         <RunActivityStatus item={item} />
@@ -168,8 +168,8 @@ function RunActivityDetails({
   outputText: string;
 }) {
   return (
-    <div className="mt-1.5 w-full min-w-0 max-w-full overflow-hidden border-l border-zinc-700/70 pl-2">
-      <div className="w-full min-w-0 max-w-full overflow-hidden space-y-1.5 text-xs text-zinc-400">
+    <div className="mt-1.5 w-full min-w-0 max-w-full overflow-hidden border-l border-border/70 pl-2">
+      <div className="w-full min-w-0 max-w-full overflow-hidden space-y-1.5 text-xs text-muted-foreground">
         <RunActivityCwd cwd={item.cwd} />
         <RunActivityCommand command={item.command} />
         <RunActivityFiles paths={item.filePaths} />
@@ -221,7 +221,7 @@ function RunActivityMetadata({ item }: { item: RunItem }) {
     <div className="flex flex-wrap gap-1.5">
       {entries.map((entry) => (
         <span
-          className="max-w-full truncate rounded-sm border border-zinc-700 bg-zinc-950 px-2 py-0.5 font-mono text-zinc-300"
+          className="max-w-full truncate rounded-sm border border-border bg-popover px-2 py-0.5 font-mono text-muted-foreground"
           key={entry.label}
         >
           {entry.label}: {entry.value}
@@ -256,14 +256,14 @@ function RunActivityTextBlock({
   }
   return (
     <section className="min-w-0">
-      <h4 className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+      <h4 className="text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
         {title}
       </h4>
       <div
         className={cn(
-          "mt-0.5 break-words text-zinc-300",
+          "mt-0.5 break-words text-muted-foreground",
           monospace && "break-all font-mono",
-          tone === "error" && "font-medium text-red-400",
+          tone === "error" && "font-medium text-status-critical",
         )}
       >
         {value}
@@ -278,10 +278,10 @@ function RunActivityPreBlock({ title, value }: { title: string; value: string })
   }
   return (
     <section className="min-w-0">
-      <h4 className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+      <h4 className="text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
         {title}
       </h4>
-      <pre className="mt-1 max-h-32 w-full min-w-0 max-w-full overflow-auto whitespace-pre-wrap rounded-sm border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs leading-5 text-zinc-300">
+      <pre className="mt-1 max-h-32 w-full min-w-0 max-w-full overflow-auto whitespace-pre-wrap rounded-sm border border-border bg-popover p-2 font-mono text-xs leading-5 text-muted-foreground">
         {value}
       </pre>
     </section>
@@ -362,7 +362,7 @@ function RunActivityOutputError({
   if (!outputPage?.error) {
     return null;
   }
-  return <div className="font-medium text-red-400">{outputPage.error}</div>;
+  return <div className="font-medium text-status-critical">{outputPage.error}</div>;
 }
 
 function RunActivityOutputLoadMore({
@@ -377,7 +377,7 @@ function RunActivityOutputLoadMore({
   }
   return (
     <Button
-      className="border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+      className="border-border bg-background text-foreground hover:bg-accent"
       disabled={outputPage.loading}
       onClick={loadMoreOutput}
       type="button"
@@ -396,7 +396,7 @@ function RunActivityOutputLoading({
   if (!outputPage?.loading) {
     return null;
   }
-  return <BrailleSpinner className="text-zinc-500" label="Loading tool output" />;
+  return <BrailleSpinner className="text-muted-foreground" label="Loading tool output" />;
 }
 
 function ActivityIcon({ type }: { type: RunItemType }) {
@@ -407,17 +407,20 @@ function ActivityIcon({ type }: { type: RunItemType }) {
 function ToolDisclosureIcon() {
   return (
     <>
-      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-open:hidden" />
-      <ChevronUp className="hidden h-3.5 w-3.5 shrink-0 text-zinc-400 group-open:block" />
+      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-open:hidden" />
+      <ChevronUp className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground group-open:block" />
     </>
   );
 }
 
 function RunActivityStatus({ item }: { item: RunItem }) {
   return (
-    <span className="flex shrink-0 items-center gap-1 text-[11px] text-zinc-500">
+    <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
       {item.status === "running" || item.status === "pending" ? (
-        <BrailleSpinner className="text-zinc-500" label={`${activityTitle(item)} running`} />
+        <BrailleSpinner
+          className="text-muted-foreground"
+          label={`${activityTitle(item)} running`}
+        />
       ) : null}
       <span>{item.status}</span>
     </span>
