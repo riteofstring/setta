@@ -39,7 +39,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain("window.setta");
   });
 
-  test("renders the default chat pane grid", () => {
+  test("renders the niri fake-pane workspace inside the preserved shell", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
@@ -53,13 +53,16 @@ describe("workspace renderer states", () => {
 
     const html = renderToString(<App />);
 
-    expect(html).toContain('data-testid="workspace-pane-grid-shell"');
-    expect(html).toContain('data-testid="workspace-pane-grid"');
-    expect(rowCount(html, "workspace-pane-grid-cell")).toBe(1);
-    expect(html).toContain('data-testid="chat-pane-surface"');
-    expect(html).toContain("1/4");
-    expect(html).toContain("Add chat pane");
-    expect(html).toContain("Add settings pane");
+    expect(html).toContain('data-testid="shell-top-bar"');
+    expect(html).toContain('aria-label="Hide project sidebar"');
+    expect(html).toContain('data-testid="niri-workspace-area"');
+    expect(html).toContain('data-testid="niri-presentation-engine"');
+    expect(rowCount(html, "niri-fake-pane-host")).toBe(40);
+    expect(html).toContain('data-pane-count="500"');
+    expect(html).toContain('data-testid="niri-benchmark-status"');
+    expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
+    expect(html).not.toContain('data-testid="chat-pane-surface"');
+    expect(html).not.toContain('data-testid="settings-pane-surface"');
     expect(html).toContain("bg-background");
   });
 
