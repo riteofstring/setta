@@ -38,6 +38,9 @@ Terminal as separate Niri surface kinds.
   and `internal/terminal` PTY sessions owned by Go.
 - Phase 2 is complete: session lifecycle, replay, buffering, process cleanup,
   renderer reload behavior, lost-session state, and close confirmation.
+- Phase 3 is ready to implement: the lifecycle prerequisites are in place, and
+  the next work should focus on daily terminal ergonomics without turning into
+  full profile storage.
 
 ## Current State
 
@@ -53,6 +56,11 @@ resize, attach to an existing running session by `workspaceId` and `paneId`,
 replay bounded detached output, report buffer truncation, clean up Unix process
 groups, escalate terminate to kill, recover renderer reloads, show lost-session
 state on backend loss, and confirm active terminal close actions.
+
+Phase 3 should start with behavior at the app/terminal boundary: focus,
+keybindings, copy/paste, and large paste handling. After that, add search and
+safe web links. Theme, font, and scrollback work should stay lightweight in
+Phase 3; profile persistence and per-pane profile selection remain Phase 4.
 
 ## Design Decisions
 
@@ -683,18 +691,38 @@ Definition of done:
 
 ### Phase 3: Terminal Ergonomics
 
+Status: ready to implement.
+
 Goal: make the embedded terminal usable as a daily terminal.
+
+Recommended order:
+
+1. Focus/keybinding boundary so terminal shortcuts reach the PTY.
+2. Copy/paste policy, paste chunking, and large paste warning.
+3. Search addon.
+4. Safe web links addon.
+5. Lightweight theme, font, and scrollback settings.
+6. Accessibility review.
+
+Scope notes:
+
+- Safe web links should route through the existing
+  `window.setta.app.openExternalUrl` preload/main IPC path so URL validation and
+  external opening stay outside the renderer.
+- Do not introduce full profile storage in Phase 3. Persistent profile
+  creation, per-pane selected profiles, shell args, env overrides, and cwd modes
+  belong to Phase 4.
 
 Tasks:
 
+- Focus/keybinding layer so terminal shortcuts reach the PTY.
+- Copy/paste policy.
+- Paste chunking and large paste warning.
 - Search addon.
 - Safe web links addon.
 - Theme settings.
 - Font settings.
 - Scrollback setting.
-- Copy/paste policy.
-- Paste chunking and large paste warning.
-- Focus/keybinding layer so terminal shortcuts reach the PTY.
 - Accessibility review.
 
 Definition of done:
@@ -702,6 +730,10 @@ Definition of done:
 - Common TUIs work: `vim`, `less`, `top`, `tmux`, `fzf`.
 - Copy/paste follows platform conventions.
 - App navigation shortcuts do not break normal shell/editor usage.
+- Large paste handling is bounded, visible to the user, and does not freeze the
+  renderer.
+- Search works on current terminal scrollback.
+- Web links open only through the safe external URL IPC path.
 
 ### Phase 4: Profiles
 
