@@ -14,6 +14,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
+	"setta/internal/orchestrator"
 )
 
 type contractSpec struct {
@@ -137,6 +138,9 @@ func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContract
 func contractValueSets() []chat.ContractValueSet {
 	sets := chat.ContractValueSets()
 	for _, set := range codexaccount.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
+	for _, set := range orchestrator.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	return sets

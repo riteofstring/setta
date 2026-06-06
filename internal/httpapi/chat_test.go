@@ -15,6 +15,7 @@ import (
 
 	"setta/internal/appstate"
 	"setta/internal/chat"
+	"setta/internal/orchestrator"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -559,10 +560,19 @@ func newChatHandlerWithAppDataDir(t *testing.T, events []chat.FakeHarnessEvent) 
 	if err != nil {
 		t.Fatalf("new chat service: %v", err)
 	}
+	workflowStore, err := orchestrator.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new workflow store: %v", err)
+	}
+	workflowService, err := orchestrator.NewService(workflowStore, workspaceService)
+	if err != nil {
+		t.Fatalf("new workflow service: %v", err)
+	}
 	return NewHandler(HandlerConfig{
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,
+		WorkflowService:  workflowService,
 	}), appDataDir
 }
 

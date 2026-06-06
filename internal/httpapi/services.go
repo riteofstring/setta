@@ -6,6 +6,7 @@ import (
 
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
+	"setta/internal/orchestrator"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -53,11 +54,26 @@ type CodexAccountService interface {
 	StartLogin(context.Context, codexaccount.StartCodexLoginRequest) (codexaccount.StartCodexLoginResponse, error)
 }
 
+type WorkflowService interface {
+	CancelExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
+	CreateDefinition(workspaceID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
+	DeleteDefinition(workspaceID string, definitionID string) error
+	ListDefinitions(workspaceID string) ([]orchestrator.WorkflowDefinition, error)
+	ReadDefinition(workspaceID string, definitionID string) (orchestrator.WorkflowDefinition, error)
+	ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
+	ReadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (orchestrator.WorkflowExecutionEventPage, error)
+	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
+	SubscribeEvents() *orchestrator.EventSubscription
+	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
+	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
+}
+
 type HandlerConfig struct {
 	Metadata            BackendMetadata
 	ChatService         ChatService
 	CodexAccountService CodexAccountService
 	WorkspaceService    WorkspaceService
+	WorkflowService     WorkflowService
 }
 
 type handler struct {
@@ -65,6 +81,7 @@ type handler struct {
 	chatService         ChatService
 	codexAccountService CodexAccountService
 	workspaceService    WorkspaceService
+	workflowService     WorkflowService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
@@ -73,6 +90,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		chatService:         config.ChatService,
 		codexAccountService: config.CodexAccountService,
 		workspaceService:    config.WorkspaceService,
+		workflowService:     config.WorkflowService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)

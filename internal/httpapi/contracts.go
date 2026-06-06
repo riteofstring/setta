@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"setta/internal/chat"
+	"setta/internal/orchestrator"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -175,6 +176,71 @@ type SubmitApprovalRequest struct {
 	Response       string                `json:"response"`
 	Answers        []chat.ApprovalAnswer `json:"answers"`
 	Cancelled      bool                  `json:"cancelled"`
+}
+
+type ListWorkflowDefinitionsRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type ListWorkflowDefinitionsResponse struct {
+	Definitions []orchestrator.WorkflowDefinition `json:"definitions"`
+}
+
+type CreateWorkflowDefinitionRequest struct {
+	WorkspaceID string                     `json:"workspaceId"`
+	Name        string                     `json:"name"`
+	Description string                     `json:"description"`
+	Graph       orchestrator.WorkflowGraph `json:"graph"`
+}
+
+type ReadWorkflowDefinitionRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	DefinitionID string `json:"definitionId"`
+}
+
+type UpdateWorkflowDefinitionRequest struct {
+	WorkspaceID  string                     `json:"workspaceId"`
+	DefinitionID string                     `json:"definitionId"`
+	Name         string                     `json:"name"`
+	Description  string                     `json:"description"`
+	Graph        orchestrator.WorkflowGraph `json:"graph"`
+}
+
+type DeleteWorkflowDefinitionRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	DefinitionID string `json:"definitionId"`
+}
+
+type DeleteWorkflowDefinitionResponse struct {
+	Deleted bool `json:"deleted"`
+}
+
+type ValidateWorkflowDefinitionRequest struct {
+	WorkspaceID string                     `json:"workspaceId"`
+	Graph       orchestrator.WorkflowGraph `json:"graph"`
+}
+
+type StartWorkflowExecutionRequest struct {
+	WorkspaceID  string `json:"workspaceId"`
+	DefinitionID string `json:"definitionId"`
+	VersionID    string `json:"versionId"`
+}
+
+type CancelWorkflowExecutionRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	ExecutionID string `json:"executionId"`
+}
+
+type ReadWorkflowExecutionRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	ExecutionID string `json:"executionId"`
+}
+
+type GetWorkflowExecutionEventsRequest struct {
+	WorkspaceID   string `json:"workspaceId"`
+	ExecutionID   string `json:"executionId"`
+	BeforeOrdinal int    `json:"beforeOrdinal"`
+	Limit         int    `json:"limit"`
 }
 
 type APIError struct {

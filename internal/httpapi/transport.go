@@ -9,6 +9,7 @@ import (
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/jsonio"
+	"setta/internal/orchestrator"
 	"setta/internal/workspace"
 )
 
@@ -31,6 +32,14 @@ func requireChatService(response http.ResponseWriter, service ChatService) ChatS
 func requireCodexAccountService(response http.ResponseWriter, service CodexAccountService) CodexAccountService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "codex_account_service_unavailable", "Codex account service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireWorkflowService(response http.ResponseWriter, service WorkflowService) WorkflowService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "workflow_service_unavailable", "workflow service is not available")
 		return nil
 	}
 	return service
@@ -86,6 +95,23 @@ func writeChatError(response http.ResponseWriter, code string, err error) {
 
 func writeCodexAccountError(response http.ResponseWriter, code string, err error) {
 	writeError(response, http.StatusBadRequest, code, err.Error())
+}
+
+func writeWorkflowError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	var validationErr *orchestrator.ValidationError
+	if errors.As(err, &validationErr) {
+		writeError(response, status, "workflow_validation_failed", validationErr.Error())
+		return
+	}
+	if orchestrator.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_workflow_state", err.Error())
+		return
+	}
+	if orchestrator.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
 }
 
 func writeError(response http.ResponseWriter, status int, code string, message string) {
