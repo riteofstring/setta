@@ -246,10 +246,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
     app: {
-      flags: {
-        pixiWorkspaceDebug: false,
-        pixiWorkspacePrototype: false,
-      },
       installedEditors: async () => [],
       openExternalUrl: async () => {},
       openWorkspaceInEditor: async () => {},

@@ -29,6 +29,7 @@ type CodexHarness struct {
 }
 
 type codexActiveTurn struct {
+	request  TurnRequest
 	session  *codexapp.Session
 	threadID string
 	turnID   string
@@ -68,6 +69,9 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 	if len(config.Args) == 0 {
 		config.Args = []string{"app-server", "--listen", "stdio://"}
 	}
+	if config.Tools == nil {
+		config.Tools = mustNewSettaAgentToolRegistry()
+	}
 	manager := config.Manager
 	if manager == nil {
 		manager = codexapp.NewManager(codexapp.ManagerConfig{
@@ -102,7 +106,7 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	session.AcceptUnscopedNotifications()
 	session.AcceptUnscopedRequests()
 	defer session.Close()
-	harness.registerActive(request.Run.ID, session)
+	harness.registerActive(request.Run.ID, session, request)
 	defer harness.unregisterActive(request.Run.ID)
 
 	threadID, err := harness.startOrResumeThread(ctx, session, request)
@@ -367,14 +371,7 @@ func CodexInitializeParams(config CodexHarnessConfig) map[string]any {
 
 func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *codexapp.Session, request TurnRequest) (string, error) {
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, map[string]any{
-			"approvalPolicy":        "on-request",
-			"approvalsReviewer":     "user",
-			"cwd":                   request.Workspace.RootPath,
-			"excludeTurns":          true,
-			"runtimeWorkspaceRoots": []string{request.Workspace.RootPath},
-			"threadId":              request.ThreadRef.ThreadID,
-		})
+		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, codexThreadResumeParams(request.Workspace.RootPath, request.ThreadRef.ThreadID))
 		if err != nil {
 			return "", &HarnessRefUnavailableError{
 				Err:      err,
@@ -395,12 +392,11 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 		return threadID, nil
 	}
 
-	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, map[string]any{
-		"approvalPolicy":        "on-request",
-		"approvalsReviewer":     "user",
-		"cwd":                   request.Workspace.RootPath,
-		"runtimeWorkspaceRoots": []string{request.Workspace.RootPath},
-	})
+	params, err := harness.codexThreadStartParams(request.Workspace.RootPath)
+	if err != nil {
+		return "", err
+	}
+	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, params)
 	if err != nil {
 		return "", fmt.Errorf("start codex thread: %w", err)
 	}
@@ -477,10 +473,10 @@ func (harness *CodexHarness) handleCodexServerRequest(ctx context.Context, messa
 	return sink.ApprovalRequested(approval)
 }
 
-func (harness *CodexHarness) registerActive(runID string, session *codexapp.Session) {
+func (harness *CodexHarness) registerActive(runID string, session *codexapp.Session, request TurnRequest) {
 	harness.mu.Lock()
 	defer harness.mu.Unlock()
-	harness.active[runID] = &codexActiveTurn{session: session}
+	harness.active[runID] = &codexActiveTurn{request: request, session: session}
 }
 
 func (harness *CodexHarness) updateActiveTurn(runID string, threadID string, turnID string) {
