@@ -110,7 +110,113 @@ describe("real niri workspace scene", () => {
     expect(restored.scene.columns[1]?.paneIds).toEqual([paneId]);
     expect(restored.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
   });
+
+  test("drops stored columns that reference missing pane metadata", () => {
+    const storage = createMemoryStorage();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { localStorage: storage },
+    });
+    const storageKey = "setta:niri-workspace:corrupt";
+    storage.setItem(
+      storageKey,
+      JSON.stringify({
+        columns: [
+          storedColumn("workspace_column_0", ["workspace_pane_0"]),
+          storedColumn("missing_column", ["missing_pane"]),
+        ],
+        focusedPaneId: "missing_pane",
+        panes: [
+          {
+            columnId: "stale_column",
+            heat: 0,
+            paneId: "workspace_pane_0",
+            sequence: 0,
+            subtitle: "Repo",
+            surfaceId: "workspace_surface_0",
+            surfaceKind: "chat-dom",
+            title: "Chat",
+            tone: "cyan",
+            weight: 1,
+          },
+        ],
+        version: 4,
+      }),
+    );
+
+    const restored = createRealWorkspaceScene({
+      storageKey,
+      workspaceName: "Ignored after restore",
+    });
+
+    expect(restored.focusedPaneId).toBe("workspace_pane_0");
+    expect(restored.scene.columns).toHaveLength(1);
+    expect(restored.scene.columns[0]?.paneIds).toEqual(["workspace_pane_0"]);
+    expect(restored.scene.paneById.has("missing_pane")).toBe(false);
+    expect(restored.scene.paneById.get("workspace_pane_0")?.columnId).toBe("workspace_column_0");
+  });
+
+  test("deduplicates restored surface ids before creating presentation adapters", () => {
+    const storage = createMemoryStorage();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { localStorage: storage },
+    });
+    const storageKey = "setta:niri-workspace:duplicate-surfaces";
+    storage.setItem(
+      storageKey,
+      JSON.stringify({
+        columns: [
+          storedColumn("workspace_column_0", ["workspace_pane_0"]),
+          storedColumn("workspace_column_1", ["workspace_pane_1"]),
+        ],
+        focusedPaneId: "workspace_pane_1",
+        panes: [
+          storedPane("workspace_pane_0", "workspace_column_0", "workspace_surface_0", "Chat"),
+          storedPane("workspace_pane_1", "workspace_column_1", "workspace_surface_0", "Browser"),
+        ],
+        version: 4,
+      }),
+    );
+
+    const restored = createRealWorkspaceScene({
+      storageKey,
+      workspaceName: "Ignored after restore",
+    });
+    const surfaceIds = restored.scene.panes.map((pane) => pane.surfaceId);
+
+    expect(new Set(surfaceIds).size).toBe(2);
+    expect(restored.scene.paneById.get("workspace_pane_1")?.surfaceId).toBe(
+      "workspace_surface_0_workspace_pane_1",
+    );
+  });
 });
+
+function storedColumn(columnId: string, paneIds: string[]) {
+  return {
+    columnId,
+    idealWidthSpec: { unit: "px", value: 520 },
+    index: 0,
+    paneIds,
+    planeIndex: 0,
+    widthSpec: { unit: "px", value: 520 },
+  };
+}
+
+function storedPane(paneId: string, columnId: string, surfaceId: string, title: string) {
+  return {
+    columnId,
+    heat: 0,
+    paneId,
+    sequence: 0,
+    subtitle: "Repo",
+    surfaceId,
+    surfaceKind: "chat-dom",
+    title,
+    tone: "cyan",
+    weight: 1,
+  };
+}
 
 function createMemoryStorage(): Storage {
   const entries = new Map<string, string>();

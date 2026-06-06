@@ -39,6 +39,7 @@ const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
 const surfaceRuntimeCategories = {
   browser: "browser",
   "chat-dom": "heavy-dom",
+  "empty-frame": "always-live",
   "fake-canvas": "canvas",
   "fake-dom": "always-live",
   "fake-heavy-dom": "heavy-dom",

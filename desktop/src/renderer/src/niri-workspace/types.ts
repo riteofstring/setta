@@ -5,6 +5,7 @@ export type SurfaceId = string;
 export type SurfaceKind =
   | "browser"
   | "chat-dom"
+  | "empty-frame"
   | "fake-canvas"
   | "fake-dom"
   | "fake-heavy-dom"
@@ -198,6 +199,7 @@ export interface PaneRuntimeSummary {
 
 export interface LayoutEngine {
   closePane(paneId: PaneId): void;
+  configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId;
   lockColumnWidth(columnId: ColumnId, viewportWidth: number): void;
   moveFocus(direction: "up" | "down" | "left" | "right"): void;
   movePane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): void;

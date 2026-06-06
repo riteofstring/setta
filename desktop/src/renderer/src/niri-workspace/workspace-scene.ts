@@ -12,6 +12,21 @@ const realWorkspaceVisibleColumnCount = 3;
 const realWorkspaceStorageVersion = 4;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
+const paneSurfaceKinds = [
+  "browser",
+  "chat-dom",
+  "empty-frame",
+  "fake-canvas",
+  "fake-dom",
+  "fake-heavy-dom",
+  "fake-long-chat",
+  "git-graph",
+  "pixi-canvas",
+  "settings-dom",
+  "snapshot",
+  "terminal",
+] satisfies SurfaceKind[];
+const paneTones = ["cyan", "green", "orange", "pink", "slate"] satisfies Array<NiriPane["tone"]>;
 export const defaultRealWorkspacePaneLimits = {
   browser: 10,
   "chat-dom": 10,
@@ -54,14 +69,15 @@ export function createRealWorkspaceScene({
 }: RealWorkspaceSceneOptions): RealWorkspaceSceneResult {
   const stored = readStoredWorkspaceLayout(storageKey);
   if (stored) {
+    const scene = sceneFromPanesAndColumns(storageKey, stored.panes, stored.columns);
     return {
-      focusedPaneId: stored.focusedPaneId,
-      scene: sceneFromPanesAndColumns(storageKey, stored.panes, stored.columns),
+      focusedPaneId: focusedPaneIdForScene(scene, stored.focusedPaneId),
+      scene,
     };
   }
   const scene = createDefaultRealWorkspaceScene(storageKey, workspaceName);
   return {
-    focusedPaneId: scene.columns[0]?.paneIds[0] ?? scene.panes[0]?.paneId ?? "",
+    focusedPaneId: focusedPaneIdForScene(scene),
     scene,
   };
 }
@@ -225,7 +241,21 @@ function sceneFromPanesAndColumns(
   panes: readonly NiriPane[],
   columns: readonly NiriColumn[],
 ): NiriWorkspaceScene {
+  const storedPanes = panes.map((pane) => ({ ...pane }));
+  const storedPaneById = new Map(storedPanes.map((pane) => [pane.paneId, pane]));
+  const ownerColumnByPaneId = new Map<PaneId, string>();
+  const usedSurfaceIds = new Set<string>();
   const normalizedColumns = columns
+    .map((column) => {
+      const paneIds = column.paneIds.filter((paneId) => storedPaneById.has(paneId));
+      for (const paneId of paneIds) {
+        ownerColumnByPaneId.set(paneId, column.columnId);
+      }
+      return {
+        ...column,
+        paneIds,
+      };
+    })
     .filter((column) => column.paneIds.length > 0)
     .map((column, index) => ({
       ...column,
@@ -235,7 +265,13 @@ function sceneFromPanesAndColumns(
       planeIndex: column.planeIndex,
       widthSpec: { ...column.widthSpec },
     }));
-  const normalizedPanes = panes.map((pane) => ({ ...pane }));
+  const normalizedPanes = storedPanes
+    .filter((pane) => ownerColumnByPaneId.has(pane.paneId))
+    .map((pane) => ({
+      ...pane,
+      columnId: ownerColumnByPaneId.get(pane.paneId) ?? pane.columnId,
+      surfaceId: uniqueSurfaceId(pane, usedSurfaceIds),
+    }));
   return {
     columnGap: 8,
     columns: normalizedColumns,
@@ -254,6 +290,29 @@ function sceneFromPanesAndColumns(
       Math.max(1, normalizedColumns.length),
     ),
   };
+}
+
+function focusedPaneIdForScene(scene: NiriWorkspaceScene, preferredPaneId?: PaneId): PaneId {
+  if (preferredPaneId && scene.paneById.has(preferredPaneId)) {
+    return preferredPaneId;
+  }
+  return scene.columns[0]?.paneIds[0] ?? scene.panes[0]?.paneId ?? "";
+}
+
+function uniqueSurfaceId(pane: NiriPane, usedSurfaceIds: Set<string>): string {
+  if (!usedSurfaceIds.has(pane.surfaceId)) {
+    usedSurfaceIds.add(pane.surfaceId);
+    return pane.surfaceId;
+  }
+  const base = `${pane.surfaceId}_${pane.paneId}`;
+  let candidate = base;
+  let suffix = 1;
+  while (usedSurfaceIds.has(candidate)) {
+    candidate = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  usedSurfaceIds.add(candidate);
+  return candidate;
 }
 
 function readStoredWorkspaceLayout(storageKey: string): StoredWorkspaceLayout | null {
@@ -289,7 +348,45 @@ function isStoredWorkspaceLayout(value: unknown): value is StoredWorkspaceLayout
     typeof candidate.focusedPaneId === "string" &&
     Array.isArray(candidate.columns) &&
     Array.isArray(candidate.panes) &&
-    candidate.columns.every(isStoredColumn)
+    candidate.columns.every(isStoredColumn) &&
+    candidate.panes.every(isStoredPane)
+  );
+}
+
+function isStoredPane(value: unknown): value is NiriPane {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<NiriPane>;
+  return (
+    hasStoredPaneIdentity(candidate) &&
+    hasStoredPaneContent(candidate) &&
+    hasStoredPaneSizing(candidate)
+  );
+}
+
+function hasStoredPaneIdentity(candidate: Partial<NiriPane>): boolean {
+  return (
+    typeof candidate.columnId === "string" &&
+    typeof candidate.paneId === "string" &&
+    typeof candidate.surfaceId === "string"
+  );
+}
+
+function hasStoredPaneContent(candidate: Partial<NiriPane>): boolean {
+  return (
+    typeof candidate.subtitle === "string" &&
+    isSurfaceKind(candidate.surfaceKind) &&
+    typeof candidate.title === "string" &&
+    isPaneTone(candidate.tone)
+  );
+}
+
+function hasStoredPaneSizing(candidate: Partial<NiriPane>): boolean {
+  return (
+    isFiniteNumber(candidate.heat) &&
+    isFiniteNumber(candidate.sequence) &&
+    isFiniteNumber(candidate.weight)
   );
 }
 
@@ -319,4 +416,16 @@ function isColumnWidthSpec(value: unknown): value is ColumnWidthSpec {
     Number.isFinite(candidate.value) &&
     candidate.value > 0
   );
+}
+
+function isSurfaceKind(value: unknown): value is SurfaceKind {
+  return typeof value === "string" && paneSurfaceKinds.includes(value as SurfaceKind);
+}
+
+function isPaneTone(value: unknown): value is NiriPane["tone"] {
+  return typeof value === "string" && paneTones.includes(value as NiriPane["tone"]);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }

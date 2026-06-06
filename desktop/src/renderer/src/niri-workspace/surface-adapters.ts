@@ -42,6 +42,15 @@ const browserFrameLoop: FrameLoop = {
   },
 };
 
+export interface EmptyFrameOption {
+  disabled?: boolean;
+  label: string;
+  meta?: string;
+  surfaceKind: SurfaceKind;
+}
+
+export type EmptyFrameOptionsProvider = () => readonly EmptyFrameOption[];
+
 class FakeDomSurfaceAdapter implements SurfaceAdapter {
   readonly kind: SurfaceKind = "fake-dom";
   protected host: HTMLElement | null = null;
@@ -142,6 +151,26 @@ class FakeDomSurfaceAdapter implements SurfaceAdapter {
     this.host.dataset.surfaceVisible = String(this.visible);
     this.host.dataset.surfaceFocused = String(this.focused);
     this.host.style.visibility = this.visible ? "visible" : "hidden";
+  }
+}
+
+export class EmptyFrameSurfaceAdapter extends FakeDomSurfaceAdapter {
+  override readonly kind = "empty-frame" satisfies SurfaceKind;
+
+  constructor(
+    pane: NiriPane,
+    private readonly optionsProvider: EmptyFrameOptionsProvider = () => [],
+  ) {
+    super(pane);
+  }
+
+  override mount(host: HTMLElement): void {
+    this.ensureNotDestroyed();
+    this.host = host;
+    host.dataset.surfaceId = this.surfaceId;
+    host.dataset.surfaceKind = this.kind;
+    host.replaceChildren(renderEmptyFrameContent(host, this.pane, this.optionsProvider()));
+    this.syncHostState();
   }
 }
 
@@ -711,6 +740,7 @@ export function createDefaultSurfaceAdapter(pane: NiriPane): SurfaceAdapter {
 const defaultSurfaceAdapterFactories = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
   "chat-dom": createReactDomSurfaceAdapter,
+  "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-canvas": (pane) => new FakeCanvasSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
@@ -770,6 +800,55 @@ function renderFakePaneContent(host: HTMLElement, pane: NiriPane, rowCount: numb
   }
 
   content.append(header, meter, rows);
+  return content;
+}
+
+function renderEmptyFrameContent(
+  host: HTMLElement,
+  pane: NiriPane,
+  options: readonly EmptyFrameOption[],
+): HTMLElement {
+  const document = host.ownerDocument;
+  const content = document.createElement("div");
+  content.className = "niri-pane-content niri-empty-frame-surface";
+  content.dataset.niriSurfaceContent = "true";
+
+  const header = document.createElement("div");
+  header.className = "niri-empty-frame-header";
+  const title = document.createElement("h2");
+  title.dataset.niriPaneTitle = "";
+  title.textContent = pane.title;
+  const subtitle = document.createElement("p");
+  subtitle.dataset.niriPaneSubtitle = "";
+  subtitle.textContent = pane.subtitle;
+  header.append(title, subtitle);
+
+  const actions = document.createElement("div");
+  actions.className = "niri-empty-frame-actions";
+  actions.setAttribute("aria-label", "Create pane in this frame");
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.className = "niri-empty-frame-action";
+    button.dataset.niriEmptyFrameAction = "true";
+    button.dataset.surfaceKind = option.surfaceKind;
+    button.disabled = option.disabled ?? false;
+    button.type = "button";
+    button.title = button.disabled ? `${option.label} limit reached` : option.label;
+
+    const label = document.createElement("span");
+    label.className = "niri-empty-frame-action-label";
+    label.textContent = option.label;
+    button.append(label);
+    if (option.meta) {
+      const meta = document.createElement("span");
+      meta.className = "niri-empty-frame-action-meta";
+      meta.textContent = option.meta;
+      button.append(meta);
+    }
+    actions.append(button);
+  }
+
+  content.append(header, actions);
   return content;
 }
 
@@ -871,6 +950,7 @@ type StaticSnapshotRenderer = (host: HTMLElement, pane: NiriPane) => HTMLElement
 const staticSnapshotRenderers = {
   browser: renderWrappedStaticBrowserSnapshot,
   "chat-dom": renderWrappedGenericSnapshot,
+  "empty-frame": renderWrappedEmptyFrameSnapshot,
   "fake-canvas": renderWrappedFakeCanvasSnapshot,
   "fake-dom": renderWrappedGenericSnapshot,
   "fake-heavy-dom": renderWrappedGenericSnapshot,
@@ -889,6 +969,10 @@ function renderWrappedStaticBrowserSnapshot(host: HTMLElement, pane: NiriPane): 
 function renderWrappedGenericSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
   const rowCount = pane.surfaceKind === "terminal" ? 12 : 4;
   return wrapStaticSnapshotTexture(host, renderFakePaneContent(host, pane, rowCount));
+}
+
+function renderWrappedEmptyFrameSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+  return wrapStaticSnapshotTexture(host, renderEmptyFrameContent(host, pane, []));
 }
 
 function renderWrappedFakeCanvasSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {

@@ -7,7 +7,14 @@ import {
 } from "./benchmark-scene";
 import { NiriLikeLayoutEngine } from "./layout-engine";
 import { NiriLayoutStore } from "./layout-store";
-import type { PaneRenderItem, PaneRuntimeState, Rect, SurfaceId, SurfaceKind } from "./types";
+import type {
+  NiriWorkspaceScene,
+  PaneRenderItem,
+  PaneRuntimeState,
+  Rect,
+  SurfaceId,
+  SurfaceKind,
+} from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
 const viewport: Rect = {
@@ -224,6 +231,18 @@ describe("real niri workspace column sizing", () => {
     expect(new Set(paneIdsInColumns).size).toBe(updatedScene.panes.length);
     expect(paneIdsInColumns).toContain("workspace_pane_0");
     expect(paneIdsInColumns).toContain(stackedPaneId);
+  });
+
+  test("opens after the highest existing generated pane suffix in sparse scenes", () => {
+    const engine = new NiriLikeLayoutEngine(createSparseGeneratedPaneScene());
+
+    const paneId = engine.openPane({
+      surfaceKind: "terminal",
+      title: "Build",
+    });
+
+    expect(paneId).toBe("niri_pane_9");
+    expect(engine.toScene().paneById.get(paneId)?.surfaceId).toBe("niri_surface_9");
   });
 
   test("overview renders the whole real workspace as scaled columns", () => {
@@ -453,4 +472,66 @@ function createRealEngine(): NiriLikeLayoutEngine {
     workspaceName: "Repo",
   });
   return new NiriLikeLayoutEngine(scene);
+}
+
+function createSparseGeneratedPaneScene(): NiriWorkspaceScene {
+  const panes = [
+    {
+      columnId: "workspace_column_0",
+      heat: 0,
+      paneId: "workspace_pane_0",
+      sequence: 0,
+      subtitle: "Repo",
+      surfaceId: "workspace_surface_0",
+      surfaceKind: "chat-dom",
+      title: "Chat",
+      tone: "cyan",
+      weight: 1,
+    },
+    {
+      columnId: "niri_column_8",
+      heat: 0,
+      paneId: "niri_pane_8",
+      sequence: 8,
+      subtitle: "Old",
+      surfaceId: "niri_surface_8",
+      surfaceKind: "chat-dom",
+      title: "Old Chat",
+      tone: "cyan",
+      weight: 1,
+    },
+  ] satisfies NiriWorkspaceScene["panes"];
+  const columns = [
+    {
+      columnId: "workspace_column_0",
+      idealWidthSpec: { unit: "px", value: 520 },
+      index: 0,
+      paneIds: ["workspace_pane_0"],
+      planeIndex: 0,
+      widthSpec: { unit: "px", value: 520 },
+    },
+    {
+      columnId: "niri_column_8",
+      idealWidthSpec: { unit: "px", value: 520 },
+      index: 1,
+      paneIds: ["niri_pane_8"],
+      planeIndex: 0,
+      widthSpec: { unit: "px", value: 520 },
+    },
+  ] satisfies NiriWorkspaceScene["columns"];
+  return {
+    columnGap: 8,
+    columns,
+    defaultColumnWidthSpec: { unit: "px", value: 520 },
+    id: "sparse-generated-pane-scene",
+    paneById: new Map(panes.map((pane) => [pane.paneId, pane])),
+    panes,
+    panesPerColumn: 1,
+    padding: 10,
+    renderOverscanColumns: 2,
+    rowGap: 8,
+    targetVisiblePanes: panes.length,
+    totalPanes: panes.length,
+    visibleColumnCount: 2,
+  };
 }

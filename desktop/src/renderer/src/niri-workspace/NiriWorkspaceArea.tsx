@@ -42,7 +42,11 @@ import {
 } from "./performance-report";
 import { PresentationEngine } from "./presentation-engine";
 import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
-import { createDefaultSurfaceAdapter } from "./surface-adapters";
+import {
+  createDefaultSurfaceAdapter,
+  EmptyFrameSurfaceAdapter,
+  type EmptyFrameOption,
+} from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
 import {
   createNiriTrackpadNavigationState,
@@ -180,30 +184,13 @@ export function NiriWorkspaceArea({
         state: trackpadNavigationRef.current,
         viewportProvider: stageViewport,
       });
-    const handleClick = (event: MouseEvent) => {
-      if (
-        runtime.mode !== "workspace" ||
-        runtime.store.getSnapshot().presentationMode === "overview" ||
-        !(event.target instanceof Element)
-      ) {
-        return;
-      }
-      const button = event.target.closest<HTMLButtonElement>(
-        '.niri-pane-maximize-button[data-niri-pane-maximize-button="true"]',
-      );
-      if (!button) {
-        return;
-      }
-      const host = button.closest<HTMLElement>('[data-testid="niri-fake-pane-host"]');
-      const paneId = button.dataset.paneId ?? host?.dataset.paneId;
-      if (!paneId) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      scheduler.pauseBenchmark();
-      runLayoutAction(() => runtime.store.togglePaneMaximized(paneId));
-    };
+    const handleClick = (event: MouseEvent) =>
+      handleNiriWorkspaceClick({
+        event,
+        runLayoutAction,
+        runtime,
+        scheduler,
+      });
     const handlePointerDown = (event: PointerEvent) => {
       if (
         runtime.mode !== "workspace" ||
@@ -353,6 +340,99 @@ function niriBenchmarkShouldRun(mode: NiriSceneMode): boolean {
   return mode === "benchmark" && niriAutoBenchmarkEnabled();
 }
 
+function handleNiriWorkspaceClick({
+  event,
+  runLayoutAction,
+  runtime,
+  scheduler,
+}: {
+  event: MouseEvent;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+  scheduler: FrameScheduler;
+}): void {
+  if (!canHandleWorkspacePaneClick(event, runtime)) {
+    return;
+  }
+  if (handleEmptyFrameActionClick({ event, runLayoutAction, runtime, scheduler })) {
+    return;
+  }
+  handlePaneMaximizeClick({ event, runLayoutAction, runtime, scheduler });
+}
+
+function canHandleWorkspacePaneClick(event: MouseEvent, runtime: NiriRuntime): boolean {
+  return (
+    runtime.mode === "workspace" &&
+    runtime.store.getSnapshot().presentationMode !== "overview" &&
+    event.target instanceof Element
+  );
+}
+
+function handleEmptyFrameActionClick({
+  event,
+  runLayoutAction,
+  runtime,
+  scheduler,
+}: {
+  event: MouseEvent;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+  scheduler: FrameScheduler;
+}): boolean {
+  if (!(event.target instanceof Element)) {
+    return false;
+  }
+  const button = event.target.closest<HTMLButtonElement>('[data-niri-empty-frame-action="true"]');
+  const paneId = emptyFrameHostPaneId(button);
+  const action = openPaneActionForSurfaceKind(button?.dataset.surfaceKind ?? "");
+  if (!button || !paneId || !action || !runtime.store.canOpenPane(action.request)) {
+    return false;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  scheduler.pauseBenchmark();
+  runLayoutAction(() => runtime.store.configurePane(paneId, action.request));
+  return true;
+}
+
+function emptyFrameHostPaneId(button: HTMLButtonElement | null): string | null {
+  const host = button?.closest<HTMLElement>('[data-testid="niri-fake-pane-host"]');
+  return host?.dataset.paneId ?? null;
+}
+
+function handlePaneMaximizeClick({
+  event,
+  runLayoutAction,
+  runtime,
+  scheduler,
+}: {
+  event: MouseEvent;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+  scheduler: FrameScheduler;
+}): boolean {
+  if (!(event.target instanceof Element)) {
+    return false;
+  }
+  const button = event.target.closest<HTMLButtonElement>(
+    '.niri-pane-maximize-button[data-niri-pane-maximize-button="true"]',
+  );
+  const paneId = paneMaximizeButtonPaneId(button);
+  if (!button || !paneId) {
+    return false;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  scheduler.pauseBenchmark();
+  runLayoutAction(() => runtime.store.togglePaneMaximized(paneId));
+  return true;
+}
+
+function paneMaximizeButtonPaneId(button: HTMLButtonElement | null): string | null {
+  const host = button?.closest<HTMLElement>('[data-testid="niri-fake-pane-host"]');
+  return button?.dataset.paneId ?? host?.dataset.paneId ?? null;
+}
+
 function handleNiriWorkspaceKeyDown({
   event,
   persistLayout,
@@ -399,18 +479,103 @@ function handleNiriWorkspaceCommandKey({
   runLayoutAction: (action: () => void) => void;
   runtime: NiriRuntime;
 }): void {
-  if (event.metaKey && event.key === "Enter") {
-    event.preventDefault();
-    runLayoutAction(() => runtime.store.splitFocusedPane(event.shiftKey ? "down" : "right"));
-  } else if (event.metaKey && event.key.toLowerCase() === "o") {
-    event.preventDefault();
-    runLayoutAction(() => runtime.store.toggleOverviewMode());
-  } else if (event.metaKey && (event.key === "Backspace" || event.key === "Delete")) {
-    event.preventDefault();
-    runLayoutAction(() => {
-      runtime.store.closeFocusedPane();
-    });
+  const handlers = [
+    handleNewEmptyFrameCommand,
+    handleSplitFocusedPaneCommand,
+    handleOpenPaneShortcutCommand,
+    handleToggleOverviewCommand,
+    handleCloseFocusedPaneCommand,
+  ];
+  for (const handler of handlers) {
+    if (handler({ event, runLayoutAction, runtime })) {
+      return;
+    }
   }
+}
+
+type NiriWorkspaceCommandHandler = (context: {
+  event: KeyboardEvent;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+}) => boolean;
+
+const handleNewEmptyFrameCommand: NiriWorkspaceCommandHandler = ({
+  event,
+  runLayoutAction,
+  runtime,
+}) => {
+  if (!event.metaKey || event.key.toLowerCase() !== "n") {
+    return false;
+  }
+  event.preventDefault();
+  runLayoutAction(() => runtime.store.openEmptyFrame());
+  return true;
+};
+
+const handleSplitFocusedPaneCommand: NiriWorkspaceCommandHandler = ({
+  event,
+  runLayoutAction,
+  runtime,
+}) => {
+  if (!event.metaKey || event.key !== "Enter") {
+    return false;
+  }
+  event.preventDefault();
+  runLayoutAction(() => runtime.store.splitFocusedPane(event.shiftKey ? "down" : "right"));
+  return true;
+};
+
+const handleOpenPaneShortcutCommand: NiriWorkspaceCommandHandler = ({
+  event,
+  runLayoutAction,
+  runtime,
+}) => {
+  if (!event.metaKey || !event.altKey) {
+    return false;
+  }
+  const action = openPaneActions.find(
+    (candidate) => candidate.shortcutKey === event.key.toLowerCase(),
+  );
+  if (!action) {
+    return false;
+  }
+  event.preventDefault();
+  if (runtime.store.canOpenPane(action.request)) {
+    runLayoutAction(() => runtime.store.openPane(action.request));
+  }
+  return true;
+};
+
+const handleToggleOverviewCommand: NiriWorkspaceCommandHandler = ({
+  event,
+  runLayoutAction,
+  runtime,
+}) => {
+  if (!event.metaKey || event.key.toLowerCase() !== "o") {
+    return false;
+  }
+  event.preventDefault();
+  runLayoutAction(() => runtime.store.toggleOverviewMode());
+  return true;
+};
+
+const handleCloseFocusedPaneCommand: NiriWorkspaceCommandHandler = ({
+  event,
+  runLayoutAction,
+  runtime,
+}) => {
+  if (!event.metaKey || !isClosePaneKey(event.key)) {
+    return false;
+  }
+  event.preventDefault();
+  runLayoutAction(() => {
+    runtime.store.closeFocusedPane();
+  });
+  return true;
+};
+
+function isClosePaneKey(key: string): boolean {
+  return key === "Backspace" || key === "Delete";
 }
 
 function handleNiriWorkspaceWheel({
@@ -501,11 +666,15 @@ function NiriWorkspaceToolbar({
   const newFrameItems = openPaneActions.map(({ Icon, label, request }) => {
     const limitState = store.paneLimitState(request);
     const capped = limitState.limit !== null;
+    const shortcutText = shortcutLabelForAction(label);
+    const meta = [capped ? `${limitState.count}/${limitState.limit}` : null, shortcutText].filter(
+      (value): value is string => value !== null,
+    );
     return {
       Icon,
       disabled: !limitState.allowed,
       label,
-      meta: capped ? `${limitState.count}/${limitState.limit}` : undefined,
+      meta: meta.length > 0 ? meta.join(" ") : undefined,
       onSelect: () => openPane(request),
     };
   });
@@ -694,37 +863,53 @@ const openPaneActions = [
     Icon: MessageSquarePlus,
     label: "Chat",
     request: openPaneRequest("Chat", "chat workspace surface", "chat-dom", "cyan"),
+    shortcutKey: "c",
   },
   {
     Icon: AppWindow,
     label: "Browser",
     request: openPaneRequest("Browser", "native browser proxy", "browser", "orange"),
+    shortcutKey: "b",
   },
   {
     Icon: Terminal,
     label: "Terminal",
     request: openPaneRequest("Terminal", "command surface", "terminal", "green"),
+    shortcutKey: "t",
   },
   {
     Icon: Settings,
     label: "Settings",
     request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
+    shortcutKey: "s",
   },
   {
     Icon: GitBranch,
     label: "Git Graph",
     request: openPaneRequest("Git Graph", "repository graph", "git-graph", "pink"),
+    shortcutKey: "g",
   },
   {
     Icon: Columns2,
     label: "Canvas",
     request: openPaneRequest("Canvas", "canvas placeholder", "pixi-canvas", "cyan"),
+    shortcutKey: "v",
   },
 ] satisfies Array<{
   Icon: ComponentType<{ className?: string }>;
   label: string;
   request: OpenPaneRequest;
+  shortcutKey: string;
 }>;
+
+function openPaneActionForSurfaceKind(surfaceKind: string) {
+  return openPaneActions.find((action) => action.request.surfaceKind === surfaceKind) ?? null;
+}
+
+function shortcutLabelForAction(label: string): string | null {
+  const action = openPaneActions.find((candidate) => candidate.label === label);
+  return action ? `Mod+Alt+${action.shortcutKey.toUpperCase()}` : null;
+}
 
 function openPaneRequest(
   title: string,
@@ -756,6 +941,23 @@ function FakePaneHost({ refCallback }: { refCallback: (host: HTMLDivElement | nu
       ref={refCallback}
     />
   );
+}
+
+function emptyFrameOptionsForStore(store: NiriLayoutStore): EmptyFrameOption[] {
+  return openPaneActions.map(({ label, request }) => {
+    const limitState = store.paneLimitState(request);
+    const capped = limitState.limit !== null;
+    const shortcut = shortcutLabelForAction(label);
+    const meta = [capped ? `${limitState.count}/${limitState.limit}` : null, shortcut].filter(
+      (value): value is string => value !== null,
+    );
+    return {
+      disabled: !limitState.allowed,
+      label,
+      meta: meta.length > 0 ? meta.join(" ") : undefined,
+      surfaceKind: request.surfaceKind ?? "fake-dom",
+    };
+  });
 }
 
 function arrowDirection(key: string): "up" | "down" | "left" | "right" {
@@ -806,6 +1008,9 @@ function createNiriRuntime({
     (pane) => {
       if (pane.surfaceKind === "browser") {
         return new BrowserSurfaceProxyAdapter(pane, nativeViewBoundsBatcher);
+      }
+      if (pane.surfaceKind === "empty-frame") {
+        return new EmptyFrameSurfaceAdapter(pane, () => emptyFrameOptionsForStore(store));
       }
       return createDefaultSurfaceAdapter(pane);
     },

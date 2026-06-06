@@ -191,12 +191,20 @@ select,
     auto,
     18px 18px,
     auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .niri-stage {
-  inset: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
   overflow: hidden;
-  position: absolute;
+  position: relative;
+  width: 100%;
 }
 
 .niri-pane-host {
@@ -352,14 +360,13 @@ select,
   border-radius: 6px;
   color: var(--muted-foreground);
   display: flex;
+  flex: 0 0 auto;
   gap: 6px;
-  left: 10px;
-  max-width: calc(100% - 20px);
   min-width: 0;
   overflow: hidden;
-  padding: 4px 0;
-  position: absolute;
-  top: 1px;
+  padding: 4px 82px 3px 10px;
+  position: relative;
+  width: 100%;
   z-index: 52;
 }
 
@@ -560,6 +567,88 @@ select,
   color: var(--foreground);
   font-size: 10px;
   font-weight: 700;
+}
+
+.niri-empty-frame-surface {
+  align-content: start;
+}
+
+.niri-empty-frame-header {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.niri-empty-frame-header h2 {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.niri-empty-frame-header p {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.niri-empty-frame-actions {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  min-width: 0;
+}
+
+.niri-empty-frame-action {
+  align-items: center;
+  background: color-mix(in oklch, var(--muted) 42%, transparent);
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
+  height: 32px;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.niri-empty-frame-action-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.niri-empty-frame-action:hover,
+.niri-empty-frame-action:focus-visible {
+  background: color-mix(in oklch, var(--accent) 82%, transparent);
+  color: var(--foreground);
+  outline: none;
+}
+
+.niri-empty-frame-action:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.niri-empty-frame-action:disabled:hover {
+  background: color-mix(in oklch, var(--muted) 42%, transparent);
+  color: var(--muted-foreground);
+}
+
+.niri-empty-frame-action-meta {
+  color: color-mix(in oklch, var(--muted-foreground) 74%, transparent);
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  max-width: 96px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .niri-pane-rows {

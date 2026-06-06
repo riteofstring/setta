@@ -167,6 +167,65 @@ describe("niri layout store", () => {
     });
   });
 
+  test("opens an empty frame to the right of the focused pane", () => {
+    const store = createStore();
+
+    const emptyPaneId = store.openEmptyFrame();
+    const scene = store.toScene();
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: emptyPaneId,
+      focusedRowIndex: 0,
+    });
+    expect(scene.paneById.get(emptyPaneId)).toMatchObject({
+      subtitle: "choose a pane type",
+      surfaceKind: "empty-frame",
+      title: "New frame",
+      tone: "slate",
+    });
+    expect(scene.columns[1]?.paneIds).toEqual([emptyPaneId]);
+  });
+
+  test("configures an empty frame into a selected pane type without moving it", () => {
+    const store = createStore();
+    const emptyPaneId = store.openEmptyFrame();
+    const before = store.toScene().paneById.get(emptyPaneId);
+
+    store.configurePane(emptyPaneId, {
+      subtitle: "native browser proxy",
+      surfaceKind: "browser",
+      title: "Browser",
+      tone: "orange",
+    });
+
+    const scene = store.toScene();
+    const configured = scene.paneById.get(emptyPaneId);
+    expect(configured).toMatchObject({
+      paneId: emptyPaneId,
+      sequence: before?.sequence,
+      subtitle: "native browser proxy",
+      surfaceKind: "browser",
+      title: "Browser",
+      tone: "orange",
+    });
+    expect(configured?.surfaceId).not.toBe(before?.surfaceId);
+    expect(scene.columns[1]?.paneIds).toEqual([emptyPaneId]);
+  });
+
+  test("enforces pane limits when configuring an empty frame", () => {
+    const store = createStore({ "settings-dom": 1 });
+    const emptyPaneId = store.openEmptyFrame();
+
+    expect(() =>
+      store.configurePane(emptyPaneId, {
+        surfaceKind: "settings-dom",
+        title: "Settings",
+      }),
+    ).toThrow("niri pane limit reached for settings-dom");
+    expect(store.toScene().paneById.get(emptyPaneId)?.surfaceKind).toBe("empty-frame");
+  });
+
   test("uses the current row count inside a stacked column", () => {
     const store = createStore();
     const paneId = store.splitFocusedPane("down");

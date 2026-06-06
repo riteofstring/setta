@@ -42,8 +42,15 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       widthSpec: { ...column.widthSpec },
     }));
     this.paneById = new Map(scene.paneById);
-    this.nextColumnSequence = nextNumericSuffix(this.columns, "niri_column_");
-    this.nextPaneSequence = scene.totalPanes;
+    this.nextColumnSequence = nextNumericSuffix(
+      this.columns,
+      "niri_column_",
+      (column) => column.columnId,
+    );
+    this.nextPaneSequence = Math.max(
+      scene.totalPanes,
+      nextNumericSuffix(scene.panes, "niri_pane_", (pane) => pane.paneId),
+    );
   }
 
   closePane(paneId: PaneId): void {
@@ -122,6 +129,26 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     this.paneById.set(pane.paneId, pane);
     targetColumn.paneIds.push(pane.paneId);
     return pane.paneId;
+  }
+
+  configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId {
+    const pane = this.paneById.get(paneId);
+    if (!pane) {
+      throw new Error(`unknown niri pane ${paneId}`);
+    }
+    const sequence = this.nextPaneSequence;
+    this.nextPaneSequence += 1;
+    this.paneById.set(paneId, {
+      ...pane,
+      heat: (sequence * 37) % 100,
+      subtitle: request.subtitle ?? pane.subtitle,
+      surfaceId: `niri_surface_${sequence}`,
+      surfaceKind: request.surfaceKind ?? pane.surfaceKind,
+      title: request.title ?? pane.title,
+      tone: request.tone ?? pane.tone,
+      weight: request.weight ?? pane.weight,
+    });
+    return paneId;
   }
 
   paneInVisualDirection(
@@ -1133,13 +1160,18 @@ function nearestColumnWidthPreset(value: number): number {
   return nearest;
 }
 
-function nextNumericSuffix(columns: readonly NiriColumn[], prefix: string): number {
+function nextNumericSuffix<T>(
+  items: readonly T[],
+  prefix: string,
+  idForItem: (item: T) => string,
+): number {
   let next = 0;
-  for (const column of columns) {
-    if (!column.columnId.startsWith(prefix)) {
+  for (const item of items) {
+    const id = idForItem(item);
+    if (!id.startsWith(prefix)) {
       continue;
     }
-    const parsed = Number.parseInt(column.columnId.slice(prefix.length), 10);
+    const parsed = Number.parseInt(id.slice(prefix.length), 10);
     if (Number.isInteger(parsed)) {
       next = Math.max(next, parsed + 1);
     }

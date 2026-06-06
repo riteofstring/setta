@@ -201,6 +201,30 @@ export class NiriLayoutStore {
     return paneId;
   }
 
+  openEmptyFrame(): PaneId {
+    return this.openPane({
+      subtitle: "choose a pane type",
+      surfaceKind: "empty-frame",
+      title: "New frame",
+      tone: "slate",
+    });
+  }
+
+  configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId {
+    const limitState = this.paneLimitState(request);
+    if (!limitState.allowed) {
+      throw new Error(`niri pane limit reached for ${limitState.surfaceKind}`);
+    }
+    const configuredPaneId = this.engine.configurePane(paneId, request);
+    this.setFocusedPane(configuredPaneId);
+    this.notify();
+    return configuredPaneId;
+  }
+
+  configureFocusedPane(request: OpenPaneRequest): PaneId {
+    return this.configurePane(this.focusedPaneId(), request);
+  }
+
   canOpenPane(request: OpenPaneRequest): boolean {
     return this.paneLimitState(request).allowed;
   }

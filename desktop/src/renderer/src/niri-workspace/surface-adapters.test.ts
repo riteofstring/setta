@@ -13,6 +13,7 @@ import {
   type GitGraphWorkerClient,
 } from "./git-graph-surface-adapter";
 import {
+  EmptyFrameSurfaceAdapter,
   FakeCanvasSurfaceAdapter,
   FakeHeavyDomSurfaceAdapter,
   type FrameLoop,
@@ -43,6 +44,35 @@ describe("niri fake surface adapters", () => {
       mounted: true,
       visible: true,
     });
+  });
+
+  test("renders empty frame creation buttons with disabled limit state", () => {
+    const host = createFakeHost();
+    const adapter = new EmptyFrameSurfaceAdapter(fakePane("empty-frame"), () => [
+      {
+        label: "Chat",
+        meta: "2/10 Mod+Alt+C",
+        surfaceKind: "chat-dom",
+      },
+      {
+        disabled: true,
+        label: "Settings",
+        meta: "1/1 Mod+Alt+S",
+        surfaceKind: "settings-dom",
+      },
+    ]);
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+
+    const actions = emptyFrameActions(host);
+    expect(host.dataset.surfaceKind).toBe("empty-frame");
+    expect(actions.map((action) => fakeTextContent(action))).toEqual([
+      "Chat2/10 Mod+Alt+C",
+      "Settings1/1 Mod+Alt+S",
+    ]);
+    expect((actions[0] as HTMLButtonElement | undefined)?.dataset.surfaceKind).toBe("chat-dom");
+    expect((actions[1] as HTMLButtonElement | undefined)?.disabled).toBe(true);
   });
 
   test("pauses fake canvas frame work when hidden, frozen, or unmounted", () => {
@@ -467,6 +497,19 @@ function fakeWheelEvent(deltaY: number): Event {
     type: "wheel",
   };
   return event as unknown as Event;
+}
+
+function emptyFrameActions(host: HTMLElement): HTMLButtonElement[] {
+  const content = host.children[0];
+  const actions = content?.children[1];
+  return Array.from(actions?.children ?? []) as HTMLButtonElement[];
+}
+
+function fakeTextContent(element: Element): string {
+  return [
+    element.textContent ?? "",
+    ...Array.from(element.children).map((child) => fakeTextContent(child)),
+  ].join("");
 }
 
 function mountBrowserStage(
