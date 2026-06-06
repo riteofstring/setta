@@ -17,7 +17,7 @@ export type SurfaceKind =
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 
-export type ViewportChangeReason = "frame" | "mount" | "resize";
+export type ViewportChangeReason = "frame" | "mount" | "resize" | "resize-active";
 
 export type ResizePhase = "active" | "idle" | "settled";
 

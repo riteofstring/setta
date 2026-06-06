@@ -175,6 +175,7 @@ describe("niri fake surface adapters", () => {
     adapter.mount(host);
     adapter.resume("visible");
     adapter.setVisible(true);
+    adapter.setFocused(true);
     adapter.setViewport({ height: 160, width: 200, x: -80, y: -20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
@@ -183,7 +184,7 @@ describe("niri fake surface adapters", () => {
     });
   });
 
-  test("pins fully clipped live browser native views to a 1px workspace boundary", () => {
+  test("keeps unfocused browser native views hidden behind the DOM proxy", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
     const workspace = host.ownerDocument.createElement("section");
@@ -199,11 +200,97 @@ describe("niri fake surface adapters", () => {
     adapter.mount(host);
     adapter.resume("visible");
     adapter.setVisible(true);
+    adapter.setViewport({ height: 160, width: 200, x: 80, y: 20 }, "frame");
+
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 160, width: 200, x: 380, y: 70 },
+      visible: false,
+    });
+
+    adapter.setFocused(true);
+
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 160, width: 200, x: 380, y: 70 },
+      visible: true,
+    });
+  });
+
+  test("hides browser native views during active resize", () => {
+    const sent: NiriBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    const workspace = host.ownerDocument.createElement("section");
+    workspace.dataset.testid = "niri-workspace-area";
+    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
+    workspace.append(host);
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    adapter.setFocused(true);
+    adapter.setViewport({ height: 160, width: 200, x: 80, y: 20 }, "frame");
+    adapter.setViewport({ height: 160, width: 200, x: 100, y: 30 }, "resize-active");
+    adapter.setViewport({ height: 160, width: 200, x: 120, y: 40 }, "resize");
+
+    expect(sent.at(-3)).toMatchObject({ visible: true });
+    expect(sent.at(-2)).toMatchObject({ visible: false });
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 160, width: 200, x: 420, y: 90 },
+      visible: true,
+    });
+  });
+
+  test("hides mostly clipped browser native views at the workspace boundary", () => {
+    const sent: NiriBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    const workspace = host.ownerDocument.createElement("section");
+    workspace.dataset.testid = "niri-workspace-area";
+    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
+    workspace.append(host);
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    adapter.setFocused(true);
+    adapter.setViewport({ height: 160, width: 200, x: -120, y: -20 }, "frame");
+
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 1, width: 1, x: 300, y: 50 },
+      visible: false,
+    });
+  });
+
+  test("hides fully clipped browser native views at the workspace boundary", () => {
+    const sent: NiriBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    const workspace = host.ownerDocument.createElement("section");
+    workspace.dataset.testid = "niri-workspace-area";
+    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
+    workspace.append(host);
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    adapter.setFocused(true);
     adapter.setViewport({ height: 120, width: 100, x: -260, y: 20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
       bounds: { height: 1, width: 1, x: 300, y: 70 },
-      visible: true,
+      visible: false,
     });
   });
 

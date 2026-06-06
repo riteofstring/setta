@@ -23,8 +23,8 @@ interface SurfaceRecord {
 
 interface HostRecord {
   adapter: SurfaceAdapter;
-  activeResizeBrowserFrame: number;
   focused: boolean | null;
+  nativeBrowserHiddenForResize: boolean;
   runtimeState: PaneRenderItem["runtimeState"] | null;
   surfaceId: SurfaceId;
   viewport: Rect | null;
@@ -35,6 +35,15 @@ interface ViewportSyncContext {
   defaultReason: "frame" | "mount";
   hostRecord: HostRecord;
   options: SurfaceSyncOptions;
+  stats: SurfaceViewportSyncStats;
+}
+
+interface ActiveBrowserResizeViewportContext {
+  adapter: SurfaceAdapter;
+  hostRecord: HostRecord;
+  options: SurfaceSyncOptions;
+  reason: SurfaceViewportSyncReason;
+  rect: Rect;
   stats: SurfaceViewportSyncStats;
 }
 
@@ -52,12 +61,11 @@ export interface SurfaceSyncOptions {
   resizePhase: ResizePhase;
 }
 
-const activeResizeBrowserBoundsInterval = 2;
-
 export class SurfaceRegistry {
   private readonly hostBySurfaceId = new Map<SurfaceId, HTMLElement>();
   private readonly hostRecords = new Map<HTMLElement, HostRecord>();
-  private readonly metricAdapters = new Set<SurfaceAdapter>();
+  private latestGitGraphActivity = emptyGitGraphStats();
+  private latestTerminalActivity = emptyTerminalStats();
   private readonly records = new Map<SurfaceId, SurfaceRecord>();
 
   constructor(
@@ -95,12 +103,7 @@ export class SurfaceRegistry {
     let liveCanvasPaneCount = 0;
     let renderedFrames = 0;
 
-    const adapters = new Set<SurfaceAdapter>();
-    for (const record of this.hostRecords.values()) {
-      adapters.add(record.adapter);
-    }
-
-    for (const adapter of adapters) {
+    for (const adapter of this.currentHostAdapters()) {
       const stats = adapter.getCanvasStats?.();
       if (!stats) {
         continue;
@@ -127,11 +130,11 @@ export class SurfaceRegistry {
   gitGraphStats(): GitGraphSurfaceStats {
     const aggregate = emptyGitGraphAggregate();
 
-    for (const adapter of this.metricAdapters) {
+    for (const adapter of this.currentHostAdapters()) {
       addGitGraphStats(aggregate, adapter.getGitGraphStats?.());
     }
 
-    return {
+    const stats = {
       completed: aggregate.completed,
       liveGraphPaneCount: aggregate.liveGraphPaneCount,
       progress: aggregate.statsCount > 0 ? aggregate.totalProgress / aggregate.statsCount : 0,
@@ -140,6 +143,15 @@ export class SurfaceRegistry {
       renderer: aggregate.renderer,
       workerBatches: aggregate.workerBatches,
       workerPending: aggregate.workerPending,
+    };
+    if (gitGraphStatsHaveActivity(stats)) {
+      this.latestGitGraphActivity = stats;
+      return stats;
+    }
+    return {
+      ...this.latestGitGraphActivity,
+      liveGraphPaneCount: 0,
+      workerPending: false,
     };
   }
 
@@ -151,7 +163,7 @@ export class SurfaceRegistry {
     let renderedRows = 0;
     let scrollbackRows = 0;
 
-    for (const adapter of this.metricAdapters) {
+    for (const adapter of this.currentHostAdapters()) {
       const stats = adapter.getTerminalStats?.();
       if (!stats) {
         continue;
@@ -164,13 +176,22 @@ export class SurfaceRegistry {
       scrollbackRows += stats.scrollbackRows;
     }
 
-    return {
+    const stats = {
       dirtyRows,
       droppedOutputChunks,
       liveTerminalRendererCount,
       pendingOutputChunks,
       renderedRows,
       scrollbackRows,
+    };
+    if (terminalStatsHaveActivity(stats)) {
+      this.latestTerminalActivity = stats;
+      return stats;
+    }
+    return {
+      ...this.latestTerminalActivity,
+      liveTerminalRendererCount: 0,
+      pendingOutputChunks: 0,
     };
   }
 
@@ -209,11 +230,10 @@ export class SurfaceRegistry {
       }
       this.detachPreviousHostForSurface(item.surfaceId, host, adapter);
       adapter.mount(host);
-      this.metricAdapters.add(adapter);
       this.hostRecords.set(host, {
-        activeResizeBrowserFrame: 0,
         adapter,
         focused: null,
+        nativeBrowserHiddenForResize: false,
         runtimeState: null,
         surfaceId: item.surfaceId,
         viewport: null,
@@ -249,7 +269,16 @@ export class SurfaceRegistry {
     }
     this.hostRecords.clear();
     this.hostBySurfaceId.clear();
-    this.metricAdapters.clear();
+    this.latestGitGraphActivity = emptyGitGraphStats();
+    this.latestTerminalActivity = emptyTerminalStats();
+  }
+
+  private currentHostAdapters(): Set<SurfaceAdapter> {
+    const adapters = new Set<SurfaceAdapter>();
+    for (const record of this.hostRecords.values()) {
+      adapters.add(record.adapter);
+    }
+    return adapters;
   }
 
   private clearSurfaceHost(surfaceId: SurfaceId, host: HTMLElement): void {
@@ -384,17 +413,21 @@ export class SurfaceRegistry {
     rect: Rect,
     { defaultReason, hostRecord, options, stats }: ViewportSyncContext,
   ): void {
-    const reason = options.resizePhase === "settled" ? "resize" : defaultReason;
-    const activeBrowserResize =
-      adapter.kind === "browser" && options.resizePhase === "active" && reason !== "mount";
-
-    if (!activeBrowserResize) {
-      hostRecord.activeResizeBrowserFrame = 0;
-    }
-    if (!viewportSyncRequired(adapter.kind, reason, hostRecord.viewport, rect)) {
+    const reason = viewportSyncReason(adapter.kind, defaultReason, options.resizePhase);
+    if (
+      this.syncActiveBrowserResizeViewport({
+        adapter,
+        hostRecord,
+        options,
+        reason,
+        rect,
+        stats,
+      })
+    ) {
       return;
     }
-    if (activeBrowserResize && !activeBrowserViewportSyncAllowed(hostRecord, options.resizePhase)) {
+    hostRecord.nativeBrowserHiddenForResize = false;
+    if (!viewportSyncRequired(adapter.kind, reason, hostRecord.viewport, rect)) {
       return;
     }
     if (viewportSyncDeferred(adapter.kind, reason, options.resizePhase)) {
@@ -406,9 +439,29 @@ export class SurfaceRegistry {
     hostRecord.viewport = { ...rect };
     recordViewportWrite(adapter.kind, stats);
   }
+
+  private syncActiveBrowserResizeViewport({
+    adapter,
+    hostRecord,
+    options,
+    reason,
+    rect,
+    stats,
+  }: ActiveBrowserResizeViewportContext): boolean {
+    if (!activeBrowserResizeRequired(adapter.kind, reason, options.resizePhase)) {
+      return false;
+    }
+    if (hostRecord.nativeBrowserHiddenForResize) {
+      return true;
+    }
+    adapter.setViewport(rect, reason);
+    hostRecord.nativeBrowserHiddenForResize = true;
+    recordViewportWrite(adapter.kind, stats);
+    return true;
+  }
 }
 
-type SurfaceViewportSyncReason = "frame" | "mount" | "resize";
+type SurfaceViewportSyncReason = "frame" | "mount" | "resize" | "resize-active";
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled niri surface registry value: ${String(value)}`);
@@ -458,8 +511,54 @@ function emptyGitGraphAggregate(): GitGraphStatsAggregate {
   };
 }
 
+function emptyGitGraphStats(): GitGraphSurfaceStats {
+  return {
+    completed: false,
+    liveGraphPaneCount: 0,
+    progress: 0,
+    renderedEdges: 0,
+    renderedNodes: 0,
+    renderer: null,
+    workerBatches: 0,
+    workerPending: false,
+  };
+}
+
 function isUntouchedGitGraphStats(stats: GitGraphSurfaceStats): boolean {
-  return stats.renderedNodes === 0 && stats.liveGraphPaneCount === 0 && !stats.workerPending;
+  return !gitGraphStatsHaveActivity(stats);
+}
+
+function gitGraphStatsHaveActivity(stats: GitGraphSurfaceStats): boolean {
+  return (
+    stats.liveGraphPaneCount > 0 ||
+    stats.renderedEdges > 0 ||
+    stats.renderedNodes > 0 ||
+    stats.renderer !== null ||
+    stats.workerBatches > 0 ||
+    stats.workerPending
+  );
+}
+
+function emptyTerminalStats(): TerminalSurfaceStats {
+  return {
+    dirtyRows: 0,
+    droppedOutputChunks: 0,
+    liveTerminalRendererCount: 0,
+    pendingOutputChunks: 0,
+    renderedRows: 0,
+    scrollbackRows: 0,
+  };
+}
+
+function terminalStatsHaveActivity(stats: TerminalSurfaceStats): boolean {
+  return (
+    stats.dirtyRows > 0 ||
+    stats.droppedOutputChunks > 0 ||
+    stats.liveTerminalRendererCount > 0 ||
+    stats.pendingOutputChunks > 0 ||
+    stats.renderedRows > 0 ||
+    stats.scrollbackRows > 0
+  );
 }
 
 function emptySurfaceViewportSyncStats(): SurfaceViewportSyncStats {
@@ -510,6 +609,28 @@ function viewportSyncDeferred(
   return resizePhase === "active" && reason !== "mount" && resizeDefersSurfaceViewport(kind);
 }
 
+function viewportSyncReason(
+  kind: SurfaceKind,
+  defaultReason: "frame" | "mount",
+  resizePhase: ResizePhase,
+): SurfaceViewportSyncReason {
+  if (kind === "browser" && resizePhase === "active" && defaultReason !== "mount") {
+    return "resize-active";
+  }
+  if (resizePhase === "settled") {
+    return "resize";
+  }
+  return defaultReason;
+}
+
+function activeBrowserResizeRequired(
+  kind: SurfaceKind,
+  reason: SurfaceViewportSyncReason,
+  resizePhase: ResizePhase,
+): boolean {
+  return kind === "browser" && resizePhase === "active" && reason !== "mount";
+}
+
 function viewportSyncRequired(
   kind: SurfaceKind,
   reason: SurfaceViewportSyncReason,
@@ -527,17 +648,6 @@ function viewportSyncRequired(
 
 function browserViewportHeartbeatRequired(kind: SurfaceKind): boolean {
   return kind === "browser";
-}
-
-function activeBrowserViewportSyncAllowed(
-  hostRecord: HostRecord,
-  resizePhase: ResizePhase,
-): boolean {
-  if (!hostRecord.viewport || resizePhase !== "active") {
-    return true;
-  }
-  hostRecord.activeResizeBrowserFrame += 1;
-  return hostRecord.activeResizeBrowserFrame % activeResizeBrowserBoundsInterval === 1;
 }
 
 function isCanvasSurfaceKind(kind: SurfaceKind): boolean {

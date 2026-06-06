@@ -51,6 +51,45 @@ describe("niri presentation engine", () => {
     expect(host.dataset.surfaceKind).toBe("browser");
   });
 
+  test("defers non-empty snapshot proxy content while panes are moving", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const registry = new RecordingSurfaceRegistry();
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      registry as unknown as SurfaceRegistry,
+    );
+    presentation.mount([host], null);
+
+    presentation.apply(
+      [renderItem("niri_pane_1", "niri_surface_1", true, "fake-heavy-dom", "snapshot")],
+      { resizePhase: "idle" },
+    );
+
+    expect(host.dataset.paneId).toBe("niri_pane_0");
+    expect(registry.syncedPaneIds).toEqual([]);
+  });
+
+  test("refills cleared hosts during movement instead of leaving empty pane shells", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001", 0);
+    const registry = new RecordingSurfaceRegistry();
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      registry as unknown as SurfaceRegistry,
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("niri_pane_1", "niri_surface_1", true)], {
+      resizePhase: "idle",
+    });
+
+    expect(host.dataset.paneId).toBe("niri_pane_1");
+    expect(registry.syncedPaneIds).toEqual(["niri_pane_1"]);
+  });
+
   test("surfaces canvas draw stats in the debug overlay", () => {
     const scene = generateBenchmarkScene({ paneCount: 5, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");
@@ -84,7 +123,7 @@ describe("niri presentation engine", () => {
   });
 });
 
-function fakePaneHost(paneId: string, title: string): HTMLElement {
+function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTMLElement {
   const nodes = new Map<string, { textContent: string }>([
     ["[data-niri-pane-heat]", { textContent: "" }],
     ["[data-niri-pane-index]", { textContent: "1" }],
@@ -92,6 +131,7 @@ function fakePaneHost(paneId: string, title: string): HTMLElement {
     ["[data-niri-pane-title]", { textContent: title }],
   ]);
   const host = {
+    childElementCount,
     dataset: { paneId },
     querySelector: (selector: string) => nodes.get(selector) ?? null,
     removeAttribute: (name: string) => {
@@ -107,6 +147,7 @@ function renderItem(
   surfaceId: string,
   moving: boolean,
   surfaceKind: PaneRenderItem["surfaceKind"] = "fake-dom",
+  runtimeState: PaneRenderItem["runtimeState"] = "live",
 ): PaneRenderItem {
   return {
     focused: false,
@@ -115,7 +156,7 @@ function renderItem(
     opacity: 1,
     paneId,
     resizing: false,
-    runtimeState: "live",
+    runtimeState,
     surfaceId,
     surfaceKind,
     visible: true,
@@ -174,6 +215,61 @@ class TitleSurfaceAdapter implements SurfaceAdapter {
       gpuMemoryEstimateBytes: 512 * 1024,
       liveCanvasPaneCount: 1,
       renderedFrames: 3,
+    };
+  }
+}
+
+class RecordingSurfaceRegistry {
+  syncedPaneIds: string[] = [];
+
+  canvasStats() {
+    return {
+      drawCalls: 0,
+      farZoomSimplified: false,
+      gpuMemoryEstimateBytes: null,
+      liveCanvasPaneCount: 0,
+      renderedFrames: 0,
+    };
+  }
+
+  gitGraphStats() {
+    return {
+      completed: false,
+      liveGraphPaneCount: 0,
+      progress: 0,
+      renderedEdges: 0,
+      renderedNodes: 0,
+      renderer: null,
+      workerBatches: 0,
+      workerPending: false,
+    };
+  }
+
+  releaseHost(): void {}
+
+  syncHost(_host: HTMLElement, item: PaneRenderItem) {
+    this.syncedPaneIds.push(item.paneId);
+    return {
+      browserViewportWrites: 0,
+      canvasViewportWrites: 0,
+      deferredHeavyViewportWrites: 0,
+      gitGraphViewportWrites: 0,
+      heavyViewportWrites: 0,
+      surfaceViewportWrites: 0,
+      terminalViewportWrites: 0,
+    };
+  }
+
+  teardown(): void {}
+
+  terminalStats() {
+    return {
+      dirtyRows: 0,
+      droppedOutputChunks: 0,
+      liveTerminalRendererCount: 0,
+      pendingOutputChunks: 0,
+      renderedRows: 0,
+      scrollbackRows: 0,
     };
   }
 }

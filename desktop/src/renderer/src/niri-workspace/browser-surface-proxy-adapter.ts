@@ -15,6 +15,8 @@ export interface BrowserViewUpdateQueue {
   queue(update: NiriBrowserViewUpdate): void;
 }
 
+const minimumNativeVisiblePixels = 96;
+
 export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
   readonly kind = "browser" satisfies SurfaceKind;
 
@@ -22,6 +24,7 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
   private focused = false;
   private host: HTMLElement | null = null;
   private lastRect: Rect = { height: 1, width: 1, x: 0, y: 0 };
+  private nativeResizeActive = false;
   private runtimeState: NiriBrowserViewRuntimeState = "hidden";
   private visible = false;
 
@@ -67,6 +70,7 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
 
   setViewport(rect: Rect, reason: ViewportChangeReason): void {
     this.lastRect = rect;
+    this.nativeResizeActive = reason === "resize-active";
     if (this.host) {
       this.host.dataset.viewportReason = reason;
       this.host.dataset.surfaceViewport = `${Math.round(rect.width)}x${Math.round(rect.height)}`;
@@ -126,7 +130,12 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
       surfaceId: this.surfaceId,
       title: this.pane.title,
       url: browserPaneURL(this.pane),
-      visible: this.visible && this.runtimeState === "live",
+      visible:
+        this.visible &&
+        this.focused &&
+        this.runtimeState === "live" &&
+        !this.nativeResizeActive &&
+        nativeBounds.visible,
     };
     this.batcher.queue(update);
   }
@@ -143,7 +152,8 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
         }
       : { ...this.lastRect };
     const rect = workspaceBounds ? intersectRects(unclipped, workspaceBounds) : unclipped;
-    const visible = rect.width > 0 && rect.height > 0;
+    const visible =
+      rect.width >= minimumNativeVisiblePixels && rect.height >= minimumNativeVisiblePixels;
     return {
       rect: visible ? rect : { height: 1, width: 1, x: rect.x, y: rect.y },
       visible,

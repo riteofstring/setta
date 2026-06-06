@@ -10,6 +10,7 @@ import type {
   ResumeReason,
   SurfaceAdapter,
   SurfaceKind,
+  TerminalSurfaceStats,
   ViewportChangeReason,
 } from "./types";
 
@@ -94,7 +95,7 @@ describe("niri surface registry", () => {
     expect(recordingAdapter.events).toContain("viewport:resize:260x210");
   });
 
-  test("keeps browser viewport updates live but throttled during active resize", () => {
+  test("hides browser native viewport during active resize and commits final bounds", () => {
     const pane = fakePane("browser");
     const recordingAdapter = new RecordingSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => recordingAdapter);
@@ -107,7 +108,7 @@ describe("niri surface registry", () => {
     const throttledStats = registry.syncHost(host, renderItem(pane, "live", 230, 190), {
       resizePhase: "active",
     });
-    const resumedStats = registry.syncHost(host, renderItem(pane, "live", 240, 200), {
+    const skippedStats = registry.syncHost(host, renderItem(pane, "live", 240, 200), {
       resizePhase: "active",
     });
     const settledStats = registry.syncHost(host, renderItem(pane, "live", 260, 210), {
@@ -123,17 +124,17 @@ describe("niri surface registry", () => {
       browserViewportWrites: 0,
       deferredHeavyViewportWrites: 0,
     });
-    expect(resumedStats).toMatchObject({
-      browserViewportWrites: 1,
+    expect(skippedStats).toMatchObject({
+      browserViewportWrites: 0,
       deferredHeavyViewportWrites: 0,
     });
     expect(settledStats).toMatchObject({
       browserViewportWrites: 1,
       deferredHeavyViewportWrites: 0,
     });
-    expect(recordingAdapter.events).toContain("viewport:frame:220x180");
+    expect(recordingAdapter.events).toContain("viewport:resize-active:220x180");
     expect(recordingAdapter.events).not.toContain("viewport:frame:230x190");
-    expect(recordingAdapter.events).toContain("viewport:frame:240x200");
+    expect(recordingAdapter.events).not.toContain("viewport:frame:240x200");
     expect(recordingAdapter.events).toContain("viewport:resize:260x210");
   });
 
@@ -165,14 +166,52 @@ describe("niri surface registry", () => {
     expect(browserAdapter.events).not.toContain("freeze:hidden");
     expect(browserAdapter.events).toContain("viewport:mount:240x120");
   });
+
+  test("does not rescan released adapters for cached activity metrics", () => {
+    const terminalPane = fakePane("terminal");
+    const fakeDomPane = fakePane("fake-dom", 1);
+    const terminalAdapter = new RecordingSurfaceAdapter(
+      terminalPane,
+      fakeTerminalStats({ dirtyRows: 7, liveTerminalRendererCount: 1 }),
+    );
+    const fakeDomAdapter = new RecordingSurfaceAdapter(fakeDomPane);
+    const adapters = new Map([
+      [terminalPane.surfaceId, terminalAdapter],
+      [fakeDomPane.surfaceId, fakeDomAdapter],
+    ]);
+    const registry = new SurfaceRegistry(
+      [terminalPane, fakeDomPane],
+      (pane) => adapters.get(pane.surfaceId) ?? new RecordingSurfaceAdapter(pane),
+    );
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(terminalPane, "live"), { resizePhase: "idle" });
+    expect(registry.terminalStats()).toMatchObject({
+      dirtyRows: 7,
+      liveTerminalRendererCount: 1,
+    });
+    expect(terminalAdapter.statsReadCount).toBe(1);
+
+    registry.syncHost(host, renderItem(fakeDomPane, "live"), { resizePhase: "idle" });
+
+    expect(registry.terminalStats()).toMatchObject({
+      dirtyRows: 7,
+      liveTerminalRendererCount: 0,
+    });
+    expect(terminalAdapter.statsReadCount).toBe(1);
+  });
 });
 
 class RecordingSurfaceAdapter implements SurfaceAdapter {
   events: string[] = [];
   readonly kind: SurfaceKind;
   readonly surfaceId: string;
+  statsReadCount = 0;
 
-  constructor(pane: NiriPane) {
+  constructor(
+    pane: NiriPane,
+    private readonly terminalStats: TerminalSurfaceStats | null = null,
+  ) {
     this.kind = pane.surfaceKind;
     this.surfaceId = pane.surfaceId;
   }
@@ -206,9 +245,26 @@ class RecordingSurfaceAdapter implements SurfaceAdapter {
     this.events.push(`resume:${reason}`);
   }
 
+  getTerminalStats(): TerminalSurfaceStats {
+    this.statsReadCount += 1;
+    return this.terminalStats ?? fakeTerminalStats();
+  }
+
   destroy(): void {
     this.events.push("destroy");
   }
+}
+
+function fakeTerminalStats(overrides: Partial<TerminalSurfaceStats> = {}): TerminalSurfaceStats {
+  return {
+    dirtyRows: 0,
+    droppedOutputChunks: 0,
+    liveTerminalRendererCount: 0,
+    pendingOutputChunks: 0,
+    renderedRows: 0,
+    scrollbackRows: 0,
+    ...overrides,
+  };
 }
 
 function fakePane(surfaceKind: SurfaceKind, sequence = 0): NiriPane {

@@ -145,7 +145,7 @@ function createPhaseSixFiveResizePerformanceReport(
     metrics: snapshot,
     notes: [
       "Phase 6.5 resize report covers active window resize with mixed DOM, browser, canvas, terminal, and git graph panes.",
-      "Active resize keeps shell placement in the presentation engine while native browser bounds stay batched and live.",
+      "Active resize keeps shell placement in the presentation engine while browser panes use DOM proxies instead of lagging native views.",
       "Heavy canvas, terminal, git graph, and DOM surface viewport work is deferred or throttled during active resize.",
       "The settled frame commits exact final dimensions to adapters and native browser bounds in one batched update path.",
     ],

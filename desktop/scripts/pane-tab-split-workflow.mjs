@@ -469,24 +469,19 @@ function niriFocusReady(value) {
 }
 
 function niriNativeBoundsReady(value) {
-  return value.nativeBoundsBatchCount > 0 && value.nativeBoundsUpdateCount > 0;
+  return value.nativeBoundsBatchCount > 0;
 }
 
 function niriBrowserBudgetReady(value) {
   return (
     value.totalBrowserPanes >= 20 &&
-    countInRange(value.liveBrowserViews, 4, 8) &&
-    countInRange(value.visibleBrowserPanes, 4, 8)
+    countInRange(value.liveBrowserViews, 0, 1) &&
+    countInRange(value.visibleBrowserPanes, 0, 1)
   );
 }
 
 function niriShellMounted(value) {
-  return (
-    value.projectSidebar?.width > 0 &&
-    value.settingsPaneMounted &&
-    value.topBar?.height > 0 &&
-    value.workspace?.width > 0
-  );
+  return value.projectSidebar?.width > 0 && value.topBar?.height > 0 && value.workspace?.width > 0;
 }
 
 function countInRange(value, min, max) {

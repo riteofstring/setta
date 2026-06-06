@@ -166,7 +166,11 @@ export class PresentationEngine {
     item: PaneRenderItem,
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
-    if (binding.contentPaneId !== item.paneId && item.moving && item.surfaceKind !== "browser") {
+    if (
+      binding.contentPaneId !== item.paneId &&
+      !this.hostContentMissing(binding) &&
+      !this.contentSyncAllowedDuringMovement(item)
+    ) {
       return emptyPresentationWriteCounts();
     }
     const pane = this.paneById.get(item.paneId);
@@ -183,7 +187,19 @@ export class PresentationEngine {
   }
 
   private shouldSyncContent(binding: PaneHostBinding, item: PaneRenderItem): boolean {
-    return !item.moving || binding.contentPaneId === item.paneId || item.surfaceKind === "browser";
+    return (
+      this.hostContentMissing(binding) ||
+      binding.contentPaneId === item.paneId ||
+      this.contentSyncAllowedDuringMovement(item)
+    );
+  }
+
+  private contentSyncAllowedDuringMovement(item: PaneRenderItem): boolean {
+    return !item.moving || item.surfaceKind === "browser";
+  }
+
+  private hostContentMissing(binding: PaneHostBinding): boolean {
+    return binding.host.childElementCount === 0;
   }
 
   private syncFrame(binding: PaneHostBinding, item: PaneRenderItem): PresentationWriteCounts {

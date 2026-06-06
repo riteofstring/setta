@@ -102,6 +102,7 @@ async function runNiriProbe(client) {
 
   await runResizeHardeningProbe(client);
   await captureProbeState(client, "03-resize-hardening");
+  await assertNoEmptyNiriHostsDuringMovement(client);
 
   await resizeElectronWindow(client, 320, 320);
   await waitForViewportSize(client, 320, 320);
@@ -339,7 +340,7 @@ function assertCompactNiriState(state) {
   if (!state.niri.workspace.visible || state.niri.hostCount !== 40) {
     throw new Error(`compact window lost niri workspace hosts: ${JSON.stringify(state.niri)}`);
   }
-  assertBrowserPaneStats(state.niri);
+  assertCompactBrowserPaneStats(state.niri);
   if (!state.shell.topBar.present || !state.shell.projectSidebar.visible) {
     throw new Error(`compact window lost shell/sidebar: ${JSON.stringify(state.shell)}`);
   }
@@ -396,14 +397,14 @@ function niriNativeViewsReady(value) {
 }
 
 function nativeBrowserBoundsReady(stats) {
-  return stats?.boundsBatchCount > 0 && stats?.boundsUpdateCount > 0;
+  return stats?.boundsBatchCount > 0;
 }
 
 function nativeBrowserPaneCountsReady(stats) {
   return (
     stats?.totalBrowserPanes >= 20 &&
-    boundedCount(stats?.visibleBrowserPanes, 4, 8) &&
-    boundedCount(stats?.live, 4, 8)
+    boundedCount(stats?.visibleBrowserPanes, 0, 1) &&
+    boundedCount(stats?.live, 0, 1)
   );
 }
 
@@ -471,19 +472,51 @@ function niriShellReady(value) {
   return value.workspaceReady && value.paneCount === "500" && value.hostCount === 40;
 }
 
-function assertBrowserPaneStats(niri) {
+function assertCompactBrowserPaneStats(niri) {
   if (Number(niri.browserPaneCount) < 20) {
     throw new Error(`browser-pane scene has too few browser panes: ${JSON.stringify(niri)}`);
   }
-  if (niri.nativeStats.live < 4 || niri.nativeStats.live > 8) {
+  if (niri.nativeStats.live > 1) {
     throw new Error(
-      `native browser live budget is outside Phase 4 target: ${JSON.stringify(niri)}`,
+      `compact native browser live budget exceeds Phase 4 target: ${JSON.stringify(niri)}`,
     );
   }
-  if (niri.nativeStats.visibleBrowserPanes < 4 || niri.nativeStats.visibleBrowserPanes > 8) {
+  if (niri.nativeStats.visibleBrowserPanes > 1) {
     throw new Error(
-      `visible browser pane count is outside Phase 4 target: ${JSON.stringify(niri)}`,
+      `compact visible browser pane count exceeds Phase 4 target: ${JSON.stringify(niri)}`,
     );
+  }
+}
+
+async function assertNoEmptyNiriHostsDuringMovement(client) {
+  const samples = await client.evaluate(`(async () => {
+    for (let index = 0; index < 7; index += 1) {
+      window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "ArrowRight" }));
+    }
+    const samples = [];
+    for (let frame = 0; frame < 72; frame += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const hosts = Array.from(document.querySelectorAll('[data-testid="niri-fake-pane-host"]'));
+      const movingHostCount = hosts.filter((host) => host.getAttribute("data-moving") === "true").length;
+      const emptyHosts = hosts
+        .filter((host) => host.getAttribute("data-visible") === "true" && host.innerText.trim().length === 0)
+        .map((host) => ({
+          childElementCount: host.childElementCount,
+          paneId: host.getAttribute("data-pane-id"),
+          runtimeState: host.getAttribute("data-runtime-state"),
+          surfaceKind: host.getAttribute("data-surface-kind"),
+        }));
+      samples.push({ emptyHosts, frame, movingHostCount });
+      if (frame >= 24 && movingHostCount === 0) {
+        break;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return samples;
+  })()`);
+  const failure = samples.find((sample) => sample.emptyHosts.length > 0);
+  if (failure) {
+    throw new Error(`niri movement left visible pane hosts empty: ${JSON.stringify(failure)}`);
   }
 }
 
