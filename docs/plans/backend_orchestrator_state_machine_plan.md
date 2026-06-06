@@ -333,11 +333,17 @@ The action lifecycle should distinguish durable scheduling from actual runner st
 
 ### Phase 4: First End-To-End Workflow
 
-- Build the first complete workflow definition that exercises parallel actions, joins, structured routing, and loops.
-- Support fresh Codex conversations per iteration when configured.
-- Add structured tool/result handling for continue versus exit decisions.
-- Add max-iteration enforcement.
-- Add restart/recovery tests for active workflow executions.
+Status: Ready to implement.
+
+- Build the first complete workflow definition fixture that exercises parallel Codex action nodes, an AND join, structured routing, a loop guard, and an end state.
+- Use the scripted/fake Codex harness first so the workflow is deterministic and runs through production backend chat, harness, HTTP, store, and event-stream paths.
+- Verify that configured fresh conversations create distinct workflow-owned/internal chats for repeated agent nodes across loop iterations.
+- Verify that structured Setta workflow result signals can drive continue versus exit routing.
+- Verify max-iteration enforcement and each configured limit policy: completed, failed, and stopped.
+- Verify cancellation of an active workflow cancels active workflow-owned chat/Codex runs and preserves the correct terminal workflow state.
+- Verify restart/recovery behavior for active workflow executions. The current initial policy may mark interrupted running executions failed; the test should assert the intended behavior explicitly.
+- Add deterministic end-to-end app workflow coverage through production Electron/main/preload/renderer/HTTP/store paths before calling Phase 4 complete.
+- Run live Codex E2E tests when `OPENAI_API_KEY` is present in `.env`; skip narrowly and report the skip when absent.
 
 ### Phase 5: Frontend Projection
 
@@ -372,5 +378,4 @@ The action lifecycle should distinguish durable scheduling from actual runner st
 
 ## Implementation Details To Specify
 
-- The exact enum names and metadata fields for workflow-owned internal chats, including workflow definition ID, workflow execution ID, node ID, node execution ID, and visibility.
 - Which chat operations are allowed directly from a workflow node details pane and which must route through orchestrator APIs, especially cancellation, steering, editing, and deletion.
