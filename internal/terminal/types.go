@@ -28,11 +28,12 @@ const (
 type TerminalEventType string
 
 const (
-	TerminalEventOutput  TerminalEventType = "terminal.output"
-	TerminalEventStarted TerminalEventType = "terminal.started"
-	TerminalEventExited  TerminalEventType = "terminal.exited"
-	TerminalEventClosed  TerminalEventType = "terminal.closed"
-	TerminalEventError   TerminalEventType = "terminal.error"
+	TerminalEventOutput          TerminalEventType = "terminal.output"
+	TerminalEventStarted         TerminalEventType = "terminal.started"
+	TerminalEventExited          TerminalEventType = "terminal.exited"
+	TerminalEventClosed          TerminalEventType = "terminal.closed"
+	TerminalEventError           TerminalEventType = "terminal.error"
+	TerminalEventBufferTruncated TerminalEventType = "terminal.bufferTruncated"
 )
 
 type SessionSummary struct {
@@ -64,14 +65,16 @@ type TerminalEvent struct {
 }
 
 type TerminalEventPayload struct {
-	DataBase64 string        `json:"dataBase64"`
-	ByteCount  int           `json:"byteCount"`
-	Status     SessionStatus `json:"status"`
-	CWD        string        `json:"cwd"`
-	Cols       int           `json:"cols"`
-	Rows       int           `json:"rows"`
-	ExitCode   int           `json:"exitCode"`
-	Message    string        `json:"message"`
+	DataBase64    string        `json:"dataBase64"`
+	ByteCount     int           `json:"byteCount"`
+	DroppedBytes  int           `json:"droppedBytes"`
+	DroppedChunks int           `json:"droppedChunks"`
+	Status        SessionStatus `json:"status"`
+	CWD           string        `json:"cwd"`
+	Cols          int           `json:"cols"`
+	Rows          int           `json:"rows"`
+	ExitCode      int           `json:"exitCode"`
+	Message       string        `json:"message"`
 }
 
 type EventCursor struct {
@@ -111,6 +114,7 @@ func ContractValueSets() []ContractValueSet {
 				string(TerminalEventExited),
 				string(TerminalEventClosed),
 				string(TerminalEventError),
+				string(TerminalEventBufferTruncated),
 			},
 		},
 	}

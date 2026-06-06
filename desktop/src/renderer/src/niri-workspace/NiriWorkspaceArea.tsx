@@ -624,6 +624,15 @@ const handleCloseFocusedPaneCommand: NiriWorkspaceCommandHandler = ({
     return false;
   }
   event.preventDefault();
+  const focusedPaneId = runtime.store.focusedPaneId();
+  const focusedPane = runtime.store.toScene().paneById.get(focusedPaneId);
+  if (
+    focusedPane?.surfaceKind === "terminal" &&
+    terminalPaneCloseRequiresConfirmation(focusedPaneId) &&
+    !window.confirm("Close running terminal session?")
+  ) {
+    return true;
+  }
   runLayoutAction(() => {
     runtime.store.closeFocusedPane();
   });
@@ -632,6 +641,23 @@ const handleCloseFocusedPaneCommand: NiriWorkspaceCommandHandler = ({
 
 function isClosePaneKey(key: string): boolean {
   return key === "Backspace" || key === "Delete";
+}
+
+function terminalPaneCloseRequiresConfirmation(paneId: string): boolean {
+  const host = visiblePaneHostForPane(paneId);
+  const sessionId = host?.dataset.terminalSessionId ?? "";
+  if (sessionId === "") {
+    return false;
+  }
+  const status = host?.dataset.terminalStatus ?? "";
+  return status === "" || status === "running" || status === "starting";
+}
+
+function visiblePaneHostForPane(paneId: string): HTMLElement | null {
+  const hosts = document.querySelectorAll<HTMLElement>(
+    '[data-testid="niri-fake-pane-host"][data-visible="true"]',
+  );
+  return [...hosts].find((host) => host.dataset.paneId === paneId) ?? null;
 }
 
 function handleNiriWorkspaceWheel({

@@ -36,8 +36,8 @@ Terminal as separate Niri surface kinds.
 - Phase 1 is complete: the product terminal pane is backed by xterm.js in the
   renderer, generated HTTP contracts, a dedicated `/terminals/events` stream,
   and `internal/terminal` PTY sessions owned by Go.
-- Phase 2 is next: session lifecycle, replay, buffering, process cleanup,
-  renderer reload behavior, and close confirmation.
+- Phase 2 is complete: session lifecycle, replay, buffering, process cleanup,
+  renderer reload behavior, lost-session state, and close confirmation.
 
 ## Current State
 
@@ -48,12 +48,11 @@ The Niri workspace now has two terminal-like surface kinds:
 - `fake-terminal`: the synthetic benchmark surface. It keeps generated
   terminal-like output for Niri performance probes without spawning shells.
 
-The Phase 1 implementation is intentionally minimal. It can create a shell,
-stream output, send input, resize, attach to an existing running session by
-`workspaceId` and `paneId`, and close a session. It does not yet provide robust
-detached replay, explicit buffer truncation events, process-group cleanup,
-terminate-then-kill escalation, renderer reload recovery coverage, or close
-confirmation UI.
+The Phase 2 implementation can create a shell, stream output, send input,
+resize, attach to an existing running session by `workspaceId` and `paneId`,
+replay bounded detached output, report buffer truncation, clean up Unix process
+groups, escalate terminate to kill, recover renderer reloads, show lost-session
+state on backend loss, and confirm active terminal close actions.
 
 ## Design Decisions
 
@@ -636,7 +635,7 @@ Definition of done:
 
 ### Phase 2: Robust Session Lifecycle
 
-Status: ready to implement.
+Status: complete.
 
 Goal: terminal sessions behave correctly under common app lifecycle events.
 

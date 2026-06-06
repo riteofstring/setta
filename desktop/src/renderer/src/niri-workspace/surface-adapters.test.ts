@@ -21,7 +21,7 @@ import {
 import {
   SyntheticTerminalSessionState,
   SyntheticTerminalSurfaceAdapter,
-} from "./terminal-surface-adapter";
+} from "./synthetic-terminal-surface-adapter";
 import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type { NiriPane } from "./types";
 

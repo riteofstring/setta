@@ -138,6 +138,53 @@ func TestTerminalEventStreamPushesTerminalEvents(t *testing.T) {
 	}
 }
 
+func TestTerminalEventStreamReplaysFromCursor(t *testing.T) {
+	handler, starter := newTerminalHandler(t, nil)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	firstResponse, err := http.Get(server.URL + "/terminals/events")
+	if err != nil {
+		t.Fatalf("open terminal event stream: %v", err)
+	}
+	firstReader := bufio.NewReader(firstResponse.Body)
+
+	created := postJSON[TerminalSessionResponse](t, handler, "/terminals/create", CreateTerminalRequest{
+		WorkspaceID: "workspace_terminal",
+		PaneID:      "pane_shell",
+		Cols:        80,
+		Rows:        24,
+	}, http.StatusOK)
+	started := readServerSentTerminalEvent(t, firstReader)
+	if started.Type != terminal.TerminalEventStarted || started.SessionID != created.Session.ID {
+		t.Fatalf("started event = %+v, want terminal.started for %s", started, created.Session.ID)
+	}
+	starter.handleAt(t, 0).emit([]byte("replayed\n"))
+	output := readServerSentTerminalEvent(t, firstReader)
+	if output.Type != terminal.TerminalEventOutput {
+		t.Fatalf("output event = %+v, want terminal.output", output)
+	}
+	firstResponse.Body.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/terminals/events", nil)
+	if err != nil {
+		t.Fatalf("create replay request: %v", err)
+	}
+	request.Header.Set("Last-Event-ID", started.EventID)
+	replayResponse, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("open replay terminal event stream: %v", err)
+	}
+	defer replayResponse.Body.Close()
+	if replayResponse.StatusCode != http.StatusOK {
+		t.Fatalf("replay terminal event stream status = %d, want 200", replayResponse.StatusCode)
+	}
+	replayed := readServerSentTerminalEvent(t, bufio.NewReader(replayResponse.Body))
+	if replayed.EventID != output.EventID || replayed.Payload.DataBase64 != output.Payload.DataBase64 {
+		t.Fatalf("replayed event = %+v, want original output event %+v", replayed, output)
+	}
+}
+
 func TestTerminalEventStreamRejectsInvalidCursor(t *testing.T) {
 	handler, _ := newTerminalHandler(t, nil)
 	request := httptest.NewRequest(http.MethodGet, "/terminals/events?lastEventId=bad", nil)

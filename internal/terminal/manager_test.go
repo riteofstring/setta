@@ -158,6 +158,164 @@ func TestManagerPublishesLifecycleAndOutputEvents(t *testing.T) {
 	}
 }
 
+func TestManagerReplaysBufferedEventsFromCursor(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	started := readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	handle := starter.handleAt(t, 0)
+	handle.emit([]byte("one"))
+	first := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	handle.emit([]byte("two"))
+	second := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	subscription.Unsubscribe()
+
+	replay, err := manager.SubscribeEvents(EventCursor{
+		StreamID: started.StreamID,
+		Sequence: started.Sequence,
+	})
+	if err != nil {
+		t.Fatalf("subscribe replay terminal events: %v", err)
+	}
+	defer replay.Unsubscribe()
+
+	replayedFirst := readTerminalEvent(t, replay.Events, TerminalEventOutput, created.ID)
+	replayedSecond := readTerminalEvent(t, replay.Events, TerminalEventOutput, created.ID)
+	if replayedFirst.EventID != first.EventID || replayedSecond.EventID != second.EventID {
+		t.Fatalf(
+			"replayed output event ids = %s/%s, want %s/%s",
+			replayedFirst.EventID,
+			replayedSecond.EventID,
+			first.EventID,
+			second.EventID,
+		)
+	}
+}
+
+func TestManagerAttachPublishesReplayForExistingSession(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	starter.handleAt(t, 0).emit([]byte("reload me"))
+	original := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+
+	attached, err := manager.Attach(context.Background(), "workspace_terminal", "pane_shell")
+	if err != nil {
+		t.Fatalf("attach terminal session: %v", err)
+	}
+	if attached.ID != created.ID {
+		t.Fatalf("attached id = %s, want %s", attached.ID, created.ID)
+	}
+	replayed := readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	if replayed.EventID == original.EventID {
+		t.Fatalf("attach replay event id = %s, want a fresh stream event id", replayed.EventID)
+	}
+	if replayed.Payload.DataBase64 != original.Payload.DataBase64 {
+		t.Fatalf("attach replay payload = %+v, want original output payload %+v", replayed.Payload, original.Payload)
+	}
+}
+
+func TestManagerEmitsBufferTruncatedWhenOutputBufferOverflows(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		OutputBufferBytesPerSession: len("second"),
+	})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	handle := starter.handleAt(t, 0)
+	handle.emit([]byte("first"))
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	handle.emit([]byte("second"))
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventOutput, created.ID)
+	truncated := readTerminalEvent(t, subscription.Events, TerminalEventBufferTruncated, created.ID)
+	if truncated.Payload.DroppedChunks == 0 || truncated.Payload.DroppedBytes == 0 {
+		t.Fatalf("truncated payload = %+v, want dropped chunk and byte counts", truncated.Payload)
+	}
+}
+
+func TestManagerKeepsExitedSessionAttachableUntilClose(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
+	subscription, err := manager.SubscribeEvents(EventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe terminal events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	_ = readTerminalEvent(t, subscription.Events, TerminalEventStarted, created.ID)
+	starter.handleAt(t, 0).close()
+	exited := readTerminalEvent(t, subscription.Events, TerminalEventExited, created.ID)
+	if exited.Payload.Status != SessionStatusExited {
+		t.Fatalf("exited payload status = %s, want exited", exited.Payload.Status)
+	}
+
+	attached, err := manager.Attach(context.Background(), "workspace_terminal", "pane_shell")
+	if err != nil {
+		t.Fatalf("attach exited terminal session: %v", err)
+	}
+	if attached.Status != SessionStatusExited {
+		t.Fatalf("attached exited status = %s, want exited", attached.Status)
+	}
+	if _, err := manager.WriteInput(context.Background(), created.ID, []byte("echo no\n")); err == nil {
+		t.Fatal("write to exited session succeeded, want error")
+	}
+	closed, err := manager.Close(context.Background(), created.ID, CloseModeTerminate)
+	if err != nil {
+		t.Fatalf("close exited session: %v", err)
+	}
+	if closed.Status != SessionStatusClosed {
+		t.Fatalf("closed exited status = %s, want closed", closed.Status)
+	}
+	if _, err := manager.Attach(context.Background(), "workspace_terminal", "pane_shell"); err == nil {
+		t.Fatal("attach after closing exited session succeeded, want error")
+	}
+}
+
+func TestManagerCloseTerminatesThenKillsAfterTimeout(t *testing.T) {
+	root := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManagerWithConfig(t, starter, map[string]string{"workspace_terminal": root}, ManagerConfig{
+		CloseKillTimeout: 10 * time.Millisecond,
+	})
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_shell", "", "", 80, 24)
+	handle := starter.handleAt(t, 0)
+	handle.terminateCloses = false
+
+	closed, err := manager.Close(context.Background(), created.ID, CloseModeTerminate)
+	if err != nil {
+		t.Fatalf("close terminal session: %v", err)
+	}
+	if closed.Status != SessionStatusClosed {
+		t.Fatalf("closed status = %s, want closed", closed.Status)
+	}
+	if !handle.wasTerminated() || !handle.wasKilled() {
+		t.Fatalf("handle terminated/killed = %t/%t, want true/true", handle.wasTerminated(), handle.wasKilled())
+	}
+}
+
 func TestManagerRejectsInvalidRequests(t *testing.T) {
 	root := t.TempDir()
 	starter := &recordingPTYStarter{}
@@ -215,11 +373,21 @@ func TestManagerRejectsInvalidRequests(t *testing.T) {
 
 func newTestManager(t *testing.T, starter PTYStarter, roots map[string]string) *Manager {
 	t.Helper()
-	manager, err := NewManager(ManagerConfig{
-		WorkspaceResolver: fakeWorkspaceResolver(roots),
-		PTY:               starter,
-		Clock:             testClock(t),
-	})
+	manager := newTestManagerWithConfig(t, starter, roots, ManagerConfig{})
+	return manager
+}
+
+func newTestManagerWithConfig(
+	t *testing.T,
+	starter PTYStarter,
+	roots map[string]string,
+	config ManagerConfig,
+) *Manager {
+	t.Helper()
+	config.WorkspaceResolver = fakeWorkspaceResolver(roots)
+	config.PTY = starter
+	config.Clock = testClock(t)
+	manager, err := NewManager(config)
 	if err != nil {
 		t.Fatalf("new terminal manager: %v", err)
 	}
@@ -344,11 +512,12 @@ type recordingPTYHandle struct {
 	output     chan []byte
 	profile    Profile
 
-	mu         sync.Mutex
-	killed     bool
-	resizes    []terminalSize
-	terminated bool
-	writes     bytes.Buffer
+	mu              sync.Mutex
+	killed          bool
+	resizes         []terminalSize
+	terminateCloses bool
+	terminated      bool
+	writes          bytes.Buffer
 }
 
 type terminalSize struct {
@@ -358,9 +527,10 @@ type terminalSize struct {
 
 func newRecordingPTYHandle(profile Profile) *recordingPTYHandle {
 	return &recordingPTYHandle{
-		closed:  make(chan struct{}),
-		output:  make(chan []byte, 16),
-		profile: profile,
+		closed:          make(chan struct{}),
+		output:          make(chan []byte, 16),
+		profile:         profile,
+		terminateCloses: true,
 	}
 }
 
@@ -389,8 +559,11 @@ func (handle *recordingPTYHandle) Resize(cols int, rows int) error {
 func (handle *recordingPTYHandle) Terminate() error {
 	handle.mu.Lock()
 	handle.terminated = true
+	terminateCloses := handle.terminateCloses
 	handle.mu.Unlock()
-	handle.close()
+	if terminateCloses {
+		handle.close()
+	}
 	return nil
 }
 
@@ -436,6 +609,12 @@ func (handle *recordingPTYHandle) wasTerminated() bool {
 	handle.mu.Lock()
 	defer handle.mu.Unlock()
 	return handle.terminated
+}
+
+func (handle *recordingPTYHandle) wasKilled() bool {
+	handle.mu.Lock()
+	defer handle.mu.Unlock()
+	return handle.killed
 }
 
 func (handle *recordingPTYHandle) close() {

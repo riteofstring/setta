@@ -16,6 +16,7 @@ interface FakeElement {
   addEventListener(type: string, listener: EventListener): void;
   append(...nodes: FakeElement[]): void;
   closest(selector: string): FakeElement | null;
+  contains(node: FakeElement): boolean;
   dispatchEvent(event: Event): boolean;
   getBoundingClientRect(): FakeRect;
   getContext?(kind: string): FakeCanvasContext | null;
@@ -23,6 +24,7 @@ interface FakeElement {
   querySelector(selector: string): FakeElement | null;
   replaceChildren(...nodes: FakeElement[]): void;
   releasePointerCapture(pointerId: number): void;
+  removeAttribute(name: string): void;
   removeEventListener(type: string, listener: EventListener): void;
   setPointerCapture(pointerId: number): void;
   setAttribute(name: string, value: string): void;
@@ -128,6 +130,9 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
     closest(selector) {
       return closestFakeElement(this, selector);
     },
+    contains(node) {
+      return containsFakeElement(this, node);
+    },
     dispatchEvent(event) {
       const typeListeners = listeners.get(event.type);
       if (!typeListeners) {
@@ -158,6 +163,11 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
     },
     releasePointerCapture(pointerId) {
       capturedPointers.delete(pointerId);
+    },
+    removeAttribute(name) {
+      if (name.startsWith("data-")) {
+        delete this.dataset[dataAttributeKey(name)];
+      }
     },
     removeEventListener(type, listener) {
       listeners.get(type)?.delete(listener);
@@ -209,6 +219,13 @@ function closestFakeElement(element: FakeElement, selector: string): FakeElement
     current = current.parentElement;
   }
   return null;
+}
+
+function containsFakeElement(root: FakeElement, node: FakeElement): boolean {
+  if (root === node) {
+    return true;
+  }
+  return root.children.some((child) => containsFakeElement(child, node));
 }
 
 function fakeRect({

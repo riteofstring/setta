@@ -748,9 +748,9 @@ export function decodeCloseMode(value: unknown, label = "CloseMode"): CloseMode 
   }
 }
 
-export type TerminalEventType = "terminal.output" | "terminal.started" | "terminal.exited" | "terminal.closed" | "terminal.error";
+export type TerminalEventType = "terminal.output" | "terminal.started" | "terminal.exited" | "terminal.closed" | "terminal.error" | "terminal.bufferTruncated";
 
-export const terminalEventTypeValues = ["terminal.output", "terminal.started", "terminal.exited", "terminal.closed", "terminal.error"] as const satisfies readonly TerminalEventType[];
+export const terminalEventTypeValues = ["terminal.output", "terminal.started", "terminal.exited", "terminal.closed", "terminal.error", "terminal.bufferTruncated"] as const satisfies readonly TerminalEventType[];
 
 export function decodeTerminalEventType(value: unknown, label = "TerminalEventType"): TerminalEventType {
   const decoded = decodeString(value, label);
@@ -764,6 +764,8 @@ export function decodeTerminalEventType(value: unknown, label = "TerminalEventTy
     case "terminal.closed":
       return decoded;
     case "terminal.error":
+      return decoded;
+    case "terminal.bufferTruncated":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1803,6 +1805,8 @@ export interface CloseTerminalRequest {
 export interface TerminalEventPayload {
   dataBase64: string;
   byteCount: number;
+  droppedBytes: number;
+  droppedChunks: number;
   status: SessionStatus;
   cwd: string;
   cols: number;
@@ -3779,10 +3783,12 @@ export function decodeCloseTerminalRequest(value: unknown): CloseTerminalRequest
 
 export function decodeTerminalEventPayload(value: unknown): TerminalEventPayload {
   const record = assertRecord(value, "TerminalEventPayload");
-  assertKnownFields(record, "TerminalEventPayload", ["dataBase64", "byteCount", "status", "cwd", "cols", "rows", "exitCode", "message"]);
+  assertKnownFields(record, "TerminalEventPayload", ["dataBase64", "byteCount", "droppedBytes", "droppedChunks", "status", "cwd", "cols", "rows", "exitCode", "message"]);
   return {
     dataBase64: decodeString(requireField(record, "dataBase64", "TerminalEventPayload"), "TerminalEventPayload.dataBase64"),
     byteCount: decodeInteger(requireField(record, "byteCount", "TerminalEventPayload"), "TerminalEventPayload.byteCount"),
+    droppedBytes: decodeInteger(requireField(record, "droppedBytes", "TerminalEventPayload"), "TerminalEventPayload.droppedBytes"),
+    droppedChunks: decodeInteger(requireField(record, "droppedChunks", "TerminalEventPayload"), "TerminalEventPayload.droppedChunks"),
     status: decodeSessionStatus(requireField(record, "status", "TerminalEventPayload"), "TerminalEventPayload.status"),
     cwd: decodeString(requireField(record, "cwd", "TerminalEventPayload"), "TerminalEventPayload.cwd"),
     cols: decodeInteger(requireField(record, "cols", "TerminalEventPayload"), "TerminalEventPayload.cols"),

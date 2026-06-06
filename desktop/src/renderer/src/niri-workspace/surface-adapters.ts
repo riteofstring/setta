@@ -1,6 +1,7 @@
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { GitGraphSurfaceAdapter } from "./git-graph-surface-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
+import { SyntheticTerminalSurfaceAdapter } from "./synthetic-terminal-surface-adapter";
 import {
   cloneSnapshotNode,
   type EmptyFrameOption,
@@ -9,10 +10,7 @@ import {
   renderFakePaneContent,
   renderSnapshotContent,
 } from "./surface-dom-content";
-import {
-  SyntheticTerminalSurfaceAdapter,
-  TerminalSurfaceAdapter,
-} from "./terminal-surface-adapter";
+import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import type {
   FreezeReason,
   NiriPane,

@@ -18,12 +18,15 @@ import (
 )
 
 const (
-	DefaultCols     = 80
-	DefaultRows     = 24
-	MaxCols         = 500
-	MaxRows         = 200
-	MaxInputBytes   = 1 << 20
-	readBufferBytes = 16 * 1024
+	DefaultCloseKillTimeout            = 2 * time.Second
+	DefaultCols                        = 80
+	DefaultOutputBufferBytesPerSession = 4 * 1024 * 1024
+	DefaultReplayRetention             = 10 * time.Minute
+	DefaultRows                        = 24
+	MaxCols                            = 500
+	MaxRows                            = 200
+	MaxInputBytes                      = 1 << 20
+	readBufferBytes                    = 16 * 1024
 )
 
 type WorkspaceResolver interface {
@@ -31,13 +34,17 @@ type WorkspaceResolver interface {
 }
 
 type ManagerConfig struct {
-	WorkspaceResolver WorkspaceResolver
-	PTY               PTYStarter
-	Clock             func() time.Time
+	WorkspaceResolver           WorkspaceResolver
+	PTY                         PTYStarter
+	Clock                       func() time.Time
+	CloseKillTimeout            time.Duration
+	OutputBufferBytesPerSession int
+	ReplayRetention             time.Duration
 }
 
 type Manager struct {
 	clock             func() time.Time
+	closeKillTimeout  time.Duration
 	eventHub          *eventHub
 	mu                sync.Mutex
 	pty               PTYStarter
@@ -79,12 +86,28 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	if clock == nil {
 		clock = time.Now
 	}
-	eventHub, err := newEventHub(clock)
+	closeKillTimeout := config.CloseKillTimeout
+	if closeKillTimeout <= 0 {
+		closeKillTimeout = DefaultCloseKillTimeout
+	}
+	outputBufferBytesPerSession := config.OutputBufferBytesPerSession
+	if outputBufferBytesPerSession <= 0 {
+		outputBufferBytesPerSession = DefaultOutputBufferBytesPerSession
+	}
+	replayRetention := config.ReplayRetention
+	if replayRetention <= 0 {
+		replayRetention = DefaultReplayRetention
+	}
+	eventHub, err := newEventHub(clock, eventHubConfig{
+		OutputBufferBytesPerSession: outputBufferBytesPerSession,
+		ReplayRetention:             replayRetention,
+	})
 	if err != nil {
 		return nil, err
 	}
 	return &Manager{
 		clock:             clock,
+		closeKillTimeout:  closeKillTimeout,
 		eventHub:          eventHub,
 		pty:               ptyStarter,
 		sessionByID:       map[string]*session{},
@@ -110,6 +133,7 @@ func (manager *Manager) Create(
 	}
 	key := workspacePaneKey{workspaceID: workspaceID, paneID: paneID}
 	if summary, ok := manager.attachedSessionSummary(key); ok {
+		manager.eventHub.publishReplayForSession(summary.ID)
 		return summary, nil
 	}
 	resolvedCWD, err := manager.resolveCWD(workspaceID, cwd)
@@ -161,6 +185,7 @@ func (manager *Manager) Attach(
 		return SessionSummary{}, err
 	}
 	if summary, ok := manager.attachedSessionSummary(workspacePaneKey{workspaceID: workspaceID, paneID: paneID}); ok {
+		manager.eventHub.publishReplayForSession(summary.ID)
 		return summary, nil
 	}
 	return SessionSummary{}, fmt.Errorf("terminal session not found for workspace %s pane %s", workspaceID, paneID)
@@ -216,7 +241,7 @@ func (manager *Manager) Resize(
 }
 
 func (manager *Manager) Close(
-	_ context.Context,
+	ctx context.Context,
 	sessionID string,
 	mode CloseMode,
 ) (SessionSummary, error) {
@@ -231,10 +256,8 @@ func (manager *Manager) Close(
 		return SessionSummary{}, err
 	}
 	switch mode {
-	case CloseModeTerminate:
-		err = terminalSession.handle.Terminate()
-	case CloseModeKill:
-		err = terminalSession.handle.Kill()
+	case CloseModeTerminate, CloseModeKill:
+		err = manager.closeProcess(ctx, terminalSession)
 	default:
 		panic("validated terminal close mode was not exhaustive")
 	}
@@ -271,7 +294,7 @@ func (manager *Manager) Shutdown(ctx context.Context) error {
 
 	var shutdownErr error
 	for _, terminalSession := range sessions {
-		if err := terminalSession.handle.Terminate(); err != nil && shutdownErr == nil && !errors.Is(err, os.ErrProcessDone) {
+		if err := manager.closeProcess(ctx, terminalSession); err != nil && shutdownErr == nil && !errors.Is(err, os.ErrProcessDone) {
 			shutdownErr = err
 		}
 	}
@@ -342,6 +365,58 @@ func (manager *Manager) sessionForClose(sessionID string) (*session, error) {
 	return terminalSession, nil
 }
 
+var errCloseProcessTimeout = errors.New("terminal process did not exit before close timeout")
+
+func (manager *Manager) closeProcess(ctx context.Context, terminalSession *session) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if !manager.sessionNeedsProcessClose(terminalSession.id) {
+		return nil
+	}
+	if err := terminalSession.handle.Terminate(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return err
+	}
+	if err := manager.waitForProcessExit(ctx, terminalSession.handle); err == nil {
+		return nil
+	} else if !errors.Is(err, errCloseProcessTimeout) {
+		return err
+	}
+	if err := terminalSession.handle.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return err
+	}
+	if err := manager.waitForProcessExit(ctx, terminalSession.handle); err != nil && !errors.Is(err, errCloseProcessTimeout) {
+		return err
+	}
+	return nil
+}
+
+func (manager *Manager) sessionNeedsProcessClose(sessionID string) bool {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	terminalSession := manager.sessionByID[sessionID]
+	return terminalSession != nil &&
+		(terminalSession.status == SessionStatusRunning || terminalSession.status == SessionStatusStarting)
+}
+
+func (manager *Manager) waitForProcessExit(ctx context.Context, handle PTYHandle) error {
+	done := make(chan struct{})
+	go func() {
+		_ = handle.Wait()
+		close(done)
+	}()
+	timer := time.NewTimer(manager.closeKillTimeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return nil
+	case <-timer.C:
+		return errCloseProcessTimeout
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func (manager *Manager) readLoop(sessionID string, handle PTYHandle) {
 	buffer := make([]byte, readBufferBytes)
 	for {
@@ -362,9 +437,10 @@ func (manager *Manager) waitLoop(sessionID string, handle PTYHandle) {
 	err := handle.Wait()
 	if err == nil {
 		manager.markSessionExited(sessionID, 0, "")
-		return
+	} else {
+		manager.markSessionExited(sessionID, exitCode(err), err.Error())
 	}
-	manager.markSessionExited(sessionID, exitCode(err), err.Error())
+	_ = handle.Close()
 }
 
 func (manager *Manager) publishOutput(sessionID string, data []byte) {
@@ -374,20 +450,20 @@ func (manager *Manager) publishOutput(sessionID string, data []byte) {
 		manager.mu.Unlock()
 		return
 	}
-	event := manager.eventHub.eventForSession(
+	payload := TerminalEventPayload{
+		DataBase64: base64.StdEncoding.EncodeToString(data),
+		ByteCount:  len(data),
+		Status:     terminalSession.status,
+		CWD:        terminalSession.cwd,
+		Cols:       terminalSession.cols,
+		Rows:       terminalSession.rows,
+	}
+	manager.eventHub.publishForSession(
 		terminalSession,
 		TerminalEventOutput,
-		TerminalEventPayload{
-			DataBase64: base64.StdEncoding.EncodeToString(data),
-			ByteCount:  len(data),
-			Status:     terminalSession.status,
-			CWD:        terminalSession.cwd,
-			Cols:       terminalSession.cols,
-			Rows:       terminalSession.rows,
-		},
+		payload,
 	)
 	manager.mu.Unlock()
-	manager.eventHub.publish(event)
 }
 
 func (manager *Manager) publishLifecycle(terminalSession *session, eventType TerminalEventType, message string) {
@@ -396,7 +472,7 @@ func (manager *Manager) publishLifecycle(terminalSession *session, eventType Ter
 	if current == nil {
 		current = terminalSession
 	}
-	event := manager.eventHub.eventForSession(
+	manager.eventHub.publishForSession(
 		current,
 		eventType,
 		TerminalEventPayload{
@@ -409,7 +485,6 @@ func (manager *Manager) publishLifecycle(terminalSession *session, eventType Ter
 		},
 	)
 	manager.mu.Unlock()
-	manager.eventHub.publish(event)
 }
 
 func (manager *Manager) markSessionError(sessionID string, err error) {
@@ -422,7 +497,7 @@ func (manager *Manager) markSessionError(sessionID string, err error) {
 	terminalSession.status = SessionStatusError
 	terminalSession.message = err.Error()
 	terminalSession.updatedAt = manager.clock().UTC()
-	event := manager.eventHub.eventForSession(
+	manager.eventHub.publishForSession(
 		terminalSession,
 		TerminalEventError,
 		TerminalEventPayload{
@@ -433,9 +508,7 @@ func (manager *Manager) markSessionError(sessionID string, err error) {
 			Message: err.Error(),
 		},
 	)
-	manager.removeSessionLocked(terminalSession)
 	manager.mu.Unlock()
-	manager.eventHub.publish(event)
 }
 
 func (manager *Manager) markSessionExited(sessionID string, code int, message string) {
@@ -449,7 +522,7 @@ func (manager *Manager) markSessionExited(sessionID string, code int, message st
 	terminalSession.exitCode = code
 	terminalSession.message = message
 	terminalSession.updatedAt = manager.clock().UTC()
-	event := manager.eventHub.eventForSession(
+	manager.eventHub.publishForSession(
 		terminalSession,
 		TerminalEventExited,
 		TerminalEventPayload{
@@ -461,9 +534,7 @@ func (manager *Manager) markSessionExited(sessionID string, code int, message st
 			Message:  message,
 		},
 	)
-	manager.removeSessionLocked(terminalSession)
 	manager.mu.Unlock()
-	manager.eventHub.publish(event)
 }
 
 func (manager *Manager) removeSessionLocked(terminalSession *session) {

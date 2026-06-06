@@ -76,14 +76,14 @@ func (handle *systemPTYHandle) Terminate() error {
 	if handle.command.Process == nil {
 		return os.ErrProcessDone
 	}
-	return handle.command.Process.Signal(syscall.SIGTERM)
+	return signalProcessGroup(handle.command.Process.Pid, syscall.SIGTERM)
 }
 
 func (handle *systemPTYHandle) Kill() error {
 	if handle.command.Process == nil {
 		return os.ErrProcessDone
 	}
-	return handle.command.Process.Kill()
+	return signalProcessGroup(handle.command.Process.Pid, syscall.SIGKILL)
 }
 
 func (handle *systemPTYHandle) Close() error {
@@ -171,4 +171,17 @@ func upsertEnv(env []string, key string, value string) []string {
 		}
 	}
 	return append(env, prefix+value)
+}
+
+func signalProcessGroup(pid int, signal syscall.Signal) error {
+	if pid <= 0 {
+		return os.ErrProcessDone
+	}
+	if err := syscall.Kill(-pid, signal); err != nil {
+		if errors.Is(err, syscall.ESRCH) {
+			return os.ErrProcessDone
+		}
+		return err
+	}
+	return nil
 }

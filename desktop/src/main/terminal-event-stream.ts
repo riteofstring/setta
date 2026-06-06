@@ -57,6 +57,9 @@ async function runTerminalEventStreamLoop(options: {
       if (error instanceof TerminalEventPayloadDecodeError) {
         cursor = error.cursor;
       }
+      if (error instanceof TerminalEventCursorResetError) {
+        cursor = emptyTerminalEventCursor();
+      }
       console.warn("Terminal event stream disconnected", error);
     }
     await sleepWithAbort(options.reconnectDelayMs, options.signal);
@@ -83,6 +86,13 @@ async function streamTerminalEventsOnce(options: {
     },
   );
   if (!response.ok) {
+    if (response.status === 400 && options.cursor.streamId !== "") {
+      throw new TerminalEventCursorResetError(
+        `terminal event stream cursor is no longer valid: ${encodeTerminalEventCursor(
+          options.cursor,
+        )}`,
+      );
+    }
     throw new Error(`terminal event stream returned HTTP ${response.status}`);
   }
   if (!response.body) {
@@ -114,6 +124,8 @@ class TerminalEventPayloadDecodeError extends Error {
     super(message);
   }
 }
+
+class TerminalEventCursorResetError extends Error {}
 
 function decodeTerminalStreamEvent(
   message: { data: string },
@@ -160,7 +172,7 @@ function assertTerminalEventStream(nextCursor: TerminalEventCursor, cursor: Term
   if (cursor.streamId === "" || nextCursor.streamId === cursor.streamId) {
     return;
   }
-  throw new Error(
+  throw new TerminalEventCursorResetError(
     `terminal event stream changed stream id: ${cursor.streamId} -> ${nextCursor.streamId}`,
   );
 }

@@ -588,6 +588,8 @@ function terminalEvent(): TerminalEvent {
       cols: 80,
       cwd: "/tmp/workspace",
       dataBase64: "aGVsbG8=",
+      droppedBytes: 0,
+      droppedChunks: 0,
       exitCode: 0,
       message: "",
       rows: 24,

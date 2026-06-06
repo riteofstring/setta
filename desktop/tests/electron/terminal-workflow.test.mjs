@@ -3,6 +3,7 @@
 
 import { basename, join } from "node:path";
 import process from "node:process";
+import { readFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
@@ -12,6 +13,7 @@ import {
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   readJsonLinesOptional,
+  reloadPage,
   stopElectronCdpContext,
   timestampedRecordingDir,
   waitForSelector,
@@ -23,6 +25,8 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const terminalOutputPrefix = "SETTA_TERMINAL_E2E_OUTPUT:";
 const terminalCommand = "printf 'SETTA_TERMINAL_%s:%s\\n' 'E2E_OUTPUT' \"$PWD\"";
+const terminalLongRunningPidFile = ".setta-terminal-e2e-long-running.pid";
+const terminalLongRunningCommand = `sh -c 'printf "%s\\\\n" "$$" > ${terminalLongRunningPidFile}; trap "" TERM; while :; do sleep 1; done'`;
 const terminalWorkflowTimeoutMs = 25_000;
 
 if (options.help) {
@@ -40,6 +44,7 @@ const artifactDir = options.artifactDir || timestampedRecordingDir("terminal-wor
 await writeLatestRecordingPointer("terminal-workflow", artifactDir);
 const fixture = await createElectronFixture("terminal-workflow");
 let context = null;
+let longRunningPid;
 let terminalState;
 
 try {
@@ -59,8 +64,22 @@ try {
   await focusTerminal(context.client);
   await sendTerminalCommand(context.client, terminalCommand);
   terminalState = await waitForTerminalText(context.client, terminalOutputPrefix);
+  const sessionIdBeforeReload = terminalState.sessionId;
+  await reloadPage(context.client);
+  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  terminalState = await waitForTerminalReady(context.client);
+  if (terminalState.sessionId !== sessionIdBeforeReload) {
+    throw new Error(
+      `terminal reload attached session ${terminalState.sessionId}, want ${sessionIdBeforeReload}`,
+    );
+  }
+  terminalState = await waitForTerminalTextInScrollback(context.client, terminalOutputPrefix);
+  await focusTerminal(context.client);
+  await sendTerminalCommand(context.client, terminalLongRunningCommand);
+  longRunningPid = await waitForLongRunningPid(fixture.workspaceRoot);
   await closeTerminalFromRenderer(context.client, terminalState.sessionId);
   await waitForTerminalClosed(context.client, terminalState.sessionId);
+  await waitForProcessExit(longRunningPid);
   await captureScreenshot(context.client, join(artifactDir, "terminal-closed.png"));
 } catch (error) {
   if (context) {
@@ -193,11 +212,63 @@ async function sendTerminalCommand(client, text) {
   await delay(100);
 }
 
+async function waitForLongRunningPid(workspaceRoot) {
+  const pidPath = join(workspaceRoot, terminalLongRunningPidFile);
+  const startedAt = Date.now();
+  let lastError = null;
+  while (Date.now() - startedAt < terminalWorkflowTimeoutMs) {
+    try {
+      const pid = Number.parseInt((await readFile(pidPath, "utf8")).trim(), 10);
+      if (Number.isInteger(pid) && pid > 0 && processIsRunning(pid)) {
+        return pid;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(100);
+  }
+  throw new Error(
+    `timed out waiting for long-running terminal pid${lastError ? `: ${lastError.message}` : ""}`,
+  );
+}
+
+async function waitForProcessExit(pid) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < terminalWorkflowTimeoutMs) {
+    if (!processIsRunning(pid)) {
+      return;
+    }
+    await delay(100);
+  }
+  throw new Error(`terminal close did not stop long-running process ${pid}`);
+}
+
+function processIsRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ESRCH") {
+      return false;
+    }
+    throw error;
+  }
+}
+
 async function waitForTerminalText(client, expectedText) {
   return waitForState(
     client,
     terminalSnapshotExpression(),
     (snapshot) => snapshot.text.includes(expectedText),
+    terminalWorkflowTimeoutMs,
+  );
+}
+
+async function waitForTerminalTextInScrollback(client, expectedText) {
+  return waitForState(
+    client,
+    terminalScrollbackSearchExpression(expectedText),
+    (snapshot) => snapshot.found,
     terminalWorkflowTimeoutMs,
   );
 }
@@ -260,19 +331,114 @@ function terminalSnapshotExpression() {
   })()`;
 }
 
+function terminalScrollbackSearchExpression(expectedText) {
+  return `(async () => {
+    const expectedText = ${JSON.stringify(expectedText)};
+    const host = document.querySelector('[data-testid="niri-fake-pane-host"][data-surface-kind="terminal"]');
+    if (!(host instanceof HTMLElement)) {
+      return { ...emptySnapshot(false), found: false, source: "missing-host" };
+    }
+    const visibleSnapshot = snapshotForHost(host);
+    if (visibleSnapshot.text.includes(expectedText)) {
+      return { ...visibleSnapshot, found: true, source: "visible" };
+    }
+    const viewport = host.querySelector(".xterm-viewport");
+    if (!(viewport instanceof HTMLElement)) {
+      return { ...visibleSnapshot, found: false, source: "missing-viewport" };
+    }
+
+    const originalTop = viewport.scrollTop;
+    const maxTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+    const step = Math.max(1, Math.floor(viewport.clientHeight * 0.75));
+    const positions = [];
+    for (let top = maxTop; top > 0; top -= step) {
+      positions.push(top);
+    }
+    positions.push(0);
+
+    try {
+      for (const top of positions) {
+        viewport.scrollTop = top;
+        viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
+        await nextFrame();
+        const text = rowsForHost(host);
+        if (text.includes(expectedText)) {
+          return {
+            ...snapshotForHost(host),
+            found: true,
+            scrollHeight: viewport.scrollHeight,
+            scrollTop: top,
+            source: "scrollback",
+            text,
+          };
+        }
+      }
+      return {
+        ...snapshotForHost(host),
+        found: false,
+        scrollHeight: viewport.scrollHeight,
+        scrollTop: viewport.scrollTop,
+        source: "scanned",
+      };
+    } finally {
+      viewport.scrollTop = originalTop;
+      viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
+      await nextFrame();
+    }
+
+    function nextFrame() {
+      return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+
+    function rowsForHost(targetHost) {
+      return [...targetHost.querySelectorAll(".xterm-rows > div")]
+        .map((row) => row.textContent ?? "")
+        .join("\\n");
+    }
+
+    function snapshotForHost(targetHost) {
+      const rect = targetHost.getBoundingClientRect();
+      return {
+        exists: true,
+        maximized: targetHost.dataset.maximized === "true",
+        sessionId: targetHost.dataset.terminalSessionId ?? "",
+        statusText: targetHost.querySelector(".niri-terminal-status")?.textContent?.trim() ?? "",
+        text: rowsForHost(targetHost),
+        visible: targetHost.dataset.visible === "true" && rect.width > 0 && rect.height > 0,
+        xtermReady: Boolean(targetHost.querySelector(".xterm-helper-textarea")),
+      };
+    }
+
+    function emptySnapshot(exists) {
+      return {
+        exists,
+        maximized: false,
+        sessionId: "",
+        statusText: "",
+        text: "",
+        visible: false,
+        xtermReady: false,
+      };
+    }
+  })()`;
+}
+
 async function writeTerminalSnapshot(client, path) {
   await writeJson(path, await client.evaluate(terminalSnapshotExpression()));
 }
 
 async function assertTerminalRecordingEvidence(recordingDir) {
   const ipc = await readJsonLinesOptional(join(recordingDir, "ipc.jsonl"));
-  const failures = ipc.filter((entry) => entry.type === "ipc_failure");
+  const failures = ipc.filter(
+    (entry) => entry.type === "ipc_failure" && !isExpectedInitialTerminalAttachMiss(entry),
+  );
   if (failures.length > 0) {
     throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
   }
   for (const channel of [
     "workspace:open-local-folder",
     "terminal:create",
+    "terminal:attach",
     "terminal:input",
     "terminal:resize",
     "terminal:close",
@@ -286,6 +452,7 @@ async function assertTerminalRecordingEvidence(recordingDir) {
   for (const path of [
     "/workspaces/open",
     "/terminals/create",
+    "/terminals/attach",
     "/terminals/events",
     "/terminals/input",
     "/terminals/resize",
@@ -311,6 +478,14 @@ function backendResponseMatches(entry, path) {
     entry.status === 200 &&
     typeof entry.url === "string" &&
     entry.url.includes(path)
+  );
+}
+
+function isExpectedInitialTerminalAttachMiss(entry) {
+  return (
+    entry.channel === "terminal:attach" &&
+    typeof entry.error?.message === "string" &&
+    entry.error.message.includes("terminal session not found")
   );
 }
 

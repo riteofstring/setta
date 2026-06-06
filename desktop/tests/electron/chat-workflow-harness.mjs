@@ -911,10 +911,20 @@ async function assertLayoutSnapshotsRecorded(recordingDir) {
 
 async function assertNoIpcFailures(recordingDir) {
   const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
-  const failures = ipc.filter((entry) => entry.type === "ipc_failure");
+  const failures = ipc.filter(
+    (entry) => entry.type === "ipc_failure" && !isExpectedInitialTerminalAttachMiss(entry),
+  );
   if (failures.length > 0) {
     throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
   }
+}
+
+function isExpectedInitialTerminalAttachMiss(entry) {
+  return (
+    entry.channel === "terminal:attach" &&
+    typeof entry.error?.message === "string" &&
+    entry.error.message.includes("terminal session not found")
+  );
 }
 
 async function readJsonLines(path) {
