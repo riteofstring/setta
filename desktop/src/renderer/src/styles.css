@@ -221,16 +221,23 @@ select,
 }
 
 .niri-pane-host::after {
-  background: color-mix(in oklch, var(--primary) 58%, transparent);
-  bottom: 9px;
+  background: color-mix(in oklch, var(--foreground) 24%, transparent);
+  border-radius: 999px;
+  bottom: 14px;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--background) 54%, transparent);
   content: "";
   cursor: ew-resize;
   opacity: 0;
   position: absolute;
-  right: 0;
-  top: 9px;
-  transition: opacity 120ms ease;
-  width: 8px;
+  right: 4px;
+  top: 14px;
+  transform: scaleX(0.72);
+  transform-origin: center;
+  transition:
+    background 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease;
+  width: 3px;
   z-index: 3;
 }
 
@@ -271,10 +278,15 @@ select,
   display: none;
 }
 
-.niri-pane-host:hover::after,
-.niri-pane-host[data-focused="true"]::after,
+.niri-pane-host:hover::after {
+  opacity: 0.5;
+  transform: scaleX(1);
+}
+
 .niri-workspace-area[data-pane-resizing="true"] .niri-pane-host::after {
-  opacity: 0.52;
+  background: color-mix(in oklch, var(--foreground) 32%, transparent);
+  opacity: 0.62;
+  transform: scaleX(1);
 }
 
 .niri-pane-host:hover .niri-pane-maximize-button,
