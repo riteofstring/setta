@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
-import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
 import {
@@ -31,6 +30,7 @@ import {
 } from "./chat-composer-controls";
 import { ChatTranscript } from "./chat-transcript";
 import { EditorPicker } from "./editor-picker";
+import { SettaLogoMark } from "./setta-logo-mark";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
@@ -57,11 +57,11 @@ export function ChatPanel({
     return (
       <section
         className={cn(
-          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
+          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background text-foreground",
           chromeInsetTop && "pt-10",
         )}
       >
-        <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
+        <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-muted-foreground">
           Open a workspace to start chat.
         </div>
       </section>
@@ -109,7 +109,7 @@ function ChatWorkspace({
   return (
     <section
       className={cn(
-        "relative flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 text-zinc-100",
+        "relative flex h-full min-h-0 w-full min-w-0 flex-col bg-background text-foreground",
         chromeInsetTop && "pt-10",
       )}
     >
@@ -175,7 +175,7 @@ function ChatMaximizeButton({
   return (
     <button
       aria-label={label}
-      className="app-no-drag grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
+      className="app-no-drag grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground"
       onClick={onToggleMaximize}
       title={label}
       type="button"
@@ -295,14 +295,14 @@ function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
   const title = `${status}: ${goal.objective}`;
   return (
     <div
-      className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-300"
+      className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-background px-3 text-xs text-muted-foreground"
       data-goal-status={goal.status}
       data-testid="chat-goal-status"
       title={title}
     >
       <GoalStatusIcon status={goal.status} />
-      <span className="shrink-0 font-medium text-zinc-100">{status}</span>
-      <span className="min-w-0 truncate text-zinc-400">{goal.objective}</span>
+      <span className="shrink-0 font-medium text-foreground">{status}</span>
+      <span className="min-w-0 truncate text-muted-foreground">{goal.objective}</span>
     </div>
   );
 }
@@ -312,9 +312,11 @@ function GoalStatusIcon({ status }: { status: string }) {
     return <Check className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />;
   }
   if (status === "blocked" || status === "budgetLimited" || status === "usageLimited") {
-    return <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden="true" />;
+    return (
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-status-warning" aria-hidden="true" />
+    );
   }
-  return <Square className="h-3 w-3 shrink-0 text-zinc-500" aria-hidden="true" />;
+  return <Square className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />;
 }
 
 function goalStatusLabel(status: string) {
@@ -340,11 +342,11 @@ function ChatLoadError({ message }: { message: string }) {
   return (
     <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-6">
       <div
-        className="max-w-2xl rounded-sm border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm break-words text-zinc-100"
+        className="max-w-2xl rounded-sm border border-border bg-popover px-4 py-3 text-sm break-words text-foreground"
         data-testid="chat-load-error"
       >
         <div className="font-medium">Chat state is corrupt</div>
-        <div className="mt-2 text-zinc-300">{message}</div>
+        <div className="mt-2 text-muted-foreground">{message}</div>
       </div>
     </div>
   );
@@ -386,7 +388,7 @@ function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
           departing && "translate-y-20 opacity-0",
         )}
       >
-        <h1 className="mb-8 text-center text-2xl font-normal tracking-normal text-zinc-100">
+        <h1 className="mb-8 text-center text-2xl font-normal tracking-normal text-foreground">
           What should we build in setta?
         </h1>
         <Composer
@@ -394,7 +396,7 @@ function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
           chat={chat}
           disabled={disabled}
           formClassName="bg-transparent px-0 pt-0 pb-0"
-          frameClassName="border-zinc-700 bg-zinc-800/90 shadow-xl shadow-black/20"
+          frameClassName="border-border bg-muted/90 shadow-xl shadow-black/20"
           onSendPrompt={createAndSend}
           running={running}
         />
@@ -414,7 +416,7 @@ function ChatError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <div className="border-t border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100">
+    <div className="border-t border-border bg-background px-3 py-1.5 text-xs text-foreground">
       {message}
     </div>
   );
@@ -604,7 +606,7 @@ function Composer({
 
   return (
     <form
-      className={cn("bg-zinc-900 px-2 pt-1 pb-1.5", formClassName)}
+      className={cn("bg-background px-2 pt-1 pb-1.5", formClassName)}
       data-testid="chat-composer"
       onSubmit={(event) => {
         event.preventDefault();
@@ -614,7 +616,7 @@ function Composer({
       <div className="relative mx-auto w-full max-w-2xl min-w-0">
         <div
           className={cn(
-            "min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15",
+            "min-w-0 rounded-sm border border-border bg-muted/90 px-2 py-1.5 shadow-lg shadow-black/15",
             frameClassName,
           )}
         >
@@ -636,7 +638,7 @@ function Composer({
             />
             <Textarea
               aria-label={composerTextareaLabel()}
-              className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
+              className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled}
               onChange={(event) => updateDraft(event.target.value)}
               onKeyDown={(event) => {
@@ -751,13 +753,13 @@ export function CommandSuggestions({
     const selectedReasoningEffort = modelPicker.result.selectedReasoningEffort;
     return (
       <div
-        className="absolute bottom-full left-0 z-20 mb-2 max-h-80 w-full overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
+        className="absolute bottom-full left-0 z-20 mb-2 max-h-80 w-full overflow-y-auto rounded-sm border border-border/90 bg-muted/95 p-1 text-foreground shadow-xl shadow-black/45 backdrop-blur"
         data-testid="model-picker"
       >
-        <div className="mb-1 flex justify-end border-b border-zinc-700/70 pb-1">
+        <div className="mb-1 flex justify-end border-b border-border/70 pb-1">
           <button
             aria-label="Close model picker"
-            className="grid h-6 w-6 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700/75 hover:text-zinc-100"
+            className="grid h-6 w-6 place-items-center rounded-sm text-muted-foreground hover:bg-accent/75 hover:text-foreground"
             onClick={onDismissModelPicker}
             title="Close model picker"
             type="button"
@@ -765,15 +767,15 @@ export function CommandSuggestions({
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-zinc-500">Model</div>
+        <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-muted-foreground">Model</div>
         {modelPicker.result.models.map((model) => {
           const selected = modelPickerOptionSelected(model, selectedModel);
           return (
             <button
               aria-current={selected ? "true" : undefined}
               className={cn(
-                "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75",
-                selected && "bg-zinc-700/70",
+                "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75",
+                selected && "bg-accent/70",
               )}
               data-selected={selected ? "true" : undefined}
               key={model.id}
@@ -784,17 +786,19 @@ export function CommandSuggestions({
                 {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-zinc-100">
+                <span className="block truncate font-medium text-foreground">
                   {model.displayName}
                 </span>
-                <span className="block truncate text-[11px] text-zinc-400">{model.model}</span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {model.model}
+                </span>
               </span>
             </button>
           );
         })}
         {modelPicker.result.reasoningEfforts.length > 0 ? (
           <>
-            <div className="mt-1 border-t border-zinc-700/70 px-2 pt-2 pb-1 text-[11px] font-medium text-zinc-500">
+            <div className="mt-1 border-t border-border/70 px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
               Reasoning
             </div>
             {modelPicker.result.reasoningEfforts.map((effort) => {
@@ -803,8 +807,8 @@ export function CommandSuggestions({
                 <button
                   aria-current={selected ? "true" : undefined}
                   className={cn(
-                    "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75",
-                    selected && "bg-zinc-700/70",
+                    "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75",
+                    selected && "bg-accent/70",
                   )}
                   data-reasoning-effort={effort.effort}
                   data-reasoning-selected={selected ? "true" : undefined}
@@ -816,10 +820,10 @@ export function CommandSuggestions({
                     {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-zinc-100">
+                    <span className="block truncate font-medium text-foreground">
                       {effort.displayName}
                     </span>
-                    <span className="block truncate text-[11px] text-zinc-400">
+                    <span className="block truncate text-[11px] text-muted-foreground">
                       {effort.description}
                     </span>
                   </span>
@@ -836,14 +840,14 @@ export function CommandSuggestions({
   }
   return (
     <div
-      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
+      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-border/90 bg-muted/95 p-1 text-foreground shadow-xl shadow-black/45 backdrop-blur"
       data-testid="command-suggestions"
     >
       {suggestions.map((command) => (
         <button
           className={cn(
-            "flex w-full min-w-0 items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75 disabled:opacity-50",
-            command === selectedSuggestion && "bg-zinc-700/80",
+            "flex w-full min-w-0 items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75 disabled:opacity-50",
+            command === selectedSuggestion && "bg-accent/80",
           )}
           disabled={!command.available}
           key={command.name}
@@ -851,8 +855,8 @@ export function CommandSuggestions({
           type="button"
         >
           <span className="min-w-0">
-            <span className="block font-medium text-zinc-100">{command.name}</span>
-            <span className="block truncate text-[11px] text-zinc-400">
+            <span className="block font-medium text-foreground">{command.name}</span>
+            <span className="block truncate text-[11px] text-muted-foreground">
               {command.available ? command.usage : command.unavailableReason}
             </span>
           </span>
@@ -949,15 +953,10 @@ function ComposerPlaceholder({ visible }: { visible: boolean }) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute top-0 left-0 flex h-4 items-center gap-1 text-xs leading-4 text-zinc-500"
+      className="pointer-events-none absolute top-0 left-0 flex h-4 items-center gap-1 text-xs leading-4 text-muted-foreground"
     >
       <span>Ask</span>
-      <img
-        alt=""
-        className="h-[11px] w-auto translate-y-[3px] opacity-60 grayscale"
-        draggable={false}
-        src={settaLogo}
-      />
+      <SettaLogoMark className="translate-y-[3px]" height={11} />
     </div>
   );
 }
@@ -1044,7 +1043,7 @@ export function ComposerButton({
       <div className="flex items-center gap-1">
         <Button
           aria-label="Send steering message"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-secondary px-0 text-foreground hover:bg-card disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
           disabled={!canSend}
           title="Send steering message"
           type="submit"
@@ -1054,7 +1053,7 @@ export function ComposerButton({
         </Button>
         <Button
           aria-label="Queue follow-up"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-muted px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
           disabled={!canSend || chat.operation === "queueing"}
           onClick={() => void queueDraft()}
           title="Queue follow-up"
@@ -1065,7 +1064,7 @@ export function ComposerButton({
         </Button>
         <Button
           aria-label="Stop run"
-          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
+          className="h-6 w-6 shrink-0 rounded-sm border-border bg-muted px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
           disabled={chat.operation === "cancelling"}
           onClick={() => void chat.stopActiveRun()}
           title="Stop run"
@@ -1080,7 +1079,7 @@ export function ComposerButton({
   return (
     <Button
       aria-label="Send message"
-      className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
+      className="h-6 w-6 shrink-0 rounded-sm border-border bg-secondary px-0 text-foreground hover:bg-card disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
       disabled={!canSend}
       title="Send message"
       type="submit"

@@ -1,13 +1,6 @@
-import type { WorkspaceSession, WorkspaceSummary } from "@generated/backend";
+import type { WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import {
-  FolderOpen,
-  LayoutGrid,
-  MessageSquarePlus,
-  PanelLeftOpen,
-  Search,
-  Settings,
-} from "lucide-react";
+import { LayoutGrid, MessageSquarePlus, PanelLeftOpen, Search, Settings } from "lucide-react";
 import type {
   CSSProperties,
   Dispatch,
@@ -39,16 +32,16 @@ import {
   workspacePaneSplitTargetFromPoint,
 } from "./components/workspace-pane-split-overlay";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
-import { Badge } from "./components/ui/badge";
-import { Button } from "./components/ui/button";
-import { cn } from "./lib/utils";
 import {
-  type WorkspaceOperationKind,
-  type WorkspaceOperation,
-  type WorkspaceStatus,
-  useWorkspaceStore,
-} from "./stores/workspace-store";
+  compactProjectPaneWidth,
+  projectPaneDefaultWidth,
+  projectPaneMaxWidth,
+  projectPaneMinWidth,
+} from "./app-layout";
+import { cn } from "./lib/utils";
+import { useWorkspaceStore } from "./stores/workspace-store";
 import { useChatStore } from "./stores/chat-store";
+import { useAppearanceStore } from "./stores/appearance-store";
 
 export function App() {
   const setta = readSettaApi();
@@ -63,13 +56,16 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const chat = useChatViewState(workspace.selectedWorkspace?.id ?? null);
   const panes = useWorkspacePaneState();
   const platform = setta.app.platform;
+  const viewport = useViewportSize();
+  useAppearanceSettings();
   useBackendResyncStatus(setta);
   const [maximizedPaneId, setMaximizedPaneId] = useState<string | null>(null);
-  const [projectPaneWidth, setProjectPaneWidth] = useState(220);
+  const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
   const [workspaceColumnPercent, setWorkspaceColumnPercent] = useState(50);
   const [workspaceRowPercent, setWorkspaceRowPercent] = useState(50);
   const [chatSearchOpenByPaneId, setChatSearchOpenByPaneId] = useState<Record<string, boolean>>({});
+  const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
   const openChatSearch = useCallback(() => {
     const chatPane = firstWorkspacePaneWithKind(panes.panes, "chat");
     if (!chatPane) {
@@ -100,7 +96,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }, [maximizedPaneId, panes.panes]);
 
   return (
-    <div className="fixed inset-0 min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
+    <div className="fixed inset-0 min-h-0 overflow-hidden bg-background text-foreground">
       <AppChromeControls
         canCreatePane={panes.canCreatePane}
         createPane={panes.createPane}
@@ -116,14 +112,14 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           setProjectPaneOpen(open);
         }}
       />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
+      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background">
         <ProjectPane
           chromeInsetTop={projectPaneOpen}
           chat={chat}
           open={projectPaneOpen}
           openSettingsPane={openSettingsPane}
           setWidth={setProjectPaneWidth}
-          width={projectPaneWidth}
+          width={effectiveProjectPaneWidth}
           workspace={workspace}
         />
         <WorkspaceArea
@@ -186,6 +182,33 @@ function useBackendResyncStatus(setta: SettaAPI) {
       }
     });
   }, [setta]);
+}
+
+function useAppearanceSettings() {
+  const loadAppearance = useAppearanceStore((state) => state.load);
+
+  useEffect(() => {
+    void loadAppearance();
+  }, [loadAppearance]);
+}
+
+function useViewportSize() {
+  const [size, setSize] = useState(() => ({
+    height: window.innerHeight,
+    width: window.innerWidth,
+  }));
+
+  useEffect(() => {
+    const handleResize = () =>
+      setSize({
+        height: window.innerHeight,
+        width: window.innerWidth,
+      });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return size;
 }
 
 function WorkspaceArea({
@@ -341,12 +364,12 @@ function WorkspaceArea({
 
   return (
     <div
-      className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-900"
+      className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
       data-pane-count={panes.panes.length}
       data-testid="workspace-pane-grid-shell"
     >
       <div
-        className="grid h-full min-h-0 min-w-0 overflow-hidden bg-zinc-800"
+        className="grid h-full min-h-0 min-w-0 overflow-hidden bg-border"
         data-testid="workspace-pane-grid"
         ref={gridRef}
         style={workspacePaneGridStyle(
@@ -358,7 +381,7 @@ function WorkspaceArea({
       >
         {visiblePanes.map((pane, index) => (
           <div
-            className="min-h-0 min-w-0 overflow-hidden bg-zinc-950"
+            className="min-h-0 min-w-0 overflow-hidden bg-popover"
             data-pane-id={pane.id}
             data-testid="workspace-pane-grid-cell"
             key={pane.id}
@@ -449,7 +472,7 @@ function WorkspacePaneTabContent({
     case "chat":
       return (
         <div
-          className="h-full min-h-0 bg-zinc-900"
+          className="h-full min-h-0 bg-background"
           data-pane-kind="chat"
           data-testid="chat-pane-surface"
         >
@@ -753,7 +776,7 @@ function WorkspacePaneGridResizeHandle({
       aria-valuemin={25}
       aria-valuenow={Math.round(value)}
       className={cn(
-        "relative z-50 bg-zinc-800 outline-none transition-colors hover:bg-zinc-700 focus-visible:bg-zinc-600",
+        "relative z-50 bg-border outline-none transition-colors hover:bg-muted focus-visible:bg-accent",
         isColumn ? "cursor-col-resize" : "cursor-row-resize",
       )}
       data-resize-axis={axis}
@@ -838,8 +861,8 @@ function ProjectPane({
   return (
     <ResizablePane
       label="Resize project sidebar"
-      maxWidth={320}
-      minWidth={176}
+      maxWidth={projectPaneMaxWidth}
+      minWidth={projectPaneMinWidth}
       onWidthChange={setWidth}
       width={width}
     >
@@ -945,7 +968,7 @@ function FloatingProjectPaneControl({
   return (
     <div
       className={cn(
-        "app-no-drag fixed top-1 z-50 text-zinc-500",
+        "app-no-drag fixed top-1 z-50 text-muted-foreground",
         floatingProjectControlLeftInsetClass(platform),
       )}
     >
@@ -996,8 +1019,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
-          : "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
+          ? "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 focus-visible:bg-accent/80"
+          : "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground"
       }
       disabled={disabled}
       onClick={onClick}
@@ -1025,7 +1048,7 @@ function FloatingPaneControls({
   return (
     <div
       className={cn(
-        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-500",
+        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-muted-foreground",
         floatingControlsRightInsetClass(platform),
       )}
     >
@@ -1051,7 +1074,7 @@ function FloatingPaneControls({
         </ShellPaneToggle>
         <div
           aria-label={`${paneCount} of ${maxWorkspacePaneCount} panes open`}
-          className="app-no-drag grid h-7 min-w-7 place-items-center rounded-sm px-1.5 text-[11px] font-semibold text-zinc-600"
+          className="app-no-drag grid h-7 min-w-7 place-items-center rounded-sm px-1.5 text-[11px] font-semibold text-muted-foreground"
           title={`${paneCount}/${maxWorkspacePaneCount} panes`}
         >
           <span className="inline-flex items-center gap-1">
@@ -1115,80 +1138,4 @@ function useSelectedWorkspace(session: WorkspaceSession | null) {
       null
     );
   }, [session]);
-}
-
-export function WorkspacePanel({
-  error,
-  openLocalFolder,
-  operation,
-  selectedWorkspace,
-  status,
-}: {
-  error: string | null;
-  openLocalFolder: () => Promise<void>;
-  operation: WorkspaceOperation;
-  selectedWorkspace: WorkspaceSummary | null;
-  status: WorkspaceStatus;
-}) {
-  const busy = operation !== null || status === "loading";
-  return (
-    <div id="workspace" className="border-b border-zinc-200 bg-white p-2">
-      <div className="flex h-full items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xs font-semibold text-zinc-950">Workspace</h2>
-            {status === "loading" ? <Badge variant="neutral">Loading</Badge> : null}
-            {operation ? <Badge variant="neutral">{operationLabel(operation)}</Badge> : null}
-          </div>
-          {selectedWorkspace ? (
-            <div className="mt-3 min-w-0">
-              <div className="truncate text-xs font-semibold">{selectedWorkspace.displayName}</div>
-              <div
-                className="mt-1 truncate text-xs text-zinc-500"
-                data-testid="selected-workspace-path"
-              >
-                {selectedWorkspace.rootPath}
-              </div>
-            </div>
-          ) : (
-            <div className="mt-3">
-              <div className="text-xs font-semibold">No workspace open</div>
-              <Button
-                className="mt-2 h-7 rounded-sm px-2 text-xs"
-                disabled={busy}
-                onClick={() => void openLocalFolder()}
-                variant="primary"
-              >
-                <FolderOpen className="h-4 w-4" />
-                Open Folder
-              </Button>
-            </div>
-          )}
-          {error ? (
-            <div
-              className="mt-2 max-w-3xl rounded-sm border border-zinc-400 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-950"
-              data-testid="workspace-error"
-            >
-              {error}
-            </div>
-          ) : null}
-        </div>
-        <Badge variant={selectedWorkspace ? "success" : "neutral"}>
-          {selectedWorkspace ? "Active" : "Empty"}
-        </Badge>
-      </div>
-    </div>
-  );
-}
-
-const operationLabels = {
-  closing: "Closing",
-  opening: "Opening",
-  removingRecent: "Removing",
-  reordering: "Reordering",
-  selecting: "Selecting",
-} satisfies Record<WorkspaceOperationKind, string>;
-
-function operationLabel(operation: WorkspaceOperationKind) {
-  return operationLabels[operation];
 }

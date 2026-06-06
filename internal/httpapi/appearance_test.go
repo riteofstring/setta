@@ -48,6 +48,43 @@ func TestAppearanceEndpointRejectsInvalidColor(t *testing.T) {
 	}
 }
 
+func TestAppearanceEndpointReadsPresetList(t *testing.T) {
+	handler := newAppearanceHandler(t)
+
+	presets := getJSON[appearance.AppearancePresetList](t, handler, "/appearance/presets", http.StatusOK)
+	if presets.DefaultPresetID != appearance.PresetSettaStandard {
+		t.Fatalf("default preset id = %q, want %q", presets.DefaultPresetID, appearance.PresetSettaStandard)
+	}
+	if len(presets.Presets) != 27 {
+		t.Fatalf("preset count = %d, want 27", len(presets.Presets))
+	}
+
+	seen := map[appearance.AppearancePresetID]bool{}
+	for _, preset := range presets.Presets {
+		if preset.Name == "" {
+			t.Fatalf("preset %q has empty name", preset.ID)
+		}
+		if err := appearance.Validate(preset.Settings); err != nil {
+			t.Fatalf("preset %q settings are invalid: %v", preset.ID, err)
+		}
+		seen[preset.ID] = true
+	}
+	for _, presetID := range []appearance.AppearancePresetID{
+		appearance.PresetSettaStandard,
+		appearance.PresetTailwindGray,
+		appearance.PresetTailwindNeutral,
+		appearance.PresetTailwindSlate,
+		appearance.PresetTailwindStone,
+		appearance.PresetTailwindZinc,
+		appearance.PresetTailwindBlue,
+		appearance.PresetShadcnMauve,
+	} {
+		if !seen[presetID] {
+			t.Fatalf("preset %q missing from response", presetID)
+		}
+	}
+}
+
 func TestAppearanceEndpointsRequireService(t *testing.T) {
 	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
 	response := getJSON[ErrorResponse](t, handler, "/appearance/settings", http.StatusServiceUnavailable)

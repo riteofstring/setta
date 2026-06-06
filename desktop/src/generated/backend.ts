@@ -31,6 +31,72 @@ export function decodeAppearanceColorMode(value: unknown, label = "AppearanceCol
   }
 }
 
+export type AppearancePresetID = "setta_standard" | "tailwind_slate" | "tailwind_gray" | "tailwind_zinc" | "tailwind_neutral" | "tailwind_stone" | "tailwind_red" | "tailwind_orange" | "tailwind_amber" | "tailwind_yellow" | "tailwind_lime" | "tailwind_green" | "tailwind_emerald" | "tailwind_teal" | "tailwind_cyan" | "tailwind_sky" | "tailwind_blue" | "tailwind_indigo" | "tailwind_violet" | "tailwind_purple" | "tailwind_fuchsia" | "tailwind_pink" | "tailwind_rose" | "shadcn_mauve" | "shadcn_olive" | "shadcn_mist" | "shadcn_taupe";
+
+export const appearancePresetIDValues = ["setta_standard", "tailwind_slate", "tailwind_gray", "tailwind_zinc", "tailwind_neutral", "tailwind_stone", "tailwind_red", "tailwind_orange", "tailwind_amber", "tailwind_yellow", "tailwind_lime", "tailwind_green", "tailwind_emerald", "tailwind_teal", "tailwind_cyan", "tailwind_sky", "tailwind_blue", "tailwind_indigo", "tailwind_violet", "tailwind_purple", "tailwind_fuchsia", "tailwind_pink", "tailwind_rose", "shadcn_mauve", "shadcn_olive", "shadcn_mist", "shadcn_taupe"] as const satisfies readonly AppearancePresetID[];
+
+export function decodeAppearancePresetID(value: unknown, label = "AppearancePresetID"): AppearancePresetID {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "setta_standard":
+      return decoded;
+    case "tailwind_slate":
+      return decoded;
+    case "tailwind_gray":
+      return decoded;
+    case "tailwind_zinc":
+      return decoded;
+    case "tailwind_neutral":
+      return decoded;
+    case "tailwind_stone":
+      return decoded;
+    case "tailwind_red":
+      return decoded;
+    case "tailwind_orange":
+      return decoded;
+    case "tailwind_amber":
+      return decoded;
+    case "tailwind_yellow":
+      return decoded;
+    case "tailwind_lime":
+      return decoded;
+    case "tailwind_green":
+      return decoded;
+    case "tailwind_emerald":
+      return decoded;
+    case "tailwind_teal":
+      return decoded;
+    case "tailwind_cyan":
+      return decoded;
+    case "tailwind_sky":
+      return decoded;
+    case "tailwind_blue":
+      return decoded;
+    case "tailwind_indigo":
+      return decoded;
+    case "tailwind_violet":
+      return decoded;
+    case "tailwind_purple":
+      return decoded;
+    case "tailwind_fuchsia":
+      return decoded;
+    case "tailwind_pink":
+      return decoded;
+    case "tailwind_rose":
+      return decoded;
+    case "shadcn_mauve":
+      return decoded;
+    case "shadcn_olive":
+      return decoded;
+    case "shadcn_mist":
+      return decoded;
+    case "shadcn_taupe":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
@@ -536,24 +602,24 @@ export interface BackendHealth {
 }
 
 export interface AppearanceTailwindPalette {
-  zinc50: string;
-  zinc100: string;
-  zinc150: string;
-  zinc200: string;
-  zinc300: string;
-  zinc400: string;
-  zinc500: string;
-  zinc600: string;
-  zinc700: string;
-  zinc750: string;
-  zinc800: string;
-  zinc850: string;
-  zinc860: string;
-  zinc875: string;
-  zinc900: string;
-  zinc925: string;
-  zinc950: string;
-  zinc975: string;
+  setta50: string;
+  setta100: string;
+  setta150: string;
+  setta200: string;
+  setta300: string;
+  setta400: string;
+  setta500: string;
+  setta600: string;
+  setta700: string;
+  setta750: string;
+  setta800: string;
+  setta850: string;
+  setta860: string;
+  setta875: string;
+  setta900: string;
+  setta925: string;
+  setta950: string;
+  setta975: string;
 }
 
 export interface AppearanceShadcnPalette {
@@ -613,6 +679,18 @@ export interface AppearanceSettings {
   light: AppearanceColorScheme;
   dark: AppearanceColorScheme;
   fonts: AppearanceFontScheme;
+}
+
+export interface AppearancePreset {
+  id: AppearancePresetID;
+  name: string;
+  description: string;
+  settings: AppearanceSettings;
+}
+
+export interface AppearancePresetList {
+  defaultPresetId: AppearancePresetID;
+  presets: AppearancePreset[];
 }
 
 export interface UpdateAppearanceSettingsRequest {
@@ -1453,6 +1531,10 @@ export const backendEndpoints = {
     method: "GET",
     path: "/appearance/settings",
   },
+  ReadAppearancePresets: {
+    method: "GET",
+    path: "/appearance/presets",
+  },
   UpdateAppearanceSettings: {
     method: "POST",
     path: "/appearance/settings",
@@ -1595,26 +1677,26 @@ export function decodeBackendHealth(value: unknown): BackendHealth {
 
 export function decodeAppearanceTailwindPalette(value: unknown): AppearanceTailwindPalette {
   const record = assertRecord(value, "AppearanceTailwindPalette");
-  assertKnownFields(record, "AppearanceTailwindPalette", ["zinc50", "zinc100", "zinc150", "zinc200", "zinc300", "zinc400", "zinc500", "zinc600", "zinc700", "zinc750", "zinc800", "zinc850", "zinc860", "zinc875", "zinc900", "zinc925", "zinc950", "zinc975"]);
+  assertKnownFields(record, "AppearanceTailwindPalette", ["setta50", "setta100", "setta150", "setta200", "setta300", "setta400", "setta500", "setta600", "setta700", "setta750", "setta800", "setta850", "setta860", "setta875", "setta900", "setta925", "setta950", "setta975"]);
   return {
-    zinc50: decodeString(requireField(record, "zinc50", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc50"),
-    zinc100: decodeString(requireField(record, "zinc100", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc100"),
-    zinc150: decodeString(requireField(record, "zinc150", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc150"),
-    zinc200: decodeString(requireField(record, "zinc200", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc200"),
-    zinc300: decodeString(requireField(record, "zinc300", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc300"),
-    zinc400: decodeString(requireField(record, "zinc400", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc400"),
-    zinc500: decodeString(requireField(record, "zinc500", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc500"),
-    zinc600: decodeString(requireField(record, "zinc600", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc600"),
-    zinc700: decodeString(requireField(record, "zinc700", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc700"),
-    zinc750: decodeString(requireField(record, "zinc750", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc750"),
-    zinc800: decodeString(requireField(record, "zinc800", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc800"),
-    zinc850: decodeString(requireField(record, "zinc850", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc850"),
-    zinc860: decodeString(requireField(record, "zinc860", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc860"),
-    zinc875: decodeString(requireField(record, "zinc875", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc875"),
-    zinc900: decodeString(requireField(record, "zinc900", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc900"),
-    zinc925: decodeString(requireField(record, "zinc925", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc925"),
-    zinc950: decodeString(requireField(record, "zinc950", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc950"),
-    zinc975: decodeString(requireField(record, "zinc975", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.zinc975"),
+    setta50: decodeString(requireField(record, "setta50", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta50"),
+    setta100: decodeString(requireField(record, "setta100", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta100"),
+    setta150: decodeString(requireField(record, "setta150", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta150"),
+    setta200: decodeString(requireField(record, "setta200", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta200"),
+    setta300: decodeString(requireField(record, "setta300", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta300"),
+    setta400: decodeString(requireField(record, "setta400", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta400"),
+    setta500: decodeString(requireField(record, "setta500", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta500"),
+    setta600: decodeString(requireField(record, "setta600", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta600"),
+    setta700: decodeString(requireField(record, "setta700", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta700"),
+    setta750: decodeString(requireField(record, "setta750", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta750"),
+    setta800: decodeString(requireField(record, "setta800", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta800"),
+    setta850: decodeString(requireField(record, "setta850", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta850"),
+    setta860: decodeString(requireField(record, "setta860", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta860"),
+    setta875: decodeString(requireField(record, "setta875", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta875"),
+    setta900: decodeString(requireField(record, "setta900", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta900"),
+    setta925: decodeString(requireField(record, "setta925", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta925"),
+    setta950: decodeString(requireField(record, "setta950", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta950"),
+    setta975: decodeString(requireField(record, "setta975", "AppearanceTailwindPalette"), "AppearanceTailwindPalette.setta975"),
   };
 }
 
@@ -1694,6 +1776,26 @@ export function decodeAppearanceSettings(value: unknown): AppearanceSettings {
     light: decodeAppearanceColorScheme(requireField(record, "light", "AppearanceSettings")),
     dark: decodeAppearanceColorScheme(requireField(record, "dark", "AppearanceSettings")),
     fonts: decodeAppearanceFontScheme(requireField(record, "fonts", "AppearanceSettings")),
+  };
+}
+
+export function decodeAppearancePreset(value: unknown): AppearancePreset {
+  const record = assertRecord(value, "AppearancePreset");
+  assertKnownFields(record, "AppearancePreset", ["id", "name", "description", "settings"]);
+  return {
+    id: decodeAppearancePresetID(requireField(record, "id", "AppearancePreset"), "AppearancePreset.id"),
+    name: decodeString(requireField(record, "name", "AppearancePreset"), "AppearancePreset.name"),
+    description: decodeString(requireField(record, "description", "AppearancePreset"), "AppearancePreset.description"),
+    settings: decodeAppearanceSettings(requireField(record, "settings", "AppearancePreset")),
+  };
+}
+
+export function decodeAppearancePresetList(value: unknown): AppearancePresetList {
+  const record = assertRecord(value, "AppearancePresetList");
+  assertKnownFields(record, "AppearancePresetList", ["defaultPresetId", "presets"]);
+  return {
+    defaultPresetId: decodeAppearancePresetID(requireField(record, "defaultPresetId", "AppearancePresetList"), "AppearancePresetList.defaultPresetId"),
+    presets: decodeArray(requireField(record, "presets", "AppearancePresetList"), "AppearancePresetList.presets", (item) => decodeAppearancePreset(item)),
   };
 }
 
@@ -3067,6 +3169,7 @@ function decodeCodexAccountChangedEventFromRecord(record: Record<string, unknown
 export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
   readAppearanceSettings: () => Promise<AppearanceSettings>;
+  readAppearancePresets: () => Promise<AppearancePresetList>;
   updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
   workspaceSession: () => Promise<WorkspaceSession>;
   openWorkspace: (request: OpenWorkspaceRequest) => Promise<OpenWorkspaceResponse>;
@@ -3115,6 +3218,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeAppearanceSettings,
       endpoint: backendEndpoints.ReadAppearanceSettings,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    readAppearancePresets: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAppearancePresetList,
+      endpoint: backendEndpoints.ReadAppearancePresets,
       fetchImpl,
       requestPayload: undefined,
     }),
