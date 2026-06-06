@@ -14,7 +14,7 @@ Usage: ./scripts/test_chat_workflows.sh [--skip-build] [--visible] [--determinis
 
 Build and run the chat workflow gate:
   - hidden deterministic Electron chat workflow tests with temp app data
-  - live Electron Codex workflow tests when .env contains OPENAI_API_KEY
+  - live Electron Codex workflow tests when Codex ChatGPT auth is available
   - backend-only live Codex workflow tests as supplemental lower-level coverage
 EOF
 }
@@ -55,9 +55,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-openai_key_present() {
-  [[ -f "${repo_root}/.env" ]] || return 1
-  grep -Eq '^[[:space:]]*(export[[:space:]]+)?OPENAI_API_KEY[[:space:]]*=[[:space:]]*[^[:space:]#]+' "${repo_root}/.env"
+codex_chatgpt_auth_present() {
+  node "${repo_root}/desktop/tests/electron/chat-live-auth.mjs"
 }
 
 run_electron_node() {
@@ -98,7 +97,7 @@ if [[ "${run_deterministic}" -eq 1 ]]; then
 fi
 
 if [[ "${run_live}" -eq 1 ]]; then
-  if openai_key_present; then
+  if live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
     echo "Live Codex Electron chat workflow..."
     if run_electron_node "${repo_root}/desktop/tests/electron/chat-workflows.test.mjs" --live-only; then
       passed_workflows+=("live-codex-electron")
@@ -113,7 +112,7 @@ if [[ "${run_live}" -eq 1 ]]; then
       status=1
     fi
   else
-    live_skip_reason="OPENAI_API_KEY is not present in .env"
+    live_skip_reason="${live_skip_reason:-Codex ChatGPT auth is unavailable}"
     skipped_workflows+=("live-codex-electron (${live_skip_reason})")
     skipped_workflows+=("live-codex-backend (${live_skip_reason})")
     echo "Live Codex chat workflows skipped: ${live_skip_reason}"

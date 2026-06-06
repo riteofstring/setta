@@ -288,7 +288,7 @@ Start with deterministic backend tests for the orchestration reducer and schedul
 - Cancellation cancels active node executions.
 - Restart recovery handles running, completed, and interrupted node executions.
 
-When workflow execution touches Codex harness behavior, chat run lifecycle, approvals, provider protocol handling, or streaming, add deterministic end-to-end app workflow coverage through production Electron/main/preload/renderer/HTTP/store paths per repository verification rules. Use a scripted fake Codex/provider harness first. Run live Codex E2E tests when `OPENAI_API_KEY` is present in `.env`; skip narrowly and report the skip when it is absent.
+When workflow execution touches Codex harness behavior, chat run lifecycle, approvals, provider protocol handling, or streaming, add deterministic end-to-end app workflow coverage through production Electron/main/preload/renderer/HTTP/store paths per repository verification rules. Use a scripted fake Codex/provider harness first. Run live Codex E2E tests when the local Codex CLI is signed in with ChatGPT auth; skip narrowly and report the skip when ChatGPT auth is unavailable.
 
 ## Implementation Phases
 
@@ -343,7 +343,7 @@ Status: Implemented.
 - Verify cancellation of an active workflow cancels active workflow-owned chat/Codex runs and preserves the correct terminal workflow state.
 - Verify restart/recovery behavior for active workflow executions. The current initial policy may mark interrupted running executions failed; the test should assert the intended behavior explicitly.
 - Add deterministic end-to-end app workflow coverage through production Electron/main/preload/renderer/HTTP/store paths before calling Phase 4 complete.
-- Run live Codex E2E tests when `OPENAI_API_KEY` is present in `.env`; skip narrowly and report the skip when absent.
+- Run live Codex E2E tests when the local Codex CLI is signed in with ChatGPT auth; skip narrowly and report the skip when ChatGPT auth is unavailable.
 
 ### Phase 5: Frontend Projection
 

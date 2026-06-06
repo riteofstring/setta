@@ -610,6 +610,7 @@ async function installPageHelpers(client) {
 function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   const harness = launchOptions.harness ?? "scripted-workflow";
   const extraEnv = launchOptions.extraEnv ?? {};
+  const unsetEnv = launchOptions.unsetEnv ?? [];
   const e2eEnv = {
     SETTA_E2E: "1",
     SETTA_E2E_BLOCK_EXTERNAL_OPEN: "1",
@@ -617,18 +618,22 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
     ...(launchVisible ? { SETTA_E2E_VISIBLE: "1" } : {}),
     ...(harness === "scripted-workflow" ? { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" } : {}),
   };
+  const env = {
+    ...process.env,
+    ...extraEnv,
+    ...e2eEnv,
+    SETTA_APP_DATA_DIR: fixture.appDataDir,
+    SETTA_RECORD_INCLUDE_PAYLOADS: "1",
+    SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
+    SETTA_RECORDING: "1",
+    SETTA_RECORDING_DIR: recordingDir,
+  };
+  for (const name of unsetEnv) {
+    delete env[name];
+  }
   const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
     cwd: desktopRoot,
-    env: {
-      ...process.env,
-      ...extraEnv,
-      ...e2eEnv,
-      SETTA_APP_DATA_DIR: fixture.appDataDir,
-      SETTA_RECORD_INCLUDE_PAYLOADS: "1",
-      SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
-      SETTA_RECORDING: "1",
-      SETTA_RECORDING_DIR: recordingDir,
-    },
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
   electron.logs = [];

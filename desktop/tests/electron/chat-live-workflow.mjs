@@ -3,7 +3,7 @@ import { join } from "node:path";
 import process from "node:process";
 
 import { assertNoCriticalDiagnostics } from "./chat-workflow-assertions.mjs";
-import { prepareLiveCodexEnv } from "./chat-live-env.mjs";
+import { prepareLiveCodexAuth } from "./chat-live-auth.mjs";
 
 export async function runLiveCodexWorkflow(results, deps) {
   const {
@@ -32,19 +32,20 @@ export async function runLiveCodexWorkflow(results, deps) {
     waitForTexts,
   } = deps;
 
-  const liveEnv = await prepareLiveCodexEnv(repoRoot);
-  if (!liveEnv) {
-    results.push("live-codex-electron-skipped-no-openai-api-key");
+  const liveAuth = await prepareLiveCodexAuth(repoRoot);
+  if (!liveAuth.available) {
+    results.push("live-codex-electron-skipped-no-chatgpt-auth");
     process.stdout.write(
-      "Electron chat workflow skipped: live-codex-electron (OPENAI_API_KEY absent in .env)\n",
+      `Electron chat workflow skipped: live-codex-electron (${liveAuth.reason})\n`,
     );
     return;
   }
   const fixture = await createFixture("live-codex");
   const recordingDir = join(recordingRoot, "live-codex");
   const context = await launchContext(fixture, recordingDir, {
-    extraEnv: liveEnv.env,
+    extraEnv: liveAuth.env,
     harness: "codex",
+    unsetEnv: liveAuth.unsetEnv,
   });
   let failure = null;
 
@@ -123,7 +124,6 @@ export async function runLiveCodexWorkflow(results, deps) {
     context.client?.close();
     await stopElectron(context.electron);
     await rm(fixture.tempRoot, { force: true, recursive: true });
-    await rm(liveEnv.codexHome, { force: true, recursive: true });
   }
 
   if (failure) {

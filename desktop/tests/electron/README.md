@@ -10,4 +10,4 @@ Run the deterministic chat workflows through the root wrapper:
 ```
 
 The wrapper builds the desktop app unless `--skip-build` is provided and routes
-live Codex workflows based on the local `.env` state.
+live Codex workflows based on the local Codex CLI ChatGPT auth state.

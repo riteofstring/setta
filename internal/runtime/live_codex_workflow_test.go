@@ -4,29 +4,25 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"setta/internal/chat"
+	"setta/internal/codexaccount"
+	"setta/internal/codexapp"
 	"setta/internal/httpapi"
 	"setta/internal/workspacesession"
 )
 
 func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
-	openAIKey := runtimeOpenAIKeyFromDotEnv(t)
-	codexHome := runtimeTempDirWithRetryCleanup(t, "setta-codex-home-*")
-	runtimeLoginCodexWithAPIKey(t, codexHome, openAIKey)
-	t.Setenv("OPENAI_API_KEY", openAIKey)
-	t.Setenv("CODEX_HOME", codexHome)
+	unsetRuntimeEnv(t, "OPENAI_API_KEY")
+	requireRuntimeLiveCodexChatGPTAuth(t)
 
 	config := testConfig(t)
 	config.Version = "test"
@@ -279,96 +275,71 @@ func assertRuntimeNoCriticalDiagnostics(t *testing.T, appDataDir string) {
 	}
 }
 
-func runtimeLoginCodexWithAPIKey(t *testing.T, codexHome string, openAIKey string) {
+func requireRuntimeLiveCodexChatGPTAuth(t *testing.T) {
 	t.Helper()
 
-	command := exec.Command("codex", "login", "--with-api-key")
-	command.Env = append(os.Environ(), "CODEX_HOME="+codexHome)
-	command.Stdin = strings.NewReader(openAIKey + "\n")
-	var stderr bytes.Buffer
-	command.Stderr = &stderr
-	if err := command.Run(); err != nil {
-		t.Fatalf("codex login --with-api-key failed: %v, stderr: %s", err, stderr.String())
+	manager := codexapp.NewManager(codexapp.ManagerConfig{
+		Process: codexapp.ProcessConfig{
+			Command: "codex",
+			Args:    []string{"app-server", "--listen", "stdio://"},
+		},
+		InitializeParams: map[string]any{
+			"clientInfo": map[string]any{
+				"name":    "setta-live-test",
+				"title":   "Setta Live Test",
+				"version": "dev",
+			},
+		},
+	})
+	defer func() {
+		if err := manager.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown live Codex account manager: %v", err)
+		}
+	}()
+	service, err := codexaccount.NewService(manager, nil)
+	if err != nil {
+		t.Fatalf("create Codex account service: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	state, err := service.Read(ctx)
+	if err != nil {
+		t.Fatalf("read Codex account: %v", err)
+	}
+	if state.Status == codexaccount.AccountStatusUnavailable {
+		t.Skipf("Codex ChatGPT auth is unavailable: %s", state.Diagnostic)
+	}
+	if state.Account == nil {
+		t.Skip("Codex ChatGPT auth is not signed in")
+	}
+	switch state.Account.Type {
+	case codexaccount.AccountTypeChatGPT, codexaccount.AccountTypeChatGPTAuthTokens:
+		return
+	case codexaccount.AccountTypeAPIKey:
+		t.Skip("Codex is signed in with API-key auth; ChatGPT auth is required")
+	default:
+		t.Skipf("Codex account type %s is not supported for live tests", state.Account.Type)
 	}
 }
 
-func runtimeTempDirWithRetryCleanup(t *testing.T, pattern string) string {
+func unsetRuntimeEnv(t *testing.T, names ...string) {
 	t.Helper()
 
-	dir, err := os.MkdirTemp("", pattern)
-	if err != nil {
-		t.Fatalf("create temp dir: %v", err)
-	}
-	t.Cleanup(func() {
-		var removeErr error
-		for attempt := 0; attempt < 20; attempt++ {
-			removeErr = os.RemoveAll(dir)
-			if removeErr == nil {
+	for _, name := range names {
+		value, ok := os.LookupEnv(name)
+		if err := os.Unsetenv(name); err != nil {
+			t.Fatalf("unset %s: %v", name, err)
+		}
+		t.Cleanup(func() {
+			if ok {
+				if err := os.Setenv(name, value); err != nil {
+					t.Fatalf("restore %s: %v", name, err)
+				}
 				return
 			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		t.Fatalf("remove temp dir %s: %v", dir, removeErr)
-	})
-	return dir
-}
-
-func runtimeOpenAIKeyFromDotEnv(t *testing.T) string {
-	t.Helper()
-
-	envPath := filepath.Join(runtimeRepoRoot(t), ".env")
-	content, err := os.ReadFile(envPath)
-	if errors.Is(err, os.ErrNotExist) {
-		t.Skip("OPENAI_API_KEY is not present in .env")
-	}
-	if err != nil {
-		t.Fatalf("read .env: %v", err)
-	}
-	for _, line := range strings.Split(string(content), "\n") {
-		key, value, ok := parseRuntimeDotEnvLine(line)
-		if ok && key == "OPENAI_API_KEY" && value != "" {
-			return value
-		}
-	}
-	t.Skip("OPENAI_API_KEY is not present in .env")
-	return ""
-}
-
-func parseRuntimeDotEnvLine(line string) (string, string, bool) {
-	line = strings.TrimSpace(line)
-	if line == "" || strings.HasPrefix(line, "#") {
-		return "", "", false
-	}
-	line = strings.TrimPrefix(line, "export ")
-	key, value, found := strings.Cut(line, "=")
-	if !found {
-		return "", "", false
-	}
-	key = strings.TrimSpace(key)
-	value = strings.TrimSpace(value)
-	if strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'") && len(value) >= 2 {
-		value = strings.TrimSuffix(strings.TrimPrefix(value, "'"), "'")
-	} else if unquoted, err := strconv.Unquote(value); err == nil {
-		value = unquoted
-	}
-	return key, value, key != ""
-}
-
-func runtimeRepoRoot(t *testing.T) string {
-	t.Helper()
-
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("get working directory: %v", err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("could not find repository root")
-		}
-		dir = parent
+			if err := os.Unsetenv(name); err != nil {
+				t.Fatalf("restore unset %s: %v", name, err)
+			}
+		})
 	}
 }
