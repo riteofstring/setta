@@ -24,6 +24,7 @@ export interface NiriLayoutSnapshot {
 
 type LayoutStoreListener = (snapshot: NiriLayoutSnapshot) => void;
 const scrollAnimationTimeConstantMs = 140;
+const defaultViewportHeight = 900;
 
 export class NiriLayoutStore {
   private focusedColumnIndex = 0;
@@ -36,6 +37,7 @@ export class NiriLayoutStore {
   private presentationMode: NiriPresentationMode = "normal";
   private targetScrollColumn = 0;
   private targetScrollRow = 0;
+  private lastViewport: Rect = { height: defaultViewportHeight, width: 1200, x: 0, y: 0 };
 
   constructor(
     private readonly engine: NiriLikeLayoutEngine,
@@ -109,6 +111,9 @@ export class NiriLayoutStore {
   }
 
   moveFocus(direction: "up" | "down" | "left" | "right", viewport?: Rect): void {
+    if (viewport) {
+      this.lastViewport = viewport;
+    }
     const visualTargetPaneId = viewport
       ? this.engine.paneInVisualDirection(this.focusedPaneId(), direction, viewport)
       : null;
@@ -186,7 +191,15 @@ export class NiriLayoutStore {
     return paneId;
   }
 
+  splitFocusedPaneToPlane(direction: "up" | "down"): PaneId {
+    const paneId = this.engine.splitPaneToPlane(this.focusedPaneId(), direction);
+    this.setFocusedPane(paneId);
+    this.notify();
+    return paneId;
+  }
+
   ensureFocusedColumnVisible(viewport: Rect): void {
+    this.lastViewport = viewport;
     const nextScrollColumn = this.engine.scrollColumnForFocusedColumnVisibility(
       this.focusedColumnIndex,
       this.targetScrollColumn,
@@ -325,12 +338,11 @@ export class NiriLayoutStore {
   }
 
   private targetScrollForFocusedColumn(): number {
-    const maxStartColumn = Math.max(0, this.engine.columnCount() - 1);
-    return Math.min(maxStartColumn, Math.max(0, this.focusedColumnIndex));
+    return Math.max(0, this.engine.paneLocation(this.focusedPaneId())?.planeColumnIndex ?? 0);
   }
 
   private targetScrollForFocusedRow(): number {
-    return Math.max(0, this.focusedRowIndex);
+    return this.engine.verticalScrollOffsetForPane(this.focusedPaneId(), this.lastViewport.height);
   }
 
   private unlockFocusedColumn(viewport: Rect): void {

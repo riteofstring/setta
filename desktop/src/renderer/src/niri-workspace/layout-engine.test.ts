@@ -262,6 +262,72 @@ describe("real niri workspace column sizing", () => {
     expect(stackedItem?.scale).toBe(chatItem?.scale);
   });
 
+  test("split to plane below creates a separate horizontal plane and snaps into view", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:split-plane-below",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+
+    const planePaneId = store.splitFocusedPaneToPlane("down");
+    const snapshot = store.getSnapshot();
+    const updatedScene = engine.toScene();
+    const planeColumn = updatedScene.columns.find((column) => column.paneIds.includes(planePaneId));
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      snapshot.targetScrollColumn,
+      snapshot.focusedPaneId,
+      "normal",
+      snapshot.targetScrollRow,
+    );
+
+    expect(planeColumn?.planeIndex).toBe(1);
+    expect(snapshot.targetScrollColumn).toBe(0);
+    expect(snapshot.targetScrollRow).toBeGreaterThan(0);
+    expect(items.find((item) => item.paneId === planePaneId)).toMatchObject({
+      focused: true,
+      x: 10,
+      y: 38,
+    });
+    expect(items.find((item) => item.paneId === "workspace_pane_0")?.y).toBeLessThan(0);
+  });
+
+  test("up and down navigation crosses horizontal planes by visual position", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:plane-navigation",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    const planePaneId = store.splitFocusedPaneToPlane("down");
+
+    store.moveFocus("up", { ...viewport, width: 1200 });
+    expect(store.focusedPaneId()).toBe("workspace_pane_0");
+
+    store.moveFocus("down", { ...viewport, width: 1200 });
+    expect(store.focusedPaneId()).toBe(planePaneId);
+  });
+
+  test("overview lays out separate horizontal planes vertically", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:overview-planes",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    const planePaneId = store.splitFocusedPaneToPlane("down");
+
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, planePaneId, "overview");
+    const originalPlaneItem = items.find((item) => item.paneId === "workspace_pane_0");
+    const lowerPlaneItem = items.find((item) => item.paneId === planePaneId);
+
+    expect(originalPlaneItem?.x).toBe(lowerPlaneItem?.x);
+    expect(lowerPlaneItem?.y).toBeGreaterThan(originalPlaneItem?.y ?? 0);
+    expect(items.every((item) => item.runtimeState === "live")).toBe(true);
+  });
+
   test("resets a resized column back to its ideal original width", () => {
     const engine = createRealEngine();
 

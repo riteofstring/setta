@@ -8,7 +8,7 @@ import type {
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
-const realWorkspaceStorageVersion = 3;
+const realWorkspaceStorageVersion = 4;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
 
@@ -142,6 +142,7 @@ function createDefaultRealWorkspaceScene(
       idealWidthSpec: defaultRealColumnWidth,
       index: 0,
       paneIds: ["workspace_pane_0"],
+      planeIndex: 0,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -149,6 +150,7 @@ function createDefaultRealWorkspaceScene(
       idealWidthSpec: defaultRealColumnWidth,
       index: 1,
       paneIds: ["workspace_pane_1"],
+      planeIndex: 0,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -156,6 +158,7 @@ function createDefaultRealWorkspaceScene(
       idealWidthSpec: defaultRealColumnWidth,
       index: 2,
       paneIds: ["workspace_pane_2"],
+      planeIndex: 0,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -163,6 +166,7 @@ function createDefaultRealWorkspaceScene(
       idealWidthSpec: defaultRealColumnWidth,
       index: 3,
       paneIds: ["workspace_pane_3"],
+      planeIndex: 0,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -170,6 +174,7 @@ function createDefaultRealWorkspaceScene(
       idealWidthSpec: defaultRealColumnWidth,
       index: 4,
       paneIds: ["workspace_pane_4"],
+      planeIndex: 0,
       widthSpec: defaultRealColumnWidth,
     },
     {
@@ -177,6 +182,7 @@ function createDefaultRealWorkspaceScene(
       idealWidthSpec: defaultRealColumnWidth,
       index: 5,
       paneIds: ["workspace_pane_5"],
+      planeIndex: 0,
       widthSpec: defaultRealColumnWidth,
     },
   ]);
@@ -217,6 +223,7 @@ function sceneFromPanesAndColumns(
       idealWidthSpec: { ...column.idealWidthSpec },
       index,
       paneIds: [...column.paneIds],
+      planeIndex: column.planeIndex,
       widthSpec: { ...column.widthSpec },
     }));
   const normalizedPanes = panes.map((pane) => ({ ...pane }));
@@ -287,6 +294,7 @@ function isStoredColumn(value: unknown): value is NiriColumn {
     isColumnWidthSpec(candidate.idealWidthSpec) &&
     typeof candidate.index === "number" &&
     Array.isArray(candidate.paneIds) &&
+    typeof candidate.planeIndex === "number" &&
     isColumnWidthSpec(candidate.widthSpec)
   );
 }

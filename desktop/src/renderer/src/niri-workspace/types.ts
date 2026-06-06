@@ -57,6 +57,7 @@ export interface NiriColumn {
   idealWidthSpec: ColumnWidthSpec;
   index: number;
   paneIds: PaneId[];
+  planeIndex: number;
   previousProportionWidth?: number;
   widthSpec: ColumnWidthSpec;
 }
@@ -209,6 +210,7 @@ export interface LayoutEngine {
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightWeight: number): void;
   splitPane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): PaneId;
+  splitPaneToPlane(paneId: PaneId, direction: "up" | "down"): PaneId;
   unlockColumnWidth(columnId: ColumnId, viewportWidth: number): void;
 }
 

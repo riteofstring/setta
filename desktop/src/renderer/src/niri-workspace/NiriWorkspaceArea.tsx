@@ -7,6 +7,8 @@ import {
   Columns2,
   GitBranch,
   MessageSquarePlus,
+  PanelBottom,
+  PanelTop,
   RotateCcw,
   Settings,
   SplitSquareHorizontal,
@@ -364,6 +366,14 @@ function handleNiriWorkspaceKeyDown({
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
 }): void {
+  if (event.metaKey && event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+    event.preventDefault();
+    scheduler.pauseBenchmark();
+    runLayoutAction(() =>
+      runtime.store.splitFocusedPaneToPlane(event.key === "ArrowUp" ? "up" : "down"),
+    );
+    return;
+  }
   if (!isArrowKey(event.key)) {
     handleNiriWorkspaceCommandKey({ event, runLayoutAction, runtime });
     return;
@@ -503,6 +513,18 @@ function NiriWorkspaceToolbar({
           onClick={() => runLayoutAction(() => store.splitFocusedPane("down"))}
         >
           <SplitSquareVertical className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+        <NiriToolbarButton
+          label="Split to plane above"
+          onClick={() => runLayoutAction(() => store.splitFocusedPaneToPlane("up"))}
+        >
+          <PanelTop className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+        <NiriToolbarButton
+          label="Split to plane below"
+          onClick={() => runLayoutAction(() => store.splitFocusedPaneToPlane("down"))}
+        >
+          <PanelBottom className="h-3.5 w-3.5" />
         </NiriToolbarButton>
         <NiriToolbarButton
           label="Close focused pane"
@@ -679,7 +701,7 @@ function createNiriRuntime({
   workspaceId: string;
   workspaceName: string;
 }) {
-  const layoutStorageKey = `setta:niri-workspace-horizontal-v3:${workspaceId}`;
+  const layoutStorageKey = `setta:niri-workspace-horizontal-v4:${workspaceId}`;
   const realScene =
     mode === "workspace"
       ? createRealWorkspaceScene({
@@ -696,12 +718,20 @@ function createNiriRuntime({
     totalBrowserPanes: browserPaneCount,
     workspaceId: scene.id,
   });
-  const surfaceRegistry = new SurfaceRegistry(scene.panes, (pane) => {
-    if (pane.surfaceKind === "browser") {
-      return new BrowserSurfaceProxyAdapter(pane, nativeViewBoundsBatcher);
-    }
-    return createDefaultSurfaceAdapter(pane);
-  });
+  const surfaceRegistry = new SurfaceRegistry(
+    scene.panes,
+    (pane) => {
+      if (pane.surfaceKind === "browser") {
+        return new BrowserSurfaceProxyAdapter(pane, nativeViewBoundsBatcher);
+      }
+      return createDefaultSurfaceAdapter(pane);
+    },
+    {
+      snapshotAdapter: {
+        staticFallback: mode === "workspace",
+      },
+    },
+  );
   return {
     engine,
     metrics,

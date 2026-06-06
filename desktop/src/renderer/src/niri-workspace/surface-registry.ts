@@ -1,4 +1,8 @@
-import { createDefaultSurfaceAdapter, SnapshotSurfaceAdapter } from "./surface-adapters";
+import {
+  createDefaultSurfaceAdapter,
+  SnapshotSurfaceAdapter,
+  type SnapshotSurfaceAdapterOptions,
+} from "./surface-adapters";
 import type {
   CanvasSurfaceStats,
   FreezeReason,
@@ -14,6 +18,10 @@ import type {
 } from "./types";
 
 export type SurfaceAdapterFactory = (pane: NiriPane) => SurfaceAdapter;
+
+export interface SurfaceRegistryOptions {
+  snapshotAdapter?: SnapshotSurfaceAdapterOptions;
+}
 
 interface SurfaceRecord {
   adapter: SurfaceAdapter;
@@ -71,12 +79,13 @@ export class SurfaceRegistry {
   constructor(
     panes: readonly NiriPane[],
     private readonly adapterFactory: SurfaceAdapterFactory = createDefaultSurfaceAdapter,
+    private readonly options: SurfaceRegistryOptions = {},
   ) {
     for (const pane of panes) {
       this.records.set(pane.surfaceId, {
         adapter: this.adapterFactory(pane),
         pane,
-        snapshotAdapter: new SnapshotSurfaceAdapter(pane),
+        snapshotAdapter: new SnapshotSurfaceAdapter(pane, this.options.snapshotAdapter),
       });
     }
   }
@@ -92,7 +101,7 @@ export class SurfaceRegistry {
     this.records.set(pane.surfaceId, {
       adapter: this.adapterFactory(pane),
       pane,
-      snapshotAdapter: new SnapshotSurfaceAdapter(pane),
+      snapshotAdapter: new SnapshotSurfaceAdapter(pane, this.options.snapshotAdapter),
     });
   }
 
@@ -236,6 +245,9 @@ export class SurfaceRegistry {
     const stats = emptySurfaceViewportSyncStats();
 
     if (mountedNewAdapter) {
+      if (adapter === record.snapshotAdapter && existing) {
+        record.snapshotAdapter.captureTexture(host);
+      }
       if (existing) {
         this.unmountHostRecord(host, existing);
       }

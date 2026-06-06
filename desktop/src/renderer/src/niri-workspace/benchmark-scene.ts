@@ -61,6 +61,7 @@ export function generateBenchmarkScene({
       idealWidthSpec: { unit: "proportion", value: 1 / visibleColumnCount },
       index: columnIndex,
       paneIds,
+      planeIndex: 0,
       widthSpec: { unit: "proportion", value: 1 / visibleColumnCount },
     });
   }

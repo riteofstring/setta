@@ -200,6 +200,32 @@ describe("niri surface registry", () => {
     });
     expect(terminalAdapter.statsReadCount).toBe(1);
   });
+
+  test("captures live host content into the snapshot adapter before overview handoff", () => {
+    const pane = fakePane("fake-dom");
+    const adapter = new TexturedSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => adapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    registry.syncHost(
+      host,
+      { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
+      {
+        resizePhase: "idle",
+      },
+    );
+
+    const snapshotContent = fakeChildrenOf(host)[0];
+    const texture = snapshotContent?.children[0];
+    const capturedPane = texture?.children[0];
+
+    expect(host.dataset.surfaceKind).toBe("snapshot");
+    expect(snapshotContent?.className).toBe("niri-pane-content niri-snapshot-surface");
+    expect(texture?.className).toBe("niri-snapshot-texture");
+    expect(capturedPane?.className).toBe("niri-textured-source");
+    expect(capturedPane?.textContent).toBe("live pane texture");
+  });
 });
 
 class RecordingSurfaceAdapter implements SurfaceAdapter {
@@ -253,6 +279,26 @@ class RecordingSurfaceAdapter implements SurfaceAdapter {
   destroy(): void {
     this.events.push("destroy");
   }
+}
+
+class TexturedSurfaceAdapter extends RecordingSurfaceAdapter {
+  override mount(host: HTMLElement): void {
+    super.mount(host);
+    const texture = host.ownerDocument.createElement("div");
+    texture.className = "niri-textured-source";
+    texture.textContent = "live pane texture";
+    host.append(texture);
+  }
+}
+
+interface FakeChildNode {
+  children: FakeChildNode[];
+  className: string;
+  textContent: string;
+}
+
+function fakeChildrenOf(host: HTMLElement): FakeChildNode[] {
+  return (host as unknown as { children: FakeChildNode[] }).children;
 }
 
 function fakeTerminalStats(overrides: Partial<TerminalSurfaceStats> = {}): TerminalSurfaceStats {

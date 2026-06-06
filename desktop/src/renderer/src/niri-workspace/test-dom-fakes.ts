@@ -1,6 +1,12 @@
 interface FakeElement {
   __fakeRect?: FakeRect;
+  childElementCount: number;
   children: FakeElement[];
+  classList: {
+    add(value: string): void;
+    contains(value: string): boolean;
+    remove(value: string): void;
+  };
   className: string;
   dataset: Record<string, string>;
   ownerDocument: FakeDocument;
@@ -70,6 +76,7 @@ export function setFakeRect(
 }
 
 function createFakeElement(document: FakeDocument, tagName: string): FakeElement {
+  const classNames = new Set<string>();
   const listeners = new Map<string, Set<EventListener>>();
   const capturedPointers = new Set<number>();
   const element: FakeElement & {
@@ -77,7 +84,31 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
     width?: number;
   } = {
     children: [],
-    className: "",
+    classList: {
+      add(value) {
+        classNames.add(value);
+      },
+      contains(value) {
+        return classNames.has(value);
+      },
+      remove(value) {
+        classNames.delete(value);
+      },
+    },
+    get childElementCount() {
+      return this.children.length;
+    },
+    get className() {
+      return [...classNames].join(" ");
+    },
+    set className(value: string) {
+      classNames.clear();
+      for (const className of value.split(/\s+/u)) {
+        if (className.length > 0) {
+          classNames.add(className);
+        }
+      }
+    },
     dataset: {},
     ownerDocument: document,
     parentElement: null,

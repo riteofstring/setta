@@ -9,7 +9,7 @@ import { createFakeHost } from "./test-dom-fakes";
 import type { NiriPane } from "./types";
 
 describe("niri React DOM surface adapter", () => {
-  test("keeps React mount and unmount semantics stable across lifecycle calls", () => {
+  test("keeps React mount and unmount semantics stable across lifecycle calls", async () => {
     const events: string[] = [];
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot(container) {
@@ -45,6 +45,7 @@ describe("niri React DOM surface adapter", () => {
     });
 
     adapter.unmount();
+    await waitForMicrotask();
 
     expect(events).toEqual(["create:niri-react-dom-surface", "render", "unmount"]);
     expect(adapter.lifecycleState.mounted).toBe(false);
@@ -61,6 +62,12 @@ class RecordingRoot implements ReactSurfaceRoot {
   unmount(): void {
     this.events.push("unmount");
   }
+}
+
+function waitForMicrotask(): Promise<void> {
+  return new Promise((resolve) => {
+    queueMicrotask(resolve);
+  });
 }
 
 function fakePane(surfaceKind: NiriPane["surfaceKind"]): NiriPane {

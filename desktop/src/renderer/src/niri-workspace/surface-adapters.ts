@@ -24,6 +24,10 @@ export interface FrameLoop {
   requestFrame(callback: FrameRequestCallback): number;
 }
 
+export interface SnapshotSurfaceAdapterOptions {
+  staticFallback?: boolean;
+}
+
 const browserFrameLoop: FrameLoop = {
   cancelFrame(handle) {
     if (typeof window !== "undefined") {
@@ -158,19 +162,40 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   readonly kind = "snapshot" satisfies SurfaceKind;
   private focused = false;
   private host: HTMLElement | null = null;
+  private texture: HTMLElement | null = null;
   private visible = false;
 
-  constructor(private readonly pane: NiriPane) {}
+  constructor(
+    private readonly pane: NiriPane,
+    private readonly options: SnapshotSurfaceAdapterOptions = {},
+  ) {}
 
   get surfaceId(): SurfaceId {
     return `${this.pane.surfaceId}:snapshot`;
+  }
+
+  captureTexture(sourceHost: HTMLElement): void {
+    const document = sourceHost.ownerDocument;
+    const texture = document.createElement("div");
+    texture.className = "niri-snapshot-texture";
+    for (const child of Array.from(sourceHost.children)) {
+      if (child.classList.contains("niri-pane-maximize-button")) {
+        continue;
+      }
+      texture.append(cloneSnapshotNode(child, document));
+    }
+    if (texture.childElementCount > 0) {
+      this.texture = texture;
+    }
   }
 
   mount(host: HTMLElement): void {
     this.host = host;
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
-    host.replaceChildren(renderSnapshotContent(host, this.pane));
+    host.replaceChildren(
+      renderSnapshotContent(host, this.pane, this.texture, this.options.staticFallback ?? false),
+    );
     this.syncHostState();
   }
 
@@ -809,10 +834,24 @@ function renderPixiCanvasContent(
   return { canvas, root };
 }
 
-function renderSnapshotContent(host: HTMLElement, pane: NiriPane): HTMLElement {
+function renderSnapshotContent(
+  host: HTMLElement,
+  pane: NiriPane,
+  texture: HTMLElement | null,
+  staticFallback: boolean,
+): HTMLElement {
   const document = host.ownerDocument;
   const content = document.createElement("div");
   content.className = "niri-pane-content niri-snapshot-surface";
+  if (texture) {
+    content.append(texture);
+    return content;
+  }
+  const fallbackTexture = staticFallback ? renderStaticSnapshotTexture(host, pane) : null;
+  if (fallbackTexture) {
+    content.append(fallbackTexture);
+    return content;
+  }
   const label = document.createElement("div");
   label.className = "niri-snapshot-label";
   label.textContent = pane.title;
@@ -821,6 +860,101 @@ function renderSnapshotContent(host: HTMLElement, pane: NiriPane): HTMLElement {
   state.textContent = "snapshot";
   content.append(label, state);
   return content;
+}
+
+function renderStaticSnapshotTexture(host: HTMLElement, pane: NiriPane): HTMLElement | null {
+  return staticSnapshotRenderers[pane.surfaceKind](host, pane);
+}
+
+type StaticSnapshotRenderer = (host: HTMLElement, pane: NiriPane) => HTMLElement | null;
+
+const staticSnapshotRenderers = {
+  browser: renderWrappedStaticBrowserSnapshot,
+  "chat-dom": renderWrappedGenericSnapshot,
+  "fake-canvas": renderWrappedFakeCanvasSnapshot,
+  "fake-dom": renderWrappedGenericSnapshot,
+  "fake-heavy-dom": renderWrappedGenericSnapshot,
+  "fake-long-chat": renderWrappedGenericSnapshot,
+  "git-graph": renderWrappedGenericSnapshot,
+  "pixi-canvas": renderWrappedPixiCanvasSnapshot,
+  "settings-dom": renderWrappedGenericSnapshot,
+  snapshot: () => null,
+  terminal: renderWrappedGenericSnapshot,
+} satisfies Record<SurfaceKind, StaticSnapshotRenderer>;
+
+function renderWrappedStaticBrowserSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+  return wrapStaticSnapshotTexture(host, renderStaticBrowserSnapshot(host, pane));
+}
+
+function renderWrappedGenericSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+  const rowCount = pane.surfaceKind === "terminal" ? 12 : 4;
+  return wrapStaticSnapshotTexture(host, renderFakePaneContent(host, pane, rowCount));
+}
+
+function renderWrappedFakeCanvasSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+  return wrapStaticSnapshotTexture(host, renderFakeCanvasContent(host, pane).root);
+}
+
+function renderWrappedPixiCanvasSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+  return wrapStaticSnapshotTexture(host, renderPixiCanvasContent(host, pane).root);
+}
+
+function wrapStaticSnapshotTexture(host: HTMLElement, child: HTMLElement): HTMLElement {
+  const texture = host.ownerDocument.createElement("div");
+  texture.className = "niri-snapshot-texture";
+  texture.append(child);
+  return texture;
+}
+
+function renderStaticBrowserSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+  const document = host.ownerDocument;
+  const content = document.createElement("div");
+  content.className = "niri-pane-content niri-browser-proxy-surface";
+  const toolbar = document.createElement("div");
+  toolbar.className = "niri-browser-proxy-toolbar";
+  toolbar.textContent = `setta://browser/${pane.sequence}`;
+  const title = document.createElement("h2");
+  title.textContent = pane.title;
+  const subtitle = document.createElement("p");
+  subtitle.textContent = pane.subtitle;
+  content.append(toolbar, title, subtitle);
+  return content;
+}
+
+function cloneSnapshotNode(node: Element, document: Document): Element {
+  if (typeof node.cloneNode !== "function") {
+    const fallback = document.createElement("div");
+    fallback.className = (node as HTMLElement).className;
+    fallback.textContent = node.textContent ?? "";
+    return fallback;
+  }
+  const clone = node.cloneNode(true) as Element;
+  copyCanvasBitmaps(node, clone);
+  return clone;
+}
+
+function copyCanvasBitmaps(sourceRoot: Element, cloneRoot: Element): void {
+  if (typeof HTMLCanvasElement === "undefined") {
+    return;
+  }
+  const sourceCanvases =
+    sourceRoot instanceof HTMLCanvasElement
+      ? [sourceRoot]
+      : Array.from(sourceRoot.querySelectorAll("canvas"));
+  const cloneCanvases =
+    cloneRoot instanceof HTMLCanvasElement
+      ? [cloneRoot]
+      : Array.from(cloneRoot.querySelectorAll("canvas"));
+  for (let index = 0; index < sourceCanvases.length; index += 1) {
+    const sourceCanvas = sourceCanvases[index];
+    const cloneCanvas = cloneCanvases[index];
+    if (!sourceCanvas || !cloneCanvas) {
+      continue;
+    }
+    cloneCanvas.width = sourceCanvas.width;
+    cloneCanvas.height = sourceCanvas.height;
+    cloneCanvas.getContext("2d")?.drawImage(sourceCanvas, 0, 0);
+  }
 }
 
 function performanceNow(): number {
