@@ -1,20 +1,16 @@
 import {
   AppWindow,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
+  ChevronDown,
   Columns2,
   GitBranch,
   MessageSquarePlus,
   PanelBottom,
   PanelTop,
-  RotateCcw,
   Settings,
   SplitSquareHorizontal,
   SplitSquareVertical,
   Terminal,
-  Trash2,
+  Plus,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -26,9 +22,11 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 
+import { FloatingMenu } from "../components/floating-menu";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { generateBenchmarkScene, phaseOneVisiblePaneCount } from "./benchmark-scene";
 import { FrameScheduler } from "./frame-scheduler";
@@ -503,84 +501,52 @@ function NiriWorkspaceToolbar({
       </div>
       <div className="niri-workspace-toolbar-group">
         <NiriToolbarButton
-          label="Split pane right"
-          onClick={() => runLayoutAction(() => store.splitFocusedPane("right"))}
-        >
-          <SplitSquareHorizontal className="h-3.5 w-3.5" />
-        </NiriToolbarButton>
-        <NiriToolbarButton
-          label="Split pane down"
+          displayLabel="Split vertical"
+          label="Frame split vertically"
           onClick={() => runLayoutAction(() => store.splitFocusedPane("down"))}
         >
           <SplitSquareVertical className="h-3.5 w-3.5" />
         </NiriToolbarButton>
         <NiriToolbarButton
-          label="Split to plane above"
-          onClick={() => runLayoutAction(() => store.splitFocusedPaneToPlane("up"))}
+          displayLabel="Add right"
+          label="Add frame to the right"
+          onClick={() => runLayoutAction(() => store.splitFocusedPane("right"))}
         >
-          <PanelTop className="h-3.5 w-3.5" />
+          <SplitSquareHorizontal className="h-3.5 w-3.5" />
         </NiriToolbarButton>
-        <NiriToolbarButton
-          label="Split to plane below"
-          onClick={() => runLayoutAction(() => store.splitFocusedPaneToPlane("down"))}
-        >
-          <PanelBottom className="h-3.5 w-3.5" />
-        </NiriToolbarButton>
-        <NiriToolbarButton
-          label="Close focused pane"
-          onClick={() =>
-            runLayoutAction(() => {
-              store.closeFocusedPane();
-            })
-          }
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </NiriToolbarButton>
-      </div>
-      <div className="niri-workspace-toolbar-group">
-        <NiriToolbarButton
-          label="Move pane left"
-          onClick={() => runLayoutAction(() => store.moveFocusedPane("left"))}
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-        </NiriToolbarButton>
-        <NiriToolbarButton
-          label="Move pane right"
-          onClick={() => runLayoutAction(() => store.moveFocusedPane("right"))}
-        >
-          <ArrowRight className="h-3.5 w-3.5" />
-        </NiriToolbarButton>
-        <NiriToolbarButton
-          label="Move pane up"
-          onClick={() => runLayoutAction(() => store.moveFocusedPane("up"))}
-        >
-          <ArrowUp className="h-3.5 w-3.5" />
-        </NiriToolbarButton>
-        <NiriToolbarButton
-          label="Move pane down"
-          onClick={() => runLayoutAction(() => store.moveFocusedPane("down"))}
-        >
-          <ArrowDown className="h-3.5 w-3.5" />
-        </NiriToolbarButton>
-      </div>
-      <div className="niri-workspace-toolbar-group">
+        <NiriToolbarMenu
+          displayLabel="Above / below"
+          Icon={PanelBottom}
+          items={[
+            {
+              Icon: PanelTop,
+              label: "Add frame above",
+              onSelect: () => runLayoutAction(() => store.splitFocusedPaneToPlane("up")),
+            },
+            {
+              Icon: PanelBottom,
+              label: "Add frame below",
+              onSelect: () => runLayoutAction(() => store.splitFocusedPaneToPlane("down")),
+            },
+          ]}
+          label="Add frame above or below"
+        />
         <NiriToolbarButton
           label={overviewActive ? "Exit overview" : "Enter overview"}
           onClick={() => runLayoutAction(() => store.toggleOverviewMode())}
         >
           <OverviewIcon className="h-3.5 w-3.5" />
         </NiriToolbarButton>
-        <NiriToolbarButton
-          label="Reset focused pane width"
-          onClick={() => runLayoutAction(() => store.resetFocusedColumnWidth())}
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-        </NiriToolbarButton>
-        {openPaneActions.map(({ Icon, label, request }) => (
-          <NiriToolbarButton key={label} label={label} onClick={() => openPane(request)}>
-            <Icon className="h-3.5 w-3.5" />
-          </NiriToolbarButton>
-        ))}
+        <NiriToolbarMenu
+          displayLabel="New frame"
+          Icon={Plus}
+          items={openPaneActions.map(({ Icon, label, request }) => ({
+            Icon,
+            label,
+            onSelect: () => openPane(request),
+          }))}
+          label="New frame"
+        />
       </div>
     </div>
   );
@@ -588,10 +554,12 @@ function NiriWorkspaceToolbar({
 
 function NiriToolbarButton({
   children,
+  displayLabel,
   label,
   onClick,
 }: {
   children: ReactNode;
+  displayLabel?: string;
   label: string;
   onClick: () => void;
 }) {
@@ -604,39 +572,133 @@ function NiriToolbarButton({
       type="button"
     >
       {children}
+      {displayLabel ? <span>{displayLabel}</span> : null}
     </button>
+  );
+}
+
+interface NiriToolbarMenuItem {
+  Icon: ComponentType<{ className?: string }>;
+  label: string;
+  onSelect: () => void;
+}
+
+function NiriToolbarMenu({
+  displayLabel,
+  Icon,
+  items,
+  label,
+}: {
+  displayLabel: string;
+  Icon: ComponentType<{ className?: string }>;
+  items: readonly NiriToolbarMenuItem[];
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="niri-workspace-toolbar-menu-root" ref={rootRef}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={label}
+        className="niri-workspace-toolbar-menu-button"
+        onClick={() => setOpen((current) => !current)}
+        onPointerDown={(event) => event.stopPropagation()}
+        ref={anchorRef}
+        title={label}
+        type="button"
+      >
+        <Icon className="h-3.5 w-3.5" />
+        <span>{displayLabel}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      <FloatingMenu
+        anchorRef={anchorRef}
+        ariaLabel={`${label} options`}
+        className="niri-workspace-toolbar-menu"
+        menuRef={menuRef}
+        open={open}
+        placement="bottom"
+        role="menu"
+      >
+        {items.map(({ Icon: ItemIcon, label: itemLabel, onSelect }) => (
+          <button
+            className="niri-workspace-toolbar-menu-item"
+            key={itemLabel}
+            onClick={() => {
+              setOpen(false);
+              onSelect();
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            role="menuitem"
+            type="button"
+          >
+            <ItemIcon className="h-3.5 w-3.5 shrink-0" />
+            <span>{itemLabel}</span>
+          </button>
+        ))}
+      </FloatingMenu>
+    </div>
   );
 }
 
 const openPaneActions = [
   {
     Icon: MessageSquarePlus,
-    label: "Open chat pane",
+    label: "Chat",
     request: openPaneRequest("Chat", "chat workspace surface", "chat-dom", "cyan"),
   },
   {
     Icon: AppWindow,
-    label: "Open browser pane",
+    label: "Browser",
     request: openPaneRequest("Browser", "native browser proxy", "browser", "orange"),
   },
   {
     Icon: Terminal,
-    label: "Open terminal pane",
+    label: "Terminal",
     request: openPaneRequest("Terminal", "command surface", "terminal", "green"),
   },
   {
     Icon: Settings,
-    label: "Open settings pane",
+    label: "Settings",
     request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
   },
   {
     Icon: GitBranch,
-    label: "Open graph pane",
+    label: "Git Graph",
     request: openPaneRequest("Git Graph", "repository graph", "git-graph", "pink"),
   },
   {
     Icon: Columns2,
-    label: "Open canvas pane",
+    label: "Canvas",
     request: openPaneRequest("Canvas", "canvas placeholder", "pixi-canvas", "cyan"),
   },
 ] satisfies Array<{

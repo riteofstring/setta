@@ -391,14 +391,70 @@ select,
   color: var(--muted-foreground);
   cursor: pointer;
   display: inline-flex;
+  gap: 5px;
   height: 24px;
   justify-content: center;
-  padding: 0;
-  width: 24px;
+  padding: 0 7px;
+  white-space: nowrap;
+  width: auto;
 }
 
 .niri-workspace-toolbar-button:hover,
-.niri-workspace-toolbar-button:focus-visible {
+.niri-workspace-toolbar-button:focus-visible,
+.niri-workspace-toolbar-menu-button:hover,
+.niri-workspace-toolbar-menu-button:focus-visible {
+  background: color-mix(in oklch, var(--accent) 82%, transparent);
+  color: var(--foreground);
+  outline: none;
+}
+
+.niri-workspace-toolbar-menu-root {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.niri-workspace-toolbar-menu-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 5px;
+  height: 24px;
+  justify-content: center;
+  padding: 0 7px;
+  white-space: nowrap;
+}
+
+.niri-workspace-toolbar-menu {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 16px 36px color-mix(in oklch, black 32%, transparent);
+  min-width: 148px;
+  padding: 4px;
+}
+
+.niri-workspace-toolbar-menu-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  display: flex;
+  gap: 7px;
+  height: 26px;
+  padding: 0 7px;
+  text-align: left;
+  width: 100%;
+}
+
+.niri-workspace-toolbar-menu-item:hover,
+.niri-workspace-toolbar-menu-item:focus-visible {
   background: color-mix(in oklch, var(--accent) 82%, transparent);
   color: var(--foreground);
   outline: none;
