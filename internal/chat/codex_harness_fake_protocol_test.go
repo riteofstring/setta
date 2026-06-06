@@ -607,6 +607,7 @@ func assertFakeDynamicToolsThreadParams(mode string, message map[string]any) {
 			panic("dynamic tools start test should start a thread")
 		}
 		params := fakeParams(message)
+		assertFakeCodexDeveloperInstructions(params)
 		tools, ok := params["dynamicTools"].([]any)
 		if !ok || len(tools) != 2 {
 			panic("thread/start missing dynamic tools")
@@ -637,6 +638,17 @@ func assertFakeDynamicToolsThreadParams(mode string, message map[string]any) {
 		if _, ok := params["dynamicTools"]; ok {
 			panic("thread/resume should not include dynamicTools")
 		}
+	}
+}
+
+func assertFakeCodexDeveloperInstructions(params map[string]any) {
+	instructions, ok := params["developerInstructions"].(string)
+	if !ok || instructions == "" {
+		panic("thread/start missing developer instructions")
+	}
+	if !strings.Contains(instructions, "current workspace") ||
+		!strings.Contains(instructions, "setta.workspace_context") {
+		panic("thread/start developer instructions missing Setta context guidance")
 	}
 }
 

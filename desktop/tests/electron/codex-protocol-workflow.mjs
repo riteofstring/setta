@@ -157,6 +157,7 @@ function handleMessage(message) {
       notify("account/updated", { authMode: null, planType: null });
       return;
     case "thread/start":
+      assertThreadStartDeveloperInstructions(message.params);
       assertThreadStartDynamicTools(message.params);
       respond(message.id, { model: "gpt-test", thread: { id: threadId } });
       return;
@@ -214,6 +215,17 @@ function handleMessage(message) {
       return;
     default:
       respond(message.id, {});
+  }
+}
+
+function assertThreadStartDeveloperInstructions(params) {
+  const instructions = params?.developerInstructions;
+  if (
+    typeof instructions !== "string" ||
+    !instructions.includes("current workspace") ||
+    !instructions.includes("setta.workspace_context")
+  ) {
+    throw new Error("thread/start developerInstructions missing Setta context guidance");
   }
 }
 

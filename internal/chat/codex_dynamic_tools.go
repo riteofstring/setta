@@ -40,6 +40,7 @@ func (harness *CodexHarness) codexThreadStartParams(workspaceRoot string) (map[s
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceRoot,
+		"developerInstructions": codexDeveloperInstructions(),
 		"runtimeWorkspaceRoots": []string{workspaceRoot},
 	}
 	specs, err := codexDynamicToolSpecs(harness.config.Tools)

@@ -39,7 +39,7 @@ func settaWorkspaceContextTool() AgentTool {
 		}},
 		AuditMetadata: AgentToolAuditMetadata{
 			DisplayName: "Workspace context",
-			Description: "Read the current Setta workspace, conversation, run, and Codex thread context.",
+			Description: "Read the current Setta workspace, project, folder, repository, chat, conversation, run, and Codex thread context.",
 			Category:    "workspace",
 		},
 		Handler: handleSettaWorkspaceContext,
