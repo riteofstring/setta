@@ -11,10 +11,21 @@ import {
   syncNodeLabelVisibility,
 } from "./pixi-workspace-label-visibility";
 import {
+  countNodeOutlineGraphics,
+  drawWorkspaceGrid,
+  nodeBodyContextFor,
+  nodeGeometryContextCounts,
+  nodeOutlineContextFor,
+  nodeShadowContextFor,
+} from "./pixi-workspace-node-geometry";
+import {
   cameraState,
   capturePointer,
   clamp,
-  drawGrid,
+  drawCurvedEdge,
+  drawMarqueeSelection,
+  drawTemporaryEdge,
+  drawWorkspaceGlow,
   hostScreenSize,
   isSelectionToggleEvent,
   isZoomWheel,
@@ -34,6 +45,7 @@ import {
   screenPointFromWheel,
   setsEqual,
   stopNativeInteraction,
+  visibleDisplayObjectCount,
   zoomFactorFromWheel,
 } from "./pixi-workspace-renderer-helpers";
 
@@ -87,6 +99,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   const edges = initialEdges.map((edge) => ({ ...edge }));
   const nodeContainers = new Map();
   const nodeBodies = new Map();
+  const nodeShadows = new Map();
   const nodeLabels = new Map();
   const nodeLabelVisibilityReasons = new Map();
   const nodeOutlines = new Map();
@@ -119,6 +132,8 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   let wheelPanUpdateCount = 0;
   let wheelZoomUpdateCount = 0;
   let labelSyncCount = 0;
+  let gridDrawCount = 0;
+  let nodeOutlineVisibilityUpdateCount = 0;
   let lastCameraState = cameraState(viewport);
   const recentFrameMs = [];
 
@@ -126,7 +141,8 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   edgeLayer.addChild(edgeGraphics);
   interactionLayer.addChild(marqueeGraphics, temporaryEdgeGraphics);
   effectsLayer.addChild(glow);
-  drawGrid(grid);
+  drawWorkspaceGrid(grid);
+  gridDrawCount += 1;
   for (const node of nodes) {
     const container = nodeContainer(node);
     nodeContainers.set(node.id, container);
@@ -196,7 +212,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       drawingEdge.endY = world.y;
       temporaryEdgeUpdateCount += 1;
       updateActiveTargetPort(screen);
-      drawTemporaryEdge();
+      drawTemporaryEdge(temporaryEdgeGraphics, drawingEdge);
       return;
     }
     if (drawingMarquee) {
@@ -209,7 +225,9 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     }
     if (panningCamera) {
       moveCameraPan(screen);
+      return;
     }
+    syncHoveredNodeAtScreen(screen);
   };
   const pointerUp = (event) => {
     if (drawingEdge) {
@@ -251,6 +269,9 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     }
     pointerUp(event ?? null);
   };
+  const pointerLeave = () => {
+    setHoveredNodeId(null);
+  };
   const wheel = (event) => {
     if (drawingEdge || drawingMarquee || draggingNode) {
       return;
@@ -290,6 +311,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   };
   app.canvas.addEventListener("pointerdown", pointerDown, true);
   app.canvas.addEventListener("pointermove", pointerMove);
+  app.canvas.addEventListener("pointerleave", pointerLeave);
   app.canvas.addEventListener("wheel", wheel, { capture: true, passive: false });
   window.addEventListener("pointerup", pointerUp);
   window.addEventListener("pointercancel", pointerCancel);
@@ -314,7 +336,9 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       lastCameraState = nextCameraState;
       syncAllLabels();
     }
-    drawGlow(glow, now);
+    if (!destroyed) {
+      drawWorkspaceGlow(glow, nodes, now);
+    }
   });
 
   if (debugEnabled) {
@@ -322,6 +346,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       getSnapshot: () => {
         const visual = samplePixiVisualState(app.renderer, app.stage, backgroundColor);
         const camera = cameraState(viewport);
+        const nodeGeometryContexts = nodeGeometryContextCounts();
         const frameAverage =
           recentFrameMs.length === 0
             ? 0
@@ -401,17 +426,25 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             edgeCommitCount,
             edgeRedrawCount,
             frameCount,
+            gridDrawCount,
             labelObjectCount: nodeLabels.size,
             labelSyncCount,
             labelVisibilityMode: labelVisibilityModeForZoom(camera.zoom),
             marqueeUpdateCount,
+            nodeBodyContextCount: nodeGeometryContexts.body,
+            nodeBodyGraphicsCount: nodeBodies.size,
             nodeDragUpdateCount,
+            nodeOutlineContextCount: nodeGeometryContexts.outline,
+            nodeOutlineGraphicsCount: countNodeOutlineGraphics(nodeOutlines),
+            nodeOutlineVisibilityUpdateCount,
+            nodeShadowContextCount: nodeGeometryContexts.shadow,
+            nodeShadowGraphicsCount: nodeShadows.size,
             pointerPanUpdateCount,
             reactRenderCount: reactRenderCount(),
             recentFrameMs: [...recentFrameMs],
             selectionChangeCount,
             temporaryEdgeUpdateCount,
-            visibleLabelCount: visibleLabelCount(),
+            visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
             wheelPanUpdateCount,
             wheelZoomUpdateCount,
             worstFrameMs: recentFrameMs.length === 0 ? 0 : Math.max(...recentFrameMs),
@@ -428,6 +461,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       resizeObserver.disconnect();
       app.canvas.removeEventListener("pointerdown", pointerDown, true);
       app.canvas.removeEventListener("pointermove", pointerMove);
+      app.canvas.removeEventListener("pointerleave", pointerLeave);
       app.canvas.removeEventListener("wheel", wheel, true);
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("pointercancel", pointerCancel);
@@ -447,30 +481,26 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     container.x = node.x;
     container.y = node.y;
 
-    const body = new Graphics()
-      .roundRect(0, 0, node.width, node.height, 8)
-      .fill({ alpha: 0.92, color: node.color })
-      .roundRect(0, 0, node.width, node.height, 8)
-      .stroke({ alpha: 0.55, color: 0xffffff, width: 1.5 });
+    const body = new Graphics(nodeBodyContextFor(node));
     body.eventMode = "static";
     body.cursor = "grab";
     body.hitArea = new Rectangle(0, 0, node.width, node.height);
     nodeBodies.set(node.id, body);
-    const shadow = new Graphics()
-      .roundRect(7, 9, node.width, node.height, 8)
-      .fill({ alpha: 0.14, color: 0x000000 });
-    const outline = new Graphics();
+    const shadow = new Graphics(nodeShadowContextFor(node));
+    nodeShadows.set(node.id, shadow);
+    const hoverOutline = new Graphics(nodeOutlineContextFor(node, "hovered"));
+    hoverOutline.visible = false;
+    const selectedOutline = new Graphics(nodeOutlineContextFor(node, "selected"));
+    selectedOutline.visible = false;
     const portContainers = ports.map((port) => portContainer(node, port));
-    nodeOutlines.set(node.id, outline);
+    nodeOutlines.set(node.id, { hoverOutline, selectedOutline });
 
-    container.addChild(shadow, body, outline, ...portContainers);
+    container.addChild(shadow, body, hoverOutline, selectedOutline, ...portContainers);
     body.on("pointerover", () => {
-      hoveredNodeIds.add(node.id);
-      drawNodeOutline(node.id);
+      setHoveredNodeId(node.id);
     });
     body.on("pointerout", () => {
-      hoveredNodeIds.delete(node.id);
-      drawNodeOutline(node.id);
+      setHoveredNodeId(null);
     });
 
     return container;
@@ -653,28 +683,39 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
 
   function drawAllNodeOutlines() {
     for (const candidate of nodes) {
-      drawNodeOutline(candidate.id);
+      syncNodeOutlineVisibility(candidate.id);
     }
   }
 
-  function drawNodeOutline(nodeId) {
-    const node = nodes.find((candidate) => candidate.id === nodeId);
-    const outline = nodeOutlines.get(nodeId);
-    if (!node || !outline) {
+  function syncHoveredNodeAtScreen(screen) {
+    setHoveredNodeId(hitTestNodeAtScreen(screen)?.id ?? null);
+  }
+
+  function setHoveredNodeId(nodeId) {
+    const nextHoveredNodeIds = new Set(nodeId ? [nodeId] : []);
+    if (setsEqual(hoveredNodeIds, nextHoveredNodeIds)) {
+      return;
+    }
+    const affectedNodeIds = new Set([...hoveredNodeIds, ...nextHoveredNodeIds]);
+    hoveredNodeIds.clear();
+    for (const hoveredNodeId of nextHoveredNodeIds) {
+      hoveredNodeIds.add(hoveredNodeId);
+    }
+    for (const affectedNodeId of affectedNodeIds) {
+      syncNodeOutlineVisibility(affectedNodeId);
+    }
+  }
+
+  function syncNodeOutlineVisibility(nodeId) {
+    const outlines = nodeOutlines.get(nodeId);
+    if (!outlines) {
       throw new Error(`node outline target is missing: ${nodeId}`);
     }
     const selected = selectedNodeIds.has(nodeId);
     const hovered = hoveredNodeIds.has(nodeId);
-    outline.clear();
-    if (!selected && !hovered) {
-      return;
-    }
-    const alpha = selected ? 0.95 : 0.42;
-    outline.roundRect(-5, -5, node.width + 10, node.height + 10, 12).stroke({
-      alpha,
-      color: 0xffffff,
-      width: selected ? 3 : 2,
-    });
+    outlines.selectedOutline.visible = selected;
+    outlines.hoverOutline.visible = !selected && hovered;
+    nodeOutlineVisibilityUpdateCount += 1;
   }
 
   function redrawEdges() {
@@ -704,7 +745,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     viewport.plugins.pause("decelerate");
     setPortVisualState(sourceNodeId, sourcePortId, "active");
     temporaryEdgeUpdateCount += 1;
-    drawTemporaryEdge();
+    drawTemporaryEdge(temporaryEdgeGraphics, drawingEdge);
   }
 
   function finishEdgeDrawing() {
@@ -729,7 +770,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     };
     viewport.plugins.pause("decelerate");
     marqueeUpdateCount += 1;
-    drawMarqueeSelection();
+    drawMarqueeSelection(marqueeGraphics, drawingMarquee);
   }
 
   function updateMarqueeSelection(screen) {
@@ -740,7 +781,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     drawingMarquee.endX = world.x;
     drawingMarquee.endY = world.y;
     marqueeUpdateCount += 1;
-    drawMarqueeSelection();
+    drawMarqueeSelection(marqueeGraphics, drawingMarquee);
   }
 
   function commitMarqueeSelection() {
@@ -769,19 +810,6 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     viewport.plugins.resume("decelerate");
   }
 
-  function drawMarqueeSelection() {
-    marqueeGraphics.clear();
-    if (!drawingMarquee) {
-      return;
-    }
-    const bounds = marqueeBounds(drawingMarquee);
-    marqueeGraphics
-      .rect(bounds.x, bounds.y, bounds.width, bounds.height)
-      .fill({ alpha: 0.14, color: 0x38bdf8 })
-      .rect(bounds.x, bounds.y, bounds.width, bounds.height)
-      .stroke({ alpha: 0.9, color: 0xbae6fd, width: 2 });
-  }
-
   function updateActiveTargetPort(screen) {
     const targetPort = hitTestPortAtScreen(screen, {
       excludeNodeId: drawingEdge?.sourceNodeId ?? null,
@@ -799,25 +827,6 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     if (targetPort) {
       setPortVisualState(targetPort.nodeId, targetPort.portId, "target");
     }
-  }
-
-  function drawTemporaryEdge() {
-    temporaryEdgeGraphics.clear();
-    if (!drawingEdge) {
-      return;
-    }
-    const start = new Point(drawingEdge.startX, drawingEdge.startY);
-    const end = new Point(drawingEdge.endX, drawingEdge.endY);
-    drawCurvedEdge(temporaryEdgeGraphics, start, end, {
-      alpha: 0.94,
-      color: 0x67e8f9,
-      width: 3.5,
-    });
-    temporaryEdgeGraphics
-      .circle(start.x, start.y, 5.5)
-      .fill({ alpha: 0.92, color: 0x67e8f9 })
-      .circle(end.x, end.y, 5.5)
-      .stroke({ alpha: 0.82, color: 0x67e8f9, width: 2.5 });
   }
 
   function commitEdge(edgeDrawing, targetPort) {
@@ -910,10 +919,6 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     labelSyncCount += 1;
   }
 
-  function visibleLabelCount() {
-    return [...nodeLabels.values()].filter((label) => label.visible).length;
-  }
-
   function syncLabelVisibility() {
     syncNodeLabelVisibility({
       nodeLabels,
@@ -942,27 +947,6 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       .stroke({ alpha: ringAlpha, color, width: state === "idle" ? 1.5 : 2.5 })
       .circle(0, 0, 6)
       .fill({ alpha, color: 0xf8fafc });
-  }
-
-  function drawCurvedEdge(target, start, end, stroke) {
-    const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.35);
-    target
-      .moveTo(start.x, start.y)
-      .bezierCurveTo(start.x + controlOffset, start.y, end.x - controlOffset, end.y, end.x, end.y)
-      .stroke(stroke);
-  }
-
-  function drawGlow(target, now) {
-    if (destroyed) {
-      return;
-    }
-    target.clear();
-    const pulse = 0.35 + Math.sin(now / 450) * 0.15;
-    for (const node of nodes) {
-      target
-        .circle(node.x + node.width / 2, node.y + node.height / 2, 58 + pulse * 16)
-        .stroke({ alpha: 0.08 + pulse * 0.05, color: node.color, width: 2 });
-    }
   }
 
   function firstSelectedNodeId() {

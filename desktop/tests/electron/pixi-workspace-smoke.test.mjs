@@ -34,6 +34,15 @@ const labelVisibilityReasons = new Set([
   "visible-priority",
   "zoom-hidden",
 ]);
+const geometryConstructionCounters = [
+  "gridDrawCount",
+  "nodeBodyContextCount",
+  "nodeBodyGraphicsCount",
+  "nodeOutlineContextCount",
+  "nodeOutlineGraphicsCount",
+  "nodeShadowContextCount",
+  "nodeShadowGraphicsCount",
+];
 
 if (options.help) {
   console.log(
@@ -80,10 +89,23 @@ try {
     );
   }
   const [firstNode, secondNode] = selectionNodes;
+  await dispatchMouseMove(context.client, { x: firstNode.screenX, y: firstNode.screenY });
+  await delay(100);
+  const afterHover = await getPixiSnapshot(context.client);
+  assertSelectedExactly(afterHover, [], "node hover");
+  assertOutlineVisibilityUpdated(initial, afterHover, "node hover outline");
+  assertGeometryConstructionCountersStable(initial, afterHover, "node hover geometry");
+
   await dispatchMouseClick(context.client, { x: firstNode.screenX, y: firstNode.screenY });
   await delay(100);
   const afterPlainSelect = await getPixiSnapshot(context.client);
   assertSelectedExactly(afterPlainSelect, [firstNode.id], "plain node click");
+  assertOutlineVisibilityUpdated(afterHover, afterPlainSelect, "plain node click outline");
+  assertGeometryConstructionCountersStable(
+    afterHover,
+    afterPlainSelect,
+    "plain node click geometry",
+  );
 
   await dispatchMouseClick(context.client, {
     modifiers: cdpMetaModifier,
@@ -120,6 +142,11 @@ try {
   await delay(150);
   const afterMarquee = await getPixiSnapshot(context.client);
   assertMarqueeCommitted(afterEmptySelectionClear, duringMarquee, afterMarquee, marquee.nodeIds);
+  assertGeometryConstructionCountersStable(
+    afterEmptySelectionClear,
+    afterMarquee,
+    "marquee geometry",
+  );
 
   const selectedGroupNodeIds = [...afterMarquee.interaction.selectedNodeIds];
   const groupPrimaryNode = nodeById(afterMarquee, selectedGroupNodeIds[0]);
@@ -131,6 +158,11 @@ try {
   await delay(200);
   const afterGroupDrag = await getPixiSnapshot(context.client);
   assertGroupDragMoved(afterMarquee, afterGroupDrag, selectedGroupNodeIds);
+  assertGeometryConstructionCountersStable(
+    afterMarquee,
+    afterGroupDrag,
+    "group node drag geometry",
+  );
 
   await dispatchEscape(context.client);
   await delay(100);
@@ -152,6 +184,7 @@ try {
   assertLabelsScreenSpace(afterPan, "empty-space pan");
   assertLabelSyncAdvanced(afterEscapeClear, afterPan, "empty-space pan label sync");
   assertReactRenderCountUnchanged(afterEscapeClear, afterPan, "empty-space pan label sync");
+  assertGeometryConstructionCountersStable(afterEscapeClear, afterPan, "empty-space pan geometry");
 
   await dispatchWheel(context.client, {
     deltaY: -360,
@@ -166,6 +199,7 @@ try {
   assertLabelsScreenSpace(afterZoom, "wheel zoom");
   assertLabelSyncAdvanced(afterPan, afterZoom, "wheel zoom label sync");
   assertReactRenderCountUnchanged(afterPan, afterZoom, "wheel zoom label sync");
+  assertGeometryConstructionCountersStable(afterPan, afterZoom, "wheel zoom geometry");
 
   const zoomGroupNodes = visibleNodes(afterZoom);
   if (zoomGroupNodes.length < 2) {
@@ -205,6 +239,11 @@ try {
   const afterZoomGroupDrag = await getPixiSnapshot(context.client);
   assertGroupDragMoved(afterZoomGroupSelect, afterZoomGroupDrag, zoomGroupNodeIds);
   assertZoomUnchanged(afterZoomGroupSelect, afterZoomGroupDrag, "zoomed group node drag");
+  assertGeometryConstructionCountersStable(
+    afterZoomGroupSelect,
+    afterZoomGroupDrag,
+    "zoomed group node drag geometry",
+  );
 
   await dispatchWheel(context.client, {
     deltaX: 34,
@@ -223,6 +262,11 @@ try {
     afterZoomGroupDrag,
     afterWheelPan,
     "trackpad-style wheel pan label sync",
+  );
+  assertGeometryConstructionCountersStable(
+    afterZoomGroupDrag,
+    afterWheelPan,
+    "trackpad-style wheel pan geometry",
   );
 
   const cancelPair = visiblePortPair(afterWheelPan);
@@ -274,6 +318,11 @@ try {
   assertAtLeastOneVisibleLabel(afterDeepZoom, "deep label zoom");
   assertLabelSyncAdvanced(afterEdgeDraw, afterDeepZoom, "deep label zoom sync");
   assertReactRenderCountUnchanged(afterEdgeDraw, afterDeepZoom, "deep label zoom sync");
+  assertGeometryConstructionCountersStable(
+    afterEdgeDraw,
+    afterDeepZoom,
+    "deep label zoom geometry",
+  );
   await captureScreenshot(context.client, join(artifactDir, "deep-zoom-labels.png"));
 
   await dispatchWheel(context.client, {
@@ -295,6 +344,11 @@ try {
     afterDeepZoom,
     afterDeepZoomPan,
     "pan after deep label zoom sync",
+  );
+  assertGeometryConstructionCountersStable(
+    afterDeepZoom,
+    afterDeepZoomPan,
+    "pan after deep label zoom geometry",
   );
 
   const lowZoomTarget = visibleNodes(afterDeepZoomPan)[0];
@@ -332,6 +386,11 @@ try {
     afterLowZoom,
     "low zoom selected-mode label sync",
   );
+  assertGeometryConstructionCountersStable(
+    afterLowZoomSelect,
+    afterLowZoom,
+    "low zoom selected-mode geometry",
+  );
   await captureScreenshot(context.client, join(artifactDir, "low-zoom-selected-label.png"));
 
   const afterOffscreenPan = await panNodeLabelOutsideViewport(
@@ -341,6 +400,11 @@ try {
   );
   assertNodeLabelOutsideViewport(afterOffscreenPan, lowZoomTarget.id, "offscreen label culling");
   assertReactRenderCountUnchanged(afterLowZoom, afterOffscreenPan, "offscreen label culling");
+  assertGeometryConstructionCountersStable(
+    afterLowZoom,
+    afterOffscreenPan,
+    "offscreen pan geometry",
+  );
   assertRendererFramesHealthy(afterOffscreenPan);
   await captureScreenshot(context.client, join(artifactDir, "final.png"));
 
@@ -360,6 +424,7 @@ try {
     afterEscapeClear,
     afterEdgeDraw,
     afterGroupDrag,
+    afterHover,
     afterLowZoom,
     afterLowZoomSelect,
     afterMarquee,
@@ -451,6 +516,26 @@ async function dispatchMouseClick(client, { modifiers = 0, x, y }) {
     x,
     y,
   });
+}
+
+async function dispatchMouseMove(client, { x, y }) {
+  await client.evaluate(`(() => {
+    const canvas = document.querySelector('[data-testid="pixi-workspace-canvas"]');
+    if (!canvas) {
+      throw new Error("Pixi workspace canvas is missing");
+    }
+    const rect = canvas.getBoundingClientRect();
+    canvas.dispatchEvent(new PointerEvent("pointermove", {
+      bubbles: true,
+      buttons: 0,
+      cancelable: true,
+      clientX: rect.left + ${JSON.stringify(x)},
+      clientY: rect.top + ${JSON.stringify(y)},
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "mouse",
+    }));
+  })()`);
 }
 
 async function dispatchMouseDragWithSnapshot(
@@ -606,6 +691,7 @@ function assertInitialSnapshot(snapshot) {
   assertLabelVisibilityMode(snapshot, "visible-priority", "initial render");
   assertAtLeastOneVisibleLabel(snapshot, "initial render");
   assertLabelDebugCounters(snapshot, "initial render");
+  assertNodeGeometryDebugCounters(snapshot, "initial render");
 }
 
 function assertSelectionDebugShape(snapshot) {
@@ -765,6 +851,70 @@ function assertLabelDebugCounters(snapshot, label) {
     );
   }
   assertLabelVisibilityReasons(snapshot, label);
+}
+
+function assertNodeGeometryDebugCounters(snapshot, label) {
+  const render = snapshot.render;
+  const counters = [...geometryConstructionCounters, "nodeOutlineVisibilityUpdateCount"];
+  for (const counter of counters) {
+    assertNonNegativeInteger(render[counter], `${label} ${counter}`);
+  }
+  if (render.gridDrawCount !== 1) {
+    throw new Error(`${label} gridDrawCount was not one: render=${JSON.stringify(render)}`);
+  }
+  if (render.nodeBodyGraphicsCount !== snapshot.graph.nodeCount) {
+    throw new Error(
+      `${label} nodeBodyGraphicsCount did not match graph node count: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(render)}`,
+    );
+  }
+  if (render.nodeShadowGraphicsCount !== snapshot.graph.nodeCount) {
+    throw new Error(
+      `${label} nodeShadowGraphicsCount did not match graph node count: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(render)}`,
+    );
+  }
+  if (render.nodeOutlineGraphicsCount !== snapshot.graph.nodeCount * 2) {
+    throw new Error(
+      `${label} nodeOutlineGraphicsCount did not match two outlines per node: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(render)}`,
+    );
+  }
+  assertPositiveContextCount(render, "nodeBodyContextCount", render.nodeBodyGraphicsCount, label);
+  assertPositiveContextCount(
+    render,
+    "nodeOutlineContextCount",
+    render.nodeOutlineGraphicsCount,
+    label,
+  );
+  assertPositiveContextCount(
+    render,
+    "nodeShadowContextCount",
+    render.nodeShadowGraphicsCount,
+    label,
+  );
+}
+
+function assertPositiveContextCount(render, counter, graphicsCount, label) {
+  if (render[counter] < 1 || render[counter] > graphicsCount) {
+    throw new Error(
+      `${label} ${counter} was outside expected cache bounds: render=${JSON.stringify(render)}`,
+    );
+  }
+}
+
+function assertGeometryConstructionCountersStable(before, after, label) {
+  assertNodeGeometryDebugCounters(before, `${label} before`);
+  assertNodeGeometryDebugCounters(after, `${label} after`);
+  for (const counter of geometryConstructionCounters) {
+    if (after.render[counter] !== before.render[counter]) {
+      throw new Error(
+        `${label} changed geometry construction counter ${counter}: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+      );
+    }
+  }
+}
+
+function assertOutlineVisibilityUpdated(before, after, label) {
+  assertRenderCounterAdvanced(before, after, "nodeOutlineVisibilityUpdateCount", label);
+  assertNodeGeometryDebugCounters(after, label);
 }
 
 function assertLabelVisibilityReasons(snapshot, label) {
@@ -1238,6 +1388,7 @@ function assertRendererFramesHealthy(snapshot) {
     "edgeCommitCount",
     "temporaryEdgeUpdateCount",
     "labelSyncCount",
+    "nodeOutlineVisibilityUpdateCount",
   ]);
 }
 

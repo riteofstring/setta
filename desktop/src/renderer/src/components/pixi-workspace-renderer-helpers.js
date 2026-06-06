@@ -134,18 +134,64 @@ export function samplePixiVisualState(renderer, stage, clearColor) {
   };
 }
 
-export function drawGrid(grid) {
-  grid.clear();
-  for (let position = -2000; position <= 2000; position += 48) {
-    grid.moveTo(position, -2000).lineTo(position, 2000);
-    grid.moveTo(-2000, position).lineTo(2000, position);
+export function drawCurvedEdge(target, start, end, stroke) {
+  const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.35);
+  target
+    .moveTo(start.x, start.y)
+    .bezierCurveTo(start.x + controlOffset, start.y, end.x - controlOffset, end.y, end.x, end.y)
+    .stroke(stroke);
+}
+
+export function drawMarqueeSelection(target, marquee) {
+  target.clear();
+  if (!marquee) {
+    return;
   }
-  grid.stroke({ alpha: 0.22, color: 0x334155, width: 1 });
-  for (let position = -2000; position <= 2000; position += 240) {
-    grid.moveTo(position, -2000).lineTo(position, 2000);
-    grid.moveTo(-2000, position).lineTo(2000, position);
+  const bounds = marqueeBounds(marquee);
+  target
+    .rect(bounds.x, bounds.y, bounds.width, bounds.height)
+    .fill({ alpha: 0.14, color: 0x38bdf8 })
+    .rect(bounds.x, bounds.y, bounds.width, bounds.height)
+    .stroke({ alpha: 0.9, color: 0xbae6fd, width: 2 });
+}
+
+export function drawTemporaryEdge(target, edgeDrawing) {
+  target.clear();
+  if (!edgeDrawing) {
+    return;
   }
-  grid.stroke({ alpha: 0.28, color: 0x64748b, width: 1.5 });
+  const start = new Point(edgeDrawing.startX, edgeDrawing.startY);
+  const end = new Point(edgeDrawing.endX, edgeDrawing.endY);
+  drawCurvedEdge(target, start, end, {
+    alpha: 0.94,
+    color: 0x67e8f9,
+    width: 3.5,
+  });
+  target
+    .circle(start.x, start.y, 5.5)
+    .fill({ alpha: 0.92, color: 0x67e8f9 })
+    .circle(end.x, end.y, 5.5)
+    .stroke({ alpha: 0.82, color: 0x67e8f9, width: 2.5 });
+}
+
+export function drawWorkspaceGlow(target, nodes, now) {
+  target.clear();
+  const pulse = 0.35 + Math.sin(now / 450) * 0.15;
+  for (const node of nodes) {
+    target
+      .circle(node.x + node.width / 2, node.y + node.height / 2, 58 + pulse * 16)
+      .stroke({ alpha: 0.08 + pulse * 0.05, color: node.color, width: 2 });
+  }
+}
+
+export function visibleDisplayObjectCount(displayObjects) {
+  let count = 0;
+  for (const displayObject of displayObjects) {
+    if (displayObject.visible) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 export function hostScreenSize(host) {

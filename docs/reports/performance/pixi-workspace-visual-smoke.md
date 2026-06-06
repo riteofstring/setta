@@ -395,3 +395,75 @@ Additional scenario coverage:
 | Sampled pixels                          |         6,366 |
 | Non-background sampled pixels           |         1,150 |
 | Sampled color count                     |            33 |
+
+## Node Geometry Cleanup Update
+
+Date: 2026-06-04
+
+Before artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260604T155744Z
+```
+
+After artifact bundle:
+
+```text
+.recordings/pixi-workspace/20260604T161213Z
+```
+
+Phase 5 centralizes node body, shadow, hover outline, selected outline, and
+grid geometry construction. The renderer now exposes geometry debug counters,
+and the visual smoke workflow verifies that grid draw count and cached context
+counts stay stable across camera pan, wheel pan, wheel zoom, node drag, deep
+zoom, label LOD, and offscreen culling. It also verifies hover and selection
+advance outline visibility updates without changing body, shadow, outline, or
+grid construction counters.
+
+Additional scenario coverage:
+
+- Node body graphics are constructed from cached `GraphicsContext` objects.
+- Node shadows share contexts by size and shadow style.
+- Hover and selected outlines are prebuilt as two hidden graphics per node and
+  update through visibility toggles.
+- The fine 1px grid pass uses Pixi `pixelLine: true`; thicker grid and outline
+  strokes remain normal strokes.
+- Initial and deep-zoom screenshots were visually inspected. Fine grid
+  hairlines looked crisp, node body strokes and selected outlines remained
+  acceptable at normal and deep zoom, and no label or port alignment regression
+  was visible.
+
+| Metric                                     | Phase 4 baseline | Phase 5 after |
+| ------------------------------------------ | ---------------: | ------------: |
+| Deep zoom/pan average frame interval       |          9.07 ms |       9.07 ms |
+| Deep zoom/pan worst frame interval         |         85.70 ms |      77.10 ms |
+| Final average recent frame interval        |          9.62 ms |       9.54 ms |
+| Final worst recent frame interval          |         81.40 ms |      74.90 ms |
+| Grid draw count                            |              n/a |             1 |
+| Node body context count                    |              n/a |             4 |
+| Node body graphics count                   |              n/a |             4 |
+| Node shadow context count                  |              n/a |             3 |
+| Node shadow graphics count                 |              n/a |             4 |
+| Node outline context count                 |              n/a |             6 |
+| Node outline graphics count                |              n/a |             8 |
+| Hover outline visibility updates           |              n/a |             1 |
+| Final outline visibility update count      |              n/a |            49 |
+| Label object count                         |                4 |             4 |
+| Final visible labels                       |                0 |             0 |
+| Final label sync count                     |              204 |           204 |
+| Final edge count                           |                4 |             4 |
+| Group node drag updates                    |               26 |            26 |
+| Pointer pan updates                        |               12 |            12 |
+| Wheel pan updates                          |                3 |             3 |
+| Wheel zoom updates                         |                3 |             3 |
+| React host renders                         |                1 |             1 |
+| Final sampled pixels                       |            6,366 |         6,366 |
+| Final non-background sampled pixels        |            1,149 |         4,616 |
+| Final sampled color count                  |               33 |            63 |
+
+Geometry construction counters remained stable at `gridDrawCount: 1`,
+`nodeBodyContextCount: 4`, `nodeBodyGraphicsCount: 4`,
+`nodeShadowContextCount: 3`, `nodeShadowGraphicsCount: 4`,
+`nodeOutlineContextCount: 6`, and `nodeOutlineGraphicsCount: 8` from initial
+render through hover, selection, pan, zoom, zoomed group drag, wheel pan, deep
+zoom, low zoom, and offscreen pan snapshots.
