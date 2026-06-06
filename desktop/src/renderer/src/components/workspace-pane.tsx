@@ -738,7 +738,7 @@ function workspacePaneHeaderClass({
   shellRightInsetClass: string;
 }) {
   return cn(
-    "app-drag relative z-40 flex shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5",
+    "relative z-40 flex shrink-0 items-center gap-1 border-b border-zinc-800 px-1.5",
     inShellTopBar ? "h-10" : "h-8",
     inShellTopBar && avoidShellLeftControls && shellLeftInsetClass,
     inShellTopBar && avoidShellRightControls && shellRightInsetClass,

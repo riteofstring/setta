@@ -264,20 +264,7 @@ async function dragBottomChatTabIntoTopLeftPane({
 }
 
 async function assertFloatingPaneControlsClickable({ client, waitForState }) {
-  await waitForState(
-    client,
-    paneControlsClickStateExpression(),
-    (value) =>
-      value.ready &&
-      value.visiblePaneCount === 1 &&
-      value.openPaneCount === "1" &&
-      value.addChatNoDrag &&
-      value.addChatHitNoDrag &&
-      value.searchNoDrag &&
-      value.searchHitNoDrag &&
-      value.settingsNoDrag &&
-      value.settingsHitNoDrag,
-  );
+  await waitForState(client, paneControlsClickStateExpression(), paneControlsReadyForNativeClick);
   await clickElementCenterByAria(client, "Add chat pane");
   await waitForState(
     client,
@@ -319,6 +306,24 @@ async function assertFloatingPaneControlsClickable({ client, waitForState }) {
     client,
     paneControlsClickStateExpression(),
     (value) => value.visiblePaneCount === 2 && value.openPaneCount === "2",
+  );
+}
+
+function paneControlsReadyForNativeClick(value) {
+  if (!value.ready || value.visiblePaneCount !== 1 || value.openPaneCount !== "1") {
+    return false;
+  }
+  return ["addChat", "search", "settings"].every((prefix) =>
+    paneControlReadyForNativeClick(value, prefix),
+  );
+}
+
+function paneControlReadyForNativeClick(value, prefix) {
+  return (
+    value[`${prefix}NoDrag`] &&
+    value[`${prefix}HitNoDrag`] &&
+    !value[`${prefix}CoveredByShellDrag`] &&
+    value[`${prefix}DragElementsAtPoint`] === 0
   );
 }
 
@@ -392,7 +397,36 @@ function paneControlsClickStateExpression() {
       const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
       return hit ? getComputedStyle(hit).webkitAppRegion === "no-drag" : false;
     };
+    const coveredByShellDrag = (element) => {
+      const shell = document.querySelector('[data-testid="shell-top-bar"]');
+      if (!element || !shell) {
+        return true;
+      }
+      const rect = element.getBoundingClientRect();
+      const shellRect = shell.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      return (
+        x >= shellRect.left &&
+        x <= shellRect.right &&
+        y >= shellRect.top &&
+        y <= shellRect.bottom
+      );
+    };
+    const dragElementsAtPoint = (element) => {
+      if (!element) {
+        return -1;
+      }
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      return document
+        .elementsFromPoint(x, y)
+        .filter((candidate) => getComputedStyle(candidate).webkitAppRegion === "drag").length;
+    };
     return {
+      addChatCoveredByShellDrag: coveredByShellDrag(addChat),
+      addChatDragElementsAtPoint: dragElementsAtPoint(addChat),
       addChatHitNoDrag: hitNoDrag(addChat),
       addChatNoDrag: addChat?.classList.contains("app-no-drag") ?? false,
       chatPaneCount: visibleCells.filter((cell) => kind(cell) === "chat").length,
@@ -404,9 +438,13 @@ function paneControlsClickStateExpression() {
       restoreButtonCount: [...document.querySelectorAll("button")].filter((candidate) =>
         candidate.getAttribute("aria-label")?.startsWith("Restore workspace pane"),
       ).length,
+      searchCoveredByShellDrag: coveredByShellDrag(search),
+      searchDragElementsAtPoint: dragElementsAtPoint(search),
       searchHitNoDrag: hitNoDrag(search),
       searchNoDrag: search?.classList.contains("app-no-drag") ?? false,
       searchOpen: Boolean(document.querySelector('input[placeholder="Search chat"]')),
+      settingsCoveredByShellDrag: coveredByShellDrag(settings),
+      settingsDragElementsAtPoint: dragElementsAtPoint(settings),
       settingsHitNoDrag: hitNoDrag(settings),
       settingsNoDrag: settings?.classList.contains("app-no-drag") ?? false,
       settingsPaneCount: visibleCells.filter((cell) => kind(cell) === "settings").length,

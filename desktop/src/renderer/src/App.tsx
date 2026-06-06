@@ -916,7 +916,7 @@ function AppChromeControls({
 
   return (
     <>
-      <ShellTopBar />
+      <ShellTopBar platform={platform} />
       <FloatingProjectPaneControl
         active={projectPaneOpen}
         platform={platform}
@@ -960,11 +960,14 @@ function FloatingProjectPaneControl({
   );
 }
 
-function ShellTopBar() {
+function ShellTopBar({ platform }: { platform: DesktopPlatform }) {
   return (
     <div
       aria-hidden="true"
-      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-10 bg-transparent"
+      className={cn(
+        "app-drag pointer-events-auto fixed top-0 z-30 h-10 bg-transparent",
+        shellTopBarDragClass(platform),
+      )}
       data-testid="shell-top-bar"
     />
   );
@@ -1067,6 +1070,10 @@ function floatingControlsRightInsetClass(platform: DesktopPlatform) {
 
 function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
   return platform === "darwin" ? "left-[74px]" : "left-2";
+}
+
+function shellTopBarDragClass(platform: DesktopPlatform) {
+  return platform === "darwin" ? "left-[112px] right-[150px]" : "left-11 right-56";
 }
 
 function useWorkspaceViewState() {
