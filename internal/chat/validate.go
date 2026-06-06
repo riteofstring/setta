@@ -24,6 +24,9 @@ func validateConversation(conversation Conversation) error {
 			return err
 		}
 	}
+	if err := validateConversationWorkflowMetadata(conversation); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -107,6 +110,31 @@ func validateConversationReadState(state ConversationReadState, conversationID s
 func validateChatCodexSettings(conversationID string, settings ChatCodexSettings) error {
 	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
 		return fmt.Errorf("conversation %s codexSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)
+	}
+	return nil
+}
+
+func validateConversationWorkflowMetadata(conversation Conversation) error {
+	if !conversation.Internal && conversation.Workflow == nil {
+		return nil
+	}
+	if conversation.Workflow == nil {
+		return fmt.Errorf("internal conversation %s workflow metadata is required", conversation.ID)
+	}
+	if err := validateStorageID("workflow definition id", conversation.Workflow.DefinitionID); err != nil {
+		return fmt.Errorf("conversation %s %w", conversation.ID, err)
+	}
+	if err := validateStorageID("workflow definition version id", conversation.Workflow.DefinitionVersionID); err != nil {
+		return fmt.Errorf("conversation %s %w", conversation.ID, err)
+	}
+	if err := validateStorageID("workflow execution id", conversation.Workflow.ExecutionID); err != nil {
+		return fmt.Errorf("conversation %s %w", conversation.ID, err)
+	}
+	if err := validateStorageID("workflow node id", conversation.Workflow.NodeID); err != nil {
+		return fmt.Errorf("conversation %s %w", conversation.ID, err)
+	}
+	if err := validateStorageID("workflow node execution id", conversation.Workflow.NodeExecutionID); err != nil {
+		return fmt.Errorf("conversation %s %w", conversation.ID, err)
 	}
 	return nil
 }

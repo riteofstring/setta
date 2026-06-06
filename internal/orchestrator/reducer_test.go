@@ -73,8 +73,8 @@ func TestANDFanOutJoinWaitsForAllBranches(t *testing.T) {
 	if execution.Status != ExecutionStatusRunning {
 		t.Fatalf("execution status = %s, want running", execution.Status)
 	}
-	first := requireRunningNodeExecution(t, execution, "review_a")
-	second := requireRunningNodeExecution(t, execution, "review_b")
+	execution, first := startActionForTest(t, execution, "review_a")
+	execution, second := startActionForTest(t, execution, "review_b")
 
 	afterFirst, err := CompleteAction(execution, graph, first.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
 	if err != nil {
@@ -111,8 +111,8 @@ func TestXORGatewaySelectsExactlyOneBranchFromStructuredSignal(t *testing.T) {
 		},
 	}
 	transition := startTestExecution(t, graph)
-	classify := requireRunningNodeExecution(t, transition.Execution, "classify")
-	next, err := CompleteAction(transition.Execution, graph, classify.ID, WorkflowActionResult{
+	execution, classify := startActionForTest(t, transition.Execution, "classify")
+	next, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{
 		Status:  ActionCompletionCompleted,
 		Signals: []WorkflowActionSignal{{Name: "route", Value: "yes"}},
 	}, testTransitionContext())
@@ -134,8 +134,8 @@ func TestXORGatewayCanRouteFromActionStatus(t *testing.T) {
 		Status: &status,
 	})
 	transition := startTestExecution(t, graph)
-	classify := requireRunningNodeExecution(t, transition.Execution, "classify")
-	next, err := CompleteAction(transition.Execution, graph, classify.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
+	execution, classify := startActionForTest(t, transition.Execution, "classify")
+	next, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
 	if err != nil {
 		t.Fatalf("complete action: %v", err)
 	}
@@ -153,8 +153,8 @@ func TestXORGatewayCanRouteFromScriptExitCode(t *testing.T) {
 		ExitCode: &exitCode,
 	})
 	transition := startTestExecution(t, graph)
-	classify := requireRunningNodeExecution(t, transition.Execution, "classify")
-	next, err := CompleteAction(transition.Execution, graph, classify.ID, WorkflowActionResult{Status: ActionCompletionCompleted, ExitCode: &exitCode}, testTransitionContext())
+	execution, classify := startActionForTest(t, transition.Execution, "classify")
+	next, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{Status: ActionCompletionCompleted, ExitCode: &exitCode}, testTransitionContext())
 	if err != nil {
 		t.Fatalf("complete action: %v", err)
 	}
@@ -186,8 +186,8 @@ func TestORGatewayReleasesAllMatchingBranches(t *testing.T) {
 		},
 	}
 	transition := startTestExecution(t, graph)
-	classify := requireRunningNodeExecution(t, transition.Execution, "classify")
-	routed, err := CompleteAction(transition.Execution, graph, classify.ID, WorkflowActionResult{
+	execution, classify := startActionForTest(t, transition.Execution, "classify")
+	routed, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{
 		Status: ActionCompletionCompleted,
 		Signals: []WorkflowActionSignal{
 			{Name: "branch", Value: "b"},
@@ -197,9 +197,10 @@ func TestORGatewayReleasesAllMatchingBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("complete classifier: %v", err)
 	}
-	branchB := requireRunningNodeExecution(t, routed.Execution, "branch_b")
-	branchC := requireRunningNodeExecution(t, routed.Execution, "branch_c")
-	afterB, err := CompleteAction(routed.Execution, graph, branchB.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
+	execution = routed.Execution
+	execution, branchB := startActionForTest(t, execution, "branch_b")
+	execution, branchC := startActionForTest(t, execution, "branch_c")
+	afterB, err := CompleteAction(execution, graph, branchB.ID, WorkflowActionResult{Status: ActionCompletionCompleted}, testTransitionContext())
 	if err != nil {
 		t.Fatalf("complete branch b: %v", err)
 	}
@@ -218,7 +219,8 @@ func TestLoopGuardContinuesUntilStructuredExit(t *testing.T) {
 	transition := startTestExecution(t, graph)
 	execution := transition.Execution
 	for iteration := 1; iteration <= 2; iteration++ {
-		review := requireRunningNodeExecution(t, execution, "review")
+		var review WorkflowNodeExecution
+		execution, review = startActionForTest(t, execution, "review")
 		next, err := CompleteAction(execution, graph, review.ID, WorkflowActionResult{
 			Status:  ActionCompletionCompleted,
 			Signals: []WorkflowActionSignal{{Name: "decision", Value: "continue"}},
@@ -231,7 +233,7 @@ func TestLoopGuardContinuesUntilStructuredExit(t *testing.T) {
 			t.Fatalf("execution status after continue iteration %d = %s, want running", iteration, execution.Status)
 		}
 	}
-	review := requireRunningNodeExecution(t, execution, "review")
+	execution, review := startActionForTest(t, execution, "review")
 	next, err := CompleteAction(execution, graph, review.ID, WorkflowActionResult{
 		Status:  ActionCompletionCompleted,
 		Signals: []WorkflowActionSignal{{Name: "decision", Value: "exit"}},
@@ -256,7 +258,8 @@ func TestLoopGuardStopsAtMaximumIterations(t *testing.T) {
 	transition := startTestExecution(t, graph)
 	execution := transition.Execution
 	for iteration := 1; iteration <= 2; iteration++ {
-		review := requireRunningNodeExecution(t, execution, "review")
+		var review WorkflowNodeExecution
+		execution, review = startActionForTest(t, execution, "review")
 		next, err := CompleteAction(execution, graph, review.ID, WorkflowActionResult{
 			Status:  ActionCompletionCompleted,
 			Signals: []WorkflowActionSignal{{Name: "decision", Value: "continue"}},
@@ -290,8 +293,8 @@ func TestActionFailureFailsExecution(t *testing.T) {
 		},
 	}
 	transition := startTestExecution(t, graph)
-	work := requireRunningNodeExecution(t, transition.Execution, "work")
-	next, err := CompleteAction(transition.Execution, graph, work.ID, WorkflowActionResult{Status: ActionCompletionFailed, Error: "boom"}, testTransitionContext())
+	execution, work := startActionForTest(t, transition.Execution, "work")
+	next, err := CompleteAction(execution, graph, work.ID, WorkflowActionResult{Status: ActionCompletionFailed, Error: "boom"}, testTransitionContext())
 	if err != nil {
 		t.Fatalf("complete failed action: %v", err)
 	}
@@ -432,14 +435,39 @@ func conditionRoutingGraph(condition *WorkflowCondition) WorkflowGraph {
 	}
 }
 
-func requireRunningNodeExecution(t *testing.T, execution WorkflowExecution, nodeID string) WorkflowNodeExecution {
+func startActionForTest(t *testing.T, execution WorkflowExecution, nodeID string) (WorkflowExecution, WorkflowNodeExecution) {
 	t.Helper()
 	for _, nodeExecution := range execution.NodeExecutions {
 		if nodeExecution.NodeID == nodeID && nodeExecution.Status == NodeExecutionStatusRunning {
+			return execution, nodeExecution
+		}
+	}
+	for _, nodeExecution := range execution.NodeExecutions {
+		if nodeExecution.NodeID != nodeID || nodeExecution.Status != NodeExecutionStatusReady {
+			continue
+		}
+		transition, err := StartAction(execution, nodeExecution.ID, []WorkflowActionRunnerRef{{Kind: "test.runner", ID: nodeExecution.ID}}, testTransitionContext())
+		if err != nil {
+			t.Fatalf("start action %s: %v", nodeID, err)
+		}
+		started := nodeExecutionByIDForTest(t, transition.Execution, nodeExecution.ID)
+		if started.Status != NodeExecutionStatusRunning {
+			t.Fatalf("started node execution status = %s, want running", started.Status)
+		}
+		return transition.Execution, started
+	}
+	t.Fatalf("ready or running node execution for %s was not found in %+v", nodeID, execution.NodeExecutions)
+	return WorkflowExecution{}, WorkflowNodeExecution{}
+}
+
+func nodeExecutionByIDForTest(t *testing.T, execution WorkflowExecution, nodeExecutionID string) WorkflowNodeExecution {
+	t.Helper()
+	for _, nodeExecution := range execution.NodeExecutions {
+		if nodeExecution.ID == nodeExecutionID {
 			return nodeExecution
 		}
 	}
-	t.Fatalf("running node execution for %s was not found in %+v", nodeID, execution.NodeExecutions)
+	t.Fatalf("node execution %s was not found in %+v", nodeExecutionID, execution.NodeExecutions)
 	return WorkflowNodeExecution{}
 }
 

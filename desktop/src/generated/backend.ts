@@ -836,16 +836,26 @@ export interface HarnessThreadRef {
   unavailableMessage: string;
 }
 
+export interface ConversationWorkflowMetadata {
+  definitionId: string;
+  definitionVersionId: string;
+  executionId: string;
+  nodeId: string;
+  nodeExecutionId: string;
+}
+
 export interface Conversation {
   schemaVersion: number;
   id: string;
   workspaceId: string;
   title: string;
+  internal: boolean;
   createdAt: string;
   updatedAt: string;
   archivedAt: string;
   codexSettings: ChatCodexSettings | null;
   harnessRefs: HarnessThreadRef[];
+  workflow: ConversationWorkflowMetadata | null;
 }
 
 export interface ConversationListItem {
@@ -2201,19 +2211,33 @@ export function decodeHarnessThreadRef(value: unknown): HarnessThreadRef {
   };
 }
 
+export function decodeConversationWorkflowMetadata(value: unknown): ConversationWorkflowMetadata {
+  const record = assertRecord(value, "ConversationWorkflowMetadata");
+  assertKnownFields(record, "ConversationWorkflowMetadata", ["definitionId", "definitionVersionId", "executionId", "nodeId", "nodeExecutionId"]);
+  return {
+    definitionId: decodeString(requireField(record, "definitionId", "ConversationWorkflowMetadata"), "ConversationWorkflowMetadata.definitionId"),
+    definitionVersionId: decodeString(requireField(record, "definitionVersionId", "ConversationWorkflowMetadata"), "ConversationWorkflowMetadata.definitionVersionId"),
+    executionId: decodeString(requireField(record, "executionId", "ConversationWorkflowMetadata"), "ConversationWorkflowMetadata.executionId"),
+    nodeId: decodeString(requireField(record, "nodeId", "ConversationWorkflowMetadata"), "ConversationWorkflowMetadata.nodeId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "ConversationWorkflowMetadata"), "ConversationWorkflowMetadata.nodeExecutionId"),
+  };
+}
+
 export function decodeConversation(value: unknown): Conversation {
   const record = assertRecord(value, "Conversation");
-  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "createdAt", "updatedAt", "archivedAt", "codexSettings", "harnessRefs"]);
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "internal", "createdAt", "updatedAt", "archivedAt", "codexSettings", "harnessRefs", "workflow"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
     id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "Conversation"), "Conversation.workspaceId"),
     title: decodeString(requireField(record, "title", "Conversation"), "Conversation.title"),
+    internal: decodeBoolean(requireField(record, "internal", "Conversation"), "Conversation.internal"),
     createdAt: decodeString(requireField(record, "createdAt", "Conversation"), "Conversation.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "Conversation"), "Conversation.updatedAt"),
     archivedAt: decodeString(requireField(record, "archivedAt", "Conversation"), "Conversation.archivedAt"),
     codexSettings: decodeNullable(requireField(record, "codexSettings", "Conversation"), "Conversation.codexSettings", (item) => decodeChatCodexSettings(item)),
     harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
+    workflow: decodeNullable(requireField(record, "workflow", "Conversation"), "Conversation.workflow", (item) => decodeConversationWorkflowMetadata(item)),
   };
 }
 

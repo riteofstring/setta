@@ -179,7 +179,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create workflow store: %w", err)
 	}
-	workflowService, err := orchestrator.NewService(workflowStore, workspaceService)
+	workflowService, err := orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create workflow service: %w", err)
 	}

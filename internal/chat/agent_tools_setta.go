@@ -7,10 +7,24 @@ import (
 	"fmt"
 )
 
-const SettaAgentToolNamespace = "setta"
+const (
+	SettaAgentToolNamespace          = "setta"
+	SettaWorkflowResultAgentToolName = "workflow_result"
+)
+
+type SettaWorkflowResultPayload struct {
+	Signals   []SettaWorkflowResultSignal `json:"signals"`
+	Output    json.RawMessage             `json:"output"`
+	FilePaths []string                    `json:"filePaths"`
+}
+
+type SettaWorkflowResultSignal struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
 
 func NewSettaAgentToolRegistry() (*AgentToolRegistry, error) {
-	return NewAgentToolRegistry(settaWorkspaceContextTool())
+	return NewAgentToolRegistry(settaWorkspaceContextTool(), settaWorkflowResultTool())
 }
 
 func mustNewSettaAgentToolRegistry() *AgentToolRegistry {
@@ -43,6 +57,63 @@ func settaWorkspaceContextTool() AgentTool {
 			Category:    "workspace",
 		},
 		Handler: handleSettaWorkspaceContext,
+	}
+}
+
+func settaWorkflowResultTool() AgentTool {
+	allowOutputProperties := true
+	return AgentTool{
+		Namespace: SettaAgentToolNamespace,
+		Name:      SettaWorkflowResultAgentToolName,
+		InputSchema: AgentToolSchema{
+			Type: AgentToolSchemaObject,
+			Properties: map[string]AgentToolSchema{
+				"signals": {
+					Type:        AgentToolSchemaArray,
+					Description: "Structured routing signals reported by this workflow action.",
+					Items: &AgentToolSchema{
+						Type: AgentToolSchemaObject,
+						Properties: map[string]AgentToolSchema{
+							"name": {
+								Type:        AgentToolSchemaString,
+								Description: "Signal name.",
+							},
+							"value": {
+								Type:        AgentToolSchemaString,
+								Description: "Signal value.",
+							},
+						},
+						Required: []string{"name", "value"},
+					},
+				},
+				"output": {
+					Type:                 AgentToolSchemaObject,
+					Description:          "Optional structured result payload for downstream workflow nodes.",
+					AdditionalProperties: &allowOutputProperties,
+				},
+				"filePaths": {
+					Type:        AgentToolSchemaArray,
+					Description: "Workspace-relative or absolute file paths this action wants the workflow to remember.",
+					Items: &AgentToolSchema{
+						Type: AgentToolSchemaString,
+					},
+				},
+			},
+		},
+		OutputSchema: AgentToolSchema{
+			Type:        AgentToolSchemaObject,
+			Description: "Acknowledgement that the workflow result was recorded.",
+		},
+		PermissionRequirements: []AgentToolPermissionRequirement{{
+			Kind:        AgentToolPermissionReadWorkspace,
+			Description: "Report structured workflow result data to Setta.",
+		}},
+		AuditMetadata: AgentToolAuditMetadata{
+			DisplayName: "Workflow result",
+			Description: "Report structured workflow routing signals, result payloads, and file references.",
+			Category:    "workflow",
+		},
+		Handler: handleSettaWorkflowResult,
 	}
 }
 
@@ -96,6 +167,51 @@ func handleSettaWorkspaceContext(ctx context.Context, call AgentToolCall) (Agent
 		}},
 		Success: true,
 	}, nil
+}
+
+func handleSettaWorkflowResult(_ context.Context, call AgentToolCall) (AgentToolResult, error) {
+	payload, err := DecodeSettaWorkflowResultPayload(call.Arguments)
+	if err != nil {
+		return AgentToolResult{}, err
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return AgentToolResult{}, fmt.Errorf("encode workflow result acknowledgement: %w", err)
+	}
+	return AgentToolResult{
+		ContentItems: []AgentToolContentItem{{
+			Type: "inputText",
+			Text: string(data),
+		}},
+		Success: true,
+	}, nil
+}
+
+func DecodeSettaWorkflowResultPayload(arguments json.RawMessage) (SettaWorkflowResultPayload, error) {
+	if len(arguments) == 0 {
+		return SettaWorkflowResultPayload{}, errors.New("workflow_result arguments are required")
+	}
+	var payload SettaWorkflowResultPayload
+	if err := json.Unmarshal(arguments, &payload); err != nil {
+		return SettaWorkflowResultPayload{}, fmt.Errorf("workflow_result arguments must be a JSON object: %w", err)
+	}
+	if payload.Signals == nil {
+		payload.Signals = []SettaWorkflowResultSignal{}
+	}
+	if payload.FilePaths == nil {
+		payload.FilePaths = []string{}
+	}
+	for _, signal := range payload.Signals {
+		if signal.Name == "" {
+			return SettaWorkflowResultPayload{}, errors.New("workflow_result signal name is required")
+		}
+	}
+	for _, path := range payload.FilePaths {
+		if path == "" {
+			return SettaWorkflowResultPayload{}, errors.New("workflow_result file path must not be empty")
+		}
+	}
+	return payload, nil
 }
 
 func requireEmptyAgentToolArguments(arguments json.RawMessage, toolName string) error {

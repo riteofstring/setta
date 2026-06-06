@@ -76,9 +76,11 @@ function conversation(id: string, workspaceId: string): Conversation {
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
     id,
+    internal: false,
     schemaVersion: 1,
     title: id,
     updatedAt: "2026-05-29T20:00:00Z",
+    workflow: null,
     workspaceId,
   };
 }

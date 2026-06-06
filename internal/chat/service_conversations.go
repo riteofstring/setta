@@ -22,6 +22,9 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 	findings = append(findings, corruptRuns...)
 	items := make([]ConversationListItem, 0, len(conversations))
 	for _, conversation := range conversations {
+		if conversation.Internal {
+			continue
+		}
 		count, corruptMessages, err := service.store.MessageCountAllowingCorrupt(workspaceID, conversation.ID)
 		if err != nil {
 			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
@@ -98,7 +101,9 @@ func (service *Service) MarkConversationRead(workspaceID string, conversationID 
 	if err != nil {
 		return ConversationListItem{}, err
 	}
-	_, err = service.events.Publish(NewConversationUpdatedEvent(workspaceID, conversationID, "", item))
+	if !item.Conversation.Internal {
+		_, err = service.events.Publish(NewConversationUpdatedEvent(workspaceID, conversationID, "", item))
+	}
 	return item, err
 }
 
@@ -138,7 +143,14 @@ func (service *Service) publishConversationUpdated(workspaceID string, conversat
 }
 
 func (service *Service) publishConversationUpdatedLocked(workspaceID string, conversationID string, runID string) error {
-	item, err := service.conversationListItemLocked(workspaceID, conversationID)
+	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
+	if err != nil {
+		return err
+	}
+	if conversation.Internal {
+		return nil
+	}
+	item, err := service.conversationListItemFromConversationLocked(conversation)
 	if err != nil {
 		return err
 	}
@@ -151,6 +163,12 @@ func (service *Service) conversationListItemLocked(workspaceID string, conversat
 	if err != nil {
 		return ConversationListItem{}, err
 	}
+	return service.conversationListItemFromConversationLocked(conversation)
+}
+
+func (service *Service) conversationListItemFromConversationLocked(conversation Conversation) (ConversationListItem, error) {
+	workspaceID := conversation.WorkspaceID
+	conversationID := conversation.ID
 	count, err := service.store.MessageCount(workspaceID, conversationID)
 	if err != nil {
 		return ConversationListItem{}, err

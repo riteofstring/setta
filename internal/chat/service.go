@@ -189,6 +189,12 @@ func (service *Service) persistTurnStartWithDeliveryLocked(workspaceID string, c
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
+	return service.persistTurnStartForConversationLocked(conversation, prompt, delivery, now)
+}
+
+func (service *Service) persistTurnStartForConversationLocked(conversation Conversation, prompt string, delivery MessageDelivery, now string) (Conversation, ChatMessage, ChatMessage, Run, error) {
+	workspaceID := conversation.WorkspaceID
+	conversationID := conversation.ID
 	userMessage, err := service.newUserMessage(workspaceID, conversationID, "", prompt, delivery, MessageStatusComplete, now)
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err

@@ -1,7 +1,7 @@
 # Backend Orchestrator State Machine Plan
 
 - **Date:** June 5, 2026
-- **Status:** Phase 1 and Phase 2 implemented; Phase 3 ready to implement
+- **Status:** Phase 1 through Phase 3 implemented; Phase 4 ready to implement
 - **Scope:** Add backend-owned workflow/state-machine execution for the graph-based AI agent orchestrator. The frontend may render definitions and execution state later, but backend services own all graph logic, state transitions, persistence, scheduling, and action execution.
 
 ## Goal
@@ -313,7 +313,7 @@ Status: Implemented.
 
 ### Phase 3: Codex Action Runner
 
-Status: Ready to implement.
+Status: Implemented.
 
 - Register `agent.codex`.
 - Add workflow-owned/internal chat metadata before creating workflow agent chats.

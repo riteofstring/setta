@@ -92,6 +92,36 @@ func CompleteAction(execution WorkflowExecution, graph WorkflowGraph, nodeExecut
 	return WorkflowTransition{Execution: execution, Events: events}, nil
 }
 
+func StartAction(execution WorkflowExecution, nodeExecutionID string, runnerRefs []WorkflowActionRunnerRef, context TransitionContext) (WorkflowTransition, error) {
+	if err := validateTransitionContext(context); err != nil {
+		return WorkflowTransition{}, err
+	}
+	if execution.Status != ExecutionStatusRunning {
+		return WorkflowTransition{}, fmt.Errorf("workflow execution %s is %s, not running", execution.ID, execution.Status)
+	}
+	index := nodeExecutionIndex(execution, nodeExecutionID)
+	if index < 0 {
+		return WorkflowTransition{}, fmt.Errorf("node execution %s was not found", nodeExecutionID)
+	}
+	nodeExecution := &execution.NodeExecutions[index]
+	if nodeExecution.Status != NodeExecutionStatusReady {
+		return WorkflowTransition{}, fmt.Errorf("node execution %s is %s, not ready", nodeExecutionID, nodeExecution.Status)
+	}
+	nodeExecution.Status = NodeExecutionStatusRunning
+	nodeExecution.StartedAt = context.Now
+	nodeExecution.RunnerRefs = mergeRunnerRefs(nodeExecution.RunnerRefs, runnerRefs)
+	events := []WorkflowEvent{}
+	if err := appendEvent(&execution, &events, context, EventActionStarted, WorkflowEvent{
+		NodeID:          nodeExecution.NodeID,
+		NodeExecutionID: nodeExecution.ID,
+		Message:         fmt.Sprintf("action node %s started", nodeExecution.NodeID),
+	}); err != nil {
+		return WorkflowTransition{}, err
+	}
+	refreshActiveNodeExecutionIDs(&execution)
+	return WorkflowTransition{Execution: execution, Events: events}, nil
+}
+
 func applyActionCompletion(execution *WorkflowExecution, graph WorkflowGraph, nodeExecution *WorkflowNodeExecution, result WorkflowActionResult, context TransitionContext, events *[]WorkflowEvent) error {
 	switch result.Status {
 	case ActionCompletionCompleted:
@@ -334,10 +364,9 @@ func processActionToken(execution *WorkflowExecution, tokenIndex int, node Workf
 		NodeID:         node.ID,
 		Attempt:        attempt,
 		Iteration:      iteration,
-		Status:         NodeExecutionStatusRunning,
+		Status:         NodeExecutionStatusReady,
 		IdempotencyKey: fmt.Sprintf("%s/%s/%d/%d", execution.ID, node.ID, iteration, attempt),
 		ScheduledAt:    context.Now,
-		StartedAt:      context.Now,
 		ActionKind:     &actionKind,
 		RunnerRefs:     []WorkflowActionRunnerRef{},
 	}
@@ -347,13 +376,6 @@ func processActionToken(execution *WorkflowExecution, tokenIndex int, node Workf
 		NodeExecutionID: nodeExecution.ID,
 		TokenID:         execution.Tokens[tokenIndex].ID,
 		Message:         fmt.Sprintf("action node %s scheduled", node.ID),
-	}); err != nil {
-		return false, err
-	}
-	if err := appendEvent(execution, events, context, EventActionStarted, WorkflowEvent{
-		NodeID:          node.ID,
-		NodeExecutionID: nodeExecution.ID,
-		Message:         fmt.Sprintf("action node %s started", node.ID),
 	}); err != nil {
 		return false, err
 	}
@@ -964,7 +986,7 @@ func refreshActiveNodeExecutionIDs(execution *WorkflowExecution) {
 }
 
 func isActiveNodeExecutionStatus(status WorkflowNodeExecutionStatus) bool {
-	return status == NodeExecutionStatusRunning || status == NodeExecutionStatusWaitingApproval
+	return status == NodeExecutionStatusReady || status == NodeExecutionStatusRunning || status == NodeExecutionStatusWaitingApproval
 }
 
 func nonEmpty(value string, fallback string) string {

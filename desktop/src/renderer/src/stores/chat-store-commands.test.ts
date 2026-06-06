@@ -40,9 +40,11 @@ function testConversation(): Conversation {
     createdAt: "2026-06-05T20:00:00Z",
     harnessRefs: [],
     id: "conversation_api",
+    internal: false,
     schemaVersion: 1,
     title: "Test",
     updatedAt: "2026-06-05T20:00:00Z",
+    workflow: null,
     workspaceId: "workspace_api",
   };
 }

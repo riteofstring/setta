@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/chat"
 	"setta/internal/workspace"
 )
 
@@ -23,6 +24,8 @@ type Service struct {
 	workspaceResolver WorkspaceResolver
 	events            *EventHub
 	runnerRegistry    RunnerRegistry
+	codexChatService  CodexChatService
+	chatSubscription  *chat.EventSubscription
 	newID             IDGenerator
 	now               func() time.Time
 	mu                sync.Mutex
@@ -59,6 +62,16 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 	for _, option := range options {
 		option(service)
 	}
+	if service.codexChatService != nil {
+		runner, err := NewCodexActionRunner(service.codexChatService)
+		if err != nil {
+			return nil, err
+		}
+		service.runnerRegistry = service.runnerRegistry.WithRunner(runner)
+		if err := service.startChatEventReconciler(); err != nil {
+			return nil, err
+		}
+	}
 	if err := service.recoverInterruptedExecutions(); err != nil {
 		return nil, err
 	}
@@ -89,11 +102,20 @@ func WithEventHub(events *EventHub) Option {
 	}
 }
 
+func WithCodexChatService(chatService CodexChatService) Option {
+	return func(service *Service) {
+		service.codexChatService = chatService
+	}
+}
+
 func (service *Service) SubscribeEvents() *EventSubscription {
 	return service.events.Subscribe()
 }
 
 func (service *Service) CloseEvents() {
+	if service.chatSubscription != nil {
+		service.chatSubscription.Unsubscribe()
+	}
 	service.events.Close()
 }
 
@@ -253,10 +275,10 @@ func (service *Service) StartExecution(workspaceID string, definitionID string, 
 		return WorkflowExecution{}, err
 	}
 	service.mu.Lock()
-	defer service.mu.Unlock()
 
 	definition, err := service.store.LoadDefinition(workspaceID, definitionID)
 	if err != nil {
+		service.mu.Unlock()
 		return WorkflowExecution{}, err
 	}
 	if versionID == "" {
@@ -264,43 +286,46 @@ func (service *Service) StartExecution(workspaceID string, definitionID string, 
 	}
 	version, err := service.store.LoadDefinitionVersion(workspaceID, definitionID, versionID)
 	if err != nil {
+		service.mu.Unlock()
 		return WorkflowExecution{}, err
 	}
 	if result := ValidateGraph(version.Graph, service.runnerRegistry); !result.Valid {
+		service.mu.Unlock()
 		return WorkflowExecution{}, &ValidationError{Result: result}
 	}
 	transition, err := StartExecution(version, service.transitionContext())
 	if err != nil {
+		service.mu.Unlock()
 		return WorkflowExecution{}, err
 	}
 	if err := service.persistTransition(transition); err != nil {
+		service.mu.Unlock()
 		return WorkflowExecution{}, err
 	}
-	return transition.Execution, nil
+	executionID := transition.Execution.ID
+	service.mu.Unlock()
+	return service.dispatchReadyActions(workspaceID, executionID)
 }
 
 func (service *Service) CompleteAction(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult) (WorkflowExecution, error) {
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowExecution{}, err
 	}
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	execution, version, err := service.loadExecutionAndVersion(workspaceID, executionID)
+	execution, err := service.completeActionWithoutDispatch(workspaceID, executionID, nodeExecutionID, result)
 	if err != nil {
 		return WorkflowExecution{}, err
 	}
-	transition, err := CompleteAction(execution, version.Graph, nodeExecutionID, result, service.transitionContext())
-	if err != nil {
-		return WorkflowExecution{}, err
+	if execution.Status != ExecutionStatusRunning {
+		return execution, nil
 	}
-	if err := service.persistTransition(transition); err != nil {
-		return WorkflowExecution{}, err
-	}
-	return transition.Execution, nil
+	return service.dispatchReadyActions(workspaceID, executionID)
 }
 
 func (service *Service) CancelExecution(workspaceID string, executionID string) (WorkflowExecution, error) {
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return WorkflowExecution{}, err
+	}
+	if err := service.cancelActiveActionRunners(workspaceID, executionID); err != nil {
 		return WorkflowExecution{}, err
 	}
 	service.mu.Lock()
@@ -308,6 +333,9 @@ func (service *Service) CancelExecution(workspaceID string, executionID string) 
 	execution, err := service.store.LoadExecution(workspaceID, executionID)
 	if err != nil {
 		return WorkflowExecution{}, err
+	}
+	if execution.Status == ExecutionStatusCancelled {
+		return execution, nil
 	}
 	transition, err := CancelExecution(execution, service.transitionContext())
 	if err != nil {

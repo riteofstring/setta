@@ -45,6 +45,7 @@ var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
 	{Prompt: "mcp elicitation form cancel workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationFormCancelTurn},
 	{Prompt: "mcp elicitation url decline workflow", Run: (*ScriptedWorkflowHarness).mcpElicitationURLDeclineTurn},
 	{Prompt: "dynamic tool workflow", Run: scriptedDynamicToolTurn},
+	{Prompt: "workflow result action", Run: scriptedWorkflowResultTurn},
 	{Prompt: "pre-turn model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 	{Prompt: "model setting workflow", Run: (*ScriptedWorkflowHarness).modelSettingTurn},
 }
@@ -54,6 +55,12 @@ func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
 		approvals: map[string]chan ApprovalResponse{},
 		steers:    map[string]chan SteerRequest{},
 	}
+}
+
+func (harness *ScriptedWorkflowHarness) ActiveRunCount() int {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+	return len(harness.steers)
 }
 
 func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
@@ -437,6 +444,30 @@ func scriptedDynamicToolTurn(_ *ScriptedWorkflowHarness, _ context.Context, requ
 		return TurnCompletion{}, err
 	}
 	return scriptedReply(sink, request.Run.ID, "Dynamic tool workflow complete.")
+}
+
+func scriptedWorkflowResultTurn(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	item := RunItem{
+		ProviderItemID: "provider_workflow_result_" + request.Run.ID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusCompleted,
+		Title:          "Workflow result",
+		Namespace:      SettaAgentToolNamespace,
+		ToolName:       SettaWorkflowResultAgentToolName,
+		Details: json.RawMessage(`{
+			"signals": [
+				{"name": "route", "value": "yes"},
+				{"name": "decision", "value": "exit"}
+			],
+			"output": {"summary": "scripted workflow result"},
+			"filePaths": ["reports/workflow-result.md"]
+		}`),
+		Result: "workflow result recorded",
+	}
+	if err := sink.RunItemUpsert(item); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Workflow result action complete.")
 }
 
 func (harness *ScriptedWorkflowHarness) modelSettingTurn(_ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

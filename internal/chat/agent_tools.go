@@ -50,13 +50,14 @@ type AgentTool struct {
 type AgentToolHandler func(context.Context, AgentToolCall) (AgentToolResult, error)
 
 type AgentToolSchema struct {
-	Type        AgentToolSchemaType
-	Title       string
-	Description string
-	Required    []string
-	Properties  map[string]AgentToolSchema
-	Items       *AgentToolSchema
-	Enum        []string
+	Type                 AgentToolSchemaType
+	Title                string
+	Description          string
+	Required             []string
+	Properties           map[string]AgentToolSchema
+	Items                *AgentToolSchema
+	Enum                 []string
+	AdditionalProperties *bool
 }
 
 type AgentToolPermissionKind string
@@ -221,6 +222,9 @@ func validateAgentToolSchemaShape(schema AgentToolSchema, label string) error {
 	}
 	if schema.Type != AgentToolSchemaObject && len(schema.Properties) > 0 {
 		return fmt.Errorf("%s properties are only valid for objects", label)
+	}
+	if schema.Type != AgentToolSchemaObject && schema.AdditionalProperties != nil {
+		return fmt.Errorf("%s additionalProperties is only valid for objects", label)
 	}
 	return nil
 }

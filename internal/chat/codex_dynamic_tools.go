@@ -141,7 +141,11 @@ func codexDynamicToolJSONSchema(schema AgentToolSchema) map[string]any {
 		result["required"] = append([]string{}, schema.Required...)
 	}
 	if schema.Type == AgentToolSchemaObject {
-		result["additionalProperties"] = false
+		additionalProperties := false
+		if schema.AdditionalProperties != nil {
+			additionalProperties = *schema.AdditionalProperties
+		}
+		result["additionalProperties"] = additionalProperties
 		result["properties"] = codexDynamicToolJSONSchemaProperties(schema.Properties)
 	}
 	if schema.Type == AgentToolSchemaArray && schema.Items != nil {

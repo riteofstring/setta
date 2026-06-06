@@ -453,9 +453,11 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
     id: "conversation_api",
+    internal: false,
     schemaVersion: 1,
     title: "API chat",
     updatedAt: "2026-05-29T20:00:00Z",
+    workflow: null,
     workspaceId: "workspace_api",
     ...overrides,
   };

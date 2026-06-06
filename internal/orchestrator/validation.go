@@ -1,12 +1,40 @@
 package orchestrator
 
 import (
+	"context"
 	"fmt"
 	"slices"
 )
 
 type RunnerRegistry struct {
 	actionKinds map[WorkflowActionKind]struct{}
+	runners     map[WorkflowActionKind]ActionRunner
+}
+
+type ActionRunner interface {
+	Kind() WorkflowActionKind
+	Start(context.Context, ActionStartRequest) (ActionStartResult, error)
+	Cancel(context.Context, ActionCancelRequest) error
+}
+
+type ActionStartRequest struct {
+	WorkspaceID         string
+	DefinitionID        string
+	DefinitionVersionID string
+	Execution           WorkflowExecution
+	Node                WorkflowNode
+	NodeExecution       WorkflowNodeExecution
+}
+
+type ActionStartResult struct {
+	RunnerRefs []WorkflowActionRunnerRef
+}
+
+type ActionCancelRequest struct {
+	WorkspaceID   string
+	ExecutionID   string
+	NodeExecution WorkflowNodeExecution
+	RunnerRefs    []WorkflowActionRunnerRef
 }
 
 func DefaultRunnerRegistry() RunnerRegistry {
@@ -14,12 +42,31 @@ func DefaultRunnerRegistry() RunnerRegistry {
 		actionKinds: map[WorkflowActionKind]struct{}{
 			ActionKindAgentCodex: {},
 		},
+		runners: map[WorkflowActionKind]ActionRunner{},
 	}
 }
 
 func (registry RunnerRegistry) IsActionKindRegistered(kind WorkflowActionKind) bool {
 	_, ok := registry.actionKinds[kind]
 	return ok
+}
+
+func (registry RunnerRegistry) WithRunner(runner ActionRunner) RunnerRegistry {
+	if registry.actionKinds == nil {
+		registry.actionKinds = map[WorkflowActionKind]struct{}{}
+	}
+	if registry.runners == nil {
+		registry.runners = map[WorkflowActionKind]ActionRunner{}
+	}
+	kind := runner.Kind()
+	registry.actionKinds[kind] = struct{}{}
+	registry.runners[kind] = runner
+	return registry
+}
+
+func (registry RunnerRegistry) Runner(kind WorkflowActionKind) (ActionRunner, bool) {
+	runner, ok := registry.runners[kind]
+	return runner, ok
 }
 
 func ValidateGraph(graph WorkflowGraph, registry RunnerRegistry) WorkflowValidationResult {

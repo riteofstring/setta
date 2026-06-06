@@ -1226,7 +1226,6 @@ async function waitFor(done: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
-
 function testConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     archivedAt: "",
@@ -1234,14 +1233,15 @@ function testConversation(overrides: Partial<Conversation> = {}): Conversation {
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
     id: "conversation_api",
+    internal: false,
     schemaVersion: 1,
     title: "API chat",
     updatedAt: "2026-05-29T20:00:00Z",
+    workflow: null,
     workspaceId: "workspace_api",
     ...overrides,
   };
 }
-
 function conversationItem(
   conversation: Conversation,
   messageCount: number,

@@ -458,9 +458,11 @@ function emptyConversation() {
     createdAt: "2026-05-29T20:00:00Z",
     harnessRefs: [],
     id: "conversation_test",
+    internal: false,
     schemaVersion: 1,
     title: "Test",
     updatedAt: "2026-05-29T20:00:00Z",
+    workflow: null,
     workspaceId: "workspace_api",
   };
 }
