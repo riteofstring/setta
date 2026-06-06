@@ -1,4 +1,5 @@
 import type {
+  AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
@@ -23,6 +24,7 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
+  UpdateAppearanceSettingsRequest,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -95,6 +97,10 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
+  };
+  appearance: {
+    read: () => Promise<AppearanceSettings>;
+    update: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
