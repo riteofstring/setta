@@ -41,7 +41,9 @@ export class PresentationEngine {
         this.hideBinding(binding);
         continue;
       }
-      this.syncContent(binding, item);
+      if (!item.moving) {
+        this.syncContent(binding, item);
+      }
       transformWrites += this.syncFrame(binding, item);
     }
 
@@ -50,7 +52,7 @@ export class PresentationEngine {
 
   mount(hosts: readonly HTMLElement[], debugOverlay: HTMLElement | null): void {
     this.bindings = hosts.map((host) => ({
-      contentPaneId: null,
+      contentPaneId: host.dataset.paneId ?? null,
       host,
       lastFocused: false,
       lastHeight: -1,
