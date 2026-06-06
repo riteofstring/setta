@@ -21,7 +21,7 @@ import type {
   TranscriptTurn,
   WorkspaceSession,
 } from "@generated/backend";
-import type { SettaAPI } from "@shared/types";
+import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { prependOlderMessages, useChatStore } from "./chat-store";
@@ -823,20 +823,21 @@ function listResponse(
     diagnostics,
   };
 }
+
 function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
     app: {
-      flags: {
-        pixiWorkspaceDebug: false,
-        pixiWorkspacePrototype: false,
-        pixiWorkspaceSyntheticGraph: null,
-      },
       installedEditors: async () => [],
       openWorkspaceInEditor: async () => {},
       openExternalUrl: async () => {},
       platform: "darwin",
-      versions: async () => ({ app: "test", chrome: "test", electron: "test", node: "test" }),
+      versions: async (): Promise<RuntimeVersions> => ({
+        app: "test",
+        chrome: "test",
+        electron: "test",
+        node: "test",
+      }),
       workspaceGitInfo: async () => ({
         branchName: "main",
         commitShort: "0000000",

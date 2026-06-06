@@ -91,7 +91,7 @@ describe("startSpawnedBackend", () => {
           command: process.execPath,
           cwd: process.cwd(),
           env: process.env,
-          readyTimeoutMs: 2000,
+          readyTimeoutMs: 500,
         }),
       ).rejects.toThrow("backend readiness timed out");
       expect(existsSync(readyForSignalPath)).toBe(true);
