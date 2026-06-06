@@ -60,7 +60,7 @@ export function generateBenchmarkScene({
       columnId,
       index: columnIndex,
       paneIds,
-      widthWeight: 1,
+      widthSpec: { unit: "proportion", value: 1 / visibleColumnCount },
     });
   }
 

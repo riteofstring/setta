@@ -6,7 +6,9 @@ import {
   phaseOneVisiblePaneCount,
 } from "./benchmark-scene";
 import { NiriLikeLayoutEngine } from "./layout-engine";
+import { NiriLayoutStore } from "./layout-store";
 import type { PaneRenderItem, PaneRuntimeState, Rect, SurfaceId, SurfaceKind } from "./types";
+import { createRealWorkspaceScene } from "./workspace-scene";
 
 const viewport: Rect = {
   height: 900,
@@ -91,6 +93,73 @@ describe("niri browser-pane layout engine", () => {
   });
 });
 
+describe("real niri workspace column sizing", () => {
+  test("recomputes proportional column widths from the viewport", () => {
+    const engine = createRealEngine();
+    const wideItems = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
+    const narrowItems = renderFrame(engine, { ...viewport, width: 900 }, 0, "workspace_pane_0");
+
+    expect(wideItems[0]?.width).toBe(590);
+    expect(narrowItems[0]?.width).toBe(440);
+  });
+
+  test("preserves horizontal overflow instead of shrinking all columns into the viewport", () => {
+    const engine = createRealEngine();
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
+
+    expect(items).toHaveLength(3);
+    expect(items[0]?.x).toBe(10);
+    expect(items[1]?.x).toBe(608);
+    expect(items[2]?.x).toBeGreaterThan(1200);
+    expect(engine.totalColumnOverflowWidth(1200)).toBeGreaterThan(1200);
+  });
+
+  test("locks a proportional column to its current resolved width", () => {
+    const engine = createRealEngine();
+
+    engine.lockColumnWidth("workspace_column_0", 1200);
+
+    expect(engine.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 590 });
+    expect(engine.resolvedColumnWidth("workspace_column_0", 900)).toBe(590);
+  });
+
+  test("unlocks a fixed column back to its previous proportion", () => {
+    const engine = createRealEngine();
+
+    engine.lockColumnWidth("workspace_column_0", 1200);
+    engine.unlockColumnWidth("workspace_column_0", 900);
+
+    expect(engine.toScene().columns[0]?.widthSpec).toEqual({ unit: "proportion", value: 0.5 });
+    expect(engine.resolvedColumnWidth("workspace_column_0", 900)).toBe(440);
+  });
+
+  test("keeps the focused column visible after a viewport resize", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:resize-focus",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+
+    store.moveFocus("right");
+    store.moveFocus("right");
+    store.ensureFocusedColumnVisible({ ...viewport, width: 900 });
+
+    const snapshot = store.getSnapshot();
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 900 },
+      snapshot.targetScrollColumn,
+      snapshot.focusedPaneId,
+    );
+    const focusedItem = items.find((item) => item.focused);
+
+    expect(snapshot.focusedPaneId).toBe("workspace_pane_2");
+    expect(focusedItem?.x).toBeGreaterThanOrEqual(10);
+    expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
+  });
+});
+
 function renderFrame(
   engine: NiriLikeLayoutEngine,
   frameViewport: Rect,
@@ -108,4 +177,12 @@ function renderFrame(
     (item) => items.push(item),
   );
   return items;
+}
+
+function createRealEngine(): NiriLikeLayoutEngine {
+  const { scene } = createRealWorkspaceScene({
+    storageKey: "setta:niri-workspace:engine-test",
+    workspaceName: "Repo",
+  });
+  return new NiriLikeLayoutEngine(scene);
 }

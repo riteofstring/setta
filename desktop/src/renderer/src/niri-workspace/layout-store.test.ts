@@ -9,7 +9,7 @@ describe("niri layout store", () => {
     Reflect.deleteProperty(globalThis, "window");
   });
 
-  test("opens, splits, moves, and closes panes against the real workspace layout", () => {
+  test("opens panes in a new column to the right of the focused column", () => {
     const store = createStore();
 
     const openedPaneId = store.openPane({
@@ -20,7 +20,17 @@ describe("niri layout store", () => {
 
     expect(store.getSnapshot().focusedPaneId).toBe(openedPaneId);
     expect(store.toScene().totalPanes).toBe(7);
-    expect(store.toScene().columns[0]?.paneIds).toContain(openedPaneId);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedRowIndex: 0,
+    });
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0"]);
+    expect(store.toScene().columns[1]?.paneIds).toEqual([openedPaneId]);
+    expect(store.toScene().columns[2]?.paneIds).toEqual(["workspace_pane_1"]);
+  });
+
+  test("split right creates an adjacent column and split down creates a vertical stack", () => {
+    const store = createStore();
 
     const splitPaneId = store.splitFocusedPane("right");
     const afterSplit = store.toScene();
@@ -30,17 +40,82 @@ describe("niri layout store", () => {
       focusedPaneId: splitPaneId,
       focusedRowIndex: 0,
     });
-    expect(afterSplit.totalPanes).toBe(8);
+    expect(afterSplit.totalPanes).toBe(7);
     expect(afterSplit.columns[1]?.paneIds).toEqual([splitPaneId]);
 
+    store.moveFocus("left");
+    const stackedPaneId = store.splitFocusedPane("down");
+    const afterStack = store.toScene();
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: stackedPaneId,
+      focusedRowIndex: 1,
+    });
+    expect(afterStack.columns[0]?.paneIds).toEqual(["workspace_pane_0", stackedPaneId]);
+  });
+
+  test("moves panes left and right by stacking them into adjacent columns", () => {
+    const store = createStore();
+
+    store.moveFocus("right");
+    const browserPaneId = store.focusedPaneId();
     store.moveFocusedPane("left");
 
-    expect(store.getSnapshot().focusedPaneId).toBe(splitPaneId);
-    expect(store.toScene().columns[0]?.paneIds).toContain(splitPaneId);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: browserPaneId,
+      focusedRowIndex: 1,
+    });
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", browserPaneId]);
+    expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2"]);
+
+    store.moveFocusedPane("right");
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: browserPaneId,
+      focusedRowIndex: 1,
+    });
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0"]);
+    expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2", browserPaneId]);
+  });
+
+  test("moves panes up and down inside a vertical stack", () => {
+    const store = createStore();
+    const stackedPaneId = store.splitFocusedPane("down");
+
+    store.moveFocusedPane("up");
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: stackedPaneId,
+      focusedRowIndex: 0,
+    });
+    expect(store.toScene().columns[0]?.paneIds).toEqual([stackedPaneId, "workspace_pane_0"]);
+
+    store.moveFocusedPane("down");
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: stackedPaneId,
+      focusedRowIndex: 1,
+    });
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", stackedPaneId]);
+  });
+
+  test("close keeps focus near the removed pane", () => {
+    const store = createStore();
+    const splitPaneId = store.splitFocusedPane("right");
 
     expect(store.closeFocusedPane()).toBe(splitPaneId);
     expect(store.toScene().paneById.has(splitPaneId)).toBe(false);
-    expect(store.toScene().totalPanes).toBe(7);
+    expect(store.toScene().totalPanes).toBe(6);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: "workspace_pane_1",
+      focusedRowIndex: 0,
+    });
   });
 
   test("keeps snapshots stable until layout state changes", () => {
@@ -55,25 +130,52 @@ describe("niri layout store", () => {
     expect(store.getSnapshot()).toBe(store.getSnapshot());
   });
 
-  test("uses the current row count after opening panes in a column", () => {
+  test("uses the current row count inside a stacked column", () => {
     const store = createStore();
-    const paneId = store.openPane({ title: "Third row" });
+    const paneId = store.splitFocusedPane("down");
 
     expect(store.getSnapshot()).toMatchObject({
       focusedPaneId: paneId,
-      focusedRowIndex: 2,
+      focusedRowIndex: 1,
     });
 
     store.moveFocus("down");
 
     expect(store.getSnapshot()).toMatchObject({
       focusedPaneId: paneId,
-      focusedRowIndex: 2,
+      focusedRowIndex: 1,
     });
 
     store.moveFocus("up");
 
-    expect(store.getSnapshot().focusedRowIndex).toBe(1);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedPaneId: "workspace_pane_0",
+      focusedRowIndex: 0,
+    });
+  });
+
+  test("clamps row focus when navigating from a stack into a shorter column", () => {
+    const store = createStore();
+
+    store.splitFocusedPane("down");
+    store.moveFocus("right");
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: "workspace_pane_1",
+      focusedRowIndex: 0,
+    });
+  });
+
+  test("focuses an existing surface by kind for sidebar entry points", () => {
+    const store = createStore();
+
+    expect(store.focusPaneBySurfaceKind("settings-dom")).toBe("workspace_pane_3");
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 3,
+      focusedPaneId: "workspace_pane_3",
+      focusedRowIndex: 0,
+    });
   });
 });
 

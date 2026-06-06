@@ -1,5 +1,13 @@
 import type { NiriLikeLayoutEngine } from "./layout-engine";
-import type { ColumnId, NiriWorkspaceScene, OpenPaneRequest, PaneId } from "./types";
+import type {
+  ColumnId,
+  ColumnWidthSpec,
+  NiriWorkspaceScene,
+  OpenPaneRequest,
+  PaneId,
+  Rect,
+  SurfaceKind,
+} from "./types";
 
 export interface NiriLayoutSnapshot {
   focusedColumnIndex: number;
@@ -10,6 +18,7 @@ export interface NiriLayoutSnapshot {
 }
 
 type LayoutStoreListener = (snapshot: NiriLayoutSnapshot) => void;
+const scrollAnimationTimeConstantMs = 140;
 
 export class NiriLayoutStore {
   private focusedColumnIndex = 0;
@@ -36,7 +45,7 @@ export class NiriLayoutStore {
       this.snapshot = null;
       return "idle";
     }
-    const blend = Math.min(1, deltaMs / 72);
+    const blend = Math.min(1, deltaMs / scrollAnimationTimeConstantMs);
     this.scrollColumn += distance * blend;
     if (Math.abs(this.targetScrollColumn - this.scrollColumn) <= 0.001) {
       this.scrollColumn = this.targetScrollColumn;
@@ -85,6 +94,7 @@ export class NiriLayoutStore {
       const offset = direction === "left" ? -1 : 1;
       const maxColumn = Math.max(0, this.engine.columnCount() - 1);
       this.focusedColumnIndex = Math.min(maxColumn, Math.max(0, this.focusedColumnIndex + offset));
+      this.focusedRowIndex = Math.min(this.currentColumnRowCount() - 1, this.focusedRowIndex);
       this.targetScrollColumn = this.targetScrollForFocusedColumn();
     }
     this.engine.moveFocus(direction);
@@ -96,8 +106,14 @@ export class NiriLayoutStore {
       return null;
     }
     const closedPaneId = this.focusedPaneId();
+    const closedLocation = this.engine.paneLocation(closedPaneId);
     this.engine.closePane(closedPaneId);
-    const nextPaneId = this.engine.firstPaneId();
+    const nextPaneId = closedLocation
+      ? this.engine.focusedPaneAt(
+          Math.min(closedLocation.columnIndex, Math.max(0, this.engine.columnCount() - 1)),
+          closedLocation.rowIndex,
+        )
+      : this.engine.firstPaneId();
     if (nextPaneId) {
       this.setFocusedPane(nextPaneId);
     }
@@ -114,9 +130,11 @@ export class NiriLayoutStore {
   }
 
   openPane(request: OpenPaneRequest): PaneId {
+    const columnId = request.columnId;
     const paneId = this.engine.openPane({
       ...request,
-      columnId: request.columnId ?? this.currentColumnId(),
+      adjacentToColumnId: columnId ? undefined : this.currentColumnId(),
+      columnId,
     });
     this.setFocusedPane(paneId);
     this.notify();
@@ -130,19 +148,72 @@ export class NiriLayoutStore {
     return paneId;
   }
 
-  resizeColumn(columnId: ColumnId, value: number): void {
-    this.engine.resizeColumn(columnId, { unit: "weight", value });
+  ensureFocusedColumnVisible(viewport: Rect): void {
+    const nextScrollColumn = this.engine.scrollColumnForFocusedColumnVisibility(
+      this.focusedColumnIndex,
+      this.targetScrollColumn,
+      viewport.width,
+    );
+    if (Math.abs(nextScrollColumn - this.targetScrollColumn) <= 0.001) {
+      return;
+    }
+    this.targetScrollColumn = nextScrollColumn;
+    this.snapshot = null;
+  }
+
+  focusedColumnId(): ColumnId {
+    const columnId = this.toScene().columns[this.focusedColumnIndex]?.columnId;
+    if (!columnId) {
+      throw new Error("niri layout has no focused column");
+    }
+    return columnId;
+  }
+
+  focusedColumnLocked(): boolean {
+    return this.toScene().columns[this.focusedColumnIndex]?.widthSpec.unit === "px";
+  }
+
+  focusPaneBySurfaceKind(surfaceKind: SurfaceKind): PaneId | null {
+    const pane = this.toScene().panes.find((candidate) => candidate.surfaceKind === surfaceKind);
+    if (!pane) {
+      return null;
+    }
+    this.setFocusedPane(pane.paneId);
+    this.notify();
+    return pane.paneId;
+  }
+
+  lockFocusedColumn(viewport: Rect): void {
+    this.engine.lockColumnWidth(this.focusedColumnId(), viewport.width);
+    this.notify();
+  }
+
+  resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void {
+    this.engine.resizeColumn(columnId, width);
     this.notify();
   }
 
   scrollToColumn(columnIndex: number): void {
-    const maxColumn = Math.max(0, this.engine.columnCount() - this.scene.visibleColumnCount);
+    const maxColumn = Math.max(0, this.engine.columnCount() - 1);
     this.targetScrollColumn = Math.min(maxColumn, Math.max(0, columnIndex));
     this.notify();
   }
 
+  snapScrollToTarget(): void {
+    this.scrollColumn = this.targetScrollColumn;
+    this.snapshot = null;
+  }
+
   toScene(): NiriWorkspaceScene {
     return this.engine.toScene(this.scene.id);
+  }
+
+  toggleFocusedColumnLock(viewport: Rect): void {
+    if (this.focusedColumnLocked()) {
+      this.unlockFocusedColumn(viewport);
+      return;
+    }
+    this.lockFocusedColumn(viewport);
   }
 
   subscribe(listener: LayoutStoreListener): () => void {
@@ -182,8 +253,13 @@ export class NiriLayoutStore {
   }
 
   private targetScrollForFocusedColumn(): number {
-    const maxStartColumn = Math.max(0, this.engine.columnCount() - this.scene.visibleColumnCount);
-    const leadColumns = Math.floor(this.scene.visibleColumnCount / 2);
-    return Math.min(maxStartColumn, Math.max(0, this.focusedColumnIndex - leadColumns));
+    const maxStartColumn = Math.max(0, this.engine.columnCount() - 1);
+    const trailingColumns = Math.max(0, this.scene.visibleColumnCount - 1);
+    return Math.min(maxStartColumn, Math.max(0, this.focusedColumnIndex - trailingColumns));
+  }
+
+  private unlockFocusedColumn(viewport: Rect): void {
+    this.engine.unlockColumnWidth(this.focusedColumnId(), viewport.width);
+    this.notify();
   }
 }

@@ -14,7 +14,10 @@ import {
   projectPaneMinWidth,
 } from "./app-layout";
 import { cn } from "./lib/utils";
-import { NiriWorkspaceArea } from "./niri-workspace/NiriWorkspaceArea";
+import {
+  NiriWorkspaceArea,
+  type NiriSurfaceFocusRequest,
+} from "./niri-workspace/NiriWorkspaceArea";
 import { useWorkspaceStore } from "./stores/workspace-store";
 import { useChatStore } from "./stores/chat-store";
 import { useAppearanceStore } from "./stores/appearance-store";
@@ -36,8 +39,42 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   useBackendResyncStatus(setta);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
+  const [niriSurfaceFocusRequest, setNiriSurfaceFocusRequest] =
+    useState<NiriSurfaceFocusRequest | null>(null);
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
-  const openSettingsPane = useCallback(() => {}, []);
+  const focusNiriSurface = useCallback((surfaceKind: NiriSurfaceFocusRequest["surfaceKind"]) => {
+    setNiriSurfaceFocusRequest((current) => ({
+      requestId: (current?.requestId ?? 0) + 1,
+      surfaceKind,
+    }));
+  }, []);
+  const openSettingsPane = useCallback(() => {
+    focusNiriSurface("settings-dom");
+  }, [focusNiriSurface]);
+  const createConversation = chat.createConversation;
+  const createWorkspaceConversation = chat.createWorkspaceConversation;
+  const selectConversation = chat.selectConversation;
+  const createConversationAndFocusChat = useCallback(
+    async (title?: string) => {
+      await createConversation(title);
+      focusNiriSurface("chat-dom");
+    },
+    [createConversation, focusNiriSurface],
+  );
+  const createWorkspaceConversationAndFocusChat = useCallback(
+    async (workspaceId: string, title?: string) => {
+      await createWorkspaceConversation(workspaceId, title);
+      focusNiriSurface("chat-dom");
+    },
+    [createWorkspaceConversation, focusNiriSurface],
+  );
+  const selectConversationAndFocusChat = useCallback(
+    async (conversationId: string) => {
+      await selectConversation(conversationId);
+      focusNiriSurface("chat-dom");
+    },
+    [focusNiriSurface, selectConversation],
+  );
   useEffect(() => {
     return setta.chat.onEvent((event) => {
       useChatStore.getState().handleEvent(event);
@@ -55,13 +92,16 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         <ProjectPane
           chromeInsetTop={projectPaneOpen}
           chat={chat}
+          createConversation={createConversationAndFocusChat}
+          createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
           open={projectPaneOpen}
           openSettingsPane={openSettingsPane}
+          selectConversation={selectConversationAndFocusChat}
           setWidth={setProjectPaneWidth}
           width={effectiveProjectPaneWidth}
           workspace={workspace}
         />
-        <NiriWorkspaceArea />
+        <NiriWorkspaceArea focusSurfaceRequest={niriSurfaceFocusRequest} />
       </main>
     </div>
   );
@@ -144,16 +184,22 @@ type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
 function ProjectPane({
   chromeInsetTop,
   chat,
+  createConversation,
+  createWorkspaceConversation,
   open,
   openSettingsPane,
+  selectConversation,
   setWidth,
   width,
   workspace,
 }: {
   chromeInsetTop: boolean;
   chat: ChatView;
+  createConversation: ChatView["createConversation"];
+  createWorkspaceConversation: ChatView["createWorkspaceConversation"];
   open: boolean;
   openSettingsPane: () => void;
+  selectConversation: ChatView["selectConversation"];
   setWidth: (width: number) => void;
   width: number;
   workspace: WorkspaceViewState;
@@ -179,15 +225,15 @@ function ProjectPane({
           closeWorkspace={workspace.closeWorkspace}
           conversations={chat.conversations}
           corruption={chat.corruption}
-          createConversation={chat.createConversation}
-          createWorkspaceConversation={chat.createWorkspaceConversation}
+          createConversation={createConversation}
+          createWorkspaceConversation={createWorkspaceConversation}
           deleteConversation={chat.deleteConversation}
           diagnostics={chat.diagnostics}
           openLocalFolder={workspace.openLocalFolder}
           openSettingsPane={openSettingsPane}
           recentWorkspaces={workspace.recentWorkspaces}
           removeRecent={workspace.removeRecent}
-          selectConversation={chat.selectConversation}
+          selectConversation={selectConversation}
           selectWorkspace={workspace.selectWorkspace}
           selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectedWorkspaceId={workspace.selectedWorkspaceId}

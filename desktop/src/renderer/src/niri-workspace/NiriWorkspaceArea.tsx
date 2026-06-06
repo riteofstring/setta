@@ -6,12 +6,14 @@ import {
   ArrowUp,
   Columns2,
   GitBranch,
+  Lock,
   MessageSquarePlus,
   Settings,
   SplitSquareHorizontal,
   SplitSquareVertical,
   Terminal,
   Trash2,
+  Unlock,
 } from "lucide-react";
 import {
   Profiler,
@@ -46,10 +48,18 @@ import { createRealWorkspaceScene, persistRealWorkspaceScene } from "./workspace
 import type { NiriPane, OpenPaneRequest, Rect, SurfaceKind } from "./types";
 
 type NiriSceneMode = "benchmark" | "workspace";
+export interface NiriSurfaceFocusRequest {
+  requestId: number;
+  surfaceKind: SurfaceKind;
+}
 
 const realWorkspaceHostPoolSize = 12;
 
-export function NiriWorkspaceArea() {
+export function NiriWorkspaceArea({
+  focusSurfaceRequest = null,
+}: {
+  focusSurfaceRequest?: NiriSurfaceFocusRequest | null;
+}) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const debugRef = useRef<HTMLDivElement | null>(null);
@@ -67,6 +77,13 @@ export function NiriWorkspaceArea() {
   );
   const layoutSnapshot = useNiriLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
+  const stageViewport = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) {
+      throw new Error("niri workspace stage is not mounted");
+    }
+    return viewportRect(stage);
+  }, []);
   const persistLayout = useCallback(() => {
     runtime.presentation.syncPanes(runtime.store.toScene().panes);
     if (runtime.mode === "workspace") {
@@ -84,6 +101,17 @@ export function NiriWorkspaceArea() {
     },
     [persistLayout],
   );
+
+  useEffect(() => {
+    if (!focusSurfaceRequest || runtime.mode !== "workspace") {
+      return;
+    }
+    runLayoutAction(() => {
+      runtime.store.focusPaneBySurfaceKind(focusSurfaceRequest.surfaceKind);
+      runtime.store.ensureFocusedColumnVisible(stageViewport());
+      runtime.store.snapScrollToTarget();
+    });
+  }, [focusSurfaceRequest, runLayoutAction, runtime, stageViewport]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -154,9 +182,11 @@ export function NiriWorkspaceArea() {
     >
       {runtime.mode === "workspace" ? (
         <NiriWorkspaceToolbar
+          focusedColumnLocked={runtime.store.focusedColumnLocked()}
           focusedPaneId={layoutSnapshot.focusedPaneId}
           openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
           runLayoutAction={runLayoutAction}
+          stageViewport={stageViewport}
           store={runtime.store}
         />
       ) : null}
@@ -253,16 +283,21 @@ function handleNiriWorkspaceCommandKey({
 }
 
 function NiriWorkspaceToolbar({
+  focusedColumnLocked,
   focusedPaneId,
   openPane,
   runLayoutAction,
+  stageViewport,
   store,
 }: {
+  focusedColumnLocked: boolean;
   focusedPaneId: string;
   openPane: (request: OpenPaneRequest) => void;
   runLayoutAction: (action: () => void) => void;
+  stageViewport: () => Rect;
   store: NiriLayoutStore;
 }) {
+  const ColumnLockIcon = focusedColumnLocked ? Unlock : Lock;
   return (
     <div className="niri-workspace-toolbar app-no-drag" data-testid="niri-workspace-toolbar">
       <div className="niri-workspace-toolbar-group" data-testid="niri-focused-pane-label">
@@ -319,6 +354,12 @@ function NiriWorkspaceToolbar({
         </NiriToolbarButton>
       </div>
       <div className="niri-workspace-toolbar-group">
+        <NiriToolbarButton
+          label={focusedColumnLocked ? "Unlock focused column width" : "Lock focused column width"}
+          onClick={() => runLayoutAction(() => store.toggleFocusedColumnLock(stageViewport()))}
+        >
+          <ColumnLockIcon className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
         {openPaneActions.map(({ Icon, label, request }) => (
           <NiriToolbarButton key={label} label={label} onClick={() => openPane(request)}>
             <Icon className="h-3.5 w-3.5" />
@@ -443,7 +484,7 @@ function createNiriRuntime({
   workspaceId: string;
   workspaceName: string;
 }) {
-  const layoutStorageKey = `setta:niri-workspace:${workspaceId}`;
+  const layoutStorageKey = `setta:niri-workspace-horizontal-v2:${workspaceId}`;
   const realScene =
     mode === "workspace"
       ? createRealWorkspaceScene({

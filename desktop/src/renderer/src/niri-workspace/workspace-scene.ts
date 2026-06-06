@@ -1,7 +1,15 @@
-import type { NiriColumn, NiriPane, NiriWorkspaceScene, PaneId, SurfaceKind } from "./types";
+import type {
+  ColumnWidthSpec,
+  NiriColumn,
+  NiriPane,
+  NiriWorkspaceScene,
+  PaneId,
+  SurfaceKind,
+} from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
-const realWorkspaceStorageVersion = 1;
+const realWorkspaceStorageVersion = 2;
+const defaultRealColumnWidth: ColumnWidthSpec = { unit: "proportion", value: 0.5 };
 
 export interface RealWorkspaceSceneOptions {
   storageKey: string;
@@ -85,23 +93,23 @@ function createDefaultRealWorkspaceScene(
       weight: 1.6,
     }),
     createPane({
-      columnId: "workspace_column_0",
-      sequence: 1,
-      subtitle: "workspace command surface",
-      surfaceKind: "terminal",
-      title: "Terminal",
-      tone: "green",
-    }),
-    createPane({
       columnId: "workspace_column_1",
-      sequence: 2,
+      sequence: 1,
       subtitle: "focused native browser proxy",
       surfaceKind: "browser",
       title: "Browser",
       tone: "orange",
     }),
     createPane({
-      columnId: "workspace_column_1",
+      columnId: "workspace_column_2",
+      sequence: 2,
+      subtitle: "workspace command surface",
+      surfaceKind: "terminal",
+      title: "Terminal",
+      tone: "green",
+    }),
+    createPane({
+      columnId: "workspace_column_3",
       sequence: 3,
       subtitle: "workspace settings",
       surfaceKind: "settings-dom",
@@ -109,7 +117,7 @@ function createDefaultRealWorkspaceScene(
       tone: "slate",
     }),
     createPane({
-      columnId: "workspace_column_2",
+      columnId: "workspace_column_4",
       sequence: 4,
       subtitle: "repository graph placeholder",
       surfaceKind: "git-graph",
@@ -117,7 +125,7 @@ function createDefaultRealWorkspaceScene(
       tone: "pink",
     }),
     createPane({
-      columnId: "workspace_column_2",
+      columnId: "workspace_column_5",
       sequence: 5,
       subtitle: "interactive canvas placeholder",
       surfaceKind: "pixi-canvas",
@@ -129,20 +137,38 @@ function createDefaultRealWorkspaceScene(
     {
       columnId: "workspace_column_0",
       index: 0,
-      paneIds: ["workspace_pane_0", "workspace_pane_1"],
-      widthWeight: 1.2,
+      paneIds: ["workspace_pane_0"],
+      widthSpec: defaultRealColumnWidth,
     },
     {
       columnId: "workspace_column_1",
       index: 1,
-      paneIds: ["workspace_pane_2", "workspace_pane_3"],
-      widthWeight: 1,
+      paneIds: ["workspace_pane_1"],
+      widthSpec: defaultRealColumnWidth,
     },
     {
       columnId: "workspace_column_2",
       index: 2,
-      paneIds: ["workspace_pane_4", "workspace_pane_5"],
-      widthWeight: 1,
+      paneIds: ["workspace_pane_2"],
+      widthSpec: defaultRealColumnWidth,
+    },
+    {
+      columnId: "workspace_column_3",
+      index: 3,
+      paneIds: ["workspace_pane_3"],
+      widthSpec: defaultRealColumnWidth,
+    },
+    {
+      columnId: "workspace_column_4",
+      index: 4,
+      paneIds: ["workspace_pane_4"],
+      widthSpec: defaultRealColumnWidth,
+    },
+    {
+      columnId: "workspace_column_5",
+      index: 5,
+      paneIds: ["workspace_pane_5"],
+      widthSpec: defaultRealColumnWidth,
     },
   ]);
 }
@@ -177,7 +203,12 @@ function sceneFromPanesAndColumns(
 ): NiriWorkspaceScene {
   const normalizedColumns = columns
     .filter((column) => column.paneIds.length > 0)
-    .map((column, index) => ({ ...column, index, paneIds: [...column.paneIds] }));
+    .map((column, index) => ({
+      ...column,
+      index,
+      paneIds: [...column.paneIds],
+      widthSpec: { ...column.widthSpec },
+    }));
   const normalizedPanes = panes.map((pane) => ({ ...pane }));
   return {
     columnGap: 8,
@@ -229,6 +260,33 @@ function isStoredWorkspaceLayout(value: unknown): value is StoredWorkspaceLayout
     candidate.version === realWorkspaceStorageVersion &&
     typeof candidate.focusedPaneId === "string" &&
     Array.isArray(candidate.columns) &&
-    Array.isArray(candidate.panes)
+    Array.isArray(candidate.panes) &&
+    candidate.columns.every(isStoredColumn)
+  );
+}
+
+function isStoredColumn(value: unknown): value is NiriColumn {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<NiriColumn>;
+  return (
+    typeof candidate.columnId === "string" &&
+    typeof candidate.index === "number" &&
+    Array.isArray(candidate.paneIds) &&
+    isColumnWidthSpec(candidate.widthSpec)
+  );
+}
+
+function isColumnWidthSpec(value: unknown): value is ColumnWidthSpec {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<ColumnWidthSpec>;
+  return (
+    (candidate.unit === "proportion" || candidate.unit === "px") &&
+    typeof candidate.value === "number" &&
+    Number.isFinite(candidate.value) &&
+    candidate.value > 0
   );
 }

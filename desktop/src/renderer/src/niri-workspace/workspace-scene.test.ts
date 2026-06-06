@@ -22,14 +22,30 @@ describe("real niri workspace scene", () => {
 
     expect(result.focusedPaneId).toBe("workspace_pane_0");
     expect(result.scene.id).toBe("setta:niri-workspace:test");
-    expect(result.scene.columns).toHaveLength(3);
+    expect(result.scene.columns).toHaveLength(6);
+    expect(result.scene.visibleColumnCount).toBe(3);
     expect(result.scene.totalPanes).toBe(6);
+    expect(result.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
+    expect(result.scene.columns.map((column) => column.widthSpec)).toEqual([
+      { unit: "proportion", value: 0.5 },
+      { unit: "proportion", value: 0.5 },
+      { unit: "proportion", value: 0.5 },
+      { unit: "proportion", value: 0.5 },
+      { unit: "proportion", value: 0.5 },
+      { unit: "proportion", value: 0.5 },
+    ]);
+    expect(
+      result.scene.columns.map((column) => {
+        const paneId = column.paneIds[0];
+        return paneId ? result.scene.paneById.get(paneId)?.title : "";
+      }),
+    ).toEqual(["Chat", "Browser", "Terminal", "Settings", "Git Graph", "Canvas"]);
     expect(result.scene.paneById.get("workspace_pane_0")).toMatchObject({
       subtitle: "Repo",
       surfaceKind: "chat-dom",
       title: "Chat",
     });
-    expect(result.scene.paneById.get("workspace_pane_2")?.surfaceKind).toBe("browser");
+    expect(result.scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("browser");
   });
 
   test("persists and restores the real workspace layout", () => {
@@ -60,12 +76,14 @@ describe("real niri workspace scene", () => {
 
     expect(restored.focusedPaneId).toBe(paneId);
     expect(restored.scene.totalPanes).toBe(7);
+    expect(restored.scene.columns).toHaveLength(7);
     expect(restored.scene.paneById.get(paneId)).toMatchObject({
       surfaceKind: "terminal",
       title: "Build",
       tone: "green",
     });
-    expect(restored.scene.columns[0]?.paneIds).toContain(paneId);
+    expect(restored.scene.columns[1]?.paneIds).toEqual([paneId]);
+    expect(restored.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
   });
 });
 

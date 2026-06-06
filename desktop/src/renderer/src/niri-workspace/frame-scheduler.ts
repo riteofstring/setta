@@ -105,6 +105,7 @@ export class FrameScheduler {
     viewport: Rect,
     resizePhase: "active" | "idle" | "settled",
   ): "active" | "idle" | "settled" {
+    this.layoutStore.ensureFocusedColumnVisible(viewport);
     const movementPhase =
       resizePhase === "active" ? "moving" : this.layoutStore.advanceFrame(deltaMs);
     const snapshot = this.layoutStore.getSnapshot();

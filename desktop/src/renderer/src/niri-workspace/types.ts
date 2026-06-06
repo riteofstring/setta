@@ -32,9 +32,9 @@ export interface Rect {
   y: number;
 }
 
-export interface SizeSpec {
+export interface ColumnWidthSpec {
   value: number;
-  unit: "px" | "weight";
+  unit: "proportion" | "px";
 }
 
 export interface NiriPane {
@@ -54,7 +54,8 @@ export interface NiriColumn {
   columnId: ColumnId;
   index: number;
   paneIds: PaneId[];
-  widthWeight: number;
+  previousProportionWidth?: number;
+  widthSpec: ColumnWidthSpec;
 }
 
 export interface NiriWorkspaceScene {
@@ -72,12 +73,14 @@ export interface NiriWorkspaceScene {
 }
 
 export interface OpenPaneRequest {
+  adjacentToColumnId?: ColumnId;
   columnId?: ColumnId;
   subtitle?: string;
   surfaceKind?: SurfaceKind;
   title?: string;
   tone?: NiriPane["tone"];
   weight?: number;
+  widthSpec?: ColumnWidthSpec;
 }
 
 export interface LayoutFrameInput {
@@ -181,13 +184,15 @@ export interface PaneRuntimeSummary {
 
 export interface LayoutEngine {
   closePane(paneId: PaneId): void;
+  lockColumnWidth(columnId: ColumnId, viewportWidth: number): void;
   moveFocus(direction: "up" | "down" | "left" | "right"): void;
   movePane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): void;
   openPane(request: OpenPaneRequest): PaneId;
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void;
-  resizeColumn(columnId: ColumnId, width: SizeSpec): void;
+  resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightWeight: number): void;
   splitPane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): PaneId;
+  unlockColumnWidth(columnId: ColumnId, viewportWidth: number): void;
 }
 
 export interface NiriFrameMetrics {
