@@ -10,7 +10,7 @@ import type {
 const realWorkspaceVisibleColumnCount = 3;
 const realWorkspaceStorageVersion = 3;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
-const realWorkspaceRenderOverscanColumns = 1;
+const realWorkspaceRenderOverscanColumns = 2;
 
 export interface RealWorkspaceSceneOptions {
   storageKey: string;

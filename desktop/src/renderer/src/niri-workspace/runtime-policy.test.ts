@@ -64,6 +64,34 @@ describe("niri pane runtime policy", () => {
     expect(summary.budget.maxLiveWebGpuCanvases).toBe(1);
   });
 
+  test("keeps rendered workspace surfaces live during movement when movement degradation is disabled", () => {
+    const workspaceBudget = {
+      ...budget,
+      maxLiveHeavyDomPanes: 4,
+      maxLiveTerminalRenderers: 4,
+      maxLiveWebGpuCanvases: 4,
+    };
+    const items = [
+      renderItem("moving-heavy", "fake-heavy-dom", false),
+      renderItem("moving-chat", "chat-dom", false),
+      renderItem("moving-canvas", "pixi-canvas", false),
+      renderItem("moving-terminal", "terminal", false),
+    ];
+
+    const summary = new PaneRuntimePolicy(workspaceBudget, {
+      degradeDuringMovement: false,
+    }).apply(items, "moving");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["moving-heavy", "live"],
+      ["moving-chat", "live"],
+      ["moving-canvas", "live"],
+      ["moving-terminal", "live"],
+    ]);
+    expect(summary.live).toBe(4);
+    expect(summary.snapshot).toBe(0);
+  });
+
   test("uses throttling instead of opaque fallback when snapshot budget is exhausted", () => {
     const items = [
       renderItem("heavy-1", "fake-heavy-dom", false),

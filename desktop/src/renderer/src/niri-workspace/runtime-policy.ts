@@ -14,6 +14,10 @@ export const DEFAULT_PANE_BUDGET: PaneRuntimeBudget = {
   maxSnapshotPanes: 64,
 };
 
+export interface PaneRuntimePolicyOptions {
+  degradeDuringMovement?: boolean;
+}
+
 type LiveCanvasSurfaceKind = "fake-canvas" | "pixi-canvas";
 type LiveHeavyDomSurfaceKind = "chat-dom" | "fake-heavy-dom" | "fake-long-chat";
 type SurfaceRuntimeCategory =
@@ -48,8 +52,13 @@ const surfaceRuntimeCategories = {
 
 export class PaneRuntimePolicy {
   private summary: PaneRuntimeSummary = emptySummary(DEFAULT_PANE_BUDGET);
+  private readonly degradeDuringMovement: boolean;
 
-  constructor(private readonly budget: PaneRuntimeBudget = DEFAULT_PANE_BUDGET) {
+  constructor(
+    private readonly budget: PaneRuntimeBudget = DEFAULT_PANE_BUDGET,
+    options: PaneRuntimePolicyOptions = {},
+  ) {
+    this.degradeDuringMovement = options.degradeDuringMovement ?? true;
     this.summary = emptySummary(budget);
   }
 
@@ -201,7 +210,7 @@ export class PaneRuntimePolicy {
       snapshot: number;
     },
   ): PaneRuntimeState {
-    if (movementPhase === "moving") {
+    if (this.degradeDuringMovement && movementPhase === "moving") {
       return this.snapshotOrThrottle(counters);
     }
     if (counters.liveWebGpuCanvases >= this.budget.maxLiveWebGpuCanvases) {
@@ -217,7 +226,7 @@ export class PaneRuntimePolicy {
       snapshot: number;
     },
   ): PaneRuntimeState {
-    if (movementPhase === "moving") {
+    if (this.degradeDuringMovement && movementPhase === "moving") {
       return this.snapshotOrThrottle(counters);
     }
     if (counters.liveTerminalRenderers >= this.budget.maxLiveTerminalRenderers) {
@@ -246,7 +255,7 @@ export class PaneRuntimePolicy {
       snapshot: number;
     },
   ): PaneRuntimeState {
-    if (movementPhase === "moving") {
+    if (this.degradeDuringMovement && movementPhase === "moving") {
       return this.snapshotOrThrottle(counters);
     }
     if (counters.liveHeavyDom >= this.budget.maxLiveHeavyDomPanes) {

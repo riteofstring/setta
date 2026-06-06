@@ -199,6 +199,11 @@ export interface LayoutEngine {
   moveFocus(direction: "up" | "down" | "left" | "right"): void;
   movePane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): void;
   openPane(request: OpenPaneRequest): PaneId;
+  paneInVisualDirection(
+    paneId: PaneId,
+    direction: "up" | "down" | "left" | "right",
+    viewport: Rect,
+  ): PaneId | null;
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;

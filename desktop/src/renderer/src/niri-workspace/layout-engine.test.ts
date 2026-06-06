@@ -116,12 +116,13 @@ describe("real niri workspace column sizing", () => {
     const engine = createRealEngine();
     const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
 
-    expect(items).toHaveLength(4);
+    expect(items).toHaveLength(5);
     expect(items[0]?.x).toBe(10);
     expect(items[1]?.x).toBe(538);
     expect(items[2]?.x).toBe(1066);
     expect(items[2]?.x).toBeLessThan(1200);
     expect(items[3]?.x).toBeGreaterThan(1200);
+    expect(items[4]?.x).toBeGreaterThan(1200);
     expect(engine.totalColumnOverflowWidth(1200)).toBeGreaterThan(1200);
   });
 
@@ -135,6 +136,7 @@ describe("real niri workspace column sizing", () => {
       "workspace_pane_2",
       "workspace_pane_3",
       "workspace_pane_4",
+      "workspace_pane_5",
     ]);
     expect(items[0]?.x).toBeLessThan(0);
     expect(items.at(-1)?.x).toBeGreaterThan(1200);

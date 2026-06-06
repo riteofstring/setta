@@ -2,7 +2,15 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { NiriLikeLayoutEngine } from "./layout-engine";
 import { NiriLayoutStore } from "./layout-store";
+import type { Rect } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
+
+const viewport: Rect = {
+  height: 900,
+  width: 1200,
+  x: 0,
+  y: 0,
+};
 
 describe("niri layout store", () => {
   afterEach(() => {
@@ -165,6 +173,36 @@ describe("niri layout store", () => {
       focusedPaneId: "workspace_pane_1",
       focusedRowIndex: 0,
     });
+  });
+
+  test("moves left and right to the nearest pane in visual vertical order", () => {
+    const store = createStore();
+
+    store.moveFocus("right", viewport);
+    const upperPaneId = store.focusedPaneId();
+    const middlePaneId = store.splitFocusedPane("down");
+    const lowerPaneId = store.splitFocusedPane("down");
+
+    store.moveFocus("left", viewport);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: "workspace_pane_0",
+      focusedRowIndex: 0,
+    });
+
+    store.moveFocus("right", viewport);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: middlePaneId,
+      focusedRowIndex: 1,
+    });
+
+    store.moveFocus("up", viewport);
+    expect(store.getSnapshot().focusedPaneId).toBe(upperPaneId);
+
+    store.moveFocus("down", viewport);
+    store.moveFocus("down", viewport);
+    expect(store.getSnapshot().focusedPaneId).toBe(lowerPaneId);
   });
 
   test("keeps column focus navigation active while overview is open", () => {

@@ -58,7 +58,7 @@ export interface NiriSurfaceFocusRequest {
   surfaceKind: SurfaceKind;
 }
 
-const realWorkspaceHostPoolSize = 12;
+const realWorkspaceHostPoolSize = 18;
 const paneResizeHandleWidthPx = 10;
 const minimumManualPaneWidthPx = 280;
 
@@ -165,6 +165,7 @@ export function NiriWorkspaceArea({
         runLayoutAction,
         runtime,
         scheduler,
+        viewportProvider: stageViewport,
       });
     const handleWheel = (event: WheelEvent) =>
       handleNiriWorkspaceWheel({
@@ -173,6 +174,7 @@ export function NiriWorkspaceArea({
         runtime,
         scheduler,
         state: trackpadNavigationRef.current,
+        viewportProvider: stageViewport,
       });
     const handleClick = (event: MouseEvent) => {
       if (
@@ -254,7 +256,7 @@ export function NiriWorkspaceArea({
           return;
         }
         scheduler.pauseBenchmark();
-        runtime.store.moveFocus(arrowDirection(event.key));
+        runtime.store.moveFocus(arrowDirection(event.key), stageViewport());
         persistLayout();
       }) ?? (() => {});
     window.addEventListener("keydown", handleKeyDown);
@@ -278,7 +280,7 @@ export function NiriWorkspaceArea({
       paneResizeSessionRef.current = null;
       scheduler.teardown();
     };
-  }, [persistLayout, runLayoutAction, runtime]);
+  }, [persistLayout, runLayoutAction, runtime, stageViewport]);
 
   return (
     <section
@@ -353,12 +355,14 @@ function handleNiriWorkspaceKeyDown({
   runLayoutAction,
   runtime,
   scheduler,
+  viewportProvider,
 }: {
   event: KeyboardEvent;
   persistLayout: () => void;
   runLayoutAction: (action: () => void) => void;
   runtime: NiriRuntime;
   scheduler: FrameScheduler;
+  viewportProvider: () => Rect;
 }): void {
   if (!isArrowKey(event.key)) {
     handleNiriWorkspaceCommandKey({ event, runLayoutAction, runtime });
@@ -370,7 +374,7 @@ function handleNiriWorkspaceKeyDown({
     runLayoutAction(() => runtime.store.moveFocusedPane(arrowDirection(event.key)));
     return;
   }
-  runtime.store.moveFocus(arrowDirection(event.key));
+  runtime.store.moveFocus(arrowDirection(event.key), viewportProvider());
   persistLayout();
 }
 
@@ -403,12 +407,14 @@ function handleNiriWorkspaceWheel({
   runtime,
   scheduler,
   state,
+  viewportProvider,
 }: {
   event: WheelEvent;
   persistLayout: () => void;
   runtime: NiriRuntime;
   scheduler: FrameScheduler;
   state: ReturnType<typeof createNiriTrackpadNavigationState>;
+  viewportProvider: () => Rect;
 }): void {
   const presentationMode = runtime.store.getSnapshot().presentationMode;
   const result = interpretNiriTrackpadWheel(
@@ -433,7 +439,7 @@ function handleNiriWorkspaceWheel({
 
   scheduler.pauseBenchmark();
   for (const direction of result.directions) {
-    runtime.store.moveFocus(direction);
+    runtime.store.moveFocus(direction, viewportProvider());
   }
   persistLayout();
 }
@@ -708,10 +714,13 @@ function createNiriRuntime({
       metrics,
       surfaceRegistry,
       nativeViewBoundsBatcher,
+      { syncAllRenderedContentDuringMovement: mode === "workspace" },
     ),
     reportWriter: mode === "benchmark" ? new LocalStoragePerformanceReportWriter(5000) : null,
     resizeReportWriter: new LocalStorageResizePerformanceReportWriter(1500),
-    runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET),
+    runtimePolicy: new PaneRuntimePolicy(DEFAULT_PANE_BUDGET, {
+      degradeDuringMovement: mode === "benchmark",
+    }),
     scene,
     store,
   };

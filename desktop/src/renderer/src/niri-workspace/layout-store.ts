@@ -108,7 +108,16 @@ export class NiriLayoutStore {
     };
   }
 
-  moveFocus(direction: "up" | "down" | "left" | "right"): void {
+  moveFocus(direction: "up" | "down" | "left" | "right", viewport?: Rect): void {
+    const visualTargetPaneId = viewport
+      ? this.engine.paneInVisualDirection(this.focusedPaneId(), direction, viewport)
+      : null;
+    if (visualTargetPaneId) {
+      this.setFocusedPane(visualTargetPaneId);
+      this.engine.moveFocus(direction);
+      this.notify();
+      return;
+    }
     if (direction === "up") {
       this.focusedRowIndex = Math.max(0, this.focusedRowIndex - 1);
       this.targetScrollRow = this.targetScrollForFocusedRow();

@@ -57,7 +57,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('data-testid="niri-workspace-area"');
     expect(html).toContain('data-testid="niri-presentation-engine"');
-    expect(rowCount(html, "niri-fake-pane-host")).toBe(12);
+    expect(rowCount(html, "niri-fake-pane-host")).toBe(18);
     expect(html).toContain('data-pane-count="6"');
     expect(html).toContain('data-workspace-mode="workspace"');
     expect(html).toContain('data-testid="niri-workspace-status"');

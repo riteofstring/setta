@@ -32,6 +32,26 @@ describe("niri presentation engine", () => {
     expect(host.dataset.paneId).toBe("niri_pane_1");
   });
 
+  test("can sync every rendered pane during movement for seamless workspace navigation", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+      null,
+      { syncAllRenderedContentDuringMovement: true },
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("niri_pane_1", "niri_surface_1", true)], {
+      resizePhase: "idle",
+    });
+
+    expect(textFor(host, "[data-niri-pane-title]")).toBe("Pane 002");
+    expect(host.dataset.paneId).toBe("niri_pane_1");
+  });
+
   test("syncs browser surface content during movement so native bounds can update", () => {
     const scene = generateBenchmarkScene({ paneCount: 14, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");

@@ -13,6 +13,7 @@ import type {
 
 type PaneDirection = "up" | "down" | "left" | "right";
 type PaneLocation = { columnIndex: number; rowIndex: number };
+type PaneVisualFrame = { centerY: number; paneId: PaneId; top: number };
 
 const columnWidthPresets = [1 / 3, 0.5, 2 / 3, 1] as const;
 const minimumColumnWidth = 96;
@@ -115,6 +116,22 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     return pane.paneId;
   }
 
+  paneInVisualDirection(
+    paneId: PaneId,
+    direction: PaneDirection,
+    viewport: LayoutFrameInput["viewport"],
+  ): PaneId | null {
+    const source = this.locationForPane(paneId);
+    if (!source) {
+      return null;
+    }
+    const availableHeight = this.availablePaneHeight(viewport.height);
+    if (isVerticalDirection(direction)) {
+      return this.paneInVerticalVisualDirection(source, direction, availableHeight);
+    }
+    return this.paneInHorizontalVisualDirection(source, direction, availableHeight);
+  }
+
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
     if (this.columns.length === 0 || input.viewport.width <= 0 || input.viewport.height <= 0) {
       return;
@@ -132,7 +149,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       geometry,
     );
     const scrollOffset = this.scrollOffsetForColumn(scrollColumn, geometry.offsets);
-    const availableHeight = Math.max(1, input.viewport.height - this.scene.padding * 2 - 28);
+    const availableHeight = this.availablePaneHeight(input.viewport.height);
     const verticalOffset = this.verticalScrollOffset(
       input.focusedPaneId,
       availableHeight,
@@ -288,6 +305,10 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     return column;
   }
 
+  private availablePaneHeight(viewportHeight: number): number {
+    return Math.max(1, viewportHeight - this.scene.padding * 2 - 28);
+  }
+
   private availableWidth(viewportWidth: number): number {
     return Math.max(minimumColumnWidth, viewportWidth - this.scene.padding * 2);
   }
@@ -422,6 +443,41 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     const targetRow = clamp(source.rowIndex + offset, 0, paneIds.length - 1);
     paneIds.splice(source.rowIndex, 1);
     paneIds.splice(targetRow, 0, paneId);
+  }
+
+  private paneInHorizontalVisualDirection(
+    source: PaneLocation,
+    direction: "left" | "right",
+    availableHeight: number,
+  ): PaneId | null {
+    const targetColumnIndex = source.columnIndex + (direction === "left" ? -1 : 1);
+    const targetColumn = this.columns[targetColumnIndex];
+    const sourceColumn = this.columns[source.columnIndex];
+    if (!sourceColumn || !targetColumn) {
+      return null;
+    }
+    const sourceFrame = this.columnVisualFrames(sourceColumn, availableHeight)[source.rowIndex];
+    if (!sourceFrame) {
+      return null;
+    }
+    return nearestPaneByVerticalCenter(
+      this.columnVisualFrames(targetColumn, availableHeight),
+      sourceFrame.centerY,
+    );
+  }
+
+  private paneInVerticalVisualDirection(
+    source: PaneLocation,
+    direction: "up" | "down",
+    availableHeight: number,
+  ): PaneId | null {
+    const column = this.columns[source.columnIndex];
+    if (!column) {
+      return null;
+    }
+    const frames = this.columnVisualFrames(column, availableHeight);
+    const targetRowIndex = source.rowIndex + (direction === "up" ? -1 : 1);
+    return frames[targetRowIndex]?.paneId ?? null;
   }
 
   private pushColumnItems({
@@ -614,21 +670,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   }
 
   private rowTopOffsets(column: NiriColumn, availableHeight: number): number[] {
-    const panes = column.paneIds
-      .map((paneId) => this.paneById.get(paneId))
-      .filter((pane): pane is NiriPane => pane !== undefined);
-    const totalWeight = panes.reduce((total, pane) => total + pane.weight, 0);
-    const totalGap = this.scene.rowGap * Math.max(0, panes.length - 1);
-    const offsets: number[] = [];
-    let nextOffset = 0;
-
-    for (const pane of panes) {
-      offsets.push(nextOffset);
-      const height = Math.max(42, ((availableHeight - totalGap) * pane.weight) / totalWeight);
-      nextOffset += height + this.scene.rowGap;
-    }
-
-    return offsets;
+    return this.columnVisualFrames(column, availableHeight).map((frame) => frame.top);
   }
 
   private verticalScrollOffset(
@@ -648,6 +690,25 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       scrollRow,
       this.rowTopOffsets(focusedColumn, availableHeight),
     );
+  }
+
+  private columnVisualFrames(column: NiriColumn, availableHeight: number): PaneVisualFrame[] {
+    const panes = column.paneIds
+      .map((paneId) => this.paneById.get(paneId))
+      .filter((pane): pane is NiriPane => pane !== undefined);
+    const totalWeight = panes.reduce((total, pane) => total + pane.weight, 0);
+    const totalGap = this.scene.rowGap * Math.max(0, panes.length - 1);
+    let top = 0;
+    return panes.map((pane) => {
+      const height = Math.max(42, ((availableHeight - totalGap) * pane.weight) / totalWeight);
+      const frame = {
+        centerY: top + height / 2,
+        paneId: pane.paneId,
+        top,
+      };
+      top += height + this.scene.rowGap;
+      return frame;
+    });
   }
 
   private overviewScale(
@@ -757,6 +818,19 @@ function paneFrame({
     y: 0,
     z: 20,
   };
+}
+
+function nearestPaneByVerticalCenter(
+  frames: readonly PaneVisualFrame[],
+  centerY: number,
+): PaneId | null {
+  let nearest: PaneVisualFrame | null = null;
+  for (const frame of frames) {
+    if (!nearest || Math.abs(frame.centerY - centerY) < Math.abs(nearest.centerY - centerY)) {
+      nearest = frame;
+    }
+  }
+  return nearest?.paneId ?? null;
 }
 
 function nearestColumnWidthPreset(value: number): number {

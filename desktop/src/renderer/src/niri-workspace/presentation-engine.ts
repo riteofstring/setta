@@ -13,6 +13,10 @@ export interface PresentationWriteCounts extends SurfaceViewportSyncStats {
   transformWrites: number;
 }
 
+export interface PresentationEngineOptions {
+  syncAllRenderedContentDuringMovement?: boolean;
+}
+
 interface PaneHostBinding {
   contentPaneId: string | null;
   host: HTMLElement;
@@ -39,6 +43,7 @@ export class PresentationEngine {
     private readonly metrics: NiriMetricsCollector,
     private readonly surfaceRegistry = new SurfaceRegistry(panes),
     private readonly nativeViewBoundsBatcher: NativeViewBoundsBatcher | null = null,
+    private readonly options: PresentationEngineOptions = {},
   ) {
     for (const pane of panes) {
       this.paneById.set(pane.paneId, pane);
@@ -307,7 +312,12 @@ export class PresentationEngine {
   }
 
   private contentSyncAllowedDuringMovement(item: PaneRenderItem): boolean {
-    return !item.moving || item.focused || item.surfaceKind === "browser";
+    return (
+      this.options.syncAllRenderedContentDuringMovement ||
+      !item.moving ||
+      item.focused ||
+      item.surfaceKind === "browser"
+    );
   }
 
   private hostContentMissing(binding: PaneHostBinding): boolean {
