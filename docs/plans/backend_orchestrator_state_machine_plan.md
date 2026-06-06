@@ -28,6 +28,7 @@ This should be treated as a workflow/orchestration graph with state-machine sema
 - Do not require AI action nodes to call a Setta completion tool for ordinary "agent finished responding" completion.
 - Do not build generic untyped `map[string]any` execution behavior as the primary architecture.
 - Do not build a managed artifact registry in the initial implementation.
+- Do not introduce SQLite, an external database, or a workflow runtime platform in the initial implementation.
 - Do not add distributed workflow infrastructure such as Temporal unless local durable execution becomes insufficient.
 
 ## Product Model
@@ -35,7 +36,8 @@ This should be treated as a workflow/orchestration graph with state-machine sema
 The backend should separate three concepts:
 
 - **Workflow definition:** The saved graph: nodes, edges, action configs, gateway configs, loop configs, and validation metadata. Definitions are workspace-scoped, and a workspace may contain multiple workflow definitions. Reusable cross-workspace templates are a future layer over workspace definitions.
-- **Workflow execution:** A single run of a workflow definition, including current status, active nodes, iteration counters, completed nodes, failed nodes, pending approvals, and queued work.
+- **Workflow definition version:** An immutable snapshot of a workflow definition used by executions. Editing a workflow creates a new version instead of changing the graph for already-started executions.
+- **Workflow execution:** A single run of a workflow definition version, including current status, active nodes, iteration counters, completed nodes, failed nodes, pending approvals, and queued work.
 - **Workflow event log:** Append-only records describing what happened: execution started, node scheduled, action started, stream output received, action completed, gateway resolved, loop advanced, execution failed, execution cancelled, execution completed.
 
 This separation keeps definitions editable without corrupting historical executions and makes restart recovery deterministic.
@@ -51,6 +53,14 @@ Suggested package names:
 - `internal/httpapi` endpoints for workflow CRUD, execution control, and execution reads.
 
 Generated TypeScript surfaces should continue to come from Go-owned contracts and the HTTP endpoint registry. Do not maintain manually mirrored frontend contract lists.
+
+## Dependency Stance
+
+The initial implementation should use a small custom Go workflow engine and the repo's existing JSON-file persistence style. Add third-party libraries only when they are widely used, actively maintained, and solve a clearly bounded problem better than local code.
+
+Do not add a third-party workflow engine, Petri-net engine, BPMN engine, or embedded durable workflow runtime for v1. The core graph/token semantics, gates, loops, action scheduling, event history, and recovery behavior should be Setta-specific.
+
+Expression libraries such as CEL or Expr may be evaluated later for advanced user-authored predicates, but built-in typed predicates should be implemented first.
 
 ## Node Categories
 
@@ -116,7 +126,7 @@ Executable action nodes should be a separate action family from AI agents becaus
 - Timeout.
 - Command or script source.
 - Output limits.
-- Artifact paths.
+- Declared output path references.
 - Cancellation behavior.
 
 ## Execution Semantics
@@ -199,9 +209,12 @@ The important general semantics illustrated by this example are:
 
 Persistence should be designed before action execution is connected.
 
+Use the repository's existing JSON-file storage approach for the initial implementation. The workflow store should still be event-shaped and recovery-friendly, but it should not require SQLite or another database in v1.
+
 Minimum durable records:
 
 - Workflow definitions.
+- Workflow definition versions.
 - Workflow executions.
 - Node execution attempts.
 - Active and completed tokens.
@@ -216,6 +229,14 @@ Recovery rules:
 - Mark unrecoverable interrupted node executions failed with a specific diagnostic.
 - Never silently resume from incomplete in-memory state.
 - Preserve enough event history for the frontend to render what happened after restart.
+
+JSON storage should preserve basic crash-safety invariants:
+
+- Append workflow events as discrete, durable records.
+- Persist materialized execution state as derived snapshots when useful.
+- Use stable idempotency keys for action scheduling and terminal events.
+- Keep workflow store mutations serialized within the backend process.
+- Use atomic file writes consistent with the existing store helpers.
 
 ## Outputs And Files
 
@@ -318,7 +339,11 @@ When workflow execution touches Codex harness behavior, chat run lifecycle, appr
 ## Settled Decisions
 
 - Workflow definitions are workspace-scoped, and a workspace may contain multiple workflow definitions.
+- Workflow executions reference immutable workflow definition versions.
 - Reusable cross-workspace templates are future work.
+- Initial persistence uses JSON files, consistent with the existing app data stores.
+- SQLite or another database is deferred until JSON persistence becomes a clear bottleneck or correctness limitation.
+- Third-party libraries are only added when they are widely used, actively maintained, and solve a bounded problem.
 - XNOR is not part of the initial control-node model.
 - Maximum iteration handling uses an explicit terminal reason such as `limit_reached`, with workflow or loop config deciding whether that reason is treated as completed, failed, or stopped.
 - Initial gate and decision conditions use built-in typed predicates over action completion, structured action signals, script exit codes, and execution state.
