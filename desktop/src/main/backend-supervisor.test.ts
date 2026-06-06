@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { parseReadyLine, startSpawnedBackend, type BackendHandle } from "./backend-supervisor";
 
@@ -75,25 +76,26 @@ describe("startSpawnedBackend", () => {
     const markerPath = join(tempDir, "terminated");
 
     try {
-      await expect(
-        startSpawnedBackend({
-          args: [
-            "-e",
-            [
-              "const fs = require('node:fs')",
-              `const markerPath = ${JSON.stringify(markerPath)}`,
-              `const readyForSignalPath = ${JSON.stringify(readyForSignalPath)}`,
-              "process.on('SIGTERM', () => { fs.writeFileSync(markerPath, 'terminated'); process.exit(0) })",
-              "fs.writeFileSync(readyForSignalPath, 'ready')",
-              "setInterval(() => {}, 1000)",
-            ].join(";"),
-          ],
-          command: process.execPath,
-          cwd: process.cwd(),
-          env: process.env,
-          readyTimeoutMs: 2000,
-        }),
-      ).rejects.toThrow("backend readiness timed out");
+      const start = startSpawnedBackend({
+        args: [
+          "-e",
+          [
+            "const fs = require('node:fs')",
+            `const markerPath = ${JSON.stringify(markerPath)}`,
+            `const readyForSignalPath = ${JSON.stringify(readyForSignalPath)}`,
+            "process.on('SIGTERM', () => { fs.writeFileSync(markerPath, 'terminated'); process.exit(0) })",
+            "fs.writeFileSync(readyForSignalPath, 'ready')",
+            "setInterval(() => {}, 1000)",
+          ].join(";"),
+        ],
+        command: process.execPath,
+        cwd: process.cwd(),
+        env: process.env,
+        readyTimeoutMs: 2000,
+      });
+      void start.catch(() => {});
+      await waitForFile(readyForSignalPath);
+      await expect(start).rejects.toThrow("backend readiness timed out");
       expect(existsSync(readyForSignalPath)).toBe(true);
       expect(existsSync(markerPath)).toBe(true);
     } finally {
@@ -170,4 +172,15 @@ function waitForLog(handle: BackendHandle, expectedLine: string): Promise<void> 
 
     handle.events.on("log", onLog);
   });
+}
+
+async function waitForFile(path: string): Promise<void> {
+  const deadline = Date.now() + 1500;
+  while (Date.now() < deadline) {
+    if (existsSync(path)) {
+      return;
+    }
+    await delay(10);
+  }
+  throw new Error(`timed out waiting for file: ${path}`);
 }
