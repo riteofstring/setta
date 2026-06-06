@@ -127,31 +127,43 @@ export class NiriLayoutStore {
     if (viewport) {
       this.lastViewport = viewport;
     }
-    const visualTargetPaneId = viewport
-      ? this.engine.paneInVisualDirection(this.focusedPaneId(), direction, viewport)
-      : null;
+    const visualTargetPaneId = this.visualTargetPaneId(direction, viewport);
     if (visualTargetPaneId) {
       this.setFocusedPane(visualTargetPaneId);
       this.engine.moveFocus(direction);
       this.notify();
       return;
     }
-    if (direction === "up") {
-      this.focusedRowIndex = Math.max(0, this.focusedRowIndex - 1);
-      this.targetScrollRow = this.targetScrollForFocusedRow();
-    } else if (direction === "down") {
-      this.focusedRowIndex = Math.min(this.currentColumnRowCount() - 1, this.focusedRowIndex + 1);
-      this.targetScrollRow = this.targetScrollForFocusedRow();
-    } else {
-      const offset = direction === "left" ? -1 : 1;
-      const maxColumn = Math.max(0, this.engine.columnCount() - 1);
-      this.focusedColumnIndex = Math.min(maxColumn, Math.max(0, this.focusedColumnIndex + offset));
-      this.focusedRowIndex = Math.min(this.currentColumnRowCount() - 1, this.focusedRowIndex);
-      this.targetScrollColumn = this.targetScrollForFocusedColumn();
-      this.targetScrollRow = this.targetScrollForFocusedRow();
+    if (!this.moveFallbackFocus(direction)) {
+      return;
     }
     this.engine.moveFocus(direction);
     this.notify();
+  }
+
+  private visualTargetPaneId(
+    direction: "up" | "down" | "left" | "right",
+    viewport?: Rect,
+  ): PaneId | null {
+    const navigationViewport =
+      viewport ?? (isHorizontalFocusDirection(direction) ? this.lastViewport : undefined);
+    return navigationViewport
+      ? this.engine.paneInVisualDirection(this.focusedPaneId(), direction, navigationViewport)
+      : null;
+  }
+
+  private moveFallbackFocus(direction: "up" | "down" | "left" | "right"): boolean {
+    if (isHorizontalFocusDirection(direction)) {
+      return false;
+    }
+    if (direction === "up") {
+      this.focusedRowIndex = Math.max(0, this.focusedRowIndex - 1);
+      this.targetScrollRow = this.targetScrollForFocusedRow();
+      return true;
+    }
+    this.focusedRowIndex = Math.min(this.currentColumnRowCount() - 1, this.focusedRowIndex + 1);
+    this.targetScrollRow = this.targetScrollForFocusedRow();
+    return true;
   }
 
   closeFocusedPane(): PaneId | null {
@@ -414,4 +426,8 @@ export class NiriLayoutStore {
     this.engine.unlockColumnWidth(this.focusedColumnId(), viewport.width);
     this.notify();
   }
+}
+
+function isHorizontalFocusDirection(direction: "up" | "down" | "left" | "right"): boolean {
+  return direction === "left" || direction === "right";
 }

@@ -240,11 +240,15 @@ export class PresentationEngine {
   private hideBinding(binding: PaneHostBinding): void {
     this.surfaceRegistry.releaseHost(binding.host);
     binding.contentPaneId = null;
+    binding.host.dataset.focused = "false";
     binding.host.dataset.maximized = "false";
+    binding.host.dataset.moving = "false";
     binding.host.dataset.paneId = "";
     binding.host.style.opacity = "0";
     binding.host.style.pointerEvents = "none";
+    binding.lastFocused = false;
     binding.lastMaximized = false;
+    binding.lastMoving = false;
     binding.lastOpacity = 0;
     binding.host.dataset.visible = "false";
     binding.lastVisible = false;

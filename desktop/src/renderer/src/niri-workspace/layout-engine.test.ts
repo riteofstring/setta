@@ -329,6 +329,53 @@ describe("real niri workspace column sizing", () => {
     expect(store.focusedPaneId()).toBe(planePaneId);
   });
 
+  test("right navigation wraps to the beginning of the current horizontal plane", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:right-wrap-plane",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    const lowerPlanePaneId = store.splitFocusedPaneToPlane("down");
+
+    store.focusPaneBySurfaceKind("pixi-canvas");
+    store.moveFocus("right", { ...viewport, width: 1200 });
+
+    expect(store.focusedPaneId()).toBe("workspace_pane_0");
+    expect(store.focusedPaneId()).not.toBe(lowerPlanePaneId);
+  });
+
+  test("left navigation wraps to the end of the current horizontal plane", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:left-wrap-plane",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    store.splitFocusedPaneToPlane("down");
+
+    store.focusPaneBySurfaceKind("chat-dom");
+    store.moveFocus("left");
+
+    expect(store.focusedPaneId()).toBe("workspace_pane_5");
+  });
+
+  test("left and right navigation stay on a single-pane horizontal plane", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:single-pane-plane-wrap",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    const lowerPlanePaneId = store.splitFocusedPaneToPlane("down");
+
+    store.moveFocus("right", { ...viewport, width: 1200 });
+    expect(store.focusedPaneId()).toBe(lowerPlanePaneId);
+
+    store.moveFocus("left", { ...viewport, width: 1200 });
+    expect(store.focusedPaneId()).toBe(lowerPlanePaneId);
+  });
+
   test("overview lays out separate horizontal planes vertically", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storageKey: "setta:niri-workspace:overview-planes",

@@ -151,6 +151,26 @@ describe("niri presentation engine", () => {
     expect(host.style.pointerEvents).toBe("auto");
   });
 
+  test("clears stale moving state when a host is hidden", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("niri_pane_0", "niri_surface_0", true)], {
+      resizePhase: "idle",
+    });
+    presentation.apply([], { resizePhase: "idle" });
+
+    expect(host.dataset.moving).toBe("false");
+    expect(host.dataset.focused).toBe("false");
+    expect(host.dataset.visible).toBe("false");
+  });
+
   test("prioritizes the focused pane when the host pool is saturated", () => {
     const scene = generateBenchmarkScene({ paneCount: 3, targetVisiblePanes: 2 });
     const firstHost = fakePaneHost("niri_pane_0", "Pane 001");

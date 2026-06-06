@@ -26,7 +26,6 @@ const minimumColumnWidth = 96;
 const maximumOverviewScale = 0.42;
 const minimumOverviewScale = 0.12;
 const planeGap = 28;
-
 export class NiriLikeLayoutEngine implements LayoutEngine {
   private columns: NiriColumn[];
   private nextColumnSequence: number;
@@ -164,7 +163,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     if (isVerticalDirection(direction)) {
       return this.paneInVerticalVisualDirection(source, direction, viewport, availableHeight);
     }
-    return this.paneInHorizontalVisualDirection(source, direction, viewport, availableHeight);
+    return this.paneInHorizontalVisualDirection(source, direction, availableHeight);
   }
 
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
@@ -561,12 +560,14 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   private paneInHorizontalVisualDirection(
     source: PaneLocation,
     direction: "left" | "right",
-    viewport: LayoutFrameInput["viewport"],
     availableHeight: number,
   ): PaneId | null {
-    void viewport;
     const planeColumns = this.columnsInPlane(source.planeIndex);
-    const targetColumn = planeColumns[source.planeColumnIndex + (direction === "left" ? -1 : 1)];
+    if (planeColumns.length <= 1) {
+      return null;
+    }
+    const targetIndex = source.planeColumnIndex + (direction === "left" ? -1 : 1);
+    const targetColumn = planeColumns[(targetIndex + planeColumns.length) % planeColumns.length];
     const sourceColumn = this.columns[source.columnIndex];
     if (!sourceColumn || !targetColumn) {
       return null;
