@@ -11,9 +11,16 @@ import type {
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
+const appFlags = {
+  pixiWorkspaceDebug:
+    process.env.SETTA_E2E === "1" || process.env.SETTA_PIXI_WORKSPACE_DEBUG === "1",
+  pixiWorkspacePrototype: process.env.SETTA_PIXI_WORKSPACE_PROTOTYPE === "1",
+  pixiWorkspaceSyntheticGraph: parsePixiWorkspaceSyntheticGraph(process.env),
+};
 
 const api: SettaAPI = {
   app: {
+    flags: appFlags,
     installedEditors: () => invoke("appInstalledEditors"),
     openWorkspaceInEditor: (editorId: string, rootPath: string) =>
       invoke("appOpenWorkspaceInEditor", editorId, rootPath),
@@ -129,6 +136,37 @@ const api: SettaAPI = {
 
 installRendererRecorder(ipcRenderer);
 contextBridge.exposeInMainWorld("setta", api);
+
+function parsePixiWorkspaceSyntheticGraph(env: NodeJS.ProcessEnv) {
+  const nodeCount = optionalPositiveIntegerEnv(
+    env.SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT,
+    "SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT",
+  );
+  const edgesPerNode = optionalPositiveIntegerEnv(
+    env.SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE,
+    "SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE",
+  );
+  if (nodeCount === null && edgesPerNode === null) {
+    return null;
+  }
+  if (nodeCount === null || edgesPerNode === null) {
+    throw new Error(
+      "SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT and SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE must be set together",
+    );
+  }
+  return { edgesPerNode, nodeCount };
+}
+
+function optionalPositiveIntegerEnv(value: string | undefined, name: string) {
+  if (value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer: ${value}`);
+  }
+  return parsed;
+}
 
 function decodeBackendProcessStatus(value: unknown): BackendProcessStatus {
   const record = assertStatusRecord(value, "BackendProcessStatus");
