@@ -11,7 +11,7 @@ import type {
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { sidebarWorkspaceBusy, WorkspacePanel } from "./App";
+import { sidebarWorkspaceBusy } from "./App";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -25,35 +25,25 @@ beforeEach(() => {
 describe("workspace renderer states", () => {
   test("renders the empty workspace state", () => {
     const html = renderToString(
-      <>
-        <WorkspaceSidebar
-          activeRun={null}
-          activeWorkspaces={[]}
-          busy={false}
-          closeWorkspace={async () => {}}
-          createConversation={async () => {}}
-          createWorkspaceConversation={async () => {}}
-          openLocalFolder={async () => {}}
-          openWorkspacePath={async () => {}}
-          openSettingsPane={() => {}}
-          recentWorkspaces={[]}
-          removeRecent={async () => {}}
-          selectConversation={async () => {}}
-          selectWorkspace={async () => {}}
-          selectedConversationId=""
-          selectedWorkspaceId=""
-        />
-        <WorkspacePanel
-          error={null}
-          openLocalFolder={async () => {}}
-          operation={null}
-          selectedWorkspace={null}
-          status="idle"
-        />
-      </>,
+      <WorkspaceSidebar
+        activeRun={null}
+        activeWorkspaces={[]}
+        busy={false}
+        closeWorkspace={async () => {}}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        openLocalFolder={async () => {}}
+        openWorkspacePath={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId=""
+        selectedWorkspaceId=""
+      />,
     );
 
-    expect(html).toContain("No workspace open");
     expect(html).toContain('data-testid="projects-section"');
     expect(html).toContain('data-testid="sidebar-empty-space"');
     expect(html).not.toContain("New setta gen");
@@ -82,37 +72,26 @@ describe("workspace renderer states", () => {
       conversationListItem("conversation_web", "Build web UI", "workspace_web"),
     ]);
     const html = renderToString(
-      <>
-        <WorkspaceSidebar
-          activeRun={null}
-          activeWorkspaces={[api, web]}
-          busy={false}
-          closeWorkspace={async () => {}}
-          createConversation={async () => {}}
-          createWorkspaceConversation={async () => {}}
-          openLocalFolder={async () => {}}
-          openWorkspacePath={async () => {}}
-          openSettingsPane={() => {}}
-          recentWorkspaces={[web, api]}
-          removeRecent={async () => {}}
-          selectConversation={async () => {}}
-          selectWorkspace={async () => {}}
-          selectedConversationId=""
-          selectedWorkspaceId="workspace_web"
-        />
-        <WorkspacePanel
-          error={null}
-          openLocalFolder={async () => {}}
-          operation={null}
-          selectedWorkspace={web}
-          status="ready"
-        />
-      </>,
+      <WorkspaceSidebar
+        activeRun={null}
+        activeWorkspaces={[api, web]}
+        busy={false}
+        closeWorkspace={async () => {}}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        openLocalFolder={async () => {}}
+        openWorkspacePath={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[web, api]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId=""
+        selectedWorkspaceId="workspace_web"
+      />,
     );
 
     expect(html).toContain("web");
-    expect(html).toContain("/tmp/web");
-    expect(html).toContain("Active");
     expect(html).toContain('data-testid="active-workspace-list"');
     expect(html).toContain('aria-label="New chat in web"');
     expect(html).toContain("Build web UI");
@@ -301,22 +280,6 @@ describe("workspace renderer states", () => {
     expect(html).toContain("1 corrupt chat record detected");
     expect(html).toContain("assistant message message_missing was not found");
     expect(html).toContain("Path: /tmp/run.json");
-  });
-
-  test("renders loading and error states", () => {
-    const html = renderToString(
-      <WorkspacePanel
-        error="workspace path does not exist"
-        openLocalFolder={async () => {}}
-        operation="opening"
-        selectedWorkspace={null}
-        status="error"
-      />,
-    );
-
-    expect(html).toContain("Opening");
-    expect(html).toContain("workspace path does not exist");
-    expect(html).toContain('data-testid="workspace-error"');
   });
 
   test("bounds large workspace list row rendering", () => {

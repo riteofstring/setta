@@ -314,11 +314,12 @@ func writeFakeProtocolCoverageNotifications() {
 	writeFakeAutoApprovalReview("item/autoApprovalReview/completed", "approved")
 	writeFakeContextCompaction("item/started", "context_compaction_fake")
 	writeFakeContextCompaction("item/completed", "context_compaction_fake")
-	writeFakeNotification("item/fileChange/outputDelta", map[string]any{
-		"delta":    "patch output\n",
-		"itemId":   "file_output_fake",
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
+	writeFakeNotification("item/fileChange/patchUpdated", map[string]any{
+		"changedPaths": []string{"/tmp/workspace/main.go"},
+		"itemId":       "file_fake",
+		"status":       "updated",
+		"threadId":     "thread_fake",
+		"turnId":       "turn_fake",
 	})
 	writeFakeNotification("item/reasoning/textDelta", map[string]any{
 		"contentIndex": 0,

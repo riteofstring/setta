@@ -176,10 +176,7 @@ var CodexMethodValues = []string{
 }
 
 const (
-	CodexServerRequestAccountChatgptAuthTokensRefresh     = "account/chatgptAuthTokens/refresh"
-	CodexServerRequestApplyPatchApproval                  = "applyPatchApproval"
 	CodexServerRequestAttestationGenerate                 = "attestation/generate"
-	CodexServerRequestExecCommandApproval                 = "execCommandApproval"
 	CodexServerRequestItemCommandExecutionRequestApproval = "item/commandExecution/requestApproval"
 	CodexServerRequestItemFileChangeRequestApproval       = "item/fileChange/requestApproval"
 	CodexServerRequestItemPermissionsRequestApproval      = "item/permissions/requestApproval"
@@ -189,10 +186,7 @@ const (
 )
 
 var CodexServerRequestValues = []string{
-	CodexServerRequestAccountChatgptAuthTokensRefresh,
-	CodexServerRequestApplyPatchApproval,
 	CodexServerRequestAttestationGenerate,
-	CodexServerRequestExecCommandApproval,
 	CodexServerRequestItemCommandExecutionRequestApproval,
 	CodexServerRequestItemFileChangeRequestApproval,
 	CodexServerRequestItemPermissionsRequestApproval,
@@ -382,7 +376,6 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationItemCommandExecutionOutputDelta,
 	CodexNotificationItemCommandExecutionTerminalInteraction,
 	CodexNotificationItemCompleted,
-	CodexNotificationItemFileChangeOutputDelta,
 	CodexNotificationItemFileChangePatchUpdated,
 	CodexNotificationItemMcpToolCallProgress,
 	CodexNotificationItemPlanDelta,
@@ -427,6 +420,7 @@ var CodexSupportedNotificationValues = []string{
 }
 
 var CodexUnsupportedNotificationValues = []string{
+	CodexNotificationItemFileChangeOutputDelta,
 	CodexNotificationThreadCompacted,
 }
 
@@ -798,13 +792,6 @@ type ErrorNotification struct {
 }
 
 type ExternalAgentConfigImportCompletedNotification struct {
-}
-
-type FileChangeOutputDeltaNotification struct {
-	Delta    string `json:"delta"`
-	ItemId   string `json:"itemId"`
-	ThreadID string `json:"threadId"`
-	TurnID   string `json:"turnId"`
 }
 
 type FileChangePatchUpdatedNotification struct {

@@ -529,7 +529,7 @@ func (generator *generator) render() ([]byte, error) {
 	buffer.WriteString("package codexapp\n\n")
 	buffer.WriteString("import \"encoding/json\"\n\n")
 	renderMethodConstants(&buffer, "CodexMethod", generator.clientMethods)
-	renderMethodConstants(&buffer, "CodexServerRequest", generator.serverRequests)
+	renderMethodConstants(&buffer, "CodexServerRequest", generator.supportedServerRequests)
 	renderMethodConstants(&buffer, "CodexNotification", generator.notifications)
 	renderProtocolMemberValues(&buffer, "CodexSupportedMethodValues", "CodexMethod", generator.supportedClientMethods)
 	renderProtocolMemberValues(&buffer, "CodexSupportedServerRequestValues", "CodexServerRequest", generator.supportedServerRequests)

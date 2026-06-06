@@ -32,7 +32,6 @@ import {
   type ConversationDetailState,
 } from "./chat-store-detail-cache";
 import {
-  activeRunFromCandidate,
   activeRunFromPage,
   messagesFromPage,
   outputPageLoadedState,
@@ -50,7 +49,16 @@ import {
   emptyConversationPatch,
   operationPagePatch,
   pagePatch,
+  resyncPagePatch,
+  runOperationPatch,
 } from "./chat-store-page-patches";
+import {
+  conversationBoundOperationScopes,
+  createChatOperationTracker,
+  type ChatOperation,
+  type ChatOperationScope,
+  type ChatOperationToken,
+} from "./chat-store-operations";
 import {
   conversationSelectionRequest,
   emptyCorruption,
@@ -65,21 +73,6 @@ export type { WorkspaceConversationListState } from "./chat-store-conversation-l
 export type { RunItemOutputPageState } from "./chat-store-normalization";
 
 type ChatStatus = "idle" | "loading" | "ready" | "error";
-type ChatOperation =
-  | "approving"
-  | "cancelling"
-  | "creating"
-  | "editingQueued"
-  | "commanding"
-  | "loading"
-  | "loadingOlder"
-  | "queueing"
-  | "removingQueued"
-  | "refreshing"
-  | "sending"
-  | "sendingSteeringImmediately"
-  | "steering"
-  | null;
 
 export interface ChatStore {
   activeRun: RunningRun | null;
@@ -191,46 +184,60 @@ export type ChatPatch = Partial<
 >;
 
 const pageLimit = 40;
-let operationSequence = 0;
-let currentOperationId = 0;
 
 export const useChatStore = create<ChatStore>((set, get) => {
-  function beginOperation(patch: ChatPatch) {
-    operationSequence += 1;
-    currentOperationId = operationSequence;
-    set((current) => normalizeStatePatch(current, patch));
-    return currentOperationId;
+  const operations = createChatOperationTracker();
+
+  function beginOperation(
+    scope: ChatOperationScope,
+    patch: ChatPatch,
+    cancelScopes: ChatOperationScope[] = [],
+  ): ChatOperationToken {
+    const token = operations.begin(scope, cancelScopes);
+    set((current) => normalizeStatePatch(current, operations.beginPatch(scope, patch)));
+    return token;
   }
 
-  function commitCurrent(operationId: number, patch: ChatPatch) {
-    if (operationId !== currentOperationId) {
+  function commitCurrent(token: ChatOperationToken, patch: ChatPatch) {
+    const nextPatch = operations.completePatch(token, patch);
+    if (!nextPatch) {
       return;
     }
-    currentOperationId = 0;
-    set((current) => normalizeStatePatch(current, patch));
+    set((current) => normalizeStatePatch(current, nextPatch));
   }
 
   function commitCurrentFromState(
-    operationId: number,
+    token: ChatOperationToken,
     patchForState: (state: ChatStore) => ChatPatch,
   ) {
-    if (operationId !== currentOperationId) {
+    if (!operations.isCurrent(token)) {
       return;
     }
     set((current) => {
-      if (operationId !== currentOperationId) {
+      if (!operations.isCurrent(token)) {
         return {};
       }
       const patch = patchForState(current);
-      currentOperationId = 0;
-      return normalizeStatePatch(current, patch);
+      const nextPatch = operations.completePatch(token, patch);
+      if (!nextPatch) {
+        return {};
+      }
+      return normalizeStatePatch(current, nextPatch);
     });
   }
 
-  async function loadConversationPage(workspaceId: string, conversation: Conversation) {
+  async function loadConversationPageSnapshot(workspaceId: string, conversation: Conversation) {
     const page = await window.setta.chat.messagePage(workspaceId, conversation.id, 0, pageLimit);
     const active = await window.setta.chat.activeRun(workspaceId, conversation.id);
-    return pagePatch(page, active.hasActiveRun ? active.run : null);
+    return {
+      activeRun: active.hasActiveRun ? active.run : null,
+      page,
+    };
+  }
+
+  async function loadConversationPage(workspaceId: string, conversation: Conversation) {
+    const snapshot = await loadConversationPageSnapshot(workspaceId, conversation);
+    return pagePatch(snapshot.page, snapshot.activeRun);
   }
 
   async function reloadConversations(workspaceId: string) {
@@ -306,7 +313,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         return;
       }
-      const operationId = beginOperation({
+      const operation = beginOperation("queueMutation", {
         editingQueuedMessageId: messageId,
         error: null,
         operation: "editingQueued",
@@ -318,7 +325,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           messageId,
           prompt,
         );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.run, activeRun),
           editingQueuedMessageId: null,
           operation: null,
@@ -326,7 +333,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           status: "ready",
         }));
       } catch (error) {
-        commitCurrent(operationId, {
+        commitCurrent(operation, {
           ...errorPatch(error),
           editingQueuedMessageId: null,
         });
@@ -342,12 +349,16 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     createWorkspaceConversation: async (workspaceId, title = "") => {
       const switchingWorkspace = get().workspaceId !== workspaceId;
-      const operationId = beginOperation({ error: null, operation: "creating" });
+      const operation = beginOperation(
+        "conversation",
+        { error: null, operation: "creating" },
+        conversationBoundOperationScopes,
+      );
       try {
         const conversation = await window.setta.chat.createConversation(workspaceId, title);
         const patch = await loadConversationPage(workspaceId, conversation);
         const list = await reloadConversations(workspaceId);
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...patch,
           ...conversationListLoadedPatch(current, workspaceId, list, true),
           operation: null,
@@ -356,7 +367,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           workspaceId,
         }));
       } catch (error) {
-        commitCurrent(operationId, {
+        commitCurrent(operation, {
           ...errorPatch(error),
           workspaceId: switchingWorkspace ? workspaceId : get().workspaceId,
         });
@@ -430,7 +441,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation || olderBeforeOrdinal <= 0 || !get().hasMoreOlder) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "loadingOlder" });
+      const operation = beginOperation("pagination", { error: null, operation: "loadingOlder" });
       try {
         const page = await window.setta.chat.messagePage(
           workspaceId,
@@ -438,7 +449,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           olderBeforeOrdinal,
           pageLimit,
         );
-        commitCurrentFromState(operationId, (current) => {
+        commitCurrentFromState(operation, (current) => {
           if (
             current.workspaceId !== workspaceId ||
             current.selectedConversation?.id !== selectedConversation.id
@@ -457,7 +468,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           };
         });
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
       }
     },
     loadRunActivity: async (runId, limit = 200) => {
@@ -525,18 +536,22 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     loadWorkspace: async (workspaceId: string) => {
-      const operationId = beginOperation({
-        error: null,
-        operation: "loading",
-        status: "loading",
-      });
+      const operation = beginOperation(
+        "conversation",
+        {
+          error: null,
+          operation: "loading",
+          status: "loading",
+        },
+        conversationBoundOperationScopes,
+      );
       try {
         const list = await reloadConversations(workspaceId);
         const first = list.conversations[0]?.conversation ?? null;
         const patch = first
           ? await loadConversationPage(workspaceId, first)
           : emptyConversationPatch();
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...patch,
           ...conversationListLoadedPatch(current, workspaceId, list, true),
           operation: null,
@@ -545,7 +560,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           workspaceId,
         }));
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
         throw error;
       }
     },
@@ -576,21 +591,21 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "queueing" });
+      const operation = beginOperation("queueMutation", { error: null, operation: "queueing" });
       try {
         const result = await window.setta.chat.queueMessage(
           workspaceId,
           selectedConversation.id,
           prompt,
         );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.run, activeRun),
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
         }));
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
       }
     },
     removeQueuedMessage: async (messageId: string) => {
@@ -598,7 +613,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         return;
       }
-      const operationId = beginOperation({
+      const operation = beginOperation("queueMutation", {
         error: null,
         operation: "removingQueued",
         removingQueuedMessageId: messageId,
@@ -609,7 +624,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation.id,
           messageId,
         );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...pagePatch(result.page, activeRunFromPage(result.page) ?? current.activeRun),
           operation: null,
           removingQueuedMessageId: null,
@@ -617,7 +632,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           status: "ready",
         }));
       } catch (error) {
-        commitCurrent(operationId, {
+        commitCurrent(operation, {
           ...errorPatch(error),
           removingQueuedMessageId: null,
         });
@@ -630,7 +645,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         throw new Error("No chat is selected");
       }
-      const operationId = beginOperation({ error: null, operation: "commanding" });
+      const operation = beginOperation("commandMutation", { error: null, operation: "commanding" });
       try {
         const result =
           options === undefined
@@ -641,7 +656,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
                 raw,
                 options,
               );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...commandOperationPatch(current, result, activeRun),
           operation: null,
           selectedConversation: result.conversation,
@@ -649,7 +664,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         }));
         return result;
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
         throw error;
       }
     },
@@ -658,14 +673,14 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         throw new Error("No chat is selected");
       }
-      const operationId = beginOperation({ error: null, operation: "commanding" });
+      const operation = beginOperation("commandMutation", { error: null, operation: "commanding" });
       try {
         const result = await window.setta.chat.setCodexModel(
           workspaceId,
           selectedConversation.id,
           modelId,
         );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...commandOperationPatch(current, result, activeRun),
           operation: null,
           selectedConversation: result.conversation,
@@ -673,7 +688,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         }));
         return result;
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
         throw error;
       }
     },
@@ -682,14 +697,14 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         throw new Error("No chat is selected");
       }
-      const operationId = beginOperation({ error: null, operation: "commanding" });
+      const operation = beginOperation("commandMutation", { error: null, operation: "commanding" });
       try {
         const result = await window.setta.chat.setCodexReasoningEffort(
           workspaceId,
           selectedConversation.id,
           effort,
         );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...commandOperationPatch(current, result, activeRun),
           operation: null,
           selectedConversation: result.conversation,
@@ -697,7 +712,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         }));
         return result;
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
         throw error;
       }
     },
@@ -713,25 +728,27 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "refreshing" });
+      const operation = beginOperation("eventResync", { error: null, operation: "refreshing" });
       try {
         const list = await reloadConversations(workspaceId);
         const nextConversation = selectedConversation
           ? (list.conversations.find((item) => item.conversation.id === selectedConversation.id)
               ?.conversation ?? selectedConversation)
           : (list.conversations[0]?.conversation ?? null);
-        const patch = nextConversation
-          ? await loadConversationPage(workspaceId, nextConversation)
-          : emptyConversationPatch();
-        commitCurrentFromState(operationId, (current) => ({
-          ...patch,
+        const snapshot = nextConversation
+          ? await loadConversationPageSnapshot(workspaceId, nextConversation)
+          : null;
+        commitCurrentFromState(operation, (current) => ({
+          ...(snapshot
+            ? resyncPagePatch(current, snapshot.page, snapshot.activeRun)
+            : emptyConversationPatch()),
           ...conversationListLoadedPatch(current, workspaceId, list, true),
           operation: null,
           selectedConversation: nextConversation,
           status: "ready",
         }));
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
       }
     },
     selectConversation: async (conversationId: string, targetWorkspaceId?: string) => {
@@ -751,15 +768,19 @@ export const useChatStore = create<ChatStore>((set, get) => {
               workspaceId: request.workspaceId,
             }
           : request.loadingPatch;
-      const operationId = beginOperation(loadingPatch);
+      const operation = beginOperation(
+        "conversation",
+        loadingPatch,
+        conversationBoundOperationScopes,
+      );
       try {
         const { conversation, conversationListPatch } = await resolveConversationSelection(request);
         if (!conversation) {
-          commitCurrent(operationId, missingConversationPatch(request, conversationListPatch));
+          commitCurrent(operation, missingConversationPatch(request, conversationListPatch));
           return;
         }
         const patch = await loadConversationPage(request.workspaceId, conversation);
-        commitCurrent(operationId, {
+        commitCurrent(operation, {
           ...conversationListPatch,
           ...patch,
           operation: null,
@@ -768,7 +789,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           workspaceId: request.workspaceId,
         });
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
       }
     },
     selectedConversation: null,
@@ -777,21 +798,21 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "sending" });
+      const operation = beginOperation("messageMutation", { error: null, operation: "sending" });
       try {
         const result = await window.setta.chat.sendMessage(
           workspaceId,
           selectedConversation.id,
           prompt,
         );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.run, null),
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
         }));
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
       }
     },
     sendSteeringImmediately: async (prompt?: string) => {
@@ -799,21 +820,24 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "sendingSteeringImmediately" });
+      const operation = beginOperation("messageMutation", {
+        error: null,
+        operation: "sendingSteeringImmediately",
+      });
       try {
         const result = await window.setta.chat.sendSteeringImmediately(
           workspaceId,
           selectedConversation.id,
           prompt ?? "",
         );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.activeRun, null),
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
         }));
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
         throw error;
       }
     },
@@ -830,21 +854,21 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "steering" });
+      const operation = beginOperation("messageMutation", { error: null, operation: "steering" });
       try {
         const result = await window.setta.chat.steerMessage(
           workspaceId,
           selectedConversation.id,
           prompt,
         );
-        commitCurrentFromState(operationId, (current) => ({
+        commitCurrentFromState(operation, (current) => ({
           ...operationPagePatch(current, result.page, result.run, null),
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
         }));
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
       }
     },
     stopActiveRun: async () => {
@@ -852,16 +876,16 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "cancelling" });
+      const operation = beginOperation("runMutation", { error: null, operation: "cancelling" });
       try {
         const run = await window.setta.chat.cancelRun(workspaceId, selectedConversation.id);
-        commitCurrent(operationId, {
-          activeRun: activeRunFromCandidate(run),
+        commitCurrentFromState(operation, (current) => ({
+          ...runOperationPatch(current, run),
           operation: null,
           status: "ready",
-        });
+        }));
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
       }
     },
     submitApproval: async (approvalId, approved, response, answers, cancelled) => {
@@ -869,7 +893,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || !selectedConversation) {
         return;
       }
-      const operationId = beginOperation({ error: null, operation: "approving" });
+      const operation = beginOperation("approvalMutation", { error: null, operation: "approving" });
       try {
         const run = await window.setta.chat.submitApproval({
           approvalId,
@@ -880,13 +904,13 @@ export const useChatStore = create<ChatStore>((set, get) => {
           response,
           workspaceId,
         });
-        commitCurrent(operationId, {
-          activeRun: activeRunFromCandidate(run),
+        commitCurrentFromState(operation, (current) => ({
+          ...runOperationPatch(current, run),
           operation: null,
           status: "ready",
-        });
+        }));
       } catch (error) {
-        commitCurrent(operationId, errorPatch(error));
+        commitCurrent(operation, errorPatch(error));
       }
     },
     transcript: [],

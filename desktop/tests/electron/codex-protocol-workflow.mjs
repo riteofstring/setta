@@ -32,7 +32,11 @@ export async function assertProtocolNotificationActivity(
     "context_compaction",
     (item) => item.title === "Context compaction" && item.status === "completed",
   );
-  await assertRunActivityItem(page, "file_change", (item) => item.title === "File change output");
+  await assertRunActivityItem(
+    page,
+    "file_change",
+    (item) => item.patchStatus === "updated" && item.filePaths.includes("/tmp/workspace/main.go"),
+  );
   await assertRunActivityItem(page, "reasoning", (item) => item.hiddenText === "private reasoning");
   await assertRunActivityItem(
     page,
@@ -57,25 +61,6 @@ export async function assertProtocolNotificationActivity(
       item.toolName === "missing_tool" &&
       item.error.includes("unsupported dynamic tool"),
   );
-
-  const outputItem = page.items.find(
-    (item) => item.type === "file_change" && item.title === "File change output",
-  );
-  if (!outputItem) {
-    throw new Error(`file-change output item missing: ${JSON.stringify(page.items)}`);
-  }
-  const output = await backend.post("/chat/runs/item-output", {
-    afterOrdinal: 0,
-    limit: 20,
-    runId,
-    runItemId: outputItem.id,
-    workspaceId,
-  });
-  if (
-    !output.output.some((entry) => entry.stream === "patch" && entry.text.includes("diff --git"))
-  ) {
-    throw new Error(`file-change output missing patch stream: ${JSON.stringify(output)}`);
-  }
 
   const diagnostics = await backend.post("/chat/diagnostics/list", {
     conversationId,
@@ -382,9 +367,10 @@ function emitProtocolCoverageTurn() {
   notify("item/autoApprovalReview/completed", autoApprovalReviewPayload("approved"));
   notify("item/started", contextCompactionPayload("context_compaction_fake"));
   notify("item/completed", contextCompactionPayload("context_compaction_fake"));
-  notify("item/fileChange/outputDelta", {
-    delta: "diff --git a/main.go b/main.go\\n",
+  notify("item/fileChange/patchUpdated", {
+    changedPaths: ["/tmp/workspace/main.go"],
     itemId: "file_item_fake",
+    status: "updated",
     threadId,
     turnId,
   });

@@ -48,7 +48,6 @@
     "item/commandExecution/outputDelta",
     "item/commandExecution/terminalInteraction",
     "item/completed",
-    "item/fileChange/outputDelta",
     "item/fileChange/patchUpdated",
     "item/mcpToolCall/progress",
     "item/plan/delta",
@@ -92,6 +91,7 @@
     "windowsSandbox/setupCompleted"
   ],
   "unsupportedNotifications": [
+    "item/fileChange/outputDelta",
     "thread/compacted"
   ],
   "schemas": [

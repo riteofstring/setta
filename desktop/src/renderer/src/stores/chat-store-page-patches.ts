@@ -6,7 +6,11 @@ import {
   activeRunFromCandidate,
   activeRunFromCandidates,
   activeRunFromPage,
+  mergeOperationGoal,
+  mergeOperationQueue,
   mergeOperationMessages,
+  mergeOperationRunItemOutputs,
+  mergeOperationRunItems,
   mergeOperationTranscript,
   messagesFromPage,
   normalizeChatPatch,
@@ -46,6 +50,36 @@ export function operationPagePatch(
     terminalRunIds,
   );
   return terminalPreservingPagePatch(current, page, activeRun, terminalRunIds);
+}
+
+export function runOperationPatch(
+  current: ChatStore,
+  returnedRun: Run,
+  fallbackActiveRun: RunningRun | null = null,
+): ChatPatch {
+  const terminalRunIds = terminalRunIdsAfterOperation(current.transcript, returnedRun);
+  return {
+    activeRun: activeRunAfterOperation(
+      current.activeRun,
+      returnedRun,
+      fallbackActiveRun,
+      terminalRunIds,
+    ),
+  };
+}
+
+export function resyncPagePatch(
+  current: ChatStore,
+  page: MessagePage,
+  activeRun: Run | null,
+): ChatPatch {
+  const terminalRunIds = terminalRunIdsFromTranscript(current.transcript);
+  return terminalPreservingPagePatch(
+    current,
+    page,
+    activeRunFromCandidates(terminalRunIds, activeRun, activeRunFromPage(page)),
+    terminalRunIds,
+  );
 }
 
 export function commandOperationPatch(
@@ -94,6 +128,15 @@ function terminalPreservingPagePatch(
   const patch = pagePatch(
     {
       ...page,
+      goal: mergeOperationGoal(current.goal, page.goal),
+      runItemOutputs: mergeOperationRunItemOutputs(
+        current.runItems,
+        current.runItemOutputs,
+        page.runItemOutputs,
+        terminalRunIds,
+      ),
+      runItems: mergeOperationRunItems(current.runItems, page.runItems, terminalRunIds),
+      queue: mergeOperationQueue(page.queue, terminalRunIds),
       transcript: mergeOperationTranscript(current.transcript, page.transcript, terminalRunIds),
     },
     activeRun,

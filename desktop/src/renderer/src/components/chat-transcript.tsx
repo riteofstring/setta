@@ -27,7 +27,12 @@ import { Input } from "./ui/input";
 import { MarkdownText } from "./markdown-text";
 import { RunActivityRows } from "./chat-run-activity";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
-import { transcriptTurnSortOrdinal } from "./chat-transcript-ordering";
+import {
+  isVisibleMessage,
+  timelineRowForMessage,
+  transcriptTimelineRows,
+  type TranscriptTimelineRow,
+} from "./chat-transcript-timeline";
 import {
   canSaveQueuedEdit,
   isPendingSteeringMessage,
@@ -78,10 +83,6 @@ interface TranscriptIndexes {
   turns: TranscriptTurn[];
 }
 
-type TranscriptTimelineItem =
-  | { kind: "message"; message: ChatMessage; ordinal: number }
-  | { kind: "turn"; ordinal: number; turn: TranscriptTurn };
-
 function transcriptIndexes(props: {
   messageIds: string[];
   messagesById: Record<string, ChatMessage>;
@@ -100,49 +101,6 @@ function transcriptIndexes(props: {
     runItemsById: props.runItemsById,
     turns: props.transcript,
   };
-}
-
-function transcriptTimelineItems(indexes: TranscriptIndexes): TranscriptTimelineItem[] {
-  const turnMessageIds = new Set<string>();
-  const items: TranscriptTimelineItem[] = [];
-  for (const turn of indexes.turns) {
-    turnMessageIds.add(turn.triggerMessage.id);
-    if (turn.assistantMessage) {
-      turnMessageIds.add(turn.assistantMessage.id);
-    }
-    addSteeringTimelineItems(items, turn.steeringMessages);
-    items.push({ kind: "turn", ordinal: transcriptTurnSortOrdinal(turn), turn });
-  }
-  for (const messageId of indexes.messageIds) {
-    const message = indexes.messagesById[messageId];
-    if (
-      !message ||
-      message.runId !== "" ||
-      turnMessageIds.has(message.id) ||
-      !isVisibleMessage(message)
-    ) {
-      continue;
-    }
-    items.push({ kind: "message", message, ordinal: message.ordinal });
-  }
-  return items.toSorted((left, right) => {
-    if (left.ordinal === right.ordinal) {
-      return timelineItemID(left).localeCompare(timelineItemID(right));
-    }
-    return left.ordinal - right.ordinal;
-  });
-}
-
-function addSteeringTimelineItems(items: TranscriptTimelineItem[], messages: ChatMessage[]) {
-  for (const message of messages) {
-    if (isVisibleMessage(message)) {
-      items.push({ kind: "message", message, ordinal: message.ordinal });
-    }
-  }
-}
-
-function timelineItemID(item: TranscriptTimelineItem) {
-  return item.kind === "turn" ? item.turn.run.id : item.message.id;
 }
 
 const messageRowClassByRole = {
@@ -215,7 +173,13 @@ export function ChatTranscript({
 }: ChatTranscriptProps) {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const scrollTopRef = useRef(0);
+  const visibleStartIndexRef = useRef(0);
   const [pinned, setPinned] = useState(true);
+  const [pendingScrollAnchor, setPendingScrollAnchor] = useState<{
+    key: string;
+    previousFirstKey: string | null;
+    previousLength: number;
+  } | null>(null);
   const transcript = useMemo(
     () =>
       transcriptIndexes({
@@ -237,8 +201,7 @@ export function ChatTranscript({
       backendTranscript,
     ],
   );
-  const timeline = useMemo(() => transcriptTimelineItems(transcript), [transcript]);
-  const firstItemIndex = timeline[0]?.ordinal ?? 0;
+  const timeline = useMemo(() => transcriptTimelineRows(transcript), [transcript]);
   const search = useTranscriptSearch({
     messagesById,
     messageIds,
@@ -263,6 +226,27 @@ export function ChatTranscript({
     }
     virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
   }, [activeRun, pinned, timeline.length, transcript.runItemOutputsById, transcript.runItemsById]);
+
+  useEffect(() => {
+    if (!pendingScrollAnchor) {
+      return;
+    }
+    const currentFirstKey = timeline[0]?.key ?? null;
+    if (
+      currentFirstKey === pendingScrollAnchor.previousFirstKey &&
+      timeline.length <= pendingScrollAnchor.previousLength
+    ) {
+      return;
+    }
+    const index = timeline.findIndex((row) => row.key === pendingScrollAnchor.key);
+    setPendingScrollAnchor(null);
+    if (index === -1) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({ align: "start", index });
+    });
+  }, [pendingScrollAnchor, timeline, virtuosoRef]);
 
   function updatePinnedFromScroll(scrollTop: number, scrollHeight: number, clientHeight: number) {
     const distanceFromBottom = scrollHeight - clientHeight - scrollTop;
@@ -293,7 +277,14 @@ export function ChatTranscript({
   }
 
   async function loadOlderAndPreserveScroll() {
+    const anchorKey = timeline[visibleStartIndexRef.current]?.key ?? timeline[0]?.key ?? null;
+    const previousFirstKey = timeline[0]?.key ?? null;
+    const previousLength = timeline.length;
+    setPinned(false);
     await loadOlder();
+    if (anchorKey) {
+      setPendingScrollAnchor({ key: anchorKey, previousFirstKey, previousLength });
+    }
   }
 
   if (timeline.length === 0) {
@@ -323,7 +314,7 @@ export function ChatTranscript({
         }}
         data={timeline}
         data-testid="chat-transcript-scroller"
-        firstItemIndex={firstItemIndex}
+        computeItemKey={(_, item) => item.key}
         followOutput={pinned ? "auto" : false}
         increaseViewportBy={{ bottom: 800, top: 400 }}
         initialItemCount={Math.min(timeline.length, 30)}
@@ -358,6 +349,9 @@ export function ChatTranscript({
           );
         }}
         overscan={200}
+        rangeChanged={(range) => {
+          visibleStartIndexRef.current = range.startIndex;
+        }}
         ref={virtuosoRef}
       />
       <JumpToLatestButton pinned={pinned} setPinned={setPinned} virtuosoRef={virtuosoRef} />
@@ -494,7 +488,7 @@ function useTranscriptSearch({
   messageIds: string[];
   open: boolean;
   setOpen: (open: boolean) => void;
-  timeline: TranscriptTimelineItem[];
+  timeline: TranscriptTimelineRow[];
   virtuosoRef: { current: VirtuosoHandle | null };
 }): TranscriptSearchController {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -531,11 +525,11 @@ function useTranscriptSearch({
     if (!activeMessageId) {
       return;
     }
-    const item = timelineItemForMessage(timeline, activeMessageId);
-    if (!item) {
+    const row = timelineRowForMessage(timeline, activeMessageId);
+    if (!row) {
       return;
     }
-    virtuosoRef.current?.scrollToIndex({ align: "center", index: item.ordinal });
+    virtuosoRef.current?.scrollToIndex({ align: "center", index: row.index });
   }, [activeMessageId, timeline, virtuosoRef]);
 
   function move(direction: "next" | "previous") {
@@ -575,28 +569,6 @@ function transcriptSearchMatches(messages: Array<ChatMessage | undefined>, query
     .filter(isVisibleMessage)
     .filter((message) => chatMessageText(message).toLowerCase().includes(normalizedQuery))
     .map((message) => ({ messageId: message.id }));
-}
-
-function timelineItemForMessage(timeline: TranscriptTimelineItem[], messageId: string) {
-  return (
-    timeline.find((item) => {
-      if (item.kind === "message") {
-        return item.message.id === messageId;
-      }
-      return transcriptTurnHasMessage(item.turn, messageId);
-    }) ?? null
-  );
-}
-
-function transcriptTurnHasMessage(turn: TranscriptTurn, messageId: string) {
-  return (
-    (isVisibleMessage(turn.triggerMessage) && turn.triggerMessage.id === messageId) ||
-    turn.assistantMessage?.id === messageId
-  );
-}
-
-function isVisibleMessage(message: ChatMessage) {
-  return message.delivery !== "goal";
 }
 
 function ChatSearchBar({ search }: { search: TranscriptSearchController }) {
@@ -819,6 +791,7 @@ const MessageRow = memo(function MessageRow({
       data-message-delivery={message.delivery}
       data-message-id={message.id}
       data-message-role={message.role}
+      data-search-active={message.id === activeSearchMessageId ? "true" : "false"}
       data-testid={messageRowTestId(message)}
     >
       <div className={messageContainerClass(message)}>

@@ -38,7 +38,6 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	codexapp.CodexNotificationItemCommandExecutionOutputDelta:         codexNotificationScopeTurnState,
 	codexapp.CodexNotificationItemCommandExecutionTerminalInteraction: codexNotificationScopeTurnState,
 	codexapp.CodexNotificationItemCompleted:                           codexNotificationScopeTurnState,
-	codexapp.CodexNotificationItemFileChangeOutputDelta:               codexNotificationScopeTurnState,
 	codexapp.CodexNotificationItemFileChangePatchUpdated:              codexNotificationScopeTurnState,
 	codexapp.CodexNotificationItemMcpToolCallProgress:                 codexNotificationScopeTurnState,
 	codexapp.CodexNotificationItemPlanDelta:                           codexNotificationScopeTurnState,

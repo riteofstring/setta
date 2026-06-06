@@ -592,6 +592,25 @@ func TestCodexHarnessRejectsDeprecatedThreadCompactedNotification(t *testing.T) 
 	}
 }
 
+func TestCodexHarnessRejectsDeprecatedFileChangeOutputDeltaNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("deprecated-file-change-output-delta-notification"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want deprecated file change output delta notification error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex app-server notification: item/fileChange/outputDelta") {
+		t.Fatalf("error = %q, want unsupported file change output delta notification", err)
+	}
+	if containsRunItemType(sink.items, RunItemTypeFileChange) {
+		t.Fatalf("items = %+v, want no deprecated file change output item", sink.items)
+	}
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_notification_unsupported" {
+		t.Fatalf("diagnostics = %+v, want unsupported notification diagnostic", sink.diagnostics)
+	}
+}
+
 func TestCodexHarnessHandlesRemoteControlStatusAsGlobalNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("remote-control-status"))
 	sink := newRecordingSink()
@@ -1388,6 +1407,14 @@ func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
 		return true, true
 	case "deprecated-thread-compacted-notification":
 		writeFakeNotification("thread/compacted", map[string]any{
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
+		return true, true
+	case "deprecated-file-change-output-delta-notification":
+		writeFakeNotification("item/fileChange/outputDelta", map[string]any{
+			"delta":    "legacy patch output",
+			"itemId":   "item_file_change_legacy",
 			"threadId": "thread_fake",
 			"turnId":   "turn_fake",
 		})

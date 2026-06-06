@@ -298,14 +298,14 @@ function updateTranscriptMessage(transcript: TranscriptTurn[], message: ChatMess
     const assistantMessage =
       turn.assistantMessage?.id === message.id
         ? markUpdatedMessage(message)
-        : turn.assistantMessage;
+        : attachedAssistantMessage(turn);
     const steeringMessages = turn.steeringMessages.map((steeringMessage) =>
       steeringMessage.id === message.id ? markUpdatedMessage(message) : steeringMessage,
     );
     return {
       ...turn,
       assistantMessage,
-      steeringMessages,
+      steeringMessages: attachedSteeringMessages(turn, steeringMessages),
       triggerMessage,
     };
   });
@@ -314,6 +314,27 @@ function updateTranscriptMessage(transcript: TranscriptTurn[], message: ChatMess
   function markUpdatedMessage(nextMessage: ChatMessage) {
     updated = true;
     return nextMessage;
+  }
+
+  function attachedAssistantMessage(turn: TranscriptTurn) {
+    if (turn.assistantMessage || turn.run.id !== message.runId || message.role !== "assistant") {
+      return turn.assistantMessage;
+    }
+    return markUpdatedMessage(message);
+  }
+
+  function attachedSteeringMessages(
+    turn: TranscriptTurn,
+    steeringMessages: ChatMessage[],
+  ): ChatMessage[] {
+    if (
+      turn.run.id !== message.runId ||
+      message.delivery !== "steering" ||
+      steeringMessages.some((steeringMessage) => steeringMessage.id === message.id)
+    ) {
+      return steeringMessages;
+    }
+    return [...steeringMessages, markUpdatedMessage(message)].toSorted(compareMessages);
   }
 }
 
@@ -356,7 +377,14 @@ function updateTranscriptMessageText(
 function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
   const index = messages.findIndex((item) => item.id === message.id);
   const next = index === -1 ? [...messages, message] : messages.with(index, message);
-  return next.toSorted((left, right) => left.ordinal - right.ordinal);
+  return next.toSorted(compareMessages);
+}
+
+function compareMessages(left: ChatMessage, right: ChatMessage) {
+  if (left.ordinal === right.ordinal) {
+    return left.id.localeCompare(right.id);
+  }
+  return left.ordinal - right.ordinal;
 }
 
 function removeMessage(messages: ChatMessage[], messageId: string): ChatMessage[] {

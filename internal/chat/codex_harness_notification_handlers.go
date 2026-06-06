@@ -37,7 +37,6 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	codexapp.CodexNotificationItemCommandExecutionOutputDelta:         handleCodexOutputDelta,
 	codexapp.CodexNotificationItemCommandExecutionTerminalInteraction: handleCodexTerminalInteraction,
 	codexapp.CodexNotificationItemCompleted:                           handleCodexItemCompleted,
-	codexapp.CodexNotificationItemFileChangeOutputDelta:               handleCodexFileChangeOutputDelta,
 	codexapp.CodexNotificationItemFileChangePatchUpdated:              handleCodexPatchUpdated,
 	codexapp.CodexNotificationItemMcpToolCallProgress:                 handleCodexMCPProgress,
 	codexapp.CodexNotificationItemPlanDelta:                           handleCodexPlanDelta,

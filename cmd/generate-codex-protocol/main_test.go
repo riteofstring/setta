@@ -156,6 +156,29 @@ func TestSupportedProtocolRegistrationRejectsSupportedDeprecatedNotification(t *
 	}
 }
 
+func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
+	generator := testProtocolGenerator(t)
+	generator.serverRequests = []protocolMember{
+		{Method: "applyPatchApproval", ConstName: "ApplyPatchApproval", ParamsName: "LegacyRequest", Source: "json"},
+		{Method: "item/tool/call", ConstName: "ItemToolCall", ParamsName: "ToolCallRequest", Source: "json"},
+	}
+	generator.supportedServerRequests = []protocolMember{
+		{Method: "item/tool/call", ConstName: "ItemToolCall", ParamsName: "ToolCallRequest", Source: "json"},
+	}
+
+	output, err := generator.render()
+	if err != nil {
+		t.Fatalf("render protocol: %v", err)
+	}
+	text := string(output)
+	if !strings.Contains(text, `CodexServerRequestItemToolCall = "item/tool/call"`) {
+		t.Fatalf("output = %s, want supported item/tool/call request constant", text)
+	}
+	if strings.Contains(text, "CodexServerRequestApplyPatchApproval") {
+		t.Fatalf("output = %s, want no legacy applyPatchApproval server request constant", text)
+	}
+}
+
 func testProtocolGenerator(t *testing.T) *generator {
 	t.Helper()
 

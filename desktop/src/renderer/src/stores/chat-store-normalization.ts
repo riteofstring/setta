@@ -1,4 +1,5 @@
 import type {
+  ChatGoalState,
   ChatMessage,
   ConversationListItem,
   MessagePage,
@@ -7,6 +8,8 @@ import type {
   RunItemOutput,
   TranscriptTurn,
 } from "@generated/backend";
+
+import { compareTranscriptTurns } from "../lib/chat-transcript-ordering";
 
 export type RunningRun = Run & { status: "running" };
 export type QueuedRun = Run & { status: "queued" };
@@ -267,13 +270,39 @@ export function mergeOperationTranscript(
   terminalRunIds: Set<string>,
 ) {
   const currentByRunId = new Map(currentTranscript.map((turn) => [turn.run.id, turn]));
-  return pageTranscript.map((pageTurn) => {
-    const current = currentByRunId.get(pageTurn.run.id);
-    if (current && terminalRunIds.has(pageTurn.run.id)) {
-      return current;
-    }
-    return pageTurn;
-  });
+  const pageRunIds = new Set(pageTranscript.map((turn) => turn.run.id));
+  return [
+    ...pageTranscript.map((pageTurn) => {
+      const current = currentByRunId.get(pageTurn.run.id);
+      if (current && terminalRunIds.has(pageTurn.run.id)) {
+        return current;
+      }
+      return pageTurn;
+    }),
+    ...currentTranscript.filter(
+      (turn) => terminalRunIds.has(turn.run.id) && !pageRunIds.has(turn.run.id),
+    ),
+  ].toSorted(compareTranscriptTurns);
+}
+
+export function mergeOperationQueue(
+  queue: MessagePage["queue"],
+  terminalRunIds: Set<string>,
+): MessagePage["queue"] {
+  return {
+    messages: queue.messages.filter((message) => !terminalRunIds.has(message.runId)),
+    runs: queue.runs.filter((run) => !terminalRunIds.has(run.id)),
+  };
+}
+
+export function mergeOperationGoal(
+  currentGoal: ChatGoalState | null,
+  pageGoal: ChatGoalState | null,
+) {
+  if (!currentGoal || !pageGoal) {
+    return pageGoal;
+  }
+  return currentGoal.updatedAt >= pageGoal.updatedAt ? currentGoal : pageGoal;
 }
 
 export function mergeOperationMessages(
@@ -289,6 +318,46 @@ export function mergeOperationMessages(
     }
     return pageMessage;
   });
+}
+
+export function mergeOperationRunItems(
+  currentRunItems: RunItem[],
+  pageRunItems: RunItem[],
+  terminalRunIds: Set<string>,
+) {
+  const currentPreservedItemsById = new Map(
+    currentRunItems
+      .filter((item) => terminalRunIds.has(item.runId) || isTerminalRunItem(item))
+      .map((item) => [item.id, item]),
+  );
+  const pageItemIds = new Set(pageRunItems.map((item) => item.id));
+  return [
+    ...pageRunItems.map((item) => currentPreservedItemsById.get(item.id) ?? item),
+    ...[...currentPreservedItemsById.values()].filter((item) => !pageItemIds.has(item.id)),
+  ].toSorted(compareRunItems);
+}
+
+export function mergeOperationRunItemOutputs(
+  currentRunItems: RunItem[],
+  currentOutputs: RunItemOutput[],
+  pageOutputs: RunItemOutput[],
+  terminalRunIds: Set<string>,
+) {
+  const terminalRunItemIds = new Set(
+    currentRunItems
+      .filter((item) => terminalRunIds.has(item.runId) || isTerminalRunItem(item))
+      .map((item) => item.id),
+  );
+  const currentTerminalOutputsById = new Map(
+    currentOutputs
+      .filter((output) => terminalRunItemIds.has(output.runItemId))
+      .map((output) => [output.id, output]),
+  );
+  const pageOutputIds = new Set(pageOutputs.map((output) => output.id));
+  return [
+    ...pageOutputs.map((output) => currentTerminalOutputsById.get(output.id) ?? output),
+    ...[...currentTerminalOutputsById.values()].filter((output) => !pageOutputIds.has(output.id)),
+  ].toSorted(compareRunItemOutputs);
 }
 
 export function upsertRunItems(items: RunItem[], nextItems: RunItem[]): RunItem[] {
@@ -348,4 +417,8 @@ function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
 
 function isTerminalRun(run: Run) {
   return run.status === "completed" || run.status === "cancelled" || run.status === "failed";
+}
+
+function isTerminalRunItem(item: RunItem) {
+  return item.status === "completed" || item.status === "cancelled" || item.status === "failed";
 }
