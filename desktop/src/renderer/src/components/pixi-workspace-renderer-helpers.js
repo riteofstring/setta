@@ -183,6 +183,19 @@ export function drawTemporaryEdge(target, edgeDrawing) {
     .stroke({ alpha: 0.82, color: 0x67e8f9, width: 2.5 });
 }
 
+export function drawPortVisualState(target, port, state) {
+  target.clear();
+  const color = port.role === "source" ? 0x67e8f9 : 0xc4b5fd;
+  const alpha = state === "idle" ? 0.82 : 1;
+  const ringAlpha = state === "idle" ? 0.34 : 0.88;
+  const ringRadius = state === "active" || state === "target" ? 13 : 10;
+  target
+    .circle(0, 0, ringRadius)
+    .stroke({ alpha: ringAlpha, color, width: state === "idle" ? 1.5 : 2.5 })
+    .circle(0, 0, 6)
+    .fill({ alpha, color: 0xf8fafc });
+}
+
 export function drawWorkspaceGlow(target, nodes, now) {
   target.clear();
   const pulse = 0.35 + Math.sin(now / 450) * 0.15;
@@ -199,6 +212,18 @@ export function visibleDisplayObjectCount(displayObjects) {
     if (displayObject.visible) {
       count += 1;
     }
+  }
+  return count;
+}
+
+export function totalDisplayObjectCount(displayObject) {
+  let count = 1;
+  const children = displayObject.children;
+  if (!Array.isArray(children)) {
+    return count;
+  }
+  for (const child of children) {
+    count += totalDisplayObjectCount(child);
   }
   return count;
 }

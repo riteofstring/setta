@@ -1,9 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+
+import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
 
 export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const reactRenderCount = useRef(0);
   reactRenderCount.current += 1;
+  const syntheticGraph = window.setta.app.flags.pixiWorkspaceSyntheticGraph;
+  const graph = useMemo(
+    () => (syntheticGraph ? createSyntheticPixiWorkspaceGraph(syntheticGraph) : undefined),
+    [syntheticGraph],
+  );
 
   useEffect(() => {
     const host = hostRef.current;
@@ -18,6 +25,7 @@ export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean
       .then(async ({ createPixiWorkspaceRenderer }) => {
         const renderer = await createPixiWorkspaceRenderer({
           debugEnabled,
+          graph,
           host,
           reactRenderCount: () => reactRenderCount.current,
         });
@@ -38,7 +46,7 @@ export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean
         delete window.__settaPixiWorkspaceDebug;
       }
     };
-  }, [debugEnabled]);
+  }, [debugEnabled, graph]);
 
   return (
     <div

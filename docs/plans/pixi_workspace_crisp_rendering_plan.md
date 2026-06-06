@@ -1,7 +1,7 @@
 # Pixi Workspace Crisp Rendering Plan
 
 - **Date:** June 4, 2026
-- **Status:** Phase 1, 2, 3, 4, 5, 5.5, and 6 implemented; Phase 6.5 planned and implementation-ready; Phase 7 future and gated by Phase 6.5 evidence
+- **Status:** Phase 1, 2, 3, 4, 5, 5.5, 6, and 6.5 implemented; Phase 7 future and gated by Phase 6.5 evidence
 - **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
@@ -10,7 +10,7 @@ Make nodes and labels remain crisp during deep zoom while preserving fast pan, z
 
 The original issue was that the workspace zoomed the whole Pixi viewport while node labels were Pixi `Text` objects inside the zoomed world. Each label was rasterized to a texture and then magnified, which made text blur at high zoom and made naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
 
-Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 added compact selected-label sizing at low zoom. Phase 6 added a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet. Phase 6.5 validates larger synthetic graph sizes before Phase 7 introduces visible-object pooling or edge culling.
+Phase 1 moved labels into a screen-space Pixi layer. Phase 2 made that label path explicitly pool-shaped and observable. Phase 3 replaced normal Pixi `Text` labels with an MSDF bitmap-font pipeline. Phase 4 added label LOD, decluttering, and culling without changing graph state ownership. Phase 5 centralized node geometry construction and added geometry counters. Phase 5.5 added compact selected-label sizing at low zoom. Phase 6 added a node-bounds spatial index for broad-phase renderer queries without changing graph state ownership or virtualizing display objects yet. Phase 6.5 validated larger synthetic graph sizes before Phase 7 introduces visible-object pooling or edge culling.
 
 The recommended production direction is:
 
@@ -44,7 +44,7 @@ The current prototype:
 - Keeps selected labels visible in low-zoom `selected` mode with a compact font-size bucket so they do not visually dominate shrunken node bodies.
 - Uses a renderer-owned node-bounds spatial index for broad-phase node hit testing, port hit-test candidate narrowing, marquee selection, and label visibility viewport candidate discovery.
 - Updates dragged node bounds in the spatial index from the imperative drag path without polling or rebuilding.
-- Does not yet have representative large-graph scale validation proving that visible-object pooling or edge culling is the next bottleneck.
+- Has representative large-graph scale validation through 500, 1,000, 2,500, and 5,000 synthetic nodes at sparse and moderate edge densities.
 - Keeps interaction state in the imperative renderer path, not React state.
 - Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, label counter updates, MSDF bitmap label metadata, label LOD/culling behavior, compact selected-label sizing, node geometry counters, spatial index counters/candidates/drag updates, moved-node hit testing after drag, and unchanged React render count during label sync.
 
@@ -642,7 +642,7 @@ Expected result:
 
 ## Phase 6.5: Large-Graph Scale Validation
 
-Status: Planned; implementation-ready.
+Status: Implemented.
 
 Measure the Phase 6 renderer at representative graph sizes before deciding whether Phase 7's visible-object pooling and edge culling are worth their added lifecycle complexity.
 
@@ -746,12 +746,13 @@ Phase 5.5 visual smoke coverage and manual screenshot inspection are recorded in
 
 Phase 6 before/after metrics are recorded in `docs/reports/performance/pixi-workspace-visual-smoke.md` under "Spatial Index Broad-Phase Update".
 
-For Phase 6.5 specifically, create or update the synthetic scale-validation harness, then append results to `docs/reports/performance/pixi-workspace-scale-validation.md`. The report should include graph sizes, edge densities, artifact paths, frame timing metrics, spatial index counters, candidate counts, display-object counts, visible label counts, and a recommendation on whether Phase 7 should start with edge culling, visible node/port pooling, label pooling, or no virtualization work yet.
+Phase 6.5 synthetic scale-validation metrics are recorded in `docs/reports/performance/pixi-workspace-scale-validation.md`. The report includes graph sizes, edge densities, artifact paths, frame timing metrics, spatial index counters, candidate counts, display-object counts, visible label counts, and a recommendation that Phase 7 should start with visible node/port pooling.
 
 Suggested Phase 6.5 workflow:
 
 ```sh
 pnpm -C desktop build
+./scripts/test_pixi_workspace_scale_validation.sh --skip-build --keep-artifacts
 ./scripts/test_pixi_workspace_visual.sh --skip-build --keep-artifacts
 ```
 

@@ -249,6 +249,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       flags: {
         pixiWorkspaceDebug: false,
         pixiWorkspacePrototype: false,
+        pixiWorkspaceSyntheticGraph: null,
       },
       installedEditors: async () => [],
       openExternalUrl: async () => {},

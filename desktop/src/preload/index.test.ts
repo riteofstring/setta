@@ -12,6 +12,8 @@ describe("preload workspace API", () => {
     vi.stubEnv("SETTA_E2E", "");
     vi.stubEnv("SETTA_PIXI_WORKSPACE_DEBUG", "");
     vi.stubEnv("SETTA_PIXI_WORKSPACE_PROTOTYPE", "");
+    vi.stubEnv("SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE", "");
+    vi.stubEnv("SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT", "");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -44,6 +46,7 @@ describe("preload workspace API", () => {
     expect(api.app.flags).toEqual({
       pixiWorkspaceDebug: false,
       pixiWorkspacePrototype: false,
+      pixiWorkspaceSyntheticGraph: null,
     });
     await api.app.installedEditors();
     await api.app.openWorkspaceInEditor("vscode", "/tmp/api");

@@ -29,6 +29,7 @@ import {
   clamp,
   drawCurvedEdge,
   drawMarqueeSelection,
+  drawPortVisualState,
   drawTemporaryEdge,
   drawWorkspaceGlow,
   hostScreenSize,
@@ -49,6 +50,7 @@ import {
   screenPointFromWheel,
   setsEqual,
   stopNativeInteraction,
+  totalDisplayObjectCount,
   visibleDisplayObjectCount,
   zoomFactorFromWheel,
 } from "./pixi-workspace-renderer-helpers";
@@ -58,7 +60,12 @@ const maxZoom = 4;
 const minZoom = 0.25;
 const portHitRadiusScreen = 18;
 
-export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRenderCount }) {
+export async function createPixiWorkspaceRenderer({
+  debugEnabled,
+  graph = { edges: initialEdges, nodes: initialNodes },
+  host,
+  reactRenderCount,
+}) {
   const app = new Application();
   const screenSize = hostScreenSize(host);
   await app.init({
@@ -99,8 +106,8 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   const effectsLayer = new Container();
   viewport.addChild(backgroundLayer, edgeLayer, nodeLayer, interactionLayer, effectsLayer);
 
-  const nodes = initialNodes.map((node) => ({ ...node }));
-  const edges = initialEdges.map((edge) => ({ ...edge }));
+  const nodes = graph.nodes.map((node) => ({ ...node }));
+  const edges = graph.edges.map((edge) => ({ ...edge }));
   const spatialQueries = createPixiWorkspaceSpatialQueries({ nodes, viewport });
   const nodeContainers = new Map();
   const nodeBodies = new Map();
@@ -131,7 +138,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   let edgeRedrawCount = 0;
   let marqueeUpdateCount = 0;
   let edgeCommitCount = 0;
-  let nextEdgeSequence = initialEdges.length + 1;
+  let nextEdgeSequence = edges.length + 1;
   let pointerPanUpdateCount = 0;
   let selectionChangeCount = 0;
   let temporaryEdgeUpdateCount = 0;
@@ -432,6 +439,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             averageFrameMs: frameAverage,
             cameraUpdateCount,
             edgeCommitCount,
+            edgeGraphicsCount: 1,
             edgeRedrawCount,
             frameCount,
             gridDrawCount,
@@ -442,6 +450,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             marqueeUpdateCount,
             nodeBodyContextCount: nodeGeometryContexts.body,
             nodeBodyGraphicsCount: nodeBodies.size,
+            nodeContainerCount: nodeContainers.size,
             nodeDragUpdateCount,
             nodeOutlineContextCount: nodeGeometryContexts.outline,
             nodeOutlineGraphicsCount: countNodeOutlineGraphics(nodeOutlines),
@@ -449,11 +458,13 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             nodeShadowContextCount: nodeGeometryContexts.shadow,
             nodeShadowGraphicsCount: nodeShadows.size,
             pointerPanUpdateCount,
+            portGraphicsCount: portVisuals.size,
             reactRenderCount: reactRenderCount(),
             recentFrameMs: [...recentFrameMs],
             selectionChangeCount,
             ...spatialQueries.debugSnapshot(),
             temporaryEdgeUpdateCount,
+            totalPixiDisplayObjectCount: totalDisplayObjectCount(app.stage),
             visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
             wheelPanUpdateCount,
             wheelZoomUpdateCount,
@@ -955,17 +966,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       throw new Error(`workspace port visual is missing: ${key}`);
     }
     portVisualStates.set(key, state);
-    visual.clear();
-    const port = requirePort(portId);
-    const color = port.role === "source" ? 0x67e8f9 : 0xc4b5fd;
-    const alpha = state === "idle" ? 0.82 : 1;
-    const ringAlpha = state === "idle" ? 0.34 : 0.88;
-    const ringRadius = state === "active" || state === "target" ? 13 : 10;
-    visual
-      .circle(0, 0, ringRadius)
-      .stroke({ alpha: ringAlpha, color, width: state === "idle" ? 1.5 : 2.5 })
-      .circle(0, 0, 6)
-      .fill({ alpha, color: 0xf8fafc });
+    drawPortVisualState(visual, requirePort(portId), state);
   }
 
   function firstSelectedNodeId() {

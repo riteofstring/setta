@@ -76,6 +76,7 @@ interface PixiWorkspaceDebugSnapshot {
     averageFrameMs: number;
     cameraUpdateCount: number;
     edgeCommitCount: number;
+    edgeGraphicsCount: number;
     edgeRedrawCount: number;
     frameCount: number;
     compactSelectedLabelCount: number;
@@ -90,6 +91,7 @@ interface PixiWorkspaceDebugSnapshot {
     marqueeUpdateCount: number;
     nodeBodyContextCount: number;
     nodeBodyGraphicsCount: number;
+    nodeContainerCount: number;
     nodeDragUpdateCount: number;
     nodeOutlineContextCount: number;
     nodeOutlineGraphicsCount: number;
@@ -97,6 +99,7 @@ interface PixiWorkspaceDebugSnapshot {
     nodeShadowContextCount: number;
     nodeShadowGraphicsCount: number;
     pointerPanUpdateCount: number;
+    portGraphicsCount: number;
     reactRenderCount: number;
     recentFrameMs: number[];
     selectionChangeCount: number;
@@ -106,6 +109,7 @@ interface PixiWorkspaceDebugSnapshot {
     spatialIndexRebuildCount: number;
     spatialIndexUpdateCount: number;
     temporaryEdgeUpdateCount: number;
+    totalPixiDisplayObjectCount: number;
     visibleLabelCount: number;
     wheelPanUpdateCount: number;
     wheelZoomUpdateCount: number;

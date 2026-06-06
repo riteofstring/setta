@@ -90,6 +90,10 @@ export interface SettaAPI {
     flags: {
       pixiWorkspaceDebug: boolean;
       pixiWorkspacePrototype: boolean;
+      pixiWorkspaceSyntheticGraph: {
+        edgesPerNode: number;
+        nodeCount: number;
+      } | null;
     };
     installedEditors: () => Promise<InstalledEditorApp[]>;
     openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;
