@@ -15,7 +15,10 @@ export const DEFAULT_PANE_BUDGET: PaneRuntimeBudget = {
 };
 
 export interface PaneRuntimePolicyOptions {
+  degradeOverview?: boolean;
+  degradeOverviewDuringResize?: boolean;
   degradeDuringMovement?: boolean;
+  degradeDuringResize?: boolean;
 }
 
 type LiveCanvasSurfaceKind = "fake-canvas" | "pixi-canvas";
@@ -53,13 +56,19 @@ const surfaceRuntimeCategories = {
 
 export class PaneRuntimePolicy {
   private summary: PaneRuntimeSummary = emptySummary(DEFAULT_PANE_BUDGET);
+  private readonly degradeOverview: boolean;
+  private readonly degradeOverviewDuringResize: boolean;
   private readonly degradeDuringMovement: boolean;
+  private readonly degradeDuringResize: boolean;
 
   constructor(
     private readonly budget: PaneRuntimeBudget = DEFAULT_PANE_BUDGET,
     options: PaneRuntimePolicyOptions = {},
   ) {
+    this.degradeOverview = options.degradeOverview ?? true;
+    this.degradeOverviewDuringResize = options.degradeOverviewDuringResize ?? true;
     this.degradeDuringMovement = options.degradeDuringMovement ?? true;
+    this.degradeDuringResize = options.degradeDuringResize ?? true;
     this.summary = emptySummary(budget);
   }
 
@@ -147,14 +156,58 @@ export class PaneRuntimePolicy {
     if (!item.visible) {
       return "hidden";
     }
-    if (item.presentationMode === "overview") {
+    if (this.keepsLiveChatDuringResize(item)) {
+      return this.runtimeStateForUnfocusedVisibleKind(item.surfaceKind, "idle", counters);
+    }
+    if (this.degradesOverviewItem(item)) {
       return this.snapshotOrThrottle(counters);
     }
     if (item.focused) {
       return "live";
     }
+    if (item.resizing && this.degradeDuringResize) {
+      return this.runtimeStateForUnfocusedResizeKind(item.surfaceKind, counters);
+    }
 
     return this.runtimeStateForUnfocusedVisibleKind(item.surfaceKind, movementPhase, counters);
+  }
+
+  private keepsLiveChatDuringResize(item: PaneRenderItem): boolean {
+    return item.resizing && item.surfaceKind === "chat-dom";
+  }
+
+  private degradesOverviewItem(item: PaneRenderItem): boolean {
+    if (item.presentationMode !== "overview") {
+      return false;
+    }
+    return this.degradeOverview || (item.resizing && this.degradeOverviewDuringResize);
+  }
+
+  private runtimeStateForUnfocusedResizeKind(
+    kind: SurfaceKind,
+    counters: {
+      liveBrowserPanes: number;
+      liveHeavyDom: number;
+      liveTerminalRenderers: number;
+      liveWebGpuCanvases: number;
+      snapshot: number;
+    },
+  ): PaneRuntimeState {
+    const category = surfaceRuntimeCategories[kind];
+    switch (category) {
+      case "canvas":
+      case "heavy-dom":
+      case "heavy-dom-budgeted":
+      case "terminal":
+        return this.snapshotOrThrottle(counters);
+      case "always-live":
+      case "browser":
+      case "git-graph":
+      case "snapshot":
+        return this.runtimeStateForCategory(category, "idle", counters);
+      default:
+        assertNever(category);
+    }
   }
 
   private runtimeStateForUnfocusedVisibleKind(

@@ -110,6 +110,21 @@ describe("real niri workspace column sizing", () => {
     expect(narrowItems[0]?.width).toBe(520);
   });
 
+  test("resizes single-pane columns to the current viewport height", () => {
+    const engine = createRealEngine();
+    const tallItems = renderFrame(engine, { ...viewport, height: 900 }, 0, "workspace_pane_0");
+    const shortItems = renderFrame(engine, { ...viewport, height: 600 }, 0, "workspace_pane_0");
+
+    expect(tallItems[0]).toMatchObject({
+      height: 880,
+      y: 10,
+    });
+    expect(shortItems[0]).toMatchObject({
+      height: 580,
+      y: 10,
+    });
+  });
+
   test("still supports proportional column widths when a policy requests them", () => {
     const engine = createRealEngine();
 
@@ -262,6 +277,29 @@ describe("real niri workspace column sizing", () => {
     expect(
       (items.at(-1)?.x ?? 0) + (items.at(-1)?.width ?? 0) * (items.at(-1)?.scale ?? 1),
     ).toBeLessThanOrEqual(1190);
+  });
+
+  test("normal zoom source frames include offscreen columns", () => {
+    const engine = createRealEngine();
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 900 },
+      0,
+      "workspace_pane_0",
+      "normal",
+      0,
+      null,
+      true,
+    );
+    const rightmostItem = items.find((item) => item.paneId === "workspace_pane_5");
+
+    expect(items).toHaveLength(6);
+    expect(rightmostItem).toMatchObject({
+      presentationMode: "normal",
+      scale: 1,
+      visible: true,
+    });
+    expect(rightmostItem?.x).toBeGreaterThan(900);
   });
 
   test("overview keeps split-down panes vertically stacked inside their column", () => {
@@ -468,7 +506,82 @@ describe("real niri workspace column sizing", () => {
     expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
   });
 
-  test("renders an active maximized pane as a viewport-sized framed pane without resizing columns", () => {
+  test("keeps the focused end column inside the viewport as width narrows", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:resize-end-focus",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+
+    store.focusPaneBySurfaceKind("pixi-canvas");
+    store.ensureFocusedPaneVisible({ ...viewport, width: 1200 });
+    store.snapScrollToTarget();
+    store.ensureFocusedPaneVisible({ ...viewport, width: 900 });
+    store.snapScrollToTarget();
+
+    const snapshot = store.getSnapshot();
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 900 },
+      snapshot.scrollColumn,
+      snapshot.focusedPaneId,
+      "normal",
+      snapshot.scrollRow,
+    );
+    const focusedItem = items.find((item) => item.focused);
+
+    expect(snapshot.focusedPaneId).toBe("workspace_pane_5");
+    expect(focusedItem?.x).toBeGreaterThanOrEqual(10);
+    expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
+  });
+
+  test("keeps a focused split-down pane anchored during viewport height resize", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:resize-row-focus",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    const stackedPaneId = store.splitFocusedPane("down");
+
+    store.ensureFocusedPaneVisible({ ...viewport, height: 900, width: 1200 });
+    store.snapScrollToTarget();
+
+    const tallSnapshot = store.getSnapshot();
+    const tallItems = renderFrame(
+      engine,
+      { ...viewport, height: 900, width: 1200 },
+      tallSnapshot.scrollColumn,
+      tallSnapshot.focusedPaneId,
+      "normal",
+      tallSnapshot.scrollRow,
+    );
+    const tallFocusedItem = tallItems.find((item) => item.paneId === stackedPaneId);
+    expect(tallFocusedItem?.height).toBeCloseTo(335.384615);
+    expect(tallFocusedItem?.y).toBe(10);
+
+    store.ensureFocusedPaneVisible({ ...viewport, height: 600, width: 1200 });
+    store.snapScrollToTarget();
+
+    const shortSnapshot = store.getSnapshot();
+    const shortItems = renderFrame(
+      engine,
+      { ...viewport, height: 600, width: 1200 },
+      shortSnapshot.scrollColumn,
+      shortSnapshot.focusedPaneId,
+      "normal",
+      shortSnapshot.scrollRow,
+    );
+    const focusedItem = shortItems.find((item) => item.paneId === stackedPaneId);
+    const firstRowItem = shortItems.find((item) => item.paneId === "workspace_pane_0");
+
+    expect(focusedItem?.height).toBeCloseTo(220);
+    expect(focusedItem?.y).toBe(10);
+    expect(firstRowItem?.y).toBeLessThan(0);
+  });
+
+  test("renders a maximized pane as a viewport-sized pane in normal layout flow", () => {
     const engine = createRealEngine();
     const items = renderFrame(
       engine,
@@ -487,7 +600,7 @@ describe("real niri workspace column sizing", () => {
       width: 1180,
       x: 10,
       y: 10,
-      z: 20,
+      z: 2,
     });
     expect(engine.toScene().columns.map((column) => column.widthSpec)).toEqual([
       { unit: "px", value: 520 },
@@ -499,7 +612,7 @@ describe("real niri workspace column sizing", () => {
     ]);
   });
 
-  test("does not inherit viewport scaling when focus moves away from a maximized pane", () => {
+  test("pans naturally to the next pane while the maximized pane stays in layout flow", () => {
     const engine = createRealEngine();
     const items = renderFrame(
       engine,
@@ -520,7 +633,14 @@ describe("real niri workspace column sizing", () => {
       x: 10,
       y: 10,
     });
-    expect(previouslyMaximizedItem?.maximized).toBe(false);
+    expect(previouslyMaximizedItem).toMatchObject({
+      height: viewport.height - 20,
+      maximized: true,
+      width: 1180,
+      x: -1178,
+      y: 10,
+      z: 1,
+    });
   });
 });
 
@@ -532,6 +652,7 @@ function renderFrame(
   presentationMode: "normal" | "overview" = "normal",
   scrollRow = 0,
   maximizedPaneId: string | null = null,
+  renderAllColumns = false,
 ): PaneRenderItem[] {
   const items: PaneRenderItem[] = [];
   engine.renderFrame(
@@ -540,6 +661,7 @@ function renderFrame(
       maximizedPaneId,
       movementPhase: "moving",
       presentationMode,
+      renderAllColumns,
       scrollColumn,
       scrollRow,
       viewport: frameViewport,

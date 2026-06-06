@@ -404,8 +404,7 @@ export class PresentationEngine {
       return;
     }
     binding.host.dataset.visible = String(item.visible);
-    binding.host.style.pointerEvents =
-      item.visible && item.presentationMode !== "overview" ? "auto" : "none";
+    binding.host.style.pointerEvents = item.visible ? "auto" : "none";
     binding.lastVisible = item.visible;
   }
 

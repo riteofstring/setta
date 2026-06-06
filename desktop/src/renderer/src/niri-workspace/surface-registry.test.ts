@@ -95,6 +95,25 @@ describe("niri surface registry", () => {
     expect(recordingAdapter.events).toContain("viewport:resize:260x210");
   });
 
+  test("keeps real chat viewport current during active resize", () => {
+    const pane = fakePane("chat-dom");
+    const recordingAdapter = new RecordingSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => recordingAdapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    const activeStats = registry.syncHost(host, renderItem(pane, "live", 220, 180), {
+      resizePhase: "active",
+    });
+
+    expect(activeStats).toMatchObject({
+      deferredHeavyViewportWrites: 0,
+      heavyViewportWrites: 0,
+      surfaceViewportWrites: 1,
+    });
+    expect(recordingAdapter.events).toContain("viewport:frame:220x180");
+  });
+
   test("hides browser native viewport during active resize and commits final bounds", () => {
     const pane = fakePane("browser");
     const recordingAdapter = new RecordingSurfaceAdapter(pane);
@@ -136,6 +155,26 @@ describe("niri surface registry", () => {
     expect(recordingAdapter.events).not.toContain("viewport:frame:230x190");
     expect(recordingAdapter.events).not.toContain("viewport:frame:240x200");
     expect(recordingAdapter.events).toContain("viewport:resize:260x210");
+  });
+
+  test("does not rewrite unchanged browser viewport bounds on idle frames", () => {
+    const pane = fakePane("browser");
+    const recordingAdapter = new RecordingSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => recordingAdapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    const unchangedStats = registry.syncHost(host, renderItem(pane, "live"), {
+      resizePhase: "idle",
+    });
+
+    expect(unchangedStats).toMatchObject({
+      browserViewportWrites: 0,
+      surfaceViewportWrites: 0,
+    });
+    expect(recordingAdapter.events.filter((event) => event.startsWith("viewport:"))).toEqual([
+      "viewport:mount:160x120",
+    ]);
   });
 
   test("rehomes a live adapter without hiding the newly mounted host", () => {

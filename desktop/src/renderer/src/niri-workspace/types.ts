@@ -98,6 +98,7 @@ export interface LayoutFrameInput {
   maximizedPaneId: PaneId | null;
   movementPhase: "idle" | "moving";
   presentationMode: NiriPresentationMode;
+  renderAllColumns?: boolean;
   scrollColumn: number;
   scrollRow: number;
   viewport: Rect;
@@ -202,15 +203,16 @@ export interface LayoutEngine {
   closePane(paneId: PaneId): void;
   configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId;
   lockColumnWidth(columnId: ColumnId, viewportWidth: number): void;
-  moveFocus(direction: "up" | "down" | "left" | "right"): void;
   movePane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): void;
   openPane(request: OpenPaneRequest): PaneId;
   paneInVisualDirection(
     paneId: PaneId,
     direction: "up" | "down" | "left" | "right",
     viewport: Rect,
+    maximizedPaneId?: PaneId | null,
   ): PaneId | null;
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void;
+  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightWeight: number): void;

@@ -307,6 +307,103 @@ describe("niri layout store", () => {
     });
   });
 
+  test("animates overview progress toward the selected presentation mode", () => {
+    const store = createStore();
+
+    expect(store.getSnapshot()).toMatchObject({
+      overviewProgress: 0,
+      presentationMode: "normal",
+    });
+
+    store.toggleOverviewMode();
+
+    expect(store.getSnapshot()).toMatchObject({
+      overviewProgress: 0,
+      presentationMode: "overview",
+    });
+    expect(store.advanceFrame(70)).toBe("moving");
+    expect(store.getSnapshot().overviewProgress).toBeGreaterThan(0);
+    expect(store.getSnapshot().overviewProgress).toBeLessThan(1);
+
+    store.advanceFrame(1000);
+
+    expect(store.getSnapshot()).toMatchObject({
+      overviewProgress: 1,
+      presentationMode: "overview",
+    });
+
+    store.toggleOverviewMode();
+    expect(store.advanceFrame(70)).toBe("moving");
+    expect(store.getSnapshot().overviewProgress).toBeGreaterThan(0);
+    expect(store.getSnapshot().overviewProgress).toBeLessThan(1);
+  });
+
+  test("constructs at the initial focused pane without a startup scroll animation", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {},
+    });
+    const { scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:store-initial-snap",
+      workspaceName: "Repo",
+    });
+    const store = new NiriLayoutStore(new NiriLikeLayoutEngine(scene), scene, "workspace_pane_4");
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 4,
+      focusedPaneId: "workspace_pane_4",
+      scrollColumn: 4,
+      targetScrollColumn: 4,
+    });
+  });
+
+  test("focuses explicit pane ids for overview selection", () => {
+    const store = createStore();
+
+    store.toggleOverviewMode();
+
+    expect(store.focusPane("workspace_pane_2")).toBe(true);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 2,
+      focusedPaneId: "workspace_pane_2",
+      presentationMode: "overview",
+    });
+    expect(store.focusPane("missing")).toBe(false);
+  });
+
+  test("reorders columns by dragging a pane before an overview target", () => {
+    const store = createStore();
+
+    expect(store.reorderPaneBefore("workspace_pane_4", "workspace_pane_1")).toBe(true);
+
+    expect(store.toScene().columns.map((column) => column.paneIds[0])).toEqual([
+      "workspace_pane_0",
+      "workspace_pane_4",
+      "workspace_pane_1",
+      "workspace_pane_2",
+      "workspace_pane_3",
+      "workspace_pane_5",
+    ]);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: "workspace_pane_4",
+    });
+  });
+
+  test("reorders panes inside the same stacked column", () => {
+    const store = createStore();
+    const lowerPaneId = store.splitFocusedPane("down");
+
+    expect(store.reorderPaneBefore(lowerPaneId, "workspace_pane_0")).toBe(true);
+
+    expect(store.toScene().columns[0]?.paneIds).toEqual([lowerPaneId, "workspace_pane_0"]);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 0,
+      focusedPaneId: lowerPaneId,
+      focusedRowIndex: 0,
+    });
+  });
+
   test("focuses an existing surface by kind for sidebar entry points", () => {
     const store = createStore();
 

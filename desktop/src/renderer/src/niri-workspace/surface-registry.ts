@@ -450,7 +450,7 @@ export class SurfaceRegistry {
       return;
     }
     hostRecord.nativeBrowserHiddenForResize = false;
-    if (!viewportSyncRequired(adapter.kind, reason, hostRecord.viewport, rect)) {
+    if (!viewportSyncRequired(reason, hostRecord.viewport, rect)) {
       return;
     }
     if (viewportSyncDeferred(adapter.kind, reason, options.resizePhase)) {
@@ -614,7 +614,6 @@ function recordViewportWrite(kind: SurfaceKind, stats: SurfaceViewportSyncStats)
 
 function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
   return (
-    kind === "chat-dom" ||
     kind === "fake-canvas" ||
     kind === "fake-heavy-dom" ||
     kind === "fake-long-chat" ||
@@ -655,22 +654,13 @@ function activeBrowserResizeRequired(
 }
 
 function viewportSyncRequired(
-  kind: SurfaceKind,
   reason: SurfaceViewportSyncReason,
   previousRect: Rect | null,
   nextRect: Rect,
 ): boolean {
   return (
-    browserViewportHeartbeatRequired(kind) ||
-    reason === "mount" ||
-    reason === "resize" ||
-    !previousRect ||
-    !sameRect(previousRect, nextRect)
+    reason === "mount" || reason === "resize" || !previousRect || !sameRect(previousRect, nextRect)
   );
-}
-
-function browserViewportHeartbeatRequired(kind: SurfaceKind): boolean {
-  return kind === "browser";
 }
 
 function isCanvasSurfaceKind(kind: SurfaceKind): boolean {

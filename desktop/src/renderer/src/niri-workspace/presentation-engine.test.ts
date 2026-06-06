@@ -228,7 +228,7 @@ describe("niri presentation engine", () => {
     expect(secondHost.style.transform).toBe("translate3d(16.00px, 0.00px, 0) scale(1.000)");
   });
 
-  test("disables host pointer events while a pane is shown as an overview texture", () => {
+  test("keeps host pointer events active for visible overview panes", () => {
     const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001", 0);
     const registry = new RecordingSurfaceRegistry();
@@ -256,7 +256,7 @@ describe("niri presentation engine", () => {
     );
 
     expect(host.dataset.presentationMode).toBe("overview");
-    expect(host.style.pointerEvents).toBe("none");
+    expect(host.style.pointerEvents).toBe("auto");
   });
 
   test("adds pane maximize chrome and marks active maximized panes", () => {

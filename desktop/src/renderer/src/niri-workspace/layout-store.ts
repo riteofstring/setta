@@ -16,6 +16,7 @@ export interface NiriLayoutSnapshot {
   focusedPaneId: PaneId;
   focusedRowIndex: number;
   maximizedPaneId: PaneId | null;
+  overviewProgress: number;
   presentationMode: NiriPresentationMode;
   scrollColumn: number;
   scrollRow: number;
@@ -46,7 +47,9 @@ export class NiriLayoutStore {
   private snapshot: NiriLayoutSnapshot | null = null;
   private scrollColumn = 0;
   private scrollRow = 0;
+  private overviewProgress = 0;
   private presentationMode: NiriPresentationMode = "normal";
+  private targetOverviewProgress = 0;
   private targetScrollColumn = 0;
   private targetScrollRow = 0;
   private lastViewport: Rect = { height: defaultViewportHeight, width: 1200, x: 0, y: 0 };
@@ -59,26 +62,37 @@ export class NiriLayoutStore {
   ) {
     if (initialFocusedPaneId) {
       this.setFocusedPane(initialFocusedPaneId);
+      this.snapScrollToTarget();
     }
   }
 
   advanceFrame(deltaMs: number): "idle" | "moving" {
     const columnDistance = this.targetScrollColumn - this.scrollColumn;
     const rowDistance = this.targetScrollRow - this.scrollRow;
-    if (Math.abs(columnDistance) <= 0.001 && Math.abs(rowDistance) <= 0.001) {
+    const zoomDistance = this.targetOverviewProgress - this.overviewProgress;
+    if (
+      Math.abs(columnDistance) <= 0.001 &&
+      Math.abs(rowDistance) <= 0.001 &&
+      Math.abs(zoomDistance) <= 0.001
+    ) {
       this.scrollColumn = this.targetScrollColumn;
       this.scrollRow = this.targetScrollRow;
+      this.overviewProgress = this.targetOverviewProgress;
       this.snapshot = null;
       return "idle";
     }
     const blend = Math.min(1, deltaMs / scrollAnimationTimeConstantMs);
     this.scrollColumn += columnDistance * blend;
     this.scrollRow += rowDistance * blend;
+    this.overviewProgress += zoomDistance * blend;
     if (Math.abs(this.targetScrollColumn - this.scrollColumn) <= 0.001) {
       this.scrollColumn = this.targetScrollColumn;
     }
     if (Math.abs(this.targetScrollRow - this.scrollRow) <= 0.001) {
       this.scrollRow = this.targetScrollRow;
+    }
+    if (Math.abs(this.targetOverviewProgress - this.overviewProgress) <= 0.001) {
+      this.overviewProgress = this.targetOverviewProgress;
     }
     this.snapshot = null;
     return "moving";
@@ -99,6 +113,7 @@ export class NiriLayoutStore {
         focusedPaneId: this.focusedPaneId(),
         focusedRowIndex: this.focusedRowIndex,
         maximizedPaneId: this.maximizedPaneId,
+        overviewProgress: this.overviewProgress,
         presentationMode: this.presentationMode,
         scrollColumn: this.scrollColumn,
         scrollRow: this.scrollRow,
@@ -115,6 +130,7 @@ export class NiriLayoutStore {
       focusedPaneId: this.focusedPaneId(),
       focusedRowIndex: this.focusedRowIndex,
       maximizedPaneId: this.maximizedPaneId,
+      overviewProgress: this.overviewProgress,
       presentationMode: this.presentationMode,
       scrollColumn: this.scrollColumn,
       scrollRow: this.scrollRow,
@@ -130,14 +146,12 @@ export class NiriLayoutStore {
     const visualTargetPaneId = this.visualTargetPaneId(direction, viewport);
     if (visualTargetPaneId) {
       this.setFocusedPane(visualTargetPaneId);
-      this.engine.moveFocus(direction);
       this.notify();
       return;
     }
     if (!this.moveFallbackFocus(direction)) {
       return;
     }
-    this.engine.moveFocus(direction);
     this.notify();
   }
 
@@ -148,7 +162,12 @@ export class NiriLayoutStore {
     const navigationViewport =
       viewport ?? (isHorizontalFocusDirection(direction) ? this.lastViewport : undefined);
     return navigationViewport
-      ? this.engine.paneInVisualDirection(this.focusedPaneId(), direction, navigationViewport)
+      ? this.engine.paneInVisualDirection(
+          this.focusedPaneId(),
+          direction,
+          navigationViewport,
+          this.maximizedPaneId,
+        )
       : null;
   }
 
@@ -281,11 +300,27 @@ export class NiriLayoutStore {
       this.focusedColumnIndex,
       this.targetScrollColumn,
       viewport.width,
+      this.maximizedPaneId,
     );
     if (Math.abs(nextScrollColumn - this.targetScrollColumn) <= 0.001) {
       return;
     }
     this.targetScrollColumn = nextScrollColumn;
+    this.snapshot = null;
+  }
+
+  ensureFocusedPaneVisible(viewport: Rect): void {
+    this.ensureFocusedColumnVisible(viewport);
+    this.ensureFocusedRowVisible(viewport);
+  }
+
+  ensureFocusedRowVisible(viewport: Rect): void {
+    this.lastViewport = viewport;
+    const nextScrollRow = this.targetScrollForFocusedRow();
+    if (Math.abs(nextScrollRow - this.targetScrollRow) <= 0.001) {
+      return;
+    }
+    this.targetScrollRow = nextScrollRow;
     this.snapshot = null;
   }
 
@@ -311,6 +346,15 @@ export class NiriLayoutStore {
     return pane.paneId;
   }
 
+  focusPane(paneId: PaneId): boolean {
+    if (!this.engine.paneLocation(paneId)) {
+      return false;
+    }
+    this.setFocusedPane(paneId);
+    this.notify();
+    return true;
+  }
+
   lockFocusedColumn(viewport: Rect): void {
     this.engine.lockColumnWidth(this.focusedColumnId(), viewport.width);
     this.notify();
@@ -334,6 +378,15 @@ export class NiriLayoutStore {
     this.engine.resizeColumn(columnId, width);
     this.notify();
     return columnId;
+  }
+
+  reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
+    if (!this.engine.reorderPaneBefore(sourcePaneId, targetPaneId)) {
+      return false;
+    }
+    this.setFocusedPane(sourcePaneId);
+    this.notify();
+    return true;
   }
 
   scrollToColumn(columnIndex: number): void {
@@ -371,6 +424,7 @@ export class NiriLayoutStore {
 
   toggleOverviewMode(): void {
     this.presentationMode = this.presentationMode === "overview" ? "normal" : "overview";
+    this.targetOverviewProgress = this.presentationMode === "overview" ? 1 : 0;
     this.notify();
   }
 
@@ -419,7 +473,11 @@ export class NiriLayoutStore {
   }
 
   private targetScrollForFocusedRow(): number {
-    return this.engine.verticalScrollOffsetForPane(this.focusedPaneId(), this.lastViewport.height);
+    return this.engine.verticalScrollOffsetForPane(
+      this.focusedPaneId(),
+      this.lastViewport.height,
+      this.maximizedPaneId,
+    );
   }
 
   private unlockFocusedColumn(viewport: Rect): void {

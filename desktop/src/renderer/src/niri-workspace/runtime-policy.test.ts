@@ -204,6 +204,106 @@ describe("niri pane runtime policy", () => {
     ]);
     expect(summary.snapshot).toBe(4);
   });
+
+  test("keeps workspace overview panes live when overview degradation is disabled", () => {
+    const workspaceBudget = {
+      ...budget,
+      maxLiveHeavyDomPanes: 4,
+      maxLiveTerminalRenderers: 4,
+      maxLiveWebGpuCanvases: 4,
+    };
+    const items = [
+      { ...renderItem("focused-browser", "browser", true), presentationMode: "overview" },
+      { ...renderItem("overview-terminal", "terminal", false), presentationMode: "overview" },
+      { ...renderItem("overview-settings", "settings-dom", false), presentationMode: "overview" },
+      { ...renderItem("overview-light", "fake-dom", false), presentationMode: "overview" },
+    ] satisfies PaneRenderItem[];
+
+    const summary = new PaneRuntimePolicy(workspaceBudget, {
+      degradeDuringMovement: false,
+      degradeOverview: false,
+    }).apply(items, "idle");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["focused-browser", "live"],
+      ["overview-terminal", "live"],
+      ["overview-settings", "live"],
+      ["overview-light", "live"],
+    ]);
+    expect(summary.live).toBe(4);
+    expect(summary.snapshot).toBe(0);
+  });
+
+  test("uses snapshots for workspace overview panes only during active resize", () => {
+    const workspaceBudget = {
+      ...budget,
+      maxLiveHeavyDomPanes: 4,
+      maxLiveTerminalRenderers: 4,
+      maxLiveWebGpuCanvases: 4,
+    };
+    const idleItems = [
+      { ...renderItem("focused-browser", "browser", true), presentationMode: "overview" },
+      { ...renderItem("overview-chat", "chat-dom", false), presentationMode: "overview" },
+      { ...renderItem("overview-terminal", "terminal", false), presentationMode: "overview" },
+      { ...renderItem("overview-settings", "settings-dom", false), presentationMode: "overview" },
+    ] satisfies PaneRenderItem[];
+    const resizingItems = idleItems.map((item) => ({ ...item, resizing: true }));
+    const policy = new PaneRuntimePolicy(workspaceBudget, {
+      degradeDuringMovement: false,
+      degradeOverview: false,
+    });
+
+    policy.apply(idleItems, "idle");
+    expect(idleItems.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["focused-browser", "live"],
+      ["overview-chat", "live"],
+      ["overview-terminal", "live"],
+      ["overview-settings", "live"],
+    ]);
+
+    policy.apply(resizingItems, "moving");
+    expect(resizingItems.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["focused-browser", "snapshot"],
+      ["overview-chat", "live"],
+      ["overview-terminal", "snapshot"],
+      ["overview-settings", "snapshot"],
+    ]);
+  });
+
+  test("degrades expensive unfocused panes but keeps real chat live during active resize", () => {
+    const workspaceBudget = {
+      ...budget,
+      maxLiveHeavyDomPanes: 4,
+      maxLiveTerminalRenderers: 4,
+      maxLiveWebGpuCanvases: 4,
+    };
+    const items = [
+      { ...renderItem("focused-canvas", "fake-canvas", true), resizing: true },
+      { ...renderItem("resizing-chat", "chat-dom", false), resizing: true },
+      { ...renderItem("resizing-heavy", "fake-heavy-dom", false), resizing: true },
+      { ...renderItem("resizing-canvas", "pixi-canvas", false), resizing: true },
+      { ...renderItem("resizing-terminal", "terminal", false), resizing: true },
+      { ...renderItem("resizing-browser", "browser", false), resizing: true },
+      { ...renderItem("resizing-settings", "settings-dom", false), resizing: true },
+      { ...renderItem("resizing-graph", "git-graph", false), resizing: true },
+    ] satisfies PaneRenderItem[];
+
+    const summary = new PaneRuntimePolicy(workspaceBudget, {
+      degradeDuringMovement: false,
+    }).apply(items, "moving");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["focused-canvas", "live"],
+      ["resizing-chat", "live"],
+      ["resizing-heavy", "snapshot"],
+      ["resizing-canvas", "snapshot"],
+      ["resizing-terminal", "snapshot"],
+      ["resizing-browser", "live"],
+      ["resizing-settings", "live"],
+      ["resizing-graph", "live"],
+    ]);
+    expect(summary.snapshot).toBe(3);
+  });
 });
 
 function renderItem(paneId: string, surfaceKind: SurfaceKind, focused: boolean): PaneRenderItem {

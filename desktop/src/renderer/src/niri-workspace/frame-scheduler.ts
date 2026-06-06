@@ -2,6 +2,7 @@ import { AnimationClock } from "./animation-clock";
 import type { NiriLikeLayoutEngine } from "./layout-engine";
 import type { NiriLayoutStore } from "./layout-store";
 import type { NiriMetricsCollector } from "./metrics";
+import { interpolatePaneRenderItems } from "./pane-render-interpolation";
 import type { PerformanceReportWriter } from "./performance-report";
 import type { PaneRenderItem, Rect } from "./types";
 import type { PresentationEngine } from "./presentation-engine";
@@ -105,28 +106,54 @@ export class FrameScheduler {
     viewport: Rect,
     resizePhase: "active" | "idle" | "settled",
   ): "active" | "idle" | "settled" {
-    this.layoutStore.ensureFocusedColumnVisible(viewport);
+    this.layoutStore.ensureFocusedPaneVisible(viewport);
+    if (resizePhase === "active") {
+      this.layoutStore.snapScrollToTarget();
+    }
     const movementPhase =
       resizePhase === "active" ? "moving" : this.layoutStore.advanceFrame(deltaMs);
     const snapshot = this.layoutStore.getSnapshot();
+    const targetOverviewProgress = snapshot.presentationMode === "overview" ? 1 : 0;
+    const zooming = Math.abs(snapshot.overviewProgress - targetOverviewProgress) > 0.001;
+    const renderMovementPhase = zooming ? "moving" : movementPhase;
     this.items.length = 0;
-    this.metrics.beginFrame({ moving: movementPhase === "moving", resizePhase });
-    this.engine.renderFrame(
-      {
-        focusedPaneId: snapshot.focusedPaneId,
-        maximizedPaneId: snapshot.maximizedPaneId,
-        movementPhase,
-        presentationMode: snapshot.presentationMode,
-        scrollColumn: snapshot.scrollColumn,
-        scrollRow: snapshot.scrollRow,
-        viewport,
-      },
-      (item) => this.items.push(item),
-    );
+    this.metrics.beginFrame({ moving: renderMovementPhase === "moving", resizePhase });
+    const frameInput = {
+      focusedPaneId: snapshot.focusedPaneId,
+      maximizedPaneId: snapshot.maximizedPaneId,
+      movementPhase: renderMovementPhase,
+      scrollColumn: snapshot.scrollColumn,
+      scrollRow: snapshot.scrollRow,
+      viewport,
+    } as const;
+    if (zooming) {
+      const normalItems: PaneRenderItem[] = [];
+      const overviewItems: PaneRenderItem[] = [];
+      this.engine.renderFrame(
+        { ...frameInput, presentationMode: "normal", renderAllColumns: true },
+        (item) => normalItems.push(item),
+      );
+      this.engine.renderFrame({ ...frameInput, presentationMode: "overview" }, (item) =>
+        overviewItems.push(item),
+      );
+      this.items.push(
+        ...interpolatePaneRenderItems({
+          normalItems,
+          overviewItems,
+          overviewProgress: snapshot.overviewProgress,
+          presentationMode: snapshot.presentationMode,
+        }),
+      );
+    } else {
+      this.engine.renderFrame(
+        { ...frameInput, presentationMode: snapshot.presentationMode },
+        (item) => this.items.push(item),
+      );
+    }
     for (const item of this.items) {
       item.resizing = resizePhase === "active";
     }
-    this.runtimePolicy.apply(this.items, resizePhase === "active" ? "moving" : movementPhase);
+    this.runtimePolicy.apply(this.items, resizePhase === "active" ? "moving" : renderMovementPhase);
     if (resizePhase === "settled") {
       this.metrics.recordResizeFinalViewport(viewport);
     }
