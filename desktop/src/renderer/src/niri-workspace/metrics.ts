@@ -1,4 +1,9 @@
-import type { CanvasSurfaceStats, NiriFrameMetrics } from "./types";
+import type {
+  CanvasSurfaceStats,
+  GitGraphSurfaceStats,
+  NiriFrameMetrics,
+  TerminalSurfaceStats,
+} from "./types";
 
 const maxRecordedFrames = 720;
 const targetFrameMs = 8.33;
@@ -9,7 +14,9 @@ export class NiriMetricsCollector {
   private frameTimes: number[] = [];
   private latestFrameTime = 0;
   private latestCanvasStats: CanvasSurfaceStats = emptyCanvasStats();
+  private latestGitGraphStats: GitGraphSurfaceStats = emptyGitGraphStats();
   private latestNativeBoundsUpdates = 0;
+  private latestTerminalStats: TerminalSurfaceStats = emptyTerminalStats();
   private latestTransformWrites = 0;
   private latestVisiblePaneCount = 0;
   private longTasks = 0;
@@ -51,6 +58,14 @@ export class NiriMetricsCollector {
     this.latestCanvasStats = stats;
   }
 
+  recordGitGraphStats(stats: GitGraphSurfaceStats): void {
+    this.latestGitGraphStats = stats;
+  }
+
+  recordTerminalStats(stats: TerminalSurfaceStats): void {
+    this.latestTerminalStats = stats;
+  }
+
   recordReactCommit(): void {
     if (this.currentFrameMoving) {
       this.reactCommitsDuringMovement += 1;
@@ -63,7 +78,9 @@ export class NiriMetricsCollector {
     this.frameTimes = [];
     this.latestFrameTime = 0;
     this.latestCanvasStats = emptyCanvasStats();
+    this.latestGitGraphStats = emptyGitGraphStats();
     this.latestNativeBoundsUpdates = 0;
+    this.latestTerminalStats = emptyTerminalStats();
     this.latestTransformWrites = 0;
     this.latestVisiblePaneCount = 0;
     this.longTasks = 0;
@@ -83,7 +100,17 @@ export class NiriMetricsCollector {
       reactCommitsDuringMovement: this.reactCommitsDuringMovement,
       canvasDrawCalls: this.latestCanvasStats.drawCalls,
       canvasGpuMemoryEstimateBytes: this.latestCanvasStats.gpuMemoryEstimateBytes,
+      gitGraphProgress: this.latestGitGraphStats.progress,
+      gitGraphRenderedNodes: this.latestGitGraphStats.renderedNodes,
+      gitGraphRenderer: this.latestGitGraphStats.renderer,
+      gitGraphWorkerBatches: this.latestGitGraphStats.workerBatches,
+      gitGraphWorkerPending: this.latestGitGraphStats.workerPending,
       liveCanvasPaneCount: this.latestCanvasStats.liveCanvasPaneCount,
+      liveGitGraphPaneCount: this.latestGitGraphStats.liveGraphPaneCount,
+      liveTerminalRendererCount: this.latestTerminalStats.liveTerminalRendererCount,
+      terminalDirtyRows: this.latestTerminalStats.dirtyRows,
+      terminalDroppedOutputChunks: this.latestTerminalStats.droppedOutputChunks,
+      terminalPendingOutputChunks: this.latestTerminalStats.pendingOutputChunks,
       transformWrites: this.latestTransformWrites,
       visiblePaneCount: this.latestVisiblePaneCount,
     };
@@ -97,6 +124,30 @@ function emptyCanvasStats(): CanvasSurfaceStats {
     gpuMemoryEstimateBytes: null,
     liveCanvasPaneCount: 0,
     renderedFrames: 0,
+  };
+}
+
+function emptyGitGraphStats(): GitGraphSurfaceStats {
+  return {
+    completed: false,
+    liveGraphPaneCount: 0,
+    progress: 0,
+    renderedEdges: 0,
+    renderedNodes: 0,
+    renderer: null,
+    workerBatches: 0,
+    workerPending: false,
+  };
+}
+
+function emptyTerminalStats(): TerminalSurfaceStats {
+  return {
+    dirtyRows: 0,
+    droppedOutputChunks: 0,
+    liveTerminalRendererCount: 0,
+    pendingOutputChunks: 0,
+    renderedRows: 0,
+    scrollbackRows: 0,
   };
 }
 

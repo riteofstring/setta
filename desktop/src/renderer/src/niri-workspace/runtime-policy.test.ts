@@ -124,6 +124,39 @@ describe("niri pane runtime policy", () => {
     expect(summary.live).toBe(2);
     expect(summary.snapshot).toBe(1);
   });
+
+  test("budgets terminal renderers and snapshots graph renderers during movement", () => {
+    const items = [
+      renderItem("terminal-focused", "terminal", true),
+      renderItem("terminal-live", "terminal", false),
+      renderItem("terminal-over-budget", "terminal", false),
+      renderItem("graph-moving", "git-graph", false),
+    ];
+    const twoTerminals = {
+      ...budget,
+      maxLiveTerminalRenderers: 2,
+    };
+
+    const idleSummary = new PaneRuntimePolicy(twoTerminals).apply(items.slice(0, 3), "idle");
+
+    expect(items.slice(0, 3).map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["terminal-focused", "live"],
+      ["terminal-live", "live"],
+      ["terminal-over-budget", "snapshot"],
+    ]);
+    expect(idleSummary.live).toBe(2);
+    expect(idleSummary.snapshot).toBe(1);
+
+    const movingSummary = new PaneRuntimePolicy(twoTerminals).apply(items, "moving");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["terminal-focused", "live"],
+      ["terminal-live", "snapshot"],
+      ["terminal-over-budget", "snapshot"],
+      ["graph-moving", "snapshot"],
+    ]);
+    expect(movingSummary.snapshot).toBe(3);
+  });
 });
 
 function renderItem(paneId: string, surfaceKind: SurfaceKind, focused: boolean): PaneRenderItem {

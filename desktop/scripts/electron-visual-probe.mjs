@@ -78,7 +78,7 @@ async function main() {
       {
         artifacts: [
           "01-launch.png",
-          "02-niri-phase4.png",
+          "02-niri-phase6.png",
           "03-compact-window.png",
           "04-native-teardown.json",
         ],
@@ -95,9 +95,9 @@ async function main() {
 async function runNiriProbe(client) {
   await captureProbeState(client, "01-launch");
 
-  await waitForText(client, "500/40+B");
+  await waitForText(client, "500/40+B/T/G");
   await waitForNiriReady(client);
-  await captureProbeState(client, "02-niri-phase4");
+  await captureProbeState(client, "02-niri-phase6");
 
   await resizeElectronWindow(client, 320, 320);
   await waitForViewportSize(client, 320, 320);
@@ -240,7 +240,7 @@ async function readDomState(client) {
   return client.evaluate(`(async () => {
     const root = document.documentElement;
     const style = getComputedStyle(root);
-    const latestReport = window.__settaNiriReadPhaseFourReports?.().at(-1) ?? null;
+    const latestReport = window.__settaNiriReadPhaseSixReports?.().at(-1) ?? null;
     const nativeStats = await window.setta.niriNativeViews.readBrowserViewStats();
     const elementState = (selector) => {
       const element = document.querySelector(selector);
@@ -317,7 +317,7 @@ async function waitForNiriReady(client) {
   return waitForState(
     client,
     `(async () => {
-      const report = window.__settaNiriReadPhaseFourReports?.().at(-1) ?? null;
+      const report = window.__settaNiriReadPhaseSixReports?.().at(-1) ?? null;
       const nativeStats = await window.setta.niriNativeViews.readBrowserViewStats();
       const debugText = document.querySelector('[data-testid="niri-debug-overlay"]')?.textContent ?? "";
       return {
@@ -348,6 +348,8 @@ function niriMetricsReady(value) {
   return (
     value.debugText.includes("visible 40") &&
     value.debugText.includes("native") &&
+    value.debugText.includes("terminal") &&
+    value.debugText.includes("graph") &&
     value.debugText.includes("react 0")
   );
 }
@@ -378,11 +380,20 @@ function boundedCount(value, min, max) {
 }
 
 function niriReportReady(value) {
+  return phaseSixReportReady(value.report);
+}
+
+function phaseSixReportReady(report) {
   return (
-    value.report?.benchmark?.name === "Phase 4 browser-pane scene" &&
-    value.report?.result === "pass" &&
-    value.report?.environment?.rendererMode === "production"
+    report?.benchmark?.name === "Phase 6 terminal and git graph scene" &&
+    report?.result === "pass" &&
+    report?.environment?.rendererMode === "production" &&
+    phaseSixReportMetricsReady(report.metrics)
   );
+}
+
+function phaseSixReportMetricsReady(metrics) {
+  return metrics?.terminalDirtyRows > 0 && metrics?.gitGraphWorkerBatches > 0;
 }
 
 function niriShellReady(value) {

@@ -48,6 +48,8 @@ export class PresentationEngine {
 
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
     this.metrics.recordCanvasStats(this.surfaceRegistry.canvasStats());
+    this.metrics.recordGitGraphStats(this.surfaceRegistry.gitGraphStats());
+    this.metrics.recordTerminalStats(this.surfaceRegistry.terminalStats());
     return { nativeBoundsUpdates: nativeFlush?.batchSent ? 1 : 0, transformWrites };
   }
 
@@ -118,8 +120,12 @@ export class PresentationEngine {
       `canvas ${snapshot.liveCanvasPaneCount}/${snapshot.canvasDrawCalls}/${formatBytes(
         snapshot.canvasGpuMemoryEstimateBytes,
       )}`,
+      `terminal ${snapshot.liveTerminalRendererCount}/${snapshot.terminalDirtyRows}/${snapshot.terminalPendingOutputChunks}`,
+      `graph ${snapshot.liveGitGraphPaneCount}/${snapshot.gitGraphRenderer ?? "none"}/${Math.round(
+        snapshot.gitGraphProgress * 100,
+      )}%/${snapshot.gitGraphWorkerBatches}${snapshot.gitGraphWorkerPending ? "+" : ""}`,
       `runtime ${runtimeSummary.live}/${runtimeSummary.snapshot}/${runtimeSummary.liveThrottled}/${runtimeSummary.hidden}`,
-      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} canvas ${runtimeSummary.budget.maxLiveWebGpuCanvases}`,
+      `budget heavy ${runtimeSummary.budget.maxLiveHeavyDomPanes} canvas ${runtimeSummary.budget.maxLiveWebGpuCanvases} terminal ${runtimeSummary.budget.maxLiveTerminalRenderers}`,
     ].join(" | ");
   }
 

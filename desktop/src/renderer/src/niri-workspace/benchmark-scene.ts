@@ -18,9 +18,11 @@ const surfaceKindLabels = {
   "fake-dom": "fake light",
   "fake-heavy-dom": "fake heavy",
   "fake-long-chat": "fake long chat",
+  "git-graph": "git graph",
   "pixi-canvas": "Pixi canvas",
   "settings-dom": "real settings",
   snapshot: "snapshot",
+  terminal: "terminal",
 } satisfies Record<SurfaceKind, string>;
 
 export interface BenchmarkSceneOptions {
@@ -65,7 +67,7 @@ export function generateBenchmarkScene({
   return {
     columnGap: 8,
     columns,
-    id: "phase-5-canvas-pane-benchmark",
+    id: "phase-6-terminal-git-graph-benchmark",
     paneById,
     panes,
     panesPerColumn,
@@ -106,6 +108,12 @@ function fakeSurfaceKind(sequence: number): SurfaceKind {
   if (isPixiCanvasPaneSequence(sequence)) {
     return "pixi-canvas";
   }
+  if (isTerminalPaneSequence(sequence)) {
+    return "terminal";
+  }
+  if (isGitGraphPaneSequence(sequence)) {
+    return "git-graph";
+  }
   const slot = sequence % 12;
   if (slot === 4) {
     return "fake-canvas";
@@ -122,6 +130,14 @@ function isBrowserPaneSequence(sequence: number): boolean {
 
 function isPixiCanvasPaneSequence(sequence: number): boolean {
   return sequence >= 4 && (sequence - 4) % 120 === 0;
+}
+
+function isTerminalPaneSequence(sequence: number): boolean {
+  return sequence >= 5 && (sequence - 5) % 80 === 0;
+}
+
+function isGitGraphPaneSequence(sequence: number): boolean {
+  return sequence >= 6 && (sequence - 6) % 80 === 0;
 }
 
 function surfaceKindLabel(kind: SurfaceKind): string {

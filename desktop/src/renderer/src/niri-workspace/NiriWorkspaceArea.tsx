@@ -72,7 +72,7 @@ export function NiriWorkspaceArea() {
 
   return (
     <section
-      aria-label="Niri browser-pane workspace prototype"
+      aria-label="Niri terminal and git graph workspace prototype"
       className="niri-workspace-area relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
       data-browser-pane-count={runtime.browserPaneCount}
       data-pane-count={runtime.scene.totalPanes}
@@ -101,7 +101,7 @@ export function NiriWorkspaceArea() {
         ref={debugRef}
       >
         frame 0.00ms | p95 0.00ms | p99 0.00ms | visible 0 | writes 0 | long 0 | react 0 | runtime
-        0/0/0/0
+        0/0/0/0 | terminal 0/0/0 | graph 0/none/0%/0
       </div>
     </section>
   );

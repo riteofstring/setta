@@ -14,9 +14,17 @@ export const DEFAULT_PANE_BUDGET: PaneRuntimeBudget = {
   maxSnapshotPanes: 64,
 };
 
-type AlwaysLiveSurfaceKind = "fake-dom" | "settings-dom";
 type LiveCanvasSurfaceKind = "fake-canvas" | "pixi-canvas";
 type LiveHeavyDomSurfaceKind = "chat-dom" | "fake-heavy-dom" | "fake-long-chat";
+type SurfaceRuntimeCategory =
+  | "always-live"
+  | "browser"
+  | "canvas"
+  | "git-graph"
+  | "heavy-dom"
+  | "heavy-dom-budgeted"
+  | "snapshot"
+  | "terminal";
 
 const liveCanvasSurfaceKinds = new Set<SurfaceKind>(["fake-canvas", "pixi-canvas"]);
 const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
@@ -24,7 +32,19 @@ const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
   "fake-heavy-dom",
   "fake-long-chat",
 ]);
-const alwaysLiveSurfaceKinds = new Set<SurfaceKind>(["fake-dom", "settings-dom"]);
+const surfaceRuntimeCategories = {
+  browser: "browser",
+  "chat-dom": "heavy-dom",
+  "fake-canvas": "canvas",
+  "fake-dom": "always-live",
+  "fake-heavy-dom": "heavy-dom",
+  "fake-long-chat": "heavy-dom-budgeted",
+  "git-graph": "git-graph",
+  "pixi-canvas": "canvas",
+  "settings-dom": "always-live",
+  snapshot: "snapshot",
+  terminal: "terminal",
+} satisfies Record<SurfaceKind, SurfaceRuntimeCategory>;
 
 export class PaneRuntimePolicy {
   private summary: PaneRuntimeSummary = emptySummary(DEFAULT_PANE_BUDGET);
@@ -39,6 +59,7 @@ export class PaneRuntimePolicy {
       liveBrowserPanes: 0,
       live: 0,
       liveHeavyDom: 0,
+      liveTerminalRenderers: 0,
       liveThrottled: 0,
       liveWebGpuCanvases: 0,
       snapshot: 0,
@@ -87,11 +108,14 @@ export class PaneRuntimePolicy {
     counters: {
       liveHeavyDom: number;
       liveBrowserPanes: number;
+      liveTerminalRenderers: number;
       liveWebGpuCanvases: number;
     },
   ): void {
     if (kind === "browser") {
       counters.liveBrowserPanes += 1;
+    } else if (kind === "terminal") {
+      counters.liveTerminalRenderers += 1;
     } else if (isLiveHeavyDomSurfaceKind(kind)) {
       counters.liveHeavyDom += 1;
     } else if (isLiveCanvasSurfaceKind(kind)) {
@@ -105,6 +129,7 @@ export class PaneRuntimePolicy {
     counters: {
       liveBrowserPanes: number;
       liveHeavyDom: number;
+      liveTerminalRenderers: number;
       liveWebGpuCanvases: number;
       snapshot: number;
     },
@@ -125,29 +150,45 @@ export class PaneRuntimePolicy {
     counters: {
       liveBrowserPanes: number;
       liveHeavyDom: number;
+      liveTerminalRenderers: number;
       liveWebGpuCanvases: number;
       snapshot: number;
     },
   ): PaneRuntimeState {
-    if (isAlwaysLiveSurfaceKind(kind)) {
-      return "live";
+    return this.runtimeStateForCategory(surfaceRuntimeCategories[kind], movementPhase, counters);
+  }
+
+  private runtimeStateForCategory(
+    category: SurfaceRuntimeCategory,
+    movementPhase: "idle" | "moving",
+    counters: {
+      liveBrowserPanes: number;
+      liveHeavyDom: number;
+      liveTerminalRenderers: number;
+      liveWebGpuCanvases: number;
+      snapshot: number;
+    },
+  ): PaneRuntimeState {
+    switch (category) {
+      case "always-live":
+        return "live";
+      case "browser":
+        return this.runtimeStateForBrowser(movementPhase, counters);
+      case "canvas":
+        return this.runtimeStateForCanvas(movementPhase, counters);
+      case "git-graph":
+        return this.runtimeStateForGitGraph(movementPhase, counters);
+      case "heavy-dom":
+        return this.runtimeStateForHeavyDom(movementPhase, counters);
+      case "heavy-dom-budgeted":
+        return this.runtimeStateForBudgetedHeavyDom(counters);
+      case "snapshot":
+        return this.snapshotOrThrottle(counters);
+      case "terminal":
+        return this.runtimeStateForTerminal(movementPhase, counters);
+      default:
+        assertNever(category);
     }
-    if (kind === "chat-dom" || kind === "fake-heavy-dom") {
-      return this.runtimeStateForHeavyDom(movementPhase, counters);
-    }
-    if (kind === "fake-long-chat") {
-      return this.runtimeStateForBudgetedHeavyDom(counters);
-    }
-    if (isLiveCanvasSurfaceKind(kind)) {
-      return this.runtimeStateForCanvas(movementPhase, counters);
-    }
-    if (kind === "browser") {
-      return this.runtimeStateForBrowser(movementPhase, counters);
-    }
-    if (kind === "snapshot") {
-      return this.snapshotOrThrottle(counters);
-    }
-    assertNever(kind);
   }
 
   private runtimeStateForCanvas(
@@ -161,6 +202,34 @@ export class PaneRuntimePolicy {
       return this.snapshotOrThrottle(counters);
     }
     if (counters.liveWebGpuCanvases >= this.budget.maxLiveWebGpuCanvases) {
+      return this.snapshotOrThrottle(counters);
+    }
+    return "live";
+  }
+
+  private runtimeStateForGitGraph(
+    movementPhase: "idle" | "moving",
+    counters: {
+      snapshot: number;
+    },
+  ): PaneRuntimeState {
+    if (movementPhase === "moving") {
+      return this.snapshotOrThrottle(counters);
+    }
+    return "live";
+  }
+
+  private runtimeStateForTerminal(
+    movementPhase: "idle" | "moving",
+    counters: {
+      liveTerminalRenderers: number;
+      snapshot: number;
+    },
+  ): PaneRuntimeState {
+    if (movementPhase === "moving") {
+      return this.snapshotOrThrottle(counters);
+    }
+    if (counters.liveTerminalRenderers >= this.budget.maxLiveTerminalRenderers) {
       return this.snapshotOrThrottle(counters);
     }
     return "live";
@@ -211,10 +280,6 @@ export class PaneRuntimePolicy {
     }
     return "live-throttled";
   }
-}
-
-function isAlwaysLiveSurfaceKind(kind: SurfaceKind): kind is AlwaysLiveSurfaceKind {
-  return alwaysLiveSurfaceKinds.has(kind);
 }
 
 function isLiveCanvasSurfaceKind(kind: SurfaceKind): kind is LiveCanvasSurfaceKind {

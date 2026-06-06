@@ -1,5 +1,7 @@
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
+import { GitGraphSurfaceAdapter } from "./git-graph-surface-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
+import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import type {
   CanvasSurfaceStats,
   FreezeReason,
@@ -678,35 +680,22 @@ export class PixiCanvasSurfaceAdapter implements SurfaceAdapter {
 }
 
 export function createDefaultSurfaceAdapter(pane: NiriPane): SurfaceAdapter {
-  if (pane.surfaceKind === "browser") {
-    return new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue);
-  }
-  if (isReactDomSurfaceKind(pane.surfaceKind)) {
-    return createReactDomSurfaceAdapter(pane);
-  }
-  if (pane.surfaceKind === "fake-canvas") {
-    return new FakeCanvasSurfaceAdapter(pane);
-  }
-  if (pane.surfaceKind === "pixi-canvas") {
-    return new PixiCanvasSurfaceAdapter(pane);
-  }
-  if (pane.surfaceKind === "fake-heavy-dom") {
-    return new FakeHeavyDomSurfaceAdapter(pane);
-  }
-  if (pane.surfaceKind === "snapshot") {
-    return new SnapshotSurfaceAdapter(pane);
-  }
-  if (pane.surfaceKind === "fake-dom") {
-    return new FakeDomSurfaceAdapter(pane);
-  }
-  assertNever(pane.surfaceKind);
+  return defaultSurfaceAdapterFactories[pane.surfaceKind](pane);
 }
 
-type ReactDomSurfaceKind = "chat-dom" | "fake-long-chat" | "settings-dom";
-
-function isReactDomSurfaceKind(kind: SurfaceKind): kind is ReactDomSurfaceKind {
-  return kind === "chat-dom" || kind === "fake-long-chat" || kind === "settings-dom";
-}
+const defaultSurfaceAdapterFactories = {
+  browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
+  "chat-dom": createReactDomSurfaceAdapter,
+  "fake-canvas": (pane) => new FakeCanvasSurfaceAdapter(pane),
+  "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
+  "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
+  "fake-long-chat": createReactDomSurfaceAdapter,
+  "git-graph": (pane) => new GitGraphSurfaceAdapter(pane),
+  "pixi-canvas": (pane) => new PixiCanvasSurfaceAdapter(pane),
+  "settings-dom": createReactDomSurfaceAdapter,
+  snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
+  terminal: (pane) => new TerminalSurfaceAdapter(pane),
+} satisfies Record<SurfaceKind, (pane: NiriPane) => SurfaceAdapter>;
 
 function renderFakePaneContent(host: HTMLElement, pane: NiriPane, rowCount: number): HTMLElement {
   const document = host.ownerDocument;
@@ -846,8 +835,4 @@ function pixelRatio(): number {
     return 1;
   }
   return Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled niri surface kind: ${String(value)}`);
 }

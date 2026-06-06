@@ -296,14 +296,14 @@ function FloatingNiriBenchmarkStatus({ platform }: { platform: DesktopPlatform }
     >
       <div className="app-no-drag pointer-events-auto flex items-center gap-1">
         <div
-          aria-label="Niri browser-pane benchmark: 500 total panes, 40 visible panes, 20 or more browser panes"
+          aria-label="Niri Phase 6 benchmark: 500 total panes, 40 visible panes, browser, terminal, canvas, and git graph surfaces"
           className="app-no-drag grid h-7 min-w-7 place-items-center rounded-sm px-1.5 text-[11px] font-semibold text-muted-foreground"
           data-testid="niri-benchmark-status"
-          title="500/40 panes with browser views"
+          title="500/40 panes with browser, terminal, canvas, and git graph surfaces"
         >
           <span className="inline-flex items-center gap-1">
             <LayoutGrid className="h-3.5 w-3.5" />
-            500/40+B
+            500/40+B/T/G
           </span>
         </div>
       </div>

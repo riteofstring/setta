@@ -2,7 +2,7 @@ import { phaseOneFakePaneCount, phaseOneVisiblePaneCount } from "./benchmark-sce
 import type { NiriMetricsCollector } from "./metrics";
 import type { NiriPerformanceReport, Rect } from "./types";
 
-const phaseFourReportKey = "setta:niri:phase-four:reports";
+const phaseSixReportKey = "setta:niri:phase-six:reports";
 const targetFrameMs = 8.33;
 
 export interface PerformanceReportWriter {
@@ -13,10 +13,10 @@ export class LocalStoragePerformanceReportWriter implements PerformanceReportWri
   constructor(private readonly durationMs: number) {}
 
   write(metrics: NiriMetricsCollector, viewport: Rect): NiriPerformanceReport {
-    const report = createPhaseFourPerformanceReport(metrics, viewport, this.durationMs);
+    const report = createPhaseSixPerformanceReport(metrics, viewport, this.durationMs);
     const reports = readReports();
     reports.push(report);
-    window.localStorage.setItem(phaseFourReportKey, JSON.stringify(reports));
+    window.localStorage.setItem(phaseSixReportKey, JSON.stringify(reports));
     window.dispatchEvent(new CustomEvent("setta:niri-performance-report", { detail: report }));
     installWindowReportHooks(reports);
     return report;
@@ -28,30 +28,26 @@ export function installWindowReportHooks(
 ) {
   const target = window as Window &
     typeof globalThis & {
-      __settaNiriPhaseFourReports?: readonly NiriPerformanceReport[];
-      __settaNiriReadPhaseFourReports?: () => readonly NiriPerformanceReport[];
+      __settaNiriPhaseSixReports?: readonly NiriPerformanceReport[];
+      __settaNiriReadPhaseSixReports?: () => readonly NiriPerformanceReport[];
     };
-  target.__settaNiriPhaseFourReports = reports;
-  target.__settaNiriReadPhaseFourReports = () => readReports();
+  target.__settaNiriPhaseSixReports = reports;
+  target.__settaNiriReadPhaseSixReports = () => readReports();
 }
 
-function createPhaseFourPerformanceReport(
+function createPhaseSixPerformanceReport(
   metrics: NiriMetricsCollector,
   viewport: Rect,
   durationMs: number,
 ): NiriPerformanceReport {
   const snapshot = metrics.snapshot();
-  const passed =
-    snapshot.visiblePaneCount === phaseOneVisiblePaneCount &&
-    snapshot.p95FrameTime <= targetFrameMs &&
-    snapshot.nativeBoundsUpdates <= 1 &&
-    snapshot.reactCommitsDuringMovement === 0;
+  const passed = phaseSixReportPassed(snapshot);
 
   return {
     benchmark: {
       durationMs,
       expectedVisiblePanes: phaseOneVisiblePaneCount,
-      name: "Phase 4 browser-pane scene",
+      name: "Phase 6 terminal and git graph scene",
       targetFrameMs,
       totalPanes: phaseOneFakePaneCount,
     },
@@ -63,7 +59,9 @@ function createPhaseFourPerformanceReport(
     },
     metrics: snapshot,
     notes: [
-      "Phase 4 scene: browser proxy panes use Electron WebContentsView in the desktop shell and DOM fallback in browser inspection.",
+      "Phase 6 scene keeps Phase 4 browser native-view bounds batching and Phase 5 canvas lifecycle boundaries intact.",
+      "Terminal surfaces use separate session buffers, bounded output draining, dirty-row writes, and scrollback virtualization.",
+      "Git graph surfaces request progressive layout batches from a browser Worker and choose DOM/SVG/canvas rendering by scale.",
       "Performance report is appended in localStorage and exposed on window for probe collection.",
     ],
     result: passed ? "pass" : "fail",
@@ -71,14 +69,37 @@ function createPhaseFourPerformanceReport(
   };
 }
 
+function phaseSixReportPassed(snapshot: NiriPerformanceReport["metrics"]): boolean {
+  return (
+    snapshot.visiblePaneCount === phaseOneVisiblePaneCount &&
+    snapshot.p95FrameTime <= targetFrameMs &&
+    snapshot.nativeBoundsUpdates <= 1 &&
+    snapshot.reactCommitsDuringMovement === 0 &&
+    phaseSixTerminalMetricsReady(snapshot) &&
+    phaseSixGitGraphMetricsReady(snapshot)
+  );
+}
+
+function phaseSixGitGraphMetricsReady(snapshot: NiriPerformanceReport["metrics"]): boolean {
+  return (
+    snapshot.gitGraphRenderedNodes > 0 &&
+    snapshot.gitGraphWorkerBatches > 0 &&
+    snapshot.gitGraphRenderer !== null
+  );
+}
+
+function phaseSixTerminalMetricsReady(snapshot: NiriPerformanceReport["metrics"]): boolean {
+  return snapshot.terminalDirtyRows > 0;
+}
+
 function readReports(): NiriPerformanceReport[] {
-  const raw = window.localStorage.getItem(phaseFourReportKey);
+  const raw = window.localStorage.getItem(phaseSixReportKey);
   if (!raw) {
     return [];
   }
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed)) {
-    throw new Error("niri Phase 4 performance reports must be a JSON array");
+    throw new Error("niri Phase 6 performance reports must be a JSON array");
   }
   return parsed as NiriPerformanceReport[];
 }

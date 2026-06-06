@@ -437,6 +437,104 @@ select,
   overflow: hidden;
 }
 
+.niri-terminal-surface {
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--background) 72%, transparent), transparent),
+    color-mix(in oklch, var(--popover) 88%, black);
+  color: color-mix(in oklch, var(--foreground) 88%, var(--primary));
+  display: grid;
+  gap: 7px;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 10px;
+}
+
+.niri-terminal-header,
+.niri-git-graph-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.niri-terminal-header h2,
+.niri-git-graph-header h2 {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.1;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.niri-terminal-status,
+.niri-git-graph-status {
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+  font-family: var(--setta-font-mono);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.niri-terminal-rows {
+  align-content: end;
+  display: grid;
+  gap: 2px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.niri-terminal-row {
+  color: color-mix(in oklch, var(--foreground) 78%, oklch(0.7227 0.192 149.58));
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.niri-git-graph-surface {
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--primary) 18%, transparent), transparent 50%),
+    color-mix(in oklch, var(--popover) 86%, var(--background));
+  display: grid;
+  gap: 8px;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 10px;
+}
+
+.niri-git-graph-canvas {
+  background: color-mix(in oklch, var(--background) 88%, black);
+  border-radius: 5px;
+  display: block;
+  height: 100%;
+  min-height: 0;
+  touch-action: none;
+  width: 100%;
+}
+
+.niri-git-graph-dom {
+  color: var(--muted-foreground);
+  display: none;
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  gap: 3px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.niri-git-graph-row {
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .niri-react-dom-surface,
 .niri-dom-surface {
   height: 100%;

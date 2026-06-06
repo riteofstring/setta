@@ -1,5 +1,25 @@
+import { setTimeout as delay } from "node:timers/promises";
+
+const layoutAssertionTimeoutMs = 5_000;
+const layoutAssertionPollMs = 100;
+
 export async function assertChatLayout(client) {
-  const metrics = await client.evaluate(`(() => {
+  const startedAt = Date.now();
+  let lastError = null;
+  while (Date.now() - startedAt < layoutAssertionTimeoutMs) {
+    const metrics = await chatLayoutMetrics(client);
+    const error = chatLayoutError(metrics);
+    if (!error) {
+      return;
+    }
+    lastError = error;
+    await delay(layoutAssertionPollMs);
+  }
+  throw lastError ?? new Error("chat layout metrics were not captured");
+}
+
+async function chatLayoutMetrics(client) {
+  return client.evaluate(`(() => {
     const rect = (element) => {
       if (!element) return null;
       const box = element.getBoundingClientRect();
@@ -22,18 +42,22 @@ export async function assertChatLayout(client) {
       transcript: rect(transcript),
     };
   })()`);
+}
+
+function chatLayoutError(metrics) {
   if (!metrics.pane || !metrics.transcript || !metrics.composer) {
-    throw new Error(`chat layout metrics missing required regions: ${JSON.stringify(metrics)}`);
+    return new Error(`chat layout metrics missing required regions: ${JSON.stringify(metrics)}`);
   }
   if (chatTranscriptCollapsed(metrics)) {
-    throw new Error(`transcript region collapsed: ${JSON.stringify(metrics)}`);
+    return new Error(`transcript region collapsed: ${JSON.stringify(metrics)}`);
   }
   if (chatRegionsOverlap(metrics.transcript, metrics.composer)) {
-    throw new Error(`transcript overlaps composer: ${JSON.stringify(metrics)}`);
+    return new Error(`transcript overlaps composer: ${JSON.stringify(metrics)}`);
   }
   if (chatRegionEscapes(metrics.composer, metrics.pane)) {
-    throw new Error(`composer escapes chat pane: ${JSON.stringify(metrics)}`);
+    return new Error(`composer escapes chat pane: ${JSON.stringify(metrics)}`);
   }
+  return null;
 }
 
 function chatTranscriptCollapsed(metrics) {

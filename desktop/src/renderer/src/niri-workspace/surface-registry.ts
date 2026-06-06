@@ -2,12 +2,14 @@ import { createDefaultSurfaceAdapter, SnapshotSurfaceAdapter } from "./surface-a
 import type {
   CanvasSurfaceStats,
   FreezeReason,
+  GitGraphSurfaceStats,
   NiriPane,
   PaneRenderItem,
   Rect,
   SurfaceAdapter,
   SurfaceId,
   SurfaceKind,
+  TerminalSurfaceStats,
 } from "./types";
 
 export type SurfaceAdapterFactory = (pane: NiriPane) => SurfaceAdapter;
@@ -25,6 +27,7 @@ interface HostRecord {
 
 export class SurfaceRegistry {
   private readonly hostRecords = new Map<HTMLElement, HostRecord>();
+  private readonly metricAdapters = new Set<SurfaceAdapter>();
   private readonly records = new Map<SurfaceId, SurfaceRecord>();
 
   constructor(
@@ -91,6 +94,56 @@ export class SurfaceRegistry {
     };
   }
 
+  gitGraphStats(): GitGraphSurfaceStats {
+    const aggregate = emptyGitGraphAggregate();
+
+    for (const adapter of this.metricAdapters) {
+      addGitGraphStats(aggregate, adapter.getGitGraphStats?.());
+    }
+
+    return {
+      completed: aggregate.completed,
+      liveGraphPaneCount: aggregate.liveGraphPaneCount,
+      progress: aggregate.statsCount > 0 ? aggregate.totalProgress / aggregate.statsCount : 0,
+      renderedEdges: aggregate.renderedEdges,
+      renderedNodes: aggregate.renderedNodes,
+      renderer: aggregate.renderer,
+      workerBatches: aggregate.workerBatches,
+      workerPending: aggregate.workerPending,
+    };
+  }
+
+  terminalStats(): TerminalSurfaceStats {
+    let dirtyRows = 0;
+    let droppedOutputChunks = 0;
+    let liveTerminalRendererCount = 0;
+    let pendingOutputChunks = 0;
+    let renderedRows = 0;
+    let scrollbackRows = 0;
+
+    for (const adapter of this.metricAdapters) {
+      const stats = adapter.getTerminalStats?.();
+      if (!stats) {
+        continue;
+      }
+      dirtyRows += stats.dirtyRows;
+      droppedOutputChunks += stats.droppedOutputChunks;
+      liveTerminalRendererCount += stats.liveTerminalRendererCount;
+      pendingOutputChunks += stats.pendingOutputChunks;
+      renderedRows += stats.renderedRows;
+      scrollbackRows += stats.scrollbackRows;
+    }
+
+    return {
+      dirtyRows,
+      droppedOutputChunks,
+      liveTerminalRendererCount,
+      pendingOutputChunks,
+      renderedRows,
+      scrollbackRows,
+    };
+  }
+
   releaseHost(host: HTMLElement, reason: FreezeReason = "hidden"): void {
     const hostRecord = this.hostRecords.get(host);
     if (!hostRecord) {
@@ -119,6 +172,7 @@ export class SurfaceRegistry {
         existing.adapter.unmount();
       }
       adapter.mount(host);
+      this.metricAdapters.add(adapter);
       this.hostRecords.set(host, {
         adapter,
         surfaceId: item.surfaceId,
@@ -140,6 +194,7 @@ export class SurfaceRegistry {
       record.snapshotAdapter.freeze();
     }
     this.hostRecords.clear();
+    this.metricAdapters.clear();
   }
 
   private adapterForRuntimeState(
@@ -197,4 +252,52 @@ export class SurfaceRegistry {
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled niri surface registry value: ${String(value)}`);
+}
+
+interface GitGraphStatsAggregate {
+  completed: boolean;
+  liveGraphPaneCount: number;
+  renderedEdges: number;
+  renderedNodes: number;
+  renderer: GitGraphSurfaceStats["renderer"];
+  statsCount: number;
+  totalProgress: number;
+  workerBatches: number;
+  workerPending: boolean;
+}
+
+function addGitGraphStats(
+  aggregate: GitGraphStatsAggregate,
+  stats: GitGraphSurfaceStats | undefined,
+): void {
+  if (!stats || isUntouchedGitGraphStats(stats)) {
+    return;
+  }
+  aggregate.completed = aggregate.completed || stats.completed;
+  aggregate.liveGraphPaneCount += stats.liveGraphPaneCount;
+  aggregate.renderedEdges += stats.renderedEdges;
+  aggregate.renderedNodes += stats.renderedNodes;
+  aggregate.renderer = aggregate.renderer ?? stats.renderer;
+  aggregate.statsCount += 1;
+  aggregate.totalProgress += stats.progress;
+  aggregate.workerBatches += stats.workerBatches;
+  aggregate.workerPending = aggregate.workerPending || stats.workerPending;
+}
+
+function emptyGitGraphAggregate(): GitGraphStatsAggregate {
+  return {
+    completed: false,
+    liveGraphPaneCount: 0,
+    renderedEdges: 0,
+    renderedNodes: 0,
+    renderer: null,
+    statsCount: 0,
+    totalProgress: 0,
+    workerBatches: 0,
+    workerPending: false,
+  };
+}
+
+function isUntouchedGitGraphStats(stats: GitGraphSurfaceStats): boolean {
+  return stats.renderedNodes === 0 && stats.liveGraphPaneCount === 0 && !stats.workerPending;
 }

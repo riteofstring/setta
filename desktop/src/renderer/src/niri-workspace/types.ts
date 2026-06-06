@@ -9,9 +9,11 @@ export type SurfaceKind =
   | "fake-dom"
   | "fake-heavy-dom"
   | "fake-long-chat"
+  | "git-graph"
   | "pixi-canvas"
   | "settings-dom"
-  | "snapshot";
+  | "snapshot"
+  | "terminal";
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 
@@ -110,6 +112,28 @@ export interface CanvasSurfaceStats {
   renderedFrames: number;
 }
 
+export type GitGraphRendererKind = "canvas" | "dom" | "svg";
+
+export interface GitGraphSurfaceStats {
+  completed: boolean;
+  liveGraphPaneCount: number;
+  progress: number;
+  renderedEdges: number;
+  renderedNodes: number;
+  renderer: GitGraphRendererKind | null;
+  workerBatches: number;
+  workerPending: boolean;
+}
+
+export interface TerminalSurfaceStats {
+  dirtyRows: number;
+  droppedOutputChunks: number;
+  liveTerminalRendererCount: number;
+  pendingOutputChunks: number;
+  renderedRows: number;
+  scrollbackRows: number;
+}
+
 export interface SurfaceAdapter {
   readonly kind: SurfaceKind;
   readonly surfaceId: SurfaceId;
@@ -127,6 +151,8 @@ export interface SurfaceAdapter {
 
   captureSnapshot?(): Promise<PaneSnapshot>;
   getCanvasStats?(): CanvasSurfaceStats;
+  getGitGraphStats?(): GitGraphSurfaceStats;
+  getTerminalStats?(): TerminalSurfaceStats;
   destroy(): void;
 }
 
@@ -170,7 +196,17 @@ export interface NiriFrameMetrics {
   reactCommitsDuringMovement: number;
   canvasDrawCalls: number;
   canvasGpuMemoryEstimateBytes: number | null;
+  gitGraphProgress: number;
+  gitGraphRenderedNodes: number;
+  gitGraphRenderer: GitGraphRendererKind | null;
+  gitGraphWorkerBatches: number;
+  gitGraphWorkerPending: boolean;
   liveCanvasPaneCount: number;
+  liveGitGraphPaneCount: number;
+  liveTerminalRendererCount: number;
+  terminalDirtyRows: number;
+  terminalDroppedOutputChunks: number;
+  terminalPendingOutputChunks: number;
   transformWrites: number;
   visiblePaneCount: number;
 }
