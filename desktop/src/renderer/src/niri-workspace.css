@@ -666,6 +666,31 @@
   white-space: nowrap;
 }
 
+.niri-xterm-surface {
+  padding: 0;
+}
+
+.niri-xterm-surface .niri-terminal-header {
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.niri-xterm-viewport {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 6px 8px 8px;
+}
+
+.niri-xterm-viewport .xterm {
+  height: 100%;
+}
+
+.niri-xterm-viewport .xterm-viewport {
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 30%, transparent) transparent;
+}
+
 .niri-git-graph-surface {
   background:
     linear-gradient(135deg, color-mix(in oklch, var(--primary) 18%, transparent), transparent 50%),

@@ -22,6 +22,7 @@ import type {
   ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
+  ResizeTerminalRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
@@ -31,6 +32,9 @@ import type {
   SteerMessageResult,
   SubmitApprovalRequest,
   SubmitWorkflowApprovalRequest,
+  TerminalInputRequest,
+  TerminalInputResponse,
+  TerminalSessionResponse,
   WorkflowDefinition,
   WorkflowExecution,
   WorkflowExecutionEventPage,
@@ -78,6 +82,11 @@ export const ipcChannels = {
   codexAccountStartLogin: "codex-account:start-login",
   niriBrowserViewStats: "niri:browser-view-stats",
   niriBrowserViewsTeardown: "niri:browser-views-teardown",
+  terminalAttach: "terminal:attach",
+  terminalClose: "terminal:close",
+  terminalCreate: "terminal:create",
+  terminalInput: "terminal:input",
+  terminalResize: "terminal:resize",
   workflowCancelExecution: "workflow:cancel-execution",
   workflowCreateDefinition: "workflow:create-definition",
   workflowDeleteDefinition: "workflow:delete-definition",
@@ -109,6 +118,7 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
   niriBrowserViewKey: "niri:browser-view-key",
+  terminalEvent: "terminal:event",
   workflowEvent: "workflow:event",
 } as const;
 
@@ -251,6 +261,33 @@ interface IpcContract {
   niriBrowserViewsTeardown: {
     args: [workspaceId: string];
     result: NiriBrowserViewStats;
+  };
+  terminalAttach: {
+    args: [workspaceId: string, paneId: string];
+    result: TerminalSessionResponse;
+  };
+  terminalClose: {
+    args: [sessionId: string, mode: "terminate" | "kill"];
+    result: TerminalSessionResponse;
+  };
+  terminalCreate: {
+    args: [
+      workspaceId: string,
+      paneId: string,
+      profileId: string,
+      cwd: string,
+      cols: number,
+      rows: number,
+    ];
+    result: TerminalSessionResponse;
+  };
+  terminalInput: {
+    args: [input: TerminalInputRequest];
+    result: TerminalInputResponse;
+  };
+  terminalResize: {
+    args: [request: ResizeTerminalRequest];
+    result: TerminalSessionResponse;
   };
   workflowCancelExecution: {
     args: [workspaceId: string, executionId: string];

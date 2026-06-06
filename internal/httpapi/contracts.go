@@ -3,6 +3,7 @@ package httpapi
 import (
 	"setta/internal/chat"
 	"setta/internal/orchestrator"
+	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -263,6 +264,59 @@ type SubmitWorkflowApprovalRequest struct {
 	Response        string                `json:"response"`
 	Answers         []chat.ApprovalAnswer `json:"answers"`
 	Cancelled       bool                  `json:"cancelled"`
+}
+
+type CreateTerminalRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PaneID      string `json:"paneId"`
+	ProfileID   string `json:"profileId"`
+	CWD         string `json:"cwd"`
+	Cols        int    `json:"cols"`
+	Rows        int    `json:"rows"`
+}
+
+type AttachTerminalRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PaneID      string `json:"paneId"`
+}
+
+type TerminalSessionSummary struct {
+	ID          string                 `json:"id"`
+	WorkspaceID string                 `json:"workspaceId"`
+	PaneID      string                 `json:"paneId"`
+	ProfileID   string                 `json:"profileId"`
+	CWD         string                 `json:"cwd"`
+	Cols        int                    `json:"cols"`
+	Rows        int                    `json:"rows"`
+	Status      terminal.SessionStatus `json:"status"`
+	CreatedAt   string                 `json:"createdAt"`
+	UpdatedAt   string                 `json:"updatedAt"`
+	ExitCode    int                    `json:"exitCode"`
+	Message     string                 `json:"message"`
+}
+
+type TerminalSessionResponse struct {
+	Session TerminalSessionSummary `json:"session"`
+}
+
+type TerminalInputRequest struct {
+	SessionID  string `json:"sessionId"`
+	DataBase64 string `json:"dataBase64"`
+}
+
+type TerminalInputResponse struct {
+	AcceptedBytes int `json:"acceptedBytes"`
+}
+
+type ResizeTerminalRequest struct {
+	SessionID string `json:"sessionId"`
+	Cols      int    `json:"cols"`
+	Rows      int    `json:"rows"`
+}
+
+type CloseTerminalRequest struct {
+	SessionID string             `json:"sessionId"`
+	Mode      terminal.CloseMode `json:"mode"`
 }
 
 type APIError struct {

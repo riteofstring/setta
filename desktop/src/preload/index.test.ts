@@ -1,7 +1,7 @@
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { ChatEvent, WorkflowEvent, WorkflowGraph } from "@generated/backend";
+import type { ChatEvent, TerminalEvent, WorkflowEvent, WorkflowGraph } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 
 describe("preload workspace API", () => {
@@ -315,6 +315,87 @@ describe("preload workspace API", () => {
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.chatEvent, handler);
   });
 
+  test("exposes typed terminal methods through IPC", async () => {
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+        on,
+        removeListener,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
+    expect(Object.keys(api.terminal).sort()).toEqual([
+      "attach",
+      "close",
+      "create",
+      "input",
+      "onEvent",
+      "resize",
+    ]);
+
+    await api.terminal.create("workspace_api", "pane_terminal", {
+      cols: 80,
+      rows: 24,
+    });
+    await api.terminal.attach("workspace_api", "pane_terminal");
+    await api.terminal.input({
+      dataBase64: "aGVsbG8=",
+      sessionId: "terminal_api",
+    });
+    await api.terminal.resize({
+      cols: 100,
+      rows: 30,
+      sessionId: "terminal_api",
+    });
+    await api.terminal.close("terminal_api", "terminate");
+
+    const event = terminalEvent();
+    const listener = vi.fn();
+    const unsubscribe = api.terminal.onEvent(listener);
+    const handler = on.mock.calls.find((call) => call[0] === ipcEvents.terminalEvent)?.[1];
+    if (typeof handler !== "function") {
+      throw new Error("terminal event handler was not registered");
+    }
+    handler({}, event);
+    unsubscribe();
+
+    expectInvokeCalls(invoke, [
+      [ipcChannels.terminalCreate, "workspace_api", "pane_terminal", "", "", 80, 24],
+      [ipcChannels.terminalAttach, "workspace_api", "pane_terminal"],
+      [
+        ipcChannels.terminalInput,
+        {
+          dataBase64: "aGVsbG8=",
+          sessionId: "terminal_api",
+        },
+      ],
+      [
+        ipcChannels.terminalResize,
+        {
+          cols: 100,
+          rows: 30,
+          sessionId: "terminal_api",
+        },
+      ],
+      [ipcChannels.terminalClose, "terminal_api", "terminate"],
+    ]);
+    expect(on).toHaveBeenCalledWith(ipcEvents.terminalEvent, expect.any(Function));
+    expect(listener).toHaveBeenCalledWith(event);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.terminalEvent, handler);
+  });
+
   test("exposes typed workflow methods through IPC", async () => {
     const exposed: Record<string, unknown> = {};
     const invoke = vi.fn();
@@ -493,6 +574,30 @@ function chatEvent(): ChatEvent {
     sequence: 1,
     streamId: "event_stream_test",
     type: "chat.message.created",
+    workspaceId: "workspace_api",
+  };
+}
+
+function terminalEvent(): TerminalEvent {
+  return {
+    emittedAt: "2026-06-06T12:00:00Z",
+    eventId: "terminal_stream_test:1",
+    paneId: "pane_terminal",
+    payload: {
+      byteCount: 5,
+      cols: 80,
+      cwd: "/tmp/workspace",
+      dataBase64: "aGVsbG8=",
+      exitCode: 0,
+      message: "",
+      rows: 24,
+      status: "running",
+    },
+    schemaVersion: 1,
+    sequence: 1,
+    sessionId: "terminal_api",
+    streamId: "terminal_stream_test",
+    type: "terminal.output",
     workspaceId: "workspace_api",
   };
 }

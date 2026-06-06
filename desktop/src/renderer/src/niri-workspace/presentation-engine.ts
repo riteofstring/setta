@@ -92,10 +92,16 @@ export class PresentationEngine {
   }
 
   syncPanes(panes: readonly NiriPane[]): void {
+    const nextPaneIds = new Set(panes.map((pane) => pane.paneId));
+    for (const paneId of [...this.paneById.keys()]) {
+      if (!nextPaneIds.has(paneId)) {
+        this.paneById.delete(paneId);
+      }
+    }
     for (const pane of panes) {
       this.paneById.set(pane.paneId, pane);
-      this.surfaceRegistry.ensurePane(pane);
     }
+    this.surfaceRegistry.syncPanes(panes);
   }
 
   teardown(): void {

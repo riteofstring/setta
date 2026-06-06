@@ -710,6 +710,66 @@ export function decodeWorkflowEventType(value: unknown, label = "WorkflowEventTy
   }
 }
 
+export type SessionStatus = "starting" | "running" | "exited" | "closed" | "error";
+
+export const sessionStatusValues = ["starting", "running", "exited", "closed", "error"] as const satisfies readonly SessionStatus[];
+
+export function decodeSessionStatus(value: unknown, label = "SessionStatus"): SessionStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "starting":
+      return decoded;
+    case "running":
+      return decoded;
+    case "exited":
+      return decoded;
+    case "closed":
+      return decoded;
+    case "error":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CloseMode = "terminate" | "kill";
+
+export const closeModeValues = ["terminate", "kill"] as const satisfies readonly CloseMode[];
+
+export function decodeCloseMode(value: unknown, label = "CloseMode"): CloseMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "terminate":
+      return decoded;
+    case "kill":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TerminalEventType = "terminal.output" | "terminal.started" | "terminal.exited" | "terminal.closed" | "terminal.error";
+
+export const terminalEventTypeValues = ["terminal.output", "terminal.started", "terminal.exited", "terminal.closed", "terminal.error"] as const satisfies readonly TerminalEventType[];
+
+export function decodeTerminalEventType(value: unknown, label = "TerminalEventType"): TerminalEventType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "terminal.output":
+      return decoded;
+    case "terminal.started":
+      return decoded;
+    case "terminal.exited":
+      return decoded;
+    case "terminal.closed":
+      return decoded;
+    case "terminal.error":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type CodexAccountStatus = "signed_in" | "unauthenticated" | "unavailable" | "login_in_progress";
 
 export const codexAccountStatusValues = ["signed_in", "unauthenticated", "unavailable", "login_in_progress"] as const satisfies readonly CodexAccountStatus[];
@@ -1687,6 +1747,83 @@ export interface SubmitWorkflowApprovalRequest {
   cancelled: boolean;
 }
 
+export interface CreateTerminalRequest {
+  workspaceId: string;
+  paneId: string;
+  profileId: string;
+  cwd: string;
+  cols: number;
+  rows: number;
+}
+
+export interface TerminalSessionSummary {
+  id: string;
+  workspaceId: string;
+  paneId: string;
+  profileId: string;
+  cwd: string;
+  cols: number;
+  rows: number;
+  status: SessionStatus;
+  createdAt: string;
+  updatedAt: string;
+  exitCode: number;
+  message: string;
+}
+
+export interface TerminalSessionResponse {
+  session: TerminalSessionSummary;
+}
+
+export interface AttachTerminalRequest {
+  workspaceId: string;
+  paneId: string;
+}
+
+export interface TerminalInputRequest {
+  sessionId: string;
+  dataBase64: string;
+}
+
+export interface TerminalInputResponse {
+  acceptedBytes: number;
+}
+
+export interface ResizeTerminalRequest {
+  sessionId: string;
+  cols: number;
+  rows: number;
+}
+
+export interface CloseTerminalRequest {
+  sessionId: string;
+  mode: CloseMode;
+}
+
+export interface TerminalEventPayload {
+  dataBase64: string;
+  byteCount: number;
+  status: SessionStatus;
+  cwd: string;
+  cols: number;
+  rows: number;
+  exitCode: number;
+  message: string;
+}
+
+export interface TerminalEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: TerminalEventType;
+  emittedAt: string;
+  workspaceId: string;
+  paneId: string;
+  sessionId: string;
+  payload: TerminalEventPayload;
+}
+
 export interface CodexAccount {
   type: CodexAccountType;
   email: string;
@@ -2207,6 +2344,30 @@ export const backendEndpoints = {
   WorkflowEventStream: {
     method: "GET",
     path: "/workflows/events",
+  },
+  CreateTerminal: {
+    method: "POST",
+    path: "/terminals/create",
+  },
+  AttachTerminal: {
+    method: "POST",
+    path: "/terminals/attach",
+  },
+  TerminalInput: {
+    method: "POST",
+    path: "/terminals/input",
+  },
+  ResizeTerminal: {
+    method: "POST",
+    path: "/terminals/resize",
+  },
+  CloseTerminal: {
+    method: "POST",
+    path: "/terminals/close",
+  },
+  TerminalEventStream: {
+    method: "GET",
+    path: "/terminals/events",
   },
   ReadCodexAccount: {
     method: "GET",
@@ -3531,6 +3692,123 @@ export function decodeSubmitWorkflowApprovalRequest(value: unknown): SubmitWorkf
   };
 }
 
+export function decodeCreateTerminalRequest(value: unknown): CreateTerminalRequest {
+  const record = assertRecord(value, "CreateTerminalRequest");
+  assertKnownFields(record, "CreateTerminalRequest", ["workspaceId", "paneId", "profileId", "cwd", "cols", "rows"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateTerminalRequest"), "CreateTerminalRequest.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "CreateTerminalRequest"), "CreateTerminalRequest.paneId"),
+    profileId: decodeString(requireField(record, "profileId", "CreateTerminalRequest"), "CreateTerminalRequest.profileId"),
+    cwd: decodeString(requireField(record, "cwd", "CreateTerminalRequest"), "CreateTerminalRequest.cwd"),
+    cols: decodeInteger(requireField(record, "cols", "CreateTerminalRequest"), "CreateTerminalRequest.cols"),
+    rows: decodeInteger(requireField(record, "rows", "CreateTerminalRequest"), "CreateTerminalRequest.rows"),
+  };
+}
+
+export function decodeTerminalSessionSummary(value: unknown): TerminalSessionSummary {
+  const record = assertRecord(value, "TerminalSessionSummary");
+  assertKnownFields(record, "TerminalSessionSummary", ["id", "workspaceId", "paneId", "profileId", "cwd", "cols", "rows", "status", "createdAt", "updatedAt", "exitCode", "message"]);
+  return {
+    id: decodeString(requireField(record, "id", "TerminalSessionSummary"), "TerminalSessionSummary.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "TerminalSessionSummary"), "TerminalSessionSummary.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "TerminalSessionSummary"), "TerminalSessionSummary.paneId"),
+    profileId: decodeString(requireField(record, "profileId", "TerminalSessionSummary"), "TerminalSessionSummary.profileId"),
+    cwd: decodeString(requireField(record, "cwd", "TerminalSessionSummary"), "TerminalSessionSummary.cwd"),
+    cols: decodeInteger(requireField(record, "cols", "TerminalSessionSummary"), "TerminalSessionSummary.cols"),
+    rows: decodeInteger(requireField(record, "rows", "TerminalSessionSummary"), "TerminalSessionSummary.rows"),
+    status: decodeSessionStatus(requireField(record, "status", "TerminalSessionSummary"), "TerminalSessionSummary.status"),
+    createdAt: decodeString(requireField(record, "createdAt", "TerminalSessionSummary"), "TerminalSessionSummary.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "TerminalSessionSummary"), "TerminalSessionSummary.updatedAt"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "TerminalSessionSummary"), "TerminalSessionSummary.exitCode"),
+    message: decodeString(requireField(record, "message", "TerminalSessionSummary"), "TerminalSessionSummary.message"),
+  };
+}
+
+export function decodeTerminalSessionResponse(value: unknown): TerminalSessionResponse {
+  const record = assertRecord(value, "TerminalSessionResponse");
+  assertKnownFields(record, "TerminalSessionResponse", ["session"]);
+  return {
+    session: decodeTerminalSessionSummary(requireField(record, "session", "TerminalSessionResponse")),
+  };
+}
+
+export function decodeAttachTerminalRequest(value: unknown): AttachTerminalRequest {
+  const record = assertRecord(value, "AttachTerminalRequest");
+  assertKnownFields(record, "AttachTerminalRequest", ["workspaceId", "paneId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AttachTerminalRequest"), "AttachTerminalRequest.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "AttachTerminalRequest"), "AttachTerminalRequest.paneId"),
+  };
+}
+
+export function decodeTerminalInputRequest(value: unknown): TerminalInputRequest {
+  const record = assertRecord(value, "TerminalInputRequest");
+  assertKnownFields(record, "TerminalInputRequest", ["sessionId", "dataBase64"]);
+  return {
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalInputRequest"), "TerminalInputRequest.sessionId"),
+    dataBase64: decodeString(requireField(record, "dataBase64", "TerminalInputRequest"), "TerminalInputRequest.dataBase64"),
+  };
+}
+
+export function decodeTerminalInputResponse(value: unknown): TerminalInputResponse {
+  const record = assertRecord(value, "TerminalInputResponse");
+  assertKnownFields(record, "TerminalInputResponse", ["acceptedBytes"]);
+  return {
+    acceptedBytes: decodeInteger(requireField(record, "acceptedBytes", "TerminalInputResponse"), "TerminalInputResponse.acceptedBytes"),
+  };
+}
+
+export function decodeResizeTerminalRequest(value: unknown): ResizeTerminalRequest {
+  const record = assertRecord(value, "ResizeTerminalRequest");
+  assertKnownFields(record, "ResizeTerminalRequest", ["sessionId", "cols", "rows"]);
+  return {
+    sessionId: decodeString(requireField(record, "sessionId", "ResizeTerminalRequest"), "ResizeTerminalRequest.sessionId"),
+    cols: decodeInteger(requireField(record, "cols", "ResizeTerminalRequest"), "ResizeTerminalRequest.cols"),
+    rows: decodeInteger(requireField(record, "rows", "ResizeTerminalRequest"), "ResizeTerminalRequest.rows"),
+  };
+}
+
+export function decodeCloseTerminalRequest(value: unknown): CloseTerminalRequest {
+  const record = assertRecord(value, "CloseTerminalRequest");
+  assertKnownFields(record, "CloseTerminalRequest", ["sessionId", "mode"]);
+  return {
+    sessionId: decodeString(requireField(record, "sessionId", "CloseTerminalRequest"), "CloseTerminalRequest.sessionId"),
+    mode: decodeCloseMode(requireField(record, "mode", "CloseTerminalRequest"), "CloseTerminalRequest.mode"),
+  };
+}
+
+export function decodeTerminalEventPayload(value: unknown): TerminalEventPayload {
+  const record = assertRecord(value, "TerminalEventPayload");
+  assertKnownFields(record, "TerminalEventPayload", ["dataBase64", "byteCount", "status", "cwd", "cols", "rows", "exitCode", "message"]);
+  return {
+    dataBase64: decodeString(requireField(record, "dataBase64", "TerminalEventPayload"), "TerminalEventPayload.dataBase64"),
+    byteCount: decodeInteger(requireField(record, "byteCount", "TerminalEventPayload"), "TerminalEventPayload.byteCount"),
+    status: decodeSessionStatus(requireField(record, "status", "TerminalEventPayload"), "TerminalEventPayload.status"),
+    cwd: decodeString(requireField(record, "cwd", "TerminalEventPayload"), "TerminalEventPayload.cwd"),
+    cols: decodeInteger(requireField(record, "cols", "TerminalEventPayload"), "TerminalEventPayload.cols"),
+    rows: decodeInteger(requireField(record, "rows", "TerminalEventPayload"), "TerminalEventPayload.rows"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "TerminalEventPayload"), "TerminalEventPayload.exitCode"),
+    message: decodeString(requireField(record, "message", "TerminalEventPayload"), "TerminalEventPayload.message"),
+  };
+}
+
+export function decodeTerminalEvent(value: unknown): TerminalEvent {
+  const record = assertRecord(value, "TerminalEvent");
+  assertKnownFields(record, "TerminalEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "paneId", "sessionId", "payload"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "TerminalEvent"), "TerminalEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "TerminalEvent"), "TerminalEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "TerminalEvent"), "TerminalEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "TerminalEvent"), "TerminalEvent.eventId"),
+    type: decodeTerminalEventType(requireField(record, "type", "TerminalEvent"), "TerminalEvent.type"),
+    emittedAt: decodeString(requireField(record, "emittedAt", "TerminalEvent"), "TerminalEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "TerminalEvent"), "TerminalEvent.workspaceId"),
+    paneId: decodeString(requireField(record, "paneId", "TerminalEvent"), "TerminalEvent.paneId"),
+    sessionId: decodeString(requireField(record, "sessionId", "TerminalEvent"), "TerminalEvent.sessionId"),
+    payload: decodeTerminalEventPayload(requireField(record, "payload", "TerminalEvent")),
+  };
+}
+
 export function decodeCodexAccount(value: unknown): CodexAccount {
   const record = assertRecord(value, "CodexAccount");
   assertKnownFields(record, "CodexAccount", ["type", "email", "planType"]);
@@ -4038,6 +4316,11 @@ export interface BackendClient {
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
   submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
+  createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
+  attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
+  terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
+  resizeTerminal: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
+  closeTerminal: (request: CloseTerminalRequest) => Promise<TerminalSessionResponse>;
   readCodexAccount: () => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
   startCodexLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
@@ -4364,6 +4647,46 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.SubmitWorkflowApproval,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createTerminal: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalSessionResponse,
+      endpoint: backendEndpoints.CreateTerminal,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    attachTerminal: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalSessionResponse,
+      endpoint: backendEndpoints.AttachTerminal,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    terminalInput: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalInputResponse,
+      endpoint: backendEndpoints.TerminalInput,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    resizeTerminal: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalSessionResponse,
+      endpoint: backendEndpoints.ResizeTerminal,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    closeTerminal: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalSessionResponse,
+      endpoint: backendEndpoints.CloseTerminal,
       fetchImpl,
       requestPayload: request,
     }),

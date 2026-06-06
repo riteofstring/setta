@@ -9,7 +9,10 @@ import {
   renderFakePaneContent,
   renderSnapshotContent,
 } from "./surface-dom-content";
-import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
+import {
+  SyntheticTerminalSurfaceAdapter,
+  TerminalSurfaceAdapter,
+} from "./terminal-surface-adapter";
 import type {
   FreezeReason,
   NiriPane,
@@ -442,6 +445,7 @@ const defaultSurfaceAdapterFactories = {
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
   "fake-long-chat": createReactDomSurfaceAdapter,
+  "fake-terminal": (pane) => new SyntheticTerminalSurfaceAdapter(pane),
   "git-graph": (pane) => new GitGraphSurfaceAdapter(pane),
   "pixi-canvas": createReactDomSurfaceAdapter,
   "settings-dom": createReactDomSurfaceAdapter,

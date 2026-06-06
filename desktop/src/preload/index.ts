@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import { decodeChatEvent, decodeWorkflowEvent } from "@generated/backend";
+import { decodeChatEvent, decodeTerminalEvent, decodeWorkflowEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import type {
   BackendEventStreamStatus,
@@ -65,6 +65,31 @@ const api: SettaAPI = {
     },
     readBrowserViewStats: () => invoke("niriBrowserViewStats"),
     teardownBrowserViews: (workspaceId: string) => invoke("niriBrowserViewsTeardown", workspaceId),
+  },
+  terminal: {
+    attach: (workspaceId: string, paneId: string) => invoke("terminalAttach", workspaceId, paneId),
+    close: (sessionId: string, mode) => invoke("terminalClose", sessionId, mode),
+    create: (workspaceId, paneId, options) =>
+      invoke(
+        "terminalCreate",
+        workspaceId,
+        paneId,
+        options.profileId ?? "",
+        options.cwd ?? "",
+        options.cols,
+        options.rows,
+      ),
+    input: (input) => invoke("terminalInput", input),
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeTerminalEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.terminalEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.terminalEvent, handler);
+      };
+    },
+    resize: (request) => invoke("terminalResize", request),
   },
   chat: {
     activeRun: (workspaceId: string, conversationId: string) =>

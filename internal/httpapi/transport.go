@@ -10,6 +10,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/jsonio"
 	"setta/internal/orchestrator"
+	"setta/internal/terminal"
 	"setta/internal/workspace"
 )
 
@@ -40,6 +41,14 @@ func requireCodexAccountService(response http.ResponseWriter, service CodexAccou
 func requireWorkflowService(response http.ResponseWriter, service WorkflowService) WorkflowService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "workflow_service_unavailable", "workflow service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireTerminalService(response http.ResponseWriter, service TerminalService) TerminalService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "terminal_service_unavailable", "terminal service is not available")
 		return nil
 	}
 	return service
@@ -110,6 +119,16 @@ func writeWorkflowError(response http.ResponseWriter, code string, err error) {
 	}
 	if orchestrator.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeTerminalError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	var unsupported terminal.UnsupportedPlatformError
+	if errors.As(err, &unsupported) {
+		writeError(response, http.StatusNotImplemented, "terminal_unsupported", unsupported.Error())
+		return
 	}
 	writeError(response, status, code, err.Error())
 }

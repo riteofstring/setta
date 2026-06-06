@@ -20,6 +20,7 @@ const paneSurfaceKinds = [
   "fake-dom",
   "fake-heavy-dom",
   "fake-long-chat",
+  "fake-terminal",
   "git-graph",
   "pixi-canvas",
   "settings-dom",

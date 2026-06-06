@@ -15,6 +15,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
 	"setta/internal/orchestrator"
+	"setta/internal/terminal"
 )
 
 type contractSpec struct {
@@ -32,6 +33,7 @@ type endpointSpec struct {
 	Path          string
 	Request       reflect.Type
 	Response      reflect.Type
+	StreamEvent   reflect.Type
 	Streaming     bool
 }
 
@@ -143,6 +145,9 @@ func contractValueSets() []chat.ContractValueSet {
 	for _, set := range orchestrator.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
+	for _, set := range terminal.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
 	return sets
 }
 
@@ -192,6 +197,11 @@ func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractColl
 				return nil, fmt.Errorf("%s response: %w", endpoint.Name, err)
 			}
 		}
+		if endpoint.StreamEvent != nil {
+			if err := collector.add(endpoint.StreamEvent); err != nil {
+				return nil, fmt.Errorf("%s stream event: %w", endpoint.Name, err)
+			}
+		}
 		specs = append(specs, spec)
 	}
 	return specs, nil
@@ -223,6 +233,7 @@ func validateEndpoint(index int, endpoint httpapi.ContractEndpoint, names map[st
 		Path:          endpoint.Path,
 		Request:       endpoint.Request,
 		Response:      endpoint.Response,
+		StreamEvent:   endpoint.StreamEvent,
 		Streaming:     endpoint.Streaming,
 	}, nil
 }
@@ -248,15 +259,41 @@ func validateRouteShape(endpoint httpapi.ContractEndpoint) error {
 }
 
 func validateRouteContract(endpoint httpapi.ContractEndpoint) error {
+	if err := validateRouteRequestContract(endpoint); err != nil {
+		return err
+	}
+	if err := validateRouteStreamContract(endpoint); err != nil {
+		return err
+	}
+	return validateRouteResponseContract(endpoint)
+}
+
+func validateRouteRequestContract(endpoint httpapi.ContractEndpoint) error {
 	if endpoint.Method == http.MethodGet && endpoint.Request != nil {
 		return fmt.Errorf("%s GET endpoint must not declare a request body", endpoint.Name)
 	}
 	if endpoint.Method == http.MethodPost && endpoint.Request == nil {
 		return fmt.Errorf("%s POST endpoint must declare a request body", endpoint.Name)
 	}
+	return nil
+}
+
+func validateRouteStreamContract(endpoint httpapi.ContractEndpoint) error {
 	if endpoint.Streaming && endpoint.Response != nil {
 		return fmt.Errorf("%s streaming endpoint must not declare a response type", endpoint.Name)
 	}
+	if !endpoint.Streaming && endpoint.StreamEvent != nil {
+		return fmt.Errorf("%s non-streaming endpoint must not declare a stream event type", endpoint.Name)
+	}
+	if endpoint.Streaming && endpoint.StreamEvent != nil {
+		if endpoint.StreamEvent.Kind() != reflect.Struct || endpoint.StreamEvent.Name() == "" {
+			return fmt.Errorf("%s has unsupported stream event type %s", endpoint.Name, endpoint.StreamEvent)
+		}
+	}
+	return nil
+}
+
+func validateRouteResponseContract(endpoint httpapi.ContractEndpoint) error {
 	if !endpoint.Streaming && endpoint.Response == nil {
 		return fmt.Errorf("%s has empty response type", endpoint.Name)
 	}

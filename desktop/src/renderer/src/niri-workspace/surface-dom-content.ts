@@ -195,11 +195,12 @@ const staticSnapshotRenderers = {
   "fake-dom": renderWrappedGenericSnapshot,
   "fake-heavy-dom": renderWrappedGenericSnapshot,
   "fake-long-chat": renderWrappedGenericSnapshot,
+  "fake-terminal": renderWrappedGenericSnapshot,
   "git-graph": renderWrappedGenericSnapshot,
   "pixi-canvas": () => null,
   "settings-dom": renderWrappedGenericSnapshot,
   snapshot: () => null,
-  terminal: renderWrappedGenericSnapshot,
+  terminal: renderWrappedTerminalSnapshot,
 } satisfies Record<SurfaceKind, StaticSnapshotRenderer>;
 
 function renderWrappedStaticBrowserSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
@@ -207,8 +208,12 @@ function renderWrappedStaticBrowserSnapshot(host: HTMLElement, pane: NiriPane): 
 }
 
 function renderWrappedGenericSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
-  const rowCount = pane.surfaceKind === "terminal" ? 12 : 4;
+  const rowCount = pane.surfaceKind === "fake-terminal" ? 12 : 4;
   return wrapStaticSnapshotTexture(host, renderFakePaneContent(host, pane, rowCount));
+}
+
+function renderWrappedTerminalSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+  return wrapStaticSnapshotTexture(host, renderStaticTerminalSnapshot(host, pane));
 }
 
 function renderWrappedEmptyFrameSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
@@ -238,6 +243,22 @@ function renderStaticBrowserSnapshot(host: HTMLElement, pane: NiriPane): HTMLEle
   const subtitle = document.createElement("p");
   subtitle.textContent = pane.subtitle;
   content.append(toolbar, title, subtitle);
+  return content;
+}
+
+function renderStaticTerminalSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+  const document = host.ownerDocument;
+  const content = document.createElement("div");
+  content.className = "niri-pane-content niri-terminal-surface";
+  const header = document.createElement("div");
+  header.className = "niri-terminal-header";
+  const title = document.createElement("h2");
+  title.textContent = pane.title;
+  const status = document.createElement("span");
+  status.className = "niri-terminal-status";
+  status.textContent = "snapshot";
+  header.append(title, status);
+  content.append(header);
   return content;
 }
 

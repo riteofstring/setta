@@ -19,6 +19,7 @@ import (
 	"setta/internal/codexapp"
 	"setta/internal/httpapi"
 	"setta/internal/orchestrator"
+	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -48,6 +49,7 @@ type ReadyEvent struct {
 
 type Server struct {
 	closeCodex          func(context.Context) error
+	closeTerminal       func(context.Context) error
 	closeEvents         func()
 	closeWorkflowEvents func()
 	server              *http.Server
@@ -59,6 +61,7 @@ type runtimeServices struct {
 	chatService         *chat.Service
 	codexAccountService *codexaccount.Service
 	codexManager        *codexapp.Manager
+	terminalService     *terminal.Manager
 	workspaceService    *workspacesession.Service
 	workflowService     *orchestrator.Service
 }
@@ -127,6 +130,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 
 	server := &Server{
 		closeCodex:          services.codexManager.Shutdown,
+		closeTerminal:       services.terminalService.Shutdown,
 		closeEvents:         services.chatService.CloseEvents,
 		closeWorkflowEvents: services.workflowService.CloseEvents,
 		server:              newHTTPServer(config, services),
@@ -183,6 +187,12 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create workflow service: %w", err)
 	}
+	terminalService, err := terminal.NewManager(terminal.ManagerConfig{
+		WorkspaceResolver: workspaceService,
+	})
+	if err != nil {
+		return runtimeServices{}, fmt.Errorf("create terminal service: %w", err)
+	}
 	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
 	if err != nil {
 		return runtimeServices{}, fmt.Errorf("create Codex account service: %w", err)
@@ -192,6 +202,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		chatService:         chatService,
 		codexAccountService: codexAccountService,
 		codexManager:        codexManager,
+		terminalService:     terminalService,
 		workspaceService:    workspaceService,
 		workflowService:     workflowService,
 	}, nil
@@ -206,6 +217,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			},
 			ChatService:         services.chatService,
 			CodexAccountService: services.codexAccountService,
+			TerminalService:     services.terminalService,
 			WorkspaceService:    services.workspaceService,
 			WorkflowService:     services.workflowService,
 		}),
@@ -226,7 +238,15 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	if server.closeWorkflowEvents != nil {
 		server.closeWorkflowEvents()
 	}
-	shutdownErr := server.server.Shutdown(ctx)
+	var shutdownErr error
+	if server.closeTerminal != nil {
+		if err := server.closeTerminal(ctx); err != nil {
+			shutdownErr = err
+		}
+	}
+	if err := server.server.Shutdown(ctx); err != nil && shutdownErr == nil {
+		shutdownErr = err
+	}
 	if server.closeCodex != nil {
 		if err := server.closeCodex(ctx); err != nil && shutdownErr == nil {
 			shutdownErr = err

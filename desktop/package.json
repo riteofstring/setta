@@ -14,10 +14,12 @@
     "lint": "eslint .",
     "test": "vitest run src",
     "test:electron": "pnpm build && pnpm test:electron:built",
-    "test:electron:built": "node tests/electron/chat-workflows.test.mjs && node tests/electron/corrupt-chat-workflow.test.mjs",
+    "test:electron:built": "node tests/electron/chat-workflows.test.mjs && node tests/electron/corrupt-chat-workflow.test.mjs && node tests/electron/terminal-workflow.test.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/xterm": "5.5.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "1.16.0",

@@ -7,6 +7,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/orchestrator"
+	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -70,10 +71,20 @@ type WorkflowService interface {
 	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
 }
 
+type TerminalService interface {
+	Attach(context.Context, string, string) (terminal.SessionSummary, error)
+	Close(context.Context, string, terminal.CloseMode) (terminal.SessionSummary, error)
+	Create(context.Context, string, string, string, string, int, int) (terminal.SessionSummary, error)
+	Resize(context.Context, string, int, int) (terminal.SessionSummary, error)
+	SubscribeEvents(terminal.EventCursor) (*terminal.EventSubscription, error)
+	WriteInput(context.Context, string, []byte) (int, error)
+}
+
 type HandlerConfig struct {
 	Metadata            BackendMetadata
 	ChatService         ChatService
 	CodexAccountService CodexAccountService
+	TerminalService     TerminalService
 	WorkspaceService    WorkspaceService
 	WorkflowService     WorkflowService
 }
@@ -82,6 +93,7 @@ type handler struct {
 	metadata            BackendMetadata
 	chatService         ChatService
 	codexAccountService CodexAccountService
+	terminalService     TerminalService
 	workspaceService    WorkspaceService
 	workflowService     WorkflowService
 }
@@ -91,6 +103,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		metadata:            config.Metadata,
 		chatService:         config.ChatService,
 		codexAccountService: config.CodexAccountService,
+		terminalService:     config.TerminalService,
 		workspaceService:    config.WorkspaceService,
 		workflowService:     config.WorkflowService,
 	}

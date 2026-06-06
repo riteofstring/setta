@@ -11,6 +11,7 @@ import {
   createBackendClient,
   type BackendClient,
   type ChatEvent,
+  type TerminalEvent,
   type WorkflowEvent,
 } from "@generated/backend";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
@@ -23,12 +24,15 @@ import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createElectronWebContentsViewRegistry } from "./niri-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
+import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
+import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
 import { readWorkspaceGitInfo } from "./workspace-actions";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
+let terminalEventStream: TerminalEventStream | null = null;
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
@@ -80,6 +84,7 @@ async function prepareBackend(appDataDir: string) {
       }
     });
     startChatEventStream();
+    startTerminalEventStreamForwarding();
     startWorkflowEventStreamForwarding();
   } catch (error) {
     backend = null;
@@ -128,6 +133,18 @@ function startWorkflowEventStreamForwarding() {
   });
 }
 
+function startTerminalEventStreamForwarding() {
+  if (!backend) {
+    return;
+  }
+  void stopTerminalEventStreamForwarding();
+  terminalEventStream = startTerminalEventStream({
+    baseURL: backend.url,
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    sendEvent: forwardTerminalEvent,
+  });
+}
+
 async function stopChatEventStream() {
   const stream = backendEventStream;
   backendEventStream = null;
@@ -140,8 +157,18 @@ async function stopWorkflowEventStreamForwarding() {
   await stream?.stop();
 }
 
+async function stopTerminalEventStreamForwarding() {
+  const stream = terminalEventStream;
+  terminalEventStream = null;
+  await stream?.stop();
+}
+
 async function stopBackendEventStreams() {
-  await Promise.all([stopChatEventStream(), stopWorkflowEventStreamForwarding()]);
+  await Promise.all([
+    stopChatEventStream(),
+    stopTerminalEventStreamForwarding(),
+    stopWorkflowEventStreamForwarding(),
+  ]);
 }
 
 function emitBackendProcessStatus(status: BackendProcessStatus) {
@@ -168,6 +195,19 @@ function forwardWorkflowEvent(event: WorkflowEvent) {
     type: event.type,
   });
   forwardWorkflowEventToWindows(BrowserWindow.getAllWindows(), event);
+}
+
+function forwardTerminalEvent(event: TerminalEvent) {
+  recorder?.recordAppEvent("terminal_event_forwarded", {
+    eventId: event.eventId,
+    paneId: event.paneId,
+    sequence: event.sequence,
+    sessionId: event.sessionId,
+    streamId: event.streamId,
+    type: event.type,
+    workspaceId: event.workspaceId,
+  });
+  forwardTerminalEventToWindows(BrowserWindow.getAllWindows(), event);
 }
 
 function settaAppDataDir() {
@@ -774,6 +814,54 @@ function registerIpc() {
     "niriBrowserViewsTeardown",
     (_event, workspaceId) => {
       return niriBrowserViews.teardownWorkspace(workspaceId);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "terminalCreate",
+    async (_event, ...args) => {
+      const [workspaceId, paneId, profileId, cwd, cols, rows] = args;
+      return requireBackendClient().createTerminal({
+        cols,
+        cwd,
+        paneId,
+        profileId,
+        rows,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "terminalAttach",
+    async (_event, workspaceId, paneId) => {
+      return requireBackendClient().attachTerminal({ paneId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "terminalInput",
+    async (_event, input) => {
+      return requireBackendClient().terminalInput(input);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "terminalResize",
+    async (_event, request) => {
+      return requireBackendClient().resizeTerminal(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "terminalClose",
+    async (_event, sessionId, mode) => {
+      return requireBackendClient().closeTerminal({ mode, sessionId });
     },
     ipcObserver,
   );

@@ -385,6 +385,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    terminal: unimplementedTerminalAPI(),
     workflow: unimplementedWorkflowAPI(),
     workspace: {
       close: async () => workspaceSession(),
@@ -401,6 +402,20 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     configurable: true,
     value: { setta: api },
   });
+}
+
+function unimplementedTerminalAPI(): SettaAPI["terminal"] {
+  const unavailable = async (): Promise<never> => {
+    throw new Error("terminal API is not implemented in this test");
+  };
+  return {
+    attach: unavailable,
+    close: unavailable,
+    create: unavailable,
+    input: unavailable,
+    onEvent: () => () => {},
+    resize: unavailable,
+  };
 }
 
 function unimplementedWorkflowAPI(): SettaAPI["workflow"] {

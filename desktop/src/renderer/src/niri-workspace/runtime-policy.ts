@@ -47,6 +47,7 @@ const surfaceRuntimeCategories = {
   "fake-dom": "always-live",
   "fake-heavy-dom": "heavy-dom",
   "fake-long-chat": "heavy-dom-budgeted",
+  "fake-terminal": "terminal",
   "git-graph": "git-graph",
   "pixi-canvas": "canvas",
   "settings-dom": "always-live",
@@ -133,7 +134,7 @@ export class PaneRuntimePolicy {
   ): void {
     if (kind === "browser") {
       counters.liveBrowserPanes += 1;
-    } else if (kind === "terminal") {
+    } else if (isTerminalSurfaceKind(kind)) {
       counters.liveTerminalRenderers += 1;
     } else if (isLiveHeavyDomSurfaceKind(kind)) {
       counters.liveHeavyDom += 1;
@@ -342,6 +343,10 @@ function isLiveCanvasSurfaceKind(kind: SurfaceKind): kind is LiveCanvasSurfaceKi
 
 function isLiveHeavyDomSurfaceKind(kind: SurfaceKind): kind is LiveHeavyDomSurfaceKind {
   return liveHeavyDomSurfaceKinds.has(kind);
+}
+
+function isTerminalSurfaceKind(kind: SurfaceKind): boolean {
+  return kind === "terminal" || kind === "fake-terminal";
 }
 
 function emptySummary(budget: PaneRuntimeBudget): PaneRuntimeSummary {

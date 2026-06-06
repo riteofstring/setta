@@ -18,7 +18,10 @@ import {
   FakeHeavyDomSurfaceAdapter,
   type FrameLoop,
 } from "./surface-adapters";
-import { TerminalSessionState, TerminalSurfaceAdapter } from "./terminal-surface-adapter";
+import {
+  SyntheticTerminalSessionState,
+  SyntheticTerminalSurfaceAdapter,
+} from "./terminal-surface-adapter";
 import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type { NiriPane } from "./types";
 
@@ -268,8 +271,8 @@ describe("niri fake surface adapters", () => {
   test("drains terminal output floods with bounded dirty-row rendering", () => {
     const loop = new ManualFrameLoop();
     const host = createFakeHost();
-    const session = new TerminalSessionState("test-terminal-session");
-    const adapter = new TerminalSurfaceAdapter(fakePane("terminal"), session, loop);
+    const session = new SyntheticTerminalSessionState("test-terminal-session");
+    const adapter = new SyntheticTerminalSurfaceAdapter(fakePane("fake-terminal"), session, loop);
 
     adapter.mount(host);
     adapter.setViewport({ height: 220, width: 280, x: 0, y: 0 }, "mount");

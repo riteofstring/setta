@@ -21,6 +21,7 @@ import type {
   ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
+  ResizeTerminalRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
@@ -30,6 +31,10 @@ import type {
   SteerMessageResult,
   SubmitApprovalRequest,
   SubmitWorkflowApprovalRequest,
+  TerminalEvent,
+  TerminalInputRequest,
+  TerminalInputResponse,
+  TerminalSessionResponse,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
@@ -167,6 +172,23 @@ export interface SettaAPI {
     onBrowserViewKey: (listener: (event: NiriBrowserViewKeyEvent) => void) => () => void;
     readBrowserViewStats: () => Promise<NiriBrowserViewStats>;
     teardownBrowserViews: (workspaceId: string) => Promise<NiriBrowserViewStats>;
+  };
+  terminal: {
+    attach: (workspaceId: string, paneId: string) => Promise<TerminalSessionResponse>;
+    close: (sessionId: string, mode: "terminate" | "kill") => Promise<TerminalSessionResponse>;
+    create: (
+      workspaceId: string,
+      paneId: string,
+      options: {
+        cols: number;
+        cwd?: string;
+        profileId?: string;
+        rows: number;
+      },
+    ) => Promise<TerminalSessionResponse>;
+    input: (input: TerminalInputRequest) => Promise<TerminalInputResponse>;
+    onEvent: (listener: (event: TerminalEvent) => void) => () => void;
+    resize: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;

@@ -42,7 +42,7 @@ describe("niri browser-pane layout engine", () => {
     const browserPanes = scene.panes.filter((pane) => pane.surfaceKind === "browser");
     const gitGraphPanes = scene.panes.filter((pane) => pane.surfaceKind === "git-graph");
     const pixiCanvasPanes = scene.panes.filter((pane) => pane.surfaceKind === "pixi-canvas");
-    const terminalPanes = scene.panes.filter((pane) => pane.surfaceKind === "terminal");
+    const terminalPanes = scene.panes.filter((pane) => pane.surfaceKind === "fake-terminal");
 
     expect(scene.id).toBe("phase-6-terminal-git-graph-benchmark");
     expect(scene.totalPanes).toBe(phaseOneFakePaneCount);
@@ -55,7 +55,7 @@ describe("niri browser-pane layout engine", () => {
     expect(scene.paneById.get("niri_pane_2")?.surfaceKind).toBe("settings-dom");
     expect(scene.paneById.get("niri_pane_3")?.surfaceKind).toBe("chat-dom");
     expect(scene.paneById.get("niri_pane_4")?.surfaceKind).toBe("pixi-canvas");
-    expect(scene.paneById.get("niri_pane_5")?.surfaceKind).toBe("terminal");
+    expect(scene.paneById.get("niri_pane_5")?.surfaceKind).toBe("fake-terminal");
     expect(scene.paneById.get("niri_pane_6")?.surfaceKind).toBe("git-graph");
     expect(scene.panes.some((pane) => pane.surfaceKind === "fake-heavy-dom")).toBe(true);
     expect(scene.panes.some((pane) => pane.surfaceKind === "fake-canvas")).toBe(true);

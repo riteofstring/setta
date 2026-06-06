@@ -19,6 +19,7 @@ const surfaceKindLabels = {
   "fake-dom": "fake light",
   "fake-heavy-dom": "fake heavy",
   "fake-long-chat": "fake long chat",
+  "fake-terminal": "fake terminal",
   "git-graph": "git graph",
   "pixi-canvas": "Pixi canvas",
   "settings-dom": "real settings",
@@ -115,7 +116,7 @@ function fakeSurfaceKind(sequence: number): SurfaceKind {
     return "pixi-canvas";
   }
   if (isTerminalPaneSequence(sequence)) {
-    return "terminal";
+    return "fake-terminal";
   }
   if (isGitGraphPaneSequence(sequence)) {
     return "git-graph";

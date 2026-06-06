@@ -105,6 +105,26 @@ export class SurfaceRegistry {
     });
   }
 
+  syncPanes(panes: readonly NiriPane[]): void {
+    const nextSurfaceIds = new Set(panes.map((pane) => pane.surfaceId));
+    for (const [surfaceId, record] of [...this.records]) {
+      if (nextSurfaceIds.has(surfaceId)) {
+        continue;
+      }
+      const host = this.hostBySurfaceId.get(surfaceId);
+      if (host) {
+        this.releaseHost(host, "teardown");
+      }
+      record.adapter.freeze("teardown");
+      record.adapter.destroy();
+      record.snapshotAdapter.destroy();
+      this.records.delete(surfaceId);
+    }
+    for (const pane of panes) {
+      this.ensurePane(pane);
+    }
+  }
+
   liveAdapterCountByKind(kind: SurfaceKind): number {
     let count = 0;
     for (const record of this.records.values()) {
@@ -359,9 +379,10 @@ export class SurfaceRegistry {
     switch (runtimeState) {
       case "destroyed":
       case "hidden":
-      case "live-throttled":
       case "snapshot":
         return record.snapshotAdapter;
+      case "live-throttled":
+        return isTerminalSurfaceKind(record.adapter.kind) ? record.adapter : record.snapshotAdapter;
       case "live":
         return record.adapter;
       default:
@@ -607,7 +628,7 @@ function recordViewportWrite(kind: SurfaceKind, stats: SurfaceViewportSyncStats)
     stats.canvasViewportWrites += 1;
   } else if (kind === "git-graph") {
     stats.gitGraphViewportWrites += 1;
-  } else if (kind === "terminal") {
+  } else if (isTerminalSurfaceKind(kind)) {
     stats.terminalViewportWrites += 1;
   }
 }
@@ -617,6 +638,7 @@ function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
     kind === "fake-canvas" ||
     kind === "fake-heavy-dom" ||
     kind === "fake-long-chat" ||
+    kind === "fake-terminal" ||
     kind === "git-graph" ||
     kind === "pixi-canvas" ||
     kind === "terminal"
@@ -665,6 +687,10 @@ function viewportSyncRequired(
 
 function isCanvasSurfaceKind(kind: SurfaceKind): boolean {
   return kind === "fake-canvas" || kind === "pixi-canvas";
+}
+
+function isTerminalSurfaceKind(kind: SurfaceKind): boolean {
+  return kind === "terminal" || kind === "fake-terminal";
 }
 
 function sameRect(left: Rect, right: Rect): boolean {

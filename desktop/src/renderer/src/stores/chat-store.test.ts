@@ -998,17 +998,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    terminal: unimplementedTerminalAPI,
     workflow: {} as SettaAPI["workflow"],
     workspace: {
       close: async () => workspaceSession(),
-      openLocalFolder: async () => ({
-        session: workspaceSession(),
-        workspace: workspaceSummary(),
-      }),
-      openPath: async () => ({
-        session: workspaceSession(),
-        workspace: workspaceSummary(),
-      }),
+      openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
+      openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
       select: async () => workspaceSession(),
@@ -1023,6 +1018,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     },
   });
 }
+
+const unimplementedTerminalAPI = new Proxy({} as SettaAPI["terminal"], {
+  get: () => {
+    throw new Error("terminal API is not implemented in this test");
+  },
+});
 
 function messageCreatedEvent(
   sequence: number,

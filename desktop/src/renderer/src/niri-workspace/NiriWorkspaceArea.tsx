@@ -29,6 +29,7 @@ import {
 import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
 import { createDefaultSurfaceAdapter, EmptyFrameSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
+import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
 import {
   createNiriTrackpadNavigationState,
   interpretNiriTrackpadWheel,
@@ -779,7 +780,11 @@ function createNiriRuntime({
     totalBrowserPanes: browserPaneCount,
     workspaceId: scene.id,
   });
-  const createSurfaceAdapter = createSurfaceAdapterFactory(store, nativeViewBoundsBatcher);
+  const createSurfaceAdapter = createSurfaceAdapterFactory(
+    store,
+    nativeViewBoundsBatcher,
+    workspaceId,
+  );
   const surfaceRegistry = new SurfaceRegistry(scene.panes, createSurfaceAdapter, {
     snapshotAdapter: {
       staticFallback: snapshotStaticFallbackForRuntime(mode),
@@ -810,6 +815,7 @@ function createNiriRuntime({
 function createSurfaceAdapterFactory(
   store: NiriLayoutStore,
   nativeViewBoundsBatcher: NativeViewBoundsBatcher,
+  workspaceId: string,
 ) {
   return (pane: NiriPane) => {
     if (pane.surfaceKind === "browser") {
@@ -817,6 +823,9 @@ function createSurfaceAdapterFactory(
     }
     if (pane.surfaceKind === "empty-frame") {
       return new EmptyFrameSurfaceAdapter(pane, () => emptyFrameOptionsForStore(store));
+    }
+    if (pane.surfaceKind === "terminal") {
+      return new TerminalSurfaceAdapter(pane, workspaceId);
     }
     return createDefaultSurfaceAdapter(pane);
   };
