@@ -96,6 +96,7 @@ describe("startSpawnedBackend", () => {
       void start.catch(() => {});
       await waitForFile(readyForSignalPath);
       await expect(start).rejects.toThrow("backend readiness timed out");
+      expect(existsSync(readyForSignalPath)).toBe(true);
       expect(existsSync(markerPath)).toBe(true);
     } finally {
       rmSync(tempDir, { force: true, recursive: true });
