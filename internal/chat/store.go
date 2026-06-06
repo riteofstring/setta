@@ -1047,18 +1047,26 @@ func writeNewJSONFile(path string, payload any) error {
 		return &PersistenceError{Operation: "create directory", Path: dir, Err: err}
 	}
 
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := os.CreateTemp(dir, ".tmp-*.json")
 	if err != nil {
-		return &PersistenceError{Operation: "create file", Path: path, Err: err}
+		return &PersistenceError{Operation: "create temp file", Path: dir, Err: err}
 	}
+	tempPath := file.Name()
+	defer func() {
+		_ = os.Remove(tempPath)
+	}()
+
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(payload); err != nil {
 		_ = file.Close()
-		return &PersistenceError{Operation: "write file", Path: path, Err: err}
+		return &PersistenceError{Operation: "write temp file", Path: tempPath, Err: err}
 	}
 	if err := file.Close(); err != nil {
-		return &PersistenceError{Operation: "close file", Path: path, Err: err}
+		return &PersistenceError{Operation: "close temp file", Path: tempPath, Err: err}
+	}
+	if err := os.Link(tempPath, path); err != nil {
+		return &PersistenceError{Operation: "create file", Path: path, Err: err}
 	}
 	return nil
 }

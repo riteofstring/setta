@@ -11,76 +11,54 @@ import type {
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { WorkspacePanel } from "./App";
-import { compactBottomPaneHeight, compactPaneWidth, paneVisibility } from "./app-layout";
+import { App, WorkspacePanel } from "./App";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { SettingsPanel } from "./components/settings-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
-import { WorkspacePanePanel } from "./components/workspace-pane";
+import {
+  canSplitWorkspacePaneTab,
+  canCreateWorkspacePane,
+  maxWorkspacePaneCount,
+  WorkspacePanePanel,
+  type WorkspacePaneState,
+} from "./components/workspace-pane";
 
 describe("workspace renderer states", () => {
-  test("caps pane widths at compact viewport sizes without growing stored widths", () => {
-    expect(compactPaneWidth(360, 560, 160, 0.34)).toBe(190);
-    expect(compactPaneWidth(360, 320, 160, 0.34)).toBe(160);
-    expect(compactPaneWidth(140, 560, 128, 0.28)).toBe(140);
-    expect(compactPaneWidth(360, 900, 160, 0.34)).toBe(360);
+  test("renders a preload contract error when the Electron API is missing", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {},
+    });
+
+    const html = renderToString(<App />);
+
+    expect(html).toContain('data-testid="app-runtime-contract-error"');
+    expect(html).toContain("Setta preload API is unavailable.");
+    expect(html).toContain("window.setta");
   });
 
-  test("caps bottom pane height at compact viewport sizes", () => {
-    expect(compactBottomPaneHeight(288, 320)).toBe(108);
-    expect(compactBottomPaneHeight(72, 320)).toBe(72);
-    expect(compactBottomPaneHeight(288, 900)).toBe(288);
-  });
+  test("renders the default chat pane grid", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        setta: {
+          app: { platform: "darwin" },
+          backend: { onEventStreamStatus: () => () => {} },
+          chat: { onEvent: () => () => {} },
+        },
+      },
+    });
 
-  test("uses a single horizontal content pane at narrow viewport sizes", () => {
-    expect(
-      paneVisibility({
-        bottomPaneOpen: true,
-        chatPaneOpen: true,
-        maximizedPane: null,
-        projectPaneOpen: true,
-        rightPaneOpen: true,
-        viewportWidth: 320,
-      }),
-    ).toEqual({
-      bottom: true,
-      chat: false,
-      content: true,
-      project: false,
-      right: true,
-    });
-    expect(
-      paneVisibility({
-        bottomPaneOpen: false,
-        chatPaneOpen: true,
-        maximizedPane: null,
-        projectPaneOpen: true,
-        rightPaneOpen: false,
-        viewportWidth: 320,
-      }),
-    ).toEqual({
-      bottom: false,
-      chat: true,
-      content: true,
-      project: false,
-      right: false,
-    });
-    expect(
-      paneVisibility({
-        bottomPaneOpen: false,
-        chatPaneOpen: false,
-        maximizedPane: null,
-        projectPaneOpen: true,
-        rightPaneOpen: false,
-        viewportWidth: 320,
-      }),
-    ).toEqual({
-      bottom: false,
-      chat: false,
-      content: false,
-      project: true,
-      right: false,
-    });
+    const html = renderToString(<App />);
+
+    expect(html).toContain('data-testid="workspace-pane-grid-shell"');
+    expect(html).toContain('data-testid="workspace-pane-grid"');
+    expect(rowCount(html, "workspace-pane-grid-cell")).toBe(1);
+    expect(html).toContain('data-testid="chat-pane-surface"');
+    expect(html).toContain("1/4");
+    expect(html).toContain("Add chat pane");
+    expect(html).toContain("Add settings pane");
+    expect(html).toContain("bg-zinc-900");
   });
 
   test("renders the empty workspace state", () => {
@@ -297,10 +275,19 @@ describe("workspace renderer states", () => {
     const emptyPane = renderToString(
       <WorkspacePanePanel
         activeTabId=""
+        avoidShellLeftControls={false}
+        avoidShellRightControls={false}
+        canClosePane={false}
+        inShellTopBar={false}
         initialNewTabMenuOpen
+        maximized={false}
         onCloseTab={() => {}}
         onCreateTab={() => {}}
         onSelectTab={() => {}}
+        paneId="test_right_pane"
+        shellLeftInsetClass=""
+        shellRightInsetClass=""
+        showNewTabButton
         slot="right"
         tabs={[]}
       />,
@@ -308,6 +295,7 @@ describe("workspace renderer states", () => {
     const settings = renderToString(<SettingsPanel />);
 
     expect(emptyPane).toContain("New pane tab");
+    expect(emptyPane).toContain("Chat");
     expect(emptyPane).toContain("Settings");
     expect(emptyPane).not.toContain("Browser");
     expect(emptyPane).not.toContain("Canvas");
@@ -317,6 +305,80 @@ describe("workspace renderer states", () => {
     expect(settings).not.toContain("Shortcuts");
     expect(settings).not.toContain("Storage");
     expect(settings).not.toContain("Voice input");
+  });
+
+  test("renders pane tabs in the shell top bar with a pointer drag handle", () => {
+    const html = renderToString(
+      <WorkspacePanePanel
+        activeTabId="tab_chat"
+        avoidShellLeftControls={false}
+        avoidShellRightControls={false}
+        canClosePane={false}
+        inShellTopBar
+        initialNewTabMenuOpen={false}
+        maximized={false}
+        onCloseTab={() => {}}
+        onCreateTab={() => {}}
+        onSelectTab={() => {}}
+        paneId="test_chat_pane"
+        renderTabContent={() => <div>Chat surface</div>}
+        shellLeftInsetClass=""
+        shellRightInsetClass=""
+        showNewTabButton
+        slot="grid"
+        tabs={[{ id: "tab_chat", kind: "chat", title: "Chat" }]}
+      />,
+    );
+
+    expect(html).toContain('data-in-shell-top-bar="true"');
+    expect(html).toContain("app-drag flex min-w-0 flex-1 flex-nowrap");
+    expect(html).toContain("app-no-drag group relative flex h-7");
+    expect(html).not.toContain('draggable="true"');
+    expect(html).toContain('draggable="false"');
+    expect(html).toContain('data-testid="workspace-pane-tab-tab_chat"');
+    expect(html).toContain('title="Drag Chat to split pane"');
+    expect(html).toContain("lucide-grip-vertical");
+  });
+
+  test("caps workspace panes at four", () => {
+    expect(canCreateWorkspacePane(workspacePaneStates(maxWorkspacePaneCount - 1))).toBe(true);
+    expect(canCreateWorkspacePane(workspacePaneStates(maxWorkspacePaneCount))).toBe(false);
+  });
+
+  test("allows tab splitting when a move keeps the pane count within four", () => {
+    expect(canSplitWorkspacePaneTab(workspacePaneStates(maxWorkspacePaneCount), "pane_0")).toBe(
+      true,
+    );
+    expect(
+      canSplitWorkspacePaneTab(
+        [
+          {
+            activeTabId: "tab_0",
+            id: "pane_0",
+            tabs: [{ id: "tab_0", kind: "chat", title: "Chat" }],
+          },
+          {
+            activeTabId: "tab_1",
+            id: "pane_1",
+            tabs: [
+              { id: "tab_1", kind: "chat", title: "Chat" },
+              { id: "tab_2", kind: "settings", title: "Settings" },
+            ],
+          },
+          {
+            activeTabId: "tab_3",
+            id: "pane_2",
+            tabs: [{ id: "tab_3", kind: "chat", title: "Chat" }],
+          },
+          {
+            activeTabId: "tab_4",
+            id: "pane_3",
+            tabs: [{ id: "tab_4", kind: "settings", title: "Settings" }],
+          },
+        ],
+        "pane_1",
+      ),
+    ).toBe(false);
   });
 });
 
@@ -629,6 +691,8 @@ describe("chat renderer states", () => {
     expect(html).toContain("halfway");
     expect(html).toContain("warning text");
     expect(html).toContain('dateTime="2026-05-29T20:00:00Z"');
+    expect(rowCount(html, "run-activity-group")).toBe(1);
+    expect(rowCount(html, "run-activity-row")).toBe(4);
     expect(html).not.toContain("assistant message");
   });
 
@@ -995,6 +1059,20 @@ function chatUserMessage(id: string, ordinal: number, runId: string): ChatMessag
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
+}
+
+function workspacePaneStates(count: number): WorkspacePaneState[] {
+  return Array.from({ length: count }, (_, index) => ({
+    activeTabId: `tab_${index}`,
+    id: `pane_${index}`,
+    tabs: [
+      {
+        id: `tab_${index}`,
+        kind: "chat",
+        title: "Chat",
+      },
+    ],
+  }));
 }
 
 function conversationListItem(id: string, title: string): ConversationListItem {

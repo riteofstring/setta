@@ -28,8 +28,6 @@ let quitting = false;
 let recorder: SessionRecorder | null = null;
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
 const execFileAsync = promisify(execFile);
-const compactWindowMinHeight = 320;
-const compactWindowMinWidth = 320;
 
 function desktopRoot() {
   return process.cwd();
@@ -154,8 +152,8 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     backgroundColor: "#18181b",
     height: 820,
-    minHeight: compactWindowMinHeight,
-    minWidth: compactWindowMinWidth,
+    minHeight: 620,
+    minWidth: 960,
     show: false,
     ...(process.platform === "darwin"
       ? {
@@ -268,14 +266,6 @@ function registerIpc() {
     "appearanceRead",
     async () => {
       return requireBackendClient().readAppearanceSettings();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "appearancePresets",
-    async () => {
-      return requireBackendClient().readAppearancePresets();
     },
     ipcObserver,
   );

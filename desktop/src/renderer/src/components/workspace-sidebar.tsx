@@ -27,9 +27,9 @@ import {
 } from "./sidebar-accordion";
 import { ConversationRow } from "./workspace-sidebar-conversation-row";
 import { EmptySectionSpace, SidebarSettingsButton } from "./sidebar-secondary-sections";
-import { SettaLogoMark } from "./setta-logo-mark";
 import { ProjectFolderButton, SidebarIconButton } from "./sidebar-header-actions";
 import { SidebarShortcuts } from "./sidebar-shortcuts";
+import settaLogo from "../../../../img/logo/logo.svg";
 
 const activeWorkspaceRowHeight = 28;
 const recentWorkspaceRowHeight = 28;
@@ -150,7 +150,7 @@ export function WorkspaceSidebar({
 
   return (
     <aside
-      className="setta-sidebar-surface relative flex h-full min-h-0 w-full min-w-0 flex-col text-sidebar-foreground"
+      className="relative flex h-full min-h-0 w-full min-w-0 flex-col bg-[#202124] text-zinc-100"
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <SidebarChromeLogo visible={chromeInsetTop} />
@@ -241,7 +241,12 @@ function SidebarChromeLogo({ visible }: { visible: boolean }) {
       className="pointer-events-none absolute top-0 right-2 z-10 flex h-10 items-center"
       data-testid="sidebar-setta-logo"
     >
-      <SettaLogoMark height={13} />
+      <img
+        alt=""
+        className="h-[13px] w-auto opacity-45 grayscale"
+        draggable={false}
+        src={settaLogo}
+      />
     </div>
   );
 }
@@ -408,7 +413,7 @@ function ProjectRow({
 
   return (
     <div className="min-w-0">
-      <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center rounded-sm hover:bg-accent/55">
+      <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center rounded-sm hover:bg-zinc-800/55">
         <button
           className="grid min-w-0 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 px-2 text-left"
           data-testid="active-workspace-select"
@@ -423,14 +428,14 @@ function ProjectRow({
           type="button"
         >
           {expanded ? (
-            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
           ) : (
-            <FolderClosed className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <FolderClosed className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
           )}
           <span
             className={cn(
               "truncate text-xs",
-              selected ? "font-medium text-foreground" : "text-muted-foreground",
+              selected ? "font-medium text-zinc-100" : "text-zinc-400",
             )}
           >
             {workspace.displayName}
@@ -557,7 +562,7 @@ function ProjectMoreMenu({
       </SidebarIconButton>
       {open ? (
         <div
-          className="fixed z-50 w-56 rounded-sm border border-border/80 bg-popover/95 p-1 shadow-2xl shadow-black/20 backdrop-blur"
+          className="fixed z-50 w-56 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50 backdrop-blur"
           role="menu"
           style={menuPosition}
         >
@@ -586,12 +591,12 @@ function ProjectMenuItem({
 }) {
   return (
     <button
-      className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-foreground hover:bg-accent hover:text-foreground"
+      className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-200 hover:bg-zinc-800 hover:text-zinc-50"
       onClick={onClick}
       role="menuitem"
       type="button"
     >
-      <span className="shrink-0 text-muted-foreground">{icon}</span>
+      <span className="shrink-0 text-zinc-400">{icon}</span>
       <span className="truncate">{label}</span>
     </button>
   );
@@ -612,7 +617,7 @@ function WorkspaceCorruptionIndicator({
   return (
     <div
       aria-label={label}
-      className="group/workspace-corruption grid h-6 w-6 place-items-center rounded-sm text-status-warning outline-none hover:bg-accent/80 focus-visible:bg-accent/80"
+      className="group/workspace-corruption grid h-6 w-6 place-items-center rounded-sm text-amber-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
       data-testid="workspace-corruption-status"
       role="status"
       tabIndex={0}
@@ -620,12 +625,12 @@ function WorkspaceCorruptionIndicator({
     >
       <AlertTriangle className="h-3.5 w-3.5" />
       <div
-        className="pointer-events-none fixed z-50 hidden w-72 rounded-sm border border-border/80 bg-popover/95 px-2 py-1.5 text-xs text-foreground shadow-xl shadow-black/20 backdrop-blur group-hover/workspace-corruption:block group-focus/workspace-corruption:block"
+        className="pointer-events-none fixed z-50 hidden w-72 rounded-sm border border-zinc-700/80 bg-zinc-900/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/workspace-corruption:block group-focus/workspace-corruption:block"
         data-testid="workspace-corruption-tooltip"
         style={{ left: "calc(var(--sidebar-width, 220px) + 8px)" }}
       >
-        <div className="font-medium text-status-warning">Malformed chat data</div>
-        <div className="mt-1 break-words text-muted-foreground">{label}</div>
+        <div className="font-medium text-amber-200">Malformed chat data</div>
+        <div className="mt-1 break-words text-zinc-300">{label}</div>
       </div>
     </div>
   );
@@ -690,9 +695,7 @@ function ConversationList({
   );
 
   if (visibleConversations.length === 0) {
-    return showEmpty ? (
-      <div className="px-2 py-1 text-xs text-muted-foreground">No chats</div>
-    ) : null;
+    return showEmpty ? <div className="px-2 py-1 text-xs text-zinc-600">No chats</div> : null;
   }
 
   return (
@@ -714,7 +717,7 @@ function ConversationList({
       ))}
       {visibleConversations.length < orderedConversations.length ? (
         <button
-          className="h-6 rounded-sm px-2 text-left text-xs text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+          className="h-6 rounded-sm px-2 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
           onClick={() => setVisibleLimit((current) => current + chatHistoryLimit)}
           type="button"
         >
@@ -800,12 +803,12 @@ function RecentWorkspaceRow({
 }) {
   return (
     <div
-      className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-accent/60"
+      className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60"
       title={workspace.rootPath}
     >
       <div className="flex min-w-0 items-center gap-2 px-2">
-        <Workflow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate text-xs text-muted-foreground">{workspace.displayName}</span>
+        <Workflow className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        <span className="truncate text-xs text-zinc-500">{workspace.displayName}</span>
       </div>
       <SidebarIconButton
         className="mr-0.5 opacity-0 group-hover:opacity-100"

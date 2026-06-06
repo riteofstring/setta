@@ -25,6 +25,7 @@ import {
 } from "./codex-protocol-workflow.mjs";
 import { stopElectron } from "./electron-process.mjs";
 import { runCodexAccountWorkflow } from "./codex-account-workflow.mjs";
+import { runPaneTabSplitWorkflow } from "./pane-tab-split-workflow.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
@@ -35,7 +36,25 @@ const pageLoadTimeoutMs = 20_000;
 const workflowTimeoutMs = 30_000;
 const liveWorkflowTimeoutMs = 120_000;
 const cleanupRetryCount = 5;
-
+const uiShowcaseActivityTypes = [
+  "agent_message",
+  "plan",
+  "reasoning",
+  "command_execution",
+  "file_change",
+  "mcp_tool_call",
+  "dynamic_tool_call",
+  "collab_agent_tool_call",
+  "web_search",
+  "image_view",
+  "image_generation",
+  "terminal_interaction",
+  "diff",
+  "notice",
+  "approval_review",
+  "hook",
+  "structured_input",
+];
 function parseArgs(args) {
   const parsed = {
     deterministic: true,
@@ -105,6 +124,7 @@ async function main() {
       liveWorkflowTimeoutMs,
       openWorkspace,
       recordingRoot,
+      removeTree,
       repoRoot,
       stopElectron,
       assertNoVisibleUserMessage,
@@ -152,6 +172,10 @@ async function runDeterministicWorkflowLaunch(results) {
     await runWorkflowStep(results, recordingDir, "happy-path", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
       await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
+    });
+    await runWorkflowStep(results, recordingDir, "ui-showcase", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runUIShowcaseWorkflow(context.client, backend, workspaceId, conversationId);
     });
     await runWorkflowStep(results, recordingDir, "cancel-queue", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
@@ -202,6 +226,14 @@ async function runDeterministicWorkflowLaunch(results) {
         await runSidebarChatActionsWorkflow(context.client, backend, workspaceId, conversationId);
       },
     );
+    await runWorkflowStep(results, recordingDir, "pane-tab-split", context.client, async () => {
+      await runPaneTabSplitWorkflow({
+        captureScreenshot,
+        client: context.client,
+        recordingDir,
+        waitForState,
+      });
+    });
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -521,6 +553,45 @@ async function runHappyPathWorkflow(
       workspaceId,
     });
     await assertNoActiveRun(backend, workspaceId, conversationId);
+  }
+}
+
+async function runUIShowcaseWorkflow(client, backend, workspaceId, conversationId) {
+  await submitComposer(client, "ui showcase workflow", "Send message");
+  const run = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "ui showcase workflow",
+    "completed",
+  );
+  await assertUIShowcaseActivity(backend, workspaceId, conversationId, run.id);
+  await waitForTexts(client, ["UI showcase started.", "UI showcase complete."]);
+  await assertChatLayout(client);
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+}
+
+async function assertUIShowcaseActivity(backend, workspaceId, conversationId, runId) {
+  const page = await backend.post("/chat/messages/page", {
+    conversationId,
+    limit: 40,
+    workspaceId,
+  });
+  const showcaseItems = page.runItems.filter(
+    (item) => item.runId === runId && item.providerItemId.startsWith("provider_ui_"),
+  );
+  const itemTypes = new Set(showcaseItems.map((item) => item.type));
+  for (const itemType of uiShowcaseActivityTypes) {
+    if (!itemTypes.has(itemType)) {
+      throw new Error(
+        `UI showcase missing activity type ${itemType}: ${JSON.stringify(page.runItems)}`,
+      );
+    }
+  }
+  const outputItemIds = new Set(page.runItemOutputs.map((output) => output.runItemId));
+  const missingOutput = showcaseItems.find((item) => !outputItemIds.has(item.id));
+  if (missingOutput) {
+    throw new Error(`UI showcase missing output for item: ${JSON.stringify(missingOutput)}`);
   }
 }
 

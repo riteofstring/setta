@@ -1,6 +1,5 @@
 export class CDPClient {
   constructor(socket, timeoutMs) {
-    this.listeners = new Map();
     this.nextId = 1;
     this.pending = new Map();
     this.socket = socket;
@@ -57,25 +56,9 @@ export class CDPClient {
     this.socket.close();
   }
 
-  on(method, handler) {
-    const handlers = this.listeners.get(method) ?? new Set();
-    handlers.add(handler);
-    this.listeners.set(method, handlers);
-    return () => {
-      handlers.delete(handler);
-      if (handlers.size === 0) {
-        this.listeners.delete(method);
-      }
-    };
-  }
-
   handleMessage(data) {
     const message = JSON.parse(data);
-    if (!message.id) {
-      this.emit(message.method, message.params);
-      return;
-    }
-    if (!this.pending.has(message.id)) {
+    if (!message.id || !this.pending.has(message.id)) {
       return;
     }
     const pending = this.pending.get(message.id);
@@ -85,18 +68,5 @@ export class CDPClient {
       return;
     }
     pending.resolve(message.result);
-  }
-
-  emit(method, params) {
-    if (!method) {
-      return;
-    }
-    const handlers = this.listeners.get(method);
-    if (!handlers) {
-      return;
-    }
-    for (const handler of handlers) {
-      handler(params);
-    }
   }
 }

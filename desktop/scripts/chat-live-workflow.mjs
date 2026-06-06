@@ -1,7 +1,5 @@
-import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
-import { setTimeout as delay } from "node:timers/promises";
 
 import { assertNoCriticalDiagnostics } from "./chat-workflow-assertions.mjs";
 import { prepareLiveCodexEnv } from "./chat-live-env.mjs";
@@ -21,6 +19,7 @@ export async function runLiveCodexWorkflow(results, deps) {
     liveWorkflowTimeoutMs,
     openWorkspace,
     recordingRoot,
+    removeTree,
     repoRoot,
     stopElectron,
     submitComposer,
@@ -158,18 +157,4 @@ export async function runLiveCodexWorkflow(results, deps) {
   });
   results.push("live-codex-electron");
   process.stdout.write("Electron chat workflow passed: live-codex-electron\n");
-}
-
-async function removeTree(path) {
-  let lastError = null;
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    try {
-      await rm(path, { force: true, maxRetries: 2, recursive: true, retryDelay: 100 });
-      return;
-    } catch (error) {
-      lastError = error;
-      await delay(100 * (attempt + 1));
-    }
-  }
-  throw lastError;
 }

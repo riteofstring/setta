@@ -7,7 +7,6 @@ export async function runCodexAccountWorkflow({
 }) {
   await clickButtonByAria(client, "Open settings");
   await waitForText(client, "Codex Account");
-  await clickSettingsTab(client, "Codex Account");
   await waitForText(client, "Signed out");
   await clickButtonBySelector(client, '[data-testid="codex-account-login"]');
   await waitForTexts(client, ["Signed in", "user@example.com · ChatGPT pro"]);
@@ -50,20 +49,5 @@ async function clickButtonBySelector(client, selector) {
   })()`);
   if (!clicked) {
     throw new Error(`button was not clickable: ${selector}`);
-  }
-}
-
-async function clickSettingsTab(client, label) {
-  const clicked = await client.evaluate(`(() => {
-    const tabs = Array.from(document.querySelectorAll('button[role="tab"]'));
-    const tab = tabs.find((candidate) => candidate.innerText.trim() === ${JSON.stringify(label)});
-    if (!(tab instanceof HTMLButtonElement) || tab.disabled) {
-      return false;
-    }
-    tab.click();
-    return true;
-  })()`);
-  if (!clicked) {
-    throw new Error(`settings tab was not clickable: ${label}`);
   }
 }

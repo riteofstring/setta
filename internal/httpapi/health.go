@@ -299,10 +299,6 @@ func (handler handler) readAppearanceSettings(response http.ResponseWriter, requ
 	writeJSON(response, http.StatusOK, settings)
 }
 
-func (handler handler) readAppearancePresets(response http.ResponseWriter, request *http.Request) {
-	writeJSON(response, http.StatusOK, appearance.DefaultPresetList())
-}
-
 func (handler handler) updateAppearanceSettings(response http.ResponseWriter, request *http.Request) {
 	service := requireAppearanceService(response, handler.appearanceService)
 	if service == nil {

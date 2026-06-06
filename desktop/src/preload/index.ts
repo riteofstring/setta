@@ -44,7 +44,6 @@ const api: SettaAPI = {
     },
   },
   appearance: {
-    presets: () => invoke("appearancePresets"),
     read: () => invoke("appearanceRead"),
     update: (request) => invoke("appearanceUpdate", request),
   },

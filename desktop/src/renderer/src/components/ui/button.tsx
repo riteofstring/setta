@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes } from "react";
 
 import { cn } from "@renderer/lib/utils";
 
@@ -11,9 +11,8 @@ const buttonVariants = cva(
     },
     variants: {
       variant: {
-        primary: "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-        secondary:
-          "border-border bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground",
+        primary: "border-zinc-950 bg-zinc-950 text-white hover:bg-zinc-800",
+        secondary: "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50",
       },
     },
   },
@@ -22,16 +21,6 @@ const buttonVariants = cva(
 export interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {}
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, type = "button", variant, ...props },
-  ref,
-) {
-  return (
-    <button
-      className={cn(buttonVariants({ variant }), className)}
-      ref={ref}
-      type={type}
-      {...props}
-    />
-  );
-});
+export function Button({ className, type = "button", variant, ...props }: ButtonProps) {
+  return <button className={cn(buttonVariants({ variant }), className)} type={type} {...props} />;
+}

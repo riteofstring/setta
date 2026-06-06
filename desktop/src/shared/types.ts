@@ -1,5 +1,4 @@
 import type {
-  AppearancePresetList,
   AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
@@ -100,7 +99,6 @@ export interface SettaAPI {
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
   appearance: {
-    presets: () => Promise<AppearancePresetList>;
     read: () => Promise<AppearanceSettings>;
     update: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
   };
