@@ -646,9 +646,9 @@ func assertFakeCodexDeveloperInstructions(params map[string]any) {
 	if !ok || instructions == "" {
 		panic("thread/start missing developer instructions")
 	}
-	if !strings.Contains(instructions, "current workspace") ||
-		!strings.Contains(instructions, "setta.workspace_context") {
-		panic("thread/start developer instructions missing Setta context guidance")
+	if !strings.Contains(instructions, "available dynamic tool") ||
+		!strings.Contains(instructions, "Do not invent dynamic tool names") {
+		panic("thread/start developer instructions missing Setta dynamic tool guidance")
 	}
 }
 

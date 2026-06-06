@@ -222,10 +222,10 @@ function assertThreadStartDeveloperInstructions(params) {
   const instructions = params?.developerInstructions;
   if (
     typeof instructions !== "string" ||
-    !instructions.includes("current workspace") ||
-    !instructions.includes("setta.workspace_context")
+    !instructions.includes("available dynamic tool") ||
+    !instructions.includes("Do not invent dynamic tool names")
   ) {
-    throw new Error("thread/start developerInstructions missing Setta context guidance");
+    throw new Error("thread/start developerInstructions missing Setta dynamic tool guidance");
   }
 }
 
