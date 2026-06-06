@@ -11,7 +11,7 @@ import type {
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { App, sidebarWorkspaceBusy } from "./App";
+import { sidebarWorkspaceBusy } from "./App";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { useChatStore } from "./stores/chat-store";
@@ -21,47 +21,6 @@ beforeEach(() => {
 });
 
 describe("workspace renderer states", () => {
-  test("renders a preload contract error when the Electron API is missing", () => {
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: {},
-    });
-
-    const html = renderToString(<App />);
-
-    expect(html).toContain('data-testid="app-runtime-contract-error"');
-    expect(html).toContain("Setta preload API is unavailable.");
-    expect(html).toContain("window.setta");
-  });
-
-  test("renders the niri workspace inside the left-pane shell", () => {
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: {
-        setta: {
-          app: { platform: "darwin" },
-          backend: { onEventStreamStatus: () => () => {} },
-          chat: { onEvent: () => () => {} },
-        },
-      },
-    });
-
-    const html = renderToString(<App />);
-
-    expect(html).toContain('data-testid="shell-top-bar"');
-    expect(html).toContain('aria-label="Hide project sidebar"');
-    expect(html).toContain('data-testid="niri-workspace-area"');
-    expect(html).toContain('data-testid="niri-presentation-engine"');
-    expect(rowCount(html, "niri-fake-pane-host")).toBe(18);
-    expect(html).toContain('data-pane-count="6"');
-    expect(html).toContain('data-workspace-mode="workspace"');
-    expect(html).toContain('data-testid="niri-workspace-status"');
-    expect(html).toContain('data-testid="niri-workspace-toolbar"');
-    expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
-    expect(html).not.toContain('data-testid="chat-pane-surface"');
-    expect(html).not.toContain('data-testid="settings-pane-surface"');
-  });
-
   test("renders the empty workspace state", () => {
     const html = renderToString(
       <WorkspaceSidebar

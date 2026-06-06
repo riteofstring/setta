@@ -77,6 +77,91 @@ export function ResizablePane({
   );
 }
 
+export function ResizableBottomPane({
+  children,
+  height,
+  label,
+  maximized,
+  minHeight,
+  onHeightChange,
+}: {
+  children: ReactNode;
+  height: number;
+  label: string;
+  maximized: boolean;
+  minHeight: number;
+  onHeightChange: (height: number) => void;
+}) {
+  const [resizing, setResizing] = useState(false);
+  const startResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const startY = event.clientY;
+      const startHeight = height;
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+
+      const resize = (moveEvent: globalThis.PointerEvent) => {
+        const nextHeight = startHeight + startY - moveEvent.clientY;
+        onHeightChange(clamp(nextHeight, minHeight, bottomPaneMaxHeight(minHeight)));
+      };
+      const stopResize = () => {
+        setResizing(false);
+        document.body.style.cursor = previousCursor;
+        document.body.style.userSelect = previousUserSelect;
+        window.removeEventListener("pointermove", resize);
+      };
+
+      event.preventDefault();
+      setResizing(true);
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("pointermove", resize);
+      window.addEventListener("pointerup", stopResize, { once: true });
+    },
+    [height, minHeight, onHeightChange],
+  );
+
+  return (
+    <div
+      className={cn(
+        "relative min-h-0 w-full",
+        maximized ? "h-full" : "shrink-0",
+        !resizing &&
+          !maximized &&
+          "transition-[height] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+      )}
+      style={maximized ? undefined : { height }}
+    >
+      {children}
+      {!maximized ? (
+        <div
+          aria-label={label}
+          aria-orientation="horizontal"
+          className="absolute inset-x-0 top-0 z-40 h-2 -translate-y-1 cursor-row-resize"
+          data-testid="bottom-pane-resizer"
+          onKeyDown={(event) => {
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              onHeightChange(clamp(height + 12, minHeight, bottomPaneMaxHeight(minHeight)));
+            }
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              onHeightChange(clamp(height - 12, minHeight, bottomPaneMaxHeight(minHeight)));
+            }
+          }}
+          onPointerDown={startResize}
+          role="separator"
+          tabIndex={0}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function bottomPaneMaxHeight(minHeight: number) {
+  return Math.max(minHeight, window.innerHeight - 96);
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }

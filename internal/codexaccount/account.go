@@ -272,7 +272,7 @@ func (service *Service) handleLoginCompleted(message codexapp.Message) {
 		return
 	}
 	if success {
-		service.clearLogin()
+		service.updateLogin(CodexLoginState{LoginID: loginID, Status: LoginStatusSucceeded})
 		service.emitChanged("login_completed")
 		return
 	}

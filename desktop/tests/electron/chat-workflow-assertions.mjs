@@ -1,7 +1,7 @@
 export async function assertRendererQueueMatchesBackend(client, queuedPrompt) {
   const body = await client.evaluate("document.body.innerText");
-  if (!body.includes(queuedPrompt)) {
-    throw new Error(`renderer did not show queued prompt ${queuedPrompt}: ${body}`);
+  if (!body.includes(queuedPrompt) || !body.includes("Queued")) {
+    throw new Error(`renderer did not show queued state for ${queuedPrompt}: ${body}`);
   }
 }
 

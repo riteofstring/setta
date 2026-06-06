@@ -204,7 +204,7 @@ async function runDynamicToolWorkflow({
   workspaceId,
 }) {
   await submitComposer(client, "dynamic tool workflow", "Send message");
-  await waitForTexts(client, ["Dynamic tool workflow complete."]);
+  await waitForTexts(client, ["Dynamic tool call", "Dynamic tool workflow complete."]);
   const run = await waitForRunWithPrompt(
     backend,
     workspaceId,
