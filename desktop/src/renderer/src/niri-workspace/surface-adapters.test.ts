@@ -159,13 +159,10 @@ describe("niri fake surface adapters", () => {
     expect(adapter.getCanvasStats().gpuMemoryEstimateBytes).toBeGreaterThan(0);
   });
 
-  test("clips browser native bounds to the workspace viewport", () => {
+  test("clips browser native bounds to the stage viewport", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
-    const workspace = host.ownerDocument.createElement("section");
-    workspace.dataset.testid = "niri-workspace-area";
-    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
-    workspace.append(host);
+    mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
     const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
       queue(update) {
         sent.push(update);
@@ -176,10 +173,34 @@ describe("niri fake surface adapters", () => {
     adapter.resume("visible");
     adapter.setVisible(true);
     adapter.setFocused(true);
+    setFakeRect(host, { height: 160, width: 200, x: 220, y: 70 });
     adapter.setViewport({ height: 160, width: 200, x: -80, y: -20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 140, width: 120, x: 300, y: 50 },
+      bounds: { height: 140, width: 110, x: 300, y: 90 },
+      visible: true,
+    });
+  });
+
+  test("positions browser native bounds from the actual pane host below shell chrome", () => {
+    const sent: NiriBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 40 });
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    adapter.setFocused(true);
+    setFakeRect(host, { height: 160, width: 200, x: 380, y: 78 });
+    adapter.setViewport({ height: 160, width: 200, x: 80, y: 0 }, "frame");
+
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 160, width: 190, x: 380, y: 78 },
       visible: true,
     });
   });
@@ -187,10 +208,7 @@ describe("niri fake surface adapters", () => {
   test("keeps unfocused browser native views hidden behind the DOM proxy", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
-    const workspace = host.ownerDocument.createElement("section");
-    workspace.dataset.testid = "niri-workspace-area";
-    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
-    workspace.append(host);
+    mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
     const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
       queue(update) {
         sent.push(update);
@@ -200,17 +218,18 @@ describe("niri fake surface adapters", () => {
     adapter.mount(host);
     adapter.resume("visible");
     adapter.setVisible(true);
+    setFakeRect(host, { height: 160, width: 200, x: 380, y: 110 });
     adapter.setViewport({ height: 160, width: 200, x: 80, y: 20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 160, width: 200, x: 380, y: 70 },
+      bounds: { height: 160, width: 190, x: 380, y: 110 },
       visible: false,
     });
 
     adapter.setFocused(true);
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 160, width: 200, x: 380, y: 70 },
+      bounds: { height: 160, width: 190, x: 380, y: 110 },
       visible: true,
     });
   });
@@ -218,10 +237,7 @@ describe("niri fake surface adapters", () => {
   test("hides browser native views during active resize", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
-    const workspace = host.ownerDocument.createElement("section");
-    workspace.dataset.testid = "niri-workspace-area";
-    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
-    workspace.append(host);
+    mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
     const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
       queue(update) {
         sent.push(update);
@@ -232,25 +248,25 @@ describe("niri fake surface adapters", () => {
     adapter.resume("visible");
     adapter.setVisible(true);
     adapter.setFocused(true);
+    setFakeRect(host, { height: 160, width: 200, x: 380, y: 110 });
     adapter.setViewport({ height: 160, width: 200, x: 80, y: 20 }, "frame");
+    setFakeRect(host, { height: 160, width: 200, x: 400, y: 120 });
     adapter.setViewport({ height: 160, width: 200, x: 100, y: 30 }, "resize-active");
+    setFakeRect(host, { height: 160, width: 200, x: 420, y: 130 });
     adapter.setViewport({ height: 160, width: 200, x: 120, y: 40 }, "resize");
 
     expect(sent.at(-3)).toMatchObject({ visible: true });
     expect(sent.at(-2)).toMatchObject({ visible: false });
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 160, width: 200, x: 420, y: 90 },
+      bounds: { height: 160, width: 190, x: 420, y: 130 },
       visible: true,
     });
   });
 
-  test("hides mostly clipped browser native views at the workspace boundary", () => {
+  test("hides mostly clipped browser native views at the stage boundary", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
-    const workspace = host.ownerDocument.createElement("section");
-    workspace.dataset.testid = "niri-workspace-area";
-    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
-    workspace.append(host);
+    mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
     const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
       queue(update) {
         sent.push(update);
@@ -261,21 +277,19 @@ describe("niri fake surface adapters", () => {
     adapter.resume("visible");
     adapter.setVisible(true);
     adapter.setFocused(true);
+    setFakeRect(host, { height: 160, width: 200, x: 180, y: 70 });
     adapter.setViewport({ height: 160, width: 200, x: -120, y: -20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 1, width: 1, x: 300, y: 50 },
+      bounds: { height: 1, width: 1, x: 300, y: 90 },
       visible: false,
     });
   });
 
-  test("hides fully clipped browser native views at the workspace boundary", () => {
+  test("hides fully clipped browser native views at the stage boundary", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
-    const workspace = host.ownerDocument.createElement("section");
-    workspace.dataset.testid = "niri-workspace-area";
-    setFakeRect(workspace, { height: 400, width: 500, x: 300, y: 50 });
-    workspace.append(host);
+    mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
     const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
       queue(update) {
         sent.push(update);
@@ -286,10 +300,11 @@ describe("niri fake surface adapters", () => {
     adapter.resume("visible");
     adapter.setVisible(true);
     adapter.setFocused(true);
+    setFakeRect(host, { height: 120, width: 100, x: 40, y: 110 });
     adapter.setViewport({ height: 120, width: 100, x: -260, y: 20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 1, width: 1, x: 300, y: 70 },
+      bounds: { height: 1, width: 1, x: 300, y: 110 },
       visible: false,
     });
   });
@@ -452,6 +467,17 @@ function fakeWheelEvent(deltaY: number): Event {
     type: "wheel",
   };
   return event as unknown as Event;
+}
+
+function mountBrowserStage(
+  host: HTMLElement,
+  rect: { height: number; width: number; x: number; y: number },
+): HTMLElement {
+  const stage = host.ownerDocument.createElement("div");
+  stage.dataset.testid = "niri-presentation-engine";
+  setFakeRect(stage, rect);
+  stage.append(host);
+  return stage as unknown as HTMLElement;
 }
 
 function fakePane(surfaceKind: NiriPane["surfaceKind"]): NiriPane {

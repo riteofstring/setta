@@ -6,14 +6,15 @@ import {
   ArrowUp,
   Columns2,
   GitBranch,
-  Lock,
   MessageSquarePlus,
+  RotateCcw,
   Settings,
   SplitSquareHorizontal,
   SplitSquareVertical,
   Terminal,
   Trash2,
-  Unlock,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import {
   Profiler,
@@ -43,6 +44,10 @@ import { PresentationEngine } from "./presentation-engine";
 import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
 import { createDefaultSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
+import {
+  createNiriTrackpadNavigationState,
+  interpretNiriTrackpadWheel,
+} from "./trackpad-navigation";
 import { useWorkspaceStore } from "../stores/workspace-store";
 import { createRealWorkspaceScene, persistRealWorkspaceScene } from "./workspace-scene";
 import type { NiriPane, OpenPaneRequest, Rect, SurfaceKind } from "./types";
@@ -54,6 +59,15 @@ export interface NiriSurfaceFocusRequest {
 }
 
 const realWorkspaceHostPoolSize = 12;
+const paneResizeHandleWidthPx = 10;
+const minimumManualPaneWidthPx = 280;
+
+interface PaneResizeSession {
+  columnId: string;
+  pointerId: number;
+  startClientX: number;
+  startWidth: number;
+}
 
 export function NiriWorkspaceArea({
   focusSurfaceRequest = null,
@@ -64,6 +78,8 @@ export function NiriWorkspaceArea({
   const stageRef = useRef<HTMLDivElement | null>(null);
   const debugRef = useRef<HTMLDivElement | null>(null);
   const hostRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const paneResizeSessionRef = useRef<PaneResizeSession | null>(null);
+  const trackpadNavigationRef = useRef(createNiriTrackpadNavigationState());
   const workspace = useSelectedWorkspaceSummary();
   const mode = niriSceneMode();
   const runtime = useMemo(
@@ -150,6 +166,64 @@ export function NiriWorkspaceArea({
         runtime,
         scheduler,
       });
+    const handleWheel = (event: WheelEvent) =>
+      handleNiriWorkspaceWheel({
+        event,
+        persistLayout,
+        runtime,
+        scheduler,
+        state: trackpadNavigationRef.current,
+      });
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        runtime.mode !== "workspace" ||
+        runtime.store.getSnapshot().presentationMode === "overview"
+      ) {
+        return;
+      }
+      const target = paneResizeTargetFromPointer(event);
+      if (!target) {
+        return;
+      }
+      const columnId = runtime.store.toScene().paneById.get(target.paneId)?.columnId;
+      if (!columnId) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      scheduler.pauseBenchmark();
+      root.dataset.paneResizing = "true";
+      paneResizeSessionRef.current = {
+        columnId,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startWidth: target.width,
+      };
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      const session = paneResizeSessionRef.current;
+      if (!session || event.pointerId !== session.pointerId) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const width = Math.max(
+        minimumManualPaneWidthPx,
+        Math.round(session.startWidth + event.clientX - session.startClientX),
+      );
+      runtime.store.resizeColumn(session.columnId, { unit: "px", value: width });
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      const session = paneResizeSessionRef.current;
+      if (!session || event.pointerId !== session.pointerId) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      paneResizeSessionRef.current = null;
+      delete root.dataset.paneResizing;
+      persistLayout();
+    };
     const unsubscribeNativeKey =
       window.setta.niriNativeViews?.onBrowserViewKey((event) => {
         if (event.workspaceId !== runtime.scene.id) {
@@ -160,11 +234,22 @@ export function NiriWorkspaceArea({
         persistLayout();
       }) ?? (() => {});
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("pointermove", handlePointerMove, { capture: true });
+    window.addEventListener("pointerup", handlePointerUp, { capture: true });
+    window.addEventListener("pointercancel", handlePointerUp, { capture: true });
+    root.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    root.addEventListener("wheel", handleWheel, { capture: true, passive: false });
     scheduler.start();
     return () => {
       uninstallResizeReportHooks();
       unsubscribeNativeKey();
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("pointermove", handlePointerMove, { capture: true });
+      window.removeEventListener("pointerup", handlePointerUp, { capture: true });
+      window.removeEventListener("pointercancel", handlePointerUp, { capture: true });
+      root.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+      root.removeEventListener("wheel", handleWheel, { capture: true });
+      paneResizeSessionRef.current = null;
       scheduler.teardown();
     };
   }, [persistLayout, runLayoutAction, runtime]);
@@ -175,6 +260,7 @@ export function NiriWorkspaceArea({
       className="niri-workspace-area relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
       data-browser-pane-count={runtime.browserPaneCount}
       data-pane-count={currentScene.totalPanes}
+      data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}
       data-workspace-id={runtime.scene.id}
       data-testid="niri-workspace-area"
@@ -182,11 +268,10 @@ export function NiriWorkspaceArea({
     >
       {runtime.mode === "workspace" ? (
         <NiriWorkspaceToolbar
-          focusedColumnLocked={runtime.store.focusedColumnLocked()}
           focusedPaneId={layoutSnapshot.focusedPaneId}
           openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
+          overviewActive={layoutSnapshot.presentationMode === "overview"}
           runLayoutAction={runLayoutAction}
-          stageViewport={stageViewport}
           store={runtime.store}
         />
       ) : null}
@@ -274,6 +359,9 @@ function handleNiriWorkspaceCommandKey({
   if (event.metaKey && event.key === "Enter") {
     event.preventDefault();
     runLayoutAction(() => runtime.store.splitFocusedPane(event.shiftKey ? "down" : "right"));
+  } else if (event.metaKey && event.key.toLowerCase() === "o") {
+    event.preventDefault();
+    runLayoutAction(() => runtime.store.toggleOverviewMode());
   } else if (event.metaKey && (event.key === "Backspace" || event.key === "Delete")) {
     event.preventDefault();
     runLayoutAction(() => {
@@ -282,22 +370,89 @@ function handleNiriWorkspaceCommandKey({
   }
 }
 
+function handleNiriWorkspaceWheel({
+  event,
+  persistLayout,
+  runtime,
+  scheduler,
+  state,
+}: {
+  event: WheelEvent;
+  persistLayout: () => void;
+  runtime: NiriRuntime;
+  scheduler: FrameScheduler;
+  state: ReturnType<typeof createNiriTrackpadNavigationState>;
+}): void {
+  const presentationMode = runtime.store.getSnapshot().presentationMode;
+  const result = interpretNiriTrackpadWheel(
+    {
+      deltaMode: event.deltaMode,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      metaKey: event.metaKey,
+      modifierRequired: presentationMode !== "overview",
+    },
+    state,
+  );
+  if (!result.shouldHandle) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  if (result.directions.length === 0) {
+    return;
+  }
+
+  scheduler.pauseBenchmark();
+  for (const direction of result.directions) {
+    runtime.store.moveFocus(direction);
+  }
+  persistLayout();
+}
+
+function paneResizeTargetFromPointer(event: PointerEvent): {
+  paneId: string;
+  width: number;
+} | null {
+  if (!(event.target instanceof Element)) {
+    return null;
+  }
+  const host = event.target.closest<HTMLElement>(
+    '[data-testid="niri-fake-pane-host"][data-visible="true"]',
+  );
+  if (!host) {
+    return null;
+  }
+  const paneId = host.dataset.paneId;
+  if (!paneId) {
+    return null;
+  }
+  const rect = host.getBoundingClientRect();
+  const rightEdgeStart = rect.right - paneResizeHandleWidthPx;
+  if (event.clientX < rightEdgeStart || event.clientX > rect.right) {
+    return null;
+  }
+  return {
+    paneId,
+    width: rect.width,
+  };
+}
+
 function NiriWorkspaceToolbar({
-  focusedColumnLocked,
   focusedPaneId,
   openPane,
+  overviewActive,
   runLayoutAction,
-  stageViewport,
   store,
 }: {
-  focusedColumnLocked: boolean;
   focusedPaneId: string;
   openPane: (request: OpenPaneRequest) => void;
+  overviewActive: boolean;
   runLayoutAction: (action: () => void) => void;
-  stageViewport: () => Rect;
   store: NiriLayoutStore;
 }) {
-  const ColumnLockIcon = focusedColumnLocked ? Unlock : Lock;
+  const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
   return (
     <div className="niri-workspace-toolbar app-no-drag" data-testid="niri-workspace-toolbar">
       <div className="niri-workspace-toolbar-group" data-testid="niri-focused-pane-label">
@@ -355,10 +510,16 @@ function NiriWorkspaceToolbar({
       </div>
       <div className="niri-workspace-toolbar-group">
         <NiriToolbarButton
-          label={focusedColumnLocked ? "Unlock focused column width" : "Lock focused column width"}
-          onClick={() => runLayoutAction(() => store.toggleFocusedColumnLock(stageViewport()))}
+          label={overviewActive ? "Exit overview" : "Enter overview"}
+          onClick={() => runLayoutAction(() => store.toggleOverviewMode())}
         >
-          <ColumnLockIcon className="h-3.5 w-3.5" />
+          <OverviewIcon className="h-3.5 w-3.5" />
+        </NiriToolbarButton>
+        <NiriToolbarButton
+          label="Reset focused pane width"
+          onClick={() => runLayoutAction(() => store.resetFocusedColumnWidth())}
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
         </NiriToolbarButton>
         {openPaneActions.map(({ Icon, label, request }) => (
           <NiriToolbarButton key={label} label={label} onClick={() => openPane(request)}>
@@ -484,7 +645,7 @@ function createNiriRuntime({
   workspaceId: string;
   workspaceName: string;
 }) {
-  const layoutStorageKey = `setta:niri-workspace-horizontal-v2:${workspaceId}`;
+  const layoutStorageKey = `setta:niri-workspace-horizontal-v3:${workspaceId}`;
   const realScene =
     mode === "workspace"
       ? createRealWorkspaceScene({

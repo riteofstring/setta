@@ -17,6 +17,8 @@ export type SurfaceKind =
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 
+export type NiriPresentationMode = "normal" | "overview";
+
 export type ViewportChangeReason = "frame" | "mount" | "resize" | "resize-active";
 
 export type ResizePhase = "active" | "idle" | "settled";
@@ -52,6 +54,7 @@ export interface NiriPane {
 
 export interface NiriColumn {
   columnId: ColumnId;
+  idealWidthSpec: ColumnWidthSpec;
   index: number;
   paneIds: PaneId[];
   previousProportionWidth?: number;
@@ -61,11 +64,13 @@ export interface NiriColumn {
 export interface NiriWorkspaceScene {
   columnGap: number;
   columns: NiriColumn[];
+  defaultColumnWidthSpec: ColumnWidthSpec;
   id: string;
   paneById: ReadonlyMap<PaneId, NiriPane>;
   panes: NiriPane[];
   panesPerColumn: number;
   padding: number;
+  renderOverscanColumns: number;
   rowGap: number;
   targetVisiblePanes: number;
   totalPanes: number;
@@ -86,7 +91,9 @@ export interface OpenPaneRequest {
 export interface LayoutFrameInput {
   focusedPaneId: PaneId;
   movementPhase: "idle" | "moving";
+  presentationMode: NiriPresentationMode;
   scrollColumn: number;
+  scrollRow: number;
   viewport: Rect;
 }
 
@@ -96,8 +103,10 @@ export interface PaneRenderItem {
   moving: boolean;
   opacity: number;
   paneId: PaneId;
+  presentationMode: NiriPresentationMode;
   resizing: boolean;
   runtimeState: PaneRuntimeState;
+  scale: number;
   surfaceId: SurfaceId;
   surfaceKind: SurfaceKind;
   visible: boolean;
@@ -189,6 +198,7 @@ export interface LayoutEngine {
   movePane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): void;
   openPane(request: OpenPaneRequest): PaneId;
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void;
+  resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightWeight: number): void;
   splitPane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): PaneId;

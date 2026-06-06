@@ -8,8 +8,9 @@ import type {
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
-const realWorkspaceStorageVersion = 2;
-const defaultRealColumnWidth: ColumnWidthSpec = { unit: "proportion", value: 0.5 };
+const realWorkspaceStorageVersion = 3;
+const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
+const realWorkspaceRenderOverscanColumns = 1;
 
 export interface RealWorkspaceSceneOptions {
   storageKey: string;
@@ -68,8 +69,10 @@ export function persistRealWorkspaceScene(
   const layout: StoredWorkspaceLayout = {
     columns: scene.columns.map((column, index) => ({
       ...column,
+      idealWidthSpec: { ...column.idealWidthSpec },
       index,
       paneIds: [...column.paneIds],
+      widthSpec: { ...column.widthSpec },
     })),
     focusedPaneId,
     panes: scene.panes.map((pane) => ({ ...pane })),
@@ -136,36 +139,42 @@ function createDefaultRealWorkspaceScene(
   return sceneFromPanesAndColumns(storageKey, panes, [
     {
       columnId: "workspace_column_0",
+      idealWidthSpec: defaultRealColumnWidth,
       index: 0,
       paneIds: ["workspace_pane_0"],
       widthSpec: defaultRealColumnWidth,
     },
     {
       columnId: "workspace_column_1",
+      idealWidthSpec: defaultRealColumnWidth,
       index: 1,
       paneIds: ["workspace_pane_1"],
       widthSpec: defaultRealColumnWidth,
     },
     {
       columnId: "workspace_column_2",
+      idealWidthSpec: defaultRealColumnWidth,
       index: 2,
       paneIds: ["workspace_pane_2"],
       widthSpec: defaultRealColumnWidth,
     },
     {
       columnId: "workspace_column_3",
+      idealWidthSpec: defaultRealColumnWidth,
       index: 3,
       paneIds: ["workspace_pane_3"],
       widthSpec: defaultRealColumnWidth,
     },
     {
       columnId: "workspace_column_4",
+      idealWidthSpec: defaultRealColumnWidth,
       index: 4,
       paneIds: ["workspace_pane_4"],
       widthSpec: defaultRealColumnWidth,
     },
     {
       columnId: "workspace_column_5",
+      idealWidthSpec: defaultRealColumnWidth,
       index: 5,
       paneIds: ["workspace_pane_5"],
       widthSpec: defaultRealColumnWidth,
@@ -205,6 +214,7 @@ function sceneFromPanesAndColumns(
     .filter((column) => column.paneIds.length > 0)
     .map((column, index) => ({
       ...column,
+      idealWidthSpec: { ...column.idealWidthSpec },
       index,
       paneIds: [...column.paneIds],
       widthSpec: { ...column.widthSpec },
@@ -213,11 +223,13 @@ function sceneFromPanesAndColumns(
   return {
     columnGap: 8,
     columns: normalizedColumns,
+    defaultColumnWidthSpec: defaultRealColumnWidth,
     id,
     paneById: new Map(normalizedPanes.map((pane) => [pane.paneId, pane])),
     panes: normalizedPanes,
     panesPerColumn: Math.max(1, ...normalizedColumns.map((column) => column.paneIds.length)),
     padding: 10,
+    renderOverscanColumns: realWorkspaceRenderOverscanColumns,
     rowGap: 8,
     targetVisiblePanes: normalizedPanes.length,
     totalPanes: normalizedPanes.length,
@@ -272,6 +284,7 @@ function isStoredColumn(value: unknown): value is NiriColumn {
   const candidate = value as Partial<NiriColumn>;
   return (
     typeof candidate.columnId === "string" &&
+    isColumnWidthSpec(candidate.idealWidthSpec) &&
     typeof candidate.index === "number" &&
     Array.isArray(candidate.paneIds) &&
     isColumnWidthSpec(candidate.widthSpec)

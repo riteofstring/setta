@@ -23,16 +23,26 @@ describe("real niri workspace scene", () => {
     expect(result.focusedPaneId).toBe("workspace_pane_0");
     expect(result.scene.id).toBe("setta:niri-workspace:test");
     expect(result.scene.columns).toHaveLength(6);
+    expect(result.scene.defaultColumnWidthSpec).toEqual({ unit: "px", value: 520 });
+    expect(result.scene.renderOverscanColumns).toBe(1);
     expect(result.scene.visibleColumnCount).toBe(3);
     expect(result.scene.totalPanes).toBe(6);
     expect(result.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
     expect(result.scene.columns.map((column) => column.widthSpec)).toEqual([
-      { unit: "proportion", value: 0.5 },
-      { unit: "proportion", value: 0.5 },
-      { unit: "proportion", value: 0.5 },
-      { unit: "proportion", value: 0.5 },
-      { unit: "proportion", value: 0.5 },
-      { unit: "proportion", value: 0.5 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+    ]);
+    expect(result.scene.columns.map((column) => column.idealWidthSpec)).toEqual([
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
     ]);
     expect(
       result.scene.columns.map((column) => {

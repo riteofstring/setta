@@ -2,6 +2,7 @@ import type { NiriLikeLayoutEngine } from "./layout-engine";
 import type {
   ColumnId,
   ColumnWidthSpec,
+  NiriPresentationMode,
   NiriWorkspaceScene,
   OpenPaneRequest,
   PaneId,
@@ -13,8 +14,11 @@ export interface NiriLayoutSnapshot {
   focusedColumnIndex: number;
   focusedPaneId: PaneId;
   focusedRowIndex: number;
+  presentationMode: NiriPresentationMode;
   scrollColumn: number;
+  scrollRow: number;
   targetScrollColumn: number;
+  targetScrollRow: number;
 }
 
 type LayoutStoreListener = (snapshot: NiriLayoutSnapshot) => void;
@@ -26,7 +30,10 @@ export class NiriLayoutStore {
   private listeners = new Set<LayoutStoreListener>();
   private snapshot: NiriLayoutSnapshot | null = null;
   private scrollColumn = 0;
+  private scrollRow = 0;
+  private presentationMode: NiriPresentationMode = "normal";
   private targetScrollColumn = 0;
+  private targetScrollRow = 0;
 
   constructor(
     private readonly engine: NiriLikeLayoutEngine,
@@ -39,16 +46,22 @@ export class NiriLayoutStore {
   }
 
   advanceFrame(deltaMs: number): "idle" | "moving" {
-    const distance = this.targetScrollColumn - this.scrollColumn;
-    if (Math.abs(distance) <= 0.001) {
+    const columnDistance = this.targetScrollColumn - this.scrollColumn;
+    const rowDistance = this.targetScrollRow - this.scrollRow;
+    if (Math.abs(columnDistance) <= 0.001 && Math.abs(rowDistance) <= 0.001) {
       this.scrollColumn = this.targetScrollColumn;
+      this.scrollRow = this.targetScrollRow;
       this.snapshot = null;
       return "idle";
     }
     const blend = Math.min(1, deltaMs / scrollAnimationTimeConstantMs);
-    this.scrollColumn += distance * blend;
+    this.scrollColumn += columnDistance * blend;
+    this.scrollRow += rowDistance * blend;
     if (Math.abs(this.targetScrollColumn - this.scrollColumn) <= 0.001) {
       this.scrollColumn = this.targetScrollColumn;
+    }
+    if (Math.abs(this.targetScrollRow - this.scrollRow) <= 0.001) {
+      this.scrollRow = this.targetScrollRow;
     }
     this.snapshot = null;
     return "moving";
@@ -68,8 +81,11 @@ export class NiriLayoutStore {
         focusedColumnIndex: this.focusedColumnIndex,
         focusedPaneId: this.focusedPaneId(),
         focusedRowIndex: this.focusedRowIndex,
+        presentationMode: this.presentationMode,
         scrollColumn: this.scrollColumn,
+        scrollRow: this.scrollRow,
         targetScrollColumn: this.targetScrollColumn,
+        targetScrollRow: this.targetScrollRow,
       };
     }
     return this.snapshot;
@@ -80,22 +96,28 @@ export class NiriLayoutStore {
       focusedColumnIndex: this.focusedColumnIndex,
       focusedPaneId: this.focusedPaneId(),
       focusedRowIndex: this.focusedRowIndex,
+      presentationMode: this.presentationMode,
       scrollColumn: this.scrollColumn,
+      scrollRow: this.scrollRow,
       targetScrollColumn: this.targetScrollColumn,
+      targetScrollRow: this.targetScrollRow,
     };
   }
 
   moveFocus(direction: "up" | "down" | "left" | "right"): void {
     if (direction === "up") {
       this.focusedRowIndex = Math.max(0, this.focusedRowIndex - 1);
+      this.targetScrollRow = this.targetScrollForFocusedRow();
     } else if (direction === "down") {
       this.focusedRowIndex = Math.min(this.currentColumnRowCount() - 1, this.focusedRowIndex + 1);
+      this.targetScrollRow = this.targetScrollForFocusedRow();
     } else {
       const offset = direction === "left" ? -1 : 1;
       const maxColumn = Math.max(0, this.engine.columnCount() - 1);
       this.focusedColumnIndex = Math.min(maxColumn, Math.max(0, this.focusedColumnIndex + offset));
       this.focusedRowIndex = Math.min(this.currentColumnRowCount() - 1, this.focusedRowIndex);
       this.targetScrollColumn = this.targetScrollForFocusedColumn();
+      this.targetScrollRow = this.targetScrollForFocusedRow();
     }
     this.engine.moveFocus(direction);
     this.notify();
@@ -188,9 +210,24 @@ export class NiriLayoutStore {
     this.notify();
   }
 
+  resetFocusedColumnWidth(): void {
+    this.engine.resetColumnWidth(this.focusedColumnId());
+    this.notify();
+  }
+
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void {
     this.engine.resizeColumn(columnId, width);
     this.notify();
+  }
+
+  resizePaneColumn(paneId: PaneId, width: ColumnWidthSpec): ColumnId | null {
+    const columnId = this.toScene().paneById.get(paneId)?.columnId;
+    if (!columnId) {
+      return null;
+    }
+    this.engine.resizeColumn(columnId, width);
+    this.notify();
+    return columnId;
   }
 
   scrollToColumn(columnIndex: number): void {
@@ -201,6 +238,7 @@ export class NiriLayoutStore {
 
   snapScrollToTarget(): void {
     this.scrollColumn = this.targetScrollColumn;
+    this.scrollRow = this.targetScrollRow;
     this.snapshot = null;
   }
 
@@ -214,6 +252,11 @@ export class NiriLayoutStore {
       return;
     }
     this.lockFocusedColumn(viewport);
+  }
+
+  toggleOverviewMode(): void {
+    this.presentationMode = this.presentationMode === "overview" ? "normal" : "overview";
+    this.notify();
   }
 
   subscribe(listener: LayoutStoreListener): () => void {
@@ -247,15 +290,22 @@ export class NiriLayoutStore {
     this.focusedColumnIndex = location.columnIndex;
     this.focusedRowIndex = location.rowIndex;
     this.targetScrollColumn = this.targetScrollForFocusedColumn();
+    this.targetScrollRow = this.targetScrollForFocusedRow();
     if (Math.abs(this.scrollColumn - this.targetScrollColumn) < 0.001) {
       this.scrollColumn = this.targetScrollColumn;
+    }
+    if (Math.abs(this.scrollRow - this.targetScrollRow) < 0.001) {
+      this.scrollRow = this.targetScrollRow;
     }
   }
 
   private targetScrollForFocusedColumn(): number {
     const maxStartColumn = Math.max(0, this.engine.columnCount() - 1);
-    const trailingColumns = Math.max(0, this.scene.visibleColumnCount - 1);
-    return Math.min(maxStartColumn, Math.max(0, this.focusedColumnIndex - trailingColumns));
+    return Math.min(maxStartColumn, Math.max(0, this.focusedColumnIndex));
+  }
+
+  private targetScrollForFocusedRow(): number {
+    return Math.max(0, this.focusedRowIndex);
   }
 
   private unlockFocusedColumn(viewport: Rect): void {

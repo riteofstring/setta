@@ -167,6 +167,20 @@ describe("niri layout store", () => {
     });
   });
 
+  test("keeps column focus navigation active while overview is open", () => {
+    const store = createStore();
+
+    store.toggleOverviewMode();
+    store.moveFocus("right");
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 1,
+      focusedPaneId: "workspace_pane_1",
+      focusedRowIndex: 0,
+      presentationMode: "overview",
+    });
+  });
+
   test("focuses an existing surface by kind for sidebar entry points", () => {
     const store = createStore();
 
@@ -176,6 +190,35 @@ describe("niri layout store", () => {
       focusedPaneId: "workspace_pane_3",
       focusedRowIndex: 0,
     });
+  });
+
+  test("resets the focused column to its ideal original width", () => {
+    const store = createStore();
+    const focusedColumnId = store.focusedColumnId();
+
+    store.resizeColumn(focusedColumnId, { unit: "px", value: 680 });
+    expect(store.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 680 });
+
+    store.resetFocusedColumnWidth();
+
+    expect(store.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 520 });
+  });
+
+  test("resizes only the column that owns the targeted pane", () => {
+    const store = createStore();
+
+    expect(store.resizePaneColumn("workspace_pane_1", { unit: "px", value: 680 })).toBe(
+      "workspace_column_1",
+    );
+
+    expect(store.toScene().columns.map((column) => column.widthSpec)).toEqual([
+      { unit: "px", value: 520 },
+      { unit: "px", value: 680 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+      { unit: "px", value: 520 },
+    ]);
   });
 });
 

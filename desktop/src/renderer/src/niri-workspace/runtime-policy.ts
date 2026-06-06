@@ -137,6 +137,9 @@ export class PaneRuntimePolicy {
     if (!item.visible) {
       return "hidden";
     }
+    if (item.presentationMode === "overview") {
+      return this.snapshotOrThrottle(counters);
+    }
     if (item.focused) {
       return "live";
     }
@@ -177,7 +180,7 @@ export class PaneRuntimePolicy {
       case "canvas":
         return this.runtimeStateForCanvas(movementPhase, counters);
       case "git-graph":
-        return this.runtimeStateForGitGraph(movementPhase, counters);
+        return "live";
       case "heavy-dom":
         return this.runtimeStateForHeavyDom(movementPhase, counters);
       case "heavy-dom-budgeted":
@@ -202,18 +205,6 @@ export class PaneRuntimePolicy {
       return this.snapshotOrThrottle(counters);
     }
     if (counters.liveWebGpuCanvases >= this.budget.maxLiveWebGpuCanvases) {
-      return this.snapshotOrThrottle(counters);
-    }
-    return "live";
-  }
-
-  private runtimeStateForGitGraph(
-    movementPhase: "idle" | "moving",
-    counters: {
-      snapshot: number;
-    },
-  ): PaneRuntimeState {
-    if (movementPhase === "moving") {
       return this.snapshotOrThrottle(counters);
     }
     return "live";

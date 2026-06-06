@@ -216,6 +216,31 @@ select,
   transform-origin: left top;
 }
 
+.niri-pane-host::after {
+  background: color-mix(in oklch, var(--primary) 58%, transparent);
+  bottom: 9px;
+  content: "";
+  cursor: ew-resize;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 9px;
+  transition: opacity 120ms ease;
+  width: 8px;
+  z-index: 3;
+}
+
+.niri-pane-host:hover::after,
+.niri-pane-host[data-focused="true"]::after,
+.niri-workspace-area[data-pane-resizing="true"] .niri-pane-host::after {
+  opacity: 0.52;
+}
+
+.niri-workspace-area[data-pane-resizing="true"],
+.niri-workspace-area[data-pane-resizing="true"] * {
+  cursor: ew-resize !important;
+}
+
 .niri-pane-host[data-moving="true"] {
   will-change: transform, opacity;
 }
@@ -237,9 +262,28 @@ select,
   background: color-mix(in oklch, var(--popover) 78%, var(--muted));
 }
 
+.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-host {
+  user-select: none;
+}
+
+.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-host::after {
+  display: none;
+}
+
+.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-host[data-focused="false"] {
+  opacity: 0.68 !important;
+}
+
+.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-host[data-focused="true"] {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in oklch, var(--primary) 78%, white),
+    0 0 0 8px color-mix(in oklch, var(--primary) 18%, transparent),
+    0 18px 42px color-mix(in oklch, black 36%, transparent);
+}
+
 .niri-workspace-toolbar {
   align-items: center;
-  background: color-mix(in oklch, var(--background) 88%, black);
+  background: transparent;
   border-radius: 6px;
   color: var(--muted-foreground);
   display: flex;
@@ -248,14 +292,10 @@ select,
   max-width: calc(100% - 20px);
   min-width: 0;
   overflow: hidden;
-  padding: 5px;
+  padding: 4px 0;
   position: absolute;
-  top: 10px;
-  z-index: 12;
-}
-
-.niri-workspace-area[data-workspace-mode="workspace"] .niri-workspace-toolbar {
-  top: 46px;
+  top: 1px;
+  z-index: 52;
 }
 
 .niri-workspace-toolbar-group {

@@ -71,6 +71,24 @@ describe("niri presentation engine", () => {
     expect(registry.syncedPaneIds).toEqual([]);
   });
 
+  test("syncs focused pane content during movement", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([{ ...renderItem("niri_pane_1", "niri_surface_1", true), focused: true }], {
+      resizePhase: "idle",
+    });
+
+    expect(textFor(host, "[data-niri-pane-title]")).toBe("Pane 002");
+    expect(host.dataset.paneId).toBe("niri_pane_1");
+  });
+
   test("refills cleared hosts during movement instead of leaving empty pane shells", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001", 0);
@@ -88,6 +106,117 @@ describe("niri presentation engine", () => {
 
     expect(host.dataset.paneId).toBe("niri_pane_1");
     expect(registry.syncedPaneIds).toEqual(["niri_pane_1"]);
+  });
+
+  test("restores opacity when a hidden host is reused for a visible pane", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("niri_pane_0", "niri_surface_0", false)], {
+      resizePhase: "idle",
+    });
+    presentation.apply([], { resizePhase: "idle" });
+    presentation.apply([renderItem("niri_pane_0", "niri_surface_0", false)], {
+      resizePhase: "idle",
+    });
+
+    expect(host.dataset.visible).toBe("true");
+    expect(host.style.opacity).toBe("1.000");
+    expect(host.style.pointerEvents).toBe("auto");
+  });
+
+  test("prioritizes the focused pane when the host pool is saturated", () => {
+    const scene = generateBenchmarkScene({ paneCount: 3, targetVisiblePanes: 2 });
+    const firstHost = fakePaneHost("niri_pane_0", "Pane 001");
+    const secondHost = fakePaneHost("niri_pane_1", "Pane 002");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([firstHost, secondHost], null);
+
+    presentation.apply(
+      [
+        renderItem("niri_pane_0", "niri_surface_0", true),
+        renderItem("niri_pane_1", "niri_surface_1", true),
+        { ...renderItem("niri_pane_2", "niri_surface_2", true), focused: true },
+      ],
+      { resizePhase: "idle" },
+    );
+
+    expect([firstHost, secondHost].some((host) => host.dataset.paneId === "niri_pane_2")).toBe(
+      true,
+    );
+    expect(
+      [firstHost, secondHost].some(
+        (host) => textFor(host, "[data-niri-pane-title]") === "Pane 003",
+      ),
+    ).toBe(true);
+  });
+
+  test("keeps pane content bound to pane identity while movement reorders render items", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 2 });
+    const firstHost = fakePaneHost("niri_pane_0", "Pane 001");
+    const secondHost = fakePaneHost("niri_pane_1", "Pane 002");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([firstHost, secondHost], null);
+
+    presentation.apply(
+      [
+        renderItemAt("niri_pane_1", "niri_surface_1", true, 16),
+        renderItemAt("niri_pane_0", "niri_surface_0", true, 220),
+      ],
+      { resizePhase: "idle" },
+    );
+
+    expect(textFor(firstHost, "[data-niri-pane-title]")).toBe("Pane 001");
+    expect(firstHost.dataset.paneId).toBe("niri_pane_0");
+    expect(firstHost.style.transform).toBe("translate3d(220.00px, 0.00px, 0) scale(1.000)");
+    expect(textFor(secondHost, "[data-niri-pane-title]")).toBe("Pane 002");
+    expect(secondHost.dataset.paneId).toBe("niri_pane_1");
+    expect(secondHost.style.transform).toBe("translate3d(16.00px, 0.00px, 0) scale(1.000)");
+  });
+
+  test("disables host pointer events while a pane is shown as an overview texture", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001", 0);
+    const registry = new RecordingSurfaceRegistry();
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      registry as unknown as SurfaceRegistry,
+    );
+    presentation.mount([host], null);
+
+    presentation.apply([renderItem("niri_pane_0", "niri_surface_0", false)], {
+      resizePhase: "idle",
+    });
+
+    expect(host.style.pointerEvents).toBe("auto");
+
+    presentation.apply(
+      [
+        {
+          ...renderItem("niri_pane_0", "niri_surface_0", false, "fake-dom", "snapshot"),
+          presentationMode: "overview",
+        },
+      ],
+      { resizePhase: "idle" },
+    );
+
+    expect(host.dataset.presentationMode).toBe("overview");
+    expect(host.style.pointerEvents).toBe("none");
   });
 
   test("surfaces canvas draw stats in the debug overlay", () => {
@@ -155,8 +284,10 @@ function renderItem(
     moving,
     opacity: 1,
     paneId,
+    presentationMode: "normal",
     resizing: false,
     runtimeState,
+    scale: 1,
     surfaceId,
     surfaceKind,
     visible: true,
@@ -164,6 +295,18 @@ function renderItem(
     x: 0,
     y: 0,
     z: 1,
+  };
+}
+
+function renderItemAt(
+  paneId: string,
+  surfaceId: string,
+  moving: boolean,
+  x: number,
+): PaneRenderItem {
+  return {
+    ...renderItem(paneId, surfaceId, moving),
+    x,
   };
 }
 

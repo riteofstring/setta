@@ -20,6 +20,7 @@ interface PaneHostBinding {
   lastHeight: number;
   lastMoving: boolean | null;
   lastOpacity: number;
+  lastPresentationMode: string | null;
   lastRuntimeState: string | null;
   lastTransform: string;
   lastVisible: boolean | null;
@@ -45,6 +46,7 @@ export class PresentationEngine {
 
   apply(items: PaneRenderItem[], options: PresentationApplyOptions): PresentationWriteCounts {
     const writeCounts = emptyPresentationWriteCounts();
+    const assignedItems = this.assignItemsToBindings(items);
     this.nativeViewBoundsBatcher?.beginFrame();
 
     for (let index = 0; index < this.bindings.length; index += 1) {
@@ -52,7 +54,7 @@ export class PresentationEngine {
       if (!binding) {
         continue;
       }
-      const item = items[index];
+      const item = assignedItems[index];
       addPresentationWriteCounts(writeCounts, this.applyBinding(binding, item, options));
     }
 
@@ -72,6 +74,7 @@ export class PresentationEngine {
       lastHeight: -1,
       lastMoving: null,
       lastOpacity: -1,
+      lastPresentationMode: null,
       lastRuntimeState: null,
       lastTransform: "",
       lastVisible: null,
@@ -79,6 +82,72 @@ export class PresentationEngine {
       lastZ: -1,
     }));
     this.debugOverlay = debugOverlay;
+  }
+
+  private assignItemsToBindings(
+    items: readonly PaneRenderItem[],
+  ): Array<PaneRenderItem | undefined> {
+    const assignments: Array<PaneRenderItem | undefined> = Array.from({
+      length: this.bindings.length,
+    });
+    const renderableItems = this.renderableItems(items);
+    const itemByPaneId = new Map(renderableItems.map((item) => [item.paneId, item]));
+    const assignedPaneIds = new Set<string>();
+    const assignedBindingIndexes = new Set<number>();
+
+    for (let index = 0; index < this.bindings.length; index += 1) {
+      const paneId = this.bindings[index]?.contentPaneId;
+      const item = paneId ? itemByPaneId.get(paneId) : undefined;
+      if (!item) {
+        continue;
+      }
+      assignments[index] = item;
+      assignedPaneIds.add(item.paneId);
+      assignedBindingIndexes.add(index);
+    }
+
+    for (const item of renderableItems) {
+      if (assignedPaneIds.has(item.paneId)) {
+        continue;
+      }
+      const bindingIndex = this.nextAvailableBindingIndex(assignedBindingIndexes);
+      if (bindingIndex === null) {
+        continue;
+      }
+      assignments[bindingIndex] = item;
+      assignedPaneIds.add(item.paneId);
+      assignedBindingIndexes.add(bindingIndex);
+    }
+
+    return assignments;
+  }
+
+  private renderableItems(items: readonly PaneRenderItem[]): readonly PaneRenderItem[] {
+    if (items.length <= this.bindings.length) {
+      return items;
+    }
+    return [
+      ...items.filter((item) => item.focused),
+      ...items.filter((item) => !item.focused),
+    ].slice(0, this.bindings.length);
+  }
+
+  private nextAvailableBindingIndex(assignedBindingIndexes: ReadonlySet<number>): number | null {
+    for (let index = 0; index < this.bindings.length; index += 1) {
+      const binding = this.bindings[index];
+      if (!binding || assignedBindingIndexes.has(index)) {
+        continue;
+      }
+      if (binding.contentPaneId === null) {
+        return index;
+      }
+    }
+    for (let index = 0; index < this.bindings.length; index += 1) {
+      if (!assignedBindingIndexes.has(index)) {
+        return index;
+      }
+    }
+    return null;
   }
 
   syncPanes(panes: readonly NiriPane[]): void {
@@ -111,6 +180,7 @@ export class PresentationEngine {
       binding.host.removeAttribute("data-focused");
       binding.host.removeAttribute("data-moving");
       binding.host.removeAttribute("data-pane-id");
+      binding.host.removeAttribute("data-presentation-mode");
       binding.host.removeAttribute("data-visible");
       binding.host.style.cssText = "";
     }
@@ -163,6 +233,7 @@ export class PresentationEngine {
     binding.host.dataset.paneId = "";
     binding.host.style.opacity = "0";
     binding.host.style.pointerEvents = "none";
+    binding.lastOpacity = 0;
     binding.host.dataset.visible = "false";
     binding.lastVisible = false;
   }
@@ -201,7 +272,7 @@ export class PresentationEngine {
   }
 
   private contentSyncAllowedDuringMovement(item: PaneRenderItem): boolean {
-    return !item.moving || item.surfaceKind === "browser";
+    return !item.moving || item.focused || item.surfaceKind === "browser";
   }
 
   private hostContentMissing(binding: PaneHostBinding): boolean {
@@ -252,9 +323,15 @@ export class PresentationEngine {
       binding.host.dataset.moving = String(item.moving);
       binding.lastMoving = item.moving;
     }
-    if (binding.lastVisible !== item.visible) {
+    const presentationModeChanged = binding.lastPresentationMode !== item.presentationMode;
+    if (presentationModeChanged) {
+      binding.host.dataset.presentationMode = item.presentationMode;
+      binding.lastPresentationMode = item.presentationMode;
+    }
+    if (binding.lastVisible !== item.visible || presentationModeChanged) {
       binding.host.dataset.visible = String(item.visible);
-      binding.host.style.pointerEvents = item.visible ? "auto" : "none";
+      binding.host.style.pointerEvents =
+        item.visible && item.presentationMode !== "overview" ? "auto" : "none";
       binding.lastVisible = item.visible;
     }
     if (binding.lastRuntimeState !== item.runtimeState) {
@@ -264,7 +341,9 @@ export class PresentationEngine {
   }
 
   private syncTransform(binding: PaneHostBinding, item: PaneRenderItem): number {
-    const transform = `translate3d(${item.x.toFixed(2)}px, ${item.y.toFixed(2)}px, 0)`;
+    const transform = `translate3d(${item.x.toFixed(2)}px, ${item.y.toFixed(
+      2,
+    )}px, 0) scale(${item.scale.toFixed(3)})`;
     if (binding.lastTransform !== transform) {
       binding.host.style.transform = transform;
       binding.lastTransform = transform;

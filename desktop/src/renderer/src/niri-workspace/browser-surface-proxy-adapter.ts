@@ -16,6 +16,7 @@ export interface BrowserViewUpdateQueue {
 }
 
 const minimumNativeVisiblePixels = 96;
+const nativeResizeHandleGutterPx = 10;
 
 export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
   readonly kind = "browser" satisfies SurfaceKind;
@@ -141,21 +142,27 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
   }
 
   private nativeBounds(): { rect: Rect; visible: boolean } {
-    const workspace = this.host?.closest<HTMLElement>('[data-testid="niri-workspace-area"]');
-    const workspaceBounds = workspace?.getBoundingClientRect();
-    const unclipped = workspaceBounds
+    const hostBounds = this.host?.getBoundingClientRect();
+    const clipBounds = this.host
+      ?.closest<HTMLElement>('[data-testid="niri-presentation-engine"]')
+      ?.getBoundingClientRect();
+    const unclipped = hostBounds
       ? {
-          height: this.lastRect.height,
-          width: this.lastRect.width,
-          x: workspaceBounds.left + this.lastRect.x,
-          y: workspaceBounds.top + this.lastRect.y,
+          height: hostBounds.height,
+          width: hostBounds.width,
+          x: hostBounds.left,
+          y: hostBounds.top,
         }
       : { ...this.lastRect };
-    const rect = workspaceBounds ? intersectRects(unclipped, workspaceBounds) : unclipped;
+    const rect = clipBounds ? intersectRects(unclipped, clipBounds) : unclipped;
+    const nativeRect = {
+      ...rect,
+      width: Math.max(1, rect.width - nativeResizeHandleGutterPx),
+    };
     const visible =
-      rect.width >= minimumNativeVisiblePixels && rect.height >= minimumNativeVisiblePixels;
+      nativeRect.width >= minimumNativeVisiblePixels && rect.height >= minimumNativeVisiblePixels;
     return {
-      rect: visible ? rect : { height: 1, width: 1, x: rect.x, y: rect.y },
+      rect: visible ? nativeRect : { height: 1, width: 1, x: rect.x, y: rect.y },
       visible,
     };
   }

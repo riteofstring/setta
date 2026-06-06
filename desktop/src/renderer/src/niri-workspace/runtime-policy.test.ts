@@ -125,7 +125,7 @@ describe("niri pane runtime policy", () => {
     expect(summary.snapshot).toBe(1);
   });
 
-  test("budgets terminal renderers and snapshots graph renderers during movement", () => {
+  test("budgets terminal renderers and keeps graph renderers live during movement", () => {
     const items = [
       renderItem("terminal-focused", "terminal", true),
       renderItem("terminal-live", "terminal", false),
@@ -153,9 +153,28 @@ describe("niri pane runtime policy", () => {
       ["terminal-focused", "live"],
       ["terminal-live", "snapshot"],
       ["terminal-over-budget", "snapshot"],
-      ["graph-moving", "snapshot"],
+      ["graph-moving", "live"],
     ]);
-    expect(movingSummary.snapshot).toBe(3);
+    expect(movingSummary.snapshot).toBe(2);
+  });
+
+  test("uses snapshots for every visible overview pane even when focused", () => {
+    const items = [
+      { ...renderItem("focused-browser", "browser", true), presentationMode: "overview" },
+      { ...renderItem("overview-terminal", "terminal", false), presentationMode: "overview" },
+      { ...renderItem("overview-settings", "settings-dom", false), presentationMode: "overview" },
+      { ...renderItem("overview-light", "fake-dom", false), presentationMode: "overview" },
+    ] satisfies PaneRenderItem[];
+
+    const summary = new PaneRuntimePolicy(budget).apply(items, "idle");
+
+    expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["focused-browser", "snapshot"],
+      ["overview-terminal", "snapshot"],
+      ["overview-settings", "snapshot"],
+      ["overview-light", "snapshot"],
+    ]);
+    expect(summary.snapshot).toBe(4);
   });
 });
 
@@ -166,8 +185,10 @@ function renderItem(paneId: string, surfaceKind: SurfaceKind, focused: boolean):
     moving: false,
     opacity: 1,
     paneId,
+    presentationMode: "normal",
     resizing: false,
     runtimeState: "live",
+    scale: 1,
     surfaceId: `${paneId}_surface`,
     surfaceKind,
     visible: true,

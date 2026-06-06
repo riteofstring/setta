@@ -58,6 +58,7 @@ export function generateBenchmarkScene({
 
     columns.push({
       columnId,
+      idealWidthSpec: { unit: "proportion", value: 1 / visibleColumnCount },
       index: columnIndex,
       paneIds,
       widthSpec: { unit: "proportion", value: 1 / visibleColumnCount },
@@ -67,11 +68,13 @@ export function generateBenchmarkScene({
   return {
     columnGap: 8,
     columns,
+    defaultColumnWidthSpec: { unit: "proportion", value: 1 / visibleColumnCount },
     id: "phase-6-terminal-git-graph-benchmark",
     paneById,
     panes,
     panesPerColumn,
     padding: 10,
+    renderOverscanColumns: 0,
     rowGap: 8,
     targetVisiblePanes,
     totalPanes: panes.length,

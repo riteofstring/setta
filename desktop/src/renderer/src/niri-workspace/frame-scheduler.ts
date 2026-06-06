@@ -115,7 +115,9 @@ export class FrameScheduler {
       {
         focusedPaneId: snapshot.focusedPaneId,
         movementPhase,
+        presentationMode: snapshot.presentationMode,
         scrollColumn: snapshot.scrollColumn,
+        scrollRow: snapshot.scrollRow,
         viewport,
       },
       (item) => this.items.push(item),

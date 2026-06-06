@@ -94,43 +94,182 @@ describe("niri browser-pane layout engine", () => {
 });
 
 describe("real niri workspace column sizing", () => {
-  test("recomputes proportional column widths from the viewport", () => {
+  test("keeps default fixed column widths stable across viewport resize", () => {
     const engine = createRealEngine();
     const wideItems = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
     const narrowItems = renderFrame(engine, { ...viewport, width: 900 }, 0, "workspace_pane_0");
 
-    expect(wideItems[0]?.width).toBe(590);
-    expect(narrowItems[0]?.width).toBe(440);
+    expect(wideItems[0]?.width).toBe(520);
+    expect(narrowItems[0]?.width).toBe(520);
   });
 
-  test("preserves horizontal overflow instead of shrinking all columns into the viewport", () => {
+  test("still supports proportional column widths when a policy requests them", () => {
+    const engine = createRealEngine();
+
+    engine.resizeColumn("workspace_column_0", { unit: "proportion", value: 0.5 });
+
+    expect(engine.resolvedColumnWidth("workspace_column_0", 1200)).toBe(590);
+    expect(engine.resolvedColumnWidth("workspace_column_0", 900)).toBe(440);
+  });
+
+  test("preserves horizontal overflow while rendering a next-column peek and overscan cache", () => {
     const engine = createRealEngine();
     const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
 
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(4);
     expect(items[0]?.x).toBe(10);
-    expect(items[1]?.x).toBe(608);
-    expect(items[2]?.x).toBeGreaterThan(1200);
+    expect(items[1]?.x).toBe(538);
+    expect(items[2]?.x).toBe(1066);
+    expect(items[2]?.x).toBeLessThan(1200);
+    expect(items[3]?.x).toBeGreaterThan(1200);
     expect(engine.totalColumnOverflowWidth(1200)).toBeGreaterThan(1200);
   });
 
-  test("locks a proportional column to its current resolved width", () => {
+  test("renders cached columns on both sides while horizontally scrolled", () => {
     const engine = createRealEngine();
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 1, "workspace_pane_1");
 
-    engine.lockColumnWidth("workspace_column_0", 1200);
-
-    expect(engine.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 590 });
-    expect(engine.resolvedColumnWidth("workspace_column_0", 900)).toBe(590);
+    expect(items.map((item) => item.paneId)).toEqual([
+      "workspace_pane_0",
+      "workspace_pane_1",
+      "workspace_pane_2",
+      "workspace_pane_3",
+      "workspace_pane_4",
+    ]);
+    expect(items[0]?.x).toBeLessThan(0);
+    expect(items.at(-1)?.x).toBeGreaterThan(1200);
   });
 
-  test("unlocks a fixed column back to its previous proportion", () => {
+  test("clamps end-of-strip scrolling so existing panes fill the viewport", () => {
+    const engine = createRealEngine();
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 5, "workspace_pane_5");
+    const visibleItems = items.filter((item) => item.x < 1200 && item.x + item.width > 0);
+    const rightmostPaneEdge = Math.max(...visibleItems.map((item) => item.x + item.width));
+
+    expect(engine.scrollColumnForFocusedColumnVisibility(5, 5, 1200)).toBeCloseTo(3.75);
+    expect(visibleItems.map((item) => item.paneId)).toEqual([
+      "workspace_pane_3",
+      "workspace_pane_4",
+      "workspace_pane_5",
+    ]);
+    expect(items.find((item) => item.paneId === "workspace_pane_5")?.x).toBeGreaterThan(10);
+    expect(rightmostPaneEdge).toBeGreaterThanOrEqual(1190);
+  });
+
+  test("navigation snaps focused pane left edge to the viewport lane", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:left-snap",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+
+    store.moveFocus("right");
+    const snapshot = store.getSnapshot();
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      snapshot.targetScrollColumn,
+      snapshot.focusedPaneId,
+      "normal",
+      snapshot.targetScrollRow,
+    );
+
+    expect(snapshot.focusedPaneId).toBe("workspace_pane_1");
+    expect(items.find((item) => item.focused)?.x).toBe(10);
+  });
+
+  test("navigation snaps focused split-down pane top edge to the viewport lane", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:top-snap",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    const stackedPaneId = store.splitFocusedPane("down");
+    const snapshot = store.getSnapshot();
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      snapshot.targetScrollColumn,
+      snapshot.focusedPaneId,
+      "normal",
+      snapshot.targetScrollRow,
+    );
+    const focusedItem = items.find((item) => item.paneId === stackedPaneId);
+    const firstRowItem = items.find((item) => item.paneId === "workspace_pane_0");
+
+    expect(focusedItem?.focused).toBe(true);
+    expect(focusedItem?.y).toBe(38);
+    expect(firstRowItem?.y).toBeLessThan(0);
+  });
+
+  test("keeps every pane attached to a visible column after moving out of a vertical stack", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:move-stack-pane",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    const stackedPaneId = store.splitFocusedPane("down");
+
+    store.moveFocusedPane("right");
+
+    const updatedScene = engine.toScene();
+    const paneIdsInColumns = updatedScene.columns.flatMap((column) => column.paneIds);
+
+    expect(updatedScene.columns.every((column) => column.paneIds.length > 0)).toBe(true);
+    expect(new Set(paneIdsInColumns).size).toBe(updatedScene.panes.length);
+    expect(paneIdsInColumns).toContain("workspace_pane_0");
+    expect(paneIdsInColumns).toContain(stackedPaneId);
+  });
+
+  test("overview renders the whole real workspace as scaled columns", () => {
+    const engine = createRealEngine();
+    const items = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      0,
+      "workspace_pane_0",
+      "overview",
+    );
+
+    expect(items).toHaveLength(6);
+    expect(items.every((item) => item.presentationMode === "overview")).toBe(true);
+    expect(items.every((item) => item.scale < 1)).toBe(true);
+    expect(items[0]?.x).toBeGreaterThanOrEqual(10);
+    expect(
+      (items.at(-1)?.x ?? 0) + (items.at(-1)?.width ?? 0) * (items.at(-1)?.scale ?? 1),
+    ).toBeLessThanOrEqual(1190);
+  });
+
+  test("overview keeps split-down panes vertically stacked inside their column", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:niri-workspace:overview-stack",
+      workspaceName: "Repo",
+    });
+    const engine = new NiriLikeLayoutEngine(scene);
+    const store = new NiriLayoutStore(engine, scene, focusedPaneId);
+    const stackedPaneId = store.splitFocusedPane("down");
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, stackedPaneId, "overview");
+    const chatItem = items.find((item) => item.paneId === "workspace_pane_0");
+    const stackedItem = items.find((item) => item.paneId === stackedPaneId);
+
+    expect(chatItem?.x).toBe(stackedItem?.x);
+    expect(stackedItem?.y).toBeGreaterThan(chatItem?.y ?? 0);
+    expect(stackedItem?.scale).toBe(chatItem?.scale);
+  });
+
+  test("resets a resized column back to its ideal original width", () => {
     const engine = createRealEngine();
 
-    engine.lockColumnWidth("workspace_column_0", 1200);
-    engine.unlockColumnWidth("workspace_column_0", 900);
+    engine.resizeColumn("workspace_column_0", { unit: "px", value: 640 });
+    expect(engine.resolvedColumnWidth("workspace_column_0", 900)).toBe(640);
 
-    expect(engine.toScene().columns[0]?.widthSpec).toEqual({ unit: "proportion", value: 0.5 });
-    expect(engine.resolvedColumnWidth("workspace_column_0", 900)).toBe(440);
+    engine.resetColumnWidth("workspace_column_0");
+
+    expect(engine.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 520 });
+    expect(engine.resolvedColumnWidth("workspace_column_0", 900)).toBe(520);
   });
 
   test("keeps the focused column visible after a viewport resize", () => {
@@ -165,13 +304,17 @@ function renderFrame(
   frameViewport: Rect,
   scrollColumn: number,
   focusedPaneId: string,
+  presentationMode: "normal" | "overview" = "normal",
+  scrollRow = 0,
 ): PaneRenderItem[] {
   const items: PaneRenderItem[] = [];
   engine.renderFrame(
     {
       focusedPaneId,
       movementPhase: "moving",
+      presentationMode,
       scrollColumn,
+      scrollRow,
       viewport: frameViewport,
     },
     (item) => items.push(item),
