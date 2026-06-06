@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -27,7 +28,50 @@ func TestValidateGraphReportsPreciseDiagnostics(t *testing.T) {
 	assertDiagnostic(t, result, "edge_to_unknown")
 	assertDiagnostic(t, result, "codex_action_config_required")
 	assertDiagnostic(t, result, "unreachable_node")
-	assertDiagnostic(t, result, "cycle_requires_loop_guard")
+}
+
+func TestValidateGraphRejectsUnboundedControlOnlyLoop(t *testing.T) {
+	result := ValidateGraph(unboundedControlOnlyLoopGraph(), DefaultRunnerRegistry())
+	if result.Valid {
+		t.Fatalf("validation unexpectedly passed: %+v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result, "control_cycle_requires_async_boundary_or_bound")
+}
+
+func TestValidateGraphAllowsFiniteControlOnlyLoop(t *testing.T) {
+	maxIterations := 3
+	graph := controlOnlyLoopGraph(&maxIterations)
+	result := ValidateGraph(graph, DefaultRunnerRegistry())
+	if !result.Valid {
+		t.Fatalf("validation diagnostics = %+v, want valid finite control-only loop", result.Diagnostics)
+	}
+
+	transition := startTestExecution(t, graph)
+	if transition.Execution.Status != ExecutionStatusCompleted {
+		t.Fatalf("execution status = %s, want completed", transition.Execution.Status)
+	}
+	if terminalReasonValue(transition.Execution) != TerminalReasonLimitReached {
+		t.Fatalf("terminal reason = %v, want limit_reached", transition.Execution.TerminalReason)
+	}
+}
+
+func TestStartExecutionFailsFastWhenSynchronousControlCycleBypassesValidation(t *testing.T) {
+	_, err := StartExecution(WorkflowDefinitionVersion{
+		SchemaVersion: SchemaVersion,
+		ID:            "version_test",
+		WorkspaceID:   "workspace_test",
+		DefinitionID:  "definition_test",
+		VersionNumber: 1,
+		Name:          "Invalid",
+		Graph:         unboundedControlOnlyLoopGraph(),
+		CreatedAt:     testNow,
+	}, testTransitionContext())
+	if err == nil {
+		t.Fatal("start execution succeeded, want synchronous control cycle error")
+	}
+	if !strings.Contains(err.Error(), "suspected unbounded control cycle") {
+		t.Fatalf("start execution error = %v, want suspected control cycle", err)
+	}
 }
 
 func TestStartToEndCompletes(t *testing.T) {
@@ -638,6 +682,32 @@ func loopGraph(maxIterations *int, policy WorkflowLoopLimitPolicy) WorkflowGraph
 			{ID: "start_review", FromNodeID: "start", ToNodeID: "review", Kind: EdgeKindNormal},
 			{ID: "review_guard", FromNodeID: "review", ToNodeID: "guard", Kind: EdgeKindNormal},
 			{ID: "guard_continue", FromNodeID: "guard", ToNodeID: "review", Kind: EdgeKindLoopContinue},
+			{ID: "guard_exit", FromNodeID: "guard", ToNodeID: "end", Kind: EdgeKindLoopExit},
+		},
+	}
+}
+
+func unboundedControlOnlyLoopGraph() WorkflowGraph {
+	return controlOnlyLoopGraph(nil)
+}
+
+func controlOnlyLoopGraph(maxIterations *int) WorkflowGraph {
+	return WorkflowGraph{
+		Nodes: []WorkflowNode{
+			{ID: "start", Kind: NodeKindStart},
+			{
+				ID:   "guard",
+				Kind: NodeKindLoopGuard,
+				LoopGuard: &WorkflowLoopGuardConfig{
+					MaxIterations: maxIterations,
+					LimitPolicy:   LoopLimitCompleted,
+				},
+			},
+			{ID: "end", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "start_guard", FromNodeID: "start", ToNodeID: "guard", Kind: EdgeKindNormal},
+			{ID: "guard_continue", FromNodeID: "guard", ToNodeID: "guard", Kind: EdgeKindLoopContinue},
 			{ID: "guard_exit", FromNodeID: "guard", ToNodeID: "end", Kind: EdgeKindLoopExit},
 		},
 	}

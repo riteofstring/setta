@@ -1,6 +1,12 @@
-import type { WorkflowEvent, WorkflowGraphProjection } from "@generated/backend";
+import type {
+  ApprovalAnswer,
+  WorkflowEvent,
+  WorkflowGraphProjection,
+  WorkflowPendingApproval,
+} from "@generated/backend";
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from "react";
 
+import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcript-approvals";
 import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
 import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
 
@@ -23,6 +29,10 @@ export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean
   const graph = useMemo(
     () => (syntheticGraph ? createSyntheticPixiWorkspaceGraph(syntheticGraph) : workflowGraph),
     [syntheticGraph, workflowGraph],
+  );
+  const pendingApproval = useMemo(
+    () => (workflowProjection === null ? null : pendingWorkflowApproval(workflowProjection)),
+    [workflowProjection],
   );
   const rendererReady = syntheticGraph !== null || workflowProjectionReady;
 
@@ -66,11 +76,14 @@ export function PixiWorkspacePrototype({ debugEnabled }: { debugEnabled: boolean
   }, [debugEnabled, graph, rendererReady]);
 
   return (
-    <div
-      ref={hostRef}
-      className="h-screen w-screen overflow-hidden bg-zinc-950"
-      data-testid="pixi-workspace"
-    />
+    <div className="relative h-screen w-screen overflow-hidden bg-zinc-950">
+      <div ref={hostRef} className="h-full w-full" data-testid="pixi-workspace" />
+      <WorkflowApprovalOverlay
+        pendingApproval={pendingApproval}
+        projection={workflowProjection}
+        setWorkflowProjection={setWorkflowProjection}
+      />
+    </div>
   );
 }
 
@@ -163,4 +176,73 @@ function workflowProjectionTarget(projection: WorkflowGraphProjection): Workflow
     versionId: projection.definitionVersionId,
     workspaceId: projection.workspaceId,
   };
+}
+
+function pendingWorkflowApproval(
+  projection: WorkflowGraphProjection,
+): WorkflowPendingApproval | null {
+  for (const node of projection.nodes) {
+    if (node.pendingApproval !== null) {
+      return node.pendingApproval;
+    }
+  }
+  return null;
+}
+
+function WorkflowApprovalOverlay({
+  pendingApproval,
+  projection,
+  setWorkflowProjection,
+}: {
+  pendingApproval: WorkflowPendingApproval | null;
+  projection: WorkflowGraphProjection | null;
+  setWorkflowProjection: (projection: WorkflowGraphProjection | null) => void;
+}) {
+  const [error, setError] = useState("");
+  if (pendingApproval === null || projection === null) {
+    return null;
+  }
+  const submitApproval: SubmitApproval = async (
+    approvalId: string,
+    approved: boolean,
+    response: string,
+    answers: ApprovalAnswer[],
+    cancelled: boolean,
+  ) => {
+    setError("");
+    try {
+      await window.setta.workflow.submitApproval({
+        answers,
+        approvalId,
+        approved,
+        cancelled,
+        executionId: pendingApproval.executionId,
+        nodeExecutionId: pendingApproval.nodeExecutionId,
+        response,
+        workspaceId: pendingApproval.workspaceId,
+      });
+      const refreshed = await window.setta.workflow.graphProjection(
+        pendingApproval.workspaceId,
+        projection.definitionId,
+        projection.definitionVersionId,
+        pendingApproval.executionId,
+      );
+      setWorkflowProjection(refreshed.projection);
+    } catch (submitError: unknown) {
+      setError(submitError instanceof Error ? submitError.message : "Workflow approval failed");
+    }
+  };
+
+  return (
+    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-end sm:inset-x-auto sm:top-4 sm:right-4 sm:bottom-auto">
+      <div className="pointer-events-auto w-full max-w-md shadow-xl">
+        <ApprovalCard approval={pendingApproval.approval} submitApproval={submitApproval} />
+        {error ? (
+          <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {error}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }

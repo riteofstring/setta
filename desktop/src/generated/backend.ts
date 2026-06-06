@@ -1499,6 +1499,15 @@ export interface WorkflowActionSignal {
   value: string;
 }
 
+export interface WorkflowPendingApproval {
+  workspaceId: string;
+  executionId: string;
+  nodeId: string;
+  nodeExecutionId: string;
+  approvalId: string;
+  approval: ApprovalRequest;
+}
+
 export interface WorkflowActionResult {
   status: WorkflowActionCompletionStatus;
   signals: WorkflowActionSignal[];
@@ -1506,6 +1515,7 @@ export interface WorkflowActionResult {
   filePaths: string[];
   exitCode: number | null;
   error: string;
+  pendingApproval: WorkflowPendingApproval | null;
 }
 
 export interface WorkflowActionRunnerRef {
@@ -1601,6 +1611,7 @@ export interface WorkflowGraphNode {
   signals: WorkflowActionSignal[];
   filePaths: string[];
   error: string;
+  pendingApproval: WorkflowPendingApproval | null;
 }
 
 export interface WorkflowGraphEdge {
@@ -1663,6 +1674,17 @@ export interface WorkflowExecutionEventPage {
   events: WorkflowEvent[];
   hasMoreOlder: boolean;
   olderBeforeOrdinal: number;
+}
+
+export interface SubmitWorkflowApprovalRequest {
+  workspaceId: string;
+  executionId: string;
+  nodeExecutionId: string;
+  approvalId: string;
+  approved: boolean;
+  response: string;
+  answers: ApprovalAnswer[];
+  cancelled: boolean;
 }
 
 export interface CodexAccount {
@@ -2177,6 +2199,10 @@ export const backendEndpoints = {
   GetWorkflowExecutionEvents: {
     method: "POST",
     path: "/workflows/executions/events",
+  },
+  SubmitWorkflowApproval: {
+    method: "POST",
+    path: "/workflows/approvals/submit",
   },
   WorkflowEventStream: {
     method: "GET",
@@ -3245,9 +3271,22 @@ export function decodeWorkflowActionSignal(value: unknown): WorkflowActionSignal
   };
 }
 
+export function decodeWorkflowPendingApproval(value: unknown): WorkflowPendingApproval {
+  const record = assertRecord(value, "WorkflowPendingApproval");
+  assertKnownFields(record, "WorkflowPendingApproval", ["workspaceId", "executionId", "nodeId", "nodeExecutionId", "approvalId", "approval"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowPendingApproval"), "WorkflowPendingApproval.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "WorkflowPendingApproval"), "WorkflowPendingApproval.executionId"),
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowPendingApproval"), "WorkflowPendingApproval.nodeId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "WorkflowPendingApproval"), "WorkflowPendingApproval.nodeExecutionId"),
+    approvalId: decodeString(requireField(record, "approvalId", "WorkflowPendingApproval"), "WorkflowPendingApproval.approvalId"),
+    approval: decodeApprovalRequest(requireField(record, "approval", "WorkflowPendingApproval")),
+  };
+}
+
 export function decodeWorkflowActionResult(value: unknown): WorkflowActionResult {
   const record = assertRecord(value, "WorkflowActionResult");
-  assertKnownFields(record, "WorkflowActionResult", ["status", "signals", "output", "filePaths", "exitCode", "error"]);
+  assertKnownFields(record, "WorkflowActionResult", ["status", "signals", "output", "filePaths", "exitCode", "error", "pendingApproval"]);
   return {
     status: decodeWorkflowActionCompletionStatus(requireField(record, "status", "WorkflowActionResult"), "WorkflowActionResult.status"),
     signals: decodeArray(requireField(record, "signals", "WorkflowActionResult"), "WorkflowActionResult.signals", (item) => decodeWorkflowActionSignal(item)),
@@ -3255,6 +3294,7 @@ export function decodeWorkflowActionResult(value: unknown): WorkflowActionResult
     filePaths: decodeArray(requireField(record, "filePaths", "WorkflowActionResult"), "WorkflowActionResult.filePaths", (item) => decodeString(item, "WorkflowActionResult.filePaths item")),
     exitCode: decodeNullable(requireField(record, "exitCode", "WorkflowActionResult"), "WorkflowActionResult.exitCode", (item) => decodeInteger(item, "WorkflowActionResult.exitCode")),
     error: decodeString(requireField(record, "error", "WorkflowActionResult"), "WorkflowActionResult.error"),
+    pendingApproval: decodeNullable(requireField(record, "pendingApproval", "WorkflowActionResult"), "WorkflowActionResult.pendingApproval", (item) => decodeWorkflowPendingApproval(item)),
   };
 }
 
@@ -3370,7 +3410,7 @@ export function decodeReadWorkflowGraphProjectionRequest(value: unknown): ReadWo
 
 export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
   const record = assertRecord(value, "WorkflowGraphNode");
-  assertKnownFields(record, "WorkflowGraphNode", ["id", "kind", "title", "label", "status", "active", "executionCount", "latestNodeExecutionId", "latestAttempt", "latestIteration", "actionKind", "signals", "filePaths", "error"]);
+  assertKnownFields(record, "WorkflowGraphNode", ["id", "kind", "title", "label", "status", "active", "executionCount", "latestNodeExecutionId", "latestAttempt", "latestIteration", "actionKind", "signals", "filePaths", "error", "pendingApproval"]);
   return {
     id: decodeString(requireField(record, "id", "WorkflowGraphNode"), "WorkflowGraphNode.id"),
     kind: decodeWorkflowNodeKind(requireField(record, "kind", "WorkflowGraphNode"), "WorkflowGraphNode.kind"),
@@ -3386,6 +3426,7 @@ export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
     signals: decodeArray(requireField(record, "signals", "WorkflowGraphNode"), "WorkflowGraphNode.signals", (item) => decodeWorkflowActionSignal(item)),
     filePaths: decodeArray(requireField(record, "filePaths", "WorkflowGraphNode"), "WorkflowGraphNode.filePaths", (item) => decodeString(item, "WorkflowGraphNode.filePaths item")),
     error: decodeString(requireField(record, "error", "WorkflowGraphNode"), "WorkflowGraphNode.error"),
+    pendingApproval: decodeNullable(requireField(record, "pendingApproval", "WorkflowGraphNode"), "WorkflowGraphNode.pendingApproval", (item) => decodeWorkflowPendingApproval(item)),
   };
 }
 
@@ -3472,6 +3513,21 @@ export function decodeWorkflowExecutionEventPage(value: unknown): WorkflowExecut
     events: decodeArray(requireField(record, "events", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.events", (item) => decodeWorkflowEvent(item)),
     hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.hasMoreOlder"),
     olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "WorkflowExecutionEventPage"), "WorkflowExecutionEventPage.olderBeforeOrdinal"),
+  };
+}
+
+export function decodeSubmitWorkflowApprovalRequest(value: unknown): SubmitWorkflowApprovalRequest {
+  const record = assertRecord(value, "SubmitWorkflowApprovalRequest");
+  assertKnownFields(record, "SubmitWorkflowApprovalRequest", ["workspaceId", "executionId", "nodeExecutionId", "approvalId", "approved", "response", "answers", "cancelled"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.workspaceId"),
+    executionId: decodeString(requireField(record, "executionId", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.executionId"),
+    nodeExecutionId: decodeString(requireField(record, "nodeExecutionId", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.nodeExecutionId"),
+    approvalId: decodeString(requireField(record, "approvalId", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.approvalId"),
+    approved: decodeBoolean(requireField(record, "approved", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.approved"),
+    response: decodeString(requireField(record, "response", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.response"),
+    answers: decodeArray(requireField(record, "answers", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.answers", (item) => decodeApprovalAnswer(item)),
+    cancelled: decodeBoolean(requireField(record, "cancelled", "SubmitWorkflowApprovalRequest"), "SubmitWorkflowApprovalRequest.cancelled"),
   };
 }
 
@@ -3981,6 +4037,7 @@ export interface BackendClient {
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
+  submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
   readCodexAccount: () => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
   startCodexLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
@@ -4299,6 +4356,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecutionEventPage,
       endpoint: backendEndpoints.GetWorkflowExecutionEvents,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    submitWorkflowApproval: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowExecution,
+      endpoint: backendEndpoints.SubmitWorkflowApproval,
       fetchImpl,
       requestPayload: request,
     }),

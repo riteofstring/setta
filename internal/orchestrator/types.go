@@ -1,6 +1,10 @@
 package orchestrator
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"setta/internal/chat"
+)
 
 const SchemaVersion = 1
 
@@ -374,17 +378,27 @@ type WorkflowNodeExecution struct {
 }
 
 type WorkflowActionResult struct {
-	Status    WorkflowActionCompletionStatus `json:"status"`
-	Signals   []WorkflowActionSignal         `json:"signals"`
-	Output    json.RawMessage                `json:"output"`
-	FilePaths []string                       `json:"filePaths"`
-	ExitCode  *int                           `json:"exitCode"`
-	Error     string                         `json:"error"`
+	Status          WorkflowActionCompletionStatus `json:"status"`
+	Signals         []WorkflowActionSignal         `json:"signals"`
+	Output          json.RawMessage                `json:"output"`
+	FilePaths       []string                       `json:"filePaths"`
+	ExitCode        *int                           `json:"exitCode"`
+	Error           string                         `json:"error"`
+	PendingApproval *WorkflowPendingApproval       `json:"pendingApproval"`
 }
 
 type WorkflowActionSignal struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+type WorkflowPendingApproval struct {
+	WorkspaceID     string               `json:"workspaceId"`
+	ExecutionID     string               `json:"executionId"`
+	NodeID          string               `json:"nodeId"`
+	NodeExecutionID string               `json:"nodeExecutionId"`
+	ApprovalID      string               `json:"approvalId"`
+	Approval        chat.ApprovalRequest `json:"approval"`
 }
 
 type WorkflowActionRunnerRef struct {
@@ -451,20 +465,21 @@ type WorkflowGraphProjection struct {
 }
 
 type WorkflowGraphNode struct {
-	ID                    string                  `json:"id"`
-	Kind                  WorkflowNodeKind        `json:"kind"`
-	Title                 string                  `json:"title"`
-	Label                 string                  `json:"label"`
-	Status                WorkflowGraphNodeStatus `json:"status"`
-	Active                bool                    `json:"active"`
-	ExecutionCount        int                     `json:"executionCount"`
-	LatestNodeExecutionID string                  `json:"latestNodeExecutionId"`
-	LatestAttempt         int                     `json:"latestAttempt"`
-	LatestIteration       int                     `json:"latestIteration"`
-	ActionKind            *WorkflowActionKind     `json:"actionKind"`
-	Signals               []WorkflowActionSignal  `json:"signals"`
-	FilePaths             []string                `json:"filePaths"`
-	Error                 string                  `json:"error"`
+	ID                    string                   `json:"id"`
+	Kind                  WorkflowNodeKind         `json:"kind"`
+	Title                 string                   `json:"title"`
+	Label                 string                   `json:"label"`
+	Status                WorkflowGraphNodeStatus  `json:"status"`
+	Active                bool                     `json:"active"`
+	ExecutionCount        int                      `json:"executionCount"`
+	LatestNodeExecutionID string                   `json:"latestNodeExecutionId"`
+	LatestAttempt         int                      `json:"latestAttempt"`
+	LatestIteration       int                      `json:"latestIteration"`
+	ActionKind            *WorkflowActionKind      `json:"actionKind"`
+	Signals               []WorkflowActionSignal   `json:"signals"`
+	FilePaths             []string                 `json:"filePaths"`
+	Error                 string                   `json:"error"`
+	PendingApproval       *WorkflowPendingApproval `json:"pendingApproval"`
 }
 
 type WorkflowGraphEdge struct {

@@ -84,6 +84,7 @@ func projectedGraphNodes(definitionNodes []WorkflowNode, execution *WorkflowExec
 			Signals:               []WorkflowActionSignal{},
 			FilePaths:             []string{},
 			Error:                 "",
+			PendingApproval:       nil,
 		}
 		if latest, ok := latestByNodeID[node.ID]; ok {
 			status, err := graphNodeStatusFromExecutionStatus(latest.Status)
@@ -102,6 +103,9 @@ func projectedGraphNodes(definitionNodes []WorkflowNode, execution *WorkflowExec
 				projected.FilePaths = append([]string{}, latest.Result.FilePaths...)
 				if projected.Error == "" {
 					projected.Error = latest.Result.Error
+				}
+				if latest.Status == NodeExecutionStatusWaitingApproval {
+					projected.PendingApproval = latest.Result.PendingApproval
 				}
 			}
 		}

@@ -261,7 +261,8 @@ func (service *Service) reconcileChatRunApproval(run chat.Run) {
 	}
 	refs := workflowRunRefs(run, owner.conversation)
 	_, _ = service.completeChatActionRun(run.WorkspaceID, owner.execution.ID, owner.nodeExecution.ID, WorkflowActionResult{
-		Status: ActionCompletionRequiresApproval,
+		Status:          ActionCompletionRequiresApproval,
+		PendingApproval: workflowPendingApprovalFromChatRun(owner, run),
 	}, refs)
 }
 
@@ -373,4 +374,35 @@ func workflowRunRefs(run chat.Run, conversation chat.Conversation) []WorkflowAct
 		{Kind: RunnerRefChatRun, ID: run.ID},
 	}
 	return append(refs, runnerRefsFromConversation(conversation)...)
+}
+
+func workflowPendingApprovalFromChatRun(owner workflowRunOwner, run chat.Run) *WorkflowPendingApproval {
+	if run.PendingApproval == nil {
+		return nil
+	}
+	approval := cloneWorkflowApprovalRequest(*run.PendingApproval)
+	return &WorkflowPendingApproval{
+		WorkspaceID:     run.WorkspaceID,
+		ExecutionID:     owner.execution.ID,
+		NodeID:          owner.nodeExecution.NodeID,
+		NodeExecutionID: owner.nodeExecution.ID,
+		ApprovalID:      approval.ID,
+		Approval:        approval,
+	}
+}
+
+func cloneWorkflowApprovalRequest(approval chat.ApprovalRequest) chat.ApprovalRequest {
+	approval.Options = append([]string{}, approval.Options...)
+	approval.Questions = append([]chat.ApprovalQuestion{}, approval.Questions...)
+	if approval.StructuredInput != nil {
+		structured := *approval.StructuredInput
+		if structured.Schema != nil {
+			structured.Schema = append([]byte{}, structured.Schema...)
+		}
+		if structured.Meta != nil {
+			structured.Meta = append([]byte{}, structured.Meta...)
+		}
+		approval.StructuredInput = &structured
+	}
+	return approval
 }

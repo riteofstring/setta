@@ -100,6 +100,99 @@ func TestCodexRunnerCancellationPropagatesToWorkflowOwnedChat(t *testing.T) {
 	waitForScriptedHarnessIdle(t, harness)
 }
 
+func TestCodexRunnerSubmitsWorkflowApprovalThroughHiddenChat(t *testing.T) {
+	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
+	definition, err := workflowService.CreateDefinition(workspaceID, "Workflow approval", "", codexActionGraph("command approval workflow", true))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	subscription, err := workflowService.SubscribeEvents(WorkflowEventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe workflow events: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	waitForWorkflowEvent(t, subscription, started.ID, EventActionApprovalWait)
+	work, pending := assertWorkflowApprovalWaiting(t, workflowService, workspaceID, started.ID)
+	assertWorkflowApprovalProjection(t, workflowService, workspaceID, definition, started.ID, pending)
+
+	if _, err := workflowService.SubmitApproval(workspaceID, started.ID, work.ID, pending.ApprovalID, true, "", nil, false); err != nil {
+		t.Fatalf("submit workflow approval: %v", err)
+	}
+	waitForWorkflowEvent(t, subscription, started.ID, EventExecutionCompleted)
+	assertWorkflowApprovalCompleted(t, workflowService, workspaceID, started.ID)
+	assertWorkflowChatsHiddenForTest(t, chatService, workspaceID)
+	waitForScriptedHarnessIdle(t, harness)
+}
+
+func assertWorkflowApprovalWaiting(t *testing.T, workflowService *Service, workspaceID string, executionID string) (WorkflowNodeExecution, *WorkflowPendingApproval) {
+	t.Helper()
+	waiting, err := workflowService.ReadExecution(workspaceID, executionID)
+	if err != nil {
+		t.Fatalf("read waiting execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, waiting, "work")
+	if work.Status != NodeExecutionStatusWaitingApproval {
+		t.Fatalf("work status = %s, want waiting_approval", work.Status)
+	}
+	if work.Result == nil || work.Result.PendingApproval == nil {
+		t.Fatalf("work result = %+v, want pending workflow approval", work.Result)
+	}
+	pending := work.Result.PendingApproval
+	if pending.WorkspaceID != workspaceID || pending.ExecutionID != executionID || pending.NodeExecutionID != work.ID || pending.ApprovalID != pending.Approval.ID {
+		t.Fatalf("pending approval = %+v, want workflow-scoped approval metadata", pending)
+	}
+	return work, pending
+}
+
+func assertWorkflowApprovalProjection(t *testing.T, workflowService *Service, workspaceID string, definition WorkflowDefinition, executionID string, pending *WorkflowPendingApproval) {
+	t.Helper()
+	projection, ok, err := workflowService.ReadGraphProjection(workspaceID, definition.ID, definition.CurrentVersionID, executionID)
+	if err != nil {
+		t.Fatalf("read projection: %v", err)
+	}
+	if !ok {
+		t.Fatal("projection was not returned")
+	}
+	projectedWork := projectedNodeForTest(t, projection, "work")
+	if projectedWork.PendingApproval == nil || projectedWork.PendingApproval.ApprovalID != pending.ApprovalID {
+		t.Fatalf("projected pending approval = %+v, want %s", projectedWork.PendingApproval, pending.ApprovalID)
+	}
+}
+
+func assertWorkflowApprovalCompleted(t *testing.T, workflowService *Service, workspaceID string, executionID string) {
+	t.Helper()
+	completed, err := workflowService.ReadExecution(workspaceID, executionID)
+	if err != nil {
+		t.Fatalf("read completed execution: %v", err)
+	}
+	if completed.Status != ExecutionStatusCompleted {
+		t.Fatalf("execution status = %s, want completed", completed.Status)
+	}
+	completedWork := latestNodeExecutionForTest(t, completed, "work")
+	if completedWork.Status != NodeExecutionStatusSucceeded {
+		t.Fatalf("work status = %s, want succeeded", completedWork.Status)
+	}
+	if completedWork.Result == nil || completedWork.Result.PendingApproval != nil {
+		t.Fatalf("completed work result = %+v, want no pending approval", completedWork.Result)
+	}
+}
+
+func assertWorkflowChatsHiddenForTest(t *testing.T, chatService *chat.Service, workspaceID string) {
+	t.Helper()
+	list, err := chatService.ListConversations(workspaceID)
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
+	}
+	if len(list.Conversations) != 0 {
+		t.Fatalf("visible conversations = %+v, want workflow approval chat hidden", list.Conversations)
+	}
+}
+
 func newCodexRunnerTestServices(t *testing.T) (*Service, *chat.Service, *chat.ScriptedWorkflowHarness, string) {
 	t.Helper()
 	appDataDir := t.TempDir()

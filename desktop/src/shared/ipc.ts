@@ -27,6 +27,7 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
+  SubmitWorkflowApprovalRequest,
   DeleteWorkflowDefinitionResponse,
   ListWorkflowDefinitionsResponse,
   WorkflowExecution,
@@ -79,6 +80,7 @@ export const ipcChannels = {
   workflowReadDefinition: "workflow:read-definition",
   workflowReadExecution: "workflow:read-execution",
   workflowStartExecution: "workflow:start-execution",
+  workflowSubmitApproval: "workflow:submit-approval",
   workflowUpdateDefinition: "workflow:update-definition",
   workflowValidateDefinition: "workflow:validate-definition",
   workspaceClose: "workspace:close",
@@ -264,6 +266,10 @@ interface IpcContract {
   };
   workflowStartExecution: {
     args: [workspaceId: string, definitionId: string, versionId: string];
+    result: WorkflowExecution;
+  };
+  workflowSubmitApproval: {
+    args: [request: SubmitWorkflowApprovalRequest];
     result: WorkflowExecution;
   };
   workflowUpdateDefinition: {

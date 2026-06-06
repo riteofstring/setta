@@ -71,6 +71,7 @@ var apiEndpoints = []endpoint{
 	post[ReadWorkflowExecutionRequest, orchestrator.WorkflowExecution]("ReadWorkflowExecution", "/workflows/executions/read", handler.readWorkflowExecution),
 	post[ReadWorkflowGraphProjectionRequest, ReadWorkflowGraphProjectionResponse]("ReadWorkflowGraphProjection", "/workflows/graph/read", handler.readWorkflowGraphProjection),
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
+	post[SubmitWorkflowApprovalRequest, orchestrator.WorkflowExecution]("SubmitWorkflowApproval", "/workflows/approvals/submit", handler.submitWorkflowApproval),
 	stream("WorkflowEventStream", "/workflows/events", handler.workflowEventStream),
 	get[codexaccount.CodexAccountState]("ReadCodexAccount", "/codex/account", handler.readCodexAccount),
 	post[codexaccount.RefreshCodexAccountRequest, codexaccount.CodexAccountState]("RefreshCodexAccount", "/codex/account/refresh", handler.refreshCodexAccount),

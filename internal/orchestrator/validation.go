@@ -3,7 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
-	"slices"
+	"strings"
 )
 
 type RunnerRegistry struct {
@@ -97,6 +97,7 @@ type graphValidator struct {
 	edgesByID   map[string]WorkflowEdge
 	incoming    map[string][]WorkflowEdge
 	outgoing    map[string][]WorkflowEdge
+	reachable   map[string]bool
 	startNodeID string
 	diagnostics []WorkflowValidationDiagnostic
 }
@@ -472,6 +473,7 @@ func (validator *graphValidator) validateReachability() {
 		}
 	}
 	visit(validator.startNodeID)
+	validator.reachable = visited
 	for _, node := range validator.graph.Nodes {
 		if node.ID != "" && !visited[node.ID] {
 			validator.addNodeDiagnostic("unreachable_node", fmt.Sprintf("workflow node %s is unreachable from the start node", node.ID), node.ID)
@@ -480,64 +482,194 @@ func (validator *graphValidator) validateReachability() {
 }
 
 func (validator *graphValidator) validateCycles() {
-	state := map[string]int{}
-	stack := []string{}
-	reported := map[string]bool{}
-	var visit func(string)
-	visit = func(nodeID string) {
-		state[nodeID] = 1
-		stack = append(stack, nodeID)
-		for _, edge := range validator.outgoing[nodeID] {
-			target := edge.ToNodeID
-			if _, ok := validator.nodesByID[target]; !ok {
-				continue
-			}
-			switch state[target] {
-			case 0:
-				visit(target)
-			case 1:
-				index := slices.Index(stack, target)
-				if index < 0 {
-					continue
-				}
-				cycle := append([]string{}, stack[index:]...)
-				if !cycleContainsLoopGuard(cycle, validator.nodesByID) {
-					key := cycleKey(cycle)
-					if !reported[key] {
-						reported[key] = true
-						validator.addEdgeDiagnostic("cycle_requires_loop_guard", fmt.Sprintf("cycle %s must pass through an explicit loop.guard node", key), edge.ID)
-					}
-				}
-			}
+	for _, component := range validator.stronglyConnectedComponents() {
+		if !validator.componentIsReachable(component) || !validator.componentIsCyclic(component) {
+			continue
 		}
-		stack = stack[:len(stack)-1]
-		state[nodeID] = 2
-	}
-	for _, node := range validator.graph.Nodes {
-		if node.ID != "" && state[node.ID] == 0 {
-			visit(node.ID)
+		if validator.componentContainsAction(component) {
+			continue
 		}
+		validator.validateControlOnlyComponentLiveness(component)
 	}
 }
 
-func cycleContainsLoopGuard(cycle []string, nodesByID map[string]WorkflowNode) bool {
-	for _, nodeID := range cycle {
-		if nodesByID[nodeID].Kind == NodeKindLoopGuard {
+func (validator *graphValidator) stronglyConnectedComponents() [][]string {
+	search := strongComponentSearch{
+		validator: validator,
+		indexes:   map[string]int{},
+		lowLinks:  map[string]int{},
+		onStack:   map[string]bool{},
+	}
+	for _, node := range validator.graph.Nodes {
+		if node.ID == "" {
+			continue
+		}
+		if _, seen := search.indexes[node.ID]; !seen {
+			search.visit(node.ID)
+		}
+	}
+	return search.components
+}
+
+type strongComponentSearch struct {
+	validator  *graphValidator
+	nextIndex  int
+	indexes    map[string]int
+	lowLinks   map[string]int
+	onStack    map[string]bool
+	stack      []string
+	components [][]string
+}
+
+func (search *strongComponentSearch) visit(nodeID string) {
+	search.indexes[nodeID] = search.nextIndex
+	search.lowLinks[nodeID] = search.nextIndex
+	search.nextIndex++
+	search.stack = append(search.stack, nodeID)
+	search.onStack[nodeID] = true
+
+	for _, edge := range search.validator.outgoing[nodeID] {
+		search.visitEdge(nodeID, edge)
+	}
+	if search.lowLinks[nodeID] == search.indexes[nodeID] {
+		search.popComponent(nodeID)
+	}
+}
+
+func (search *strongComponentSearch) visitEdge(nodeID string, edge WorkflowEdge) {
+	target := edge.ToNodeID
+	if _, ok := search.validator.nodesByID[target]; !ok {
+		return
+	}
+	if _, seen := search.indexes[target]; !seen {
+		search.visit(target)
+		if search.lowLinks[target] < search.lowLinks[nodeID] {
+			search.lowLinks[nodeID] = search.lowLinks[target]
+		}
+		return
+	}
+	if search.onStack[target] && search.indexes[target] < search.lowLinks[nodeID] {
+		search.lowLinks[nodeID] = search.indexes[target]
+	}
+}
+
+func (search *strongComponentSearch) popComponent(nodeID string) {
+	component := []string{}
+	for {
+		stackIndex := len(search.stack) - 1
+		member := search.stack[stackIndex]
+		search.stack = search.stack[:stackIndex]
+		search.onStack[member] = false
+		component = append(component, member)
+		if member == nodeID {
+			break
+		}
+	}
+	search.components = append(search.components, component)
+}
+
+func (validator *graphValidator) componentIsReachable(component []string) bool {
+	for _, nodeID := range component {
+		if validator.reachable[nodeID] {
 			return true
 		}
 	}
 	return false
 }
 
-func cycleKey(cycle []string) string {
-	result := ""
-	for index, nodeID := range cycle {
-		if index > 0 {
-			result += " -> "
-		}
-		result += nodeID
+func (validator *graphValidator) componentIsCyclic(component []string) bool {
+	if len(component) > 1 {
+		return true
 	}
-	return result
+	if len(component) == 0 {
+		return false
+	}
+	nodeID := component[0]
+	for _, edge := range validator.outgoing[nodeID] {
+		if edge.ToNodeID == nodeID {
+			return true
+		}
+	}
+	return false
+}
+
+func (validator *graphValidator) componentContainsAction(component []string) bool {
+	for _, nodeID := range component {
+		if validator.nodesByID[nodeID].Kind == NodeKindAction {
+			return true
+		}
+	}
+	return false
+}
+
+func (validator *graphValidator) validateControlOnlyComponentLiveness(component []string) {
+	componentSet := map[string]bool{}
+	for _, nodeID := range component {
+		componentSet[nodeID] = true
+	}
+	residualOutgoing := map[string][]WorkflowEdge{}
+	for _, nodeID := range component {
+		node := validator.nodesByID[nodeID]
+		for _, edge := range validator.outgoing[nodeID] {
+			if !componentSet[edge.ToNodeID] {
+				continue
+			}
+			if boundedLoopContinueEdge(node, edge) {
+				continue
+			}
+			residualOutgoing[nodeID] = append(residualOutgoing[nodeID], edge)
+		}
+	}
+	edgeID, ok := residualCycleEdge(component, residualOutgoing)
+	if !ok {
+		return
+	}
+	validator.addEdgeDiagnostic(
+		"control_cycle_requires_async_boundary_or_bound",
+		fmt.Sprintf("control-only cycle %s must include an action node or be statically bounded by a finite loop guard continue edge", nodePathKey(component)),
+		edgeID,
+	)
+}
+
+func boundedLoopContinueEdge(node WorkflowNode, edge WorkflowEdge) bool {
+	return node.Kind == NodeKindLoopGuard &&
+		node.LoopGuard != nil &&
+		node.LoopGuard.MaxIterations != nil &&
+		*node.LoopGuard.MaxIterations > 0 &&
+		edge.Kind == EdgeKindLoopContinue
+}
+
+func residualCycleEdge(component []string, outgoing map[string][]WorkflowEdge) (string, bool) {
+	state := map[string]int{}
+	var cycleEdgeID string
+	var visit func(string) bool
+	visit = func(nodeID string) bool {
+		state[nodeID] = 1
+		for _, edge := range outgoing[nodeID] {
+			target := edge.ToNodeID
+			switch state[target] {
+			case 0:
+				if visit(target) {
+					return true
+				}
+			case 1:
+				cycleEdgeID = edge.ID
+				return true
+			}
+		}
+		state[nodeID] = 2
+		return false
+	}
+	for _, nodeID := range component {
+		if state[nodeID] == 0 && visit(nodeID) {
+			return cycleEdgeID, true
+		}
+	}
+	return "", false
+}
+
+func nodePathKey(nodeIDs []string) string {
+	return strings.Join(nodeIDs, " -> ")
 }
 
 func (validator *graphValidator) hasErrors() bool {

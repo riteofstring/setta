@@ -282,6 +282,7 @@ describe("preload workspace API", () => {
       "readDefinition",
       "readExecution",
       "startExecution",
+      "submitApproval",
       "updateDefinition",
       "validateDefinition",
     ]);
@@ -314,6 +315,16 @@ describe("preload workspace API", () => {
       "workflow_version_api",
       "workflow_execution_api",
     );
+    await api.workflow.submitApproval({
+      answers: [],
+      approvalId: "approval_api",
+      approved: true,
+      cancelled: false,
+      executionId: "workflow_execution_api",
+      nodeExecutionId: "workflow_node_execution_api",
+      response: "",
+      workspaceId: "workspace_api",
+    });
 
     const event = workflowEvent();
     const listener = vi.fn();
@@ -356,6 +367,19 @@ describe("preload workspace API", () => {
         "workflow_definition_api",
         "workflow_version_api",
         "workflow_execution_api",
+      ],
+      [
+        ipcChannels.workflowSubmitApproval,
+        {
+          answers: [],
+          approvalId: "approval_api",
+          approved: true,
+          cancelled: false,
+          executionId: "workflow_execution_api",
+          nodeExecutionId: "workflow_node_execution_api",
+          response: "",
+          workspaceId: "workspace_api",
+        },
       ],
     ]);
     expect(on).toHaveBeenCalledWith(ipcEvents.workflowEvent, expect.any(Function));

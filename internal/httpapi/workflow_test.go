@@ -5,10 +5,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"setta/internal/appstate"
+	"setta/internal/chat"
 	"setta/internal/orchestrator"
+	"setta/internal/workspace"
+	"setta/internal/workspacesession"
 )
 
 func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
@@ -82,6 +88,56 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	}
 	if got := projectedHTTPNodeStatus(projection.Projection, "work"); got != orchestrator.GraphNodeStatusCancelled {
 		t.Fatalf("projected work status = %s, want cancelled", got)
+	}
+}
+
+func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
+	handler := newScriptedWorkflowHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "Approval workflow",
+		Graph:       httpWorkflowApprovalGraph(),
+	}, http.StatusOK)
+
+	started := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/start", StartWorkflowExecutionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		DefinitionID: definition.ID,
+	}, http.StatusOK)
+	waiting := waitForHTTPWorkflowNodeStatus(t, handler, opened.Workspace.ID, started.ID, "work", orchestrator.NodeExecutionStatusWaitingApproval)
+	work := latestHTTPNodeExecution(t, waiting, "work")
+	if work.Result == nil || work.Result.PendingApproval == nil {
+		t.Fatalf("work result = %+v, want pending workflow approval", work.Result)
+	}
+	pending := work.Result.PendingApproval
+	projection := postJSON[ReadWorkflowGraphProjectionResponse](t, handler, "/workflows/graph/read", ReadWorkflowGraphProjectionRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		ExecutionID:  started.ID,
+		DefinitionID: definition.ID,
+		VersionID:    definition.CurrentVersionID,
+	}, http.StatusOK)
+	if projection.Projection == nil {
+		t.Fatal("workflow graph projection was nil")
+	}
+	projectedWork := projectedHTTPNode(t, projection.Projection, "work")
+	if projectedWork.PendingApproval == nil || projectedWork.PendingApproval.ApprovalID != pending.ApprovalID {
+		t.Fatalf("projected pending approval = %+v, want %s", projectedWork.PendingApproval, pending.ApprovalID)
+	}
+
+	submitted := postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/approvals/submit", SubmitWorkflowApprovalRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ExecutionID:     started.ID,
+		NodeExecutionID: work.ID,
+		ApprovalID:      pending.ApprovalID,
+		Approved:        true,
+	}, http.StatusOK)
+	if submitted.ID != started.ID {
+		t.Fatalf("submitted execution id = %s, want %s", submitted.ID, started.ID)
+	}
+	completed := waitForHTTPWorkflowStatus(t, handler, opened.Workspace.ID, started.ID, orchestrator.ExecutionStatusCompleted)
+	completedWork := latestHTTPNodeExecution(t, completed, "work")
+	if completedWork.Result == nil || completedWork.Result.PendingApproval != nil {
+		t.Fatalf("completed work result = %+v, want no pending approval", completedWork.Result)
 	}
 }
 
@@ -174,6 +230,117 @@ func httpWorkflowActionGraph() orchestrator.WorkflowGraph {
 			{ID: "work_end", FromNodeID: "work", ToNodeID: "end", Kind: orchestrator.EdgeKindNormal},
 		},
 	}
+}
+
+func httpWorkflowApprovalGraph() orchestrator.WorkflowGraph {
+	graph := httpWorkflowActionGraph()
+	for index := range graph.Nodes {
+		if graph.Nodes[index].ID != "work" {
+			continue
+		}
+		graph.Nodes[index].Action.Codex.Prompt = "command approval workflow"
+	}
+	return graph
+}
+
+func newScriptedWorkflowHandler(t *testing.T) http.Handler {
+	t.Helper()
+	appDataDir := t.TempDir()
+	store, err := appstate.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new app store: %v", err)
+	}
+	manager, err := workspace.NewManager(
+		filepath.Dir(store.Path()),
+		workspace.WithClock(func() time.Time {
+			return mustTime(t, "2026-05-29T20:00:00Z")
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new workspace manager: %v", err)
+	}
+	workspaceService, err := workspacesession.NewService(store, manager)
+	if err != nil {
+		t.Fatalf("new workspace service: %v", err)
+	}
+	chatStore, err := chat.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new chat store: %v", err)
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewScriptedWorkflowHarness())
+	if err != nil {
+		t.Fatalf("new chat service: %v", err)
+	}
+	workflowStore, err := orchestrator.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("new workflow store: %v", err)
+	}
+	workflowService, err := orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
+	if err != nil {
+		t.Fatalf("new workflow service: %v", err)
+	}
+	t.Cleanup(workflowService.CloseEvents)
+	return NewHandler(HandlerConfig{
+		ChatService:      chatService,
+		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
+		WorkspaceService: workspaceService,
+		WorkflowService:  workflowService,
+	})
+}
+
+func waitForHTTPWorkflowNodeStatus(t *testing.T, handler http.Handler, workspaceID string, executionID string, nodeID string, status orchestrator.WorkflowNodeExecutionStatus) orchestrator.WorkflowExecution {
+	t.Helper()
+	return waitForHTTPWorkflow(t, handler, workspaceID, executionID, func(execution orchestrator.WorkflowExecution) bool {
+		nodeExecution := latestHTTPNodeExecution(t, execution, nodeID)
+		return nodeExecution.Status == status
+	})
+}
+
+func waitForHTTPWorkflowStatus(t *testing.T, handler http.Handler, workspaceID string, executionID string, status orchestrator.WorkflowExecutionStatus) orchestrator.WorkflowExecution {
+	t.Helper()
+	return waitForHTTPWorkflow(t, handler, workspaceID, executionID, func(execution orchestrator.WorkflowExecution) bool {
+		return execution.Status == status
+	})
+}
+
+func waitForHTTPWorkflow(t *testing.T, handler http.Handler, workspaceID string, executionID string, matches func(orchestrator.WorkflowExecution) bool) orchestrator.WorkflowExecution {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	var execution orchestrator.WorkflowExecution
+	for time.Now().Before(deadline) {
+		execution = postJSON[orchestrator.WorkflowExecution](t, handler, "/workflows/executions/read", ReadWorkflowExecutionRequest{
+			WorkspaceID: workspaceID,
+			ExecutionID: executionID,
+		}, http.StatusOK)
+		if matches(execution) {
+			return execution
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for workflow execution %s, last state %+v", executionID, execution)
+	return orchestrator.WorkflowExecution{}
+}
+
+func latestHTTPNodeExecution(t *testing.T, execution orchestrator.WorkflowExecution, nodeID string) orchestrator.WorkflowNodeExecution {
+	t.Helper()
+	for index := len(execution.NodeExecutions) - 1; index >= 0; index-- {
+		if execution.NodeExecutions[index].NodeID == nodeID {
+			return execution.NodeExecutions[index]
+		}
+	}
+	t.Fatalf("node execution for %s was not found in %+v", nodeID, execution.NodeExecutions)
+	return orchestrator.WorkflowNodeExecution{}
+}
+
+func projectedHTTPNode(t *testing.T, projection *orchestrator.WorkflowGraphProjection, nodeID string) orchestrator.WorkflowGraphNode {
+	t.Helper()
+	for _, node := range projection.Nodes {
+		if node.ID == nodeID {
+			return node
+		}
+	}
+	t.Fatalf("projected node %s was not found in %+v", nodeID, projection.Nodes)
+	return orchestrator.WorkflowGraphNode{}
 }
 
 func readServerSentWorkflowEvent(t *testing.T, reader *bufio.Reader) orchestrator.WorkflowEvent {

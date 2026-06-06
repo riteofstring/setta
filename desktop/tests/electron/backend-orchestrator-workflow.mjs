@@ -76,6 +76,9 @@ async function exerciseBackendOrchestratorFirstLaunch({
   await runOrchestratorStep(results, "backend-orchestrator-success", async () => {
     await runPhase4WorkflowSuccess(context.client, backend, firstRecording, workspaceId);
   });
+  await runOrchestratorStep(results, "backend-orchestrator-approval", async () => {
+    await runWorkflowApproval(context.client, workspaceId);
+  });
   await runOrchestratorStep(results, "backend-orchestrator-late-gateway-arrival", async () => {
     await runLateGatewayArrivalWorkflow(context.client, backend, workspaceId);
   });
@@ -125,6 +128,8 @@ async function assertBackendOrchestratorRecordingEvidence(firstRecording, second
       "/workflows/executions/start",
       "/workflows/executions/read",
       "/workflows/executions/events",
+      "/workflows/graph/read",
+      "/workflows/approvals/submit",
       "/workflows/events",
       "/workflows/executions/cancel",
       "/chat/messages/steer",
@@ -141,6 +146,8 @@ async function assertBackendOrchestratorRecordingEvidence(firstRecording, second
       "workflow:start-execution",
       "workflow:read-execution",
       "workflow:execution-events",
+      "workflow:graph-projection",
+      "workflow:submit-approval",
       "workflow:cancel-execution",
     ],
   });
@@ -207,6 +214,95 @@ async function runPhase4WorkflowSuccess(client, backend, recordingDir, workspace
     "workflow.execution.completed",
   ]);
   assertParallelReviewersStartedBeforeCompletion(page.events);
+}
+
+async function runWorkflowApproval(client, workspaceId) {
+  const graph = approvalWorkflowGraph();
+  const validation = await rendererWorkflow(client, "validateDefinition", [workspaceId, graph]);
+  if (!validation.valid) {
+    throw new Error(`approval graph validation failed: ${JSON.stringify(validation.diagnostics)}`);
+  }
+  const definition = await rendererWorkflow(client, "createDefinition", [
+    workspaceId,
+    "Approval workflow",
+    "Workflow-owned approval fixture",
+    graph,
+  ]);
+  const started = await rendererWorkflow(client, "startExecution", [workspaceId, definition.id]);
+  const waiting = await waitForWorkflowExecution(client, workspaceId, started.id, (execution) => {
+    const work = latestNodeExecution(execution, "work");
+    return work?.status === "waiting_approval" && work.result?.pendingApproval !== null;
+  });
+  const work = latestNodeExecution(waiting, "work");
+  const pending = work.result.pendingApproval;
+  assertWorkflowPendingApproval(pending, {
+    executionId: started.id,
+    nodeExecutionId: work.id,
+    workspaceId,
+  });
+  await assertWorkflowApprovalProjection(client, workspaceId, definition, started.id, pending);
+
+  await rendererWorkflow(client, "submitApproval", [
+    {
+      answers: [],
+      approvalId: pending.approvalId,
+      approved: true,
+      cancelled: false,
+      executionId: started.id,
+      nodeExecutionId: work.id,
+      response: "",
+      workspaceId,
+    },
+  ]);
+  const completed = await waitForWorkflowExecution(
+    client,
+    workspaceId,
+    started.id,
+    (execution) => execution.status === "completed",
+  );
+  assertWorkflowTerminal(completed, "completed", "end_reached");
+  assertWorkflowApprovalCleared(completed);
+}
+
+function assertWorkflowPendingApproval(pending, expected) {
+  if (
+    pending.workspaceId !== expected.workspaceId ||
+    pending.executionId !== expected.executionId ||
+    pending.nodeExecutionId !== expected.nodeExecutionId ||
+    pending.approvalId !== pending.approval.id
+  ) {
+    throw new Error(`workflow pending approval metadata mismatch: ${JSON.stringify(pending)}`);
+  }
+}
+
+async function assertWorkflowApprovalProjection(
+  client,
+  workspaceId,
+  definition,
+  executionId,
+  pending,
+) {
+  const projectionResponse = await rendererWorkflow(client, "graphProjection", [
+    workspaceId,
+    definition.id,
+    definition.currentVersionId,
+    executionId,
+  ]);
+  const projectedWork = projectedNode(projectionResponse.projection, "work");
+  if (projectedWork.pendingApproval?.approvalId !== pending.approvalId) {
+    throw new Error(
+      `projected approval = ${JSON.stringify(projectedWork.pendingApproval)}, want ${pending.approvalId}`,
+    );
+  }
+}
+
+function assertWorkflowApprovalCleared(completed) {
+  const completedWork = latestNodeExecution(completed, "work");
+  if (completedWork.result?.pendingApproval !== null) {
+    throw new Error(
+      `completed workflow retained pending approval: ${JSON.stringify(completedWork)}`,
+    );
+  }
 }
 
 async function runLateGatewayArrivalWorkflow(client, backend, workspaceId) {
@@ -565,6 +661,14 @@ function latestNodeExecution(execution, nodeId) {
   return nodeExecutions(execution, nodeId).at(-1) ?? null;
 }
 
+function projectedNode(projection, nodeId) {
+  const node = projection?.nodes.find((candidate) => candidate.id === nodeId) ?? null;
+  if (!node) {
+    throw new Error(`projected node ${nodeId} was not found`);
+  }
+  return node;
+}
+
 function runnerRef(nodeExecution, kind) {
   return nodeExecution?.runnerRefs.find((ref) => ref.kind === kind)?.id ?? "";
 }
@@ -660,6 +764,17 @@ function cancellationWorkflowGraph() {
     nodes: [
       workflowControlNode("start", "start"),
       workflowCodexNode("work", "cancel active workflow", true),
+      workflowControlNode("end", "end"),
+    ],
+    edges: [workflowEdge("start_work", "start", "work"), workflowEdge("work_end", "work", "end")],
+  };
+}
+
+function approvalWorkflowGraph() {
+  return {
+    nodes: [
+      workflowControlNode("start", "start"),
+      workflowCodexNode("work", "command approval workflow", true),
       workflowControlNode("end", "end"),
     ],
     edges: [workflowEdge("start_work", "start", "work"), workflowEdge("work_end", "work", "end")],

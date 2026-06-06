@@ -419,6 +419,7 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     readDefinition: unavailable,
     readExecution: unavailable,
     startExecution: unavailable,
+    submitApproval: unavailable,
     updateDefinition: unavailable,
     validateDefinition: unavailable,
   };

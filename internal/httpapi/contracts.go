@@ -254,6 +254,17 @@ type GetWorkflowExecutionEventsRequest struct {
 	Limit         int    `json:"limit"`
 }
 
+type SubmitWorkflowApprovalRequest struct {
+	WorkspaceID     string                `json:"workspaceId"`
+	ExecutionID     string                `json:"executionId"`
+	NodeExecutionID string                `json:"nodeExecutionId"`
+	ApprovalID      string                `json:"approvalId"`
+	Approved        bool                  `json:"approved"`
+	Response        string                `json:"response"`
+	Answers         []chat.ApprovalAnswer `json:"answers"`
+	Cancelled       bool                  `json:"cancelled"`
+}
+
 type APIError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`

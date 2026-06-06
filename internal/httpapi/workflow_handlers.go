@@ -191,3 +191,20 @@ func (handler handler) getWorkflowExecutionEvents(response http.ResponseWriter, 
 	}
 	writeJSON(response, http.StatusOK, page)
 }
+
+func (handler handler) submitWorkflowApproval(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload SubmitWorkflowApprovalRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	execution, err := service.SubmitApproval(payload.WorkspaceID, payload.ExecutionID, payload.NodeExecutionID, payload.ApprovalID, payload.Approved, payload.Response, payload.Answers, payload.Cancelled)
+	if err != nil {
+		writeWorkflowError(response, "submit_workflow_approval_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, execution)
+}

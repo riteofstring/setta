@@ -150,6 +150,7 @@ const api: SettaAPI = {
       invoke("workflowReadExecution", workspaceId, executionId),
     startExecution: (workspaceId, definitionId, versionId = "") =>
       invoke("workflowStartExecution", workspaceId, definitionId, versionId),
+    submitApproval: (request) => invoke("workflowSubmitApproval", request),
     updateDefinition: (workspaceId, definitionId, name, description, graph) =>
       invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),
     validateDefinition: (workspaceId, graph) =>

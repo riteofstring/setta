@@ -195,11 +195,25 @@ func applyActionCancelled(execution *WorkflowExecution, nodeExecution *WorkflowN
 
 func applyActionRequiresApproval(execution *WorkflowExecution, nodeExecution *WorkflowNodeExecution, result WorkflowActionResult, context TransitionContext, events *[]WorkflowEvent) error {
 	setNodeExecutionResult(nodeExecution, NodeExecutionStatusWaitingApproval, result, "")
+	details, err := pendingApprovalEventDetails(result.PendingApproval)
+	if err != nil {
+		return err
+	}
 	return appendEvent(execution, events, context, EventActionApprovalWait, WorkflowEvent{
 		NodeID:          nodeExecution.NodeID,
 		NodeExecutionID: nodeExecution.ID,
 		Message:         fmt.Sprintf("action node %s is waiting for approval", nodeExecution.NodeID),
+		Details:         details,
 	})
+}
+
+func pendingApprovalEventDetails(pendingApproval *WorkflowPendingApproval) (json.RawMessage, error) {
+	if pendingApproval == nil {
+		return nil, nil
+	}
+	return json.Marshal(struct {
+		PendingApproval *WorkflowPendingApproval `json:"pendingApproval"`
+	}{PendingApproval: pendingApproval})
 }
 
 func setNodeExecutionResult(nodeExecution *WorkflowNodeExecution, status WorkflowNodeExecutionStatus, result WorkflowActionResult, completedAt string) {
@@ -253,6 +267,8 @@ func validateTransitionContext(context TransitionContext) error {
 }
 
 func advanceExecution(execution *WorkflowExecution, graph WorkflowGraph, context TransitionContext, events *[]WorkflowEvent) error {
+	processedSteps := 0
+	stepBudget := synchronousStepBudget(graph)
 	for execution.Status == ExecutionStatusRunning {
 		progress := false
 		for _, tokenIndex := range activeTokenIndexes(*execution) {
@@ -267,6 +283,10 @@ func advanceExecution(execution *WorkflowExecution, graph WorkflowGraph, context
 				return err
 			}
 			if processed {
+				processedSteps++
+				if processedSteps > stepBudget {
+					return synchronousStepBudgetExceededError(graph, stepBudget)
+				}
 				progress = true
 			}
 		}

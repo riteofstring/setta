@@ -27,6 +27,7 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
+  SubmitWorkflowApprovalRequest,
   DeleteWorkflowDefinitionResponse,
   ListWorkflowDefinitionsResponse,
   WorkflowDefinition,
@@ -239,6 +240,7 @@ export interface SettaAPI {
       definitionId: string,
       versionId?: string,
     ) => Promise<WorkflowExecution>;
+    submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
     updateDefinition: (
       workspaceId: string,
       definitionId: string,

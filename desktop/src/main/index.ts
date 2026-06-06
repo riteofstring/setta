@@ -681,6 +681,14 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "workflowSubmitApproval",
+    async (_event, request) => {
+      return requireBackendClient().submitWorkflowApproval(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "codexAccountRead",
     async () => {
       return requireBackendClient().readCodexAccount();
