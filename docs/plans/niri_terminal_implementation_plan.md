@@ -510,9 +510,20 @@ reattach complexity, but the backend/session API must not require that long term
 
 ## Profiles And Preferences
 
-Start with one default profile. Add profile UI later. Store global terminal
-profiles in a new settings domain. Persist only lightweight per-pane references
-and overrides in the Niri layout.
+Start with one default profile, then add profile management UI in the existing
+Settings pane. Store global terminal profiles in a backend-owned settings
+domain under the app data directory. The Electron main process currently uses
+`SETTA_APP_DATA_DIR` when set and otherwise defaults to `~/.setta`; terminal
+profiles should follow that app data root rather than storing shell settings in
+renderer `localStorage` or inside workspace roots.
+
+Use a versioned JSON file for the initial store, for example:
+
+```text
+<app-data-dir>/settings/terminal-profiles.json
+```
+
+Persist only lightweight per-pane references and overrides in the Niri layout.
 
 Minimal profile fields:
 
@@ -542,6 +553,22 @@ MVP defaults:
 - `COLORTERM=truecolor`.
 - Restored panes auto-create fresh sessions only for safe shell profiles.
 - Custom command profiles require explicit user action after app restart.
+
+Settings UI:
+
+- Add a Terminal Profiles section to the Settings pane.
+- Users can create, rename, duplicate, update, and delete profiles.
+- Users can choose the default profile for new terminal panes.
+- Profile forms should cover shell path, args, cwd mode, custom cwd, env
+  overrides, theme, font, and scrollback.
+- Validate shell path, cwd, args, and env in the backend. The renderer may
+  provide immediate field validation, but backend validation is authoritative.
+- Per-pane profile selection should be available from terminal pane creation or
+  pane options, while the persisted Niri layout stores only the selected
+  `profileId` and lightweight per-pane overrides.
+- Phase 3 terminal display settings were intentionally lightweight. Phase 4
+  should make profiles the durable source for theme, font, and scrollback rather
+  than adding a second long-lived settings source.
 
 Defer:
 
@@ -742,18 +769,26 @@ Goal: users can create and choose terminal profiles.
 Tasks:
 
 - Default profile.
-- Profile storage.
+- Backend-owned profile storage under the app data directory.
+- Generated HTTP/preload contracts for listing, creating, updating, deleting,
+  and selecting profiles.
+- Settings-pane UI for profile management.
 - Shell path and args.
 - Cwd mode.
 - Env overrides.
 - Theme/font/scrollback.
 - Per-pane selected profile.
 - Shell detection.
+- Backend validation for shell path, cwd, args, and env overrides.
 
 Definition of done:
 
 - Users can create project shell, home shell, custom command, and PowerShell/WSL
   profiles where supported.
+- Profiles persist across app restarts in the app data directory.
+- New terminal panes use the selected default profile.
+- Terminal panes can persist a selected `profileId` without persisting live
+  session ids, process ids, raw output, or typed input.
 
 ### Phase 5: External Terminal Launchers
 
