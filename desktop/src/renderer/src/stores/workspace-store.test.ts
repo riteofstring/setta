@@ -450,9 +450,14 @@ function unimplementedTerminalAPI(): SettaAPI["terminal"] {
     attach: unavailable,
     close: unavailable,
     create: unavailable,
+    createProfile: unavailable,
+    deleteProfile: unavailable,
     input: unavailable,
+    listProfiles: unavailable,
     onEvent: () => () => {},
     resize: unavailable,
+    selectDefaultProfile: unavailable,
+    updateProfile: unavailable,
   };
 }
 

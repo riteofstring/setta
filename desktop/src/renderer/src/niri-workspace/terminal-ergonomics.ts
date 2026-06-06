@@ -1,29 +1,5 @@
 import type { ISearchOptions } from "@xterm/addon-search";
 
-import {
-  normalizeTerminalDisplaySettings,
-  readTerminalDisplaySettings,
-  terminalDisplaySettingsChangedEvent,
-  type TerminalDisplaySettings,
-} from "./terminal-display-settings";
-
-export function subscribeTerminalDisplaySettings(
-  listener: (settings: TerminalDisplaySettings) => void,
-): () => void {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-  const handler = (event: Event) => {
-    listener(
-      typeof CustomEvent !== "undefined" && event instanceof CustomEvent
-        ? normalizeTerminalDisplaySettings(event.detail)
-        : readTerminalDisplaySettings(),
-    );
-  };
-  window.addEventListener(terminalDisplaySettingsChangedEvent, handler);
-  return () => window.removeEventListener(terminalDisplaySettingsChangedEvent, handler);
-}
-
 export function terminalSearchOptions(incremental: boolean): ISearchOptions {
   return {
     decorations: {

@@ -143,15 +143,15 @@ func validateShell(path string) (string, error) {
 
 func terminalEnv(profile Profile) []string {
 	env := os.Environ()
-	env = upsertEnv(env, "TERM", envValue(profile.Term, DefaultTerm))
-	env = upsertEnv(env, "COLORTERM", DefaultColorTerm)
-	env = upsertEnv(env, "TERM_PROGRAM", DefaultTermProgram)
 	for key, value := range profile.Env {
 		if key == "" {
 			continue
 		}
 		env = upsertEnv(env, key, value)
 	}
+	env = upsertEnv(env, "TERM", envValue(profile.Term, DefaultTerm))
+	env = upsertEnv(env, "COLORTERM", DefaultColorTerm)
+	env = upsertEnv(env, "TERM_PROGRAM", DefaultTermProgram)
 	return env
 }
 

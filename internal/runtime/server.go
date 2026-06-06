@@ -188,6 +188,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		return runtimeServices{}, fmt.Errorf("create workflow service: %w", err)
 	}
 	terminalService, err := terminal.NewManager(terminal.ManagerConfig{
+		AppDataDir:        config.AppDataDir,
 		WorkspaceResolver: workspaceService,
 	})
 	if err != nil {

@@ -806,10 +806,17 @@ function createNiriRuntime({
     totalBrowserPanes: browserPaneCount,
     workspaceId: scene.id,
   });
+  const persistPaneConfig = () => {
+    if (mode !== "workspace") {
+      return;
+    }
+    persistRealWorkspaceScene(layoutStorageKey, store.toScene(), store.focusedPaneId());
+  };
   const createSurfaceAdapter = createSurfaceAdapterFactory(
     store,
     nativeViewBoundsBatcher,
     workspaceId,
+    persistPaneConfig,
   );
   const surfaceRegistry = new SurfaceRegistry(scene.panes, createSurfaceAdapter, {
     snapshotAdapter: {
@@ -842,6 +849,7 @@ function createSurfaceAdapterFactory(
   store: NiriLayoutStore,
   nativeViewBoundsBatcher: NativeViewBoundsBatcher,
   workspaceId: string,
+  persistPaneConfig: () => void,
 ) {
   return (pane: NiriPane) => {
     if (pane.surfaceKind === "browser") {
@@ -851,7 +859,15 @@ function createSurfaceAdapterFactory(
       return new EmptyFrameSurfaceAdapter(pane, () => emptyFrameOptionsForStore(store));
     }
     if (pane.surfaceKind === "terminal") {
-      return new TerminalSurfaceAdapter(pane, workspaceId);
+      return new TerminalSurfaceAdapter(pane, workspaceId, {
+        onProfileSelected: (paneId, profileId) => {
+          store.setPaneTerminalConfig(paneId, {
+            ...(pane.terminalConfig ?? {}),
+            profileId,
+          });
+          persistPaneConfig();
+        },
+      });
     }
     return createDefaultSurfaceAdapter(pane);
   };

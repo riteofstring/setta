@@ -7,6 +7,8 @@ import type {
   CodexAccountState,
   Conversation,
   ConversationListItem,
+  CreateTerminalProfileRequest,
+  DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
   GetActiveRunResponse,
   ImmediateSteeringResult,
@@ -26,6 +28,7 @@ import type {
   RunActivityPage,
   RunItemOutputPage,
   SendMessageResult,
+  SelectDefaultTerminalProfileRequest,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
@@ -34,7 +37,9 @@ import type {
   TerminalEvent,
   TerminalInputRequest,
   TerminalInputResponse,
+  TerminalProfileList,
   TerminalSessionResponse,
+  UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
@@ -176,6 +181,7 @@ export interface SettaAPI {
   terminal: {
     attach: (workspaceId: string, paneId: string) => Promise<TerminalSessionResponse>;
     close: (sessionId: string, mode: "terminate" | "kill") => Promise<TerminalSessionResponse>;
+    createProfile: (request: CreateTerminalProfileRequest) => Promise<TerminalProfileList>;
     create: (
       workspaceId: string,
       paneId: string,
@@ -186,9 +192,15 @@ export interface SettaAPI {
         rows: number;
       },
     ) => Promise<TerminalSessionResponse>;
+    deleteProfile: (request: DeleteTerminalProfileRequest) => Promise<TerminalProfileList>;
     input: (input: TerminalInputRequest) => Promise<TerminalInputResponse>;
+    listProfiles: () => Promise<TerminalProfileList>;
     onEvent: (listener: (event: TerminalEvent) => void) => () => void;
     resize: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
+    selectDefaultProfile: (
+      request: SelectDefaultTerminalProfileRequest,
+    ) => Promise<TerminalProfileList>;
+    updateProfile: (request: UpdateTerminalProfileRequest) => Promise<TerminalProfileList>;
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;

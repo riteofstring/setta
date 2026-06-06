@@ -9,6 +9,7 @@ import type {
   PaneId,
   Rect,
   SurfaceKind,
+  TerminalPaneConfig,
 } from "./types";
 
 export interface NiriLayoutSnapshot {
@@ -367,6 +368,11 @@ export class NiriLayoutStore {
 
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void {
     this.engine.resizeColumn(columnId, width);
+    this.notify();
+  }
+
+  setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
+    this.engine.setPaneTerminalConfig(paneId, terminalConfig);
     this.notify();
   }
 

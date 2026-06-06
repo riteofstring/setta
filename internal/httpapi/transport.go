@@ -130,6 +130,13 @@ func writeTerminalError(response http.ResponseWriter, code string, err error) {
 		writeError(response, http.StatusNotImplemented, "terminal_unsupported", unsupported.Error())
 		return
 	}
+	if terminal.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_terminal_state", err.Error())
+		return
+	}
+	if terminal.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
 	writeError(response, status, code, err.Error())
 }
 

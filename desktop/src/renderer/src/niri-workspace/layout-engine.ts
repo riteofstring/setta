@@ -9,6 +9,7 @@ import type {
   OpenPaneRequest,
   PaneId,
   PaneRenderItem,
+  TerminalPaneConfig,
 } from "./types";
 import {
   columnSlotIndex,
@@ -122,6 +123,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       subtitle: request.subtitle ?? "workspace surface",
       surfaceId: `niri_surface_${sequence}`,
       surfaceKind: request.surfaceKind ?? "fake-dom",
+      terminalConfig: terminalConfigForRequest(request),
       title: request.title ?? `Pane ${String(sequence + 1).padStart(3, "0")}`,
       tone: request.tone ?? "slate",
       weight: request.weight ?? 1,
@@ -144,6 +146,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       subtitle: request.subtitle ?? pane.subtitle,
       surfaceId: `niri_surface_${sequence}`,
       surfaceKind: request.surfaceKind ?? pane.surfaceKind,
+      terminalConfig: terminalConfigForRequest(request, pane),
       title: request.title ?? pane.title,
       tone: request.tone ?? pane.tone,
       weight: request.weight ?? pane.weight,
@@ -263,6 +266,20 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     if (column.widthSpec.unit === "proportion") {
       column.previousProportionWidth = column.widthSpec.value;
     }
+  }
+
+  setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
+    const pane = this.paneById.get(paneId);
+    if (!pane) {
+      throw new Error(`unknown niri pane ${paneId}`);
+    }
+    if (pane.surfaceKind !== "terminal") {
+      throw new Error(`niri pane ${paneId} is not a terminal pane`);
+    }
+    this.paneById.set(paneId, {
+      ...pane,
+      terminalConfig: normalizeTerminalPaneConfig(terminalConfig),
+    });
   }
 
   resetColumnWidth(columnId: ColumnId): void {
@@ -886,4 +903,31 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       rowGap: this.scene.rowGap,
     });
   }
+}
+
+function terminalConfigForRequest(
+  request: OpenPaneRequest,
+  existing?: NiriPane,
+): TerminalPaneConfig | undefined {
+  const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
+  if (surfaceKind !== "terminal") {
+    return undefined;
+  }
+  return normalizeTerminalPaneConfig(request.terminalConfig ?? existing?.terminalConfig);
+}
+
+function normalizeTerminalPaneConfig(config: TerminalPaneConfig | undefined): TerminalPaneConfig {
+  return {
+    cwdOverride: normalizedOptionalString(config?.cwdOverride),
+    profileId: normalizedOptionalString(config?.profileId) ?? "",
+    titleOverride: normalizedOptionalString(config?.titleOverride),
+  };
+}
+
+function normalizedOptionalString(value: string | undefined): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
 }

@@ -1,4 +1,8 @@
-import type { TerminalEvent, TerminalSessionResponse } from "@generated/backend";
+import type {
+  TerminalEvent,
+  TerminalProfileList,
+  TerminalSessionResponse,
+} from "@generated/backend";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { TerminalSurfaceAdapter } from "./terminal-surface-adapter";
@@ -397,6 +401,7 @@ describe("terminal surface adapter", () => {
       create:
         overrides.create ?? vi.fn(async () => terminalResponse("terminal_created", "running")),
       input: vi.fn(async () => ({ acceptedBytes: 0 })),
+      listProfiles: vi.fn(async () => terminalProfileList()),
       onEvent: vi.fn((listener: (event: TerminalEvent) => void) => {
         terminalListeners.push(listener);
         return () => {
@@ -489,6 +494,33 @@ function terminalResponse(
       updatedAt: "2026-06-06T12:00:00Z",
       workspaceId: "workspace_api",
     },
+  };
+}
+
+function terminalProfileList(): TerminalProfileList {
+  return {
+    defaultProfileId: "default",
+    detectedShells: [],
+    profiles: [
+      {
+        args: [],
+        createdAt: "2026-06-06T12:00:00Z",
+        cwd: "",
+        cwdMode: "project",
+        env: {},
+        fontFamily:
+          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+        fontSize: 13,
+        id: "default",
+        launchMode: "shell",
+        name: "Default",
+        safeAutoStart: true,
+        scrollback: 1200,
+        shellPath: "",
+        themeId: "setta-dark",
+        updatedAt: "2026-06-06T12:00:00Z",
+      },
+    ],
   };
 }
 

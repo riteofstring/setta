@@ -32,6 +32,51 @@ func TestManagerCreateAttachWriteResizeAndClose(t *testing.T) {
 	assertClose(t, manager, handle, created.ID)
 }
 
+func TestManagerCreatesSessionFromSelectedProfile(t *testing.T) {
+	root := t.TempDir()
+	customCWD := t.TempDir()
+	starter := &recordingPTYStarter{}
+	manager := newTestManager(t, starter, map[string]string{"workspace_terminal": root})
+	profiles, err := manager.CreateProfile(TerminalProfileInput{
+		Name:       "Custom project tool",
+		LaunchMode: ProfileLaunchModeCustomCommand,
+		ShellPath:  testExecutablePath(t),
+		Args:       []string{"--profile-test"},
+		CWDMode:    ProfileCWDModeCustom,
+		CWD:        customCWD,
+		Env:        map[string]string{"SETTA_PROFILE_TEST": "1"},
+		FontFamily: "Fira Code",
+		FontSize:   15,
+		ThemeID:    ThemeSettaDark,
+		Scrollback: 900,
+	})
+	if err != nil {
+		t.Fatalf("create terminal profile: %v", err)
+	}
+	profileID := profiles.Profiles[1].ID
+
+	created := mustCreateTestSession(t, manager, "workspace_terminal", "pane_custom", profileID, "", 100, 32)
+	if created.ProfileID != profileID {
+		t.Fatalf("created profile id = %s, want %s", created.ProfileID, profileID)
+	}
+	if created.CWD != mustResolvePath(t, customCWD) {
+		t.Fatalf("created cwd = %s, want custom cwd %s", created.CWD, customCWD)
+	}
+	handle := starter.handleAt(t, 0)
+	if handle.profile.ShellPath != testExecutablePath(t) {
+		t.Fatalf("pty shell path = %s, want test executable", handle.profile.ShellPath)
+	}
+	if strings.Join(handle.profile.Args, " ") != "--profile-test" {
+		t.Fatalf("pty args = %#v, want --profile-test", handle.profile.Args)
+	}
+	if handle.profile.Env["SETTA_PROFILE_TEST"] != "1" {
+		t.Fatalf("pty env = %#v, want SETTA_PROFILE_TEST", handle.profile.Env)
+	}
+	if handle.profile.Cols != 100 || handle.profile.Rows != 32 {
+		t.Fatalf("pty dims = %dx%d, want 100x32", handle.profile.Cols, handle.profile.Rows)
+	}
+}
+
 func assertCreatedSession(t *testing.T, created SessionSummary, resolvedRoot string) {
 	t.Helper()
 	if created.WorkspaceID != "workspace_terminal" || created.PaneID != "pane_shell" {
@@ -384,6 +429,7 @@ func newTestManagerWithConfig(
 	config ManagerConfig,
 ) *Manager {
 	t.Helper()
+	config.AppDataDir = t.TempDir()
 	config.WorkspaceResolver = fakeWorkspaceResolver(roots)
 	config.PTY = starter
 	config.Clock = testClock(t)

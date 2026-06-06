@@ -26,6 +26,7 @@ import { createElectronWebContentsViewRegistry } from "./niri-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
+import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
 import { readWorkspaceGitInfo } from "./workspace-actions";
@@ -817,54 +818,7 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  handleIpc(
-    ipcMain,
-    "terminalCreate",
-    async (_event, ...args) => {
-      const [workspaceId, paneId, profileId, cwd, cols, rows] = args;
-      return requireBackendClient().createTerminal({
-        cols,
-        cwd,
-        paneId,
-        profileId,
-        rows,
-        workspaceId,
-      });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "terminalAttach",
-    async (_event, workspaceId, paneId) => {
-      return requireBackendClient().attachTerminal({ paneId, workspaceId });
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "terminalInput",
-    async (_event, input) => {
-      return requireBackendClient().terminalInput(input);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "terminalResize",
-    async (_event, request) => {
-      return requireBackendClient().resizeTerminal(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "terminalClose",
-    async (_event, sessionId, mode) => {
-      return requireBackendClient().closeTerminal({ mode, sessionId });
-    },
-    ipcObserver,
-  );
+  registerTerminalIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
 }
 
 function externalURL(rawURL: string) {

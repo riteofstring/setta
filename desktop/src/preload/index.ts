@@ -69,6 +69,7 @@ const api: SettaAPI = {
   terminal: {
     attach: (workspaceId: string, paneId: string) => invoke("terminalAttach", workspaceId, paneId),
     close: (sessionId: string, mode) => invoke("terminalClose", sessionId, mode),
+    createProfile: (request) => invoke("terminalCreateProfile", request),
     create: (workspaceId, paneId, options) =>
       invoke(
         "terminalCreate",
@@ -79,7 +80,9 @@ const api: SettaAPI = {
         options.cols,
         options.rows,
       ),
+    deleteProfile: (request) => invoke("terminalDeleteProfile", request),
     input: (input) => invoke("terminalInput", input),
+    listProfiles: () => invoke("terminalListProfiles"),
     onEvent: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeTerminalEvent(payload));
@@ -90,6 +93,8 @@ const api: SettaAPI = {
       };
     },
     resize: (request) => invoke("terminalResize", request),
+    selectDefaultProfile: (request) => invoke("terminalSelectDefaultProfile", request),
+    updateProfile: (request) => invoke("terminalUpdateProfile", request),
   },
   chat: {
     activeRun: (workspaceId: string, conversationId: string) =>

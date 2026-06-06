@@ -75,8 +75,13 @@ type TerminalService interface {
 	Attach(context.Context, string, string) (terminal.SessionSummary, error)
 	Close(context.Context, string, terminal.CloseMode) (terminal.SessionSummary, error)
 	Create(context.Context, string, string, string, string, int, int) (terminal.SessionSummary, error)
+	CreateProfile(terminal.TerminalProfileInput) (terminal.TerminalProfileList, error)
+	DeleteProfile(string) (terminal.TerminalProfileList, error)
+	ListProfiles() (terminal.TerminalProfileList, error)
 	Resize(context.Context, string, int, int) (terminal.SessionSummary, error)
+	SetDefaultProfile(string) (terminal.TerminalProfileList, error)
 	SubscribeEvents(terminal.EventCursor) (*terminal.EventSubscription, error)
+	UpdateProfile(string, terminal.TerminalProfileInput) (terminal.TerminalProfileList, error)
 	WriteInput(context.Context, string, []byte) (int, error)
 }
 

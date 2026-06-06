@@ -14,9 +14,6 @@ export interface TerminalThemeOption {
   label: string;
 }
 
-export const terminalDisplaySettingsStorageKey = "setta:terminal-display-settings:v1";
-export const terminalDisplaySettingsChangedEvent = "setta:terminal-display-settings-changed";
-
 export const terminalThemeOptions: TerminalThemeOption[] = [
   { id: "setta-dark", label: "Setta Dark" },
   { id: "high-contrast-dark", label: "High Contrast" },
@@ -34,41 +31,6 @@ const minFontSize = 10;
 const maxFontSize = 22;
 const minScrollback = 100;
 const maxScrollback = 10_000;
-
-export function readTerminalDisplaySettings(
-  storage = browserLocalStorage(),
-): TerminalDisplaySettings {
-  if (!storage) {
-    return defaultTerminalDisplaySettings;
-  }
-  const raw = storage.getItem(terminalDisplaySettingsStorageKey);
-  if (!raw) {
-    return defaultTerminalDisplaySettings;
-  }
-  try {
-    return normalizeTerminalDisplaySettings(JSON.parse(raw));
-  } catch {
-    return defaultTerminalDisplaySettings;
-  }
-}
-
-export function writeTerminalDisplaySettings(
-  value: unknown,
-  storage = browserLocalStorage(),
-): TerminalDisplaySettings {
-  const settings = normalizeTerminalDisplaySettings(value);
-  storage?.setItem(terminalDisplaySettingsStorageKey, JSON.stringify(settings));
-  dispatchTerminalDisplaySettingsChanged(settings);
-  return settings;
-}
-
-export function resetTerminalDisplaySettings(
-  storage = browserLocalStorage(),
-): TerminalDisplaySettings {
-  storage?.removeItem(terminalDisplaySettingsStorageKey);
-  dispatchTerminalDisplaySettingsChanged(defaultTerminalDisplaySettings);
-  return defaultTerminalDisplaySettings;
-}
 
 export function normalizeTerminalDisplaySettings(value: unknown): TerminalDisplaySettings {
   if (!isRecord(value)) {
@@ -134,24 +96,6 @@ export function terminalTheme(themeId: TerminalThemeId): ITheme {
     default:
       return assertNever(themeId);
   }
-}
-
-function browserLocalStorage(): Storage | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return window.localStorage ?? null;
-}
-
-function dispatchTerminalDisplaySettingsChanged(settings: TerminalDisplaySettings): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.dispatchEvent(
-    new window.CustomEvent<TerminalDisplaySettings>(terminalDisplaySettingsChangedEvent, {
-      detail: settings,
-    }),
-  );
 }
 
 function normalizeFontFamily(value: unknown): string {

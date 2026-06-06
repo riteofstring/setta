@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -62,6 +63,71 @@ func TestTerminalEndpointsCreateInputResizeAndClose(t *testing.T) {
 	}, http.StatusOK)
 	if closed.Session.Status != terminal.SessionStatusClosed || closed.Session.Message != string(terminal.CloseModeTerminate) {
 		t.Fatalf("closed session = %+v, want closed terminate", closed.Session)
+	}
+}
+
+func TestTerminalProfileEndpointsManageProfiles(t *testing.T) {
+	handler, _ := newTerminalHandler(t, nil)
+	cwd := t.TempDir()
+	executable := httpTestExecutablePath(t)
+
+	initial := getJSON[terminal.TerminalProfileList](t, handler, "/terminals/profiles", http.StatusOK)
+	if initial.DefaultProfileID != terminal.DefaultProfileID || len(initial.Profiles) != 1 {
+		t.Fatalf("initial profiles = %+v, want one default profile", initial)
+	}
+
+	created := postJSON[terminal.TerminalProfileList](t, handler, "/terminals/profiles/create", CreateTerminalProfileRequest{
+		Profile: terminal.TerminalProfileInput{
+			Name:       "HTTP profile",
+			LaunchMode: terminal.ProfileLaunchModeCustomCommand,
+			ShellPath:  executable,
+			Args:       []string{"--http-profile"},
+			CWDMode:    terminal.ProfileCWDModeCustom,
+			CWD:        cwd,
+			Env:        map[string]string{"SETTA_HTTP_PROFILE": "1"},
+			FontFamily: "Fira Code",
+			FontSize:   16,
+			ThemeID:    terminal.ThemeSettaLight,
+			Scrollback: 1400,
+		},
+	}, http.StatusOK)
+	profileID := created.Profiles[1].ID
+
+	selected := postJSON[terminal.TerminalProfileList](t, handler, "/terminals/profiles/default", SelectDefaultTerminalProfileRequest{
+		ID: profileID,
+	}, http.StatusOK)
+	if selected.DefaultProfileID != profileID {
+		t.Fatalf("selected default profile = %s, want %s", selected.DefaultProfileID, profileID)
+	}
+
+	updated := postJSON[terminal.TerminalProfileList](t, handler, "/terminals/profiles/update", UpdateTerminalProfileRequest{
+		ID: profileID,
+		Profile: terminal.TerminalProfileInput{
+			Name:       "HTTP shell",
+			LaunchMode: terminal.ProfileLaunchModeShell,
+			ShellPath:  executable,
+			Args:       []string{"--http-shell"},
+			CWDMode:    terminal.ProfileCWDModeHome,
+			CWD:        "",
+			Env:        map[string]string{"SETTA_HTTP_PROFILE": "updated"},
+			FontFamily: "JetBrains Mono",
+			FontSize:   14,
+			ThemeID:    terminal.ThemeHighContrastDark,
+			Scrollback: 1800,
+		},
+	}, http.StatusOK)
+	if updated.Profiles[1].Name != "HTTP shell" || !updated.Profiles[1].SafeAutoStart {
+		t.Fatalf("updated profile = %+v, want shell profile", updated.Profiles[1])
+	}
+
+	postJSON[terminal.TerminalProfileList](t, handler, "/terminals/profiles/default", SelectDefaultTerminalProfileRequest{
+		ID: terminal.DefaultProfileID,
+	}, http.StatusOK)
+	deleted := postJSON[terminal.TerminalProfileList](t, handler, "/terminals/profiles/delete", DeleteTerminalProfileRequest{
+		ID: profileID,
+	}, http.StatusOK)
+	if len(deleted.Profiles) != 1 || deleted.Profiles[0].ID != terminal.DefaultProfileID {
+		t.Fatalf("profiles after delete = %+v, want only default", deleted.Profiles)
 	}
 }
 
@@ -212,6 +278,7 @@ func newTerminalHandler(t *testing.T, startErr error) (http.Handler, *httpRecord
 		err:  startErr,
 	}
 	manager, err := terminal.NewManager(terminal.ManagerConfig{
+		AppDataDir:        t.TempDir(),
 		WorkspaceResolver: httpTerminalWorkspaceResolver{root: root},
 		PTY:               starter,
 	})
@@ -225,6 +292,15 @@ func newTerminalHandler(t *testing.T, startErr error) (http.Handler, *httpRecord
 		Metadata:        BackendMetadata{Name: BackendName, Version: "test"},
 		TerminalService: manager,
 	}), starter
+}
+
+func httpTestExecutablePath(t *testing.T) string {
+	t.Helper()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("read test executable path: %v", err)
+	}
+	return executable
 }
 
 func readServerSentTerminalEvent(t *testing.T, reader *bufio.Reader) terminal.TerminalEvent {

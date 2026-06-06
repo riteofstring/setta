@@ -1,20 +1,13 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import {
   defaultTerminalDisplaySettings,
   normalizeTerminalDisplaySettings,
-  readTerminalDisplaySettings,
-  resetTerminalDisplaySettings,
-  terminalDisplaySettingsStorageKey,
-  writeTerminalDisplaySettings,
+  terminalTheme,
 } from "./terminal-display-settings";
 
 describe("terminal display settings", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  test("normalizes lightweight display settings without profile fields", () => {
+  test("normalizes profile display settings without accepting profile launch fields", () => {
     expect(
       normalizeTerminalDisplaySettings({
         cwd: "/tmp/ignored",
@@ -33,58 +26,18 @@ describe("terminal display settings", () => {
     });
   });
 
-  test("falls back for malformed storage and dispatches updates when written", () => {
-    const storage = new MemoryStorage();
-    storage.setItem(terminalDisplaySettingsStorageKey, "{not json");
+  test("falls back to defaults for invalid profile display fields", () => {
+    expect(
+      normalizeTerminalDisplaySettings({
+        fontFamily: "",
+        fontSize: Number.NaN,
+        scrollback: "bad",
+        themeId: "unknown",
+      }),
+    ).toEqual(defaultTerminalDisplaySettings);
+  });
 
-    expect(readTerminalDisplaySettings(storage)).toEqual(defaultTerminalDisplaySettings);
-
-    const dispatchEvent = vi.fn();
-    vi.stubGlobal("window", {
-      CustomEvent,
-      dispatchEvent,
-      localStorage: storage,
-    });
-
-    const written = writeTerminalDisplaySettings({
-      fontFamily: "Fira Code",
-      fontSize: 16,
-      scrollback: 800,
-      themeId: "setta-light",
-    });
-
-    expect(readTerminalDisplaySettings(storage)).toEqual(written);
-    expect(dispatchEvent).toHaveBeenCalledTimes(1);
-
-    resetTerminalDisplaySettings(storage);
-    expect(readTerminalDisplaySettings(storage)).toEqual(defaultTerminalDisplaySettings);
+  test("returns xterm themes for profile theme ids", () => {
+    expect(terminalTheme("setta-light").background).toBe("#fbfbfc");
   });
 });
-
-class MemoryStorage implements Storage {
-  private readonly values = new Map<string, string>();
-
-  get length(): number {
-    return this.values.size;
-  }
-
-  clear(): void {
-    this.values.clear();
-  }
-
-  getItem(key: string): string | null {
-    return this.values.get(key) ?? null;
-  }
-
-  key(index: number): string | null {
-    return [...this.values.keys()][index] ?? null;
-  }
-
-  removeItem(key: string): void {
-    this.values.delete(key);
-  }
-
-  setItem(key: string, value: string): void {
-    this.values.set(key, value);
-  }
-}

@@ -8,6 +8,8 @@ import type {
   CodexAccountState,
   Conversation,
   ConversationListItem,
+  CreateTerminalProfileRequest,
+  DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
   GetActiveRunResponse,
   ImmediateSteeringResult,
@@ -27,6 +29,7 @@ import type {
   RunActivityPage,
   RunItemOutputPage,
   SendMessageResult,
+  SelectDefaultTerminalProfileRequest,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
@@ -34,7 +37,9 @@ import type {
   SubmitWorkflowApprovalRequest,
   TerminalInputRequest,
   TerminalInputResponse,
+  TerminalProfileList,
   TerminalSessionResponse,
+  UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowExecution,
   WorkflowExecutionEventPage,
@@ -85,8 +90,13 @@ export const ipcChannels = {
   terminalAttach: "terminal:attach",
   terminalClose: "terminal:close",
   terminalCreate: "terminal:create",
+  terminalCreateProfile: "terminal:create-profile",
+  terminalDeleteProfile: "terminal:delete-profile",
   terminalInput: "terminal:input",
+  terminalListProfiles: "terminal:list-profiles",
   terminalResize: "terminal:resize",
+  terminalSelectDefaultProfile: "terminal:select-default-profile",
+  terminalUpdateProfile: "terminal:update-profile",
   workflowCancelExecution: "workflow:cancel-execution",
   workflowCreateDefinition: "workflow:create-definition",
   workflowDeleteDefinition: "workflow:delete-definition",
@@ -281,13 +291,33 @@ interface IpcContract {
     ];
     result: TerminalSessionResponse;
   };
+  terminalCreateProfile: {
+    args: [request: CreateTerminalProfileRequest];
+    result: TerminalProfileList;
+  };
+  terminalDeleteProfile: {
+    args: [request: DeleteTerminalProfileRequest];
+    result: TerminalProfileList;
+  };
   terminalInput: {
     args: [input: TerminalInputRequest];
     result: TerminalInputResponse;
   };
+  terminalListProfiles: {
+    args: [];
+    result: TerminalProfileList;
+  };
   terminalResize: {
     args: [request: ResizeTerminalRequest];
     result: TerminalSessionResponse;
+  };
+  terminalSelectDefaultProfile: {
+    args: [request: SelectDefaultTerminalProfileRequest];
+    result: TerminalProfileList;
+  };
+  terminalUpdateProfile: {
+    args: [request: UpdateTerminalProfileRequest];
+    result: TerminalProfileList;
   };
   workflowCancelExecution: {
     args: [workspaceId: string, executionId: string];

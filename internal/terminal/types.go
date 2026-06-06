@@ -8,6 +8,29 @@ const (
 	DefaultTermProgram = "setta"
 )
 
+type ProfileCWDMode string
+
+const (
+	ProfileCWDModeProject ProfileCWDMode = "project"
+	ProfileCWDModeHome    ProfileCWDMode = "home"
+	ProfileCWDModeCustom  ProfileCWDMode = "custom"
+)
+
+type ProfileLaunchMode string
+
+const (
+	ProfileLaunchModeShell         ProfileLaunchMode = "shell"
+	ProfileLaunchModeCustomCommand ProfileLaunchMode = "custom-command"
+)
+
+type ThemeID string
+
+const (
+	ThemeSettaDark        ThemeID = "setta-dark"
+	ThemeHighContrastDark ThemeID = "high-contrast-dark"
+	ThemeSettaLight       ThemeID = "setta-light"
+)
+
 type SessionStatus string
 
 const (
@@ -49,6 +72,51 @@ type SessionSummary struct {
 	UpdatedAt   string        `json:"updatedAt"`
 	ExitCode    int           `json:"exitCode"`
 	Message     string        `json:"message"`
+}
+
+type TerminalProfile struct {
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	LaunchMode    ProfileLaunchMode `json:"launchMode"`
+	ShellPath     string            `json:"shellPath"`
+	Args          []string          `json:"args"`
+	CWDMode       ProfileCWDMode    `json:"cwdMode"`
+	CWD           string            `json:"cwd"`
+	Env           map[string]string `json:"env"`
+	FontFamily    string            `json:"fontFamily"`
+	FontSize      int               `json:"fontSize"`
+	ThemeID       ThemeID           `json:"themeId"`
+	Scrollback    int               `json:"scrollback"`
+	SafeAutoStart bool              `json:"safeAutoStart"`
+	CreatedAt     string            `json:"createdAt"`
+	UpdatedAt     string            `json:"updatedAt"`
+}
+
+type TerminalProfileInput struct {
+	Name       string            `json:"name"`
+	LaunchMode ProfileLaunchMode `json:"launchMode"`
+	ShellPath  string            `json:"shellPath"`
+	Args       []string          `json:"args"`
+	CWDMode    ProfileCWDMode    `json:"cwdMode"`
+	CWD        string            `json:"cwd"`
+	Env        map[string]string `json:"env"`
+	FontFamily string            `json:"fontFamily"`
+	FontSize   int               `json:"fontSize"`
+	ThemeID    ThemeID           `json:"themeId"`
+	Scrollback int               `json:"scrollback"`
+}
+
+type TerminalDetectedShell struct {
+	ID         string            `json:"id"`
+	Name       string            `json:"name"`
+	Path       string            `json:"path"`
+	LaunchMode ProfileLaunchMode `json:"launchMode"`
+}
+
+type TerminalProfileList struct {
+	DefaultProfileID string                  `json:"defaultProfileId"`
+	Profiles         []TerminalProfile       `json:"profiles"`
+	DetectedShells   []TerminalDetectedShell `json:"detectedShells"`
 }
 
 type TerminalEvent struct {
@@ -107,6 +175,21 @@ func ContractValueSets() []ContractValueSet {
 			},
 		},
 		{
+			Name: "ProfileCWDMode",
+			Values: []string{
+				string(ProfileCWDModeProject),
+				string(ProfileCWDModeHome),
+				string(ProfileCWDModeCustom),
+			},
+		},
+		{
+			Name: "ProfileLaunchMode",
+			Values: []string{
+				string(ProfileLaunchModeShell),
+				string(ProfileLaunchModeCustomCommand),
+			},
+		},
+		{
 			Name: "TerminalEventType",
 			Values: []string{
 				string(TerminalEventOutput),
@@ -115,6 +198,14 @@ func ContractValueSets() []ContractValueSet {
 				string(TerminalEventClosed),
 				string(TerminalEventError),
 				string(TerminalEventBufferTruncated),
+			},
+		},
+		{
+			Name: "ThemeID",
+			Values: []string{
+				string(ThemeSettaDark),
+				string(ThemeHighContrastDark),
+				string(ThemeSettaLight),
 			},
 		},
 	}

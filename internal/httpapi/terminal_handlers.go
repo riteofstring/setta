@@ -108,6 +108,87 @@ func (handler handler) closeTerminal(response http.ResponseWriter, request *http
 	writeJSON(response, http.StatusOK, TerminalSessionResponse{Session: terminalSessionSummary(session)})
 }
 
+func (handler handler) listTerminalProfiles(response http.ResponseWriter, _ *http.Request) {
+	service := requireTerminalService(response, handler.terminalService)
+	if service == nil {
+		return
+	}
+	profiles, err := service.ListProfiles()
+	if err != nil {
+		writeTerminalError(response, "list_terminal_profiles_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, profiles)
+}
+
+func (handler handler) createTerminalProfile(response http.ResponseWriter, request *http.Request) {
+	service := requireTerminalService(response, handler.terminalService)
+	if service == nil {
+		return
+	}
+	var payload CreateTerminalProfileRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	profiles, err := service.CreateProfile(payload.Profile)
+	if err != nil {
+		writeTerminalError(response, "create_terminal_profile_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, profiles)
+}
+
+func (handler handler) updateTerminalProfile(response http.ResponseWriter, request *http.Request) {
+	service := requireTerminalService(response, handler.terminalService)
+	if service == nil {
+		return
+	}
+	var payload UpdateTerminalProfileRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	profiles, err := service.UpdateProfile(payload.ID, payload.Profile)
+	if err != nil {
+		writeTerminalError(response, "update_terminal_profile_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, profiles)
+}
+
+func (handler handler) deleteTerminalProfile(response http.ResponseWriter, request *http.Request) {
+	service := requireTerminalService(response, handler.terminalService)
+	if service == nil {
+		return
+	}
+	var payload DeleteTerminalProfileRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	profiles, err := service.DeleteProfile(payload.ID)
+	if err != nil {
+		writeTerminalError(response, "delete_terminal_profile_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, profiles)
+}
+
+func (handler handler) selectDefaultTerminalProfile(response http.ResponseWriter, request *http.Request) {
+	service := requireTerminalService(response, handler.terminalService)
+	if service == nil {
+		return
+	}
+	var payload SelectDefaultTerminalProfileRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	profiles, err := service.SetDefaultProfile(payload.ID)
+	if err != nil {
+		writeTerminalError(response, "select_default_terminal_profile_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, profiles)
+}
+
 func (handler handler) terminalEventStream(response http.ResponseWriter, request *http.Request) {
 	service := requireTerminalService(response, handler.terminalService)
 	if service == nil {

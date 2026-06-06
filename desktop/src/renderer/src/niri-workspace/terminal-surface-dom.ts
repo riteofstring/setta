@@ -21,6 +21,7 @@ export interface TerminalSurfaceContent {
   exitOverlay: HTMLElement;
   exitOverlayMessage: HTMLElement;
   pasteOverlay: TerminalPasteElements;
+  profileSelect: HTMLSelectElement;
   restartButton: HTMLButtonElement;
   root: HTMLElement;
   search: TerminalSearchElements;
@@ -39,7 +40,11 @@ export function renderXtermContent(host: HTMLElement, pane: NiriPane): TerminalS
   title.textContent = pane.title;
   const status = document.createElement("span");
   status.className = "niri-terminal-status";
-  header.append(title, status);
+  const profileSelect = document.createElement("select");
+  profileSelect.className = "niri-terminal-profile-select";
+  profileSelect.setAttribute("aria-label", "Terminal profile");
+  profileSelect.setAttribute("data-terminal-profile-select", "true");
+  header.append(title, status, profileSelect);
 
   const viewport = document.createElement("div");
   viewport.className = "niri-xterm-viewport";
@@ -74,6 +79,7 @@ export function renderXtermContent(host: HTMLElement, pane: NiriPane): TerminalS
     exitOverlay,
     exitOverlayMessage,
     pasteOverlay,
+    profileSelect,
     restartButton,
     root,
     search,

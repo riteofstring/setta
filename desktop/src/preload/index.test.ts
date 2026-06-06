@@ -340,11 +340,29 @@ describe("preload workspace API", () => {
       "attach",
       "close",
       "create",
+      "createProfile",
+      "deleteProfile",
       "input",
+      "listProfiles",
       "onEvent",
       "resize",
+      "selectDefaultProfile",
+      "updateProfile",
     ]);
 
+    const profileInput = {
+      args: [],
+      cwd: "",
+      cwdMode: "project" as const,
+      env: {},
+      fontFamily: "Fira Code",
+      fontSize: 14,
+      launchMode: "shell" as const,
+      name: "Project shell",
+      scrollback: 1200,
+      shellPath: "",
+      themeId: "setta-dark" as const,
+    };
     await api.terminal.create("workspace_api", "pane_terminal", {
       cols: 80,
       rows: 24,
@@ -360,6 +378,11 @@ describe("preload workspace API", () => {
       sessionId: "terminal_api",
     });
     await api.terminal.close("terminal_api", "terminate");
+    await api.terminal.listProfiles();
+    await api.terminal.createProfile({ profile: profileInput });
+    await api.terminal.updateProfile({ id: "profile_project", profile: profileInput });
+    await api.terminal.selectDefaultProfile({ id: "profile_project" });
+    await api.terminal.deleteProfile({ id: "profile_project" });
 
     const event = terminalEvent();
     const listener = vi.fn();
@@ -390,6 +413,11 @@ describe("preload workspace API", () => {
         },
       ],
       [ipcChannels.terminalClose, "terminal_api", "terminate"],
+      [ipcChannels.terminalListProfiles],
+      [ipcChannels.terminalCreateProfile, { profile: profileInput }],
+      [ipcChannels.terminalUpdateProfile, { id: "profile_project", profile: profileInput }],
+      [ipcChannels.terminalSelectDefaultProfile, { id: "profile_project" }],
+      [ipcChannels.terminalDeleteProfile, { id: "profile_project" }],
     ]);
     expect(on).toHaveBeenCalledWith(ipcEvents.terminalEvent, expect.any(Function));
     expect(listener).toHaveBeenCalledWith(event);

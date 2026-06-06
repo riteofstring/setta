@@ -49,9 +49,16 @@ export interface NiriPane {
   subtitle: string;
   surfaceId: SurfaceId;
   surfaceKind: SurfaceKind;
+  terminalConfig?: TerminalPaneConfig;
   title: string;
   tone: "cyan" | "green" | "orange" | "pink" | "slate";
   weight: number;
+}
+
+export interface TerminalPaneConfig {
+  cwdOverride?: string;
+  profileId: string;
+  titleOverride?: string;
 }
 
 export interface NiriColumn {
@@ -86,6 +93,7 @@ export interface OpenPaneRequest {
   columnId?: ColumnId;
   subtitle?: string;
   surfaceKind?: SurfaceKind;
+  terminalConfig?: TerminalPaneConfig;
   title?: string;
   tone?: NiriPane["tone"];
   weight?: number;
@@ -217,6 +225,7 @@ export interface LayoutEngine {
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightWeight: number): void;
+  setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void;
   splitPane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): PaneId;
   splitPaneToPlane(paneId: PaneId, direction: "up" | "down"): PaneId;
   unlockColumnWidth(columnId: ColumnId, viewportWidth: number): void;

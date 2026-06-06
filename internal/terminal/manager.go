@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,7 +33,9 @@ type WorkspaceResolver interface {
 }
 
 type ManagerConfig struct {
+	AppDataDir                  string
 	WorkspaceResolver           WorkspaceResolver
+	ProfileStore                *ProfileStore
 	PTY                         PTYStarter
 	Clock                       func() time.Time
 	CloseKillTimeout            time.Duration
@@ -47,6 +48,7 @@ type Manager struct {
 	closeKillTimeout  time.Duration
 	eventHub          *eventHub
 	mu                sync.Mutex
+	profileStore      *ProfileStore
 	pty               PTYStarter
 	sessionByID       map[string]*session
 	sessionByPane     map[workspacePaneKey]string
@@ -77,6 +79,17 @@ type workspacePaneKey struct {
 func NewManager(config ManagerConfig) (*Manager, error) {
 	if config.WorkspaceResolver == nil {
 		return nil, errors.New("workspace resolver is required")
+	}
+	profileStore := config.ProfileStore
+	if profileStore == nil {
+		var err error
+		profileStore, err = NewProfileStore(config.AppDataDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := profileStore.EnsureInitialized(); err != nil {
+		return nil, err
 	}
 	ptyStarter := config.PTY
 	if ptyStarter == nil {
@@ -109,6 +122,7 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		clock:             clock,
 		closeKillTimeout:  closeKillTimeout,
 		eventHub:          eventHub,
+		profileStore:      profileStore,
 		pty:               ptyStarter,
 		sessionByID:       map[string]*session{},
 		sessionByPane:     map[workspacePaneKey]string{},
@@ -136,11 +150,10 @@ func (manager *Manager) Create(
 		manager.eventHub.publishReplayForSession(summary.ID)
 		return summary, nil
 	}
-	resolvedCWD, err := manager.resolveCWD(workspaceID, cwd)
+	profile, err := manager.resolveSessionProfile(workspaceID, profileID, cwd, cols, rows)
 	if err != nil {
 		return SessionSummary{}, err
 	}
-	profile := defaultProfile(profileID, resolvedCWD, cols, rows)
 	handle, err := manager.pty.Start(ctx, profile)
 	if err != nil {
 		return SessionSummary{}, fmt.Errorf("start terminal session: %w", err)
@@ -154,7 +167,7 @@ func (manager *Manager) Create(
 	terminalSession := &session{
 		cols:        cols,
 		createdAt:   now,
-		cwd:         resolvedCWD,
+		cwd:         profile.CWD,
 		handle:      handle,
 		id:          id,
 		paneID:      paneID,
@@ -280,6 +293,26 @@ func (manager *Manager) SubscribeEvents(cursor EventCursor) (*EventSubscription,
 	return manager.eventHub.subscribe(cursor)
 }
 
+func (manager *Manager) ListProfiles() (TerminalProfileList, error) {
+	return manager.profileStore.List()
+}
+
+func (manager *Manager) CreateProfile(input TerminalProfileInput) (TerminalProfileList, error) {
+	return manager.profileStore.Create(input)
+}
+
+func (manager *Manager) UpdateProfile(id string, input TerminalProfileInput) (TerminalProfileList, error) {
+	return manager.profileStore.Update(id, input)
+}
+
+func (manager *Manager) DeleteProfile(id string) (TerminalProfileList, error) {
+	return manager.profileStore.Delete(id)
+}
+
+func (manager *Manager) SetDefaultProfile(id string) (TerminalProfileList, error) {
+	return manager.profileStore.SetDefault(id)
+}
+
 func (manager *Manager) CloseEvents() {
 	manager.eventHub.close()
 }
@@ -331,10 +364,55 @@ func (manager *Manager) attachedSessionSummary(key workspacePaneKey) (SessionSum
 	return terminalSession.summary(), true
 }
 
-func (manager *Manager) resolveCWD(workspaceID string, override string) (string, error) {
+func (manager *Manager) resolveSessionProfile(
+	workspaceID string,
+	profileID string,
+	cwdOverride string,
+	cols int,
+	rows int,
+) (Profile, error) {
+	profile, err := manager.profileStore.Resolve(profileID)
+	if err != nil {
+		return Profile{}, err
+	}
+	cwd, err := manager.resolveProfileCWD(workspaceID, profile, cwdOverride)
+	if err != nil {
+		return Profile{}, err
+	}
+	return Profile{
+		ID:        profile.ID,
+		Name:      profile.Name,
+		ShellPath: profile.ShellPath,
+		Args:      append([]string{}, profile.Args...),
+		Env:       copyEnv(profile.Env),
+		CWD:       cwd,
+		Term:      DefaultTerm,
+		Cols:      cols,
+		Rows:      rows,
+	}, nil
+}
+
+func (manager *Manager) resolveProfileCWD(workspaceID string, profile TerminalProfile, override string) (string, error) {
 	if override != "" {
 		return validateCWD(override)
 	}
+	switch profile.CWDMode {
+	case ProfileCWDModeProject:
+		return manager.resolveWorkspaceCWD(workspaceID)
+	case ProfileCWDModeHome:
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home directory: %w", err)
+		}
+		return validateCWD(home)
+	case ProfileCWDModeCustom:
+		return validateCWD(profile.CWD)
+	default:
+		return "", fmt.Errorf("unsupported terminal profile cwdMode: %s", profile.CWDMode)
+	}
+}
+
+func (manager *Manager) resolveWorkspaceCWD(workspaceID string) (string, error) {
 	summary, err := manager.workspaceResolver.ResolveWorkspace(workspaceID)
 	if err != nil {
 		return "", err
@@ -614,24 +692,6 @@ func validateCWD(cwd string) (string, error) {
 		return "", fmt.Errorf("cwd is not a directory: %s", resolved)
 	}
 	return filepath.Clean(resolved), nil
-}
-
-func defaultProfile(profileID string, cwd string, cols int, rows int) Profile {
-	id := strings.TrimSpace(profileID)
-	if id == "" {
-		id = DefaultProfileID
-	}
-	return Profile{
-		ID:        id,
-		Name:      "Default",
-		ShellPath: "",
-		Args:      []string{},
-		Env:       map[string]string{},
-		CWD:       cwd,
-		Term:      DefaultTerm,
-		Cols:      cols,
-		Rows:      rows,
-	}
 }
 
 func newSessionID() (string, error) {

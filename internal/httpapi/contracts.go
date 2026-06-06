@@ -319,6 +319,23 @@ type CloseTerminalRequest struct {
 	Mode      terminal.CloseMode `json:"mode"`
 }
 
+type CreateTerminalProfileRequest struct {
+	Profile terminal.TerminalProfileInput `json:"profile"`
+}
+
+type UpdateTerminalProfileRequest struct {
+	ID      string                        `json:"id"`
+	Profile terminal.TerminalProfileInput `json:"profile"`
+}
+
+type DeleteTerminalProfileRequest struct {
+	ID string `json:"id"`
+}
+
+type SelectDefaultTerminalProfileRequest struct {
+	ID string `json:"id"`
+}
+
 type APIError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`

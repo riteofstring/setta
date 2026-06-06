@@ -376,7 +376,8 @@ function isStoredPane(value: unknown): value is NiriPane {
   return (
     hasStoredPaneIdentity(candidate) &&
     hasStoredPaneContent(candidate) &&
-    hasStoredPaneSizing(candidate)
+    hasStoredPaneSizing(candidate) &&
+    hasStoredTerminalConfig(candidate)
   );
 }
 
@@ -402,6 +403,21 @@ function hasStoredPaneSizing(candidate: Partial<NiriPane>): boolean {
     isFiniteNumber(candidate.heat) &&
     isFiniteNumber(candidate.sequence) &&
     isFiniteNumber(candidate.weight)
+  );
+}
+
+function hasStoredTerminalConfig(candidate: Partial<NiriPane>): boolean {
+  const config = candidate.terminalConfig;
+  if (config === undefined) {
+    return true;
+  }
+  if (!config || typeof config !== "object") {
+    return false;
+  }
+  return (
+    typeof config.profileId === "string" &&
+    isOptionalString(config.cwdOverride) &&
+    isOptionalString(config.titleOverride)
   );
 }
 
@@ -448,6 +464,10 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isOptionalFiniteNumber(value: unknown): boolean {
   return value === undefined || isFiniteNumber(value);
+}
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
 }
 
 function normalizedStoredSlotIndex(slotIndex: number | undefined, fallbackIndex: number): number {

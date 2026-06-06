@@ -748,6 +748,58 @@ export function decodeCloseMode(value: unknown, label = "CloseMode"): CloseMode 
   }
 }
 
+export type ProfileLaunchMode = "shell" | "custom-command";
+
+export const profileLaunchModeValues = ["shell", "custom-command"] as const satisfies readonly ProfileLaunchMode[];
+
+export function decodeProfileLaunchMode(value: unknown, label = "ProfileLaunchMode"): ProfileLaunchMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "shell":
+      return decoded;
+    case "custom-command":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ProfileCWDMode = "project" | "home" | "custom";
+
+export const profileCWDModeValues = ["project", "home", "custom"] as const satisfies readonly ProfileCWDMode[];
+
+export function decodeProfileCWDMode(value: unknown, label = "ProfileCWDMode"): ProfileCWDMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "project":
+      return decoded;
+    case "home":
+      return decoded;
+    case "custom":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ThemeID = "setta-dark" | "high-contrast-dark" | "setta-light";
+
+export const themeIDValues = ["setta-dark", "high-contrast-dark", "setta-light"] as const satisfies readonly ThemeID[];
+
+export function decodeThemeID(value: unknown, label = "ThemeID"): ThemeID {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "setta-dark":
+      return decoded;
+    case "high-contrast-dark":
+      return decoded;
+    case "setta-light":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type TerminalEventType = "terminal.output" | "terminal.started" | "terminal.exited" | "terminal.closed" | "terminal.error" | "terminal.bufferTruncated";
 
 export const terminalEventTypeValues = ["terminal.output", "terminal.started", "terminal.exited", "terminal.closed", "terminal.error", "terminal.bufferTruncated"] as const satisfies readonly TerminalEventType[];
@@ -1802,6 +1854,68 @@ export interface CloseTerminalRequest {
   mode: CloseMode;
 }
 
+export interface TerminalProfile {
+  id: string;
+  name: string;
+  launchMode: ProfileLaunchMode;
+  shellPath: string;
+  args: string[];
+  cwdMode: ProfileCWDMode;
+  cwd: string;
+  env: Record<string, string>;
+  fontFamily: string;
+  fontSize: number;
+  themeId: ThemeID;
+  scrollback: number;
+  safeAutoStart: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TerminalDetectedShell {
+  id: string;
+  name: string;
+  path: string;
+  launchMode: ProfileLaunchMode;
+}
+
+export interface TerminalProfileList {
+  defaultProfileId: string;
+  profiles: TerminalProfile[];
+  detectedShells: TerminalDetectedShell[];
+}
+
+export interface TerminalProfileInput {
+  name: string;
+  launchMode: ProfileLaunchMode;
+  shellPath: string;
+  args: string[];
+  cwdMode: ProfileCWDMode;
+  cwd: string;
+  env: Record<string, string>;
+  fontFamily: string;
+  fontSize: number;
+  themeId: ThemeID;
+  scrollback: number;
+}
+
+export interface CreateTerminalProfileRequest {
+  profile: TerminalProfileInput;
+}
+
+export interface UpdateTerminalProfileRequest {
+  id: string;
+  profile: TerminalProfileInput;
+}
+
+export interface DeleteTerminalProfileRequest {
+  id: string;
+}
+
+export interface SelectDefaultTerminalProfileRequest {
+  id: string;
+}
+
 export interface TerminalEventPayload {
   dataBase64: string;
   byteCount: number;
@@ -2368,6 +2482,26 @@ export const backendEndpoints = {
   CloseTerminal: {
     method: "POST",
     path: "/terminals/close",
+  },
+  ListTerminalProfiles: {
+    method: "GET",
+    path: "/terminals/profiles",
+  },
+  CreateTerminalProfile: {
+    method: "POST",
+    path: "/terminals/profiles/create",
+  },
+  UpdateTerminalProfile: {
+    method: "POST",
+    path: "/terminals/profiles/update",
+  },
+  DeleteTerminalProfile: {
+    method: "POST",
+    path: "/terminals/profiles/delete",
+  },
+  SelectDefaultTerminalProfile: {
+    method: "POST",
+    path: "/terminals/profiles/default",
   },
   TerminalEventStream: {
     method: "GET",
@@ -3781,6 +3915,100 @@ export function decodeCloseTerminalRequest(value: unknown): CloseTerminalRequest
   };
 }
 
+export function decodeTerminalProfile(value: unknown): TerminalProfile {
+  const record = assertRecord(value, "TerminalProfile");
+  assertKnownFields(record, "TerminalProfile", ["id", "name", "launchMode", "shellPath", "args", "cwdMode", "cwd", "env", "fontFamily", "fontSize", "themeId", "scrollback", "safeAutoStart", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "TerminalProfile"), "TerminalProfile.id"),
+    name: decodeString(requireField(record, "name", "TerminalProfile"), "TerminalProfile.name"),
+    launchMode: decodeProfileLaunchMode(requireField(record, "launchMode", "TerminalProfile"), "TerminalProfile.launchMode"),
+    shellPath: decodeString(requireField(record, "shellPath", "TerminalProfile"), "TerminalProfile.shellPath"),
+    args: decodeArray(requireField(record, "args", "TerminalProfile"), "TerminalProfile.args", (item) => decodeString(item, "TerminalProfile.args item")),
+    cwdMode: decodeProfileCWDMode(requireField(record, "cwdMode", "TerminalProfile"), "TerminalProfile.cwdMode"),
+    cwd: decodeString(requireField(record, "cwd", "TerminalProfile"), "TerminalProfile.cwd"),
+    env: decodeStringRecord(requireField(record, "env", "TerminalProfile"), "TerminalProfile.env"),
+    fontFamily: decodeString(requireField(record, "fontFamily", "TerminalProfile"), "TerminalProfile.fontFamily"),
+    fontSize: decodeInteger(requireField(record, "fontSize", "TerminalProfile"), "TerminalProfile.fontSize"),
+    themeId: decodeThemeID(requireField(record, "themeId", "TerminalProfile"), "TerminalProfile.themeId"),
+    scrollback: decodeInteger(requireField(record, "scrollback", "TerminalProfile"), "TerminalProfile.scrollback"),
+    safeAutoStart: decodeBoolean(requireField(record, "safeAutoStart", "TerminalProfile"), "TerminalProfile.safeAutoStart"),
+    createdAt: decodeString(requireField(record, "createdAt", "TerminalProfile"), "TerminalProfile.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "TerminalProfile"), "TerminalProfile.updatedAt"),
+  };
+}
+
+export function decodeTerminalDetectedShell(value: unknown): TerminalDetectedShell {
+  const record = assertRecord(value, "TerminalDetectedShell");
+  assertKnownFields(record, "TerminalDetectedShell", ["id", "name", "path", "launchMode"]);
+  return {
+    id: decodeString(requireField(record, "id", "TerminalDetectedShell"), "TerminalDetectedShell.id"),
+    name: decodeString(requireField(record, "name", "TerminalDetectedShell"), "TerminalDetectedShell.name"),
+    path: decodeString(requireField(record, "path", "TerminalDetectedShell"), "TerminalDetectedShell.path"),
+    launchMode: decodeProfileLaunchMode(requireField(record, "launchMode", "TerminalDetectedShell"), "TerminalDetectedShell.launchMode"),
+  };
+}
+
+export function decodeTerminalProfileList(value: unknown): TerminalProfileList {
+  const record = assertRecord(value, "TerminalProfileList");
+  assertKnownFields(record, "TerminalProfileList", ["defaultProfileId", "profiles", "detectedShells"]);
+  return {
+    defaultProfileId: decodeString(requireField(record, "defaultProfileId", "TerminalProfileList"), "TerminalProfileList.defaultProfileId"),
+    profiles: decodeArray(requireField(record, "profiles", "TerminalProfileList"), "TerminalProfileList.profiles", (item) => decodeTerminalProfile(item)),
+    detectedShells: decodeArray(requireField(record, "detectedShells", "TerminalProfileList"), "TerminalProfileList.detectedShells", (item) => decodeTerminalDetectedShell(item)),
+  };
+}
+
+export function decodeTerminalProfileInput(value: unknown): TerminalProfileInput {
+  const record = assertRecord(value, "TerminalProfileInput");
+  assertKnownFields(record, "TerminalProfileInput", ["name", "launchMode", "shellPath", "args", "cwdMode", "cwd", "env", "fontFamily", "fontSize", "themeId", "scrollback"]);
+  return {
+    name: decodeString(requireField(record, "name", "TerminalProfileInput"), "TerminalProfileInput.name"),
+    launchMode: decodeProfileLaunchMode(requireField(record, "launchMode", "TerminalProfileInput"), "TerminalProfileInput.launchMode"),
+    shellPath: decodeString(requireField(record, "shellPath", "TerminalProfileInput"), "TerminalProfileInput.shellPath"),
+    args: decodeArray(requireField(record, "args", "TerminalProfileInput"), "TerminalProfileInput.args", (item) => decodeString(item, "TerminalProfileInput.args item")),
+    cwdMode: decodeProfileCWDMode(requireField(record, "cwdMode", "TerminalProfileInput"), "TerminalProfileInput.cwdMode"),
+    cwd: decodeString(requireField(record, "cwd", "TerminalProfileInput"), "TerminalProfileInput.cwd"),
+    env: decodeStringRecord(requireField(record, "env", "TerminalProfileInput"), "TerminalProfileInput.env"),
+    fontFamily: decodeString(requireField(record, "fontFamily", "TerminalProfileInput"), "TerminalProfileInput.fontFamily"),
+    fontSize: decodeInteger(requireField(record, "fontSize", "TerminalProfileInput"), "TerminalProfileInput.fontSize"),
+    themeId: decodeThemeID(requireField(record, "themeId", "TerminalProfileInput"), "TerminalProfileInput.themeId"),
+    scrollback: decodeInteger(requireField(record, "scrollback", "TerminalProfileInput"), "TerminalProfileInput.scrollback"),
+  };
+}
+
+export function decodeCreateTerminalProfileRequest(value: unknown): CreateTerminalProfileRequest {
+  const record = assertRecord(value, "CreateTerminalProfileRequest");
+  assertKnownFields(record, "CreateTerminalProfileRequest", ["profile"]);
+  return {
+    profile: decodeTerminalProfileInput(requireField(record, "profile", "CreateTerminalProfileRequest")),
+  };
+}
+
+export function decodeUpdateTerminalProfileRequest(value: unknown): UpdateTerminalProfileRequest {
+  const record = assertRecord(value, "UpdateTerminalProfileRequest");
+  assertKnownFields(record, "UpdateTerminalProfileRequest", ["id", "profile"]);
+  return {
+    id: decodeString(requireField(record, "id", "UpdateTerminalProfileRequest"), "UpdateTerminalProfileRequest.id"),
+    profile: decodeTerminalProfileInput(requireField(record, "profile", "UpdateTerminalProfileRequest")),
+  };
+}
+
+export function decodeDeleteTerminalProfileRequest(value: unknown): DeleteTerminalProfileRequest {
+  const record = assertRecord(value, "DeleteTerminalProfileRequest");
+  assertKnownFields(record, "DeleteTerminalProfileRequest", ["id"]);
+  return {
+    id: decodeString(requireField(record, "id", "DeleteTerminalProfileRequest"), "DeleteTerminalProfileRequest.id"),
+  };
+}
+
+export function decodeSelectDefaultTerminalProfileRequest(value: unknown): SelectDefaultTerminalProfileRequest {
+  const record = assertRecord(value, "SelectDefaultTerminalProfileRequest");
+  assertKnownFields(record, "SelectDefaultTerminalProfileRequest", ["id"]);
+  return {
+    id: decodeString(requireField(record, "id", "SelectDefaultTerminalProfileRequest"), "SelectDefaultTerminalProfileRequest.id"),
+  };
+}
+
 export function decodeTerminalEventPayload(value: unknown): TerminalEventPayload {
   const record = assertRecord(value, "TerminalEventPayload");
   assertKnownFields(record, "TerminalEventPayload", ["dataBase64", "byteCount", "droppedBytes", "droppedChunks", "status", "cwd", "cols", "rows", "exitCode", "message"]);
@@ -4327,6 +4555,11 @@ export interface BackendClient {
   terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
   resizeTerminal: (request: ResizeTerminalRequest) => Promise<TerminalSessionResponse>;
   closeTerminal: (request: CloseTerminalRequest) => Promise<TerminalSessionResponse>;
+  listTerminalProfiles: () => Promise<TerminalProfileList>;
+  createTerminalProfile: (request: CreateTerminalProfileRequest) => Promise<TerminalProfileList>;
+  updateTerminalProfile: (request: UpdateTerminalProfileRequest) => Promise<TerminalProfileList>;
+  deleteTerminalProfile: (request: DeleteTerminalProfileRequest) => Promise<TerminalProfileList>;
+  selectDefaultTerminalProfile: (request: SelectDefaultTerminalProfileRequest) => Promise<TerminalProfileList>;
   readCodexAccount: () => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
   startCodexLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
@@ -4693,6 +4926,46 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeTerminalSessionResponse,
       endpoint: backendEndpoints.CloseTerminal,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listTerminalProfiles: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalProfileList,
+      endpoint: backendEndpoints.ListTerminalProfiles,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
+    createTerminalProfile: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalProfileList,
+      endpoint: backendEndpoints.CreateTerminalProfile,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateTerminalProfile: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalProfileList,
+      endpoint: backendEndpoints.UpdateTerminalProfile,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    deleteTerminalProfile: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalProfileList,
+      endpoint: backendEndpoints.DeleteTerminalProfile,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    selectDefaultTerminalProfile: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTerminalProfileList,
+      endpoint: backendEndpoints.SelectDefaultTerminalProfile,
       fetchImpl,
       requestPayload: request,
     }),

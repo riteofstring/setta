@@ -1,6 +1,10 @@
 import type { FitAddon as XtermFitAddon } from "@xterm/addon-fit";
-import type { SearchAddon as XtermSearchAddon } from "@xterm/addon-search";
-import type { TerminalEvent, TerminalSessionSummary } from "@generated/backend";
+import type {
+  TerminalEvent,
+  TerminalProfile,
+  TerminalProfileList,
+  TerminalSessionSummary,
+} from "@generated/backend";
 import type { Terminal as XtermTerminal } from "@xterm/xterm";
 import type { BackendProcessStatus } from "@shared/types";
 import "@xterm/xterm/css/xterm.css";
@@ -17,19 +21,27 @@ import {
   isTerminalPasteShortcut,
   isTerminalSearchShortcut,
   statusLabel,
-  subscribeTerminalDisplaySettings,
-  terminalSearchOptions,
 } from "./terminal-ergonomics";
 import {
-  readTerminalDisplaySettings,
+  defaultTerminalDisplaySettings,
   terminalTheme,
   type TerminalDisplaySettings,
 } from "./terminal-display-settings";
 import {
-  renderXtermContent,
-  type TerminalPasteElements,
-  type TerminalSearchElements,
-} from "./terminal-surface-dom";
+  profileForPane,
+  selectedProfileIdForPane,
+  subscribeTerminalProfilesChanged,
+  terminalProfileDisplaySettings,
+} from "./terminal-profiles";
+import {
+  attachOrCreateTerminalSession,
+  TerminalStartDeferred,
+  terminalAPI,
+} from "./terminal-surface-session";
+import { renderXtermContent, type TerminalPasteElements } from "./terminal-surface-dom";
+import { TerminalSearchController } from "./terminal-surface-search";
+import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
+import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
 import type {
   FreezeReason,
   NiriPane,
@@ -50,10 +62,6 @@ const largePasteWarningBytes = 16 * 1024;
 const maxPasteBytes = 1024 * 1024;
 const resizeDebounceMs = 80;
 
-interface Disposable {
-  dispose(): void;
-}
-
 interface PendingTerminalOutput {
   byteCount: number;
   dataBase64: string;
@@ -67,6 +75,10 @@ interface PendingPaste {
 type TerminalStatusEvent = TerminalEvent & {
   type: Exclude<TerminalEvent["type"], "terminal.output">;
 };
+
+interface TerminalSurfaceAdapterOptions {
+  onProfileSelected?: (paneId: string, profileId: string) => void;
+}
 
 export class TerminalSurfaceAdapter implements SurfaceAdapter {
   readonly kind = "terminal" as const;
@@ -85,19 +97,22 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private readonly pendingOutput: PendingTerminalOutput[] = [];
   private pendingPaste: PendingPaste | null = null;
   private pasteOverlay: TerminalPasteElements | null = null;
+  private profileList: TerminalProfileList | null = null;
+  private profileSelect: HTMLSelectElement | null = null;
   private resizeTimer: number | null = null;
-  private search: TerminalSearchElements | null = null;
-  private searchAddon: XtermSearchAddon | null = null;
-  private searchResultCount = 0;
-  private searchResultIndex = -1;
+  private restartButton: HTMLButtonElement | null = null;
+  private readonly searchController = new TerminalSearchController();
+  private selectedProfile: TerminalProfile | null = null;
+  private selectedProfileId = "";
   private sessionId: string | null = null;
   private sessionStatus = "";
-  private settings: TerminalDisplaySettings = readTerminalDisplaySettings();
+  private settings: TerminalDisplaySettings = defaultTerminalDisplaySettings;
   private startPromise: Promise<void> | null = null;
   private status: HTMLElement | null = null;
   private terminal: XtermTerminal | null = null;
-  private terminalDisposables: Disposable[] = [];
-  private unsubscribeDisplaySettings: (() => void) | null = null;
+  private terminalDisposables: TerminalDisposable[] = [];
+  private allowExplicitProfileStart = false;
+  private unsubscribeProfileChanges: (() => void) | null = null;
   private unsubscribeBackendStatus: (() => void) | null = null;
   private unsubscribeEvents: (() => void) | null = null;
   private visible = false;
@@ -107,6 +122,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   constructor(
     private readonly pane: NiriPane,
     private readonly workspaceId: string = "empty",
+    private readonly options: TerminalSurfaceAdapterOptions = {},
   ) {}
 
   get surfaceId(): SurfaceId {
@@ -122,7 +138,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.status = content.status;
     this.exitOverlay = content.exitOverlay;
     this.exitOverlayMessage = content.exitOverlayMessage;
-    this.search = content.search;
+    this.profileSelect = content.profileSelect;
+    this.restartButton = content.restartButton;
+    this.searchController.setElements(content.search);
     this.pasteOverlay = content.pasteOverlay;
     content.viewport.addEventListener("copy", (event) => this.handleCopyEvent(event), {
       capture: true,
@@ -130,13 +148,22 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     content.viewport.addEventListener("paste", (event) => this.handlePasteEvent(event), {
       capture: true,
     });
-    content.search.input.addEventListener("input", () => this.findNext(true));
-    content.search.input.addEventListener("keydown", (event) => this.handleSearchKeydown(event));
-    content.search.nextButton.addEventListener("click", () => this.findNext(false));
-    content.search.previousButton.addEventListener("click", () => this.findPrevious());
-    content.search.closeButton.addEventListener("click", () => this.closeSearch());
+    content.search.input.addEventListener("input", () => this.searchController.findNext(true));
+    content.search.input.addEventListener("keydown", (event) =>
+      this.searchController.handleKeydown(event),
+    );
+    content.search.nextButton.addEventListener("click", () =>
+      this.searchController.findNext(false),
+    );
+    content.search.previousButton.addEventListener("click", () =>
+      this.searchController.findPrevious(),
+    );
+    content.search.closeButton.addEventListener("click", () => this.searchController.close());
     content.pasteOverlay.confirmButton.addEventListener("click", () => this.confirmPendingPaste());
     content.pasteOverlay.cancelButton.addEventListener("click", () => this.cancelPendingPaste());
+    content.profileSelect.addEventListener("change", () => {
+      this.selectProfile(content.profileSelect.value);
+    });
     content.restartButton.addEventListener("click", () => this.restartSession());
     content.closeButton.addEventListener("click", () => this.closeExitedSession());
     host.replaceChildren(content.root);
@@ -150,10 +177,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.unsubscribeBackendStatus =
       window.setta?.backend.onProcessStatus((status) => this.handleBackendProcessStatus(status)) ??
       null;
-    this.unsubscribeDisplaySettings = subscribeTerminalDisplaySettings((settings) => {
-      this.applyDisplaySettings(settings);
+    this.unsubscribeProfileChanges = subscribeTerminalProfilesChanged((profiles) => {
+      this.applyProfileList(profiles);
     });
-    void this.mountTerminal(content.viewport)
+    void this.loadProfiles()
+      .then(() => this.mountTerminal(content.viewport))
       .then(() => {
         this.startSession();
       })
@@ -168,15 +196,17 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.unsubscribeEvents = null;
     this.unsubscribeBackendStatus?.();
     this.unsubscribeBackendStatus = null;
-    this.unsubscribeDisplaySettings?.();
-    this.unsubscribeDisplaySettings = null;
+    this.unsubscribeProfileChanges?.();
+    this.unsubscribeProfileChanges = null;
     this.disposeTerminal();
     this.host?.replaceChildren();
     this.host = null;
     this.status = null;
     this.exitOverlay = null;
     this.exitOverlayMessage = null;
-    this.search = null;
+    this.profileSelect = null;
+    this.restartButton = null;
+    this.searchController.setElements(null);
     this.pasteOverlay = null;
     this.pendingPaste = null;
     this.visible = false;
@@ -253,53 +283,122 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
   }
 
-  private async mountTerminal(viewport: HTMLElement): Promise<void> {
-    const [{ Terminal }, { FitAddon }, { SearchAddon }, { WebLinksAddon }] = await Promise.all([
-      import("@xterm/xterm"),
-      import("@xterm/addon-fit"),
-      import("@xterm/addon-search"),
-      import("@xterm/addon-web-links"),
-    ]);
-    if (!this.host || this.destroyed || !this.host.contains(viewport)) {
+  private async loadProfiles(): Promise<void> {
+    const profile = await this.loadSelectedProfile();
+    if (!profile) {
+      this.showStatus("Terminal profiles are unavailable.");
+    }
+  }
+
+  private async loadSelectedProfile(): Promise<TerminalProfile | null> {
+    const api = terminalAPI();
+    if (!api) {
+      return null;
+    }
+    const profiles = await api.listProfiles();
+    this.applyProfileList(profiles);
+    return this.selectedProfile;
+  }
+
+  private applyProfileList(profiles: TerminalProfileList): void {
+    this.profileList = profiles;
+    const preferredProfileId =
+      this.selectedProfileId ||
+      this.pane.terminalConfig?.profileId ||
+      selectedProfileIdForPane(this.pane, profiles);
+    this.selectedProfile =
+      profiles.profiles.find((profile) => profile.id === preferredProfileId) ??
+      profileForPane(this.pane, profiles) ??
+      profiles.profiles[0] ??
+      null;
+    this.selectedProfileId = this.selectedProfile?.id ?? profiles.defaultProfileId;
+    this.renderProfileSelect();
+    this.applyDisplaySettings(terminalProfileDisplaySettings(this.selectedProfile));
+  }
+
+  private selectProfile(profileId: string): void {
+    const profiles = this.profileList;
+    if (!profiles) {
       return;
     }
-    this.settings = readTerminalDisplaySettings();
-    const terminal = new Terminal({
-      allowProposedApi: false,
-      convertEol: true,
-      cursorBlink: true,
-      fontFamily: this.settings.fontFamily,
-      fontSize: this.settings.fontSize,
-      rows: defaultRows,
-      scrollback: this.settings.scrollback,
-      theme: terminalTheme(this.settings.themeId),
+    const profile = profiles.profiles.find((candidate) => candidate.id === profileId);
+    if (!profile) {
+      this.renderProfileSelect();
+      return;
+    }
+    this.selectedProfile = profile;
+    this.selectedProfileId = profile.id;
+    this.allowExplicitProfileStart = false;
+    this.options.onProfileSelected?.(this.pane.paneId, profile.id);
+    this.renderProfileSelect();
+    this.applyDisplaySettings(terminalProfileDisplaySettings(profile));
+    if (this.sessionId) {
+      this.showStatus("Profile applies after restart");
+      return;
+    }
+    this.startPromise = null;
+    this.startSession();
+  }
+
+  private renderProfileSelect(): void {
+    const select = this.profileSelect;
+    const profiles = this.profileList;
+    if (!select) {
+      return;
+    }
+    if (!profiles || profiles.profiles.length === 0) {
+      select.disabled = true;
+      select.replaceChildren();
+      return;
+    }
+    const document = select.ownerDocument;
+    const options = profiles.profiles.map((profile) => {
+      const option = document.createElement("option");
+      option.value = profile.id;
+      option.textContent =
+        profile.id === profiles.defaultProfileId ? `${profile.name} (default)` : profile.name;
+      return option;
     });
-    const fitAddon = new FitAddon();
-    const searchAddon = new SearchAddon({ highlightLimit: 1000 });
-    const webLinksAddon = new WebLinksAddon((event, uri) => {
-      this.openExternalUrl(event, uri);
-    });
-    terminal.loadAddon(fitAddon);
-    terminal.loadAddon(searchAddon);
-    terminal.loadAddon(webLinksAddon);
-    terminal.attachCustomKeyEventHandler((event) => this.handleTerminalKeyEvent(event));
-    terminal.open(viewport);
-    this.terminal = terminal;
-    this.fitAddon = fitAddon;
-    this.searchAddon = searchAddon;
-    this.terminalDisposables = [
-      terminal.onData((data) => {
+    select.replaceChildren(...options);
+    select.disabled = false;
+    select.value = this.selectedProfileId || profiles.defaultProfileId;
+  }
+
+  private showDeferredProfileStart(profile: TerminalProfile): void {
+    this.sessionStatus = "waiting";
+    this.showStatus(`${profile.name} requires start`);
+    this.showExitOverlayWithAction(`Start ${profile.name}?`, "Start");
+    this.syncHostState();
+  }
+
+  private async mountTerminal(viewport: HTMLElement): Promise<void> {
+    this.settings = terminalProfileDisplaySettings(this.selectedProfile);
+    const mounted = await mountXtermTerminal({
+      isCurrent: () => Boolean(this.host && !this.destroyed && this.host.contains(viewport)),
+      onData: (data) => {
         this.sendInput(data);
-      }),
-      terminal.onResize(({ cols, rows }) => {
+      },
+      onOpenExternalUrl: (event, uri) => {
+        this.openExternalUrl(event, uri);
+      },
+      onResize: ({ cols, rows }) => {
         this.scheduleResize(cols, rows);
-      }),
-      searchAddon.onDidChangeResults((results) => {
-        this.searchResultIndex = results.resultIndex;
-        this.searchResultCount = results.resultCount;
-        this.renderSearchStatus();
-      }),
-    ];
+      },
+      onSearchResults: (results) => {
+        this.searchController.handleResults(results);
+      },
+      settings: this.settings,
+      terminalKeyHandler: (event) => this.handleTerminalKeyEvent(event),
+      viewport,
+    });
+    if (!mounted) {
+      return;
+    }
+    this.terminal = mounted.terminal;
+    this.fitAddon = mounted.fitAddon;
+    this.searchController.setSearchAddon(mounted.searchAddon);
+    this.searchController.setTerminal(mounted.terminal);
+    this.terminalDisposables = mounted.disposables;
     this.fitAndResize();
     this.drainPendingOutput();
   }
@@ -322,10 +421,15 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.showStatus(this.sessionId ? "Attaching shell" : "Starting shell");
     this.startPromise = this.attachOrCreateSession(api, dimensions)
       .then((response) => {
+        this.allowExplicitProfileStart = false;
         this.applySessionSummary(response.session);
         this.fitAndResize();
       })
       .catch((error: unknown) => {
+        if (error instanceof TerminalStartDeferred) {
+          return;
+        }
+        this.allowExplicitProfileStart = false;
         if (this.sessionId) {
           this.showLostSession(errorMessage(error));
           return;
@@ -339,22 +443,28 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     api: NonNullable<ReturnType<typeof terminalAPI>>,
     dimensions: { cols: number; rows: number },
   ) {
-    try {
-      return await api.attach(this.workspaceId, this.pane.paneId);
-    } catch (error: unknown) {
-      if (this.sessionId) {
-        throw error;
-      }
-      this.showStatus("Starting shell");
-      return api.create(this.workspaceId, this.pane.paneId, {
-        cols: dimensions.cols,
-        rows: dimensions.rows,
-      });
-    }
+    const profile = this.selectedProfile ?? (await this.loadSelectedProfile());
+    return attachOrCreateTerminalSession(api, {
+      allowExplicitProfileStart: this.allowExplicitProfileStart,
+      cwdOverride: this.pane.terminalConfig?.cwdOverride ?? "",
+      dimensions,
+      paneId: this.pane.paneId,
+      profile,
+      profileId: this.selectedProfileId,
+      sessionId: this.sessionId,
+      showDeferredProfileStart: (deferredProfile) => {
+        this.showDeferredProfileStart(deferredProfile);
+      },
+      showStartingStatus: () => {
+        this.showStatus("Starting shell");
+      },
+      workspaceId: this.workspaceId,
+    });
   }
 
   private applySessionSummary(session: TerminalSessionSummary): void {
     this.sessionId = session.id;
+    this.selectedProfileId = session.profileId;
     this.sessionStatus = session.status;
     this.lostSession = false;
     this.lastResize = {
@@ -362,6 +472,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       rows: session.rows,
     };
     this.showStatus(statusLabel(session.status, session.cwd));
+    this.renderProfileSelect();
     if (session.status === "exited") {
       this.showExitOverlay(exitStatusLabel(session.exitCode, session.message));
     } else if (session.status === "error") {
@@ -490,7 +601,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
     if (isTerminalSearchShortcut(event)) {
       event.preventDefault();
-      this.openSearch();
+      this.searchController.open();
       return false;
     }
     return true;
@@ -647,87 +758,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     }
   }
 
-  private openSearch(): void {
-    this.search?.root.removeAttribute("hidden");
-    this.search?.input.focus?.();
-    this.search?.input.select?.();
-    this.findNext(true);
-  }
-
-  private closeSearch(): void {
-    this.search?.root.setAttribute("hidden", "true");
-    this.searchAddon?.clearDecorations();
-    this.searchAddon?.clearActiveDecoration();
-    this.searchResultCount = 0;
-    this.searchResultIndex = -1;
-    this.renderSearchStatus();
-    this.terminal?.focus();
-  }
-
-  private findNext(incremental: boolean): void {
-    const query = this.search?.input.value.trim() ?? "";
-    if (query.length === 0) {
-      this.searchAddon?.clearDecorations();
-      this.searchResultCount = 0;
-      this.searchResultIndex = -1;
-      this.renderSearchStatus();
-      return;
-    }
-    const found = this.searchAddon?.findNext(query, terminalSearchOptions(incremental)) ?? false;
-    if (!found) {
-      this.searchResultCount = 0;
-      this.searchResultIndex = -1;
-      this.renderSearchStatus();
-    }
-  }
-
-  private findPrevious(): void {
-    const query = this.search?.input.value.trim() ?? "";
-    if (query.length === 0) {
-      return;
-    }
-    const found = this.searchAddon?.findPrevious(query, terminalSearchOptions(false)) ?? false;
-    if (!found) {
-      this.searchResultCount = 0;
-      this.searchResultIndex = -1;
-      this.renderSearchStatus();
-    }
-  }
-
-  private handleSearchKeydown(event: KeyboardEvent): void {
-    event.stopPropagation();
-    if (event.key === "Escape") {
-      event.preventDefault();
-      this.closeSearch();
-      return;
-    }
-    if (event.key !== "Enter") {
-      return;
-    }
-    event.preventDefault();
-    if (event.shiftKey) {
-      this.findPrevious();
-      return;
-    }
-    this.findNext(false);
-  }
-
-  private renderSearchStatus(): void {
-    if (!this.search) {
-      return;
-    }
-    if (this.searchResultCount <= 0) {
-      this.search.status.textContent =
-        this.search.input.value.trim().length === 0 ? "" : "No matches";
-      return;
-    }
-    if (this.searchResultIndex < 0) {
-      this.search.status.textContent = `${this.searchResultCount} matches`;
-      return;
-    }
-    this.search.status.textContent = `${this.searchResultIndex + 1}/${this.searchResultCount}`;
-  }
-
   private openExternalUrl(event: MouseEvent, uri: string): void {
     event.preventDefault();
     event.stopPropagation();
@@ -774,6 +804,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
 
   private restartSession(): void {
     const previousSessionId = this.sessionId;
+    this.allowExplicitProfileStart = true;
     this.sessionId = null;
     this.sessionStatus = "";
     this.lostSession = false;
@@ -872,7 +903,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.terminal?.dispose();
     this.terminal = null;
     this.fitAddon = null;
-    this.searchAddon = null;
+    this.searchController.setSearchAddon(null);
+    this.searchController.setTerminal(null);
   }
 
   private clearResizeTimer(): void {
@@ -891,8 +923,15 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
 
   private showExitOverlay(message: string): void {
+    this.showExitOverlayWithAction(message, "Restart");
+  }
+
+  private showExitOverlayWithAction(message: string, actionLabel: string): void {
     if (this.exitOverlayMessage) {
       this.exitOverlayMessage.textContent = message;
+    }
+    if (this.restartButton) {
+      this.restartButton.textContent = actionLabel;
     }
     this.exitOverlay?.removeAttribute("hidden");
   }
@@ -944,39 +983,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.host.dataset.terminalDirtyRows = String(this.stats.dirtyRows);
     this.host.dataset.terminalLost = String(this.lostSession);
     this.host.dataset.terminalPendingChunks = String(this.stats.pendingOutputChunks);
+    this.host.dataset.terminalProfileId = this.selectedProfileId;
     this.host.dataset.terminalSessionId = this.sessionId ?? "";
     this.host.dataset.terminalStatus = this.sessionStatus;
     this.host.dataset.terminalScrollbackRows = String(this.stats.scrollbackRows);
     this.host.dataset.terminalVirtualRows = String(this.stats.renderedRows);
     this.host.style.visibility = this.visible ? "visible" : "hidden";
   }
-}
-
-function emptyTerminalStats(): TerminalSurfaceStats {
-  return {
-    dirtyRows: 0,
-    droppedOutputChunks: 0,
-    liveTerminalRendererCount: 0,
-    pendingOutputChunks: 0,
-    renderedRows: 0,
-    scrollbackRows: 0,
-  };
-}
-
-function performanceNow(): number {
-  if (typeof performance === "undefined") {
-    return Date.now();
-  }
-  return performance.now();
-}
-
-function terminalAPI() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return window.setta?.terminal ?? null;
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled terminal event type: ${String(value)}`);
 }
