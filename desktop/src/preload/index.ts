@@ -209,6 +209,15 @@ const api: SettaAPI = {
     refresh: (request) => invoke("codexAccountRefresh", request),
     startLogin: (request) => invoke("codexAccountStartLogin", request),
   },
+  semanticGraph: {
+    listActivity: (request) => invoke("semanticGraphActivityList", request),
+    listEvidence: (request) => invoke("semanticGraphEvidenceList", request),
+    read: (request) => invoke("semanticGraphRead", request),
+    readEventHistory: (request) => invoke("semanticGraphEventHistory", request),
+    readNodeDetail: (request) => invoke("semanticGraphNodeDetail", request),
+    readSteeringState: (request) => invoke("semanticGraphSteeringRead", request),
+    updateLayoutPositions: (request) => invoke("semanticGraphLayoutUpdate", request),
+  },
   workflow: {
     cancelExecution: (workspaceId, executionId) =>
       invoke("workflowCancelExecution", workspaceId, executionId),

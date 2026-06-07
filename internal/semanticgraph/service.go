@@ -126,6 +126,13 @@ func (service *Service) ReadEventHistory(ctx context.Context, workspaceID string
 	return service.store.ReadEventHistory(ctx, workspaceID, targetEntityID, beforeLogicalClock, limit)
 }
 
+func (service *Service) UpdateLayoutPositions(ctx context.Context, workspaceID string, positions []SemanticLayoutPositionInput) (SemanticLayoutPositionList, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return SemanticLayoutPositionList{}, err
+	}
+	return service.store.UpdateLayoutPositions(ctx, workspaceID, positions, timestamp(service.now()))
+}
+
 func (service *Service) resolveWorkspace(workspaceID string) (workspace.WorkspaceSummary, error) {
 	if err := validateStoreIDs("workspace id", workspaceID); err != nil {
 		return workspace.WorkspaceSummary{}, err

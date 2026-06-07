@@ -1,8 +1,15 @@
-interface WorkflowGraphNode {
+export interface WorkflowGraphNode {
+  activity?: {
+    active: boolean;
+    count: number;
+    kind: string;
+  } | null;
   color: number;
+  connectable?: boolean;
   diagnostic?: WorkflowGraphDiagnostic | null;
   height: number;
   id: string;
+  layer?: "semantic" | "workflow";
   label: string;
   ports?: WorkflowGraphPort[];
   width: number;
@@ -10,7 +17,7 @@ interface WorkflowGraphNode {
   y: number;
 }
 
-interface WorkflowGraphPort {
+export interface WorkflowGraphPort {
   id: string;
   label: string;
   role: "source" | "target";
@@ -18,23 +25,27 @@ interface WorkflowGraphPort {
   yRatio: number;
 }
 
-interface WorkflowGraphEdge {
+export interface WorkflowGraphEdge {
+  alpha?: number;
+  color?: number;
   diagnostic?: WorkflowGraphDiagnostic | null;
   id: string;
+  layer?: "semantic" | "workflow";
   label?: string;
   sourceNodeId: string;
   sourcePortId: string;
   targetNodeId: string;
   targetPortId: string;
+  width?: number;
 }
 
-interface WorkflowGraphDiagnostic {
+export interface WorkflowGraphDiagnostic {
   codes: string[];
   count: number;
   severity: "error" | "warning";
 }
 
-interface WorkflowGraphGraph {
+export interface WorkflowGraphGraph {
   edges: WorkflowGraphEdge[];
   nodes: WorkflowGraphNode[];
   workflow?: {
@@ -57,7 +68,8 @@ export interface WorkflowGraphCameraState {
   zoom: number;
 }
 
-interface WorkflowGraphNodePosition {
+export interface WorkflowGraphNodePosition {
+  moved: boolean;
   nodeId: string;
   x: number;
   y: number;

@@ -328,6 +328,11 @@ type ReadSemanticEventHistoryRequest struct {
 	Limit              int    `json:"limit"`
 }
 
+type UpdateSemanticLayoutPositionsRequest struct {
+	WorkspaceID string                                      `json:"workspaceId"`
+	Positions   []semanticgraph.SemanticLayoutPositionInput `json:"positions"`
+}
+
 type CreateTerminalRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	PaneID      string `json:"paneId"`

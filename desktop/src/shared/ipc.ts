@@ -24,14 +24,27 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   ReadWorkflowGraphProjectionResponse,
+  ReadSemanticEventHistoryRequest,
+  ReadSemanticGraphRequest,
+  ReadSemanticNodeDetailRequest,
+  ReadSemanticNodeDetailResponse,
+  ReadSemanticSteeringStateRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  ListSemanticActivityRequest,
+  ListSemanticEvidenceRequest,
   SendMessageResult,
   SelectDefaultTerminalProfileRequest,
+  SemanticActivityList,
+  SemanticEventHistory,
+  SemanticEvidenceList,
+  SemanticGraph,
+  SemanticLayoutPositionList,
+  SemanticSteeringState,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
@@ -42,6 +55,7 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateSemanticLayoutPositionsRequest,
   UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowExecution,
@@ -98,6 +112,13 @@ export const ipcChannels = {
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
+  semanticGraphActivityList: "semantic-graph:activity-list",
+  semanticGraphEventHistory: "semantic-graph:event-history",
+  semanticGraphEvidenceList: "semantic-graph:evidence-list",
+  semanticGraphLayoutUpdate: "semantic-graph:layout-update",
+  semanticGraphNodeDetail: "semantic-graph:node-detail",
+  semanticGraphRead: "semantic-graph:read",
+  semanticGraphSteeringRead: "semantic-graph:steering-read",
   workspaceBrowserViewStats: "workspace:browser-view-stats",
   workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   terminalAttach: "terminal:attach",
@@ -311,6 +332,34 @@ interface IpcContract {
   codexAccountStartLogin: {
     args: [request: StartCodexLoginRequest];
     result: StartCodexLoginResponse;
+  };
+  semanticGraphActivityList: {
+    args: [request: ListSemanticActivityRequest];
+    result: SemanticActivityList;
+  };
+  semanticGraphEventHistory: {
+    args: [request: ReadSemanticEventHistoryRequest];
+    result: SemanticEventHistory;
+  };
+  semanticGraphEvidenceList: {
+    args: [request: ListSemanticEvidenceRequest];
+    result: SemanticEvidenceList;
+  };
+  semanticGraphLayoutUpdate: {
+    args: [request: UpdateSemanticLayoutPositionsRequest];
+    result: SemanticLayoutPositionList;
+  };
+  semanticGraphNodeDetail: {
+    args: [request: ReadSemanticNodeDetailRequest];
+    result: ReadSemanticNodeDetailResponse;
+  };
+  semanticGraphRead: {
+    args: [request: ReadSemanticGraphRequest];
+    result: SemanticGraph;
+  };
+  semanticGraphSteeringRead: {
+    args: [request: ReadSemanticSteeringStateRequest];
+    result: SemanticSteeringState;
   };
   workspaceBrowserViewStats: {
     args: [];

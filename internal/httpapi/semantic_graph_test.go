@@ -100,6 +100,36 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	if len(history.Events) != 5 || history.Events[0].EventType != semanticgraph.EventNodeCreated {
 		t.Fatalf("history = %+v, want five target events in chronological order", history.Events)
 	}
+
+	assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t, handler, workspaceID)
+}
+
+func assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
+	positions := postJSON[semanticgraph.SemanticLayoutPositionList](t, handler, "/semantic-graph/layout/update", UpdateSemanticLayoutPositionsRequest{
+		WorkspaceID: workspaceID,
+		Positions: []semanticgraph.SemanticLayoutPositionInput{
+			{EntityID: "node_scope", X: 80, Y: -40, Pinned: true},
+		},
+	}, http.StatusOK)
+	if len(positions.Positions) != 1 || positions.Positions[0].EntityID != "node_scope" || !positions.Positions[0].Pinned {
+		t.Fatalf("layout update response = %+v, want pinned node_scope", positions)
+	}
+	graph := postJSON[semanticgraph.SemanticGraph](t, handler, "/semantic-graph/read", ReadSemanticGraphRequest{
+		WorkspaceID: workspaceID,
+	}, http.StatusOK)
+	if len(graph.LayoutPositions) != 1 || graph.LayoutPositions[0].X != 80 || graph.LayoutPositions[0].Y != -40 {
+		t.Fatalf("graph layout positions = %+v, want persisted node_scope position", graph.LayoutPositions)
+	}
+	history := postJSON[semanticgraph.SemanticEventHistory](t, handler, "/semantic-graph/events/history", ReadSemanticEventHistoryRequest{
+		WorkspaceID:        workspaceID,
+		TargetEntityID:     "node_scope",
+		BeforeLogicalClock: 0,
+		Limit:              20,
+	}, http.StatusOK)
+	if len(history.Events) != 5 {
+		t.Fatalf("history after layout update = %+v, want no appended semantic event", history.Events)
+	}
 }
 
 func newSemanticGraphHandler(t *testing.T) (http.Handler, *semanticgraph.Service) {

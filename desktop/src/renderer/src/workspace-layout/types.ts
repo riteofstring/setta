@@ -8,6 +8,7 @@ export const productSurfaceKinds = [
   "workflow-graph",
   "settings-dom",
   "terminal",
+  "semantic-node-details",
   "workflow-node-details",
   "workflow-settings",
 ] as const;

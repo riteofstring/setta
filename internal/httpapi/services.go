@@ -89,6 +89,7 @@ type SemanticGraphService interface {
 	ListActivity(context.Context, string, string, int) (semanticgraph.SemanticActivityList, error)
 	ReadSteeringState(context.Context, string, string) (semanticgraph.SemanticSteeringState, error)
 	ReadEventHistory(context.Context, string, string, int, int) (semanticgraph.SemanticEventHistory, error)
+	UpdateLayoutPositions(context.Context, string, []semanticgraph.SemanticLayoutPositionInput) (semanticgraph.SemanticLayoutPositionList, error)
 }
 
 type TerminalService interface {

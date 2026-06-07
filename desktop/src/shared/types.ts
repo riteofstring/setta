@@ -22,6 +22,11 @@ import type {
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  ReadSemanticEventHistoryRequest,
+  ReadSemanticGraphRequest,
+  ReadSemanticNodeDetailRequest,
+  ReadSemanticNodeDetailResponse,
+  ReadSemanticSteeringStateRequest,
   ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
@@ -29,6 +34,14 @@ import type {
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  ListSemanticActivityRequest,
+  ListSemanticEvidenceRequest,
+  SemanticActivityList,
+  SemanticEventHistory,
+  SemanticEvidenceList,
+  SemanticGraph,
+  SemanticLayoutPositionList,
+  SemanticSteeringState,
   SendMessageResult,
   SelectDefaultTerminalProfileRequest,
   StartCodexLoginRequest,
@@ -42,6 +55,7 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateSemanticLayoutPositionsRequest,
   UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowEvent,
@@ -369,6 +383,21 @@ export interface SettaAPI {
     read: () => Promise<CodexAccountState>;
     refresh: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
     startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
+  };
+  semanticGraph: {
+    listActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
+    listEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
+    read: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
+    readEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
+    readNodeDetail: (
+      request: ReadSemanticNodeDetailRequest,
+    ) => Promise<ReadSemanticNodeDetailResponse>;
+    readSteeringState: (
+      request: ReadSemanticSteeringStateRequest,
+    ) => Promise<SemanticSteeringState>;
+    updateLayoutPositions: (
+      request: UpdateSemanticLayoutPositionsRequest,
+    ) => Promise<SemanticLayoutPositionList>;
   };
   workflow: {
     cancelExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;

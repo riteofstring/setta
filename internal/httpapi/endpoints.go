@@ -90,6 +90,7 @@ var apiEndpoints = []endpoint{
 	post[ListSemanticActivityRequest, semanticgraph.SemanticActivityList]("ListSemanticActivity", "/semantic-graph/activity/list", handler.listSemanticActivity),
 	post[ReadSemanticSteeringStateRequest, semanticgraph.SemanticSteeringState]("ReadSemanticSteeringState", "/semantic-graph/steering/read", handler.readSemanticSteeringState),
 	post[ReadSemanticEventHistoryRequest, semanticgraph.SemanticEventHistory]("ReadSemanticEventHistory", "/semantic-graph/events/history", handler.readSemanticEventHistory),
+	post[UpdateSemanticLayoutPositionsRequest, semanticgraph.SemanticLayoutPositionList]("UpdateSemanticLayoutPositions", "/semantic-graph/layout/update", handler.updateSemanticLayoutPositions),
 	post[CreateTerminalRequest, TerminalSessionResponse]("CreateTerminal", "/terminals/create", handler.createTerminal),
 	post[AttachTerminalRequest, TerminalSessionResponse]("AttachTerminal", "/terminals/attach", handler.attachTerminal),
 	post[TerminalInputRequest, TerminalInputResponse]("TerminalInput", "/terminals/input", handler.terminalInput),

@@ -35,6 +35,7 @@ import {
   drawWorkspaceGlow,
   edgeConnection,
   hostScreenSize,
+  interactivePortsForNode,
   isSelectionToggleEvent,
   isZoomWheel,
   marqueeBounds,
@@ -45,7 +46,6 @@ import {
   parsePortKey,
   pointInsideNodeBounds,
   portKey,
-  portsForNode,
   portLocalPosition,
   portWorldPosition,
   releasePointer,
@@ -59,6 +59,8 @@ import {
 const backgroundColor = 0x07080d;
 const maxZoom = 4;
 const minZoom = 0.25;
+const nodeOpenClickDistanceScreen = 6;
+const nodeOpenClickIntervalMs = 500;
 const portHitRadiusScreen = 18;
 function noopCameraStateChange() {}
 function initializeWorkflowGraphNodes({
@@ -144,6 +146,7 @@ export async function createWorkflowGraphRenderer({
   const hoveredNodeIds = new Set();
   let draggingNode = null;
   let drawingEdge = null;
+  let lastNodeClick = null;
   let drawingMarquee = null;
   let panningCamera = null;
   let activeTargetPortKey = null;
@@ -207,6 +210,7 @@ export async function createWorkflowGraphRenderer({
       role: "source",
     });
     if (sourcePort) {
+      clearLastNodeClick();
       startEdgeDrawing(sourcePort.nodeId, sourcePort.portId);
       capturePointer(event);
       stopNativeInteraction(event);
@@ -214,7 +218,8 @@ export async function createWorkflowGraphRenderer({
     }
     const node = hitTestNodeAtScreen(screen);
     if (node) {
-      if (nodeOpenRequested(event, onNodeOpen)) {
+      if (nodeOpenRequested(event, onNodeOpen) || repeatedNodeOpenRequested(node.id, screen)) {
+        clearLastNodeClick();
         selectOnlyNode(node.id);
         onNodeOpen(node.id);
         capturePointer(event);
@@ -222,6 +227,7 @@ export async function createWorkflowGraphRenderer({
         return;
       }
       if (isSelectionToggleEvent(event)) {
+        clearLastNodeClick();
         toggleNodeSelection(node.id);
         capturePointer(event);
         stopNativeInteraction(event);
@@ -233,6 +239,7 @@ export async function createWorkflowGraphRenderer({
       return;
     }
     if (event.shiftKey) {
+      clearLastNodeClick();
       startMarqueeSelection(screen);
       capturePointer(event);
       stopNativeInteraction(event);
@@ -243,6 +250,7 @@ export async function createWorkflowGraphRenderer({
       return;
     }
     clearSelection();
+    clearLastNodeClick();
     startCameraPanning(screen);
     capturePointer(event);
     stopNativeInteraction(event);
@@ -466,7 +474,7 @@ export async function createWorkflowGraphRenderer({
       nodeShadows,
       onPointerOut: () => setHoveredNodeId(null),
       onPointerOver: () => setHoveredNodeId(node.id),
-      portContainers: portsForNode(node).map((port) => portContainer(node, port)),
+      portContainers: interactivePortsForNode(node).map((port) => portContainer(node, port)),
     });
   }
   function acquireLabel(nodeId) {
@@ -550,6 +558,8 @@ export async function createWorkflowGraphRenderer({
       })),
       moved: false,
       primaryNodeId: node.id,
+      startScreenX: screen.x,
+      startScreenY: screen.y,
     };
     for (const draggedNode of draggedNodes) {
       const body = nodeBodies.get(draggedNode.id);
@@ -584,21 +594,51 @@ export async function createWorkflowGraphRenderer({
     redrawGlow();
   }
   function finishNodeDragging() {
-    const shouldPersistPositions = draggingNode?.moved === true;
+    const completedDrag = draggingNode;
+    const shouldPersistPositions = completedDrag?.moved === true;
+    const movedNodeIds = new Set(completedDrag?.nodes.map((node) => node.nodeId) ?? []);
     viewport.plugins.resume("decelerate");
     draggingNode = null;
     for (const body of nodeBodies.values()) {
       body.cursor = "grab";
     }
     if (shouldPersistPositions && onNodePositionsChange) {
+      clearLastNodeClick();
       onNodePositionsChange(
         nodes.map((node) => ({
+          moved: movedNodeIds.has(node.id),
           nodeId: node.id,
           x: Math.round(node.x),
           y: Math.round(node.y),
         })),
       );
+      return;
     }
+    if (completedDrag) {
+      recordNodeClick(completedDrag.primaryNodeId, {
+        x: completedDrag.startScreenX,
+        y: completedDrag.startScreenY,
+      });
+    }
+  }
+  function repeatedNodeOpenRequested(nodeId, screen) {
+    if (onNodeOpen === null || lastNodeClick === null || lastNodeClick.nodeId !== nodeId) {
+      return false;
+    }
+    const elapsed = performance.now() - lastNodeClick.time;
+    const distance = Math.hypot(screen.x - lastNodeClick.x, screen.y - lastNodeClick.y);
+    return elapsed <= nodeOpenClickIntervalMs && distance <= nodeOpenClickDistanceScreen;
+  }
+  function recordNodeClick(nodeId, screen) {
+    lastNodeClick = {
+      nodeId,
+      time: performance.now(),
+      x: screen.x,
+      y: screen.y,
+    };
+  }
+  function clearLastNodeClick() {
+    lastNodeClick = null;
   }
   function startCameraPanning(screen) {
     panningCamera = {
@@ -718,7 +758,7 @@ export async function createWorkflowGraphRenderer({
     temporaryEdgeGraphics.clear();
     viewport.plugins.resume("decelerate");
     for (const node of nodes) {
-      for (const port of portsForNode(node)) {
+      for (const port of interactivePortsForNode(node)) {
         setPortVisualState(node.id, port.id, "idle");
       }
     }
@@ -803,10 +843,13 @@ export async function createWorkflowGraphRenderer({
     let bestDistance = Infinity;
     const candidates = spatialQueries.portHitCandidatesAtScreen(screen, portHitRadiusScreen);
     for (const node of candidates) {
+      if (node.connectable === false) {
+        continue;
+      }
       if (node.id === excludeNodeId) {
         continue;
       }
-      for (const port of portsForNode(node)) {
+      for (const port of interactivePortsForNode(node)) {
         if (port.role !== role) {
           continue;
         }

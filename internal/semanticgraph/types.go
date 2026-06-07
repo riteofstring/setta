@@ -271,6 +271,18 @@ type SemanticLayoutPosition struct {
 	UpdatedAt   string `json:"updatedAt"`
 }
 
+type SemanticLayoutPositionInput struct {
+	EntityID string `json:"entityId"`
+	X        int    `json:"x"`
+	Y        int    `json:"y"`
+	Pinned   bool   `json:"pinned"`
+}
+
+type SemanticLayoutPositionList struct {
+	WorkspaceID string                   `json:"workspaceId"`
+	Positions   []SemanticLayoutPosition `json:"positions"`
+}
+
 type SemanticGraph struct {
 	WorkspaceID     string                   `json:"workspaceId"`
 	Nodes           []SemanticNode           `json:"nodes"`

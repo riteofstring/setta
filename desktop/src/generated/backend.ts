@@ -2834,6 +2834,23 @@ export interface SemanticEventHistory {
   olderBeforeLogicalClock: number;
 }
 
+export interface SemanticLayoutPositionInput {
+  entityId: string;
+  x: number;
+  y: number;
+  pinned: boolean;
+}
+
+export interface UpdateSemanticLayoutPositionsRequest {
+  workspaceId: string;
+  positions: SemanticLayoutPositionInput[];
+}
+
+export interface SemanticLayoutPositionList {
+  workspaceId: string;
+  positions: SemanticLayoutPosition[];
+}
+
 export interface CreateTerminalRequest {
   workspaceId: string;
   paneId: string;
@@ -3547,6 +3564,10 @@ export const backendEndpoints = {
   ReadSemanticEventHistory: {
     method: "POST",
     path: "/semantic-graph/events/history",
+  },
+  UpdateSemanticLayoutPositions: {
+    method: "POST",
+    path: "/semantic-graph/layout/update",
   },
   CreateTerminal: {
     method: "POST",
@@ -5516,6 +5537,35 @@ export function decodeSemanticEventHistory(value: unknown): SemanticEventHistory
   };
 }
 
+export function decodeSemanticLayoutPositionInput(value: unknown): SemanticLayoutPositionInput {
+  const record = assertRecord(value, "SemanticLayoutPositionInput");
+  assertKnownFields(record, "SemanticLayoutPositionInput", ["entityId", "x", "y", "pinned"]);
+  return {
+    entityId: decodeString(requireField(record, "entityId", "SemanticLayoutPositionInput"), "SemanticLayoutPositionInput.entityId"),
+    x: decodeInteger(requireField(record, "x", "SemanticLayoutPositionInput"), "SemanticLayoutPositionInput.x"),
+    y: decodeInteger(requireField(record, "y", "SemanticLayoutPositionInput"), "SemanticLayoutPositionInput.y"),
+    pinned: decodeBoolean(requireField(record, "pinned", "SemanticLayoutPositionInput"), "SemanticLayoutPositionInput.pinned"),
+  };
+}
+
+export function decodeUpdateSemanticLayoutPositionsRequest(value: unknown): UpdateSemanticLayoutPositionsRequest {
+  const record = assertRecord(value, "UpdateSemanticLayoutPositionsRequest");
+  assertKnownFields(record, "UpdateSemanticLayoutPositionsRequest", ["workspaceId", "positions"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateSemanticLayoutPositionsRequest"), "UpdateSemanticLayoutPositionsRequest.workspaceId"),
+    positions: decodeArray(requireField(record, "positions", "UpdateSemanticLayoutPositionsRequest"), "UpdateSemanticLayoutPositionsRequest.positions", (item) => decodeSemanticLayoutPositionInput(item)),
+  };
+}
+
+export function decodeSemanticLayoutPositionList(value: unknown): SemanticLayoutPositionList {
+  const record = assertRecord(value, "SemanticLayoutPositionList");
+  assertKnownFields(record, "SemanticLayoutPositionList", ["workspaceId", "positions"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticLayoutPositionList"), "SemanticLayoutPositionList.workspaceId"),
+    positions: decodeArray(requireField(record, "positions", "SemanticLayoutPositionList"), "SemanticLayoutPositionList.positions", (item) => decodeSemanticLayoutPosition(item)),
+  };
+}
+
 export function decodeCreateTerminalRequest(value: unknown): CreateTerminalRequest {
   const record = assertRecord(value, "CreateTerminalRequest");
   assertKnownFields(record, "CreateTerminalRequest", ["workspaceId", "paneId", "profileId", "cwd", "cols", "rows"]);
@@ -6249,6 +6299,7 @@ export interface BackendClient {
   listSemanticActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
   readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest) => Promise<SemanticSteeringState>;
   readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
+  updateSemanticLayoutPositions: (request: UpdateSemanticLayoutPositionsRequest) => Promise<SemanticLayoutPositionList>;
   createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
   attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
   terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
@@ -6689,6 +6740,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticEventHistory,
       endpoint: backendEndpoints.ReadSemanticEventHistory,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateSemanticLayoutPositions: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticLayoutPositionList,
+      endpoint: backendEndpoints.UpdateSemanticLayoutPositions,
       fetchImpl,
       requestPayload: request,
     }),

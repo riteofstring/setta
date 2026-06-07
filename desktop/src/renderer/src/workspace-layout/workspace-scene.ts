@@ -21,6 +21,7 @@ export const defaultRealWorkspacePaneLimits = {
   "chat-dom": 10,
   "workflow-graph": 10,
   "settings-dom": 1,
+  "semantic-node-details": 1,
   terminal: 10,
   "workflow-node-details": 1,
   "workflow-settings": 1,

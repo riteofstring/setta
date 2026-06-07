@@ -63,9 +63,10 @@ describe("real workspace layout scene", () => {
   test("defines default pane limits for addable real workspace surfaces", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
       "chat-dom": 10,
-      "workflow-graph": 10,
+      "semantic-node-details": 1,
       "settings-dom": 1,
       terminal: 10,
+      "workflow-graph": 10,
       "workflow-node-details": 1,
       "workflow-settings": 1,
     });

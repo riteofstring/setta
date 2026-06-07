@@ -477,6 +477,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       }),
     },
     terminal: unimplementedTerminalAPI(),
+    semanticGraph: unimplementedSemanticGraphAPI(),
     workflow: unimplementedWorkflowAPI(),
     workspace: {
       close: async () => workspaceSession(),
@@ -536,6 +537,21 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     submitApproval: unavailable,
     updateDefinition: unavailable,
     validateDefinition: unavailable,
+  };
+}
+
+function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
+  const unavailable = async (): Promise<never> => {
+    throw new Error("semantic graph API is not implemented in this test");
+  };
+  return {
+    listActivity: unavailable,
+    listEvidence: unavailable,
+    read: unavailable,
+    readEventHistory: unavailable,
+    readNodeDetail: unavailable,
+    readSteeringState: unavailable,
+    updateLayoutPositions: unavailable,
   };
 }
 

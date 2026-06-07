@@ -525,6 +525,78 @@ describe("preload workspace API", () => {
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.terminalEvent, handler);
   });
 
+  test("exposes typed semantic graph methods through IPC", async () => {
+    const exposed: Record<string, unknown> = {};
+    const invoke = vi.fn();
+    vi.doMock("electron", () => ({
+      contextBridge: {
+        exposeInMainWorld: (name: string, api: unknown) => {
+          exposed[name] = api;
+        },
+      },
+      ipcRenderer: {
+        invoke,
+      },
+    }));
+
+    await import("./index");
+
+    const api = exposed.setta as SettaAPI;
+    expect(Object.keys(api.semanticGraph).sort()).toEqual([
+      "listActivity",
+      "listEvidence",
+      "read",
+      "readEventHistory",
+      "readNodeDetail",
+      "readSteeringState",
+      "updateLayoutPositions",
+    ]);
+
+    const workspaceId = "workspace_api";
+    await api.semanticGraph.read({ workspaceId });
+    await api.semanticGraph.readNodeDetail({ nodeId: "node_api", workspaceId });
+    await api.semanticGraph.listEvidence({ targetEntityId: "node_api", workspaceId });
+    await api.semanticGraph.listActivity({ limit: 10, targetEntityId: "node_api", workspaceId });
+    await api.semanticGraph.readSteeringState({ targetEntityId: "node_api", workspaceId });
+    await api.semanticGraph.readEventHistory({
+      beforeLogicalClock: 0,
+      limit: 20,
+      targetEntityId: "node_api",
+      workspaceId,
+    });
+    await api.semanticGraph.updateLayoutPositions({
+      positions: [{ entityId: "node_api", pinned: true, x: 12, y: -8 }],
+      workspaceId,
+    });
+
+    expectInvokeCalls(invoke, [
+      [ipcChannels.semanticGraphRead, { workspaceId }],
+      [ipcChannels.semanticGraphNodeDetail, { nodeId: "node_api", workspaceId }],
+      [ipcChannels.semanticGraphEvidenceList, { targetEntityId: "node_api", workspaceId }],
+      [
+        ipcChannels.semanticGraphActivityList,
+        { limit: 10, targetEntityId: "node_api", workspaceId },
+      ],
+      [ipcChannels.semanticGraphSteeringRead, { targetEntityId: "node_api", workspaceId }],
+      [
+        ipcChannels.semanticGraphEventHistory,
+        {
+          beforeLogicalClock: 0,
+          limit: 20,
+          targetEntityId: "node_api",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphLayoutUpdate,
+        {
+          positions: [{ entityId: "node_api", pinned: true, x: 12, y: -8 }],
+          workspaceId,
+        },
+      ],
+    ]);
+  });
+
   test("exposes typed workflow methods through IPC", async () => {
     const exposed: Record<string, unknown> = {};
     const invoke = vi.fn();

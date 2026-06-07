@@ -117,8 +117,15 @@ export function portLocalPosition(node, portId) {
   };
 }
 
-export function portsForNode(node) {
-  return Array.isArray(node.ports) && node.ports.length > 0 ? node.ports : defaultPorts;
+function portsForNode(node) {
+  return Array.isArray(node.ports) ? node.ports : defaultPorts;
+}
+
+export function interactivePortsForNode(node) {
+  if (node.connectable === false) {
+    return [];
+  }
+  return portsForNode(node);
 }
 
 export function requirePort(node, portId) {

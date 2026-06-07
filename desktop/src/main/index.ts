@@ -22,6 +22,7 @@ import { readEditorIconDataURL } from "./editor-icon-data-url";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
+import { registerSemanticGraphIpcHandlers } from "./semantic-graph-ipc";
 import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
@@ -871,6 +872,7 @@ function registerIpc() {
     },
     ipcObserver,
   );
+  registerSemanticGraphIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "workspaceBrowserViewStats",

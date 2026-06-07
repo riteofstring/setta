@@ -270,6 +270,71 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 	}
 }
 
+func TestStoreUpdatesLayoutPositionsWithoutAppendingEvents(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	appendTestEvent(t, store, EventNodeCreated, "node_a", nodeCreatedPayload{
+		NodeID: "node_a",
+		Kind:   NodeKindConcept,
+		Label:  "Layout source",
+	})
+	appendTestEvent(t, store, EventNodeCreated, "node_b", nodeCreatedPayload{
+		NodeID: "node_b",
+		Kind:   NodeKindFinding,
+		Label:  "Layout target",
+	})
+	appendTestEvent(t, store, EventEdgeCreated, "edge_ab", edgeCreatedPayload{
+		EdgeID:     "edge_ab",
+		Kind:       EdgeKindRelatedTo,
+		FromNodeID: "node_a",
+		ToNodeID:   "node_b",
+	})
+
+	updated, err := store.UpdateLayoutPositions(ctx, testWorkspaceID, []SemanticLayoutPositionInput{
+		{EntityID: "node_a", X: 12, Y: 34, Pinned: true},
+		{EntityID: "edge_ab", X: 56, Y: 78, Pinned: false},
+	}, testTimestamp(20))
+	if err != nil {
+		t.Fatalf("update layout positions: %v", err)
+	}
+	if len(updated.Positions) != 2 {
+		t.Fatalf("updated positions = %+v, want two positions", updated.Positions)
+	}
+
+	graph, err := store.ReadGraph(ctx, testWorkspaceID)
+	if err != nil {
+		t.Fatalf("read graph with layout: %v", err)
+	}
+	nodePosition := semanticLayoutPositionByEntityID(t, graph.LayoutPositions, "node_a")
+	if nodePosition.X != 12 || nodePosition.Y != 34 || !nodePosition.Pinned {
+		t.Fatalf("node layout position = %+v, want pinned 12,34", nodePosition)
+	}
+	edgePosition := semanticLayoutPositionByEntityID(t, graph.LayoutPositions, "edge_ab")
+	if edgePosition.X != 56 || edgePosition.Y != 78 || edgePosition.Pinned {
+		t.Fatalf("edge layout position = %+v, want unpinned 56,78", edgePosition)
+	}
+	history, err := store.ReadEventHistory(ctx, testWorkspaceID, "", 0, 10)
+	if err != nil {
+		t.Fatalf("read event history after layout update: %v", err)
+	}
+	if len(history.Events) != 3 {
+		t.Fatalf("event count after layout update = %d, want original three events", len(history.Events))
+	}
+
+	if _, err := store.UpdateLayoutPositions(ctx, testWorkspaceID, []SemanticLayoutPositionInput{
+		{EntityID: "node_missing", X: 1, Y: 2, Pinned: true},
+	}, testTimestamp(21)); err == nil {
+		t.Fatal("layout update for missing semantic entity succeeded, want error")
+	}
+	graph, err = store.ReadGraph(ctx, testWorkspaceID)
+	if err != nil {
+		t.Fatalf("read graph after failed layout update: %v", err)
+	}
+	if len(graph.LayoutPositions) != 2 {
+		t.Fatalf("layout position count after failed update = %d, want 2", len(graph.LayoutPositions))
+	}
+}
+
 func TestStoreRebuildFailsOnCorruptEventWithoutDroppingExistingProjection(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
@@ -386,6 +451,17 @@ func semanticEdgeByID(t *testing.T, edges []SemanticEdge, id string) SemanticEdg
 	}
 	t.Fatalf("edge %s not found in %+v", id, edges)
 	return SemanticEdge{}
+}
+
+func semanticLayoutPositionByEntityID(t *testing.T, positions []SemanticLayoutPosition, entityID string) SemanticLayoutPosition {
+	t.Helper()
+	for _, position := range positions {
+		if position.EntityID == entityID {
+			return position
+		}
+	}
+	t.Fatalf("layout position %s not found in %+v", entityID, positions)
+	return SemanticLayoutPosition{}
 }
 
 func pointerTo[T any](value T) *T {

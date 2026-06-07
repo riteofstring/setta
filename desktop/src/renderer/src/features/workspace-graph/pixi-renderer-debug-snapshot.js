@@ -6,7 +6,7 @@ import {
   cameraState,
   countMapValues,
   frameSampleStats,
-  portsForNode,
+  interactivePortsForNode,
   portWorldPosition,
   samplePixiVisualState,
   totalDisplayObjectCount,
@@ -97,7 +97,7 @@ export function createWorkflowGraphDebugSnapshot({
               worldScaleX: label.worldTransform.a,
               worldScaleY: label.worldTransform.d,
             },
-            ports: portsForNode(node).map((port) => {
+            ports: interactivePortsForNode(node).map((port) => {
               const world = portWorldPosition(node, port.id);
               const portScreen = viewport.toScreen(world.x, world.y);
               return {

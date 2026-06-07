@@ -168,6 +168,7 @@ const staticSnapshotRenderers = {
   "git-graph": renderWrappedGenericSnapshot,
   "workflow-graph": () => null,
   "settings-dom": renderWrappedGenericSnapshot,
+  "semantic-node-details": renderWrappedGenericSnapshot,
   snapshot: () => null,
   terminal: renderWrappedTerminalSnapshot,
   "workflow-node-details": renderWrappedGenericSnapshot,

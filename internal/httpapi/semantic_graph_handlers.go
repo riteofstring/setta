@@ -107,3 +107,20 @@ func (handler handler) readSemanticEventHistory(response http.ResponseWriter, re
 	}
 	writeJSON(response, http.StatusOK, history)
 }
+
+func (handler handler) updateSemanticLayoutPositions(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload UpdateSemanticLayoutPositionsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	positions, err := service.UpdateLayoutPositions(request.Context(), payload.WorkspaceID, payload.Positions)
+	if err != nil {
+		writeSemanticGraphError(response, "update_semantic_layout_positions_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, positions)
+}

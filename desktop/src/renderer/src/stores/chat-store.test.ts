@@ -1185,6 +1185,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
+    semanticGraph: {} as SettaAPI["semanticGraph"],
     terminal: unimplementedTerminalAPI,
     workflow: {} as SettaAPI["workflow"],
     workspace: {
@@ -1490,11 +1491,9 @@ function emptyCodexAccountState() {
     status: "unauthenticated" as const,
   };
 }
-function workspaceSummary() {
-  return {
-    displayName: "api",
-    id: "workspace_api",
-    lastOpenedAt: "2026-05-29T20:00:00Z",
-    rootPath: "/tmp/api",
-  };
-}
+const workspaceSummary = () => ({
+  displayName: "api",
+  id: "workspace_api",
+  lastOpenedAt: "2026-05-29T20:00:00Z",
+  rootPath: "/tmp/api",
+});
