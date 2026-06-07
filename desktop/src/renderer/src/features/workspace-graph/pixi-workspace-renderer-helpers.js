@@ -249,18 +249,20 @@ export function cameraStatesDiffer(left, right) {
 }
 
 export function screenPointFromPointer(canvas, event) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
-  };
+  return canvasLocalPointFromClient(canvas, event.clientX, event.clientY);
 }
 
 export function screenPointFromWheel(canvas, event) {
+  return canvasLocalPointFromClient(canvas, event.clientX, event.clientY);
+}
+
+function canvasLocalPointFromClient(canvas, clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.clientWidth > 0 && rect.width > 0 ? canvas.clientWidth / rect.width : 1;
+  const scaleY = canvas.clientHeight > 0 && rect.height > 0 ? canvas.clientHeight / rect.height : 1;
   return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
   };
 }
 

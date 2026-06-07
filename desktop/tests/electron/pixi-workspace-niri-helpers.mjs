@@ -94,6 +94,7 @@ export async function dispatchPixiContextMenu(client, surfaceId, { x, y }) {
     x: point.x,
     y: point.y,
   });
+  return point;
 }
 
 export async function dispatchPixiMouseMove(client, surfaceId, { x, y }) {
@@ -133,8 +134,8 @@ export async function dispatchPixiWheel(
 export async function pagePointForCanvasPoint(client, surfaceId, point) {
   const rect = await pixiCanvasRect(client, surfaceId);
   return {
-    x: rect.left + point.x,
-    y: rect.top + point.y,
+    x: rect.left + point.x * (rect.width / rect.clientWidth),
+    y: rect.top + point.y * (rect.height / rect.clientHeight),
   };
 }
 
@@ -241,6 +242,13 @@ async function pixiCanvasRect(client, surfaceId) {
       throw new Error("Pixi workspace canvas is missing");
     }
     const rect = canvas.getBoundingClientRect();
-    return { left: rect.left, top: rect.top };
+    return {
+      clientHeight: canvas.clientHeight || rect.height,
+      clientWidth: canvas.clientWidth || rect.width,
+      height: rect.height,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+    };
   })()`);
 }

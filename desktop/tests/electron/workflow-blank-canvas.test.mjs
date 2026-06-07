@@ -71,8 +71,12 @@ try {
     throw new Error(`blank workflow canvas exposed a create button: ${bodyText}`);
   }
 
-  await dispatchPixiContextMenu(context.client, pixiSurfaceId, { x: 360, y: 260 });
+  const menuPoint = await dispatchPixiContextMenu(context.client, pixiSurfaceId, {
+    x: 360,
+    y: 260,
+  });
   await waitForSelector(context.client, '[data-testid="workflow-node-create-menu"]');
+  await assertContextMenuAnchored(context.client, menuPoint);
   const selected = await context.client.evaluate(`(() => {
     const button = document.querySelector('[data-testid="workflow-node-create-start"]');
     if (!(button instanceof HTMLButtonElement)) {
@@ -208,6 +212,37 @@ async function workflowDefinitions(client, workspaceId) {
       }));
     })(${JSON.stringify(workspaceId)})`,
   );
+}
+
+async function assertContextMenuAnchored(client, point) {
+  const position = await client.evaluate(`(() => {
+    const menu = document.querySelector('[data-testid="workflow-node-create-menu"]');
+    if (!(menu instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-menu" };
+    }
+    const rect = menu.getBoundingClientRect();
+    return {
+      left: rect.left,
+      ok: true,
+      position: getComputedStyle(menu).position,
+      top: rect.top,
+    };
+  })()`);
+  if (!position.ok) {
+    throw new Error(`workflow context menu position unavailable: ${JSON.stringify(position)}`);
+  }
+  const deltaX = Math.abs(position.left - point.x);
+  const deltaY = Math.abs(position.top - point.y);
+  if (position.position !== "fixed" || deltaX > 2 || deltaY > 2) {
+    throw new Error(
+      `workflow context menu was not anchored at right-click point: ${JSON.stringify({
+        deltaX,
+        deltaY,
+        menu: position,
+        point,
+      })}`,
+    );
+  }
 }
 
 async function readSavedWorkflowDefinition(workspaceRoot, definitionId) {

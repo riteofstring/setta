@@ -8,6 +8,7 @@ import type {
 } from "@generated/backend";
 import { Bot, Circle, GitBranch, GitMerge, Square, Workflow } from "lucide-react";
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcript-approvals";
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
@@ -527,7 +528,7 @@ function WorkflowCanvasContextMenu({
   menuRef: MutableRefObject<HTMLDivElement | null>;
   onSelectNodeType: (nodeType: WorkflowDraftNodeType) => void;
 }) {
-  return (
+  return createPortal(
     <div
       ref={menuRef}
       className="fixed z-50 w-48 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 text-zinc-100 shadow-2xl shadow-zinc-950/50 backdrop-blur"
@@ -551,7 +552,8 @@ function WorkflowCanvasContextMenu({
           </button>
         );
       })}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
