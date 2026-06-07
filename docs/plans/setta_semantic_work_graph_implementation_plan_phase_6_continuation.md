@@ -51,6 +51,32 @@ meaningful. Phase 6A is defined in the main implementation plan.
 Goal: let Setta observe active workflow-agent progress incrementally and build
 bounded cartographer input windows without mutating semantic graph state.
 
+Preflight before implementation:
+
+- Expand the Phase 6A cartographer cursor/store shape to support the full 6B
+  incremental observer requirements before adding the observer. The 6A cursor is
+  only a foundation record; 6B needs separate chat, workflow, and run-item-output
+  progress fields.
+- Keep this as a strict no-migration/no-compatibility change. Bump the semantic
+  store version and reject incompatible existing stores before applying DDL. Do
+  not add upgrade code, old-schema reads, old-field aliases, or transitional dual
+  paths.
+- The cursor shape must be able to persist:
+
+```text
+workspace_id
+workflow_execution_id
+workflow_node_execution_id
+chat_conversation_id
+chat_run_id
+last_chat_event_stream_id
+last_chat_event_sequence
+last_workflow_event_cursor
+last_output_ordinal_by_run_item
+last_window_id
+updated_at
+```
+
 Deliverables:
 
 - Start with explicit trigger points only:
@@ -151,6 +177,7 @@ Acceptance criteria:
 active workflow-agent chat/run events produce bounded windows
 windows close on meaningful boundaries, not every event
 cursors resume after restart without rereading the whole run
+cursor records persist independent chat, workflow, and run-item-output progress
 multi-hour runs are represented by summaries plus source refs
 manual cartographer run can build a current-progress window
 no semantic graph mutations are applied in 6B
@@ -417,4 +444,3 @@ Verification:
 - Focused retrieval tests for deterministic ranking and stable explanations.
 - Performance checks on large evidence sets before enabling broad automatic
   retrieval in production paths.
-
