@@ -555,6 +555,41 @@ describe("chat renderer states", () => {
     expect(html).toContain("main.go");
     expect(html).toContain("halfway");
     expect(html).toContain("warning text");
+    expect(htmlScopeForTestId(html, "chat-assistant-message-content")).not.toContain(
+      'data-testid="run-activity-group"',
+    );
+  });
+
+  test("renders message actions outside content and timestamps only at speaker group boundaries", () => {
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={[
+          chatUserMessageWithText("message_user_1", 1, "", "normal", "First prompt"),
+          chatUserMessageWithText("message_user_2", 2, "", "normal", "Second prompt"),
+          chatAssistantMessage("message_assistant_1", 3, "", "First answer"),
+          chatAssistantMessage("message_assistant_2", 4, "", "Second answer"),
+          chatUserMessageWithText("message_user_3", 5, "", "normal", "Third prompt"),
+        ]}
+        runItemOutputs={[]}
+        runItems={[]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(rowCount(html, "chat-message-timestamp")).toBe(3);
+    expect(rowCount(html, "chat-message-actions")).toBe(5);
+    expect(html).toContain('aria-label="Copy message"');
+    expect(html).toContain('aria-label="Retry message by forking conversation"');
+    expect(htmlScopeForTestId(html, "chat-user-message-content")).not.toContain(
+      'aria-label="Copy message"',
+    );
+    expect(htmlScopeForTestId(html, "chat-assistant-message-content")).not.toContain(
+      'aria-label="Retry message by forking conversation"',
+    );
   });
 
   test("renders immediate steering action only for pending steering on the active run", () => {
@@ -1096,6 +1131,55 @@ function chatAssistantMessage(
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
 }
+
+function htmlScopeForTestId(html: string, testId: string) {
+  const attributeIndex = html.indexOf(`data-testid="${testId}"`);
+  expect(attributeIndex).toBeGreaterThanOrEqual(0);
+  const startIndex = html.lastIndexOf("<", attributeIndex);
+  const openingEndIndex = html.indexOf(">", attributeIndex);
+  expect(startIndex).toBeGreaterThanOrEqual(0);
+  expect(openingEndIndex).toBeGreaterThanOrEqual(0);
+
+  let depth = 1;
+  let cursor = openingEndIndex;
+  while (depth > 0) {
+    const tagStartIndex = html.indexOf("<", cursor + 1);
+    expect(tagStartIndex).toBeGreaterThanOrEqual(0);
+    const tagEndIndex = html.indexOf(">", tagStartIndex);
+    expect(tagEndIndex).toBeGreaterThanOrEqual(0);
+    const tag = html.slice(tagStartIndex, tagEndIndex + 1);
+    if (tag.startsWith("</")) {
+      depth -= 1;
+    } else if (!tag.startsWith("<!") && !tag.endsWith("/>") && !isVoidHtmlTag(tag)) {
+      depth += 1;
+    }
+    cursor = tagEndIndex;
+  }
+
+  return html.slice(startIndex, cursor + 1);
+}
+
+function isVoidHtmlTag(tag: string) {
+  const tagName = /^<\s*([^\s>/]+)/.exec(tag)?.[1]?.toLowerCase();
+  return tagName ? voidHtmlTags.has(tagName) : false;
+}
+
+const voidHtmlTags = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+]);
 
 function hasAriaLabel(html: string, label: string) {
   return html.includes(`aria-label="${escapeAttribute(label)}"`);
