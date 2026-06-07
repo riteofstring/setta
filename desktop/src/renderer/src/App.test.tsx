@@ -15,9 +15,11 @@ import { App, sidebarWorkspaceBusy } from "./App";
 import { compactPaneWidth } from "./app-layout";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
+import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 
 beforeEach(() => {
+  useAppearanceStore.setState(useAppearanceStore.getInitialState(), true);
   useChatStore.setState(useChatStore.getInitialState(), true);
 });
 
@@ -56,14 +58,22 @@ describe("workspace renderer states", () => {
     const html = renderToString(<App />);
 
     expect(html).toContain('data-testid="shell-top-bar"');
+    expect(html).toContain("left-[74px] right-0");
+    expect(html).toContain('data-testid="shell-setta-logo"');
+    expect(html).toContain("app-drag pointer-events-none");
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('data-testid="niri-workspace-area"');
+    expect(html).toContain('data-desktop-platform="darwin"');
     expect(html).toContain('data-testid="niri-presentation-engine"');
     expect(rowCount(html, "niri-fake-pane-host")).toBe(18);
     expect(html).toContain('data-pane-count="6"');
     expect(html).toContain('data-workspace-mode="workspace"');
-    expect(html).toContain('data-testid="niri-workspace-status"');
+    expect(html).not.toContain('data-testid="niri-workspace-status"');
+    expect(html).not.toContain('data-testid="niri-benchmark-status"');
+    expect(html).not.toContain('data-testid="niri-performance-stats"');
     expect(html).toContain('data-testid="niri-workspace-toolbar"');
+    expect(html).toContain("niri-workspace-toolbar app-drag");
+    expect(html).toContain("niri-workspace-toolbar-button app-no-drag");
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
     expect(html).not.toContain('data-testid="bottom-workspace-pane"');
     expect(html).not.toContain('data-testid="right-workspace-pane"');

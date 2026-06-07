@@ -1,5 +1,7 @@
+import type { DesktopPlatform } from "@shared/types";
 import { Profiler, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
+import { useAppearanceStore } from "../stores/appearance-store";
 import { useWorkspaceStore } from "../stores/workspace-store";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { FrameScheduler } from "./frame-scheduler";
@@ -70,8 +72,10 @@ interface PaneResizeSession {
 
 export function NiriWorkspaceArea({
   focusSurfaceRequest = null,
+  platform,
 }: {
   focusSurfaceRequest?: NiriSurfaceFocusRequest | null;
+  platform: DesktopPlatform;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -82,6 +86,9 @@ export function NiriWorkspaceArea({
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createNiriTrackpadNavigationState());
   const workspace = useSelectedWorkspaceSummary();
+  const showPerformanceStats = useAppearanceStore(
+    (state) => (state.draft ?? state.settings)?.developer?.showPerformanceStats ?? false,
+  );
   const mode = niriSceneMode();
   const runtime = useMemo(
     () =>
@@ -330,11 +337,16 @@ export function NiriWorkspaceArea({
     };
   }, [persistLayout, runLayoutAction, runtime, stageViewport]);
 
+  useEffect(() => {
+    runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
+  }, [runtime, showPerformanceStats]);
+
   return (
     <section
       aria-label={runtime.mode === "benchmark" ? "Niri benchmark workspace" : "Niri workspace"}
       className="niri-workspace-area relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
       data-browser-pane-count={runtime.browserPaneCount}
+      data-desktop-platform={platform}
       data-maximized-pane-id={layoutSnapshot.maximizedPaneId ?? ""}
       data-pane-count={currentScene.totalPanes}
       data-presentation-mode={layoutSnapshot.presentationMode}
@@ -348,7 +360,9 @@ export function NiriWorkspaceArea({
           focusedPaneId={layoutSnapshot.focusedPaneId}
           openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
           overviewActive={layoutSnapshot.presentationMode === "overview"}
+          performanceStatsRef={showPerformanceStats ? debugRef : null}
           runLayoutAction={runLayoutAction}
+          showPerformanceStats={showPerformanceStats}
           store={runtime.store}
         />
       ) : null}
@@ -363,15 +377,6 @@ export function NiriWorkspaceArea({
             />
           ))}
         </Profiler>
-      </div>
-      <div
-        aria-live="off"
-        className="niri-debug-overlay app-no-drag"
-        data-testid="niri-debug-overlay"
-        ref={debugRef}
-      >
-        frame 0.00ms | p95 0.00ms | p99 0.00ms | visible 0 | writes 0 | long 0 | react 0 | runtime
-        0/0/0/0 | resize 0/0.00/0/0/0 | terminal 0/0/0 | graph 0/none/0%/0
       </div>
     </section>
   );

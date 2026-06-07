@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"reflect"
 
+	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/orchestrator"
@@ -35,6 +36,9 @@ type routeHandler func(handler, http.ResponseWriter, *http.Request)
 
 var apiEndpoints = []endpoint{
 	get[BackendHealth]("BackendHealth", "/health", handler.health),
+	get[appearance.AppearanceSettings]("ReadAppearanceSettings", "/appearance/settings", handler.readAppearanceSettings),
+	get[appearance.AppearancePresetList]("ReadAppearancePresets", "/appearance/presets", handler.readAppearancePresets),
+	post[UpdateAppearanceSettingsRequest, appearance.AppearanceSettings]("UpdateAppearanceSettings", "/appearance/settings", handler.updateAppearanceSettings),
 	get[workspacesession.WorkspaceSession]("WorkspaceSession", "/workspace-session", handler.workspaceSession),
 	post[OpenWorkspaceRequest, OpenWorkspaceResponse]("OpenWorkspace", "/workspaces/open", handler.openWorkspace),
 	post[SelectWorkspaceRequest, workspacesession.WorkspaceSession]("SelectWorkspace", "/workspaces/select", handler.selectWorkspace),

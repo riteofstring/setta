@@ -91,6 +91,13 @@ export class PresentationEngine {
     this.debugOverlay = debugOverlay;
   }
 
+  setDebugOverlay(debugOverlay: HTMLElement | null): void {
+    if (this.debugOverlay && this.debugOverlay !== debugOverlay) {
+      this.debugOverlay.textContent = "";
+    }
+    this.debugOverlay = debugOverlay;
+  }
+
   syncPanes(panes: readonly NiriPane[]): void {
     const nextPaneIds = new Set(panes.map((pane) => pane.paneId));
     for (const paneId of [...this.paneById.keys()]) {
