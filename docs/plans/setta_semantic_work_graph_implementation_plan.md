@@ -244,19 +244,66 @@ Verification:
 
 Goal: make semantic state visible without steering or cartographer automation.
 
+Scope guard:
+
+- Implement the renderer-facing read surface only.
+- Do not implement cartographer automation, context compiler behavior, semantic
+  content editing, user steering operations, automatic semantic inference,
+  retrieval ranking, vector search, graph database projections, Tree-sitter,
+  ELK.js, or agent behavior changes in this phase.
+- Semantic content remains event-owned. Do not add production HTTP or IPC APIs
+  that let the renderer create nodes, edges, evidence, activity, context packs,
+  or steering directives.
+- A minimal layout-position write API is allowed because layout is user-owned
+  UI state, not semantic truth. It should update `semantic_layout_positions`
+  only and must not become a general semantic mutation endpoint.
+- Test and local-dev semantic data should be created through backend test helpers
+  or local scripts that call the semantic graph service directly, not through a
+  production append-event endpoint.
+
 Deliverables:
 
-- Add renderer store/API plumbing using generated semantic contracts.
+- Add desktop main/preload/shared IPC wiring for the Phase 1 semantic read
+  endpoints:
+
+```text
+read graph
+read node detail
+list evidence
+list activity
+read steering state
+read event history
+```
+
+- Add a minimal Go-owned layout-position update contract if Phase 1 does not
+  already expose one:
+
+```text
+update semantic layout positions
+  workspace_id
+  positions: entity_id, x, y, pinned
+```
+
+  This endpoint should only persist manual semantic layout state. It should not
+  create or modify semantic nodes, edges, evidence, activity, steering
+  directives, context packs, or events.
+- Regenerate TypeScript contracts after any semantic HTTP contract changes.
+- Add renderer store/API plumbing using generated semantic contracts and the
+  typed preload surface.
 - Render semantic nodes and semantic edges as a visually distinct layer on the
   existing Pixi graph surface.
-- Render activity edges separately from semantic edges and workflow edges.
+- Render activity separately from semantic edges and workflow edges. For this
+  phase, prefer node-local visual treatment such as halos, badges, or short
+  activity strokes from active/recent `SemanticActivityInterval` records. Do not
+  invent durable agent-to-node activity edge geometry until backend activity
+  records include the actor/run/source references needed for that display.
 - Add node inspection showing:
 
 ```text
 label
 kind
-status
-confidence
+derived status: active, dismissed, promoted, split, merged
+confidence when available from event history; otherwise show no confidence value
 evidence anchors
 created/updated timestamps
 lineage
@@ -273,9 +320,22 @@ otherwise near the viewport center
 user-moved nodes fixed until explicit re-layout
 ```
 
-- Add a backend test helper and, if useful, a local dev script that create
+- Add a backend test helper and, if useful, local dev scripts that create
   semantic graph events through the normal semantic service path so the UI can
   be exercised before the cartographer exists.
+
+Acceptance criteria:
+
+```text
+renderer can read semantic graph data through production main/preload/backend paths
+semantic nodes and semantic edges render on the existing graph surface
+semantic visuals are distinguishable from executable workflow nodes and edges
+node inspection opens from a selected semantic node
+node inspection shows evidence, lineage, edges, activity, steering, and history links available from Phase 1 APIs
+manual semantic node positions persist through reload
+layout writes cannot mutate semantic content
+state remains useful when the semantic graph is empty
+```
 
 Verification:
 
