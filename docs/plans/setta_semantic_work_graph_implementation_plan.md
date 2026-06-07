@@ -54,6 +54,11 @@ files, diffs, tests, decisions, constraints, and user steering.
 - **Existing workflow/chat/event infrastructure**: integrate with Setta's
   production workflow events, chat runs, and runtime state rather than adding a
   separate workflow or event-streaming framework.
+- **Common LLM harness substrate**: master chat windows, workflow agent nodes,
+  and the semantic cartographer must all enter LLM execution through the same
+  harness abstraction. The first production adapter is Codex. Future adapters
+  such as Claude Code, OpenCode, OpenHands, or direct model APIs should plug into
+  this same substrate rather than adding separate AI backends per feature.
 
 ### Defer Behind Small Interfaces
 
@@ -117,6 +122,11 @@ files, diffs, tests, decisions, constraints, and user steering.
 - Do not store raw LLM chain-of-thought. Store public summaries, structured
   graph patches, evidence references, confidence, model metadata, and user
   review state.
+- Do not create separate LLM backend stacks for different product surfaces.
+  Master chats, workflow agent AI nodes, and semantic cartographer runs must use
+  one shared harness entry point, selected through runtime wiring and persisted
+  harness metadata. Codex is the initial implementation, not a permanent
+  cartographer-specific dependency.
 - Avoid heuristic fallbacks. Semantic updates should come from explicit user
   actions, typed runtime events, deterministic reducers, or validated
   cartographer patches.
@@ -683,14 +693,15 @@ Scope guard:
   expansion, constraint enforcement, automatic semantic node creation, keyword
   matching, embedding matching, or broad agent-memory behavior in this phase.
 - Do not inject semantic context into every chat by default. Initial production
-  integration should target Codex-backed workflow agent turns and explicit
-  steering delivery paths where workflow/chat/run source refs are known.
+  integration should target harness-backed workflow agent turns and explicit
+  steering delivery paths where workflow/chat/run source refs are known. The
+  current production harness is Codex.
 - Do not rewrite the user's or workflow definition's authored prompt in place.
   Preserve the authored prompt separately from the compiled semantic context and
   persist exactly what extra context was delivered.
 - If context compilation or context-pack persistence fails, fail the agent start
-  or steering delivery loudly before calling the Codex harness. Do not silently
-  run without required semantic context.
+  or steering delivery loudly before calling the selected LLM harness. Do not
+  silently run without required semantic context.
 - If no context items qualify, send the authored prompt unchanged and do not
   create a fake context pack.
 
@@ -699,7 +710,7 @@ Deliverables:
 - Add a backend context compiler, preferably in `internal/semanticgraph`, behind
   a small interface consumed by workflow/chat integration points. Avoid package
   cycles by making the runtime wiring explicit rather than importing semantic
-  graph state directly into low-level Codex harness code.
+  graph state directly into low-level harness adapter code.
 - Add compiler request types for:
 
 ```text
@@ -818,17 +829,17 @@ Setta semantic context pack <pack_id>
   Evidence: <evidence_id or source ref>
 ```
 
-- Preserve the authored prompt. The Codex input may combine the semantic context
-  block and authored prompt, but the context pack record must store enough data
-  to reconstruct what extra context was sent and verify that the authored prompt
-  was not overwritten.
+- Preserve the authored prompt. The harness input may combine the semantic
+  context block and authored prompt, but the context pack record must store
+  enough data to reconstruct what extra context was sent and verify that the
+  authored prompt was not overwritten.
 - Persist `context_pack.created` events and context-pack history before or in
   the same transaction as the delivery decision. The context pack event payload
   should contain the pack metadata and item summaries; large raw transcripts,
   full diffs, full logs, and complete files must remain out of the event log.
-- Integrate compiled context into Codex-backed workflow agent tasks and explicit
-  steering updates as explicit context text or a typed context delta. Do not use
-  provider-specific hidden state.
+- Integrate compiled context into harness-backed workflow agent tasks and
+  explicit steering updates as explicit context text or a typed context delta.
+  Do not use provider-specific hidden state.
 - Add read surfaces for context-pack audit where needed:
 
 ```text
@@ -845,13 +856,13 @@ workflow agent start compiles context from explicit semantic state
 compiled context includes active constraints and focus/validate steering when relevant
 avoid steering affects selected context deterministically
 context pack respects token budget and records excluded/omitted required failures loudly
-context_pack.created is appended before Codex receives added context
+context_pack.created is appended before the selected harness receives added context
 authored workflow prompt is preserved and auditable separately from context
 no context is sent and no fake pack is created when no items qualify
 steering delivery can compile and deliver updated semantic context
 context pack history is visible after reload
 no semantic nodes, edges, evidence, or activity are inferred or created by the compiler
-Codex harness is not called if context persistence fails
+LLM harness is not called if context persistence fails
 ```
 
 Verification:
@@ -860,7 +871,7 @@ Verification:
   behavior, required constraints, explicit focus/avoid/validate steering,
   session/workspace pins, stale/dismissed/merged node exclusion, and context pack
   event persistence.
-- Tests proving context-pack persistence happens before Codex harness invocation
+- Tests proving context-pack persistence happens before LLM harness invocation
   and that harness invocation does not happen when persistence fails.
 - HTTP contract tests for any new context-pack read surfaces.
 - Renderer tests for context-pack history display, if UI surfaces are added.
@@ -868,13 +879,19 @@ Verification:
   Electron/main/preload/renderer/HTTP/store paths for workflow agent start,
   steering delivery, reload, and context-pack inspection.
 - Because this touches chat/workflow/agent context behavior, run live Codex E2E
-  tests when local ChatGPT auth is available. If unavailable, report the live
-  provider skip explicitly.
+  tests through the common harness when local ChatGPT auth is available. If
+  unavailable, report the live-harness skip explicitly.
 
 ## Phase 6: Semantic Cartographer
 
 Goal: create and update semantic graph state from observed work through a
 validated LLM-backed patch pipeline.
+
+Architecture requirement: the cartographer must use the same LLM harness
+substrate as master chat windows and workflow agent AI nodes. Codex is the first
+production harness adapter, but Phase 6 must not introduce a separate
+cartographer-only provider stack, auth path, model client, or backend selection
+mechanism.
 
 Scope guard:
 
@@ -882,8 +899,13 @@ Scope guard:
   not as retrieval, constraint enforcement, a generic memory system, or a graph
   database.
 - Do not add LangChain/LlamaIndex/Graphiti/CrewAI/agent-framework dependencies.
-  Use a small Go-owned `CartographerProvider` interface with a deterministic
-  scripted provider for tests and a separately wired production provider.
+  Use Setta's common LLM harness substrate with a deterministic scripted/fake
+  harness for tests and the Codex harness adapter as the first production
+  implementation.
+- Do not call a direct OpenAI API client, Codex-specific helper, or any other
+  model backend from cartographer code. Cartographer code prepares typed input,
+  requests strict structured output through the common harness, and validates the
+  returned patch envelope.
 - Do not add FTS, embeddings, vector search, workspace-wide file search, or
   Tree-sitter in Phase 6. Cartographer input must come from explicit production
   refs and already-recorded evidence/activity/context packs.
@@ -903,8 +925,15 @@ tests meaningful.
 
 ### Phase 6A: Foundation, Types, And Store Shape
 
-Goal: add the typed cartographer substrate without changing runtime behavior or
-calling a production LLM provider.
+Goal: add the typed cartographer substrate and common LLM harness entry point
+needed by the cartographer without changing runtime behavior or calling a
+production cartographer harness.
+
+Implementation order requirement: the common LLM harness substrate refactor is
+part of Phase 6A and must happen before any semantic cartographer model call is
+implemented. Do not implement cartographer execution against a temporary
+cartographer-only provider, direct model client, Codex helper, or feature-local
+backend with the intention of unifying it later.
 
 Deliverables:
 
@@ -932,17 +961,39 @@ CartographerPatchApplicationResult
   semantic event ids. This state may live in the semantic SQLite database but
   must remain separate from canonical semantic graph meaning until patches are
   validated and applied.
-- Wire a small provider interface:
+- Introduce or refactor toward a runtime-wide LLM harness substrate, using the
+  existing `chat.Harness` as the seed rather than adding a parallel abstraction.
+  The refactor should preserve existing master chat and workflow agent behavior
+  while making those surfaces and cartographer tasks call through the same
+  backend entry point.
+  The shared entry point must cover:
 
 ```text
-type CartographerProvider interface {
-  ProposePatches(context.Context, CartographerInputBundle) (CartographerProviderResult, error)
-}
+surface/use case: master_chat | workflow_agent | semantic_cartographer
+harness kind: codex initially; future adapters use the same registry
+turn mode: interactive conversation | structured task
+output contract: free text/events | strict JSON schema
+capability policy: allowed tools, workspace mutation, approvals, streaming
+thread/ref metadata: reusable conversation refs when supported by the harness
+audit metadata: harness kind, model, request id, response id, diagnostics
 ```
 
-- Add a deterministic scripted/fake provider for unit and Electron tests. Do not
-  wire a production provider in 6A.
-- Add internal validation for provider result envelope shape only. Detailed
+- Route cartographer model calls through this common harness substrate. The
+  cartographer-specific boundary should be a typed task/result wrapper over the
+  shared harness, not an independent provider backend:
+
+```text
+type CartographerHarnessTask struct {
+  InputBundle CartographerInputBundle
+  OutputSchema CartographerPatchEnvelopeSchema
+}
+
+common LLM harness -> strict cartographer patch envelope
+```
+
+- Add deterministic scripted/fake harness behavior for unit and Electron tests.
+  Do not wire a production cartographer invocation in 6A.
+- Add internal validation for harness result envelope shape only. Detailed
   semantic patch validation lands in 6C.
 
 Acceptance criteria:
@@ -951,14 +1002,17 @@ Acceptance criteria:
 typed avoid-steering logic replaces string matching
 cartographer store opens/rejects incompatible versions using the no-migration policy
 cartographer run/window/cursor/summary records can be persisted and read
-scripted provider can return deterministic patch envelopes
+master chats, workflow agent nodes, and cartographer tasks share one LLM harness substrate
+no cartographer model call bypasses the common harness substrate
+scripted harness can return deterministic cartographer patch envelopes
 no runtime chat/workflow behavior changes yet
 ```
 
 Verification:
 
 - Focused backend tests for typed avoid steering, schema startup, store
-  persistence/readback, and scripted provider behavior.
+  persistence/readback, shared harness routing, and scripted cartographer harness
+  behavior.
 
 ### Phase 6B: Event-Driven Trajectory Windows
 
@@ -971,8 +1025,8 @@ Deliverables:
 
 ```text
 manual cartographer run for a known workflow execution, chat run, or semantic target
-active Codex-backed workflow agent run windows when workflow/chat/run refs are known
-Codex-backed workflow agent run completion when workflow/chat/run refs are known
+active harness-backed workflow agent run windows when workflow/chat/run refs are known
+harness-backed workflow agent run completion when workflow/chat/run refs are known
 explicit retry/review of a failed or rejected cartographer run
 ```
 
@@ -1056,7 +1110,7 @@ token/input budget and truncation metadata
 - Keep large raw transcripts, complete diffs, complete logs, and complete files
   out of cartographer input records. Store bounded summaries plus source refs.
 - If a window is too large, summarize or split it deterministically before
-  provider invocation and record the truncation/splitting metadata in the run
+  harness invocation and record the truncation/splitting metadata in the run
   audit.
 
 Acceptance criteria:
@@ -1156,11 +1210,11 @@ source refs
 window_id
 window_start_cursor
 window_end_cursor
-provider/model metadata
+harness/model metadata
 input bundle hash
 input item counts and truncation metadata
 trajectory summary created by this window
-raw provider response hash
+raw harness response hash
 status: proposed | applied | rejected | failed
 validation diagnostics
 patches[]
@@ -1192,7 +1246,7 @@ attach_evidence to a cartographer-created or exact existing target
 Acceptance criteria:
 
 ```text
-invalid provider output leaves graph state unchanged
+invalid harness output leaves graph state unchanged
 accepted patches apply through normal semantic graph events
 patch audit records input hash, response hash, diagnostics, summary, and event ids
 application is all-or-nothing
@@ -1203,9 +1257,9 @@ no label/keyword/fuzzy/vector deduplication is used
 
 Verification:
 
-- Deterministic provider tests for accepted patches, invalid JSON, unsupported
+- Deterministic harness tests for accepted patches, invalid JSON, unsupported
   operations, missing evidence, unknown refs, missing confidence, duplicate patch
-  ids, chain-of-thought fields, and provider failures.
+  ids, chain-of-thought fields, and harness failures.
 - Patch application tests proving validation happens before graph mutations and
   that failed/rejected patches leave graph state unchanged.
 - Tests proving no label/keyword/fuzzy/vector deduplication is used.
@@ -1250,45 +1304,52 @@ Verification:
 - Renderer tests for cartographer patch history, window summaries, validation
   diagnostics, and review UI.
 - Deterministic end-to-end app workflow through production
-  Electron/main/preload/renderer/HTTP/store paths proving a Codex-backed
-  workflow run creates evidence-grounded semantic nodes while the run is still
-  active, records cartographer audit, survives reload, resumes from persisted
-  cursors, exposes review state, and can be inspected.
+  Electron/main/preload/renderer/HTTP/store paths proving a harness-backed
+  workflow run, using the Codex adapter initially, creates evidence-grounded
+  semantic nodes while the run is still active, records cartographer audit,
+  survives reload, resumes from persisted cursors, exposes review state, and can
+  be inspected.
 
-### Phase 6E: Production Provider And Live Verification
+### Phase 6E: Production Harness Wiring And Live Verification
 
-Goal: wire the real LLM-backed cartographer provider after the deterministic
-pipeline is already validated end to end.
+Goal: wire semantic cartographer turns through the production common LLM harness
+after the deterministic pipeline is already validated end to end.
 
 Deliverables:
 
-- Add the production provider behind explicit runtime wiring. Prefer reusing
-  existing Codex/ChatGPT-auth plumbing only if it can run an isolated
-  cartographer turn and return strict JSON. Otherwise use a minimal Go HTTP
-  client for the chosen model provider behind the same interface.
-- Do not make provider unavailability look like a successful no-op. Provider
-  auth, transport, schema, timeout, or rate-limit failures should create failed
-  cartographer audits with explicit diagnostics.
-- Keep production provider prompts bounded by 6B windows and summaries. Do not
-  let the production provider request whole-run backfills in Phase 6E.
+- Wire cartographer turns through the same runtime-selected LLM harness used by
+  master chats and workflow agent AI nodes. The first production adapter is the
+  existing Codex harness/ChatGPT-auth path.
+- Do not add a direct OpenAI API client, Codex-specific cartographer helper, or
+  per-feature model selection path in cartographer code. New future backends
+  such as Claude Code, OpenCode, OpenHands, or direct model APIs must be added as
+  common harness adapters.
+- Run cartographer turns as isolated structured tasks with strict JSON output,
+  explicit tool/capability policy, persisted harness metadata, and no workspace
+  mutation authority unless a later phase explicitly grants it.
+- Do not make harness unavailability look like a successful no-op. Harness auth,
+  transport, schema, timeout, rate-limit, or unsupported-capability failures
+  should create failed cartographer audits with explicit diagnostics.
+- Keep production harness prompts bounded by 6B windows and summaries. Do not let
+  the production harness request whole-run backfills in Phase 6E.
 - Preserve the strict no-chain-of-thought policy. Store public summaries,
   structured patches, model metadata, confidence, diagnostics, and hashes only.
 
 Acceptance criteria:
 
 ```text
-production provider can propose strict JSON patches for active workflow-agent windows
-provider failures are visible as failed audits
-live provider output passes the same 6C validator before any graph mutation
+production Codex harness adapter can propose strict JSON patches for active workflow-agent windows
+harness failures are visible as failed audits
+live harness output passes the same 6C validator before any graph mutation
 long-running workflows continue to use bounded windows and persisted cursors
 ```
 
 Verification:
 
-- Deterministic provider tests must remain the primary regression suite.
+- Deterministic harness tests must remain the primary regression suite.
 - Because Phase 6 touches chat/workflow/agent behavior and semantic graph
   mutation, run live Codex E2E tests when local ChatGPT auth is available. If
-  unavailable, report the live provider skip explicitly.
+  unavailable, report the live-harness skip explicitly.
 
 ## Phase 7: Retrieval Indexes
 
