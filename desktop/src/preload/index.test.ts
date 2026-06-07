@@ -543,9 +543,18 @@ describe("preload workspace API", () => {
 
     const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.semanticGraph).sort()).toEqual([
+      "attachChatMessage",
+      "attachChatRun",
+      "attachFileRange",
+      "attachRunItem",
+      "attachWorkflowExecution",
+      "attachWorkflowNode",
+      "endActivity",
       "listActivity",
+      "listActivityPage",
       "listEvidence",
       "read",
+      "readActivitySummary",
       "readEventHistory",
       "readNodeDetail",
       "readSteeringState",
@@ -557,6 +566,22 @@ describe("preload workspace API", () => {
     await api.semanticGraph.readNodeDetail({ nodeId: "node_api", workspaceId });
     await api.semanticGraph.listEvidence({ targetEntityId: "node_api", workspaceId });
     await api.semanticGraph.listActivity({ limit: 10, targetEntityId: "node_api", workspaceId });
+    await api.semanticGraph.listActivityPage({
+      actorId: "",
+      actorKind: null,
+      chatConversationId: "",
+      chatMessageId: "",
+      chatRunId: "",
+      limit: 10,
+      offset: 0,
+      sourceId: "",
+      sourceKind: null,
+      targetEntityId: "",
+      workflowExecutionId: "",
+      workflowNodeId: "",
+      workspaceId,
+    });
+    await api.semanticGraph.readActivitySummary({ recentLimit: 3, workspaceId });
     await api.semanticGraph.readSteeringState({ targetEntityId: "node_api", workspaceId });
     await api.semanticGraph.readEventHistory({
       beforeLogicalClock: 0,
@@ -568,6 +593,73 @@ describe("preload workspace API", () => {
       positions: [{ entityId: "node_api", pinned: true, x: 12, y: -8 }],
       workspaceId,
     });
+    await api.semanticGraph.attachWorkflowExecution({
+      activityKind: "exploring",
+      actorId: "user_api",
+      actorKind: "user",
+      nodeId: "node_api",
+      summary: "",
+      workflowExecutionId: "workflow_execution_api",
+      workspaceId,
+    });
+    await api.semanticGraph.attachWorkflowNode({
+      activityKind: "debugging",
+      actorId: "user_api",
+      actorKind: "user",
+      nodeId: "node_api",
+      summary: "",
+      workflowDefinitionId: "",
+      workflowExecutionId: "workflow_execution_api",
+      workflowNodeExecutionId: "workflow_node_execution_api",
+      workflowNodeId: "workflow_node_api",
+      workspaceId,
+    });
+    await api.semanticGraph.attachChatRun({
+      activityKind: "exploring",
+      actorId: "user_api",
+      actorKind: "user",
+      chatRunId: "run_api",
+      nodeId: "node_api",
+      summary: "",
+      workspaceId,
+    });
+    await api.semanticGraph.attachChatMessage({
+      activityKind: "exploring",
+      actorId: "user_api",
+      actorKind: "user",
+      chatConversationId: "conversation_api",
+      chatMessageId: "message_api",
+      nodeId: "node_api",
+      summary: "",
+      workspaceId,
+    });
+    await api.semanticGraph.attachRunItem({
+      activityKind: "validating",
+      actorId: "user_api",
+      actorKind: "user",
+      chatRunId: "run_api",
+      nodeId: "node_api",
+      runItemId: "run_item_api",
+      summary: "",
+      workspaceId,
+    });
+    await api.semanticGraph.attachFileRange({
+      activityKind: "editing",
+      actorId: "user_api",
+      actorKind: "user",
+      nodeId: "node_api",
+      path: "docs/plan.md",
+      rangeEnd: 2,
+      rangeStart: 1,
+      summary: "",
+      workspaceId,
+    });
+    await api.semanticGraph.endActivity({
+      activityIntervalId: "activity_api",
+      actorId: "user_api",
+      actorKind: "user",
+      workspaceId,
+    });
 
     expectInvokeCalls(invoke, [
       [ipcChannels.semanticGraphRead, { workspaceId }],
@@ -577,6 +669,25 @@ describe("preload workspace API", () => {
         ipcChannels.semanticGraphActivityList,
         { limit: 10, targetEntityId: "node_api", workspaceId },
       ],
+      [
+        ipcChannels.semanticGraphActivityPage,
+        {
+          actorId: "",
+          actorKind: null,
+          chatConversationId: "",
+          chatMessageId: "",
+          chatRunId: "",
+          limit: 10,
+          offset: 0,
+          sourceId: "",
+          sourceKind: null,
+          targetEntityId: "",
+          workflowExecutionId: "",
+          workflowNodeId: "",
+          workspaceId,
+        },
+      ],
+      [ipcChannels.semanticGraphActivitySummary, { recentLimit: 3, workspaceId }],
       [ipcChannels.semanticGraphSteeringRead, { targetEntityId: "node_api", workspaceId }],
       [
         ipcChannels.semanticGraphEventHistory,
@@ -591,6 +702,94 @@ describe("preload workspace API", () => {
         ipcChannels.semanticGraphLayoutUpdate,
         {
           positions: [{ entityId: "node_api", pinned: true, x: 12, y: -8 }],
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphAttachWorkflowExecution,
+        {
+          activityKind: "exploring",
+          actorId: "user_api",
+          actorKind: "user",
+          nodeId: "node_api",
+          summary: "",
+          workflowExecutionId: "workflow_execution_api",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphAttachWorkflowNode,
+        {
+          activityKind: "debugging",
+          actorId: "user_api",
+          actorKind: "user",
+          nodeId: "node_api",
+          summary: "",
+          workflowDefinitionId: "",
+          workflowExecutionId: "workflow_execution_api",
+          workflowNodeExecutionId: "workflow_node_execution_api",
+          workflowNodeId: "workflow_node_api",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphAttachChatRun,
+        {
+          activityKind: "exploring",
+          actorId: "user_api",
+          actorKind: "user",
+          chatRunId: "run_api",
+          nodeId: "node_api",
+          summary: "",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphAttachChatMessage,
+        {
+          activityKind: "exploring",
+          actorId: "user_api",
+          actorKind: "user",
+          chatConversationId: "conversation_api",
+          chatMessageId: "message_api",
+          nodeId: "node_api",
+          summary: "",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphAttachRunItem,
+        {
+          activityKind: "validating",
+          actorId: "user_api",
+          actorKind: "user",
+          chatRunId: "run_api",
+          nodeId: "node_api",
+          runItemId: "run_item_api",
+          summary: "",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphAttachFileRange,
+        {
+          activityKind: "editing",
+          actorId: "user_api",
+          actorKind: "user",
+          nodeId: "node_api",
+          path: "docs/plan.md",
+          rangeEnd: 2,
+          rangeStart: 1,
+          summary: "",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphActivityEnd,
+        {
+          activityIntervalId: "activity_api",
+          actorId: "user_api",
+          actorKind: "user",
           workspaceId,
         },
       ],

@@ -529,9 +529,18 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
     throw new Error("semantic graph API is not implemented in this test");
   };
   return {
+    attachChatMessage: unavailable,
+    attachChatRun: unavailable,
+    attachFileRange: unavailable,
+    attachRunItem: unavailable,
+    attachWorkflowExecution: unavailable,
+    attachWorkflowNode: unavailable,
+    endActivity: unavailable,
     listActivity: unavailable,
+    listActivityPage: unavailable,
     listEvidence: unavailable,
     read: unavailable,
+    readActivitySummary: unavailable,
     readEventHistory: unavailable,
     readNodeDetail: unavailable,
     readSteeringState: unavailable,

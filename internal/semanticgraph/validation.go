@@ -231,6 +231,15 @@ func isSemanticActivityKind(kind SemanticActivityKind) bool {
 	return false
 }
 
+func isSemanticActivitySourceKind(kind SemanticActivitySourceKind) bool {
+	for _, value := range semanticActivitySourceKindValues {
+		if kind == value {
+			return true
+		}
+	}
+	return false
+}
+
 func isSemanticEventType(eventType SemanticEventType) bool {
 	for _, value := range semanticEventTypeValues {
 		if eventType == value {

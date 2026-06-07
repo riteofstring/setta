@@ -1198,9 +1198,9 @@ export function decodeSemanticEdgeKind(value: unknown, label = "SemanticEdgeKind
   }
 }
 
-export type SemanticEvidenceSourceKind = "chat_message" | "run_item" | "file_range" | "diff" | "test" | "workflow_execution" | "prompt" | "log" | "document";
+export type SemanticEvidenceSourceKind = "chat_message" | "run_item" | "file_range" | "diff" | "test" | "workflow_node" | "workflow_execution" | "chat_run" | "prompt" | "log" | "document";
 
-export const semanticEvidenceSourceKindValues = ["chat_message", "run_item", "file_range", "diff", "test", "workflow_execution", "prompt", "log", "document"] as const satisfies readonly SemanticEvidenceSourceKind[];
+export const semanticEvidenceSourceKindValues = ["chat_message", "run_item", "file_range", "diff", "test", "workflow_node", "workflow_execution", "chat_run", "prompt", "log", "document"] as const satisfies readonly SemanticEvidenceSourceKind[];
 
 export function decodeSemanticEvidenceSourceKind(value: unknown, label = "SemanticEvidenceSourceKind"): SemanticEvidenceSourceKind {
   const decoded = decodeString(value, label);
@@ -1215,7 +1215,11 @@ export function decodeSemanticEvidenceSourceKind(value: unknown, label = "Semant
       return decoded;
     case "test":
       return decoded;
+    case "workflow_node":
+      return decoded;
     case "workflow_execution":
+      return decoded;
+    case "chat_run":
       return decoded;
     case "prompt":
       return decoded;
@@ -1244,6 +1248,36 @@ export function decodeSemanticActivityKind(value: unknown, label = "SemanticActi
     case "validating":
       return decoded;
     case "blocked":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticActivitySourceKind = "workflow_execution" | "workflow_node" | "chat_run" | "chat_message" | "run_item" | "file_range" | "test" | "diff" | "command";
+
+export const semanticActivitySourceKindValues = ["workflow_execution", "workflow_node", "chat_run", "chat_message", "run_item", "file_range", "test", "diff", "command"] as const satisfies readonly SemanticActivitySourceKind[];
+
+export function decodeSemanticActivitySourceKind(value: unknown, label = "SemanticActivitySourceKind"): SemanticActivitySourceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "workflow_execution":
+      return decoded;
+    case "workflow_node":
+      return decoded;
+    case "chat_run":
+      return decoded;
+    case "chat_message":
+      return decoded;
+    case "run_item":
+      return decoded;
+    case "file_range":
+      return decoded;
+    case "test":
+      return decoded;
+    case "diff":
+      return decoded;
+    case "command":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2707,6 +2741,7 @@ export interface SemanticEvidenceAnchor {
   rangeEnd: number;
   text: string;
   summary: string;
+  contentHash: string;
   createdByEventId: string;
   createdAt: string;
 }
@@ -2717,6 +2752,16 @@ export interface SemanticActivityInterval {
   targetEntityId: string;
   kind: SemanticActivityKind;
   summary: string;
+  sourceKind: SemanticActivitySourceKind;
+  sourceId: string;
+  evidenceAnchorId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  chatMessageId: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
   startedByEventId: string;
   endedByEventId: string;
   startedAt: string;
@@ -2785,6 +2830,48 @@ export interface SemanticActivityList {
   activity: SemanticActivityInterval[];
 }
 
+export interface ListSemanticActivityPageRequest {
+  workspaceId: string;
+  targetEntityId: string;
+  sourceKind: SemanticActivitySourceKind | null;
+  sourceId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  chatMessageId: string;
+  actorKind: SemanticActorKind | null;
+  actorId: string;
+  offset: number;
+  limit: number;
+}
+
+export interface SemanticActivityPage {
+  workspaceId: string;
+  targetEntityId: string;
+  activity: SemanticActivityInterval[];
+  hasMore: boolean;
+  nextOffset: number;
+  offset: number;
+  limit: number;
+}
+
+export interface ReadSemanticActivitySummaryRequest {
+  workspaceId: string;
+  recentLimit: number;
+}
+
+export interface SemanticActivityTargetSummary {
+  targetEntityId: string;
+  currentActivity: SemanticActivityInterval[];
+  recentActivity: SemanticActivityInterval[];
+}
+
+export interface SemanticActivitySummary {
+  workspaceId: string;
+  targets: SemanticActivityTargetSummary[];
+}
+
 export interface ReadSemanticSteeringStateRequest {
   workspaceId: string;
   targetEntityId: string;
@@ -2849,6 +2936,95 @@ export interface UpdateSemanticLayoutPositionsRequest {
 export interface SemanticLayoutPositionList {
   workspaceId: string;
   positions: SemanticLayoutPosition[];
+}
+
+export interface AttachSemanticNodeToWorkflowExecutionRequest {
+  workspaceId: string;
+  nodeId: string;
+  workflowExecutionId: string;
+  activityKind: SemanticActivityKind;
+  summary: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface SemanticAttachmentResult {
+  workspaceId: string;
+  targetEntityId: string;
+  evidence: SemanticEvidenceAnchor;
+  activity: SemanticActivityInterval;
+  events: SemanticEvent[];
+}
+
+export interface AttachSemanticNodeToWorkflowNodeRequest {
+  workspaceId: string;
+  nodeId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  workflowDefinitionId: string;
+  activityKind: SemanticActivityKind;
+  summary: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface AttachSemanticNodeToChatRunRequest {
+  workspaceId: string;
+  nodeId: string;
+  chatRunId: string;
+  activityKind: SemanticActivityKind;
+  summary: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface AttachSemanticNodeToChatMessageRequest {
+  workspaceId: string;
+  nodeId: string;
+  chatConversationId: string;
+  chatMessageId: string;
+  activityKind: SemanticActivityKind;
+  summary: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface AttachSemanticNodeToRunItemRequest {
+  workspaceId: string;
+  nodeId: string;
+  chatRunId: string;
+  runItemId: string;
+  activityKind: SemanticActivityKind;
+  summary: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface AttachSemanticNodeToFileRangeRequest {
+  workspaceId: string;
+  nodeId: string;
+  path: string;
+  rangeStart: number;
+  rangeEnd: number;
+  activityKind: SemanticActivityKind;
+  summary: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface EndSemanticActivityRequest {
+  workspaceId: string;
+  activityIntervalId: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface SemanticActivityEndResult {
+  workspaceId: string;
+  targetEntityId: string;
+  activity: SemanticActivityInterval;
+  event: SemanticEvent;
 }
 
 export interface CreateTerminalRequest {
@@ -3557,6 +3733,14 @@ export const backendEndpoints = {
     method: "POST",
     path: "/semantic-graph/activity/list",
   },
+  ListSemanticActivityPage: {
+    method: "POST",
+    path: "/semantic-graph/activity/page",
+  },
+  ReadSemanticActivitySummary: {
+    method: "POST",
+    path: "/semantic-graph/activity/summary",
+  },
   ReadSemanticSteeringState: {
     method: "POST",
     path: "/semantic-graph/steering/read",
@@ -3568,6 +3752,34 @@ export const backendEndpoints = {
   UpdateSemanticLayoutPositions: {
     method: "POST",
     path: "/semantic-graph/layout/update",
+  },
+  AttachSemanticNodeToWorkflowExecution: {
+    method: "POST",
+    path: "/semantic-graph/attachments/workflow-execution",
+  },
+  AttachSemanticNodeToWorkflowNode: {
+    method: "POST",
+    path: "/semantic-graph/attachments/workflow-node",
+  },
+  AttachSemanticNodeToChatRun: {
+    method: "POST",
+    path: "/semantic-graph/attachments/chat-run",
+  },
+  AttachSemanticNodeToChatMessage: {
+    method: "POST",
+    path: "/semantic-graph/attachments/chat-message",
+  },
+  AttachSemanticNodeToRunItem: {
+    method: "POST",
+    path: "/semantic-graph/attachments/run-item",
+  },
+  AttachSemanticNodeToFileRange: {
+    method: "POST",
+    path: "/semantic-graph/attachments/file-range",
+  },
+  EndSemanticActivity: {
+    method: "POST",
+    path: "/semantic-graph/activity/end",
   },
   CreateTerminal: {
     method: "POST",
@@ -5340,7 +5552,7 @@ export function decodeReadSemanticNodeDetailRequest(value: unknown): ReadSemanti
 
 export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAnchor {
   const record = assertRecord(value, "SemanticEvidenceAnchor");
-  assertKnownFields(record, "SemanticEvidenceAnchor", ["id", "workspaceId", "targetEntityId", "sourceKind", "sourceId", "uri", "path", "rangeStart", "rangeEnd", "text", "summary", "createdByEventId", "createdAt"]);
+  assertKnownFields(record, "SemanticEvidenceAnchor", ["id", "workspaceId", "targetEntityId", "sourceKind", "sourceId", "uri", "path", "rangeStart", "rangeEnd", "text", "summary", "contentHash", "createdByEventId", "createdAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.workspaceId"),
@@ -5353,6 +5565,7 @@ export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAn
     rangeEnd: decodeInteger(requireField(record, "rangeEnd", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.rangeEnd"),
     text: decodeString(requireField(record, "text", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.text"),
     summary: decodeString(requireField(record, "summary", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.summary"),
+    contentHash: decodeString(requireField(record, "contentHash", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.contentHash"),
     createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.createdByEventId"),
     createdAt: decodeString(requireField(record, "createdAt", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.createdAt"),
   };
@@ -5360,13 +5573,23 @@ export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAn
 
 export function decodeSemanticActivityInterval(value: unknown): SemanticActivityInterval {
   const record = assertRecord(value, "SemanticActivityInterval");
-  assertKnownFields(record, "SemanticActivityInterval", ["id", "workspaceId", "targetEntityId", "kind", "summary", "startedByEventId", "endedByEventId", "startedAt", "endedAt", "updatedAt"]);
+  assertKnownFields(record, "SemanticActivityInterval", ["id", "workspaceId", "targetEntityId", "kind", "summary", "sourceKind", "sourceId", "evidenceAnchorId", "workflowExecutionId", "workflowNodeId", "chatConversationId", "chatRunId", "chatMessageId", "actorKind", "actorId", "startedByEventId", "endedByEventId", "startedAt", "endedAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticActivityInterval"), "SemanticActivityInterval.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticActivityInterval"), "SemanticActivityInterval.workspaceId"),
     targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticActivityInterval"), "SemanticActivityInterval.targetEntityId"),
     kind: decodeSemanticActivityKind(requireField(record, "kind", "SemanticActivityInterval"), "SemanticActivityInterval.kind"),
     summary: decodeString(requireField(record, "summary", "SemanticActivityInterval"), "SemanticActivityInterval.summary"),
+    sourceKind: decodeSemanticActivitySourceKind(requireField(record, "sourceKind", "SemanticActivityInterval"), "SemanticActivityInterval.sourceKind"),
+    sourceId: decodeString(requireField(record, "sourceId", "SemanticActivityInterval"), "SemanticActivityInterval.sourceId"),
+    evidenceAnchorId: decodeString(requireField(record, "evidenceAnchorId", "SemanticActivityInterval"), "SemanticActivityInterval.evidenceAnchorId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticActivityInterval"), "SemanticActivityInterval.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "SemanticActivityInterval"), "SemanticActivityInterval.workflowNodeId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "SemanticActivityInterval"), "SemanticActivityInterval.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "SemanticActivityInterval"), "SemanticActivityInterval.chatRunId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "SemanticActivityInterval"), "SemanticActivityInterval.chatMessageId"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "SemanticActivityInterval"), "SemanticActivityInterval.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "SemanticActivityInterval"), "SemanticActivityInterval.actorId"),
     startedByEventId: decodeString(requireField(record, "startedByEventId", "SemanticActivityInterval"), "SemanticActivityInterval.startedByEventId"),
     endedByEventId: decodeString(requireField(record, "endedByEventId", "SemanticActivityInterval"), "SemanticActivityInterval.endedByEventId"),
     startedAt: decodeString(requireField(record, "startedAt", "SemanticActivityInterval"), "SemanticActivityInterval.startedAt"),
@@ -5468,6 +5691,68 @@ export function decodeSemanticActivityList(value: unknown): SemanticActivityList
   };
 }
 
+export function decodeListSemanticActivityPageRequest(value: unknown): ListSemanticActivityPageRequest {
+  const record = assertRecord(value, "ListSemanticActivityPageRequest");
+  assertKnownFields(record, "ListSemanticActivityPageRequest", ["workspaceId", "targetEntityId", "sourceKind", "sourceId", "workflowExecutionId", "workflowNodeId", "chatConversationId", "chatRunId", "chatMessageId", "actorKind", "actorId", "offset", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.targetEntityId"),
+    sourceKind: decodeNullable(requireField(record, "sourceKind", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.sourceKind", (item) => decodeSemanticActivitySourceKind(item, "ListSemanticActivityPageRequest.sourceKind")),
+    sourceId: decodeString(requireField(record, "sourceId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.sourceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.workflowNodeId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.chatRunId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.chatMessageId"),
+    actorKind: decodeNullable(requireField(record, "actorKind", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.actorKind", (item) => decodeSemanticActorKind(item, "ListSemanticActivityPageRequest.actorKind")),
+    actorId: decodeString(requireField(record, "actorId", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.actorId"),
+    offset: decodeInteger(requireField(record, "offset", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.offset"),
+    limit: decodeInteger(requireField(record, "limit", "ListSemanticActivityPageRequest"), "ListSemanticActivityPageRequest.limit"),
+  };
+}
+
+export function decodeSemanticActivityPage(value: unknown): SemanticActivityPage {
+  const record = assertRecord(value, "SemanticActivityPage");
+  assertKnownFields(record, "SemanticActivityPage", ["workspaceId", "targetEntityId", "activity", "hasMore", "nextOffset", "offset", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticActivityPage"), "SemanticActivityPage.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticActivityPage"), "SemanticActivityPage.targetEntityId"),
+    activity: decodeArray(requireField(record, "activity", "SemanticActivityPage"), "SemanticActivityPage.activity", (item) => decodeSemanticActivityInterval(item)),
+    hasMore: decodeBoolean(requireField(record, "hasMore", "SemanticActivityPage"), "SemanticActivityPage.hasMore"),
+    nextOffset: decodeInteger(requireField(record, "nextOffset", "SemanticActivityPage"), "SemanticActivityPage.nextOffset"),
+    offset: decodeInteger(requireField(record, "offset", "SemanticActivityPage"), "SemanticActivityPage.offset"),
+    limit: decodeInteger(requireField(record, "limit", "SemanticActivityPage"), "SemanticActivityPage.limit"),
+  };
+}
+
+export function decodeReadSemanticActivitySummaryRequest(value: unknown): ReadSemanticActivitySummaryRequest {
+  const record = assertRecord(value, "ReadSemanticActivitySummaryRequest");
+  assertKnownFields(record, "ReadSemanticActivitySummaryRequest", ["workspaceId", "recentLimit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticActivitySummaryRequest"), "ReadSemanticActivitySummaryRequest.workspaceId"),
+    recentLimit: decodeInteger(requireField(record, "recentLimit", "ReadSemanticActivitySummaryRequest"), "ReadSemanticActivitySummaryRequest.recentLimit"),
+  };
+}
+
+export function decodeSemanticActivityTargetSummary(value: unknown): SemanticActivityTargetSummary {
+  const record = assertRecord(value, "SemanticActivityTargetSummary");
+  assertKnownFields(record, "SemanticActivityTargetSummary", ["targetEntityId", "currentActivity", "recentActivity"]);
+  return {
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticActivityTargetSummary"), "SemanticActivityTargetSummary.targetEntityId"),
+    currentActivity: decodeArray(requireField(record, "currentActivity", "SemanticActivityTargetSummary"), "SemanticActivityTargetSummary.currentActivity", (item) => decodeSemanticActivityInterval(item)),
+    recentActivity: decodeArray(requireField(record, "recentActivity", "SemanticActivityTargetSummary"), "SemanticActivityTargetSummary.recentActivity", (item) => decodeSemanticActivityInterval(item)),
+  };
+}
+
+export function decodeSemanticActivitySummary(value: unknown): SemanticActivitySummary {
+  const record = assertRecord(value, "SemanticActivitySummary");
+  assertKnownFields(record, "SemanticActivitySummary", ["workspaceId", "targets"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticActivitySummary"), "SemanticActivitySummary.workspaceId"),
+    targets: decodeArray(requireField(record, "targets", "SemanticActivitySummary"), "SemanticActivitySummary.targets", (item) => decodeSemanticActivityTargetSummary(item)),
+  };
+}
+
 export function decodeReadSemanticSteeringStateRequest(value: unknown): ReadSemanticSteeringStateRequest {
   const record = assertRecord(value, "ReadSemanticSteeringStateRequest");
   assertKnownFields(record, "ReadSemanticSteeringStateRequest", ["workspaceId", "targetEntityId"]);
@@ -5563,6 +5848,131 @@ export function decodeSemanticLayoutPositionList(value: unknown): SemanticLayout
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticLayoutPositionList"), "SemanticLayoutPositionList.workspaceId"),
     positions: decodeArray(requireField(record, "positions", "SemanticLayoutPositionList"), "SemanticLayoutPositionList.positions", (item) => decodeSemanticLayoutPosition(item)),
+  };
+}
+
+export function decodeAttachSemanticNodeToWorkflowExecutionRequest(value: unknown): AttachSemanticNodeToWorkflowExecutionRequest {
+  const record = assertRecord(value, "AttachSemanticNodeToWorkflowExecutionRequest");
+  assertKnownFields(record, "AttachSemanticNodeToWorkflowExecutionRequest", ["workspaceId", "nodeId", "workflowExecutionId", "activityKind", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AttachSemanticNodeToWorkflowExecutionRequest"), "AttachSemanticNodeToWorkflowExecutionRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "AttachSemanticNodeToWorkflowExecutionRequest"), "AttachSemanticNodeToWorkflowExecutionRequest.nodeId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "AttachSemanticNodeToWorkflowExecutionRequest"), "AttachSemanticNodeToWorkflowExecutionRequest.workflowExecutionId"),
+    activityKind: decodeSemanticActivityKind(requireField(record, "activityKind", "AttachSemanticNodeToWorkflowExecutionRequest"), "AttachSemanticNodeToWorkflowExecutionRequest.activityKind"),
+    summary: decodeString(requireField(record, "summary", "AttachSemanticNodeToWorkflowExecutionRequest"), "AttachSemanticNodeToWorkflowExecutionRequest.summary"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "AttachSemanticNodeToWorkflowExecutionRequest"), "AttachSemanticNodeToWorkflowExecutionRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "AttachSemanticNodeToWorkflowExecutionRequest"), "AttachSemanticNodeToWorkflowExecutionRequest.actorId"),
+  };
+}
+
+export function decodeSemanticAttachmentResult(value: unknown): SemanticAttachmentResult {
+  const record = assertRecord(value, "SemanticAttachmentResult");
+  assertKnownFields(record, "SemanticAttachmentResult", ["workspaceId", "targetEntityId", "evidence", "activity", "events"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticAttachmentResult"), "SemanticAttachmentResult.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticAttachmentResult"), "SemanticAttachmentResult.targetEntityId"),
+    evidence: decodeSemanticEvidenceAnchor(requireField(record, "evidence", "SemanticAttachmentResult")),
+    activity: decodeSemanticActivityInterval(requireField(record, "activity", "SemanticAttachmentResult")),
+    events: decodeArray(requireField(record, "events", "SemanticAttachmentResult"), "SemanticAttachmentResult.events", (item) => decodeSemanticEvent(item)),
+  };
+}
+
+export function decodeAttachSemanticNodeToWorkflowNodeRequest(value: unknown): AttachSemanticNodeToWorkflowNodeRequest {
+  const record = assertRecord(value, "AttachSemanticNodeToWorkflowNodeRequest");
+  assertKnownFields(record, "AttachSemanticNodeToWorkflowNodeRequest", ["workspaceId", "nodeId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "workflowDefinitionId", "activityKind", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.nodeId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.workflowNodeExecutionId"),
+    workflowDefinitionId: decodeString(requireField(record, "workflowDefinitionId", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.workflowDefinitionId"),
+    activityKind: decodeSemanticActivityKind(requireField(record, "activityKind", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.activityKind"),
+    summary: decodeString(requireField(record, "summary", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.summary"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "AttachSemanticNodeToWorkflowNodeRequest"), "AttachSemanticNodeToWorkflowNodeRequest.actorId"),
+  };
+}
+
+export function decodeAttachSemanticNodeToChatRunRequest(value: unknown): AttachSemanticNodeToChatRunRequest {
+  const record = assertRecord(value, "AttachSemanticNodeToChatRunRequest");
+  assertKnownFields(record, "AttachSemanticNodeToChatRunRequest", ["workspaceId", "nodeId", "chatRunId", "activityKind", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AttachSemanticNodeToChatRunRequest"), "AttachSemanticNodeToChatRunRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "AttachSemanticNodeToChatRunRequest"), "AttachSemanticNodeToChatRunRequest.nodeId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "AttachSemanticNodeToChatRunRequest"), "AttachSemanticNodeToChatRunRequest.chatRunId"),
+    activityKind: decodeSemanticActivityKind(requireField(record, "activityKind", "AttachSemanticNodeToChatRunRequest"), "AttachSemanticNodeToChatRunRequest.activityKind"),
+    summary: decodeString(requireField(record, "summary", "AttachSemanticNodeToChatRunRequest"), "AttachSemanticNodeToChatRunRequest.summary"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "AttachSemanticNodeToChatRunRequest"), "AttachSemanticNodeToChatRunRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "AttachSemanticNodeToChatRunRequest"), "AttachSemanticNodeToChatRunRequest.actorId"),
+  };
+}
+
+export function decodeAttachSemanticNodeToChatMessageRequest(value: unknown): AttachSemanticNodeToChatMessageRequest {
+  const record = assertRecord(value, "AttachSemanticNodeToChatMessageRequest");
+  assertKnownFields(record, "AttachSemanticNodeToChatMessageRequest", ["workspaceId", "nodeId", "chatConversationId", "chatMessageId", "activityKind", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AttachSemanticNodeToChatMessageRequest"), "AttachSemanticNodeToChatMessageRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "AttachSemanticNodeToChatMessageRequest"), "AttachSemanticNodeToChatMessageRequest.nodeId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "AttachSemanticNodeToChatMessageRequest"), "AttachSemanticNodeToChatMessageRequest.chatConversationId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "AttachSemanticNodeToChatMessageRequest"), "AttachSemanticNodeToChatMessageRequest.chatMessageId"),
+    activityKind: decodeSemanticActivityKind(requireField(record, "activityKind", "AttachSemanticNodeToChatMessageRequest"), "AttachSemanticNodeToChatMessageRequest.activityKind"),
+    summary: decodeString(requireField(record, "summary", "AttachSemanticNodeToChatMessageRequest"), "AttachSemanticNodeToChatMessageRequest.summary"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "AttachSemanticNodeToChatMessageRequest"), "AttachSemanticNodeToChatMessageRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "AttachSemanticNodeToChatMessageRequest"), "AttachSemanticNodeToChatMessageRequest.actorId"),
+  };
+}
+
+export function decodeAttachSemanticNodeToRunItemRequest(value: unknown): AttachSemanticNodeToRunItemRequest {
+  const record = assertRecord(value, "AttachSemanticNodeToRunItemRequest");
+  assertKnownFields(record, "AttachSemanticNodeToRunItemRequest", ["workspaceId", "nodeId", "chatRunId", "runItemId", "activityKind", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AttachSemanticNodeToRunItemRequest"), "AttachSemanticNodeToRunItemRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "AttachSemanticNodeToRunItemRequest"), "AttachSemanticNodeToRunItemRequest.nodeId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "AttachSemanticNodeToRunItemRequest"), "AttachSemanticNodeToRunItemRequest.chatRunId"),
+    runItemId: decodeString(requireField(record, "runItemId", "AttachSemanticNodeToRunItemRequest"), "AttachSemanticNodeToRunItemRequest.runItemId"),
+    activityKind: decodeSemanticActivityKind(requireField(record, "activityKind", "AttachSemanticNodeToRunItemRequest"), "AttachSemanticNodeToRunItemRequest.activityKind"),
+    summary: decodeString(requireField(record, "summary", "AttachSemanticNodeToRunItemRequest"), "AttachSemanticNodeToRunItemRequest.summary"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "AttachSemanticNodeToRunItemRequest"), "AttachSemanticNodeToRunItemRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "AttachSemanticNodeToRunItemRequest"), "AttachSemanticNodeToRunItemRequest.actorId"),
+  };
+}
+
+export function decodeAttachSemanticNodeToFileRangeRequest(value: unknown): AttachSemanticNodeToFileRangeRequest {
+  const record = assertRecord(value, "AttachSemanticNodeToFileRangeRequest");
+  assertKnownFields(record, "AttachSemanticNodeToFileRangeRequest", ["workspaceId", "nodeId", "path", "rangeStart", "rangeEnd", "activityKind", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.nodeId"),
+    path: decodeString(requireField(record, "path", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.path"),
+    rangeStart: decodeInteger(requireField(record, "rangeStart", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.rangeStart"),
+    rangeEnd: decodeInteger(requireField(record, "rangeEnd", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.rangeEnd"),
+    activityKind: decodeSemanticActivityKind(requireField(record, "activityKind", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.activityKind"),
+    summary: decodeString(requireField(record, "summary", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.summary"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "AttachSemanticNodeToFileRangeRequest"), "AttachSemanticNodeToFileRangeRequest.actorId"),
+  };
+}
+
+export function decodeEndSemanticActivityRequest(value: unknown): EndSemanticActivityRequest {
+  const record = assertRecord(value, "EndSemanticActivityRequest");
+  assertKnownFields(record, "EndSemanticActivityRequest", ["workspaceId", "activityIntervalId", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "EndSemanticActivityRequest"), "EndSemanticActivityRequest.workspaceId"),
+    activityIntervalId: decodeString(requireField(record, "activityIntervalId", "EndSemanticActivityRequest"), "EndSemanticActivityRequest.activityIntervalId"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "EndSemanticActivityRequest"), "EndSemanticActivityRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "EndSemanticActivityRequest"), "EndSemanticActivityRequest.actorId"),
+  };
+}
+
+export function decodeSemanticActivityEndResult(value: unknown): SemanticActivityEndResult {
+  const record = assertRecord(value, "SemanticActivityEndResult");
+  assertKnownFields(record, "SemanticActivityEndResult", ["workspaceId", "targetEntityId", "activity", "event"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticActivityEndResult"), "SemanticActivityEndResult.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticActivityEndResult"), "SemanticActivityEndResult.targetEntityId"),
+    activity: decodeSemanticActivityInterval(requireField(record, "activity", "SemanticActivityEndResult")),
+    event: decodeSemanticEvent(requireField(record, "event", "SemanticActivityEndResult")),
   };
 }
 
@@ -6297,9 +6707,18 @@ export interface BackendClient {
   readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest) => Promise<ReadSemanticNodeDetailResponse>;
   listSemanticEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
   listSemanticActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
+  listSemanticActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
+  readSemanticActivitySummary: (request: ReadSemanticActivitySummaryRequest) => Promise<SemanticActivitySummary>;
   readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest) => Promise<SemanticSteeringState>;
   readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
   updateSemanticLayoutPositions: (request: UpdateSemanticLayoutPositionsRequest) => Promise<SemanticLayoutPositionList>;
+  attachSemanticNodeToWorkflowExecution: (request: AttachSemanticNodeToWorkflowExecutionRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToWorkflowNode: (request: AttachSemanticNodeToWorkflowNodeRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToChatRun: (request: AttachSemanticNodeToChatRunRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToChatMessage: (request: AttachSemanticNodeToChatMessageRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToRunItem: (request: AttachSemanticNodeToRunItemRequest) => Promise<SemanticAttachmentResult>;
+  attachSemanticNodeToFileRange: (request: AttachSemanticNodeToFileRangeRequest) => Promise<SemanticAttachmentResult>;
+  endSemanticActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
   createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
   attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
   terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
@@ -6727,6 +7146,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    listSemanticActivityPage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticActivityPage,
+      endpoint: backendEndpoints.ListSemanticActivityPage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticActivitySummary: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticActivitySummary,
+      endpoint: backendEndpoints.ReadSemanticActivitySummary,
+      fetchImpl,
+      requestPayload: request,
+    }),
     readSemanticSteeringState: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -6748,6 +7183,62 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticLayoutPositionList,
       endpoint: backendEndpoints.UpdateSemanticLayoutPositions,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    attachSemanticNodeToWorkflowExecution: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticAttachmentResult,
+      endpoint: backendEndpoints.AttachSemanticNodeToWorkflowExecution,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    attachSemanticNodeToWorkflowNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticAttachmentResult,
+      endpoint: backendEndpoints.AttachSemanticNodeToWorkflowNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    attachSemanticNodeToChatRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticAttachmentResult,
+      endpoint: backendEndpoints.AttachSemanticNodeToChatRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    attachSemanticNodeToChatMessage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticAttachmentResult,
+      endpoint: backendEndpoints.AttachSemanticNodeToChatMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    attachSemanticNodeToRunItem: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticAttachmentResult,
+      endpoint: backendEndpoints.AttachSemanticNodeToRunItem,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    attachSemanticNodeToFileRange: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticAttachmentResult,
+      endpoint: backendEndpoints.AttachSemanticNodeToFileRange,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    endSemanticActivity: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticActivityEndResult,
+      endpoint: backendEndpoints.EndSemanticActivity,
       fetchImpl,
       requestPayload: request,
     }),

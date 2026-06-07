@@ -46,6 +46,22 @@ export function registerSemanticGraphIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "semanticGraphActivityPage",
+    async (_event, request) => {
+      return requireBackendClient().listSemanticActivityPage(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphActivitySummary",
+    async (_event, request) => {
+      return requireBackendClient().readSemanticActivitySummary(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "semanticGraphSteeringRead",
     async (_event, request) => {
       return requireBackendClient().readSemanticSteeringState(request);
@@ -65,6 +81,62 @@ export function registerSemanticGraphIpcHandlers({
     "semanticGraphLayoutUpdate",
     async (_event, request) => {
       return requireBackendClient().updateSemanticLayoutPositions(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphAttachWorkflowExecution",
+    async (_event, request) => {
+      return requireBackendClient().attachSemanticNodeToWorkflowExecution(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphAttachWorkflowNode",
+    async (_event, request) => {
+      return requireBackendClient().attachSemanticNodeToWorkflowNode(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphAttachChatRun",
+    async (_event, request) => {
+      return requireBackendClient().attachSemanticNodeToChatRun(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphAttachChatMessage",
+    async (_event, request) => {
+      return requireBackendClient().attachSemanticNodeToChatMessage(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphAttachRunItem",
+    async (_event, request) => {
+      return requireBackendClient().attachSemanticNodeToRunItem(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphAttachFileRange",
+    async (_event, request) => {
+      return requireBackendClient().attachSemanticNodeToFileRange(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphActivityEnd",
+    async (_event, request) => {
+      return requireBackendClient().endSemanticActivity(request);
     },
     ipcObserver,
   );

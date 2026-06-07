@@ -87,9 +87,18 @@ type SemanticGraphService interface {
 	ReadNodeDetail(context.Context, string, string) (semanticgraph.SemanticNodeDetail, bool, error)
 	ListEvidence(context.Context, string, string) (semanticgraph.SemanticEvidenceList, error)
 	ListActivity(context.Context, string, string, int) (semanticgraph.SemanticActivityList, error)
+	ListActivityPage(context.Context, semanticgraph.SemanticActivityFilter) (semanticgraph.SemanticActivityPage, error)
+	ReadActivitySummary(context.Context, string, int) (semanticgraph.SemanticActivitySummary, error)
 	ReadSteeringState(context.Context, string, string) (semanticgraph.SemanticSteeringState, error)
 	ReadEventHistory(context.Context, string, string, int, int) (semanticgraph.SemanticEventHistory, error)
 	UpdateLayoutPositions(context.Context, string, []semanticgraph.SemanticLayoutPositionInput) (semanticgraph.SemanticLayoutPositionList, error)
+	AttachWorkflowExecution(context.Context, semanticgraph.AttachWorkflowExecutionInput) (semanticgraph.SemanticAttachmentResult, error)
+	AttachWorkflowNode(context.Context, semanticgraph.AttachWorkflowNodeInput) (semanticgraph.SemanticAttachmentResult, error)
+	AttachChatRun(context.Context, semanticgraph.AttachChatRunInput) (semanticgraph.SemanticAttachmentResult, error)
+	AttachChatMessage(context.Context, semanticgraph.AttachChatMessageInput) (semanticgraph.SemanticAttachmentResult, error)
+	AttachRunItem(context.Context, semanticgraph.AttachRunItemInput) (semanticgraph.SemanticAttachmentResult, error)
+	AttachFileRange(context.Context, semanticgraph.AttachFileRangeInput) (semanticgraph.SemanticAttachmentResult, error)
+	EndActivity(context.Context, semanticgraph.EndSemanticActivityInput) (semanticgraph.SemanticActivityEndResult, error)
 }
 
 type TerminalService interface {

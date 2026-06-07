@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 const defaultSemanticPageLimit = 100
@@ -112,6 +113,118 @@ func (store *Store) ListActivity(ctx context.Context, workspaceID string, target
 		return SemanticActivityList{}, err
 	}
 	return SemanticActivityList{WorkspaceID: workspaceID, TargetEntityID: targetEntityID, Activity: activity}, nil
+}
+
+func (store *Store) ListActivityPage(ctx context.Context, filter SemanticActivityFilter) (SemanticActivityPage, error) {
+	if err := validateSemanticActivityFilter(ctx, filter); err != nil {
+		return SemanticActivityPage{}, err
+	}
+	activity, hasMore, err := store.loadSemanticActivityPage(ctx, filter)
+	if err != nil {
+		return SemanticActivityPage{}, err
+	}
+	nextOffset := filter.Offset
+	if hasMore {
+		nextOffset = filter.Offset + filter.Limit
+	}
+	return SemanticActivityPage{
+		WorkspaceID:    filter.WorkspaceID,
+		TargetEntityID: filter.TargetEntityID,
+		Activity:       activity,
+		HasMore:        hasMore,
+		NextOffset:     nextOffset,
+		Offset:         filter.Offset,
+		Limit:          filter.Limit,
+	}, nil
+}
+
+func validateSemanticActivityFilter(ctx context.Context, filter SemanticActivityFilter) error {
+	if ctx == nil {
+		return errors.New("context is required")
+	}
+	if err := validateStoreIDs("workspace id", filter.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateOptionalStoreIDs([]optionalStoreID{
+		{label: "target entity id", value: filter.TargetEntityID},
+		{label: "activity source id", value: filter.SourceID},
+		{label: "activity workflow execution id", value: filter.WorkflowExecutionID},
+		{label: "activity workflow node id", value: filter.WorkflowNodeID},
+		{label: "activity chat conversation id", value: filter.ChatConversationID},
+		{label: "activity chat run id", value: filter.ChatRunID},
+		{label: "activity chat message id", value: filter.ChatMessageID},
+		{label: "activity actor id", value: filter.ActorID},
+	}); err != nil {
+		return err
+	}
+	if filter.SourceKind != "" && !isSemanticActivitySourceKind(filter.SourceKind) {
+		return fmt.Errorf("activity source kind is unsupported: %s", filter.SourceKind)
+	}
+	if filter.ActorKind != "" && !isSemanticActorKind(filter.ActorKind) {
+		return fmt.Errorf("activity actor kind is unsupported: %s", filter.ActorKind)
+	}
+	if filter.Offset < 0 {
+		return fmt.Errorf("semantic activity offset must not be negative: %d", filter.Offset)
+	}
+	if filter.Limit <= 0 {
+		return fmt.Errorf("semantic activity limit must be positive: %d", filter.Limit)
+	}
+	return nil
+}
+
+func semanticActivityFilterCondition(filter SemanticActivityFilter) (string, []any) {
+	clauses := []string{"workspace_id = ?"}
+	args := []any{filter.WorkspaceID}
+	add := func(column string, value any) {
+		switch typed := value.(type) {
+		case string:
+			if typed == "" {
+				return
+			}
+		case SemanticActivitySourceKind:
+			if typed == "" {
+				return
+			}
+		case SemanticActorKind:
+			if typed == "" {
+				return
+			}
+		}
+		clauses = append(clauses, column+" = ?")
+		args = append(args, value)
+	}
+	add("target_entity_id", filter.TargetEntityID)
+	add("source_kind", filter.SourceKind)
+	add("source_id", filter.SourceID)
+	add("workflow_execution_id", filter.WorkflowExecutionID)
+	add("workflow_node_id", filter.WorkflowNodeID)
+	add("chat_conversation_id", filter.ChatConversationID)
+	add("chat_run_id", filter.ChatRunID)
+	add("chat_message_id", filter.ChatMessageID)
+	add("actor_kind", filter.ActorKind)
+	add("actor_id", filter.ActorID)
+	return strings.Join(clauses, " AND "), args
+}
+
+func (store *Store) ReadActivitySummary(ctx context.Context, workspaceID string, recentLimit int) (SemanticActivitySummary, error) {
+	if ctx == nil {
+		return SemanticActivitySummary{}, errors.New("context is required")
+	}
+	if err := validateStoreIDs("workspace id", workspaceID); err != nil {
+		return SemanticActivitySummary{}, err
+	}
+	if recentLimit <= 0 {
+		return SemanticActivitySummary{}, fmt.Errorf("semantic activity recent limit must be positive: %d", recentLimit)
+	}
+	current, err := store.loadCurrentSemanticActivity(ctx, workspaceID)
+	if err != nil {
+		return SemanticActivitySummary{}, err
+	}
+	recent, err := store.loadRecentSemanticActivity(ctx, workspaceID, recentLimit)
+	if err != nil {
+		return SemanticActivitySummary{}, err
+	}
+	return semanticActivitySummaryFromIntervals(workspaceID, current, recent), nil
 }
 
 func (store *Store) ReadSteeringState(ctx context.Context, workspaceID string, targetEntityID string) (SemanticSteeringState, error) {
@@ -312,7 +425,8 @@ ORDER BY kind ASC, id ASC
 func (store *Store) loadSemanticEvidence(ctx context.Context, workspaceID string, targetEntityID string) ([]SemanticEvidenceAnchor, error) {
 	rows, err := store.db.QueryContext(ctx, `
 SELECT workspace_id, id, target_entity_id, source_kind, source_id, uri, path,
-       range_start, range_end, text, summary, created_by_event_id, created_at
+       range_start, range_end, text, summary, content_hash, created_by_event_id,
+       created_at
 FROM semantic_evidence_anchors
 WHERE workspace_id = ? AND target_entity_id = ?
 ORDER BY created_at ASC, id ASC
@@ -337,8 +451,10 @@ ORDER BY created_at ASC, id ASC
 
 func (store *Store) loadSemanticActivity(ctx context.Context, workspaceID string, targetEntityID string, limit int) ([]SemanticActivityInterval, error) {
 	rows, err := store.db.QueryContext(ctx, `
-SELECT workspace_id, id, target_entity_id, kind, summary, started_by_event_id,
-       ended_by_event_id, started_at, ended_at, updated_at
+SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
+       evidence_anchor_id, workflow_execution_id, workflow_node_id,
+       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
 FROM semantic_activity_intervals
 WHERE workspace_id = ? AND target_entity_id = ?
 ORDER BY started_at DESC, id DESC
@@ -360,6 +476,162 @@ LIMIT ?
 		return nil, store.persistenceError("read semantic activity", err)
 	}
 	return activity, nil
+}
+
+func (store *Store) loadSemanticEvidenceAnchorByID(ctx context.Context, workspaceID string, anchorID string) (SemanticEvidenceAnchor, bool, error) {
+	row := store.db.QueryRowContext(ctx, `
+SELECT workspace_id, id, target_entity_id, source_kind, source_id, uri, path,
+       range_start, range_end, text, summary, content_hash, created_by_event_id,
+       created_at
+FROM semantic_evidence_anchors
+WHERE workspace_id = ? AND id = ?
+`, workspaceID, anchorID)
+	anchor, err := scanSemanticEvidenceAnchor(row)
+	if err == nil {
+		return anchor, true, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return SemanticEvidenceAnchor{}, false, nil
+	}
+	return SemanticEvidenceAnchor{}, false, store.persistenceError("read semantic evidence anchor", err)
+}
+
+func (store *Store) loadSemanticActivityIntervalByID(ctx context.Context, workspaceID string, intervalID string) (SemanticActivityInterval, bool, error) {
+	row := store.db.QueryRowContext(ctx, `
+SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
+       evidence_anchor_id, workflow_execution_id, workflow_node_id,
+       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
+FROM semantic_activity_intervals
+WHERE workspace_id = ? AND id = ?
+`, workspaceID, intervalID)
+	interval, err := scanSemanticActivityInterval(row)
+	if err == nil {
+		return interval, true, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return SemanticActivityInterval{}, false, nil
+	}
+	return SemanticActivityInterval{}, false, store.persistenceError("read semantic activity interval", err)
+}
+
+func (store *Store) loadSemanticActivityPage(ctx context.Context, filter SemanticActivityFilter) ([]SemanticActivityInterval, bool, error) {
+	condition, args := semanticActivityFilterCondition(filter)
+	args = append(args, filter.Limit+1, filter.Offset)
+	rows, err := store.db.QueryContext(ctx, fmt.Sprintf(`
+SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
+       evidence_anchor_id, workflow_execution_id, workflow_node_id,
+       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
+FROM semantic_activity_intervals
+WHERE %s
+ORDER BY started_at DESC, id DESC
+LIMIT ? OFFSET ?
+`, condition), args...)
+	if err != nil {
+		return nil, false, store.persistenceError("read semantic activity page", err)
+	}
+	defer rows.Close()
+	activity, err := store.scanSemanticActivityRows(rows)
+	if err != nil {
+		return nil, false, err
+	}
+	hasMore := len(activity) > filter.Limit
+	if hasMore {
+		activity = activity[:filter.Limit]
+	}
+	return activity, hasMore, nil
+}
+
+func (store *Store) loadCurrentSemanticActivity(ctx context.Context, workspaceID string) ([]SemanticActivityInterval, error) {
+	rows, err := store.db.QueryContext(ctx, `
+SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
+       evidence_anchor_id, workflow_execution_id, workflow_node_id,
+       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
+FROM semantic_activity_intervals
+WHERE workspace_id = ? AND ended_at = ''
+ORDER BY target_entity_id ASC, started_at DESC, id DESC
+`, workspaceID)
+	if err != nil {
+		return nil, store.persistenceError("read current semantic activity", err)
+	}
+	defer rows.Close()
+	return store.scanSemanticActivityRows(rows)
+}
+
+func (store *Store) loadRecentSemanticActivity(ctx context.Context, workspaceID string, recentLimit int) ([]SemanticActivityInterval, error) {
+	rows, err := store.db.QueryContext(ctx, `
+SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
+       evidence_anchor_id, workflow_execution_id, workflow_node_id,
+       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
+FROM (
+  SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
+         evidence_anchor_id, workflow_execution_id, workflow_node_id,
+         chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+         started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at,
+         ROW_NUMBER() OVER (
+           PARTITION BY target_entity_id
+           ORDER BY started_at DESC, id DESC
+         ) AS target_rank
+  FROM semantic_activity_intervals
+  WHERE workspace_id = ? AND ended_at != ''
+)
+WHERE target_rank <= ?
+ORDER BY target_entity_id ASC, started_at DESC, id DESC
+`, workspaceID, recentLimit)
+	if err != nil {
+		return nil, store.persistenceError("read recent semantic activity", err)
+	}
+	defer rows.Close()
+	return store.scanSemanticActivityRows(rows)
+}
+
+func (store *Store) scanSemanticActivityRows(rows *sql.Rows) ([]SemanticActivityInterval, error) {
+	activity := []SemanticActivityInterval{}
+	for rows.Next() {
+		interval, err := scanSemanticActivityInterval(rows)
+		if err != nil {
+			return nil, store.corruptError("semantic_activity_intervals", err)
+		}
+		activity = append(activity, interval)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, store.persistenceError("read semantic activity", err)
+	}
+	return activity, nil
+}
+
+func semanticActivitySummaryFromIntervals(workspaceID string, current []SemanticActivityInterval, recent []SemanticActivityInterval) SemanticActivitySummary {
+	targetsByID := map[string]*SemanticActivityTargetSummary{}
+	targetOrder := []string{}
+	ensureTarget := func(targetEntityID string) *SemanticActivityTargetSummary {
+		target, ok := targetsByID[targetEntityID]
+		if !ok {
+			targetsByID[targetEntityID] = &SemanticActivityTargetSummary{
+				TargetEntityID:  targetEntityID,
+				CurrentActivity: []SemanticActivityInterval{},
+				RecentActivity:  []SemanticActivityInterval{},
+			}
+			targetOrder = append(targetOrder, targetEntityID)
+			target = targetsByID[targetEntityID]
+		}
+		return target
+	}
+	for _, interval := range current {
+		target := ensureTarget(interval.TargetEntityID)
+		target.CurrentActivity = append(target.CurrentActivity, interval)
+	}
+	for _, interval := range recent {
+		target := ensureTarget(interval.TargetEntityID)
+		target.RecentActivity = append(target.RecentActivity, interval)
+	}
+	targets := make([]SemanticActivityTargetSummary, 0, len(targetOrder))
+	for _, targetID := range targetOrder {
+		targets = append(targets, *targetsByID[targetID])
+	}
+	return SemanticActivitySummary{WorkspaceID: workspaceID, Targets: targets}
 }
 
 func (store *Store) loadSemanticSteering(ctx context.Context, workspaceID string, targetEntityID string) ([]SemanticSteeringDirective, error) {
@@ -453,6 +725,7 @@ func scanSemanticEvidenceAnchor(scanner interface{ Scan(dest ...any) error }) (S
 		&anchor.RangeEnd,
 		&anchor.Text,
 		&anchor.Summary,
+		&anchor.ContentHash,
 		&anchor.CreatedByEventID,
 		&anchor.CreatedAt,
 	); err != nil {
@@ -469,6 +742,16 @@ func scanSemanticActivityInterval(scanner interface{ Scan(dest ...any) error }) 
 		&interval.TargetEntityID,
 		&interval.Kind,
 		&interval.Summary,
+		&interval.SourceKind,
+		&interval.SourceID,
+		&interval.EvidenceAnchorID,
+		&interval.WorkflowExecutionID,
+		&interval.WorkflowNodeID,
+		&interval.ChatConversationID,
+		&interval.ChatRunID,
+		&interval.ChatMessageID,
+		&interval.ActorKind,
+		&interval.ActorID,
 		&interval.StartedByEventID,
 		&interval.EndedByEventID,
 		&interval.StartedAt,

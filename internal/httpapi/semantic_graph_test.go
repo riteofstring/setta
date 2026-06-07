@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"setta/internal/appstate"
+	"setta/internal/chat"
 	"setta/internal/semanticgraph"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -36,10 +38,14 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 		"summary":        "Scope guard",
 	})
 	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventActivityStarted, "node_scope", map[string]any{
-		"intervalId":     "activity_scope",
-		"targetEntityId": "node_scope",
-		"kind":           string(semanticgraph.ActivityKindValidating),
-		"summary":        "Validating endpoint reads",
+		"intervalId":       "activity_scope",
+		"targetEntityId":   "node_scope",
+		"kind":             string(semanticgraph.ActivityKindValidating),
+		"summary":          "Validating endpoint reads",
+		"sourceKind":       string(semanticgraph.ActivitySourceFileRange),
+		"evidenceAnchorId": "evidence_scope",
+		"actorKind":        string(semanticgraph.ActorKindService),
+		"actorId":          "semantic_http_test",
 	})
 	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventActivityEnded, "node_scope", map[string]any{
 		"intervalId": "activity_scope",
@@ -82,6 +88,22 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	if len(activity.Activity) != 1 || activity.Activity[0].EndedAt == "" {
 		t.Fatalf("activity = %+v, want ended activity_scope", activity.Activity)
 	}
+	activityPage := postJSON[semanticgraph.SemanticActivityPage](t, handler, "/semantic-graph/activity/page", ListSemanticActivityPageRequest{
+		WorkspaceID: workspaceID,
+		SourceKind:  semanticActivitySourceKindPtr(semanticgraph.ActivitySourceFileRange),
+		Offset:      0,
+		Limit:       10,
+	}, http.StatusOK)
+	if len(activityPage.Activity) != 1 || activityPage.Activity[0].ID != "activity_scope" {
+		t.Fatalf("activity page = %+v, want activity_scope", activityPage.Activity)
+	}
+	activitySummary := postJSON[semanticgraph.SemanticActivitySummary](t, handler, "/semantic-graph/activity/summary", ReadSemanticActivitySummaryRequest{
+		WorkspaceID: workspaceID,
+		RecentLimit: 3,
+	}, http.StatusOK)
+	if len(activitySummary.Targets) != 1 || len(activitySummary.Targets[0].RecentActivity) != 1 {
+		t.Fatalf("activity summary = %+v, want one recent activity", activitySummary)
+	}
 
 	steering := postJSON[semanticgraph.SemanticSteeringState](t, handler, "/semantic-graph/steering/read", ReadSemanticSteeringStateRequest{
 		WorkspaceID:    workspaceID,
@@ -102,6 +124,67 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	}
 
 	assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t, handler, workspaceID)
+}
+
+func TestSemanticGraphAttachmentEndpoints(t *testing.T) {
+	handler, semanticService := newSemanticGraphHandlerWithOptions(t, semanticgraph.WithChatSourceResolver(httpSemanticChatResolver{
+		run: chat.Run{
+			ID:               "run_http_attach",
+			WorkspaceID:      "workspace_set_later",
+			ConversationID:   "conversation_http_attach",
+			TriggerMessageID: "message_http_user",
+			Harness:          chat.HarnessCodex,
+			Status:           chat.RunStatusRunning,
+			StartedAt:        "2026-06-10T20:10:00Z",
+			PromptSummary:    "Attach a real chat run to semantic state",
+		},
+	}))
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	workspaceID := opened.Workspace.ID
+	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventNodeCreated, "node_attach", map[string]any{
+		"nodeId": "node_attach",
+		"kind":   string(semanticgraph.NodeKindFinding),
+		"label":  "Attach chat run",
+	})
+
+	attachment := postJSON[semanticgraph.SemanticAttachmentResult](t, handler, "/semantic-graph/attachments/chat-run", AttachSemanticNodeToChatRunRequest{
+		WorkspaceID:  workspaceID,
+		NodeID:       "node_attach",
+		ChatRunID:    "run_http_attach",
+		ActivityKind: semanticgraph.ActivityKindExploring,
+		ActorKind:    semanticgraph.ActorKindUser,
+		ActorID:      "user_http",
+	}, http.StatusOK)
+	if attachment.Evidence.SourceKind != semanticgraph.EvidenceSourceChatRun || attachment.Activity.SourceKind != semanticgraph.ActivitySourceChatRun {
+		t.Fatalf("attachment = %+v, want chat run evidence and activity", attachment)
+	}
+
+	ended := postJSON[semanticgraph.SemanticActivityEndResult](t, handler, "/semantic-graph/activity/end", EndSemanticActivityRequest{
+		WorkspaceID:        workspaceID,
+		ActivityIntervalID: attachment.Activity.ID,
+		ActorKind:          semanticgraph.ActorKindUser,
+		ActorID:            "user_http",
+	}, http.StatusOK)
+	if ended.Activity.EndedAt == "" {
+		t.Fatalf("ended activity = %+v, want ended timestamp", ended.Activity)
+	}
+
+	detail := postJSON[ReadSemanticNodeDetailResponse](t, handler, "/semantic-graph/nodes/detail", ReadSemanticNodeDetailRequest{
+		WorkspaceID: workspaceID,
+		NodeID:      "node_attach",
+	}, http.StatusOK)
+	if detail.Detail == nil || len(detail.Detail.Evidence) != 1 || len(detail.Detail.Activity) != 1 || detail.Detail.Activity[0].EvidenceAnchorID == "" {
+		t.Fatalf("attached detail = %+v, want linked evidence and activity", detail.Detail)
+	}
+	history := postJSON[semanticgraph.SemanticEventHistory](t, handler, "/semantic-graph/events/history", ReadSemanticEventHistoryRequest{
+		WorkspaceID:        workspaceID,
+		TargetEntityID:     "node_attach",
+		BeforeLogicalClock: 0,
+		Limit:              20,
+	}, http.StatusOK)
+	if len(history.Events) != 4 {
+		t.Fatalf("history = %+v, want node created plus attach/end events", history.Events)
+	}
 }
 
 func assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t *testing.T, handler http.Handler, workspaceID string) {
@@ -133,6 +216,10 @@ func assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t *testing.T, handler 
 }
 
 func newSemanticGraphHandler(t *testing.T) (http.Handler, *semanticgraph.Service) {
+	return newSemanticGraphHandlerWithOptions(t)
+}
+
+func newSemanticGraphHandlerWithOptions(t *testing.T, options ...semanticgraph.Option) (http.Handler, *semanticgraph.Service) {
 	t.Helper()
 	appDataDir := t.TempDir()
 	store, err := appstate.NewStore(appDataDir)
@@ -161,7 +248,7 @@ func newSemanticGraphHandler(t *testing.T) (http.Handler, *semanticgraph.Service
 			t.Fatalf("close semantic graph store: %v", err)
 		}
 	})
-	semanticService, err := semanticgraph.NewService(semanticStore, workspaceService)
+	semanticService, err := semanticgraph.NewService(semanticStore, workspaceService, options...)
 	if err != nil {
 		t.Fatalf("new semantic graph service: %v", err)
 	}
@@ -213,4 +300,29 @@ func semanticHTTPObservedAt(t *testing.T, eventType semanticgraph.SemanticEventT
 		semanticgraph.EventSteeringCreated:  5,
 	}
 	return time.Date(2026, 6, 10, 20, 0, offsets[eventType], 0, time.UTC).Format(time.RFC3339Nano)
+}
+
+func semanticActivitySourceKindPtr(kind semanticgraph.SemanticActivitySourceKind) *semanticgraph.SemanticActivitySourceKind {
+	return &kind
+}
+
+type httpSemanticChatResolver struct {
+	run chat.Run
+}
+
+func (resolver httpSemanticChatResolver) ReadRun(workspaceID string, runID string) (chat.Run, error) {
+	if resolver.run.ID == runID {
+		run := resolver.run
+		run.WorkspaceID = workspaceID
+		return run, nil
+	}
+	return chat.Run{}, errors.New("chat run not found")
+}
+
+func (resolver httpSemanticChatResolver) ReadMessage(string, string, string) (chat.ChatMessage, error) {
+	return chat.ChatMessage{}, errors.New("chat message not found")
+}
+
+func (resolver httpSemanticChatResolver) ReadRunItem(string, string, string) (chat.RunItem, error) {
+	return chat.RunItem{}, errors.New("run item not found")
 }

@@ -179,7 +179,12 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	semanticGraphService, semanticGraphStore, err := newSemanticGraphService(config.AppDataDir, workspaceService)
+	semanticGraphService, semanticGraphStore, err := newSemanticGraphService(
+		config.AppDataDir,
+		workspaceService,
+		workflowService,
+		chatService,
+	)
 	if err != nil {
 		return runtimeServices{}, err
 	}
@@ -291,12 +296,19 @@ func newWorkflowService(
 func newSemanticGraphService(
 	appDataDir string,
 	workspaceService *workspacesession.Service,
+	workflowService *orchestrator.Service,
+	chatService *chat.Service,
 ) (*semanticgraph.Service, *semanticgraph.Store, error) {
 	semanticStore, err := semanticgraph.NewStore(appDataDir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create semantic graph store: %w", err)
 	}
-	semanticService, err := semanticgraph.NewService(semanticStore, workspaceService)
+	semanticService, err := semanticgraph.NewService(
+		semanticStore,
+		workspaceService,
+		semanticgraph.WithWorkflowSourceResolver(workflowService),
+		semanticgraph.WithChatSourceResolver(chatService),
+	)
 	if err != nil {
 		_ = semanticStore.Close()
 		return nil, nil, fmt.Errorf("create semantic graph service: %w", err)

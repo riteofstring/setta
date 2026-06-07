@@ -220,10 +220,14 @@ func seedEvents(workspaceID string) []semanticgraph.SemanticEvent {
 			Summary:        "Phase 2 plan excerpt",
 		}),
 		seedEvent(workspaceID, "semantic_seed_event_activity_started", semanticgraph.EventActivityStarted, seedConstraintNodeID, 9, nil, activityStartedPayload{
-			IntervalID:     "semantic_seed_activity_validating",
-			TargetEntityID: seedConstraintNodeID,
-			Kind:           semanticgraph.ActivityKindValidating,
-			Summary:        "Validating semantic graph renderer integration.",
+			IntervalID:       "semantic_seed_activity_validating",
+			TargetEntityID:   seedConstraintNodeID,
+			Kind:             semanticgraph.ActivityKindValidating,
+			Summary:          "Validating semantic graph renderer integration.",
+			SourceKind:       semanticgraph.ActivitySourceFileRange,
+			EvidenceAnchorID: "semantic_seed_evidence_plan",
+			ActorKind:        semanticgraph.ActorKindService,
+			ActorID:          seedActorID,
 		}),
 		seedEvent(workspaceID, "semantic_seed_event_steering_created", semanticgraph.EventSteeringCreated, seedConstraintNodeID, 10, nil, steeringCreatedPayload{
 			DirectiveID:    "semantic_seed_steering_readonly",
@@ -311,13 +315,24 @@ type evidenceAttachedPayload struct {
 	RangeEnd       int                                      `json:"rangeEnd"`
 	Text           string                                   `json:"text"`
 	Summary        string                                   `json:"summary"`
+	ContentHash    string                                   `json:"contentHash"`
 }
 
 type activityStartedPayload struct {
-	IntervalID     string                             `json:"intervalId"`
-	TargetEntityID string                             `json:"targetEntityId"`
-	Kind           semanticgraph.SemanticActivityKind `json:"kind"`
-	Summary        string                             `json:"summary"`
+	IntervalID          string                                   `json:"intervalId"`
+	TargetEntityID      string                                   `json:"targetEntityId"`
+	Kind                semanticgraph.SemanticActivityKind       `json:"kind"`
+	Summary             string                                   `json:"summary"`
+	SourceKind          semanticgraph.SemanticActivitySourceKind `json:"sourceKind"`
+	SourceID            string                                   `json:"sourceId"`
+	EvidenceAnchorID    string                                   `json:"evidenceAnchorId"`
+	WorkflowExecutionID string                                   `json:"workflowExecutionId"`
+	WorkflowNodeID      string                                   `json:"workflowNodeId"`
+	ChatConversationID  string                                   `json:"chatConversationId"`
+	ChatRunID           string                                   `json:"chatRunId"`
+	ChatMessageID       string                                   `json:"chatMessageId"`
+	ActorKind           semanticgraph.SemanticActorKind          `json:"actorKind"`
+	ActorID             string                                   `json:"actorId"`
 }
 
 type steeringCreatedPayload struct {

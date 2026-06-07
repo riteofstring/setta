@@ -237,6 +237,7 @@ function SemanticEvidenceSection({ evidence }: { evidence: SemanticEvidenceAncho
                 { label: "Path", value: evidencePath(anchor) },
                 { label: "Summary", value: anchor.summary },
                 { label: "Text", value: anchor.text },
+                { label: "Content hash", value: anchor.contentHash },
                 { label: "Created", value: anchor.createdAt },
               ]}
             />
@@ -260,6 +261,15 @@ function SemanticActivitySection({ activity }: { activity: SemanticActivityInter
               rows={[
                 { label: "Kind", value: interval.kind },
                 { label: "State", value: interval.endedAt === "" ? "active" : "ended" },
+                { label: "Source", value: interval.sourceKind },
+                { label: "Source id", value: interval.sourceId },
+                { label: "Evidence", value: interval.evidenceAnchorId },
+                { label: "Workflow execution", value: interval.workflowExecutionId },
+                { label: "Workflow node", value: interval.workflowNodeId },
+                { label: "Chat conversation", value: interval.chatConversationId },
+                { label: "Chat run", value: interval.chatRunId },
+                { label: "Chat message", value: interval.chatMessageId },
+                { label: "Actor", value: activityActor(interval) },
                 { label: "Summary", value: interval.summary },
                 { label: "Started", value: interval.startedAt },
                 { label: "Ended", value: interval.endedAt },
@@ -414,6 +424,13 @@ function evidencePath(anchor: SemanticEvidenceAnchor) {
     return anchor.path;
   }
   return `${anchor.path}:${anchor.rangeStart}-${anchor.rangeEnd}`;
+}
+
+function activityActor(interval: SemanticActivityInterval) {
+  if (interval.actorId === "") {
+    return interval.actorKind;
+  }
+  return `${interval.actorKind}:${interval.actorId}`;
 }
 
 function errorMessage(error: unknown) {

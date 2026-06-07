@@ -1,6 +1,12 @@
 import type {
   AppearancePresetList,
   AppearanceSettings,
+  AttachSemanticNodeToChatMessageRequest,
+  AttachSemanticNodeToChatRunRequest,
+  AttachSemanticNodeToFileRangeRequest,
+  AttachSemanticNodeToRunItemRequest,
+  AttachSemanticNodeToWorkflowExecutionRequest,
+  AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
@@ -12,6 +18,7 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ListConversationsResponse,
@@ -22,6 +29,7 @@ import type {
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  ReadSemanticActivitySummaryRequest,
   ReadSemanticEventHistoryRequest,
   ReadSemanticGraphRequest,
   ReadSemanticNodeDetailRequest,
@@ -34,9 +42,14 @@ import type {
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
   ListSemanticEvidenceRequest,
+  SemanticActivityEndResult,
   SemanticActivityList,
+  SemanticActivityPage,
+  SemanticActivitySummary,
+  SemanticAttachmentResult,
   SemanticEventHistory,
   SemanticEvidenceList,
   SemanticGraph,
@@ -385,9 +398,32 @@ export interface SettaAPI {
     startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
   };
   semanticGraph: {
+    attachChatMessage: (
+      request: AttachSemanticNodeToChatMessageRequest,
+    ) => Promise<SemanticAttachmentResult>;
+    attachChatRun: (
+      request: AttachSemanticNodeToChatRunRequest,
+    ) => Promise<SemanticAttachmentResult>;
+    attachFileRange: (
+      request: AttachSemanticNodeToFileRangeRequest,
+    ) => Promise<SemanticAttachmentResult>;
+    attachRunItem: (
+      request: AttachSemanticNodeToRunItemRequest,
+    ) => Promise<SemanticAttachmentResult>;
+    attachWorkflowExecution: (
+      request: AttachSemanticNodeToWorkflowExecutionRequest,
+    ) => Promise<SemanticAttachmentResult>;
+    attachWorkflowNode: (
+      request: AttachSemanticNodeToWorkflowNodeRequest,
+    ) => Promise<SemanticAttachmentResult>;
+    endActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
     listActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
+    listActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
     listEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
     read: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
+    readActivitySummary: (
+      request: ReadSemanticActivitySummaryRequest,
+    ) => Promise<SemanticActivitySummary>;
     readEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
     readNodeDetail: (
       request: ReadSemanticNodeDetailRequest,

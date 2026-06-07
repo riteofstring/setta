@@ -7,6 +7,7 @@ const SchemaVersion = 1
 type SemanticNodeKind string
 type SemanticEdgeKind string
 type SemanticActivityKind string
+type SemanticActivitySourceKind string
 type SemanticEventType string
 type SemanticActorKind string
 type SemanticEvidenceSourceKind string
@@ -32,6 +33,16 @@ const (
 	ActivityKindDebugging  SemanticActivityKind = "debugging"
 	ActivityKindValidating SemanticActivityKind = "validating"
 	ActivityKindBlocked    SemanticActivityKind = "blocked"
+
+	ActivitySourceWorkflowExecution SemanticActivitySourceKind = "workflow_execution"
+	ActivitySourceWorkflowNode      SemanticActivitySourceKind = "workflow_node"
+	ActivitySourceChatRun           SemanticActivitySourceKind = "chat_run"
+	ActivitySourceChatMessage       SemanticActivitySourceKind = "chat_message"
+	ActivitySourceRunItem           SemanticActivitySourceKind = "run_item"
+	ActivitySourceFileRange         SemanticActivitySourceKind = "file_range"
+	ActivitySourceTest              SemanticActivitySourceKind = "test"
+	ActivitySourceDiff              SemanticActivitySourceKind = "diff"
+	ActivitySourceCommand           SemanticActivitySourceKind = "command"
 
 	EventNodeCreated             SemanticEventType = "node.created"
 	EventNodeUpdated             SemanticEventType = "node.updated"
@@ -62,7 +73,9 @@ const (
 	EvidenceSourceFileRange         SemanticEvidenceSourceKind = "file_range"
 	EvidenceSourceDiff              SemanticEvidenceSourceKind = "diff"
 	EvidenceSourceTest              SemanticEvidenceSourceKind = "test"
+	EvidenceSourceWorkflowNode      SemanticEvidenceSourceKind = "workflow_node"
 	EvidenceSourceWorkflowExecution SemanticEvidenceSourceKind = "workflow_execution"
+	EvidenceSourceChatRun           SemanticEvidenceSourceKind = "chat_run"
 	EvidenceSourcePrompt            SemanticEvidenceSourceKind = "prompt"
 	EvidenceSourceLog               SemanticEvidenceSourceKind = "log"
 	EvidenceSourceDocument          SemanticEvidenceSourceKind = "document"
@@ -92,6 +105,17 @@ var (
 		ActivityKindDebugging,
 		ActivityKindValidating,
 		ActivityKindBlocked,
+	}
+	semanticActivitySourceKindValues = []SemanticActivitySourceKind{
+		ActivitySourceWorkflowExecution,
+		ActivitySourceWorkflowNode,
+		ActivitySourceChatRun,
+		ActivitySourceChatMessage,
+		ActivitySourceRunItem,
+		ActivitySourceFileRange,
+		ActivitySourceTest,
+		ActivitySourceDiff,
+		ActivitySourceCommand,
 	}
 	semanticEventTypeValues = []SemanticEventType{
 		EventNodeCreated,
@@ -125,7 +149,9 @@ var (
 		EvidenceSourceFileRange,
 		EvidenceSourceDiff,
 		EvidenceSourceTest,
+		EvidenceSourceWorkflowNode,
 		EvidenceSourceWorkflowExecution,
+		EvidenceSourceChatRun,
 		EvidenceSourcePrompt,
 		EvidenceSourceLog,
 		EvidenceSourceDocument,
@@ -142,6 +168,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticNodeKind", Values: stringValues(semanticNodeKindValues)},
 		{Name: "SemanticEdgeKind", Values: stringValues(semanticEdgeKindValues)},
 		{Name: "SemanticActivityKind", Values: stringValues(semanticActivityKindValues)},
+		{Name: "SemanticActivitySourceKind", Values: stringValues(semanticActivitySourceKindValues)},
 		{Name: "SemanticEventType", Values: stringValues(semanticEventTypeValues)},
 		{Name: "SemanticActorKind", Values: stringValues(semanticActorKindValues)},
 		{Name: "SemanticEvidenceSourceKind", Values: stringValues(semanticEvidenceSourceKindValues)},
@@ -222,21 +249,32 @@ type SemanticEvidenceAnchor struct {
 	RangeEnd         int                        `json:"rangeEnd"`
 	Text             string                     `json:"text"`
 	Summary          string                     `json:"summary"`
+	ContentHash      string                     `json:"contentHash"`
 	CreatedByEventID string                     `json:"createdByEventId"`
 	CreatedAt        string                     `json:"createdAt"`
 }
 
 type SemanticActivityInterval struct {
-	ID               string               `json:"id"`
-	WorkspaceID      string               `json:"workspaceId"`
-	TargetEntityID   string               `json:"targetEntityId"`
-	Kind             SemanticActivityKind `json:"kind"`
-	Summary          string               `json:"summary"`
-	StartedByEventID string               `json:"startedByEventId"`
-	EndedByEventID   string               `json:"endedByEventId"`
-	StartedAt        string               `json:"startedAt"`
-	EndedAt          string               `json:"endedAt"`
-	UpdatedAt        string               `json:"updatedAt"`
+	ID                  string                     `json:"id"`
+	WorkspaceID         string                     `json:"workspaceId"`
+	TargetEntityID      string                     `json:"targetEntityId"`
+	Kind                SemanticActivityKind       `json:"kind"`
+	Summary             string                     `json:"summary"`
+	SourceKind          SemanticActivitySourceKind `json:"sourceKind"`
+	SourceID            string                     `json:"sourceId"`
+	EvidenceAnchorID    string                     `json:"evidenceAnchorId"`
+	WorkflowExecutionID string                     `json:"workflowExecutionId"`
+	WorkflowNodeID      string                     `json:"workflowNodeId"`
+	ChatConversationID  string                     `json:"chatConversationId"`
+	ChatRunID           string                     `json:"chatRunId"`
+	ChatMessageID       string                     `json:"chatMessageId"`
+	ActorKind           SemanticActorKind          `json:"actorKind"`
+	ActorID             string                     `json:"actorId"`
+	StartedByEventID    string                     `json:"startedByEventId"`
+	EndedByEventID      string                     `json:"endedByEventId"`
+	StartedAt           string                     `json:"startedAt"`
+	EndedAt             string                     `json:"endedAt"`
+	UpdatedAt           string                     `json:"updatedAt"`
 }
 
 type SemanticSteeringDirective struct {
@@ -313,6 +351,43 @@ type SemanticActivityList struct {
 	Activity       []SemanticActivityInterval `json:"activity"`
 }
 
+type SemanticActivityPage struct {
+	WorkspaceID    string                     `json:"workspaceId"`
+	TargetEntityID string                     `json:"targetEntityId"`
+	Activity       []SemanticActivityInterval `json:"activity"`
+	HasMore        bool                       `json:"hasMore"`
+	NextOffset     int                        `json:"nextOffset"`
+	Offset         int                        `json:"offset"`
+	Limit          int                        `json:"limit"`
+}
+
+type SemanticActivityFilter struct {
+	WorkspaceID         string                     `json:"workspaceId"`
+	TargetEntityID      string                     `json:"targetEntityId"`
+	SourceKind          SemanticActivitySourceKind `json:"sourceKind"`
+	SourceID            string                     `json:"sourceId"`
+	WorkflowExecutionID string                     `json:"workflowExecutionId"`
+	WorkflowNodeID      string                     `json:"workflowNodeId"`
+	ChatConversationID  string                     `json:"chatConversationId"`
+	ChatRunID           string                     `json:"chatRunId"`
+	ChatMessageID       string                     `json:"chatMessageId"`
+	ActorKind           SemanticActorKind          `json:"actorKind"`
+	ActorID             string                     `json:"actorId"`
+	Offset              int                        `json:"offset"`
+	Limit               int                        `json:"limit"`
+}
+
+type SemanticActivityTargetSummary struct {
+	TargetEntityID  string                     `json:"targetEntityId"`
+	CurrentActivity []SemanticActivityInterval `json:"currentActivity"`
+	RecentActivity  []SemanticActivityInterval `json:"recentActivity"`
+}
+
+type SemanticActivitySummary struct {
+	WorkspaceID string                          `json:"workspaceId"`
+	Targets     []SemanticActivityTargetSummary `json:"targets"`
+}
+
 type SemanticSteeringState struct {
 	WorkspaceID        string                      `json:"workspaceId"`
 	TargetEntityID     string                      `json:"targetEntityId"`
@@ -325,4 +400,91 @@ type SemanticEventHistory struct {
 	Events                  []SemanticEvent `json:"events"`
 	HasMoreOlder            bool            `json:"hasMoreOlder"`
 	OlderBeforeLogicalClock int             `json:"olderBeforeLogicalClock"`
+}
+
+type SemanticAttachmentActor struct {
+	ActorKind SemanticActorKind `json:"actorKind"`
+	ActorID   string            `json:"actorId"`
+}
+
+type AttachWorkflowExecutionInput struct {
+	WorkspaceID         string                  `json:"workspaceId"`
+	NodeID              string                  `json:"nodeId"`
+	WorkflowExecutionID string                  `json:"workflowExecutionId"`
+	ActivityKind        SemanticActivityKind    `json:"activityKind"`
+	Summary             string                  `json:"summary"`
+	Actor               SemanticAttachmentActor `json:"actor"`
+}
+
+type AttachWorkflowNodeInput struct {
+	WorkspaceID             string                  `json:"workspaceId"`
+	NodeID                  string                  `json:"nodeId"`
+	WorkflowExecutionID     string                  `json:"workflowExecutionId"`
+	WorkflowNodeID          string                  `json:"workflowNodeId"`
+	WorkflowNodeExecutionID string                  `json:"workflowNodeExecutionId"`
+	WorkflowDefinitionID    string                  `json:"workflowDefinitionId"`
+	ActivityKind            SemanticActivityKind    `json:"activityKind"`
+	Summary                 string                  `json:"summary"`
+	Actor                   SemanticAttachmentActor `json:"actor"`
+}
+
+type AttachChatRunInput struct {
+	WorkspaceID  string                  `json:"workspaceId"`
+	NodeID       string                  `json:"nodeId"`
+	ChatRunID    string                  `json:"chatRunId"`
+	ActivityKind SemanticActivityKind    `json:"activityKind"`
+	Summary      string                  `json:"summary"`
+	Actor        SemanticAttachmentActor `json:"actor"`
+}
+
+type AttachChatMessageInput struct {
+	WorkspaceID        string                  `json:"workspaceId"`
+	NodeID             string                  `json:"nodeId"`
+	ChatConversationID string                  `json:"chatConversationId"`
+	ChatMessageID      string                  `json:"chatMessageId"`
+	ActivityKind       SemanticActivityKind    `json:"activityKind"`
+	Summary            string                  `json:"summary"`
+	Actor              SemanticAttachmentActor `json:"actor"`
+}
+
+type AttachRunItemInput struct {
+	WorkspaceID  string                  `json:"workspaceId"`
+	NodeID       string                  `json:"nodeId"`
+	ChatRunID    string                  `json:"chatRunId"`
+	RunItemID    string                  `json:"runItemId"`
+	ActivityKind SemanticActivityKind    `json:"activityKind"`
+	Summary      string                  `json:"summary"`
+	Actor        SemanticAttachmentActor `json:"actor"`
+}
+
+type AttachFileRangeInput struct {
+	WorkspaceID  string                  `json:"workspaceId"`
+	NodeID       string                  `json:"nodeId"`
+	Path         string                  `json:"path"`
+	RangeStart   int                     `json:"rangeStart"`
+	RangeEnd     int                     `json:"rangeEnd"`
+	ActivityKind SemanticActivityKind    `json:"activityKind"`
+	Summary      string                  `json:"summary"`
+	Actor        SemanticAttachmentActor `json:"actor"`
+}
+
+type EndSemanticActivityInput struct {
+	WorkspaceID        string                  `json:"workspaceId"`
+	ActivityIntervalID string                  `json:"activityIntervalId"`
+	Actor              SemanticAttachmentActor `json:"actor"`
+}
+
+type SemanticAttachmentResult struct {
+	WorkspaceID    string                   `json:"workspaceId"`
+	TargetEntityID string                   `json:"targetEntityId"`
+	Evidence       SemanticEvidenceAnchor   `json:"evidence"`
+	Activity       SemanticActivityInterval `json:"activity"`
+	Events         []SemanticEvent          `json:"events"`
+}
+
+type SemanticActivityEndResult struct {
+	WorkspaceID    string                   `json:"workspaceId"`
+	TargetEntityID string                   `json:"targetEntityId"`
+	Activity       SemanticActivityInterval `json:"activity"`
+	Event          SemanticEvent            `json:"event"`
 }

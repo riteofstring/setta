@@ -20,6 +20,8 @@ type IDGenerator func(prefix string) (string, error)
 type Service struct {
 	store             *Store
 	workspaceResolver WorkspaceResolver
+	workflowResolver  WorkflowSourceResolver
+	chatResolver      ChatSourceResolver
 	newID             IDGenerator
 	now               func() time.Time
 }
@@ -57,6 +59,18 @@ func WithClock(now func() time.Time) Option {
 	}
 }
 
+func WithWorkflowSourceResolver(resolver WorkflowSourceResolver) Option {
+	return func(service *Service) {
+		service.workflowResolver = resolver
+	}
+}
+
+func WithChatSourceResolver(resolver ChatSourceResolver) Option {
+	return func(service *Service) {
+		service.chatResolver = resolver
+	}
+}
+
 func (service *Service) AppendEvent(ctx context.Context, event SemanticEvent) (SemanticEvent, error) {
 	if ctx == nil {
 		return SemanticEvent{}, errors.New("context is required")
@@ -78,6 +92,38 @@ func (service *Service) AppendEvent(ctx context.Context, event SemanticEvent) (S
 		event.ModelInfo = map[string]string{}
 	}
 	return service.store.AppendEvent(ctx, event)
+}
+
+func (service *Service) appendEvents(ctx context.Context, events []SemanticEvent) ([]SemanticEvent, error) {
+	if ctx == nil {
+		return nil, errors.New("context is required")
+	}
+	if len(events) == 0 {
+		return nil, errors.New("semantic events are required")
+	}
+	workspaceID := events[0].WorkspaceID
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return nil, err
+	}
+	for index := range events {
+		if events[index].WorkspaceID != workspaceID {
+			return nil, fmt.Errorf("semantic events must belong to one workspace")
+		}
+		if events[index].EventID == "" {
+			id, err := service.newID("semantic_event")
+			if err != nil {
+				return nil, fmt.Errorf("create semantic event id: %w", err)
+			}
+			events[index].EventID = id
+		}
+		if events[index].ObservedAt == "" {
+			events[index].ObservedAt = timestamp(service.now())
+		}
+		if events[index].ModelInfo == nil {
+			events[index].ModelInfo = map[string]string{}
+		}
+	}
+	return service.store.AppendEvents(ctx, events)
 }
 
 func (service *Service) RebuildProjections(ctx context.Context) error {
@@ -110,6 +156,20 @@ func (service *Service) ListActivity(ctx context.Context, workspaceID string, ta
 		return SemanticActivityList{}, err
 	}
 	return service.store.ListActivity(ctx, workspaceID, targetEntityID, limit)
+}
+
+func (service *Service) ListActivityPage(ctx context.Context, filter SemanticActivityFilter) (SemanticActivityPage, error) {
+	if _, err := service.resolveWorkspace(filter.WorkspaceID); err != nil {
+		return SemanticActivityPage{}, err
+	}
+	return service.store.ListActivityPage(ctx, filter)
+}
+
+func (service *Service) ReadActivitySummary(ctx context.Context, workspaceID string, recentLimit int) (SemanticActivitySummary, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return SemanticActivitySummary{}, err
+	}
+	return service.store.ReadActivitySummary(ctx, workspaceID, recentLimit)
 }
 
 func (service *Service) ReadSteeringState(ctx context.Context, workspaceID string, targetEntityID string) (SemanticSteeringState, error) {

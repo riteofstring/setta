@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 1
+	semanticStoreVersion = 2
 	sqliteDriverName     = "sqlite"
 )
 
@@ -235,6 +235,7 @@ CREATE TABLE IF NOT EXISTS semantic_evidence_anchors (
   range_end INTEGER NOT NULL DEFAULT 0,
   text TEXT NOT NULL DEFAULT '',
   summary TEXT NOT NULL DEFAULT '',
+  content_hash TEXT NOT NULL DEFAULT '',
   created_by_event_id TEXT NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY(workspace_id, id)
@@ -249,6 +250,16 @@ CREATE TABLE IF NOT EXISTS semantic_activity_intervals (
   target_entity_id TEXT NOT NULL,
   kind TEXT NOT NULL,
   summary TEXT NOT NULL DEFAULT '',
+  source_kind TEXT NOT NULL DEFAULT '',
+  source_id TEXT NOT NULL DEFAULT '',
+  evidence_anchor_id TEXT NOT NULL DEFAULT '',
+  workflow_execution_id TEXT NOT NULL DEFAULT '',
+  workflow_node_id TEXT NOT NULL DEFAULT '',
+  chat_conversation_id TEXT NOT NULL DEFAULT '',
+  chat_run_id TEXT NOT NULL DEFAULT '',
+  chat_message_id TEXT NOT NULL DEFAULT '',
+  actor_kind TEXT NOT NULL DEFAULT '',
+  actor_id TEXT NOT NULL DEFAULT '',
   started_by_event_id TEXT NOT NULL,
   ended_by_event_id TEXT NOT NULL DEFAULT '',
   started_at TEXT NOT NULL,
@@ -259,6 +270,15 @@ CREATE TABLE IF NOT EXISTS semantic_activity_intervals (
 
 CREATE INDEX IF NOT EXISTS semantic_activity_workspace_target_idx
   ON semantic_activity_intervals(workspace_id, target_entity_id, started_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_activity_workspace_source_idx
+  ON semantic_activity_intervals(workspace_id, source_kind, source_id, started_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_activity_workspace_run_idx
+  ON semantic_activity_intervals(workspace_id, workflow_execution_id, chat_run_id, started_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_activity_workspace_active_idx
+  ON semantic_activity_intervals(workspace_id, ended_at, started_at DESC, id);
 
 CREATE TABLE IF NOT EXISTS semantic_steering_directives (
   workspace_id TEXT NOT NULL,

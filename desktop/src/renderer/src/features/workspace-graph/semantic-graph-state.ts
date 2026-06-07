@@ -1,5 +1,6 @@
 import type {
   SemanticActivityInterval,
+  SemanticActivitySummary,
   SemanticGraph,
   SemanticLayoutPosition,
 } from "@generated/backend";
@@ -41,8 +42,14 @@ export function useSemanticGraphState() {
       workspaceId: selectedWorkspaceId,
     });
     const load = async () => {
-      const graph = await window.setta.semanticGraph.read({ workspaceId: selectedWorkspaceId });
-      const activitiesByNodeId = await loadSemanticGraphActivity(graph);
+      const [graph, activitySummary] = await Promise.all([
+        window.setta.semanticGraph.read({ workspaceId: selectedWorkspaceId }),
+        window.setta.semanticGraph.readActivitySummary({
+          recentLimit: semanticGraphActivityLimit,
+          workspaceId: selectedWorkspaceId,
+        }),
+      ]);
+      const activitiesByNodeId = semanticGraphActivitySummaryMap(activitySummary);
       if (!disposed) {
         setState({
           activitiesByNodeId,
@@ -94,18 +101,25 @@ export function useSemanticGraphState() {
   };
 }
 
-async function loadSemanticGraphActivity(graph: SemanticGraph) {
-  const entries = await Promise.all(
-    graph.nodes.map(async (node): Promise<[string, SemanticActivityInterval[]]> => {
-      const response = await window.setta.semanticGraph.listActivity({
-        limit: semanticGraphActivityLimit,
-        targetEntityId: node.id,
-        workspaceId: graph.workspaceId,
-      });
-      return [node.id, response.activity];
-    }),
-  );
+export function semanticGraphActivitySummaryMap(summary: SemanticActivitySummary) {
+  const entries = summary.targets.map((target): [string, SemanticActivityInterval[]] => [
+    target.targetEntityId,
+    dedupeSemanticActivity([...target.currentActivity, ...target.recentActivity]),
+  ]);
   return new Map(entries);
+}
+
+function dedupeSemanticActivity(activity: SemanticActivityInterval[]) {
+  const seen = new Set<string>();
+  const result: SemanticActivityInterval[] = [];
+  for (const interval of activity) {
+    if (seen.has(interval.id)) {
+      continue;
+    }
+    seen.add(interval.id);
+    result.push(interval);
+  }
+  return result;
 }
 
 function semanticGraphNoWorkspaceState(workspaceId: string): SemanticGraphState {

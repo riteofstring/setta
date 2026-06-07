@@ -79,7 +79,6 @@ try {
   assertSemanticGraphVisible(initial);
   await captureScreenshot(context.client, join(artifactDir, "semantic-initial.png"));
 
-  const beforeHistory = await semanticEventHistory(context.client, workspaceId);
   const targetNode = nodeById(initial, seedRendererNodeId);
   await dispatchWorkflowGraphMouseDoubleClick(context.client, workflowGraphSurfaceId, {
     x: targetNode.screenX,
@@ -88,6 +87,11 @@ try {
   await waitForSelector(context.client, '[data-testid="semantic-node-details-surface"]');
   await assertSemanticNodeDetails(context.client);
   await captureScreenshot(context.client, join(artifactDir, "semantic-details.png"));
+
+  const attachment = await attachSemanticNodeToChatRun(context.client, workspaceId);
+  assertSemanticChatRunAttachment(attachment);
+  const beforeHistory = await semanticEventHistory(context.client, workspaceId);
+  assertSemanticAttachmentHistory(beforeHistory, attachment);
 
   workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client, {
     surfaceId: workflowGraphSurfaceId,
@@ -141,7 +145,18 @@ try {
   const afterReloadHistory = await semanticEventHistory(context.client, workspaceId);
   assertEventHistoryUnchanged(beforeHistory, afterReloadHistory, "semantic layout reload");
 
+  const reloadedNode = nodeById(afterReload, seedRendererNodeId);
+  await dispatchWorkflowGraphMouseDoubleClick(context.client, workflowGraphSurfaceId, {
+    x: reloadedNode.screenX,
+    y: reloadedNode.screenY,
+  });
+  await waitForSelector(context.client, '[data-testid="semantic-node-details-surface"]');
+  await assertSemanticNodeDetails(context.client);
+  await assertSemanticAttachmentDetails(context.client, attachment);
+  await captureScreenshot(context.client, join(artifactDir, "semantic-attached-details.png"));
+
   await writeJson(join(artifactDir, "summary.json"), {
+    attachment,
     afterDrag,
     afterReload,
     artifactDir,
@@ -210,6 +225,77 @@ function spawnForOutput(command, args, { cwd }) {
       resolvePromise({ code: code ?? 1, output });
     });
   });
+}
+
+async function attachSemanticNodeToChatRun(client, workspaceId) {
+  return client.evaluate(`(async () => {
+    const graphBefore = await window.setta.semanticGraph.read({
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const conversation = await window.setta.chat.createConversation(
+      ${JSON.stringify(workspaceId)},
+      "Semantic graph attachment"
+    );
+    const sent = await window.setta.chat.sendMessage(
+      ${JSON.stringify(workspaceId)},
+      conversation.id,
+      "Attach this deterministic chat run to the seeded semantic graph node."
+    );
+    const attached = await window.setta.semanticGraph.attachChatRun({
+      activityKind: "exploring",
+      actorId: "semantic_e2e_user",
+      actorKind: "user",
+      chatRunId: sent.run.id,
+      nodeId: ${JSON.stringify(seedConstraintNodeId)},
+      summary: "Explicit semantic attachment from deterministic Electron workflow",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const ended = await window.setta.semanticGraph.endActivity({
+      activityIntervalId: attached.activity.id,
+      actorId: "semantic_e2e_user",
+      actorKind: "user",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const detail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: ${JSON.stringify(seedConstraintNodeId)},
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const page = await window.setta.semanticGraph.listActivityPage({
+      actorId: "",
+      actorKind: null,
+      chatConversationId: "",
+      chatMessageId: "",
+      chatRunId: sent.run.id,
+      limit: 10,
+      offset: 0,
+      sourceId: "",
+      sourceKind: "chat_run",
+      targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+      workflowExecutionId: "",
+      workflowNodeId: "",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const summary = await window.setta.semanticGraph.readActivitySummary({
+      recentLimit: 5,
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const graphAfter = await window.setta.semanticGraph.read({
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    return {
+      attached,
+      assistantMessageId: sent.assistantMessage.id,
+      conversationId: conversation.id,
+      detail,
+      ended,
+      graphNodeIdsAfter: graphAfter.nodes.map((node) => node.id).sort(),
+      graphNodeIdsBefore: graphBefore.nodes.map((node) => node.id).sort(),
+      page,
+      runId: sent.run.id,
+      summary,
+      userMessageId: sent.userMessage.id
+    };
+  })()`);
 }
 
 async function selectedWorkspaceId(client) {
@@ -290,6 +376,21 @@ async function assertSemanticNodeDetails(client) {
   }
 }
 
+async function assertSemanticAttachmentDetails(client, attachment) {
+  const details = await waitForState(
+    client,
+    `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
+    (value) =>
+      value.text.includes("chat_run") &&
+      value.text.includes(attachment.runId) &&
+      value.text.includes("Explicit semantic attachment from deterministic Electron workflow") &&
+      value.text.includes("semantic_e2e_user"),
+  );
+  if (!details.text.includes(attachment.attached.evidence.id)) {
+    throw new Error(`semantic node details omitted attached evidence id: ${details.text}`);
+  }
+}
+
 async function semanticEventHistory(client, workspaceId) {
   return client.evaluate(`window.setta.semanticGraph.readEventHistory({
     beforeLogicalClock: 0,
@@ -344,11 +445,106 @@ function assertSemanticGraphVisible(snapshot) {
   }
 }
 
+function assertSemanticChatRunAttachment(result) {
+  assertSemanticAttachmentDidNotCreateNodes(result);
+  assertSemanticAttachmentSourceRefs(result);
+  assertSemanticAttachmentReadbacks(result);
+}
+
+function assertSemanticAttachmentDidNotCreateNodes(result) {
+  const attached = result.attached;
+  if (JSON.stringify(result.graphNodeIdsAfter) !== JSON.stringify(result.graphNodeIdsBefore)) {
+    throw new Error(
+      `semantic attachment inferred graph nodes: before=${JSON.stringify(result.graphNodeIdsBefore)} after=${JSON.stringify(result.graphNodeIdsAfter)}`,
+    );
+  }
+  if (attached.targetEntityId !== seedConstraintNodeId) {
+    throw new Error(`semantic attachment targeted wrong node: ${JSON.stringify(attached)}`);
+  }
+}
+
+function assertSemanticAttachmentSourceRefs(result) {
+  const attached = result.attached;
+  const ended = result.ended;
+  if (attached.evidence.sourceKind !== "chat_run" || attached.evidence.sourceId !== result.runId) {
+    throw new Error(`semantic evidence source mismatch: ${JSON.stringify(attached.evidence)}`);
+  }
+  if (attached.activity.sourceKind !== "chat_run" || attached.activity.chatRunId !== result.runId) {
+    throw new Error(`semantic activity source mismatch: ${JSON.stringify(attached.activity)}`);
+  }
+  if (attached.activity.endedAt !== "") {
+    throw new Error(`semantic activity should start active: ${JSON.stringify(attached.activity)}`);
+  }
+  if (ended.activity.id !== attached.activity.id || ended.activity.endedAt === "") {
+    throw new Error(`semantic activity end mismatch: ${JSON.stringify(ended.activity)}`);
+  }
+}
+
+function assertSemanticAttachmentReadbacks(result) {
+  assertSemanticAttachmentDetailReadback(result);
+  assertSemanticAttachmentPageReadback(result);
+  assertSemanticAttachmentSummaryReadback(result);
+}
+
+function assertSemanticAttachmentDetailReadback(result) {
+  const attached = result.attached;
+  const detail = result.detail.detail;
+  if (detail === null) {
+    throw new Error("semantic attachment detail returned null");
+  }
+  if (!detail.evidence.some((evidence) => evidence.id === attached.evidence.id)) {
+    throw new Error(`semantic detail omitted evidence: ${JSON.stringify(detail.evidence)}`);
+  }
+  if (
+    !detail.activity.some(
+      (activity) => activity.id === attached.activity.id && activity.endedAt !== "",
+    )
+  ) {
+    throw new Error(`semantic detail omitted ended activity: ${JSON.stringify(detail.activity)}`);
+  }
+}
+
+function assertSemanticAttachmentPageReadback(result) {
+  const attached = result.attached;
+  if (!result.page.activity.some((activity) => activity.id === attached.activity.id)) {
+    throw new Error(`semantic activity page omitted attachment: ${JSON.stringify(result.page)}`);
+  }
+}
+
+function assertSemanticAttachmentSummaryReadback(result) {
+  const attached = result.attached;
+  const targetSummary = result.summary.targets.find(
+    (target) => target.targetEntityId === seedConstraintNodeId,
+  );
+  if (!targetSummary) {
+    throw new Error(`semantic activity summary omitted target: ${JSON.stringify(result.summary)}`);
+  }
+  if (!targetSummary.recentActivity.some((activity) => activity.id === attached.activity.id)) {
+    throw new Error(
+      `semantic activity summary omitted ended attachment: ${JSON.stringify(targetSummary)}`,
+    );
+  }
+}
+
 function assertSemanticPosition(snapshot, expected) {
   const node = nodeById(snapshot, seedRendererNodeId);
   if (node.x !== expected.x || node.y !== expected.y) {
     throw new Error(
       `semantic node position did not persist: actual=${JSON.stringify({ x: node.x, y: node.y })} expected=${JSON.stringify(expected)}`,
+    );
+  }
+}
+
+function assertSemanticAttachmentHistory(history, attachment) {
+  const eventIds = new Set(history.events.map((event) => event.eventId));
+  for (const event of attachment.attached.events) {
+    if (!eventIds.has(event.eventId)) {
+      throw new Error(`semantic history omitted attachment event ${event.eventId}`);
+    }
+  }
+  if (!eventIds.has(attachment.ended.event.eventId)) {
+    throw new Error(
+      `semantic history omitted activity end event ${attachment.ended.event.eventId}`,
     );
   }
 }

@@ -3,6 +3,12 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 import type {
   AppearancePresetList,
   AppearanceSettings,
+  AttachSemanticNodeToChatMessageRequest,
+  AttachSemanticNodeToChatRunRequest,
+  AttachSemanticNodeToFileRangeRequest,
+  AttachSemanticNodeToRunItemRequest,
+  AttachSemanticNodeToWorkflowExecutionRequest,
+  AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
@@ -13,6 +19,7 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ListConversationsResponse,
@@ -23,6 +30,7 @@ import type {
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  ReadSemanticActivitySummaryRequest,
   ReadWorkflowGraphProjectionResponse,
   ReadSemanticEventHistoryRequest,
   ReadSemanticGraphRequest,
@@ -35,11 +43,16 @@ import type {
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  ListSemanticActivityPageRequest,
   ListSemanticActivityRequest,
   ListSemanticEvidenceRequest,
   SendMessageResult,
   SelectDefaultTerminalProfileRequest,
+  SemanticActivityEndResult,
   SemanticActivityList,
+  SemanticActivityPage,
+  SemanticActivitySummary,
+  SemanticAttachmentResult,
   SemanticEventHistory,
   SemanticEvidenceList,
   SemanticGraph,
@@ -112,7 +125,16 @@ export const ipcChannels = {
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
+  semanticGraphActivityEnd: "semantic-graph:activity-end",
   semanticGraphActivityList: "semantic-graph:activity-list",
+  semanticGraphActivityPage: "semantic-graph:activity-page",
+  semanticGraphActivitySummary: "semantic-graph:activity-summary",
+  semanticGraphAttachChatMessage: "semantic-graph:attach-chat-message",
+  semanticGraphAttachChatRun: "semantic-graph:attach-chat-run",
+  semanticGraphAttachFileRange: "semantic-graph:attach-file-range",
+  semanticGraphAttachRunItem: "semantic-graph:attach-run-item",
+  semanticGraphAttachWorkflowExecution: "semantic-graph:attach-workflow-execution",
+  semanticGraphAttachWorkflowNode: "semantic-graph:attach-workflow-node",
   semanticGraphEventHistory: "semantic-graph:event-history",
   semanticGraphEvidenceList: "semantic-graph:evidence-list",
   semanticGraphLayoutUpdate: "semantic-graph:layout-update",
@@ -336,6 +358,42 @@ interface IpcContract {
   semanticGraphActivityList: {
     args: [request: ListSemanticActivityRequest];
     result: SemanticActivityList;
+  };
+  semanticGraphActivityPage: {
+    args: [request: ListSemanticActivityPageRequest];
+    result: SemanticActivityPage;
+  };
+  semanticGraphActivitySummary: {
+    args: [request: ReadSemanticActivitySummaryRequest];
+    result: SemanticActivitySummary;
+  };
+  semanticGraphActivityEnd: {
+    args: [request: EndSemanticActivityRequest];
+    result: SemanticActivityEndResult;
+  };
+  semanticGraphAttachChatMessage: {
+    args: [request: AttachSemanticNodeToChatMessageRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachChatRun: {
+    args: [request: AttachSemanticNodeToChatRunRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachFileRange: {
+    args: [request: AttachSemanticNodeToFileRangeRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachRunItem: {
+    args: [request: AttachSemanticNodeToRunItemRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachWorkflowExecution: {
+    args: [request: AttachSemanticNodeToWorkflowExecutionRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachWorkflowNode: {
+    args: [request: AttachSemanticNodeToWorkflowNodeRequest];
+    result: SemanticAttachmentResult;
   };
   semanticGraphEventHistory: {
     args: [request: ReadSemanticEventHistoryRequest];

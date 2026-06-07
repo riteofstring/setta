@@ -316,6 +316,27 @@ type ListSemanticActivityRequest struct {
 	Limit          int    `json:"limit"`
 }
 
+type ListSemanticActivityPageRequest struct {
+	WorkspaceID         string                                    `json:"workspaceId"`
+	TargetEntityID      string                                    `json:"targetEntityId"`
+	SourceKind          *semanticgraph.SemanticActivitySourceKind `json:"sourceKind"`
+	SourceID            string                                    `json:"sourceId"`
+	WorkflowExecutionID string                                    `json:"workflowExecutionId"`
+	WorkflowNodeID      string                                    `json:"workflowNodeId"`
+	ChatConversationID  string                                    `json:"chatConversationId"`
+	ChatRunID           string                                    `json:"chatRunId"`
+	ChatMessageID       string                                    `json:"chatMessageId"`
+	ActorKind           *semanticgraph.SemanticActorKind          `json:"actorKind"`
+	ActorID             string                                    `json:"actorId"`
+	Offset              int                                       `json:"offset"`
+	Limit               int                                       `json:"limit"`
+}
+
+type ReadSemanticActivitySummaryRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	RecentLimit int    `json:"recentLimit"`
+}
+
 type ReadSemanticSteeringStateRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	TargetEntityID string `json:"targetEntityId"`
@@ -331,6 +352,80 @@ type ReadSemanticEventHistoryRequest struct {
 type UpdateSemanticLayoutPositionsRequest struct {
 	WorkspaceID string                                      `json:"workspaceId"`
 	Positions   []semanticgraph.SemanticLayoutPositionInput `json:"positions"`
+}
+
+type AttachSemanticNodeToWorkflowExecutionRequest struct {
+	WorkspaceID         string                             `json:"workspaceId"`
+	NodeID              string                             `json:"nodeId"`
+	WorkflowExecutionID string                             `json:"workflowExecutionId"`
+	ActivityKind        semanticgraph.SemanticActivityKind `json:"activityKind"`
+	Summary             string                             `json:"summary"`
+	ActorKind           semanticgraph.SemanticActorKind    `json:"actorKind"`
+	ActorID             string                             `json:"actorId"`
+}
+
+type AttachSemanticNodeToWorkflowNodeRequest struct {
+	WorkspaceID             string                             `json:"workspaceId"`
+	NodeID                  string                             `json:"nodeId"`
+	WorkflowExecutionID     string                             `json:"workflowExecutionId"`
+	WorkflowNodeID          string                             `json:"workflowNodeId"`
+	WorkflowNodeExecutionID string                             `json:"workflowNodeExecutionId"`
+	WorkflowDefinitionID    string                             `json:"workflowDefinitionId"`
+	ActivityKind            semanticgraph.SemanticActivityKind `json:"activityKind"`
+	Summary                 string                             `json:"summary"`
+	ActorKind               semanticgraph.SemanticActorKind    `json:"actorKind"`
+	ActorID                 string                             `json:"actorId"`
+}
+
+type AttachSemanticNodeToChatRunRequest struct {
+	WorkspaceID  string                             `json:"workspaceId"`
+	NodeID       string                             `json:"nodeId"`
+	ChatRunID    string                             `json:"chatRunId"`
+	ActivityKind semanticgraph.SemanticActivityKind `json:"activityKind"`
+	Summary      string                             `json:"summary"`
+	ActorKind    semanticgraph.SemanticActorKind    `json:"actorKind"`
+	ActorID      string                             `json:"actorId"`
+}
+
+type AttachSemanticNodeToChatMessageRequest struct {
+	WorkspaceID        string                             `json:"workspaceId"`
+	NodeID             string                             `json:"nodeId"`
+	ChatConversationID string                             `json:"chatConversationId"`
+	ChatMessageID      string                             `json:"chatMessageId"`
+	ActivityKind       semanticgraph.SemanticActivityKind `json:"activityKind"`
+	Summary            string                             `json:"summary"`
+	ActorKind          semanticgraph.SemanticActorKind    `json:"actorKind"`
+	ActorID            string                             `json:"actorId"`
+}
+
+type AttachSemanticNodeToRunItemRequest struct {
+	WorkspaceID  string                             `json:"workspaceId"`
+	NodeID       string                             `json:"nodeId"`
+	ChatRunID    string                             `json:"chatRunId"`
+	RunItemID    string                             `json:"runItemId"`
+	ActivityKind semanticgraph.SemanticActivityKind `json:"activityKind"`
+	Summary      string                             `json:"summary"`
+	ActorKind    semanticgraph.SemanticActorKind    `json:"actorKind"`
+	ActorID      string                             `json:"actorId"`
+}
+
+type AttachSemanticNodeToFileRangeRequest struct {
+	WorkspaceID  string                             `json:"workspaceId"`
+	NodeID       string                             `json:"nodeId"`
+	Path         string                             `json:"path"`
+	RangeStart   int                                `json:"rangeStart"`
+	RangeEnd     int                                `json:"rangeEnd"`
+	ActivityKind semanticgraph.SemanticActivityKind `json:"activityKind"`
+	Summary      string                             `json:"summary"`
+	ActorKind    semanticgraph.SemanticActorKind    `json:"actorKind"`
+	ActorID      string                             `json:"actorId"`
+}
+
+type EndSemanticActivityRequest struct {
+	WorkspaceID        string                          `json:"workspaceId"`
+	ActivityIntervalID string                          `json:"activityIntervalId"`
+	ActorKind          semanticgraph.SemanticActorKind `json:"actorKind"`
+	ActorID            string                          `json:"actorId"`
 }
 
 type CreateTerminalRequest struct {

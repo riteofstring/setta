@@ -158,13 +158,23 @@ function activity({
   return {
     endedAt,
     endedByEventId: endedAt === "" ? "" : "event_activity_end",
+    actorId: "user_projection",
+    actorKind: "user",
+    chatConversationId: "",
+    chatMessageId: "",
+    chatRunId: "",
+    evidenceAnchorId: "evidence_projection",
     id,
     kind,
+    sourceId: "workflow_execution_projection",
+    sourceKind: "workflow_execution",
     startedAt: "2026-06-10T12:00:05Z",
     startedByEventId: "event_activity_start",
     summary,
     targetEntityId: "node_constraint",
     updatedAt: "2026-06-10T12:00:05Z",
+    workflowExecutionId: "workflow_execution_projection",
+    workflowNodeId: "",
     workspaceId: "workspace_test",
   };
 }

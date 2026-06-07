@@ -197,10 +197,14 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 		Summary:        "Phase 1 scope guard",
 	})
 	appendTestEvent(t, store, EventActivityStarted, "node_a", activityStartedPayload{
-		IntervalID:     "activity_a",
-		TargetEntityID: "node_a",
-		Kind:           ActivityKindValidating,
-		Summary:        "Checking reducer behavior",
+		IntervalID:       "activity_a",
+		TargetEntityID:   "node_a",
+		Kind:             ActivityKindValidating,
+		Summary:          "Checking reducer behavior",
+		SourceKind:       ActivitySourceFileRange,
+		EvidenceAnchorID: "evidence_a",
+		ActorKind:        ActorKindUser,
+		ActorID:          testActorID,
 	})
 	appendTestEvent(t, store, EventActivityEnded, "node_a", activityEndedPayload{IntervalID: "activity_a"})
 	appendTestEvent(t, store, EventSteeringCreated, "node_a", steeringCreatedPayload{
@@ -228,6 +232,15 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 		Message:        "Renderer untouched",
 	})
 
+	assertStoreNodeDetailProjection(t, store, ctx)
+	assertStoreEvidenceAndActivityLists(t, store, ctx)
+	assertStoreActivityPage(t, store, ctx)
+	assertStoreActivitySummary(t, store, ctx)
+	assertStoreSteeringState(t, store, ctx)
+}
+
+func assertStoreNodeDetailProjection(t *testing.T, store *Store, ctx context.Context) {
+	t.Helper()
 	detail, ok, err := store.ReadNodeDetail(ctx, testWorkspaceID, "node_a")
 	if err != nil {
 		t.Fatalf("read node detail: %v", err)
@@ -241,12 +254,19 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 	if len(detail.Activity) != 1 || detail.Activity[0].EndedAt == "" || detail.Activity[0].EndedByEventID == "" {
 		t.Fatalf("detail activity = %+v, want ended interval", detail.Activity)
 	}
+	if detail.Activity[0].SourceKind != ActivitySourceFileRange || detail.Activity[0].EvidenceAnchorID != "evidence_a" || detail.Activity[0].ActorID != testActorID {
+		t.Fatalf("detail activity source = %+v, want file_range evidence_a by test actor", detail.Activity[0])
+	}
 	if len(detail.SteeringDirectives) != 1 || detail.SteeringDirectives[0].Active {
 		t.Fatalf("detail steering = %+v, want inactive updated directive", detail.SteeringDirectives)
 	}
 	if len(detail.ContextPackHistory) != 1 || detail.ContextPackHistory[0].ItemCount != 3 {
 		t.Fatalf("detail context packs = %+v, want one three-item pack", detail.ContextPackHistory)
 	}
+}
+
+func assertStoreEvidenceAndActivityLists(t *testing.T, store *Store, ctx context.Context) {
+	t.Helper()
 	evidence, err := store.ListEvidence(ctx, testWorkspaceID, "node_a")
 	if err != nil {
 		t.Fatalf("list evidence: %v", err)
@@ -261,6 +281,58 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 	if len(activity.Activity) != 1 {
 		t.Fatalf("activity count = %d, want 1", len(activity.Activity))
 	}
+}
+
+func assertStoreActivityPage(t *testing.T, store *Store, ctx context.Context) {
+	t.Helper()
+	page, err := store.ListActivityPage(ctx, SemanticActivityFilter{
+		WorkspaceID: testWorkspaceID,
+		SourceKind:  ActivitySourceFileRange,
+		Offset:      0,
+		Limit:       1,
+	})
+	if err != nil {
+		t.Fatalf("list activity page: %v", err)
+	}
+	if len(page.Activity) != 1 || page.Activity[0].ID != "activity_a" || page.HasMore {
+		t.Fatalf("activity page = %+v, want activity_a without more rows", page)
+	}
+}
+
+func assertStoreActivitySummary(t *testing.T, store *Store, ctx context.Context) {
+	t.Helper()
+	summary, err := store.ReadActivitySummary(ctx, testWorkspaceID, 3)
+	if err != nil {
+		t.Fatalf("read activity summary: %v", err)
+	}
+	if len(summary.Targets) != 1 || len(summary.Targets[0].RecentActivity) != 1 || summary.Targets[0].RecentActivity[0].ID != "activity_a" {
+		t.Fatalf("activity summary = %+v, want recent activity_a", summary)
+	}
+	assertStoreActivitySummaryJSON(t, summary)
+}
+
+func assertStoreActivitySummaryJSON(t *testing.T, summary SemanticActivitySummary) {
+	t.Helper()
+	encodedSummary, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatalf("marshal activity summary: %v", err)
+	}
+	var summaryJSON struct {
+		Targets []struct {
+			CurrentActivity json.RawMessage `json:"currentActivity"`
+			RecentActivity  json.RawMessage `json:"recentActivity"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal(encodedSummary, &summaryJSON); err != nil {
+		t.Fatalf("unmarshal activity summary json: %v", err)
+	}
+	if len(summaryJSON.Targets) != 1 || string(summaryJSON.Targets[0].CurrentActivity) != "[]" || string(summaryJSON.Targets[0].RecentActivity) == "null" {
+		t.Fatalf("activity summary json = %s, want array fields", encodedSummary)
+	}
+}
+
+func assertStoreSteeringState(t *testing.T, store *Store, ctx context.Context) {
+	t.Helper()
 	steering, err := store.ReadSteeringState(ctx, testWorkspaceID, "node_a")
 	if err != nil {
 		t.Fatalf("read steering: %v", err)

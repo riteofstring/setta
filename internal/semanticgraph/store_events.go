@@ -23,6 +23,93 @@ func (store *Store) AppendEvent(ctx context.Context, event SemanticEvent) (Seman
 	return store.appendEventLocked(ctx, prepared)
 }
 
+func (store *Store) AppendEvents(ctx context.Context, events []SemanticEvent) ([]SemanticEvent, error) {
+	if ctx == nil {
+		return nil, errors.New("context is required")
+	}
+	prepared, err := prepareSemanticEventsForAppend(events)
+	if err != nil {
+		return nil, err
+	}
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	return store.appendEventsLocked(ctx, prepared)
+}
+
+func prepareSemanticEventsForAppend(events []SemanticEvent) ([]SemanticEvent, error) {
+	if len(events) == 0 {
+		return nil, errors.New("semantic events are required")
+	}
+	prepared := make([]SemanticEvent, 0, len(events))
+	for _, event := range events {
+		next, err := prepareSemanticEventForAppend(event)
+		if err != nil {
+			return nil, err
+		}
+		prepared = append(prepared, next)
+	}
+	return prepared, nil
+}
+
+func (store *Store) appendEventsLocked(ctx context.Context, prepared []SemanticEvent) ([]SemanticEvent, error) {
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, store.persistenceError("begin semantic events transaction", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+	nextClock, err := nextSemanticLogicalClock(ctx, tx, prepared[0].WorkspaceID)
+	if err != nil {
+		return nil, store.persistenceError("read next semantic logical clock", err)
+	}
+	if err := assignSemanticEventLogicalClocks(prepared, nextClock); err != nil {
+		return nil, err
+	}
+	if err := store.insertSemanticEvents(ctx, tx, prepared); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, store.persistenceError("commit semantic events transaction", err)
+	}
+	committed = true
+	return prepared, nil
+}
+
+func assignSemanticEventLogicalClocks(prepared []SemanticEvent, nextClock int) error {
+	workspaceID := prepared[0].WorkspaceID
+	for index := range prepared {
+		if prepared[index].WorkspaceID != workspaceID {
+			return fmt.Errorf("semantic events must belong to one workspace")
+		}
+		if prepared[index].LogicalClock == 0 {
+			prepared[index].LogicalClock = nextClock
+			nextClock++
+		}
+	}
+	return nil
+}
+
+func (store *Store) insertSemanticEvents(ctx context.Context, tx *sql.Tx, prepared []SemanticEvent) error {
+	for index := range prepared {
+		if err := validateSemanticEventRecord(prepared[index]); err != nil {
+			return err
+		}
+		if err := insertSemanticEvent(ctx, tx, prepared[index]); err != nil {
+			return store.persistenceError("append semantic event", err)
+		}
+		if err := applySemanticEventProjection(ctx, tx, prepared[index]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func prepareSemanticEventForAppend(event SemanticEvent) (SemanticEvent, error) {
 	if event.ModelInfo == nil {
 		event.ModelInfo = map[string]string{}

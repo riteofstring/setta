@@ -73,13 +73,24 @@ type evidenceAttachedPayload struct {
 	RangeEnd       int                        `json:"rangeEnd"`
 	Text           string                     `json:"text"`
 	Summary        string                     `json:"summary"`
+	ContentHash    string                     `json:"contentHash"`
 }
 
 type activityStartedPayload struct {
-	IntervalID     string               `json:"intervalId"`
-	TargetEntityID string               `json:"targetEntityId"`
-	Kind           SemanticActivityKind `json:"kind"`
-	Summary        string               `json:"summary"`
+	IntervalID          string                     `json:"intervalId"`
+	TargetEntityID      string                     `json:"targetEntityId"`
+	Kind                SemanticActivityKind       `json:"kind"`
+	Summary             string                     `json:"summary"`
+	SourceKind          SemanticActivitySourceKind `json:"sourceKind"`
+	SourceID            string                     `json:"sourceId"`
+	EvidenceAnchorID    string                     `json:"evidenceAnchorId"`
+	WorkflowExecutionID string                     `json:"workflowExecutionId"`
+	WorkflowNodeID      string                     `json:"workflowNodeId"`
+	ChatConversationID  string                     `json:"chatConversationId"`
+	ChatRunID           string                     `json:"chatRunId"`
+	ChatMessageID       string                     `json:"chatMessageId"`
+	ActorKind           SemanticActorKind          `json:"actorKind"`
+	ActorID             string                     `json:"actorId"`
 }
 
 type activityEndedPayload struct {
@@ -487,8 +498,9 @@ func projectEvidenceAttached(ctx context.Context, tx *sql.Tx, event SemanticEven
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO semantic_evidence_anchors (
   workspace_id, id, target_entity_id, source_kind, source_id, uri, path,
-  range_start, range_end, text, summary, created_by_event_id, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  range_start, range_end, text, summary, content_hash, created_by_event_id,
+  created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		event.WorkspaceID,
 		payload.AnchorID,
@@ -501,6 +513,7 @@ INSERT INTO semantic_evidence_anchors (
 		payload.RangeEnd,
 		payload.Text,
 		payload.Summary,
+		payload.ContentHash,
 		event.EventID,
 		event.ObservedAt,
 	)
@@ -523,15 +536,27 @@ func projectActivityStarted(ctx context.Context, tx *sql.Tx, event SemanticEvent
 	}
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO semantic_activity_intervals (
-  workspace_id, id, target_entity_id, kind, summary, started_by_event_id,
-  started_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
+  evidence_anchor_id, workflow_execution_id, workflow_node_id,
+  chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+  started_by_event_id, started_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		event.WorkspaceID,
 		payload.IntervalID,
 		payload.TargetEntityID,
 		payload.Kind,
 		payload.Summary,
+		payload.SourceKind,
+		payload.SourceID,
+		payload.EvidenceAnchorID,
+		payload.WorkflowExecutionID,
+		payload.WorkflowNodeID,
+		payload.ChatConversationID,
+		payload.ChatRunID,
+		payload.ChatMessageID,
+		payload.ActorKind,
+		payload.ActorID,
 		event.EventID,
 		event.ObservedAt,
 		event.ObservedAt,
@@ -749,7 +774,44 @@ func validateActivityStartedPayload(event SemanticEvent, payload activityStarted
 	if !isSemanticActivityKind(payload.Kind) {
 		return fmt.Errorf("activity kind is unsupported: %s", payload.Kind)
 	}
-	return nil
+	if !isSemanticActivitySourceKind(payload.SourceKind) {
+		return fmt.Errorf("activity source kind is unsupported: %s", payload.SourceKind)
+	}
+	if !isSemanticActorKind(payload.ActorKind) {
+		return fmt.Errorf("activity actor kind is unsupported: %s", payload.ActorKind)
+	}
+	return validateActivitySourceReferences(payload)
+}
+
+func validateActivitySourceReferences(payload activityStartedPayload) error {
+	if err := validateOptionalStoreIDs([]optionalStoreID{
+		{label: "activity source id", value: payload.SourceID},
+		{label: "activity evidence anchor id", value: payload.EvidenceAnchorID},
+		{label: "activity workflow execution id", value: payload.WorkflowExecutionID},
+		{label: "activity workflow node id", value: payload.WorkflowNodeID},
+		{label: "activity chat conversation id", value: payload.ChatConversationID},
+		{label: "activity chat run id", value: payload.ChatRunID},
+		{label: "activity chat message id", value: payload.ChatMessageID},
+		{label: "activity actor id", value: payload.ActorID},
+	}); err != nil {
+		return err
+	}
+	switch payload.SourceKind {
+	case ActivitySourceWorkflowExecution:
+		return validateStoreIDs("activity workflow execution id", payload.WorkflowExecutionID)
+	case ActivitySourceWorkflowNode:
+		return validateStoreIDs("activity workflow node id", payload.WorkflowNodeID)
+	case ActivitySourceChatRun:
+		return validateStoreIDs("activity chat run id", payload.ChatRunID)
+	case ActivitySourceChatMessage:
+		return validateStoreIDs("activity chat conversation id", payload.ChatConversationID, "activity chat message id", payload.ChatMessageID)
+	case ActivitySourceRunItem, ActivitySourceCommand:
+		return validateStoreIDs("activity chat run id", payload.ChatRunID, "activity source id", payload.SourceID)
+	case ActivitySourceFileRange, ActivitySourceTest, ActivitySourceDiff:
+		return nil
+	default:
+		return fmt.Errorf("activity source kind is unsupported: %s", payload.SourceKind)
+	}
 }
 
 func validateSteeringCreatedPayload(event SemanticEvent, payload steeringCreatedPayload) error {

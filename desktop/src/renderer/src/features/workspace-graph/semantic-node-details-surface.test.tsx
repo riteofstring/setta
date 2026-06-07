@@ -16,6 +16,9 @@ describe("SemanticLoadedNodeDetails", () => {
     expect(html).toContain("split_source");
     expect(html).toContain("supports");
     expect(html).toContain("docs/plan.md:4-8");
+    expect(html).toContain("sha256:plan");
+    expect(html).toContain("chat_run");
+    expect(html).toContain("run_detail");
     expect(html).toContain("validating");
     expect(html).toContain("Keep endpoint surface read-only");
     expect(html).toContain("Context pack summary");
@@ -29,13 +32,23 @@ function detail(): SemanticNodeDetail {
       {
         endedAt: "",
         endedByEventId: "",
+        actorId: "user_detail",
+        actorKind: "user",
+        chatConversationId: "conversation_detail",
+        chatMessageId: "",
+        chatRunId: "run_detail",
+        evidenceAnchorId: "evidence_node",
         id: "activity_node",
         kind: "validating",
+        sourceId: "run_detail",
+        sourceKind: "chat_run",
         startedAt: "2026-06-10T12:00:05Z",
         startedByEventId: "event_activity_started",
         summary: "Checking semantic graph UI",
         targetEntityId: "node_contract",
         updatedAt: "2026-06-10T12:00:05Z",
+        workflowExecutionId: "",
+        workflowNodeId: "",
         workspaceId: "workspace_test",
       },
     ],
@@ -64,6 +77,7 @@ function detail(): SemanticNodeDetail {
         summary: "Plan evidence",
         targetEntityId: "node_contract",
         text: "Evidence text",
+        contentHash: "sha256:plan",
         uri: "",
         workspaceId: "workspace_test",
       },
