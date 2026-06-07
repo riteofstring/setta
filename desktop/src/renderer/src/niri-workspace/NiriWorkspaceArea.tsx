@@ -43,6 +43,15 @@ import {
   openPaneActionForSurfaceKind,
   openPaneActions,
 } from "./niri-workspace-toolbar";
+import {
+  applyPaneDrop,
+  beginPaneDragSession,
+  cleanupPaneDragSession,
+  finishPaneDragSession,
+  updatePaneDragSession,
+  visiblePaneHostForPane,
+  type PaneDragSession,
+} from "./pane-drag-reorder";
 import { persistRealWorkspaceScene } from "./workspace-scene";
 import type { NiriPane, Rect, SurfaceKind } from "./types";
 
@@ -82,6 +91,7 @@ export function NiriWorkspaceArea({
   const debugRef = useRef<HTMLDivElement | null>(null);
   const hostRefs = useRef<Array<HTMLDivElement | null>>([]);
   const overviewDragSessionRef = useRef<OverviewDragSession | null>(null);
+  const paneDragSessionRef = useRef<PaneDragSession | null>(null);
   const paneResizeSessionRef = useRef<PaneResizeSession | null>(null);
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createNiriTrackpadNavigationState());
@@ -220,6 +230,14 @@ export function NiriWorkspaceArea({
         };
         return;
       }
+      const paneDragSession = beginPaneDragSession(event, root);
+      if (paneDragSession) {
+        event.preventDefault();
+        event.stopPropagation();
+        scheduler.pauseBenchmark();
+        paneDragSessionRef.current = paneDragSession;
+        return;
+      }
       const target = paneResizeTargetFromPointer(event);
       if (!target) {
         return;
@@ -254,6 +272,13 @@ export function NiriWorkspaceArea({
         }
         return;
       }
+      const paneDragSession = paneDragSessionRef.current;
+      if (paneDragSession && event.pointerId === paneDragSession.pointerId) {
+        event.preventDefault();
+        event.stopPropagation();
+        updatePaneDragSession(event, root, paneDragSession, runtime.store);
+        return;
+      }
       const session = paneResizeSessionRef.current;
       if (!session || event.pointerId !== session.pointerId) {
         return;
@@ -266,32 +291,66 @@ export function NiriWorkspaceArea({
       );
       runtime.store.resizeColumn(session.columnId, { unit: "px", value: width });
     };
-    const handlePointerUp = (event: PointerEvent) => {
+    const suppressNextPaneClick = () => {
+      suppressNextClickRef.current = true;
+      window.setTimeout(() => {
+        suppressNextClickRef.current = false;
+      }, 0);
+    };
+    const finishActiveOverviewDrag = (event: PointerEvent): boolean => {
       const overviewSession = overviewDragSessionRef.current;
-      if (overviewSession && event.pointerId === overviewSession.pointerId) {
-        event.preventDefault();
-        event.stopPropagation();
-        suppressNextClickRef.current = true;
-        window.setTimeout(() => {
-          suppressNextClickRef.current = false;
-        }, 0);
-        overviewDragSessionRef.current = null;
-        delete root.dataset.overviewDragging;
-        if (overviewSession.dragging) {
-          const targetPaneId = overviewPaneIdAtPoint(event);
-          if (targetPaneId && targetPaneId !== overviewSession.sourcePaneId) {
-            runLayoutAction(() =>
-              runtime.store.reorderPaneBefore(overviewSession.sourcePaneId, targetPaneId),
-            );
-          }
-          return;
+      if (!overviewSession || event.pointerId !== overviewSession.pointerId) {
+        return false;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      suppressNextPaneClick();
+      overviewDragSessionRef.current = null;
+      delete root.dataset.overviewDragging;
+      if (overviewSession.dragging) {
+        const targetPaneId = overviewPaneIdAtPoint(event);
+        if (targetPaneId && targetPaneId !== overviewSession.sourcePaneId) {
+          runLayoutAction(() =>
+            runtime.store.reorderPaneBefore(overviewSession.sourcePaneId, targetPaneId),
+          );
         }
+        return true;
+      }
+      runLayoutAction(() => {
+        runtime.store.focusPane(overviewSession.sourcePaneId);
+        runtime.store.toggleOverviewMode();
+        runtime.store.ensureFocusedPaneVisible(stageViewport());
+        runtime.store.snapScrollToTarget();
+      });
+      return true;
+    };
+    const finishActivePaneDrag = (event: PointerEvent): boolean => {
+      const paneDragSession = paneDragSessionRef.current;
+      if (!paneDragSession || event.pointerId !== paneDragSession.pointerId) {
+        return false;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const dragFinish = finishPaneDragSession(event, root, paneDragSession);
+      paneDragSessionRef.current = null;
+      if (dragFinish.dragging) {
+        suppressNextPaneClick();
+      }
+      const dropTarget = dragFinish.target;
+      if (dragFinish.shouldCommitDrop && dragFinish.dragging && dropTarget) {
         runLayoutAction(() => {
-          runtime.store.focusPane(overviewSession.sourcePaneId);
-          runtime.store.toggleOverviewMode();
+          applyPaneDrop(runtime.store, dragFinish.sourcePaneId, dropTarget);
           runtime.store.ensureFocusedPaneVisible(stageViewport());
           runtime.store.snapScrollToTarget();
         });
+      }
+      return true;
+    };
+    const handlePointerUp = (event: PointerEvent) => {
+      if (finishActiveOverviewDrag(event)) {
+        return;
+      }
+      if (finishActivePaneDrag(event)) {
         return;
       }
       const session = paneResizeSessionRef.current;
@@ -332,6 +391,10 @@ export function NiriWorkspaceArea({
       root.removeEventListener("pointerdown", handlePointerDown, { capture: true });
       root.removeEventListener("wheel", handleWheel, { capture: true });
       overviewDragSessionRef.current = null;
+      if (paneDragSessionRef.current) {
+        cleanupPaneDragSession(root, paneDragSessionRef.current);
+        paneDragSessionRef.current = null;
+      }
       paneResizeSessionRef.current = null;
       scheduler.teardown();
     };
@@ -660,13 +723,6 @@ function terminalPaneCloseRequiresConfirmation(paneId: string): boolean {
   }
   const status = host?.dataset.terminalStatus ?? "";
   return status === "" || status === "running" || status === "starting";
-}
-
-function visiblePaneHostForPane(paneId: string): HTMLElement | null {
-  const hosts = document.querySelectorAll<HTMLElement>(
-    '[data-testid="niri-fake-pane-host"][data-visible="true"]',
-  );
-  return [...hosts].find((host) => host.dataset.paneId === paneId) ?? null;
 }
 
 function handleNiriWorkspaceWheel({

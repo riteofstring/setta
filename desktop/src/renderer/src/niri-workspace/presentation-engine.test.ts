@@ -259,7 +259,7 @@ describe("niri presentation engine", () => {
     expect(host.style.pointerEvents).toBe("auto");
   });
 
-  test("adds pane maximize chrome and marks active maximized panes", () => {
+  test("adds pane chrome and marks active maximized panes", () => {
     const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");
     const presentation = new PresentationEngine(
@@ -276,9 +276,12 @@ describe("niri presentation engine", () => {
       },
     );
 
+    const dragHandle = host.querySelector(".niri-pane-drag-handle") as HTMLButtonElement | null;
     const button = host.querySelector(".niri-pane-maximize-button") as HTMLButtonElement | null;
 
     expect(host.dataset.maximized).toBe("true");
+    expect(dragHandle?.dataset.paneId).toBe("niri_pane_0");
+    expect(dragHandle?.getAttribute("aria-label")).toBe("Drag pane");
     expect(button?.dataset.paneId).toBe("niri_pane_0");
     expect(button?.getAttribute("aria-label")).toBe("Restore pane size");
   });
@@ -340,15 +343,20 @@ function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTM
       createElement: (tagName: string) => fakeElement(tagName),
     },
     querySelector: (selector: string) =>
-      selector === ".niri-pane-maximize-button"
-        ? (children.find((child) => child.classList.contains("niri-pane-maximize-button")) ?? null)
-        : (nodes.get(selector) ?? null),
+      chromeChildForSelector(children, selector) ?? nodes.get(selector) ?? null,
     removeAttribute: (name: string) => {
       delete (host.dataset as Record<string, string>)[name.replace(/^data-/, "")];
     },
     style: {},
   };
   return host as unknown as HTMLElement;
+}
+
+function chromeChildForSelector(children: FakeElement[], selector: string): FakeElement | null {
+  if (selector !== ".niri-pane-drag-handle" && selector !== ".niri-pane-maximize-button") {
+    return null;
+  }
+  return children.find((child) => child.classList.contains(selector.slice(1))) ?? null;
 }
 
 interface FakeElement {
