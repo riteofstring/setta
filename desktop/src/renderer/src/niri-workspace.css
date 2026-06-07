@@ -28,7 +28,9 @@
 }
 
 .niri-pane-host {
-  --niri-pane-focus-ring: color-mix(in oklch, var(--primary) 64%, white);
+  --niri-pane-focus-ring: color-mix(in oklch, var(--setta-500) 46%, transparent);
+  --niri-pane-focus-shadow: color-mix(in oklch, black 18%, transparent);
+  --niri-pane-focus-surface: color-mix(in oklch, var(--popover) 94%, var(--setta-700));
   background: color-mix(in oklch, var(--popover) 86%, var(--background));
   border-radius: 7px;
   color: var(--foreground);
@@ -46,11 +48,17 @@
   border-radius: inherit;
   content: "";
   inset: 0;
-  opacity: 0;
+  opacity: var(--niri-pane-focus-opacity, 0);
   pointer-events: none;
   position: absolute;
   transition: opacity 120ms ease;
   z-index: 5;
+}
+
+[data-color-mode="light"] .niri-pane-host {
+  --niri-pane-focus-ring: color-mix(in oklch, var(--setta-400) 42%, transparent);
+  --niri-pane-focus-shadow: color-mix(in oklch, var(--setta-900) 10%, transparent);
+  --niri-pane-focus-surface: color-mix(in oklch, var(--popover) 96%, var(--setta-100));
 }
 
 .niri-pane-drag-handle {
@@ -255,16 +263,9 @@
 }
 
 .niri-pane-host[data-focused="true"] {
-  background: color-mix(in oklch, var(--popover) 82%, var(--primary));
-  box-shadow:
-    0 0 0 1px var(--niri-pane-focus-ring),
-    0 10px 26px color-mix(in oklch, black 24%, transparent);
-  outline: 1px solid var(--niri-pane-focus-ring);
-  outline-offset: -1px;
-}
-
-.niri-pane-host[data-focused="true"]::before {
-  opacity: 1;
+  --niri-pane-focus-opacity: 0.82;
+  background: var(--niri-pane-focus-surface);
+  box-shadow: 0 8px 22px var(--niri-pane-focus-shadow);
 }
 
 .niri-pane-host[data-drag-source="true"] {
@@ -321,9 +322,9 @@
 
 .niri-workspace-area[data-presentation-mode="overview"] .niri-pane-host[data-focused="true"] {
   box-shadow:
-    inset 0 0 0 2px color-mix(in oklch, var(--primary) 78%, white),
-    0 0 0 8px color-mix(in oklch, var(--primary) 18%, transparent),
-    0 18px 42px color-mix(in oklch, black 36%, transparent);
+    inset 0 0 0 1px var(--niri-pane-focus-ring),
+    0 0 0 5px color-mix(in oklch, var(--niri-pane-focus-ring) 18%, transparent),
+    0 16px 36px var(--niri-pane-focus-shadow);
 }
 
 .niri-workspace-toolbar {
