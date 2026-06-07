@@ -47,12 +47,12 @@ try {
     fixture,
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const layoutStorageKey = await ensureWorkspaceOpen(context.client);
 
   await persistLayoutWithoutSettings(context.client, layoutStorageKey);
   await reloadPage(context.client);
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const beforeOpen = await waitForLayoutWithoutSettings(context.client, layoutStorageKey);
   await captureScreenshot(context.client, join(artifactDir, "before-settings-open.png"));
 
@@ -169,9 +169,13 @@ async function safeSettingsState(client) {
 
 function settingsStateExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
-    const hosts = Array.from(document.querySelectorAll('[data-testid="niri-fake-pane-host"]'))
-      .filter((host) => host instanceof HTMLElement && (host.dataset.surfaceKind ?? "") !== "");
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-fake-pane-host"]'))
+      .filter((host) =>
+        host instanceof HTMLElement &&
+        host.dataset.visible === "true" &&
+        (host.dataset.surfaceKind ?? "") !== ""
+      );
     const focused = hosts.find((host) => host.dataset.focused === "true");
     return {
       focusedSurfaceKind: focused?.dataset.surfaceKind ?? "",
@@ -185,7 +189,7 @@ function settingsStateExpression() {
 
 function layoutStorageKeyExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
   })()`;
 }

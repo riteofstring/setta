@@ -88,8 +88,9 @@ fi
 
 if [[ "${run_deterministic}" -eq 1 ]]; then
   echo "Deterministic Electron chat workflows..."
-  if run_electron_node "${repo_root}/desktop/tests/electron/chat-workflows.test.mjs" --deterministic-only &&
-    run_electron_node "${repo_root}/desktop/tests/electron/corrupt-chat-workflow.test.mjs"; then
+  if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
+    --workflow chat \
+    --workflow corrupt-chat; then
     passed_workflows+=("deterministic-electron")
   else
     status=1
@@ -99,7 +100,8 @@ fi
 if [[ "${run_live}" -eq 1 ]]; then
   if live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
     echo "Live Codex Electron chat workflow..."
-    if run_electron_node "${repo_root}/desktop/tests/electron/chat-workflows.test.mjs" --live-only; then
+    if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
+      --workflow live-codex-electron; then
       passed_workflows+=("live-codex-electron")
     else
       status=1

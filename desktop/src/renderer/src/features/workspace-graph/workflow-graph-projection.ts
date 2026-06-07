@@ -9,22 +9,22 @@ import type {
   WorkflowValidationSeverity,
 } from "@generated/backend";
 
-interface PixiWorkspaceNode {
+interface WorkflowGraphNode {
   color: number;
-  diagnostic: PixiWorkspaceDiagnostic | null;
+  diagnostic: WorkflowGraphDiagnostic | null;
   executionCount: number;
   height: number;
   id: string;
   kind: WorkflowNodeKind;
   label: string;
-  ports?: PixiWorkspacePort[];
+  ports?: WorkflowGraphPort[];
   status: WorkflowGraphNodeStatus;
   width: number;
   x: number;
   y: number;
 }
 
-interface PixiWorkspacePort {
+interface WorkflowGraphPort {
   id: string;
   label: string;
   role: "source" | "target";
@@ -32,8 +32,8 @@ interface PixiWorkspacePort {
   yRatio: number;
 }
 
-interface PixiWorkspaceEdge {
-  diagnostic: PixiWorkspaceDiagnostic | null;
+interface WorkflowGraphEdge {
+  diagnostic: WorkflowGraphDiagnostic | null;
   id: string;
   label: string;
   sourceNodeId: string;
@@ -43,9 +43,9 @@ interface PixiWorkspaceEdge {
   targetPortId: string;
 }
 
-interface PixiWorkspaceGraph {
-  edges: PixiWorkspaceEdge[];
-  nodes: PixiWorkspaceNode[];
+interface WorkflowGraphGraph {
+  edges: WorkflowGraphEdge[];
+  nodes: WorkflowGraphNode[];
   workflow: {
     definitionId: string;
     definitionName: string;
@@ -60,7 +60,7 @@ interface PixiWorkspaceGraph {
   } | null;
 }
 
-interface PixiWorkspaceDiagnostic {
+interface WorkflowGraphDiagnostic {
   codes: string[];
   count: number;
   severity: WorkflowValidationSeverity;
@@ -78,7 +78,7 @@ const routePorts = [
   { id: "route_yes", label: "yes", role: "source", xOffset: -20, yRatio: 0.28 },
   { id: "route_no", label: "no", role: "source", xOffset: -20, yRatio: 0.5 },
   { id: "route_default", label: "default", role: "source", xOffset: -20, yRatio: 0.72 },
-] satisfies PixiWorkspacePort[];
+] satisfies WorkflowGraphPort[];
 
 const nodeStatusColors = {
   not_started: 0x52525b,
@@ -102,10 +102,10 @@ const idleKindColors = {
   start: 0x0f766e,
 } satisfies Record<WorkflowNodeKind, number>;
 
-export function pixiGraphFromWorkflowProjection(
+export function rendererGraphFromWorkflowProjection(
   projection: WorkflowGraphProjection,
   validation: WorkflowValidationResult | null = null,
-): PixiWorkspaceGraph {
+): WorkflowGraphGraph {
   const positions = workflowNodePositions(projection);
   const diagnostics = workflowDiagnosticMaps(projection, validation);
   return {
@@ -155,8 +155,8 @@ function workflowDiagnosticMaps(
   projection: WorkflowGraphProjection,
   validation: WorkflowValidationResult | null,
 ) {
-  const nodes = new Map<string, PixiWorkspaceDiagnostic>();
-  const edges = new Map<string, PixiWorkspaceDiagnostic>();
+  const nodes = new Map<string, WorkflowGraphDiagnostic>();
+  const edges = new Map<string, WorkflowGraphDiagnostic>();
   if (validation === null || projection.executionId !== "") {
     return { edges, nodes };
   }
@@ -172,7 +172,7 @@ function workflowDiagnosticMaps(
 }
 
 function upsertDiagnosticSummary(
-  summaries: Map<string, PixiWorkspaceDiagnostic>,
+  summaries: Map<string, WorkflowGraphDiagnostic>,
   id: string,
   diagnostic: WorkflowValidationDiagnostic,
 ) {
@@ -212,7 +212,7 @@ function severityRank(severity: WorkflowValidationSeverity) {
   }
 }
 
-function workflowNodePorts(kind: WorkflowNodeKind): PixiWorkspacePort[] | undefined {
+function workflowNodePorts(kind: WorkflowNodeKind): WorkflowGraphPort[] | undefined {
   if (kind === "gateway.xor") {
     return routePorts;
   }

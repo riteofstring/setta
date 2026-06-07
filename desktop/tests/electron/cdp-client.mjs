@@ -1,3 +1,9 @@
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const driverScriptPath = join(dirname(fileURLToPath(import.meta.url)), "browser-driver.js");
+
 export class CDPClient {
   constructor(socket, timeoutMs) {
     this.nextId = 1;
@@ -52,6 +58,20 @@ export class CDPClient {
     return result.result.value;
   }
 
+  async driver(method, args = {}) {
+    await this.installDriver();
+    return this.evaluate(driverCallExpression(method, args));
+  }
+
+  async installDriver() {
+    const installed = await this.evaluate(
+      `globalThis.__settaE2EDriver?.version === "setta-e2e-driver-v3"`,
+    );
+    if (!installed) {
+      await this.evaluate(await readFile(driverScriptPath, "utf8"));
+    }
+  }
+
   close() {
     this.socket.close();
   }
@@ -69,4 +89,8 @@ export class CDPClient {
     }
     pending.resolve(message.result);
   }
+}
+
+export function driverCallExpression(method, args = {}) {
+  return `globalThis.__settaE2EDriver.${method}(${JSON.stringify(args)})`;
 }

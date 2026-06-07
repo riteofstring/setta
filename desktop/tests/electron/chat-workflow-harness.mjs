@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { CDPClient } from "./cdp-client.mjs";
+import { CDPClient, driverCallExpression } from "./cdp-client.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
@@ -30,14 +30,7 @@ export function configureChatWorkflowHarness({ visible }) {
 export async function waitForAssistantTextRendered(client, timeoutMs) {
   await waitForState(
     client,
-    `(() => {
-      const rows = Array.from(document.querySelectorAll('[data-chat-message="true"], [data-testid="chat-assistant-turn-row"], [data-testid="chat-message-row"], [data-testid="chat-queued-turn-row"]'));
-      const assistantTexts = rows
-        .filter((row) => row.getAttribute("data-message-role") === "assistant")
-        .map((row) => row.innerText.trim())
-        .filter((text) => text !== "" && text !== "...");
-      return { assistantTexts };
-    })()`,
+    driverCallExpression("visibleAssistantTexts"),
     (value) => value.assistantTexts.length > 0,
     timeoutMs,
   );
@@ -79,12 +72,7 @@ export async function createChat(client, backend, workspaceId) {
   }
   await waitForState(
     client,
-    `(() => {
-      const panel = document.querySelector('[data-testid="chat-detail-pane"]');
-      return {
-        selectedConversationId: panel?.getAttribute("data-conversation-id") ?? "",
-      };
-    })()`,
+    driverCallExpression("selectedConversation"),
     (value) => value.selectedConversationId === created.conversation.id,
   );
   return created.conversation.id;
@@ -93,10 +81,7 @@ export async function createChat(client, backend, workspaceId) {
 async function waitForRendererWorkspace(client, workspaceId) {
   await waitForState(
     client,
-    `(() => {
-      const detail = document.querySelector('[data-testid="chat-detail-pane"]');
-      return { workspaceId: detail?.getAttribute("data-workspace-id") ?? "" };
-    })()`,
+    driverCallExpression("rendererWorkspace"),
     (value) => value.workspaceId === workspaceId,
   );
 }
@@ -108,51 +93,17 @@ export async function submitComposer(client, text, buttonLabel) {
 }
 
 async function waitForComposerReady(client) {
-  await waitForState(client, composerReadyExpression(), (value) => value.ready);
-}
-
-function composerReadyExpression() {
-  return `(() => {
-    const textarea = document.querySelector('textarea[aria-label="Ask Setta"]');
-    return { ready: Boolean(textarea && !textarea.disabled) };
-  })()`;
+  await waitForState(client, driverCallExpression("composerReady"), (value) => value.ready);
 }
 
 export async function setInputValue(client, selector, value) {
-  const changed = await client.evaluate(`(() => {
-    const element = document.querySelector(${JSON.stringify(selector)});
-    if (
-      !(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) ||
-      element.disabled
-    ) {
-      return false;
-    }
-    const previousValue = element.value;
-    const prototype = element instanceof HTMLTextAreaElement
-      ? HTMLTextAreaElement.prototype
-      : HTMLInputElement.prototype;
-    const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
-    descriptor.set.call(element, ${JSON.stringify(value)});
-    element._valueTracker?.setValue(previousValue);
-    element.focus();
-    element.select();
-    element.dispatchEvent(new InputEvent("input", {
-      bubbles: true,
-      data: ${JSON.stringify(value)},
-      inputType: "insertText",
-    }));
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-    return element.value === ${JSON.stringify(value)};
-  })()`);
+  const changed = await client.driver("setInputValue", { selector, value });
   if (!changed) {
     throw new Error(`input was not editable: ${selector}`);
   }
   await waitForState(
     client,
-    `(() => {
-      const element = document.querySelector(${JSON.stringify(selector)});
-      return { value: element?.value ?? null };
-    })()`,
+    driverCallExpression("elementValue", { selector }),
     (state) => state.value === value,
   );
 }
@@ -176,15 +127,7 @@ export async function clickButtonContainingText(client, text) {
 }
 
 export async function scrollSidebarNavigationTo(client, scrollTop) {
-  const scrolled = await client.evaluate(`(() => {
-    const list = document.querySelector('[data-testid="sidebar-navigation-list"]');
-    if (!list) {
-      return false;
-    }
-    list.scrollTop = ${JSON.stringify(scrollTop)};
-    list.dispatchEvent(new Event("scroll", { bubbles: true }));
-    return true;
-  })()`);
+  const scrolled = await client.driver("scrollSidebarNavigationTo", { scrollTop });
   if (!scrolled) {
     throw new Error("sidebar navigation list was not mounted");
   }
@@ -192,12 +135,7 @@ export async function scrollSidebarNavigationTo(client, scrollTop) {
 }
 
 export async function sidebarMetrics(client) {
-  return client.evaluate(`(() => ({
-    activeRows: document.querySelectorAll('[data-testid="active-workspace-item"]').length,
-    conversationRows: document.querySelectorAll('[data-testid="conversation-sidebar-item"]').length,
-    recentRows: document.querySelectorAll('[data-testid="recent-workspace-item"]').length,
-    totalElements: document.querySelectorAll("*").length,
-  }))()`);
+  return client.driver("sidebarMetrics");
 }
 
 async function clickWorkflowButton(client, kind, value, errorMessage) {
@@ -209,28 +147,11 @@ async function clickWorkflowButton(client, kind, value, errorMessage) {
 }
 
 function buttonClickExpression(kind, value) {
-  return `(() => {
-    const button = findWorkflowButton(${JSON.stringify(kind)}, ${JSON.stringify(value)});
-    if (!button || button.disabled) {
-      return { body: document.body.innerText, clicked: false };
-    }
-    button.click();
-    return { body: document.body.innerText, clicked: true };
-  })()`;
+  return driverCallExpression("clickButton", { kind, value });
 }
 
 function buttonContainingTextClickExpression(text) {
-  return `(() => {
-    const buttons = Array.from(document.querySelectorAll("button"));
-    const button = buttons.find((candidate) =>
-      candidate.innerText.includes(${JSON.stringify(text)})
-    );
-    if (!button || button.disabled) {
-      return { body: document.body.innerText, clicked: false };
-    }
-    button.click();
-    return { body: document.body.innerText, clicked: true };
-  })()`;
+  return driverCallExpression("clickButtonContainingText", { text });
 }
 
 export async function waitForText(client, text, timeoutMs = workflowTimeoutMs) {
@@ -240,24 +161,23 @@ export async function waitForText(client, text, timeoutMs = workflowTimeoutMs) {
 export async function waitForTexts(client, texts, timeoutMs = workflowTimeoutMs) {
   await waitForState(
     client,
-    bodyTextExpression(),
+    driverCallExpression("bodyText"),
     (value) => texts.every((text) => value.body.includes(text)),
     timeoutMs,
   );
 }
 
 export async function assertTextAbsent(client, text) {
-  const body = await client.evaluate("document.body.innerText");
-  if (body.includes(text)) {
+  const body = await client.driver("bodyText");
+  if (body.body.includes(text)) {
     throw new Error(`unexpected rendered text: ${text}`);
   }
 }
 
-function bodyTextExpression() {
-  return `(() => ({ body: document.body.innerText }))()`;
-}
-
 export async function waitForState(client, expression, isReady, timeoutMs = workflowTimeoutMs) {
+  if (expression.startsWith("globalThis.__settaE2EDriver.")) {
+    await client.installDriver();
+  }
   const startedAt = Date.now();
   let lastValue = null;
   while (Date.now() - startedAt < timeoutMs) {
@@ -480,15 +400,7 @@ export async function assertRunsDrainedSequentially(backend, workspaceId, conver
 }
 
 export async function assertTranscriptSequence(client, expectedTexts) {
-  const value = await client.evaluate(`(() => {
-    const rows = Array.from(document.querySelectorAll('[data-chat-message="true"]'));
-    return {
-      rows: rows.map((row) => ({
-        role: row.getAttribute("data-message-role"),
-        text: row.innerText.trim(),
-      })),
-    };
-  })()`);
+  const value = await client.driver("chatTranscriptRows");
   let cursor = 0;
   for (const expected of expectedTexts) {
     const index = value.rows.findIndex((row, rowIndex) => {
@@ -504,14 +416,7 @@ export async function assertTranscriptSequence(client, expectedTexts) {
 }
 
 export async function assertNoVisibleUserMessage(client, text) {
-  const value = await client.evaluate(`(() => {
-    const rows = Array.from(document.querySelectorAll('[data-chat-message="true"]'));
-    return {
-      rows: rows
-        .filter((row) => row.getAttribute("data-message-role") === "user")
-        .map((row) => row.innerText.trim()),
-    };
-  })()`);
+  const value = await client.driver("visibleUserMessageTexts");
   const matches = value.rows.filter((rowText) => rowText.includes(text));
   if (matches.length > 0) {
     throw new Error(`found visible user message ${text}: ${JSON.stringify(value.rows)}`);
@@ -519,28 +424,7 @@ export async function assertNoVisibleUserMessage(client, text) {
 }
 
 export async function assertChatLayout(client) {
-  const metrics = await client.evaluate(`(() => {
-    const rect = (element) => {
-      if (!element) return null;
-      const box = element.getBoundingClientRect();
-      return {
-        bottom: box.bottom,
-        height: box.height,
-        top: box.top,
-      };
-    };
-    const pane = document.querySelector('[data-testid="chat-detail-pane"]');
-    const transcript = document.querySelector('[data-testid="chat-transcript-region"]');
-    const scroller = document.querySelector('[data-testid="chat-transcript-scroller"]');
-    const composer = document.querySelector('[data-testid="chat-composer"]');
-    return {
-      composer: rect(composer),
-      pane: rect(pane),
-      scrollerClientHeight: scroller?.clientHeight ?? 0,
-      scrollerScrollHeight: scroller?.scrollHeight ?? 0,
-      transcript: rect(transcript),
-    };
-  })()`);
+  const metrics = await client.driver("chatLayoutMetrics");
   if (!metrics.pane || !metrics.transcript || !metrics.composer) {
     throw new Error(`chat layout metrics missing required regions: ${JSON.stringify(metrics)}`);
   }
@@ -619,23 +503,7 @@ export async function launchContext(fixture, recordingDir, options = {}) {
   const electron = launchElectron(debugPort, fixture, recordingDir, options);
   const client = await connectToSettaPage(debugPort);
   await client.call("Runtime.enable");
-  await installPageHelpers(client);
   return { client, electron };
-}
-
-async function installPageHelpers(client) {
-  await client.evaluate(`(() => {
-	  window.findWorkflowButton = (kind, expected) => {
-	    const buttons = Array.from(document.querySelectorAll("button"));
-	    const matches = buttons.filter((button) => {
-	      if (kind === "aria-label") {
-	        return button.getAttribute("aria-label") === expected;
-	      }
-	      return button.innerText.trim() === expected;
-	    });
-	    return matches.find((button) => !button.disabled) ?? matches[0] ?? null;
-	  };
-	})()`);
 }
 
 function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
@@ -888,11 +756,7 @@ async function requestRendererLayoutSnapshot(client, trigger) {
   if (!client) {
     return;
   }
-  await client.evaluate(`(() => {
-    window.dispatchEvent(new CustomEvent("setta:record-layout-snapshot", {
-      detail: { trigger: ${JSON.stringify(trigger)} },
-    }));
-  })()`);
+  await client.driver("dispatchLayoutSnapshot", { trigger });
   await delay(25);
 }
 

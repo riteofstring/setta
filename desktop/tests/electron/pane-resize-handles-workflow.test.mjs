@@ -60,7 +60,7 @@ try {
     visible: options.visible,
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await ensureWorkspaceOpen(context.client);
   await waitForResizeHandles(context.client, "horizontal");
   await captureScreenshot(context.client, join(artifactDir, "horizontal-before.png"));
@@ -172,8 +172,8 @@ async function ensureWorkspaceOpen(client) {
 
 async function clickFocusedPaneAction(client, action) {
   const clicked = await client.evaluate(`(() => {
-    const focusedHost = document.querySelector('[data-testid="niri-fake-pane-host"][data-focused="true"]');
-    const button = focusedHost?.querySelector(${JSON.stringify(`[data-niri-pane-action="${action}"]`)});
+    const focusedHost = document.querySelector('[data-testid="workspace-fake-pane-host"][data-focused="true"]');
+    const button = focusedHost?.querySelector(${JSON.stringify(`[data-workspace-pane-action="${action}"]`)});
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-button" };
     }
@@ -331,15 +331,15 @@ async function safeResizeSnapshot(client) {
 
 function workspaceIdExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
   })()`;
 }
 
 function resizeSnapshotExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
-    const stage = document.querySelector('[data-testid="niri-presentation-engine"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
     const rectFor = (element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -351,7 +351,7 @@ function resizeSnapshotExpression() {
         width: rect.width,
       };
     };
-    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="niri-fake-pane-host"]'))
+    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-fake-pane-host"]'))
       .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
       .map((host) => {
         const rect = rectFor(host);
@@ -361,7 +361,7 @@ function resizeSnapshotExpression() {
           rect,
         };
       });
-    const handles = Array.from(document.querySelectorAll('.niri-pane-resize-handle'))
+    const handles = Array.from(document.querySelectorAll('.workspace-pane-resize-handle'))
       .filter((handle) => handle instanceof HTMLElement)
       .map((handle) => {
         const rect = rectFor(handle);
@@ -372,11 +372,11 @@ function resizeSnapshotExpression() {
         const hit = document.elementFromPoint(center.x, center.y);
         return {
           adjacentPaneId: handle.dataset.adjacentPaneId ?? "",
-          axis: handle.dataset.niriPaneResizeAxis ?? "",
+          axis: handle.dataset.workspacePaneResizeAxis ?? "",
           center,
           hit: hit instanceof HTMLElement
             ? {
-                axis: hit.dataset.niriPaneResizeAxis ?? "",
+                axis: hit.dataset.workspacePaneResizeAxis ?? "",
                 className: hit.className,
                 paneId: hit.dataset.paneId ?? "",
                 tagName: hit.tagName,

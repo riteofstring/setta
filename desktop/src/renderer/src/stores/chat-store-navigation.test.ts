@@ -247,8 +247,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const api: SettaAPI = {
     app: {
       flags: {
-        pixiWorkspaceDebug: false,
-        pixiWorkspaceSyntheticGraph: null,
+        workflowGraphDebug: false,
+        workflowGraphSyntheticGraph: null,
       },
       installedEditors: async () => [],
       endWindowDrag: async () => {},

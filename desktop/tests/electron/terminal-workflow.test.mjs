@@ -22,6 +22,12 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  focusTerminal,
+  openTerminalFromShortcut,
+  terminalScrollbackSearchExpression,
+  terminalSnapshotExpression,
+} from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const terminalOutputPrefix = "SETTA_TERMINAL_E2E_OUTPUT:";
@@ -61,19 +67,22 @@ try {
     fixture,
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await openWorkspaceFromSidebar(context.client);
+  await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
   await waitForTerminalReady(context.client);
   await maximizeTerminalPane(context.client);
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
   await waitForTerminalReady(context.client);
-  await focusTerminal(context.client);
   await assertTerminalBackspaceKey(context.client);
   await assertTerminalCtrlCKey(context.client);
   await sendTerminalCommand(context.client, terminalCommand);
   terminalState = await waitForTerminalText(context.client, terminalOutputPrefix);
   const sessionIdBeforeReload = terminalState.sessionId;
   await reloadPage(context.client);
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
   terminalState = await waitForTerminalReady(context.client);
   if (terminalState.sessionId !== sessionIdBeforeReload) {
     throw new Error(
@@ -81,7 +90,7 @@ try {
     );
   }
   terminalState = await waitForTerminalTextInScrollback(context.client, terminalOutputPrefix);
-  await focusTerminal(context.client);
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
   await sendTerminalCommand(context.client, terminalLongRunningCommand);
   longRunningPid = await waitForLongRunningPid(fixture.workspaceRoot);
   await closeTerminalFromRenderer(context.client, terminalState.sessionId);
@@ -147,7 +156,7 @@ async function openWorkspaceFromSidebar(client) {
   await waitForState(
     client,
     `(() => {
-      const area = document.querySelector('[data-testid="niri-workspace-area"]');
+      const area = document.querySelector('[data-testid="workspace-layout-area"]');
       return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
     })()`,
     (workspaceId) => workspaceId !== "" && !workspaceId.endsWith(":empty"),
@@ -156,21 +165,7 @@ async function openWorkspaceFromSidebar(client) {
 }
 
 async function maximizeTerminalPane(client) {
-  const result = await client.evaluate(`(() => {
-    const host = terminalHost();
-    const button = host?.querySelector('[data-niri-pane-maximize-button="true"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-maximize-button" };
-    }
-    if (host.dataset.maximized !== "true") {
-      button.click();
-    }
-    return { ok: true };
-
-    function terminalHost() {
-      return document.querySelector('[data-testid="niri-fake-pane-host"][data-surface-kind="terminal"]');
-    }
-  })()`);
+  const result = await client.driver("maximizeTerminalPane");
   if (!result.ok) {
     throw new Error(`terminal pane maximize failed: ${JSON.stringify(result)}`);
   }
@@ -180,23 +175,6 @@ async function maximizeTerminalPane(client) {
     (snapshot) => snapshot.maximized,
     terminalWorkflowTimeoutMs,
   );
-}
-
-async function focusTerminal(client) {
-  const result = await client.evaluate(`(() => {
-    const host = document.querySelector('[data-testid="niri-fake-pane-host"][data-surface-kind="terminal"]');
-    const viewport = host?.querySelector(".niri-xterm-viewport");
-    const textarea = host?.querySelector(".xterm-helper-textarea");
-    if (!(viewport instanceof HTMLElement) || !(textarea instanceof HTMLTextAreaElement)) {
-      return { ok: false, reason: "missing-xterm-focus-target" };
-    }
-    viewport.click();
-    textarea.focus();
-    return { ok: document.activeElement === textarea };
-  })()`);
-  if (!result.ok) {
-    throw new Error(`terminal focus failed: ${JSON.stringify(result)}`);
-  }
 }
 
 async function sendTerminalCommand(client, text) {
@@ -367,132 +345,6 @@ async function waitForTerminalClosed(client, sessionId) {
       snapshot.sessionId === sessionId && snapshot.statusText.includes("Terminal closed"),
     terminalWorkflowTimeoutMs,
   );
-}
-
-function terminalSnapshotExpression() {
-  return `(() => {
-    const host = document.querySelector('[data-testid="niri-fake-pane-host"][data-surface-kind="terminal"]');
-    if (!(host instanceof HTMLElement)) {
-      return emptySnapshot(false);
-    }
-    const rect = host.getBoundingClientRect();
-    const rows = [...host.querySelectorAll(".xterm-rows > div")]
-      .map((row) => row.textContent ?? "")
-      .join("\\n");
-    return {
-      exists: true,
-      maximized: host.dataset.maximized === "true",
-      sessionId: host.dataset.terminalSessionId ?? "",
-      statusText: host.querySelector(".niri-terminal-status")?.textContent?.trim() ?? "",
-      text: rows,
-      visible: host.dataset.visible === "true" && rect.width > 0 && rect.height > 0,
-      xtermReady: Boolean(host.querySelector(".xterm-helper-textarea")),
-    };
-
-    function emptySnapshot(exists) {
-      return {
-        exists,
-        maximized: false,
-        sessionId: "",
-        statusText: "",
-        text: "",
-        visible: false,
-        xtermReady: false,
-      };
-    }
-  })()`;
-}
-
-function terminalScrollbackSearchExpression(expectedText) {
-  return `(async () => {
-    const expectedText = ${JSON.stringify(expectedText)};
-    const host = document.querySelector('[data-testid="niri-fake-pane-host"][data-surface-kind="terminal"]');
-    if (!(host instanceof HTMLElement)) {
-      return { ...emptySnapshot(false), found: false, source: "missing-host" };
-    }
-    const visibleSnapshot = snapshotForHost(host);
-    if (visibleSnapshot.text.includes(expectedText)) {
-      return { ...visibleSnapshot, found: true, source: "visible" };
-    }
-    const viewport = host.querySelector(".xterm-viewport");
-    if (!(viewport instanceof HTMLElement)) {
-      return { ...visibleSnapshot, found: false, source: "missing-viewport" };
-    }
-
-    const originalTop = viewport.scrollTop;
-    const maxTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
-    const step = Math.max(1, Math.floor(viewport.clientHeight * 0.75));
-    const positions = [];
-    for (let top = maxTop; top > 0; top -= step) {
-      positions.push(top);
-    }
-    positions.push(0);
-
-    try {
-      for (const top of positions) {
-        viewport.scrollTop = top;
-        viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
-        await nextFrame();
-        const text = rowsForHost(host);
-        if (text.includes(expectedText)) {
-          return {
-            ...snapshotForHost(host),
-            found: true,
-            scrollHeight: viewport.scrollHeight,
-            scrollTop: top,
-            source: "scrollback",
-            text,
-          };
-        }
-      }
-      return {
-        ...snapshotForHost(host),
-        found: false,
-        scrollHeight: viewport.scrollHeight,
-        scrollTop: viewport.scrollTop,
-        source: "scanned",
-      };
-    } finally {
-      viewport.scrollTop = originalTop;
-      viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
-      await nextFrame();
-    }
-
-    function nextFrame() {
-      return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-    }
-
-    function rowsForHost(targetHost) {
-      return [...targetHost.querySelectorAll(".xterm-rows > div")]
-        .map((row) => row.textContent ?? "")
-        .join("\\n");
-    }
-
-    function snapshotForHost(targetHost) {
-      const rect = targetHost.getBoundingClientRect();
-      return {
-        exists: true,
-        maximized: targetHost.dataset.maximized === "true",
-        sessionId: targetHost.dataset.terminalSessionId ?? "",
-        statusText: targetHost.querySelector(".niri-terminal-status")?.textContent?.trim() ?? "",
-        text: rowsForHost(targetHost),
-        visible: targetHost.dataset.visible === "true" && rect.width > 0 && rect.height > 0,
-        xtermReady: Boolean(targetHost.querySelector(".xterm-helper-textarea")),
-      };
-    }
-
-    function emptySnapshot(exists) {
-      return {
-        exists,
-        maximized: false,
-        sessionId: "",
-        statusText: "",
-        text: "",
-        visible: false,
-        xtermReady: false,
-      };
-    }
-  })()`;
 }
 
 async function writeTerminalSnapshot(client, path) {

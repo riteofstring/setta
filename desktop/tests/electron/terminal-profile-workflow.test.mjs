@@ -19,6 +19,11 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  focusTerminal,
+  openTerminalFromShortcut,
+  terminalSnapshotExpression,
+} from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const terminalProfileWorkflowTimeoutMs = 25_000;
@@ -52,7 +57,7 @@ try {
     fixture,
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await ensureWorkspaceOpen(context.client);
   await openSettingsPanel(context.client);
   createdProfile = await createHomeProfileThroughSettings(context.client);
@@ -68,8 +73,10 @@ try {
     fixture,
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await ensureWorkspaceOpen(context.client);
+  await openTerminalFromShortcut(context.client, terminalProfileWorkflowTimeoutMs);
+  await focusTerminal(context.client, terminalProfileWorkflowTimeoutMs);
   terminalState = await waitForTerminalProfile(context.client, createdProfile.id, expectedHome);
   await assertProfilePersisted(fixture.appDataDir, createdProfile.id);
   await captureScreenshot(context.client, join(artifactDir, "terminal-profile-default.png"));
@@ -319,7 +326,7 @@ async function readProfilesFromRenderer(client) {
 
 function workspaceIdExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
   })()`;
 }
@@ -368,33 +375,4 @@ function profileEditorStateExpression() {
 
 function profilesExpression() {
   return `(async () => window.setta.terminal.listProfiles())()`;
-}
-
-function terminalSnapshotExpression() {
-  return `(() => {
-    const host = document.querySelector('[data-testid="niri-fake-pane-host"][data-surface-kind="terminal"]');
-    if (!(host instanceof HTMLElement)) {
-      return emptySnapshot(false);
-    }
-    const rect = host.getBoundingClientRect();
-    return {
-      exists: true,
-      profileId: host.dataset.terminalProfileId ?? "",
-      sessionId: host.dataset.terminalSessionId ?? "",
-      statusText: host.querySelector(".niri-terminal-status")?.textContent?.trim() ?? "",
-      visible: host.dataset.visible === "true" && rect.width > 0 && rect.height > 0,
-      xtermReady: Boolean(host.querySelector(".xterm-helper-textarea")),
-    };
-
-    function emptySnapshot(exists) {
-      return {
-        exists,
-        profileId: "",
-        sessionId: "",
-        statusText: "",
-        visible: false,
-        xtermReady: false,
-      };
-    }
-  })()`;
 }

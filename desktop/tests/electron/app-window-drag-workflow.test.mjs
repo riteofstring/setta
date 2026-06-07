@@ -55,7 +55,7 @@ try {
     visible: options.visible,
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await ensureWorkspaceOpen(context.client);
   await waitForToolbar(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
@@ -130,7 +130,7 @@ async function ensureWorkspaceOpen(client) {
 async function waitForToolbar(client) {
   await waitForState(
     client,
-    `(() => Boolean(document.querySelector('.niri-workspace-toolbar')))()`,
+    `(() => Boolean(document.querySelector('.workspace-toolbar')))()`,
     Boolean,
     workflowTimeoutMs,
   );
@@ -243,7 +243,7 @@ async function sampleDragRegions(client) {
       };
     }
     const paneTop = document
-      .querySelector('[data-testid="niri-fake-pane-host"][data-visible="true"] .niri-pane-top-bar')
+      .querySelector('[data-testid="workspace-fake-pane-host"][data-visible="true"] .workspace-pane-top-bar')
       ?.getBoundingClientRect();
     return [
       sample("toolbar-empty-center", 900, 12),
@@ -256,7 +256,7 @@ async function sampleDragRegions(client) {
 
 function assertToolbarDragSurface(regions) {
   const toolbar = requiredRegion(regions, "toolbar-empty-center");
-  if (toolbar.testid !== "niri-workspace-toolbar" || toolbar.className.includes("app-drag")) {
+  if (toolbar.testid !== "workspace-toolbar" || toolbar.className.includes("app-drag")) {
     throw new Error(`toolbar drag surface is wrong: ${JSON.stringify(toolbar)}`);
   }
 }
@@ -285,5 +285,5 @@ async function safeSampleDragRegions(client) {
 }
 
 function workspaceIdExpression() {
-  return `(() => document.querySelector('[data-testid="niri-workspace-area"]')?.getAttribute('data-workspace-id') ?? "")()`;
+  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute('data-workspace-id') ?? "")()`;
 }

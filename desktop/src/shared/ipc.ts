@@ -54,7 +54,7 @@ import type {
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
-  NiriBrowserViewStats,
+  WorkspaceBrowserViewStats,
   RuntimeVersions,
   WorkspaceGitInfo,
 } from "./types";
@@ -98,8 +98,8 @@ export const ipcChannels = {
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
-  niriBrowserViewStats: "niri:browser-view-stats",
-  niriBrowserViewsTeardown: "niri:browser-views-teardown",
+  workspaceBrowserViewStats: "workspace:browser-view-stats",
+  workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   terminalAttach: "terminal:attach",
   terminalClose: "terminal:close",
   terminalCreate: "terminal:create",
@@ -134,7 +134,7 @@ export const ipcChannels = {
 } as const;
 
 export const ipcMessages = {
-  niriBrowserViewBatch: "niri:browser-view-batch",
+  workspaceBrowserViewBatch: "workspace:browser-view-batch",
 } as const;
 
 export const ipcEvents = {
@@ -142,8 +142,8 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
-  niriBrowserViewKey: "niri:browser-view-key",
-  niriBrowserViewSnapshot: "niri:browser-view-snapshot",
+  workspaceBrowserViewKey: "workspace:browser-view-key",
+  workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
   terminalEvent: "terminal:event",
   workflowEvent: "workflow:event",
 } as const;
@@ -312,13 +312,13 @@ interface IpcContract {
     args: [request: StartCodexLoginRequest];
     result: StartCodexLoginResponse;
   };
-  niriBrowserViewStats: {
+  workspaceBrowserViewStats: {
     args: [];
-    result: NiriBrowserViewStats;
+    result: WorkspaceBrowserViewStats;
   };
-  niriBrowserViewsTeardown: {
+  workspaceBrowserViewsTeardown: {
     args: [workspaceId: string];
-    result: NiriBrowserViewStats;
+    result: WorkspaceBrowserViewStats;
   };
   terminalAttach: {
     args: [workspaceId: string, paneId: string];

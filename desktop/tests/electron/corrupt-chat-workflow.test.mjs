@@ -380,7 +380,7 @@ async function launchCorruptContext(appDataDir) {
   await client.call("Runtime.enable");
   await installPageHelpers(client);
   await client.evaluate("window.confirm = () => true");
-  await pauseNiriBenchmarkForChatWorkflow(client);
+  await pauseWorkspaceBenchmarkForChatWorkflow(client);
   return { client, electron };
 }
 
@@ -464,20 +464,22 @@ async function waitForPartialCorruptChatState(client) {
   }
 }
 
-async function pauseNiriBenchmarkForChatWorkflow(client) {
+async function pauseWorkspaceBenchmarkForChatWorkflow(client) {
   let lastState = null;
   for (let attempt = 0; attempt < 12; attempt += 1) {
-    await dispatchNiriArrowKey(client, "ArrowLeft");
-    const state = await waitForNiriChatSurfaceReady(client, 1_200);
+    await dispatchWorkspaceArrowKey(client, "ArrowLeft");
+    const state = await waitForWorkspaceChatSurfaceReady(client, 1_200);
     if (state.ready) {
       return;
     }
     lastState = state.value;
   }
-  throw new Error(`niri chat surface was not ready after navigation: ${JSON.stringify(lastState)}`);
+  throw new Error(
+    `workspace chat surface was not ready after navigation: ${JSON.stringify(lastState)}`,
+  );
 }
 
-async function dispatchNiriArrowKey(client, key) {
+async function dispatchWorkspaceArrowKey(client, key) {
   await client.evaluate(`(() => {
     window.dispatchEvent(new KeyboardEvent("keydown", {
       bubbles: true,
@@ -487,12 +489,12 @@ async function dispatchNiriArrowKey(client, key) {
   })()`);
 }
 
-async function waitForNiriChatSurfaceReady(client, timeoutMs) {
+async function waitForWorkspaceChatSurfaceReady(client, timeoutMs) {
   const startedAt = Date.now();
   let lastValue = null;
   while (Date.now() - startedAt < timeoutMs) {
-    lastValue = await client.evaluate(niriChatSurfaceReadyExpression());
-    if (niriChatSurfaceReady(lastValue)) {
+    lastValue = await client.evaluate(workspaceChatSurfaceReadyExpression());
+    if (workspaceChatSurfaceReady(lastValue)) {
       return { ready: true, value: lastValue };
     }
     await delay(100);
@@ -500,9 +502,9 @@ async function waitForNiriChatSurfaceReady(client, timeoutMs) {
   return { ready: false, value: lastValue };
 }
 
-function niriChatSurfaceReady(value) {
+function workspaceChatSurfaceReady(value) {
   return (
-    !value.niriMounted ||
+    !value.workspaceMounted ||
     (value.chatMounted &&
       value.hostRuntimeState === "live" &&
       value.hostMoving === "false" &&
@@ -510,17 +512,17 @@ function niriChatSurfaceReady(value) {
   );
 }
 
-function niriChatSurfaceReadyExpression() {
+function workspaceChatSurfaceReadyExpression() {
   return `(() => {
-    const niri = document.querySelector('[data-testid="niri-workspace-area"]');
-    const chatSurface = document.querySelector('[data-testid="niri-chat-dom-surface"]');
-    const host = chatSurface?.closest('[data-testid="niri-fake-pane-host"]');
+    const workspace = document.querySelector('[data-testid="workspace-layout-area"]');
+    const chatSurface = document.querySelector('[data-testid="workspace-chat-dom-surface"]');
+    const host = chatSurface?.closest('[data-testid="workspace-fake-pane-host"]');
     return {
       chatMounted: Boolean(document.querySelector('[data-testid="chat-detail-pane"]')),
       hostMoving: host?.getAttribute("data-moving") ?? "",
       hostRuntimeState: host?.getAttribute("data-runtime-state") ?? "",
       hostVisible: host?.getAttribute("data-visible") ?? "",
-      niriMounted: Boolean(niri),
+      workspaceMounted: Boolean(workspace),
     };
   })()`;
 }

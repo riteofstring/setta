@@ -17,9 +17,9 @@ import { SettaLogoMark } from "./components/setta-logo-mark";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { cn } from "./lib/utils";
 import {
-  NiriWorkspaceArea,
-  type NiriSurfaceFocusRequest,
-} from "./niri-workspace/NiriWorkspaceArea";
+  WorkspaceLayoutArea,
+  type WorkspaceSurfaceFocusRequest,
+} from "./workspace-layout/WorkspaceLayoutArea";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import {
@@ -46,21 +46,24 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
-  const [niriSurfaceFocusRequest, setNiriSurfaceFocusRequest] =
-    useState<NiriSurfaceFocusRequest | null>(null);
+  const [workspaceSurfaceFocusRequest, setWorkspaceSurfaceFocusRequest] =
+    useState<WorkspaceSurfaceFocusRequest | null>(null);
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
-  const focusNiriSurface = useCallback((surfaceKind: NiriSurfaceFocusRequest["surfaceKind"]) => {
-    setNiriSurfaceFocusRequest((current) => ({
-      requestId: (current?.requestId ?? 0) + 1,
-      surfaceKind,
-    }));
-  }, []);
+  const focusWorkspaceSurface = useCallback(
+    (surfaceKind: WorkspaceSurfaceFocusRequest["surfaceKind"]) => {
+      setWorkspaceSurfaceFocusRequest((current) => ({
+        requestId: (current?.requestId ?? 0) + 1,
+        surfaceKind,
+      }));
+    },
+    [],
+  );
   const openSettingsPane = useCallback(() => {
-    focusNiriSurface("settings-dom");
-  }, [focusNiriSurface]);
+    focusWorkspaceSurface("settings-dom");
+  }, [focusWorkspaceSurface]);
   const openWorkflowGraphPane = useCallback(() => {
-    focusNiriSurface("pixi-canvas");
-  }, [focusNiriSurface]);
+    focusWorkspaceSurface("workflow-graph");
+  }, [focusWorkspaceSurface]);
   const createConversation = chat.createConversation;
   const createWorkspaceConversation = chat.createWorkspaceConversation;
   const deleteConversation = chat.deleteConversation;
@@ -69,23 +72,23 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const createConversationAndFocusChat = useCallback(
     async (title?: string) => {
       await createConversation(title);
-      focusNiriSurface("chat-dom");
+      focusWorkspaceSurface("chat-dom");
     },
-    [createConversation, focusNiriSurface],
+    [createConversation, focusWorkspaceSurface],
   );
   const createWorkspaceConversationAndFocusChat = useCallback(
     async (workspaceId: string, title?: string) => {
       await createWorkspaceConversation(workspaceId, title);
-      focusNiriSurface("chat-dom");
+      focusWorkspaceSurface("chat-dom");
     },
-    [createWorkspaceConversation, focusNiriSurface],
+    [createWorkspaceConversation, focusWorkspaceSurface],
   );
   const selectConversationAndFocusChat = useCallback(
     async (conversationId: string, workspaceId?: string) => {
       await selectConversation(conversationId, workspaceId);
-      focusNiriSurface("chat-dom");
+      focusWorkspaceSurface("chat-dom");
     },
-    [focusNiriSurface, selectConversation],
+    [focusWorkspaceSurface, selectConversation],
   );
   useEffect(() => {
     return setta.chat.onEvent((event) => {
@@ -117,7 +120,10 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           width={effectiveProjectPaneWidth}
           workspace={workspace}
         />
-        <NiriWorkspaceArea focusSurfaceRequest={niriSurfaceFocusRequest} platform={platform} />
+        <WorkspaceLayoutArea
+          focusSurfaceRequest={workspaceSurfaceFocusRequest}
+          platform={platform}
+        />
       </main>
     </div>
   );

@@ -9,11 +9,11 @@ import type {
 import { Copy, Plus, Save, Star, Terminal, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import { terminalThemeOptions } from "../niri-workspace/terminal-display-settings";
+import { terminalThemeOptions } from "../workspace-layout/terminal-display-settings";
 import {
   dispatchTerminalProfilesChanged,
   terminalProfileInput,
-} from "../niri-workspace/terminal-profiles";
+} from "../workspace-layout/terminal-profiles";
 
 export function TerminalProfilesSettings() {
   const model = useTerminalProfilesSettings();

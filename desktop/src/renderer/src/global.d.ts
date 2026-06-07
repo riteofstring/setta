@@ -1,6 +1,6 @@
 import type { SettaAPI } from "@shared/types";
 
-interface PixiWorkspaceDebugSnapshot {
+interface WorkflowGraphDebugSnapshot {
   canvas: {
     bottom: number;
     clientHeight: number;
@@ -127,7 +127,7 @@ interface PixiWorkspaceDebugSnapshot {
     spatialIndexRebuildCount: number;
     spatialIndexUpdateCount: number;
     temporaryEdgeUpdateCount: number;
-    totalPixiDisplayObjectCount: number;
+    totalDisplayObjectCount: number;
     visibleLabelCount: number;
     wheelPanUpdateCount: number;
     wheelZoomUpdateCount: number;
@@ -142,16 +142,16 @@ interface PixiWorkspaceDebugSnapshot {
   };
 }
 
-interface PixiWorkspaceDebugApi {
-  __renderers: Map<string, () => PixiWorkspaceDebugSnapshot>;
-  getSnapshot: (surfaceId?: string) => PixiWorkspaceDebugSnapshot;
-  getSnapshots: () => Record<string, PixiWorkspaceDebugSnapshot>;
+interface WorkflowGraphDebugApi {
+  __renderers: Map<string, () => WorkflowGraphDebugSnapshot>;
+  getSnapshot: (surfaceId?: string) => WorkflowGraphDebugSnapshot;
+  getSnapshots: () => Record<string, WorkflowGraphDebugSnapshot>;
   getSurfaceIds: () => string[];
 }
 
 declare global {
   interface Window {
-    __settaPixiWorkspaceDebug?: PixiWorkspaceDebugApi;
+    __settaWorkflowGraphDebug?: WorkflowGraphDebugApi;
     setta: SettaAPI;
   }
 }

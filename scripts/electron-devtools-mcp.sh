@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_PORT_FILE="${ROOT_DIR}/.recordings/pixi-workspace/latest/debug-port.txt"
+DEFAULT_PORT_FILE="${ROOT_DIR}/.recordings/workflow-graph/latest/debug-port.txt"
 PORT_FILE="${SETTA_ELECTRON_CDP_PORT_FILE:-${DEFAULT_PORT_FILE}}"
 CDP_PORT="${SETTA_ELECTRON_CDP_PORT:-}"
 

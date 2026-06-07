@@ -57,7 +57,7 @@ export async function createWorkflowProjectionFixture(client, workspaceRoot) {
     }
     const definition = await window.setta.workflow.createDefinition(
       workspaceId,
-      "Pixi workflow projection",
+      "Workflow graph projection",
       "Renderer projection smoke fixture",
       graph
     );
@@ -71,16 +71,19 @@ export async function createWorkflowProjectionFixture(client, workspaceRoot) {
   await assertWorkflowDefinitionFile(
     workspaceRoot,
     fixture.definitionId,
-    "Pixi workflow projection",
+    "Workflow graph projection",
   );
   return fixture;
 }
 
 export function isWorkflowProjectionSnapshotReady(snapshot, expected) {
-  return isPixiSnapshotRendered(snapshot) && isWorkflowProjectionMetadataReady(snapshot, expected);
+  return (
+    isWorkflowGraphSnapshotRendered(snapshot) &&
+    isWorkflowProjectionMetadataReady(snapshot, expected)
+  );
 }
 
-function isPixiSnapshotRendered(snapshot) {
+function isWorkflowGraphSnapshotRendered(snapshot) {
   return (
     snapshot.canvas.clientWidth > 0 &&
     snapshot.canvas.clientHeight > 0 &&
@@ -100,26 +103,26 @@ export function assertWorkflowProjectionSnapshot(snapshot, expected) {
   const actual = workflowProjectionMetadata(snapshot);
   if (actual === null) {
     throw new Error(
-      `Pixi graph did not expose workflow projection metadata: ${JSON.stringify(snapshot.graph)}`,
+      `Workflow graph did not expose workflow projection metadata: ${JSON.stringify(snapshot.graph)}`,
     );
   }
   const expectedMetadata = expectedDraftMetadata(expected);
   if (JSON.stringify(actual) !== JSON.stringify(expectedMetadata)) {
     throw new Error(
-      `Pixi workflow projection metadata mismatch: expected=${JSON.stringify(expectedMetadata)} snapshot=${JSON.stringify(actual)}`,
+      `Workflow graph projection metadata mismatch: expected=${JSON.stringify(expectedMetadata)} snapshot=${JSON.stringify(actual)}`,
     );
   }
   assertWorkflowProjectionIDs(
     snapshot.graph.nodes,
     ["start", "work", "end"],
     "node",
-    "Pixi workflow projection nodes",
+    "Workflow graph projection nodes",
   );
   assertWorkflowProjectionIDs(
     snapshot.graph.edges,
     ["start_work", "work_end"],
     "edge",
-    "Pixi workflow projection edges",
+    "Workflow graph projection edges",
   );
   assertWorkflowProjectionLayout(snapshot.graph.nodes, expected.layout);
 }
@@ -174,7 +177,7 @@ function assertWorkflowProjectionLayout(nodes, expectedLayout) {
     const node = actual.get(expected.nodeId);
     if (!node || node.x !== expected.x || node.y !== expected.y) {
       throw new Error(
-        `Pixi workflow projection layout mismatch for ${expected.nodeId}: actual=${JSON.stringify(node)} expected=${JSON.stringify(expected)}`,
+        `Workflow graph projection layout mismatch for ${expected.nodeId}: actual=${JSON.stringify(node)} expected=${JSON.stringify(expected)}`,
       );
     }
   }

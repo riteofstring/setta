@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import type { WorkflowGraphProjection } from "@generated/backend";
-import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
+import { rendererGraphFromWorkflowProjection } from "./workflow-graph-projection";
 
-describe("pixiGraphFromWorkflowProjection", () => {
-  test("maps backend workflow projection into deterministic Pixi graph data", () => {
-    const graph = pixiGraphFromWorkflowProjection(testProjection());
+describe("rendererGraphFromWorkflowProjection", () => {
+  test("maps backend workflow projection into deterministic renderer graph data", () => {
+    const graph = rendererGraphFromWorkflowProjection(testProjection());
 
     expect(graph.workflow).toEqual({
       definitionId: "definition_review",
@@ -46,7 +46,7 @@ describe("pixiGraphFromWorkflowProjection", () => {
   });
 
   test("uses persisted workflow layout when projection includes editor positions", () => {
-    const graph = pixiGraphFromWorkflowProjection({
+    const graph = rendererGraphFromWorkflowProjection({
       ...testProjection(),
       layout: {
         nodes: [
@@ -65,7 +65,7 @@ describe("pixiGraphFromWorkflowProjection", () => {
   });
 
   test("maps route conditions to labeled virtual ports", () => {
-    const graph = pixiGraphFromWorkflowProjection({
+    const graph = rendererGraphFromWorkflowProjection({
       ...testProjection(),
       edges: [
         {
@@ -131,7 +131,7 @@ describe("pixiGraphFromWorkflowProjection", () => {
   });
 
   test("maps draft validation diagnostics onto nodes and edges", () => {
-    const graph = pixiGraphFromWorkflowProjection(draftProjection(), {
+    const graph = rendererGraphFromWorkflowProjection(draftProjection(), {
       diagnostics: [
         diagnostic("warning", "layout_node_unknown", "start", ""),
         diagnostic("error", "start_node_output_required", "start", ""),
@@ -155,7 +155,7 @@ describe("pixiGraphFromWorkflowProjection", () => {
   });
 
   test("does not overlay draft validation diagnostics on run projections", () => {
-    const graph = pixiGraphFromWorkflowProjection(testProjection(), {
+    const graph = rendererGraphFromWorkflowProjection(testProjection(), {
       diagnostics: [diagnostic("error", "start_node_output_required", "start", "work_end")],
       valid: false,
     });

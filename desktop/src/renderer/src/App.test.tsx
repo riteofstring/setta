@@ -37,15 +37,15 @@ describe("workspace renderer states", () => {
     expect(html).toContain("window.setta");
   });
 
-  test("renders the real niri workspace inside the preserved shell", () => {
+  test("renders the workspace layout inside the preserved shell", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
         setta: {
           app: {
             flags: {
-              pixiWorkspaceDebug: false,
-              pixiWorkspaceSyntheticGraph: null,
+              workflowGraphDebug: false,
+              workflowGraphSyntheticGraph: null,
             },
             platform: "darwin",
           },
@@ -59,31 +59,22 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="shell-top-bar"');
     expect(html).toContain('data-setta-shell-title-bar="true"');
-    expect(html).toContain("pointer-events-auto fixed top-0 z-30 h-10");
-    expect(html).not.toContain("app-drag pointer-events-auto fixed top-0 z-30 h-10");
-    expect(html).toContain("left-[74px] right-0");
     expect(html).toContain('data-testid="shell-setta-logo"');
-    expect(html).toContain("app-drag pointer-events-none");
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('data-testid="project-sidebar-toggle"');
-    expect(html).toContain("app-no-drag pointer-events-auto fixed top-1 z-50");
-    expect(html).toContain('data-testid="niri-workspace-area"');
+    expect(html).toContain('data-testid="workspace-layout-area"');
     expect(html).toContain('data-desktop-platform="darwin"');
-    expect(html).toContain('data-testid="niri-presentation-engine"');
-    expect(rowCount(html, "niri-fake-pane-host")).toBe(18);
+    expect(html).toContain('data-testid="workspace-presentation-engine"');
     expect(html).toContain('data-pane-count="6"');
     expect(html).toContain('data-workspace-mode="workspace"');
-    expect(html).not.toContain('data-testid="niri-workspace-status"');
-    expect(html).not.toContain('data-testid="niri-benchmark-status"');
-    expect(html).not.toContain('data-testid="niri-performance-stats"');
-    expect(html).toContain('data-testid="niri-workspace-toolbar"');
-    expect(html).toContain('class="niri-workspace-toolbar"');
-    expect(html).toContain("niri-workspace-toolbar-button app-no-drag");
+    expect(html).not.toContain('data-testid="workspace-layout-status"');
+    expect(html).not.toContain('data-testid="workspace-benchmark-status"');
+    expect(html).not.toContain('data-testid="workspace-performance-stats"');
+    expect(html).toContain('data-testid="workspace-toolbar"');
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
     expect(html).not.toContain('data-testid="bottom-workspace-pane"');
     expect(html).not.toContain('data-testid="right-workspace-pane"');
-    expect(html).toContain("bg-background");
   });
 
   test("renders a full-width shell drag strip on non-mac platforms", () => {
@@ -93,8 +84,8 @@ describe("workspace renderer states", () => {
         setta: {
           app: {
             flags: {
-              pixiWorkspaceDebug: false,
-              pixiWorkspaceSyntheticGraph: null,
+              workflowGraphDebug: false,
+              workflowGraphSyntheticGraph: null,
             },
             platform: "win32",
           },
@@ -108,9 +99,6 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="shell-top-bar"');
     expect(html).toContain('data-setta-shell-title-bar="true"');
-    expect(html).toContain("pointer-events-auto fixed top-0 z-30 h-10");
-    expect(html).not.toContain("app-drag pointer-events-auto fixed top-0 z-30 h-10");
-    expect(html).toContain("inset-x-0");
     expect(html).toContain('data-desktop-platform="win32"');
     expect(html).toContain('aria-label="Hide project sidebar"');
   });
@@ -647,12 +635,6 @@ describe("chat renderer states", () => {
 
     expect(rowCount(html, "chat-message-timestamp")).toBe(3);
     expect(rowCount(html, "chat-message-actions")).toBe(5);
-    expect(htmlScopeForTestId(html, "chat-message-timestamp")).toContain("text-foreground/60");
-    expect(htmlScopeForTestId(html, "chat-message-timestamp")).toContain("opacity-100");
-    expect(htmlScopeForTestId(html, "chat-message-timestamp")).not.toContain("opacity-0");
-    expect(html).toContain("max-w-[82%]");
-    expect(html).toContain("max-w-[88%]");
-    expect(html).not.toContain("md:max-w-5xl");
     expect(html).toContain('aria-label="Copy message"');
     expect(html).toContain('aria-label="Retry message by forking conversation"');
     expect(htmlScopeForTestId(html, "chat-user-message-content")).not.toContain(

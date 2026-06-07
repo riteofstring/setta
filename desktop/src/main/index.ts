@@ -22,7 +22,7 @@ import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
-import { createElectronWebContentsViewRegistry } from "./niri-browser-views";
+import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
@@ -45,7 +45,7 @@ const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAl
 const execFileAsync = promisify(execFile);
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
-const niriBrowserViews = createElectronWebContentsViewRegistry();
+const workspaceBrowserViews = createElectronWebContentsViewRegistry();
 
 function desktopRoot() {
   return process.cwd();
@@ -269,7 +269,7 @@ async function createWindow() {
     }
   });
   mainWindow.on("closed", () => {
-    niriBrowserViews.teardownAll();
+    workspaceBrowserViews.teardownAll();
     mainWindow = null;
   });
 
@@ -305,11 +305,11 @@ function rendererURLWithE2EQuery(rawURL: string): string {
 }
 
 function rendererE2EQuery(): Record<string, string> | null {
-  const niriScene = process.env.SETTA_E2E_NIRI_SCENE;
-  if (!niriScene) {
+  const workspaceScene = process.env.SETTA_E2E_NIRI_SCENE;
+  if (!workspaceScene) {
     return null;
   }
-  return { niriScene };
+  return { workspaceScene };
 }
 
 function registerIpc() {
@@ -321,8 +321,8 @@ function registerIpc() {
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
   });
-  ipcMain.on(ipcMessages.niriBrowserViewBatch, (event, batch) => {
-    niriBrowserViews.applyBatch(event, batch);
+  ipcMain.on(ipcMessages.workspaceBrowserViewBatch, (event, batch) => {
+    workspaceBrowserViews.applyBatch(event, batch);
   });
   handleIpc(
     ipcMain,
@@ -873,17 +873,17 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "niriBrowserViewStats",
+    "workspaceBrowserViewStats",
     () => {
-      return niriBrowserViews.readStats();
+      return workspaceBrowserViews.readStats();
     },
     ipcObserver,
   );
   handleIpc(
     ipcMain,
-    "niriBrowserViewsTeardown",
+    "workspaceBrowserViewsTeardown",
     (_event, workspaceId) => {
-      return niriBrowserViews.teardownWorkspace(workspaceId);
+      return workspaceBrowserViews.teardownWorkspace(workspaceId);
     },
     ipcObserver,
   );

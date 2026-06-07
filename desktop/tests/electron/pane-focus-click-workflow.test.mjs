@@ -53,7 +53,7 @@ try {
     visible: options.visible,
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await ensureWorkspaceOpen(context.client);
   await waitForVisiblePaneHosts(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
@@ -220,19 +220,19 @@ async function safePaneSnapshot(client) {
 
 function workspaceIdExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
   })()`;
 }
 
 function paneSnapshotExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
-    const stage = document.querySelector('[data-testid="niri-presentation-engine"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
     const stageRect = stage instanceof HTMLElement
       ? stage.getBoundingClientRect()
       : { left: 0, top: 0, width: 0, height: 0 };
-    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="niri-fake-pane-host"]'))
+    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-fake-pane-host"]'))
       .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
       .map((host) => {
         const rect = host.getBoundingClientRect();

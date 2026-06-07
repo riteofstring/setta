@@ -22,6 +22,11 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  focusTerminal,
+  openTerminalFromShortcut,
+  terminalSnapshotExpression,
+} from "./terminal-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const execFileAsync = promisify(execFile);
@@ -50,8 +55,10 @@ try {
     fixture,
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await openWorkspaceFromSidebar(context.client);
+  await openTerminalFromShortcut(context.client, terminalWorkflowTimeoutMs);
+  await focusTerminal(context.client, terminalWorkflowTimeoutMs);
   terminalState = await waitForTerminalReady(context.client);
   const port = await waitForBackendPort(artifactDir);
   await killBackendOnPort(port);
@@ -100,7 +107,7 @@ async function openWorkspaceFromSidebar(client) {
   await waitForState(
     client,
     `(() => {
-      const area = document.querySelector('[data-testid="niri-workspace-area"]');
+      const area = document.querySelector('[data-testid="workspace-layout-area"]');
       return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
     })()`,
     (workspaceId) => workspaceId !== "" && !workspaceId.endsWith(":empty"),
@@ -133,35 +140,6 @@ async function waitForTerminalLost(client, sessionId) {
       snapshot.statusText.includes("Terminal session lost"),
     terminalWorkflowTimeoutMs,
   );
-}
-
-function terminalSnapshotExpression() {
-  return `(() => {
-    const host = document.querySelector('[data-testid="niri-fake-pane-host"][data-surface-kind="terminal"]');
-    if (!(host instanceof HTMLElement)) {
-      return emptySnapshot(false);
-    }
-    const rect = host.getBoundingClientRect();
-    return {
-      exists: true,
-      sessionId: host.dataset.terminalSessionId ?? "",
-      statusText: host.querySelector(".niri-terminal-status")?.textContent?.trim() ?? "",
-      terminalLost: host.dataset.terminalLost === "true",
-      visible: host.dataset.visible === "true" && rect.width > 0 && rect.height > 0,
-      xtermReady: Boolean(host.querySelector(".xterm-helper-textarea")),
-    };
-
-    function emptySnapshot(exists) {
-      return {
-        exists,
-        sessionId: "",
-        statusText: "",
-        terminalLost: false,
-        visible: false,
-        xtermReady: false,
-      };
-    }
-  })()`;
 }
 
 async function waitForBackendPort(recordingDir) {

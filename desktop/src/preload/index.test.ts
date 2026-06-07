@@ -16,9 +16,9 @@ describe("preload workspace API", () => {
     vi.doUnmock("electron");
     vi.unstubAllEnvs();
     vi.stubEnv("SETTA_E2E", "");
-    vi.stubEnv("SETTA_PIXI_WORKSPACE_DEBUG", "");
-    vi.stubEnv("SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE", "");
-    vi.stubEnv("SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -52,8 +52,8 @@ describe("preload workspace API", () => {
     ]);
 
     expect(api.app.flags).toEqual({
-      pixiWorkspaceDebug: false,
-      pixiWorkspaceSyntheticGraph: null,
+      workflowGraphDebug: false,
+      workflowGraphSyntheticGraph: null,
     });
     const dragPoint = { screenX: 200, screenY: 120 };
     await api.app.installedEditors();
@@ -130,7 +130,7 @@ describe("preload workspace API", () => {
     ]);
   });
 
-  test("exposes typed niri native view methods through IPC", async () => {
+  test("exposes typed workspace native view methods through IPC", async () => {
     const exposed: Record<string, unknown> = {};
     const invoke = vi.fn();
     const on = vi.fn();
@@ -160,17 +160,19 @@ describe("preload workspace API", () => {
       visibleBrowserPanes: 6,
       workspaceId: "phase-4-browser-pane-benchmark",
     };
-    if (!api.niriNativeViews) {
-      throw new Error("niri native view API was not exposed");
+    if (!api.workspaceNativeViews) {
+      throw new Error("workspace native view API was not exposed");
     }
-    api.niriNativeViews.batchBrowserViewUpdates(batch);
-    await api.niriNativeViews.readBrowserViewStats();
-    await api.niriNativeViews.teardownBrowserViews("phase-4-browser-pane-benchmark");
+    api.workspaceNativeViews.batchBrowserViewUpdates(batch);
+    await api.workspaceNativeViews.readBrowserViewStats();
+    await api.workspaceNativeViews.teardownBrowserViews("phase-4-browser-pane-benchmark");
     const keyListener = vi.fn();
-    const unsubscribeKey = api.niriNativeViews.onBrowserViewKey(keyListener);
-    const keyHandler = on.mock.calls.find((call) => call[0] === ipcEvents.niriBrowserViewKey)?.[1];
+    const unsubscribeKey = api.workspaceNativeViews.onBrowserViewKey(keyListener);
+    const keyHandler = on.mock.calls.find(
+      (call) => call[0] === ipcEvents.workspaceBrowserViewKey,
+    )?.[1];
     if (typeof keyHandler !== "function") {
-      throw new Error("niri browser view key handler was not registered");
+      throw new Error("workspace browser view key handler was not registered");
     }
     keyHandler(
       {},
@@ -185,12 +187,12 @@ describe("preload workspace API", () => {
     );
     unsubscribeKey();
     const snapshotListener = vi.fn();
-    const unsubscribeSnapshot = api.niriNativeViews.onBrowserViewSnapshot(snapshotListener);
+    const unsubscribeSnapshot = api.workspaceNativeViews.onBrowserViewSnapshot(snapshotListener);
     const snapshotHandler = on.mock.calls.find(
-      (call) => call[0] === ipcEvents.niriBrowserViewSnapshot,
+      (call) => call[0] === ipcEvents.workspaceBrowserViewSnapshot,
     )?.[1];
     if (typeof snapshotHandler !== "function") {
-      throw new Error("niri browser view snapshot handler was not registered");
+      throw new Error("workspace browser view snapshot handler was not registered");
     }
     snapshotHandler(
       {},
@@ -207,15 +209,15 @@ describe("preload workspace API", () => {
     );
     unsubscribeSnapshot();
 
-    expect(send).toHaveBeenCalledWith("niri:browser-view-batch", batch);
-    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.niriBrowserViewStats);
+    expect(send).toHaveBeenCalledWith("workspace:browser-view-batch", batch);
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.workspaceBrowserViewStats);
     expect(invoke).toHaveBeenNthCalledWith(
       2,
-      ipcChannels.niriBrowserViewsTeardown,
+      ipcChannels.workspaceBrowserViewsTeardown,
       "phase-4-browser-pane-benchmark",
     );
-    expect(on).toHaveBeenCalledWith("niri:browser-view-key", expect.any(Function));
-    expect(on).toHaveBeenCalledWith("niri:browser-view-snapshot", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("workspace:browser-view-key", expect.any(Function));
+    expect(on).toHaveBeenCalledWith("workspace:browser-view-snapshot", expect.any(Function));
     expect(keyListener).toHaveBeenCalledWith({
       altKey: false,
       key: "ArrowRight",
@@ -234,8 +236,8 @@ describe("preload workspace API", () => {
       width: 240,
       workspaceId: "phase-4-browser-pane-benchmark",
     });
-    expect(removeListener).toHaveBeenCalledWith("niri:browser-view-key", keyHandler);
-    expect(removeListener).toHaveBeenCalledWith("niri:browser-view-snapshot", snapshotHandler);
+    expect(removeListener).toHaveBeenCalledWith("workspace:browser-view-key", keyHandler);
+    expect(removeListener).toHaveBeenCalledWith("workspace:browser-view-snapshot", snapshotHandler);
   });
 
   test("exposes typed appearance methods through IPC", async () => {

@@ -6,19 +6,19 @@ import type {
   BackendEventStreamStatus,
   BackendProcessStatus,
   DesktopPlatform,
-  NiriBrowserViewKeyEvent,
-  NiriBrowserViewSnapshot,
+  WorkspaceBrowserViewKeyEvent,
+  WorkspaceBrowserViewSnapshot,
   SettaAPI,
 } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
 const appFlags = {
-  pixiWorkspaceDebug:
-    process.env.SETTA_E2E === "1" || process.env.SETTA_PIXI_WORKSPACE_DEBUG === "1",
-  pixiWorkspaceSyntheticGraph: parsePixiWorkspaceSyntheticGraph(process.env),
+  workflowGraphDebug:
+    process.env.SETTA_E2E === "1" || process.env.SETTA_WORKFLOW_GRAPH_DEBUG === "1",
+  workflowGraphSyntheticGraph: parseWorkflowGraphSyntheticGraph(process.env),
 };
-const niriBrowserViewKeys = new Set<string>([
+const workspaceBrowserViewKeys = new Set<string>([
   "ArrowDown",
   "ArrowLeft",
   "ArrowRight",
@@ -34,7 +34,7 @@ const niriBrowserViewKeys = new Set<string>([
   "s",
   "t",
   "v",
-] satisfies NiriBrowserViewKeyEvent["key"][]);
+] satisfies WorkspaceBrowserViewKeyEvent["key"][]);
 
 const api: SettaAPI = {
   app: {
@@ -76,30 +76,31 @@ const api: SettaAPI = {
     read: () => invoke("appearanceRead"),
     update: (request) => invoke("appearanceUpdate", request),
   },
-  niriNativeViews: {
+  workspaceNativeViews: {
     batchBrowserViewUpdates: (batch) => {
-      ipcRenderer.send(ipcMessages.niriBrowserViewBatch, batch);
+      ipcRenderer.send(ipcMessages.workspaceBrowserViewBatch, batch);
     },
     onBrowserViewKey: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeNiriBrowserViewKeyEvent(payload));
+        listener(decodeWorkspaceBrowserViewKeyEvent(payload));
       };
-      ipcRenderer.on(ipcEvents.niriBrowserViewKey, handler);
+      ipcRenderer.on(ipcEvents.workspaceBrowserViewKey, handler);
       return () => {
-        ipcRenderer.removeListener(ipcEvents.niriBrowserViewKey, handler);
+        ipcRenderer.removeListener(ipcEvents.workspaceBrowserViewKey, handler);
       };
     },
     onBrowserViewSnapshot: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeNiriBrowserViewSnapshot(payload));
+        listener(decodeWorkspaceBrowserViewSnapshot(payload));
       };
-      ipcRenderer.on(ipcEvents.niriBrowserViewSnapshot, handler);
+      ipcRenderer.on(ipcEvents.workspaceBrowserViewSnapshot, handler);
       return () => {
-        ipcRenderer.removeListener(ipcEvents.niriBrowserViewSnapshot, handler);
+        ipcRenderer.removeListener(ipcEvents.workspaceBrowserViewSnapshot, handler);
       };
     },
-    readBrowserViewStats: () => invoke("niriBrowserViewStats"),
-    teardownBrowserViews: (workspaceId: string) => invoke("niriBrowserViewsTeardown", workspaceId),
+    readBrowserViewStats: () => invoke("workspaceBrowserViewStats"),
+    teardownBrowserViews: (workspaceId: string) =>
+      invoke("workspaceBrowserViewsTeardown", workspaceId),
   },
   terminal: {
     attach: (workspaceId: string, paneId: string) => invoke("terminalAttach", workspaceId, paneId),
@@ -258,21 +259,21 @@ const api: SettaAPI = {
 installRendererRecorder(ipcRenderer);
 contextBridge.exposeInMainWorld("setta", api);
 
-function parsePixiWorkspaceSyntheticGraph(env: NodeJS.ProcessEnv) {
+function parseWorkflowGraphSyntheticGraph(env: NodeJS.ProcessEnv) {
   const nodeCount = optionalPositiveIntegerEnv(
-    env.SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT,
-    "SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT",
+    env.SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT,
+    "SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT",
   );
   const edgesPerNode = optionalPositiveIntegerEnv(
-    env.SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE,
-    "SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE",
+    env.SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE,
+    "SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE",
   );
   if (nodeCount === null && edgesPerNode === null) {
     return null;
   }
   if (nodeCount === null || edgesPerNode === null) {
     throw new Error(
-      "SETTA_PIXI_WORKSPACE_SYNTHETIC_NODE_COUNT and SETTA_PIXI_WORKSPACE_SYNTHETIC_EDGES_PER_NODE must be set together",
+      "SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT and SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE must be set together",
     );
   }
   return { edgesPerNode, nodeCount };
@@ -353,37 +354,37 @@ function decodeBackendEventStreamStatus(value: unknown): BackendEventStreamStatu
   throw new Error("BackendEventStreamStatus.status is unsupported: " + status);
 }
 
-function decodeNiriBrowserViewKeyEvent(value: unknown): NiriBrowserViewKeyEvent {
-  const record = assertStatusRecord(value, "NiriBrowserViewKeyEvent");
-  const key = stringField(record, "key", "NiriBrowserViewKeyEvent");
-  if (!isNiriBrowserViewKey(key)) {
-    throw new Error("NiriBrowserViewKeyEvent.key is unsupported: " + key);
+function decodeWorkspaceBrowserViewKeyEvent(value: unknown): WorkspaceBrowserViewKeyEvent {
+  const record = assertStatusRecord(value, "WorkspaceBrowserViewKeyEvent");
+  const key = stringField(record, "key", "WorkspaceBrowserViewKeyEvent");
+  if (!isWorkspaceBrowserViewKey(key)) {
+    throw new Error("WorkspaceBrowserViewKeyEvent.key is unsupported: " + key);
   }
   return {
-    altKey: booleanField(record, "altKey", "NiriBrowserViewKeyEvent"),
+    altKey: booleanField(record, "altKey", "WorkspaceBrowserViewKeyEvent"),
     key,
-    metaKey: booleanField(record, "metaKey", "NiriBrowserViewKeyEvent"),
-    shiftKey: booleanField(record, "shiftKey", "NiriBrowserViewKeyEvent"),
-    surfaceId: stringField(record, "surfaceId", "NiriBrowserViewKeyEvent"),
-    workspaceId: stringField(record, "workspaceId", "NiriBrowserViewKeyEvent"),
+    metaKey: booleanField(record, "metaKey", "WorkspaceBrowserViewKeyEvent"),
+    shiftKey: booleanField(record, "shiftKey", "WorkspaceBrowserViewKeyEvent"),
+    surfaceId: stringField(record, "surfaceId", "WorkspaceBrowserViewKeyEvent"),
+    workspaceId: stringField(record, "workspaceId", "WorkspaceBrowserViewKeyEvent"),
   };
 }
 
-function isNiriBrowserViewKey(key: string): key is NiriBrowserViewKeyEvent["key"] {
-  return niriBrowserViewKeys.has(key);
+function isWorkspaceBrowserViewKey(key: string): key is WorkspaceBrowserViewKeyEvent["key"] {
+  return workspaceBrowserViewKeys.has(key);
 }
 
-function decodeNiriBrowserViewSnapshot(value: unknown): NiriBrowserViewSnapshot {
-  const record = assertStatusRecord(value, "NiriBrowserViewSnapshot");
+function decodeWorkspaceBrowserViewSnapshot(value: unknown): WorkspaceBrowserViewSnapshot {
+  const record = assertStatusRecord(value, "WorkspaceBrowserViewSnapshot");
   return {
-    capturedAt: numberField(record, "capturedAt", "NiriBrowserViewSnapshot"),
-    height: numberField(record, "height", "NiriBrowserViewSnapshot"),
-    imageDataUrl: stringField(record, "imageDataUrl", "NiriBrowserViewSnapshot"),
-    paneId: stringField(record, "paneId", "NiriBrowserViewSnapshot"),
-    surfaceId: stringField(record, "surfaceId", "NiriBrowserViewSnapshot"),
-    title: stringField(record, "title", "NiriBrowserViewSnapshot"),
-    width: numberField(record, "width", "NiriBrowserViewSnapshot"),
-    workspaceId: stringField(record, "workspaceId", "NiriBrowserViewSnapshot"),
+    capturedAt: numberField(record, "capturedAt", "WorkspaceBrowserViewSnapshot"),
+    height: numberField(record, "height", "WorkspaceBrowserViewSnapshot"),
+    imageDataUrl: stringField(record, "imageDataUrl", "WorkspaceBrowserViewSnapshot"),
+    paneId: stringField(record, "paneId", "WorkspaceBrowserViewSnapshot"),
+    surfaceId: stringField(record, "surfaceId", "WorkspaceBrowserViewSnapshot"),
+    title: stringField(record, "title", "WorkspaceBrowserViewSnapshot"),
+    width: numberField(record, "width", "WorkspaceBrowserViewSnapshot"),
+    workspaceId: stringField(record, "workspaceId", "WorkspaceBrowserViewSnapshot"),
   };
 }
 

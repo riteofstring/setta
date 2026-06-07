@@ -55,7 +55,7 @@ try {
     visible: options.visible,
   });
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
-  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await ensureWorkspaceOpen(context.client);
   await waitForWorkspacePaneHosts(context.client);
   await ensureVisibleBrowserPaneCount(context.client, 2);
@@ -285,7 +285,7 @@ async function clickOverviewButton(client, buttonLabel) {
 
 async function measureOverviewTransition(client, { buttonLabel, expectedMode, name }) {
   const result = await client.evaluate(`(async () => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     const button = document.querySelector(${JSON.stringify(`button[aria-label="${buttonLabel}"]`)});
     if (!(area instanceof HTMLElement)) {
       return { ok: false, reason: "missing-workspace-area" };
@@ -313,7 +313,7 @@ async function measureOverviewTransition(client, { buttonLabel, expectedMode, na
     const nativeBrowserStats = [];
     const runtimeStateSamples = [];
     async function recordNativeBrowserStats(phase) {
-      const api = window.setta?.niriNativeViews;
+      const api = window.setta?.workspaceNativeViews;
       if (!api?.readBrowserViewStats) {
         nativeBrowserStats.push({ phase, stats: null });
         return;
@@ -382,7 +382,7 @@ async function measureOverviewTransition(client, { buttonLabel, expectedMode, na
       slowFramesOver50Ms: samples.filter((value) => value > 50).length,
     };
     function runtimeStatesForPaneHosts() {
-      return Array.from(document.querySelectorAll(".niri-pane-host")).reduce((states, host) => {
+      return Array.from(document.querySelectorAll(".workspace-pane-host")).reduce((states, host) => {
         const state =
           host instanceof HTMLElement ? host.dataset.runtimeState ?? "unknown" : "unknown";
         states[state] = (states[state] ?? 0) + 1;
@@ -413,22 +413,22 @@ async function safeWorkspaceSnapshot(client) {
 
 function workspaceIdExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
   })()`;
 }
 
 function workspacePresentationModeExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "";
   })()`;
 }
 
 function workspaceSnapshotExpression() {
   return `(() => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
-    const hosts = Array.from(document.querySelectorAll(".niri-pane-host")).map((host) => {
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
+    const hosts = Array.from(document.querySelectorAll(".workspace-pane-host")).map((host) => {
       if (!(host instanceof HTMLElement)) {
         return { visible: false };
       }
@@ -451,7 +451,7 @@ function workspaceSnapshotExpression() {
 }
 
 function visibleBrowserHostCountExpression() {
-  return `(() => Array.from(document.querySelectorAll(".niri-pane-host")).filter((host) => (
+  return `(() => Array.from(document.querySelectorAll(".workspace-pane-host")).filter((host) => (
     host instanceof HTMLElement &&
     host.dataset.surfaceKind === "browser" &&
     host.dataset.visible === "true"
@@ -460,7 +460,7 @@ function visibleBrowserHostCountExpression() {
 
 function nativeBrowserStatsExpression() {
   return `(async () => {
-    const api = window.setta?.niriNativeViews;
+    const api = window.setta?.workspaceNativeViews;
     if (!api?.readBrowserViewStats) {
       return null;
     }
@@ -470,13 +470,13 @@ function nativeBrowserStatsExpression() {
 
 function browserSnapshotImagesExpression() {
   return `(async () => {
-    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const area = document.querySelector('[data-testid="workspace-layout-area"]');
     const mode = area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "";
-    const nativeStats = await window.setta?.niriNativeViews?.readBrowserViewStats?.() ?? null;
+    const nativeStats = await window.setta?.workspaceNativeViews?.readBrowserViewStats?.() ?? null;
     const snapshots = Array.from(document.querySelectorAll(
-      '.niri-pane-host[data-surface-kind="browser"][data-visible="true"]',
+      '.workspace-pane-host[data-surface-kind="browser"][data-visible="true"]',
     )).map((host) => {
-      const image = host.querySelector('[data-niri-browser-snapshot]');
+      const image = host.querySelector('[data-workspace-browser-snapshot]');
       const hostRect = host.getBoundingClientRect();
       return {
         hostHeight: hostRect.height,

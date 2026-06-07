@@ -9,12 +9,12 @@
     "dev": "electron-vite dev",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "generate:pixi-workspace-font": "node scripts/generate-pixi-workspace-font.mjs",
+    "generate:workflow-graph-font": "node scripts/generate-workflow-graph-font.mjs",
     "deadcode": "knip --no-config-hints",
     "lint": "eslint .",
     "test": "vitest run src",
     "test:electron": "pnpm build && pnpm test:electron:built",
-    "test:electron:built": "node tests/electron/chat-workflows.test.mjs && node tests/electron/chat-last-selected-workflow.test.mjs && node tests/electron/corrupt-chat-workflow.test.mjs && node tests/electron/app-window-drag-workflow.test.mjs && node tests/electron/settings-pane-workflow.test.mjs && node tests/electron/terminal-workflow.test.mjs && node tests/electron/terminal-profile-workflow.test.mjs && node tests/electron/terminal-backend-crash-workflow.test.mjs",
+    "test:electron:built": "node tests/electron/run-workflows.mjs --tier required",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

@@ -91,9 +91,9 @@ export interface AppWindowDragPoint {
   screenY: number;
 }
 
-export type NiriBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
+export type WorkspaceBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
 
-export interface NiriBrowserViewUpdate {
+export interface WorkspaceBrowserViewUpdate {
   bounds: {
     height: number;
     width: number;
@@ -108,22 +108,22 @@ export interface NiriBrowserViewUpdate {
   };
   focused: boolean;
   paneId: string;
-  runtimeState: NiriBrowserViewRuntimeState;
+  runtimeState: WorkspaceBrowserViewRuntimeState;
   surfaceId: string;
   title: string;
   url: string;
   visible: boolean;
 }
 
-export interface NiriBrowserViewBatch {
+export interface WorkspaceBrowserViewBatch {
   focusedSurfaceId: string | null;
   totalBrowserPanes: number;
-  updates: NiriBrowserViewUpdate[];
+  updates: WorkspaceBrowserViewUpdate[];
   visibleBrowserPanes: number;
   workspaceId: string;
 }
 
-export type NiriBrowserViewKey =
+export type WorkspaceBrowserViewKey =
   | "ArrowDown"
   | "ArrowLeft"
   | "ArrowRight"
@@ -140,16 +140,16 @@ export type NiriBrowserViewKey =
   | "t"
   | "v";
 
-export interface NiriBrowserViewKeyEvent {
+export interface WorkspaceBrowserViewKeyEvent {
   altKey: boolean;
-  key: NiriBrowserViewKey;
+  key: WorkspaceBrowserViewKey;
   metaKey: boolean;
   shiftKey: boolean;
   surfaceId: string;
   workspaceId: string;
 }
 
-export interface NiriBrowserViewSnapshot {
+export interface WorkspaceBrowserViewSnapshot {
   capturedAt: number;
   height: number;
   imageDataUrl: string;
@@ -160,7 +160,7 @@ export interface NiriBrowserViewSnapshot {
   workspaceId: string;
 }
 
-export interface NiriBrowserViewStats {
+export interface WorkspaceBrowserViewStats {
   boundsBatchCount: number;
   boundsUpdateCount: number;
   contentLoaded: number;
@@ -207,8 +207,8 @@ export interface ChatCommandExecutionOptions {
 export interface SettaAPI {
   app: {
     flags: {
-      pixiWorkspaceDebug: boolean;
-      pixiWorkspaceSyntheticGraph: {
+      workflowGraphDebug: boolean;
+      workflowGraphSyntheticGraph: {
         edgesPerNode: number;
         nodeCount: number;
       } | null;
@@ -233,12 +233,14 @@ export interface SettaAPI {
     read: () => Promise<AppearanceSettings>;
     update: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
   };
-  niriNativeViews?: {
-    batchBrowserViewUpdates: (batch: NiriBrowserViewBatch) => void;
-    onBrowserViewKey: (listener: (event: NiriBrowserViewKeyEvent) => void) => () => void;
-    onBrowserViewSnapshot: (listener: (snapshot: NiriBrowserViewSnapshot) => void) => () => void;
-    readBrowserViewStats: () => Promise<NiriBrowserViewStats>;
-    teardownBrowserViews: (workspaceId: string) => Promise<NiriBrowserViewStats>;
+  workspaceNativeViews?: {
+    batchBrowserViewUpdates: (batch: WorkspaceBrowserViewBatch) => void;
+    onBrowserViewKey: (listener: (event: WorkspaceBrowserViewKeyEvent) => void) => () => void;
+    onBrowserViewSnapshot: (
+      listener: (snapshot: WorkspaceBrowserViewSnapshot) => void,
+    ) => () => void;
+    readBrowserViewStats: () => Promise<WorkspaceBrowserViewStats>;
+    teardownBrowserViews: (workspaceId: string) => Promise<WorkspaceBrowserViewStats>;
   };
   terminal: {
     attach: (workspaceId: string, paneId: string) => Promise<TerminalSessionResponse>;
