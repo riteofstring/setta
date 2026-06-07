@@ -131,12 +131,10 @@ describe("niri layout store", () => {
     const firstSnapshot = store.getSnapshot();
 
     expect(store.getSnapshot()).toBe(firstSnapshot);
-    expect(firstSnapshot.revision).toBe(0);
 
     store.openPane({ title: "Logs" });
 
     expect(store.getSnapshot()).not.toBe(firstSnapshot);
-    expect(store.getSnapshot().revision).toBe(firstSnapshot.revision + 1);
     expect(store.getSnapshot()).toBe(store.getSnapshot());
   });
 
@@ -444,18 +442,6 @@ describe("niri layout store", () => {
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);
-  });
-
-  test("resizes adjacent panes inside a vertical split", () => {
-    const store = createStore();
-    const lowerPaneId = store.splitFocusedPane("down");
-
-    expect(store.resizePaneSplit("workspace_pane_0", lowerPaneId, 1.45, 0.55)).toBe(true);
-
-    const panes = store.toScene().paneById;
-    expect(panes.get("workspace_pane_0")?.weight).toBe(1.45);
-    expect(panes.get(lowerPaneId)?.weight).toBe(0.55);
-    expect(store.resizePaneSplit(lowerPaneId, "workspace_pane_0", 1, 1)).toBe(false);
   });
 
   test("tracks maximized pane state without applying it to the next focused pane", () => {

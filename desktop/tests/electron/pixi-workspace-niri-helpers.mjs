@@ -116,6 +116,12 @@ async function visiblePixiWorkspaceCount(client) {
 }
 
 async function openWorkflowGraphFromToolbar(client, timeoutMs) {
+  await waitForState(
+    client,
+    newFrameButtonOrWorkflowMenuExistsExpression(),
+    (exists) => exists,
+    timeoutMs,
+  );
   const opened = await client.evaluate(`(() => {
     if (workflowGraphMenuItem()) {
       return { ok: true, state: "already-open" };
@@ -185,6 +191,15 @@ function workflowGraphMenuItemExistsExpression() {
     return [...document.querySelectorAll('button[role="menuitem"]')].some((candidate) =>
       candidate instanceof HTMLButtonElement && candidate.title === "Workflow Graph"
     );
+  })()`;
+}
+
+function newFrameButtonOrWorkflowMenuExistsExpression() {
+  return `(() => {
+    return Boolean(document.querySelector('button[aria-label="New frame"]')) ||
+      [...document.querySelectorAll('button[role="menuitem"]')].some((candidate) =>
+        candidate instanceof HTMLButtonElement && candidate.title === "Workflow Graph"
+      );
   })()`;
 }
 

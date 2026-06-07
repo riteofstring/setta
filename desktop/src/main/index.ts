@@ -378,30 +378,6 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
-    "appearanceRead",
-    async () => {
-      return requireBackendClient().readAppearanceSettings();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "appearancePresets",
-    async () => {
-      return requireBackendClient().readAppearancePresets();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "appearanceUpdate",
-    async (_event, request) => {
-      return requireBackendClient().updateAppearanceSettings(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "workspaceSession",
     async () => {
       return requireBackendClient().workspaceSession();
