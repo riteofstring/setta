@@ -63,34 +63,47 @@ type edgeRemovedPayload struct {
 }
 
 type evidenceAttachedPayload struct {
-	AnchorID       string                     `json:"anchorId"`
-	TargetEntityID string                     `json:"targetEntityId"`
-	SourceKind     SemanticEvidenceSourceKind `json:"sourceKind"`
-	SourceID       string                     `json:"sourceId"`
-	URI            string                     `json:"uri"`
-	Path           string                     `json:"path"`
-	RangeStart     int                        `json:"rangeStart"`
-	RangeEnd       int                        `json:"rangeEnd"`
-	Text           string                     `json:"text"`
-	Summary        string                     `json:"summary"`
-	ContentHash    string                     `json:"contentHash"`
+	AnchorID                string                     `json:"anchorId"`
+	TargetEntityID          string                     `json:"targetEntityId"`
+	SourceKind              SemanticEvidenceSourceKind `json:"sourceKind"`
+	SourceID                string                     `json:"sourceId"`
+	URI                     string                     `json:"uri"`
+	Path                    string                     `json:"path"`
+	RangeStart              int                        `json:"rangeStart"`
+	RangeEnd                int                        `json:"rangeEnd"`
+	Text                    string                     `json:"text"`
+	Summary                 string                     `json:"summary"`
+	ContentHash             string                     `json:"contentHash"`
+	WorkflowDefinitionID    string                     `json:"workflowDefinitionId"`
+	WorkflowExecutionID     string                     `json:"workflowExecutionId"`
+	WorkflowNodeID          string                     `json:"workflowNodeId"`
+	WorkflowNodeExecutionID string                     `json:"workflowNodeExecutionId"`
+	ChatConversationID      string                     `json:"chatConversationId"`
+	ChatRunID               string                     `json:"chatRunId"`
+	ChatMessageID           string                     `json:"chatMessageId"`
+	RunItemID               string                     `json:"runItemId"`
+	ReassignedFromAnchorID  string                     `json:"reassignedFromAnchorId"`
 }
 
 type activityStartedPayload struct {
-	IntervalID          string                     `json:"intervalId"`
-	TargetEntityID      string                     `json:"targetEntityId"`
-	Kind                SemanticActivityKind       `json:"kind"`
-	Summary             string                     `json:"summary"`
-	SourceKind          SemanticActivitySourceKind `json:"sourceKind"`
-	SourceID            string                     `json:"sourceId"`
-	EvidenceAnchorID    string                     `json:"evidenceAnchorId"`
-	WorkflowExecutionID string                     `json:"workflowExecutionId"`
-	WorkflowNodeID      string                     `json:"workflowNodeId"`
-	ChatConversationID  string                     `json:"chatConversationId"`
-	ChatRunID           string                     `json:"chatRunId"`
-	ChatMessageID       string                     `json:"chatMessageId"`
-	ActorKind           SemanticActorKind          `json:"actorKind"`
-	ActorID             string                     `json:"actorId"`
+	IntervalID               string                     `json:"intervalId"`
+	TargetEntityID           string                     `json:"targetEntityId"`
+	Kind                     SemanticActivityKind       `json:"kind"`
+	Summary                  string                     `json:"summary"`
+	SourceKind               SemanticActivitySourceKind `json:"sourceKind"`
+	SourceID                 string                     `json:"sourceId"`
+	EvidenceAnchorID         string                     `json:"evidenceAnchorId"`
+	WorkflowDefinitionID     string                     `json:"workflowDefinitionId"`
+	WorkflowExecutionID      string                     `json:"workflowExecutionId"`
+	WorkflowNodeID           string                     `json:"workflowNodeId"`
+	WorkflowNodeExecutionID  string                     `json:"workflowNodeExecutionId"`
+	ChatConversationID       string                     `json:"chatConversationId"`
+	ChatRunID                string                     `json:"chatRunId"`
+	ChatMessageID            string                     `json:"chatMessageId"`
+	RunItemID                string                     `json:"runItemId"`
+	ReassignedFromIntervalID string                     `json:"reassignedFromIntervalId"`
+	ActorKind                SemanticActorKind          `json:"actorKind"`
+	ActorID                  string                     `json:"actorId"`
 }
 
 type activityEndedPayload struct {
@@ -98,16 +111,29 @@ type activityEndedPayload struct {
 }
 
 type steeringCreatedPayload struct {
-	DirectiveID    string `json:"directiveId"`
-	TargetEntityID string `json:"targetEntityId"`
-	Instruction    string `json:"instruction"`
-	Active         bool   `json:"active"`
+	DirectiveID               string                 `json:"directiveId"`
+	TargetEntityID            string                 `json:"targetEntityId"`
+	Kind                      SemanticSteeringKind   `json:"kind"`
+	Instruction               string                 `json:"instruction"`
+	Status                    SemanticSteeringStatus `json:"status"`
+	Scope                     SemanticSteeringScope  `json:"scope"`
+	WorkflowDefinitionID      string                 `json:"workflowDefinitionId"`
+	WorkflowExecutionID       string                 `json:"workflowExecutionId"`
+	WorkflowNodeID            string                 `json:"workflowNodeId"`
+	WorkflowNodeExecutionID   string                 `json:"workflowNodeExecutionId"`
+	ChatConversationID        string                 `json:"chatConversationId"`
+	ChatRunID                 string                 `json:"chatRunId"`
+	ChatMessageID             string                 `json:"chatMessageId"`
+	RunItemID                 string                 `json:"runItemId"`
+	SupersedesDirectiveID     string                 `json:"supersedesDirectiveId"`
+	ReassignedFromDirectiveID string                 `json:"reassignedFromDirectiveId"`
 }
 
 type steeringUpdatedPayload struct {
-	DirectiveID string  `json:"directiveId"`
-	Instruction *string `json:"instruction"`
-	Active      *bool   `json:"active"`
+	DirectiveID           string                  `json:"directiveId"`
+	Instruction           *string                 `json:"instruction"`
+	Status                *SemanticSteeringStatus `json:"status"`
+	SupersedesDirectiveID string                  `json:"supersedesDirectiveId"`
 }
 
 type contextPackCreatedPayload struct {
@@ -498,9 +524,11 @@ func projectEvidenceAttached(ctx context.Context, tx *sql.Tx, event SemanticEven
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO semantic_evidence_anchors (
   workspace_id, id, target_entity_id, source_kind, source_id, uri, path,
-  range_start, range_end, text, summary, content_hash, created_by_event_id,
-  created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  range_start, range_end, text, summary, content_hash, workflow_definition_id,
+  workflow_execution_id, workflow_node_id, workflow_node_execution_id,
+  chat_conversation_id, chat_run_id, chat_message_id, run_item_id,
+  reassigned_from_anchor_id, created_by_event_id, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		event.WorkspaceID,
 		payload.AnchorID,
@@ -514,6 +542,15 @@ INSERT INTO semantic_evidence_anchors (
 		payload.Text,
 		payload.Summary,
 		payload.ContentHash,
+		payload.WorkflowDefinitionID,
+		payload.WorkflowExecutionID,
+		payload.WorkflowNodeID,
+		payload.WorkflowNodeExecutionID,
+		payload.ChatConversationID,
+		payload.ChatRunID,
+		payload.ChatMessageID,
+		payload.RunItemID,
+		payload.ReassignedFromAnchorID,
 		event.EventID,
 		event.ObservedAt,
 	)
@@ -537,10 +574,12 @@ func projectActivityStarted(ctx context.Context, tx *sql.Tx, event SemanticEvent
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO semantic_activity_intervals (
   workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
-  evidence_anchor_id, workflow_execution_id, workflow_node_id,
-  chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+  evidence_anchor_id, workflow_definition_id, workflow_execution_id,
+  workflow_node_id, workflow_node_execution_id, chat_conversation_id,
+  chat_run_id, chat_message_id, run_item_id, reassigned_from_interval_id,
+  actor_kind, actor_id,
   started_by_event_id, started_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		event.WorkspaceID,
 		payload.IntervalID,
@@ -550,11 +589,15 @@ INSERT INTO semantic_activity_intervals (
 		payload.SourceKind,
 		payload.SourceID,
 		payload.EvidenceAnchorID,
+		payload.WorkflowDefinitionID,
 		payload.WorkflowExecutionID,
 		payload.WorkflowNodeID,
+		payload.WorkflowNodeExecutionID,
 		payload.ChatConversationID,
 		payload.ChatRunID,
 		payload.ChatMessageID,
+		payload.RunItemID,
+		payload.ReassignedFromIntervalID,
 		payload.ActorKind,
 		payload.ActorID,
 		event.EventID,
@@ -584,71 +627,6 @@ WHERE workspace_id = ? AND id = ? AND ended_at = '' AND (? = '' OR target_entity
 		return fmt.Errorf("end semantic activity interval: %w", err)
 	}
 	return requireRowsAffected(result, "active semantic activity interval", payload.IntervalID)
-}
-
-func projectSteeringCreated(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
-	payload, err := decodeStrictPayload[steeringCreatedPayload](event)
-	if err != nil {
-		return err
-	}
-	if err := validateSteeringCreatedPayload(event, payload); err != nil {
-		return err
-	}
-	if err := requireSemanticEntity(ctx, tx, event.WorkspaceID, payload.TargetEntityID); err != nil {
-		return err
-	}
-	_, err = tx.ExecContext(ctx, `
-INSERT INTO semantic_steering_directives (
-  workspace_id, id, target_entity_id, instruction, active,
-  created_by_event_id, updated_by_event_id, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`,
-		event.WorkspaceID,
-		payload.DirectiveID,
-		payload.TargetEntityID,
-		payload.Instruction,
-		intFromBool(payload.Active),
-		event.EventID,
-		event.EventID,
-		event.ObservedAt,
-		event.ObservedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("create semantic steering directive: %w", err)
-	}
-	return nil
-}
-
-func projectSteeringUpdated(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
-	payload, err := decodeStrictPayload[steeringUpdatedPayload](event)
-	if err != nil {
-		return err
-	}
-	if err := validateStoreIDs("steering directive id", payload.DirectiveID); err != nil {
-		return err
-	}
-	if payload.Instruction == nil && payload.Active == nil {
-		return fmt.Errorf("steering.updated payload must include instruction or active")
-	}
-	directive, ok, err := loadSemanticSteeringDirectiveForProjection(ctx, tx, event.WorkspaceID, payload.DirectiveID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("semantic steering directive %s does not exist", payload.DirectiveID)
-	}
-	if payload.Instruction != nil {
-		if err := requireNonEmpty(*payload.Instruction, "steering instruction"); err != nil {
-			return err
-		}
-		directive.Instruction = *payload.Instruction
-	}
-	if payload.Active != nil {
-		directive.Active = *payload.Active
-	}
-	directive.UpdatedByEventID = event.EventID
-	directive.UpdatedAt = event.ObservedAt
-	return replaceSemanticSteeringDirective(ctx, tx, directive)
 }
 
 func projectContextPackCreated(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
@@ -741,7 +719,18 @@ func validateEvidenceAttachedPayload(event SemanticEvent, payload evidenceAttach
 }
 
 func validateEvidenceAnchorDetails(payload evidenceAttachedPayload) error {
-	if err := requireOptionalEntityID(payload.SourceID, "evidence source id"); err != nil {
+	if err := validateOptionalStoreIDs([]optionalStoreID{
+		{label: "evidence source id", value: payload.SourceID},
+		{label: "evidence workflow definition id", value: payload.WorkflowDefinitionID},
+		{label: "evidence workflow execution id", value: payload.WorkflowExecutionID},
+		{label: "evidence workflow node id", value: payload.WorkflowNodeID},
+		{label: "evidence workflow node execution id", value: payload.WorkflowNodeExecutionID},
+		{label: "evidence chat conversation id", value: payload.ChatConversationID},
+		{label: "evidence chat run id", value: payload.ChatRunID},
+		{label: "evidence chat message id", value: payload.ChatMessageID},
+		{label: "evidence run item id", value: payload.RunItemID},
+		{label: "reassigned evidence anchor id", value: payload.ReassignedFromAnchorID},
+	}); err != nil {
 		return err
 	}
 	if err := validateEvidenceRange(payload.RangeStart, payload.RangeEnd); err != nil {
@@ -787,11 +776,15 @@ func validateActivitySourceReferences(payload activityStartedPayload) error {
 	if err := validateOptionalStoreIDs([]optionalStoreID{
 		{label: "activity source id", value: payload.SourceID},
 		{label: "activity evidence anchor id", value: payload.EvidenceAnchorID},
+		{label: "activity workflow definition id", value: payload.WorkflowDefinitionID},
 		{label: "activity workflow execution id", value: payload.WorkflowExecutionID},
 		{label: "activity workflow node id", value: payload.WorkflowNodeID},
+		{label: "activity workflow node execution id", value: payload.WorkflowNodeExecutionID},
 		{label: "activity chat conversation id", value: payload.ChatConversationID},
 		{label: "activity chat run id", value: payload.ChatRunID},
 		{label: "activity chat message id", value: payload.ChatMessageID},
+		{label: "activity run item id", value: payload.RunItemID},
+		{label: "reassigned activity interval id", value: payload.ReassignedFromIntervalID},
 		{label: "activity actor id", value: payload.ActorID},
 	}); err != nil {
 		return err
@@ -820,6 +813,29 @@ func validateSteeringCreatedPayload(event SemanticEvent, payload steeringCreated
 	}
 	if event.TargetEntityID != "" && event.TargetEntityID != payload.TargetEntityID {
 		return fmt.Errorf("semantic event %s targetEntityId = %s, want %s", event.EventID, event.TargetEntityID, payload.TargetEntityID)
+	}
+	if !isSemanticSteeringKind(payload.Kind) {
+		return fmt.Errorf("steering kind is unsupported: %s", payload.Kind)
+	}
+	if !isSemanticSteeringStatus(payload.Status) {
+		return fmt.Errorf("steering status is unsupported: %s", payload.Status)
+	}
+	if !isSemanticSteeringScope(payload.Scope) {
+		return fmt.Errorf("steering scope is unsupported: %s", payload.Scope)
+	}
+	if err := validateOptionalStoreIDs([]optionalStoreID{
+		{label: "steering workflow definition id", value: payload.WorkflowDefinitionID},
+		{label: "steering workflow execution id", value: payload.WorkflowExecutionID},
+		{label: "steering workflow node id", value: payload.WorkflowNodeID},
+		{label: "steering workflow node execution id", value: payload.WorkflowNodeExecutionID},
+		{label: "steering chat conversation id", value: payload.ChatConversationID},
+		{label: "steering chat run id", value: payload.ChatRunID},
+		{label: "steering chat message id", value: payload.ChatMessageID},
+		{label: "steering run item id", value: payload.RunItemID},
+		{label: "superseded steering directive id", value: payload.SupersedesDirectiveID},
+		{label: "reassigned steering directive id", value: payload.ReassignedFromDirectiveID},
+	}); err != nil {
+		return err
 	}
 	return requireNonEmpty(payload.Instruction, "steering instruction")
 }
@@ -942,13 +958,16 @@ WHERE workspace_id = ? AND id = ?
 func replaceSemanticSteeringDirective(ctx context.Context, tx *sql.Tx, directive SemanticSteeringDirective) error {
 	result, err := tx.ExecContext(ctx, `
 UPDATE semantic_steering_directives
-SET instruction = ?, active = ?, updated_by_event_id = ?, updated_at = ?
+SET instruction = ?, status = ?, supersedes_directive_id = ?, updated_by_event_id = ?,
+    updated_at = ?, completed_at = ?
 WHERE workspace_id = ? AND id = ?
 `,
 		directive.Instruction,
-		intFromBool(directive.Active),
+		directive.Status,
+		directive.SupersedesDirectiveID,
 		directive.UpdatedByEventID,
 		directive.UpdatedAt,
+		directive.CompletedAt,
 		directive.WorkspaceID,
 		directive.ID,
 	)
@@ -956,4 +975,17 @@ WHERE workspace_id = ? AND id = ?
 		return fmt.Errorf("update semantic steering directive: %w", err)
 	}
 	return requireRowsAffected(result, "semantic steering directive", directive.ID)
+}
+
+func completedAtForSteeringStatus(status SemanticSteeringStatus, observedAt string) string {
+	if isTerminalSteeringStatus(status) {
+		return observedAt
+	}
+	return ""
+}
+
+func isTerminalSteeringStatus(status SemanticSteeringStatus) bool {
+	return status == SteeringStatusCompleted ||
+		status == SteeringStatusSuperseded ||
+		status == SteeringStatusDismissed
 }

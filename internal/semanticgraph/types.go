@@ -11,6 +11,9 @@ type SemanticActivitySourceKind string
 type SemanticEventType string
 type SemanticActorKind string
 type SemanticEvidenceSourceKind string
+type SemanticSteeringKind string
+type SemanticSteeringStatus string
+type SemanticSteeringScope string
 
 const (
 	NodeKindConcept    SemanticNodeKind = "concept"
@@ -79,6 +82,24 @@ const (
 	EvidenceSourcePrompt            SemanticEvidenceSourceKind = "prompt"
 	EvidenceSourceLog               SemanticEvidenceSourceKind = "log"
 	EvidenceSourceDocument          SemanticEvidenceSourceKind = "document"
+
+	SteeringKindFocus        SemanticSteeringKind = "focus"
+	SteeringKindAvoid        SemanticSteeringKind = "avoid"
+	SteeringKindValidate     SemanticSteeringKind = "validate"
+	SteeringKindConstraint   SemanticSteeringKind = "constraint"
+	SteeringKindPrompt       SemanticSteeringKind = "prompt"
+	SteeringKindSessionPin   SemanticSteeringKind = "session_pin"
+	SteeringKindWorkspacePin SemanticSteeringKind = "workspace_pin"
+
+	SteeringStatusCreated    SemanticSteeringStatus = "created"
+	SteeringStatusActive     SemanticSteeringStatus = "active"
+	SteeringStatusSuperseded SemanticSteeringStatus = "superseded"
+	SteeringStatusCompleted  SemanticSteeringStatus = "completed"
+	SteeringStatusDismissed  SemanticSteeringStatus = "dismissed"
+
+	SteeringScopeRun       SemanticSteeringScope = "run"
+	SteeringScopeSession   SemanticSteeringScope = "session"
+	SteeringScopeWorkspace SemanticSteeringScope = "workspace"
 )
 
 var (
@@ -156,6 +177,27 @@ var (
 		EvidenceSourceLog,
 		EvidenceSourceDocument,
 	}
+	semanticSteeringKindValues = []SemanticSteeringKind{
+		SteeringKindFocus,
+		SteeringKindAvoid,
+		SteeringKindValidate,
+		SteeringKindConstraint,
+		SteeringKindPrompt,
+		SteeringKindSessionPin,
+		SteeringKindWorkspacePin,
+	}
+	semanticSteeringStatusValues = []SemanticSteeringStatus{
+		SteeringStatusCreated,
+		SteeringStatusActive,
+		SteeringStatusSuperseded,
+		SteeringStatusCompleted,
+		SteeringStatusDismissed,
+	}
+	semanticSteeringScopeValues = []SemanticSteeringScope{
+		SteeringScopeRun,
+		SteeringScopeSession,
+		SteeringScopeWorkspace,
+	}
 )
 
 type ContractValueSet struct {
@@ -172,6 +214,9 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticEventType", Values: stringValues(semanticEventTypeValues)},
 		{Name: "SemanticActorKind", Values: stringValues(semanticActorKindValues)},
 		{Name: "SemanticEvidenceSourceKind", Values: stringValues(semanticEvidenceSourceKindValues)},
+		{Name: "SemanticSteeringKind", Values: stringValues(semanticSteeringKindValues)},
+		{Name: "SemanticSteeringStatus", Values: stringValues(semanticSteeringStatusValues)},
+		{Name: "SemanticSteeringScope", Values: stringValues(semanticSteeringScopeValues)},
 	}
 }
 
@@ -238,55 +283,81 @@ type SemanticEdge struct {
 }
 
 type SemanticEvidenceAnchor struct {
-	ID               string                     `json:"id"`
-	WorkspaceID      string                     `json:"workspaceId"`
-	TargetEntityID   string                     `json:"targetEntityId"`
-	SourceKind       SemanticEvidenceSourceKind `json:"sourceKind"`
-	SourceID         string                     `json:"sourceId"`
-	URI              string                     `json:"uri"`
-	Path             string                     `json:"path"`
-	RangeStart       int                        `json:"rangeStart"`
-	RangeEnd         int                        `json:"rangeEnd"`
-	Text             string                     `json:"text"`
-	Summary          string                     `json:"summary"`
-	ContentHash      string                     `json:"contentHash"`
-	CreatedByEventID string                     `json:"createdByEventId"`
-	CreatedAt        string                     `json:"createdAt"`
+	ID                      string                     `json:"id"`
+	WorkspaceID             string                     `json:"workspaceId"`
+	TargetEntityID          string                     `json:"targetEntityId"`
+	SourceKind              SemanticEvidenceSourceKind `json:"sourceKind"`
+	SourceID                string                     `json:"sourceId"`
+	URI                     string                     `json:"uri"`
+	Path                    string                     `json:"path"`
+	RangeStart              int                        `json:"rangeStart"`
+	RangeEnd                int                        `json:"rangeEnd"`
+	Text                    string                     `json:"text"`
+	Summary                 string                     `json:"summary"`
+	ContentHash             string                     `json:"contentHash"`
+	WorkflowDefinitionID    string                     `json:"workflowDefinitionId"`
+	WorkflowExecutionID     string                     `json:"workflowExecutionId"`
+	WorkflowNodeID          string                     `json:"workflowNodeId"`
+	WorkflowNodeExecutionID string                     `json:"workflowNodeExecutionId"`
+	ChatConversationID      string                     `json:"chatConversationId"`
+	ChatRunID               string                     `json:"chatRunId"`
+	ChatMessageID           string                     `json:"chatMessageId"`
+	RunItemID               string                     `json:"runItemId"`
+	ReassignedFromAnchorID  string                     `json:"reassignedFromAnchorId"`
+	CreatedByEventID        string                     `json:"createdByEventId"`
+	CreatedAt               string                     `json:"createdAt"`
 }
 
 type SemanticActivityInterval struct {
-	ID                  string                     `json:"id"`
-	WorkspaceID         string                     `json:"workspaceId"`
-	TargetEntityID      string                     `json:"targetEntityId"`
-	Kind                SemanticActivityKind       `json:"kind"`
-	Summary             string                     `json:"summary"`
-	SourceKind          SemanticActivitySourceKind `json:"sourceKind"`
-	SourceID            string                     `json:"sourceId"`
-	EvidenceAnchorID    string                     `json:"evidenceAnchorId"`
-	WorkflowExecutionID string                     `json:"workflowExecutionId"`
-	WorkflowNodeID      string                     `json:"workflowNodeId"`
-	ChatConversationID  string                     `json:"chatConversationId"`
-	ChatRunID           string                     `json:"chatRunId"`
-	ChatMessageID       string                     `json:"chatMessageId"`
-	ActorKind           SemanticActorKind          `json:"actorKind"`
-	ActorID             string                     `json:"actorId"`
-	StartedByEventID    string                     `json:"startedByEventId"`
-	EndedByEventID      string                     `json:"endedByEventId"`
-	StartedAt           string                     `json:"startedAt"`
-	EndedAt             string                     `json:"endedAt"`
-	UpdatedAt           string                     `json:"updatedAt"`
+	ID                       string                     `json:"id"`
+	WorkspaceID              string                     `json:"workspaceId"`
+	TargetEntityID           string                     `json:"targetEntityId"`
+	Kind                     SemanticActivityKind       `json:"kind"`
+	Summary                  string                     `json:"summary"`
+	SourceKind               SemanticActivitySourceKind `json:"sourceKind"`
+	SourceID                 string                     `json:"sourceId"`
+	EvidenceAnchorID         string                     `json:"evidenceAnchorId"`
+	WorkflowDefinitionID     string                     `json:"workflowDefinitionId"`
+	WorkflowExecutionID      string                     `json:"workflowExecutionId"`
+	WorkflowNodeID           string                     `json:"workflowNodeId"`
+	WorkflowNodeExecutionID  string                     `json:"workflowNodeExecutionId"`
+	ChatConversationID       string                     `json:"chatConversationId"`
+	ChatRunID                string                     `json:"chatRunId"`
+	ChatMessageID            string                     `json:"chatMessageId"`
+	RunItemID                string                     `json:"runItemId"`
+	ReassignedFromIntervalID string                     `json:"reassignedFromIntervalId"`
+	ActorKind                SemanticActorKind          `json:"actorKind"`
+	ActorID                  string                     `json:"actorId"`
+	StartedByEventID         string                     `json:"startedByEventId"`
+	EndedByEventID           string                     `json:"endedByEventId"`
+	StartedAt                string                     `json:"startedAt"`
+	EndedAt                  string                     `json:"endedAt"`
+	UpdatedAt                string                     `json:"updatedAt"`
 }
 
 type SemanticSteeringDirective struct {
-	ID               string `json:"id"`
-	WorkspaceID      string `json:"workspaceId"`
-	TargetEntityID   string `json:"targetEntityId"`
-	Instruction      string `json:"instruction"`
-	Active           bool   `json:"active"`
-	CreatedByEventID string `json:"createdByEventId"`
-	UpdatedByEventID string `json:"updatedByEventId"`
-	CreatedAt        string `json:"createdAt"`
-	UpdatedAt        string `json:"updatedAt"`
+	ID                        string                 `json:"id"`
+	WorkspaceID               string                 `json:"workspaceId"`
+	TargetEntityID            string                 `json:"targetEntityId"`
+	Kind                      SemanticSteeringKind   `json:"kind"`
+	Instruction               string                 `json:"instruction"`
+	Status                    SemanticSteeringStatus `json:"status"`
+	Scope                     SemanticSteeringScope  `json:"scope"`
+	WorkflowDefinitionID      string                 `json:"workflowDefinitionId"`
+	WorkflowExecutionID       string                 `json:"workflowExecutionId"`
+	WorkflowNodeID            string                 `json:"workflowNodeId"`
+	WorkflowNodeExecutionID   string                 `json:"workflowNodeExecutionId"`
+	ChatConversationID        string                 `json:"chatConversationId"`
+	ChatRunID                 string                 `json:"chatRunId"`
+	ChatMessageID             string                 `json:"chatMessageId"`
+	RunItemID                 string                 `json:"runItemId"`
+	SupersedesDirectiveID     string                 `json:"supersedesDirectiveId"`
+	ReassignedFromDirectiveID string                 `json:"reassignedFromDirectiveId"`
+	CreatedByEventID          string                 `json:"createdByEventId"`
+	UpdatedByEventID          string                 `json:"updatedByEventId"`
+	CreatedAt                 string                 `json:"createdAt"`
+	UpdatedAt                 string                 `json:"updatedAt"`
+	CompletedAt               string                 `json:"completedAt"`
 }
 
 type SemanticContextPackRecord struct {
@@ -474,6 +545,146 @@ type EndSemanticActivityInput struct {
 	Actor              SemanticAttachmentActor `json:"actor"`
 }
 
+type SemanticNodeSeedInput struct {
+	NodeID  string           `json:"nodeId"`
+	Kind    SemanticNodeKind `json:"kind"`
+	Label   string           `json:"label"`
+	Summary string           `json:"summary"`
+}
+
+type RenameSemanticNodeInput struct {
+	WorkspaceID string                  `json:"workspaceId"`
+	NodeID      string                  `json:"nodeId"`
+	Label       string                  `json:"label"`
+	Actor       SemanticAttachmentActor `json:"actor"`
+}
+
+type UpdateSemanticNodeInput struct {
+	WorkspaceID string                  `json:"workspaceId"`
+	NodeID      string                  `json:"nodeId"`
+	Kind        *SemanticNodeKind       `json:"kind"`
+	Summary     *string                 `json:"summary"`
+	Actor       SemanticAttachmentActor `json:"actor"`
+}
+
+type SemanticNodeOperationInput struct {
+	WorkspaceID string                  `json:"workspaceId"`
+	NodeID      string                  `json:"nodeId"`
+	Actor       SemanticAttachmentActor `json:"actor"`
+}
+
+type SplitSemanticNodeInput struct {
+	WorkspaceID   string                     `json:"workspaceId"`
+	SourceNodeID  string                     `json:"sourceNodeId"`
+	Nodes         []SemanticNodeSeedInput    `json:"nodes"`
+	Reassignments SemanticReassignmentInputs `json:"reassignments"`
+	Actor         SemanticAttachmentActor    `json:"actor"`
+}
+
+type MergeSemanticNodesInput struct {
+	WorkspaceID   string                     `json:"workspaceId"`
+	SourceNodeIDs []string                   `json:"sourceNodeIds"`
+	TargetNode    SemanticNodeSeedInput      `json:"targetNode"`
+	Reassignments SemanticReassignmentInputs `json:"reassignments"`
+	Actor         SemanticAttachmentActor    `json:"actor"`
+}
+
+type CreateSemanticNodeInput struct {
+	WorkspaceID string                  `json:"workspaceId"`
+	NodeID      string                  `json:"nodeId"`
+	Kind        SemanticNodeKind        `json:"kind"`
+	Label       string                  `json:"label"`
+	Summary     string                  `json:"summary"`
+	Actor       SemanticAttachmentActor `json:"actor"`
+}
+
+type CreateSemanticEdgeInput struct {
+	WorkspaceID string                  `json:"workspaceId"`
+	EdgeID      string                  `json:"edgeId"`
+	Kind        SemanticEdgeKind        `json:"kind"`
+	FromNodeID  string                  `json:"fromNodeId"`
+	ToNodeID    string                  `json:"toNodeId"`
+	Label       string                  `json:"label"`
+	Summary     string                  `json:"summary"`
+	Actor       SemanticAttachmentActor `json:"actor"`
+}
+
+type UpdateSemanticEdgeInput struct {
+	WorkspaceID string                  `json:"workspaceId"`
+	EdgeID      string                  `json:"edgeId"`
+	Kind        *SemanticEdgeKind       `json:"kind"`
+	Label       *string                 `json:"label"`
+	Summary     *string                 `json:"summary"`
+	Actor       SemanticAttachmentActor `json:"actor"`
+}
+
+type SemanticEdgeOperationInput struct {
+	WorkspaceID string                  `json:"workspaceId"`
+	EdgeID      string                  `json:"edgeId"`
+	Actor       SemanticAttachmentActor `json:"actor"`
+}
+
+type CreateSteeringDirectiveInput struct {
+	WorkspaceID             string                  `json:"workspaceId"`
+	TargetEntityID          string                  `json:"targetEntityId"`
+	Kind                    SemanticSteeringKind    `json:"kind"`
+	Instruction             string                  `json:"instruction"`
+	Scope                   SemanticSteeringScope   `json:"scope"`
+	WorkflowDefinitionID    string                  `json:"workflowDefinitionId"`
+	WorkflowExecutionID     string                  `json:"workflowExecutionId"`
+	WorkflowNodeID          string                  `json:"workflowNodeId"`
+	WorkflowNodeExecutionID string                  `json:"workflowNodeExecutionId"`
+	ChatConversationID      string                  `json:"chatConversationId"`
+	ChatRunID               string                  `json:"chatRunId"`
+	ChatMessageID           string                  `json:"chatMessageId"`
+	RunItemID               string                  `json:"runItemId"`
+	Actor                   SemanticAttachmentActor `json:"actor"`
+}
+
+type UpdateSteeringDirectiveInput struct {
+	WorkspaceID           string                  `json:"workspaceId"`
+	DirectiveID           string                  `json:"directiveId"`
+	Instruction           *string                 `json:"instruction"`
+	Status                *SemanticSteeringStatus `json:"status"`
+	SupersedesDirectiveID string                  `json:"supersedesDirectiveId"`
+	Actor                 SemanticAttachmentActor `json:"actor"`
+}
+
+type SemanticReassignmentInputs struct {
+	Edges    []SemanticEdgeReassignmentInput     `json:"edges"`
+	Evidence []SemanticEvidenceReassignmentInput `json:"evidence"`
+	Activity []SemanticActivityReassignmentInput `json:"activity"`
+	Steering []SemanticSteeringReassignmentInput `json:"steering"`
+	Layout   []SemanticLayoutReassignmentInput   `json:"layout"`
+}
+
+type SemanticEdgeReassignmentInput struct {
+	EdgeID       string `json:"edgeId"`
+	TargetEdgeID string `json:"targetEdgeId"`
+	FromNodeID   string `json:"fromNodeId"`
+	ToNodeID     string `json:"toNodeId"`
+}
+
+type SemanticEvidenceReassignmentInput struct {
+	AnchorID     string `json:"anchorId"`
+	TargetNodeID string `json:"targetNodeId"`
+}
+
+type SemanticActivityReassignmentInput struct {
+	ActivityIntervalID string `json:"activityIntervalId"`
+	TargetNodeID       string `json:"targetNodeId"`
+}
+
+type SemanticSteeringReassignmentInput struct {
+	DirectiveID  string `json:"directiveId"`
+	TargetNodeID string `json:"targetNodeId"`
+}
+
+type SemanticLayoutReassignmentInput struct {
+	EntityID       string `json:"entityId"`
+	TargetEntityID string `json:"targetEntityId"`
+}
+
 type SemanticAttachmentResult struct {
 	WorkspaceID    string                   `json:"workspaceId"`
 	TargetEntityID string                   `json:"targetEntityId"`
@@ -487,4 +698,12 @@ type SemanticActivityEndResult struct {
 	TargetEntityID string                   `json:"targetEntityId"`
 	Activity       SemanticActivityInterval `json:"activity"`
 	Event          SemanticEvent            `json:"event"`
+}
+
+type SemanticMutationResult struct {
+	WorkspaceID    string              `json:"workspaceId"`
+	TargetEntityID string              `json:"targetEntityId"`
+	Graph          SemanticGraph       `json:"graph"`
+	NodeDetail     *SemanticNodeDetail `json:"nodeDetail"`
+	Events         []SemanticEvent     `json:"events"`
 }

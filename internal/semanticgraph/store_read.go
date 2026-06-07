@@ -422,11 +422,34 @@ ORDER BY kind ASC, id ASC
 	return edges, nil
 }
 
+func (store *Store) loadSemanticEdgeByID(ctx context.Context, workspaceID string, edgeID string) (SemanticEdge, bool, error) {
+	if err := validateStoreIDs("workspace id", workspaceID, "edge id", edgeID); err != nil {
+		return SemanticEdge{}, false, err
+	}
+	row := store.db.QueryRowContext(ctx, `
+SELECT workspace_id, id, kind, from_node_id, to_node_id, label, summary,
+       created_by_event_id, updated_by_event_id, created_at, updated_at
+FROM semantic_edges_current
+WHERE workspace_id = ? AND id = ?
+`, workspaceID, edgeID)
+	edge, err := scanSemanticEdge(row)
+	if err == nil {
+		return edge, true, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return SemanticEdge{}, false, nil
+	}
+	return SemanticEdge{}, false, store.persistenceError("read semantic edge", err)
+}
+
 func (store *Store) loadSemanticEvidence(ctx context.Context, workspaceID string, targetEntityID string) ([]SemanticEvidenceAnchor, error) {
 	rows, err := store.db.QueryContext(ctx, `
 SELECT workspace_id, id, target_entity_id, source_kind, source_id, uri, path,
-       range_start, range_end, text, summary, content_hash, created_by_event_id,
-       created_at
+       range_start, range_end, text, summary, content_hash,
+       workflow_definition_id, workflow_execution_id, workflow_node_id,
+       workflow_node_execution_id, chat_conversation_id, chat_run_id,
+       chat_message_id, run_item_id, reassigned_from_anchor_id,
+       created_by_event_id, created_at
 FROM semantic_evidence_anchors
 WHERE workspace_id = ? AND target_entity_id = ?
 ORDER BY created_at ASC, id ASC
@@ -452,8 +475,10 @@ ORDER BY created_at ASC, id ASC
 func (store *Store) loadSemanticActivity(ctx context.Context, workspaceID string, targetEntityID string, limit int) ([]SemanticActivityInterval, error) {
 	rows, err := store.db.QueryContext(ctx, `
 SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
-       evidence_anchor_id, workflow_execution_id, workflow_node_id,
-       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       evidence_anchor_id, workflow_definition_id, workflow_execution_id,
+       workflow_node_id, workflow_node_execution_id, chat_conversation_id,
+       chat_run_id, chat_message_id, run_item_id, reassigned_from_interval_id,
+       actor_kind, actor_id,
        started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
 FROM semantic_activity_intervals
 WHERE workspace_id = ? AND target_entity_id = ?
@@ -481,8 +506,11 @@ LIMIT ?
 func (store *Store) loadSemanticEvidenceAnchorByID(ctx context.Context, workspaceID string, anchorID string) (SemanticEvidenceAnchor, bool, error) {
 	row := store.db.QueryRowContext(ctx, `
 SELECT workspace_id, id, target_entity_id, source_kind, source_id, uri, path,
-       range_start, range_end, text, summary, content_hash, created_by_event_id,
-       created_at
+       range_start, range_end, text, summary, content_hash,
+       workflow_definition_id, workflow_execution_id, workflow_node_id,
+       workflow_node_execution_id, chat_conversation_id, chat_run_id,
+       chat_message_id, run_item_id, reassigned_from_anchor_id,
+       created_by_event_id, created_at
 FROM semantic_evidence_anchors
 WHERE workspace_id = ? AND id = ?
 `, workspaceID, anchorID)
@@ -499,8 +527,10 @@ WHERE workspace_id = ? AND id = ?
 func (store *Store) loadSemanticActivityIntervalByID(ctx context.Context, workspaceID string, intervalID string) (SemanticActivityInterval, bool, error) {
 	row := store.db.QueryRowContext(ctx, `
 SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
-       evidence_anchor_id, workflow_execution_id, workflow_node_id,
-       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       evidence_anchor_id, workflow_definition_id, workflow_execution_id,
+       workflow_node_id, workflow_node_execution_id, chat_conversation_id,
+       chat_run_id, chat_message_id, run_item_id, reassigned_from_interval_id,
+       actor_kind, actor_id,
        started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
 FROM semantic_activity_intervals
 WHERE workspace_id = ? AND id = ?
@@ -520,8 +550,10 @@ func (store *Store) loadSemanticActivityPage(ctx context.Context, filter Semanti
 	args = append(args, filter.Limit+1, filter.Offset)
 	rows, err := store.db.QueryContext(ctx, fmt.Sprintf(`
 SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
-       evidence_anchor_id, workflow_execution_id, workflow_node_id,
-       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       evidence_anchor_id, workflow_definition_id, workflow_execution_id,
+       workflow_node_id, workflow_node_execution_id, chat_conversation_id,
+       chat_run_id, chat_message_id, run_item_id, reassigned_from_interval_id,
+       actor_kind, actor_id,
        started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
 FROM semantic_activity_intervals
 WHERE %s
@@ -546,8 +578,10 @@ LIMIT ? OFFSET ?
 func (store *Store) loadCurrentSemanticActivity(ctx context.Context, workspaceID string) ([]SemanticActivityInterval, error) {
 	rows, err := store.db.QueryContext(ctx, `
 SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
-       evidence_anchor_id, workflow_execution_id, workflow_node_id,
-       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       evidence_anchor_id, workflow_definition_id, workflow_execution_id,
+       workflow_node_id, workflow_node_execution_id, chat_conversation_id,
+       chat_run_id, chat_message_id, run_item_id, reassigned_from_interval_id,
+       actor_kind, actor_id,
        started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
 FROM semantic_activity_intervals
 WHERE workspace_id = ? AND ended_at = ''
@@ -563,13 +597,17 @@ ORDER BY target_entity_id ASC, started_at DESC, id DESC
 func (store *Store) loadRecentSemanticActivity(ctx context.Context, workspaceID string, recentLimit int) ([]SemanticActivityInterval, error) {
 	rows, err := store.db.QueryContext(ctx, `
 SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
-       evidence_anchor_id, workflow_execution_id, workflow_node_id,
-       chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+       evidence_anchor_id, workflow_definition_id, workflow_execution_id,
+       workflow_node_id, workflow_node_execution_id, chat_conversation_id,
+       chat_run_id, chat_message_id, run_item_id, reassigned_from_interval_id,
+       actor_kind, actor_id,
        started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at
 FROM (
   SELECT workspace_id, id, target_entity_id, kind, summary, source_kind, source_id,
-         evidence_anchor_id, workflow_execution_id, workflow_node_id,
-         chat_conversation_id, chat_run_id, chat_message_id, actor_kind, actor_id,
+         evidence_anchor_id, workflow_definition_id, workflow_execution_id,
+         workflow_node_id, workflow_node_execution_id, chat_conversation_id,
+         chat_run_id, chat_message_id, run_item_id, reassigned_from_interval_id,
+         actor_kind, actor_id,
          started_by_event_id, ended_by_event_id, started_at, ended_at, updated_at,
          ROW_NUMBER() OVER (
            PARTITION BY target_entity_id
@@ -636,11 +674,15 @@ func semanticActivitySummaryFromIntervals(workspaceID string, current []Semantic
 
 func (store *Store) loadSemanticSteering(ctx context.Context, workspaceID string, targetEntityID string) ([]SemanticSteeringDirective, error) {
 	rows, err := store.db.QueryContext(ctx, `
-SELECT workspace_id, id, target_entity_id, instruction, active,
-       created_by_event_id, updated_by_event_id, created_at, updated_at
+SELECT workspace_id, id, target_entity_id, kind, instruction, status, scope,
+       workflow_definition_id, workflow_execution_id, workflow_node_id,
+       workflow_node_execution_id, chat_conversation_id, chat_run_id,
+       chat_message_id, run_item_id, supersedes_directive_id,
+       reassigned_from_directive_id, created_by_event_id, updated_by_event_id,
+       created_at, updated_at, completed_at
 FROM semantic_steering_directives
 WHERE workspace_id = ? AND target_entity_id = ?
-ORDER BY active DESC, updated_at DESC, id ASC
+ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'created' THEN 1 ELSE 2 END, updated_at DESC, id ASC
 `, workspaceID, targetEntityID)
 	if err != nil {
 		return nil, store.persistenceError("read semantic steering", err)
@@ -658,6 +700,30 @@ ORDER BY active DESC, updated_at DESC, id ASC
 		return nil, store.persistenceError("read semantic steering", err)
 	}
 	return directives, nil
+}
+
+func (store *Store) loadSemanticSteeringDirectiveByID(ctx context.Context, workspaceID string, directiveID string) (SemanticSteeringDirective, bool, error) {
+	if err := validateStoreIDs("workspace id", workspaceID, "steering directive id", directiveID); err != nil {
+		return SemanticSteeringDirective{}, false, err
+	}
+	row := store.db.QueryRowContext(ctx, `
+SELECT workspace_id, id, target_entity_id, kind, instruction, status, scope,
+       workflow_definition_id, workflow_execution_id, workflow_node_id,
+       workflow_node_execution_id, chat_conversation_id, chat_run_id,
+       chat_message_id, run_item_id, supersedes_directive_id,
+       reassigned_from_directive_id, created_by_event_id, updated_by_event_id,
+       created_at, updated_at, completed_at
+FROM semantic_steering_directives
+WHERE workspace_id = ? AND id = ?
+`, workspaceID, directiveID)
+	directive, err := scanSemanticSteeringDirective(row)
+	if err == nil {
+		return directive, true, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return SemanticSteeringDirective{}, false, nil
+	}
+	return SemanticSteeringDirective{}, false, store.persistenceError("read semantic steering directive", err)
 }
 
 func (store *Store) loadSemanticContextPacks(ctx context.Context, workspaceID string, targetEntityID string) ([]SemanticContextPackRecord, error) {
@@ -726,6 +792,15 @@ func scanSemanticEvidenceAnchor(scanner interface{ Scan(dest ...any) error }) (S
 		&anchor.Text,
 		&anchor.Summary,
 		&anchor.ContentHash,
+		&anchor.WorkflowDefinitionID,
+		&anchor.WorkflowExecutionID,
+		&anchor.WorkflowNodeID,
+		&anchor.WorkflowNodeExecutionID,
+		&anchor.ChatConversationID,
+		&anchor.ChatRunID,
+		&anchor.ChatMessageID,
+		&anchor.RunItemID,
+		&anchor.ReassignedFromAnchorID,
 		&anchor.CreatedByEventID,
 		&anchor.CreatedAt,
 	); err != nil {
@@ -745,11 +820,15 @@ func scanSemanticActivityInterval(scanner interface{ Scan(dest ...any) error }) 
 		&interval.SourceKind,
 		&interval.SourceID,
 		&interval.EvidenceAnchorID,
+		&interval.WorkflowDefinitionID,
 		&interval.WorkflowExecutionID,
 		&interval.WorkflowNodeID,
+		&interval.WorkflowNodeExecutionID,
 		&interval.ChatConversationID,
 		&interval.ChatRunID,
 		&interval.ChatMessageID,
+		&interval.RunItemID,
+		&interval.ReassignedFromIntervalID,
 		&interval.ActorKind,
 		&interval.ActorID,
 		&interval.StartedByEventID,

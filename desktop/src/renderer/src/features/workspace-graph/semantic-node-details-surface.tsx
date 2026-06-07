@@ -8,8 +8,9 @@ import type {
   SemanticSteeringDirective,
 } from "@generated/backend";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { SemanticEditControls } from "./semantic-node-edit-controls";
 import {
   WorkflowDetailsEmpty,
   WorkflowDetailsError,
@@ -28,6 +29,7 @@ interface SemanticNodeInspectionState {
   history: SemanticEventHistory | null;
   loadError: string;
   loading: boolean;
+  reload: () => void;
 }
 
 const semanticEventHistoryLimit = 80;
@@ -44,11 +46,16 @@ export function SemanticNodeDetailsSurface() {
 }
 
 function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => {
+    setReloadKey((value) => value + 1);
+  }, []);
   const [state, setState] = useState<SemanticNodeInspectionState>(() => ({
     detail: null,
     history: null,
     loadError: "",
     loading: false,
+    reload,
   }));
 
   useEffect(() => {
@@ -58,6 +65,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
       history: null,
       loadError: "",
       loading: target !== null,
+      reload,
     });
     if (target === null) {
       return;
@@ -81,6 +89,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           history,
           loadError: "",
           loading: false,
+          reload,
         });
       }
     };
@@ -91,13 +100,14 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           history: null,
           loadError: errorMessage(error),
           loading: false,
+          reload,
         });
       }
     });
     return () => {
       disposed = true;
     };
-  }, [target]);
+  }, [target, reload, reloadKey]);
 
   return state;
 }
@@ -121,15 +131,23 @@ function SemanticNodeDetailsContent({
   if (inspection.detail === null) {
     return <WorkflowDetailsEmpty message="The selected semantic node no longer exists." />;
   }
-  return <SemanticLoadedNodeDetails detail={inspection.detail} history={inspection.history} />;
+  return (
+    <SemanticLoadedNodeDetails
+      detail={inspection.detail}
+      history={inspection.history}
+      onMutation={inspection.reload}
+    />
+  );
 }
 
 export function SemanticLoadedNodeDetails({
   detail,
   history,
+  onMutation,
 }: {
   detail: SemanticNodeDetail;
   history: SemanticEventHistory | null;
+  onMutation?: () => void;
 }) {
   const confidence = useMemo(() => latestConfidence(history?.events ?? []), [history]);
   const node = detail.node;
@@ -152,6 +170,7 @@ export function SemanticLoadedNodeDetails({
           ]}
         />
       </WorkflowDetailsSection>
+      <SemanticEditControls detail={detail} onMutation={onMutation} />
       <SemanticLineageSection detail={detail} />
       <SemanticEdgeSection incoming={detail.incomingEdges} outgoing={detail.outgoingEdges} />
       <SemanticEvidenceSection evidence={detail.evidence} />
@@ -234,6 +253,15 @@ function SemanticEvidenceSection({ evidence }: { evidence: SemanticEvidenceAncho
               rows={[
                 { label: "Source", value: anchor.sourceKind },
                 { label: "Ref", value: anchor.sourceId || anchor.uri },
+                { label: "Workflow definition", value: anchor.workflowDefinitionId },
+                { label: "Workflow execution", value: anchor.workflowExecutionId },
+                { label: "Workflow node", value: anchor.workflowNodeId },
+                { label: "Workflow node execution", value: anchor.workflowNodeExecutionId },
+                { label: "Chat conversation", value: anchor.chatConversationId },
+                { label: "Chat run", value: anchor.chatRunId },
+                { label: "Chat message", value: anchor.chatMessageId },
+                { label: "Run item", value: anchor.runItemId },
+                { label: "Reassigned from", value: anchor.reassignedFromAnchorId },
                 { label: "Path", value: evidencePath(anchor) },
                 { label: "Summary", value: anchor.summary },
                 { label: "Text", value: anchor.text },
@@ -264,11 +292,15 @@ function SemanticActivitySection({ activity }: { activity: SemanticActivityInter
                 { label: "Source", value: interval.sourceKind },
                 { label: "Source id", value: interval.sourceId },
                 { label: "Evidence", value: interval.evidenceAnchorId },
+                { label: "Workflow definition", value: interval.workflowDefinitionId },
                 { label: "Workflow execution", value: interval.workflowExecutionId },
                 { label: "Workflow node", value: interval.workflowNodeId },
+                { label: "Workflow node execution", value: interval.workflowNodeExecutionId },
                 { label: "Chat conversation", value: interval.chatConversationId },
                 { label: "Chat run", value: interval.chatRunId },
                 { label: "Chat message", value: interval.chatMessageId },
+                { label: "Run item", value: interval.runItemId },
+                { label: "Reassigned from", value: interval.reassignedFromIntervalId },
                 { label: "Actor", value: activityActor(interval) },
                 { label: "Summary", value: interval.summary },
                 { label: "Started", value: interval.startedAt },
@@ -293,9 +325,20 @@ function SemanticSteeringSection({ directives }: { directives: SemanticSteeringD
           <SemanticRecord key={directive.id}>
             <WorkflowDetailsRows
               rows={[
-                { label: "State", value: directive.active ? "active" : "inactive" },
+                { label: "Kind", value: directive.kind },
+                { label: "Status", value: directive.status },
+                { label: "Scope", value: directive.scope },
                 { label: "Instruction", value: directive.instruction },
+                { label: "Workflow definition", value: directive.workflowDefinitionId },
+                { label: "Workflow execution", value: directive.workflowExecutionId },
+                { label: "Workflow node", value: directive.workflowNodeId },
+                { label: "Chat run", value: directive.chatRunId },
+                { label: "Chat message", value: directive.chatMessageId },
+                { label: "Run item", value: directive.runItemId },
+                { label: "Supersedes", value: directive.supersedesDirectiveId },
+                { label: "Reassigned from", value: directive.reassignedFromDirectiveId },
                 { label: "Updated", value: directive.updatedAt },
+                { label: "Completed", value: directive.completedAt },
               ]}
             />
           </SemanticRecord>

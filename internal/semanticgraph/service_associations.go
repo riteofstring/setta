@@ -32,22 +32,25 @@ type ChatSourceResolver interface {
 }
 
 type attachmentSource struct {
-	evidenceSourceKind  SemanticEvidenceSourceKind
-	evidenceSourceID    string
-	activitySourceKind  SemanticActivitySourceKind
-	activitySourceID    string
-	uri                 string
-	path                string
-	rangeStart          int
-	rangeEnd            int
-	text                string
-	summary             string
-	contentHash         string
-	workflowExecutionID string
-	workflowNodeID      string
-	chatConversationID  string
-	chatRunID           string
-	chatMessageID       string
+	evidenceSourceKind      SemanticEvidenceSourceKind
+	evidenceSourceID        string
+	activitySourceKind      SemanticActivitySourceKind
+	activitySourceID        string
+	uri                     string
+	path                    string
+	rangeStart              int
+	rangeEnd                int
+	text                    string
+	summary                 string
+	contentHash             string
+	workflowDefinitionID    string
+	workflowExecutionID     string
+	workflowNodeID          string
+	workflowNodeExecutionID string
+	chatConversationID      string
+	chatRunID               string
+	chatMessageID           string
+	runItemID               string
 }
 
 func (service *Service) AttachWorkflowExecution(ctx context.Context, input AttachWorkflowExecutionInput) (SemanticAttachmentResult, error) {
@@ -59,12 +62,13 @@ func (service *Service) AttachWorkflowExecution(ctx context.Context, input Attac
 		return SemanticAttachmentResult{}, err
 	}
 	source := attachmentSource{
-		evidenceSourceKind:  EvidenceSourceWorkflowExecution,
-		evidenceSourceID:    execution.ID,
-		activitySourceKind:  ActivitySourceWorkflowExecution,
-		activitySourceID:    execution.ID,
-		summary:             workflowExecutionSummary(execution),
-		workflowExecutionID: execution.ID,
+		evidenceSourceKind:   EvidenceSourceWorkflowExecution,
+		evidenceSourceID:     execution.ID,
+		activitySourceKind:   ActivitySourceWorkflowExecution,
+		activitySourceID:     execution.ID,
+		summary:              workflowExecutionSummary(execution),
+		workflowDefinitionID: execution.DefinitionID,
+		workflowExecutionID:  execution.ID,
 	}
 	return service.attachSource(ctx, semanticAttachmentBase{
 		workspaceID:  input.WorkspaceID,
@@ -167,6 +171,7 @@ func (service *Service) AttachRunItem(ctx context.Context, input AttachRunItemIn
 		text:               shortText(runItemEvidenceText(item), semanticEvidenceTextLimit),
 		chatConversationID: item.ConversationID,
 		chatRunID:          item.RunID,
+		runItemID:          item.ID,
 	}
 	return service.attachSource(ctx, semanticAttachmentBase{
 		workspaceID:  input.WorkspaceID,
@@ -385,36 +390,47 @@ func (service *Service) semanticAttachmentEvents(request preparedSemanticAttachm
 
 func (request preparedSemanticAttachment) evidencePayload() evidenceAttachedPayload {
 	return evidenceAttachedPayload{
-		AnchorID:       request.anchorID,
-		TargetEntityID: request.base.nodeID,
-		SourceKind:     request.source.evidenceSourceKind,
-		SourceID:       request.source.evidenceSourceID,
-		URI:            request.source.uri,
-		Path:           request.source.path,
-		RangeStart:     request.source.rangeStart,
-		RangeEnd:       request.source.rangeEnd,
-		Text:           request.source.text,
-		Summary:        request.summary,
-		ContentHash:    request.source.contentHash,
+		AnchorID:                request.anchorID,
+		TargetEntityID:          request.base.nodeID,
+		SourceKind:              request.source.evidenceSourceKind,
+		SourceID:                request.source.evidenceSourceID,
+		URI:                     request.source.uri,
+		Path:                    request.source.path,
+		RangeStart:              request.source.rangeStart,
+		RangeEnd:                request.source.rangeEnd,
+		Text:                    request.source.text,
+		Summary:                 request.summary,
+		ContentHash:             request.source.contentHash,
+		WorkflowDefinitionID:    request.source.workflowDefinitionID,
+		WorkflowExecutionID:     request.source.workflowExecutionID,
+		WorkflowNodeID:          request.source.workflowNodeID,
+		WorkflowNodeExecutionID: request.source.workflowNodeExecutionID,
+		ChatConversationID:      request.source.chatConversationID,
+		ChatRunID:               request.source.chatRunID,
+		ChatMessageID:           request.source.chatMessageID,
+		RunItemID:               request.source.runItemID,
 	}
 }
 
 func (request preparedSemanticAttachment) activityPayload() activityStartedPayload {
 	return activityStartedPayload{
-		IntervalID:          request.intervalID,
-		TargetEntityID:      request.base.nodeID,
-		Kind:                request.base.activityKind,
-		Summary:             request.summary,
-		SourceKind:          request.source.activitySourceKind,
-		SourceID:            request.source.activitySourceID,
-		EvidenceAnchorID:    request.anchorID,
-		WorkflowExecutionID: request.source.workflowExecutionID,
-		WorkflowNodeID:      request.source.workflowNodeID,
-		ChatConversationID:  request.source.chatConversationID,
-		ChatRunID:           request.source.chatRunID,
-		ChatMessageID:       request.source.chatMessageID,
-		ActorKind:           request.actor.ActorKind,
-		ActorID:             request.actor.ActorID,
+		IntervalID:              request.intervalID,
+		TargetEntityID:          request.base.nodeID,
+		Kind:                    request.base.activityKind,
+		Summary:                 request.summary,
+		SourceKind:              request.source.activitySourceKind,
+		SourceID:                request.source.activitySourceID,
+		EvidenceAnchorID:        request.anchorID,
+		WorkflowDefinitionID:    request.source.workflowDefinitionID,
+		WorkflowExecutionID:     request.source.workflowExecutionID,
+		WorkflowNodeID:          request.source.workflowNodeID,
+		WorkflowNodeExecutionID: request.source.workflowNodeExecutionID,
+		ChatConversationID:      request.source.chatConversationID,
+		ChatRunID:               request.source.chatRunID,
+		ChatMessageID:           request.source.chatMessageID,
+		RunItemID:               request.source.runItemID,
+		ActorKind:               request.actor.ActorKind,
+		ActorID:                 request.actor.ActorID,
 	}
 }
 
@@ -508,12 +524,13 @@ func (service *Service) workflowNodeAttachmentSource(input AttachWorkflowNodeInp
 		return attachmentSource{}, fmt.Errorf("workflow definition node %s does not exist", input.WorkflowNodeID)
 	}
 	return attachmentSource{
-		evidenceSourceKind: EvidenceSourceWorkflowNode,
-		evidenceSourceID:   node.ID,
-		activitySourceKind: ActivitySourceWorkflowNode,
-		activitySourceID:   node.ID,
-		summary:            workflowDefinitionNodeSummary(definition, node),
-		workflowNodeID:     node.ID,
+		evidenceSourceKind:   EvidenceSourceWorkflowNode,
+		evidenceSourceID:     node.ID,
+		activitySourceKind:   ActivitySourceWorkflowNode,
+		activitySourceID:     node.ID,
+		summary:              workflowDefinitionNodeSummary(definition, node),
+		workflowDefinitionID: definition.ID,
+		workflowNodeID:       node.ID,
 	}, nil
 }
 
@@ -541,13 +558,15 @@ func (service *Service) workflowNodeExecutionAttachmentSource(input AttachWorkfl
 		return attachmentSource{}, fmt.Errorf("workflow projection node %s does not exist", nodeExecution.NodeID)
 	}
 	return attachmentSource{
-		evidenceSourceKind:  EvidenceSourceWorkflowNode,
-		evidenceSourceID:    nodeExecution.ID,
-		activitySourceKind:  ActivitySourceWorkflowNode,
-		activitySourceID:    nodeExecution.ID,
-		summary:             workflowNodeExecutionSummary(graphNode, nodeExecution),
-		workflowExecutionID: execution.ID,
-		workflowNodeID:      nodeExecution.NodeID,
+		evidenceSourceKind:      EvidenceSourceWorkflowNode,
+		evidenceSourceID:        nodeExecution.ID,
+		activitySourceKind:      ActivitySourceWorkflowNode,
+		activitySourceID:        nodeExecution.ID,
+		summary:                 workflowNodeExecutionSummary(graphNode, nodeExecution),
+		workflowDefinitionID:    execution.DefinitionID,
+		workflowExecutionID:     execution.ID,
+		workflowNodeID:          nodeExecution.NodeID,
+		workflowNodeExecutionID: nodeExecution.ID,
 	}, nil
 }
 

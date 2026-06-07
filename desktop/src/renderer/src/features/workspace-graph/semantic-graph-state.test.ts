@@ -70,8 +70,12 @@ function activity({
     summary,
     targetEntityId,
     updatedAt: endedAt === "" ? "2026-06-10T12:00:00Z" : endedAt,
+    workflowDefinitionId: "",
     workflowExecutionId: "",
     workflowNodeId: "",
+    workflowNodeExecutionId: "",
+    runItemId: "",
+    reassignedFromIntervalId: "",
     workspaceId: "workspace_test",
   };
 }

@@ -217,6 +217,232 @@ func TestServiceAttachesFileRangeWithContentHash(t *testing.T) {
 	if err == nil {
 		t.Fatal("attach outside workspace file succeeded, want error")
 	}
+	assertFailedAttachPreservesHistory(t, service, "node_file", func() error {
+		_, err := service.AttachFileRange(context.Background(), AttachFileRangeInput{
+			WorkspaceID:  testWorkspaceID,
+			NodeID:       "node_file",
+			Path:         filepath.Join(filepath.Dir(workspaceRoot), "outside.md"),
+			ActivityKind: ActivityKindEditing,
+		})
+		return err
+	})
+}
+
+func TestServiceAttachesExplicitPhase3Sources(t *testing.T) {
+	t.Run("workflow definition node", func(t *testing.T) {
+		store := newTestStore(t)
+		service := newAssociationTestService(t, store, t.TempDir(), fakeWorkflowResolver{
+			definition: orchestrator.WorkflowDefinition{
+				ID:          "workflow_definition_attach",
+				WorkspaceID: testWorkspaceID,
+				Graph: orchestrator.WorkflowGraph{Nodes: []orchestrator.WorkflowNode{
+					{ID: "workflow_node_definition", Kind: orchestrator.NodeKindAction, Title: "Definition node"},
+				}},
+			},
+		}, nil)
+		appendAttachmentTargetNode(t, store, "node_definition")
+
+		result, err := service.AttachWorkflowNode(context.Background(), AttachWorkflowNodeInput{
+			WorkspaceID:          testWorkspaceID,
+			NodeID:               "node_definition",
+			WorkflowDefinitionID: "workflow_definition_attach",
+			WorkflowNodeID:       "workflow_node_definition",
+			ActivityKind:         ActivityKindExploring,
+		})
+		if err != nil {
+			t.Fatalf("attach workflow definition node: %v", err)
+		}
+		if result.Evidence.WorkflowDefinitionID != "workflow_definition_attach" || result.Evidence.WorkflowNodeID != "workflow_node_definition" {
+			t.Fatalf("workflow definition evidence refs = %+v, want definition and node", result.Evidence)
+		}
+		if result.Activity.WorkflowDefinitionID != "workflow_definition_attach" || result.Activity.WorkflowNodeID != "workflow_node_definition" {
+			t.Fatalf("workflow definition activity refs = %+v, want definition and node", result.Activity)
+		}
+		assertFailedAttachPreservesHistory(t, service, "node_definition", func() error {
+			_, err := service.AttachWorkflowNode(context.Background(), AttachWorkflowNodeInput{
+				WorkspaceID:          testWorkspaceID,
+				NodeID:               "node_definition",
+				WorkflowDefinitionID: "workflow_definition_attach",
+				WorkflowNodeID:       "workflow_node_missing",
+				ActivityKind:         ActivityKindExploring,
+			})
+			return err
+		})
+	})
+
+	t.Run("workflow node execution", func(t *testing.T) {
+		store := newTestStore(t)
+		service := newAssociationTestService(t, store, t.TempDir(), fakeWorkflowResolver{
+			execution: orchestrator.WorkflowExecution{
+				ID:                     "workflow_execution_attach",
+				WorkspaceID:            testWorkspaceID,
+				DefinitionID:           "workflow_definition_runtime",
+				DefinitionVersionID:    "workflow_version_runtime",
+				Status:                 orchestrator.ExecutionStatusRunning,
+				NodeExecutions:         []orchestrator.WorkflowNodeExecution{{ID: "workflow_node_execution_attach", ExecutionID: "workflow_execution_attach", NodeID: "workflow_node_runtime", Status: orchestrator.NodeExecutionStatusRunning}},
+				ActiveNodeExecutionIDs: []string{"workflow_node_execution_attach"},
+			},
+			projection: orchestrator.WorkflowGraphProjection{
+				ExecutionID: "workflow_execution_attach",
+				Nodes: []orchestrator.WorkflowGraphNode{
+					{ID: "workflow_node_runtime", Label: "Runtime node", Status: orchestrator.GraphNodeStatusRunning},
+				},
+			},
+		}, nil)
+		appendAttachmentTargetNode(t, store, "node_node_execution")
+
+		result, err := service.AttachWorkflowNode(context.Background(), AttachWorkflowNodeInput{
+			WorkspaceID:             testWorkspaceID,
+			NodeID:                  "node_node_execution",
+			WorkflowExecutionID:     "workflow_execution_attach",
+			WorkflowNodeExecutionID: "workflow_node_execution_attach",
+			ActivityKind:            ActivityKindDebugging,
+		})
+		if err != nil {
+			t.Fatalf("attach workflow node execution: %v", err)
+		}
+		if result.Evidence.WorkflowExecutionID != "workflow_execution_attach" || result.Evidence.WorkflowNodeExecutionID != "workflow_node_execution_attach" {
+			t.Fatalf("workflow node execution evidence refs = %+v, want execution and node execution", result.Evidence)
+		}
+		if result.Activity.WorkflowNodeID != "workflow_node_runtime" || result.Activity.WorkflowNodeExecutionID != "workflow_node_execution_attach" {
+			t.Fatalf("workflow node execution activity refs = %+v, want workflow node and execution", result.Activity)
+		}
+		assertFailedAttachPreservesHistory(t, service, "node_node_execution", func() error {
+			_, err := service.AttachWorkflowNode(context.Background(), AttachWorkflowNodeInput{
+				WorkspaceID:             testWorkspaceID,
+				NodeID:                  "node_node_execution",
+				WorkflowExecutionID:     "workflow_execution_attach",
+				WorkflowNodeExecutionID: "workflow_node_execution_missing",
+				ActivityKind:            ActivityKindDebugging,
+			})
+			return err
+		})
+	})
+
+	t.Run("chat message", func(t *testing.T) {
+		store := newTestStore(t)
+		service := newAssociationTestService(t, store, t.TempDir(), nil, fakeChatResolver{
+			message: chat.ChatMessage{
+				ID:             "message_attach",
+				ConversationID: "conversation_attach",
+				RunID:          "run_attach",
+				Role:           chat.RoleUser,
+				Status:         chat.MessageStatusComplete,
+				Parts:          []chat.MessagePart{{ID: "message_part", Type: chat.MessagePartText, Text: "Explicit chat message evidence", Format: chat.TextFormatPlain}},
+			},
+		})
+		appendAttachmentTargetNode(t, store, "node_chat_message")
+
+		result, err := service.AttachChatMessage(context.Background(), AttachChatMessageInput{
+			WorkspaceID:        testWorkspaceID,
+			NodeID:             "node_chat_message",
+			ChatConversationID: "conversation_attach",
+			ChatMessageID:      "message_attach",
+			ActivityKind:       ActivityKindExploring,
+		})
+		if err != nil {
+			t.Fatalf("attach chat message: %v", err)
+		}
+		if result.Evidence.ChatConversationID != "conversation_attach" || result.Evidence.ChatMessageID != "message_attach" || result.Evidence.Text == "" {
+			t.Fatalf("chat message evidence refs = %+v, want conversation, message, text", result.Evidence)
+		}
+		if result.Activity.ChatRunID != "run_attach" || result.Activity.ChatMessageID != "message_attach" {
+			t.Fatalf("chat message activity refs = %+v, want run and message", result.Activity)
+		}
+		assertFailedAttachPreservesHistory(t, service, "node_chat_message", func() error {
+			_, err := service.AttachChatMessage(context.Background(), AttachChatMessageInput{
+				WorkspaceID:        testWorkspaceID,
+				NodeID:             "node_chat_message",
+				ChatConversationID: "conversation_attach",
+				ChatMessageID:      "message_missing",
+				ActivityKind:       ActivityKindExploring,
+			})
+			return err
+		})
+	})
+
+	t.Run("run item", func(t *testing.T) {
+		assertRunItemAttachmentSource(t, chat.RunItemTypePlan, ActivitySourceRunItem)
+	})
+
+	t.Run("command run item", func(t *testing.T) {
+		assertRunItemAttachmentSource(t, chat.RunItemTypeCommandExecution, ActivitySourceCommand)
+	})
+}
+
+func assertRunItemAttachmentSource(t *testing.T, itemType chat.RunItemType, expectedSourceKind SemanticActivitySourceKind) {
+	t.Helper()
+	store := newTestStore(t)
+	itemID := "run_item_attach"
+	service := newAssociationTestService(t, store, t.TempDir(), nil, fakeChatResolver{
+		item: chat.RunItem{
+			ID:             itemID,
+			WorkspaceID:    testWorkspaceID,
+			ConversationID: "conversation_attach",
+			RunID:          "run_attach",
+			Type:           itemType,
+			Status:         chat.RunItemStatusCompleted,
+			Title:          "Run item",
+			Summary:        "Run item summary",
+			Command:        "npm test",
+		},
+	})
+	appendAttachmentTargetNode(t, store, "node_run_item")
+
+	result, err := service.AttachRunItem(context.Background(), AttachRunItemInput{
+		WorkspaceID:  testWorkspaceID,
+		NodeID:       "node_run_item",
+		ChatRunID:    "run_attach",
+		RunItemID:    itemID,
+		ActivityKind: ActivityKindValidating,
+	})
+	if err != nil {
+		t.Fatalf("attach %s run item: %v", itemType, err)
+	}
+	if result.Evidence.RunItemID != itemID || result.Evidence.ChatRunID != "run_attach" {
+		t.Fatalf("run item evidence refs = %+v, want run item and chat run", result.Evidence)
+	}
+	if result.Activity.SourceKind != expectedSourceKind || result.Activity.RunItemID != itemID || result.Activity.SourceID != itemID {
+		t.Fatalf("run item activity refs = %+v, want %s with item id", result.Activity, expectedSourceKind)
+	}
+	assertFailedAttachPreservesHistory(t, service, "node_run_item", func() error {
+		_, err := service.AttachRunItem(context.Background(), AttachRunItemInput{
+			WorkspaceID:  testWorkspaceID,
+			NodeID:       "node_run_item",
+			ChatRunID:    "run_attach",
+			RunItemID:    "run_item_missing",
+			ActivityKind: ActivityKindValidating,
+		})
+		return err
+	})
+}
+
+func appendAttachmentTargetNode(t *testing.T, store *Store, nodeID string) {
+	t.Helper()
+	appendTestEvent(t, store, EventNodeCreated, nodeID, nodeCreatedPayload{
+		NodeID: nodeID,
+		Kind:   NodeKindFinding,
+		Label:  nodeID,
+	})
+}
+
+func assertFailedAttachPreservesHistory(t *testing.T, service *Service, nodeID string, attach func() error) {
+	t.Helper()
+	before, err := service.ReadEventHistory(context.Background(), testWorkspaceID, nodeID, 0, 100)
+	if err != nil {
+		t.Fatalf("read history before failed attach: %v", err)
+	}
+	err = attach()
+	if err == nil {
+		t.Fatal("attach missing source succeeded, want error")
+	}
+	after, err := service.ReadEventHistory(context.Background(), testWorkspaceID, nodeID, 0, 100)
+	if err != nil {
+		t.Fatalf("read history after failed attach: %v", err)
+	}
+	if len(after.Events) != len(before.Events) {
+		t.Fatalf("history changed after failed source resolution: before=%d after=%d", len(before.Events), len(after.Events))
+	}
 }
 
 func newAssociationTestService(t *testing.T, store *Store, workspaceRoot string, workflowResolver WorkflowSourceResolver, chatResolver ChatSourceResolver) *Service {
@@ -286,10 +512,15 @@ func (resolver fakeChatResolver) ReadRunItem(_ string, runID string, runItemID s
 }
 
 type fakeWorkflowResolver struct {
-	execution orchestrator.WorkflowExecution
+	definition orchestrator.WorkflowDefinition
+	execution  orchestrator.WorkflowExecution
+	projection orchestrator.WorkflowGraphProjection
 }
 
-func (resolver fakeWorkflowResolver) ReadDefinition(string, string) (orchestrator.WorkflowDefinition, error) {
+func (resolver fakeWorkflowResolver) ReadDefinition(_ string, definitionID string) (orchestrator.WorkflowDefinition, error) {
+	if resolver.definition.ID == definitionID {
+		return resolver.definition, nil
+	}
 	return orchestrator.WorkflowDefinition{}, errors.New("workflow definition not found")
 }
 
@@ -300,6 +531,9 @@ func (resolver fakeWorkflowResolver) ReadExecution(_ string, executionID string)
 	return orchestrator.WorkflowExecution{}, errors.New("workflow execution not found")
 }
 
-func (resolver fakeWorkflowResolver) ReadGraphProjection(string, string, string, string) (orchestrator.WorkflowGraphProjection, bool, error) {
-	return orchestrator.WorkflowGraphProjection{}, false, errors.New("workflow graph projection not found")
+func (resolver fakeWorkflowResolver) ReadGraphProjection(_ string, _ string, _ string, executionID string) (orchestrator.WorkflowGraphProjection, bool, error) {
+	if resolver.projection.ExecutionID == executionID {
+		return resolver.projection, true, nil
+	}
+	return orchestrator.WorkflowGraphProjection{}, false, nil
 }

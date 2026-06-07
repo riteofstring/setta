@@ -1306,6 +1306,72 @@ export function decodeSemanticActorKind(value: unknown, label = "SemanticActorKi
   }
 }
 
+export type SemanticSteeringKind = "focus" | "avoid" | "validate" | "constraint" | "prompt" | "session_pin" | "workspace_pin";
+
+export const semanticSteeringKindValues = ["focus", "avoid", "validate", "constraint", "prompt", "session_pin", "workspace_pin"] as const satisfies readonly SemanticSteeringKind[];
+
+export function decodeSemanticSteeringKind(value: unknown, label = "SemanticSteeringKind"): SemanticSteeringKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "focus":
+      return decoded;
+    case "avoid":
+      return decoded;
+    case "validate":
+      return decoded;
+    case "constraint":
+      return decoded;
+    case "prompt":
+      return decoded;
+    case "session_pin":
+      return decoded;
+    case "workspace_pin":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticSteeringStatus = "created" | "active" | "superseded" | "completed" | "dismissed";
+
+export const semanticSteeringStatusValues = ["created", "active", "superseded", "completed", "dismissed"] as const satisfies readonly SemanticSteeringStatus[];
+
+export function decodeSemanticSteeringStatus(value: unknown, label = "SemanticSteeringStatus"): SemanticSteeringStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "created":
+      return decoded;
+    case "active":
+      return decoded;
+    case "superseded":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "dismissed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticSteeringScope = "run" | "session" | "workspace";
+
+export const semanticSteeringScopeValues = ["run", "session", "workspace"] as const satisfies readonly SemanticSteeringScope[];
+
+export function decodeSemanticSteeringScope(value: unknown, label = "SemanticSteeringScope"): SemanticSteeringScope {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "run":
+      return decoded;
+    case "session":
+      return decoded;
+    case "workspace":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SemanticEventType = "node.created" | "node.updated" | "node.renamed" | "node.dismissed" | "node.promoted" | "node.split" | "node.merged" | "edge.created" | "edge.updated" | "edge.removed" | "evidence.attached" | "activity.started" | "activity.ended" | "steering.created" | "steering.updated" | "context_pack.created" | "constraint_check.recorded";
 
 export const semanticEventTypeValues = ["node.created", "node.updated", "node.renamed", "node.dismissed", "node.promoted", "node.split", "node.merged", "edge.created", "edge.updated", "edge.removed", "evidence.attached", "activity.started", "activity.ended", "steering.created", "steering.updated", "context_pack.created", "constraint_check.recorded"] as const satisfies readonly SemanticEventType[];
@@ -2742,6 +2808,15 @@ export interface SemanticEvidenceAnchor {
   text: string;
   summary: string;
   contentHash: string;
+  workflowDefinitionId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  chatMessageId: string;
+  runItemId: string;
+  reassignedFromAnchorId: string;
   createdByEventId: string;
   createdAt: string;
 }
@@ -2755,11 +2830,15 @@ export interface SemanticActivityInterval {
   sourceKind: SemanticActivitySourceKind;
   sourceId: string;
   evidenceAnchorId: string;
+  workflowDefinitionId: string;
   workflowExecutionId: string;
   workflowNodeId: string;
+  workflowNodeExecutionId: string;
   chatConversationId: string;
   chatRunId: string;
   chatMessageId: string;
+  runItemId: string;
+  reassignedFromIntervalId: string;
   actorKind: SemanticActorKind;
   actorId: string;
   startedByEventId: string;
@@ -2773,12 +2852,25 @@ export interface SemanticSteeringDirective {
   id: string;
   workspaceId: string;
   targetEntityId: string;
+  kind: SemanticSteeringKind;
   instruction: string;
-  active: boolean;
+  status: SemanticSteeringStatus;
+  scope: SemanticSteeringScope;
+  workflowDefinitionId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  chatMessageId: string;
+  runItemId: string;
+  supersedesDirectiveId: string;
+  reassignedFromDirectiveId: string;
   createdByEventId: string;
   updatedByEventId: string;
   createdAt: string;
   updatedAt: string;
+  completedAt: string;
 }
 
 export interface SemanticContextPackRecord {
@@ -3025,6 +3117,165 @@ export interface SemanticActivityEndResult {
   targetEntityId: string;
   activity: SemanticActivityInterval;
   event: SemanticEvent;
+}
+
+export interface RenameSemanticNodeRequest {
+  workspaceId: string;
+  nodeId: string;
+  label: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface SemanticMutationResult {
+  workspaceId: string;
+  targetEntityId: string;
+  graph: SemanticGraph;
+  nodeDetail: SemanticNodeDetail | null;
+  events: SemanticEvent[];
+}
+
+export interface UpdateSemanticNodeRequest {
+  workspaceId: string;
+  nodeId: string;
+  kind: SemanticNodeKind | null;
+  summary: string | null;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface SemanticNodeOperationRequest {
+  workspaceId: string;
+  nodeId: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface SemanticNodeSeedInput {
+  nodeId: string;
+  kind: SemanticNodeKind;
+  label: string;
+  summary: string;
+}
+
+export interface SemanticEdgeReassignmentInput {
+  edgeId: string;
+  targetEdgeId: string;
+  fromNodeId: string;
+  toNodeId: string;
+}
+
+export interface SemanticEvidenceReassignmentInput {
+  anchorId: string;
+  targetNodeId: string;
+}
+
+export interface SemanticActivityReassignmentInput {
+  activityIntervalId: string;
+  targetNodeId: string;
+}
+
+export interface SemanticSteeringReassignmentInput {
+  directiveId: string;
+  targetNodeId: string;
+}
+
+export interface SemanticLayoutReassignmentInput {
+  entityId: string;
+  targetEntityId: string;
+}
+
+export interface SemanticReassignmentInputs {
+  edges: SemanticEdgeReassignmentInput[];
+  evidence: SemanticEvidenceReassignmentInput[];
+  activity: SemanticActivityReassignmentInput[];
+  steering: SemanticSteeringReassignmentInput[];
+  layout: SemanticLayoutReassignmentInput[];
+}
+
+export interface SplitSemanticNodeRequest {
+  workspaceId: string;
+  sourceNodeId: string;
+  nodes: SemanticNodeSeedInput[];
+  reassignments: SemanticReassignmentInputs;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface MergeSemanticNodesRequest {
+  workspaceId: string;
+  sourceNodeIds: string[];
+  targetNode: SemanticNodeSeedInput;
+  reassignments: SemanticReassignmentInputs;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface CreateSemanticNodeRequest {
+  workspaceId: string;
+  nodeId: string;
+  kind: SemanticNodeKind;
+  label: string;
+  summary: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface CreateSemanticEdgeRequest {
+  workspaceId: string;
+  edgeId: string;
+  kind: SemanticEdgeKind;
+  fromNodeId: string;
+  toNodeId: string;
+  label: string;
+  summary: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface UpdateSemanticEdgeRequest {
+  workspaceId: string;
+  edgeId: string;
+  kind: SemanticEdgeKind | null;
+  label: string | null;
+  summary: string | null;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface SemanticEdgeOperationRequest {
+  workspaceId: string;
+  edgeId: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface CreateSemanticSteeringDirectiveRequest {
+  workspaceId: string;
+  targetEntityId: string;
+  kind: SemanticSteeringKind;
+  instruction: string;
+  scope: SemanticSteeringScope;
+  workflowDefinitionId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  chatMessageId: string;
+  runItemId: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+}
+
+export interface UpdateSemanticSteeringDirectiveRequest {
+  workspaceId: string;
+  directiveId: string;
+  instruction: string | null;
+  status: SemanticSteeringStatus | null;
+  supersedesDirectiveId: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
 }
 
 export interface CreateTerminalRequest {
@@ -3780,6 +4031,54 @@ export const backendEndpoints = {
   EndSemanticActivity: {
     method: "POST",
     path: "/semantic-graph/activity/end",
+  },
+  RenameSemanticNode: {
+    method: "POST",
+    path: "/semantic-graph/nodes/rename",
+  },
+  UpdateSemanticNode: {
+    method: "POST",
+    path: "/semantic-graph/nodes/update",
+  },
+  DismissSemanticNode: {
+    method: "POST",
+    path: "/semantic-graph/nodes/dismiss",
+  },
+  PromoteSemanticNode: {
+    method: "POST",
+    path: "/semantic-graph/nodes/promote",
+  },
+  SplitSemanticNode: {
+    method: "POST",
+    path: "/semantic-graph/nodes/split",
+  },
+  MergeSemanticNodes: {
+    method: "POST",
+    path: "/semantic-graph/nodes/merge",
+  },
+  CreateSemanticNode: {
+    method: "POST",
+    path: "/semantic-graph/nodes/create",
+  },
+  CreateSemanticEdge: {
+    method: "POST",
+    path: "/semantic-graph/edges/create",
+  },
+  UpdateSemanticEdge: {
+    method: "POST",
+    path: "/semantic-graph/edges/update",
+  },
+  RemoveSemanticEdge: {
+    method: "POST",
+    path: "/semantic-graph/edges/remove",
+  },
+  CreateSemanticSteeringDirective: {
+    method: "POST",
+    path: "/semantic-graph/steering/create",
+  },
+  UpdateSemanticSteeringDirective: {
+    method: "POST",
+    path: "/semantic-graph/steering/update",
   },
   CreateTerminal: {
     method: "POST",
@@ -5552,7 +5851,7 @@ export function decodeReadSemanticNodeDetailRequest(value: unknown): ReadSemanti
 
 export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAnchor {
   const record = assertRecord(value, "SemanticEvidenceAnchor");
-  assertKnownFields(record, "SemanticEvidenceAnchor", ["id", "workspaceId", "targetEntityId", "sourceKind", "sourceId", "uri", "path", "rangeStart", "rangeEnd", "text", "summary", "contentHash", "createdByEventId", "createdAt"]);
+  assertKnownFields(record, "SemanticEvidenceAnchor", ["id", "workspaceId", "targetEntityId", "sourceKind", "sourceId", "uri", "path", "rangeStart", "rangeEnd", "text", "summary", "contentHash", "workflowDefinitionId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "chatMessageId", "runItemId", "reassignedFromAnchorId", "createdByEventId", "createdAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.workspaceId"),
@@ -5566,6 +5865,15 @@ export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAn
     text: decodeString(requireField(record, "text", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.text"),
     summary: decodeString(requireField(record, "summary", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.summary"),
     contentHash: decodeString(requireField(record, "contentHash", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.contentHash"),
+    workflowDefinitionId: decodeString(requireField(record, "workflowDefinitionId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.workflowDefinitionId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.workflowNodeExecutionId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.chatRunId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.chatMessageId"),
+    runItemId: decodeString(requireField(record, "runItemId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.runItemId"),
+    reassignedFromAnchorId: decodeString(requireField(record, "reassignedFromAnchorId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.reassignedFromAnchorId"),
     createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.createdByEventId"),
     createdAt: decodeString(requireField(record, "createdAt", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.createdAt"),
   };
@@ -5573,7 +5881,7 @@ export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAn
 
 export function decodeSemanticActivityInterval(value: unknown): SemanticActivityInterval {
   const record = assertRecord(value, "SemanticActivityInterval");
-  assertKnownFields(record, "SemanticActivityInterval", ["id", "workspaceId", "targetEntityId", "kind", "summary", "sourceKind", "sourceId", "evidenceAnchorId", "workflowExecutionId", "workflowNodeId", "chatConversationId", "chatRunId", "chatMessageId", "actorKind", "actorId", "startedByEventId", "endedByEventId", "startedAt", "endedAt", "updatedAt"]);
+  assertKnownFields(record, "SemanticActivityInterval", ["id", "workspaceId", "targetEntityId", "kind", "summary", "sourceKind", "sourceId", "evidenceAnchorId", "workflowDefinitionId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "chatMessageId", "runItemId", "reassignedFromIntervalId", "actorKind", "actorId", "startedByEventId", "endedByEventId", "startedAt", "endedAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticActivityInterval"), "SemanticActivityInterval.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticActivityInterval"), "SemanticActivityInterval.workspaceId"),
@@ -5583,11 +5891,15 @@ export function decodeSemanticActivityInterval(value: unknown): SemanticActivity
     sourceKind: decodeSemanticActivitySourceKind(requireField(record, "sourceKind", "SemanticActivityInterval"), "SemanticActivityInterval.sourceKind"),
     sourceId: decodeString(requireField(record, "sourceId", "SemanticActivityInterval"), "SemanticActivityInterval.sourceId"),
     evidenceAnchorId: decodeString(requireField(record, "evidenceAnchorId", "SemanticActivityInterval"), "SemanticActivityInterval.evidenceAnchorId"),
+    workflowDefinitionId: decodeString(requireField(record, "workflowDefinitionId", "SemanticActivityInterval"), "SemanticActivityInterval.workflowDefinitionId"),
     workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticActivityInterval"), "SemanticActivityInterval.workflowExecutionId"),
     workflowNodeId: decodeString(requireField(record, "workflowNodeId", "SemanticActivityInterval"), "SemanticActivityInterval.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "SemanticActivityInterval"), "SemanticActivityInterval.workflowNodeExecutionId"),
     chatConversationId: decodeString(requireField(record, "chatConversationId", "SemanticActivityInterval"), "SemanticActivityInterval.chatConversationId"),
     chatRunId: decodeString(requireField(record, "chatRunId", "SemanticActivityInterval"), "SemanticActivityInterval.chatRunId"),
     chatMessageId: decodeString(requireField(record, "chatMessageId", "SemanticActivityInterval"), "SemanticActivityInterval.chatMessageId"),
+    runItemId: decodeString(requireField(record, "runItemId", "SemanticActivityInterval"), "SemanticActivityInterval.runItemId"),
+    reassignedFromIntervalId: decodeString(requireField(record, "reassignedFromIntervalId", "SemanticActivityInterval"), "SemanticActivityInterval.reassignedFromIntervalId"),
     actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "SemanticActivityInterval"), "SemanticActivityInterval.actorKind"),
     actorId: decodeString(requireField(record, "actorId", "SemanticActivityInterval"), "SemanticActivityInterval.actorId"),
     startedByEventId: decodeString(requireField(record, "startedByEventId", "SemanticActivityInterval"), "SemanticActivityInterval.startedByEventId"),
@@ -5600,17 +5912,30 @@ export function decodeSemanticActivityInterval(value: unknown): SemanticActivity
 
 export function decodeSemanticSteeringDirective(value: unknown): SemanticSteeringDirective {
   const record = assertRecord(value, "SemanticSteeringDirective");
-  assertKnownFields(record, "SemanticSteeringDirective", ["id", "workspaceId", "targetEntityId", "instruction", "active", "createdByEventId", "updatedByEventId", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "SemanticSteeringDirective", ["id", "workspaceId", "targetEntityId", "kind", "instruction", "status", "scope", "workflowDefinitionId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "chatMessageId", "runItemId", "supersedesDirectiveId", "reassignedFromDirectiveId", "createdByEventId", "updatedByEventId", "createdAt", "updatedAt", "completedAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticSteeringDirective"), "SemanticSteeringDirective.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticSteeringDirective"), "SemanticSteeringDirective.workspaceId"),
     targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticSteeringDirective"), "SemanticSteeringDirective.targetEntityId"),
+    kind: decodeSemanticSteeringKind(requireField(record, "kind", "SemanticSteeringDirective"), "SemanticSteeringDirective.kind"),
     instruction: decodeString(requireField(record, "instruction", "SemanticSteeringDirective"), "SemanticSteeringDirective.instruction"),
-    active: decodeBoolean(requireField(record, "active", "SemanticSteeringDirective"), "SemanticSteeringDirective.active"),
+    status: decodeSemanticSteeringStatus(requireField(record, "status", "SemanticSteeringDirective"), "SemanticSteeringDirective.status"),
+    scope: decodeSemanticSteeringScope(requireField(record, "scope", "SemanticSteeringDirective"), "SemanticSteeringDirective.scope"),
+    workflowDefinitionId: decodeString(requireField(record, "workflowDefinitionId", "SemanticSteeringDirective"), "SemanticSteeringDirective.workflowDefinitionId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticSteeringDirective"), "SemanticSteeringDirective.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "SemanticSteeringDirective"), "SemanticSteeringDirective.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "SemanticSteeringDirective"), "SemanticSteeringDirective.workflowNodeExecutionId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "SemanticSteeringDirective"), "SemanticSteeringDirective.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "SemanticSteeringDirective"), "SemanticSteeringDirective.chatRunId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "SemanticSteeringDirective"), "SemanticSteeringDirective.chatMessageId"),
+    runItemId: decodeString(requireField(record, "runItemId", "SemanticSteeringDirective"), "SemanticSteeringDirective.runItemId"),
+    supersedesDirectiveId: decodeString(requireField(record, "supersedesDirectiveId", "SemanticSteeringDirective"), "SemanticSteeringDirective.supersedesDirectiveId"),
+    reassignedFromDirectiveId: decodeString(requireField(record, "reassignedFromDirectiveId", "SemanticSteeringDirective"), "SemanticSteeringDirective.reassignedFromDirectiveId"),
     createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticSteeringDirective"), "SemanticSteeringDirective.createdByEventId"),
     updatedByEventId: decodeString(requireField(record, "updatedByEventId", "SemanticSteeringDirective"), "SemanticSteeringDirective.updatedByEventId"),
     createdAt: decodeString(requireField(record, "createdAt", "SemanticSteeringDirective"), "SemanticSteeringDirective.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "SemanticSteeringDirective"), "SemanticSteeringDirective.updatedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "SemanticSteeringDirective"), "SemanticSteeringDirective.completedAt"),
   };
 }
 
@@ -5973,6 +6298,241 @@ export function decodeSemanticActivityEndResult(value: unknown): SemanticActivit
     targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticActivityEndResult"), "SemanticActivityEndResult.targetEntityId"),
     activity: decodeSemanticActivityInterval(requireField(record, "activity", "SemanticActivityEndResult")),
     event: decodeSemanticEvent(requireField(record, "event", "SemanticActivityEndResult")),
+  };
+}
+
+export function decodeRenameSemanticNodeRequest(value: unknown): RenameSemanticNodeRequest {
+  const record = assertRecord(value, "RenameSemanticNodeRequest");
+  assertKnownFields(record, "RenameSemanticNodeRequest", ["workspaceId", "nodeId", "label", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "RenameSemanticNodeRequest"), "RenameSemanticNodeRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "RenameSemanticNodeRequest"), "RenameSemanticNodeRequest.nodeId"),
+    label: decodeString(requireField(record, "label", "RenameSemanticNodeRequest"), "RenameSemanticNodeRequest.label"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "RenameSemanticNodeRequest"), "RenameSemanticNodeRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "RenameSemanticNodeRequest"), "RenameSemanticNodeRequest.actorId"),
+  };
+}
+
+export function decodeSemanticMutationResult(value: unknown): SemanticMutationResult {
+  const record = assertRecord(value, "SemanticMutationResult");
+  assertKnownFields(record, "SemanticMutationResult", ["workspaceId", "targetEntityId", "graph", "nodeDetail", "events"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticMutationResult"), "SemanticMutationResult.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticMutationResult"), "SemanticMutationResult.targetEntityId"),
+    graph: decodeSemanticGraph(requireField(record, "graph", "SemanticMutationResult")),
+    nodeDetail: decodeNullable(requireField(record, "nodeDetail", "SemanticMutationResult"), "SemanticMutationResult.nodeDetail", (item) => decodeSemanticNodeDetail(item)),
+    events: decodeArray(requireField(record, "events", "SemanticMutationResult"), "SemanticMutationResult.events", (item) => decodeSemanticEvent(item)),
+  };
+}
+
+export function decodeUpdateSemanticNodeRequest(value: unknown): UpdateSemanticNodeRequest {
+  const record = assertRecord(value, "UpdateSemanticNodeRequest");
+  assertKnownFields(record, "UpdateSemanticNodeRequest", ["workspaceId", "nodeId", "kind", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateSemanticNodeRequest"), "UpdateSemanticNodeRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "UpdateSemanticNodeRequest"), "UpdateSemanticNodeRequest.nodeId"),
+    kind: decodeNullable(requireField(record, "kind", "UpdateSemanticNodeRequest"), "UpdateSemanticNodeRequest.kind", (item) => decodeSemanticNodeKind(item, "UpdateSemanticNodeRequest.kind")),
+    summary: decodeNullable(requireField(record, "summary", "UpdateSemanticNodeRequest"), "UpdateSemanticNodeRequest.summary", (item) => decodeString(item, "UpdateSemanticNodeRequest.summary")),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "UpdateSemanticNodeRequest"), "UpdateSemanticNodeRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "UpdateSemanticNodeRequest"), "UpdateSemanticNodeRequest.actorId"),
+  };
+}
+
+export function decodeSemanticNodeOperationRequest(value: unknown): SemanticNodeOperationRequest {
+  const record = assertRecord(value, "SemanticNodeOperationRequest");
+  assertKnownFields(record, "SemanticNodeOperationRequest", ["workspaceId", "nodeId", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticNodeOperationRequest"), "SemanticNodeOperationRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "SemanticNodeOperationRequest"), "SemanticNodeOperationRequest.nodeId"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "SemanticNodeOperationRequest"), "SemanticNodeOperationRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "SemanticNodeOperationRequest"), "SemanticNodeOperationRequest.actorId"),
+  };
+}
+
+export function decodeSemanticNodeSeedInput(value: unknown): SemanticNodeSeedInput {
+  const record = assertRecord(value, "SemanticNodeSeedInput");
+  assertKnownFields(record, "SemanticNodeSeedInput", ["nodeId", "kind", "label", "summary"]);
+  return {
+    nodeId: decodeString(requireField(record, "nodeId", "SemanticNodeSeedInput"), "SemanticNodeSeedInput.nodeId"),
+    kind: decodeSemanticNodeKind(requireField(record, "kind", "SemanticNodeSeedInput"), "SemanticNodeSeedInput.kind"),
+    label: decodeString(requireField(record, "label", "SemanticNodeSeedInput"), "SemanticNodeSeedInput.label"),
+    summary: decodeString(requireField(record, "summary", "SemanticNodeSeedInput"), "SemanticNodeSeedInput.summary"),
+  };
+}
+
+export function decodeSemanticEdgeReassignmentInput(value: unknown): SemanticEdgeReassignmentInput {
+  const record = assertRecord(value, "SemanticEdgeReassignmentInput");
+  assertKnownFields(record, "SemanticEdgeReassignmentInput", ["edgeId", "targetEdgeId", "fromNodeId", "toNodeId"]);
+  return {
+    edgeId: decodeString(requireField(record, "edgeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.edgeId"),
+    targetEdgeId: decodeString(requireField(record, "targetEdgeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.targetEdgeId"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.toNodeId"),
+  };
+}
+
+export function decodeSemanticEvidenceReassignmentInput(value: unknown): SemanticEvidenceReassignmentInput {
+  const record = assertRecord(value, "SemanticEvidenceReassignmentInput");
+  assertKnownFields(record, "SemanticEvidenceReassignmentInput", ["anchorId", "targetNodeId"]);
+  return {
+    anchorId: decodeString(requireField(record, "anchorId", "SemanticEvidenceReassignmentInput"), "SemanticEvidenceReassignmentInput.anchorId"),
+    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticEvidenceReassignmentInput"), "SemanticEvidenceReassignmentInput.targetNodeId"),
+  };
+}
+
+export function decodeSemanticActivityReassignmentInput(value: unknown): SemanticActivityReassignmentInput {
+  const record = assertRecord(value, "SemanticActivityReassignmentInput");
+  assertKnownFields(record, "SemanticActivityReassignmentInput", ["activityIntervalId", "targetNodeId"]);
+  return {
+    activityIntervalId: decodeString(requireField(record, "activityIntervalId", "SemanticActivityReassignmentInput"), "SemanticActivityReassignmentInput.activityIntervalId"),
+    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticActivityReassignmentInput"), "SemanticActivityReassignmentInput.targetNodeId"),
+  };
+}
+
+export function decodeSemanticSteeringReassignmentInput(value: unknown): SemanticSteeringReassignmentInput {
+  const record = assertRecord(value, "SemanticSteeringReassignmentInput");
+  assertKnownFields(record, "SemanticSteeringReassignmentInput", ["directiveId", "targetNodeId"]);
+  return {
+    directiveId: decodeString(requireField(record, "directiveId", "SemanticSteeringReassignmentInput"), "SemanticSteeringReassignmentInput.directiveId"),
+    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticSteeringReassignmentInput"), "SemanticSteeringReassignmentInput.targetNodeId"),
+  };
+}
+
+export function decodeSemanticLayoutReassignmentInput(value: unknown): SemanticLayoutReassignmentInput {
+  const record = assertRecord(value, "SemanticLayoutReassignmentInput");
+  assertKnownFields(record, "SemanticLayoutReassignmentInput", ["entityId", "targetEntityId"]);
+  return {
+    entityId: decodeString(requireField(record, "entityId", "SemanticLayoutReassignmentInput"), "SemanticLayoutReassignmentInput.entityId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticLayoutReassignmentInput"), "SemanticLayoutReassignmentInput.targetEntityId"),
+  };
+}
+
+export function decodeSemanticReassignmentInputs(value: unknown): SemanticReassignmentInputs {
+  const record = assertRecord(value, "SemanticReassignmentInputs");
+  assertKnownFields(record, "SemanticReassignmentInputs", ["edges", "evidence", "activity", "steering", "layout"]);
+  return {
+    edges: decodeArray(requireField(record, "edges", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.edges", (item) => decodeSemanticEdgeReassignmentInput(item)),
+    evidence: decodeArray(requireField(record, "evidence", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.evidence", (item) => decodeSemanticEvidenceReassignmentInput(item)),
+    activity: decodeArray(requireField(record, "activity", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.activity", (item) => decodeSemanticActivityReassignmentInput(item)),
+    steering: decodeArray(requireField(record, "steering", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.steering", (item) => decodeSemanticSteeringReassignmentInput(item)),
+    layout: decodeArray(requireField(record, "layout", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.layout", (item) => decodeSemanticLayoutReassignmentInput(item)),
+  };
+}
+
+export function decodeSplitSemanticNodeRequest(value: unknown): SplitSemanticNodeRequest {
+  const record = assertRecord(value, "SplitSemanticNodeRequest");
+  assertKnownFields(record, "SplitSemanticNodeRequest", ["workspaceId", "sourceNodeId", "nodes", "reassignments", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SplitSemanticNodeRequest"), "SplitSemanticNodeRequest.workspaceId"),
+    sourceNodeId: decodeString(requireField(record, "sourceNodeId", "SplitSemanticNodeRequest"), "SplitSemanticNodeRequest.sourceNodeId"),
+    nodes: decodeArray(requireField(record, "nodes", "SplitSemanticNodeRequest"), "SplitSemanticNodeRequest.nodes", (item) => decodeSemanticNodeSeedInput(item)),
+    reassignments: decodeSemanticReassignmentInputs(requireField(record, "reassignments", "SplitSemanticNodeRequest")),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "SplitSemanticNodeRequest"), "SplitSemanticNodeRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "SplitSemanticNodeRequest"), "SplitSemanticNodeRequest.actorId"),
+  };
+}
+
+export function decodeMergeSemanticNodesRequest(value: unknown): MergeSemanticNodesRequest {
+  const record = assertRecord(value, "MergeSemanticNodesRequest");
+  assertKnownFields(record, "MergeSemanticNodesRequest", ["workspaceId", "sourceNodeIds", "targetNode", "reassignments", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "MergeSemanticNodesRequest"), "MergeSemanticNodesRequest.workspaceId"),
+    sourceNodeIds: decodeArray(requireField(record, "sourceNodeIds", "MergeSemanticNodesRequest"), "MergeSemanticNodesRequest.sourceNodeIds", (item) => decodeString(item, "MergeSemanticNodesRequest.sourceNodeIds item")),
+    targetNode: decodeSemanticNodeSeedInput(requireField(record, "targetNode", "MergeSemanticNodesRequest")),
+    reassignments: decodeSemanticReassignmentInputs(requireField(record, "reassignments", "MergeSemanticNodesRequest")),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "MergeSemanticNodesRequest"), "MergeSemanticNodesRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "MergeSemanticNodesRequest"), "MergeSemanticNodesRequest.actorId"),
+  };
+}
+
+export function decodeCreateSemanticNodeRequest(value: unknown): CreateSemanticNodeRequest {
+  const record = assertRecord(value, "CreateSemanticNodeRequest");
+  assertKnownFields(record, "CreateSemanticNodeRequest", ["workspaceId", "nodeId", "kind", "label", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateSemanticNodeRequest"), "CreateSemanticNodeRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "CreateSemanticNodeRequest"), "CreateSemanticNodeRequest.nodeId"),
+    kind: decodeSemanticNodeKind(requireField(record, "kind", "CreateSemanticNodeRequest"), "CreateSemanticNodeRequest.kind"),
+    label: decodeString(requireField(record, "label", "CreateSemanticNodeRequest"), "CreateSemanticNodeRequest.label"),
+    summary: decodeString(requireField(record, "summary", "CreateSemanticNodeRequest"), "CreateSemanticNodeRequest.summary"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "CreateSemanticNodeRequest"), "CreateSemanticNodeRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "CreateSemanticNodeRequest"), "CreateSemanticNodeRequest.actorId"),
+  };
+}
+
+export function decodeCreateSemanticEdgeRequest(value: unknown): CreateSemanticEdgeRequest {
+  const record = assertRecord(value, "CreateSemanticEdgeRequest");
+  assertKnownFields(record, "CreateSemanticEdgeRequest", ["workspaceId", "edgeId", "kind", "fromNodeId", "toNodeId", "label", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.workspaceId"),
+    edgeId: decodeString(requireField(record, "edgeId", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.edgeId"),
+    kind: decodeSemanticEdgeKind(requireField(record, "kind", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.kind"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.toNodeId"),
+    label: decodeString(requireField(record, "label", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.label"),
+    summary: decodeString(requireField(record, "summary", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.summary"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "CreateSemanticEdgeRequest"), "CreateSemanticEdgeRequest.actorId"),
+  };
+}
+
+export function decodeUpdateSemanticEdgeRequest(value: unknown): UpdateSemanticEdgeRequest {
+  const record = assertRecord(value, "UpdateSemanticEdgeRequest");
+  assertKnownFields(record, "UpdateSemanticEdgeRequest", ["workspaceId", "edgeId", "kind", "label", "summary", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateSemanticEdgeRequest"), "UpdateSemanticEdgeRequest.workspaceId"),
+    edgeId: decodeString(requireField(record, "edgeId", "UpdateSemanticEdgeRequest"), "UpdateSemanticEdgeRequest.edgeId"),
+    kind: decodeNullable(requireField(record, "kind", "UpdateSemanticEdgeRequest"), "UpdateSemanticEdgeRequest.kind", (item) => decodeSemanticEdgeKind(item, "UpdateSemanticEdgeRequest.kind")),
+    label: decodeNullable(requireField(record, "label", "UpdateSemanticEdgeRequest"), "UpdateSemanticEdgeRequest.label", (item) => decodeString(item, "UpdateSemanticEdgeRequest.label")),
+    summary: decodeNullable(requireField(record, "summary", "UpdateSemanticEdgeRequest"), "UpdateSemanticEdgeRequest.summary", (item) => decodeString(item, "UpdateSemanticEdgeRequest.summary")),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "UpdateSemanticEdgeRequest"), "UpdateSemanticEdgeRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "UpdateSemanticEdgeRequest"), "UpdateSemanticEdgeRequest.actorId"),
+  };
+}
+
+export function decodeSemanticEdgeOperationRequest(value: unknown): SemanticEdgeOperationRequest {
+  const record = assertRecord(value, "SemanticEdgeOperationRequest");
+  assertKnownFields(record, "SemanticEdgeOperationRequest", ["workspaceId", "edgeId", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticEdgeOperationRequest"), "SemanticEdgeOperationRequest.workspaceId"),
+    edgeId: decodeString(requireField(record, "edgeId", "SemanticEdgeOperationRequest"), "SemanticEdgeOperationRequest.edgeId"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "SemanticEdgeOperationRequest"), "SemanticEdgeOperationRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "SemanticEdgeOperationRequest"), "SemanticEdgeOperationRequest.actorId"),
+  };
+}
+
+export function decodeCreateSemanticSteeringDirectiveRequest(value: unknown): CreateSemanticSteeringDirectiveRequest {
+  const record = assertRecord(value, "CreateSemanticSteeringDirectiveRequest");
+  assertKnownFields(record, "CreateSemanticSteeringDirectiveRequest", ["workspaceId", "targetEntityId", "kind", "instruction", "scope", "workflowDefinitionId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "chatMessageId", "runItemId", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.targetEntityId"),
+    kind: decodeSemanticSteeringKind(requireField(record, "kind", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.kind"),
+    instruction: decodeString(requireField(record, "instruction", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.instruction"),
+    scope: decodeSemanticSteeringScope(requireField(record, "scope", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.scope"),
+    workflowDefinitionId: decodeString(requireField(record, "workflowDefinitionId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.workflowDefinitionId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.workflowNodeExecutionId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.chatRunId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.chatMessageId"),
+    runItemId: decodeString(requireField(record, "runItemId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.runItemId"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "CreateSemanticSteeringDirectiveRequest"), "CreateSemanticSteeringDirectiveRequest.actorId"),
+  };
+}
+
+export function decodeUpdateSemanticSteeringDirectiveRequest(value: unknown): UpdateSemanticSteeringDirectiveRequest {
+  const record = assertRecord(value, "UpdateSemanticSteeringDirectiveRequest");
+  assertKnownFields(record, "UpdateSemanticSteeringDirectiveRequest", ["workspaceId", "directiveId", "instruction", "status", "supersedesDirectiveId", "actorKind", "actorId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.workspaceId"),
+    directiveId: decodeString(requireField(record, "directiveId", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.directiveId"),
+    instruction: decodeNullable(requireField(record, "instruction", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.instruction", (item) => decodeString(item, "UpdateSemanticSteeringDirectiveRequest.instruction")),
+    status: decodeNullable(requireField(record, "status", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.status", (item) => decodeSemanticSteeringStatus(item, "UpdateSemanticSteeringDirectiveRequest.status")),
+    supersedesDirectiveId: decodeString(requireField(record, "supersedesDirectiveId", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.supersedesDirectiveId"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.actorId"),
   };
 }
 
@@ -6719,6 +7279,18 @@ export interface BackendClient {
   attachSemanticNodeToRunItem: (request: AttachSemanticNodeToRunItemRequest) => Promise<SemanticAttachmentResult>;
   attachSemanticNodeToFileRange: (request: AttachSemanticNodeToFileRangeRequest) => Promise<SemanticAttachmentResult>;
   endSemanticActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
+  renameSemanticNode: (request: RenameSemanticNodeRequest) => Promise<SemanticMutationResult>;
+  updateSemanticNode: (request: UpdateSemanticNodeRequest) => Promise<SemanticMutationResult>;
+  dismissSemanticNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
+  promoteSemanticNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
+  splitSemanticNode: (request: SplitSemanticNodeRequest) => Promise<SemanticMutationResult>;
+  mergeSemanticNodes: (request: MergeSemanticNodesRequest) => Promise<SemanticMutationResult>;
+  createSemanticNode: (request: CreateSemanticNodeRequest) => Promise<SemanticMutationResult>;
+  createSemanticEdge: (request: CreateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
+  updateSemanticEdge: (request: UpdateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
+  removeSemanticEdge: (request: SemanticEdgeOperationRequest) => Promise<SemanticMutationResult>;
+  createSemanticSteeringDirective: (request: CreateSemanticSteeringDirectiveRequest) => Promise<SemanticMutationResult>;
+  updateSemanticSteeringDirective: (request: UpdateSemanticSteeringDirectiveRequest) => Promise<SemanticMutationResult>;
   createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
   attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
   terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
@@ -7239,6 +7811,102 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticActivityEndResult,
       endpoint: backendEndpoints.EndSemanticActivity,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    renameSemanticNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.RenameSemanticNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateSemanticNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.UpdateSemanticNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    dismissSemanticNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.DismissSemanticNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    promoteSemanticNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.PromoteSemanticNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    splitSemanticNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.SplitSemanticNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    mergeSemanticNodes: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.MergeSemanticNodes,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createSemanticNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.CreateSemanticNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createSemanticEdge: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.CreateSemanticEdge,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateSemanticEdge: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.UpdateSemanticEdge,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    removeSemanticEdge: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.RemoveSemanticEdge,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createSemanticSteeringDirective: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.CreateSemanticSteeringDirective,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateSemanticSteeringDirective: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticMutationResult,
+      endpoint: backendEndpoints.UpdateSemanticSteeringDirective,
       fetchImpl,
       requestPayload: request,
     }),

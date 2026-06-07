@@ -90,6 +90,8 @@ try {
 
   const attachment = await attachSemanticNodeToChatRun(context.client, workspaceId);
   assertSemanticChatRunAttachment(attachment);
+  const editing = await exerciseSemanticEditing(context.client, workspaceId);
+  assertSemanticEditingResult(editing);
   const beforeHistory = await semanticEventHistory(context.client, workspaceId);
   assertSemanticAttachmentHistory(beforeHistory, attachment);
 
@@ -153,6 +155,7 @@ try {
   await waitForSelector(context.client, '[data-testid="semantic-node-details-surface"]');
   await assertSemanticNodeDetails(context.client);
   await assertSemanticAttachmentDetails(context.client, attachment);
+  await assertSemanticEditingReadback(context.client, workspaceId, editing);
   await captureScreenshot(context.client, join(artifactDir, "semantic-attached-details.png"));
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -161,6 +164,7 @@ try {
     afterReload,
     artifactDir,
     beforeHistoryCount: beforeHistory.events.length,
+    editing,
     initial,
     persistedPosition,
     status: "passed",
@@ -294,6 +298,143 @@ async function attachSemanticNodeToChatRun(client, workspaceId) {
       runId: sent.run.id,
       summary,
       userMessageId: sent.userMessage.id
+    };
+  })()`);
+}
+
+async function exerciseSemanticEditing(client, workspaceId) {
+  return client.evaluate(`(async () => {
+    const actor = { actorId: "semantic_e2e_user", actorKind: "user" };
+    await window.setta.semanticGraph.createNode({
+      ...actor,
+      kind: "finding",
+      label: "E2E editable node",
+      nodeId: "semantic_e2e_edit",
+      summary: "Created through semantic graph mutation endpoint.",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.renameNode({
+      ...actor,
+      label: "E2E renamed semantic node",
+      nodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.updateNode({
+      ...actor,
+      kind: "constraint",
+      nodeId: "semantic_e2e_edit",
+      summary: "Updated through semantic graph mutation endpoint.",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.promoteNode({
+      ...actor,
+      nodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.createNode({
+      ...actor,
+      kind: "constraint",
+      label: "E2E connected constraint",
+      nodeId: "semantic_e2e_constraint",
+      summary: "Constraint connected by a user-authored edge.",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.createEdge({
+      ...actor,
+      edgeId: "semantic_e2e_constrains",
+      fromNodeId: "semantic_e2e_constraint",
+      kind: "constrains",
+      label: "constrains",
+      summary: "Constraint connected through semantic graph mutation endpoint.",
+      toNodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.updateEdge({
+      ...actor,
+      edgeId: "semantic_e2e_constrains",
+      kind: null,
+      label: "constrains",
+      summary: "Updated edge summary through semantic graph mutation endpoint.",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.createEdge({
+      ...actor,
+      edgeId: "semantic_e2e_related",
+      fromNodeId: "semantic_e2e_edit",
+      kind: "related_to",
+      label: "related",
+      summary: "Temporary removable edge.",
+      toNodeId: ${JSON.stringify(seedConstraintNodeId)},
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    await window.setta.semanticGraph.removeEdge({
+      ...actor,
+      edgeId: "semantic_e2e_related",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const steering = await window.setta.semanticGraph.createSteeringDirective({
+      ...actor,
+      chatConversationId: "",
+      chatMessageId: "",
+      chatRunId: "",
+      instruction: "Focus on this edited semantic node during the session.",
+      kind: "focus",
+      runItemId: "",
+      scope: "session",
+      targetEntityId: "semantic_e2e_edit",
+      workflowDefinitionId: "",
+      workflowExecutionId: "",
+      workflowNodeExecutionId: "",
+      workflowNodeId: "",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const directiveId = steering.nodeDetail.steeringDirectives[0].id;
+    await window.setta.semanticGraph.updateSteeringDirective({
+      ...actor,
+      directiveId,
+      instruction: null,
+      status: "completed",
+      supersedesDirectiveId: "",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const split = await window.setta.semanticGraph.splitNode({
+      ...actor,
+      nodes: [
+        { kind: "constraint", label: "E2E split child A", nodeId: "semantic_e2e_child_a", summary: "" },
+        { kind: "constraint", label: "E2E split child B", nodeId: "semantic_e2e_child_b", summary: "" }
+      ],
+      reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
+      sourceNodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const merged = await window.setta.semanticGraph.mergeNodes({
+      ...actor,
+      reassignments: { activity: [], edges: [], evidence: [], layout: [], steering: [] },
+      sourceNodeIds: ["semantic_e2e_child_a", "semantic_e2e_child_b"],
+      targetNode: { kind: "decision", label: "E2E merged decision", nodeId: "semantic_e2e_merged", summary: "" },
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const editDetail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const mergedDetail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: "semantic_e2e_merged",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const editHistory = await window.setta.semanticGraph.readEventHistory({
+      beforeLogicalClock: 0,
+      limit: 80,
+      targetEntityId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    return {
+      directiveId,
+      editDetail,
+      editHistory,
+      merged,
+      mergedDetail,
+      split
     };
   })()`);
 }
@@ -449,6 +590,107 @@ function assertSemanticChatRunAttachment(result) {
   assertSemanticAttachmentDidNotCreateNodes(result);
   assertSemanticAttachmentSourceRefs(result);
   assertSemanticAttachmentReadbacks(result);
+}
+
+function assertSemanticEditingResult(result) {
+  const editDetail = requireSemanticEditDetail(result);
+  requireSemanticMergedDetail(result);
+  assertSemanticEditNodeProjection(editDetail);
+  assertSemanticEditEdgeProjection(editDetail);
+  assertSemanticSteeringLifecycle(editDetail, result.directiveId);
+  assertSemanticEditHistory(result.editHistory.events);
+}
+
+function requireSemanticEditDetail(result) {
+  const { detail } = result.editDetail;
+  if (!detail) {
+    throw new Error(`semantic edit detail was null: ${JSON.stringify(result.editDetail)}`);
+  }
+  return detail;
+}
+
+function requireSemanticMergedDetail(result) {
+  const { detail } = result.mergedDetail;
+  if (!detail || detail.node.id !== "semantic_e2e_merged") {
+    throw new Error(`semantic merged detail mismatch: ${JSON.stringify(result.mergedDetail)}`);
+  }
+  return detail;
+}
+
+function assertSemanticEditNodeProjection(editDetail) {
+  if (
+    editDetail.node.label !== "E2E renamed semantic node" ||
+    editDetail.node.kind !== "constraint" ||
+    !editDetail.node.promoted ||
+    !editDetail.node.dismissed ||
+    editDetail.node.splitIntoNodeIds.length !== 2
+  ) {
+    throw new Error(`semantic edit node projection mismatch: ${JSON.stringify(editDetail.node)}`);
+  }
+}
+
+function assertSemanticEditEdgeProjection(editDetail) {
+  if (!editDetail.incomingEdges.some((edge) => edge.id === "semantic_e2e_constrains")) {
+    throw new Error(`semantic edit detail omitted constraint edge: ${JSON.stringify(editDetail)}`);
+  }
+}
+
+function assertSemanticSteeringLifecycle(editDetail, directiveId) {
+  const directive = editDetail.steeringDirectives.find((candidate) => candidate.id === directiveId);
+  if (!directive || directive.kind !== "focus" || directive.status !== "completed") {
+    throw new Error(
+      `semantic steering lifecycle mismatch: ${JSON.stringify(editDetail.steeringDirectives)}`,
+    );
+  }
+}
+
+function assertSemanticEditHistory(events) {
+  const eventTypes = new Set(events.map((event) => event.eventType));
+  for (const eventType of [
+    "node.created",
+    "node.renamed",
+    "node.updated",
+    "node.promoted",
+    "steering.created",
+    "steering.updated",
+    "node.split",
+  ]) {
+    if (!eventTypes.has(eventType)) {
+      throw new Error(`semantic edit history omitted ${eventType}: ${JSON.stringify(events)}`);
+    }
+  }
+}
+
+async function assertSemanticEditingReadback(client, workspaceId, editing) {
+  const readback = await client.evaluate(`(async () => {
+    const editDetail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: "semantic_e2e_edit",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const mergedDetail = await window.setta.semanticGraph.readNodeDetail({
+      nodeId: "semantic_e2e_merged",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const graph = await window.setta.semanticGraph.read({
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    return { editDetail, graph, mergedDetail };
+  })()`);
+  if (readback.editDetail.detail?.steeringDirectives?.[0]?.id !== editing.directiveId) {
+    throw new Error(
+      `semantic steering directive did not persist: ${JSON.stringify(readback.editDetail)}`,
+    );
+  }
+  if (readback.mergedDetail.detail?.node?.id !== "semantic_e2e_merged") {
+    throw new Error(
+      `semantic merged node did not persist: ${JSON.stringify(readback.mergedDetail)}`,
+    );
+  }
+  if (!readback.graph.nodes.some((node) => node.id === "semantic_e2e_merged")) {
+    throw new Error(
+      `semantic edited graph nodes missing merged node: ${JSON.stringify(readback.graph.nodes)}`,
+    );
+  }
 }
 
 function assertSemanticAttachmentDidNotCreateNodes(result) {

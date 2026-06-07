@@ -99,6 +99,18 @@ type SemanticGraphService interface {
 	AttachRunItem(context.Context, semanticgraph.AttachRunItemInput) (semanticgraph.SemanticAttachmentResult, error)
 	AttachFileRange(context.Context, semanticgraph.AttachFileRangeInput) (semanticgraph.SemanticAttachmentResult, error)
 	EndActivity(context.Context, semanticgraph.EndSemanticActivityInput) (semanticgraph.SemanticActivityEndResult, error)
+	RenameNode(context.Context, semanticgraph.RenameSemanticNodeInput) (semanticgraph.SemanticMutationResult, error)
+	UpdateNode(context.Context, semanticgraph.UpdateSemanticNodeInput) (semanticgraph.SemanticMutationResult, error)
+	DismissNode(context.Context, semanticgraph.SemanticNodeOperationInput) (semanticgraph.SemanticMutationResult, error)
+	PromoteNode(context.Context, semanticgraph.SemanticNodeOperationInput) (semanticgraph.SemanticMutationResult, error)
+	SplitNode(context.Context, semanticgraph.SplitSemanticNodeInput) (semanticgraph.SemanticMutationResult, error)
+	MergeNodes(context.Context, semanticgraph.MergeSemanticNodesInput) (semanticgraph.SemanticMutationResult, error)
+	CreateUserNode(context.Context, semanticgraph.CreateSemanticNodeInput) (semanticgraph.SemanticMutationResult, error)
+	CreateUserEdge(context.Context, semanticgraph.CreateSemanticEdgeInput) (semanticgraph.SemanticMutationResult, error)
+	UpdateEdge(context.Context, semanticgraph.UpdateSemanticEdgeInput) (semanticgraph.SemanticMutationResult, error)
+	RemoveEdge(context.Context, semanticgraph.SemanticEdgeOperationInput) (semanticgraph.SemanticMutationResult, error)
+	CreateSteeringDirective(context.Context, semanticgraph.CreateSteeringDirectiveInput) (semanticgraph.SemanticMutationResult, error)
+	UpdateSteeringDirective(context.Context, semanticgraph.UpdateSteeringDirectiveInput) (semanticgraph.SemanticMutationResult, error)
 }
 
 type TerminalService interface {

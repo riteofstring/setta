@@ -173,8 +173,12 @@ function activity({
     summary,
     targetEntityId: "node_constraint",
     updatedAt: "2026-06-10T12:00:05Z",
+    workflowDefinitionId: "",
     workflowExecutionId: "workflow_execution_projection",
     workflowNodeId: "",
+    workflowNodeExecutionId: "",
+    runItemId: "",
+    reassignedFromIntervalId: "",
     workspaceId: "workspace_test",
   };
 }

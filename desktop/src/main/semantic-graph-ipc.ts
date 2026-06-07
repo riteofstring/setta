@@ -140,4 +140,100 @@ export function registerSemanticGraphIpcHandlers({
     },
     ipcObserver,
   );
+  handleIpc(
+    ipcMain,
+    "semanticGraphRenameNode",
+    async (_event, request) => {
+      return requireBackendClient().renameSemanticNode(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphUpdateNode",
+    async (_event, request) => {
+      return requireBackendClient().updateSemanticNode(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphDismissNode",
+    async (_event, request) => {
+      return requireBackendClient().dismissSemanticNode(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphPromoteNode",
+    async (_event, request) => {
+      return requireBackendClient().promoteSemanticNode(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphSplitNode",
+    async (_event, request) => {
+      return requireBackendClient().splitSemanticNode(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphMergeNodes",
+    async (_event, request) => {
+      return requireBackendClient().mergeSemanticNodes(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCreateNode",
+    async (_event, request) => {
+      return requireBackendClient().createSemanticNode(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCreateEdge",
+    async (_event, request) => {
+      return requireBackendClient().createSemanticEdge(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphUpdateEdge",
+    async (_event, request) => {
+      return requireBackendClient().updateSemanticEdge(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphRemoveEdge",
+    async (_event, request) => {
+      return requireBackendClient().removeSemanticEdge(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCreateSteeringDirective",
+    async (_event, request) => {
+      return requireBackendClient().createSemanticSteeringDirective(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphUpdateSteeringDirective",
+    async (_event, request) => {
+      return requireBackendClient().updateSemanticSteeringDirective(request);
+    },
+    ipcObserver,
+  );
 }

@@ -210,13 +210,16 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 	appendTestEvent(t, store, EventSteeringCreated, "node_a", steeringCreatedPayload{
 		DirectiveID:    "steering_a",
 		TargetEntityID: "node_a",
+		Kind:           SteeringKindFocus,
 		Instruction:    "Keep phase 1 backend-only",
-		Active:         true,
+		Status:         SteeringStatusActive,
+		Scope:          SteeringScopeWorkspace,
 	})
+	completedStatus := SteeringStatusCompleted
 	appendTestEvent(t, store, EventSteeringUpdated, "node_a", steeringUpdatedPayload{
 		DirectiveID: "steering_a",
 		Instruction: pointerTo("Keep phase 1 backend-only and read-oriented"),
-		Active:      pointerTo(false),
+		Status:      &completedStatus,
 	})
 	appendTestEvent(t, store, EventContextPackCreated, "node_a", contextPackCreatedPayload{
 		PackID:         "pack_a",
@@ -257,8 +260,8 @@ func assertStoreNodeDetailProjection(t *testing.T, store *Store, ctx context.Con
 	if detail.Activity[0].SourceKind != ActivitySourceFileRange || detail.Activity[0].EvidenceAnchorID != "evidence_a" || detail.Activity[0].ActorID != testActorID {
 		t.Fatalf("detail activity source = %+v, want file_range evidence_a by test actor", detail.Activity[0])
 	}
-	if len(detail.SteeringDirectives) != 1 || detail.SteeringDirectives[0].Active {
-		t.Fatalf("detail steering = %+v, want inactive updated directive", detail.SteeringDirectives)
+	if len(detail.SteeringDirectives) != 1 || detail.SteeringDirectives[0].Status != SteeringStatusCompleted || detail.SteeringDirectives[0].CompletedAt == "" {
+		t.Fatalf("detail steering = %+v, want completed updated directive", detail.SteeringDirectives)
 	}
 	if len(detail.ContextPackHistory) != 1 || detail.ContextPackHistory[0].ItemCount != 3 {
 		t.Fatalf("detail context packs = %+v, want one three-item pack", detail.ContextPackHistory)

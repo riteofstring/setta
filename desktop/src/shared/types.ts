@@ -15,6 +15,9 @@ import type {
   CodexAccountState,
   Conversation,
   ConversationListItem,
+  CreateSemanticEdgeRequest,
+  CreateSemanticNodeRequest,
+  CreateSemanticSteeringDirectiveRequest,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
@@ -24,11 +27,13 @@ import type {
   ListConversationsResponse,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
+  MergeSemanticNodesRequest,
   MessagePage,
   OpenWorkspaceResponse,
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  RenameSemanticNodeRequest,
   ReadSemanticActivitySummaryRequest,
   ReadSemanticEventHistoryRequest,
   ReadSemanticGraphRequest,
@@ -50,16 +55,20 @@ import type {
   SemanticActivityPage,
   SemanticActivitySummary,
   SemanticAttachmentResult,
+  SemanticEdgeOperationRequest,
   SemanticEventHistory,
   SemanticEvidenceList,
   SemanticGraph,
   SemanticLayoutPositionList,
+  SemanticMutationResult,
+  SemanticNodeOperationRequest,
   SemanticSteeringState,
   SendMessageResult,
   SelectDefaultTerminalProfileRequest,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
+  SplitSemanticNodeRequest,
   SubmitApprovalRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
@@ -68,7 +77,10 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
+  UpdateSemanticNodeRequest,
+  UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowEvent,
@@ -416,10 +428,18 @@ export interface SettaAPI {
     attachWorkflowNode: (
       request: AttachSemanticNodeToWorkflowNodeRequest,
     ) => Promise<SemanticAttachmentResult>;
+    createEdge: (request: CreateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
+    createNode: (request: CreateSemanticNodeRequest) => Promise<SemanticMutationResult>;
+    createSteeringDirective: (
+      request: CreateSemanticSteeringDirectiveRequest,
+    ) => Promise<SemanticMutationResult>;
+    dismissNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
     endActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
     listActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
     listActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
     listEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
+    mergeNodes: (request: MergeSemanticNodesRequest) => Promise<SemanticMutationResult>;
+    promoteNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
     read: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
     readActivitySummary: (
       request: ReadSemanticActivitySummaryRequest,
@@ -431,9 +451,17 @@ export interface SettaAPI {
     readSteeringState: (
       request: ReadSemanticSteeringStateRequest,
     ) => Promise<SemanticSteeringState>;
+    removeEdge: (request: SemanticEdgeOperationRequest) => Promise<SemanticMutationResult>;
+    renameNode: (request: RenameSemanticNodeRequest) => Promise<SemanticMutationResult>;
+    splitNode: (request: SplitSemanticNodeRequest) => Promise<SemanticMutationResult>;
+    updateEdge: (request: UpdateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
     updateLayoutPositions: (
       request: UpdateSemanticLayoutPositionsRequest,
     ) => Promise<SemanticLayoutPositionList>;
+    updateNode: (request: UpdateSemanticNodeRequest) => Promise<SemanticMutationResult>;
+    updateSteeringDirective: (
+      request: UpdateSemanticSteeringDirectiveRequest,
+    ) => Promise<SemanticMutationResult>;
   };
   workflow: {
     cancelExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;

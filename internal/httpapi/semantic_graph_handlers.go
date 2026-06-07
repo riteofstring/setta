@@ -357,6 +357,285 @@ func (handler handler) endSemanticActivity(response http.ResponseWriter, request
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) renameSemanticNode(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload RenameSemanticNodeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.RenameNode(request.Context(), semanticgraph.RenameSemanticNodeInput{
+		WorkspaceID: payload.WorkspaceID,
+		NodeID:      payload.NodeID,
+		Label:       payload.Label,
+		Actor:       semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "rename_semantic_node_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) updateSemanticNode(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload UpdateSemanticNodeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.UpdateNode(request.Context(), semanticgraph.UpdateSemanticNodeInput{
+		WorkspaceID: payload.WorkspaceID,
+		NodeID:      payload.NodeID,
+		Kind:        payload.Kind,
+		Summary:     payload.Summary,
+		Actor:       semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "update_semantic_node_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) dismissSemanticNode(response http.ResponseWriter, request *http.Request) {
+	handler.semanticNodeOperation(response, request, "dismiss_semantic_node_failed", func(ctxRequest *http.Request, payload SemanticNodeOperationRequest) (semanticgraph.SemanticMutationResult, error) {
+		return handler.semanticGraphService.DismissNode(ctxRequest.Context(), semanticgraph.SemanticNodeOperationInput{
+			WorkspaceID: payload.WorkspaceID,
+			NodeID:      payload.NodeID,
+			Actor:       semanticGraphActor(payload.ActorKind, payload.ActorID),
+		})
+	})
+}
+
+func (handler handler) promoteSemanticNode(response http.ResponseWriter, request *http.Request) {
+	handler.semanticNodeOperation(response, request, "promote_semantic_node_failed", func(ctxRequest *http.Request, payload SemanticNodeOperationRequest) (semanticgraph.SemanticMutationResult, error) {
+		return handler.semanticGraphService.PromoteNode(ctxRequest.Context(), semanticgraph.SemanticNodeOperationInput{
+			WorkspaceID: payload.WorkspaceID,
+			NodeID:      payload.NodeID,
+			Actor:       semanticGraphActor(payload.ActorKind, payload.ActorID),
+		})
+	})
+}
+
+func (handler handler) semanticNodeOperation(response http.ResponseWriter, request *http.Request, errorCode string, run func(*http.Request, SemanticNodeOperationRequest) (semanticgraph.SemanticMutationResult, error)) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload SemanticNodeOperationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := run(request, payload)
+	if err != nil {
+		writeSemanticGraphError(response, errorCode, err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) splitSemanticNode(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload SplitSemanticNodeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SplitNode(request.Context(), semanticgraph.SplitSemanticNodeInput{
+		WorkspaceID:   payload.WorkspaceID,
+		SourceNodeID:  payload.SourceNodeID,
+		Nodes:         payload.Nodes,
+		Reassignments: payload.Reassignments,
+		Actor:         semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "split_semantic_node_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) mergeSemanticNodes(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload MergeSemanticNodesRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.MergeNodes(request.Context(), semanticgraph.MergeSemanticNodesInput{
+		WorkspaceID:   payload.WorkspaceID,
+		SourceNodeIDs: payload.SourceNodeIDs,
+		TargetNode:    payload.TargetNode,
+		Reassignments: payload.Reassignments,
+		Actor:         semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "merge_semantic_nodes_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) createSemanticNode(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload CreateSemanticNodeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.CreateUserNode(request.Context(), semanticgraph.CreateSemanticNodeInput{
+		WorkspaceID: payload.WorkspaceID,
+		NodeID:      payload.NodeID,
+		Kind:        payload.Kind,
+		Label:       payload.Label,
+		Summary:     payload.Summary,
+		Actor:       semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "create_semantic_node_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) createSemanticEdge(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload CreateSemanticEdgeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.CreateUserEdge(request.Context(), semanticgraph.CreateSemanticEdgeInput{
+		WorkspaceID: payload.WorkspaceID,
+		EdgeID:      payload.EdgeID,
+		Kind:        payload.Kind,
+		FromNodeID:  payload.FromNodeID,
+		ToNodeID:    payload.ToNodeID,
+		Label:       payload.Label,
+		Summary:     payload.Summary,
+		Actor:       semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "create_semantic_edge_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) updateSemanticEdge(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload UpdateSemanticEdgeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.UpdateEdge(request.Context(), semanticgraph.UpdateSemanticEdgeInput{
+		WorkspaceID: payload.WorkspaceID,
+		EdgeID:      payload.EdgeID,
+		Kind:        payload.Kind,
+		Label:       payload.Label,
+		Summary:     payload.Summary,
+		Actor:       semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "update_semantic_edge_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) removeSemanticEdge(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload SemanticEdgeOperationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.RemoveEdge(request.Context(), semanticgraph.SemanticEdgeOperationInput{
+		WorkspaceID: payload.WorkspaceID,
+		EdgeID:      payload.EdgeID,
+		Actor:       semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "remove_semantic_edge_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) createSemanticSteeringDirective(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload CreateSemanticSteeringDirectiveRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.CreateSteeringDirective(request.Context(), semanticgraph.CreateSteeringDirectiveInput{
+		WorkspaceID:             payload.WorkspaceID,
+		TargetEntityID:          payload.TargetEntityID,
+		Kind:                    payload.Kind,
+		Instruction:             payload.Instruction,
+		Scope:                   payload.Scope,
+		WorkflowDefinitionID:    payload.WorkflowDefinitionID,
+		WorkflowExecutionID:     payload.WorkflowExecutionID,
+		WorkflowNodeID:          payload.WorkflowNodeID,
+		WorkflowNodeExecutionID: payload.WorkflowNodeExecutionID,
+		ChatConversationID:      payload.ChatConversationID,
+		ChatRunID:               payload.ChatRunID,
+		ChatMessageID:           payload.ChatMessageID,
+		RunItemID:               payload.RunItemID,
+		Actor:                   semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "create_semantic_steering_directive_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) updateSemanticSteeringDirective(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload UpdateSemanticSteeringDirectiveRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.UpdateSteeringDirective(request.Context(), semanticgraph.UpdateSteeringDirectiveInput{
+		WorkspaceID:           payload.WorkspaceID,
+		DirectiveID:           payload.DirectiveID,
+		Instruction:           payload.Instruction,
+		Status:                payload.Status,
+		SupersedesDirectiveID: payload.SupersedesDirectiveID,
+		Actor:                 semanticGraphActor(payload.ActorKind, payload.ActorID),
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "update_semantic_steering_directive_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func semanticGraphActor(actorKind semanticgraph.SemanticActorKind, actorID string) semanticgraph.SemanticAttachmentActor {
 	return semanticgraph.SemanticAttachmentActor{ActorKind: actorKind, ActorID: actorID}
 }

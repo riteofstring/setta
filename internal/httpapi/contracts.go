@@ -428,6 +428,115 @@ type EndSemanticActivityRequest struct {
 	ActorID            string                          `json:"actorId"`
 }
 
+type RenameSemanticNodeRequest struct {
+	WorkspaceID string                          `json:"workspaceId"`
+	NodeID      string                          `json:"nodeId"`
+	Label       string                          `json:"label"`
+	ActorKind   semanticgraph.SemanticActorKind `json:"actorKind"`
+	ActorID     string                          `json:"actorId"`
+}
+
+type UpdateSemanticNodeRequest struct {
+	WorkspaceID string                          `json:"workspaceId"`
+	NodeID      string                          `json:"nodeId"`
+	Kind        *semanticgraph.SemanticNodeKind `json:"kind"`
+	Summary     *string                         `json:"summary"`
+	ActorKind   semanticgraph.SemanticActorKind `json:"actorKind"`
+	ActorID     string                          `json:"actorId"`
+}
+
+type SemanticNodeOperationRequest struct {
+	WorkspaceID string                          `json:"workspaceId"`
+	NodeID      string                          `json:"nodeId"`
+	ActorKind   semanticgraph.SemanticActorKind `json:"actorKind"`
+	ActorID     string                          `json:"actorId"`
+}
+
+type SplitSemanticNodeRequest struct {
+	WorkspaceID   string                                   `json:"workspaceId"`
+	SourceNodeID  string                                   `json:"sourceNodeId"`
+	Nodes         []semanticgraph.SemanticNodeSeedInput    `json:"nodes"`
+	Reassignments semanticgraph.SemanticReassignmentInputs `json:"reassignments"`
+	ActorKind     semanticgraph.SemanticActorKind          `json:"actorKind"`
+	ActorID       string                                   `json:"actorId"`
+}
+
+type MergeSemanticNodesRequest struct {
+	WorkspaceID   string                                   `json:"workspaceId"`
+	SourceNodeIDs []string                                 `json:"sourceNodeIds"`
+	TargetNode    semanticgraph.SemanticNodeSeedInput      `json:"targetNode"`
+	Reassignments semanticgraph.SemanticReassignmentInputs `json:"reassignments"`
+	ActorKind     semanticgraph.SemanticActorKind          `json:"actorKind"`
+	ActorID       string                                   `json:"actorId"`
+}
+
+type CreateSemanticNodeRequest struct {
+	WorkspaceID string                          `json:"workspaceId"`
+	NodeID      string                          `json:"nodeId"`
+	Kind        semanticgraph.SemanticNodeKind  `json:"kind"`
+	Label       string                          `json:"label"`
+	Summary     string                          `json:"summary"`
+	ActorKind   semanticgraph.SemanticActorKind `json:"actorKind"`
+	ActorID     string                          `json:"actorId"`
+}
+
+type CreateSemanticEdgeRequest struct {
+	WorkspaceID string                          `json:"workspaceId"`
+	EdgeID      string                          `json:"edgeId"`
+	Kind        semanticgraph.SemanticEdgeKind  `json:"kind"`
+	FromNodeID  string                          `json:"fromNodeId"`
+	ToNodeID    string                          `json:"toNodeId"`
+	Label       string                          `json:"label"`
+	Summary     string                          `json:"summary"`
+	ActorKind   semanticgraph.SemanticActorKind `json:"actorKind"`
+	ActorID     string                          `json:"actorId"`
+}
+
+type UpdateSemanticEdgeRequest struct {
+	WorkspaceID string                          `json:"workspaceId"`
+	EdgeID      string                          `json:"edgeId"`
+	Kind        *semanticgraph.SemanticEdgeKind `json:"kind"`
+	Label       *string                         `json:"label"`
+	Summary     *string                         `json:"summary"`
+	ActorKind   semanticgraph.SemanticActorKind `json:"actorKind"`
+	ActorID     string                          `json:"actorId"`
+}
+
+type SemanticEdgeOperationRequest struct {
+	WorkspaceID string                          `json:"workspaceId"`
+	EdgeID      string                          `json:"edgeId"`
+	ActorKind   semanticgraph.SemanticActorKind `json:"actorKind"`
+	ActorID     string                          `json:"actorId"`
+}
+
+type CreateSemanticSteeringDirectiveRequest struct {
+	WorkspaceID             string                              `json:"workspaceId"`
+	TargetEntityID          string                              `json:"targetEntityId"`
+	Kind                    semanticgraph.SemanticSteeringKind  `json:"kind"`
+	Instruction             string                              `json:"instruction"`
+	Scope                   semanticgraph.SemanticSteeringScope `json:"scope"`
+	WorkflowDefinitionID    string                              `json:"workflowDefinitionId"`
+	WorkflowExecutionID     string                              `json:"workflowExecutionId"`
+	WorkflowNodeID          string                              `json:"workflowNodeId"`
+	WorkflowNodeExecutionID string                              `json:"workflowNodeExecutionId"`
+	ChatConversationID      string                              `json:"chatConversationId"`
+	ChatRunID               string                              `json:"chatRunId"`
+	ChatMessageID           string                              `json:"chatMessageId"`
+	RunItemID               string                              `json:"runItemId"`
+	ActorKind               semanticgraph.SemanticActorKind     `json:"actorKind"`
+	ActorID                 string                              `json:"actorId"`
+}
+
+type UpdateSemanticSteeringDirectiveRequest struct {
+	WorkspaceID           string                                `json:"workspaceId"`
+	DirectiveID           string                                `json:"directiveId"`
+	Instruction           *string                               `json:"instruction"`
+	Status                *semanticgraph.SemanticSteeringStatus `json:"status"`
+	SupersedesDirectiveID string                                `json:"supersedesDirectiveId"`
+	ActorKind             semanticgraph.SemanticActorKind       `json:"actorKind"`
+	ActorID               string                                `json:"actorId"`
+}
+
 type CreateTerminalRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	PaneID      string `json:"paneId"`

@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 2
+	semanticStoreVersion = 3
 	sqliteDriverName     = "sqlite"
 )
 
@@ -236,6 +236,15 @@ CREATE TABLE IF NOT EXISTS semantic_evidence_anchors (
   text TEXT NOT NULL DEFAULT '',
   summary TEXT NOT NULL DEFAULT '',
   content_hash TEXT NOT NULL DEFAULT '',
+  workflow_definition_id TEXT NOT NULL DEFAULT '',
+  workflow_execution_id TEXT NOT NULL DEFAULT '',
+  workflow_node_id TEXT NOT NULL DEFAULT '',
+  workflow_node_execution_id TEXT NOT NULL DEFAULT '',
+  chat_conversation_id TEXT NOT NULL DEFAULT '',
+  chat_run_id TEXT NOT NULL DEFAULT '',
+  chat_message_id TEXT NOT NULL DEFAULT '',
+  run_item_id TEXT NOT NULL DEFAULT '',
+  reassigned_from_anchor_id TEXT NOT NULL DEFAULT '',
   created_by_event_id TEXT NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY(workspace_id, id)
@@ -253,11 +262,15 @@ CREATE TABLE IF NOT EXISTS semantic_activity_intervals (
   source_kind TEXT NOT NULL DEFAULT '',
   source_id TEXT NOT NULL DEFAULT '',
   evidence_anchor_id TEXT NOT NULL DEFAULT '',
+  workflow_definition_id TEXT NOT NULL DEFAULT '',
   workflow_execution_id TEXT NOT NULL DEFAULT '',
   workflow_node_id TEXT NOT NULL DEFAULT '',
+  workflow_node_execution_id TEXT NOT NULL DEFAULT '',
   chat_conversation_id TEXT NOT NULL DEFAULT '',
   chat_run_id TEXT NOT NULL DEFAULT '',
   chat_message_id TEXT NOT NULL DEFAULT '',
+  run_item_id TEXT NOT NULL DEFAULT '',
+  reassigned_from_interval_id TEXT NOT NULL DEFAULT '',
   actor_kind TEXT NOT NULL DEFAULT '',
   actor_id TEXT NOT NULL DEFAULT '',
   started_by_event_id TEXT NOT NULL,
@@ -284,17 +297,30 @@ CREATE TABLE IF NOT EXISTS semantic_steering_directives (
   workspace_id TEXT NOT NULL,
   id TEXT NOT NULL,
   target_entity_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
   instruction TEXT NOT NULL,
-  active INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  workflow_definition_id TEXT NOT NULL DEFAULT '',
+  workflow_execution_id TEXT NOT NULL DEFAULT '',
+  workflow_node_id TEXT NOT NULL DEFAULT '',
+  workflow_node_execution_id TEXT NOT NULL DEFAULT '',
+  chat_conversation_id TEXT NOT NULL DEFAULT '',
+  chat_run_id TEXT NOT NULL DEFAULT '',
+  chat_message_id TEXT NOT NULL DEFAULT '',
+  run_item_id TEXT NOT NULL DEFAULT '',
+  supersedes_directive_id TEXT NOT NULL DEFAULT '',
+  reassigned_from_directive_id TEXT NOT NULL DEFAULT '',
   created_by_event_id TEXT NOT NULL,
   updated_by_event_id TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+  completed_at TEXT NOT NULL DEFAULT '',
   PRIMARY KEY(workspace_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS semantic_steering_workspace_target_idx
-  ON semantic_steering_directives(workspace_id, target_entity_id, active DESC, updated_at DESC, id);
+  ON semantic_steering_directives(workspace_id, target_entity_id, status ASC, updated_at DESC, id);
 
 CREATE TABLE IF NOT EXISTS semantic_context_pack_history (
   workspace_id TEXT NOT NULL,

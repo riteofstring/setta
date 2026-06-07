@@ -232,8 +232,10 @@ func seedEvents(workspaceID string) []semanticgraph.SemanticEvent {
 		seedEvent(workspaceID, "semantic_seed_event_steering_created", semanticgraph.EventSteeringCreated, seedConstraintNodeID, 10, nil, steeringCreatedPayload{
 			DirectiveID:    "semantic_seed_steering_readonly",
 			TargetEntityID: seedConstraintNodeID,
+			Kind:           semanticgraph.SteeringKindFocus,
 			Instruction:    "Keep semantic graph rendering read-only except explicit layout positions.",
-			Active:         true,
+			Status:         semanticgraph.SteeringStatusActive,
+			Scope:          semanticgraph.SteeringScopeWorkspace,
 		}),
 		seedEvent(workspaceID, "semantic_seed_event_context_pack_created", semanticgraph.EventContextPackCreated, seedConstraintNodeID, 11, nil, contextPackCreatedPayload{
 			PackID:         "semantic_seed_context_phase2",
@@ -336,10 +338,12 @@ type activityStartedPayload struct {
 }
 
 type steeringCreatedPayload struct {
-	DirectiveID    string `json:"directiveId"`
-	TargetEntityID string `json:"targetEntityId"`
-	Instruction    string `json:"instruction"`
-	Active         bool   `json:"active"`
+	DirectiveID    string                               `json:"directiveId"`
+	TargetEntityID string                               `json:"targetEntityId"`
+	Kind           semanticgraph.SemanticSteeringKind   `json:"kind"`
+	Instruction    string                               `json:"instruction"`
+	Status         semanticgraph.SemanticSteeringStatus `json:"status"`
+	Scope          semanticgraph.SemanticSteeringScope  `json:"scope"`
 }
 
 type contextPackCreatedPayload struct {

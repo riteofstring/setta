@@ -53,8 +53,10 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventSteeringCreated, "node_scope", map[string]any{
 		"directiveId":    "steering_scope",
 		"targetEntityId": "node_scope",
+		"kind":           string(semanticgraph.SteeringKindFocus),
 		"instruction":    "Keep endpoint surface read-only",
-		"active":         true,
+		"status":         string(semanticgraph.SteeringStatusActive),
+		"scope":          string(semanticgraph.SteeringScopeWorkspace),
 	})
 
 	graph := postJSON[semanticgraph.SemanticGraph](t, handler, "/semantic-graph/read", ReadSemanticGraphRequest{
@@ -185,6 +187,133 @@ func TestSemanticGraphAttachmentEndpoints(t *testing.T) {
 	if len(history.Events) != 4 {
 		t.Fatalf("history = %+v, want node created plus attach/end events", history.Events)
 	}
+}
+
+func TestSemanticGraphMutationEndpoints(t *testing.T) {
+	handler, semanticService := newSemanticGraphHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	workspaceID := opened.Workspace.ID
+	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventNodeCreated, "node_source", map[string]any{
+		"nodeId": "node_source",
+		"kind":   string(semanticgraph.NodeKindFinding),
+		"label":  "Source node",
+	})
+
+	createdNode := postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/nodes/create", CreateSemanticNodeRequest{
+		WorkspaceID: workspaceID,
+		NodeID:      "node_constraint",
+		Kind:        semanticgraph.NodeKindConstraint,
+		Label:       "Explicit constraint",
+		Summary:     "Created through HTTP mutation endpoint",
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+	if createdNode.NodeDetail == nil || createdNode.NodeDetail.Node.Kind != semanticgraph.NodeKindConstraint {
+		t.Fatalf("created node = %+v, want constraint detail", createdNode.NodeDetail)
+	}
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/edges/create", CreateSemanticEdgeRequest{
+		WorkspaceID: workspaceID,
+		EdgeID:      "edge_constraint",
+		Kind:        semanticgraph.EdgeKindConstrains,
+		FromNodeID:  "node_constraint",
+		ToNodeID:    "node_source",
+		Label:       "constrains",
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+	edgeSummary := "Updated edge through HTTP"
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/edges/update", UpdateSemanticEdgeRequest{
+		WorkspaceID: workspaceID,
+		EdgeID:      "edge_constraint",
+		Summary:     &edgeSummary,
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/edges/remove", SemanticEdgeOperationRequest{
+		WorkspaceID: workspaceID,
+		EdgeID:      "edge_constraint",
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/nodes/rename", RenameSemanticNodeRequest{
+		WorkspaceID: workspaceID,
+		NodeID:      "node_source",
+		Label:       "Renamed source",
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+	nodeSummary := "Updated source through HTTP"
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/nodes/update", UpdateSemanticNodeRequest{
+		WorkspaceID: workspaceID,
+		NodeID:      "node_source",
+		Summary:     &nodeSummary,
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/nodes/promote", SemanticNodeOperationRequest{
+		WorkspaceID: workspaceID,
+		NodeID:      "node_source",
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/nodes/dismiss", SemanticNodeOperationRequest{
+		WorkspaceID: workspaceID,
+		NodeID:      "node_source",
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+
+	steering := postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/steering/create", CreateSemanticSteeringDirectiveRequest{
+		WorkspaceID:    workspaceID,
+		TargetEntityID: "node_source",
+		Kind:           semanticgraph.SteeringKindAvoid,
+		Instruction:    "Avoid this dismissed source",
+		Scope:          semanticgraph.SteeringScopeWorkspace,
+		ActorKind:      semanticgraph.ActorKindUser,
+		ActorID:        "user_http",
+	}, http.StatusOK)
+	if steering.NodeDetail == nil || len(steering.NodeDetail.SteeringDirectives) != 1 {
+		t.Fatalf("steering result = %+v, want one directive", steering.NodeDetail)
+	}
+	directiveID := steering.NodeDetail.SteeringDirectives[0].ID
+	dismissed := semanticgraph.SteeringStatusDismissed
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/steering/update", UpdateSemanticSteeringDirectiveRequest{
+		WorkspaceID: workspaceID,
+		DirectiveID: directiveID,
+		Status:      &dismissed,
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/nodes/split", SplitSemanticNodeRequest{
+		WorkspaceID:  workspaceID,
+		SourceNodeID: "node_constraint",
+		Nodes: []semanticgraph.SemanticNodeSeedInput{
+			{NodeID: "node_split_a", Kind: semanticgraph.NodeKindConstraint, Label: "Split A"},
+			{NodeID: "node_split_b", Kind: semanticgraph.NodeKindConstraint, Label: "Split B"},
+		},
+		ActorKind: semanticgraph.ActorKindUser,
+		ActorID:   "user_http",
+	}, http.StatusOK)
+	merged := postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/nodes/merge", MergeSemanticNodesRequest{
+		WorkspaceID:   workspaceID,
+		SourceNodeIDs: []string{"node_split_a", "node_split_b"},
+		TargetNode:    semanticgraph.SemanticNodeSeedInput{NodeID: "node_merged", Kind: semanticgraph.NodeKindDecision, Label: "Merged decision"},
+		ActorKind:     semanticgraph.ActorKindUser,
+		ActorID:       "user_http",
+	}, http.StatusOK)
+	if merged.NodeDetail == nil || merged.NodeDetail.Node.ID != "node_merged" {
+		t.Fatalf("merged result = %+v, want merged target detail", merged.NodeDetail)
+	}
+
+	postJSON[ErrorResponse](t, handler, "/semantic-graph/nodes/rename", RenameSemanticNodeRequest{
+		WorkspaceID: workspaceID,
+		NodeID:      "node_missing",
+		Label:       "Missing",
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusBadRequest)
 }
 
 func assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t *testing.T, handler http.Handler, workspaceID string) {

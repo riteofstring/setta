@@ -16,6 +16,9 @@ import type {
   CodexAccountState,
   Conversation,
   ConversationListItem,
+  CreateSemanticEdgeRequest,
+  CreateSemanticNodeRequest,
+  CreateSemanticSteeringDirectiveRequest,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
@@ -25,11 +28,13 @@ import type {
   ListConversationsResponse,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
+  MergeSemanticNodesRequest,
   MessagePage,
   OpenWorkspaceResponse,
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  RenameSemanticNodeRequest,
   ReadSemanticActivitySummaryRequest,
   ReadWorkflowGraphProjectionResponse,
   ReadSemanticEventHistoryRequest,
@@ -53,11 +58,15 @@ import type {
   SemanticActivityPage,
   SemanticActivitySummary,
   SemanticAttachmentResult,
+  SemanticEdgeOperationRequest,
   SemanticEventHistory,
   SemanticEvidenceList,
   SemanticGraph,
   SemanticLayoutPositionList,
+  SemanticMutationResult,
+  SemanticNodeOperationRequest,
   SemanticSteeringState,
+  SplitSemanticNodeRequest,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
@@ -68,7 +77,10 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateSemanticEdgeRequest,
   UpdateSemanticLayoutPositionsRequest,
+  UpdateSemanticNodeRequest,
+  UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowExecution,
@@ -135,12 +147,24 @@ export const ipcChannels = {
   semanticGraphAttachRunItem: "semantic-graph:attach-run-item",
   semanticGraphAttachWorkflowExecution: "semantic-graph:attach-workflow-execution",
   semanticGraphAttachWorkflowNode: "semantic-graph:attach-workflow-node",
+  semanticGraphCreateEdge: "semantic-graph:create-edge",
+  semanticGraphCreateNode: "semantic-graph:create-node",
+  semanticGraphCreateSteeringDirective: "semantic-graph:create-steering-directive",
+  semanticGraphDismissNode: "semantic-graph:dismiss-node",
   semanticGraphEventHistory: "semantic-graph:event-history",
   semanticGraphEvidenceList: "semantic-graph:evidence-list",
   semanticGraphLayoutUpdate: "semantic-graph:layout-update",
+  semanticGraphMergeNodes: "semantic-graph:merge-nodes",
   semanticGraphNodeDetail: "semantic-graph:node-detail",
+  semanticGraphPromoteNode: "semantic-graph:promote-node",
   semanticGraphRead: "semantic-graph:read",
+  semanticGraphRemoveEdge: "semantic-graph:remove-edge",
+  semanticGraphRenameNode: "semantic-graph:rename-node",
+  semanticGraphSplitNode: "semantic-graph:split-node",
   semanticGraphSteeringRead: "semantic-graph:steering-read",
+  semanticGraphUpdateEdge: "semantic-graph:update-edge",
+  semanticGraphUpdateNode: "semantic-graph:update-node",
+  semanticGraphUpdateSteeringDirective: "semantic-graph:update-steering-directive",
   workspaceBrowserViewStats: "workspace:browser-view-stats",
   workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   terminalAttach: "terminal:attach",
@@ -395,6 +419,22 @@ interface IpcContract {
     args: [request: AttachSemanticNodeToWorkflowNodeRequest];
     result: SemanticAttachmentResult;
   };
+  semanticGraphCreateEdge: {
+    args: [request: CreateSemanticEdgeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphCreateNode: {
+    args: [request: CreateSemanticNodeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphCreateSteeringDirective: {
+    args: [request: CreateSemanticSteeringDirectiveRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphDismissNode: {
+    args: [request: SemanticNodeOperationRequest];
+    result: SemanticMutationResult;
+  };
   semanticGraphEventHistory: {
     args: [request: ReadSemanticEventHistoryRequest];
     result: SemanticEventHistory;
@@ -407,17 +447,49 @@ interface IpcContract {
     args: [request: UpdateSemanticLayoutPositionsRequest];
     result: SemanticLayoutPositionList;
   };
+  semanticGraphMergeNodes: {
+    args: [request: MergeSemanticNodesRequest];
+    result: SemanticMutationResult;
+  };
   semanticGraphNodeDetail: {
     args: [request: ReadSemanticNodeDetailRequest];
     result: ReadSemanticNodeDetailResponse;
+  };
+  semanticGraphPromoteNode: {
+    args: [request: SemanticNodeOperationRequest];
+    result: SemanticMutationResult;
   };
   semanticGraphRead: {
     args: [request: ReadSemanticGraphRequest];
     result: SemanticGraph;
   };
+  semanticGraphRemoveEdge: {
+    args: [request: SemanticEdgeOperationRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphRenameNode: {
+    args: [request: RenameSemanticNodeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphSplitNode: {
+    args: [request: SplitSemanticNodeRequest];
+    result: SemanticMutationResult;
+  };
   semanticGraphSteeringRead: {
     args: [request: ReadSemanticSteeringStateRequest];
     result: SemanticSteeringState;
+  };
+  semanticGraphUpdateEdge: {
+    args: [request: UpdateSemanticEdgeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphUpdateNode: {
+    args: [request: UpdateSemanticNodeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphUpdateSteeringDirective: {
+    args: [request: UpdateSemanticSteeringDirectiveRequest];
+    result: SemanticMutationResult;
   };
   workspaceBrowserViewStats: {
     args: [];

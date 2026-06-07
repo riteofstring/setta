@@ -44,8 +44,12 @@ WHERE workspace_id = ? AND id = ?
 
 func loadSemanticSteeringDirectiveForProjection(ctx context.Context, tx *sql.Tx, workspaceID string, directiveID string) (SemanticSteeringDirective, bool, error) {
 	row := tx.QueryRowContext(ctx, `
-SELECT workspace_id, id, target_entity_id, instruction, active,
-       created_by_event_id, updated_by_event_id, created_at, updated_at
+SELECT workspace_id, id, target_entity_id, kind, instruction, status, scope,
+       workflow_definition_id, workflow_execution_id, workflow_node_id,
+       workflow_node_execution_id, chat_conversation_id, chat_run_id,
+       chat_message_id, run_item_id, supersedes_directive_id,
+       reassigned_from_directive_id, created_by_event_id, updated_by_event_id,
+       created_at, updated_at, completed_at
 FROM semantic_steering_directives
 WHERE workspace_id = ? AND id = ?
 `, workspaceID, directiveID)
@@ -174,21 +178,32 @@ func scanSemanticEdge(scanner interface{ Scan(dest ...any) error }) (SemanticEdg
 
 func scanSemanticSteeringDirective(scanner interface{ Scan(dest ...any) error }) (SemanticSteeringDirective, error) {
 	var directive SemanticSteeringDirective
-	var active int
 	if err := scanner.Scan(
 		&directive.WorkspaceID,
 		&directive.ID,
 		&directive.TargetEntityID,
+		&directive.Kind,
 		&directive.Instruction,
-		&active,
+		&directive.Status,
+		&directive.Scope,
+		&directive.WorkflowDefinitionID,
+		&directive.WorkflowExecutionID,
+		&directive.WorkflowNodeID,
+		&directive.WorkflowNodeExecutionID,
+		&directive.ChatConversationID,
+		&directive.ChatRunID,
+		&directive.ChatMessageID,
+		&directive.RunItemID,
+		&directive.SupersedesDirectiveID,
+		&directive.ReassignedFromDirectiveID,
 		&directive.CreatedByEventID,
 		&directive.UpdatedByEventID,
 		&directive.CreatedAt,
 		&directive.UpdatedAt,
+		&directive.CompletedAt,
 	); err != nil {
 		return SemanticSteeringDirective{}, err
 	}
-	directive.Active = boolFromInt(active)
 	return directive, nil
 }
 

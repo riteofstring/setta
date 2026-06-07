@@ -267,6 +267,33 @@ func isSemanticEvidenceSourceKind(kind SemanticEvidenceSourceKind) bool {
 	return false
 }
 
+func isSemanticSteeringKind(kind SemanticSteeringKind) bool {
+	for _, value := range semanticSteeringKindValues {
+		if kind == value {
+			return true
+		}
+	}
+	return false
+}
+
+func isSemanticSteeringStatus(status SemanticSteeringStatus) bool {
+	for _, value := range semanticSteeringStatusValues {
+		if status == value {
+			return true
+		}
+	}
+	return false
+}
+
+func isSemanticSteeringScope(scope SemanticSteeringScope) bool {
+	for _, value := range semanticSteeringScopeValues {
+		if scope == value {
+			return true
+		}
+	}
+	return false
+}
+
 func boolFromInt(value int) bool {
 	return value != 0
 }

@@ -21,6 +21,11 @@ describe("SemanticLoadedNodeDetails", () => {
     expect(html).toContain("run_detail");
     expect(html).toContain("validating");
     expect(html).toContain("Keep endpoint surface read-only");
+    expect(html).toContain("Edit And Steering");
+    expect(html).toContain("Rename");
+    expect(html).toContain("Add Constraint");
+    expect(html).toContain("Add Steering");
+    expect(html).toContain("Session Pin");
     expect(html).toContain("Context pack summary");
     expect(html).toContain("node.created");
   });
@@ -47,8 +52,12 @@ function detail(): SemanticNodeDetail {
         summary: "Checking semantic graph UI",
         targetEntityId: "node_contract",
         updatedAt: "2026-06-10T12:00:05Z",
+        workflowDefinitionId: "",
         workflowExecutionId: "",
         workflowNodeId: "",
+        workflowNodeExecutionId: "",
+        runItemId: "",
+        reassignedFromIntervalId: "",
         workspaceId: "workspace_test",
       },
     ],
@@ -79,6 +88,15 @@ function detail(): SemanticNodeDetail {
         text: "Evidence text",
         contentHash: "sha256:plan",
         uri: "",
+        workflowDefinitionId: "",
+        workflowExecutionId: "",
+        workflowNodeId: "",
+        workflowNodeExecutionId: "",
+        chatConversationId: "",
+        chatRunId: "",
+        chatMessageId: "",
+        runItemId: "",
+        reassignedFromAnchorId: "",
         workspaceId: "workspace_test",
       },
     ],
@@ -116,14 +134,27 @@ function detail(): SemanticNodeDetail {
     outgoingEdges: [],
     steeringDirectives: [
       {
-        active: true,
+        chatConversationId: "",
+        chatMessageId: "",
+        chatRunId: "",
+        completedAt: "",
         createdAt: "2026-06-10T12:00:06Z",
         createdByEventId: "event_steering",
         id: "steering_node",
         instruction: "Keep endpoint surface read-only",
+        kind: "focus",
+        reassignedFromDirectiveId: "",
+        runItemId: "",
+        scope: "workspace",
+        status: "active",
+        supersedesDirectiveId: "",
         targetEntityId: "node_contract",
         updatedAt: "2026-06-10T12:00:06Z",
         updatedByEventId: "event_steering",
+        workflowDefinitionId: "",
+        workflowExecutionId: "",
+        workflowNodeExecutionId: "",
+        workflowNodeId: "",
         workspaceId: "workspace_test",
       },
     ],
