@@ -556,11 +556,13 @@ describe("preload workspace API", () => {
       "endActivity",
       "listActivity",
       "listActivityPage",
+      "listContextPacks",
       "listEvidence",
       "mergeNodes",
       "promoteNode",
       "read",
       "readActivitySummary",
+      "readContextPack",
       "readEventHistory",
       "readNodeDetail",
       "readSteeringState",
@@ -593,7 +595,16 @@ describe("preload workspace API", () => {
       workflowNodeId: "",
       workspaceId,
     });
+    await api.semanticGraph.listContextPacks({
+      chatRunId: "",
+      limit: 10,
+      offset: 0,
+      targetEntityId: "node_api",
+      workflowExecutionId: "",
+      workspaceId,
+    });
     await api.semanticGraph.readActivitySummary({ recentLimit: 3, workspaceId });
+    await api.semanticGraph.readContextPack({ packId: "context_pack_api", workspaceId });
     await api.semanticGraph.readSteeringState({ targetEntityId: "node_api", workspaceId });
     await api.semanticGraph.readEventHistory({
       beforeLogicalClock: 0,
@@ -803,7 +814,19 @@ describe("preload workspace API", () => {
           workspaceId,
         },
       ],
+      [
+        ipcChannels.semanticGraphContextPackList,
+        {
+          chatRunId: "",
+          limit: 10,
+          offset: 0,
+          targetEntityId: "node_api",
+          workflowExecutionId: "",
+          workspaceId,
+        },
+      ],
       [ipcChannels.semanticGraphActivitySummary, { recentLimit: 3, workspaceId }],
+      [ipcChannels.semanticGraphContextPackRead, { packId: "context_pack_api", workspaceId }],
       [ipcChannels.semanticGraphSteeringRead, { targetEntityId: "node_api", workspaceId }],
       [
         ipcChannels.semanticGraphEventHistory,

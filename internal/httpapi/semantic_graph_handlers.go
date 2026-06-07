@@ -168,6 +168,51 @@ func (handler handler) readSemanticEventHistory(response http.ResponseWriter, re
 	writeJSON(response, http.StatusOK, history)
 }
 
+func (handler handler) readSemanticContextPack(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ReadSemanticContextPackRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	pack, ok, err := service.ReadContextPack(request.Context(), payload.WorkspaceID, payload.PackID)
+	if err != nil {
+		writeSemanticGraphError(response, "read_semantic_context_pack_failed", err)
+		return
+	}
+	if !ok {
+		writeJSON(response, http.StatusOK, semanticgraph.SemanticContextPackReadResponse{})
+		return
+	}
+	writeJSON(response, http.StatusOK, semanticgraph.SemanticContextPackReadResponse{Pack: &pack})
+}
+
+func (handler handler) listSemanticContextPacks(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ListSemanticContextPacksRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	packs, err := service.ListContextPacks(request.Context(), semanticgraph.SemanticContextPackFilter{
+		WorkspaceID:         payload.WorkspaceID,
+		TargetEntityID:      payload.TargetEntityID,
+		WorkflowExecutionID: payload.WorkflowExecutionID,
+		ChatRunID:           payload.ChatRunID,
+		Offset:              payload.Offset,
+		Limit:               payload.Limit,
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "list_semantic_context_packs_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, packs)
+}
+
 func (handler handler) updateSemanticLayoutPositions(response http.ResponseWriter, request *http.Request) {
 	service := requireSemanticGraphService(response, handler.semanticGraphService)
 	if service == nil {

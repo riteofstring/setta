@@ -92,6 +92,8 @@ var apiEndpoints = []endpoint{
 	post[ReadSemanticActivitySummaryRequest, semanticgraph.SemanticActivitySummary]("ReadSemanticActivitySummary", "/semantic-graph/activity/summary", handler.readSemanticActivitySummary),
 	post[ReadSemanticSteeringStateRequest, semanticgraph.SemanticSteeringState]("ReadSemanticSteeringState", "/semantic-graph/steering/read", handler.readSemanticSteeringState),
 	post[ReadSemanticEventHistoryRequest, semanticgraph.SemanticEventHistory]("ReadSemanticEventHistory", "/semantic-graph/events/history", handler.readSemanticEventHistory),
+	post[ReadSemanticContextPackRequest, semanticgraph.SemanticContextPackReadResponse]("ReadSemanticContextPack", "/semantic-graph/context-packs/read", handler.readSemanticContextPack),
+	post[ListSemanticContextPacksRequest, semanticgraph.SemanticContextPackList]("ListSemanticContextPacks", "/semantic-graph/context-packs/list", handler.listSemanticContextPacks),
 	post[UpdateSemanticLayoutPositionsRequest, semanticgraph.SemanticLayoutPositionList]("UpdateSemanticLayoutPositions", "/semantic-graph/layout/update", handler.updateSemanticLayoutPositions),
 	post[AttachSemanticNodeToWorkflowExecutionRequest, semanticgraph.SemanticAttachmentResult]("AttachSemanticNodeToWorkflowExecution", "/semantic-graph/attachments/workflow-execution", handler.attachSemanticNodeToWorkflowExecution),
 	post[AttachSemanticNodeToWorkflowNodeRequest, semanticgraph.SemanticAttachmentResult]("AttachSemanticNodeToWorkflowNode", "/semantic-graph/attachments/workflow-node", handler.attachSemanticNodeToWorkflowNode),

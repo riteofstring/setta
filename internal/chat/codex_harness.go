@@ -317,7 +317,7 @@ func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest
 	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnSteer, map[string]any{
 		"expectedTurnId": active.turnID,
 		"input": []map[string]any{{
-			"text": request.Text,
+			"text": deliveredSteeringText(request),
 			"type": "text",
 		}},
 		"threadId": active.threadID,
@@ -412,7 +412,7 @@ func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID str
 		"cwd":      request.Workspace.RootPath,
 		"threadId": threadID,
 		"input": []map[string]any{{
-			"text": request.Prompt,
+			"text": deliveredTurnPrompt(request),
 			"type": "text",
 		}},
 	}

@@ -78,6 +78,22 @@ export function registerSemanticGraphIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "semanticGraphContextPackRead",
+    async (_event, request) => {
+      return requireBackendClient().readSemanticContextPack(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphContextPackList",
+    async (_event, request) => {
+      return requireBackendClient().listSemanticContextPacks(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "semanticGraphLayoutUpdate",
     async (_event, request) => {
       return requireBackendClient().updateSemanticLayoutPositions(request);

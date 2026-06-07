@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"setta/internal/chat"
+	"setta/internal/semanticcontext"
 	"setta/internal/workspace"
 )
 
@@ -25,6 +26,7 @@ type Service struct {
 	events            *EventHub
 	runnerRegistry    RunnerRegistry
 	codexChatService  CodexChatService
+	semanticCompiler  semanticcontext.Compiler
 	chatSubscription  *chat.EventSubscription
 	newID             IDGenerator
 	now               func() time.Time
@@ -63,7 +65,7 @@ func NewService(store WorkflowStore, workspaceResolver WorkspaceResolver, option
 		option(service)
 	}
 	if service.codexChatService != nil {
-		runner, err := NewCodexActionRunner(service.codexChatService)
+		runner, err := NewCodexActionRunner(service.codexChatService, service.semanticCompiler)
 		if err != nil {
 			return nil, err
 		}
@@ -110,6 +112,28 @@ func WithCodexChatClient(chatService CodexChatService) Option {
 	return func(service *Service) {
 		service.codexChatService = chatService
 	}
+}
+
+func WithSemanticContextCompiler(compiler semanticcontext.Compiler) Option {
+	return func(service *Service) {
+		service.semanticCompiler = compiler
+	}
+}
+
+func (service *Service) SetSemanticContextCompiler(compiler semanticcontext.Compiler) error {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.semanticCompiler = compiler
+	if service.codexChatService == nil {
+		return nil
+	}
+	runner, err := NewCodexActionRunner(service.codexChatService, compiler)
+	if err != nil {
+		return err
+	}
+	service.runnerRegistry = service.runnerRegistry.WithRunner(runner)
+	return nil
 }
 
 func (service *Service) SubscribeEvents(cursor WorkflowEventCursor) (*EventSubscription, error) {

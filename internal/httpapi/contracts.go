@@ -349,6 +349,20 @@ type ReadSemanticEventHistoryRequest struct {
 	Limit              int    `json:"limit"`
 }
 
+type ReadSemanticContextPackRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PackID      string `json:"packId"`
+}
+
+type ListSemanticContextPacksRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	TargetEntityID      string `json:"targetEntityId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Offset              int    `json:"offset"`
+	Limit               int    `json:"limit"`
+}
+
 type UpdateSemanticLayoutPositionsRequest struct {
 	WorkspaceID string                                      `json:"workspaceId"`
 	Positions   []semanticgraph.SemanticLayoutPositionInput `json:"positions"`

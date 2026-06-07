@@ -32,6 +32,22 @@ const options = parseElectronHarnessArgs(process.argv.slice(2));
 const seedConstraintNodeId = "semantic_seed_constraint";
 const seedRendererNodeId = `semantic:${seedConstraintNodeId}`;
 const semanticNodeDragDelta = { x: 92, y: 44 };
+const semanticNodeDetailsRequiredText = [
+  "Deterministic layout writes stay read-only",
+  "supports",
+  "refutes",
+  "resolves",
+  "Phase 2 plan excerpt",
+  "validating",
+  "Keep semantic graph rendering read-only",
+  "context_pack.created",
+  "workflow_agent_start",
+  "Renderer read-only semantic graph surface",
+  "active workspace constraint",
+  "sha256:semantic_seed_delivered_context",
+  "Delivered Context",
+  "88",
+];
 
 if (options.help) {
   console.log(
@@ -86,6 +102,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="semantic-node-details-surface"]');
   await assertSemanticNodeDetails(context.client);
+  await assertSeedContextPackReadApis(context.client, workspaceId);
   await captureScreenshot(context.client, join(artifactDir, "semantic-details.png"));
 
   const attachment = await attachSemanticNodeToChatRun(context.client, workspaceId);
@@ -154,6 +171,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="semantic-node-details-surface"]');
   await assertSemanticNodeDetails(context.client);
+  await assertSeedContextPackReadApis(context.client, workspaceId);
   await assertSemanticAttachmentDetails(context.client, attachment);
   await assertSemanticEditingReadback(context.client, workspaceId, editing);
   await captureScreenshot(context.client, join(artifactDir, "semantic-attached-details.png"));
@@ -501,20 +519,52 @@ async function assertSemanticNodeDetails(client) {
   const details = await waitForState(
     client,
     `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
-    (value) =>
-      value.text.includes("Deterministic layout writes stay read-only") &&
-      value.text.includes("supports") &&
-      value.text.includes("refutes") &&
-      value.text.includes("resolves") &&
-      value.text.includes("Phase 2 plan excerpt") &&
-      value.text.includes("validating") &&
-      value.text.includes("Keep semantic graph rendering read-only") &&
-      value.text.includes("context_pack.created") &&
-      value.text.includes("88"),
+    (value) => textIncludesAll(value.text, semanticNodeDetailsRequiredText),
   );
   if (!details.text.includes("docs/plans/setta_semantic_work_graph_implementation_plan.md")) {
     throw new Error(`semantic node details omitted evidence path: ${details.text}`);
   }
+}
+
+async function assertSeedContextPackReadApis(client, workspaceId) {
+  const result = await client.evaluate(`(async () => {
+    const list = await window.setta.semanticGraph.listContextPacks({
+      chatRunId: "",
+      limit: 10,
+      offset: 0,
+      targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+      workflowExecutionId: "",
+      workspaceId: ${JSON.stringify(workspaceId)}
+    });
+    const pack = list.packs.find((candidate) => candidate.id === "semantic_seed_context_phase2");
+    const read = pack ? await window.setta.semanticGraph.readContextPack({
+      packId: pack.id,
+      workspaceId: ${JSON.stringify(workspaceId)}
+    }) : null;
+    return { list, read };
+  })()`);
+  const pack = result.read?.pack ?? null;
+  if (!isSeedContextPack(pack)) {
+    throw new Error(`semantic context pack read/list mismatch: ${JSON.stringify(result)}`);
+  }
+}
+
+function isSeedContextPack(pack) {
+  return Boolean(
+    pack &&
+    [
+      pack.id === "semantic_seed_context_phase2",
+      pack.triggerKind === "workflow_agent_start",
+      pack.targetEntityId === seedConstraintNodeId,
+      pack.itemCount === 1,
+      pack.items[0]?.title === "Renderer read-only semantic graph surface",
+      pack.deliveredContext.includes("Renderer read-only semantic graph surface"),
+    ].every(Boolean),
+  );
+}
+
+function textIncludesAll(text, expected) {
+  return expected.every((item) => text.includes(item));
 }
 
 async function assertSemanticAttachmentDetails(client, attachment) {

@@ -26,6 +26,7 @@ import type {
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ListConversationsResponse,
+  ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
   MergeSemanticNodesRequest,
@@ -36,6 +37,7 @@ import type {
   QueueRemoveResult,
   RenameSemanticNodeRequest,
   ReadSemanticActivitySummaryRequest,
+  ReadSemanticContextPackRequest,
   ReadWorkflowGraphProjectionResponse,
   ReadSemanticEventHistoryRequest,
   ReadSemanticGraphRequest,
@@ -58,6 +60,8 @@ import type {
   SemanticActivityPage,
   SemanticActivitySummary,
   SemanticAttachmentResult,
+  SemanticContextPackList,
+  SemanticContextPackReadResponse,
   SemanticEdgeOperationRequest,
   SemanticEventHistory,
   SemanticEvidenceList,
@@ -150,6 +154,8 @@ export const ipcChannels = {
   semanticGraphCreateEdge: "semantic-graph:create-edge",
   semanticGraphCreateNode: "semantic-graph:create-node",
   semanticGraphCreateSteeringDirective: "semantic-graph:create-steering-directive",
+  semanticGraphContextPackList: "semantic-graph:context-pack-list",
+  semanticGraphContextPackRead: "semantic-graph:context-pack-read",
   semanticGraphDismissNode: "semantic-graph:dismiss-node",
   semanticGraphEventHistory: "semantic-graph:event-history",
   semanticGraphEvidenceList: "semantic-graph:evidence-list",
@@ -430,6 +436,14 @@ interface IpcContract {
   semanticGraphCreateSteeringDirective: {
     args: [request: CreateSemanticSteeringDirectiveRequest];
     result: SemanticMutationResult;
+  };
+  semanticGraphContextPackList: {
+    args: [request: ListSemanticContextPacksRequest];
+    result: SemanticContextPackList;
+  };
+  semanticGraphContextPackRead: {
+    args: [request: ReadSemanticContextPackRequest];
+    result: SemanticContextPackReadResponse;
   };
   semanticGraphDismissNode: {
     args: [request: SemanticNodeOperationRequest];

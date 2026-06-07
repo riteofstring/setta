@@ -52,6 +52,7 @@ type FakeHarness struct {
 	model       string
 	reasoning   ReasoningEffort
 	steering    []SteerRequest
+	turns       []TurnRequest
 	approvalChs map[string]chan ApprovalResponse
 	steerChs    map[string]chan SteerRequest
 }
@@ -74,6 +75,10 @@ func NewFakeHarnessByPrompt(eventsByPrompt map[string][]FakeHarnessEvent) *FakeH
 }
 
 func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	harness.mu.Lock()
+	harness.turns = append(harness.turns, request)
+	harness.mu.Unlock()
+
 	events := harness.script(request)
 	harness.registerRun(request.Run.ID)
 	defer harness.unregisterRun(request.Run.ID)
@@ -363,6 +368,13 @@ func (harness *FakeHarness) SteeringRequests() []SteerRequest {
 	defer harness.mu.Unlock()
 
 	return append([]SteerRequest{}, harness.steering...)
+}
+
+func (harness *FakeHarness) TurnRequests() []TurnRequest {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	return append([]TurnRequest{}, harness.turns...)
 }
 
 func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {

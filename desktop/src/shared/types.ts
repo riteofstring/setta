@@ -25,6 +25,7 @@ import type {
   GetActiveRunResponse,
   ImmediateSteeringResult,
   ListConversationsResponse,
+  ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
   MergeSemanticNodesRequest,
@@ -35,6 +36,7 @@ import type {
   QueueRemoveResult,
   RenameSemanticNodeRequest,
   ReadSemanticActivitySummaryRequest,
+  ReadSemanticContextPackRequest,
   ReadSemanticEventHistoryRequest,
   ReadSemanticGraphRequest,
   ReadSemanticNodeDetailRequest,
@@ -55,6 +57,8 @@ import type {
   SemanticActivityPage,
   SemanticActivitySummary,
   SemanticAttachmentResult,
+  SemanticContextPackList,
+  SemanticContextPackReadResponse,
   SemanticEdgeOperationRequest,
   SemanticEventHistory,
   SemanticEvidenceList,
@@ -437,6 +441,9 @@ export interface SettaAPI {
     endActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
     listActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
     listActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
+    listContextPacks: (
+      request: ListSemanticContextPacksRequest,
+    ) => Promise<SemanticContextPackList>;
     listEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
     mergeNodes: (request: MergeSemanticNodesRequest) => Promise<SemanticMutationResult>;
     promoteNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
@@ -444,6 +451,9 @@ export interface SettaAPI {
     readActivitySummary: (
       request: ReadSemanticActivitySummaryRequest,
     ) => Promise<SemanticActivitySummary>;
+    readContextPack: (
+      request: ReadSemanticContextPackRequest,
+    ) => Promise<SemanticContextPackReadResponse>;
     readEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
     readNodeDetail: (
       request: ReadSemanticNodeDetailRequest,

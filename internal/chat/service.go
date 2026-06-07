@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/semanticcontext"
 	"setta/internal/workspace"
 )
 
@@ -29,6 +30,7 @@ type Service struct {
 	harness           Harness
 	workspaceResolver WorkspaceResolver
 	events            *EventHub
+	semanticCompiler  semanticcontext.Compiler
 	newID             func(prefix string) (string, error)
 	now               func() time.Time
 
@@ -111,6 +113,19 @@ func WithEventHub(events *EventHub) Option {
 	return func(service *Service) {
 		service.events = events
 	}
+}
+
+func WithSemanticContextCompiler(compiler semanticcontext.Compiler) Option {
+	return func(service *Service) {
+		service.semanticCompiler = compiler
+	}
+}
+
+func (service *Service) SetSemanticContextCompiler(compiler semanticcontext.Compiler) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.semanticCompiler = compiler
 }
 
 func (service *Service) SubscribeEvents(cursor EventCursor) (*EventSubscription, error) {

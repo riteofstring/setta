@@ -137,11 +137,17 @@ type steeringUpdatedPayload struct {
 }
 
 type contextPackCreatedPayload struct {
-	PackID         string `json:"packId"`
-	TargetEntityID string `json:"targetEntityId"`
-	Summary        string `json:"summary"`
-	Prompt         string `json:"prompt"`
-	ItemCount      int    `json:"itemCount"`
+	PackID               string                     `json:"packId"`
+	TriggerKind          SemanticContextTriggerKind `json:"triggerKind"`
+	TargetEntityID       string                     `json:"targetEntityId"`
+	SourceRefs           SemanticContextSourceRefs  `json:"sourceRefs"`
+	AuthoredPromptHash   string                     `json:"authoredPromptHash"`
+	DeliveredContextHash string                     `json:"deliveredContextHash"`
+	TokenBudget          int                        `json:"tokenBudget"`
+	EstimatedTokens      int                        `json:"estimatedTokens"`
+	ItemCount            int                        `json:"itemCount"`
+	Items                []SemanticContextPackItem  `json:"items"`
+	DeliveredContext     string                     `json:"deliveredContext"`
 }
 
 type constraintCheckRecordedPayload struct {
@@ -629,38 +635,6 @@ WHERE workspace_id = ? AND id = ? AND ended_at = '' AND (? = '' OR target_entity
 	return requireRowsAffected(result, "active semantic activity interval", payload.IntervalID)
 }
 
-func projectContextPackCreated(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {
-	payload, err := decodeStrictPayload[contextPackCreatedPayload](event)
-	if err != nil {
-		return err
-	}
-	if err := validateContextPackCreatedPayload(event, payload); err != nil {
-		return err
-	}
-	if err := requireSemanticEntity(ctx, tx, event.WorkspaceID, payload.TargetEntityID); err != nil {
-		return err
-	}
-	_, err = tx.ExecContext(ctx, `
-INSERT INTO semantic_context_pack_history (
-  workspace_id, id, target_entity_id, summary, prompt, item_count,
-  created_by_event_id, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`,
-		event.WorkspaceID,
-		payload.PackID,
-		payload.TargetEntityID,
-		payload.Summary,
-		payload.Prompt,
-		payload.ItemCount,
-		event.EventID,
-		event.ObservedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("record semantic context pack: %w", err)
-	}
-	return nil
-}
-
 func projectConstraintCheckRecorded(_ context.Context, _ *sql.Tx, event SemanticEvent) error {
 	payload, err := decodeStrictPayload[constraintCheckRecordedPayload](event)
 	if err != nil {
@@ -838,19 +812,6 @@ func validateSteeringCreatedPayload(event SemanticEvent, payload steeringCreated
 		return err
 	}
 	return requireNonEmpty(payload.Instruction, "steering instruction")
-}
-
-func validateContextPackCreatedPayload(event SemanticEvent, payload contextPackCreatedPayload) error {
-	if err := validateStoreIDs("context pack id", payload.PackID, "target entity id", payload.TargetEntityID); err != nil {
-		return err
-	}
-	if event.TargetEntityID != "" && event.TargetEntityID != payload.TargetEntityID {
-		return fmt.Errorf("semantic event %s targetEntityId = %s, want %s", event.EventID, event.TargetEntityID, payload.TargetEntityID)
-	}
-	if payload.ItemCount < 0 {
-		return fmt.Errorf("context pack itemCount must not be negative")
-	}
-	return nil
 }
 
 func insertSemanticNode(ctx context.Context, tx *sql.Tx, event SemanticEvent, payload nodeCreatedPayload, splitFromNodeID string, mergedIntoNodeID string) error {

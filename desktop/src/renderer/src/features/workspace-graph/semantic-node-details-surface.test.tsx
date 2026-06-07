@@ -26,7 +26,10 @@ describe("SemanticLoadedNodeDetails", () => {
     expect(html).toContain("Add Constraint");
     expect(html).toContain("Add Steering");
     expect(html).toContain("Session Pin");
-    expect(html).toContain("Context pack summary");
+    expect(html).toContain("workflow_agent_start");
+    expect(html).toContain("Context item title");
+    expect(html).toContain("active constraint");
+    expect(html).toContain("sha256:delivered");
     expect(html).toContain("node.created");
   });
 });
@@ -65,11 +68,53 @@ function detail(): SemanticNodeDetail {
       {
         createdAt: "2026-06-10T12:00:07Z",
         createdByEventId: "event_pack",
+        authoredPromptHash: "sha256:authored",
+        deliveredContext:
+          "Setta semantic context pack pack_node\n\n- Constraint: Context item title",
+        deliveredContextHash: "sha256:delivered",
         id: "pack_node",
-        itemCount: 2,
-        prompt: "Prompt text",
-        summary: "Context pack summary",
+        itemCount: 1,
+        items: [
+          {
+            activityIntervalId: "",
+            createdAt: "2026-06-10T12:00:06Z",
+            evidenceAnchorId: "evidence_node",
+            estimatedTokens: 24,
+            itemId: "pack_node_item_01",
+            kind: "constraint",
+            priority: "required",
+            reasonIncluded: "active constraint",
+            semanticNodeId: "node_contract",
+            sourceRefs: {
+              chatConversationId: "",
+              chatMessageId: "",
+              chatRunId: "run_detail",
+              runItemId: "",
+              workflowDefinitionId: "",
+              workflowExecutionId: "",
+              workflowNodeExecutionId: "",
+              workflowNodeId: "",
+            },
+            steeringDirectiveId: "",
+            summary: "Context pack summary",
+            title: "Context item title",
+            updatedAt: "2026-06-10T12:00:06Z",
+          },
+        ],
+        sourceRefs: {
+          chatConversationId: "",
+          chatMessageId: "",
+          chatRunId: "run_detail",
+          runItemId: "",
+          workflowDefinitionId: "",
+          workflowExecutionId: "",
+          workflowNodeExecutionId: "",
+          workflowNodeId: "",
+        },
         targetEntityId: "node_contract",
+        tokenBudget: 1200,
+        estimatedTokens: 42,
+        triggerKind: "workflow_agent_start",
         workspaceId: "workspace_test",
       },
     ],

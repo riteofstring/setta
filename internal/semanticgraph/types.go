@@ -14,6 +14,9 @@ type SemanticEvidenceSourceKind string
 type SemanticSteeringKind string
 type SemanticSteeringStatus string
 type SemanticSteeringScope string
+type SemanticContextTriggerKind string
+type SemanticContextPackItemKind string
+type SemanticContextPackPriority string
 
 const (
 	NodeKindConcept    SemanticNodeKind = "concept"
@@ -100,6 +103,27 @@ const (
 	SteeringScopeRun       SemanticSteeringScope = "run"
 	SteeringScopeSession   SemanticSteeringScope = "session"
 	SteeringScopeWorkspace SemanticSteeringScope = "workspace"
+
+	ContextTriggerWorkflowAgentStart      SemanticContextTriggerKind = "workflow_agent_start"
+	ContextTriggerSteering                SemanticContextTriggerKind = "steering"
+	ContextTriggerImmediateSteeringReplay SemanticContextTriggerKind = "immediate_steering_replay"
+	ContextTriggerPhaseBoundary           SemanticContextTriggerKind = "phase_boundary"
+	ContextTriggerAgentRequest            SemanticContextTriggerKind = "agent_request"
+
+	ContextPackItemConcept    SemanticContextPackItemKind = "concept"
+	ContextPackItemConstraint SemanticContextPackItemKind = "constraint"
+	ContextPackItemDecision   SemanticContextPackItemKind = "decision"
+	ContextPackItemQuestion   SemanticContextPackItemKind = "question"
+	ContextPackItemFinding    SemanticContextPackItemKind = "finding"
+	ContextPackItemSteering   SemanticContextPackItemKind = "steering"
+	ContextPackItemEvidence   SemanticContextPackItemKind = "evidence"
+	ContextPackItemActivity   SemanticContextPackItemKind = "activity"
+	ContextPackItemFile       SemanticContextPackItemKind = "file"
+
+	ContextPriorityBackground SemanticContextPackPriority = "background"
+	ContextPriorityRelevant   SemanticContextPackPriority = "relevant"
+	ContextPriorityImportant  SemanticContextPackPriority = "important"
+	ContextPriorityRequired   SemanticContextPackPriority = "required"
 )
 
 var (
@@ -198,6 +222,30 @@ var (
 		SteeringScopeSession,
 		SteeringScopeWorkspace,
 	}
+	semanticContextTriggerKindValues = []SemanticContextTriggerKind{
+		ContextTriggerWorkflowAgentStart,
+		ContextTriggerSteering,
+		ContextTriggerImmediateSteeringReplay,
+		ContextTriggerPhaseBoundary,
+		ContextTriggerAgentRequest,
+	}
+	semanticContextPackItemKindValues = []SemanticContextPackItemKind{
+		ContextPackItemConcept,
+		ContextPackItemConstraint,
+		ContextPackItemDecision,
+		ContextPackItemQuestion,
+		ContextPackItemFinding,
+		ContextPackItemSteering,
+		ContextPackItemEvidence,
+		ContextPackItemActivity,
+		ContextPackItemFile,
+	}
+	semanticContextPackPriorityValues = []SemanticContextPackPriority{
+		ContextPriorityBackground,
+		ContextPriorityRelevant,
+		ContextPriorityImportant,
+		ContextPriorityRequired,
+	}
 )
 
 type ContractValueSet struct {
@@ -217,6 +265,9 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticSteeringKind", Values: stringValues(semanticSteeringKindValues)},
 		{Name: "SemanticSteeringStatus", Values: stringValues(semanticSteeringStatusValues)},
 		{Name: "SemanticSteeringScope", Values: stringValues(semanticSteeringScopeValues)},
+		{Name: "SemanticContextTriggerKind", Values: stringValues(semanticContextTriggerKindValues)},
+		{Name: "SemanticContextPackItemKind", Values: stringValues(semanticContextPackItemKindValues)},
+		{Name: "SemanticContextPackPriority", Values: stringValues(semanticContextPackPriorityValues)},
 	}
 }
 
@@ -360,15 +411,71 @@ type SemanticSteeringDirective struct {
 	CompletedAt               string                 `json:"completedAt"`
 }
 
+type SemanticContextSourceRefs struct {
+	WorkflowDefinitionID    string `json:"workflowDefinitionId"`
+	WorkflowExecutionID     string `json:"workflowExecutionId"`
+	WorkflowNodeID          string `json:"workflowNodeId"`
+	WorkflowNodeExecutionID string `json:"workflowNodeExecutionId"`
+	ChatConversationID      string `json:"chatConversationId"`
+	ChatRunID               string `json:"chatRunId"`
+	ChatMessageID           string `json:"chatMessageId"`
+	RunItemID               string `json:"runItemId"`
+}
+
+type SemanticContextPackItem struct {
+	ItemID              string                      `json:"itemId"`
+	Kind                SemanticContextPackItemKind `json:"kind"`
+	SemanticNodeID      string                      `json:"semanticNodeId"`
+	EvidenceAnchorID    string                      `json:"evidenceAnchorId"`
+	ActivityIntervalID  string                      `json:"activityIntervalId"`
+	SteeringDirectiveID string                      `json:"steeringDirectiveId"`
+	SourceRefs          SemanticContextSourceRefs   `json:"sourceRefs"`
+	Title               string                      `json:"title"`
+	Summary             string                      `json:"summary"`
+	ReasonIncluded      string                      `json:"reasonIncluded"`
+	Priority            SemanticContextPackPriority `json:"priority"`
+	EstimatedTokens     int                         `json:"estimatedTokens"`
+	CreatedAt           string                      `json:"createdAt"`
+	UpdatedAt           string                      `json:"updatedAt"`
+}
+
 type SemanticContextPackRecord struct {
-	ID               string `json:"id"`
-	WorkspaceID      string `json:"workspaceId"`
-	TargetEntityID   string `json:"targetEntityId"`
-	Summary          string `json:"summary"`
-	Prompt           string `json:"prompt"`
-	ItemCount        int    `json:"itemCount"`
-	CreatedByEventID string `json:"createdByEventId"`
-	CreatedAt        string `json:"createdAt"`
+	ID                   string                     `json:"id"`
+	WorkspaceID          string                     `json:"workspaceId"`
+	TriggerKind          SemanticContextTriggerKind `json:"triggerKind"`
+	TargetEntityID       string                     `json:"targetEntityId"`
+	SourceRefs           SemanticContextSourceRefs  `json:"sourceRefs"`
+	AuthoredPromptHash   string                     `json:"authoredPromptHash"`
+	DeliveredContextHash string                     `json:"deliveredContextHash"`
+	TokenBudget          int                        `json:"tokenBudget"`
+	EstimatedTokens      int                        `json:"estimatedTokens"`
+	ItemCount            int                        `json:"itemCount"`
+	Items                []SemanticContextPackItem  `json:"items"`
+	DeliveredContext     string                     `json:"deliveredContext"`
+	CreatedByEventID     string                     `json:"createdByEventId"`
+	CreatedAt            string                     `json:"createdAt"`
+}
+
+type SemanticContextPackReadResponse struct {
+	Pack *SemanticContextPackRecord `json:"pack"`
+}
+
+type SemanticContextPackList struct {
+	WorkspaceID string                      `json:"workspaceId"`
+	Packs       []SemanticContextPackRecord `json:"packs"`
+	HasMore     bool                        `json:"hasMore"`
+	NextOffset  int                         `json:"nextOffset"`
+	Offset      int                         `json:"offset"`
+	Limit       int                         `json:"limit"`
+}
+
+type SemanticContextPackFilter struct {
+	WorkspaceID         string `json:"workspaceId"`
+	TargetEntityID      string `json:"targetEntityId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Offset              int    `json:"offset"`
+	Limit               int    `json:"limit"`
 }
 
 type SemanticLayoutPosition struct {

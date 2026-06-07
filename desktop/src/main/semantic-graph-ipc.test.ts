@@ -22,6 +22,8 @@ describe("semantic graph IPC handlers", () => {
 
     const request = { workspaceId: "workspace_api" };
     await invoke(handlers, ipcChannels.semanticGraphRead, request);
+    await invoke(handlers, ipcChannels.semanticGraphContextPackRead, request);
+    await invoke(handlers, ipcChannels.semanticGraphContextPackList, request);
     await invoke(handlers, ipcChannels.semanticGraphRenameNode, request);
     await invoke(handlers, ipcChannels.semanticGraphUpdateNode, request);
     await invoke(handlers, ipcChannels.semanticGraphDismissNode, request);
@@ -36,6 +38,8 @@ describe("semantic graph IPC handlers", () => {
     await invoke(handlers, ipcChannels.semanticGraphUpdateSteeringDirective, request);
 
     expect(backend.readSemanticGraph).toHaveBeenCalledWith(request);
+    expect(backend.readSemanticContextPack).toHaveBeenCalledWith(request);
+    expect(backend.listSemanticContextPacks).toHaveBeenCalledWith(request);
     expect(backend.renameSemanticNode).toHaveBeenCalledWith(request);
     expect(backend.updateSemanticNode).toHaveBeenCalledWith(request);
     expect(backend.dismissSemanticNode).toHaveBeenCalledWith(request);
@@ -69,8 +73,10 @@ function semanticBackendClient() {
     createSemanticNode: vi.fn(async () => ({})),
     createSemanticSteeringDirective: vi.fn(async () => ({})),
     dismissSemanticNode: vi.fn(async () => ({})),
+    listSemanticContextPacks: vi.fn(async () => ({})),
     mergeSemanticNodes: vi.fn(async () => ({})),
     promoteSemanticNode: vi.fn(async () => ({})),
+    readSemanticContextPack: vi.fn(async () => ({})),
     readSemanticGraph: vi.fn(async () => ({})),
     removeSemanticEdge: vi.fn(async () => ({})),
     renameSemanticNode: vi.fn(async () => ({})),

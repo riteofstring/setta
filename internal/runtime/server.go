@@ -188,6 +188,11 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
+	chatService.SetSemanticContextCompiler(semanticGraphService)
+	if err := workflowService.SetSemanticContextCompiler(semanticGraphService); err != nil {
+		_ = semanticGraphStore.Close()
+		return runtimeServices{}, fmt.Errorf("configure semantic context compiler: %w", err)
+	}
 	terminalService, err := newTerminalService(config.AppDataDir, workspaceService)
 	if err != nil {
 		_ = semanticGraphStore.Close()

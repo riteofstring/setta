@@ -22,6 +22,19 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
 	workspaceID := opened.Workspace.ID
 
+	seedHTTPSemanticReadFixture(t, semanticService, workspaceID)
+	assertSemanticGraphReadEndpoint(t, handler, workspaceID)
+	assertSemanticNodeDetailEndpoint(t, handler, workspaceID)
+	assertSemanticEvidenceEndpoint(t, handler, workspaceID)
+	assertSemanticActivityEndpoints(t, handler, workspaceID)
+	assertSemanticSteeringEndpoint(t, handler, workspaceID)
+	assertSemanticHistoryEndpoint(t, handler, workspaceID)
+	assertSemanticContextPackEndpoints(t, handler, workspaceID)
+	assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t, handler, workspaceID)
+}
+
+func seedHTTPSemanticReadFixture(t *testing.T, semanticService *semanticgraph.Service, workspaceID string) {
+	t.Helper()
 	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventNodeCreated, "node_scope", map[string]any{
 		"nodeId":  "node_scope",
 		"kind":    string(semanticgraph.NodeKindConstraint),
@@ -58,22 +71,54 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 		"status":         string(semanticgraph.SteeringStatusActive),
 		"scope":          string(semanticgraph.SteeringScopeWorkspace),
 	})
+	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventContextPackCreated, "node_scope", map[string]any{
+		"packId":               "pack_scope",
+		"triggerKind":          string(semanticgraph.ContextTriggerWorkflowAgentStart),
+		"targetEntityId":       "node_scope",
+		"sourceRefs":           map[string]any{"workflowExecutionId": "execution_scope"},
+		"authoredPromptHash":   "sha256:authored",
+		"deliveredContextHash": "sha256:delivered",
+		"tokenBudget":          200,
+		"estimatedTokens":      12,
+		"itemCount":            1,
+		"items": []map[string]any{{
+			"itemId":          "pack_scope_item_001",
+			"kind":            string(semanticgraph.ContextPackItemConstraint),
+			"semanticNodeId":  "node_scope",
+			"title":           "Phase 1 backend only",
+			"reasonIncluded":  "active workspace constraint",
+			"priority":        string(semanticgraph.ContextPriorityRequired),
+			"estimatedTokens": 6,
+			"createdAt":       "2026-06-10T12:00:06Z",
+			"updatedAt":       "2026-06-10T12:00:06Z",
+		}},
+		"deliveredContext": "Setta semantic context pack pack_scope\n- [required] Constraint: Phase 1 backend only",
+	})
+}
 
+func assertSemanticGraphReadEndpoint(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
 	graph := postJSON[semanticgraph.SemanticGraph](t, handler, "/semantic-graph/read", ReadSemanticGraphRequest{
 		WorkspaceID: workspaceID,
 	}, http.StatusOK)
 	if len(graph.Nodes) != 1 || graph.Nodes[0].ID != "node_scope" {
 		t.Fatalf("graph nodes = %+v, want node_scope", graph.Nodes)
 	}
+}
 
+func assertSemanticNodeDetailEndpoint(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
 	detail := postJSON[ReadSemanticNodeDetailResponse](t, handler, "/semantic-graph/nodes/detail", ReadSemanticNodeDetailRequest{
 		WorkspaceID: workspaceID,
 		NodeID:      "node_scope",
 	}, http.StatusOK)
-	if detail.Detail == nil || len(detail.Detail.Evidence) != 1 || len(detail.Detail.Activity) != 1 {
+	if detail.Detail == nil || len(detail.Detail.Evidence) != 1 || len(detail.Detail.Activity) != 1 || len(detail.Detail.ContextPackHistory) != 1 {
 		t.Fatalf("node detail = %+v, want evidence and activity", detail.Detail)
 	}
+}
 
+func assertSemanticEvidenceEndpoint(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
 	evidence := postJSON[semanticgraph.SemanticEvidenceList](t, handler, "/semantic-graph/evidence/list", ListSemanticEvidenceRequest{
 		WorkspaceID:    workspaceID,
 		TargetEntityID: "node_scope",
@@ -81,7 +126,10 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	if len(evidence.Evidence) != 1 || evidence.Evidence[0].ID != "evidence_scope" {
 		t.Fatalf("evidence = %+v, want evidence_scope", evidence.Evidence)
 	}
+}
 
+func assertSemanticActivityEndpoints(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
 	activity := postJSON[semanticgraph.SemanticActivityList](t, handler, "/semantic-graph/activity/list", ListSemanticActivityRequest{
 		WorkspaceID:    workspaceID,
 		TargetEntityID: "node_scope",
@@ -106,7 +154,10 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	if len(activitySummary.Targets) != 1 || len(activitySummary.Targets[0].RecentActivity) != 1 {
 		t.Fatalf("activity summary = %+v, want one recent activity", activitySummary)
 	}
+}
 
+func assertSemanticSteeringEndpoint(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
 	steering := postJSON[semanticgraph.SemanticSteeringState](t, handler, "/semantic-graph/steering/read", ReadSemanticSteeringStateRequest{
 		WorkspaceID:    workspaceID,
 		TargetEntityID: "node_scope",
@@ -114,18 +165,48 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	if len(steering.SteeringDirectives) != 1 || steering.SteeringDirectives[0].ID != "steering_scope" {
 		t.Fatalf("steering = %+v, want steering_scope", steering.SteeringDirectives)
 	}
+}
 
+func assertSemanticHistoryEndpoint(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
 	history := postJSON[semanticgraph.SemanticEventHistory](t, handler, "/semantic-graph/events/history", ReadSemanticEventHistoryRequest{
 		WorkspaceID:        workspaceID,
 		TargetEntityID:     "node_scope",
 		BeforeLogicalClock: 0,
 		Limit:              20,
 	}, http.StatusOK)
-	if len(history.Events) != 5 || history.Events[0].EventType != semanticgraph.EventNodeCreated {
-		t.Fatalf("history = %+v, want five target events in chronological order", history.Events)
+	if len(history.Events) != 6 || history.Events[0].EventType != semanticgraph.EventNodeCreated {
+		t.Fatalf("history = %+v, want six target events in chronological order", history.Events)
 	}
+}
 
-	assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t, handler, workspaceID)
+func assertSemanticContextPackEndpoints(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
+	pack := postJSON[semanticgraph.SemanticContextPackReadResponse](t, handler, "/semantic-graph/context-packs/read", ReadSemanticContextPackRequest{
+		WorkspaceID: workspaceID,
+		PackID:      "pack_scope",
+	}, http.StatusOK)
+	if pack.Pack == nil || pack.Pack.ID != "pack_scope" || len(pack.Pack.Items) != 1 {
+		t.Fatalf("context pack read = %+v, want pack_scope with item", pack.Pack)
+	}
+	packsByTarget := postJSON[semanticgraph.SemanticContextPackList](t, handler, "/semantic-graph/context-packs/list", ListSemanticContextPacksRequest{
+		WorkspaceID:    workspaceID,
+		TargetEntityID: "node_scope",
+		Offset:         0,
+		Limit:          10,
+	}, http.StatusOK)
+	if len(packsByTarget.Packs) != 1 || packsByTarget.Packs[0].ID != "pack_scope" {
+		t.Fatalf("context packs by target = %+v, want pack_scope", packsByTarget.Packs)
+	}
+	packsByWorkflow := postJSON[semanticgraph.SemanticContextPackList](t, handler, "/semantic-graph/context-packs/list", ListSemanticContextPacksRequest{
+		WorkspaceID:         workspaceID,
+		WorkflowExecutionID: "execution_scope",
+		Offset:              0,
+		Limit:               10,
+	}, http.StatusOK)
+	if len(packsByWorkflow.Packs) != 1 || packsByWorkflow.Packs[0].ID != "pack_scope" {
+		t.Fatalf("context packs by workflow = %+v, want pack_scope", packsByWorkflow.Packs)
+	}
 }
 
 func TestSemanticGraphAttachmentEndpoints(t *testing.T) {
@@ -339,7 +420,7 @@ func assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t *testing.T, handler 
 		BeforeLogicalClock: 0,
 		Limit:              20,
 	}, http.StatusOK)
-	if len(history.Events) != 5 {
+	if len(history.Events) != 6 {
 		t.Fatalf("history after layout update = %+v, want no appended semantic event", history.Events)
 	}
 }

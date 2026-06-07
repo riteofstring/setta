@@ -1372,6 +1372,78 @@ export function decodeSemanticSteeringScope(value: unknown, label = "SemanticSte
   }
 }
 
+export type SemanticContextTriggerKind = "workflow_agent_start" | "steering" | "immediate_steering_replay" | "phase_boundary" | "agent_request";
+
+export const semanticContextTriggerKindValues = ["workflow_agent_start", "steering", "immediate_steering_replay", "phase_boundary", "agent_request"] as const satisfies readonly SemanticContextTriggerKind[];
+
+export function decodeSemanticContextTriggerKind(value: unknown, label = "SemanticContextTriggerKind"): SemanticContextTriggerKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "workflow_agent_start":
+      return decoded;
+    case "steering":
+      return decoded;
+    case "immediate_steering_replay":
+      return decoded;
+    case "phase_boundary":
+      return decoded;
+    case "agent_request":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticContextPackItemKind = "concept" | "constraint" | "decision" | "question" | "finding" | "steering" | "evidence" | "activity" | "file";
+
+export const semanticContextPackItemKindValues = ["concept", "constraint", "decision", "question", "finding", "steering", "evidence", "activity", "file"] as const satisfies readonly SemanticContextPackItemKind[];
+
+export function decodeSemanticContextPackItemKind(value: unknown, label = "SemanticContextPackItemKind"): SemanticContextPackItemKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "concept":
+      return decoded;
+    case "constraint":
+      return decoded;
+    case "decision":
+      return decoded;
+    case "question":
+      return decoded;
+    case "finding":
+      return decoded;
+    case "steering":
+      return decoded;
+    case "evidence":
+      return decoded;
+    case "activity":
+      return decoded;
+    case "file":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticContextPackPriority = "background" | "relevant" | "important" | "required";
+
+export const semanticContextPackPriorityValues = ["background", "relevant", "important", "required"] as const satisfies readonly SemanticContextPackPriority[];
+
+export function decodeSemanticContextPackPriority(value: unknown, label = "SemanticContextPackPriority"): SemanticContextPackPriority {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "background":
+      return decoded;
+    case "relevant":
+      return decoded;
+    case "important":
+      return decoded;
+    case "required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SemanticEventType = "node.created" | "node.updated" | "node.renamed" | "node.dismissed" | "node.promoted" | "node.split" | "node.merged" | "edge.created" | "edge.updated" | "edge.removed" | "evidence.attached" | "activity.started" | "activity.ended" | "steering.created" | "steering.updated" | "context_pack.created" | "constraint_check.recorded";
 
 export const semanticEventTypeValues = ["node.created", "node.updated", "node.renamed", "node.dismissed", "node.promoted", "node.split", "node.merged", "edge.created", "edge.updated", "edge.removed", "evidence.attached", "activity.started", "activity.ended", "steering.created", "steering.updated", "context_pack.created", "constraint_check.recorded"] as const satisfies readonly SemanticEventType[];
@@ -2873,13 +2945,47 @@ export interface SemanticSteeringDirective {
   completedAt: string;
 }
 
+export interface SemanticContextSourceRefs {
+  workflowDefinitionId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  chatMessageId: string;
+  runItemId: string;
+}
+
+export interface SemanticContextPackItem {
+  itemId: string;
+  kind: SemanticContextPackItemKind;
+  semanticNodeId: string;
+  evidenceAnchorId: string;
+  activityIntervalId: string;
+  steeringDirectiveId: string;
+  sourceRefs: SemanticContextSourceRefs;
+  title: string;
+  summary: string;
+  reasonIncluded: string;
+  priority: SemanticContextPackPriority;
+  estimatedTokens: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SemanticContextPackRecord {
   id: string;
   workspaceId: string;
+  triggerKind: SemanticContextTriggerKind;
   targetEntityId: string;
-  summary: string;
-  prompt: string;
+  sourceRefs: SemanticContextSourceRefs;
+  authoredPromptHash: string;
+  deliveredContextHash: string;
+  tokenBudget: number;
+  estimatedTokens: number;
   itemCount: number;
+  items: SemanticContextPackItem[];
+  deliveredContext: string;
   createdByEventId: string;
   createdAt: string;
 }
@@ -3011,6 +3117,33 @@ export interface SemanticEventHistory {
   events: SemanticEvent[];
   hasMoreOlder: boolean;
   olderBeforeLogicalClock: number;
+}
+
+export interface ReadSemanticContextPackRequest {
+  workspaceId: string;
+  packId: string;
+}
+
+export interface SemanticContextPackReadResponse {
+  pack: SemanticContextPackRecord | null;
+}
+
+export interface ListSemanticContextPacksRequest {
+  workspaceId: string;
+  targetEntityId: string;
+  workflowExecutionId: string;
+  chatRunId: string;
+  offset: number;
+  limit: number;
+}
+
+export interface SemanticContextPackList {
+  workspaceId: string;
+  packs: SemanticContextPackRecord[];
+  hasMore: boolean;
+  nextOffset: number;
+  offset: number;
+  limit: number;
 }
 
 export interface SemanticLayoutPositionInput {
@@ -3999,6 +4132,14 @@ export const backendEndpoints = {
   ReadSemanticEventHistory: {
     method: "POST",
     path: "/semantic-graph/events/history",
+  },
+  ReadSemanticContextPack: {
+    method: "POST",
+    path: "/semantic-graph/context-packs/read",
+  },
+  ListSemanticContextPacks: {
+    method: "POST",
+    path: "/semantic-graph/context-packs/list",
   },
   UpdateSemanticLayoutPositions: {
     method: "POST",
@@ -5939,16 +6080,58 @@ export function decodeSemanticSteeringDirective(value: unknown): SemanticSteerin
   };
 }
 
+export function decodeSemanticContextSourceRefs(value: unknown): SemanticContextSourceRefs {
+  const record = assertRecord(value, "SemanticContextSourceRefs");
+  assertKnownFields(record, "SemanticContextSourceRefs", ["workflowDefinitionId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "chatMessageId", "runItemId"]);
+  return {
+    workflowDefinitionId: decodeString(requireField(record, "workflowDefinitionId", "SemanticContextSourceRefs"), "SemanticContextSourceRefs.workflowDefinitionId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticContextSourceRefs"), "SemanticContextSourceRefs.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "SemanticContextSourceRefs"), "SemanticContextSourceRefs.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "SemanticContextSourceRefs"), "SemanticContextSourceRefs.workflowNodeExecutionId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "SemanticContextSourceRefs"), "SemanticContextSourceRefs.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "SemanticContextSourceRefs"), "SemanticContextSourceRefs.chatRunId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "SemanticContextSourceRefs"), "SemanticContextSourceRefs.chatMessageId"),
+    runItemId: decodeString(requireField(record, "runItemId", "SemanticContextSourceRefs"), "SemanticContextSourceRefs.runItemId"),
+  };
+}
+
+export function decodeSemanticContextPackItem(value: unknown): SemanticContextPackItem {
+  const record = assertRecord(value, "SemanticContextPackItem");
+  assertKnownFields(record, "SemanticContextPackItem", ["itemId", "kind", "semanticNodeId", "evidenceAnchorId", "activityIntervalId", "steeringDirectiveId", "sourceRefs", "title", "summary", "reasonIncluded", "priority", "estimatedTokens", "createdAt", "updatedAt"]);
+  return {
+    itemId: decodeString(requireField(record, "itemId", "SemanticContextPackItem"), "SemanticContextPackItem.itemId"),
+    kind: decodeSemanticContextPackItemKind(requireField(record, "kind", "SemanticContextPackItem"), "SemanticContextPackItem.kind"),
+    semanticNodeId: decodeString(requireField(record, "semanticNodeId", "SemanticContextPackItem"), "SemanticContextPackItem.semanticNodeId"),
+    evidenceAnchorId: decodeString(requireField(record, "evidenceAnchorId", "SemanticContextPackItem"), "SemanticContextPackItem.evidenceAnchorId"),
+    activityIntervalId: decodeString(requireField(record, "activityIntervalId", "SemanticContextPackItem"), "SemanticContextPackItem.activityIntervalId"),
+    steeringDirectiveId: decodeString(requireField(record, "steeringDirectiveId", "SemanticContextPackItem"), "SemanticContextPackItem.steeringDirectiveId"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticContextPackItem")),
+    title: decodeString(requireField(record, "title", "SemanticContextPackItem"), "SemanticContextPackItem.title"),
+    summary: decodeString(requireField(record, "summary", "SemanticContextPackItem"), "SemanticContextPackItem.summary"),
+    reasonIncluded: decodeString(requireField(record, "reasonIncluded", "SemanticContextPackItem"), "SemanticContextPackItem.reasonIncluded"),
+    priority: decodeSemanticContextPackPriority(requireField(record, "priority", "SemanticContextPackItem"), "SemanticContextPackItem.priority"),
+    estimatedTokens: decodeInteger(requireField(record, "estimatedTokens", "SemanticContextPackItem"), "SemanticContextPackItem.estimatedTokens"),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticContextPackItem"), "SemanticContextPackItem.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticContextPackItem"), "SemanticContextPackItem.updatedAt"),
+  };
+}
+
 export function decodeSemanticContextPackRecord(value: unknown): SemanticContextPackRecord {
   const record = assertRecord(value, "SemanticContextPackRecord");
-  assertKnownFields(record, "SemanticContextPackRecord", ["id", "workspaceId", "targetEntityId", "summary", "prompt", "itemCount", "createdByEventId", "createdAt"]);
+  assertKnownFields(record, "SemanticContextPackRecord", ["id", "workspaceId", "triggerKind", "targetEntityId", "sourceRefs", "authoredPromptHash", "deliveredContextHash", "tokenBudget", "estimatedTokens", "itemCount", "items", "deliveredContext", "createdByEventId", "createdAt"]);
   return {
     id: decodeString(requireField(record, "id", "SemanticContextPackRecord"), "SemanticContextPackRecord.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticContextPackRecord"), "SemanticContextPackRecord.workspaceId"),
+    triggerKind: decodeSemanticContextTriggerKind(requireField(record, "triggerKind", "SemanticContextPackRecord"), "SemanticContextPackRecord.triggerKind"),
     targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticContextPackRecord"), "SemanticContextPackRecord.targetEntityId"),
-    summary: decodeString(requireField(record, "summary", "SemanticContextPackRecord"), "SemanticContextPackRecord.summary"),
-    prompt: decodeString(requireField(record, "prompt", "SemanticContextPackRecord"), "SemanticContextPackRecord.prompt"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "SemanticContextPackRecord")),
+    authoredPromptHash: decodeString(requireField(record, "authoredPromptHash", "SemanticContextPackRecord"), "SemanticContextPackRecord.authoredPromptHash"),
+    deliveredContextHash: decodeString(requireField(record, "deliveredContextHash", "SemanticContextPackRecord"), "SemanticContextPackRecord.deliveredContextHash"),
+    tokenBudget: decodeInteger(requireField(record, "tokenBudget", "SemanticContextPackRecord"), "SemanticContextPackRecord.tokenBudget"),
+    estimatedTokens: decodeInteger(requireField(record, "estimatedTokens", "SemanticContextPackRecord"), "SemanticContextPackRecord.estimatedTokens"),
     itemCount: decodeInteger(requireField(record, "itemCount", "SemanticContextPackRecord"), "SemanticContextPackRecord.itemCount"),
+    items: decodeArray(requireField(record, "items", "SemanticContextPackRecord"), "SemanticContextPackRecord.items", (item) => decodeSemanticContextPackItem(item)),
+    deliveredContext: decodeString(requireField(record, "deliveredContext", "SemanticContextPackRecord"), "SemanticContextPackRecord.deliveredContext"),
     createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticContextPackRecord"), "SemanticContextPackRecord.createdByEventId"),
     createdAt: decodeString(requireField(record, "createdAt", "SemanticContextPackRecord"), "SemanticContextPackRecord.createdAt"),
   };
@@ -6144,6 +6327,49 @@ export function decodeSemanticEventHistory(value: unknown): SemanticEventHistory
     events: decodeArray(requireField(record, "events", "SemanticEventHistory"), "SemanticEventHistory.events", (item) => decodeSemanticEvent(item)),
     hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "SemanticEventHistory"), "SemanticEventHistory.hasMoreOlder"),
     olderBeforeLogicalClock: decodeInteger(requireField(record, "olderBeforeLogicalClock", "SemanticEventHistory"), "SemanticEventHistory.olderBeforeLogicalClock"),
+  };
+}
+
+export function decodeReadSemanticContextPackRequest(value: unknown): ReadSemanticContextPackRequest {
+  const record = assertRecord(value, "ReadSemanticContextPackRequest");
+  assertKnownFields(record, "ReadSemanticContextPackRequest", ["workspaceId", "packId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticContextPackRequest"), "ReadSemanticContextPackRequest.workspaceId"),
+    packId: decodeString(requireField(record, "packId", "ReadSemanticContextPackRequest"), "ReadSemanticContextPackRequest.packId"),
+  };
+}
+
+export function decodeSemanticContextPackReadResponse(value: unknown): SemanticContextPackReadResponse {
+  const record = assertRecord(value, "SemanticContextPackReadResponse");
+  assertKnownFields(record, "SemanticContextPackReadResponse", ["pack"]);
+  return {
+    pack: decodeNullable(requireField(record, "pack", "SemanticContextPackReadResponse"), "SemanticContextPackReadResponse.pack", (item) => decodeSemanticContextPackRecord(item)),
+  };
+}
+
+export function decodeListSemanticContextPacksRequest(value: unknown): ListSemanticContextPacksRequest {
+  const record = assertRecord(value, "ListSemanticContextPacksRequest");
+  assertKnownFields(record, "ListSemanticContextPacksRequest", ["workspaceId", "targetEntityId", "workflowExecutionId", "chatRunId", "offset", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListSemanticContextPacksRequest"), "ListSemanticContextPacksRequest.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "ListSemanticContextPacksRequest"), "ListSemanticContextPacksRequest.targetEntityId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "ListSemanticContextPacksRequest"), "ListSemanticContextPacksRequest.workflowExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "ListSemanticContextPacksRequest"), "ListSemanticContextPacksRequest.chatRunId"),
+    offset: decodeInteger(requireField(record, "offset", "ListSemanticContextPacksRequest"), "ListSemanticContextPacksRequest.offset"),
+    limit: decodeInteger(requireField(record, "limit", "ListSemanticContextPacksRequest"), "ListSemanticContextPacksRequest.limit"),
+  };
+}
+
+export function decodeSemanticContextPackList(value: unknown): SemanticContextPackList {
+  const record = assertRecord(value, "SemanticContextPackList");
+  assertKnownFields(record, "SemanticContextPackList", ["workspaceId", "packs", "hasMore", "nextOffset", "offset", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticContextPackList"), "SemanticContextPackList.workspaceId"),
+    packs: decodeArray(requireField(record, "packs", "SemanticContextPackList"), "SemanticContextPackList.packs", (item) => decodeSemanticContextPackRecord(item)),
+    hasMore: decodeBoolean(requireField(record, "hasMore", "SemanticContextPackList"), "SemanticContextPackList.hasMore"),
+    nextOffset: decodeInteger(requireField(record, "nextOffset", "SemanticContextPackList"), "SemanticContextPackList.nextOffset"),
+    offset: decodeInteger(requireField(record, "offset", "SemanticContextPackList"), "SemanticContextPackList.offset"),
+    limit: decodeInteger(requireField(record, "limit", "SemanticContextPackList"), "SemanticContextPackList.limit"),
   };
 }
 
@@ -7271,6 +7497,8 @@ export interface BackendClient {
   readSemanticActivitySummary: (request: ReadSemanticActivitySummaryRequest) => Promise<SemanticActivitySummary>;
   readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest) => Promise<SemanticSteeringState>;
   readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
+  readSemanticContextPack: (request: ReadSemanticContextPackRequest) => Promise<SemanticContextPackReadResponse>;
+  listSemanticContextPacks: (request: ListSemanticContextPacksRequest) => Promise<SemanticContextPackList>;
   updateSemanticLayoutPositions: (request: UpdateSemanticLayoutPositionsRequest) => Promise<SemanticLayoutPositionList>;
   attachSemanticNodeToWorkflowExecution: (request: AttachSemanticNodeToWorkflowExecutionRequest) => Promise<SemanticAttachmentResult>;
   attachSemanticNodeToWorkflowNode: (request: AttachSemanticNodeToWorkflowNodeRequest) => Promise<SemanticAttachmentResult>;
@@ -7747,6 +7975,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticEventHistory,
       endpoint: backendEndpoints.ReadSemanticEventHistory,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticContextPack: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticContextPackReadResponse,
+      endpoint: backendEndpoints.ReadSemanticContextPack,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listSemanticContextPacks: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticContextPackList,
+      endpoint: backendEndpoints.ListSemanticContextPacks,
       fetchImpl,
       requestPayload: request,
     }),

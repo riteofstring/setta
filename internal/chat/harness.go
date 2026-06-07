@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"setta/internal/semanticcontext"
 	"setta/internal/workspace"
 )
 
@@ -37,11 +38,12 @@ type TurnCompletion struct {
 }
 
 type TurnRequest struct {
-	Workspace    workspace.WorkspaceSummary
-	Conversation Conversation
-	Run          Run
-	Prompt       string
-	ThreadRef    HarnessThreadRef
+	Workspace       workspace.WorkspaceSummary
+	Conversation    Conversation
+	Run             Run
+	Prompt          string
+	SemanticContext *semanticcontext.Delivery
+	ThreadRef       HarnessThreadRef
 }
 
 type CancelRequest struct {
@@ -51,12 +53,13 @@ type CancelRequest struct {
 }
 
 type SteerRequest struct {
-	RunID          string
-	WorkspaceID    string
-	ConversationID string
-	ThreadID       string
-	TurnID         string
-	Text           string
+	RunID           string
+	WorkspaceID     string
+	ConversationID  string
+	ThreadID        string
+	TurnID          string
+	Text            string
+	SemanticContext *semanticcontext.Delivery
 }
 
 type ApprovalResponse struct {

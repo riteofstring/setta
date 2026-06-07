@@ -21,6 +21,8 @@ import {
 } from "./chat-workflow-harness.mjs";
 
 const reviewerNodeIds = ["review_a", "review_b", "review_c"];
+const workflowSemanticContextNodeId = "semantic_e2e_workflow_context";
+const workflowSemanticContextTitle = "Workflow E2E semantic context constraint";
 
 export async function runBackendOrchestratorWorkflowLaunch(results, recordingRoot) {
   const fixture = await createFixture("backend-orchestrator");
@@ -73,6 +75,7 @@ async function exerciseBackendOrchestratorFirstLaunch({
   const backend = await backendProbe(firstRecording);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   await createChat(context.client, backend, workspaceId);
+  await seedWorkflowSemanticContext(context.client, workspaceId);
 
   await runOrchestratorStep(results, "backend-orchestrator-success", async () => {
     await runPhase4WorkflowSuccess(context.client, backend, firstRecording, workspaceId);
@@ -177,6 +180,8 @@ async function assertBackendOrchestratorRecordingEvidence(firstRecording, second
       "/chat/conversations/list",
       "/chat/messages/page",
       "/chat/runs/list",
+      "/semantic-graph/context-packs/list",
+      "/semantic-graph/context-packs/read",
     ],
     ipcChannels: [
       "workspace:open-local-folder",
@@ -190,6 +195,8 @@ async function assertBackendOrchestratorRecordingEvidence(firstRecording, second
       "workflow:graph-projection",
       "workflow:submit-approval",
       "workflow:cancel-execution",
+      "semantic-graph:context-pack-list",
+      "semantic-graph:context-pack-read",
     ],
   });
   await assertRecordingEvidence(secondRecording, {
@@ -244,6 +251,7 @@ async function runPhase4WorkflowSuccess(client, backend, recordingDir, workspace
   assertNodeExecutionCount(execution, "guard", 1);
   assertStructuredPhase4Routing(execution);
   await assertFreshWorkflowConversations(backend, workspaceId, execution, reviewerNodeIds);
+  await assertWorkflowAgentSemanticContextPacks(client, workspaceId, execution);
 
   const page = await rendererWorkflow(client, "executionEvents", [
     workspaceId,
@@ -385,6 +393,7 @@ async function runLateGatewayArrivalWorkflow(client, backend, workspaceId) {
     started.id,
     (value) => value.status === "completed",
   );
+  await assertSteeringSemanticContextPack(client, workspaceId, started.id, slow);
   assertWorkflowTerminal(execution, "completed", "end_reached");
   assertNodeStatus(execution, "fast", "succeeded");
   assertNodeStatus(execution, "slow", "succeeded");
@@ -417,6 +426,20 @@ async function startWorkflowWithPushedEvent({
   } finally {
     await stream.close();
   }
+}
+
+async function seedWorkflowSemanticContext(client, workspaceId) {
+  await rendererSemanticGraph(client, "createNode", [
+    {
+      actorId: "semantic_e2e_workflow",
+      actorKind: "user",
+      kind: "constraint",
+      label: workflowSemanticContextTitle,
+      nodeId: workflowSemanticContextNodeId,
+      summary: "Deterministic context that workflow agents should receive.",
+      workspaceId,
+    },
+  ]);
 }
 
 async function runPhase4WorkflowLimitPolicies(client, workspaceId) {
@@ -499,6 +522,12 @@ async function startPhase4WorkflowForRecovery(client, workspaceId) {
 async function rendererWorkflow(client, method, args) {
   return client.evaluate(
     `window.setta.workflow[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
+  );
+}
+
+async function rendererSemanticGraph(client, method, args) {
+  return client.evaluate(
+    `window.setta.semanticGraph[${JSON.stringify(method)}](...${JSON.stringify(args)})`,
   );
 }
 
@@ -626,6 +655,93 @@ async function assertWorkflowConversationMetadata(
   ) {
     throw new Error(`conversation ${conversationId} workflow metadata mismatch`);
   }
+  const leakedContext = page.messages.find(
+    (message) =>
+      message.role === "user" && chatMessageText(message).includes("Setta semantic context pack"),
+  );
+  if (leakedContext) {
+    throw new Error(
+      `semantic context was persisted into authored workflow prompt: ${JSON.stringify(leakedContext)}`,
+    );
+  }
+}
+
+async function assertWorkflowAgentSemanticContextPacks(client, workspaceId, execution) {
+  const list = await rendererSemanticGraph(client, "listContextPacks", [
+    {
+      chatRunId: "",
+      limit: 100,
+      offset: 0,
+      targetEntityId: "",
+      workflowExecutionId: execution.id,
+      workspaceId,
+    },
+  ]);
+  const pack = list.packs.find(
+    (candidate) =>
+      candidate.triggerKind === "workflow_agent_start" &&
+      candidate.sourceRefs.workflowExecutionId === execution.id &&
+      candidate.items.some((item) => item.title === workflowSemanticContextTitle),
+  );
+  if (!pack) {
+    throw new Error(`workflow semantic context pack missing: ${JSON.stringify(list)}`);
+  }
+  assertSemanticContextPackAudit(pack, {
+    triggerKind: "workflow_agent_start",
+    workspaceId,
+  });
+  const read = await rendererSemanticGraph(client, "readContextPack", [
+    { packId: pack.id, workspaceId },
+  ]);
+  if (
+    !read.pack ||
+    read.pack.id !== pack.id ||
+    !read.pack.deliveredContext.includes(workflowSemanticContextTitle)
+  ) {
+    throw new Error(`workflow semantic context pack read mismatch: ${JSON.stringify(read)}`);
+  }
+}
+
+async function assertSteeringSemanticContextPack(client, workspaceId, executionId, nodeExecution) {
+  const chatRunId = runnerRef(nodeExecution, "chat.run");
+  const list = await rendererSemanticGraph(client, "listContextPacks", [
+    {
+      chatRunId,
+      limit: 20,
+      offset: 0,
+      targetEntityId: "",
+      workflowExecutionId: "",
+      workspaceId,
+    },
+  ]);
+  const pack = list.packs.find(
+    (candidate) =>
+      candidate.triggerKind === "steering" &&
+      candidate.sourceRefs.chatRunId === chatRunId &&
+      candidate.sourceRefs.workflowExecutionId === executionId &&
+      candidate.items.some((item) => item.title === workflowSemanticContextTitle),
+  );
+  if (!pack) {
+    throw new Error(`steering semantic context pack missing: ${JSON.stringify(list)}`);
+  }
+  assertSemanticContextPackAudit(pack, {
+    triggerKind: "steering",
+    workspaceId,
+  });
+}
+
+function assertSemanticContextPackAudit(pack, expected) {
+  if (
+    pack.workspaceId !== expected.workspaceId ||
+    pack.triggerKind !== expected.triggerKind ||
+    pack.authoredPromptHash === "" ||
+    pack.deliveredContextHash === "" ||
+    pack.itemCount !== pack.items.length ||
+    pack.items.length === 0 ||
+    !pack.deliveredContext.includes(workflowSemanticContextTitle)
+  ) {
+    throw new Error(`semantic context pack audit mismatch: ${JSON.stringify(pack)}`);
+  }
 }
 
 function assertStructuredPhase4Routing(execution) {
@@ -721,6 +837,10 @@ function runnerRef(nodeExecution, kind) {
 
 function signalValue(signals, name) {
   return signals.find((signal) => signal.name === name)?.value ?? "";
+}
+
+function chatMessageText(message) {
+  return message.parts.map((part) => part.text).join("");
 }
 
 function phase4WorkflowGraph({ limitPolicy, maxIterations }) {

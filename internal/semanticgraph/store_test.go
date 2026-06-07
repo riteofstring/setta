@@ -2,10 +2,14 @@ package semanticgraph
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 const (
@@ -222,11 +226,25 @@ func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 		Status:      &completedStatus,
 	})
 	appendTestEvent(t, store, EventContextPackCreated, "node_a", contextPackCreatedPayload{
-		PackID:         "pack_a",
-		TargetEntityID: "node_a",
-		Summary:        "Backend foundation context",
-		Prompt:         "Summarize phase 1",
-		ItemCount:      3,
+		PackID:               "pack_a",
+		TriggerKind:          ContextTriggerWorkflowAgentStart,
+		TargetEntityID:       "node_a",
+		AuthoredPromptHash:   "sha256:authored",
+		DeliveredContextHash: "sha256:delivered",
+		TokenBudget:          200,
+		EstimatedTokens:      20,
+		ItemCount:            1,
+		Items: []SemanticContextPackItem{{
+			ItemID:         "pack_a_item_001",
+			Kind:           ContextPackItemConstraint,
+			SemanticNodeID: "node_a",
+			Title:          "No renderer changes",
+			ReasonIncluded: "active constraint",
+			Priority:       ContextPriorityRequired,
+			CreatedAt:      testTimestamp(7),
+			UpdatedAt:      testTimestamp(7),
+		}},
+		DeliveredContext: "Setta semantic context pack pack_a\n- [required] Constraint: No renderer changes",
 	})
 	appendTestEvent(t, store, EventConstraintCheckRecorded, "node_a", constraintCheckRecordedPayload{
 		CheckID:        "check_a",
@@ -263,8 +281,11 @@ func assertStoreNodeDetailProjection(t *testing.T, store *Store, ctx context.Con
 	if len(detail.SteeringDirectives) != 1 || detail.SteeringDirectives[0].Status != SteeringStatusCompleted || detail.SteeringDirectives[0].CompletedAt == "" {
 		t.Fatalf("detail steering = %+v, want completed updated directive", detail.SteeringDirectives)
 	}
-	if len(detail.ContextPackHistory) != 1 || detail.ContextPackHistory[0].ItemCount != 3 {
-		t.Fatalf("detail context packs = %+v, want one three-item pack", detail.ContextPackHistory)
+	if len(detail.ContextPackHistory) != 1 || detail.ContextPackHistory[0].ItemCount != 1 || len(detail.ContextPackHistory[0].Items) != 1 {
+		t.Fatalf("detail context packs = %+v, want one pack with item", detail.ContextPackHistory)
+	}
+	if detail.ContextPackHistory[0].AuthoredPromptHash != "sha256:authored" || detail.ContextPackHistory[0].DeliveredContext == "" {
+		t.Fatalf("detail context pack audit = %+v, want hashes and delivered context", detail.ContextPackHistory[0])
 	}
 }
 
@@ -439,6 +460,47 @@ WHERE event_id = ?
 	}
 	if len(graph.Nodes) != 1 || graph.Nodes[0].ID != "node_a" {
 		t.Fatalf("graph after failed rebuild = %+v, want preexisting projection", graph)
+	}
+}
+
+func TestStoreRejectsUnsupportedExistingVersionBeforeCreatingSchema(t *testing.T) {
+	appDataDir := t.TempDir()
+	dbPath := filepath.Join(appDataDir, semanticDatabaseName)
+	db, err := sql.Open(sqliteDriverName, dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	if _, err := db.Exec("PRAGMA user_version = 999"); err != nil {
+		t.Fatalf("write unsupported version: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close sqlite db: %v", err)
+	}
+
+	store, err := NewStore(appDataDir)
+	if err == nil {
+		_ = store.Close()
+		t.Fatal("new store with unsupported version succeeded, want corrupt state error")
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("new store error = %T %v, want corrupt state error", err, err)
+	}
+
+	db, err = sql.Open(sqliteDriverName, dbPath)
+	if err != nil {
+		t.Fatalf("reopen sqlite db: %v", err)
+	}
+	defer db.Close()
+	var schemaTables int
+	if err := db.QueryRow(`
+SELECT COUNT(*)
+FROM sqlite_master
+WHERE type = 'table' AND name LIKE 'semantic_%'
+`).Scan(&schemaTables); err != nil {
+		t.Fatalf("count semantic tables: %v", err)
+	}
+	if schemaTables != 0 {
+		t.Fatalf("semantic tables after rejected startup = %d, want 0", schemaTables)
 	}
 }
 

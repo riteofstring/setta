@@ -186,6 +186,20 @@ func (service *Service) ReadEventHistory(ctx context.Context, workspaceID string
 	return service.store.ReadEventHistory(ctx, workspaceID, targetEntityID, beforeLogicalClock, limit)
 }
 
+func (service *Service) ReadContextPack(ctx context.Context, workspaceID string, packID string) (SemanticContextPackRecord, bool, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return SemanticContextPackRecord{}, false, err
+	}
+	return service.store.ReadContextPack(ctx, workspaceID, packID)
+}
+
+func (service *Service) ListContextPacks(ctx context.Context, filter SemanticContextPackFilter) (SemanticContextPackList, error) {
+	if _, err := service.resolveWorkspace(filter.WorkspaceID); err != nil {
+		return SemanticContextPackList{}, err
+	}
+	return service.store.ListContextPacks(ctx, filter)
+}
+
 func (service *Service) UpdateLayoutPositions(ctx context.Context, workspaceID string, positions []SemanticLayoutPositionInput) (SemanticLayoutPositionList, error) {
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return SemanticLayoutPositionList{}, err

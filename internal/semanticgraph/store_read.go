@@ -726,32 +726,6 @@ WHERE workspace_id = ? AND id = ?
 	return SemanticSteeringDirective{}, false, store.persistenceError("read semantic steering directive", err)
 }
 
-func (store *Store) loadSemanticContextPacks(ctx context.Context, workspaceID string, targetEntityID string) ([]SemanticContextPackRecord, error) {
-	rows, err := store.db.QueryContext(ctx, `
-SELECT workspace_id, id, target_entity_id, summary, prompt, item_count,
-       created_by_event_id, created_at
-FROM semantic_context_pack_history
-WHERE workspace_id = ? AND target_entity_id = ?
-ORDER BY created_at DESC, id DESC
-`, workspaceID, targetEntityID)
-	if err != nil {
-		return nil, store.persistenceError("read semantic context pack history", err)
-	}
-	defer rows.Close()
-	contextPacks := []SemanticContextPackRecord{}
-	for rows.Next() {
-		record, err := scanSemanticContextPackRecord(rows)
-		if err != nil {
-			return nil, store.corruptError("semantic_context_pack_history", err)
-		}
-		contextPacks = append(contextPacks, record)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, store.persistenceError("read semantic context pack history", err)
-	}
-	return contextPacks, nil
-}
-
 func (store *Store) loadSemanticLayoutPositions(ctx context.Context, workspaceID string) ([]SemanticLayoutPosition, error) {
 	rows, err := store.db.QueryContext(ctx, `
 SELECT workspace_id, entity_id, x, y, pinned, updated_at
@@ -840,23 +814,6 @@ func scanSemanticActivityInterval(scanner interface{ Scan(dest ...any) error }) 
 		return SemanticActivityInterval{}, err
 	}
 	return interval, nil
-}
-
-func scanSemanticContextPackRecord(scanner interface{ Scan(dest ...any) error }) (SemanticContextPackRecord, error) {
-	var record SemanticContextPackRecord
-	if err := scanner.Scan(
-		&record.WorkspaceID,
-		&record.ID,
-		&record.TargetEntityID,
-		&record.Summary,
-		&record.Prompt,
-		&record.ItemCount,
-		&record.CreatedByEventID,
-		&record.CreatedAt,
-	); err != nil {
-		return SemanticContextPackRecord{}, err
-	}
-	return record, nil
 }
 
 func scanSemanticLayoutPosition(scanner interface{ Scan(dest ...any) error }) (SemanticLayoutPosition, error) {

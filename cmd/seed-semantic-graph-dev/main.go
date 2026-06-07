@@ -238,11 +238,26 @@ func seedEvents(workspaceID string) []semanticgraph.SemanticEvent {
 			Scope:          semanticgraph.SteeringScopeWorkspace,
 		}),
 		seedEvent(workspaceID, "semantic_seed_event_context_pack_created", semanticgraph.EventContextPackCreated, seedConstraintNodeID, 11, nil, contextPackCreatedPayload{
-			PackID:         "semantic_seed_context_phase2",
-			TargetEntityID: seedConstraintNodeID,
-			Summary:        "Phase 2 semantic graph renderer verification context",
-			Prompt:         "Inspect semantic graph nodes, evidence, activity, steering, and event history.",
-			ItemCount:      5,
+			PackID:               "semantic_seed_context_phase2",
+			TriggerKind:          semanticgraph.ContextTriggerWorkflowAgentStart,
+			TargetEntityID:       seedConstraintNodeID,
+			AuthoredPromptHash:   "sha256:semantic_seed_authored_prompt",
+			DeliveredContextHash: "sha256:semantic_seed_delivered_context",
+			TokenBudget:          800,
+			EstimatedTokens:      32,
+			ItemCount:            1,
+			Items: []semanticgraph.SemanticContextPackItem{{
+				ItemID:         "semantic_seed_context_phase2_item_001",
+				Kind:           semanticgraph.ContextPackItemConstraint,
+				SemanticNodeID: seedConstraintNodeID,
+				Title:          "Renderer read-only semantic graph surface",
+				Summary:        "Phase 2 semantic graph renderer verification context.",
+				ReasonIncluded: "active workspace constraint",
+				Priority:       semanticgraph.ContextPriorityRequired,
+				CreatedAt:      seedObservedAt(11),
+				UpdatedAt:      seedObservedAt(11),
+			}},
+			DeliveredContext: "Setta semantic context pack semantic_seed_context_phase2\n- [required] Constraint: Renderer read-only semantic graph surface\n  Reason: active workspace constraint\n  Evidence: semantic_seed_evidence_plan",
 		}),
 		seedEvent(workspaceID, "semantic_seed_event_constraint_check_recorded", semanticgraph.EventConstraintCheckRecorded, seedConstraintNodeID, 12, nil, constraintCheckRecordedPayload{
 			CheckID:        "semantic_seed_constraint_check",
@@ -347,11 +362,17 @@ type steeringCreatedPayload struct {
 }
 
 type contextPackCreatedPayload struct {
-	PackID         string `json:"packId"`
-	TargetEntityID string `json:"targetEntityId"`
-	Summary        string `json:"summary"`
-	Prompt         string `json:"prompt"`
-	ItemCount      int    `json:"itemCount"`
+	PackID               string                                   `json:"packId"`
+	TriggerKind          semanticgraph.SemanticContextTriggerKind `json:"triggerKind"`
+	TargetEntityID       string                                   `json:"targetEntityId"`
+	SourceRefs           semanticgraph.SemanticContextSourceRefs  `json:"sourceRefs"`
+	AuthoredPromptHash   string                                   `json:"authoredPromptHash"`
+	DeliveredContextHash string                                   `json:"deliveredContextHash"`
+	TokenBudget          int                                      `json:"tokenBudget"`
+	EstimatedTokens      int                                      `json:"estimatedTokens"`
+	ItemCount            int                                      `json:"itemCount"`
+	Items                []semanticgraph.SemanticContextPackItem  `json:"items"`
+	DeliveredContext     string                                   `json:"deliveredContext"`
 }
 
 type constraintCheckRecordedPayload struct {

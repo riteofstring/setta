@@ -91,6 +91,8 @@ type SemanticGraphService interface {
 	ReadActivitySummary(context.Context, string, int) (semanticgraph.SemanticActivitySummary, error)
 	ReadSteeringState(context.Context, string, string) (semanticgraph.SemanticSteeringState, error)
 	ReadEventHistory(context.Context, string, string, int, int) (semanticgraph.SemanticEventHistory, error)
+	ReadContextPack(context.Context, string, string) (semanticgraph.SemanticContextPackRecord, bool, error)
+	ListContextPacks(context.Context, semanticgraph.SemanticContextPackFilter) (semanticgraph.SemanticContextPackList, error)
 	UpdateLayoutPositions(context.Context, string, []semanticgraph.SemanticLayoutPositionInput) (semanticgraph.SemanticLayoutPositionList, error)
 	AttachWorkflowExecution(context.Context, semanticgraph.AttachWorkflowExecutionInput) (semanticgraph.SemanticAttachmentResult, error)
 	AttachWorkflowNode(context.Context, semanticgraph.AttachWorkflowNodeInput) (semanticgraph.SemanticAttachmentResult, error)

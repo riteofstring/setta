@@ -23,6 +23,9 @@ import { useSemanticGraphStore } from "../../stores/semantic-graph-store";
 type SemanticNodeDetailsTarget = NonNullable<
   ReturnType<typeof useSemanticGraphStore.getState>["selectedNodeTarget"]
 >;
+type SemanticContextPack = SemanticNodeDetail["contextPackHistory"][number];
+type SemanticContextPackItem = SemanticContextPack["items"][number];
+type SemanticContextSourceRefs = SemanticContextPack["sourceRefs"];
 
 interface SemanticNodeInspectionState {
   detail: SemanticNodeDetail | null;
@@ -363,17 +366,88 @@ function SemanticContextPackSection({
           <SemanticRecord key={pack.id}>
             <WorkflowDetailsRows
               rows={[
-                { label: "Summary", value: pack.summary },
+                { label: "Trigger", value: pack.triggerKind },
+                { label: "Target", value: shortIdentifier(pack.targetEntityId) },
                 { label: "Items", value: `${pack.itemCount}` },
+                { label: "Estimated", value: `${pack.estimatedTokens}` },
+                { label: "Budget", value: `${pack.tokenBudget}` },
+                { label: "Authored", value: pack.authoredPromptHash },
+                { label: "Delivered", value: pack.deliveredContextHash },
+                { label: "Sources", value: semanticContextSourceRefsText(pack.sourceRefs) },
                 { label: "Created", value: pack.createdAt },
-                { label: "Prompt", value: pack.prompt },
               ]}
             />
+            <SemanticContextPackItems items={pack.items} />
+            <SemanticContextPackDeliveredContext context={pack.deliveredContext} />
           </SemanticRecord>
         ))}
       </div>
     </WorkflowDetailsSection>
   );
+}
+
+function SemanticContextPackItems({ items }: { items: SemanticContextPackItem[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-3 space-y-2 border-t border-zinc-900 pt-2">
+      <div className="text-xs font-medium text-zinc-400">Items</div>
+      {items.map((item) => (
+        <div
+          className="space-y-1 border-t border-zinc-900 pt-2 first:border-t-0 first:pt-0"
+          key={item.itemId}
+        >
+          <WorkflowDetailsRows
+            rows={[
+              { label: "Kind", value: item.kind },
+              { label: "Title", value: item.title },
+              { label: "Priority", value: item.priority },
+              { label: "Reason", value: item.reasonIncluded },
+              { label: "Summary", value: item.summary },
+              { label: "Node", value: shortIdentifier(item.semanticNodeId) },
+              { label: "Evidence", value: shortIdentifier(item.evidenceAnchorId) },
+              { label: "Activity", value: shortIdentifier(item.activityIntervalId) },
+              { label: "Steering", value: shortIdentifier(item.steeringDirectiveId) },
+              { label: "Sources", value: semanticContextSourceRefsText(item.sourceRefs) },
+              { label: "Tokens", value: `${item.estimatedTokens}` },
+            ]}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SemanticContextPackDeliveredContext({ context }: { context: string }) {
+  if (context === "") {
+    return null;
+  }
+  return (
+    <div className="mt-3 space-y-1 border-t border-zinc-900 pt-2">
+      <div className="text-xs font-medium text-zinc-400">Delivered Context</div>
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-zinc-800 bg-zinc-950/80 p-2 font-mono text-[11px] leading-4 text-zinc-300">
+        {context}
+      </pre>
+    </div>
+  );
+}
+
+function semanticContextSourceRefsText(refs: SemanticContextSourceRefs) {
+  const entries: [string, string][] = [
+    ["workflow definition", refs.workflowDefinitionId],
+    ["workflow execution", refs.workflowExecutionId],
+    ["workflow node", refs.workflowNodeId],
+    ["workflow node execution", refs.workflowNodeExecutionId],
+    ["chat conversation", refs.chatConversationId],
+    ["chat run", refs.chatRunId],
+    ["chat message", refs.chatMessageId],
+    ["run item", refs.runItemId],
+  ];
+  return entries
+    .filter(([, value]) => value !== "")
+    .map(([label, value]) => `${label}: ${shortIdentifier(value)}`)
+    .join("; ");
 }
 
 function SemanticHistorySection({ history }: { history: SemanticEventHistory | null }) {

@@ -294,6 +294,33 @@ func isSemanticSteeringScope(scope SemanticSteeringScope) bool {
 	return false
 }
 
+func isSemanticContextTriggerKind(kind SemanticContextTriggerKind) bool {
+	for _, value := range semanticContextTriggerKindValues {
+		if kind == value {
+			return true
+		}
+	}
+	return false
+}
+
+func isSemanticContextPackItemKind(kind SemanticContextPackItemKind) bool {
+	for _, value := range semanticContextPackItemKindValues {
+		if kind == value {
+			return true
+		}
+	}
+	return false
+}
+
+func isSemanticContextPackPriority(priority SemanticContextPackPriority) bool {
+	for _, value := range semanticContextPackPriorityValues {
+		if priority == value {
+			return true
+		}
+	}
+	return false
+}
+
 func boolFromInt(value int) bool {
 	return value != 0
 }

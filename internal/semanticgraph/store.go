@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 3
+	semanticStoreVersion = 4
 	sqliteDriverName     = "sqlite"
 )
 
@@ -125,15 +125,15 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			return store.persistenceError("configure semantic graph database", err)
 		}
 	}
-	if err := store.createSchema(ctx); err != nil {
-		return err
-	}
 	var userVersion int
 	if err := store.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&userVersion); err != nil {
 		return store.persistenceError("read semantic graph database schema version", err)
 	}
 	if userVersion != 0 && userVersion != semanticStoreVersion {
 		return store.corruptError("semantic graph database", fmt.Errorf("unsupported schema version %d", userVersion))
+	}
+	if err := store.createSchema(ctx); err != nil {
+		return err
 	}
 	if userVersion == 0 {
 		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", semanticStoreVersion)); err != nil {
@@ -325,10 +325,23 @@ CREATE INDEX IF NOT EXISTS semantic_steering_workspace_target_idx
 CREATE TABLE IF NOT EXISTS semantic_context_pack_history (
   workspace_id TEXT NOT NULL,
   id TEXT NOT NULL,
+  trigger_kind TEXT NOT NULL,
   target_entity_id TEXT NOT NULL,
-  summary TEXT NOT NULL DEFAULT '',
-  prompt TEXT NOT NULL DEFAULT '',
+  workflow_definition_id TEXT NOT NULL DEFAULT '',
+  workflow_execution_id TEXT NOT NULL DEFAULT '',
+  workflow_node_id TEXT NOT NULL DEFAULT '',
+  workflow_node_execution_id TEXT NOT NULL DEFAULT '',
+  chat_conversation_id TEXT NOT NULL DEFAULT '',
+  chat_run_id TEXT NOT NULL DEFAULT '',
+  chat_message_id TEXT NOT NULL DEFAULT '',
+  run_item_id TEXT NOT NULL DEFAULT '',
+  authored_prompt_hash TEXT NOT NULL DEFAULT '',
+  delivered_context_hash TEXT NOT NULL DEFAULT '',
+  token_budget INTEGER NOT NULL DEFAULT 0,
+  estimated_tokens INTEGER NOT NULL DEFAULT 0,
   item_count INTEGER NOT NULL DEFAULT 0,
+  items_json TEXT NOT NULL DEFAULT '[]',
+  delivered_context TEXT NOT NULL DEFAULT '',
   created_by_event_id TEXT NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY(workspace_id, id)
@@ -336,6 +349,12 @@ CREATE TABLE IF NOT EXISTS semantic_context_pack_history (
 
 CREATE INDEX IF NOT EXISTS semantic_context_pack_workspace_target_idx
   ON semantic_context_pack_history(workspace_id, target_entity_id, created_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_context_pack_workspace_workflow_idx
+  ON semantic_context_pack_history(workspace_id, workflow_execution_id, created_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_context_pack_workspace_chat_run_idx
+  ON semantic_context_pack_history(workspace_id, chat_run_id, created_at DESC, id);
 
 CREATE TABLE IF NOT EXISTS semantic_layout_positions (
   workspace_id TEXT NOT NULL,
