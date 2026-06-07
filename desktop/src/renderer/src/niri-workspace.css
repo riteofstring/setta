@@ -28,6 +28,7 @@
 }
 
 .niri-pane-host {
+  --niri-pane-resize-handle-gutter: 18px;
   background: color-mix(in oklch, var(--popover) 86%, var(--background));
   border-radius: 7px;
   color: var(--foreground);
@@ -321,6 +322,11 @@
   height: 100%;
   min-height: 0;
   padding: 10px;
+}
+
+.niri-pane-host > .niri-pane-content,
+.niri-pane-host > .niri-react-dom-surface {
+  padding-right: var(--niri-pane-resize-handle-gutter);
 }
 
 .niri-pane-header {
