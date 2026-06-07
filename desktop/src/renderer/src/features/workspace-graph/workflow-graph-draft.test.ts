@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
-import { emptyWorkflowGraph, workflowGraphWithAddedDraftNode } from "./workflow-graph-draft";
+import {
+  emptyWorkflowGraph,
+  workflowGraphWithAddedDraftEdge,
+  workflowGraphWithAddedDraftNode,
+} from "./workflow-graph-draft";
 
 describe("workflow graph drafts", () => {
   test("creates a null workflow graph with stable empty arrays", () => {
@@ -64,5 +68,52 @@ describe("workflow graph drafts", () => {
       ["barrier_join", "gateway.and", "Barrier Join"],
       ["end", "end", "End"],
     ]);
+  });
+
+  test("adds durable normal edges with deterministic IDs", () => {
+    const graph = workflowGraphWithAddedDraftEdge(
+      workflowGraphWithAddedDraftNode(
+        workflowGraphWithAddedDraftNode(emptyWorkflowGraph(), "start", { x: 0, y: 0 }),
+        "agent_task",
+        { x: 200, y: 0 },
+      ),
+      { sourceNodeId: "start", targetNodeId: "agent_task" },
+    );
+
+    expect(graph.edges).toEqual([
+      {
+        condition: null,
+        fromNodeId: "start",
+        id: "start_agent_task",
+        kind: "normal",
+        toNodeId: "agent_task",
+      },
+    ]);
+  });
+
+  test("creates deterministic IDs for repeated edge endpoints", () => {
+    const withNodes = workflowGraphWithAddedDraftNode(
+      workflowGraphWithAddedDraftNode(emptyWorkflowGraph(), "start", { x: 0, y: 0 }),
+      "agent_task",
+      { x: 200, y: 0 },
+    );
+    const graph = workflowGraphWithAddedDraftEdge(
+      workflowGraphWithAddedDraftEdge(withNodes, {
+        sourceNodeId: "start",
+        targetNodeId: "agent_task",
+      }),
+      { sourceNodeId: "start", targetNodeId: "agent_task" },
+    );
+
+    expect(graph.edges.map((edge) => edge.id)).toEqual(["start_agent_task", "start_agent_task_2"]);
+  });
+
+  test("rejects edge endpoints missing from the draft graph", () => {
+    expect(() =>
+      workflowGraphWithAddedDraftEdge(emptyWorkflowGraph(), {
+        sourceNodeId: "start",
+        targetNodeId: "agent_task",
+      }),
+    ).toThrow("Workflow edge references missing node start");
   });
 });

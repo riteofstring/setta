@@ -47,6 +47,13 @@ interface PixiWorkspaceCanvasContextMenu {
   worldY: number;
 }
 
+export interface PixiWorkspaceEdgeConnection {
+  sourceNodeId: string;
+  sourcePortId: string;
+  targetNodeId: string;
+  targetPortId: string;
+}
+
 interface CreatePixiWorkspaceRendererOptions {
   debugEnabled: boolean;
   debugSurfaceId?: string;
@@ -54,6 +61,7 @@ interface CreatePixiWorkspaceRendererOptions {
   host: HTMLElement;
   initialCameraState?: PixiWorkspaceCameraState | null;
   onCanvasContextMenu?: (menu: PixiWorkspaceCanvasContextMenu) => void;
+  onEdgeCreate?: (connection: PixiWorkspaceEdgeConnection) => void;
   onNodePositionsChange?: (positions: PixiWorkspaceNodePosition[]) => void;
   reactRenderCount: () => number;
 }

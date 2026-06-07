@@ -258,6 +258,28 @@ export function configureViewportNavigation(viewport, initialCameraState, { maxZ
   viewport.moveCorner(initialCameraState.x, initialCameraState.y);
 }
 
+export function edgeConnection(edgeDrawing, targetPort) {
+  return {
+    sourceNodeId: edgeDrawing.sourceNodeId,
+    sourcePortId: edgeDrawing.sourcePortId,
+    targetNodeId: targetPort.nodeId,
+    targetPortId: targetPort.portId,
+  };
+}
+
+function drawnEdge(sequence, connection) {
+  return { id: `drawn-${sequence}`, ...connection };
+}
+
+export function commitEdgeConnection(connection, { edges, onEdgeCreate, redrawEdges, sequence }) {
+  if (onEdgeCreate) {
+    onEdgeCreate(connection);
+    return;
+  }
+  edges.push(drawnEdge(sequence, connection));
+  redrawEdges();
+}
+
 export function screenPointFromPointer(canvas, event) {
   return canvasLocalPointFromClient(canvas, event.clientX, event.clientY);
 }

@@ -14,11 +14,17 @@ import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcr
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import {
   emptyWorkflowGraph,
+  workflowGraphWithAddedDraftEdge,
   workflowGraphWithAddedDraftNode,
+  type WorkflowDraftEdgeConnection,
   type WorkflowDraftNodeType,
 } from "./workflow-graph-draft";
 import { workflowGraphWithNodeLayout, type WorkflowLayoutPosition } from "./workflow-graph-layout";
-import type { PixiWorkspaceCameraState, PixiWorkspaceRenderer } from "./pixi-workspace-renderer";
+import type {
+  PixiWorkspaceCameraState,
+  PixiWorkspaceEdgeConnection,
+  PixiWorkspaceRenderer,
+} from "./pixi-workspace-renderer";
 import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
 import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
 
@@ -152,6 +158,37 @@ export function PixiWorkspaceSurface({
     },
     [syntheticGraph, workflowEditorError, workflowProjection],
   );
+  const addWorkflowDraftEdge = useCallback(
+    async (connection: PixiWorkspaceEdgeConnection) => {
+      if (syntheticGraph !== null) {
+        return;
+      }
+      if (workflowProjection === null) {
+        setWorkflowEditorError("Create workflow nodes before connecting them");
+        return;
+      }
+      if (workflowProjection.executionId !== "") {
+        setWorkflowEditorError("Select the draft workflow before editing the graph");
+        return;
+      }
+      if (workflowEditorError !== "") {
+        setWorkflowEditorError("");
+      }
+      try {
+        const refreshed = await materializeWorkflowDraftEdge({
+          connection,
+          projection: workflowProjection,
+        });
+        workflowTargetRef.current = workflowProjectionTarget(refreshed);
+        setWorkflowProjection(refreshed);
+      } catch (error: unknown) {
+        setWorkflowEditorError(
+          error instanceof Error ? error.message : "Workflow edge edit failed",
+        );
+      }
+    },
+    [syntheticGraph, workflowEditorError, workflowProjection],
+  );
 
   useEffect(() => {
     workflowCameraRef.current = null;
@@ -187,6 +224,8 @@ export function PixiWorkspaceSurface({
           host,
           initialCameraState: workflowCameraRef.current,
           onCanvasContextMenu: syntheticGraph === null ? openWorkflowContextMenu : undefined,
+          onEdgeCreate:
+            syntheticGraph === null ? (edge) => void addWorkflowDraftEdge(edge) : undefined,
           onNodePositionsChange: (positions) => {
             void persistNodePositions(positions);
           },
@@ -210,6 +249,7 @@ export function PixiWorkspaceSurface({
   }, [
     debugEnabled,
     graph,
+    addWorkflowDraftEdge,
     openWorkflowContextMenu,
     persistNodePositions,
     surfaceId,
@@ -376,6 +416,30 @@ async function workflowProjectionForDefinition(
     throw new Error(`workflow graph projection ${definitionId} was not returned`);
   }
   return refreshed.projection;
+}
+
+interface MaterializeWorkflowDraftEdgeRequest {
+  connection: WorkflowDraftEdgeConnection;
+  projection: WorkflowGraphProjection;
+}
+
+async function materializeWorkflowDraftEdge({
+  connection,
+  projection,
+}: MaterializeWorkflowDraftEdgeRequest): Promise<WorkflowGraphProjection> {
+  const definition = await window.setta.workflow.readDefinition(
+    projection.workspaceId,
+    projection.definitionId,
+  );
+  const graph = workflowGraphWithAddedDraftEdge(definition.graph, connection);
+  const updated = await window.setta.workflow.updateDefinition(
+    projection.workspaceId,
+    definition.id,
+    definition.name,
+    definition.description,
+    graph,
+  );
+  return workflowProjectionForDefinition(projection.workspaceId, updated.id);
 }
 
 function useWorkflowProjection(

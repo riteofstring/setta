@@ -29,6 +29,7 @@ import {
   cameraStatesDiffer,
   capturePointer,
   clamp,
+  commitEdgeConnection,
   configureViewportNavigation,
   countMapValues,
   createCanvasContextMenuHandler,
@@ -37,6 +38,7 @@ import {
   drawPortVisualState,
   drawTemporaryEdge,
   drawWorkspaceGlow,
+  edgeConnection,
   frameSampleStats,
   hostScreenSize,
   isSelectionToggleEvent,
@@ -73,6 +75,7 @@ export async function createPixiWorkspaceRenderer({
   host,
   initialCameraState = null,
   onCanvasContextMenu = null,
+  onEdgeCreate,
   onNodePositionsChange = null,
   reactRenderCount,
 }) {
@@ -752,7 +755,6 @@ export async function createPixiWorkspaceRenderer({
     outlines.hoverOutline.visible = !selected && hovered;
     nodeOutlineVisibilityUpdateCount += 1;
   }
-
   function redrawEdges() {
     edgeGraphics.clear();
     for (const edge of edges) {
@@ -764,7 +766,6 @@ export async function createPixiWorkspaceRenderer({
     }
     edgeRedrawCount += 1;
   }
-
   function startEdgeDrawing(sourceNodeId, sourcePortId) {
     const source = requireNode(sourceNodeId);
     const start = portWorldPosition(source, sourcePortId);
@@ -864,16 +865,15 @@ export async function createPixiWorkspaceRenderer({
     }
   }
   function commitEdge(edgeDrawing, targetPort) {
-    edges.push({
-      id: `drawn-${nextEdgeSequence}`,
-      sourceNodeId: edgeDrawing.sourceNodeId,
-      sourcePortId: edgeDrawing.sourcePortId,
-      targetNodeId: targetPort.nodeId,
-      targetPortId: targetPort.portId,
+    const connection = edgeConnection(edgeDrawing, targetPort);
+    commitEdgeConnection(connection, {
+      edges,
+      onEdgeCreate,
+      redrawEdges,
+      sequence: nextEdgeSequence,
     });
     nextEdgeSequence += 1;
     edgeCommitCount += 1;
-    redrawEdges();
   }
   function hitTestPortAtScreen(screen, { excludeNodeId, role }) {
     let bestPort = null;

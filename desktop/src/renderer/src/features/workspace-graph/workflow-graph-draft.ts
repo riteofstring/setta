@@ -1,10 +1,11 @@
 import type {
   WorkflowActionConfig,
+  WorkflowEdge,
   WorkflowGraph,
   WorkflowNode,
   WorkflowNodeKind,
 } from "@generated/backend";
-import { workflowActionKindValues } from "@generated/backend";
+import { workflowActionKindValues, workflowEdgeKindValues } from "@generated/backend";
 
 export type WorkflowDraftNodeType =
   | "agent_task"
@@ -17,6 +18,11 @@ export type WorkflowDraftNodeType =
 export interface WorkflowDraftNodePosition {
   x: number;
   y: number;
+}
+
+export interface WorkflowDraftEdgeConnection {
+  sourceNodeId: string;
+  targetNodeId: string;
 }
 
 const draftNodeCenterOffset = {
@@ -91,6 +97,23 @@ export function workflowGraphWithAddedDraftNode(
   };
 }
 
+export function workflowGraphWithAddedDraftEdge(
+  graph: WorkflowGraph,
+  connection: WorkflowDraftEdgeConnection,
+): WorkflowGraph {
+  const normalized = normalizeDraftGraph(graph);
+  requireDraftEdgeNode(normalized, connection.sourceNodeId);
+  requireDraftEdgeNode(normalized, connection.targetNodeId);
+  const edge = draftEdge(
+    connection,
+    nextDraftEdgeId(normalized, `${connection.sourceNodeId}_${connection.targetNodeId}`),
+  );
+  return {
+    ...normalized,
+    edges: [...normalized.edges, edge],
+  };
+}
+
 function normalizeDraftGraph(graph: WorkflowGraph): WorkflowGraph {
   return {
     edges: graph.edges ?? [],
@@ -103,6 +126,19 @@ function normalizeDraftGraph(graph: WorkflowGraph): WorkflowGraph {
 
 function nextDraftNodeId(graph: WorkflowGraph, base: string) {
   const existingIds = new Set(graph.nodes.map((node) => node.id));
+  if (!existingIds.has(base)) {
+    return base;
+  }
+  for (let index = 2; ; index += 1) {
+    const candidate = `${base}_${index}`;
+    if (!existingIds.has(candidate)) {
+      return candidate;
+    }
+  }
+}
+
+function nextDraftEdgeId(graph: WorkflowGraph, base: string) {
+  const existingIds = new Set(graph.edges.map((edge) => edge.id));
   if (!existingIds.has(base)) {
     return base;
   }
@@ -162,6 +198,23 @@ function draftAgentAction(): WorkflowActionConfig {
     },
     kind: workflowActionKindValues[0],
   };
+}
+
+function draftEdge(connection: WorkflowDraftEdgeConnection, id: string): WorkflowEdge {
+  return {
+    condition: null,
+    fromNodeId: connection.sourceNodeId,
+    id,
+    kind: workflowEdgeKindValues[0],
+    toNodeId: connection.targetNodeId,
+  };
+}
+
+function requireDraftEdgeNode(graph: WorkflowGraph, nodeId: string) {
+  if (graph.nodes.some((node) => node.id === nodeId)) {
+    return;
+  }
+  throw new Error(`Workflow edge references missing node ${nodeId}`);
 }
 
 function assertNever(value: never): never {

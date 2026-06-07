@@ -90,19 +90,7 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workflow-node-create-menu"]');
   await assertContextMenuAnchored(context.client, menuPoint);
-  const selected = await context.client.evaluate(`(() => {
-    const button = document.querySelector('[data-testid="workflow-node-create-start"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-start-node-menu-item" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
-  if (!selected.ok) {
-    throw new Error(
-      `failed to select start node from workflow context menu: ${JSON.stringify(selected)}`,
-    );
-  }
+  await selectWorkflowNodeType(context.client, "start");
   await delay(150);
   const afterAdd = await waitForPixiSnapshot(
     context.client,
@@ -118,19 +106,57 @@ try {
   }
   assertCameraPreserved(afterAdd.camera, pannedCanvas.camera);
 
+  await dispatchPixiContextMenu(context.client, pixiSurfaceId, {
+    x: 600,
+    y: 260,
+  });
+  await waitForSelector(context.client, '[data-testid="workflow-node-create-menu"]');
+  await selectWorkflowNodeType(context.client, "agent_task");
+  await delay(150);
+  const afterSecondNode = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.nodeCount === 2 &&
+      snapshot.graph.nodes.some((node) => node.id === "agent_task"),
+  );
+  await connectPixiNodes(context.client, pixiSurfaceId, afterSecondNode, "start", "agent_task");
+  const afterEdge = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.edgeCount === 1 &&
+      snapshot.graph.edges[0]?.id === "start_agent_task" &&
+      snapshot.graph.edges[0]?.sourceNodeId === "start" &&
+      snapshot.graph.edges[0]?.targetNodeId === "agent_task",
+  );
+  assertCameraPreserved(afterEdge.camera, pannedCanvas.camera);
+
   const definitions = await workflowDefinitions(context.client, workspaceId);
   if (definitions.length !== 1 || definitions[0].name !== "Untitled workflow") {
     throw new Error(`workflow definitions after first edit = ${JSON.stringify(definitions)}`);
   }
   await assertSidebarWorkflowConversationSections(context.client);
   const saved = await readSavedWorkflowDefinition(fixture.workspaceRoot, definitions[0].id);
-  if (saved.name !== "Untitled workflow" || saved.graph.nodes[0]?.kind !== "start") {
+  if (
+    saved.name !== "Untitled workflow" ||
+    saved.graph.nodes[0]?.kind !== "start" ||
+    saved.graph.nodes[1]?.kind !== "action"
+  ) {
     throw new Error(`saved workflow definition mismatch: ${JSON.stringify(saved)}`);
   }
   if (saved.graph.layout.nodes[0]?.nodeId !== "start") {
     throw new Error(
       `saved workflow layout missing start node: ${JSON.stringify(saved.graph.layout)}`,
     );
+  }
+  if (
+    saved.graph.edges.length !== 1 ||
+    saved.graph.edges[0]?.id !== "start_agent_task" ||
+    saved.graph.edges[0]?.fromNodeId !== "start" ||
+    saved.graph.edges[0]?.toNodeId !== "agent_task" ||
+    saved.graph.edges[0]?.kind !== "normal" ||
+    saved.graph.edges[0]?.condition !== null
+  ) {
+    throw new Error(`saved workflow edge mismatch: ${JSON.stringify(saved.graph.edges)}`);
   }
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -193,6 +219,24 @@ async function clickButtonByAria(client, label) {
   })()`);
   if (!clicked) {
     throw new Error(`button was not clickable: ${label}`);
+  }
+}
+
+async function selectWorkflowNodeType(client, nodeType) {
+  const selected = await client.evaluate(`(() => {
+    const button = document.querySelector(
+      ${JSON.stringify(`[data-testid="workflow-node-create-${nodeType}"]`)}
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-node-menu-item" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!selected.ok) {
+    throw new Error(
+      `failed to select ${nodeType} node from workflow context menu: ${JSON.stringify(selected)}`,
+    );
   }
 }
 
@@ -317,6 +361,27 @@ function assertCameraPreserved(actual, expected) {
       })}`,
     );
   }
+}
+
+async function connectPixiNodes(client, surfaceId, snapshot, sourceNodeId, targetNodeId) {
+  const sourcePort = pixiNodePort(snapshot, sourceNodeId, "output");
+  const targetPort = pixiNodePort(snapshot, targetNodeId, "input");
+  await dispatchPixiMouseDrag(client, surfaceId, {
+    from: { x: sourcePort.screenX, y: sourcePort.screenY },
+    to: { x: targetPort.screenX, y: targetPort.screenY },
+  });
+}
+
+function pixiNodePort(snapshot, nodeId, portId) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(`missing Pixi node ${nodeId}: ${JSON.stringify(snapshot.graph.nodes)}`);
+  }
+  const port = node.ports.find((candidate) => candidate.id === portId);
+  if (!port) {
+    throw new Error(`missing Pixi port ${nodeId}:${portId}: ${JSON.stringify(node.ports)}`);
+  }
+  return port;
 }
 
 async function readSavedWorkflowDefinition(workspaceRoot, definitionId) {
