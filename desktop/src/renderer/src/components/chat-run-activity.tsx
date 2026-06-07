@@ -253,7 +253,7 @@ function RunActivityMetadata({ item }: { item: RunItem }) {
     <div className="flex flex-wrap gap-1.5">
       {entries.map((entry) => (
         <span
-          className="max-w-full truncate rounded-sm border border-border bg-popover px-2 py-0.5 font-mono text-muted-foreground"
+          className="min-w-0 max-w-full truncate rounded-sm border border-border bg-popover px-2 py-0.5 font-mono text-muted-foreground"
           key={entry.label}
         >
           {entry.label}: {entry.value}
@@ -291,7 +291,7 @@ function RunActivityTextBlock({
       <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">{title}</h4>
       <div
         className={cn(
-          "mt-0.5 break-words text-muted-foreground",
+          "mt-0.5 max-w-full break-words text-muted-foreground [overflow-wrap:anywhere]",
           monospace && "break-all font-mono",
           tone === "error" && "font-medium text-status-critical",
         )}
@@ -309,7 +309,7 @@ function RunActivityPreBlock({ title, value }: { title: string; value: string })
   return (
     <section className="min-w-0">
       <h4 className="text-[10px] font-semibold text-muted-foreground uppercase">{title}</h4>
-      <pre className="mt-1 max-h-32 w-full min-w-0 max-w-full overflow-auto whitespace-pre-wrap rounded-sm border border-border bg-popover p-2 font-mono text-xs leading-5 text-muted-foreground">
+      <pre className="mt-1 max-h-32 w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto whitespace-pre-wrap rounded-sm border border-border bg-popover p-2 font-mono text-xs leading-5 break-words text-muted-foreground [overflow-wrap:anywhere]">
         {value}
       </pre>
     </section>

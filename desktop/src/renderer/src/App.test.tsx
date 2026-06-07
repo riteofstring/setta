@@ -292,6 +292,7 @@ describe("workspace renderer states", () => {
 
 describe("chat renderer states", () => {
   test("renders markdown messages without trusting raw html", () => {
+    const longToken = "x".repeat(160);
     const html = renderToString(
       <TestChatTranscript
         activeRun={null}
@@ -309,7 +310,7 @@ describe("chat renderer states", () => {
               {
                 format: "markdown",
                 id: "part_assistant",
-                text: "**Done** `<script>`",
+                text: `**Done** \`<script>\`\n\n\`\`\`\n${longToken}\n\`\`\``,
                 type: "text",
               },
             ],
@@ -328,6 +329,8 @@ describe("chat renderer states", () => {
 
     expect(html).toContain("<strong");
     expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain("[overflow-wrap:anywhere]");
+    expect(html).not.toContain("overflow-x-auto");
     expect(html).not.toContain("<script>");
   });
 
@@ -408,12 +411,12 @@ describe("chat renderer states", () => {
             runItemId: "item_command",
             schemaVersion: 1,
             stream: "stdout",
-            text: "ok\n",
+            text: `ok\n${"x".repeat(160)}\n`,
           },
         ]}
         runItems={[
           {
-            command: "go test ./...",
+            command: `go test ./... ${"x".repeat(160)}`,
             completedAt: "",
             conversationId: "conversation_api",
             createdAt: "2026-05-29T20:00:00Z",
@@ -565,6 +568,8 @@ describe("chat renderer states", () => {
     expect(html).toContain("main.go");
     expect(html).toContain("halfway");
     expect(html).toContain("warning text");
+    expect(html).not.toContain("overflow-x-auto");
+    expect(html).not.toContain("overflow-auto");
     expect(htmlScopeForTestId(html, "chat-assistant-message-content")).not.toContain(
       'data-testid="run-activity-group"',
     );

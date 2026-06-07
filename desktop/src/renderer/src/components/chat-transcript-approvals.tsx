@@ -28,7 +28,7 @@ export function ApprovalCard({
       <div className="font-semibold">{approval.title}</div>
       {approval.body ? <div className="mt-1 text-muted-foreground">{approval.body}</div> : null}
       {approval.command ? (
-        <pre className="mt-3 max-w-full overflow-x-auto rounded border border-status-warning/40 bg-background p-2 text-xs text-foreground">
+        <pre className="mt-3 max-w-full overflow-hidden whitespace-pre-wrap rounded border border-status-warning/40 bg-background p-2 text-xs break-words text-foreground [overflow-wrap:anywhere]">
           {approval.command}
         </pre>
       ) : null}
@@ -36,7 +36,7 @@ export function ApprovalCard({
         <div className="mt-2 break-all font-mono text-xs">{approval.filePath}</div>
       ) : null}
       {approval.permission ? (
-        <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap rounded border border-status-warning/40 bg-background p-2 text-xs text-foreground">
+        <pre className="mt-3 max-w-full overflow-hidden whitespace-pre-wrap rounded border border-status-warning/40 bg-background p-2 text-xs break-words text-foreground [overflow-wrap:anywhere]">
           {approval.permission}
         </pre>
       ) : null}
