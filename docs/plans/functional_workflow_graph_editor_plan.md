@@ -1,7 +1,7 @@
 # Functional Workflow Graph Editor Plan
 
 - **Date:** June 8, 2026
-- **Status:** Phase 4 in progress; layout and workspace-file/null-workflow authoring slices complete; editor controls, diagnostics, and details remain
+- **Status:** Phase 4 in progress; layout, workspace-file/null-workflow authoring, and basic editor UX slices complete; diagnostics, details depth, and run/version state remain
 - **Scope:** Build the first usable workflow graph editor on top of workspace JSON workflow definitions containing `WorkflowDefinition.graph` and runtime `WorkflowGraphProjection` overlays.
 
 ## Direction
@@ -160,17 +160,28 @@ The first slice established backend-owned editor layout metadata and proved it t
 - Removed global-SQLite authored-definition authority directly, without migration or compatibility paths.
 - Proved the slice through deterministic Electron/main/preload/renderer/HTTP/store coverage for blank canvas, first-edit materialization, sidebar listing, durable node and edge edits, typed route ports, saved workspace JSON, and run-start snapshotting.
 
+## Completed Basic Editor UX Slice
+
+- Added a workflow graph toolbar with discoverable Add, Validate, Run, Draft, and Details controls.
+- Added a toolbar add menu in addition to right-click canvas creation.
+- Validated saved draft graphs through the backend workflow definition API and showed validation results in the editor.
+- Started saved workflow definitions from the renderer, captured immutable SQLite version snapshots, and loaded the execution projection for the started run.
+- Opened workflow node details in an adjacent Niri pane.
+- Added basic Agent Task configuration in the details pane: title, prompt, model, reasoning effort, and fresh-conversation setting.
+- Kept Agent Task details read-only when the pane is showing a run snapshot.
+- Proved the slice through deterministic Electron/main/preload/renderer/HTTP/store coverage for toolbar add, node details, run start, and runtime projection updates.
+
 ## Remaining Editor Slice
 
-- Add first-class workflow configure and run controls in the renderer.
-- Add a discoverable add surface in addition to right-click canvas creation.
-- Show backend validation diagnostics on affected draft nodes and edges before save or run.
-- Open type-specific node details in an adjacent Niri pane.
-- Make draft, saved version, selected run, and version mismatch state explicit in the graph UI.
+- Attach backend validation diagnostics to affected draft nodes and edges before save or run.
+- Expand type-specific node details for Route, Merge, Barrier Join, Start, and End.
+- Add selected-run activity/transcript references, final output, emitted signals, artifacts, route explanations, failure reasons, and recovery details to node details.
+- Make saved version, selected run/version, and version mismatch state explicit in the graph UI.
+- Add first-class workflow-level naming and configuration controls.
 
 ## Phase 4 Deliverables
 
-Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, and immutable run snapshots are implemented. The remaining deliverables are editor controls, diagnostics, details, and explicit draft/run/version state.
+Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, immutable run snapshots, toolbar add/validate/run controls, validation result panels, and basic Agent Task details are implemented. The remaining deliverables are node/edge-attached diagnostics, richer node details, explicit saved-version/selected-run/version-mismatch state, and workflow-level configuration.
 
 - Name, list, open, edit, validate, save, and run workspace workflow definitions from the renderer.
 - Render an empty editable canvas as the null workflow when no saved definition exists.
@@ -207,11 +218,13 @@ Current status: partially complete. Storage, blank-canvas authoring, durable nod
 
 - Complete: opening Workflow Graph in a workspace with no workflow files shows a blank editable canvas, not a create button or "no workflow graph" dead end.
 - Complete: adding the first node to the blank canvas creates a deterministic workspace JSON definition and lists it in the left pane.
-- Partial: a user can create an `Agent Task` workflow from the canvas, save it as a workspace JSON definition, run an immutable snapshot through the workflow API, and inspect runtime status on the graph. First-class prompt configuration and run controls still need UI work.
 - Complete: a user can see existing workspace workflows in the left pane, select one, and reopen that exact definition.
 - Partial: a user can create a control-flow workflow with `Route`, explicit default routing, and `Merge` or `Barrier Join` semantics that validate through the backend. Additional visible validation UX remains.
 - Complete: dragging a connection creates a durable `WorkflowEdge` and condition, not only a Pixi line.
 - Complete: moving nodes persists via backend-owned layout metadata when persistence is enabled.
-- Remaining: validation diagnostics appear on invalid draft nodes or edges before save.
-- Remaining: runtime overlays are pinned to the exact workflow version that ran, and draft edits after run start do not silently change the displayed execution graph without clear UI state.
-- Remaining: node details panes can inspect authored config and selected-run activity without hiding the graph.
+- Complete: the toolbar provides a discoverable add surface in addition to right-click canvas creation.
+- Complete: a user can run a saved workflow from the renderer and see the started run projection on the graph.
+- Partial: a user can create an `Agent Task` workflow from the canvas, configure basic Agent Task prompt/model settings in a Niri details pane, save it as a workspace JSON definition, run an immutable snapshot through the workflow API, and inspect runtime status on the graph. Selected-run activity/transcript details still need UI work.
+- Partial: validation diagnostics appear in the editor before run, but affected draft nodes and edges still need local diagnostic markers.
+- Partial: runtime overlays are loaded from the exact workflow version that ran, and the UI blocks editing while viewing a run projection, but saved version, selected run/version, and version mismatch state still need to be explicit.
+- Partial: node details panes can inspect and edit authored Agent Task config without hiding the graph; non-Agent node details and selected-run activity remain.

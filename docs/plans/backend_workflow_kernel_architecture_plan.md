@@ -1,7 +1,7 @@
 # Backend Workflow Kernel Architecture Plan
 
 - **Date:** June 8, 2026
-- **Status:** Phase 4 in progress; workspace-file graph editor storage slice complete; later runner extensions deferred
+- **Status:** Phase 4 in progress; workspace-file storage/null-workflow and basic editor UX slices complete; later runner extensions deferred
 - **Scope:** Evolve Setta's backend workflow orchestration into a durable local-first workflow kernel with replaceable action runners.
 
 ## Executive Summary
@@ -21,7 +21,7 @@ Setta visual workflow graph
               -> sandboxed processes, MCP, sidecars, agent SDKs, or workflow backends later
 ```
 
-The Codex-only workflow kernel, runner boundary, transactional runtime persistence, and recovery/reconciliation work are complete. The current implementation target is finishing the functional workflow graph editor on top of workspace JSON definitions. Existing workflow persistence and contracts can still be replaced directly where the target design is clearer; no compatibility layers are required.
+The Codex-only workflow kernel, runner boundary, transactional runtime persistence, and recovery/reconciliation work are complete. The current implementation target is finishing the functional workflow graph editor polish on top of workspace JSON definitions: node/edge-attached diagnostics, richer node details and selected-run activity inspection, explicit draft/run/version state, and workflow-level configuration. Existing workflow persistence and contracts can still be replaced directly where the target design is clearer; no compatibility layers are required.
 
 ## Product Position
 
@@ -73,11 +73,14 @@ The existing architecture already has several correct foundations:
 - Workflow-owned conversations are marked internal so normal chat lists can hide them while workflow UI can still inspect them.
 - Authored workflow definitions are workspace-local JSON files under `.setta/workflows/`.
 - The current kernel runtime persistence is SQLite-backed for immutable definition versions, executions, events, materialized run state, and recovery state.
-- The renderer can show a blank null-workflow canvas, materialize a workspace JSON definition on first graph edit, list and select workspace workflows, and persist node, edge, and layout edits through backend workflow definition APIs.
+- The renderer can show a blank null-workflow canvas, materialize a workspace JSON definition on first graph edit, list and select workspace workflows, persist node, edge, and layout edits through backend workflow definition APIs, expose toolbar add/validate/run/draft/details controls, and open a basic Agent Task details pane in Niri.
 
 The main gaps are:
 
-- The graph editor still needs first-class configure and run controls, validation diagnostics on draft nodes and edges, a discoverable add surface beyond the context menu, node detail panes, and explicit draft/version/selected-run state in the UI.
+- Validation diagnostics currently appear as a panel; affected draft nodes and edges still need local diagnostic markers that remain visually distinct from runtime failure.
+- Node details are basic and Agent Task-focused; Route, Merge, Barrier Join, Start, End, and selected-run activity/transcript inspection still need type-specific details.
+- Draft/run state exists in the toolbar and details read-only behavior, but saved version, selected run/version, and version mismatch state still need to be explicit in the graph UI.
+- Workflow-level naming and configuration controls are still thin.
 - `agent.codex` is the only concrete action kind today.
 
 ## Target Architecture
@@ -833,7 +836,7 @@ Acceptance criteria:
 
 #### Phase 4: Functional Workflow Graph Editor
 
-Status: In progress. The layout metadata slice and the workspace-file/null-workflow authoring slice are complete. The remaining work is the first-class editor UX on top of workspace-saved workflow definition files, the `WorkflowDefinition.graph` contract, and the existing Codex-backed workflow kernel. See [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md) for detailed deliverables, guardrails, and acceptance criteria.
+Status: In progress. The layout metadata slice, workspace-file/null-workflow authoring slice, and basic editor UX slice are complete. The remaining work is editor polish on top of workspace-saved workflow definition files, the `WorkflowDefinition.graph` contract, and the existing Codex-backed workflow kernel. See [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md) for detailed deliverables, guardrails, and acceptance criteria.
 
 Completed first slice:
 
@@ -853,13 +856,23 @@ Completed storage and null-workflow authoring slice:
 - Capture immutable SQLite version snapshots when a workflow is run.
 - Replace current global-SQLite authored-definition storage directly, without compatibility or migration paths.
 
+Completed basic editor UX slice:
+
+- Add a workflow toolbar with discoverable Add, Validate, Run, Draft, and Details controls.
+- Add nodes from both the toolbar add menu and the canvas context menu.
+- Validate saved draft graphs through the backend workflow definition API and show validation results in the editor.
+- Start workflow runs from the editor, capture immutable version snapshots, and render the execution projection for the started run.
+- Open workflow node details in an adjacent Niri pane.
+- Support basic Agent Task configuration in the details pane: title, prompt, model, reasoning effort, and fresh-conversation setting.
+- Prove the slice through deterministic Electron/main/preload/renderer/HTTP/store coverage for toolbar add, node details, run start, and runtime projection updates.
+
 Remaining editor slice:
 
-- Add first-class workflow configure and run controls in the renderer.
-- Add a discoverable add surface in addition to right-click canvas creation.
-- Surface backend validation diagnostics on draft nodes and edges without reusing runtime failure styling.
-- Open type-specific workflow node details in an adjacent Niri pane.
-- Make draft, saved version, selected run, and version mismatch state explicit in the UI.
+- Attach backend validation diagnostics to affected draft nodes and edges without reusing runtime failure styling.
+- Expand type-specific workflow node details for Route, Merge, Barrier Join, Start, and End.
+- Add selected-run activity/transcript references, final output, emitted signals, artifacts, route explanations, and failure/recovery details to node details.
+- Make saved version, selected run/version, and version mismatch state explicit in the graph UI.
+- Add first-class workflow-level naming and configuration controls.
 
 ### Later Runner Extensions
 
@@ -992,8 +1005,8 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 - Additional typed condition shapes for approval outcome routing, structured output field comparisons, and signal schema references.
 - Whether `Merge` should remain compiled to `gateway.or`, become a separate future control node, or become a constrained gateway mode.
 - Backend semantics for a true state-machine wait-state `State` node: signals, resume behavior, timeout policy, persistence, and recovery.
-- Niri pane contract for opening workflow node details next to the graph editor.
+- Full node-details pane contract for selected-run activity, transcript references, route history, and type-specific controls across every initial node type.
 
 ## Recommended Next Step
 
-Finish the functional workflow graph editor before later runner expansion. The storage and blank-canvas authoring foundation is in place: workspace files contain `WorkflowDefinition.graph`, support `Agent Task`, `Route`, `Merge`, `Barrier Join`, `Start`, and `End`; edges are typed control transitions; layout persists through the Go-owned graph contract; run start captures immutable SQLite snapshots; and runtime projection state overlays saved versions. The next work is first-class configure/run controls, validation diagnostics, a discoverable add surface, node detail panes, and explicit draft/version/selected-run state. Proceed to sandboxed process, MCP, sidecar, LangGraph, OpenAI Agents SDK, LangFlow, or Python runner work only after the editor proves the graph authoring model under real use.
+Finish the functional workflow graph editor before later runner expansion. The storage, blank-canvas authoring, and basic editor UX foundation is in place: workspace files contain `WorkflowDefinition.graph`, support `Agent Task`, `Route`, `Merge`, `Barrier Join`, `Start`, and `End`; edges are typed control transitions; layout persists through the Go-owned graph contract; toolbar controls can add, validate, run, return to draft, and open node details; run start captures immutable SQLite snapshots; and runtime projection state overlays saved versions. The next work is node/edge-attached validation diagnostics, richer type-specific node details with selected-run activity, explicit saved-version/selected-run/version-mismatch state, and workflow-level configuration. Proceed to sandboxed process, MCP, sidecar, LangGraph, OpenAI Agents SDK, LangFlow, or Python runner work only after the editor proves the graph authoring model under real use.
