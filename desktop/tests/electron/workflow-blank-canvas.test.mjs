@@ -102,6 +102,20 @@ try {
     );
   }
   assertCameraPreserved(afterAdd.camera, pannedCanvas.camera);
+  await clickWorkflowRunButton(context.client);
+  const invalidStart = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.workflow?.executionId === "" &&
+      snapshot.graph.nodes.some(
+        (node) =>
+          node.id === "start" &&
+          node.diagnostic?.severity === "error" &&
+          node.diagnostic?.codes?.includes("start_node_output_required"),
+      ),
+  );
+  await waitForSelector(context.client, '[data-testid="workflow-validation-panel"]');
+  assertWorkflowNodeDiagnostic(invalidStart, "start", "start_node_output_required");
 
   const secondNodeMenuPoint = await dispatchPixiContextMenu(context.client, pixiSurfaceId, {
     x: 600,
@@ -115,7 +129,8 @@ try {
     context.client,
     (snapshot) =>
       snapshot.graph.nodeCount === 2 &&
-      snapshot.graph.nodes.some((node) => node.id === "agent_task"),
+      snapshot.graph.nodes.some((node) => node.id === "agent_task") &&
+      snapshot.graph.nodes.every((node) => node.diagnostic === null),
   );
   await openAgentTaskDetailsFromToolbar(context.client, pixiSurfaceId, afterSecondNode);
   await focusPixiWorkspacePane(context.client);
@@ -192,6 +207,30 @@ try {
   );
   assertRoutePorts(routeNodes);
   await connectPixiNodes(context.client, pixiSurfaceId, routeNodes, {
+    sourceNodeId: "route",
+    sourcePortId: "route_yes",
+    targetNodeId: "end",
+  });
+  await waitForPixiSnapshot(context.client, (snapshot) =>
+    snapshot.graph.edges.some(
+      (edge) =>
+        edge.id === "route_end" &&
+        edge.label === "route=yes" &&
+        edge.sourcePortId === "route_yes" &&
+        edge.targetNodeId === "end",
+    ),
+  );
+  await clickWorkflowValidateButton(context.client);
+  const diagnosedYesRoute = await waitForPixiSnapshot(context.client, (snapshot) =>
+    snapshot.graph.edges.some(
+      (edge) =>
+        edge.id === "route_end" &&
+        edge.diagnostic?.severity === "error" &&
+        edge.diagnostic?.codes?.includes("edge_condition_invalid"),
+    ),
+  );
+  assertWorkflowEdgeDiagnostic(diagnosedYesRoute, "route_end", "edge_condition_invalid");
+  await connectPixiNodes(context.client, pixiSurfaceId, diagnosedYesRoute, {
     sourceNodeId: "agent_task",
     targetNodeId: "route",
   });
@@ -204,20 +243,6 @@ try {
     ),
   );
   await connectPixiNodes(context.client, pixiSurfaceId, routeInput, {
-    sourceNodeId: "route",
-    sourcePortId: "route_yes",
-    targetNodeId: "end",
-  });
-  const yesRoute = await waitForPixiSnapshot(context.client, (snapshot) =>
-    snapshot.graph.edges.some(
-      (edge) =>
-        edge.id === "route_end" &&
-        edge.label === "route=yes" &&
-        edge.sourcePortId === "route_yes" &&
-        edge.targetNodeId === "end",
-    ),
-  );
-  await connectPixiNodes(context.client, pixiSurfaceId, yesRoute, {
     sourceNodeId: "route",
     sourcePortId: "route_default",
     targetNodeId: "end_2",
@@ -367,6 +392,28 @@ async function waitForToolbarState(client, expected) {
     })()`,
     (value) => value.text === expected,
   );
+}
+
+async function clickWorkflowRunButton(client) {
+  await clickWorkflowToolbarButton(client, "workflow-run-button");
+}
+
+async function clickWorkflowValidateButton(client) {
+  await clickWorkflowToolbarButton(client, "workflow-validate-button");
+}
+
+async function clickWorkflowToolbarButton(client, testId) {
+  const clicked = await client.evaluate(`((testId) => {
+    const button = document.querySelector(\`[data-testid="\${testId}"]\`);
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { ok: false, reason: "button-unavailable" };
+    }
+    button.click();
+    return { ok: true };
+  })(${JSON.stringify(testId)})`);
+  if (!clicked.ok) {
+    throw new Error(`workflow toolbar button was not clickable: ${JSON.stringify(clicked)}`);
+  }
 }
 
 async function addWorkflowNodeAt(client, surfaceId, nodeType, point) {
@@ -561,6 +608,24 @@ function assertRoutePorts(snapshot) {
   ];
   if (JSON.stringify(ports) !== JSON.stringify(expected)) {
     throw new Error(`route ports = ${JSON.stringify(ports)}, want ${JSON.stringify(expected)}`);
+  }
+}
+
+function assertWorkflowNodeDiagnostic(snapshot, nodeId, code) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node?.diagnostic?.codes?.includes(code)) {
+    throw new Error(
+      `missing workflow node diagnostic ${nodeId}/${code}: ${JSON.stringify(snapshot.graph.nodes)}`,
+    );
+  }
+}
+
+function assertWorkflowEdgeDiagnostic(snapshot, edgeId, code) {
+  const edge = snapshot.graph.edges.find((candidate) => candidate.id === edgeId);
+  if (!edge?.diagnostic?.codes?.includes(code)) {
+    throw new Error(
+      `missing workflow edge diagnostic ${edgeId}/${code}: ${JSON.stringify(snapshot.graph.edges)}`,
+    );
   }
 }
 

@@ -944,20 +944,7 @@ Acceptance criteria:
 ## Verification Strategy
 
 For each phase, run the narrowest checks first, then broaden after behavior is stable.
-Required deterministic workflow tests should cover:
-- Start workspace.
-- Open blank/null workflow canvas and materialize a workflow file from the first graph edit.
-- Start execution.
-- Stream node events.
-- Fan-out.
-- Join.
-- Conditional routing.
-- Loop guard.
-- Approval request and resolution.
-- Cancellation.
-- Runner failure.
-- Restart recovery.
-- Event replay.
+Required deterministic workflow tests should cover opening a workspace, blank/null workflow canvas materialization, execution start, streamed node events, fan-out, joins, conditional routing, loop guards, approvals, cancellation, runner failure, restart recovery, and event replay.
 
 When the sandboxed process runner is implemented, its tests must also cover:
 - Child-process cleanup.

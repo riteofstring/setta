@@ -19,11 +19,9 @@ import { registerPixiWorkspaceDebugSurface } from "./pixi-workspace-debug-regist
 import {
   countNodeOutlineGraphics,
   drawWorkspaceGrid,
-  nodeBodyContextFor,
   nodeGeometryContextCounts,
-  nodeOutlineContextFor,
-  nodeShadowContextFor,
 } from "./pixi-workspace-node-geometry";
+import { createWorkspaceNodeContainer } from "./pixi-workspace-node-container";
 import { createPixiWorkspaceSpatialQueries } from "./pixi-workspace-renderer-spatial-queries";
 import {
   cameraState,
@@ -411,6 +409,7 @@ export async function createPixiWorkspaceRenderer({
         edgeCount: edges.length,
         edges: edges.map((edge) => ({
           id: edge.id,
+          diagnostic: edge.diagnostic ?? null,
           label: edge.label ?? "",
           sourceNodeId: edge.sourceNodeId,
           sourcePortId: edge.sourcePortId,
@@ -424,6 +423,7 @@ export async function createPixiWorkspaceRenderer({
           const labelGlobal = label.getGlobalPosition(new Point());
           return {
             height: node.height,
+            diagnostic: node.diagnostic ?? null,
             id: node.id,
             label: {
               eventMode: label.eventMode,
@@ -534,33 +534,15 @@ export async function createPixiWorkspaceRenderer({
     },
   };
   function nodeContainer(node) {
-    const container = new Container();
-    container.x = node.x;
-    container.y = node.y;
-
-    const body = new Graphics(nodeBodyContextFor(node));
-    body.eventMode = "static";
-    body.cursor = "grab";
-    body.hitArea = new Rectangle(0, 0, node.width, node.height);
-    nodeBodies.set(node.id, body);
-    const shadow = new Graphics(nodeShadowContextFor(node));
-    nodeShadows.set(node.id, shadow);
-    const hoverOutline = new Graphics(nodeOutlineContextFor(node, "hovered"));
-    hoverOutline.visible = false;
-    const selectedOutline = new Graphics(nodeOutlineContextFor(node, "selected"));
-    selectedOutline.visible = false;
-    const portContainers = portsForNode(node).map((port) => portContainer(node, port));
-    nodeOutlines.set(node.id, { hoverOutline, selectedOutline });
-
-    container.addChild(shadow, body, hoverOutline, selectedOutline, ...portContainers);
-    body.on("pointerover", () => {
-      setHoveredNodeId(node.id);
+    return createWorkspaceNodeContainer({
+      node,
+      nodeBodies,
+      nodeOutlines,
+      nodeShadows,
+      onPointerOut: () => setHoveredNodeId(null),
+      onPointerOver: () => setHoveredNodeId(node.id),
+      portContainers: portsForNode(node).map((port) => portContainer(node, port)),
     });
-    body.on("pointerout", () => {
-      setHoveredNodeId(null);
-    });
-
-    return container;
   }
   function acquireLabel(nodeId) {
     const existingLabel = nodeLabels.get(nodeId);

@@ -4,10 +4,14 @@ import type {
   WorkflowGraphNodeStatus,
   WorkflowGraphProjection,
   WorkflowNodeKind,
+  WorkflowValidationDiagnostic,
+  WorkflowValidationResult,
+  WorkflowValidationSeverity,
 } from "@generated/backend";
 
 interface PixiWorkspaceNode {
   color: number;
+  diagnostic: PixiWorkspaceDiagnostic | null;
   executionCount: number;
   height: number;
   id: string;
@@ -29,6 +33,7 @@ interface PixiWorkspacePort {
 }
 
 interface PixiWorkspaceEdge {
+  diagnostic: PixiWorkspaceDiagnostic | null;
   id: string;
   label: string;
   sourceNodeId: string;
@@ -48,6 +53,12 @@ interface PixiWorkspaceGraph {
     executionStatus: string;
     workspaceId: string;
   } | null;
+}
+
+interface PixiWorkspaceDiagnostic {
+  codes: string[];
+  count: number;
+  severity: WorkflowValidationSeverity;
 }
 
 const columnGap = 270;
@@ -88,10 +99,13 @@ const idleKindColors = {
 
 export function pixiGraphFromWorkflowProjection(
   projection: WorkflowGraphProjection,
+  validation: WorkflowValidationResult | null = null,
 ): PixiWorkspaceGraph {
   const positions = workflowNodePositions(projection);
+  const diagnostics = workflowDiagnosticMaps(projection, validation);
   return {
     edges: projection.edges.map((edge) => ({
+      diagnostic: diagnostics.edges.get(edge.id) ?? null,
       id: edge.id,
       label: edge.label,
       sourceNodeId: edge.fromNodeId,
@@ -104,6 +118,7 @@ export function pixiGraphFromWorkflowProjection(
       const position = positions.get(node.id) ?? { x: 0, y: 0 };
       return {
         color: workflowNodeColor(node.status, node.kind),
+        diagnostic: diagnostics.nodes.get(node.id) ?? null,
         executionCount: node.executionCount,
         height: nodeHeight,
         id: node.id,
@@ -124,6 +139,67 @@ export function pixiGraphFromWorkflowProjection(
       workspaceId: projection.workspaceId,
     },
   };
+}
+
+function workflowDiagnosticMaps(
+  projection: WorkflowGraphProjection,
+  validation: WorkflowValidationResult | null,
+) {
+  const nodes = new Map<string, PixiWorkspaceDiagnostic>();
+  const edges = new Map<string, PixiWorkspaceDiagnostic>();
+  if (validation === null || projection.executionId !== "") {
+    return { edges, nodes };
+  }
+  for (const diagnostic of validation.diagnostics) {
+    if (diagnostic.nodeId !== "") {
+      upsertDiagnosticSummary(nodes, diagnostic.nodeId, diagnostic);
+    }
+    if (diagnostic.edgeId !== "") {
+      upsertDiagnosticSummary(edges, diagnostic.edgeId, diagnostic);
+    }
+  }
+  return { edges, nodes };
+}
+
+function upsertDiagnosticSummary(
+  summaries: Map<string, PixiWorkspaceDiagnostic>,
+  id: string,
+  diagnostic: WorkflowValidationDiagnostic,
+) {
+  const existing = summaries.get(id);
+  if (!existing) {
+    summaries.set(id, {
+      codes: [diagnostic.code],
+      count: 1,
+      severity: diagnostic.severity,
+    });
+    return;
+  }
+  summaries.set(id, {
+    codes: existing.codes.includes(diagnostic.code)
+      ? existing.codes
+      : [...existing.codes, diagnostic.code],
+    count: existing.count + 1,
+    severity: higherSeverity(existing.severity, diagnostic.severity),
+  });
+}
+
+function higherSeverity(
+  left: WorkflowValidationSeverity,
+  right: WorkflowValidationSeverity,
+): WorkflowValidationSeverity {
+  return severityRank(right) > severityRank(left) ? right : left;
+}
+
+function severityRank(severity: WorkflowValidationSeverity) {
+  switch (severity) {
+    case "error":
+      return 2;
+    case "warning":
+      return 1;
+    default:
+      return assertNever(severity);
+  }
 }
 
 function workflowNodePorts(kind: WorkflowNodeKind): PixiWorkspacePort[] | undefined {
@@ -153,6 +229,10 @@ function workflowNodeColor(status: WorkflowGraphNodeStatus, kind: WorkflowNodeKi
     return idleKindColors[kind];
   }
   return nodeStatusColors[status];
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported workflow validation severity: ${String(value)}`);
 }
 
 function workflowNodeWidth(label: string) {

@@ -124,7 +124,59 @@ describe("pixiGraphFromWorkflowProjection", () => {
       ["route_default", "route_default", "default"],
     ]);
   });
+
+  test("maps draft validation diagnostics onto nodes and edges", () => {
+    const graph = pixiGraphFromWorkflowProjection(draftProjection(), {
+      diagnostics: [
+        diagnostic("warning", "layout_node_unknown", "start", ""),
+        diagnostic("error", "start_node_output_required", "start", ""),
+        diagnostic("error", "edge_to_unknown", "", "work_end"),
+      ],
+      valid: false,
+    });
+
+    expect(graph.nodes.find((node) => node.id === "start")?.diagnostic).toEqual({
+      codes: ["layout_node_unknown", "start_node_output_required"],
+      count: 2,
+      severity: "error",
+    });
+    expect(graph.nodes.find((node) => node.id === "end")?.diagnostic).toBeNull();
+    expect(graph.edges.find((edge) => edge.id === "work_end")?.diagnostic).toEqual({
+      codes: ["edge_to_unknown"],
+      count: 1,
+      severity: "error",
+    });
+    expect(graph.edges.find((edge) => edge.id === "start_work")?.diagnostic).toBeNull();
+  });
+
+  test("does not overlay draft validation diagnostics on run projections", () => {
+    const graph = pixiGraphFromWorkflowProjection(testProjection(), {
+      diagnostics: [diagnostic("error", "start_node_output_required", "start", "work_end")],
+      valid: false,
+    });
+
+    expect(graph.nodes.find((node) => node.id === "start")?.diagnostic).toBeNull();
+    expect(graph.edges.find((edge) => edge.id === "work_end")?.diagnostic).toBeNull();
+  });
 });
+
+function draftProjection(): WorkflowGraphProjection {
+  return {
+    ...testProjection(),
+    executionId: "",
+    executionStatus: null,
+  };
+}
+
+function diagnostic(severity: "error" | "warning", code: string, nodeId: string, edgeId: string) {
+  return {
+    code,
+    edgeId,
+    message: code,
+    nodeId,
+    severity,
+  };
+}
 
 function testProjection(): WorkflowGraphProjection {
   return {

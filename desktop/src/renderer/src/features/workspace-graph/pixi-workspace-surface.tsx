@@ -84,8 +84,8 @@ export function PixiWorkspaceSurface({
     workflowTargetRef,
   });
   const workflowGraph = useMemo(
-    () => pixiGraphForWorkflowProjection(workflowProjection),
-    [workflowProjection],
+    () => pixiGraphForWorkflowProjection(workflowProjection, workflowValidation),
+    [workflowProjection, workflowValidation],
   );
   const graph = useMemo(() => {
     if (syntheticGraph) {
@@ -209,6 +209,7 @@ export function PixiWorkspaceSurface({
       if (workflowEditorError !== "") {
         setWorkflowEditorError("");
       }
+      setWorkflowValidation(null);
       try {
         const refreshed = await materializeWorkflowDraftEdge({
           connection,
@@ -517,11 +518,14 @@ type CreateWorkflowDefinition = (
   graph?: WorkflowGraph,
 ) => Promise<WorkflowDefinition>;
 
-function pixiGraphForWorkflowProjection(projection: WorkflowGraphProjection | null) {
+function pixiGraphForWorkflowProjection(
+  projection: WorkflowGraphProjection | null,
+  validation: WorkflowValidationResult | null,
+) {
   if (projection === null) {
     return undefined;
   }
-  return pixiGraphFromWorkflowProjection(projection);
+  return pixiGraphFromWorkflowProjection(projection, validation);
 }
 
 function workflowProjectionPendingApproval(projection: WorkflowGraphProjection | null) {

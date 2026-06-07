@@ -1,5 +1,6 @@
 interface PixiWorkspaceNode {
   color: number;
+  diagnostic?: PixiWorkspaceDiagnostic | null;
   height: number;
   id: string;
   label: string;
@@ -18,12 +19,19 @@ interface PixiWorkspacePort {
 }
 
 interface PixiWorkspaceEdge {
+  diagnostic?: PixiWorkspaceDiagnostic | null;
   id: string;
   label?: string;
   sourceNodeId: string;
   sourcePortId: string;
   targetNodeId: string;
   targetPortId: string;
+}
+
+interface PixiWorkspaceDiagnostic {
+  codes: string[];
+  count: number;
+  severity: "error" | "warning";
 }
 
 interface PixiWorkspaceGraph {
