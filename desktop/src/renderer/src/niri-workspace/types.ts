@@ -16,7 +16,8 @@ export type SurfaceKind =
   | "settings-dom"
   | "snapshot"
   | "terminal"
-  | "workflow-node-details";
+  | "workflow-node-details"
+  | "workflow-settings";
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 

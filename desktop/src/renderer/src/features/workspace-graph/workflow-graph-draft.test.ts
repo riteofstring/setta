@@ -5,6 +5,7 @@ import {
   emptyWorkflowGraph,
   workflowGraphWithAddedDraftEdge,
   workflowGraphWithAddedDraftNode,
+  workflowGraphWithoutDraftNodes,
 } from "./workflow-graph-draft";
 
 describe("workflow graph drafts", () => {
@@ -217,5 +218,70 @@ describe("workflow graph drafts", () => {
         targetNodeId: "agent_task",
       }),
     ).toThrow("Workflow edge references missing node start");
+  });
+
+  test("removes selected draft nodes with attached edges and layout", () => {
+    const withNodes = workflowGraphWithAddedDraftNode(
+      workflowGraphWithAddedDraftNode(
+        workflowGraphWithAddedDraftNode(emptyWorkflowGraph(), "start", { x: 0, y: 0 }),
+        "agent_task",
+        { x: 200, y: 0 },
+      ),
+      "end",
+      { x: 400, y: 0 },
+    );
+    const graph = workflowGraphWithAddedDraftEdge(
+      workflowGraphWithAddedDraftEdge(withNodes, {
+        sourceNodeId: "start",
+        targetNodeId: "agent_task",
+      }),
+      {
+        sourceNodeId: "agent_task",
+        targetNodeId: "end",
+      },
+    );
+
+    const updated = workflowGraphWithoutDraftNodes(graph, ["agent_task"]);
+
+    expect(updated.nodes.map((node) => node.id)).toEqual(["start", "end"]);
+    expect(updated.edges).toEqual([]);
+    expect(updated.layout.nodes.map((node) => node.nodeId)).toEqual(["start", "end"]);
+  });
+
+  test("clears route conditions that reference deleted nodes", () => {
+    const withNodes = workflowGraphWithAddedDraftNode(
+      workflowGraphWithAddedDraftNode(
+        workflowGraphWithAddedDraftNode(
+          workflowGraphWithAddedDraftNode(emptyWorkflowGraph(), "agent_task", { x: 0, y: 0 }),
+          "agent_task",
+          { x: 100, y: 0 },
+        ),
+        "route",
+        { x: 200, y: 0 },
+      ),
+      "end",
+      { x: 400, y: 0 },
+    );
+    const withRouteInput = workflowGraphWithAddedDraftEdge(withNodes, {
+      sourceNodeId: "agent_task",
+      targetNodeId: "route",
+    });
+    const withRouteOutput = workflowGraphWithAddedDraftEdge(withRouteInput, {
+      sourceNodeId: "route",
+      sourcePortId: "route_yes",
+      targetNodeId: "end",
+    });
+
+    const updated = workflowGraphWithoutDraftNodes(withRouteOutput, ["agent_task"]);
+
+    expect(updated.edges.map((edge) => [edge.id, edge.fromNodeId, edge.toNodeId])).toEqual([
+      ["route_end", "route", "end"],
+    ]);
+    expect(updated.edges[0]?.condition).toMatchObject({
+      kind: "action_signal",
+      nodeId: "",
+      signalName: "route",
+      signalValue: "yes",
+    });
   });
 });

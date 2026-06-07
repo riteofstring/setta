@@ -1,5 +1,4 @@
 import type {
-  ApprovalAnswer,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowGraph,
@@ -10,17 +9,18 @@ import type {
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcript-approvals";
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import {
   useWorkflowEditorStore,
   type WorkflowNodeDetailsTarget,
+  type WorkflowSettingsTarget,
 } from "../../stores/workflow-editor-store";
 import { requestNiriPaneOpen } from "../../niri-workspace/open-pane-events";
 import {
   emptyWorkflowGraph,
   workflowGraphWithAddedDraftEdge,
   workflowGraphWithAddedDraftNode,
+  workflowGraphWithoutDraftNodes,
   type WorkflowDraftEdgeConnection,
   type WorkflowDraftNodeType,
 } from "./workflow-graph-draft";
@@ -31,6 +31,7 @@ import type {
   PixiWorkspaceRenderer,
 } from "./pixi-workspace-renderer";
 import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
+import { WorkflowApprovalOverlay } from "./workflow-approval-overlay";
 import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
 import {
   toolbarDraftNodePosition,
@@ -78,6 +79,9 @@ export function PixiWorkspaceSurface({
     (state) => state.definitionChangeSequence,
   );
   const setSelectedNodeTarget = useWorkflowEditorStore((state) => state.setSelectedNodeTarget);
+  const setSelectedWorkflowSettingsTarget = useWorkflowEditorStore(
+    (state) => state.setSelectedWorkflowSettingsTarget,
+  );
   useWorkflowProjection({
     definitionChangeSequence,
     selectedDefinitionIdsByWorkspaceId,
@@ -228,6 +232,52 @@ export function PixiWorkspaceSurface({
     },
     [syntheticGraph, workflowEditorError, workflowProjection],
   );
+  const deleteWorkflowDraftNodes = useCallback(
+    async (nodeIds: string[]) => {
+      if (syntheticGraph !== null || nodeIds.length === 0) {
+        return;
+      }
+      if (workflowProjection === null) {
+        setWorkflowEditorError("Select workflow nodes before deleting");
+        return;
+      }
+      if (!workflowProjection.editable) {
+        setWorkflowEditorError("Select the draft workflow before deleting nodes");
+        return;
+      }
+      setWorkflowEditorError("");
+      setWorkflowValidation(null);
+      try {
+        const definition = await window.setta.workflow.readDefinition(
+          workflowProjection.workspaceId,
+          workflowProjection.definitionId,
+        );
+        const graph = workflowGraphWithoutDraftNodes(definition.graph, nodeIds);
+        const updated = await window.setta.workflow.updateDefinition(
+          workflowProjection.workspaceId,
+          definition.id,
+          definition.name,
+          definition.description,
+          graph,
+        );
+        const refreshed = await workflowProjectionForDefinition(
+          workflowProjection.workspaceId,
+          updated.id,
+        );
+        workflowTargetRef.current = workflowProjectionTarget(refreshed);
+        setWorkflowProjection(refreshed);
+        setSelectedWorkflowNodeId((selectedNodeId) =>
+          selectedNodeId !== null && nodeIds.includes(selectedNodeId) ? null : selectedNodeId,
+        );
+        setSelectedNodeTarget(null);
+      } catch (error: unknown) {
+        setWorkflowEditorError(
+          error instanceof Error ? error.message : "Workflow node delete failed",
+        );
+      }
+    },
+    [setSelectedNodeTarget, syntheticGraph, workflowProjection],
+  );
   const validateWorkflowDraft = useCallback(async () => {
     if (syntheticGraph !== null) {
       return null;
@@ -347,6 +397,19 @@ export function PixiWorkspaceSurface({
     },
     [setSelectedNodeTarget, workflowProjection],
   );
+  const openWorkflowSettings = useCallback(() => {
+    if (workflowProjection === null) {
+      return;
+    }
+    setSelectedWorkflowSettingsTarget(workflowSettingsTarget(workflowProjection));
+    requestNiriPaneOpen({
+      surfaceKind: "workflow-settings",
+      subtitle: "workflow settings",
+      title: "Workflow Settings",
+      tone: "cyan",
+      widthSpec: { unit: "px", value: 380 },
+    });
+  }, [setSelectedWorkflowSettingsTarget, workflowProjection]);
   const handleWorkflowNodeSelectionChange = useCallback((nodeIds: string[]) => {
     setSelectedWorkflowNodeId(nodeIds[0] ?? null);
   }, []);
@@ -396,6 +459,10 @@ export function PixiWorkspaceSurface({
           onCanvasContextMenu: syntheticGraph === null ? openWorkflowContextMenu : undefined,
           onEdgeCreate:
             syntheticGraph === null ? (edge) => void addWorkflowDraftEdge(edge) : undefined,
+          onNodeDelete:
+            syntheticGraph === null
+              ? (nodeIds) => void deleteWorkflowDraftNodes(nodeIds)
+              : undefined,
           onNodeOpen:
             syntheticGraph === null ? (nodeId) => openWorkflowNodeDetails(nodeId) : undefined,
           onNodePositionsChange: (positions) => {
@@ -424,6 +491,7 @@ export function PixiWorkspaceSurface({
     debugEnabled,
     graph,
     addWorkflowDraftEdge,
+    deleteWorkflowDraftNodes,
     handleWorkflowNodeSelectionChange,
     openWorkflowContextMenu,
     openWorkflowNodeDetails,
@@ -478,6 +546,7 @@ export function PixiWorkspaceSurface({
           busy={workflowOperation}
           onAddNode={(nodeType) => void addWorkflowDraftNodeFromToolbar(nodeType)}
           onOpenDetails={() => openWorkflowNodeDetails(selectedWorkflowNodeId)}
+          onOpenSettings={() => openWorkflowSettings()}
           onRun={() => void runWorkflowDraft()}
           onShowDraft={() => void showDraftWorkflow()}
           onValidate={() => void validateWorkflowDraft()}
@@ -578,6 +647,17 @@ function workflowNodeDetailsTarget(
     projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
     projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
     versionMismatch: projection.versionMismatch,
+    viewMode: projection.viewMode,
+    workspaceId: projection.workspaceId,
+  };
+}
+
+function workflowSettingsTarget(projection: WorkflowGraphProjection): WorkflowSettingsTarget {
+  return {
+    definitionDescription: projection.definitionDescription,
+    definitionId: projection.definitionId,
+    definitionName: projection.definitionName,
+    editable: projection.editable,
     viewMode: projection.viewMode,
     workspaceId: projection.workspaceId,
   };
@@ -914,62 +994,4 @@ function emptyPixiWorkflowGraph() {
     nodes: [],
     workflow: null,
   };
-}
-
-function WorkflowApprovalOverlay({
-  pendingApproval,
-  projection,
-  setWorkflowProjection,
-}: {
-  pendingApproval: WorkflowPendingApproval | null;
-  projection: WorkflowGraphProjection | null;
-  setWorkflowProjection: (projection: WorkflowGraphProjection | null) => void;
-}) {
-  const [error, setError] = useState("");
-  if (pendingApproval === null || projection === null) {
-    return null;
-  }
-  const submitApproval: SubmitApproval = async (
-    approvalId: string,
-    approved: boolean,
-    response: string,
-    answers: ApprovalAnswer[],
-    cancelled: boolean,
-  ) => {
-    setError("");
-    try {
-      await window.setta.workflow.submitApproval({
-        answers,
-        approvalId,
-        approved,
-        cancelled,
-        executionId: pendingApproval.executionId,
-        nodeExecutionId: pendingApproval.nodeExecutionId,
-        response,
-        workspaceId: pendingApproval.workspaceId,
-      });
-      const refreshed = await window.setta.workflow.graphProjection(
-        pendingApproval.workspaceId,
-        projection.definitionId,
-        projection.definitionVersionId,
-        pendingApproval.executionId,
-      );
-      setWorkflowProjection(refreshed.projection);
-    } catch (submitError: unknown) {
-      setError(submitError instanceof Error ? submitError.message : "Workflow approval failed");
-    }
-  };
-
-  return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-end sm:inset-x-auto sm:top-4 sm:right-4 sm:bottom-auto">
-      <div className="pointer-events-auto w-full max-w-md shadow-xl">
-        <ApprovalCard approval={pendingApproval.approval} submitApproval={submitApproval} />
-        {error ? (
-          <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
 }

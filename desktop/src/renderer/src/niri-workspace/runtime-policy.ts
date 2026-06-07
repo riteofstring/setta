@@ -26,7 +26,8 @@ type LiveHeavyDomSurfaceKind =
   | "chat-dom"
   | "fake-heavy-dom"
   | "fake-long-chat"
-  | "workflow-node-details";
+  | "workflow-node-details"
+  | "workflow-settings";
 type SurfaceRuntimeCategory =
   | "always-live"
   | "browser"
@@ -43,6 +44,7 @@ const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
   "fake-heavy-dom",
   "fake-long-chat",
   "workflow-node-details",
+  "workflow-settings",
 ]);
 const surfaceRuntimeCategories = {
   browser: "browser",
@@ -59,6 +61,7 @@ const surfaceRuntimeCategories = {
   snapshot: "snapshot",
   terminal: "terminal",
   "workflow-node-details": "heavy-dom",
+  "workflow-settings": "heavy-dom",
 } satisfies Record<SurfaceKind, SurfaceRuntimeCategory>;
 
 export class PaneRuntimePolicy {

@@ -85,6 +85,7 @@ interface CreatePixiWorkspaceRendererOptions {
   initialCameraState?: PixiWorkspaceCameraState | null;
   onCanvasContextMenu?: (menu: PixiWorkspaceCanvasContextMenu) => void;
   onEdgeCreate?: (connection: PixiWorkspaceEdgeConnection) => void;
+  onNodeDelete?: (nodeIds: string[]) => void;
   onNodeOpen?: (nodeId: string) => void;
   onNodePositionsChange?: (positions: PixiWorkspaceNodePosition[]) => void;
   onNodeSelectionChange?: (nodeIds: string[]) => void;

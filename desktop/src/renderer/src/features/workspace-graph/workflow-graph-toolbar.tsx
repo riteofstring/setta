@@ -16,6 +16,7 @@ import {
   Play,
   Plus,
   RefreshCcw,
+  Settings,
   Square,
   Workflow,
   XCircle,
@@ -47,6 +48,7 @@ export function WorkflowGraphToolbar({
   busy,
   onAddNode,
   onOpenDetails,
+  onOpenSettings,
   onRun,
   onShowDraft,
   onValidate,
@@ -59,6 +61,7 @@ export function WorkflowGraphToolbar({
   busy: "run" | "validate" | null;
   onAddNode: (nodeType: WorkflowDraftNodeType) => void;
   onOpenDetails: () => void;
+  onOpenSettings: () => void;
   onRun: () => void;
   onShowDraft: () => void;
   onValidate: () => void;
@@ -89,6 +92,13 @@ export function WorkflowGraphToolbar({
           stateLabel={model.stateLabel}
           title={model.title}
           versionLabel={model.versionLabel}
+        />
+        <ToolbarButton
+          disabled={model.settingsDisabled}
+          icon={Settings}
+          label="Settings"
+          onClick={onOpenSettings}
+          testId="workflow-settings-button"
         />
         <WorkflowAddNodeMenu
           disabled={model.disabled || !model.editable}
@@ -173,7 +183,12 @@ function WorkflowToolbarTitle({
 }) {
   return (
     <div className="min-w-0 px-1">
-      <div className="max-w-56 truncate text-xs font-semibold text-zinc-100">{title}</div>
+      <div
+        className="max-w-56 truncate text-xs font-semibold text-zinc-100"
+        data-testid="workflow-toolbar-title"
+      >
+        {title}
+      </div>
       <div className="mt-0.5 text-[11px] text-zinc-500" data-testid="workflow-toolbar-state">
         {stateLabel}
       </div>
@@ -411,6 +426,7 @@ function workflowToolbarModel({
     runDisabled: workflowRunDisabled(disabled, editable, projection),
     runIcon: workflowRunIcon(busy),
     runLabel: workflowRunLabel(busy),
+    settingsDisabled: disabled || projection === null,
     showDraftButton: workflowToolbarShowsDraftButton(projection),
     stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId),
     title: workflowToolbarTitle(projection, workspaceId),

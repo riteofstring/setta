@@ -27,6 +27,8 @@ import {
 } from "./pixi-workspace-niri-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
+const visibleWorkflowSettingsSurfaceSelector =
+  '[data-testid="niri-fake-pane-host"][data-surface-kind="workflow-settings"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"] .niri-react-dom-surface[data-react-surface-kind="workflow-settings"][data-visible="true"][data-frozen="false"] [data-testid="workflow-settings-surface"]';
 
 if (options.help) {
   console.log(
@@ -186,6 +188,66 @@ try {
     saved.graph.edges[0]?.condition !== null
   ) {
     throw new Error(`saved workflow edge mismatch: ${JSON.stringify(saved.graph.edges)}`);
+  }
+
+  const renamedDefinition = await renameWorkflowFromSettings(
+    context.client,
+    workspaceId,
+    definitions[0].id,
+    "Greeting workflow",
+    "Says hi",
+  );
+  if (
+    renamedDefinition.id !== definitions[0].id ||
+    renamedDefinition.name !== "Greeting workflow" ||
+    renamedDefinition.description !== "Says hi"
+  ) {
+    throw new Error(`renamed workflow definition mismatch: ${JSON.stringify(renamedDefinition)}`);
+  }
+  const afterRenameDefinitions = await workflowDefinitions(context.client, workspaceId);
+  if (
+    afterRenameDefinitions.length !== 1 ||
+    afterRenameDefinitions[0].name !== "Greeting workflow"
+  ) {
+    throw new Error(
+      `workflow definitions after rename = ${JSON.stringify(afterRenameDefinitions)}`,
+    );
+  }
+  const renamedSaved = await readSavedWorkflowDefinition(fixture.workspaceRoot, definitions[0].id);
+  if (renamedSaved.name !== "Greeting workflow" || renamedSaved.description !== "Says hi") {
+    throw new Error(`saved renamed workflow mismatch: ${JSON.stringify(renamedSaved)}`);
+  }
+  await focusPixiWorkspacePane(context.client);
+  pixiSurfaceId = await maximizePixiWorkspacePane(context.client);
+  await waitForPixiWorkspacePaneSettled(context.client, pixiSurfaceId);
+
+  await addWorkflowNodeAt(context.client, pixiSurfaceId, "merge", { x: 720, y: 420 });
+  const withDeletedCandidate = await waitForPixiSnapshot(context.client, (snapshot) =>
+    snapshot.graph.nodes.some((node) => node.id === "merge"),
+  );
+  await deleteWorkflowNodeWithKeyboard(
+    context.client,
+    pixiSurfaceId,
+    withDeletedCandidate,
+    "merge",
+  );
+  const afterKeyboardDelete = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) =>
+      !snapshot.graph.nodes.some((node) => node.id === "merge") && snapshot.graph.nodeCount === 2,
+  );
+  assertCameraPreserved(afterKeyboardDelete.camera, pannedCanvas.camera);
+  const afterDeleteSaved = await readSavedWorkflowDefinition(
+    fixture.workspaceRoot,
+    definitions[0].id,
+  );
+  if (
+    afterDeleteSaved.graph.nodes.some((node) => node.id === "merge") ||
+    afterDeleteSaved.graph.layout.nodes.some((node) => node.nodeId === "merge")
+  ) {
+    throw new Error(
+      `keyboard-deleted workflow node was saved: ${JSON.stringify(afterDeleteSaved)}`,
+    );
   }
 
   await addWorkflowNodeAt(context.client, pixiSurfaceId, "route", { x: 820, y: 260 });
@@ -430,12 +492,113 @@ async function clickWorkflowToolbarButton(client, testId) {
   }
 }
 
+async function renameWorkflowFromSettings(client, workspaceId, definitionId, name, description) {
+  await restoreMaximizedPixiWorkspacePane(client);
+  await clickWorkflowToolbarButton(client, "workflow-settings-button");
+  await waitForSelector(client, visibleWorkflowSettingsSurfaceSelector);
+  await waitForSelector(
+    client,
+    `${visibleWorkflowSettingsSurfaceSelector} [data-testid="workflow-settings-name"]`,
+  );
+  await waitForSelector(
+    client,
+    `${visibleWorkflowSettingsSurfaceSelector} [data-testid="workflow-settings-description"]`,
+  );
+  await setWorkflowSettingsControlValue(client, '[data-testid="workflow-settings-name"]', name);
+  await setWorkflowSettingsControlValue(
+    client,
+    '[data-testid="workflow-settings-description"]',
+    description,
+  );
+  return client.evaluate(
+    `(async (workspaceId, definitionId, name, description) => {
+      const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
+      return window.setta.workflow.updateDefinition(
+        workspaceId,
+        definitionId,
+        name,
+        description,
+        definition.graph,
+      );
+    })(${JSON.stringify(workspaceId)}, ${JSON.stringify(definitionId)}, ${JSON.stringify(name)}, ${JSON.stringify(description)})`,
+  );
+}
+
+async function restoreMaximizedPixiWorkspacePane(client) {
+  const restored = await client.evaluate(`(() => {
+    const host = document.querySelector(
+      '[data-testid="niri-fake-pane-host"][data-surface-kind="pixi-canvas"][data-maximized="true"]'
+    );
+    const button = host?.querySelector('[data-niri-pane-maximize-button="true"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!restored) {
+    return;
+  }
+  await waitForState(
+    client,
+    `(() => {
+      const host = document.querySelector(
+        '[data-testid="niri-fake-pane-host"][data-surface-kind="pixi-canvas"]'
+      );
+      return {
+        maximized: host instanceof HTMLElement ? host.dataset.maximized === "true" : false,
+        moving: host instanceof HTMLElement ? host.dataset.moving === "true" : true,
+      };
+    })()`,
+    (value) => !value.maximized && !value.moving,
+  );
+}
+
+async function setWorkflowSettingsControlValue(client, selector, value) {
+  const result = await client.evaluate(`((surfaceSelector, selector, value) => {
+    const surface = document.querySelector(surfaceSelector);
+    const element = surface?.querySelector(selector);
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
+      return { ok: false, reason: "missing-control" };
+    }
+    const prototype = element instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+    descriptor?.set?.call(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    return { ok: true };
+  })(${JSON.stringify(visibleWorkflowSettingsSurfaceSelector)}, ${JSON.stringify(selector)}, ${JSON.stringify(value)})`);
+  if (!result.ok) {
+    throw new Error(`failed to set control ${selector}: ${JSON.stringify(result)}`);
+  }
+}
+
 async function addWorkflowNodeAt(client, surfaceId, nodeType, point) {
   const menuPoint = await dispatchPixiContextMenu(client, surfaceId, point);
   await waitForSelector(client, '[data-testid="workflow-node-create-menu"]');
   await assertContextMenuAnchored(client, menuPoint);
   await selectWorkflowNodeType(client, nodeType);
   await delay(150);
+}
+
+async function deleteWorkflowNodeWithKeyboard(client, surfaceId, snapshot, nodeId) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(
+      `missing delete target node ${nodeId}: ${JSON.stringify(snapshot.graph.nodes)}`,
+    );
+  }
+  await dispatchPixiMouseClick(client, surfaceId, {
+    x: node.screenX,
+    y: node.screenY,
+  });
+  await waitForPixiSnapshot(client, (selectedSnapshot) =>
+    selectedSnapshot.interaction.selectedNodeIds.includes(nodeId),
+  );
+  await dispatchKeyEvent(client, { code: "Delete", key: "Delete" });
+  await dispatchKeyEvent(client, { code: "Delete", key: "Delete", type: "keyUp" });
 }
 
 async function openAgentTaskDetailsFromToolbar(client, surfaceId, snapshot) {

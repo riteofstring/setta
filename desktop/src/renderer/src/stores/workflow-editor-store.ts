@@ -23,11 +23,22 @@ export interface WorkflowNodeDetailsTarget {
   workspaceId: string;
 }
 
+export interface WorkflowSettingsTarget {
+  definitionDescription: string;
+  definitionId: string;
+  definitionName: string;
+  editable: boolean;
+  viewMode: WorkflowGraphViewMode | "blank";
+  workspaceId: string;
+}
+
 interface WorkflowEditorStore {
   definitionChangeSequence: number;
   notifyWorkflowDefinitionChanged: (workspaceId: string, definitionId: string) => void;
   selectedNodeTarget: WorkflowNodeDetailsTarget | null;
+  selectedWorkflowSettingsTarget: WorkflowSettingsTarget | null;
   setSelectedNodeTarget: (target: WorkflowNodeDetailsTarget | null) => void;
+  setSelectedWorkflowSettingsTarget: (target: WorkflowSettingsTarget | null) => void;
 }
 
 export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
@@ -38,7 +49,11 @@ export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
     }));
   },
   selectedNodeTarget: null,
+  selectedWorkflowSettingsTarget: null,
   setSelectedNodeTarget: (target) => {
     set({ selectedNodeTarget: target });
+  },
+  setSelectedWorkflowSettingsTarget: (target) => {
+    set({ selectedWorkflowSettingsTarget: target });
   },
 }));

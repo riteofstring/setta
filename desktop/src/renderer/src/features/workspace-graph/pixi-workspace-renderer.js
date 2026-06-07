@@ -42,6 +42,7 @@ import {
   isSelectionToggleEvent,
   isZoomWheel,
   marqueeBounds,
+  nodeDeleteRequested,
   nodeOpenRequested,
   normalizedWheelDelta,
   notifyNodeSelectionChange,
@@ -83,6 +84,7 @@ export async function createPixiWorkspaceRenderer({
   initialCameraState = null,
   onCanvasContextMenu = null,
   onEdgeCreate,
+  onNodeDelete,
   onNodeOpen = null,
   onNodePositionsChange = null,
   onNodeSelectionChange = null,
@@ -337,6 +339,11 @@ export async function createPixiWorkspaceRenderer({
     viewport,
   });
   const keyDown = (event) => {
+    if (nodeDeleteRequested(event, onNodeDelete, selectedNodeIds)) {
+      onNodeDelete([...selectedNodeIds]);
+      stopNativeInteraction(event);
+      return;
+    }
     if (event.key !== "Escape") {
       return;
     }

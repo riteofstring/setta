@@ -118,6 +118,29 @@ export function workflowGraphWithAddedDraftEdge(
   });
 }
 
+export function workflowGraphWithoutDraftNodes(
+  graph: WorkflowGraph,
+  nodeIds: readonly string[],
+): WorkflowGraph {
+  const normalized = normalizeDraftGraph(graph);
+  const removedNodeIds = new Set(nodeIds);
+  if (removedNodeIds.size === 0) {
+    return normalized;
+  }
+  const nextGraph = {
+    edges: normalized.edges.filter(
+      (edge) => !removedNodeIds.has(edge.fromNodeId) && !removedNodeIds.has(edge.toNodeId),
+    ),
+    layout: {
+      nodes: normalized.layout.nodes.filter((node) => !removedNodeIds.has(node.nodeId)),
+    },
+    nodes: normalized.nodes.filter((node) => !removedNodeIds.has(node.id)),
+  };
+  return workflowGraphWithResolvedRouteConditionSources(
+    workflowGraphWithoutDeletedConditionSources(nextGraph, removedNodeIds),
+  );
+}
+
 function normalizeDraftGraph(graph: WorkflowGraph): WorkflowGraph {
   return {
     edges: graph.edges ?? [],
@@ -286,6 +309,27 @@ function workflowGraphWithResolvedRouteConditionSources(graph: WorkflowGraph): W
         condition: {
           ...edge.condition,
           nodeId,
+        },
+      };
+    }),
+  };
+}
+
+function workflowGraphWithoutDeletedConditionSources(
+  graph: WorkflowGraph,
+  removedNodeIds: ReadonlySet<string>,
+): WorkflowGraph {
+  return {
+    ...graph,
+    edges: graph.edges.map((edge) => {
+      if (edge.condition === null || !removedNodeIds.has(edge.condition.nodeId)) {
+        return edge;
+      }
+      return {
+        ...edge,
+        condition: {
+          ...edge.condition,
+          nodeId: "",
         },
       };
     }),

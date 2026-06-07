@@ -23,10 +23,35 @@ export function nodeOpenRequested(event, onNodeOpen) {
   return event.detail >= 2 && onNodeOpen !== null;
 }
 
+export function nodeDeleteRequested(event, onNodeDelete, selectedNodeIds) {
+  return (
+    isNodeDeleteKey(event.key) &&
+    selectedNodeIds.size > 0 &&
+    typeof onNodeDelete === "function" &&
+    !keyboardEventTargetsEditableText(event)
+  );
+}
+
 export function notifyNodeSelectionChange(onNodeSelectionChange, selectedNodeIds) {
   if (onNodeSelectionChange !== null) {
     onNodeSelectionChange([...selectedNodeIds]);
   }
+}
+
+function isNodeDeleteKey(key) {
+  return key === "Delete" || key === "Backspace";
+}
+
+function keyboardEventTargetsEditableText(event) {
+  const target = event.target;
+  if (!target || typeof target.closest !== "function") {
+    return false;
+  }
+  if (target.closest("input, textarea, select") !== null) {
+    return true;
+  }
+  const editable = target.closest("[contenteditable]");
+  return Boolean(editable?.isContentEditable);
 }
 
 export function setsEqual(left, right) {
