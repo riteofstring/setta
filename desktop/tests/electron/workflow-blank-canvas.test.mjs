@@ -270,6 +270,18 @@ try {
     routeDefinition.id,
   );
   assertTypedRouteExecution(execution);
+  const completedRunGraph = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.workflow?.executionId === execution.id &&
+      snapshot.graph.nodes.some((node) => node.id === "agent_task"),
+  );
+  await openWorkflowNodeDetailsFromToolbar(context.client, pixiSurfaceId, completedRunGraph, {
+    detailsSelector: '[data-testid="workflow-node-run-details"]',
+    nodeId: "agent_task",
+    nodeLabel: "Agent Task",
+  });
+  await assertWorkflowRunDetails(context.client);
 
   await writeJson(join(artifactDir, "summary.json"), {
     definitionId: definitions[0].id,
@@ -425,13 +437,26 @@ async function addWorkflowNodeAt(client, surfaceId, nodeType, point) {
 }
 
 async function openAgentTaskDetailsFromToolbar(client, surfaceId, snapshot) {
-  const agentTask = snapshot.graph.nodes.find((node) => node.id === "agent_task");
-  if (!agentTask) {
-    throw new Error(`missing agent_task node: ${JSON.stringify(snapshot.graph.nodes)}`);
+  await openWorkflowNodeDetailsFromToolbar(client, surfaceId, snapshot, {
+    detailsSelector: '[data-testid="workflow-node-details-agent-task"]',
+    nodeId: "agent_task",
+    nodeLabel: "Agent Task",
+  });
+}
+
+async function openWorkflowNodeDetailsFromToolbar(
+  client,
+  surfaceId,
+  snapshot,
+  { detailsSelector, nodeId, nodeLabel },
+) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(`missing ${nodeId} node: ${JSON.stringify(snapshot.graph.nodes)}`);
   }
   await dispatchPixiMouseClick(client, surfaceId, {
-    x: agentTask.screenX,
-    y: agentTask.screenY,
+    x: node.screenX,
+    y: node.screenY,
   });
   await waitForState(
     client,
@@ -442,7 +467,7 @@ async function openAgentTaskDetailsFromToolbar(client, surfaceId, snapshot) {
         text: button?.textContent?.trim() ?? "",
       };
     })()`,
-    (value) => value.disabled === false && value.text.includes("Agent Task"),
+    (value) => value.disabled === false && value.text.includes(nodeLabel),
   );
   const clicked = await client.evaluate(`(() => {
     const button = document.querySelector('[data-testid="workflow-node-details-button"]');
@@ -456,7 +481,26 @@ async function openAgentTaskDetailsFromToolbar(client, surfaceId, snapshot) {
     throw new Error(`workflow details button was not clickable: ${JSON.stringify(clicked)}`);
   }
   await waitForSelector(client, '[data-testid="workflow-node-details-surface"]');
-  await waitForSelector(client, '[data-testid="workflow-node-details-agent-task"]');
+  await waitForSelector(client, detailsSelector);
+}
+
+async function assertWorkflowRunDetails(client) {
+  await waitForState(
+    client,
+    `(() => {
+      const details = document.querySelector('[data-testid="workflow-node-run-details"]');
+      return details?.textContent ?? "";
+    })()`,
+    (text) =>
+      text.includes("Run status") &&
+      text.includes("succeeded") &&
+      text.includes("route=yes") &&
+      text.includes("decision=exit") &&
+      text.includes("scripted workflow result") &&
+      text.includes("reports/workflow-result.md") &&
+      text.includes("Workflow result") &&
+      text.includes("workflow result recorded"),
+  );
 }
 
 async function focusPixiWorkspacePane(client) {

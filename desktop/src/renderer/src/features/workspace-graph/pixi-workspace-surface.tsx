@@ -12,7 +12,10 @@ import { createPortal } from "react-dom";
 
 import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcript-approvals";
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
-import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
+import {
+  useWorkflowEditorStore,
+  type WorkflowNodeDetailsTarget,
+} from "../../stores/workflow-editor-store";
 import { requestNiriPaneOpen } from "../../niri-workspace/open-pane-events";
 import {
   emptyWorkflowGraph,
@@ -557,12 +560,22 @@ function workflowProjectionHasNoWorkspace(
   return syntheticGraph === null && workflowProjectionReady && workflowWorkspaceId === "";
 }
 
-function workflowNodeDetailsTarget(projection: WorkflowGraphProjection, nodeId: string) {
+function workflowNodeDetailsTarget(
+  projection: WorkflowGraphProjection,
+  nodeId: string,
+): WorkflowNodeDetailsTarget {
+  const node = projection.nodes.find((candidate) => candidate.id === nodeId);
   return {
     definitionId: projection.definitionId,
     definitionName: projection.definitionName,
+    definitionVersionId: projection.definitionVersionId,
     executionId: projection.executionId,
     nodeId,
+    nodeKind: node?.kind ?? "",
+    nodeLabel: node?.label ?? nodeId,
+    nodeStatus: node?.status ?? "",
+    projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
+    projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
     workspaceId: projection.workspaceId,
   };
 }

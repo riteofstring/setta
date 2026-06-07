@@ -1,30 +1,56 @@
-import type { WorkflowGraph, WorkflowNode } from "@generated/backend";
+import type {
+  WorkflowActivityRef,
+  WorkflowEdge,
+  WorkflowGraph,
+  WorkflowNode,
+} from "@generated/backend";
 import { RefreshCcw, Save } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
+import {
+  WorkflowDetailsEmpty,
+  WorkflowDetailsError,
+  WorkflowDetailsRows,
+  WorkflowDetailsSection,
+  WorkflowRunDetailsContent,
+  type WorkflowNodeActivityPage,
+  type WorkflowRunInspectionState,
+} from "./workflow-node-details-components";
+import {
+  agentTaskDraftFromNode,
+  latestWorkflowNodeExecution,
+  requiredIncomingSummary,
+  shortIdentifier,
+  workflowConditionText,
+  workflowGraphWithUpdatedAgentTask,
+  workflowIncomingEdges,
+  workflowNodeKindLabel,
+  workflowOutgoingEdges,
+  type AgentTaskDraft,
+} from "./workflow-node-details-helpers";
 
 type WorkflowDefinitionRecord = Awaited<ReturnType<typeof window.setta.workflow.readDefinition>>;
 type WorkflowNodeDetailsTarget = NonNullable<
   ReturnType<typeof useWorkflowEditorStore.getState>["selectedNodeTarget"]
 >;
 
-interface AgentTaskDraft {
-  freshConversation: boolean;
-  model: string;
-  prompt: string;
-  reasoningEffort: string;
-  title: string;
-}
+const workflowRunEventLimit = 80;
+const workflowRunActivityLimit = 40;
 
 export function WorkflowNodeDetailsSurface() {
   const target = useWorkflowEditorStore((state) => state.selectedNodeTarget);
   const notifyWorkflowDefinitionChanged = useWorkflowEditorStore(
     (state) => state.notifyWorkflowDefinitionChanged,
   );
-  const { definition, loadError, setDefinition, setLoadError } = useWorkflowNodeDefinition(target);
+  const viewingRun = target?.executionId !== "";
+  const { definition, loadError, setDefinition, setLoadError } = useWorkflowNodeDefinition(
+    target,
+    viewingRun,
+  );
+  const runInspection = useWorkflowRunInspection(target);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [draft, setDraft] = useState<AgentTaskDraft | null>(null);
@@ -89,6 +115,7 @@ export function WorkflowNodeDetailsSurface() {
         node={node}
         onDraftChange={setDraft}
         onSave={() => void saveAgentTask()}
+        runInspection={runInspection}
         saveMessage={saveMessage}
         saving={saving}
         target={target}
@@ -97,7 +124,7 @@ export function WorkflowNodeDetailsSurface() {
   );
 }
 
-function useWorkflowNodeDefinition(target: WorkflowNodeDetailsTarget | null) {
+function useWorkflowNodeDefinition(target: WorkflowNodeDetailsTarget | null, skip: boolean) {
   const [definition, setDefinition] = useState<WorkflowDefinitionRecord | null>(null);
   const [loadError, setLoadError] = useState("");
 
@@ -105,7 +132,7 @@ function useWorkflowNodeDefinition(target: WorkflowNodeDetailsTarget | null) {
     let disposed = false;
     setDefinition(null);
     setLoadError("");
-    if (target === null) {
+    if (target === null || skip) {
       return;
     }
     void window.setta.workflow
@@ -123,9 +150,98 @@ function useWorkflowNodeDefinition(target: WorkflowNodeDetailsTarget | null) {
     return () => {
       disposed = true;
     };
-  }, [target]);
+  }, [skip, target]);
 
   return { definition, loadError, setDefinition, setLoadError };
+}
+
+function useWorkflowRunInspection(target: WorkflowNodeDetailsTarget | null) {
+  const [state, setState] = useState<WorkflowRunInspectionState>(() =>
+    emptyWorkflowRunInspection(false),
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    setState(emptyWorkflowRunInspection(target !== null && target.executionId !== ""));
+    if (target === null || target.executionId === "") {
+      return;
+    }
+
+    const loadRunInspection = async () => {
+      try {
+        const [execution, eventPage] = await Promise.all([
+          window.setta.workflow.readExecution(target.workspaceId, target.executionId),
+          window.setta.workflow.executionEvents(
+            target.workspaceId,
+            target.executionId,
+            0,
+            workflowRunEventLimit,
+          ),
+        ]);
+        const nodeExecution = latestWorkflowNodeExecution(execution, target.nodeId);
+        const activityPages = await Promise.all(
+          (nodeExecution?.activityRefs ?? []).map((ref) =>
+            loadWorkflowNodeActivityPage(target.workspaceId, ref),
+          ),
+        );
+        if (!disposed) {
+          setState({
+            activityPages,
+            events: eventPage.events,
+            execution,
+            loadError: "",
+            loading: false,
+          });
+        }
+      } catch (error: unknown) {
+        if (!disposed) {
+          setState({
+            activityPages: [],
+            events: [],
+            execution: null,
+            loadError: errorMessage(error),
+            loading: false,
+          });
+        }
+      }
+    };
+
+    void loadRunInspection();
+    return () => {
+      disposed = true;
+    };
+  }, [target]);
+
+  return state;
+}
+
+function emptyWorkflowRunInspection(loading: boolean): WorkflowRunInspectionState {
+  return {
+    activityPages: [],
+    events: [],
+    execution: null,
+    loadError: "",
+    loading,
+  };
+}
+
+async function loadWorkflowNodeActivityPage(
+  workspaceId: string,
+  ref: WorkflowActivityRef,
+): Promise<WorkflowNodeActivityPage> {
+  if (ref.kind !== "chat.run") {
+    return { error: "", page: null, ref };
+  }
+  try {
+    const page = await window.setta.chat.runActivity(
+      workspaceId,
+      ref.ref,
+      workflowRunActivityLimit,
+    );
+    return { error: "", page, ref };
+  } catch (error: unknown) {
+    return { error: errorMessage(error), page: null, ref };
+  }
 }
 
 function WorkflowNodeDetailsContent({
@@ -135,6 +251,7 @@ function WorkflowNodeDetailsContent({
   node,
   onDraftChange,
   onSave,
+  runInspection,
   saveMessage,
   saving,
   target,
@@ -145,12 +262,21 @@ function WorkflowNodeDetailsContent({
   node: WorkflowNode | null;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
+  runInspection: WorkflowRunInspectionState;
   saveMessage: string;
   saving: boolean;
   target: WorkflowNodeDetailsTarget | null;
 }) {
   if (target === null) {
     return <WorkflowDetailsEmpty message="Select a workflow node to inspect or configure it." />;
+  }
+  if (target.executionId !== "") {
+    return (
+      <>
+        <WorkflowNodeIdentity target={target} />
+        <WorkflowRunDetailsContent inspection={runInspection} target={target} />
+      </>
+    );
   }
   if (loadError !== "") {
     return <WorkflowDetailsError message={loadError} />;
@@ -163,6 +289,7 @@ function WorkflowNodeDetailsContent({
       <WorkflowNodeIdentity target={target} />
       <WorkflowLoadedNodeDetails
         draft={draft}
+        graph={definition.graph}
         node={node}
         onDraftChange={onDraftChange}
         onSave={onSave}
@@ -176,6 +303,7 @@ function WorkflowNodeDetailsContent({
 
 function WorkflowLoadedNodeDetails({
   draft,
+  graph,
   node,
   onDraftChange,
   onSave,
@@ -184,6 +312,7 @@ function WorkflowLoadedNodeDetails({
   target,
 }: {
   draft: AgentTaskDraft | null;
+  graph: WorkflowGraph;
   node: WorkflowNode | null;
   onDraftChange: (draft: AgentTaskDraft) => void;
   onSave: () => void;
@@ -195,7 +324,7 @@ function WorkflowLoadedNodeDetails({
     return <WorkflowDetailsEmpty message="The selected workflow node no longer exists." />;
   }
   if (draft === null) {
-    return <UnsupportedNodeDetails node={node} />;
+    return <WorkflowDraftNodeDetails graph={graph} node={node} />;
   }
   return (
     <AgentTaskDetailsForm
@@ -343,11 +472,124 @@ function AgentTaskSaveIcon({ saving }: { saving: boolean }) {
   return <Save className="h-3.5 w-3.5" />;
 }
 
+function WorkflowDraftNodeDetails({ graph, node }: { graph: WorkflowGraph; node: WorkflowNode }) {
+  switch (node.kind) {
+    case "start":
+    case "end":
+      return <WorkflowControlDraftDetails graph={graph} node={node} />;
+    case "gateway.xor":
+      return <WorkflowRouteDraftDetails graph={graph} node={node} />;
+    case "gateway.and":
+    case "gateway.or":
+      return <WorkflowJoinDraftDetails graph={graph} node={node} />;
+    default:
+      return <UnsupportedNodeDetails node={node} />;
+  }
+}
+
+function WorkflowControlDraftDetails({
+  graph,
+  node,
+}: {
+  graph: WorkflowGraph;
+  node: WorkflowNode;
+}) {
+  return (
+    <WorkflowDraftDetailsShell testId="workflow-node-details-control">
+      <WorkflowDetailsSection title="Definition">
+        <WorkflowDetailsRows
+          rows={[
+            { label: "Kind", value: workflowNodeKindLabel(node.kind) },
+            { label: "Incoming", value: `${workflowIncomingEdges(graph, node.id).length}` },
+            { label: "Outgoing", value: `${workflowOutgoingEdges(graph, node.id).length}` },
+          ]}
+        />
+      </WorkflowDetailsSection>
+      <WorkflowEdgeList edges={workflowOutgoingEdges(graph, node.id)} title="Outgoing Edges" />
+    </WorkflowDraftDetailsShell>
+  );
+}
+
+function WorkflowRouteDraftDetails({ graph, node }: { graph: WorkflowGraph; node: WorkflowNode }) {
+  return (
+    <WorkflowDraftDetailsShell testId="workflow-node-details-route">
+      <WorkflowDetailsSection title="Route">
+        <WorkflowDetailsRows
+          rows={[
+            { label: "Incoming", value: `${workflowIncomingEdges(graph, node.id).length}` },
+            { label: "Branches", value: `${workflowOutgoingEdges(graph, node.id).length}` },
+          ]}
+        />
+      </WorkflowDetailsSection>
+      <WorkflowEdgeList edges={workflowOutgoingEdges(graph, node.id)} title="Branches" />
+    </WorkflowDraftDetailsShell>
+  );
+}
+
+function WorkflowJoinDraftDetails({ graph, node }: { graph: WorkflowGraph; node: WorkflowNode }) {
+  return (
+    <WorkflowDraftDetailsShell testId="workflow-node-details-join">
+      <WorkflowDetailsSection title={workflowNodeKindLabel(node.kind)}>
+        <WorkflowDetailsRows
+          rows={[
+            { label: "Incoming", value: `${workflowIncomingEdges(graph, node.id).length}` },
+            { label: "Required incoming", value: requiredIncomingSummary(node) },
+            { label: "Outgoing", value: `${workflowOutgoingEdges(graph, node.id).length}` },
+          ]}
+        />
+      </WorkflowDetailsSection>
+      <WorkflowEdgeList edges={workflowIncomingEdges(graph, node.id)} title="Incoming Edges" />
+      <WorkflowEdgeList edges={workflowOutgoingEdges(graph, node.id)} title="Outgoing Edges" />
+    </WorkflowDraftDetailsShell>
+  );
+}
+
+function WorkflowDraftDetailsShell({ children, testId }: { children: ReactNode; testId: string }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4" data-testid={testId}>
+      {children}
+    </div>
+  );
+}
+
+function WorkflowEdgeList({ edges, title }: { edges: WorkflowEdge[]; title: string }) {
+  return (
+    <WorkflowDetailsSection title={title}>
+      {edges.length === 0 ? (
+        <div className="text-xs text-zinc-500">No edges.</div>
+      ) : (
+        <div className="space-y-1">
+          {edges.map((edge) => (
+            <div
+              className="rounded-sm border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-xs text-zinc-300"
+              key={edge.id}
+            >
+              <div className="font-mono text-[11px] text-zinc-500">{edge.id}</div>
+              <div className="mt-1">
+                {edge.fromNodeId}
+                {" -> "}
+                {edge.toNodeId}
+              </div>
+              <div className="mt-1 text-zinc-400">{workflowConditionText(edge.condition)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </WorkflowDetailsSection>
+  );
+}
+
 function WorkflowNodeIdentity({ target }: { target: WorkflowNodeDetailsTarget }) {
   return (
     <div className="border-b border-zinc-800 px-4 py-3 text-xs text-zinc-400">
       <div className="truncate">{target.definitionName}</div>
       <div className="mt-1 font-mono text-[11px] text-zinc-500">{target.nodeId}</div>
+      {target.executionId !== "" ? (
+        <div className="mt-1 font-mono text-[11px] text-zinc-500">
+          run {shortIdentifier(target.executionId)} / version{" "}
+          {shortIdentifier(target.definitionVersionId)}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -356,52 +598,7 @@ function workflowDetailsTitle(target: WorkflowNodeDetailsTarget | null, node: Wo
   if (target === null) {
     return "Workflow Node";
   }
-  return node?.title || node?.id || "Workflow Node";
-}
-
-export function workflowGraphWithUpdatedAgentTask(
-  graph: WorkflowGraph,
-  nodeId: string,
-  draft: AgentTaskDraft,
-): WorkflowGraph {
-  return {
-    ...graph,
-    nodes: graph.nodes.map((node) => {
-      if (node.id !== nodeId) {
-        return node;
-      }
-      if (node.kind !== "action" || node.action?.kind !== "agent.codex" || !node.action.codex) {
-        throw new Error(`workflow node ${nodeId} is not an Agent Task`);
-      }
-      return {
-        ...node,
-        action: {
-          ...node.action,
-          codex: {
-            ...node.action.codex,
-            freshConversation: draft.freshConversation,
-            model: draft.model,
-            prompt: draft.prompt,
-            reasoningEffort: draft.reasoningEffort,
-          },
-        },
-        title: draft.title,
-      };
-    }),
-  };
-}
-
-function agentTaskDraftFromNode(node: WorkflowNode): AgentTaskDraft | null {
-  if (node.kind !== "action" || node.action?.kind !== "agent.codex" || !node.action.codex) {
-    return null;
-  }
-  return {
-    freshConversation: node.action.codex.freshConversation,
-    model: node.action.codex.model,
-    prompt: node.action.codex.prompt,
-    reasoningEffort: node.action.codex.reasoningEffort,
-    title: node.title,
-  };
+  return node?.title || target.nodeLabel || target.nodeId || "Workflow Node";
 }
 
 function UnsupportedNodeDetails({ node }: { node: WorkflowNode }) {
@@ -428,21 +625,6 @@ function WorkflowDetailsShell({ children, title }: { children: ReactNode; title:
       </header>
       {children}
     </section>
-  );
-}
-
-function WorkflowDetailsEmpty({ message }: { message: string }) {
-  return <div className="p-4 text-sm text-zinc-400">{message}</div>;
-}
-
-function WorkflowDetailsError({ message }: { message: string }) {
-  return (
-    <div
-      className="m-4 rounded-sm border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-100"
-      role="alert"
-    >
-      {message}
-    </div>
   );
 }
 
