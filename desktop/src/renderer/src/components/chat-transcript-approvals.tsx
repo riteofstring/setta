@@ -22,13 +22,13 @@ export function ApprovalCard({
 }) {
   return (
     <section
-      className="min-w-0 rounded-md border border-status-warning/50 bg-status-warning/15 px-4 py-3 text-sm break-words text-foreground"
+      className="min-w-0 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm break-words text-amber-950"
       data-testid="approval-card"
     >
       <div className="font-semibold">{approval.title}</div>
-      {approval.body ? <div className="mt-1 text-muted-foreground">{approval.body}</div> : null}
+      {approval.body ? <div className="mt-1 text-amber-900">{approval.body}</div> : null}
       {approval.command ? (
-        <pre className="mt-3 max-w-full overflow-x-auto rounded border border-status-warning/40 bg-background p-2 text-xs text-foreground">
+        <pre className="mt-3 max-w-full overflow-x-auto rounded border border-amber-200 bg-white p-2 text-xs">
           {approval.command}
         </pre>
       ) : null}
@@ -36,7 +36,7 @@ export function ApprovalCard({
         <div className="mt-2 break-all font-mono text-xs">{approval.filePath}</div>
       ) : null}
       {approval.permission ? (
-        <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap rounded border border-status-warning/40 bg-background p-2 text-xs text-foreground">
+        <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap rounded border border-amber-200 bg-white p-2 text-xs">
           {approval.permission}
         </pre>
       ) : null}
@@ -70,7 +70,7 @@ function ApprovalControls({
     case "structured_input":
       if (approval.structuredInput === null) {
         return (
-          <div className="mt-3 font-medium text-status-critical">
+          <div className="mt-3 font-medium text-red-700">
             Approval request is missing structured input metadata.
           </div>
         );
@@ -125,9 +125,7 @@ function UserInputApproval({
   const [answersByQuestion, setAnswersByQuestion] = useState<Record<string, string>>({});
   if (questions.length === 0) {
     return (
-      <div className="mt-3 font-medium text-status-critical">
-        Approval request is missing questions.
-      </div>
+      <div className="mt-3 font-medium text-red-700">Approval request is missing questions.</div>
     );
   }
   const complete = questions.every(
@@ -162,7 +160,7 @@ function UserInputApproval({
               </div>
             ) : null}
             <input
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
+              className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
               onChange={(event) =>
                 setQuestionAnswer(setAnswersByQuestion, question.id, event.target.value)
               }

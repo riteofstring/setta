@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import { TextDecoder } from "node:util";
@@ -9,7 +9,6 @@ import {
   assertRecordingEvidence,
   backendProbe,
   captureScreenshot,
-  clickButtonByAria,
   createChat,
   createFixture,
   failureWithLogs,
@@ -92,10 +91,7 @@ async function exerciseBackendOrchestratorFirstLaunch({
 
   const recovery = await startPhase4WorkflowForRecovery(context.client, workspaceId);
   await captureScreenshot(context.client, join(firstRecording, "orchestrator.png"));
-  return {
-    ...recovery,
-    workspaceDisplayName: basename(fixture.workspaceRoot),
-  };
+  return recovery;
 }
 
 async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, secondRecording }) {
@@ -111,28 +107,8 @@ async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, se
     throw new Error(`recovered work status = ${work.status}, want failed`);
   }
   await waitForTexts(context.client, ["workspace-root"]);
-  await createWorkspaceScopedChat(
-    context.client,
-    backend,
-    recovery.workspaceId,
-    recovery.workspaceDisplayName,
-  );
+  await createChat(context.client, backend, recovery.workspaceId);
   await captureScreenshot(context.client, join(secondRecording, "recovered.png"));
-}
-
-async function createWorkspaceScopedChat(client, backend, workspaceId, workspaceDisplayName) {
-  const before = await backend.post("/chat/conversations/list", { workspaceId });
-  const existing = new Set(before.conversations.map((item) => item.conversation.id));
-  await clickButtonByAria(client, `New chat in ${workspaceDisplayName}`);
-  const after = await waitForBackendState(
-    async () => backend.post("/chat/conversations/list", { workspaceId }),
-    (value) => value.conversations.some((item) => !existing.has(item.conversation.id)),
-  );
-  const created = after.conversations.find((item) => !existing.has(item.conversation.id));
-  if (!created) {
-    throw new Error("workspace-scoped new chat was not returned by the backend");
-  }
-  return created.conversation.id;
 }
 
 async function runOrchestratorStep(results, name, workflow) {

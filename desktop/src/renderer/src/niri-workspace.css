@@ -28,7 +28,6 @@
 }
 
 .niri-pane-host {
-  --niri-pane-resize-handle-gutter: 18px;
   background: color-mix(in oklch, var(--popover) 86%, var(--background));
   border-radius: 7px;
   color: var(--foreground);
@@ -197,14 +196,10 @@
   gap: 6px;
   min-width: 0;
   overflow: hidden;
-  padding: 4px var(--niri-toolbar-end-inset, 10px) 3px 10px;
+  padding: 4px 82px 3px 10px;
   position: relative;
   width: 100%;
   z-index: 52;
-}
-
-.niri-workspace-area[data-desktop-platform="win32"] .niri-workspace-toolbar {
-  --niri-toolbar-end-inset: 138px;
 }
 
 .niri-workspace-toolbar-group {
@@ -215,36 +210,12 @@
   min-width: 0;
 }
 
-.niri-workspace-toolbar-spacer {
-  display: flex;
-  flex: 1 1 auto;
-  justify-content: flex-end;
-  min-width: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.niri-performance-stats {
-  color: color-mix(in oklch, var(--muted-foreground) 82%, transparent);
-  flex: 0 1 auto;
-  font-family: var(--setta-font-mono);
-  font-size: 10px;
-  line-height: 1;
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  pointer-events: none;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .niri-workspace-toolbar-group:first-child {
   color: var(--foreground);
-  flex: 0 1 clamp(120px, 16vw, 220px);
+  flex: 1 1 auto;
   font-family: var(--setta-font-mono);
   font-size: 10px;
-  min-width: 96px;
+  min-width: 60px;
   overflow: hidden;
   padding: 0 5px;
   text-overflow: ellipsis;
@@ -350,11 +321,6 @@
   height: 100%;
   min-height: 0;
   padding: 10px;
-}
-
-.niri-pane-host > .niri-pane-content,
-.niri-pane-host > .niri-react-dom-surface {
-  padding-right: var(--niri-pane-resize-handle-gutter);
 }
 
 .niri-pane-header {
@@ -857,4 +823,22 @@
   line-height: 1.35;
   margin: 0;
   padding: 6px 7px;
+}
+
+.niri-debug-overlay {
+  background: color-mix(in oklch, var(--background) 86%, black);
+  border-radius: 6px;
+  bottom: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  left: 10px;
+  line-height: 1;
+  max-width: calc(100% - 20px);
+  overflow: hidden;
+  padding: 8px 9px;
+  position: absolute;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 10;
 }

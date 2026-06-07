@@ -15,11 +15,9 @@ import { App, sidebarWorkspaceBusy } from "./App";
 import { compactPaneWidth } from "./app-layout";
 import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
-import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 
 beforeEach(() => {
-  useAppearanceStore.setState(useAppearanceStore.getInitialState(), true);
   useChatStore.setState(useChatStore.getInitialState(), true);
 });
 
@@ -58,22 +56,14 @@ describe("workspace renderer states", () => {
     const html = renderToString(<App />);
 
     expect(html).toContain('data-testid="shell-top-bar"');
-    expect(html).toContain("left-[74px] right-0");
-    expect(html).toContain('data-testid="shell-setta-logo"');
-    expect(html).toContain("app-drag pointer-events-none");
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('data-testid="niri-workspace-area"');
-    expect(html).toContain('data-desktop-platform="darwin"');
     expect(html).toContain('data-testid="niri-presentation-engine"');
     expect(rowCount(html, "niri-fake-pane-host")).toBe(18);
     expect(html).toContain('data-pane-count="6"');
     expect(html).toContain('data-workspace-mode="workspace"');
-    expect(html).not.toContain('data-testid="niri-workspace-status"');
-    expect(html).not.toContain('data-testid="niri-benchmark-status"');
-    expect(html).not.toContain('data-testid="niri-performance-stats"');
+    expect(html).toContain('data-testid="niri-workspace-status"');
     expect(html).toContain('data-testid="niri-workspace-toolbar"');
-    expect(html).toContain("niri-workspace-toolbar app-drag");
-    expect(html).toContain("niri-workspace-toolbar-button app-no-drag");
     expect(html).not.toContain('data-testid="workspace-pane-grid-shell"');
     expect(html).not.toContain('data-testid="bottom-workspace-pane"');
     expect(html).not.toContain('data-testid="right-workspace-pane"');
@@ -565,41 +555,6 @@ describe("chat renderer states", () => {
     expect(html).toContain("main.go");
     expect(html).toContain("halfway");
     expect(html).toContain("warning text");
-    expect(htmlScopeForTestId(html, "chat-assistant-message-content")).not.toContain(
-      'data-testid="run-activity-group"',
-    );
-  });
-
-  test("renders message actions outside content and timestamps only at speaker group boundaries", () => {
-    const html = renderToString(
-      <TestChatTranscript
-        activeRun={null}
-        hasMoreOlder={false}
-        loadOlder={async () => {}}
-        loadRunItemOutput={async () => {}}
-        messages={[
-          chatUserMessageWithText("message_user_1", 1, "", "normal", "First prompt"),
-          chatUserMessageWithText("message_user_2", 2, "", "normal", "Second prompt"),
-          chatAssistantMessage("message_assistant_1", 3, "", "First answer"),
-          chatAssistantMessage("message_assistant_2", 4, "", "Second answer"),
-          chatUserMessageWithText("message_user_3", 5, "", "normal", "Third prompt"),
-        ]}
-        runItemOutputs={[]}
-        runItems={[]}
-        submitApproval={async () => {}}
-      />,
-    );
-
-    expect(rowCount(html, "chat-message-timestamp")).toBe(3);
-    expect(rowCount(html, "chat-message-actions")).toBe(5);
-    expect(html).toContain('aria-label="Copy message"');
-    expect(html).toContain('aria-label="Retry message by forking conversation"');
-    expect(htmlScopeForTestId(html, "chat-user-message-content")).not.toContain(
-      'aria-label="Copy message"',
-    );
-    expect(htmlScopeForTestId(html, "chat-assistant-message-content")).not.toContain(
-      'aria-label="Retry message by forking conversation"',
-    );
   });
 
   test("renders immediate steering action only for pending steering on the active run", () => {
@@ -1141,55 +1096,6 @@ function chatAssistantMessage(
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
 }
-
-function htmlScopeForTestId(html: string, testId: string) {
-  const attributeIndex = html.indexOf(`data-testid="${testId}"`);
-  expect(attributeIndex).toBeGreaterThanOrEqual(0);
-  const startIndex = html.lastIndexOf("<", attributeIndex);
-  const openingEndIndex = html.indexOf(">", attributeIndex);
-  expect(startIndex).toBeGreaterThanOrEqual(0);
-  expect(openingEndIndex).toBeGreaterThanOrEqual(0);
-
-  let depth = 1;
-  let cursor = openingEndIndex;
-  while (depth > 0) {
-    const tagStartIndex = html.indexOf("<", cursor + 1);
-    expect(tagStartIndex).toBeGreaterThanOrEqual(0);
-    const tagEndIndex = html.indexOf(">", tagStartIndex);
-    expect(tagEndIndex).toBeGreaterThanOrEqual(0);
-    const tag = html.slice(tagStartIndex, tagEndIndex + 1);
-    if (tag.startsWith("</")) {
-      depth -= 1;
-    } else if (!tag.startsWith("<!") && !tag.endsWith("/>") && !isVoidHtmlTag(tag)) {
-      depth += 1;
-    }
-    cursor = tagEndIndex;
-  }
-
-  return html.slice(startIndex, cursor + 1);
-}
-
-function isVoidHtmlTag(tag: string) {
-  const tagName = /^<\s*([^\s>/]+)/.exec(tag)?.[1]?.toLowerCase();
-  return tagName ? voidHtmlTags.has(tagName) : false;
-}
-
-const voidHtmlTags = new Set([
-  "area",
-  "base",
-  "br",
-  "col",
-  "embed",
-  "hr",
-  "img",
-  "input",
-  "link",
-  "meta",
-  "param",
-  "source",
-  "track",
-  "wbr",
-]);
 
 function hasAriaLabel(html: string, label: string) {
   return html.includes(`aria-label="${escapeAttribute(label)}"`);

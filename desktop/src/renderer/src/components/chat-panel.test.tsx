@@ -11,7 +11,6 @@ import {
   goalEditorDraft,
   goalReplacementExecutionOptions,
   handleComposerKeyDown,
-  ModelPickerButton,
   modelPickerOptionSelected,
   reasoningEffortOptionSelected,
 } from "./chat-panel";
@@ -379,29 +378,6 @@ describe("composer command helpers", () => {
 });
 
 describe("composer controls", () => {
-  test("shows selected model and reasoning in the model picker button", () => {
-    const html = renderToString(
-      <ModelPickerButton
-        disabled={false}
-        modelPicker={null}
-        onOpen={vi.fn()}
-        running={false}
-        selectedConversation={
-          {
-            codexSettings: {
-              model: "scripted-careful",
-              reasoningEffort: "high",
-            },
-          } as Parameters<typeof ModelPickerButton>[0]["selectedConversation"]
-        }
-      />,
-    );
-
-    expect(html).toContain("Open model and reasoning picker");
-    expect(html).toContain("scripted-careful");
-    expect(html).toContain("High");
-  });
-
   test("hides queue controls while idle", () => {
     const html = renderToString(
       <ComposerButton

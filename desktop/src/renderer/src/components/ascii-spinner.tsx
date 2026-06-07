@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 
 import { cn } from "../lib/utils";
 
-const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const frames = [".     ", "..    ", "...   ", "....  ", "..... ", "......"];
 
-export function BrailleSpinner({
+export function AsciiSpinner({
   className,
   label = "Loading",
 }: {
@@ -24,7 +24,7 @@ export function BrailleSpinner({
     <span
       aria-label={label}
       className={cn(
-        "inline-block w-[1ch] overflow-hidden font-mono text-[10px] leading-none tracking-normal whitespace-pre text-muted-foreground",
+        "inline-block w-[6ch] overflow-hidden font-mono text-[10px] leading-none tracking-normal whitespace-pre text-zinc-400",
         className,
       )}
       role="status"
@@ -32,8 +32,4 @@ export function BrailleSpinner({
       {frames[frameIndex]}
     </span>
   );
-}
-
-export function AsciiSpinner(props: { className?: string; label?: string }) {
-  return <BrailleSpinner {...props} />;
 }

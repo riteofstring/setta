@@ -276,17 +276,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       onEventStreamStatus: () => () => {},
       onProcessStatus: () => () => {},
     },
-    appearance: {
-      presets: async () => {
-        throw new Error("appearance presets are not used by chat store navigation tests");
-      },
-      read: async () => {
-        throw new Error("appearance read is not used by chat store navigation tests");
-      },
-      update: async () => {
-        throw new Error("appearance update is not used by chat store navigation tests");
-      },
-    },
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
