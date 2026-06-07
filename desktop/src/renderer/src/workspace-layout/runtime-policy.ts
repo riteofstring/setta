@@ -21,7 +21,7 @@ export interface PaneRuntimePolicyOptions {
   degradeDuringResize?: boolean;
 }
 
-type LiveCanvasSurfaceKind = "fake-canvas" | "workflow-graph";
+type LiveCanvasSurfaceKind = "workflow-graph";
 type LiveHeavyDomSurfaceKind =
   | "chat-dom"
   | "fake-heavy-dom"
@@ -38,7 +38,7 @@ type SurfaceRuntimeCategory =
   | "snapshot"
   | "terminal";
 
-const liveCanvasSurfaceKinds = new Set<SurfaceKind>(["fake-canvas", "workflow-graph"]);
+const liveCanvasSurfaceKinds = new Set<SurfaceKind>(["workflow-graph"]);
 const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
   "chat-dom",
   "fake-heavy-dom",
@@ -50,7 +50,6 @@ const surfaceRuntimeCategories = {
   browser: "browser",
   "chat-dom": "heavy-dom",
   "empty-frame": "always-live",
-  "fake-canvas": "canvas",
   "fake-dom": "always-live",
   "fake-heavy-dom": "heavy-dom",
   "fake-long-chat": "heavy-dom-budgeted",

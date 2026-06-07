@@ -17,6 +17,7 @@ import {
   runtimePolicyOptionsForRuntime,
   sceneForRuntime,
   snapshotStaticFallbackForRuntime,
+  workflowGraphSyntheticGraphFallbackForRuntime,
   type WorkspaceSceneMode,
 } from "./runtime-mode-options";
 import { DEFAULT_PANE_BUDGET, PaneRuntimePolicy } from "./runtime-policy";
@@ -57,6 +58,7 @@ export function createWorkspaceRuntime({
   const createSurfaceAdapter = createSurfaceAdapterFactory(
     store,
     nativeViewBoundsBatcher,
+    mode,
     workspaceId,
   );
   const surfaceRegistry = new SurfaceRegistry(scene.panes, createSurfaceAdapter, {
@@ -91,8 +93,10 @@ export type WorkspaceRuntime = ReturnType<typeof createWorkspaceRuntime>;
 function createSurfaceAdapterFactory(
   store: WorkspaceLayoutStore,
   nativeViewBoundsBatcher: NativeViewBoundsBatcher,
+  mode: WorkspaceSceneMode,
   workspaceId: string,
 ) {
+  const workflowGraphSyntheticGraphFallback = workflowGraphSyntheticGraphFallbackForRuntime(mode);
   return (pane: WorkspacePane) => {
     if (pane.surfaceKind === "browser") {
       return new BrowserSurfaceProxyAdapter(pane, nativeViewBoundsBatcher);
@@ -103,6 +107,8 @@ function createSurfaceAdapterFactory(
     if (pane.surfaceKind === "terminal") {
       return new TerminalSurfaceAdapter(pane, workspaceId);
     }
-    return createDefaultSurfaceAdapter(pane);
+    return createDefaultSurfaceAdapter(pane, {
+      workflowGraphSyntheticGraphFallback,
+    });
   };
 }

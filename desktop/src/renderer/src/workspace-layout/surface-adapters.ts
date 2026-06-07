@@ -1,3 +1,4 @@
+import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { GitGraphSurfaceAdapter } from "./git-graph-surface-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
@@ -6,7 +7,6 @@ import {
   cloneSnapshotNode,
   type EmptyFrameOption,
   renderEmptyFrameContent,
-  renderFakeCanvasContent,
   renderFakePaneContent,
   renderSnapshotContent,
 } from "./surface-dom-content";
@@ -29,28 +29,13 @@ const noopBrowserViewQueue = {
   queue() {},
 };
 
-export interface FrameLoop {
-  cancelFrame(handle: number): void;
-  requestFrame(callback: FrameRequestCallback): number;
-}
-
 export interface SnapshotSurfaceAdapterOptions {
   staticFallback?: boolean;
 }
 
-const browserFrameLoop: FrameLoop = {
-  cancelFrame(handle) {
-    if (typeof window !== "undefined") {
-      window.cancelAnimationFrame(handle);
-    }
-  },
-  requestFrame(callback) {
-    if (typeof window === "undefined") {
-      return 0;
-    }
-    return window.requestAnimationFrame(callback);
-  },
-};
+export interface DefaultSurfaceAdapterOptions {
+  workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
+}
 
 export type EmptyFrameOptionsProvider = () => readonly EmptyFrameOption[];
 
@@ -273,185 +258,35 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   }
 }
 
-export class FakeCanvasSurfaceAdapter implements SurfaceAdapter {
-  readonly kind = "fake-canvas" satisfies SurfaceKind;
-  private canvas: HTMLCanvasElement | null = null;
-  private destroyed = false;
-  private focused = false;
-  private frameHandle: number | null = null;
-  private frozen = false;
-  private host: HTMLElement | null = null;
-  private visible = false;
-
-  renderedFrameCount = 0;
-
-  constructor(
-    private readonly pane: WorkspacePane,
-    private readonly frameLoop: FrameLoop = browserFrameLoop,
-  ) {}
-
-  get isRendering(): boolean {
-    return this.frameHandle !== null;
-  }
-
-  get surfaceId(): SurfaceId {
-    return this.pane.surfaceId;
-  }
-
-  mount(host: HTMLElement): void {
-    this.ensureNotDestroyed();
-    this.host = host;
-    host.dataset.surfaceId = this.surfaceId;
-    host.dataset.surfaceKind = this.kind;
-    const content = renderFakeCanvasContent(host, this.pane);
-    this.canvas = content.canvas;
-    host.replaceChildren(content.root);
-    this.syncHostState();
-    this.updateLoop();
-  }
-
-  unmount(): void {
-    this.stopLoop();
-    this.host?.replaceChildren();
-    this.canvas = null;
-    this.host = null;
-    this.visible = false;
-  }
-
-  setVisible(visible: boolean): void {
-    this.visible = visible;
-    this.syncHostState();
-    this.updateLoop();
-  }
-
-  setFocused(focused: boolean): void {
-    this.focused = focused;
-    this.syncHostState();
-  }
-
-  setViewport(rect: Rect, reason: ViewportChangeReason): void {
-    if (!this.host) {
-      return;
-    }
-    this.host.dataset.viewportReason = reason;
-    this.host.dataset.surfaceViewport = `${Math.round(rect.width)}x${Math.round(rect.height)}`;
-    if (this.canvas) {
-      this.canvas.width = Math.max(1, Math.floor(rect.width));
-      this.canvas.height = Math.max(1, Math.floor(rect.height));
-    }
-  }
-
-  freeze(reason: FreezeReason): void {
-    this.frozen = true;
-    this.host?.setAttribute("data-freeze-reason", reason);
-    this.syncHostState();
-    this.updateLoop();
-  }
-
-  resume(reason: ResumeReason): void {
-    this.frozen = false;
-    this.host?.setAttribute("data-resume-reason", reason);
-    this.syncHostState();
-    this.updateLoop();
-  }
-
-  captureSnapshot(): Promise<PaneSnapshot> {
-    return Promise.resolve({
-      capturedAt: performanceNow(),
-      label: `${this.pane.title} canvas frame ${this.renderedFrameCount}`,
-      surfaceId: this.surfaceId,
-    });
-  }
-
-  destroy(): void {
-    if (this.destroyed) {
-      return;
-    }
-    this.unmount();
-    this.destroyed = true;
-  }
-
-  private ensureNotDestroyed(): void {
-    if (this.destroyed) {
-      throw new Error(`surface ${this.surfaceId} has already been destroyed`);
-    }
-  }
-
-  private paint = (): void => {
-    this.frameHandle = null;
-    if (!this.visible || this.frozen || !this.host) {
-      return;
-    }
-    this.renderedFrameCount += 1;
-    this.paintCanvas();
-    this.updateLoop();
-  };
-
-  private paintCanvas(): void {
-    const context = this.canvas?.getContext("2d");
-    if (!context || !this.canvas) {
-      return;
-    }
-    const width = this.canvas.width;
-    const height = this.canvas.height;
-    context.clearRect(0, 0, width, height);
-    context.fillStyle = "rgba(125, 211, 252, 0.16)";
-    context.fillRect(0, 0, width, height);
-    context.fillStyle = "rgba(45, 212, 191, 0.42)";
-    const offset = this.renderedFrameCount % Math.max(1, width);
-    context.fillRect(offset, 0, 4, height);
-  }
-
-  private stopLoop(): void {
-    if (this.frameHandle === null) {
-      return;
-    }
-    this.frameLoop.cancelFrame(this.frameHandle);
-    this.frameHandle = null;
-  }
-
-  private syncHostState(): void {
-    if (!this.host) {
-      return;
-    }
-    this.host.dataset.surfaceFrozen = String(this.frozen);
-    this.host.dataset.surfaceVisible = String(this.visible);
-    this.host.dataset.surfaceFocused = String(this.focused);
-    this.host.style.visibility = this.visible ? "visible" : "hidden";
-  }
-
-  private updateLoop(): void {
-    if (!this.visible || this.frozen || !this.host) {
-      this.stopLoop();
-      return;
-    }
-    if (this.frameHandle === null) {
-      this.frameHandle = this.frameLoop.requestFrame(this.paint);
-    }
-  }
-}
-
-export function createDefaultSurfaceAdapter(pane: WorkspacePane): SurfaceAdapter {
-  return defaultSurfaceAdapterFactories[pane.surfaceKind](pane);
+export function createDefaultSurfaceAdapter(
+  pane: WorkspacePane,
+  options: DefaultSurfaceAdapterOptions = {},
+): SurfaceAdapter {
+  return defaultSurfaceAdapterFactories[pane.surfaceKind](pane, options);
 }
 
 const defaultSurfaceAdapterFactories = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
-  "chat-dom": createReactDomSurfaceAdapter,
+  "chat-dom": (pane) => createReactDomSurfaceAdapter(pane),
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
-  "fake-canvas": (pane) => new FakeCanvasSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
-  "fake-long-chat": createReactDomSurfaceAdapter,
+  "fake-long-chat": (pane) => createReactDomSurfaceAdapter(pane),
   "fake-terminal": (pane) => new SyntheticTerminalSurfaceAdapter(pane),
   "git-graph": (pane) => new GitGraphSurfaceAdapter(pane),
-  "workflow-graph": createReactDomSurfaceAdapter,
-  "settings-dom": createReactDomSurfaceAdapter,
+  "workflow-graph": (pane, options) =>
+    createReactDomSurfaceAdapter(pane, undefined, {
+      workflowGraphSyntheticGraphFallback: options.workflowGraphSyntheticGraphFallback,
+    }),
+  "settings-dom": (pane) => createReactDomSurfaceAdapter(pane),
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
   terminal: (pane) => new TerminalSurfaceAdapter(pane),
-  "workflow-node-details": createReactDomSurfaceAdapter,
-  "workflow-settings": createReactDomSurfaceAdapter,
-} satisfies Record<SurfaceKind, (pane: WorkspacePane) => SurfaceAdapter>;
+  "workflow-node-details": (pane) => createReactDomSurfaceAdapter(pane),
+  "workflow-settings": (pane) => createReactDomSurfaceAdapter(pane),
+} satisfies Record<
+  SurfaceKind,
+  (pane: WorkspacePane, options: DefaultSurfaceAdapterOptions) => SurfaceAdapter
+>;
 
 function performanceNow(): number {
   if (typeof performance === "undefined") {

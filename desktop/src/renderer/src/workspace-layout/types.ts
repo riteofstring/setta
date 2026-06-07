@@ -6,7 +6,6 @@ export type SurfaceKind =
   | "browser"
   | "chat-dom"
   | "empty-frame"
-  | "fake-canvas"
   | "fake-dom"
   | "fake-heavy-dom"
   | "fake-long-chat"

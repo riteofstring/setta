@@ -15,7 +15,6 @@ const surfaceKindLabels = {
   browser: "browser",
   "chat-dom": "real chat",
   "empty-frame": "empty frame",
-  "fake-canvas": "fake canvas",
   "fake-dom": "fake light",
   "fake-heavy-dom": "fake heavy",
   "fake-long-chat": "fake long chat",
@@ -125,7 +124,7 @@ function fakeSurfaceKind(sequence: number): SurfaceKind {
   }
   const slot = sequence % 12;
   if (slot === 4) {
-    return "fake-canvas";
+    return "workflow-graph";
   }
   if (slot >= 5 && slot <= 7) {
     return "fake-heavy-dom";

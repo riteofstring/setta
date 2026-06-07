@@ -58,9 +58,8 @@ describe("workspace browser-pane layout engine", () => {
     expect(scene.paneById.get("workspace_pane_5")?.surfaceKind).toBe("fake-terminal");
     expect(scene.paneById.get("workspace_pane_6")?.surfaceKind).toBe("git-graph");
     expect(scene.panes.some((pane) => pane.surfaceKind === "fake-heavy-dom")).toBe(true);
-    expect(scene.panes.some((pane) => pane.surfaceKind === "fake-canvas")).toBe(true);
+    expect(workflowGraphPanes.length).toBeGreaterThanOrEqual(20);
     expect(gitGraphPanes.length).toBeGreaterThanOrEqual(6);
-    expect(workflowGraphPanes.length).toBeGreaterThanOrEqual(4);
     expect(terminalPanes.length).toBeGreaterThanOrEqual(6);
     expect(browserPanes.length).toBeGreaterThanOrEqual(20);
     expect(

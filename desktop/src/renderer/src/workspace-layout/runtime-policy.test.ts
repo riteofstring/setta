@@ -17,7 +17,7 @@ describe("workspace pane runtime policy", () => {
       renderItem("light", "fake-dom", false),
       renderItem("focused-heavy", "fake-heavy-dom", true),
       renderItem("heavy-over-budget", "fake-heavy-dom", false),
-      renderItem("canvas-live", "fake-canvas", false),
+      renderItem("canvas-live", "workflow-graph", false),
       renderItem("canvas-over-budget", "workflow-graph", false),
     ];
     const summary = new PaneRuntimePolicy(budget).apply(items, "idle");
@@ -40,7 +40,7 @@ describe("workspace pane runtime policy", () => {
 
   test("degrades heavy and canvas surfaces during movement", () => {
     const items = [
-      renderItem("focused-canvas", "fake-canvas", true),
+      renderItem("focused-canvas", "workflow-graph", true),
       renderItem("moving-heavy", "fake-heavy-dom", false),
       renderItem("moving-long-chat", "fake-long-chat", false),
       renderItem("moving-chat", "chat-dom", false),
@@ -280,7 +280,7 @@ describe("workspace pane runtime policy", () => {
       maxLiveWebGpuCanvases: 4,
     };
     const items = [
-      { ...renderItem("focused-canvas", "fake-canvas", true), resizing: true },
+      { ...renderItem("focused-canvas", "workflow-graph", true), resizing: true },
       { ...renderItem("resizing-chat", "chat-dom", false), resizing: true },
       { ...renderItem("resizing-heavy", "fake-heavy-dom", false), resizing: true },
       { ...renderItem("resizing-canvas", "workflow-graph", false), resizing: true },

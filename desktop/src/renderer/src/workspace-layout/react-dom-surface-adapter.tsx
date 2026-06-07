@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
 import { WorkflowGraphSurface } from "../features/workspace-graph/workflow-graph-surface";
+import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { WorkflowNodeDetailsSurface } from "../features/workspace-graph/workflow-node-details-surface";
 import { WorkflowSettingsSurface } from "../features/workspace-graph/workflow-settings-surface";
 import {
@@ -33,6 +34,10 @@ export interface ReactSurfaceRootFactory {
 
 export interface ReactDomSurfaceState {
   focused: boolean;
+}
+
+export interface ReactDomSurfaceAdapterOptions {
+  workflowGraphSyntheticGraphFallback?: SyntheticWorkflowGraphOptions;
 }
 
 const defaultRootFactory: ReactSurfaceRootFactory = {
@@ -199,6 +204,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
 export function createReactDomSurfaceAdapter(
   pane: WorkspacePane,
   rootFactory?: ReactSurfaceRootFactory,
+  options: ReactDomSurfaceAdapterOptions = {},
 ): ReactDomSurfaceAdapter {
   if (pane.surfaceKind === "chat-dom") {
     return new ReactDomSurfaceAdapter(pane, () => <WorkspaceChatSurface />, rootFactory);
@@ -212,6 +218,7 @@ export function createReactDomSurfaceAdapter(
       () => (
         <WorkflowGraphSurface
           debugEnabled={workflowGraphDebugEnabled()}
+          syntheticGraphFallback={options.workflowGraphSyntheticGraphFallback}
           surfaceId={pane.surfaceId}
         />
       ),

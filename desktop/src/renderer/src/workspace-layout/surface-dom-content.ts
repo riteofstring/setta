@@ -111,36 +111,6 @@ export function renderEmptyFrameContent(
   return content;
 }
 
-export function renderFakeCanvasContent(
-  host: HTMLElement,
-  pane: WorkspacePane,
-): { canvas: HTMLCanvasElement; root: HTMLElement } {
-  const document = host.ownerDocument;
-  const root = document.createElement("div");
-  root.className = "workspace-pane-content workspace-canvas-surface";
-
-  const header = document.createElement("div");
-  header.className = "workspace-pane-header";
-  const index = document.createElement("span");
-  index.className = "workspace-pane-index";
-  index.textContent = String(pane.sequence + 1);
-  const titleBlock = document.createElement("div");
-  titleBlock.className = "min-w-0";
-  const title = document.createElement("h2");
-  title.textContent = pane.title;
-  const subtitle = document.createElement("p");
-  subtitle.textContent = "fake canvas renderer";
-  titleBlock.append(title, subtitle);
-  header.append(index, titleBlock);
-
-  const canvas = document.createElement("canvas");
-  canvas.className = "workspace-fake-canvas";
-  canvas.setAttribute("aria-hidden", "true");
-
-  root.append(header, canvas);
-  return { canvas, root };
-}
-
 export function renderSnapshotContent(
   host: HTMLElement,
   pane: WorkspacePane,
@@ -191,7 +161,6 @@ const staticSnapshotRenderers = {
   browser: renderWrappedStaticBrowserSnapshot,
   "chat-dom": renderWrappedGenericSnapshot,
   "empty-frame": renderWrappedEmptyFrameSnapshot,
-  "fake-canvas": renderWrappedFakeCanvasSnapshot,
   "fake-dom": renderWrappedGenericSnapshot,
   "fake-heavy-dom": renderWrappedGenericSnapshot,
   "fake-long-chat": renderWrappedGenericSnapshot,
@@ -220,10 +189,6 @@ function renderWrappedTerminalSnapshot(host: HTMLElement): HTMLElement {
 
 function renderWrappedEmptyFrameSnapshot(host: HTMLElement, pane: WorkspacePane): HTMLElement {
   return wrapStaticSnapshotTexture(host, renderEmptyFrameContent(host, pane, []));
-}
-
-function renderWrappedFakeCanvasSnapshot(host: HTMLElement, pane: WorkspacePane): HTMLElement {
-  return wrapStaticSnapshotTexture(host, renderFakeCanvasContent(host, pane).root);
 }
 
 function wrapStaticSnapshotTexture(host: HTMLElement, child: HTMLElement): HTMLElement {

@@ -1,3 +1,4 @@
+import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
 import { generateBenchmarkScene, phaseOneVisiblePaneCount } from "./benchmark-scene";
 import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { LocalStoragePerformanceReportWriter } from "./performance-report";
@@ -31,6 +32,10 @@ const runtimePolicyOptionsByMode = {
     degradeOverview: boolean;
   }
 >;
+const benchmarkWorkflowGraphSyntheticGraph = {
+  edgesPerNode: 2,
+  nodeCount: 500,
+} satisfies NonNullable<SyntheticWorkflowGraphOptions>;
 
 export function browserPaneCountForScene(scene: WorkspaceScene): number {
   return scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
@@ -91,4 +96,10 @@ export function sceneForRuntime(realScene: RealWorkspaceSceneResult | null): Wor
 
 export function snapshotStaticFallbackForRuntime(mode: WorkspaceSceneMode): boolean {
   return mode === "workspace";
+}
+
+export function workflowGraphSyntheticGraphFallbackForRuntime(
+  mode: WorkspaceSceneMode,
+): SyntheticWorkflowGraphOptions | undefined {
+  return mode === "benchmark" ? benchmarkWorkflowGraphSyntheticGraph : undefined;
 }

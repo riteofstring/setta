@@ -1,3 +1,4 @@
+import { isValidElement, type ReactNode } from "react";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -99,13 +100,49 @@ describe("workspace React DOM surface adapter", () => {
 
     expect(adapter.getCanvasStats().liveCanvasPaneCount).toBe(0);
   });
+
+  test("passes synthetic graph fallback to workflow graph surfaces", () => {
+    const root = new RecordingRoot([]);
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return root;
+      },
+    };
+    const host = createFakeHost();
+    const adapter = createReactDomSurfaceAdapter(fakePane("workflow-graph"), rootFactory, {
+      workflowGraphSyntheticGraphFallback: {
+        edgesPerNode: 2,
+        nodeCount: 500,
+      },
+    });
+
+    adapter.mount(host);
+    const renderedNode = root.renderedNodes.at(-1);
+    if (
+      !isValidElement<{
+        syntheticGraphFallback?: unknown;
+        surfaceId?: string;
+      }>(renderedNode)
+    ) {
+      throw new Error("workflow graph surface did not render a React element");
+    }
+
+    expect(renderedNode.props.surfaceId).toBe("surface");
+    expect(renderedNode.props.syntheticGraphFallback).toStrictEqual({
+      edgesPerNode: 2,
+      nodeCount: 500,
+    });
+  });
 });
 
 class RecordingRoot implements ReactSurfaceRoot {
+  readonly renderedNodes: ReactNode[] = [];
+
   constructor(private readonly events: string[]) {}
 
-  render(): void {
+  render(node: ReactNode): void {
     this.events.push("render");
+    this.renderedNodes.push(node);
   }
 
   unmount(): void {

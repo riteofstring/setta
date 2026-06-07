@@ -51,9 +51,11 @@ import {
 
 export function WorkflowGraphSurface({
   debugEnabled,
+  syntheticGraphFallback,
   surfaceId,
 }: {
   debugEnabled: boolean;
+  syntheticGraphFallback?: SyntheticWorkflowGraphOptions;
   surfaceId: string;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,8 @@ export function WorkflowGraphSurface({
     null,
   );
   const [workflowOperation, setWorkflowOperation] = useState<"run" | "validate" | null>(null);
-  const syntheticGraph = window.setta.app.flags.workflowGraphSyntheticGraph;
+  const syntheticGraph =
+    window.setta.app.flags.workflowGraphSyntheticGraph ?? syntheticGraphFallback ?? null;
   const selectedDefinitionIdsByWorkspaceId = useWorkflowDefinitionStore(
     (state) => state.selectedDefinitionIdsByWorkspaceId,
   );

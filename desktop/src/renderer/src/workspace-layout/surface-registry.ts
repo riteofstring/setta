@@ -602,7 +602,6 @@ function recordViewportWrite(kind: SurfaceKind, stats: SurfaceViewportSyncStats)
 
 function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
   return (
-    kind === "fake-canvas" ||
     kind === "fake-heavy-dom" ||
     kind === "fake-long-chat" ||
     kind === "fake-terminal" ||
@@ -649,7 +648,7 @@ function viewportSyncRequired(
 }
 
 function isCanvasSurfaceKind(kind: SurfaceKind): boolean {
-  return kind === "fake-canvas" || kind === "workflow-graph";
+  return kind === "workflow-graph";
 }
 
 function isTerminalSurfaceKind(kind: SurfaceKind): boolean {

@@ -605,19 +605,6 @@
   width: 54%;
 }
 
-.workspace-canvas-surface {
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.workspace-fake-canvas {
-  background: color-mix(in oklch, var(--background) 80%, var(--primary));
-  border-radius: 5px;
-  display: block;
-  height: 100%;
-  min-height: 0;
-  width: 100%;
-}
-
 .workspace-snapshot-surface {
   align-content: center;
   background:

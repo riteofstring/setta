@@ -16,12 +16,7 @@ import {
   type GitGraphWorkerCallbacks,
   type GitGraphWorkerClient,
 } from "./git-graph-surface-adapter";
-import {
-  EmptyFrameSurfaceAdapter,
-  FakeCanvasSurfaceAdapter,
-  FakeHeavyDomSurfaceAdapter,
-  type FrameLoop,
-} from "./surface-adapters";
+import { EmptyFrameSurfaceAdapter, FakeHeavyDomSurfaceAdapter } from "./surface-adapters";
 import {
   SyntheticTerminalSessionState,
   SyntheticTerminalSurfaceAdapter,
@@ -79,47 +74,6 @@ describe("workspace fake surface adapters", () => {
     ]);
     expect((actions[0] as HTMLButtonElement | undefined)?.dataset.surfaceKind).toBe("chat-dom");
     expect((actions[1] as HTMLButtonElement | undefined)?.disabled).toBe(true);
-  });
-
-  test("pauses fake canvas frame work when hidden, frozen, or unmounted", () => {
-    const loop = new ManualFrameLoop();
-    const host = createFakeHost();
-    const adapter = new FakeCanvasSurfaceAdapter(fakePane("fake-canvas"), loop);
-
-    adapter.mount(host);
-    adapter.setViewport({ height: 120, width: 180, x: 0, y: 0 }, "mount");
-    adapter.setVisible(true);
-
-    expect(adapter.isRendering).toBe(true);
-    expect(loop.pendingCount).toBe(1);
-
-    loop.runNext();
-
-    expect(adapter.renderedFrameCount).toBe(1);
-    expect(loop.pendingCount).toBe(1);
-
-    adapter.setVisible(false);
-    loop.runAll();
-
-    expect(adapter.isRendering).toBe(false);
-    expect(adapter.renderedFrameCount).toBe(1);
-
-    adapter.setVisible(true);
-    adapter.freeze("snapshot");
-    loop.runAll();
-
-    expect(adapter.isRendering).toBe(false);
-    expect(adapter.renderedFrameCount).toBe(1);
-
-    adapter.resume("visible");
-    loop.runNext();
-
-    expect(adapter.renderedFrameCount).toBe(2);
-
-    adapter.unmount();
-
-    expect(adapter.isRendering).toBe(false);
-    expect(loop.pendingCount).toBe(0);
   });
 
   test("clips browser native bounds to the stage while keeping pane-sized content bounds", () => {
@@ -616,7 +570,7 @@ function expectRenderedBrowserSnapshot(image: HTMLImageElement, host: HTMLElemen
   expect(host.dataset.browserSnapshotCapturedAt).toBe("456");
 }
 
-class ManualFrameLoop implements FrameLoop {
+class ManualFrameLoop {
   private callbacks = new Map<number, FrameRequestCallback>();
   private nextHandle = 1;
 
