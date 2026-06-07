@@ -100,6 +100,13 @@ files, diffs, tests, decisions, constraints, and user steering.
 
 - Backend-owned Go types define semantic contracts; regenerate TypeScript after
   contract changes.
+- Do not add backward compatibility, legacy support, migrations, transitional
+  adapters, dual-read/write paths, old-field aliases, compatibility shims, or
+  silent compatibility fallbacks for semantic graph work unless explicitly
+  requested.
+- Schema changes should fail loudly on incompatible existing semantic stores
+  instead of mutating old stores into a new shape. Idempotent creation of a fresh
+  current schema is fine; migration code is not.
 - Events are append-only. Corrections are represented by superseding, retracting,
   splitting, merging, dismissing, or promoting through new events.
 - Projections are rebuildable from events unless explicitly documented as
@@ -136,8 +143,7 @@ Scope guard:
 - Public HTTP endpoints should be read-oriented in this phase. Event append APIs
   should remain service-level/internal or test-helper-only unless a production
   caller already needs them.
-- Do not add compatibility shims, legacy data migrations, dual-read/write paths,
-  or old-field aliases.
+- Follow the global no-compatibility policy in the implementation principles.
 
 Deliverables:
 
