@@ -68,6 +68,7 @@ export async function assertProtocolNotificationActivity(
       item.toolName === "missing_tool" &&
       item.error.includes("unsupported dynamic tool"),
   );
+  await assertRunActivityItem(page, "notice", (item) => item.noticeKind === "deprecationNotice");
 
   const diagnostics = await backend.post("/chat/diagnostics/list", {
     conversationId,

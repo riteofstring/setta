@@ -358,6 +358,10 @@ function emitProtocolCoverageTurn() {
     processId: "process_fake",
     stream: "stdout",
   });
+  notify("deprecationNotice", {
+    details: "Use the replacement protocol surface.",
+    summary: "Legacy protocol notice.",
+  });
   notify("externalAgentConfig/import/completed", {});
   notify("fs/changed", { changedPaths: ["/tmp/workspace/main.go"], watchId: "watch_fake" });
   notify("fuzzyFileSearch/sessionUpdated", { files: [], query: "main", sessionId: "fuzzy_fake" });

@@ -794,6 +794,10 @@ func TestCodexHarnessHandlesTurnProtocolCoverageNotifications(t *testing.T) {
 	requireRunItemType(t, sink.items, RunItemTypeApprovalReview)
 	requireRunItemType(t, sink.items, RunItemTypeContextCompaction)
 	requireRunItemType(t, sink.items, RunItemTypeFileChange)
+	notice := requireRunItemType(t, sink.items, RunItemTypeNotice)
+	if notice.NoticeKind != "deprecationNotice" {
+		t.Fatalf("notice kind = %q, want deprecationNotice", notice.NoticeKind)
+	}
 	reasoning := requireRunItemType(t, sink.items, RunItemTypeReasoning)
 	if reasoning.HiddenText != "private reasoning" {
 		t.Fatalf("reasoning hidden text = %q, want preserved private reasoning", reasoning.HiddenText)

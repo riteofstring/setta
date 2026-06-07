@@ -389,6 +389,10 @@ func writeFakeProtocolCoverageNotifications() {
 		"processId":   "command_process_fake",
 		"stream":      "stdout",
 	})
+	writeFakeNotification("deprecationNotice", map[string]any{
+		"details": "Use the replacement protocol surface.",
+		"summary": "Legacy protocol notice.",
+	})
 	writeFakeNotification("externalAgentConfig/import/completed", map[string]any{})
 	writeFakeNotification("fs/changed", map[string]any{"changedPaths": []string{"/tmp/workspace/main.go"}, "watchId": "watch_fake"})
 	writeFakeNotification("fuzzyFileSearch/sessionUpdated", map[string]any{"files": []any{}, "query": "main", "sessionId": "fuzzy_fake"})

@@ -24,6 +24,7 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	codexapp.CodexNotificationAppListUpdated:                          handleCodexAppListUpdated,
 	codexapp.CodexNotificationCommandExecOutputDelta:                  handleCodexCommandExecOutputDelta,
 	codexapp.CodexNotificationConfigWarning:                           handleCodexNotice,
+	codexapp.CodexNotificationDeprecationNotice:                       handleCodexNotice,
 	codexapp.CodexNotificationError:                                   handleCodexErrorNotification,
 	codexapp.CodexNotificationExternalAgentConfigImportCompleted:      handleCodexTraceOnlyNotification,
 	codexapp.CodexNotificationFsChanged:                               handleCodexFSChanged,

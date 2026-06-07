@@ -23,6 +23,7 @@ var codexNotificationScopePolicies = map[string]codexNotificationScopePolicy{
 	codexapp.CodexNotificationAppListUpdated:                          codexNotificationScopeGlobal,
 	codexapp.CodexNotificationCommandExecOutputDelta:                  codexNotificationScopeTraceOnly,
 	codexapp.CodexNotificationConfigWarning:                           codexNotificationScopeGlobal,
+	codexapp.CodexNotificationDeprecationNotice:                       codexNotificationScopeGlobal,
 	codexapp.CodexNotificationError:                                   codexNotificationScopeTurnState,
 	codexapp.CodexNotificationExternalAgentConfigImportCompleted:      codexNotificationScopeGlobal,
 	codexapp.CodexNotificationFsChanged:                               codexNotificationScopeGlobal,

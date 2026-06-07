@@ -62,6 +62,7 @@ const (
 	CodexNotificationAppListUpdated                          = "app/list/updated"
 	CodexNotificationCommandExecOutputDelta                  = "command/exec/outputDelta"
 	CodexNotificationConfigWarning                           = "configWarning"
+	CodexNotificationDeprecationNotice                       = "deprecationNotice"
 	CodexNotificationError                                   = "error"
 	CodexNotificationExternalAgentConfigImportCompleted      = "externalAgentConfig/import/completed"
 	CodexNotificationFsChanged                               = "fs/changed"
@@ -151,6 +152,7 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationAppListUpdated,
 	CodexNotificationCommandExecOutputDelta,
 	CodexNotificationConfigWarning,
+	CodexNotificationDeprecationNotice,
 	CodexNotificationError,
 	CodexNotificationExternalAgentConfigImportCompleted,
 	CodexNotificationFsChanged,
@@ -1172,6 +1174,28 @@ func validateCreditsSnapshot(raw json.RawMessage, name string) error {
 func DecodeCreditsSnapshot(raw json.RawMessage) (CreditsSnapshot, error) {
 	var value CreditsSnapshot
 	err := decodeCodexObject(raw, "CreditsSnapshot", validateCreditsSnapshot, &value)
+	return value, err
+}
+
+type DeprecationNoticeNotification struct {
+	Details *string `json:"details,omitempty"`
+	Summary string  `json:"summary"`
+}
+
+func validateDeprecationNoticeNotification(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "summary"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeDeprecationNoticeNotification(raw json.RawMessage) (DeprecationNoticeNotification, error) {
+	var value DeprecationNoticeNotification
+	err := decodeCodexObject(raw, "DeprecationNoticeNotification", validateDeprecationNoticeNotification, &value)
 	return value, err
 }
 
