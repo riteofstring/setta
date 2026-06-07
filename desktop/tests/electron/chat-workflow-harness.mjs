@@ -77,6 +77,16 @@ export async function createChat(client, backend, workspaceId) {
   if (!created) {
     throw new Error("new conversation was not returned by the backend");
   }
+  await waitForState(
+    client,
+    `(() => {
+      const panel = document.querySelector('[data-testid="chat-detail-pane"]');
+      return {
+        selectedConversationId: panel?.getAttribute("data-conversation-id") ?? "",
+      };
+    })()`,
+    (value) => value.selectedConversationId === created.conversation.id,
+  );
   return created.conversation.id;
 }
 

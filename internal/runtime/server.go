@@ -51,6 +51,7 @@ type ReadyEvent struct {
 type Server struct {
 	closeCodex          func(context.Context) error
 	closeTerminal       func(context.Context) error
+	closeWorkflowStore  func() error
 	closeEvents         func()
 	closeWorkflowEvents func()
 	server              *http.Server
@@ -66,6 +67,7 @@ type runtimeServices struct {
 	terminalService     *terminal.Manager
 	workspaceService    *workspacesession.Service
 	workflowService     *orchestrator.Service
+	workflowStore       *orchestrator.Store
 }
 
 func DefaultConfig() Config {
@@ -133,6 +135,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	server := &Server{
 		closeCodex:          services.codexManager.Shutdown,
 		closeTerminal:       services.terminalService.Shutdown,
+		closeWorkflowStore:  services.workflowStore.Close,
 		closeEvents:         services.chatService.CloseEvents,
 		closeWorkflowEvents: services.workflowService.CloseEvents,
 		server:              newHTTPServer(config, services),
@@ -163,7 +166,11 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	workflowService, err := newWorkflowService(config.AppDataDir, workspaceService, chatService)
+	workflowService, workflowStore, err := newWorkflowService(
+		config.AppDataDir,
+		workspaceService,
+		chatService,
+	)
 	if err != nil {
 		return runtimeServices{}, err
 	}
@@ -184,6 +191,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		terminalService:     terminalService,
 		workspaceService:    workspaceService,
 		workflowService:     workflowService,
+		workflowStore:       workflowStore,
 	}, nil
 }
 
@@ -250,10 +258,10 @@ func newWorkflowService(
 	appDataDir string,
 	workspaceService *workspacesession.Service,
 	chatService *chat.Service,
-) (*orchestrator.Service, error) {
+) (*orchestrator.Service, *orchestrator.Store, error) {
 	workflowStore, err := orchestrator.NewStore(appDataDir)
 	if err != nil {
-		return nil, fmt.Errorf("create workflow store: %w", err)
+		return nil, nil, fmt.Errorf("create workflow store: %w", err)
 	}
 	workflowService, err := orchestrator.NewService(
 		workflowStore,
@@ -261,9 +269,10 @@ func newWorkflowService(
 		orchestrator.WithCodexChatService(chatService),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("create workflow service: %w", err)
+		_ = workflowStore.Close()
+		return nil, nil, fmt.Errorf("create workflow service: %w", err)
 	}
-	return workflowService, nil
+	return workflowService, workflowStore, nil
 }
 
 func newTerminalService(
@@ -305,27 +314,50 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("shutdown context is required")
 	}
+	server.closeEventStreams()
+	var shutdownErr error
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, server.server.Shutdown(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownWorkflowStore())
+	return shutdownErr
+}
+
+func (server *Server) closeEventStreams() {
 	if server.closeEvents != nil {
 		server.closeEvents()
 	}
 	if server.closeWorkflowEvents != nil {
 		server.closeWorkflowEvents()
 	}
-	var shutdownErr error
-	if server.closeTerminal != nil {
-		if err := server.closeTerminal(ctx); err != nil {
-			shutdownErr = err
-		}
+}
+
+func (server *Server) shutdownTerminal(ctx context.Context) error {
+	if server.closeTerminal == nil {
+		return nil
 	}
-	if err := server.server.Shutdown(ctx); err != nil && shutdownErr == nil {
-		shutdownErr = err
+	return server.closeTerminal(ctx)
+}
+
+func (server *Server) shutdownCodex(ctx context.Context) error {
+	if server.closeCodex == nil {
+		return nil
 	}
-	if server.closeCodex != nil {
-		if err := server.closeCodex(ctx); err != nil && shutdownErr == nil {
-			shutdownErr = err
-		}
+	return server.closeCodex(ctx)
+}
+
+func (server *Server) shutdownWorkflowStore() error {
+	if server.closeWorkflowStore != nil {
+		return server.closeWorkflowStore()
 	}
-	return shutdownErr
+	return nil
+}
+
+func firstShutdownError(current error, next error) error {
+	if current != nil {
+		return current
+	}
+	return next
 }
 
 func (server *Server) Wait() error {

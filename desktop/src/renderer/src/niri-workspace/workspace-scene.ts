@@ -26,6 +26,8 @@ const paneSurfaceKinds = [
   "settings-dom",
   "snapshot",
   "terminal",
+  "workflow-node-details",
+  "workflow-settings",
 ] satisfies SurfaceKind[];
 const paneTones = ["cyan", "green", "orange", "pink", "slate"] satisfies Array<NiriPane["tone"]>;
 export const defaultRealWorkspacePaneLimits = {
@@ -35,6 +37,8 @@ export const defaultRealWorkspacePaneLimits = {
   "pixi-canvas": 10,
   "settings-dom": 1,
   terminal: 10,
+  "workflow-node-details": 1,
+  "workflow-settings": 1,
 } satisfies PaneLimitPolicy;
 
 export interface RealWorkspaceSceneOptions {

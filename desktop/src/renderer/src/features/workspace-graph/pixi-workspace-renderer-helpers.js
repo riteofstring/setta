@@ -10,13 +10,48 @@ const mouseWheelZoomSensitivity = 0.0016;
 const notchedWheelDeltaThreshold = 80;
 const trackpadPinchZoomSensitivity = 0.018;
 
-export const ports = [
-  { id: "input", role: "target", xOffset: 20, yRatio: 0.5 },
-  { id: "output", role: "source", xOffset: -20, yRatio: 0.5 },
+const defaultPorts = [
+  { id: "input", label: "", role: "target", xOffset: 20, yRatio: 0.5 },
+  { id: "output", label: "", role: "source", xOffset: -20, yRatio: 0.5 },
 ];
 
 export function isSelectionToggleEvent(event) {
   return Boolean(event.metaKey || event.ctrlKey);
+}
+
+export function nodeOpenRequested(event, onNodeOpen) {
+  return event.detail >= 2 && onNodeOpen !== null;
+}
+
+export function nodeDeleteRequested(event, onNodeDelete, selectedNodeIds) {
+  return (
+    isNodeDeleteKey(event.key) &&
+    selectedNodeIds.size > 0 &&
+    typeof onNodeDelete === "function" &&
+    !keyboardEventTargetsEditableText(event)
+  );
+}
+
+export function notifyNodeSelectionChange(onNodeSelectionChange, selectedNodeIds) {
+  if (onNodeSelectionChange !== null) {
+    onNodeSelectionChange([...selectedNodeIds]);
+  }
+}
+
+function isNodeDeleteKey(key) {
+  return key === "Delete" || key === "Backspace";
+}
+
+function keyboardEventTargetsEditableText(event) {
+  const target = event.target;
+  if (!target || typeof target.closest !== "function") {
+    return false;
+  }
+  if (target.closest("input, textarea, select") !== null) {
+    return true;
+  }
+  const editable = target.closest("[contenteditable]");
+  return Boolean(editable?.isContentEditable);
 }
 
 export function setsEqual(left, right) {
@@ -75,17 +110,21 @@ export function portWorldPosition(node, portId) {
 }
 
 export function portLocalPosition(node, portId) {
-  const port = requirePort(portId);
+  const port = requirePort(node, portId);
   return {
     x: port.xOffset >= 0 ? port.xOffset : node.width + port.xOffset,
     y: node.height * port.yRatio,
   };
 }
 
-export function requirePort(portId) {
-  const port = ports.find((candidate) => candidate.id === portId);
+export function portsForNode(node) {
+  return Array.isArray(node.ports) && node.ports.length > 0 ? node.ports : defaultPorts;
+}
+
+export function requirePort(node, portId) {
+  const port = portsForNode(node).find((candidate) => candidate.id === portId);
   if (!port) {
-    throw new Error(`unknown workspace port: ${portId}`);
+    throw new Error(`unknown workspace port ${node.id}:${portId}`);
   }
   return port;
 }
@@ -244,19 +283,57 @@ export function cameraState(viewport) {
   };
 }
 
-export function screenPointFromPointer(canvas, event) {
-  const rect = canvas.getBoundingClientRect();
+export function cameraStatesDiffer(left, right) {
+  return left.x !== right.x || left.y !== right.y || left.zoom !== right.zoom;
+}
+
+export function configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom }) {
+  viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
+  if (!initialCameraState) {
+    viewport.moveCenter(0, 20);
+    return;
+  }
+  viewport.setZoom(clamp(initialCameraState.zoom, minZoom, maxZoom));
+  viewport.moveCorner(initialCameraState.x, initialCameraState.y);
+}
+
+export function edgeConnection(edgeDrawing, targetPort) {
   return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
+    sourceNodeId: edgeDrawing.sourceNodeId,
+    sourcePortId: edgeDrawing.sourcePortId,
+    targetNodeId: targetPort.nodeId,
+    targetPortId: targetPort.portId,
   };
 }
 
+function drawnEdge(sequence, connection) {
+  return { id: `drawn-${sequence}`, ...connection };
+}
+
+export function commitEdgeConnection(connection, { edges, onEdgeCreate, redrawEdges, sequence }) {
+  if (onEdgeCreate) {
+    onEdgeCreate(connection);
+    return;
+  }
+  edges.push(drawnEdge(sequence, connection));
+  redrawEdges();
+}
+
+export function screenPointFromPointer(canvas, event) {
+  return canvasLocalPointFromClient(canvas, event.clientX, event.clientY);
+}
+
 export function screenPointFromWheel(canvas, event) {
+  return canvasLocalPointFromClient(canvas, event.clientX, event.clientY);
+}
+
+function canvasLocalPointFromClient(canvas, clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.clientWidth > 0 && rect.width > 0 ? canvas.clientWidth / rect.width : 1;
+  const scaleY = canvas.clientHeight > 0 && rect.height > 0 ? canvas.clientHeight / rect.height : 1;
   return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
   };
 }
 
@@ -304,6 +381,37 @@ export function stopNativeInteraction(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation();
+}
+
+export function createCanvasContextMenuHandler({ canvas, onCanvasContextMenu, viewport }) {
+  return (event) => {
+    if (!onCanvasContextMenu) {
+      return;
+    }
+    stopNativeInteraction(event);
+    const screen = screenPointFromPointer(canvas, event);
+    const world = viewport.toWorld(screen);
+    onCanvasContextMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      worldX: Math.round(world.x),
+      worldY: Math.round(world.y),
+    });
+  };
+}
+
+export function countMapValues(map, expected) {
+  return [...map.values()].filter((value) => value === expected).length;
+}
+
+export function frameSampleStats(samples) {
+  if (samples.length === 0) {
+    return { average: 0, worst: 0 };
+  }
+  return {
+    average: samples.reduce((total, value) => total + value, 0) / samples.length,
+    worst: Math.max(...samples),
+  };
 }
 
 export function clamp(value, min, max) {

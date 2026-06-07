@@ -13,7 +13,7 @@ func TestServiceReadGraphProjectionComposesDefinitionAndRunningExecutionState(t 
 		t.Fatalf("start execution: %v", err)
 	}
 
-	projection, ok, err := service.ReadGraphProjection(workspaceID, "", "", "")
+	projection, ok, err := service.ReadGraphProjection(workspaceID, "", "", started.ID)
 	if err != nil {
 		t.Fatalf("read workspace projection: %v", err)
 	}
@@ -22,6 +22,15 @@ func TestServiceReadGraphProjectionComposesDefinitionAndRunningExecutionState(t 
 	}
 	if projection.DefinitionID != definition.ID || projection.ExecutionID != started.ID {
 		t.Fatalf("projection ids = definition %s execution %s, want %s %s", projection.DefinitionID, projection.ExecutionID, definition.ID, started.ID)
+	}
+	if projection.ViewMode != GraphViewModeRun || projection.Editable {
+		t.Fatalf("projection view state = mode %s editable %v, want run read-only", projection.ViewMode, projection.Editable)
+	}
+	if projection.DefinitionVersionNumber != 1 || projection.DefinitionVersionID != started.DefinitionVersionID {
+		t.Fatalf("projection version = %d/%s, want 1/%s", projection.DefinitionVersionNumber, projection.DefinitionVersionID, started.DefinitionVersionID)
+	}
+	if !projection.DraftMatchesVersion || projection.VersionMismatch {
+		t.Fatalf("projection draft/version match = %v mismatch = %v, want matching version", projection.DraftMatchesVersion, projection.VersionMismatch)
 	}
 	assertProjectedNode(t, projection, "start", GraphNodeStatusSucceeded, false, 1)
 	assertProjectedNode(t, projection, "work", GraphNodeStatusReady, true, 1)
@@ -74,6 +83,101 @@ func TestServiceReadGraphProjectionIncludesTerminalActionResult(t *testing.T) {
 	assertProjectedEdge(t, projection, "work_end", GraphEdgeStatusCompleted, 0, 1)
 }
 
+func TestServiceReadGraphProjectionIncludesDefinitionLayout(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	graph := actionGraph("work")
+	graph.Layout = WorkflowGraphLayout{
+		Nodes: []WorkflowGraphNodeLayout{
+			{NodeID: "start", X: -320, Y: 0},
+			{NodeID: "work", X: 0, Y: 96},
+			{NodeID: "end", X: 320, Y: 0},
+		},
+	}
+	definition, err := service.CreateDefinition(workspaceID, "Review", "graph projection", graph)
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+
+	projection, ok, err := service.ReadGraphProjection(workspaceID, definition.ID, "", "")
+	if err != nil {
+		t.Fatalf("read definition projection: %v", err)
+	}
+	if !ok {
+		t.Fatal("definition projection was not returned")
+	}
+	if projection.ViewMode != GraphViewModeDraft || !projection.Editable {
+		t.Fatalf("projection view state = mode %s editable %v, want editable draft", projection.ViewMode, projection.Editable)
+	}
+	if projection.DefinitionVersionID != "" || projection.DefinitionVersionNumber != 0 {
+		t.Fatalf("projection version = %d/%s, want unversioned draft", projection.DefinitionVersionNumber, projection.DefinitionVersionID)
+	}
+	if projection.DraftUpdatedAt == "" {
+		t.Fatal("draft projection did not expose draft updated timestamp")
+	}
+	layout := projectedLayoutNodeForTest(t, projection, "work")
+	if layout.X != 0 || layout.Y != 96 {
+		t.Fatalf("projected work layout = %+v, want x=0 y=96", layout)
+	}
+}
+
+func TestServiceReadGraphProjectionReportsDraftVersionMismatch(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, err := service.CreateDefinition(workspaceID, "Review", "graph projection", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	updated, err := service.UpdateDefinition(workspaceID, definition.ID, "Review v2", "changed after run", definition.Graph)
+	if err != nil {
+		t.Fatalf("update definition: %v", err)
+	}
+
+	projection, ok, err := service.ReadGraphProjection(workspaceID, definition.ID, started.DefinitionVersionID, started.ID)
+	if err != nil {
+		t.Fatalf("read execution projection: %v", err)
+	}
+	if !ok {
+		t.Fatal("execution projection was not returned")
+	}
+	if projection.ViewMode != GraphViewModeRun || projection.DefinitionName != definition.Name {
+		t.Fatalf("projection mode/name = %s/%s, want run snapshot name %s", projection.ViewMode, projection.DefinitionName, definition.Name)
+	}
+	if projection.DraftUpdatedAt != updated.UpdatedAt {
+		t.Fatalf("projection draft updatedAt = %s, want current draft %s", projection.DraftUpdatedAt, updated.UpdatedAt)
+	}
+	if projection.DraftMatchesVersion || !projection.VersionMismatch {
+		t.Fatalf("projection draft/version match = %v mismatch = %v, want mismatch", projection.DraftMatchesVersion, projection.VersionMismatch)
+	}
+}
+
+func TestServiceReadGraphProjectionIncludesEdgeConditionsAndLabels(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	graph := conditionRoutingGraph(signalCondition("classify", "route", "yes"))
+	definition, err := service.CreateDefinition(workspaceID, "Route", "graph projection", graph)
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+
+	projection, ok, err := service.ReadGraphProjection(workspaceID, definition.ID, "", "")
+	if err != nil {
+		t.Fatalf("read definition projection: %v", err)
+	}
+	if !ok {
+		t.Fatal("definition projection was not returned")
+	}
+	match := projectedEdgeForTest(t, projection, "route_match")
+	if match.Condition == nil || match.Condition.Kind != ConditionActionSignal || match.Label != "route=yes" {
+		t.Fatalf("projected match edge = %+v, want action_signal route=yes label", match)
+	}
+	defaultEdge := projectedEdgeForTest(t, projection, "route_default")
+	if defaultEdge.Condition == nil || defaultEdge.Condition.Kind != ConditionDefault || defaultEdge.Label != "default" {
+		t.Fatalf("projected default edge = %+v, want default condition and label", defaultEdge)
+	}
+}
+
 func TestServiceReadGraphProjectionReportsEmptyWorkspaceWithoutError(t *testing.T) {
 	_, _, service, workspaceID := newTestWorkflowService(t)
 	_, ok, err := service.ReadGraphProjection(workspaceID, "", "", "")
@@ -104,15 +208,32 @@ func projectedNodeForTest(t *testing.T, projection WorkflowGraphProjection, node
 	return WorkflowGraphNode{}
 }
 
+func projectedLayoutNodeForTest(t *testing.T, projection WorkflowGraphProjection, nodeID string) WorkflowGraphNodeLayout {
+	t.Helper()
+	for _, node := range projection.Layout.Nodes {
+		if node.NodeID == nodeID {
+			return node
+		}
+	}
+	t.Fatalf("projected layout node %s was not found in %+v", nodeID, projection.Layout.Nodes)
+	return WorkflowGraphNodeLayout{}
+}
+
 func assertProjectedEdge(t *testing.T, projection WorkflowGraphProjection, edgeID string, status WorkflowGraphEdgeStatus, activeTokens int, completedTokens int) {
+	t.Helper()
+	edge := projectedEdgeForTest(t, projection, edgeID)
+	if edge.Status != status || edge.ActiveTokenCount != activeTokens || edge.CompletedTokenCount != completedTokens {
+		t.Fatalf("projected edge %s = %+v, want status %s active %d completed %d", edgeID, edge, status, activeTokens, completedTokens)
+	}
+}
+
+func projectedEdgeForTest(t *testing.T, projection WorkflowGraphProjection, edgeID string) WorkflowGraphEdge {
 	t.Helper()
 	for _, edge := range projection.Edges {
 		if edge.ID == edgeID {
-			if edge.Status != status || edge.ActiveTokenCount != activeTokens || edge.CompletedTokenCount != completedTokens {
-				t.Fatalf("projected edge %s = %+v, want status %s active %d completed %d", edgeID, edge, status, activeTokens, completedTokens)
-			}
-			return
+			return edge
 		}
 	}
 	t.Fatalf("projected edge %s was not found in %+v", edgeID, projection.Edges)
+	return WorkflowGraphEdge{}
 }

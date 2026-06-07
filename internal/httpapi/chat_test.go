@@ -601,10 +601,16 @@ func newChatHandlerWithAppDataDir(t *testing.T, events []chat.FakeHarnessEvent) 
 	if err != nil {
 		t.Fatalf("new workflow store: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := workflowStore.Close(); err != nil {
+			t.Fatalf("close workflow store: %v", err)
+		}
+	})
 	workflowService, err := orchestrator.NewService(workflowStore, workspaceService)
 	if err != nil {
 		t.Fatalf("new workflow service: %v", err)
 	}
+	t.Cleanup(workflowService.CloseEvents)
 	return NewHandler(HandlerConfig{
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
