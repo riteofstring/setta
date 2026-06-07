@@ -29,6 +29,10 @@ const viewport = {
   mobile: false,
   width: 1440,
 };
+const compactViewport = {
+  ...viewport,
+  width: 760,
+};
 
 if (options.help) {
   console.log(
@@ -72,7 +76,24 @@ try {
     },
   });
   const horizontalAfter = await waitForPaneWidthChange(context.client, horizontalBefore, 50);
+  const horizontalAfterSourceHost = requiredSnapshotHost(
+    horizontalAfter,
+    horizontalBefore.sourceHost.paneId,
+  );
   await captureScreenshot(context.client, join(artifactDir, "horizontal-after.png"));
+  await context.client.call("Emulation.setDeviceMetricsOverride", compactViewport);
+  const horizontalCompact = await waitForPaneWidthClamp(
+    context.client,
+    horizontalAfterSourceHost,
+    40,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "horizontal-compact.png"));
+  await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
+  const horizontalRestored = await waitForPaneWidthRestore(
+    context.client,
+    horizontalAfterSourceHost,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "horizontal-restored.png"));
 
   await clickToolbarButton(context.client, "Frame split vertically");
   await waitForResizeHandles(context.client, "vertical");
@@ -96,6 +117,8 @@ try {
     artifactDir,
     horizontalAfter,
     horizontalBefore,
+    horizontalCompact,
+    horizontalRestored,
     status: "passed",
     verticalAfter,
     verticalBefore,
@@ -230,6 +253,39 @@ async function waitForPaneSplitResize(client, target, minimumDelta) {
   );
 }
 
+async function waitForPaneWidthClamp(client, originalHost, minimumDelta) {
+  return waitForState(
+    client,
+    resizeSnapshotExpression(),
+    (snapshot) => {
+      const host = snapshot.visibleHosts.find(
+        (candidate) => candidate.paneId === originalHost.paneId,
+      );
+      return Boolean(
+        host &&
+        snapshot.stage &&
+        host.rect.width <= originalHost.rect.width - minimumDelta &&
+        host.rect.width <= snapshot.stage.width - 20 + geometryTolerancePx,
+      );
+    },
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForPaneWidthRestore(client, originalHost) {
+  return waitForState(
+    client,
+    resizeSnapshotExpression(),
+    (snapshot) => {
+      const host = snapshot.visibleHosts.find(
+        (candidate) => candidate.paneId === originalHost.paneId,
+      );
+      return Boolean(host && host.rect.width >= originalHost.rect.width - geometryTolerancePx);
+    },
+    workflowTimeoutMs,
+  );
+}
+
 function assertHandleInPaneGap(target) {
   if (target.handle.axis === "horizontal") {
     const expectedX =
@@ -258,6 +314,14 @@ function assertPanesTouch(target) {
   }
 }
 
+function requiredSnapshotHost(snapshot, paneId) {
+  const host = snapshot.visibleHosts.find((candidate) => candidate.paneId === paneId);
+  if (!host) {
+    throw new Error(`missing pane ${paneId} in resize snapshot: ${JSON.stringify(snapshot)}`);
+  }
+  return host;
+}
+
 async function safeResizeSnapshot(client) {
   try {
     return await client.evaluate(resizeSnapshotExpression());
@@ -276,6 +340,7 @@ function workspaceIdExpression() {
 function resizeSnapshotExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const stage = document.querySelector('[data-testid="niri-presentation-engine"]');
     const rectFor = (element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -325,6 +390,7 @@ function resizeSnapshotExpression() {
     return {
       handles,
       mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
+      stage: stage instanceof HTMLElement ? rectFor(stage) : null,
       visibleHosts,
       workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
     };

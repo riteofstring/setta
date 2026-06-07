@@ -43,13 +43,21 @@ import {
 } from "./layout-engine-helpers";
 import { reorderPaneColumnBefore } from "./layout-reorder";
 import { columnVisualFramesForPane, type PaneVisualFrame } from "./pane-visual-frame";
+
+export interface NiriLayoutEngineOptions {
+  allowResizedPanesToOverflowViewport?: boolean;
+}
+
 export class NiriLikeLayoutEngine implements LayoutEngine {
   private columns: NiriColumn[];
   private nextColumnSequence: number;
   private paneById: Map<PaneId, NiriPane>;
   private nextPaneSequence: number;
 
-  constructor(private readonly scene: NiriWorkspaceScene) {
+  constructor(
+    private readonly scene: NiriWorkspaceScene,
+    private readonly options: NiriLayoutEngineOptions = {},
+  ) {
     this.columns = normalizeColumnSlots(
       scene.columns.map((column) => ({
         ...column,
@@ -495,21 +503,30 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     return Math.max(minimumColumnWidth, viewportWidth - this.scene.padding * 2);
   }
 
+  private availableViewportWidth(viewportWidth: number): number {
+    return Math.max(1, viewportWidth - this.scene.padding * 2);
+  }
+
   private columnGeometry(
     viewportWidth: number,
     maximizedPaneId: PaneId | null = null,
     columnGap = this.scene.columnGap,
+    allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
   ): ColumnGeometry {
     const widths = this.columns.map((column) =>
       maximizedPaneId && column.paneIds.includes(maximizedPaneId)
         ? this.availableWidth(viewportWidth)
-        : this.resolveColumnWidth(column, viewportWidth),
+        : this.resolveColumnWidth(column, viewportWidth, allowViewportOverflow),
     );
     const offsets = Array.from({ length: this.columns.length }, () => 0);
     const slotOffsets = slotOffsetsForColumns({
       columnGap,
       columns: this.columns,
-      defaultWidth: this.resolveColumnWidthSpec(this.scene.defaultColumnWidthSpec, viewportWidth),
+      defaultWidth: this.resolveColumnWidthSpec(
+        this.scene.defaultColumnWidthSpec,
+        viewportWidth,
+        allowViewportOverflow,
+      ),
       widths,
     });
     for (const planeIndex of this.planeIndexes()) {
@@ -736,7 +753,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   }
 
   private renderOverviewFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
-    const geometry = this.columnGeometry(input.viewport.width);
+    const geometry = this.columnGeometry(input.viewport.width, null, this.scene.columnGap, true);
     const unscaledWidth = this.maxUnscaledPlaneWidth(geometry);
     const unscaledHeight = totalUnscaledPlaneHeight(
       this.planeIndexes().length,
@@ -886,13 +903,24 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     );
   }
 
-  private resolveColumnWidth(column: NiriColumn, viewportWidth: number): number {
-    return this.resolveColumnWidthSpec(column.widthSpec, viewportWidth);
+  private resolveColumnWidth(
+    column: NiriColumn,
+    viewportWidth: number,
+    allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
+  ): number {
+    return this.resolveColumnWidthSpec(column.widthSpec, viewportWidth, allowViewportOverflow);
   }
 
-  private resolveColumnWidthSpec(spec: ColumnWidthSpec, viewportWidth: number): number {
+  private resolveColumnWidthSpec(
+    spec: ColumnWidthSpec,
+    viewportWidth: number,
+    allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
+  ): number {
     if (spec.unit === "px") {
-      return Math.max(minimumColumnWidth, Math.round(spec.value));
+      const desiredWidth = Math.max(minimumColumnWidth, Math.round(spec.value));
+      return allowViewportOverflow
+        ? desiredWidth
+        : Math.min(desiredWidth, this.availableViewportWidth(viewportWidth));
     }
     return Math.max(
       minimumColumnWidth,

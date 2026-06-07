@@ -97,15 +97,20 @@ export function NiriWorkspaceArea({
   const showPerformanceStats = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.developer?.showPerformanceStats ?? false,
   );
+  const allowResizedPanesToOverflowViewport = useAppearanceStore(
+    (state) =>
+      (state.draft ?? state.settings)?.developer?.allowResizedPanesToOverflowViewport ?? false,
+  );
   const mode = niriSceneMode();
   const runtime = useMemo(
     () =>
       createNiriRuntime({
+        allowResizedPanesToOverflowViewport,
         mode,
         workspaceId: workspace?.id ?? "empty",
         workspaceName: workspace?.displayName ?? "No workspace",
       }),
-    [mode, workspace?.displayName, workspace?.id],
+    [allowResizedPanesToOverflowViewport, mode, workspace?.displayName, workspace?.id],
   );
   const layoutSnapshot = useNiriLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
@@ -842,10 +847,12 @@ function arrowDirection(key: string): "up" | "down" | "left" | "right" {
 }
 
 function createNiriRuntime({
+  allowResizedPanesToOverflowViewport,
   mode,
   workspaceId,
   workspaceName,
 }: {
+  allowResizedPanesToOverflowViewport: boolean;
   mode: NiriSceneMode;
   workspaceId: string;
   workspaceName: string;
@@ -853,7 +860,7 @@ function createNiriRuntime({
   const layoutStorageKey = `setta:niri-workspace-horizontal-v4:${workspaceId}`;
   const realScene = createRealSceneForRuntime({ layoutStorageKey, mode, workspaceName });
   const scene = sceneForRuntime(realScene);
-  const engine = new NiriLikeLayoutEngine(scene);
+  const engine = new NiriLikeLayoutEngine(scene, { allowResizedPanesToOverflowViewport });
   const store = new NiriLayoutStore(
     engine,
     scene,

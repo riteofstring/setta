@@ -8,6 +8,7 @@ interface DeveloperSettingsEditorProps {
   developer: AppearanceDeveloperSettings | null;
   dirty: boolean;
   error: string | null;
+  onClampResizedPanesToViewportChange: (clamp: boolean) => void;
   onRevert: () => void;
   onSave: () => Promise<void>;
   onShowPerformanceStatsChange: (show: boolean) => void;
@@ -18,6 +19,7 @@ export function DeveloperSettingsEditor({
   developer,
   dirty,
   error,
+  onClampResizedPanesToViewportChange,
   onRevert,
   onSave,
   onShowPerformanceStatsChange,
@@ -58,22 +60,17 @@ export function DeveloperSettingsEditor({
       </header>
       <DeveloperSettingsStatus status={status} dirty={dirty} error={error} />
       {developer ? (
-        <section className="rounded-sm border border-border bg-card/30 px-3 py-2.5">
-          <label className="flex min-h-10 items-center justify-between gap-3">
-            <span className="min-w-0 text-xs font-medium text-foreground">
-              Top bar performance stats
-            </span>
-            <span className="relative inline-flex h-6 w-10 shrink-0 items-center">
-              <input
-                checked={developer.showPerformanceStats}
-                className="peer sr-only"
-                onChange={(event) => onShowPerformanceStatsChange(event.currentTarget.checked)}
-                type="checkbox"
-              />
-              <span className="h-5 w-9 rounded-full border border-border bg-muted transition-colors peer-checked:border-primary peer-checked:bg-primary" />
-              <span className="pointer-events-none absolute left-0.5 h-4 w-4 rounded-full bg-foreground/80 transition-transform peer-checked:translate-x-4 peer-checked:bg-primary-foreground" />
-            </span>
-          </label>
+        <section className="grid gap-1 rounded-sm border border-border bg-card/30 px-3 py-2.5">
+          <DeveloperToggle
+            checked={!developer.allowResizedPanesToOverflowViewport}
+            label="Clamp resized panes to viewport"
+            onChange={onClampResizedPanesToViewportChange}
+          />
+          <DeveloperToggle
+            checked={developer.showPerformanceStats}
+            label="Top bar performance stats"
+            onChange={onShowPerformanceStatsChange}
+          />
         </section>
       ) : (
         <div className="flex h-16 items-center gap-2 rounded-sm border border-border px-3 text-xs text-muted-foreground">
@@ -82,6 +79,32 @@ export function DeveloperSettingsEditor({
         </div>
       )}
     </form>
+  );
+}
+
+function DeveloperToggle({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-10 items-center justify-between gap-3">
+      <span className="min-w-0 text-xs font-medium text-foreground">{label}</span>
+      <span className="relative inline-flex h-6 w-10 shrink-0 items-center">
+        <input
+          checked={checked}
+          className="peer sr-only"
+          onChange={(event) => onChange(event.currentTarget.checked)}
+          type="checkbox"
+        />
+        <span className="h-5 w-9 rounded-full border border-border bg-muted transition-colors peer-checked:border-primary peer-checked:bg-primary" />
+        <span className="pointer-events-none absolute left-0.5 h-4 w-4 rounded-full bg-foreground/80 transition-transform peer-checked:translate-x-4 peer-checked:bg-primary-foreground" />
+      </span>
+    </label>
   );
 }
 

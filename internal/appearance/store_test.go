@@ -19,6 +19,9 @@ func TestDefaultSettingsValidate(t *testing.T) {
 	if settings.Developer.ShowPerformanceStats {
 		t.Fatal("default performance stats setting = true, want false")
 	}
+	if settings.Developer.AllowResizedPanesToOverflowViewport {
+		t.Fatal("default resized panes overflow setting = true, want false")
+	}
 	if settings.Dark.Tailwind.Setta900 != "oklch(0.1631 0.0125 264.14)" {
 		t.Fatalf("dark setta 900 = %q, want original Setta dark scale", settings.Dark.Tailwind.Setta900)
 	}
@@ -80,6 +83,7 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 	settings := DefaultSettings()
 	settings.Mode = ColorModeLight
 	settings.Fonts.Sans = `"Aptos", ui-sans-serif, sans-serif`
+	settings.Developer.AllowResizedPanesToOverflowViewport = true
 	settings.Developer.ShowPerformanceStats = true
 
 	if err := store.Save(settings); err != nil {
@@ -98,6 +102,9 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 	}
 	if !loaded.Developer.ShowPerformanceStats {
 		t.Fatal("performance stats setting = false, want true")
+	}
+	if !loaded.Developer.AllowResizedPanesToOverflowViewport {
+		t.Fatal("resized panes overflow setting = false, want true")
 	}
 }
 

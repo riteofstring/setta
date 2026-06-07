@@ -1097,6 +1097,7 @@ export interface AppearanceFontScheme {
 }
 
 export interface AppearanceDeveloperSettings {
+  allowResizedPanesToOverflowViewport: boolean;
   showPerformanceStats: boolean;
 }
 
@@ -2832,8 +2833,9 @@ export function decodeAppearanceFontScheme(value: unknown): AppearanceFontScheme
 
 export function decodeAppearanceDeveloperSettings(value: unknown): AppearanceDeveloperSettings {
   const record = assertRecord(value, "AppearanceDeveloperSettings");
-  assertKnownFields(record, "AppearanceDeveloperSettings", ["showPerformanceStats"]);
+  assertKnownFields(record, "AppearanceDeveloperSettings", ["allowResizedPanesToOverflowViewport", "showPerformanceStats"]);
   return {
+    allowResizedPanesToOverflowViewport: decodeBoolean(requireField(record, "allowResizedPanesToOverflowViewport", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.allowResizedPanesToOverflowViewport"),
     showPerformanceStats: decodeBoolean(requireField(record, "showPerformanceStats", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.showPerformanceStats"),
   };
 }

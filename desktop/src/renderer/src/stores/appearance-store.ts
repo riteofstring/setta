@@ -32,6 +32,7 @@ interface AppearanceStore {
     value: string,
   ) => void;
   setFontValue: (name: keyof AppearanceFontScheme, value: string) => void;
+  setClampResizedPanesToViewport: (clamp: boolean) => void;
   setMode: (mode: AppearanceColorMode) => void;
   setShowPerformanceStats: (show: boolean) => void;
   status: AppearanceStoreStatus;
@@ -111,6 +112,15 @@ export const useAppearanceStore = create<AppearanceStore>((set, get) => {
       updateDraft((settings) => ({
         ...settings,
         fonts: { ...settings.fonts, [name]: value },
+      }));
+    },
+    setClampResizedPanesToViewport: (clamp) => {
+      updateDraft((settings) => ({
+        ...settings,
+        developer: {
+          ...settings.developer,
+          allowResizedPanesToOverflowViewport: !clamp,
+        },
       }));
     },
     setMode: (mode) => {

@@ -30,9 +30,13 @@ describe("appearance settings", () => {
   test("renders the developer performance stats toggle", () => {
     const html = renderToString(
       <DeveloperSettingsEditor
-        developer={{ showPerformanceStats: false }}
+        developer={{
+          allowResizedPanesToOverflowViewport: false,
+          showPerformanceStats: false,
+        }}
         dirty={false}
         error={null}
+        onClampResizedPanesToViewportChange={vi.fn()}
         onRevert={vi.fn()}
         onSave={async () => {}}
         onShowPerformanceStatsChange={vi.fn()}
@@ -41,6 +45,7 @@ describe("appearance settings", () => {
     );
 
     expect(html).toContain('data-testid="developer-settings"');
+    expect(html).toContain("Clamp resized panes to viewport");
     expect(html).toContain("Top bar performance stats");
     expect(html).toContain('type="checkbox"');
   });
@@ -133,6 +138,7 @@ function sampleAppearanceSettings(): AppearanceSettings {
   return {
     dark: sampleColorScheme(tailwind, 200),
     developer: {
+      allowResizedPanesToOverflowViewport: false,
       showPerformanceStats: false,
     },
     fonts: {

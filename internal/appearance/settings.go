@@ -142,7 +142,8 @@ type AppearanceFontScheme struct {
 }
 
 type AppearanceDeveloperSettings struct {
-	ShowPerformanceStats bool `json:"showPerformanceStats"`
+	AllowResizedPanesToOverflowViewport bool `json:"allowResizedPanesToOverflowViewport"`
+	ShowPerformanceStats                bool `json:"showPerformanceStats"`
 }
 
 type AppearancePreset struct {
@@ -182,7 +183,8 @@ func DefaultSettings() AppearanceSettings {
 			Heading: `Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
 		},
 		Developer: AppearanceDeveloperSettings{
-			ShowPerformanceStats: false,
+			AllowResizedPanesToOverflowViewport: false,
+			ShowPerformanceStats:                false,
 		},
 	}
 }

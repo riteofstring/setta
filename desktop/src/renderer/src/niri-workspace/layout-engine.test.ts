@@ -494,6 +494,26 @@ describe("real niri workspace column sizing", () => {
     expect(engine.resolvedColumnWidth("workspace_column_0", 900)).toBe(520);
   });
 
+  test("clamps resized columns to the viewport while preserving their stored width", () => {
+    const engine = createRealEngine();
+
+    engine.resizeColumn("workspace_column_0", { unit: "px", value: 860 });
+
+    expect(engine.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 860 });
+    expect(engine.resolvedColumnWidth("workspace_column_0", 1200)).toBe(860);
+    expect(engine.resolvedColumnWidth("workspace_column_0", 640)).toBe(620);
+    expect(engine.resolvedColumnWidth("workspace_column_0", 1200)).toBe(860);
+    expect(engine.toScene().columns[0]?.widthSpec).toEqual({ unit: "px", value: 860 });
+  });
+
+  test("allows resized columns to overflow when the developer option is disabled", () => {
+    const engine = createRealEngine({ allowResizedPanesToOverflowViewport: true });
+
+    engine.resizeColumn("workspace_column_0", { unit: "px", value: 860 });
+
+    expect(engine.resolvedColumnWidth("workspace_column_0", 640)).toBe(860);
+  });
+
   test("keeps the focused column visible after a viewport resize", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storageKey: "setta:niri-workspace:resize-focus",
@@ -687,12 +707,14 @@ function renderFrame(
   return items;
 }
 
-function createRealEngine(): NiriLikeLayoutEngine {
+function createRealEngine(
+  options?: ConstructorParameters<typeof NiriLikeLayoutEngine>[1],
+): NiriLikeLayoutEngine {
   const { scene } = createRealWorkspaceScene({
     storageKey: "setta:niri-workspace:engine-test",
     workspaceName: "Repo",
   });
-  return new NiriLikeLayoutEngine(scene);
+  return new NiriLikeLayoutEngine(scene, options);
 }
 
 function createSparseGeneratedPaneScene(): NiriWorkspaceScene {

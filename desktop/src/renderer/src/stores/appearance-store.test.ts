@@ -66,6 +66,22 @@ describe("appearance store", () => {
     expect(useAppearanceStore.getState().draft?.developer.showPerformanceStats).toBe(true);
     expect(settings.developer.showPerformanceStats).toBe(false);
   });
+
+  test("updates the draft resized pane viewport clamp setting", () => {
+    const settings = testAppearanceSettings();
+    useAppearanceStore.setState({
+      draft: settings,
+      settings,
+      status: "ready",
+    });
+
+    useAppearanceStore.getState().setClampResizedPanesToViewport(false);
+
+    expect(useAppearanceStore.getState().draft?.developer.allowResizedPanesToOverflowViewport).toBe(
+      true,
+    );
+    expect(settings.developer.allowResizedPanesToOverflowViewport).toBe(false);
+  });
 });
 
 function installAppearanceAPI({
@@ -94,6 +110,7 @@ function testAppearanceSettings(): AppearanceSettings {
       sans: "Inter, sans-serif",
     },
     developer: {
+      allowResizedPanesToOverflowViewport: false,
       showPerformanceStats: false,
     },
     mode: "dark",

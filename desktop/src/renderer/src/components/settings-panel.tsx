@@ -78,6 +78,9 @@ export function SettingsPanel() {
   const settings = useAppearanceStore((state) => state.settings);
   const setColorValue = useAppearanceStore((state) => state.setColorValue);
   const setFontValue = useAppearanceStore((state) => state.setFontValue);
+  const setClampResizedPanesToViewport = useAppearanceStore(
+    (state) => state.setClampResizedPanesToViewport,
+  );
   const setMode = useAppearanceStore((state) => state.setMode);
   const setShowPerformanceStats = useAppearanceStore((state) => state.setShowPerformanceStats);
   const status = useAppearanceStore((state) => state.status);
@@ -125,6 +128,7 @@ export function SettingsPanel() {
                 developer={draft?.developer ?? null}
                 dirty={draft !== null && !appearanceSettingsEqual(draft, settings)}
                 error={error}
+                onClampResizedPanesToViewportChange={setClampResizedPanesToViewport}
                 onRevert={revertDraft}
                 onSave={saveDraft}
                 onShowPerformanceStatsChange={setShowPerformanceStats}
