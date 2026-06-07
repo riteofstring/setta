@@ -132,11 +132,9 @@ function UserInputApproval({
     );
   }
 
-  const submitAnswers = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+  const submitCurrentAnswers = () => {
     const answers = questions.map((question) => ({
-      answers: [formAnswerValue(formData, question.id)],
+      answers: [inputAnswerValue(inputRefs.current[question.id], answersByQuestion, question.id)],
       questionId: question.id,
       value: null,
     }));
@@ -146,6 +144,11 @@ function UserInputApproval({
       return;
     }
     void submitApproval(answers, false);
+  };
+
+  const submitAnswers = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    submitCurrentAnswers();
   };
 
   return (
@@ -192,7 +195,7 @@ function UserInputApproval({
         );
       })}
       <div className="flex gap-2">
-        <Button type="submit" variant="primary">
+        <Button onClick={submitCurrentAnswers} type="button" variant="primary">
           <Check className="h-4 w-4" />
           Answer
         </Button>
@@ -209,9 +212,12 @@ function answerValue(answersByQuestion: Record<string, string>, questionID: stri
   return answersByQuestion[questionID]?.trim() ?? "";
 }
 
-function formAnswerValue(formData: FormData, questionID: string) {
-  const value = formData.get(questionID);
-  return typeof value === "string" ? value.trim() : "";
+function inputAnswerValue(
+  input: HTMLInputElement | null | undefined,
+  answersByQuestion: Record<string, string>,
+  questionID: string,
+) {
+  return (input?.value ?? answersByQuestion[questionID] ?? "").trim();
 }
 
 function setQuestionAnswer(

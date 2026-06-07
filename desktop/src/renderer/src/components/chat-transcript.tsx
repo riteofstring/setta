@@ -137,7 +137,7 @@ const assistantMessageContainerClassByRole = {
     "min-w-0 max-w-full overflow-hidden border-l border-emerald-500/40 pl-3 text-[13px] leading-5 break-words text-emerald-100",
   developer: assistantMessageContainerClass,
   system: assistantMessageContainerClass,
-  tool: assistantMessageContainerClass,
+  tool: "min-w-0 max-w-full overflow-hidden rounded-r-sm border-l border-cyan-400/40 bg-cyan-950/20 px-3 py-2 font-mono text-[12px] leading-5 break-words text-cyan-50 [overflow-wrap:anywhere]",
 } satisfies Record<Exclude<MessageRole, "user">, string>;
 
 const userMessageContainerClassByDelivery = {
@@ -769,24 +769,43 @@ function MessageContent({ message }: { message: ChatMessage }) {
   const text = chatMessageText(message);
   switch (message.role) {
     case "user":
-      return <div className="whitespace-pre-wrap">{text}</div>;
     case "command":
-      return <div className="whitespace-pre-wrap">{text}</div>;
+      return <PlainMessageText text={text} />;
+    case "tool":
+      return <ToolMessageContent status={message.status} text={text} />;
     case "assistant":
     case "developer":
     case "system":
-    case "tool":
-      if (text === "" && message.status === "streaming") {
-        return (
-          <div className="flex h-5 items-center">
-            <BrailleSpinner label="Assistant is thinking" />
-          </div>
-        );
-      }
-      return <MarkdownText text={assistantMessageText(text, message.status)} />;
+      return <AssistantMessageContent status={message.status} text={text} />;
     default:
       return assertNever(message.role);
   }
+}
+
+function PlainMessageText({ text }: { text: string }) {
+  return <div className="whitespace-pre-wrap">{text}</div>;
+}
+
+function ToolMessageContent({ status, text }: { status: MessageStatus; text: string }) {
+  if (text === "" && status === "streaming") {
+    return (
+      <div className="flex h-5 items-center">
+        <BrailleSpinner label="Tool output is streaming" />
+      </div>
+    );
+  }
+  return <pre className="whitespace-pre-wrap font-mono">{text}</pre>;
+}
+
+function AssistantMessageContent({ status, text }: { status: MessageStatus; text: string }) {
+  if (text === "" && status === "streaming") {
+    return (
+      <div className="flex h-5 items-center">
+        <BrailleSpinner label="Assistant is thinking" />
+      </div>
+    );
+  }
+  return <MarkdownText text={assistantMessageText(text, status)} />;
 }
 
 function assistantMessageText(text: string, status: MessageStatus) {

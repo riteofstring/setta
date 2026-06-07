@@ -21,6 +21,9 @@ func (service *Service) recoverInterruptedRuns() error {
 			if run.Status != RunStatusRunning {
 				continue
 			}
+			if run.ConversationID == UIShowcaseConversationID {
+				continue
+			}
 			if err := service.recoverInterruptedRun(workspaceID, run, now); err != nil {
 				if IsCorruptStateError(err) {
 					service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, run.ID)

@@ -862,6 +862,48 @@ describe("chat renderer states", () => {
     expect(html).toContain("Load more");
   });
 
+  test("renders tool messages as styled raw output", () => {
+    const html = renderToString(
+      <TestChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={[
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            delivery: "normal",
+            id: "message_tool",
+            ordinal: 1,
+            parts: [
+              {
+                format: "plain",
+                id: "message_tool_part",
+                text: '{"tool":"style_probe","ok":true,"rows":17}',
+                type: "text",
+              },
+            ],
+            role: "tool",
+            runId: "",
+            schemaVersion: 1,
+            status: "complete",
+            updatedAt: "2026-05-29T20:00:00Z",
+          },
+        ]}
+        runItemOutputs={[]}
+        runItems={[]}
+        submitApproval={async () => {}}
+      />,
+    );
+    const scope = htmlScopeForTestId(html, "chat-tool-message-content");
+
+    expect(scope).toContain("border-cyan-400");
+    expect(scope).toContain("font-mono");
+    expect(scope).toContain("<pre");
+    expect(scope).toContain("&quot;style_probe&quot;");
+  });
+
   test("renders pending approval controls", () => {
     const html = renderToString(
       <TestChatTranscript
