@@ -1,358 +1,563 @@
-# Setta Semantic Work Graph: High-Level Plan
+# Setta Semantic Work Graph Plan
 
 ## Purpose
 
-Setta’s current graph is an executable workflow/runtime surface. Its nodes and edges define control flow: Agent Task, Route, Merge, Barrier Join, Start, End, and runtime state overlays.
+Setta’s existing visual graph should remain the place where users define and inspect executable workflows. The new semantic layer should not change workflow edge semantics or turn concepts into control-flow nodes. Instead, Setta should add a **Semantic Work Graph**: a persistent, public work-memory layer that represents what agent work is about, what has been discovered, what constraints apply, and how agents are coordinating.
 
-The proposed addition is a separate **Semantic Work Graph**: a non-executable layer that shows what AI agents are working on, what concepts are involved, what questions or hypotheses emerged, and how users can steer future work.
+The goal is not to expose raw LLM chain-of-thought. The goal is to show structured, inspectable, user-editable work state inferred from prompts, agent trajectories, file activity, diffs, tests, and user steering.
 
-Core principle:
+Core framing:
 
-> Workflow graph = what executes.  
-> Runtime graph = what is happening now.  
-> Semantic graph = what the work is about.  
-> Activity overlay = what agents are focused on.  
-> Steering directives = how users guide future work.
-
-This keeps existing workflow semantics clean while adding a new surface for understanding and directing AI-assisted development.
-
----
-
-## Product Goals
-
-1. **Make AI work visible**  
-   Users should see the concepts, questions, hypotheses, findings, decisions, and constraints involved in a coding session.
-
-2. **Avoid muddying workflow semantics**  
-   Semantic relationships and activity edges must not look or behave like control-flow edges.
-
-3. **Populate automatically**  
-   Users should not manually create semantic nodes. Nodes should emerge from prompts, agent trajectories, file activity, diffs, tool calls, and test results.
-
-4. **Support review**  
-   At the end of a session, the user should be able to inspect what was worked on and why.
-
-5. **Enable steering**  
-   Users should eventually steer agents by interacting with semantic nodes: focus here, avoid this, preserve this constraint, validate this hypothesis, or explain this area.
+```text
+Workflow Graph      = what can execute.
+Runtime Projection  = what happened or is happening in a specific run.
+Semantic Work Graph = what the work is about and what is known.
+Activity Overlay    = which agents are working on which semantic areas.
+```
 
 ---
 
-## Overall Architecture
-
-Setta should maintain four related but distinct layers.
+## High-Level Architecture
 
 ### 1. Workflow Graph
 
-The saved executable workflow definition. Existing workflow nodes and control-flow edges remain unchanged.
+The workflow graph is the saved executable definition. It owns control-flow semantics.
 
-### 2. Runtime Graph / Runtime Projection
+It may contain nodes such as:
 
-The live execution state of a workflow or agent run: prompt nodes, agent task state, tool activity, logs, and runtime overlays.
+- Start
+- End
+- Prompt/Input
+- Agent Task
+- Route
+- Merge
+- Barrier Join
+
+Prompt nodes should generally belong here when they are part of a saved executable workflow. A prompt node defines how user intent enters the workflow.
+
+### 2. Runtime Projection
+
+The runtime projection is the per-run instance of the workflow graph after execution starts.
+
+It shows:
+
+- which workflow nodes are active, complete, failed, or skipped
+- concrete prompt input for the run
+- active agent tasks
+- tool calls
+- logs
+- generated diffs
+- test runs
+- runtime errors
+
+A workflow prompt node may have a runtime instance containing the actual user prompt text for that run.
 
 ### 3. Semantic Work Graph
 
-A non-executable graph of structured public work state.
+The Semantic Work Graph is a persistent public work-memory layer. It contains concepts and structured work artifacts inferred from actual agent activity and user input.
+
+Initial semantic node kinds:
+
+- Concept
+- Question
+- Hypothesis
+- Finding
+- Decision
+- Constraint
 
 Examples:
 
-- Concept: `friends list`
-- Question: `should blocked users appear in mutual friends?`
-- Hypothesis: `slow loading is caused by repeated profile lookups`
-- Finding: `frontend requests profile details separately`
-- Decision: `batch profile hydration in backend response`
-- Constraint: `do not change public API response shape`
+```text
+Concept:    friends list
+Question:   Should blocked users appear in mutual friends?
+Hypothesis: Slow loading is caused by repeated profile lookups.
+Finding:    FriendService loads profiles one at a time.
+Decision:   Batch profile hydration without changing the response shape.
+Constraint: Do not change the public API response shape.
+```
+
+Semantic nodes should be grounded in evidence whenever possible: prompts, files, symbols, diffs, tests, docs, chats, workflow nodes, or agent activity.
 
 ### 4. Activity Overlay
 
-Animated or time-based edges from runtime/agent nodes to semantic nodes.
+Activity edges are not workflow edges. They are runtime or historical overlays connecting agent/runtime activity to semantic nodes.
 
 Example:
 
 ```text
-Agent Task ──debugging──▶ Hypothesis: N+1 profile query
-Agent Task ──editing──▶ Concept: friends backend API
-Agent Task ──validating──▶ Concept: friends list performance
+Backend Agent ──debugging──▶ Hypothesis: repeated profile lookups
+Frontend Agent ──editing──▶ Concept: friends list UI
+Validation Agent ──validating──▶ Constraint: preserve API response shape
 ```
 
-Activity edges mean agent attention/work association. They do not mean control flow.
+During a run, activity edges can be animated. After a run, they become historical activity intervals that support session review and optional replay.
+
+### 5. Semantic Cartographer
+
+The Semantic Cartographer is a separate LLM-backed system that observes agent trajectories and updates the Semantic Work Graph.
+
+Task agents should focus on doing the work. They should not be responsible for manually maintaining semantic nodes or reporting perfect focus events.
+
+The cartographer observes:
+
+- user prompts
+- agent messages
+- tool calls
+- file reads
+- file edits
+- diffs
+- search queries
+- test runs
+- compiler/runtime errors
+- workflow metadata
+- existing semantic nodes
+- user steering actions
+
+It emits structured semantic graph patches:
+
+- create or reuse node
+- update node
+- create semantic edge
+- attach evidence or artifact anchors
+- split node
+- merge nodes
+- set activity interval
+- mark finding/decision/constraint
+- archive or promote node
+
+### 6. Context Pack Builder
+
+Semantic nodes should be able to influence agent context, but not by dumping the entire semantic graph into every prompt.
+
+A Context Pack Builder selects the relevant semantic neighborhood for a run or agent task. It combines:
+
+- current prompt text
+- workflow configuration
+- relevant semantic nodes
+- applicable constraints
+- prior decisions
+- unresolved questions
+- user steering directives
+- relevant artifact anchors
+
+This makes semantic memory useful while keeping context selection explicit and inspectable.
+
+### 7. Constraint Enforcement Layer
+
+Constraint nodes live in the Semantic Work Graph, but enforcement belongs to workflow/runtime mechanisms.
+
+A constraint can be:
+
+- soft: included as prompt/context guidance
+- judged: checked by an LLM-as-a-judge or review step
+- validated: checked by tests, schema diffs, type checks, or custom tools
+- gated: enforced by workflow approval or blocking conditions
+
+Example:
+
+```text
+Semantic constraint:
+Do not change the public API response shape.
+
+Possible enforcement:
+- OpenAPI diff check
+- generated client compatibility check
+- regression tests
+- LLM judge over old/new response examples
+- human approval gate
+```
+
+This separation keeps semantic meaning and executable enforcement cleanly separated.
 
 ---
 
-## Semantic Cartographer
+## Lazy Semantic Graph Generation
 
-The task agent should focus on solving the user’s task. A separate **Semantic Cartographer** should observe the trajectory and maintain the Semantic Work Graph.
-
-The cartographer analyzes:
-
-- User prompt
-- Agent messages
-- File reads and edits
-- Search queries
-- Tool calls
-- Terminal commands
-- Test runs
-- Diffs
-- Existing semantic nodes
-- User steering actions
-
-The cartographer outputs graph updates:
-
-- Create or reuse semantic nodes
-- Link nodes to artifacts
-- Create semantic relationships
-- Mark agent activity
-- Split overloaded nodes
-- Merge duplicates
-- Promote important nodes into durable memory
-
-This keeps semantic graph maintenance decoupled from the task agent. The task agent may optionally emit hints, but the system should not depend on the agent reporting focus correctly.
-
----
-
-## Lazy Semantic Graph Creation
-
-Setta should not begin by scanning the whole repository and generating every possible concept. Large projects may contain many concepts, but a given AI session may only touch one or two.
+Setta should not eagerly scan a large project and create every possible concept before work begins.
 
 Instead:
 
-> The workspace index can exist eagerly, but semantic nodes should appear lazily from actual work.
+```text
+Indexes may exist eagerly.
+Semantic nodes appear lazily from actual work.
+```
 
-A semantic node should appear when there is evidence it matters:
+Setta can maintain background indexes over files, symbols, docs, embeddings, dependencies, git history, and tests. But semantic nodes should be created when there is evidence that they matter in the current or recent work session.
 
-- The prompt mentions it
-- The agent reads or edits related files
-- The agent repeatedly searches for it
-- Diffs or tests point to it
-- The topic appears in prior session memory
-- The user pins, edits, or steers toward it
+Creation signals include:
 
-This keeps the graph relevant and avoids speculative concept bloat.
+- the user prompt mentions a topic
+- agents read or edit related files
+- tool calls cluster around an area
+- diffs indicate a semantic concern
+- tests or errors reveal a topic
+- the cartographer detects a repeated theme
+- the user pins, steers, or edits a node
 
----
-
-## Semantic Nodes and Edges
-
-Initial semantic node types should be small and understandable:
-
-| Type | Meaning |
-|---|---|
-| Concept | A feature, subsystem, concern, or cross-cutting topic |
-| Question | An unresolved issue or design question |
-| Hypothesis | A possible explanation being investigated |
-| Finding | Something discovered during the session |
-| Decision | A conclusion or chosen direction |
-| Constraint | A rule or boundary that should guide work |
-
-Initial edge types should also be limited:
-
-| Edge | Meaning |
-|---|---|
-| `about` | One node concerns another |
-| `decomposes_to` | A concept expands into sub-concepts |
-| `touches` | A concept relates to a file, folder, symbol, doc, prompt, or workflow node |
-| `supports` | Evidence supports a hypothesis |
-| `refutes` | Evidence weakens a hypothesis |
-| `resolves` | A finding or decision resolves a question or hypothesis |
-| `constrains` | A constraint applies to a concept |
-| `related_to` | A weaker general association |
-
-The graph should represent structured public work state, not raw hidden model reasoning.
+This avoids graph bloat and keeps the graph grounded in actual work.
 
 ---
 
 ## Prompt Nodes as the Bridge
 
-Prompt nodes can connect runtime execution to semantic context.
+Prompt nodes act as a bridge because they connect execution, user intent, and semantic context selection.
 
-Example prompt:
-
-> Fix the friends list loading slowly without changing the API response shape.
-
-Possible graph relationships:
-
-```text
-Prompt ──starts──▶ Agent Task
-Prompt ──asks_about──▶ Concept: friends list
-Prompt ──asks_about──▶ Concept: performance
-Prompt ──creates_constraint──▶ Constraint: do not change public API response shape
-```
-
-The semantic graph can then provide context back to the agent:
-
-- Relevant concepts
-- Prior decisions
-- Open questions
-- Constraints
-- Related files and symbols
-- User steering directives
-
-This creates a useful loop:
-
-```text
-Prompt activates semantic context
-→ semantic context informs the agent
-→ agent trajectory updates the semantic graph
-→ user edits the graph
-→ future agents use the improved graph
-```
-
----
-
-## Node Expansion and Splitting
-
-Semantic nodes should support expansion into local subgraphs.
-
-Double-clicking a node could ask the cartographer for a decomposition without immediately committing every subnode to durable state.
+A prompt node belongs to the workflow when it is part of the saved executable graph. At runtime, the prompt instance contains the actual user request. The cartographer can use that runtime prompt to seed or activate relevant semantic nodes.
 
 Example:
 
 ```text
-friends list
-├── friends list UI
-├── friends backend API
-├── friend privacy rules
-└── friends list performance
+Prompt:
+Fix friends list performance without changing the API response shape.
+
+Semantic interpretation:
+- Concept: friends list
+- Concept: performance
+- Constraint: do not change public API response shape
+
+Context pack:
+- relevant prior decisions
+- related files
+- applicable constraints
+- unresolved questions
+- user steering directives
 ```
 
-The cartographer should also be able to split overloaded nodes. Splitting should usually be hierarchical rather than destructive: keep the original node as an umbrella concept and add child nodes below it.
+Semantic nodes can affect agent context through explicit user steering or conservative automatic retrieval. The prompt node provides the run-specific activation boundary: it helps decide which semantic subgraph is relevant to this execution.
+
+Recommended initial policy:
+
+```text
+Always include explicit user steering.
+Conservatively include high-confidence relevant semantic context.
+Show users what semantic context is being used.
+Allow users to remove or adjust it.
+```
 
 ---
 
-## Persistence and Lifecycle
+## Semantic Edges
 
-Semantic nodes should persist enough to support session review, but not every transient idea should become permanent project memory.
+Semantic edges should have meanings distinct from workflow edges.
 
-Recommended lifecycle:
+Initial edge kinds:
 
-1. **Candidate**  
-   Detected by the cartographer but not yet visible.
+- about
+- decomposes_to
+- touches
+- supports
+- refutes
+- resolves
+- constrains
+- conflicts_with
+- related_to
 
-2. **Visible Session Node**  
-   Shown because it matters to the current session. Persisted in session history.
+Examples:
 
-3. **Workspace Semantic Node**  
-   Promoted into durable project memory because the user pinned it, edited it, reused it across sessions, or it became tied to a decision/constraint.
+```text
+Hypothesis: repeated profile lookups
+  ──about──▶ Concept: friends list performance
 
-Default rule:
+Finding: FriendService loads profiles one at a time
+  ──supports──▶ Hypothesis: repeated profile lookups
 
-> Visible nodes persist in the session record.  
-> Pinned or promoted nodes persist into workspace memory.
+Decision: batch profile hydration
+  ──resolves──▶ Hypothesis: repeated profile lookups
+
+Constraint: do not change response shape
+  ──constrains──▶ Concept: friends backend API
+
+Concept: friends list UI
+  ──touches──▶ File: FriendsList.tsx
+```
+
+The UI should avoid showing every edge at once. Users should be able to filter or expand semantic relationships as needed.
+
+---
+
+## Expansion, Decomposition, and Splitting
+
+Setta should distinguish three related operations.
+
+### Expand
+
+Expand is a temporary UX action.
+
+```text
+User double-clicks "friends list"
+→ Setta shows a generated subgraph preview.
+```
+
+This does not necessarily mutate durable graph state.
+
+### Decompose
+
+Decompose adds child concepts while preserving the parent as a valid umbrella concept.
+
+```text
+friends list
+  ├── friends list UI
+  ├── friends backend API
+  └── friend privacy rules
+```
+
+### Split
+
+Split is an actual graph mutation. It replaces an overloaded or inaccurate node with more precise nodes.
+
+```text
+Before:
+friends list
+
+After:
+friends list UI
+friends backend API
+friend privacy rules
+```
+
+A split should preserve lineage and reassign evidence, anchors, edges, activity history, and steering directives where appropriate.
+
+Users should be able to review or approve important splits. The old node should remain traceable as a superseded node so history is not lost.
 
 ---
 
 ## UX Model
 
-The semantic layer should feel like an editable map of AI work.
+The graph UI should allow users to understand and steer AI work without confusing semantic relationships with workflow execution.
 
-Core interactions:
+Core UX behaviors:
 
-- **Inspect**: click a node to see summary, evidence, related files, active agents, and history.
-- **Expand**: double-click to reveal a local semantic subgraph.
-- **Pin**: keep an important node visible and available as future context.
-- **Rename**: correct or clarify a node label.
-- **Merge**: combine duplicates or overlapping concepts.
-- **Split**: break a broad concept into more precise subtopics.
-- **Dismiss**: hide an irrelevant or low-value node.
-- **Add constraint**: attach a user instruction to a concept.
-- **Focus agent here**: create an explicit steering directive.
+- Semantic nodes appear near relevant workflow/runtime activity.
+- Animated activity edges show what agents are working on.
+- Clicking a node shows why it exists, what evidence supports it, which agents touched it, and what files or decisions are related.
+- Double-clicking a node expands it into a local semantic subgraph preview.
+- Users can pin, rename, merge, split, dismiss, or promote nodes.
+- Users can attach constraints or steering directives to semantic nodes.
+- At the end of a session, visible semantic nodes persist as a reviewable map of the work.
+- Promoted nodes become durable workspace memory for future context.
 
-Graph interactions should create explicit steering directives rather than implicitly changing agent behavior.
+Visual separation should be clear:
+
+```text
+Workflow nodes: executable, crisp, control-flow edges.
+Semantic nodes: softer, evidence-backed, non-executable.
+Activity edges: animated runtime/historical overlays.
+Constraint/decision badges: visible but not confused with control flow.
+```
+
+---
+
+## User Steering
+
+User interactions with semantic nodes should produce explicit steering directives, not implicit layout hints.
 
 Examples:
 
-- Focus on this concept
-- Avoid this direction
-- Validate this hypothesis
-- Preserve this constraint
-- Explain this node
-- Treat this as high priority
-
----
-
-## Visual Treatment
-
-The semantic graph should be visually distinct from the workflow graph.
-
-Suggested treatment:
-
-- Workflow nodes: crisp, executable, control-flow oriented
-- Semantic nodes: softer, conceptual, non-executable
-- Activity edges: animated and visually distinct from workflow edges
-- Semantic edges: static relationship lines
-- Prompt nodes: bridge between user intent and runtime execution
-- Pinned nodes: persistent visual emphasis
-- Low-confidence nodes: subdued or hidden by default
-- Constraints and decisions: badges or attached cards
-
-The canvas should support layer toggles:
-
 ```text
-Workflow | Runtime | Semantic | Activity | Artifacts | History
+Pin this concept.
+Focus the agent here.
+Avoid this hypothesis.
+Validate this before editing.
+Do not change this API.
+Explain this node.
+Split this overloaded concept.
+Merge these duplicates.
 ```
 
-Default view should emphasize active and nearby semantic nodes, not the entire graph.
+Steering directives can have scope:
+
+- current run
+- session
+- workspace
+
+They can also have strength:
+
+- hint
+- preference
+- requirement
+
+Agents should receive steering through context packs or workflow/runtime controls, not by interpreting the visual graph layout directly.
 
 ---
 
-## MVP Scope
+## Multi-Agent Blackboard Collaboration
 
-The first version should validate the product value without overbuilding.
+The Semantic Work Graph should be designed early as a future multi-agent blackboard.
 
-Include:
+In multi-agent work, each agent has its own trajectory. Without a shared semantic layer, coordination depends on long transcripts, summaries, or a central coordinator. A semantic blackboard gives agents and users a shared public state:
 
-- Lazy semantic node creation from agent trajectories
+- open questions
+- hypotheses
+- findings
+- decisions
+- constraints
+- risks
+- active concepts
+- blockers
+- ownership/activity
+
+Example:
+
+```text
+Backend Agent:
+Finding: FriendService performs profile lookup per friend.
+
+Frontend Agent:
+Finding: FriendsList renders all rows eagerly.
+
+Validation Agent:
+Question: Do we have regression coverage for blocked users?
+
+Cartographer connects all three to:
+Concept: friends list performance
+```
+
+The blackboard helps agents coordinate without needing to read every other agent’s full transcript.
+
+### How It Works
+
+1. Agents work independently or in parallel.
+2. The cartographer observes each trajectory.
+3. It writes shared semantic nodes and edges.
+4. Agents receive relevant semantic context packs.
+5. Users inspect, steer, resolve conflicts, or assign focus.
+
+Example context pack for a backend agent:
+
+```text
+Relevant concept:
+- friends backend API
+
+Applicable constraint:
+- do not change public API response shape
+
+Related finding:
+- frontend depends on current response shape
+
+Open question:
+- should blocked users appear in mutual friends?
+```
+
+Example context pack for a validation agent:
+
+```text
+Relevant concepts:
+- friends list performance
+- friend privacy rules
+
+Decisions to validate:
+- batch profile hydration behind existing response shape
+
+Checks to run:
+- backend social tests
+- API compatibility check
+- blocked-user regression tests
+```
+
+### Why It Matters
+
+The semantic graph can show:
+
+- which agent owns or is active on which topic
+- whether two agents are duplicating work
+- whether findings support or refute hypotheses
+- whether decisions conflict with constraints
+- which questions remain unresolved
+- what should be validated before completion
+
+This makes the semantic graph more than visualization. It becomes shared coordination infrastructure.
+
+---
+
+## Session Review and Optional Replay
+
+Visible session nodes should persist after the run so users can inspect what was worked on.
+
+At minimum, Setta should support session review:
+
+- concepts touched
+- hypotheses considered
+- findings discovered
+- decisions made
+- constraints applied
+- files changed
+- agents involved
+- validation performed
+
+Session replay can be optional in the UX, but the architecture should preserve replay-compatible event history.
+
+Replay could show the semantic graph evolving over time:
+
+```text
+Prompt appears.
+Agent starts.
+Concept nodes appear.
+Activity shifts between nodes.
+Hypothesis is created.
+Finding supports hypothesis.
+Constraint is applied.
+Decision resolves hypothesis.
+Validation passes.
+Run completes.
+```
+
+This is useful for trust, debugging, auditability, and understanding multi-agent work.
+
+---
+
+## Recommended MVP
+
+The MVP should validate the core idea without overbuilding.
+
+### Include
+
+- Lazy semantic node creation from actual agent trajectories
 - Semantic Cartographer as a separate observer
-- Concepts, questions, hypotheses, findings, decisions, and constraints
-- Activity edges from agents/runtime nodes to semantic nodes
-- Session persistence for visible semantic nodes
-- Promotion/pinning into workspace memory
-- Inspect, expand, pin, rename, merge, split, dismiss
-- Add constraint and focus-agent-here interactions
+- Concept, Question, Hypothesis, Finding, Decision, and Constraint nodes
+- Activity edges from runtime agent activity to semantic nodes
+- Evidence/provenance for nodes and edges
+- Click to inspect
+- Double-click to expand local subgraph preview
+- Pin, rename, merge, split, dismiss
+- Basic steering directives
+- Session review
+- Conservative semantic context packs
 
-Defer:
+### Defer or Keep Minimal
 
-- Full repository-wide concept generation
-- Large ontology of node and edge types
-- Required focus-reporting tools inside task agents
-- Full multi-agent blackboard workflows
-- Automatic permanent promotion of every generated node
-- Displaying all semantic edges by default
+- Full automatic project-wide concept initialization
+- Complex ontology of many node and edge types
+- Full replay UI
+- Advanced multi-agent scheduling
+- Fully automated constraint enforcement for every constraint type
 
----
+### Design for Later
 
-## Longer-Term Direction
+Even if V1 is single-agent, the architecture should preserve:
 
-The Semantic Work Graph can eventually become a shared blackboard for multi-agent collaboration.
+- event history
+- graph patch provenance
+- activity intervals
+- semantic node ownership/activity
+- explicit steering directives
+- constraint nodes linked to validation mechanisms
+- context packs that can be built per agent
 
-Agents could contribute and consume structured public work state:
-
-- Questions
-- Hypotheses
-- Findings
-- Decisions
-- Constraints
-- Risks
-- Validation results
-- Open issues
-
-Long-term vision:
-
-> Setta becomes a workspace where users, agents, code, prompts, workflows, and semantic project knowledge are connected in one inspectable graph.
+This keeps the system compatible with future multi-agent blackboard collaboration.
 
 ---
 
-## 10-Minute Meeting Takeaway
+## Final Product Principle
 
-Recommended direction: build a **Lazy Semantic Work Graph** maintained by a separate **Semantic Cartographer**.
+Setta should not visualize hidden model thoughts. It should visualize structured public work state.
 
-Key decisions:
+The Semantic Work Graph should become a persistent, user-editable memory of what agents worked on, what they found, what decisions were made, what constraints matter, and how future agents should be steered.
 
-1. Keep workflow control flow separate from semantic relationships.
-2. Do not pre-generate a full project concept map.
-3. Let semantic nodes emerge from actual agent work.
-4. Use a cartographer LLM to interpret trajectories and maintain the graph.
-5. Represent structured public work state, not raw hidden model reasoning.
-6. Use prompt nodes as the bridge between user intent, runtime execution, and semantic context.
-7. Let users inspect, expand, pin, rename, merge, split, dismiss, and steer through semantic nodes.
-8. Persist session graphs for review, while promoting only selected nodes into workspace memory.
-9. Start minimal, then grow toward multi-agent blackboard collaboration.
+The key separation is:
+
+```text
+Task agents do the work.
+The Semantic Cartographer explains the work as a graph.
+The user edits the graph to steer future work.
+The workflow/runtime system executes and enforces behavior.
+```
