@@ -876,15 +876,6 @@ Verification:
 Goal: create and update semantic graph state from observed work through a
 validated LLM-backed patch pipeline.
 
-Preflight before implementation:
-
-- Replace any Phase 5 context-compiler avoid-steering logic that depends on
-  rendered strings with typed `SteeringKindAvoid` handling. Avoid steering is a
-  semantic signal, not a text match.
-- Keep this as a strict no-migration/no-compatibility change. If Phase 6 needs
-  schema fields, bump the current semantic store shape and reject incompatible
-  existing stores before applying DDL.
-
 Scope guard:
 
 - Implement the cartographer as a graph-patch proposal and validation pipeline,
@@ -906,8 +897,23 @@ Scope guard:
   operations, missing evidence, missing confidence, unknown refs, or chain of
   thought fields must fail loudly and leave graph state unchanged.
 
+Implement Phase 6 as the following sub-phases. Each sub-phase should leave the
+app in a shippable state and should not require the later sub-phases to make its
+tests meaningful.
+
+### Phase 6A: Foundation, Types, And Store Shape
+
+Goal: add the typed cartographer substrate without changing runtime behavior or
+calling a production LLM provider.
+
 Deliverables:
 
+- Replace any Phase 5 context-compiler avoid-steering logic that depends on
+  rendered strings with typed `SteeringKindAvoid` handling. Avoid steering is a
+  semantic signal, not a text match.
+- Keep this as a strict no-migration/no-compatibility change. If Phase 6 needs
+  schema fields, bump the current semantic store shape and reject incompatible
+  existing stores before applying DDL.
 - Add backend-owned cartographer types in or near `internal/semanticgraph`:
 
 ```text
@@ -921,6 +927,11 @@ CartographerPatchValidationResult
 CartographerPatchApplicationResult
 ```
 
+- Add persistent audit/progress state for cartographer runs, windows, cursors,
+  trajectory summaries, proposed patches, validation diagnostics, and created
+  semantic event ids. This state may live in the semantic SQLite database but
+  must remain separate from canonical semantic graph meaning until patches are
+  validated and applied.
 - Wire a small provider interface:
 
 ```text
@@ -929,12 +940,33 @@ type CartographerProvider interface {
 }
 ```
 
-- Add a deterministic scripted/fake provider for unit and Electron tests.
-- Add the production provider behind explicit runtime wiring. Prefer reusing
-  existing Codex/ChatGPT-auth plumbing only if it can run an isolated
-  cartographer turn and return strict JSON. Otherwise use a minimal Go HTTP
-  client for the chosen model provider behind the same interface. Do not make
-  provider unavailability look like a successful no-op.
+- Add a deterministic scripted/fake provider for unit and Electron tests. Do not
+  wire a production provider in 6A.
+- Add internal validation for provider result envelope shape only. Detailed
+  semantic patch validation lands in 6C.
+
+Acceptance criteria:
+
+```text
+typed avoid-steering logic replaces string matching
+cartographer store opens/rejects incompatible versions using the no-migration policy
+cartographer run/window/cursor/summary records can be persisted and read
+scripted provider can return deterministic patch envelopes
+no runtime chat/workflow behavior changes yet
+```
+
+Verification:
+
+- Focused backend tests for typed avoid steering, schema startup, store
+  persistence/readback, and scripted provider behavior.
+
+### Phase 6B: Event-Driven Trajectory Windows
+
+Goal: let Setta observe active workflow-agent progress incrementally and build
+bounded cartographer input windows without mutating semantic graph state.
+
+Deliverables:
+
 - Start with explicit trigger points only:
 
 ```text
@@ -1026,6 +1058,33 @@ token/input budget and truncation metadata
 - If a window is too large, summarize or split it deterministically before
   provider invocation and record the truncation/splitting metadata in the run
   audit.
+
+Acceptance criteria:
+
+```text
+active workflow-agent chat/run events produce bounded windows
+windows close on meaningful boundaries, not every event
+cursors resume after restart without rereading the whole run
+multi-hour runs are represented by summaries plus source refs
+manual cartographer run can build a current-progress window
+no semantic graph mutations are applied in 6B
+```
+
+Verification:
+
+- Focused backend tests for event-driven observation, window closing triggers,
+  cursor persistence, restart resume, large-window split/summarize behavior, and
+  input-bundle assembly.
+- Long-run tests proving a multi-window trajectory is processed incrementally
+  without resending the whole run.
+
+### Phase 6C: Patch Schema, Validation, And Application
+
+Goal: validate cartographer patch proposals and apply accepted low-risk patches
+through normal semantic graph events.
+
+Deliverables:
+
 - Define a strict graph patch schema as a discriminated union. Each patch must
   include:
 
@@ -1128,6 +1187,36 @@ attach_evidence to a cartographer-created or exact existing target
 
 - Hold low-confidence, evidence-light, split, merge, mark-resolved, broad
   update, or high-impact edge patches for review.
+- Do not expose a generic patch-append endpoint to the renderer.
+
+Acceptance criteria:
+
+```text
+invalid provider output leaves graph state unchanged
+accepted patches apply through normal semantic graph events
+patch audit records input hash, response hash, diagnostics, summary, and event ids
+application is all-or-nothing
+low-risk session-scoped patches can auto-apply
+high-impact or low-confidence patches remain pending review
+no label/keyword/fuzzy/vector deduplication is used
+```
+
+Verification:
+
+- Deterministic provider tests for accepted patches, invalid JSON, unsupported
+  operations, missing evidence, unknown refs, missing confidence, duplicate patch
+  ids, chain-of-thought fields, and provider failures.
+- Patch application tests proving validation happens before graph mutations and
+  that failed/rejected patches leave graph state unchanged.
+- Tests proving no label/keyword/fuzzy/vector deduplication is used.
+
+### Phase 6D: Read, Review, And Renderer Surfaces
+
+Goal: make cartographer activity inspectable and reviewable through production
+HTTP, generated TypeScript, IPC/preload, and renderer paths.
+
+Deliverables:
+
 - Add minimal review/read surfaces:
 
 ```text
@@ -1140,29 +1229,63 @@ show cartographer patch history from semantic node details and run-adjacent surf
 ```
 
 - Keep generated TypeScript contracts owned by Go HTTP endpoint contracts.
+- Show cartographer-originated semantic nodes, evidence, pending review patches,
+  validation diagnostics, window summaries, and cursors in run-adjacent and
+  semantic-node detail surfaces.
+- Review actions should accept/reject pending patches explicitly and apply
+  accepted patches through the same 6C validator/applier path.
+
+Acceptance criteria:
+
+```text
+HTTP and IPC surfaces expose cartographer run/window/cursor/patch state
+generated TypeScript contracts are regenerated from Go-owned endpoint contracts
+semantic node details show cartographer provenance and pending review state
+review accept/reject updates audit state and applies accepted patches safely
+```
 
 Verification:
 
-- Focused backend tests for event-driven trajectory observation, cursor
-  persistence, window closing triggers, restart resume, and input-bundle assembly
-  from explicit workflow/chat refs, context packs, evidence anchors, activity
-  intervals, and steering directives.
-- Deterministic provider tests for accepted patches, invalid JSON, unsupported
-  operations, missing evidence, unknown refs, missing confidence, duplicate patch
-  ids, chain-of-thought fields, and provider failures.
-- Patch application tests proving validation happens before graph mutations and
-  that failed/rejected patches leave graph state unchanged.
-- Long-run tests proving a multi-window trajectory is processed incrementally
-  without resending the whole run and that previous windows are represented by
-  bounded summaries plus evidence refs.
-- Tests proving no label/keyword/fuzzy/vector deduplication is used.
 - HTTP contract tests for cartographer run/read/review surfaces.
-- Renderer tests for any cartographer patch history or review UI.
+- Renderer tests for cartographer patch history, window summaries, validation
+  diagnostics, and review UI.
 - Deterministic end-to-end app workflow through production
   Electron/main/preload/renderer/HTTP/store paths proving a Codex-backed
   workflow run creates evidence-grounded semantic nodes while the run is still
   active, records cartographer audit, survives reload, resumes from persisted
-  cursors, and can be inspected.
+  cursors, exposes review state, and can be inspected.
+
+### Phase 6E: Production Provider And Live Verification
+
+Goal: wire the real LLM-backed cartographer provider after the deterministic
+pipeline is already validated end to end.
+
+Deliverables:
+
+- Add the production provider behind explicit runtime wiring. Prefer reusing
+  existing Codex/ChatGPT-auth plumbing only if it can run an isolated
+  cartographer turn and return strict JSON. Otherwise use a minimal Go HTTP
+  client for the chosen model provider behind the same interface.
+- Do not make provider unavailability look like a successful no-op. Provider
+  auth, transport, schema, timeout, or rate-limit failures should create failed
+  cartographer audits with explicit diagnostics.
+- Keep production provider prompts bounded by 6B windows and summaries. Do not
+  let the production provider request whole-run backfills in Phase 6E.
+- Preserve the strict no-chain-of-thought policy. Store public summaries,
+  structured patches, model metadata, confidence, diagnostics, and hashes only.
+
+Acceptance criteria:
+
+```text
+production provider can propose strict JSON patches for active workflow-agent windows
+provider failures are visible as failed audits
+live provider output passes the same 6C validator before any graph mutation
+long-running workflows continue to use bounded windows and persisted cursors
+```
+
+Verification:
+
+- Deterministic provider tests must remain the primary regression suite.
 - Because Phase 6 touches chat/workflow/agent behavior and semantic graph
   mutation, run live Codex E2E tests when local ChatGPT auth is available. If
   unavailable, report the live provider skip explicitly.
