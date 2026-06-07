@@ -18,6 +18,7 @@ import {
   type WorkflowDraftNodeType,
 } from "./workflow-graph-draft";
 import { workflowGraphWithNodeLayout, type WorkflowLayoutPosition } from "./workflow-graph-layout";
+import type { PixiWorkspaceCameraState, PixiWorkspaceRenderer } from "./pixi-workspace-renderer";
 import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
 import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
 
@@ -31,6 +32,7 @@ export function PixiWorkspaceSurface({
   const hostRef = useRef<HTMLDivElement>(null);
   const workflowMenuRef = useRef<HTMLDivElement>(null);
   const workflowTargetRef = useRef<WorkflowProjectionTarget | null>(null);
+  const workflowCameraRef = useRef<PixiWorkspaceCameraState | null>(null);
   const reactRenderCount = useRef(0);
   reactRenderCount.current += 1;
   const [workflowProjection, setWorkflowProjection] = useState<WorkflowGraphProjection | null>(
@@ -152,6 +154,10 @@ export function PixiWorkspaceSurface({
   );
 
   useEffect(() => {
+    workflowCameraRef.current = null;
+  }, [syntheticGraph, workflowWorkspaceId]);
+
+  useEffect(() => {
     if (!graph) {
       return;
     }
@@ -162,7 +168,15 @@ export function PixiWorkspaceSurface({
 
     host.replaceChildren();
     let disposed = false;
-    let destroyRenderer: (() => void) | null = null;
+    let rendererHandle: PixiWorkspaceRenderer | null = null;
+    const destroyRenderer = () => {
+      if (rendererHandle === null) {
+        return;
+      }
+      workflowCameraRef.current = rendererHandle.cameraState();
+      rendererHandle.destroy();
+      rendererHandle = null;
+    };
 
     void import("./pixi-workspace-renderer")
       .then(async ({ createPixiWorkspaceRenderer }) => {
@@ -171,6 +185,7 @@ export function PixiWorkspaceSurface({
           debugSurfaceId: surfaceId,
           graph,
           host,
+          initialCameraState: workflowCameraRef.current,
           onCanvasContextMenu: syntheticGraph === null ? openWorkflowContextMenu : undefined,
           onNodePositionsChange: (positions) => {
             void persistNodePositions(positions);
@@ -181,7 +196,7 @@ export function PixiWorkspaceSurface({
           renderer.destroy();
           return;
         }
-        destroyRenderer = () => renderer.destroy();
+        rendererHandle = renderer;
       })
       .catch((error: unknown) => {
         console.error("Failed to initialize Pixi workspace surface", error);
@@ -189,7 +204,7 @@ export function PixiWorkspaceSurface({
 
     return () => {
       disposed = true;
-      destroyRenderer?.();
+      destroyRenderer();
       host.replaceChildren();
     };
   }, [

@@ -248,6 +248,16 @@ export function cameraStatesDiffer(left, right) {
   return left.x !== right.x || left.y !== right.y || left.zoom !== right.zoom;
 }
 
+export function configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom }) {
+  viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
+  if (!initialCameraState) {
+    viewport.moveCenter(0, 20);
+    return;
+  }
+  viewport.setZoom(clamp(initialCameraState.zoom, minZoom, maxZoom));
+  viewport.moveCorner(initialCameraState.x, initialCameraState.y);
+}
+
 export function screenPointFromPointer(canvas, event) {
   return canvasLocalPointFromClient(canvas, event.clientX, event.clientY);
 }

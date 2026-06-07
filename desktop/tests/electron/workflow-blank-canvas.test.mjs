@@ -19,6 +19,7 @@ import {
 } from "./electron-cdp-harness.mjs";
 import {
   dispatchPixiContextMenu,
+  dispatchPixiMouseDrag,
   maximizePixiWorkspacePane,
   openPixiWorkspacePane,
 } from "./pixi-workspace-niri-helpers.mjs";
@@ -59,7 +60,19 @@ try {
   await openPixiWorkspacePane(context.client);
   await waitForSelector(context.client, '[data-testid="pixi-workspace"]');
   pixiSurfaceId = await maximizePixiWorkspacePane(context.client);
-  await waitForPixiSnapshot(context.client, (snapshot) => snapshot.graph.nodeCount === 0);
+  const blankCanvas = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) => snapshot.graph.nodeCount === 0,
+  );
+  await dispatchPixiMouseDrag(context.client, pixiSurfaceId, {
+    from: { x: 420, y: 320 },
+    to: { x: 500, y: 380 },
+  });
+  const pannedCanvas = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.nodeCount === 0 && cameraChanged(snapshot.camera, blankCanvas.camera),
+  );
   const beforeDefinitions = await workflowDefinitions(context.client, workspaceId);
   if (beforeDefinitions.length !== 0) {
     throw new Error(
@@ -103,6 +116,7 @@ try {
       `first node edit unexpectedly created edges: ${JSON.stringify(afterAdd.graph)}`,
     );
   }
+  assertCameraPreserved(afterAdd.camera, pannedCanvas.camera);
 
   const definitions = await workflowDefinitions(context.client, workspaceId);
   if (definitions.length !== 1 || definitions[0].name !== "Untitled workflow") {
@@ -276,6 +290,31 @@ async function assertSidebarWorkflowConversationSections(client) {
   ) {
     throw new Error(
       `workflow sidebar sections are not grouped correctly: ${JSON.stringify(sidebar.rows)}`,
+    );
+  }
+}
+
+function cameraChanged(actual, initial) {
+  return (
+    Math.abs(actual.x - initial.x) > 20 ||
+    Math.abs(actual.y - initial.y) > 20 ||
+    Math.abs(actual.zoom - initial.zoom) > 0.01
+  );
+}
+
+function assertCameraPreserved(actual, expected) {
+  const delta = {
+    x: Math.abs(actual.x - expected.x),
+    y: Math.abs(actual.y - expected.y),
+    zoom: Math.abs(actual.zoom - expected.zoom),
+  };
+  if (delta.x > 0.5 || delta.y > 0.5 || delta.zoom > 0.001) {
+    throw new Error(
+      `workflow camera changed after node creation: ${JSON.stringify({
+        actual,
+        delta,
+        expected,
+      })}`,
     );
   }
 }

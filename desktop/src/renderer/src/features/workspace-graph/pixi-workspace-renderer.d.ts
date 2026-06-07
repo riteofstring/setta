@@ -28,6 +28,12 @@ interface PixiWorkspaceGraph {
   } | null;
 }
 
+export interface PixiWorkspaceCameraState {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 interface PixiWorkspaceNodePosition {
   nodeId: string;
   x: number;
@@ -46,12 +52,14 @@ interface CreatePixiWorkspaceRendererOptions {
   debugSurfaceId?: string;
   graph?: PixiWorkspaceGraph;
   host: HTMLElement;
+  initialCameraState?: PixiWorkspaceCameraState | null;
   onCanvasContextMenu?: (menu: PixiWorkspaceCanvasContextMenu) => void;
   onNodePositionsChange?: (positions: PixiWorkspaceNodePosition[]) => void;
   reactRenderCount: () => number;
 }
 
-interface PixiWorkspaceRenderer {
+export interface PixiWorkspaceRenderer {
+  cameraState: () => PixiWorkspaceCameraState;
   destroy: () => void;
 }
 

@@ -29,6 +29,7 @@ import {
   cameraStatesDiffer,
   capturePointer,
   clamp,
+  configureViewportNavigation,
   countMapValues,
   createCanvasContextMenuHandler,
   drawCurvedEdge,
@@ -70,6 +71,7 @@ export async function createPixiWorkspaceRenderer({
   debugSurfaceId = "pixi-workspace",
   graph = { edges: initialEdges, nodes: initialNodes },
   host,
+  initialCameraState = null,
   onCanvasContextMenu = null,
   onNodePositionsChange = null,
   reactRenderCount,
@@ -100,8 +102,7 @@ export async function createPixiWorkspaceRenderer({
     worldWidth: 4000,
   });
   viewport.forceHitArea = new Rectangle(0, 0, screenSize.width, screenSize.height);
-  viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
-  viewport.moveCenter(0, 20);
+  configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom });
   const labelLayer = new Container();
   labelLayer.eventMode = "none";
   labelLayer.interactiveChildren = false;
@@ -489,6 +490,7 @@ export async function createPixiWorkspaceRenderer({
     : null;
 
   return {
+    cameraState: () => cameraState(viewport),
     destroy: () => {
       destroyed = true;
       resizeObserver.disconnect();
