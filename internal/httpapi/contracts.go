@@ -1,12 +1,17 @@
 package httpapi
 
 import (
+	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/orchestrator"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
+
+type UpdateAppearanceSettingsRequest struct {
+	Settings appearance.AppearanceSettings `json:"settings"`
+}
 
 type OpenWorkspaceRequest struct {
 	RootPath string `json:"rootPath"`

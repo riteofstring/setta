@@ -164,20 +164,19 @@ describe("real niri workspace column sizing", () => {
     expect(items.at(-1)?.x).toBeGreaterThan(1200);
   });
 
-  test("clamps end-of-strip scrolling so existing panes fill the viewport", () => {
+  test("keeps end-of-strip scrolling snapped to the focused pane lane", () => {
     const engine = createRealEngine();
     const items = renderFrame(engine, { ...viewport, width: 1200 }, 5, "workspace_pane_5");
-    const visibleItems = items.filter((item) => item.x < 1200 && item.x + item.width > 0);
-    const rightmostPaneEdge = Math.max(...visibleItems.map((item) => item.x + item.width));
+    const laneItems = items.filter((item) => item.x >= 10 && item.x < 1200);
+    const previousItem = items.find((item) => item.paneId === "workspace_pane_4");
+    const focusedItem = items.find((item) => item.paneId === "workspace_pane_5");
+    const rightmostPaneEdge = Math.max(...laneItems.map((item) => item.x + item.width));
 
-    expect(engine.scrollColumnForFocusedColumnVisibility(5, 5, 1200)).toBeCloseTo(3.75);
-    expect(visibleItems.map((item) => item.paneId)).toEqual([
-      "workspace_pane_3",
-      "workspace_pane_4",
-      "workspace_pane_5",
-    ]);
-    expect(items.find((item) => item.paneId === "workspace_pane_5")?.x).toBeGreaterThan(10);
-    expect(rightmostPaneEdge).toBeGreaterThanOrEqual(1190);
+    expect(engine.scrollColumnForFocusedColumnVisibility(5, 5, 1200)).toBe(5);
+    expect(laneItems.map((item) => item.paneId)).toEqual(["workspace_pane_5"]);
+    expect(previousItem ? previousItem.x + previousItem.width : 0).toBeLessThanOrEqual(10);
+    expect(focusedItem?.x).toBe(10);
+    expect(rightmostPaneEdge).toBe(530);
   });
 
   test("navigation snaps focused pane left edge to the viewport lane", () => {
@@ -502,11 +501,12 @@ describe("real niri workspace column sizing", () => {
     const focusedItem = items.find((item) => item.focused);
 
     expect(snapshot.focusedPaneId).toBe("workspace_pane_2");
-    expect(focusedItem?.x).toBeGreaterThanOrEqual(10);
+    expect(focusedItem?.x).toBe(10);
+    expect(focusedItem?.y).toBe(10);
     expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
   });
 
-  test("keeps the focused end column inside the viewport as width narrows", () => {
+  test("keeps the focused end column snapped left as width narrows", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storageKey: "setta:niri-workspace:resize-end-focus",
       workspaceName: "Repo",
@@ -532,7 +532,8 @@ describe("real niri workspace column sizing", () => {
     const focusedItem = items.find((item) => item.focused);
 
     expect(snapshot.focusedPaneId).toBe("workspace_pane_5");
-    expect(focusedItem?.x).toBeGreaterThanOrEqual(10);
+    expect(focusedItem?.x).toBe(10);
+    expect(focusedItem?.y).toBe(10);
     expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
   });
 
