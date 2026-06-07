@@ -476,31 +476,7 @@ func (service *Service) latestExecutionForDefinitionVersionLocked(workspaceID st
 }
 
 func (service *Service) recoverInterruptedExecutions() error {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	workspaceIDs, err := service.store.WorkspaceIDs()
-	if err != nil {
-		return err
-	}
-	for _, workspaceID := range workspaceIDs {
-		executions, err := service.store.ListExecutions(workspaceID)
-		if err != nil {
-			return err
-		}
-		for _, execution := range executions {
-			if execution.Status != ExecutionStatusRunning {
-				continue
-			}
-			transition, err := InterruptExecution(execution, service.transitionContext(), "workflow execution was interrupted before backend startup")
-			if err != nil {
-				return err
-			}
-			if err := service.persistTransition(transition); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return service.recoverNonTerminalExecutions()
 }
 
 func (service *Service) loadExecutionAndVersion(workspaceID string, executionID string) (WorkflowExecution, WorkflowDefinitionVersion, error) {

@@ -79,6 +79,12 @@ type RunnerAttemptCancelledPayload struct {
 	Metrics json.RawMessage `json:"metrics"`
 }
 
+type RunnerAttemptRecoveryRequiredPayload struct {
+	Outcome          RunnerRecoveryOutcome `json:"outcome"`
+	Message          string                `json:"message"`
+	SideEffectPolicy SideEffectPolicy      `json:"sideEffectPolicy"`
+}
+
 type workflowActionInputSnapshot struct {
 	SchemaVersion       int                  `json:"schemaVersion"`
 	DefinitionID        string               `json:"definitionId"`

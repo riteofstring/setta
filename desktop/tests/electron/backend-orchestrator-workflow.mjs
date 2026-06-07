@@ -100,12 +100,29 @@ async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, se
     context.client,
     recovery.workspaceId,
     recovery.executionId,
-    (execution) => execution.status === "failed" && execution.terminalReason === "interrupted",
+    (execution) =>
+      execution.status === "failed" &&
+      execution.terminalReason === "action_failed" &&
+      latestNodeExecution(execution, "work")?.recoveryOutcome === "recovered_failed",
   );
   const work = latestNodeExecution(recovered, "work");
   if (work.status !== "failed") {
     throw new Error(`recovered work status = ${work.status}, want failed`);
   }
+  if (work.recoveryMessage === "" || work.error !== "run interrupted by backend restart") {
+    throw new Error(`recovered work = ${JSON.stringify(work)}, want restart failure message`);
+  }
+  const page = await rendererWorkflow(context.client, "executionEvents", [
+    recovery.workspaceId,
+    recovery.executionId,
+    0,
+    50,
+  ]);
+  assertWorkflowEventTypes(page.events, [
+    "workflow.action.recovered",
+    "runner.attempt.failed",
+    "workflow.action.failed",
+  ]);
   await waitForTexts(context.client, ["workspace-root"]);
   await createChat(context.client, backend, recovery.workspaceId);
   await captureScreenshot(context.client, join(secondRecording, "recovered.png"));
@@ -154,10 +171,15 @@ async function assertBackendOrchestratorRecordingEvidence(firstRecording, second
   await assertRecordingEvidence(secondRecording, {
     backendPaths: [
       "/workflows/executions/read",
+      "/workflows/executions/events",
       "/chat/conversations/create",
       "/chat/conversations/list",
     ],
-    ipcChannels: ["workflow:read-execution", "chat:create-conversation"],
+    ipcChannels: [
+      "workflow:read-execution",
+      "workflow:execution-events",
+      "chat:create-conversation",
+    ],
   });
 }
 

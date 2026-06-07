@@ -476,9 +476,9 @@ export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowCon
   }
 }
 
-export type WorkflowNodeExecutionStatus = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval";
+export type WorkflowNodeExecutionStatus = "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
 
-export const workflowNodeExecutionStatusValues = ["pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval"] as const satisfies readonly WorkflowNodeExecutionStatus[];
+export const workflowNodeExecutionStatusValues = ["pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowNodeExecutionStatus[];
 
 export function decodeWorkflowNodeExecutionStatus(value: unknown, label = "WorkflowNodeExecutionStatus"): WorkflowNodeExecutionStatus {
   const decoded = decodeString(value, label);
@@ -496,6 +496,8 @@ export function decodeWorkflowNodeExecutionStatus(value: unknown, label = "Workf
     case "cancelled":
       return decoded;
     case "waiting_approval":
+      return decoded;
+    case "recovery_required":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -580,6 +582,30 @@ export function decodeWorkflowTerminalReason(value: unknown, label = "WorkflowTe
     case "interrupted":
       return decoded;
     case "routing_failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunnerRecoveryOutcome = "recovered_running" | "recovered_completed" | "recovered_failed" | "retry_scheduled" | "manual_recovery_required" | "failed_interrupted";
+
+export const runnerRecoveryOutcomeValues = ["recovered_running", "recovered_completed", "recovered_failed", "retry_scheduled", "manual_recovery_required", "failed_interrupted"] as const satisfies readonly RunnerRecoveryOutcome[];
+
+export function decodeRunnerRecoveryOutcome(value: unknown, label = "RunnerRecoveryOutcome"): RunnerRecoveryOutcome {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "recovered_running":
+      return decoded;
+    case "recovered_completed":
+      return decoded;
+    case "recovered_failed":
+      return decoded;
+    case "retry_scheduled":
+      return decoded;
+    case "manual_recovery_required":
+      return decoded;
+    case "failed_interrupted":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -902,9 +928,9 @@ export function decodeWorkflowTokenStatus(value: unknown, label = "WorkflowToken
   }
 }
 
-export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval";
+export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
 
-export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval"] as const satisfies readonly WorkflowGraphNodeStatus[];
+export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowGraphNodeStatus[];
 
 export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowGraphNodeStatus"): WorkflowGraphNodeStatus {
   const decoded = decodeString(value, label);
@@ -924,6 +950,8 @@ export function decodeWorkflowGraphNodeStatus(value: unknown, label = "WorkflowG
     case "cancelled":
       return decoded;
     case "waiting_approval":
+      return decoded;
+    case "recovery_required":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -950,9 +978,9 @@ export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowG
   }
 }
 
-export type WorkflowEventType = "workflow.execution.started" | "workflow.node.scheduled" | "workflow.action.started" | "workflow.action.completed" | "workflow.action.failed" | "workflow.action.cancelled" | "workflow.action.waiting_approval" | "workflow.gateway.resolved" | "workflow.loop.advanced" | "workflow.execution.completed" | "workflow.execution.failed" | "workflow.execution.stopped" | "workflow.execution.cancelled" | "workflow.runner_refs.attached" | "runner.attempt.started" | "runner.text.delta" | "runner.tool_call.started" | "runner.tool_call.output" | "runner.approval.requested" | "runner.approval.resolved" | "runner.artifact.reported" | "runner.structured_output.received" | "runner.attempt.completed" | "runner.attempt.failed" | "runner.attempt.cancelled" | "runner.attempt.recovery_required";
+export type WorkflowEventType = "workflow.execution.started" | "workflow.node.scheduled" | "workflow.action.started" | "workflow.action.completed" | "workflow.action.failed" | "workflow.action.cancelled" | "workflow.action.waiting_approval" | "workflow.gateway.resolved" | "workflow.loop.advanced" | "workflow.execution.completed" | "workflow.execution.failed" | "workflow.execution.stopped" | "workflow.execution.cancelled" | "workflow.runner_refs.attached" | "workflow.action.recovered" | "workflow.action.recovery_required" | "runner.attempt.started" | "runner.text.delta" | "runner.tool_call.started" | "runner.tool_call.output" | "runner.approval.requested" | "runner.approval.resolved" | "runner.artifact.reported" | "runner.structured_output.received" | "runner.attempt.completed" | "runner.attempt.failed" | "runner.attempt.cancelled" | "runner.attempt.recovery_required";
 
-export const workflowEventTypeValues = ["workflow.execution.started", "workflow.node.scheduled", "workflow.action.started", "workflow.action.completed", "workflow.action.failed", "workflow.action.cancelled", "workflow.action.waiting_approval", "workflow.gateway.resolved", "workflow.loop.advanced", "workflow.execution.completed", "workflow.execution.failed", "workflow.execution.stopped", "workflow.execution.cancelled", "workflow.runner_refs.attached", "runner.attempt.started", "runner.text.delta", "runner.tool_call.started", "runner.tool_call.output", "runner.approval.requested", "runner.approval.resolved", "runner.artifact.reported", "runner.structured_output.received", "runner.attempt.completed", "runner.attempt.failed", "runner.attempt.cancelled", "runner.attempt.recovery_required"] as const satisfies readonly WorkflowEventType[];
+export const workflowEventTypeValues = ["workflow.execution.started", "workflow.node.scheduled", "workflow.action.started", "workflow.action.completed", "workflow.action.failed", "workflow.action.cancelled", "workflow.action.waiting_approval", "workflow.gateway.resolved", "workflow.loop.advanced", "workflow.execution.completed", "workflow.execution.failed", "workflow.execution.stopped", "workflow.execution.cancelled", "workflow.runner_refs.attached", "workflow.action.recovered", "workflow.action.recovery_required", "runner.attempt.started", "runner.text.delta", "runner.tool_call.started", "runner.tool_call.output", "runner.approval.requested", "runner.approval.resolved", "runner.artifact.reported", "runner.structured_output.received", "runner.attempt.completed", "runner.attempt.failed", "runner.attempt.cancelled", "runner.attempt.recovery_required"] as const satisfies readonly WorkflowEventType[];
 
 export function decodeWorkflowEventType(value: unknown, label = "WorkflowEventType"): WorkflowEventType {
   const decoded = decodeString(value, label);
@@ -984,6 +1012,10 @@ export function decodeWorkflowEventType(value: unknown, label = "WorkflowEventTy
     case "workflow.execution.cancelled":
       return decoded;
     case "workflow.runner_refs.attached":
+      return decoded;
+    case "workflow.action.recovered":
+      return decoded;
+    case "workflow.action.recovery_required":
       return decoded;
     case "runner.attempt.started":
       return decoded;
@@ -2038,6 +2070,8 @@ export interface WorkflowNodeExecution {
   runnerRefs: WorkflowActionRunnerRef[];
   runnerState: WorkflowRunnerState | null;
   activityRefs: WorkflowActivityRef[];
+  recoveryOutcome: RunnerRecoveryOutcome | null;
+  recoveryMessage: string;
   error: string;
 }
 
@@ -2067,6 +2101,7 @@ export interface WorkflowExecution {
   definitionVersionId: string;
   status: WorkflowExecutionStatus;
   terminalReason: WorkflowTerminalReason | null;
+  recoveryOutcome: RunnerRecoveryOutcome | null;
   createdAt: string;
   startedAt: string;
   updatedAt: string;
@@ -2112,6 +2147,8 @@ export interface WorkflowGraphNode {
   filePaths: string[];
   error: string;
   pendingApproval: WorkflowPendingApproval | null;
+  recoveryOutcome: RunnerRecoveryOutcome | null;
+  recoveryMessage: string;
 }
 
 export interface WorkflowGraphEdge {
@@ -4097,7 +4134,7 @@ export function decodeWorkflowActivityRef(value: unknown): WorkflowActivityRef {
 
 export function decodeWorkflowNodeExecution(value: unknown): WorkflowNodeExecution {
   const record = assertRecord(value, "WorkflowNodeExecution");
-  assertKnownFields(record, "WorkflowNodeExecution", ["schemaVersion", "id", "executionId", "nodeId", "attempt", "iteration", "status", "idempotencyKey", "scheduledAt", "startedAt", "completedAt", "actionKind", "runnerKind", "inputHash", "input", "actionPolicy", "sideEffectPolicy", "runnerCapabilities", "result", "runnerRefs", "runnerState", "activityRefs", "error"]);
+  assertKnownFields(record, "WorkflowNodeExecution", ["schemaVersion", "id", "executionId", "nodeId", "attempt", "iteration", "status", "idempotencyKey", "scheduledAt", "startedAt", "completedAt", "actionKind", "runnerKind", "inputHash", "input", "actionPolicy", "sideEffectPolicy", "runnerCapabilities", "result", "runnerRefs", "runnerState", "activityRefs", "recoveryOutcome", "recoveryMessage", "error"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowNodeExecution"), "WorkflowNodeExecution.schemaVersion"),
     id: decodeString(requireField(record, "id", "WorkflowNodeExecution"), "WorkflowNodeExecution.id"),
@@ -4121,6 +4158,8 @@ export function decodeWorkflowNodeExecution(value: unknown): WorkflowNodeExecuti
     runnerRefs: decodeArray(requireField(record, "runnerRefs", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerRefs", (item) => decodeWorkflowActionRunnerRef(item)),
     runnerState: decodeNullable(requireField(record, "runnerState", "WorkflowNodeExecution"), "WorkflowNodeExecution.runnerState", (item) => decodeWorkflowRunnerState(item)),
     activityRefs: decodeArray(requireField(record, "activityRefs", "WorkflowNodeExecution"), "WorkflowNodeExecution.activityRefs", (item) => decodeWorkflowActivityRef(item)),
+    recoveryOutcome: decodeNullable(requireField(record, "recoveryOutcome", "WorkflowNodeExecution"), "WorkflowNodeExecution.recoveryOutcome", (item) => decodeRunnerRecoveryOutcome(item, "WorkflowNodeExecution.recoveryOutcome")),
+    recoveryMessage: decodeString(requireField(record, "recoveryMessage", "WorkflowNodeExecution"), "WorkflowNodeExecution.recoveryMessage"),
     error: decodeString(requireField(record, "error", "WorkflowNodeExecution"), "WorkflowNodeExecution.error"),
   };
 }
@@ -4153,7 +4192,7 @@ export function decodeWorkflowLoopIteration(value: unknown): WorkflowLoopIterati
 
 export function decodeWorkflowExecution(value: unknown): WorkflowExecution {
   const record = assertRecord(value, "WorkflowExecution");
-  assertKnownFields(record, "WorkflowExecution", ["schemaVersion", "id", "workspaceId", "definitionId", "definitionVersionId", "status", "terminalReason", "createdAt", "startedAt", "updatedAt", "completedAt", "error", "nodeExecutions", "tokens", "loopIterations", "activeNodeExecutionIds", "lastEventOrdinal"]);
+  assertKnownFields(record, "WorkflowExecution", ["schemaVersion", "id", "workspaceId", "definitionId", "definitionVersionId", "status", "terminalReason", "recoveryOutcome", "createdAt", "startedAt", "updatedAt", "completedAt", "error", "nodeExecutions", "tokens", "loopIterations", "activeNodeExecutionIds", "lastEventOrdinal"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowExecution"), "WorkflowExecution.schemaVersion"),
     id: decodeString(requireField(record, "id", "WorkflowExecution"), "WorkflowExecution.id"),
@@ -4162,6 +4201,7 @@ export function decodeWorkflowExecution(value: unknown): WorkflowExecution {
     definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowExecution"), "WorkflowExecution.definitionVersionId"),
     status: decodeWorkflowExecutionStatus(requireField(record, "status", "WorkflowExecution"), "WorkflowExecution.status"),
     terminalReason: decodeNullable(requireField(record, "terminalReason", "WorkflowExecution"), "WorkflowExecution.terminalReason", (item) => decodeWorkflowTerminalReason(item, "WorkflowExecution.terminalReason")),
+    recoveryOutcome: decodeNullable(requireField(record, "recoveryOutcome", "WorkflowExecution"), "WorkflowExecution.recoveryOutcome", (item) => decodeRunnerRecoveryOutcome(item, "WorkflowExecution.recoveryOutcome")),
     createdAt: decodeString(requireField(record, "createdAt", "WorkflowExecution"), "WorkflowExecution.createdAt"),
     startedAt: decodeString(requireField(record, "startedAt", "WorkflowExecution"), "WorkflowExecution.startedAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowExecution"), "WorkflowExecution.updatedAt"),
@@ -4206,7 +4246,7 @@ export function decodeReadWorkflowGraphProjectionRequest(value: unknown): ReadWo
 
 export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
   const record = assertRecord(value, "WorkflowGraphNode");
-  assertKnownFields(record, "WorkflowGraphNode", ["id", "kind", "title", "label", "status", "active", "executionCount", "latestNodeExecutionId", "latestAttempt", "latestIteration", "actionKind", "signals", "filePaths", "error", "pendingApproval"]);
+  assertKnownFields(record, "WorkflowGraphNode", ["id", "kind", "title", "label", "status", "active", "executionCount", "latestNodeExecutionId", "latestAttempt", "latestIteration", "actionKind", "signals", "filePaths", "error", "pendingApproval", "recoveryOutcome", "recoveryMessage"]);
   return {
     id: decodeString(requireField(record, "id", "WorkflowGraphNode"), "WorkflowGraphNode.id"),
     kind: decodeWorkflowNodeKind(requireField(record, "kind", "WorkflowGraphNode"), "WorkflowGraphNode.kind"),
@@ -4223,6 +4263,8 @@ export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
     filePaths: decodeArray(requireField(record, "filePaths", "WorkflowGraphNode"), "WorkflowGraphNode.filePaths", (item) => decodeString(item, "WorkflowGraphNode.filePaths item")),
     error: decodeString(requireField(record, "error", "WorkflowGraphNode"), "WorkflowGraphNode.error"),
     pendingApproval: decodeNullable(requireField(record, "pendingApproval", "WorkflowGraphNode"), "WorkflowGraphNode.pendingApproval", (item) => decodeWorkflowPendingApproval(item)),
+    recoveryOutcome: decodeNullable(requireField(record, "recoveryOutcome", "WorkflowGraphNode"), "WorkflowGraphNode.recoveryOutcome", (item) => decodeRunnerRecoveryOutcome(item, "WorkflowGraphNode.recoveryOutcome")),
+    recoveryMessage: decodeString(requireField(record, "recoveryMessage", "WorkflowGraphNode"), "WorkflowGraphNode.recoveryMessage"),
   };
 }
 

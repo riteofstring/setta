@@ -115,9 +115,9 @@ func (store *Store) upsertWorkflowRun(ctx context.Context, tx *sql.Tx, execution
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO workflow_runs (
   id, schema_version, workspace_id, definition_id, definition_version_id,
-  status, terminal_reason, created_at, started_at, updated_at, completed_at,
+  status, terminal_reason, recovery_outcome, created_at, started_at, updated_at, completed_at,
   error, last_event_ordinal
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   schema_version = excluded.schema_version,
   workspace_id = excluded.workspace_id,
@@ -125,6 +125,7 @@ ON CONFLICT(id) DO UPDATE SET
   definition_version_id = excluded.definition_version_id,
   status = excluded.status,
   terminal_reason = excluded.terminal_reason,
+  recovery_outcome = excluded.recovery_outcome,
   created_at = excluded.created_at,
   started_at = excluded.started_at,
   updated_at = excluded.updated_at,
@@ -139,6 +140,7 @@ ON CONFLICT(id) DO UPDATE SET
 		execution.DefinitionVersionID,
 		execution.Status,
 		nullableWorkflowTerminalReason(execution.TerminalReason),
+		nullableRunnerRecoveryOutcome(execution.RecoveryOutcome),
 		execution.CreatedAt,
 		execution.StartedAt,
 		execution.UpdatedAt,
@@ -436,7 +438,7 @@ func (store *Store) LoadExecution(workspaceID string, executionID string) (Workf
 func (store *Store) loadExecution(workspaceID string, executionID string) (WorkflowExecution, error) {
 	row := store.db.QueryRowContext(context.Background(), `
 SELECT schema_version, id, workspace_id, definition_id, definition_version_id,
-       status, terminal_reason, created_at, started_at, updated_at,
+       status, terminal_reason, recovery_outcome, created_at, started_at, updated_at,
        completed_at, error, last_event_ordinal
 FROM workflow_runs
 WHERE workspace_id = ? AND id = ?
@@ -523,6 +525,7 @@ ORDER BY workspace_id ASC
 func (store *Store) scanWorkflowRun(scanner workflowDefinitionScanner) (WorkflowExecution, error) {
 	var execution WorkflowExecution
 	var terminalReason sql.NullString
+	var recoveryOutcome sql.NullString
 	var completedAt sql.NullString
 	if err := scanner.Scan(
 		&execution.SchemaVersion,
@@ -532,6 +535,7 @@ func (store *Store) scanWorkflowRun(scanner workflowDefinitionScanner) (Workflow
 		&execution.DefinitionVersionID,
 		&execution.Status,
 		&terminalReason,
+		&recoveryOutcome,
 		&execution.CreatedAt,
 		&execution.StartedAt,
 		&execution.UpdatedAt,
@@ -542,6 +546,7 @@ func (store *Store) scanWorkflowRun(scanner workflowDefinitionScanner) (Workflow
 		return WorkflowExecution{}, err
 	}
 	execution.TerminalReason = workflowTerminalReasonFromNull(terminalReason)
+	execution.RecoveryOutcome = runnerRecoveryOutcomeFromNull(recoveryOutcome)
 	execution.CompletedAt = stringFromNull(completedAt)
 	execution.NodeExecutions = []WorkflowNodeExecution{}
 	execution.Tokens = []WorkflowToken{}
@@ -580,7 +585,8 @@ func (store *Store) loadNodeExecutions(workspaceID string, executionID string) (
 SELECT schema_version, id, run_id, node_id, attempt, iteration, status,
        action_kind, runner_kind, idempotency_key, input_hash, input_json,
        action_policy_json, side_effect_policy_json, runner_capabilities_json,
-       scheduled_at, started_at, completed_at, result_json, error
+       scheduled_at, started_at, completed_at, result_json, error,
+       recovery_outcome, recovery_message
 FROM workflow_node_attempts
 WHERE workspace_id = ? AND run_id = ?
 ORDER BY rowid ASC
@@ -614,6 +620,7 @@ func scanWorkflowNodeExecution(scanner workflowDefinitionScanner) (WorkflowNodeE
 	var startedAt sql.NullString
 	var completedAt sql.NullString
 	var resultJSON sql.NullString
+	var recoveryOutcome sql.NullString
 	if err := scanner.Scan(
 		&nodeExecution.SchemaVersion,
 		&nodeExecution.ID,
@@ -635,6 +642,8 @@ func scanWorkflowNodeExecution(scanner workflowDefinitionScanner) (WorkflowNodeE
 		&completedAt,
 		&resultJSON,
 		&nodeExecution.Error,
+		&recoveryOutcome,
+		&nodeExecution.RecoveryMessage,
 	); err != nil {
 		return WorkflowNodeExecution{}, err
 	}
@@ -673,6 +682,7 @@ func scanWorkflowNodeExecution(scanner workflowDefinitionScanner) (WorkflowNodeE
 	}
 	nodeExecution.RunnerRefs = []WorkflowActionRunnerRef{}
 	nodeExecution.ActivityRefs = []WorkflowActivityRef{}
+	nodeExecution.RecoveryOutcome = runnerRecoveryOutcomeFromNull(recoveryOutcome)
 	return nodeExecution, nil
 }
 

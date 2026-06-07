@@ -963,7 +963,10 @@ func refreshActiveNodeExecutionIDs(execution *WorkflowExecution) {
 }
 
 func isActiveNodeExecutionStatus(status WorkflowNodeExecutionStatus) bool {
-	return status == NodeExecutionStatusReady || status == NodeExecutionStatusRunning || status == NodeExecutionStatusWaitingApproval
+	return status == NodeExecutionStatusReady ||
+		status == NodeExecutionStatusRunning ||
+		status == NodeExecutionStatusWaitingApproval ||
+		status == NodeExecutionStatusRecoveryRequired
 }
 
 func isTerminalExecutionStatus(status WorkflowExecutionStatus) bool {

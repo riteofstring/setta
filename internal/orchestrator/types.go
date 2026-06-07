@@ -67,46 +67,50 @@ const (
 	ExecutionStatusStopped   WorkflowExecutionStatus = "stopped"
 	ExecutionStatusCancelled WorkflowExecutionStatus = "cancelled"
 
-	NodeExecutionStatusPending         WorkflowNodeExecutionStatus = "pending"
-	NodeExecutionStatusReady           WorkflowNodeExecutionStatus = "ready"
-	NodeExecutionStatusRunning         WorkflowNodeExecutionStatus = "running"
-	NodeExecutionStatusSucceeded       WorkflowNodeExecutionStatus = "succeeded"
-	NodeExecutionStatusFailed          WorkflowNodeExecutionStatus = "failed"
-	NodeExecutionStatusCancelled       WorkflowNodeExecutionStatus = "cancelled"
-	NodeExecutionStatusWaitingApproval WorkflowNodeExecutionStatus = "waiting_approval"
+	NodeExecutionStatusPending          WorkflowNodeExecutionStatus = "pending"
+	NodeExecutionStatusReady            WorkflowNodeExecutionStatus = "ready"
+	NodeExecutionStatusRunning          WorkflowNodeExecutionStatus = "running"
+	NodeExecutionStatusSucceeded        WorkflowNodeExecutionStatus = "succeeded"
+	NodeExecutionStatusFailed           WorkflowNodeExecutionStatus = "failed"
+	NodeExecutionStatusCancelled        WorkflowNodeExecutionStatus = "cancelled"
+	NodeExecutionStatusWaitingApproval  WorkflowNodeExecutionStatus = "waiting_approval"
+	NodeExecutionStatusRecoveryRequired WorkflowNodeExecutionStatus = "recovery_required"
 
 	TokenStatusActive    WorkflowTokenStatus = "active"
 	TokenStatusCompleted WorkflowTokenStatus = "completed"
 	TokenStatusCancelled WorkflowTokenStatus = "cancelled"
 
-	GraphNodeStatusNotStarted      WorkflowGraphNodeStatus = "not_started"
-	GraphNodeStatusPending         WorkflowGraphNodeStatus = "pending"
-	GraphNodeStatusReady           WorkflowGraphNodeStatus = "ready"
-	GraphNodeStatusRunning         WorkflowGraphNodeStatus = "running"
-	GraphNodeStatusSucceeded       WorkflowGraphNodeStatus = "succeeded"
-	GraphNodeStatusFailed          WorkflowGraphNodeStatus = "failed"
-	GraphNodeStatusCancelled       WorkflowGraphNodeStatus = "cancelled"
-	GraphNodeStatusWaitingApproval WorkflowGraphNodeStatus = "waiting_approval"
+	GraphNodeStatusNotStarted       WorkflowGraphNodeStatus = "not_started"
+	GraphNodeStatusPending          WorkflowGraphNodeStatus = "pending"
+	GraphNodeStatusReady            WorkflowGraphNodeStatus = "ready"
+	GraphNodeStatusRunning          WorkflowGraphNodeStatus = "running"
+	GraphNodeStatusSucceeded        WorkflowGraphNodeStatus = "succeeded"
+	GraphNodeStatusFailed           WorkflowGraphNodeStatus = "failed"
+	GraphNodeStatusCancelled        WorkflowGraphNodeStatus = "cancelled"
+	GraphNodeStatusWaitingApproval  WorkflowGraphNodeStatus = "waiting_approval"
+	GraphNodeStatusRecoveryRequired WorkflowGraphNodeStatus = "recovery_required"
 
 	GraphEdgeStatusInactive  WorkflowGraphEdgeStatus = "inactive"
 	GraphEdgeStatusActive    WorkflowGraphEdgeStatus = "active"
 	GraphEdgeStatusCompleted WorkflowGraphEdgeStatus = "completed"
 	GraphEdgeStatusCancelled WorkflowGraphEdgeStatus = "cancelled"
 
-	EventExecutionStarted   WorkflowEventType = "workflow.execution.started"
-	EventNodeScheduled      WorkflowEventType = "workflow.node.scheduled"
-	EventActionStarted      WorkflowEventType = "workflow.action.started"
-	EventActionCompleted    WorkflowEventType = "workflow.action.completed"
-	EventActionFailed       WorkflowEventType = "workflow.action.failed"
-	EventActionCancelled    WorkflowEventType = "workflow.action.cancelled"
-	EventActionApprovalWait WorkflowEventType = "workflow.action.waiting_approval"
-	EventGatewayResolved    WorkflowEventType = "workflow.gateway.resolved"
-	EventLoopAdvanced       WorkflowEventType = "workflow.loop.advanced"
-	EventExecutionCompleted WorkflowEventType = "workflow.execution.completed"
-	EventExecutionFailed    WorkflowEventType = "workflow.execution.failed"
-	EventExecutionStopped   WorkflowEventType = "workflow.execution.stopped"
-	EventExecutionCancelled WorkflowEventType = "workflow.execution.cancelled"
-	EventRunnerRefsAttached WorkflowEventType = "workflow.runner_refs.attached"
+	EventExecutionStarted       WorkflowEventType = "workflow.execution.started"
+	EventNodeScheduled          WorkflowEventType = "workflow.node.scheduled"
+	EventActionStarted          WorkflowEventType = "workflow.action.started"
+	EventActionCompleted        WorkflowEventType = "workflow.action.completed"
+	EventActionFailed           WorkflowEventType = "workflow.action.failed"
+	EventActionCancelled        WorkflowEventType = "workflow.action.cancelled"
+	EventActionApprovalWait     WorkflowEventType = "workflow.action.waiting_approval"
+	EventGatewayResolved        WorkflowEventType = "workflow.gateway.resolved"
+	EventLoopAdvanced           WorkflowEventType = "workflow.loop.advanced"
+	EventExecutionCompleted     WorkflowEventType = "workflow.execution.completed"
+	EventExecutionFailed        WorkflowEventType = "workflow.execution.failed"
+	EventExecutionStopped       WorkflowEventType = "workflow.execution.stopped"
+	EventExecutionCancelled     WorkflowEventType = "workflow.execution.cancelled"
+	EventRunnerRefsAttached     WorkflowEventType = "workflow.runner_refs.attached"
+	EventActionRecovered        WorkflowEventType = "workflow.action.recovered"
+	EventActionRecoveryRequired WorkflowEventType = "workflow.action.recovery_required"
 
 	ValidationSeverityError   WorkflowValidationSeverity = "error"
 	ValidationSeverityWarning WorkflowValidationSeverity = "warning"
@@ -269,6 +273,7 @@ var (
 		NodeExecutionStatusFailed,
 		NodeExecutionStatusCancelled,
 		NodeExecutionStatusWaitingApproval,
+		NodeExecutionStatusRecoveryRequired,
 	}
 	workflowTokenStatusValues = []WorkflowTokenStatus{
 		TokenStatusActive,
@@ -284,6 +289,7 @@ var (
 		GraphNodeStatusFailed,
 		GraphNodeStatusCancelled,
 		GraphNodeStatusWaitingApproval,
+		GraphNodeStatusRecoveryRequired,
 	}
 	workflowGraphEdgeStatusValues = []WorkflowGraphEdgeStatus{
 		GraphEdgeStatusInactive,
@@ -306,6 +312,8 @@ var (
 		EventExecutionStopped,
 		EventExecutionCancelled,
 		EventRunnerRefsAttached,
+		EventActionRecovered,
+		EventActionRecoveryRequired,
 		EventRunnerAttemptStarted,
 		EventRunnerTextDelta,
 		EventRunnerToolCallStarted,
@@ -673,6 +681,7 @@ type WorkflowExecution struct {
 	DefinitionVersionID    string                  `json:"definitionVersionId"`
 	Status                 WorkflowExecutionStatus `json:"status"`
 	TerminalReason         *WorkflowTerminalReason `json:"terminalReason"`
+	RecoveryOutcome        *RunnerRecoveryOutcome  `json:"recoveryOutcome"`
 	CreatedAt              string                  `json:"createdAt"`
 	StartedAt              string                  `json:"startedAt"`
 	UpdatedAt              string                  `json:"updatedAt"`
@@ -708,6 +717,8 @@ type WorkflowNodeExecution struct {
 	RunnerRefs         []WorkflowActionRunnerRef   `json:"runnerRefs"`
 	RunnerState        *WorkflowRunnerState        `json:"runnerState"`
 	ActivityRefs       []WorkflowActivityRef       `json:"activityRefs"`
+	RecoveryOutcome    *RunnerRecoveryOutcome      `json:"recoveryOutcome"`
+	RecoveryMessage    string                      `json:"recoveryMessage"`
 	Error              string                      `json:"error"`
 }
 
@@ -815,6 +826,8 @@ type WorkflowGraphNode struct {
 	FilePaths             []string                 `json:"filePaths"`
 	Error                 string                   `json:"error"`
 	PendingApproval       *WorkflowPendingApproval `json:"pendingApproval"`
+	RecoveryOutcome       *RunnerRecoveryOutcome   `json:"recoveryOutcome"`
+	RecoveryMessage       string                   `json:"recoveryMessage"`
 }
 
 type WorkflowGraphEdge struct {

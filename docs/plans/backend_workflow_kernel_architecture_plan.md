@@ -1,7 +1,7 @@
 # Backend Workflow Kernel Architecture Plan
 
 - **Date:** June 7, 2026
-- **Status:** Phase 0 complete; Phase 1 ready
+- **Status:** Phase 3 complete; later runner extensions ready
 - **Scope:** Evolve Setta's backend workflow orchestration into a durable local-first workflow kernel with replaceable action runners.
 
 ## Executive Summary
@@ -797,12 +797,14 @@ Acceptance criteria:
 
 #### Phase 3: Recovery And Reconciliation
 
+Status: Complete. Startup recovery now reconciles non-terminal Codex-backed workflow executions through runner recovery hooks, records typed recovery outcomes, preserves approval waits, and moves uncertain side-effecting attempts into manual recovery state.
+
 Deliverables:
 
-- Add startup recovery for non-terminal Codex-backed runs.
-- Add runner recovery hooks.
-- Add recovery outcomes to workflow events and node state.
-- Add manual recovery state for uncertain side effects.
+- Completed: add startup recovery for non-terminal Codex-backed runs.
+- Completed: add runner recovery hooks.
+- Completed: add recovery outcomes to workflow events and node state.
+- Completed: add manual recovery state for uncertain side effects.
 
 Acceptance criteria:
 
@@ -935,4 +937,4 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 
 ## Recommended Next Step
 
-Proceed to Phase 3: Recovery And Reconciliation. Keep the scope to startup recovery for non-terminal Codex-backed runs, runner recovery hooks, typed recovery outcomes, and manual recovery state for uncertain side effects. Do not add sandboxed process, MCP, LangGraph, OpenAI Agents SDK, LangFlow, or Python sidecars until the Codex-backed kernel, persistence, and recovery model are stable.
+Proceed to the later runner extension work only after product requirements justify it. Keep the next runner scope narrow, start with the sandboxed process runner when needed, and do not add MCP, LangGraph, OpenAI Agents SDK, LangFlow, or Python sidecars until the Codex-backed kernel, persistence, and recovery model remain stable under continued use.

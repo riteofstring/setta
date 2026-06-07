@@ -20,6 +20,7 @@ const (
 type CodexChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
+	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	SendWorkflowAgentTurn(workspaceID string, request chat.WorkflowAgentTurnRequest) (chat.SendMessageResult, error)
@@ -196,8 +197,144 @@ func (runner *CodexActionRunner) Signal(_ context.Context, _ ActionSignalRequest
 	return ActionSignalResult{}, errors.New("agent.codex runner does not support signal")
 }
 
-func (runner *CodexActionRunner) Recover(_ context.Context, _ ActionRecoverRequest, _ RunnerEventSink) (ActionRecoverResult, error) {
-	return ActionRecoverResult{Outcome: RunnerRecoveryOutcomeFailedInterrupted}, nil
+func (runner *CodexActionRunner) Recover(_ context.Context, request ActionRecoverRequest, sink RunnerEventSink) (ActionRecoverResult, error) {
+	conversationID := runnerRefValue(request.RunnerRefs, RunnerRefChatConversation)
+	runID := runnerRefValue(request.RunnerRefs, RunnerRefChatRun)
+	if conversationID == "" || runID == "" {
+		return runner.codexManualRecoveryRequired(request, sink, "agent.codex recovery requires committed chat conversation and run refs")
+	}
+	page, err := runner.chatService.LoadMessagePage(request.WorkspaceID, conversationID, 0, 1)
+	if err != nil {
+		return runner.codexManualRecoveryRequired(request, sink, fmt.Sprintf("load workflow-owned chat conversation: %v", err))
+	}
+	runs, err := runner.chatService.ListRuns(request.WorkspaceID, conversationID)
+	if err != nil {
+		return runner.codexManualRecoveryRequired(request, sink, fmt.Sprintf("load workflow-owned chat runs: %v", err))
+	}
+	run, ok := chatRunByID(runs, runID)
+	if !ok {
+		return runner.codexManualRecoveryRequired(request, sink, fmt.Sprintf("workflow-owned chat run %s was not found", runID))
+	}
+	owner := workflowRunOwner{
+		conversation:  page.Conversation,
+		execution:     request.Execution,
+		nodeExecution: request.NodeExecution,
+	}
+	refs := workflowRunRefs(run, page.Conversation)
+	switch run.Status {
+	case chat.RunStatusQueued, chat.RunStatusRunning:
+		if run.PendingApproval != nil {
+			pending := workflowPendingApprovalFromChatRun(owner, run)
+			events, err := runnerEventsFromChatApprovalRequest(owner, run, pending)
+			if err != nil {
+				return ActionRecoverResult{}, err
+			}
+			if err := emitRunnerEvents(sink, events); err != nil {
+				return ActionRecoverResult{}, err
+			}
+			return ActionRecoverResult{
+				Outcome:    RunnerRecoveryOutcomeRecoveredRunning,
+				Result:     &WorkflowActionResult{Status: ActionCompletionRequiresApproval, PendingApproval: pending},
+				RunnerRefs: refs,
+				Message:    "reattached workflow-owned Codex run waiting for approval",
+			}, nil
+		}
+		return ActionRecoverResult{
+			Outcome:    RunnerRecoveryOutcomeRecoveredRunning,
+			RunnerRefs: refs,
+			Message:    "reattached workflow-owned Codex run",
+		}, nil
+	case chat.RunStatusCompleted, chat.RunStatusFailed, chat.RunStatusCancelled:
+		return runner.recoverTerminalCodexRun(owner, run, refs, sink)
+	default:
+		return runner.codexManualRecoveryRequired(request, sink, fmt.Sprintf("unsupported workflow-owned chat run status %s", run.Status))
+	}
+}
+
+func (runner *CodexActionRunner) recoverTerminalCodexRun(owner workflowRunOwner, run chat.Run, refs []WorkflowActionRunnerRef, sink RunnerEventSink) (ActionRecoverResult, error) {
+	activity, err := runner.chatService.LoadRunActivityPage(run.WorkspaceID, run.ID, 1000)
+	var result WorkflowActionResult
+	if err != nil {
+		result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("load chat run activity: %v", err))
+	} else {
+		result, err = workflowActionResultFromChatRun(run, activity)
+		if err != nil {
+			result = workflowActionResultFromChatRunReconcileError(run, fmt.Sprintf("decode workflow result: %v", err))
+		}
+	}
+	events, err := runnerEventsFromTerminalChatRun(owner, result)
+	if err != nil {
+		return ActionRecoverResult{}, err
+	}
+	if err := emitRunnerEvents(sink, events); err != nil {
+		return ActionRecoverResult{}, err
+	}
+	return ActionRecoverResult{
+		Outcome:    recoveryOutcomeFromActionResult(result),
+		Result:     &result,
+		RunnerRefs: refs,
+		Message:    fmt.Sprintf("reconciled terminal workflow-owned Codex run %s", run.ID),
+	}, nil
+}
+
+func (runner *CodexActionRunner) codexManualRecoveryRequired(request ActionRecoverRequest, sink RunnerEventSink, message string) (ActionRecoverResult, error) {
+	sideEffectPolicy := codexSideEffectPolicy()
+	if request.NodeExecution.SideEffectPolicy != nil {
+		sideEffectPolicy = *request.NodeExecution.SideEffectPolicy
+	}
+	payload, err := json.Marshal(RunnerAttemptRecoveryRequiredPayload{
+		Outcome:          RunnerRecoveryOutcomeManualRecoveryRequired,
+		Message:          message,
+		SideEffectPolicy: sideEffectPolicy,
+	})
+	if err != nil {
+		return ActionRecoverResult{}, fmt.Errorf("encode Codex recovery-required event: %w", err)
+	}
+	if sink != nil {
+		if err := sink.EmitRunnerEvent(RunnerEvent{
+			Type:    RunnerEventAttemptRecoveryRequired,
+			Payload: payload,
+		}); err != nil {
+			return ActionRecoverResult{}, err
+		}
+	}
+	return ActionRecoverResult{
+		Outcome:    RunnerRecoveryOutcomeManualRecoveryRequired,
+		RunnerRefs: append([]WorkflowActionRunnerRef{}, request.RunnerRefs...),
+		Message:    message,
+	}, nil
+}
+
+func chatRunByID(runs []chat.Run, runID string) (chat.Run, bool) {
+	for _, run := range runs {
+		if run.ID == runID {
+			return run, true
+		}
+	}
+	return chat.Run{}, false
+}
+
+func emitRunnerEvents(sink RunnerEventSink, events []RunnerEvent) error {
+	if sink == nil {
+		return nil
+	}
+	for _, event := range events {
+		if err := sink.EmitRunnerEvent(event); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func recoveryOutcomeFromActionResult(result WorkflowActionResult) RunnerRecoveryOutcome {
+	switch result.Status {
+	case ActionCompletionCompleted:
+		return RunnerRecoveryOutcomeRecoveredCompleted
+	case ActionCompletionCancelled, ActionCompletionFailed:
+		return RunnerRecoveryOutcomeRecoveredFailed
+	default:
+		return RunnerRecoveryOutcomeManualRecoveryRequired
+	}
 }
 
 func (kind WorkflowActionKind) String() string {

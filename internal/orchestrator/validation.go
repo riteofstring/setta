@@ -77,6 +77,7 @@ type ActionSignalResult struct {
 type ActionRecoverRequest struct {
 	WorkspaceID      string
 	ExecutionID      string
+	Execution        WorkflowExecution
 	NodeExecution    WorkflowNodeExecution
 	RunnerRefs       []WorkflowActionRunnerRef
 	RunnerState      *WorkflowRunnerState

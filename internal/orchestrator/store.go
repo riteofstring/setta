@@ -537,6 +537,13 @@ func nullableWorkflowTerminalReason(reason *WorkflowTerminalReason) sql.NullStri
 	return sql.NullString{String: string(*reason), Valid: true}
 }
 
+func nullableRunnerRecoveryOutcome(outcome *RunnerRecoveryOutcome) sql.NullString {
+	if outcome == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: string(*outcome), Valid: true}
+}
+
 func nullableActionKind(kind *WorkflowActionKind) sql.NullString {
 	if kind == nil {
 		return sql.NullString{}
@@ -586,6 +593,14 @@ func workflowTerminalReasonFromNull(value sql.NullString) *WorkflowTerminalReaso
 	}
 	reason := WorkflowTerminalReason(value.String)
 	return &reason
+}
+
+func runnerRecoveryOutcomeFromNull(value sql.NullString) *RunnerRecoveryOutcome {
+	if !value.Valid {
+		return nil
+	}
+	outcome := RunnerRecoveryOutcome(value.String)
+	return &outcome
 }
 
 func actionKindFromNull(value sql.NullString) *WorkflowActionKind {

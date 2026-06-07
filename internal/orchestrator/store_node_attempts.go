@@ -31,6 +31,8 @@ type workflowNodeAttemptRow struct {
 	outputJSON             sql.NullString
 	exitCode               sql.NullInt64
 	errorMessage           string
+	recoveryOutcome        sql.NullString
+	recoveryMessage        string
 }
 
 func workflowNodeAttemptRowFromExecution(execution WorkflowExecution, nodeExecution WorkflowNodeExecution) (workflowNodeAttemptRow, error) {
@@ -83,6 +85,8 @@ func workflowNodeAttemptRowFromExecution(execution WorkflowExecution, nodeExecut
 		outputJSON:             outputJSON,
 		exitCode:               exitCode,
 		errorMessage:           nodeExecution.Error,
+		recoveryOutcome:        nullableRunnerRecoveryOutcome(nodeExecution.RecoveryOutcome),
+		recoveryMessage:        nodeExecution.RecoveryMessage,
 	}, nil
 }
 
@@ -123,8 +127,8 @@ INSERT INTO workflow_node_attempts (
   status, action_kind, runner_kind, idempotency_key, input_hash, input_json,
   action_policy_json, side_effect_policy_json, runner_capabilities_json,
   scheduled_at, started_at, completed_at, result_status, result_json,
-  output_json, exit_code, error
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  output_json, exit_code, error, recovery_outcome, recovery_message
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		row.id,
 		row.schemaVersion,
@@ -150,6 +154,8 @@ INSERT INTO workflow_node_attempts (
 		row.outputJSON,
 		row.exitCode,
 		row.errorMessage,
+		row.recoveryOutcome,
+		row.recoveryMessage,
 	)
 	if err != nil {
 		return store.persistenceError("save workflow node attempt", err)
