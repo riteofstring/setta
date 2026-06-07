@@ -49,6 +49,7 @@ interface WorkspaceSidebarProps {
   closeWorkspace: (id: string) => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  deleteConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
   openLocalFolder: () => Promise<void>;
   openWorkspacePath: (rootPath: string) => Promise<void>;
   openSettingsPane: () => void;
@@ -58,6 +59,11 @@ interface WorkspaceSidebarProps {
   selectWorkspace: (id: string) => Promise<void>;
   selectedConversationId: string;
   selectedWorkspaceId: string;
+  setConversationPinned: (
+    conversationId: string,
+    pinned: boolean,
+    workspaceId?: string,
+  ) => Promise<void>;
   sidebarWidth?: number;
 }
 
@@ -82,6 +88,7 @@ export function WorkspaceSidebar({
   closeWorkspace,
   createConversation,
   createWorkspaceConversation,
+  deleteConversation,
   openLocalFolder,
   openWorkspacePath,
   openSettingsPane,
@@ -91,6 +98,7 @@ export function WorkspaceSidebar({
   selectWorkspace,
   selectedConversationId,
   selectedWorkspaceId,
+  setConversationPinned,
   sidebarWidth = 220,
 }: WorkspaceSidebarProps) {
   const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<ReadonlySet<string>>(
@@ -236,6 +244,7 @@ export function WorkspaceSidebar({
                   conversationSelectionBusy={conversationSelectionBusy}
                   closeWorkspace={closeWorkspace}
                   createWorkspaceConversation={createWorkspaceConversation}
+                  deleteConversation={deleteConversation}
                   expandedWorkspaceIds={expandedWorkspaceIds}
                   openWorkspacePath={openWorkspacePath}
                   recentWorkspaces={recentWorkspaces}
@@ -244,6 +253,7 @@ export function WorkspaceSidebar({
                   selectWorkspace={selectWorkspace}
                   selectedConversationId={selectedConversationId}
                   selectedWorkspaceId={selectedWorkspaceId}
+                  setConversationPinned={setConversationPinned}
                   setWorkspaceExpanded={setWorkspaceExpanded}
                   workspaceConversationLists={workspaceConversationLists}
                   activeWorkspaces={activeWorkspaces}
@@ -274,6 +284,7 @@ function ProjectNavigationList({
   conversationSelectionBusy,
   closeWorkspace,
   createWorkspaceConversation,
+  deleteConversation,
   expandedWorkspaceIds,
   openWorkspacePath,
   recentWorkspaces,
@@ -282,6 +293,7 @@ function ProjectNavigationList({
   selectWorkspace,
   selectedConversationId,
   selectedWorkspaceId,
+  setConversationPinned,
   setWorkspaceExpanded,
   workspaceConversationLists,
 }: {
@@ -292,6 +304,7 @@ function ProjectNavigationList({
   conversationSelectionBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
+  deleteConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
   expandedWorkspaceIds: ReadonlySet<string>;
   openWorkspacePath: (rootPath: string) => Promise<void>;
   recentWorkspaces: WorkspaceSummary[];
@@ -300,6 +313,11 @@ function ProjectNavigationList({
   selectWorkspace: (id: string) => Promise<void>;
   selectedConversationId: string;
   selectedWorkspaceId: string;
+  setConversationPinned: (
+    conversationId: string,
+    pinned: boolean,
+    workspaceId?: string,
+  ) => Promise<void>;
   setWorkspaceExpanded: (workspaceId: string, expanded: boolean) => void;
   workspaceConversationLists: Record<string, SidebarWorkspaceConversationState | undefined>;
 }) {
@@ -379,6 +397,9 @@ function ProjectNavigationList({
       case "closeWorkspace":
         await closeWorkspace(command.workspaceId);
         return;
+      case "deleteConversation":
+        await deleteConversation(command.conversationId, command.workspaceId);
+        return;
       case "openRecentWorkspace":
         await openWorkspacePath(command.rootPath);
         return;
@@ -390,6 +411,9 @@ function ProjectNavigationList({
           await selectWorkspace(command.workspaceId);
         }
         await selectConversation(command.conversationId, command.workspaceId);
+        return;
+      case "setConversationPinned":
+        await setConversationPinned(command.conversationId, command.pinned, command.workspaceId);
         return;
       case "showMoreConversations":
         setVisibleConversationLimit((current) => current + chatHistoryLimit);
@@ -520,17 +544,17 @@ function ConversationNavigationRow({
   const corruptionLabel =
     corruptionLabelsByConversationId.get(item.conversation.conversation.id) ?? null;
   return (
-    <div className="pl-4">
-      <ConversationRow
-        activeRun={activeRun}
-        busy={conversationSelectionBusy && item.selected}
-        corruptionLabel={corruptionLabel}
-        item={item.conversation}
-        selectConversation={() => runCommand(item.commands.primary)}
-        selected={item.selected}
-        unread={item.unread}
-      />
-    </div>
+    <ConversationRow
+      activeRun={activeRun}
+      busy={conversationSelectionBusy && item.selected}
+      corruptionLabel={corruptionLabel}
+      deleteConversation={() => runCommand(item.commands.delete)}
+      item={item.conversation}
+      selectConversation={() => runCommand(item.commands.primary)}
+      selected={item.selected}
+      setConversationPinned={() => runCommand(item.commands.pin)}
+      unread={item.unread}
+    />
   );
 }
 

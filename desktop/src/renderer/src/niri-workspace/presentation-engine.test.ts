@@ -259,7 +259,46 @@ describe("niri presentation engine", () => {
     expect(host.style.pointerEvents).toBe("auto");
   });
 
-  test("adds pane top bar chrome and marks active maximized panes", () => {
+  test("hides native browser view when a higher layer pane overlaps it", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 2 });
+    const browserHost = fakePaneHost("niri_pane_0", "Pane 001", 0);
+    const chatHost = fakePaneHost("niri_pane_1", "Pane 002", 1);
+    const registry = new RecordingSurfaceRegistry();
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      registry as unknown as SurfaceRegistry,
+    );
+    presentation.mount([browserHost, chatHost], null);
+
+    presentation.apply(
+      [
+        {
+          ...renderItem("niri_pane_0", "niri_surface_0", false, "browser"),
+          height: 320,
+          width: 420,
+          z: 1,
+        },
+        {
+          ...renderItem("niri_pane_1", "niri_surface_1", false, "chat-dom"),
+          focused: true,
+          height: 220,
+          width: 360,
+          x: 40,
+          y: 40,
+          z: 2,
+        },
+      ],
+      { resizePhase: "idle" },
+    );
+
+    expect(registry.syncedItems.map((item) => [item.paneId, item.runtimeState])).toEqual([
+      ["niri_pane_0", "snapshot"],
+      ["niri_pane_1", "live"],
+    ]);
+  });
+
+  test("adds pane top bar controls without Electron window drag chrome", () => {
     const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");
     const presentation = new PresentationEngine(
@@ -285,20 +324,14 @@ describe("niri presentation engine", () => {
     expect(paneChromeSnapshot(host)).toEqual({
       buttonLabel: "Restore pane size",
       buttonPaneId: "niri_pane_0",
-      chromeOrder: [
-        "niri-pane-drag-handle app-no-drag",
-        "niri-pane-title-editor app-no-drag",
-        "niri-pane-action-strip app-no-drag",
-      ],
+      chromeOrder: ["niri-pane-drag-handle app-no-drag", "niri-pane-action-strip app-no-drag"],
       controlsVisible: "true",
       dragLabel: "Drag pane",
       dragPaneId: "niri_pane_0",
       hostMaximized: "true",
+      titleEditorPresent: false,
+      topBarClassName: "niri-pane-top-bar",
       visibleActions: ["maximize", "close"],
-      titleEditable: "plaintext-only",
-      titleLabel: "Rename pane",
-      titlePaneId: "niri_pane_0",
-      titleText: "Pane 001",
       topBarPaneId: "niri_pane_0",
     });
   });
@@ -323,14 +356,13 @@ describe("niri presentation engine", () => {
     );
 
     expect(paneActionSnapshot(focusedHost)).toEqual({
-      actionOrder: ["split-down", "split-right", "add-above", "add-below", "maximize", "close"],
+      actionOrder: ["split-down", "add-above", "add-below", "maximize", "close"],
       actionStripPaneId: "niri_pane_0",
       controlsVisible: "true",
       lastAction: "close",
-      visibleActions: ["split-down", "split-right", "add-above", "add-below", "maximize", "close"],
+      visibleActions: ["split-down", "add-above", "add-below", "maximize", "close"],
       visibleLabels: [
         "Split pane down",
-        "Split pane right",
         "Add pane above",
         "Add pane below",
         "Maximize pane",
@@ -338,7 +370,7 @@ describe("niri presentation engine", () => {
       ],
     });
     expect(paneActionSnapshot(unfocusedHost)).toEqual({
-      actionOrder: ["split-down", "split-right", "add-above", "add-below", "maximize", "close"],
+      actionOrder: ["split-down", "add-above", "add-below", "maximize", "close"],
       actionStripPaneId: "niri_pane_1",
       controlsVisible: "true",
       lastAction: "close",
@@ -448,7 +480,6 @@ describe("niri presentation engine", () => {
 function paneChromeSnapshot(host: HTMLElement) {
   const topBar = requiredChromeElement(host, ".niri-pane-top-bar");
   const dragHandle = requiredChromeElement(host, ".niri-pane-drag-handle");
-  const titleEditor = requiredChromeElement(host, ".niri-pane-title-editor");
   const button = requiredChromeElement(host, ".niri-pane-maximize-button");
   const actionSnapshot = paneActionSnapshot(host);
   return {
@@ -459,11 +490,9 @@ function paneChromeSnapshot(host: HTMLElement) {
     dragLabel: dragHandle.getAttribute("aria-label"),
     dragPaneId: dragHandle.dataset.paneId,
     hostMaximized: host.dataset.maximized,
+    titleEditorPresent: host.querySelector(".niri-pane-title-editor") !== null,
+    topBarClassName: topBar.className,
     visibleActions: actionSnapshot.visibleActions,
-    titleEditable: titleEditor.contentEditable,
-    titleLabel: titleEditor.getAttribute("aria-label"),
-    titlePaneId: titleEditor.dataset.paneId,
-    titleText: titleEditor.textContent,
     topBarPaneId: topBar.dataset.paneId,
   };
 }
@@ -718,6 +747,7 @@ class TitleSurfaceAdapter implements SurfaceAdapter {
 }
 
 class RecordingSurfaceRegistry {
+  syncedItems: PaneRenderItem[] = [];
   syncedPaneIds: string[] = [];
 
   canvasStats() {
@@ -746,6 +776,7 @@ class RecordingSurfaceRegistry {
   releaseHost(): void {}
 
   syncHost(_host: HTMLElement, item: PaneRenderItem) {
+    this.syncedItems.push(item);
     this.syncedPaneIds.push(item.paneId);
     return {
       browserViewportWrites: 0,

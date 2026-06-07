@@ -54,6 +54,43 @@ func TestChatEndpointsCreateSendListAndPageMessages(t *testing.T) {
 	}
 }
 
+func TestChatEndpointsPinAndDeleteConversation(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	pinned := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Pinned",
+	}, http.StatusOK)
+	regular := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Title:       "Regular",
+	}, http.StatusOK)
+
+	pinnedItem := postJSON[chat.ConversationListItem](t, handler, "/chat/conversations/pin", SetConversationPinnedRequest{
+		ConversationID: pinned.ID,
+		Pinned:         true,
+		WorkspaceID:    opened.Workspace.ID,
+	}, http.StatusOK)
+	if pinnedItem.PinnedAt == "" {
+		t.Fatalf("pinnedAt was empty after pinning")
+	}
+
+	list := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if len(list.Conversations) != 2 || list.Conversations[0].Conversation.ID != pinned.ID {
+		t.Fatalf("conversation list = %+v, want pinned conversation first", list.Conversations)
+	}
+
+	afterDelete := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/delete", DeleteConversationRequest{
+		ConversationID: pinned.ID,
+		WorkspaceID:    opened.Workspace.ID,
+	}, http.StatusOK)
+	if len(afterDelete.Conversations) != 1 || afterDelete.Conversations[0].Conversation.ID != regular.ID {
+		t.Fatalf("conversation list after delete = %+v, want only regular conversation", afterDelete.Conversations)
+	}
+}
+
 func TestChatEndpointMapsMalformedDurableStateToCorruptState(t *testing.T) {
 	handler, appDataDir := newChatHandlerWithAppDataDir(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)

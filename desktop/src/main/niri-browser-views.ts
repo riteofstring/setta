@@ -1,17 +1,19 @@
-import { BrowserWindow, WebContentsView } from "electron";
+import { BrowserWindow, View, WebContentsView } from "electron";
 import type { IpcMainEvent, Rectangle } from "electron";
 
 import { ipcEvents } from "@shared/ipc";
 import type {
   NiriBrowserViewBatch,
+  NiriBrowserViewKey,
   NiriBrowserViewKeyEvent,
+  NiriBrowserViewSnapshot,
   NiriBrowserViewStats,
   NiriBrowserViewUpdate,
 } from "@shared/types";
 
 interface NativeViewParent {
-  addChildView(view: NativeBrowserView): void;
-  removeChildView(view: NativeBrowserView): void;
+  addChildView(view: NativeView): void;
+  removeChildView(view: NativeView): void;
 }
 
 interface OwnerWebContents {
@@ -21,22 +23,48 @@ interface OwnerWebContents {
 
 interface OwnerWindow {
   contentView: NativeViewParent;
+  isFocused(): boolean;
   webContents: OwnerWebContents;
 }
 
 interface NativeBrowserWebContents {
+  capturePage(
+    rect?: Rectangle,
+    opts?: NativeBrowserCaptureOptions,
+  ): Promise<NativeBrowserSnapshotImage>;
   close(): void;
+  debugger: NativeBrowserWebContentsDebugger;
   focus(): void;
   isDestroyed(): boolean;
   loadURL(url: string): Promise<void>;
   on(event: "before-input-event", listener: BeforeInputListener): void;
+  on(event: "did-finish-load", listener: LoadFinishedListener): void;
   removeListener(event: "before-input-event", listener: BeforeInputListener): void;
+  removeListener(event: "did-finish-load", listener: LoadFinishedListener): void;
 }
 
-interface NativeBrowserView {
+interface NativeBrowserSnapshotImage {
+  toDataURL(): string;
+}
+
+interface NativeBrowserWebContentsDebugger {
+  attach(protocolVersion?: string): void;
+  detach(): void;
+  isAttached(): boolean;
+  sendCommand(method: string, commandParams?: unknown): Promise<unknown>;
+}
+
+interface NativeBrowserCaptureOptions {
+  stayHidden?: boolean;
+}
+
+interface NativeView extends NativeViewParent {
   getBounds(): Rectangle;
   setBounds(bounds: Rectangle): void;
   setVisible(visible: boolean): void;
+}
+
+interface NativeBrowserView extends NativeView {
   webContents: NativeBrowserWebContents;
 }
 
@@ -45,18 +73,31 @@ interface BeforeInputEvent {
 }
 
 interface BeforeInput {
+  alt: boolean;
   key: string;
+  meta: boolean;
+  shift: boolean;
   type: string;
 }
 
 type BeforeInputListener = (event: BeforeInputEvent, input: BeforeInput) => void;
+type LoadFinishedListener = () => void;
 
 interface BrowserViewRecord {
   bounds: Rectangle;
+  clipView: NativeView;
+  contentLoaded: boolean;
+  contentBounds: Rectangle;
   focused: boolean;
+  lastSnapshotKey: string | null;
   listener: BeforeInputListener;
+  loadFinishedListener: LoadFinishedListener;
+  loadingURL: string | null;
   parent: NativeViewParent;
   paneId: string;
+  pendingSnapshotKey: string | null;
+  snapshotInFlight: boolean;
+  surfaceId: string;
   title: string;
   url: string;
   view: NativeBrowserView;
@@ -65,12 +106,14 @@ interface BrowserViewRecord {
 }
 
 interface WebContentsViewRegistryDependencies {
+  createClipView: () => NativeView;
   createView: () => NativeBrowserView;
   windowFromIpcEvent: (event: IpcMainEvent) => OwnerWindow | null;
 }
 
 export class WebContentsViewRegistry {
   private readonly records = new Map<string, BrowserViewRecord>();
+  private routedFocusedSurfaceId: string | null = null;
   private stats: NiriBrowserViewStats = emptyStats(null);
 
   constructor(private readonly dependencies: WebContentsViewRegistryDependencies) {}
@@ -101,6 +144,7 @@ export class WebContentsViewRegistry {
   }
 
   readStats(): NiriBrowserViewStats {
+    this.recount();
     return { ...this.stats };
   }
 
@@ -109,6 +153,7 @@ export class WebContentsViewRegistry {
       this.destroyRecord(surfaceId);
     }
     this.stats.focusedSurfaceId = null;
+    this.routedFocusedSurfaceId = null;
     this.stats.teardownCount += 1;
     this.stats.workspaceId = null;
     this.recount();
@@ -125,6 +170,7 @@ export class WebContentsViewRegistry {
       this.stats.focusedSurfaceId = null;
       this.stats.workspaceId = null;
     }
+    this.routedFocusedSurfaceId = null;
     this.stats.teardownCount += 1;
     this.recount();
     return this.readStats();
@@ -135,42 +181,57 @@ export class WebContentsViewRegistry {
     workspaceId: string,
     update: NiriBrowserViewUpdate,
   ): BrowserViewRecord {
+    const clipView = this.dependencies.createClipView();
     const view = this.dependencies.createView();
     const listener: BeforeInputListener = (event, input) => {
-      if (input.type !== "keyDown" || !isArrowKey(input.key)) {
+      const keyEvent = niriBrowserViewKeyEventFromInput(input, update.surfaceId, workspaceId);
+      if (!keyEvent) {
         return;
       }
       event.preventDefault();
-      ownerWindow.webContents.send(ipcEvents.niriBrowserViewKey, {
-        key: input.key,
-        surfaceId: update.surfaceId,
-        workspaceId,
-      } satisfies NiriBrowserViewKeyEvent);
+      ownerWindow.webContents.send(ipcEvents.niriBrowserViewKey, keyEvent);
     };
-    view.webContents.on("before-input-event", listener);
-    ownerWindow.contentView.addChildView(view);
-    void view.webContents.loadURL(update.url).catch((error: unknown) => {
-      process.stderr.write(
-        `failed to load niri browser pane ${update.surfaceId}: ${
-          error instanceof Error ? error.message : String(error)
-        }\n`,
-      );
-    });
+    const recordHolder: { record: BrowserViewRecord | null } = { record: null };
+    const loadFinishedListener: LoadFinishedListener = () => {
+      const loadedRecord = recordHolder.record;
+      if (!loadedRecord) {
+        throw new Error("niri browser view finished loading before record registration");
+      }
+      this.markRecordLoaded(ownerWindow, update.surfaceId, loadedRecord, null);
+    };
     const bounds = rectangleFromUpdate(update);
-    view.setBounds(bounds);
-    view.setVisible(true);
-    return {
+    const contentBounds = contentRectangleFromUpdate(update);
+    const record = {
       bounds,
+      clipView,
+      contentLoaded: false,
+      contentBounds,
       focused: false,
+      lastSnapshotKey: null,
       listener,
+      loadFinishedListener,
+      loadingURL: null,
       parent: ownerWindow.contentView,
       paneId: update.paneId,
+      pendingSnapshotKey: null,
+      snapshotInFlight: false,
+      surfaceId: update.surfaceId,
       title: update.title,
       url: update.url,
       view,
       visible: true,
       workspaceId,
-    };
+    } satisfies BrowserViewRecord;
+    recordHolder.record = record;
+    view.webContents.on("before-input-event", listener);
+    view.webContents.on("did-finish-load", loadFinishedListener);
+    clipView.addChildView(view);
+    ownerWindow.contentView.addChildView(clipView);
+    clipView.setBounds(bounds);
+    clipView.setVisible(true);
+    view.setBounds(childRectangleForBounds(bounds, contentBounds));
+    view.setVisible(true);
+    return record;
   }
 
   private destroyRecord(surfaceId: string): void {
@@ -179,8 +240,11 @@ export class WebContentsViewRegistry {
       return;
     }
     record.view.setVisible(false);
+    record.clipView.setVisible(false);
     record.view.webContents.removeListener("before-input-event", record.listener);
-    record.parent.removeChildView(record.view);
+    record.view.webContents.removeListener("did-finish-load", record.loadFinishedListener);
+    record.clipView.removeChildView(record.view);
+    record.parent.removeChildView(record.clipView);
     if (!record.view.webContents.isDestroyed()) {
       record.view.webContents.close();
     }
@@ -197,6 +261,7 @@ export class WebContentsViewRegistry {
       return;
     }
     record.view.setVisible(false);
+    record.clipView.setVisible(false);
     record.visible = false;
     record.focused = false;
     if (this.stats.focusedSurfaceId === surfaceId) {
@@ -205,18 +270,33 @@ export class WebContentsViewRegistry {
   }
 
   private recount(): void {
+    let contentLoaded = 0;
     let hidden = 0;
     let live = 0;
+    let loading = 0;
+    let snapshotsInFlight = 0;
     for (const record of this.records.values()) {
       if (record.visible) {
         live += 1;
       } else {
         hidden += 1;
       }
+      if (record.contentLoaded) {
+        contentLoaded += 1;
+      }
+      if (record.loadingURL !== null) {
+        loading += 1;
+      }
+      if (record.snapshotInFlight) {
+        snapshotsInFlight += 1;
+      }
     }
+    this.stats.contentLoaded = contentLoaded;
     this.stats.hidden = hidden;
     this.stats.live = live;
+    this.stats.loading = loading;
     this.stats.registered = this.records.size;
+    this.stats.snapshotsInFlight = snapshotsInFlight;
     this.stats.visibleBrowserPanes = live;
   }
 
@@ -230,24 +310,33 @@ export class WebContentsViewRegistry {
 
   private routeFocus(ownerWindow: OwnerWindow, focusedSurfaceId: string | null): void {
     if (!focusedSurfaceId) {
-      ownerWindow.webContents.focus();
-      this.stats.focusedSurfaceId = null;
-      for (const record of this.records.values()) {
-        record.focused = false;
-      }
+      this.clearRoutedFocus(ownerWindow);
       return;
     }
     const record = this.records.get(focusedSurfaceId);
     if (!record || !record.visible) {
-      ownerWindow.webContents.focus();
-      this.stats.focusedSurfaceId = null;
+      this.clearRoutedFocus(ownerWindow);
       return;
     }
     for (const [surfaceId, candidate] of this.records) {
       candidate.focused = surfaceId === focusedSurfaceId;
     }
-    record.view.webContents.focus();
     this.stats.focusedSurfaceId = focusedSurfaceId;
+    if (this.routedFocusedSurfaceId !== focusedSurfaceId && ownerWindow.isFocused()) {
+      record.view.webContents.focus();
+      this.routedFocusedSurfaceId = focusedSurfaceId;
+    }
+  }
+
+  private clearRoutedFocus(ownerWindow: OwnerWindow): void {
+    this.stats.focusedSurfaceId = null;
+    for (const record of this.records.values()) {
+      record.focused = false;
+    }
+    if (this.routedFocusedSurfaceId && ownerWindow.isFocused()) {
+      ownerWindow.webContents.focus();
+      this.routedFocusedSurfaceId = null;
+    }
   }
 
   private upsertLiveRecord(
@@ -261,33 +350,278 @@ export class WebContentsViewRegistry {
       this.records.set(update.surfaceId, record);
     }
 
-    if (record.url !== update.url) {
-      record.url = update.url;
-      void record.view.webContents.loadURL(update.url).catch((error: unknown) => {
-        process.stderr.write(
-          `failed to load niri browser pane ${update.surfaceId}: ${
-            error instanceof Error ? error.message : String(error)
-          }\n`,
-        );
-      });
+    if (record.url !== update.url || (!record.contentLoaded && record.loadingURL === null)) {
+      this.loadRecordURL(ownerWindow, update.surfaceId, record, update.url);
     }
     record.paneId = update.paneId;
     record.title = update.title;
     record.workspaceId = workspaceId;
     record.visible = true;
+    record.clipView.setVisible(true);
     record.view.setVisible(true);
 
     const nextBounds = rectangleFromUpdate(update);
+    const nextContentBounds = contentRectangleFromUpdate(update);
     if (!sameRectangle(record.bounds, nextBounds)) {
-      record.view.setBounds(nextBounds);
+      record.clipView.setBounds(nextBounds);
       record.bounds = nextBounds;
       this.stats.boundsUpdateCount += 1;
+    }
+    if (!sameRectangle(record.contentBounds, nextContentBounds)) {
+      record.contentBounds = nextContentBounds;
+    }
+    const nextChildBounds = childRectangleForBounds(nextBounds, nextContentBounds);
+    if (!sameRectangle(record.view.getBounds(), nextChildBounds)) {
+      record.view.setBounds(nextChildBounds);
+    }
+    this.scheduleSnapshot(ownerWindow, update.surfaceId, record, false);
+  }
+
+  private loadRecordURL(
+    ownerWindow: OwnerWindow,
+    surfaceId: string,
+    record: BrowserViewRecord,
+    url: string,
+  ): void {
+    record.url = url;
+    record.contentLoaded = false;
+    record.lastSnapshotKey = null;
+    record.loadingURL = url;
+    record.pendingSnapshotKey = null;
+    void record.view.webContents
+      .loadURL(url)
+      .then(() => {
+        this.markRecordLoaded(ownerWindow, surfaceId, record, url);
+      })
+      .catch((error: unknown) => {
+        const current = this.records.get(surfaceId);
+        if (current !== record || record.loadingURL !== url) {
+          return;
+        }
+        record.loadingURL = null;
+        if (!record.visible) {
+          return;
+        }
+        process.stderr.write(
+          `failed to load niri browser pane ${surfaceId}: ${
+            error instanceof Error ? error.message : String(error)
+          }\n`,
+        );
+      });
+  }
+
+  private markRecordLoaded(
+    ownerWindow: OwnerWindow,
+    surfaceId: string,
+    record: BrowserViewRecord,
+    url: string | null,
+  ): void {
+    const current = this.records.get(surfaceId);
+    if (current !== record || record.loadingURL === null) {
+      return;
+    }
+    if (url !== null && record.loadingURL !== url) {
+      return;
+    }
+    record.contentLoaded = true;
+    record.loadingURL = null;
+    this.scheduleSnapshot(ownerWindow, surfaceId, record, true);
+  }
+
+  private scheduleSnapshot(
+    ownerWindow: OwnerWindow,
+    surfaceId: string,
+    record: BrowserViewRecord,
+    force: boolean,
+  ): void {
+    if (
+      !record.contentLoaded ||
+      !record.visible ||
+      record.contentBounds.width <= 1 ||
+      record.contentBounds.height <= 1
+    ) {
+      return;
+    }
+    const snapshotKey = browserSnapshotKey(record);
+    if (!force && record.lastSnapshotKey === snapshotKey) {
+      return;
+    }
+    if (record.snapshotInFlight) {
+      record.pendingSnapshotKey = snapshotKey;
+      return;
+    }
+    record.snapshotInFlight = true;
+    this.stats.snapshotCapturesStarted += 1;
+    record.pendingSnapshotKey = snapshotKey;
+    const capturedBounds = { ...record.contentBounds };
+    const capturedPaneId = record.paneId;
+    const capturedTitle = record.title;
+    const capturedWorkspaceId = record.workspaceId;
+    void captureNativeBrowserSnapshot(record.view.webContents, capturedBounds, () => {
+      const current = this.records.get(surfaceId);
+      return current === record && record.visible;
+    })
+      .then((image) => {
+        const current = this.records.get(surfaceId);
+        if (current !== record) {
+          return;
+        }
+        record.lastSnapshotKey = snapshotKey;
+        this.stats.snapshotCaptureLastError = null;
+        this.stats.snapshotCapturesSucceeded += 1;
+        ownerWindow.webContents.send(ipcEvents.niriBrowserViewSnapshot, {
+          capturedAt: Date.now(),
+          height: capturedBounds.height,
+          imageDataUrl: image.toDataURL(),
+          paneId: capturedPaneId,
+          surfaceId,
+          title: capturedTitle,
+          width: capturedBounds.width,
+          workspaceId: capturedWorkspaceId,
+        } satisfies NiriBrowserViewSnapshot);
+      })
+      .catch((error: unknown) => {
+        const current = this.records.get(surfaceId);
+        if (current === record) {
+          record.lastSnapshotKey = snapshotKey;
+          this.stats.snapshotCaptureLastError = captureErrorMessage(error);
+          this.stats.snapshotCapturesFailed += 1;
+        }
+        if (current !== record || !record.visible || isExpectedTransientCaptureFailure(error)) {
+          return;
+        }
+        process.stderr.write(
+          `failed to capture niri browser pane ${surfaceId}: ${
+            error instanceof Error ? error.message : String(error)
+          }\n`,
+        );
+      })
+      .finally(() => {
+        const current = this.records.get(surfaceId);
+        if (current !== record) {
+          return;
+        }
+        record.snapshotInFlight = false;
+        const pendingSnapshotKey = record.pendingSnapshotKey;
+        record.pendingSnapshotKey = null;
+        if (pendingSnapshotKey && pendingSnapshotKey !== record.lastSnapshotKey) {
+          this.scheduleSnapshot(ownerWindow, surfaceId, record, true);
+        }
+      });
+  }
+}
+
+function nativeBrowserSnapshotRect(bounds: Rectangle): Rectangle {
+  return {
+    height: bounds.height,
+    width: bounds.width,
+    x: 0,
+    y: 0,
+  };
+}
+
+function captureNativeBrowserSnapshot(
+  webContents: NativeBrowserWebContents,
+  bounds: Rectangle,
+  shouldRetryAfterTransientFailure: () => boolean,
+): Promise<NativeBrowserSnapshotImage> {
+  return webContents
+    .capturePage(nativeBrowserSnapshotRect(bounds), { stayHidden: true })
+    .catch((error: unknown) => {
+      if (!isExpectedTransientCaptureFailure(error) || !shouldRetryAfterTransientFailure()) {
+        throw error;
+      }
+      return webContents.capturePage(undefined, { stayHidden: true }).catch((fallbackError) => {
+        if (
+          !isExpectedTransientCaptureFailure(fallbackError) ||
+          !shouldRetryAfterTransientFailure()
+        ) {
+          throw fallbackError;
+        }
+        return captureNativeBrowserSnapshotWithDebugger(webContents, bounds);
+      });
+    });
+}
+
+async function captureNativeBrowserSnapshotWithDebugger(
+  webContents: NativeBrowserWebContents,
+  bounds: Rectangle,
+): Promise<NativeBrowserSnapshotImage> {
+  const debuggerApi = webContents.debugger;
+  const wasAttached = debuggerApi.isAttached();
+  if (!wasAttached) {
+    debuggerApi.attach("1.3");
+  }
+  try {
+    const response = await debuggerApi.sendCommand("Page.captureScreenshot", {
+      captureBeyondViewport: true,
+      clip: {
+        height: bounds.height,
+        scale: 1,
+        width: bounds.width,
+        x: 0,
+        y: 0,
+      },
+      format: "png",
+      fromSurface: false,
+      optimizeForSpeed: true,
+    });
+    const imageData = debuggerScreenshotData(response);
+    return {
+      toDataURL() {
+        return `data:image/png;base64,${imageData}`;
+      },
+    };
+  } finally {
+    if (!wasAttached && debuggerApi.isAttached()) {
+      debuggerApi.detach();
     }
   }
 }
 
+function debuggerScreenshotData(response: unknown): string {
+  const record = objectRecord(response, "Page.captureScreenshot result");
+  const data = record.data;
+  if (typeof data !== "string" || data.length === 0) {
+    throw new Error("Page.captureScreenshot result.data must be a non-empty string");
+  }
+  return data;
+}
+
+function isExpectedTransientCaptureFailure(error: unknown): boolean {
+  return captureErrorMessage(error).includes("Current display surface not available for capture");
+}
+
+function captureErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function emptyStats(workspaceId: string | null): NiriBrowserViewStats {
+  return {
+    boundsBatchCount: 0,
+    boundsUpdateCount: 0,
+    contentLoaded: 0,
+    destroyed: 0,
+    focusedSurfaceId: null,
+    hidden: 0,
+    live: 0,
+    loading: 0,
+    registered: 0,
+    snapshotCaptureLastError: null,
+    snapshotCapturesFailed: 0,
+    snapshotCapturesStarted: 0,
+    snapshotCapturesSucceeded: 0,
+    snapshotsInFlight: 0,
+    teardownCount: 0,
+    totalBrowserPanes: 0,
+    visibleBrowserPanes: 0,
+    workspaceId,
+  };
+}
+
 export function createElectronWebContentsViewRegistry(): WebContentsViewRegistry {
   return new WebContentsViewRegistry({
+    createClipView: () => new View() as NativeView,
     createView: () =>
       new WebContentsView({
         webPreferences: {
@@ -331,6 +665,7 @@ function decodeUpdate(value: unknown): NiriBrowserViewUpdate {
   assertSupportedURL(url);
   return {
     bounds: decodeBounds(record.bounds),
+    contentBounds: decodeBounds(record.contentBounds),
     focused: booleanField(record, "focused", "NiriBrowserViewUpdate"),
     paneId: stringField(record, "paneId", "NiriBrowserViewUpdate"),
     runtimeState,
@@ -348,22 +683,6 @@ function decodeBounds(value: unknown): Rectangle {
     width: Math.max(1, Math.round(finiteNumberField(record, "width", "NiriBrowserViewBounds"))),
     x: Math.round(finiteNumberField(record, "x", "NiriBrowserViewBounds")),
     y: Math.round(finiteNumberField(record, "y", "NiriBrowserViewBounds")),
-  };
-}
-
-function emptyStats(workspaceId: string | null): NiriBrowserViewStats {
-  return {
-    boundsBatchCount: 0,
-    boundsUpdateCount: 0,
-    destroyed: 0,
-    focusedSurfaceId: null,
-    hidden: 0,
-    live: 0,
-    registered: 0,
-    teardownCount: 0,
-    totalBrowserPanes: 0,
-    visibleBrowserPanes: 0,
-    workspaceId,
   };
 }
 
@@ -390,8 +709,52 @@ function finiteNumberField(record: Record<string, unknown>, field: string, label
   return value;
 }
 
-function isArrowKey(key: string): key is NiriBrowserViewKeyEvent["key"] {
+function isArrowKey(key: string): key is NiriBrowserViewKey {
   return key === "ArrowDown" || key === "ArrowLeft" || key === "ArrowRight" || key === "ArrowUp";
+}
+
+const browserViewCommandKeys = new Set<string>([
+  "Backspace",
+  "Delete",
+  "Enter",
+  "b",
+  "c",
+  "g",
+  "n",
+  "o",
+  "s",
+  "t",
+  "v",
+]);
+
+function isBrowserViewCommandKey(key: string): key is NiriBrowserViewKey {
+  return browserViewCommandKeys.has(key);
+}
+
+function niriBrowserViewKeyEventFromInput(
+  input: BeforeInput,
+  surfaceId: string,
+  workspaceId: string,
+): NiriBrowserViewKeyEvent | null {
+  if (input.type !== "keyDown") {
+    return null;
+  }
+  const key = normalizeBrowserViewInputKey(input.key);
+  if (!isArrowKey(key) && !(input.meta && isBrowserViewCommandKey(key))) {
+    return null;
+  }
+  return {
+    altKey: input.alt,
+    key,
+    metaKey: input.meta,
+    shiftKey: input.shift,
+    surfaceId,
+    workspaceId,
+  };
+}
+
+function normalizeBrowserViewInputKey(key: string): string {
+  return key.length === 1 ? key.toLowerCase() : key;
 }
 
 function nullableStringField(
@@ -423,6 +786,34 @@ function rectangleFromUpdate(update: NiriBrowserViewUpdate): Rectangle {
     x: Math.round(update.bounds.x),
     y: Math.round(update.bounds.y),
   };
+}
+
+function contentRectangleFromUpdate(update: NiriBrowserViewUpdate): Rectangle {
+  return {
+    height: Math.max(1, Math.round(update.contentBounds.height)),
+    width: Math.max(1, Math.round(update.contentBounds.width)),
+    x: Math.round(update.contentBounds.x),
+    y: Math.round(update.contentBounds.y),
+  };
+}
+
+function childRectangleForBounds(bounds: Rectangle, contentBounds: Rectangle): Rectangle {
+  return {
+    height: contentBounds.height,
+    width: contentBounds.width,
+    x: contentBounds.x - bounds.x,
+    y: contentBounds.y - bounds.y,
+  };
+}
+
+function browserSnapshotKey(record: BrowserViewRecord): string {
+  return [
+    record.workspaceId,
+    record.surfaceId,
+    record.url,
+    record.contentBounds.width,
+    record.contentBounds.height,
+  ].join(":");
 }
 
 function sameRectangle(left: Rectangle, right: Rectangle): boolean {

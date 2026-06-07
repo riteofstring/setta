@@ -48,9 +48,11 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowValidationResult,
+  WorkspaceSelectedConversations,
   WorkspaceSession,
 } from "@generated/backend";
 import type {
+  AppWindowDragPoint,
   InstalledEditorApp,
   NiriBrowserViewStats,
   RuntimeVersions,
@@ -59,6 +61,9 @@ import type {
 
 export const ipcChannels = {
   appInstalledEditors: "app:installed-editors",
+  appWindowDragEnd: "app:window-drag-end",
+  appWindowDragMove: "app:window-drag-move",
+  appWindowDragStart: "app:window-drag-start",
   appOpenExternalUrl: "app:open-external-url",
   appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
@@ -70,6 +75,7 @@ export const ipcChannels = {
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
+  chatDeleteConversation: "chat:delete-conversation",
   chatEditQueuedMessage: "chat:edit-queued-message",
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
@@ -84,6 +90,7 @@ export const ipcChannels = {
   chatSendSteeringImmediately: "chat:send-steering-immediately",
   chatSetCodexModel: "chat:set-codex-model",
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
+  chatSetConversationPinned: "chat:set-conversation-pinned",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   codexAccountCancelLogin: "codex-account:cancel-login",
@@ -121,6 +128,8 @@ export const ipcChannels = {
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
   workspaceSelect: "workspace:select",
+  workspaceSelectedConversations: "workspace:selected-conversations",
+  workspaceSetSelectedConversation: "workspace:set-selected-conversation",
   workspaceSession: "workspace:session",
 } as const;
 
@@ -134,6 +143,7 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
   niriBrowserViewKey: "niri:browser-view-key",
+  niriBrowserViewSnapshot: "niri:browser-view-snapshot",
   terminalEvent: "terminal:event",
   workflowEvent: "workflow:event",
 } as const;
@@ -142,6 +152,18 @@ interface IpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
+  };
+  appWindowDragEnd: {
+    args: [];
+    result: void;
+  };
+  appWindowDragMove: {
+    args: [point: AppWindowDragPoint];
+    result: void;
+  };
+  appWindowDragStart: {
+    args: [point: AppWindowDragPoint];
+    result: void;
   };
   appOpenExternalUrl: {
     args: [url: string];
@@ -187,6 +209,10 @@ interface IpcContract {
     args: [workspaceId: string, title: string];
     result: Conversation;
   };
+  chatDeleteConversation: {
+    args: [workspaceId: string, conversationId: string];
+    result: ListConversationsResponse;
+  };
   chatEditQueuedMessage: {
     args: [workspaceId: string, conversationId: string, messageId: string, prompt: string];
     result: QueueEditResult;
@@ -207,6 +233,10 @@ interface IpcContract {
   chatSetCodexReasoningEffort: {
     args: [workspaceId: string, conversationId: string, effort: ReasoningEffort];
     result: ChatCommandExecuteResult;
+  };
+  chatSetConversationPinned: {
+    args: [workspaceId: string, conversationId: string, pinned: boolean];
+    result: ConversationListItem;
   };
   chatListConversations: {
     args: [workspaceId: string];
@@ -414,6 +444,14 @@ interface IpcContract {
   workspaceSelect: {
     args: [id: string];
     result: WorkspaceSession;
+  };
+  workspaceSelectedConversations: {
+    args: [];
+    result: WorkspaceSelectedConversations;
+  };
+  workspaceSetSelectedConversation: {
+    args: [workspaceId: string, conversationId: string];
+    result: WorkspaceSelectedConversations;
   };
   workspaceSession: {
     args: [];

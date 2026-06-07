@@ -212,8 +212,8 @@ function renderWrappedGenericSnapshot(host: HTMLElement, pane: NiriPane): HTMLEl
   return wrapStaticSnapshotTexture(host, renderFakePaneContent(host, pane, rowCount));
 }
 
-function renderWrappedTerminalSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
-  return wrapStaticSnapshotTexture(host, renderStaticTerminalSnapshot(host, pane));
+function renderWrappedTerminalSnapshot(host: HTMLElement): HTMLElement {
+  return wrapStaticSnapshotTexture(host, renderStaticTerminalSnapshot(host));
 }
 
 function renderWrappedEmptyFrameSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
@@ -242,23 +242,33 @@ function renderStaticBrowserSnapshot(host: HTMLElement, pane: NiriPane): HTMLEle
   title.textContent = pane.title;
   const subtitle = document.createElement("p");
   subtitle.textContent = pane.subtitle;
-  content.append(toolbar, title, subtitle);
+
+  const rowOne = document.createElement("div");
+  rowOne.className = "niri-browser-proxy-row";
+  rowOne.style.width = "82%";
+
+  const rowTwo = document.createElement("div");
+  rowTwo.className = "niri-browser-proxy-row";
+  rowTwo.style.width = "64%";
+
+  const rowThree = document.createElement("div");
+  rowThree.className = "niri-browser-proxy-row";
+  rowThree.style.width = "72%";
+
+  content.append(toolbar, title, subtitle, rowOne, rowTwo, rowThree);
   return content;
 }
 
-function renderStaticTerminalSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {
+function renderStaticTerminalSnapshot(host: HTMLElement): HTMLElement {
   const document = host.ownerDocument;
   const content = document.createElement("div");
   content.className = "niri-pane-content niri-terminal-surface";
-  const header = document.createElement("div");
-  header.className = "niri-terminal-header";
-  const title = document.createElement("h2");
-  title.textContent = pane.title;
   const status = document.createElement("span");
   status.className = "niri-terminal-status";
+  status.setAttribute("aria-live", "polite");
+  status.setAttribute("data-terminal-status", "true");
   status.textContent = "snapshot";
-  header.append(title, status);
-  content.append(header);
+  content.append(status);
   return content;
 }
 

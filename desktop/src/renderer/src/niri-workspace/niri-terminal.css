@@ -1,31 +1,7 @@
 .niri-xterm-surface {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   padding: 0;
   position: relative;
-}
-
-.niri-xterm-surface .niri-terminal-header {
-  background: var(--niri-terminal-background, #09090b);
-  border-bottom: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
-  min-height: 30px;
-  padding: 0 10px;
-}
-
-.niri-terminal-profile-select {
-  background: color-mix(in oklch, var(--background) 90%, black);
-  border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
-  border-radius: 4px;
-  color: var(--foreground);
-  flex: 0 1 150px;
-  font-size: 10px;
-  height: 23px;
-  min-width: 86px;
-  outline: none;
-  padding: 0 6px;
-}
-
-.niri-terminal-profile-select:focus-visible {
-  border-color: color-mix(in oklch, var(--primary) 70%, white);
 }
 
 .niri-xterm-viewport {

@@ -12,6 +12,7 @@ import (
 const (
 	conversationsDirName     = "conversations"
 	conversationFileName     = "conversation.json"
+	conversationPinsFileName = "conversation-pins.json"
 	conversationReadFileName = "read-state.json"
 	goalFileName             = "goal.json"
 	messagesDirName          = "messages"
@@ -60,6 +61,16 @@ type ConversationReadState struct {
 	ReadMarker               int    `json:"readMarker"`
 	LatestReadRelevantMarker int    `json:"latestReadRelevantMarker"`
 	UpdatedAt                string `json:"updatedAt"`
+}
+
+type conversationPinState struct {
+	SchemaVersion int               `json:"schemaVersion"`
+	Pins          []conversationPin `json:"pins"`
+}
+
+type conversationPin struct {
+	ConversationID string `json:"conversationId"`
+	PinnedAt       string `json:"pinnedAt"`
 }
 
 func (err *PersistenceError) Error() string {
@@ -124,6 +135,23 @@ func (store *Store) SaveConversation(conversation Conversation) error {
 	return writeJSONFile(store.conversationPath(conversation.WorkspaceID, conversation.ID), conversation)
 }
 
+func (store *Store) DeleteConversation(workspaceID string, conversationID string) error {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return err
+	}
+	if _, err := store.LoadConversation(workspaceID, conversationID); err != nil {
+		return err
+	}
+	if err := store.deleteConversationRuns(workspaceID, conversationID); err != nil {
+		return err
+	}
+	path := store.conversationDir(workspaceID, conversationID)
+	if err := os.RemoveAll(path); err != nil {
+		return &PersistenceError{Operation: "delete conversation", Path: path, Err: err}
+	}
+	return store.SetConversationPinnedAt(workspaceID, conversationID, "")
+}
+
 func (store *Store) LoadConversation(workspaceID string, conversationID string) (Conversation, error) {
 	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
 		return Conversation{}, err
@@ -143,6 +171,52 @@ func (store *Store) LoadConversation(workspaceID string, conversationID string) 
 		return Conversation{}, corruptStateErrorf(path, "conversation file id %s does not match requested id %s", conversation.ID, conversationID)
 	}
 	return conversation, nil
+}
+
+func (store *Store) LoadConversationPins(workspaceID string) (map[string]string, error) {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return nil, err
+	}
+	path := store.conversationPinsPath(workspaceID)
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]string{}, nil
+		}
+		return nil, &PersistenceError{Operation: "stat conversation pins", Path: path, Err: err}
+	}
+	var state conversationPinState
+	if err := readJSONFile(path, &state); err != nil {
+		return nil, err
+	}
+	if err := validateConversationPinState(state); err != nil {
+		return nil, corruptStateError(path, err)
+	}
+	pins := make(map[string]string, len(state.Pins))
+	for _, pin := range state.Pins {
+		pins[pin.ConversationID] = pin.PinnedAt
+	}
+	return pins, nil
+}
+
+func (store *Store) SetConversationPinnedAt(workspaceID string, conversationID string, pinnedAt string) error {
+	if err := validateStoreConversationIDs(workspaceID, conversationID); err != nil {
+		return err
+	}
+	if pinnedAt != "" {
+		if err := validateTimestamp(pinnedAt, "conversation "+conversationID+" pinnedAt"); err != nil {
+			return err
+		}
+	}
+	pins, err := store.LoadConversationPins(workspaceID)
+	if err != nil {
+		return err
+	}
+	if pinnedAt == "" {
+		delete(pins, conversationID)
+	} else {
+		pins[conversationID] = pinnedAt
+	}
+	return store.saveConversationPins(workspaceID, pins)
 }
 
 func (store *Store) LoadConversationReadState(workspaceID string, conversationID string) (ConversationReadState, error) {
@@ -268,6 +342,79 @@ func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conv
 		return conversations[left].UpdatedAt > conversations[right].UpdatedAt
 	})
 	return conversations, corrupt, nil
+}
+
+func (store *Store) deleteConversationRuns(workspaceID string, conversationID string) error {
+	dir := store.runsDir(workspaceID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return &PersistenceError{Operation: "list runs", Path: dir, Err: err}
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+			continue
+		}
+		runID := strings.TrimSuffix(entry.Name(), ".json")
+		owner, err := store.loadRunOwner(workspaceID, runID)
+		if err != nil {
+			return err
+		}
+		if owner.ConversationID != conversationID {
+			continue
+		}
+		if err := store.deleteRun(workspaceID, runID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (store *Store) deleteRun(workspaceID string, runID string) error {
+	runPath := store.runPath(workspaceID, runID)
+	if err := os.Remove(runPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return &PersistenceError{Operation: "delete run", Path: runPath, Err: err}
+	}
+	runDataPath := store.runDataDir(workspaceID, runID)
+	if err := os.RemoveAll(runDataPath); err != nil {
+		return &PersistenceError{Operation: "delete run data", Path: runDataPath, Err: err}
+	}
+	return nil
+}
+
+func (store *Store) saveConversationPins(workspaceID string, pins map[string]string) error {
+	if err := validateStoreWorkspaceID(workspaceID); err != nil {
+		return err
+	}
+	path := store.conversationPinsPath(workspaceID)
+	if len(pins) == 0 {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return &PersistenceError{Operation: "remove conversation pins", Path: path, Err: err}
+		}
+		return nil
+	}
+	state := conversationPinState{
+		SchemaVersion: SchemaVersion,
+		Pins:          make([]conversationPin, 0, len(pins)),
+	}
+	for conversationID, pinnedAt := range pins {
+		state.Pins = append(state.Pins, conversationPin{
+			ConversationID: conversationID,
+			PinnedAt:       pinnedAt,
+		})
+	}
+	sort.SliceStable(state.Pins, func(left int, right int) bool {
+		if state.Pins[left].PinnedAt == state.Pins[right].PinnedAt {
+			return state.Pins[left].ConversationID < state.Pins[right].ConversationID
+		}
+		return state.Pins[left].PinnedAt > state.Pins[right].PinnedAt
+	})
+	if err := validateConversationPinState(state); err != nil {
+		return err
+	}
+	return writeJSONFile(path, state)
 }
 
 func (store *Store) SaveMessage(workspaceID string, message ChatMessage) error {
@@ -770,142 +917,6 @@ func (store *Store) FindRunItemByProviderID(workspaceID string, runID string, pr
 		}
 	}
 	return RunItem{}, false, nil
-}
-
-func (store *Store) SaveRunItemOutput(workspaceID string, runID string, output RunItemOutput) error {
-	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
-		return err
-	}
-	if err := validateRunItemOutput(output); err != nil {
-		return err
-	}
-	return writeJSONFile(store.runItemOutputPath(workspaceID, runID, output.RunItemID, output.Ordinal, output.ID), output)
-}
-
-func (store *Store) LoadRunItemOutputs(workspaceID string, runID string) ([]RunItemOutput, error) {
-	if err := validateStoreRunIDs(workspaceID, runID); err != nil {
-		return nil, err
-	}
-	items, err := store.LoadRunItems(workspaceID, runID)
-	if err != nil {
-		return nil, err
-	}
-	outputs := []RunItemOutput{}
-	for _, item := range items {
-		itemOutputs, err := store.LoadRunItemOutputsForItem(workspaceID, runID, item.ID)
-		if err != nil {
-			return nil, err
-		}
-		outputs = append(outputs, itemOutputs...)
-	}
-	return outputs, nil
-}
-
-func (store *Store) LoadRunItemOutputsForItem(workspaceID string, runID string, runItemID string) ([]RunItemOutput, error) {
-	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
-		return nil, err
-	}
-	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
-	if err != nil {
-		return nil, err
-	}
-	return readRunItemOutputs(files, runItemID)
-}
-
-func readRunItemOutputs(files []runItemOutputFile, runItemID string) ([]RunItemOutput, error) {
-	outputs := make([]RunItemOutput, 0, len(files))
-	for _, file := range files {
-		var output RunItemOutput
-		if err := readJSONFile(file.path, &output); err != nil {
-			return nil, err
-		}
-		if err := validateRunItemOutput(output); err != nil {
-			return nil, corruptStateError(file.path, err)
-		}
-		if output.RunItemID != runItemID {
-			return nil, corruptStateErrorf(file.path, "run item output %s belongs to run item %s, not %s", output.ID, output.RunItemID, runItemID)
-		}
-		outputs = append(outputs, output)
-	}
-	return outputs, nil
-}
-
-func (store *Store) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
-	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
-		return RunItemOutputPage{}, err
-	}
-	if afterOrdinal < 0 {
-		return RunItemOutputPage{}, fmt.Errorf("run item output afterOrdinal must not be negative: %d", afterOrdinal)
-	}
-	if limit < 0 {
-		return RunItemOutputPage{}, fmt.Errorf("run item output page limit must not be negative: %d", limit)
-	}
-	if _, err := store.LoadRun(workspaceID, runID); err != nil {
-		return RunItemOutputPage{}, err
-	}
-	if err := store.validateRunItemBelongsToRun(workspaceID, runID, runItemID); err != nil {
-		return RunItemOutputPage{}, err
-	}
-	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
-	if err != nil {
-		return RunItemOutputPage{}, err
-	}
-	files = outputFilesAfterOrdinal(files, afterOrdinal)
-	hasMore := false
-	nextOrdinal := 0
-	if limit > 0 && len(files) > limit {
-		files = files[:limit]
-		hasMore = true
-		nextOrdinal = files[len(files)-1].ordinal
-	}
-	outputs, err := readRunItemOutputs(files, runItemID)
-	if err != nil {
-		return RunItemOutputPage{}, err
-	}
-	return RunItemOutputPage{RunID: runID, RunItemID: runItemID, Output: outputs, HasMore: hasMore, NextOrdinal: nextOrdinal}, nil
-}
-
-func outputFilesAfterOrdinal(files []runItemOutputFile, afterOrdinal int) []runItemOutputFile {
-	if afterOrdinal <= 0 {
-		return files
-	}
-	filtered := files[:0]
-	for _, file := range files {
-		if file.ordinal > afterOrdinal {
-			filtered = append(filtered, file)
-		}
-	}
-	return filtered
-}
-
-func (store *Store) validateRunItemBelongsToRun(workspaceID string, runID string, runItemID string) error {
-	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
-		return err
-	}
-	items, err := store.LoadRunItems(workspaceID, runID)
-	if err != nil {
-		return err
-	}
-	for _, item := range items {
-		if item.ID == runItemID {
-			return nil
-		}
-	}
-	return fmt.Errorf("run item %s was not found in run %s", runItemID, runID)
-}
-
-func (store *Store) NextRunItemOutputOrdinal(workspaceID string, runID string, runItemID string) (int, error) {
-	if err := validateStoreRunItemIDs(workspaceID, runID, runItemID); err != nil {
-		return 0, err
-	}
-	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
-	if err != nil {
-		return 0, err
-	}
-	if len(files) == 0 {
-		return 1, nil
-	}
-	return files[len(files)-1].ordinal + 1, nil
 }
 
 func (store *Store) SaveTraceEvent(workspaceID string, trace TraceEvent) error {

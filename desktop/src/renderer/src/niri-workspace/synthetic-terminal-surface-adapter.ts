@@ -390,19 +390,16 @@ function renderTerminalContent(
   const root = document.createElement("div");
   root.className = "niri-pane-content niri-terminal-surface";
 
-  const header = document.createElement("div");
-  header.className = "niri-terminal-header";
-  const title = document.createElement("h2");
-  title.textContent = pane.title;
   const status = document.createElement("span");
   status.className = "niri-terminal-status";
-  header.append(title, status);
+  status.setAttribute("aria-live", "polite");
+  status.setAttribute("data-terminal-status", "true");
 
   const rows = document.createElement("div");
   rows.className = "niri-terminal-rows";
   rows.setAttribute("aria-label", `${pane.title} virtualized terminal scrollback`);
 
-  root.append(header, rows);
+  root.append(status, rows);
   return { root, rows, status };
 }
 

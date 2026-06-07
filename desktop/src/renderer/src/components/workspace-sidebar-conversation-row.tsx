@@ -1,9 +1,10 @@
 import type { ConversationListItem, Run } from "@generated/backend";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Pin, PinOff, Trash2 } from "lucide-react";
 import { type FocusEvent, type RefObject, useLayoutEffect, useRef, useState } from "react";
 
 import { cn } from "../lib/utils";
 import { AsciiSpinner } from "./ascii-spinner";
+import { SidebarIconButton } from "./sidebar-header-actions";
 
 const hoverCardViewportInset = 8;
 
@@ -11,9 +12,11 @@ interface ConversationRowProps {
   activeRun: Run | null;
   busy: boolean;
   corruptionLabel: string | null;
+  deleteConversation: () => Promise<void>;
   item: ConversationListItem;
   selectConversation: (conversationId: string) => Promise<void>;
   selected: boolean;
+  setConversationPinned: () => Promise<void>;
   unread: boolean;
 }
 
@@ -21,13 +24,16 @@ export function ConversationRow({
   activeRun,
   busy,
   corruptionLabel,
+  deleteConversation,
   item,
   selectConversation,
   selected,
+  setConversationPinned,
   unread,
 }: ConversationRowProps) {
   const running =
     item.activeRunId !== "" || activeRunMatchesConversation(activeRun, item.conversation.id);
+  const pinned = item.pinnedAt !== "";
   const responseAge = formatConversationAge(item.conversation.updatedAt);
   const hoverCard = useConversationHoverCard({
     corruptionLabel,
@@ -43,34 +49,55 @@ export function ConversationRow({
       onMouseLeave={hoverCard.close}
       ref={hoverCard.rowRef}
     >
-      <button
+      <div
         className={cn(
-          "grid h-7 w-full min-w-0 grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left hover:bg-accent/70 hover:text-foreground",
+          "group/conversation-row grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-accent/70 hover:text-foreground",
           selected ? "text-foreground" : "text-muted-foreground",
         )}
-        data-testid="conversation-list-item"
-        disabled={busy}
-        onClick={() => void selectConversation(item.conversation.id)}
-        type="button"
       >
-        <ConversationStatusIndicator
-          corruptionLabel={corruptionLabel}
-          running={running}
-          unread={unread && !selected}
-        />
-        <span className="truncate text-xs" title={item.conversation.title}>
-          {item.conversation.title}
-        </span>
-        {responseAge ? (
-          <time
-            className="justify-self-end text-right text-[11px] text-muted-foreground"
-            dateTime={item.conversation.updatedAt}
-            title={item.conversation.updatedAt}
+        <button
+          className="grid h-7 min-w-0 grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 px-2 text-left"
+          data-testid="conversation-list-item"
+          disabled={busy}
+          onClick={() => void selectConversation(item.conversation.id)}
+          type="button"
+        >
+          <ConversationStatusIndicator
+            corruptionLabel={corruptionLabel}
+            pinned={pinned}
+            running={running}
+            unread={unread && !selected}
+          />
+          <span className="truncate text-xs" title={item.conversation.title}>
+            {item.conversation.title}
+          </span>
+          {responseAge ? (
+            <time
+              className="justify-self-end text-right text-[11px] text-muted-foreground transition-opacity group-hover/conversation-row:opacity-0 group-focus-within/conversation-row:opacity-0"
+              dateTime={item.conversation.updatedAt}
+              title={item.conversation.updatedAt}
+            >
+              {responseAge}
+            </time>
+          ) : null}
+        </button>
+        <div className="mr-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/conversation-row:opacity-100 group-focus-within/conversation-row:opacity-100">
+          <SidebarIconButton
+            disabled={busy}
+            label={pinned ? "Unpin chat" : "Pin chat"}
+            onClick={() => void setConversationPinned()}
           >
-            {responseAge}
-          </time>
-        ) : null}
-      </button>
+            {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+          </SidebarIconButton>
+          <SidebarIconButton
+            disabled={busy || running}
+            label="Delete chat"
+            onClick={() => void deleteConversation()}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </SidebarIconButton>
+        </div>
+      </div>
       <ConversationHoverCard
         cardRef={hoverCard.cardRef}
         corruptionLabel={corruptionLabel}
@@ -197,10 +224,12 @@ function clampedHoverCardTop(rowRect: DOMRect, cardHeight: number) {
 
 function ConversationStatusIndicator({
   corruptionLabel,
+  pinned,
   running,
   unread,
 }: {
   corruptionLabel: string | null;
+  pinned: boolean;
   running: boolean;
   unread: boolean;
 }) {
@@ -227,6 +256,8 @@ function ConversationStatusIndicator({
           className="h-1.5 w-1.5 rounded-full bg-primary"
           role="status"
         />
+      ) : pinned ? (
+        <Pin aria-label="Pinned chat" className="h-3 w-3 text-muted-foreground" role="status" />
       ) : null}
     </span>
   );

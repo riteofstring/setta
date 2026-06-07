@@ -396,7 +396,10 @@ function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
     return null;
   }
   return (
-    <div className="mb-2 flex justify-center">
+    <div
+      className={cn(chatReadableColumnPaddedClass, "mb-2 flex justify-center")}
+      data-testid="chat-transcript-header"
+    >
       <Button
         className="border-border bg-background text-foreground hover:bg-accent"
         onClick={() => void loadOlder()}
@@ -455,7 +458,7 @@ function JumpToLatestButton({
   }
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-4 flex justify-center">
-      <div className="flex w-full max-w-2xl justify-end">
+      <div className={cn(chatReadableColumnClass, "flex justify-end")}>
         <Button
           aria-label="Jump to latest"
           className="pointer-events-auto h-7 w-7 rounded-sm border-border bg-muted/95 px-0 text-foreground shadow-lg shadow-black/30 hover:bg-accent hover:text-foreground"
@@ -502,7 +505,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
 }) {
   return (
     <div
-      className="min-w-0"
+      className={chatReadableColumnClass}
       data-run-id={turn.run.id}
       data-testid="chat-transcript-turn"
       data-turn-status={turn.run.status}

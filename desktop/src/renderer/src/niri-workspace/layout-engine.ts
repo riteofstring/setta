@@ -8,6 +8,7 @@ import type {
   NiriWorkspaceScene,
   OpenPaneRequest,
   PaneId,
+  PaneInsertionPlacement,
   PaneRenderItem,
   TerminalPaneConfig,
 } from "./types";
@@ -23,7 +24,6 @@ import {
 } from "./column-slots";
 import {
   clamp,
-  columnsByIndexes,
   type ColumnGeometry,
   isHorizontalDirection,
   isVerticalDirection,
@@ -32,15 +32,17 @@ import {
   nearestPaneByVerticalCenter,
   nextNumericSuffix,
   normalizedColumnWidthSpec,
-  overviewScale,
   type PaneDirection,
   type PaneLocation,
   planeTopOffsets,
-  pushColumnItems,
-  renderedColumnIndexesForLayout,
   scrollOffsetForColumn,
-  totalUnscaledPlaneHeight,
 } from "./layout-engine-helpers";
+import {
+  normalizedPaneWeight,
+  normalizeTerminalPaneConfig,
+  terminalConfigForRequest,
+} from "./layout-engine-normalization";
+import { renderNormalLayoutFrame, renderOverviewLayoutFrame } from "./layout-engine-rendering";
 import {
   reorderPaneColumnBefore,
   reorderPaneColumnForPlacement,
@@ -149,6 +151,28 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     this.paneById.set(pane.paneId, pane);
     targetColumn.paneIds.push(pane.paneId);
     return pane.paneId;
+  }
+
+  openPaneNearPane(
+    paneId: PaneId,
+    placement: PaneInsertionPlacement,
+    request: OpenPaneRequest,
+  ): PaneId {
+    const source = this.locationForPane(paneId);
+    if (!source) {
+      return this.openPane(request);
+    }
+    if (placement === "right") {
+      const columnId = this.insertAdjacentColumn(source, "right", request.widthSpec).columnId;
+      return this.openPane({ ...request, columnId });
+    }
+    const sourceColumn = this.columns[source.columnIndex];
+    const columnId = this.insertColumnInPlaneSlot(
+      source.planeIndex + (placement === "above" ? -1 : 1),
+      sourceColumn ? columnSlotIndex(sourceColumn) : source.planeColumnIndex,
+      request.widthSpec,
+    ).columnId;
+    return this.openPane({ ...request, columnId });
   }
 
   configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId {
@@ -269,57 +293,17 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   }
 
   private renderNormalFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
-    const focusedLocation = this.locationForPane(input.focusedPaneId);
-    const focusedPlaneIndex = focusedLocation?.planeIndex ?? this.planeIndexes()[0] ?? 0;
-    const maximizedPaneId = input.maximizedPaneId;
-    const geometry = this.columnGeometry(input.viewport.width, maximizedPaneId);
-    const scrollColumn = this.constrainScrollColumnToViewport(
-      input.scrollColumn,
-      input.viewport.width,
-      focusedPlaneIndex,
-      geometry,
-    );
-    const availableHeight = this.availablePaneHeight(input.viewport.height);
-    const verticalOffset = input.scrollRow;
-    const planeOffsets = planeTopOffsets(this.planeIndexes(), input.viewport.height);
-    const normalPaneSpacing = {
-      padding: this.scene.padding,
-      rowGap: this.scene.rowGap,
-    };
-
-    const columnIndexes = renderedColumnIndexesForLayout({
+    renderNormalLayoutFrame({
+      availableHeight: this.availablePaneHeight(input.viewport.height),
       columns: this.columns,
-      geometry,
-      renderAllColumns: input.renderAllColumns ?? false,
+      focusedLocation: this.locationForPane(input.focusedPaneId),
+      geometry: this.columnGeometry(input.viewport.width, input.maximizedPaneId),
+      input,
+      paneById: this.paneById,
+      planeIndexes: this.planeIndexes(),
+      push,
       scene: this.scene,
-      scrollColumn,
-      verticalOffset,
-      viewport: input.viewport,
     });
-
-    for (const column of columnsByIndexes(this.columns, columnIndexes)) {
-      const columnWidth = geometry.widths[column.index] ?? minimumColumnWidth;
-      const x =
-        this.scene.padding +
-        (geometry.offsets[column.index] ?? 0) -
-        this.scrollOffsetForPlane(scrollColumn, geometry, column.planeIndex);
-      const planeTop = planeOffsets.get(column.planeIndex) ?? 0;
-      pushColumnItems({
-        availableHeight,
-        column,
-        columnWidth,
-        focusedPaneId: input.focusedPaneId,
-        maximizedPaneId,
-        moving: input.movementPhase === "moving",
-        paneById: this.paneById,
-        presentationMode: input.presentationMode,
-        push,
-        scale: 1,
-        scene: normalPaneSpacing,
-        x,
-        yOffset: planeTop - verticalOffset,
-      });
-    }
   }
 
   private paneReorderPreviewColumns(): NiriColumn[] | null {
@@ -627,9 +611,13 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     return clamp(scrollColumn, 0, Math.max(0, planeOffsets.length - 1));
   }
 
-  private insertAdjacentColumn(source: PaneLocation, direction: "left" | "right"): NiriColumn {
+  private insertAdjacentColumn(
+    source: PaneLocation,
+    direction: "left" | "right",
+    widthSpec: ColumnWidthSpec = this.scene.defaultColumnWidthSpec,
+  ): NiriColumn {
     const planeColumnIndex = source.planeColumnIndex + (direction === "left" ? 0 : 1);
-    return this.insertColumnInPlane(source.planeIndex, planeColumnIndex);
+    return this.insertColumnInPlane(source.planeIndex, planeColumnIndex, widthSpec);
   }
 
   private insertColumnAfter(
@@ -833,38 +821,16 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   }
 
   private renderOverviewFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
-    const geometry = this.columnGeometry(input.viewport.width, null, this.scene.columnGap, true);
-    const unscaledWidth = this.maxUnscaledPlaneWidth(geometry);
-    const unscaledHeight = totalUnscaledPlaneHeight(
-      this.planeIndexes().length,
-      input.viewport.height,
-    );
-    const scale = overviewScale(input.viewport, unscaledWidth, unscaledHeight, this.scene.padding);
-    const xOffset = Math.max(
-      this.scene.padding,
-      Math.floor((input.viewport.width - unscaledWidth * scale) / 2),
-    );
-    const yOffset = Math.max(0, Math.floor((input.viewport.height - unscaledHeight * scale) / 2));
-    const availableHeight = this.availablePaneHeight(input.viewport.height);
-    const planeOffsets = planeTopOffsets(this.planeIndexes(), input.viewport.height);
-
-    for (const column of this.columns) {
-      const columnWidth = geometry.widths[column.index] ?? minimumColumnWidth;
-      pushColumnItems({
-        availableHeight,
-        column,
-        columnWidth,
-        focusedPaneId: input.focusedPaneId,
-        moving: input.movementPhase === "moving",
-        paneById: this.paneById,
-        presentationMode: input.presentationMode,
-        push,
-        scale,
-        scene: this.scene,
-        x: xOffset + (geometry.offsets[column.index] ?? 0) * scale,
-        yOffset: yOffset + (planeOffsets.get(column.planeIndex) ?? 0) * scale,
-      });
-    }
+    renderOverviewLayoutFrame({
+      availableHeight: this.availablePaneHeight(input.viewport.height),
+      columns: this.columns,
+      geometry: this.columnGeometry(input.viewport.width, null, this.scene.columnGap, true),
+      input,
+      paneById: this.paneById,
+      planeIndexes: this.planeIndexes(),
+      push,
+      scene: this.scene,
+    });
   }
 
   private nextColumnId(): ColumnId {
@@ -963,14 +929,6 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       .map((column, index) => ({ ...column, index, slotIndex: columnSlotIndex(column) }));
   }
 
-  private scrollOffsetForPlane(
-    scrollColumn: number,
-    geometry: ColumnGeometry,
-    planeIndex: number,
-  ): number {
-    return scrollOffsetForColumn(scrollColumn, this.offsetsForPlane(planeIndex, geometry));
-  }
-
   private totalUnscaledPlaneWidth(planeIndex: number, geometry: ColumnGeometry): number {
     const columns = this.columnsInPlane(planeIndex);
     const lastColumn = columns.at(-1);
@@ -1021,35 +979,4 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       rowGap: this.scene.rowGap,
     });
   }
-}
-
-function terminalConfigForRequest(
-  request: OpenPaneRequest,
-  existing?: NiriPane,
-): TerminalPaneConfig | undefined {
-  const surfaceKind = request.surfaceKind ?? existing?.surfaceKind;
-  if (surfaceKind !== "terminal") {
-    return undefined;
-  }
-  return normalizeTerminalPaneConfig(request.terminalConfig ?? existing?.terminalConfig);
-}
-
-function normalizeTerminalPaneConfig(config: TerminalPaneConfig | undefined): TerminalPaneConfig {
-  return {
-    cwdOverride: normalizedOptionalString(config?.cwdOverride),
-    profileId: normalizedOptionalString(config?.profileId) ?? "",
-    titleOverride: normalizedOptionalString(config?.titleOverride),
-  };
-}
-
-function normalizedPaneWeight(value: number): number {
-  return Number.isFinite(value) ? Math.max(0.1, value) : 1;
-}
-
-function normalizedOptionalString(value: string | undefined): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed;
 }

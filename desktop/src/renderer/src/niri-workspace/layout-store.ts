@@ -8,6 +8,7 @@ import type {
   OpenPaneRequest,
   PaneLimitPolicy,
   PaneId,
+  PaneInsertionPlacement,
   Rect,
   SurfaceKind,
   TerminalPaneConfig,
@@ -149,16 +150,39 @@ export class NiriLayoutStore {
     if (viewport) {
       this.lastViewport = viewport;
     }
-    const visualTargetPaneId = this.visualTargetPaneId(direction, viewport);
-    if (visualTargetPaneId) {
-      this.setFocusedPane(visualTargetPaneId);
-      this.notify();
-      return;
-    }
-    if (!this.moveFallbackFocus(direction)) {
+    if (!this.moveFocusFromCurrentPane(direction, viewport)) {
       return;
     }
     this.notify();
+  }
+
+  moveFocusFromPane(
+    paneId: PaneId,
+    direction: "up" | "down" | "left" | "right",
+    viewport?: Rect,
+  ): boolean {
+    if (viewport) {
+      this.lastViewport = viewport;
+    }
+    if (!this.engine.paneLocation(paneId)) {
+      return false;
+    }
+    this.setFocusedPane(paneId);
+    this.moveFocusFromCurrentPane(direction, viewport);
+    this.notify();
+    return true;
+  }
+
+  private moveFocusFromCurrentPane(
+    direction: "up" | "down" | "left" | "right",
+    viewport?: Rect,
+  ): boolean {
+    const visualTargetPaneId = this.visualTargetPaneId(direction, viewport);
+    if (visualTargetPaneId) {
+      this.setFocusedPane(visualTargetPaneId);
+      return true;
+    }
+    return this.moveFallbackFocus(direction);
   }
 
   private visualTargetPaneId(
@@ -239,12 +263,19 @@ export class NiriLayoutStore {
   }
 
   openEmptyFrame(): PaneId {
-    return this.openPane({
-      subtitle: "choose a pane type",
-      surfaceKind: "empty-frame",
-      title: "New frame",
-      tone: "slate",
-    });
+    return this.openPane(emptyFramePaneRequest());
+  }
+
+  openEmptyFrameNear(paneId: PaneId, placement: PaneInsertionPlacement): PaneId {
+    const request = emptyFramePaneRequest();
+    const limitState = this.paneLimitState(request);
+    if (!limitState.allowed) {
+      throw new Error(`niri pane limit reached for ${limitState.surfaceKind}`);
+    }
+    const createdPaneId = this.engine.openPaneNearPane(paneId, placement, request);
+    this.setFocusedPane(createdPaneId);
+    this.notify();
+    return createdPaneId;
   }
 
   configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId {
@@ -540,6 +571,15 @@ export class NiriLayoutStore {
     this.engine.unlockColumnWidth(this.focusedColumnId(), viewport.width);
     this.notify();
   }
+}
+
+function emptyFramePaneRequest(): OpenPaneRequest {
+  return {
+    subtitle: "choose a pane type",
+    surfaceKind: "empty-frame",
+    title: "New frame",
+    tone: "slate",
+  };
 }
 
 function isHorizontalFocusDirection(direction: "up" | "down" | "left" | "right"): boolean {

@@ -2,6 +2,7 @@ export type ChatOperation =
   | "approving"
   | "cancelling"
   | "creating"
+  | "deleting"
   | "editingQueued"
   | "commanding"
   | "loading"

@@ -1,7 +1,7 @@
 import type { WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import { PanelLeftOpen } from "lucide-react";
-import type { ReactNode } from "react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
 import {
@@ -10,6 +10,7 @@ import {
   projectPaneMaxWidth,
   projectPaneMinWidth,
 } from "./app-layout";
+import { useAppWindowDragHandlers } from "./app-window-drag";
 import { type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizablePane } from "./components/resizable-pane";
 import { SettaLogoMark } from "./components/setta-logo-mark";
@@ -59,7 +60,9 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   }, [focusNiriSurface]);
   const createConversation = chat.createConversation;
   const createWorkspaceConversation = chat.createWorkspaceConversation;
+  const deleteConversation = chat.deleteConversation;
   const selectConversation = chat.selectConversation;
+  const setConversationPinned = chat.setConversationPinned;
   const createConversationAndFocusChat = useCallback(
     async (title?: string) => {
       await createConversation(title);
@@ -101,9 +104,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           chromeInsetTop={projectPaneOpen}
           createConversation={createConversationAndFocusChat}
           createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
+          deleteConversation={deleteConversation}
           open={projectPaneOpen}
           openSettingsPane={openSettingsPane}
           selectConversation={selectConversationAndFocusChat}
+          setConversationPinned={setConversationPinned}
           setWidth={setProjectPaneWidth}
           width={effectiveProjectPaneWidth}
           workspace={workspace}
@@ -204,9 +209,11 @@ function ProjectPane({
   chromeInsetTop,
   createConversation,
   createWorkspaceConversation,
+  deleteConversation,
   open,
   openSettingsPane,
   selectConversation,
+  setConversationPinned,
   setWidth,
   width,
   workspace,
@@ -215,9 +222,11 @@ function ProjectPane({
   chromeInsetTop: boolean;
   createConversation: ChatView["createConversation"];
   createWorkspaceConversation: ChatView["createWorkspaceConversation"];
+  deleteConversation: ChatView["deleteConversation"];
   open: boolean;
   openSettingsPane: () => void;
   selectConversation: ChatView["selectConversation"];
+  setConversationPinned: ChatView["setConversationPinned"];
   setWidth: (width: number) => void;
   width: number;
   workspace: WorkspaceViewState;
@@ -243,6 +252,7 @@ function ProjectPane({
           closeWorkspace={workspace.closeWorkspace}
           createConversation={createConversation}
           createWorkspaceConversation={createWorkspaceConversation}
+          deleteConversation={deleteConversation}
           openLocalFolder={workspace.openLocalFolder}
           openSettingsPane={openSettingsPane}
           openWorkspacePath={workspace.openWorkspacePath}
@@ -250,6 +260,7 @@ function ProjectPane({
           removeRecent={workspace.removeRecent}
           selectConversation={selectConversation}
           selectWorkspace={workspace.selectWorkspace}
+          setConversationPinned={setConversationPinned}
           selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectedWorkspaceId={workspace.selectedWorkspaceId}
           sidebarWidth={width}
@@ -275,7 +286,7 @@ function AppChromeControls({
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   projectPaneWidth: number;
-  setProjectPaneOpen: (open: boolean) => void;
+  setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   return (
     <>
@@ -297,35 +308,39 @@ function FloatingProjectPaneControl({
 }: {
   active: boolean;
   platform: DesktopPlatform;
-  setProjectPaneOpen: (open: boolean) => void;
+  setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
 }) {
+  const Icon = active ? PanelLeftClose : PanelLeftOpen;
   return (
     <div
       className={cn(
-        "app-no-drag fixed top-1 z-50 text-muted-foreground",
+        "app-no-drag pointer-events-auto fixed top-1 z-50 text-muted-foreground",
         floatingProjectControlLeftInsetClass(platform),
       )}
     >
       <ShellPaneToggle
         active={active}
         label={active ? "Hide project sidebar" : "Show project sidebar"}
-        onClick={() => setProjectPaneOpen(!active)}
+        onClick={() => setProjectPaneOpen((current) => !current)}
       >
-        <PanelLeftOpen className="h-3.5 w-3.5" />
+        <Icon className="h-3.5 w-3.5" />
       </ShellPaneToggle>
     </div>
   );
 }
 
 function ShellTopBar({ platform }: { platform: DesktopPlatform }) {
+  const windowDragHandlers = useAppWindowDragHandlers();
   return (
     <div
       aria-hidden="true"
       className={cn(
-        "app-drag pointer-events-auto fixed top-0 z-30 h-10 bg-transparent",
+        "pointer-events-auto fixed top-0 z-30 h-10 bg-transparent",
         shellTopBarDragClass(platform),
       )}
+      data-setta-shell-title-bar="true"
       data-testid="shell-top-bar"
+      {...windowDragHandlers}
     />
   );
 }
@@ -352,8 +367,10 @@ function ShellPaneToggle({
           ? "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 focus-visible:bg-accent/80"
           : "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground"
       }
+      data-testid="project-sidebar-toggle"
       disabled={disabled}
       onClick={onClick}
+      onPointerDown={(event) => event.stopPropagation()}
       title={label}
       type="button"
     >

@@ -24,7 +24,11 @@ describe("workspace sidebar navigation model", () => {
             latestReadRelevantMarker: 2,
             readMarker: 1,
           }),
-          conversationListItem("conversation_web_fix", "Fix web", web.id),
+          conversationListItem("conversation_web_fix", "Fix web", web.id, {
+            latestReadRelevantMarker: 0,
+            pinnedAt: "2026-05-29T21:00:00Z",
+            readMarker: 0,
+          }),
         ]),
       },
     });
@@ -50,6 +54,17 @@ describe("workspace sidebar navigation model", () => {
     });
     expect(items[2]).toMatchObject({
       commands: {
+        delete: {
+          conversationId: "conversation_web_build",
+          type: "deleteConversation",
+          workspaceId: web.id,
+        },
+        pin: {
+          conversationId: "conversation_web_build",
+          pinned: true,
+          type: "setConversationPinned",
+          workspaceId: web.id,
+        },
         primary: {
           conversationId: "conversation_web_build",
           type: "selectConversation",
@@ -61,6 +76,14 @@ describe("workspace sidebar navigation model", () => {
       unread: true,
     });
     expect(items[3]).toMatchObject({
+      commands: {
+        pin: {
+          conversationId: "conversation_web_fix",
+          pinned: false,
+          type: "setConversationPinned",
+          workspaceId: web.id,
+        },
+      },
       kind: "conversation",
       selected: true,
       unread: false,
@@ -250,13 +273,14 @@ function conversationListItem(
   id: string,
   title: string,
   workspaceId: string = "workspace_api",
-  markers: { latestReadRelevantMarker: number; readMarker: number } = {
+  markers: { latestReadRelevantMarker: number; pinnedAt?: string; readMarker: number } = {
     latestReadRelevantMarker: 0,
     readMarker: 0,
   },
 ): ConversationListItem {
   return {
     activeRunId: "",
+    pinnedAt: markers.pinnedAt ?? "",
     conversation: {
       archivedAt: "",
       codexSettings: null,

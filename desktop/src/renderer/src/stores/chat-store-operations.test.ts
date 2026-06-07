@@ -502,6 +502,7 @@ function testConversation(): Conversation {
 function conversationItem(conversation: Conversation, messageCount: number): ConversationListItem {
   return {
     activeRunId: "",
+    pinnedAt: "",
     conversation,
     latestReadRelevantMarker: 0,
     messageCount,

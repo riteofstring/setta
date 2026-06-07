@@ -41,7 +41,7 @@ export function MessageTimestamp({ message }: { message: ChatMessage }) {
   }
   return (
     <time
-      className="mt-1 block text-[11px] leading-none text-muted-foreground"
+      className="mt-1 block text-[11px] leading-none font-medium text-foreground/60 opacity-100"
       data-testid="chat-message-timestamp"
       dateTime={message.createdAt}
       title={fullMessageTime(message.createdAt)}

@@ -32,7 +32,10 @@ export interface ConversationDetailState {
 }
 
 export function normalizeStatePatch(state: ChatStore, patch: ChatPatch): ChatPatch {
-  return cacheSelectedConversationDetail(state, normalizeChatPatch(patch));
+  return rememberSelectedConversationId(
+    state,
+    cacheSelectedConversationDetail(state, normalizeChatPatch(patch)),
+  );
 }
 
 export function conversationDetailPatch(detail: ConversationDetailState): ChatPatch {
@@ -68,6 +71,25 @@ function cacheSelectedConversationDetail(state: ChatStore, patch: ChatPatch): Ch
       ...state.conversationDetailsById,
       ...patch.conversationDetailsById,
       [conversation.id]: conversationDetailFromStatePatch(state, patch, conversation),
+    },
+  };
+}
+
+function rememberSelectedConversationId(state: ChatStore, patch: ChatPatch): ChatPatch {
+  if (patch.selectedConversation === undefined || patch.selectedConversation === null) {
+    return patch;
+  }
+  const workspaceId =
+    patch.workspaceId ?? state.workspaceId ?? patch.selectedConversation.workspaceId;
+  if (workspaceId === "") {
+    return patch;
+  }
+  return {
+    ...patch,
+    selectedConversationIdsByWorkspaceId: {
+      ...state.selectedConversationIdsByWorkspaceId,
+      ...patch.selectedConversationIdsByWorkspaceId,
+      [workspaceId]: patch.selectedConversation.id,
     },
   };
 }

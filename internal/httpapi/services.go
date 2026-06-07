@@ -24,6 +24,8 @@ type WorkspaceService interface {
 	RemoveRecent(id string) (workspacesession.WorkspaceSession, error)
 	Reorder(ids []string) (workspacesession.WorkspaceSession, error)
 	Select(id string) (workspacesession.WorkspaceSession, error)
+	SelectedConversationIDs() map[string]string
+	SetSelectedConversation(workspaceID string, conversationID string) (map[string]string, error)
 	Session() workspacesession.WorkspaceSession
 }
 
@@ -31,6 +33,7 @@ type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
+	DeleteConversation(workspaceID string, conversationID string) (chat.ConversationListResult, error)
 	ListDiagnostics(workspaceID string, conversationID string, runID string) ([]chat.Diagnostic, error)
 	ListConversations(workspaceID string) (chat.ConversationListResult, error)
 	MarkConversationRead(workspaceID string, conversationID string) (chat.ConversationListItem, error)
@@ -48,6 +51,7 @@ type ChatService interface {
 	SendSteeringImmediately(workspaceID string, conversationID string, prompt string) (chat.ImmediateSteeringResult, error)
 	SetChatCodexModel(workspaceID string, conversationID string, modelID string) (chat.ChatCommandExecuteResult, error)
 	SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort chat.ReasoningEffort) (chat.ChatCommandExecuteResult, error)
+	SetConversationPinned(workspaceID string, conversationID string, pinned bool) (chat.ConversationListItem, error)
 	SteerActiveRun(workspaceID string, conversationID string, prompt string) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)

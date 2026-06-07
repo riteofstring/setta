@@ -4,7 +4,7 @@ import { NiriLikeLayoutEngine } from "./layout-engine";
 import { minimumColumnWidth } from "./layout-engine-helpers";
 import { NiriLayoutStore } from "./layout-store";
 import { applyPaneResizePointerMove, type PaneResizeSession } from "./pane-resize-session";
-import type { PaneLimitPolicy, Rect } from "./types";
+import type { NiriColumn, NiriWorkspaceScene, PaneLimitPolicy, Rect } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
 const viewport: Rect = {
@@ -191,6 +191,42 @@ describe("niri layout store", () => {
     expect(scene.columns[1]?.paneIds).toEqual([emptyPaneId]);
   });
 
+  test("opens overview ghost empty frames around the target pane", () => {
+    const rightStore = createStore();
+    const rightPaneId = rightStore.openEmptyFrameNear("workspace_pane_1", "right");
+    const rightScene = rightStore.toScene();
+
+    expect(rightStore.getSnapshot()).toMatchObject({
+      focusedPaneId: rightPaneId,
+      focusedRowIndex: 0,
+    });
+    expect(rightScene.paneById.get(rightPaneId)).toMatchObject({
+      subtitle: "choose a pane type",
+      surfaceKind: "empty-frame",
+      title: "New frame",
+      tone: "slate",
+    });
+    expect(rightScene.columns.findIndex((column) => column.paneIds.includes(rightPaneId))).toBe(2);
+
+    const aboveStore = createStore();
+    const abovePaneId = aboveStore.openEmptyFrameNear("workspace_pane_1", "above");
+    const aboveScene = aboveStore.toScene();
+    const aboveTargetColumn = requireColumnForPane(aboveScene, "workspace_pane_1");
+    const aboveColumn = requireColumnForPane(aboveScene, abovePaneId);
+
+    expect(aboveColumn.planeIndex).toBe(aboveTargetColumn.planeIndex - 1);
+    expect(aboveColumn.slotIndex).toBe(aboveTargetColumn.slotIndex);
+
+    const belowStore = createStore();
+    const belowPaneId = belowStore.openEmptyFrameNear("workspace_pane_1", "below");
+    const belowScene = belowStore.toScene();
+    const belowTargetColumn = requireColumnForPane(belowScene, "workspace_pane_1");
+    const belowColumn = requireColumnForPane(belowScene, belowPaneId);
+
+    expect(belowColumn.planeIndex).toBe(belowTargetColumn.planeIndex + 1);
+    expect(belowColumn.slotIndex).toBe(belowTargetColumn.slotIndex);
+  });
+
   test("configures an empty frame into a selected pane type without moving it", () => {
     const store = createStore();
     const emptyPaneId = store.openEmptyFrame();
@@ -319,6 +355,20 @@ describe("niri layout store", () => {
     store.moveFocus("down", viewport);
     store.moveFocus("down", viewport);
     expect(store.getSnapshot().focusedPaneId).toBe(lowerPaneId);
+  });
+
+  test("moves focus from an unfocused pane title bar target", () => {
+    const store = createStore();
+
+    expect(store.getSnapshot().focusedPaneId).toBe("workspace_pane_0");
+
+    expect(store.moveFocusFromPane("workspace_pane_2", "right", viewport)).toBe(true);
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 3,
+      focusedPaneId: "workspace_pane_3",
+      focusedRowIndex: 0,
+    });
   });
 
   test("keeps column focus navigation active while overview is open", () => {
@@ -544,4 +594,16 @@ function createStore(paneLimits?: PaneLimitPolicy): NiriLayoutStore {
   return new NiriLayoutStore(new NiriLikeLayoutEngine(scene), scene, focusedPaneId, {
     paneLimits,
   });
+}
+
+function columnForPane(scene: NiriWorkspaceScene, paneId: string): NiriColumn | undefined {
+  return scene.columns.find((column) => column.paneIds.includes(paneId));
+}
+
+function requireColumnForPane(scene: NiriWorkspaceScene, paneId: string): NiriColumn {
+  const column = columnForPane(scene, paneId);
+  if (!column) {
+    throw new Error(`column for pane ${paneId} was not found`);
+  }
+  return column;
 }

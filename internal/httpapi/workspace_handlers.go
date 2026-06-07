@@ -10,6 +10,35 @@ func (handler handler) workspaceSession(response http.ResponseWriter, request *h
 	writeJSON(response, http.StatusOK, service.Session())
 }
 
+func (handler handler) workspaceSelectedConversations(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	writeJSON(response, http.StatusOK, WorkspaceSelectedConversations{
+		SelectedConversationIDsByWorkspaceID: service.SelectedConversationIDs(),
+	})
+}
+
+func (handler handler) setWorkspaceSelectedConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	var payload SetWorkspaceSelectedConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	selected, err := service.SetSelectedConversation(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeWorkspaceError(response, "set_workspace_selected_conversation_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, WorkspaceSelectedConversations{
+		SelectedConversationIDsByWorkspaceID: selected,
+	})
+}
+
 func (handler handler) openWorkspace(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkspaceService(response, handler.workspaceService)
 	if service == nil {

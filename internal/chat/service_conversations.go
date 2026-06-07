@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -16,6 +17,11 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 	}
 	runs, corruptRuns, err := service.validRunsForWorkspaceList(workspaceID)
 	if err != nil {
+		return ConversationListResult{}, err
+	}
+	pins, err := service.store.LoadConversationPins(workspaceID)
+	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
 		return ConversationListResult{}, err
 	}
 	findings := append([]CorruptStateFinding{}, corruptConversations...)
@@ -40,10 +46,12 @@ func (service *Service) ListConversations(workspaceID string) (ConversationListR
 			Conversation:             conversation,
 			MessageCount:             count,
 			ActiveRunID:              activeRunIDFromRuns(runs, conversation.ID),
+			PinnedAt:                 pins[conversation.ID],
 			ReadMarker:               readState.ReadMarker,
 			LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
 		})
 	}
+	sortConversationListItems(items)
 	diagnostics := service.recordCorruptStateFindings(findings)
 	return ConversationListResult{
 		Conversations: items,
@@ -82,6 +90,50 @@ func (service *Service) CreateConversation(workspaceID string, title string) (Co
 		return Conversation{}, err
 	}
 	return conversation, nil
+}
+
+func (service *Service) DeleteConversation(workspaceID string, conversationID string) (ConversationListResult, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return ConversationListResult{}, err
+	}
+	service.mu.Lock()
+	if err := service.ensureConversationCanDeleteLocked(workspaceID, conversationID); err != nil {
+		service.mu.Unlock()
+		return ConversationListResult{}, err
+	}
+	err := service.store.DeleteConversation(workspaceID, conversationID)
+	service.mu.Unlock()
+	if err != nil {
+		return ConversationListResult{}, err
+	}
+	return service.ListConversations(workspaceID)
+}
+
+func (service *Service) SetConversationPinned(workspaceID string, conversationID string, pinned bool) (ConversationListItem, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return ConversationListItem{}, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	if _, err := service.store.LoadConversation(workspaceID, conversationID); err != nil {
+		return ConversationListItem{}, err
+	}
+	pinnedAt := ""
+	if pinned {
+		pinnedAt = timestamp(service.now())
+	}
+	if err := service.store.SetConversationPinnedAt(workspaceID, conversationID, pinnedAt); err != nil {
+		return ConversationListItem{}, err
+	}
+	item, err := service.conversationListItemLocked(workspaceID, conversationID)
+	if err != nil {
+		return ConversationListItem{}, err
+	}
+	if !item.Conversation.Internal {
+		_, err = service.events.Publish(NewConversationUpdatedEvent(workspaceID, conversationID, "", item))
+	}
+	return item, err
 }
 
 func (service *Service) MarkConversationRead(workspaceID string, conversationID string) (ConversationListItem, error) {
@@ -187,13 +239,61 @@ func (service *Service) conversationListItemFromConversationLocked(conversation 
 	if err != nil {
 		return ConversationListItem{}, err
 	}
+	pins, err := service.store.LoadConversationPins(workspaceID)
+	if err != nil {
+		return ConversationListItem{}, err
+	}
 	return ConversationListItem{
 		ActiveRunID:              activeRunID,
 		Conversation:             conversation,
 		MessageCount:             count,
+		PinnedAt:                 pins[conversationID],
 		ReadMarker:               readState.ReadMarker,
 		LatestReadRelevantMarker: readState.LatestReadRelevantMarker,
 	}, nil
+}
+
+func (service *Service) ensureConversationCanDeleteLocked(workspaceID string, conversationID string) error {
+	key := activeKey(workspaceID, conversationID)
+	if _, ok := service.active[key]; ok {
+		return fmt.Errorf("conversation %s has an active run", conversationID)
+	}
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
+	if err != nil {
+		return err
+	}
+	for _, run := range runs {
+		if run.Status == RunStatusRunning || run.Status == RunStatusQueued {
+			return fmt.Errorf("conversation %s has %s run %s", conversationID, run.Status, run.ID)
+		}
+	}
+	return nil
+}
+
+func sortConversationListItems(items []ConversationListItem) {
+	sort.SliceStable(items, func(left int, right int) bool {
+		leftItem := items[left]
+		rightItem := items[right]
+		if leftItem.PinnedAt != "" || rightItem.PinnedAt != "" {
+			if leftItem.PinnedAt == rightItem.PinnedAt {
+				if leftItem.Conversation.UpdatedAt == rightItem.Conversation.UpdatedAt {
+					return leftItem.Conversation.ID < rightItem.Conversation.ID
+				}
+				return leftItem.Conversation.UpdatedAt > rightItem.Conversation.UpdatedAt
+			}
+			if leftItem.PinnedAt == "" {
+				return false
+			}
+			if rightItem.PinnedAt == "" {
+				return true
+			}
+			return leftItem.PinnedAt > rightItem.PinnedAt
+		}
+		if leftItem.Conversation.UpdatedAt == rightItem.Conversation.UpdatedAt {
+			return leftItem.Conversation.ID < rightItem.Conversation.ID
+		}
+		return leftItem.Conversation.UpdatedAt > rightItem.Conversation.UpdatedAt
+	})
 }
 
 func (service *Service) advanceReadRelevantMarkerLocked(workspaceID string, conversationID string, now string) error {

@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
-import { chatReadableColumnClass } from "./chat-layout";
+import { chatReadableColumnClass, chatReadableColumnPaddedClass } from "./chat-layout";
 import { ChatTranscript } from "./chat-transcript";
 
 export {
@@ -87,6 +87,7 @@ function ChatWorkspace({
   const running = !switchingWorkspace && isRunRunning(chat);
   const selectedConversationId = switchingWorkspace ? "" : selectedChatConversationId(chat);
   const runStatus = switchingWorkspace ? null : activeRunStatus(chat);
+  const detailWorkspaceId = chatDetailWorkspaceId(switchingWorkspace, workspaceId);
 
   return (
     <section
@@ -102,6 +103,7 @@ function ChatWorkspace({
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
         data-conversation-id={selectedConversationId}
         data-run-status={runStatus ?? ""}
+        data-workspace-id={detailWorkspaceId}
         data-testid="chat-detail-pane"
       >
         <ConversationBody
@@ -115,6 +117,10 @@ function ChatWorkspace({
       </div>
     </section>
   );
+}
+
+function chatDetailWorkspaceId(switchingWorkspace: boolean, workspaceId: string) {
+  return switchingWorkspace ? "" : workspaceId;
 }
 
 function ChatMaximizeButton({
@@ -271,15 +277,19 @@ function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
   const status = goalStatusLabel(goal.status);
   const title = `${status}: ${goal.objective}`;
   return (
-    <div
-      className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-background px-3 text-xs text-muted-foreground"
-      data-goal-status={goal.status}
-      data-testid="chat-goal-status"
-      title={title}
-    >
-      <GoalStatusIcon status={goal.status} />
-      <span className="shrink-0 font-medium text-foreground">{status}</span>
-      <span className="min-w-0 truncate text-muted-foreground">{goal.objective}</span>
+    <div className="shrink-0 border-b border-border bg-background" title={title}>
+      <div
+        className={cn(
+          chatReadableColumnPaddedClass,
+          "flex h-8 items-center gap-2 text-xs text-muted-foreground",
+        )}
+        data-goal-status={goal.status}
+        data-testid="chat-goal-status"
+      >
+        <GoalStatusIcon status={goal.status} />
+        <span className="shrink-0 font-medium text-foreground">{status}</span>
+        <span className="min-w-0 truncate text-muted-foreground">{goal.objective}</span>
+      </div>
     </div>
   );
 }
@@ -317,9 +327,12 @@ function goalStatusLabel(status: string) {
 
 function ChatLoadError({ message }: { message: string }) {
   return (
-    <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-6">
+    <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-3">
       <div
-        className="max-w-2xl rounded-sm border border-border bg-popover px-4 py-3 text-sm break-words text-popover-foreground"
+        className={cn(
+          chatReadableColumnPaddedClass,
+          "rounded-sm border border-border bg-popover py-3 text-sm break-words text-popover-foreground",
+        )}
         data-testid="chat-load-error"
       >
         <div className="font-medium">Chat state is corrupt</div>
@@ -344,8 +357,10 @@ function ChatError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <div className="border-t border-border bg-background px-3 py-1.5 text-xs text-foreground">
-      {message}
+    <div className="border-t border-border bg-background">
+      <div className={cn(chatReadableColumnPaddedClass, "py-1.5 text-xs text-foreground")}>
+        {message}
+      </div>
     </div>
   );
 }
@@ -358,6 +373,7 @@ export function useChatViewState() {
   const commandListStatus = useChatStore((state) => state.commandListStatus);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
+  const deleteConversation = useChatStore((state) => state.deleteConversation);
   const editQueuedMessage = useChatStore((state) => state.editQueuedMessage);
   const editingQueuedMessageId = useChatStore((state) => state.editingQueuedMessageId);
   const error = useChatStore((state) => state.error);
@@ -391,6 +407,7 @@ export function useChatViewState() {
   const sendSteeringImmediately = useChatStore((state) => state.sendSteeringImmediately);
   const setCodexModel = useChatStore((state) => state.setCodexModel);
   const setCodexReasoningEffort = useChatStore((state) => state.setCodexReasoningEffort);
+  const setConversationPinned = useChatStore((state) => state.setConversationPinned);
   const status = useChatStore((state) => state.status);
   const steerMessage = useChatStore((state) => state.steerMessage);
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
@@ -429,6 +446,7 @@ export function useChatViewState() {
     corruption,
     createConversation,
     createWorkspaceConversation,
+    deleteConversation,
     diagnostics,
     editQueuedMessage,
     editingQueuedMessageId,
@@ -460,6 +478,7 @@ export function useChatViewState() {
     sendSteeringImmediately,
     setCodexModel,
     setCodexReasoningEffort,
+    setConversationPinned,
     status,
     steerMessage,
     stopActiveRun,

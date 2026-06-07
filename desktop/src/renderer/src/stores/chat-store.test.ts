@@ -1,7 +1,6 @@
 import type {
   BackendHealth,
   ChatCommandResult,
-  ChatEvent,
   ChatGoalState,
   ChatMessage,
   Conversation,
@@ -25,7 +24,17 @@ import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { prependOlderMessages, useChatStore } from "./chat-store";
-const eventStreamId = "event_stream_test";
+import {
+  assistantDeltaEvent,
+  conversationUpdatedEvent,
+  diagnosticCreatedEvent,
+  messageCreatedEvent,
+  resyncRequiredEvent,
+  runItemCreatedEvent,
+  runItemOutputDeltaEvent,
+  runItemUpdatedEvent,
+  runUpdatedEvent,
+} from "./chat-store-events.test.helpers";
 
 describe("chat store", () => {
   beforeEach(() => {
@@ -58,6 +67,7 @@ describe("chat store", () => {
       runItemsById: {},
       removingQueuedMessageId: null,
       selectedConversation: null,
+      selectedConversationIdsByWorkspaceId: {},
       status: "idle",
       transcript: [],
       workspaceId: null,
@@ -89,6 +99,45 @@ describe("chat store", () => {
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
 
+  test("loads the last selected workspace conversation instead of the first list item", async () => {
+    const firstConversation = testConversation({ id: "conversation_first", title: "First" });
+    const rememberedConversation = testConversation({
+      id: "conversation_remembered",
+      title: "Remembered",
+    });
+    const listConversations = vi
+      .fn()
+      .mockResolvedValue(
+        listResponse([
+          conversationItem(firstConversation, 3),
+          conversationItem(rememberedConversation, 7),
+        ]),
+      );
+    const messagePage = vi
+      .fn()
+      .mockResolvedValue(
+        testPage(rememberedConversation, [
+          message("message_remembered", 7, "user", "complete", "remembered detail", "normal", ""),
+        ]),
+      );
+    const selectedConversations = vi.fn().mockResolvedValue({
+      selectedConversationIdsByWorkspaceId: {
+        workspace_api: rememberedConversation.id,
+      },
+    });
+    installSettaAPI({
+      chat: { listConversations, messagePage },
+      workspace: { selectedConversations },
+    });
+
+    await useChatStore.getState().loadWorkspace("workspace_api");
+
+    expect(useChatStore.getState().selectedConversation?.id).toBe(rememberedConversation.id);
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_remembered"]);
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", rememberedConversation.id, 0, 40);
+    expect(selectedConversations).toHaveBeenCalledOnce();
+  });
+
   test("creates a new conversation when the historical list reports corruption", async () => {
     const conversation = testConversation();
     const createConversation = vi.fn().mockResolvedValue(conversation);
@@ -114,6 +163,73 @@ describe("chat store", () => {
     expect(useChatStore.getState().corruption.total).toBe(1);
     expect(useChatStore.getState().error).toBeNull();
     expect(useChatStore.getState().status).toBe("ready");
+  });
+
+  test("pins a conversation through the backend summary", async () => {
+    const conversation = testConversation();
+    const setConversationPinned = vi.fn().mockResolvedValue({
+      ...conversationItem(conversation, 0),
+      pinnedAt: "2026-05-29T21:00:00Z",
+    });
+    installSettaAPI({ chat: { setConversationPinned } });
+    useChatStore.setState({
+      conversations: [conversationItem(conversation, 0)],
+      conversationListsByWorkspaceId: {
+        workspace_api: loadedConversationList([conversationItem(conversation, 0)]),
+      },
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().setConversationPinned(conversation.id, true);
+
+    expect(setConversationPinned).toHaveBeenCalledWith("workspace_api", conversation.id, true);
+    expect(useChatStore.getState().conversations[0]?.pinnedAt).toBe("2026-05-29T21:00:00Z");
+    expect(
+      useChatStore.getState().conversationListsByWorkspaceId.workspace_api?.conversations[0]
+        ?.pinnedAt,
+    ).toBe("2026-05-29T21:00:00Z");
+  });
+
+  test("deletes the selected conversation and loads the next one", async () => {
+    const deleted = testConversation({ id: "conversation_deleted", title: "Deleted" });
+    const next = testConversation({ id: "conversation_next", title: "Next" });
+    const deleteConversation = vi.fn().mockResolvedValue(listResponse([conversationItem(next, 2)]));
+    const messagePage = vi
+      .fn()
+      .mockResolvedValue(
+        testPage(next, [message("message_next", 2, "assistant", "complete", "next")]),
+      );
+    const setSelectedConversation = vi.fn(async (workspaceId: string, conversationId: string) => ({
+      selectedConversationIdsByWorkspaceId: { [workspaceId]: conversationId },
+    }));
+    installSettaAPI({
+      chat: { deleteConversation, messagePage },
+      workspace: { setSelectedConversation },
+    });
+    useChatStore.setState({
+      conversations: [conversationItem(deleted, 1), conversationItem(next, 2)],
+      conversationListsByWorkspaceId: {
+        workspace_api: loadedConversationList([
+          conversationItem(deleted, 1),
+          conversationItem(next, 2),
+        ]),
+      },
+      selectedConversation: deleted,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().deleteConversation(deleted.id);
+
+    expect(deleteConversation).toHaveBeenCalledWith("workspace_api", deleted.id);
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", next.id, 0, 40);
+    expect(setSelectedConversation).toHaveBeenCalledWith("workspace_api", next.id);
+    expect(useChatStore.getState().selectedConversation?.id).toBe(next.id);
+    expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
+      next.id,
+    ]);
   });
 
   test("prepends older message pages without replacing the latest page", async () => {
@@ -797,6 +913,7 @@ describe("chat store", () => {
 
 interface SettaAPIOverrides {
   chat?: Partial<SettaAPI["chat"]>;
+  workspace?: Partial<SettaAPI["workspace"]>;
 }
 function emptyCorruption() {
   return {
@@ -823,6 +940,16 @@ function listResponse(
     diagnostics,
   };
 }
+
+function loadedConversationList(conversations: ConversationListItem[]) {
+  return {
+    conversations,
+    corruption: emptyCorruption(),
+    diagnostics: [],
+    error: null,
+    loading: false,
+  };
+}
 function installSettaAPI(overrides: SettaAPIOverrides) {
   const conversation = testConversation();
   const api: SettaAPI = {
@@ -832,9 +959,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         pixiWorkspaceSyntheticGraph: null,
       },
       installedEditors: async () => [],
+      endWindowDrag: async () => {},
+      moveWindowDrag: async () => {},
       openWorkspaceInEditor: async () => {},
       openExternalUrl: async () => {},
       platform: "darwin",
+      startWindowDrag: async () => {},
       versions: async () => ({ app: "test", chrome: "test", electron: "test", node: "test" }),
       workspaceGitInfo: async () => ({
         branchName: "main",
@@ -857,6 +987,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
+      deleteConversation: async () => listResponse([]),
       editQueuedMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
@@ -915,6 +1046,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           title: "Model",
         },
       }),
+      setConversationPinned: async () => conversationItem(conversation, 0),
       listCommands: async () => ({
         commands: [
           {
@@ -1008,7 +1140,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
       select: async () => workspaceSession(),
+      selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
+      setSelectedConversation: async (workspaceId, conversationId) => ({
+        selectedConversationIdsByWorkspaceId: { [workspaceId]: conversationId },
+      }),
       session: async () => workspaceSession(),
+      ...overrides.workspace,
     },
   };
 
@@ -1025,198 +1162,6 @@ const unimplementedTerminalAPI = new Proxy({} as SettaAPI["terminal"], {
     throw new Error("terminal API is not implemented in this test");
   },
 });
-
-function messageCreatedEvent(
-  sequence: number,
-  chatMessage: ChatMessage,
-  runId: string,
-  streamId = eventStreamId,
-): ChatEvent {
-  return {
-    conversationId: chatMessage.conversationId,
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: {
-      message: chatMessage,
-    },
-    runId,
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.message.created",
-    workspaceId: "workspace_api",
-  };
-}
-
-function assistantDeltaEvent(
-  sequence: number,
-  messageId: string,
-  partId: string,
-  delta: string,
-  streamId = eventStreamId,
-): ChatEvent {
-  return {
-    conversationId: "conversation_api",
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: {
-      delta,
-      messageId,
-      partId,
-      updatedAt: "2026-05-29T20:00:01Z",
-    },
-    runId: "run_api",
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.assistant_text_delta",
-    workspaceId: "workspace_api",
-  };
-}
-
-function runUpdatedEvent(sequence: number, run: Run, streamId = eventStreamId): ChatEvent {
-  return {
-    conversationId: run.conversationId,
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: { run },
-    runId: run.id,
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.run.updated",
-    workspaceId: run.workspaceId,
-  };
-}
-
-function runItemCreatedEvent(sequence: number, item: RunItem, streamId = eventStreamId): ChatEvent {
-  return {
-    conversationId: item.conversationId,
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: { item },
-    runId: item.runId,
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.run_item.created",
-    workspaceId: item.workspaceId,
-  };
-}
-
-function runItemUpdatedEvent(sequence: number, item: RunItem, streamId = eventStreamId): ChatEvent {
-  return {
-    conversationId: item.conversationId,
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: { item },
-    runId: item.runId,
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.run_item.updated",
-    workspaceId: item.workspaceId,
-  };
-}
-
-function runItemOutputDeltaEvent(
-  sequence: number,
-  output: RunItemOutput,
-  streamId = eventStreamId,
-): ChatEvent {
-  return {
-    conversationId: "conversation_api",
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: { output },
-    runId: "run_api",
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.run_item_output.delta",
-    workspaceId: "workspace_api",
-  };
-}
-
-function conversationUpdatedEvent(
-  sequence: number,
-  item: ConversationListItem,
-  streamId = eventStreamId,
-): ChatEvent {
-  return {
-    conversationId: item.conversation.id,
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: { item },
-    runId: item.activeRunId,
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.conversation.updated",
-    workspaceId: item.conversation.workspaceId,
-  };
-}
-
-function diagnosticCreatedEvent(sequence: number, streamId = eventStreamId): ChatEvent {
-  return {
-    conversationId: "conversation_api",
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${sequence}`,
-    payload: {
-      diagnostic: {
-        code: "complete_turn_transition_failed",
-        context: { error: "terminal transition failed" },
-        conversationId: "conversation_api",
-        id: "diagnostic_api",
-        message: "terminal transition failed",
-        occurredAt: "2026-05-29T20:00:00Z",
-        runId: "run_api",
-        schemaVersion: 1,
-        severity: "critical",
-        source: "chat",
-        workspaceId: "workspace_api",
-      },
-    },
-    runId: "run_api",
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "diagnostic.created",
-    workspaceId: "workspace_api",
-  };
-}
-
-function resyncRequiredEvent(
-  sequence: number,
-  options: {
-    currentSequence?: number;
-    currentStreamId?: string;
-    requestedSequence?: number;
-    requestedStreamId?: string;
-  } = {},
-): ChatEvent {
-  const streamId = options.currentStreamId ?? eventStreamId;
-  const currentSequence = options.currentSequence ?? sequence;
-  return {
-    conversationId: "",
-    emittedAt: "2026-05-29T20:00:00Z",
-    eventId: `${streamId}:${currentSequence}`,
-    payload: {
-      currentSequence,
-      currentStreamId: streamId,
-      earliestSequence: 0,
-      reason: "test resync",
-      requestedSequence: options.requestedSequence ?? Math.max(0, sequence - 1),
-      requestedStreamId: options.requestedStreamId ?? streamId,
-    },
-    runId: "",
-    schemaVersion: 1,
-    sequence,
-    streamId,
-    type: "chat.resync_required",
-    workspaceId: "",
-  };
-}
 
 async function waitFor(done: () => boolean) {
   const startedAt = Date.now();
@@ -1254,6 +1199,7 @@ function conversationItem(
 ): ConversationListItem {
   return {
     activeRunId,
+    pinnedAt: "",
     conversation,
     latestReadRelevantMarker: markers.latestReadRelevantMarker,
     messageCount,

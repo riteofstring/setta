@@ -193,7 +193,6 @@ select,
 
 [data-chat-message="true"] {
   -webkit-user-select: text;
-  max-width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
   user-select: text;

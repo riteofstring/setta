@@ -40,6 +40,14 @@ func TestWorkspaceEndpointsOpenSelectReorderCloseAndRemoveRecent(t *testing.T) {
 		t.Fatalf("selected = %q, want %s", selected.SelectedWorkspaceID, openAPI.Workspace.ID)
 	}
 
+	selectedConversations := postJSON[WorkspaceSelectedConversations](t, handler, "/workspaces/selected-conversation", SetWorkspaceSelectedConversationRequest{
+		WorkspaceID:    openAPI.Workspace.ID,
+		ConversationID: "conversation_api",
+	}, http.StatusOK)
+	if selectedConversations.SelectedConversationIDsByWorkspaceID[openAPI.Workspace.ID] != "conversation_api" {
+		t.Fatalf("selected conversation ids = %#v", selectedConversations.SelectedConversationIDsByWorkspaceID)
+	}
+
 	reordered := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/reorder", ReorderWorkspaceRequest{IDs: []string{openWeb.Workspace.ID, openAPI.Workspace.ID}}, http.StatusOK)
 	assertIDs(t, "active after reorder", reordered.ActiveWorkspaces, []string{openWeb.Workspace.ID, openAPI.Workspace.ID})
 
@@ -53,6 +61,32 @@ func TestWorkspaceEndpointsOpenSelectReorderCloseAndRemoveRecent(t *testing.T) {
 
 	removedRecent := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/remove-recent", RemoveRecentWorkspaceRequest{ID: openWeb.Workspace.ID}, http.StatusOK)
 	assertIDs(t, "recent after remove web", removedRecent.RecentWorkspaces, []string{openAPI.Workspace.ID})
+}
+
+func TestWorkspaceSelectedConversationsEndpointReturnsCurrentSelection(t *testing.T) {
+	handler := newWorkspaceHandler(t, []string{"workspace_api"}, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	postJSON[WorkspaceSelectedConversations](t, handler, "/workspaces/selected-conversation", SetWorkspaceSelectedConversationRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: "conversation_api",
+	}, http.StatusOK)
+
+	request := httptest.NewRequest(http.MethodGet, "/workspaces/selected-conversations", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	var selected WorkspaceSelectedConversations
+	if err := json.NewDecoder(response.Body).Decode(&selected); err != nil {
+		t.Fatalf("decode selected conversations: %v", err)
+	}
+	if selected.SelectedConversationIDsByWorkspaceID[opened.Workspace.ID] != "conversation_api" {
+		t.Fatalf("selected conversation ids = %#v", selected.SelectedConversationIDsByWorkspaceID)
+	}
 }
 
 func TestWorkspaceSessionEndpointReturnsCurrentSession(t *testing.T) {

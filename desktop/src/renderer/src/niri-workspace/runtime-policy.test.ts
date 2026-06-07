@@ -109,7 +109,7 @@ describe("niri pane runtime policy", () => {
     expect(summary.liveThrottled).toBe(2);
   });
 
-  test("keeps focused browser panes live while enforcing browser live budget", () => {
+  test("keeps all visible browser panes live without applying the browser budget", () => {
     const items = [
       renderItem("focused-browser", "browser", true),
       renderItem("browser-1", "browser", false),
@@ -124,15 +124,16 @@ describe("niri pane runtime policy", () => {
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
       ["focused-browser", "live"],
-      ["browser-1", "snapshot"],
-      ["browser-2", "snapshot"],
+      ["browser-1", "live"],
+      ["browser-2", "live"],
     ]);
-    expect(summary.live).toBe(1);
-    expect(summary.snapshot).toBe(2);
+    expect(summary.live).toBe(3);
+    expect(summary.snapshot).toBe(0);
   });
 
-  test("keeps browser panes live during movement until the browser budget is full", () => {
+  test("snapshots visible browser panes during movement", () => {
     const items = [
+      renderItem("focused-browser", "browser", true),
       renderItem("browser-1", "browser", false),
       renderItem("browser-2", "browser", false),
       renderItem("browser-over-budget", "browser", false),
@@ -145,12 +146,13 @@ describe("niri pane runtime policy", () => {
     const summary = new PaneRuntimePolicy(twoBrowsers).apply(items, "moving");
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
-      ["browser-1", "live"],
-      ["browser-2", "live"],
+      ["focused-browser", "snapshot"],
+      ["browser-1", "snapshot"],
+      ["browser-2", "snapshot"],
       ["browser-over-budget", "snapshot"],
     ]);
-    expect(summary.live).toBe(2);
-    expect(summary.snapshot).toBe(1);
+    expect(summary.live).toBe(0);
+    expect(summary.snapshot).toBe(4);
   });
 
   test("budgets terminal renderers and keeps graph renderers live during movement", () => {

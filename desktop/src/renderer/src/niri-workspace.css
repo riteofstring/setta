@@ -210,15 +210,61 @@
   display: none;
 }
 
-.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-host[data-focused="false"] {
-  opacity: 0.68 !important;
-}
-
 .niri-workspace-area[data-presentation-mode="overview"] .niri-pane-host[data-focused="true"] {
   box-shadow:
     inset 0 0 0 1px var(--niri-pane-focus-ring),
     0 0 0 5px color-mix(in oklch, var(--niri-pane-focus-ring) 18%, transparent),
     0 16px 36px var(--niri-pane-focus-shadow);
+}
+
+.niri-overview-ghost-pane {
+  align-items: center;
+  background: color-mix(in oklch, var(--setta-500) 13%, transparent);
+  border: 1px dashed color-mix(in oklch, var(--setta-300) 58%, transparent);
+  border-radius: 7px;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--background) 32%, transparent),
+    0 12px 30px color-mix(in oklch, black 22%, transparent);
+  color: color-mix(in oklch, var(--foreground) 82%, var(--setta-300));
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+  pointer-events: auto;
+  position: absolute;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+  z-index: 70;
+}
+
+.niri-overview-ghost-pane::before,
+.niri-overview-ghost-pane::after {
+  background: currentColor;
+  border-radius: 999px;
+  content: "";
+  position: absolute;
+}
+
+.niri-overview-ghost-pane::before {
+  height: 2px;
+  width: 18px;
+}
+
+.niri-overview-ghost-pane::after {
+  height: 18px;
+  width: 2px;
+}
+
+.niri-overview-ghost-pane:hover,
+.niri-overview-ghost-pane:focus-visible {
+  background: color-mix(in oklch, var(--setta-500) 20%, transparent);
+  border-color: color-mix(in oklch, var(--setta-200) 78%, transparent);
+  color: var(--foreground);
+  outline: none;
 }
 
 .niri-workspace-toolbar {
@@ -273,18 +319,6 @@
   white-space: nowrap;
 }
 
-.niri-workspace-toolbar-group:first-child {
-  color: var(--foreground);
-  flex: 0 1 clamp(120px, 16vw, 220px);
-  font-family: var(--setta-font-mono);
-  font-size: 10px;
-  min-width: 96px;
-  overflow: hidden;
-  padding: 0 5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .niri-workspace-toolbar-button {
   align-items: center;
   background: transparent;
@@ -322,12 +356,11 @@
   color: var(--muted-foreground);
   cursor: pointer;
   display: inline-flex;
-  gap: 2px;
   height: 24px;
   justify-content: center;
   padding: 0;
   white-space: nowrap;
-  width: 34px;
+  width: 24px;
 }
 
 .niri-workspace-toolbar-menu {
@@ -624,49 +657,86 @@
 }
 
 .niri-browser-proxy-surface {
-  background:
-    linear-gradient(135deg, color-mix(in oklch, var(--primary) 26%, transparent), transparent 52%),
-    color-mix(in oklch, var(--popover) 84%, var(--background));
-  color: var(--foreground);
+  background: linear-gradient(135deg, #0f172a, #164e63);
+  box-sizing: border-box;
+  color: #dbeafe;
   display: grid;
-  gap: 8px;
-  grid-template-rows: auto auto 1fr;
+  font:
+    13px -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  gap: 0;
+  grid-template-rows: auto auto auto auto auto auto 1fr;
   min-height: 0;
-  padding: 10px;
+  padding: 18px;
+}
+
+.niri-browser-proxy-surface[data-browser-snapshot-ready="true"] {
+  gap: 0;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 0;
+}
+
+.niri-browser-proxy-snapshot {
+  display: block;
+  height: 100%;
+  min-height: 0;
+  object-fit: fill;
+  width: 100%;
+}
+
+.niri-browser-proxy-snapshot[hidden] {
+  display: none;
+}
+
+.niri-browser-proxy-fallback {
+  display: contents;
+}
+
+.niri-browser-proxy-surface[data-browser-snapshot-ready="true"] .niri-browser-proxy-fallback {
+  display: none;
 }
 
 .niri-browser-proxy-toolbar {
   align-items: center;
-  background: color-mix(in oklch, var(--background) 76%, var(--primary));
-  border-radius: 5px;
-  color: var(--muted-foreground);
+  background: #e0f2fe;
+  border-radius: 6px;
+  color: #0f172a;
   display: flex;
-  font-family: var(--setta-font-mono);
-  font-size: 10px;
-  height: 22px;
+  font-size: 11px;
+  height: 24px;
   min-width: 0;
   overflow: hidden;
-  padding: 0 8px;
+  padding: 0 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .niri-browser-proxy-surface h2 {
-  font-size: 13px;
+  color: #dbeafe;
+  font-size: 16px;
   font-weight: 650;
-  line-height: 1.15;
-  margin: 0;
+  line-height: 1.2;
+  margin: 16px 0 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .niri-browser-proxy-surface p {
-  color: var(--muted-foreground);
-  font-size: 11px;
-  line-height: 1.35;
+  color: #bae6fd;
+  font-size: 13px;
+  line-height: 1.45;
   margin: 0;
   overflow: hidden;
+}
+
+.niri-browser-proxy-row {
+  background: #38bdf8;
+  border-radius: 999px;
+  height: 8px;
+  margin-top: 14px;
 }
 
 .niri-terminal-surface {
@@ -674,9 +744,9 @@
   color: color-mix(in oklch, var(--foreground) 88%, var(--primary));
   display: grid;
   gap: 7px;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
-  padding: 10px;
+  padding: 8px;
 }
 
 .niri-pane-host[data-surface-kind="terminal"],
@@ -686,7 +756,15 @@
   background: var(--niri-terminal-background, #09090b);
 }
 
-.niri-terminal-header,
+.niri-terminal-surface > .niri-terminal-status {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .niri-git-graph-header {
   align-items: center;
   display: flex;
@@ -695,7 +773,6 @@
   min-width: 0;
 }
 
-.niri-terminal-header h2,
 .niri-git-graph-header h2 {
   font-size: 12px;
   font-weight: 650;
@@ -706,7 +783,6 @@
   white-space: nowrap;
 }
 
-.niri-terminal-status,
 .niri-git-graph-status {
   color: var(--muted-foreground);
   flex: 0 0 auto;

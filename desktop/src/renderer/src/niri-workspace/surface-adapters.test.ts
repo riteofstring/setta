@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { NiriBrowserViewUpdate } from "@shared/types";
+import type { NiriBrowserViewSnapshot, NiriBrowserViewUpdate, SettaAPI } from "@shared/types";
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import {
   buildGitGraphBatch,
@@ -118,7 +118,7 @@ describe("niri fake surface adapters", () => {
     expect(loop.pendingCount).toBe(0);
   });
 
-  test("clips browser native bounds to the stage viewport", () => {
+  test("clips browser native bounds to the stage while keeping pane-sized content bounds", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
     mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
@@ -136,7 +136,8 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 160, width: 200, x: -80, y: -20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 110, width: 102, x: 300, y: 120 },
+      bounds: { height: 130, width: 120, x: 300, y: 100 },
+      contentBounds: { height: 130, width: 200, x: 220, y: 100 },
       visible: true,
     });
   });
@@ -159,12 +160,13 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 160, width: 200, x: 80, y: 0 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 130, width: 182, x: 380, y: 108 },
+      bounds: { height: 130, width: 200, x: 380, y: 108 },
+      contentBounds: { height: 130, width: 200, x: 380, y: 108 },
       visible: true,
     });
   });
 
-  test("keeps unfocused browser native views hidden behind the DOM proxy", () => {
+  test("keeps settled browser native views visible when the browser pane is unfocused", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
     mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
@@ -181,19 +183,120 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 160, width: 200, x: 80, y: 20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 130, width: 182, x: 380, y: 140 },
-      visible: false,
+      bounds: { height: 130, width: 200, x: 380, y: 140 },
+      contentBounds: { height: 130, width: 200, x: 380, y: 140 },
+      focused: false,
+      visible: true,
     });
 
     adapter.setFocused(true);
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 130, width: 182, x: 380, y: 140 },
+      bounds: { height: 130, width: 200, x: 380, y: 140 },
+      contentBounds: { height: 130, width: 200, x: 380, y: 140 },
       visible: true,
     });
   });
 
-  test("hides browser native views during active resize", () => {
+  test("renders browser snapshots from the native view bridge", () => {
+    const fixture = createBrowserSnapshotFixture();
+
+    try {
+      fixture.adapter.mount(fixture.host);
+      emitBrowserSnapshot(fixture.listeners, {
+        capturedAt: 123,
+        height: 80,
+        imageDataUrl: "data:image/png;base64,AAAA",
+        paneId: "other-pane",
+        surfaceId: "other-surface",
+        title: "Other",
+        width: 100,
+        workspaceId: "workspace",
+      });
+
+      const image = requireBrowserSnapshotImage(fixture.host);
+      expect(image.hidden).toBe(true);
+
+      emitBrowserSnapshot(fixture.listeners, {
+        capturedAt: 456,
+        height: 80,
+        imageDataUrl: "data:image/png;base64,BBBB",
+        paneId: "pane",
+        surfaceId: "surface",
+        title: "Browser",
+        width: 100,
+        workspaceId: "workspace",
+      });
+
+      expectRenderedBrowserSnapshot(image, fixture.host);
+
+      fixture.adapter.unmount();
+
+      expect(fixture.unsubscribed).toEqual([fixture.listeners[0]]);
+    } finally {
+      fixture.restoreSetta();
+    }
+  });
+
+  test("hides stale browser snapshots when pane geometry changes", () => {
+    const fixture = createBrowserSnapshotFixture();
+
+    try {
+      fixture.adapter.mount(fixture.host);
+      emitBrowserSnapshot(fixture.listeners, {
+        capturedAt: 456,
+        height: 80,
+        imageDataUrl: "data:image/png;base64,BBBB",
+        paneId: "pane",
+        surfaceId: "surface",
+        title: "Browser",
+        width: 100,
+        workspaceId: "workspace",
+      });
+
+      const image = requireBrowserSnapshotImage(fixture.host);
+      expectRenderedBrowserSnapshot(image, fixture.host);
+
+      setFakeRect(fixture.host, { height: 110, width: 140, x: 0, y: 0 });
+      fixture.adapter.syncFrame();
+
+      expect(image.hidden).toBe(true);
+      expect(image.parentElement?.dataset.browserSnapshotReady).toBeUndefined();
+      expect(fixture.host.dataset.browserSnapshotCapturedAt).toBeUndefined();
+    } finally {
+      fixture.restoreSetta();
+    }
+  });
+
+  test("renders native-size browser snapshots while the pane host is scaled for overview", () => {
+    const fixture = createBrowserSnapshotFixture();
+
+    try {
+      fixture.adapter.mount(fixture.host);
+      fixture.adapter.setViewport({ height: 160, width: 200, x: 0, y: 0 }, "frame");
+      setFakeRect(fixture.host, { height: 80, width: 100, x: 0, y: 0 });
+      emitBrowserSnapshot(fixture.listeners, {
+        capturedAt: 456,
+        height: 130,
+        imageDataUrl: "data:image/png;base64,BBBB",
+        paneId: "pane",
+        surfaceId: "surface",
+        title: "Browser",
+        width: 200,
+        workspaceId: "workspace",
+      });
+
+      const image = requireBrowserSnapshotImage(fixture.host);
+      expect(image.hidden).toBe(false);
+      expect(image.width).toBe(200);
+      expect(image.height).toBe(130);
+      expect(image.parentElement?.dataset.browserSnapshotReady).toBe("true");
+    } finally {
+      fixture.restoreSetta();
+    }
+  });
+
+  test("keeps browser native views visible during active resize", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
     mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
@@ -215,14 +318,53 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 160, width: 200, x: 120, y: 40 }, "resize");
 
     expect(sent.at(-3)).toMatchObject({ visible: true });
-    expect(sent.at(-2)).toMatchObject({ visible: false });
+    expect(sent.at(-2)).toMatchObject({
+      bounds: { height: 130, width: 200, x: 400, y: 150 },
+      contentBounds: { height: 130, width: 200, x: 400, y: 150 },
+      visible: true,
+    });
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 130, width: 182, x: 420, y: 160 },
+      bounds: { height: 130, width: 200, x: 420, y: 160 },
+      contentBounds: { height: 130, width: 200, x: 420, y: 160 },
       visible: true,
     });
   });
 
-  test("hides mostly clipped browser native views at the stage boundary", () => {
+  test("keeps browser native views visible during Niri movement", () => {
+    const sent: NiriBrowserViewUpdate[] = [];
+    const host = createFakeHost();
+    mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
+    const adapter = new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue(update) {
+        sent.push(update);
+      },
+    });
+
+    adapter.mount(host);
+    adapter.resume("visible");
+    adapter.setVisible(true);
+    adapter.setFocused(true);
+    setFakeRect(host, { height: 160, width: 200, x: 380, y: 110 });
+    adapter.setViewport({ height: 160, width: 200, x: 80, y: 20 }, "frame");
+    setFakeRect(host, { height: 160, width: 200, x: 400, y: 120 });
+    adapter.setViewport({ height: 160, width: 200, x: 100, y: 30 }, "movement-active");
+    setFakeRect(host, { height: 160, width: 200, x: 420, y: 130 });
+    adapter.setViewport({ height: 160, width: 200, x: 120, y: 40 }, "frame");
+
+    expect(sent.at(-3)).toMatchObject({ visible: true });
+    expect(sent.at(-2)).toMatchObject({
+      bounds: { height: 130, width: 200, x: 400, y: 150 },
+      contentBounds: { height: 130, width: 200, x: 400, y: 150 },
+      visible: true,
+    });
+    expect(sent.at(-1)).toMatchObject({
+      bounds: { height: 130, width: 200, x: 420, y: 160 },
+      contentBounds: { height: 130, width: 200, x: 420, y: 160 },
+      visible: true,
+    });
+  });
+
+  test("keeps thinly clipped browser native views interactive at the stage boundary", () => {
     const sent: NiriBrowserViewUpdate[] = [];
     const host = createFakeHost();
     mountBrowserStage(host, { height: 360, width: 500, x: 300, y: 90 });
@@ -240,8 +382,9 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 160, width: 200, x: -120, y: -20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 1, width: 1, x: 300, y: 90 },
-      visible: false,
+      bounds: { height: 130, width: 80, x: 300, y: 100 },
+      contentBounds: { height: 130, width: 200, x: 180, y: 100 },
+      visible: true,
     });
   });
 
@@ -263,7 +406,8 @@ describe("niri fake surface adapters", () => {
     adapter.setViewport({ height: 120, width: 100, x: -260, y: 20 }, "frame");
 
     expect(sent.at(-1)).toMatchObject({
-      bounds: { height: 1, width: 1, x: 300, y: 110 },
+      bounds: { height: 1, width: 1, x: 40, y: 140 },
+      contentBounds: { height: 90, width: 100, x: 40, y: 140 },
       visible: false,
     });
   });
@@ -335,6 +479,138 @@ describe("niri fake surface adapters", () => {
     expect(selectGitGraphRenderer({ nodeCount: 1800, scale: 0.34 })).toBe("canvas");
   });
 });
+
+function installBrowserSnapshotBridge(
+  onBrowserViewSnapshot: (listener: (snapshot: NiriBrowserViewSnapshot) => void) => () => void,
+): () => void {
+  const target = globalThis as typeof globalThis & { window?: Window };
+  const previousWindow = target.window;
+  const previousSetta = previousWindow?.setta;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      ...previousWindow,
+      setta: {
+        ...previousSetta,
+        niriNativeViews: {
+          batchBrowserViewUpdates() {},
+          onBrowserViewKey: () => () => {},
+          onBrowserViewSnapshot,
+          readBrowserViewStats: async () => ({
+            boundsBatchCount: 0,
+            boundsUpdateCount: 0,
+            contentLoaded: 0,
+            destroyed: 0,
+            focusedSurfaceId: null,
+            hidden: 0,
+            live: 0,
+            loading: 0,
+            registered: 0,
+            snapshotCaptureLastError: null,
+            snapshotCapturesFailed: 0,
+            snapshotCapturesStarted: 0,
+            snapshotCapturesSucceeded: 0,
+            snapshotsInFlight: 0,
+            teardownCount: 0,
+            totalBrowserPanes: 0,
+            visibleBrowserPanes: 0,
+            workspaceId: null,
+          }),
+          teardownBrowserViews: async () => ({
+            boundsBatchCount: 0,
+            boundsUpdateCount: 0,
+            contentLoaded: 0,
+            destroyed: 0,
+            focusedSurfaceId: null,
+            hidden: 0,
+            live: 0,
+            loading: 0,
+            registered: 0,
+            snapshotCaptureLastError: null,
+            snapshotCapturesFailed: 0,
+            snapshotCapturesStarted: 0,
+            snapshotCapturesSucceeded: 0,
+            snapshotsInFlight: 0,
+            teardownCount: 0,
+            totalBrowserPanes: 0,
+            visibleBrowserPanes: 0,
+            workspaceId: null,
+          }),
+        },
+      } satisfies Partial<SettaAPI>,
+    },
+  });
+  return () => {
+    if (previousWindow) {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: previousWindow,
+      });
+      return;
+    }
+    Reflect.deleteProperty(target, "window");
+  };
+}
+
+interface BrowserSnapshotFixture {
+  adapter: BrowserSurfaceProxyAdapter;
+  host: HTMLElement;
+  listeners: Array<(snapshot: NiriBrowserViewSnapshot) => void>;
+  restoreSetta: () => void;
+  unsubscribed: Array<(snapshot: NiriBrowserViewSnapshot) => void>;
+}
+
+function createBrowserSnapshotFixture(): BrowserSnapshotFixture {
+  const listeners: Array<(snapshot: NiriBrowserViewSnapshot) => void> = [];
+  const unsubscribed: Array<(snapshot: NiriBrowserViewSnapshot) => void> = [];
+  const restoreSetta = installBrowserSnapshotBridge((listener) => {
+    listeners.push(listener);
+    return () => {
+      unsubscribed.push(listener);
+    };
+  });
+  const host = createFakeHost();
+  setFakeRect(host, { height: 110, width: 100, x: 0, y: 0 });
+  return {
+    adapter: new BrowserSurfaceProxyAdapter(fakePane("browser"), {
+      queue() {},
+    }),
+    host,
+    listeners,
+    restoreSetta,
+    unsubscribed,
+  };
+}
+
+function emitBrowserSnapshot(
+  listeners: Array<(snapshot: NiriBrowserViewSnapshot) => void>,
+  snapshot: NiriBrowserViewSnapshot,
+): void {
+  const listener = listeners[0];
+  if (!listener) {
+    throw new Error("browser snapshot bridge listener was not registered");
+  }
+  listener(snapshot);
+}
+
+function requireBrowserSnapshotImage(host: HTMLElement): HTMLImageElement {
+  const image = host.querySelector<HTMLImageElement>("[data-niri-browser-snapshot]");
+  if (!image) {
+    throw new Error("browser snapshot image was not rendered");
+  }
+  return image;
+}
+
+function expectRenderedBrowserSnapshot(image: HTMLImageElement, host: HTMLElement): void {
+  expect(image.hidden).toBe(false);
+  expect(image.src).toBe("data:image/png;base64,BBBB");
+  expect(image.width).toBe(100);
+  expect(image.height).toBe(80);
+  expect(image.parentElement?.dataset).toMatchObject({
+    browserSnapshotReady: "true",
+  });
+  expect(host.dataset.browserSnapshotCapturedAt).toBe("456");
+}
 
 class ManualFrameLoop implements FrameLoop {
   private callbacks = new Map<number, FrameRequestCallback>();

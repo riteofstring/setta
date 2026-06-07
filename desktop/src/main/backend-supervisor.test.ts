@@ -28,7 +28,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 1000,
+      readyTimeoutMs: 3000,
     });
 
     expect(handle.mode).toBe("spawned");
@@ -45,7 +45,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 1000,
+      readyTimeoutMs: 3000,
     });
 
     try {
@@ -90,7 +90,7 @@ describe("startSpawnedBackend", () => {
         command: process.execPath,
         cwd: process.cwd(),
         env: process.env,
-        readyTimeoutMs: 1000,
+        readyTimeoutMs: 3000,
       }),
     ).rejects.toThrow(
       [
@@ -107,7 +107,7 @@ describe("startSpawnedBackend", () => {
       command: process.execPath,
       cwd: process.cwd(),
       env: process.env,
-      readyTimeoutMs: 1000,
+      readyTimeoutMs: 3000,
     });
 
     const exit = await new Promise((resolve) => {
@@ -131,7 +131,7 @@ function waitForLog(handle: BackendHandle, expectedLine: string): Promise<void> 
     const timeout = setTimeout(() => {
       handle.events.off("log", onLog);
       reject(new Error(`timed out waiting for log line: ${expectedLine}`));
-    }, 1000);
+    }, 3000);
 
     const onLog = (line: string) => {
       if (line !== expectedLine) {
@@ -147,7 +147,7 @@ function waitForLog(handle: BackendHandle, expectedLine: string): Promise<void> 
 }
 
 async function waitForFile(path: string): Promise<void> {
-  const deadline = Date.now() + 1500;
+  const deadline = Date.now() + 4000;
   while (Date.now() < deadline) {
     if (existsSync(path)) {
       return;

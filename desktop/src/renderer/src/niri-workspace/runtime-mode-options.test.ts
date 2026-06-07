@@ -23,10 +23,10 @@ describe("niri runtime mode options", () => {
     });
   });
 
-  test("degrades workspace movement without forcing settled overview snapshots", () => {
+  test("keeps workspace movement live while using snapshots in overview", () => {
     expect(runtimePolicyOptionsForRuntime("workspace")).toStrictEqual({
-      degradeDuringMovement: true,
-      degradeOverview: false,
+      degradeDuringMovement: false,
+      degradeOverview: true,
     });
   });
 });

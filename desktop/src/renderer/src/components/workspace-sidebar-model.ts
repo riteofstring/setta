@@ -9,10 +9,12 @@ export type SidebarNavigationCommand =
     }
   | { type: "createWorkspaceConversation"; workspaceId: string }
   | { type: "closeWorkspace"; workspaceId: string }
+  | { type: "deleteConversation"; conversationId: string; workspaceId: string }
   | { type: "openRecentWorkspace"; rootPath: string; workspaceId: string }
   | { type: "removeRecentWorkspace"; workspaceId: string }
   | { type: "selectConversation"; conversationId: string; workspaceId: string }
-  | { type: "showMoreConversations" };
+  | { type: "showMoreConversations" }
+  | { type: "setConversationPinned"; conversationId: string; pinned: boolean; workspaceId: string };
 
 export type SidebarNavigationItem =
   | {
@@ -30,6 +32,8 @@ export type SidebarNavigationItem =
     }
   | {
       commands: {
+        delete: SidebarNavigationCommand;
+        pin: SidebarNavigationCommand;
         primary: SidebarNavigationCommand;
       };
       conversation: ConversationListItem;
@@ -184,6 +188,17 @@ function conversationItems({
   const visibleConversations = conversations.slice(0, visibleCount);
   const items: SidebarNavigationItem[] = visibleConversations.map((conversation) => ({
     commands: {
+      delete: {
+        conversationId: conversation.conversation.id,
+        type: "deleteConversation",
+        workspaceId,
+      },
+      pin: {
+        conversationId: conversation.conversation.id,
+        pinned: conversation.pinnedAt === "",
+        type: "setConversationPinned",
+        workspaceId,
+      },
       primary: {
         conversationId: conversation.conversation.id,
         type: "selectConversation",

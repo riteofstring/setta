@@ -1,6 +1,5 @@
 import {
   AppWindow,
-  ChevronDown,
   Columns2,
   GitBranch,
   MessageSquarePlus,
@@ -21,12 +20,12 @@ import {
 
 import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
+import { useAppWindowDragHandlers } from "../app-window-drag";
 import type { NiriLayoutStore } from "./layout-store";
 import type { EmptyFrameOption } from "./surface-adapters";
 import type { NiriPane, OpenPaneRequest, SurfaceKind } from "./types";
 
 export function NiriWorkspaceToolbar({
-  focusedPaneId,
   openPane,
   overviewActive,
   performanceStatsRef,
@@ -34,7 +33,6 @@ export function NiriWorkspaceToolbar({
   showPerformanceStats,
   store,
 }: {
-  focusedPaneId: string;
   openPane: (request: OpenPaneRequest) => void;
   overviewActive: boolean;
   performanceStatsRef: RefObject<HTMLDivElement | null> | null;
@@ -42,6 +40,7 @@ export function NiriWorkspaceToolbar({
   showPerformanceStats: boolean;
   store: NiriLayoutStore;
 }) {
+  const windowDragHandlers = useAppWindowDragHandlers();
   const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
   const newFrameItems = openPaneActions.map(({ Icon, label, request }) => {
     const limitState = store.paneLimitState(request);
@@ -59,11 +58,13 @@ export function NiriWorkspaceToolbar({
     };
   });
   return (
-    <div className="niri-workspace-toolbar app-drag" data-testid="niri-workspace-toolbar">
-      <div className="niri-workspace-toolbar-group app-drag" data-testid="niri-focused-pane-label">
-        <span>{focusedPaneId}</span>
-      </div>
-      <div className="niri-workspace-toolbar-spacer app-drag" aria-hidden={!showPerformanceStats}>
+    <div
+      className="niri-workspace-toolbar"
+      data-niri-workspace-title-bar="true"
+      data-testid="niri-workspace-toolbar"
+      {...windowDragHandlers}
+    >
+      <div className="niri-workspace-toolbar-spacer" aria-hidden={!showPerformanceStats}>
         {showPerformanceStats ? (
           <div
             aria-live="off"
@@ -243,7 +244,6 @@ function NiriToolbarMenu({
             type="button"
           >
             <Icon className="h-3.5 w-3.5" />
-            <ChevronDown className="h-3 w-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>

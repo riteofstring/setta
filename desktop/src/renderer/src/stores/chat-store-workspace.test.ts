@@ -21,7 +21,10 @@ describe("chat store workspace conversation selection", () => {
       .fn()
       .mockResolvedValue(listResponse([conversationItem(webConversation)]));
     const messagePage = vi.fn().mockResolvedValue(messagePageResponse(webConversation));
-    installChatAPI({ listConversations, messagePage });
+    const setSelectedConversation = vi.fn(async (workspaceId: string, conversationId: string) => ({
+      selectedConversationIdsByWorkspaceId: { [workspaceId]: conversationId },
+    }));
+    installChatAPI({ listConversations, messagePage, setSelectedConversation });
     useChatStore.setState({
       conversations: [conversationItem(apiConversation)],
       selectedConversation: apiConversation,
@@ -35,6 +38,10 @@ describe("chat store workspace conversation selection", () => {
     expect(messagePage).toHaveBeenCalledWith("workspace_web", "conversation_web", 0, 40);
     expect(useChatStore.getState().workspaceId).toBe("workspace_web");
     expect(useChatStore.getState().selectedConversation?.id).toBe("conversation_web");
+    expect(useChatStore.getState().selectedConversationIdsByWorkspaceId.workspace_web).toBe(
+      "conversation_web",
+    );
+    expect(setSelectedConversation).toHaveBeenCalledWith("workspace_web", "conversation_web");
     expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
       "conversation_web",
     ]);
@@ -46,6 +53,7 @@ describe("chat store workspace conversation selection", () => {
 function installChatAPI({
   listConversations,
   messagePage,
+  setSelectedConversation,
 }: {
   listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
   messagePage: (
@@ -54,6 +62,10 @@ function installChatAPI({
     offset: number,
     limit: number,
   ) => Promise<MessagePage>;
+  setSelectedConversation: (
+    workspaceId: string,
+    conversationId: string,
+  ) => Promise<{ selectedConversationIdsByWorkspaceId: Record<string, string> }>;
 }) {
   Object.defineProperty(globalThis, "window", {
     configurable: true,
@@ -63,6 +75,9 @@ function installChatAPI({
           activeRun: async () => ({ hasActiveRun: false, run: null }),
           listConversations,
           messagePage,
+        },
+        workspace: {
+          setSelectedConversation,
         },
       },
     },
@@ -88,6 +103,7 @@ function conversation(id: string, workspaceId: string): Conversation {
 function conversationItem(conversation: Conversation): ConversationListItem {
   return {
     activeRunId: "",
+    pinnedAt: "",
     conversation,
     latestReadRelevantMarker: 0,
     messageCount: 0,

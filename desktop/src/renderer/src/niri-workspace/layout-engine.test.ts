@@ -152,12 +152,12 @@ describe("real niri workspace column sizing", () => {
     const engine = createRealEngine();
     const stackedPaneId = engine.splitPane("workspace_pane_0", "down");
     const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, stackedPaneId);
-    const firstColumnTop = items.find((item) => item.paneId === "workspace_pane_0");
-    const firstColumnBottom = items.find((item) => item.paneId === stackedPaneId);
-    const secondColumn = items.find((item) => item.paneId === "workspace_pane_1");
+    const firstColumnTop = requireRenderItem(items, "workspace_pane_0");
+    const firstColumnBottom = requireRenderItem(items, stackedPaneId);
+    const secondColumn = requireRenderItem(items, "workspace_pane_1");
 
-    expect(secondColumn?.x).toBe((firstColumnTop?.x ?? 0) + (firstColumnTop?.width ?? 0) + 8);
-    expect(firstColumnBottom?.y).toBe((firstColumnTop?.y ?? 0) + (firstColumnTop?.height ?? 0) + 8);
+    expect(secondColumn.x).toBe(firstColumnTop.x + firstColumnTop.width + 8);
+    expect(firstColumnBottom.y).toBe(firstColumnTop.y + firstColumnTop.height + 8);
   });
 
   test("keeps next columns attached after shrinking a column", () => {
@@ -800,6 +800,14 @@ function renderFrame(
     (item) => items.push(item),
   );
   return items;
+}
+
+function requireRenderItem(items: PaneRenderItem[], paneId: string): PaneRenderItem {
+  const item = items.find((candidate) => candidate.paneId === paneId);
+  if (!item) {
+    throw new Error(`render item ${paneId} was not found`);
+  }
+  return item;
 }
 
 function createRealEngine(

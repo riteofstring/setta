@@ -1139,6 +1139,10 @@ export interface WorkspaceSession {
   recentWorkspaces: WorkspaceSummary[];
 }
 
+export interface WorkspaceSelectedConversations {
+  selectedConversationIdsByWorkspaceId: Record<string, string>;
+}
+
 export interface OpenWorkspaceRequest {
   rootPath: string;
 }
@@ -1150,6 +1154,11 @@ export interface OpenWorkspaceResponse {
 
 export interface SelectWorkspaceRequest {
   id: string;
+}
+
+export interface SetWorkspaceSelectedConversationRequest {
+  workspaceId: string;
+  conversationId: string;
 }
 
 export interface CloseWorkspaceRequest {
@@ -1210,6 +1219,7 @@ export interface ConversationListItem {
   conversation: Conversation;
   messageCount: number;
   activeRunId: string;
+  pinnedAt: string;
   readMarker: number;
   latestReadRelevantMarker: number;
 }
@@ -1251,9 +1261,20 @@ export interface CreateConversationRequest {
   title: string;
 }
 
+export interface DeleteConversationRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
 export interface MarkConversationReadRequest {
   workspaceId: string;
   conversationId: string;
+}
+
+export interface SetConversationPinnedRequest {
+  workspaceId: string;
+  conversationId: string;
+  pinned: boolean;
 }
 
 export interface GetMessagePageRequest {
@@ -2503,6 +2524,10 @@ export const backendEndpoints = {
     method: "GET",
     path: "/workspace-session",
   },
+  WorkspaceSelectedConversations: {
+    method: "GET",
+    path: "/workspaces/selected-conversations",
+  },
   OpenWorkspace: {
     method: "POST",
     path: "/workspaces/open",
@@ -2510,6 +2535,10 @@ export const backendEndpoints = {
   SelectWorkspace: {
     method: "POST",
     path: "/workspaces/select",
+  },
+  SetWorkspaceSelectedConversation: {
+    method: "POST",
+    path: "/workspaces/selected-conversation",
   },
   CloseWorkspace: {
     method: "POST",
@@ -2531,9 +2560,17 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/conversations/create",
   },
+  DeleteConversation: {
+    method: "POST",
+    path: "/chat/conversations/delete",
+  },
   MarkConversationRead: {
     method: "POST",
     path: "/chat/conversations/mark-read",
+  },
+  SetConversationPinned: {
+    method: "POST",
+    path: "/chat/conversations/pin",
   },
   GetMessagePage: {
     method: "POST",
@@ -2902,6 +2939,14 @@ export function decodeWorkspaceSession(value: unknown): WorkspaceSession {
   };
 }
 
+export function decodeWorkspaceSelectedConversations(value: unknown): WorkspaceSelectedConversations {
+  const record = assertRecord(value, "WorkspaceSelectedConversations");
+  assertKnownFields(record, "WorkspaceSelectedConversations", ["selectedConversationIdsByWorkspaceId"]);
+  return {
+    selectedConversationIdsByWorkspaceId: decodeStringRecord(requireField(record, "selectedConversationIdsByWorkspaceId", "WorkspaceSelectedConversations"), "WorkspaceSelectedConversations.selectedConversationIdsByWorkspaceId"),
+  };
+}
+
 export function decodeOpenWorkspaceRequest(value: unknown): OpenWorkspaceRequest {
   const record = assertRecord(value, "OpenWorkspaceRequest");
   assertKnownFields(record, "OpenWorkspaceRequest", ["rootPath"]);
@@ -2924,6 +2969,15 @@ export function decodeSelectWorkspaceRequest(value: unknown): SelectWorkspaceReq
   assertKnownFields(record, "SelectWorkspaceRequest", ["id"]);
   return {
     id: decodeString(requireField(record, "id", "SelectWorkspaceRequest"), "SelectWorkspaceRequest.id"),
+  };
+}
+
+export function decodeSetWorkspaceSelectedConversationRequest(value: unknown): SetWorkspaceSelectedConversationRequest {
+  const record = assertRecord(value, "SetWorkspaceSelectedConversationRequest");
+  assertKnownFields(record, "SetWorkspaceSelectedConversationRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SetWorkspaceSelectedConversationRequest"), "SetWorkspaceSelectedConversationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SetWorkspaceSelectedConversationRequest"), "SetWorkspaceSelectedConversationRequest.conversationId"),
   };
 }
 
@@ -3015,11 +3069,12 @@ export function decodeConversation(value: unknown): Conversation {
 
 export function decodeConversationListItem(value: unknown): ConversationListItem {
   const record = assertRecord(value, "ConversationListItem");
-  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "readMarker", "latestReadRelevantMarker"]);
+  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId", "pinnedAt", "readMarker", "latestReadRelevantMarker"]);
   return {
     conversation: decodeConversation(requireField(record, "conversation", "ConversationListItem")),
     messageCount: decodeInteger(requireField(record, "messageCount", "ConversationListItem"), "ConversationListItem.messageCount"),
     activeRunId: decodeString(requireField(record, "activeRunId", "ConversationListItem"), "ConversationListItem.activeRunId"),
+    pinnedAt: decodeString(requireField(record, "pinnedAt", "ConversationListItem"), "ConversationListItem.pinnedAt"),
     readMarker: decodeInteger(requireField(record, "readMarker", "ConversationListItem"), "ConversationListItem.readMarker"),
     latestReadRelevantMarker: decodeInteger(requireField(record, "latestReadRelevantMarker", "ConversationListItem"), "ConversationListItem.latestReadRelevantMarker"),
   };
@@ -3082,12 +3137,31 @@ export function decodeCreateConversationRequest(value: unknown): CreateConversat
   };
 }
 
+export function decodeDeleteConversationRequest(value: unknown): DeleteConversationRequest {
+  const record = assertRecord(value, "DeleteConversationRequest");
+  assertKnownFields(record, "DeleteConversationRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "DeleteConversationRequest"), "DeleteConversationRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "DeleteConversationRequest"), "DeleteConversationRequest.conversationId"),
+  };
+}
+
 export function decodeMarkConversationReadRequest(value: unknown): MarkConversationReadRequest {
   const record = assertRecord(value, "MarkConversationReadRequest");
   assertKnownFields(record, "MarkConversationReadRequest", ["workspaceId", "conversationId"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "MarkConversationReadRequest"), "MarkConversationReadRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "MarkConversationReadRequest"), "MarkConversationReadRequest.conversationId"),
+  };
+}
+
+export function decodeSetConversationPinnedRequest(value: unknown): SetConversationPinnedRequest {
+  const record = assertRecord(value, "SetConversationPinnedRequest");
+  assertKnownFields(record, "SetConversationPinnedRequest", ["workspaceId", "conversationId", "pinned"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SetConversationPinnedRequest"), "SetConversationPinnedRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SetConversationPinnedRequest"), "SetConversationPinnedRequest.conversationId"),
+    pinned: decodeBoolean(requireField(record, "pinned", "SetConversationPinnedRequest"), "SetConversationPinnedRequest.pinned"),
   };
 }
 
@@ -4853,14 +4927,18 @@ export interface BackendClient {
   readAppearancePresets: () => Promise<AppearancePresetList>;
   updateAppearanceSettings: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
   workspaceSession: () => Promise<WorkspaceSession>;
+  workspaceSelectedConversations: () => Promise<WorkspaceSelectedConversations>;
   openWorkspace: (request: OpenWorkspaceRequest) => Promise<OpenWorkspaceResponse>;
   selectWorkspace: (request: SelectWorkspaceRequest) => Promise<WorkspaceSession>;
+  setWorkspaceSelectedConversation: (request: SetWorkspaceSelectedConversationRequest) => Promise<WorkspaceSelectedConversations>;
   closeWorkspace: (request: CloseWorkspaceRequest) => Promise<WorkspaceSession>;
   reorderWorkspace: (request: ReorderWorkspaceRequest) => Promise<WorkspaceSession>;
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
+  deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
   markConversationRead: (request: MarkConversationReadRequest) => Promise<ConversationListItem>;
+  setConversationPinned: (request: SetConversationPinnedRequest) => Promise<ConversationListItem>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
   queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
@@ -4950,6 +5028,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: undefined,
     }),
+    workspaceSelectedConversations: () => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceSelectedConversations,
+      endpoint: backendEndpoints.WorkspaceSelectedConversations,
+      fetchImpl,
+      requestPayload: undefined,
+    }),
     openWorkspace: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -4963,6 +5049,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.SelectWorkspace,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    setWorkspaceSelectedConversation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceSelectedConversations,
+      endpoint: backendEndpoints.SetWorkspaceSelectedConversation,
       fetchImpl,
       requestPayload: request,
     }),
@@ -5006,11 +5100,27 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    deleteConversation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeListConversationsResponse,
+      endpoint: backendEndpoints.DeleteConversation,
+      fetchImpl,
+      requestPayload: request,
+    }),
     markConversationRead: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationListItem,
       endpoint: backendEndpoints.MarkConversationRead,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    setConversationPinned: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationListItem,
+      endpoint: backendEndpoints.SetConversationPinned,
       fetchImpl,
       requestPayload: request,
     }),

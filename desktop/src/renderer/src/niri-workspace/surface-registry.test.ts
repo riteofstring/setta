@@ -51,6 +51,21 @@ describe("niri surface registry", () => {
     expect(recordingAdapter.events.at(-1)).toBe("unmount");
   });
 
+  test("keeps browser adapters mounted for snapshot runtime handoff", () => {
+    const pane = fakePane("browser");
+    const recordingAdapter = new RecordingSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => recordingAdapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    registry.syncHost(host, renderItem(pane, "snapshot"), { resizePhase: "idle" });
+
+    expect(recordingAdapter.events).toContain("freeze:snapshot");
+    expect(recordingAdapter.events).not.toContain("unmount");
+    expect(recordingAdapter.events).not.toContain("mount:snapshot");
+    expect(host.dataset.surfaceKind).toBe("browser");
+  });
+
   test("keeps adapter records reusable after teardown releases mounted hosts", () => {
     const pane = fakePane("fake-dom");
     const recordingAdapter = new RecordingSurfaceAdapter(pane);
@@ -114,7 +129,7 @@ describe("niri surface registry", () => {
     expect(recordingAdapter.events).toContain("viewport:frame:220x180");
   });
 
-  test("hides browser native viewport during active resize and commits final bounds", () => {
+  test("keeps browser native viewport current during active resize", () => {
     const pane = fakePane("browser");
     const recordingAdapter = new RecordingSurfaceAdapter(pane);
     const registry = new SurfaceRegistry([pane], () => recordingAdapter);
@@ -140,11 +155,11 @@ describe("niri surface registry", () => {
       heavyViewportWrites: 0,
     });
     expect(throttledStats).toMatchObject({
-      browserViewportWrites: 0,
+      browserViewportWrites: 1,
       deferredHeavyViewportWrites: 0,
     });
     expect(skippedStats).toMatchObject({
-      browserViewportWrites: 0,
+      browserViewportWrites: 1,
       deferredHeavyViewportWrites: 0,
     });
     expect(settledStats).toMatchObject({
@@ -152,9 +167,69 @@ describe("niri surface registry", () => {
       deferredHeavyViewportWrites: 0,
     });
     expect(recordingAdapter.events).toContain("viewport:resize-active:220x180");
-    expect(recordingAdapter.events).not.toContain("viewport:frame:230x190");
-    expect(recordingAdapter.events).not.toContain("viewport:frame:240x200");
+    expect(recordingAdapter.events).toContain("viewport:resize-active:230x190");
+    expect(recordingAdapter.events).toContain("viewport:resize-active:240x200");
     expect(recordingAdapter.events).toContain("viewport:resize:260x210");
+  });
+
+  test("keeps browser native viewport current during Niri movement", () => {
+    const pane = fakePane("browser");
+    const recordingAdapter = new RecordingSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => recordingAdapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    const movingStats = registry.syncHost(
+      host,
+      { ...renderItem(pane, "live", 220, 180), moving: true },
+      { resizePhase: "idle" },
+    );
+    const throttledMovingStats = registry.syncHost(
+      host,
+      { ...renderItem(pane, "live", 230, 190), moving: true },
+      { resizePhase: "idle" },
+    );
+    const settledStats = registry.syncHost(host, renderItem(pane, "live", 260, 210), {
+      resizePhase: "idle",
+    });
+
+    expect(movingStats).toMatchObject({
+      browserViewportWrites: 1,
+      deferredHeavyViewportWrites: 0,
+      heavyViewportWrites: 0,
+    });
+    expect(throttledMovingStats).toMatchObject({
+      browserViewportWrites: 1,
+      deferredHeavyViewportWrites: 0,
+    });
+    expect(settledStats).toMatchObject({
+      browserViewportWrites: 1,
+      deferredHeavyViewportWrites: 0,
+    });
+    expect(recordingAdapter.events).toContain("viewport:movement-active:220x180");
+    expect(recordingAdapter.events).toContain("viewport:movement-active:230x190");
+    expect(recordingAdapter.events).toContain("viewport:frame:260x210");
+  });
+
+  test("does not rewrite unchanged browser viewport after movement", () => {
+    const pane = fakePane("browser");
+    const recordingAdapter = new RecordingSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => recordingAdapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    registry.syncHost(host, { ...renderItem(pane, "live"), moving: true }, { resizePhase: "idle" });
+    const settledStats = registry.syncHost(host, renderItem(pane, "live"), {
+      resizePhase: "idle",
+    });
+
+    expect(settledStats).toMatchObject({
+      browserViewportWrites: 0,
+      surfaceViewportWrites: 0,
+    });
+    expect(recordingAdapter.events.filter((event) => event.startsWith("viewport:"))).toEqual([
+      "viewport:mount:160x120",
+    ]);
   });
 
   test("does not rewrite unchanged browser viewport bounds on idle frames", () => {

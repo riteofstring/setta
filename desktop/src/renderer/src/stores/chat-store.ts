@@ -1,20 +1,4 @@
-import type {
-  ApprovalAnswer,
-  ChatCommandExecuteResult,
-  ChatCommandListResult,
-  ChatEvent,
-  ChatGoalState,
-  ChatMessage,
-  Conversation,
-  ConversationListItem,
-  CorruptionSummary,
-  Diagnostic,
-  ListConversationsResponse,
-  ReasoningEffort,
-  RunItem,
-  RunItemOutput,
-  TranscriptTurn,
-} from "@generated/backend";
+import type { Conversation, ListConversationsResponse, ReasoningEffort } from "@generated/backend";
 import type { ChatCommandExecutionOptions } from "@shared/types";
 import { create } from "zustand";
 
@@ -24,22 +8,14 @@ import {
   conversationListLoadedPatch,
   conversationListLoadingPatch,
   conversationUpdatedSummaryPatch,
-  type WorkspaceConversationListState,
 } from "./chat-store-conversation-lists";
-import {
-  conversationDetailPatch,
-  normalizeStatePatch,
-  type ConversationDetailState,
-} from "./chat-store-detail-cache";
+import { conversationDetailPatch, normalizeStatePatch } from "./chat-store-detail-cache";
 import {
   activeRunFromPage,
   messagesFromPage,
   outputPageLoadedState,
   prependOlderMessages,
   prependOlderTranscript,
-  type QueuedRun,
-  type RunItemOutputPageState,
-  type RunningRun,
   updateRunItemOutputPageState,
   upsertRunItemOutputs,
   upsertRunItems,
@@ -55,7 +31,6 @@ import {
 import {
   conversationBoundOperationScopes,
   createChatOperationTracker,
-  type ChatOperation,
   type ChatOperationScope,
   type ChatOperationToken,
 } from "./chat-store-operations";
@@ -67,126 +42,21 @@ import {
   type ConversationSelectionRequest,
   type ConversationSelectionResult,
 } from "./chat-store-workspace-selection";
+import {
+  conversationToLoadForWorkspace,
+  errorMessage,
+  errorPatch,
+  hasSequenceGap,
+  isDuplicateEvent,
+  isUnexpectedStream,
+  persistSelectedConversation,
+} from "./chat-store-helpers";
+import type { ChatPatch, ChatStore } from "./chat-store-types";
 
 export { prependOlderMessages };
 export type { WorkspaceConversationListState } from "./chat-store-conversation-lists";
 export type { RunItemOutputPageState } from "./chat-store-normalization";
-
-type ChatStatus = "idle" | "loading" | "ready" | "error";
-type CommandListStatus = "idle" | "loading" | "loaded" | "failed";
-
-export interface ChatStore {
-  activeRun: RunningRun | null;
-  applyConversationList: (workspaceId: string, response: ListConversationsResponse) => void;
-  applyConversationUpdatedEvent: (workspaceId: string, item: ConversationListItem) => void;
-  clearClosedWorkspaceConversationLists: (activeWorkspaceIds: string[]) => void;
-  commandListError: string | null;
-  commandListStatus: CommandListStatus;
-  conversationDetailsById: Record<string, ConversationDetailState | undefined>;
-  conversationListsByWorkspaceId: Record<string, WorkspaceConversationListState | undefined>;
-  conversations: ConversationListItem[];
-  corruption: CorruptionSummary;
-  diagnostics: Diagnostic[];
-  editingQueuedMessageId: string | null;
-  editQueuedMessage: (messageId: string, prompt: string) => Promise<void>;
-  ensureWorkspaceConversationList: (workspaceId: string) => Promise<void>;
-  error: string | null;
-  goal: ChatGoalState | null;
-  hasMoreOlder: boolean;
-  handleEvent: (event: ChatEvent) => void;
-  lastEventSequence: number;
-  lastEventStreamId: string;
-  loadOlder: () => Promise<void>;
-  loadRunActivity: (runId: string, limit?: number) => Promise<void>;
-  loadRunItemOutput: (
-    runId: string,
-    runItemId: string,
-    afterOrdinal?: number,
-    limit?: number,
-  ) => Promise<void>;
-  loadWorkspace: (workspaceId: string) => Promise<void>;
-  markConversationRead: (conversationId: string) => Promise<void>;
-  messageIds: string[];
-  messages: ChatMessage[];
-  messagesById: Record<string, ChatMessage>;
-  olderBeforeOrdinal: number;
-  operation: ChatOperation;
-  queuedRuns: QueuedRun[];
-  queueMessage: (prompt: string) => Promise<void>;
-  removeQueuedMessage: (messageId: string) => Promise<void>;
-  removingQueuedMessageId: string | null;
-  executeCommand: (
-    raw: string,
-    options?: ChatCommandExecutionOptions,
-  ) => Promise<ChatCommandExecuteResult>;
-  setCodexModel: (modelId: string) => Promise<ChatCommandExecuteResult>;
-  setCodexReasoningEffort: (effort: ReasoningEffort) => Promise<ChatCommandExecuteResult>;
-  listCommands: () => Promise<ChatCommandListResult | null>;
-  resyncActiveConversation: () => Promise<void>;
-  createConversation: (title?: string) => Promise<void>;
-  createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  runItemIdsByRunId: Record<string, string[]>;
-  runItemOutputIdsByRunItemId: Record<string, string[]>;
-  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
-  runItemOutputs: RunItemOutput[];
-  runItemOutputsById: Record<string, RunItemOutput>;
-  runItems: RunItem[];
-  runItemsById: Record<string, RunItem>;
-  selectedConversation: Conversation | null;
-  selectConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
-  sendMessage: (prompt: string) => Promise<void>;
-  sendSteeringImmediately: (prompt?: string) => Promise<void>;
-  status: ChatStatus;
-  steerMessage: (prompt: string) => Promise<void>;
-  stopActiveRun: () => Promise<void>;
-  submitApproval: (
-    approvalId: string,
-    approved: boolean,
-    response: string,
-    answers: ApprovalAnswer[],
-    cancelled: boolean,
-  ) => Promise<void>;
-  workspaceId: string | null;
-  transcript: TranscriptTurn[];
-}
-
-export type ChatPatch = Partial<
-  Pick<
-    ChatStore,
-    | "activeRun"
-    | "commandListError"
-    | "commandListStatus"
-    | "conversationDetailsById"
-    | "conversationListsByWorkspaceId"
-    | "conversations"
-    | "corruption"
-    | "diagnostics"
-    | "editingQueuedMessageId"
-    | "error"
-    | "goal"
-    | "hasMoreOlder"
-    | "lastEventSequence"
-    | "lastEventStreamId"
-    | "messageIds"
-    | "messages"
-    | "messagesById"
-    | "olderBeforeOrdinal"
-    | "operation"
-    | "queuedRuns"
-    | "removingQueuedMessageId"
-    | "runItemIdsByRunId"
-    | "runItemOutputIdsByRunItemId"
-    | "runItemOutputPagesByRunItemId"
-    | "runItemOutputs"
-    | "runItemOutputsById"
-    | "runItems"
-    | "runItemsById"
-    | "selectedConversation"
-    | "status"
-    | "transcript"
-    | "workspaceId"
-  >
->;
+export type { ChatPatch, ChatStore } from "./chat-store-types";
 
 const pageLimit = 40;
 
@@ -247,6 +117,39 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
   async function reloadConversations(workspaceId: string) {
     return window.setta.chat.listConversations(workspaceId);
+  }
+
+  async function deletedConversationSelectionPatch(
+    workspaceId: string,
+    conversationId: string,
+    list: ListConversationsResponse,
+  ): Promise<{
+    nextConversationPatch: ChatPatch;
+    selectedConversationIdsByWorkspaceId: Record<string, string | undefined>;
+  }> {
+    const state = get();
+    const deletedSelected =
+      state.workspaceId === workspaceId && state.selectedConversation?.id === conversationId;
+    if (!deletedSelected) {
+      return {
+        nextConversationPatch: {},
+        selectedConversationIdsByWorkspaceId: state.selectedConversationIdsByWorkspaceId,
+      };
+    }
+    const nextConversation = list.conversations[0]?.conversation ?? null;
+    if (!nextConversation) {
+      return {
+        nextConversationPatch: emptyConversationPatch(),
+        selectedConversationIdsByWorkspaceId: state.selectedConversationIdsByWorkspaceId,
+      };
+    }
+    return {
+      nextConversationPatch: await loadConversationPage(workspaceId, nextConversation),
+      selectedConversationIdsByWorkspaceId: await persistSelectedConversation(
+        workspaceId,
+        nextConversation.id,
+      ),
+    };
   }
 
   async function resolveConversationSelection(
@@ -365,11 +268,16 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const conversation = await window.setta.chat.createConversation(workspaceId, title);
         const patch = await loadConversationPage(workspaceId, conversation);
         const list = await reloadConversations(workspaceId);
+        const selectedConversationIdsByWorkspaceId = await persistSelectedConversation(
+          workspaceId,
+          conversation.id,
+        );
         commitCurrentFromState(operation, (current) => ({
           ...patch,
           ...conversationListLoadedPatch(current, workspaceId, list, true),
           operation: null,
           selectedConversation: conversation,
+          selectedConversationIdsByWorkspaceId,
           status: "ready",
           workspaceId,
         }));
@@ -378,6 +286,38 @@ export const useChatStore = create<ChatStore>((set, get) => {
           ...errorPatch(error),
           workspaceId: switchingWorkspace ? workspaceId : get().workspaceId,
         });
+      }
+    },
+    deleteConversation: async (conversationId, targetWorkspaceId) => {
+      const workspaceId = targetWorkspaceId ?? get().workspaceId;
+      if (!workspaceId) {
+        return;
+      }
+      const operation = beginOperation(
+        "conversation",
+        { error: null, operation: "deleting" },
+        conversationBoundOperationScopes,
+      );
+      try {
+        const list = await window.setta.chat.deleteConversation(workspaceId, conversationId);
+        const { nextConversationPatch, selectedConversationIdsByWorkspaceId } =
+          await deletedConversationSelectionPatch(workspaceId, conversationId, list);
+        commitCurrentFromState(operation, (current) => ({
+          ...conversationListLoadedPatch(
+            current,
+            workspaceId,
+            list,
+            current.workspaceId === workspaceId,
+          ),
+          ...nextConversationPatch,
+          operation: null,
+          selectedConversationIdsByWorkspaceId,
+          status: "ready",
+          workspaceId: current.workspaceId === workspaceId ? workspaceId : current.workspaceId,
+        }));
+      } catch (error) {
+        commitCurrent(operation, errorPatch(error));
+        throw error;
       }
     },
     error: null,
@@ -553,16 +493,28 @@ export const useChatStore = create<ChatStore>((set, get) => {
         conversationBoundOperationScopes,
       );
       try {
-        const list = await reloadConversations(workspaceId);
-        const first = list.conversations[0]?.conversation ?? null;
-        const patch = first
-          ? await loadConversationPage(workspaceId, first)
+        const [list, selectedConversations] = await Promise.all([
+          reloadConversations(workspaceId),
+          window.setta.workspace.selectedConversations(),
+        ]);
+        const selectedConversationIdsByWorkspaceId = {
+          ...get().selectedConversationIdsByWorkspaceId,
+          ...selectedConversations.selectedConversationIdsByWorkspaceId,
+        };
+        const conversation = conversationToLoadForWorkspace(
+          { ...get(), selectedConversationIdsByWorkspaceId },
+          workspaceId,
+          list,
+        );
+        const patch = conversation
+          ? await loadConversationPage(workspaceId, conversation)
           : emptyConversationPatch();
         commitCurrentFromState(operation, (current) => ({
           ...patch,
           ...conversationListLoadedPatch(current, workspaceId, list, true),
           operation: null,
-          selectedConversation: first,
+          selectedConversation: conversation,
+          selectedConversationIdsByWorkspaceId,
           status: "ready",
           workspaceId,
         }));
@@ -723,6 +675,23 @@ export const useChatStore = create<ChatStore>((set, get) => {
         throw error;
       }
     },
+    setConversationPinned: async (conversationId, pinned, targetWorkspaceId) => {
+      const workspaceId = targetWorkspaceId ?? get().workspaceId;
+      if (!workspaceId) {
+        return;
+      }
+      try {
+        const item = await window.setta.chat.setConversationPinned(
+          workspaceId,
+          conversationId,
+          pinned,
+        );
+        get().applyConversationUpdatedEvent(workspaceId, item);
+      } catch (error) {
+        set({ error: errorMessage(error), status: "error" });
+        throw error;
+      }
+    },
     listCommands: async () => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
@@ -814,11 +783,16 @@ export const useChatStore = create<ChatStore>((set, get) => {
           return;
         }
         const patch = await loadConversationPage(request.workspaceId, conversation);
+        const selectedConversationIdsByWorkspaceId = await persistSelectedConversation(
+          request.workspaceId,
+          conversation.id,
+        );
         commitCurrent(operation, {
           ...conversationListPatch,
           ...patch,
           operation: null,
           selectedConversation: conversation,
+          selectedConversationIdsByWorkspaceId,
           status: "ready",
           workspaceId: request.workspaceId,
         });
@@ -827,6 +801,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     selectedConversation: null,
+    selectedConversationIdsByWorkspaceId: {},
     sendMessage: async (prompt: string) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
@@ -951,31 +926,3 @@ export const useChatStore = create<ChatStore>((set, get) => {
     workspaceId: null,
   };
 });
-
-function isUnexpectedStream(state: ChatStore, event: ChatEvent): boolean {
-  return state.lastEventStreamId !== "" && event.streamId !== state.lastEventStreamId;
-}
-
-function isDuplicateEvent(state: ChatStore, event: ChatEvent): boolean {
-  return event.streamId === state.lastEventStreamId && event.sequence <= state.lastEventSequence;
-}
-
-function hasSequenceGap(state: ChatStore, event: ChatEvent): boolean {
-  return (
-    event.streamId === state.lastEventStreamId &&
-    state.lastEventSequence !== 0 &&
-    event.sequence !== state.lastEventSequence + 1
-  );
-}
-
-function errorPatch(error: unknown): ChatPatch {
-  return {
-    error: errorMessage(error),
-    operation: null,
-    status: "error",
-  };
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Chat operation failed";
-}

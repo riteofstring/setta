@@ -10,7 +10,6 @@ describe("niri workspace toolbar", () => {
   test("renders performance stats in the top bar only when enabled", () => {
     const hidden = renderToString(
       <NiriWorkspaceToolbar
-        focusedPaneId="workspace_pane_0"
         openPane={() => {}}
         overviewActive={false}
         performanceStatsRef={null}
@@ -22,7 +21,6 @@ describe("niri workspace toolbar", () => {
 
     const visible = renderToString(
       <NiriWorkspaceToolbar
-        focusedPaneId="workspace_pane_0"
         openPane={() => {}}
         overviewActive={false}
         performanceStatsRef={createRef<HTMLDivElement>()}
@@ -33,8 +31,11 @@ describe("niri workspace toolbar", () => {
     );
 
     expect(hidden).not.toContain('data-testid="niri-performance-stats"');
-    expect(hidden).toContain("niri-workspace-toolbar-group app-drag");
-    expect(hidden).toContain("niri-workspace-toolbar-spacer app-drag");
+    expect(hidden).not.toContain("workspace_pane_0");
+    expect(hidden).not.toContain('data-testid="niri-focused-pane-label"');
+    expect(hidden).toContain('data-niri-workspace-title-bar="true"');
+    expect(hidden).toContain('class="niri-workspace-toolbar"');
+    expect(hidden).toContain('class="niri-workspace-toolbar-spacer"');
     expect(hidden).toContain("niri-workspace-toolbar-menu-root app-no-drag");
     expect(hidden).toContain("niri-workspace-toolbar-menu-button app-no-drag");
     expect(hidden).toContain('aria-label="Enter overview"');
@@ -43,7 +44,7 @@ describe("niri workspace toolbar", () => {
     expect(hidden).not.toContain('aria-label="Add frame to the right"');
     expect(hidden).not.toContain('aria-label="Add frame above or below"');
     expect(visible).toContain('data-testid="niri-performance-stats"');
-    expect(visible).toContain("niri-workspace-toolbar-spacer app-drag");
+    expect(visible).toContain('class="niri-workspace-toolbar-spacer"');
   });
 
   test("keeps floating toolbar menus outside the Electron drag region", () => {

@@ -21,8 +21,8 @@ const runtimePolicyOptionsByMode = {
     degradeOverview: true,
   },
   workspace: {
-    degradeDuringMovement: true,
-    degradeOverview: false,
+    degradeDuringMovement: false,
+    degradeOverview: true,
   },
 } satisfies Record<
   NiriSceneMode,

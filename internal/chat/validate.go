@@ -107,6 +107,29 @@ func validateConversationReadState(state ConversationReadState, conversationID s
 	return nil
 }
 
+func validateConversationPinState(state conversationPinState) error {
+	if state.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("conversation pins have unsupported schemaVersion %d", state.SchemaVersion)
+	}
+	seen := map[string]bool{}
+	for _, pin := range state.Pins {
+		if pin.ConversationID == "" {
+			return fmt.Errorf("conversation pin conversationId is required")
+		}
+		if err := validateConversationID(pin.ConversationID); err != nil {
+			return err
+		}
+		if seen[pin.ConversationID] {
+			return fmt.Errorf("conversation pin %s is duplicated", pin.ConversationID)
+		}
+		seen[pin.ConversationID] = true
+		if err := validateTimestamp(pin.PinnedAt, "conversation "+pin.ConversationID+" pinnedAt"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func validateChatCodexSettings(conversationID string, settings ChatCodexSettings) error {
 	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
 		return fmt.Errorf("conversation %s codexSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)

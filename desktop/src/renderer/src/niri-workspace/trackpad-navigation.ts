@@ -12,6 +12,7 @@ export interface NiriTrackpadWheelInput {
   deltaY: number;
   metaKey: boolean;
   modifierRequired?: boolean;
+  timeStampMs?: number;
 }
 
 export interface NiriTrackpadNavigationResult {
@@ -25,7 +26,18 @@ const wheelDeltaModePage = 2;
 const wheelLinePixelFactor = 16;
 const wheelPagePixelFactor = 720;
 const trackpadNavigationThresholdPx = 80;
-const maxDirectionsPerWheelEvent = 2;
+const trackpadNavigationGestureReleaseMs = 220;
+const maxDirectionsPerWheelEvent = 1;
+
+interface ConsumedTrackpadNavigationGesture {
+  consumed: boolean;
+  lastWheelTimeMs: number | null;
+}
+
+const consumedGestureStates = new WeakMap<
+  NiriTrackpadNavigationState,
+  ConsumedTrackpadNavigationGesture
+>();
 
 export function createNiriTrackpadNavigationState(): NiriTrackpadNavigationState {
   return {
@@ -40,21 +52,98 @@ export function interpretNiriTrackpadWheel(
 ): NiriTrackpadNavigationResult {
   if (!navigationModifierSatisfied(input)) {
     resetNiriTrackpadNavigationState(state);
+    resetConsumedTrackpadNavigationGesture(state);
     return navigationResult(false);
   }
 
+  const gesture = consumedGestureStateFor(state);
+  releaseConsumedTrackpadNavigationGestureAfterIdle(input, state, gesture);
   const dominantDelta = dominantWheelDelta(input);
   if (!dominantDelta) {
     return navigationResult(true);
   }
+  if (gesture.consumed) {
+    return navigationResult(true);
+  }
 
   accumulateDominantWheelDelta(state, dominantDelta);
-  return navigationResult(true, drainTrackpadNavigationDirections(state));
+  const directions = drainTrackpadNavigationDirections(state);
+  if (directions.length > 0) {
+    state.accumulatedDelta = 0;
+    gesture.consumed = true;
+  }
+  return navigationResult(true, directions);
+}
+
+export function paneTopBarPaneIdFromWheelTarget(target: EventTarget | null): string | null {
+  if (!isClosestTarget(target)) {
+    return null;
+  }
+  const topBar = target.closest("[data-niri-pane-top-bar]");
+  return topBar?.dataset.paneId || null;
+}
+
+export function wheelTargetIsAppTitleBar(target: EventTarget | null): boolean {
+  if (!isClosestTarget(target)) {
+    return false;
+  }
+  return (
+    target.closest("[data-setta-shell-title-bar]") !== null ||
+    target.closest("[data-niri-workspace-title-bar]") !== null
+  );
+}
+
+function isClosestTarget(target: EventTarget | null): target is EventTarget & {
+  closest: (selector: string) => { dataset: { paneId?: string } } | null;
+} {
+  return typeof (target as { closest?: unknown } | null)?.closest === "function";
 }
 
 function resetNiriTrackpadNavigationState(state: NiriTrackpadNavigationState): void {
   state.accumulatedDelta = 0;
   state.axis = null;
+}
+
+function resetConsumedTrackpadNavigationGesture(state: NiriTrackpadNavigationState): void {
+  const gesture = consumedGestureStates.get(state);
+  if (!gesture) {
+    return;
+  }
+  gesture.consumed = false;
+  gesture.lastWheelTimeMs = null;
+}
+
+function consumedGestureStateFor(
+  state: NiriTrackpadNavigationState,
+): ConsumedTrackpadNavigationGesture {
+  const existing = consumedGestureStates.get(state);
+  if (existing) {
+    return existing;
+  }
+  const gesture = {
+    consumed: false,
+    lastWheelTimeMs: null,
+  } satisfies ConsumedTrackpadNavigationGesture;
+  consumedGestureStates.set(state, gesture);
+  return gesture;
+}
+
+function releaseConsumedTrackpadNavigationGestureAfterIdle(
+  input: NiriTrackpadWheelInput,
+  state: NiriTrackpadNavigationState,
+  gesture: ConsumedTrackpadNavigationGesture,
+): void {
+  if (input.timeStampMs === undefined) {
+    return;
+  }
+  if (gesture.lastWheelTimeMs !== null) {
+    const elapsedMs = input.timeStampMs - gesture.lastWheelTimeMs;
+    if (elapsedMs < 0 || elapsedMs > trackpadNavigationGestureReleaseMs) {
+      resetNiriTrackpadNavigationState(state);
+      gesture.consumed = false;
+    }
+  }
+  gesture.lastWheelTimeMs = input.timeStampMs;
 }
 
 function navigationModifierSatisfied(input: NiriTrackpadWheelInput): boolean {

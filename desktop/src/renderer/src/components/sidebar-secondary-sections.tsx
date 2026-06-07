@@ -10,7 +10,6 @@ export function SidebarSettingsButton({ onOpenSettings }: { onOpenSettings: () =
     >
       <Settings className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate font-medium">Settings</span>
-      <span className="text-[11px] text-muted-foreground">Right pane</span>
     </button>
   );
 }

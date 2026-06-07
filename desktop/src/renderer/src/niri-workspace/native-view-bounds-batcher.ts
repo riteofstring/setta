@@ -23,7 +23,6 @@ export class NativeViewBoundsBatcher {
   private currentFrameSurfaceIds = new Set<string>();
   private focusedSurfaceId: string | null = null;
   private lastLiveUpdates = new Map<string, NiriBrowserViewUpdate>();
-  private previousFrameSurfaceIds = new Set<string>();
   private readonly updates = new Map<string, NiriBrowserViewUpdate>();
 
   constructor(
@@ -38,12 +37,12 @@ export class NativeViewBoundsBatcher {
   }
 
   flush(): NativeViewBoundsFlushResult {
+    const { nextLiveUpdates, updates } = this.updatesForFlush();
     if (!this.bridge) {
-      this.previousFrameSurfaceIds = new Set(this.currentFrameSurfaceIds);
-      return { batchSent: false, updateCount: this.updates.size };
+      this.lastLiveUpdates = nextLiveUpdates;
+      return { batchSent: false, updateCount: updates.length };
     }
 
-    const updates = this.updatesForFlush();
     const shouldSend = updates.length > 0;
 
     if (!shouldSend) {
@@ -57,8 +56,7 @@ export class NativeViewBoundsBatcher {
       visibleBrowserPanes: this.currentFrameSurfaceIds.size,
       workspaceId: this.options.workspaceId,
     });
-    this.previousFrameSurfaceIds = new Set(this.currentFrameSurfaceIds);
-    this.lastLiveUpdates = liveUpdatesFor(updates);
+    this.lastLiveUpdates = nextLiveUpdates;
     return { batchSent: true, updateCount: updates.length };
   }
 
@@ -72,31 +70,40 @@ export class NativeViewBoundsBatcher {
     this.updates.set(update.surfaceId, update);
   }
 
-  private updatesForFlush(): NiriBrowserViewUpdate[] {
-    if (this.updates.size === 0) {
-      return [];
-    }
-
-    const liveUpdates = new Map(this.lastLiveUpdates);
-    const nonLiveUpdates: NiriBrowserViewUpdate[] = [];
+  private updatesForFlush(): {
+    nextLiveUpdates: Map<string, NiriBrowserViewUpdate>;
+    updates: NiriBrowserViewUpdate[];
+  } {
+    const nextLiveUpdates = new Map<string, NiriBrowserViewUpdate>();
+    const queuedSurfaceIds = new Set<string>();
+    const updates: NiriBrowserViewUpdate[] = [];
     for (const update of this.updates.values()) {
+      queuedSurfaceIds.add(update.surfaceId);
       if (update.visible && update.runtimeState === "live") {
-        liveUpdates.set(update.surfaceId, update);
+        nextLiveUpdates.set(update.surfaceId, update);
+        const previous = this.lastLiveUpdates.get(update.surfaceId);
+        if (!previous || !sameBrowserViewUpdate(previous, update)) {
+          updates.push(update);
+        }
       } else {
-        liveUpdates.delete(update.surfaceId);
-        nonLiveUpdates.push(update);
+        updates.push(update);
       }
     }
+    for (const [surfaceId, update] of this.lastLiveUpdates) {
+      if (nextLiveUpdates.has(surfaceId) || queuedSurfaceIds.has(surfaceId)) {
+        continue;
+      }
+      updates.push(hiddenUpdateFrom(update));
+    }
     this.currentFrameSurfaceIds = new Set(
-      [...liveUpdates.values()].map((update) => update.surfaceId),
+      [...nextLiveUpdates.values()].map((update) => update.surfaceId),
     );
-    return [...liveUpdates.values(), ...nonLiveUpdates];
+    return { nextLiveUpdates, updates };
   }
 
   async teardown(): Promise<NiriBrowserViewStats | null> {
     this.beginFrame();
     this.lastLiveUpdates.clear();
-    this.previousFrameSurfaceIds.clear();
     if (!this.bridge) {
       return null;
     }
@@ -104,14 +111,42 @@ export class NativeViewBoundsBatcher {
   }
 }
 
-function liveUpdatesFor(updates: NiriBrowserViewUpdate[]): Map<string, NiriBrowserViewUpdate> {
-  const liveUpdates = new Map<string, NiriBrowserViewUpdate>();
-  for (const update of updates) {
-    if (update.visible && update.runtimeState === "live") {
-      liveUpdates.set(update.surfaceId, update);
-    }
-  }
-  return liveUpdates;
+function hiddenUpdateFrom(update: NiriBrowserViewUpdate): NiriBrowserViewUpdate {
+  return {
+    ...update,
+    focused: false,
+    runtimeState: "hidden",
+    visible: false,
+  };
+}
+
+function sameBrowserViewUpdate(left: NiriBrowserViewUpdate, right: NiriBrowserViewUpdate): boolean {
+  const scalarFields = [
+    "focused",
+    "paneId",
+    "runtimeState",
+    "surfaceId",
+    "title",
+    "url",
+    "visible",
+  ] as const;
+  return (
+    sameRectangle(left.bounds, right.bounds) &&
+    sameRectangle(left.contentBounds, right.contentBounds) &&
+    scalarFields.every((field) => left[field] === right[field])
+  );
+}
+
+function sameRectangle(
+  left: NiriBrowserViewUpdate["bounds"],
+  right: NiriBrowserViewUpdate["bounds"],
+): boolean {
+  return (
+    left.height === right.height &&
+    left.width === right.width &&
+    left.x === right.x &&
+    left.y === right.y
+  );
 }
 
 function nativeViewBridge(): NativeViewBridge | null {

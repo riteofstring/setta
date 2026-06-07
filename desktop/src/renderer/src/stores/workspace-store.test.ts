@@ -250,6 +250,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
     select: async () => fallbackSession,
+    selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
+    setSelectedConversation: async (workspaceId, conversationId) => ({
+      selectedConversationIdsByWorkspaceId: { [workspaceId]: conversationId },
+    }),
     session: async () => fallbackSession,
     ...overrides.workspace,
   };
@@ -260,9 +264,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         pixiWorkspaceSyntheticGraph: null,
       },
       installedEditors: async () => [],
+      endWindowDrag: async () => {},
+      moveWindowDrag: async () => {},
       openWorkspaceInEditor: async () => {},
       openExternalUrl: async () => {},
       platform: "darwin",
+      startWindowDrag: async () => {},
       versions: async (): Promise<RuntimeVersions> => ({
         app: "test",
         chrome: "test",
@@ -300,6 +307,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
+      deleteConversation: async () => ({
+        conversations: [],
+        corruption: emptyCorruption(),
+        diagnostics: [],
+      }),
       editQueuedMessage: async () => ({
         conversation: emptyConversation(),
         page: emptyMessagePage(),
@@ -332,6 +344,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       }),
       markConversationRead: async () => ({
         activeRunId: "",
+        pinnedAt: "",
         conversation: emptyConversation(),
         latestReadRelevantMarker: 0,
         messageCount: 0,
@@ -405,6 +418,14 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           selectedModel: "",
           title: "Model",
         },
+      }),
+      setConversationPinned: async () => ({
+        activeRunId: "",
+        pinnedAt: "",
+        conversation: emptyConversation(),
+        latestReadRelevantMarker: 0,
+        messageCount: 0,
+        readMarker: 0,
       }),
       steerMessage: async () => ({
         conversation: emptyConversation(),

@@ -27,6 +27,7 @@ import { createSessionRecorder, type SessionRecorder } from "./session-recorder"
 import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
+import { registerAppWindowDragIpcHandlers } from "./window-drag";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
 import { readWorkspaceGitInfo } from "./workspace-actions";
@@ -341,6 +342,11 @@ function registerIpc() {
     },
     ipcObserver,
   );
+  registerAppWindowDragIpcHandlers({
+    ipcMain,
+    ipcObserver,
+    windowFromEvent: (event) => BrowserWindow.fromWebContents(event.sender),
+  });
   handleIpc(
     ipcMain,
     "appWorkspaceGitInfo",
@@ -444,6 +450,25 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "workspaceSelectedConversations",
+    async () => {
+      return requireBackendClient().workspaceSelectedConversations();
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workspaceSetSelectedConversation",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().setWorkspaceSelectedConversation({
+        conversationId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workspaceOpenPath",
     async (_event, rootPath) => {
       return requireBackendClient().openWorkspace({ rootPath });
@@ -492,9 +517,29 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatDeleteConversation",
+    async (_event, workspaceId, conversationId) => {
+      return requireBackendClient().deleteConversation({ conversationId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatMarkConversationRead",
     async (_event, workspaceId, conversationId) => {
       return requireBackendClient().markConversationRead({ conversationId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSetConversationPinned",
+    async (_event, workspaceId, conversationId, pinned) => {
+      return requireBackendClient().setConversationPinned({
+        conversationId,
+        pinned,
+        workspaceId,
+      });
     },
     ipcObserver,
   );

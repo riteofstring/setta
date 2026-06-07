@@ -1,6 +1,7 @@
 import type { ApprovalAnswer, StructuredInputRequest } from "@generated/backend";
 import { Check, ExternalLink, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { useMemo } from "react";
 
 import { Button } from "./ui/button";
 
@@ -70,40 +71,18 @@ function StructuredInputFormApproval({
   submitApproval: SubmitStructuredApproval;
 }) {
   const schema = useMemo(() => parseStructuredInputSchema(input.schema), [input.schema]);
-  const [valuesByField, setValuesByField] = useState<StructuredFormValues>(() =>
-    initialStructuredFormValues(schema.fields),
-  );
-  const complete =
-    schema.errors.length === 0 && structuredFormComplete(schema.fields, valuesByField);
 
   return (
-    <div className="mt-3 space-y-3">
+    <form
+      className="mt-3 space-y-3"
+      onSubmit={(event) => handleStructuredFormSubmit(event, schema.fields, submitApproval)}
+    >
       <StructuredInputSchemaErrors errors={schema.errors} />
       {schema.errors.length === 0
-        ? schema.fields.map((field) => (
-            <StructuredFormFieldInput
-              field={field}
-              key={field.id}
-              setValue={(value) =>
-                setValuesByField((current) => ({ ...current, [field.id]: value }))
-              }
-              value={valuesByField[field.id] ?? field.defaultValue}
-            />
-          ))
+        ? schema.fields.map((field) => <StructuredFormFieldInput field={field} key={field.id} />)
         : null}
       <div className="flex flex-wrap gap-2">
-        <Button
-          disabled={!complete}
-          onClick={() =>
-            void submitApproval(
-              true,
-              structuredApprovalAnswers(schema.fields, valuesByField),
-              false,
-            )
-          }
-          type="button"
-          variant="primary"
-        >
+        <Button disabled={schema.errors.length > 0} type="submit" variant="primary">
           <Check className="h-4 w-4" />
           Submit
         </Button>
@@ -124,8 +103,23 @@ function StructuredInputFormApproval({
           Cancel
         </Button>
       </div>
-    </div>
+    </form>
   );
+}
+
+function handleStructuredFormSubmit(
+  event: FormEvent<HTMLFormElement>,
+  fields: StructuredFormField[],
+  submitApproval: SubmitStructuredApproval,
+) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = structuredFormValuesFromFormData(fields, new FormData(form));
+  if (!structuredFormComplete(fields, values)) {
+    focusFirstIncompleteStructuredField(form, fields, values);
+    return;
+  }
+  void submitApproval(true, structuredApprovalAnswers(fields, values), false);
 }
 
 function StructuredInputURLApproval({
@@ -191,44 +185,29 @@ function StructuredInputSchemaErrors({ errors }: { errors: string[] }) {
   );
 }
 
-function StructuredFormFieldInput({
-  field,
-  setValue,
-  value,
-}: {
-  field: StructuredFormField;
-  setValue: (value: StructuredFormValue) => void;
-  value: StructuredFormValue;
-}) {
+function StructuredFormFieldInput({ field }: { field: StructuredFormField }) {
   return (
     <label className="block space-y-1.5">
       <span className="block font-medium">{field.title}</span>
       {field.description ? (
         <span className="block text-xs text-muted-foreground">{field.description}</span>
       ) : null}
-      <StructuredFormFieldControl field={field} setValue={setValue} value={value} />
+      <StructuredFormFieldControl field={field} />
     </label>
   );
 }
 
-function StructuredFormFieldControl({
-  field,
-  setValue,
-  value,
-}: {
-  field: StructuredFormField;
-  setValue: (value: StructuredFormValue) => void;
-  value: StructuredFormValue;
-}) {
+function StructuredFormFieldControl({ field }: { field: StructuredFormField }) {
   switch (field.type) {
     case "boolean":
       return (
         <input
-          checked={structuredValueAsBoolean(value)}
           className="h-4 w-4 rounded border-status-warning bg-background accent-primary"
           data-testid={`structured-input-field-${field.id}`}
-          onChange={(event) => setValue(event.target.checked)}
+          defaultChecked={structuredValueAsBoolean(field.defaultValue)}
+          name={field.id}
           type="checkbox"
+          value="true"
         />
       );
     case "single_select":
@@ -236,8 +215,9 @@ function StructuredFormFieldControl({
         <select
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
           data-testid={`structured-input-field-${field.id}`}
-          onChange={(event) => setValue(event.target.value)}
-          value={structuredValueAsString(value)}
+          defaultValue={structuredValueAsString(field.defaultValue)}
+          name={field.id}
+          required={field.required}
         >
           <option value="">Select</option>
           {field.options.map((option) => (
@@ -248,19 +228,20 @@ function StructuredFormFieldControl({
         </select>
       );
     case "multi_select":
-      return <StructuredMultiSelectField field={field} setValue={setValue} value={value} />;
+      return <StructuredMultiSelectField field={field} />;
     case "integer":
     case "number":
       return (
         <input
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
           data-testid={`structured-input-field-${field.id}`}
+          defaultValue={structuredValueAsString(field.defaultValue)}
           max={field.maximum}
           min={field.minimum}
-          onChange={(event) => setValue(event.target.value)}
+          name={field.id}
+          required={field.required}
           step={field.type === "integer" ? 1 : undefined}
           type="number"
-          value={structuredValueAsString(value)}
         />
       );
     case "string":
@@ -268,11 +249,12 @@ function StructuredFormFieldControl({
         <input
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
           data-testid={`structured-input-field-${field.id}`}
+          defaultValue={structuredValueAsString(field.defaultValue)}
           maxLength={field.maxLength}
           minLength={field.minLength}
-          onChange={(event) => setValue(event.target.value)}
+          name={field.id}
+          required={field.required}
           type={structuredTextInputType(field.format)}
-          value={structuredValueAsString(value)}
         />
       );
     default:
@@ -280,16 +262,8 @@ function StructuredFormFieldControl({
   }
 }
 
-function StructuredMultiSelectField({
-  field,
-  setValue,
-  value,
-}: {
-  field: StructuredFormField;
-  setValue: (value: StructuredFormValue) => void;
-  value: StructuredFormValue;
-}) {
-  const selected = structuredValueAsStringArray(value);
+function StructuredMultiSelectField({ field }: { field: StructuredFormField }) {
+  const selected = structuredValueAsStringArray(field.defaultValue);
   return (
     <div className="flex flex-wrap gap-2" data-testid={`structured-input-field-${field.id}`}>
       {field.options.map((option) => (
@@ -298,10 +272,11 @@ function StructuredMultiSelectField({
           key={option.value}
         >
           <input
-            checked={selected.includes(option.value)}
             className="h-4 w-4 rounded border-status-warning bg-background accent-primary"
-            onChange={() => setValue(toggledStructuredMultiValue(selected, option.value))}
+            defaultChecked={selected.includes(option.value)}
+            name={field.id}
             type="checkbox"
+            value={option.value}
           />
           <span>{option.label}</span>
         </label>
@@ -443,12 +418,66 @@ function structuredFieldBase(
   };
 }
 
-function initialStructuredFormValues(fields: StructuredFormField[]): StructuredFormValues {
-  const values: StructuredFormValues = {};
+function structuredFormValuesFromFormData(
+  fields: StructuredFormField[],
+  formData: FormData,
+): StructuredFormValues {
+  const valuesByField: StructuredFormValues = {};
   for (const field of fields) {
-    values[field.id] = field.defaultValue;
+    valuesByField[field.id] = structuredFieldValueFromFormData(field, formData);
   }
-  return values;
+  return valuesByField;
+}
+
+function structuredFieldValueFromFormData(
+  field: StructuredFormField,
+  formData: FormData,
+): StructuredFormValue {
+  switch (field.type) {
+    case "boolean":
+      return formData.has(field.id);
+    case "integer":
+    case "number":
+    case "single_select":
+    case "string":
+      return stringFormValue(formData.get(field.id));
+    case "multi_select":
+      return formData.getAll(field.id).filter((value): value is string => {
+        return typeof value === "string";
+      });
+    default:
+      return assertNever(field.type);
+  }
+}
+
+function stringFormValue(value: FormDataEntryValue | null) {
+  return typeof value === "string" ? value : "";
+}
+
+function focusFirstIncompleteStructuredField(
+  form: HTMLFormElement,
+  fields: StructuredFormField[],
+  values: StructuredFormValues,
+) {
+  const field = fields.find((item) => {
+    const value = values[item.id] ?? item.defaultValue;
+    return item.required
+      ? !structuredFieldComplete(item, value)
+      : !structuredOptionalFieldValid(item, value);
+  });
+  if (field === undefined) {
+    return;
+  }
+  focusStructuredField(form, field.id);
+}
+
+function focusStructuredField(form: HTMLFormElement, fieldId: string) {
+  const control = Array.from(form.elements).find((element) => {
+    return element instanceof HTMLElement && element.getAttribute("name") === fieldId;
+  });
+  if (control instanceof HTMLElement) {
+    control.focus();
+  }
 }
 
 function structuredFormComplete(fields: StructuredFormField[], values: StructuredFormValues) {
@@ -634,10 +663,6 @@ function structuredValueAsBoolean(value: StructuredFormValue) {
 
 function structuredValueAsStringArray(value: StructuredFormValue) {
   return Array.isArray(value) ? value : [];
-}
-
-function toggledStructuredMultiValue(values: string[], option: string) {
-  return values.includes(option) ? values.filter((value) => value !== option) : [...values, option];
 }
 
 function structuredTextInputType(format: string) {

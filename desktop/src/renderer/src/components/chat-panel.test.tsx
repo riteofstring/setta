@@ -1,4 +1,12 @@
-import type { ChatMessage, MessageDelivery, MessageRole, MessageStatus } from "@generated/backend";
+import type {
+  ChatMessage,
+  MessageDelivery,
+  MessageRole,
+  MessageStatus,
+  Run,
+  RunItem,
+  TranscriptTurn,
+} from "@generated/backend";
 import type { KeyboardEvent } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -9,6 +17,7 @@ import {
   commandSuggestions,
   commandTextToExecute,
   ComposerButton,
+  ChatPanel,
   ConversationBody,
   goalEditorDraft,
   goalReplacementExecutionOptions,
@@ -479,7 +488,7 @@ describe("conversation body states", () => {
     );
 
     expect(html).toContain("Start a conversation for this workspace.");
-    expect(html).toContain("max-w-2xl");
+    expect(html).toContain("max-w-[42rem]");
     expect(html).not.toContain("What should we build in setta?");
   });
 
@@ -505,13 +514,83 @@ describe("conversation body states", () => {
 });
 
 describe("chat readable width contract", () => {
-  test("keeps transcript empty state, rows, search, and composer on max-w-2xl", () => {
+  test("keeps transcript states, goal chrome, search, and composer on the capped chat column", () => {
+    const userMessage = chatMessage("message_user", 1, "user", "complete", "hello", "normal", "");
+    const assistantMessage = chatMessage(
+      "message_assistant",
+      2,
+      "assistant",
+      "complete",
+      "hi",
+      "normal",
+      "run_api",
+    );
+    const activityItem = runItem("run_item_notice", "run_api", "notice", "completed");
     const transcriptHtml = renderToString(
       <ChatTranscript
         {...emptyTranscriptProps()}
-        messageIds={["message_user"]}
+        hasMoreOlder
+        messageIds={[userMessage.id, assistantMessage.id]}
         messagesById={{
-          message_user: chatMessage("message_user", 1, "user", "complete", "hello", "normal", ""),
+          [assistantMessage.id]: assistantMessage,
+          [userMessage.id]: userMessage,
+        }}
+        transcript={[
+          transcriptTurn(
+            run("run_api", userMessage.id, assistantMessage.id),
+            userMessage,
+            assistantMessage,
+          ),
+        ]}
+        runItemIdsByRunId={{ run_api: [activityItem.id] }}
+        runItemsById={{ [activityItem.id]: activityItem }}
+      />,
+    );
+    const queuedMessage = chatMessage(
+      "message_queued",
+      3,
+      "user",
+      "pending",
+      "Queued follow-up preview that is not attached to a live queue.",
+      "queued",
+      "",
+    );
+    const steeringMessage = chatMessage(
+      "message_steering",
+      4,
+      "user",
+      "pending",
+      "Standalone steering message preview.",
+      "steering",
+      "",
+    );
+    const failedMessage = chatMessage(
+      "message_failed",
+      5,
+      "assistant",
+      "error",
+      "The scripted fixture failed this turn on purpose so error styling is visible.",
+      "normal",
+      "",
+    );
+    const cancelledMessage = chatMessage(
+      "message_cancelled",
+      6,
+      "assistant",
+      "cancelled",
+      "The scripted fixture cancelled this turn on purpose so cancelled styling is visible.",
+      "normal",
+      "",
+    );
+    const standaloneStatesHtml = renderToString(
+      <ChatTranscript
+        {...emptyTranscriptProps()}
+        messageIds={[queuedMessage.id, steeringMessage.id, failedMessage.id, cancelledMessage.id]}
+        messagesById={{
+          [cancelledMessage.id]: cancelledMessage,
+          [failedMessage.id]: failedMessage,
+          [queuedMessage.id]: queuedMessage,
+          [steeringMessage.id]: steeringMessage,
         }}
       />,
     );
@@ -520,14 +599,64 @@ describe("chat readable width contract", () => {
     const composerHtml = renderToString(
       <Composer busy={false} chat={composerChat()} running={false} />,
     );
-
-    expect(transcriptHtml).toContain("max-w-2xl");
-    expect(emptyTranscriptHtml).toContain("max-w-2xl");
-    expect(searchHtml).toContain("max-w-2xl");
-    expect(composerHtml).toContain("max-w-2xl");
-    expect([transcriptHtml, emptyTranscriptHtml, searchHtml, composerHtml].join(" ")).not.toContain(
-      "max-w-3xl",
+    const goalHtml = renderToString(
+      <ConversationBody
+        chat={conversationBodyChat({ goal: goalState("keep chat chrome narrow", "active") })}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+      />,
     );
+    const chatErrorHtml = renderToString(
+      <ChatPanel
+        chat={conversationBodyChat({ error: "temporary chat error" })}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        workspace={{ id: "workspace_api" } as Parameters<typeof ChatPanel>[0]["workspace"]}
+      />,
+    );
+
+    expect(transcriptHtml).toContain("max-w-[42rem]");
+    expect(transcriptHtml).toMatch(
+      /class="[^"]*max-w-\[42rem\][^"]*"[^>]*data-testid="chat-transcript-turn"/u,
+    );
+    expect(transcriptHtml).toMatch(
+      /class="[^"]*max-w-\[42rem\][^"]*"[^>]*data-testid="chat-transcript-header"/u,
+    );
+    expect(transcriptHtml).toMatch(
+      /class="[^"]*max-w-\[42rem\][^"]*"[^>]*data-chat-message="true"(?:(?!data-chat-message="true").)*data-testid="run-activity-group"/su,
+    );
+    for (const id of [
+      "message_queued",
+      "message_steering",
+      "message_failed",
+      "message_cancelled",
+    ]) {
+      expect(standaloneStatesHtml).toMatch(
+        new RegExp(`class="[^"]*max-w-\\[42rem\\][^"]*"[^>]*data-message-id="${id}"`, "u"),
+      );
+    }
+    expect(standaloneStatesHtml).toContain("Queued");
+    expect(standaloneStatesHtml).toContain("Steering pending");
+    expect(standaloneStatesHtml).toContain("error");
+    expect(standaloneStatesHtml).toContain("cancelled");
+    expect(goalHtml).toMatch(
+      /class="[^"]*max-w-\[42rem\][^"]*"[^>]*data-testid="chat-goal-status"/u,
+    );
+    expect(chatErrorHtml).toMatch(/class="[^"]*max-w-\[42rem\][^"]*"[^>]*>temporary chat error</u);
+    expect(emptyTranscriptHtml).toContain("max-w-[42rem]");
+    expect(searchHtml).toContain("max-w-[42rem]");
+    expect(composerHtml).toContain("max-w-[42rem]");
+    expect(
+      [
+        transcriptHtml,
+        standaloneStatesHtml,
+        emptyTranscriptHtml,
+        goalHtml,
+        chatErrorHtml,
+        searchHtml,
+        composerHtml,
+      ].join(" "),
+    ).not.toContain("max-w-none");
   });
 });
 
@@ -589,6 +718,23 @@ function composerChat() {
     status: "ready",
     steerMessage: async () => {},
   } as unknown as Parameters<typeof Composer>[0]["chat"];
+}
+
+function conversationBodyChat(
+  overrides: Partial<ConversationBodyProps["chat"]> = {},
+): ConversationBodyProps["chat"] {
+  const chat = composerChat();
+  return {
+    ...chat,
+    ...emptyTranscriptProps(),
+    createConversation: async () => {},
+    error: null,
+    goal: null,
+    selectedConversation: chat.selectedConversation,
+    status: "ready",
+    workspaceId: "workspace_api",
+    ...overrides,
+  } as unknown as ConversationBodyProps["chat"];
 }
 
 function emptyTranscriptProps(): ChatTranscriptProps {
@@ -666,6 +812,80 @@ function chatMessage(
     schemaVersion: 1,
     status,
     updatedAt: "2026-05-29T20:00:00Z",
+  };
+}
+
+function transcriptTurn(
+  run: Run,
+  triggerMessage: ChatMessage,
+  assistantMessage: ChatMessage,
+): TranscriptTurn {
+  return {
+    assistantMessage,
+    run,
+    steeringMessages: [],
+    triggerMessage,
+  };
+}
+
+function run(id: string, triggerMessageId: string, assistantMessageId: string): Run {
+  return {
+    assistantMessageId,
+    completedAt: "2026-05-29T20:01:00Z",
+    conversationId: "conversation_api",
+    error: "",
+    harness: "codex",
+    id,
+    pendingApproval: null,
+    promptSummary: "prompt",
+    schemaVersion: 1,
+    startedAt: "2026-05-29T20:00:00Z",
+    status: "completed",
+    triggerMessageId,
+    workspaceId: "workspace_api",
+  };
+}
+
+function runItem(
+  id: string,
+  runId: string,
+  type: RunItem["type"],
+  status: RunItem["status"],
+): RunItem {
+  return {
+    command: "",
+    completedAt: "2026-05-29T20:01:00Z",
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:10Z",
+    cwd: "",
+    details: null,
+    diffSummary: "",
+    durationMs: 0,
+    error: "",
+    exitCode: 0,
+    filePaths: [],
+    hiddenText: "",
+    id,
+    namespace: "",
+    noticeKind: "info",
+    noticeMessage: "Fixture notice",
+    patchStatus: "",
+    processId: "",
+    progress: "",
+    providerItemId: "",
+    requestId: "",
+    result: "",
+    reviewId: "",
+    runId,
+    schemaVersion: 1,
+    serverName: "",
+    startedAt: "2026-05-29T20:00:10Z",
+    status,
+    summary: "",
+    title: "",
+    toolName: "",
+    type,
+    workspaceId: "workspace_api",
   };
 }
 

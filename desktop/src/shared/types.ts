@@ -49,6 +49,7 @@ import type {
   WorkflowExecutionEventPage,
   WorkflowGraph,
   WorkflowValidationResult,
+  WorkspaceSelectedConversations,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -85,10 +86,21 @@ export interface WorkspaceGitInfo {
   worktreeRoot: string;
 }
 
+export interface AppWindowDragPoint {
+  screenX: number;
+  screenY: number;
+}
+
 export type NiriBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
 
 export interface NiriBrowserViewUpdate {
   bounds: {
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+  };
+  contentBounds: {
     height: number;
     width: number;
     x: number;
@@ -111,20 +123,58 @@ export interface NiriBrowserViewBatch {
   workspaceId: string;
 }
 
+export type NiriBrowserViewKey =
+  | "ArrowDown"
+  | "ArrowLeft"
+  | "ArrowRight"
+  | "ArrowUp"
+  | "Backspace"
+  | "Delete"
+  | "Enter"
+  | "b"
+  | "c"
+  | "g"
+  | "n"
+  | "o"
+  | "s"
+  | "t"
+  | "v";
+
 export interface NiriBrowserViewKeyEvent {
-  key: "ArrowDown" | "ArrowLeft" | "ArrowRight" | "ArrowUp";
+  altKey: boolean;
+  key: NiriBrowserViewKey;
+  metaKey: boolean;
+  shiftKey: boolean;
   surfaceId: string;
+  workspaceId: string;
+}
+
+export interface NiriBrowserViewSnapshot {
+  capturedAt: number;
+  height: number;
+  imageDataUrl: string;
+  paneId: string;
+  surfaceId: string;
+  title: string;
+  width: number;
   workspaceId: string;
 }
 
 export interface NiriBrowserViewStats {
   boundsBatchCount: number;
   boundsUpdateCount: number;
+  contentLoaded: number;
   destroyed: number;
   focusedSurfaceId: string | null;
   hidden: number;
   live: number;
+  loading: number;
   registered: number;
+  snapshotCaptureLastError: string | null;
+  snapshotCapturesFailed: number;
+  snapshotCapturesStarted: number;
+  snapshotCapturesSucceeded: number;
+  snapshotsInFlight: number;
   teardownCount: number;
   totalBrowserPanes: number;
   visibleBrowserPanes: number;
@@ -164,9 +214,12 @@ export interface SettaAPI {
       } | null;
     };
     installedEditors: () => Promise<InstalledEditorApp[]>;
+    endWindowDrag: () => Promise<void>;
+    moveWindowDrag: (point: AppWindowDragPoint) => Promise<void>;
     openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;
     openExternalUrl: (url: string) => Promise<void>;
     platform: DesktopPlatform;
+    startWindowDrag: (point: AppWindowDragPoint) => Promise<void>;
     versions: () => Promise<RuntimeVersions>;
     workspaceGitInfo: (rootPath: string) => Promise<WorkspaceGitInfo>;
   };
@@ -183,6 +236,7 @@ export interface SettaAPI {
   niriNativeViews?: {
     batchBrowserViewUpdates: (batch: NiriBrowserViewBatch) => void;
     onBrowserViewKey: (listener: (event: NiriBrowserViewKeyEvent) => void) => () => void;
+    onBrowserViewSnapshot: (listener: (snapshot: NiriBrowserViewSnapshot) => void) => () => void;
     readBrowserViewStats: () => Promise<NiriBrowserViewStats>;
     teardownBrowserViews: (workspaceId: string) => Promise<NiriBrowserViewStats>;
   };
@@ -217,12 +271,21 @@ export interface SettaAPI {
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
     select: (id: string) => Promise<WorkspaceSession>;
+    selectedConversations: () => Promise<WorkspaceSelectedConversations>;
+    setSelectedConversation: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<WorkspaceSelectedConversations>;
     session: () => Promise<WorkspaceSession>;
   };
   chat: {
     activeRun: (workspaceId: string, conversationId: string) => Promise<GetActiveRunResponse>;
     cancelRun: (workspaceId: string, conversationId: string) => Promise<Run>;
     createConversation: (workspaceId: string, title: string) => Promise<Conversation>;
+    deleteConversation: (
+      workspaceId: string,
+      conversationId: string,
+    ) => Promise<ListConversationsResponse>;
     editQueuedMessage: (
       workspaceId: string,
       conversationId: string,
@@ -245,6 +308,11 @@ export interface SettaAPI {
       conversationId: string,
       effort: ReasoningEffort,
     ) => Promise<ChatCommandExecuteResult>;
+    setConversationPinned: (
+      workspaceId: string,
+      conversationId: string,
+      pinned: boolean,
+    ) => Promise<ConversationListItem>;
     listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;
     markConversationRead: (

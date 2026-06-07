@@ -568,6 +568,21 @@ function compareDiagnostics(left: Diagnostic, right: Diagnostic) {
 }
 
 function compareConversationListItems(left: ConversationListItem, right: ConversationListItem) {
+  if (left.pinnedAt !== "" || right.pinnedAt !== "") {
+    if (left.pinnedAt === right.pinnedAt) {
+      if (left.conversation.updatedAt === right.conversation.updatedAt) {
+        return left.conversation.id.localeCompare(right.conversation.id);
+      }
+      return right.conversation.updatedAt.localeCompare(left.conversation.updatedAt);
+    }
+    if (left.pinnedAt === "") {
+      return 1;
+    }
+    if (right.pinnedAt === "") {
+      return -1;
+    }
+    return right.pinnedAt.localeCompare(left.pinnedAt);
+  }
   if (left.conversation.updatedAt === right.conversation.updatedAt) {
     return left.conversation.id.localeCompare(right.conversation.id);
   }

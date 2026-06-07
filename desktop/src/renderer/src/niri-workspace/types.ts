@@ -21,7 +21,12 @@ export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden"
 
 export type NiriPresentationMode = "normal" | "overview";
 
-export type ViewportChangeReason = "frame" | "mount" | "resize" | "resize-active";
+export type ViewportChangeReason =
+  | "frame"
+  | "mount"
+  | "movement-active"
+  | "resize"
+  | "resize-active";
 
 export type ResizePhase = "active" | "idle" | "settled";
 
@@ -99,6 +104,8 @@ export interface OpenPaneRequest {
   weight?: number;
   widthSpec?: ColumnWidthSpec;
 }
+
+export type PaneInsertionPlacement = "above" | "below" | "right";
 
 export type PaneLimitPolicy = Partial<Record<SurfaceKind, number>>;
 
@@ -188,6 +195,7 @@ export interface SurfaceAdapter {
   getCanvasStats?(): CanvasSurfaceStats;
   getGitGraphStats?(): GitGraphSurfaceStats;
   getTerminalStats?(): TerminalSurfaceStats;
+  syncFrame?(): void;
   destroy(): void;
 }
 
@@ -213,6 +221,11 @@ export interface LayoutEngine {
   configurePane(paneId: PaneId, request: OpenPaneRequest): PaneId;
   lockColumnWidth(columnId: ColumnId, viewportWidth: number): void;
   movePane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): void;
+  openPaneNearPane(
+    paneId: PaneId,
+    placement: PaneInsertionPlacement,
+    request: OpenPaneRequest,
+  ): PaneId;
   openPane(request: OpenPaneRequest): PaneId;
   paneInVisualDirection(
     paneId: PaneId,

@@ -26,8 +26,16 @@ func (store *Store) goalPath(workspaceID string, conversationID string) string {
 	return filepath.Join(store.conversationDir(workspaceID, conversationID), goalFileName)
 }
 
+func (store *Store) workspaceDir(workspaceID string) string {
+	return filepath.Join(store.appDataDir, "workspaces", workspaceID)
+}
+
+func (store *Store) conversationPinsPath(workspaceID string) string {
+	return filepath.Join(store.workspaceDir(workspaceID), conversationPinsFileName)
+}
+
 func (store *Store) conversationsDir(workspaceID string) string {
-	return filepath.Join(store.appDataDir, "workspaces", workspaceID, conversationsDirName)
+	return filepath.Join(store.workspaceDir(workspaceID), conversationsDirName)
 }
 
 func (store *Store) conversationDir(workspaceID string, conversationID string) string {
@@ -50,8 +58,12 @@ func (store *Store) runPath(workspaceID string, runID string) string {
 	return filepath.Join(store.runsDir(workspaceID), runID+".json")
 }
 
+func (store *Store) runDataDir(workspaceID string, runID string) string {
+	return filepath.Join(store.runsDir(workspaceID), runID)
+}
+
 func (store *Store) tracePath(workspaceID string, runID string, traceID string) string {
-	return filepath.Join(store.runsDir(workspaceID), runID, tracesDirName, traceID+".json")
+	return filepath.Join(store.runDataDir(workspaceID, runID), tracesDirName, traceID+".json")
 }
 
 func (store *Store) diagnosticsDir() string {
@@ -241,18 +253,26 @@ func writeNewJSONFile(path string, payload any) error {
 		return &PersistenceError{Operation: "create directory", Path: dir, Err: err}
 	}
 
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := os.CreateTemp(dir, ".tmp-*.json")
 	if err != nil {
-		return &PersistenceError{Operation: "create file", Path: path, Err: err}
+		return &PersistenceError{Operation: "create temp file", Path: dir, Err: err}
 	}
+	tempPath := file.Name()
+	defer func() {
+		_ = os.Remove(tempPath)
+	}()
+
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(payload); err != nil {
 		_ = file.Close()
-		return &PersistenceError{Operation: "write file", Path: path, Err: err}
+		return &PersistenceError{Operation: "write temp file", Path: tempPath, Err: err}
 	}
 	if err := file.Close(); err != nil {
-		return &PersistenceError{Operation: "close file", Path: path, Err: err}
+		return &PersistenceError{Operation: "close temp file", Path: tempPath, Err: err}
+	}
+	if err := os.Link(tempPath, path); err != nil {
+		return &PersistenceError{Operation: "create file", Path: path, Err: err}
 	}
 	return nil
 }

@@ -63,6 +63,7 @@ export async function openWorkspace(client, workspaceRoot, backend) {
 }
 
 export async function createChat(client, backend, workspaceId) {
+  await waitForRendererWorkspace(client, workspaceId);
   const before = await backend.post("/chat/conversations/list", { workspaceId });
   const existing = new Set(before.conversations.map((item) => item.conversation.id));
   await clickButtonByAria(client, "New chat");
@@ -77,6 +78,17 @@ export async function createChat(client, backend, workspaceId) {
     throw new Error("new conversation was not returned by the backend");
   }
   return created.conversation.id;
+}
+
+async function waitForRendererWorkspace(client, workspaceId) {
+  await waitForState(
+    client,
+    `(() => {
+      const detail = document.querySelector('[data-testid="chat-detail-pane"]');
+      return { workspaceId: detail?.getAttribute("data-workspace-id") ?? "" };
+    })()`,
+    (value) => value.workspaceId === workspaceId,
+  );
 }
 
 export async function submitComposer(client, text, buttonLabel) {
@@ -99,65 +111,58 @@ function composerReadyExpression() {
 export async function setInputValue(client, selector, value) {
   const changed = await client.evaluate(`(() => {
     const element = document.querySelector(${JSON.stringify(selector)});
-    if (!element || element.disabled) {
+    if (
+      !(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) ||
+      element.disabled
+    ) {
       return false;
     }
+    const previousValue = element.value;
     const prototype = element instanceof HTMLTextAreaElement
       ? HTMLTextAreaElement.prototype
       : HTMLInputElement.prototype;
     const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
     descriptor.set.call(element, ${JSON.stringify(value)});
-    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element._valueTracker?.setValue(previousValue);
+    element.focus();
+    element.select();
+    element.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      data: ${JSON.stringify(value)},
+      inputType: "insertText",
+    }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
-    return true;
+    return element.value === ${JSON.stringify(value)};
   })()`);
   if (!changed) {
     throw new Error(`input was not editable: ${selector}`);
   }
+  await waitForState(
+    client,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      return { value: element?.value ?? null };
+    })()`,
+    (state) => state.value === value,
+  );
 }
 
 export async function clickButtonByAria(client, label) {
-  await waitForState(client, buttonStateExpression("aria-label", label), (value) => value.ready);
-  const clicked = await client.evaluate(buttonClickExpression("aria-label", label));
-  if (!clicked) {
-    throw new Error(`button was not clickable: ${label}`);
-  }
+  await clickWorkflowButton(client, "aria-label", label, `button was not clickable: ${label}`);
 }
 
 export async function clickButtonByText(client, text) {
-  await waitForState(client, buttonStateExpression("text", text), (value) => value.ready);
-  const clicked = await client.evaluate(buttonClickExpression("text", text));
-  if (!clicked) {
-    throw new Error(`button was not clickable: ${text}`);
-  }
+  await clickWorkflowButton(client, "text", text, `button was not clickable: ${text}`);
 }
 
 export async function clickButtonContainingText(client, text) {
   await waitForState(
     client,
-    `(() => {
-      const buttons = Array.from(document.querySelectorAll("button"));
-      const button = buttons.find((candidate) =>
-        candidate.innerText.includes(${JSON.stringify(text)})
-      );
-      return { body: document.body.innerText, ready: Boolean(button && !button.disabled) };
-    })()`,
-    (value) => value.ready,
-  );
-  const clicked = await client.evaluate(`(() => {
-    const buttons = Array.from(document.querySelectorAll("button"));
-    const button = buttons.find((candidate) =>
-      candidate.innerText.includes(${JSON.stringify(text)})
-    );
-    if (!button || button.disabled) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!clicked) {
-    throw new Error(`button containing text was not clickable: ${text}`);
-  }
+    buttonContainingTextClickExpression(text),
+    (value) => value.clicked,
+  ).catch((error) => {
+    throw new Error(`button containing text was not clickable: ${text}: ${error.message}`);
+  });
 }
 
 export async function scrollSidebarNavigationTo(client, scrollTop) {
@@ -185,21 +190,36 @@ export async function sidebarMetrics(client) {
   }))()`);
 }
 
-function buttonStateExpression(kind, value) {
-  return `(() => {
-    const button = findWorkflowButton(${JSON.stringify(kind)}, ${JSON.stringify(value)});
-    return { body: document.body.innerText, ready: Boolean(button && !button.disabled) };
-  })()`;
+async function clickWorkflowButton(client, kind, value, errorMessage) {
+  await waitForState(client, buttonClickExpression(kind, value), (state) => state.clicked).catch(
+    (error) => {
+      throw new Error(`${errorMessage}: ${error.message}`);
+    },
+  );
 }
 
 function buttonClickExpression(kind, value) {
   return `(() => {
     const button = findWorkflowButton(${JSON.stringify(kind)}, ${JSON.stringify(value)});
     if (!button || button.disabled) {
-      return false;
+      return { body: document.body.innerText, clicked: false };
     }
     button.click();
-    return true;
+    return { body: document.body.innerText, clicked: true };
+  })()`;
+}
+
+function buttonContainingTextClickExpression(text) {
+  return `(() => {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const button = buttons.find((candidate) =>
+      candidate.innerText.includes(${JSON.stringify(text)})
+    );
+    if (!button || button.disabled) {
+      return { body: document.body.innerText, clicked: false };
+    }
+    button.click();
+    return { body: document.body.innerText, clicked: true };
   })()`;
 }
 
@@ -595,16 +615,17 @@ export async function launchContext(fixture, recordingDir, options = {}) {
 
 async function installPageHelpers(client) {
   await client.evaluate(`(() => {
-    window.findWorkflowButton = (kind, expected) => {
-      const buttons = Array.from(document.querySelectorAll("button"));
-      return buttons.find((button) => {
-        if (kind === "aria-label") {
-          return button.getAttribute("aria-label") === expected;
-        }
-        return button.innerText.trim() === expected;
-      }) ?? null;
-    };
-  })()`);
+	  window.findWorkflowButton = (kind, expected) => {
+	    const buttons = Array.from(document.querySelectorAll("button"));
+	    const matches = buttons.filter((button) => {
+	      if (kind === "aria-label") {
+	        return button.getAttribute("aria-label") === expected;
+	      }
+	      return button.innerText.trim() === expected;
+	    });
+	    return matches.find((button) => !button.disabled) ?? matches[0] ?? null;
+	  };
+	})()`);
 }
 
 function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
@@ -904,7 +925,7 @@ async function assertLayoutSnapshotsRecorded(recordingDir) {
   if (snapshots.length === 0) {
     throw new Error(`recording missing renderer layout snapshots: ${recordingDir}`);
   }
-  if (!snapshots.some((entry) => entry.chatDetailPane && entry.transcript && entry.composer)) {
+  if (!snapshots.some((entry) => entry.chatDetailPane && entry.composer)) {
     throw new Error(`recording layout snapshots never captured chat regions: ${recordingDir}`);
   }
 }

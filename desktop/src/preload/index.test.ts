@@ -39,11 +39,14 @@ describe("preload workspace API", () => {
 
     const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.app).sort()).toEqual([
+      "endWindowDrag",
       "flags",
       "installedEditors",
+      "moveWindowDrag",
       "openExternalUrl",
       "openWorkspaceInEditor",
       "platform",
+      "startWindowDrag",
       "versions",
       "workspaceGitInfo",
     ]);
@@ -52,7 +55,11 @@ describe("preload workspace API", () => {
       pixiWorkspaceDebug: false,
       pixiWorkspaceSyntheticGraph: null,
     });
+    const dragPoint = { screenX: 200, screenY: 120 };
     await api.app.installedEditors();
+    await api.app.startWindowDrag(dragPoint);
+    await api.app.moveWindowDrag({ screenX: 230, screenY: 140 });
+    await api.app.endWindowDrag();
     await api.app.openWorkspaceInEditor("vscode", "/tmp/api");
     await api.app.versions();
     await api.app.workspaceGitInfo("/tmp/api");
@@ -61,6 +68,9 @@ describe("preload workspace API", () => {
     expect(api.app.platform).toBe(process.platform);
     expectInvokeCalls(invoke, [
       [ipcChannels.appInstalledEditors],
+      [ipcChannels.appWindowDragStart, dragPoint],
+      [ipcChannels.appWindowDragMove, { screenX: 230, screenY: 140 }],
+      [ipcChannels.appWindowDragEnd],
       [ipcChannels.appOpenWorkspaceInEditor, "vscode", "/tmp/api"],
       [ipcChannels.appVersions],
       [ipcChannels.appWorkspaceGitInfo, "/tmp/api"],
@@ -92,13 +102,17 @@ describe("preload workspace API", () => {
       "removeRecent",
       "reorder",
       "select",
+      "selectedConversations",
       "session",
+      "setSelectedConversation",
     ]);
 
     await api.workspace.session();
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
     await api.workspace.select("workspace_api");
+    await api.workspace.selectedConversations();
+    await api.workspace.setSelectedConversation("workspace_api", "conversation_api");
     await api.workspace.close("workspace_api");
     await api.workspace.reorder(["workspace_web", "workspace_api"]);
     await api.workspace.removeRecent("workspace_web");
@@ -108,6 +122,8 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
       [ipcChannels.workspaceSelect, "workspace_api"],
+      [ipcChannels.workspaceSelectedConversations],
+      [ipcChannels.workspaceSetSelectedConversation, "workspace_api", "conversation_api"],
       [ipcChannels.workspaceClose, "workspace_api"],
       [ipcChannels.workspaceReorder, ["workspace_web", "workspace_api"]],
       [ipcChannels.workspaceRemoveRecent, "workspace_web"],
@@ -150,21 +166,46 @@ describe("preload workspace API", () => {
     api.niriNativeViews.batchBrowserViewUpdates(batch);
     await api.niriNativeViews.readBrowserViewStats();
     await api.niriNativeViews.teardownBrowserViews("phase-4-browser-pane-benchmark");
-    const listener = vi.fn();
-    const unsubscribe = api.niriNativeViews.onBrowserViewKey(listener);
-    const handler = on.mock.calls[0]?.[1];
-    if (typeof handler !== "function") {
+    const keyListener = vi.fn();
+    const unsubscribeKey = api.niriNativeViews.onBrowserViewKey(keyListener);
+    const keyHandler = on.mock.calls.find((call) => call[0] === ipcEvents.niriBrowserViewKey)?.[1];
+    if (typeof keyHandler !== "function") {
       throw new Error("niri browser view key handler was not registered");
     }
-    handler(
+    keyHandler(
       {},
       {
+        altKey: false,
         key: "ArrowRight",
+        metaKey: false,
+        shiftKey: false,
         surfaceId: "surface_browser",
         workspaceId: "phase-4-browser-pane-benchmark",
       },
     );
-    unsubscribe();
+    unsubscribeKey();
+    const snapshotListener = vi.fn();
+    const unsubscribeSnapshot = api.niriNativeViews.onBrowserViewSnapshot(snapshotListener);
+    const snapshotHandler = on.mock.calls.find(
+      (call) => call[0] === ipcEvents.niriBrowserViewSnapshot,
+    )?.[1];
+    if (typeof snapshotHandler !== "function") {
+      throw new Error("niri browser view snapshot handler was not registered");
+    }
+    snapshotHandler(
+      {},
+      {
+        capturedAt: 99,
+        height: 120,
+        imageDataUrl: "data:image/png;base64,AAAA",
+        paneId: "pane_browser",
+        surfaceId: "surface_browser",
+        title: "Browser",
+        width: 240,
+        workspaceId: "phase-4-browser-pane-benchmark",
+      },
+    );
+    unsubscribeSnapshot();
 
     expect(send).toHaveBeenCalledWith("niri:browser-view-batch", batch);
     expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.niriBrowserViewStats);
@@ -174,12 +215,27 @@ describe("preload workspace API", () => {
       "phase-4-browser-pane-benchmark",
     );
     expect(on).toHaveBeenCalledWith("niri:browser-view-key", expect.any(Function));
-    expect(listener).toHaveBeenCalledWith({
+    expect(on).toHaveBeenCalledWith("niri:browser-view-snapshot", expect.any(Function));
+    expect(keyListener).toHaveBeenCalledWith({
+      altKey: false,
       key: "ArrowRight",
+      metaKey: false,
+      shiftKey: false,
       surfaceId: "surface_browser",
       workspaceId: "phase-4-browser-pane-benchmark",
     });
-    expect(removeListener).toHaveBeenCalledWith("niri:browser-view-key", handler);
+    expect(snapshotListener).toHaveBeenCalledWith({
+      capturedAt: 99,
+      height: 120,
+      imageDataUrl: "data:image/png;base64,AAAA",
+      paneId: "pane_browser",
+      surfaceId: "surface_browser",
+      title: "Browser",
+      width: 240,
+      workspaceId: "phase-4-browser-pane-benchmark",
+    });
+    expect(removeListener).toHaveBeenCalledWith("niri:browser-view-key", keyHandler);
+    expect(removeListener).toHaveBeenCalledWith("niri:browser-view-snapshot", snapshotHandler);
   });
 
   test("exposes typed appearance methods through IPC", async () => {
@@ -238,6 +294,7 @@ describe("preload workspace API", () => {
       "activeRun",
       "cancelRun",
       "createConversation",
+      "deleteConversation",
       "editQueuedMessage",
       "executeCommand",
       "listCommands",
@@ -253,12 +310,14 @@ describe("preload workspace API", () => {
       "sendSteeringImmediately",
       "setCodexModel",
       "setCodexReasoningEffort",
+      "setConversationPinned",
       "steerMessage",
       "submitApproval",
     ]);
 
     await api.chat.listConversations("workspace_api");
     await api.chat.createConversation("workspace_api", "Plan");
+    await api.chat.deleteConversation("workspace_api", "conversation_archive");
     await api.chat.listCommands("workspace_api", "conversation_api");
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal");
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal replacement", {
@@ -279,6 +338,7 @@ describe("preload workspace API", () => {
     await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
     await api.chat.setCodexModel("workspace_api", "conversation_api", "gpt-test");
     await api.chat.setCodexReasoningEffort("workspace_api", "conversation_api", "high");
+    await api.chat.setConversationPinned("workspace_api", "conversation_api", true);
     await api.chat.steerMessage("workspace_api", "conversation_api", "steer");
     await api.chat.sendSteeringImmediately("workspace_api", "conversation_api", "now");
     await api.chat.cancelRun("workspace_api", "conversation_api");
@@ -305,6 +365,7 @@ describe("preload workspace API", () => {
     expectInvokeCalls(invoke, [
       [ipcChannels.chatListConversations, "workspace_api"],
       [ipcChannels.chatCreateConversation, "workspace_api", "Plan"],
+      [ipcChannels.chatDeleteConversation, "workspace_api", "conversation_archive"],
       [ipcChannels.chatListCommands, "workspace_api", "conversation_api"],
       [ipcChannels.chatExecuteCommand, "workspace_api", "conversation_api", "/goal", false],
       [
@@ -330,6 +391,7 @@ describe("preload workspace API", () => {
       [ipcChannels.chatSendMessage, "workspace_api", "conversation_api", "hello"],
       [ipcChannels.chatSetCodexModel, "workspace_api", "conversation_api", "gpt-test"],
       [ipcChannels.chatSetCodexReasoningEffort, "workspace_api", "conversation_api", "high"],
+      [ipcChannels.chatSetConversationPinned, "workspace_api", "conversation_api", true],
       [ipcChannels.chatSteerMessage, "workspace_api", "conversation_api", "steer"],
       [ipcChannels.chatSendSteeringImmediately, "workspace_api", "conversation_api", "now"],
       [ipcChannels.chatCancelRun, "workspace_api", "conversation_api"],

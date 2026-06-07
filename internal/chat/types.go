@@ -526,6 +526,7 @@ type ConversationListItem struct {
 	Conversation             Conversation `json:"conversation"`
 	MessageCount             int          `json:"messageCount"`
 	ActiveRunID              string       `json:"activeRunId"`
+	PinnedAt                 string       `json:"pinnedAt"`
 	ReadMarker               int          `json:"readMarker"`
 	LatestReadRelevantMarker int          `json:"latestReadRelevantMarker"`
 }

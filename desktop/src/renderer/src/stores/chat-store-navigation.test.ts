@@ -251,9 +251,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         pixiWorkspaceSyntheticGraph: null,
       },
       installedEditors: async () => [],
+      endWindowDrag: async () => {},
+      moveWindowDrag: async () => {},
       openExternalUrl: async () => {},
       openWorkspaceInEditor: async () => {},
       platform: "darwin",
+      startWindowDrag: async () => {},
       versions: async (): Promise<RuntimeVersions> => ({
         app: "test",
         chrome: "test",
@@ -291,6 +294,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
+      deleteConversation: async () => listResponse([]),
       editQueuedMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
@@ -369,6 +373,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         page: testPage(conversation, []),
         result: commandResult("model"),
       }),
+      setConversationPinned: async () => conversationItem(conversation, 0),
       steerMessage: async () => ({
         conversation,
         page: testPage(conversation, []),
@@ -405,6 +410,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
       select: async () => workspaceSession(),
+      selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
+      setSelectedConversation: async (workspaceId, conversationId) => ({
+        selectedConversationIdsByWorkspaceId: { [workspaceId]: conversationId },
+      }),
       session: async () => workspaceSession(),
     },
   };
@@ -491,6 +500,7 @@ function listResponse(conversations: ConversationListItem[]): ListConversationsR
 function conversationItem(conversation: Conversation, messageCount: number): ConversationListItem {
   return {
     activeRunId: "",
+    pinnedAt: "",
     conversation,
     latestReadRelevantMarker: 0,
     messageCount,

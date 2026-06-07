@@ -32,7 +32,6 @@ interface SurfaceRecord {
 interface HostRecord {
   adapter: SurfaceAdapter;
   focused: boolean | null;
-  nativeBrowserHiddenForResize: boolean;
   runtimeState: PaneRenderItem["runtimeState"] | null;
   surfaceId: SurfaceId;
   viewport: Rect | null;
@@ -42,16 +41,8 @@ interface HostRecord {
 interface ViewportSyncContext {
   defaultReason: "frame" | "mount";
   hostRecord: HostRecord;
+  item: PaneRenderItem;
   options: SurfaceSyncOptions;
-  stats: SurfaceViewportSyncStats;
-}
-
-interface ActiveBrowserResizeViewportContext {
-  adapter: SurfaceAdapter;
-  hostRecord: HostRecord;
-  options: SurfaceSyncOptions;
-  reason: SurfaceViewportSyncReason;
-  rect: Rect;
   stats: SurfaceViewportSyncStats;
 }
 
@@ -276,7 +267,6 @@ export class SurfaceRegistry {
       this.hostRecords.set(host, {
         adapter,
         focused: null,
-        nativeBrowserHiddenForResize: false,
         runtimeState: null,
         surfaceId: item.surfaceId,
         viewport: null,
@@ -296,9 +286,11 @@ export class SurfaceRegistry {
     this.syncViewport(adapter, rect, {
       defaultReason: mountedNewAdapter ? "mount" : "frame",
       hostRecord,
+      item,
       options,
       stats,
     });
+    adapter.syncFrame?.();
     return stats;
   }
 
@@ -379,10 +371,13 @@ export class SurfaceRegistry {
     switch (runtimeState) {
       case "destroyed":
       case "hidden":
-      case "snapshot":
         return record.snapshotAdapter;
+      case "snapshot":
+        return record.adapter.kind === "browser" ? record.adapter : record.snapshotAdapter;
       case "live-throttled":
-        return isTerminalSurfaceKind(record.adapter.kind) ? record.adapter : record.snapshotAdapter;
+        return record.adapter.kind === "browser" || isTerminalSurfaceKind(record.adapter.kind)
+          ? record.adapter
+          : record.snapshotAdapter;
       case "live":
         return record.adapter;
       default:
@@ -455,22 +450,14 @@ export class SurfaceRegistry {
   private syncViewport(
     adapter: SurfaceAdapter,
     rect: Rect,
-    { defaultReason, hostRecord, options, stats }: ViewportSyncContext,
+    { defaultReason, hostRecord, item, options, stats }: ViewportSyncContext,
   ): void {
-    const reason = viewportSyncReason(adapter.kind, defaultReason, options.resizePhase);
-    if (
-      this.syncActiveBrowserResizeViewport({
-        adapter,
-        hostRecord,
-        options,
-        reason,
-        rect,
-        stats,
-      })
-    ) {
-      return;
-    }
-    hostRecord.nativeBrowserHiddenForResize = false;
+    const reason = viewportSyncReason(
+      adapter.kind,
+      defaultReason,
+      item.moving,
+      options.resizePhase,
+    );
     if (!viewportSyncRequired(reason, hostRecord.viewport, rect)) {
       return;
     }
@@ -483,29 +470,9 @@ export class SurfaceRegistry {
     hostRecord.viewport = { ...rect };
     recordViewportWrite(adapter.kind, stats);
   }
-
-  private syncActiveBrowserResizeViewport({
-    adapter,
-    hostRecord,
-    options,
-    reason,
-    rect,
-    stats,
-  }: ActiveBrowserResizeViewportContext): boolean {
-    if (!activeBrowserResizeRequired(adapter.kind, reason, options.resizePhase)) {
-      return false;
-    }
-    if (hostRecord.nativeBrowserHiddenForResize) {
-      return true;
-    }
-    adapter.setViewport(rect, reason);
-    hostRecord.nativeBrowserHiddenForResize = true;
-    recordViewportWrite(adapter.kind, stats);
-    return true;
-  }
 }
 
-type SurfaceViewportSyncReason = "frame" | "mount" | "resize" | "resize-active";
+type SurfaceViewportSyncReason = "frame" | "mount" | "movement-active" | "resize" | "resize-active";
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled niri surface registry value: ${String(value)}`);
@@ -656,23 +623,19 @@ function viewportSyncDeferred(
 function viewportSyncReason(
   kind: SurfaceKind,
   defaultReason: "frame" | "mount",
+  moving: boolean,
   resizePhase: ResizePhase,
 ): SurfaceViewportSyncReason {
   if (kind === "browser" && resizePhase === "active" && defaultReason !== "mount") {
     return "resize-active";
   }
+  if (kind === "browser" && moving && defaultReason !== "mount") {
+    return "movement-active";
+  }
   if (resizePhase === "settled") {
     return "resize";
   }
   return defaultReason;
-}
-
-function activeBrowserResizeRequired(
-  kind: SurfaceKind,
-  reason: SurfaceViewportSyncReason,
-  resizePhase: ResizePhase,
-): boolean {
-  return kind === "browser" && resizePhase === "active" && reason !== "mount";
 }
 
 function viewportSyncRequired(

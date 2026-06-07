@@ -7,6 +7,7 @@ import type {
   BackendProcessStatus,
   DesktopPlatform,
   NiriBrowserViewKeyEvent,
+  NiriBrowserViewSnapshot,
   SettaAPI,
 } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
@@ -17,15 +18,35 @@ const appFlags = {
     process.env.SETTA_E2E === "1" || process.env.SETTA_PIXI_WORKSPACE_DEBUG === "1",
   pixiWorkspaceSyntheticGraph: parsePixiWorkspaceSyntheticGraph(process.env),
 };
+const niriBrowserViewKeys = new Set<string>([
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "Backspace",
+  "Delete",
+  "Enter",
+  "b",
+  "c",
+  "g",
+  "n",
+  "o",
+  "s",
+  "t",
+  "v",
+] satisfies NiriBrowserViewKeyEvent["key"][]);
 
 const api: SettaAPI = {
   app: {
     flags: appFlags,
     installedEditors: () => invoke("appInstalledEditors"),
+    endWindowDrag: () => invoke("appWindowDragEnd"),
+    moveWindowDrag: (point) => invoke("appWindowDragMove", point),
     openWorkspaceInEditor: (editorId: string, rootPath: string) =>
       invoke("appOpenWorkspaceInEditor", editorId, rootPath),
     openExternalUrl: (url: string) => invoke("appOpenExternalUrl", url),
     platform: process.platform as DesktopPlatform,
+    startWindowDrag: (point) => invoke("appWindowDragStart", point),
     versions: () => invoke("appVersions"),
     workspaceGitInfo: (rootPath: string) => invoke("appWorkspaceGitInfo", rootPath),
   },
@@ -68,6 +89,15 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.niriBrowserViewKey, handler);
       };
     },
+    onBrowserViewSnapshot: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeNiriBrowserViewSnapshot(payload));
+      };
+      ipcRenderer.on(ipcEvents.niriBrowserViewSnapshot, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.niriBrowserViewSnapshot, handler);
+      };
+    },
     readBrowserViewStats: () => invoke("niriBrowserViewStats"),
     teardownBrowserViews: (workspaceId: string) => invoke("niriBrowserViewsTeardown", workspaceId),
   },
@@ -108,6 +138,8 @@ const api: SettaAPI = {
       invoke("chatCancelRun", workspaceId, conversationId),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
+    deleteConversation: (workspaceId: string, conversationId: string) =>
+      invoke("chatDeleteConversation", workspaceId, conversationId),
     editQueuedMessage: (
       workspaceId: string,
       conversationId: string,
@@ -126,6 +158,8 @@ const api: SettaAPI = {
       invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
     setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
       invoke("chatSetCodexReasoningEffort", workspaceId, conversationId, effort),
+    setConversationPinned: (workspaceId: string, conversationId: string, pinned: boolean) =>
+      invoke("chatSetConversationPinned", workspaceId, conversationId, pinned),
     listCommands: (workspaceId: string, conversationId: string) =>
       invoke("chatListCommands", workspaceId, conversationId),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),
@@ -214,6 +248,9 @@ const api: SettaAPI = {
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
     select: (id: string) => invoke("workspaceSelect", id),
+    selectedConversations: () => invoke("workspaceSelectedConversations"),
+    setSelectedConversation: (workspaceId: string, conversationId: string) =>
+      invoke("workspaceSetSelectedConversation", workspaceId, conversationId),
     session: () => invoke("workspaceSession"),
   },
 };
@@ -319,13 +356,34 @@ function decodeBackendEventStreamStatus(value: unknown): BackendEventStreamStatu
 function decodeNiriBrowserViewKeyEvent(value: unknown): NiriBrowserViewKeyEvent {
   const record = assertStatusRecord(value, "NiriBrowserViewKeyEvent");
   const key = stringField(record, "key", "NiriBrowserViewKeyEvent");
-  if (key !== "ArrowDown" && key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp") {
+  if (!isNiriBrowserViewKey(key)) {
     throw new Error("NiriBrowserViewKeyEvent.key is unsupported: " + key);
   }
   return {
+    altKey: booleanField(record, "altKey", "NiriBrowserViewKeyEvent"),
     key,
+    metaKey: booleanField(record, "metaKey", "NiriBrowserViewKeyEvent"),
+    shiftKey: booleanField(record, "shiftKey", "NiriBrowserViewKeyEvent"),
     surfaceId: stringField(record, "surfaceId", "NiriBrowserViewKeyEvent"),
     workspaceId: stringField(record, "workspaceId", "NiriBrowserViewKeyEvent"),
+  };
+}
+
+function isNiriBrowserViewKey(key: string): key is NiriBrowserViewKeyEvent["key"] {
+  return niriBrowserViewKeys.has(key);
+}
+
+function decodeNiriBrowserViewSnapshot(value: unknown): NiriBrowserViewSnapshot {
+  const record = assertStatusRecord(value, "NiriBrowserViewSnapshot");
+  return {
+    capturedAt: numberField(record, "capturedAt", "NiriBrowserViewSnapshot"),
+    height: numberField(record, "height", "NiriBrowserViewSnapshot"),
+    imageDataUrl: stringField(record, "imageDataUrl", "NiriBrowserViewSnapshot"),
+    paneId: stringField(record, "paneId", "NiriBrowserViewSnapshot"),
+    surfaceId: stringField(record, "surfaceId", "NiriBrowserViewSnapshot"),
+    title: stringField(record, "title", "NiriBrowserViewSnapshot"),
+    width: numberField(record, "width", "NiriBrowserViewSnapshot"),
+    workspaceId: stringField(record, "workspaceId", "NiriBrowserViewSnapshot"),
   };
 }
 
@@ -340,6 +398,22 @@ function stringField(record: Record<string, unknown>, field: string, label: stri
   const value = record[field];
   if (typeof value !== "string") {
     throw new Error(label + "." + field + " must be a string");
+  }
+  return value;
+}
+
+function booleanField(record: Record<string, unknown>, field: string, label: string): boolean {
+  const value = record[field];
+  if (typeof value !== "boolean") {
+    throw new Error(label + "." + field + " must be a boolean");
+  }
+  return value;
+}
+
+function numberField(record: Record<string, unknown>, field: string, label: string): number {
+  const value = record[field];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(label + "." + field + " must be a finite number");
   }
   return value;
 }

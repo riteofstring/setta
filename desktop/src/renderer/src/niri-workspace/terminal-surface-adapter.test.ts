@@ -10,7 +10,11 @@ import { createFakeHost } from "./test-dom-fakes";
 import type { NiriPane } from "./types";
 
 const terminalMock = vi.hoisted(() => ({
+  fitAddons: [] as Array<{
+    fit: ReturnType<typeof vi.fn>;
+  }>,
   instances: [] as Array<{
+    _core: Record<string, unknown>;
     customKeyHandler: ((event: KeyboardEvent) => boolean) | null;
     dataListener: ((data: string) => void) | null;
     options: Record<string, unknown>;
@@ -22,6 +26,8 @@ const terminalMock = vi.hoisted(() => ({
     findPrevious: ReturnType<typeof vi.fn>;
     resultListeners: Array<(event: { resultCount: number; resultIndex: number }) => void>;
   }>,
+  readyCore: () => ({ _renderService: { dimensions: {} }, viewport: {} }),
+  renderReady: true,
   webLinkHandlers: [] as Array<(event: MouseEvent, uri: string) => void>,
 }));
 
@@ -35,6 +41,7 @@ vi.mock("@xterm/xterm", () => ({
     pasteCalls: string[] = [];
     rows = 24;
     selection = "";
+    _core = terminalMock.renderReady ? terminalMock.readyCore() : {};
 
     clear(): void {}
     clearSelection(): void {
@@ -79,7 +86,11 @@ vi.mock("@xterm/xterm", () => ({
 
 vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class MockFitAddon {
-    fit(): void {}
+    fit = vi.fn();
+
+    constructor() {
+      terminalMock.fitAddons.push(this);
+    }
   },
 }));
 
@@ -138,7 +149,9 @@ describe("terminal surface adapter", () => {
   beforeEach(() => {
     terminalListeners = [];
     backendStatusListeners = [];
+    terminalMock.fitAddons.length = 0;
     terminalMock.instances.length = 0;
+    terminalMock.renderReady = true;
     terminalMock.searchAddons.length = 0;
     terminalMock.webLinkHandlers.length = 0;
   });
@@ -172,6 +185,30 @@ describe("terminal surface adapter", () => {
     expect(api.terminal.attach).toHaveBeenCalledTimes(2);
     expect(secondHost.dataset.terminalSessionId).toBe("terminal_existing");
     expect(secondHost.style.getPropertyValue("--niri-terminal-background")).toBe("#09090b");
+  });
+
+  test("waits for xterm render dimensions before fitting", async () => {
+    terminalMock.renderReady = false;
+    installSettaAPI({
+      attach: vi.fn(async () => terminalResponse("terminal_existing", "running")),
+    });
+    const adapter = new TerminalSurfaceAdapter(fakePane(), "workspace_api");
+    const host = createFakeHost();
+
+    adapter.mount(host);
+    adapter.setVisible(true);
+    await waitFor(() => terminalMock.fitAddons.length === 1 && terminalMock.instances.length === 1);
+
+    expect(terminalMock.fitAddons[0]?.fit).not.toHaveBeenCalled();
+
+    const terminal = terminalMock.instances[0];
+    if (!terminal) {
+      throw new Error("terminal instance was not created");
+    }
+    terminal._core = terminalMock.readyCore();
+    await waitFor(() => (terminalMock.fitAddons[0]?.fit.mock.calls.length ?? 0) > 0);
+
+    expect(host.dataset.terminalSessionId).toBe("terminal_existing");
   });
 
   test("records backend truncation events as terminal stats", async () => {

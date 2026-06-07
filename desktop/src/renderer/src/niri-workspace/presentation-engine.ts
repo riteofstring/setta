@@ -34,13 +34,7 @@ interface PaneHostBinding {
 }
 
 type PaneResizeAxis = "horizontal" | "vertical";
-type PaneChromeAction =
-  | "add-above"
-  | "add-below"
-  | "close"
-  | "maximize"
-  | "split-down"
-  | "split-right";
+type PaneChromeAction = "add-above" | "add-below" | "close" | "maximize" | "split-down";
 
 interface PaneVisualRect {
   bottom: number;
@@ -57,7 +51,6 @@ interface ResizeNeighborMeasurement {
 const maximumResizeNeighborGapPx = 48;
 const paneChromeActions = [
   "split-down",
-  "split-right",
   "add-above",
   "add-below",
   "maximize",
@@ -279,7 +272,7 @@ export class PresentationEngine {
     }
     const writeCounts = this.shouldSyncContent(binding, item)
       ? addPresentationWriteCounts(
-          this.syncContent(binding, item, options),
+          this.syncContent(binding, item, assignedItems, options),
           this.syncFrame(binding, item),
         )
       : this.syncFrame(binding, item);
@@ -310,19 +303,11 @@ export class PresentationEngine {
     item: PaneRenderItem,
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
   ): void {
-    const pane = this.paneById.get(item.paneId);
-    if (!pane) {
+    if (!this.paneById.has(item.paneId)) {
       throw new Error(`missing pane controls metadata for ${item.paneId}`);
     }
     const topBar = this.ensurePaneTopBar(binding.host);
     topBar.dataset.paneId = item.paneId;
-
-    const titleEditor = this.ensureTitleEditor(topBar);
-    titleEditor.dataset.paneId = item.paneId;
-    if (binding.host.ownerDocument.activeElement !== titleEditor) {
-      titleEditor.textContent = pane.title;
-      titleEditor.title = pane.title;
-    }
 
     const dragHandle = this.ensureDragHandle(topBar);
     dragHandle.dataset.paneId = item.paneId;
@@ -360,26 +345,10 @@ export class PresentationEngine {
       return existing;
     }
     const topBar = host.ownerDocument.createElement("div");
-    topBar.className = "niri-pane-top-bar app-no-drag";
+    topBar.className = "niri-pane-top-bar";
     topBar.dataset.niriPaneTopBar = "true";
     host.append(topBar);
     return topBar;
-  }
-
-  private ensureTitleEditor(topBar: HTMLElement): HTMLElement {
-    const existing = this.titleEditorForTopBar(topBar);
-    if (existing) {
-      return existing;
-    }
-    const titleEditor = topBar.ownerDocument.createElement("div");
-    titleEditor.className = "niri-pane-title-editor app-no-drag";
-    titleEditor.contentEditable = "plaintext-only";
-    titleEditor.dataset.niriPaneTitleEditor = "true";
-    titleEditor.setAttribute("aria-label", "Rename pane");
-    titleEditor.setAttribute("role", "textbox");
-    titleEditor.setAttribute("spellcheck", "false");
-    topBar.append(titleEditor);
-    return titleEditor;
   }
 
   private ensureDragHandle(topBar: HTMLElement): HTMLButtonElement {
@@ -487,13 +456,6 @@ export class PresentationEngine {
     return existing ? (existing as HTMLElement) : null;
   }
 
-  private titleEditorForTopBar(topBar: HTMLElement): HTMLElement | null {
-    const existing = Array.from(topBar.children).find((child) =>
-      child.classList.contains("niri-pane-title-editor"),
-    );
-    return existing ? (existing as HTMLElement) : null;
-  }
-
   private dragHandleForTopBar(topBar: HTMLElement): HTMLButtonElement | null {
     const existing = Array.from(topBar.children).find((child) =>
       child.classList.contains("niri-pane-drag-handle"),
@@ -549,6 +511,7 @@ export class PresentationEngine {
   private syncContent(
     binding: PaneHostBinding,
     item: PaneRenderItem,
+    assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
     if (
@@ -567,7 +530,7 @@ export class PresentationEngine {
     binding.host.dataset.tone = pane.tone;
     return {
       ...emptyPresentationWriteCounts(),
-      ...this.surfaceRegistry.syncHost(binding.host, item, options),
+      ...this.surfaceRegistry.syncHost(binding.host, surfaceSyncItem(item, assignedItems), options),
     };
   }
 
@@ -715,8 +678,6 @@ function paneActionButtonLabel(action: PaneChromeAction, item: PaneRenderItem): 
       return item.maximized ? "Restore pane size" : "Maximize pane";
     case "split-down":
       return "Split pane down";
-    case "split-right":
-      return "Split pane right";
     default:
       return assertNever(action);
   }
@@ -772,6 +733,46 @@ function resizeNeighborMeasurement(
 
 function canHostResizeHandle(item: PaneRenderItem): boolean {
   return item.visible && item.presentationMode === "normal" && !item.maximized;
+}
+
+function surfaceSyncItem(
+  item: PaneRenderItem,
+  assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
+): PaneRenderItem {
+  if (
+    item.surfaceKind !== "browser" ||
+    item.runtimeState !== "live" ||
+    !browserNativeViewOccluded(item, assignedItems)
+  ) {
+    return item;
+  }
+  return { ...item, runtimeState: "snapshot" };
+}
+
+function browserNativeViewOccluded(
+  item: PaneRenderItem,
+  assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
+): boolean {
+  if (!item.visible || item.opacity <= 0) {
+    return false;
+  }
+  const rect = visualRectForItem(item);
+  return assignedItems.some((candidate) => {
+    if (!candidate || candidate.paneId === item.paneId || !candidate.visible) {
+      return false;
+    }
+    if (candidate.opacity <= 0 || candidate.z <= item.z) {
+      return false;
+    }
+    return rectsOverlap(rect, visualRectForItem(candidate));
+  });
+}
+
+function rectsOverlap(left: PaneVisualRect, right: PaneVisualRect): boolean {
+  return (
+    overlapSize(left.left, left.right, right.left, right.right) > 0 &&
+    overlapSize(left.top, left.bottom, right.top, right.bottom) > 0
+  );
 }
 
 function resizeNeighborGap(

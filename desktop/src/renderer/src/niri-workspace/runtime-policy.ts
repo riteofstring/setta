@@ -163,6 +163,9 @@ export class PaneRuntimePolicy {
     if (this.degradesOverviewItem(item)) {
       return this.snapshotOrThrottle(counters);
     }
+    if (this.degradesMovingBrowser(item, movementPhase)) {
+      return this.snapshotOrThrottle(counters);
+    }
     if (item.focused) {
       return "live";
     }
@@ -182,6 +185,12 @@ export class PaneRuntimePolicy {
       return false;
     }
     return this.degradeOverview || (item.resizing && this.degradeOverviewDuringResize);
+  }
+
+  private degradesMovingBrowser(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
+    return (
+      this.degradeDuringMovement && movementPhase === "moving" && item.surfaceKind === "browser"
+    );
   }
 
   private runtimeStateForUnfocusedResizeKind(
@@ -291,13 +300,10 @@ export class PaneRuntimePolicy {
   }
 
   private runtimeStateForBrowser(
-    _movementPhase: "idle" | "moving",
-    counters: {
-      liveBrowserPanes: number;
-      snapshot: number;
-    },
+    movementPhase: "idle" | "moving",
+    counters: { snapshot: number },
   ): PaneRuntimeState {
-    if (counters.liveBrowserPanes >= this.budget.maxLiveBrowserPanes) {
+    if (this.degradeDuringMovement && movementPhase === "moving") {
       return this.snapshotOrThrottle(counters);
     }
     return "live";

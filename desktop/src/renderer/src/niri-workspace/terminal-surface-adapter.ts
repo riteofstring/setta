@@ -61,6 +61,7 @@ const defaultRows = 24;
 const inputChunkBytes = 64 * 1024;
 const largePasteWarningBytes = 16 * 1024;
 const maxPasteBytes = 1024 * 1024;
+const maxFitReadinessRetries = 4;
 const resizeDebounceMs = 80;
 interface PendingTerminalOutput {
   byteCount: number;
@@ -71,13 +72,18 @@ interface PendingPaste {
   text: string;
 }
 
+type XtermTerminalWithCore = XtermTerminal & {
+  _core?: {
+    _renderService?: {
+      dimensions?: unknown;
+    };
+    viewport?: unknown;
+  };
+};
+
 type TerminalStatusEvent = TerminalEvent & {
   type: Exclude<TerminalEvent["type"], "terminal.output">;
 };
-
-interface TerminalSurfaceAdapterOptions {
-  onProfileSelected?: (paneId: string, profileId: string) => void;
-}
 
 export class TerminalSurfaceAdapter implements SurfaceAdapter {
   readonly kind = "terminal" as const;
@@ -86,6 +92,8 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private droppedOutputChunks = 0;
   private exitOverlay: HTMLElement | null = null;
   private exitOverlayMessage: HTMLElement | null = null;
+  private fitReadinessRetryCount = 0;
+  private fitRetryTimer: number | null = null;
   private fitAddon: XtermFitAddon | null = null;
   private focused = false;
   private frozen = false;
@@ -96,8 +104,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   private readonly pendingOutput: PendingTerminalOutput[] = [];
   private pendingPaste: PendingPaste | null = null;
   private pasteOverlay: TerminalPasteElements | null = null;
-  private profileList: TerminalProfileList | null = null;
-  private profileSelect: HTMLSelectElement | null = null;
   private resizeTimer: number | null = null;
   private restartButton: HTMLButtonElement | null = null;
   private readonly searchController = new TerminalSearchController();
@@ -121,7 +127,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   constructor(
     private readonly pane: NiriPane,
     private readonly workspaceId: string = "empty",
-    private readonly options: TerminalSurfaceAdapterOptions = {},
   ) {}
 
   get surfaceId(): SurfaceId {
@@ -137,7 +142,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.status = content.status;
     this.exitOverlay = content.exitOverlay;
     this.exitOverlayMessage = content.exitOverlayMessage;
-    this.profileSelect = content.profileSelect;
     this.restartButton = content.restartButton;
     this.searchController.setElements(content.search);
     this.pasteOverlay = content.pasteOverlay;
@@ -160,9 +164,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     content.search.closeButton.addEventListener("click", () => this.searchController.close());
     content.pasteOverlay.confirmButton.addEventListener("click", () => this.confirmPendingPaste());
     content.pasteOverlay.cancelButton.addEventListener("click", () => this.cancelPendingPaste());
-    content.profileSelect.addEventListener("change", () => {
-      this.selectProfile(content.profileSelect.value);
-    });
     content.restartButton.addEventListener("click", () => this.restartSession());
     content.closeButton.addEventListener("click", () => this.closeExitedSession());
     host.replaceChildren(content.root);
@@ -191,6 +192,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
 
   unmount(): void {
     this.clearResizeTimer();
+    this.clearFitRetryTimer();
     this.unsubscribeEvents?.();
     this.unsubscribeEvents = null;
     this.unsubscribeBackendStatus?.();
@@ -203,7 +205,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.status = null;
     this.exitOverlay = null;
     this.exitOverlayMessage = null;
-    this.profileSelect = null;
     this.restartButton = null;
     this.searchController.setElements(null);
     this.pasteOverlay = null;
@@ -300,7 +301,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
   }
 
   private applyProfileList(profiles: TerminalProfileList): void {
-    this.profileList = profiles;
     const preferredProfileId =
       this.selectedProfileId ||
       this.pane.terminalConfig?.profileId ||
@@ -311,56 +311,7 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       profiles.profiles[0] ??
       null;
     this.selectedProfileId = this.selectedProfile?.id ?? profiles.defaultProfileId;
-    this.renderProfileSelect();
     this.applyDisplaySettings(terminalProfileDisplaySettings(this.selectedProfile));
-  }
-
-  private selectProfile(profileId: string): void {
-    const profiles = this.profileList;
-    if (!profiles) {
-      return;
-    }
-    const profile = profiles.profiles.find((candidate) => candidate.id === profileId);
-    if (!profile) {
-      this.renderProfileSelect();
-      return;
-    }
-    this.selectedProfile = profile;
-    this.selectedProfileId = profile.id;
-    this.allowExplicitProfileStart = false;
-    this.options.onProfileSelected?.(this.pane.paneId, profile.id);
-    this.renderProfileSelect();
-    this.applyDisplaySettings(terminalProfileDisplaySettings(profile));
-    if (this.sessionId) {
-      this.showStatus("Profile applies after restart");
-      return;
-    }
-    this.startPromise = null;
-    this.startSession();
-  }
-
-  private renderProfileSelect(): void {
-    const select = this.profileSelect;
-    const profiles = this.profileList;
-    if (!select) {
-      return;
-    }
-    if (!profiles || profiles.profiles.length === 0) {
-      select.disabled = true;
-      select.replaceChildren();
-      return;
-    }
-    const document = select.ownerDocument;
-    const options = profiles.profiles.map((profile) => {
-      const option = document.createElement("option");
-      option.value = profile.id;
-      option.textContent =
-        profile.id === profiles.defaultProfileId ? `${profile.name} (default)` : profile.name;
-      return option;
-    });
-    select.replaceChildren(...options);
-    select.disabled = false;
-    select.value = this.selectedProfileId || profiles.defaultProfileId;
   }
 
   private showDeferredProfileStart(profile: TerminalProfile): void {
@@ -471,7 +422,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       rows: session.rows,
     };
     this.showStatus(statusLabel(session.status, session.cwd));
-    this.renderProfileSelect();
     if (session.status === "exited") {
       this.showExitOverlay(exitStatusLabel(session.exitCode, session.message));
     } else if (session.status === "error") {
@@ -858,10 +808,27 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (this.host.clientWidth <= 0 || this.host.clientHeight <= 0) {
       return;
     }
+    if (!terminalFitReady(this.terminal)) {
+      this.scheduleFitRetry();
+      this.writeStats(0);
+      return;
+    }
+    this.fitReadinessRetryCount = 0;
     this.fitAddon.fit();
     this.scheduleResize(this.terminal.cols, this.terminal.rows);
     this.writeStats(1);
     this.syncHostState();
+  }
+
+  private scheduleFitRetry(): void {
+    if (this.fitRetryTimer !== null || this.fitReadinessRetryCount >= maxFitReadinessRetries) {
+      return;
+    }
+    this.fitReadinessRetryCount += 1;
+    this.fitRetryTimer = window.setTimeout(() => {
+      this.fitRetryTimer = null;
+      this.fitAndResize();
+    }, 16);
   }
 
   private scheduleResize(cols: number, rows: number): void {
@@ -917,6 +884,14 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     window.clearTimeout(this.resizeTimer);
     this.resizeTimer = null;
     this.pendingResize = null;
+  }
+
+  private clearFitRetryTimer(): void {
+    if (this.fitRetryTimer !== null) {
+      window.clearTimeout(this.fitRetryTimer);
+      this.fitRetryTimer = null;
+    }
+    this.fitReadinessRetryCount = 0;
   }
 
   private showStatus(message: string): void {
@@ -993,4 +968,9 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     this.host.dataset.terminalVirtualRows = String(this.stats.renderedRows);
     this.host.style.visibility = this.visible ? "visible" : "hidden";
   }
+}
+
+function terminalFitReady(terminal: XtermTerminal): boolean {
+  const core = (terminal as XtermTerminalWithCore)._core;
+  return core?._renderService?.dimensions !== undefined && core.viewport !== undefined;
 }

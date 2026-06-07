@@ -26,6 +26,15 @@ type SelectWorkspaceRequest struct {
 	ID string `json:"id"`
 }
 
+type WorkspaceSelectedConversations struct {
+	SelectedConversationIDsByWorkspaceID map[string]string `json:"selectedConversationIdsByWorkspaceId"`
+}
+
+type SetWorkspaceSelectedConversationRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
 type CloseWorkspaceRequest struct {
 	ID string `json:"id"`
 }
@@ -53,9 +62,20 @@ type CreateConversationRequest struct {
 	Title       string `json:"title"`
 }
 
+type DeleteConversationRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
 type MarkConversationReadRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
+}
+
+type SetConversationPinnedRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	Pinned         bool   `json:"pinned"`
 }
 
 type GetMessagePageRequest struct {

@@ -44,6 +44,27 @@ func (handler handler) createConversation(response http.ResponseWriter, request 
 	writeJSON(response, http.StatusOK, conversation)
 }
 
+func (handler handler) deleteConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload DeleteConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.DeleteConversation(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "delete_conversation_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ListConversationsResponse{
+		Conversations: result.Conversations,
+		Corruption:    result.Corruption,
+		Diagnostics:   result.Diagnostics,
+	})
+}
+
 func (handler handler) markConversationRead(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -56,6 +77,23 @@ func (handler handler) markConversationRead(response http.ResponseWriter, reques
 	item, err := service.MarkConversationRead(payload.WorkspaceID, payload.ConversationID)
 	if err != nil {
 		writeChatError(response, "mark_conversation_read_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, item)
+}
+
+func (handler handler) setConversationPinned(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload SetConversationPinnedRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	item, err := service.SetConversationPinned(payload.WorkspaceID, payload.ConversationID, payload.Pinned)
+	if err != nil {
+		writeChatError(response, "set_conversation_pinned_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, item)

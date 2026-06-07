@@ -58,8 +58,12 @@ try {
   await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
   await ensureWorkspaceOpen(context.client);
   await waitForWorkspacePaneHosts(context.client);
+  await ensureVisibleBrowserPaneCount(context.client, 2);
   await ensureNormalMode(context.client);
+  await waitForNativeBrowserLiveCount(context.client, 2);
+  const normalSnapshots = await waitForBrowserSnapshotImages(context.client, 2);
   await delay(500);
+  const normalBeforeBrowserStats = await readNativeBrowserStats(context.client);
   await captureScreenshot(context.client, join(artifactDir, "normal-before.png"));
 
   const enter = await measureOverviewTransition(context.client, {
@@ -67,6 +71,10 @@ try {
     expectedMode: "overview",
     name: "enter-overview",
   });
+  const overviewBrowserStats = await readNativeBrowserStats(context.client);
+  assertNativeBrowsersHiddenForOverview(overviewBrowserStats, 2);
+  const overviewSnapshots = await waitForBrowserSnapshotImages(context.client, 2);
+  assertOverviewSnapshotsUseNativeSize(overviewSnapshots);
   await captureScreenshot(context.client, join(artifactDir, "overview.png"));
 
   const exit = await measureOverviewTransition(context.client, {
@@ -74,10 +82,21 @@ try {
     expectedMode: "normal",
     name: "exit-overview",
   });
+  await waitForNativeBrowserLiveCount(context.client, 2);
+  const normalAfterBrowserStats = await readNativeBrowserStats(context.client);
   await captureScreenshot(context.client, join(artifactDir, "normal-after.png"));
 
   const summary = {
     artifactDir,
+    browserStats: {
+      normalAfter: normalAfterBrowserStats,
+      normalBefore: normalBeforeBrowserStats,
+      overview: overviewBrowserStats,
+    },
+    browserSnapshots: {
+      normal: normalSnapshots,
+      overview: overviewSnapshots,
+    },
     samples: [enter, exit],
     status: "passed",
     viewport,
@@ -136,6 +155,96 @@ async function waitForWorkspacePaneHosts(client) {
     (snapshot) => snapshot.hosts.length >= 3 && snapshot.visibleHosts >= 3,
     overviewWorkflowTimeoutMs,
   );
+}
+
+async function ensureVisibleBrowserPaneCount(client, minimumCount) {
+  for (let attempt = 0; attempt < minimumCount; attempt += 1) {
+    const browserCount = await client.evaluate(visibleBrowserHostCountExpression());
+    if (browserCount >= minimumCount) {
+      return;
+    }
+    await openBrowserPane(client);
+    await waitForState(
+      client,
+      visibleBrowserHostCountExpression(),
+      (currentCount) => currentCount > browserCount,
+      overviewWorkflowTimeoutMs,
+    );
+  }
+  const finalCount = await client.evaluate(visibleBrowserHostCountExpression());
+  if (finalCount < minimumCount) {
+    throw new Error(`expected at least ${minimumCount} visible browser panes, found ${finalCount}`);
+  }
+}
+
+async function openBrowserPane(client) {
+  const result = await client.evaluate(`(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: "b",
+      metaKey: true,
+    }));
+    return { ok: true };
+  })()`);
+  if (!result.ok) {
+    throw new Error(`browser pane shortcut failed: ${JSON.stringify(result)}`);
+  }
+}
+
+async function waitForNativeBrowserLiveCount(client, minimumCount) {
+  await waitForState(
+    client,
+    nativeBrowserStatsExpression(),
+    (stats) => stats !== null && stats.live >= minimumCount,
+    overviewWorkflowTimeoutMs,
+  );
+}
+
+async function waitForBrowserSnapshotImages(client, minimumCount) {
+  return waitForState(
+    client,
+    browserSnapshotImagesExpression(),
+    (snapshots) =>
+      snapshots.ready.length >= minimumCount &&
+      snapshots.ready.every(
+        (snapshot) =>
+          snapshot.imageWidth > 1 &&
+          snapshot.imageHeight > 1 &&
+          snapshot.naturalWidth > 1 &&
+          snapshot.naturalHeight > 1,
+      ),
+    overviewWorkflowTimeoutMs,
+  );
+}
+
+async function readNativeBrowserStats(client) {
+  const stats = await client.evaluate(nativeBrowserStatsExpression());
+  if (!stats) {
+    throw new Error("native browser stats bridge is unavailable");
+  }
+  return stats;
+}
+
+function assertNativeBrowsersHiddenForOverview(stats, minimumCount) {
+  if (stats.registered < minimumCount || stats.hidden < minimumCount || stats.live !== 0) {
+    throw new Error(`native browsers were not hidden during overview: ${JSON.stringify(stats)}`);
+  }
+}
+
+function assertOverviewSnapshotsUseNativeSize(snapshots) {
+  const invalid = snapshots.ready.filter(
+    (snapshot) =>
+      snapshot.mode !== "overview" ||
+      snapshot.runtimeState !== "snapshot" ||
+      snapshot.imageHidden ||
+      snapshot.imageWidth < Math.round(snapshot.hostStyleWidth) ||
+      snapshot.imageHeight < Math.round(snapshot.hostStyleHeight - 30),
+  );
+  if (invalid.length > 0) {
+    throw new Error(`overview browser snapshots were not native sized: ${JSON.stringify(invalid)}`);
+  }
 }
 
 async function ensureNormalMode(client) {
@@ -201,7 +310,18 @@ async function measureOverviewTransition(client, { buttonLabel, expectedMode, na
       observer.observe({ type: "longtask" });
     }
     const frames = [];
+    const nativeBrowserStats = [];
     const runtimeStateSamples = [];
+    async function recordNativeBrowserStats(phase) {
+      const api = window.setta?.niriNativeViews;
+      if (!api?.readBrowserViewStats) {
+        nativeBrowserStats.push({ phase, stats: null });
+        return;
+      }
+      nativeBrowserStats.push({ phase, stats: await api.readBrowserViewStats() });
+    }
+    const initialMode = area.dataset.presentationMode ?? "";
+    await recordNativeBrowserStats("before-click");
     let previousTimestamp = performance.now();
     let running = true;
     function recordFrame(timestamp) {
@@ -214,11 +334,13 @@ async function measureOverviewTransition(client, { buttonLabel, expectedMode, na
       requestAnimationFrame(recordFrame);
     }
     requestAnimationFrame(recordFrame);
-    const initialMode = area.dataset.presentationMode ?? "";
     button.click();
-    await new Promise((resolve) => window.setTimeout(resolve, ${transitionSampleMs}));
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
+    await recordNativeBrowserStats("after-click-80ms");
+    await new Promise((resolve) => window.setTimeout(resolve, ${transitionSampleMs - 80}));
     running = false;
     observer?.disconnect();
+    await recordNativeBrowserStats("after-transition");
     const samples = frames.slice(1).filter((value) => Number.isFinite(value) && value >= 0);
     const sorted = [...samples].sort((left, right) => left - right);
     const quantile = (percentile) => {
@@ -251,6 +373,7 @@ async function measureOverviewTransition(client, { buttonLabel, expectedMode, na
       maxFrameDeltaMs: sorted.at(-1) ?? 0,
       maxRuntimeStatesDuringTransition,
       name: ${JSON.stringify(name)},
+      nativeBrowserStats,
       ok: true,
       p95FrameDeltaMs: quantile(0.95),
       p99FrameDeltaMs: quantile(0.99),
@@ -310,6 +433,7 @@ function workspaceSnapshotExpression() {
         return { visible: false };
       }
       return {
+        surfaceKind: host.dataset.surfaceKind ?? "",
         focused: host.dataset.focused ?? "",
         paneId: host.dataset.paneId ?? "",
         presentationMode: host.dataset.presentationMode ?? "",
@@ -322,6 +446,61 @@ function workspaceSnapshotExpression() {
       mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
       visibleHosts: hosts.filter((host) => host.visible).length,
       workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+    };
+  })()`;
+}
+
+function visibleBrowserHostCountExpression() {
+  return `(() => Array.from(document.querySelectorAll(".niri-pane-host")).filter((host) => (
+    host instanceof HTMLElement &&
+    host.dataset.surfaceKind === "browser" &&
+    host.dataset.visible === "true"
+  )).length)()`;
+}
+
+function nativeBrowserStatsExpression() {
+  return `(async () => {
+    const api = window.setta?.niriNativeViews;
+    if (!api?.readBrowserViewStats) {
+      return null;
+    }
+    return await api.readBrowserViewStats();
+  })()`;
+}
+
+function browserSnapshotImagesExpression() {
+  return `(async () => {
+    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const mode = area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "";
+    const nativeStats = await window.setta?.niriNativeViews?.readBrowserViewStats?.() ?? null;
+    const snapshots = Array.from(document.querySelectorAll(
+      '.niri-pane-host[data-surface-kind="browser"][data-visible="true"]',
+    )).map((host) => {
+      const image = host.querySelector('[data-niri-browser-snapshot]');
+      const hostRect = host.getBoundingClientRect();
+      return {
+        hostHeight: hostRect.height,
+        hostStyleHeight: Number.parseFloat(host.style.height || "0"),
+        hostStyleWidth: Number.parseFloat(host.style.width || "0"),
+        hostWidth: hostRect.width,
+        imageHeight: image instanceof HTMLImageElement ? image.height : 0,
+        imageHidden: image instanceof HTMLImageElement ? image.hidden : true,
+        imageWidth: image instanceof HTMLImageElement ? image.width : 0,
+        mode,
+        naturalHeight: image instanceof HTMLImageElement ? image.naturalHeight : 0,
+        naturalWidth: image instanceof HTMLImageElement ? image.naturalWidth : 0,
+        paneId: host instanceof HTMLElement ? host.dataset.paneId ?? "" : "",
+        ready:
+          image instanceof HTMLImageElement &&
+          image.parentElement instanceof HTMLElement &&
+          image.parentElement.dataset.browserSnapshotReady === "true",
+        runtimeState: host instanceof HTMLElement ? host.dataset.runtimeState ?? "" : "",
+      };
+    });
+    return {
+      nativeStats,
+      ready: snapshots.filter((snapshot) => snapshot.ready),
+      snapshots,
     };
   })()`;
 }

@@ -1,4 +1,8 @@
-import type { NiriBrowserViewRuntimeState, NiriBrowserViewUpdate } from "@shared/types";
+import type {
+  NiriBrowserViewRuntimeState,
+  NiriBrowserViewSnapshot,
+  NiriBrowserViewUpdate,
+} from "@shared/types";
 
 import type {
   FreezeReason,
@@ -15,19 +19,20 @@ export interface BrowserViewUpdateQueue {
   queue(update: NiriBrowserViewUpdate): void;
 }
 
-const minimumNativeVisiblePixels = 96;
 const nativePaneControlStripPx = 30;
-const nativeResizeHandleGutterPx = 18;
 
 export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
   readonly kind = "browser" satisfies SurfaceKind;
 
   private destroyed = false;
   private focused = false;
+  private hasViewport = false;
   private host: HTMLElement | null = null;
   private lastRect: Rect = { height: 1, width: 1, x: 0, y: 0 };
-  private nativeResizeActive = false;
   private runtimeState: NiriBrowserViewRuntimeState = "hidden";
+  private snapshotContent: HTMLElement | null = null;
+  private snapshotImage: HTMLImageElement | null = null;
+  private unsubscribeSnapshot: (() => void) | null = null;
   private visible = false;
 
   constructor(
@@ -44,18 +49,25 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
     this.host = host;
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
-    host.replaceChildren(renderBrowserProxyContent(host, this.pane));
+    const content = renderBrowserProxyContent(host, this.pane);
+    this.snapshotContent = content;
+    this.snapshotImage = content.querySelector<HTMLImageElement>("[data-niri-browser-snapshot]");
+    host.replaceChildren(content);
+    this.subscribeToSnapshots();
     this.syncHostState();
     this.queueUpdate();
   }
 
   unmount(): void {
+    this.unsubscribeFromSnapshots();
     this.visible = false;
     this.focused = false;
     this.runtimeState = "hidden";
     this.queueUpdate();
     this.host?.replaceChildren();
     this.host = null;
+    this.snapshotContent = null;
+    this.snapshotImage = null;
   }
 
   setVisible(visible: boolean): void {
@@ -72,11 +84,17 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
 
   setViewport(rect: Rect, reason: ViewportChangeReason): void {
     this.lastRect = rect;
-    this.nativeResizeActive = reason === "resize-active";
+    this.hasViewport = true;
     if (this.host) {
       this.host.dataset.viewportReason = reason;
       this.host.dataset.surfaceViewport = `${Math.round(rect.width)}x${Math.round(rect.height)}`;
     }
+    this.syncSnapshotSize();
+    this.queueUpdate();
+  }
+
+  syncFrame(): void {
+    this.syncSnapshotSize();
     this.queueUpdate();
   }
 
@@ -107,12 +125,15 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
     if (this.destroyed) {
       return;
     }
+    this.unsubscribeFromSnapshots();
     this.runtimeState = "destroyed";
     this.visible = false;
     this.focused = false;
     this.queueUpdate();
     this.host?.replaceChildren();
     this.host = null;
+    this.snapshotContent = null;
+    this.snapshotImage = null;
     this.destroyed = true;
   }
 
@@ -126,27 +147,88 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
     const nativeBounds = this.nativeBounds();
     const update: NiriBrowserViewUpdate = {
       bounds: nativeBounds.rect,
+      contentBounds: nativeBounds.contentRect,
       focused: this.focused,
       paneId: this.pane.paneId,
       runtimeState: this.runtimeState,
       surfaceId: this.surfaceId,
       title: this.pane.title,
       url: browserPaneURL(this.pane),
-      visible:
-        this.visible &&
-        this.focused &&
-        this.runtimeState === "live" &&
-        !this.nativeResizeActive &&
-        nativeBounds.visible,
+      visible: this.visible && this.runtimeState === "live" && nativeBounds.visible,
     };
     this.batcher.queue(update);
   }
 
-  private nativeBounds(): { rect: Rect; visible: boolean } {
-    const hostBounds = this.host?.getBoundingClientRect();
+  private subscribeToSnapshots(): void {
+    this.unsubscribeFromSnapshots();
+    const bridge = typeof window === "undefined" ? null : window.setta?.niriNativeViews;
+    this.unsubscribeSnapshot =
+      bridge?.onBrowserViewSnapshot((snapshot) => {
+        if (snapshot.surfaceId === this.surfaceId) {
+          this.applySnapshot(snapshot);
+        }
+      }) ?? null;
+  }
+
+  private unsubscribeFromSnapshots(): void {
+    this.unsubscribeSnapshot?.();
+    this.unsubscribeSnapshot = null;
+  }
+
+  private applySnapshot(snapshot: NiriBrowserViewSnapshot): void {
+    const image = this.snapshotImage;
+    const content = this.snapshotContent;
+    if (!image || !content) {
+      return;
+    }
+    image.width = Math.max(1, Math.round(snapshot.width));
+    image.height = Math.max(1, Math.round(snapshot.height));
+    if (!snapshotSizeMatchesNativeBounds(image, this.nativePaneContentSize())) {
+      this.hideSnapshot();
+      return;
+    }
+    image.src = snapshot.imageDataUrl;
+    image.hidden = false;
+    content.dataset.browserSnapshotReady = "true";
+    this.host?.setAttribute("data-browser-snapshot-captured-at", String(snapshot.capturedAt));
+  }
+
+  private syncSnapshotSize(): void {
+    const image = this.snapshotImage;
+    if (!image || image.hidden) {
+      return;
+    }
+    if (!snapshotSizeMatchesNativeBounds(image, this.nativePaneContentSize())) {
+      this.hideSnapshot();
+    }
+  }
+
+  private hideSnapshot(): void {
+    if (this.snapshotImage) {
+      this.snapshotImage.hidden = true;
+    }
+    if (this.snapshotContent) {
+      delete this.snapshotContent.dataset.browserSnapshotReady;
+    }
+    this.host?.removeAttribute("data-browser-snapshot-captured-at");
+  }
+
+  private nativeBounds(): { contentRect: Rect; rect: Rect; visible: boolean } {
+    const nativeRect = this.nativePaneRect();
     const clipBounds = this.host
       ?.closest<HTMLElement>('[data-testid="niri-presentation-engine"]')
       ?.getBoundingClientRect();
+    const visibleRect = clipBounds ? intersectRects(nativeRect, clipBounds) : nativeRect;
+    const visible = visibleRect.width > 0 && visibleRect.height > 0;
+    return {
+      contentRect: nativeRect,
+      rect: visible ? visibleRect : { height: 1, width: 1, x: nativeRect.x, y: nativeRect.y },
+      visible,
+    };
+  }
+
+  private nativePaneRect(): Rect {
+    const hostBounds = this.host?.getBoundingClientRect();
     const unclipped = hostBounds
       ? {
           height: hostBounds.height,
@@ -155,19 +237,22 @@ export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
           y: hostBounds.top,
         }
       : { ...this.lastRect };
-    const rect = clipBounds ? intersectRects(unclipped, clipBounds) : unclipped;
     const nativeRect = {
-      ...rect,
-      height: Math.max(1, rect.height - nativePaneControlStripPx),
-      width: Math.max(1, rect.width - nativeResizeHandleGutterPx),
-      y: rect.y + nativePaneControlStripPx,
+      ...unclipped,
+      height: Math.max(1, unclipped.height - nativePaneControlStripPx),
+      width: Math.max(1, unclipped.width),
+      y: unclipped.y + nativePaneControlStripPx,
     };
-    const visible =
-      nativeRect.width >= minimumNativeVisiblePixels &&
-      nativeRect.height >= minimumNativeVisiblePixels;
+    return nativeRect;
+  }
+
+  private nativePaneContentSize(): Pick<Rect, "height" | "width"> {
+    if (!this.hasViewport) {
+      return this.nativePaneRect();
+    }
     return {
-      rect: visible ? nativeRect : { height: 1, width: 1, x: rect.x, y: rect.y },
-      visible,
+      height: Math.max(1, this.lastRect.height - nativePaneControlStripPx),
+      width: Math.max(1, this.lastRect.width),
     };
   }
 
@@ -193,6 +278,16 @@ function intersectRects(subject: Rect, clip: DOMRect): Rect {
     x,
     y,
   };
+}
+
+function snapshotSizeMatchesNativeBounds(
+  image: HTMLImageElement,
+  nativeSize: Pick<Rect, "height" | "width">,
+): boolean {
+  return (
+    image.width === Math.max(1, Math.round(nativeSize.width)) &&
+    image.height === Math.max(1, Math.round(nativeSize.height))
+  );
 }
 
 function browserPaneURL(pane: NiriPane): string {
@@ -227,6 +322,17 @@ function renderBrowserProxyContent(host: HTMLElement, pane: NiriPane): HTMLEleme
   const content = document.createElement("div");
   content.className = "niri-pane-content niri-browser-proxy-surface";
 
+  const snapshot = document.createElement("img");
+  snapshot.alt = "";
+  snapshot.className = "niri-browser-proxy-snapshot";
+  snapshot.dataset.niriBrowserSnapshot = "true";
+  snapshot.decoding = "async";
+  snapshot.draggable = false;
+  snapshot.hidden = true;
+
+  const fallback = document.createElement("div");
+  fallback.className = "niri-browser-proxy-fallback";
+
   const toolbar = document.createElement("div");
   toolbar.className = "niri-browser-proxy-toolbar";
   toolbar.textContent = `setta://browser/${pane.sequence}`;
@@ -237,6 +343,19 @@ function renderBrowserProxyContent(host: HTMLElement, pane: NiriPane): HTMLEleme
   const subtitle = document.createElement("p");
   subtitle.textContent = pane.subtitle;
 
-  content.append(toolbar, title, subtitle);
+  const rowOne = document.createElement("div");
+  rowOne.className = "niri-browser-proxy-row";
+  rowOne.style.width = "82%";
+
+  const rowTwo = document.createElement("div");
+  rowTwo.className = "niri-browser-proxy-row";
+  rowTwo.style.width = "64%";
+
+  const rowThree = document.createElement("div");
+  rowThree.className = "niri-browser-proxy-row";
+  rowThree.style.width = "72%";
+
+  fallback.append(toolbar, title, subtitle, rowOne, rowTwo, rowThree);
+  content.append(snapshot, fallback);
   return content;
 }

@@ -1,6 +1,6 @@
 import type { ApprovalAnswer, ApprovalQuestion, ApprovalRequest } from "@generated/backend";
 import { Check, X } from "lucide-react";
-import { useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 
 import { StructuredInputApproval } from "./structured-input-approval";
 import { Button } from "./ui/button";
@@ -123,6 +123,7 @@ function UserInputApproval({
   submitApproval: (answers: ApprovalAnswer[], cancelled: boolean) => Promise<void>;
 }) {
   const [answersByQuestion, setAnswersByQuestion] = useState<Record<string, string>>({});
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   if (questions.length === 0) {
     return (
       <div className="mt-3 font-medium text-status-critical">
@@ -130,17 +131,25 @@ function UserInputApproval({
       </div>
     );
   }
-  const complete = questions.every(
-    (question) => answerValue(answersByQuestion, question.id) !== "",
-  );
-  const answers = questions.map((question) => ({
-    answers: [answerValue(answersByQuestion, question.id)],
-    questionId: question.id,
-    value: null,
-  }));
+
+  const submitAnswers = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const answers = questions.map((question) => ({
+      answers: [formAnswerValue(formData, question.id)],
+      questionId: question.id,
+      value: null,
+    }));
+    const firstEmpty = answers.find((answer) => answer.answers[0] === "");
+    if (firstEmpty) {
+      inputRefs.current[firstEmpty.questionId]?.focus();
+      return;
+    }
+    void submitApproval(answers, false);
+  };
 
   return (
-    <div className="mt-3 space-y-3">
+    <form className="mt-3 space-y-3" onSubmit={submitAnswers}>
       {questions.map((question) => {
         const answer = answerValue(answersByQuestion, question.id);
         return (
@@ -152,7 +161,13 @@ function UserInputApproval({
                 {question.options.map((option) => (
                   <Button
                     key={option}
-                    onClick={() => setQuestionAnswer(setAnswersByQuestion, question.id, option)}
+                    onClick={() => {
+                      setQuestionAnswer(setAnswersByQuestion, question.id, option);
+                      const input = inputRefs.current[question.id];
+                      if (input) {
+                        input.value = option;
+                      }
+                    }}
                     type="button"
                     variant={answer === option ? "primary" : "secondary"}
                   >
@@ -163,22 +178,21 @@ function UserInputApproval({
             ) : null}
             <input
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
-              onChange={(event) =>
-                setQuestionAnswer(setAnswersByQuestion, question.id, event.target.value)
+              name={question.id}
+              onInput={(event) =>
+                setQuestionAnswer(setAnswersByQuestion, question.id, event.currentTarget.value)
               }
+              ref={(input) => {
+                inputRefs.current[question.id] = input;
+              }}
+              required
               type={question.isSecret ? "password" : "text"}
-              value={answer}
             />
           </div>
         );
       })}
       <div className="flex gap-2">
-        <Button
-          disabled={!complete}
-          onClick={() => void submitApproval(answers, false)}
-          type="button"
-          variant="primary"
-        >
+        <Button type="submit" variant="primary">
           <Check className="h-4 w-4" />
           Answer
         </Button>
@@ -187,12 +201,17 @@ function UserInputApproval({
           Cancel
         </Button>
       </div>
-    </div>
+    </form>
   );
 }
 
 function answerValue(answersByQuestion: Record<string, string>, questionID: string) {
   return answersByQuestion[questionID]?.trim() ?? "";
+}
+
+function formAnswerValue(formData: FormData, questionID: string) {
+  const value = formData.get(questionID);
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function setQuestionAnswer(
