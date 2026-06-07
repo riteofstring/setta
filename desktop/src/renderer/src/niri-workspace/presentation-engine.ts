@@ -33,27 +33,10 @@ interface PaneHostBinding {
   lastZ: number;
 }
 
-type PaneResizeAxis = "horizontal" | "vertical";
-
-interface PaneVisualRect {
-  bottom: number;
-  left: number;
-  right: number;
-  top: number;
-}
-
-interface ResizeNeighborMeasurement {
-  gap: number;
-  item: PaneRenderItem;
-}
-
-const maximumResizeNeighborGapPx = 48;
-
 export class PresentationEngine {
   private bindings: PaneHostBinding[] = [];
   private debugOverlay: HTMLElement | null = null;
   private paneById = new Map<string, NiriPane>();
-  private resizeHandles = new WeakMap<HTMLElement, Partial<Record<PaneResizeAxis, HTMLElement>>>();
 
   constructor(
     panes: readonly NiriPane[],
@@ -78,10 +61,7 @@ export class PresentationEngine {
         continue;
       }
       const item = assignedItems[index];
-      addPresentationWriteCounts(
-        writeCounts,
-        this.applyBinding(binding, item, assignedItems, options),
-      );
+      addPresentationWriteCounts(writeCounts, this.applyBinding(binding, item, options));
     }
 
     const nativeFlush = this.nativeViewBoundsBatcher?.flush();
@@ -111,13 +91,6 @@ export class PresentationEngine {
     this.debugOverlay = debugOverlay;
   }
 
-  setDebugOverlay(debugOverlay: HTMLElement | null): void {
-    if (this.debugOverlay && this.debugOverlay !== debugOverlay) {
-      this.debugOverlay.textContent = "";
-    }
-    this.debugOverlay = debugOverlay;
-  }
-
   syncPanes(panes: readonly NiriPane[]): void {
     const nextPaneIds = new Set(panes.map((pane) => pane.paneId));
     for (const paneId of [...this.paneById.keys()]) {
@@ -139,8 +112,7 @@ export class PresentationEngine {
       binding.host.removeAttribute("data-pane-id");
       binding.host.removeAttribute("data-presentation-mode");
       binding.host.removeAttribute("data-visible");
-      this.paneTopBarForHost(binding.host)?.remove();
-      this.removeResizeHandles(binding.host);
+      this.maximizeButtonForHost(binding.host)?.remove();
       binding.host.style.cssText = "";
     }
     if (this.debugOverlay) {
@@ -255,7 +227,6 @@ export class PresentationEngine {
   private applyBinding(
     binding: PaneHostBinding,
     item: PaneRenderItem | undefined,
-    assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
     options: PresentationApplyOptions,
   ): PresentationWriteCounts {
     if (!item) {
@@ -268,13 +239,12 @@ export class PresentationEngine {
           this.syncFrame(binding, item),
         )
       : this.syncFrame(binding, item);
-    this.syncPaneControls(binding, item, assignedItems);
+    this.syncPaneControls(binding, item);
     return writeCounts;
   }
 
   private hideBinding(binding: PaneHostBinding): void {
     this.surfaceRegistry.releaseHost(binding.host);
-    this.removeResizeHandles(binding.host);
     binding.contentPaneId = null;
     binding.host.dataset.focused = "false";
     binding.host.dataset.maximized = "false";
@@ -290,190 +260,29 @@ export class PresentationEngine {
     binding.lastVisible = false;
   }
 
-  private syncPaneControls(
-    binding: PaneHostBinding,
-    item: PaneRenderItem,
-    assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
-  ): void {
-    const pane = this.paneById.get(item.paneId);
-    if (!pane) {
-      throw new Error(`missing pane controls metadata for ${item.paneId}`);
-    }
-    const topBar = this.ensurePaneTopBar(binding.host);
-    topBar.dataset.paneId = item.paneId;
-
-    const titleEditor = this.ensureTitleEditor(topBar);
-    titleEditor.dataset.paneId = item.paneId;
-    if (binding.host.ownerDocument.activeElement !== titleEditor) {
-      titleEditor.textContent = pane.title;
-      titleEditor.title = pane.title;
-    }
-
-    const dragHandle = this.ensureDragHandle(topBar);
-    dragHandle.dataset.paneId = item.paneId;
-
-    const button = this.ensureMaximizeButton(topBar);
+  private syncPaneControls(binding: PaneHostBinding, item: PaneRenderItem): void {
+    const button = this.ensureMaximizeButton(binding.host);
     button.dataset.paneId = item.paneId;
     const label = item.maximized ? "Restore pane size" : "Maximize pane";
     button.setAttribute("aria-label", label);
     button.title = label;
-    this.syncResizeHandle(
-      binding.host,
-      item,
-      "horizontal",
-      resizeNeighborItem(item, assignedItems, "horizontal"),
-    );
-    this.syncResizeHandle(
-      binding.host,
-      item,
-      "vertical",
-      resizeNeighborItem(item, assignedItems, "vertical"),
-    );
   }
 
-  private ensurePaneTopBar(host: HTMLElement): HTMLElement {
-    const existing = this.paneTopBarForHost(host);
+  private ensureMaximizeButton(host: HTMLElement): HTMLButtonElement {
+    const existing = this.maximizeButtonForHost(host);
     if (existing) {
       return existing;
     }
-    const topBar = host.ownerDocument.createElement("div");
-    topBar.className = "niri-pane-top-bar app-no-drag";
-    topBar.dataset.niriPaneTopBar = "true";
-    host.append(topBar);
-    return topBar;
-  }
-
-  private ensureTitleEditor(topBar: HTMLElement): HTMLElement {
-    const existing = this.titleEditorForTopBar(topBar);
-    if (existing) {
-      return existing;
-    }
-    const titleEditor = topBar.ownerDocument.createElement("div");
-    titleEditor.className = "niri-pane-title-editor app-no-drag";
-    titleEditor.contentEditable = "plaintext-only";
-    titleEditor.dataset.niriPaneTitleEditor = "true";
-    titleEditor.setAttribute("aria-label", "Rename pane");
-    titleEditor.setAttribute("role", "textbox");
-    titleEditor.setAttribute("spellcheck", "false");
-    topBar.append(titleEditor);
-    return titleEditor;
-  }
-
-  private ensureDragHandle(topBar: HTMLElement): HTMLButtonElement {
-    const existing = this.dragHandleForTopBar(topBar);
-    if (existing) {
-      return existing;
-    }
-    const button = topBar.ownerDocument.createElement("button");
-    button.className = "niri-pane-drag-handle app-no-drag";
-    button.dataset.niriPaneDragHandle = "true";
-    button.type = "button";
-    button.setAttribute("aria-label", "Drag pane");
-    button.title = "Drag pane";
-    topBar.prepend(button);
-    return button;
-  }
-
-  private ensureMaximizeButton(topBar: HTMLElement): HTMLButtonElement {
-    const existing = this.maximizeButtonForTopBar(topBar);
-    if (existing) {
-      return existing;
-    }
-    const button = topBar.ownerDocument.createElement("button");
+    const button = host.ownerDocument.createElement("button");
     button.className = "niri-pane-maximize-button";
     button.dataset.niriPaneMaximizeButton = "true";
     button.type = "button";
-    topBar.append(button);
+    host.append(button);
     return button;
   }
 
-  private syncResizeHandle(
-    host: HTMLElement,
-    item: PaneRenderItem,
-    axis: PaneResizeAxis,
-    adjacentItem: PaneRenderItem | null,
-  ): void {
-    const existing = this.resizeHandleForHost(host, axis);
-    if (!adjacentItem || item.presentationMode !== "normal" || item.maximized) {
-      if (existing) {
-        this.removeResizeHandle(host, axis);
-      }
-      return;
-    }
-    const handle = existing ?? this.createResizeHandle(host, axis);
-    const label = axis === "horizontal" ? "Resize adjacent columns" : "Resize stacked panes";
-    handle.dataset.paneId = item.paneId;
-    handle.dataset.adjacentPaneId = adjacentItem.paneId;
-    handle.setAttribute("aria-label", label);
-    handle.title = label;
-    positionResizeHandle(handle, axis, visualRectForItem(item), visualRectForItem(adjacentItem));
-  }
-
-  private createResizeHandle(host: HTMLElement, axis: PaneResizeAxis): HTMLElement {
-    const handle = host.ownerDocument.createElement("div");
-    handle.className = `niri-pane-resize-handle niri-pane-resize-handle-${axis} app-no-drag`;
-    handle.dataset.niriPaneResizeAxis = axis;
-    handle.setAttribute("aria-orientation", axis === "horizontal" ? "vertical" : "horizontal");
-    handle.setAttribute("role", "separator");
-    handle.tabIndex = -1;
-    (host.parentElement ?? host).append(handle);
-    const handles = this.resizeHandles.get(host) ?? {};
-    handles[axis] = handle;
-    this.resizeHandles.set(host, handles);
-    return handle;
-  }
-
-  private paneTopBarForHost(host: HTMLElement): HTMLElement | null {
+  private maximizeButtonForHost(host: HTMLElement): HTMLButtonElement | null {
     const existing = Array.from(host.children).find((child) =>
-      child.classList.contains("niri-pane-top-bar"),
-    );
-    return existing ? (existing as HTMLElement) : null;
-  }
-
-  private titleEditorForTopBar(topBar: HTMLElement): HTMLElement | null {
-    const existing = Array.from(topBar.children).find((child) =>
-      child.classList.contains("niri-pane-title-editor"),
-    );
-    return existing ? (existing as HTMLElement) : null;
-  }
-
-  private dragHandleForTopBar(topBar: HTMLElement): HTMLButtonElement | null {
-    const existing = Array.from(topBar.children).find((child) =>
-      child.classList.contains("niri-pane-drag-handle"),
-    );
-    return existing ? (existing as HTMLButtonElement) : null;
-  }
-
-  private resizeHandleForHost(host: HTMLElement, axis: PaneResizeAxis): HTMLElement | null {
-    return this.resizeHandles.get(host)?.[axis] ?? null;
-  }
-
-  private resizeHandlesForHost(host: HTMLElement): HTMLElement[] {
-    return Object.values(this.resizeHandles.get(host) ?? {});
-  }
-
-  private removeResizeHandles(host: HTMLElement): void {
-    for (const handle of this.resizeHandlesForHost(host)) {
-      handle.remove();
-    }
-    this.resizeHandles.delete(host);
-  }
-
-  private removeResizeHandle(host: HTMLElement, axis: PaneResizeAxis): void {
-    const handles = this.resizeHandles.get(host);
-    const handle = handles?.[axis];
-    if (!handles || !handle) {
-      return;
-    }
-    handle.remove();
-    delete handles[axis];
-    if (Object.values(handles).length === 0) {
-      this.resizeHandles.delete(host);
-    }
-  }
-
-  private maximizeButtonForTopBar(topBar: HTMLElement): HTMLButtonElement | null {
-    const existing = Array.from(topBar.children).find((child) =>
       child.classList.contains("niri-pane-maximize-button"),
     );
     return existing ? (existing as HTMLButtonElement) : null;
@@ -522,7 +331,7 @@ export class PresentationEngine {
   }
 
   private hostContentMissing(binding: PaneHostBinding): boolean {
-    const chromeChildCount = this.paneTopBarForHost(binding.host) ? 1 : 0;
+    const chromeChildCount = this.maximizeButtonForHost(binding.host) ? 1 : 0;
     return binding.host.childElementCount <= chromeChildCount || !binding.host.dataset.surfaceId;
   }
 
@@ -624,150 +433,6 @@ export class PresentationEngine {
     }
     return 0;
   }
-}
-
-function resizeNeighborItem(
-  item: PaneRenderItem,
-  assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
-  axis: PaneResizeAxis,
-): PaneRenderItem | null {
-  if (!canHostResizeHandle(item)) {
-    return null;
-  }
-  const sourceRect = visualRectForItem(item);
-  let best: ResizeNeighborMeasurement | null = null;
-  for (const candidate of assignedItems) {
-    const measurement = resizeNeighborMeasurement(item, sourceRect, candidate, axis);
-    if (!measurement) {
-      continue;
-    }
-    best = nearerResizeNeighbor(best, measurement);
-  }
-  return best?.item ?? null;
-}
-
-function resizeNeighborMeasurement(
-  item: PaneRenderItem,
-  sourceRect: PaneVisualRect,
-  candidate: PaneRenderItem | undefined,
-  axis: PaneResizeAxis,
-): ResizeNeighborMeasurement | null {
-  if (!candidate || candidate.paneId === item.paneId || !canHostResizeHandle(candidate)) {
-    return null;
-  }
-  const candidateRect = visualRectForItem(candidate);
-  const gap = resizeNeighborGap(sourceRect, candidateRect, axis);
-  if (gap < -1 || gap > maximumResizeNeighborGapPx) {
-    return null;
-  }
-  return resizeNeighborHasOverlap(sourceRect, candidateRect, axis)
-    ? { gap, item: candidate }
-    : null;
-}
-
-function canHostResizeHandle(item: PaneRenderItem): boolean {
-  return item.visible && item.presentationMode === "normal" && !item.maximized;
-}
-
-function resizeNeighborGap(
-  sourceRect: PaneVisualRect,
-  candidateRect: PaneVisualRect,
-  axis: PaneResizeAxis,
-): number {
-  return axis === "horizontal"
-    ? candidateRect.left - sourceRect.right
-    : candidateRect.top - sourceRect.bottom;
-}
-
-function resizeNeighborHasOverlap(
-  sourceRect: PaneVisualRect,
-  candidateRect: PaneVisualRect,
-  axis: PaneResizeAxis,
-): boolean {
-  const overlap =
-    axis === "horizontal"
-      ? overlapSize(sourceRect.top, sourceRect.bottom, candidateRect.top, candidateRect.bottom)
-      : overlapSize(sourceRect.left, sourceRect.right, candidateRect.left, candidateRect.right);
-  const sourceSize = axis === "horizontal" ? rectHeight(sourceRect) : rectWidth(sourceRect);
-  const candidateSize =
-    axis === "horizontal" ? rectHeight(candidateRect) : rectWidth(candidateRect);
-  return overlap >= Math.min(sourceSize, candidateSize) * 0.25 && overlap >= 18;
-}
-
-function nearerResizeNeighbor(
-  current: ResizeNeighborMeasurement | null,
-  candidate: ResizeNeighborMeasurement,
-): ResizeNeighborMeasurement {
-  return !current || candidate.gap < current.gap ? candidate : current;
-}
-
-function positionResizeHandle(
-  handle: HTMLElement,
-  axis: PaneResizeAxis,
-  sourceRect: PaneVisualRect,
-  adjacentRect: PaneVisualRect,
-): void {
-  if (axis === "horizontal") {
-    const gap = Math.max(0, adjacentRect.left - sourceRect.right);
-    const overlapTop = Math.max(sourceRect.top, adjacentRect.top);
-    const overlapBottom = Math.min(sourceRect.bottom, adjacentRect.bottom);
-    syncStyleValue(
-      handle.style,
-      "height",
-      `${Math.min(72, Math.max(34, overlapBottom - overlapTop - 20)).toFixed(2)}px`,
-    );
-    syncStyleValue(handle.style, "left", `${(sourceRect.right + gap / 2).toFixed(2)}px`);
-    syncStyleValue(handle.style, "top", `${((overlapTop + overlapBottom) / 2).toFixed(2)}px`);
-    syncStyleValue(handle.style, "width", "20px");
-    return;
-  }
-  const gap = Math.max(0, adjacentRect.top - sourceRect.bottom);
-  const overlapLeft = Math.max(sourceRect.left, adjacentRect.left);
-  const overlapRight = Math.min(sourceRect.right, adjacentRect.right);
-  syncStyleValue(handle.style, "height", "20px");
-  syncStyleValue(handle.style, "left", `${((overlapLeft + overlapRight) / 2).toFixed(2)}px`);
-  syncStyleValue(handle.style, "top", `${(sourceRect.bottom + gap / 2).toFixed(2)}px`);
-  syncStyleValue(
-    handle.style,
-    "width",
-    `${Math.min(84, Math.max(42, overlapRight - overlapLeft - 20)).toFixed(2)}px`,
-  );
-}
-
-function syncStyleValue(
-  style: CSSStyleDeclaration,
-  property: "height" | "left" | "top" | "width",
-  value: string,
-): void {
-  if (style[property] !== value) {
-    style[property] = value;
-  }
-}
-
-function visualRectForItem(item: PaneRenderItem): PaneVisualRect {
-  return {
-    bottom: item.y + item.height * item.scale,
-    left: item.x,
-    right: item.x + item.width * item.scale,
-    top: item.y,
-  };
-}
-
-function overlapSize(
-  firstStart: number,
-  firstEnd: number,
-  secondStart: number,
-  secondEnd: number,
-): number {
-  return Math.max(0, Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart));
-}
-
-function rectHeight(rect: PaneVisualRect): number {
-  return rect.bottom - rect.top;
-}
-
-function rectWidth(rect: PaneVisualRect): number {
-  return rect.right - rect.left;
 }
 
 function formatBytes(bytes: number | null): string {

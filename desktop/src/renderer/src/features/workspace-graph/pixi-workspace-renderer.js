@@ -26,13 +26,17 @@ import {
 import { createPixiWorkspaceSpatialQueries } from "./pixi-workspace-renderer-spatial-queries";
 import {
   cameraState,
+  cameraStatesDiffer,
   capturePointer,
   clamp,
+  countMapValues,
+  createCanvasContextMenuHandler,
   drawCurvedEdge,
   drawMarqueeSelection,
   drawPortVisualState,
   drawTemporaryEdge,
   drawWorkspaceGlow,
+  frameSampleStats,
   hostScreenSize,
   isSelectionToggleEvent,
   isZoomWheel,
@@ -66,6 +70,8 @@ export async function createPixiWorkspaceRenderer({
   debugSurfaceId = "pixi-workspace",
   graph = { edges: initialEdges, nodes: initialNodes },
   host,
+  onCanvasContextMenu = null,
+  onNodePositionsChange = null,
   reactRenderCount,
 }) {
   const app = new Application();
@@ -302,6 +308,11 @@ export async function createPixiWorkspaceRenderer({
     panCameraByScreenDelta(delta.x, delta.y);
     wheelPanUpdateCount += 1;
   };
+  const contextMenu = createCanvasContextMenuHandler({
+    canvas: app.canvas,
+    onCanvasContextMenu,
+    viewport,
+  });
   const keyDown = (event) => {
     if (event.key !== "Escape") {
       return;
@@ -327,6 +338,7 @@ export async function createPixiWorkspaceRenderer({
   app.canvas.addEventListener("pointerdown", pointerDown, true);
   app.canvas.addEventListener("pointermove", pointerMove);
   app.canvas.addEventListener("pointerleave", pointerLeave);
+  app.canvas.addEventListener("contextmenu", contextMenu);
   app.canvas.addEventListener("wheel", wheel, { capture: true, passive: false });
   window.addEventListener("pointerup", pointerUp);
   window.addEventListener("pointercancel", pointerCancel);
@@ -342,11 +354,7 @@ export async function createPixiWorkspaceRenderer({
       recentFrameMs.shift();
     }
     const nextCameraState = cameraState(viewport);
-    if (
-      nextCameraState.x !== lastCameraState.x ||
-      nextCameraState.y !== lastCameraState.y ||
-      nextCameraState.zoom !== lastCameraState.zoom
-    ) {
+    if (cameraStatesDiffer(nextCameraState, lastCameraState)) {
       cameraUpdateCount += 1;
       lastCameraState = nextCameraState;
       syncAllLabels();
@@ -362,10 +370,7 @@ export async function createPixiWorkspaceRenderer({
         const visual = samplePixiVisualState(app.renderer, app.stage, backgroundColor);
         const camera = cameraState(viewport);
         const nodeGeometryContexts = nodeGeometryContextCounts();
-        const frameAverage =
-          recentFrameMs.length === 0
-            ? 0
-            : recentFrameMs.reduce((total, value) => total + value, 0) / recentFrameMs.length;
+        const frameStats = frameSampleStats(recentFrameMs);
         return {
           camera,
           canvas: {
@@ -443,14 +448,14 @@ export async function createPixiWorkspaceRenderer({
             selectedNodeIds: [...selectedNodeIds],
           },
           render: {
-            averageFrameMs: frameAverage,
+            averageFrameMs: frameStats.average,
             cameraUpdateCount,
             edgeCommitCount,
             edgeGraphicsCount: 1,
             edgeRedrawCount,
             frameCount,
             gridDrawCount,
-            compactSelectedLabelCount: compactSelectedLabelCount(),
+            compactSelectedLabelCount: countMapValues(nodeLabelFontSizeModes, "compact-selected"),
             labelObjectCount: nodeLabels.size,
             labelSyncCount,
             labelVisibilityMode: labelVisibilityModeForZoom(camera.zoom),
@@ -475,7 +480,7 @@ export async function createPixiWorkspaceRenderer({
             visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
             wheelPanUpdateCount,
             wheelZoomUpdateCount,
-            worstFrameMs: recentFrameMs.length === 0 ? 0 : Math.max(...recentFrameMs),
+            worstFrameMs: frameStats.worst,
           },
           surfaceId: debugSurfaceId,
           visual,
@@ -490,6 +495,7 @@ export async function createPixiWorkspaceRenderer({
       app.canvas.removeEventListener("pointerdown", pointerDown, true);
       app.canvas.removeEventListener("pointermove", pointerMove);
       app.canvas.removeEventListener("pointerleave", pointerLeave);
+      app.canvas.removeEventListener("contextmenu", contextMenu);
       app.canvas.removeEventListener("wheel", wheel, true);
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("pointercancel", pointerCancel);
@@ -583,13 +589,11 @@ export async function createPixiWorkspaceRenderer({
       portHitRadiusScreen * 2,
       portHitRadiusScreen * 2,
     );
-
     const visual = new Graphics();
     const key = portKey(node.id, port.id);
     portVisuals.set(key, visual);
     container.addChild(visual);
     setPortVisualState(node.id, port.id, "idle");
-
     container.on("pointerover", () => {
       if (!drawingEdge) {
         setPortVisualState(node.id, port.id, "hover");
@@ -602,7 +606,6 @@ export async function createPixiWorkspaceRenderer({
     });
     return container;
   }
-
   function startNodeDragging(nodeId, screen) {
     const node = requireNode(nodeId);
     const world = viewport.toWorld(screen);
@@ -616,6 +619,7 @@ export async function createPixiWorkspaceRenderer({
         offsetX: world.x - candidate.x,
         offsetY: world.y - candidate.y,
       })),
+      moved: false,
       primaryNodeId: node.id,
     };
     for (const draggedNode of draggedNodes) {
@@ -626,7 +630,6 @@ export async function createPixiWorkspaceRenderer({
     }
     viewport.plugins.pause("decelerate");
   }
-
   function moveDraggedNode(screen) {
     if (!draggingNode) {
       return;
@@ -645,19 +648,28 @@ export async function createPixiWorkspaceRenderer({
       spatialQueries.updateNode(node);
       syncLabelPosition(node.id);
     }
+    draggingNode.moved = true;
     syncLabelVisibility();
     nodeDragUpdateCount += 1;
     redrawEdges();
   }
-
   function finishNodeDragging() {
+    const shouldPersistPositions = draggingNode?.moved === true;
     viewport.plugins.resume("decelerate");
     draggingNode = null;
     for (const body of nodeBodies.values()) {
       body.cursor = "grab";
     }
+    if (shouldPersistPositions && onNodePositionsChange) {
+      onNodePositionsChange(
+        nodes.map((node) => ({
+          nodeId: node.id,
+          x: Math.round(node.x),
+          y: Math.round(node.y),
+        })),
+      );
+    }
   }
-
   function startCameraPanning(screen) {
     panningCamera = {
       lastX: screen.x,
@@ -665,7 +677,6 @@ export async function createPixiWorkspaceRenderer({
     };
     viewport.plugins.pause("decelerate");
   }
-
   function moveCameraPan(screen) {
     if (!panningCamera) {
       return;
@@ -677,15 +688,12 @@ export async function createPixiWorkspaceRenderer({
     panCameraByScreenDelta(-deltaX, -deltaY);
     pointerPanUpdateCount += 1;
   }
-
   function selectOnlyNode(nodeId) {
     setSelectedNodeIds([nodeId]);
   }
-
   function clearSelection() {
     setSelectedNodeIds([]);
   }
-
   function toggleNodeSelection(nodeId) {
     const nextSelectedNodeIds = new Set(selectedNodeIds);
     if (nextSelectedNodeIds.has(nodeId)) {
@@ -695,7 +703,6 @@ export async function createPixiWorkspaceRenderer({
     }
     setSelectedNodeIds(nextSelectedNodeIds);
   }
-
   function setSelectedNodeIds(nextNodeIds) {
     const nextSelectedNodeIds = new Set(nextNodeIds);
     if (setsEqual(selectedNodeIds, nextSelectedNodeIds)) {
@@ -709,17 +716,14 @@ export async function createPixiWorkspaceRenderer({
     drawAllNodeOutlines();
     syncLabelVisibility();
   }
-
   function drawAllNodeOutlines() {
     for (const candidate of nodes) {
       syncNodeOutlineVisibility(candidate.id);
     }
   }
-
   function syncHoveredNodeAtScreen(screen) {
     setHoveredNodeId(hitTestNodeAtScreen(screen)?.id ?? null);
   }
-
   function setHoveredNodeId(nodeId) {
     const nextHoveredNodeIds = new Set(nodeId ? [nodeId] : []);
     if (setsEqual(hoveredNodeIds, nextHoveredNodeIds)) {
@@ -953,11 +957,6 @@ export async function createPixiWorkspaceRenderer({
       visibleNodeIds: spatialQueries.labelVisibleNodeIds(),
       visibilityReasons: nodeLabelVisibilityReasons,
     });
-  }
-
-  function compactSelectedLabelCount() {
-    return [...nodeLabelFontSizeModes.values()].filter((mode) => mode === "compact-selected")
-      .length;
   }
 
   function setPortVisualState(nodeId, portId, state) {

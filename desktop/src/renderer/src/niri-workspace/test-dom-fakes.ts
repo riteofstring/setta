@@ -11,7 +11,7 @@ interface FakeElement {
   dataset: Record<string, string>;
   ownerDocument: FakeDocument;
   parentElement: FakeElement | null;
-  style: FakeStyle;
+  style: Record<string, string>;
   textContent: string;
   addEventListener(type: string, listener: EventListener): void;
   append(...nodes: FakeElement[]): void;
@@ -50,12 +50,6 @@ interface FakeDocument {
   createElement(tagName: string): FakeElement;
 }
 
-interface FakeStyle {
-  visibility?: string;
-  getPropertyValue(name: string): string;
-  setProperty(name: string, value: string): void;
-}
-
 interface FakeRect {
   bottom: number;
   height: number;
@@ -87,7 +81,6 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
   const classNames = new Set<string>();
   const listeners = new Map<string, Set<EventListener>>();
   const capturedPointers = new Set<number>();
-  const styleProperties = new Map<string, string>();
   const element: FakeElement & {
     height?: number;
     width?: number;
@@ -121,14 +114,7 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
     dataset: {},
     ownerDocument: document,
     parentElement: null,
-    style: {
-      getPropertyValue(name) {
-        return styleProperties.get(name) ?? "";
-      },
-      setProperty(name, value) {
-        styleProperties.set(name, value);
-      },
-    },
+    style: {},
     textContent: "",
     addEventListener(type, listener) {
       const typeListeners = listeners.get(type) ?? new Set<EventListener>();

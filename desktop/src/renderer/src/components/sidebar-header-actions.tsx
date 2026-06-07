@@ -22,7 +22,7 @@ export function SidebarIconButton({
       {...buttonProps}
       aria-label={label}
       className={cn(
-        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-20",
+        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-20",
         className,
       )}
       disabled={disabled}

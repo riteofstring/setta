@@ -25,7 +25,6 @@ import {
 import {
   defaultTerminalDisplaySettings,
   terminalTheme,
-  terminalThemeBackground,
   type TerminalDisplaySettings,
 } from "./terminal-display-settings";
 import {
@@ -62,10 +61,12 @@ const inputChunkBytes = 64 * 1024;
 const largePasteWarningBytes = 16 * 1024;
 const maxPasteBytes = 1024 * 1024;
 const resizeDebounceMs = 80;
+
 interface PendingTerminalOutput {
   byteCount: number;
   dataBase64: string;
 }
+
 interface PendingPaste {
   byteCount: number;
   text: string;
@@ -788,10 +789,6 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
 
   private applyDisplaySettings(settings: TerminalDisplaySettings): void {
     this.settings = settings;
-    this.host?.style.setProperty(
-      "--niri-terminal-background",
-      terminalThemeBackground(settings.themeId),
-    );
     const terminal = this.terminal;
     if (!terminal) {
       return;

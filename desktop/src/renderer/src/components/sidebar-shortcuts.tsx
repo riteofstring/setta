@@ -36,12 +36,12 @@ function SidebarShortcutButton({
   return (
     <button
       aria-label={label}
-      className="flex h-7 w-full min-w-0 items-center gap-2 rounded-sm px-2 text-left text-xs text-muted-foreground hover:bg-accent/70 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+      className="flex h-7 w-full min-w-0 items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-300 hover:bg-zinc-800/70 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
-      <span className="shrink-0 text-muted-foreground">{icon}</span>
+      <span className="shrink-0 text-zinc-300">{icon}</span>
       <span className="truncate">{label}</span>
     </button>
   );
