@@ -279,6 +279,11 @@ describe("niri presentation engine", () => {
     expect(paneChromeSnapshot(host)).toEqual({
       buttonLabel: "Restore pane size",
       buttonPaneId: "niri_pane_0",
+      chromeOrder: [
+        "niri-pane-drag-handle app-no-drag",
+        "niri-pane-title-editor app-no-drag",
+        "niri-pane-maximize-button",
+      ],
       dragLabel: "Drag pane",
       dragPaneId: "niri_pane_0",
       hostMaximized: "true",
@@ -368,6 +373,7 @@ function paneChromeSnapshot(host: HTMLElement) {
   return {
     buttonLabel: button.getAttribute("aria-label"),
     buttonPaneId: button.dataset.paneId,
+    chromeOrder: Array.from(topBar.children).map((child) => child.className),
     dragLabel: dragHandle.getAttribute("aria-label"),
     dragPaneId: dragHandle.dataset.paneId,
     hostMaximized: host.dataset.maximized,
@@ -442,6 +448,7 @@ interface FakeElement {
     add: (value: string) => void;
     contains: (value: string) => boolean;
   };
+  className: string;
   children: FakeElement[];
   contentEditable: string;
   dataset: Record<string, string>;

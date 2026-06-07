@@ -11,7 +11,7 @@
 
 .niri-pane-top-bar {
   align-items: center;
-  background: color-mix(in oklch, var(--popover) 78%, transparent);
+  background: color-mix(in oklch, var(--popover) 96%, var(--background));
   border-bottom: 1px solid color-mix(in oklch, var(--foreground) 8%, transparent);
   color: color-mix(in oklch, var(--foreground) 72%, transparent);
   display: flex;
@@ -73,12 +73,10 @@
 
 .niri-pane-drag-handle {
   cursor: grab;
-  order: 2;
 }
 
 .niri-pane-maximize-button {
   cursor: pointer;
-  order: 3;
 }
 
 .niri-pane-drag-handle::before {
