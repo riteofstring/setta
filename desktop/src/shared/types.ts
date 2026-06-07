@@ -1,4 +1,6 @@
 import type {
+  AppearancePresetList,
+  AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
@@ -39,6 +41,7 @@ import type {
   TerminalInputResponse,
   TerminalProfileList,
   TerminalSessionResponse,
+  UpdateAppearanceSettingsRequest,
   UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowEvent,
@@ -171,6 +174,11 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
+  };
+  appearance: {
+    presets: () => Promise<AppearancePresetList>;
+    read: () => Promise<AppearanceSettings>;
+    update: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
   };
   niriNativeViews?: {
     batchBrowserViewUpdates: (batch: NiriBrowserViewBatch) => void;

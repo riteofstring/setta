@@ -1,6 +1,6 @@
 import type { WorkspaceSession } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import { LayoutGrid, PanelLeftOpen } from "lucide-react";
+import { PanelLeftOpen } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
@@ -12,12 +12,14 @@ import {
 } from "./app-layout";
 import { type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizablePane } from "./components/resizable-pane";
+import { SettaLogoMark } from "./components/setta-logo-mark";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { cn } from "./lib/utils";
 import {
   NiriWorkspaceArea,
   type NiriSurfaceFocusRequest,
 } from "./niri-workspace/NiriWorkspaceArea";
+import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
 import {
   type WorkspaceOperation,
@@ -38,6 +40,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const chat = useChatViewState();
   const platform = setta.app.platform;
   const viewport = useViewportSize();
+  useAppearanceSettings();
   useBackendResyncStatus(setta);
   useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
@@ -89,6 +92,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       <AppChromeControls
         platform={platform}
         projectPaneOpen={projectPaneOpen}
+        projectPaneWidth={effectiveProjectPaneWidth}
         setProjectPaneOpen={setProjectPaneOpen}
       />
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background">
@@ -104,7 +108,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           width={effectiveProjectPaneWidth}
           workspace={workspace}
         />
-        <NiriWorkspaceArea focusSurfaceRequest={niriSurfaceFocusRequest} />
+        <NiriWorkspaceArea focusSurfaceRequest={niriSurfaceFocusRequest} platform={platform} />
       </main>
     </div>
   );
@@ -119,7 +123,7 @@ function readSettaApi(): SettaAPI | null {
 
 function AppRuntimeContractError() {
   return (
-    <div className="fixed inset-0 flex min-h-0 items-center justify-center bg-zinc-950 px-6 text-zinc-100">
+    <div className="fixed inset-0 flex min-h-0 items-center justify-center bg-background px-6 text-foreground">
       <div
         className="max-w-md rounded-lg border border-red-500/30 bg-red-950/30 p-5 shadow-2xl"
         data-testid="app-runtime-contract-error"
@@ -145,6 +149,14 @@ function useBackendResyncStatus(setta: SettaAPI) {
       }
     });
   }, [setta]);
+}
+
+function useAppearanceSettings() {
+  const loadAppearance = useAppearanceStore((state) => state.load);
+
+  useEffect(() => {
+    void loadAppearance();
+  }, [loadAppearance]);
 }
 
 function useSelectedWorkspaceChatSync(workspaceId: string | null) {
@@ -257,10 +269,12 @@ export function sidebarWorkspaceBusy(
 function AppChromeControls({
   platform,
   projectPaneOpen,
+  projectPaneWidth,
   setProjectPaneOpen,
 }: {
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
+  projectPaneWidth: number;
   setProjectPaneOpen: (open: boolean) => void;
 }) {
   return (
@@ -271,7 +285,7 @@ function AppChromeControls({
         platform={platform}
         setProjectPaneOpen={setProjectPaneOpen}
       />
-      <FloatingNiriBenchmarkStatus platform={platform} />
+      <FloatingSettaBrand projectPaneOpen={projectPaneOpen} projectPaneWidth={projectPaneWidth} />
     </>
   );
 }
@@ -348,49 +362,26 @@ function ShellPaneToggle({
   );
 }
 
-function FloatingNiriBenchmarkStatus({ platform }: { platform: DesktopPlatform }) {
-  const benchmark = niriBenchmarkStatusEnabled();
+function FloatingSettaBrand({
+  projectPaneOpen,
+  projectPaneWidth,
+}: {
+  projectPaneOpen: boolean;
+  projectPaneWidth: number;
+}) {
   return (
     <div
+      aria-hidden="true"
       className={cn(
-        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-muted-foreground",
-        floatingControlsRightInsetClass(platform),
+        "app-drag pointer-events-none fixed top-0 left-0 z-50 flex h-10 items-center justify-end pr-5",
+        !projectPaneOpen && "hidden",
       )}
+      data-testid="shell-setta-logo"
+      style={{ width: projectPaneWidth }}
     >
-      <div className="app-no-drag pointer-events-auto flex items-center gap-1">
-        <div
-          aria-label={
-            benchmark
-              ? "Niri Phase 6 benchmark: 500 total panes, 40 visible panes, browser, terminal, canvas, and git graph surfaces"
-              : "Niri workspace"
-          }
-          className="app-no-drag grid h-7 min-w-7 place-items-center rounded-sm px-1.5 text-[11px] font-semibold text-muted-foreground"
-          data-testid={benchmark ? "niri-benchmark-status" : "niri-workspace-status"}
-          title={
-            benchmark
-              ? "500/40 panes with browser, terminal, canvas, and git graph surfaces"
-              : "Niri workspace"
-          }
-        >
-          <span className="inline-flex items-center gap-1">
-            <LayoutGrid className="h-3.5 w-3.5" />
-            {benchmark ? "500/40+B/T/G" : "Niri"}
-          </span>
-        </div>
-      </div>
+      <SettaLogoMark height={13} />
     </div>
   );
-}
-
-function niriBenchmarkStatusEnabled() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  return new URLSearchParams(window.location?.search ?? "").get("niriScene") === "benchmark";
-}
-
-function floatingControlsRightInsetClass(platform: DesktopPlatform) {
-  return platform === "darwin" ? "right-2" : "right-36";
 }
 
 function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
@@ -398,7 +389,7 @@ function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
 }
 
 function shellTopBarDragClass(platform: DesktopPlatform) {
-  return platform === "darwin" ? "left-[112px] right-[150px]" : "left-11 right-56";
+  return platform === "darwin" ? "left-[74px] right-0" : "inset-x-0";
 }
 
 function useWorkspaceViewState() {

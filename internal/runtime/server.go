@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
@@ -58,6 +59,7 @@ type Server struct {
 }
 
 type runtimeServices struct {
+	appearanceService   *appearance.Service
 	chatService         *chat.Service
 	codexAccountService *codexaccount.Service
 	codexManager        *codexapp.Manager
@@ -148,51 +150,26 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 }
 
 func buildRuntimeServices(config Config) (runtimeServices, error) {
-	appStore, err := appstate.NewStore(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create app state store: %w", err)
-	}
-	workspaceManager, err := workspace.NewManager(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create workspace manager: %w", err)
-	}
-	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("load workspace session: %w", err)
-	}
-	chatStore, err := chat.NewStore(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create chat store: %w", err)
-	}
-	codexManager := codexapp.NewManager(codexapp.ManagerConfig{
-		Process: codexapp.ProcessConfig{
-			Command: "codex",
-			Args:    []string{"app-server", "--listen", "stdio://"},
-		},
-		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
-	})
-	harness, err := chatHarness(config.ChatHarness, codexManager)
+	appearanceService, err := newAppearanceService(config.AppDataDir)
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, harness)
+	workspaceService, err := newWorkspaceService(config.AppDataDir)
 	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create chat service: %w", err)
+		return runtimeServices{}, err
 	}
-	workflowStore, err := orchestrator.NewStore(config.AppDataDir)
+	codexManager := newCodexManager()
+	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
 	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create workflow store: %w", err)
+		return runtimeServices{}, err
 	}
-	workflowService, err := orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
+	workflowService, err := newWorkflowService(config.AppDataDir, workspaceService, chatService)
 	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create workflow service: %w", err)
+		return runtimeServices{}, err
 	}
-	terminalService, err := terminal.NewManager(terminal.ManagerConfig{
-		AppDataDir:        config.AppDataDir,
-		WorkspaceResolver: workspaceService,
-	})
+	terminalService, err := newTerminalService(config.AppDataDir, workspaceService)
 	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create terminal service: %w", err)
+		return runtimeServices{}, err
 	}
 	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
 	if err != nil {
@@ -200,6 +177,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	}
 
 	return runtimeServices{
+		appearanceService:   appearanceService,
 		chatService:         chatService,
 		codexAccountService: codexAccountService,
 		codexManager:        codexManager,
@@ -209,6 +187,99 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	}, nil
 }
 
+func newAppearanceService(appDataDir string) (*appearance.Service, error) {
+	appearanceStore, err := appearance.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create appearance settings store: %w", err)
+	}
+	appearanceService, err := appearance.NewService(appearanceStore)
+	if err != nil {
+		return nil, fmt.Errorf("load appearance settings: %w", err)
+	}
+	return appearanceService, nil
+}
+
+func newWorkspaceService(appDataDir string) (*workspacesession.Service, error) {
+	appStore, err := appstate.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create app state store: %w", err)
+	}
+	workspaceManager, err := workspace.NewManager(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create workspace manager: %w", err)
+	}
+	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
+	if err != nil {
+		return nil, fmt.Errorf("load workspace session: %w", err)
+	}
+	return workspaceService, nil
+}
+
+func newCodexManager() *codexapp.Manager {
+	return codexapp.NewManager(codexapp.ManagerConfig{
+		Process: codexapp.ProcessConfig{
+			Command: "codex",
+			Args:    []string{"app-server", "--listen", "stdio://"},
+		},
+		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
+	})
+}
+
+func newChatService(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+	codexManager *codexapp.Manager,
+	harnessMode ChatHarnessMode,
+) (*chat.Service, error) {
+	chatStore, err := chat.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create chat store: %w", err)
+	}
+	harness, err := chatHarness(harnessMode, codexManager)
+	if err != nil {
+		return nil, err
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, harness)
+	if err != nil {
+		return nil, fmt.Errorf("create chat service: %w", err)
+	}
+	return chatService, nil
+}
+
+func newWorkflowService(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+	chatService *chat.Service,
+) (*orchestrator.Service, error) {
+	workflowStore, err := orchestrator.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create workflow store: %w", err)
+	}
+	workflowService, err := orchestrator.NewService(
+		workflowStore,
+		workspaceService,
+		orchestrator.WithCodexChatService(chatService),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create workflow service: %w", err)
+	}
+	return workflowService, nil
+}
+
+func newTerminalService(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+) (*terminal.Manager, error) {
+	terminalService, err := terminal.NewManager(terminal.ManagerConfig{
+		AppDataDir:        appDataDir,
+		WorkspaceResolver: workspaceService,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create terminal service: %w", err)
+	}
+	return terminalService, nil
+}
+
 func newHTTPServer(config Config, services runtimeServices) *http.Server {
 	return &http.Server{
 		Handler: httpapi.NewHandler(httpapi.HandlerConfig{
@@ -216,6 +287,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 				Name:    httpapi.BackendName,
 				Version: config.Version,
 			},
+			AppearanceService:   services.appearanceService,
 			ChatService:         services.chatService,
 			CodexAccountService: services.codexAccountService,
 			TerminalService:     services.terminalService,
