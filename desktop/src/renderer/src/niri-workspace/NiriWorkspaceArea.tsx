@@ -229,6 +229,9 @@ export function NiriWorkspaceArea({
         return;
       }
       if (runtime.store.getSnapshot().presentationMode === "overview") {
+        if (eventTargetsPaneChromeAction(event)) {
+          return;
+        }
         const sourcePaneId = overviewPaneIdFromPointer(event);
         if (!sourcePaneId) {
           return;
@@ -515,10 +518,7 @@ function handleNiriWorkspaceClick({
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
 }): void {
-  if (!canHandleWorkspacePaneClick(event, runtime)) {
-    return;
-  }
-  if (handleEmptyFrameActionClick({ event, runLayoutAction, runtime, scheduler })) {
+  if (runtime.mode !== "workspace" || !(event.target instanceof Element)) {
     return;
   }
   if (
@@ -532,14 +532,19 @@ function handleNiriWorkspaceClick({
   ) {
     return;
   }
+  if (runtime.store.getSnapshot().presentationMode === "overview") {
+    return;
+  }
+  if (handleEmptyFrameActionClick({ event, runLayoutAction, runtime, scheduler })) {
+    return;
+  }
   handlePaneChromeFocusClick({ event, runLayoutAction, runtime, scheduler, viewportProvider });
 }
 
-function canHandleWorkspacePaneClick(event: MouseEvent, runtime: NiriRuntime): boolean {
+function eventTargetsPaneChromeAction(event: PointerEvent): boolean {
   return (
-    runtime.mode === "workspace" &&
-    runtime.store.getSnapshot().presentationMode !== "overview" &&
-    event.target instanceof Element
+    event.target instanceof Element &&
+    event.target.closest("[data-niri-pane-action]") instanceof HTMLButtonElement
   );
 }
 

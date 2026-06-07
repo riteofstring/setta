@@ -694,11 +694,11 @@ export class PresentationEngine {
 }
 
 function paneChromeActionVisible(action: PaneChromeAction, item: PaneRenderItem): boolean {
+  if (action === "close" || action === "maximize") {
+    return item.visible;
+  }
   if (!item.focused || item.presentationMode !== "normal") {
     return false;
-  }
-  if (action === "close" || action === "maximize") {
-    return true;
   }
   return !item.maximized;
 }

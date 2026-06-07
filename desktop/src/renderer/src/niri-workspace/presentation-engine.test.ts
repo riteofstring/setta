@@ -303,7 +303,7 @@ describe("niri presentation engine", () => {
     });
   });
 
-  test("shows pane action controls only on focused normal panes", () => {
+  test("keeps close and maximize visible while split controls stay focused-only", () => {
     const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 2 });
     const focusedHost = fakePaneHost("niri_pane_0", "Pane 001");
     const unfocusedHost = fakePaneHost("niri_pane_1", "Pane 002");
@@ -340,14 +340,14 @@ describe("niri presentation engine", () => {
     expect(paneActionSnapshot(unfocusedHost)).toEqual({
       actionOrder: ["split-down", "split-right", "add-above", "add-below", "maximize", "close"],
       actionStripPaneId: "niri_pane_1",
-      controlsVisible: "false",
+      controlsVisible: "true",
       lastAction: "close",
-      visibleActions: [],
-      visibleLabels: [],
+      visibleActions: ["maximize", "close"],
+      visibleLabels: ["Maximize pane", "Close pane"],
     });
   });
 
-  test("hides pane action controls during overview", () => {
+  test("keeps close and maximize visible during overview", () => {
     const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");
     const presentation = new PresentationEngine(
@@ -369,9 +369,9 @@ describe("niri presentation engine", () => {
     );
 
     expect(paneActionSnapshot(host)).toMatchObject({
-      controlsVisible: "false",
-      visibleActions: [],
-      visibleLabels: [],
+      controlsVisible: "true",
+      visibleActions: ["maximize", "close"],
+      visibleLabels: ["Maximize pane", "Close pane"],
     });
   });
 
