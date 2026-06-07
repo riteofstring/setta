@@ -1,0 +1,134 @@
+.niri-pane-host {
+  --niri-pane-top-bar-height: 30px;
+}
+
+.niri-pane-content,
+.niri-react-dom-surface {
+  height: calc(100% - var(--niri-pane-top-bar-height));
+  margin-top: var(--niri-pane-top-bar-height);
+  width: 100%;
+}
+
+.niri-pane-top-bar {
+  align-items: center;
+  background: color-mix(in oklch, var(--popover) 78%, transparent);
+  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 8%, transparent);
+  color: color-mix(in oklch, var(--foreground) 72%, transparent);
+  display: flex;
+  gap: 4px;
+  height: var(--niri-pane-top-bar-height);
+  inset: 0 0 auto;
+  min-width: 0;
+  padding: 4px 7px;
+  pointer-events: auto;
+  position: absolute;
+  width: 100%;
+  z-index: 6;
+}
+
+.niri-pane-title-editor {
+  border-radius: 4px;
+  color: color-mix(in oklch, var(--foreground) 76%, transparent);
+  flex: 1 1 auto;
+  font-family: var(--setta-font-mono);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  padding: 3px 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.niri-pane-host[data-focused="true"] .niri-pane-title-editor {
+  color: var(--foreground);
+}
+
+.niri-pane-title-editor:focus {
+  background: color-mix(in oklch, var(--accent) 78%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 34%, transparent);
+  outline: none;
+}
+
+.niri-pane-drag-handle,
+.niri-pane-maximize-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: color-mix(in oklch, var(--foreground) 68%, transparent);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 22px;
+  justify-content: center;
+  opacity: 0.72;
+  padding: 0;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+  width: 22px;
+}
+
+.niri-pane-drag-handle {
+  cursor: grab;
+  order: 2;
+}
+
+.niri-pane-maximize-button {
+  cursor: pointer;
+  order: 3;
+}
+
+.niri-pane-drag-handle::before {
+  background-image: radial-gradient(currentColor 1.1px, transparent 1.3px);
+  background-size: 5px 5px;
+  content: "";
+  height: 13px;
+  opacity: 0.9;
+  width: 10px;
+}
+
+.niri-pane-maximize-button::before,
+.niri-pane-maximize-button::after {
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  content: "";
+  height: 9px;
+  position: absolute;
+  width: 9px;
+}
+
+.niri-pane-maximize-button::after {
+  display: none;
+}
+
+.niri-pane-drag-handle:hover,
+.niri-pane-drag-handle:focus-visible,
+.niri-pane-maximize-button:hover,
+.niri-pane-maximize-button:focus-visible {
+  background: color-mix(in oklch, var(--accent) 82%, transparent);
+  color: var(--foreground);
+  opacity: 1;
+  outline: none;
+}
+
+.niri-pane-drag-handle:active,
+.niri-pane-host[data-drag-source="true"] .niri-pane-drag-handle {
+  cursor: grabbing;
+}
+
+.niri-pane-host[data-maximized="true"] .niri-pane-maximize-button {
+  background: color-mix(in oklch, var(--primary) 24%, var(--background));
+  color: var(--foreground);
+}
+
+.niri-pane-host[data-maximized="true"] .niri-pane-maximize-button::before {
+  transform: translate(2px, -2px);
+}
+
+.niri-pane-host[data-maximized="true"] .niri-pane-maximize-button::after {
+  display: block;
+  transform: translate(-2px, 2px);
+}

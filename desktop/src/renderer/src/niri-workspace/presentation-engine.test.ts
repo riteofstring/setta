@@ -259,7 +259,7 @@ describe("niri presentation engine", () => {
     expect(host.style.pointerEvents).toBe("auto");
   });
 
-  test("adds pane maximize chrome and marks active maximized panes", () => {
+  test("adds pane top bar chrome and marks active maximized panes", () => {
     const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");
     const presentation = new PresentationEngine(
@@ -276,11 +276,55 @@ describe("niri presentation engine", () => {
       },
     );
 
-    const button = host.querySelector(".niri-pane-maximize-button") as HTMLButtonElement | null;
+    expect(paneChromeSnapshot(host)).toEqual({
+      buttonLabel: "Restore pane size",
+      buttonPaneId: "niri_pane_0",
+      dragLabel: "Drag pane",
+      dragPaneId: "niri_pane_0",
+      hostMaximized: "true",
+      titleEditable: "plaintext-only",
+      titleLabel: "Rename pane",
+      titlePaneId: "niri_pane_0",
+      titleText: "Pane 001",
+      topBarPaneId: "niri_pane_0",
+    });
+  });
 
-    expect(host.dataset.maximized).toBe("true");
-    expect(button?.dataset.paneId).toBe("niri_pane_0");
-    expect(button?.getAttribute("aria-label")).toBe("Restore pane size");
+  test("adds resize separators between adjacent rendered panes", () => {
+    const scene = generateBenchmarkScene({ paneCount: 3, targetVisiblePanes: 3 });
+    const firstHost = fakePaneHost("niri_pane_0", "Pane 001");
+    const secondHost = fakePaneHost("niri_pane_1", "Pane 002");
+    const thirdHost = fakePaneHost("niri_pane_2", "Pane 003");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([firstHost, secondHost, thirdHost], null);
+
+    presentation.apply(
+      [
+        renderItem("niri_pane_0", "niri_surface_0", false),
+        renderItemAt("niri_pane_1", "niri_surface_1", false, 168),
+        { ...renderItem("niri_pane_2", "niri_surface_2", false), y: 128 },
+      ],
+      { resizePhase: "idle" },
+    );
+
+    const horizontal = firstHost.querySelector(
+      ".niri-pane-resize-handle-horizontal",
+    ) as HTMLElement | null;
+    const vertical = firstHost.querySelector(
+      ".niri-pane-resize-handle-vertical",
+    ) as HTMLElement | null;
+
+    expect(horizontal?.dataset.paneId).toBe("niri_pane_0");
+    expect(horizontal?.dataset.adjacentPaneId).toBe("niri_pane_1");
+    expect(horizontal?.style.left).toBe("164.00px");
+    expect(vertical?.dataset.paneId).toBe("niri_pane_0");
+    expect(vertical?.dataset.adjacentPaneId).toBe("niri_pane_2");
+    expect(vertical?.style.top).toBe("124.00px");
+    expect(secondHost.querySelector(".niri-pane-resize-handle-horizontal")).toBeNull();
   });
 
   test("surfaces canvas draw stats in the debug overlay", () => {
@@ -316,8 +360,36 @@ describe("niri presentation engine", () => {
   });
 });
 
+function paneChromeSnapshot(host: HTMLElement) {
+  const topBar = requiredChromeElement(host, ".niri-pane-top-bar");
+  const dragHandle = requiredChromeElement(host, ".niri-pane-drag-handle");
+  const titleEditor = requiredChromeElement(host, ".niri-pane-title-editor");
+  const button = requiredChromeElement(host, ".niri-pane-maximize-button");
+  return {
+    buttonLabel: button.getAttribute("aria-label"),
+    buttonPaneId: button.dataset.paneId,
+    dragLabel: dragHandle.getAttribute("aria-label"),
+    dragPaneId: dragHandle.dataset.paneId,
+    hostMaximized: host.dataset.maximized,
+    titleEditable: titleEditor.contentEditable,
+    titleLabel: titleEditor.getAttribute("aria-label"),
+    titlePaneId: titleEditor.dataset.paneId,
+    titleText: titleEditor.textContent,
+    topBarPaneId: topBar.dataset.paneId,
+  };
+}
+
+function requiredChromeElement(host: HTMLElement, selector: string): HTMLElement {
+  const element = host.querySelector(selector) as HTMLElement | null;
+  if (!element) {
+    throw new Error(`missing pane chrome selector ${selector}`);
+  }
+  return element;
+}
+
 function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTMLElement {
   const children = fakeChildren(childElementCount);
+  const ownerDocument = fakeOwnerDocument();
   const nodes = new Map<string, { textContent: string }>([
     ["[data-niri-pane-heat]", { textContent: "" }],
     ["[data-niri-pane-index]", { textContent: "1" }],
@@ -336,13 +408,9 @@ function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTM
     get childElementCount() {
       return children.length;
     },
-    ownerDocument: {
-      createElement: (tagName: string) => fakeElement(tagName),
-    },
+    ownerDocument,
     querySelector: (selector: string) =>
-      selector === ".niri-pane-maximize-button"
-        ? (children.find((child) => child.classList.contains("niri-pane-maximize-button")) ?? null)
-        : (nodes.get(selector) ?? null),
+      chromeChildForSelector(children, selector) ?? nodes.get(selector) ?? null,
     removeAttribute: (name: string) => {
       delete (host.dataset as Record<string, string>)[name.replace(/^data-/, "")];
     },
@@ -351,34 +419,76 @@ function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTM
   return host as unknown as HTMLElement;
 }
 
+function chromeChildForSelector(children: FakeElement[], selector: string): FakeElement | null {
+  const className = selector.startsWith(".") ? selector.slice(1) : null;
+  if (!className) {
+    return null;
+  }
+  for (const child of children) {
+    if (child.classList.contains(className)) {
+      return child;
+    }
+    const descendant = chromeChildForSelector(child.children, selector);
+    if (descendant) {
+      return descendant;
+    }
+  }
+  return null;
+}
+
 interface FakeElement {
+  append: (...children: FakeElement[]) => void;
   classList: {
     add: (value: string) => void;
     contains: (value: string) => boolean;
   };
+  children: FakeElement[];
+  contentEditable: string;
   dataset: Record<string, string>;
   getAttribute: (name: string) => string | null;
+  ownerDocument: {
+    activeElement: FakeElement | null;
+    createElement: (tagName: string) => FakeElement;
+  };
+  prepend: (...children: FakeElement[]) => void;
   remove: () => void;
   setAttribute: (name: string, value: string) => void;
+  style: Record<string, string>;
+  tabIndex: number;
+  textContent: string;
   title: string;
   type: string;
 }
 
 function fakeChildren(count: number): FakeElement[] {
-  return Array.from({ length: count }, () => fakeElement("div"));
+  const ownerDocument = fakeOwnerDocument();
+  return Array.from({ length: count }, () => fakeElement("div", ownerDocument));
 }
 
-function fakeElement(tagName: string): FakeElement {
+function fakeOwnerDocument(): FakeElement["ownerDocument"] {
+  const ownerDocument = {} as FakeElement["ownerDocument"];
+  ownerDocument.activeElement = null;
+  ownerDocument.createElement = (tagName) => fakeElement(tagName, ownerDocument);
+  return ownerDocument;
+}
+
+function fakeElement(tagName: string, ownerDocument: FakeElement["ownerDocument"]): FakeElement {
   const classNames = new Set<string>();
   const attributes = new Map<string, string>();
+  const children: FakeElement[] = [];
   attributes.set("data-tag-name", tagName);
   return {
+    append: (...appendedChildren: FakeElement[]) => {
+      children.push(...appendedChildren);
+    },
     classList: {
       add: (value: string) => {
         classNames.add(value);
       },
       contains: (value: string) => classNames.has(value),
     },
+    children,
+    contentEditable: "false",
     dataset: {},
     get className() {
       return [...classNames].join(" ");
@@ -392,10 +502,17 @@ function fakeElement(tagName: string): FakeElement {
       }
     },
     getAttribute: (name: string) => attributes.get(name) ?? null,
+    ownerDocument,
+    prepend: (...prependedChildren: FakeElement[]) => {
+      children.unshift(...prependedChildren);
+    },
     remove: () => {},
     setAttribute: (name: string, value: string) => {
       attributes.set(name, value);
     },
+    style: {},
+    tabIndex: 0,
+    textContent: "",
     title: "",
     type: "",
   } as FakeElement;
