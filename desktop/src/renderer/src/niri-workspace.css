@@ -28,7 +28,6 @@
 }
 
 .niri-pane-host {
-  --niri-pane-resize-handle-gutter: 18px;
   --niri-pane-focus-ring: color-mix(in oklch, var(--primary) 64%, white);
   background: color-mix(in oklch, var(--popover) 86%, var(--background));
   border-radius: 7px;
@@ -52,27 +51,6 @@
   position: absolute;
   transition: opacity 120ms ease;
   z-index: 5;
-}
-
-.niri-pane-host::after {
-  background: color-mix(in oklch, var(--foreground) 24%, transparent);
-  border-radius: 999px;
-  bottom: 14px;
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--background) 54%, transparent);
-  content: "";
-  cursor: ew-resize;
-  opacity: 0;
-  position: absolute;
-  right: 4px;
-  top: 14px;
-  transform: scaleX(0.72);
-  transform-origin: center;
-  transition:
-    background 120ms ease,
-    opacity 120ms ease,
-    transform 120ms ease;
-  width: 3px;
-  z-index: 3;
 }
 
 .niri-pane-drag-handle {
@@ -144,17 +122,6 @@
   display: none;
 }
 
-.niri-pane-host:hover::after {
-  opacity: 0.5;
-  transform: scaleX(1);
-}
-
-.niri-workspace-area[data-pane-resizing="true"] .niri-pane-host::after {
-  background: color-mix(in oklch, var(--foreground) 32%, transparent);
-  opacity: 0.62;
-  transform: scaleX(1);
-}
-
 .niri-pane-host:hover .niri-pane-drag-handle,
 .niri-pane-host[data-focused="true"] .niri-pane-drag-handle,
 .niri-pane-host[data-drag-source="true"] .niri-pane-drag-handle,
@@ -184,19 +151,89 @@
   background: color-mix(in oklch, var(--primary) 24%, var(--background));
   color: var(--foreground);
 }
-
 .niri-pane-host[data-maximized="true"] .niri-pane-maximize-button::before {
   transform: translate(2px, -2px);
 }
-
 .niri-pane-host[data-maximized="true"] .niri-pane-maximize-button::after {
   display: block;
   transform: translate(-2px, 2px);
 }
+.niri-pane-resize-handle {
+  background: transparent;
+  border: 0;
+  opacity: 0.38;
+  pointer-events: auto;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  transition: opacity 120ms ease;
+  z-index: 64;
+}
 
-.niri-workspace-area[data-pane-resizing="true"],
-.niri-workspace-area[data-pane-resizing="true"] * {
+.niri-pane-resize-handle::before {
+  background: color-mix(in oklch, var(--foreground) 28%, transparent);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--background) 54%, transparent);
+  content: "";
+  position: absolute;
+  transition:
+    background 120ms ease,
+    transform 120ms ease;
+}
+
+.niri-pane-resize-handle-horizontal {
   cursor: ew-resize !important;
+}
+
+.niri-pane-resize-handle-horizontal::before {
+  bottom: 0;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%) scaleX(0.72);
+  transform-origin: center;
+  width: 3px;
+}
+
+.niri-pane-resize-handle-vertical {
+  cursor: ns-resize !important;
+}
+
+.niri-pane-resize-handle-vertical::before {
+  height: 3px;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0.72);
+  transform-origin: center;
+}
+
+.niri-pane-resize-handle:hover,
+.niri-pane-resize-handle:focus-visible,
+.niri-workspace-area[data-pane-resizing="true"] .niri-pane-resize-handle {
+  opacity: 0.86;
+}
+
+.niri-pane-resize-handle-horizontal:hover::before,
+.niri-pane-resize-handle-horizontal:focus-visible::before,
+.niri-workspace-area[data-pane-resizing="true"] .niri-pane-resize-handle-horizontal::before {
+  background: color-mix(in oklch, var(--foreground) 38%, transparent);
+  transform: translateX(-50%) scaleX(1);
+}
+
+.niri-pane-resize-handle-vertical:hover::before,
+.niri-pane-resize-handle-vertical:focus-visible::before,
+.niri-workspace-area[data-pane-resizing="true"] .niri-pane-resize-handle-vertical::before {
+  background: color-mix(in oklch, var(--foreground) 38%, transparent);
+  transform: translateY(-50%) scaleY(1);
+}
+
+.niri-workspace-area[data-pane-resizing-axis="horizontal"],
+.niri-workspace-area[data-pane-resizing-axis="horizontal"] * {
+  cursor: ew-resize !important;
+}
+
+.niri-workspace-area[data-pane-resizing-axis="vertical"],
+.niri-workspace-area[data-pane-resizing-axis="vertical"] * {
+  cursor: ns-resize !important;
 }
 
 .niri-workspace-area[data-pane-dragging="true"] {
@@ -272,12 +309,9 @@
   user-select: none;
 }
 
-.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-host::after {
-  display: none;
-}
-
 .niri-workspace-area[data-presentation-mode="overview"] .niri-pane-drag-handle,
-.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-maximize-button {
+.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-maximize-button,
+.niri-workspace-area[data-presentation-mode="overview"] .niri-pane-resize-handle {
   display: none;
 }
 
@@ -455,11 +489,6 @@
   height: 100%;
   min-height: 0;
   padding: 10px;
-}
-
-.niri-pane-host > .niri-pane-content,
-.niri-pane-host > .niri-react-dom-surface {
-  padding-right: var(--niri-pane-resize-handle-gutter);
 }
 
 .niri-pane-header {

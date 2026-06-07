@@ -1,0 +1,320 @@
+#!/usr/bin/env node
+/* global console */
+
+import { basename, join } from "node:path";
+import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
+
+import {
+  assertBuildExists,
+  captureScreenshot,
+  createElectronFixture,
+  dispatchMouseDrag,
+  launchElectronCdpContext,
+  parseElectronHarnessArgs,
+  stopElectronCdpContext,
+  timestampedRecordingDir,
+  waitForSelector,
+  waitForState,
+  writeJson,
+  writeLatestRecordingPointer,
+} from "./electron-cdp-harness.mjs";
+
+const options = parseElectronHarnessArgs(process.argv.slice(2));
+const workflowTimeoutMs = 25_000;
+const geometryTolerancePx = 2;
+const viewport = {
+  deviceScaleFactor: 1,
+  height: 900,
+  mobile: false,
+  width: 1440,
+};
+
+if (options.help) {
+  console.log(
+    "Usage: node desktop/tests/electron/pane-resize-handles-workflow.test.mjs [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>]",
+  );
+  process.exit(0);
+}
+
+if (!options.skipBuild) {
+  assertBuildExists();
+}
+
+const artifactDir = options.artifactDir || timestampedRecordingDir("pane-resize-handles-workflow");
+await writeLatestRecordingPointer("pane-resize-handles-workflow", artifactDir);
+const fixture = await createElectronFixture("pane-resize-handles-workflow");
+let context = null;
+
+try {
+  context = await launchElectronCdpContext({
+    artifactDir,
+    extraEnv: {
+      SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+    },
+    fixture,
+    visible: options.visible,
+  });
+  await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
+  await waitForSelector(context.client, '[data-testid="niri-workspace-area"]');
+  await ensureWorkspaceOpen(context.client);
+  await waitForResizeHandles(context.client, "horizontal");
+  await captureScreenshot(context.client, join(artifactDir, "horizontal-before.png"));
+
+  const horizontalBefore = await resizeTarget(context.client, "horizontal");
+  assertHandleInPaneGap(horizontalBefore);
+  await dispatchMouseDrag(context.client, {
+    from: horizontalBefore.handle.center,
+    to: {
+      x: horizontalBefore.handle.center.x + 80,
+      y: horizontalBefore.handle.center.y,
+    },
+  });
+  const horizontalAfter = await waitForPaneWidthChange(context.client, horizontalBefore, 50);
+  await captureScreenshot(context.client, join(artifactDir, "horizontal-after.png"));
+
+  await clickToolbarButton(context.client, "Frame split vertically");
+  await waitForResizeHandles(context.client, "vertical");
+  await delay(600);
+  await captureScreenshot(context.client, join(artifactDir, "vertical-before.png"));
+
+  const verticalBefore = await resizeTarget(context.client, "vertical");
+  assertHandleInPaneGap(verticalBefore);
+  await dispatchMouseDrag(context.client, {
+    from: verticalBefore.handle.center,
+    to: {
+      x: verticalBefore.handle.center.x,
+      y: verticalBefore.handle.center.y + 70,
+    },
+  });
+  const verticalAfter = await waitForPaneSplitResize(context.client, verticalBefore, 40);
+  await captureScreenshot(context.client, join(artifactDir, "vertical-after.png"));
+
+  await writeJson(join(artifactDir, "summary.json"), {
+    artifactDir,
+    horizontalAfter,
+    horizontalBefore,
+    status: "passed",
+    verticalAfter,
+    verticalBefore,
+    viewport,
+    workspaceName: basename(fixture.workspaceRoot),
+  });
+  console.log(`Electron pane resize handles workflow passed: ${artifactDir}`);
+} catch (error) {
+  if (context) {
+    await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
+    await writeJson(join(artifactDir, "failure-snapshot.json"), {
+      snapshot: await safeResizeSnapshot(context.client),
+    }).catch(() => {});
+  }
+  await writeJson(join(artifactDir, "summary.json"), {
+    artifactDir,
+    error: error instanceof Error ? error.message : String(error),
+    status: "failed",
+  });
+  throw error;
+} finally {
+  await stopElectronCdpContext(context);
+}
+
+async function ensureWorkspaceOpen(client) {
+  const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
+  if (currentWorkspaceId && !currentWorkspaceId.endsWith(":empty")) {
+    return;
+  }
+  const opened = await client.evaluate(`(() => {
+    const button = document.querySelector('button[aria-label="Open project folder"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-open-project-folder-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-open-project-folder-button" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(`workspace open failed: ${JSON.stringify(opened)}`);
+  }
+  await waitForState(
+    client,
+    workspaceIdExpression(),
+    (workspaceId) => workspaceId !== "" && !workspaceId.endsWith(":empty"),
+    workflowTimeoutMs,
+  );
+}
+
+async function clickToolbarButton(client, label) {
+  const clicked = await client.evaluate(`(() => {
+    const button = Array.from(document.querySelectorAll('button')).find((candidate) =>
+      candidate instanceof HTMLButtonElement && candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-button" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!clicked.ok) {
+    throw new Error(`toolbar click failed for ${label}: ${JSON.stringify(clicked)}`);
+  }
+}
+
+async function waitForResizeHandles(client, axis) {
+  return waitForState(
+    client,
+    resizeSnapshotExpression(),
+    (snapshot) =>
+      snapshot.mode === "normal" &&
+      snapshot.visibleHosts.length >= 2 &&
+      snapshot.handles.some((handle) => handle.axis === axis),
+    workflowTimeoutMs,
+  );
+}
+
+async function resizeTarget(client, axis) {
+  const snapshot = await waitForResizeHandles(client, axis);
+  const target = snapshot.handles
+    .filter((handle) => handle.axis === axis)
+    .map((handle) => ({
+      adjacentHost: snapshot.visibleHosts.find((host) => host.paneId === handle.adjacentPaneId),
+      handle,
+      sourceHost: snapshot.visibleHosts.find((host) => host.paneId === handle.paneId),
+    }))
+    .find((candidate) => candidate.sourceHost && candidate.adjacentHost);
+  if (!target?.sourceHost || !target.adjacentHost) {
+    throw new Error(`no resize target for ${axis}: ${JSON.stringify(snapshot)}`);
+  }
+  return target;
+}
+
+async function waitForPaneWidthChange(client, target, minimumDelta) {
+  return waitForState(
+    client,
+    resizeSnapshotExpression(),
+    (snapshot) => {
+      const host = snapshot.visibleHosts.find(
+        (candidate) => candidate.paneId === target.sourceHost.paneId,
+      );
+      return Boolean(host && host.rect.width >= target.sourceHost.rect.width + minimumDelta);
+    },
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForPaneSplitResize(client, target, minimumDelta) {
+  return waitForState(
+    client,
+    resizeSnapshotExpression(),
+    (snapshot) => {
+      const sourceHost = snapshot.visibleHosts.find(
+        (candidate) => candidate.paneId === target.sourceHost.paneId,
+      );
+      const adjacentHost = snapshot.visibleHosts.find(
+        (candidate) => candidate.paneId === target.adjacentHost.paneId,
+      );
+      return Boolean(
+        sourceHost &&
+        adjacentHost &&
+        sourceHost.rect.height >= target.sourceHost.rect.height + minimumDelta &&
+        adjacentHost.rect.height <= target.adjacentHost.rect.height - minimumDelta,
+      );
+    },
+    workflowTimeoutMs,
+  );
+}
+
+function assertHandleInPaneGap(target) {
+  if (target.handle.axis === "horizontal") {
+    const expectedX =
+      target.sourceHost.rect.right +
+      Math.max(0, target.adjacentHost.rect.left - target.sourceHost.rect.right) / 2;
+    if (Math.abs(target.handle.center.x - expectedX) > geometryTolerancePx) {
+      throw new Error(`horizontal handle is not centered in pane gap: ${JSON.stringify(target)}`);
+    }
+    return;
+  }
+  const expectedY =
+    target.sourceHost.rect.bottom +
+    Math.max(0, target.adjacentHost.rect.top - target.sourceHost.rect.bottom) / 2;
+  if (Math.abs(target.handle.center.y - expectedY) > geometryTolerancePx) {
+    throw new Error(`vertical handle is not centered in pane gap: ${JSON.stringify(target)}`);
+  }
+}
+
+async function safeResizeSnapshot(client) {
+  try {
+    return await client.evaluate(resizeSnapshotExpression());
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function workspaceIdExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
+  })()`;
+}
+
+function resizeSnapshotExpression() {
+  return `(() => {
+    const area = document.querySelector('[data-testid="niri-workspace-area"]');
+    const rectFor = (element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+      };
+    };
+    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="niri-fake-pane-host"]'))
+      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
+      .map((host) => {
+        const rect = rectFor(host);
+        return {
+          focused: host.dataset.focused === "true",
+          paneId: host.dataset.paneId ?? "",
+          rect,
+        };
+      });
+    const handles = Array.from(document.querySelectorAll('.niri-pane-resize-handle'))
+      .filter((handle) => handle instanceof HTMLElement)
+      .map((handle) => {
+        const rect = rectFor(handle);
+        const center = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
+        const hit = document.elementFromPoint(center.x, center.y);
+        return {
+          adjacentPaneId: handle.dataset.adjacentPaneId ?? "",
+          axis: handle.dataset.niriPaneResizeAxis ?? "",
+          center,
+          hit: hit instanceof HTMLElement
+            ? {
+                axis: hit.dataset.niriPaneResizeAxis ?? "",
+                className: hit.className,
+                paneId: hit.dataset.paneId ?? "",
+                tagName: hit.tagName,
+              }
+            : null,
+          paneId: handle.dataset.paneId ?? "",
+          rect,
+        };
+      });
+    return {
+      handles,
+      mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
+      visibleHosts,
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
+    };
+  })()`;
+}

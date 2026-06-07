@@ -296,8 +296,40 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     }
     this.paneById.set(paneId, {
       ...pane,
-      weight: Math.max(0.1, heightWeight),
+      weight: normalizedPaneWeight(heightWeight),
     });
+  }
+
+  resizePaneSplit(
+    upperPaneId: PaneId,
+    lowerPaneId: PaneId,
+    upperHeightWeight: number,
+    lowerHeightWeight: number,
+  ): boolean {
+    const upperLocation = this.locationForPane(upperPaneId);
+    const lowerLocation = this.locationForPane(lowerPaneId);
+    if (
+      !upperLocation ||
+      !lowerLocation ||
+      upperLocation.columnIndex !== lowerLocation.columnIndex ||
+      lowerLocation.rowIndex !== upperLocation.rowIndex + 1
+    ) {
+      return false;
+    }
+    const upperPane = this.paneById.get(upperPaneId);
+    const lowerPane = this.paneById.get(lowerPaneId);
+    if (!upperPane || !lowerPane) {
+      return false;
+    }
+    this.paneById.set(upperPaneId, {
+      ...upperPane,
+      weight: normalizedPaneWeight(upperHeightWeight),
+    });
+    this.paneById.set(lowerPaneId, {
+      ...lowerPane,
+      weight: normalizedPaneWeight(lowerHeightWeight),
+    });
+    return true;
   }
 
   splitPane(paneId: PaneId, direction: PaneDirection): PaneId {
@@ -894,6 +926,10 @@ function normalizeTerminalPaneConfig(config: TerminalPaneConfig | undefined): Te
     profileId: normalizedOptionalString(config?.profileId) ?? "",
     titleOverride: normalizedOptionalString(config?.titleOverride),
   };
+}
+
+function normalizedPaneWeight(value: number): number {
+  return Number.isFinite(value) ? Math.max(0.1, value) : 1;
 }
 
 function normalizedOptionalString(value: string | undefined): string | undefined {

@@ -54,6 +54,11 @@ import {
 } from "./pane-drag-reorder";
 import { paneFocusTargetFromClick } from "./pane-focus-click";
 import { paneResizeTargetFromPointer } from "./pane-resize-target";
+import {
+  applyPaneResizePointerMove,
+  paneResizeSessionFromTarget,
+  type PaneResizeSession,
+} from "./pane-resize-session";
 import { persistRealWorkspaceScene } from "./workspace-scene";
 import type { NiriPane, Rect, SurfaceKind } from "./types";
 
@@ -63,7 +68,6 @@ export interface NiriSurfaceFocusRequest {
 }
 
 const overviewDragThresholdPx = 6;
-const minimumManualPaneWidthPx = 280;
 
 interface OverviewDragSession {
   dragging: boolean;
@@ -71,13 +75,6 @@ interface OverviewDragSession {
   sourcePaneId: string;
   startClientX: number;
   startClientY: number;
-}
-
-interface PaneResizeSession {
-  columnId: string;
-  pointerId: number;
-  startClientX: number;
-  startWidth: number;
 }
 
 export function NiriWorkspaceArea({
@@ -244,20 +241,16 @@ export function NiriWorkspaceArea({
       if (!target) {
         return;
       }
-      const columnId = runtime.store.toScene().paneById.get(target.paneId)?.columnId;
-      if (!columnId) {
+      const resizeSession = paneResizeSessionFromTarget(target, event, runtime.store);
+      if (!resizeSession) {
         return;
       }
       event.preventDefault();
       event.stopPropagation();
       scheduler.pauseBenchmark();
       root.dataset.paneResizing = "true";
-      paneResizeSessionRef.current = {
-        columnId,
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startWidth: target.width,
-      };
+      root.dataset.paneResizingAxis = resizeSession.axis;
+      paneResizeSessionRef.current = resizeSession;
     };
     const handlePointerMove = (event: PointerEvent) => {
       const overviewSession = overviewDragSessionRef.current;
@@ -287,11 +280,7 @@ export function NiriWorkspaceArea({
       }
       event.preventDefault();
       event.stopPropagation();
-      const width = Math.max(
-        minimumManualPaneWidthPx,
-        Math.round(session.startWidth + event.clientX - session.startClientX),
-      );
-      runtime.store.resizeColumn(session.columnId, { unit: "px", value: width });
+      applyPaneResizePointerMove(runtime.store, session, event);
     };
     const suppressNextPaneClick = () => {
       suppressNextClickRef.current = true;
@@ -363,6 +352,7 @@ export function NiriWorkspaceArea({
       event.stopPropagation();
       paneResizeSessionRef.current = null;
       delete root.dataset.paneResizing;
+      delete root.dataset.paneResizingAxis;
       persistLayout();
     };
     const unsubscribeNativeKey =
@@ -398,6 +388,8 @@ export function NiriWorkspaceArea({
         paneDragSessionRef.current = null;
       }
       paneResizeSessionRef.current = null;
+      delete root.dataset.paneResizing;
+      delete root.dataset.paneResizingAxis;
       scheduler.teardown();
     };
   }, [persistLayout, runLayoutAction, runtime, stageViewport]);

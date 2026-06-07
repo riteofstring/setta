@@ -375,6 +375,21 @@ export class NiriLayoutStore {
     this.notify();
   }
 
+  resizePaneSplit(
+    upperPaneId: PaneId,
+    lowerPaneId: PaneId,
+    upperHeightWeight: number,
+    lowerHeightWeight: number,
+  ): boolean {
+    if (
+      !this.engine.resizePaneSplit(upperPaneId, lowerPaneId, upperHeightWeight, lowerHeightWeight)
+    ) {
+      return false;
+    }
+    this.notify();
+    return true;
+  }
+
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
     this.engine.setPaneTerminalConfig(paneId, terminalConfig);
     this.notify();

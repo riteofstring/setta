@@ -1,34 +1,96 @@
-const paneResizeHandleWidthPx = 10;
 const visiblePaneHostSelector = '[data-testid="niri-fake-pane-host"][data-visible="true"]';
+const resizeHandleSelector = "[data-niri-pane-resize-axis]";
 
-export interface PaneResizeTarget {
-  paneId: string;
-  width: number;
+export type PaneResizeTarget =
+  | {
+      axis: "horizontal";
+      paneId: string;
+      width: number;
+    }
+  | {
+      adjacentPaneId: string;
+      afterHeight: number;
+      axis: "vertical";
+      beforeHeight: number;
+      paneId: string;
+    };
+
+interface ResizeHandleDataset {
+  adjacentPaneId?: string;
+  niriPaneResizeAxis?: string;
+  paneId?: string;
 }
 
 export function paneResizeTargetFromPointer(event: PointerEvent): PaneResizeTarget | null {
-  const host = paneHostFromPointerTarget(event.target);
-  const paneId = host?.dataset.paneId;
+  const handle = paneResizeHandleFromPointerTarget(event.target);
+  if (!handle) {
+    return null;
+  }
+  const dataset = handle.dataset as ResizeHandleDataset;
+  if (dataset.niriPaneResizeAxis === "horizontal") {
+    return horizontalResizeTargetFromHandle(handle, dataset);
+  }
+  if (dataset.niriPaneResizeAxis === "vertical") {
+    return verticalResizeTargetFromHandle(handle, dataset);
+  }
+  return null;
+}
+
+function horizontalResizeTargetFromHandle(
+  handle: HTMLElement,
+  dataset: ResizeHandleDataset,
+): PaneResizeTarget | null {
+  const paneId = dataset.paneId;
+  const host = paneId
+    ? visiblePaneHostByPaneId(handle.ownerDocument, paneId)
+    : handle.closest<HTMLElement>(visiblePaneHostSelector);
   if (!host || !paneId) {
     return null;
   }
-  const rect = host.getBoundingClientRect();
-  if (!pointInResizeHandle(rect, event.clientX)) {
-    return null;
-  }
   return {
+    axis: "horizontal",
     paneId,
-    width: rect.width,
+    width: host.getBoundingClientRect().width,
   };
 }
 
-function paneHostFromPointerTarget(target: EventTarget | null): HTMLElement | null {
+function verticalResizeTargetFromHandle(
+  handle: HTMLElement,
+  dataset: ResizeHandleDataset,
+): PaneResizeTarget | null {
+  const paneId = dataset.paneId;
+  const host = paneId
+    ? visiblePaneHostByPaneId(handle.ownerDocument, paneId)
+    : handle.closest<HTMLElement>(visiblePaneHostSelector);
+  const adjacentPaneId = dataset.adjacentPaneId;
+  if (!host || !paneId || !adjacentPaneId) {
+    return null;
+  }
+  const adjacentHost = visiblePaneHostByPaneId(handle.ownerDocument, adjacentPaneId);
+  if (!adjacentHost) {
+    return null;
+  }
+  return {
+    adjacentPaneId,
+    afterHeight: adjacentHost.getBoundingClientRect().height,
+    axis: "vertical",
+    beforeHeight: host.getBoundingClientRect().height,
+    paneId,
+  };
+}
+
+function paneResizeHandleFromPointerTarget(target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof Element)) {
     return null;
   }
-  return target.closest<HTMLElement>(visiblePaneHostSelector);
+  return target.closest<HTMLElement>(resizeHandleSelector);
 }
 
-function pointInResizeHandle(rect: DOMRect, x: number): boolean {
-  return x >= rect.right - paneResizeHandleWidthPx && x <= rect.right;
+function visiblePaneHostByPaneId(document: Document, paneId: string): HTMLElement | null {
+  for (const host of document.querySelectorAll<HTMLElement>(visiblePaneHostSelector)) {
+    if (host.dataset.paneId === paneId) {
+      return host;
+    }
+  }
+  return null;
 }

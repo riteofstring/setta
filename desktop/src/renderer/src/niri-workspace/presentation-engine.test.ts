@@ -286,6 +286,43 @@ describe("niri presentation engine", () => {
     expect(button?.getAttribute("aria-label")).toBe("Restore pane size");
   });
 
+  test("adds resize separators between adjacent rendered panes", () => {
+    const scene = generateBenchmarkScene({ paneCount: 3, targetVisiblePanes: 3 });
+    const firstHost = fakePaneHost("niri_pane_0", "Pane 001");
+    const secondHost = fakePaneHost("niri_pane_1", "Pane 002");
+    const thirdHost = fakePaneHost("niri_pane_2", "Pane 003");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([firstHost, secondHost, thirdHost], null);
+
+    presentation.apply(
+      [
+        renderItem("niri_pane_0", "niri_surface_0", false),
+        renderItemAt("niri_pane_1", "niri_surface_1", false, 168),
+        { ...renderItem("niri_pane_2", "niri_surface_2", false), y: 128 },
+      ],
+      { resizePhase: "idle" },
+    );
+
+    const horizontal = firstHost.querySelector(
+      ".niri-pane-resize-handle-horizontal",
+    ) as HTMLElement | null;
+    const vertical = firstHost.querySelector(
+      ".niri-pane-resize-handle-vertical",
+    ) as HTMLElement | null;
+
+    expect(horizontal?.dataset.paneId).toBe("niri_pane_0");
+    expect(horizontal?.dataset.adjacentPaneId).toBe("niri_pane_1");
+    expect(horizontal?.style.left).toBe("164.00px");
+    expect(vertical?.dataset.paneId).toBe("niri_pane_0");
+    expect(vertical?.dataset.adjacentPaneId).toBe("niri_pane_2");
+    expect(vertical?.style.top).toBe("124.00px");
+    expect(secondHost.querySelector(".niri-pane-resize-handle-horizontal")).toBeNull();
+  });
+
   test("surfaces canvas draw stats in the debug overlay", () => {
     const scene = generateBenchmarkScene({ paneCount: 5, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");
@@ -353,7 +390,12 @@ function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTM
 }
 
 function chromeChildForSelector(children: FakeElement[], selector: string): FakeElement | null {
-  if (selector !== ".niri-pane-drag-handle" && selector !== ".niri-pane-maximize-button") {
+  if (
+    selector !== ".niri-pane-drag-handle" &&
+    selector !== ".niri-pane-maximize-button" &&
+    selector !== ".niri-pane-resize-handle-horizontal" &&
+    selector !== ".niri-pane-resize-handle-vertical"
+  ) {
     return null;
   }
   return children.find((child) => child.classList.contains(selector.slice(1))) ?? null;
@@ -368,6 +410,8 @@ interface FakeElement {
   getAttribute: (name: string) => string | null;
   remove: () => void;
   setAttribute: (name: string, value: string) => void;
+  style: Record<string, string>;
+  tabIndex: number;
   title: string;
   type: string;
 }
@@ -404,6 +448,8 @@ function fakeElement(tagName: string): FakeElement {
     setAttribute: (name: string, value: string) => {
       attributes.set(name, value);
     },
+    style: {},
+    tabIndex: 0,
     title: "",
     type: "",
   } as FakeElement;
