@@ -876,27 +876,117 @@ Verification:
 Goal: create and update semantic graph state from observed work through a
 validated LLM-backed patch pipeline.
 
+Preflight before implementation:
+
+- Replace any Phase 5 context-compiler avoid-steering logic that depends on
+  rendered strings with typed `SteeringKindAvoid` handling. Avoid steering is a
+  semantic signal, not a text match.
+- Keep this as a strict no-migration/no-compatibility change. If Phase 6 needs
+  schema fields, bump the current semantic store shape and reject incompatible
+  existing stores before applying DDL.
+
+Scope guard:
+
+- Implement the cartographer as a graph-patch proposal and validation pipeline,
+  not as retrieval, constraint enforcement, a generic memory system, or a graph
+  database.
+- Do not add LangChain/LlamaIndex/Graphiti/CrewAI/agent-framework dependencies.
+  Use a small Go-owned `CartographerProvider` interface with a deterministic
+  scripted provider for tests and a separately wired production provider.
+- Do not add FTS, embeddings, vector search, workspace-wide file search, or
+  Tree-sitter in Phase 6. Cartographer input must come from explicit production
+  refs and already-recorded evidence/activity/context packs.
+- Do not silently create durable workspace memory from prompts, files, or chat
+  text. Cartographer-created nodes start session-scoped/unpromoted with evidence
+  and can be promoted explicitly by user action or a later policy phase.
+- Do not accept model output by best-effort parsing. Invalid JSON, unsupported
+  operations, missing evidence, missing confidence, unknown refs, or chain of
+  thought fields must fail loudly and leave graph state unchanged.
+
 Deliverables:
 
-- Define a typed cartographer input bundle:
+- Add backend-owned cartographer types in or near `internal/semanticgraph`:
 
 ```text
-user prompt
-agent messages
-tool calls
-file reads/edits
-diffs
-test results
-workflow metadata
-existing semantic subgraph
-active steering directives
-recent context packs
+CartographerRun
+CartographerInputBundle
+CartographerPatch
+CartographerPatchValidationResult
+CartographerPatchApplicationResult
 ```
 
-- Define a strict graph patch schema:
+- Wire a small provider interface:
 
 ```text
-create_or_reuse_node
+type CartographerProvider interface {
+  ProposePatches(context.Context, CartographerInputBundle) (CartographerProviderResult, error)
+}
+```
+
+- Add a deterministic scripted/fake provider for unit and Electron tests.
+- Add the production provider behind explicit runtime wiring. Prefer reusing
+  existing Codex/ChatGPT-auth plumbing only if it can run an isolated
+  cartographer turn and return strict JSON. Otherwise use a minimal Go HTTP
+  client for the chosen model provider behind the same interface. Do not make
+  provider unavailability look like a successful no-op.
+- Start with explicit trigger points only:
+
+```text
+manual cartographer run for a known workflow execution, chat run, or semantic target
+Codex-backed workflow agent run completion when workflow/chat/run refs are known
+explicit retry/review of a failed or rejected cartographer run
+```
+
+- Do not run background scans across all workspaces or all historical sessions
+  in Phase 6.
+- Define a typed cartographer input bundle assembled by the backend:
+
+```text
+workspace_id
+trigger_kind
+source refs: workflow_definition_id, workflow_execution_id, workflow_node_id,
+  workflow_node_execution_id, chat_conversation_id, chat_run_id, chat_message_id,
+  run_item_id
+run status and terminal reason
+authored user/workflow prompt summary or bounded prompt text
+assistant response summary or bounded assistant text
+tool calls and tool results with run item ids
+file read/edit refs, diff summaries, and test result summaries already captured
+  by production run activity
+existing semantic subgraph selected by explicit refs and Phase 5 context packs
+active steering directives
+recent context packs delivered to the run
+evidence anchors and activity intervals tied to the same source refs
+token/input budget and truncation metadata
+```
+
+- Keep large raw transcripts, complete diffs, complete logs, and complete files
+  out of cartographer input records. Store bounded summaries plus source refs.
+- Define a strict graph patch schema as a discriminated union. Each patch must
+  include:
+
+```text
+patch_id
+operation
+workspace_id
+source refs
+causation_id
+correlation_id
+confidence: 0.0..1.0
+public_summary
+evidence_refs[]
+model_info
+review_required
+payload
+```
+
+- Supported initial operations:
+
+```text
+record_finding
+record_decision
+record_constraint
+record_open_question
 update_node_summary
 attach_evidence
 create_edge
@@ -905,35 +995,103 @@ end_activity
 split_node
 merge_nodes
 mark_resolved
-record_finding
-record_decision
-record_constraint
-record_open_question
 ```
 
+- For node creation, require either an exact existing `semantic_node_id` or a
+  `new_node` payload with explicit kind, label, summary, scope, and evidence
+  refs. Do not deduplicate by label or keyword similarity in Phase 6.
+- For edge creation, require exact existing node ids unless the same validated
+  patch application creates the referenced session-scoped node.
+- For split/merge/mark-resolved/update operations, require exact target ids and
+  default them to review-required unless a later policy explicitly allows
+  automatic application.
 - Validate cartographer patches before appending semantic events:
 
 ```text
 node kind is valid
 edge kind is valid
 evidence references exist
+activity/source refs exist when referenced
 split/merge targets exist
-confidence is present
+confidence is present and within range
 public summary contains no chain-of-thought
 patch causation/correlation fields are present
+patch ids are unique within the cartographer run
+workspace ids match the input bundle
+operation is supported
+review-required operations are not auto-applied
+large raw content is absent from patch payloads
 ```
 
-- Start with session-scoped cartographer updates. Promotion to durable workspace
-  memory should be explicit or policy-driven by a later phase.
-- Add review affordances for low-confidence or high-impact cartographer patches.
+- Persist a cartographer run/patch audit before applying accepted patches:
+
+```text
+run_id
+workspace_id
+trigger_kind
+source refs
+provider/model metadata
+input bundle hash
+input item counts and truncation metadata
+raw provider response hash
+status: proposed | applied | rejected | failed
+validation diagnostics
+patches[]
+created semantic event ids
+```
+
+- Apply accepted patches by calling existing semantic graph service operations
+  or a new typed internal patch applier that emits normal semantic events. Do
+  not add a generic append-anything endpoint for the renderer.
+- Use all-or-nothing application for accepted patches. Persist patch-audit state
+  and graph-event appends in one transaction when possible; if validation or
+  application fails, persist a failed/rejected run audit and append no graph
+  mutations.
+- Auto-apply only low-impact, evidence-backed, session-scoped patches in the
+  first implementation:
+
+```text
+record_finding
+record_decision
+record_constraint
+record_open_question
+attach_evidence to a cartographer-created or exact existing target
+```
+
+- Hold low-confidence, evidence-light, split, merge, mark-resolved, broad
+  update, or high-impact edge patches for review.
+- Add minimal review/read surfaces:
+
+```text
+run cartographer for explicit source refs
+list cartographer runs by workflow execution/chat run/semantic target
+read cartographer run by id
+accept/reject a pending cartographer patch
+show cartographer patch history from semantic node details and run-adjacent surfaces
+```
+
+- Keep generated TypeScript contracts owned by Go HTTP endpoint contracts.
 
 Verification:
 
-- Deterministic tests with scripted cartographer output.
-- Patch validation tests for malformed, unsupported, or evidence-free patches.
-- End-to-end workflow tests proving semantic nodes appear from an agent session,
-  are grounded in evidence, survive reload, and can be inspected.
-- Live Codex E2E when ChatGPT auth is available.
+- Focused backend tests for input-bundle assembly from explicit workflow/chat
+  refs, context packs, evidence anchors, activity intervals, and steering
+  directives.
+- Deterministic provider tests for accepted patches, invalid JSON, unsupported
+  operations, missing evidence, unknown refs, missing confidence, duplicate patch
+  ids, chain-of-thought fields, and provider failures.
+- Patch application tests proving validation happens before graph mutations and
+  that failed/rejected patches leave graph state unchanged.
+- Tests proving no label/keyword/fuzzy/vector deduplication is used.
+- HTTP contract tests for cartographer run/read/review surfaces.
+- Renderer tests for any cartographer patch history or review UI.
+- Deterministic end-to-end app workflow through production
+  Electron/main/preload/renderer/HTTP/store paths proving a Codex-backed
+  workflow run creates evidence-grounded semantic nodes, records cartographer
+  audit, survives reload, and can be inspected.
+- Because Phase 6 touches chat/workflow/agent behavior and semantic graph
+  mutation, run live Codex E2E tests when local ChatGPT auth is available. If
+  unavailable, report the live provider skip explicitly.
 
 ## Phase 7: Retrieval Indexes
 
