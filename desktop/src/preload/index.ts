@@ -50,6 +50,11 @@ const api: SettaAPI = {
       };
     },
   },
+  appearance: {
+    presets: () => invoke("appearancePresets"),
+    read: () => invoke("appearanceRead"),
+    update: (request) => invoke("appearanceUpdate", request),
+  },
   niriNativeViews: {
     batchBrowserViewUpdates: (batch) => {
       ipcRenderer.send(ipcMessages.niriBrowserViewBatch, batch);

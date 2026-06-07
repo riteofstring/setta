@@ -244,10 +244,6 @@ export function cameraState(viewport) {
   };
 }
 
-export function cameraStatesDiffer(left, right) {
-  return left.x !== right.x || left.y !== right.y || left.zoom !== right.zoom;
-}
-
 export function screenPointFromPointer(canvas, event) {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -308,37 +304,6 @@ export function stopNativeInteraction(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation();
-}
-
-export function createCanvasContextMenuHandler({ canvas, onCanvasContextMenu, viewport }) {
-  return (event) => {
-    if (!onCanvasContextMenu) {
-      return;
-    }
-    stopNativeInteraction(event);
-    const screen = screenPointFromPointer(canvas, event);
-    const world = viewport.toWorld(screen);
-    onCanvasContextMenu({
-      clientX: event.clientX,
-      clientY: event.clientY,
-      worldX: Math.round(world.x),
-      worldY: Math.round(world.y),
-    });
-  };
-}
-
-export function countMapValues(map, expected) {
-  return [...map.values()].filter((value) => value === expected).length;
-}
-
-export function frameSampleStats(samples) {
-  if (samples.length === 0) {
-    return { average: 0, worst: 0 };
-  }
-  return {
-    average: samples.reduce((total, value) => total + value, 0) / samples.length,
-    worst: Math.max(...samples),
-  };
 }
 
 export function clamp(value, min, max) {

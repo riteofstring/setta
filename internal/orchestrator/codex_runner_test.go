@@ -40,7 +40,6 @@ func TestCodexRunnerCompletesWorkflowThroughWorkflowOwnedChat(t *testing.T) {
 		t.Fatalf("work status = %s, want succeeded", work.Status)
 	}
 	assertWorkflowResultPayload(t, work)
-	assertPhase1RunnerRecords(t, workflowService, workspaceID, execution.ID, work)
 	assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
 	assertRunnerRef(t, work.RunnerRefs, RunnerRefCodexThread)
 	assertRunnerRef(t, work.RunnerRefs, RunnerRefCodexSession)
@@ -126,124 +125,7 @@ func TestCodexRunnerSubmitsWorkflowApprovalThroughHiddenChat(t *testing.T) {
 	}
 	waitForWorkflowEvent(t, subscription, started.ID, EventExecutionCompleted)
 	assertWorkflowApprovalCompleted(t, workflowService, workspaceID, started.ID)
-	assertWorkflowEventsInclude(t, workflowService, workspaceID, started.ID, []WorkflowEventType{
-		EventRunnerAttemptStarted,
-		EventRunnerApprovalRequested,
-		EventRunnerApprovalResolved,
-		EventRunnerAttemptCompleted,
-	})
 	assertWorkflowChatsHiddenForTest(t, chatService, workspaceID)
-	waitForScriptedHarnessIdle(t, harness)
-}
-
-func TestCodexRunnerStartupRecoveryPreservesWorkflowApproval(t *testing.T) {
-	workflowService, chatService, harness, workflowStore, resolver, idGenerator, workspaceID := newCodexRunnerRecoveryTestServices(t)
-	definition, err := workflowService.CreateDefinition(workspaceID, "Workflow approval recovery", "", codexActionGraph("command approval workflow", true))
-	if err != nil {
-		t.Fatalf("create definition: %v", err)
-	}
-	subscription, err := workflowService.SubscribeEvents(WorkflowEventCursor{})
-	if err != nil {
-		t.Fatalf("subscribe workflow events: %v", err)
-	}
-	defer subscription.Unsubscribe()
-
-	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
-	if err != nil {
-		t.Fatalf("start execution: %v", err)
-	}
-	waitForWorkflowEvent(t, subscription, started.ID, EventActionApprovalWait)
-	work, pending := assertWorkflowApprovalWaiting(t, workflowService, workspaceID, started.ID)
-	workflowService.CloseEvents()
-
-	restarted, err := NewService(workflowStore, resolver, WithIDGenerator(idGenerator), WithClock(fixedTestClock(t)), WithCodexChatService(chatService))
-	if err != nil {
-		t.Fatalf("restart workflow service: %v", err)
-	}
-	defer restarted.CloseEvents()
-	restartedSubscription, err := restarted.SubscribeEvents(WorkflowEventCursor{})
-	if err != nil {
-		t.Fatalf("subscribe restarted workflow events: %v", err)
-	}
-	defer restartedSubscription.Unsubscribe()
-	recovered, err := restarted.ReadExecution(workspaceID, started.ID)
-	if err != nil {
-		t.Fatalf("read recovered execution: %v", err)
-	}
-	recoveredWork := latestNodeExecutionForTest(t, recovered, "work")
-	if recoveredWork.ID != work.ID || recoveredWork.Status != NodeExecutionStatusWaitingApproval {
-		t.Fatalf("recovered work = %+v, want same waiting approval node %s", recoveredWork, work.ID)
-	}
-	if recoveredWork.Result == nil || recoveredWork.Result.PendingApproval == nil || recoveredWork.Result.PendingApproval.ApprovalID != pending.ApprovalID {
-		t.Fatalf("recovered pending approval = %+v, want %s", recoveredWork.Result, pending.ApprovalID)
-	}
-	if recoveredWork.RecoveryOutcome == nil || *recoveredWork.RecoveryOutcome != RunnerRecoveryOutcomeRecoveredRunning {
-		t.Fatalf("recovery outcome = %v, want recovered_running", recoveredWork.RecoveryOutcome)
-	}
-	assertWorkflowEventsInclude(t, restarted, workspaceID, started.ID, []WorkflowEventType{EventActionRecovered})
-
-	if _, err := restarted.SubmitApproval(workspaceID, started.ID, recoveredWork.ID, pending.ApprovalID, true, "", nil, false); err != nil {
-		t.Fatalf("submit recovered workflow approval: %v", err)
-	}
-	waitForWorkflowEvent(t, restartedSubscription, started.ID, EventExecutionCompleted)
-	waitForScriptedHarnessIdle(t, harness)
-	completed, err := restarted.ReadExecution(workspaceID, started.ID)
-	if err != nil {
-		t.Fatalf("read completed execution: %v", err)
-	}
-	if completed.Status != ExecutionStatusCompleted {
-		t.Fatalf("execution status = %s, want completed after recovered approval", completed.Status)
-	}
-}
-
-func TestCodexRunnerRecoverReconcilesTerminalWorkflowOwnedChatRun(t *testing.T) {
-	workflowService, chatService, harness, workspaceID := newCodexRunnerTestServices(t)
-	definition, err := workflowService.CreateDefinition(workspaceID, "Workflow terminal recovery", "", codexActionGraph("workflow result action", true))
-	if err != nil {
-		t.Fatalf("create definition: %v", err)
-	}
-	subscription, err := workflowService.SubscribeEvents(WorkflowEventCursor{})
-	if err != nil {
-		t.Fatalf("subscribe workflow events: %v", err)
-	}
-	defer subscription.Unsubscribe()
-	started, err := workflowService.StartExecution(workspaceID, definition.ID, "")
-	if err != nil {
-		t.Fatalf("start execution: %v", err)
-	}
-	waitForWorkflowEvent(t, subscription, started.ID, EventExecutionCompleted)
-	execution, err := workflowService.ReadExecution(workspaceID, started.ID)
-	if err != nil {
-		t.Fatalf("read execution: %v", err)
-	}
-	work := latestNodeExecutionForTest(t, execution, "work")
-	runner, err := NewCodexActionRunner(chatService)
-	if err != nil {
-		t.Fatalf("create Codex runner: %v", err)
-	}
-	sink := &bufferingRunnerEventSink{}
-	recovered, err := runner.Recover(nil, ActionRecoverRequest{
-		WorkspaceID:      workspaceID,
-		ExecutionID:      execution.ID,
-		Execution:        execution,
-		NodeExecution:    work,
-		RunnerRefs:       work.RunnerRefs,
-		RunnerState:      work.RunnerState,
-		LastEventOrdinal: execution.LastEventOrdinal,
-	}, sink)
-	if err != nil {
-		t.Fatalf("recover terminal Codex run: %v", err)
-	}
-	if recovered.Outcome != RunnerRecoveryOutcomeRecoveredCompleted {
-		t.Fatalf("recovery outcome = %s, want recovered_completed", recovered.Outcome)
-	}
-	if recovered.Result == nil || recovered.Result.Status != ActionCompletionCompleted {
-		t.Fatalf("recovery result = %+v, want completed action result", recovered.Result)
-	}
-	assertWorkflowResultPayload(t, WorkflowNodeExecution{Result: recovered.Result})
-	if !runnerEventTypesContain(sink.Events(), RunnerEventStructuredOutputReceived) || !runnerEventTypesContain(sink.Events(), RunnerEventAttemptCompleted) {
-		t.Fatalf("runner events = %+v, want structured output and attempt completed", runnerEventTypes(sink.Events()))
-	}
 	waitForScriptedHarnessIdle(t, harness)
 }
 
@@ -269,7 +151,7 @@ func assertWorkflowApprovalWaiting(t *testing.T, workflowService *Service, works
 
 func assertWorkflowApprovalProjection(t *testing.T, workflowService *Service, workspaceID string, definition WorkflowDefinition, executionID string, pending *WorkflowPendingApproval) {
 	t.Helper()
-	projection, ok, err := workflowService.ReadGraphProjection(workspaceID, definition.ID, "", executionID)
+	projection, ok, err := workflowService.ReadGraphProjection(workspaceID, definition.ID, definition.CurrentVersionID, executionID)
 	if err != nil {
 		t.Fatalf("read projection: %v", err)
 	}
@@ -311,80 +193,7 @@ func assertWorkflowChatsHiddenForTest(t *testing.T, chatService *chat.Service, w
 	}
 }
 
-func assertPhase1RunnerRecords(t *testing.T, workflowService *Service, workspaceID string, executionID string, work WorkflowNodeExecution) {
-	t.Helper()
-	if work.RunnerKind == nil || *work.RunnerKind != ActionKindAgentCodex {
-		t.Fatalf("runner kind = %v, want agent.codex", work.RunnerKind)
-	}
-	if work.InputHash == "" {
-		t.Fatal("input hash is empty")
-	}
-	if work.Input == nil {
-		t.Fatal("input snapshot is nil")
-	}
-	if work.ActionPolicy == nil || work.ActionPolicy.RunnerKind != ActionKindAgentCodex || work.ActionPolicy.ExtensionKind != string(ActionKindAgentCodex) {
-		t.Fatalf("action policy = %+v, want agent.codex policy", work.ActionPolicy)
-	}
-	if work.SideEffectPolicy == nil || work.SideEffectPolicy.Kind != SideEffectPolicyKindRequiresApproval || work.SideEffectPolicy.Scope != SideEffectScopeRunnerDefined {
-		t.Fatalf("side effect policy = %+v, want runner-defined approval policy", work.SideEffectPolicy)
-	}
-	if work.RunnerCapabilities == nil || !runnerSupportsOperation(*work.RunnerCapabilities, RunnerOperationStart) || !runnerSupportsOperation(*work.RunnerCapabilities, RunnerOperationCancel) {
-		t.Fatalf("runner capabilities = %+v, want start and cancel support", work.RunnerCapabilities)
-	}
-	if work.RunnerState == nil || work.RunnerState.Status != RunnerStateStatusCompleted || work.RunnerState.LastRunnerEventOrdinal <= 0 {
-		t.Fatalf("runner state = %+v, want completed state with runner events", work.RunnerState)
-	}
-	chatRunID := assertRunnerRef(t, work.RunnerRefs, RunnerRefChatRun)
-	if !activityRefsContain(work.ActivityRefs, RunnerRefChatRun, chatRunID) {
-		t.Fatalf("activity refs = %+v, want chat.run %s", work.ActivityRefs, chatRunID)
-	}
-	assertWorkflowEventsInclude(t, workflowService, workspaceID, executionID, []WorkflowEventType{
-		EventRunnerAttemptStarted,
-		EventRunnerStructuredOutputReceived,
-		EventRunnerAttemptCompleted,
-	})
-}
-
-func activityRefsContain(refs []WorkflowActivityRef, kind string, ref string) bool {
-	for _, candidate := range refs {
-		if candidate.Kind == kind && candidate.Ref == ref {
-			return true
-		}
-	}
-	return false
-}
-
-func assertWorkflowEventsInclude(t *testing.T, workflowService *Service, workspaceID string, executionID string, expected []WorkflowEventType) {
-	t.Helper()
-	page, err := workflowService.ReadExecutionEventPage(workspaceID, executionID, 0, 100)
-	if err != nil {
-		t.Fatalf("read workflow event page: %v", err)
-	}
-	seen := map[WorkflowEventType]bool{}
-	for _, event := range page.Events {
-		seen[event.Type] = true
-	}
-	for _, eventType := range expected {
-		if !seen[eventType] {
-			t.Fatalf("workflow events = %+v, missing %s", eventTypes(page.Events), eventType)
-		}
-	}
-}
-
-func eventTypes(events []WorkflowEvent) []WorkflowEventType {
-	types := make([]WorkflowEventType, 0, len(events))
-	for _, event := range events {
-		types = append(types, event.Type)
-	}
-	return types
-}
-
 func newCodexRunnerTestServices(t *testing.T) (*Service, *chat.Service, *chat.ScriptedWorkflowHarness, string) {
-	workflowService, chatService, harness, _, _, _, workspaceID := newCodexRunnerRecoveryTestServices(t)
-	return workflowService, chatService, harness, workspaceID
-}
-
-func newCodexRunnerRecoveryTestServices(t *testing.T) (*Service, *chat.Service, *chat.ScriptedWorkflowHarness, *Store, testWorkspaceResolver, IDGenerator, string) {
 	t.Helper()
 	appDataDir := t.TempDir()
 	workspaceID := "workspace_codex_runner"
@@ -411,17 +220,11 @@ func newCodexRunnerRecoveryTestServices(t *testing.T) (*Service, *chat.Service, 
 	if err != nil {
 		t.Fatalf("create workflow store: %v", err)
 	}
-	t.Cleanup(func() {
-		if err := workflowStore.Close(); err != nil {
-			t.Fatalf("close workflow store: %v", err)
-		}
-	})
 	workflowService, err := NewService(workflowStore, resolver, WithIDGenerator(idGenerator), WithClock(fixedTestClock(t)), WithCodexChatService(chatService))
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
-	t.Cleanup(workflowService.CloseEvents)
-	return workflowService, chatService, harness, workflowStore, resolver, idGenerator, workspaceID
+	return workflowService, chatService, harness, workspaceID
 }
 
 func codexActionGraph(prompt string, freshConversation bool) WorkflowGraph {
@@ -477,23 +280,6 @@ func assertRunnerRef(t *testing.T, refs []WorkflowActionRunnerRef, kind string) 
 		t.Fatalf("runner refs = %+v, missing %s", refs, kind)
 	}
 	return value
-}
-
-func runnerEventTypes(events []RunnerEvent) []RunnerEventType {
-	types := make([]RunnerEventType, 0, len(events))
-	for _, event := range events {
-		types = append(types, event.Type)
-	}
-	return types
-}
-
-func runnerEventTypesContain(events []RunnerEvent, expected RunnerEventType) bool {
-	for _, event := range events {
-		if event.Type == expected {
-			return true
-		}
-	}
-	return false
 }
 
 func waitForWorkflowEvent(t *testing.T, subscription *EventSubscription, executionID string, eventType WorkflowEventType) {

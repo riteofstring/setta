@@ -17,7 +17,7 @@ export {
   modelPickerOptionSelected,
   reasoningEffortOptionSelected,
 } from "./chat-composer";
-export { ComposerButton, handleComposerKeyDown } from "./chat-composer-controls";
+export { ComposerButton, handleComposerKeyDown, ModelPickerButton } from "./chat-composer-controls";
 
 export function ChatPanel({
   chat,
@@ -40,11 +40,11 @@ export function ChatPanel({
     return (
       <section
         className={cn(
-          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
+          "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background text-foreground",
           chromeInsetTop && "pt-8",
         )}
       >
-        <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
+        <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-muted-foreground">
           Open a workspace to start chat.
         </div>
       </section>
@@ -90,7 +90,7 @@ function ChatWorkspace({
   return (
     <section
       className={cn(
-        "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100",
+        "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-background text-foreground",
         chromeInsetTop && "pt-8",
       )}
     >
@@ -127,7 +127,7 @@ function ChatMaximizeButton({
   return (
     <button
       aria-label={label}
-      className="app-no-drag absolute top-0 right-1 z-50 grid h-8 w-7 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+      className="app-no-drag absolute top-0 right-1 z-50 grid h-8 w-7 cursor-pointer place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground"
       onClick={onToggleMaximize}
       title={label}
       type="button"
@@ -271,14 +271,14 @@ function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
   const title = `${status}: ${goal.objective}`;
   return (
     <div
-      className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-300"
+      className="flex h-8 shrink-0 items-center gap-2 border-b border-border bg-background px-3 text-xs text-muted-foreground"
       data-goal-status={goal.status}
       data-testid="chat-goal-status"
       title={title}
     >
       <GoalStatusIcon status={goal.status} />
-      <span className="shrink-0 font-medium text-zinc-100">{status}</span>
-      <span className="min-w-0 truncate text-zinc-400">{goal.objective}</span>
+      <span className="shrink-0 font-medium text-foreground">{status}</span>
+      <span className="min-w-0 truncate text-muted-foreground">{goal.objective}</span>
     </div>
   );
 }
@@ -288,9 +288,11 @@ function GoalStatusIcon({ status }: { status: string }) {
     return <Check className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />;
   }
   if (status === "blocked" || status === "budgetLimited" || status === "usageLimited") {
-    return <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden="true" />;
+    return (
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-status-warning" aria-hidden="true" />
+    );
   }
-  return <Square className="h-3 w-3 shrink-0 text-zinc-500" aria-hidden="true" />;
+  return <Square className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />;
 }
 
 function goalStatusLabel(status: string) {
@@ -316,11 +318,11 @@ function ChatLoadError({ message }: { message: string }) {
   return (
     <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-6">
       <div
-        className="max-w-2xl rounded-sm border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm break-words text-zinc-100"
+        className="max-w-2xl rounded-sm border border-border bg-popover px-4 py-3 text-sm break-words text-popover-foreground"
         data-testid="chat-load-error"
       >
         <div className="font-medium">Chat state is corrupt</div>
-        <div className="mt-2 text-zinc-300">{message}</div>
+        <div className="mt-2 text-muted-foreground">{message}</div>
       </div>
     </div>
   );
@@ -328,7 +330,7 @@ function ChatLoadError({ message }: { message: string }) {
 
 function EmptyConversation({ label }: { label: string }) {
   return (
-    <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
+    <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-3 text-center text-xs text-muted-foreground">
       <div className="mx-auto w-full max-w-3xl py-16" data-testid="empty-chat">
         {label}
       </div>
@@ -341,7 +343,7 @@ function ChatError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <div className="border-t border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100">
+    <div className="border-t border-border bg-background px-3 py-1.5 text-xs text-foreground">
       {message}
     </div>
   );

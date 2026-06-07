@@ -69,33 +69,6 @@ export async function dispatchPixiMouseClick(client, surfaceId, { modifiers = 0,
   });
 }
 
-export async function dispatchPixiContextMenu(client, surfaceId, { x, y }) {
-  const point = await pagePointForCanvasPoint(client, surfaceId, { x, y });
-  await client.call("Input.dispatchMouseEvent", {
-    button: "none",
-    type: "mouseMoved",
-    x: point.x,
-    y: point.y,
-  });
-  await client.call("Input.dispatchMouseEvent", {
-    button: "right",
-    buttons: 2,
-    clickCount: 1,
-    type: "mousePressed",
-    x: point.x,
-    y: point.y,
-  });
-  await delay(16);
-  await client.call("Input.dispatchMouseEvent", {
-    button: "right",
-    buttons: 0,
-    clickCount: 1,
-    type: "mouseReleased",
-    x: point.x,
-    y: point.y,
-  });
-}
-
 export async function dispatchPixiMouseMove(client, surfaceId, { x, y }) {
   await client.call("Input.dispatchMouseEvent", {
     button: "none",
@@ -143,12 +116,6 @@ async function visiblePixiWorkspaceCount(client) {
 }
 
 async function openWorkflowGraphFromToolbar(client, timeoutMs) {
-  await waitForState(
-    client,
-    newFrameButtonOrWorkflowMenuExistsExpression(),
-    (exists) => exists,
-    timeoutMs,
-  );
   const opened = await client.evaluate(`(() => {
     if (workflowGraphMenuItem()) {
       return { ok: true, state: "already-open" };
@@ -218,15 +185,6 @@ function workflowGraphMenuItemExistsExpression() {
     return [...document.querySelectorAll('button[role="menuitem"]')].some((candidate) =>
       candidate instanceof HTMLButtonElement && candidate.title === "Workflow Graph"
     );
-  })()`;
-}
-
-function newFrameButtonOrWorkflowMenuExistsExpression() {
-  return `(() => {
-    return Boolean(document.querySelector('button[aria-label="New frame"]')) ||
-      [...document.querySelectorAll('button[role="menuitem"]')].some((candidate) =>
-        candidate instanceof HTMLButtonElement && candidate.title === "Workflow Graph"
-      );
   })()`;
 }
 

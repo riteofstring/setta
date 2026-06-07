@@ -128,26 +128,6 @@ export function scrollOffsetForColumn(scrollColumn: number, offsets: readonly nu
   return lowerOffset + (upperOffset - lowerOffset) * progress;
 }
 
-export function scrollColumnForOffset(scrollOffset: number, offsets: readonly number[]): number {
-  if (offsets.length === 0) {
-    return 0;
-  }
-  const clampedOffset = clamp(scrollOffset, offsets[0] ?? 0, offsets[offsets.length - 1] ?? 0);
-  for (let index = 0; index < offsets.length - 1; index += 1) {
-    const lowerOffset = offsets[index] ?? 0;
-    const upperOffset = offsets[index + 1] ?? lowerOffset;
-    if (clampedOffset > upperOffset) {
-      continue;
-    }
-    const span = upperOffset - lowerOffset;
-    if (span <= 0) {
-      return index;
-    }
-    return index + (clampedOffset - lowerOffset) / span;
-  }
-  return offsets.length - 1;
-}
-
 export function pushColumnItems({
   availableHeight,
   column,
