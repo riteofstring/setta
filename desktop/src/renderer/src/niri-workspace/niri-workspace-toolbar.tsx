@@ -4,12 +4,8 @@ import {
   Columns2,
   GitBranch,
   MessageSquarePlus,
-  PanelBottom,
-  PanelTop,
   Plus,
   Settings,
-  SplitSquareHorizontal,
-  SplitSquareVertical,
   Terminal,
   ZoomIn,
   ZoomOut,
@@ -82,34 +78,6 @@ export function NiriWorkspaceToolbar({
       </div>
       <TooltipProvider>
         <div className="niri-workspace-toolbar-group">
-          <NiriToolbarButton
-            label="Frame split vertically"
-            onClick={() => runLayoutAction(() => store.splitFocusedPane("down"))}
-          >
-            <SplitSquareVertical className="h-3.5 w-3.5" />
-          </NiriToolbarButton>
-          <NiriToolbarButton
-            label="Add frame to the right"
-            onClick={() => runLayoutAction(() => store.splitFocusedPane("right"))}
-          >
-            <SplitSquareHorizontal className="h-3.5 w-3.5" />
-          </NiriToolbarButton>
-          <NiriToolbarMenu
-            Icon={PanelBottom}
-            items={[
-              {
-                Icon: PanelTop,
-                label: "Add frame above",
-                onSelect: () => runLayoutAction(() => store.splitFocusedPaneToPlane("up")),
-              },
-              {
-                Icon: PanelBottom,
-                label: "Add frame below",
-                onSelect: () => runLayoutAction(() => store.splitFocusedPaneToPlane("down")),
-              },
-            ]}
-            label="Add frame above or below"
-          />
           <NiriToolbarButton
             label={overviewActive ? "Exit overview" : "Enter overview"}
             onClick={() => runLayoutAction(() => store.toggleOverviewMode())}

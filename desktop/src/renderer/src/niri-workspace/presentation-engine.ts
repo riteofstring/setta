@@ -34,6 +34,13 @@ interface PaneHostBinding {
 }
 
 type PaneResizeAxis = "horizontal" | "vertical";
+type PaneChromeAction =
+  | "add-above"
+  | "add-below"
+  | "close"
+  | "maximize"
+  | "split-down"
+  | "split-right";
 
 interface PaneVisualRect {
   bottom: number;
@@ -48,6 +55,14 @@ interface ResizeNeighborMeasurement {
 }
 
 const maximumResizeNeighborGapPx = 48;
+const paneChromeActions = [
+  "split-down",
+  "split-right",
+  "add-above",
+  "add-below",
+  "maximize",
+  "close",
+] satisfies PaneChromeAction[];
 
 export class PresentationEngine {
   private bindings: PaneHostBinding[] = [];
@@ -312,11 +327,19 @@ export class PresentationEngine {
     const dragHandle = this.ensureDragHandle(topBar);
     dragHandle.dataset.paneId = item.paneId;
 
-    const button = this.ensureMaximizeButton(topBar);
-    button.dataset.paneId = item.paneId;
-    const label = item.maximized ? "Restore pane size" : "Maximize pane";
-    button.setAttribute("aria-label", label);
-    button.title = label;
+    const actionStrip = this.ensurePaneActionStrip(topBar);
+    actionStrip.dataset.paneId = item.paneId;
+    let visibleActionCount = 0;
+    for (const action of paneChromeActions) {
+      const button = this.ensurePaneActionButton(actionStrip, action);
+      const visible = paneChromeActionVisible(action, item);
+      if (visible) {
+        visibleActionCount += 1;
+      }
+      this.syncPaneActionButton(button, action, item, visible);
+    }
+    actionStrip.dataset.niriPaneControlsVisible = visibleActionCount > 0 ? "true" : "false";
+
     this.syncResizeHandle(
       binding.host,
       item,
@@ -374,17 +397,51 @@ export class PresentationEngine {
     return button;
   }
 
-  private ensureMaximizeButton(topBar: HTMLElement): HTMLButtonElement {
-    const existing = this.maximizeButtonForTopBar(topBar);
+  private ensurePaneActionStrip(topBar: HTMLElement): HTMLElement {
+    const existing = this.paneActionStripForTopBar(topBar);
     if (existing) {
       return existing;
     }
-    const button = topBar.ownerDocument.createElement("button");
-    button.className = "niri-pane-maximize-button";
-    button.dataset.niriPaneMaximizeButton = "true";
+    const actionStrip = topBar.ownerDocument.createElement("div");
+    actionStrip.className = "niri-pane-action-strip app-no-drag";
+    actionStrip.dataset.niriPaneActionStrip = "true";
+    topBar.append(actionStrip);
+    return actionStrip;
+  }
+
+  private ensurePaneActionButton(
+    actionStrip: HTMLElement,
+    action: PaneChromeAction,
+  ): HTMLButtonElement {
+    const existing = this.paneActionButtonForStrip(actionStrip, action);
+    if (existing) {
+      return existing;
+    }
+    const button = actionStrip.ownerDocument.createElement("button");
+    button.className = paneActionButtonClassName(action);
+    button.dataset.niriPaneAction = action;
+    if (action === "maximize") {
+      button.dataset.niriPaneMaximizeButton = "true";
+    }
     button.type = "button";
-    topBar.append(button);
+    actionStrip.append(button);
     return button;
+  }
+
+  private syncPaneActionButton(
+    button: HTMLButtonElement,
+    action: PaneChromeAction,
+    item: PaneRenderItem,
+    visible: boolean,
+  ): void {
+    button.dataset.paneId = item.paneId;
+    const label = paneActionButtonLabel(action, item);
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    button.disabled = !visible;
+    button.tabIndex = visible ? 0 : -1;
+    button.style.display = visible ? "" : "none";
+    button.setAttribute("aria-hidden", visible ? "false" : "true");
   }
 
   private syncResizeHandle(
@@ -472,9 +529,19 @@ export class PresentationEngine {
     }
   }
 
-  private maximizeButtonForTopBar(topBar: HTMLElement): HTMLButtonElement | null {
+  private paneActionStripForTopBar(topBar: HTMLElement): HTMLElement | null {
     const existing = Array.from(topBar.children).find((child) =>
-      child.classList.contains("niri-pane-maximize-button"),
+      child.classList.contains("niri-pane-action-strip"),
+    );
+    return existing ? (existing as HTMLElement) : null;
+  }
+
+  private paneActionButtonForStrip(
+    actionStrip: HTMLElement,
+    action: PaneChromeAction,
+  ): HTMLButtonElement | null {
+    const existing = Array.from(actionStrip.children).find(
+      (child) => (child as HTMLElement).dataset.niriPaneAction === action,
     );
     return existing ? (existing as HTMLButtonElement) : null;
   }
@@ -624,6 +691,44 @@ export class PresentationEngine {
     }
     return 0;
   }
+}
+
+function paneChromeActionVisible(action: PaneChromeAction, item: PaneRenderItem): boolean {
+  if (!item.focused || item.presentationMode !== "normal") {
+    return false;
+  }
+  if (action === "close" || action === "maximize") {
+    return true;
+  }
+  return !item.maximized;
+}
+
+function paneActionButtonLabel(action: PaneChromeAction, item: PaneRenderItem): string {
+  switch (action) {
+    case "add-above":
+      return "Add pane above";
+    case "add-below":
+      return "Add pane below";
+    case "close":
+      return "Close pane";
+    case "maximize":
+      return item.maximized ? "Restore pane size" : "Maximize pane";
+    case "split-down":
+      return "Split pane down";
+    case "split-right":
+      return "Split pane right";
+    default:
+      return assertNever(action);
+  }
+}
+
+function paneActionButtonClassName(action: PaneChromeAction): string {
+  const className = `niri-pane-action-button niri-pane-action-${action} app-no-drag`;
+  return action === "maximize" ? `${className} niri-pane-maximize-button` : className;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`unhandled pane chrome action: ${String(value)}`);
 }
 
 function resizeNeighborItem(

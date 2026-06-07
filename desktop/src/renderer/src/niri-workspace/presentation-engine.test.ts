@@ -270,7 +270,13 @@ describe("niri presentation engine", () => {
     presentation.mount([host], null);
 
     presentation.apply(
-      [{ ...renderItem("niri_pane_0", "niri_surface_0", false), maximized: true }],
+      [
+        {
+          ...renderItem("niri_pane_0", "niri_surface_0", false),
+          focused: true,
+          maximized: true,
+        },
+      ],
       {
         resizePhase: "idle",
       },
@@ -282,16 +288,90 @@ describe("niri presentation engine", () => {
       chromeOrder: [
         "niri-pane-drag-handle app-no-drag",
         "niri-pane-title-editor app-no-drag",
-        "niri-pane-maximize-button",
+        "niri-pane-action-strip app-no-drag",
       ],
+      controlsVisible: "true",
       dragLabel: "Drag pane",
       dragPaneId: "niri_pane_0",
       hostMaximized: "true",
+      visibleActions: ["maximize", "close"],
       titleEditable: "plaintext-only",
       titleLabel: "Rename pane",
       titlePaneId: "niri_pane_0",
       titleText: "Pane 001",
       topBarPaneId: "niri_pane_0",
+    });
+  });
+
+  test("shows pane action controls only on focused normal panes", () => {
+    const scene = generateBenchmarkScene({ paneCount: 2, targetVisiblePanes: 2 });
+    const focusedHost = fakePaneHost("niri_pane_0", "Pane 001");
+    const unfocusedHost = fakePaneHost("niri_pane_1", "Pane 002");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([focusedHost, unfocusedHost], null);
+
+    presentation.apply(
+      [
+        { ...renderItem("niri_pane_0", "niri_surface_0", false), focused: true },
+        renderItemAt("niri_pane_1", "niri_surface_1", false, 168),
+      ],
+      { resizePhase: "idle" },
+    );
+
+    expect(paneActionSnapshot(focusedHost)).toEqual({
+      actionOrder: ["split-down", "split-right", "add-above", "add-below", "maximize", "close"],
+      actionStripPaneId: "niri_pane_0",
+      controlsVisible: "true",
+      lastAction: "close",
+      visibleActions: ["split-down", "split-right", "add-above", "add-below", "maximize", "close"],
+      visibleLabels: [
+        "Split pane down",
+        "Split pane right",
+        "Add pane above",
+        "Add pane below",
+        "Maximize pane",
+        "Close pane",
+      ],
+    });
+    expect(paneActionSnapshot(unfocusedHost)).toEqual({
+      actionOrder: ["split-down", "split-right", "add-above", "add-below", "maximize", "close"],
+      actionStripPaneId: "niri_pane_1",
+      controlsVisible: "false",
+      lastAction: "close",
+      visibleActions: [],
+      visibleLabels: [],
+    });
+  });
+
+  test("hides pane action controls during overview", () => {
+    const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
+    const host = fakePaneHost("niri_pane_0", "Pane 001");
+    const presentation = new PresentationEngine(
+      scene.panes,
+      new NiriMetricsCollector(),
+      new SurfaceRegistry(scene.panes, (pane) => new TitleSurfaceAdapter(pane)),
+    );
+    presentation.mount([host], null);
+
+    presentation.apply(
+      [
+        {
+          ...renderItem("niri_pane_0", "niri_surface_0", false),
+          focused: true,
+          presentationMode: "overview",
+        },
+      ],
+      { resizePhase: "idle" },
+    );
+
+    expect(paneActionSnapshot(host)).toMatchObject({
+      controlsVisible: "false",
+      visibleActions: [],
+      visibleLabels: [],
     });
   });
 
@@ -370,18 +450,35 @@ function paneChromeSnapshot(host: HTMLElement) {
   const dragHandle = requiredChromeElement(host, ".niri-pane-drag-handle");
   const titleEditor = requiredChromeElement(host, ".niri-pane-title-editor");
   const button = requiredChromeElement(host, ".niri-pane-maximize-button");
+  const actionSnapshot = paneActionSnapshot(host);
   return {
     buttonLabel: button.getAttribute("aria-label"),
     buttonPaneId: button.dataset.paneId,
     chromeOrder: Array.from(topBar.children).map((child) => child.className),
+    controlsVisible: actionSnapshot.controlsVisible,
     dragLabel: dragHandle.getAttribute("aria-label"),
     dragPaneId: dragHandle.dataset.paneId,
     hostMaximized: host.dataset.maximized,
+    visibleActions: actionSnapshot.visibleActions,
     titleEditable: titleEditor.contentEditable,
     titleLabel: titleEditor.getAttribute("aria-label"),
     titlePaneId: titleEditor.dataset.paneId,
     titleText: titleEditor.textContent,
     topBarPaneId: topBar.dataset.paneId,
+  };
+}
+
+function paneActionSnapshot(host: HTMLElement) {
+  const actionStrip = requiredChromeElement(host, ".niri-pane-action-strip");
+  const actions = Array.from(actionStrip.children).map((child) => child as HTMLButtonElement);
+  const visibleActions = actions.filter((action) => action.style.display !== "none");
+  return {
+    actionOrder: actions.map((action) => action.dataset.niriPaneAction),
+    actionStripPaneId: actionStrip.dataset.paneId,
+    controlsVisible: actionStrip.dataset.niriPaneControlsVisible,
+    lastAction: actions.at(-1)?.dataset.niriPaneAction,
+    visibleActions: visibleActions.map((action) => action.dataset.niriPaneAction),
+    visibleLabels: visibleActions.map((action) => action.getAttribute("aria-label")),
   };
 }
 
@@ -452,6 +549,7 @@ interface FakeElement {
   children: FakeElement[];
   contentEditable: string;
   dataset: Record<string, string>;
+  disabled: boolean;
   getAttribute: (name: string) => string | null;
   ownerDocument: {
     activeElement: FakeElement | null;
@@ -497,6 +595,7 @@ function fakeElement(tagName: string, ownerDocument: FakeElement["ownerDocument"
     children,
     contentEditable: "false",
     dataset: {},
+    disabled: false,
     get className() {
       return [...classNames].join(" ");
     },

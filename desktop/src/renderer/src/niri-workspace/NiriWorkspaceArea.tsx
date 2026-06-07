@@ -70,6 +70,13 @@ export interface NiriSurfaceFocusRequest {
 }
 
 const overviewDragThresholdPx = 6;
+type PaneChromeAction =
+  | "add-above"
+  | "add-below"
+  | "close"
+  | "maximize"
+  | "split-down"
+  | "split-right";
 
 interface OverviewDragSession {
   dragging: boolean;
@@ -514,7 +521,15 @@ function handleNiriWorkspaceClick({
   if (handleEmptyFrameActionClick({ event, runLayoutAction, runtime, scheduler })) {
     return;
   }
-  if (handlePaneMaximizeClick({ event, runLayoutAction, runtime, scheduler })) {
+  if (
+    handlePaneChromeActionClick({
+      event,
+      runLayoutAction,
+      runtime,
+      scheduler,
+      viewportProvider,
+    })
+  ) {
     return;
   }
   handlePaneChromeFocusClick({ event, runLayoutAction, runtime, scheduler, viewportProvider });
@@ -560,37 +575,118 @@ function emptyFrameHostPaneId(button: HTMLButtonElement | null): string | null {
   return host?.dataset.paneId ?? null;
 }
 
-function handlePaneMaximizeClick({
+function handlePaneChromeActionClick({
   event,
   runLayoutAction,
   runtime,
   scheduler,
+  viewportProvider,
 }: {
   event: MouseEvent;
   runLayoutAction: (action: () => void) => void;
   runtime: NiriRuntime;
   scheduler: FrameScheduler;
+  viewportProvider: () => Rect;
 }): boolean {
   if (!(event.target instanceof Element)) {
     return false;
   }
-  const button = event.target.closest<HTMLButtonElement>(
-    '.niri-pane-maximize-button[data-niri-pane-maximize-button="true"]',
-  );
-  const paneId = paneMaximizeButtonPaneId(button);
-  if (!button || !paneId) {
+  const button = event.target.closest<HTMLButtonElement>("[data-niri-pane-action]");
+  const action = paneChromeActionFromButton(button);
+  const paneId = paneChromeActionButtonPaneId(button);
+  if (!button || !action || !paneId) {
     return false;
   }
   event.preventDefault();
   event.stopPropagation();
   scheduler.pauseBenchmark();
-  runLayoutAction(() => runtime.store.togglePaneMaximized(paneId));
+  runPaneChromeAction({ action, paneId, runLayoutAction, runtime, viewportProvider });
   return true;
 }
 
-function paneMaximizeButtonPaneId(button: HTMLButtonElement | null): string | null {
+function paneChromeActionButtonPaneId(button: HTMLButtonElement | null): string | null {
   const host = button?.closest<HTMLElement>('[data-testid="niri-fake-pane-host"]');
   return button?.dataset.paneId ?? host?.dataset.paneId ?? null;
+}
+
+function paneChromeActionFromButton(button: HTMLButtonElement | null): PaneChromeAction | null {
+  const action = button?.dataset.niriPaneAction;
+  switch (action) {
+    case "add-above":
+    case "add-below":
+    case "close":
+    case "maximize":
+    case "split-down":
+    case "split-right":
+      return action;
+    case undefined:
+    default:
+      return null;
+  }
+}
+
+function runPaneChromeAction({
+  action,
+  paneId,
+  runLayoutAction,
+  runtime,
+  viewportProvider,
+}: {
+  action: PaneChromeAction;
+  paneId: string;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+  viewportProvider: () => Rect;
+}): void {
+  switch (action) {
+    case "add-above":
+      runLayoutAction(() => {
+        if (!runtime.store.focusPane(paneId)) {
+          return;
+        }
+        runtime.store.splitFocusedPaneToPlane("up");
+        runtime.store.ensureFocusedPaneVisible(viewportProvider());
+      });
+      return;
+    case "add-below":
+      runLayoutAction(() => {
+        if (!runtime.store.focusPane(paneId)) {
+          return;
+        }
+        runtime.store.splitFocusedPaneToPlane("down");
+        runtime.store.ensureFocusedPaneVisible(viewportProvider());
+      });
+      return;
+    case "close":
+      closePaneWithConfirmation({ paneId, runLayoutAction, runtime, viewportProvider });
+      return;
+    case "maximize":
+      runLayoutAction(() => {
+        runtime.store.togglePaneMaximized(paneId);
+        runtime.store.ensureFocusedPaneVisible(viewportProvider());
+      });
+      return;
+    case "split-down":
+      runLayoutAction(() => {
+        if (!runtime.store.focusPane(paneId)) {
+          return;
+        }
+        runtime.store.splitFocusedPane("down");
+        runtime.store.ensureFocusedPaneVisible(viewportProvider());
+      });
+      return;
+    case "split-right":
+      runLayoutAction(() => {
+        if (!runtime.store.focusPane(paneId)) {
+          return;
+        }
+        runtime.store.splitFocusedPane("right");
+        runtime.store.ensureFocusedPaneVisible(viewportProvider());
+      });
+      return;
+    default:
+      assertNever(action);
+  }
 }
 
 function handlePaneChromeFocusClick({
@@ -761,22 +857,42 @@ const handleCloseFocusedPaneCommand: NiriWorkspaceCommandHandler = ({
   }
   event.preventDefault();
   const focusedPaneId = runtime.store.focusedPaneId();
-  const focusedPane = runtime.store.toScene().paneById.get(focusedPaneId);
-  if (
-    focusedPane?.surfaceKind === "terminal" &&
-    terminalPaneCloseRequiresConfirmation(focusedPaneId) &&
-    !window.confirm("Close running terminal session?")
-  ) {
-    return true;
-  }
-  runLayoutAction(() => {
-    runtime.store.closeFocusedPane();
-  });
+  closePaneWithConfirmation({ paneId: focusedPaneId, runLayoutAction, runtime });
   return true;
 };
 
 function isClosePaneKey(key: string): boolean {
   return key === "Backspace" || key === "Delete";
+}
+
+function closePaneWithConfirmation({
+  paneId,
+  runLayoutAction,
+  runtime,
+  viewportProvider,
+}: {
+  paneId: string;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+  viewportProvider?: () => Rect;
+}): void {
+  const pane = runtime.store.toScene().paneById.get(paneId);
+  if (
+    pane?.surfaceKind === "terminal" &&
+    terminalPaneCloseRequiresConfirmation(paneId) &&
+    !window.confirm("Close running terminal session?")
+  ) {
+    return;
+  }
+  runLayoutAction(() => {
+    if (!runtime.store.focusPane(paneId)) {
+      return;
+    }
+    runtime.store.closeFocusedPane();
+    if (viewportProvider) {
+      runtime.store.ensureFocusedPaneVisible(viewportProvider());
+    }
+  });
 }
 
 function terminalPaneCloseRequiresConfirmation(paneId: string): boolean {
@@ -787,6 +903,10 @@ function terminalPaneCloseRequiresConfirmation(paneId: string): boolean {
   }
   const status = host?.dataset.terminalStatus ?? "";
   return status === "" || status === "running" || status === "starting";
+}
+
+function assertNever(value: never): never {
+  throw new Error(`unhandled pane chrome action: ${String(value)}`);
 }
 
 function handleNiriWorkspaceWheel({

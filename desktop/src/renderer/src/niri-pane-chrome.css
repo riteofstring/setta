@@ -51,8 +51,16 @@
   outline: none;
 }
 
+.niri-pane-action-strip {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-left: 2px;
+}
+
 .niri-pane-drag-handle,
-.niri-pane-maximize-button {
+.niri-pane-action-button {
   align-items: center;
   background: transparent;
   border: 0;
@@ -75,8 +83,9 @@
   cursor: grab;
 }
 
-.niri-pane-maximize-button {
+.niri-pane-action-button {
   cursor: pointer;
+  position: relative;
 }
 
 .niri-pane-drag-handle::before {
@@ -86,6 +95,67 @@
   height: 13px;
   opacity: 0.9;
   width: 10px;
+}
+
+.niri-pane-action-button::before,
+.niri-pane-action-button::after {
+  box-sizing: border-box;
+  content: "";
+  position: absolute;
+}
+
+.niri-pane-action-split-down::before,
+.niri-pane-action-split-right::before {
+  border: 1.4px solid currentColor;
+  border-radius: 2px;
+  height: 12px;
+  width: 12px;
+}
+
+.niri-pane-action-split-down::after {
+  background: currentColor;
+  height: 1.5px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+}
+
+.niri-pane-action-split-right::after {
+  background: currentColor;
+  height: 10px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 1.5px;
+}
+
+.niri-pane-action-add-above::before,
+.niri-pane-action-add-below::before {
+  border: 1.3px solid currentColor;
+  border-radius: 2px;
+  height: 12px;
+  opacity: 0.76;
+  width: 12px;
+}
+
+.niri-pane-action-add-above::after,
+.niri-pane-action-add-below::after {
+  background:
+    linear-gradient(currentColor, currentColor) center / 8px 1.5px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1.5px 8px no-repeat;
+  height: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+}
+
+.niri-pane-action-add-above::after {
+  top: 4px;
+}
+
+.niri-pane-action-add-below::after {
+  bottom: 4px;
 }
 
 .niri-pane-maximize-button::before,
@@ -102,10 +172,27 @@
   display: none;
 }
 
+.niri-pane-action-close::before,
+.niri-pane-action-close::after {
+  background: currentColor;
+  height: 1.5px;
+  left: 50%;
+  top: 50%;
+  width: 11px;
+}
+
+.niri-pane-action-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.niri-pane-action-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
 .niri-pane-drag-handle:hover,
 .niri-pane-drag-handle:focus-visible,
-.niri-pane-maximize-button:hover,
-.niri-pane-maximize-button:focus-visible {
+.niri-pane-action-button:hover,
+.niri-pane-action-button:focus-visible {
   background: color-mix(in oklch, var(--accent) 82%, transparent);
   color: var(--foreground);
   opacity: 1;

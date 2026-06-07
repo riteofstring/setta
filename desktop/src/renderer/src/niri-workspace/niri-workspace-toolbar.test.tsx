@@ -37,6 +37,11 @@ describe("niri workspace toolbar", () => {
     expect(hidden).toContain("niri-workspace-toolbar-spacer app-drag");
     expect(hidden).toContain("niri-workspace-toolbar-menu-root app-no-drag");
     expect(hidden).toContain("niri-workspace-toolbar-menu-button app-no-drag");
+    expect(hidden).toContain('aria-label="Enter overview"');
+    expect(hidden).toContain('aria-label="New frame"');
+    expect(hidden).not.toContain('aria-label="Frame split vertically"');
+    expect(hidden).not.toContain('aria-label="Add frame to the right"');
+    expect(hidden).not.toContain('aria-label="Add frame above or below"');
     expect(visible).toContain('data-testid="niri-performance-stats"');
     expect(visible).toContain("niri-workspace-toolbar-spacer app-drag");
   });
@@ -62,8 +67,6 @@ describe("niri workspace toolbar", () => {
 function toolbarStore(): NiriLayoutStore {
   return {
     paneLimitState: () => ({ allowed: true, count: 0, limit: null }),
-    splitFocusedPane: () => {},
-    splitFocusedPaneToPlane: () => {},
     toggleOverviewMode: () => {},
   } as unknown as NiriLayoutStore;
 }
