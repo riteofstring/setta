@@ -204,9 +204,9 @@ The first slice established backend-owned editor layout metadata and proved it t
 
 ## Phase 4 Deliverables
 
-Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, immutable run snapshots, toolbar add/validate/run controls, validation result panels, node/edge-attached diagnostics, basic Agent Task editing, first-pass type-specific draft details, selected-run node inspection, and explicit draft/run/version state are implemented. The remaining deliverables are workflow-level configuration and deeper node-detail refinements.
+Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, immutable run snapshots, toolbar add/validate/run controls, validation result panels, node/edge-attached diagnostics, basic Agent Task editing, first-pass type-specific draft details, selected-run node inspection, and explicit draft/run/version state are implemented. The renderer can list, open, edit, validate, save, and run workspace workflow definitions, but first-class workflow-level naming/configuration controls and deeper node-detail refinements remain.
 
-- Name, list, open, edit, validate, save, and run workspace workflow definitions from the renderer.
+- List, open, edit, validate, save, and run workspace workflow definitions from the renderer.
 - Render an empty editable canvas as the null workflow when no saved definition exists.
 - Materialize a saved workspace definition on first graph edit, not through a separate create-workflow button.
 - Maintain an editor draft using generated backend workflow types, not a hardcoded TypeScript mirror.
@@ -223,6 +223,8 @@ Current status: partially complete. Storage, blank-canvas authoring, durable nod
 - Open type-specific node details in an adjacent Niri pane.
 - Show backend validation diagnostics on affected nodes and edges without confusing them with runtime failures.
 - Make draft, saved version, and selected run/version explicit in the UI.
+- Remaining: add first-class workflow-level naming, description, and configuration controls.
+- Remaining: deepen node details with route history, transcript presentation, and type-specific editing controls.
 
 ## Guardrails
 

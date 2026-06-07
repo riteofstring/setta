@@ -791,7 +791,7 @@ Acceptance criteria:
 
 #### Phase 2: Transactional Persistence
 
-Status: Complete for runtime persistence. The Codex-backed kernel production path now uses SQLite-backed workflow persistence with transactional event-log and materialized-state commits. The earlier file-backed workflow runtime store has been removed from the production workflow path. Authored workflow definitions should still move to workspace JSON files in Phase 4.
+Status: Complete for runtime persistence. The Codex-backed kernel production path now uses SQLite-backed workflow persistence with transactional event-log and materialized-state commits. The earlier file-backed workflow runtime store has been removed from the production workflow path. Authored workflow definitions have since moved to deterministic workspace JSON files in Phase 4; SQLite remains runtime state and immutable snapshot storage.
 
 Deliverables:
 
