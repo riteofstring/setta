@@ -89,6 +89,13 @@ func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request T
 	return scriptedReply(sink, request.Run.ID, "Scripted response: "+request.Prompt)
 }
 
+func (harness *ScriptedWorkflowHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
+	if request.TurnMode == HarnessTurnStructuredTask {
+		return runScriptedStructuredHarnessTask(ctx, request)
+	}
+	return runConversationHarnessTask(ctx, request, harness.StartTurn)
+}
+
 func (harness *ScriptedWorkflowHarness) applyInitialCodexSettings(request TurnRequest) {
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
 		return

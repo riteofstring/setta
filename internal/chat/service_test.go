@@ -58,6 +58,57 @@ func TestServicePersistsConversationMessagesAndRunsAcrossRestart(t *testing.T) {
 	}
 }
 
+func TestServiceRoutesMasterChatThroughSharedHarnessTask(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "shared task")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
+
+	tasks := harness.TaskRequests()
+	if len(tasks) != 1 {
+		t.Fatalf("harness tasks = %+v, want one task", tasks)
+	}
+	if tasks[0].Surface != HarnessSurfaceMasterChat ||
+		tasks[0].TurnMode != HarnessTurnInteractiveConversation ||
+		tasks[0].OutputContract.Kind != HarnessOutputFreeTextEvents {
+		t.Fatalf("master chat harness task = %+v, want interactive free-text master chat", tasks[0])
+	}
+}
+
+func TestServiceRoutesWorkflowAgentThroughSharedHarnessTask(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	result, err := service.SendWorkflowAgentTurn("workspace_api", WorkflowAgentTurnRequest{
+		DefinitionID:        "definition_shared_task",
+		DefinitionVersionID: "version_shared_task",
+		ExecutionID:         "execution_shared_task",
+		NodeID:              "node_shared_task",
+		NodeExecutionID:     "node_execution_shared_task",
+		Prompt:              "workflow shared task",
+	})
+	if err != nil {
+		t.Fatalf("send workflow agent turn: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", result.Conversation.ID, result.Run.ID, RunStatusCompleted)
+
+	tasks := harness.TaskRequests()
+	if len(tasks) != 1 {
+		t.Fatalf("harness tasks = %+v, want one task", tasks)
+	}
+	if tasks[0].Surface != HarnessSurfaceWorkflowAgent ||
+		tasks[0].TurnMode != HarnessTurnInteractiveConversation ||
+		tasks[0].OutputContract.Kind != HarnessOutputFreeTextEvents {
+		t.Fatalf("workflow harness task = %+v, want interactive free-text workflow agent", tasks[0])
+	}
+}
+
 func TestServicePinsConversationAtTop(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
 	first, err := service.CreateConversation("workspace_api", "First")

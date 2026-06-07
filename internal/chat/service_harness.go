@@ -8,12 +8,13 @@ import (
 
 func (service *Service) runHarnessTurn(ctx context.Context, request TurnRequest) {
 	sink := turnSink{service: service, workspaceID: request.Workspace.ID, conversationID: request.Conversation.ID, runID: request.Run.ID}
-	completion, err := service.harness.StartTurn(ctx, request, sink)
+	task := conversationHarnessTaskRequest(request, sink)
+	result, err := service.taskRunner.RunTask(ctx, task)
 	if err != nil {
 		service.handleHarnessTurnError(ctx, request, err)
 		return
 	}
-	service.handleHarnessTurnCompletion(request, completion)
+	service.handleHarnessTurnCompletion(request, result.Completion)
 }
 
 func (service *Service) runHarnessGoalContinuation(ctx context.Context, request TurnRequest, continuation HarnessGoalContinuation) {
@@ -25,6 +26,34 @@ func (service *Service) runHarnessGoalContinuation(ctx context.Context, request 
 		return
 	}
 	service.handleHarnessTurnCompletion(request, completion)
+}
+
+func conversationHarnessTaskRequest(request TurnRequest, sink TurnSink) HarnessTaskRequest {
+	return HarnessTaskRequest{
+		Surface:     harnessSurfaceForTurn(request),
+		HarnessKind: request.Run.Harness,
+		TurnMode:    HarnessTurnInteractiveConversation,
+		OutputContract: HarnessOutputContract{
+			Kind: HarnessOutputFreeTextEvents,
+		},
+		CapabilityPolicy: HarnessCapabilityPolicy{
+			WorkspaceMutation: true,
+			Approvals:         true,
+			Streaming:         true,
+		},
+		ConversationTurn: &HarnessConversationTurn{
+			Request: request,
+			Sink:    sink,
+		},
+		ThreadRef: request.ThreadRef,
+	}
+}
+
+func harnessSurfaceForTurn(request TurnRequest) HarnessSurface {
+	if request.Conversation.Internal && request.Conversation.Workflow != nil {
+		return HarnessSurfaceWorkflowAgent
+	}
+	return HarnessSurfaceMasterChat
 }
 
 func (service *Service) handleHarnessTurnError(ctx context.Context, request TurnRequest, err error) {

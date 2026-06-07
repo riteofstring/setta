@@ -207,6 +207,76 @@ func (service *Service) UpdateLayoutPositions(ctx context.Context, workspaceID s
 	return service.store.UpdateLayoutPositions(ctx, workspaceID, positions, timestamp(service.now()))
 }
 
+func (service *Service) SaveCartographerRun(ctx context.Context, run CartographerRun) (CartographerRun, error) {
+	if _, err := service.resolveWorkspace(run.WorkspaceID); err != nil {
+		return CartographerRun{}, err
+	}
+	return service.store.SaveCartographerRun(ctx, run)
+}
+
+func (service *Service) ReadCartographerRun(ctx context.Context, workspaceID string, runID string) (CartographerRun, bool, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return CartographerRun{}, false, err
+	}
+	return service.store.ReadCartographerRun(ctx, workspaceID, runID)
+}
+
+func (service *Service) SaveCartographerWindow(ctx context.Context, window CartographerWindow) (CartographerWindow, error) {
+	if _, err := service.resolveWorkspace(window.WorkspaceID); err != nil {
+		return CartographerWindow{}, err
+	}
+	return service.store.SaveCartographerWindow(ctx, window)
+}
+
+func (service *Service) ReadCartographerWindow(ctx context.Context, workspaceID string, windowID string) (CartographerWindow, bool, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return CartographerWindow{}, false, err
+	}
+	return service.store.ReadCartographerWindow(ctx, workspaceID, windowID)
+}
+
+func (service *Service) SaveCartographerCursor(ctx context.Context, cursor CartographerCursor) (CartographerCursor, error) {
+	if _, err := service.resolveWorkspace(cursor.WorkspaceID); err != nil {
+		return CartographerCursor{}, err
+	}
+	return service.store.SaveCartographerCursor(ctx, cursor)
+}
+
+func (service *Service) ReadCartographerCursor(ctx context.Context, workspaceID string, sourceKind CartographerSourceKind, sourceID string) (CartographerCursor, bool, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return CartographerCursor{}, false, err
+	}
+	return service.store.ReadCartographerCursor(ctx, workspaceID, sourceKind, sourceID)
+}
+
+func (service *Service) SaveCartographerTrajectorySummary(ctx context.Context, summary CartographerTrajectorySummary) (CartographerTrajectorySummary, error) {
+	if _, err := service.resolveWorkspace(summary.WorkspaceID); err != nil {
+		return CartographerTrajectorySummary{}, err
+	}
+	return service.store.SaveCartographerTrajectorySummary(ctx, summary)
+}
+
+func (service *Service) ReadCartographerTrajectorySummary(ctx context.Context, workspaceID string, summaryID string) (CartographerTrajectorySummary, bool, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return CartographerTrajectorySummary{}, false, err
+	}
+	return service.store.ReadCartographerTrajectorySummary(ctx, workspaceID, summaryID)
+}
+
+func (service *Service) SaveCartographerPatch(ctx context.Context, patch CartographerPatchRecord) (CartographerPatchRecord, error) {
+	if _, err := service.resolveWorkspace(patch.WorkspaceID); err != nil {
+		return CartographerPatchRecord{}, err
+	}
+	return service.store.SaveCartographerPatch(ctx, patch)
+}
+
+func (service *Service) ReadCartographerPatch(ctx context.Context, workspaceID string, patchID string) (CartographerPatchRecord, bool, error) {
+	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+		return CartographerPatchRecord{}, false, err
+	}
+	return service.store.ReadCartographerPatch(ctx, workspaceID, patchID)
+}
+
 func (service *Service) resolveWorkspace(workspaceID string) (workspace.WorkspaceSummary, error) {
 	if err := validateStoreIDs("workspace id", workspaceID); err != nil {
 		return workspace.WorkspaceSummary{}, err

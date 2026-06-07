@@ -28,6 +28,7 @@ type WorkspaceResolver interface {
 type Service struct {
 	store             *Store
 	harness           Harness
+	taskRunner        HarnessTaskRunner
 	workspaceResolver WorkspaceResolver
 	events            *EventHub
 	semanticCompiler  semanticcontext.Compiler
@@ -71,6 +72,7 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 	service := &Service{
 		store:             store,
 		harness:           harness,
+		taskRunner:        HarnessTaskRunnerFor(harness),
 		workspaceResolver: workspaceResolver,
 		newID:             randomID,
 		now:               time.Now,

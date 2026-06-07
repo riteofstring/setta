@@ -504,6 +504,317 @@ WHERE type = 'table' AND name LIKE 'semantic_%'
 	}
 }
 
+func TestStoreOpensCartographerSchemaAndRejectsPreviousSemanticVersion(t *testing.T) {
+	store := newTestStore(t)
+	var version int
+	if err := store.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatalf("read semantic store version: %v", err)
+	}
+	if version != semanticStoreVersion {
+		t.Fatalf("semantic store version = %d, want %d", version, semanticStoreVersion)
+	}
+	var cartographerTables int
+	if err := store.db.QueryRow(`
+SELECT COUNT(*)
+FROM sqlite_master
+WHERE type = 'table' AND name IN (
+  'semantic_cartographer_runs',
+  'semantic_cartographer_windows',
+  'semantic_cartographer_cursors',
+  'semantic_cartographer_trajectory_summaries',
+  'semantic_cartographer_patches',
+  'semantic_cartographer_validation_diagnostics'
+)
+`).Scan(&cartographerTables); err != nil {
+		t.Fatalf("count cartographer tables: %v", err)
+	}
+	if cartographerTables != 6 {
+		t.Fatalf("cartographer table count = %d, want 6", cartographerTables)
+	}
+
+	appDataDir := t.TempDir()
+	dbPath := filepath.Join(appDataDir, semanticDatabaseName)
+	db, err := sql.Open(sqliteDriverName, dbPath)
+	if err != nil {
+		t.Fatalf("open previous-version sqlite db: %v", err)
+	}
+	if _, err := db.Exec(fmt.Sprintf("PRAGMA user_version = %d", semanticStoreVersion-1)); err != nil {
+		t.Fatalf("write previous semantic version: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close previous-version sqlite db: %v", err)
+	}
+	previous, err := NewStore(appDataDir)
+	if err == nil {
+		_ = previous.Close()
+		t.Fatal("new store with previous semantic version succeeded, want corrupt state error")
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("previous-version store error = %T %v, want corrupt state error", err, err)
+	}
+}
+
+func TestStorePersistsCartographerRunWindowCursorAndSummary(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	run := saveCartographerRunForTest(t, store, ctx)
+	window := saveCartographerWindowForTest(t, store, ctx, run.ID)
+	saveCartographerCursorForTest(t, store, ctx, run.ID)
+	saveCartographerSummaryForTest(t, store, ctx, run.ID, window.ID)
+}
+
+func TestStorePersistsCartographerPatchAuditWithoutSemanticEvents(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	run := saveCartographerRunForTest(t, store, ctx)
+	window := saveCartographerWindowForTest(t, store, ctx, run.ID)
+	patch := cartographerTestPatch(run.ID, window.ID)
+	if _, err := store.SaveCartographerPatch(ctx, patch); err != nil {
+		t.Fatalf("save cartographer patch: %v", err)
+	}
+	readPatch, ok, err := store.ReadCartographerPatch(ctx, testWorkspaceID, patch.ID)
+	if err != nil {
+		t.Fatalf("read cartographer patch: %v", err)
+	}
+	if !ok || readPatch.Status != CartographerPatchApplied || readPatch.CreatedSemanticEventIDs[0] != "semantic_event_cartographer_001" || len(readPatch.ValidationResult.Diagnostics) != 1 {
+		t.Fatalf("read cartographer patch = %+v, want persisted patch audit", readPatch)
+	}
+	assertCartographerDiagnosticRows(t, store, "cartographer_patch_001", 1)
+	assertNoSemanticEvents(t, store, ctx)
+}
+
+func saveCartographerRunForTest(t *testing.T, store *Store, ctx context.Context) CartographerRun {
+	t.Helper()
+	run := cartographerTestRun()
+	if _, err := store.SaveCartographerRun(ctx, run); err != nil {
+		t.Fatalf("save cartographer run: %v", err)
+	}
+	readRun, ok, err := store.ReadCartographerRun(ctx, testWorkspaceID, run.ID)
+	if err != nil {
+		t.Fatalf("read cartographer run: %v", err)
+	}
+	if !ok || readRun.InputBundle.ObservedEventRefs[0] != "event_observed_001" || readRun.HarnessKind != "codex" {
+		t.Fatalf("read cartographer run = %+v, want persisted run input and harness audit", readRun)
+	}
+	return run
+}
+
+func saveCartographerWindowForTest(t *testing.T, store *Store, ctx context.Context, runID string) CartographerWindow {
+	t.Helper()
+	window := cartographerTestWindow(runID)
+	if _, err := store.SaveCartographerWindow(ctx, window); err != nil {
+		t.Fatalf("save cartographer window: %v", err)
+	}
+	readWindow, ok, err := store.ReadCartographerWindow(ctx, testWorkspaceID, window.ID)
+	if err != nil {
+		t.Fatalf("read cartographer window: %v", err)
+	}
+	if !ok || readWindow.Status != CartographerWindowClosed || readWindow.InputBundle.SourceRefs.WorkflowExecutionID != "workflow_execution_cartographer" {
+		t.Fatalf("read cartographer window = %+v, want persisted closed window", readWindow)
+	}
+	return window
+}
+
+func saveCartographerCursorForTest(t *testing.T, store *Store, ctx context.Context, runID string) {
+	t.Helper()
+	cursor := cartographerTestCursor(runID)
+	if _, err := store.SaveCartographerCursor(ctx, cursor); err != nil {
+		t.Fatalf("save cartographer cursor: %v", err)
+	}
+	readCursor, ok, err := store.ReadCartographerCursor(ctx, testWorkspaceID, CartographerSourceWorkflowExecution, "workflow_execution_cartographer")
+	if err != nil {
+		t.Fatalf("read cartographer cursor: %v", err)
+	}
+	if !ok || readCursor.LastSequence != 42 || readCursor.RunID != runID {
+		t.Fatalf("read cartographer cursor = %+v, want persisted cursor", readCursor)
+	}
+}
+
+func saveCartographerSummaryForTest(t *testing.T, store *Store, ctx context.Context, runID string, windowID string) {
+	t.Helper()
+	summary := cartographerTestSummary(runID, windowID)
+	if _, err := store.SaveCartographerTrajectorySummary(ctx, summary); err != nil {
+		t.Fatalf("save cartographer summary: %v", err)
+	}
+	readSummary, ok, err := store.ReadCartographerTrajectorySummary(ctx, testWorkspaceID, summary.ID)
+	if err != nil {
+		t.Fatalf("read cartographer summary: %v", err)
+	}
+	if !ok || readSummary.ItemCount != 3 || readSummary.SourceRefs.ChatRunID != "chat_run_cartographer" {
+		t.Fatalf("read cartographer summary = %+v, want persisted summary refs", readSummary)
+	}
+}
+
+func cartographerTestRun() CartographerRun {
+	return CartographerRun{
+		ID:             "cartographer_run_001",
+		WorkspaceID:    testWorkspaceID,
+		Status:         CartographerRunRunning,
+		TriggerKind:    CartographerTriggerManual,
+		TargetEntityID: "node_cartographer_target",
+		SourceRefs: SemanticContextSourceRefs{
+			WorkflowExecutionID: "workflow_execution_cartographer",
+			ChatRunID:           "chat_run_cartographer",
+		},
+		InputBundle: cartographerTestInputBundle(),
+		OutputSchema: json.RawMessage(`{
+			"type": "object",
+			"required": ["patches"]
+		}`),
+		HarnessKind: "codex",
+		Model:       "gpt-5-codex",
+		RequestID:   "request_cartographer",
+		CreatedAt:   testTimestamp(30),
+		StartedAt:   testTimestamp(31),
+		UpdatedAt:   testTimestamp(31),
+	}
+}
+
+func cartographerTestWindow(runID string) CartographerWindow {
+	return CartographerWindow{
+		ID:          "cartographer_window_001",
+		WorkspaceID: testWorkspaceID,
+		RunID:       runID,
+		Status:      CartographerWindowClosed,
+		Sequence:    1,
+		SourceKind:  CartographerSourceWorkflowExecution,
+		SourceID:    "workflow_execution_cartographer",
+		CursorID:    "cartographer_cursor_001",
+		SummaryID:   "cartographer_summary_001",
+		InputBundle: cartographerTestInputBundle(),
+		OpenedAt:    testTimestamp(32),
+		ClosedAt:    testTimestamp(33),
+		CreatedAt:   testTimestamp(32),
+		UpdatedAt:   testTimestamp(33),
+	}
+}
+
+func cartographerTestCursor(runID string) CartographerCursor {
+	return CartographerCursor{
+		ID:             "cartographer_cursor_001",
+		WorkspaceID:    testWorkspaceID,
+		SourceKind:     CartographerSourceWorkflowExecution,
+		SourceID:       "workflow_execution_cartographer",
+		LastEventID:    "event_observed_001",
+		LastSequence:   42,
+		LastObservedAt: testTimestamp(34),
+		RunID:          runID,
+		UpdatedAt:      testTimestamp(34),
+	}
+}
+
+func cartographerTestSummary(runID string, windowID string) CartographerTrajectorySummary {
+	return CartographerTrajectorySummary{
+		ID:          "cartographer_summary_001",
+		WorkspaceID: testWorkspaceID,
+		RunID:       runID,
+		WindowID:    windowID,
+		SourceKind:  CartographerSourceWorkflowExecution,
+		SourceID:    "workflow_execution_cartographer",
+		Summary:     "Agent inspected semantic graph persistence and prepared a patch envelope.",
+		SourceRefs: SemanticContextSourceRefs{
+			WorkflowExecutionID: "workflow_execution_cartographer",
+			ChatRunID:           "chat_run_cartographer",
+		},
+		ItemCount: 3,
+		CreatedAt: testTimestamp(35),
+	}
+}
+
+func cartographerTestPatch(runID string, windowID string) CartographerPatchRecord {
+	confidence := 82
+	return CartographerPatchRecord{
+		WorkspaceID: testWorkspaceID,
+		ID:          "cartographer_patch_001",
+		RunID:       runID,
+		WindowID:    windowID,
+		Status:      CartographerPatchApplied,
+		Patch: CartographerPatch{
+			ID:         "cartographer_patch_001",
+			RunID:      runID,
+			WindowID:   windowID,
+			Confidence: &confidence,
+			Summary:    "Create a finding from observed work.",
+			Operations: []CartographerPatchOperation{{
+				ID:      "cartographer_operation_001",
+				Kind:    "create_node",
+				Payload: json.RawMessage(`{"nodeId":"node_cartographer_created","kind":"finding"}`),
+			}},
+			Evidence: []CartographerPatchEvidenceRef{{
+				SourceKind:       EvidenceSourceRunItem,
+				SourceID:         "run_item_cartographer",
+				EvidenceAnchorID: "evidence_cartographer",
+			}},
+			RawEnvelope: json.RawMessage(`{"patches":[{"id":"cartographer_patch_001"}]}`),
+		},
+		ValidationResult: CartographerPatchValidationResult{
+			PatchID:  "cartographer_patch_001",
+			Accepted: true,
+			Diagnostics: []CartographerDiagnostic{{
+				ID:        "cartographer_diagnostic_001",
+				RunID:     runID,
+				PatchID:   "cartographer_patch_001",
+				Severity:  CartographerDiagnosticInfo,
+				Code:      "shape_valid",
+				Message:   "Patch envelope shape is valid.",
+				Path:      "$.patches[0]",
+				CreatedAt: testTimestamp(36),
+			}},
+			ValidatedAt: testTimestamp(36),
+		},
+		ApplicationResult: CartographerPatchApplicationResult{
+			PatchID:                 "cartographer_patch_001",
+			Applied:                 true,
+			CreatedSemanticEventIDs: []string{"semantic_event_cartographer_001"},
+			AppliedAt:               testTimestamp(37),
+		},
+		CreatedSemanticEventIDs: []string{"semantic_event_cartographer_001"},
+		CreatedAt:               testTimestamp(36),
+		ValidatedAt:             testTimestamp(36),
+		AppliedAt:               testTimestamp(37),
+	}
+}
+
+func assertNoSemanticEvents(t *testing.T, store *Store, ctx context.Context) {
+	t.Helper()
+	history, err := store.ReadEventHistory(ctx, testWorkspaceID, "", 0, 10)
+	if err != nil {
+		t.Fatalf("read semantic event history: %v", err)
+	}
+	if len(history.Events) != 0 {
+		t.Fatalf("semantic history after cartographer audit = %+v, want no semantic graph events", history.Events)
+	}
+}
+
+func cartographerTestInputBundle() CartographerInputBundle {
+	return CartographerInputBundle{
+		WorkspaceID:    testWorkspaceID,
+		TargetEntityID: "node_cartographer_target",
+		SourceRefs: SemanticContextSourceRefs{
+			WorkflowExecutionID: "workflow_execution_cartographer",
+			ChatRunID:           "chat_run_cartographer",
+		},
+		ObservedEventRefs: []string{"event_observed_001"},
+	}
+}
+
+func assertCartographerDiagnosticRows(t *testing.T, store *Store, patchID string, want int) {
+	t.Helper()
+	var count int
+	if err := store.db.QueryRow(`
+SELECT COUNT(*)
+FROM semantic_cartographer_validation_diagnostics
+WHERE workspace_id = ? AND patch_id = ?
+`, testWorkspaceID, patchID).Scan(&count); err != nil {
+		t.Fatalf("count cartographer diagnostics: %v", err)
+	}
+	if count != want {
+		t.Fatalf("cartographer diagnostic rows = %d, want %d", count, want)
+	}
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	store, err := NewStore(t.TempDir())

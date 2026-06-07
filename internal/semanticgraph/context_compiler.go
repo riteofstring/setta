@@ -21,6 +21,7 @@ type contextCandidate struct {
 	key          string
 	item         SemanticContextPackItem
 	node         *SemanticNode
+	steeringKind SemanticSteeringKind
 	directRank   int
 	promotedRank int
 	updatedAt    string
@@ -372,6 +373,7 @@ func contextCandidateForSteering(directive SemanticSteeringDirective, packRefs S
 	}
 	return contextCandidate{
 		key:          "steering:" + directive.ID,
+		steeringKind: directive.Kind,
 		directRank:   0,
 		promotedRank: 1,
 		updatedAt:    directive.UpdatedAt,
@@ -516,7 +518,7 @@ func avoidTargetIDs(candidates map[string]contextCandidate) map[string]bool {
 	targets := map[string]bool{}
 	for _, candidate := range candidates {
 		if candidate.item.Kind == ContextPackItemSteering &&
-			strings.Contains(candidate.item.ReasonIncluded, "avoid") &&
+			candidate.steeringKind == SteeringKindAvoid &&
 			candidate.item.SemanticNodeID != "" {
 			targets[candidate.item.SemanticNodeID] = true
 		}

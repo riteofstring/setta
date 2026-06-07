@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 4
+	semanticStoreVersion = 5
 	sqliteDriverName     = "sqlite"
 )
 
@@ -365,6 +365,138 @@ CREATE TABLE IF NOT EXISTS semantic_layout_positions (
   updated_at TEXT NOT NULL,
   PRIMARY KEY(workspace_id, entity_id)
 );
+
+CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  trigger_kind TEXT NOT NULL,
+  target_entity_id TEXT NOT NULL DEFAULT '',
+  workflow_definition_id TEXT NOT NULL DEFAULT '',
+  workflow_execution_id TEXT NOT NULL DEFAULT '',
+  workflow_node_id TEXT NOT NULL DEFAULT '',
+  workflow_node_execution_id TEXT NOT NULL DEFAULT '',
+  chat_conversation_id TEXT NOT NULL DEFAULT '',
+  chat_run_id TEXT NOT NULL DEFAULT '',
+  chat_message_id TEXT NOT NULL DEFAULT '',
+  run_item_id TEXT NOT NULL DEFAULT '',
+  input_bundle_json TEXT NOT NULL DEFAULT '{}',
+  output_schema_json TEXT NOT NULL DEFAULT '{}',
+  harness_kind TEXT NOT NULL DEFAULT '',
+  model TEXT NOT NULL DEFAULT '',
+  request_id TEXT NOT NULL DEFAULT '',
+  response_id TEXT NOT NULL DEFAULT '',
+  diagnostics_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  started_at TEXT NOT NULL DEFAULT '',
+  completed_at TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  error TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_runs_workspace_source_idx
+  ON semantic_cartographer_runs(workspace_id, workflow_execution_id, chat_run_id, target_entity_id, updated_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS semantic_cartographer_windows (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  sequence INTEGER NOT NULL,
+  source_kind TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  cursor_id TEXT NOT NULL DEFAULT '',
+  summary_id TEXT NOT NULL DEFAULT '',
+  input_bundle_json TEXT NOT NULL DEFAULT '{}',
+  opened_at TEXT NOT NULL DEFAULT '',
+  closed_at TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_windows_workspace_run_idx
+  ON semantic_cartographer_windows(workspace_id, run_id, sequence ASC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_windows_workspace_source_idx
+  ON semantic_cartographer_windows(workspace_id, source_kind, source_id, updated_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS semantic_cartographer_cursors (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  source_kind TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  last_event_id TEXT NOT NULL DEFAULT '',
+  last_sequence INTEGER NOT NULL DEFAULT 0,
+  last_observed_at TEXT NOT NULL DEFAULT '',
+  run_id TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id),
+  UNIQUE(workspace_id, source_kind, source_id)
+);
+
+CREATE TABLE IF NOT EXISTS semantic_cartographer_trajectory_summaries (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  window_id TEXT NOT NULL DEFAULT '',
+  source_kind TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  workflow_definition_id TEXT NOT NULL DEFAULT '',
+  workflow_execution_id TEXT NOT NULL DEFAULT '',
+  workflow_node_id TEXT NOT NULL DEFAULT '',
+  workflow_node_execution_id TEXT NOT NULL DEFAULT '',
+  chat_conversation_id TEXT NOT NULL DEFAULT '',
+  chat_run_id TEXT NOT NULL DEFAULT '',
+  chat_message_id TEXT NOT NULL DEFAULT '',
+  run_item_id TEXT NOT NULL DEFAULT '',
+  item_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_summaries_workspace_run_idx
+  ON semantic_cartographer_trajectory_summaries(workspace_id, run_id, created_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_summaries_workspace_source_idx
+  ON semantic_cartographer_trajectory_summaries(workspace_id, source_kind, source_id, created_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS semantic_cartographer_patches (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  window_id TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,
+  patch_json TEXT NOT NULL DEFAULT '{}',
+  validation_result_json TEXT NOT NULL DEFAULT '{}',
+  application_result_json TEXT NOT NULL DEFAULT '{}',
+  created_semantic_event_ids_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  validated_at TEXT NOT NULL DEFAULT '',
+  applied_at TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_patches_workspace_run_idx
+  ON semantic_cartographer_patches(workspace_id, run_id, created_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS semantic_cartographer_validation_diagnostics (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  patch_id TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  code TEXT NOT NULL,
+  message TEXT NOT NULL,
+  path TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_cartographer_diagnostics_workspace_patch_idx
+  ON semantic_cartographer_validation_diagnostics(workspace_id, patch_id, created_at ASC, id);
 `)
 
 func splitSQLStatements(sqlText string) []string {

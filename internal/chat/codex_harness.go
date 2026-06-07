@@ -127,6 +127,13 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	return harness.waitForTurn(ctx, session, request.Run.ID, threadID, turnID, sink)
 }
 
+func (harness *CodexHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
+	if request.TurnMode == HarnessTurnStructuredTask {
+		return HarnessTaskResult{}, fmt.Errorf("%w: codex structured tasks are not wired in phase 6A", ErrUnsupportedHarnessTask)
+	}
+	return runConversationHarnessTask(ctx, request, harness.StartTurn)
+}
+
 func (harness *CodexHarness) waitForTurn(ctx context.Context, session *codexapp.Session, runID string, threadID string, turnID string, sink TurnSink) (TurnCompletion, error) {
 	state := codexTurnWaitState{activeTurnID: turnID, allowTurnIDRebind: true}
 	for {

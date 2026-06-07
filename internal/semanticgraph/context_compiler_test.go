@@ -158,6 +158,37 @@ func TestContextCompilerFailsRequiredContextOverBudgetWithoutPersisting(t *testi
 	}
 }
 
+func TestAvoidTargetIDsUseTypedSteeringKind(t *testing.T) {
+	candidates := map[string]contextCandidate{
+		"steering:avoid": {
+			key:          "steering:avoid",
+			steeringKind: SteeringKindAvoid,
+			item: SemanticContextPackItem{
+				Kind:           ContextPackItemSteering,
+				SemanticNodeID: "node_avoid",
+				ReasonIncluded: "typed steering warning",
+			},
+		},
+		"steering:focus": {
+			key:          "steering:focus",
+			steeringKind: SteeringKindFocus,
+			item: SemanticContextPackItem{
+				Kind:           ContextPackItemSteering,
+				SemanticNodeID: "node_focus",
+				ReasonIncluded: "avoid appears in user-authored copy but is not the steering kind",
+			},
+		},
+	}
+
+	targets := avoidTargetIDs(candidates)
+	if !targets["node_avoid"] {
+		t.Fatalf("avoid targets = %+v, want typed avoid steering target", targets)
+	}
+	if targets["node_focus"] {
+		t.Fatalf("avoid targets = %+v, want focus steering ignored even when reason text contains avoid", targets)
+	}
+}
+
 func seedCompilerGraph(t *testing.T, store *Store) {
 	t.Helper()
 	appendTestEvent(t, store, EventNodeCreated, "node_constraint", nodeCreatedPayload{
