@@ -16,6 +16,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
 	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 )
 
@@ -147,6 +148,9 @@ func contractValueSets() []chat.ContractValueSet {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range orchestrator.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
+	for _, set := range semanticgraph.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range terminal.ContractValueSets() {

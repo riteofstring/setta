@@ -4,6 +4,7 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -289,6 +290,42 @@ type SubmitWorkflowApprovalRequest struct {
 	Response        string                `json:"response"`
 	Answers         []chat.ApprovalAnswer `json:"answers"`
 	Cancelled       bool                  `json:"cancelled"`
+}
+
+type ReadSemanticGraphRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type ReadSemanticNodeDetailRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	NodeID      string `json:"nodeId"`
+}
+
+type ReadSemanticNodeDetailResponse struct {
+	Detail *semanticgraph.SemanticNodeDetail `json:"detail"`
+}
+
+type ListSemanticEvidenceRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	TargetEntityID string `json:"targetEntityId"`
+}
+
+type ListSemanticActivityRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	TargetEntityID string `json:"targetEntityId"`
+	Limit          int    `json:"limit"`
+}
+
+type ReadSemanticSteeringStateRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	TargetEntityID string `json:"targetEntityId"`
+}
+
+type ReadSemanticEventHistoryRequest struct {
+	WorkspaceID        string `json:"workspaceId"`
+	TargetEntityID     string `json:"targetEntityId"`
+	BeforeLogicalClock int    `json:"beforeLogicalClock"`
+	Limit              int    `json:"limit"`
 }
 
 type CreateTerminalRequest struct {

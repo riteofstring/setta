@@ -1071,6 +1071,47 @@ func TestStoreRejectsMalformedConversationState(t *testing.T) {
 	}
 }
 
+func TestStoreRecognizesConversationDirectoryRemovedDuringScan(t *testing.T) {
+	store, err := NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	dir := store.conversationDir("workspace_api", "conversation_gone")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("create conversation dir: %v", err)
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatalf("remove conversation dir: %v", err)
+	}
+	_, loadErr := store.LoadConversation("workspace_api", "conversation_gone")
+	if loadErr == nil {
+		t.Fatal("load removed conversation succeeded, want missing file error")
+	}
+	vanished, err := store.conversationVanishedDuringScan("workspace_api", "conversation_gone", loadErr)
+	if err != nil {
+		t.Fatalf("check vanished conversation: %v", err)
+	}
+	if !vanished {
+		t.Fatal("vanished = false, want true for removed conversation dir")
+	}
+
+	stillMissingFileDir := store.conversationDir("workspace_api", "conversation_missing_file")
+	if err := os.MkdirAll(stillMissingFileDir, 0o755); err != nil {
+		t.Fatalf("create missing-file conversation dir: %v", err)
+	}
+	_, loadErr = store.LoadConversation("workspace_api", "conversation_missing_file")
+	if loadErr == nil {
+		t.Fatal("load missing-file conversation succeeded, want error")
+	}
+	vanished, err = store.conversationVanishedDuringScan("workspace_api", "conversation_missing_file", loadErr)
+	if err != nil {
+		t.Fatalf("check missing-file conversation: %v", err)
+	}
+	if vanished {
+		t.Fatal("vanished = true, want false while conversation directory still exists")
+	}
+}
+
 func TestServiceListConversationsReturnsValidItemsWithMalformedConversationState(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)

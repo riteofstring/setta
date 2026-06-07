@@ -20,6 +20,7 @@ import (
 	"setta/internal/codexapp"
 	"setta/internal/httpapi"
 	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -50,6 +51,7 @@ type ReadyEvent struct {
 
 type Server struct {
 	closeCodex          func(context.Context) error
+	closeSemanticStore  func() error
 	closeTerminal       func(context.Context) error
 	closeWorkflowStore  func() error
 	closeEvents         func()
@@ -60,14 +62,16 @@ type Server struct {
 }
 
 type runtimeServices struct {
-	appearanceService   *appearance.Service
-	chatService         *chat.Service
-	codexAccountService *codexaccount.Service
-	codexManager        *codexapp.Manager
-	terminalService     *terminal.Manager
-	workspaceService    *workspacesession.Service
-	workflowService     *orchestrator.Service
-	workflowStore       *orchestrator.Store
+	appearanceService    *appearance.Service
+	chatService          *chat.Service
+	codexAccountService  *codexaccount.Service
+	codexManager         *codexapp.Manager
+	semanticGraphService *semanticgraph.Service
+	semanticGraphStore   *semanticgraph.Store
+	terminalService      *terminal.Manager
+	workspaceService     *workspacesession.Service
+	workflowService      *orchestrator.Service
+	workflowStore        *orchestrator.Store
 }
 
 func DefaultConfig() Config {
@@ -134,6 +138,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 
 	server := &Server{
 		closeCodex:          services.codexManager.Shutdown,
+		closeSemanticStore:  services.semanticGraphStore.Close,
 		closeTerminal:       services.terminalService.Shutdown,
 		closeWorkflowStore:  services.workflowStore.Close,
 		closeEvents:         services.chatService.CloseEvents,
@@ -174,24 +179,32 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
+	semanticGraphService, semanticGraphStore, err := newSemanticGraphService(config.AppDataDir, workspaceService)
+	if err != nil {
+		return runtimeServices{}, err
+	}
 	terminalService, err := newTerminalService(config.AppDataDir, workspaceService)
 	if err != nil {
+		_ = semanticGraphStore.Close()
 		return runtimeServices{}, err
 	}
 	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
 	if err != nil {
+		_ = semanticGraphStore.Close()
 		return runtimeServices{}, fmt.Errorf("create Codex account service: %w", err)
 	}
 
 	return runtimeServices{
-		appearanceService:   appearanceService,
-		chatService:         chatService,
-		codexAccountService: codexAccountService,
-		codexManager:        codexManager,
-		terminalService:     terminalService,
-		workspaceService:    workspaceService,
-		workflowService:     workflowService,
-		workflowStore:       workflowStore,
+		appearanceService:    appearanceService,
+		chatService:          chatService,
+		codexAccountService:  codexAccountService,
+		codexManager:         codexManager,
+		semanticGraphService: semanticGraphService,
+		semanticGraphStore:   semanticGraphStore,
+		terminalService:      terminalService,
+		workspaceService:     workspaceService,
+		workflowService:      workflowService,
+		workflowStore:        workflowStore,
 	}, nil
 }
 
@@ -275,6 +288,22 @@ func newWorkflowService(
 	return workflowService, workflowStore, nil
 }
 
+func newSemanticGraphService(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+) (*semanticgraph.Service, *semanticgraph.Store, error) {
+	semanticStore, err := semanticgraph.NewStore(appDataDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create semantic graph store: %w", err)
+	}
+	semanticService, err := semanticgraph.NewService(semanticStore, workspaceService)
+	if err != nil {
+		_ = semanticStore.Close()
+		return nil, nil, fmt.Errorf("create semantic graph service: %w", err)
+	}
+	return semanticService, semanticStore, nil
+}
+
 func newTerminalService(
 	appDataDir string,
 	workspaceService *workspacesession.Service,
@@ -296,12 +325,13 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 				Name:    httpapi.BackendName,
 				Version: config.Version,
 			},
-			AppearanceService:   services.appearanceService,
-			ChatService:         services.chatService,
-			CodexAccountService: services.codexAccountService,
-			TerminalService:     services.terminalService,
-			WorkspaceService:    services.workspaceService,
-			WorkflowService:     services.workflowService,
+			AppearanceService:    services.appearanceService,
+			ChatService:          services.chatService,
+			CodexAccountService:  services.codexAccountService,
+			SemanticGraphService: services.semanticGraphService,
+			TerminalService:      services.terminalService,
+			WorkspaceService:     services.workspaceService,
+			WorkflowService:      services.workflowService,
 		}),
 	}
 }
@@ -319,6 +349,7 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.server.Shutdown(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
+	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSemanticStore())
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownWorkflowStore())
 	return shutdownErr
 }
@@ -349,6 +380,13 @@ func (server *Server) shutdownCodex(ctx context.Context) error {
 func (server *Server) shutdownWorkflowStore() error {
 	if server.closeWorkflowStore != nil {
 		return server.closeWorkflowStore()
+	}
+	return nil
+}
+
+func (server *Server) shutdownSemanticStore() error {
+	if server.closeSemanticStore != nil {
+		return server.closeSemanticStore()
 	}
 	return nil
 }

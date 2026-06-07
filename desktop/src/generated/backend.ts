@@ -1148,6 +1148,176 @@ export function decodeWorkflowEventType(value: unknown, label = "WorkflowEventTy
   }
 }
 
+export type SemanticNodeKind = "concept" | "question" | "hypothesis" | "finding" | "decision" | "constraint";
+
+export const semanticNodeKindValues = ["concept", "question", "hypothesis", "finding", "decision", "constraint"] as const satisfies readonly SemanticNodeKind[];
+
+export function decodeSemanticNodeKind(value: unknown, label = "SemanticNodeKind"): SemanticNodeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "concept":
+      return decoded;
+    case "question":
+      return decoded;
+    case "hypothesis":
+      return decoded;
+    case "finding":
+      return decoded;
+    case "decision":
+      return decoded;
+    case "constraint":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticEdgeKind = "about" | "touches" | "supports" | "refutes" | "resolves" | "constrains" | "related_to";
+
+export const semanticEdgeKindValues = ["about", "touches", "supports", "refutes", "resolves", "constrains", "related_to"] as const satisfies readonly SemanticEdgeKind[];
+
+export function decodeSemanticEdgeKind(value: unknown, label = "SemanticEdgeKind"): SemanticEdgeKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "about":
+      return decoded;
+    case "touches":
+      return decoded;
+    case "supports":
+      return decoded;
+    case "refutes":
+      return decoded;
+    case "resolves":
+      return decoded;
+    case "constrains":
+      return decoded;
+    case "related_to":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticEvidenceSourceKind = "chat_message" | "run_item" | "file_range" | "diff" | "test" | "workflow_execution" | "prompt" | "log" | "document";
+
+export const semanticEvidenceSourceKindValues = ["chat_message", "run_item", "file_range", "diff", "test", "workflow_execution", "prompt", "log", "document"] as const satisfies readonly SemanticEvidenceSourceKind[];
+
+export function decodeSemanticEvidenceSourceKind(value: unknown, label = "SemanticEvidenceSourceKind"): SemanticEvidenceSourceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "chat_message":
+      return decoded;
+    case "run_item":
+      return decoded;
+    case "file_range":
+      return decoded;
+    case "diff":
+      return decoded;
+    case "test":
+      return decoded;
+    case "workflow_execution":
+      return decoded;
+    case "prompt":
+      return decoded;
+    case "log":
+      return decoded;
+    case "document":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticActivityKind = "exploring" | "editing" | "debugging" | "validating" | "blocked";
+
+export const semanticActivityKindValues = ["exploring", "editing", "debugging", "validating", "blocked"] as const satisfies readonly SemanticActivityKind[];
+
+export function decodeSemanticActivityKind(value: unknown, label = "SemanticActivityKind"): SemanticActivityKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "exploring":
+      return decoded;
+    case "editing":
+      return decoded;
+    case "debugging":
+      return decoded;
+    case "validating":
+      return decoded;
+    case "blocked":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticActorKind = "user" | "assistant" | "service" | "system" | "cartographer";
+
+export const semanticActorKindValues = ["user", "assistant", "service", "system", "cartographer"] as const satisfies readonly SemanticActorKind[];
+
+export function decodeSemanticActorKind(value: unknown, label = "SemanticActorKind"): SemanticActorKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "user":
+      return decoded;
+    case "assistant":
+      return decoded;
+    case "service":
+      return decoded;
+    case "system":
+      return decoded;
+    case "cartographer":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticEventType = "node.created" | "node.updated" | "node.renamed" | "node.dismissed" | "node.promoted" | "node.split" | "node.merged" | "edge.created" | "edge.updated" | "edge.removed" | "evidence.attached" | "activity.started" | "activity.ended" | "steering.created" | "steering.updated" | "context_pack.created" | "constraint_check.recorded";
+
+export const semanticEventTypeValues = ["node.created", "node.updated", "node.renamed", "node.dismissed", "node.promoted", "node.split", "node.merged", "edge.created", "edge.updated", "edge.removed", "evidence.attached", "activity.started", "activity.ended", "steering.created", "steering.updated", "context_pack.created", "constraint_check.recorded"] as const satisfies readonly SemanticEventType[];
+
+export function decodeSemanticEventType(value: unknown, label = "SemanticEventType"): SemanticEventType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "node.created":
+      return decoded;
+    case "node.updated":
+      return decoded;
+    case "node.renamed":
+      return decoded;
+    case "node.dismissed":
+      return decoded;
+    case "node.promoted":
+      return decoded;
+    case "node.split":
+      return decoded;
+    case "node.merged":
+      return decoded;
+    case "edge.created":
+      return decoded;
+    case "edge.updated":
+      return decoded;
+    case "edge.removed":
+      return decoded;
+    case "evidence.attached":
+      return decoded;
+    case "activity.started":
+      return decoded;
+    case "activity.ended":
+      return decoded;
+    case "steering.created":
+      return decoded;
+    case "steering.updated":
+      return decoded;
+    case "context_pack.created":
+      return decoded;
+    case "constraint_check.recorded":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SessionStatus = "starting" | "running" | "exited" | "closed" | "error";
 
 export const sessionStatusValues = ["starting", "running", "exited", "closed", "error"] as const satisfies readonly SessionStatus[];
@@ -2469,6 +2639,201 @@ export interface SubmitWorkflowApprovalRequest {
   cancelled: boolean;
 }
 
+export interface ReadSemanticGraphRequest {
+  workspaceId: string;
+}
+
+export interface SemanticNode {
+  id: string;
+  workspaceId: string;
+  kind: SemanticNodeKind;
+  label: string;
+  summary: string;
+  dismissed: boolean;
+  promoted: boolean;
+  splitFromNodeId: string;
+  splitIntoNodeIds: string[];
+  mergedIntoNodeId: string;
+  createdByEventId: string;
+  updatedByEventId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SemanticEdge {
+  id: string;
+  workspaceId: string;
+  kind: SemanticEdgeKind;
+  fromNodeId: string;
+  toNodeId: string;
+  label: string;
+  summary: string;
+  createdByEventId: string;
+  updatedByEventId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SemanticLayoutPosition {
+  workspaceId: string;
+  entityId: string;
+  x: number;
+  y: number;
+  pinned: boolean;
+  updatedAt: string;
+}
+
+export interface SemanticGraph {
+  workspaceId: string;
+  nodes: SemanticNode[];
+  edges: SemanticEdge[];
+  layoutPositions: SemanticLayoutPosition[];
+}
+
+export interface ReadSemanticNodeDetailRequest {
+  workspaceId: string;
+  nodeId: string;
+}
+
+export interface SemanticEvidenceAnchor {
+  id: string;
+  workspaceId: string;
+  targetEntityId: string;
+  sourceKind: SemanticEvidenceSourceKind;
+  sourceId: string;
+  uri: string;
+  path: string;
+  rangeStart: number;
+  rangeEnd: number;
+  text: string;
+  summary: string;
+  createdByEventId: string;
+  createdAt: string;
+}
+
+export interface SemanticActivityInterval {
+  id: string;
+  workspaceId: string;
+  targetEntityId: string;
+  kind: SemanticActivityKind;
+  summary: string;
+  startedByEventId: string;
+  endedByEventId: string;
+  startedAt: string;
+  endedAt: string;
+  updatedAt: string;
+}
+
+export interface SemanticSteeringDirective {
+  id: string;
+  workspaceId: string;
+  targetEntityId: string;
+  instruction: string;
+  active: boolean;
+  createdByEventId: string;
+  updatedByEventId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SemanticContextPackRecord {
+  id: string;
+  workspaceId: string;
+  targetEntityId: string;
+  summary: string;
+  prompt: string;
+  itemCount: number;
+  createdByEventId: string;
+  createdAt: string;
+}
+
+export interface SemanticNodeDetail {
+  workspaceId: string;
+  node: SemanticNode;
+  incomingEdges: SemanticEdge[];
+  outgoingEdges: SemanticEdge[];
+  evidence: SemanticEvidenceAnchor[];
+  activity: SemanticActivityInterval[];
+  steeringDirectives: SemanticSteeringDirective[];
+  contextPackHistory: SemanticContextPackRecord[];
+}
+
+export interface ReadSemanticNodeDetailResponse {
+  detail: SemanticNodeDetail | null;
+}
+
+export interface ListSemanticEvidenceRequest {
+  workspaceId: string;
+  targetEntityId: string;
+}
+
+export interface SemanticEvidenceList {
+  workspaceId: string;
+  targetEntityId: string;
+  evidence: SemanticEvidenceAnchor[];
+}
+
+export interface ListSemanticActivityRequest {
+  workspaceId: string;
+  targetEntityId: string;
+  limit: number;
+}
+
+export interface SemanticActivityList {
+  workspaceId: string;
+  targetEntityId: string;
+  activity: SemanticActivityInterval[];
+}
+
+export interface ReadSemanticSteeringStateRequest {
+  workspaceId: string;
+  targetEntityId: string;
+}
+
+export interface SemanticSteeringState {
+  workspaceId: string;
+  targetEntityId: string;
+  steeringDirectives: SemanticSteeringDirective[];
+}
+
+export interface ReadSemanticEventHistoryRequest {
+  workspaceId: string;
+  targetEntityId: string;
+  beforeLogicalClock: number;
+  limit: number;
+}
+
+export interface SemanticEvent {
+  eventId: string;
+  workspaceId: string;
+  sessionId: string;
+  runId: string;
+  workflowExecutionId: string;
+  actorKind: SemanticActorKind;
+  actorId: string;
+  eventType: SemanticEventType;
+  targetEntityId: string;
+  causationId: string;
+  correlationId: string;
+  traceId: string;
+  spanId: string;
+  logicalClock: number;
+  observedAt: string;
+  payload: unknown;
+  modelInfo: Record<string, string>;
+  confidence: number | null;
+  supersedesEventId: string;
+  retractedByEventId: string;
+}
+
+export interface SemanticEventHistory {
+  workspaceId: string;
+  targetEntityId: string;
+  events: SemanticEvent[];
+  hasMoreOlder: boolean;
+  olderBeforeLogicalClock: number;
+}
+
 export interface CreateTerminalRequest {
   workspaceId: string;
   paneId: string;
@@ -3158,6 +3523,30 @@ export const backendEndpoints = {
   WorkflowEventStream: {
     method: "GET",
     path: "/workflows/events",
+  },
+  ReadSemanticGraph: {
+    method: "POST",
+    path: "/semantic-graph/read",
+  },
+  ReadSemanticNodeDetail: {
+    method: "POST",
+    path: "/semantic-graph/nodes/detail",
+  },
+  ListSemanticEvidence: {
+    method: "POST",
+    path: "/semantic-graph/evidence/list",
+  },
+  ListSemanticActivity: {
+    method: "POST",
+    path: "/semantic-graph/activity/list",
+  },
+  ReadSemanticSteeringState: {
+    method: "POST",
+    path: "/semantic-graph/steering/read",
+  },
+  ReadSemanticEventHistory: {
+    method: "POST",
+    path: "/semantic-graph/events/history",
   },
   CreateTerminal: {
     method: "POST",
@@ -4848,6 +5237,285 @@ export function decodeSubmitWorkflowApprovalRequest(value: unknown): SubmitWorkf
   };
 }
 
+export function decodeReadSemanticGraphRequest(value: unknown): ReadSemanticGraphRequest {
+  const record = assertRecord(value, "ReadSemanticGraphRequest");
+  assertKnownFields(record, "ReadSemanticGraphRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticGraphRequest"), "ReadSemanticGraphRequest.workspaceId"),
+  };
+}
+
+export function decodeSemanticNode(value: unknown): SemanticNode {
+  const record = assertRecord(value, "SemanticNode");
+  assertKnownFields(record, "SemanticNode", ["id", "workspaceId", "kind", "label", "summary", "dismissed", "promoted", "splitFromNodeId", "splitIntoNodeIds", "mergedIntoNodeId", "createdByEventId", "updatedByEventId", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticNode"), "SemanticNode.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticNode"), "SemanticNode.workspaceId"),
+    kind: decodeSemanticNodeKind(requireField(record, "kind", "SemanticNode"), "SemanticNode.kind"),
+    label: decodeString(requireField(record, "label", "SemanticNode"), "SemanticNode.label"),
+    summary: decodeString(requireField(record, "summary", "SemanticNode"), "SemanticNode.summary"),
+    dismissed: decodeBoolean(requireField(record, "dismissed", "SemanticNode"), "SemanticNode.dismissed"),
+    promoted: decodeBoolean(requireField(record, "promoted", "SemanticNode"), "SemanticNode.promoted"),
+    splitFromNodeId: decodeString(requireField(record, "splitFromNodeId", "SemanticNode"), "SemanticNode.splitFromNodeId"),
+    splitIntoNodeIds: decodeArray(requireField(record, "splitIntoNodeIds", "SemanticNode"), "SemanticNode.splitIntoNodeIds", (item) => decodeString(item, "SemanticNode.splitIntoNodeIds item")),
+    mergedIntoNodeId: decodeString(requireField(record, "mergedIntoNodeId", "SemanticNode"), "SemanticNode.mergedIntoNodeId"),
+    createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticNode"), "SemanticNode.createdByEventId"),
+    updatedByEventId: decodeString(requireField(record, "updatedByEventId", "SemanticNode"), "SemanticNode.updatedByEventId"),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticNode"), "SemanticNode.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticNode"), "SemanticNode.updatedAt"),
+  };
+}
+
+export function decodeSemanticEdge(value: unknown): SemanticEdge {
+  const record = assertRecord(value, "SemanticEdge");
+  assertKnownFields(record, "SemanticEdge", ["id", "workspaceId", "kind", "fromNodeId", "toNodeId", "label", "summary", "createdByEventId", "updatedByEventId", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticEdge"), "SemanticEdge.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticEdge"), "SemanticEdge.workspaceId"),
+    kind: decodeSemanticEdgeKind(requireField(record, "kind", "SemanticEdge"), "SemanticEdge.kind"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "SemanticEdge"), "SemanticEdge.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "SemanticEdge"), "SemanticEdge.toNodeId"),
+    label: decodeString(requireField(record, "label", "SemanticEdge"), "SemanticEdge.label"),
+    summary: decodeString(requireField(record, "summary", "SemanticEdge"), "SemanticEdge.summary"),
+    createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticEdge"), "SemanticEdge.createdByEventId"),
+    updatedByEventId: decodeString(requireField(record, "updatedByEventId", "SemanticEdge"), "SemanticEdge.updatedByEventId"),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticEdge"), "SemanticEdge.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticEdge"), "SemanticEdge.updatedAt"),
+  };
+}
+
+export function decodeSemanticLayoutPosition(value: unknown): SemanticLayoutPosition {
+  const record = assertRecord(value, "SemanticLayoutPosition");
+  assertKnownFields(record, "SemanticLayoutPosition", ["workspaceId", "entityId", "x", "y", "pinned", "updatedAt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticLayoutPosition"), "SemanticLayoutPosition.workspaceId"),
+    entityId: decodeString(requireField(record, "entityId", "SemanticLayoutPosition"), "SemanticLayoutPosition.entityId"),
+    x: decodeInteger(requireField(record, "x", "SemanticLayoutPosition"), "SemanticLayoutPosition.x"),
+    y: decodeInteger(requireField(record, "y", "SemanticLayoutPosition"), "SemanticLayoutPosition.y"),
+    pinned: decodeBoolean(requireField(record, "pinned", "SemanticLayoutPosition"), "SemanticLayoutPosition.pinned"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticLayoutPosition"), "SemanticLayoutPosition.updatedAt"),
+  };
+}
+
+export function decodeSemanticGraph(value: unknown): SemanticGraph {
+  const record = assertRecord(value, "SemanticGraph");
+  assertKnownFields(record, "SemanticGraph", ["workspaceId", "nodes", "edges", "layoutPositions"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticGraph"), "SemanticGraph.workspaceId"),
+    nodes: decodeArray(requireField(record, "nodes", "SemanticGraph"), "SemanticGraph.nodes", (item) => decodeSemanticNode(item)),
+    edges: decodeArray(requireField(record, "edges", "SemanticGraph"), "SemanticGraph.edges", (item) => decodeSemanticEdge(item)),
+    layoutPositions: decodeArray(requireField(record, "layoutPositions", "SemanticGraph"), "SemanticGraph.layoutPositions", (item) => decodeSemanticLayoutPosition(item)),
+  };
+}
+
+export function decodeReadSemanticNodeDetailRequest(value: unknown): ReadSemanticNodeDetailRequest {
+  const record = assertRecord(value, "ReadSemanticNodeDetailRequest");
+  assertKnownFields(record, "ReadSemanticNodeDetailRequest", ["workspaceId", "nodeId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticNodeDetailRequest"), "ReadSemanticNodeDetailRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "ReadSemanticNodeDetailRequest"), "ReadSemanticNodeDetailRequest.nodeId"),
+  };
+}
+
+export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAnchor {
+  const record = assertRecord(value, "SemanticEvidenceAnchor");
+  assertKnownFields(record, "SemanticEvidenceAnchor", ["id", "workspaceId", "targetEntityId", "sourceKind", "sourceId", "uri", "path", "rangeStart", "rangeEnd", "text", "summary", "createdByEventId", "createdAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.targetEntityId"),
+    sourceKind: decodeSemanticEvidenceSourceKind(requireField(record, "sourceKind", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.sourceKind"),
+    sourceId: decodeString(requireField(record, "sourceId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.sourceId"),
+    uri: decodeString(requireField(record, "uri", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.uri"),
+    path: decodeString(requireField(record, "path", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.path"),
+    rangeStart: decodeInteger(requireField(record, "rangeStart", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.rangeStart"),
+    rangeEnd: decodeInteger(requireField(record, "rangeEnd", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.rangeEnd"),
+    text: decodeString(requireField(record, "text", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.text"),
+    summary: decodeString(requireField(record, "summary", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.summary"),
+    createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.createdByEventId"),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.createdAt"),
+  };
+}
+
+export function decodeSemanticActivityInterval(value: unknown): SemanticActivityInterval {
+  const record = assertRecord(value, "SemanticActivityInterval");
+  assertKnownFields(record, "SemanticActivityInterval", ["id", "workspaceId", "targetEntityId", "kind", "summary", "startedByEventId", "endedByEventId", "startedAt", "endedAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticActivityInterval"), "SemanticActivityInterval.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticActivityInterval"), "SemanticActivityInterval.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticActivityInterval"), "SemanticActivityInterval.targetEntityId"),
+    kind: decodeSemanticActivityKind(requireField(record, "kind", "SemanticActivityInterval"), "SemanticActivityInterval.kind"),
+    summary: decodeString(requireField(record, "summary", "SemanticActivityInterval"), "SemanticActivityInterval.summary"),
+    startedByEventId: decodeString(requireField(record, "startedByEventId", "SemanticActivityInterval"), "SemanticActivityInterval.startedByEventId"),
+    endedByEventId: decodeString(requireField(record, "endedByEventId", "SemanticActivityInterval"), "SemanticActivityInterval.endedByEventId"),
+    startedAt: decodeString(requireField(record, "startedAt", "SemanticActivityInterval"), "SemanticActivityInterval.startedAt"),
+    endedAt: decodeString(requireField(record, "endedAt", "SemanticActivityInterval"), "SemanticActivityInterval.endedAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticActivityInterval"), "SemanticActivityInterval.updatedAt"),
+  };
+}
+
+export function decodeSemanticSteeringDirective(value: unknown): SemanticSteeringDirective {
+  const record = assertRecord(value, "SemanticSteeringDirective");
+  assertKnownFields(record, "SemanticSteeringDirective", ["id", "workspaceId", "targetEntityId", "instruction", "active", "createdByEventId", "updatedByEventId", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticSteeringDirective"), "SemanticSteeringDirective.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticSteeringDirective"), "SemanticSteeringDirective.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticSteeringDirective"), "SemanticSteeringDirective.targetEntityId"),
+    instruction: decodeString(requireField(record, "instruction", "SemanticSteeringDirective"), "SemanticSteeringDirective.instruction"),
+    active: decodeBoolean(requireField(record, "active", "SemanticSteeringDirective"), "SemanticSteeringDirective.active"),
+    createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticSteeringDirective"), "SemanticSteeringDirective.createdByEventId"),
+    updatedByEventId: decodeString(requireField(record, "updatedByEventId", "SemanticSteeringDirective"), "SemanticSteeringDirective.updatedByEventId"),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticSteeringDirective"), "SemanticSteeringDirective.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticSteeringDirective"), "SemanticSteeringDirective.updatedAt"),
+  };
+}
+
+export function decodeSemanticContextPackRecord(value: unknown): SemanticContextPackRecord {
+  const record = assertRecord(value, "SemanticContextPackRecord");
+  assertKnownFields(record, "SemanticContextPackRecord", ["id", "workspaceId", "targetEntityId", "summary", "prompt", "itemCount", "createdByEventId", "createdAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "SemanticContextPackRecord"), "SemanticContextPackRecord.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticContextPackRecord"), "SemanticContextPackRecord.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticContextPackRecord"), "SemanticContextPackRecord.targetEntityId"),
+    summary: decodeString(requireField(record, "summary", "SemanticContextPackRecord"), "SemanticContextPackRecord.summary"),
+    prompt: decodeString(requireField(record, "prompt", "SemanticContextPackRecord"), "SemanticContextPackRecord.prompt"),
+    itemCount: decodeInteger(requireField(record, "itemCount", "SemanticContextPackRecord"), "SemanticContextPackRecord.itemCount"),
+    createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticContextPackRecord"), "SemanticContextPackRecord.createdByEventId"),
+    createdAt: decodeString(requireField(record, "createdAt", "SemanticContextPackRecord"), "SemanticContextPackRecord.createdAt"),
+  };
+}
+
+export function decodeSemanticNodeDetail(value: unknown): SemanticNodeDetail {
+  const record = assertRecord(value, "SemanticNodeDetail");
+  assertKnownFields(record, "SemanticNodeDetail", ["workspaceId", "node", "incomingEdges", "outgoingEdges", "evidence", "activity", "steeringDirectives", "contextPackHistory"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticNodeDetail"), "SemanticNodeDetail.workspaceId"),
+    node: decodeSemanticNode(requireField(record, "node", "SemanticNodeDetail")),
+    incomingEdges: decodeArray(requireField(record, "incomingEdges", "SemanticNodeDetail"), "SemanticNodeDetail.incomingEdges", (item) => decodeSemanticEdge(item)),
+    outgoingEdges: decodeArray(requireField(record, "outgoingEdges", "SemanticNodeDetail"), "SemanticNodeDetail.outgoingEdges", (item) => decodeSemanticEdge(item)),
+    evidence: decodeArray(requireField(record, "evidence", "SemanticNodeDetail"), "SemanticNodeDetail.evidence", (item) => decodeSemanticEvidenceAnchor(item)),
+    activity: decodeArray(requireField(record, "activity", "SemanticNodeDetail"), "SemanticNodeDetail.activity", (item) => decodeSemanticActivityInterval(item)),
+    steeringDirectives: decodeArray(requireField(record, "steeringDirectives", "SemanticNodeDetail"), "SemanticNodeDetail.steeringDirectives", (item) => decodeSemanticSteeringDirective(item)),
+    contextPackHistory: decodeArray(requireField(record, "contextPackHistory", "SemanticNodeDetail"), "SemanticNodeDetail.contextPackHistory", (item) => decodeSemanticContextPackRecord(item)),
+  };
+}
+
+export function decodeReadSemanticNodeDetailResponse(value: unknown): ReadSemanticNodeDetailResponse {
+  const record = assertRecord(value, "ReadSemanticNodeDetailResponse");
+  assertKnownFields(record, "ReadSemanticNodeDetailResponse", ["detail"]);
+  return {
+    detail: decodeNullable(requireField(record, "detail", "ReadSemanticNodeDetailResponse"), "ReadSemanticNodeDetailResponse.detail", (item) => decodeSemanticNodeDetail(item)),
+  };
+}
+
+export function decodeListSemanticEvidenceRequest(value: unknown): ListSemanticEvidenceRequest {
+  const record = assertRecord(value, "ListSemanticEvidenceRequest");
+  assertKnownFields(record, "ListSemanticEvidenceRequest", ["workspaceId", "targetEntityId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListSemanticEvidenceRequest"), "ListSemanticEvidenceRequest.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "ListSemanticEvidenceRequest"), "ListSemanticEvidenceRequest.targetEntityId"),
+  };
+}
+
+export function decodeSemanticEvidenceList(value: unknown): SemanticEvidenceList {
+  const record = assertRecord(value, "SemanticEvidenceList");
+  assertKnownFields(record, "SemanticEvidenceList", ["workspaceId", "targetEntityId", "evidence"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticEvidenceList"), "SemanticEvidenceList.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticEvidenceList"), "SemanticEvidenceList.targetEntityId"),
+    evidence: decodeArray(requireField(record, "evidence", "SemanticEvidenceList"), "SemanticEvidenceList.evidence", (item) => decodeSemanticEvidenceAnchor(item)),
+  };
+}
+
+export function decodeListSemanticActivityRequest(value: unknown): ListSemanticActivityRequest {
+  const record = assertRecord(value, "ListSemanticActivityRequest");
+  assertKnownFields(record, "ListSemanticActivityRequest", ["workspaceId", "targetEntityId", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListSemanticActivityRequest"), "ListSemanticActivityRequest.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "ListSemanticActivityRequest"), "ListSemanticActivityRequest.targetEntityId"),
+    limit: decodeInteger(requireField(record, "limit", "ListSemanticActivityRequest"), "ListSemanticActivityRequest.limit"),
+  };
+}
+
+export function decodeSemanticActivityList(value: unknown): SemanticActivityList {
+  const record = assertRecord(value, "SemanticActivityList");
+  assertKnownFields(record, "SemanticActivityList", ["workspaceId", "targetEntityId", "activity"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticActivityList"), "SemanticActivityList.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticActivityList"), "SemanticActivityList.targetEntityId"),
+    activity: decodeArray(requireField(record, "activity", "SemanticActivityList"), "SemanticActivityList.activity", (item) => decodeSemanticActivityInterval(item)),
+  };
+}
+
+export function decodeReadSemanticSteeringStateRequest(value: unknown): ReadSemanticSteeringStateRequest {
+  const record = assertRecord(value, "ReadSemanticSteeringStateRequest");
+  assertKnownFields(record, "ReadSemanticSteeringStateRequest", ["workspaceId", "targetEntityId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticSteeringStateRequest"), "ReadSemanticSteeringStateRequest.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "ReadSemanticSteeringStateRequest"), "ReadSemanticSteeringStateRequest.targetEntityId"),
+  };
+}
+
+export function decodeSemanticSteeringState(value: unknown): SemanticSteeringState {
+  const record = assertRecord(value, "SemanticSteeringState");
+  assertKnownFields(record, "SemanticSteeringState", ["workspaceId", "targetEntityId", "steeringDirectives"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticSteeringState"), "SemanticSteeringState.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticSteeringState"), "SemanticSteeringState.targetEntityId"),
+    steeringDirectives: decodeArray(requireField(record, "steeringDirectives", "SemanticSteeringState"), "SemanticSteeringState.steeringDirectives", (item) => decodeSemanticSteeringDirective(item)),
+  };
+}
+
+export function decodeReadSemanticEventHistoryRequest(value: unknown): ReadSemanticEventHistoryRequest {
+  const record = assertRecord(value, "ReadSemanticEventHistoryRequest");
+  assertKnownFields(record, "ReadSemanticEventHistoryRequest", ["workspaceId", "targetEntityId", "beforeLogicalClock", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticEventHistoryRequest"), "ReadSemanticEventHistoryRequest.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "ReadSemanticEventHistoryRequest"), "ReadSemanticEventHistoryRequest.targetEntityId"),
+    beforeLogicalClock: decodeInteger(requireField(record, "beforeLogicalClock", "ReadSemanticEventHistoryRequest"), "ReadSemanticEventHistoryRequest.beforeLogicalClock"),
+    limit: decodeInteger(requireField(record, "limit", "ReadSemanticEventHistoryRequest"), "ReadSemanticEventHistoryRequest.limit"),
+  };
+}
+
+export function decodeSemanticEvent(value: unknown): SemanticEvent {
+  const record = assertRecord(value, "SemanticEvent");
+  assertKnownFields(record, "SemanticEvent", ["eventId", "workspaceId", "sessionId", "runId", "workflowExecutionId", "actorKind", "actorId", "eventType", "targetEntityId", "causationId", "correlationId", "traceId", "spanId", "logicalClock", "observedAt", "payload", "modelInfo", "confidence", "supersedesEventId", "retractedByEventId"]);
+  return {
+    eventId: decodeString(requireField(record, "eventId", "SemanticEvent"), "SemanticEvent.eventId"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticEvent"), "SemanticEvent.workspaceId"),
+    sessionId: decodeString(requireField(record, "sessionId", "SemanticEvent"), "SemanticEvent.sessionId"),
+    runId: decodeString(requireField(record, "runId", "SemanticEvent"), "SemanticEvent.runId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "SemanticEvent"), "SemanticEvent.workflowExecutionId"),
+    actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "SemanticEvent"), "SemanticEvent.actorKind"),
+    actorId: decodeString(requireField(record, "actorId", "SemanticEvent"), "SemanticEvent.actorId"),
+    eventType: decodeSemanticEventType(requireField(record, "eventType", "SemanticEvent"), "SemanticEvent.eventType"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticEvent"), "SemanticEvent.targetEntityId"),
+    causationId: decodeString(requireField(record, "causationId", "SemanticEvent"), "SemanticEvent.causationId"),
+    correlationId: decodeString(requireField(record, "correlationId", "SemanticEvent"), "SemanticEvent.correlationId"),
+    traceId: decodeString(requireField(record, "traceId", "SemanticEvent"), "SemanticEvent.traceId"),
+    spanId: decodeString(requireField(record, "spanId", "SemanticEvent"), "SemanticEvent.spanId"),
+    logicalClock: decodeInteger(requireField(record, "logicalClock", "SemanticEvent"), "SemanticEvent.logicalClock"),
+    observedAt: decodeString(requireField(record, "observedAt", "SemanticEvent"), "SemanticEvent.observedAt"),
+    payload: decodeUnknown(requireField(record, "payload", "SemanticEvent"), "SemanticEvent.payload"),
+    modelInfo: decodeStringRecord(requireField(record, "modelInfo", "SemanticEvent"), "SemanticEvent.modelInfo"),
+    confidence: decodeNullable(requireField(record, "confidence", "SemanticEvent"), "SemanticEvent.confidence", (item) => decodeInteger(item, "SemanticEvent.confidence")),
+    supersedesEventId: decodeString(requireField(record, "supersedesEventId", "SemanticEvent"), "SemanticEvent.supersedesEventId"),
+    retractedByEventId: decodeString(requireField(record, "retractedByEventId", "SemanticEvent"), "SemanticEvent.retractedByEventId"),
+  };
+}
+
+export function decodeSemanticEventHistory(value: unknown): SemanticEventHistory {
+  const record = assertRecord(value, "SemanticEventHistory");
+  assertKnownFields(record, "SemanticEventHistory", ["workspaceId", "targetEntityId", "events", "hasMoreOlder", "olderBeforeLogicalClock"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticEventHistory"), "SemanticEventHistory.workspaceId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticEventHistory"), "SemanticEventHistory.targetEntityId"),
+    events: decodeArray(requireField(record, "events", "SemanticEventHistory"), "SemanticEventHistory.events", (item) => decodeSemanticEvent(item)),
+    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "SemanticEventHistory"), "SemanticEventHistory.hasMoreOlder"),
+    olderBeforeLogicalClock: decodeInteger(requireField(record, "olderBeforeLogicalClock", "SemanticEventHistory"), "SemanticEventHistory.olderBeforeLogicalClock"),
+  };
+}
+
 export function decodeCreateTerminalRequest(value: unknown): CreateTerminalRequest {
   const record = assertRecord(value, "CreateTerminalRequest");
   assertKnownFields(record, "CreateTerminalRequest", ["workspaceId", "paneId", "profileId", "cwd", "cols", "rows"]);
@@ -5575,6 +6243,12 @@ export interface BackendClient {
   readWorkflowGraphProjection: (request: ReadWorkflowGraphProjectionRequest) => Promise<ReadWorkflowGraphProjectionResponse>;
   getWorkflowExecutionEvents: (request: GetWorkflowExecutionEventsRequest) => Promise<WorkflowExecutionEventPage>;
   submitWorkflowApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
+  readSemanticGraph: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
+  readSemanticNodeDetail: (request: ReadSemanticNodeDetailRequest) => Promise<ReadSemanticNodeDetailResponse>;
+  listSemanticEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
+  listSemanticActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
+  readSemanticSteeringState: (request: ReadSemanticSteeringStateRequest) => Promise<SemanticSteeringState>;
+  readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
   createTerminal: (request: CreateTerminalRequest) => Promise<TerminalSessionResponse>;
   attachTerminal: (request: AttachTerminalRequest) => Promise<TerminalSessionResponse>;
   terminalInput: (request: TerminalInputRequest) => Promise<TerminalInputResponse>;
@@ -5967,6 +6641,54 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowExecution,
       endpoint: backendEndpoints.SubmitWorkflowApproval,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticGraph: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticGraph,
+      endpoint: backendEndpoints.ReadSemanticGraph,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticNodeDetail: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeReadSemanticNodeDetailResponse,
+      endpoint: backendEndpoints.ReadSemanticNodeDetail,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listSemanticEvidence: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticEvidenceList,
+      endpoint: backendEndpoints.ListSemanticEvidence,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listSemanticActivity: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticActivityList,
+      endpoint: backendEndpoints.ListSemanticActivity,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticSteeringState: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticSteeringState,
+      endpoint: backendEndpoints.ReadSemanticSteeringState,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readSemanticEventHistory: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSemanticEventHistory,
+      endpoint: backendEndpoints.ReadSemanticEventHistory,
       fetchImpl,
       requestPayload: request,
     }),

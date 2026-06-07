@@ -11,6 +11,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/jsonio"
 	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 )
@@ -50,6 +51,14 @@ func requireCodexAccountService(response http.ResponseWriter, service CodexAccou
 func requireWorkflowService(response http.ResponseWriter, service WorkflowService) WorkflowService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "workflow_service_unavailable", "workflow service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireSemanticGraphService(response http.ResponseWriter, service SemanticGraphService) SemanticGraphService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "semantic_graph_service_unavailable", "semantic graph service is not available")
 		return nil
 	}
 	return service
@@ -139,6 +148,18 @@ func writeWorkflowError(response http.ResponseWriter, code string, err error) {
 		return
 	}
 	if orchestrator.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeSemanticGraphError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if semanticgraph.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_semantic_graph_state", err.Error())
+		return
+	}
+	if semanticgraph.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())

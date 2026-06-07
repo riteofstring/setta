@@ -8,6 +8,7 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspacesession"
 )
@@ -83,6 +84,12 @@ var apiEndpoints = []endpoint{
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
 	post[SubmitWorkflowApprovalRequest, orchestrator.WorkflowExecution]("SubmitWorkflowApproval", "/workflows/approvals/submit", handler.submitWorkflowApproval),
 	stream("WorkflowEventStream", "/workflows/events", handler.workflowEventStream),
+	post[ReadSemanticGraphRequest, semanticgraph.SemanticGraph]("ReadSemanticGraph", "/semantic-graph/read", handler.readSemanticGraph),
+	post[ReadSemanticNodeDetailRequest, ReadSemanticNodeDetailResponse]("ReadSemanticNodeDetail", "/semantic-graph/nodes/detail", handler.readSemanticNodeDetail),
+	post[ListSemanticEvidenceRequest, semanticgraph.SemanticEvidenceList]("ListSemanticEvidence", "/semantic-graph/evidence/list", handler.listSemanticEvidence),
+	post[ListSemanticActivityRequest, semanticgraph.SemanticActivityList]("ListSemanticActivity", "/semantic-graph/activity/list", handler.listSemanticActivity),
+	post[ReadSemanticSteeringStateRequest, semanticgraph.SemanticSteeringState]("ReadSemanticSteeringState", "/semantic-graph/steering/read", handler.readSemanticSteeringState),
+	post[ReadSemanticEventHistoryRequest, semanticgraph.SemanticEventHistory]("ReadSemanticEventHistory", "/semantic-graph/events/history", handler.readSemanticEventHistory),
 	post[CreateTerminalRequest, TerminalSessionResponse]("CreateTerminal", "/terminals/create", handler.createTerminal),
 	post[AttachTerminalRequest, TerminalSessionResponse]("AttachTerminal", "/terminals/attach", handler.attachTerminal),
 	post[TerminalInputRequest, TerminalInputResponse]("TerminalInput", "/terminals/input", handler.terminalInput),

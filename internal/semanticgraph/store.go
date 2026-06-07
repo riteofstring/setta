@@ -1,0 +1,335 @@
+package semanticgraph
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	_ "modernc.org/sqlite"
+)
+
+const (
+	semanticDatabaseName = "semantic-graph.sqlite"
+	semanticStoreVersion = 1
+	sqliteDriverName     = "sqlite"
+)
+
+type Store struct {
+	appDataDir string
+	dbPath     string
+	db         *sql.DB
+	mu         sync.Mutex
+	closed     bool
+}
+
+type PersistenceError struct {
+	Operation string
+	Path      string
+	Err       error
+}
+
+type CorruptStateError struct {
+	Path string
+	Err  error
+}
+
+func (err *PersistenceError) Error() string {
+	return fmt.Sprintf("%s %s: %v", err.Operation, err.Path, err.Err)
+}
+
+func (err *PersistenceError) Unwrap() error {
+	return err.Err
+}
+
+func (err *CorruptStateError) Error() string {
+	return fmt.Sprintf("malformed semantic graph state %s: %v", err.Path, err.Err)
+}
+
+func (err *CorruptStateError) Unwrap() error {
+	return err.Err
+}
+
+func IsPersistenceError(err error) bool {
+	var persistenceError *PersistenceError
+	return errors.As(err, &persistenceError)
+}
+
+func IsCorruptStateError(err error) bool {
+	var corruptStateError *CorruptStateError
+	return errors.As(err, &corruptStateError)
+}
+
+func NewStore(appDataDir string) (*Store, error) {
+	if appDataDir == "" {
+		return nil, errors.New("app data directory is required")
+	}
+	if !filepath.IsAbs(appDataDir) {
+		return nil, fmt.Errorf("app data directory must be absolute: %s", appDataDir)
+	}
+	appDataDir = filepath.Clean(appDataDir)
+	if err := os.MkdirAll(appDataDir, 0o755); err != nil {
+		return nil, &PersistenceError{Operation: "create semantic graph database directory", Path: appDataDir, Err: err}
+	}
+	dbPath := filepath.Join(appDataDir, semanticDatabaseName)
+	db, err := sql.Open(sqliteDriverName, dbPath)
+	if err != nil {
+		return nil, &PersistenceError{Operation: "open semantic graph database", Path: dbPath, Err: err}
+	}
+	db.SetMaxOpenConns(1)
+	store := &Store{
+		appDataDir: appDataDir,
+		dbPath:     dbPath,
+		db:         db,
+	}
+	if err := store.configureDatabase(context.Background()); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return store, nil
+}
+
+func (store *Store) Path() string {
+	return store.dbPath
+}
+
+func (store *Store) Close() error {
+	if store == nil || store.db == nil {
+		return nil
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if store.closed {
+		return nil
+	}
+	if err := store.db.Close(); err != nil {
+		return store.persistenceError("close semantic graph database", err)
+	}
+	store.closed = true
+	return nil
+}
+
+func (store *Store) configureDatabase(ctx context.Context) error {
+	pragmas := []string{
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA journal_mode = WAL",
+		"PRAGMA busy_timeout = 5000",
+	}
+	for _, pragma := range pragmas {
+		if _, err := store.db.ExecContext(ctx, pragma); err != nil {
+			return store.persistenceError("configure semantic graph database", err)
+		}
+	}
+	if err := store.createSchema(ctx); err != nil {
+		return err
+	}
+	var userVersion int
+	if err := store.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&userVersion); err != nil {
+		return store.persistenceError("read semantic graph database schema version", err)
+	}
+	if userVersion != 0 && userVersion != semanticStoreVersion {
+		return store.corruptError("semantic graph database", fmt.Errorf("unsupported schema version %d", userVersion))
+	}
+	if userVersion == 0 {
+		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", semanticStoreVersion)); err != nil {
+			return store.persistenceError("write semantic graph database schema version", err)
+		}
+	}
+	return nil
+}
+
+func (store *Store) createSchema(ctx context.Context) error {
+	for _, statement := range sqliteSchemaStatements {
+		if _, err := store.db.ExecContext(ctx, statement); err != nil {
+			return store.persistenceError("initialize semantic graph database schema", err)
+		}
+	}
+	return nil
+}
+
+var sqliteSchemaStatements = splitSQLStatements(`
+CREATE TABLE IF NOT EXISTS semantic_events (
+  stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id TEXT NOT NULL UNIQUE,
+  workspace_id TEXT NOT NULL,
+  session_id TEXT NOT NULL DEFAULT '',
+  run_id TEXT NOT NULL DEFAULT '',
+  workflow_execution_id TEXT NOT NULL DEFAULT '',
+  actor_kind TEXT NOT NULL,
+  actor_id TEXT NOT NULL DEFAULT '',
+  event_type TEXT NOT NULL,
+  target_entity_id TEXT NOT NULL DEFAULT '',
+  causation_id TEXT NOT NULL DEFAULT '',
+  correlation_id TEXT NOT NULL DEFAULT '',
+  trace_id TEXT NOT NULL DEFAULT '',
+  span_id TEXT NOT NULL DEFAULT '',
+  logical_clock INTEGER NOT NULL,
+  observed_at TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  model_info_json TEXT NOT NULL DEFAULT '{}',
+  confidence INTEGER,
+  supersedes_event_id TEXT NOT NULL DEFAULT '',
+  retracted_by_event_id TEXT NOT NULL DEFAULT '',
+  UNIQUE(workspace_id, logical_clock)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_events_workspace_clock_idx
+  ON semantic_events(workspace_id, logical_clock DESC, event_id);
+
+CREATE INDEX IF NOT EXISTS semantic_events_workspace_target_clock_idx
+  ON semantic_events(workspace_id, target_entity_id, logical_clock DESC, event_id);
+
+CREATE TABLE IF NOT EXISTS semantic_nodes_current (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  label TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  dismissed INTEGER NOT NULL DEFAULT 0,
+  promoted INTEGER NOT NULL DEFAULT 0,
+  split_from_node_id TEXT NOT NULL DEFAULT '',
+  split_into_node_ids_json TEXT NOT NULL DEFAULT '[]',
+  merged_into_node_id TEXT NOT NULL DEFAULT '',
+  created_by_event_id TEXT NOT NULL,
+  updated_by_event_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_nodes_workspace_kind_idx
+  ON semantic_nodes_current(workspace_id, kind, id);
+
+CREATE TABLE IF NOT EXISTS semantic_edges_current (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  from_node_id TEXT NOT NULL,
+  to_node_id TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',
+  created_by_event_id TEXT NOT NULL,
+  updated_by_event_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_edges_workspace_nodes_idx
+  ON semantic_edges_current(workspace_id, from_node_id, to_node_id, id);
+
+CREATE TABLE IF NOT EXISTS semantic_evidence_anchors (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  target_entity_id TEXT NOT NULL,
+  source_kind TEXT NOT NULL,
+  source_id TEXT NOT NULL DEFAULT '',
+  uri TEXT NOT NULL DEFAULT '',
+  path TEXT NOT NULL DEFAULT '',
+  range_start INTEGER NOT NULL DEFAULT 0,
+  range_end INTEGER NOT NULL DEFAULT 0,
+  text TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',
+  created_by_event_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_evidence_workspace_target_idx
+  ON semantic_evidence_anchors(workspace_id, target_entity_id, created_at, id);
+
+CREATE TABLE IF NOT EXISTS semantic_activity_intervals (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  target_entity_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  started_by_event_id TEXT NOT NULL,
+  ended_by_event_id TEXT NOT NULL DEFAULT '',
+  started_at TEXT NOT NULL,
+  ended_at TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_activity_workspace_target_idx
+  ON semantic_activity_intervals(workspace_id, target_entity_id, started_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS semantic_steering_directives (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  target_entity_id TEXT NOT NULL,
+  instruction TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by_event_id TEXT NOT NULL,
+  updated_by_event_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_steering_workspace_target_idx
+  ON semantic_steering_directives(workspace_id, target_entity_id, active DESC, updated_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS semantic_context_pack_history (
+  workspace_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  target_entity_id TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  prompt TEXT NOT NULL DEFAULT '',
+  item_count INTEGER NOT NULL DEFAULT 0,
+  created_by_event_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS semantic_context_pack_workspace_target_idx
+  ON semantic_context_pack_history(workspace_id, target_entity_id, created_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS semantic_layout_positions (
+  workspace_id TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  x INTEGER NOT NULL,
+  y INTEGER NOT NULL,
+  pinned INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, entity_id)
+);
+`)
+
+func splitSQLStatements(sqlText string) []string {
+	rawStatements := strings.Split(sqlText, ";")
+	statements := make([]string, 0, len(rawStatements))
+	for _, raw := range rawStatements {
+		statement := strings.TrimSpace(raw)
+		if statement == "" {
+			continue
+		}
+		statements = append(statements, statement)
+	}
+	return statements
+}
+
+func (store *Store) persistenceError(operation string, err error) error {
+	return &PersistenceError{Operation: operation, Path: store.dbPath, Err: err}
+}
+
+func (store *Store) corruptError(path string, err error) error {
+	return &CorruptStateError{Path: path, Err: err}
+}
+
+func modelInfoFromJSON(raw string) (map[string]string, error) {
+	info := map[string]string{}
+	if raw == "" {
+		return info, nil
+	}
+	if err := json.Unmarshal([]byte(raw), &info); err != nil {
+		return nil, err
+	}
+	return info, nil
+}
