@@ -11,9 +11,9 @@ const badgeVariants = cva(
     },
     variants: {
       variant: {
-        danger: "border-status-critical bg-status-critical text-status-critical-foreground",
-        neutral: "border-border bg-card text-card-foreground",
-        success: "border-status-success bg-status-success text-status-success-foreground",
+        danger: "border-zinc-700 bg-zinc-900 text-zinc-100",
+        neutral: "border-zinc-200 bg-white text-zinc-700",
+        success: "border-zinc-300 bg-zinc-100 text-zinc-900",
       },
     },
   },

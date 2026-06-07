@@ -1,13 +1,7 @@
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import type {
-  ChatEvent,
-  TerminalEvent,
-  UpdateAppearanceSettingsRequest,
-  WorkflowEvent,
-  WorkflowGraph,
-} from "@generated/backend";
+import type { ChatEvent, TerminalEvent, WorkflowEvent, WorkflowGraph } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 
 describe("preload workspace API", () => {
@@ -180,37 +174,6 @@ describe("preload workspace API", () => {
       workspaceId: "phase-4-browser-pane-benchmark",
     });
     expect(removeListener).toHaveBeenCalledWith("niri:browser-view-key", handler);
-  });
-
-  test("exposes typed appearance methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
-    expect(Object.keys(api.appearance).sort()).toEqual(["presets", "read", "update"]);
-    const request = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
-
-    await api.appearance.presets();
-    await api.appearance.read();
-    await api.appearance.update(request);
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.appearancePresets],
-      [ipcChannels.appearanceRead],
-      [ipcChannels.appearanceUpdate, request],
-    ]);
   });
 
   test("exposes typed chat methods through IPC", async () => {
@@ -681,6 +644,7 @@ function workflowEvent(): WorkflowEvent {
     nodeExecutionId: "",
     nodeId: "",
     ordinal: 1,
+    runnerKind: null,
     schemaVersion: 1,
     tokenId: "",
     type: "workflow.execution.started",

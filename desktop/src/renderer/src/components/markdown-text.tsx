@@ -4,25 +4,20 @@ import type { ReactNode } from "react";
 export const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
   const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
-    <div className="min-w-0 max-w-full space-y-2 overflow-hidden text-[13px] leading-5 break-words text-inherit [overflow-wrap:anywhere]">
+    <div className="min-w-0 space-y-2 text-[13px] leading-5 break-words text-inherit">
       {blocks.map((block, index) => {
         if (block.kind === "code") {
           return (
             <pre
-              className="w-full min-w-0 max-w-full overflow-hidden whitespace-pre-wrap rounded-sm border border-border bg-background p-2 text-xs leading-5 break-words text-foreground [overflow-wrap:anywhere]"
+              className="max-w-full overflow-x-auto rounded-sm border border-zinc-700 bg-zinc-950 p-2 text-xs leading-5 text-zinc-50"
               key={index}
             >
-              <code className="block min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                {block.text}
-              </code>
+              <code>{block.text}</code>
             </pre>
           );
         }
         return (
-          <p
-            className="max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
-            key={index}
-          >
+          <p className="whitespace-pre-wrap break-words" key={index}>
             {renderInlineMarkdown(block.text)}
           </p>
         );
@@ -96,10 +91,7 @@ function renderInlineMarkdown(text: string) {
     const token = match[0];
     if (token.startsWith("`")) {
       nodes.push(
-        <code
-          className="rounded bg-secondary px-1 py-0.5 text-[0.85em] break-words text-secondary-foreground [overflow-wrap:anywhere]"
-          key={index}
-        >
+        <code className="rounded bg-zinc-800 px-1 py-0.5 text-[0.85em] text-zinc-100" key={index}>
           {token.slice(1, -1)}
         </code>,
       );

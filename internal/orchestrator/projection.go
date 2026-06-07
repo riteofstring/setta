@@ -85,6 +85,8 @@ func projectedGraphNodes(definitionNodes []WorkflowNode, execution *WorkflowExec
 			FilePaths:             []string{},
 			Error:                 "",
 			PendingApproval:       nil,
+			RecoveryOutcome:       nil,
+			RecoveryMessage:       "",
 		}
 		if latest, ok := latestByNodeID[node.ID]; ok {
 			status, err := graphNodeStatusFromExecutionStatus(latest.Status)
@@ -98,6 +100,8 @@ func projectedGraphNodes(definitionNodes []WorkflowNode, execution *WorkflowExec
 			projected.LatestIteration = latest.Iteration
 			projected.ActionKind = copyActionKind(latest.ActionKind, projected.ActionKind)
 			projected.Error = latest.Error
+			projected.RecoveryOutcome = latest.RecoveryOutcome
+			projected.RecoveryMessage = latest.RecoveryMessage
 			if latest.Result != nil {
 				projected.Signals = append([]WorkflowActionSignal{}, latest.Result.Signals...)
 				projected.FilePaths = append([]string{}, latest.Result.FilePaths...)
@@ -198,6 +202,8 @@ func graphNodeStatusFromExecutionStatus(status WorkflowNodeExecutionStatus) (Wor
 		return GraphNodeStatusCancelled, nil
 	case NodeExecutionStatusWaitingApproval:
 		return GraphNodeStatusWaitingApproval, nil
+	case NodeExecutionStatusRecoveryRequired:
+		return GraphNodeStatusRecoveryRequired, nil
 	default:
 		return "", fmt.Errorf("unsupported workflow node execution status %s", status)
 	}

@@ -1,31 +1,45 @@
 package orchestrator
 
 import (
+	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
 	"strings"
+	"sync"
 
-	"setta/internal/jsonio"
+	_ "modernc.org/sqlite"
 )
 
 const (
-	workflowsDirName   = "workflows"
-	workflowEventsName = "workflow-events"
-	definitionsDirName = "definitions"
-	versionsDirName    = "versions"
-	executionsDirName  = "executions"
-	eventsDirName      = "events"
-	executionFileName  = "execution.json"
+	workflowDatabaseName = "workflow-kernel.sqlite"
+	sqliteDriverName     = "sqlite"
 )
+
+type WorkflowStore interface {
+	SaveDefinitionRevision(WorkflowDefinition, WorkflowDefinitionVersion) error
+	LoadDefinition(workspaceID string, definitionID string) (WorkflowDefinition, error)
+	ListDefinitions(workspaceID string) ([]WorkflowDefinition, error)
+	DeleteDefinition(workspaceID string, definitionID string) error
+	LoadDefinitionVersion(workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, error)
+	LoadExecution(workspaceID string, executionID string) (WorkflowExecution, error)
+	ListExecutions(workspaceID string) ([]WorkflowExecution, error)
+	WorkspaceIDs() ([]string, error)
+	PersistTransition(WorkflowTransition) ([]WorkflowEventEnvelope, error)
+	LoadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (WorkflowExecutionEventPage, error)
+	LoadWorkflowEventStreamAfter(cursor WorkflowEventCursor) ([]WorkflowEventEnvelope, error)
+}
 
 type Store struct {
 	appDataDir string
+	dbPath     string
+	db         *sql.DB
+	mu         sync.Mutex
+	closed     bool
 }
 
 type PersistenceError struct {
@@ -37,23 +51,6 @@ type PersistenceError struct {
 type CorruptStateError struct {
 	Path string
 	Err  error
-}
-
-type eventFile struct {
-	ordinal int
-	path    string
-}
-
-type workflowEventStreamFile struct {
-	sequence int
-	path     string
-}
-
-type workflowEventStreamRecord struct {
-	SchemaVersion int           `json:"schemaVersion"`
-	StreamID      string        `json:"streamId"`
-	Sequence      int           `json:"sequence"`
-	Event         WorkflowEvent `json:"event"`
 }
 
 func (err *PersistenceError) Error() string {
@@ -89,441 +86,305 @@ func NewStore(appDataDir string) (*Store, error) {
 	if !filepath.IsAbs(appDataDir) {
 		return nil, fmt.Errorf("app data directory must be absolute: %s", appDataDir)
 	}
-	return &Store{appDataDir: filepath.Clean(appDataDir)}, nil
-}
-
-func (store *Store) SaveDefinition(definition WorkflowDefinition) error {
-	if err := validateDefinitionSnapshot(definition); err != nil {
-		return err
+	appDataDir = filepath.Clean(appDataDir)
+	if err := os.MkdirAll(appDataDir, 0o755); err != nil {
+		return nil, &PersistenceError{Operation: "create workflow database directory", Path: appDataDir, Err: err}
 	}
-	return writeWorkflowJSONFile(store.definitionPath(definition.WorkspaceID, definition.ID), definition)
-}
-
-func (store *Store) LoadDefinition(workspaceID string, definitionID string) (WorkflowDefinition, error) {
-	if err := validateStoreIDs("workspace id", workspaceID, "definition id", definitionID); err != nil {
-		return WorkflowDefinition{}, err
+	dbPath := filepath.Join(appDataDir, workflowDatabaseName)
+	db, err := sql.Open(sqliteDriverName, dbPath)
+	if err != nil {
+		return nil, &PersistenceError{Operation: "open workflow database", Path: dbPath, Err: err}
 	}
-	path := store.definitionPath(workspaceID, definitionID)
-	var definition WorkflowDefinition
-	if err := readWorkflowJSONFile(path, &definition); err != nil {
-		return WorkflowDefinition{}, err
+	db.SetMaxOpenConns(1)
+	store := &Store{
+		appDataDir: appDataDir,
+		dbPath:     dbPath,
+		db:         db,
 	}
-	if err := validateDefinitionSnapshot(definition); err != nil {
-		return WorkflowDefinition{}, corruptStateError(path, err)
-	}
-	if definition.WorkspaceID != workspaceID || definition.ID != definitionID {
-		return WorkflowDefinition{}, corruptStateErrorf(path, "definition %s belongs to workspace %s id %s", definitionID, definition.WorkspaceID, definition.ID)
-	}
-	return definition, nil
-}
-
-func (store *Store) ListDefinitions(workspaceID string) ([]WorkflowDefinition, error) {
-	if err := validateStorageID("workspace id", workspaceID); err != nil {
+	if err := store.configureDatabase(context.Background()); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
-	dir := store.definitionsDir(workspaceID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []WorkflowDefinition{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list workflow definitions", Path: dir, Err: err}
-	}
-	definitions := []WorkflowDefinition{}
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		definitionID := strings.TrimSuffix(entry.Name(), ".json")
-		definition, err := store.LoadDefinition(workspaceID, definitionID)
-		if err != nil {
-			return nil, err
-		}
-		definitions = append(definitions, definition)
-	}
-	sort.SliceStable(definitions, func(left int, right int) bool {
-		if definitions[left].UpdatedAt == definitions[right].UpdatedAt {
-			return definitions[left].ID < definitions[right].ID
-		}
-		return definitions[left].UpdatedAt > definitions[right].UpdatedAt
-	})
-	return definitions, nil
+	return store, nil
 }
 
-func (store *Store) DeleteDefinition(workspaceID string, definitionID string) error {
-	if err := validateStoreIDs("workspace id", workspaceID, "definition id", definitionID); err != nil {
+func (store *Store) Close() error {
+	if store == nil || store.db == nil {
+		return nil
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if store.closed {
+		return nil
+	}
+	if err := store.db.Close(); err != nil {
+		return store.persistenceError("close workflow database", err)
+	}
+	store.closed = true
+	return nil
+}
+
+func (store *Store) configureDatabase(ctx context.Context) error {
+	pragmas := []string{
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA journal_mode = WAL",
+		"PRAGMA busy_timeout = 5000",
+	}
+	for _, pragma := range pragmas {
+		if _, err := store.db.ExecContext(ctx, pragma); err != nil {
+			return store.persistenceError("configure workflow database", err)
+		}
+	}
+	if err := store.createSchema(ctx); err != nil {
 		return err
 	}
-	path := store.definitionPath(workspaceID, definitionID)
-	if err := os.Remove(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
+	var userVersion int
+	if err := store.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&userVersion); err != nil {
+		return store.persistenceError("read workflow database schema version", err)
+	}
+	if userVersion != 0 && userVersion != SchemaVersion {
+		return store.corruptError("workflow database", fmt.Errorf("unsupported schema version %d", userVersion))
+	}
+	if userVersion == 0 {
+		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", SchemaVersion)); err != nil {
+			return store.persistenceError("write workflow database schema version", err)
 		}
-		return &PersistenceError{Operation: "delete workflow definition", Path: path, Err: err}
 	}
 	return nil
 }
 
-func (store *Store) SaveDefinitionVersion(version WorkflowDefinitionVersion) error {
-	if err := validateDefinitionVersionSnapshot(version); err != nil {
-		return err
-	}
-	return writeNewWorkflowJSONFile(store.versionPath(version.WorkspaceID, version.DefinitionID, version.ID), version)
-}
-
-func (store *Store) LoadDefinitionVersion(workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, error) {
-	if err := validateStoreIDs("workspace id", workspaceID, "definition id", definitionID, "version id", versionID); err != nil {
-		return WorkflowDefinitionVersion{}, err
-	}
-	path := store.versionPath(workspaceID, definitionID, versionID)
-	var version WorkflowDefinitionVersion
-	if err := readWorkflowJSONFile(path, &version); err != nil {
-		return WorkflowDefinitionVersion{}, err
-	}
-	if err := validateDefinitionVersionSnapshot(version); err != nil {
-		return WorkflowDefinitionVersion{}, corruptStateError(path, err)
-	}
-	if version.WorkspaceID != workspaceID || version.DefinitionID != definitionID || version.ID != versionID {
-		return WorkflowDefinitionVersion{}, corruptStateErrorf(path, "version %s belongs to workspace %s definition %s id %s", versionID, version.WorkspaceID, version.DefinitionID, version.ID)
-	}
-	return version, nil
-}
-
-func (store *Store) SaveExecution(execution WorkflowExecution) error {
-	if err := validateExecutionSnapshot(execution); err != nil {
-		return err
-	}
-	return writeWorkflowJSONFile(store.executionPath(execution.WorkspaceID, execution.ID), execution)
-}
-
-func (store *Store) LoadExecution(workspaceID string, executionID string) (WorkflowExecution, error) {
-	if err := validateStoreIDs("workspace id", workspaceID, "execution id", executionID); err != nil {
-		return WorkflowExecution{}, err
-	}
-	path := store.executionPath(workspaceID, executionID)
-	var execution WorkflowExecution
-	if err := readWorkflowJSONFile(path, &execution); err != nil {
-		return WorkflowExecution{}, err
-	}
-	if err := validateExecutionSnapshot(execution); err != nil {
-		return WorkflowExecution{}, corruptStateError(path, err)
-	}
-	if execution.WorkspaceID != workspaceID || execution.ID != executionID {
-		return WorkflowExecution{}, corruptStateErrorf(path, "execution %s belongs to workspace %s id %s", executionID, execution.WorkspaceID, execution.ID)
-	}
-	return execution, nil
-}
-
-func (store *Store) ListExecutions(workspaceID string) ([]WorkflowExecution, error) {
-	if err := validateStorageID("workspace id", workspaceID); err != nil {
-		return nil, err
-	}
-	dir := store.executionsDir(workspaceID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []WorkflowExecution{}, nil
+func (store *Store) createSchema(ctx context.Context) error {
+	for _, statement := range sqliteSchemaStatements {
+		if _, err := store.db.ExecContext(ctx, statement); err != nil {
+			return store.persistenceError("initialize workflow database schema", err)
 		}
-		return nil, &PersistenceError{Operation: "list workflow executions", Path: dir, Err: err}
 	}
-	executions := []WorkflowExecution{}
-	for _, entry := range entries {
-		if !entry.IsDir() {
+	return nil
+}
+
+var sqliteSchemaStatements = splitSQLStatements(`
+CREATE TABLE IF NOT EXISTS workflow_definitions (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  current_version_id TEXT NOT NULL,
+  current_version_number INTEGER NOT NULL,
+  graph_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS workflow_definitions_workspace_updated_idx
+  ON workflow_definitions(workspace_id, updated_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS workflow_versions (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  definition_id TEXT NOT NULL REFERENCES workflow_definitions(id) ON DELETE CASCADE,
+  version_number INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  graph_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(definition_id, version_number)
+);
+
+CREATE INDEX IF NOT EXISTS workflow_versions_definition_created_idx
+  ON workflow_versions(definition_id, created_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS workflow_runs (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  definition_id TEXT NOT NULL,
+  definition_version_id TEXT NOT NULL REFERENCES workflow_versions(id),
+  status TEXT NOT NULL,
+  terminal_reason TEXT,
+  recovery_outcome TEXT,
+  created_at TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT,
+  error TEXT NOT NULL DEFAULT '',
+  last_event_ordinal INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS workflow_runs_workspace_started_idx
+  ON workflow_runs(workspace_id, started_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS workflow_runs_nonterminal_idx
+  ON workflow_runs(status, updated_at, id);
+
+CREATE TABLE IF NOT EXISTS workflow_run_events (
+  stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  definition_id TEXT NOT NULL,
+  definition_version_id TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  ordinal INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  node_id TEXT NOT NULL DEFAULT '',
+  node_execution_id TEXT NOT NULL DEFAULT '',
+  token_id TEXT NOT NULL DEFAULT '',
+  runner_kind TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  message TEXT NOT NULL DEFAULT '',
+  details_json TEXT NOT NULL DEFAULT '{}',
+  UNIQUE(run_id, ordinal)
+);
+
+CREATE INDEX IF NOT EXISTS workflow_run_events_run_ordinal_idx
+  ON workflow_run_events(run_id, ordinal);
+
+CREATE TABLE IF NOT EXISTS workflow_node_attempts (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL,
+  attempt INTEGER NOT NULL,
+  iteration INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  action_kind TEXT,
+  runner_kind TEXT,
+  idempotency_key TEXT NOT NULL,
+  input_hash TEXT NOT NULL,
+  input_json TEXT NOT NULL DEFAULT '{}',
+  action_policy_json TEXT,
+  side_effect_policy_json TEXT NOT NULL DEFAULT '{}',
+  runner_capabilities_json TEXT,
+  scheduled_at TEXT NOT NULL,
+  started_at TEXT,
+  completed_at TEXT,
+  result_status TEXT,
+  result_json TEXT,
+  output_json TEXT,
+  exit_code INTEGER,
+  error TEXT NOT NULL DEFAULT '',
+  recovery_outcome TEXT,
+  recovery_message TEXT NOT NULL DEFAULT '',
+  UNIQUE(run_id, node_id, attempt, iteration)
+);
+
+CREATE INDEX IF NOT EXISTS workflow_node_attempts_run_status_idx
+  ON workflow_node_attempts(run_id, status, id);
+
+CREATE TABLE IF NOT EXISTS workflow_tokens (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL,
+  source_node_id TEXT NOT NULL DEFAULT '',
+  edge_id TEXT NOT NULL DEFAULT '',
+  iteration INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  completed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS workflow_tokens_run_node_status_idx
+  ON workflow_tokens(run_id, node_id, status, id);
+
+CREATE TABLE IF NOT EXISTS workflow_loop_counters (
+  workspace_id TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  PRIMARY KEY(run_id, node_id)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_approvals (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  node_execution_id TEXT NOT NULL REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL,
+  runner_kind TEXT NOT NULL,
+  status TEXT NOT NULL,
+  approval_kind TEXT NOT NULL,
+  request_json TEXT NOT NULL,
+  response_json TEXT,
+  side_effect_policy_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  resolved_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS workflow_approvals_run_status_idx
+  ON workflow_approvals(run_id, status, created_at, id);
+
+CREATE TABLE IF NOT EXISTS workflow_runner_state (
+  node_execution_id TEXT PRIMARY KEY REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  runner_kind TEXT NOT NULL,
+  status TEXT NOT NULL,
+  last_runner_event_ordinal INTEGER NOT NULL DEFAULT 0,
+  opaque_state_json TEXT NOT NULL DEFAULT '{}',
+  recovery_token TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_runner_refs (
+  node_execution_id TEXT NOT NULL REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  ref TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(node_execution_id, kind)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_activity_refs (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  node_execution_id TEXT NOT NULL REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  ref TEXT NOT NULL,
+  start_cursor TEXT NOT NULL DEFAULT '',
+  end_cursor TEXT NOT NULL DEFAULT '',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS workflow_activity_refs_node_idx
+  ON workflow_activity_refs(node_execution_id, kind, id);
+
+CREATE TABLE IF NOT EXISTS workflow_artifact_refs (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  workspace_id TEXT NOT NULL,
+  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+  node_execution_id TEXT NOT NULL REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  uri TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  media_type TEXT NOT NULL DEFAULT '',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+`)
+
+func splitSQLStatements(sqlText string) []string {
+	rawStatements := strings.Split(sqlText, ";")
+	statements := make([]string, 0, len(rawStatements))
+	for _, raw := range rawStatements {
+		statement := strings.TrimSpace(raw)
+		if statement == "" {
 			continue
 		}
-		execution, err := store.LoadExecution(workspaceID, entry.Name())
-		if err != nil {
-			return nil, err
-		}
-		executions = append(executions, execution)
+		statements = append(statements, statement)
 	}
-	sort.SliceStable(executions, func(left int, right int) bool {
-		if executions[left].StartedAt == executions[right].StartedAt {
-			return executions[left].ID < executions[right].ID
-		}
-		return executions[left].StartedAt > executions[right].StartedAt
-	})
-	return executions, nil
-}
-
-func (store *Store) WorkspaceIDs() ([]string, error) {
-	dir := filepath.Join(store.appDataDir, "workspaces")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []string{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list workflow workspaces", Path: dir, Err: err}
-	}
-	ids := []string{}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			ids = append(ids, entry.Name())
-		}
-	}
-	sort.Strings(ids)
-	return ids, nil
-}
-
-func (store *Store) AppendExecutionEvents(workspaceID string, executionID string, events []WorkflowEvent) ([]WorkflowEventEnvelope, error) {
-	if err := validateStoreIDs("workspace id", workspaceID, "execution id", executionID); err != nil {
-		return nil, err
-	}
-	envelopes := make([]WorkflowEventEnvelope, 0, len(events))
-	for _, event := range events {
-		if err := validateEventRecord(event); err != nil {
-			return nil, err
-		}
-		if event.WorkspaceID != workspaceID || event.ExecutionID != executionID {
-			return nil, fmt.Errorf("workflow event %s belongs to workspace %s execution %s, not workspace %s execution %s", event.ID, event.WorkspaceID, event.ExecutionID, workspaceID, executionID)
-		}
-		if err := writeNewWorkflowJSONFile(store.eventPath(workspaceID, executionID, event.Ordinal, event.ID), event); err != nil {
-			return nil, err
-		}
-		sequence, err := store.nextWorkflowEventStreamSequence()
-		if err != nil {
-			return nil, err
-		}
-		record := workflowEventStreamRecord{
-			SchemaVersion: SchemaVersion,
-			StreamID:      WorkflowEventStreamID,
-			Sequence:      sequence,
-			Event:         event,
-		}
-		if err := validateWorkflowEventStreamRecord(record); err != nil {
-			return nil, err
-		}
-		if err := writeNewWorkflowJSONFile(store.workflowEventStreamPath(sequence, event.ID), record); err != nil {
-			return nil, err
-		}
-		envelopes = append(envelopes, workflowEventEnvelopeFromRecord(record))
-	}
-	return envelopes, nil
-}
-
-func (store *Store) LoadExecutionEventPage(workspaceID string, executionID string, beforeOrdinal int, limit int) (WorkflowExecutionEventPage, error) {
-	if err := validateStoreIDs("workspace id", workspaceID, "execution id", executionID); err != nil {
-		return WorkflowExecutionEventPage{}, err
-	}
-	if beforeOrdinal < 0 {
-		return WorkflowExecutionEventPage{}, fmt.Errorf("workflow event beforeOrdinal must not be negative: %d", beforeOrdinal)
-	}
-	if limit <= 0 {
-		return WorkflowExecutionEventPage{}, fmt.Errorf("workflow event page limit must be positive: %d", limit)
-	}
-	files, err := store.eventFiles(workspaceID, executionID)
-	if err != nil {
-		return WorkflowExecutionEventPage{}, err
-	}
-	selected, hasMoreOlder := selectEventFiles(files, beforeOrdinal, limit)
-	events, err := readEventFiles(selected)
-	if err != nil {
-		return WorkflowExecutionEventPage{}, err
-	}
-	olderBeforeOrdinal := 0
-	if len(events) > 0 {
-		olderBeforeOrdinal = events[0].Ordinal
-	}
-	return WorkflowExecutionEventPage{
-		ExecutionID:        executionID,
-		Events:             events,
-		HasMoreOlder:       hasMoreOlder,
-		OlderBeforeOrdinal: olderBeforeOrdinal,
-	}, nil
-}
-
-func (store *Store) LoadWorkflowEventStreamAfter(cursor WorkflowEventCursor) ([]WorkflowEventEnvelope, error) {
-	if err := validateWorkflowEventCursor(cursor); err != nil {
-		return nil, err
-	}
-	files, err := store.workflowEventStreamFiles()
-	if err != nil {
-		return nil, err
-	}
-	events := []WorkflowEventEnvelope{}
-	for _, file := range files {
-		if file.sequence <= cursor.Sequence {
-			continue
-		}
-		record, err := readWorkflowEventStreamRecord(file)
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, workflowEventEnvelopeFromRecord(record))
-	}
-	return events, nil
-}
-
-func selectEventFiles(files []eventFile, beforeOrdinal int, limit int) ([]eventFile, bool) {
-	eligible := make([]eventFile, 0, len(files))
-	for _, file := range files {
-		if beforeOrdinal == 0 || file.ordinal < beforeOrdinal {
-			eligible = append(eligible, file)
-		}
-	}
-	start := len(eligible) - limit
-	if start < 0 {
-		start = 0
-	}
-	return eligible[start:], start > 0
-}
-
-func readEventFiles(files []eventFile) ([]WorkflowEvent, error) {
-	events := make([]WorkflowEvent, 0, len(files))
-	for _, file := range files {
-		event, err := readEventFile(file)
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, event)
-	}
-	return events, nil
-}
-
-func readEventFile(file eventFile) (WorkflowEvent, error) {
-	var event WorkflowEvent
-	if err := readWorkflowJSONFile(file.path, &event); err != nil {
-		return WorkflowEvent{}, err
-	}
-	if err := validateEventRecord(event); err != nil {
-		return WorkflowEvent{}, corruptStateError(file.path, err)
-	}
-	return event, nil
-}
-
-func (store *Store) nextWorkflowEventStreamSequence() (int, error) {
-	files, err := store.workflowEventStreamFiles()
-	if err != nil {
-		return 0, err
-	}
-	if len(files) == 0 {
-		return 1, nil
-	}
-	return files[len(files)-1].sequence + 1, nil
-}
-
-func readWorkflowEventStreamRecord(file workflowEventStreamFile) (workflowEventStreamRecord, error) {
-	var record workflowEventStreamRecord
-	if err := readWorkflowJSONFile(file.path, &record); err != nil {
-		return workflowEventStreamRecord{}, err
-	}
-	if err := validateWorkflowEventStreamRecord(record); err != nil {
-		return workflowEventStreamRecord{}, corruptStateError(file.path, err)
-	}
-	if record.Sequence != file.sequence {
-		return workflowEventStreamRecord{}, corruptStateErrorf(file.path, "workflow event stream record sequence %d does not match filename sequence %d", record.Sequence, file.sequence)
-	}
-	return record, nil
-}
-
-func workflowEventEnvelopeFromRecord(record workflowEventStreamRecord) WorkflowEventEnvelope {
-	return WorkflowEventEnvelope{
-		StreamID: record.StreamID,
-		Sequence: record.Sequence,
-		Event:    record.Event,
-	}
-}
-
-func (store *Store) definitionPath(workspaceID string, definitionID string) string {
-	return filepath.Join(store.definitionsDir(workspaceID), definitionID+".json")
-}
-
-func (store *Store) definitionsDir(workspaceID string) string {
-	return filepath.Join(store.workflowsDir(workspaceID), definitionsDirName)
-}
-
-func (store *Store) versionPath(workspaceID string, definitionID string, versionID string) string {
-	return filepath.Join(store.workflowsDir(workspaceID), versionsDirName, definitionID, versionID+".json")
-}
-
-func (store *Store) executionsDir(workspaceID string) string {
-	return filepath.Join(store.workflowsDir(workspaceID), executionsDirName)
-}
-
-func (store *Store) executionDir(workspaceID string, executionID string) string {
-	return filepath.Join(store.executionsDir(workspaceID), executionID)
-}
-
-func (store *Store) executionPath(workspaceID string, executionID string) string {
-	return filepath.Join(store.executionDir(workspaceID, executionID), executionFileName)
-}
-
-func (store *Store) eventsDir(workspaceID string, executionID string) string {
-	return filepath.Join(store.executionDir(workspaceID, executionID), eventsDirName)
-}
-
-func (store *Store) eventPath(workspaceID string, executionID string, ordinal int, eventID string) string {
-	return filepath.Join(store.eventsDir(workspaceID, executionID), fmt.Sprintf("%012d_%s.json", ordinal, eventID))
-}
-
-func (store *Store) workflowEventStreamDir() string {
-	return filepath.Join(store.appDataDir, workflowEventsName)
-}
-
-func (store *Store) workflowEventStreamPath(sequence int, eventID string) string {
-	return filepath.Join(store.workflowEventStreamDir(), fmt.Sprintf("%012d_%s.json", sequence, eventID))
-}
-
-func (store *Store) workflowsDir(workspaceID string) string {
-	return filepath.Join(store.appDataDir, "workspaces", workspaceID, workflowsDirName)
-}
-
-func (store *Store) eventFiles(workspaceID string, executionID string) ([]eventFile, error) {
-	dir := store.eventsDir(workspaceID, executionID)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []eventFile{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list workflow events", Path: dir, Err: err}
-	}
-	files := []eventFile{}
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		ordinal, ok := ordinalFromDataFileName(entry.Name())
-		if !ok {
-			return nil, corruptStateErrorf(filepath.Join(dir, entry.Name()), "malformed workflow event filename")
-		}
-		files = append(files, eventFile{
-			ordinal: ordinal,
-			path:    filepath.Join(dir, entry.Name()),
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].ordinal < files[right].ordinal
-	})
-	return files, nil
-}
-
-func (store *Store) workflowEventStreamFiles() ([]workflowEventStreamFile, error) {
-	dir := store.workflowEventStreamDir()
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []workflowEventStreamFile{}, nil
-		}
-		return nil, &PersistenceError{Operation: "list workflow event stream", Path: dir, Err: err}
-	}
-	files := []workflowEventStreamFile{}
-	for _, entry := range entries {
-		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
-			continue
-		}
-		sequence, ok := ordinalFromDataFileName(entry.Name())
-		if !ok {
-			return nil, corruptStateErrorf(filepath.Join(dir, entry.Name()), "malformed workflow event stream filename")
-		}
-		files = append(files, workflowEventStreamFile{
-			sequence: sequence,
-			path:     filepath.Join(dir, entry.Name()),
-		})
-	}
-	sort.SliceStable(files, func(left int, right int) bool {
-		return files[left].sequence < files[right].sequence
-	})
-	return files, nil
+	return statements
 }
 
 func validateDefinitionSnapshot(definition WorkflowDefinition) error {
@@ -621,22 +482,6 @@ func validateWorkflowEventCursor(cursor WorkflowEventCursor) error {
 	return nil
 }
 
-func validateWorkflowEventStreamRecord(record workflowEventStreamRecord) error {
-	if record.SchemaVersion != SchemaVersion {
-		return fmt.Errorf("unsupported schemaVersion %d", record.SchemaVersion)
-	}
-	if record.StreamID != WorkflowEventStreamID {
-		return fmt.Errorf("unsupported workflow event stream id %s", record.StreamID)
-	}
-	if record.Sequence <= 0 {
-		return fmt.Errorf("workflow event stream sequence must be positive: %d", record.Sequence)
-	}
-	if err := validateEventRecord(record.Event); err != nil {
-		return err
-	}
-	return nil
-}
-
 func validateStoreIDs(pairs ...string) error {
 	if len(pairs)%2 != 0 {
 		return errors.New("validateStoreIDs requires label/value pairs")
@@ -659,97 +504,117 @@ func validateStorageID(label string, value string) error {
 	return nil
 }
 
-func isDataJSONFile(name string) bool {
-	return filepath.Ext(name) == ".json" && !strings.HasPrefix(name, ".")
+func compactRawJSON(raw json.RawMessage, defaultJSON string) (string, error) {
+	if len(raw) == 0 {
+		return defaultJSON, nil
+	}
+	var buffer bytes.Buffer
+	if err := json.Compact(&buffer, raw); err != nil {
+		return "", err
+	}
+	return buffer.String(), nil
 }
 
-func ordinalFromDataFileName(name string) (int, bool) {
-	prefix, _, ok := strings.Cut(name, "_")
-	if !ok {
-		return 0, false
-	}
-	ordinal, err := strconv.Atoi(prefix)
-	if err != nil || ordinal <= 0 {
-		return 0, false
-	}
-	return ordinal, true
-}
-
-func writeWorkflowJSONFile(path string, payload any) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return &PersistenceError{Operation: "create directory", Path: dir, Err: err}
-	}
-	file, err := os.CreateTemp(dir, ".tmp-*.json")
+func marshalJSONColumn(value any) (string, error) {
+	data, err := json.Marshal(value)
 	if err != nil {
-		return &PersistenceError{Operation: "create temp file", Path: dir, Err: err}
+		return "", err
 	}
-	tempPath := file.Name()
-	removeTemp := true
-	defer func() {
-		if removeTemp {
-			_ = os.Remove(tempPath)
-		}
-	}()
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(payload); err != nil {
-		_ = file.Close()
-		return &PersistenceError{Operation: "write temp file", Path: tempPath, Err: err}
-	}
-	if err := file.Close(); err != nil {
-		return &PersistenceError{Operation: "close temp file", Path: tempPath, Err: err}
-	}
-	if err := os.Rename(tempPath, path); err != nil {
-		return &PersistenceError{Operation: "replace file", Path: path, Err: err}
-	}
-	removeTemp = false
-	return nil
+	return string(data), nil
 }
 
-func writeNewWorkflowJSONFile(path string, payload any) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return &PersistenceError{Operation: "create directory", Path: dir, Err: err}
+func nullableString(value string) sql.NullString {
+	if value == "" {
+		return sql.NullString{}
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	return sql.NullString{String: value, Valid: true}
+}
+
+func nullableWorkflowTerminalReason(reason *WorkflowTerminalReason) sql.NullString {
+	if reason == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: string(*reason), Valid: true}
+}
+
+func nullableRunnerRecoveryOutcome(outcome *RunnerRecoveryOutcome) sql.NullString {
+	if outcome == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: string(*outcome), Valid: true}
+}
+
+func nullableActionKind(kind *WorkflowActionKind) sql.NullString {
+	if kind == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: string(*kind), Valid: true}
+}
+
+func nullableJSON(value any, present bool) (sql.NullString, error) {
+	if !present {
+		return sql.NullString{}, nil
+	}
+	encoded, err := marshalJSONColumn(value)
 	if err != nil {
-		return &PersistenceError{Operation: "create file", Path: path, Err: err}
+		return sql.NullString{}, err
 	}
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(payload); err != nil {
-		_ = file.Close()
-		return &PersistenceError{Operation: "write file", Path: path, Err: err}
-	}
-	if err := file.Close(); err != nil {
-		return &PersistenceError{Operation: "close file", Path: path, Err: err}
-	}
-	return nil
+	return sql.NullString{String: encoded, Valid: true}, nil
 }
 
-func readWorkflowJSONFile(path string, target any) error {
-	file, err := os.Open(path)
+func nullableRawJSON(raw json.RawMessage) (sql.NullString, error) {
+	if len(raw) == 0 {
+		return sql.NullString{}, nil
+	}
+	encoded, err := compactRawJSON(raw, "")
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return &PersistenceError{Operation: "read file", Path: path, Err: err}
-		}
-		return &PersistenceError{Operation: "read file", Path: path, Err: err}
+		return sql.NullString{}, err
 	}
-	defer file.Close()
-	if err := jsonio.DecodeSingle(file, target); err != nil {
-		if errors.Is(err, io.EOF) {
-			return corruptStateErrorf(path, "file is empty")
-		}
-		return corruptStateError(path, err)
-	}
-	return nil
+	return sql.NullString{String: encoded, Valid: true}, nil
 }
 
-func corruptStateError(path string, err error) error {
+func rawJSONFromString(value string) json.RawMessage {
+	if value == "" {
+		return nil
+	}
+	return json.RawMessage(value)
+}
+
+func stringFromNull(value sql.NullString) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.String
+}
+
+func workflowTerminalReasonFromNull(value sql.NullString) *WorkflowTerminalReason {
+	if !value.Valid {
+		return nil
+	}
+	reason := WorkflowTerminalReason(value.String)
+	return &reason
+}
+
+func runnerRecoveryOutcomeFromNull(value sql.NullString) *RunnerRecoveryOutcome {
+	if !value.Valid {
+		return nil
+	}
+	outcome := RunnerRecoveryOutcome(value.String)
+	return &outcome
+}
+
+func actionKindFromNull(value sql.NullString) *WorkflowActionKind {
+	if !value.Valid || value.String == "" {
+		return nil
+	}
+	kind := WorkflowActionKind(value.String)
+	return &kind
+}
+
+func (store *Store) persistenceError(operation string, err error) error {
+	return &PersistenceError{Operation: operation, Path: store.dbPath, Err: err}
+}
+
+func (store *Store) corruptError(path string, err error) error {
 	return &CorruptStateError{Path: path, Err: err}
-}
-
-func corruptStateErrorf(path string, format string, args ...any) error {
-	return corruptStateError(path, fmt.Errorf(format, args...))
 }
