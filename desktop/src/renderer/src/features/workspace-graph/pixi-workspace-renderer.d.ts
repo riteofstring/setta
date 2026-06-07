@@ -28,18 +28,11 @@ interface PixiWorkspaceGraph {
   } | null;
 }
 
-interface PixiWorkspaceNodePosition {
-  nodeId: string;
-  x: number;
-  y: number;
-}
-
 interface CreatePixiWorkspaceRendererOptions {
   debugEnabled: boolean;
   debugSurfaceId?: string;
   graph?: PixiWorkspaceGraph;
   host: HTMLElement;
-  onNodePositionsChange?: (positions: PixiWorkspaceNodePosition[]) => void;
   reactRenderCount: () => number;
 }
 

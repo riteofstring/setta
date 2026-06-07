@@ -4,10 +4,9 @@ import type {
   WorkflowGraphProjection,
   WorkflowPendingApproval,
 } from "@generated/backend";
-import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type MutableRefObject, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcript-approvals";
-import { workflowGraphWithNodeLayout, type WorkflowLayoutPosition } from "./workflow-graph-layout";
 import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
 import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
 
@@ -26,7 +25,6 @@ export function PixiWorkspaceSurface({
     null,
   );
   const [workflowProjectionReady, setWorkflowProjectionReady] = useState(false);
-  const [workflowEditorError, setWorkflowEditorError] = useState("");
   const syntheticGraph = window.setta.app.flags.pixiWorkspaceSyntheticGraph;
   useWorkflowProjection(workflowTargetRef, setWorkflowProjection, setWorkflowProjectionReady);
   const workflowGraph = useMemo(
@@ -43,42 +41,6 @@ export function PixiWorkspaceSurface({
     [workflowProjection],
   );
   const loadingProjection = syntheticGraph === null && !workflowProjectionReady;
-  const persistNodePositions = useCallback(
-    async (positions: WorkflowLayoutPosition[]) => {
-      if (syntheticGraph !== null || workflowProjection === null) {
-        return;
-      }
-      if (workflowProjection.executionId !== "") {
-        return;
-      }
-      setWorkflowEditorError("");
-      try {
-        const definition = await window.setta.workflow.readDefinition(
-          workflowProjection.workspaceId,
-          workflowProjection.definitionId,
-        );
-        const graph = workflowGraphWithNodeLayout(definition.graph, positions);
-        const updated = await window.setta.workflow.updateDefinition(
-          workflowProjection.workspaceId,
-          definition.id,
-          definition.name,
-          definition.description,
-          graph,
-        );
-        const refreshed = await window.setta.workflow.graphProjection(
-          workflowProjection.workspaceId,
-          updated.id,
-          updated.currentVersionId,
-        );
-        setWorkflowProjection(refreshed.projection);
-      } catch (error: unknown) {
-        setWorkflowEditorError(
-          error instanceof Error ? error.message : "Workflow layout update failed",
-        );
-      }
-    },
-    [syntheticGraph, workflowProjection],
-  );
 
   useEffect(() => {
     if (!graph) {
@@ -100,9 +62,6 @@ export function PixiWorkspaceSurface({
           debugSurfaceId: surfaceId,
           graph,
           host,
-          onNodePositionsChange: (positions) => {
-            void persistNodePositions(positions);
-          },
           reactRenderCount: () => reactRenderCount.current,
         });
         if (disposed) {
@@ -120,7 +79,7 @@ export function PixiWorkspaceSurface({
       destroyRenderer?.();
       host.replaceChildren();
     };
-  }, [debugEnabled, graph, persistNodePositions, surfaceId]);
+  }, [debugEnabled, graph, surfaceId]);
 
   return (
     <section className="niri-pixi-workspace-surface" data-testid="niri-pixi-workspace-surface">
@@ -132,7 +91,6 @@ export function PixiWorkspaceSurface({
       />
       {loadingProjection ? <PixiWorkspaceState label="Loading workflow graph" /> : null}
       {!loadingProjection && !graph ? <PixiWorkspaceState label="No workflow graph" /> : null}
-      {workflowEditorError ? <PixiWorkspaceEditorError message={workflowEditorError} /> : null}
       <WorkflowApprovalOverlay
         pendingApproval={pendingApproval}
         projection={workflowProjection}
@@ -246,16 +204,6 @@ function pendingWorkflowApproval(
 
 function PixiWorkspaceState({ label }: { label: string }) {
   return <div className="niri-pixi-workspace-state">{label}</div>;
-}
-
-function PixiWorkspaceEditorError({ message }: { message: string }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex justify-center">
-      <div className="pointer-events-auto max-w-md rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 shadow-lg">
-        {message}
-      </div>
-    </div>
-  );
 }
 
 function WorkflowApprovalOverlay({

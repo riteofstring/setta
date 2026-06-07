@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -10,30 +9,12 @@ import (
 type RunnerRegistry struct {
 	actionKinds map[WorkflowActionKind]struct{}
 	runners     map[WorkflowActionKind]ActionRunner
-	descriptors map[WorkflowActionKind]ActionRunnerDescriptor
-}
-
-type ActionRunnerDescriptor interface {
-	Kind() WorkflowActionKind
-	Capabilities(WorkflowActionConfig) (RunnerCapabilities, error)
-	ValidateConfig(WorkflowActionConfig) []RunnerConfigDiagnostic
 }
 
 type ActionRunner interface {
-	ActionRunnerDescriptor
-	Start(context.Context, ActionStartRequest, RunnerEventSink) (ActionStartResult, error)
+	Kind() WorkflowActionKind
+	Start(context.Context, ActionStartRequest) (ActionStartResult, error)
 	Cancel(context.Context, ActionCancelRequest) error
-	Signal(context.Context, ActionSignalRequest) (ActionSignalResult, error)
-	Recover(context.Context, ActionRecoverRequest, RunnerEventSink) (ActionRecoverResult, error)
-}
-
-type RunnerEventSink interface {
-	EmitRunnerEvent(RunnerEvent) error
-}
-
-type RunnerConfigDiagnostic struct {
-	Code    string
-	Message string
 }
 
 type ActionStartRequest struct {
@@ -43,10 +24,6 @@ type ActionStartRequest struct {
 	Execution           WorkflowExecution
 	Node                WorkflowNode
 	NodeExecution       WorkflowNodeExecution
-	Policy              WorkflowActionPolicy
-	Capabilities        RunnerCapabilities
-	InputHash           string
-	Input               json.RawMessage
 }
 
 type ActionStartResult struct {
@@ -60,47 +37,12 @@ type ActionCancelRequest struct {
 	RunnerRefs    []WorkflowActionRunnerRef
 }
 
-type ActionSignalRequest struct {
-	WorkspaceID   string
-	ExecutionID   string
-	NodeExecution WorkflowNodeExecution
-	RunnerRefs    []WorkflowActionRunnerRef
-	SignalName    string
-	Payload       json.RawMessage
-}
-
-type ActionSignalResult struct {
-	Accepted bool
-	Message  string
-}
-
-type ActionRecoverRequest struct {
-	WorkspaceID      string
-	ExecutionID      string
-	Execution        WorkflowExecution
-	NodeExecution    WorkflowNodeExecution
-	RunnerRefs       []WorkflowActionRunnerRef
-	RunnerState      *WorkflowRunnerState
-	LastEventOrdinal int
-}
-
-type ActionRecoverResult struct {
-	Outcome     RunnerRecoveryOutcome
-	Result      *WorkflowActionResult
-	RunnerRefs  []WorkflowActionRunnerRef
-	RunnerState *WorkflowRunnerState
-	Message     string
-}
-
 func DefaultRunnerRegistry() RunnerRegistry {
 	return RunnerRegistry{
 		actionKinds: map[WorkflowActionKind]struct{}{
 			ActionKindAgentCodex: {},
 		},
 		runners: map[WorkflowActionKind]ActionRunner{},
-		descriptors: map[WorkflowActionKind]ActionRunnerDescriptor{
-			ActionKindAgentCodex: CodexActionRunnerDescriptor{},
-		},
 	}
 }
 
@@ -116,33 +58,15 @@ func (registry RunnerRegistry) WithRunner(runner ActionRunner) RunnerRegistry {
 	if registry.runners == nil {
 		registry.runners = map[WorkflowActionKind]ActionRunner{}
 	}
-	if registry.descriptors == nil {
-		registry.descriptors = map[WorkflowActionKind]ActionRunnerDescriptor{}
-	}
 	kind := runner.Kind()
 	registry.actionKinds[kind] = struct{}{}
 	registry.runners[kind] = runner
-	registry.descriptors[kind] = runner
 	return registry
 }
 
 func (registry RunnerRegistry) Runner(kind WorkflowActionKind) (ActionRunner, bool) {
 	runner, ok := registry.runners[kind]
 	return runner, ok
-}
-
-func (registry RunnerRegistry) Descriptor(kind WorkflowActionKind) (ActionRunnerDescriptor, bool) {
-	descriptor, ok := registry.descriptors[kind]
-	return descriptor, ok
-}
-
-func runnerSupportsOperation(capabilities RunnerCapabilities, operation RunnerOperation) bool {
-	for _, candidate := range capabilities.Operations {
-		if candidate == operation {
-			return true
-		}
-	}
-	return false
 }
 
 func ValidateGraph(graph WorkflowGraph, registry RunnerRegistry) WorkflowValidationResult {
@@ -181,7 +105,6 @@ type graphValidator struct {
 func (validator *graphValidator) validate() {
 	validator.collectNodes()
 	validator.collectEdges()
-	validator.validateLayout()
 	validator.validateNodes()
 	validator.validateEdges()
 	validator.validateReachability()
@@ -270,24 +193,6 @@ func (validator *graphValidator) validateNoSpecialConfig(node WorkflowNode) {
 	}
 }
 
-func (validator *graphValidator) validateLayout() {
-	seen := map[string]bool{}
-	for _, nodeLayout := range validator.graph.Layout.Nodes {
-		if nodeLayout.NodeID == "" {
-			validator.addWarning("layout_node_id_required", "workflow layout node id is required", "", "")
-			continue
-		}
-		if seen[nodeLayout.NodeID] {
-			validator.addWarning("duplicate_layout_node", fmt.Sprintf("workflow layout contains duplicate position for node %s", nodeLayout.NodeID), nodeLayout.NodeID, "")
-			continue
-		}
-		seen[nodeLayout.NodeID] = true
-		if _, ok := validator.nodesByID[nodeLayout.NodeID]; !ok {
-			validator.addWarning("layout_node_unknown", fmt.Sprintf("workflow layout references unknown node %s", nodeLayout.NodeID), "", "")
-		}
-	}
-}
-
 func (validator *graphValidator) validateActionNode(node WorkflowNode) {
 	if node.Action == nil {
 		validator.addNodeDiagnostic("action_config_required", fmt.Sprintf("action node %s must declare action config", node.ID), node.ID)
@@ -304,21 +209,17 @@ func (validator *graphValidator) validateActionNode(node WorkflowNode) {
 		validator.addNodeDiagnostic("action_runner_unregistered", fmt.Sprintf("action node %s requires unregistered runner %q", node.ID, node.Action.Kind), node.ID)
 		return
 	}
-	descriptor, ok := validator.registry.Descriptor(node.Action.Kind)
-	if !ok {
-		validator.addNodeDiagnostic("action_runner_descriptor_missing", fmt.Sprintf("action node %s has no descriptor for action kind %q", node.ID, node.Action.Kind), node.ID)
-		return
-	}
-	for _, diagnostic := range descriptor.ValidateConfig(*node.Action) {
-		validator.addNodeDiagnostic(diagnostic.Code, diagnostic.Message, node.ID)
-	}
-	capabilities, err := descriptor.Capabilities(*node.Action)
-	if err != nil {
-		validator.addNodeDiagnostic("action_runner_capabilities_invalid", fmt.Sprintf("action node %s runner capabilities failed: %v", node.ID, err), node.ID)
-		return
-	}
-	if !runnerSupportsOperation(capabilities, RunnerOperationStart) {
-		validator.addNodeDiagnostic("action_runner_start_unsupported", fmt.Sprintf("action node %s runner %q does not support start", node.ID, node.Action.Kind), node.ID)
+	switch node.Action.Kind {
+	case ActionKindAgentCodex:
+		if node.Action.Codex == nil {
+			validator.addNodeDiagnostic("codex_action_config_required", fmt.Sprintf("agent.codex node %s must declare codex config", node.ID), node.ID)
+			return
+		}
+		if node.Action.Codex.Prompt == "" {
+			validator.addNodeDiagnostic("codex_action_prompt_required", fmt.Sprintf("agent.codex node %s prompt is required", node.ID), node.ID)
+		}
+	default:
+		validator.addNodeDiagnostic("action_kind_unsupported", fmt.Sprintf("action node %s has unsupported action kind %q", node.ID, node.Action.Kind), node.ID)
 	}
 }
 
@@ -789,16 +690,8 @@ func (validator *graphValidator) addEdgeDiagnostic(code string, message string, 
 }
 
 func (validator *graphValidator) addDiagnostic(code string, message string, nodeID string, edgeID string) {
-	validator.addDiagnosticWithSeverity(ValidationSeverityError, code, message, nodeID, edgeID)
-}
-
-func (validator *graphValidator) addWarning(code string, message string, nodeID string, edgeID string) {
-	validator.addDiagnosticWithSeverity(ValidationSeverityWarning, code, message, nodeID, edgeID)
-}
-
-func (validator *graphValidator) addDiagnosticWithSeverity(severity WorkflowValidationSeverity, code string, message string, nodeID string, edgeID string) {
 	validator.diagnostics = append(validator.diagnostics, WorkflowValidationDiagnostic{
-		Severity: severity,
+		Severity: ValidationSeverityError,
 		Code:     code,
 		Message:  message,
 		NodeID:   nodeID,

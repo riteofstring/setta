@@ -139,6 +139,22 @@ async function openSettingsPanel(client) {
   if (!opened.ok) {
     throw new Error(`settings open failed: ${JSON.stringify(opened)}`);
   }
+  await waitForState(
+    client,
+    `(() => {
+      const tab = document.querySelector("#settings-subtab-terminal-profiles");
+      return { ready: tab instanceof HTMLButtonElement };
+    })()`,
+    (value) => value.ready,
+    terminalProfileWorkflowTimeoutMs,
+  );
+  await client.evaluate(`(() => {
+    const tab = document.querySelector("#settings-subtab-terminal-profiles");
+    if (!(tab instanceof HTMLButtonElement)) {
+      throw new Error("missing terminal profiles tab");
+    }
+    tab.click();
+  })()`);
   await waitForSelector(client, '[data-testid="terminal-profiles-panel"]');
   await waitForProfileEditorReady(client);
 }

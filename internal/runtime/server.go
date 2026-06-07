@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
@@ -50,7 +51,6 @@ type ReadyEvent struct {
 type Server struct {
 	closeCodex          func(context.Context) error
 	closeTerminal       func(context.Context) error
-	closeWorkflowStore  func() error
 	closeEvents         func()
 	closeWorkflowEvents func()
 	server              *http.Server
@@ -59,13 +59,13 @@ type Server struct {
 }
 
 type runtimeServices struct {
+	appearanceService   *appearance.Service
 	chatService         *chat.Service
 	codexAccountService *codexaccount.Service
 	codexManager        *codexapp.Manager
 	terminalService     *terminal.Manager
 	workspaceService    *workspacesession.Service
 	workflowService     *orchestrator.Service
-	workflowStore       *orchestrator.Store
 }
 
 func DefaultConfig() Config {
@@ -133,7 +133,6 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	server := &Server{
 		closeCodex:          services.codexManager.Shutdown,
 		closeTerminal:       services.terminalService.Shutdown,
-		closeWorkflowStore:  services.workflowStore.Close,
 		closeEvents:         services.chatService.CloseEvents,
 		closeWorkflowEvents: services.workflowService.CloseEvents,
 		server:              newHTTPServer(config, services),
@@ -151,51 +150,26 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 }
 
 func buildRuntimeServices(config Config) (runtimeServices, error) {
-	appStore, err := appstate.NewStore(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create app state store: %w", err)
-	}
-	workspaceManager, err := workspace.NewManager(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create workspace manager: %w", err)
-	}
-	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("load workspace session: %w", err)
-	}
-	chatStore, err := chat.NewStore(config.AppDataDir)
-	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create chat store: %w", err)
-	}
-	codexManager := codexapp.NewManager(codexapp.ManagerConfig{
-		Process: codexapp.ProcessConfig{
-			Command: "codex",
-			Args:    []string{"app-server", "--listen", "stdio://"},
-		},
-		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
-	})
-	harness, err := chatHarness(config.ChatHarness, codexManager)
+	appearanceService, err := newAppearanceService(config.AppDataDir)
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, harness)
+	workspaceService, err := newWorkspaceService(config.AppDataDir)
 	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create chat service: %w", err)
+		return runtimeServices{}, err
 	}
-	workflowStore, err := orchestrator.NewStore(config.AppDataDir)
+	codexManager := newCodexManager()
+	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
 	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create workflow store: %w", err)
+		return runtimeServices{}, err
 	}
-	workflowService, err := orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
+	workflowService, err := newWorkflowService(config.AppDataDir, workspaceService, chatService)
 	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create workflow service: %w", err)
+		return runtimeServices{}, err
 	}
-	terminalService, err := terminal.NewManager(terminal.ManagerConfig{
-		AppDataDir:        config.AppDataDir,
-		WorkspaceResolver: workspaceService,
-	})
+	terminalService, err := newTerminalService(config.AppDataDir, workspaceService)
 	if err != nil {
-		return runtimeServices{}, fmt.Errorf("create terminal service: %w", err)
+		return runtimeServices{}, err
 	}
 	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
 	if err != nil {
@@ -203,14 +177,107 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	}
 
 	return runtimeServices{
+		appearanceService:   appearanceService,
 		chatService:         chatService,
 		codexAccountService: codexAccountService,
 		codexManager:        codexManager,
 		terminalService:     terminalService,
 		workspaceService:    workspaceService,
 		workflowService:     workflowService,
-		workflowStore:       workflowStore,
 	}, nil
+}
+
+func newAppearanceService(appDataDir string) (*appearance.Service, error) {
+	appearanceStore, err := appearance.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create appearance settings store: %w", err)
+	}
+	appearanceService, err := appearance.NewService(appearanceStore)
+	if err != nil {
+		return nil, fmt.Errorf("load appearance settings: %w", err)
+	}
+	return appearanceService, nil
+}
+
+func newWorkspaceService(appDataDir string) (*workspacesession.Service, error) {
+	appStore, err := appstate.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create app state store: %w", err)
+	}
+	workspaceManager, err := workspace.NewManager(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create workspace manager: %w", err)
+	}
+	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
+	if err != nil {
+		return nil, fmt.Errorf("load workspace session: %w", err)
+	}
+	return workspaceService, nil
+}
+
+func newCodexManager() *codexapp.Manager {
+	return codexapp.NewManager(codexapp.ManagerConfig{
+		Process: codexapp.ProcessConfig{
+			Command: "codex",
+			Args:    []string{"app-server", "--listen", "stdio://"},
+		},
+		InitializeParams: chat.CodexInitializeParams(chat.CodexHarnessConfig{}),
+	})
+}
+
+func newChatService(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+	codexManager *codexapp.Manager,
+	harnessMode ChatHarnessMode,
+) (*chat.Service, error) {
+	chatStore, err := chat.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create chat store: %w", err)
+	}
+	harness, err := chatHarness(harnessMode, codexManager)
+	if err != nil {
+		return nil, err
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, harness)
+	if err != nil {
+		return nil, fmt.Errorf("create chat service: %w", err)
+	}
+	return chatService, nil
+}
+
+func newWorkflowService(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+	chatService *chat.Service,
+) (*orchestrator.Service, error) {
+	workflowStore, err := orchestrator.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create workflow store: %w", err)
+	}
+	workflowService, err := orchestrator.NewService(
+		workflowStore,
+		workspaceService,
+		orchestrator.WithCodexChatService(chatService),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create workflow service: %w", err)
+	}
+	return workflowService, nil
+}
+
+func newTerminalService(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+) (*terminal.Manager, error) {
+	terminalService, err := terminal.NewManager(terminal.ManagerConfig{
+		AppDataDir:        appDataDir,
+		WorkspaceResolver: workspaceService,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create terminal service: %w", err)
+	}
+	return terminalService, nil
 }
 
 func newHTTPServer(config Config, services runtimeServices) *http.Server {
@@ -220,6 +287,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 				Name:    httpapi.BackendName,
 				Version: config.Version,
 			},
+			AppearanceService:   services.appearanceService,
 			ChatService:         services.chatService,
 			CodexAccountService: services.codexAccountService,
 			TerminalService:     services.terminalService,
@@ -237,50 +305,27 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("shutdown context is required")
 	}
-	server.closeEventStreams()
-	var shutdownErr error
-	shutdownErr = firstShutdownError(shutdownErr, server.shutdownTerminal(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.server.Shutdown(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.shutdownCodex(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.shutdownWorkflowStore())
-	return shutdownErr
-}
-
-func (server *Server) closeEventStreams() {
 	if server.closeEvents != nil {
 		server.closeEvents()
 	}
 	if server.closeWorkflowEvents != nil {
 		server.closeWorkflowEvents()
 	}
-}
-
-func (server *Server) shutdownTerminal(ctx context.Context) error {
-	if server.closeTerminal == nil {
-		return nil
+	var shutdownErr error
+	if server.closeTerminal != nil {
+		if err := server.closeTerminal(ctx); err != nil {
+			shutdownErr = err
+		}
 	}
-	return server.closeTerminal(ctx)
-}
-
-func (server *Server) shutdownCodex(ctx context.Context) error {
-	if server.closeCodex == nil {
-		return nil
+	if err := server.server.Shutdown(ctx); err != nil && shutdownErr == nil {
+		shutdownErr = err
 	}
-	return server.closeCodex(ctx)
-}
-
-func (server *Server) shutdownWorkflowStore() error {
-	if server.closeWorkflowStore != nil {
-		return server.closeWorkflowStore()
+	if server.closeCodex != nil {
+		if err := server.closeCodex(ctx); err != nil && shutdownErr == nil {
+			shutdownErr = err
+		}
 	}
-	return nil
-}
-
-func firstShutdownError(current error, next error) error {
-	if current != nil {
-		return current
-	}
-	return next
+	return shutdownErr
 }
 
 func (server *Server) Wait() error {

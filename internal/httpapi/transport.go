@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/chat"
 	"setta/internal/jsonio"
@@ -17,6 +18,14 @@ import (
 func requireWorkspaceService(response http.ResponseWriter, service WorkspaceService) WorkspaceService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "workspace_service_unavailable", "workspace service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireAppearanceService(response http.ResponseWriter, service AppearanceService) AppearanceService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "appearance_service_unavailable", "appearance service is not available")
 		return nil
 	}
 	return service
@@ -77,6 +86,18 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 		return
 	}
 	if appstate.IsPersistenceError(err) || workspace.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeAppearanceError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if appearance.IsCorruptSettingsError(err) {
+		writeError(response, status, code, err.Error())
+		return
+	}
+	if appearance.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())

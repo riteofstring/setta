@@ -20,7 +20,7 @@ type WorkspaceResolver interface {
 }
 
 type Service struct {
-	store             WorkflowStore
+	store             *Store
 	workspaceResolver WorkspaceResolver
 	events            *EventHub
 	runnerRegistry    RunnerRegistry
@@ -44,7 +44,7 @@ func (err *ValidationError) Error() string {
 	return err.Result.Diagnostics[0].Message
 }
 
-func NewService(store WorkflowStore, workspaceResolver WorkspaceResolver, options ...Option) (*Service, error) {
+func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Option) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("workflow store is required")
 	}
@@ -149,7 +149,6 @@ func (service *Service) CreateDefinition(workspaceID string, name string, descri
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowDefinition{}, err
 	}
-	graph = normalizeWorkflowGraph(graph)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return WorkflowDefinition{}, errors.New("workflow definition name is required")
@@ -193,7 +192,10 @@ func (service *Service) CreateDefinition(workspaceID string, name string, descri
 		CreatedAt:            now,
 		UpdatedAt:            now,
 	}
-	if err := service.store.SaveDefinitionRevision(definition, version); err != nil {
+	if err := service.store.SaveDefinitionVersion(version); err != nil {
+		return WorkflowDefinition{}, err
+	}
+	if err := service.store.SaveDefinition(definition); err != nil {
 		return WorkflowDefinition{}, err
 	}
 	return definition, nil
@@ -212,7 +214,6 @@ func (service *Service) UpdateDefinition(workspaceID string, definitionID string
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowDefinition{}, err
 	}
-	graph = normalizeWorkflowGraph(graph)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return WorkflowDefinition{}, errors.New("workflow definition name is required")
@@ -252,7 +253,10 @@ func (service *Service) UpdateDefinition(workspaceID string, definitionID string
 	next.CurrentVersionNumber = nextVersionNumber
 	next.Graph = graph
 	next.UpdatedAt = now
-	if err := service.store.SaveDefinitionRevision(next, version); err != nil {
+	if err := service.store.SaveDefinitionVersion(version); err != nil {
+		return WorkflowDefinition{}, err
+	}
+	if err := service.store.SaveDefinition(next); err != nil {
 		return WorkflowDefinition{}, err
 	}
 	return next, nil
@@ -478,7 +482,31 @@ func (service *Service) latestExecutionForDefinitionVersionLocked(workspaceID st
 }
 
 func (service *Service) recoverInterruptedExecutions() error {
-	return service.recoverNonTerminalExecutions()
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	workspaceIDs, err := service.store.WorkspaceIDs()
+	if err != nil {
+		return err
+	}
+	for _, workspaceID := range workspaceIDs {
+		executions, err := service.store.ListExecutions(workspaceID)
+		if err != nil {
+			return err
+		}
+		for _, execution := range executions {
+			if execution.Status != ExecutionStatusRunning {
+				continue
+			}
+			transition, err := InterruptExecution(execution, service.transitionContext(), "workflow execution was interrupted before backend startup")
+			if err != nil {
+				return err
+			}
+			if err := service.persistTransition(transition); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (service *Service) loadExecutionAndVersion(workspaceID string, executionID string) (WorkflowExecution, WorkflowDefinitionVersion, error) {
@@ -494,8 +522,11 @@ func (service *Service) loadExecutionAndVersion(workspaceID string, executionID 
 }
 
 func (service *Service) persistTransition(transition WorkflowTransition) error {
-	events, err := service.store.PersistTransition(transition)
+	events, err := service.store.AppendExecutionEvents(transition.Execution.WorkspaceID, transition.Execution.ID, transition.Events)
 	if err != nil {
+		return err
+	}
+	if err := service.store.SaveExecution(transition.Execution); err != nil {
 		return err
 	}
 	service.events.Publish(events)
@@ -518,13 +549,6 @@ func (service *Service) resolveWorkspace(workspaceID string) (workspace.Workspac
 
 func timestamp(value time.Time) string {
 	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func normalizeWorkflowGraph(graph WorkflowGraph) WorkflowGraph {
-	if graph.Layout.Nodes == nil {
-		graph.Layout.Nodes = []WorkflowGraphNodeLayout{}
-	}
-	return graph
 }
 
 func randomID(prefix string) (string, error) {
