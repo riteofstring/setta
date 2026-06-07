@@ -1,7 +1,7 @@
 # Functional Workflow Graph Editor Plan
 
 - **Date:** June 8, 2026
-- **Status:** Phase 4 direction; first layout slice complete; workspace-file storage and null-workflow authoring direction added
+- **Status:** Phase 4 in progress; layout and workspace-file/null-workflow authoring slices complete; editor controls, diagnostics, and details remain
 - **Scope:** Build the first usable workflow graph editor on top of workspace JSON workflow definitions containing `WorkflowDefinition.graph` and runtime `WorkflowGraphProjection` overlays.
 
 ## Direction
@@ -33,13 +33,13 @@ Manual node positions and collapsed/grouped editor state should be persisted as 
 
 ## Definition Storage
 
-Authored workflows should live in the workspace, for example under `.setta/workflows/<name>.json`. The exact path and filename rules are still design details, but the file should be deterministic, diffable, and reviewable in git.
+Authored workflows live in the workspace under `.setta/workflows/` as deterministic JSON files. Current filenames use the workflow name slug and definition ID, for example `<slug>--<definition-id>.json`, so the file is stable, diffable, and reviewable in git.
 
 The workspace workflow file should contain the authored definition data: name, description, graph nodes, graph edges, layout, validation-relevant config, and editor metadata that should travel with the project. It should not contain runtime events, node attempts, pending approvals, runner refs, or chat transcript data.
 
-SQLite remains appropriate for runtime state and immutable snapshots. When a workflow starts, the backend should capture the current workspace JSON definition into an immutable version snapshot so the run remains reproducible after the file changes.
+SQLite remains appropriate for runtime state and immutable snapshots. When a workflow starts, the backend captures the current workspace JSON definition into an immutable version snapshot so the run remains reproducible after the file changes.
 
-Do not add migration, dual-read/write, fallback, import, old-field aliases, or compatibility behavior for the current SQLite-authored definition rows. Replace the authored-definition storage path directly when workspace files are implemented.
+Do not add migration, dual-read/write, fallback, import, old-field aliases, or compatibility behavior for old SQLite-authored definition rows. The authored-definition storage path has been replaced directly with workspace files.
 
 ## Visual Layers
 
@@ -148,18 +148,29 @@ The first slice established backend-owned editor layout metadata and proved it t
 - Persist node moves through `updateDefinition` when the graph is showing a definition without a selected execution overlay.
 - Keep layout warnings non-fatal because layout is editor metadata, not execution authority.
 
-## Next Storage Slice
+## Completed Storage Slice
 
-- Add a workspace workflow file source of truth with deterministic JSON formatting.
-- List workspace workflow definitions in the left pane and load the selected definition explicitly.
-- Show a blank editable canvas when no workflow file exists.
-- Materialize a deterministic workspace workflow file on the first graph edit instead of requiring a separate create action.
-- Treat an empty graph as a valid draft/null workflow while keeping executable validation at run start.
-- Save graph edits and layout edits to the workspace file through the backend workflow definition API.
-- Capture immutable SQLite version snapshots when a workflow run starts.
-- Remove global-SQLite authored-definition authority directly, without migration or compatibility paths.
+- Added a workspace workflow file source of truth with deterministic JSON formatting.
+- Listed workspace workflow definitions in the left pane and loaded the selected definition explicitly.
+- Showed a blank editable canvas when no workflow file exists.
+- Materialized a deterministic workspace workflow file on the first graph edit instead of requiring a separate create action.
+- Treated an empty graph as a valid draft/null workflow while keeping executable validation at run start.
+- Saved graph edits and layout edits to the workspace file through the backend workflow definition API.
+- Captured immutable SQLite version snapshots when a workflow run starts.
+- Removed global-SQLite authored-definition authority directly, without migration or compatibility paths.
+- Proved the slice through deterministic Electron/main/preload/renderer/HTTP/store coverage for blank canvas, first-edit materialization, sidebar listing, durable node and edge edits, typed route ports, saved workspace JSON, and run-start snapshotting.
+
+## Remaining Editor Slice
+
+- Add first-class workflow configure and run controls in the renderer.
+- Add a discoverable add surface in addition to right-click canvas creation.
+- Show backend validation diagnostics on affected draft nodes and edges before save or run.
+- Open type-specific node details in an adjacent Niri pane.
+- Make draft, saved version, selected run, and version mismatch state explicit in the graph UI.
 
 ## Phase 4 Deliverables
+
+Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, and immutable run snapshots are implemented. The remaining deliverables are editor controls, diagnostics, details, and explicit draft/run/version state.
 
 - Name, list, open, edit, validate, save, and run workspace workflow definitions from the renderer.
 - Render an empty editable canvas as the null workflow when no saved definition exists.
@@ -194,13 +205,13 @@ The first slice established backend-owned editor layout metadata and proved it t
 
 ## Acceptance Criteria
 
-- Opening Workflow Graph in a workspace with no workflow files shows a blank editable canvas, not a create button or "no workflow graph" dead end.
-- Adding the first node to the blank canvas creates a deterministic workspace JSON definition and lists it in the left pane.
-- A user can create an `Agent Task` workflow from the canvas, configure its Codex prompt, save it as a workspace JSON definition, run an immutable snapshot, and inspect runtime status on the graph.
-- A user can see existing workspace workflows in the left pane, select one, and reopen that exact definition.
-- A user can create a control-flow workflow with `Route`, explicit default routing, and `Merge` or `Barrier Join` semantics that validate through the backend.
-- Dragging a connection creates a durable `WorkflowEdge` and condition, not only a Pixi line.
-- Moving nodes persists via backend-owned layout metadata when persistence is enabled.
-- Validation diagnostics appear on invalid draft nodes or edges before save.
-- Runtime overlays are pinned to the exact workflow version that ran; draft edits after run start do not silently change the displayed execution graph.
-- Node details panes can inspect authored config and selected-run activity without hiding the graph.
+- Complete: opening Workflow Graph in a workspace with no workflow files shows a blank editable canvas, not a create button or "no workflow graph" dead end.
+- Complete: adding the first node to the blank canvas creates a deterministic workspace JSON definition and lists it in the left pane.
+- Partial: a user can create an `Agent Task` workflow from the canvas, save it as a workspace JSON definition, run an immutable snapshot through the workflow API, and inspect runtime status on the graph. First-class prompt configuration and run controls still need UI work.
+- Complete: a user can see existing workspace workflows in the left pane, select one, and reopen that exact definition.
+- Partial: a user can create a control-flow workflow with `Route`, explicit default routing, and `Merge` or `Barrier Join` semantics that validate through the backend. Additional visible validation UX remains.
+- Complete: dragging a connection creates a durable `WorkflowEdge` and condition, not only a Pixi line.
+- Complete: moving nodes persists via backend-owned layout metadata when persistence is enabled.
+- Remaining: validation diagnostics appear on invalid draft nodes or edges before save.
+- Remaining: runtime overlays are pinned to the exact workflow version that ran, and draft edits after run start do not silently change the displayed execution graph without clear UI state.
+- Remaining: node details panes can inspect authored config and selected-run activity without hiding the graph.
