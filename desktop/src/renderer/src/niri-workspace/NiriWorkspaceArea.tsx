@@ -16,7 +16,7 @@ import type { NiriLayoutStore } from "./layout-store";
 import { installWindowResizeReportHooks, installWindowReportHooks } from "./performance-report";
 import type { NiriSceneMode } from "./runtime-mode-options";
 import { createNiriTrackpadNavigationState } from "./trackpad-navigation";
-import { NiriWorkspaceToolbar } from "./niri-workspace-toolbar";
+import { NiriWorkspaceToolbar, openPaneActionForSurfaceKind } from "./niri-workspace-toolbar";
 import { createNiriRuntime, type NiriRuntime } from "./niri-runtime";
 import {
   eventTargetsOverviewGhost,
@@ -151,7 +151,7 @@ export function NiriWorkspaceArea({
       return;
     }
     runLayoutAction(() => {
-      runtime.store.focusPaneBySurfaceKind(focusSurfaceRequest.surfaceKind);
+      focusOrOpenPaneBySurfaceKind(runtime, focusSurfaceRequest.surfaceKind);
       runtime.store.ensureFocusedColumnVisible(stageViewport());
       runtime.store.snapScrollToTarget();
     });
@@ -637,6 +637,21 @@ function niriSceneMode(): NiriSceneMode {
 
 function niriAutoBenchmarkEnabled(): boolean {
   return new URLSearchParams(window.location?.search ?? "").get("niriAuto") !== "false";
+}
+
+function focusOrOpenPaneBySurfaceKind(runtime: NiriRuntime, surfaceKind: SurfaceKind): void {
+  const maximizedPaneId = runtime.store.getSnapshot().maximizedPaneId;
+  if (maximizedPaneId !== null) {
+    runtime.store.togglePaneMaximized(maximizedPaneId);
+  }
+  if (runtime.store.focusPaneBySurfaceKind(surfaceKind) !== null) {
+    return;
+  }
+  const action = openPaneActionForSurfaceKind(surfaceKind);
+  if (!action || !runtime.store.canOpenPane(action.request)) {
+    return;
+  }
+  runtime.store.openPane(action.request);
 }
 
 function niriWorkspaceAreaLabel(mode: NiriSceneMode): string {
