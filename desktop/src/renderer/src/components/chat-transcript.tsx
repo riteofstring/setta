@@ -22,18 +22,11 @@ import {
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button } from "./ui/button";
-import { MessageActions, MessageTimestamp } from "./chat-message-actions";
 import { chatMessageText } from "./chat-message-text";
 import { MarkdownText } from "./markdown-text";
 import { RunActivityRows } from "./chat-run-activity";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
-import { BrailleSpinner } from "./ascii-spinner";
-import { chatReadableColumnClass, chatReadableColumnPaddedClass } from "./chat-layout";
-import {
-  isVisibleMessage,
-  transcriptTimelineRows,
-  type TranscriptTimelineRow,
-} from "./chat-transcript-timeline";
+import { isVisibleMessage, transcriptTimelineRows } from "./chat-transcript-timeline";
 import { ChatSearchBar, useTranscriptSearch } from "./chat-transcript-search";
 import {
   canSaveQueuedEdit,
@@ -106,12 +99,12 @@ function transcriptIndexes(props: {
 }
 
 const messageRowClassByRole = {
-  assistant: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  command: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  developer: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  system: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  tool: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
-  user: `${chatReadableColumnPaddedClass} flex justify-end py-1.5`,
+  assistant: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  command: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  developer: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  system: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  tool: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
+  user: "mx-auto flex w-full max-w-3xl min-w-0 justify-end py-1.5",
 } satisfies Record<MessageRole, string>;
 
 const deliveryLabelByDelivery = {
@@ -129,25 +122,25 @@ const messageStatusLabelByStatus = {
 } satisfies Record<MessageStatus, string | null>;
 
 const assistantMessageContainerClass =
-  "min-w-0 max-w-full overflow-hidden text-[13px] leading-5 break-words text-foreground";
+  "max-w-[84%] min-w-0 overflow-hidden rounded-sm border border-zinc-800 bg-zinc-900 px-3 py-2 text-[13px] leading-5 break-words text-zinc-100";
 
 const assistantMessageContainerClassByRole = {
   assistant: assistantMessageContainerClass,
   command:
-    "min-w-0 max-w-full overflow-hidden border-l border-emerald-500/40 pl-3 text-[13px] leading-5 break-words text-emerald-100",
+    "max-w-[84%] min-w-0 overflow-hidden rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-[13px] leading-5 break-words text-emerald-100",
   developer: assistantMessageContainerClass,
   system: assistantMessageContainerClass,
   tool: assistantMessageContainerClass,
 } satisfies Record<Exclude<MessageRole, "user">, string>;
 
 const userMessageContainerClassByDelivery = {
-  goal: "max-w-full overflow-hidden rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-[13px] leading-5 break-words text-emerald-100",
+  goal: "max-w-[78%] overflow-hidden rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-[13px] leading-5 break-words text-emerald-100",
   normal:
-    "max-w-full overflow-hidden rounded-sm bg-muted px-3 py-2 text-[13px] leading-5 break-words text-foreground",
+    "max-w-[78%] overflow-hidden rounded-sm bg-zinc-800 px-3 py-2 text-[13px] leading-5 break-words text-zinc-100",
   queued:
-    "max-w-full overflow-hidden rounded-sm border border-dashed border-border bg-background px-3 py-2 text-[13px] leading-5 break-words text-muted-foreground",
+    "max-w-[78%] overflow-hidden rounded-sm border border-dashed border-zinc-700 bg-zinc-900 px-3 py-2 text-[13px] leading-5 break-words text-zinc-300",
   steering:
-    "max-w-full overflow-hidden rounded-sm border border-blue-400/40 bg-blue-950/30 px-3 py-2 text-[13px] leading-5 break-words text-blue-100",
+    "max-w-[78%] overflow-hidden rounded-sm border border-blue-400/40 bg-blue-950/30 px-3 py-2 text-[13px] leading-5 break-words text-blue-100",
 } satisfies Record<MessageDelivery, string>;
 
 export function ChatTranscript({
@@ -204,7 +197,6 @@ export function ChatTranscript({
     ],
   );
   const timeline = useMemo(() => transcriptTimelineRows(transcript), [transcript]);
-  const timestampMessageIds = useMemo(() => timestampMessageIdsForTimeline(timeline), [timeline]);
   const search = useTranscriptSearch({
     messagesById,
     messageIds,
@@ -308,7 +300,7 @@ export function ChatTranscript({
             setPinned(true);
           }
         }}
-        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-background pt-4 pb-2"
+        className="h-full min-h-0 min-w-0 bg-zinc-900 px-3 pt-4 pb-2"
         components={{
           Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
           Header: () => (
@@ -329,7 +321,6 @@ export function ChatTranscript({
                 activeSearchMessageId={search.activeMessageId}
                 message={item.message}
                 rowActions={rowActions}
-                showTimestamp={timestampMessageIds.has(item.message.id)}
                 runItemIdsByRunId={transcript.runItemIdsByRunId}
                 runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
                 runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -349,7 +340,6 @@ export function ChatTranscript({
               runItemsById={transcript.runItemsById}
               turn={item.turn}
               rowActions={rowActions}
-              timestampMessageIds={timestampMessageIds}
             />
           );
         }}
@@ -374,11 +364,11 @@ function EmptyChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-background px-3 pt-4 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-y-auto bg-zinc-900 px-3 pt-4 pb-2"
         data-testid="chat-transcript-scroller"
       >
         <div
-          className={cn(chatReadableColumnClass, "py-16 text-center text-xs text-muted-foreground")}
+          className="mx-auto w-full max-w-3xl py-16 text-center text-xs text-zinc-500"
           data-testid="empty-chat"
         >
           Start a conversation for this workspace.
@@ -398,7 +388,7 @@ function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
   return (
     <div className="mb-2 flex justify-center">
       <Button
-        className="border-border bg-background text-foreground hover:bg-accent"
+        className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
         onClick={() => void loadOlder()}
         variant="secondary"
       >
@@ -416,7 +406,7 @@ function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) 
     return null;
   }
   return (
-    <div className={cn(chatReadableColumnPaddedClass, "py-2")}>
+    <div className="mx-auto w-full max-w-3xl py-2">
       <PendingApproval activeRun={activeRun} submitApproval={submitApproval} />
     </div>
   );
@@ -454,21 +444,17 @@ function JumpToLatestButton({
     return null;
   }
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-4 flex justify-center">
-      <div className="flex w-full max-w-2xl justify-end">
-        <Button
-          aria-label="Jump to latest"
-          className="pointer-events-auto h-7 w-7 rounded-sm border-border bg-muted/95 px-0 text-foreground shadow-lg shadow-black/30 hover:bg-accent hover:text-foreground"
-          onClick={() => {
-            virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-            setPinned(true);
-          }}
-          variant="secondary"
-        >
-          <ArrowDown className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
+    <Button
+      aria-label="Jump to latest"
+      className="absolute bottom-4 right-6 shadow-sm"
+      onClick={() => {
+        virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
+        setPinned(true);
+      }}
+      variant="secondary"
+    >
+      <ArrowDown className="h-4 w-4" />
+    </Button>
   );
 }
 
@@ -477,7 +463,6 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
   turn,
   loadRunItemOutput,
   rowActions,
-  timestampMessageIds,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
@@ -493,7 +478,6 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
     limit?: number,
   ) => Promise<void>;
   rowActions: TranscriptRowActions;
-  timestampMessageIds: Set<string>;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
@@ -513,7 +497,6 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
           activeSearchMessageId={activeSearchMessageId}
           message={turn.triggerMessage}
           rowActions={rowActions}
-          showTimestamp={timestampMessageIds.has(turn.triggerMessage.id)}
           runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -527,7 +510,6 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
           activeSearchMessageId={activeSearchMessageId}
           message={turn.assistantMessage}
           rowActions={rowActions}
-          showTimestamp={timestampMessageIds.has(turn.assistantMessage.id)}
           runItemIdsByRunId={runItemIdsByRunId}
           runItemOutputIdsByRunItemId={runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -544,7 +526,6 @@ const MessageRow = memo(function MessageRow({
   message,
   loadRunItemOutput,
   rowActions,
-  showTimestamp,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
   runItemOutputPagesByRunItemId,
@@ -560,7 +541,6 @@ const MessageRow = memo(function MessageRow({
     limit?: number,
   ) => Promise<void>;
   rowActions: TranscriptRowActions;
-  showTimestamp: boolean;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
@@ -568,13 +548,16 @@ const MessageRow = memo(function MessageRow({
   runItemsById: Record<string, RunItem>;
 }) {
   const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
-  const text = chatMessageText(message);
   const [editMode, setEditMode] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const [draft, setDraft] = useState(text);
+  const [draft, setDraft] = useState(chatMessageText(message));
   const queuedEditable = isQueuedEditableMessage(message);
   const pendingSteering = isPendingSteeringMessage(message, rowActions.activeRun);
-  const rowBusy = messageRowBusy(message, rowActions);
+  const rowBusy =
+    (rowActions.operation === "editingQueued" &&
+      rowActions.editingQueuedMessageId === message.id) ||
+    (rowActions.operation === "removingQueued" &&
+      rowActions.removingQueuedMessageId === message.id);
 
   useEffect(() => {
     if (!queuedEditable) {
@@ -585,9 +568,9 @@ const MessageRow = memo(function MessageRow({
 
   useEffect(() => {
     if (!editMode) {
-      setDraft(text);
+      setDraft(chatMessageText(message));
     }
-  }, [editMode, text]);
+  }, [editMode, message]);
 
   async function saveQueuedEdit() {
     if (!canSaveQueuedEdit(message, draft, rowBusy)) {
@@ -604,49 +587,6 @@ const MessageRow = memo(function MessageRow({
     await rowActions.removeQueuedMessage(message.id);
     setConfirmRemove(false);
   }
-  const activityRows =
-    itemRows.length > 0 ? (
-      <RunActivityRows
-        items={itemRows}
-        loadRunItemOutput={loadRunItemOutput}
-        outputIdsByRunItemId={runItemOutputIdsByRunItemId}
-        outputPagesByRunItemId={runItemOutputPagesByRunItemId}
-        outputsById={runItemOutputsById}
-      />
-    ) : null;
-  const messageBody = (
-    <>
-      <MessageRowActions
-        confirmRemove={confirmRemove}
-        draft={draft}
-        editMode={editMode}
-        message={message}
-        pendingSteering={pendingSteering}
-        queuedEditable={queuedEditable}
-        rowActions={rowActions}
-        rowBusy={rowBusy}
-        saveQueuedEdit={saveQueuedEdit}
-        setConfirmRemove={setConfirmRemove}
-        setDraft={setDraft}
-        setEditMode={setEditMode}
-        removeQueued={removeQueued}
-      />
-      {editMode ? (
-        <QueuedMessageEditor
-          draft={draft}
-          message={message}
-          rowBusy={rowBusy}
-          saveQueuedEdit={saveQueuedEdit}
-          setDraft={setDraft}
-          setEditMode={setEditMode}
-        />
-      ) : (
-        <MessageContent message={message} />
-      )}
-      <UserDeliveryBadge message={message} />
-      <MessageStatus message={message} />
-    </>
-  );
 
   return (
     <div
@@ -658,18 +598,45 @@ const MessageRow = memo(function MessageRow({
       data-search-active={message.id === activeSearchMessageId ? "true" : "false"}
       data-testid={messageRowTestId(message)}
     >
-      <div className={messageShellClass(message)}>
-        <div className={messageActionRowClass(message)}>
-          <div
-            className={messageContainerClass(message)}
-            data-testid={messageContentTestId(message)}
-          >
-            {messageBody}
-          </div>
-          {editMode ? null : <MessageActions showRetry={canRetryByForking(message)} text={text} />}
-        </div>
-        {message.role === "user" ? null : activityRows}
-        {showTimestamp ? <MessageTimestamp message={message} /> : null}
+      <div className={messageContainerClass(message)}>
+        <MessageRowActions
+          confirmRemove={confirmRemove}
+          draft={draft}
+          editMode={editMode}
+          message={message}
+          pendingSteering={pendingSteering}
+          queuedEditable={queuedEditable}
+          rowActions={rowActions}
+          rowBusy={rowBusy}
+          saveQueuedEdit={saveQueuedEdit}
+          setConfirmRemove={setConfirmRemove}
+          setDraft={setDraft}
+          setEditMode={setEditMode}
+          removeQueued={removeQueued}
+        />
+        {editMode ? (
+          <QueuedMessageEditor
+            draft={draft}
+            message={message}
+            rowBusy={rowBusy}
+            saveQueuedEdit={saveQueuedEdit}
+            setDraft={setDraft}
+            setEditMode={setEditMode}
+          />
+        ) : (
+          <MessageContent message={message} />
+        )}
+        <UserDeliveryBadge message={message} />
+        <MessageStatus message={message} />
+        {itemRows.length > 0 ? (
+          <RunActivityRows
+            items={itemRows}
+            loadRunItemOutput={loadRunItemOutput}
+            outputIdsByRunItemId={runItemOutputIdsByRunItemId}
+            outputPagesByRunItemId={runItemOutputPagesByRunItemId}
+            outputsById={runItemOutputsById}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -679,73 +646,6 @@ function messageRowClass(message: ChatMessage, activeSearchMatch: boolean) {
   return cn(
     messageRowClassByRole[message.role],
     activeSearchMatch && "rounded-sm bg-blue-400/5 ring-1 ring-blue-400/50",
-  );
-}
-
-function timestampMessageIdsForTimeline(timeline: TranscriptTimelineRow[]) {
-  const messages = visibleMessagesForTimeline(timeline);
-  const timestampMessageIds = new Set<string>();
-  for (let index = 0; index < messages.length; index += 1) {
-    const message = messages[index];
-    if (!message) {
-      continue;
-    }
-    const nextMessage = messages[index + 1] ?? null;
-    if (!nextMessage || timestampGroupKey(message) !== timestampGroupKey(nextMessage)) {
-      timestampMessageIds.add(message.id);
-    }
-  }
-  return timestampMessageIds;
-}
-
-function visibleMessagesForTimeline(timeline: TranscriptTimelineRow[]) {
-  const messages: ChatMessage[] = [];
-  for (const row of timeline) {
-    if (row.kind === "message") {
-      messages.push(row.message);
-      continue;
-    }
-    if (isVisibleMessage(row.turn.triggerMessage)) {
-      messages.push(row.turn.triggerMessage);
-    }
-    if (row.turn.assistantMessage && isVisibleMessage(row.turn.assistantMessage)) {
-      messages.push(row.turn.assistantMessage);
-    }
-  }
-  return messages;
-}
-
-function timestampGroupKey(message: ChatMessage) {
-  return message.role === "user" ? "user" : "ai";
-}
-
-function messageShellClass(message: ChatMessage) {
-  if (message.role === "user") {
-    return "group/message flex max-w-[82%] min-w-0 flex-col items-end overflow-visible";
-  }
-  return "group/message flex max-w-[88%] min-w-0 flex-col items-start overflow-visible";
-}
-
-function messageActionRowClass(message: ChatMessage) {
-  if (message.role === "user") {
-    return "flex max-w-full min-w-0 flex-row-reverse items-start gap-1.5 overflow-visible";
-  }
-  return "flex max-w-full min-w-0 items-start gap-1.5 overflow-visible";
-}
-
-function canRetryByForking(message: ChatMessage) {
-  return (
-    message.delivery === "normal" &&
-    message.status === "complete" &&
-    (message.role === "assistant" || message.role === "user")
-  );
-}
-
-function messageRowBusy(message: ChatMessage, rowActions: TranscriptRowActions) {
-  return (
-    (rowActions.operation === "editingQueued" &&
-      rowActions.editingQueuedMessageId === message.id) ||
-    (rowActions.operation === "removingQueued" && rowActions.removingQueuedMessageId === message.id)
   );
 }
 
@@ -773,13 +673,6 @@ function MessageContent({ message }: { message: ChatMessage }) {
     case "developer":
     case "system":
     case "tool":
-      if (text === "" && message.status === "streaming") {
-        return (
-          <div className="flex h-5 items-center">
-            <BrailleSpinner label="Assistant is thinking" />
-          </div>
-        );
-      }
       return <MarkdownText text={assistantMessageText(text, message.status)} />;
     default:
       return assertNever(message.role);
@@ -792,7 +685,7 @@ function assistantMessageText(text: string, status: MessageStatus) {
   }
   switch (status) {
     case "streaming":
-      return "";
+      return "...";
     case "cancelled":
     case "complete":
     case "error":
@@ -815,7 +708,7 @@ function MessageStatus({ message }: { message: ChatMessage }) {
   if (label === null) {
     return null;
   }
-  return <div className="mt-3 text-xs font-medium text-status-critical">{label}</div>;
+  return <div className="mt-3 text-xs font-medium text-red-400">{label}</div>;
 }
 
 function activityItemsForMessage(
@@ -835,10 +728,6 @@ function messageContainerClass(message: ChatMessage) {
   return message.role === "user"
     ? userMessageContainerClassByDelivery[message.delivery]
     : assistantMessageContainerClassByRole[message.role];
-}
-
-function messageContentTestId(message: ChatMessage) {
-  return `chat-${message.role}-message-content`;
 }
 
 function deliveryLabel(message: ChatMessage) {

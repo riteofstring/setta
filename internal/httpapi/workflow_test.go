@@ -36,7 +36,7 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 		Name:        "HTTP workflow",
 		Graph:       graph,
 	}, http.StatusOK)
-	if definition.ID == "" || definition.CurrentVersionID == "" {
+	if definition.ID == "" {
 		t.Fatalf("definition missing ids: %+v", definition)
 	}
 	list := postJSON[ListWorkflowDefinitionsResponse](t, handler, "/workflows/definitions/list", ListWorkflowDefinitionsRequest{
@@ -114,7 +114,7 @@ func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
 		WorkspaceID:  opened.Workspace.ID,
 		ExecutionID:  started.ID,
 		DefinitionID: definition.ID,
-		VersionID:    definition.CurrentVersionID,
+		VersionID:    started.DefinitionVersionID,
 	}, http.StatusOK)
 	if projection.Projection == nil {
 		t.Fatal("workflow graph projection was nil")
@@ -275,6 +275,11 @@ func newScriptedWorkflowHandler(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("new workflow store: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := workflowStore.Close(); err != nil {
+			t.Fatalf("close workflow store: %v", err)
+		}
+	})
 	workflowService, err := orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
 	if err != nil {
 		t.Fatalf("new workflow service: %v", err)

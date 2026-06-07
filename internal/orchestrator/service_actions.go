@@ -13,20 +13,78 @@ type actionCancelDispatch struct {
 	request ActionCancelRequest
 }
 
+type bufferingRunnerEventSink struct {
+	events []RunnerEvent
+}
+
+func (sink *bufferingRunnerEventSink) EmitRunnerEvent(event RunnerEvent) error {
+	sink.events = append(sink.events, event)
+	return nil
+}
+
+func (sink *bufferingRunnerEventSink) Events() []RunnerEvent {
+	return append([]RunnerEvent{}, sink.events...)
+}
+
+func buildActionStartRequest(workspaceID string, execution WorkflowExecution, node WorkflowNode, nodeExecution WorkflowNodeExecution, descriptor ActionRunnerDescriptor, context TransitionContext) (WorkflowActionStartMetadata, ActionStartRequest, error) {
+	if node.Action == nil {
+		return WorkflowActionStartMetadata{}, ActionStartRequest{}, fmt.Errorf("action node %s has no action config", node.ID)
+	}
+	policy, err := workflowActionPolicyForConfig(*node.Action)
+	if err != nil {
+		return WorkflowActionStartMetadata{}, ActionStartRequest{}, err
+	}
+	capabilities, err := descriptor.Capabilities(*node.Action)
+	if err != nil {
+		return WorkflowActionStartMetadata{}, ActionStartRequest{}, err
+	}
+	input, inputHash, err := workflowActionInputForStart(execution, node, nodeExecution, policy)
+	if err != nil {
+		return WorkflowActionStartMetadata{}, ActionStartRequest{}, err
+	}
+	runnerKind := descriptor.Kind()
+	runnerState := initialRunnerState(workspaceID, execution, nodeExecution, runnerKind, context.Now)
+	metadata := WorkflowActionStartMetadata{
+		RunnerKind:       runnerKind,
+		RunnerRefs:       []WorkflowActionRunnerRef{},
+		Policy:           &policy,
+		SideEffectPolicy: &policy.SideEffectPolicy,
+		Capabilities:     &capabilities,
+		InputHash:        inputHash,
+		Input:            input,
+		RunnerState:      &runnerState,
+		ActivityRefs:     []WorkflowActivityRef{},
+	}
+	request := ActionStartRequest{
+		WorkspaceID:         workspaceID,
+		DefinitionID:        execution.DefinitionID,
+		DefinitionVersionID: execution.DefinitionVersionID,
+		Execution:           execution,
+		Node:                node,
+		NodeExecution:       nodeExecution,
+		Policy:              policy,
+		Capabilities:        capabilities,
+		InputHash:           inputHash,
+		Input:               input,
+	}
+	return metadata, request, nil
+}
+
 func (service *Service) dispatchReadyActions(workspaceID string, executionID string) (WorkflowExecution, error) {
 	for {
 		runner, request, execution, ok, err := service.beginNextReadyActionStart(workspaceID, executionID)
 		if err != nil || !ok {
 			return execution, err
 		}
-		start, err := runner.Start(context.Background(), request)
+		sink := &bufferingRunnerEventSink{}
+		start, err := runner.Start(context.Background(), request, sink)
 		if err != nil {
 			return service.completeActionWithoutDispatch(workspaceID, executionID, request.NodeExecution.ID, WorkflowActionResult{
 				Status: ActionCompletionFailed,
 				Error:  fmt.Sprintf("start action runner: %v", err),
 			})
 		}
-		execution, cancelDispatch, err := service.attachRunnerRefsAfterStart(workspaceID, executionID, request.NodeExecution.ID, start.RunnerRefs, runner)
+		execution, cancelDispatch, err := service.attachRunnerRefsAfterStart(workspaceID, executionID, request.NodeExecution.ID, start.RunnerRefs, sink.Events(), runner)
 		if err != nil {
 			return WorkflowExecution{}, err
 		}
@@ -62,7 +120,11 @@ func (service *Service) beginNextReadyActionStart(workspaceID string, executionI
 		if !ok {
 			return nil, ActionStartRequest{}, WorkflowExecution{}, false, fmt.Errorf("node execution %s references unknown node %s", nodeExecution.ID, nodeExecution.NodeID)
 		}
-		transition, err := StartAction(execution, nodeExecution.ID, []WorkflowActionRunnerRef{}, service.transitionContext())
+		metadata, request, err := buildActionStartRequest(workspaceID, execution, node, nodeExecution, runner, service.transitionContext())
+		if err != nil {
+			return nil, ActionStartRequest{}, WorkflowExecution{}, false, err
+		}
+		transition, err := StartAction(execution, nodeExecution.ID, metadata, service.transitionContext())
 		if err != nil {
 			return nil, ActionStartRequest{}, WorkflowExecution{}, false, err
 		}
@@ -70,19 +132,14 @@ func (service *Service) beginNextReadyActionStart(workspaceID string, executionI
 			return nil, ActionStartRequest{}, WorkflowExecution{}, false, err
 		}
 		startedNodeExecution := nodeExecutionByID(transition.Execution, nodeExecution.ID)
-		return runner, ActionStartRequest{
-			WorkspaceID:         workspaceID,
-			DefinitionID:        execution.DefinitionID,
-			DefinitionVersionID: execution.DefinitionVersionID,
-			Execution:           transition.Execution,
-			Node:                node,
-			NodeExecution:       startedNodeExecution,
-		}, transition.Execution, true, nil
+		request.Execution = transition.Execution
+		request.NodeExecution = startedNodeExecution
+		return runner, request, transition.Execution, true, nil
 	}
 	return nil, ActionStartRequest{}, execution, false, nil
 }
 
-func (service *Service) attachRunnerRefsAfterStart(workspaceID string, executionID string, nodeExecutionID string, refs []WorkflowActionRunnerRef, runner ActionRunner) (WorkflowExecution, *actionCancelDispatch, error) {
+func (service *Service) attachRunnerRefsAfterStart(workspaceID string, executionID string, nodeExecutionID string, refs []WorkflowActionRunnerRef, runnerEvents []RunnerEvent, runner ActionRunner) (WorkflowExecution, *actionCancelDispatch, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -94,10 +151,21 @@ func (service *Service) attachRunnerRefsAfterStart(workspaceID string, execution
 	if index < 0 {
 		return WorkflowExecution{}, nil, fmt.Errorf("node execution %s was not found", nodeExecutionID)
 	}
-	transition, err := AttachRunnerRefs(execution, nodeExecutionID, refs, service.transitionContext())
+	events := []WorkflowEvent{}
+	if len(runnerEvents) > 0 {
+		transition, err := ApplyRunnerEvents(execution, nodeExecutionID, runnerEvents, service.transitionContext())
+		if err != nil {
+			return WorkflowExecution{}, nil, err
+		}
+		execution = transition.Execution
+		events = append(events, transition.Events...)
+	}
+	attachTransition, err := AttachRunnerRefs(execution, nodeExecutionID, refs, service.transitionContext())
 	if err != nil {
 		return WorkflowExecution{}, nil, err
 	}
+	events = append(events, attachTransition.Events...)
+	transition := WorkflowTransition{Execution: attachTransition.Execution, Events: events}
 	if err := service.persistTransition(transition); err != nil {
 		return WorkflowExecution{}, nil, err
 	}
@@ -118,7 +186,7 @@ func (service *Service) attachRunnerRefsAfterStart(workspaceID string, execution
 
 func (service *Service) completeActionWithoutDispatch(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult) (WorkflowExecution, error) {
 	service.mu.Lock()
-	execution, cancelDispatches, err := service.completeActionLocked(workspaceID, executionID, nodeExecutionID, result, nil)
+	execution, cancelDispatches, err := service.completeActionLocked(workspaceID, executionID, nodeExecutionID, result, nil, nil)
 	service.mu.Unlock()
 	if err != nil {
 		return WorkflowExecution{}, err
@@ -129,9 +197,9 @@ func (service *Service) completeActionWithoutDispatch(workspaceID string, execut
 	return execution, nil
 }
 
-func (service *Service) completeChatActionRun(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult, refs []WorkflowActionRunnerRef) (WorkflowExecution, error) {
+func (service *Service) completeChatActionRun(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult, refs []WorkflowActionRunnerRef, runnerEvents []RunnerEvent) (WorkflowExecution, error) {
 	service.mu.Lock()
-	execution, cancelDispatches, err := service.completeActionLocked(workspaceID, executionID, nodeExecutionID, result, refs)
+	execution, cancelDispatches, err := service.completeActionLocked(workspaceID, executionID, nodeExecutionID, result, refs, runnerEvents)
 	service.mu.Unlock()
 	if err != nil {
 		return WorkflowExecution{}, err
@@ -142,7 +210,7 @@ func (service *Service) completeChatActionRun(workspaceID string, executionID st
 	return execution, nil
 }
 
-func (service *Service) completeActionLocked(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult, refs []WorkflowActionRunnerRef) (WorkflowExecution, []actionCancelDispatch, error) {
+func (service *Service) completeActionLocked(workspaceID string, executionID string, nodeExecutionID string, result WorkflowActionResult, refs []WorkflowActionRunnerRef, runnerEvents []RunnerEvent) (WorkflowExecution, []actionCancelDispatch, error) {
 	execution, version, err := service.loadExecutionAndVersion(workspaceID, executionID)
 	if err != nil {
 		return WorkflowExecution{}, nil, err
@@ -154,20 +222,13 @@ func (service *Service) completeActionLocked(workspaceID string, executionID str
 	if index < 0 {
 		return WorkflowExecution{}, nil, fmt.Errorf("node execution %s was not found", nodeExecutionID)
 	}
-	switch execution.NodeExecutions[index].Status {
-	case NodeExecutionStatusReady:
-		startTransition, err := StartAction(execution, nodeExecutionID, refs, service.transitionContext())
-		if err != nil {
-			return WorkflowExecution{}, nil, err
-		}
-		if err := service.persistTransition(startTransition); err != nil {
-			return WorkflowExecution{}, nil, err
-		}
-		execution = startTransition.Execution
-	case NodeExecutionStatusRunning, NodeExecutionStatusWaitingApproval:
-		execution.NodeExecutions[index].RunnerRefs = mergeRunnerRefs(execution.NodeExecutions[index].RunnerRefs, refs)
-	default:
-		return execution, nil, nil
+	execution, ok, err := service.prepareActionCompletionStateLocked(workspaceID, execution, version.Graph, nodeExecutionID, index, refs)
+	if err != nil || !ok {
+		return execution, nil, err
+	}
+	execution, err = service.persistRunnerEventsForCompletionLocked(execution, nodeExecutionID, runnerEvents)
+	if err != nil {
+		return WorkflowExecution{}, nil, err
 	}
 	cancelDispatches := service.activeActionCancelRequestsLocked(workspaceID, execution, nodeExecutionID)
 	transition, err := CompleteAction(execution, version.Graph, nodeExecutionID, result, service.transitionContext())
@@ -181,6 +242,81 @@ func (service *Service) completeActionLocked(workspaceID string, executionID str
 		cancelDispatches = nil
 	}
 	return transition.Execution, cancelDispatches, nil
+}
+
+func (service *Service) prepareActionCompletionStateLocked(workspaceID string, execution WorkflowExecution, graph WorkflowGraph, nodeExecutionID string, nodeExecutionIndex int, refs []WorkflowActionRunnerRef) (WorkflowExecution, bool, error) {
+	switch execution.NodeExecutions[nodeExecutionIndex].Status {
+	case NodeExecutionStatusReady:
+		started, err := service.startReadyActionForCompletionLocked(workspaceID, execution, graph, nodeExecutionID, nodeExecutionIndex, refs)
+		return started, true, err
+	case NodeExecutionStatusRunning, NodeExecutionStatusWaitingApproval:
+		execution.NodeExecutions[nodeExecutionIndex].RunnerRefs = mergeRunnerRefs(execution.NodeExecutions[nodeExecutionIndex].RunnerRefs, refs)
+		return execution, true, nil
+	default:
+		return execution, false, nil
+	}
+}
+
+func (service *Service) startReadyActionForCompletionLocked(workspaceID string, execution WorkflowExecution, graph WorkflowGraph, nodeExecutionID string, nodeExecutionIndex int, refs []WorkflowActionRunnerRef) (WorkflowExecution, error) {
+	nodeExecution := execution.NodeExecutions[nodeExecutionIndex]
+	node, ok := nodeByID(graph, nodeExecution.NodeID)
+	if !ok {
+		return WorkflowExecution{}, fmt.Errorf("node execution %s references unknown node %s", nodeExecutionID, nodeExecution.NodeID)
+	}
+	if nodeExecution.ActionKind == nil {
+		return WorkflowExecution{}, fmt.Errorf("node execution %s has no action kind", nodeExecutionID)
+	}
+	descriptor, ok := service.runnerRegistry.Descriptor(*nodeExecution.ActionKind)
+	if !ok {
+		return WorkflowExecution{}, fmt.Errorf("node execution %s has no runner descriptor for %s", nodeExecutionID, *nodeExecution.ActionKind)
+	}
+	metadata, _, err := buildActionStartRequest(workspaceID, execution, node, nodeExecution, descriptor, service.transitionContext())
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	metadata.RunnerRefs = mergeRunnerRefs(metadata.RunnerRefs, refs)
+	startTransition, err := StartAction(execution, nodeExecutionID, metadata, service.transitionContext())
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	if err := service.persistTransition(startTransition); err != nil {
+		return WorkflowExecution{}, err
+	}
+	return startTransition.Execution, nil
+}
+
+func (service *Service) persistRunnerEventsForCompletionLocked(execution WorkflowExecution, nodeExecutionID string, runnerEvents []RunnerEvent) (WorkflowExecution, error) {
+	if len(runnerEvents) > 0 {
+		runnerTransition, err := ApplyRunnerEvents(execution, nodeExecutionID, runnerEvents, service.transitionContext())
+		if err != nil {
+			return WorkflowExecution{}, err
+		}
+		execution = runnerTransition.Execution
+		if err := service.persistTransition(runnerTransition); err != nil {
+			return WorkflowExecution{}, err
+		}
+	}
+	return execution, nil
+}
+
+func (service *Service) recordRunnerEvents(workspaceID string, executionID string, nodeExecutionID string, runnerEvents []RunnerEvent) (WorkflowExecution, error) {
+	if len(runnerEvents) == 0 {
+		return service.store.LoadExecution(workspaceID, executionID)
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	execution, err := service.store.LoadExecution(workspaceID, executionID)
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	transition, err := ApplyRunnerEvents(execution, nodeExecutionID, runnerEvents, service.transitionContext())
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	if err := service.persistTransition(transition); err != nil {
+		return WorkflowExecution{}, err
+	}
+	return transition.Execution, nil
 }
 
 func (service *Service) cancelActionRunners(requests []actionCancelDispatch) error {
@@ -260,10 +396,15 @@ func (service *Service) reconcileChatRunApproval(run chat.Run) {
 		return
 	}
 	refs := workflowRunRefs(run, owner.conversation)
+	pending := workflowPendingApprovalFromChatRun(owner, run)
+	runnerEvents, err := runnerEventsFromChatApprovalRequest(owner, run, pending)
+	if err != nil {
+		return
+	}
 	_, _ = service.completeChatActionRun(run.WorkspaceID, owner.execution.ID, owner.nodeExecution.ID, WorkflowActionResult{
 		Status:          ActionCompletionRequiresApproval,
-		PendingApproval: workflowPendingApprovalFromChatRun(owner, run),
-	}, refs)
+		PendingApproval: pending,
+	}, refs, runnerEvents)
 }
 
 func (service *Service) reconcileTerminalChatRun(run chat.Run) {
@@ -282,7 +423,11 @@ func (service *Service) reconcileTerminalChatRun(run chat.Run) {
 		}
 	}
 	refs := workflowRunRefs(run, owner.conversation)
-	execution, err := service.completeChatActionRun(run.WorkspaceID, owner.execution.ID, owner.nodeExecution.ID, result, refs)
+	runnerEvents, err := runnerEventsFromTerminalChatRun(owner, result)
+	if err != nil {
+		return
+	}
+	execution, err := service.completeChatActionRun(run.WorkspaceID, owner.execution.ID, owner.nodeExecution.ID, result, refs, runnerEvents)
 	if err != nil || execution.Status != ExecutionStatusRunning {
 		return
 	}

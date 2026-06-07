@@ -1,4 +1,8 @@
-import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
+import type {
+  ConversationListItem,
+  WorkflowDefinition,
+  WorkspaceSummary,
+} from "@generated/backend";
 
 export type SidebarNavigationCommand =
   | {
@@ -12,6 +16,7 @@ export type SidebarNavigationCommand =
   | { type: "openRecentWorkspace"; rootPath: string; workspaceId: string }
   | { type: "removeRecentWorkspace"; workspaceId: string }
   | { type: "selectConversation"; conversationId: string; workspaceId: string }
+  | { type: "selectWorkflowDefinition"; definitionId: string; workspaceId: string }
   | { type: "showMoreConversations" };
 
 export type SidebarNavigationItem =
@@ -46,6 +51,12 @@ export type SidebarNavigationItem =
       workspaceId: string;
     }
   | {
+      id: string;
+      kind: "emptyWorkflowList";
+      label: string;
+      workspaceId: string;
+    }
+  | {
       commands: {
         primary: SidebarNavigationCommand;
       };
@@ -64,6 +75,23 @@ export type SidebarNavigationItem =
       kind: "recentWorkspace";
       label: string;
       workspace: WorkspaceSummary;
+    }
+  | {
+      id: string;
+      kind: "sectionHeader";
+      label: string;
+      section: "conversations" | "workflows";
+      workspaceId: string;
+    }
+  | {
+      commands: {
+        primary: SidebarNavigationCommand;
+      };
+      definition: WorkflowDefinition;
+      id: string;
+      kind: "workflowDefinition";
+      label: string;
+      selected: boolean;
     };
 
 export interface SidebarNavigationInput {
@@ -71,13 +99,24 @@ export interface SidebarNavigationInput {
   expandedWorkspaceIds: ReadonlySet<string>;
   recentWorkspaces: WorkspaceSummary[];
   selectedConversationId: string;
+  selectedWorkflowDefinitionIdsByWorkspaceId: Record<string, string | undefined>;
   selectedWorkspaceId: string;
   visibleConversationLimit: number;
   workspaceConversationLists: Record<string, SidebarWorkspaceConversationList | undefined>;
+  workspaceWorkflowDefinitionLists: Record<
+    string,
+    SidebarWorkspaceWorkflowDefinitionList | undefined
+  >;
 }
 
 export interface SidebarWorkspaceConversationList {
   conversations: ConversationListItem[];
+  error: string | null;
+  loading: boolean;
+}
+
+export interface SidebarWorkspaceWorkflowDefinitionList {
+  definitions: WorkflowDefinition[];
   error: string | null;
   loading: boolean;
 }
@@ -87,9 +126,11 @@ export function selectSidebarNavigationItems({
   expandedWorkspaceIds,
   recentWorkspaces,
   selectedConversationId,
+  selectedWorkflowDefinitionIdsByWorkspaceId,
   selectedWorkspaceId,
   visibleConversationLimit,
   workspaceConversationLists,
+  workspaceWorkflowDefinitionLists,
 }: SidebarNavigationInput): SidebarNavigationItem[] {
   const items: SidebarNavigationItem[] = [];
   const activeWorkspaceIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
@@ -117,11 +158,22 @@ export function selectSidebarNavigationItems({
     });
 
     if (expanded) {
+      const workflowRows = workflowItems({
+        selectedWorkflowDefinitionId:
+          selectedWorkflowDefinitionIdsByWorkspaceId[workspace.id] ?? "",
+        workflowDefinitionList: workspaceWorkflowDefinitionLists[workspace.id],
+        workspaceId: workspace.id,
+      });
+      const conversationRows = conversationItems({
+        conversationList: workspaceConversationLists[workspace.id],
+        selectedConversationId: selected ? selectedConversationId : "",
+        visibleConversationLimit,
+        workspaceId: workspace.id,
+      });
       items.push(
-        ...conversationItems({
-          conversationList: workspaceConversationLists[workspace.id],
-          selectedConversationId: selected ? selectedConversationId : "",
-          visibleConversationLimit,
+        ...sectionedWorkspaceRows({
+          conversationRows,
+          workflowRows,
           workspaceId: workspace.id,
         }),
       );
@@ -149,6 +201,79 @@ export function selectSidebarNavigationItems({
   }
 
   return items;
+}
+
+function sectionedWorkspaceRows({
+  conversationRows,
+  workflowRows,
+  workspaceId,
+}: {
+  conversationRows: SidebarNavigationItem[];
+  workflowRows: SidebarNavigationItem[];
+  workspaceId: string;
+}) {
+  const items: SidebarNavigationItem[] = [];
+  if (workflowRows.length > 0) {
+    items.push(sectionHeaderItem(workspaceId, "workflows", "Workflows"), ...workflowRows);
+  }
+  if (conversationRows.length > 0) {
+    items.push(
+      sectionHeaderItem(workspaceId, "conversations", "Conversations"),
+      ...conversationRows,
+    );
+  }
+  return items;
+}
+
+function sectionHeaderItem(
+  workspaceId: string,
+  section: "conversations" | "workflows",
+  label: string,
+) {
+  return {
+    id: `section:${workspaceId}:${section}`,
+    kind: "sectionHeader",
+    label,
+    section,
+    workspaceId,
+  } satisfies SidebarNavigationItem;
+}
+
+function workflowItems({
+  selectedWorkflowDefinitionId,
+  workflowDefinitionList,
+  workspaceId,
+}: {
+  selectedWorkflowDefinitionId: string;
+  workflowDefinitionList: SidebarWorkspaceWorkflowDefinitionList | undefined;
+  workspaceId: string;
+}) {
+  if (
+    !workflowDefinitionList ||
+    (workflowDefinitionList.loading && workflowDefinitionList.definitions.length === 0)
+  ) {
+    return [];
+  }
+  if (workflowDefinitionList.error) {
+    return [workflowStatusItem(workspaceId, workflowDefinitionList.error)];
+  }
+  if (workflowDefinitionList.definitions.length === 0) {
+    return [workflowStatusItem(workspaceId, "No workflows")];
+  }
+  return workflowDefinitionList.definitions.map((definition) => ({
+    commands: {
+      primary: {
+        definitionId: definition.id,
+        type: "selectWorkflowDefinition",
+        workspaceId,
+      },
+    },
+    definition,
+    id: `workflow:${definition.id}`,
+    kind: "workflowDefinition",
+    label: definition.name,
+    selected: definition.id === selectedWorkflowDefinitionId,
+  })) satisfies SidebarNavigationItem[];
 }
 
 function conversationItems({
@@ -212,6 +337,15 @@ function conversationItems({
   }
 
   return items;
+}
+
+function workflowStatusItem(workspaceId: string, label: string) {
+  return {
+    id: `workflow-empty:${workspaceId}`,
+    kind: "emptyWorkflowList",
+    label,
+    workspaceId,
+  } satisfies SidebarNavigationItem;
 }
 
 function conversationStatusItem(workspaceId: string, label: string) {

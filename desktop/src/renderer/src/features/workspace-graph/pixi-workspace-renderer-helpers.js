@@ -244,19 +244,35 @@ export function cameraState(viewport) {
   };
 }
 
+export function cameraStatesDiffer(left, right) {
+  return left.x !== right.x || left.y !== right.y || left.zoom !== right.zoom;
+}
+
+export function configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom }) {
+  viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
+  if (!initialCameraState) {
+    viewport.moveCenter(0, 20);
+    return;
+  }
+  viewport.setZoom(clamp(initialCameraState.zoom, minZoom, maxZoom));
+  viewport.moveCorner(initialCameraState.x, initialCameraState.y);
+}
+
 export function screenPointFromPointer(canvas, event) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
-  };
+  return canvasLocalPointFromClient(canvas, event.clientX, event.clientY);
 }
 
 export function screenPointFromWheel(canvas, event) {
+  return canvasLocalPointFromClient(canvas, event.clientX, event.clientY);
+}
+
+function canvasLocalPointFromClient(canvas, clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.clientWidth > 0 && rect.width > 0 ? canvas.clientWidth / rect.width : 1;
+  const scaleY = canvas.clientHeight > 0 && rect.height > 0 ? canvas.clientHeight / rect.height : 1;
   return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
   };
 }
 
@@ -304,6 +320,37 @@ export function stopNativeInteraction(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation();
+}
+
+export function createCanvasContextMenuHandler({ canvas, onCanvasContextMenu, viewport }) {
+  return (event) => {
+    if (!onCanvasContextMenu) {
+      return;
+    }
+    stopNativeInteraction(event);
+    const screen = screenPointFromPointer(canvas, event);
+    const world = viewport.toWorld(screen);
+    onCanvasContextMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      worldX: Math.round(world.x),
+      worldY: Math.round(world.y),
+    });
+  };
+}
+
+export function countMapValues(map, expected) {
+  return [...map.values()].filter((value) => value === expected).length;
+}
+
+export function frameSampleStats(samples) {
+  if (samples.length === 0) {
+    return { average: 0, worst: 0 };
+  }
+  return {
+    average: samples.reduce((total, value) => total + value, 0) / samples.length,
+    worst: Math.max(...samples),
+  };
 }
 
 export function clamp(value, min, max) {
