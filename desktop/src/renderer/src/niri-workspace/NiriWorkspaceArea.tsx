@@ -52,6 +52,8 @@ import {
   visiblePaneHostForPane,
   type PaneDragSession,
 } from "./pane-drag-reorder";
+import { paneFocusTargetFromClick } from "./pane-focus-click";
+import { paneResizeTargetFromPointer } from "./pane-resize-target";
 import { persistRealWorkspaceScene } from "./workspace-scene";
 import type { NiriPane, Rect, SurfaceKind } from "./types";
 
@@ -61,7 +63,6 @@ export interface NiriSurfaceFocusRequest {
 }
 
 const overviewDragThresholdPx = 6;
-const paneResizeHandleWidthPx = 10;
 const minimumManualPaneWidthPx = 280;
 
 interface OverviewDragSession {
@@ -206,6 +207,7 @@ export function NiriWorkspaceArea({
         runLayoutAction,
         runtime,
         scheduler,
+        viewportProvider: stageViewport,
       });
     };
     const handlePointerDown = (event: PointerEvent) => {
@@ -470,11 +472,13 @@ function handleNiriWorkspaceClick({
   runLayoutAction,
   runtime,
   scheduler,
+  viewportProvider,
 }: {
   event: MouseEvent;
   runLayoutAction: (action: () => void) => void;
   runtime: NiriRuntime;
   scheduler: FrameScheduler;
+  viewportProvider: () => Rect;
 }): void {
   if (!canHandleWorkspacePaneClick(event, runtime)) {
     return;
@@ -482,7 +486,10 @@ function handleNiriWorkspaceClick({
   if (handleEmptyFrameActionClick({ event, runLayoutAction, runtime, scheduler })) {
     return;
   }
-  handlePaneMaximizeClick({ event, runLayoutAction, runtime, scheduler });
+  if (handlePaneMaximizeClick({ event, runLayoutAction, runtime, scheduler })) {
+    return;
+  }
+  handlePaneChromeFocusClick({ event, runLayoutAction, runtime, scheduler, viewportProvider });
 }
 
 function canHandleWorkspacePaneClick(event: MouseEvent, runtime: NiriRuntime): boolean {
@@ -556,6 +563,32 @@ function handlePaneMaximizeClick({
 function paneMaximizeButtonPaneId(button: HTMLButtonElement | null): string | null {
   const host = button?.closest<HTMLElement>('[data-testid="niri-fake-pane-host"]');
   return button?.dataset.paneId ?? host?.dataset.paneId ?? null;
+}
+
+function handlePaneChromeFocusClick({
+  event,
+  runLayoutAction,
+  runtime,
+  scheduler,
+  viewportProvider,
+}: {
+  event: MouseEvent;
+  runLayoutAction: (action: () => void) => void;
+  runtime: NiriRuntime;
+  scheduler: FrameScheduler;
+  viewportProvider: () => Rect;
+}): boolean {
+  const paneId = paneFocusTargetFromClick(event);
+  if (!paneId || paneId === runtime.store.focusedPaneId()) {
+    return false;
+  }
+  scheduler.pauseBenchmark();
+  runLayoutAction(() => {
+    if (runtime.store.focusPane(paneId)) {
+      runtime.store.ensureFocusedPaneVisible(viewportProvider());
+    }
+  });
+  return true;
 }
 
 function handleNiriWorkspaceKeyDown({
@@ -766,34 +799,6 @@ function handleNiriWorkspaceWheel({
     runtime.store.moveFocus(direction, viewportProvider());
   }
   persistLayout();
-}
-
-function paneResizeTargetFromPointer(event: PointerEvent): {
-  paneId: string;
-  width: number;
-} | null {
-  if (!(event.target instanceof Element)) {
-    return null;
-  }
-  const host = event.target.closest<HTMLElement>(
-    '[data-testid="niri-fake-pane-host"][data-visible="true"]',
-  );
-  if (!host) {
-    return null;
-  }
-  const paneId = host.dataset.paneId;
-  if (!paneId) {
-    return null;
-  }
-  const rect = host.getBoundingClientRect();
-  const rightEdgeStart = rect.right - paneResizeHandleWidthPx;
-  if (event.clientX < rightEdgeStart || event.clientX > rect.right) {
-    return null;
-  }
-  return {
-    paneId,
-    width: rect.width,
-  };
 }
 
 function overviewPaneIdFromPointer(event: PointerEvent): string | null {
