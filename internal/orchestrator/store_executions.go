@@ -498,7 +498,7 @@ ORDER BY started_at DESC, id ASC
 func (store *Store) WorkspaceIDs() ([]string, error) {
 	rows, err := store.db.QueryContext(context.Background(), `
 SELECT workspace_id
-FROM workflow_definitions
+FROM workflow_versions
 UNION
 SELECT workspace_id
 FROM workflow_runs

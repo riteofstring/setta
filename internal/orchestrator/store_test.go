@@ -11,8 +11,8 @@ func TestStorePersistsWorkflowStateInSQLiteWithoutWorkflowJSONFiles(t *testing.T
 	appDataDir := t.TempDir()
 	store := newSQLiteWorkflowStoreForTest(t, appDataDir)
 	definition, version := storeTestDefinition(startEndGraph())
-	if err := store.SaveDefinitionRevision(definition, version); err != nil {
-		t.Fatalf("save definition revision: %v", err)
+	if err := store.SaveDefinitionVersion(version); err != nil {
+		t.Fatalf("save definition version: %v", err)
 	}
 	transition, err := StartExecution(version, testTransitionContext())
 	if err != nil {
@@ -40,9 +40,9 @@ func TestStorePersistsWorkflowStateInSQLiteWithoutWorkflowJSONFiles(t *testing.T
 func TestStoreReplaysWorkflowEventsAfterReopen(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := newSQLiteWorkflowStoreForTest(t, appDataDir)
-	definition, version := storeTestDefinition(startEndGraph())
-	if err := store.SaveDefinitionRevision(definition, version); err != nil {
-		t.Fatalf("save definition revision: %v", err)
+	_, version := storeTestDefinition(startEndGraph())
+	if err := store.SaveDefinitionVersion(version); err != nil {
+		t.Fatalf("save definition version: %v", err)
 	}
 	transition, err := StartExecution(version, testTransitionContext())
 	if err != nil {
@@ -73,8 +73,8 @@ func TestStoreRollsBackMaterializedStateWhenEventInsertFails(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := newSQLiteWorkflowStoreForTest(t, appDataDir)
 	definition, version := storeTestDefinition(actionGraph("work"))
-	if err := store.SaveDefinitionRevision(definition, version); err != nil {
-		t.Fatalf("save definition revision: %v", err)
+	if err := store.SaveDefinitionVersion(version); err != nil {
+		t.Fatalf("save definition version: %v", err)
 	}
 	transition, err := StartExecution(version, testTransitionContext())
 	if err != nil {
@@ -147,16 +147,14 @@ func storeTestDefinition(graph WorkflowGraph) (WorkflowDefinition, WorkflowDefin
 		CreatedAt:     testNow,
 	}
 	definition := WorkflowDefinition{
-		SchemaVersion:        SchemaVersion,
-		ID:                   version.DefinitionID,
-		WorkspaceID:          version.WorkspaceID,
-		Name:                 version.Name,
-		Description:          version.Description,
-		CurrentVersionID:     version.ID,
-		CurrentVersionNumber: version.VersionNumber,
-		Graph:                graph,
-		CreatedAt:            testNow,
-		UpdatedAt:            testNow,
+		SchemaVersion: SchemaVersion,
+		ID:            version.DefinitionID,
+		WorkspaceID:   version.WorkspaceID,
+		Name:          version.Name,
+		Description:   version.Description,
+		Graph:         graph,
+		CreatedAt:     testNow,
+		UpdatedAt:     testNow,
 	}
 	return definition, version
 }

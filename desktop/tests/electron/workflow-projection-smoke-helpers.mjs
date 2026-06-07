@@ -1,5 +1,8 @@
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 export async function createWorkflowProjectionFixture(client, workspaceRoot) {
-  return client.evaluate(`(async () => {
+  const fixture = await client.evaluate(`(async () => {
     const opened = await window.setta.workspace.openPath(${JSON.stringify(workspaceRoot)});
     const workspaceId = opened.workspace.id;
     const layout = {
@@ -58,14 +61,19 @@ export async function createWorkflowProjectionFixture(client, workspaceRoot) {
       "Renderer projection smoke fixture",
       graph
     );
-    const execution = await window.setta.workflow.startExecution(workspaceId, definition.id);
     return {
       definitionId: definition.id,
-      executionId: execution.id,
+      definitionName: definition.name,
       layout,
       workspaceId
     };
   })()`);
+  await assertWorkflowDefinitionFile(
+    workspaceRoot,
+    fixture.definitionId,
+    "Pixi workflow projection",
+  );
+  return fixture;
 }
 
 export function isWorkflowProjectionSnapshotReady(snapshot, expected) {
@@ -84,9 +92,10 @@ function isPixiSnapshotRendered(snapshot) {
 function isWorkflowProjectionMetadataReady(snapshot, expected) {
   const workflow = snapshot.graph.workflow;
   return (
-    workflow?.executionId === expected.executionId &&
+    workflow?.definitionName === expected.definitionName &&
     workflow?.definitionId === expected.definitionId &&
-    workflow?.executionStatus === "completed"
+    workflow?.executionId === "" &&
+    workflow?.executionStatus === ""
   );
 }
 
@@ -99,8 +108,9 @@ export function assertWorkflowProjectionSnapshot(snapshot, expected) {
   if (
     snapshot.graph.workflow.workspaceId !== expected.workspaceId ||
     snapshot.graph.workflow.definitionId !== expected.definitionId ||
-    snapshot.graph.workflow.executionId !== expected.executionId ||
-    snapshot.graph.workflow.executionStatus !== "completed"
+    snapshot.graph.workflow.definitionName !== expected.definitionName ||
+    snapshot.graph.workflow.executionId !== "" ||
+    snapshot.graph.workflow.executionStatus !== ""
   ) {
     throw new Error(
       `Pixi workflow projection metadata mismatch: expected=${JSON.stringify(expected)} snapshot=${JSON.stringify(snapshot.graph.workflow)}`,
@@ -140,5 +150,48 @@ function assertWorkflowProjectionLayout(nodes, expectedLayout) {
         `Pixi workflow projection layout mismatch for ${expected.nodeId}: actual=${JSON.stringify(node)} expected=${JSON.stringify(expected)}`,
       );
     }
+  }
+}
+
+async function assertWorkflowDefinitionFile(workspaceRoot, definitionId, expectedName) {
+  const workflowDir = join(workspaceRoot, ".setta", "workflows");
+  const entries = await readdir(workflowDir);
+  const matches = entries.filter((entry) => entry.endsWith(`--${definitionId}.json`));
+  if (matches.length !== 1) {
+    throw new Error(
+      `workflow definition file mismatch for ${definitionId}: entries=${JSON.stringify(entries)}`,
+    );
+  }
+
+  const raw = await readFile(join(workflowDir, matches[0]), "utf8");
+  const saved = JSON.parse(raw);
+  assertWorkflowDefinitionFileIdentity(saved, definitionId, expectedName, raw);
+  assertWorkflowDefinitionFileOmitsRuntimeFields(saved, raw);
+  assertWorkflowDefinitionFileGraph(saved, raw);
+}
+
+function assertWorkflowDefinitionFileIdentity(saved, definitionId, expectedName, raw) {
+  if (saved.id !== definitionId || saved.name !== expectedName || saved.schemaVersion !== 1) {
+    throw new Error(`workflow definition file content mismatch: ${raw}`);
+  }
+}
+
+function assertWorkflowDefinitionFileOmitsRuntimeFields(saved, raw) {
+  for (const forbidden of [
+    "workspaceId",
+    "currentVersionId",
+    "currentVersionNumber",
+    "createdAt",
+    "updatedAt",
+  ]) {
+    if (Object.hasOwn(saved, forbidden)) {
+      throw new Error(`workflow definition file should not contain ${forbidden}: ${raw}`);
+    }
+  }
+}
+
+function assertWorkflowDefinitionFileGraph(saved, raw) {
+  if (saved.graph?.nodes?.length !== 3 || saved.graph?.edges?.length !== 2) {
+    throw new Error(`workflow definition graph was not saved: ${raw}`);
   }
 }

@@ -54,6 +54,9 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const openSettingsPane = useCallback(() => {
     focusNiriSurface("settings-dom");
   }, [focusNiriSurface]);
+  const openWorkflowGraphPane = useCallback(() => {
+    focusNiriSurface("pixi-canvas");
+  }, [focusNiriSurface]);
   const createConversation = chat.createConversation;
   const createWorkspaceConversation = chat.createWorkspaceConversation;
   const selectConversation = chat.selectConversation;
@@ -99,6 +102,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
           open={projectPaneOpen}
           openSettingsPane={openSettingsPane}
+          openWorkflowGraphPane={openWorkflowGraphPane}
           selectConversation={selectConversationAndFocusChat}
           setWidth={setProjectPaneWidth}
           width={effectiveProjectPaneWidth}
@@ -194,6 +198,7 @@ function ProjectPane({
   createWorkspaceConversation,
   open,
   openSettingsPane,
+  openWorkflowGraphPane,
   selectConversation,
   setWidth,
   width,
@@ -205,6 +210,7 @@ function ProjectPane({
   createWorkspaceConversation: ChatView["createWorkspaceConversation"];
   open: boolean;
   openSettingsPane: () => void;
+  openWorkflowGraphPane: () => void;
   selectConversation: ChatView["selectConversation"];
   setWidth: (width: number) => void;
   width: number;
@@ -233,6 +239,7 @@ function ProjectPane({
           createWorkspaceConversation={createWorkspaceConversation}
           openLocalFolder={workspace.openLocalFolder}
           openSettingsPane={openSettingsPane}
+          openWorkflowGraphPane={openWorkflowGraphPane}
           openWorkspacePath={workspace.openWorkspacePath}
           recentWorkspaces={workspace.recentWorkspaces}
           removeRecent={workspace.removeRecent}

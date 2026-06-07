@@ -1891,8 +1891,6 @@ export interface WorkflowDefinition {
   workspaceId: string;
   name: string;
   description: string;
-  currentVersionId: string;
-  currentVersionNumber: number;
   graph: WorkflowGraph;
   createdAt: string;
   updatedAt: string;
@@ -3904,15 +3902,13 @@ export function decodeWorkflowGraph(value: unknown): WorkflowGraph {
 
 export function decodeWorkflowDefinition(value: unknown): WorkflowDefinition {
   const record = assertRecord(value, "WorkflowDefinition");
-  assertKnownFields(record, "WorkflowDefinition", ["schemaVersion", "id", "workspaceId", "name", "description", "currentVersionId", "currentVersionNumber", "graph", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "WorkflowDefinition", ["schemaVersion", "id", "workspaceId", "name", "description", "graph", "createdAt", "updatedAt"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowDefinition"), "WorkflowDefinition.schemaVersion"),
     id: decodeString(requireField(record, "id", "WorkflowDefinition"), "WorkflowDefinition.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowDefinition"), "WorkflowDefinition.workspaceId"),
     name: decodeString(requireField(record, "name", "WorkflowDefinition"), "WorkflowDefinition.name"),
     description: decodeString(requireField(record, "description", "WorkflowDefinition"), "WorkflowDefinition.description"),
-    currentVersionId: decodeString(requireField(record, "currentVersionId", "WorkflowDefinition"), "WorkflowDefinition.currentVersionId"),
-    currentVersionNumber: decodeInteger(requireField(record, "currentVersionNumber", "WorkflowDefinition"), "WorkflowDefinition.currentVersionNumber"),
     graph: decodeWorkflowGraph(requireField(record, "graph", "WorkflowDefinition")),
     createdAt: decodeString(requireField(record, "createdAt", "WorkflowDefinition"), "WorkflowDefinition.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowDefinition"), "WorkflowDefinition.updatedAt"),

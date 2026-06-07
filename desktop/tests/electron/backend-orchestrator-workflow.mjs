@@ -262,7 +262,7 @@ async function runWorkflowApproval(client, workspaceId) {
     nodeExecutionId: work.id,
     workspaceId,
   });
-  await assertWorkflowApprovalProjection(client, workspaceId, definition, started.id, pending);
+  await assertWorkflowApprovalProjection(client, workspaceId, definition, started, pending);
 
   await rendererWorkflow(client, "submitApproval", [
     {
@@ -301,14 +301,14 @@ async function assertWorkflowApprovalProjection(
   client,
   workspaceId,
   definition,
-  executionId,
+  execution,
   pending,
 ) {
   const projectionResponse = await rendererWorkflow(client, "graphProjection", [
     workspaceId,
     definition.id,
-    definition.currentVersionId,
-    executionId,
+    execution.definitionVersionId,
+    execution.id,
   ]);
   const projectedWork = projectedNode(projectionResponse.projection, "work");
   if (projectedWork.pendingApproval?.approvalId !== pending.approvalId) {

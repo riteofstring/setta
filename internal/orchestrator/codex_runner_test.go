@@ -161,6 +161,11 @@ func TestCodexRunnerStartupRecoveryPreservesWorkflowApproval(t *testing.T) {
 		t.Fatalf("restart workflow service: %v", err)
 	}
 	defer restarted.CloseEvents()
+	restartedSubscription, err := restarted.SubscribeEvents(WorkflowEventCursor{})
+	if err != nil {
+		t.Fatalf("subscribe restarted workflow events: %v", err)
+	}
+	defer restartedSubscription.Unsubscribe()
 	recovered, err := restarted.ReadExecution(workspaceID, started.ID)
 	if err != nil {
 		t.Fatalf("read recovered execution: %v", err)
@@ -180,6 +185,7 @@ func TestCodexRunnerStartupRecoveryPreservesWorkflowApproval(t *testing.T) {
 	if _, err := restarted.SubmitApproval(workspaceID, started.ID, recoveredWork.ID, pending.ApprovalID, true, "", nil, false); err != nil {
 		t.Fatalf("submit recovered workflow approval: %v", err)
 	}
+	waitForWorkflowEvent(t, restartedSubscription, started.ID, EventExecutionCompleted)
 	waitForScriptedHarnessIdle(t, harness)
 	completed, err := restarted.ReadExecution(workspaceID, started.ID)
 	if err != nil {
@@ -263,7 +269,7 @@ func assertWorkflowApprovalWaiting(t *testing.T, workflowService *Service, works
 
 func assertWorkflowApprovalProjection(t *testing.T, workflowService *Service, workspaceID string, definition WorkflowDefinition, executionID string, pending *WorkflowPendingApproval) {
 	t.Helper()
-	projection, ok, err := workflowService.ReadGraphProjection(workspaceID, definition.ID, definition.CurrentVersionID, executionID)
+	projection, ok, err := workflowService.ReadGraphProjection(workspaceID, definition.ID, "", executionID)
 	if err != nil {
 		t.Fatalf("read projection: %v", err)
 	}

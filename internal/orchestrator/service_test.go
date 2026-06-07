@@ -3,6 +3,8 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -23,9 +25,77 @@ func TestServicePersistsVersionsExecutionsEventsAndRecoversRunningRuns(t *testin
 	store, resolver, service, workspaceID := newTestWorkflowServiceWithRunner(t, runner)
 	definition, firstVersionID, running := createRunningFirstVersion(t, service, workspaceID)
 	updated, second := updateDefinitionAndStartLatest(t, service, workspaceID, definition, firstVersionID)
-	assertLatestVersionCompleted(t, second, updated.CurrentVersionID)
+	if updated.ID != definition.ID {
+		t.Fatalf("updated definition id = %s, want %s", updated.ID, definition.ID)
+	}
+	assertLatestVersionCompleted(t, service, second, firstVersionID)
 	assertExecutionEventsPersisted(t, service, workspaceID, running.ID)
 	assertRunningExecutionRecovered(t, store, resolver, runner, workspaceID, running.ID)
+}
+
+func TestServiceStoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart(t *testing.T) {
+	store, resolver, service, workspaceID := newTestWorkflowService(t)
+	workspaceRoot := resolver.workspaces[workspaceID].RootPath
+
+	definition, err := service.CreateDefinition(workspaceID, "Review Flow", "workspace file", startEndGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	definitionPath := workflowDefinitionPath(workspaceRoot, definition.Name, definition.ID)
+	content, err := os.ReadFile(definitionPath)
+	if err != nil {
+		t.Fatalf("read definition file: %v", err)
+	}
+	raw := string(content)
+	for _, forbidden := range []string{"workspaceId", "currentVersionId", "currentVersionNumber", "updatedAt"} {
+		if strings.Contains(raw, forbidden) {
+			t.Fatalf("definition file contains %s: %s", forbidden, raw)
+		}
+	}
+	if !strings.Contains(raw, `"graph"`) {
+		t.Fatalf("definition file missing graph: %s", raw)
+	}
+	latestVersionNumber, err := store.LatestDefinitionVersionNumber(workspaceID, definition.ID)
+	if err != nil {
+		t.Fatalf("read latest version number: %v", err)
+	}
+	if latestVersionNumber != 0 {
+		t.Fatalf("latest version before run = %d, want 0", latestVersionNumber)
+	}
+
+	updated, err := service.UpdateDefinition(workspaceID, definition.ID, "Review Flow Updated", "workspace file", startEndGraph())
+	if err != nil {
+		t.Fatalf("update definition: %v", err)
+	}
+	if _, err := os.Stat(definitionPath); !os.IsNotExist(err) {
+		t.Fatalf("old definition path still exists or stat failed unexpectedly: %v", err)
+	}
+	updatedPath := workflowDefinitionPath(workspaceRoot, updated.Name, updated.ID)
+	if _, err := os.Stat(updatedPath); err != nil {
+		t.Fatalf("updated definition path missing: %v", err)
+	}
+	latestVersionNumber, err = store.LatestDefinitionVersionNumber(workspaceID, definition.ID)
+	if err != nil {
+		t.Fatalf("read latest version number after update: %v", err)
+	}
+	if latestVersionNumber != 0 {
+		t.Fatalf("latest version after update = %d, want 0", latestVersionNumber)
+	}
+
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	if started.DefinitionVersionID == "" {
+		t.Fatal("started execution has empty definition version id")
+	}
+	version, err := store.LoadDefinitionVersion(workspaceID, definition.ID, started.DefinitionVersionID)
+	if err != nil {
+		t.Fatalf("load execution version: %v", err)
+	}
+	if version.VersionNumber != 1 || version.Name != updated.Name {
+		t.Fatalf("version snapshot = %+v, want version 1 named %s", version, updated.Name)
+	}
 }
 
 func TestServiceStartupRecoveryRequiresManualStateForUncertainSideEffects(t *testing.T) {
@@ -199,13 +269,16 @@ func createRunningFirstVersion(t *testing.T, service *Service, workspaceID strin
 	if err != nil {
 		t.Fatalf("create definition: %v", err)
 	}
-	firstVersionID := definition.CurrentVersionID
 	running, err := service.StartExecution(workspaceID, definition.ID, "")
 	if err != nil {
 		t.Fatalf("start first execution: %v", err)
 	}
+	firstVersionID := running.DefinitionVersionID
 	if running.Status != ExecutionStatusRunning {
 		t.Fatalf("first execution status = %s, want running", running.Status)
+	}
+	if firstVersionID == "" {
+		t.Fatal("first execution version id is empty")
 	}
 	if running.DefinitionVersionID != firstVersionID {
 		t.Fatalf("first execution version = %s, want %s", running.DefinitionVersionID, firstVersionID)
@@ -219,26 +292,30 @@ func updateDefinitionAndStartLatest(t *testing.T, service *Service, workspaceID 
 	if err != nil {
 		t.Fatalf("update definition: %v", err)
 	}
-	if updated.CurrentVersionID == firstVersionID {
-		t.Fatalf("update reused version id %s", firstVersionID)
-	}
-	if updated.CurrentVersionNumber != 2 {
-		t.Fatalf("current version number = %d, want 2", updated.CurrentVersionNumber)
-	}
 	second, err := service.StartExecution(workspaceID, definition.ID, "")
 	if err != nil {
 		t.Fatalf("start second execution: %v", err)
 	}
+	if second.DefinitionVersionID == firstVersionID {
+		t.Fatalf("second execution reused version id %s", firstVersionID)
+	}
 	return updated, second
 }
 
-func assertLatestVersionCompleted(t *testing.T, execution WorkflowExecution, versionID string) {
+func assertLatestVersionCompleted(t *testing.T, service *Service, execution WorkflowExecution, firstVersionID string) {
 	t.Helper()
 	if execution.Status != ExecutionStatusCompleted {
 		t.Fatalf("second execution status = %s, want completed", execution.Status)
 	}
-	if execution.DefinitionVersionID != versionID {
-		t.Fatalf("second execution version = %s, want %s", execution.DefinitionVersionID, versionID)
+	if execution.DefinitionVersionID == "" || execution.DefinitionVersionID == firstVersionID {
+		t.Fatalf("second execution version = %s, want new version after %s", execution.DefinitionVersionID, firstVersionID)
+	}
+	version, err := service.store.LoadDefinitionVersion(execution.WorkspaceID, execution.DefinitionID, execution.DefinitionVersionID)
+	if err != nil {
+		t.Fatalf("load second execution version: %v", err)
+	}
+	if version.VersionNumber != 2 {
+		t.Fatalf("second version number = %d, want 2", version.VersionNumber)
 	}
 }
 

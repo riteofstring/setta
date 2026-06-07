@@ -2,32 +2,16 @@
 
 This reference supports [Backend Workflow Kernel Architecture Plan](backend_workflow_kernel_architecture_plan.md).
 
-SQLite is the workflow kernel persistence store. It uses WAL mode and stores event log rows and materialized state updates in the same transaction. JSON columns store compact JSON text validated by Go before commit.
+SQLite is the workflow kernel runtime persistence store. Authored workflow definitions live in workspace JSON files; SQLite stores immutable version snapshots captured for runs, event log rows, and materialized state updates. It uses WAL mode, and JSON columns store compact JSON text validated by Go before commit.
 
 ## Schema
 
 ```sql
-CREATE TABLE workflow_definitions (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  current_version_id TEXT NOT NULL,
-  current_version_number INTEGER NOT NULL,
-  graph_json TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE INDEX workflow_definitions_workspace_updated_idx
-  ON workflow_definitions(workspace_id, updated_at DESC, id);
-
 CREATE TABLE workflow_versions (
   id TEXT PRIMARY KEY,
   schema_version INTEGER NOT NULL,
   workspace_id TEXT NOT NULL,
-  definition_id TEXT NOT NULL REFERENCES workflow_definitions(id) ON DELETE CASCADE,
+  definition_id TEXT NOT NULL,
   version_number INTEGER NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,

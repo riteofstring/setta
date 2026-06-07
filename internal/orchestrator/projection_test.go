@@ -13,7 +13,7 @@ func TestServiceReadGraphProjectionComposesDefinitionAndRunningExecutionState(t 
 		t.Fatalf("start execution: %v", err)
 	}
 
-	projection, ok, err := service.ReadGraphProjection(workspaceID, "", "", "")
+	projection, ok, err := service.ReadGraphProjection(workspaceID, "", "", started.ID)
 	if err != nil {
 		t.Fatalf("read workspace projection: %v", err)
 	}

@@ -299,7 +299,6 @@ Preferred target:
 
 Core tables or logical stores:
 
-- `workflow_definitions`
 - `workflow_versions`
 - `workflow_runs`
 - `workflow_run_events`

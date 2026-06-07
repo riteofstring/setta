@@ -1,4 +1,8 @@
-import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
+import type {
+  ConversationListItem,
+  WorkflowDefinition,
+  WorkspaceSummary,
+} from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -16,6 +20,7 @@ describe("workspace sidebar navigation model", () => {
       expandedWorkspaceIds: new Set([web.id]),
       recentWorkspaces: [web, api],
       selectedConversationId: "conversation_web_fix",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {},
       selectedWorkspaceId: web.id,
       visibleConversationLimit: 80,
       workspaceConversationLists: {
@@ -27,6 +32,7 @@ describe("workspace sidebar navigation model", () => {
           conversationListItem("conversation_web_fix", "Fix web", web.id),
         ]),
       },
+      workspaceWorkflowDefinitionLists: {},
     });
 
     expect(items.map((item) => item.id)).toEqual([
@@ -76,6 +82,7 @@ describe("workspace sidebar navigation model", () => {
       expandedWorkspaceIds: new Set([api.id, web.id]),
       recentWorkspaces: [],
       selectedConversationId: "conversation_web_fix",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {},
       selectedWorkspaceId: web.id,
       visibleConversationLimit: 80,
       workspaceConversationLists: {
@@ -86,6 +93,7 @@ describe("workspace sidebar navigation model", () => {
           conversationListItem("conversation_web_fix", "Fix web", web.id),
         ]),
       },
+      workspaceWorkflowDefinitionLists: {},
     });
 
     expect(items.map((item) => item.id)).toEqual([
@@ -110,6 +118,51 @@ describe("workspace sidebar navigation model", () => {
     expect(items[3]).toMatchObject({ kind: "conversation", selected: true });
   });
 
+  test("adds workflow definition rows before conversations", () => {
+    const api = workspace("workspace_api", "api");
+
+    const items = selectSidebarNavigationItems({
+      activeWorkspaces: [api],
+      expandedWorkspaceIds: new Set([api.id]),
+      recentWorkspaces: [],
+      selectedConversationId: "",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {
+        [api.id]: "workflow_definition_review",
+      },
+      selectedWorkspaceId: api.id,
+      visibleConversationLimit: 80,
+      workspaceConversationLists: {
+        [api.id]: conversationList([
+          conversationListItem("conversation_api_plan", "Plan API", api.id),
+        ]),
+      },
+      workspaceWorkflowDefinitionLists: {
+        [api.id]: {
+          definitions: [workflowDefinition("workflow_definition_review", "Review")],
+          error: null,
+          loading: false,
+        },
+      },
+    });
+
+    expect(items.map((item) => item.id)).toEqual([
+      "active-workspace:workspace_api",
+      "workflow:workflow_definition_review",
+      "conversation:conversation_api_plan",
+    ]);
+    expect(items[1]).toMatchObject({
+      commands: {
+        primary: {
+          definitionId: "workflow_definition_review",
+          type: "selectWorkflowDefinition",
+          workspaceId: api.id,
+        },
+      },
+      kind: "workflowDefinition",
+      selected: true,
+    });
+  });
+
   test("keeps inactive recent workspaces selectable and removable", () => {
     const api = workspace("workspace_api", "api");
     const docs = workspace("workspace_docs", "docs");
@@ -119,9 +172,11 @@ describe("workspace sidebar navigation model", () => {
       expandedWorkspaceIds: new Set(),
       recentWorkspaces: [docs, api],
       selectedConversationId: "",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {},
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 80,
       workspaceConversationLists: {},
+      workspaceWorkflowDefinitionLists: {},
     });
 
     expect(items.map((item) => item.id)).toEqual([
@@ -149,11 +204,13 @@ describe("workspace sidebar navigation model", () => {
       expandedWorkspaceIds: new Set([api.id]),
       recentWorkspaces: [],
       selectedConversationId: "",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {},
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 80,
       workspaceConversationLists: {
         [api.id]: conversationList([]),
       },
+      workspaceWorkflowDefinitionLists: {},
     });
 
     expect(emptyItems.map((item) => item.kind)).toEqual([
@@ -169,11 +226,13 @@ describe("workspace sidebar navigation model", () => {
       expandedWorkspaceIds: new Set([api.id]),
       recentWorkspaces: [],
       selectedConversationId: "conversation_0",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {},
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 1,
       workspaceConversationLists: {
         [api.id]: conversationList(conversations),
       },
+      workspaceWorkflowDefinitionLists: {},
     });
 
     expect(limitedItems.map((item) => item.id)).toEqual([
@@ -196,9 +255,11 @@ describe("workspace sidebar navigation model", () => {
       expandedWorkspaceIds: new Set([api.id]),
       recentWorkspaces: [],
       selectedConversationId: "",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {},
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 80,
       workspaceConversationLists: {},
+      workspaceWorkflowDefinitionLists: {},
     });
     expect(unknownItems.map((item) => item.kind)).toEqual(["activeWorkspace"]);
 
@@ -207,11 +268,13 @@ describe("workspace sidebar navigation model", () => {
       expandedWorkspaceIds: new Set([api.id]),
       recentWorkspaces: [],
       selectedConversationId: "",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {},
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 80,
       workspaceConversationLists: {
         [api.id]: { conversations: [], error: null, loading: true },
       },
+      workspaceWorkflowDefinitionLists: {},
     });
     expect(coldLoadingItems.map((item) => item.kind)).toEqual(["activeWorkspace"]);
 
@@ -220,6 +283,7 @@ describe("workspace sidebar navigation model", () => {
       expandedWorkspaceIds: new Set([api.id]),
       recentWorkspaces: [],
       selectedConversationId: "",
+      selectedWorkflowDefinitionIdsByWorkspaceId: {},
       selectedWorkspaceId: api.id,
       visibleConversationLimit: 80,
       workspaceConversationLists: {
@@ -229,6 +293,7 @@ describe("workspace sidebar navigation model", () => {
           loading: true,
         },
       },
+      workspaceWorkflowDefinitionLists: {},
     });
     expect(refreshingItems.map((item) => item.id)).toEqual([
       "active-workspace:workspace_api",
@@ -281,5 +346,22 @@ function conversationList(conversations: ConversationListItem[]): SidebarWorkspa
     conversations,
     error: null,
     loading: false,
+  };
+}
+
+function workflowDefinition(id: string, name: string): WorkflowDefinition {
+  return {
+    createdAt: "2026-05-29T20:00:00Z",
+    description: "",
+    graph: {
+      edges: [],
+      layout: { nodes: [] },
+      nodes: [],
+    },
+    id,
+    name,
+    schemaVersion: 1,
+    updatedAt: "2026-05-29T20:00:00Z",
+    workspaceId: "workspace_api",
   };
 }

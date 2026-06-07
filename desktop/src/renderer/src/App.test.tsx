@@ -86,6 +86,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
         openLocalFolder={async () => {}}
+        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={[]}
@@ -128,6 +129,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
         openLocalFolder={async () => {}}
+        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={[web, api]}
@@ -170,6 +172,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
         openLocalFolder={async () => {}}
+        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={[]}
@@ -222,6 +225,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
         openLocalFolder={async () => {}}
+        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={[]}
@@ -263,6 +267,7 @@ describe("workspace renderer states", () => {
         createConversation={async () => {}}
         createWorkspaceConversation={async () => {}}
         openLocalFolder={async () => {}}
+        openWorkflowGraphPane={() => {}}
         openWorkspacePath={async () => {}}
         openSettingsPane={() => {}}
         recentWorkspaces={workspaces}

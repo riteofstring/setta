@@ -17,14 +17,13 @@ import (
 
 const (
 	workflowDatabaseName = "workflow-kernel.sqlite"
+	workflowStoreVersion = 2
 	sqliteDriverName     = "sqlite"
 )
 
 type WorkflowStore interface {
-	SaveDefinitionRevision(WorkflowDefinition, WorkflowDefinitionVersion) error
-	LoadDefinition(workspaceID string, definitionID string) (WorkflowDefinition, error)
-	ListDefinitions(workspaceID string) ([]WorkflowDefinition, error)
-	DeleteDefinition(workspaceID string, definitionID string) error
+	SaveDefinitionVersion(WorkflowDefinitionVersion) error
+	LatestDefinitionVersionNumber(workspaceID string, definitionID string) (int, error)
 	LoadDefinitionVersion(workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, error)
 	LoadExecution(workspaceID string, executionID string) (WorkflowExecution, error)
 	ListExecutions(workspaceID string) ([]WorkflowExecution, error)
@@ -142,11 +141,11 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 	if err := store.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&userVersion); err != nil {
 		return store.persistenceError("read workflow database schema version", err)
 	}
-	if userVersion != 0 && userVersion != SchemaVersion {
+	if userVersion != 0 && userVersion != workflowStoreVersion {
 		return store.corruptError("workflow database", fmt.Errorf("unsupported schema version %d", userVersion))
 	}
 	if userVersion == 0 {
-		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", SchemaVersion)); err != nil {
+		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", workflowStoreVersion)); err != nil {
 			return store.persistenceError("write workflow database schema version", err)
 		}
 	}
@@ -163,27 +162,11 @@ func (store *Store) createSchema(ctx context.Context) error {
 }
 
 var sqliteSchemaStatements = splitSQLStatements(`
-CREATE TABLE IF NOT EXISTS workflow_definitions (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  current_version_id TEXT NOT NULL,
-  current_version_number INTEGER NOT NULL,
-  graph_json TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS workflow_definitions_workspace_updated_idx
-  ON workflow_definitions(workspace_id, updated_at DESC, id);
-
 CREATE TABLE IF NOT EXISTS workflow_versions (
   id TEXT PRIMARY KEY,
   schema_version INTEGER NOT NULL,
   workspace_id TEXT NOT NULL,
-  definition_id TEXT NOT NULL REFERENCES workflow_definitions(id) ON DELETE CASCADE,
+  definition_id TEXT NOT NULL,
   version_number INTEGER NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
@@ -391,11 +374,8 @@ func validateDefinitionSnapshot(definition WorkflowDefinition) error {
 	if definition.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("unsupported schemaVersion %d", definition.SchemaVersion)
 	}
-	if err := validateStoreIDs("definition id", definition.ID, "workspace id", definition.WorkspaceID, "current version id", definition.CurrentVersionID); err != nil {
+	if err := validateStoreIDs("definition id", definition.ID, "workspace id", definition.WorkspaceID); err != nil {
 		return err
-	}
-	if definition.CurrentVersionNumber <= 0 {
-		return fmt.Errorf("definition %s currentVersionNumber must be positive", definition.ID)
 	}
 	if definition.Name == "" {
 		return fmt.Errorf("definition %s name is required", definition.ID)

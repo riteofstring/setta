@@ -7,6 +7,7 @@ import type {
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcript-approvals";
+import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
 import { workflowGraphWithNodeLayout, type WorkflowLayoutPosition } from "./workflow-graph-layout";
 import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
 import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
@@ -28,7 +29,18 @@ export function PixiWorkspaceSurface({
   const [workflowProjectionReady, setWorkflowProjectionReady] = useState(false);
   const [workflowEditorError, setWorkflowEditorError] = useState("");
   const syntheticGraph = window.setta.app.flags.pixiWorkspaceSyntheticGraph;
-  useWorkflowProjection(workflowTargetRef, setWorkflowProjection, setWorkflowProjectionReady);
+  const selectedDefinitionIdsByWorkspaceId = useWorkflowDefinitionStore(
+    (state) => state.selectedDefinitionIdsByWorkspaceId,
+  );
+  const createWorkflowDefinition = useWorkflowDefinitionStore(
+    (state) => state.createWorkflowDefinition,
+  );
+  useWorkflowProjection(
+    workflowTargetRef,
+    setWorkflowProjection,
+    setWorkflowProjectionReady,
+    selectedDefinitionIdsByWorkspaceId,
+  );
   const workflowGraph = useMemo(
     () =>
       workflowProjection === null ? undefined : pixiGraphFromWorkflowProjection(workflowProjection),
@@ -43,6 +55,26 @@ export function PixiWorkspaceSurface({
     [workflowProjection],
   );
   const loadingProjection = syntheticGraph === null && !workflowProjectionReady;
+  const createWorkflowFromEmptyState = useCallback(async () => {
+    setWorkflowEditorError("");
+    try {
+      const session = await window.setta.workspace.session();
+      if (session.selectedWorkspaceId === "") {
+        setWorkflowEditorError("Open a workspace before creating a workflow");
+        return;
+      }
+      const definition = await createWorkflowDefinition(session.selectedWorkspaceId);
+      const refreshed = await window.setta.workflow.graphProjection(
+        session.selectedWorkspaceId,
+        definition.id,
+      );
+      setWorkflowProjection(refreshed.projection);
+    } catch (error: unknown) {
+      setWorkflowEditorError(
+        error instanceof Error ? error.message : "Workflow definition creation failed",
+      );
+    }
+  }, [createWorkflowDefinition]);
   const persistNodePositions = useCallback(
     async (positions: WorkflowLayoutPosition[]) => {
       if (syntheticGraph !== null || workflowProjection === null) {
@@ -51,33 +83,29 @@ export function PixiWorkspaceSurface({
       if (workflowProjection.executionId !== "") {
         return;
       }
-      setWorkflowEditorError("");
+      if (workflowEditorError !== "") {
+        setWorkflowEditorError("");
+      }
       try {
         const definition = await window.setta.workflow.readDefinition(
           workflowProjection.workspaceId,
           workflowProjection.definitionId,
         );
         const graph = workflowGraphWithNodeLayout(definition.graph, positions);
-        const updated = await window.setta.workflow.updateDefinition(
+        await window.setta.workflow.updateDefinition(
           workflowProjection.workspaceId,
           definition.id,
           definition.name,
           definition.description,
           graph,
         );
-        const refreshed = await window.setta.workflow.graphProjection(
-          workflowProjection.workspaceId,
-          updated.id,
-          updated.currentVersionId,
-        );
-        setWorkflowProjection(refreshed.projection);
       } catch (error: unknown) {
         setWorkflowEditorError(
           error instanceof Error ? error.message : "Workflow layout update failed",
         );
       }
     },
-    [syntheticGraph, workflowProjection],
+    [syntheticGraph, workflowEditorError, workflowProjection],
   );
 
   useEffect(() => {
@@ -131,7 +159,9 @@ export function PixiWorkspaceSurface({
         data-testid="pixi-workspace"
       />
       {loadingProjection ? <PixiWorkspaceState label="Loading workflow graph" /> : null}
-      {!loadingProjection && !graph ? <PixiWorkspaceState label="No workflow graph" /> : null}
+      {!loadingProjection && !graph ? (
+        <PixiWorkspaceEmptyState onCreateWorkflow={createWorkflowFromEmptyState} />
+      ) : null}
       {workflowEditorError ? <PixiWorkspaceEditorError message={workflowEditorError} /> : null}
       <WorkflowApprovalOverlay
         pendingApproval={pendingApproval}
@@ -153,6 +183,7 @@ function useWorkflowProjection(
   workflowTargetRef: MutableRefObject<WorkflowProjectionTarget | null>,
   setWorkflowProjection: (projection: WorkflowGraphProjection | null) => void,
   setWorkflowProjectionReady: (ready: boolean) => void,
+  selectedDefinitionIdsByWorkspaceId: Record<string, string | undefined>,
 ) {
   useEffect(() => {
     let disposed = false;
@@ -178,13 +209,31 @@ function useWorkflowProjection(
     };
 
     const loadWorkspaceProjection = async () => {
+      if (!disposed) {
+        setWorkflowProjectionReady(false);
+      }
       const session = await window.setta.workspace.session();
       if (session.selectedWorkspaceId === "") {
         storeProjection(null, "");
         markProjectionReady();
         return;
       }
-      const response = await window.setta.workflow.graphProjection(session.selectedWorkspaceId);
+      await useWorkflowDefinitionStore
+        .getState()
+        .ensureWorkspaceWorkflowDefinitions(session.selectedWorkspaceId);
+      const definitionId =
+        useWorkflowDefinitionStore.getState().selectedDefinitionIdsByWorkspaceId[
+          session.selectedWorkspaceId
+        ] ?? "";
+      if (definitionId === "") {
+        storeProjection(null, session.selectedWorkspaceId);
+        markProjectionReady();
+        return;
+      }
+      const response = await window.setta.workflow.graphProjection(
+        session.selectedWorkspaceId,
+        definitionId,
+      );
       storeProjection(response.projection, session.selectedWorkspaceId);
       markProjectionReady();
     };
@@ -221,7 +270,12 @@ function useWorkflowProjection(
       disposed = true;
       unsubscribe();
     };
-  }, [setWorkflowProjection, setWorkflowProjectionReady, workflowTargetRef]);
+  }, [
+    selectedDefinitionIdsByWorkspaceId,
+    setWorkflowProjection,
+    setWorkflowProjectionReady,
+    workflowTargetRef,
+  ]);
 }
 
 function workflowProjectionTarget(projection: WorkflowGraphProjection): WorkflowProjectionTarget {
@@ -246,6 +300,20 @@ function pendingWorkflowApproval(
 
 function PixiWorkspaceState({ label }: { label: string }) {
   return <div className="niri-pixi-workspace-state">{label}</div>;
+}
+
+function PixiWorkspaceEmptyState({ onCreateWorkflow }: { onCreateWorkflow: () => Promise<void> }) {
+  return (
+    <div className="niri-pixi-workspace-state">
+      <button
+        className="rounded-sm border border-cyan-300/40 bg-cyan-950/70 px-3 py-1.5 text-sm text-cyan-50 hover:bg-cyan-900/80"
+        onClick={() => void onCreateWorkflow()}
+        type="button"
+      >
+        Create workflow
+      </button>
+    </div>
+  );
 }
 
 function PixiWorkspaceEditorError({ message }: { message: string }) {

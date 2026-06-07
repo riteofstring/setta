@@ -493,16 +493,14 @@ func stringValues[T ~string](values []T) []string {
 }
 
 type WorkflowDefinition struct {
-	SchemaVersion        int           `json:"schemaVersion"`
-	ID                   string        `json:"id"`
-	WorkspaceID          string        `json:"workspaceId"`
-	Name                 string        `json:"name"`
-	Description          string        `json:"description"`
-	CurrentVersionID     string        `json:"currentVersionId"`
-	CurrentVersionNumber int           `json:"currentVersionNumber"`
-	Graph                WorkflowGraph `json:"graph"`
-	CreatedAt            string        `json:"createdAt"`
-	UpdatedAt            string        `json:"updatedAt"`
+	SchemaVersion int           `json:"schemaVersion"`
+	ID            string        `json:"id"`
+	WorkspaceID   string        `json:"workspaceId"`
+	Name          string        `json:"name"`
+	Description   string        `json:"description"`
+	Graph         WorkflowGraph `json:"graph"`
+	CreatedAt     string        `json:"createdAt"`
+	UpdatedAt     string        `json:"updatedAt"`
 }
 
 type WorkflowDefinitionVersion struct {
