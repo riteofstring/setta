@@ -1869,9 +1869,20 @@ export interface WorkflowEdge {
   condition: WorkflowCondition | null;
 }
 
+export interface WorkflowGraphNodeLayout {
+  nodeId: string;
+  x: number;
+  y: number;
+}
+
+export interface WorkflowGraphLayout {
+  nodes: WorkflowGraphNodeLayout[];
+}
+
 export interface WorkflowGraph {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
+  layout: WorkflowGraphLayout;
 }
 
 export interface WorkflowDefinition {
@@ -2174,6 +2185,7 @@ export interface WorkflowGraphProjection {
   terminalReason: WorkflowTerminalReason | null;
   lastEventOrdinal: number;
   updatedAt: string;
+  layout: WorkflowGraphLayout;
   nodes: WorkflowGraphNode[];
   edges: WorkflowGraphEdge[];
 }
@@ -3862,12 +3874,31 @@ export function decodeWorkflowEdge(value: unknown): WorkflowEdge {
   };
 }
 
+export function decodeWorkflowGraphNodeLayout(value: unknown): WorkflowGraphNodeLayout {
+  const record = assertRecord(value, "WorkflowGraphNodeLayout");
+  assertKnownFields(record, "WorkflowGraphNodeLayout", ["nodeId", "x", "y"]);
+  return {
+    nodeId: decodeString(requireField(record, "nodeId", "WorkflowGraphNodeLayout"), "WorkflowGraphNodeLayout.nodeId"),
+    x: decodeInteger(requireField(record, "x", "WorkflowGraphNodeLayout"), "WorkflowGraphNodeLayout.x"),
+    y: decodeInteger(requireField(record, "y", "WorkflowGraphNodeLayout"), "WorkflowGraphNodeLayout.y"),
+  };
+}
+
+export function decodeWorkflowGraphLayout(value: unknown): WorkflowGraphLayout {
+  const record = assertRecord(value, "WorkflowGraphLayout");
+  assertKnownFields(record, "WorkflowGraphLayout", ["nodes"]);
+  return {
+    nodes: decodeArray(requireField(record, "nodes", "WorkflowGraphLayout"), "WorkflowGraphLayout.nodes", (item) => decodeWorkflowGraphNodeLayout(item)),
+  };
+}
+
 export function decodeWorkflowGraph(value: unknown): WorkflowGraph {
   const record = assertRecord(value, "WorkflowGraph");
-  assertKnownFields(record, "WorkflowGraph", ["nodes", "edges"]);
+  assertKnownFields(record, "WorkflowGraph", ["nodes", "edges", "layout"]);
   return {
     nodes: decodeArray(requireField(record, "nodes", "WorkflowGraph"), "WorkflowGraph.nodes", (item) => decodeWorkflowNode(item)),
     edges: decodeArray(requireField(record, "edges", "WorkflowGraph"), "WorkflowGraph.edges", (item) => decodeWorkflowEdge(item)),
+    layout: decodeWorkflowGraphLayout(requireField(record, "layout", "WorkflowGraph")),
   };
 }
 
@@ -4285,7 +4316,7 @@ export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
 
 export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProjection {
   const record = assertRecord(value, "WorkflowGraphProjection");
-  assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionName", "definitionDescription", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "nodes", "edges"]);
+  assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionName", "definitionDescription", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "layout", "nodes", "edges"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowGraphProjection"), "WorkflowGraphProjection.schemaVersion"),
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowGraphProjection"), "WorkflowGraphProjection.workspaceId"),
@@ -4298,6 +4329,7 @@ export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProj
     terminalReason: decodeNullable(requireField(record, "terminalReason", "WorkflowGraphProjection"), "WorkflowGraphProjection.terminalReason", (item) => decodeWorkflowTerminalReason(item, "WorkflowGraphProjection.terminalReason")),
     lastEventOrdinal: decodeInteger(requireField(record, "lastEventOrdinal", "WorkflowGraphProjection"), "WorkflowGraphProjection.lastEventOrdinal"),
     updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowGraphProjection"), "WorkflowGraphProjection.updatedAt"),
+    layout: decodeWorkflowGraphLayout(requireField(record, "layout", "WorkflowGraphProjection")),
     nodes: decodeArray(requireField(record, "nodes", "WorkflowGraphProjection"), "WorkflowGraphProjection.nodes", (item) => decodeWorkflowGraphNode(item)),
     edges: decodeArray(requireField(record, "edges", "WorkflowGraphProjection"), "WorkflowGraphProjection.edges", (item) => decodeWorkflowGraphEdge(item)),
   };

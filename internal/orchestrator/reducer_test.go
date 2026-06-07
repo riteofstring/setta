@@ -105,6 +105,25 @@ func TestValidateGraphValidResultUsesEmptyDiagnosticsArray(t *testing.T) {
 	}
 }
 
+func TestValidateGraphReportsStaleLayoutAsWarning(t *testing.T) {
+	graph := startEndGraph()
+	graph.Layout = WorkflowGraphLayout{
+		Nodes: []WorkflowGraphNodeLayout{
+			{NodeID: "start", X: -160, Y: 0},
+			{NodeID: "missing", X: 160, Y: 0},
+		},
+	}
+
+	result := ValidateGraph(graph, DefaultRunnerRegistry())
+	if !result.Valid {
+		t.Fatalf("validation diagnostics = %+v, want stale layout warning without invalidating graph", result.Diagnostics)
+	}
+	diagnostic := diagnosticForTest(t, result, "layout_node_unknown")
+	if diagnostic.Severity != ValidationSeverityWarning {
+		t.Fatalf("layout diagnostic severity = %s, want warning", diagnostic.Severity)
+	}
+}
+
 func TestANDFanOutJoinWaitsForAllBranches(t *testing.T) {
 	graph := WorkflowGraph{
 		Nodes: []WorkflowNode{
@@ -810,12 +829,18 @@ func assertNodeNotExecuted(t *testing.T, execution WorkflowExecution, nodeID str
 
 func assertDiagnostic(t *testing.T, result WorkflowValidationResult, code string) {
 	t.Helper()
+	_ = diagnosticForTest(t, result, code)
+}
+
+func diagnosticForTest(t *testing.T, result WorkflowValidationResult, code string) WorkflowValidationDiagnostic {
+	t.Helper()
 	for _, diagnostic := range result.Diagnostics {
 		if diagnostic.Code == code {
-			return
+			return diagnostic
 		}
 	}
 	t.Fatalf("diagnostic %s was not found in %+v", code, result.Diagnostics)
+	return WorkflowValidationDiagnostic{}
 }
 
 func assertEventType(t *testing.T, events []WorkflowEvent, eventType WorkflowEventType) {

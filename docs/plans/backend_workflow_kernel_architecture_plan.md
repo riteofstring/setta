@@ -1,7 +1,7 @@
 # Backend Workflow Kernel Architecture Plan
 
 - **Date:** June 7, 2026
-- **Status:** Phase 3 complete; later runner extensions ready
+- **Status:** Phase 3 complete; functional graph editor direction added; later runner extensions deferred
 - **Scope:** Evolve Setta's backend workflow orchestration into a durable local-first workflow kernel with replaceable action runners.
 
 ## Executive Summary
@@ -166,6 +166,7 @@ Minimum definition concepts:
 - Nodes.
 - Edges.
 - Node configs.
+- Editor layout metadata.
 - Input and output schemas.
 - Routing conditions.
 - Approval policies.
@@ -209,6 +210,22 @@ Avoid making the normal graph palette primarily framework-branded:
 - `Pydantic AI Node`
 
 Those can exist as advanced runner choices under a task-oriented node when they are useful.
+
+## Functional Graph Editor Direction
+
+Now that the Codex-backed workflow kernel, SQLite persistence, and recovery/reconciliation phases are complete, the next product surface should be the functional workflow graph editor.
+
+The editor should author saved workflow definitions. It must not treat a runtime projection or a Pixi-local mutable graph as the durable product artifact. The detailed editor UX, edge semantics, virtual-port model, and Phase 4 deliverables live in [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md).
+
+Core direction:
+
+- Author `WorkflowDefinition.graph`; render `WorkflowGraphProjection` as a read-only runtime overlay.
+- Persist editor layout through a Go-owned workflow contract and regenerate TypeScript.
+- Keep node type, validation state, runtime state, and editor affordance visually distinct.
+- Treat initial edges as typed control transitions, not data flow, artifact references, or knowledge links.
+- Keep routing conditions typed and backend-owned; do not route from arbitrary expression strings or prose output.
+- Treat virtual ports as editor affordances that compile to real `WorkflowEdge` and `WorkflowCondition` data.
+- Defer executable-code, concept, mindmap, and true wait-state `State` nodes until their backend semantics are explicit.
 
 ## Runner Contract
 
@@ -644,20 +661,20 @@ RunnerEvent
 
 Target runner event types and payload fields:
 
-| Type | Payload fields | Persistence |
-| --- | --- | --- |
-| `runner.attempt.started` | `runnerRefs`, `capabilities`, `inputHash`, `idempotencyKey`, `sideEffectPolicy` | Durable workflow event and node attempt state |
-| `runner.text.delta` | `streamId`, `sequence`, `format`, `text` | Activity reference or runner activity store |
-| `runner.tool_call.started` | `toolCallId`, `toolName`, `toolKind`, `arguments`, `requiresApproval` | Activity reference; durable only when policy-relevant |
-| `runner.tool_call.output` | `toolCallId`, `sequence`, `output`, `truncated`, `metadata` | Activity reference or runner activity store |
-| `runner.approval.requested` | `approvalId`, `approvalKind`, `title`, `request`, `operation`, `sideEffectPolicy` | Durable workflow event, approval row, node attempt state |
-| `runner.approval.resolved` | `approvalId`, `status`, `approved`, `response`, `answers`, `resolvedAt` | Durable workflow event and approval row |
-| `runner.artifact.reported` | `artifactId`, `kind`, `uri`, `title`, `metadata` | Durable artifact ref and workflow event |
-| `runner.structured_output.received` | `schemaName`, `schemaVersion`, `output`, `signals`, `filePaths`, `exitCode` | Durable workflow event and node attempt output snapshot |
-| `runner.attempt.completed` | `status`, `output`, `signals`, `filePaths`, `exitCode`, `metrics` | Durable workflow event and node attempt terminal state |
-| `runner.attempt.failed` | `errorCode`, `message`, `retryable`, `metrics` | Durable workflow event and node attempt terminal state |
-| `runner.attempt.cancelled` | `reason`, `message`, `metrics` | Durable workflow event and node attempt terminal state |
-| `runner.attempt.recovery_required` | `recoveryOutcome`, `message`, `manualRecoveryInstructions`, `runnerRefs` | Durable workflow event and recovery state |
+| Type                                | Payload fields                                                                    | Persistence                                              |
+| ----------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `runner.attempt.started`            | `runnerRefs`, `capabilities`, `inputHash`, `idempotencyKey`, `sideEffectPolicy`   | Durable workflow event and node attempt state            |
+| `runner.text.delta`                 | `streamId`, `sequence`, `format`, `text`                                          | Activity reference or runner activity store              |
+| `runner.tool_call.started`          | `toolCallId`, `toolName`, `toolKind`, `arguments`, `requiresApproval`             | Activity reference; durable only when policy-relevant    |
+| `runner.tool_call.output`           | `toolCallId`, `sequence`, `output`, `truncated`, `metadata`                       | Activity reference or runner activity store              |
+| `runner.approval.requested`         | `approvalId`, `approvalKind`, `title`, `request`, `operation`, `sideEffectPolicy` | Durable workflow event, approval row, node attempt state |
+| `runner.approval.resolved`          | `approvalId`, `status`, `approved`, `response`, `answers`, `resolvedAt`           | Durable workflow event and approval row                  |
+| `runner.artifact.reported`          | `artifactId`, `kind`, `uri`, `title`, `metadata`                                  | Durable artifact ref and workflow event                  |
+| `runner.structured_output.received` | `schemaName`, `schemaVersion`, `output`, `signals`, `filePaths`, `exitCode`       | Durable workflow event and node attempt output snapshot  |
+| `runner.attempt.completed`          | `status`, `output`, `signals`, `filePaths`, `exitCode`, `metrics`                 | Durable workflow event and node attempt terminal state   |
+| `runner.attempt.failed`             | `errorCode`, `message`, `retryable`, `metrics`                                    | Durable workflow event and node attempt terminal state   |
+| `runner.attempt.cancelled`          | `reason`, `message`, `metrics`                                                    | Durable workflow event and node attempt terminal state   |
+| `runner.attempt.recovery_required`  | `recoveryOutcome`, `message`, `manualRecoveryInstructions`, `runnerRefs`          | Durable workflow event and recovery state                |
 
 Kernel lifecycle events remain Setta workflow events such as `workflow.action.started`, `workflow.action.completed`, and `workflow.execution.completed`. Normalized runner terminal events are inputs to the reducer; they are not a second lifecycle authority.
 
@@ -669,14 +686,14 @@ Recovery runs at startup and after a runner reports `runner.attempt.recovery_req
 
 Target recovery outcomes:
 
-| Outcome | Meaning | Kernel action |
-| --- | --- | --- |
-| `recovered_running` | Runner proves the same attempt is still active. | Keep attempt active, refresh runner state, resume event intake. |
-| `recovered_completed` | Runner proves the attempt completed while Setta was down. | Commit terminal output and continue scheduling from the committed graph state. |
-| `recovered_failed` | Runner proves the attempt failed while Setta was down. | Commit failure and apply normal failure routing or terminal handling. |
-| `retry_scheduled` | Existing attempt cannot continue, but side-effect policy proves retry is safe. | Mark old attempt failed with recovery details, create the next attempt with a new attempt id and the same workflow input snapshot. |
-| `manual_recovery_required` | The outcome or side effect is uncertain and automatic retry is unsafe. | Mark the node attempt `recovery_required`, set run status `waiting_recovery`, and require explicit user action. |
-| `failed_interrupted` | Recovery is unsupported or impossible and policy permits failing loudly. | Mark active attempts failed and fail the run with terminal reason `interrupted`. |
+| Outcome                    | Meaning                                                                        | Kernel action                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `recovered_running`        | Runner proves the same attempt is still active.                                | Keep attempt active, refresh runner state, resume event intake.                                                                    |
+| `recovered_completed`      | Runner proves the attempt completed while Setta was down.                      | Commit terminal output and continue scheduling from the committed graph state.                                                     |
+| `recovered_failed`         | Runner proves the attempt failed while Setta was down.                         | Commit failure and apply normal failure routing or terminal handling.                                                              |
+| `retry_scheduled`          | Existing attempt cannot continue, but side-effect policy proves retry is safe. | Mark old attempt failed with recovery details, create the next attempt with a new attempt id and the same workflow input snapshot. |
+| `manual_recovery_required` | The outcome or side effect is uncertain and automatic retry is unsafe.         | Mark the node attempt `recovery_required`, set run status `waiting_recovery`, and require explicit user action.                    |
+| `failed_interrupted`       | Recovery is unsupported or impossible and policy permits failing loudly.       | Mark active attempts failed and fail the run with terminal reason `interrupted`.                                                   |
 
 The target status model adds `workflow.node.status = recovery_required` and `workflow.execution.status = waiting_recovery` for manual recovery. These states are non-terminal and must be visible in graph projection and event replay.
 
@@ -813,6 +830,19 @@ Acceptance criteria:
 - Restart after runner completion but before Setta terminal commit is reconciled when runner state proves completion.
 - Unrecoverable side-effecting attempts fail loudly or require manual recovery.
 
+#### Phase 4: Functional Workflow Graph Editor
+
+Status: Next. Build the first usable editor on top of the saved `WorkflowDefinition.graph` contract and the existing Codex-backed workflow kernel. See [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md) for detailed deliverables, guardrails, and acceptance criteria.
+
+First slice:
+
+- Add required backend-owned editor layout metadata to `WorkflowGraph`.
+- Regenerate generated TypeScript contracts.
+- Include layout in `WorkflowGraphProjection`.
+- Render projection nodes from persisted layout positions before falling back to automatic layout.
+- Persist node moves through `updateDefinition` when the graph is showing a definition without a selected execution overlay.
+- Prove the slice through focused backend, renderer, and deterministic Electron workflow tests.
+
 ### Later Runner Extensions
 
 These extensions are strategically useful, but they are not required for the first serious workflow kernel. They should use the same runner contract and must not reshape the saved Setta workflow graph.
@@ -914,6 +944,8 @@ When the sandboxed process runner is implemented, its tests must also cover:
 
 For changes touching chat-backed Codex runners, harness behavior, approvals, streaming, queueing, or transcript paths, production Electron/main/preload/renderer/HTTP/store end-to-end workflow tests are required.
 
+For changes touching the functional graph editor, deterministic Electron/main/preload/renderer/HTTP/store workflow tests are required. The tests should use temporary app data and cover creating or opening a workspace, authoring a workflow definition, adding nodes, drawing edges, validating diagnostics, saving through the backend API, starting a saved version, receiving runtime projection updates, and opening node details. Renderer-only or Pixi-only tests are not sufficient for editor workflows that save or run definitions.
+
 Live Codex E2E tests should run when local ChatGPT auth is available. They must not use `OPENAI_API_KEY`. If ChatGPT auth is unavailable, record the skip as a live-provider skip, not as proof of provider integration.
 
 ## Resolved Architecture Decisions
@@ -928,13 +960,25 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 - Do not add raw local command execution as a shortcut while sandboxed process execution is deferred.
 - Do not implement OS sandboxing from scratch in Go. Use a sandbox provider such as `srt`, with Docker/Podman as optional strict mode and explicit trusted-command fallback when no sandbox provider is available.
 - Do not preserve existing workflow data or maintain compatibility paths. Replace the implementation directly when the target design is clearer.
+- Make the functional graph editor the next implementation target before later runner expansion.
+- Treat the saved `WorkflowDefinition.graph` as the authored workflow artifact; treat `WorkflowGraphProjection` as a read-only runtime display overlay.
+- Treat initial editor edges as directed control transitions. Do not use one edge layer for control flow, data flow, artifact references, and knowledge links.
+- Keep routing conditions typed and backend-owned. Do not route from arbitrary expression strings or prose assistant output.
+- Treat virtual ports as deterministic editor affordances that compile to real workflow edges and conditions, not as a separate durable contract.
+- Keep validation diagnostics visually separate from runtime failures.
+- Defer executable code, concept, mindmap, and true wait-state `State` nodes until their backend semantics are designed.
 
 ## Remaining Design Details
 
 - Exact `srt` integration shape: CLI invocation, TypeScript sidecar bridge, or Go wrapper around the CLI.
 - Native Windows sandbox strategy remains unsupported until proven by implementation and tests.
 - Whether sidecar-backed agent subgraphs are configured by local file path, registered runner package, imported manifest, or LangFlow server/flow reference in the first spike.
+- Exact backend-owned shape for editor layout metadata: embedded on `WorkflowGraph`, a sibling workflow editor metadata object, or another Go-owned contract.
+- Exact typed condition shapes for default branches, approval outcome routing, structured output field comparisons, and signal schema references.
+- Whether `Merge` should compile to `gateway.or`, a separate future control node, or a constrained gateway mode.
+- Backend semantics for a true state-machine wait-state `State` node: signals, resume behavior, timeout policy, persistence, and recovery.
+- Niri pane contract for opening workflow node details next to the graph editor.
 
 ## Recommended Next Step
 
-Proceed to the later runner extension work only after product requirements justify it. Keep the next runner scope narrow, start with the sandboxed process runner when needed, and do not add MCP, LangGraph, OpenAI Agents SDK, LangFlow, or Python sidecars until the Codex-backed kernel, persistence, and recovery model remain stable under continued use.
+Build the functional workflow graph editor before later runner expansion. Start with authoring and running saved `WorkflowDefinition.graph` definitions using `Agent Task`, `Route`, `Merge`, `Barrier Join`, `Start`, and `End`; keep edges as typed control transitions; persist layout through a Go-owned contract if manual positions are saved; and overlay runtime projection state from saved versions. Proceed to sandboxed process, MCP, sidecar, LangGraph, OpenAI Agents SDK, LangFlow, or Python runner work only after the editor proves the graph authoring model under real use.

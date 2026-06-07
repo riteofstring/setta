@@ -518,8 +518,19 @@ type WorkflowDefinitionVersion struct {
 }
 
 type WorkflowGraph struct {
-	Nodes []WorkflowNode `json:"nodes"`
-	Edges []WorkflowEdge `json:"edges"`
+	Nodes  []WorkflowNode      `json:"nodes"`
+	Edges  []WorkflowEdge      `json:"edges"`
+	Layout WorkflowGraphLayout `json:"layout"`
+}
+
+type WorkflowGraphLayout struct {
+	Nodes []WorkflowGraphNodeLayout `json:"nodes"`
+}
+
+type WorkflowGraphNodeLayout struct {
+	NodeID string `json:"nodeId"`
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
 }
 
 type WorkflowNode struct {
@@ -806,6 +817,7 @@ type WorkflowGraphProjection struct {
 	TerminalReason        *WorkflowTerminalReason  `json:"terminalReason"`
 	LastEventOrdinal      int                      `json:"lastEventOrdinal"`
 	UpdatedAt             string                   `json:"updatedAt"`
+	Layout                WorkflowGraphLayout      `json:"layout"`
 	Nodes                 []WorkflowGraphNode      `json:"nodes"`
 	Edges                 []WorkflowGraphEdge      `json:"edges"`
 }

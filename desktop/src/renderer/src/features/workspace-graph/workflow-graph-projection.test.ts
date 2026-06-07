@@ -32,6 +32,25 @@ describe("pixiGraphFromWorkflowProjection", () => {
       graph.nodes.find((node) => node.id === "end")?.x ?? 0,
     );
   });
+
+  test("uses persisted workflow layout when projection includes editor positions", () => {
+    const graph = pixiGraphFromWorkflowProjection({
+      ...testProjection(),
+      layout: {
+        nodes: [
+          { nodeId: "start", x: -480, y: -40 },
+          { nodeId: "work", x: 80, y: 140 },
+          { nodeId: "end", x: 420, y: -20 },
+        ],
+      },
+    });
+
+    expect(graph.nodes.map((node) => [node.id, node.x, node.y])).toEqual([
+      ["start", -480, -40],
+      ["work", 80, 140],
+      ["end", 420, -20],
+    ]);
+  });
 });
 
 function testProjection(): WorkflowGraphProjection {
@@ -65,6 +84,7 @@ function testProjection(): WorkflowGraphProjection {
     executionId: "execution_review",
     executionStatus: "running",
     lastEventOrdinal: 4,
+    layout: { nodes: [] },
     nodes: [
       projectedNode("start", "start", "succeeded", 1),
       projectedNode("work", "action", "running", 2),

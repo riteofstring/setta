@@ -700,21 +700,19 @@ function signalValue(signals, name) {
 }
 
 function phase4WorkflowGraph({ limitPolicy, maxIterations }) {
-  return {
-    nodes: [
-      workflowControlNode("start", "start"),
-      workflowCodexNode("review_a", "phase4 reviewer a workflow", true),
-      workflowCodexNode("review_b", "phase4 reviewer b workflow", true),
-      workflowCodexNode("review_c", "phase4 reviewer c workflow", true),
-      workflowANDJoinNode(),
-      workflowCodexNode("consolidator", "phase4 consolidator workflow", true),
-      workflowXORRouteNode(),
-      workflowCodexNode("fix", "phase4 fix workflow", true),
-      workflowLoopGuardNode({ limitPolicy, maxIterations }),
-      workflowControlNode("end", "end"),
-    ],
-    edges: phase4WorkflowEdges(),
-  };
+  const nodes = [
+    workflowControlNode("start", "start"),
+    workflowCodexNode("review_a", "phase4 reviewer a workflow", true),
+    workflowCodexNode("review_b", "phase4 reviewer b workflow", true),
+    workflowCodexNode("review_c", "phase4 reviewer c workflow", true),
+    workflowANDJoinNode(),
+    workflowCodexNode("consolidator", "phase4 consolidator workflow", true),
+    workflowXORRouteNode(),
+    workflowCodexNode("fix", "phase4 fix workflow", true),
+    workflowLoopGuardNode({ limitPolicy, maxIterations }),
+    workflowControlNode("end", "end"),
+  ];
+  return workflowGraph(nodes, phase4WorkflowEdges());
 }
 
 function workflowANDJoinNode() {
@@ -782,43 +780,61 @@ function phase4WorkflowEdges() {
 }
 
 function cancellationWorkflowGraph() {
-  return {
-    nodes: [
-      workflowControlNode("start", "start"),
-      workflowCodexNode("work", "cancel active workflow", true),
-      workflowControlNode("end", "end"),
-    ],
-    edges: [workflowEdge("start_work", "start", "work"), workflowEdge("work_end", "work", "end")],
-  };
+  const nodes = [
+    workflowControlNode("start", "start"),
+    workflowCodexNode("work", "cancel active workflow", true),
+    workflowControlNode("end", "end"),
+  ];
+  return workflowGraph(nodes, [
+    workflowEdge("start_work", "start", "work"),
+    workflowEdge("work_end", "work", "end"),
+  ]);
 }
 
 function approvalWorkflowGraph() {
-  return {
-    nodes: [
-      workflowControlNode("start", "start"),
-      workflowCodexNode("work", "command approval workflow", true),
-      workflowControlNode("end", "end"),
-    ],
-    edges: [workflowEdge("start_work", "start", "work"), workflowEdge("work_end", "work", "end")],
-  };
+  const nodes = [
+    workflowControlNode("start", "start"),
+    workflowCodexNode("work", "command approval workflow", true),
+    workflowControlNode("end", "end"),
+  ];
+  return workflowGraph(nodes, [
+    workflowEdge("start_work", "start", "work"),
+    workflowEdge("work_end", "work", "end"),
+  ]);
 }
 
 function lateGatewayArrivalWorkflowGraph() {
+  const nodes = [
+    workflowControlNode("start", "start"),
+    workflowCodexNode("fast", "workflow result action", true),
+    workflowCodexNode("slow", "workflow hold for queue and steering", true),
+    workflowGatewayNode("route", "gateway.or"),
+    workflowControlNode("end", "end"),
+  ];
+  return workflowGraph(nodes, [
+    workflowEdge("start_fast", "start", "fast"),
+    workflowEdge("start_slow", "start", "slow"),
+    workflowEdge("fast_route", "fast", "route"),
+    workflowEdge("slow_route", "slow", "route"),
+    workflowEdge("route_end", "route", "end"),
+  ]);
+}
+
+function workflowGraph(nodes, edges) {
   return {
-    nodes: [
-      workflowControlNode("start", "start"),
-      workflowCodexNode("fast", "workflow result action", true),
-      workflowCodexNode("slow", "workflow hold for queue and steering", true),
-      workflowGatewayNode("route", "gateway.or"),
-      workflowControlNode("end", "end"),
-    ],
-    edges: [
-      workflowEdge("start_fast", "start", "fast"),
-      workflowEdge("start_slow", "start", "slow"),
-      workflowEdge("fast_route", "fast", "route"),
-      workflowEdge("slow_route", "slow", "route"),
-      workflowEdge("route_end", "route", "end"),
-    ],
+    edges,
+    layout: workflowLayout(nodes),
+    nodes,
+  };
+}
+
+function workflowLayout(nodes) {
+  return {
+    nodes: nodes.map((node, index) => ({
+      nodeId: node.id,
+      x: index * 260,
+      y: 0,
+    })),
   };
 }
 

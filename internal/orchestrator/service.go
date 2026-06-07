@@ -149,6 +149,7 @@ func (service *Service) CreateDefinition(workspaceID string, name string, descri
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowDefinition{}, err
 	}
+	graph = normalizeWorkflowGraph(graph)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return WorkflowDefinition{}, errors.New("workflow definition name is required")
@@ -211,6 +212,7 @@ func (service *Service) UpdateDefinition(workspaceID string, definitionID string
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return WorkflowDefinition{}, err
 	}
+	graph = normalizeWorkflowGraph(graph)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return WorkflowDefinition{}, errors.New("workflow definition name is required")
@@ -516,6 +518,13 @@ func (service *Service) resolveWorkspace(workspaceID string) (workspace.Workspac
 
 func timestamp(value time.Time) string {
 	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func normalizeWorkflowGraph(graph WorkflowGraph) WorkflowGraph {
+	if graph.Layout.Nodes == nil {
+		graph.Layout.Nodes = []WorkflowGraphNodeLayout{}
+	}
+	return graph
 }
 
 func randomID(prefix string) (string, error) {

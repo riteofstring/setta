@@ -118,6 +118,30 @@ function workflowNodeWidth(label: string) {
 }
 
 function workflowNodePositions(projection: WorkflowGraphProjection) {
+  const rankedPositions = workflowRankedNodePositions(projection);
+  const layoutPositions = workflowLayoutNodePositions(projection.layout);
+  if (layoutPositions.size === 0) {
+    return rankedPositions;
+  }
+  const positions = new Map(rankedPositions);
+  for (const node of projection.nodes) {
+    const layout = layoutPositions.get(node.id);
+    if (layout) {
+      positions.set(node.id, layout);
+    }
+  }
+  return positions;
+}
+
+function workflowLayoutNodePositions(layout: WorkflowGraphProjection["layout"]) {
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const node of layout.nodes) {
+    positions.set(node.nodeId, { x: node.x, y: node.y });
+  }
+  return positions;
+}
+
+function workflowRankedNodePositions(projection: WorkflowGraphProjection) {
   const ranks = workflowNodeRanks(projection);
   const rankedNodes = new Map<number, string[]>();
   const nodeOrder = new Map(projection.nodes.map((node, index) => [node.id, index]));

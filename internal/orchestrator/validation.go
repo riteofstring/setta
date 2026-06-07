@@ -181,6 +181,7 @@ type graphValidator struct {
 func (validator *graphValidator) validate() {
 	validator.collectNodes()
 	validator.collectEdges()
+	validator.validateLayout()
 	validator.validateNodes()
 	validator.validateEdges()
 	validator.validateReachability()
@@ -266,6 +267,24 @@ func (validator *graphValidator) validateNodes() {
 func (validator *graphValidator) validateNoSpecialConfig(node WorkflowNode) {
 	if node.Action != nil || node.Gateway != nil || node.LoopGuard != nil {
 		validator.addNodeDiagnostic("node_config_not_allowed", fmt.Sprintf("%s node %s must not declare action, gateway, or loop guard config", node.Kind, node.ID), node.ID)
+	}
+}
+
+func (validator *graphValidator) validateLayout() {
+	seen := map[string]bool{}
+	for _, nodeLayout := range validator.graph.Layout.Nodes {
+		if nodeLayout.NodeID == "" {
+			validator.addWarning("layout_node_id_required", "workflow layout node id is required", "", "")
+			continue
+		}
+		if seen[nodeLayout.NodeID] {
+			validator.addWarning("duplicate_layout_node", fmt.Sprintf("workflow layout contains duplicate position for node %s", nodeLayout.NodeID), nodeLayout.NodeID, "")
+			continue
+		}
+		seen[nodeLayout.NodeID] = true
+		if _, ok := validator.nodesByID[nodeLayout.NodeID]; !ok {
+			validator.addWarning("layout_node_unknown", fmt.Sprintf("workflow layout references unknown node %s", nodeLayout.NodeID), "", "")
+		}
 	}
 }
 
@@ -770,8 +789,16 @@ func (validator *graphValidator) addEdgeDiagnostic(code string, message string, 
 }
 
 func (validator *graphValidator) addDiagnostic(code string, message string, nodeID string, edgeID string) {
+	validator.addDiagnosticWithSeverity(ValidationSeverityError, code, message, nodeID, edgeID)
+}
+
+func (validator *graphValidator) addWarning(code string, message string, nodeID string, edgeID string) {
+	validator.addDiagnosticWithSeverity(ValidationSeverityWarning, code, message, nodeID, edgeID)
+}
+
+func (validator *graphValidator) addDiagnosticWithSeverity(severity WorkflowValidationSeverity, code string, message string, nodeID string, edgeID string) {
 	validator.diagnostics = append(validator.diagnostics, WorkflowValidationDiagnostic{
-		Severity: ValidationSeverityError,
+		Severity: severity,
 		Code:     code,
 		Message:  message,
 		NodeID:   nodeID,

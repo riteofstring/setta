@@ -663,6 +663,7 @@ function workflowGraph(): WorkflowGraph {
         toNodeId: "end",
       },
     ],
+    layout: { nodes: [] },
     nodes: [
       {
         action: null,

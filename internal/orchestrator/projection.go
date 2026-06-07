@@ -52,9 +52,18 @@ func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *
 		TerminalReason:        terminalReason,
 		LastEventOrdinal:      lastEventOrdinal,
 		UpdatedAt:             updatedAt,
+		Layout:                copyWorkflowGraphLayout(version.Graph.Layout),
 		Nodes:                 nodes,
 		Edges:                 edges,
 	}, nil
+}
+
+func copyWorkflowGraphLayout(layout WorkflowGraphLayout) WorkflowGraphLayout {
+	copied := WorkflowGraphLayout{
+		Nodes: make([]WorkflowGraphNodeLayout, len(layout.Nodes)),
+	}
+	copy(copied.Nodes, layout.Nodes)
+	return copied
 }
 
 func projectedGraphNodes(definitionNodes []WorkflowNode, execution *WorkflowExecution) ([]WorkflowGraphNode, error) {

@@ -66,6 +66,7 @@ export async function createPixiWorkspaceRenderer({
   debugSurfaceId = "pixi-workspace",
   graph = { edges: initialEdges, nodes: initialNodes },
   host,
+  onNodePositionsChange = null,
   reactRenderCount,
 }) {
   const app = new Application();
@@ -583,13 +584,11 @@ export async function createPixiWorkspaceRenderer({
       portHitRadiusScreen * 2,
       portHitRadiusScreen * 2,
     );
-
     const visual = new Graphics();
     const key = portKey(node.id, port.id);
     portVisuals.set(key, visual);
     container.addChild(visual);
     setPortVisualState(node.id, port.id, "idle");
-
     container.on("pointerover", () => {
       if (!drawingEdge) {
         setPortVisualState(node.id, port.id, "hover");
@@ -602,7 +601,6 @@ export async function createPixiWorkspaceRenderer({
     });
     return container;
   }
-
   function startNodeDragging(nodeId, screen) {
     const node = requireNode(nodeId);
     const world = viewport.toWorld(screen);
@@ -616,6 +614,7 @@ export async function createPixiWorkspaceRenderer({
         offsetX: world.x - candidate.x,
         offsetY: world.y - candidate.y,
       })),
+      moved: false,
       primaryNodeId: node.id,
     };
     for (const draggedNode of draggedNodes) {
@@ -626,7 +625,6 @@ export async function createPixiWorkspaceRenderer({
     }
     viewport.plugins.pause("decelerate");
   }
-
   function moveDraggedNode(screen) {
     if (!draggingNode) {
       return;
@@ -645,19 +643,28 @@ export async function createPixiWorkspaceRenderer({
       spatialQueries.updateNode(node);
       syncLabelPosition(node.id);
     }
+    draggingNode.moved = true;
     syncLabelVisibility();
     nodeDragUpdateCount += 1;
     redrawEdges();
   }
-
   function finishNodeDragging() {
+    const shouldPersistPositions = draggingNode?.moved === true;
     viewport.plugins.resume("decelerate");
     draggingNode = null;
     for (const body of nodeBodies.values()) {
       body.cursor = "grab";
     }
+    if (shouldPersistPositions && onNodePositionsChange) {
+      onNodePositionsChange(
+        nodes.map((node) => ({
+          nodeId: node.id,
+          x: Math.round(node.x),
+          y: Math.round(node.y),
+        })),
+      );
+    }
   }
-
   function startCameraPanning(screen) {
     panningCamera = {
       lastX: screen.x,
@@ -665,7 +672,6 @@ export async function createPixiWorkspaceRenderer({
     };
     viewport.plugins.pause("decelerate");
   }
-
   function moveCameraPan(screen) {
     if (!panningCamera) {
       return;
@@ -677,15 +683,12 @@ export async function createPixiWorkspaceRenderer({
     panCameraByScreenDelta(-deltaX, -deltaY);
     pointerPanUpdateCount += 1;
   }
-
   function selectOnlyNode(nodeId) {
     setSelectedNodeIds([nodeId]);
   }
-
   function clearSelection() {
     setSelectedNodeIds([]);
   }
-
   function toggleNodeSelection(nodeId) {
     const nextSelectedNodeIds = new Set(selectedNodeIds);
     if (nextSelectedNodeIds.has(nodeId)) {
@@ -695,7 +698,6 @@ export async function createPixiWorkspaceRenderer({
     }
     setSelectedNodeIds(nextSelectedNodeIds);
   }
-
   function setSelectedNodeIds(nextNodeIds) {
     const nextSelectedNodeIds = new Set(nextNodeIds);
     if (setsEqual(selectedNodeIds, nextSelectedNodeIds)) {
@@ -709,17 +711,14 @@ export async function createPixiWorkspaceRenderer({
     drawAllNodeOutlines();
     syncLabelVisibility();
   }
-
   function drawAllNodeOutlines() {
     for (const candidate of nodes) {
       syncNodeOutlineVisibility(candidate.id);
     }
   }
-
   function syncHoveredNodeAtScreen(screen) {
     setHoveredNodeId(hitTestNodeAtScreen(screen)?.id ?? null);
   }
-
   function setHoveredNodeId(nodeId) {
     const nextHoveredNodeIds = new Set(nodeId ? [nodeId] : []);
     if (setsEqual(hoveredNodeIds, nextHoveredNodeIds)) {
