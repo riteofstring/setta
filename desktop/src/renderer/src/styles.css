@@ -192,7 +192,26 @@ select,
 
 [data-chat-message="true"] {
   -webkit-user-select: text;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   user-select: text;
+}
+
+[data-chat-message="true"] * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+[data-chat-message="true"] p,
+[data-chat-message="true"] pre,
+[data-chat-message="true"] code {
+  overflow-wrap: anywhere;
+}
+
+[data-chat-message="true"] pre {
+  overflow-x: hidden;
+  white-space: pre-wrap;
 }
 
 [data-chat-message="true"] button,

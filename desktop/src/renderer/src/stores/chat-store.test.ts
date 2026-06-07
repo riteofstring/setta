@@ -852,6 +852,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       onEventStreamStatus: () => () => {},
       onProcessStatus: () => () => {},
     },
+    appearance: {} as SettaAPI["appearance"],
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
@@ -1489,7 +1490,6 @@ function emptyCodexAccountState() {
     status: "unauthenticated" as const,
   };
 }
-
 function workspaceSummary() {
   return {
     displayName: "api",

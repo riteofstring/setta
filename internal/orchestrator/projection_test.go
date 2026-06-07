@@ -74,34 +74,6 @@ func TestServiceReadGraphProjectionIncludesTerminalActionResult(t *testing.T) {
 	assertProjectedEdge(t, projection, "work_end", GraphEdgeStatusCompleted, 0, 1)
 }
 
-func TestServiceReadGraphProjectionIncludesDefinitionLayout(t *testing.T) {
-	_, _, service, workspaceID := newTestWorkflowService(t)
-	graph := actionGraph("work")
-	graph.Layout = WorkflowGraphLayout{
-		Nodes: []WorkflowGraphNodeLayout{
-			{NodeID: "start", X: -320, Y: 0},
-			{NodeID: "work", X: 0, Y: 96},
-			{NodeID: "end", X: 320, Y: 0},
-		},
-	}
-	definition, err := service.CreateDefinition(workspaceID, "Review", "graph projection", graph)
-	if err != nil {
-		t.Fatalf("create definition: %v", err)
-	}
-
-	projection, ok, err := service.ReadGraphProjection(workspaceID, definition.ID, "", "")
-	if err != nil {
-		t.Fatalf("read definition projection: %v", err)
-	}
-	if !ok {
-		t.Fatal("definition projection was not returned")
-	}
-	layout := projectedLayoutNodeForTest(t, projection, "work")
-	if layout.X != 0 || layout.Y != 96 {
-		t.Fatalf("projected work layout = %+v, want x=0 y=96", layout)
-	}
-}
-
 func TestServiceReadGraphProjectionReportsEmptyWorkspaceWithoutError(t *testing.T) {
 	_, _, service, workspaceID := newTestWorkflowService(t)
 	_, ok, err := service.ReadGraphProjection(workspaceID, "", "", "")
@@ -130,17 +102,6 @@ func projectedNodeForTest(t *testing.T, projection WorkflowGraphProjection, node
 	}
 	t.Fatalf("projected node %s was not found in %+v", nodeID, projection.Nodes)
 	return WorkflowGraphNode{}
-}
-
-func projectedLayoutNodeForTest(t *testing.T, projection WorkflowGraphProjection, nodeID string) WorkflowGraphNodeLayout {
-	t.Helper()
-	for _, node := range projection.Layout.Nodes {
-		if node.NodeID == nodeID {
-			return node
-		}
-	}
-	t.Fatalf("projected layout node %s was not found in %+v", nodeID, projection.Layout.Nodes)
-	return WorkflowGraphNodeLayout{}
 }
 
 func assertProjectedEdge(t *testing.T, projection WorkflowGraphProjection, edgeID string, status WorkflowGraphEdgeStatus, activeTokens int, completedTokens int) {

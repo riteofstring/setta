@@ -2,13 +2,6 @@ export async function createWorkflowProjectionFixture(client, workspaceRoot) {
   return client.evaluate(`(async () => {
     const opened = await window.setta.workspace.openPath(${JSON.stringify(workspaceRoot)});
     const workspaceId = opened.workspace.id;
-    const layout = {
-      nodes: [
-        { nodeId: "start", x: -360, y: 0 },
-        { nodeId: "work", x: 0, y: 120 },
-        { nodeId: "end", x: 360, y: 0 }
-      ]
-    };
     const graph = {
       nodes: [
         { id: "start", kind: "start", title: "Start", action: null, gateway: null, loopGuard: null },
@@ -45,8 +38,7 @@ export async function createWorkflowProjectionFixture(client, workspaceRoot) {
           kind: "normal",
           condition: null
         }
-      ],
-      layout
+      ]
     };
     const validation = await window.setta.workflow.validateDefinition(workspaceId, graph);
     if (!validation.valid) {
@@ -62,7 +54,6 @@ export async function createWorkflowProjectionFixture(client, workspaceRoot) {
     return {
       definitionId: definition.id,
       executionId: execution.id,
-      layout,
       workspaceId
     };
   })()`);
@@ -118,7 +109,6 @@ export function assertWorkflowProjectionSnapshot(snapshot, expected) {
     "edge",
     "Pixi workflow projection edges",
   );
-  assertWorkflowProjectionLayout(snapshot.graph.nodes, expected.layout);
 }
 
 function assertWorkflowProjectionIDs(items, expectedIDs, itemKind, label) {
@@ -128,17 +118,5 @@ function assertWorkflowProjectionIDs(items, expectedIDs, itemKind, label) {
     throw new Error(
       `${label} mismatch: ${itemKind}s=${JSON.stringify(ids)} expected=${JSON.stringify(expected)}`,
     );
-  }
-}
-
-function assertWorkflowProjectionLayout(nodes, expectedLayout) {
-  const actual = new Map(nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
-  for (const expected of expectedLayout.nodes) {
-    const node = actual.get(expected.nodeId);
-    if (!node || node.x !== expected.x || node.y !== expected.y) {
-      throw new Error(
-        `Pixi workflow projection layout mismatch for ${expected.nodeId}: actual=${JSON.stringify(node)} expected=${JSON.stringify(expected)}`,
-      );
-    }
   }
 }

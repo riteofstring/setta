@@ -275,11 +275,6 @@ func newScriptedWorkflowHandler(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("new workflow store: %v", err)
 	}
-	t.Cleanup(func() {
-		if err := workflowStore.Close(); err != nil {
-			t.Fatalf("close workflow store: %v", err)
-		}
-	})
 	workflowService, err := orchestrator.NewService(workflowStore, workspaceService, orchestrator.WithCodexChatService(chatService))
 	if err != nil {
 		t.Fatalf("new workflow service: %v", err)

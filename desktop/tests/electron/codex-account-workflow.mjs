@@ -7,6 +7,7 @@ export async function runCodexAccountWorkflow({
 }) {
   await clickButtonByAria(client, "Open settings");
   await waitForText(client, "Codex Account");
+  await clickButtonBySelector(client, "#settings-subtab-codex-account");
   await waitForText(client, "Signed out");
   await clickButtonBySelector(client, '[data-testid="codex-account-login"]');
   await waitForTexts(client, ["Signed in", "user@example.com · ChatGPT pro"]);
