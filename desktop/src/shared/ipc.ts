@@ -1,8 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
-  AppearancePresetList,
-  AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
@@ -41,7 +39,6 @@ import type {
   TerminalInputResponse,
   TerminalProfileList,
   TerminalSessionResponse,
-  UpdateAppearanceSettingsRequest,
   UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowExecution,
@@ -63,9 +60,6 @@ export const ipcChannels = {
   appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
   appWorkspaceGitInfo: "app:workspace-git-info",
-  appearancePresets: "appearance:presets",
-  appearanceRead: "appearance:read",
-  appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
@@ -158,18 +152,6 @@ interface IpcContract {
   appWorkspaceGitInfo: {
     args: [rootPath: string];
     result: WorkspaceGitInfo;
-  };
-  appearanceRead: {
-    args: [];
-    result: AppearanceSettings;
-  };
-  appearancePresets: {
-    args: [];
-    result: AppearancePresetList;
-  };
-  appearanceUpdate: {
-    args: [request: UpdateAppearanceSettingsRequest];
-    result: AppearanceSettings;
   };
   backendHealth: {
     args: [];

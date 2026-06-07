@@ -28,6 +28,13 @@ func (service *Service) SubmitApproval(workspaceID string, executionID string, n
 	if err != nil {
 		return WorkflowExecution{}, err
 	}
+	resolvedEvent, err := runnerEventFromApprovalResolution(target, approvalID, approved, response, answers, cancelled, timestamp(service.now()))
+	if err != nil {
+		return WorkflowExecution{}, err
+	}
+	if _, err := service.recordRunnerEvents(workspaceID, executionID, nodeExecutionID, []RunnerEvent{resolvedEvent}); err != nil {
+		return WorkflowExecution{}, err
+	}
 	service.reconcileChatRun(run)
 	service.mu.Lock()
 	defer service.mu.Unlock()

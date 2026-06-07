@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, test } from "vitest";
 
 import { NiriLikeLayoutEngine } from "./layout-engine";
-import { minimumColumnWidth } from "./layout-engine-helpers";
 import { NiriLayoutStore } from "./layout-store";
-import { applyPaneResizePointerMove, type PaneResizeSession } from "./pane-resize-session";
 import type { PaneLimitPolicy, Rect } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
@@ -133,12 +131,10 @@ describe("niri layout store", () => {
     const firstSnapshot = store.getSnapshot();
 
     expect(store.getSnapshot()).toBe(firstSnapshot);
-    expect(firstSnapshot.revision).toBe(0);
 
     store.openPane({ title: "Logs" });
 
     expect(store.getSnapshot()).not.toBe(firstSnapshot);
-    expect(store.getSnapshot().revision).toBe(firstSnapshot.revision + 1);
     expect(store.getSnapshot()).toBe(store.getSnapshot());
   });
 
@@ -215,30 +211,6 @@ describe("niri layout store", () => {
     });
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
     expect(scene.columns[1]?.paneIds).toEqual([emptyPaneId]);
-  });
-
-  test("renames panes without changing their layout position", () => {
-    const store = createStore();
-
-    expect(store.renamePane("workspace_pane_2", "  Build logs  ")).toBe(true);
-
-    const scene = store.toScene();
-    expect(scene.paneById.get("workspace_pane_2")?.title).toBe("Build logs");
-    expect(scene.columns[2]?.paneIds).toEqual(["workspace_pane_2"]);
-    expect(store.getSnapshot()).toMatchObject({
-      focusedColumnIndex: 2,
-      focusedPaneId: "workspace_pane_2",
-      focusedRowIndex: 0,
-    });
-  });
-
-  test("ignores blank pane renames", () => {
-    const store = createStore();
-    const originalTitle = store.toScene().paneById.get("workspace_pane_2")?.title;
-
-    expect(store.renamePane("workspace_pane_2", "   ")).toBe(false);
-
-    expect(store.toScene().paneById.get("workspace_pane_2")?.title).toBe(originalTitle);
   });
 
   test("enforces pane limits when configuring an empty frame", () => {
@@ -470,36 +442,6 @@ describe("niri layout store", () => {
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);
-  });
-
-  test("manual horizontal resize can shrink to the column minimum", () => {
-    const store = createStore();
-    const session = {
-      axis: "horizontal",
-      columnId: "workspace_column_0",
-      pointerId: 1,
-      startClientX: 500,
-      startWidth: 520,
-    } satisfies PaneResizeSession;
-
-    applyPaneResizePointerMove(store, session, { clientX: 0 } as PointerEvent);
-
-    expect(store.toScene().columns[0]?.widthSpec).toEqual({
-      unit: "px",
-      value: minimumColumnWidth,
-    });
-  });
-
-  test("resizes adjacent panes inside a vertical split", () => {
-    const store = createStore();
-    const lowerPaneId = store.splitFocusedPane("down");
-
-    expect(store.resizePaneSplit("workspace_pane_0", lowerPaneId, 1.45, 0.55)).toBe(true);
-
-    const panes = store.toScene().paneById;
-    expect(panes.get("workspace_pane_0")?.weight).toBe(1.45);
-    expect(panes.get(lowerPaneId)?.weight).toBe(0.55);
-    expect(store.resizePaneSplit(lowerPaneId, "workspace_pane_0", 1, 1)).toBe(false);
   });
 
   test("tracks maximized pane state without applying it to the next focused pane", () => {

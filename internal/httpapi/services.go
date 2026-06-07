@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"setta/internal/appearance"
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/orchestrator"
@@ -12,11 +11,6 @@ import (
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
-
-type AppearanceService interface {
-	Read(context.Context) (appearance.AppearanceSettings, error)
-	Update(context.Context, appearance.AppearanceSettings) (appearance.AppearanceSettings, error)
-}
 
 type WorkspaceService interface {
 	Close(id string) (workspacesession.WorkspaceSession, error)
@@ -92,7 +86,6 @@ type TerminalService interface {
 }
 
 type HandlerConfig struct {
-	AppearanceService   AppearanceService
 	Metadata            BackendMetadata
 	ChatService         ChatService
 	CodexAccountService CodexAccountService
@@ -102,7 +95,6 @@ type HandlerConfig struct {
 }
 
 type handler struct {
-	appearanceService   AppearanceService
 	metadata            BackendMetadata
 	chatService         ChatService
 	codexAccountService CodexAccountService
@@ -113,7 +105,6 @@ type handler struct {
 
 func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
-		appearanceService:   config.AppearanceService,
 		metadata:            config.Metadata,
 		chatService:         config.ChatService,
 		codexAccountService: config.CodexAccountService,

@@ -69,6 +69,34 @@ export async function dispatchPixiMouseClick(client, surfaceId, { modifiers = 0,
   });
 }
 
+export async function dispatchPixiContextMenu(client, surfaceId, { x, y }) {
+  const point = await pagePointForCanvasPoint(client, surfaceId, { x, y });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    type: "mouseMoved",
+    x: point.x,
+    y: point.y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "right",
+    buttons: 2,
+    clickCount: 1,
+    type: "mousePressed",
+    x: point.x,
+    y: point.y,
+  });
+  await delay(16);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "right",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: point.x,
+    y: point.y,
+  });
+  return point;
+}
+
 export async function dispatchPixiMouseMove(client, surfaceId, { x, y }) {
   await client.call("Input.dispatchMouseEvent", {
     button: "none",
@@ -106,8 +134,8 @@ export async function dispatchPixiWheel(
 export async function pagePointForCanvasPoint(client, surfaceId, point) {
   const rect = await pixiCanvasRect(client, surfaceId);
   return {
-    x: rect.left + point.x,
-    y: rect.top + point.y,
+    x: rect.left + point.x * (rect.width / rect.clientWidth),
+    y: rect.top + point.y * (rect.height / rect.clientHeight),
   };
 }
 
@@ -116,6 +144,12 @@ async function visiblePixiWorkspaceCount(client) {
 }
 
 async function openWorkflowGraphFromToolbar(client, timeoutMs) {
+  await waitForState(
+    client,
+    newFrameButtonOrWorkflowMenuExistsExpression(),
+    (exists) => exists,
+    timeoutMs,
+  );
   const opened = await client.evaluate(`(() => {
     if (workflowGraphMenuItem()) {
       return { ok: true, state: "already-open" };
@@ -188,6 +222,15 @@ function workflowGraphMenuItemExistsExpression() {
   })()`;
 }
 
+function newFrameButtonOrWorkflowMenuExistsExpression() {
+  return `(() => {
+    return Boolean(document.querySelector('button[aria-label="New frame"]')) ||
+      [...document.querySelectorAll('button[role="menuitem"]')].some((candidate) =>
+        candidate instanceof HTMLButtonElement && candidate.title === "Workflow Graph"
+      );
+  })()`;
+}
+
 async function pixiCanvasRect(client, surfaceId) {
   return client.evaluate(`(() => {
     const roots = [...document.querySelectorAll('[data-testid="pixi-workspace"]')];
@@ -199,6 +242,13 @@ async function pixiCanvasRect(client, surfaceId) {
       throw new Error("Pixi workspace canvas is missing");
     }
     const rect = canvas.getBoundingClientRect();
-    return { left: rect.left, top: rect.top };
+    return {
+      clientHeight: canvas.clientHeight || rect.height,
+      clientWidth: canvas.clientWidth || rect.width,
+      height: rect.height,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+    };
   })()`);
 }

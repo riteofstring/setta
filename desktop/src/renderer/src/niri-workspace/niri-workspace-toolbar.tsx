@@ -4,20 +4,17 @@ import {
   Columns2,
   GitBranch,
   MessageSquarePlus,
+  PanelBottom,
+  PanelTop,
   Plus,
   Settings,
+  SplitSquareHorizontal,
+  SplitSquareVertical,
   Terminal,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import {
-  type ComponentType,
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ComponentType, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
@@ -29,17 +26,13 @@ export function NiriWorkspaceToolbar({
   focusedPaneId,
   openPane,
   overviewActive,
-  performanceStatsRef,
   runLayoutAction,
-  showPerformanceStats,
   store,
 }: {
   focusedPaneId: string;
   openPane: (request: OpenPaneRequest) => void;
   overviewActive: boolean;
-  performanceStatsRef: RefObject<HTMLDivElement | null> | null;
   runLayoutAction: (action: () => void) => void;
-  showPerformanceStats: boolean;
   store: NiriLayoutStore;
 }) {
   const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
@@ -59,25 +52,40 @@ export function NiriWorkspaceToolbar({
     };
   });
   return (
-    <div className="niri-workspace-toolbar app-drag" data-testid="niri-workspace-toolbar">
-      <div className="niri-workspace-toolbar-group app-drag" data-testid="niri-focused-pane-label">
+    <div className="niri-workspace-toolbar app-no-drag" data-testid="niri-workspace-toolbar">
+      <div className="niri-workspace-toolbar-group" data-testid="niri-focused-pane-label">
         <span>{focusedPaneId}</span>
-      </div>
-      <div className="niri-workspace-toolbar-spacer app-drag" aria-hidden={!showPerformanceStats}>
-        {showPerformanceStats ? (
-          <div
-            aria-live="off"
-            className="niri-performance-stats"
-            data-testid="niri-performance-stats"
-            ref={performanceStatsRef}
-          >
-            frame 0.00ms | p95 0.00ms | p99 0.00ms | visible 0 | writes 0 | long 0 | react 0 |
-            runtime 0/0/0/0
-          </div>
-        ) : null}
       </div>
       <TooltipProvider>
         <div className="niri-workspace-toolbar-group">
+          <NiriToolbarButton
+            label="Frame split vertically"
+            onClick={() => runLayoutAction(() => store.splitFocusedPane("down"))}
+          >
+            <SplitSquareVertical className="h-3.5 w-3.5" />
+          </NiriToolbarButton>
+          <NiriToolbarButton
+            label="Add frame to the right"
+            onClick={() => runLayoutAction(() => store.splitFocusedPane("right"))}
+          >
+            <SplitSquareHorizontal className="h-3.5 w-3.5" />
+          </NiriToolbarButton>
+          <NiriToolbarMenu
+            Icon={PanelBottom}
+            items={[
+              {
+                Icon: PanelTop,
+                label: "Add frame above",
+                onSelect: () => runLayoutAction(() => store.splitFocusedPaneToPlane("up")),
+              },
+              {
+                Icon: PanelBottom,
+                label: "Add frame below",
+                onSelect: () => runLayoutAction(() => store.splitFocusedPaneToPlane("down")),
+              },
+            ]}
+            label="Add frame above or below"
+          />
           <NiriToolbarButton
             label={overviewActive ? "Exit overview" : "Enter overview"}
             onClick={() => runLayoutAction(() => store.toggleOverviewMode())}
@@ -170,7 +178,7 @@ function NiriToolbarButton({
       <TooltipTrigger>
         <button
           aria-label={label}
-          className="niri-workspace-toolbar-button app-no-drag"
+          className="niri-workspace-toolbar-button"
           onClick={onClick}
           type="button"
         >
@@ -229,14 +237,14 @@ function NiriToolbarMenu({
   }, [open]);
 
   return (
-    <div className="niri-workspace-toolbar-menu-root app-no-drag" ref={rootRef}>
+    <div className="niri-workspace-toolbar-menu-root" ref={rootRef}>
       <Tooltip>
         <TooltipTrigger>
           <button
             aria-expanded={open}
             aria-haspopup="menu"
             aria-label={label}
-            className="niri-workspace-toolbar-menu-button app-no-drag"
+            className="niri-workspace-toolbar-menu-button"
             onClick={() => setOpen((current) => !current)}
             onPointerDown={(event) => event.stopPropagation()}
             ref={anchorRef}
@@ -259,7 +267,7 @@ function NiriToolbarMenu({
       >
         {items.map(({ disabled = false, Icon: ItemIcon, label: itemLabel, meta, onSelect }) => (
           <button
-            className="niri-workspace-toolbar-menu-item app-no-drag"
+            className="niri-workspace-toolbar-menu-item"
             disabled={disabled}
             key={itemLabel}
             onClick={() => {

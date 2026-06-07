@@ -20,7 +20,7 @@ type WorkspaceResolver interface {
 }
 
 type Service struct {
-	store             *Store
+	store             WorkflowStore
 	workspaceResolver WorkspaceResolver
 	events            *EventHub
 	runnerRegistry    RunnerRegistry
@@ -44,7 +44,7 @@ func (err *ValidationError) Error() string {
 	return err.Result.Diagnostics[0].Message
 }
 
-func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Option) (*Service, error) {
+func NewService(store WorkflowStore, workspaceResolver WorkspaceResolver, options ...Option) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("workflow store is required")
 	}
@@ -137,24 +137,24 @@ func (service *Service) CloseEvents() {
 }
 
 func (service *Service) ListDefinitions(workspaceID string) ([]WorkflowDefinition, error) {
-	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
 		return nil, err
 	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	return service.store.ListDefinitions(workspaceID)
+	return service.listWorkspaceDefinitions(workspaceSummary)
 }
 
 func (service *Service) CreateDefinition(workspaceID string, name string, description string, graph WorkflowGraph) (WorkflowDefinition, error) {
-	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
 		return WorkflowDefinition{}, err
 	}
+	graph = normalizeWorkflowGraph(graph)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return WorkflowDefinition{}, errors.New("workflow definition name is required")
-	}
-	if result := ValidateGraph(graph, service.runnerRegistry); !result.Valid {
-		return WorkflowDefinition{}, &ValidationError{Result: result}
 	}
 
 	service.mu.Lock()
@@ -165,109 +165,68 @@ func (service *Service) CreateDefinition(workspaceID string, name string, descri
 	if err != nil {
 		return WorkflowDefinition{}, fmt.Errorf("create workflow definition id: %w", err)
 	}
-	versionID, err := service.newID("workflow_version")
-	if err != nil {
-		return WorkflowDefinition{}, fmt.Errorf("create workflow version id: %w", err)
-	}
-	version := WorkflowDefinitionVersion{
+	definition := WorkflowDefinition{
 		SchemaVersion: SchemaVersion,
-		ID:            versionID,
+		ID:            definitionID,
 		WorkspaceID:   workspaceID,
-		DefinitionID:  definitionID,
-		VersionNumber: 1,
 		Name:          name,
 		Description:   description,
 		Graph:         graph,
 		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
-	definition := WorkflowDefinition{
-		SchemaVersion:        SchemaVersion,
-		ID:                   definitionID,
-		WorkspaceID:          workspaceID,
-		Name:                 name,
-		Description:          description,
-		CurrentVersionID:     versionID,
-		CurrentVersionNumber: 1,
-		Graph:                graph,
-		CreatedAt:            now,
-		UpdatedAt:            now,
-	}
-	if err := service.store.SaveDefinitionVersion(version); err != nil {
-		return WorkflowDefinition{}, err
-	}
-	if err := service.store.SaveDefinition(definition); err != nil {
-		return WorkflowDefinition{}, err
-	}
-	return definition, nil
+	return writeWorkflowDefinitionFile(workspaceSummary.RootPath, definition, "")
 }
 
 func (service *Service) ReadDefinition(workspaceID string, definitionID string) (WorkflowDefinition, error) {
-	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
 		return WorkflowDefinition{}, err
 	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	return service.store.LoadDefinition(workspaceID, definitionID)
+	definition, _, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
+	return definition, err
 }
 
 func (service *Service) UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph WorkflowGraph) (WorkflowDefinition, error) {
-	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
 		return WorkflowDefinition{}, err
 	}
+	graph = normalizeWorkflowGraph(graph)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return WorkflowDefinition{}, errors.New("workflow definition name is required")
 	}
-	if result := ValidateGraph(graph, service.runnerRegistry); !result.Valid {
-		return WorkflowDefinition{}, &ValidationError{Result: result}
-	}
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	current, err := service.store.LoadDefinition(workspaceID, definitionID)
+	current, currentPath, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
 	if err != nil {
 		return WorkflowDefinition{}, err
 	}
 	now := timestamp(service.now())
-	versionID, err := service.newID("workflow_version")
-	if err != nil {
-		return WorkflowDefinition{}, fmt.Errorf("create workflow version id: %w", err)
-	}
-	nextVersionNumber := current.CurrentVersionNumber + 1
-	version := WorkflowDefinitionVersion{
-		SchemaVersion: SchemaVersion,
-		ID:            versionID,
-		WorkspaceID:   workspaceID,
-		DefinitionID:  definitionID,
-		VersionNumber: nextVersionNumber,
-		Name:          name,
-		Description:   description,
-		Graph:         graph,
-		CreatedAt:     now,
-	}
 	next := current
 	next.Name = name
 	next.Description = description
-	next.CurrentVersionID = versionID
-	next.CurrentVersionNumber = nextVersionNumber
 	next.Graph = graph
 	next.UpdatedAt = now
-	if err := service.store.SaveDefinitionVersion(version); err != nil {
-		return WorkflowDefinition{}, err
-	}
-	if err := service.store.SaveDefinition(next); err != nil {
-		return WorkflowDefinition{}, err
-	}
-	return next, nil
+	return writeWorkflowDefinitionFile(workspaceSummary.RootPath, next, currentPath)
 }
 
 func (service *Service) DeleteDefinition(workspaceID string, definitionID string) error {
-	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
 		return err
 	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
+	_, definitionPath, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
+	if err != nil {
+		return err
+	}
 	executions, err := service.store.ListExecutions(workspaceID)
 	if err != nil {
 		return err
@@ -277,7 +236,7 @@ func (service *Service) DeleteDefinition(workspaceID string, definitionID string
 			return fmt.Errorf("workflow definition %s has execution history and cannot be deleted", definitionID)
 		}
 	}
-	return service.store.DeleteDefinition(workspaceID, definitionID)
+	return deleteWorkflowDefinitionFile(definitionPath)
 }
 
 func (service *Service) ValidateDefinition(workspaceID string, graph WorkflowGraph) (WorkflowValidationResult, error) {
@@ -288,25 +247,42 @@ func (service *Service) ValidateDefinition(workspaceID string, graph WorkflowGra
 }
 
 func (service *Service) StartExecution(workspaceID string, definitionID string, versionID string) (WorkflowExecution, error) {
-	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
 		return WorkflowExecution{}, err
 	}
 	service.mu.Lock()
 
-	definition, err := service.store.LoadDefinition(workspaceID, definitionID)
-	if err != nil {
-		service.mu.Unlock()
-		return WorkflowExecution{}, err
-	}
+	var version WorkflowDefinitionVersion
 	if versionID == "" {
-		versionID = definition.CurrentVersionID
+		definition, _, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
+		if err != nil {
+			service.mu.Unlock()
+			return WorkflowExecution{}, err
+		}
+		versionID, err = service.newID("workflow_version")
+		if err != nil {
+			service.mu.Unlock()
+			return WorkflowExecution{}, fmt.Errorf("create workflow version id: %w", err)
+		}
+		latestVersionNumber, err := service.store.LatestDefinitionVersionNumber(workspaceID, definitionID)
+		if err != nil {
+			service.mu.Unlock()
+			return WorkflowExecution{}, err
+		}
+		version = workflowDefinitionVersionFromDefinition(definition, versionID, latestVersionNumber+1, service.now())
+		if err := service.store.SaveDefinitionVersion(version); err != nil {
+			service.mu.Unlock()
+			return WorkflowExecution{}, err
+		}
+	} else {
+		version, err = service.store.LoadDefinitionVersion(workspaceID, definitionID, versionID)
+		if err != nil {
+			service.mu.Unlock()
+			return WorkflowExecution{}, err
+		}
 	}
-	version, err := service.store.LoadDefinitionVersion(workspaceID, definitionID, versionID)
-	if err != nil {
-		service.mu.Unlock()
-		return WorkflowExecution{}, err
-	}
-	if result := ValidateGraph(version.Graph, service.runnerRegistry); !result.Valid {
+	if result := ValidateExecutableGraph(version.Graph, service.runnerRegistry); !result.Valid {
 		service.mu.Unlock()
 		return WorkflowExecution{}, &ValidationError{Result: result}
 	}
@@ -431,7 +407,9 @@ func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, 
 		return WorkflowGraphProjection{}, ok, err
 	}
 	if versionID == "" {
-		versionID = definition.CurrentVersionID
+		version := workflowDefinitionVersionFromDefinition(definition, "", 0, service.now())
+		projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt)
+		return projection, true, err
 	}
 	version, err := service.store.LoadDefinitionVersion(workspaceID, definition.ID, versionID)
 	if err != nil {
@@ -450,14 +428,18 @@ func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, 
 }
 
 func (service *Service) resolveProjectionDefinitionLocked(workspaceID string, definitionID string, versionID string) (WorkflowDefinition, bool, error) {
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
+		return WorkflowDefinition{}, false, err
+	}
 	if definitionID != "" {
-		definition, err := service.store.LoadDefinition(workspaceID, definitionID)
+		definition, _, err := service.loadWorkspaceDefinition(workspaceSummary, definitionID)
 		return definition, true, err
 	}
 	if versionID != "" {
 		return WorkflowDefinition{}, false, errors.New("workflow definition id is required when version id is provided")
 	}
-	definitions, err := service.store.ListDefinitions(workspaceID)
+	definitions, err := service.listWorkspaceDefinitions(workspaceSummary)
 	if err != nil {
 		return WorkflowDefinition{}, false, err
 	}
@@ -482,31 +464,7 @@ func (service *Service) latestExecutionForDefinitionVersionLocked(workspaceID st
 }
 
 func (service *Service) recoverInterruptedExecutions() error {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-	workspaceIDs, err := service.store.WorkspaceIDs()
-	if err != nil {
-		return err
-	}
-	for _, workspaceID := range workspaceIDs {
-		executions, err := service.store.ListExecutions(workspaceID)
-		if err != nil {
-			return err
-		}
-		for _, execution := range executions {
-			if execution.Status != ExecutionStatusRunning {
-				continue
-			}
-			transition, err := InterruptExecution(execution, service.transitionContext(), "workflow execution was interrupted before backend startup")
-			if err != nil {
-				return err
-			}
-			if err := service.persistTransition(transition); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return service.recoverNonTerminalExecutions()
 }
 
 func (service *Service) loadExecutionAndVersion(workspaceID string, executionID string) (WorkflowExecution, WorkflowDefinitionVersion, error) {
@@ -522,11 +480,8 @@ func (service *Service) loadExecutionAndVersion(workspaceID string, executionID 
 }
 
 func (service *Service) persistTransition(transition WorkflowTransition) error {
-	events, err := service.store.AppendExecutionEvents(transition.Execution.WorkspaceID, transition.Execution.ID, transition.Events)
+	events, err := service.store.PersistTransition(transition)
 	if err != nil {
-		return err
-	}
-	if err := service.store.SaveExecution(transition.Execution); err != nil {
 		return err
 	}
 	service.events.Publish(events)
@@ -549,6 +504,19 @@ func (service *Service) resolveWorkspace(workspaceID string) (workspace.Workspac
 
 func timestamp(value time.Time) string {
 	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func normalizeWorkflowGraph(graph WorkflowGraph) WorkflowGraph {
+	if graph.Nodes == nil {
+		graph.Nodes = []WorkflowNode{}
+	}
+	if graph.Edges == nil {
+		graph.Edges = []WorkflowEdge{}
+	}
+	if graph.Layout.Nodes == nil {
+		graph.Layout.Nodes = []WorkflowGraphNodeLayout{}
+	}
+	return graph
 }
 
 func randomID(prefix string) (string, error) {

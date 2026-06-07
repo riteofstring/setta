@@ -14,7 +14,6 @@ interface FloatingMenuProps {
   children: ReactNode;
   className: string;
   gap?: number;
-  id?: string;
   matchAnchorWidth?: boolean;
   menuRef?: RefObject<HTMLDivElement | null>;
   open: boolean;
@@ -38,7 +37,6 @@ export function FloatingMenu({
   children,
   className,
   gap = 6,
-  id,
   matchAnchorWidth = false,
   menuRef,
   open,
@@ -116,7 +114,6 @@ export function FloatingMenu({
     <div
       aria-label={ariaLabel}
       className={cn("app-no-drag", className)}
-      id={id}
       ref={resolvedMenuRef}
       role={role}
       style={floatingMenuStyle(position)}
@@ -127,7 +124,7 @@ export function FloatingMenu({
 
   if (typeof document === "undefined") {
     return (
-      <div aria-label={ariaLabel} className={cn("app-no-drag", className)} id={id} role={role}>
+      <div aria-label={ariaLabel} className={className} role={role}>
         {children}
       </div>
     );

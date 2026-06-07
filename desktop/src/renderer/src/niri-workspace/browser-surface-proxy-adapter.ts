@@ -17,7 +17,7 @@ export interface BrowserViewUpdateQueue {
 
 const minimumNativeVisiblePixels = 96;
 const nativePaneControlStripPx = 30;
-const nativeResizeHandleGutterPx = 18;
+const nativeResizeHandleGutterPx = 10;
 
 export class BrowserSurfaceProxyAdapter implements SurfaceAdapter {
   readonly kind = "browser" satisfies SurfaceKind;
