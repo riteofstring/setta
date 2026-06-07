@@ -119,11 +119,17 @@ func newTestWorkflowServiceWithOptions(t *testing.T, options ...Option) (*Store,
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("close workflow store: %v", err)
+		}
+	})
 	serviceOptions := append([]Option{WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t))}, options...)
 	service, err := NewService(store, resolver, serviceOptions...)
 	if err != nil {
 		t.Fatalf("create service: %v", err)
 	}
+	t.Cleanup(service.CloseEvents)
 	return store, resolver, service, workspaceID
 }
 

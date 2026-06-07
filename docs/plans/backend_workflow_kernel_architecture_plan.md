@@ -261,158 +261,7 @@ The kernel should not route from raw transcript text. Routing should use explici
 
 ## Concrete Runner Examples
 
-### Codex Agent Runner
-
-User-facing node:
-
-```text
-Agent Task: Review implementation
-```
-
-Implementation:
-
-- Starts a workflow-owned internal chat conversation.
-- Streams assistant text and tool activity through existing chat production paths.
-- Emits approval requests when Codex asks for permission.
-- Extracts structured workflow result data from Setta-owned tool calls.
-- Returns final status, signals, output, and file references to the workflow kernel.
-
-UX benefit:
-
-- The user sees a normal workflow node with expandable chat transcript and approvals.
-- The workflow can route from `signals` or structured output instead of prose.
-
-### Sandboxed Process Runner
-
-User-facing node:
-
-```text
-Run Tests
-```
-
-Implementation:
-
-- Runs a configured command in a configured working directory through an enforced sandbox boundary.
-- Uses Anthropic Sandbox Runtime (`srt`) as the first sandbox provider to spike for macOS, Linux, and WSL2.
-- Supports Docker or Podman as an optional stricter isolation provider when a container runtime is available.
-- Treats unsandboxed local command execution as an explicit trusted mode that requires user approval and must not be presented as secure sandboxing.
-- Streams stdout/stderr.
-- Enforces timeout and output caps.
-- Returns exit code and declared file references.
-
-Minimum default policy:
-
-- Network disabled.
-- Read access limited to the workspace plus explicit allowlist.
-- Write access limited to the workspace.
-- Protected paths such as `.git`, `.codex`, app configuration, and credential locations are read-only or inaccessible.
-- Environment starts empty or minimal, with explicit allowlist for required variables.
-- Secrets are never inherited automatically.
-- Timeout is required.
-- Output cap is required.
-- Approval is required for network access, writes outside the workspace, destructive commands, and unsandboxed fallback mode.
-
-Example routing:
-
-```text
-exitCode == 0 -> Summarize Success
-exitCode != 0 -> Ask Agent To Fix
-```
-
-UX benefit:
-
-- Test output appears in the same node activity model as agent output.
-- Failures are deterministic and routeable.
-- The user gets a real enforcement boundary instead of relying on command naming conventions or prompt instructions.
-
-### MCP Tool Runner
-
-User-facing node:
-
-```text
-Create GitHub Issue
-```
-
-Implementation:
-
-- Calls a configured MCP server/tool.
-- Validates arguments.
-- Requests approval before side-effecting operations when policy requires it.
-- Returns structured result and external references.
-
-UX benefit:
-
-- External actions use the same approval UI as agent/tool approvals.
-- Workflow history shows what external side effect was requested and approved.
-
-### Python Structured Extraction Runner
-
-User-facing node:
-
-```text
-Extract Invoice Data
-```
-
-Implementation:
-
-- Starts a Python sidecar with a typed extraction implementation.
-- Validates output against a schema.
-- Returns structured JSON or a specific validation error.
-
-UX benefit:
-
-- Users get strict data extraction without seeing Python process details.
-- Downstream routing can use typed fields like `invoice.total` or `requires_review`.
-
-### Agent Subgraph Runner
-
-User-facing node:
-
-```text
-Triage Customer Report
-```
-
-Possible implementation:
-
-- LangGraph.
-- OpenAI Agents SDK.
-- LangFlow.
-- Mastra.
-- Pydantic AI.
-- Custom TypeScript or Python sidecar.
-
-Internal behavior might include:
-
-```text
-classify report
-retrieve similar issues
-ask specialist agent
-check confidence
-retry extraction
-maybe request clarification
-produce structured triage result
-```
-
-Setta still sees one node attempt with stream events and final output:
-
-```json
-{
-  "severity": "high",
-  "route": "human_review",
-  "confidence": 0.78,
-  "summary": "..."
-}
-```
-
-UX benefit:
-
-- The top-level graph remains understandable:
-
-```text
-Receive Report -> Triage Customer Report -> Route
-```
-
-- Advanced details can be shown inside the node activity panel instead of cluttering the main graph.
+Detailed examples for Codex, sandboxed process, MCP tool, Python extraction, and agent subgraph runners live in [Backend Workflow Kernel Runner Examples](backend_workflow_kernel_runner_examples.md).
 
 ## Persistence Architecture
 
@@ -858,226 +707,7 @@ Future process logs, MCP calls, and sidecar traces use the same reference table 
 
 ### Target SQLite Schema
 
-SQLite is the target persistence store for the workflow kernel. It uses WAL mode and stores event log rows and materialized state updates in the same transaction. JSON columns store canonical JSON text validated by Go before commit.
-
-Target schema:
-
-```sql
-CREATE TABLE workflow_definitions (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  current_version_id TEXT NOT NULL,
-  current_version_number INTEGER NOT NULL,
-  graph_json TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE INDEX workflow_definitions_workspace_updated_idx
-  ON workflow_definitions(workspace_id, updated_at DESC, id);
-
-CREATE TABLE workflow_versions (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  definition_id TEXT NOT NULL REFERENCES workflow_definitions(id) ON DELETE CASCADE,
-  version_number INTEGER NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  graph_json TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  UNIQUE(definition_id, version_number)
-);
-
-CREATE INDEX workflow_versions_definition_created_idx
-  ON workflow_versions(definition_id, created_at DESC, id);
-
-CREATE TABLE workflow_runs (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  definition_id TEXT NOT NULL,
-  definition_version_id TEXT NOT NULL REFERENCES workflow_versions(id),
-  status TEXT NOT NULL,
-  terminal_reason TEXT,
-  recovery_outcome TEXT,
-  created_at TEXT NOT NULL,
-  started_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  completed_at TEXT,
-  error TEXT NOT NULL DEFAULT '',
-  last_event_ordinal INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE INDEX workflow_runs_workspace_started_idx
-  ON workflow_runs(workspace_id, started_at DESC, id);
-
-CREATE INDEX workflow_runs_nonterminal_idx
-  ON workflow_runs(status, updated_at, id);
-
-CREATE TABLE workflow_run_events (
-  stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-  id TEXT NOT NULL UNIQUE,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  definition_id TEXT NOT NULL,
-  definition_version_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  ordinal INTEGER NOT NULL,
-  type TEXT NOT NULL,
-  node_id TEXT NOT NULL DEFAULT '',
-  node_execution_id TEXT NOT NULL DEFAULT '',
-  token_id TEXT NOT NULL DEFAULT '',
-  runner_kind TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL,
-  message TEXT NOT NULL DEFAULT '',
-  details_json TEXT NOT NULL DEFAULT '{}',
-  UNIQUE(run_id, ordinal)
-);
-
-CREATE INDEX workflow_run_events_run_ordinal_idx
-  ON workflow_run_events(run_id, ordinal);
-
-CREATE TABLE workflow_node_attempts (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  node_id TEXT NOT NULL,
-  attempt INTEGER NOT NULL,
-  iteration INTEGER NOT NULL,
-  status TEXT NOT NULL,
-  action_kind TEXT,
-  runner_kind TEXT,
-  idempotency_key TEXT NOT NULL,
-  input_hash TEXT NOT NULL,
-  input_json TEXT NOT NULL DEFAULT '{}',
-  side_effect_policy_json TEXT NOT NULL DEFAULT '{}',
-  scheduled_at TEXT NOT NULL,
-  started_at TEXT,
-  completed_at TEXT,
-  result_status TEXT,
-  output_json TEXT,
-  exit_code INTEGER,
-  error TEXT NOT NULL DEFAULT '',
-  recovery_outcome TEXT,
-  recovery_message TEXT NOT NULL DEFAULT '',
-  UNIQUE(run_id, node_id, attempt, iteration)
-);
-
-CREATE INDEX workflow_node_attempts_run_status_idx
-  ON workflow_node_attempts(run_id, status, id);
-
-CREATE TABLE workflow_tokens (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  node_id TEXT NOT NULL,
-  source_node_id TEXT NOT NULL DEFAULT '',
-  edge_id TEXT NOT NULL DEFAULT '',
-  iteration INTEGER NOT NULL,
-  status TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  completed_at TEXT
-);
-
-CREATE INDEX workflow_tokens_run_node_status_idx
-  ON workflow_tokens(run_id, node_id, status, id);
-
-CREATE TABLE workflow_loop_counters (
-  workspace_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  node_id TEXT NOT NULL,
-  count INTEGER NOT NULL,
-  PRIMARY KEY(run_id, node_id)
-);
-
-CREATE TABLE workflow_approvals (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  node_execution_id TEXT NOT NULL REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
-  node_id TEXT NOT NULL,
-  runner_kind TEXT NOT NULL,
-  status TEXT NOT NULL,
-  approval_kind TEXT NOT NULL,
-  request_json TEXT NOT NULL,
-  response_json TEXT,
-  side_effect_policy_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL,
-  resolved_at TEXT
-);
-
-CREATE INDEX workflow_approvals_run_status_idx
-  ON workflow_approvals(run_id, status, created_at, id);
-
-CREATE TABLE workflow_runner_state (
-  node_execution_id TEXT PRIMARY KEY REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  runner_kind TEXT NOT NULL,
-  status TEXT NOT NULL,
-  last_runner_event_ordinal INTEGER NOT NULL DEFAULT 0,
-  opaque_state_json TEXT NOT NULL DEFAULT '{}',
-  recovery_token TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE workflow_runner_refs (
-  node_execution_id TEXT NOT NULL REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL,
-  ref TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  PRIMARY KEY(node_execution_id, kind)
-);
-
-CREATE TABLE workflow_activity_refs (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  node_execution_id TEXT NOT NULL REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL,
-  ref TEXT NOT NULL,
-  start_cursor TEXT NOT NULL DEFAULT '',
-  end_cursor TEXT NOT NULL DEFAULT '',
-  metadata_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE INDEX workflow_activity_refs_node_idx
-  ON workflow_activity_refs(node_execution_id, kind, id);
-
-CREATE TABLE workflow_artifact_refs (
-  id TEXT PRIMARY KEY,
-  schema_version INTEGER NOT NULL,
-  workspace_id TEXT NOT NULL,
-  run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-  node_execution_id TEXT NOT NULL REFERENCES workflow_node_attempts(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL,
-  uri TEXT NOT NULL,
-  title TEXT NOT NULL DEFAULT '',
-  media_type TEXT NOT NULL DEFAULT '',
-  metadata_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL
-);
-```
-
-Each kernel transition runs in one SQLite transaction and commits:
-
-- New `workflow_run_events` rows with contiguous per-run ordinals and global `stream_sequence` values.
-- All materialized state changes in `workflow_runs`, `workflow_node_attempts`, `workflow_tokens`, `workflow_loop_counters`, `workflow_approvals`, `workflow_runner_state`, `workflow_runner_refs`, `workflow_activity_refs`, and `workflow_artifact_refs`.
-- The updated `workflow_runs.last_event_ordinal`.
-
-There is no separate event stream shadow table. `workflow_run_events.stream_sequence` is the durable global event stream cursor.
+The implemented schema and transaction boundary are documented in [Backend Workflow Kernel SQLite Schema](backend_workflow_kernel_sqlite_schema.md).
 
 ### Direct JSON Storage Replacement
 
@@ -1120,15 +750,17 @@ Acceptance criteria:
 
 #### Phase 1: Runner Contract
 
+Status: Complete. The current Codex-backed kernel has the capability-based runner contract, normalized runner events, explicit runner state records, and typed future runner policy extension points needed before replacing persistence.
+
 Deliverables:
 
-- Replace the minimal `Start`/`Cancel` action runner contract with a capability-based contract.
-- Add normalized runner events.
-- Add explicit runner state records.
-- Add typed extension points for future runner-specific policy.
-- Keep `agent.codex` working through the new contract.
-- Preserve current workflow graph semantics.
-- Do not add sandboxed process, MCP, sidecar, or agent-framework runners in this phase.
+- Completed: replace the minimal `Start`/`Cancel` action runner contract with a capability-based contract.
+- Completed: add normalized runner events.
+- Completed: add explicit runner state records.
+- Completed: add typed extension points for future runner-specific policy.
+- Completed: keep `agent.codex` working through the new contract.
+- Completed: preserve current workflow graph semantics.
+- Completed: do not add sandboxed process, MCP, sidecar, or agent-framework runners in this phase.
 
 Acceptance criteria:
 
@@ -1140,12 +772,21 @@ Acceptance criteria:
 
 #### Phase 2: Transactional Persistence
 
+Status: Complete. The Codex-backed kernel production path now uses SQLite-backed workflow persistence with transactional event-log and materialized-state commits. The file-backed JSON workflow store has been removed from the production workflow path.
+
 Deliverables:
 
-- Introduce a workflow persistence interface with transaction semantics.
-- Implement SQLite-backed workflow persistence.
-- Store event log and materialized state in the same transaction.
-- Replace JSON workflow persistence for the target kernel path.
+- Completed: introduce a workflow persistence interface with transaction semantics.
+- Completed: implement SQLite-backed workflow persistence.
+- Completed: store event log and materialized state in the same transaction.
+- Completed: replace JSON workflow persistence for the target kernel path.
+
+Implementation guardrails:
+
+- Make the workflow service depend on the transaction-oriented persistence interface rather than the concrete JSON store.
+- Commit `workflow_run_events` rows, materialized workflow state, and the updated durable event cursor in one SQLite transaction before publishing in-memory event notifications.
+- Remove the JSON workflow store from the production workflow path in the same phase; do not leave JSON and SQLite as parallel runtime stores.
+- Do not add migration, import, scan, dual-write, fallback, or compatibility behavior for existing workflow JSON files.
 
 Acceptance criteria:
 
@@ -1294,4 +935,4 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 
 ## Recommended Next Step
 
-Proceed to Phase 1 with Codex as the proving runner. Do not add sandboxed process, MCP, LangGraph, OpenAI Agents SDK, LangFlow, or Python sidecars until the Codex-backed kernel, persistence, and recovery model are stable.
+Proceed to Phase 3: Recovery And Reconciliation. Keep the scope to startup recovery for non-terminal Codex-backed runs, runner recovery hooks, typed recovery outcomes, and manual recovery state for uncertain side effects. Do not add sandboxed process, MCP, LangGraph, OpenAI Agents SDK, LangFlow, or Python sidecars until the Codex-backed kernel, persistence, and recovery model are stable.

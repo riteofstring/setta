@@ -124,20 +124,6 @@ func StartAction(execution WorkflowExecution, nodeExecutionID string, metadata W
 	return WorkflowTransition{Execution: execution, Events: events}, nil
 }
 
-func AttachRunnerRefs(execution WorkflowExecution, nodeExecutionID string, runnerRefs []WorkflowActionRunnerRef, context TransitionContext) (WorkflowTransition, error) {
-	if err := validateTransitionContext(context); err != nil {
-		return WorkflowTransition{}, err
-	}
-	index := nodeExecutionIndex(execution, nodeExecutionID)
-	if index < 0 {
-		return WorkflowTransition{}, fmt.Errorf("node execution %s was not found", nodeExecutionID)
-	}
-	execution.NodeExecutions[index].RunnerRefs = mergeRunnerRefs(execution.NodeExecutions[index].RunnerRefs, runnerRefs)
-	execution.UpdatedAt = context.Now
-	refreshActiveNodeExecutionIDs(&execution)
-	return WorkflowTransition{Execution: execution, Events: []WorkflowEvent{}}, nil
-}
-
 func applyActionCompletion(execution *WorkflowExecution, graph WorkflowGraph, nodeExecution *WorkflowNodeExecution, result WorkflowActionResult, context TransitionContext, events *[]WorkflowEvent) error {
 	switch result.Status {
 	case ActionCompletionCompleted:

@@ -295,10 +295,16 @@ func newCodexRunnerTestServices(t *testing.T) (*Service, *chat.Service, *chat.Sc
 	if err != nil {
 		t.Fatalf("create workflow store: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := workflowStore.Close(); err != nil {
+			t.Fatalf("close workflow store: %v", err)
+		}
+	})
 	workflowService, err := NewService(workflowStore, resolver, WithIDGenerator(idGenerator), WithClock(fixedTestClock(t)), WithCodexChatService(chatService))
 	if err != nil {
 		t.Fatalf("create workflow service: %v", err)
 	}
+	t.Cleanup(workflowService.CloseEvents)
 	return workflowService, chatService, harness, workspaceID
 }
 

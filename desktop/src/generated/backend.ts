@@ -950,9 +950,9 @@ export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowG
   }
 }
 
-export type WorkflowEventType = "workflow.execution.started" | "workflow.node.scheduled" | "workflow.action.started" | "workflow.action.completed" | "workflow.action.failed" | "workflow.action.cancelled" | "workflow.action.waiting_approval" | "workflow.gateway.resolved" | "workflow.loop.advanced" | "workflow.execution.completed" | "workflow.execution.failed" | "workflow.execution.stopped" | "workflow.execution.cancelled" | "runner.attempt.started" | "runner.text.delta" | "runner.tool_call.started" | "runner.tool_call.output" | "runner.approval.requested" | "runner.approval.resolved" | "runner.artifact.reported" | "runner.structured_output.received" | "runner.attempt.completed" | "runner.attempt.failed" | "runner.attempt.cancelled" | "runner.attempt.recovery_required";
+export type WorkflowEventType = "workflow.execution.started" | "workflow.node.scheduled" | "workflow.action.started" | "workflow.action.completed" | "workflow.action.failed" | "workflow.action.cancelled" | "workflow.action.waiting_approval" | "workflow.gateway.resolved" | "workflow.loop.advanced" | "workflow.execution.completed" | "workflow.execution.failed" | "workflow.execution.stopped" | "workflow.execution.cancelled" | "workflow.runner_refs.attached" | "runner.attempt.started" | "runner.text.delta" | "runner.tool_call.started" | "runner.tool_call.output" | "runner.approval.requested" | "runner.approval.resolved" | "runner.artifact.reported" | "runner.structured_output.received" | "runner.attempt.completed" | "runner.attempt.failed" | "runner.attempt.cancelled" | "runner.attempt.recovery_required";
 
-export const workflowEventTypeValues = ["workflow.execution.started", "workflow.node.scheduled", "workflow.action.started", "workflow.action.completed", "workflow.action.failed", "workflow.action.cancelled", "workflow.action.waiting_approval", "workflow.gateway.resolved", "workflow.loop.advanced", "workflow.execution.completed", "workflow.execution.failed", "workflow.execution.stopped", "workflow.execution.cancelled", "runner.attempt.started", "runner.text.delta", "runner.tool_call.started", "runner.tool_call.output", "runner.approval.requested", "runner.approval.resolved", "runner.artifact.reported", "runner.structured_output.received", "runner.attempt.completed", "runner.attempt.failed", "runner.attempt.cancelled", "runner.attempt.recovery_required"] as const satisfies readonly WorkflowEventType[];
+export const workflowEventTypeValues = ["workflow.execution.started", "workflow.node.scheduled", "workflow.action.started", "workflow.action.completed", "workflow.action.failed", "workflow.action.cancelled", "workflow.action.waiting_approval", "workflow.gateway.resolved", "workflow.loop.advanced", "workflow.execution.completed", "workflow.execution.failed", "workflow.execution.stopped", "workflow.execution.cancelled", "workflow.runner_refs.attached", "runner.attempt.started", "runner.text.delta", "runner.tool_call.started", "runner.tool_call.output", "runner.approval.requested", "runner.approval.resolved", "runner.artifact.reported", "runner.structured_output.received", "runner.attempt.completed", "runner.attempt.failed", "runner.attempt.cancelled", "runner.attempt.recovery_required"] as const satisfies readonly WorkflowEventType[];
 
 export function decodeWorkflowEventType(value: unknown, label = "WorkflowEventType"): WorkflowEventType {
   const decoded = decodeString(value, label);
@@ -982,6 +982,8 @@ export function decodeWorkflowEventType(value: unknown, label = "WorkflowEventTy
     case "workflow.execution.stopped":
       return decoded;
     case "workflow.execution.cancelled":
+      return decoded;
+    case "workflow.runner_refs.attached":
       return decoded;
     case "runner.attempt.started":
       return decoded;

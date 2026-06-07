@@ -106,6 +106,7 @@ const (
 	EventExecutionFailed    WorkflowEventType = "workflow.execution.failed"
 	EventExecutionStopped   WorkflowEventType = "workflow.execution.stopped"
 	EventExecutionCancelled WorkflowEventType = "workflow.execution.cancelled"
+	EventRunnerRefsAttached WorkflowEventType = "workflow.runner_refs.attached"
 
 	ValidationSeverityError   WorkflowValidationSeverity = "error"
 	ValidationSeverityWarning WorkflowValidationSeverity = "warning"
@@ -304,6 +305,7 @@ var (
 		EventExecutionFailed,
 		EventExecutionStopped,
 		EventExecutionCancelled,
+		EventRunnerRefsAttached,
 		EventRunnerAttemptStarted,
 		EventRunnerTextDelta,
 		EventRunnerToolCallStarted,
