@@ -134,7 +134,7 @@ Relevant concepts
 Active constraints
 Prior decisions
 Open questions
-User steering directives
+User steering directives, including optional node-attached steering prompts
 Relevant files, symbols, docs, or diffs
 Reason each item was included
 Priority: background, relevant, important, or required
@@ -232,7 +232,15 @@ Attach to run     = include this node in the current run's agent context
 Focus agent here  = ask an active agent to prioritize this semantic node
 Avoid             = tell agent not to pursue this area unless necessary
 Validate          = ask agent/workflow to check a hypothesis, decision, or constraint
+Steering prompt  = user-authored instruction attached to a semantic node; included in agent context when that node is attached, focused, prioritized, or otherwise active for a run
 ```
+
+A steering prompt lets the user add freeform guidance to a semantic node. For example, the user might attach this prompt to `friends backend API`: “Prioritize fixing the backend query first. Do not change the response schema unless absolutely necessary.” Setta treats this as a scoped steering directive, not as a new workflow prompt node. The instruction is included in the Semantic Context Pack at run start, Agent Task start, or as a mid-run steering delta if the agent is already active.
+
+Semantic node = the target of steering
+Steering prompt = user-authored guidance attached to that target
+Semantic Context Compiler = mechanism that delivers it to agents
+Workflow prompt node = saved executable prompt/template in the workflow graph
 
 Example: the user attaches `blocked user privacy` to the current run. The agent receives:
 
