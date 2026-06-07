@@ -23,6 +23,15 @@ func TestServiceReadGraphProjectionComposesDefinitionAndRunningExecutionState(t 
 	if projection.DefinitionID != definition.ID || projection.ExecutionID != started.ID {
 		t.Fatalf("projection ids = definition %s execution %s, want %s %s", projection.DefinitionID, projection.ExecutionID, definition.ID, started.ID)
 	}
+	if projection.ViewMode != GraphViewModeRun || projection.Editable {
+		t.Fatalf("projection view state = mode %s editable %v, want run read-only", projection.ViewMode, projection.Editable)
+	}
+	if projection.DefinitionVersionNumber != 1 || projection.DefinitionVersionID != started.DefinitionVersionID {
+		t.Fatalf("projection version = %d/%s, want 1/%s", projection.DefinitionVersionNumber, projection.DefinitionVersionID, started.DefinitionVersionID)
+	}
+	if !projection.DraftMatchesVersion || projection.VersionMismatch {
+		t.Fatalf("projection draft/version match = %v mismatch = %v, want matching version", projection.DraftMatchesVersion, projection.VersionMismatch)
+	}
 	assertProjectedNode(t, projection, "start", GraphNodeStatusSucceeded, false, 1)
 	assertProjectedNode(t, projection, "work", GraphNodeStatusReady, true, 1)
 	assertProjectedNode(t, projection, "end", GraphNodeStatusNotStarted, false, 0)
@@ -96,9 +105,51 @@ func TestServiceReadGraphProjectionIncludesDefinitionLayout(t *testing.T) {
 	if !ok {
 		t.Fatal("definition projection was not returned")
 	}
+	if projection.ViewMode != GraphViewModeDraft || !projection.Editable {
+		t.Fatalf("projection view state = mode %s editable %v, want editable draft", projection.ViewMode, projection.Editable)
+	}
+	if projection.DefinitionVersionID != "" || projection.DefinitionVersionNumber != 0 {
+		t.Fatalf("projection version = %d/%s, want unversioned draft", projection.DefinitionVersionNumber, projection.DefinitionVersionID)
+	}
+	if projection.DraftUpdatedAt == "" {
+		t.Fatal("draft projection did not expose draft updated timestamp")
+	}
 	layout := projectedLayoutNodeForTest(t, projection, "work")
 	if layout.X != 0 || layout.Y != 96 {
 		t.Fatalf("projected work layout = %+v, want x=0 y=96", layout)
+	}
+}
+
+func TestServiceReadGraphProjectionReportsDraftVersionMismatch(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, err := service.CreateDefinition(workspaceID, "Review", "graph projection", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	updated, err := service.UpdateDefinition(workspaceID, definition.ID, "Review v2", "changed after run", definition.Graph)
+	if err != nil {
+		t.Fatalf("update definition: %v", err)
+	}
+
+	projection, ok, err := service.ReadGraphProjection(workspaceID, definition.ID, started.DefinitionVersionID, started.ID)
+	if err != nil {
+		t.Fatalf("read execution projection: %v", err)
+	}
+	if !ok {
+		t.Fatal("execution projection was not returned")
+	}
+	if projection.ViewMode != GraphViewModeRun || projection.DefinitionName != definition.Name {
+		t.Fatalf("projection mode/name = %s/%s, want run snapshot name %s", projection.ViewMode, projection.DefinitionName, definition.Name)
+	}
+	if projection.DraftUpdatedAt != updated.UpdatedAt {
+		t.Fatalf("projection draft updatedAt = %s, want current draft %s", projection.DraftUpdatedAt, updated.UpdatedAt)
+	}
+	if projection.DraftMatchesVersion || !projection.VersionMismatch {
+		t.Fatalf("projection draft/version match = %v mismatch = %v, want mismatch", projection.DraftMatchesVersion, projection.VersionMismatch)
 	}
 }
 

@@ -101,6 +101,7 @@ try {
       `first node edit unexpectedly created edges: ${JSON.stringify(afterAdd.graph)}`,
     );
   }
+  assertDraftWorkflowProjection(afterAdd, "Untitled workflow");
   assertCameraPreserved(afterAdd.camera, pannedCanvas.camera);
   await clickWorkflowRunButton(context.client);
   const invalidStart = await waitForPixiSnapshot(
@@ -276,6 +277,7 @@ try {
       snapshot.graph.workflow?.executionId === execution.id &&
       snapshot.graph.nodes.some((node) => node.id === "agent_task"),
   );
+  assertRunWorkflowProjection(completedRunGraph, execution);
   await openWorkflowNodeDetailsFromToolbar(context.client, pixiSurfaceId, completedRunGraph, {
     detailsSelector: '[data-testid="workflow-node-run-details"]',
     nodeId: "agent_task",
@@ -673,6 +675,74 @@ function assertWorkflowEdgeDiagnostic(snapshot, edgeId, code) {
   }
 }
 
+function assertDraftWorkflowProjection(snapshot, expectedDefinitionName) {
+  const actual = draftWorkflowProjectionMetadata(snapshot);
+  const expected = {
+    definitionName: expectedDefinitionName,
+    definitionVersionId: "",
+    definitionVersionNumber: 0,
+    editable: true,
+    executionId: "",
+    executionStatus: "",
+    versionMismatch: false,
+    viewMode: "draft",
+  };
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`draft workflow projection mismatch: ${JSON.stringify(actual)}`);
+  }
+}
+
+function assertRunWorkflowProjection(snapshot, execution) {
+  const actual = runWorkflowProjectionMetadata(snapshot);
+  const expected = {
+    definitionId: execution.definitionId,
+    definitionVersionId: execution.definitionVersionId,
+    hasDefinitionVersionNumber: true,
+    editable: false,
+    executionId: execution.id,
+    versionMismatch: false,
+    viewMode: "run",
+  };
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(
+      `run workflow projection mismatch: execution=${JSON.stringify(execution)} workflow=${JSON.stringify(actual)}`,
+    );
+  }
+}
+
+function draftWorkflowProjectionMetadata(snapshot) {
+  const workflow = snapshot.graph.workflow;
+  if (!workflow) {
+    return null;
+  }
+  return {
+    definitionName: workflow.definitionName,
+    definitionVersionId: workflow.definitionVersionId,
+    definitionVersionNumber: workflow.definitionVersionNumber,
+    editable: workflow.editable,
+    executionId: workflow.executionId,
+    executionStatus: workflow.executionStatus,
+    versionMismatch: workflow.versionMismatch,
+    viewMode: workflow.viewMode,
+  };
+}
+
+function runWorkflowProjectionMetadata(snapshot) {
+  const workflow = snapshot.graph.workflow;
+  if (!workflow) {
+    return null;
+  }
+  return {
+    definitionId: workflow.definitionId,
+    definitionVersionId: workflow.definitionVersionId,
+    hasDefinitionVersionNumber: workflow.definitionVersionNumber > 0,
+    editable: workflow.editable,
+    executionId: workflow.executionId,
+    versionMismatch: workflow.versionMismatch,
+    viewMode: workflow.viewMode,
+  };
+}
+
 function offsetFromPixiNode(snapshot, nodeId, offset) {
   const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
   if (!node) {
@@ -782,7 +852,7 @@ async function startWorkflowAndWaitForCompletion(client, workspaceId, definition
       snapshot.graph.workflow?.executionId,
   );
   const executionId = runProjection.graph.workflow.executionId;
-  await waitForToolbarState(client, "Run completed");
+  await waitForToolbarState(client, "Run completed read-only");
   return waitForState(
     client,
     `(async (workspaceId, executionId) => {

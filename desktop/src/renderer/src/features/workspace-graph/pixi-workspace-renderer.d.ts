@@ -40,8 +40,13 @@ interface PixiWorkspaceGraph {
   workflow?: {
     definitionId: string;
     definitionName: string;
+    definitionVersionId: string;
+    definitionVersionNumber: number;
+    editable: boolean;
     executionId: string;
     executionStatus: string;
+    versionMismatch: boolean;
+    viewMode: "draft" | "version" | "run";
     workspaceId: string;
   } | null;
 }

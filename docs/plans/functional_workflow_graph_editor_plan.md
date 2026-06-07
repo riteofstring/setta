@@ -1,7 +1,7 @@
 # Functional Workflow Graph Editor Plan
 
 - **Date:** June 8, 2026
-- **Status:** Phase 4 in progress; layout, workspace-file/null-workflow authoring, basic editor UX, diagnostic marker, and selected-run node details slices complete; explicit run/version state and workflow-level configuration remain
+- **Status:** Phase 4 in progress; layout, workspace-file/null-workflow authoring, basic editor UX, diagnostic marker, selected-run node details, and explicit draft/run/version state slices complete; workflow-level configuration and deeper node-detail refinements remain
 - **Scope:** Build the first usable workflow graph editor on top of workspace JSON workflow definitions containing `WorkflowDefinition.graph` and runtime `WorkflowGraphProjection` overlays.
 
 ## Direction
@@ -187,15 +187,24 @@ The first slice established backend-owned editor layout metadata and proved it t
 - Added selected-run inspection for run context, latest node execution, result status, emitted signals, file paths, JSON output, linked chat run activity, branch state, runtime tokens, and filtered workflow events.
 - Proved the slice through focused renderer helper tests and deterministic Electron/main/preload/renderer/HTTP/store coverage that opens a completed run node and inspects its emitted signals, output, file paths, and activity.
 
+## Completed Explicit Draft/Run/Version State Slice
+
+- Added Go-owned projection metadata for graph view mode, editability, immutable version number, draft updated timestamp, draft/version match state, and version mismatch state.
+- Regenerated the generated TypeScript contracts from the backend-owned workflow contract.
+- Made the toolbar label editable drafts, selected runs, version snapshots, run/version IDs, and draft/version mismatch explicitly.
+- Gated draft edits, validation, and run start on the backend projection's `editable` field instead of inferring read-only state only from execution IDs.
+- Kept workflow event updates pinned to the selected run so runtime events do not pull the graph away from an explicitly selected draft.
+- Exposed selected run/version and mismatch state in node details.
+- Proved the slice through focused orchestrator projection tests, renderer projection and toolbar tests, and deterministic Electron workflow metadata coverage.
+
 ## Remaining Editor Slice
 
-- Make saved version, selected run/version, and version mismatch state explicit in the graph UI.
 - Add first-class workflow-level naming and configuration controls.
 - Refine node details beyond the first inspection slice where needed, including deeper route history, transcript presentation, and type-specific editing controls.
 
 ## Phase 4 Deliverables
 
-Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, immutable run snapshots, toolbar add/validate/run controls, validation result panels, node/edge-attached diagnostics, basic Agent Task editing, first-pass type-specific draft details, and selected-run node inspection are implemented. The remaining deliverables are explicit saved-version/selected-run/version-mismatch state, workflow-level configuration, and deeper node-detail refinements.
+Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, immutable run snapshots, toolbar add/validate/run controls, validation result panels, node/edge-attached diagnostics, basic Agent Task editing, first-pass type-specific draft details, selected-run node inspection, and explicit draft/run/version state are implemented. The remaining deliverables are workflow-level configuration and deeper node-detail refinements.
 
 - Name, list, open, edit, validate, save, and run workspace workflow definitions from the renderer.
 - Render an empty editable canvas as the null workflow when no saved definition exists.
@@ -240,5 +249,5 @@ Current status: partially complete. Storage, blank-canvas authoring, durable nod
 - Complete: a user can run a saved workflow from the renderer and see the started run projection on the graph.
 - Complete: a user can create an `Agent Task` workflow from the canvas, configure basic Agent Task prompt/model settings in a Niri details pane, save it as a workspace JSON definition, run an immutable snapshot through the workflow API, inspect runtime status on the graph, and inspect selected-run node execution, output, emitted signals, file paths, and linked activity.
 - Complete: validation diagnostics appear in the editor before run, and affected draft nodes and edges show local diagnostic markers.
-- Partial: runtime overlays are loaded from the exact workflow version that ran, and the UI blocks editing while viewing a run projection, but saved version, selected run/version, and version mismatch state still need to be explicit.
+- Complete: runtime overlays are loaded from the exact workflow version that ran, the UI blocks editing while viewing read-only projections, and saved version, selected run/version, and version mismatch state are explicit.
 - Partial: node details panes can inspect and edit authored Agent Task config, inspect basic non-Agent node details, and inspect selected-run activity without hiding the graph; deeper route history, transcript presentation, and type-specific editing controls remain.

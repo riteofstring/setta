@@ -90,30 +90,23 @@ function isPixiSnapshotRendered(snapshot) {
 }
 
 function isWorkflowProjectionMetadataReady(snapshot, expected) {
-  const workflow = snapshot.graph.workflow;
+  const actual = workflowProjectionMetadata(snapshot);
   return (
-    workflow?.definitionName === expected.definitionName &&
-    workflow?.definitionId === expected.definitionId &&
-    workflow?.executionId === "" &&
-    workflow?.executionStatus === ""
+    actual !== null && JSON.stringify(actual) === JSON.stringify(expectedDraftMetadata(expected))
   );
 }
 
 export function assertWorkflowProjectionSnapshot(snapshot, expected) {
-  if (!snapshot.graph.workflow) {
+  const actual = workflowProjectionMetadata(snapshot);
+  if (actual === null) {
     throw new Error(
       `Pixi graph did not expose workflow projection metadata: ${JSON.stringify(snapshot.graph)}`,
     );
   }
-  if (
-    snapshot.graph.workflow.workspaceId !== expected.workspaceId ||
-    snapshot.graph.workflow.definitionId !== expected.definitionId ||
-    snapshot.graph.workflow.definitionName !== expected.definitionName ||
-    snapshot.graph.workflow.executionId !== "" ||
-    snapshot.graph.workflow.executionStatus !== ""
-  ) {
+  const expectedMetadata = expectedDraftMetadata(expected);
+  if (JSON.stringify(actual) !== JSON.stringify(expectedMetadata)) {
     throw new Error(
-      `Pixi workflow projection metadata mismatch: expected=${JSON.stringify(expected)} snapshot=${JSON.stringify(snapshot.graph.workflow)}`,
+      `Pixi workflow projection metadata mismatch: expected=${JSON.stringify(expectedMetadata)} snapshot=${JSON.stringify(actual)}`,
     );
   }
   assertWorkflowProjectionIDs(
@@ -129,6 +122,40 @@ export function assertWorkflowProjectionSnapshot(snapshot, expected) {
     "Pixi workflow projection edges",
   );
   assertWorkflowProjectionLayout(snapshot.graph.nodes, expected.layout);
+}
+
+function workflowProjectionMetadata(snapshot) {
+  const workflow = snapshot.graph.workflow;
+  if (!workflow) {
+    return null;
+  }
+  return {
+    definitionId: workflow.definitionId,
+    definitionName: workflow.definitionName,
+    definitionVersionId: workflow.definitionVersionId,
+    definitionVersionNumber: workflow.definitionVersionNumber,
+    editable: workflow.editable,
+    executionId: workflow.executionId,
+    executionStatus: workflow.executionStatus,
+    versionMismatch: workflow.versionMismatch,
+    viewMode: workflow.viewMode,
+    workspaceId: workflow.workspaceId,
+  };
+}
+
+function expectedDraftMetadata(expected) {
+  return {
+    definitionId: expected.definitionId,
+    definitionName: expected.definitionName,
+    definitionVersionId: "",
+    definitionVersionNumber: 0,
+    editable: true,
+    executionId: "",
+    executionStatus: "",
+    versionMismatch: false,
+    viewMode: "draft",
+    workspaceId: expected.workspaceId,
+  };
 }
 
 function assertWorkflowProjectionIDs(items, expectedIDs, itemKind, label) {

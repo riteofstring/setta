@@ -398,7 +398,15 @@ func (service *Service) readExecutionGraphProjectionLocked(workspaceID string, d
 	if err != nil {
 		return WorkflowGraphProjection{}, err
 	}
-	return buildWorkflowGraphProjection(version, &execution, execution.UpdatedAt)
+	workspaceSummary, err := service.resolveWorkspace(workspaceID)
+	if err != nil {
+		return WorkflowGraphProjection{}, err
+	}
+	currentDefinition, _, err := service.loadWorkspaceDefinition(workspaceSummary, execution.DefinitionID)
+	if err != nil {
+		return WorkflowGraphProjection{}, err
+	}
+	return buildWorkflowGraphProjection(version, &execution, execution.UpdatedAt, &currentDefinition)
 }
 
 func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, definitionID string, versionID string) (WorkflowGraphProjection, bool, error) {
@@ -408,7 +416,7 @@ func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, 
 	}
 	if versionID == "" {
 		version := workflowDefinitionVersionFromDefinition(definition, "", 0, service.now())
-		projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt)
+		projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt, &definition)
 		return projection, true, err
 	}
 	version, err := service.store.LoadDefinitionVersion(workspaceID, definition.ID, versionID)
@@ -420,10 +428,10 @@ func (service *Service) readDefinitionGraphProjectionLocked(workspaceID string, 
 		return WorkflowGraphProjection{}, false, err
 	}
 	if execution != nil {
-		projection, err := buildWorkflowGraphProjection(version, execution, definition.UpdatedAt)
+		projection, err := buildWorkflowGraphProjection(version, execution, definition.UpdatedAt, &definition)
 		return projection, true, err
 	}
-	projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt)
+	projection, err := buildWorkflowGraphProjection(version, nil, definition.UpdatedAt, &definition)
 	return projection, true, err
 }
 

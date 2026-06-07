@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -12,7 +13,7 @@ type edgeTokenSummary struct {
 	latest    WorkflowTokenStatus
 }
 
-func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *WorkflowExecution, updatedAt string) (WorkflowGraphProjection, error) {
+func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *WorkflowExecution, updatedAt string, currentDraft *WorkflowDefinition) (WorkflowGraphProjection, error) {
 	var executionID string
 	var executionStatus *WorkflowExecutionStatus
 	var terminalReason *WorkflowTerminalReason
@@ -40,22 +41,59 @@ func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *
 	if err != nil {
 		return WorkflowGraphProjection{}, err
 	}
+	viewMode := workflowGraphProjectionViewMode(version, execution)
+	draftUpdatedAt := ""
+	draftMatchesVersion := true
+	versionMismatch := false
+	if currentDraft != nil {
+		draftUpdatedAt = currentDraft.UpdatedAt
+	}
+	if version.ID != "" {
+		draftMatchesVersion = currentDraft != nil && workflowDefinitionMatchesVersion(*currentDraft, version)
+		versionMismatch = !draftMatchesVersion
+	}
 	return WorkflowGraphProjection{
-		SchemaVersion:         SchemaVersion,
-		WorkspaceID:           version.WorkspaceID,
-		DefinitionID:          version.DefinitionID,
-		DefinitionVersionID:   version.ID,
-		DefinitionName:        version.Name,
-		DefinitionDescription: version.Description,
-		ExecutionID:           executionID,
-		ExecutionStatus:       executionStatus,
-		TerminalReason:        terminalReason,
-		LastEventOrdinal:      lastEventOrdinal,
-		UpdatedAt:             updatedAt,
-		Layout:                copyWorkflowGraphLayout(version.Graph.Layout),
-		Nodes:                 nodes,
-		Edges:                 edges,
+		SchemaVersion:              SchemaVersion,
+		WorkspaceID:                version.WorkspaceID,
+		DefinitionID:               version.DefinitionID,
+		DefinitionVersionID:        version.ID,
+		DefinitionVersionNumber:    version.VersionNumber,
+		DefinitionVersionCreatedAt: version.CreatedAt,
+		DefinitionName:             version.Name,
+		DefinitionDescription:      version.Description,
+		ViewMode:                   viewMode,
+		Editable:                   viewMode == GraphViewModeDraft,
+		DraftUpdatedAt:             draftUpdatedAt,
+		DraftMatchesVersion:        draftMatchesVersion,
+		VersionMismatch:            versionMismatch,
+		ExecutionID:                executionID,
+		ExecutionStatus:            executionStatus,
+		TerminalReason:             terminalReason,
+		LastEventOrdinal:           lastEventOrdinal,
+		UpdatedAt:                  updatedAt,
+		Layout:                     copyWorkflowGraphLayout(version.Graph.Layout),
+		Nodes:                      nodes,
+		Edges:                      edges,
 	}, nil
+}
+
+func workflowGraphProjectionViewMode(version WorkflowDefinitionVersion, execution *WorkflowExecution) WorkflowGraphViewMode {
+	if execution != nil {
+		return GraphViewModeRun
+	}
+	if version.ID != "" {
+		return GraphViewModeVersion
+	}
+	return GraphViewModeDraft
+}
+
+func workflowDefinitionMatchesVersion(definition WorkflowDefinition, version WorkflowDefinitionVersion) bool {
+	return definition.SchemaVersion == version.SchemaVersion &&
+		definition.ID == version.DefinitionID &&
+		definition.WorkspaceID == version.WorkspaceID &&
+		definition.Name == version.Name &&
+		definition.Description == version.Description &&
+		reflect.DeepEqual(normalizeWorkflowGraph(definition.Graph), normalizeWorkflowGraph(version.Graph))
 }
 
 func copyWorkflowGraphLayout(layout WorkflowGraphLayout) WorkflowGraphLayout {

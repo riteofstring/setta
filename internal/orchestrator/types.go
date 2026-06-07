@@ -18,6 +18,7 @@ type WorkflowNodeExecutionStatus string
 type WorkflowTokenStatus string
 type WorkflowGraphNodeStatus string
 type WorkflowGraphEdgeStatus string
+type WorkflowGraphViewMode string
 type WorkflowEventType string
 type WorkflowValidationSeverity string
 type WorkflowTerminalReason string
@@ -95,6 +96,10 @@ const (
 	GraphEdgeStatusActive    WorkflowGraphEdgeStatus = "active"
 	GraphEdgeStatusCompleted WorkflowGraphEdgeStatus = "completed"
 	GraphEdgeStatusCancelled WorkflowGraphEdgeStatus = "cancelled"
+
+	GraphViewModeDraft   WorkflowGraphViewMode = "draft"
+	GraphViewModeVersion WorkflowGraphViewMode = "version"
+	GraphViewModeRun     WorkflowGraphViewMode = "run"
 
 	EventExecutionStarted       WorkflowEventType = "workflow.execution.started"
 	EventNodeScheduled          WorkflowEventType = "workflow.node.scheduled"
@@ -299,6 +304,11 @@ var (
 		GraphEdgeStatusCompleted,
 		GraphEdgeStatusCancelled,
 	}
+	workflowGraphViewModeValues = []WorkflowGraphViewMode{
+		GraphViewModeDraft,
+		GraphViewModeVersion,
+		GraphViewModeRun,
+	}
 	workflowEventTypeValues = []WorkflowEventType{
 		EventExecutionStarted,
 		EventNodeScheduled,
@@ -466,6 +476,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "WorkflowTokenStatus", Values: stringValues(workflowTokenStatusValues)},
 		{Name: "WorkflowGraphNodeStatus", Values: stringValues(workflowGraphNodeStatusValues)},
 		{Name: "WorkflowGraphEdgeStatus", Values: stringValues(workflowGraphEdgeStatusValues)},
+		{Name: "WorkflowGraphViewMode", Values: stringValues(workflowGraphViewModeValues)},
 		{Name: "WorkflowEventType", Values: stringValues(workflowEventTypeValues)},
 		{Name: "WorkflowValidationSeverity", Values: stringValues(workflowValidationSeverityValues)},
 		{Name: "WorkflowTerminalReason", Values: stringValues(workflowTerminalReasonValues)},
@@ -806,20 +817,27 @@ type WorkflowExecutionEventPage struct {
 }
 
 type WorkflowGraphProjection struct {
-	SchemaVersion         int                      `json:"schemaVersion"`
-	WorkspaceID           string                   `json:"workspaceId"`
-	DefinitionID          string                   `json:"definitionId"`
-	DefinitionVersionID   string                   `json:"definitionVersionId"`
-	DefinitionName        string                   `json:"definitionName"`
-	DefinitionDescription string                   `json:"definitionDescription"`
-	ExecutionID           string                   `json:"executionId"`
-	ExecutionStatus       *WorkflowExecutionStatus `json:"executionStatus"`
-	TerminalReason        *WorkflowTerminalReason  `json:"terminalReason"`
-	LastEventOrdinal      int                      `json:"lastEventOrdinal"`
-	UpdatedAt             string                   `json:"updatedAt"`
-	Layout                WorkflowGraphLayout      `json:"layout"`
-	Nodes                 []WorkflowGraphNode      `json:"nodes"`
-	Edges                 []WorkflowGraphEdge      `json:"edges"`
+	SchemaVersion              int                      `json:"schemaVersion"`
+	WorkspaceID                string                   `json:"workspaceId"`
+	DefinitionID               string                   `json:"definitionId"`
+	DefinitionVersionID        string                   `json:"definitionVersionId"`
+	DefinitionVersionNumber    int                      `json:"definitionVersionNumber"`
+	DefinitionVersionCreatedAt string                   `json:"definitionVersionCreatedAt"`
+	DefinitionName             string                   `json:"definitionName"`
+	DefinitionDescription      string                   `json:"definitionDescription"`
+	ViewMode                   WorkflowGraphViewMode    `json:"viewMode"`
+	Editable                   bool                     `json:"editable"`
+	DraftUpdatedAt             string                   `json:"draftUpdatedAt"`
+	DraftMatchesVersion        bool                     `json:"draftMatchesVersion"`
+	VersionMismatch            bool                     `json:"versionMismatch"`
+	ExecutionID                string                   `json:"executionId"`
+	ExecutionStatus            *WorkflowExecutionStatus `json:"executionStatus"`
+	TerminalReason             *WorkflowTerminalReason  `json:"terminalReason"`
+	LastEventOrdinal           int                      `json:"lastEventOrdinal"`
+	UpdatedAt                  string                   `json:"updatedAt"`
+	Layout                     WorkflowGraphLayout      `json:"layout"`
+	Nodes                      []WorkflowGraphNode      `json:"nodes"`
+	Edges                      []WorkflowGraphEdge      `json:"edges"`
 }
 
 type WorkflowGraphNode struct {

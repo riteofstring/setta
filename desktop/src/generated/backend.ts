@@ -930,6 +930,24 @@ export function decodeWorkflowTokenStatus(value: unknown, label = "WorkflowToken
   }
 }
 
+export type WorkflowGraphViewMode = "draft" | "version" | "run";
+
+export const workflowGraphViewModeValues = ["draft", "version", "run"] as const satisfies readonly WorkflowGraphViewMode[];
+
+export function decodeWorkflowGraphViewMode(value: unknown, label = "WorkflowGraphViewMode"): WorkflowGraphViewMode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "draft":
+      return decoded;
+    case "version":
+      return decoded;
+    case "run":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type WorkflowGraphNodeStatus = "not_started" | "pending" | "ready" | "running" | "succeeded" | "failed" | "cancelled" | "waiting_approval" | "recovery_required";
 
 export const workflowGraphNodeStatusValues = ["not_started", "pending", "ready", "running", "succeeded", "failed", "cancelled", "waiting_approval", "recovery_required"] as const satisfies readonly WorkflowGraphNodeStatus[];
@@ -2180,8 +2198,15 @@ export interface WorkflowGraphProjection {
   workspaceId: string;
   definitionId: string;
   definitionVersionId: string;
+  definitionVersionNumber: number;
+  definitionVersionCreatedAt: string;
   definitionName: string;
   definitionDescription: string;
+  viewMode: WorkflowGraphViewMode;
+  editable: boolean;
+  draftUpdatedAt: string;
+  draftMatchesVersion: boolean;
+  versionMismatch: boolean;
   executionId: string;
   executionStatus: WorkflowExecutionStatus | null;
   terminalReason: WorkflowTerminalReason | null;
@@ -4318,14 +4343,21 @@ export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
 
 export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProjection {
   const record = assertRecord(value, "WorkflowGraphProjection");
-  assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionName", "definitionDescription", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "layout", "nodes", "edges"]);
+  assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionVersionNumber", "definitionVersionCreatedAt", "definitionName", "definitionDescription", "viewMode", "editable", "draftUpdatedAt", "draftMatchesVersion", "versionMismatch", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "layout", "nodes", "edges"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowGraphProjection"), "WorkflowGraphProjection.schemaVersion"),
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowGraphProjection"), "WorkflowGraphProjection.workspaceId"),
     definitionId: decodeString(requireField(record, "definitionId", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionId"),
     definitionVersionId: decodeString(requireField(record, "definitionVersionId", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionVersionId"),
+    definitionVersionNumber: decodeInteger(requireField(record, "definitionVersionNumber", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionVersionNumber"),
+    definitionVersionCreatedAt: decodeString(requireField(record, "definitionVersionCreatedAt", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionVersionCreatedAt"),
     definitionName: decodeString(requireField(record, "definitionName", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionName"),
     definitionDescription: decodeString(requireField(record, "definitionDescription", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionDescription"),
+    viewMode: decodeWorkflowGraphViewMode(requireField(record, "viewMode", "WorkflowGraphProjection"), "WorkflowGraphProjection.viewMode"),
+    editable: decodeBoolean(requireField(record, "editable", "WorkflowGraphProjection"), "WorkflowGraphProjection.editable"),
+    draftUpdatedAt: decodeString(requireField(record, "draftUpdatedAt", "WorkflowGraphProjection"), "WorkflowGraphProjection.draftUpdatedAt"),
+    draftMatchesVersion: decodeBoolean(requireField(record, "draftMatchesVersion", "WorkflowGraphProjection"), "WorkflowGraphProjection.draftMatchesVersion"),
+    versionMismatch: decodeBoolean(requireField(record, "versionMismatch", "WorkflowGraphProjection"), "WorkflowGraphProjection.versionMismatch"),
     executionId: decodeString(requireField(record, "executionId", "WorkflowGraphProjection"), "WorkflowGraphProjection.executionId"),
     executionStatus: decodeNullable(requireField(record, "executionStatus", "WorkflowGraphProjection"), "WorkflowGraphProjection.executionStatus", (item) => decodeWorkflowExecutionStatus(item, "WorkflowGraphProjection.executionStatus")),
     terminalReason: decodeNullable(requireField(record, "terminalReason", "WorkflowGraphProjection"), "WorkflowGraphProjection.terminalReason", (item) => decodeWorkflowTerminalReason(item, "WorkflowGraphProjection.terminalReason")),

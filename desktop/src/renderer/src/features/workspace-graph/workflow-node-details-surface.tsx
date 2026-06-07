@@ -586,12 +586,22 @@ function WorkflowNodeIdentity({ target }: { target: WorkflowNodeDetailsTarget })
       <div className="mt-1 font-mono text-[11px] text-zinc-500">{target.nodeId}</div>
       {target.executionId !== "" ? (
         <div className="mt-1 font-mono text-[11px] text-zinc-500">
-          run {shortIdentifier(target.executionId)} / version{" "}
-          {shortIdentifier(target.definitionVersionId)}
+          run {shortIdentifier(target.executionId)} / {workflowVersionLabel(target)}
+        </div>
+      ) : null}
+      {target.versionMismatch ? (
+        <div className="mt-1 text-[11px] text-amber-300">
+          Current draft differs from this version.
         </div>
       ) : null}
     </div>
   );
+}
+
+function workflowVersionLabel(target: WorkflowNodeDetailsTarget) {
+  const version = target.definitionVersionNumber;
+  const versionLabel = version > 0 ? `v${version}` : "version";
+  return `${versionLabel} ${shortIdentifier(target.definitionVersionId)}`;
 }
 
 function workflowDetailsTitle(target: WorkflowNodeDetailsTarget | null, node: WorkflowNode | null) {

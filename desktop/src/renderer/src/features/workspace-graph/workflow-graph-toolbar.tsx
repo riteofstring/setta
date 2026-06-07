@@ -23,6 +23,7 @@ import {
 import { useState } from "react";
 
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
+import { shortIdentifier } from "./workflow-node-details-helpers";
 
 export interface WorkflowDraftNodePosition {
   worldX: number;
@@ -83,15 +84,20 @@ export function WorkflowGraphToolbar({
       data-testid="workflow-graph-toolbar"
     >
       <div className="flex max-w-full flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-2 py-2 text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur">
-        <WorkflowToolbarTitle stateLabel={model.stateLabel} title={model.title} />
+        <WorkflowToolbarTitle
+          mismatchLabel={model.mismatchLabel}
+          stateLabel={model.stateLabel}
+          title={model.title}
+          versionLabel={model.versionLabel}
+        />
         <WorkflowAddNodeMenu
-          disabled={model.disabled || model.viewingRun}
+          disabled={model.disabled || !model.editable}
           menuOpen={addMenuOpen}
           onAddNode={onAddNode}
           setMenuOpen={setAddMenuOpen}
         />
         <ToolbarButton
-          disabled={model.disabled || model.viewingRun}
+          disabled={model.disabled || !model.editable}
           icon={model.validationIcon}
           label={model.validateLabel}
           onClick={onValidate}
@@ -108,7 +114,7 @@ export function WorkflowGraphToolbar({
         <WorkflowDraftButton
           disabled={model.disabled}
           onShowDraft={onShowDraft}
-          viewingRun={model.viewingRun}
+          viewingDraft={!model.showDraftButton}
         />
         <ToolbarButton
           disabled={model.detailsDisabled}
@@ -154,13 +160,39 @@ export function toolbarDraftNodePosition(
   };
 }
 
-function WorkflowToolbarTitle({ stateLabel, title }: { stateLabel: string; title: string }) {
+function WorkflowToolbarTitle({
+  mismatchLabel,
+  stateLabel,
+  title,
+  versionLabel,
+}: {
+  mismatchLabel: string;
+  stateLabel: string;
+  title: string;
+  versionLabel: string;
+}) {
   return (
     <div className="min-w-0 px-1">
       <div className="max-w-56 truncate text-xs font-semibold text-zinc-100">{title}</div>
       <div className="mt-0.5 text-[11px] text-zinc-500" data-testid="workflow-toolbar-state">
         {stateLabel}
       </div>
+      {versionLabel ? (
+        <div
+          className="mt-0.5 max-w-64 truncate font-mono text-[11px] text-zinc-500"
+          data-testid="workflow-toolbar-version-state"
+        >
+          {versionLabel}
+        </div>
+      ) : null}
+      {mismatchLabel ? (
+        <div
+          className="mt-0.5 max-w-64 truncate text-[11px] text-amber-300"
+          data-testid="workflow-toolbar-version-mismatch"
+        >
+          {mismatchLabel}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -237,13 +269,13 @@ function WorkflowAddNodeMenuItems({
 function WorkflowDraftButton({
   disabled,
   onShowDraft,
-  viewingRun,
+  viewingDraft,
 }: {
   disabled: boolean;
   onShowDraft: () => void;
-  viewingRun: boolean;
+  viewingDraft: boolean;
 }) {
-  if (!viewingRun) {
+  if (viewingDraft) {
     return null;
   }
   return (
@@ -369,19 +401,22 @@ function workflowToolbarModel({
   workspaceId: string;
 }) {
   const disabled = workflowToolbarDisabled(ready, workspaceId, busy);
-  const viewingRun = workflowProjectionIsRun(projection);
+  const editable = workflowProjectionIsEditableDraft(projection);
   return {
     detailsDisabled: workflowDetailsDisabled(disabled, selectedNodeLabel),
     detailsLabel: workflowDetailsLabel(selectedNodeLabel),
     disabled,
-    runDisabled: workflowRunDisabled(disabled, viewingRun, projection),
+    editable,
+    mismatchLabel: workflowToolbarMismatchLabel(projection),
+    runDisabled: workflowRunDisabled(disabled, editable, projection),
     runIcon: workflowRunIcon(busy),
     runLabel: workflowRunLabel(busy),
+    showDraftButton: workflowToolbarShowsDraftButton(projection),
     stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId),
     title: workflowToolbarTitle(projection, workspaceId),
     validateLabel: workflowValidateLabel(busy),
+    versionLabel: workflowToolbarVersionLabel(projection),
     validationIcon: workflowValidationIcon(validation),
-    viewingRun,
   };
 }
 
@@ -393,8 +428,8 @@ function workflowToolbarDisabled(
   return !ready || workspaceId === "" || busy !== null;
 }
 
-function workflowProjectionIsRun(projection: WorkflowGraphProjection | null) {
-  return projection !== null && projection.executionId !== "";
+function workflowProjectionIsEditableDraft(projection: WorkflowGraphProjection | null) {
+  return projection === null || (projection.viewMode === "draft" && projection.editable);
 }
 
 function workflowDetailsDisabled(disabled: boolean, selectedNodeLabel: string) {
@@ -407,10 +442,10 @@ function workflowDetailsLabel(selectedNodeLabel: string) {
 
 function workflowRunDisabled(
   disabled: boolean,
-  viewingRun: boolean,
+  editable: boolean,
   projection: WorkflowGraphProjection | null,
 ) {
-  return disabled || viewingRun || projection === null;
+  return disabled || !editable || projection === null;
 }
 
 function workflowRunIcon(busy: "run" | "validate" | null) {
@@ -439,7 +474,7 @@ function workflowValidationIcon(validation: WorkflowValidationResult | null) {
   return validation.valid ? CheckCircle2 : XCircle;
 }
 
-function workflowToolbarStateLabel(
+export function workflowToolbarStateLabel(
   projection: WorkflowGraphProjection | null,
   ready: boolean,
   workspaceId: string,
@@ -453,10 +488,40 @@ function workflowToolbarStateLabel(
   if (projection === null) {
     return "Blank draft";
   }
-  if (projection.executionId !== "") {
-    return `Run ${projection.executionStatus ?? "running"}`;
+  switch (projection.viewMode) {
+    case "draft":
+      return projection.editable ? "Draft editable" : "Draft read-only";
+    case "run":
+      return `Run ${projection.executionStatus ?? "running"} read-only`;
+    case "version":
+      return "Version snapshot read-only";
+    default:
+      return assertNever(projection.viewMode);
   }
-  return "Draft";
+}
+
+export function workflowToolbarVersionLabel(projection: WorkflowGraphProjection | null) {
+  if (projection === null || projection.viewMode === "draft") {
+    return "";
+  }
+  const version = projection.definitionVersionNumber;
+  const versionLabel = version > 0 ? `v${version}` : "version";
+  const versionId = shortIdentifier(projection.definitionVersionId);
+  if (projection.executionId !== "") {
+    return `run ${shortIdentifier(projection.executionId)} / ${versionLabel} ${versionId}`;
+  }
+  return `${versionLabel} ${versionId}`;
+}
+
+export function workflowToolbarMismatchLabel(projection: WorkflowGraphProjection | null) {
+  if (projection === null || !projection.versionMismatch) {
+    return "";
+  }
+  return "Current draft differs from this version";
+}
+
+function workflowToolbarShowsDraftButton(projection: WorkflowGraphProjection | null) {
+  return projection !== null && projection.viewMode !== "draft";
 }
 
 function diagnosticKey(diagnostic: WorkflowValidationDiagnostic) {
@@ -467,4 +532,8 @@ function diagnosticKey(diagnostic: WorkflowValidationDiagnostic) {
     diagnostic.edgeId,
     diagnostic.message,
   ].join(":");
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported workflow graph view mode: ${String(value)}`);
 }

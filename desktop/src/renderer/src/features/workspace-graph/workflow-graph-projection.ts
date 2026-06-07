@@ -49,8 +49,13 @@ interface PixiWorkspaceGraph {
   workflow: {
     definitionId: string;
     definitionName: string;
+    definitionVersionId: string;
+    definitionVersionNumber: number;
+    editable: boolean;
     executionId: string;
     executionStatus: string;
+    versionMismatch: boolean;
+    viewMode: WorkflowGraphProjection["viewMode"];
     workspaceId: string;
   } | null;
 }
@@ -134,8 +139,13 @@ export function pixiGraphFromWorkflowProjection(
     workflow: {
       definitionId: projection.definitionId,
       definitionName: projection.definitionName,
+      definitionVersionId: projection.definitionVersionId,
+      definitionVersionNumber: projection.definitionVersionNumber,
+      editable: projection.editable,
       executionId: projection.executionId,
       executionStatus: projection.executionStatus ?? "",
+      versionMismatch: projection.versionMismatch,
+      viewMode: projection.viewMode,
       workspaceId: projection.workspaceId,
     },
   };

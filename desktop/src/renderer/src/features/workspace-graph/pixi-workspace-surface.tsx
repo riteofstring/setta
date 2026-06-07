@@ -169,7 +169,7 @@ export function PixiWorkspaceSurface({
       if (syntheticGraph !== null || workflowProjection === null) {
         return;
       }
-      if (workflowProjection.executionId !== "") {
+      if (!workflowProjection.editable) {
         return;
       }
       if (workflowEditorError !== "") {
@@ -205,7 +205,7 @@ export function PixiWorkspaceSurface({
         setWorkflowEditorError("Create workflow nodes before connecting them");
         return;
       }
-      if (workflowProjection.executionId !== "") {
+      if (!workflowProjection.editable) {
         setWorkflowEditorError("Select the draft workflow before editing the graph");
         return;
       }
@@ -236,7 +236,7 @@ export function PixiWorkspaceSurface({
       setWorkflowEditorError("Open a workspace before validating a workflow");
       return null;
     }
-    if (workflowProjection?.executionId) {
+    if (workflowProjection !== null && !workflowProjection.editable) {
       setWorkflowEditorError("Switch to the draft workflow before validating");
       return null;
     }
@@ -277,7 +277,7 @@ export function PixiWorkspaceSurface({
       setWorkflowEditorError("Add a workflow node before running");
       return;
     }
-    if (workflowProjection.executionId !== "") {
+    if (!workflowProjection.editable) {
       setWorkflowEditorError("Switch to the draft workflow before starting another run");
       return;
     }
@@ -569,6 +569,7 @@ function workflowNodeDetailsTarget(
     definitionId: projection.definitionId,
     definitionName: projection.definitionName,
     definitionVersionId: projection.definitionVersionId,
+    definitionVersionNumber: projection.definitionVersionNumber,
     executionId: projection.executionId,
     nodeId,
     nodeKind: node?.kind ?? "",
@@ -576,6 +577,8 @@ function workflowNodeDetailsTarget(
     nodeStatus: node?.status ?? "",
     projectionIncomingEdges: projection.edges.filter((edge) => edge.toNodeId === nodeId),
     projectionOutgoingEdges: projection.edges.filter((edge) => edge.fromNodeId === nodeId),
+    versionMismatch: projection.versionMismatch,
+    viewMode: projection.viewMode,
     workspaceId: projection.workspaceId,
   };
 }
@@ -636,7 +639,7 @@ function workflowDraftNodeEditPreflight({
   if (workspaceId === "") {
     return "Open a workspace before editing a workflow";
   }
-  if (projection?.executionId) {
+  if (projection !== null && !projection.editable) {
     return "Select the draft workflow before editing the graph";
   }
   return null;
@@ -785,9 +788,11 @@ function useWorkflowProjection({
     const loadEventProjection = async (event: WorkflowEvent) => {
       const current = workflowTargetRef.current;
       if (
-        current !== null &&
-        current.workspaceId !== "" &&
-        current.workspaceId !== event.workspaceId
+        current === null ||
+        current.workspaceId === "" ||
+        current.workspaceId !== event.workspaceId ||
+        current.executionId === "" ||
+        current.executionId !== event.executionId
       ) {
         return;
       }

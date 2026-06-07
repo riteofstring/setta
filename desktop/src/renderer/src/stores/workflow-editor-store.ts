@@ -1,6 +1,7 @@
 import type {
   WorkflowGraphEdge,
   WorkflowGraphNodeStatus,
+  WorkflowGraphViewMode,
   WorkflowNodeKind,
 } from "@generated/backend";
 import { create } from "zustand";
@@ -9,6 +10,7 @@ export interface WorkflowNodeDetailsTarget {
   definitionId: string;
   definitionName: string;
   definitionVersionId: string;
+  definitionVersionNumber: number;
   executionId: string;
   nodeId: string;
   nodeKind: WorkflowNodeKind | "";
@@ -16,6 +18,8 @@ export interface WorkflowNodeDetailsTarget {
   nodeStatus: WorkflowGraphNodeStatus | "";
   projectionIncomingEdges: WorkflowGraphEdge[];
   projectionOutgoingEdges: WorkflowGraphEdge[];
+  versionMismatch: boolean;
+  viewMode: WorkflowGraphViewMode;
   workspaceId: string;
 }
 

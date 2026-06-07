@@ -10,8 +10,13 @@ describe("pixiGraphFromWorkflowProjection", () => {
     expect(graph.workflow).toEqual({
       definitionId: "definition_review",
       definitionName: "Review workflow",
+      definitionVersionId: "version_review",
+      definitionVersionNumber: 2,
+      editable: false,
       executionId: "execution_review",
       executionStatus: "running",
+      versionMismatch: false,
+      viewMode: "run",
       workspaceId: "workspace_test",
     });
     expect(graph.nodes.map((node) => [node.id, node.status, node.executionCount])).toEqual([
@@ -163,8 +168,15 @@ describe("pixiGraphFromWorkflowProjection", () => {
 function draftProjection(): WorkflowGraphProjection {
   return {
     ...testProjection(),
+    definitionVersionCreatedAt: "",
+    definitionVersionId: "",
+    definitionVersionNumber: 0,
+    draftMatchesVersion: true,
+    editable: true,
     executionId: "",
     executionStatus: null,
+    versionMismatch: false,
+    viewMode: "draft",
   };
 }
 
@@ -183,7 +195,12 @@ function testProjection(): WorkflowGraphProjection {
     definitionDescription: "",
     definitionId: "definition_review",
     definitionName: "Review workflow",
+    definitionVersionCreatedAt: "2026-06-05T12:00:00Z",
     definitionVersionId: "version_review",
+    definitionVersionNumber: 2,
+    draftMatchesVersion: true,
+    draftUpdatedAt: "2026-06-05T12:00:00Z",
+    editable: false,
     edges: [
       {
         activeTokenCount: 0,
@@ -222,6 +239,8 @@ function testProjection(): WorkflowGraphProjection {
     schemaVersion: 1,
     terminalReason: null,
     updatedAt: "2026-06-05T12:00:00Z",
+    versionMismatch: false,
+    viewMode: "run",
     workspaceId: "workspace_test",
   };
 }
