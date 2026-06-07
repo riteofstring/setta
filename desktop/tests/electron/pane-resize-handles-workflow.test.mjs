@@ -63,6 +63,7 @@ try {
 
   const horizontalBefore = await resizeTarget(context.client, "horizontal");
   assertHandleInPaneGap(horizontalBefore);
+  assertPanesTouch(horizontalBefore);
   await dispatchMouseDrag(context.client, {
     from: horizontalBefore.handle.center,
     to: {
@@ -80,6 +81,7 @@ try {
 
   const verticalBefore = await resizeTarget(context.client, "vertical");
   assertHandleInPaneGap(verticalBefore);
+  assertPanesTouch(verticalBefore);
   await dispatchMouseDrag(context.client, {
     from: verticalBefore.handle.center,
     to: {
@@ -243,6 +245,16 @@ function assertHandleInPaneGap(target) {
     Math.max(0, target.adjacentHost.rect.top - target.sourceHost.rect.bottom) / 2;
   if (Math.abs(target.handle.center.y - expectedY) > geometryTolerancePx) {
     throw new Error(`vertical handle is not centered in pane gap: ${JSON.stringify(target)}`);
+  }
+}
+
+function assertPanesTouch(target) {
+  const gap =
+    target.handle.axis === "horizontal"
+      ? target.adjacentHost.rect.left - target.sourceHost.rect.right
+      : target.adjacentHost.rect.top - target.sourceHost.rect.bottom;
+  if (Math.abs(gap) > geometryTolerancePx) {
+    throw new Error(`resize target panes do not touch: ${JSON.stringify(target)}`);
   }
 }
 

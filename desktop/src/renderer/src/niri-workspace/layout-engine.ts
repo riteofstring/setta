@@ -202,7 +202,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     const focusedLocation = this.locationForPane(input.focusedPaneId);
     const focusedPlaneIndex = focusedLocation?.planeIndex ?? this.planeIndexes()[0] ?? 0;
     const maximizedPaneId = input.maximizedPaneId;
-    const geometry = this.columnGeometry(input.viewport.width, maximizedPaneId);
+    const geometry = this.columnGeometry(input.viewport.width, maximizedPaneId, 0);
     const scrollColumn = this.constrainScrollColumnToViewport(
       input.scrollColumn,
       input.viewport.width,
@@ -212,6 +212,10 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     const availableHeight = this.availablePaneHeight(input.viewport.height);
     const verticalOffset = input.scrollRow;
     const planeOffsets = planeTopOffsets(this.planeIndexes(), input.viewport.height);
+    const normalPaneSpacing = {
+      padding: this.scene.padding,
+      rowGap: 0,
+    };
 
     const columnIndexes = renderedColumnIndexesForLayout({
       columns: this.columns,
@@ -241,7 +245,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
         presentationMode: input.presentationMode,
         push,
         scale: 1,
-        scene: this.scene,
+        scene: normalPaneSpacing,
         x,
         yOffset: planeTop - verticalOffset,
       });
@@ -419,9 +423,10 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
         currentScrollColumn,
         viewportWidth,
         focusedPlaneIndex,
+        this.columnGeometry(viewportWidth, maximizedPaneId, 0),
       );
     }
-    const geometry = this.columnGeometry(viewportWidth, maximizedPaneId);
+    const geometry = this.columnGeometry(viewportWidth, maximizedPaneId, 0);
     return this.constrainScrollColumnToViewport(
       this.planeColumnIndex(focusedColumn),
       viewportWidth,
@@ -431,7 +436,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   }
 
   totalColumnOverflowWidth(viewportWidth: number): number {
-    const geometry = this.columnGeometry(viewportWidth);
+    const geometry = this.columnGeometry(viewportWidth, null, 0);
     return this.scene.padding * 2 + this.maxUnscaledPlaneWidth(geometry);
   }
 
@@ -493,6 +498,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
   private columnGeometry(
     viewportWidth: number,
     maximizedPaneId: PaneId | null = null,
+    columnGap = this.scene.columnGap,
   ): ColumnGeometry {
     const widths = this.columns.map((column) =>
       maximizedPaneId && column.paneIds.includes(maximizedPaneId)
@@ -501,7 +507,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     );
     const offsets = Array.from({ length: this.columns.length }, () => 0);
     const slotOffsets = slotOffsetsForColumns({
-      columnGap: this.scene.columnGap,
+      columnGap,
       columns: this.columns,
       defaultWidth: this.resolveColumnWidthSpec(this.scene.defaultColumnWidthSpec, viewportWidth),
       widths,
@@ -814,7 +820,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     if (!sourceColumn) {
       return null;
     }
-    const geometry = this.columnGeometry(viewportWidth);
+    const geometry = this.columnGeometry(viewportWidth, null, 0);
     const sourceCenter = this.columnHorizontalCenter(sourceColumn, geometry);
     let nearestColumn: NiriColumn | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
@@ -904,7 +910,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       column,
       maximizedPaneId,
       paneById: this.paneById,
-      rowGap: this.scene.rowGap,
+      rowGap: 0,
     });
   }
 }

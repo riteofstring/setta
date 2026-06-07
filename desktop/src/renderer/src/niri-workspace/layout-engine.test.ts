@@ -140,12 +140,27 @@ describe("real niri workspace column sizing", () => {
 
     expect(items).toHaveLength(5);
     expect(items[0]?.x).toBe(10);
-    expect(items[1]?.x).toBe(538);
-    expect(items[2]?.x).toBe(1066);
+    expect(items[1]?.x).toBe(530);
+    expect(items[2]?.x).toBe(1050);
     expect(items[2]?.x).toBeLessThan(1200);
     expect(items[3]?.x).toBeGreaterThan(1200);
     expect(items[4]?.x).toBeGreaterThan(1200);
     expect(engine.totalColumnOverflowWidth(1200)).toBeGreaterThan(1200);
+  });
+
+  test("collapses empty normal-layout slots so visible panes stay attached", () => {
+    const engine = new NiriLikeLayoutEngine(createSparseGeneratedPaneScene());
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
+
+    expect(items.map((item) => item.paneId)).toEqual(["workspace_pane_0", "niri_pane_8"]);
+    expect(items[0]).toMatchObject({
+      width: 520,
+      x: 10,
+    });
+    expect(items[1]).toMatchObject({
+      width: 520,
+      x: 530,
+    });
   });
 
   test("renders cached columns on both sides while horizontally scrolled", () => {
@@ -559,7 +574,7 @@ describe("real niri workspace column sizing", () => {
       tallSnapshot.scrollRow,
     );
     const tallFocusedItem = tallItems.find((item) => item.paneId === stackedPaneId);
-    expect(tallFocusedItem?.height).toBeCloseTo(335.384615);
+    expect(tallFocusedItem?.height).toBeCloseTo(338.461538);
     expect(tallFocusedItem?.y).toBe(10);
 
     store.ensureFocusedPaneVisible({ ...viewport, height: 600, width: 1200 });
@@ -577,7 +592,7 @@ describe("real niri workspace column sizing", () => {
     const focusedItem = shortItems.find((item) => item.paneId === stackedPaneId);
     const firstRowItem = shortItems.find((item) => item.paneId === "workspace_pane_0");
 
-    expect(focusedItem?.height).toBeCloseTo(220);
+    expect(focusedItem?.height).toBeCloseTo(223.076923);
     expect(focusedItem?.y).toBe(10);
     expect(firstRowItem?.y).toBeLessThan(0);
   });
@@ -638,7 +653,7 @@ describe("real niri workspace column sizing", () => {
       height: viewport.height - 20,
       maximized: true,
       width: 1180,
-      x: -1178,
+      x: -1170,
       y: 10,
       z: 1,
     });
