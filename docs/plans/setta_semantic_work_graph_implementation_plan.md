@@ -349,9 +349,63 @@ Verification:
 Goal: connect real Setta work to semantic evidence without inferring durable
 semantic meaning yet.
 
+Scope guard:
+
+- Implement explicit evidence and activity capture only.
+- Do not implement cartographer automation, context compiler behavior, semantic
+  node creation from heuristics, keyword matching, embedding/vector matching,
+  automatic topic extraction, user steering operations, constraint enforcement,
+  or agent behavior changes in this phase.
+- Existing semantic nodes may be explicitly attached to real Setta work. The
+  system should not decide that a prompt, file, run, or workflow node deserves a
+  new semantic node.
+- Evidence should be grounded in production entities and lightweight summaries.
+  Do not dump unbounded raw transcripts, tool output, diffs, logs, or file
+  contents into semantic evidence rows.
+- Activity overlays should be backed by typed source references, not by renderer
+  guesses or semantic-node label matching.
+
 Deliverables:
 
-- Attach evidence anchors from existing production paths:
+- Add explicit backend association APIs for attaching existing semantic nodes to
+  real work:
+
+```text
+attach semantic node to workflow execution
+attach semantic node to workflow node execution or workflow definition node
+attach semantic node to chat run
+attach semantic node to chat message or run item
+attach semantic node to file path/range
+detach or end an active semantic activity interval
+```
+
+- Store these associations as semantic events, usually combining:
+
+```text
+evidence.attached
+activity.started
+activity.ended
+```
+
+- Extend activity interval data with typed source references needed by the UI and
+  future replay:
+
+```text
+source_kind: workflow_execution | workflow_node | chat_run | chat_message | run_item | file_range | test | diff | command
+source_id
+workflow_execution_id
+workflow_node_id
+chat_conversation_id
+chat_run_id
+chat_message_id
+actor_kind
+actor_id
+```
+
+  Use only fields that are known for the source. Keep references typed and
+  explicit rather than overloading a freeform string.
+- Attach evidence anchors from existing production paths when explicitly
+  associated:
 
 ```text
 user prompts
@@ -361,26 +415,61 @@ workflow executions
 workflow nodes
 workflow events
 chat runs
-tool calls
+run items and tool calls
 file paths and ranges observed from activity
 diff summaries when available
 test command/result summaries when available
 ```
 
-- Record activity intervals when an existing run, workflow node, or agent task is
-  explicitly associated with a semantic node.
-- Add backend APIs for attaching existing semantic nodes to a run or workflow
-  node.
-- Show live/historical activity overlays in the renderer.
+- Add workspace/run scoped activity reads so Phase 2's renderer does not need to
+  fan out one `listActivity` request per semantic node as graphs grow:
+
+```text
+list activity by workspace, optional source/run filters, paginated
+list activity by semantic target, paginated
+current activity summary for semantic graph nodes
+```
+
+- Update the renderer to use the new activity summary/read path for live and
+  historical activity overlays.
+- Show explicit attachment state in semantic node details, including the source
+  kind, source id, summary, timestamps, and evidence reference.
 - Keep associations explicit in this phase. Do not add keyword-based or
   embedding-based automatic semantic-node creation.
+
+Evidence policy:
+
+```text
+store stable IDs, paths, ranges, timestamps, summaries, and content hashes when possible
+store short excerpts only when they are useful for inspection
+avoid storing large raw transcripts, full diffs, full logs, or complete file contents
+preserve enough information to navigate back to the owning production entity
+fail loudly when a requested production source cannot be resolved
+```
+
+Acceptance criteria:
+
+```text
+an existing semantic node can be attached to a real workflow execution
+an existing semantic node can be attached to a workflow node or chat run when available
+attachment creates evidence and activity records through semantic events
+activity can be ended explicitly
+semantic node details show attached work and evidence
+the graph surface shows current/recent activity without per-node request fanout
+reload preserves evidence and activity history
+no semantic nodes are auto-created from prompts, labels, files, or activity
+```
 
 Verification:
 
 - Focused backend tests for evidence anchor persistence and activity interval
-  lifecycle.
+  lifecycle, including source reference validation and activity paging.
+- HTTP contract tests for attach/read/end activity APIs.
+- Renderer tests for activity-summary projection and node-detail attachment
+  display.
 - Deterministic Electron/main/preload/renderer/HTTP/store test through a real
-  workflow/chat path when attaching semantic nodes to active work.
+  workflow/chat path when attaching semantic nodes to active work, ending
+  activity, reloading, and confirming no semantic content was inferred.
 
 ## Phase 4: User Editing And Steering Directives
 
