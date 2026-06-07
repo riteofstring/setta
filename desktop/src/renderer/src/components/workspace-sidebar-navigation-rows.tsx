@@ -121,6 +121,8 @@ export function SidebarNavigationRow({
       return <MoreConversationsRow item={item} runCommand={runCommand} />;
     case "recentWorkspace":
       return <RecentWorkspaceRow busy={busy} item={item} runCommand={runCommand} />;
+    case "sectionHeader":
+      return <SectionHeaderRow item={item} />;
     case "workflowDefinition":
       return <WorkflowDefinitionNavigationRow item={item} runCommand={runCommand} />;
     default:
@@ -230,6 +232,21 @@ function WorkflowDefinitionNavigationRow({
         <Workflow className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate text-xs">{item.definition.name}</span>
       </button>
+    </div>
+  );
+}
+
+function SectionHeaderRow({
+  item,
+}: {
+  item: Extract<SidebarNavigationItem, { kind: "sectionHeader" }>;
+}) {
+  return (
+    <div
+      className="flex h-7 items-end px-6 pb-1 text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-500"
+      data-sidebar-section={item.section}
+    >
+      {item.label}
     </div>
   );
 }

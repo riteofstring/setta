@@ -108,6 +108,7 @@ try {
   if (definitions.length !== 1 || definitions[0].name !== "Untitled workflow") {
     throw new Error(`workflow definitions after first edit = ${JSON.stringify(definitions)}`);
   }
+  await assertSidebarWorkflowConversationSections(context.client);
   const saved = await readSavedWorkflowDefinition(fixture.workspaceRoot, definitions[0].id);
   if (saved.name !== "Untitled workflow" || saved.graph.nodes[0]?.kind !== "start") {
     throw new Error(`saved workflow definition mismatch: ${JSON.stringify(saved)}`);
@@ -241,6 +242,40 @@ async function assertContextMenuAnchored(client, point) {
         menu: position,
         point,
       })}`,
+    );
+  }
+}
+
+async function assertSidebarWorkflowConversationSections(client) {
+  const sidebar = await client.evaluate(`(() => {
+    const list = document.querySelector('[data-testid="sidebar-navigation-list"]');
+    if (!(list instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-sidebar-list" };
+    }
+    const rows = [...list.querySelectorAll('[data-item-index]')].map((row) => ({
+      section: row.querySelector('[data-sidebar-section]')?.getAttribute('data-sidebar-section') ?? "",
+      testId: row.getAttribute("data-testid") ?? "",
+      text: row.textContent?.trim().replace(/\\s+/g, " ") ?? "",
+    }));
+    return { ok: true, rows };
+  })()`);
+  if (!sidebar.ok) {
+    throw new Error(`workflow sidebar sections unavailable: ${JSON.stringify(sidebar)}`);
+  }
+  const labels = sidebar.rows.map((row) => row.text);
+  const workflows = labels.indexOf("Workflows");
+  const workflow = labels.indexOf("Untitled workflow");
+  const conversations = labels.indexOf("Conversations");
+  const noChats = labels.indexOf("No chats");
+  if (
+    workflows < 0 ||
+    workflow < 0 ||
+    conversations < 0 ||
+    noChats < 0 ||
+    !(workflows < workflow && workflow < conversations && conversations < noChats)
+  ) {
+    throw new Error(
+      `workflow sidebar sections are not grouped correctly: ${JSON.stringify(sidebar.rows)}`,
     );
   }
 }

@@ -38,6 +38,7 @@ describe("workspace sidebar navigation model", () => {
     expect(items.map((item) => item.id)).toEqual([
       "active-workspace:workspace_api",
       "active-workspace:workspace_web",
+      "section:workspace_web:conversations",
       "conversation:conversation_web_build",
       "conversation:conversation_web_fix",
     ]);
@@ -55,6 +56,11 @@ describe("workspace sidebar navigation model", () => {
       selected: true,
     });
     expect(items[2]).toMatchObject({
+      kind: "sectionHeader",
+      label: "Conversations",
+      section: "conversations",
+    });
+    expect(items[3]).toMatchObject({
       commands: {
         primary: {
           conversationId: "conversation_web_build",
@@ -66,7 +72,7 @@ describe("workspace sidebar navigation model", () => {
       selected: false,
       unread: true,
     });
-    expect(items[3]).toMatchObject({
+    expect(items[4]).toMatchObject({
       kind: "conversation",
       selected: true,
       unread: false,
@@ -98,8 +104,10 @@ describe("workspace sidebar navigation model", () => {
 
     expect(items.map((item) => item.id)).toEqual([
       "active-workspace:workspace_api",
+      "section:workspace_api:conversations",
       "conversation:conversation_api_plan",
       "active-workspace:workspace_web",
+      "section:workspace_web:conversations",
       "conversation:conversation_web_fix",
     ]);
     expect(items[0]).toMatchObject({
@@ -114,11 +122,13 @@ describe("workspace sidebar navigation model", () => {
       expanded: true,
       selected: false,
     });
-    expect(items[1]).toMatchObject({ kind: "conversation", selected: false });
-    expect(items[3]).toMatchObject({ kind: "conversation", selected: true });
+    expect(items[1]).toMatchObject({ kind: "sectionHeader", label: "Conversations" });
+    expect(items[2]).toMatchObject({ kind: "conversation", selected: false });
+    expect(items[4]).toMatchObject({ kind: "sectionHeader", label: "Conversations" });
+    expect(items[5]).toMatchObject({ kind: "conversation", selected: true });
   });
 
-  test("adds workflow definition rows before conversations", () => {
+  test("adds workflow and conversation rows as sibling sections", () => {
     const api = workspace("workspace_api", "api");
 
     const items = selectSidebarNavigationItems({
@@ -147,10 +157,17 @@ describe("workspace sidebar navigation model", () => {
 
     expect(items.map((item) => item.id)).toEqual([
       "active-workspace:workspace_api",
+      "section:workspace_api:workflows",
       "workflow:workflow_definition_review",
+      "section:workspace_api:conversations",
       "conversation:conversation_api_plan",
     ]);
     expect(items[1]).toMatchObject({
+      kind: "sectionHeader",
+      label: "Workflows",
+      section: "workflows",
+    });
+    expect(items[2]).toMatchObject({
       commands: {
         primary: {
           definitionId: "workflow_definition_review",
@@ -160,6 +177,11 @@ describe("workspace sidebar navigation model", () => {
       },
       kind: "workflowDefinition",
       selected: true,
+    });
+    expect(items[3]).toMatchObject({
+      kind: "sectionHeader",
+      label: "Conversations",
+      section: "conversations",
     });
   });
 
@@ -210,12 +232,28 @@ describe("workspace sidebar navigation model", () => {
       workspaceConversationLists: {
         [api.id]: conversationList([]),
       },
-      workspaceWorkflowDefinitionLists: {},
+      workspaceWorkflowDefinitionLists: {
+        [api.id]: {
+          definitions: [],
+          error: null,
+          loading: false,
+        },
+      },
     });
 
     expect(emptyItems.map((item) => item.kind)).toEqual([
       "activeWorkspace",
+      "sectionHeader",
+      "emptyWorkflowList",
+      "sectionHeader",
       "emptyConversationList",
+    ]);
+    expect(emptyItems.map((item) => item.label)).toEqual([
+      "api",
+      "Workflows",
+      "No workflows",
+      "Conversations",
+      "No chats",
     ]);
 
     const conversations = Array.from({ length: 3 }, (_, index) =>
@@ -237,10 +275,11 @@ describe("workspace sidebar navigation model", () => {
 
     expect(limitedItems.map((item) => item.id)).toEqual([
       "active-workspace:workspace_api",
+      "section:workspace_api:conversations",
       "conversation:conversation_0",
       "conversation-more:workspace_api",
     ]);
-    expect(limitedItems[2]).toMatchObject({
+    expect(limitedItems[3]).toMatchObject({
       commands: { primary: { type: "showMoreConversations" } },
       hiddenCount: 2,
       kind: "moreConversations",
@@ -297,6 +336,7 @@ describe("workspace sidebar navigation model", () => {
     });
     expect(refreshingItems.map((item) => item.id)).toEqual([
       "active-workspace:workspace_api",
+      "section:workspace_api:conversations",
       "conversation:conversation_api_plan",
     ]);
   });

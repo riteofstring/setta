@@ -77,6 +77,13 @@ export type SidebarNavigationItem =
       workspace: WorkspaceSummary;
     }
   | {
+      id: string;
+      kind: "sectionHeader";
+      label: string;
+      section: "conversations" | "workflows";
+      workspaceId: string;
+    }
+  | {
       commands: {
         primary: SidebarNavigationCommand;
       };
@@ -151,17 +158,22 @@ export function selectSidebarNavigationItems({
     });
 
     if (expanded) {
+      const workflowRows = workflowItems({
+        selectedWorkflowDefinitionId:
+          selectedWorkflowDefinitionIdsByWorkspaceId[workspace.id] ?? "",
+        workflowDefinitionList: workspaceWorkflowDefinitionLists[workspace.id],
+        workspaceId: workspace.id,
+      });
+      const conversationRows = conversationItems({
+        conversationList: workspaceConversationLists[workspace.id],
+        selectedConversationId: selected ? selectedConversationId : "",
+        visibleConversationLimit,
+        workspaceId: workspace.id,
+      });
       items.push(
-        ...workflowItems({
-          selectedWorkflowDefinitionId:
-            selectedWorkflowDefinitionIdsByWorkspaceId[workspace.id] ?? "",
-          workflowDefinitionList: workspaceWorkflowDefinitionLists[workspace.id],
-          workspaceId: workspace.id,
-        }),
-        ...conversationItems({
-          conversationList: workspaceConversationLists[workspace.id],
-          selectedConversationId: selected ? selectedConversationId : "",
-          visibleConversationLimit,
+        ...sectionedWorkspaceRows({
+          conversationRows,
+          workflowRows,
           workspaceId: workspace.id,
         }),
       );
@@ -189,6 +201,42 @@ export function selectSidebarNavigationItems({
   }
 
   return items;
+}
+
+function sectionedWorkspaceRows({
+  conversationRows,
+  workflowRows,
+  workspaceId,
+}: {
+  conversationRows: SidebarNavigationItem[];
+  workflowRows: SidebarNavigationItem[];
+  workspaceId: string;
+}) {
+  const items: SidebarNavigationItem[] = [];
+  if (workflowRows.length > 0) {
+    items.push(sectionHeaderItem(workspaceId, "workflows", "Workflows"), ...workflowRows);
+  }
+  if (conversationRows.length > 0) {
+    items.push(
+      sectionHeaderItem(workspaceId, "conversations", "Conversations"),
+      ...conversationRows,
+    );
+  }
+  return items;
+}
+
+function sectionHeaderItem(
+  workspaceId: string,
+  section: "conversations" | "workflows",
+  label: string,
+) {
+  return {
+    id: `section:${workspaceId}:${section}`,
+    kind: "sectionHeader",
+    label,
+    section,
+    workspaceId,
+  } satisfies SidebarNavigationItem;
 }
 
 function workflowItems({

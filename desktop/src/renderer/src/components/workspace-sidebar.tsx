@@ -536,6 +536,8 @@ function sidebarItemTestId(item: SidebarNavigationItem) {
       return "conversation-more-item";
     case "recentWorkspace":
       return "recent-workspace-item";
+    case "sectionHeader":
+      return "workspace-sidebar-section-item";
     case "workflowDefinition":
       return "workflow-definition-item";
     default:
