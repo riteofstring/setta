@@ -700,10 +700,10 @@ Target recovery outcomes:
 | `recovered_completed`      | Runner proves the attempt completed while Setta was down.                      | Commit terminal output and continue scheduling from the committed graph state.                                                     |
 | `recovered_failed`         | Runner proves the attempt failed while Setta was down.                         | Commit failure and apply normal failure routing or terminal handling.                                                              |
 | `retry_scheduled`          | Existing attempt cannot continue, but side-effect policy proves retry is safe. | Mark old attempt failed with recovery details, create the next attempt with a new attempt id and the same workflow input snapshot. |
-| `manual_recovery_required` | The outcome or side effect is uncertain and automatic retry is unsafe.         | Mark the node attempt `recovery_required`, set run status `waiting_recovery`, and require explicit user action.                    |
+| `manual_recovery_required` | The outcome or side effect is uncertain and automatic retry is unsafe.         | Keep the run non-terminal, mark the node attempt and runner state `recovery_required`, and require explicit user action.           |
 | `failed_interrupted`       | Recovery is unsupported or impossible and policy permits failing loudly.       | Mark active attempts failed and fail the run with terminal reason `interrupted`.                                                   |
 
-The target status model adds `workflow.node.status = recovery_required` and `workflow.execution.status = waiting_recovery` for manual recovery. These states are non-terminal and must be visible in graph projection and event replay.
+The implemented manual-recovery status model keeps `workflow.execution.status = running` so the run remains non-terminal, and marks `workflow.node.status = recovery_required` plus `workflow.runner_state.status = recovery_required`. Those states must be visible in graph projection and event replay.
 
 ### Activity Reference Mapping
 
