@@ -34,11 +34,19 @@ interface PixiWorkspaceNodePosition {
   y: number;
 }
 
+interface PixiWorkspaceCanvasContextMenu {
+  clientX: number;
+  clientY: number;
+  worldX: number;
+  worldY: number;
+}
+
 interface CreatePixiWorkspaceRendererOptions {
   debugEnabled: boolean;
   debugSurfaceId?: string;
   graph?: PixiWorkspaceGraph;
   host: HTMLElement;
+  onCanvasContextMenu?: (menu: PixiWorkspaceCanvasContextMenu) => void;
   onNodePositionsChange?: (positions: PixiWorkspaceNodePosition[]) => void;
   reactRenderCount: () => number;
 }

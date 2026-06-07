@@ -307,13 +307,6 @@ function ProjectRow({
         >
           <MessageSquarePlus className="h-3.5 w-3.5" />
         </SidebarIconButton>
-        <SidebarIconButton
-          disabled={rowBusy}
-          label={`New workflow in ${workspace.displayName}`}
-          onClick={() => void runCommand(item.commands.createWorkflow)}
-        >
-          <Workflow className="h-3.5 w-3.5" />
-        </SidebarIconButton>
         <ProjectMoreMenu
           busy={busy}
           closeCommand={item.commands.close}

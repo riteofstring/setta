@@ -26,13 +26,17 @@ import {
 import { createPixiWorkspaceSpatialQueries } from "./pixi-workspace-renderer-spatial-queries";
 import {
   cameraState,
+  cameraStatesDiffer,
   capturePointer,
   clamp,
+  countMapValues,
+  createCanvasContextMenuHandler,
   drawCurvedEdge,
   drawMarqueeSelection,
   drawPortVisualState,
   drawTemporaryEdge,
   drawWorkspaceGlow,
+  frameSampleStats,
   hostScreenSize,
   isSelectionToggleEvent,
   isZoomWheel,
@@ -66,6 +70,7 @@ export async function createPixiWorkspaceRenderer({
   debugSurfaceId = "pixi-workspace",
   graph = { edges: initialEdges, nodes: initialNodes },
   host,
+  onCanvasContextMenu = null,
   onNodePositionsChange = null,
   reactRenderCount,
 }) {
@@ -303,6 +308,11 @@ export async function createPixiWorkspaceRenderer({
     panCameraByScreenDelta(delta.x, delta.y);
     wheelPanUpdateCount += 1;
   };
+  const contextMenu = createCanvasContextMenuHandler({
+    canvas: app.canvas,
+    onCanvasContextMenu,
+    viewport,
+  });
   const keyDown = (event) => {
     if (event.key !== "Escape") {
       return;
@@ -328,6 +338,7 @@ export async function createPixiWorkspaceRenderer({
   app.canvas.addEventListener("pointerdown", pointerDown, true);
   app.canvas.addEventListener("pointermove", pointerMove);
   app.canvas.addEventListener("pointerleave", pointerLeave);
+  app.canvas.addEventListener("contextmenu", contextMenu);
   app.canvas.addEventListener("wheel", wheel, { capture: true, passive: false });
   window.addEventListener("pointerup", pointerUp);
   window.addEventListener("pointercancel", pointerCancel);
@@ -343,11 +354,7 @@ export async function createPixiWorkspaceRenderer({
       recentFrameMs.shift();
     }
     const nextCameraState = cameraState(viewport);
-    if (
-      nextCameraState.x !== lastCameraState.x ||
-      nextCameraState.y !== lastCameraState.y ||
-      nextCameraState.zoom !== lastCameraState.zoom
-    ) {
+    if (cameraStatesDiffer(nextCameraState, lastCameraState)) {
       cameraUpdateCount += 1;
       lastCameraState = nextCameraState;
       syncAllLabels();
@@ -363,10 +370,7 @@ export async function createPixiWorkspaceRenderer({
         const visual = samplePixiVisualState(app.renderer, app.stage, backgroundColor);
         const camera = cameraState(viewport);
         const nodeGeometryContexts = nodeGeometryContextCounts();
-        const frameAverage =
-          recentFrameMs.length === 0
-            ? 0
-            : recentFrameMs.reduce((total, value) => total + value, 0) / recentFrameMs.length;
+        const frameStats = frameSampleStats(recentFrameMs);
         return {
           camera,
           canvas: {
@@ -444,14 +448,14 @@ export async function createPixiWorkspaceRenderer({
             selectedNodeIds: [...selectedNodeIds],
           },
           render: {
-            averageFrameMs: frameAverage,
+            averageFrameMs: frameStats.average,
             cameraUpdateCount,
             edgeCommitCount,
             edgeGraphicsCount: 1,
             edgeRedrawCount,
             frameCount,
             gridDrawCount,
-            compactSelectedLabelCount: compactSelectedLabelCount(),
+            compactSelectedLabelCount: countMapValues(nodeLabelFontSizeModes, "compact-selected"),
             labelObjectCount: nodeLabels.size,
             labelSyncCount,
             labelVisibilityMode: labelVisibilityModeForZoom(camera.zoom),
@@ -476,7 +480,7 @@ export async function createPixiWorkspaceRenderer({
             visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
             wheelPanUpdateCount,
             wheelZoomUpdateCount,
-            worstFrameMs: recentFrameMs.length === 0 ? 0 : Math.max(...recentFrameMs),
+            worstFrameMs: frameStats.worst,
           },
           surfaceId: debugSurfaceId,
           visual,
@@ -491,6 +495,7 @@ export async function createPixiWorkspaceRenderer({
       app.canvas.removeEventListener("pointerdown", pointerDown, true);
       app.canvas.removeEventListener("pointermove", pointerMove);
       app.canvas.removeEventListener("pointerleave", pointerLeave);
+      app.canvas.removeEventListener("contextmenu", contextMenu);
       app.canvas.removeEventListener("wheel", wheel, true);
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("pointercancel", pointerCancel);
@@ -952,11 +957,6 @@ export async function createPixiWorkspaceRenderer({
       visibleNodeIds: spatialQueries.labelVisibleNodeIds(),
       visibilityReasons: nodeLabelVisibilityReasons,
     });
-  }
-
-  function compactSelectedLabelCount() {
-    return [...nodeLabelFontSizeModes.values()].filter((mode) => mode === "compact-selected")
-      .length;
   }
 
   function setPortVisualState(nodeId, portId, state) {

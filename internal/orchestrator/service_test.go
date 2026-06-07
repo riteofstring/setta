@@ -98,6 +98,37 @@ func TestServiceStoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart(t *testing.T
 	}
 }
 
+func TestServiceStoresNullWorkflowDraftAndRejectsRun(t *testing.T) {
+	_, resolver, service, workspaceID := newTestWorkflowService(t)
+	workspaceRoot := resolver.workspaces[workspaceID].RootPath
+
+	definition, err := service.CreateDefinition(workspaceID, "Untitled workflow", "", WorkflowGraph{})
+	if err != nil {
+		t.Fatalf("create null workflow definition: %v", err)
+	}
+	if len(definition.Graph.Nodes) != 0 || len(definition.Graph.Edges) != 0 {
+		t.Fatalf("null workflow graph = %+v, want empty nodes and edges", definition.Graph)
+	}
+	definitionPath := workflowDefinitionPath(workspaceRoot, definition.Name, definition.ID)
+	raw, err := os.ReadFile(definitionPath)
+	if err != nil {
+		t.Fatalf("read null workflow definition file: %v", err)
+	}
+	for _, expected := range []string{`"nodes": []`, `"edges": []`, `"layout": {`} {
+		if !strings.Contains(string(raw), expected) {
+			t.Fatalf("definition file missing %s: %s", expected, raw)
+		}
+	}
+
+	_, err = service.StartExecution(workspaceID, definition.ID, "")
+	if err == nil {
+		t.Fatal("start null workflow succeeded, want validation error")
+	}
+	if !strings.Contains(err.Error(), "blank workflow cannot be run") {
+		t.Fatalf("start null workflow error = %v, want null workflow validation", err)
+	}
+}
+
 func TestServiceStartupRecoveryRequiresManualStateForUncertainSideEffects(t *testing.T) {
 	runner := newRecordingActionRunner()
 	runner.recover = func(request ActionRecoverRequest) ActionRecoverResult {

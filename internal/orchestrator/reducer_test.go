@@ -105,6 +105,24 @@ func TestValidateGraphValidResultUsesEmptyDiagnosticsArray(t *testing.T) {
 	}
 }
 
+func TestValidateGraphAllowsNullWorkflowDraft(t *testing.T) {
+	result := ValidateGraph(WorkflowGraph{}, DefaultRunnerRegistry())
+	if !result.Valid {
+		t.Fatalf("validation diagnostics = %+v, want valid null workflow draft", result.Diagnostics)
+	}
+	if result.Diagnostics == nil {
+		t.Fatal("diagnostics = nil, want empty slice for generated contract decoding")
+	}
+}
+
+func TestValidateExecutableGraphRejectsNullWorkflow(t *testing.T) {
+	result := ValidateExecutableGraph(WorkflowGraph{}, DefaultRunnerRegistry())
+	if result.Valid {
+		t.Fatalf("executable validation unexpectedly passed: %+v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result, "null_workflow_not_executable")
+}
+
 func TestValidateGraphReportsStaleLayoutAsWarning(t *testing.T) {
 	graph := startEndGraph()
 	graph.Layout = WorkflowGraphLayout{

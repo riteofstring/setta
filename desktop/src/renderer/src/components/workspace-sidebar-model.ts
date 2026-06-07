@@ -12,7 +12,6 @@ export type SidebarNavigationCommand =
       workspaceId: string;
     }
   | { type: "createWorkspaceConversation"; workspaceId: string }
-  | { type: "createWorkspaceWorkflow"; workspaceId: string }
   | { type: "closeWorkspace"; workspaceId: string }
   | { type: "openRecentWorkspace"; rootPath: string; workspaceId: string }
   | { type: "removeRecentWorkspace"; workspaceId: string }
@@ -25,7 +24,6 @@ export type SidebarNavigationItem =
       commands: {
         close: SidebarNavigationCommand;
         createConversation: SidebarNavigationCommand;
-        createWorkflow: SidebarNavigationCommand;
         primary: SidebarNavigationCommand;
       };
       expanded: boolean;
@@ -137,7 +135,6 @@ export function selectSidebarNavigationItems({
       commands: {
         close: { type: "closeWorkspace", workspaceId: workspace.id },
         createConversation: { type: "createWorkspaceConversation", workspaceId: workspace.id },
-        createWorkflow: { type: "createWorkspaceWorkflow", workspaceId: workspace.id },
         primary: {
           nextExpanded: selected ? !expanded : true,
           selectWorkspace: !selected,

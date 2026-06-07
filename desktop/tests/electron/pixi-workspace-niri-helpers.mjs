@@ -69,6 +69,33 @@ export async function dispatchPixiMouseClick(client, surfaceId, { modifiers = 0,
   });
 }
 
+export async function dispatchPixiContextMenu(client, surfaceId, { x, y }) {
+  const point = await pagePointForCanvasPoint(client, surfaceId, { x, y });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    type: "mouseMoved",
+    x: point.x,
+    y: point.y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "right",
+    buttons: 2,
+    clickCount: 1,
+    type: "mousePressed",
+    x: point.x,
+    y: point.y,
+  });
+  await delay(16);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "right",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: point.x,
+    y: point.y,
+  });
+}
+
 export async function dispatchPixiMouseMove(client, surfaceId, { x, y }) {
   await client.call("Input.dispatchMouseEvent", {
     button: "none",

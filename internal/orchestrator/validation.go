@@ -146,6 +146,13 @@ func runnerSupportsOperation(capabilities RunnerCapabilities, operation RunnerOp
 }
 
 func ValidateGraph(graph WorkflowGraph, registry RunnerRegistry) WorkflowValidationResult {
+	graph = normalizeWorkflowGraph(graph)
+	if isNullWorkflowGraph(graph) {
+		return WorkflowValidationResult{
+			Valid:       true,
+			Diagnostics: []WorkflowValidationDiagnostic{},
+		}
+	}
 	validator := graphValidator{
 		graph:       graph,
 		registry:    registry,
@@ -164,6 +171,25 @@ func ValidateGraph(graph WorkflowGraph, registry RunnerRegistry) WorkflowValidat
 		Valid:       !validator.hasErrors(),
 		Diagnostics: diagnostics,
 	}
+}
+
+func ValidateExecutableGraph(graph WorkflowGraph, registry RunnerRegistry) WorkflowValidationResult {
+	graph = normalizeWorkflowGraph(graph)
+	if !isNullWorkflowGraph(graph) {
+		return ValidateGraph(graph, registry)
+	}
+	return WorkflowValidationResult{
+		Valid: false,
+		Diagnostics: []WorkflowValidationDiagnostic{{
+			Severity: ValidationSeverityError,
+			Code:     "null_workflow_not_executable",
+			Message:  "blank workflow cannot be run until it has executable nodes and edges",
+		}},
+	}
+}
+
+func isNullWorkflowGraph(graph WorkflowGraph) bool {
+	return len(graph.Nodes) == 0 && len(graph.Edges) == 0
 }
 
 type graphValidator struct {

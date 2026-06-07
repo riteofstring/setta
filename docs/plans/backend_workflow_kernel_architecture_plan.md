@@ -225,6 +225,7 @@ The editor should author workspace-saved workflow definition files. It must not 
 Core direction:
 
 - Author workspace JSON files containing `WorkflowDefinition.graph`; render `WorkflowGraphProjection` as a read-only runtime overlay.
+- Treat an empty graph as a valid draft/null workflow; opening the graph editor should show an editable blank canvas, and the first graph edit should materialize the workspace JSON file automatically.
 - Persist editor layout through a Go-owned workflow contract and regenerate TypeScript.
 - Keep node type, validation state, runtime state, and editor affordance visually distinct.
 - Treat initial edges as typed control transitions, not data flow, artifact references, or knowledge links.
@@ -846,7 +847,8 @@ Next storage slice:
 
 - Store authored workflow definitions as deterministic JSON files in the workspace.
 - List workspace workflow files in the left pane and open a selected definition explicitly.
-- Create a starter workflow file from the graph surface when none exists.
+- Show an editable blank canvas when no workflow file exists, and materialize the workspace JSON file on first graph edit.
+- Allow draft workflow files to save before they are executable; run/start remains gated by executable validation.
 - Capture immutable SQLite version snapshots when a workflow is run.
 - Replace current global-SQLite authored-definition storage directly, without compatibility or migration paths.
 
@@ -925,7 +927,7 @@ For each phase, run the narrowest checks first, then broaden after behavior is s
 Required deterministic workflow tests should cover:
 
 - Start workspace.
-- Create workflow.
+- Open blank/null workflow canvas and materialize a workflow file from the first graph edit.
 - Start execution.
 - Stream node events.
 - Fan-out.
@@ -969,6 +971,7 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 - Do not preserve existing workflow data or maintain compatibility paths. Replace the implementation directly when the target design is clearer.
 - Make the functional graph editor the next implementation target before later runner expansion.
 - Treat the workspace JSON file containing `WorkflowDefinition.graph` as the authored workflow artifact; treat `WorkflowGraphProjection` as a read-only runtime display overlay.
+- Treat the blank canvas as a valid draft/null workflow instead of a separate create-workflow state; first graph edit creates the backing workspace file.
 - Treat initial editor edges as directed control transitions. Do not use one edge layer for control flow, data flow, artifact references, and knowledge links.
 - Keep routing conditions typed and backend-owned. Do not route from arbitrary expression strings or prose assistant output.
 - Treat virtual ports as deterministic editor affordances that compile to real workflow edges and conditions, not as a separate durable contract.
@@ -988,4 +991,4 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 
 ## Recommended Next Step
 
-Build the functional workflow graph editor before later runner expansion. Start with workspace JSON workflow files that contain `WorkflowDefinition.graph`, support `Agent Task`, `Route`, `Merge`, `Barrier Join`, `Start`, and `End`; keep edges as typed control transitions; persist layout through the Go-owned graph contract; capture immutable SQLite snapshots when runs start; and overlay runtime projection state from saved versions. Proceed to sandboxed process, MCP, sidecar, LangGraph, OpenAI Agents SDK, LangFlow, or Python runner work only after the editor proves the graph authoring model under real use.
+Build the functional workflow graph editor before later runner expansion. Start with an editable blank/null workflow canvas that materializes a workspace JSON file on first graph edit. The workspace files contain `WorkflowDefinition.graph`, support `Agent Task`, `Route`, `Merge`, `Barrier Join`, `Start`, and `End`; keep edges as typed control transitions; persist layout through the Go-owned graph contract; capture immutable SQLite snapshots when runs start; and overlay runtime projection state from saved versions. Proceed to sandboxed process, MCP, sidecar, LangGraph, OpenAI Agents SDK, LangFlow, or Python runner work only after the editor proves the graph authoring model under real use.

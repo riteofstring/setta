@@ -1,7 +1,7 @@
 # Functional Workflow Graph Editor Plan
 
 - **Date:** June 8, 2026
-- **Status:** Phase 4 direction; first layout slice complete; workspace-file storage direction added
+- **Status:** Phase 4 direction; first layout slice complete; workspace-file storage and null-workflow authoring direction added
 - **Scope:** Build the first usable workflow graph editor on top of workspace JSON workflow definitions containing `WorkflowDefinition.graph` and runtime `WorkflowGraphProjection` overlays.
 
 ## Direction
@@ -11,7 +11,10 @@ The editor should author workspace-saved workflow definitions. It must not treat
 Target authoring flow:
 
 ```text
-Canvas interaction
+Open Workflow Graph
+  -> blank editable canvas when no workflow file is selected
+  -> first graph edit materializes a workspace workflow definition file
+  -> subsequent canvas interactions
   -> renderer draft of WorkflowDefinition.graph
   -> backend validation
   -> deterministic workspace JSON workflow file
@@ -21,6 +24,8 @@ Canvas interaction
 ```
 
 `WorkflowGraphProjection` is a derived read model for display. It may provide status, activity counts, pending approvals, errors, and edge activation state for a selected run. It is not the editable definition.
+
+An empty graph is a valid draft/null workflow. The editor should render it as the normal editable canvas, not as a separate "create workflow" state. Creating a workflow file is a persistence consequence of the first real edit, such as adding a node or changing graph metadata. A null workflow may be saved as a deterministic workspace JSON definition, but starting a run still requires executable validation.
 
 The Pixi graph is a rendering adapter. It may have positions, dimensions, colors, labels, hit targets, ports, and interaction state. Pixi-local mutations are not workflow edits until they update the renderer draft and save through the backend workflow definition API.
 
@@ -108,7 +113,9 @@ Keep canonical port names small and stable. Do not allow near-duplicates such as
 
 Right-click canvas creation is useful, but it should not be the only creation path. The editor should also support a visible add control or command palette so node creation is discoverable.
 
-Workspace workflow definitions should be listed in the left pane alongside conversations or in a sibling Workflows section. A user should be able to create a workflow, name it, select it later, and open the exact saved definition instead of relying on an implicit “latest workflow” projection.
+Workspace workflow definitions should be listed in the left pane alongside conversations or in a sibling Workflows section. A user should be able to name a materialized workflow, select it later, and open the exact saved definition instead of relying on an implicit “latest workflow” projection.
+
+Do not expose a "Create workflow" button just to allocate persistence. Opening the graph editor should show the canvas immediately. If no workflow file exists yet, the canvas represents the workspace's null workflow; the first graph edit creates the file automatically and the left pane lists it after that.
 
 Initial canvas creation menu:
 
@@ -145,14 +152,18 @@ The first slice established backend-owned editor layout metadata and proved it t
 
 - Add a workspace workflow file source of truth with deterministic JSON formatting.
 - List workspace workflow definitions in the left pane and load the selected definition explicitly.
-- Create a starter workflow file from the graph surface when no workflow exists.
+- Show a blank editable canvas when no workflow file exists.
+- Materialize a deterministic workspace workflow file on the first graph edit instead of requiring a separate create action.
+- Treat an empty graph as a valid draft/null workflow while keeping executable validation at run start.
 - Save graph edits and layout edits to the workspace file through the backend workflow definition API.
 - Capture immutable SQLite version snapshots when a workflow run starts.
 - Remove global-SQLite authored-definition authority directly, without migration or compatibility paths.
 
 ## Phase 4 Deliverables
 
-- Create, name, list, open, edit, validate, save, and run workspace workflow definitions from the renderer.
+- Name, list, open, edit, validate, save, and run workspace workflow definitions from the renderer.
+- Render an empty editable canvas as the null workflow when no saved definition exists.
+- Materialize a saved workspace definition on first graph edit, not through a separate create-workflow button.
 - Maintain an editor draft using generated backend workflow types, not a hardcoded TypeScript mirror.
 - Save authored graph data as deterministic workspace JSON, not as the long-term global SQLite source of truth.
 - Add backend-owned editor layout metadata when manual node positions need to persist, then regenerate generated TypeScript outputs.
@@ -172,6 +183,8 @@ The first slice established backend-owned editor layout metadata and proved it t
 
 - The editor must save through backend workflow definition APIs backed by workspace JSON files; Pixi-local node and edge arrays are rendering state only.
 - Do not make global SQLite the long-term source of truth for authored workflow definitions.
+- Do not expose storage allocation as a primary UX action. A blank canvas is a valid draft/null workflow, and first edit should create the backing file automatically.
+- Do not require executable validation for saving draft workflow files. Run/start may fail validation; save should preserve user drafts.
 - Route only from typed backend-owned predicates: status, signal, exit code, approval result, and later validated structured output fields.
 - Do not add arbitrary JavaScript, Python, expression strings, keyword heuristics, or prose-output routing.
 - Do not introduce non-Codex runners as part of this editor phase.
@@ -181,7 +194,9 @@ The first slice established backend-owned editor layout metadata and proved it t
 
 ## Acceptance Criteria
 
-- A user can create an `Agent Task` workflow, configure its Codex prompt, save it as a workspace JSON definition, run an immutable snapshot, and inspect runtime status on the graph.
+- Opening Workflow Graph in a workspace with no workflow files shows a blank editable canvas, not a create button or "no workflow graph" dead end.
+- Adding the first node to the blank canvas creates a deterministic workspace JSON definition and lists it in the left pane.
+- A user can create an `Agent Task` workflow from the canvas, configure its Codex prompt, save it as a workspace JSON definition, run an immutable snapshot, and inspect runtime status on the graph.
 - A user can see existing workspace workflows in the left pane, select one, and reopen that exact definition.
 - A user can create a control-flow workflow with `Route`, explicit default routing, and `Merge` or `Barrier Join` semantics that validate through the backend.
 - Dragging a connection creates a durable `WorkflowEdge` and condition, not only a Pixi line.

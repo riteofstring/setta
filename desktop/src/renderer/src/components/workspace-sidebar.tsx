@@ -114,9 +114,6 @@ export function WorkspaceSidebar({
   const ensureWorkspaceWorkflowDefinitions = useWorkflowDefinitionStore(
     (state) => state.ensureWorkspaceWorkflowDefinitions,
   );
-  const createWorkflowDefinition = useWorkflowDefinitionStore(
-    (state) => state.createWorkflowDefinition,
-  );
   const selectWorkflowDefinition = useWorkflowDefinitionStore(
     (state) => state.selectWorkflowDefinition,
   );
@@ -272,7 +269,6 @@ export function WorkspaceSidebar({
                   conversationSelectionBusy={conversationSelectionBusy}
                   closeWorkspace={closeWorkspace}
                   createWorkspaceConversation={createWorkspaceConversation}
-                  createWorkflowDefinition={createWorkflowDefinition}
                   expandedWorkspaceIds={expandedWorkspaceIds}
                   openWorkflowGraphPane={openWorkflowGraphPane}
                   openWorkspacePath={openWorkspacePath}
@@ -311,7 +307,6 @@ function ProjectNavigationList({
   conversationSelectionBusy,
   closeWorkspace,
   createWorkspaceConversation,
-  createWorkflowDefinition,
   expandedWorkspaceIds,
   openWorkflowGraphPane,
   openWorkspacePath,
@@ -334,7 +329,6 @@ function ProjectNavigationList({
   conversationSelectionBusy: boolean;
   closeWorkspace: (id: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
-  createWorkflowDefinition: (workspaceId: string, name?: string) => Promise<unknown>;
   expandedWorkspaceIds: ReadonlySet<string>;
   openWorkflowGraphPane: () => void;
   openWorkspacePath: (rootPath: string) => Promise<void>;
@@ -396,9 +390,6 @@ function ProjectNavigationList({
       case "createWorkspaceConversation":
         await runCreateWorkspaceConversationCommand(command);
         return;
-      case "createWorkspaceWorkflow":
-        await runCreateWorkspaceWorkflowCommand(command);
-        return;
       case "selectWorkflowDefinition":
         await runSelectWorkflowDefinitionCommand(command);
         return;
@@ -426,17 +417,6 @@ function ProjectNavigationList({
     await createWorkspaceConversation(command.workspaceId);
   }
 
-  async function runCreateWorkspaceWorkflowCommand(
-    command: Extract<SidebarNavigationCommand, { type: "createWorkspaceWorkflow" }>,
-  ) {
-    setWorkspaceExpanded(command.workspaceId, true);
-    if (command.workspaceId !== selectedWorkspaceId) {
-      await selectWorkspace(command.workspaceId);
-    }
-    await createWorkflowDefinition(command.workspaceId);
-    openWorkflowGraphPane();
-  }
-
   async function runSelectWorkflowDefinitionCommand(
     command: Extract<SidebarNavigationCommand, { type: "selectWorkflowDefinition" }>,
   ) {
@@ -453,11 +433,7 @@ function ProjectNavigationList({
       Extract<
         SidebarNavigationCommand,
         {
-          type:
-            | "activateWorkspace"
-            | "createWorkspaceConversation"
-            | "createWorkspaceWorkflow"
-            | "selectWorkflowDefinition";
+          type: "activateWorkspace" | "createWorkspaceConversation" | "selectWorkflowDefinition";
         }
       >
     >,

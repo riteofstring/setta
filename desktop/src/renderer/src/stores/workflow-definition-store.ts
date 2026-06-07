@@ -5,6 +5,8 @@ import type {
 } from "@generated/backend";
 import { create } from "zustand";
 
+import { emptyWorkflowGraph } from "../features/workspace-graph/workflow-graph-draft";
+
 export interface WorkflowDefinitionListState {
   definitions: WorkflowDefinition[];
   error: string | null;
@@ -13,7 +15,11 @@ export interface WorkflowDefinitionListState {
 
 interface WorkflowDefinitionStore {
   clearClosedWorkspaceWorkflowDefinitions: (activeWorkspaceIds: string[]) => void;
-  createWorkflowDefinition: (workspaceId: string, name?: string) => Promise<WorkflowDefinition>;
+  createWorkflowDefinition: (
+    workspaceId: string,
+    name?: string,
+    graph?: WorkflowGraph,
+  ) => Promise<WorkflowDefinition>;
   ensureWorkspaceWorkflowDefinitions: (workspaceId: string) => Promise<void>;
   refreshWorkspaceWorkflowDefinitions: (workspaceId: string) => Promise<void>;
   selectWorkflowDefinition: (workspaceId: string, definitionId: string) => void;
@@ -35,12 +41,12 @@ export const useWorkflowDefinitionStore = create<WorkflowDefinitionStore>((set, 
       ),
     }));
   },
-  createWorkflowDefinition: async (workspaceId, name = "Workflow") => {
+  createWorkflowDefinition: async (workspaceId, name = "Untitled workflow", graph) => {
     const definition = await window.setta.workflow.createDefinition(
       workspaceId,
       name,
       "",
-      starterWorkflowGraph(),
+      graph ?? emptyWorkflowGraph(),
     );
     set((state) => ({
       selectedDefinitionIdsByWorkspaceId: {
@@ -156,44 +162,6 @@ function retainActiveKeys<Value>(
     }
   }
   return next;
-}
-
-function starterWorkflowGraph(): WorkflowGraph {
-  return {
-    edges: [
-      {
-        condition: null,
-        fromNodeId: "start",
-        id: "start_end",
-        kind: "normal",
-        toNodeId: "end",
-      },
-    ],
-    layout: {
-      nodes: [
-        { nodeId: "start", x: -180, y: 0 },
-        { nodeId: "end", x: 180, y: 0 },
-      ],
-    },
-    nodes: [
-      {
-        action: null,
-        gateway: null,
-        id: "start",
-        kind: "start",
-        loopGuard: null,
-        title: "Start",
-      },
-      {
-        action: null,
-        gateway: null,
-        id: "end",
-        kind: "end",
-        loopGuard: null,
-        title: "End",
-      },
-    ],
-  };
 }
 
 function errorMessage(error: unknown): string {

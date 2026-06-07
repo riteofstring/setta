@@ -156,9 +156,6 @@ func (service *Service) CreateDefinition(workspaceID string, name string, descri
 	if name == "" {
 		return WorkflowDefinition{}, errors.New("workflow definition name is required")
 	}
-	if result := ValidateGraph(graph, service.runnerRegistry); !result.Valid {
-		return WorkflowDefinition{}, &ValidationError{Result: result}
-	}
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
@@ -201,9 +198,6 @@ func (service *Service) UpdateDefinition(workspaceID string, definitionID string
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return WorkflowDefinition{}, errors.New("workflow definition name is required")
-	}
-	if result := ValidateGraph(graph, service.runnerRegistry); !result.Valid {
-		return WorkflowDefinition{}, &ValidationError{Result: result}
 	}
 
 	service.mu.Lock()
@@ -288,7 +282,7 @@ func (service *Service) StartExecution(workspaceID string, definitionID string, 
 			return WorkflowExecution{}, err
 		}
 	}
-	if result := ValidateGraph(version.Graph, service.runnerRegistry); !result.Valid {
+	if result := ValidateExecutableGraph(version.Graph, service.runnerRegistry); !result.Valid {
 		service.mu.Unlock()
 		return WorkflowExecution{}, &ValidationError{Result: result}
 	}
@@ -513,6 +507,12 @@ func timestamp(value time.Time) string {
 }
 
 func normalizeWorkflowGraph(graph WorkflowGraph) WorkflowGraph {
+	if graph.Nodes == nil {
+		graph.Nodes = []WorkflowNode{}
+	}
+	if graph.Edges == nil {
+		graph.Edges = []WorkflowEdge{}
+	}
 	if graph.Layout.Nodes == nil {
 		graph.Layout.Nodes = []WorkflowGraphNodeLayout{}
 	}
