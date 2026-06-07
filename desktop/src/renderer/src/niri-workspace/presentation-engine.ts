@@ -139,8 +139,7 @@ export class PresentationEngine {
       binding.host.removeAttribute("data-pane-id");
       binding.host.removeAttribute("data-presentation-mode");
       binding.host.removeAttribute("data-visible");
-      this.dragHandleForHost(binding.host)?.remove();
-      this.maximizeButtonForHost(binding.host)?.remove();
+      this.paneTopBarForHost(binding.host)?.remove();
       this.removeResizeHandles(binding.host);
       binding.host.style.cssText = "";
     }
@@ -296,9 +295,24 @@ export class PresentationEngine {
     item: PaneRenderItem,
     assignedItems: ReadonlyArray<PaneRenderItem | undefined>,
   ): void {
-    const dragHandle = this.ensureDragHandle(binding.host);
+    const pane = this.paneById.get(item.paneId);
+    if (!pane) {
+      throw new Error(`missing pane controls metadata for ${item.paneId}`);
+    }
+    const topBar = this.ensurePaneTopBar(binding.host);
+    topBar.dataset.paneId = item.paneId;
+
+    const titleEditor = this.ensureTitleEditor(topBar);
+    titleEditor.dataset.paneId = item.paneId;
+    if (binding.host.ownerDocument.activeElement !== titleEditor) {
+      titleEditor.textContent = pane.title;
+      titleEditor.title = pane.title;
+    }
+
+    const dragHandle = this.ensureDragHandle(topBar);
     dragHandle.dataset.paneId = item.paneId;
-    const button = this.ensureMaximizeButton(binding.host);
+
+    const button = this.ensureMaximizeButton(topBar);
     button.dataset.paneId = item.paneId;
     const label = item.maximized ? "Restore pane size" : "Maximize pane";
     button.setAttribute("aria-label", label);
@@ -317,31 +331,59 @@ export class PresentationEngine {
     );
   }
 
-  private ensureDragHandle(host: HTMLElement): HTMLButtonElement {
-    const existing = this.dragHandleForHost(host);
+  private ensurePaneTopBar(host: HTMLElement): HTMLElement {
+    const existing = this.paneTopBarForHost(host);
     if (existing) {
       return existing;
     }
-    const button = host.ownerDocument.createElement("button");
+    const topBar = host.ownerDocument.createElement("div");
+    topBar.className = "niri-pane-top-bar app-no-drag";
+    topBar.dataset.niriPaneTopBar = "true";
+    host.append(topBar);
+    return topBar;
+  }
+
+  private ensureTitleEditor(topBar: HTMLElement): HTMLElement {
+    const existing = this.titleEditorForTopBar(topBar);
+    if (existing) {
+      return existing;
+    }
+    const titleEditor = topBar.ownerDocument.createElement("div");
+    titleEditor.className = "niri-pane-title-editor app-no-drag";
+    titleEditor.contentEditable = "plaintext-only";
+    titleEditor.dataset.niriPaneTitleEditor = "true";
+    titleEditor.setAttribute("aria-label", "Rename pane");
+    titleEditor.setAttribute("role", "textbox");
+    titleEditor.setAttribute("spellcheck", "false");
+    topBar.append(titleEditor);
+    return titleEditor;
+  }
+
+  private ensureDragHandle(topBar: HTMLElement): HTMLButtonElement {
+    const existing = this.dragHandleForTopBar(topBar);
+    if (existing) {
+      return existing;
+    }
+    const button = topBar.ownerDocument.createElement("button");
     button.className = "niri-pane-drag-handle app-no-drag";
     button.dataset.niriPaneDragHandle = "true";
     button.type = "button";
     button.setAttribute("aria-label", "Drag pane");
     button.title = "Drag pane";
-    host.append(button);
+    topBar.prepend(button);
     return button;
   }
 
-  private ensureMaximizeButton(host: HTMLElement): HTMLButtonElement {
-    const existing = this.maximizeButtonForHost(host);
+  private ensureMaximizeButton(topBar: HTMLElement): HTMLButtonElement {
+    const existing = this.maximizeButtonForTopBar(topBar);
     if (existing) {
       return existing;
     }
-    const button = host.ownerDocument.createElement("button");
+    const button = topBar.ownerDocument.createElement("button");
     button.className = "niri-pane-maximize-button";
     button.dataset.niriPaneMaximizeButton = "true";
     button.type = "button";
-    host.append(button);
+    topBar.append(button);
     return button;
   }
 
@@ -381,8 +423,22 @@ export class PresentationEngine {
     return handle;
   }
 
-  private dragHandleForHost(host: HTMLElement): HTMLButtonElement | null {
+  private paneTopBarForHost(host: HTMLElement): HTMLElement | null {
     const existing = Array.from(host.children).find((child) =>
+      child.classList.contains("niri-pane-top-bar"),
+    );
+    return existing ? (existing as HTMLElement) : null;
+  }
+
+  private titleEditorForTopBar(topBar: HTMLElement): HTMLElement | null {
+    const existing = Array.from(topBar.children).find((child) =>
+      child.classList.contains("niri-pane-title-editor"),
+    );
+    return existing ? (existing as HTMLElement) : null;
+  }
+
+  private dragHandleForTopBar(topBar: HTMLElement): HTMLButtonElement | null {
+    const existing = Array.from(topBar.children).find((child) =>
       child.classList.contains("niri-pane-drag-handle"),
     );
     return existing ? (existing as HTMLButtonElement) : null;
@@ -416,8 +472,8 @@ export class PresentationEngine {
     }
   }
 
-  private maximizeButtonForHost(host: HTMLElement): HTMLButtonElement | null {
-    const existing = Array.from(host.children).find((child) =>
+  private maximizeButtonForTopBar(topBar: HTMLElement): HTMLButtonElement | null {
+    const existing = Array.from(topBar.children).find((child) =>
       child.classList.contains("niri-pane-maximize-button"),
     );
     return existing ? (existing as HTMLButtonElement) : null;
@@ -466,9 +522,7 @@ export class PresentationEngine {
   }
 
   private hostContentMissing(binding: PaneHostBinding): boolean {
-    const chromeChildCount =
-      (this.dragHandleForHost(binding.host) ? 1 : 0) +
-      (this.maximizeButtonForHost(binding.host) ? 1 : 0);
+    const chromeChildCount = this.paneTopBarForHost(binding.host) ? 1 : 0;
     return binding.host.childElementCount <= chromeChildCount || !binding.host.dataset.surfaceId;
   }
 

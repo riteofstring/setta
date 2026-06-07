@@ -53,6 +53,7 @@ import {
   type PaneDragSession,
 } from "./pane-drag-reorder";
 import { paneFocusTargetFromClick } from "./pane-focus-click";
+import { handlePaneTitleEditorFocusOut, handlePaneTitleEditorKeyDown } from "./pane-title-editor";
 import { paneResizeTargetFromPointer } from "./pane-resize-target";
 import {
   applyPaneResizePointerMove,
@@ -197,6 +198,9 @@ export function NiriWorkspaceArea({
         state: trackpadNavigationRef.current,
         viewportProvider: stageViewport,
       });
+    const titleEditorContext = { runLayoutAction, runtime };
+    const handleFocusOut = (event: FocusEvent) =>
+      handlePaneTitleEditorFocusOut({ ...titleEditorContext, event });
     const handleClick = (event: MouseEvent) => {
       if (suppressNextClickRef.current) {
         suppressNextClickRef.current = false;
@@ -374,6 +378,7 @@ export function NiriWorkspaceArea({
     window.addEventListener("pointerup", handlePointerUp, { capture: true });
     window.addEventListener("pointercancel", handlePointerUp, { capture: true });
     root.addEventListener("click", handleClick, { capture: true });
+    root.addEventListener("focusout", handleFocusOut, { capture: true });
     root.addEventListener("pointerdown", handlePointerDown, { capture: true });
     root.addEventListener("wheel", handleWheel, { capture: true, passive: false });
     scheduler.start();
@@ -385,6 +390,7 @@ export function NiriWorkspaceArea({
       window.removeEventListener("pointerup", handlePointerUp, { capture: true });
       window.removeEventListener("pointercancel", handlePointerUp, { capture: true });
       root.removeEventListener("click", handleClick, { capture: true });
+      root.removeEventListener("focusout", handleFocusOut, { capture: true });
       root.removeEventListener("pointerdown", handlePointerDown, { capture: true });
       root.removeEventListener("wheel", handleWheel, { capture: true });
       overviewDragSessionRef.current = null;
@@ -603,6 +609,9 @@ function handleNiriWorkspaceKeyDown({
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
 }): void {
+  if (handlePaneTitleEditorKeyDown({ event, runLayoutAction, runtime })) {
+    return;
+  }
   if (eventTargetsTerminalSurface(event)) {
     return;
   }

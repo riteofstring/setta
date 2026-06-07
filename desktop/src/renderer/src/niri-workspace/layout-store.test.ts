@@ -215,6 +215,30 @@ describe("niri layout store", () => {
     expect(scene.columns[1]?.paneIds).toEqual([emptyPaneId]);
   });
 
+  test("renames panes without changing their layout position", () => {
+    const store = createStore();
+
+    expect(store.renamePane("workspace_pane_2", "  Build logs  ")).toBe(true);
+
+    const scene = store.toScene();
+    expect(scene.paneById.get("workspace_pane_2")?.title).toBe("Build logs");
+    expect(scene.columns[2]?.paneIds).toEqual(["workspace_pane_2"]);
+    expect(store.getSnapshot()).toMatchObject({
+      focusedColumnIndex: 2,
+      focusedPaneId: "workspace_pane_2",
+      focusedRowIndex: 0,
+    });
+  });
+
+  test("ignores blank pane renames", () => {
+    const store = createStore();
+    const originalTitle = store.toScene().paneById.get("workspace_pane_2")?.title;
+
+    expect(store.renamePane("workspace_pane_2", "   ")).toBe(false);
+
+    expect(store.toScene().paneById.get("workspace_pane_2")?.title).toBe(originalTitle);
+  });
+
   test("enforces pane limits when configuring an empty frame", () => {
     const store = createStore({ "settings-dom": 1 });
     const emptyPaneId = store.openEmptyFrame();

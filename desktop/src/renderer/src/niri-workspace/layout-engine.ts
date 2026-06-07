@@ -199,6 +199,19 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       : this.renderNormalFrame(input, push);
   }
 
+  renamePane(paneId: PaneId, title: string): boolean {
+    const pane = this.paneById.get(paneId);
+    const normalizedTitle = title.trim();
+    if (!pane || normalizedTitle.length === 0 || pane.title === normalizedTitle) {
+      return false;
+    }
+    this.paneById.set(paneId, {
+      ...pane,
+      title: normalizedTitle,
+    });
+    return true;
+  }
+
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean {
     const result = reorderPaneColumnBefore(this.columns, sourcePaneId, targetPaneId);
     this.columns = result.columns;

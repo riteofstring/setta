@@ -211,7 +211,7 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     const texture = document.createElement("div");
     texture.className = "niri-snapshot-texture";
     for (const child of Array.from(sourceHost.children)) {
-      if (child.classList.contains("niri-pane-maximize-button")) {
+      if (child.classList.contains("niri-pane-top-bar")) {
         continue;
       }
       texture.append(cloneSnapshotNode(child, document));

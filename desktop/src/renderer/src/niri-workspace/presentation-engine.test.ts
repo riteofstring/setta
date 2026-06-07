@@ -259,7 +259,7 @@ describe("niri presentation engine", () => {
     expect(host.style.pointerEvents).toBe("auto");
   });
 
-  test("adds pane chrome and marks active maximized panes", () => {
+  test("adds pane top bar chrome and marks active maximized panes", () => {
     const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
     const host = fakePaneHost("niri_pane_0", "Pane 001");
     const presentation = new PresentationEngine(
@@ -276,14 +276,18 @@ describe("niri presentation engine", () => {
       },
     );
 
-    const dragHandle = host.querySelector(".niri-pane-drag-handle") as HTMLButtonElement | null;
-    const button = host.querySelector(".niri-pane-maximize-button") as HTMLButtonElement | null;
-
-    expect(host.dataset.maximized).toBe("true");
-    expect(dragHandle?.dataset.paneId).toBe("niri_pane_0");
-    expect(dragHandle?.getAttribute("aria-label")).toBe("Drag pane");
-    expect(button?.dataset.paneId).toBe("niri_pane_0");
-    expect(button?.getAttribute("aria-label")).toBe("Restore pane size");
+    expect(paneChromeSnapshot(host)).toEqual({
+      buttonLabel: "Restore pane size",
+      buttonPaneId: "niri_pane_0",
+      dragLabel: "Drag pane",
+      dragPaneId: "niri_pane_0",
+      hostMaximized: "true",
+      titleEditable: "plaintext-only",
+      titleLabel: "Rename pane",
+      titlePaneId: "niri_pane_0",
+      titleText: "Pane 001",
+      topBarPaneId: "niri_pane_0",
+    });
   });
 
   test("adds resize separators between adjacent rendered panes", () => {
@@ -356,8 +360,36 @@ describe("niri presentation engine", () => {
   });
 });
 
+function paneChromeSnapshot(host: HTMLElement) {
+  const topBar = requiredChromeElement(host, ".niri-pane-top-bar");
+  const dragHandle = requiredChromeElement(host, ".niri-pane-drag-handle");
+  const titleEditor = requiredChromeElement(host, ".niri-pane-title-editor");
+  const button = requiredChromeElement(host, ".niri-pane-maximize-button");
+  return {
+    buttonLabel: button.getAttribute("aria-label"),
+    buttonPaneId: button.dataset.paneId,
+    dragLabel: dragHandle.getAttribute("aria-label"),
+    dragPaneId: dragHandle.dataset.paneId,
+    hostMaximized: host.dataset.maximized,
+    titleEditable: titleEditor.contentEditable,
+    titleLabel: titleEditor.getAttribute("aria-label"),
+    titlePaneId: titleEditor.dataset.paneId,
+    titleText: titleEditor.textContent,
+    topBarPaneId: topBar.dataset.paneId,
+  };
+}
+
+function requiredChromeElement(host: HTMLElement, selector: string): HTMLElement {
+  const element = host.querySelector(selector) as HTMLElement | null;
+  if (!element) {
+    throw new Error(`missing pane chrome selector ${selector}`);
+  }
+  return element;
+}
+
 function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTMLElement {
   const children = fakeChildren(childElementCount);
+  const ownerDocument = fakeOwnerDocument();
   const nodes = new Map<string, { textContent: string }>([
     ["[data-niri-pane-heat]", { textContent: "" }],
     ["[data-niri-pane-index]", { textContent: "1" }],
@@ -376,9 +408,7 @@ function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTM
     get childElementCount() {
       return children.length;
     },
-    ownerDocument: {
-      createElement: (tagName: string) => fakeElement(tagName),
-    },
+    ownerDocument,
     querySelector: (selector: string) =>
       chromeChildForSelector(children, selector) ?? nodes.get(selector) ?? null,
     removeAttribute: (name: string) => {
@@ -390,47 +420,75 @@ function fakePaneHost(paneId: string, title: string, childElementCount = 1): HTM
 }
 
 function chromeChildForSelector(children: FakeElement[], selector: string): FakeElement | null {
-  if (
-    selector !== ".niri-pane-drag-handle" &&
-    selector !== ".niri-pane-maximize-button" &&
-    selector !== ".niri-pane-resize-handle-horizontal" &&
-    selector !== ".niri-pane-resize-handle-vertical"
-  ) {
+  const className = selector.startsWith(".") ? selector.slice(1) : null;
+  if (!className) {
     return null;
   }
-  return children.find((child) => child.classList.contains(selector.slice(1))) ?? null;
+  for (const child of children) {
+    if (child.classList.contains(className)) {
+      return child;
+    }
+    const descendant = chromeChildForSelector(child.children, selector);
+    if (descendant) {
+      return descendant;
+    }
+  }
+  return null;
 }
 
 interface FakeElement {
+  append: (...children: FakeElement[]) => void;
   classList: {
     add: (value: string) => void;
     contains: (value: string) => boolean;
   };
+  children: FakeElement[];
+  contentEditable: string;
   dataset: Record<string, string>;
   getAttribute: (name: string) => string | null;
+  ownerDocument: {
+    activeElement: FakeElement | null;
+    createElement: (tagName: string) => FakeElement;
+  };
+  prepend: (...children: FakeElement[]) => void;
   remove: () => void;
   setAttribute: (name: string, value: string) => void;
   style: Record<string, string>;
   tabIndex: number;
+  textContent: string;
   title: string;
   type: string;
 }
 
 function fakeChildren(count: number): FakeElement[] {
-  return Array.from({ length: count }, () => fakeElement("div"));
+  const ownerDocument = fakeOwnerDocument();
+  return Array.from({ length: count }, () => fakeElement("div", ownerDocument));
 }
 
-function fakeElement(tagName: string): FakeElement {
+function fakeOwnerDocument(): FakeElement["ownerDocument"] {
+  const ownerDocument = {} as FakeElement["ownerDocument"];
+  ownerDocument.activeElement = null;
+  ownerDocument.createElement = (tagName) => fakeElement(tagName, ownerDocument);
+  return ownerDocument;
+}
+
+function fakeElement(tagName: string, ownerDocument: FakeElement["ownerDocument"]): FakeElement {
   const classNames = new Set<string>();
   const attributes = new Map<string, string>();
+  const children: FakeElement[] = [];
   attributes.set("data-tag-name", tagName);
   return {
+    append: (...appendedChildren: FakeElement[]) => {
+      children.push(...appendedChildren);
+    },
     classList: {
       add: (value: string) => {
         classNames.add(value);
       },
       contains: (value: string) => classNames.has(value),
     },
+    children,
+    contentEditable: "false",
     dataset: {},
     get className() {
       return [...classNames].join(" ");
@@ -444,12 +502,17 @@ function fakeElement(tagName: string): FakeElement {
       }
     },
     getAttribute: (name: string) => attributes.get(name) ?? null,
+    ownerDocument,
+    prepend: (...prependedChildren: FakeElement[]) => {
+      children.unshift(...prependedChildren);
+    },
     remove: () => {},
     setAttribute: (name: string, value: string) => {
       attributes.set(name, value);
     },
     style: {},
     tabIndex: 0,
+    textContent: "",
     title: "",
     type: "",
   } as FakeElement;

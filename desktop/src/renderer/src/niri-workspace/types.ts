@@ -221,6 +221,7 @@ export interface LayoutEngine {
     maximizedPaneId?: PaneId | null,
   ): PaneId | null;
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void;
+  renamePane(paneId: PaneId, title: string): boolean;
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;

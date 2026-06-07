@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./niri-workspace.css";
+@import "./niri-pane-chrome.css";
 
 @theme inline {
   --color-background: var(--background);

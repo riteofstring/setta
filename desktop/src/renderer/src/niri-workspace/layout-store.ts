@@ -390,6 +390,15 @@ export class NiriLayoutStore {
     return true;
   }
 
+  renamePane(paneId: PaneId, title: string): boolean {
+    if (!this.engine.renamePane(paneId, title)) {
+      return false;
+    }
+    this.setFocusedPane(paneId);
+    this.notify();
+    return true;
+  }
+
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void {
     this.engine.setPaneTerminalConfig(paneId, terminalConfig);
     this.notify();
