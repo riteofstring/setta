@@ -64,7 +64,7 @@ export function NiriWorkspaceToolbar({
   });
   return (
     <div className="niri-workspace-toolbar app-drag" data-testid="niri-workspace-toolbar">
-      <div className="niri-workspace-toolbar-group" data-testid="niri-focused-pane-label">
+      <div className="niri-workspace-toolbar-group app-drag" data-testid="niri-focused-pane-label">
         <span>{focusedPaneId}</span>
       </div>
       <div className="niri-workspace-toolbar-spacer app-drag" aria-hidden={!showPerformanceStats}>
@@ -268,7 +268,7 @@ function NiriToolbarMenu({
             aria-expanded={open}
             aria-haspopup="menu"
             aria-label={label}
-            className="niri-workspace-toolbar-menu-button"
+            className="niri-workspace-toolbar-menu-button app-no-drag"
             onClick={() => setOpen((current) => !current)}
             onPointerDown={(event) => event.stopPropagation()}
             ref={anchorRef}
@@ -291,7 +291,7 @@ function NiriToolbarMenu({
       >
         {items.map(({ disabled = false, Icon: ItemIcon, label: itemLabel, meta, onSelect }) => (
           <button
-            className="niri-workspace-toolbar-menu-item"
+            className="niri-workspace-toolbar-menu-item app-no-drag"
             disabled={disabled}
             key={itemLabel}
             onClick={() => {

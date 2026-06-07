@@ -127,7 +127,7 @@ export function FloatingMenu({
 
   if (typeof document === "undefined") {
     return (
-      <div aria-label={ariaLabel} className={className} id={id} role={role}>
+      <div aria-label={ariaLabel} className={cn("app-no-drag", className)} id={id} role={role}>
         {children}
       </div>
     );

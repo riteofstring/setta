@@ -58,6 +58,7 @@ describe("workspace renderer states", () => {
     const html = renderToString(<App />);
 
     expect(html).toContain('data-testid="shell-top-bar"');
+    expect(html).toContain("app-drag pointer-events-auto fixed top-0 z-30 h-10");
     expect(html).toContain("left-[74px] right-0");
     expect(html).toContain('data-testid="shell-setta-logo"');
     expect(html).toContain("app-drag pointer-events-none");
@@ -78,6 +79,33 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain('data-testid="bottom-workspace-pane"');
     expect(html).not.toContain('data-testid="right-workspace-pane"');
     expect(html).toContain("bg-background");
+  });
+
+  test("renders a full-width shell drag strip on non-mac platforms", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        setta: {
+          app: {
+            flags: {
+              pixiWorkspaceDebug: false,
+              pixiWorkspaceSyntheticGraph: null,
+            },
+            platform: "win32",
+          },
+          backend: { onEventStreamStatus: () => () => {} },
+          chat: { onEvent: () => () => {} },
+        },
+      },
+    });
+
+    const html = renderToString(<App />);
+
+    expect(html).toContain('data-testid="shell-top-bar"');
+    expect(html).toContain("app-drag pointer-events-auto fixed top-0 z-30 h-10");
+    expect(html).toContain("inset-x-0");
+    expect(html).toContain('data-desktop-platform="win32"');
+    expect(html).toContain('aria-label="Hide project sidebar"');
   });
 
   test("caps project pane widths at compact viewport sizes without growing stored widths", () => {
