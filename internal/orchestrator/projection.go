@@ -159,6 +159,8 @@ func projectedGraphEdges(definitionEdges []WorkflowEdge, execution *WorkflowExec
 			Kind:                edge.Kind,
 			FromNodeID:          edge.FromNodeID,
 			ToNodeID:            edge.ToNodeID,
+			Condition:           edge.Condition,
+			Label:               workflowEdgeLabel(edge),
 			Status:              status,
 			ActiveTokenCount:    summary.active,
 			CompletedTokenCount: summary.completed,
@@ -166,6 +168,57 @@ func projectedGraphEdges(definitionEdges []WorkflowEdge, execution *WorkflowExec
 		})
 	}
 	return edges, nil
+}
+
+func workflowEdgeLabel(edge WorkflowEdge) string {
+	switch {
+	case edge.Kind == EdgeKindLoopContinue:
+		return "continue"
+	case edge.Kind == EdgeKindLoopExit:
+		return "exit"
+	case edge.Condition == nil:
+		return ""
+	default:
+		return workflowConditionLabel(*edge.Condition)
+	}
+}
+
+func workflowConditionLabel(condition WorkflowCondition) string {
+	switch condition.Kind {
+	case ConditionDefault:
+		return "default"
+	case ConditionActionSignal:
+		return actionSignalConditionLabel(condition)
+	case ConditionActionStatus:
+		return actionStatusConditionLabel(condition)
+	case ConditionScriptExitCode:
+		return scriptExitCodeConditionLabel(condition)
+	case ConditionAlways:
+		return "always"
+	default:
+		return string(condition.Kind)
+	}
+}
+
+func actionSignalConditionLabel(condition WorkflowCondition) string {
+	if condition.SignalValue == "" {
+		return condition.SignalName
+	}
+	return condition.SignalName + "=" + condition.SignalValue
+}
+
+func actionStatusConditionLabel(condition WorkflowCondition) string {
+	if condition.Status == nil {
+		return "status"
+	}
+	return "status=" + string(*condition.Status)
+}
+
+func scriptExitCodeConditionLabel(condition WorkflowCondition) string {
+	if condition.ExitCode == nil {
+		return "exit"
+	}
+	return fmt.Sprintf("exit=%d", *condition.ExitCode)
 }
 
 func workflowNodeLabel(node WorkflowNode) string {

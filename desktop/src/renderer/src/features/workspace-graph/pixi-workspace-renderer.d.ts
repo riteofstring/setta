@@ -3,13 +3,23 @@ interface PixiWorkspaceNode {
   height: number;
   id: string;
   label: string;
+  ports?: PixiWorkspacePort[];
   width: number;
   x: number;
   y: number;
 }
 
+interface PixiWorkspacePort {
+  id: string;
+  label: string;
+  role: "source" | "target";
+  xOffset: number;
+  yRatio: number;
+}
+
 interface PixiWorkspaceEdge {
   id: string;
+  label?: string;
   sourceNodeId: string;
   sourcePortId: string;
   targetNodeId: string;

@@ -10,9 +10,9 @@ const mouseWheelZoomSensitivity = 0.0016;
 const notchedWheelDeltaThreshold = 80;
 const trackpadPinchZoomSensitivity = 0.018;
 
-export const ports = [
-  { id: "input", role: "target", xOffset: 20, yRatio: 0.5 },
-  { id: "output", role: "source", xOffset: -20, yRatio: 0.5 },
+const defaultPorts = [
+  { id: "input", label: "", role: "target", xOffset: 20, yRatio: 0.5 },
+  { id: "output", label: "", role: "source", xOffset: -20, yRatio: 0.5 },
 ];
 
 export function isSelectionToggleEvent(event) {
@@ -75,17 +75,21 @@ export function portWorldPosition(node, portId) {
 }
 
 export function portLocalPosition(node, portId) {
-  const port = requirePort(portId);
+  const port = requirePort(node, portId);
   return {
     x: port.xOffset >= 0 ? port.xOffset : node.width + port.xOffset,
     y: node.height * port.yRatio,
   };
 }
 
-export function requirePort(portId) {
-  const port = ports.find((candidate) => candidate.id === portId);
+export function portsForNode(node) {
+  return Array.isArray(node.ports) && node.ports.length > 0 ? node.ports : defaultPorts;
+}
+
+export function requirePort(node, portId) {
+  const port = portsForNode(node).find((candidate) => candidate.id === portId);
   if (!port) {
-    throw new Error(`unknown workspace port: ${portId}`);
+    throw new Error(`unknown workspace port ${node.id}:${portId}`);
   }
   return port;
 }

@@ -4,6 +4,7 @@ import { Application, BitmapText, Container, Graphics, Point, Rectangle } from "
 import { Viewport } from "pixi-viewport";
 
 import { initialEdges, initialNodes } from "./pixi-workspace-fixture";
+import { redrawWorkspaceEdges } from "./pixi-workspace-edge-rendering";
 import {
   compactSelectedNodeLabelBitmapFontSize,
   nodeLabelBitmapFontSize,
@@ -33,7 +34,6 @@ import {
   configureViewportNavigation,
   countMapValues,
   createCanvasContextMenuHandler,
-  drawCurvedEdge,
   drawMarqueeSelection,
   drawPortVisualState,
   drawTemporaryEdge,
@@ -48,7 +48,7 @@ import {
   parsePortKey,
   pointInsideNodeBounds,
   portKey,
-  ports,
+  portsForNode,
   portLocalPosition,
   portWorldPosition,
   releasePointer,
@@ -113,9 +113,12 @@ export async function createPixiWorkspaceRenderer({
 
   const backgroundLayer = new Container();
   const edgeLayer = new Container();
+  const edgeLabelLayer = new Container();
   const nodeLayer = new Container();
   const interactionLayer = new Container();
   const effectsLayer = new Container();
+  edgeLabelLayer.eventMode = "none";
+  edgeLabelLayer.interactiveChildren = false;
   viewport.addChild(backgroundLayer, edgeLayer, nodeLayer, interactionLayer, effectsLayer);
 
   const nodes = graph.nodes.map((node) => ({ ...node }));
@@ -163,7 +166,7 @@ export async function createPixiWorkspaceRenderer({
   const recentFrameMs = [];
 
   backgroundLayer.addChild(grid);
-  edgeLayer.addChild(edgeGraphics);
+  edgeLayer.addChild(edgeGraphics, edgeLabelLayer);
   interactionLayer.addChild(marqueeGraphics, temporaryEdgeGraphics);
   effectsLayer.addChild(glow);
   drawWorkspaceGrid(grid);
@@ -391,6 +394,7 @@ export async function createPixiWorkspaceRenderer({
             edgeCount: edges.length,
             edges: edges.map((edge) => ({
               id: edge.id,
+              label: edge.label ?? "",
               sourceNodeId: edge.sourceNodeId,
               sourcePortId: edge.sourcePortId,
               targetNodeId: edge.targetNodeId,
@@ -424,11 +428,12 @@ export async function createPixiWorkspaceRenderer({
                   worldScaleX: label.worldTransform.a,
                   worldScaleY: label.worldTransform.d,
                 },
-                ports: ports.map((port) => {
+                ports: portsForNode(node).map((port) => {
                   const world = portWorldPosition(node, port.id);
                   const portScreen = viewport.toScreen(world.x, world.y);
                   return {
                     id: port.id,
+                    label: port.label ?? "",
                     role: port.role,
                     screenX: portScreen.x,
                     screenY: portScreen.y,
@@ -529,7 +534,7 @@ export async function createPixiWorkspaceRenderer({
     hoverOutline.visible = false;
     const selectedOutline = new Graphics(nodeOutlineContextFor(node, "selected"));
     selectedOutline.visible = false;
-    const portContainers = ports.map((port) => portContainer(node, port));
+    const portContainers = portsForNode(node).map((port) => portContainer(node, port));
     nodeOutlines.set(node.id, { hoverOutline, selectedOutline });
 
     container.addChild(shadow, body, hoverOutline, selectedOutline, ...portContainers);
@@ -756,14 +761,15 @@ export async function createPixiWorkspaceRenderer({
     nodeOutlineVisibilityUpdateCount += 1;
   }
   function redrawEdges() {
-    edgeGraphics.clear();
-    for (const edge of edges) {
-      const source = requireNode(edge.sourceNodeId);
-      const target = requireNode(edge.targetNodeId);
-      const start = portWorldPosition(source, requireEdgePort(edge, "sourcePortId"));
-      const end = portWorldPosition(target, requireEdgePort(edge, "targetPortId"));
-      drawCurvedEdge(edgeGraphics, start, end, { alpha: 0.65, color: 0xe2e8f0, width: 2.5 });
-    }
+    redrawWorkspaceEdges({
+      edgeGraphics,
+      edgeLabelLayer,
+      edges,
+      fontFamily: loadedNodeLabelFont.fontFamily,
+      fontSize: compactSelectedNodeLabelBitmapFontSize,
+      getNode: requireNode,
+      validateGlyphs: validateNodeLabelGlyphs,
+    });
     edgeRedrawCount += 1;
   }
   function startEdgeDrawing(sourceNodeId, sourcePortId) {
@@ -790,7 +796,7 @@ export async function createPixiWorkspaceRenderer({
     temporaryEdgeGraphics.clear();
     viewport.plugins.resume("decelerate");
     for (const node of nodes) {
-      for (const port of ports) {
+      for (const port of portsForNode(node)) {
         setPortVisualState(node.id, port.id, "idle");
       }
     }
@@ -883,7 +889,7 @@ export async function createPixiWorkspaceRenderer({
       if (node.id === excludeNodeId) {
         continue;
       }
-      for (const port of ports) {
+      for (const port of portsForNode(node)) {
         if (port.role !== role) {
           continue;
         }
@@ -968,7 +974,7 @@ export async function createPixiWorkspaceRenderer({
       throw new Error(`workspace port visual is missing: ${key}`);
     }
     portVisualStates.set(key, state);
-    drawPortVisualState(visual, requirePort(portId), state);
+    drawPortVisualState(visual, requirePort(requireNode(nodeId), portId), state);
   }
 
   function firstSelectedNodeId() {
@@ -988,13 +994,5 @@ export async function createPixiWorkspaceRenderer({
       throw new Error(`workspace node label is missing: ${nodeId}`);
     }
     return label;
-  }
-
-  function requireEdgePort(edge, field) {
-    const portId = edge[field];
-    if (!portId) {
-      throw new Error(`workspace edge ${edge.id} is missing ${field}`);
-    }
-    return portId;
   }
 }

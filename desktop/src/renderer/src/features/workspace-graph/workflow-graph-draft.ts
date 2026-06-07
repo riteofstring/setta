@@ -1,5 +1,6 @@
 import type {
   WorkflowActionConfig,
+  WorkflowCondition,
   WorkflowEdge,
   WorkflowGraph,
   WorkflowNode,
@@ -22,7 +23,9 @@ export interface WorkflowDraftNodePosition {
 
 export interface WorkflowDraftEdgeConnection {
   sourceNodeId: string;
+  sourcePortId?: string;
   targetNodeId: string;
+  targetPortId?: string;
 }
 
 const draftNodeCenterOffset = {
@@ -105,13 +108,14 @@ export function workflowGraphWithAddedDraftEdge(
   requireDraftEdgeNode(normalized, connection.sourceNodeId);
   requireDraftEdgeNode(normalized, connection.targetNodeId);
   const edge = draftEdge(
+    normalized,
     connection,
     nextDraftEdgeId(normalized, `${connection.sourceNodeId}_${connection.targetNodeId}`),
   );
-  return {
+  return workflowGraphWithResolvedRouteConditionSources({
     ...normalized,
     edges: [...normalized.edges, edge],
-  };
+  });
 }
 
 function normalizeDraftGraph(graph: WorkflowGraph): WorkflowGraph {
@@ -200,9 +204,13 @@ function draftAgentAction(): WorkflowActionConfig {
   };
 }
 
-function draftEdge(connection: WorkflowDraftEdgeConnection, id: string): WorkflowEdge {
+function draftEdge(
+  graph: WorkflowGraph,
+  connection: WorkflowDraftEdgeConnection,
+  id: string,
+): WorkflowEdge {
   return {
-    condition: null,
+    condition: draftEdgeCondition(graph, connection),
     fromNodeId: connection.sourceNodeId,
     id,
     kind: workflowEdgeKindValues[0],
@@ -210,11 +218,99 @@ function draftEdge(connection: WorkflowDraftEdgeConnection, id: string): Workflo
   };
 }
 
-function requireDraftEdgeNode(graph: WorkflowGraph, nodeId: string) {
-  if (graph.nodes.some((node) => node.id === nodeId)) {
-    return;
+function draftEdgeCondition(
+  graph: WorkflowGraph,
+  connection: WorkflowDraftEdgeConnection,
+): WorkflowCondition | null {
+  const source = workflowDraftNode(graph, connection.sourceNodeId);
+  if (source.kind !== "gateway.xor") {
+    return null;
   }
-  throw new Error(`Workflow edge references missing node ${nodeId}`);
+  switch (connection.sourcePortId) {
+    case "route_yes":
+      return routeSignalCondition(graph, source.id, "yes");
+    case "route_no":
+      return routeSignalCondition(graph, source.id, "no");
+    case "route_default":
+      return defaultRouteCondition();
+    default:
+      return null;
+  }
+}
+
+function routeSignalCondition(
+  graph: WorkflowGraph,
+  routeNodeId: string,
+  signalValue: string,
+): WorkflowCondition {
+  return {
+    exitCode: null,
+    invert: false,
+    kind: "action_signal",
+    nodeId: routeConditionSourceNodeId(graph, routeNodeId),
+    signalName: "route",
+    signalValue,
+    status: null,
+  };
+}
+
+function defaultRouteCondition(): WorkflowCondition {
+  return {
+    exitCode: null,
+    invert: false,
+    kind: "default",
+    nodeId: "",
+    signalName: "",
+    signalValue: "",
+    status: null,
+  };
+}
+
+function workflowGraphWithResolvedRouteConditionSources(graph: WorkflowGraph): WorkflowGraph {
+  return {
+    ...graph,
+    edges: graph.edges.map((edge) => {
+      if (edge.condition?.kind !== "action_signal" || edge.condition.nodeId !== "") {
+        return edge;
+      }
+      const source = workflowDraftNode(graph, edge.fromNodeId);
+      if (source.kind !== "gateway.xor") {
+        return edge;
+      }
+      const nodeId = routeConditionSourceNodeId(graph, source.id);
+      if (nodeId === "") {
+        return edge;
+      }
+      return {
+        ...edge,
+        condition: {
+          ...edge.condition,
+          nodeId,
+        },
+      };
+    }),
+  };
+}
+
+function routeConditionSourceNodeId(graph: WorkflowGraph, routeNodeId: string): string {
+  const sourceNodeIds = graph.edges
+    .filter((edge) => edge.toNodeId === routeNodeId)
+    .map((edge) => workflowDraftNode(graph, edge.fromNodeId))
+    .filter((node) => node.kind === "action")
+    .map((node) => node.id);
+  return sourceNodeIds.length === 1 ? (sourceNodeIds[0] ?? "") : "";
+}
+
+function workflowDraftNode(graph: WorkflowGraph, nodeId: string): WorkflowNode {
+  const node = graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(`Workflow edge references missing node ${nodeId}`);
+  }
+  return node;
+}
+
+function requireDraftEdgeNode(graph: WorkflowGraph, nodeId: string) {
+  workflowDraftNode(graph, nodeId);
 }
 
 function assertNever(value: never): never {

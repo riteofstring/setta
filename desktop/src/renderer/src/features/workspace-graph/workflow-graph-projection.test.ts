@@ -20,10 +20,17 @@ describe("pixiGraphFromWorkflowProjection", () => {
       ["end", "not_started", 0],
     ]);
     expect(
-      graph.edges.map((edge) => [edge.id, edge.sourceNodeId, edge.targetNodeId, edge.status]),
+      graph.edges.map((edge) => [
+        edge.id,
+        edge.sourceNodeId,
+        edge.sourcePortId,
+        edge.targetNodeId,
+        edge.status,
+        edge.label,
+      ]),
     ).toEqual([
-      ["start_work", "start", "work", "completed"],
-      ["work_end", "work", "end", "active"],
+      ["start_work", "start", "output", "work", "completed", ""],
+      ["work_end", "work", "output", "end", "active", ""],
     ]);
     expect(graph.nodes.find((node) => node.id === "start")?.x).toBeLessThan(
       graph.nodes.find((node) => node.id === "work")?.x ?? 0,
@@ -51,6 +58,72 @@ describe("pixiGraphFromWorkflowProjection", () => {
       ["end", 420, -20],
     ]);
   });
+
+  test("maps route conditions to labeled virtual ports", () => {
+    const graph = pixiGraphFromWorkflowProjection({
+      ...testProjection(),
+      edges: [
+        {
+          activeTokenCount: 0,
+          cancelledTokenCount: 0,
+          completedTokenCount: 0,
+          condition: {
+            exitCode: null,
+            invert: false,
+            kind: "action_signal",
+            nodeId: "work",
+            signalName: "route",
+            signalValue: "yes",
+            status: null,
+          },
+          fromNodeId: "route",
+          id: "route_yes",
+          kind: "normal",
+          label: "route=yes",
+          status: "inactive",
+          toNodeId: "end",
+        },
+        {
+          activeTokenCount: 0,
+          cancelledTokenCount: 0,
+          completedTokenCount: 0,
+          condition: {
+            exitCode: null,
+            invert: false,
+            kind: "default",
+            nodeId: "",
+            signalName: "",
+            signalValue: "",
+            status: null,
+          },
+          fromNodeId: "route",
+          id: "route_default",
+          kind: "normal",
+          label: "default",
+          status: "inactive",
+          toNodeId: "end",
+        },
+      ],
+      nodes: [
+        projectedNode("work", "action", "succeeded", 1),
+        projectedNode("route", "gateway.xor", "succeeded", 1),
+        projectedNode("end", "end", "not_started", 0),
+      ],
+    });
+
+    expect(
+      graph.nodes.find((node) => node.id === "route")?.ports?.map((port) => [port.id, port.label]),
+    ).toEqual([
+      ["input", ""],
+      ["route_yes", "yes"],
+      ["route_no", "no"],
+      ["route_default", "default"],
+    ]);
+    expect(graph.edges.map((edge) => [edge.id, edge.sourcePortId, edge.label])).toEqual([
+      ["route_yes", "route_yes", "route=yes"],
+      ["route_default", "route_default", "default"],
+    ]);
+  });
 });
 
 function testProjection(): WorkflowGraphProjection {
@@ -64,9 +137,11 @@ function testProjection(): WorkflowGraphProjection {
         activeTokenCount: 0,
         cancelledTokenCount: 0,
         completedTokenCount: 1,
+        condition: null,
         fromNodeId: "start",
         id: "start_work",
         kind: "normal",
+        label: "",
         status: "completed",
         toNodeId: "work",
       },
@@ -74,9 +149,11 @@ function testProjection(): WorkflowGraphProjection {
         activeTokenCount: 1,
         cancelledTokenCount: 0,
         completedTokenCount: 0,
+        condition: null,
         fromNodeId: "work",
         id: "work_end",
         kind: "normal",
+        label: "",
         status: "active",
         toNodeId: "end",
       },

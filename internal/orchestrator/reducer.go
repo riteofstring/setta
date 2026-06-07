@@ -622,17 +622,8 @@ func addControlNodeExecution(execution *WorkflowExecution, context TransitionCon
 }
 
 func emitMatchingOutgoingTokens(execution *WorkflowExecution, graph WorkflowGraph, context TransitionContext, nodeID string, iteration int, selector outgoingSelector) error {
-	outgoing := outgoingEdges(graph, nodeID)
-	matches := make([]WorkflowEdge, 0, len(outgoing))
-	for _, edge := range outgoing {
-		if edge.Kind != "" && edge.Kind != EdgeKindNormal {
-			continue
-		}
-		if edge.Condition == nil || conditionMatches(*edge.Condition, *execution) {
-			matches = append(matches, edge)
-		}
-	}
-	selected, err := selector(nodeID, matches)
+	outgoing := matchingOutgoingEdges(*execution, graph, nodeID)
+	selected, err := selector(nodeID, outgoing)
 	if err != nil {
 		return err
 	}
@@ -642,6 +633,28 @@ func emitMatchingOutgoingTokens(execution *WorkflowExecution, graph WorkflowGrap
 		}
 	}
 	return nil
+}
+
+func matchingOutgoingEdges(execution WorkflowExecution, graph WorkflowGraph, nodeID string) []WorkflowEdge {
+	outgoing := outgoingEdges(graph, nodeID)
+	matches := make([]WorkflowEdge, 0, len(outgoing))
+	defaultMatches := []WorkflowEdge{}
+	for _, edge := range outgoing {
+		if edge.Kind != "" && edge.Kind != EdgeKindNormal {
+			continue
+		}
+		if edge.Condition != nil && edge.Condition.Kind == ConditionDefault {
+			defaultMatches = append(defaultMatches, edge)
+			continue
+		}
+		if edge.Condition == nil || conditionMatches(*edge.Condition, execution) {
+			matches = append(matches, edge)
+		}
+	}
+	if len(matches) == 0 {
+		return defaultMatches
+	}
+	return matches
 }
 
 type outgoingSelector func(nodeID string, matches []WorkflowEdge) ([]WorkflowEdge, error)
@@ -753,6 +766,8 @@ func conditionMatchesRaw(condition WorkflowCondition, execution WorkflowExecutio
 		return true
 	case ConditionActionStatus:
 		return actionStatusConditionMatches(condition, execution)
+	case ConditionDefault:
+		return false
 	case ConditionActionSignal:
 		return actionSignalConditionMatches(condition, execution)
 	case ConditionScriptExitCode:

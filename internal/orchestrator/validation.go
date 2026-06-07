@@ -412,13 +412,24 @@ func (validator *graphValidator) validateANDGatewayShape(nodeID string) {
 func (validator *graphValidator) validateXORGatewayShape(nodeID string) {
 	validator.validateGatewayHasOutput("xor_gateway_output_required", "XOR", nodeID)
 	unconditional := 0
+	defaults := 0
 	for _, edge := range validator.outgoing[nodeID] {
+		if edge.Condition != nil && edge.Condition.Kind == ConditionDefault {
+			defaults++
+			continue
+		}
 		if edge.Condition == nil || edge.Condition.Kind == ConditionAlways {
 			unconditional++
 		}
 	}
 	if unconditional > 1 {
 		validator.addNodeDiagnostic("xor_gateway_ambiguous_default", fmt.Sprintf("XOR gateway %s has %d unconditional outgoing edges", nodeID, unconditional), nodeID)
+	}
+	if defaults > 1 {
+		validator.addNodeDiagnostic("xor_gateway_ambiguous_default", fmt.Sprintf("XOR gateway %s has %d default outgoing edges", nodeID, defaults), nodeID)
+	}
+	if defaults > 0 && unconditional > 0 {
+		validator.addNodeDiagnostic("xor_gateway_unreachable_default", fmt.Sprintf("XOR gateway %s has an unconditional edge that prevents default edges from being selected", nodeID), nodeID)
 	}
 }
 
@@ -525,6 +536,9 @@ func (validator *graphValidator) validateLoopEdgeKind(edge WorkflowEdge) {
 func (validator *graphValidator) validateEdgeCondition(edge WorkflowEdge) {
 	if edge.Condition != nil {
 		validator.validateCondition(*edge.Condition, "edge_condition_invalid", "", edge.ID)
+		if edge.Condition.Kind == ConditionDefault {
+			validator.validateDefaultEdgeCondition(edge)
+		}
 	}
 }
 
@@ -533,12 +547,36 @@ func (validator *graphValidator) validateCondition(condition WorkflowCondition, 
 	case ConditionAlways:
 	case ConditionActionStatus:
 		validator.validateActionStatusCondition(condition, code, nodeID, edgeID)
+	case ConditionDefault:
+		validator.validateDefaultCondition(condition, code, nodeID, edgeID)
 	case ConditionActionSignal:
 		validator.validateActionSignalCondition(condition, code, nodeID, edgeID)
 	case ConditionScriptExitCode:
 		validator.validateScriptExitCodeCondition(condition, code, nodeID, edgeID)
 	default:
 		validator.addDiagnostic(code, fmt.Sprintf("condition has unsupported kind %q", condition.Kind), nodeID, edgeID)
+	}
+}
+
+func (validator *graphValidator) validateDefaultCondition(condition WorkflowCondition, code string, nodeID string, edgeID string) {
+	if edgeID == "" {
+		validator.addDiagnostic(code, "default condition is only valid on workflow edges", nodeID, edgeID)
+	}
+	if condition.NodeID != "" || condition.Status != nil || condition.SignalName != "" || condition.SignalValue != "" || condition.ExitCode != nil {
+		validator.addDiagnostic(code, "default condition must not declare nodeId, status, signalName, signalValue, or exitCode", nodeID, edgeID)
+	}
+	if condition.Invert {
+		validator.addDiagnostic(code, "default condition cannot be inverted", nodeID, edgeID)
+	}
+}
+
+func (validator *graphValidator) validateDefaultEdgeCondition(edge WorkflowEdge) {
+	if edge.Kind != EdgeKindNormal {
+		validator.addEdgeDiagnostic("default_edge_kind_invalid", fmt.Sprintf("edge %s default condition requires a normal edge", edge.ID), edge.ID)
+	}
+	fromNode, ok := validator.nodesByID[edge.FromNodeID]
+	if ok && fromNode.Kind != NodeKindGatewayXOR {
+		validator.addEdgeDiagnostic("default_edge_from_route_required", fmt.Sprintf("edge %s default condition must leave a Route gateway", edge.ID), edge.ID)
 	}
 }
 

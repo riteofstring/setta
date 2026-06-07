@@ -1,4 +1,5 @@
 import type {
+  WorkflowCondition,
   WorkflowGraphEdgeStatus,
   WorkflowGraphNodeStatus,
   WorkflowGraphProjection,
@@ -12,14 +13,24 @@ interface PixiWorkspaceNode {
   id: string;
   kind: WorkflowNodeKind;
   label: string;
+  ports?: PixiWorkspacePort[];
   status: WorkflowGraphNodeStatus;
   width: number;
   x: number;
   y: number;
 }
 
+interface PixiWorkspacePort {
+  id: string;
+  label: string;
+  role: "source" | "target";
+  xOffset: number;
+  yRatio: number;
+}
+
 interface PixiWorkspaceEdge {
   id: string;
+  label: string;
   sourceNodeId: string;
   sourcePortId: string;
   status: WorkflowGraphEdgeStatus;
@@ -45,6 +56,13 @@ const nodeHeight = 82;
 const minNodeWidth = 156;
 const maxNodeWidth = 232;
 const labelWidthStep = 7;
+
+const routePorts = [
+  { id: "input", label: "", role: "target", xOffset: 20, yRatio: 0.5 },
+  { id: "route_yes", label: "yes", role: "source", xOffset: -20, yRatio: 0.28 },
+  { id: "route_no", label: "no", role: "source", xOffset: -20, yRatio: 0.5 },
+  { id: "route_default", label: "default", role: "source", xOffset: -20, yRatio: 0.72 },
+] satisfies PixiWorkspacePort[];
 
 const nodeStatusColors = {
   not_started: 0x52525b,
@@ -75,8 +93,9 @@ export function pixiGraphFromWorkflowProjection(
   return {
     edges: projection.edges.map((edge) => ({
       id: edge.id,
+      label: edge.label,
       sourceNodeId: edge.fromNodeId,
-      sourcePortId: "output",
+      sourcePortId: workflowEdgeSourcePortId(edge.condition),
       status: edge.status,
       targetNodeId: edge.toNodeId,
       targetPortId: "input",
@@ -90,6 +109,7 @@ export function pixiGraphFromWorkflowProjection(
         id: node.id,
         kind: node.kind,
         label: node.label,
+        ports: workflowNodePorts(node.kind),
         status: node.status,
         width: workflowNodeWidth(node.label),
         x: position.x,
@@ -104,6 +124,28 @@ export function pixiGraphFromWorkflowProjection(
       workspaceId: projection.workspaceId,
     },
   };
+}
+
+function workflowNodePorts(kind: WorkflowNodeKind): PixiWorkspacePort[] | undefined {
+  if (kind === "gateway.xor") {
+    return routePorts;
+  }
+  return undefined;
+}
+
+function workflowEdgeSourcePortId(condition: WorkflowCondition | null): string {
+  if (condition?.kind === "default") {
+    return "route_default";
+  }
+  if (condition?.kind === "action_signal" && condition.signalName === "route") {
+    if (condition.signalValue === "yes") {
+      return "route_yes";
+    }
+    if (condition.signalValue === "no") {
+      return "route_no";
+    }
+  }
+  return "output";
 }
 
 function workflowNodeColor(status: WorkflowGraphNodeStatus, kind: WorkflowNodeKind) {

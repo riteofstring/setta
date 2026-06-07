@@ -456,9 +456,9 @@ export function decodeWorkflowLoopLimitPolicy(value: unknown, label = "WorkflowL
   }
 }
 
-export type WorkflowConditionKind = "always" | "action_status" | "action_signal" | "script_exit_code";
+export type WorkflowConditionKind = "always" | "action_status" | "default" | "action_signal" | "script_exit_code";
 
-export const workflowConditionKindValues = ["always", "action_status", "action_signal", "script_exit_code"] as const satisfies readonly WorkflowConditionKind[];
+export const workflowConditionKindValues = ["always", "action_status", "default", "action_signal", "script_exit_code"] as const satisfies readonly WorkflowConditionKind[];
 
 export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowConditionKind"): WorkflowConditionKind {
   const decoded = decodeString(value, label);
@@ -466,6 +466,8 @@ export function decodeWorkflowConditionKind(value: unknown, label = "WorkflowCon
     case "always":
       return decoded;
     case "action_status":
+      return decoded;
+    case "default":
       return decoded;
     case "action_signal":
       return decoded;
@@ -2165,6 +2167,8 @@ export interface WorkflowGraphEdge {
   kind: WorkflowEdgeKind;
   fromNodeId: string;
   toNodeId: string;
+  condition: WorkflowCondition | null;
+  label: string;
   status: WorkflowGraphEdgeStatus;
   activeTokenCount: number;
   completedTokenCount: number;
@@ -4297,12 +4301,14 @@ export function decodeWorkflowGraphNode(value: unknown): WorkflowGraphNode {
 
 export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
   const record = assertRecord(value, "WorkflowGraphEdge");
-  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
+  assertKnownFields(record, "WorkflowGraphEdge", ["id", "kind", "fromNodeId", "toNodeId", "condition", "label", "status", "activeTokenCount", "completedTokenCount", "cancelledTokenCount"]);
   return {
     id: decodeString(requireField(record, "id", "WorkflowGraphEdge"), "WorkflowGraphEdge.id"),
     kind: decodeWorkflowEdgeKind(requireField(record, "kind", "WorkflowGraphEdge"), "WorkflowGraphEdge.kind"),
     fromNodeId: decodeString(requireField(record, "fromNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.fromNodeId"),
     toNodeId: decodeString(requireField(record, "toNodeId", "WorkflowGraphEdge"), "WorkflowGraphEdge.toNodeId"),
+    condition: decodeNullable(requireField(record, "condition", "WorkflowGraphEdge"), "WorkflowGraphEdge.condition", (item) => decodeWorkflowCondition(item)),
+    label: decodeString(requireField(record, "label", "WorkflowGraphEdge"), "WorkflowGraphEdge.label"),
     status: decodeWorkflowGraphEdgeStatus(requireField(record, "status", "WorkflowGraphEdge"), "WorkflowGraphEdge.status"),
     activeTokenCount: decodeInteger(requireField(record, "activeTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.activeTokenCount"),
     completedTokenCount: decodeInteger(requireField(record, "completedTokenCount", "WorkflowGraphEdge"), "WorkflowGraphEdge.completedTokenCount"),

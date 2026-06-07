@@ -53,6 +53,7 @@ const (
 
 	ConditionAlways         WorkflowConditionKind = "always"
 	ConditionActionStatus   WorkflowConditionKind = "action_status"
+	ConditionDefault        WorkflowConditionKind = "default"
 	ConditionActionSignal   WorkflowConditionKind = "action_signal"
 	ConditionScriptExitCode WorkflowConditionKind = "script_exit_code"
 
@@ -249,6 +250,7 @@ var (
 	workflowConditionKindValues = []WorkflowConditionKind{
 		ConditionAlways,
 		ConditionActionStatus,
+		ConditionDefault,
 		ConditionActionSignal,
 		ConditionScriptExitCode,
 	}
@@ -845,6 +847,8 @@ type WorkflowGraphEdge struct {
 	Kind                WorkflowEdgeKind        `json:"kind"`
 	FromNodeID          string                  `json:"fromNodeId"`
 	ToNodeID            string                  `json:"toNodeId"`
+	Condition           *WorkflowCondition      `json:"condition"`
+	Label               string                  `json:"label"`
 	Status              WorkflowGraphEdgeStatus `json:"status"`
 	ActiveTokenCount    int                     `json:"activeTokenCount"`
 	CompletedTokenCount int                     `json:"completedTokenCount"`

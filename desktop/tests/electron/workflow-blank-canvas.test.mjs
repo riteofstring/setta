@@ -159,8 +159,76 @@ try {
     throw new Error(`saved workflow edge mismatch: ${JSON.stringify(saved.graph.edges)}`);
   }
 
+  await addWorkflowNodeAt(context.client, pixiSurfaceId, "route", { x: 820, y: 260 });
+  const routeOnly = await waitForPixiSnapshot(context.client, (snapshot) =>
+    snapshot.graph.nodes.some((node) => node.id === "route"),
+  );
+  const firstEndPoint = offsetFromPixiNode(routeOnly, "route", { x: 220, y: -140 });
+  const secondEndPoint = offsetFromPixiNode(routeOnly, "route", { x: 220, y: 140 });
+  await addWorkflowNodeAt(context.client, pixiSurfaceId, "end", firstEndPoint);
+  await waitForPixiSnapshot(context.client, (snapshot) =>
+    snapshot.graph.nodes.some((node) => node.id === "end"),
+  );
+  await addWorkflowNodeAt(context.client, pixiSurfaceId, "end", secondEndPoint);
+  const routeNodes = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.nodeCount === 5 &&
+      snapshot.graph.nodes.some((node) => node.id === "route") &&
+      snapshot.graph.nodes.some((node) => node.id === "end_2"),
+  );
+  assertRoutePorts(routeNodes);
+  await connectPixiNodes(context.client, pixiSurfaceId, routeNodes, "agent_task", "route");
+  const routeInput = await waitForPixiSnapshot(context.client, (snapshot) =>
+    snapshot.graph.edges.some(
+      (edge) =>
+        edge.id === "agent_task_route" &&
+        edge.sourceNodeId === "agent_task" &&
+        edge.targetNodeId === "route",
+    ),
+  );
+  await connectPixiNodes(context.client, pixiSurfaceId, routeInput, "route", "end", {
+    sourcePortId: "route_yes",
+  });
+  const yesRoute = await waitForPixiSnapshot(context.client, (snapshot) =>
+    snapshot.graph.edges.some(
+      (edge) =>
+        edge.id === "route_end" &&
+        edge.label === "route=yes" &&
+        edge.sourcePortId === "route_yes" &&
+        edge.targetNodeId === "end",
+    ),
+  );
+  await connectPixiNodes(context.client, pixiSurfaceId, yesRoute, "route", "end_2", {
+    sourcePortId: "route_default",
+  });
+  const typedRoute = await waitForPixiSnapshot(context.client, (snapshot) =>
+    snapshot.graph.edges.some(
+      (edge) =>
+        edge.id === "route_end_2" &&
+        edge.label === "default" &&
+        edge.sourcePortId === "route_default" &&
+        edge.targetNodeId === "end_2",
+    ),
+  );
+  assertCameraPreserved(typedRoute.camera, pannedCanvas.camera);
+
+  const routeDefinition = await configureWorkflowResultAction(
+    context.client,
+    workspaceId,
+    definitions[0].id,
+  );
+  assertSavedTypedRouteDefinition(routeDefinition);
+  const execution = await startWorkflowAndWaitForCompletion(
+    context.client,
+    workspaceId,
+    routeDefinition.id,
+  );
+  assertTypedRouteExecution(execution);
+
   await writeJson(join(artifactDir, "summary.json"), {
     definitionId: definitions[0].id,
+    executionId: execution.id,
     status: "passed",
   });
   console.log(`Electron workflow blank canvas passed: ${artifactDir}`);
@@ -238,6 +306,13 @@ async function selectWorkflowNodeType(client, nodeType) {
       `failed to select ${nodeType} node from workflow context menu: ${JSON.stringify(selected)}`,
     );
   }
+}
+
+async function addWorkflowNodeAt(client, surfaceId, nodeType, point) {
+  await dispatchPixiContextMenu(client, surfaceId, point);
+  await waitForSelector(client, '[data-testid="workflow-node-create-menu"]');
+  await selectWorkflowNodeType(client, nodeType);
+  await delay(150);
 }
 
 async function waitForTexts(client, texts) {
@@ -338,6 +413,154 @@ async function assertSidebarWorkflowConversationSections(client) {
   }
 }
 
+function assertRoutePorts(snapshot) {
+  const route = snapshot.graph.nodes.find((candidate) => candidate.id === "route");
+  if (!route) {
+    throw new Error(`route node is missing: ${JSON.stringify(snapshot.graph.nodes)}`);
+  }
+  const ports = route.ports.map((port) => [port.id, port.label, port.role]);
+  const expected = [
+    ["input", "", "target"],
+    ["route_yes", "yes", "source"],
+    ["route_no", "no", "source"],
+    ["route_default", "default", "source"],
+  ];
+  if (JSON.stringify(ports) !== JSON.stringify(expected)) {
+    throw new Error(`route ports = ${JSON.stringify(ports)}, want ${JSON.stringify(expected)}`);
+  }
+}
+
+function offsetFromPixiNode(snapshot, nodeId, offset) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(`missing Pixi node ${nodeId}: ${JSON.stringify(snapshot.graph.nodes)}`);
+  }
+  const margin = 80;
+  const maxX = Math.max(margin, snapshot.canvas.clientWidth - margin);
+  const maxY = Math.max(margin, snapshot.canvas.clientHeight - margin);
+  return {
+    x: clamp(Math.round(node.screenX + offset.x), margin, maxX),
+    y: clamp(Math.round(node.screenY + offset.y), margin, maxY),
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+async function configureWorkflowResultAction(client, workspaceId, definitionId) {
+  return client.evaluate(
+    `(async (workspaceId, definitionId) => {
+      const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
+      const graph = {
+        ...definition.graph,
+        nodes: definition.graph.nodes.map((node) => {
+          if (node.id !== "agent_task") {
+            return node;
+          }
+          return {
+            ...node,
+            action: {
+              ...node.action,
+              codex: {
+                ...node.action.codex,
+                prompt: "workflow result action",
+              },
+            },
+          };
+        }),
+      };
+      return window.setta.workflow.updateDefinition(
+        workspaceId,
+        definitionId,
+        definition.name,
+        definition.description,
+        graph,
+      );
+    })(${JSON.stringify(workspaceId)}, ${JSON.stringify(definitionId)})`,
+  );
+}
+
+function assertSavedTypedRouteDefinition(definition) {
+  assertRouteYesCondition(requireSavedWorkflowEdge(definition, "route_end"));
+  assertRouteDefaultCondition(requireSavedWorkflowEdge(definition, "route_end_2"));
+}
+
+function requireSavedWorkflowEdge(definition, edgeId) {
+  const edge = definition.graph.edges.find((candidate) => candidate.id === edgeId);
+  if (!edge) {
+    throw new Error(
+      `missing saved workflow edge ${edgeId}: ${JSON.stringify(definition.graph.edges)}`,
+    );
+  }
+  return edge;
+}
+
+function assertRouteYesCondition(edge) {
+  const condition = requireEdgeCondition(edge, "action_signal");
+  assertConditionField(edge, condition, "nodeId", "agent_task");
+  assertConditionField(edge, condition, "signalName", "route");
+  assertConditionField(edge, condition, "signalValue", "yes");
+}
+
+function assertRouteDefaultCondition(edge) {
+  requireEdgeCondition(edge, "default");
+}
+
+function requireEdgeCondition(edge, kind) {
+  if (edge.condition?.kind !== kind) {
+    throw new Error(`edge ${edge.id} condition mismatch: ${JSON.stringify(edge)}`);
+  }
+  return edge.condition;
+}
+
+function assertConditionField(edge, condition, field, expected) {
+  if (condition[field] !== expected) {
+    throw new Error(`edge ${edge.id} condition mismatch: ${JSON.stringify(edge)}`);
+  }
+}
+
+async function startWorkflowAndWaitForCompletion(client, workspaceId, definitionId) {
+  const started = await client.evaluate(
+    `(async (workspaceId, definitionId) => {
+      return window.setta.workflow.startExecution(workspaceId, definitionId);
+    })(${JSON.stringify(workspaceId)}, ${JSON.stringify(definitionId)})`,
+  );
+  return waitForState(
+    client,
+    `(async (workspaceId, executionId) => {
+      return window.setta.workflow.readExecution(workspaceId, executionId);
+    })(${JSON.stringify(workspaceId)}, ${JSON.stringify(started.id)})`,
+    (execution) => ["completed", "failed", "cancelled", "stopped"].includes(execution.status),
+  ).then((execution) => {
+    if (execution.status !== "completed") {
+      throw new Error(`workflow execution did not complete: ${JSON.stringify(execution)}`);
+    }
+    return execution;
+  });
+}
+
+function assertTypedRouteExecution(execution) {
+  const completedEdges = execution.tokens
+    .filter((token) => token.status === "completed")
+    .map((token) => token.edgeId);
+  if (!completedEdges.includes("route_end")) {
+    throw new Error(`typed route edge was not completed: ${JSON.stringify(execution.tokens)}`);
+  }
+  if (completedEdges.includes("route_end_2")) {
+    throw new Error(
+      `default route edge unexpectedly completed: ${JSON.stringify(execution.tokens)}`,
+    );
+  }
+  const endExecution = execution.nodeExecutions.find((node) => node.nodeId === "end");
+  const defaultEndExecution = execution.nodeExecutions.find((node) => node.nodeId === "end_2");
+  if (endExecution?.status !== "succeeded" || defaultEndExecution) {
+    throw new Error(
+      `typed route node executions mismatch: ${JSON.stringify(execution.nodeExecutions)}`,
+    );
+  }
+}
+
 function cameraChanged(actual, initial) {
   return (
     Math.abs(actual.x - initial.x) > 20 ||
@@ -363,9 +586,16 @@ function assertCameraPreserved(actual, expected) {
   }
 }
 
-async function connectPixiNodes(client, surfaceId, snapshot, sourceNodeId, targetNodeId) {
-  const sourcePort = pixiNodePort(snapshot, sourceNodeId, "output");
-  const targetPort = pixiNodePort(snapshot, targetNodeId, "input");
+async function connectPixiNodes(
+  client,
+  surfaceId,
+  snapshot,
+  sourceNodeId,
+  targetNodeId,
+  { sourcePortId = "output", targetPortId = "input" } = {},
+) {
+  const sourcePort = pixiNodePort(snapshot, sourceNodeId, sourcePortId);
+  const targetPort = pixiNodePort(snapshot, targetNodeId, targetPortId);
   await dispatchPixiMouseDrag(client, surfaceId, {
     from: { x: sourcePort.screenX, y: sourcePort.screenY },
     to: { x: targetPort.screenX, y: targetPort.screenY },

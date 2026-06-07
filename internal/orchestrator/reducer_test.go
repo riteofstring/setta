@@ -300,6 +300,49 @@ func TestXORGatewayCanRouteFromScriptExitCode(t *testing.T) {
 	assertNodeSucceeded(t, next.Execution, "end_match")
 }
 
+func TestXORGatewayUsesExplicitDefaultWhenNoConditionMatches(t *testing.T) {
+	graph := conditionRoutingGraph(signalCondition("classify", "route", "yes"))
+	transition := startTestExecution(t, graph)
+	execution, classify := startActionForTest(t, transition.Execution, "classify")
+	next, err := CompleteAction(execution, graph, classify.ID, WorkflowActionResult{
+		Status:  ActionCompletionCompleted,
+		Signals: []WorkflowActionSignal{{Name: "route", Value: "no"}},
+	}, testTransitionContext())
+	if err != nil {
+		t.Fatalf("complete action: %v", err)
+	}
+	if next.Execution.Status != ExecutionStatusCompleted {
+		t.Fatalf("execution status = %s, want completed", next.Execution.Status)
+	}
+	assertNodeSucceeded(t, next.Execution, "end_default")
+	assertNodeNotExecuted(t, next.Execution, "end_match")
+}
+
+func TestValidateGraphRejectsDefaultConditionOutsideRouteEdge(t *testing.T) {
+	graph := startEndGraph()
+	graph.Edges[0].Condition = defaultCondition()
+	result := ValidateGraph(graph, DefaultRunnerRegistry())
+	if result.Valid {
+		t.Fatalf("validation unexpectedly passed: %+v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result, "default_edge_from_route_required")
+}
+
+func TestValidateGraphRejectsDefaultConditionInLoopGuard(t *testing.T) {
+	graph := controlOnlyLoopGraph(nil)
+	for index := range graph.Nodes {
+		if graph.Nodes[index].Kind == NodeKindLoopGuard {
+			graph.Nodes[index].LoopGuard.ContinueCondition = defaultCondition()
+			break
+		}
+	}
+	result := ValidateGraph(graph, DefaultRunnerRegistry())
+	if result.Valid {
+		t.Fatalf("validation unexpectedly passed: %+v", result.Diagnostics)
+	}
+	assertDiagnostic(t, result, "loop_guard_continue_condition")
+}
+
 func TestORGatewayReleasesAllMatchingBranches(t *testing.T) {
 	graph := WorkflowGraph{
 		Nodes: []WorkflowNode{
@@ -750,6 +793,10 @@ func controlOnlyLoopGraph(maxIterations *int) WorkflowGraph {
 	}
 }
 
+func defaultCondition() *WorkflowCondition {
+	return &WorkflowCondition{Kind: ConditionDefault}
+}
+
 func conditionRoutingGraph(condition *WorkflowCondition) WorkflowGraph {
 	return WorkflowGraph{
 		Nodes: []WorkflowNode{
@@ -763,7 +810,7 @@ func conditionRoutingGraph(condition *WorkflowCondition) WorkflowGraph {
 			{ID: "start_classify", FromNodeID: "start", ToNodeID: "classify", Kind: EdgeKindNormal},
 			{ID: "classify_route", FromNodeID: "classify", ToNodeID: "route", Kind: EdgeKindNormal},
 			{ID: "route_match", FromNodeID: "route", ToNodeID: "end_match", Kind: EdgeKindNormal, Condition: condition},
-			{ID: "route_default", FromNodeID: "route", ToNodeID: "end_default", Kind: EdgeKindNormal, Condition: &WorkflowCondition{Kind: ConditionAlways, Invert: true}},
+			{ID: "route_default", FromNodeID: "route", ToNodeID: "end_default", Kind: EdgeKindNormal, Condition: defaultCondition()},
 		},
 	}
 }

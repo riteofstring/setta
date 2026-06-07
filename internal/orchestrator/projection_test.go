@@ -102,6 +102,31 @@ func TestServiceReadGraphProjectionIncludesDefinitionLayout(t *testing.T) {
 	}
 }
 
+func TestServiceReadGraphProjectionIncludesEdgeConditionsAndLabels(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	graph := conditionRoutingGraph(signalCondition("classify", "route", "yes"))
+	definition, err := service.CreateDefinition(workspaceID, "Route", "graph projection", graph)
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+
+	projection, ok, err := service.ReadGraphProjection(workspaceID, definition.ID, "", "")
+	if err != nil {
+		t.Fatalf("read definition projection: %v", err)
+	}
+	if !ok {
+		t.Fatal("definition projection was not returned")
+	}
+	match := projectedEdgeForTest(t, projection, "route_match")
+	if match.Condition == nil || match.Condition.Kind != ConditionActionSignal || match.Label != "route=yes" {
+		t.Fatalf("projected match edge = %+v, want action_signal route=yes label", match)
+	}
+	defaultEdge := projectedEdgeForTest(t, projection, "route_default")
+	if defaultEdge.Condition == nil || defaultEdge.Condition.Kind != ConditionDefault || defaultEdge.Label != "default" {
+		t.Fatalf("projected default edge = %+v, want default condition and label", defaultEdge)
+	}
+}
+
 func TestServiceReadGraphProjectionReportsEmptyWorkspaceWithoutError(t *testing.T) {
 	_, _, service, workspaceID := newTestWorkflowService(t)
 	_, ok, err := service.ReadGraphProjection(workspaceID, "", "", "")
@@ -145,13 +170,19 @@ func projectedLayoutNodeForTest(t *testing.T, projection WorkflowGraphProjection
 
 func assertProjectedEdge(t *testing.T, projection WorkflowGraphProjection, edgeID string, status WorkflowGraphEdgeStatus, activeTokens int, completedTokens int) {
 	t.Helper()
+	edge := projectedEdgeForTest(t, projection, edgeID)
+	if edge.Status != status || edge.ActiveTokenCount != activeTokens || edge.CompletedTokenCount != completedTokens {
+		t.Fatalf("projected edge %s = %+v, want status %s active %d completed %d", edgeID, edge, status, activeTokens, completedTokens)
+	}
+}
+
+func projectedEdgeForTest(t *testing.T, projection WorkflowGraphProjection, edgeID string) WorkflowGraphEdge {
+	t.Helper()
 	for _, edge := range projection.Edges {
 		if edge.ID == edgeID {
-			if edge.Status != status || edge.ActiveTokenCount != activeTokens || edge.CompletedTokenCount != completedTokens {
-				t.Fatalf("projected edge %s = %+v, want status %s active %d completed %d", edgeID, edge, status, activeTokens, completedTokens)
-			}
-			return
+			return edge
 		}
 	}
 	t.Fatalf("projected edge %s was not found in %+v", edgeID, projection.Edges)
+	return WorkflowGraphEdge{}
 }

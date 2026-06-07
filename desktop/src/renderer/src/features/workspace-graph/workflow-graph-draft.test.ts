@@ -91,6 +91,108 @@ describe("workflow graph drafts", () => {
     ]);
   });
 
+  test("adds durable typed route edges from virtual ports", () => {
+    const withNodes = workflowGraphWithAddedDraftNode(
+      workflowGraphWithAddedDraftNode(
+        workflowGraphWithAddedDraftNode(
+          workflowGraphWithAddedDraftNode(emptyWorkflowGraph(), "agent_task", { x: 0, y: 0 }),
+          "route",
+          { x: 200, y: 0 },
+        ),
+        "end",
+        { x: 400, y: -100 },
+      ),
+      "end",
+      { x: 400, y: 100 },
+    );
+    const withRouteInput = workflowGraphWithAddedDraftEdge(withNodes, {
+      sourceNodeId: "agent_task",
+      targetNodeId: "route",
+    });
+    const graph = workflowGraphWithAddedDraftEdge(
+      workflowGraphWithAddedDraftEdge(withRouteInput, {
+        sourceNodeId: "route",
+        sourcePortId: "route_yes",
+        targetNodeId: "end",
+      }),
+      {
+        sourceNodeId: "route",
+        sourcePortId: "route_default",
+        targetNodeId: "end_2",
+      },
+    );
+
+    expect(graph.edges).toEqual([
+      {
+        condition: null,
+        fromNodeId: "agent_task",
+        id: "agent_task_route",
+        kind: "normal",
+        toNodeId: "route",
+      },
+      {
+        condition: {
+          exitCode: null,
+          invert: false,
+          kind: "action_signal",
+          nodeId: "agent_task",
+          signalName: "route",
+          signalValue: "yes",
+          status: null,
+        },
+        fromNodeId: "route",
+        id: "route_end",
+        kind: "normal",
+        toNodeId: "end",
+      },
+      {
+        condition: {
+          exitCode: null,
+          invert: false,
+          kind: "default",
+          nodeId: "",
+          signalName: "",
+          signalValue: "",
+          status: null,
+        },
+        fromNodeId: "route",
+        id: "route_end_2",
+        kind: "normal",
+        toNodeId: "end_2",
+      },
+    ]);
+  });
+
+  test("resolves pending route condition sources after the route input is added", () => {
+    const withNodes = workflowGraphWithAddedDraftNode(
+      workflowGraphWithAddedDraftNode(
+        workflowGraphWithAddedDraftNode(emptyWorkflowGraph(), "agent_task", { x: 0, y: 0 }),
+        "route",
+        { x: 200, y: 0 },
+      ),
+      "end",
+      { x: 400, y: 0 },
+    );
+    const withRouteOutput = workflowGraphWithAddedDraftEdge(withNodes, {
+      sourceNodeId: "route",
+      sourcePortId: "route_no",
+      targetNodeId: "end",
+    });
+    expect(withRouteOutput.edges[0]?.condition?.nodeId).toBe("");
+
+    const graph = workflowGraphWithAddedDraftEdge(withRouteOutput, {
+      sourceNodeId: "agent_task",
+      targetNodeId: "route",
+    });
+
+    expect(graph.edges[0]?.condition).toMatchObject({
+      kind: "action_signal",
+      nodeId: "agent_task",
+      signalName: "route",
+      signalValue: "no",
+    });
+  });
+
   test("creates deterministic IDs for repeated edge endpoints", () => {
     const withNodes = workflowGraphWithAddedDraftNode(
       workflowGraphWithAddedDraftNode(emptyWorkflowGraph(), "start", { x: 0, y: 0 }),
