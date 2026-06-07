@@ -91,6 +91,13 @@ export class PresentationEngine {
     this.debugOverlay = debugOverlay;
   }
 
+  setDebugOverlay(debugOverlay: HTMLElement | null): void {
+    if (this.debugOverlay && this.debugOverlay !== debugOverlay) {
+      this.debugOverlay.textContent = "";
+    }
+    this.debugOverlay = debugOverlay;
+  }
+
   syncPanes(panes: readonly NiriPane[]): void {
     const nextPaneIds = new Set(panes.map((pane) => pane.paneId));
     for (const paneId of [...this.paneById.keys()]) {
@@ -112,6 +119,7 @@ export class PresentationEngine {
       binding.host.removeAttribute("data-pane-id");
       binding.host.removeAttribute("data-presentation-mode");
       binding.host.removeAttribute("data-visible");
+      this.dragHandleForHost(binding.host)?.remove();
       this.maximizeButtonForHost(binding.host)?.remove();
       binding.host.style.cssText = "";
     }
@@ -261,11 +269,28 @@ export class PresentationEngine {
   }
 
   private syncPaneControls(binding: PaneHostBinding, item: PaneRenderItem): void {
+    const dragHandle = this.ensureDragHandle(binding.host);
+    dragHandle.dataset.paneId = item.paneId;
     const button = this.ensureMaximizeButton(binding.host);
     button.dataset.paneId = item.paneId;
     const label = item.maximized ? "Restore pane size" : "Maximize pane";
     button.setAttribute("aria-label", label);
     button.title = label;
+  }
+
+  private ensureDragHandle(host: HTMLElement): HTMLButtonElement {
+    const existing = this.dragHandleForHost(host);
+    if (existing) {
+      return existing;
+    }
+    const button = host.ownerDocument.createElement("button");
+    button.className = "niri-pane-drag-handle app-no-drag";
+    button.dataset.niriPaneDragHandle = "true";
+    button.type = "button";
+    button.setAttribute("aria-label", "Drag pane");
+    button.title = "Drag pane";
+    host.append(button);
+    return button;
   }
 
   private ensureMaximizeButton(host: HTMLElement): HTMLButtonElement {
@@ -279,6 +304,13 @@ export class PresentationEngine {
     button.type = "button";
     host.append(button);
     return button;
+  }
+
+  private dragHandleForHost(host: HTMLElement): HTMLButtonElement | null {
+    const existing = Array.from(host.children).find((child) =>
+      child.classList.contains("niri-pane-drag-handle"),
+    );
+    return existing ? (existing as HTMLButtonElement) : null;
   }
 
   private maximizeButtonForHost(host: HTMLElement): HTMLButtonElement | null {
@@ -331,7 +363,9 @@ export class PresentationEngine {
   }
 
   private hostContentMissing(binding: PaneHostBinding): boolean {
-    const chromeChildCount = this.maximizeButtonForHost(binding.host) ? 1 : 0;
+    const chromeChildCount =
+      (this.dragHandleForHost(binding.host) ? 1 : 0) +
+      (this.maximizeButtonForHost(binding.host) ? 1 : 0);
     return binding.host.childElementCount <= chromeChildCount || !binding.host.dataset.surfaceId;
   }
 

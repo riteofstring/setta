@@ -131,10 +131,12 @@ describe("niri layout store", () => {
     const firstSnapshot = store.getSnapshot();
 
     expect(store.getSnapshot()).toBe(firstSnapshot);
+    expect(firstSnapshot.revision).toBe(0);
 
     store.openPane({ title: "Logs" });
 
     expect(store.getSnapshot()).not.toBe(firstSnapshot);
+    expect(store.getSnapshot().revision).toBe(firstSnapshot.revision + 1);
     expect(store.getSnapshot()).toBe(store.getSnapshot());
   });
 

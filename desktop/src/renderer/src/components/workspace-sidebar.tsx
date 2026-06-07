@@ -186,7 +186,7 @@ export function WorkspaceSidebar({
 
   return (
     <aside
-      className="flex h-full min-h-0 w-full min-w-0 flex-col bg-[#202124] text-zinc-100"
+      className="setta-sidebar-surface relative flex h-full min-h-0 w-full min-w-0 flex-col text-sidebar-foreground"
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <div
@@ -539,7 +539,7 @@ function ConversationStatusRow({
 }: {
   item: Extract<SidebarNavigationItem, { kind: "emptyConversationList" }>;
 }) {
-  return <div className="h-7 px-6 py-1 text-xs text-zinc-600">{item.label}</div>;
+  return <div className="h-7 px-6 py-1 text-xs text-muted-foreground">{item.label}</div>;
 }
 
 function MoreConversationsRow({
@@ -551,7 +551,7 @@ function MoreConversationsRow({
 }) {
   return (
     <button
-      className="h-7 w-full rounded-sm px-6 text-left text-xs text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
+      className="h-7 w-full rounded-sm px-6 text-left text-xs text-muted-foreground hover:bg-accent/70 hover:text-foreground"
       onClick={() => void runCommand(item.commands.primary)}
       type="button"
     >
@@ -579,7 +579,7 @@ function ProjectRow({
   const { workspace } = item;
 
   return (
-    <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center rounded-sm hover:bg-zinc-800/55">
+    <div className="group grid h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center rounded-sm hover:bg-accent/55">
       <button
         aria-current={item.selected ? "page" : undefined}
         aria-expanded={item.expanded}
@@ -591,14 +591,14 @@ function ProjectRow({
         type="button"
       >
         {item.expanded ? (
-          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         ) : (
-          <FolderClosed className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+          <FolderClosed className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         )}
         <span
           className={cn(
             "truncate text-xs",
-            item.selected ? "font-medium text-zinc-100" : "text-zinc-400",
+            item.selected ? "font-medium text-foreground" : "text-muted-foreground",
           )}
         >
           {workspace.displayName}
@@ -713,7 +713,7 @@ function ProjectMoreMenu({
       </SidebarIconButton>
       {open ? (
         <div
-          className="fixed z-50 w-56 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50 backdrop-blur"
+          className="fixed z-50 w-56 rounded-sm border border-border bg-popover/95 p-1 shadow-2xl shadow-black/35 backdrop-blur"
           role="menu"
           style={menuPosition}
         >
@@ -742,12 +742,12 @@ function ProjectMenuItem({
 }) {
   return (
     <button
-      className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-200 hover:bg-zinc-800 hover:text-zinc-50"
+      className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-foreground hover:bg-accent hover:text-accent-foreground"
       onClick={onClick}
       role="menuitem"
       type="button"
     >
-      <span className="shrink-0 text-zinc-400">{icon}</span>
+      <span className="shrink-0 text-muted-foreground">{icon}</span>
       <span className="truncate">{label}</span>
     </button>
   );
@@ -768,7 +768,7 @@ function WorkspaceCorruptionIndicator({
   return (
     <div
       aria-label={label}
-      className="group/workspace-corruption grid h-6 w-6 place-items-center rounded-sm text-amber-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
+      className="group/workspace-corruption grid h-6 w-6 place-items-center rounded-sm text-status-warning outline-none hover:bg-accent/80 focus-visible:bg-accent/80"
       data-testid="workspace-corruption-status"
       role="status"
       tabIndex={0}
@@ -776,12 +776,12 @@ function WorkspaceCorruptionIndicator({
     >
       <AlertTriangle className="h-3.5 w-3.5" />
       <div
-        className="pointer-events-none fixed z-50 hidden w-72 rounded-sm border border-zinc-700/80 bg-zinc-900/95 px-2 py-1.5 text-xs text-zinc-100 shadow-xl shadow-zinc-950/50 backdrop-blur group-hover/workspace-corruption:block group-focus/workspace-corruption:block"
+        className="pointer-events-none fixed z-50 hidden w-72 rounded-sm border border-border bg-popover/95 px-2 py-1.5 text-xs text-popover-foreground shadow-xl shadow-black/35 backdrop-blur group-hover/workspace-corruption:block group-focus/workspace-corruption:block"
         data-testid="workspace-corruption-tooltip"
         style={{ left: "calc(var(--sidebar-width, 220px) + 8px)" }}
       >
-        <div className="font-medium text-amber-200">Malformed chat data</div>
-        <div className="mt-1 break-words text-zinc-300">{label}</div>
+        <div className="font-medium text-status-warning">Malformed chat data</div>
+        <div className="mt-1 break-words text-muted-foreground">{label}</div>
       </div>
     </div>
   );
@@ -835,7 +835,7 @@ function RecentWorkspaceRow({
   const { workspace } = item;
   return (
     <div
-      className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-zinc-800/60"
+      className="group grid h-7 grid-cols-[minmax(0,1fr)_auto] items-center rounded-sm hover:bg-accent/60"
       title={workspace.rootPath}
     >
       <button
@@ -845,8 +845,8 @@ function RecentWorkspaceRow({
         onClick={() => void runCommand(item.commands.primary)}
         type="button"
       >
-        <Workflow className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
-        <span className="truncate text-xs text-zinc-500">{workspace.displayName}</span>
+        <Workflow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate text-xs text-muted-foreground">{workspace.displayName}</span>
       </button>
       <SidebarIconButton
         className="mr-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100"

@@ -96,8 +96,6 @@ function projectedNode(
     latestIteration: 1,
     latestNodeExecutionId: executionCount > 0 ? `node_execution_${id}` : "",
     pendingApproval: null,
-    recoveryMessage: "",
-    recoveryOutcome: null,
     signals: [],
     status,
     title: "",

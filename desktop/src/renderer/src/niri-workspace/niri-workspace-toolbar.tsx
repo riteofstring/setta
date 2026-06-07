@@ -14,7 +14,14 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { type ComponentType, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ComponentType,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
@@ -26,13 +33,17 @@ export function NiriWorkspaceToolbar({
   focusedPaneId,
   openPane,
   overviewActive,
+  performanceStatsRef,
   runLayoutAction,
+  showPerformanceStats,
   store,
 }: {
   focusedPaneId: string;
   openPane: (request: OpenPaneRequest) => void;
   overviewActive: boolean;
+  performanceStatsRef: RefObject<HTMLDivElement | null> | null;
   runLayoutAction: (action: () => void) => void;
+  showPerformanceStats: boolean;
   store: NiriLayoutStore;
 }) {
   const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
@@ -52,9 +63,22 @@ export function NiriWorkspaceToolbar({
     };
   });
   return (
-    <div className="niri-workspace-toolbar app-no-drag" data-testid="niri-workspace-toolbar">
+    <div className="niri-workspace-toolbar app-drag" data-testid="niri-workspace-toolbar">
       <div className="niri-workspace-toolbar-group" data-testid="niri-focused-pane-label">
         <span>{focusedPaneId}</span>
+      </div>
+      <div className="niri-workspace-toolbar-spacer app-drag" aria-hidden={!showPerformanceStats}>
+        {showPerformanceStats ? (
+          <div
+            aria-live="off"
+            className="niri-performance-stats"
+            data-testid="niri-performance-stats"
+            ref={performanceStatsRef}
+          >
+            frame 0.00ms | p95 0.00ms | p99 0.00ms | visible 0 | writes 0 | long 0 | react 0 |
+            runtime 0/0/0/0
+          </div>
+        ) : null}
       </div>
       <TooltipProvider>
         <div className="niri-workspace-toolbar-group">
@@ -178,7 +202,7 @@ function NiriToolbarButton({
       <TooltipTrigger>
         <button
           aria-label={label}
-          className="niri-workspace-toolbar-button"
+          className="niri-workspace-toolbar-button app-no-drag"
           onClick={onClick}
           type="button"
         >
@@ -237,7 +261,7 @@ function NiriToolbarMenu({
   }, [open]);
 
   return (
-    <div className="niri-workspace-toolbar-menu-root" ref={rootRef}>
+    <div className="niri-workspace-toolbar-menu-root app-no-drag" ref={rootRef}>
       <Tooltip>
         <TooltipTrigger>
           <button

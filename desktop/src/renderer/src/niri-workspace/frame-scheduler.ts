@@ -1,6 +1,6 @@
 import { AnimationClock } from "./animation-clock";
 import type { NiriLikeLayoutEngine } from "./layout-engine";
-import type { NiriLayoutStore } from "./layout-store";
+import type { NiriLayoutSnapshot, NiriLayoutStore } from "./layout-store";
 import type { NiriMetricsCollector } from "./metrics";
 import { interpolatePaneRenderItems } from "./pane-render-interpolation";
 import type { PerformanceReportWriter } from "./performance-report";
@@ -22,6 +22,12 @@ interface FrameSchedulerDependencies {
   viewportProvider: () => Rect;
 }
 
+interface ZoomEndpointFrames {
+  key: string;
+  normalItems: PaneRenderItem[];
+  overviewItems: PaneRenderItem[];
+}
+
 export class FrameScheduler {
   private benchmarkDirection: "left" | "right" = "right";
   private benchmarkPaused = false;
@@ -33,6 +39,7 @@ export class FrameScheduler {
   private reportWritten = false;
   private resizePhaseTracker = new ResizePhaseTracker();
   private startedAt = 0;
+  private zoomEndpointFrames: ZoomEndpointFrames | null = null;
 
   private readonly engine: NiriLikeLayoutEngine;
   private readonly layoutStore: NiriLayoutStore;
@@ -67,6 +74,7 @@ export class FrameScheduler {
     this.clock.stop();
     this.longTaskObserver?.disconnect();
     this.longTaskObserver = null;
+    this.zoomEndpointFrames = null;
     this.presentation.teardown();
   }
 
@@ -127,15 +135,11 @@ export class FrameScheduler {
       viewport,
     } as const;
     if (zooming) {
-      const normalItems: PaneRenderItem[] = [];
-      const overviewItems: PaneRenderItem[] = [];
-      this.engine.renderFrame(
-        { ...frameInput, presentationMode: "normal", renderAllColumns: true },
-        (item) => normalItems.push(item),
-      );
-      this.engine.renderFrame({ ...frameInput, presentationMode: "overview" }, (item) =>
-        overviewItems.push(item),
-      );
+      const { normalItems, overviewItems } = this.zoomEndpointFrameItems({
+        frameInput,
+        resizePhase,
+        snapshot,
+      });
       this.items.push(
         ...interpolatePaneRenderItems({
           normalItems,
@@ -149,6 +153,7 @@ export class FrameScheduler {
         { ...frameInput, presentationMode: snapshot.presentationMode },
         (item) => this.items.push(item),
       );
+      this.zoomEndpointFrames = null;
     }
     for (const item of this.items) {
       item.resizing = resizePhase === "active";
@@ -189,6 +194,74 @@ export class FrameScheduler {
     this.startMeasurementAfterWarmup(frameStart);
     this.writeReportWhenReady(frameStart);
   };
+
+  private zoomEndpointFrameItems({
+    frameInput,
+    resizePhase,
+    snapshot,
+  }: {
+    frameInput: {
+      focusedPaneId: string;
+      maximizedPaneId: string | null;
+      movementPhase: "idle" | "moving";
+      scrollColumn: number;
+      scrollRow: number;
+      viewport: Rect;
+    };
+    resizePhase: "active" | "idle" | "settled";
+    snapshot: NiriLayoutSnapshot;
+  }): ZoomEndpointFrames {
+    const key = this.zoomEndpointFrameKey({ frameInput, resizePhase, snapshot });
+    if (this.zoomEndpointFrames?.key === key) {
+      return this.zoomEndpointFrames;
+    }
+    const normalItems: PaneRenderItem[] = [];
+    const overviewItems: PaneRenderItem[] = [];
+    this.engine.renderFrame(
+      { ...frameInput, presentationMode: "normal", renderAllColumns: true },
+      (item) => normalItems.push(item),
+    );
+    this.engine.renderFrame({ ...frameInput, presentationMode: "overview" }, (item) =>
+      overviewItems.push(item),
+    );
+    this.zoomEndpointFrames = {
+      key,
+      normalItems,
+      overviewItems,
+    };
+    return this.zoomEndpointFrames;
+  }
+
+  private zoomEndpointFrameKey({
+    frameInput,
+    resizePhase,
+    snapshot,
+  }: {
+    frameInput: {
+      focusedPaneId: string;
+      maximizedPaneId: string | null;
+      movementPhase: "idle" | "moving";
+      scrollColumn: number;
+      scrollRow: number;
+      viewport: Rect;
+    };
+    resizePhase: "active" | "idle" | "settled";
+    snapshot: NiriLayoutSnapshot;
+  }): string {
+    return [
+      snapshot.revision,
+      frameInput.focusedPaneId,
+      frameInput.maximizedPaneId ?? "",
+      frameInput.movementPhase,
+      resizePhase,
+      frameInput.scrollColumn.toFixed(3),
+      frameInput.scrollRow.toFixed(3),
+      frameInput.viewport.x.toFixed(1),
+      frameInput.viewport.y.toFixed(1),
+      frameInput.viewport.width.toFixed(1),
+      frameInput.viewport.height.toFixed(1),
+    ].join("|");
+  }
 
   private startMeasurementAfterWarmup(timestamp: number): void {
     if (this.measurementStartedAt > 0 || timestamp - this.startedAt < benchmarkWarmupMs) {

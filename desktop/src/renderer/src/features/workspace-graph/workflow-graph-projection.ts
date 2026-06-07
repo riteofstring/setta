@@ -55,7 +55,6 @@ const nodeStatusColors = {
   failed: 0xef4444,
   cancelled: 0x71717a,
   waiting_approval: 0xf59e0b,
-  recovery_required: 0xdc2626,
 } satisfies Record<WorkflowGraphNodeStatus, number>;
 
 const idleKindColors = {
