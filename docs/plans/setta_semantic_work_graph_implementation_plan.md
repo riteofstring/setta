@@ -896,6 +896,9 @@ Scope guard:
 - Do not add FTS, embeddings, vector search, workspace-wide file search, or
   Tree-sitter in Phase 6. Cartographer input must come from explicit production
   refs and already-recorded evidence/activity/context packs.
+- Do not poll and reread whole workflow or chat trajectories as the primary
+  mechanism. The cartographer must consume existing chat/workflow event streams,
+  then resume from persisted cursors after restart.
 - Do not silently create durable workspace memory from prompts, files, or chat
   text. Cartographer-created nodes start session-scoped/unpromoted with evidence
   and can be promoted explicitly by user action or a later policy phase.
@@ -909,6 +912,9 @@ Deliverables:
 
 ```text
 CartographerRun
+CartographerWindow
+CartographerCursor
+CartographerTrajectorySummary
 CartographerInputBundle
 CartographerPatch
 CartographerPatchValidationResult
@@ -933,12 +939,62 @@ type CartographerProvider interface {
 
 ```text
 manual cartographer run for a known workflow execution, chat run, or semantic target
+active Codex-backed workflow agent run windows when workflow/chat/run refs are known
 Codex-backed workflow agent run completion when workflow/chat/run refs are known
 explicit retry/review of a failed or rejected cartographer run
 ```
 
 - Do not run background scans across all workspaces or all historical sessions
   in Phase 6.
+- Add an event-driven trajectory observer that subscribes to ordinary production
+  chat/workflow events and groups meaningful activity into bounded windows. The
+  observer should react to events such as:
+
+```text
+chat.run_item.created
+chat.run_item.updated
+chat.run_item_output.delta
+chat.assistant_text_delta
+chat.run.updated
+workflow runner events for the owning workflow node execution
+```
+
+- Close and enqueue a cartographer window on meaningful boundaries instead of
+  every event:
+
+```text
+tool/run item completed, failed, cancelled, or requires approval
+file change item completed
+test/command result completed
+assistant message completes or reaches a bounded summary threshold
+output byte/token threshold reached
+quiet period after activity
+workflow node/run completed
+manual user request to cartograph current progress
+```
+
+- Persist cartographer cursors so long-running agents can be processed
+  incrementally and resume after restart:
+
+```text
+workspace_id
+workflow_execution_id
+workflow_node_execution_id
+chat_conversation_id
+chat_run_id
+last_chat_event_stream_id
+last_chat_event_sequence
+last_workflow_event_cursor
+last_output_ordinal_by_run_item
+last_window_id
+updated_at
+```
+
+- Build each window from new activity since the cursor plus compact prior
+  context. Do not send the whole trajectory repeatedly for multi-hour runs.
+- Store bounded trajectory summaries for processed windows. Later windows should
+  reference prior summaries, semantic nodes, evidence refs, and context packs
+  rather than raw earlier transcript/output.
 - Define a typed cartographer input bundle assembled by the backend:
 
 ```text
@@ -948,11 +1004,16 @@ source refs: workflow_definition_id, workflow_execution_id, workflow_node_id,
   workflow_node_execution_id, chat_conversation_id, chat_run_id, chat_message_id,
   run_item_id
 run status and terminal reason
+window_id
+window_start_cursor
+window_end_cursor
+new chat/workflow events since previous cursor
 authored user/workflow prompt summary or bounded prompt text
 assistant response summary or bounded assistant text
 tool calls and tool results with run item ids
 file read/edit refs, diff summaries, and test result summaries already captured
   by production run activity
+prior cartographer window summaries for the same run/node
 existing semantic subgraph selected by explicit refs and Phase 5 context packs
 active steering directives
 recent context packs delivered to the run
@@ -962,6 +1023,9 @@ token/input budget and truncation metadata
 
 - Keep large raw transcripts, complete diffs, complete logs, and complete files
   out of cartographer input records. Store bounded summaries plus source refs.
+- If a window is too large, summarize or split it deterministically before
+  provider invocation and record the truncation/splitting metadata in the run
+  audit.
 - Define a strict graph patch schema as a discriminated union. Each patch must
   include:
 
@@ -1030,9 +1094,13 @@ run_id
 workspace_id
 trigger_kind
 source refs
+window_id
+window_start_cursor
+window_end_cursor
 provider/model metadata
 input bundle hash
 input item counts and truncation metadata
+trajectory summary created by this window
 raw provider response hash
 status: proposed | applied | rejected | failed
 validation diagnostics
@@ -1063,9 +1131,10 @@ attach_evidence to a cartographer-created or exact existing target
 - Add minimal review/read surfaces:
 
 ```text
-run cartographer for explicit source refs
+run cartographer for explicit source refs or current active-run progress
 list cartographer runs by workflow execution/chat run/semantic target
 read cartographer run by id
+read cartographer windows/cursors for a workflow execution or chat run
 accept/reject a pending cartographer patch
 show cartographer patch history from semantic node details and run-adjacent surfaces
 ```
@@ -1074,21 +1143,26 @@ show cartographer patch history from semantic node details and run-adjacent surf
 
 Verification:
 
-- Focused backend tests for input-bundle assembly from explicit workflow/chat
-  refs, context packs, evidence anchors, activity intervals, and steering
-  directives.
+- Focused backend tests for event-driven trajectory observation, cursor
+  persistence, window closing triggers, restart resume, and input-bundle assembly
+  from explicit workflow/chat refs, context packs, evidence anchors, activity
+  intervals, and steering directives.
 - Deterministic provider tests for accepted patches, invalid JSON, unsupported
   operations, missing evidence, unknown refs, missing confidence, duplicate patch
   ids, chain-of-thought fields, and provider failures.
 - Patch application tests proving validation happens before graph mutations and
   that failed/rejected patches leave graph state unchanged.
+- Long-run tests proving a multi-window trajectory is processed incrementally
+  without resending the whole run and that previous windows are represented by
+  bounded summaries plus evidence refs.
 - Tests proving no label/keyword/fuzzy/vector deduplication is used.
 - HTTP contract tests for cartographer run/read/review surfaces.
 - Renderer tests for any cartographer patch history or review UI.
 - Deterministic end-to-end app workflow through production
   Electron/main/preload/renderer/HTTP/store paths proving a Codex-backed
-  workflow run creates evidence-grounded semantic nodes, records cartographer
-  audit, survives reload, and can be inspected.
+  workflow run creates evidence-grounded semantic nodes while the run is still
+  active, records cartographer audit, survives reload, resumes from persisted
+  cursors, and can be inspected.
 - Because Phase 6 touches chat/workflow/agent behavior and semantic graph
   mutation, run live Codex E2E tests when local ChatGPT auth is available. If
   unavailable, report the live provider skip explicitly.
