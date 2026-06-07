@@ -667,58 +667,206 @@ Verification:
 Goal: deliver selected semantic context to agents explicitly and audit what was
 sent.
 
+Preflight before implementation:
+
+- Tighten semantic store startup so an existing incompatible semantic database is
+  rejected before schema DDL is applied. Fresh database creation can remain
+  idempotent, but existing stores with an unsupported `PRAGMA user_version` must
+  fail before any `CREATE TABLE IF NOT EXISTS` or index statements run.
+- Keep this as a strict no-migration/no-compatibility change. Do not add
+  upgrade code, old-schema reads, old-field aliases, or transitional dual paths.
+
+Scope guard:
+
+- Implement deterministic context compilation and audited delivery only.
+- Do not implement cartographer automation, retrieval/vector indexes, FTS
+  expansion, constraint enforcement, automatic semantic node creation, keyword
+  matching, embedding matching, or broad agent-memory behavior in this phase.
+- Do not inject semantic context into every chat by default. Initial production
+  integration should target Codex-backed workflow agent turns and explicit
+  steering delivery paths where workflow/chat/run source refs are known.
+- Do not rewrite the user's or workflow definition's authored prompt in place.
+  Preserve the authored prompt separately from the compiled semantic context and
+  persist exactly what extra context was delivered.
+- If context compilation or context-pack persistence fails, fail the agent start
+  or steering delivery loudly before calling the Codex harness. Do not silently
+  run without required semantic context.
+- If no context items qualify, send the authored prompt unchanged and do not
+  create a fake context pack.
+
 Deliverables:
 
-- Implement a backend context compiler that produces bounded context packs for:
+- Add a backend context compiler, preferably in `internal/semanticgraph`, behind
+  a small interface consumed by workflow/chat integration points. Avoid package
+  cycles by making the runtime wiring explicit rather than importing semantic
+  graph state directly into low-level Codex harness code.
+- Add compiler request types for:
 
 ```text
-run start
-agent task start
-user steering during an active run
-phase boundaries
-agent-requested semantic context
+workflow agent turn start
+active-run steering delivery
+immediate steering replay
+phase boundary, if the workflow runtime has an explicit boundary source ref
+agent-requested semantic context, only if an existing typed agent-tool surface can request it deterministically
 ```
 
-- Include in each context pack:
+- Each compiler request should include the known source refs:
 
 ```text
-relevant concepts
-active constraints
-prior decisions
-open questions
-steering directives and steering prompts
-relevant files/symbols/docs/diffs/tests
-reason each item was included
-priority: background, relevant, important, required
-token budget estimate
+workspace_id
+trigger_kind: workflow_agent_start | steering | immediate_steering_replay | phase_boundary | agent_request
+workflow_definition_id
+workflow_execution_id
+workflow_node_id
+workflow_node_execution_id
+chat_conversation_id
+chat_run_id
+chat_message_id
+run_item_id
+authored_prompt
+token_budget
 ```
 
-- Implement initial custom ranking without vector search:
+- Add read/query helpers needed by the compiler:
 
 ```text
-explicit user steering
-active workflow/run associations
+active steering directives by workspace/scope/source refs
+active constraints by workspace and associated graph neighborhood
+semantic nodes associated with the current workflow execution/node/chat run
+recent activity for the same workflow execution/node/chat run
+evidence anchors for selected semantic nodes
+prior context packs by workflow execution/chat run/target node
+```
+
+- The initial candidate set should come only from explicit state:
+
+```text
+active steering directives
+session/workspace pins
 active constraints
-prior decisions
+workflow/run/chat associations from Phase 3 activity/evidence
+direct graph edges around associated nodes
+prior decisions/open questions/promoted nodes in the associated neighborhood
+recent activity tied to the same source refs
+```
+
+- Do not add keyword, fuzzy, embedding, or broad text search candidate discovery
+  in Phase 5. SQLite FTS and exact workspace search belong to Phase 7 unless a
+  specific deterministic source already exists.
+- Add an explicit context pack model. Each pack should include:
+
+```text
+pack_id
+workspace_id
+trigger_kind
+target_entity_id, when one semantic node is the primary target
+workflow/chat/run source refs
+authored_prompt_hash
+delivered_context_hash
+token_budget
+estimated_tokens
+item_count
+items[]
+```
+
+- Each context pack item should include:
+
+```text
+item_id
+kind: concept | constraint | decision | question | finding | steering | evidence | activity | file
+semantic_node_id
+evidence_anchor_id
+activity_interval_id
+steering_directive_id
+source refs, when different from the pack source refs
+title
+summary
+reason_included
+priority: background | relevant | important | required
+estimated_tokens
+created/updated timestamps used for ranking
+```
+
+- Implement deterministic ranking without vector search:
+
+```text
+required active constraints
+explicit focus/validate steering
+explicit avoid steering as exclusions or warnings
+session/workspace pins
+active workflow/run/node associations
+prior decisions and open questions in the associated neighborhood
+promoted nodes before unpromoted nodes
 recent activity
 direct evidence links
-text match through FTS/exact search when available
-confidence/review status
 staleness
-token cost
+estimated token cost
 ```
 
-- Persist `context_pack.created` events and context-pack history before or at the
-  same time the agent receives the context.
-- Integrate compiled context into Codex-backed workflow agent tasks and mid-run
-  steering updates as explicit messages or context deltas.
+- `avoid` steering must either exclude lower-priority items or include an
+  explicit warning item when the avoided area cannot be excluded. Do not silently
+  ignore it.
+- Exclude dismissed or merged nodes unless the context pack item is explaining a
+  split/merge lineage that is directly relevant.
+- Produce a deterministic delivered context block with stable ordering and a
+  clear header, for example:
+
+```text
+Setta semantic context pack <pack_id>
+- [required] Constraint: ...
+  Reason: active workspace constraint
+  Evidence: <evidence_id or source ref>
+```
+
+- Preserve the authored prompt. The Codex input may combine the semantic context
+  block and authored prompt, but the context pack record must store enough data
+  to reconstruct what extra context was sent and verify that the authored prompt
+  was not overwritten.
+- Persist `context_pack.created` events and context-pack history before or in
+  the same transaction as the delivery decision. The context pack event payload
+  should contain the pack metadata and item summaries; large raw transcripts,
+  full diffs, full logs, and complete files must remain out of the event log.
+- Integrate compiled context into Codex-backed workflow agent tasks and explicit
+  steering updates as explicit context text or a typed context delta. Do not use
+  provider-specific hidden state.
+- Add read surfaces for context-pack audit where needed:
+
+```text
+read context pack by id
+list context packs by workflow execution/chat run
+list context packs by semantic target
+show delivered context-pack history in semantic node details and run-adjacent surfaces
+```
+
+Acceptance criteria:
+
+```text
+workflow agent start compiles context from explicit semantic state
+compiled context includes active constraints and focus/validate steering when relevant
+avoid steering affects selected context deterministically
+context pack respects token budget and records excluded/omitted required failures loudly
+context_pack.created is appended before Codex receives added context
+authored workflow prompt is preserved and auditable separately from context
+no context is sent and no fake pack is created when no items qualify
+steering delivery can compile and deliver updated semantic context
+context pack history is visible after reload
+no semantic nodes, edges, evidence, or activity are inferred or created by the compiler
+Codex harness is not called if context persistence fails
+```
 
 Verification:
 
-- Focused compiler tests for ranking, token-budget behavior, explicit steering,
-  required constraints, and stale/dismissed node exclusion.
+- Focused backend tests for compiler candidate selection, ranking, token-budget
+  behavior, required constraints, explicit focus/avoid/validate steering,
+  session/workspace pins, stale/dismissed/merged node exclusion, and context pack
+  event persistence.
+- Tests proving context-pack persistence happens before Codex harness invocation
+  and that harness invocation does not happen when persistence fails.
+- HTTP contract tests for any new context-pack read surfaces.
+- Renderer tests for context-pack history display, if UI surfaces are added.
 - Deterministic end-to-end app workflow tests through production
-  Electron/main/preload/renderer/HTTP/store paths.
+  Electron/main/preload/renderer/HTTP/store paths for workflow agent start,
+  steering delivery, reload, and context-pack inspection.
 - Because this touches chat/workflow/agent context behavior, run live Codex E2E
   tests when local ChatGPT auth is available. If unavailable, report the live
   provider skip explicitly.
