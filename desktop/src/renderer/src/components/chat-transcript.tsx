@@ -716,16 +716,16 @@ function timestampGroupKey(message: ChatMessage) {
 
 function messageShellClass(message: ChatMessage) {
   if (message.role === "user") {
-    return "group/message flex w-full min-w-0 flex-col items-end overflow-visible";
+    return "group/message flex max-w-[82%] min-w-0 flex-col items-end overflow-visible";
   }
-  return "group/message flex w-full min-w-0 flex-col items-start overflow-visible";
+  return "group/message flex max-w-[88%] min-w-0 flex-col items-start overflow-visible";
 }
 
 function messageActionRowClass(message: ChatMessage) {
   if (message.role === "user") {
-    return "flex max-w-[78%] min-w-0 flex-row-reverse items-start gap-1.5 overflow-visible";
+    return "flex max-w-full min-w-0 flex-row-reverse items-start gap-1.5 overflow-visible";
   }
-  return "flex w-full min-w-0 items-start gap-1.5 overflow-visible";
+  return "flex max-w-full min-w-0 items-start gap-1.5 overflow-visible";
 }
 
 function canRetryByForking(message: ChatMessage) {

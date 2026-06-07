@@ -592,6 +592,8 @@ describe("chat renderer states", () => {
 
     expect(rowCount(html, "chat-message-timestamp")).toBe(3);
     expect(rowCount(html, "chat-message-actions")).toBe(5);
+    expect(html).toContain("max-w-[82%]");
+    expect(html).toContain("max-w-[88%]");
     expect(html).toContain('aria-label="Copy message"');
     expect(html).toContain('aria-label="Retry message by forking conversation"');
     expect(htmlScopeForTestId(html, "chat-user-message-content")).not.toContain(
