@@ -20,7 +20,6 @@ interface PixiWorkspaceDebugSnapshot {
     edgeCount: number;
     edges: Array<{
       id: string;
-      label: string;
       sourceNodeId: string;
       sourcePortId: string;
       targetNodeId: string;
@@ -58,7 +57,6 @@ interface PixiWorkspaceDebugSnapshot {
       };
       ports: Array<{
         id: string;
-        label: string;
         role: "source" | "target";
         screenX: number;
         screenY: number;
@@ -74,13 +72,8 @@ interface PixiWorkspaceDebugSnapshot {
     workflow: {
       definitionId: string;
       definitionName: string;
-      definitionVersionId: string;
-      definitionVersionNumber: number;
-      editable: boolean;
       executionId: string;
       executionStatus: string;
-      versionMismatch: boolean;
-      viewMode: "draft" | "version" | "run";
       workspaceId: string;
     } | null;
   };

@@ -4,7 +4,6 @@ import { Application, BitmapText, Container, Graphics, Point, Rectangle } from "
 import { Viewport } from "pixi-viewport";
 
 import { initialEdges, initialNodes } from "./pixi-workspace-fixture";
-import { redrawWorkspaceEdges } from "./pixi-workspace-edge-rendering";
 import {
   compactSelectedNodeLabelBitmapFontSize,
   nodeLabelBitmapFontSize,
@@ -19,37 +18,30 @@ import { registerPixiWorkspaceDebugSurface } from "./pixi-workspace-debug-regist
 import {
   countNodeOutlineGraphics,
   drawWorkspaceGrid,
+  nodeBodyContextFor,
   nodeGeometryContextCounts,
+  nodeOutlineContextFor,
+  nodeShadowContextFor,
 } from "./pixi-workspace-node-geometry";
-import { createWorkspaceNodeContainer } from "./pixi-workspace-node-container";
 import { createPixiWorkspaceSpatialQueries } from "./pixi-workspace-renderer-spatial-queries";
 import {
   cameraState,
-  cameraStatesDiffer,
   capturePointer,
   clamp,
-  commitEdgeConnection,
-  configureViewportNavigation,
-  countMapValues,
-  createCanvasContextMenuHandler,
+  drawCurvedEdge,
   drawMarqueeSelection,
   drawPortVisualState,
   drawTemporaryEdge,
   drawWorkspaceGlow,
-  edgeConnection,
-  frameSampleStats,
   hostScreenSize,
   isSelectionToggleEvent,
   isZoomWheel,
   marqueeBounds,
-  nodeDeleteRequested,
-  nodeOpenRequested,
   normalizedWheelDelta,
-  notifyNodeSelectionChange,
   parsePortKey,
   pointInsideNodeBounds,
   portKey,
-  portsForNode,
+  ports,
   portLocalPosition,
   portWorldPosition,
   releasePointer,
@@ -63,31 +55,17 @@ import {
   visibleDisplayObjectCount,
   zoomFactorFromWheel,
 } from "./pixi-workspace-renderer-helpers";
+
 const backgroundColor = 0x07080d;
 const maxZoom = 4;
 const minZoom = 0.25;
 const portHitRadiusScreen = 18;
-function pixiRendererResolution() {
-  return window.devicePixelRatio || 1;
-}
-function registerDebugSurfaceIfEnabled(debugEnabled, debugSurfaceId, getSnapshot) {
-  if (!debugEnabled) {
-    return null;
-  }
-  return registerPixiWorkspaceDebugSurface(debugSurfaceId, getSnapshot);
-}
+
 export async function createPixiWorkspaceRenderer({
   debugEnabled,
   debugSurfaceId = "pixi-workspace",
   graph = { edges: initialEdges, nodes: initialNodes },
   host,
-  initialCameraState = null,
-  onCanvasContextMenu = null,
-  onEdgeCreate,
-  onNodeDelete,
-  onNodeOpen = null,
-  onNodePositionsChange = null,
-  onNodeSelectionChange = null,
   reactRenderCount,
 }) {
   const app = new Application();
@@ -97,7 +75,7 @@ export async function createPixiWorkspaceRenderer({
     autoDensity: true,
     background: backgroundColor,
     height: screenSize.height,
-    resolution: pixiRendererResolution(),
+    resolution: window.devicePixelRatio || 1,
     width: screenSize.width,
   });
   const loadedNodeLabelFont = await loadNodeLabelBitmapFont();
@@ -116,7 +94,8 @@ export async function createPixiWorkspaceRenderer({
     worldWidth: 4000,
   });
   viewport.forceHitArea = new Rectangle(0, 0, screenSize.width, screenSize.height);
-  configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom });
+  viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
+  viewport.moveCenter(0, 20);
   const labelLayer = new Container();
   labelLayer.eventMode = "none";
   labelLayer.interactiveChildren = false;
@@ -124,12 +103,9 @@ export async function createPixiWorkspaceRenderer({
 
   const backgroundLayer = new Container();
   const edgeLayer = new Container();
-  const edgeLabelLayer = new Container();
   const nodeLayer = new Container();
   const interactionLayer = new Container();
   const effectsLayer = new Container();
-  edgeLabelLayer.eventMode = "none";
-  edgeLabelLayer.interactiveChildren = false;
   viewport.addChild(backgroundLayer, edgeLayer, nodeLayer, interactionLayer, effectsLayer);
 
   const nodes = graph.nodes.map((node) => ({ ...node }));
@@ -177,7 +153,7 @@ export async function createPixiWorkspaceRenderer({
   const recentFrameMs = [];
 
   backgroundLayer.addChild(grid);
-  edgeLayer.addChild(edgeGraphics, edgeLabelLayer);
+  edgeLayer.addChild(edgeGraphics);
   interactionLayer.addChild(marqueeGraphics, temporaryEdgeGraphics);
   effectsLayer.addChild(glow);
   drawWorkspaceGrid(grid);
@@ -217,13 +193,6 @@ export async function createPixiWorkspaceRenderer({
     }
     const node = hitTestNodeAtScreen(screen);
     if (node) {
-      if (nodeOpenRequested(event, onNodeOpen)) {
-        selectOnlyNode(node.id);
-        onNodeOpen(node.id);
-        capturePointer(event);
-        stopNativeInteraction(event);
-        return;
-      }
       if (isSelectionToggleEvent(event)) {
         toggleNodeSelection(node.id);
         capturePointer(event);
@@ -333,17 +302,7 @@ export async function createPixiWorkspaceRenderer({
     panCameraByScreenDelta(delta.x, delta.y);
     wheelPanUpdateCount += 1;
   };
-  const contextMenu = createCanvasContextMenuHandler({
-    canvas: app.canvas,
-    onCanvasContextMenu,
-    viewport,
-  });
   const keyDown = (event) => {
-    if (nodeDeleteRequested(event, onNodeDelete, selectedNodeIds)) {
-      onNodeDelete([...selectedNodeIds]);
-      stopNativeInteraction(event);
-      return;
-    }
     if (event.key !== "Escape") {
       return;
     }
@@ -368,7 +327,6 @@ export async function createPixiWorkspaceRenderer({
   app.canvas.addEventListener("pointerdown", pointerDown, true);
   app.canvas.addEventListener("pointermove", pointerMove);
   app.canvas.addEventListener("pointerleave", pointerLeave);
-  app.canvas.addEventListener("contextmenu", contextMenu);
   app.canvas.addEventListener("wheel", wheel, { capture: true, passive: false });
   window.addEventListener("pointerup", pointerUp);
   window.addEventListener("pointercancel", pointerCancel);
@@ -384,7 +342,11 @@ export async function createPixiWorkspaceRenderer({
       recentFrameMs.shift();
     }
     const nextCameraState = cameraState(viewport);
-    if (cameraStatesDiffer(nextCameraState, lastCameraState)) {
+    if (
+      nextCameraState.x !== lastCameraState.x ||
+      nextCameraState.y !== lastCameraState.y ||
+      nextCameraState.zoom !== lastCameraState.zoom
+    ) {
       cameraUpdateCount += 1;
       lastCameraState = nextCameraState;
       syncAllLabels();
@@ -394,141 +356,140 @@ export async function createPixiWorkspaceRenderer({
     }
   });
 
-  const unregisterDebugSurface = registerDebugSurfaceIfEnabled(debugEnabled, debugSurfaceId, () => {
-    const canvasRect = app.canvas.getBoundingClientRect();
-    const visual = samplePixiVisualState(app.renderer, app.stage, backgroundColor);
-    const camera = cameraState(viewport);
-    const nodeGeometryContexts = nodeGeometryContextCounts();
-    const frameStats = frameSampleStats(recentFrameMs);
-    return {
-      camera,
-      canvas: {
-        bottom: canvasRect.bottom,
-        clientHeight: app.canvas.clientHeight,
-        clientWidth: app.canvas.clientWidth,
-        height: app.canvas.height,
-        left: canvasRect.left,
-        right: canvasRect.right,
-        top: canvasRect.top,
-        width: app.canvas.width,
-      },
-      graph: {
-        edgeCount: edges.length,
-        edges: edges.map((edge) => ({
-          id: edge.id,
-          diagnostic: edge.diagnostic ?? null,
-          label: edge.label ?? "",
-          sourceNodeId: edge.sourceNodeId,
-          sourcePortId: edge.sourcePortId,
-          targetNodeId: edge.targetNodeId,
-          targetPortId: edge.targetPortId,
-        })),
-        nodeCount: nodes.length,
-        nodes: nodes.map((node) => {
-          const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
-          const label = requireNodeLabel(node.id);
-          const labelGlobal = label.getGlobalPosition(new Point());
-          return {
-            height: node.height,
-            diagnostic: node.diagnostic ?? null,
-            id: node.id,
-            label: {
-              eventMode: label.eventMode,
-              fontDistanceFieldRange: loadedNodeLabelFont.distanceField.range,
-              fontDistanceFieldType: loadedNodeLabelFont.distanceField.type,
-              fontFamily: label.style.fontFamily,
-              fontSize: label.style.fontSize,
-              fontSizeMode: nodeLabelFontSizeModes.get(node.id) ?? "normal",
-              globalX: labelGlobal.x,
-              globalY: labelGlobal.y,
-              kind: "bitmap-text",
-              screenX: label.x,
-              screenY: label.y,
-              scaleX: label.scale.x,
-              scaleY: label.scale.y,
-              text: label.text,
-              visible: label.visible,
-              visibilityReason: nodeLabelVisibilityReasons.get(node.id) ?? "zoom-hidden",
-              worldScaleX: label.worldTransform.a,
-              worldScaleY: label.worldTransform.d,
-            },
-            ports: portsForNode(node).map((port) => {
-              const world = portWorldPosition(node, port.id);
-              const portScreen = viewport.toScreen(world.x, world.y);
+  const unregisterDebugSurface = debugEnabled
+    ? registerPixiWorkspaceDebugSurface(debugSurfaceId, () => {
+        const canvasRect = app.canvas.getBoundingClientRect();
+        const visual = samplePixiVisualState(app.renderer, app.stage, backgroundColor);
+        const camera = cameraState(viewport);
+        const nodeGeometryContexts = nodeGeometryContextCounts();
+        const frameAverage =
+          recentFrameMs.length === 0
+            ? 0
+            : recentFrameMs.reduce((total, value) => total + value, 0) / recentFrameMs.length;
+        return {
+          camera,
+          canvas: {
+            bottom: canvasRect.bottom,
+            clientHeight: app.canvas.clientHeight,
+            clientWidth: app.canvas.clientWidth,
+            height: app.canvas.height,
+            left: canvasRect.left,
+            right: canvasRect.right,
+            top: canvasRect.top,
+            width: app.canvas.width,
+          },
+          graph: {
+            edgeCount: edges.length,
+            edges: edges.map((edge) => ({
+              id: edge.id,
+              sourceNodeId: edge.sourceNodeId,
+              sourcePortId: edge.sourcePortId,
+              targetNodeId: edge.targetNodeId,
+              targetPortId: edge.targetPortId,
+            })),
+            nodeCount: nodes.length,
+            nodes: nodes.map((node) => {
+              const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
+              const label = requireNodeLabel(node.id);
+              const labelGlobal = label.getGlobalPosition(new Point());
               return {
-                id: port.id,
-                label: port.label ?? "",
-                role: port.role,
-                screenX: portScreen.x,
-                screenY: portScreen.y,
-                x: world.x,
-                y: world.y,
+                height: node.height,
+                id: node.id,
+                label: {
+                  eventMode: label.eventMode,
+                  fontDistanceFieldRange: loadedNodeLabelFont.distanceField.range,
+                  fontDistanceFieldType: loadedNodeLabelFont.distanceField.type,
+                  fontFamily: label.style.fontFamily,
+                  fontSize: label.style.fontSize,
+                  fontSizeMode: nodeLabelFontSizeModes.get(node.id) ?? "normal",
+                  globalX: labelGlobal.x,
+                  globalY: labelGlobal.y,
+                  kind: "bitmap-text",
+                  screenX: label.x,
+                  screenY: label.y,
+                  scaleX: label.scale.x,
+                  scaleY: label.scale.y,
+                  text: label.text,
+                  visible: label.visible,
+                  visibilityReason: nodeLabelVisibilityReasons.get(node.id) ?? "zoom-hidden",
+                  worldScaleX: label.worldTransform.a,
+                  worldScaleY: label.worldTransform.d,
+                },
+                ports: ports.map((port) => {
+                  const world = portWorldPosition(node, port.id);
+                  const portScreen = viewport.toScreen(world.x, world.y);
+                  return {
+                    id: port.id,
+                    role: port.role,
+                    screenX: portScreen.x,
+                    screenY: portScreen.y,
+                    x: world.x,
+                    y: world.y,
+                  };
+                }),
+                screenX: screen.x,
+                screenY: screen.y,
+                width: node.width,
+                x: node.x,
+                y: node.y,
               };
             }),
-            screenX: screen.x,
-            screenY: screen.y,
-            width: node.width,
-            x: node.x,
-            y: node.y,
-          };
-        }),
-        workflow: graph.workflow ?? null,
-      },
-      interaction: {
-        drawingEdge: Boolean(drawingEdge),
-        drawingMarquee: Boolean(drawingMarquee),
-        selectedNodeId: firstSelectedNodeId(),
-        selectedNodeIds: [...selectedNodeIds],
-      },
-      render: {
-        averageFrameMs: frameStats.average,
-        cameraUpdateCount,
-        edgeCommitCount,
-        edgeGraphicsCount: 1,
-        edgeRedrawCount,
-        frameCount,
-        gridDrawCount,
-        compactSelectedLabelCount: countMapValues(nodeLabelFontSizeModes, "compact-selected"),
-        labelObjectCount: nodeLabels.size,
-        labelSyncCount,
-        labelVisibilityMode: labelVisibilityModeForZoom(camera.zoom),
-        marqueeUpdateCount,
-        nodeBodyContextCount: nodeGeometryContexts.body,
-        nodeBodyGraphicsCount: nodeBodies.size,
-        nodeContainerCount: nodeContainers.size,
-        nodeDragUpdateCount,
-        nodeOutlineContextCount: nodeGeometryContexts.outline,
-        nodeOutlineGraphicsCount: countNodeOutlineGraphics(nodeOutlines),
-        nodeOutlineVisibilityUpdateCount,
-        nodeShadowContextCount: nodeGeometryContexts.shadow,
-        nodeShadowGraphicsCount: nodeShadows.size,
-        pointerPanUpdateCount,
-        portGraphicsCount: portVisuals.size,
-        reactRenderCount: reactRenderCount(),
-        recentFrameMs: [...recentFrameMs],
-        selectionChangeCount,
-        ...spatialQueries.debugSnapshot(),
-        temporaryEdgeUpdateCount,
-        totalPixiDisplayObjectCount: totalDisplayObjectCount(app.stage),
-        visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
-        wheelPanUpdateCount,
-        wheelZoomUpdateCount,
-        worstFrameMs: frameStats.worst,
-      },
-      surfaceId: debugSurfaceId,
-      visual,
-    };
-  });
+            workflow: graph.workflow ?? null,
+          },
+          interaction: {
+            drawingEdge: Boolean(drawingEdge),
+            drawingMarquee: Boolean(drawingMarquee),
+            selectedNodeId: firstSelectedNodeId(),
+            selectedNodeIds: [...selectedNodeIds],
+          },
+          render: {
+            averageFrameMs: frameAverage,
+            cameraUpdateCount,
+            edgeCommitCount,
+            edgeGraphicsCount: 1,
+            edgeRedrawCount,
+            frameCount,
+            gridDrawCount,
+            compactSelectedLabelCount: compactSelectedLabelCount(),
+            labelObjectCount: nodeLabels.size,
+            labelSyncCount,
+            labelVisibilityMode: labelVisibilityModeForZoom(camera.zoom),
+            marqueeUpdateCount,
+            nodeBodyContextCount: nodeGeometryContexts.body,
+            nodeBodyGraphicsCount: nodeBodies.size,
+            nodeContainerCount: nodeContainers.size,
+            nodeDragUpdateCount,
+            nodeOutlineContextCount: nodeGeometryContexts.outline,
+            nodeOutlineGraphicsCount: countNodeOutlineGraphics(nodeOutlines),
+            nodeOutlineVisibilityUpdateCount,
+            nodeShadowContextCount: nodeGeometryContexts.shadow,
+            nodeShadowGraphicsCount: nodeShadows.size,
+            pointerPanUpdateCount,
+            portGraphicsCount: portVisuals.size,
+            reactRenderCount: reactRenderCount(),
+            recentFrameMs: [...recentFrameMs],
+            selectionChangeCount,
+            ...spatialQueries.debugSnapshot(),
+            temporaryEdgeUpdateCount,
+            totalPixiDisplayObjectCount: totalDisplayObjectCount(app.stage),
+            visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
+            wheelPanUpdateCount,
+            wheelZoomUpdateCount,
+            worstFrameMs: recentFrameMs.length === 0 ? 0 : Math.max(...recentFrameMs),
+          },
+          surfaceId: debugSurfaceId,
+          visual,
+        };
+      })
+    : null;
 
   return {
-    cameraState: () => cameraState(viewport),
     destroy: () => {
       destroyed = true;
       resizeObserver.disconnect();
       app.canvas.removeEventListener("pointerdown", pointerDown, true);
       app.canvas.removeEventListener("pointermove", pointerMove);
       app.canvas.removeEventListener("pointerleave", pointerLeave);
-      app.canvas.removeEventListener("contextmenu", contextMenu);
       app.canvas.removeEventListener("wheel", wheel, true);
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("pointercancel", pointerCancel);
@@ -540,17 +501,37 @@ export async function createPixiWorkspaceRenderer({
       app.destroy(true, { children: true, texture: true });
     },
   };
+
   function nodeContainer(node) {
-    return createWorkspaceNodeContainer({
-      node,
-      nodeBodies,
-      nodeOutlines,
-      nodeShadows,
-      onPointerOut: () => setHoveredNodeId(null),
-      onPointerOver: () => setHoveredNodeId(node.id),
-      portContainers: portsForNode(node).map((port) => portContainer(node, port)),
+    const container = new Container();
+    container.x = node.x;
+    container.y = node.y;
+
+    const body = new Graphics(nodeBodyContextFor(node));
+    body.eventMode = "static";
+    body.cursor = "grab";
+    body.hitArea = new Rectangle(0, 0, node.width, node.height);
+    nodeBodies.set(node.id, body);
+    const shadow = new Graphics(nodeShadowContextFor(node));
+    nodeShadows.set(node.id, shadow);
+    const hoverOutline = new Graphics(nodeOutlineContextFor(node, "hovered"));
+    hoverOutline.visible = false;
+    const selectedOutline = new Graphics(nodeOutlineContextFor(node, "selected"));
+    selectedOutline.visible = false;
+    const portContainers = ports.map((port) => portContainer(node, port));
+    nodeOutlines.set(node.id, { hoverOutline, selectedOutline });
+
+    container.addChild(shadow, body, hoverOutline, selectedOutline, ...portContainers);
+    body.on("pointerover", () => {
+      setHoveredNodeId(node.id);
     });
+    body.on("pointerout", () => {
+      setHoveredNodeId(null);
+    });
+
+    return container;
   }
+
   function acquireLabel(nodeId) {
     const existingLabel = nodeLabels.get(nodeId);
     if (existingLabel) {
@@ -576,6 +557,7 @@ export async function createPixiWorkspaceRenderer({
     labelLayer.addChild(label);
     return label;
   }
+
   function releaseLabel(nodeId) {
     const label = nodeLabels.get(nodeId);
     if (!label) {
@@ -587,6 +569,7 @@ export async function createPixiWorkspaceRenderer({
     label.removeFromParent();
     label.destroy();
   }
+
   function portContainer(node, port) {
     const position = portLocalPosition(node, port.id);
     const container = new Container();
@@ -600,11 +583,13 @@ export async function createPixiWorkspaceRenderer({
       portHitRadiusScreen * 2,
       portHitRadiusScreen * 2,
     );
+
     const visual = new Graphics();
     const key = portKey(node.id, port.id);
     portVisuals.set(key, visual);
     container.addChild(visual);
     setPortVisualState(node.id, port.id, "idle");
+
     container.on("pointerover", () => {
       if (!drawingEdge) {
         setPortVisualState(node.id, port.id, "hover");
@@ -617,6 +602,7 @@ export async function createPixiWorkspaceRenderer({
     });
     return container;
   }
+
   function startNodeDragging(nodeId, screen) {
     const node = requireNode(nodeId);
     const world = viewport.toWorld(screen);
@@ -630,7 +616,6 @@ export async function createPixiWorkspaceRenderer({
         offsetX: world.x - candidate.x,
         offsetY: world.y - candidate.y,
       })),
-      moved: false,
       primaryNodeId: node.id,
     };
     for (const draggedNode of draggedNodes) {
@@ -641,6 +626,7 @@ export async function createPixiWorkspaceRenderer({
     }
     viewport.plugins.pause("decelerate");
   }
+
   function moveDraggedNode(screen) {
     if (!draggingNode) {
       return;
@@ -659,28 +645,19 @@ export async function createPixiWorkspaceRenderer({
       spatialQueries.updateNode(node);
       syncLabelPosition(node.id);
     }
-    draggingNode.moved = true;
     syncLabelVisibility();
     nodeDragUpdateCount += 1;
     redrawEdges();
   }
+
   function finishNodeDragging() {
-    const shouldPersistPositions = draggingNode?.moved === true;
     viewport.plugins.resume("decelerate");
     draggingNode = null;
     for (const body of nodeBodies.values()) {
       body.cursor = "grab";
     }
-    if (shouldPersistPositions && onNodePositionsChange) {
-      onNodePositionsChange(
-        nodes.map((node) => ({
-          nodeId: node.id,
-          x: Math.round(node.x),
-          y: Math.round(node.y),
-        })),
-      );
-    }
   }
+
   function startCameraPanning(screen) {
     panningCamera = {
       lastX: screen.x,
@@ -688,6 +665,7 @@ export async function createPixiWorkspaceRenderer({
     };
     viewport.plugins.pause("decelerate");
   }
+
   function moveCameraPan(screen) {
     if (!panningCamera) {
       return;
@@ -699,12 +677,15 @@ export async function createPixiWorkspaceRenderer({
     panCameraByScreenDelta(-deltaX, -deltaY);
     pointerPanUpdateCount += 1;
   }
+
   function selectOnlyNode(nodeId) {
     setSelectedNodeIds([nodeId]);
   }
+
   function clearSelection() {
     setSelectedNodeIds([]);
   }
+
   function toggleNodeSelection(nodeId) {
     const nextSelectedNodeIds = new Set(selectedNodeIds);
     if (nextSelectedNodeIds.has(nodeId)) {
@@ -714,6 +695,7 @@ export async function createPixiWorkspaceRenderer({
     }
     setSelectedNodeIds(nextSelectedNodeIds);
   }
+
   function setSelectedNodeIds(nextNodeIds) {
     const nextSelectedNodeIds = new Set(nextNodeIds);
     if (setsEqual(selectedNodeIds, nextSelectedNodeIds)) {
@@ -726,16 +708,18 @@ export async function createPixiWorkspaceRenderer({
     selectionChangeCount += 1;
     drawAllNodeOutlines();
     syncLabelVisibility();
-    notifyNodeSelectionChange(onNodeSelectionChange, selectedNodeIds);
   }
+
   function drawAllNodeOutlines() {
     for (const candidate of nodes) {
       syncNodeOutlineVisibility(candidate.id);
     }
   }
+
   function syncHoveredNodeAtScreen(screen) {
     setHoveredNodeId(hitTestNodeAtScreen(screen)?.id ?? null);
   }
+
   function setHoveredNodeId(nodeId) {
     const nextHoveredNodeIds = new Set(nodeId ? [nodeId] : []);
     if (setsEqual(hoveredNodeIds, nextHoveredNodeIds)) {
@@ -750,6 +734,7 @@ export async function createPixiWorkspaceRenderer({
       syncNodeOutlineVisibility(affectedNodeId);
     }
   }
+
   function syncNodeOutlineVisibility(nodeId) {
     const outlines = nodeOutlines.get(nodeId);
     if (!outlines) {
@@ -761,18 +746,19 @@ export async function createPixiWorkspaceRenderer({
     outlines.hoverOutline.visible = !selected && hovered;
     nodeOutlineVisibilityUpdateCount += 1;
   }
+
   function redrawEdges() {
-    redrawWorkspaceEdges({
-      edgeGraphics,
-      edgeLabelLayer,
-      edges,
-      fontFamily: loadedNodeLabelFont.fontFamily,
-      fontSize: compactSelectedNodeLabelBitmapFontSize,
-      getNode: requireNode,
-      validateGlyphs: validateNodeLabelGlyphs,
-    });
+    edgeGraphics.clear();
+    for (const edge of edges) {
+      const source = requireNode(edge.sourceNodeId);
+      const target = requireNode(edge.targetNodeId);
+      const start = portWorldPosition(source, requireEdgePort(edge, "sourcePortId"));
+      const end = portWorldPosition(target, requireEdgePort(edge, "targetPortId"));
+      drawCurvedEdge(edgeGraphics, start, end, { alpha: 0.65, color: 0xe2e8f0, width: 2.5 });
+    }
     edgeRedrawCount += 1;
   }
+
   function startEdgeDrawing(sourceNodeId, sourcePortId) {
     const source = requireNode(sourceNodeId);
     const start = portWorldPosition(source, sourcePortId);
@@ -790,17 +776,19 @@ export async function createPixiWorkspaceRenderer({
     temporaryEdgeUpdateCount += 1;
     drawTemporaryEdge(temporaryEdgeGraphics, drawingEdge);
   }
+
   function finishEdgeDrawing() {
     drawingEdge = null;
     activeTargetPortKey = null;
     temporaryEdgeGraphics.clear();
     viewport.plugins.resume("decelerate");
     for (const node of nodes) {
-      for (const port of portsForNode(node)) {
+      for (const port of ports) {
         setPortVisualState(node.id, port.id, "idle");
       }
     }
   }
+
   function startMarqueeSelection(screen) {
     const world = viewport.toWorld(screen);
     drawingMarquee = {
@@ -813,6 +801,7 @@ export async function createPixiWorkspaceRenderer({
     marqueeUpdateCount += 1;
     drawMarqueeSelection(marqueeGraphics, drawingMarquee);
   }
+
   function updateMarqueeSelection(screen) {
     if (!drawingMarquee) {
       return;
@@ -823,6 +812,7 @@ export async function createPixiWorkspaceRenderer({
     marqueeUpdateCount += 1;
     drawMarqueeSelection(marqueeGraphics, drawingMarquee);
   }
+
   function commitMarqueeSelection() {
     if (!drawingMarquee) {
       return;
@@ -835,12 +825,14 @@ export async function createPixiWorkspaceRenderer({
     setSelectedNodeIds(intersectingNodeIds);
     finishMarqueeSelection();
   }
+
   function cancelMarqueeSelection() {
     if (!drawingMarquee) {
       return;
     }
     finishMarqueeSelection();
   }
+
   function finishMarqueeSelection() {
     drawingMarquee = null;
     marqueeGraphics.clear();
@@ -866,15 +858,16 @@ export async function createPixiWorkspaceRenderer({
     }
   }
   function commitEdge(edgeDrawing, targetPort) {
-    const connection = edgeConnection(edgeDrawing, targetPort);
-    commitEdgeConnection(connection, {
-      edges,
-      onEdgeCreate,
-      redrawEdges,
-      sequence: nextEdgeSequence,
+    edges.push({
+      id: `drawn-${nextEdgeSequence}`,
+      sourceNodeId: edgeDrawing.sourceNodeId,
+      sourcePortId: edgeDrawing.sourcePortId,
+      targetNodeId: targetPort.nodeId,
+      targetPortId: targetPort.portId,
     });
     nextEdgeSequence += 1;
     edgeCommitCount += 1;
+    redrawEdges();
   }
   function hitTestPortAtScreen(screen, { excludeNodeId, role }) {
     let bestPort = null;
@@ -884,7 +877,7 @@ export async function createPixiWorkspaceRenderer({
       if (node.id === excludeNodeId) {
         continue;
       }
-      for (const port of portsForNode(node)) {
+      for (const port of ports) {
         if (port.role !== role) {
           continue;
         }
@@ -918,6 +911,7 @@ export async function createPixiWorkspaceRenderer({
     viewport.moveCorner(corner.x + deltaX / viewport.scaled, corner.y + deltaY / viewport.scaled);
     syncAllLabels();
   }
+
   function zoomCameraAtScreen(screen, factor) {
     const nextZoom = clamp(viewport.scaled * factor, minZoom, maxZoom);
     if (nextZoom === viewport.scaled) {
@@ -930,12 +924,14 @@ export async function createPixiWorkspaceRenderer({
     viewport.y += screen.y - screenAfter.y;
     syncAllLabels();
   }
+
   function syncAllLabels() {
     for (const node of nodes) {
       syncLabelPosition(node.id);
     }
     syncLabelVisibility();
   }
+
   function syncLabelPosition(nodeId) {
     const node = requireNode(nodeId);
     const label = requireNodeLabel(nodeId);
@@ -944,6 +940,7 @@ export async function createPixiWorkspaceRenderer({
     label.scale.set(1);
     labelSyncCount += 1;
   }
+
   function syncLabelVisibility() {
     syncNodeLabelVisibility({
       compactSelectedFontSize: compactSelectedNodeLabelBitmapFontSize,
@@ -958,6 +955,11 @@ export async function createPixiWorkspaceRenderer({
     });
   }
 
+  function compactSelectedLabelCount() {
+    return [...nodeLabelFontSizeModes.values()].filter((mode) => mode === "compact-selected")
+      .length;
+  }
+
   function setPortVisualState(nodeId, portId, state) {
     const key = portKey(nodeId, portId);
     const visual = portVisuals.get(key);
@@ -965,8 +967,9 @@ export async function createPixiWorkspaceRenderer({
       throw new Error(`workspace port visual is missing: ${key}`);
     }
     portVisualStates.set(key, state);
-    drawPortVisualState(visual, requirePort(requireNode(nodeId), portId), state);
+    drawPortVisualState(visual, requirePort(portId), state);
   }
+
   function firstSelectedNodeId() {
     return selectedNodeIds.values().next().value ?? null;
   }
@@ -977,11 +980,20 @@ export async function createPixiWorkspaceRenderer({
     }
     return node;
   }
+
   function requireNodeLabel(nodeId) {
     const label = nodeLabels.get(nodeId);
     if (!label) {
       throw new Error(`workspace node label is missing: ${nodeId}`);
     }
     return label;
+  }
+
+  function requireEdgePort(edge, field) {
+    const portId = edge[field];
+    if (!portId) {
+      throw new Error(`workspace edge ${edge.id} is missing ${field}`);
+    }
+    return portId;
   }
 }

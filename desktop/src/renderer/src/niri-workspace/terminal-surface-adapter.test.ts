@@ -162,6 +162,7 @@ describe("terminal surface adapter", () => {
     expect(api.terminal.create).not.toHaveBeenCalled();
     expect(firstHost.dataset.terminalSessionId).toBe("terminal_existing");
     expect(firstHost.dataset.terminalStatus).toBe("running");
+    expect(firstHost.style.getPropertyValue("--niri-terminal-background")).toBe("#09090b");
 
     adapter.unmount();
     const secondHost = createFakeHost();
@@ -170,6 +171,7 @@ describe("terminal surface adapter", () => {
 
     expect(api.terminal.attach).toHaveBeenCalledTimes(2);
     expect(secondHost.dataset.terminalSessionId).toBe("terminal_existing");
+    expect(secondHost.style.getPropertyValue("--niri-terminal-background")).toBe("#09090b");
   });
 
   test("records backend truncation events as terminal stats", async () => {

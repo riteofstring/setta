@@ -98,6 +98,14 @@ export function terminalTheme(themeId: TerminalThemeId): ITheme {
   }
 }
 
+export function terminalThemeBackground(themeId: TerminalThemeId): string {
+  const background = terminalTheme(themeId).background;
+  if (typeof background !== "string" || background.length === 0) {
+    throw new Error(`Terminal theme is missing a background color: ${themeId}`);
+  }
+  return background;
+}
+
 function normalizeFontFamily(value: unknown): string {
   if (typeof value !== "string") {
     return defaultTerminalDisplaySettings.fontFamily;

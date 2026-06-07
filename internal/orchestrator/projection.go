@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -13,7 +12,7 @@ type edgeTokenSummary struct {
 	latest    WorkflowTokenStatus
 }
 
-func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *WorkflowExecution, updatedAt string, currentDraft *WorkflowDefinition) (WorkflowGraphProjection, error) {
+func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *WorkflowExecution, updatedAt string) (WorkflowGraphProjection, error) {
 	var executionID string
 	var executionStatus *WorkflowExecutionStatus
 	var terminalReason *WorkflowTerminalReason
@@ -41,67 +40,21 @@ func buildWorkflowGraphProjection(version WorkflowDefinitionVersion, execution *
 	if err != nil {
 		return WorkflowGraphProjection{}, err
 	}
-	viewMode := workflowGraphProjectionViewMode(version, execution)
-	draftUpdatedAt := ""
-	draftMatchesVersion := true
-	versionMismatch := false
-	if currentDraft != nil {
-		draftUpdatedAt = currentDraft.UpdatedAt
-	}
-	if version.ID != "" {
-		draftMatchesVersion = currentDraft != nil && workflowDefinitionMatchesVersion(*currentDraft, version)
-		versionMismatch = !draftMatchesVersion
-	}
 	return WorkflowGraphProjection{
-		SchemaVersion:              SchemaVersion,
-		WorkspaceID:                version.WorkspaceID,
-		DefinitionID:               version.DefinitionID,
-		DefinitionVersionID:        version.ID,
-		DefinitionVersionNumber:    version.VersionNumber,
-		DefinitionVersionCreatedAt: version.CreatedAt,
-		DefinitionName:             version.Name,
-		DefinitionDescription:      version.Description,
-		ViewMode:                   viewMode,
-		Editable:                   viewMode == GraphViewModeDraft,
-		DraftUpdatedAt:             draftUpdatedAt,
-		DraftMatchesVersion:        draftMatchesVersion,
-		VersionMismatch:            versionMismatch,
-		ExecutionID:                executionID,
-		ExecutionStatus:            executionStatus,
-		TerminalReason:             terminalReason,
-		LastEventOrdinal:           lastEventOrdinal,
-		UpdatedAt:                  updatedAt,
-		Layout:                     copyWorkflowGraphLayout(version.Graph.Layout),
-		Nodes:                      nodes,
-		Edges:                      edges,
+		SchemaVersion:         SchemaVersion,
+		WorkspaceID:           version.WorkspaceID,
+		DefinitionID:          version.DefinitionID,
+		DefinitionVersionID:   version.ID,
+		DefinitionName:        version.Name,
+		DefinitionDescription: version.Description,
+		ExecutionID:           executionID,
+		ExecutionStatus:       executionStatus,
+		TerminalReason:        terminalReason,
+		LastEventOrdinal:      lastEventOrdinal,
+		UpdatedAt:             updatedAt,
+		Nodes:                 nodes,
+		Edges:                 edges,
 	}, nil
-}
-
-func workflowGraphProjectionViewMode(version WorkflowDefinitionVersion, execution *WorkflowExecution) WorkflowGraphViewMode {
-	if execution != nil {
-		return GraphViewModeRun
-	}
-	if version.ID != "" {
-		return GraphViewModeVersion
-	}
-	return GraphViewModeDraft
-}
-
-func workflowDefinitionMatchesVersion(definition WorkflowDefinition, version WorkflowDefinitionVersion) bool {
-	return definition.SchemaVersion == version.SchemaVersion &&
-		definition.ID == version.DefinitionID &&
-		definition.WorkspaceID == version.WorkspaceID &&
-		definition.Name == version.Name &&
-		definition.Description == version.Description &&
-		reflect.DeepEqual(normalizeWorkflowGraph(definition.Graph), normalizeWorkflowGraph(version.Graph))
-}
-
-func copyWorkflowGraphLayout(layout WorkflowGraphLayout) WorkflowGraphLayout {
-	copied := WorkflowGraphLayout{
-		Nodes: make([]WorkflowGraphNodeLayout, len(layout.Nodes)),
-	}
-	copy(copied.Nodes, layout.Nodes)
-	return copied
 }
 
 func projectedGraphNodes(definitionNodes []WorkflowNode, execution *WorkflowExecution) ([]WorkflowGraphNode, error) {
@@ -132,8 +85,6 @@ func projectedGraphNodes(definitionNodes []WorkflowNode, execution *WorkflowExec
 			FilePaths:             []string{},
 			Error:                 "",
 			PendingApproval:       nil,
-			RecoveryOutcome:       nil,
-			RecoveryMessage:       "",
 		}
 		if latest, ok := latestByNodeID[node.ID]; ok {
 			status, err := graphNodeStatusFromExecutionStatus(latest.Status)
@@ -147,8 +98,6 @@ func projectedGraphNodes(definitionNodes []WorkflowNode, execution *WorkflowExec
 			projected.LatestIteration = latest.Iteration
 			projected.ActionKind = copyActionKind(latest.ActionKind, projected.ActionKind)
 			projected.Error = latest.Error
-			projected.RecoveryOutcome = latest.RecoveryOutcome
-			projected.RecoveryMessage = latest.RecoveryMessage
 			if latest.Result != nil {
 				projected.Signals = append([]WorkflowActionSignal{}, latest.Result.Signals...)
 				projected.FilePaths = append([]string{}, latest.Result.FilePaths...)
@@ -197,8 +146,6 @@ func projectedGraphEdges(definitionEdges []WorkflowEdge, execution *WorkflowExec
 			Kind:                edge.Kind,
 			FromNodeID:          edge.FromNodeID,
 			ToNodeID:            edge.ToNodeID,
-			Condition:           edge.Condition,
-			Label:               workflowEdgeLabel(edge),
 			Status:              status,
 			ActiveTokenCount:    summary.active,
 			CompletedTokenCount: summary.completed,
@@ -206,57 +153,6 @@ func projectedGraphEdges(definitionEdges []WorkflowEdge, execution *WorkflowExec
 		})
 	}
 	return edges, nil
-}
-
-func workflowEdgeLabel(edge WorkflowEdge) string {
-	switch {
-	case edge.Kind == EdgeKindLoopContinue:
-		return "continue"
-	case edge.Kind == EdgeKindLoopExit:
-		return "exit"
-	case edge.Condition == nil:
-		return ""
-	default:
-		return workflowConditionLabel(*edge.Condition)
-	}
-}
-
-func workflowConditionLabel(condition WorkflowCondition) string {
-	switch condition.Kind {
-	case ConditionDefault:
-		return "default"
-	case ConditionActionSignal:
-		return actionSignalConditionLabel(condition)
-	case ConditionActionStatus:
-		return actionStatusConditionLabel(condition)
-	case ConditionScriptExitCode:
-		return scriptExitCodeConditionLabel(condition)
-	case ConditionAlways:
-		return "always"
-	default:
-		return string(condition.Kind)
-	}
-}
-
-func actionSignalConditionLabel(condition WorkflowCondition) string {
-	if condition.SignalValue == "" {
-		return condition.SignalName
-	}
-	return condition.SignalName + "=" + condition.SignalValue
-}
-
-func actionStatusConditionLabel(condition WorkflowCondition) string {
-	if condition.Status == nil {
-		return "status"
-	}
-	return "status=" + string(*condition.Status)
-}
-
-func scriptExitCodeConditionLabel(condition WorkflowCondition) string {
-	if condition.ExitCode == nil {
-		return "exit"
-	}
-	return fmt.Sprintf("exit=%d", *condition.ExitCode)
 }
 
 func workflowNodeLabel(node WorkflowNode) string {
@@ -302,8 +198,6 @@ func graphNodeStatusFromExecutionStatus(status WorkflowNodeExecutionStatus) (Wor
 		return GraphNodeStatusCancelled, nil
 	case NodeExecutionStatusWaitingApproval:
 		return GraphNodeStatusWaitingApproval, nil
-	case NodeExecutionStatusRecoveryRequired:
-		return GraphNodeStatusRecoveryRequired, nil
 	default:
 		return "", fmt.Errorf("unsupported workflow node execution status %s", status)
 	}

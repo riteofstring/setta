@@ -37,11 +37,6 @@ const nodeBodyContexts = new Map();
 const nodeShadowContexts = new Map();
 const nodeOutlineContexts = new Map();
 
-const diagnosticMarkerColors = {
-  error: 0xfb7185,
-  warning: 0xfbbf24,
-};
-
 export function nodeBodyContextFor(node) {
   const key = geometryKey([
     node.width,
@@ -126,39 +121,6 @@ export function drawWorkspaceGrid(grid) {
     grid.moveTo(-2000, position).lineTo(2000, position);
   }
   grid.stroke({ alpha: 0.28, color: 0x64748b, width: 1.5 });
-}
-
-export function drawNodeDiagnosticMarker(target, node) {
-  target.clear();
-  if (!node.diagnostic) {
-    target.visible = false;
-    return;
-  }
-  target.visible = true;
-  drawDiagnosticDiamond(target, node.width - 4, -6, node.diagnostic.severity);
-}
-
-export function drawDiagnosticDiamond(target, centerX, centerY, severity) {
-  const color = diagnosticMarkerColors[severity] ?? diagnosticMarkerColors.error;
-  const radius = 10;
-  target
-    .moveTo(centerX, centerY - radius)
-    .lineTo(centerX + radius, centerY)
-    .lineTo(centerX, centerY + radius)
-    .lineTo(centerX - radius, centerY)
-    .closePath()
-    .fill({ alpha: 0.96, color })
-    .moveTo(centerX, centerY - radius)
-    .lineTo(centerX + radius, centerY)
-    .lineTo(centerX, centerY + radius)
-    .lineTo(centerX - radius, centerY)
-    .closePath()
-    .stroke({ alpha: 0.95, color: 0x111827, width: 1.5 })
-    .moveTo(centerX, centerY - 4.5)
-    .lineTo(centerX, centerY + 2.5)
-    .stroke({ alpha: 0.95, color: 0x111827, width: 1.7 })
-    .circle(centerX, centerY + 6, 1.5)
-    .fill({ alpha: 0.95, color: 0x111827 });
 }
 
 export function nodeGeometryContextCounts() {

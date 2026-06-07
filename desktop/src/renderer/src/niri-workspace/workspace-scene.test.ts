@@ -71,8 +71,6 @@ describe("real niri workspace scene", () => {
       "pixi-canvas": 10,
       "settings-dom": 1,
       terminal: 10,
-      "workflow-node-details": 1,
-      "workflow-settings": 1,
     });
   });
 

@@ -15,9 +15,7 @@ export type SurfaceKind =
   | "pixi-canvas"
   | "settings-dom"
   | "snapshot"
-  | "terminal"
-  | "workflow-node-details"
-  | "workflow-settings";
+  | "terminal";
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 
@@ -223,10 +221,17 @@ export interface LayoutEngine {
     maximizedPaneId?: PaneId | null,
   ): PaneId | null;
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void;
+  renamePane(paneId: PaneId, title: string): boolean;
   reorderPaneBefore(sourcePaneId: PaneId, targetPaneId: PaneId): boolean;
   resetColumnWidth(columnId: ColumnId): void;
   resizeColumn(columnId: ColumnId, width: ColumnWidthSpec): void;
   resizePane(paneId: PaneId, heightWeight: number): void;
+  resizePaneSplit(
+    upperPaneId: PaneId,
+    lowerPaneId: PaneId,
+    upperHeightWeight: number,
+    lowerHeightWeight: number,
+  ): boolean;
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void;
   splitPane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): PaneId;
   splitPaneToPlane(paneId: PaneId, direction: "up" | "down"): PaneId;

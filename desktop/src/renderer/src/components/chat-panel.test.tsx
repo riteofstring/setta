@@ -1,7 +1,9 @@
+import type { ChatMessage, MessageDelivery, MessageRole, MessageStatus } from "@generated/backend";
 import type { KeyboardEvent } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
+import { Composer } from "./chat-composer";
 import {
   CommandSuggestions,
   commandSuggestions,
@@ -11,9 +13,12 @@ import {
   goalEditorDraft,
   goalReplacementExecutionOptions,
   handleComposerKeyDown,
+  ModelPickerButton,
   modelPickerOptionSelected,
   reasoningEffortOptionSelected,
 } from "./chat-panel";
+import { ChatSearchBar, type TranscriptSearchController } from "./chat-transcript-search";
+import { ChatTranscript, type ChatTranscriptProps } from "./chat-transcript";
 
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
 
@@ -378,6 +383,29 @@ describe("composer command helpers", () => {
 });
 
 describe("composer controls", () => {
+  test("shows selected model and reasoning in the model picker button", () => {
+    const html = renderToString(
+      <ModelPickerButton
+        disabled={false}
+        modelPicker={null}
+        onOpen={vi.fn()}
+        running={false}
+        selectedConversation={
+          {
+            codexSettings: {
+              model: "scripted-careful",
+              reasoningEffort: "high",
+            },
+          } as Parameters<typeof ModelPickerButton>[0]["selectedConversation"]
+        }
+      />,
+    );
+
+    expect(html).toContain("Open model and reasoning picker");
+    expect(html).toContain("scripted-careful");
+    expect(html).toContain("High");
+  });
+
   test("hides queue controls while idle", () => {
     const html = renderToString(
       <ComposerButton
@@ -451,6 +479,7 @@ describe("conversation body states", () => {
     );
 
     expect(html).toContain("Start a conversation for this workspace.");
+    expect(html).toContain("max-w-2xl");
     expect(html).not.toContain("What should we build in setta?");
   });
 
@@ -472,6 +501,33 @@ describe("conversation body states", () => {
 
     expect(html).toContain("Loading workspace chats.");
     expect(html).not.toContain("What should we build in setta?");
+  });
+});
+
+describe("chat readable width contract", () => {
+  test("keeps transcript empty state, rows, search, and composer on max-w-2xl", () => {
+    const transcriptHtml = renderToString(
+      <ChatTranscript
+        {...emptyTranscriptProps()}
+        messageIds={["message_user"]}
+        messagesById={{
+          message_user: chatMessage("message_user", 1, "user", "complete", "hello", "normal", ""),
+        }}
+      />,
+    );
+    const emptyTranscriptHtml = renderToString(<ChatTranscript {...emptyTranscriptProps()} />);
+    const searchHtml = renderToString(<ChatSearchBar search={openSearchController()} />);
+    const composerHtml = renderToString(
+      <Composer busy={false} chat={composerChat()} running={false} />,
+    );
+
+    expect(transcriptHtml).toContain("max-w-2xl");
+    expect(emptyTranscriptHtml).toContain("max-w-2xl");
+    expect(searchHtml).toContain("max-w-2xl");
+    expect(composerHtml).toContain("max-w-2xl");
+    expect([transcriptHtml, emptyTranscriptHtml, searchHtml, composerHtml].join(" ")).not.toContain(
+      "max-w-3xl",
+    );
   });
 });
 
@@ -506,6 +562,74 @@ function composerButtonChat() {
   };
 }
 
+function composerChat() {
+  return {
+    ...composerButtonChat(),
+    activeRun: null,
+    commandListError: null,
+    commandListStatus: "ready",
+    executeCommand: async () => {
+      throw new Error("unexpected command execution in SSR test");
+    },
+    goal: null,
+    listCommands: async () => ({ commands: [] }),
+    pendingSteeringMessageIds: [],
+    queueMessage: async () => {},
+    selectedConversation: {
+      codexSettings: {
+        model: "scripted-fast",
+        reasoningEffort: "medium",
+      },
+      conversation: {
+        id: "conversation_api",
+      },
+    },
+    sendMessage: async () => {},
+    sendSteeringImmediately: async () => {},
+    status: "ready",
+    steerMessage: async () => {},
+  } as unknown as Parameters<typeof Composer>[0]["chat"];
+}
+
+function emptyTranscriptProps(): ChatTranscriptProps {
+  return {
+    activeRun: null,
+    editQueuedMessage: async () => {},
+    editingQueuedMessageId: null,
+    hasMoreOlder: false,
+    loadOlder: async () => {},
+    loadRunItemOutput: async () => {},
+    messageIds: [],
+    messagesById: {},
+    operation: null,
+    removeQueuedMessage: async () => {},
+    removingQueuedMessageId: null,
+    runItemIdsByRunId: {},
+    runItemOutputIdsByRunItemId: {},
+    runItemOutputPagesByRunItemId: {},
+    runItemOutputsById: {},
+    runItemsById: {},
+    sendSteeringImmediately: async () => {},
+    submitApproval: async () => {},
+    transcript: [],
+  };
+}
+
+function openSearchController(): TranscriptSearchController {
+  return {
+    activeIndex: 0,
+    activeMessageId: null,
+    close: () => {},
+    inputRef: { current: null },
+    matchCount: 0,
+    next: () => {},
+    open: true,
+    previous: () => {},
+    query: "hello",
+    setQuery: () => {},
+  };
+}
+
 function goalState(objective: string, status: string) {
   return {
     createdAt: 0,
@@ -516,6 +640,32 @@ function goalState(objective: string, status: string) {
     tokenBudget: null,
     tokensUsed: 0,
     updatedAt: 0,
+  };
+}
+
+function chatMessage(
+  id: string,
+  ordinal: number,
+  role: MessageRole,
+  status: MessageStatus,
+  text: string,
+  delivery: MessageDelivery = "normal",
+  runId = "run_api",
+): ChatMessage {
+  return {
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:00Z",
+    delivery,
+    id,
+    ordinal,
+    parts: [
+      { format: role === "assistant" ? "markdown" : "plain", id: `${id}_part`, text, type: "text" },
+    ],
+    role,
+    runId,
+    schemaVersion: 1,
+    status,
+    updatedAt: "2026-05-29T20:00:00Z",
   };
 }
 
