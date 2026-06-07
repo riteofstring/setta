@@ -22,7 +22,11 @@ export interface PaneRuntimePolicyOptions {
 }
 
 type LiveCanvasSurfaceKind = "fake-canvas" | "pixi-canvas";
-type LiveHeavyDomSurfaceKind = "chat-dom" | "fake-heavy-dom" | "fake-long-chat";
+type LiveHeavyDomSurfaceKind =
+  | "chat-dom"
+  | "fake-heavy-dom"
+  | "fake-long-chat"
+  | "workflow-node-details";
 type SurfaceRuntimeCategory =
   | "always-live"
   | "browser"
@@ -38,6 +42,7 @@ const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
   "chat-dom",
   "fake-heavy-dom",
   "fake-long-chat",
+  "workflow-node-details",
 ]);
 const surfaceRuntimeCategories = {
   browser: "browser",
@@ -53,6 +58,7 @@ const surfaceRuntimeCategories = {
   "settings-dom": "always-live",
   snapshot: "snapshot",
   terminal: "terminal",
+  "workflow-node-details": "heavy-dom",
 } satisfies Record<SurfaceKind, SurfaceRuntimeCategory>;
 
 export class PaneRuntimePolicy {

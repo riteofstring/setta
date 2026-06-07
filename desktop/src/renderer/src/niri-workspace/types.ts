@@ -15,7 +15,8 @@ export type SurfaceKind =
   | "pixi-canvas"
   | "settings-dom"
   | "snapshot"
-  | "terminal";
+  | "terminal"
+  | "workflow-node-details";
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 

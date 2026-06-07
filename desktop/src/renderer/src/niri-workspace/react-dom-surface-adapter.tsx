@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
 import { PixiWorkspaceSurface } from "../features/workspace-graph/pixi-workspace-surface";
+import { WorkflowNodeDetailsSurface } from "../features/workspace-graph/workflow-node-details-surface";
 import { FakeLongChatSurface, NiriChatSurface, NiriSettingsSurface } from "./niri-dom-surfaces";
 import type {
   CanvasSurfaceStats,
@@ -218,6 +219,9 @@ export function createReactDomSurfaceAdapter(
       ({ focused }) => <NiriSettingsSurface active={focused} />,
       rootFactory,
     );
+  }
+  if (pane.surfaceKind === "workflow-node-details") {
+    return new ReactDomSurfaceAdapter(pane, () => <WorkflowNodeDetailsSurface />, rootFactory);
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }

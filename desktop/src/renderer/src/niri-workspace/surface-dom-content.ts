@@ -201,6 +201,7 @@ const staticSnapshotRenderers = {
   "settings-dom": renderWrappedGenericSnapshot,
   snapshot: () => null,
   terminal: renderWrappedTerminalSnapshot,
+  "workflow-node-details": renderWrappedGenericSnapshot,
 } satisfies Record<SurfaceKind, StaticSnapshotRenderer>;
 
 function renderWrappedStaticBrowserSnapshot(host: HTMLElement, pane: NiriPane): HTMLElement {

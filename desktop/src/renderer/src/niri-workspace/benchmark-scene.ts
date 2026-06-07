@@ -25,6 +25,7 @@ const surfaceKindLabels = {
   "settings-dom": "real settings",
   snapshot: "snapshot",
   terminal: "terminal",
+  "workflow-node-details": "workflow node",
 } satisfies Record<SurfaceKind, string>;
 
 export interface BenchmarkSceneOptions {

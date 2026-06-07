@@ -4,14 +4,16 @@ import type {
   WorkflowEvent,
   WorkflowGraph,
   WorkflowGraphProjection,
+  WorkflowValidationResult,
   WorkflowPendingApproval,
 } from "@generated/backend";
-import { Bot, Circle, GitBranch, GitMerge, Square, Workflow } from "lucide-react";
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ApprovalCard, type SubmitApproval } from "../../components/chat-transcript-approvals";
 import { useWorkflowDefinitionStore } from "../../stores/workflow-definition-store";
+import { useWorkflowEditorStore } from "../../stores/workflow-editor-store";
+import { requestNiriPaneOpen } from "../../niri-workspace/open-pane-events";
 import {
   emptyWorkflowGraph,
   workflowGraphWithAddedDraftEdge,
@@ -27,6 +29,13 @@ import type {
 } from "./pixi-workspace-renderer";
 import { createSyntheticPixiWorkspaceGraph } from "./pixi-workspace-synthetic-graph";
 import { pixiGraphFromWorkflowProjection } from "./workflow-graph-projection";
+import {
+  toolbarDraftNodePosition,
+  WorkflowGraphToolbar,
+  workflowNodeMenuItems,
+  WorkflowValidationPanel,
+  type WorkflowDraftNodePosition,
+} from "./workflow-graph-toolbar";
 
 export function PixiWorkspaceSurface({
   debugEnabled,
@@ -50,6 +59,11 @@ export function PixiWorkspaceSurface({
   const [workflowContextMenu, setWorkflowContextMenu] = useState<WorkflowContextMenuState | null>(
     null,
   );
+  const [selectedWorkflowNodeId, setSelectedWorkflowNodeId] = useState<string | null>(null);
+  const [workflowValidation, setWorkflowValidation] = useState<WorkflowValidationResult | null>(
+    null,
+  );
+  const [workflowOperation, setWorkflowOperation] = useState<"run" | "validate" | null>(null);
   const syntheticGraph = window.setta.app.flags.pixiWorkspaceSyntheticGraph;
   const selectedDefinitionIdsByWorkspaceId = useWorkflowDefinitionStore(
     (state) => state.selectedDefinitionIdsByWorkspaceId,
@@ -57,16 +71,20 @@ export function PixiWorkspaceSurface({
   const createWorkflowDefinition = useWorkflowDefinitionStore(
     (state) => state.createWorkflowDefinition,
   );
-  useWorkflowProjection(
-    workflowTargetRef,
+  const definitionChangeSequence = useWorkflowEditorStore(
+    (state) => state.definitionChangeSequence,
+  );
+  const setSelectedNodeTarget = useWorkflowEditorStore((state) => state.setSelectedNodeTarget);
+  useWorkflowProjection({
+    definitionChangeSequence,
+    selectedDefinitionIdsByWorkspaceId,
     setWorkflowProjection,
     setWorkflowProjectionReady,
     setWorkflowWorkspaceId,
-    selectedDefinitionIdsByWorkspaceId,
-  );
+    workflowTargetRef,
+  });
   const workflowGraph = useMemo(
-    () =>
-      workflowProjection === null ? undefined : pixiGraphFromWorkflowProjection(workflowProjection),
+    () => pixiGraphForWorkflowProjection(workflowProjection),
     [workflowProjection],
   );
   const graph = useMemo(() => {
@@ -82,28 +100,31 @@ export function PixiWorkspaceSurface({
     return undefined;
   }, [syntheticGraph, workflowGraph, workflowProjectionReady, workflowWorkspaceId]);
   const pendingApproval = useMemo(
-    () => (workflowProjection === null ? null : pendingWorkflowApproval(workflowProjection)),
+    () => workflowProjectionPendingApproval(workflowProjection),
     [workflowProjection],
   );
-  const loadingProjection = syntheticGraph === null && !workflowProjectionReady;
-  const noWorkspace =
-    syntheticGraph === null && workflowProjectionReady && workflowWorkspaceId === "";
+  const selectedWorkflowNode = useMemo(
+    () => selectedWorkflowProjectionNode(workflowProjection, selectedWorkflowNodeId),
+    [selectedWorkflowNodeId, workflowProjection],
+  );
+  const loadingProjection = workflowProjectionLoading(syntheticGraph, workflowProjectionReady);
+  const noWorkspace = workflowProjectionHasNoWorkspace(
+    syntheticGraph,
+    workflowProjectionReady,
+    workflowWorkspaceId,
+  );
   const openWorkflowContextMenu = useCallback((menu: WorkflowContextMenuState) => {
     setWorkflowContextMenu(menu);
   }, []);
-  const addWorkflowDraftNode = useCallback(
-    async (nodeType: WorkflowDraftNodeType) => {
-      const menu = workflowContextMenu;
-      if (menu === null) {
-        return;
-      }
-      setWorkflowContextMenu(null);
+  const addWorkflowDraftNodeAt = useCallback(
+    async (nodeType: WorkflowDraftNodeType, position: WorkflowDraftNodePosition) => {
       setWorkflowEditorError("");
+      setWorkflowValidation(null);
       try {
         const refreshed = await materializeWorkflowDraftNode({
           createWorkflowDefinition,
-          menu,
           nodeType,
+          position,
           projection: workflowProjection,
           syntheticGraphEnabled: syntheticGraph !== null,
           workspaceId: workflowWorkspaceId,
@@ -118,13 +139,27 @@ export function PixiWorkspaceSurface({
         );
       }
     },
-    [
-      createWorkflowDefinition,
-      syntheticGraph,
-      workflowContextMenu,
-      workflowProjection,
-      workflowWorkspaceId,
-    ],
+    [createWorkflowDefinition, syntheticGraph, workflowProjection, workflowWorkspaceId],
+  );
+  const addWorkflowDraftNode = useCallback(
+    async (nodeType: WorkflowDraftNodeType) => {
+      const menu = workflowContextMenu;
+      if (menu === null) {
+        return;
+      }
+      setWorkflowContextMenu(null);
+      await addWorkflowDraftNodeAt(nodeType, {
+        worldX: menu.worldX,
+        worldY: menu.worldY,
+      });
+    },
+    [addWorkflowDraftNodeAt, workflowContextMenu],
+  );
+  const addWorkflowDraftNodeFromToolbar = useCallback(
+    async (nodeType: WorkflowDraftNodeType) => {
+      await addWorkflowDraftNodeAt(nodeType, toolbarDraftNodePosition(workflowProjection));
+    },
+    [addWorkflowDraftNodeAt, workflowProjection],
   );
   const persistNodePositions = useCallback(
     async (positions: WorkflowLayoutPosition[]) => {
@@ -189,10 +224,141 @@ export function PixiWorkspaceSurface({
     },
     [syntheticGraph, workflowEditorError, workflowProjection],
   );
+  const validateWorkflowDraft = useCallback(async () => {
+    if (syntheticGraph !== null) {
+      return null;
+    }
+    if (workflowWorkspaceId === "") {
+      setWorkflowEditorError("Open a workspace before validating a workflow");
+      return null;
+    }
+    if (workflowProjection?.executionId) {
+      setWorkflowEditorError("Switch to the draft workflow before validating");
+      return null;
+    }
+    setWorkflowOperation("validate");
+    setWorkflowEditorError("");
+    try {
+      const graphToValidate =
+        workflowProjection === null
+          ? emptyWorkflowGraph()
+          : (
+              await window.setta.workflow.readDefinition(
+                workflowProjection.workspaceId,
+                workflowProjection.definitionId,
+              )
+            ).graph;
+      const result = await window.setta.workflow.validateDefinition(
+        workflowWorkspaceId,
+        graphToValidate,
+      );
+      setWorkflowValidation(result);
+      return result;
+    } catch (error: unknown) {
+      setWorkflowEditorError(error instanceof Error ? error.message : "Workflow validation failed");
+      return null;
+    } finally {
+      setWorkflowOperation(null);
+    }
+  }, [syntheticGraph, workflowProjection, workflowWorkspaceId]);
+  const runWorkflowDraft = useCallback(async () => {
+    if (syntheticGraph !== null) {
+      return;
+    }
+    if (workflowWorkspaceId === "") {
+      setWorkflowEditorError("Open a workspace before running a workflow");
+      return;
+    }
+    if (workflowProjection === null) {
+      setWorkflowEditorError("Add a workflow node before running");
+      return;
+    }
+    if (workflowProjection.executionId !== "") {
+      setWorkflowEditorError("Switch to the draft workflow before starting another run");
+      return;
+    }
+    setWorkflowOperation("run");
+    setWorkflowEditorError("");
+    try {
+      const definition = await window.setta.workflow.readDefinition(
+        workflowProjection.workspaceId,
+        workflowProjection.definitionId,
+      );
+      const validation = await window.setta.workflow.validateDefinition(
+        workflowProjection.workspaceId,
+        definition.graph,
+      );
+      setWorkflowValidation(validation);
+      if (!validation.valid) {
+        return;
+      }
+      const execution = await window.setta.workflow.startExecution(
+        workflowProjection.workspaceId,
+        workflowProjection.definitionId,
+      );
+      const refreshed = await workflowProjectionForExecution(
+        workflowProjection.workspaceId,
+        workflowProjection.definitionId,
+        execution.definitionVersionId,
+        execution.id,
+      );
+      workflowTargetRef.current = workflowProjectionTarget(refreshed);
+      setWorkflowProjection(refreshed);
+    } catch (error: unknown) {
+      setWorkflowEditorError(error instanceof Error ? error.message : "Workflow run failed");
+    } finally {
+      setWorkflowOperation(null);
+    }
+  }, [syntheticGraph, workflowProjection, workflowWorkspaceId]);
+  const showDraftWorkflow = useCallback(async () => {
+    if (workflowProjection === null) {
+      return;
+    }
+    setWorkflowEditorError("");
+    try {
+      const refreshed = await workflowProjectionForDefinition(
+        workflowProjection.workspaceId,
+        workflowProjection.definitionId,
+      );
+      workflowTargetRef.current = workflowProjectionTarget(refreshed);
+      setWorkflowProjection(refreshed);
+      setWorkflowValidation(null);
+    } catch (error: unknown) {
+      setWorkflowEditorError(error instanceof Error ? error.message : "Workflow draft load failed");
+    }
+  }, [workflowProjection]);
+  const openWorkflowNodeDetails = useCallback(
+    (nodeId: string | null) => {
+      if (workflowProjection === null || nodeId === null) {
+        return;
+      }
+      setSelectedNodeTarget(workflowNodeDetailsTarget(workflowProjection, nodeId));
+      requestNiriPaneOpen({
+        surfaceKind: "workflow-node-details",
+        subtitle: "workflow node details",
+        title: "Workflow Node",
+        tone: "cyan",
+        widthSpec: { unit: "px", value: 380 },
+      });
+    },
+    [setSelectedNodeTarget, workflowProjection],
+  );
+  const handleWorkflowNodeSelectionChange = useCallback((nodeIds: string[]) => {
+    setSelectedWorkflowNodeId(nodeIds[0] ?? null);
+  }, []);
 
   useEffect(() => {
     workflowCameraRef.current = null;
   }, [syntheticGraph, workflowWorkspaceId]);
+
+  useEffect(() => {
+    if (
+      selectedWorkflowNodeId !== null &&
+      !workflowProjection?.nodes.some((node) => node.id === selectedWorkflowNodeId)
+    ) {
+      setSelectedWorkflowNodeId(null);
+    }
+  }, [selectedWorkflowNodeId, workflowProjection]);
 
   useEffect(() => {
     if (!graph) {
@@ -226,9 +392,13 @@ export function PixiWorkspaceSurface({
           onCanvasContextMenu: syntheticGraph === null ? openWorkflowContextMenu : undefined,
           onEdgeCreate:
             syntheticGraph === null ? (edge) => void addWorkflowDraftEdge(edge) : undefined,
+          onNodeOpen:
+            syntheticGraph === null ? (nodeId) => openWorkflowNodeDetails(nodeId) : undefined,
           onNodePositionsChange: (positions) => {
             void persistNodePositions(positions);
           },
+          onNodeSelectionChange:
+            syntheticGraph === null ? handleWorkflowNodeSelectionChange : undefined,
           reactRenderCount: () => reactRenderCount.current,
         });
         if (disposed) {
@@ -250,7 +420,9 @@ export function PixiWorkspaceSurface({
     debugEnabled,
     graph,
     addWorkflowDraftEdge,
+    handleWorkflowNodeSelectionChange,
     openWorkflowContextMenu,
+    openWorkflowNodeDetails,
     persistNodePositions,
     surfaceId,
     syntheticGraph,
@@ -297,8 +469,24 @@ export function PixiWorkspaceSurface({
         data-surface-id={surfaceId}
         data-testid="pixi-workspace"
       />
+      {syntheticGraph === null ? (
+        <WorkflowGraphToolbar
+          busy={workflowOperation}
+          onAddNode={(nodeType) => void addWorkflowDraftNodeFromToolbar(nodeType)}
+          onOpenDetails={() => openWorkflowNodeDetails(selectedWorkflowNodeId)}
+          onRun={() => void runWorkflowDraft()}
+          onShowDraft={() => void showDraftWorkflow()}
+          onValidate={() => void validateWorkflowDraft()}
+          projection={workflowProjection}
+          ready={workflowProjectionReady}
+          selectedNodeLabel={selectedWorkflowNode?.label ?? ""}
+          validation={workflowValidation}
+          workspaceId={workflowWorkspaceId}
+        />
+      ) : null}
       {loadingProjection ? <PixiWorkspaceState label="Loading workflow graph" /> : null}
       {noWorkspace ? <PixiWorkspaceState label="Open a workspace to edit workflows" /> : null}
+      {workflowValidation ? <WorkflowValidationPanel validation={workflowValidation} /> : null}
       {workflowContextMenu ? (
         <WorkflowCanvasContextMenu
           menu={workflowContextMenu}
@@ -329,10 +517,56 @@ type CreateWorkflowDefinition = (
   graph?: WorkflowGraph,
 ) => Promise<WorkflowDefinition>;
 
+function pixiGraphForWorkflowProjection(projection: WorkflowGraphProjection | null) {
+  if (projection === null) {
+    return undefined;
+  }
+  return pixiGraphFromWorkflowProjection(projection);
+}
+
+function workflowProjectionPendingApproval(projection: WorkflowGraphProjection | null) {
+  if (projection === null) {
+    return null;
+  }
+  return pendingWorkflowApproval(projection);
+}
+
+function selectedWorkflowProjectionNode(
+  projection: WorkflowGraphProjection | null,
+  nodeId: string | null,
+) {
+  if (projection === null || nodeId === null) {
+    return null;
+  }
+  return projection.nodes.find((node) => node.id === nodeId) ?? null;
+}
+
+function workflowProjectionLoading(syntheticGraph: unknown, workflowProjectionReady: boolean) {
+  return syntheticGraph === null && !workflowProjectionReady;
+}
+
+function workflowProjectionHasNoWorkspace(
+  syntheticGraph: unknown,
+  workflowProjectionReady: boolean,
+  workflowWorkspaceId: string,
+) {
+  return syntheticGraph === null && workflowProjectionReady && workflowWorkspaceId === "";
+}
+
+function workflowNodeDetailsTarget(projection: WorkflowGraphProjection, nodeId: string) {
+  return {
+    definitionId: projection.definitionId,
+    definitionName: projection.definitionName,
+    executionId: projection.executionId,
+    nodeId,
+    workspaceId: projection.workspaceId,
+  };
+}
+
 interface MaterializeWorkflowDraftNodeRequest {
   createWorkflowDefinition: CreateWorkflowDefinition;
-  menu: WorkflowContextMenuState;
   nodeType: WorkflowDraftNodeType;
+  position: WorkflowDraftNodePosition;
   projection: WorkflowGraphProjection | null;
   syntheticGraphEnabled: boolean;
   workspaceId: string;
@@ -340,8 +574,8 @@ interface MaterializeWorkflowDraftNodeRequest {
 
 async function materializeWorkflowDraftNode({
   createWorkflowDefinition,
-  menu,
   nodeType,
+  position,
   projection,
   syntheticGraphEnabled,
   workspaceId,
@@ -357,7 +591,7 @@ async function materializeWorkflowDraftNode({
   if (preflight !== null) {
     throw new Error(preflight);
   }
-  const graph = await workflowGraphWithDraftNode(projection, workspaceId, nodeType, menu);
+  const graph = await workflowGraphWithDraftNode(projection, workspaceId, nodeType, position);
   const definition =
     projection === null
       ? await createWorkflowDefinition(workspaceId, "Untitled workflow", graph)
@@ -395,15 +629,15 @@ async function workflowGraphWithDraftNode(
   projection: WorkflowGraphProjection | null,
   workspaceId: string,
   nodeType: WorkflowDraftNodeType,
-  menu: WorkflowContextMenuState,
+  position: WorkflowDraftNodePosition,
 ): Promise<WorkflowGraph> {
   const baseGraph =
     projection === null
       ? emptyWorkflowGraph()
       : (await window.setta.workflow.readDefinition(workspaceId, projection.definitionId)).graph;
   return workflowGraphWithAddedDraftNode(baseGraph, nodeType, {
-    x: menu.worldX,
-    y: menu.worldY,
+    x: position.worldX,
+    y: position.worldY,
   });
 }
 
@@ -414,6 +648,24 @@ async function workflowProjectionForDefinition(
   const refreshed = await window.setta.workflow.graphProjection(workspaceId, definitionId);
   if (refreshed.projection === null) {
     throw new Error(`workflow graph projection ${definitionId} was not returned`);
+  }
+  return refreshed.projection;
+}
+
+async function workflowProjectionForExecution(
+  workspaceId: string,
+  definitionId: string,
+  definitionVersionId: string,
+  executionId: string,
+): Promise<WorkflowGraphProjection> {
+  const refreshed = await window.setta.workflow.graphProjection(
+    workspaceId,
+    definitionId,
+    definitionVersionId,
+    executionId,
+  );
+  if (refreshed.projection === null) {
+    throw new Error(`workflow graph projection ${executionId} was not returned`);
   }
   return refreshed.projection;
 }
@@ -442,13 +694,23 @@ async function materializeWorkflowDraftEdge({
   return workflowProjectionForDefinition(projection.workspaceId, updated.id);
 }
 
-function useWorkflowProjection(
-  workflowTargetRef: MutableRefObject<WorkflowProjectionTarget | null>,
-  setWorkflowProjection: (projection: WorkflowGraphProjection | null) => void,
-  setWorkflowProjectionReady: (ready: boolean) => void,
-  setWorkflowWorkspaceId: (workspaceId: string) => void,
-  selectedDefinitionIdsByWorkspaceId: Record<string, string | undefined>,
-) {
+interface WorkflowProjectionLoader {
+  definitionChangeSequence: number;
+  selectedDefinitionIdsByWorkspaceId: Record<string, string | undefined>;
+  setWorkflowProjection: (projection: WorkflowGraphProjection | null) => void;
+  setWorkflowProjectionReady: (ready: boolean) => void;
+  setWorkflowWorkspaceId: (workspaceId: string) => void;
+  workflowTargetRef: MutableRefObject<WorkflowProjectionTarget | null>;
+}
+
+function useWorkflowProjection({
+  definitionChangeSequence,
+  selectedDefinitionIdsByWorkspaceId,
+  setWorkflowProjection,
+  setWorkflowProjectionReady,
+  setWorkflowWorkspaceId,
+  workflowTargetRef,
+}: WorkflowProjectionLoader) {
   useEffect(() => {
     let disposed = false;
 
@@ -537,6 +799,7 @@ function useWorkflowProjection(
     };
   }, [
     selectedDefinitionIdsByWorkspaceId,
+    definitionChangeSequence,
     setWorkflowProjection,
     setWorkflowProjectionReady,
     setWorkflowWorkspaceId,
@@ -584,19 +847,6 @@ interface WorkflowContextMenuState {
   worldX: number;
   worldY: number;
 }
-
-const workflowNodeMenuItems = [
-  { icon: Bot, label: "Agent Task", type: "agent_task" },
-  { icon: GitBranch, label: "Route", type: "route" },
-  { icon: GitMerge, label: "Merge", type: "merge" },
-  { icon: Workflow, label: "Barrier Join", type: "barrier_join" },
-  { icon: Circle, label: "Start", type: "start" },
-  { icon: Square, label: "End", type: "end" },
-] satisfies {
-  icon: typeof Bot;
-  label: string;
-  type: WorkflowDraftNodeType;
-}[];
 
 function WorkflowCanvasContextMenu({
   menu,

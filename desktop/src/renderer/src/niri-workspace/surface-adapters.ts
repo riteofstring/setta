@@ -449,6 +449,7 @@ const defaultSurfaceAdapterFactories = {
   "settings-dom": createReactDomSurfaceAdapter,
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
   terminal: (pane) => new TerminalSurfaceAdapter(pane),
+  "workflow-node-details": createReactDomSurfaceAdapter,
 } satisfies Record<SurfaceKind, (pane: NiriPane) => SurfaceAdapter>;
 
 function performanceNow(): number {

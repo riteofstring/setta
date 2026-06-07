@@ -41,8 +41,9 @@ import {
   openPaneActionForSurfaceKind,
   openPaneActions,
 } from "./niri-workspace-toolbar";
+import { niriOpenPaneRequestEvent } from "./open-pane-events";
 import { persistRealWorkspaceScene } from "./workspace-scene";
-import type { NiriPane, Rect, SurfaceKind } from "./types";
+import type { NiriPane, OpenPaneRequest, Rect, SurfaceKind } from "./types";
 
 export interface NiriSurfaceFocusRequest {
   requestId: number;
@@ -129,6 +130,36 @@ export function NiriWorkspaceArea({
       runtime.store.snapScrollToTarget();
     });
   }, [focusSurfaceRequest, runLayoutAction, runtime, stageViewport]);
+
+  useEffect(() => {
+    if (runtime.mode !== "workspace") {
+      return;
+    }
+    const handleOpenPaneRequest = (event: Event) => {
+      const request = (event as CustomEvent<OpenPaneRequest>).detail;
+      if (!request?.surfaceKind) {
+        return;
+      }
+      const surfaceKind = request.surfaceKind;
+      runLayoutAction(() => {
+        const maximizedPaneId = runtime.store.getSnapshot().maximizedPaneId;
+        if (maximizedPaneId !== null) {
+          runtime.store.togglePaneMaximized(maximizedPaneId);
+        }
+        if (runtime.store.canOpenPane(request)) {
+          runtime.store.openPane(request);
+        } else {
+          runtime.store.focusPaneBySurfaceKind(surfaceKind);
+        }
+        runtime.store.ensureFocusedColumnVisible(stageViewport());
+        runtime.store.snapScrollToTarget();
+      });
+    };
+    window.addEventListener(niriOpenPaneRequestEvent, handleOpenPaneRequest);
+    return () => {
+      window.removeEventListener(niriOpenPaneRequestEvent, handleOpenPaneRequest);
+    };
+  }, [runLayoutAction, runtime, stageViewport]);
 
   useEffect(() => {
     const root = rootRef.current;

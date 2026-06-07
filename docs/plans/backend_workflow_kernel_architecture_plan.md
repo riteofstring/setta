@@ -925,16 +925,13 @@ Deliverables:
 - Do not implement production cloud execution unless product requirements justify it.
 
 Acceptance criteria:
-
 - The Setta graph can compile to or be interpreted by another backend without changing the saved graph contract.
 - Approvals, cancellation, event projection, and structured outputs still map back to Setta concepts.
 
 ## Verification Strategy
 
 For each phase, run the narrowest checks first, then broaden after behavior is stable.
-
 Required deterministic workflow tests should cover:
-
 - Start workspace.
 - Open blank/null workflow canvas and materialize a workflow file from the first graph edit.
 - Start execution.
@@ -950,7 +947,6 @@ Required deterministic workflow tests should cover:
 - Event replay.
 
 When the sandboxed process runner is implemented, its tests must also cover:
-
 - Child-process cleanup.
 - Timeout kills the process tree.
 - Cancellation kills the process tree.

@@ -19,6 +19,16 @@ export function isSelectionToggleEvent(event) {
   return Boolean(event.metaKey || event.ctrlKey);
 }
 
+export function nodeOpenRequested(event, onNodeOpen) {
+  return event.detail >= 2 && onNodeOpen !== null;
+}
+
+export function notifyNodeSelectionChange(onNodeSelectionChange, selectedNodeIds) {
+  if (onNodeSelectionChange !== null) {
+    onNodeSelectionChange([...selectedNodeIds]);
+  }
+}
+
 export function setsEqual(left, right) {
   if (left.size !== right.size) {
     return false;

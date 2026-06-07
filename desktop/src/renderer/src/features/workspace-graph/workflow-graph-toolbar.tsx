@@ -1,0 +1,470 @@
+import type {
+  WorkflowGraphProjection,
+  WorkflowValidationDiagnostic,
+  WorkflowValidationResult,
+} from "@generated/backend";
+import {
+  AlertTriangle,
+  Bot,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  Eye,
+  GitBranch,
+  GitMerge,
+  type LucideIcon,
+  Play,
+  Plus,
+  RefreshCcw,
+  Square,
+  Workflow,
+  XCircle,
+} from "lucide-react";
+import { useState } from "react";
+
+import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
+
+export interface WorkflowDraftNodePosition {
+  worldX: number;
+  worldY: number;
+}
+
+export const workflowNodeMenuItems = [
+  { icon: Bot, label: "Agent Task", type: "agent_task" },
+  { icon: GitBranch, label: "Route", type: "route" },
+  { icon: GitMerge, label: "Merge", type: "merge" },
+  { icon: Workflow, label: "Barrier Join", type: "barrier_join" },
+  { icon: Circle, label: "Start", type: "start" },
+  { icon: Square, label: "End", type: "end" },
+] satisfies {
+  icon: LucideIcon;
+  label: string;
+  type: WorkflowDraftNodeType;
+}[];
+
+export function WorkflowGraphToolbar({
+  busy,
+  onAddNode,
+  onOpenDetails,
+  onRun,
+  onShowDraft,
+  onValidate,
+  projection,
+  ready,
+  selectedNodeLabel,
+  validation,
+  workspaceId,
+}: {
+  busy: "run" | "validate" | null;
+  onAddNode: (nodeType: WorkflowDraftNodeType) => void;
+  onOpenDetails: () => void;
+  onRun: () => void;
+  onShowDraft: () => void;
+  onValidate: () => void;
+  projection: WorkflowGraphProjection | null;
+  ready: boolean;
+  selectedNodeLabel: string;
+  validation: WorkflowValidationResult | null;
+  workspaceId: string;
+}) {
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const model = workflowToolbarModel({
+    busy,
+    projection,
+    ready,
+    selectedNodeLabel,
+    validation,
+    workspaceId,
+  });
+
+  return (
+    <div
+      className="absolute top-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-col gap-2"
+      data-testid="workflow-graph-toolbar"
+    >
+      <div className="flex max-w-full flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-2 py-2 text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur">
+        <WorkflowToolbarTitle stateLabel={model.stateLabel} title={model.title} />
+        <WorkflowAddNodeMenu
+          disabled={model.disabled || model.viewingRun}
+          menuOpen={addMenuOpen}
+          onAddNode={onAddNode}
+          setMenuOpen={setAddMenuOpen}
+        />
+        <ToolbarButton
+          disabled={model.disabled || model.viewingRun}
+          icon={model.validationIcon}
+          label={model.validateLabel}
+          onClick={onValidate}
+          testId="workflow-validate-button"
+        />
+        <ToolbarButton
+          disabled={model.runDisabled}
+          icon={model.runIcon}
+          label={model.runLabel}
+          onClick={onRun}
+          spin={busy === "run"}
+          testId="workflow-run-button"
+        />
+        <WorkflowDraftButton
+          disabled={model.disabled}
+          onShowDraft={onShowDraft}
+          viewingRun={model.viewingRun}
+        />
+        <ToolbarButton
+          disabled={model.detailsDisabled}
+          icon={Eye}
+          label={model.detailsLabel}
+          onClick={onOpenDetails}
+          testId="workflow-node-details-button"
+        />
+      </div>
+    </div>
+  );
+}
+
+export function WorkflowValidationPanel({ validation }: { validation: WorkflowValidationResult }) {
+  const errors = validation.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  const warnings = validation.diagnostics.filter((diagnostic) => diagnostic.severity === "warning");
+  const visibleDiagnostics = validation.diagnostics.slice(0, 4);
+
+  return (
+    <div
+      className="absolute top-16 left-3 z-10 max-w-md rounded-md border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 text-xs text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur"
+      data-testid="workflow-validation-panel"
+    >
+      <WorkflowValidationSummary valid={validation.valid} />
+      <WorkflowDiagnosticList diagnostics={visibleDiagnostics} />
+      <WorkflowDiagnosticOverflow
+        errors={errors.length}
+        shown={visibleDiagnostics.length}
+        total={validation.diagnostics.length}
+        warnings={warnings.length}
+      />
+    </div>
+  );
+}
+
+export function toolbarDraftNodePosition(
+  projection: WorkflowGraphProjection | null,
+): WorkflowDraftNodePosition {
+  const nodeCount = projection?.nodes.length ?? 0;
+  return {
+    worldX: nodeCount === 0 ? 0 : 120 + nodeCount * 180,
+    worldY: nodeCount === 0 ? 20 : 20 + (nodeCount % 3) * 120,
+  };
+}
+
+function WorkflowToolbarTitle({ stateLabel, title }: { stateLabel: string; title: string }) {
+  return (
+    <div className="min-w-0 px-1">
+      <div className="max-w-56 truncate text-xs font-semibold text-zinc-100">{title}</div>
+      <div className="mt-0.5 text-[11px] text-zinc-500" data-testid="workflow-toolbar-state">
+        {stateLabel}
+      </div>
+    </div>
+  );
+}
+
+function WorkflowAddNodeMenu({
+  disabled,
+  menuOpen,
+  onAddNode,
+  setMenuOpen,
+}: {
+  disabled: boolean;
+  menuOpen: boolean;
+  onAddNode: (nodeType: WorkflowDraftNodeType) => void;
+  setMenuOpen: (open: boolean | ((open: boolean) => boolean)) => void;
+}) {
+  return (
+    <div className="relative">
+      <button
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+        data-testid="workflow-add-node-button"
+        disabled={disabled}
+        onClick={() => setMenuOpen((open) => !open)}
+        type="button"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
+      {menuOpen ? (
+        <WorkflowAddNodeMenuItems
+          onAddNode={(nodeType) => {
+            setMenuOpen(false);
+            onAddNode(nodeType);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function WorkflowAddNodeMenuItems({
+  onAddNode,
+}: {
+  onAddNode: (nodeType: WorkflowDraftNodeType) => void;
+}) {
+  return (
+    <div
+      className="absolute top-9 left-0 z-30 w-48 rounded-sm border border-zinc-700/80 bg-zinc-900/95 p-1 shadow-2xl shadow-zinc-950/50"
+      data-testid="workflow-toolbar-add-menu"
+      role="menu"
+    >
+      {workflowNodeMenuItems.map((item) => {
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.type}
+            className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-zinc-200 hover:bg-zinc-800 hover:text-zinc-50"
+            data-testid={`workflow-toolbar-add-${item.type}`}
+            onClick={() => onAddNode(item.type)}
+            role="menuitem"
+            type="button"
+          >
+            <Icon className="h-4 w-4 shrink-0 text-zinc-400" />
+            <span className="truncate">{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function WorkflowDraftButton({
+  disabled,
+  onShowDraft,
+  viewingRun,
+}: {
+  disabled: boolean;
+  onShowDraft: () => void;
+  viewingRun: boolean;
+}) {
+  if (!viewingRun) {
+    return null;
+  }
+  return (
+    <ToolbarButton
+      disabled={disabled}
+      icon={RefreshCcw}
+      label="Draft"
+      onClick={onShowDraft}
+      testId="workflow-show-draft-button"
+    />
+  );
+}
+
+function ToolbarButton({
+  disabled,
+  icon: Icon,
+  label,
+  onClick,
+  spin = false,
+  testId,
+}: {
+  disabled: boolean;
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  spin?: boolean;
+  testId: string;
+}) {
+  return (
+    <button
+      className="inline-flex h-8 max-w-36 items-center gap-1.5 rounded-sm border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+      data-testid={testId}
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      <Icon className={["h-3.5 w-3.5 shrink-0", spin ? "animate-spin" : ""].join(" ")} />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function WorkflowValidationSummary({ valid }: { valid: boolean }) {
+  const Icon = valid ? CheckCircle2 : XCircle;
+  return (
+    <div className="flex items-center gap-2 font-medium">
+      <Icon className={valid ? "h-4 w-4 text-emerald-400" : "h-4 w-4 text-red-400"} />
+      <span>{valid ? "Workflow draft is valid" : "Workflow draft has issues"}</span>
+    </div>
+  );
+}
+
+function WorkflowDiagnosticList({ diagnostics }: { diagnostics: WorkflowValidationDiagnostic[] }) {
+  if (diagnostics.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-2 space-y-1 text-zinc-300">
+      {diagnostics.map((diagnostic) => (
+        <WorkflowDiagnosticRow diagnostic={diagnostic} key={diagnosticKey(diagnostic)} />
+      ))}
+    </div>
+  );
+}
+
+function WorkflowDiagnosticOverflow({
+  errors,
+  shown,
+  total,
+  warnings,
+}: {
+  errors: number;
+  shown: number;
+  total: number;
+  warnings: number;
+}) {
+  if (total > shown) {
+    return <div className="mt-2 text-zinc-500">{total - shown} more diagnostics</div>;
+  }
+  if (warnings > 0 && errors === 0) {
+    return <div className="mt-2 text-zinc-500">{warnings} warning(s)</div>;
+  }
+  return null;
+}
+
+function WorkflowDiagnosticRow({ diagnostic }: { diagnostic: WorkflowValidationDiagnostic }) {
+  const Icon = diagnostic.severity === "warning" ? AlertTriangle : XCircle;
+  return (
+    <div className="flex items-start gap-2">
+      <Icon
+        className={
+          diagnostic.severity === "warning"
+            ? "mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400"
+            : "mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400"
+        }
+      />
+      <div className="min-w-0">
+        <div className="break-words">{diagnostic.message}</div>
+        {diagnostic.nodeId || diagnostic.edgeId ? (
+          <div className="mt-0.5 font-mono text-[11px] text-zinc-500">
+            {[diagnostic.nodeId, diagnostic.edgeId].filter(Boolean).join(" / ")}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function workflowToolbarModel({
+  busy,
+  projection,
+  ready,
+  selectedNodeLabel,
+  validation,
+  workspaceId,
+}: {
+  busy: "run" | "validate" | null;
+  projection: WorkflowGraphProjection | null;
+  ready: boolean;
+  selectedNodeLabel: string;
+  validation: WorkflowValidationResult | null;
+  workspaceId: string;
+}) {
+  const disabled = workflowToolbarDisabled(ready, workspaceId, busy);
+  const viewingRun = workflowProjectionIsRun(projection);
+  return {
+    detailsDisabled: workflowDetailsDisabled(disabled, selectedNodeLabel),
+    detailsLabel: workflowDetailsLabel(selectedNodeLabel),
+    disabled,
+    runDisabled: workflowRunDisabled(disabled, viewingRun, projection),
+    runIcon: workflowRunIcon(busy),
+    runLabel: workflowRunLabel(busy),
+    stateLabel: workflowToolbarStateLabel(projection, ready, workspaceId),
+    title: workflowToolbarTitle(projection, workspaceId),
+    validateLabel: workflowValidateLabel(busy),
+    validationIcon: workflowValidationIcon(validation),
+    viewingRun,
+  };
+}
+
+function workflowToolbarDisabled(
+  ready: boolean,
+  workspaceId: string,
+  busy: "run" | "validate" | null,
+) {
+  return !ready || workspaceId === "" || busy !== null;
+}
+
+function workflowProjectionIsRun(projection: WorkflowGraphProjection | null) {
+  return projection !== null && projection.executionId !== "";
+}
+
+function workflowDetailsDisabled(disabled: boolean, selectedNodeLabel: string) {
+  return disabled || selectedNodeLabel === "";
+}
+
+function workflowDetailsLabel(selectedNodeLabel: string) {
+  return selectedNodeLabel === "" ? "Details" : selectedNodeLabel;
+}
+
+function workflowRunDisabled(
+  disabled: boolean,
+  viewingRun: boolean,
+  projection: WorkflowGraphProjection | null,
+) {
+  return disabled || viewingRun || projection === null;
+}
+
+function workflowRunIcon(busy: "run" | "validate" | null) {
+  return busy === "run" ? RefreshCcw : Play;
+}
+
+function workflowRunLabel(busy: "run" | "validate" | null) {
+  return busy === "run" ? "Starting" : "Run";
+}
+
+function workflowValidateLabel(busy: "run" | "validate" | null) {
+  return busy === "validate" ? "Validating" : "Validate";
+}
+
+function workflowToolbarTitle(projection: WorkflowGraphProjection | null, workspaceId: string) {
+  if (projection !== null) {
+    return projection.definitionName;
+  }
+  return workspaceId === "" ? "No workspace" : "Blank workflow draft";
+}
+
+function workflowValidationIcon(validation: WorkflowValidationResult | null) {
+  if (validation === null) {
+    return CheckCircle2;
+  }
+  return validation.valid ? CheckCircle2 : XCircle;
+}
+
+function workflowToolbarStateLabel(
+  projection: WorkflowGraphProjection | null,
+  ready: boolean,
+  workspaceId: string,
+) {
+  if (!ready) {
+    return "Loading";
+  }
+  if (workspaceId === "") {
+    return "No workspace";
+  }
+  if (projection === null) {
+    return "Blank draft";
+  }
+  if (projection.executionId !== "") {
+    return `Run ${projection.executionStatus ?? "running"}`;
+  }
+  return "Draft";
+}
+
+function diagnosticKey(diagnostic: WorkflowValidationDiagnostic) {
+  return [
+    diagnostic.severity,
+    diagnostic.code,
+    diagnostic.nodeId,
+    diagnostic.edgeId,
+    diagnostic.message,
+  ].join(":");
+}

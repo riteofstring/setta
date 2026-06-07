@@ -8,6 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertBuildExists,
   createElectronFixture,
+  dispatchKeyEvent,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
@@ -19,6 +20,7 @@ import {
 } from "./electron-cdp-harness.mjs";
 import {
   dispatchPixiContextMenu,
+  dispatchPixiMouseClick,
   dispatchPixiMouseDrag,
   maximizePixiWorkspacePane,
   openPixiWorkspacePane,
@@ -83,14 +85,9 @@ try {
   if (bodyText.includes("Create workflow")) {
     throw new Error(`blank workflow canvas exposed a create button: ${bodyText}`);
   }
+  await waitForToolbarState(context.client, "Blank draft");
 
-  const menuPoint = await dispatchPixiContextMenu(context.client, pixiSurfaceId, {
-    x: 360,
-    y: 260,
-  });
-  await waitForSelector(context.client, '[data-testid="workflow-node-create-menu"]');
-  await assertContextMenuAnchored(context.client, menuPoint);
-  await selectWorkflowNodeType(context.client, "start");
+  await selectToolbarWorkflowNodeType(context.client, "start");
   await delay(150);
   const afterAdd = await waitForPixiSnapshot(
     context.client,
@@ -106,11 +103,12 @@ try {
   }
   assertCameraPreserved(afterAdd.camera, pannedCanvas.camera);
 
-  await dispatchPixiContextMenu(context.client, pixiSurfaceId, {
+  const secondNodeMenuPoint = await dispatchPixiContextMenu(context.client, pixiSurfaceId, {
     x: 600,
     y: 260,
   });
   await waitForSelector(context.client, '[data-testid="workflow-node-create-menu"]');
+  await assertContextMenuAnchored(context.client, secondNodeMenuPoint);
   await selectWorkflowNodeType(context.client, "agent_task");
   await delay(150);
   const afterSecondNode = await waitForPixiSnapshot(
@@ -119,7 +117,22 @@ try {
       snapshot.graph.nodeCount === 2 &&
       snapshot.graph.nodes.some((node) => node.id === "agent_task"),
   );
-  await connectPixiNodes(context.client, pixiSurfaceId, afterSecondNode, "start", "agent_task");
+  await openAgentTaskDetailsFromToolbar(context.client, pixiSurfaceId, afterSecondNode);
+  await focusPixiWorkspacePane(context.client);
+  pixiSurfaceId = await maximizePixiWorkspacePane(context.client);
+  await waitForPixiWorkspacePaneSettled(context.client, pixiSurfaceId);
+  const afterDetails = await waitForPixiSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.nodeCount === 2 &&
+      snapshot.graph.nodes.some((node) => node.id === "agent_task") &&
+      snapshot.canvas.clientWidth >= afterSecondNode.canvas.clientWidth &&
+      snapshot.canvas.left >= 0,
+  );
+  await connectPixiNodes(context.client, pixiSurfaceId, afterDetails, {
+    sourceNodeId: "start",
+    targetNodeId: "agent_task",
+  });
   const afterEdge = await waitForPixiSnapshot(
     context.client,
     (snapshot) =>
@@ -178,7 +191,10 @@ try {
       snapshot.graph.nodes.some((node) => node.id === "end_2"),
   );
   assertRoutePorts(routeNodes);
-  await connectPixiNodes(context.client, pixiSurfaceId, routeNodes, "agent_task", "route");
+  await connectPixiNodes(context.client, pixiSurfaceId, routeNodes, {
+    sourceNodeId: "agent_task",
+    targetNodeId: "route",
+  });
   const routeInput = await waitForPixiSnapshot(context.client, (snapshot) =>
     snapshot.graph.edges.some(
       (edge) =>
@@ -187,8 +203,10 @@ try {
         edge.targetNodeId === "route",
     ),
   );
-  await connectPixiNodes(context.client, pixiSurfaceId, routeInput, "route", "end", {
+  await connectPixiNodes(context.client, pixiSurfaceId, routeInput, {
+    sourceNodeId: "route",
     sourcePortId: "route_yes",
+    targetNodeId: "end",
   });
   const yesRoute = await waitForPixiSnapshot(context.client, (snapshot) =>
     snapshot.graph.edges.some(
@@ -199,8 +217,10 @@ try {
         edge.targetNodeId === "end",
     ),
   );
-  await connectPixiNodes(context.client, pixiSurfaceId, yesRoute, "route", "end_2", {
+  await connectPixiNodes(context.client, pixiSurfaceId, yesRoute, {
+    sourceNodeId: "route",
     sourcePortId: "route_default",
+    targetNodeId: "end_2",
   });
   const typedRoute = await waitForPixiSnapshot(context.client, (snapshot) =>
     snapshot.graph.edges.some(
@@ -308,11 +328,125 @@ async function selectWorkflowNodeType(client, nodeType) {
   }
 }
 
+async function selectToolbarWorkflowNodeType(client, nodeType) {
+  const opened = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="workflow-add-node-button"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { ok: false, reason: "missing-or-disabled-add-button" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!opened.ok) {
+    throw new Error(`failed to open toolbar add menu: ${JSON.stringify(opened)}`);
+  }
+  await waitForSelector(client, '[data-testid="workflow-toolbar-add-menu"]');
+  const selected = await client.evaluate(`((nodeType) => {
+    const button = document.querySelector(
+      \`[data-testid="workflow-toolbar-add-\${nodeType}"]\`
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-toolbar-node-menu-item" };
+    }
+    button.click();
+    return { ok: true };
+  })(${JSON.stringify(nodeType)})`);
+  if (!selected.ok) {
+    throw new Error(
+      `failed to select ${nodeType} node from workflow toolbar: ${JSON.stringify(selected)}`,
+    );
+  }
+}
+
+async function waitForToolbarState(client, expected) {
+  await waitForState(
+    client,
+    `(() => {
+      const state = document.querySelector('[data-testid="workflow-toolbar-state"]');
+      return { text: state?.textContent?.trim() ?? "" };
+    })()`,
+    (value) => value.text === expected,
+  );
+}
+
 async function addWorkflowNodeAt(client, surfaceId, nodeType, point) {
-  await dispatchPixiContextMenu(client, surfaceId, point);
+  const menuPoint = await dispatchPixiContextMenu(client, surfaceId, point);
   await waitForSelector(client, '[data-testid="workflow-node-create-menu"]');
+  await assertContextMenuAnchored(client, menuPoint);
   await selectWorkflowNodeType(client, nodeType);
   await delay(150);
+}
+
+async function openAgentTaskDetailsFromToolbar(client, surfaceId, snapshot) {
+  const agentTask = snapshot.graph.nodes.find((node) => node.id === "agent_task");
+  if (!agentTask) {
+    throw new Error(`missing agent_task node: ${JSON.stringify(snapshot.graph.nodes)}`);
+  }
+  await dispatchPixiMouseClick(client, surfaceId, {
+    x: agentTask.screenX,
+    y: agentTask.screenY,
+  });
+  await waitForState(
+    client,
+    `(() => {
+      const button = document.querySelector('[data-testid="workflow-node-details-button"]');
+      return {
+        disabled: button instanceof HTMLButtonElement ? button.disabled : true,
+        text: button?.textContent?.trim() ?? "",
+      };
+    })()`,
+    (value) => value.disabled === false && value.text.includes("Agent Task"),
+  );
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="workflow-node-details-button"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { ok: false, reason: "details-button-unavailable" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!clicked.ok) {
+    throw new Error(`workflow details button was not clickable: ${JSON.stringify(clicked)}`);
+  }
+  await waitForSelector(client, '[data-testid="workflow-node-details-surface"]');
+  await waitForSelector(client, '[data-testid="workflow-node-details-agent-task"]');
+}
+
+async function focusPixiWorkspacePane(client) {
+  await dispatchKeyEvent(client, { code: "ArrowLeft", key: "ArrowLeft" });
+  await dispatchKeyEvent(client, { code: "ArrowLeft", key: "ArrowLeft", type: "keyUp" });
+  await waitForState(
+    client,
+    `(() => {
+      const host = document.querySelector(
+        '[data-testid="niri-fake-pane-host"][data-surface-kind="pixi-canvas"]'
+      );
+      return {
+        focused: host instanceof HTMLElement ? host.dataset.focused === "true" : false,
+      };
+    })()`,
+    (value) => value.focused,
+  );
+}
+
+async function waitForPixiWorkspacePaneSettled(client, surfaceId) {
+  await waitForState(
+    client,
+    `((surfaceId) => {
+      const root = [...document.querySelectorAll('[data-testid="pixi-workspace"]')]
+        .find((candidate) => candidate.dataset.surfaceId === surfaceId);
+      const host = root?.closest('[data-testid="niri-fake-pane-host"]');
+      const canvas = root?.querySelector('[data-testid="pixi-workspace-canvas"]');
+      const rect = canvas instanceof HTMLCanvasElement ? canvas.getBoundingClientRect() : null;
+      return {
+        clientWidth: canvas instanceof HTMLCanvasElement ? canvas.clientWidth : 0,
+        left: rect?.left ?? Number.NEGATIVE_INFINITY,
+        moving: host instanceof HTMLElement ? host.dataset.moving === "true" : true,
+        visible: host instanceof HTMLElement ? host.dataset.visible === "true" : false,
+      };
+    })(${JSON.stringify(surfaceId)})`,
+    (value) => value.visible && !value.moving && value.left >= 0 && value.clientWidth > 0,
+  );
 }
 
 async function waitForTexts(client, texts) {
@@ -521,16 +655,30 @@ function assertConditionField(edge, condition, field, expected) {
 }
 
 async function startWorkflowAndWaitForCompletion(client, workspaceId, definitionId) {
-  const started = await client.evaluate(
-    `(async (workspaceId, definitionId) => {
-      return window.setta.workflow.startExecution(workspaceId, definitionId);
-    })(${JSON.stringify(workspaceId)}, ${JSON.stringify(definitionId)})`,
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="workflow-run-button"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { ok: false, reason: "run-button-unavailable" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!clicked.ok) {
+    throw new Error(`workflow run button was not clickable: ${JSON.stringify(clicked)}`);
+  }
+  const runProjection = await waitForPixiSnapshot(
+    client,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === definitionId &&
+      snapshot.graph.workflow?.executionId,
   );
+  const executionId = runProjection.graph.workflow.executionId;
+  await waitForToolbarState(client, "Run completed");
   return waitForState(
     client,
     `(async (workspaceId, executionId) => {
       return window.setta.workflow.readExecution(workspaceId, executionId);
-    })(${JSON.stringify(workspaceId)}, ${JSON.stringify(started.id)})`,
+    })(${JSON.stringify(workspaceId)}, ${JSON.stringify(executionId)})`,
     (execution) => ["completed", "failed", "cancelled", "stopped"].includes(execution.status),
   ).then((execution) => {
     if (execution.status !== "completed") {
@@ -590,9 +738,7 @@ async function connectPixiNodes(
   client,
   surfaceId,
   snapshot,
-  sourceNodeId,
-  targetNodeId,
-  { sourcePortId = "output", targetPortId = "input" } = {},
+  { sourceNodeId, sourcePortId = "output", targetNodeId, targetPortId = "input" },
 ) {
   const sourcePort = pixiNodePort(snapshot, sourceNodeId, sourcePortId);
   const targetPort = pixiNodePort(snapshot, targetNodeId, targetPortId);
