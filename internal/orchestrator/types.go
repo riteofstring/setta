@@ -22,6 +22,19 @@ type WorkflowEventType string
 type WorkflowValidationSeverity string
 type WorkflowTerminalReason string
 type WorkflowActionCompletionStatus string
+type RunnerOperation string
+type RunnerOutputMode string
+type RunnerApprovalKind string
+type RunnerRequirementNetwork string
+type RunnerRequirementSidecarProcess string
+type RunnerRequirementWorkspaceAccess string
+type RunnerRecoveryCapability string
+type RunnerRecoveryOutcome string
+type RunnerEventType string
+type WorkflowRunnerStateStatus string
+type SideEffectPolicyKind string
+type SideEffectScope string
+type ApprovalTrigger string
 
 const (
 	NodeKindStart      WorkflowNodeKind = "start"
@@ -109,6 +122,105 @@ const (
 	ActionCompletionFailed           WorkflowActionCompletionStatus = "failed"
 	ActionCompletionCancelled        WorkflowActionCompletionStatus = "cancelled"
 	ActionCompletionRequiresApproval WorkflowActionCompletionStatus = "requires_approval"
+
+	RunnerOperationStart   RunnerOperation = "start"
+	RunnerOperationCancel  RunnerOperation = "cancel"
+	RunnerOperationSignal  RunnerOperation = "signal"
+	RunnerOperationRecover RunnerOperation = "recover"
+
+	RunnerOutputModeSignals        RunnerOutputMode = "signals"
+	RunnerOutputModeStructuredJSON RunnerOutputMode = "structured_json"
+	RunnerOutputModeFileRefs       RunnerOutputMode = "file_refs"
+	RunnerOutputModeExitCode       RunnerOutputMode = "exit_code"
+	RunnerOutputModeMetrics        RunnerOutputMode = "metrics"
+	RunnerOutputModeNone           RunnerOutputMode = "none"
+
+	RunnerApprovalKindCommand         RunnerApprovalKind = "command"
+	RunnerApprovalKindFileChange      RunnerApprovalKind = "file_change"
+	RunnerApprovalKindPermission      RunnerApprovalKind = "permission"
+	RunnerApprovalKindStructuredInput RunnerApprovalKind = "structured_input"
+	RunnerApprovalKindUserInput       RunnerApprovalKind = "user_input"
+	RunnerApprovalKindExternalAction  RunnerApprovalKind = "external_action"
+
+	RunnerRequirementNetworkForbidden RunnerRequirementNetwork = "forbidden"
+	RunnerRequirementNetworkOptional  RunnerRequirementNetwork = "optional"
+	RunnerRequirementNetworkRequired  RunnerRequirementNetwork = "required"
+
+	RunnerRequirementSidecarProcessNotUsed  RunnerRequirementSidecarProcess = "not_used"
+	RunnerRequirementSidecarProcessRequired RunnerRequirementSidecarProcess = "required"
+
+	RunnerRequirementWorkspaceAccessNone          RunnerRequirementWorkspaceAccess = "none"
+	RunnerRequirementWorkspaceAccessRead          RunnerRequirementWorkspaceAccess = "read"
+	RunnerRequirementWorkspaceAccessWrite         RunnerRequirementWorkspaceAccess = "write"
+	RunnerRequirementWorkspaceAccessRunnerDefined RunnerRequirementWorkspaceAccess = "runner_defined"
+
+	RunnerRecoveryCapabilityNone            RunnerRecoveryCapability = "none"
+	RunnerRecoveryCapabilityFailInterrupted RunnerRecoveryCapability = "fail_interrupted"
+	RunnerRecoveryCapabilityReconcileRefs   RunnerRecoveryCapability = "reconcile_refs"
+	RunnerRecoveryCapabilityReattachStream  RunnerRecoveryCapability = "reattach_stream"
+
+	RunnerRecoveryOutcomeRecoveredRunning       RunnerRecoveryOutcome = "recovered_running"
+	RunnerRecoveryOutcomeRecoveredCompleted     RunnerRecoveryOutcome = "recovered_completed"
+	RunnerRecoveryOutcomeRecoveredFailed        RunnerRecoveryOutcome = "recovered_failed"
+	RunnerRecoveryOutcomeRetryScheduled         RunnerRecoveryOutcome = "retry_scheduled"
+	RunnerRecoveryOutcomeManualRecoveryRequired RunnerRecoveryOutcome = "manual_recovery_required"
+	RunnerRecoveryOutcomeFailedInterrupted      RunnerRecoveryOutcome = "failed_interrupted"
+
+	RunnerEventAttemptStarted           RunnerEventType = "runner.attempt.started"
+	RunnerEventTextDelta                RunnerEventType = "runner.text.delta"
+	RunnerEventToolCallStarted          RunnerEventType = "runner.tool_call.started"
+	RunnerEventToolCallOutput           RunnerEventType = "runner.tool_call.output"
+	RunnerEventApprovalRequested        RunnerEventType = "runner.approval.requested"
+	RunnerEventApprovalResolved         RunnerEventType = "runner.approval.resolved"
+	RunnerEventArtifactReported         RunnerEventType = "runner.artifact.reported"
+	RunnerEventStructuredOutputReceived RunnerEventType = "runner.structured_output.received"
+	RunnerEventAttemptCompleted         RunnerEventType = "runner.attempt.completed"
+	RunnerEventAttemptFailed            RunnerEventType = "runner.attempt.failed"
+	RunnerEventAttemptCancelled         RunnerEventType = "runner.attempt.cancelled"
+	RunnerEventAttemptRecoveryRequired  RunnerEventType = "runner.attempt.recovery_required"
+
+	EventRunnerAttemptStarted           WorkflowEventType = WorkflowEventType(RunnerEventAttemptStarted)
+	EventRunnerTextDelta                WorkflowEventType = WorkflowEventType(RunnerEventTextDelta)
+	EventRunnerToolCallStarted          WorkflowEventType = WorkflowEventType(RunnerEventToolCallStarted)
+	EventRunnerToolCallOutput           WorkflowEventType = WorkflowEventType(RunnerEventToolCallOutput)
+	EventRunnerApprovalRequested        WorkflowEventType = WorkflowEventType(RunnerEventApprovalRequested)
+	EventRunnerApprovalResolved         WorkflowEventType = WorkflowEventType(RunnerEventApprovalResolved)
+	EventRunnerArtifactReported         WorkflowEventType = WorkflowEventType(RunnerEventArtifactReported)
+	EventRunnerStructuredOutputReceived WorkflowEventType = WorkflowEventType(RunnerEventStructuredOutputReceived)
+	EventRunnerAttemptCompleted         WorkflowEventType = WorkflowEventType(RunnerEventAttemptCompleted)
+	EventRunnerAttemptFailed            WorkflowEventType = WorkflowEventType(RunnerEventAttemptFailed)
+	EventRunnerAttemptCancelled         WorkflowEventType = WorkflowEventType(RunnerEventAttemptCancelled)
+	EventRunnerAttemptRecoveryRequired  WorkflowEventType = WorkflowEventType(RunnerEventAttemptRecoveryRequired)
+
+	RunnerStateStatusStarting         WorkflowRunnerStateStatus = "starting"
+	RunnerStateStatusRunning          WorkflowRunnerStateStatus = "running"
+	RunnerStateStatusWaitingApproval  WorkflowRunnerStateStatus = "waiting_approval"
+	RunnerStateStatusCompleted        WorkflowRunnerStateStatus = "completed"
+	RunnerStateStatusFailed           WorkflowRunnerStateStatus = "failed"
+	RunnerStateStatusCancelled        WorkflowRunnerStateStatus = "cancelled"
+	RunnerStateStatusRecoveryRequired WorkflowRunnerStateStatus = "recovery_required"
+
+	SideEffectPolicyKindPure             SideEffectPolicyKind = "pure"
+	SideEffectPolicyKindIdempotent       SideEffectPolicyKind = "idempotent"
+	SideEffectPolicyKindAtLeastOnce      SideEffectPolicyKind = "at_least_once"
+	SideEffectPolicyKindRequiresApproval SideEffectPolicyKind = "requires_approval"
+	SideEffectPolicyKindManualRecovery   SideEffectPolicyKind = "manual_recovery"
+	SideEffectPolicyKindCompensatable    SideEffectPolicyKind = "compensatable"
+
+	SideEffectScopeNone            SideEffectScope = "none"
+	SideEffectScopeWorkspace       SideEffectScope = "workspace"
+	SideEffectScopeExternalService SideEffectScope = "external_service"
+	SideEffectScopeProviderAccount SideEffectScope = "provider_account"
+	SideEffectScopeRunnerDefined   SideEffectScope = "runner_defined"
+
+	ApprovalTriggerNetworkAccess        ApprovalTrigger = "network_access"
+	ApprovalTriggerWorkspaceWrite       ApprovalTrigger = "workspace_write"
+	ApprovalTriggerOutOfWorkspaceWrite  ApprovalTrigger = "out_of_workspace_write"
+	ApprovalTriggerProtectedPathWrite   ApprovalTrigger = "protected_path_write"
+	ApprovalTriggerCredentialAccess     ApprovalTrigger = "credential_access"
+	ApprovalTriggerExternalWrite        ApprovalTrigger = "external_write"
+	ApprovalTriggerDestructiveAction    ApprovalTrigger = "destructive_action"
+	ApprovalTriggerUnsandboxedExecution ApprovalTrigger = "unsandboxed_execution"
 )
 
 var (
@@ -192,6 +304,18 @@ var (
 		EventExecutionFailed,
 		EventExecutionStopped,
 		EventExecutionCancelled,
+		EventRunnerAttemptStarted,
+		EventRunnerTextDelta,
+		EventRunnerToolCallStarted,
+		EventRunnerToolCallOutput,
+		EventRunnerApprovalRequested,
+		EventRunnerApprovalResolved,
+		EventRunnerArtifactReported,
+		EventRunnerStructuredOutputReceived,
+		EventRunnerAttemptCompleted,
+		EventRunnerAttemptFailed,
+		EventRunnerAttemptCancelled,
+		EventRunnerAttemptRecoveryRequired,
 	}
 	workflowValidationSeverityValues = []WorkflowValidationSeverity{
 		ValidationSeverityError,
@@ -211,6 +335,105 @@ var (
 		ActionCompletionFailed,
 		ActionCompletionCancelled,
 		ActionCompletionRequiresApproval,
+	}
+	runnerOperationValues = []RunnerOperation{
+		RunnerOperationStart,
+		RunnerOperationCancel,
+		RunnerOperationSignal,
+		RunnerOperationRecover,
+	}
+	runnerOutputModeValues = []RunnerOutputMode{
+		RunnerOutputModeSignals,
+		RunnerOutputModeStructuredJSON,
+		RunnerOutputModeFileRefs,
+		RunnerOutputModeExitCode,
+		RunnerOutputModeMetrics,
+		RunnerOutputModeNone,
+	}
+	runnerApprovalKindValues = []RunnerApprovalKind{
+		RunnerApprovalKindCommand,
+		RunnerApprovalKindFileChange,
+		RunnerApprovalKindPermission,
+		RunnerApprovalKindStructuredInput,
+		RunnerApprovalKindUserInput,
+		RunnerApprovalKindExternalAction,
+	}
+	runnerRequirementNetworkValues = []RunnerRequirementNetwork{
+		RunnerRequirementNetworkForbidden,
+		RunnerRequirementNetworkOptional,
+		RunnerRequirementNetworkRequired,
+	}
+	runnerRequirementSidecarProcessValues = []RunnerRequirementSidecarProcess{
+		RunnerRequirementSidecarProcessNotUsed,
+		RunnerRequirementSidecarProcessRequired,
+	}
+	runnerRequirementWorkspaceAccessValues = []RunnerRequirementWorkspaceAccess{
+		RunnerRequirementWorkspaceAccessNone,
+		RunnerRequirementWorkspaceAccessRead,
+		RunnerRequirementWorkspaceAccessWrite,
+		RunnerRequirementWorkspaceAccessRunnerDefined,
+	}
+	runnerRecoveryCapabilityValues = []RunnerRecoveryCapability{
+		RunnerRecoveryCapabilityNone,
+		RunnerRecoveryCapabilityFailInterrupted,
+		RunnerRecoveryCapabilityReconcileRefs,
+		RunnerRecoveryCapabilityReattachStream,
+	}
+	runnerRecoveryOutcomeValues = []RunnerRecoveryOutcome{
+		RunnerRecoveryOutcomeRecoveredRunning,
+		RunnerRecoveryOutcomeRecoveredCompleted,
+		RunnerRecoveryOutcomeRecoveredFailed,
+		RunnerRecoveryOutcomeRetryScheduled,
+		RunnerRecoveryOutcomeManualRecoveryRequired,
+		RunnerRecoveryOutcomeFailedInterrupted,
+	}
+	runnerEventTypeValues = []RunnerEventType{
+		RunnerEventAttemptStarted,
+		RunnerEventTextDelta,
+		RunnerEventToolCallStarted,
+		RunnerEventToolCallOutput,
+		RunnerEventApprovalRequested,
+		RunnerEventApprovalResolved,
+		RunnerEventArtifactReported,
+		RunnerEventStructuredOutputReceived,
+		RunnerEventAttemptCompleted,
+		RunnerEventAttemptFailed,
+		RunnerEventAttemptCancelled,
+		RunnerEventAttemptRecoveryRequired,
+	}
+	workflowRunnerStateStatusValues = []WorkflowRunnerStateStatus{
+		RunnerStateStatusStarting,
+		RunnerStateStatusRunning,
+		RunnerStateStatusWaitingApproval,
+		RunnerStateStatusCompleted,
+		RunnerStateStatusFailed,
+		RunnerStateStatusCancelled,
+		RunnerStateStatusRecoveryRequired,
+	}
+	sideEffectPolicyKindValues = []SideEffectPolicyKind{
+		SideEffectPolicyKindPure,
+		SideEffectPolicyKindIdempotent,
+		SideEffectPolicyKindAtLeastOnce,
+		SideEffectPolicyKindRequiresApproval,
+		SideEffectPolicyKindManualRecovery,
+		SideEffectPolicyKindCompensatable,
+	}
+	sideEffectScopeValues = []SideEffectScope{
+		SideEffectScopeNone,
+		SideEffectScopeWorkspace,
+		SideEffectScopeExternalService,
+		SideEffectScopeProviderAccount,
+		SideEffectScopeRunnerDefined,
+	}
+	approvalTriggerValues = []ApprovalTrigger{
+		ApprovalTriggerNetworkAccess,
+		ApprovalTriggerWorkspaceWrite,
+		ApprovalTriggerOutOfWorkspaceWrite,
+		ApprovalTriggerProtectedPathWrite,
+		ApprovalTriggerCredentialAccess,
+		ApprovalTriggerExternalWrite,
+		ApprovalTriggerDestructiveAction,
+		ApprovalTriggerUnsandboxedExecution,
 	}
 )
 
@@ -235,6 +458,19 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "WorkflowValidationSeverity", Values: stringValues(workflowValidationSeverityValues)},
 		{Name: "WorkflowTerminalReason", Values: stringValues(workflowTerminalReasonValues)},
 		{Name: "WorkflowActionCompletionStatus", Values: stringValues(workflowActionCompletionStatusValues)},
+		{Name: "RunnerOperation", Values: stringValues(runnerOperationValues)},
+		{Name: "RunnerOutputMode", Values: stringValues(runnerOutputModeValues)},
+		{Name: "RunnerApprovalKind", Values: stringValues(runnerApprovalKindValues)},
+		{Name: "RunnerRequirementNetwork", Values: stringValues(runnerRequirementNetworkValues)},
+		{Name: "RunnerRequirementSidecarProcess", Values: stringValues(runnerRequirementSidecarProcessValues)},
+		{Name: "RunnerRequirementWorkspaceAccess", Values: stringValues(runnerRequirementWorkspaceAccessValues)},
+		{Name: "RunnerRecoveryCapability", Values: stringValues(runnerRecoveryCapabilityValues)},
+		{Name: "RunnerRecoveryOutcome", Values: stringValues(runnerRecoveryOutcomeValues)},
+		{Name: "RunnerEventType", Values: stringValues(runnerEventTypeValues)},
+		{Name: "WorkflowRunnerStateStatus", Values: stringValues(workflowRunnerStateStatusValues)},
+		{Name: "SideEffectPolicyKind", Values: stringValues(sideEffectPolicyKindValues)},
+		{Name: "SideEffectScope", Values: stringValues(sideEffectScopeValues)},
+		{Name: "ApprovalTrigger", Values: stringValues(approvalTriggerValues)},
 	}
 }
 
@@ -305,6 +541,94 @@ type WorkflowCodexActionConfig struct {
 	ReasoningEffort   string `json:"reasoningEffort"`
 }
 
+type WorkflowActionPolicy struct {
+	SchemaVersion    int                `json:"schemaVersion"`
+	RunnerKind       WorkflowActionKind `json:"runnerKind"`
+	SideEffectPolicy SideEffectPolicy   `json:"sideEffectPolicy"`
+	InputSchema      json.RawMessage    `json:"inputSchema"`
+	OutputSchema     json.RawMessage    `json:"outputSchema"`
+	ExtensionKind    string             `json:"extensionKind"`
+	ExtensionVersion int                `json:"extensionVersion"`
+	ExtensionJSON    json.RawMessage    `json:"extensionJson"`
+}
+
+type SideEffectPolicy struct {
+	Kind                       SideEffectPolicyKind `json:"kind"`
+	Scope                      SideEffectScope      `json:"scope"`
+	ApprovalTriggers           []ApprovalTrigger    `json:"approvalTriggers"`
+	IdempotencyRequired        bool                 `json:"idempotencyRequired"`
+	CompensationActionRef      *string              `json:"compensationActionRef"`
+	ManualRecoveryInstructions string               `json:"manualRecoveryInstructions"`
+}
+
+type RunnerCapabilities struct {
+	SchemaVersion    int                             `json:"schemaVersion"`
+	RunnerKind       WorkflowActionKind              `json:"runnerKind"`
+	DisplayName      string                          `json:"displayName"`
+	Operations       []RunnerOperation               `json:"operations"`
+	EmittedEvents    []RunnerEventType               `json:"emittedEvents"`
+	OutputModes      []RunnerOutputMode              `json:"outputModes"`
+	ApprovalKinds    []RunnerApprovalKind            `json:"approvalKinds"`
+	Requirements     RunnerRequirements              `json:"requirements"`
+	SideEffectPolicy SideEffectPolicy                `json:"sideEffectPolicy"`
+	Recovery         RunnerRecoveryCapability        `json:"recovery"`
+	PolicyExtension  RunnerPolicyExtensionDescriptor `json:"policyExtension"`
+}
+
+type RunnerRequirements struct {
+	Network         RunnerRequirementNetwork         `json:"network"`
+	SidecarProcess  RunnerRequirementSidecarProcess  `json:"sidecarProcess"`
+	WorkspaceAccess RunnerRequirementWorkspaceAccess `json:"workspaceAccess"`
+}
+
+type RunnerPolicyExtensionDescriptor struct {
+	ExtensionKind    string `json:"extensionKind"`
+	ExtensionVersion int    `json:"extensionVersion"`
+}
+
+type WorkflowRunnerState struct {
+	SchemaVersion          int                       `json:"schemaVersion"`
+	WorkspaceID            string                    `json:"workspaceId"`
+	ExecutionID            string                    `json:"executionId"`
+	NodeExecutionID        string                    `json:"nodeExecutionId"`
+	RunnerKind             WorkflowActionKind        `json:"runnerKind"`
+	Status                 WorkflowRunnerStateStatus `json:"status"`
+	LastRunnerEventOrdinal int                       `json:"lastRunnerEventOrdinal"`
+	OpaqueState            json.RawMessage           `json:"opaqueState"`
+	RecoveryToken          string                    `json:"recoveryToken"`
+	CreatedAt              string                    `json:"createdAt"`
+	UpdatedAt              string                    `json:"updatedAt"`
+}
+
+type WorkflowActivityRef struct {
+	SchemaVersion   int             `json:"schemaVersion"`
+	ID              string          `json:"id"`
+	WorkspaceID     string          `json:"workspaceId"`
+	ExecutionID     string          `json:"executionId"`
+	NodeExecutionID string          `json:"nodeExecutionId"`
+	Kind            string          `json:"kind"`
+	Ref             string          `json:"ref"`
+	StartCursor     string          `json:"startCursor"`
+	EndCursor       string          `json:"endCursor"`
+	Metadata        json.RawMessage `json:"metadata"`
+	CreatedAt       string          `json:"createdAt"`
+	UpdatedAt       string          `json:"updatedAt"`
+}
+
+type RunnerEvent struct {
+	SchemaVersion      int                `json:"schemaVersion"`
+	ID                 string             `json:"id"`
+	WorkspaceID        string             `json:"workspaceId"`
+	ExecutionID        string             `json:"executionId"`
+	NodeID             string             `json:"nodeId"`
+	NodeExecutionID    string             `json:"nodeExecutionId"`
+	RunnerKind         WorkflowActionKind `json:"runnerKind"`
+	RunnerEventOrdinal int                `json:"runnerEventOrdinal"`
+	OccurredAt         string             `json:"occurredAt"`
+	Type               RunnerEventType    `json:"type"`
+	Payload            json.RawMessage    `json:"payload"`
+}
+
 type WorkflowGatewayConfig struct {
 	RequiredIncoming []string `json:"requiredIncoming"`
 }
@@ -360,21 +684,29 @@ type WorkflowExecution struct {
 }
 
 type WorkflowNodeExecution struct {
-	SchemaVersion  int                         `json:"schemaVersion"`
-	ID             string                      `json:"id"`
-	ExecutionID    string                      `json:"executionId"`
-	NodeID         string                      `json:"nodeId"`
-	Attempt        int                         `json:"attempt"`
-	Iteration      int                         `json:"iteration"`
-	Status         WorkflowNodeExecutionStatus `json:"status"`
-	IdempotencyKey string                      `json:"idempotencyKey"`
-	ScheduledAt    string                      `json:"scheduledAt"`
-	StartedAt      string                      `json:"startedAt"`
-	CompletedAt    string                      `json:"completedAt"`
-	ActionKind     *WorkflowActionKind         `json:"actionKind"`
-	Result         *WorkflowActionResult       `json:"result"`
-	RunnerRefs     []WorkflowActionRunnerRef   `json:"runnerRefs"`
-	Error          string                      `json:"error"`
+	SchemaVersion      int                         `json:"schemaVersion"`
+	ID                 string                      `json:"id"`
+	ExecutionID        string                      `json:"executionId"`
+	NodeID             string                      `json:"nodeId"`
+	Attempt            int                         `json:"attempt"`
+	Iteration          int                         `json:"iteration"`
+	Status             WorkflowNodeExecutionStatus `json:"status"`
+	IdempotencyKey     string                      `json:"idempotencyKey"`
+	ScheduledAt        string                      `json:"scheduledAt"`
+	StartedAt          string                      `json:"startedAt"`
+	CompletedAt        string                      `json:"completedAt"`
+	ActionKind         *WorkflowActionKind         `json:"actionKind"`
+	RunnerKind         *WorkflowActionKind         `json:"runnerKind"`
+	InputHash          string                      `json:"inputHash"`
+	Input              json.RawMessage             `json:"input"`
+	ActionPolicy       *WorkflowActionPolicy       `json:"actionPolicy"`
+	SideEffectPolicy   *SideEffectPolicy           `json:"sideEffectPolicy"`
+	RunnerCapabilities *RunnerCapabilities         `json:"runnerCapabilities"`
+	Result             *WorkflowActionResult       `json:"result"`
+	RunnerRefs         []WorkflowActionRunnerRef   `json:"runnerRefs"`
+	RunnerState        *WorkflowRunnerState        `json:"runnerState"`
+	ActivityRefs       []WorkflowActivityRef       `json:"activityRefs"`
+	Error              string                      `json:"error"`
 }
 
 type WorkflowActionResult struct {
@@ -425,20 +757,21 @@ type WorkflowLoopIteration struct {
 }
 
 type WorkflowEvent struct {
-	SchemaVersion       int               `json:"schemaVersion"`
-	ID                  string            `json:"id"`
-	WorkspaceID         string            `json:"workspaceId"`
-	DefinitionID        string            `json:"definitionId"`
-	DefinitionVersionID string            `json:"definitionVersionId"`
-	ExecutionID         string            `json:"executionId"`
-	Ordinal             int               `json:"ordinal"`
-	Type                WorkflowEventType `json:"type"`
-	NodeID              string            `json:"nodeId"`
-	NodeExecutionID     string            `json:"nodeExecutionId"`
-	TokenID             string            `json:"tokenId"`
-	CreatedAt           string            `json:"createdAt"`
-	Message             string            `json:"message"`
-	Details             json.RawMessage   `json:"details"`
+	SchemaVersion       int                 `json:"schemaVersion"`
+	ID                  string              `json:"id"`
+	WorkspaceID         string              `json:"workspaceId"`
+	DefinitionID        string              `json:"definitionId"`
+	DefinitionVersionID string              `json:"definitionVersionId"`
+	ExecutionID         string              `json:"executionId"`
+	Ordinal             int                 `json:"ordinal"`
+	Type                WorkflowEventType   `json:"type"`
+	NodeID              string              `json:"nodeId"`
+	NodeExecutionID     string              `json:"nodeExecutionId"`
+	TokenID             string              `json:"tokenId"`
+	RunnerKind          *WorkflowActionKind `json:"runnerKind"`
+	CreatedAt           string              `json:"createdAt"`
+	Message             string              `json:"message"`
+	Details             json.RawMessage     `json:"details"`
 }
 
 type WorkflowExecutionEventPage struct {
