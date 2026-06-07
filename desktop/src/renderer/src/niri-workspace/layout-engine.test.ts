@@ -160,6 +160,22 @@ describe("real niri workspace column sizing", () => {
     expect(firstColumnBottom?.y).toBe((firstColumnTop?.y ?? 0) + (firstColumnTop?.height ?? 0) + 8);
   });
 
+  test("keeps next columns attached after shrinking a column", () => {
+    const engine = createRealEngine();
+
+    engine.resizeColumn("workspace_column_0", { unit: "px", value: 120 });
+
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
+    const firstColumn = items.find((item) => item.paneId === "workspace_pane_0");
+    const secondColumn = items.find((item) => item.paneId === "workspace_pane_1");
+
+    expect(firstColumn).toMatchObject({
+      width: 120,
+      x: 10,
+    });
+    expect(secondColumn?.x).toBe((firstColumn?.x ?? 0) + (firstColumn?.width ?? 0) + 8);
+  });
+
   test("collapses empty normal-layout slots so visible panes stay attached", () => {
     const engine = new NiriLikeLayoutEngine(createSparseGeneratedPaneScene());
     const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");

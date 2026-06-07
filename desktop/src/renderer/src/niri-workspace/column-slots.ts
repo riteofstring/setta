@@ -97,7 +97,7 @@ export function slotOffsetsForColumns({
   for (const column of columns) {
     const slotIndex = columnSlotIndex(column);
     const width = widths[column.index] ?? defaultWidth;
-    slotWidths.set(slotIndex, Math.max(slotWidths.get(slotIndex) ?? defaultWidth, width));
+    slotWidths.set(slotIndex, Math.max(slotWidths.get(slotIndex) ?? 0, width));
   }
   const offsets = new Map<number, number>();
   let nextOffset = 0;

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "vitest";
 
 import { NiriLikeLayoutEngine } from "./layout-engine";
+import { minimumColumnWidth } from "./layout-engine-helpers";
 import { NiriLayoutStore } from "./layout-store";
+import { applyPaneResizePointerMove, type PaneResizeSession } from "./pane-resize-session";
 import type { PaneLimitPolicy, Rect } from "./types";
 import { createRealWorkspaceScene } from "./workspace-scene";
 
@@ -468,6 +470,24 @@ describe("niri layout store", () => {
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);
+  });
+
+  test("manual horizontal resize can shrink to the column minimum", () => {
+    const store = createStore();
+    const session = {
+      axis: "horizontal",
+      columnId: "workspace_column_0",
+      pointerId: 1,
+      startClientX: 500,
+      startWidth: 520,
+    } satisfies PaneResizeSession;
+
+    applyPaneResizePointerMove(store, session, { clientX: 0 } as PointerEvent);
+
+    expect(store.toScene().columns[0]?.widthSpec).toEqual({
+      unit: "px",
+      value: minimumColumnWidth,
+    });
   });
 
   test("resizes adjacent panes inside a vertical split", () => {

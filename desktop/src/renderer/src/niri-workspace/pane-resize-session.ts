@@ -1,8 +1,9 @@
 import type { NiriLayoutStore } from "./layout-store";
+import { minimumColumnWidth } from "./layout-engine-helpers";
 import type { PaneResizeTarget } from "./pane-resize-target";
 
 const minimumManualPaneHeightPx = 96;
-const minimumManualPaneWidthPx = 280;
+const minimumManualPaneWidthPx = minimumColumnWidth;
 
 export type PaneResizeSession = HorizontalPaneResizeSession | VerticalPaneResizeSession;
 
