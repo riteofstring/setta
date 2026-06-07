@@ -34,7 +34,6 @@
     "app/list/updated",
     "command/exec/outputDelta",
     "configWarning",
-    "deprecationNotice",
     "error",
     "externalAgentConfig/import/completed",
     "fs/changed",
@@ -90,10 +89,6 @@
     "warning",
     "windows/worldWritableWarning",
     "windowsSandbox/setupCompleted"
-  ],
-  "unsupportedNotifications": [
-    "item/fileChange/outputDelta",
-    "thread/compacted"
   ],
   "schemas": []
 }

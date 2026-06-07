@@ -1,4 +1,4 @@
-/* global CustomEvent, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, getComputedStyle, window */
+/* global CustomEvent, Element, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, getComputedStyle, window */
 
 (() => {
   function bodyText() {
@@ -639,6 +639,93 @@
     });
   }
 
+  async function createWorkflowProjectionFixture({ workspaceRoot }) {
+    const opened = await window.setta.workspace.openPath(workspaceRoot);
+    const workspaceId = opened.workspace.id;
+    const graph = workflowProjectionFixtureGraph();
+    const validation = await window.setta.workflow.validateDefinition(workspaceId, graph);
+    if (!validation.valid) {
+      throw new Error(
+        `workflow projection fixture validation failed: ${JSON.stringify(validation.diagnostics)}`,
+      );
+    }
+    const definition = await window.setta.workflow.createDefinition(
+      workspaceId,
+      "Workflow graph projection",
+      "Renderer projection smoke fixture",
+      graph,
+    );
+    return {
+      definitionId: definition.id,
+      definitionName: definition.name,
+      layout: graph.layout,
+      workspaceId,
+    };
+  }
+
+  function workflowProjectionFixtureGraph() {
+    const layout = {
+      nodes: [
+        { nodeId: "start", x: -360, y: 0 },
+        { nodeId: "work", x: 0, y: 120 },
+        { nodeId: "end", x: 360, y: 0 },
+      ],
+    };
+    return {
+      edges: [
+        {
+          condition: null,
+          fromNodeId: "start",
+          id: "start_work",
+          kind: "normal",
+          toNodeId: "work",
+        },
+        {
+          condition: null,
+          fromNodeId: "work",
+          id: "work_end",
+          kind: "normal",
+          toNodeId: "end",
+        },
+      ],
+      layout,
+      nodes: [
+        {
+          action: null,
+          gateway: null,
+          id: "start",
+          kind: "start",
+          loopGuard: null,
+          title: "Start",
+        },
+        {
+          action: {
+            codex: {
+              freshConversation: true,
+              model: "",
+              prompt: "workflow result action",
+              reasoningEffort: "",
+            },
+            kind: "agent.codex",
+          },
+          gateway: null,
+          id: "work",
+          kind: "action",
+          loopGuard: null,
+          title: "Work",
+        },
+        {
+          action: null,
+          gateway: null,
+          id: "end",
+          kind: "end",
+          loopGuard: null,
+          title: "End",
+        },
+      ],
+    };
+  }
+
   async function workflowDefinitions({ workspaceId }) {
     const response = await window.setta.workflow.listDefinitions(workspaceId);
     return response.definitions.map((definition) => ({
@@ -714,6 +801,29 @@
 
   function terminalHostIntersectsViewport(host) {
     return host.dataset.visible === "true" && elementIntersectsViewport(host);
+  }
+
+  function paneChromeEdgeFocusPoint({ paneId }) {
+    const host = document.querySelector(
+      `[data-testid="workspace-fake-pane-host"][data-pane-id="${cssEscape(paneId)}"][data-visible="true"]`,
+    );
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-visible-pane-host" };
+    }
+    const rect = host.getBoundingClientRect();
+    const y = rect.top + 15;
+    for (let inset = 11; inset >= 2; inset -= 1) {
+      const x = rect.left + inset;
+      const element = document.elementFromPoint(x, y);
+      if (
+        element instanceof Element &&
+        !element.closest("[data-workspace-pane-resize-axis]") &&
+        element.closest('[data-testid="workspace-fake-pane-host"]') === host
+      ) {
+        return { ok: true, x, y };
+      }
+    }
+    return { ok: false, reason: "edge-covered" };
   }
 
   function emptyTerminalSnapshot(exists) {
@@ -836,6 +946,7 @@
     maximizeTerminalPane,
     modelPicker,
     modelPickerButtonReady,
+    paneChromeEdgeFocusPoint,
     rendererWorkspace,
     scrollSidebarNavigationTo,
     selectedConversation,
@@ -849,13 +960,14 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v3",
+    version: "setta-e2e-driver-v5",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
     clickWorkflowNodeDetailsButton,
     clickWorkflowToolbarButton,
     configureWorkflowResultAction,
+    createWorkflowProjectionFixture,
     nullWorkflowValidation,
     openWorkflowToolbarAddMenu,
     readWorkflowExecution,

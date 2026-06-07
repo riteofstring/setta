@@ -3,7 +3,6 @@ package chat
 import "setta/internal/codexapp"
 
 var supportedCodexClientMethods = protocolValueSet(codexapp.CodexSupportedMethodValues)
-var unsupportedCodexAppServerNotifications = protocolValueSet(codexapp.CodexUnsupportedNotificationValues)
 
 var codexAppServerNotifications = codexapp.CodexSupportedNotificationValues
 var codexAppServerRequests = codexapp.CodexSupportedServerRequestValues

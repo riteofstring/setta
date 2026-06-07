@@ -24,23 +24,22 @@ type protocolMember struct {
 }
 
 type generator struct {
-	repoRoot                 string
-	schemaDir                string
-	experimentalSchemaDir    string
-	supportedPath            string
-	outputPath               string
-	rootSchemas              map[string]jsonSchema
-	rootSchemaRaw            map[string]string
-	clientMethods            []protocolMember
-	serverRequests           []protocolMember
-	notifications            []protocolMember
-	supportedClientMethods   []protocolMember
-	supportedServerRequests  []protocolMember
-	supportedNotifications   []protocolMember
-	unsupportedNotifications []protocolMember
-	schemas                  map[string]jsonSchema
-	schemaRaw                map[string]string
-	queue                    []string
+	repoRoot                string
+	schemaDir               string
+	experimentalSchemaDir   string
+	supportedPath           string
+	outputPath              string
+	rootSchemas             map[string]jsonSchema
+	rootSchemaRaw           map[string]string
+	clientMethods           []protocolMember
+	serverRequests          []protocolMember
+	notifications           []protocolMember
+	supportedClientMethods  []protocolMember
+	supportedServerRequests []protocolMember
+	supportedNotifications  []protocolMember
+	schemas                 map[string]jsonSchema
+	schemaRaw               map[string]string
+	queue                   []string
 }
 
 type protocolRoots struct {
@@ -560,11 +559,10 @@ func (generator *generator) render() ([]byte, error) {
 	buffer.WriteString(")\n\n")
 	renderMethodConstants(&buffer, "CodexMethod", generator.supportedClientMethods)
 	renderMethodConstants(&buffer, "CodexServerRequest", generator.supportedServerRequests)
-	renderProtocolMemberConstants(&buffer, "CodexNotification", mergeMembers(generator.supportedNotifications, generator.unsupportedNotifications))
+	renderProtocolMemberConstants(&buffer, "CodexNotification", generator.supportedNotifications)
 	renderProtocolMemberValues(&buffer, "CodexSupportedMethodValues", "CodexMethod", generator.supportedClientMethods)
 	renderProtocolMemberValues(&buffer, "CodexSupportedServerRequestValues", "CodexServerRequest", generator.supportedServerRequests)
 	renderProtocolMemberValues(&buffer, "CodexSupportedNotificationValues", "CodexNotification", generator.supportedNotifications)
-	renderProtocolMemberValues(&buffer, "CodexUnsupportedNotificationValues", "CodexNotification", generator.unsupportedNotifications)
 	if err := generator.renderSchemas(&buffer); err != nil {
 		return nil, err
 	}
@@ -608,7 +606,7 @@ func (generator *generator) renderSchemas(buffer *bytes.Buffer) error {
 
 func (generator *generator) renderSchema(buffer *bytes.Buffer, name string, schema jsonSchema) error {
 	typeName := exportedName(name)
-	enumValues := stringEnumValues(schema)
+	enumValues := settaStringEnumValues(typeName, stringEnumValues(schema))
 	if len(enumValues) > 0 {
 		renderStringEnum(buffer, typeName, enumValues)
 		return nil
@@ -684,6 +682,27 @@ func stringEnumValues(schema jsonSchema) []string {
 		values = append(values, entry.Enum[0])
 	}
 	return values
+}
+
+var unsupportedStringEnumValues = map[string]map[string]struct{}{
+	"ApprovalsReviewer": {
+		"guardian_subagent": {},
+	},
+}
+
+func settaStringEnumValues(typeName string, values []string) []string {
+	unsupported := unsupportedStringEnumValues[typeName]
+	if len(values) == 0 || len(unsupported) == 0 {
+		return values
+	}
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := unsupported[value]; ok {
+			continue
+		}
+		filtered = append(filtered, value)
+	}
+	return filtered
 }
 
 func (generator *generator) goType(schema jsonSchema, required bool) (string, error) {

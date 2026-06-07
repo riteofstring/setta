@@ -90,10 +90,9 @@ func TestSupportedProtocolRegistrationAddsStructuredExperimentalClientMethod(t *
 				Source:       "generated experimental fixture",
 			},
 		},
-		Notifications:            []string{"thread/started"},
-		ServerRequests:           []string{"item/tool/call"},
-		UnsupportedNotifications: []string{"thread/compacted"},
-		Schemas:                  []string{"ExplicitFixture"},
+		Notifications:  []string{"thread/started"},
+		ServerRequests: []string{"item/tool/call"},
+		Schemas:        []string{"ExplicitFixture"},
 	}
 
 	if err := generator.applySupportedProtocol(input); err != nil {
@@ -165,22 +164,6 @@ func TestSupportedProtocolRegistrationRejectsMissingSchema(t *testing.T) {
 	}
 }
 
-func TestSupportedProtocolRegistrationRejectsSupportedDeprecatedNotification(t *testing.T) {
-	generator := testProtocolGenerator(t)
-	input := supportedProtocolInput{
-		Notifications:            []string{"thread/compacted"},
-		UnsupportedNotifications: []string{"thread/compacted"},
-	}
-
-	err := generator.applySupportedProtocol(input)
-	if err == nil {
-		t.Fatal("apply supported protocol succeeded, want supported deprecated conflict")
-	}
-	if !strings.Contains(err.Error(), "notification thread/compacted cannot be both supported and unsupported") {
-		t.Fatalf("error = %q, want supported/unsupported conflict", err)
-	}
-}
-
 func TestRenderEmitsOnlySupportedServerRequestConstants(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.serverRequests = []protocolMember{
@@ -220,9 +203,6 @@ func TestRenderEmitsOnlyRegisteredCodexProtocolConstants(t *testing.T) {
 	generator.supportedNotifications = []protocolMember{
 		{Method: "thread/started", ConstName: "ThreadStarted", ParamsName: "ThreadStartedNotification", Source: "json"},
 	}
-	generator.unsupportedNotifications = []protocolMember{
-		{Method: "item/fileChange/outputDelta", ConstName: "ItemFileChangeOutputDelta", ParamsName: "FileChangeOutputDeltaNotification", Source: "json"},
-	}
 
 	output, err := generator.render()
 	if err != nil {
@@ -235,11 +215,38 @@ func TestRenderEmitsOnlyRegisteredCodexProtocolConstants(t *testing.T) {
 	if strings.Contains(text, "CodexMethodThreadList") {
 		t.Fatalf("output = %s, want no unsupported thread/list method constant", text)
 	}
-	if !strings.Contains(text, `CodexNotificationItemFileChangeOutputDelta = "item/fileChange/outputDelta"`) {
-		t.Fatalf("output = %s, want explicit unsupported notification constant", text)
+	if strings.Contains(text, "CodexNotificationItemFileChangeOutputDelta") {
+		t.Fatalf("output = %s, want no unsupported notification constant", text)
 	}
 	if strings.Contains(text, "CodexNotificationValues") {
 		t.Fatalf("output = %s, want no all-notifications value list", text)
+	}
+}
+
+func TestRenderFiltersDeprecatedStringEnumValuesFromGeneratedSurface(t *testing.T) {
+	generator := testProtocolGenerator(t)
+	generator.schemas = map[string]jsonSchema{
+		"ApprovalsReviewer": {
+			Enum: []string{"user", "auto_review", "guardian_subagent"},
+			Type: "string",
+		},
+	}
+
+	output, err := generator.render()
+	if err != nil {
+		t.Fatalf("render protocol: %v", err)
+	}
+	text := string(output)
+	if !strings.Contains(text, `ApprovalsReviewerUser`) ||
+		!strings.Contains(text, `ApprovalsReviewer = "user"`) {
+		t.Fatalf("output = %s, want user reviewer constant", text)
+	}
+	if !strings.Contains(text, `ApprovalsReviewerAutoReview`) ||
+		!strings.Contains(text, `ApprovalsReviewer = "auto_review"`) {
+		t.Fatalf("output = %s, want auto_review reviewer constant", text)
+	}
+	if strings.Contains(text, "guardian_subagent") {
+		t.Fatalf("output = %s, want no deprecated guardian_subagent reviewer constant", text)
 	}
 }
 

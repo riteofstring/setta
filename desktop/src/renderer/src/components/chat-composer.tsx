@@ -197,7 +197,8 @@ export function Composer({
   }, [modelPicker]);
 
   async function sendDraft() {
-    const prompt = draft.trim();
+    const submittedDraft = draft;
+    const prompt = submittedDraft.trim();
     if (!canSubmitDraft(prompt)) {
       return;
     }
@@ -205,7 +206,9 @@ export function Composer({
     restoreComposerFocusRef.current = true;
     try {
       focusComposerSoon();
-      await submitDraftPrompt(prompt);
+      await submitDraftPrompt(prompt, submittedDraft);
+      focusComposerSoon();
+    } catch {
       focusComposerSoon();
     } finally {
       submittingRef.current = false;
@@ -221,25 +224,26 @@ export function Composer({
     );
   }
 
-  async function submitDraftPrompt(prompt: string) {
+  async function submitDraftPrompt(prompt: string, submittedDraft: string) {
     if (onSendPrompt) {
-      setDraft("");
       await onSendPrompt(prompt);
+      clearDraftIfUnchanged(submittedDraft);
       return;
     }
     if (slashDraft) {
-      await executeSlashDraft(prompt);
+      await executeSlashDraft(prompt, submittedDraft);
       return;
     }
-    setDraft("");
     if (running) {
       await chat.steerMessage(prompt);
+      clearDraftIfUnchanged(submittedDraft);
       return;
     }
     await chat.sendMessage(prompt);
+    clearDraftIfUnchanged(submittedDraft);
   }
 
-  async function executeSlashDraft(prompt: string) {
+  async function executeSlashDraft(prompt: string, submittedDraft: string) {
     const commandText = commandTextToExecute(prompt, selectedSuggestion);
     const options = goalReplacementExecutionOptions(commandText, chat.goal, (message) =>
       window.confirm(message),
@@ -250,14 +254,14 @@ export function Composer({
     const result = await chat.executeCommand(commandText, options);
     if (result.result.action === "model_picker") {
       setModelPicker(result);
-      setDraft("");
+      clearDraftIfUnchanged(submittedDraft);
     } else if (result.result.action === "goal_editor") {
       setModelPicker(null);
-      setDraft(goalEditorDraft(result.result.goal));
+      replaceDraftIfUnchanged(submittedDraft, goalEditorDraft(result.result.goal));
       requestAnimationFrame(() => textareaRef.current?.focus());
     } else {
       setModelPicker(null);
-      setDraft("");
+      clearDraftIfUnchanged(submittedDraft);
     }
   }
 
@@ -269,7 +273,8 @@ export function Composer({
   }
 
   async function queueDraft() {
-    const prompt = draft.trim();
+    const submittedDraft = draft;
+    const prompt = submittedDraft.trim();
     if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
       return;
     }
@@ -278,9 +283,11 @@ export function Composer({
     }
     submittingRef.current = true;
     try {
-      setDraft("");
       focusComposerSoon();
       await chat.queueMessage(prompt);
+      clearDraftIfUnchanged(submittedDraft);
+      focusComposerSoon();
+    } catch {
       focusComposerSoon();
     } finally {
       submittingRef.current = false;
@@ -288,24 +295,34 @@ export function Composer({
   }
 
   async function sendImmediateSteering() {
-    const prompt = draft.trim();
-    if (
-      slashDraft ||
-      !running ||
-      !chat.selectedConversation ||
-      disabled ||
-      submittingRef.current ||
-      (prompt === "" && !hasPendingSteering)
-    ) {
+    const submittedDraft = draft;
+    const prompt = submittedDraft.trim();
+    if (!canSubmitImmediateSteering(prompt)) {
       return;
     }
     submittingRef.current = true;
     try {
       await chat.sendSteeringImmediately(prompt === "" ? undefined : prompt);
-      setDraft("");
+      clearDraftIfUnchanged(submittedDraft);
+    } catch {
+      focusComposerSoon();
     } finally {
       submittingRef.current = false;
     }
+  }
+
+  function canSubmitImmediateSteering(prompt: string) {
+    return (
+      chat.selectedConversation !== null &&
+      !submittingRef.current &&
+      canSendImmediateSteeringDraft({
+        disabled,
+        draftText: prompt,
+        hasPendingSteering,
+        running,
+        slashDraft,
+      })
+    );
   }
 
   async function openModelPicker() {
@@ -420,6 +437,14 @@ export function Composer({
     if (!isSlashDraft(nextDraft)) {
       setModelPicker(null);
     }
+  }
+
+  function clearDraftIfUnchanged(submittedDraft: string) {
+    replaceDraftIfUnchanged(submittedDraft, "");
+  }
+
+  function replaceDraftIfUnchanged(submittedDraft: string, replacement: string) {
+    setDraft((current) => (current === submittedDraft ? replacement : current));
   }
 
   function dismissModelPicker() {

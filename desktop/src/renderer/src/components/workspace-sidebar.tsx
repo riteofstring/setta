@@ -401,18 +401,22 @@ function ProjectNavigationList({
   }
 
   async function runCommand(command: SidebarNavigationCommand) {
-    switch (command.type) {
-      case "activateWorkspace":
-        await runActivateWorkspaceCommand(command);
-        return;
-      case "createWorkspaceConversation":
-        await runCreateWorkspaceConversationCommand(command);
-        return;
-      case "selectWorkflowDefinition":
-        await runSelectWorkflowDefinitionCommand(command);
-        return;
-      default:
-        await runBasicNavigationCommand(command);
+    try {
+      switch (command.type) {
+        case "activateWorkspace":
+          await runActivateWorkspaceCommand(command);
+          return;
+        case "createWorkspaceConversation":
+          await runCreateWorkspaceConversationCommand(command);
+          return;
+        case "selectWorkflowDefinition":
+          await runSelectWorkflowDefinitionCommand(command);
+          return;
+        default:
+          await runBasicNavigationCommand(command);
+      }
+    } catch {
+      return;
     }
   }
 

@@ -36,17 +36,49 @@ describe("Pixi renderer label font", () => {
     expect(supportedNodeLabelGlyphs).toContain("A");
   });
 
-  it("commits an XML BMFont descriptor that Pixi can parse with MSDF metadata", () => {
+  it("commits a BMFont descriptor that matches the renderer label contract", () => {
     const descriptorUrl = new URL(
       "../../../public/fonts/inter-msdf/InterMSDF.fnt",
       import.meta.url,
     );
-    const descriptor = readFileSync(descriptorUrl, "utf8");
+    const descriptor = parseBitmapFontDescriptor(readFileSync(descriptorUrl, "utf8"));
 
-    expect(descriptor).toContain("<font>");
-    expect(descriptor).toContain('<info face="InterMSDF" size="48"');
-    expect(descriptor).toContain('<page id="0" file="InterMSDF.png"/>');
-    expect(descriptor).toContain('<distanceField fieldType="msdf" distanceRange="4"/>');
-    expect(descriptor).toContain('<chars count="95">');
+    expect(descriptor.info.face).toBe(nodeLabelBitmapFontFamily);
+    expect(descriptor.info.size).toBe("48");
+    expect(descriptor.pages).toEqual([{ file: "InterMSDF.png", id: "0" }]);
+    expect(descriptor.distanceField).toEqual({ distanceRange: "4", fieldType: "msdf" });
+    expect(Number(descriptor.chars.count)).toBe(supportedNodeLabelGlyphs.length);
   });
 });
+
+function parseBitmapFontDescriptor(xml) {
+  return {
+    chars: attributesForRequiredTag(xml, "chars"),
+    distanceField: attributesForRequiredTag(xml, "distanceField"),
+    info: attributesForRequiredTag(xml, "info"),
+    pages: attributesForTags(xml, "page"),
+  };
+}
+
+function attributesForRequiredTag(xml, tagName) {
+  const [attributes] = attributesForTags(xml, tagName);
+  if (!attributes) {
+    throw new Error(`BMFont descriptor is missing <${tagName}>`);
+  }
+  return attributes;
+}
+
+function attributesForTags(xml, tagName) {
+  return Array.from(xml.matchAll(new RegExp(`<${tagName}\\s+([^>]*)>`, "gu")), (match) =>
+    parseXmlAttributes(match[1]),
+  );
+}
+
+function parseXmlAttributes(source) {
+  return Object.fromEntries(
+    Array.from(source.matchAll(/([A-Za-z][A-Za-z0-9_-]*)="([^"]*)"/gu), (match) => [
+      match[1],
+      match[2],
+    ]),
+  );
+}

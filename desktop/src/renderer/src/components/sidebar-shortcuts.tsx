@@ -16,7 +16,9 @@ export function SidebarShortcuts({
         disabled={busy || !hasWorkspace}
         icon={<PenLine className="h-3.5 w-3.5" />}
         label="New chat"
-        onClick={() => void createConversation()}
+        onClick={() => {
+          void createConversation().catch(() => undefined);
+        }}
       />
     </nav>
   );

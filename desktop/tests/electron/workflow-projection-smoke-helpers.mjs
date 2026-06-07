@@ -2,72 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export async function createWorkflowProjectionFixture(client, workspaceRoot) {
-  const fixture = await client.evaluate(`(async () => {
-    const opened = await window.setta.workspace.openPath(${JSON.stringify(workspaceRoot)});
-    const workspaceId = opened.workspace.id;
-    const layout = {
-      nodes: [
-        { nodeId: "start", x: -360, y: 0 },
-        { nodeId: "work", x: 0, y: 120 },
-        { nodeId: "end", x: 360, y: 0 }
-      ]
-    };
-    const graph = {
-      nodes: [
-        { id: "start", kind: "start", title: "Start", action: null, gateway: null, loopGuard: null },
-        {
-          id: "work",
-          kind: "action",
-          title: "Work",
-          action: {
-            kind: "agent.codex",
-            codex: {
-              prompt: "workflow result action",
-              freshConversation: true,
-              model: "",
-              reasoningEffort: ""
-            }
-          },
-          gateway: null,
-          loopGuard: null
-        },
-        { id: "end", kind: "end", title: "End", action: null, gateway: null, loopGuard: null }
-      ],
-      edges: [
-        {
-          id: "start_work",
-          fromNodeId: "start",
-          toNodeId: "work",
-          kind: "normal",
-          condition: null
-        },
-        {
-          id: "work_end",
-          fromNodeId: "work",
-          toNodeId: "end",
-          kind: "normal",
-          condition: null
-        }
-      ],
-      layout
-    };
-    const validation = await window.setta.workflow.validateDefinition(workspaceId, graph);
-    if (!validation.valid) {
-      throw new Error("workflow projection fixture validation failed: " + JSON.stringify(validation.diagnostics));
-    }
-    const definition = await window.setta.workflow.createDefinition(
-      workspaceId,
-      "Workflow graph projection",
-      "Renderer projection smoke fixture",
-      graph
-    );
-    return {
-      definitionId: definition.id,
-      definitionName: definition.name,
-      layout,
-      workspaceId
-    };
-  })()`);
+  const fixture = await client.driver("createWorkflowProjectionFixture", { workspaceRoot });
   await assertWorkflowDefinitionFile(
     workspaceRoot,
     fixture.definitionId,

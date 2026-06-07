@@ -165,6 +165,17 @@ describe("chat store", () => {
     expect(useChatStore.getState().status).toBe("ready");
   });
 
+  test("create conversation preserves error state for caller handling", async () => {
+    const createConversation = vi.fn().mockRejectedValue(new Error("conversation create failed"));
+    installSettaAPI({ chat: { createConversation } });
+    useChatStore.setState({ status: "ready", workspaceId: "workspace_api" });
+
+    await expect(useChatStore.getState().createConversation()).rejects.toThrow(
+      "conversation create failed",
+    );
+    expect(useChatStore.getState().error).toBe("conversation create failed");
+  });
+
   test("pins a conversation through the backend summary", async () => {
     const conversation = testConversation();
     const setConversationPinned = vi.fn().mockResolvedValue({
@@ -327,6 +338,20 @@ describe("chat store", () => {
     expect(useChatStore.getState().operation).toBeNull();
   });
 
+  test("send message preserves error state for caller handling", async () => {
+    const conversation = testConversation();
+    const sendMessage = vi.fn().mockRejectedValue(new Error("send failed"));
+    installSettaAPI({ chat: { sendMessage } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await expect(useChatStore.getState().sendMessage("hello")).rejects.toThrow("send failed");
+    expect(useChatStore.getState().error).toBe("send failed");
+  });
+
   test("queue message updates from the backend page", async () => {
     const conversation = testConversation();
     const queued = message("message_queued", 1, "user", "pending", "queued", "queued");
@@ -348,6 +373,20 @@ describe("chat store", () => {
 
     expect(queueMessage).toHaveBeenCalledWith("workspace_api", "conversation_api", "queued");
     expect(useChatStore.getState().messages[0]?.delivery).toBe("queued");
+  });
+
+  test("queue message preserves error state for caller handling", async () => {
+    const conversation = testConversation();
+    const queueMessage = vi.fn().mockRejectedValue(new Error("queue failed"));
+    installSettaAPI({ chat: { queueMessage } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await expect(useChatStore.getState().queueMessage("queued")).rejects.toThrow("queue failed");
+    expect(useChatStore.getState().error).toBe("queue failed");
   });
 
   test("queue message response ignores a captured active run that completed before the response", async () => {
@@ -433,6 +472,21 @@ describe("chat store", () => {
     expect(useChatStore.getState().messages.some((item) => item.delivery === "steering")).toBe(
       true,
     );
+  });
+
+  test("steer message preserves error state for caller handling", async () => {
+    const conversation = testConversation();
+    const steerMessage = vi.fn().mockRejectedValue(new Error("steer failed"));
+    installSettaAPI({ chat: { steerMessage } });
+    useChatStore.setState({
+      activeRun: testRun("running"),
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await expect(useChatStore.getState().steerMessage("steer")).rejects.toThrow("steer failed");
+    expect(useChatStore.getState().error).toBe("steer failed");
   });
 
   test("operation responses do not resurrect terminal run events", async () => {

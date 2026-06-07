@@ -286,6 +286,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
           ...errorPatch(error),
           workspaceId: switchingWorkspace ? workspaceId : get().workspaceId,
         });
+        throw error;
       }
     },
     deleteConversation: async (conversationId, targetWorkspaceId) => {
@@ -565,6 +566,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         }));
       } catch (error) {
         commitCurrent(operation, errorPatch(error));
+        throw error;
       }
     },
     removeQueuedMessage: async (messageId: string) => {
@@ -822,6 +824,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         }));
       } catch (error) {
         commitCurrent(operation, errorPatch(error));
+        throw error;
       }
     },
     sendSteeringImmediately: async (prompt?: string) => {
@@ -878,6 +881,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         }));
       } catch (error) {
         commitCurrent(operation, errorPatch(error));
+        throw error;
       }
     },
     stopActiveRun: async () => {

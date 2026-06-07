@@ -67,10 +67,7 @@ try {
   await captureScreenshot(context.client, join(artifactDir, "after-top-click.png"));
 
   const edgeTarget = await nextRightPaneTarget(context.client);
-  await clickAt(context.client, {
-    x: edgeTarget.rect.left + 3,
-    y: edgeTarget.rect.top + 100,
-  });
+  await clickAt(context.client, await paneChromeEdgeFocusPoint(context.client, edgeTarget));
   const edgeResult = await waitForPaneFocusedInStage(context.client, edgeTarget);
   await captureScreenshot(context.client, join(artifactDir, "after-edge-click.png"));
 
@@ -208,6 +205,14 @@ async function clickAt(client, { x, y }) {
     x,
     y,
   });
+}
+
+async function paneChromeEdgeFocusPoint(client, target) {
+  const point = await client.driver("paneChromeEdgeFocusPoint", { paneId: target.paneId });
+  if (!point.ok) {
+    throw new Error(`no pane chrome edge focus point found: ${JSON.stringify({ point, target })}`);
+  }
+  return point;
 }
 
 async function safePaneSnapshot(client) {

@@ -9,11 +9,10 @@ import (
 )
 
 type supportedProtocolInput struct {
-	ClientMethods            []supportedClientMethod `json:"clientMethods"`
-	ServerRequests           []string                `json:"serverRequests"`
-	Notifications            []string                `json:"notifications"`
-	UnsupportedNotifications []string                `json:"unsupportedNotifications"`
-	Schemas                  []string                `json:"schemas"`
+	ClientMethods  []supportedClientMethod `json:"clientMethods"`
+	ServerRequests []string                `json:"serverRequests"`
+	Notifications  []string                `json:"notifications"`
+	Schemas        []string                `json:"schemas"`
 }
 
 type supportedClientMethod struct {
@@ -65,21 +64,6 @@ func (generator *generator) applySupportedProtocol(input supportedProtocolInput)
 	}
 	generator.supportedNotifications = supportedNotifications
 
-	unsupportedNotifications, err := registeredMembers(
-		input.UnsupportedNotifications,
-		generator.notifications,
-		"unsupported notification",
-	)
-	if err != nil {
-		return err
-	}
-	supportedNotificationSet := memberMethodSet(supportedNotifications)
-	for _, member := range unsupportedNotifications {
-		if supportedNotificationSet[member.Method] {
-			return fmt.Errorf("notification %s cannot be both supported and unsupported", member.Method)
-		}
-	}
-	generator.unsupportedNotifications = unsupportedNotifications
 	return nil
 }
 
