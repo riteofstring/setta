@@ -471,35 +471,111 @@ Verification:
   workflow/chat path when attaching semantic nodes to active work, ending
   activity, reloading, and confirming no semantic content was inferred.
 
+Phase 3 follow-up before Phase 4:
+
+- Add direct regression coverage for every explicit attachment source that Phase
+  4 may surface in user workflows:
+
+```text
+workflow definition node
+workflow node execution
+chat message
+run item
+command run item
+file range
+```
+
+- Each attachment-source test should assert source resolution happens before
+  semantic events are appended, failed source resolution leaves event history
+  unchanged, and the resulting evidence/activity records preserve enough typed
+  source data to navigate back to the production entity.
+- Confirm workflow definition node attachments keep the owning workflow
+  definition visible in evidence/detail readbacks. If the existing
+  `source_id`/summary representation is not enough for navigation, add an
+  explicit typed reference before exposing that attachment in the UI.
+
 ## Phase 4: User Editing And Steering Directives
 
 Goal: let users curate the graph and create auditable steering state.
 
+Scope guard:
+
+- Implement explicit user editing and steering operations only.
+- Do not implement cartographer automation, semantic context compilation, agent
+  prompt injection, retrieval/vector search, constraint enforcement, or
+  automatic semantic node creation in this phase.
+- Do not expose a generic production append-event API. The backend should expose
+  operation-specific service methods and HTTP contracts that validate intent and
+  source state before appending semantic events.
+- Keep graph editing deterministic and auditable. If an operation needs a
+  semantic node or edge to exist, fail loudly when it does not exist.
+- Keep existing workflow-definition JSON files as executable workflow artifacts.
+  Semantic edits update the semantic event log/projections, not workflow
+  definitions.
+
 Deliverables:
 
-- Add user operations:
+- Add backend service methods, HTTP contracts, generated TypeScript, IPC, and
+  preload APIs for user operations:
 
 ```text
-rename
-dismiss
-promote
-split
-merge
-pin visually
-pin for session
-pin for workspace
-attach to run
+rename semantic node
+update semantic node summary/kind
+dismiss semantic node
+promote semantic node
+split semantic node
+merge semantic nodes
+create user-authored semantic node
+create user-authored semantic edge
+update semantic edge
+remove semantic edge
+pin visual layout
+pin for session context
+pin for workspace context
+attach existing semantic node to current run/workflow source
 focus agent here
 avoid
-validate
+request validation
 add constraint
 add steering prompt
+complete/supersede/dismiss steering directive
 ```
 
-- Store every operation as a semantic event.
-- Maintain lineage for split/merge operations and reassign edges, evidence,
-  activity history, layout, and steering directives through explicit events.
-- Add steering directive projections with clear lifecycle:
+- Store every semantic operation as one or more semantic events. Visual layout
+  position updates may continue using the layout table without semantic events
+  when they only represent canvas state.
+- Use operation-specific event payloads for edits. Existing reducer event types
+  may be used where they are precise enough; otherwise add explicit event types
+  before adding broad or ambiguous payload fields.
+- Maintain lineage for split/merge operations through explicit events. The
+  implementation must define and test what happens to:
+
+```text
+incoming and outgoing edges
+evidence anchors
+activity intervals
+layout positions
+steering directives
+context-pack history references
+event history inspection
+```
+
+- Prefer conservative lineage behavior for Phase 4:
+
+```text
+split: keep existing evidence/activity/history on the dismissed source node, create
+       new child nodes, and add explicit edges or evidence reassign events only
+       for items the user selects
+
+merge: create a new target node, mark source nodes dismissed/merged, and add
+       explicit reassignment events only for selected edges/evidence/activity/
+       steering/layout state
+```
+
+- Do not silently move all historical evidence/activity during split/merge. The
+  history must remain explainable after reload and replay.
+- Expand steering directives from the current boolean projection into an
+  auditable lifecycle:
 
 ```text
 created
@@ -509,15 +585,76 @@ completed
 dismissed
 ```
 
-- Render steering state in node details and run context surfaces.
+- A steering directive should include:
+
+```text
+directive_id
+target_entity_id
+kind: focus | avoid | validate | constraint | prompt | session_pin | workspace_pin
+instruction
+status
+scope: run | session | workspace
+source operation/event
+optional source run/workflow/chat refs
+created/updated/completed timestamps
+```
+
+- Render editing controls and steering state in semantic node details. Keep the
+  controls compact and explicit:
+
+```text
+rename/edit summary
+dismiss/promote
+split/merge
+add edge
+add constraint
+focus/avoid/validate
+session/workspace pin
+view event history
+```
+
+- Render steering state in run/context-adjacent surfaces as read-only state in
+  this phase. The state is visible and auditable, but it must not yet be injected
+  into agent prompts; that belongs to Phase 5.
+- Add clear empty/error/loading states for editing surfaces. Validation errors
+  should name the missing node, edge, directive, or source ID.
+- Preserve generated-contract ownership: contracts live in `internal/httpapi`;
+  regenerate generated TypeScript after contract changes and do not manually edit
+  generated outputs.
+
+Acceptance criteria:
+
+```text
+a user can rename, summarize, dismiss, and promote a semantic node
+a user can create a constraint node and connect it to another semantic node
+a user can split one semantic node into two or more child nodes
+a user can merge two or more semantic nodes into a new target node
+split/merge lineage is visible in node details and event history
+selected reassignment behavior for edges/evidence/activity/steering/layout is explicit
+a user can create focus/avoid/validate/constraint/prompt steering directives
+a user can complete, supersede, or dismiss a steering directive
+session and workspace pins are represented as steering directives, not layout state
+visual layout pinning remains layout state and does not append semantic events
+reload preserves edited graph state, steering state, lineage, and history
+no semantic edits are inferred from prompts, labels, files, or activity
+agent prompts and workflow behavior are unchanged
+```
 
 Verification:
 
-- Backend reducer tests for split/merge/rename/dismiss/promote and directive
-  lifecycle.
-- Renderer tests for editing flows and state transitions.
-- Deterministic Electron workflow for user editing, reload, and historical event
+- Focused backend service/reducer tests for rename, update, dismiss, promote,
+  create node/edge, update edge, remove edge, split, merge, selected
+  reassignment, and directive lifecycle.
+- HTTP contract tests for every mutation/read API and validation failure path.
+- Renderer tests for editing forms, compact controls, validation errors,
+  steering lifecycle display, lineage display, and projection updates.
+- Preload/IPC tests for every new operation.
+- Deterministic Electron/main/preload/renderer/HTTP/store workflow for user
+  editing, split/merge, steering directive lifecycle, reload, and event-history
   inspection.
+- Because this phase touches generated backend contracts and IPC/preload
+  contracts, run the relevant generated-contract checks, desktop typecheck, and
+  deterministic Electron workflow before committing implementation code.
 
 ## Phase 5: Semantic Context Compiler
 
