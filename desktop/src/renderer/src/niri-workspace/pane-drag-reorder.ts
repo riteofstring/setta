@@ -28,6 +28,12 @@ export interface PaneDragFinish {
   target: PaneDropTarget | null;
 }
 
+interface PaneDragOffsetSession {
+  sourcePaneId: string;
+  startClientX: number;
+  startClientY: number;
+}
+
 export function beginPaneDragSession(
   event: PointerEvent,
   root: HTMLElement,
@@ -67,6 +73,7 @@ export function updatePaneDragSession(
   if (!session.dragging) {
     return;
   }
+  syncPaneDragSourceOffset(session, event);
   updatePaneDropTarget(root, session, event, store);
 }
 
@@ -88,7 +95,11 @@ export function finishPaneDragSession(
 export function cleanupPaneDragSession(root: HTMLElement, session: PaneDragSession): void {
   delete root.dataset.paneDragging;
   clearPaneDropTargets(root);
-  visiblePaneHostForPane(session.sourcePaneId)?.removeAttribute("data-drag-source");
+  const sourceHost = visiblePaneHostForPane(session.sourcePaneId);
+  sourceHost?.removeAttribute("data-drag-source");
+  if (sourceHost) {
+    sourceHost.style.translate = "";
+  }
   if (session.handle.hasPointerCapture?.(session.pointerId)) {
     session.handle.releasePointerCapture(session.pointerId);
   }
@@ -109,6 +120,19 @@ export function applyPaneDrop(
   const movedTargetBeforeSource = store.reorderPaneBefore(target.paneId, sourcePaneId);
   store.focusPane(sourcePaneId);
   return movedSourceBeforeTarget || movedTargetBeforeSource;
+}
+
+export function syncPaneDragSourceOffset(
+  session: PaneDragOffsetSession,
+  event: PointerEvent,
+): void {
+  const sourceHost = visiblePaneHostForPane(session.sourcePaneId);
+  if (!sourceHost) {
+    return;
+  }
+  sourceHost.style.translate = `${(event.clientX - session.startClientX).toFixed(2)}px ${(
+    event.clientY - session.startClientY
+  ).toFixed(2)}px`;
 }
 
 export function visiblePaneHostForPane(paneId: string): HTMLElement | null {
@@ -144,6 +168,11 @@ function updatePaneDropTarget(
   }
   session.target = target;
   syncPaneDropTarget(root, target);
+  if (target) {
+    store.previewPaneDrop(session.sourcePaneId, target.paneId, target.placement);
+    return;
+  }
+  store.clearPaneDropPreview();
 }
 
 function paneDropTargetFromPointer(

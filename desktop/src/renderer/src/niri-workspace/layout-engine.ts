@@ -41,17 +41,28 @@ import {
   scrollOffsetForColumn,
   totalUnscaledPlaneHeight,
 } from "./layout-engine-helpers";
-import { reorderPaneColumnBefore } from "./layout-reorder";
+import {
+  reorderPaneColumnBefore,
+  reorderPaneColumnForPlacement,
+  type PaneReorderPlacement,
+} from "./layout-reorder";
 import { columnVisualFramesForPane, type PaneVisualFrame } from "./pane-visual-frame";
 
 export interface NiriLayoutEngineOptions {
   allowResizedPanesToOverflowViewport?: boolean;
 }
 
+interface PaneReorderPreview {
+  placement: PaneReorderPlacement;
+  sourcePaneId: PaneId;
+  targetPaneId: PaneId;
+}
+
 export class NiriLikeLayoutEngine implements LayoutEngine {
   private columns: NiriColumn[];
   private nextColumnSequence: number;
   private paneById: Map<PaneId, NiriPane>;
+  private paneReorderPreview: PaneReorderPreview | null = null;
   private nextPaneSequence: number;
 
   constructor(
@@ -194,9 +205,22 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       return;
     }
 
-    return input.presentationMode === "overview"
-      ? this.renderOverviewFrame(input, push)
-      : this.renderNormalFrame(input, push);
+    const previewColumns = this.paneReorderPreviewColumns();
+    if (!previewColumns) {
+      return input.presentationMode === "overview"
+        ? this.renderOverviewFrame(input, push)
+        : this.renderNormalFrame(input, push);
+    }
+
+    const committedColumns = this.columns;
+    this.columns = previewColumns;
+    try {
+      return input.presentationMode === "overview"
+        ? this.renderOverviewFrame(input, push)
+        : this.renderNormalFrame(input, push);
+    } finally {
+      this.columns = committedColumns;
+    }
   }
 
   renamePane(paneId: PaneId, title: string): boolean {
@@ -217,6 +241,31 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     this.columns = result.columns;
     this.reindexColumns();
     return result.changed;
+  }
+
+  previewPaneReorder(
+    sourcePaneId: PaneId,
+    targetPaneId: PaneId,
+    placement: PaneReorderPlacement,
+  ): boolean {
+    const nextPreview = { placement, sourcePaneId, targetPaneId };
+    if (
+      this.paneReorderPreview?.sourcePaneId === nextPreview.sourcePaneId &&
+      this.paneReorderPreview.targetPaneId === nextPreview.targetPaneId &&
+      this.paneReorderPreview.placement === nextPreview.placement
+    ) {
+      return false;
+    }
+    this.paneReorderPreview = nextPreview;
+    return true;
+  }
+
+  clearPaneReorderPreview(): boolean {
+    if (!this.paneReorderPreview) {
+      return false;
+    }
+    this.paneReorderPreview = null;
+    return true;
   }
 
   private renderNormalFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
@@ -271,6 +320,24 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
         yOffset: planeTop - verticalOffset,
       });
     }
+  }
+
+  private paneReorderPreviewColumns(): NiriColumn[] | null {
+    if (!this.paneReorderPreview) {
+      return null;
+    }
+    const result = reorderPaneColumnForPlacement(
+      this.columns,
+      this.paneReorderPreview.sourcePaneId,
+      this.paneReorderPreview.targetPaneId,
+      this.paneReorderPreview.placement,
+    );
+    return result.changed
+      ? result.columns.map((column, index) => ({
+          ...column,
+          index,
+        }))
+      : null;
   }
 
   lockColumnWidth(columnId: ColumnId, viewportWidth: number): void {

@@ -328,6 +328,73 @@ describe("real niri workspace column sizing", () => {
     expect(rightmostItem?.x).toBeGreaterThan(900);
   });
 
+  test("renders pane reorder previews without committing column order", () => {
+    const engine = createRealEngine();
+    const committedOrder = engine.toScene().columns.map((column) => column.paneIds[0]);
+
+    expect(engine.previewPaneReorder("workspace_pane_4", "workspace_pane_1", "before")).toBe(true);
+
+    const previewItems = renderFrame(
+      engine,
+      { ...viewport, width: 4000 },
+      0,
+      "workspace_pane_4",
+      "normal",
+      0,
+      null,
+      true,
+    );
+
+    expect(paneOrderByX(previewItems)).toEqual([
+      "workspace_pane_0",
+      "workspace_pane_4",
+      "workspace_pane_1",
+      "workspace_pane_2",
+      "workspace_pane_3",
+      "workspace_pane_5",
+    ]);
+    expect(engine.toScene().columns.map((column) => column.paneIds[0])).toEqual(committedOrder);
+
+    expect(engine.clearPaneReorderPreview()).toBe(true);
+    const clearedItems = renderFrame(
+      engine,
+      { ...viewport, width: 4000 },
+      0,
+      "workspace_pane_4",
+      "normal",
+      0,
+      null,
+      true,
+    );
+    expect(paneOrderByX(clearedItems)).toEqual(committedOrder);
+  });
+
+  test("renders after-placement pane reorder previews", () => {
+    const engine = createRealEngine();
+
+    expect(engine.previewPaneReorder("workspace_pane_0", "workspace_pane_2", "after")).toBe(true);
+
+    const previewItems = renderFrame(
+      engine,
+      { ...viewport, width: 4000 },
+      0,
+      "workspace_pane_0",
+      "normal",
+      0,
+      null,
+      true,
+    );
+
+    expect(paneOrderByX(previewItems)).toEqual([
+      "workspace_pane_1",
+      "workspace_pane_2",
+      "workspace_pane_0",
+      "workspace_pane_3",
+      "workspace_pane_4",
+      "workspace_pane_5",
+    ]);
+  });
+
   test("overview keeps split-down panes vertically stacked inside their column", () => {
     const { focusedPaneId, scene } = createRealWorkspaceScene({
       storageKey: "setta:niri-workspace:overview-stack",
@@ -727,6 +794,10 @@ function createRealEngine(
     workspaceName: "Repo",
   });
   return new NiriLikeLayoutEngine(scene, options);
+}
+
+function paneOrderByX(items: readonly PaneRenderItem[]): string[] {
+  return items.toSorted((left, right) => left.x - right.x).map((item) => item.paneId);
 }
 
 function createSparseGeneratedPaneScene(): NiriWorkspaceScene {

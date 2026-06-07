@@ -1,4 +1,5 @@
 import type { NiriLikeLayoutEngine } from "./layout-engine";
+import type { PaneReorderPlacement } from "./layout-reorder";
 import type {
   ColumnId,
   ColumnWidthSpec,
@@ -395,6 +396,26 @@ export class NiriLayoutStore {
       return false;
     }
     this.setFocusedPane(paneId);
+    this.notify();
+    return true;
+  }
+
+  previewPaneDrop(
+    sourcePaneId: PaneId,
+    targetPaneId: PaneId,
+    placement: PaneReorderPlacement,
+  ): boolean {
+    if (!this.engine.previewPaneReorder(sourcePaneId, targetPaneId, placement)) {
+      return false;
+    }
+    this.notify();
+    return true;
+  }
+
+  clearPaneDropPreview(): boolean {
+    if (!this.engine.clearPaneReorderPreview()) {
+      return false;
+    }
     this.notify();
     return true;
   }

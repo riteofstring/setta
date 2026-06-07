@@ -6,6 +6,29 @@ export interface PaneReorderResult {
   columns: NiriColumn[];
 }
 
+export type PaneReorderPlacement = "after" | "before";
+
+export function reorderPaneColumnForPlacement(
+  columns: readonly NiriColumn[],
+  sourcePaneId: PaneId,
+  targetPaneId: PaneId,
+  placement: PaneReorderPlacement,
+): PaneReorderResult {
+  if (placement === "before") {
+    return reorderPaneColumnBefore(columns, sourcePaneId, targetPaneId);
+  }
+  const movedSourceBeforeTarget = reorderPaneColumnBefore(columns, sourcePaneId, targetPaneId);
+  const movedTargetBeforeSource = reorderPaneColumnBefore(
+    movedSourceBeforeTarget.columns,
+    targetPaneId,
+    sourcePaneId,
+  );
+  return {
+    changed: movedSourceBeforeTarget.changed || movedTargetBeforeSource.changed,
+    columns: movedTargetBeforeSource.columns,
+  };
+}
+
 export function reorderPaneColumnBefore(
   columns: readonly NiriColumn[],
   sourcePaneId: PaneId,

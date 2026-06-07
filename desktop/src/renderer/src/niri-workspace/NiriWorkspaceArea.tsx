@@ -48,6 +48,7 @@ import {
   beginPaneDragSession,
   cleanupPaneDragSession,
   finishPaneDragSession,
+  syncPaneDragSourceOffset,
   updatePaneDragSession,
   visiblePaneHostForPane,
   type PaneDragSession,
@@ -229,6 +230,7 @@ export function NiriWorkspaceArea({
         event.stopPropagation();
         scheduler.pauseBenchmark();
         root.dataset.overviewDragging = "false";
+        visiblePaneHostForPane(sourcePaneId)?.setAttribute("data-drag-source", "true");
         overviewDragSessionRef.current = {
           dragging: false,
           pointerId: event.pointerId,
@@ -273,6 +275,13 @@ export function NiriWorkspaceArea({
         if (distance > overviewDragThresholdPx) {
           overviewSession.dragging = true;
           root.dataset.overviewDragging = "true";
+          syncPaneDragSourceOffset(overviewSession, event);
+          const targetPaneId = overviewPaneIdAtPoint(event, overviewSession.sourcePaneId);
+          if (targetPaneId && targetPaneId !== overviewSession.sourcePaneId) {
+            runtime.store.previewPaneDrop(overviewSession.sourcePaneId, targetPaneId, "before");
+          } else {
+            runtime.store.clearPaneDropPreview();
+          }
         }
         return;
       }
@@ -307,8 +316,14 @@ export function NiriWorkspaceArea({
       suppressNextPaneClick();
       overviewDragSessionRef.current = null;
       delete root.dataset.overviewDragging;
+      const sourceHost = visiblePaneHostForPane(overviewSession.sourcePaneId);
+      if (sourceHost) {
+        sourceHost.removeAttribute("data-drag-source");
+        sourceHost.style.translate = "";
+      }
+      runtime.store.clearPaneDropPreview();
       if (overviewSession.dragging) {
-        const targetPaneId = overviewPaneIdAtPoint(event);
+        const targetPaneId = overviewPaneIdAtPoint(event, overviewSession.sourcePaneId);
         if (targetPaneId && targetPaneId !== overviewSession.sourcePaneId) {
           runLayoutAction(() =>
             runtime.store.reorderPaneBefore(overviewSession.sourcePaneId, targetPaneId),
@@ -333,6 +348,7 @@ export function NiriWorkspaceArea({
       event.stopPropagation();
       const dragFinish = finishPaneDragSession(event, root, paneDragSession);
       paneDragSessionRef.current = null;
+      runtime.store.clearPaneDropPreview();
       if (dragFinish.dragging) {
         suppressNextPaneClick();
       }
@@ -393,11 +409,20 @@ export function NiriWorkspaceArea({
       root.removeEventListener("focusout", handleFocusOut, { capture: true });
       root.removeEventListener("pointerdown", handlePointerDown, { capture: true });
       root.removeEventListener("wheel", handleWheel, { capture: true });
+      const overviewSourcePaneId = overviewDragSessionRef.current?.sourcePaneId;
       overviewDragSessionRef.current = null;
+      if (overviewSourcePaneId) {
+        const overviewSourceHost = visiblePaneHostForPane(overviewSourcePaneId);
+        overviewSourceHost?.removeAttribute("data-drag-source");
+        if (overviewSourceHost) {
+          overviewSourceHost.style.translate = "";
+        }
+      }
       if (paneDragSessionRef.current) {
         cleanupPaneDragSession(root, paneDragSessionRef.current);
         paneDragSessionRef.current = null;
       }
+      runtime.store.clearPaneDropPreview();
       paneResizeSessionRef.current = null;
       delete root.dataset.paneResizing;
       delete root.dataset.paneResizingAxis;
@@ -811,8 +836,8 @@ function overviewPaneIdFromPointer(event: PointerEvent): string | null {
   return event.target instanceof Element ? visiblePaneHostId(event.target) : null;
 }
 
-function overviewPaneIdAtPoint(event: PointerEvent): string | null {
-  return visiblePaneHostId(document.elementFromPoint(event.clientX, event.clientY));
+function overviewPaneIdAtPoint(event: PointerEvent, excludedPaneId?: string): string | null {
+  return visiblePaneHostIdAtPoint(event.clientX, event.clientY, excludedPaneId);
 }
 
 function visiblePaneHostId(element: Element | null): string | null {
@@ -820,6 +845,26 @@ function visiblePaneHostId(element: Element | null): string | null {
     '[data-testid="niri-fake-pane-host"][data-visible="true"]',
   );
   return host?.dataset.paneId ?? null;
+}
+
+function visiblePaneHostIdAtPoint(
+  clientX: number,
+  clientY: number,
+  excludedPaneId?: string,
+): string | null {
+  const elements =
+    typeof document.elementsFromPoint === "function"
+      ? document.elementsFromPoint(clientX, clientY)
+      : [document.elementFromPoint(clientX, clientY)].filter(
+          (element): element is Element => element !== null,
+        );
+  for (const element of elements) {
+    const paneId = visiblePaneHostId(element);
+    if (paneId && paneId !== excludedPaneId) {
+      return paneId;
+    }
+  }
+  return null;
 }
 
 function FakePaneHost({ refCallback }: { refCallback: (host: HTMLDivElement | null) => void }) {
