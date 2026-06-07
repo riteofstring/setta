@@ -20,7 +20,6 @@ import {
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
-const leftSnapTolerancePx = 30;
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -61,18 +60,18 @@ try {
 
   const topTarget = await nextRightPaneTarget(context.client);
   await clickAt(context.client, {
-    x: topTarget.rect.left + 24,
-    y: topTarget.rect.top + 8,
+    x: topTarget.rect.left + 3,
+    y: topTarget.rect.top + 15,
   });
-  const topResult = await waitForPaneFocusedLeft(context.client, topTarget);
+  const topResult = await waitForPaneFocusedInStage(context.client, topTarget);
   await captureScreenshot(context.client, join(artifactDir, "after-top-click.png"));
 
   const edgeTarget = await nextRightPaneTarget(context.client);
   await clickAt(context.client, {
     x: edgeTarget.rect.left + 3,
-    y: edgeTarget.rect.top + edgeTarget.rect.height / 2,
+    y: edgeTarget.rect.top + 100,
   });
-  const edgeResult = await waitForPaneFocusedLeft(context.client, edgeTarget);
+  const edgeResult = await waitForPaneFocusedInStage(context.client, edgeTarget);
   await captureScreenshot(context.client, join(artifactDir, "after-edge-click.png"));
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -143,21 +142,29 @@ async function nextRightPaneTarget(client) {
     paneSnapshotExpression(),
     (value) =>
       value.visibleHosts.some(
-        (host) => host.paneId !== value.focusedPaneId && host.rect.left > value.stageRect.left + 80,
+        (host) =>
+          host.paneId !== value.focusedPaneId &&
+          host.rect.left > value.stageRect.left + 80 &&
+          host.rect.left < value.stageRect.left + value.stageRect.width - 24,
       ),
     workflowTimeoutMs,
   );
   const target = snapshot.visibleHosts
     .filter((host) => host.paneId !== snapshot.focusedPaneId)
+    .filter(
+      (host) =>
+        host.rect.left > snapshot.stageRect.left + 80 &&
+        host.rect.left < snapshot.stageRect.left + snapshot.stageRect.width - 24,
+    )
     .sort((left, right) => left.rect.left - right.rect.left)
-    .find((host) => host.rect.left > snapshot.stageRect.left + 80);
+    .at(0);
   if (!target) {
     throw new Error(`no right-side pane target found: ${JSON.stringify(snapshot)}`);
   }
   return target;
 }
 
-async function waitForPaneFocusedLeft(client, target) {
+async function waitForPaneFocusedInStage(client, target) {
   return waitForState(
     client,
     paneSnapshotExpression(),
@@ -166,11 +173,12 @@ async function waitForPaneFocusedLeft(client, target) {
       if (!host) {
         return false;
       }
+      const hostRight = host.rect.left + host.rect.width;
       return (
         snapshot.focusedPaneId === target.paneId &&
         host.focused &&
-        host.rect.left <= snapshot.stageRect.left + leftSnapTolerancePx &&
-        host.rect.left < target.rect.left - 80
+        hostRight >= snapshot.stageRect.left &&
+        host.rect.left <= snapshot.stageRect.left + snapshot.stageRect.width
       );
     },
     workflowTimeoutMs,

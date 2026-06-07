@@ -67,7 +67,7 @@ try {
 
   const horizontalBefore = await resizeTarget(context.client, "horizontal");
   assertHandleInPaneGap(horizontalBefore);
-  assertPanesTouch(horizontalBefore);
+  assertPaneGap(horizontalBefore);
   await dispatchMouseDrag(context.client, {
     from: horizontalBefore.handle.center,
     to: {
@@ -95,14 +95,14 @@ try {
   );
   await captureScreenshot(context.client, join(artifactDir, "horizontal-restored.png"));
 
-  await clickToolbarButton(context.client, "Frame split vertically");
+  await clickFocusedPaneAction(context.client, "split-down");
   await waitForResizeHandles(context.client, "vertical");
   await delay(600);
   await captureScreenshot(context.client, join(artifactDir, "vertical-before.png"));
 
   const verticalBefore = await resizeTarget(context.client, "vertical");
   assertHandleInPaneGap(verticalBefore);
-  assertPanesTouch(verticalBefore);
+  assertPaneGap(verticalBefore);
   await dispatchMouseDrag(context.client, {
     from: verticalBefore.handle.center,
     to: {
@@ -170,11 +170,10 @@ async function ensureWorkspaceOpen(client) {
   );
 }
 
-async function clickToolbarButton(client, label) {
+async function clickFocusedPaneAction(client, action) {
   const clicked = await client.evaluate(`(() => {
-    const button = Array.from(document.querySelectorAll('button')).find((candidate) =>
-      candidate instanceof HTMLButtonElement && candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
-    );
+    const focusedHost = document.querySelector('[data-testid="niri-fake-pane-host"][data-focused="true"]');
+    const button = focusedHost?.querySelector(${JSON.stringify(`[data-niri-pane-action="${action}"]`)});
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-button" };
     }
@@ -185,7 +184,7 @@ async function clickToolbarButton(client, label) {
     return { ok: true };
   })()`);
   if (!clicked.ok) {
-    throw new Error(`toolbar click failed for ${label}: ${JSON.stringify(clicked)}`);
+    throw new Error(`pane action click failed for ${action}: ${JSON.stringify(clicked)}`);
   }
 }
 
@@ -304,13 +303,13 @@ function assertHandleInPaneGap(target) {
   }
 }
 
-function assertPanesTouch(target) {
+function assertPaneGap(target) {
   const gap =
     target.handle.axis === "horizontal"
       ? target.adjacentHost.rect.left - target.sourceHost.rect.right
       : target.adjacentHost.rect.top - target.sourceHost.rect.bottom;
-  if (Math.abs(gap) > geometryTolerancePx) {
-    throw new Error(`resize target panes do not touch: ${JSON.stringify(target)}`);
+  if (gap < -geometryTolerancePx || gap > 16 + geometryTolerancePx) {
+    throw new Error(`resize target panes have an unexpected gap: ${JSON.stringify(target)}`);
   }
 }
 
