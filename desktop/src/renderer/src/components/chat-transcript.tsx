@@ -28,6 +28,7 @@ import { MarkdownText } from "./markdown-text";
 import { RunActivityRows } from "./chat-run-activity";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
 import { BrailleSpinner } from "./ascii-spinner";
+import { chatReadableColumnClass, chatReadableColumnPaddedClass } from "./chat-layout";
 import {
   isVisibleMessage,
   transcriptTimelineRows,
@@ -105,12 +106,12 @@ function transcriptIndexes(props: {
 }
 
 const messageRowClassByRole = {
-  assistant: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
-  command: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
-  developer: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
-  system: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
-  tool: "mx-auto flex w-full max-w-3xl min-w-0 justify-start py-1.5",
-  user: "mx-auto flex w-full max-w-3xl min-w-0 justify-end py-1.5",
+  assistant: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
+  command: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
+  developer: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
+  system: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
+  tool: `${chatReadableColumnPaddedClass} flex justify-start py-1.5`,
+  user: `${chatReadableColumnPaddedClass} flex justify-end py-1.5`,
 } satisfies Record<MessageRole, string>;
 
 const deliveryLabelByDelivery = {
@@ -307,7 +308,7 @@ export function ChatTranscript({
             setPinned(true);
           }
         }}
-        className="h-full min-h-0 min-w-0 bg-background px-3 pt-4 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-background pt-4 pb-2"
         components={{
           Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
           Header: () => (
@@ -373,11 +374,11 @@ function EmptyChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-y-auto bg-background px-3 pt-4 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-background px-3 pt-4 pb-2"
         data-testid="chat-transcript-scroller"
       >
         <div
-          className="mx-auto w-full max-w-3xl py-16 text-center text-xs text-muted-foreground"
+          className={cn(chatReadableColumnClass, "py-16 text-center text-xs text-muted-foreground")}
           data-testid="empty-chat"
         >
           Start a conversation for this workspace.
@@ -415,7 +416,7 @@ function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) 
     return null;
   }
   return (
-    <div className="mx-auto w-full max-w-3xl py-2">
+    <div className={cn(chatReadableColumnPaddedClass, "py-2")}>
       <PendingApproval activeRun={activeRun} submitApproval={submitApproval} />
     </div>
   );
@@ -453,17 +454,21 @@ function JumpToLatestButton({
     return null;
   }
   return (
-    <Button
-      aria-label="Jump to latest"
-      className="absolute bottom-4 right-6 shadow-sm"
-      onClick={() => {
-        virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-        setPinned(true);
-      }}
-      variant="secondary"
-    >
-      <ArrowDown className="h-4 w-4" />
-    </Button>
+    <div className="pointer-events-none absolute inset-x-3 bottom-4 flex justify-center">
+      <div className="flex w-full max-w-2xl justify-end">
+        <Button
+          aria-label="Jump to latest"
+          className="pointer-events-auto h-7 w-7 rounded-sm border-border bg-muted/95 px-0 text-foreground shadow-lg shadow-black/30 hover:bg-accent hover:text-foreground"
+          onClick={() => {
+            virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
+            setPinned(true);
+          }}
+          variant="secondary"
+        >
+          <ArrowDown className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
 

@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
+import { chatReadableColumnClass } from "./chat-layout";
 import { ChatTranscript } from "./chat-transcript";
 
 export {
@@ -331,7 +332,7 @@ function ChatLoadError({ message }: { message: string }) {
 function EmptyConversation({ label }: { label: string }) {
   return (
     <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-3 text-center text-xs text-muted-foreground">
-      <div className="mx-auto w-full max-w-3xl py-16" data-testid="empty-chat">
+      <div className={cn(chatReadableColumnClass, "py-16")} data-testid="empty-chat">
         {label}
       </div>
     </div>
