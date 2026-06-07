@@ -61,12 +61,10 @@ const inputChunkBytes = 64 * 1024;
 const largePasteWarningBytes = 16 * 1024;
 const maxPasteBytes = 1024 * 1024;
 const resizeDebounceMs = 80;
-
 interface PendingTerminalOutput {
   byteCount: number;
   dataBase64: string;
 }
-
 interface PendingPaste {
   byteCount: number;
   text: string;
