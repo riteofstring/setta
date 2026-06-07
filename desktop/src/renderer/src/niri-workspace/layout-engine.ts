@@ -223,7 +223,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     const focusedLocation = this.locationForPane(input.focusedPaneId);
     const focusedPlaneIndex = focusedLocation?.planeIndex ?? this.planeIndexes()[0] ?? 0;
     const maximizedPaneId = input.maximizedPaneId;
-    const geometry = this.columnGeometry(input.viewport.width, maximizedPaneId, 0);
+    const geometry = this.columnGeometry(input.viewport.width, maximizedPaneId);
     const scrollColumn = this.constrainScrollColumnToViewport(
       input.scrollColumn,
       input.viewport.width,
@@ -235,7 +235,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     const planeOffsets = planeTopOffsets(this.planeIndexes(), input.viewport.height);
     const normalPaneSpacing = {
       padding: this.scene.padding,
-      rowGap: 0,
+      rowGap: this.scene.rowGap,
     };
 
     const columnIndexes = renderedColumnIndexesForLayout({
@@ -951,7 +951,7 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       column,
       maximizedPaneId,
       paneById: this.paneById,
-      rowGap: 0,
+      rowGap: this.scene.rowGap,
     });
   }
 }

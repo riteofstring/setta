@@ -140,12 +140,24 @@ describe("real niri workspace column sizing", () => {
 
     expect(items).toHaveLength(5);
     expect(items[0]?.x).toBe(10);
-    expect(items[1]?.x).toBe(530);
-    expect(items[2]?.x).toBe(1050);
+    expect(items[1]?.x).toBe(538);
+    expect(items[2]?.x).toBe(1066);
     expect(items[2]?.x).toBeLessThan(1200);
     expect(items[3]?.x).toBeGreaterThan(1200);
     expect(items[4]?.x).toBeGreaterThan(1200);
     expect(engine.totalColumnOverflowWidth(1200)).toBeGreaterThan(1200);
+  });
+
+  test("keeps visual gaps between normal panes", () => {
+    const engine = createRealEngine();
+    const stackedPaneId = engine.splitPane("workspace_pane_0", "down");
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, stackedPaneId);
+    const firstColumnTop = items.find((item) => item.paneId === "workspace_pane_0");
+    const firstColumnBottom = items.find((item) => item.paneId === stackedPaneId);
+    const secondColumn = items.find((item) => item.paneId === "workspace_pane_1");
+
+    expect(secondColumn?.x).toBe((firstColumnTop?.x ?? 0) + (firstColumnTop?.width ?? 0) + 8);
+    expect(firstColumnBottom?.y).toBe((firstColumnTop?.y ?? 0) + (firstColumnTop?.height ?? 0) + 8);
   });
 
   test("collapses empty normal-layout slots so visible panes stay attached", () => {
@@ -159,7 +171,7 @@ describe("real niri workspace column sizing", () => {
     });
     expect(items[1]).toMatchObject({
       width: 520,
-      x: 530,
+      x: 538,
     });
   });
 
@@ -594,7 +606,7 @@ describe("real niri workspace column sizing", () => {
       tallSnapshot.scrollRow,
     );
     const tallFocusedItem = tallItems.find((item) => item.paneId === stackedPaneId);
-    expect(tallFocusedItem?.height).toBeCloseTo(338.461538);
+    expect(tallFocusedItem?.height).toBeCloseTo(335.384615);
     expect(tallFocusedItem?.y).toBe(10);
 
     store.ensureFocusedPaneVisible({ ...viewport, height: 600, width: 1200 });
@@ -612,7 +624,7 @@ describe("real niri workspace column sizing", () => {
     const focusedItem = shortItems.find((item) => item.paneId === stackedPaneId);
     const firstRowItem = shortItems.find((item) => item.paneId === "workspace_pane_0");
 
-    expect(focusedItem?.height).toBeCloseTo(223.076923);
+    expect(focusedItem?.height).toBeCloseTo(220);
     expect(focusedItem?.y).toBe(10);
     expect(firstRowItem?.y).toBeLessThan(0);
   });
@@ -673,7 +685,7 @@ describe("real niri workspace column sizing", () => {
       height: viewport.height - 20,
       maximized: true,
       width: 1180,
-      x: -1170,
+      x: -1178,
       y: 10,
       z: 1,
     });
