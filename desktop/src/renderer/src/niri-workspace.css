@@ -641,15 +641,20 @@
 }
 
 .niri-terminal-surface {
-  background:
-    linear-gradient(180deg, color-mix(in oklch, var(--background) 72%, transparent), transparent),
-    color-mix(in oklch, var(--popover) 88%, black);
+  background: var(--niri-terminal-background, #09090b);
   color: color-mix(in oklch, var(--foreground) 88%, var(--primary));
   display: grid;
   gap: 7px;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   padding: 10px;
+}
+
+.niri-pane-host[data-surface-kind="terminal"],
+.niri-pane-host[data-surface-kind="terminal"][data-focused="true"],
+.niri-pane-host[data-surface-kind="terminal"][data-runtime-state="snapshot"],
+.niri-pane-host[data-surface-kind="terminal"][data-runtime-state="live-throttled"] {
+  background: var(--niri-terminal-background, #09090b);
 }
 
 .niri-terminal-header,

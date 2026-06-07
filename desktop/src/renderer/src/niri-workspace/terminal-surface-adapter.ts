@@ -25,6 +25,7 @@ import {
 import {
   defaultTerminalDisplaySettings,
   terminalTheme,
+  terminalThemeBackground,
   type TerminalDisplaySettings,
 } from "./terminal-display-settings";
 import {
@@ -787,6 +788,10 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
 
   private applyDisplaySettings(settings: TerminalDisplaySettings): void {
     this.settings = settings;
+    this.host?.style.setProperty(
+      "--niri-terminal-background",
+      terminalThemeBackground(settings.themeId),
+    );
     const terminal = this.terminal;
     if (!terminal) {
       return;
