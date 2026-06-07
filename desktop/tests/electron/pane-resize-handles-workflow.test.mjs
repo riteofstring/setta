@@ -172,7 +172,7 @@ async function ensureWorkspaceOpen(client) {
 
 async function clickFocusedPaneAction(client, action) {
   const clicked = await client.evaluate(`(() => {
-    const focusedHost = document.querySelector('[data-testid="workspace-fake-pane-host"][data-focused="true"]');
+    const focusedHost = document.querySelector('[data-testid="workspace-pane-host"][data-focused="true"]');
     const button = focusedHost?.querySelector(${JSON.stringify(`[data-workspace-pane-action="${action}"]`)});
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-button" };
@@ -351,7 +351,7 @@ function resizeSnapshotExpression() {
         width: rect.width,
       };
     };
-    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-fake-pane-host"]'))
+    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
       .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
       .map((host) => {
         const rect = rectFor(host);

@@ -99,7 +99,7 @@ function handleEmptyFrameActionClick({
 }
 
 function emptyFrameHostPaneId(button: HTMLButtonElement | null): string | null {
-  const host = button?.closest<HTMLElement>('[data-testid="workspace-fake-pane-host"]');
+  const host = button?.closest<HTMLElement>('[data-testid="workspace-pane-host"]');
   return host?.dataset.paneId ?? null;
 }
 
@@ -133,7 +133,7 @@ function handlePaneChromeActionClick({
 }
 
 function paneChromeActionButtonPaneId(button: HTMLButtonElement | null): string | null {
-  const host = button?.closest<HTMLElement>('[data-testid="workspace-fake-pane-host"]');
+  const host = button?.closest<HTMLElement>('[data-testid="workspace-pane-host"]');
   return button?.dataset.paneId ?? host?.dataset.paneId ?? null;
 }
 

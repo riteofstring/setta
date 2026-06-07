@@ -1,5 +1,5 @@
 import type { Conversation, ListConversationsResponse, ReasoningEffort } from "@generated/backend";
-import type { ChatCommandExecutionOptions } from "@shared/types";
+import type { BackendProcessStatus, ChatCommandExecutionOptions } from "@shared/types";
 import { create } from "zustand";
 
 import { applyChatEvent } from "./chat-events";
@@ -9,6 +9,7 @@ import {
   conversationListLoadingPatch,
   conversationUpdatedSummaryPatch,
 } from "./chat-store-conversation-lists";
+import { ChatBackendLifecycleAbort } from "./chat-store-backend-lifecycle";
 import { conversationDetailPatch, normalizeStatePatch } from "./chat-store-detail-cache";
 import {
   activeRunFromPage,
@@ -25,7 +26,6 @@ import {
   emptyConversationPatch,
   operationPagePatch,
   pagePatch,
-  resyncPagePatch,
   runOperationPatch,
 } from "./chat-store-page-patches";
 import {
@@ -52,6 +52,7 @@ import {
   persistSelectedConversation,
 } from "./chat-store-helpers";
 import type { ChatPatch, ChatStore } from "./chat-store-types";
+import { createChatResyncController } from "./chat-store-resync";
 
 export { prependOlderMessages };
 export type { WorkspaceConversationListState } from "./chat-store-conversation-lists";
@@ -62,6 +63,8 @@ const pageLimit = 40;
 
 export const useChatStore = create<ChatStore>((set, get) => {
   const operations = createChatOperationTracker();
+  let backendOnline = true;
+  let backendGeneration = 0;
 
   function beginOperation(
     scope: ChatOperationScope,
@@ -101,9 +104,47 @@ export const useChatStore = create<ChatStore>((set, get) => {
     });
   }
 
-  async function loadConversationPageSnapshot(workspaceId: string, conversation: Conversation) {
+  function backendReadGeneration(): number {
+    if (!backendOnline) {
+      throw new ChatBackendLifecycleAbort();
+    }
+    return backendGeneration;
+  }
+
+  function assertBackendReadCurrent(generation: number) {
+    if (!backendOnline || generation !== backendGeneration) {
+      throw new ChatBackendLifecycleAbort();
+    }
+  }
+
+  function cancelEventResyncOperation(patch: ChatPatch = {}) {
+    set((current) => normalizeStatePatch(current, operations.cancelScopes(["eventResync"], patch)));
+  }
+
+  function updateBackendLifecycle(status: BackendProcessStatus) {
+    const wasOnline = backendOnline;
+    backendGeneration += 1;
+    backendOnline = status.status === "online";
+    if (!backendOnline) {
+      resync.clearQueuedResync();
+      cancelEventResyncOperation({});
+      return;
+    }
+    if (!wasOnline && get().workspaceId) {
+      void get().resyncActiveConversation();
+    }
+  }
+
+  async function loadConversationPageSnapshot(
+    workspaceId: string,
+    conversation: Conversation,
+    generation = backendReadGeneration(),
+  ) {
+    assertBackendReadCurrent(generation);
     const page = await window.setta.chat.messagePage(workspaceId, conversation.id, 0, pageLimit);
+    assertBackendReadCurrent(generation);
     const active = await window.setta.chat.activeRun(workspaceId, conversation.id);
+    assertBackendReadCurrent(generation);
     return {
       activeRun: active.hasActiveRun ? active.run : null,
       page,
@@ -115,9 +156,25 @@ export const useChatStore = create<ChatStore>((set, get) => {
     return pagePatch(snapshot.page, snapshot.activeRun);
   }
 
-  async function reloadConversations(workspaceId: string) {
-    return window.setta.chat.listConversations(workspaceId);
+  async function reloadConversations(workspaceId: string, generation = backendReadGeneration()) {
+    assertBackendReadCurrent(generation);
+    const list = await window.setta.chat.listConversations(workspaceId);
+    assertBackendReadCurrent(generation);
+    return list;
   }
+
+  const resync = createChatResyncController({
+    assertBackendReadCurrent,
+    backendOnline: () => backendOnline,
+    backendReadGeneration,
+    beginOperation,
+    cancelEventResyncOperation,
+    commitCurrent,
+    commitCurrentFromState,
+    get,
+    loadConversationPageSnapshot,
+    reloadConversations,
+  });
 
   async function deletedConversationSelectionPatch(
     workspaceId: string,
@@ -351,6 +408,9 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     hasMoreOlder: false,
+    handleBackendProcessStatus: (status) => {
+      updateBackendLifecycle(status);
+    },
     handleEvent: (event) => {
       const state = get();
       if (event.type === "chat.resync_required") {
@@ -527,8 +587,15 @@ export const useChatStore = create<ChatStore>((set, get) => {
     lastEventSequence: 0,
     lastEventStreamId: "",
     markConversationRead: async (conversationId: string) => {
-      const { workspaceId } = get();
+      const { conversations, workspaceId } = get();
       if (!workspaceId) {
+        return;
+      }
+      const conversationInWorkspace = conversations.some(
+        (item) =>
+          item.conversation.id === conversationId && item.conversation.workspaceId === workspaceId,
+      );
+      if (!conversationInWorkspace) {
         return;
       }
       try {
@@ -728,34 +795,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         throw error;
       }
     },
-    resyncActiveConversation: async () => {
-      const { selectedConversation, workspaceId } = get();
-      if (!workspaceId) {
-        return;
-      }
-      const operation = beginOperation("eventResync", { error: null, operation: "refreshing" });
-      try {
-        const list = await reloadConversations(workspaceId);
-        const nextConversation = selectedConversation
-          ? (list.conversations.find((item) => item.conversation.id === selectedConversation.id)
-              ?.conversation ?? selectedConversation)
-          : (list.conversations[0]?.conversation ?? null);
-        const snapshot = nextConversation
-          ? await loadConversationPageSnapshot(workspaceId, nextConversation)
-          : null;
-        commitCurrentFromState(operation, (current) => ({
-          ...(snapshot
-            ? resyncPagePatch(current, snapshot.page, snapshot.activeRun)
-            : emptyConversationPatch()),
-          ...conversationListLoadedPatch(current, workspaceId, list, true),
-          operation: null,
-          selectedConversation: nextConversation,
-          status: "ready",
-        }));
-      } catch (error) {
-        commitCurrent(operation, errorPatch(error));
-      }
-    },
+    resyncActiveConversation: resync.resyncActiveConversation,
     selectConversation: async (conversationId: string, targetWorkspaceId?: string) => {
       const request = conversationSelectionRequest(get(), conversationId, targetWorkspaceId);
       if (!request) {

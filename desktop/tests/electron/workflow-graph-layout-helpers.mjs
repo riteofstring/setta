@@ -1,6 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
+  dispatchMouseClick as dispatchCdpMouseClick,
   dispatchMouseDrag as dispatchCdpMouseDrag,
   dispatchWheel as dispatchCdpWheel,
   waitForState,
@@ -21,39 +22,16 @@ export async function openWorkflowGraphPane(client, { timeoutMs } = {}) {
   );
 }
 
-export async function maximizeWorkflowGraphPane(client, { timeoutMs } = {}) {
-  const surfaceId = await client.driver("maximizeWorkflowGraphPane");
-  await waitForWorkflowGraphPaneSettled(client, surfaceId, timeoutMs);
-  return surfaceId;
+export async function maximizeWorkflowGraphPane(client, { surfaceId = null, timeoutMs } = {}) {
+  const maximizedSurfaceId = await client.driver("maximizeWorkflowGraphPane", { surfaceId });
+  await waitForWorkflowGraphPaneSettled(client, maximizedSurfaceId, timeoutMs);
+  return maximizedSurfaceId;
 }
 
 export async function dispatchWorkflowGraphMouseClick(client, surfaceId, { modifiers = 0, x, y }) {
-  const point = await pagePointForCanvasPoint(client, surfaceId, { x, y });
-  await client.call("Input.dispatchMouseEvent", {
-    button: "none",
+  await dispatchCdpMouseClick(client, {
+    ...(await pagePointForCanvasPoint(client, surfaceId, { x, y })),
     modifiers,
-    type: "mouseMoved",
-    x: point.x,
-    y: point.y,
-  });
-  await client.call("Input.dispatchMouseEvent", {
-    button: "left",
-    buttons: 1,
-    clickCount: 1,
-    modifiers,
-    type: "mousePressed",
-    x: point.x,
-    y: point.y,
-  });
-  await delay(16);
-  await client.call("Input.dispatchMouseEvent", {
-    button: "left",
-    buttons: 0,
-    clickCount: 1,
-    modifiers,
-    type: "mouseReleased",
-    x: point.x,
-    y: point.y,
   });
 }
 

@@ -1,3 +1,4 @@
+import { productSurfaceKinds } from "./types";
 import type {
   ColumnWidthSpec,
   WorkspaceColumn,
@@ -5,36 +6,19 @@ import type {
   WorkspaceScene,
   PaneLimitPolicy,
   PaneId,
-  SurfaceKind,
+  ProductSurfaceKind,
 } from "./types";
 
 const realWorkspaceVisibleColumnCount = 3;
 const realWorkspaceStorageVersion = 4;
 const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
 const realWorkspaceRenderOverscanColumns = 2;
-const paneSurfaceKinds = [
-  "browser",
-  "chat-dom",
-  "empty-frame",
-  "fake-dom",
-  "fake-heavy-dom",
-  "fake-long-chat",
-  "fake-terminal",
-  "git-graph",
-  "workflow-graph",
-  "settings-dom",
-  "snapshot",
-  "terminal",
-  "workflow-node-details",
-  "workflow-settings",
-] satisfies SurfaceKind[];
+const realWorkspaceSurfaceKinds = productSurfaceKinds;
 const paneTones = ["cyan", "green", "orange", "pink", "slate"] satisfies Array<
   WorkspacePane["tone"]
 >;
 export const defaultRealWorkspacePaneLimits = {
-  browser: 10,
   "chat-dom": 10,
-  "git-graph": 1,
   "workflow-graph": 10,
   "settings-dom": 1,
   terminal: 10,
@@ -49,7 +33,13 @@ export interface RealWorkspaceSceneOptions {
 
 export interface RealWorkspaceSceneResult {
   focusedPaneId: PaneId;
+  layoutRecovery: WorkspaceLayoutRecovery | null;
   scene: WorkspaceScene;
+}
+
+interface WorkspaceLayoutRecovery {
+  message: string;
+  storageKey: string;
 }
 
 interface StoredWorkspaceLayout {
@@ -63,7 +53,7 @@ interface CreatePaneInput {
   columnId: string;
   sequence: number;
   subtitle: string;
-  surfaceKind: SurfaceKind;
+  surfaceKind: ProductSurfaceKind;
   title: string;
   tone: WorkspacePane["tone"];
   weight?: number;
@@ -74,16 +64,18 @@ export function createRealWorkspaceScene({
   workspaceName,
 }: RealWorkspaceSceneOptions): RealWorkspaceSceneResult {
   const stored = readStoredWorkspaceLayout(storageKey);
-  if (stored) {
-    const scene = sceneFromPanesAndColumns(storageKey, stored.panes, stored.columns);
+  if (stored.layout) {
+    const scene = sceneFromPanesAndColumns(storageKey, stored.layout.panes, stored.layout.columns);
     return {
-      focusedPaneId: focusedPaneIdForScene(scene, stored.focusedPaneId),
+      focusedPaneId: focusedPaneIdForScene(scene, stored.layout.focusedPaneId),
+      layoutRecovery: stored.recovery,
       scene,
     };
   }
   const scene = createDefaultRealWorkspaceScene(storageKey, workspaceName);
   return {
     focusedPaneId: focusedPaneIdForScene(scene),
+    layoutRecovery: stored.recovery,
     scene,
   };
 }
@@ -130,18 +122,18 @@ function createDefaultRealWorkspaceScene(
     createPane({
       columnId: "workspace_column_1",
       sequence: 1,
-      subtitle: "focused native browser proxy",
-      surfaceKind: "browser",
-      title: "Browser",
-      tone: "orange",
-    }),
-    createPane({
-      columnId: "workspace_column_2",
-      sequence: 2,
       subtitle: "workspace command surface",
       surfaceKind: "terminal",
       title: "Terminal",
       tone: "green",
+    }),
+    createPane({
+      columnId: "workspace_column_2",
+      sequence: 2,
+      subtitle: "workflow graph",
+      surfaceKind: "workflow-graph",
+      title: "Workflow Graph",
+      tone: "cyan",
     }),
     createPane({
       columnId: "workspace_column_3",
@@ -151,79 +143,20 @@ function createDefaultRealWorkspaceScene(
       title: "Settings",
       tone: "slate",
     }),
-    createPane({
-      columnId: "workspace_column_4",
-      sequence: 4,
-      subtitle: "repository graph placeholder",
-      surfaceKind: "git-graph",
-      title: "Git Graph",
-      tone: "pink",
-    }),
-    createPane({
-      columnId: "workspace_column_5",
-      sequence: 5,
-      subtitle: "workflow graph",
-      surfaceKind: "workflow-graph",
-      title: "Workflow Graph",
-      tone: "cyan",
-    }),
   ];
-  return sceneFromPanesAndColumns(storageKey, panes, [
-    {
-      columnId: "workspace_column_0",
+  return sceneFromPanesAndColumns(
+    storageKey,
+    panes,
+    panes.map((pane, index) => ({
+      columnId: pane.columnId,
       idealWidthSpec: defaultRealColumnWidth,
-      index: 0,
-      paneIds: ["workspace_pane_0"],
+      index,
+      paneIds: [pane.paneId],
       planeIndex: 0,
-      slotIndex: 0,
+      slotIndex: index,
       widthSpec: defaultRealColumnWidth,
-    },
-    {
-      columnId: "workspace_column_1",
-      idealWidthSpec: defaultRealColumnWidth,
-      index: 1,
-      paneIds: ["workspace_pane_1"],
-      planeIndex: 0,
-      slotIndex: 1,
-      widthSpec: defaultRealColumnWidth,
-    },
-    {
-      columnId: "workspace_column_2",
-      idealWidthSpec: defaultRealColumnWidth,
-      index: 2,
-      paneIds: ["workspace_pane_2"],
-      planeIndex: 0,
-      slotIndex: 2,
-      widthSpec: defaultRealColumnWidth,
-    },
-    {
-      columnId: "workspace_column_3",
-      idealWidthSpec: defaultRealColumnWidth,
-      index: 3,
-      paneIds: ["workspace_pane_3"],
-      planeIndex: 0,
-      slotIndex: 3,
-      widthSpec: defaultRealColumnWidth,
-    },
-    {
-      columnId: "workspace_column_4",
-      idealWidthSpec: defaultRealColumnWidth,
-      index: 4,
-      paneIds: ["workspace_pane_4"],
-      planeIndex: 0,
-      slotIndex: 4,
-      widthSpec: defaultRealColumnWidth,
-    },
-    {
-      columnId: "workspace_column_5",
-      idealWidthSpec: defaultRealColumnWidth,
-      index: 5,
-      paneIds: ["workspace_pane_5"],
-      planeIndex: 0,
-      slotIndex: 5,
-      widthSpec: defaultRealColumnWidth,
-    },
-  ]);
+    })),
+  );
 }
 
 function createPane({
@@ -335,20 +268,50 @@ function uniqueSurfaceId(pane: WorkspacePane, usedSurfaceIds: Set<string>): stri
   return candidate;
 }
 
-function readStoredWorkspaceLayout(storageKey: string): StoredWorkspaceLayout | null {
+function readStoredWorkspaceLayout(storageKey: string): {
+  layout: StoredWorkspaceLayout | null;
+  recovery: WorkspaceLayoutRecovery | null;
+} {
   const storage = browserLocalStorage();
   if (!storage) {
-    return null;
+    return { layout: null, recovery: null };
   }
   const raw = storage.getItem(storageKey);
   if (!raw) {
-    return null;
+    return { layout: null, recovery: null };
   }
-  const parsed = JSON.parse(raw) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return resetStoredWorkspaceLayout(storage, storageKey, "Saved workspace layout was not JSON.");
+  }
   if (!isStoredWorkspaceLayout(parsed)) {
-    throw new Error(`invalid workspace layout layout in localStorage key ${storageKey}`);
+    return resetStoredWorkspaceLayout(
+      storage,
+      storageKey,
+      "Saved workspace layout did not match the current product layout contract.",
+    );
   }
-  return parsed;
+  return { layout: parsed, recovery: null };
+}
+
+function resetStoredWorkspaceLayout(
+  storage: Storage,
+  storageKey: string,
+  reason: string,
+): {
+  layout: StoredWorkspaceLayout | null;
+  recovery: WorkspaceLayoutRecovery | null;
+} {
+  storage.removeItem(storageKey);
+  return {
+    layout: null,
+    recovery: {
+      message: `${reason} The layout was reset.`,
+      storageKey,
+    },
+  };
 }
 
 function browserLocalStorage(): Storage | null {
@@ -397,7 +360,7 @@ function hasStoredPaneIdentity(candidate: Partial<WorkspacePane>): boolean {
 function hasStoredPaneContent(candidate: Partial<WorkspacePane>): boolean {
   return (
     typeof candidate.subtitle === "string" &&
-    isSurfaceKind(candidate.surfaceKind) &&
+    isRealWorkspaceSurfaceKind(candidate.surfaceKind) &&
     typeof candidate.title === "string" &&
     isPaneTone(candidate.tone)
   );
@@ -455,8 +418,10 @@ function isColumnWidthSpec(value: unknown): value is ColumnWidthSpec {
   );
 }
 
-function isSurfaceKind(value: unknown): value is SurfaceKind {
-  return typeof value === "string" && paneSurfaceKinds.includes(value as SurfaceKind);
+function isRealWorkspaceSurfaceKind(value: unknown): value is ProductSurfaceKind {
+  return (
+    typeof value === "string" && realWorkspaceSurfaceKinds.includes(value as ProductSurfaceKind)
+  );
 }
 
 function isPaneTone(value: unknown): value is WorkspacePane["tone"] {

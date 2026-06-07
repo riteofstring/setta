@@ -338,10 +338,9 @@
     }
   }
 
-  function maximizeWorkflowGraphPane() {
-    const surfaces = Array.from(document.querySelectorAll('[data-testid="workflow-graph"]'));
-    const surface = surfaces.filter((candidate) => elementIntersectsViewport(candidate)).at(-1);
-    const host = surface?.closest('[data-testid="workspace-fake-pane-host"]');
+  function maximizeWorkflowGraphPane({ surfaceId = null } = {}) {
+    const surface = workflowGraphSurfaceById(surfaceId) ?? activeWorkflowGraphSurface();
+    const host = surface?.closest('[data-testid="workspace-pane-host"]');
     const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
     if (!(button instanceof HTMLButtonElement)) {
       throw new Error("workflow graph maximize button is missing");
@@ -415,15 +414,15 @@
     };
   }
 
-  function workflowGraphDebugSnapshot({ surfaceId }) {
+  function workflowGraphDebugSnapshot({ includeVisual = true, surfaceId }) {
     const api = window.__settaWorkflowGraphDebug;
     if (!api) {
       throw new Error("workflow graph debug API is not installed");
     }
-    return api.getSnapshot(surfaceId);
+    return api.getSnapshot(surfaceId, { includeVisual });
   }
 
-  function workflowGraphDebugSnapshotReady({ surfaceId }) {
+  function workflowGraphDebugSnapshotReady({ includeVisual = true, surfaceId }) {
     const api = window.__settaWorkflowGraphDebug;
     if (!api) {
       return workflowGraphDebugNotReady("missing-debug-api");
@@ -432,7 +431,7 @@
     if (surfaceId && !surfaceIds.includes(surfaceId)) {
       return workflowGraphDebugNotReady("surface-not-registered", surfaceIds);
     }
-    return { ready: true, snapshot: api.getSnapshot(surfaceId) };
+    return { ready: true, snapshot: api.getSnapshot(surfaceId, { includeVisual }) };
   }
 
   function workflowGraphDebugNotReady(reason, surfaceIds = []) {
@@ -479,7 +478,7 @@
   }
 
   function openWorkflowToolbarAddMenu() {
-    const button = document.querySelector('[data-testid="workflow-add-node-button"]');
+    const button = workflowToolbarElement('[data-testid="workflow-add-node-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { ok: false, reason: "missing-or-disabled-add-button" };
     }
@@ -488,7 +487,7 @@
   }
 
   function selectWorkflowToolbarNodeType({ nodeType }) {
-    const button = document.querySelector(`[data-testid="workflow-toolbar-add-${nodeType}"]`);
+    const button = workflowToolbarElement(`[data-testid="workflow-toolbar-add-${nodeType}"]`);
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-toolbar-node-menu-item" };
     }
@@ -497,17 +496,61 @@
   }
 
   function workflowToolbarState() {
-    const state = document.querySelector('[data-testid="workflow-toolbar-state"]');
+    const state = workflowToolbarElement('[data-testid="workflow-toolbar-state"]');
     return { text: state?.textContent?.trim() ?? "" };
   }
 
   function clickWorkflowToolbarButton({ testId }) {
-    const button = document.querySelector(`[data-testid="${testId}"]`);
+    const button = workflowToolbarElement(`[data-testid="${testId}"]`);
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { ok: false, reason: "button-unavailable" };
     }
     button.click();
     return { ok: true };
+  }
+
+  function workflowToolbarElement(selector) {
+    return activeWorkflowGraphHost()?.querySelector(selector) ?? document.querySelector(selector);
+  }
+
+  function activeWorkflowGraphSurface() {
+    const host = activeWorkflowGraphHost();
+    return host?.querySelector('[data-testid="workflow-graph"]') ?? null;
+  }
+
+  function activeWorkflowGraphHost() {
+    const hostSelectors = [
+      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"][data-visible="true"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"]',
+      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-focused="true"][data-visible="true"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"]',
+      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-visible="true"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"]',
+      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"][data-visible="true"]',
+      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-focused="true"][data-visible="true"]',
+      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-visible="true"]',
+    ];
+    for (const selector of hostSelectors) {
+      const host = document.querySelector(selector);
+      if (host instanceof HTMLElement) {
+        return host;
+      }
+    }
+    return null;
+  }
+
+  function workflowGraphHostBySurfaceId(surfaceId) {
+    return (
+      workflowGraphSurfaceById(surfaceId)?.closest('[data-testid="workspace-pane-host"]') ?? null
+    );
+  }
+
+  function workflowGraphSurfaceById(surfaceId) {
+    if (!surfaceId) {
+      return null;
+    }
+    return (
+      Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).find(
+        (candidate) => candidate.dataset.surfaceId === surfaceId,
+      ) ?? null
+    );
   }
 
   async function renameWorkflowDefinitionFromCurrentGraph({
@@ -528,7 +571,7 @@
 
   function restoreMaximizedWorkflowGraphPane() {
     const host = document.querySelector(
-      '[data-testid="workspace-fake-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"]',
+      '[data-testid="workspace-pane-host"][data-surface-kind="workflow-graph"][data-maximized="true"]',
     );
     const button = host?.querySelector('[data-workspace-pane-maximize-button="true"]');
     if (!(button instanceof HTMLButtonElement)) {
@@ -538,10 +581,8 @@
     return true;
   }
 
-  function workflowGraphPaneState() {
-    const host = document.querySelector(
-      '[data-testid="workspace-fake-pane-host"][data-surface-kind="workflow-graph"]',
-    );
+  function workflowGraphPaneState({ surfaceId = null } = {}) {
+    const host = workflowGraphHostBySurfaceId(surfaceId) ?? activeWorkflowGraphHost();
     return {
       focused: host instanceof HTMLElement ? host.dataset.focused === "true" : false,
       maximized: host instanceof HTMLElement ? host.dataset.maximized === "true" : false,
@@ -567,20 +608,63 @@
   }
 
   function workflowNodeDetailsButtonState() {
-    const button = document.querySelector('[data-testid="workflow-node-details-button"]');
+    const button = workflowToolbarElement('[data-testid="workflow-node-details-button"]');
     return {
       disabled: button instanceof HTMLButtonElement ? button.disabled : true,
       text: button?.textContent?.trim() ?? "",
     };
   }
 
+  function workflowNodeDetailsButtonRect() {
+    const button = workflowToolbarElement('[data-testid="workflow-node-details-button"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-details-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-details-button" };
+    }
+    const rect = button.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0 || !elementIntersectsViewport(button)) {
+      return {
+        ok: false,
+        reason: "details-button-not-visible",
+        rect: elementRect(button),
+      };
+    }
+    return {
+      ok: true,
+      height: rect.height,
+      text: button.textContent?.trim() ?? "",
+      width: rect.width,
+      x: Math.round(clamp(rect.left + rect.width / 2, 8, window.innerWidth - 8)),
+      y: Math.round(clamp(rect.top + rect.height / 2, 8, window.innerHeight - 8)),
+    };
+  }
+
   function clickWorkflowNodeDetailsButton() {
-    const button = document.querySelector('[data-testid="workflow-node-details-button"]');
+    const button = workflowToolbarElement('[data-testid="workflow-node-details-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { ok: false, reason: "details-button-unavailable" };
     }
     button.click();
     return { ok: true };
+  }
+
+  function workflowNodeDetailsSurfaceState() {
+    return {
+      exists: Boolean(document.querySelector('[data-testid="workflow-node-details-surface"]')),
+      hosts: [...document.querySelectorAll('[data-testid="workspace-pane-host"]')].map((host) => ({
+        focused: host.getAttribute("data-focused"),
+        maximized: host.getAttribute("data-maximized"),
+        paneId: host.getAttribute("data-pane-id"),
+        surfaceFrozen: host.getAttribute("data-surface-frozen"),
+        surfaceKind: host.getAttribute("data-surface-kind"),
+        surfaceVisible: host.getAttribute("data-surface-visible"),
+        title: host.querySelector(".workspace-pane-title")?.textContent?.trim() ?? "",
+        visible: host.getAttribute("data-visible"),
+      })),
+      toolbar: workflowNodeDetailsButtonState(),
+    };
   }
 
   function workflowRunDetailsText() {
@@ -592,7 +676,7 @@
     const root = Array.from(document.querySelectorAll('[data-testid="workflow-graph"]')).find(
       (candidate) => candidate.dataset.surfaceId === surfaceId,
     );
-    const host = root?.closest('[data-testid="workspace-fake-pane-host"]');
+    const host = root?.closest('[data-testid="workspace-pane-host"]');
     const canvas = root?.querySelector('[data-testid="workflow-graph-canvas"]');
     const rect = canvas instanceof HTMLCanvasElement ? canvas.getBoundingClientRect() : null;
     return {
@@ -776,7 +860,7 @@
   function activeTerminalHost() {
     const hosts = Array.from(
       document.querySelectorAll(
-        '[data-testid="workspace-fake-pane-host"][data-surface-kind="terminal"]',
+        '[data-testid="workspace-pane-host"][data-surface-kind="terminal"]',
       ),
     ).filter((host) => host instanceof HTMLElement);
     return (
@@ -805,20 +889,31 @@
 
   function paneChromeEdgeFocusPoint({ paneId }) {
     const host = document.querySelector(
-      `[data-testid="workspace-fake-pane-host"][data-pane-id="${cssEscape(paneId)}"][data-visible="true"]`,
+      `[data-testid="workspace-pane-host"][data-pane-id="${cssEscape(paneId)}"][data-visible="true"]`,
     );
     if (!(host instanceof HTMLElement)) {
       return { ok: false, reason: "missing-visible-pane-host" };
     }
+    return paneChromeEdgeFocusPointForHost(host);
+  }
+
+  function paneChromeEdgeFocusPointForHost(host) {
     const rect = host.getBoundingClientRect();
-    const y = rect.top + 15;
+    const candidates = [];
+    const topY = rect.top + 15;
+    for (const ratio of [0.5, 0.25, 0.75]) {
+      candidates.push({ x: rect.left + rect.width * ratio, y: topY });
+    }
     for (let inset = 11; inset >= 2; inset -= 1) {
-      const x = rect.left + inset;
+      candidates.push({ x: rect.left + inset, y: topY });
+      candidates.push({ x: rect.right - inset, y: topY });
+    }
+    for (const { x, y } of candidates) {
       const element = document.elementFromPoint(x, y);
       if (
         element instanceof Element &&
         !element.closest("[data-workspace-pane-resize-axis]") &&
-        element.closest('[data-testid="workspace-fake-pane-host"]') === host
+        element.closest('[data-testid="workspace-pane-host"]') === host
       ) {
         return { ok: true, x, y };
       }
@@ -985,7 +1080,9 @@
     workflowGraphMenuItemExists,
     workflowGraphPaneSettled,
     workflowGraphPaneState,
+    workflowNodeDetailsButtonRect,
     workflowNodeDetailsButtonState,
+    workflowNodeDetailsSurfaceState,
     workflowRunDetailsText,
     workflowToolbarState,
     workflowWorkspaceSessionState,

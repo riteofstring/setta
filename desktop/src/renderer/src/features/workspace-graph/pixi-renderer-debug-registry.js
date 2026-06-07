@@ -22,8 +22,8 @@ function ensureWorkflowGraphDebugApi() {
   const renderers = new Map();
   const api = {
     __renderers: renderers,
-    getSnapshot(surfaceId) {
-      return resolveWorkflowGraphDebugSurface(renderers, surfaceId)();
+    getSnapshot(surfaceId, options) {
+      return resolveWorkflowGraphDebugSurface(renderers, surfaceId)(options);
     },
     getSnapshots() {
       return Object.fromEntries(

@@ -1,7 +1,5 @@
 import {
-  AppWindow,
   Columns2,
-  GitBranch,
   MessageSquarePlus,
   Plus,
   Settings,
@@ -100,12 +98,6 @@ export const openPaneActions = [
     shortcutKey: "c",
   },
   {
-    Icon: AppWindow,
-    label: "Browser",
-    request: openPaneRequest("Browser", "native browser proxy", "browser", "orange"),
-    shortcutKey: "b",
-  },
-  {
     Icon: Terminal,
     label: "Terminal",
     request: openPaneRequest("Terminal", "command surface", "terminal", "green"),
@@ -116,12 +108,6 @@ export const openPaneActions = [
     label: "Settings",
     request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
     shortcutKey: "s",
-  },
-  {
-    Icon: GitBranch,
-    label: "Git Graph",
-    request: openPaneRequest("Git Graph", "repository graph", "git-graph", "pink"),
-    shortcutKey: "g",
   },
   {
     Icon: Columns2,
@@ -152,7 +138,7 @@ export function emptyFrameOptionsForStore(store: WorkspaceLayoutStore): EmptyFra
       disabled: !limitState.allowed,
       label,
       meta: meta.length > 0 ? meta.join(" ") : undefined,
-      surfaceKind: request.surfaceKind ?? "fake-dom",
+      surfaceKind: request.surfaceKind ?? "empty-frame",
     };
   });
 }

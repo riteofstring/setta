@@ -217,6 +217,35 @@ export async function dispatchMouseDrag(client, { from, modifiers = 0, steps = 1
   });
 }
 
+export async function dispatchMouseClick(client, { modifiers = 0, x, y }) {
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    modifiers,
+    type: "mouseMoved",
+    x,
+    y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    modifiers,
+    type: "mousePressed",
+    x,
+    y,
+  });
+  await delay(16);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    modifiers,
+    type: "mouseReleased",
+    x,
+    y,
+  });
+}
+
 export async function dispatchWheel(client, { deltaX = 0, deltaY = 0, modifiers = 0, x, y }) {
   await client.call("Input.dispatchMouseEvent", {
     deltaX,

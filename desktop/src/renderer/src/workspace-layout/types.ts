@@ -2,21 +2,26 @@ export type PaneId = string;
 export type ColumnId = string;
 export type SurfaceId = string;
 
-export type SurfaceKind =
+export const productSurfaceKinds = [
+  "chat-dom",
+  "empty-frame",
+  "workflow-graph",
+  "settings-dom",
+  "terminal",
+  "workflow-node-details",
+  "workflow-settings",
+] as const;
+
+export type ProductSurfaceKind = (typeof productSurfaceKinds)[number];
+type DiagnosticSurfaceKind =
   | "browser"
-  | "chat-dom"
-  | "empty-frame"
   | "fake-dom"
   | "fake-heavy-dom"
   | "fake-long-chat"
   | "fake-terminal"
   | "git-graph"
-  | "workflow-graph"
-  | "settings-dom"
-  | "snapshot"
-  | "terminal"
-  | "workflow-node-details"
-  | "workflow-settings";
+  | "snapshot";
+export type SurfaceKind = ProductSurfaceKind | DiagnosticSurfaceKind;
 
 export type PaneRuntimeState = "live" | "live-throttled" | "snapshot" | "hidden" | "destroyed";
 

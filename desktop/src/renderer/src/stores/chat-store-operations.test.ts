@@ -24,6 +24,12 @@ const eventStreamId = "event_stream_test";
 describe("chat store operation scopes", () => {
   beforeEach(() => {
     useChatStore.setState(useChatStore.getInitialState(), true);
+    useChatStore.getState().handleBackendProcessStatus({
+      message: "Backend online",
+      mode: "spawned",
+      status: "online",
+      url: "http://127.0.0.1:1",
+    });
   });
 
   test("attaches promoted assistant message events to queued transcript turns", () => {
@@ -139,6 +145,59 @@ describe("chat store operation scopes", () => {
 
     expect(useChatStore.getState().activeRun?.id).toBe(run.id);
     expect(useChatStore.getState().messagesById[sentUser.id]?.parts[0]?.text).toBe("overlap send");
+    expect(useChatStore.getState().operation).toBeNull();
+  });
+
+  test("backend offline status prevents event resync backend calls", async () => {
+    const conversation = testConversation();
+    const listConversations = vi
+      .fn()
+      .mockResolvedValue(listResponse([conversationItem(conversation, 1)]));
+    const messagePage = vi.fn().mockResolvedValue(testPage(conversation, []));
+    installSettaAPI({ chat: { listConversations, messagePage } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore
+      .getState()
+      .handleBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
+    await useChatStore.getState().resyncActiveConversation();
+
+    expect(listConversations).not.toHaveBeenCalled();
+    expect(messagePage).not.toHaveBeenCalled();
+    expect(useChatStore.getState().operation).toBeNull();
+  });
+
+  test("backend offline status cancels stale resync before active run lookup", async () => {
+    const conversation = testConversation();
+    const resyncPage = deferred<MessagePage>();
+    const activeRun = vi.fn().mockResolvedValue({ hasActiveRun: false, run: null });
+    const messagePage = vi.fn().mockReturnValue(resyncPage.promise);
+    installSettaAPI({
+      chat: {
+        activeRun,
+        listConversations: async () => listResponse([conversationItem(conversation, 1)]),
+        messagePage,
+      },
+    });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    const resync = useChatStore.getState().resyncActiveConversation();
+    await waitFor(() => messagePage.mock.calls.length === 1);
+    useChatStore
+      .getState()
+      .handleBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
+    resyncPage.resolve(testPage(conversation, []));
+    await resync;
+
+    expect(activeRun).not.toHaveBeenCalled();
     expect(useChatStore.getState().operation).toBeNull();
   });
 

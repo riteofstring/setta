@@ -516,7 +516,7 @@ function workspaceChatSurfaceReadyExpression() {
   return `(() => {
     const workspace = document.querySelector('[data-testid="workspace-layout-area"]');
     const chatSurface = document.querySelector('[data-testid="workspace-chat-dom-surface"]');
-    const host = chatSurface?.closest('[data-testid="workspace-fake-pane-host"]');
+    const host = chatSurface?.closest('[data-testid="workspace-pane-host"]');
     return {
       chatMounted: Boolean(document.querySelector('[data-testid="chat-detail-pane"]')),
       hostMoving: host?.getAttribute("data-moving") ?? "",

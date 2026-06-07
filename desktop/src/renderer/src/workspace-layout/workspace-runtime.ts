@@ -70,6 +70,7 @@ export function createWorkspaceRuntime({
     browserPaneCount,
     engine,
     hostPoolSize: hostPoolSizeForRuntime(mode),
+    layoutRecovery: realScene?.layoutRecovery ?? null,
     layoutStorageKey,
     metrics,
     mode,

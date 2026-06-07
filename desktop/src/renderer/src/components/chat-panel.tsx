@@ -6,7 +6,11 @@ import { useEffect } from "react";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
 import { Composer } from "./chat-composer";
-import { chatReadableColumnClass, chatReadableColumnPaddedClass } from "./chat-layout";
+import {
+  chatReadableColumnAttributes,
+  chatReadableColumnClass,
+  chatReadableColumnPaddedClass,
+} from "./chat-layout";
 import { ChatTranscript } from "./chat-transcript";
 
 export {
@@ -279,6 +283,7 @@ function GoalStatus({ goal }: { goal: ChatView["goal"] }) {
   return (
     <div className="shrink-0 border-b border-border bg-background" title={title}>
       <div
+        {...chatReadableColumnAttributes}
         className={cn(
           chatReadableColumnPaddedClass,
           "flex h-8 items-center gap-2 text-xs text-muted-foreground",
@@ -329,6 +334,7 @@ function ChatLoadError({ message }: { message: string }) {
   return (
     <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-3">
       <div
+        {...chatReadableColumnAttributes}
         className={cn(
           chatReadableColumnPaddedClass,
           "rounded-sm border border-border bg-popover py-3 text-sm break-words text-popover-foreground",
@@ -345,7 +351,11 @@ function ChatLoadError({ message }: { message: string }) {
 function EmptyConversation({ label }: { label: string }) {
   return (
     <div className="grid min-h-0 min-w-0 flex-1 place-items-center px-3 text-center text-xs text-muted-foreground">
-      <div className={cn(chatReadableColumnClass, "py-16")} data-testid="empty-chat">
+      <div
+        {...chatReadableColumnAttributes}
+        className={cn(chatReadableColumnClass, "py-16")}
+        data-testid="empty-chat"
+      >
         {label}
       </div>
     </div>
@@ -358,7 +368,10 @@ function ChatError({ message }: { message: string | null }) {
   }
   return (
     <div className="border-t border-border bg-background">
-      <div className={cn(chatReadableColumnPaddedClass, "py-1.5 text-xs text-foreground")}>
+      <div
+        {...chatReadableColumnAttributes}
+        className={cn(chatReadableColumnPaddedClass, "py-1.5 text-xs text-foreground")}
+      >
         {message}
       </div>
     </div>
@@ -425,9 +438,14 @@ export function useChatViewState() {
         .map((message) => message.id)
     : [];
 
-  const selectedConversationSummary = selectedConversation
-    ? conversations.find((item) => item.conversation.id === selectedConversation.id)
-    : null;
+  const selectedConversationSummary =
+    selectedConversation?.workspaceId === storeWorkspaceId
+      ? conversations.find(
+          (item) =>
+            item.conversation.id === selectedConversation.id &&
+            item.conversation.workspaceId === storeWorkspaceId,
+        )
+      : null;
   useEffect(() => {
     if (
       !selectedConversationSummary ||

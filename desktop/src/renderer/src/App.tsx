@@ -42,7 +42,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const platform = setta.app.platform;
   const viewport = useViewportSize();
   useAppearanceSettings();
-  useBackendResyncStatus(setta);
+  useBackendLifecycle(setta);
   useSelectedWorkspaceChatSync(workspace.selectedWorkspace?.id ?? null);
   const [projectPaneWidth, setProjectPaneWidth] = useState(projectPaneDefaultWidth);
   const [projectPaneOpen, setProjectPaneOpen] = useState(true);
@@ -156,7 +156,13 @@ function AppRuntimeContractError() {
   );
 }
 
-function useBackendResyncStatus(setta: SettaAPI) {
+function useBackendLifecycle(setta: SettaAPI) {
+  useEffect(() => {
+    return setta.backend.onProcessStatus((processStatus) => {
+      useChatStore.getState().handleBackendProcessStatus(processStatus);
+    });
+  }, [setta]);
+
   useEffect(() => {
     return setta.backend.onEventStreamStatus((eventStream) => {
       if (eventStream.status === "resyncing") {
@@ -261,6 +267,7 @@ function ProjectPane({
           activeWorkspaces={workspace.activeWorkspaces}
           busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
           chromeInsetTop={chromeInsetTop}
+          clearWorkspaceError={workspace.clearError}
           closeWorkspace={workspace.closeWorkspace}
           createConversation={createConversation}
           createWorkspaceConversation={createWorkspaceConversation}
@@ -277,6 +284,7 @@ function ProjectPane({
           selectedConversationId={chat.selectedConversation?.id ?? ""}
           selectedWorkspaceId={workspace.selectedWorkspaceId}
           sidebarWidth={width}
+          workspaceError={workspace.error}
         />
       </div>
     </ResizablePane>
@@ -423,6 +431,7 @@ function shellTopBarDragClass(platform: DesktopPlatform) {
 }
 
 function useWorkspaceViewState() {
+  const clearError = useWorkspaceStore((state) => state.clearError);
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
   const error = useWorkspaceStore((state) => state.error);
   const loadSession = useWorkspaceStore((state) => state.loadSession);
@@ -442,6 +451,7 @@ function useWorkspaceViewState() {
   return {
     activeWorkspaces: session?.activeWorkspaces ?? [],
     busy: operation !== null || status === "loading",
+    clearError,
     closeWorkspace,
     error,
     openLocalFolder,

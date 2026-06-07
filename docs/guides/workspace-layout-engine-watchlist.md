@@ -1,9 +1,8 @@
 # Workspace Layout Engine Watchlist
 
 Use this when changing the workspace layout engine, presentation layer, or pane
-surface adapters. The archived architecture plan lives in
-`docs/archive/plans/niri_style_electron_plan_dom_preserved.md`; this guide is the
-short operational checklist.
+surface adapters. This guide is the operational checklist for current layout
+work.
 
 ## Core Rule
 

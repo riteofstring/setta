@@ -1,4 +1,5 @@
 import type { Run, WorkspaceSummary } from "@generated/backend";
+import { AlertTriangle, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -33,12 +34,48 @@ const sidebarNavigationMaxHeight = 360;
 const sidebarNavigationRowHeight = 28;
 const workspaceListOverscan = 6;
 const noScrollAnchoringStyle = { overflowAnchor: "none" } satisfies CSSProperties;
+const noop = () => {};
+
+function initialExpandedWorkspaceIds(selectedWorkspaceId: string): ReadonlySet<string> {
+  return new Set(selectedWorkspaceId ? [selectedWorkspaceId] : []);
+}
+
+function populatedRecordOrFallback<T extends Record<string, unknown>>(
+  subscribed: T,
+  fallback: T,
+): T {
+  return Object.keys(subscribed).length > 0 ? subscribed : fallback;
+}
+
+function sidebarProjectsEmpty(
+  activeWorkspaces: readonly WorkspaceSummary[],
+  inactiveRecentWorkspaces: readonly WorkspaceSummary[],
+) {
+  return activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0;
+}
+
+function sidebarVisibleError(navigationError: string | null, workspaceError: string | null) {
+  return navigationError ?? workspaceError;
+}
+
+function dismissSidebarVisibleError(
+  navigationError: string | null,
+  setNavigationError: (message: string | null) => void,
+  clearWorkspaceError: () => void,
+) {
+  if (navigationError !== null) {
+    setNavigationError(null);
+    return;
+  }
+  clearWorkspaceError();
+}
 
 interface WorkspaceSidebarProps {
   activeRun: Run | null;
   activeWorkspaces: WorkspaceSummary[];
   busy: boolean;
   chromeInsetTop?: boolean;
+  clearWorkspaceError?: () => void;
   closeWorkspace: (id: string) => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
@@ -59,6 +96,7 @@ interface WorkspaceSidebarProps {
     workspaceId?: string,
   ) => Promise<void>;
   sidebarWidth?: number;
+  workspaceError?: string | null;
 }
 
 interface VirtualWorkspaceListProps {
@@ -73,6 +111,7 @@ export function WorkspaceSidebar({
   activeWorkspaces,
   busy,
   chromeInsetTop = false,
+  clearWorkspaceError = noop,
   closeWorkspace,
   createConversation,
   createWorkspaceConversation,
@@ -89,18 +128,20 @@ export function WorkspaceSidebar({
   selectedWorkspaceId,
   setConversationPinned,
   sidebarWidth = 220,
+  workspaceError = null,
 }: WorkspaceSidebarProps) {
-  const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<ReadonlySet<string>>(
-    () => new Set(selectedWorkspaceId ? [selectedWorkspaceId] : []),
+  const [navigationError, setNavigationError] = useState<string | null>(null);
+  const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<ReadonlySet<string>>(() =>
+    initialExpandedWorkspaceIds(selectedWorkspaceId),
   );
   const subscribedWorkspaceConversationLists = useChatStore(
     (state) => state.conversationListsByWorkspaceId,
   );
   const currentWorkspaceConversationLists = useChatStore.getState().conversationListsByWorkspaceId;
-  const workspaceConversationLists =
-    Object.keys(subscribedWorkspaceConversationLists).length > 0
-      ? subscribedWorkspaceConversationLists
-      : currentWorkspaceConversationLists;
+  const workspaceConversationLists = populatedRecordOrFallback(
+    subscribedWorkspaceConversationLists,
+    currentWorkspaceConversationLists,
+  );
   const ensureWorkspaceConversationList = useChatStore(
     (state) => state.ensureWorkspaceConversationList,
   );
@@ -112,10 +153,10 @@ export function WorkspaceSidebar({
   );
   const currentWorkspaceWorkflowDefinitionLists =
     useWorkflowDefinitionStore.getState().workflowDefinitionsByWorkspaceId;
-  const workspaceWorkflowDefinitionLists =
-    Object.keys(subscribedWorkspaceWorkflowDefinitionLists).length > 0
-      ? subscribedWorkspaceWorkflowDefinitionLists
-      : currentWorkspaceWorkflowDefinitionLists;
+  const workspaceWorkflowDefinitionLists = populatedRecordOrFallback(
+    subscribedWorkspaceWorkflowDefinitionLists,
+    currentWorkspaceWorkflowDefinitionLists,
+  );
   const selectedWorkflowDefinitionIdsByWorkspaceId = useWorkflowDefinitionStore(
     (state) => state.selectedDefinitionIdsByWorkspaceId,
   );
@@ -138,7 +179,10 @@ export function WorkspaceSidebar({
     () => recentWorkspaces.filter((workspace) => !activeWorkspaceIds.has(workspace.id)),
     [activeWorkspaceIds, recentWorkspaces],
   );
-  const projectsEmpty = activeWorkspaces.length === 0 && inactiveRecentWorkspaces.length === 0;
+  const projectsEmpty = sidebarProjectsEmpty(activeWorkspaces, inactiveRecentWorkspaces);
+  const visibleError = sidebarVisibleError(navigationError, workspaceError);
+  const dismissVisibleError = () =>
+    dismissSidebarVisibleError(navigationError, setNavigationError, clearWorkspaceError);
   const [sections, setSections] =
     useState<Record<SidebarSectionId, SidebarSectionState>>(defaultSidebarSections);
 
@@ -249,6 +293,7 @@ export function WorkspaceSidebar({
             hasWorkspace={selectedWorkspaceId !== ""}
           />
         </SidebarAccordionSection>
+        <SidebarOperationError message={visibleError} onDismiss={dismissVisibleError} />
       </div>
       <div
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1"
@@ -279,6 +324,7 @@ export function WorkspaceSidebar({
                   createWorkspaceConversation={createWorkspaceConversation}
                   deleteConversation={deleteConversation}
                   expandedWorkspaceIds={expandedWorkspaceIds}
+                  onCommandError={setNavigationError}
                   openWorkflowGraphPane={openWorkflowGraphPane}
                   openWorkspacePath={openWorkspacePath}
                   recentWorkspaces={recentWorkspaces}
@@ -309,6 +355,37 @@ export function WorkspaceSidebar({
   );
 }
 
+function SidebarOperationError({
+  message,
+  onDismiss,
+}: {
+  message: string | null;
+  onDismiss: () => void;
+}) {
+  if (!message) {
+    return null;
+  }
+  return (
+    <div
+      className="mt-2 flex min-w-0 items-start gap-2 rounded-sm border border-destructive/35 bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+      data-testid="workspace-operation-error"
+      role="alert"
+    >
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="min-w-0 flex-1 break-words leading-4">{message}</div>
+      <button
+        aria-label="Dismiss workspace error"
+        className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-destructive/80 hover:bg-destructive/15 hover:text-destructive focus-visible:bg-destructive/15 focus-visible:text-destructive"
+        onClick={onDismiss}
+        title="Dismiss workspace error"
+        type="button"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 function ProjectNavigationList({
   activeRun,
   activeWorkspaces,
@@ -319,6 +396,7 @@ function ProjectNavigationList({
   createWorkspaceConversation,
   deleteConversation,
   expandedWorkspaceIds,
+  onCommandError,
   openWorkflowGraphPane,
   openWorkspacePath,
   recentWorkspaces,
@@ -343,6 +421,7 @@ function ProjectNavigationList({
   createWorkspaceConversation: (workspaceId: string, title?: string) => Promise<void>;
   deleteConversation: (conversationId: string, workspaceId?: string) => Promise<void>;
   expandedWorkspaceIds: ReadonlySet<string>;
+  onCommandError: (message: string | null) => void;
   openWorkflowGraphPane: () => void;
   openWorkspacePath: (rootPath: string) => Promise<void>;
   recentWorkspaces: WorkspaceSummary[];
@@ -401,6 +480,7 @@ function ProjectNavigationList({
   }
 
   async function runCommand(command: SidebarNavigationCommand) {
+    onCommandError(null);
     try {
       switch (command.type) {
         case "activateWorkspace":
@@ -415,8 +495,8 @@ function ProjectNavigationList({
         default:
           await runBasicNavigationCommand(command);
       }
-    } catch {
-      return;
+    } catch (error) {
+      onCommandError(errorMessage(error));
     }
   }
 
@@ -542,6 +622,10 @@ function VirtualWorkspaceList({ items, renderItem, rowHeight, testId }: VirtualW
       style={noScrollAnchoringStyle}
     />
   );
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Sidebar command failed";
 }
 
 function sidebarNavigationListStyle(itemCount: number): CSSProperties {

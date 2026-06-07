@@ -243,7 +243,7 @@ async function sampleDragRegions(client) {
       };
     }
     const paneTop = document
-      .querySelector('[data-testid="workspace-fake-pane-host"][data-visible="true"] .workspace-pane-top-bar')
+      .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-top-bar')
       ?.getBoundingClientRect();
     return [
       sample("toolbar-empty-center", 900, 12),

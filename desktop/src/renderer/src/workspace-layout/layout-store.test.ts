@@ -29,7 +29,7 @@ describe("workspace layout store", () => {
     });
 
     expect(store.getSnapshot().focusedPaneId).toBe(openedPaneId);
-    expect(store.toScene().totalPanes).toBe(7);
+    expect(store.toScene().totalPanes).toBe(5);
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
       focusedRowIndex: 0,
@@ -50,7 +50,7 @@ describe("workspace layout store", () => {
       focusedPaneId: splitPaneId,
       focusedRowIndex: 0,
     });
-    expect(afterSplit.totalPanes).toBe(7);
+    expect(afterSplit.totalPanes).toBe(5);
     expect(afterSplit.columns[1]?.paneIds).toEqual([splitPaneId]);
 
     store.moveFocus("left");
@@ -69,26 +69,26 @@ describe("workspace layout store", () => {
     const store = createStore();
 
     store.moveFocus("right");
-    const browserPaneId = store.focusedPaneId();
+    const terminalPaneId = store.focusedPaneId();
     store.moveFocusedPane("left");
 
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 0,
-      focusedPaneId: browserPaneId,
+      focusedPaneId: terminalPaneId,
       focusedRowIndex: 1,
     });
-    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", browserPaneId]);
+    expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0", terminalPaneId]);
     expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2"]);
 
     store.moveFocusedPane("right");
 
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
-      focusedPaneId: browserPaneId,
+      focusedPaneId: terminalPaneId,
       focusedRowIndex: 1,
     });
     expect(store.toScene().columns[0]?.paneIds).toEqual(["workspace_pane_0"]);
-    expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2", browserPaneId]);
+    expect(store.toScene().columns[1]?.paneIds).toEqual(["workspace_pane_2", terminalPaneId]);
   });
 
   test("moves panes up and down inside a vertical stack", () => {
@@ -120,7 +120,7 @@ describe("workspace layout store", () => {
 
     expect(store.closeFocusedPane()).toBe(splitPaneId);
     expect(store.toScene().paneById.has(splitPaneId)).toBe(false);
-    expect(store.toScene().totalPanes).toBe(6);
+    expect(store.toScene().totalPanes).toBe(4);
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
       focusedPaneId: "workspace_pane_1",
@@ -233,10 +233,10 @@ describe("workspace layout store", () => {
     const before = store.toScene().paneById.get(emptyPaneId);
 
     store.configurePane(emptyPaneId, {
-      subtitle: "native browser proxy",
-      surfaceKind: "browser",
-      title: "Browser",
-      tone: "orange",
+      subtitle: "workspace command surface",
+      surfaceKind: "terminal",
+      title: "Terminal",
+      tone: "green",
     });
 
     const scene = store.toScene();
@@ -244,10 +244,10 @@ describe("workspace layout store", () => {
     expect(configured).toMatchObject({
       paneId: emptyPaneId,
       sequence: before?.sequence,
-      subtitle: "native browser proxy",
-      surfaceKind: "browser",
-      title: "Browser",
-      tone: "orange",
+      subtitle: "workspace command surface",
+      surfaceKind: "terminal",
+      title: "Terminal",
+      tone: "green",
     });
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
     expect(scene.columns[1]?.paneIds).toEqual([emptyPaneId]);
@@ -428,14 +428,14 @@ describe("workspace layout store", () => {
     const store = new WorkspaceLayoutStore(
       new WorkspaceLikeLayoutEngine(scene),
       scene,
-      "workspace_pane_4",
+      "workspace_pane_3",
     );
 
     expect(store.getSnapshot()).toMatchObject({
-      focusedColumnIndex: 4,
-      focusedPaneId: "workspace_pane_4",
-      scrollColumn: 4,
-      targetScrollColumn: 4,
+      focusedColumnIndex: 3,
+      focusedPaneId: "workspace_pane_3",
+      scrollColumn: 3,
+      targetScrollColumn: 3,
     });
   });
 
@@ -456,19 +456,17 @@ describe("workspace layout store", () => {
   test("reorders columns by dragging a pane before an overview target", () => {
     const store = createStore();
 
-    expect(store.reorderPaneBefore("workspace_pane_4", "workspace_pane_1")).toBe(true);
+    expect(store.reorderPaneBefore("workspace_pane_3", "workspace_pane_1")).toBe(true);
 
     expect(store.toScene().columns.map((column) => column.paneIds[0])).toEqual([
       "workspace_pane_0",
-      "workspace_pane_4",
+      "workspace_pane_3",
       "workspace_pane_1",
       "workspace_pane_2",
-      "workspace_pane_3",
-      "workspace_pane_5",
     ]);
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
-      focusedPaneId: "workspace_pane_4",
+      focusedPaneId: "workspace_pane_3",
     });
   });
 
@@ -519,8 +517,6 @@ describe("workspace layout store", () => {
     expect(store.toScene().columns.map((column) => column.widthSpec)).toEqual([
       { unit: "px", value: 520 },
       { unit: "px", value: 680 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
     ]);

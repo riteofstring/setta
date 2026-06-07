@@ -72,11 +72,17 @@ function applyConversationOrWorkspaceEvent(
     case "chat.assistant_text_delta":
       return applyAssistantTextDelta(state, event);
     case "chat.run.updated":
-      return selectedConversationEventResult(state, event, {
-        activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
-        status: "ready",
-        transcript: updateTranscriptRun(state.transcript, event.payload.run),
-      });
+      return selectedConversationEventResult(
+        state,
+        event,
+        {
+          activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
+          status: "ready",
+          transcript: updateTranscriptRun(state.transcript, event.payload.run),
+        },
+        false,
+        true,
+      );
     case "chat.run_item_output.delta":
       return selectedConversationEventResult(state, event, {
         runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
@@ -98,6 +104,7 @@ function applyConversationOrWorkspaceEvent(
           transcript: queuedTranscript.transcript,
         },
         queuedTranscript.resync,
+        true,
       );
     }
     case "chat.goal.updated":
@@ -121,19 +128,25 @@ function applyMessageRemovedEvent(
   state: ChatStore,
   event: Extract<OtherChatEvent, { type: "chat.message.removed" }>,
 ) {
-  return selectedConversationEventResult(state, event, {
-    editingQueuedMessageId: clearedMessageOperationID(
-      state.editingQueuedMessageId,
-      event.payload.messageId,
-    ),
-    messages: removeMessage(state.messages, event.payload.messageId),
-    removingQueuedMessageId: clearedMessageOperationID(
-      state.removingQueuedMessageId,
-      event.payload.messageId,
-    ),
-    status: "ready",
-    transcript: removeTranscriptMessage(state.transcript, event.payload.messageId),
-  });
+  return selectedConversationEventResult(
+    state,
+    event,
+    {
+      editingQueuedMessageId: clearedMessageOperationID(
+        state.editingQueuedMessageId,
+        event.payload.messageId,
+      ),
+      messages: removeMessage(state.messages, event.payload.messageId),
+      removingQueuedMessageId: clearedMessageOperationID(
+        state.removingQueuedMessageId,
+        event.payload.messageId,
+      ),
+      status: "ready",
+      transcript: removeTranscriptMessage(state.transcript, event.payload.messageId),
+    },
+    false,
+    true,
+  );
 }
 
 function isMessageUpsertEvent(event: AppliedChatEvent): event is MessageUpsertEvent {
@@ -146,7 +159,7 @@ function isRunItemUpsertEvent(event: AppliedChatEvent): event is RunItemUpsertEv
 
 function applyMessageUpsertEvent(state: ChatStore, event: MessageUpsertEvent): EventApplyResult {
   if (!isSelectedConversationEvent(state, event)) {
-    return unchangedEventResult();
+    return unselectedConversationEventResult(state, event, true);
   }
   const updated = updateTranscriptMessage(state.transcript, event.payload.message);
   return {
@@ -171,11 +184,23 @@ function selectedConversationEventResult(
   event: ChatEvent,
   patch: ChatPatch,
   resync = false,
+  resyncUnselected = false,
 ): EventApplyResult {
   if (!isSelectedConversationEvent(state, event)) {
-    return unchangedEventResult();
+    return unselectedConversationEventResult(state, event, resyncUnselected);
   }
   return { patch, resync };
+}
+
+function unselectedConversationEventResult(
+  state: ChatStore,
+  event: ChatEvent,
+  resync: boolean,
+): EventApplyResult {
+  if (!resync || !isActiveWorkspaceConversationEvent(state, event)) {
+    return unchangedEventResult();
+  }
+  return { patch: {}, resync: true };
 }
 
 function applyAssistantTextDelta(
@@ -316,6 +341,10 @@ function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {
     state.workspaceId === event.workspaceId &&
     state.selectedConversation?.id === event.conversationId
   );
+}
+
+function isActiveWorkspaceConversationEvent(state: ChatStore, event: ChatEvent) {
+  return state.workspaceId === event.workspaceId && event.conversationId !== "";
 }
 
 function activeRunFromRunEvent(current: RunningRun | null, run: Run): RunningRun | null {

@@ -30,6 +30,7 @@ import { ChatSearchBar, type TranscriptSearchController } from "./chat-transcrip
 import { ChatTranscript, type ChatTranscriptProps } from "./chat-transcript";
 
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
+const readableColumnAttribute = 'data-chat-readable-column="true"';
 
 describe("composer keyboard behavior", () => {
   test("queues on Tab and preserves composer focus", () => {
@@ -488,7 +489,7 @@ describe("conversation body states", () => {
     );
 
     expect(html).toContain("Start a conversation for this workspace.");
-    expect(html).toContain("max-w-[42rem]");
+    expectReadableColumnElement(html, 'data-testid="empty-chat"');
     expect(html).not.toContain("What should we build in setta?");
   });
 
@@ -615,50 +616,45 @@ describe("chat readable width contract", () => {
       />,
     );
 
-    expect(transcriptHtml).toContain("max-w-[42rem]");
-    expect(transcriptHtml).toMatch(
-      /class="[^"]*max-w-\[42rem\][^"]*"[^>]*data-testid="chat-transcript-turn"/u,
+    expectReadableColumnElement(transcriptHtml, 'data-testid="chat-transcript-turn"');
+    expectReadableColumnElement(transcriptHtml, 'data-testid="chat-transcript-header"');
+    expectReadableColumnElement(
+      transcriptHtml,
+      'data-chat-message="true"',
+      'data-message-id="message_assistant"',
     );
-    expect(transcriptHtml).toMatch(
-      /class="[^"]*max-w-\[42rem\][^"]*"[^>]*data-testid="chat-transcript-header"/u,
-    );
-    expect(transcriptHtml).toMatch(
-      /class="[^"]*max-w-\[42rem\][^"]*"[^>]*data-chat-message="true"(?:(?!data-chat-message="true").)*data-testid="run-activity-group"/su,
-    );
+    expect(transcriptHtml).toContain('data-testid="run-activity-group"');
     for (const id of [
       "message_queued",
       "message_steering",
       "message_failed",
       "message_cancelled",
     ]) {
-      expect(standaloneStatesHtml).toMatch(
-        new RegExp(`class="[^"]*max-w-\\[42rem\\][^"]*"[^>]*data-message-id="${id}"`, "u"),
-      );
+      expectReadableColumnElement(standaloneStatesHtml, `data-message-id="${id}"`);
     }
     expect(standaloneStatesHtml).toContain("Queued");
     expect(standaloneStatesHtml).toContain("Steering pending");
     expect(standaloneStatesHtml).toContain("error");
     expect(standaloneStatesHtml).toContain("cancelled");
-    expect(goalHtml).toMatch(
-      /class="[^"]*max-w-\[42rem\][^"]*"[^>]*data-testid="chat-goal-status"/u,
-    );
-    expect(chatErrorHtml).toMatch(/class="[^"]*max-w-\[42rem\][^"]*"[^>]*>temporary chat error</u);
-    expect(emptyTranscriptHtml).toContain("max-w-[42rem]");
-    expect(searchHtml).toContain("max-w-[42rem]");
-    expect(composerHtml).toContain("max-w-[42rem]");
-    expect(
-      [
-        transcriptHtml,
-        standaloneStatesHtml,
-        emptyTranscriptHtml,
-        goalHtml,
-        chatErrorHtml,
-        searchHtml,
-        composerHtml,
-      ].join(" "),
-    ).not.toContain("max-w-none");
+    expectReadableColumnElement(goalHtml, 'data-testid="chat-goal-status"');
+    expectReadableColumnElement(chatErrorHtml);
+    expect(chatErrorHtml).toContain("temporary chat error");
+    expectReadableColumnElement(emptyTranscriptHtml, 'data-testid="empty-chat"');
+    expectReadableColumnElement(searchHtml);
+    expectReadableColumnElement(composerHtml);
   });
 });
+
+function expectReadableColumnElement(html: string, ...attributes: string[]) {
+  const attributeLookaheads = [readableColumnAttribute, ...attributes]
+    .map((attribute) => `(?=[^>]*${escapeRegExp(attribute)})`)
+    .join("");
+  expect(html).toMatch(new RegExp(`<[^>]*${attributeLookaheads}[^>]*>`, "u"));
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
 
 function keyboardEvent(
   key: string,

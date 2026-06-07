@@ -104,6 +104,17 @@ export function createChatOperationTracker() {
     return currentOperationIds[token.scope] === token.id;
   }
 
+  function cancelScopes<Patch extends { operation?: ChatOperation }>(
+    scopes: ChatOperationScope[],
+    patch: Patch,
+  ): Patch {
+    for (const scope of scopes) {
+      currentOperationIds[scope] = 0;
+      activeOperationByScope[scope] = null;
+    }
+    return { ...patch, operation: visibleOperation() };
+  }
+
   function visibleOperation() {
     for (const scope of visibleOperationPriority) {
       const operation = activeOperationByScope[scope];
@@ -117,6 +128,7 @@ export function createChatOperationTracker() {
   return {
     begin,
     beginPatch,
+    cancelScopes,
     completePatch,
     isCurrent,
   };

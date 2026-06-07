@@ -9,6 +9,7 @@ import {
   assertBuildExists,
   createElectronFixture,
   dispatchKeyEvent,
+  dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
@@ -29,7 +30,7 @@ import {
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const visibleWorkflowSettingsSurfaceSelector =
-  '[data-testid="workspace-fake-pane-host"][data-surface-kind="workflow-settings"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"] .workspace-react-dom-surface[data-react-surface-kind="workflow-settings"][data-visible="true"][data-frozen="false"] [data-testid="workflow-settings-surface"]';
+  '[data-testid="workspace-pane-host"][data-surface-kind="workflow-settings"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"] .workspace-react-dom-surface[data-react-surface-kind="workflow-settings"][data-visible="true"][data-frozen="false"] [data-testid="workflow-settings-surface"]';
 
 if (options.help) {
   console.log(
@@ -141,8 +142,9 @@ try {
       snapshot.graph.nodes.every((node) => node.diagnostic === null),
   );
   await openAgentTaskDetailsFromToolbar(context.client, workflowGraphSurfaceId, afterSecondNode);
-  await focusWorkflowGraphPane(context.client);
-  workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client);
+  workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client, {
+    surfaceId: workflowGraphSurfaceId,
+  });
   await waitForWorkflowGraphPaneSettled(context.client, workflowGraphSurfaceId);
   const afterDetails = await waitForWorkflowGraphSnapshot(
     context.client,
@@ -222,8 +224,9 @@ try {
   if (renamedSaved.name !== "Greeting workflow" || renamedSaved.description !== "Says hi") {
     throw new Error(`saved renamed workflow mismatch: ${JSON.stringify(renamedSaved)}`);
   }
-  await focusWorkflowGraphPane(context.client);
-  workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client);
+  workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client, {
+    surfaceId: workflowGraphSurfaceId,
+  });
   await waitForWorkflowGraphPaneSettled(context.client, workflowGraphSurfaceId);
 
   await addWorkflowNodeAt(context.client, workflowGraphSurfaceId, "merge", { x: 720, y: 420 });
@@ -553,11 +556,16 @@ async function openWorkflowNodeDetailsFromToolbar(
     driverCallExpression("workflowNodeDetailsButtonState"),
     (value) => value.disabled === false && value.text.includes(nodeLabel),
   );
-  const clicked = await client.driver("clickWorkflowNodeDetailsButton");
-  if (!clicked.ok) {
-    throw new Error(`workflow details button was not clickable: ${JSON.stringify(clicked)}`);
+  const clickPoint = await client.driver("workflowNodeDetailsButtonRect");
+  if (!clickPoint.ok) {
+    throw new Error(`workflow details button was not clickable: ${JSON.stringify(clickPoint)}`);
   }
-  await waitForSelector(client, '[data-testid="workflow-node-details-surface"]');
+  await dispatchMouseClick(client, clickPoint);
+  await waitForState(
+    client,
+    driverCallExpression("workflowNodeDetailsSurfaceState"),
+    (value) => value.exists,
+  );
   await waitForSelector(client, detailsSelector);
 }
 
@@ -575,17 +583,6 @@ async function assertWorkflowRunDetails(client) {
       text.includes("reports/workflow-result.md") &&
       text.includes("Workflow result") &&
       text.includes("workflow result recorded"),
-  );
-}
-
-async function focusWorkflowGraphPane(client) {
-  await dispatchKeyEvent(client, { code: "ArrowLeft", key: "ArrowLeft" });
-  await dispatchKeyEvent(client, { code: "ArrowLeft", key: "ArrowLeft", type: "keyUp" });
-  await client.installDriver();
-  await waitForState(
-    client,
-    driverCallExpression("workflowGraphPaneState"),
-    (value) => value.focused,
   );
 }
 
@@ -939,7 +936,10 @@ async function waitForWorkflowGraphSnapshot(client, predicate) {
   await client.installDriver();
   return waitForState(
     client,
-    driverCallExpression("workflowGraphDebugSnapshotReady", { surfaceId: workflowGraphSurfaceId }),
+    driverCallExpression("workflowGraphDebugSnapshotReady", {
+      includeVisual: false,
+      surfaceId: workflowGraphSurfaceId,
+    }),
     (value) => value.ready && predicate(value.snapshot),
   ).then((value) => value.snapshot);
 }

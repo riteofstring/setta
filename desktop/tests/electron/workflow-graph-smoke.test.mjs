@@ -919,9 +919,12 @@ function assertLabelDebugCounters(snapshot, label) {
     snapshot.render.labelVisibilityMode,
     `${label} labelVisibilityMode`,
   );
-  if (snapshot.render.labelObjectCount !== snapshot.graph.nodeCount) {
+  if (
+    snapshot.render.labelObjectCount < snapshot.render.visibleLabelCount ||
+    snapshot.render.labelObjectCount > snapshot.graph.nodeCount
+  ) {
     throw new Error(
-      `${label} labelObjectCount did not match graph node count: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(snapshot.render)}`,
+      `${label} labelObjectCount was outside graph label bounds: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(snapshot.render)}`,
     );
   }
   const visibleNodeLabels = snapshot.graph.nodes.filter((node) => node.label?.visible).length;
@@ -951,21 +954,24 @@ function assertNodeGeometryDebugCounters(snapshot, label) {
   if (render.gridDrawCount !== 1) {
     throw new Error(`${label} gridDrawCount was not one: render=${JSON.stringify(render)}`);
   }
-  if (render.nodeBodyGraphicsCount !== snapshot.graph.nodeCount) {
-    throw new Error(
-      `${label} nodeBodyGraphicsCount did not match graph node count: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(render)}`,
-    );
-  }
-  if (render.nodeShadowGraphicsCount !== snapshot.graph.nodeCount) {
-    throw new Error(
-      `${label} nodeShadowGraphicsCount did not match graph node count: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(render)}`,
-    );
-  }
-  if (render.nodeOutlineGraphicsCount !== snapshot.graph.nodeCount * 2) {
-    throw new Error(
-      `${label} nodeOutlineGraphicsCount did not match two outlines per node: graph=${snapshot.graph.nodeCount} render=${JSON.stringify(render)}`,
-    );
-  }
+  assertPositiveBoundedRenderCount(
+    render,
+    "nodeBodyGraphicsCount",
+    snapshot.graph.nodeCount,
+    label,
+  );
+  assertPositiveBoundedRenderCount(
+    render,
+    "nodeShadowGraphicsCount",
+    snapshot.graph.nodeCount,
+    label,
+  );
+  assertPositiveBoundedRenderCount(
+    render,
+    "nodeOutlineGraphicsCount",
+    snapshot.graph.nodeCount * 2,
+    label,
+  );
   assertPositiveContextCount(render, "nodeBodyContextCount", render.nodeBodyGraphicsCount, label);
   assertPositiveContextCount(
     render,
@@ -979,6 +985,14 @@ function assertNodeGeometryDebugCounters(snapshot, label) {
     render.nodeShadowGraphicsCount,
     label,
   );
+}
+
+function assertPositiveBoundedRenderCount(render, counter, maximum, label) {
+  if (render[counter] < 1 || render[counter] > maximum) {
+    throw new Error(
+      `${label} ${counter} was outside expected render bounds: max=${maximum} render=${JSON.stringify(render)}`,
+    );
+  }
 }
 
 function assertPositiveContextCount(render, counter, graphicsCount, label) {

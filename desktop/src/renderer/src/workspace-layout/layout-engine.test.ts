@@ -466,9 +466,9 @@ describe("real workspace layout column sizing", () => {
     });
     const engine = new WorkspaceLikeLayoutEngine(scene);
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
-    store.focusPaneBySurfaceKind("workflow-graph");
+    store.focusPaneBySurfaceKind("settings-dom");
     const firstLowerPaneId = store.splitFocusedPaneToPlane("down");
-    store.focusPaneBySurfaceKind("git-graph");
+    store.focusPaneBySurfaceKind("workflow-graph");
 
     const focusedPaneIdBeforeSplit = store.focusedPaneId();
     const secondLowerPaneId = store.splitFocusedPaneToPlane("down");
@@ -489,8 +489,8 @@ describe("real workspace layout column sizing", () => {
     const focusedPaneItem = overviewItems.find((item) => item.paneId === focusedPaneIdBeforeSplit);
     const lowerPaneItem = overviewItems.find((item) => item.paneId === secondLowerPaneId);
 
-    expect(firstLowerColumn?.slotIndex).toBe(5);
-    expect(secondLowerColumn?.slotIndex).toBe(4);
+    expect(firstLowerColumn?.slotIndex).toBe(3);
+    expect(secondLowerColumn?.slotIndex).toBe(2);
     expect(lowerPaneItem?.x).toBe(focusedPaneItem?.x);
     expect(lowerPaneItem?.y).toBeGreaterThan(focusedPaneItem?.y ?? 0);
   });
@@ -520,7 +520,7 @@ describe("real workspace layout column sizing", () => {
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
     const lowerPlanePaneId = store.splitFocusedPaneToPlane("down");
 
-    store.focusPaneBySurfaceKind("workflow-graph");
+    store.focusPaneBySurfaceKind("settings-dom");
     store.moveFocus("right", { ...viewport, width: 1200 });
 
     expect(store.focusedPaneId()).toBe("workspace_pane_0");
@@ -539,7 +539,7 @@ describe("real workspace layout column sizing", () => {
     store.focusPaneBySurfaceKind("chat-dom");
     store.moveFocus("left");
 
-    expect(store.focusedPaneId()).toBe("workspace_pane_5");
+    expect(store.focusedPaneId()).toBe("workspace_pane_3");
   });
 
   test("left and right navigation stay on a single-pane horizontal plane", () => {
@@ -643,7 +643,7 @@ describe("real workspace layout column sizing", () => {
     const engine = new WorkspaceLikeLayoutEngine(scene);
     const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
 
-    store.focusPaneBySurfaceKind("workflow-graph");
+    store.focusPaneBySurfaceKind("settings-dom");
     store.ensureFocusedPaneVisible({ ...viewport, width: 1200 });
     store.snapScrollToTarget();
     store.ensureFocusedPaneVisible({ ...viewport, width: 900 });
@@ -660,7 +660,7 @@ describe("real workspace layout column sizing", () => {
     );
     const focusedItem = items.find((item) => item.focused);
 
-    expect(snapshot.focusedPaneId).toBe("workspace_pane_5");
+    expect(snapshot.focusedPaneId).toBe("workspace_pane_3");
     expect(focusedItem?.x).toBe(10);
     expect(focusedItem?.y).toBe(10);
     expect((focusedItem?.x ?? 0) + (focusedItem?.width ?? 0)).toBeLessThanOrEqual(890);
@@ -816,7 +816,20 @@ function createRealEngine(
     storageKey: "setta:workspace-layout:engine-test",
     workspaceName: "Repo",
   });
-  return new WorkspaceLikeLayoutEngine(scene, options);
+  const builder = new WorkspaceLikeLayoutEngine(scene);
+  builder.openPane({
+    adjacentToColumnId: "workspace_column_3",
+    surfaceKind: "terminal",
+    title: "Logs",
+    tone: "green",
+  });
+  builder.openPane({
+    adjacentToColumnId: "workspace_column_4",
+    surfaceKind: "chat-dom",
+    title: "Notes",
+    tone: "cyan",
+  });
+  return new WorkspaceLikeLayoutEngine(builder.toScene(), options);
 }
 
 function paneOrderByX(items: readonly PaneRenderItem[]): string[] {

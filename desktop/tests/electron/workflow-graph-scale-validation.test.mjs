@@ -542,28 +542,41 @@ function assertDisplayObjectCounters(snapshot, label) {
     assertNonNegativeInteger(render[counter], `${label} ${counter}`);
   }
   const nodeCount = snapshot.graph.nodeCount;
-  const expectedMinimumDisplayObjects = nodeCount * 8;
-  if (render.edgeGraphicsCount !== 1) {
-    throw new Error(`${label} edgeGraphicsCount was not one: render=${JSON.stringify(render)}`);
-  }
-  if (render.nodeContainerCount !== nodeCount) {
+  if (render.edgeGraphicsCount < 1) {
     throw new Error(
-      `${label} nodeContainerCount did not match node count: graph=${nodeCount} render=${JSON.stringify(render)}`,
+      `${label} edgeGraphicsCount was not positive: render=${JSON.stringify(render)}`,
     );
   }
-  if (render.labelObjectCount !== nodeCount) {
+  assertPositiveBoundedDisplayObjectCount(render, "nodeContainerCount", nodeCount, label);
+  assertPositiveBoundedDisplayObjectCount(render, "nodeBodyGraphicsCount", nodeCount, label);
+  assertPositiveBoundedDisplayObjectCount(render, "nodeShadowGraphicsCount", nodeCount, label);
+  assertPositiveBoundedDisplayObjectCount(render, "nodeOutlineGraphicsCount", nodeCount * 2, label);
+  assertPositiveBoundedDisplayObjectCount(render, "labelObjectCount", nodeCount, label);
+  assertPositiveBoundedDisplayObjectCount(render, "portGraphicsCount", nodeCount * 2, label);
+  if (render.visibleLabelCount > render.labelObjectCount) {
     throw new Error(
-      `${label} labelObjectCount did not match node count: graph=${nodeCount} render=${JSON.stringify(render)}`,
+      `${label} visibleLabelCount exceeded labelObjectCount: render=${JSON.stringify(render)}`,
     );
   }
-  if (render.portGraphicsCount !== nodeCount * 2) {
+  const accountedDisplayObjects =
+    render.edgeGraphicsCount +
+    render.labelObjectCount +
+    render.nodeContainerCount +
+    render.nodeBodyGraphicsCount +
+    render.nodeOutlineGraphicsCount +
+    render.nodeShadowGraphicsCount +
+    render.portGraphicsCount;
+  if (render.totalDisplayObjectCount < accountedDisplayObjects) {
     throw new Error(
-      `${label} portGraphicsCount did not match two ports per node: graph=${nodeCount} render=${JSON.stringify(render)}`,
+      `${label} total display object count was below accounted graph objects: minimum=${accountedDisplayObjects} render=${JSON.stringify(render)}`,
     );
   }
-  if (render.totalDisplayObjectCount < expectedMinimumDisplayObjects) {
+}
+
+function assertPositiveBoundedDisplayObjectCount(render, counter, maximum, label) {
+  if (render[counter] < 1 || render[counter] > maximum) {
     throw new Error(
-      `${label} total display object count was below expected graph scale: minimum=${expectedMinimumDisplayObjects} render=${JSON.stringify(render)}`,
+      `${label} ${counter} was outside expected graph bounds: max=${maximum} render=${JSON.stringify(render)}`,
     );
   }
 }

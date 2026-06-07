@@ -1,11 +1,7 @@
-import { execFile } from "node:child_process";
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { promisify } from "node:util";
 
 import {
   createBackendClient,
@@ -18,9 +14,11 @@ import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
+import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
+import { readEditorIconDataURL } from "./editor-icon-data-url";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
@@ -41,10 +39,11 @@ let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
+const backendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
-const execFileAsync = promisify(execFile);
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
+const backendRequestDrainTimeoutMs = 1_500;
 const workspaceBrowserViews = createElectronWebContentsViewRegistry();
 
 function desktopRoot() {
@@ -59,6 +58,7 @@ async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
     backend = await startBackend(repoRoot(), appDataDir, process.env);
+    backendRequests.setStopping(false);
     backendStartupError = null;
     emitBackendProcessStatus({
       message: backend.mode === "external" ? "Using external backend" : "Backend online",
@@ -911,38 +911,15 @@ function requireBackendClient(): BackendClient {
   if (!backend) {
     throw new Error(backendStartupError ?? "backend is not running");
   }
-  return createBackendClient(backend.url, recorder?.createBackendFetch(fetch) ?? fetch);
-}
-
-async function readEditorIconDataURL(iconPath: string, appPath: string) {
-  if (process.platform === "darwin" && iconPath.endsWith(".icns")) {
-    return convertIcnsToDataURL(iconPath);
-  }
-  const icon = await app.getFileIcon(appPath, { size: "large" });
-  return icon.toDataURL();
-}
-
-async function convertIcnsToDataURL(iconPath: string) {
-  const dir = await mkdtemp(join(tmpdir(), "setta-editor-icon-"));
-  const outputPath = join(dir, "icon.png");
-  try {
-    await execFileAsync(
-      "/usr/bin/sips",
-      ["-s", "format", "png", "-Z", "32", iconPath, "--out", outputPath],
-      {
-        timeout: 5_000,
-        windowsHide: true,
-      },
-    );
-    const bytes = await readFile(outputPath);
-    return `data:image/png;base64,${bytes.toString("base64")}`;
-  } finally {
-    await rm(dir, { force: true, recursive: true });
-  }
+  const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
+  return createBackendClient(backend.url, backendRequests.wrapFetch(fetchImpl));
 }
 
 async function stopBackend() {
+  backendRequests.setStopping(true);
+  emitBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
   await stopBackendEventStreams();
+  await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
   await backend?.stop();
   backend = null;
 }

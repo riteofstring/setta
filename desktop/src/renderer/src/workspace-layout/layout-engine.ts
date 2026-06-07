@@ -142,7 +142,7 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       sequence,
       subtitle: request.subtitle ?? "workspace surface",
       surfaceId: `workspace_surface_${sequence}`,
-      surfaceKind: request.surfaceKind ?? "fake-dom",
+      surfaceKind: request.surfaceKind ?? "empty-frame",
       terminalConfig: terminalConfigForRequest(request),
       title: request.title ?? `Pane ${String(sequence + 1).padStart(3, "0")}`,
       tone: request.tone ?? "slate",

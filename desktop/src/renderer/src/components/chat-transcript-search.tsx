@@ -9,7 +9,7 @@ import {
   timelineRowForMessage,
   type TranscriptTimelineRow,
 } from "./chat-transcript-timeline";
-import { chatReadableColumnClass } from "./chat-layout";
+import { chatReadableColumnAttributes, chatReadableColumnClass } from "./chat-layout";
 import { Input } from "./ui/input";
 
 export interface TranscriptSearchController {
@@ -132,7 +132,10 @@ export function ChatSearchBar({ search }: { search: TranscriptSearchController }
 
   return (
     <div className="pointer-events-none absolute inset-x-3 top-2 z-20 flex justify-center">
-      <div className={`${chatReadableColumnClass} flex justify-end`}>
+      <div
+        {...chatReadableColumnAttributes}
+        className={`${chatReadableColumnClass} flex justify-end`}
+      >
         <div className="pointer-events-auto flex h-7 w-full max-w-xs min-w-0 items-center gap-1 rounded-sm border border-border bg-popover/95 px-1.5 text-popover-foreground shadow-xl shadow-black/40 backdrop-blur">
           <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <Input

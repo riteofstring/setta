@@ -181,6 +181,81 @@ describe("chat store workspace summary cache", () => {
     expect(useChatStore.getState().selectedConversation?.id).toBe(apiConversation.id);
   });
 
+  test("resyncs active workspace summaries when inactive conversations receive messages", async () => {
+    const activeConversation = testConversation({
+      id: "conversation_active",
+      title: "Active chat",
+    });
+    const inactiveConversation = testConversation({
+      id: "conversation_inactive",
+      title: "New chat",
+    });
+    const updatedInactiveConversation = {
+      ...inactiveConversation,
+      title: "inactive unread marker",
+      updatedAt: "2026-05-29T20:01:00Z",
+    };
+    const refreshedInactiveItem = {
+      ...conversationItem(updatedInactiveConversation, 2),
+      latestReadRelevantMarker: 2,
+      readMarker: 0,
+    };
+    const listConversations = vi
+      .fn()
+      .mockResolvedValue(
+        listResponse([refreshedInactiveItem, conversationItem(activeConversation, 1)]),
+      );
+    const messagePage = vi.fn().mockResolvedValue(testPage(activeConversation, []));
+    installSettaAPI({ chat: { listConversations, messagePage } });
+    useChatStore.setState({
+      conversationListsByWorkspaceId: {
+        workspace_api: loadedConversationList([
+          conversationItem(inactiveConversation, 0),
+          conversationItem(activeConversation, 1),
+        ]),
+      },
+      conversations: [
+        conversationItem(inactiveConversation, 0),
+        conversationItem(activeConversation, 1),
+      ],
+      selectedConversation: activeConversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore
+      .getState()
+      .handleEvent(
+        messageCreatedEvent(
+          1,
+          messageForConversation(
+            inactiveConversation,
+            "message_inactive",
+            1,
+            "user",
+            "complete",
+            "inactive unread marker",
+            "normal",
+            "run_inactive",
+          ),
+          "run_inactive",
+        ),
+      );
+    await waitFor(
+      () =>
+        useChatStore.getState().conversationListsByWorkspaceId.workspace_api?.conversations[0]
+          ?.conversation.title === "inactive unread marker",
+    );
+
+    expect(listConversations).toHaveBeenCalledWith("workspace_api");
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", activeConversation.id, 0, 40);
+    expect(useChatStore.getState().conversations[0]).toMatchObject({
+      latestReadRelevantMarker: 2,
+      readMarker: 0,
+    });
+    expect(useChatStore.getState().selectedConversation?.id).toBe(activeConversation.id);
+  });
+
   test("does not create a complete summary list from events for unloaded workspaces", () => {
     const webConversation = testConversation({
       id: "conversation_web",
@@ -539,6 +614,23 @@ function testPage(conversation: Conversation, messages: ChatMessage[]): MessageP
   };
 }
 
+function messageCreatedEvent(sequence: number, chatMessage: ChatMessage, runId: string): ChatEvent {
+  return {
+    conversationId: chatMessage.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${eventStreamId}:${sequence}`,
+    payload: {
+      message: chatMessage,
+    },
+    runId,
+    schemaVersion: 1,
+    sequence,
+    streamId: eventStreamId,
+    type: "chat.message.created",
+    workspaceId: "workspace_api",
+  };
+}
+
 function conversationDetail(conversation: Conversation, messages: ChatMessage[]) {
   return {
     activeRun: null,
@@ -689,4 +781,14 @@ function deferred<T>(): Deferred<T> {
     throw new Error("deferred promise callbacks were not initialized");
   }
   return { promise, reject, resolve };
+}
+
+async function waitFor(done: () => boolean) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (done()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("condition was not met");
 }

@@ -15,7 +15,7 @@ import type {
   RunItemOutput,
   TranscriptTurn,
 } from "@generated/backend";
-import type { ChatCommandExecutionOptions } from "@shared/types";
+import type { BackendProcessStatus, ChatCommandExecutionOptions } from "@shared/types";
 
 import type { WorkspaceConversationListState } from "./chat-store-conversation-lists";
 import type { ConversationDetailState } from "./chat-store-detail-cache";
@@ -43,6 +43,7 @@ export interface ChatStore {
   error: string | null;
   goal: ChatGoalState | null;
   hasMoreOlder: boolean;
+  handleBackendProcessStatus: (status: BackendProcessStatus) => void;
   handleEvent: (event: ChatEvent) => void;
   lastEventSequence: number;
   lastEventStreamId: string;

@@ -1,7 +1,7 @@
 import { Point } from "pixi.js";
 
 import { labelVisibilityModeForZoom } from "./pixi-renderer-label-visibility";
-import { countNodeOutlineGraphics, nodeGeometryContextCounts } from "./pixi-renderer-node-geometry";
+import { countNodeOutlineGraphics } from "./pixi-renderer-node-geometry";
 import {
   cameraState,
   countMapValues,
@@ -24,6 +24,7 @@ export function createWorkflowGraphDebugSnapshot({
   nodeLabels,
   nodeLabelFontSizeModes,
   nodeLabelVisibilityReasons,
+  nodeGeometryContextCounts,
   nodeOutlines,
   nodes,
   nodeShadows,
@@ -35,9 +36,11 @@ export function createWorkflowGraphDebugSnapshot({
   spatialQueries,
   viewport,
 }) {
-  return () => {
+  return ({ includeVisual = true } = {}) => {
     const canvasRect = app.canvas.getBoundingClientRect();
-    const visual = samplePixiVisualState(app.renderer, app.stage, backgroundColor);
+    const visual = includeVisual
+      ? samplePixiVisualState(app.renderer, app.stage, backgroundColor)
+      : skippedVisualState();
     const camera = cameraState(viewport);
     const nodeGeometryContexts = nodeGeometryContextCounts();
     const frameStats = frameSampleStats(recentFrameMs);
@@ -160,5 +163,15 @@ export function createWorkflowGraphDebugSnapshot({
       surfaceId: debugSurfaceId,
       visual,
     };
+  };
+}
+
+function skippedVisualState() {
+  return {
+    hasNonBackgroundPixels: false,
+    nonBackgroundPixelCount: 0,
+    sampledColorCount: 0,
+    sampledPixelCount: 0,
+    skipped: true,
   };
 }

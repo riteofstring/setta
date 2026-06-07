@@ -20,7 +20,7 @@ import {
   VoiceInputUnavailableButton,
 } from "./chat-composer-controls";
 import type { ChatView } from "./chat-panel";
-import { chatReadableColumnClass } from "./chat-layout";
+import { chatReadableColumnAttributes, chatReadableColumnClass } from "./chat-layout";
 import { SettaLogoMark } from "./setta-logo-mark";
 import { Textarea } from "./ui/textarea";
 
@@ -351,7 +351,7 @@ export function Composer({
         void sendDraft();
       }}
     >
-      <div className={cn("relative", chatReadableColumnClass)}>
+      <div {...chatReadableColumnAttributes} className={cn("relative", chatReadableColumnClass)}>
         <div
           className={cn(
             "min-w-0 rounded-sm border border-border bg-card/90 px-2 py-1.5 shadow-lg shadow-black/15",

@@ -49,7 +49,7 @@ describe("workspace renderer states", () => {
             },
             platform: "darwin",
           },
-          backend: { onEventStreamStatus: () => () => {} },
+          backend: { onEventStreamStatus: () => () => {}, onProcessStatus: () => () => {} },
           chat: { onEvent: () => () => {} },
         },
       },
@@ -66,7 +66,7 @@ describe("workspace renderer states", () => {
     expect(html).toContain('data-testid="workspace-layout-area"');
     expect(html).toContain('data-desktop-platform="darwin"');
     expect(html).toContain('data-testid="workspace-presentation-engine"');
-    expect(html).toContain('data-pane-count="6"');
+    expect(html).toContain('data-pane-count="4"');
     expect(html).toContain('data-workspace-mode="workspace"');
     expect(html).not.toContain('data-testid="workspace-layout-status"');
     expect(html).not.toContain('data-testid="workspace-benchmark-status"');
@@ -89,7 +89,7 @@ describe("workspace renderer states", () => {
             },
             platform: "win32",
           },
-          backend: { onEventStreamStatus: () => () => {} },
+          backend: { onEventStreamStatus: () => () => {}, onProcessStatus: () => () => {} },
           chat: { onEvent: () => () => {} },
         },
       },
@@ -182,6 +182,37 @@ describe("workspace renderer states", () => {
     expect(hasAriaLabel(html, "Projects")).toBe(true);
     expect(hasAriaLabel(html, "New chat in web")).toBe(true);
     expect(html).toContain("Build web UI");
+  });
+
+  test("renders workspace operation errors in the sidebar", () => {
+    const html = renderToString(
+      <WorkspaceSidebar
+        activeRun={null}
+        activeWorkspaces={[]}
+        busy={false}
+        clearWorkspaceError={() => {}}
+        closeWorkspace={async () => {}}
+        createConversation={async () => {}}
+        createWorkspaceConversation={async () => {}}
+        deleteConversation={async () => {}}
+        openLocalFolder={async () => {}}
+        openWorkflowGraphPane={() => {}}
+        openWorkspacePath={async () => {}}
+        openSettingsPane={() => {}}
+        recentWorkspaces={[]}
+        removeRecent={async () => {}}
+        selectConversation={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedConversationId=""
+        selectedWorkspaceId=""
+        setConversationPinned={async () => {}}
+        workspaceError="workspace path does not exist"
+      />,
+    );
+
+    expect(html).toContain('data-testid="workspace-operation-error"');
+    expect(html).toContain("workspace path does not exist");
+    expect(hasAriaLabel(html, "Dismiss workspace error")).toBe(true);
   });
 
   test("does not render stale chat conversations while switching workspaces", () => {

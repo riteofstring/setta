@@ -25,17 +25,16 @@ describe("real workspace layout scene", () => {
     });
 
     expect(result.focusedPaneId).toBe("workspace_pane_0");
+    expect(result.layoutRecovery).toBeNull();
     expect(result.scene.id).toBe("setta:workspace-layout:test");
-    expect(result.scene.columns).toHaveLength(6);
+    expect(result.scene.columns).toHaveLength(4);
     expect(result.scene.defaultColumnWidthSpec).toEqual({ unit: "px", value: 520 });
     expect(result.scene.renderOverscanColumns).toBe(2);
     expect(result.scene.visibleColumnCount).toBe(3);
-    expect(result.scene.totalPanes).toBe(6);
+    expect(result.scene.totalPanes).toBe(4);
     expect(result.scene.columns.every((column) => column.paneIds.length === 1)).toBe(true);
-    expect(result.scene.columns.map((column) => column.slotIndex)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(result.scene.columns.map((column) => column.slotIndex)).toEqual([0, 1, 2, 3]);
     expect(result.scene.columns.map((column) => column.widthSpec)).toEqual([
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
@@ -46,28 +45,24 @@ describe("real workspace layout scene", () => {
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
       { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
-      { unit: "px", value: 520 },
     ]);
     expect(
       result.scene.columns.map((column) => {
         const paneId = column.paneIds[0];
         return paneId ? result.scene.paneById.get(paneId)?.title : "";
       }),
-    ).toEqual(["Chat", "Browser", "Terminal", "Settings", "Git Graph", "Workflow Graph"]);
+    ).toEqual(["Chat", "Terminal", "Workflow Graph", "Settings"]);
     expect(result.scene.paneById.get("workspace_pane_0")).toMatchObject({
       subtitle: "Repo",
       surfaceKind: "chat-dom",
       title: "Chat",
     });
-    expect(result.scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("browser");
+    expect(result.scene.paneById.get("workspace_pane_1")?.surfaceKind).toBe("terminal");
   });
 
   test("defines default pane limits for addable real workspace surfaces", () => {
     expect(defaultRealWorkspacePaneLimits).toEqual({
-      browser: 10,
       "chat-dom": 10,
-      "git-graph": 1,
       "workflow-graph": 10,
       "settings-dom": 1,
       terminal: 10,
@@ -103,8 +98,9 @@ describe("real workspace layout scene", () => {
     });
 
     expect(restored.focusedPaneId).toBe(paneId);
-    expect(restored.scene.totalPanes).toBe(7);
-    expect(restored.scene.columns).toHaveLength(7);
+    expect(restored.layoutRecovery).toBeNull();
+    expect(restored.scene.totalPanes).toBe(5);
+    expect(restored.scene.columns).toHaveLength(5);
     expect(restored.scene.paneById.get(paneId)).toMatchObject({
       surfaceKind: "terminal",
       title: "Build",
@@ -157,6 +153,62 @@ describe("real workspace layout scene", () => {
     expect(restored.scene.columns[0]?.paneIds).toEqual(["workspace_pane_0"]);
     expect(restored.scene.paneById.has("missing_pane")).toBe(false);
     expect(restored.scene.paneById.get("workspace_pane_0")?.columnId).toBe("workspace_column_0");
+  });
+
+  test("resets invalid stored layout instead of throwing during render", () => {
+    const storage = createMemoryStorage();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { localStorage: storage },
+    });
+    const storageKey = "setta:workspace-layout:invalid-json";
+    storage.setItem(storageKey, "{");
+
+    const restored = createRealWorkspaceScene({
+      storageKey,
+      workspaceName: "Repo",
+    });
+
+    expect(storage.getItem(storageKey)).toBeNull();
+    expect(restored.layoutRecovery?.message).toContain("not JSON");
+    expect(restored.scene.panes.map((pane) => pane.title)).toEqual([
+      "Chat",
+      "Terminal",
+      "Workflow Graph",
+      "Settings",
+    ]);
+  });
+
+  test("resets stored diagnostic surfaces from real workspace layouts", () => {
+    const storage = createMemoryStorage();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { localStorage: storage },
+    });
+    const storageKey = "setta:workspace-layout:diagnostic-surface";
+    storage.setItem(
+      storageKey,
+      JSON.stringify({
+        columns: [storedColumn("workspace_column_0", ["workspace_pane_0"])],
+        focusedPaneId: "workspace_pane_0",
+        panes: [
+          {
+            ...storedPane("workspace_pane_0", "workspace_column_0", "workspace_surface_0", "Git"),
+            surfaceKind: "git-graph",
+          },
+        ],
+        version: 4,
+      }),
+    );
+
+    const restored = createRealWorkspaceScene({
+      storageKey,
+      workspaceName: "Repo",
+    });
+
+    expect(storage.getItem(storageKey)).toBeNull();
+    expect(restored.layoutRecovery?.message).toContain("product layout contract");
+    expect(restored.scene.panes.some((pane) => pane.surfaceKind === "git-graph")).toBe(false);
   });
 
   test("deduplicates restored surface ids before creating presentation adapters", () => {

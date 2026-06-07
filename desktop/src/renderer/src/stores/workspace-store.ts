@@ -11,6 +11,7 @@ export type WorkspaceOperationKind =
 export type WorkspaceOperation = WorkspaceOperationKind | null;
 
 interface WorkspaceStore {
+  clearError: () => void;
   error: string | null;
   loadSession: () => Promise<void>;
   closeWorkspace: (id: string) => Promise<void>;
@@ -66,6 +67,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => {
   }
 
   return {
+    clearError: () =>
+      set((current) => ({ error: null, status: current.session ? "ready" : "idle" })),
     closeWorkspace: (id: string) =>
       runWorkspaceOperation("closing", () => window.setta.workspace.close(id), sessionReadyPatch),
     error: null,

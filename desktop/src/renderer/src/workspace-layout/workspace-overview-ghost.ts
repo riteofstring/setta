@@ -101,9 +101,7 @@ function roundedEqual(left: number, right: number): boolean {
 
 function overviewPaneFrames(stage: HTMLElement, stageRect: DOMRect): OverviewPaneFrame[] {
   return Array.from(
-    stage.querySelectorAll<HTMLElement>(
-      '[data-testid="workspace-fake-pane-host"][data-visible="true"]',
-    ),
+    stage.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"][data-visible="true"]'),
   ).flatMap((host) => {
     const paneId = host.dataset.paneId;
     if (!paneId) {
@@ -248,7 +246,7 @@ function rectContainsPoint(rect: DOMRect, clientX: number, clientY: number): boo
 
 function visiblePaneHostId(element: Element | null): string | null {
   const host = element?.closest<HTMLElement>(
-    '[data-testid="workspace-fake-pane-host"][data-visible="true"]',
+    '[data-testid="workspace-pane-host"][data-visible="true"]',
   );
   return host?.dataset.paneId ?? null;
 }

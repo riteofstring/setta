@@ -33,85 +33,59 @@ const nodeOutlineStyles = {
   },
 };
 
-const nodeBodyContexts = new Map();
-const nodeShadowContexts = new Map();
-const nodeOutlineContexts = new Map();
-
 const diagnosticMarkerColors = {
   error: 0xfb7185,
   warning: 0xfbbf24,
 };
 
-export function nodeBodyContextFor(node) {
-  const key = geometryKey([
-    node.width,
-    node.height,
-    node.color,
-    nodeBodyStyle.radius,
-    nodeBodyStyle.fillAlpha,
-    nodeBodyStyle.strokeColor,
-    nodeBodyStyle.strokeAlpha,
-    nodeBodyStyle.strokeWidth,
-  ]);
-  return cachedContext(nodeBodyContexts, key, () =>
-    new GraphicsContext()
-      .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
-      .fill({ alpha: nodeBodyStyle.fillAlpha, color: node.color })
-      .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
-      .stroke({
-        alpha: nodeBodyStyle.strokeAlpha,
-        color: nodeBodyStyle.strokeColor,
-        width: nodeBodyStyle.strokeWidth,
-      }),
-  );
-}
-
-export function nodeShadowContextFor(node) {
-  const key = geometryKey([
-    node.width,
-    node.height,
-    nodeShadowStyle.radius,
-    nodeShadowStyle.offsetX,
-    nodeShadowStyle.offsetY,
-    nodeShadowStyle.alpha,
-    nodeShadowStyle.color,
-  ]);
-  return cachedContext(nodeShadowContexts, key, () =>
-    new GraphicsContext()
-      .roundRect(
-        nodeShadowStyle.offsetX,
-        nodeShadowStyle.offsetY,
-        node.width,
-        node.height,
-        nodeShadowStyle.radius,
-      )
-      .fill({ alpha: nodeShadowStyle.alpha, color: nodeShadowStyle.color }),
-  );
-}
-
-export function nodeOutlineContextFor(node, state) {
-  const style = nodeOutlineStyleFor(state);
-  const key = geometryKey([
-    node.width,
-    node.height,
-    style.radius,
-    style.inset,
-    state,
-    style.width,
-    style.alpha,
-    style.color,
-  ]);
-  return cachedContext(nodeOutlineContexts, key, () =>
-    new GraphicsContext()
-      .roundRect(
-        -style.inset,
-        -style.inset,
-        node.width + style.inset * 2,
-        node.height + style.inset * 2,
-        style.radius,
-      )
-      .stroke({ alpha: style.alpha, color: style.color, width: style.width }),
-  );
+export function createNodeGeometryContextFactory() {
+  let nodeBodyContextCount = 0;
+  let nodeShadowContextCount = 0;
+  let nodeOutlineContextCount = 0;
+  return {
+    counts: () => ({
+      body: nodeBodyContextCount,
+      outline: nodeOutlineContextCount,
+      shadow: nodeShadowContextCount,
+    }),
+    nodeBodyContextFor: (node) => {
+      nodeBodyContextCount += 1;
+      return new GraphicsContext()
+        .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
+        .fill({ alpha: nodeBodyStyle.fillAlpha, color: node.color })
+        .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
+        .stroke({
+          alpha: nodeBodyStyle.strokeAlpha,
+          color: nodeBodyStyle.strokeColor,
+          width: nodeBodyStyle.strokeWidth,
+        });
+    },
+    nodeOutlineContextFor: (node, state) => {
+      const style = nodeOutlineStyleFor(state);
+      nodeOutlineContextCount += 1;
+      return new GraphicsContext()
+        .roundRect(
+          -style.inset,
+          -style.inset,
+          node.width + style.inset * 2,
+          node.height + style.inset * 2,
+          style.radius,
+        )
+        .stroke({ alpha: style.alpha, color: style.color, width: style.width });
+    },
+    nodeShadowContextFor: (node) => {
+      nodeShadowContextCount += 1;
+      return new GraphicsContext()
+        .roundRect(
+          nodeShadowStyle.offsetX,
+          nodeShadowStyle.offsetY,
+          node.width,
+          node.height,
+          nodeShadowStyle.radius,
+        )
+        .fill({ alpha: nodeShadowStyle.alpha, color: nodeShadowStyle.color });
+    },
+  };
 }
 
 export function drawWorkspaceGrid(grid) {
@@ -161,14 +135,6 @@ export function drawDiagnosticDiamond(target, centerX, centerY, severity) {
     .fill({ alpha: 0.95, color: 0x111827 });
 }
 
-export function nodeGeometryContextCounts() {
-  return {
-    body: nodeBodyContexts.size,
-    outline: nodeOutlineContexts.size,
-    shadow: nodeShadowContexts.size,
-  };
-}
-
 export function countNodeOutlineGraphics(nodeOutlines) {
   let count = 0;
   for (const outlines of nodeOutlines.values()) {
@@ -182,24 +148,10 @@ export function countNodeOutlineGraphics(nodeOutlines) {
   return count;
 }
 
-function cachedContext(cache, key, createContext) {
-  const existing = cache.get(key);
-  if (existing) {
-    return existing;
-  }
-  const context = createContext();
-  cache.set(key, context);
-  return context;
-}
-
 function nodeOutlineStyleFor(state) {
   const style = nodeOutlineStyles[state];
   if (!style) {
     throw new Error(`unknown workflow graph node outline state: ${state}`);
   }
   return style;
-}
-
-function geometryKey(parts) {
-  return parts.join("|");
 }

@@ -28,7 +28,11 @@ import { MarkdownText } from "./markdown-text";
 import { RunActivityRows } from "./chat-run-activity";
 import { ApprovalCard, type SubmitApproval } from "./chat-transcript-approvals";
 import { BrailleSpinner } from "./ascii-spinner";
-import { chatReadableColumnClass, chatReadableColumnPaddedClass } from "./chat-layout";
+import {
+  chatReadableColumnAttributes,
+  chatReadableColumnClass,
+  chatReadableColumnPaddedClass,
+} from "./chat-layout";
 import {
   isVisibleMessage,
   transcriptTimelineRows,
@@ -378,6 +382,7 @@ function EmptyChatTranscript({
         data-testid="chat-transcript-scroller"
       >
         <div
+          {...chatReadableColumnAttributes}
           className={cn(chatReadableColumnClass, "py-16 text-center text-xs text-muted-foreground")}
           data-testid="empty-chat"
         >
@@ -397,6 +402,7 @@ function TranscriptHeader({ hasMoreOlder, loadOlder }: TranscriptHeaderProps) {
   }
   return (
     <div
+      {...chatReadableColumnAttributes}
       className={cn(chatReadableColumnPaddedClass, "mb-2 flex justify-center")}
       data-testid="chat-transcript-header"
     >
@@ -419,7 +425,7 @@ function TranscriptFooter({ activeRun, submitApproval }: TranscriptFooterProps) 
     return null;
   }
   return (
-    <div className={cn(chatReadableColumnPaddedClass, "py-2")}>
+    <div {...chatReadableColumnAttributes} className={cn(chatReadableColumnPaddedClass, "py-2")}>
       <PendingApproval activeRun={activeRun} submitApproval={submitApproval} />
     </div>
   );
@@ -458,7 +464,10 @@ function JumpToLatestButton({
   }
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-4 flex justify-center">
-      <div className={cn(chatReadableColumnClass, "flex justify-end")}>
+      <div
+        {...chatReadableColumnAttributes}
+        className={cn(chatReadableColumnClass, "flex justify-end")}
+      >
         <Button
           aria-label="Jump to latest"
           className="pointer-events-auto h-7 w-7 rounded-sm border-border bg-muted/95 px-0 text-foreground shadow-lg shadow-black/30 hover:bg-accent hover:text-foreground"
@@ -505,6 +514,7 @@ const TranscriptTurnRow = memo(function TranscriptTurnRow({
 }) {
   return (
     <div
+      {...chatReadableColumnAttributes}
       className={chatReadableColumnClass}
       data-run-id={turn.run.id}
       data-testid="chat-transcript-turn"
@@ -653,6 +663,7 @@ const MessageRow = memo(function MessageRow({
 
   return (
     <div
+      {...chatReadableColumnAttributes}
       className={messageRowClass(message, message.id === activeSearchMessageId)}
       data-chat-message="true"
       data-message-delivery={message.delivery}

@@ -18,7 +18,7 @@ import {
 } from "./pixi-renderer-label-font";
 import { syncNodeLabelVisibility } from "./pixi-renderer-label-visibility";
 import { destroyInitializedApp } from "./pixi-renderer-lifecycle";
-import { drawWorkspaceGrid } from "./pixi-renderer-node-geometry";
+import { createNodeGeometryContextFactory, drawWorkspaceGrid } from "./pixi-renderer-node-geometry";
 import { createWorkflowGraphNodeContainer } from "./pixi-renderer-node-container";
 import { createWorkflowGraphSpatialQueries } from "./pixi-renderer-spatial-queries";
 import {
@@ -125,6 +125,7 @@ export async function createWorkflowGraphRenderer({
   const nodes = graph.nodes.map((node) => ({ ...node }));
   const edges = graph.edges.map((edge) => ({ ...edge }));
   const spatialQueries = createWorkflowGraphSpatialQueries({ nodes, viewport });
+  const nodeGeometry = createNodeGeometryContextFactory();
   const nodeContainers = new Map();
   const nodeBodies = new Map();
   const nodeShadows = new Map();
@@ -176,13 +177,18 @@ export async function createWorkflowGraphRenderer({
     acquireLabel,
     createNodeContainer: nodeContainer,
     nodeContainers,
+    nodeGeometry,
     nodeLayer,
     nodes,
   });
+  redrawGlow();
   syncAllLabels();
   redrawEdges();
 
   const resizeObserver = new ResizeObserver(() => {
+    if (destroyed) {
+      return;
+    }
     const nextSize = hostScreenSize(host);
     app.renderer.resize(nextSize.width, nextSize.height);
     viewport.resize(nextSize.width, nextSize.height, 4000, 4000);
@@ -366,6 +372,9 @@ export async function createWorkflowGraphRenderer({
   window.addEventListener("keydown", keyDown);
 
   app.ticker.add(() => {
+    if (destroyed) {
+      return;
+    }
     const now = performance.now();
     const frameMs = now - lastFrameAt;
     lastFrameAt = now;
@@ -377,9 +386,6 @@ export async function createWorkflowGraphRenderer({
     const nextCameraState = cameraState(viewport);
     if (cameraStatesDiffer(nextCameraState, lastCameraState)) {
       commitCameraChange(nextCameraState);
-    }
-    if (!destroyed) {
-      drawWorkspaceGlow(glow, nodes, now);
     }
   });
 
@@ -397,6 +403,7 @@ export async function createWorkflowGraphRenderer({
       nodeLabels,
       nodeLabelFontSizeModes,
       nodeLabelVisibilityReasons,
+      nodeGeometryContextCounts: nodeGeometry.counts,
       nodeOutlines,
       nodes,
       nodeShadows,
@@ -454,6 +461,7 @@ export async function createWorkflowGraphRenderer({
     return createWorkflowGraphNodeContainer({
       node,
       nodeBodies,
+      nodeGeometry,
       nodeOutlines,
       nodeShadows,
       onPointerOut: () => setHoveredNodeId(null),
@@ -573,6 +581,7 @@ export async function createWorkflowGraphRenderer({
     syncLabelVisibility();
     nodeDragUpdateCount += 1;
     redrawEdges();
+    redrawGlow();
   }
   function finishNodeDragging() {
     const shouldPersistPositions = draggingNode?.moved === true;
@@ -682,6 +691,9 @@ export async function createWorkflowGraphRenderer({
       validateGlyphs: validateNodeLabelGlyphs,
     });
     edgeRedrawCount += 1;
+  }
+  function redrawGlow() {
+    drawWorkspaceGlow(glow, nodes, performance.now());
   }
   function startEdgeDrawing(sourceNodeId, sourcePortId) {
     const source = requireNode(sourceNodeId);

@@ -237,7 +237,7 @@ function paneSnapshotExpression() {
     const stageRect = stage instanceof HTMLElement
       ? stage.getBoundingClientRect()
       : { left: 0, top: 0, width: 0, height: 0 };
-    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-fake-pane-host"]'))
+    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
       .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
       .map((host) => {
         const rect = host.getBoundingClientRect();

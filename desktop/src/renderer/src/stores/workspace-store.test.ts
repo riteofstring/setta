@@ -122,6 +122,15 @@ describe("workspace store", () => {
     expect(useWorkspaceStore.getState().error).toBe("workspace path does not exist");
   });
 
+  test("clears workspace errors without fabricating a ready session", () => {
+    useWorkspaceStore.setState({ error: "workspace failed", session: null, status: "error" });
+
+    useWorkspaceStore.getState().clearError();
+
+    expect(useWorkspaceStore.getState().error).toBeNull();
+    expect(useWorkspaceStore.getState().status).toBe("idle");
+  });
+
   test("newer operation result wins over older operation result", async () => {
     const older = deferred<WorkspaceSession>();
     const newer = deferred<WorkspaceSession>();

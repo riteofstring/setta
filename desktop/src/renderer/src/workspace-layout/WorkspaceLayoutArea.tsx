@@ -1,4 +1,5 @@
 import type { DesktopPlatform } from "@shared/types";
+import { AlertTriangle, X } from "lucide-react";
 import {
   Profiler,
   useCallback,
@@ -107,6 +108,7 @@ export function WorkspaceLayoutArea({
       }),
     [allowResizedPanesToOverflowViewport, mode, workspaceId, workspaceName],
   );
+  const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
   const stageViewport = useCallback(() => {
@@ -133,6 +135,9 @@ export function WorkspaceLayoutArea({
     },
     [persistLayout],
   );
+  useEffect(() => {
+    setLayoutRecoveryDismissed(false);
+  }, [runtime.layoutStorageKey]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
       setOverviewGhostTarget(null);
@@ -554,6 +559,12 @@ export function WorkspaceLayoutArea({
           store={runtime.store}
         />
       ) : null}
+      <WorkspaceLayoutRecoveryNotice
+        message={
+          !layoutRecoveryDismissed && runtime.layoutRecovery ? runtime.layoutRecovery.message : null
+        }
+        onDismiss={() => setLayoutRecoveryDismissed(true)}
+      />
       <div className="workspace-stage" data-testid="workspace-presentation-engine" ref={stageRef}>
         {layoutSnapshot.presentationMode === "overview" && overviewGhostTarget ? (
           <button
@@ -575,12 +586,9 @@ export function WorkspaceLayoutArea({
             type="button"
           />
         ) : null}
-        <Profiler
-          id="workspace-fake-pane-hosts"
-          onRender={() => runtime.metrics.recordReactCommit()}
-        >
+        <Profiler id="workspace-pane-hosts" onRender={() => runtime.metrics.recordReactCommit()}>
           {Array.from({ length: runtime.hostPoolSize }, (_, index) => (
-            <FakePaneHost
+            <WorkspacePaneHost
               key={`workspace_host_${index}`}
               refCallback={(host) => {
                 hostRefs.current[index] = host;
@@ -611,7 +619,42 @@ function workspaceBenchmarkShouldRun(mode: WorkspaceSceneMode): boolean {
   return mode === "benchmark" && workspaceAutoBenchmarkEnabled();
 }
 
-function FakePaneHost({ refCallback }: { refCallback: (host: HTMLDivElement | null) => void }) {
+function WorkspaceLayoutRecoveryNotice({
+  message,
+  onDismiss,
+}: {
+  message: string | null;
+  onDismiss: () => void;
+}) {
+  if (!message) {
+    return null;
+  }
+  return (
+    <div
+      className="app-no-drag absolute top-10 right-3 left-3 z-50 flex min-w-0 items-start gap-2 rounded-sm border border-amber-500/35 bg-amber-950/70 px-2.5 py-2 text-xs text-amber-100 shadow-lg"
+      data-testid="workspace-layout-recovery"
+      role="alert"
+    >
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="min-w-0 flex-1 break-words leading-4">{message}</div>
+      <button
+        aria-label="Dismiss layout recovery notice"
+        className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-amber-100/80 hover:bg-amber-100/10 hover:text-amber-50 focus-visible:bg-amber-100/10 focus-visible:text-amber-50"
+        onClick={onDismiss}
+        title="Dismiss layout recovery notice"
+        type="button"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function WorkspacePaneHost({
+  refCallback,
+}: {
+  refCallback: (host: HTMLDivElement | null) => void;
+}) {
   return (
     <article
       className="workspace-pane-host app-no-drag"
@@ -621,7 +664,7 @@ function FakePaneHost({ refCallback }: { refCallback: (host: HTMLDivElement | nu
       data-pane-id=""
       data-runtime-state="live"
       data-surface-kind=""
-      data-testid="workspace-fake-pane-host"
+      data-testid="workspace-pane-host"
       data-tone="slate"
       data-visible="false"
       ref={refCallback}

@@ -170,7 +170,7 @@ async function safeSettingsState(client) {
 function settingsStateExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-fake-pane-host"]'))
+    const hosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
       .filter((host) =>
         host instanceof HTMLElement &&
         host.dataset.visible === "true" &&

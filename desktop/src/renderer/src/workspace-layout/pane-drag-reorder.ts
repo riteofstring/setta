@@ -137,7 +137,7 @@ export function syncPaneDragSourceOffset(
 
 export function visiblePaneHostForPane(paneId: string): HTMLElement | null {
   const hosts = document.querySelectorAll<HTMLElement>(
-    '[data-testid="workspace-fake-pane-host"][data-visible="true"]',
+    '[data-testid="workspace-pane-host"][data-visible="true"]',
   );
   return [...hosts].find((host) => host.dataset.paneId === paneId) ?? null;
 }
@@ -152,7 +152,7 @@ function paneDragTargetFromPointer(event: PointerEvent): {
   const handle = event.target.closest<HTMLElement>('[data-workspace-pane-drag-handle="true"]');
   const paneId =
     handle?.dataset.paneId ??
-    handle?.closest<HTMLElement>('[data-testid="workspace-fake-pane-host"]')?.dataset.paneId;
+    handle?.closest<HTMLElement>('[data-testid="workspace-pane-host"]')?.dataset.paneId;
   return handle && paneId ? { handle, paneId } : null;
 }
 
@@ -218,7 +218,7 @@ function visiblePaneHostAtPoint(
   sourcePaneId: string,
 ): HTMLElement | null {
   const hosts = document.querySelectorAll<HTMLElement>(
-    '[data-testid="workspace-fake-pane-host"][data-visible="true"]',
+    '[data-testid="workspace-pane-host"][data-visible="true"]',
   );
   return (
     [...hosts]
@@ -263,7 +263,7 @@ function syncPaneDropTarget(root: HTMLElement, target: PaneDropTarget | null): v
 }
 
 function clearPaneDropTargets(root: HTMLElement): void {
-  const hosts = root.querySelectorAll<HTMLElement>('[data-testid="workspace-fake-pane-host"]');
+  const hosts = root.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"]');
   for (const host of hosts) {
     delete host.dataset.dropAxis;
     delete host.dataset.dropTarget;

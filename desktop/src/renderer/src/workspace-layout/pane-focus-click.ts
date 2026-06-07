@@ -1,6 +1,6 @@
 const paneFocusEdgeWidthPx = 12;
 const paneFocusTopHeightPx = 30;
-const visiblePaneHostSelector = '[data-testid="workspace-fake-pane-host"][data-visible="true"]';
+const visiblePaneHostSelector = '[data-testid="workspace-pane-host"][data-visible="true"]';
 
 interface PaneFocusPoint {
   x: number;

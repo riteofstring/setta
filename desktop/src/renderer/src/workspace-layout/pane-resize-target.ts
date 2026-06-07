@@ -1,4 +1,4 @@
-const visiblePaneHostSelector = '[data-testid="workspace-fake-pane-host"][data-visible="true"]';
+const visiblePaneHostSelector = '[data-testid="workspace-pane-host"][data-visible="true"]';
 const resizeHandleSelector = "[data-workspace-pane-resize-axis]";
 
 export type PaneResizeTarget =
