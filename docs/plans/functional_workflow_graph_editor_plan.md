@@ -1,7 +1,7 @@
 # Functional Workflow Graph Editor Plan
 
 - **Date:** June 8, 2026
-- **Status:** Phase 4 in progress; layout, workspace-file/null-workflow authoring, and basic editor UX slices complete; diagnostics, details depth, and run/version state remain
+- **Status:** Phase 4 in progress; layout, workspace-file/null-workflow authoring, basic editor UX, and diagnostic marker slices complete; details depth, run/version state, and workflow-level configuration remain
 - **Scope:** Build the first usable workflow graph editor on top of workspace JSON workflow definitions containing `WorkflowDefinition.graph` and runtime `WorkflowGraphProjection` overlays.
 
 ## Direction
@@ -171,9 +171,16 @@ The first slice established backend-owned editor layout metadata and proved it t
 - Kept Agent Task details read-only when the pane is showing a run snapshot.
 - Proved the slice through deterministic Electron/main/preload/renderer/HTTP/store coverage for toolbar add, node details, run start, and runtime projection updates.
 
+## Completed Diagnostic Marker Slice
+
+- Mapped backend validation diagnostics to affected draft nodes and edges.
+- Rendered distinct Pixi node and edge diagnostic markers without confusing them with runtime failure state.
+- Kept validation result panels as the summary/detail view while using local node and edge markers for graph context.
+- Suppressed draft validation markers on run projections.
+- Proved the slice through focused renderer projection tests and deterministic Electron workflow coverage for node and edge diagnostics.
+
 ## Remaining Editor Slice
 
-- Attach backend validation diagnostics to affected draft nodes and edges before save or run.
 - Expand type-specific node details for Route, Merge, Barrier Join, Start, and End.
 - Add selected-run activity/transcript references, final output, emitted signals, artifacts, route explanations, failure reasons, and recovery details to node details.
 - Make saved version, selected run/version, and version mismatch state explicit in the graph UI.
@@ -181,7 +188,7 @@ The first slice established backend-owned editor layout metadata and proved it t
 
 ## Phase 4 Deliverables
 
-Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, immutable run snapshots, toolbar add/validate/run controls, validation result panels, and basic Agent Task details are implemented. The remaining deliverables are node/edge-attached diagnostics, richer node details, explicit saved-version/selected-run/version-mismatch state, and workflow-level configuration.
+Current status: partially complete. Storage, blank-canvas authoring, durable node and edge edits, typed route ports, workspace workflow listing/selection, immutable run snapshots, toolbar add/validate/run controls, validation result panels, node/edge-attached diagnostics, and basic Agent Task details are implemented. The remaining deliverables are richer node details, selected-run activity inspection, explicit saved-version/selected-run/version-mismatch state, and workflow-level configuration.
 
 - Name, list, open, edit, validate, save, and run workspace workflow definitions from the renderer.
 - Render an empty editable canvas as the null workflow when no saved definition exists.
@@ -219,12 +226,12 @@ Current status: partially complete. Storage, blank-canvas authoring, durable nod
 - Complete: opening Workflow Graph in a workspace with no workflow files shows a blank editable canvas, not a create button or "no workflow graph" dead end.
 - Complete: adding the first node to the blank canvas creates a deterministic workspace JSON definition and lists it in the left pane.
 - Complete: a user can see existing workspace workflows in the left pane, select one, and reopen that exact definition.
-- Partial: a user can create a control-flow workflow with `Route`, explicit default routing, and `Merge` or `Barrier Join` semantics that validate through the backend. Additional visible validation UX remains.
+- Partial: a user can create a control-flow workflow with `Route`, explicit default routing, and `Merge` or `Barrier Join` semantics that validate through the backend. Non-Agent node details remain.
 - Complete: dragging a connection creates a durable `WorkflowEdge` and condition, not only a Pixi line.
 - Complete: moving nodes persists via backend-owned layout metadata when persistence is enabled.
 - Complete: the toolbar provides a discoverable add surface in addition to right-click canvas creation.
 - Complete: a user can run a saved workflow from the renderer and see the started run projection on the graph.
 - Partial: a user can create an `Agent Task` workflow from the canvas, configure basic Agent Task prompt/model settings in a Niri details pane, save it as a workspace JSON definition, run an immutable snapshot through the workflow API, and inspect runtime status on the graph. Selected-run activity/transcript details still need UI work.
-- Partial: validation diagnostics appear in the editor before run, but affected draft nodes and edges still need local diagnostic markers.
+- Complete: validation diagnostics appear in the editor before run, and affected draft nodes and edges show local diagnostic markers.
 - Partial: runtime overlays are loaded from the exact workflow version that ran, and the UI blocks editing while viewing a run projection, but saved version, selected run/version, and version mismatch state still need to be explicit.
 - Partial: node details panes can inspect and edit authored Agent Task config without hiding the graph; non-Agent node details and selected-run activity remain.

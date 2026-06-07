@@ -1,7 +1,7 @@
 # Backend Workflow Kernel Architecture Plan
 
 - **Date:** June 8, 2026
-- **Status:** Phase 4 in progress; workspace-file storage/null-workflow and basic editor UX slices complete; later runner extensions deferred
+- **Status:** Phase 4 in progress; workspace-file storage/null-workflow, basic editor UX, and diagnostic marker slices complete; later runner extensions deferred
 - **Scope:** Evolve Setta's backend workflow orchestration into a durable local-first workflow kernel with replaceable action runners.
 
 ## Executive Summary
@@ -21,7 +21,7 @@ Setta visual workflow graph
               -> sandboxed processes, MCP, sidecars, agent SDKs, or workflow backends later
 ```
 
-The Codex-only workflow kernel, runner boundary, transactional runtime persistence, and recovery/reconciliation work are complete. The current implementation target is finishing the functional workflow graph editor polish on top of workspace JSON definitions: node/edge-attached diagnostics, richer node details and selected-run activity inspection, explicit draft/run/version state, and workflow-level configuration. Existing workflow persistence and contracts can still be replaced directly where the target design is clearer; no compatibility layers are required.
+The Codex-only workflow kernel, runner boundary, transactional runtime persistence, and recovery/reconciliation work are complete. The current implementation target is finishing the functional workflow graph editor polish on top of workspace JSON definitions: richer node details and selected-run activity inspection, explicit draft/run/version state, and workflow-level configuration. Existing workflow persistence and contracts can still be replaced directly where the target design is clearer; no compatibility layers are required.
 
 ## Product Position
 
@@ -73,11 +73,10 @@ The existing architecture already has several correct foundations:
 - Workflow-owned conversations are marked internal so normal chat lists can hide them while workflow UI can still inspect them.
 - Authored workflow definitions are workspace-local JSON files under `.setta/workflows/`.
 - The current kernel runtime persistence is SQLite-backed for immutable definition versions, executions, events, materialized run state, and recovery state.
-- The renderer can show a blank null-workflow canvas, materialize a workspace JSON definition on first graph edit, list and select workspace workflows, persist node, edge, and layout edits through backend workflow definition APIs, expose toolbar add/validate/run/draft/details controls, and open a basic Agent Task details pane in Niri.
+- The renderer can show a blank null-workflow canvas, materialize a workspace JSON definition on first graph edit, list and select workspace workflows, persist node, edge, and layout edits through backend workflow definition APIs, expose toolbar add/validate/run/draft/details controls, attach validation diagnostics to affected draft nodes and edges, and open a basic Agent Task details pane in Niri.
 
 The main gaps are:
 
-- Validation diagnostics currently appear as a panel; affected draft nodes and edges still need local diagnostic markers that remain visually distinct from runtime failure.
 - Node details are basic and Agent Task-focused; Route, Merge, Barrier Join, Start, End, and selected-run activity/transcript inspection still need type-specific details.
 - Draft/run state exists in the toolbar and details read-only behavior, but saved version, selected run/version, and version mismatch state still need to be explicit in the graph UI.
 - Workflow-level naming and configuration controls are still thin.
@@ -836,7 +835,7 @@ Acceptance criteria:
 
 #### Phase 4: Functional Workflow Graph Editor
 
-Status: In progress. The layout metadata slice, workspace-file/null-workflow authoring slice, and basic editor UX slice are complete. The remaining work is editor polish on top of workspace-saved workflow definition files, the `WorkflowDefinition.graph` contract, and the existing Codex-backed workflow kernel. See [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md) for detailed deliverables, guardrails, and acceptance criteria.
+Status: In progress. The layout metadata slice, workspace-file/null-workflow authoring slice, basic editor UX slice, and diagnostic marker slice are complete. The remaining work is editor polish on top of workspace-saved workflow definition files, the `WorkflowDefinition.graph` contract, and the existing Codex-backed workflow kernel. See [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md) for detailed deliverables, guardrails, and acceptance criteria.
 
 Completed first slice:
 
@@ -866,9 +865,15 @@ Completed basic editor UX slice:
 - Support basic Agent Task configuration in the details pane: title, prompt, model, reasoning effort, and fresh-conversation setting.
 - Prove the slice through deterministic Electron/main/preload/renderer/HTTP/store coverage for toolbar add, node details, run start, and runtime projection updates.
 
+Completed diagnostic marker slice:
+
+- Map backend validation diagnostics onto affected draft projection nodes and edges.
+- Draw distinct Pixi node and edge diagnostic markers without reusing runtime failure styling.
+- Suppress draft validation markers on run projections so validation and runtime state remain visually separate.
+- Prove the slice through focused renderer projection tests and deterministic Electron workflow coverage for node and edge diagnostics.
+
 Remaining editor slice:
 
-- Attach backend validation diagnostics to affected draft nodes and edges without reusing runtime failure styling.
 - Expand type-specific workflow node details for Route, Merge, Barrier Join, Start, and End.
 - Add selected-run activity/transcript references, final output, emitted signals, artifacts, route explanations, and failure/recovery details to node details.
 - Make saved version, selected run/version, and version mismatch state explicit in the graph UI.
