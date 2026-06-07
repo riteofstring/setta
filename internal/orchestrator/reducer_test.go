@@ -761,7 +761,10 @@ func startActionForTest(t *testing.T, execution WorkflowExecution, nodeID string
 		if nodeExecution.NodeID != nodeID || nodeExecution.Status != NodeExecutionStatusReady {
 			continue
 		}
-		transition, err := StartAction(execution, nodeExecution.ID, []WorkflowActionRunnerRef{{Kind: "test.runner", ID: nodeExecution.ID}}, testTransitionContext())
+		transition, err := StartAction(execution, nodeExecution.ID, WorkflowActionStartMetadata{
+			RunnerKind: ActionKindAgentCodex,
+			RunnerRefs: []WorkflowActionRunnerRef{{Kind: "test.runner", ID: nodeExecution.ID}},
+		}, testTransitionContext())
 		if err != nil {
 			t.Fatalf("start action %s: %v", nodeID, err)
 		}

@@ -94,7 +94,7 @@ func CompleteAction(execution WorkflowExecution, graph WorkflowGraph, nodeExecut
 	return WorkflowTransition{Execution: execution, Events: events}, nil
 }
 
-func StartAction(execution WorkflowExecution, nodeExecutionID string, runnerRefs []WorkflowActionRunnerRef, context TransitionContext) (WorkflowTransition, error) {
+func StartAction(execution WorkflowExecution, nodeExecutionID string, metadata WorkflowActionStartMetadata, context TransitionContext) (WorkflowTransition, error) {
 	if err := validateTransitionContext(context); err != nil {
 		return WorkflowTransition{}, err
 	}
@@ -111,7 +111,7 @@ func StartAction(execution WorkflowExecution, nodeExecutionID string, runnerRefs
 	}
 	nodeExecution.Status = NodeExecutionStatusRunning
 	nodeExecution.StartedAt = context.Now
-	nodeExecution.RunnerRefs = mergeRunnerRefs(nodeExecution.RunnerRefs, runnerRefs)
+	applyActionStartMetadata(nodeExecution, metadata)
 	events := []WorkflowEvent{}
 	if err := appendEvent(&execution, &events, context, EventActionStarted, WorkflowEvent{
 		NodeID:          nodeExecution.NodeID,
@@ -122,20 +122,6 @@ func StartAction(execution WorkflowExecution, nodeExecutionID string, runnerRefs
 	}
 	refreshActiveNodeExecutionIDs(&execution)
 	return WorkflowTransition{Execution: execution, Events: events}, nil
-}
-
-func AttachRunnerRefs(execution WorkflowExecution, nodeExecutionID string, runnerRefs []WorkflowActionRunnerRef, context TransitionContext) (WorkflowTransition, error) {
-	if err := validateTransitionContext(context); err != nil {
-		return WorkflowTransition{}, err
-	}
-	index := nodeExecutionIndex(execution, nodeExecutionID)
-	if index < 0 {
-		return WorkflowTransition{}, fmt.Errorf("node execution %s was not found", nodeExecutionID)
-	}
-	execution.NodeExecutions[index].RunnerRefs = mergeRunnerRefs(execution.NodeExecutions[index].RunnerRefs, runnerRefs)
-	execution.UpdatedAt = context.Now
-	refreshActiveNodeExecutionIDs(&execution)
-	return WorkflowTransition{Execution: execution, Events: []WorkflowEvent{}}, nil
 }
 
 func applyActionCompletion(execution *WorkflowExecution, graph WorkflowGraph, nodeExecution *WorkflowNodeExecution, result WorkflowActionResult, context TransitionContext, events *[]WorkflowEvent) error {
@@ -412,6 +398,7 @@ func processActionToken(execution *WorkflowExecution, tokenIndex int, node Workf
 		ScheduledAt:    context.Now,
 		ActionKind:     &actionKind,
 		RunnerRefs:     []WorkflowActionRunnerRef{},
+		ActivityRefs:   []WorkflowActivityRef{},
 	}
 	execution.NodeExecutions = append(execution.NodeExecutions, nodeExecution)
 	if err := appendEvent(execution, events, context, EventNodeScheduled, WorkflowEvent{
@@ -628,6 +615,7 @@ func addControlNodeExecution(execution *WorkflowExecution, context TransitionCon
 		StartedAt:      context.Now,
 		CompletedAt:    context.Now,
 		RunnerRefs:     []WorkflowActionRunnerRef{},
+		ActivityRefs:   []WorkflowActivityRef{},
 	}
 	execution.NodeExecutions = append(execution.NodeExecutions, nodeExecution)
 	return nodeExecution, nil
@@ -741,6 +729,7 @@ func appendEvent(execution *WorkflowExecution, events *[]WorkflowEvent, context 
 		NodeID:              draft.NodeID,
 		NodeExecutionID:     draft.NodeExecutionID,
 		TokenID:             draft.TokenID,
+		RunnerKind:          draft.RunnerKind,
 		CreatedAt:           context.Now,
 		Message:             draft.Message,
 		Details:             draft.Details,

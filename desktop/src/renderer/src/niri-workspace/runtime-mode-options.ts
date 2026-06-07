@@ -11,26 +11,6 @@ import type { NiriWorkspaceScene, PaneId } from "./types";
 export type NiriSceneMode = "benchmark" | "workspace";
 
 const realWorkspaceHostPoolSize = 18;
-const syncAllRenderedContentDuringMovementByMode = {
-  benchmark: false,
-  workspace: false,
-} satisfies Record<NiriSceneMode, boolean>;
-const runtimePolicyOptionsByMode = {
-  benchmark: {
-    degradeDuringMovement: true,
-    degradeOverview: true,
-  },
-  workspace: {
-    degradeDuringMovement: true,
-    degradeOverview: false,
-  },
-} satisfies Record<
-  NiriSceneMode,
-  {
-    degradeDuringMovement: boolean;
-    degradeOverview: boolean;
-  }
->;
 
 export function browserPaneCountForScene(scene: NiriWorkspaceScene): number {
   return scene.panes.filter((pane) => pane.surfaceKind === "browser").length;
@@ -74,7 +54,7 @@ export function paneLimitsForRuntime(mode: NiriSceneMode) {
 }
 
 export function presentationOptionsForRuntime(mode: NiriSceneMode) {
-  return { syncAllRenderedContentDuringMovement: syncAllRenderedContentDuringMovementByMode[mode] };
+  return { syncAllRenderedContentDuringMovement: mode === "workspace" };
 }
 
 export function reportWriterForRuntime(mode: NiriSceneMode) {
@@ -82,7 +62,10 @@ export function reportWriterForRuntime(mode: NiriSceneMode) {
 }
 
 export function runtimePolicyOptionsForRuntime(mode: NiriSceneMode) {
-  return { ...runtimePolicyOptionsByMode[mode] };
+  return {
+    degradeOverview: mode === "benchmark",
+    degradeDuringMovement: mode === "benchmark",
+  };
 }
 
 export function sceneForRuntime(realScene: RealWorkspaceSceneResult | null): NiriWorkspaceScene {

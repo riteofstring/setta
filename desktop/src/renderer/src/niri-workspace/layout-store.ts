@@ -19,7 +19,6 @@ export interface NiriLayoutSnapshot {
   maximizedPaneId: PaneId | null;
   overviewProgress: number;
   presentationMode: NiriPresentationMode;
-  revision: number;
   scrollColumn: number;
   scrollRow: number;
   targetScrollColumn: number;
@@ -51,7 +50,6 @@ export class NiriLayoutStore {
   private scrollRow = 0;
   private overviewProgress = 0;
   private presentationMode: NiriPresentationMode = "normal";
-  private revision = 0;
   private targetOverviewProgress = 0;
   private targetScrollColumn = 0;
   private targetScrollRow = 0;
@@ -118,7 +116,6 @@ export class NiriLayoutStore {
         maximizedPaneId: this.maximizedPaneId,
         overviewProgress: this.overviewProgress,
         presentationMode: this.presentationMode,
-        revision: this.revision,
         scrollColumn: this.scrollColumn,
         scrollRow: this.scrollRow,
         targetScrollColumn: this.targetScrollColumn,
@@ -136,7 +133,6 @@ export class NiriLayoutStore {
       maximizedPaneId: this.maximizedPaneId,
       overviewProgress: this.overviewProgress,
       presentationMode: this.presentationMode,
-      revision: this.revision,
       scrollColumn: this.scrollColumn,
       scrollRow: this.scrollRow,
       targetScrollColumn: this.targetScrollColumn,
@@ -446,7 +442,6 @@ export class NiriLayoutStore {
   }
 
   private notify(): void {
-    this.revision += 1;
     const snapshot = this.createSnapshot();
     this.snapshot = snapshot;
     for (const listener of this.listeners) {

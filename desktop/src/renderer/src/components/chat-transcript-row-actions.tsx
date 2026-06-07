@@ -48,7 +48,7 @@ export function MessageRowActions({
     return null;
   }
   const actionClass =
-    "h-6 w-6 shrink-0 rounded-sm border-border bg-secondary px-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground";
+    "h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-900 px-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100";
   return (
     <div className="mb-1 flex h-6 min-w-14 justify-end gap-1">
       {editMode ? (
@@ -174,7 +174,7 @@ export function QueuedMessageEditor({
   return (
     <Textarea
       aria-label="Queued message text"
-      className="max-h-36 min-h-16 min-w-0 resize-y overflow-y-auto border-border bg-background/70 px-2 py-1.5 text-xs leading-5 text-foreground shadow-none focus-visible:border-ring"
+      className="max-h-36 min-h-16 min-w-0 resize-y overflow-y-auto border-zinc-700 bg-zinc-950/70 px-2 py-1.5 text-xs leading-5 text-zinc-100 shadow-none focus-visible:border-zinc-500"
       disabled={rowBusy}
       onChange={(event) => setDraft(event.target.value)}
       onKeyDown={(event) => {

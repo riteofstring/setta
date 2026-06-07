@@ -119,11 +119,17 @@ func newTestWorkflowServiceWithOptions(t *testing.T, options ...Option) (*Store,
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("close workflow store: %v", err)
+		}
+	})
 	serviceOptions := append([]Option{WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t))}, options...)
 	service, err := NewService(store, resolver, serviceOptions...)
 	if err != nil {
 		t.Fatalf("create service: %v", err)
 	}
+	t.Cleanup(service.CloseEvents)
 	return store, resolver, service, workspaceID
 }
 
@@ -279,7 +285,15 @@ func (runner *recordingActionRunner) Kind() WorkflowActionKind {
 	return ActionKindAgentCodex
 }
 
-func (runner *recordingActionRunner) Start(_ context.Context, request ActionStartRequest) (ActionStartResult, error) {
+func (runner *recordingActionRunner) Capabilities(config WorkflowActionConfig) (RunnerCapabilities, error) {
+	return CodexActionRunnerDescriptor{}.Capabilities(config)
+}
+
+func (runner *recordingActionRunner) ValidateConfig(config WorkflowActionConfig) []RunnerConfigDiagnostic {
+	return CodexActionRunnerDescriptor{}.ValidateConfig(config)
+}
+
+func (runner *recordingActionRunner) Start(_ context.Context, request ActionStartRequest, _ RunnerEventSink) (ActionStartResult, error) {
 	return ActionStartResult{RunnerRefs: []WorkflowActionRunnerRef{{Kind: "test.runner", ID: request.NodeExecution.ID}}}, nil
 }
 
@@ -288,6 +302,14 @@ func (runner *recordingActionRunner) Cancel(_ context.Context, request ActionCan
 	defer runner.mu.Unlock()
 	runner.cancels = append(runner.cancels, request)
 	return nil
+}
+
+func (runner *recordingActionRunner) Signal(_ context.Context, _ ActionSignalRequest) (ActionSignalResult, error) {
+	return ActionSignalResult{}, nil
+}
+
+func (runner *recordingActionRunner) Recover(_ context.Context, _ ActionRecoverRequest, _ RunnerEventSink) (ActionRecoverResult, error) {
+	return ActionRecoverResult{Outcome: RunnerRecoveryOutcomeFailedInterrupted}, nil
 }
 
 func (runner *recordingActionRunner) cancelRequestForNodeExecution(nodeExecutionID string) ActionCancelRequest {
@@ -314,7 +336,7 @@ func newBlockingActionRunner() *blockingActionRunner {
 	}
 }
 
-func (runner *blockingActionRunner) Start(_ context.Context, request ActionStartRequest) (ActionStartResult, error) {
+func (runner *blockingActionRunner) Start(_ context.Context, request ActionStartRequest, _ RunnerEventSink) (ActionStartResult, error) {
 	runner.started <- request
 	<-runner.release
 	return ActionStartResult{RunnerRefs: []WorkflowActionRunnerRef{{Kind: "test.runner", ID: request.NodeExecution.ID}}}, nil
