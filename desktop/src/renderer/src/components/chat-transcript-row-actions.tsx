@@ -2,6 +2,7 @@ import type { ChatMessage, Run } from "@generated/backend";
 import { Check, Pencil, Trash2, X, Zap } from "lucide-react";
 
 import { cn } from "../lib/utils";
+import { startStoreBackedChatInteractiveAction } from "../stores/chat-interactive-actions";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
@@ -144,7 +145,11 @@ export function MessageRowActions({
             rowActions.operation === "sendingSteeringImmediately" ||
             rowActions.operation === "cancelling"
           }
-          onClick={() => void rowActions.sendSteeringImmediately()}
+          onClick={() =>
+            startStoreBackedChatInteractiveAction("send-pending-steering", () =>
+              rowActions.sendSteeringImmediately(),
+            )
+          }
           title="Interrupt and send pending steering"
           type="button"
           variant="secondary"

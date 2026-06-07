@@ -56,6 +56,7 @@ export interface ChatStore {
     limit?: number,
   ) => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
+  syncWorkspaceChat: (workspaceId: string) => Promise<void>;
   markConversationRead: (conversationId: string) => Promise<void>;
   messageIds: string[];
   messages: ChatMessage[];

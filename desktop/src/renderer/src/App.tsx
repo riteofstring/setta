@@ -22,6 +22,7 @@ import {
 } from "./workspace-layout/WorkspaceLayoutArea";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
+import { runChatBackgroundAction } from "./stores/chat-background-actions";
 import {
   type WorkspaceOperation,
   type WorkspaceStatus,
@@ -166,7 +167,9 @@ function useBackendLifecycle(setta: SettaAPI) {
   useEffect(() => {
     return setta.backend.onEventStreamStatus((eventStream) => {
       if (eventStream.status === "resyncing") {
-        void useChatStore.getState().resyncActiveConversation();
+        runChatBackgroundAction("event-stream-resync", () =>
+          useChatStore.getState().resyncActiveConversation(),
+        );
       }
     });
   }, [setta]);
@@ -181,14 +184,14 @@ function useAppearanceSettings() {
 }
 
 function useSelectedWorkspaceChatSync(workspaceId: string | null) {
-  const loadWorkspace = useChatStore((state) => state.loadWorkspace);
+  const syncWorkspaceChat = useChatStore((state) => state.syncWorkspaceChat);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   useLayoutEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
       return;
     }
-    void loadWorkspace(workspaceId);
-  }, [loadWorkspace, storeWorkspaceId, workspaceId]);
+    runChatBackgroundAction("workspace-chat-sync", () => syncWorkspaceChat(workspaceId));
+  }, [storeWorkspaceId, syncWorkspaceChat, workspaceId]);
 }
 
 function useViewportSize() {

@@ -9,6 +9,7 @@ import {
   conversationListLoadingPatch,
   conversationUpdatedSummaryPatch,
 } from "./chat-store-conversation-lists";
+import { runChatBackgroundAction, type ChatBackgroundActionName } from "./chat-background-actions";
 import { ChatBackendLifecycleAbort } from "./chat-store-backend-lifecycle";
 import { conversationDetailPatch, normalizeStatePatch } from "./chat-store-detail-cache";
 import {
@@ -131,8 +132,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
       return;
     }
     if (!wasOnline && get().workspaceId) {
-      void get().resyncActiveConversation();
+      runChatStoreBackgroundResync("backend-lifecycle-resync");
     }
+  }
+
+  function runChatStoreBackgroundResync(name: ChatBackgroundActionName) {
+    runChatBackgroundAction(name, () => get().resyncActiveConversation());
   }
 
   async function loadConversationPageSnapshot(
@@ -220,6 +225,48 @@ export const useChatStore = create<ChatStore>((set, get) => {
       conversation: findConversation(list.conversations, request.conversationId),
       conversationListPatch: conversationListLoadedPatch(get(), request.workspaceId, list, true),
     };
+  }
+
+  async function loadWorkspaceCommand(workspaceId: string) {
+    const operation = beginOperation(
+      "conversation",
+      {
+        error: null,
+        operation: "loading",
+        status: "loading",
+      },
+      conversationBoundOperationScopes,
+    );
+    try {
+      const [list, selectedConversations] = await Promise.all([
+        reloadConversations(workspaceId),
+        window.setta.workspace.selectedConversations(),
+      ]);
+      const selectedConversationIdsByWorkspaceId = {
+        ...get().selectedConversationIdsByWorkspaceId,
+        ...selectedConversations.selectedConversationIdsByWorkspaceId,
+      };
+      const conversation = conversationToLoadForWorkspace(
+        { ...get(), selectedConversationIdsByWorkspaceId },
+        workspaceId,
+        list,
+      );
+      const patch = conversation
+        ? await loadConversationPage(workspaceId, conversation)
+        : emptyConversationPatch();
+      commitCurrentFromState(operation, (current) => ({
+        ...patch,
+        ...conversationListLoadedPatch(current, workspaceId, list, true),
+        operation: null,
+        selectedConversation: conversation,
+        selectedConversationIdsByWorkspaceId,
+        status: "ready",
+        workspaceId,
+      }));
+    } catch (error) {
+      commitCurrent(operation, errorPatch(error));
+      throw error;
+    }
   }
 
   return {
@@ -418,12 +465,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
           lastEventSequence: event.payload.currentSequence,
           lastEventStreamId: event.payload.currentStreamId,
         });
-        void get().resyncActiveConversation();
+        runChatStoreBackgroundResync("event-stream-resync");
         return;
       }
       if (isUnexpectedStream(state, event)) {
         set({ lastEventSequence: event.sequence, lastEventStreamId: event.streamId });
-        void get().resyncActiveConversation();
+        runChatStoreBackgroundResync("event-stream-resync");
         return;
       }
       if (isDuplicateEvent(state, event)) {
@@ -431,7 +478,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
       if (hasSequenceGap(state, event)) {
         set({ lastEventSequence: event.sequence, lastEventStreamId: event.streamId });
-        void get().resyncActiveConversation();
+        runChatStoreBackgroundResync("event-stream-resync");
         return;
       }
       const result = applyChatEvent(state, event);
@@ -441,7 +488,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         lastEventStreamId: event.streamId,
       }));
       if (result.resync) {
-        void get().resyncActiveConversation();
+        runChatStoreBackgroundResync("event-stream-resync");
       }
     },
     loadOlder: async () => {
@@ -543,45 +590,13 @@ export const useChatStore = create<ChatStore>((set, get) => {
         );
       }
     },
-    loadWorkspace: async (workspaceId: string) => {
-      const operation = beginOperation(
-        "conversation",
-        {
-          error: null,
-          operation: "loading",
-          status: "loading",
-        },
-        conversationBoundOperationScopes,
-      );
+    loadWorkspace: loadWorkspaceCommand,
+    syncWorkspaceChat: async (workspaceId: string) => {
       try {
-        const [list, selectedConversations] = await Promise.all([
-          reloadConversations(workspaceId),
-          window.setta.workspace.selectedConversations(),
-        ]);
-        const selectedConversationIdsByWorkspaceId = {
-          ...get().selectedConversationIdsByWorkspaceId,
-          ...selectedConversations.selectedConversationIdsByWorkspaceId,
-        };
-        const conversation = conversationToLoadForWorkspace(
-          { ...get(), selectedConversationIdsByWorkspaceId },
-          workspaceId,
-          list,
-        );
-        const patch = conversation
-          ? await loadConversationPage(workspaceId, conversation)
-          : emptyConversationPatch();
-        commitCurrentFromState(operation, (current) => ({
-          ...patch,
-          ...conversationListLoadedPatch(current, workspaceId, list, true),
-          operation: null,
-          selectedConversation: conversation,
-          selectedConversationIdsByWorkspaceId,
-          status: "ready",
-          workspaceId,
-        }));
-      } catch (error) {
-        commitCurrent(operation, errorPatch(error));
-        throw error;
+        await loadWorkspaceCommand(workspaceId);
+      } catch {
+        // loadWorkspaceCommand records visible error state for the current request before
+        // rejecting. Superseded requests can reject after their operation token is stale.
       }
     },
     lastEventSequence: 0,
