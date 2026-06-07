@@ -1,24 +1,7 @@
-import type {
-  ChatCommandExecuteResult,
-  ChatModelOption,
-  ChatReasoningEffortOption,
-  Conversation,
-  ReasoningEffort,
-} from "@generated/backend";
-import { ArrowUp, ChevronDown, MessageSquarePlus, Mic, Settings, Square, Zap } from "lucide-react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { ArrowUp, MessageSquarePlus, Square, Zap } from "lucide-react";
+import type { KeyboardEvent } from "react";
 
-import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
-
-const REASONING_EFFORT_DISPLAY_NAMES = {
-  none: "None",
-  minimal: "Minimal",
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Extra High",
-} satisfies Record<ReasoningEffort, string>;
 
 export interface ComposerKeyActions {
   completeCommand: () => void;
@@ -116,210 +99,6 @@ function focusTextareaSoon(textarea: HTMLTextAreaElement) {
   globalThis.setTimeout(() => textarea.focus(), 0);
 }
 
-export function PermissionModeUnavailableButton() {
-  return (
-    <DisabledComposerPill
-      icon={<Settings className="h-3.5 w-3.5" />}
-      label="Custom"
-      reason="Permission presets are not wired to a current Setta API."
-    />
-  );
-}
-
-export function VoiceInputUnavailableButton() {
-  return (
-    <DisabledIconButton
-      icon={<Mic className="h-3.5 w-3.5" />}
-      label="Voice input"
-      reason="Voice input is not implemented in this codebase."
-    />
-  );
-}
-
-function DisabledComposerPill({
-  icon,
-  label,
-  reason,
-}: {
-  icon: ReactNode;
-  label: string;
-  reason: string;
-}) {
-  return (
-    <button
-      aria-label={`${label} unavailable`}
-      className="inline-flex h-6 min-w-0 items-center gap-1 rounded-sm border border-border bg-secondary px-1.5 text-xs text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70"
-      disabled
-      title={reason}
-      type="button"
-    >
-      <span className="shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
-      <ChevronDown className="h-3 w-3 shrink-0" />
-    </button>
-  );
-}
-
-function DisabledIconButton({
-  icon,
-  label,
-  reason,
-}: {
-  icon: ReactNode;
-  label: string;
-  reason: string;
-}) {
-  return (
-    <button
-      aria-label={`${label} unavailable`}
-      className="grid h-6 w-6 shrink-0 place-items-center rounded-sm text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70"
-      disabled
-      title={reason}
-      type="button"
-    >
-      {icon}
-    </button>
-  );
-}
-
-export function ModelPickerButton({
-  disabled,
-  modelPicker,
-  onOpen,
-  running,
-  selectedConversation,
-}: {
-  disabled: boolean;
-  modelPicker: ChatCommandExecuteResult | null;
-  onOpen: () => void;
-  running: boolean;
-  selectedConversation: Conversation | null;
-}) {
-  const summary = modelPickerSummary(modelPicker, selectedConversation);
-  const disabledReason = modelPickerDisabledReason({
-    disabled,
-    running,
-    selected: selectedConversation !== null,
-  });
-  return (
-    <button
-      aria-expanded={modelPicker?.result.action === "model_picker" ? "true" : "false"}
-      aria-haspopup="menu"
-      aria-label="Open model and reasoning picker"
-      className={cn(
-        "inline-flex h-6 min-w-0 items-center gap-1 rounded-sm border border-transparent px-1.5 text-xs hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-        modelPicker?.result.action === "model_picker"
-          ? "border-border bg-accent/80 text-foreground"
-          : "text-muted-foreground",
-      )}
-      disabled={disabled}
-      onClick={onOpen}
-      title={disabledReason ?? "Open model and reasoning picker"}
-      type="button"
-    >
-      <span className="max-w-28 truncate font-medium text-foreground">{summary.model}</span>
-      <span className="max-w-28 truncate text-muted-foreground">{summary.reasoning}</span>
-      <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-    </button>
-  );
-}
-
-function modelPickerDisabledReason({
-  disabled,
-  running,
-  selected,
-}: {
-  disabled: boolean;
-  running: boolean;
-  selected: boolean;
-}) {
-  if (!disabled) {
-    return null;
-  }
-  if (!selected) {
-    return "Start a chat before changing model settings.";
-  }
-  if (running) {
-    return "Model commands are unavailable while a run is active.";
-  }
-  return "Composer controls are unavailable while the current operation finishes.";
-}
-
-function modelPickerSummary(
-  modelPicker: ChatCommandExecuteResult | null,
-  selectedConversation: Conversation | null,
-) {
-  if (modelPicker?.result.action === "model_picker") {
-    return modelPickerResultSummary(modelPicker);
-  }
-  return conversationModelSummary(selectedConversation);
-}
-
-function modelPickerResultSummary(modelPicker: ChatCommandExecuteResult) {
-  return {
-    model: selectedModelSummary(modelPicker),
-    reasoning: selectedReasoningSummary(modelPicker),
-  };
-}
-
-function selectedModelSummary(modelPicker: ChatCommandExecuteResult) {
-  const selectedModel = selectedModelOption(modelPicker);
-  return selectedModel?.displayName ?? selectedModel?.model ?? "Model";
-}
-
-function selectedReasoningSummary(modelPicker: ChatCommandExecuteResult) {
-  const selectedReasoning = selectedReasoningEffortOption(modelPicker);
-  return selectedReasoning?.displayName ?? "Reasoning";
-}
-
-function selectedModelOption(modelPicker: ChatCommandExecuteResult) {
-  return (
-    modelPicker.result.models.find((model) =>
-      modelPickerOptionSelected(model, modelPicker.result.selectedModel),
-    ) ?? null
-  );
-}
-
-function selectedReasoningEffortOption(modelPicker: ChatCommandExecuteResult) {
-  return (
-    modelPicker.result.reasoningEfforts.find((effort) =>
-      reasoningEffortOptionSelected(effort, modelPicker.result.selectedReasoningEffort),
-    ) ?? null
-  );
-}
-
-function conversationModelSummary(selectedConversation: Conversation | null) {
-  return {
-    model: selectedConversation?.codexSettings?.model || "Model",
-    reasoning: conversationReasoningSummary(selectedConversation),
-  };
-}
-
-function conversationReasoningSummary(selectedConversation: Conversation | null) {
-  const reasoningEffort = selectedConversation?.codexSettings?.reasoningEffort;
-  return reasoningEffort ? REASONING_EFFORT_DISPLAY_NAMES[reasoningEffort] : "Reasoning";
-}
-
-export function modelPickerOptionSelected(
-  model: Pick<ChatModelOption, "isDefault" | "model">,
-  selectedModel: string,
-) {
-  if (selectedModel === "") {
-    return model.isDefault;
-  }
-  return model.model === selectedModel;
-}
-
-export function reasoningEffortOptionSelected(
-  effort: Pick<ChatReasoningEffortOption, "effort" | "isDefault">,
-  selectedReasoningEffort: ReasoningEffort | null,
-) {
-  if (selectedReasoningEffort === null) {
-    return effort.isDefault;
-  }
-  return effort.effort === selectedReasoningEffort;
-}
-
 export function ComposerButton({
   canSend,
   canSendImmediately,
@@ -343,7 +122,7 @@ export function ComposerButton({
       <div className="flex items-center gap-1">
         <Button
           aria-label="Send steering message"
-          className="h-6 w-6 shrink-0 rounded-sm border-primary bg-primary px-0 text-primary-foreground hover:bg-primary/90 disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
+          className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
           disabled={!canSend}
           title="Send steering message"
           type="submit"
@@ -353,7 +132,7 @@ export function ComposerButton({
         </Button>
         <Button
           aria-label="Queue follow-up"
-          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
           disabled={
             !canSend ||
             chat.operation === "queueing" ||
@@ -368,7 +147,7 @@ export function ComposerButton({
         </Button>
         <Button
           aria-label="Interrupt and send pending steering"
-          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
           disabled={!canSendImmediately || chat.operation === "sendingSteeringImmediately"}
           onClick={() => void sendImmediateSteering()}
           title="Interrupt and send pending steering"
@@ -379,7 +158,7 @@ export function ComposerButton({
         </Button>
         <Button
           aria-label="Stop run"
-          className="h-6 w-6 shrink-0 rounded-sm border-border bg-card px-0 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
           disabled={
             chat.operation === "cancelling" || chat.operation === "sendingSteeringImmediately"
           }
@@ -396,7 +175,7 @@ export function ComposerButton({
   return (
     <Button
       aria-label="Send message"
-      className="h-6 w-6 shrink-0 rounded-sm border-primary bg-primary px-0 text-primary-foreground hover:bg-primary/90 disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
+      className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
       disabled={!canSend}
       title="Send message"
       type="submit"

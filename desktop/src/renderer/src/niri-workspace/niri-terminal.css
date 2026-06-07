@@ -5,7 +5,6 @@
 }
 
 .niri-xterm-surface .niri-terminal-header {
-  background: var(--niri-terminal-background, #09090b);
   border-bottom: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
   min-height: 30px;
   padding: 0 10px;
@@ -45,7 +44,6 @@
 
 .niri-terminal-search {
   align-items: center;
-  background: var(--niri-terminal-background, #09090b);
   border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
   display: grid;
   gap: 6px;

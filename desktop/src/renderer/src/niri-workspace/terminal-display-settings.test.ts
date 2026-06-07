@@ -4,7 +4,6 @@ import {
   defaultTerminalDisplaySettings,
   normalizeTerminalDisplaySettings,
   terminalTheme,
-  terminalThemeBackground,
 } from "./terminal-display-settings";
 
 describe("terminal display settings", () => {
@@ -40,11 +39,5 @@ describe("terminal display settings", () => {
 
   test("returns xterm themes for profile theme ids", () => {
     expect(terminalTheme("setta-light").background).toBe("#fbfbfc");
-  });
-
-  test("returns the concrete xterm background for profile theme ids", () => {
-    expect(terminalThemeBackground("setta-dark")).toBe("#09090b");
-    expect(terminalThemeBackground("high-contrast-dark")).toBe("#000000");
-    expect(terminalThemeBackground("setta-light")).toBe("#fbfbfc");
   });
 });

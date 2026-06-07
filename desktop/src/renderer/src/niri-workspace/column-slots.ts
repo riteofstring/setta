@@ -99,10 +99,10 @@ export function slotOffsetsForColumns({
     const width = widths[column.index] ?? defaultWidth;
     slotWidths.set(slotIndex, Math.max(slotWidths.get(slotIndex) ?? defaultWidth, width));
   }
+  const highestSlotIndex = Math.max(0, ...columns.map((column) => columnSlotIndex(column)));
   const offsets = new Map<number, number>();
   let nextOffset = 0;
-  const occupiedSlotIndexes = [...slotWidths.keys()].sort((left, right) => left - right);
-  for (const slotIndex of occupiedSlotIndexes) {
+  for (let slotIndex = 0; slotIndex <= highestSlotIndex; slotIndex += 1) {
     offsets.set(slotIndex, nextOffset);
     nextOffset += (slotWidths.get(slotIndex) ?? defaultWidth) + columnGap;
   }

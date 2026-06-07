@@ -81,6 +81,7 @@ function workflowEvent(ordinal: number): WorkflowEvent {
     nodeExecutionId: "",
     nodeId: "",
     ordinal,
+    runnerKind: null,
     schemaVersion: 1,
     tokenId: "",
     type: "workflow.execution.started",

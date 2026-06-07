@@ -10,13 +10,73 @@ import (
 	"setta/internal/workspace"
 )
 
-func TestServicePersistsVersionsExecutionsEventsAndRecoversInterruptedRuns(t *testing.T) {
-	store, resolver, service, workspaceID := newTestWorkflowService(t)
+func TestServicePersistsVersionsExecutionsEventsAndRecoversRunningRuns(t *testing.T) {
+	runner := newRecordingActionRunner()
+	runner.recover = func(request ActionRecoverRequest) ActionRecoverResult {
+		return ActionRecoverResult{
+			Outcome:    RunnerRecoveryOutcomeRecoveredCompleted,
+			Result:     &WorkflowActionResult{Status: ActionCompletionCompleted},
+			RunnerRefs: request.RunnerRefs,
+			Message:    "recovered completed action",
+		}
+	}
+	store, resolver, service, workspaceID := newTestWorkflowServiceWithRunner(t, runner)
 	definition, firstVersionID, running := createRunningFirstVersion(t, service, workspaceID)
 	updated, second := updateDefinitionAndStartLatest(t, service, workspaceID, definition, firstVersionID)
 	assertLatestVersionCompleted(t, second, updated.CurrentVersionID)
 	assertExecutionEventsPersisted(t, service, workspaceID, running.ID)
-	assertInterruptedExecutionRecovered(t, store, resolver, workspaceID, running.ID)
+	assertRunningExecutionRecovered(t, store, resolver, runner, workspaceID, running.ID)
+}
+
+func TestServiceStartupRecoveryRequiresManualStateForUncertainSideEffects(t *testing.T) {
+	runner := newRecordingActionRunner()
+	runner.recover = func(request ActionRecoverRequest) ActionRecoverResult {
+		return ActionRecoverResult{
+			Outcome:    RunnerRecoveryOutcomeManualRecoveryRequired,
+			RunnerRefs: request.RunnerRefs,
+			Message:    "side effects are uncertain",
+		}
+	}
+	store, resolver, service, workspaceID := newTestWorkflowServiceWithRunner(t, runner)
+	definition, err := service.CreateDefinition(workspaceID, "Manual recovery", "", actionGraph("work"))
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	started, err := service.StartExecution(workspaceID, definition.ID, "")
+	if err != nil {
+		t.Fatalf("start execution: %v", err)
+	}
+	work := latestNodeExecutionForTest(t, started, "work")
+	if work.Status != NodeExecutionStatusRunning {
+		t.Fatalf("work status = %s, want running", work.Status)
+	}
+
+	restarted, err := NewService(store, resolver, WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t)), WithRunnerRegistry(DefaultRunnerRegistry().WithRunner(runner)))
+	if err != nil {
+		t.Fatalf("restart service: %v", err)
+	}
+	defer restarted.CloseEvents()
+	recovered, err := restarted.ReadExecution(workspaceID, started.ID)
+	if err != nil {
+		t.Fatalf("read recovered execution: %v", err)
+	}
+	if recovered.Status != ExecutionStatusRunning {
+		t.Fatalf("execution status = %s, want running manual recovery state", recovered.Status)
+	}
+	recoveredWork := latestNodeExecutionForTest(t, recovered, "work")
+	if recoveredWork.Status != NodeExecutionStatusRecoveryRequired {
+		t.Fatalf("work status = %s, want recovery_required", recoveredWork.Status)
+	}
+	if recoveredWork.RecoveryOutcome == nil || *recoveredWork.RecoveryOutcome != RunnerRecoveryOutcomeManualRecoveryRequired {
+		t.Fatalf("recovery outcome = %v, want manual_recovery_required", recoveredWork.RecoveryOutcome)
+	}
+	if recoveredWork.RecoveryMessage != "side effects are uncertain" {
+		t.Fatalf("recovery message = %q, want side effects are uncertain", recoveredWork.RecoveryMessage)
+	}
+	if recoveredWork.RunnerState == nil || recoveredWork.RunnerState.Status != RunnerStateStatusRecoveryRequired {
+		t.Fatalf("runner state = %+v, want recovery_required", recoveredWork.RunnerState)
+	}
+	assertWorkflowEventsInclude(t, restarted, workspaceID, started.ID, []WorkflowEventType{EventActionRecoveryRequired})
 }
 
 func TestServiceCancelsSiblingRunnerWhenActionFails(t *testing.T) {
@@ -119,11 +179,17 @@ func newTestWorkflowServiceWithOptions(t *testing.T, options ...Option) (*Store,
 	if err != nil {
 		t.Fatalf("create store: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("close workflow store: %v", err)
+		}
+	})
 	serviceOptions := append([]Option{WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t))}, options...)
 	service, err := NewService(store, resolver, serviceOptions...)
 	if err != nil {
 		t.Fatalf("create service: %v", err)
 	}
+	t.Cleanup(service.CloseEvents)
 	return store, resolver, service, workspaceID
 }
 
@@ -187,26 +253,31 @@ func assertExecutionEventsPersisted(t *testing.T, service *Service, workspaceID 
 	}
 }
 
-func assertInterruptedExecutionRecovered(t *testing.T, store *Store, resolver testWorkspaceResolver, workspaceID string, executionID string) {
+func assertRunningExecutionRecovered(t *testing.T, store *Store, resolver testWorkspaceResolver, runner *recordingActionRunner, workspaceID string, executionID string) {
 	t.Helper()
-	restarted, err := NewService(store, resolver, WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t)))
+	restarted, err := NewService(store, resolver, WithIDGenerator(deterministicIDGenerator()), WithClock(fixedTestClock(t)), WithRunnerRegistry(DefaultRunnerRegistry().WithRunner(runner)))
 	if err != nil {
 		t.Fatalf("restart service: %v", err)
 	}
+	defer restarted.CloseEvents()
 	recovered, err := restarted.ReadExecution(workspaceID, executionID)
 	if err != nil {
 		t.Fatalf("read recovered execution: %v", err)
 	}
-	if recovered.Status != ExecutionStatusFailed {
-		t.Fatalf("recovered execution status = %s, want failed", recovered.Status)
+	if recovered.Status != ExecutionStatusCompleted {
+		t.Fatalf("recovered execution status = %s, want completed", recovered.Status)
 	}
-	if terminalReasonValue(recovered) != TerminalReasonInterrupted {
-		t.Fatalf("recovered terminal reason = %v, want interrupted", recovered.TerminalReason)
+	if len(runner.recoverRequests()) == 0 {
+		t.Fatal("runner recover was not called")
 	}
 	work := latestNodeExecutionForTest(t, recovered, "work")
-	if work.Status != NodeExecutionStatusFailed {
-		t.Fatalf("recovered work status = %s, want failed", work.Status)
+	if work.Status != NodeExecutionStatusSucceeded {
+		t.Fatalf("recovered work status = %s, want succeeded", work.Status)
 	}
+	if work.RecoveryOutcome == nil || *work.RecoveryOutcome != RunnerRecoveryOutcomeRecoveredCompleted {
+		t.Fatalf("work recovery outcome = %v, want recovered_completed", work.RecoveryOutcome)
+	}
+	assertWorkflowEventsInclude(t, restarted, workspaceID, executionID, []WorkflowEventType{EventActionRecovered, EventActionCompleted})
 }
 
 type testWorkspaceResolver struct {
@@ -267,8 +338,10 @@ func startEndGraph() WorkflowGraph {
 }
 
 type recordingActionRunner struct {
-	mu      sync.Mutex
-	cancels []ActionCancelRequest
+	mu       sync.Mutex
+	cancels  []ActionCancelRequest
+	recovers []ActionRecoverRequest
+	recover  func(ActionRecoverRequest) ActionRecoverResult
 }
 
 func newRecordingActionRunner() *recordingActionRunner {
@@ -279,7 +352,15 @@ func (runner *recordingActionRunner) Kind() WorkflowActionKind {
 	return ActionKindAgentCodex
 }
 
-func (runner *recordingActionRunner) Start(_ context.Context, request ActionStartRequest) (ActionStartResult, error) {
+func (runner *recordingActionRunner) Capabilities(config WorkflowActionConfig) (RunnerCapabilities, error) {
+	return CodexActionRunnerDescriptor{}.Capabilities(config)
+}
+
+func (runner *recordingActionRunner) ValidateConfig(config WorkflowActionConfig) []RunnerConfigDiagnostic {
+	return CodexActionRunnerDescriptor{}.ValidateConfig(config)
+}
+
+func (runner *recordingActionRunner) Start(_ context.Context, request ActionStartRequest, _ RunnerEventSink) (ActionStartResult, error) {
 	return ActionStartResult{RunnerRefs: []WorkflowActionRunnerRef{{Kind: "test.runner", ID: request.NodeExecution.ID}}}, nil
 }
 
@@ -288,6 +369,26 @@ func (runner *recordingActionRunner) Cancel(_ context.Context, request ActionCan
 	defer runner.mu.Unlock()
 	runner.cancels = append(runner.cancels, request)
 	return nil
+}
+
+func (runner *recordingActionRunner) Signal(_ context.Context, _ ActionSignalRequest) (ActionSignalResult, error) {
+	return ActionSignalResult{}, nil
+}
+
+func (runner *recordingActionRunner) Recover(_ context.Context, request ActionRecoverRequest, _ RunnerEventSink) (ActionRecoverResult, error) {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	runner.recovers = append(runner.recovers, request)
+	if runner.recover != nil {
+		return runner.recover(request), nil
+	}
+	return ActionRecoverResult{Outcome: RunnerRecoveryOutcomeFailedInterrupted}, nil
+}
+
+func (runner *recordingActionRunner) recoverRequests() []ActionRecoverRequest {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	return append([]ActionRecoverRequest{}, runner.recovers...)
 }
 
 func (runner *recordingActionRunner) cancelRequestForNodeExecution(nodeExecutionID string) ActionCancelRequest {
@@ -314,7 +415,7 @@ func newBlockingActionRunner() *blockingActionRunner {
 	}
 }
 
-func (runner *blockingActionRunner) Start(_ context.Context, request ActionStartRequest) (ActionStartResult, error) {
+func (runner *blockingActionRunner) Start(_ context.Context, request ActionStartRequest, _ RunnerEventSink) (ActionStartResult, error) {
 	runner.started <- request
 	<-runner.release
 	return ActionStartResult{RunnerRefs: []WorkflowActionRunnerRef{{Kind: "test.runner", ID: request.NodeExecution.ID}}}, nil
