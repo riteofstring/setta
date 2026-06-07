@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-Setta should own the workflow product contract: saved graph definitions, immutable versions, run state, approvals, event history, transcripts, structured routing outputs, cancellation, and recovery semantics.
+Setta should own the workflow product contract: workspace-saved graph definitions, immutable execution snapshots, run state, approvals, event history, transcripts, structured routing outputs, cancellation, and recovery semantics.
 
 External workflow engines and AI-agent frameworks should not become the saved graph format or the source of truth for run lifecycle. They should be optional execution substrates or node-level runners behind Setta-owned contracts.
 
@@ -27,7 +27,7 @@ The next implementation target is a Codex-only workflow kernel with a runner bou
 
 Setta is not only a chat UI, a workflow engine, or an agent SDK wrapper. It is a local-first visual AI workflow product.
 
-That means the stable product artifact is the Setta workflow graph and its run history, not LangGraph internals, LangFlow flows, Temporal histories, n8n workflows, OpenAI Agents SDK traces, or Codex chat records.
+That means the stable product artifact is the Setta workflow graph file and its run history, not LangGraph internals, LangFlow flows, Temporal histories, n8n workflows, OpenAI Agents SDK traces, or Codex chat records.
 
 The core rule:
 
@@ -41,7 +41,7 @@ Those future graph layers are a reason to keep the saved Setta graph model app-o
 
 ## Goals
 
-- Keep workflow definitions portable and Setta-owned.
+- Keep workflow definitions portable, Setta-owned, workspace-local, and git-trackable.
 - Preserve immutable workflow versions for every execution.
 - Keep the workflow lifecycle capable of supporting heterogeneous node execution later.
 - Provide deterministic routing from structured outputs, signals, status, and exit codes.
@@ -71,13 +71,12 @@ The existing architecture already has several correct foundations:
 - Node executions persist attempts, iterations, idempotency keys, runner refs, results, and pending approvals.
 - Codex-backed agent work is integrated as an action runner through production chat paths.
 - Workflow-owned conversations are marked internal so normal chat lists can hide them while workflow UI can still inspect them.
+- The current kernel persistence is SQLite-backed for definitions, versions, executions, events, and recovery state.
 
 The main gaps are:
 
-- Persistence is JSON-file based, with event append and execution snapshot writes as separate operations.
-- Restart recovery currently marks running executions interrupted instead of resuming or reconciling from committed boundaries.
-- The runner interface is minimal and does not express capabilities, streaming events, resume, side-effect policy, or structured output schemas.
-- Workflow events are lifecycle-oriented; detailed transcript/tool streams mostly live in chat-specific state.
+- Authored workflow definitions are still stored in global app SQLite instead of workspace-local JSON files.
+- The frontend does not yet list, create, name, select, or load workflow definitions as workspace artifacts.
 - `agent.codex` is the only concrete action kind today.
 
 ## Target Architecture
@@ -108,8 +107,10 @@ Workflow kernel
   - Recovery reconciler
 
 Persistence
-  - Append-only run events
-  - Materialized run state
+  - Workspace JSON definition files
+  - SQLite immutable execution snapshots
+  - SQLite append-only run events
+  - SQLite materialized run state
   - Node attempts
   - Runner state
   - Approval state
@@ -126,6 +127,10 @@ Runners
 ```
 
 ### Source Of Truth
+
+Authored workflow definitions should be workspace-local JSON files, for example under `.setta/workflows/`. They should be deterministic, reviewable, and diffable project artifacts. The exact path and file schema are Phase 4 design details, but the direction is that the workspace file is the source of truth for the editable definition.
+
+SQLite remains the source of truth for runtime state: immutable snapshots used by runs, event history, node attempts, tokens, approvals, recovery state, runner refs, and materialized projections. When a run starts, the kernel captures the workspace definition file into an immutable version snapshot so later edits do not change that run.
 
 The workflow kernel owns:
 
@@ -159,7 +164,7 @@ The renderer must not own graph execution authority.
 
 ## Product Workflow Model
 
-The saved workflow graph should stay Setta-native.
+The saved workflow graph should stay Setta-native and live as a workspace file rather than being trapped in global app state.
 
 Minimum definition concepts:
 
@@ -213,13 +218,13 @@ Those can exist as advanced runner choices under a task-oriented node when they 
 
 ## Functional Graph Editor Direction
 
-Now that the Codex-backed workflow kernel, SQLite persistence, and recovery/reconciliation phases are complete, the next product surface should be the functional workflow graph editor.
+Now that the Codex-backed workflow kernel, SQLite runtime persistence, and recovery/reconciliation phases are complete, the next product surface should be the functional workflow graph editor.
 
-The editor should author saved workflow definitions. It must not treat a runtime projection or a Pixi-local mutable graph as the durable product artifact. The detailed editor UX, edge semantics, virtual-port model, and Phase 4 deliverables live in [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md).
+The editor should author workspace-saved workflow definition files. It must not treat a runtime projection, Pixi-local mutable graph, or global SQLite row as the durable product artifact. The detailed editor UX, edge semantics, virtual-port model, workspace-file storage direction, and Phase 4 deliverables live in [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md).
 
 Core direction:
 
-- Author `WorkflowDefinition.graph`; render `WorkflowGraphProjection` as a read-only runtime overlay.
+- Author workspace JSON files containing `WorkflowDefinition.graph`; render `WorkflowGraphProjection` as a read-only runtime overlay.
 - Persist editor layout through a Go-owned workflow contract and regenerate TypeScript.
 - Keep node type, validation state, runtime state, and editor affordance visually distinct.
 - Treat initial edges as typed control transitions, not data flow, artifact references, or knowledge links.
@@ -722,22 +727,17 @@ Codex mapping is concrete for Phase 1:
 
 Future process logs, MCP calls, and sidecar traces use the same reference table shape without changing the outer workflow lifecycle.
 
-### Target SQLite Schema
+### Runtime SQLite Schema
 
 The implemented schema and transaction boundary are documented in [Backend Workflow Kernel SQLite Schema](backend_workflow_kernel_sqlite_schema.md).
 
-### Direct JSON Storage Replacement
+### Workspace Definition Files
 
-Phase 2 replaces JSON workflow storage directly with SQLite workflow storage:
+Phase 2 replaced the old JSON workflow runtime path with SQLite so run events and materialized state commit transactionally. That remains the right storage model for executions.
 
-1. Add the SQLite workflow store and transaction API.
-2. Rewrite workflow definition, version, run, event, projection, approval, and recovery reads/writes to use SQLite only.
-3. Remove the JSON workflow store from the production workflow path in the same implementation phase.
-4. Do not import, scan, translate, dual-write, or fall back to files under `workspaces/*/workflows` or `workflow-events`.
-5. Treat existing JSON workflow files as inert developer artifacts after the replacement. The app starts from the SQLite workflow database for workflow state.
-6. Regenerate generated TypeScript surfaces if Go-owned workflow or HTTP contracts change.
+Phase 4 should move authored workflow definitions out of global SQLite and into deterministic workspace JSON files. SQLite may keep immutable version snapshots captured at run start or publish time, plus run/event/recovery state, but it should not be the long-term authority for editable definitions.
 
-The replacement intentionally has no compatibility layer, no state-preservation path, no dual-read/write path, and no old-field aliases.
+When this storage direction is implemented, replace the current authored-definition storage directly. Do not add migration, import, scan, dual-write, fallback, old-field aliases, or compatibility behavior for existing SQLite-authored definitions.
 
 ## Implementation Phases
 
@@ -757,7 +757,7 @@ Deliverables:
 - Completed: define runner-specific policy extension points without implementing non-Codex policy schemas yet.
 - Completed: define side-effect policies.
 - Completed: define recovery outcomes.
-- Completed: define the target SQLite schema and direct replacement plan for JSON workflow storage.
+- Completed: define the runtime SQLite schema and direct replacement plan for the old JSON workflow runtime store.
 
 Acceptance criteria:
 
@@ -789,7 +789,7 @@ Acceptance criteria:
 
 #### Phase 2: Transactional Persistence
 
-Status: Complete. The Codex-backed kernel production path now uses SQLite-backed workflow persistence with transactional event-log and materialized-state commits. The file-backed JSON workflow store has been removed from the production workflow path.
+Status: Complete for runtime persistence. The Codex-backed kernel production path now uses SQLite-backed workflow persistence with transactional event-log and materialized-state commits. The earlier file-backed workflow runtime store has been removed from the production workflow path. Authored workflow definitions should still move to workspace JSON files in Phase 4.
 
 Deliverables:
 
@@ -832,9 +832,9 @@ Acceptance criteria:
 
 #### Phase 4: Functional Workflow Graph Editor
 
-Status: Next. Build the first usable editor on top of the saved `WorkflowDefinition.graph` contract and the existing Codex-backed workflow kernel. See [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md) for detailed deliverables, guardrails, and acceptance criteria.
+Status: Next. Build the first usable editor on top of workspace-saved workflow definition files, the `WorkflowDefinition.graph` contract, and the existing Codex-backed workflow kernel. See [Functional Workflow Graph Editor Plan](functional_workflow_graph_editor_plan.md) for detailed deliverables, guardrails, and acceptance criteria.
 
-First slice:
+Completed first slice:
 
 - Add required backend-owned editor layout metadata to `WorkflowGraph`.
 - Regenerate generated TypeScript contracts.
@@ -842,6 +842,14 @@ First slice:
 - Render projection nodes from persisted layout positions before falling back to automatic layout.
 - Persist node moves through `updateDefinition` when the graph is showing a definition without a selected execution overlay.
 - Prove the slice through focused backend, renderer, and deterministic Electron workflow tests.
+
+Next storage slice:
+
+- Store authored workflow definitions as deterministic JSON files in the workspace.
+- List workspace workflow files in the left pane and open a selected definition explicitly.
+- Create a starter workflow file from the graph surface when none exists.
+- Capture immutable SQLite version snapshots when a workflow is run.
+- Replace current global-SQLite authored-definition storage directly, without compatibility or migration paths.
 
 ### Later Runner Extensions
 
@@ -944,14 +952,14 @@ When the sandboxed process runner is implemented, its tests must also cover:
 
 For changes touching chat-backed Codex runners, harness behavior, approvals, streaming, queueing, or transcript paths, production Electron/main/preload/renderer/HTTP/store end-to-end workflow tests are required.
 
-For changes touching the functional graph editor, deterministic Electron/main/preload/renderer/HTTP/store workflow tests are required. The tests should use temporary app data and cover creating or opening a workspace, authoring a workflow definition, adding nodes, drawing edges, validating diagnostics, saving through the backend API, starting a saved version, receiving runtime projection updates, and opening node details. Renderer-only or Pixi-only tests are not sufficient for editor workflows that save or run definitions.
+For changes touching the functional graph editor, deterministic Electron/main/preload/renderer/HTTP/store workflow tests are required. The tests should use temporary app data and cover creating or opening a workspace, authoring a workflow definition, listing and selecting workspace workflow files, adding nodes, drawing edges, validating diagnostics, saving through the backend API to workspace JSON, starting a saved version snapshot, receiving runtime projection updates, and opening node details. Renderer-only or Pixi-only tests are not sufficient for editor workflows that save or run definitions.
 
 Live Codex E2E tests should run when local ChatGPT auth is available. They must not use `OPENAI_API_KEY`. If ChatGPT auth is unavailable, record the skip as a live-provider skip, not as proof of provider integration.
 
 ## Resolved Architecture Decisions
 
 - Build the Codex-only workflow kernel before implementing non-Codex runners.
-- Move workflow persistence to SQLite before serious runner expansion.
+- Move runtime workflow persistence to SQLite before serious runner expansion.
 - Defer a `go-workflows` spike until after Setta has a SQLite-backed kernel and explicit recovery/reconciliation semantics.
 - Store semantic workflow milestones in workflow events and store high-volume runner activity as referenced transcript, log, trace, or artifact data.
 - Keep the Setta graph model app-owned and extensible for future non-executable graph layers, but do not implement concept, workspace-object, or mindmap nodes in this plan.
@@ -961,7 +969,7 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 - Do not implement OS sandboxing from scratch in Go. Use a sandbox provider such as `srt`, with Docker/Podman as optional strict mode and explicit trusted-command fallback when no sandbox provider is available.
 - Do not preserve existing workflow data or maintain compatibility paths. Replace the implementation directly when the target design is clearer.
 - Make the functional graph editor the next implementation target before later runner expansion.
-- Treat the saved `WorkflowDefinition.graph` as the authored workflow artifact; treat `WorkflowGraphProjection` as a read-only runtime display overlay.
+- Treat the workspace JSON file containing `WorkflowDefinition.graph` as the authored workflow artifact; treat `WorkflowGraphProjection` as a read-only runtime display overlay.
 - Treat initial editor edges as directed control transitions. Do not use one edge layer for control flow, data flow, artifact references, and knowledge links.
 - Keep routing conditions typed and backend-owned. Do not route from arbitrary expression strings or prose assistant output.
 - Treat virtual ports as deterministic editor affordances that compile to real workflow edges and conditions, not as a separate durable contract.
@@ -973,7 +981,7 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 - Exact `srt` integration shape: CLI invocation, TypeScript sidecar bridge, or Go wrapper around the CLI.
 - Native Windows sandbox strategy remains unsupported until proven by implementation and tests.
 - Whether sidecar-backed agent subgraphs are configured by local file path, registered runner package, imported manifest, or LangFlow server/flow reference in the first spike.
-- Exact backend-owned shape for editor layout metadata: embedded on `WorkflowGraph`, a sibling workflow editor metadata object, or another Go-owned contract.
+- Exact workspace workflow file path, file naming rules, deterministic JSON formatting, atomic write behavior, and external-edit conflict handling.
 - Exact typed condition shapes for default branches, approval outcome routing, structured output field comparisons, and signal schema references.
 - Whether `Merge` should compile to `gateway.or`, a separate future control node, or a constrained gateway mode.
 - Backend semantics for a true state-machine wait-state `State` node: signals, resume behavior, timeout policy, persistence, and recovery.
@@ -981,4 +989,4 @@ Live Codex E2E tests should run when local ChatGPT auth is available. They must 
 
 ## Recommended Next Step
 
-Build the functional workflow graph editor before later runner expansion. Start with authoring and running saved `WorkflowDefinition.graph` definitions using `Agent Task`, `Route`, `Merge`, `Barrier Join`, `Start`, and `End`; keep edges as typed control transitions; persist layout through a Go-owned contract if manual positions are saved; and overlay runtime projection state from saved versions. Proceed to sandboxed process, MCP, sidecar, LangGraph, OpenAI Agents SDK, LangFlow, or Python runner work only after the editor proves the graph authoring model under real use.
+Build the functional workflow graph editor before later runner expansion. Start with workspace JSON workflow files that contain `WorkflowDefinition.graph`, support `Agent Task`, `Route`, `Merge`, `Barrier Join`, `Start`, and `End`; keep edges as typed control transitions; persist layout through the Go-owned graph contract; capture immutable SQLite snapshots when runs start; and overlay runtime projection state from saved versions. Proceed to sandboxed process, MCP, sidecar, LangGraph, OpenAI Agents SDK, LangFlow, or Python runner work only after the editor proves the graph authoring model under real use.

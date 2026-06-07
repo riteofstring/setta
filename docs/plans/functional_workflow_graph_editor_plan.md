@@ -1,12 +1,12 @@
 # Functional Workflow Graph Editor Plan
 
 - **Date:** June 8, 2026
-- **Status:** Phase 4 direction; first implementation slice started
-- **Scope:** Build the first usable workflow graph editor on top of saved `WorkflowDefinition.graph` definitions and runtime `WorkflowGraphProjection` overlays.
+- **Status:** Phase 4 direction; first layout slice complete; workspace-file storage direction added
+- **Scope:** Build the first usable workflow graph editor on top of workspace JSON workflow definitions containing `WorkflowDefinition.graph` and runtime `WorkflowGraphProjection` overlays.
 
 ## Direction
 
-The editor should author saved workflow definitions. It must not treat a runtime projection or a Pixi-local mutable graph as the durable product artifact.
+The editor should author workspace-saved workflow definitions. It must not treat a runtime projection, a Pixi-local mutable graph, or a global SQLite row as the durable product artifact.
 
 Target authoring flow:
 
@@ -14,17 +14,27 @@ Target authoring flow:
 Canvas interaction
   -> renderer draft of WorkflowDefinition.graph
   -> backend validation
-  -> createDefinition or updateDefinition
-  -> immutable workflow version
+  -> deterministic workspace JSON workflow file
+  -> immutable SQLite workflow version snapshot when run
   -> run saved version
   -> overlay WorkflowGraphProjection state for the selected run
 ```
 
 `WorkflowGraphProjection` is a derived read model for display. It may provide status, activity counts, pending approvals, errors, and edge activation state for a selected run. It is not the editable definition.
 
-The Pixi graph is a rendering adapter. It may have positions, dimensions, colors, labels, hit targets, ports, and interaction state. Pixi-local mutations are not workflow edits until they update the renderer draft and save through the backend definition API.
+The Pixi graph is a rendering adapter. It may have positions, dimensions, colors, labels, hit targets, ports, and interaction state. Pixi-local mutations are not workflow edits until they update the renderer draft and save through the backend workflow definition API.
 
-Manual node positions and collapsed/grouped editor state should be persisted as backend-owned editor metadata when they need to survive reload. That metadata must live in a Go-owned workflow graph or workflow editor contract, be ignored by execution, and be regenerated into TypeScript. Do not maintain a renderer-only saved layout mirror.
+Manual node positions and collapsed/grouped editor state should be persisted as backend-owned editor metadata when they need to survive reload. That metadata must live in the Go-owned workflow graph or workflow editor contract, be saved in the workspace workflow file, be ignored by execution, and be regenerated into TypeScript. Do not maintain a renderer-only saved layout mirror.
+
+## Definition Storage
+
+Authored workflows should live in the workspace, for example under `.setta/workflows/<name>.json`. The exact path and filename rules are still design details, but the file should be deterministic, diffable, and reviewable in git.
+
+The workspace workflow file should contain the authored definition data: name, description, graph nodes, graph edges, layout, validation-relevant config, and editor metadata that should travel with the project. It should not contain runtime events, node attempts, pending approvals, runner refs, or chat transcript data.
+
+SQLite remains appropriate for runtime state and immutable snapshots. When a workflow starts, the backend should capture the current workspace JSON definition into an immutable version snapshot so the run remains reproducible after the file changes.
+
+Do not add migration, dual-read/write, fallback, import, old-field aliases, or compatibility behavior for the current SQLite-authored definition rows. Replace the authored-definition storage path directly when workspace files are implemented.
 
 ## Visual Layers
 
@@ -98,6 +108,8 @@ Keep canonical port names small and stable. Do not allow near-duplicates such as
 
 Right-click canvas creation is useful, but it should not be the only creation path. The editor should also support a visible add control or command palette so node creation is discoverable.
 
+Workspace workflow definitions should be listed in the left pane alongside conversations or in a sibling Workflows section. A user should be able to create a workflow, name it, select it later, and open the exact saved definition instead of relying on an implicit “latest workflow” projection.
+
 Initial canvas creation menu:
 
 - `Agent Task`
@@ -118,9 +130,9 @@ Details should open in an adjacent Niri pane instead of a modal when possible. T
 
 The UI must make draft, saved version, and selected run explicit. If a user edits a draft after starting a run, the runtime overlay must remain pinned to the exact version that ran or show a clear version mismatch message.
 
-## First Slice
+## Completed First Slice
 
-The first slice establishes backend-owned editor layout metadata and proves it through the existing renderer graph path:
+The first slice established backend-owned editor layout metadata and proved it through the existing renderer graph path:
 
 - Add required layout metadata to the Go-owned workflow graph contract.
 - Regenerate TypeScript contracts.
@@ -129,10 +141,20 @@ The first slice establishes backend-owned editor layout metadata and proves it t
 - Persist node moves through `updateDefinition` when the graph is showing a definition without a selected execution overlay.
 - Keep layout warnings non-fatal because layout is editor metadata, not execution authority.
 
+## Next Storage Slice
+
+- Add a workspace workflow file source of truth with deterministic JSON formatting.
+- List workspace workflow definitions in the left pane and load the selected definition explicitly.
+- Create a starter workflow file from the graph surface when no workflow exists.
+- Save graph edits and layout edits to the workspace file through the backend workflow definition API.
+- Capture immutable SQLite version snapshots when a workflow run starts.
+- Remove global-SQLite authored-definition authority directly, without migration or compatibility paths.
+
 ## Phase 4 Deliverables
 
-- Create, open, edit, validate, save, and run workflow definitions from the renderer.
+- Create, name, list, open, edit, validate, save, and run workspace workflow definitions from the renderer.
 - Maintain an editor draft using generated backend workflow types, not a hardcoded TypeScript mirror.
+- Save authored graph data as deterministic workspace JSON, not as the long-term global SQLite source of truth.
 - Add backend-owned editor layout metadata when manual node positions need to persist, then regenerate generated TypeScript outputs.
 - Render the authored graph and overlay runtime `WorkflowGraphProjection` state for the selected run.
 - Keep projection state read-only; do not infer durable graph edits from projection-only fields such as node status, execution count, pending approval, or edge status.
@@ -148,7 +170,8 @@ The first slice establishes backend-owned editor layout metadata and proves it t
 
 ## Guardrails
 
-- The editor must save through `createDefinition` and `updateDefinition`; Pixi-local node and edge arrays are rendering state only.
+- The editor must save through backend workflow definition APIs backed by workspace JSON files; Pixi-local node and edge arrays are rendering state only.
+- Do not make global SQLite the long-term source of truth for authored workflow definitions.
 - Route only from typed backend-owned predicates: status, signal, exit code, approval result, and later validated structured output fields.
 - Do not add arbitrary JavaScript, Python, expression strings, keyword heuristics, or prose-output routing.
 - Do not introduce non-Codex runners as part of this editor phase.
@@ -158,7 +181,8 @@ The first slice establishes backend-owned editor layout metadata and proves it t
 
 ## Acceptance Criteria
 
-- A user can create an `Agent Task` workflow, configure its Codex prompt, save it as a definition, run the saved version, and inspect runtime status on the graph.
+- A user can create an `Agent Task` workflow, configure its Codex prompt, save it as a workspace JSON definition, run an immutable snapshot, and inspect runtime status on the graph.
+- A user can see existing workspace workflows in the left pane, select one, and reopen that exact definition.
 - A user can create a control-flow workflow with `Route`, explicit default routing, and `Merge` or `Barrier Join` semantics that validate through the backend.
 - Dragging a connection creates a durable `WorkflowEdge` and condition, not only a Pixi line.
 - Moving nodes persists via backend-owned layout metadata when persistence is enabled.
