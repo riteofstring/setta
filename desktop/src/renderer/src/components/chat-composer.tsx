@@ -4,26 +4,17 @@ import type {
   ChatGoalState,
   ChatModelOption,
   ChatReasoningEffortOption,
+  ReasoningEffort,
 } from "@generated/backend";
 import type { ChatCommandExecutionOptions } from "@shared/types";
 import { Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import settaLogo from "../../../../img/logo/logo.svg";
 import { cn } from "../lib/utils";
-import {
-  ComposerButton,
-  handleComposerKeyDown,
-  ModelPickerButton,
-  modelPickerOptionSelected,
-  PermissionModeUnavailableButton,
-  reasoningEffortOptionSelected,
-  VoiceInputUnavailableButton,
-} from "./chat-composer-controls";
+import { ComposerButton, handleComposerKeyDown } from "./chat-composer-controls";
 import type { ChatView } from "./chat-panel";
-import { SettaLogoMark } from "./setta-logo-mark";
 import { Textarea } from "./ui/textarea";
-
-export { modelPickerOptionSelected, reasoningEffortOptionSelected } from "./chat-composer-controls";
 
 function composerDisabled(disabledOverride: boolean | undefined, selected: boolean, busy: boolean) {
   if (disabledOverride !== undefined) {
@@ -64,14 +55,6 @@ function completedCommandDraft(
     return "";
   }
   return selectedSuggestion.name + " ";
-}
-
-function modelPickerControlDisabled(
-  selectedConversation: ChatView["selectedConversation"],
-  disabled: boolean,
-  running: boolean,
-) {
-  return selectedConversation === null || disabled || running;
 }
 
 export function Composer({
@@ -120,11 +103,6 @@ export function Composer({
     running,
     slashDraft,
   });
-  const modelPickerDisabled = modelPickerControlDisabled(
-    chat.selectedConversation,
-    disabled,
-    running,
-  );
 
   useEffect(() => {
     if (!chat.selectedConversation) {
@@ -307,26 +285,9 @@ export function Composer({
     }
   }
 
-  async function openModelPicker() {
-    if (!chat.selectedConversation || disabled || running || submittingRef.current) {
-      return;
-    }
-    submittingRef.current = true;
-    try {
-      const result = await chat.executeCommand("/model");
-      if (result.result.action === "model_picker") {
-        setModelPicker(result);
-        setDraft("");
-        requestAnimationFrame(() => textareaRef.current?.focus());
-      }
-    } finally {
-      submittingRef.current = false;
-    }
-  }
-
   return (
     <form
-      className={cn("bg-background px-2 pt-1 pb-1.5", formClassName)}
+      className={cn("bg-zinc-900 px-2 pt-1 pb-1.5", formClassName)}
       data-testid="chat-composer"
       onSubmit={(event) => {
         event.preventDefault();
@@ -336,7 +297,7 @@ export function Composer({
       <div className="relative mx-auto w-full max-w-3xl min-w-0">
         <div
           className={cn(
-            "min-w-0 rounded-sm border border-border bg-card/90 px-2 py-1.5 shadow-lg shadow-black/15",
+            "min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15",
             frameClassName,
           )}
         >
@@ -359,7 +320,7 @@ export function Composer({
             />
             <Textarea
               aria-label={composerTextareaLabel(acceptsPrompt)}
-              className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
+              className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled}
               onChange={(event) => updateDraft(event.target.value)}
               onKeyDown={(event) => {
@@ -383,19 +344,8 @@ export function Composer({
               value={draft}
             />
           </div>
-          <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
+          <div className="mt-1 flex min-w-0 items-center justify-end gap-1.5">
             <div className="flex min-w-0 items-center gap-1">
-              <PermissionModeUnavailableButton />
-            </div>
-            <div className="flex min-w-0 items-center gap-1">
-              <ModelPickerButton
-                disabled={modelPickerDisabled}
-                modelPicker={modelPicker}
-                onOpen={() => void openModelPicker()}
-                running={running}
-                selectedConversation={chat.selectedConversation}
-              />
-              <VoiceInputUnavailableButton />
               <ComposerButton
                 canSend={canSend}
                 chat={chat}
@@ -507,13 +457,13 @@ export function CommandSuggestions({
     const selectedReasoningEffort = modelPicker.result.selectedReasoningEffort;
     return (
       <div
-        className="absolute bottom-full left-0 z-20 mb-2 max-h-80 w-full overflow-y-auto rounded-sm border border-border bg-popover/95 p-1 text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
+        className="absolute bottom-full left-0 z-20 mb-2 max-h-80 w-full overflow-y-auto rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
         data-testid="model-picker"
       >
-        <div className="mb-1 flex justify-end border-b border-border pb-1">
+        <div className="mb-1 flex justify-end border-b border-zinc-700/70 pb-1">
           <button
             aria-label="Close model picker"
-            className="grid h-6 w-6 place-items-center rounded-sm text-muted-foreground hover:bg-accent/75 hover:text-foreground"
+            className="grid h-6 w-6 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700/75 hover:text-zinc-100"
             onClick={onDismissModelPicker}
             title="Close model picker"
             type="button"
@@ -521,15 +471,15 @@ export function CommandSuggestions({
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-muted-foreground">Model</div>
+        <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-zinc-500">Model</div>
         {modelPicker.result.models.map((model) => {
           const selected = modelPickerOptionSelected(model, selectedModel);
           return (
             <button
               aria-current={selected ? "true" : undefined}
               className={cn(
-                "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75",
-                selected && "bg-accent/70",
+                "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75",
+                selected && "bg-zinc-700/70",
               )}
               data-selected={selected ? "true" : undefined}
               key={model.id}
@@ -540,19 +490,17 @@ export function CommandSuggestions({
                 {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-foreground">
+                <span className="block truncate font-medium text-zinc-100">
                   {model.displayName}
                 </span>
-                <span className="block truncate text-[11px] text-muted-foreground">
-                  {model.model}
-                </span>
+                <span className="block truncate text-[11px] text-zinc-400">{model.model}</span>
               </span>
             </button>
           );
         })}
         {modelPicker.result.reasoningEfforts.length > 0 ? (
           <>
-            <div className="mt-1 border-t border-border px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
+            <div className="mt-1 border-t border-zinc-700/70 px-2 pt-2 pb-1 text-[11px] font-medium text-zinc-500">
               Reasoning
             </div>
             {modelPicker.result.reasoningEfforts.map((effort) => {
@@ -561,8 +509,8 @@ export function CommandSuggestions({
                 <button
                   aria-current={selected ? "true" : undefined}
                   className={cn(
-                    "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75",
-                    selected && "bg-accent/70",
+                    "flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75",
+                    selected && "bg-zinc-700/70",
                   )}
                   data-reasoning-effort={effort.effort}
                   data-reasoning-selected={selected ? "true" : undefined}
@@ -574,10 +522,10 @@ export function CommandSuggestions({
                     {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-foreground">
+                    <span className="block truncate font-medium text-zinc-100">
                       {effort.displayName}
                     </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
+                    <span className="block truncate text-[11px] text-zinc-400">
                       {effort.description}
                     </span>
                   </span>
@@ -595,12 +543,12 @@ export function CommandSuggestions({
   if (commandListError) {
     return (
       <div
-        className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-status-critical/80 bg-popover/95 p-2 text-xs text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
+        className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-red-800/80 bg-zinc-900/95 p-2 text-xs text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
         data-testid="command-suggestions"
         role="alert"
       >
-        <div className="font-medium text-status-critical">Slash commands unavailable</div>
-        <div className="mt-1 break-words text-muted-foreground">{commandListError}</div>
+        <div className="font-medium text-red-300">Slash commands unavailable</div>
+        <div className="mt-1 break-words text-zinc-300">{commandListError}</div>
       </div>
     );
   }
@@ -609,14 +557,14 @@ export function CommandSuggestions({
   }
   return (
     <div
-      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-border bg-popover/95 p-1 text-popover-foreground shadow-xl shadow-black/45 backdrop-blur"
+      className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-sm border border-zinc-700/90 bg-zinc-800/95 p-1 text-zinc-100 shadow-xl shadow-black/45 backdrop-blur"
       data-testid="command-suggestions"
     >
       {suggestions.map((command) => (
         <button
           className={cn(
-            "flex w-full min-w-0 items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-xs hover:bg-accent/75 disabled:opacity-50",
-            command === selectedSuggestion && "bg-accent/80",
+            "flex w-full min-w-0 items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-xs hover:bg-zinc-700/75 disabled:opacity-50",
+            command === selectedSuggestion && "bg-zinc-700/80",
           )}
           disabled={!command.available}
           key={command.name}
@@ -624,8 +572,8 @@ export function CommandSuggestions({
           type="button"
         >
           <span className="min-w-0">
-            <span className="block font-medium text-foreground">{command.name}</span>
-            <span className="block truncate text-[11px] text-muted-foreground">
+            <span className="block font-medium text-zinc-100">{command.name}</span>
+            <span className="block truncate text-[11px] text-zinc-400">
               {command.available ? command.usage : command.unavailableReason}
             </span>
           </span>
@@ -711,6 +659,26 @@ function goalSetObjective(raw: string) {
   }
 }
 
+export function modelPickerOptionSelected(
+  model: Pick<ChatModelOption, "isDefault" | "model">,
+  selectedModel: string,
+) {
+  if (selectedModel === "") {
+    return model.isDefault;
+  }
+  return model.model === selectedModel;
+}
+
+export function reasoningEffortOptionSelected(
+  effort: Pick<ChatReasoningEffortOption, "effort" | "isDefault">,
+  selectedReasoningEffort: ReasoningEffort | null,
+) {
+  if (selectedReasoningEffort === null) {
+    return effort.isDefault;
+  }
+  return effort.effort === selectedReasoningEffort;
+}
+
 function composerTextareaLabel(selected: boolean) {
   return selected ? "Ask Setta" : "Start new chat";
 }
@@ -722,10 +690,15 @@ function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute top-0 left-0 flex h-4 items-center gap-1 text-xs leading-4 text-muted-foreground"
+      className="pointer-events-none absolute top-0 left-0 flex h-4 items-center gap-1 text-xs leading-4 text-zinc-500"
     >
       <span>Ask</span>
-      <SettaLogoMark className="translate-y-[3px] opacity-60" height={11} />
+      <img
+        alt=""
+        className="h-[11px] w-auto translate-y-[3px] opacity-60 grayscale"
+        draggable={false}
+        src={settaLogo}
+      />
     </div>
   );
 }

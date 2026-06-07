@@ -38,6 +38,7 @@ import {
   planeTopOffsets,
   pushColumnItems,
   renderedColumnIndexesForLayout,
+  scrollColumnForOffset,
   scrollOffsetForColumn,
   totalUnscaledPlaneHeight,
 } from "./layout-engine-helpers";
@@ -390,12 +391,30 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
       );
     }
     const geometry = this.columnGeometry(viewportWidth, maximizedPaneId);
-    return this.constrainScrollColumnToViewport(
-      this.planeColumnIndex(focusedColumn),
-      viewportWidth,
-      focusedPlaneIndex,
-      geometry,
+    const planeOffsets = this.offsetsForPlane(focusedPlaneIndex, geometry);
+    const focusedOffset = geometry.offsets[focusedColumn.index] ?? 0;
+    const focusedWidth = geometry.widths[focusedColumn.index] ?? minimumColumnWidth;
+    const currentOffset = scrollOffsetForColumn(currentScrollColumn, planeOffsets);
+    const maximumFilledOffset = Math.max(
+      0,
+      this.scene.padding * 2 +
+        this.totalUnscaledPlaneWidth(focusedPlaneIndex, geometry) -
+        viewportWidth,
     );
+    const minimumFocusedRightEdgeOffset = Math.max(
+      0,
+      focusedOffset + focusedWidth + this.scene.padding * 2 - viewportWidth,
+    );
+    const maximumFocusedLeftEdgeOffset =
+      focusedWidth <= Math.max(1, viewportWidth - this.scene.padding * 2)
+        ? focusedOffset
+        : minimumFocusedRightEdgeOffset;
+    const targetOffset = clamp(
+      currentOffset,
+      minimumFocusedRightEdgeOffset,
+      Math.min(maximumFocusedLeftEdgeOffset, maximumFilledOffset),
+    );
+    return scrollColumnForOffset(targetOffset, planeOffsets);
   }
 
   totalColumnOverflowWidth(viewportWidth: number): number {
@@ -489,7 +508,16 @@ export class NiriLikeLayoutEngine implements LayoutEngine {
     geometry = this.columnGeometry(viewportWidth),
   ): number {
     const planeOffsets = this.offsetsForPlane(planeIndex, geometry);
-    return clamp(scrollColumn, 0, Math.max(0, planeOffsets.length - 1));
+    const requestedScrollColumn = clamp(scrollColumn, 0, Math.max(0, planeOffsets.length - 1));
+    const requestedOffset = scrollOffsetForColumn(requestedScrollColumn, planeOffsets);
+    const maximumFilledViewportOffset = Math.max(
+      0,
+      this.scene.padding * 2 + this.totalUnscaledPlaneWidth(planeIndex, geometry) - viewportWidth,
+    );
+    if (requestedOffset <= maximumFilledViewportOffset) {
+      return requestedScrollColumn;
+    }
+    return scrollColumnForOffset(maximumFilledViewportOffset, planeOffsets);
   }
 
   private insertAdjacentColumn(source: PaneLocation, direction: "left" | "right"): NiriColumn {

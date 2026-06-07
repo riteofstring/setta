@@ -59,7 +59,7 @@ export function SidebarAccordionSection({
       <div className="flex h-6 items-center justify-between gap-1 pl-2 pr-0.5">
         <button
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+          className="flex min-w-0 flex-1 items-center text-left text-xs font-medium text-zinc-500 hover:text-zinc-200"
           onClick={() => onOpenChange(!open)}
           type="button"
         >
@@ -164,7 +164,7 @@ function SectionResizeHandle({
       onPointerDown={beginResize}
       role="separator"
     >
-      <div className="mx-auto mt-2 h-px w-10 rounded-full bg-border/80" />
+      <div className="mx-auto mt-2 h-px w-10 rounded-full bg-zinc-600/80" />
     </div>
   );
 }
