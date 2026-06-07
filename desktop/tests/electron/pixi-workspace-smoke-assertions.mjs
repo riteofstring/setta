@@ -41,29 +41,24 @@ export function assertRenderCounterAdvanced(before, after, counter, label) {
   }
 }
 
-const fullPositiveRenderCounters = [
-  "nodeDragUpdateCount",
-  "pointerPanUpdateCount",
-  "marqueeUpdateCount",
-  "selectionChangeCount",
-  "wheelPanUpdateCount",
-  "wheelZoomUpdateCount",
-  "cameraUpdateCount",
-  "edgeCommitCount",
-  "temporaryEdgeUpdateCount",
-  "labelSyncCount",
-  "nodeOutlineVisibilityUpdateCount",
-  "spatialIndexQueryCount",
-  "spatialIndexRebuildCount",
-  "spatialIndexUpdateCount",
-];
-
-export function assertRendererFramesHealthy(
-  snapshot,
-  { positiveRenderCounters = fullPositiveRenderCounters } = {},
-) {
+export function assertRendererFramesHealthy(snapshot) {
   assertFrameTimingsHealthy(snapshot);
-  assertPositiveRenderCounters(snapshot, positiveRenderCounters);
+  assertPositiveRenderCounters(snapshot, [
+    "nodeDragUpdateCount",
+    "pointerPanUpdateCount",
+    "marqueeUpdateCount",
+    "selectionChangeCount",
+    "wheelPanUpdateCount",
+    "wheelZoomUpdateCount",
+    "cameraUpdateCount",
+    "edgeCommitCount",
+    "temporaryEdgeUpdateCount",
+    "labelSyncCount",
+    "nodeOutlineVisibilityUpdateCount",
+    "spatialIndexQueryCount",
+    "spatialIndexRebuildCount",
+    "spatialIndexUpdateCount",
+  ]);
   assertSpatialIndexDebugCounters(snapshot, "final renderer health");
 }
 

@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import { TextDecoder } from "node:util";
@@ -9,6 +9,7 @@ import {
   assertRecordingEvidence,
   backendProbe,
   captureScreenshot,
+  clickButtonByAria,
   createChat,
   createFixture,
   failureWithLogs,
@@ -91,7 +92,10 @@ async function exerciseBackendOrchestratorFirstLaunch({
 
   const recovery = await startPhase4WorkflowForRecovery(context.client, workspaceId);
   await captureScreenshot(context.client, join(firstRecording, "orchestrator.png"));
-  return recovery;
+  return {
+    ...recovery,
+    workspaceDisplayName: basename(fixture.workspaceRoot),
+  };
 }
 
 async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, secondRecording }) {
@@ -100,32 +104,35 @@ async function exerciseBackendOrchestratorRecoveryLaunch({ context, recovery, se
     context.client,
     recovery.workspaceId,
     recovery.executionId,
-    (execution) =>
-      execution.status === "failed" &&
-      execution.terminalReason === "action_failed" &&
-      latestNodeExecution(execution, "work")?.recoveryOutcome === "recovered_failed",
+    (execution) => execution.status === "failed" && execution.terminalReason === "interrupted",
   );
   const work = latestNodeExecution(recovered, "work");
   if (work.status !== "failed") {
     throw new Error(`recovered work status = ${work.status}, want failed`);
   }
-  if (work.recoveryMessage === "" || work.error !== "run interrupted by backend restart") {
-    throw new Error(`recovered work = ${JSON.stringify(work)}, want restart failure message`);
-  }
-  const page = await rendererWorkflow(context.client, "executionEvents", [
-    recovery.workspaceId,
-    recovery.executionId,
-    0,
-    50,
-  ]);
-  assertWorkflowEventTypes(page.events, [
-    "workflow.action.recovered",
-    "runner.attempt.failed",
-    "workflow.action.failed",
-  ]);
   await waitForTexts(context.client, ["workspace-root"]);
-  await createChat(context.client, backend, recovery.workspaceId);
+  await createWorkspaceScopedChat(
+    context.client,
+    backend,
+    recovery.workspaceId,
+    recovery.workspaceDisplayName,
+  );
   await captureScreenshot(context.client, join(secondRecording, "recovered.png"));
+}
+
+async function createWorkspaceScopedChat(client, backend, workspaceId, workspaceDisplayName) {
+  const before = await backend.post("/chat/conversations/list", { workspaceId });
+  const existing = new Set(before.conversations.map((item) => item.conversation.id));
+  await clickButtonByAria(client, `New chat in ${workspaceDisplayName}`);
+  const after = await waitForBackendState(
+    async () => backend.post("/chat/conversations/list", { workspaceId }),
+    (value) => value.conversations.some((item) => !existing.has(item.conversation.id)),
+  );
+  const created = after.conversations.find((item) => !existing.has(item.conversation.id));
+  if (!created) {
+    throw new Error("workspace-scoped new chat was not returned by the backend");
+  }
+  return created.conversation.id;
 }
 
 async function runOrchestratorStep(results, name, workflow) {
@@ -171,15 +178,10 @@ async function assertBackendOrchestratorRecordingEvidence(firstRecording, second
   await assertRecordingEvidence(secondRecording, {
     backendPaths: [
       "/workflows/executions/read",
-      "/workflows/executions/events",
       "/chat/conversations/create",
       "/chat/conversations/list",
     ],
-    ipcChannels: [
-      "workflow:read-execution",
-      "workflow:execution-events",
-      "chat:create-conversation",
-    ],
+    ipcChannels: ["workflow:read-execution", "chat:create-conversation"],
   });
 }
 
@@ -262,7 +264,7 @@ async function runWorkflowApproval(client, workspaceId) {
     nodeExecutionId: work.id,
     workspaceId,
   });
-  await assertWorkflowApprovalProjection(client, workspaceId, definition, started, pending);
+  await assertWorkflowApprovalProjection(client, workspaceId, definition, started.id, pending);
 
   await rendererWorkflow(client, "submitApproval", [
     {
@@ -301,14 +303,14 @@ async function assertWorkflowApprovalProjection(
   client,
   workspaceId,
   definition,
-  execution,
+  executionId,
   pending,
 ) {
   const projectionResponse = await rendererWorkflow(client, "graphProjection", [
     workspaceId,
     definition.id,
-    execution.definitionVersionId,
-    execution.id,
+    definition.currentVersionId,
+    executionId,
   ]);
   const projectedWork = projectedNode(projectionResponse.projection, "work");
   if (projectedWork.pendingApproval?.approvalId !== pending.approvalId) {
@@ -700,19 +702,21 @@ function signalValue(signals, name) {
 }
 
 function phase4WorkflowGraph({ limitPolicy, maxIterations }) {
-  const nodes = [
-    workflowControlNode("start", "start"),
-    workflowCodexNode("review_a", "phase4 reviewer a workflow", true),
-    workflowCodexNode("review_b", "phase4 reviewer b workflow", true),
-    workflowCodexNode("review_c", "phase4 reviewer c workflow", true),
-    workflowANDJoinNode(),
-    workflowCodexNode("consolidator", "phase4 consolidator workflow", true),
-    workflowXORRouteNode(),
-    workflowCodexNode("fix", "phase4 fix workflow", true),
-    workflowLoopGuardNode({ limitPolicy, maxIterations }),
-    workflowControlNode("end", "end"),
-  ];
-  return workflowGraph(nodes, phase4WorkflowEdges());
+  return {
+    nodes: [
+      workflowControlNode("start", "start"),
+      workflowCodexNode("review_a", "phase4 reviewer a workflow", true),
+      workflowCodexNode("review_b", "phase4 reviewer b workflow", true),
+      workflowCodexNode("review_c", "phase4 reviewer c workflow", true),
+      workflowANDJoinNode(),
+      workflowCodexNode("consolidator", "phase4 consolidator workflow", true),
+      workflowXORRouteNode(),
+      workflowCodexNode("fix", "phase4 fix workflow", true),
+      workflowLoopGuardNode({ limitPolicy, maxIterations }),
+      workflowControlNode("end", "end"),
+    ],
+    edges: phase4WorkflowEdges(),
+  };
 }
 
 function workflowANDJoinNode() {
@@ -780,61 +784,43 @@ function phase4WorkflowEdges() {
 }
 
 function cancellationWorkflowGraph() {
-  const nodes = [
-    workflowControlNode("start", "start"),
-    workflowCodexNode("work", "cancel active workflow", true),
-    workflowControlNode("end", "end"),
-  ];
-  return workflowGraph(nodes, [
-    workflowEdge("start_work", "start", "work"),
-    workflowEdge("work_end", "work", "end"),
-  ]);
-}
-
-function approvalWorkflowGraph() {
-  const nodes = [
-    workflowControlNode("start", "start"),
-    workflowCodexNode("work", "command approval workflow", true),
-    workflowControlNode("end", "end"),
-  ];
-  return workflowGraph(nodes, [
-    workflowEdge("start_work", "start", "work"),
-    workflowEdge("work_end", "work", "end"),
-  ]);
-}
-
-function lateGatewayArrivalWorkflowGraph() {
-  const nodes = [
-    workflowControlNode("start", "start"),
-    workflowCodexNode("fast", "workflow result action", true),
-    workflowCodexNode("slow", "workflow hold for queue and steering", true),
-    workflowGatewayNode("route", "gateway.or"),
-    workflowControlNode("end", "end"),
-  ];
-  return workflowGraph(nodes, [
-    workflowEdge("start_fast", "start", "fast"),
-    workflowEdge("start_slow", "start", "slow"),
-    workflowEdge("fast_route", "fast", "route"),
-    workflowEdge("slow_route", "slow", "route"),
-    workflowEdge("route_end", "route", "end"),
-  ]);
-}
-
-function workflowGraph(nodes, edges) {
   return {
-    edges,
-    layout: workflowLayout(nodes),
-    nodes,
+    nodes: [
+      workflowControlNode("start", "start"),
+      workflowCodexNode("work", "cancel active workflow", true),
+      workflowControlNode("end", "end"),
+    ],
+    edges: [workflowEdge("start_work", "start", "work"), workflowEdge("work_end", "work", "end")],
   };
 }
 
-function workflowLayout(nodes) {
+function approvalWorkflowGraph() {
   return {
-    nodes: nodes.map((node, index) => ({
-      nodeId: node.id,
-      x: index * 260,
-      y: 0,
-    })),
+    nodes: [
+      workflowControlNode("start", "start"),
+      workflowCodexNode("work", "command approval workflow", true),
+      workflowControlNode("end", "end"),
+    ],
+    edges: [workflowEdge("start_work", "start", "work"), workflowEdge("work_end", "work", "end")],
+  };
+}
+
+function lateGatewayArrivalWorkflowGraph() {
+  return {
+    nodes: [
+      workflowControlNode("start", "start"),
+      workflowCodexNode("fast", "workflow result action", true),
+      workflowCodexNode("slow", "workflow hold for queue and steering", true),
+      workflowGatewayNode("route", "gateway.or"),
+      workflowControlNode("end", "end"),
+    ],
+    edges: [
+      workflowEdge("start_fast", "start", "fast"),
+      workflowEdge("start_slow", "start", "slow"),
+      workflowEdge("fast_route", "fast", "route"),
+      workflowEdge("slow_route", "slow", "route"),
+      workflowEdge("route_end", "route", "end"),
+    ],
   };
 }
 

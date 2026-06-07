@@ -9,6 +9,7 @@ import {
   timelineRowForMessage,
   type TranscriptTimelineRow,
 } from "./chat-transcript-timeline";
+import { chatReadableColumnClass } from "./chat-layout";
 import { Input } from "./ui/input";
 
 export interface TranscriptSearchController {
@@ -130,49 +131,53 @@ export function ChatSearchBar({ search }: { search: TranscriptSearchController }
       : `${search.matchCount === 0 ? 0 : search.activeIndex + 1}/${search.matchCount}`;
 
   return (
-    <div className="pointer-events-none absolute top-2 right-3 left-3 z-20 flex justify-end">
-      <div className="pointer-events-auto flex h-7 w-full max-w-xs min-w-0 items-center gap-1 rounded-sm border border-zinc-700/90 bg-zinc-800/95 px-1.5 text-zinc-100 shadow-xl shadow-black/40 backdrop-blur">
-        <Search className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
-        <Input
-          className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-xs text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:border-0"
-          onChange={(event) => search.setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              search.close();
-              return;
-            }
-            if (event.key === "Enter") {
-              event.preventDefault();
-              if (event.shiftKey) {
-                search.previous();
+    <div className="pointer-events-none absolute inset-x-3 top-2 z-20 flex justify-center">
+      <div className={`${chatReadableColumnClass} flex justify-end`}>
+        <div className="pointer-events-auto flex h-7 w-full max-w-xs min-w-0 items-center gap-1 rounded-sm border border-border bg-popover/95 px-1.5 text-popover-foreground shadow-xl shadow-black/40 backdrop-blur">
+          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <Input
+            className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-xs text-popover-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-0"
+            onChange={(event) => search.setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                search.close();
                 return;
               }
-              search.next();
-            }
-          }}
-          placeholder="Search chat"
-          ref={search.inputRef}
-          value={search.query}
-        />
-        <span className="min-w-8 text-right text-[11px] text-zinc-500">{resultLabel}</span>
-        <SearchNavButton
-          disabled={search.matchCount === 0}
-          label="Previous result"
-          onClick={search.previous}
-        >
-          <ChevronUp className="h-3.5 w-3.5" />
-        </SearchNavButton>
-        <SearchNavButton
-          disabled={search.matchCount === 0}
-          label="Next result"
-          onClick={search.next}
-        >
-          <ArrowDown className="h-3.5 w-3.5" />
-        </SearchNavButton>
-        <SearchNavButton label="Close chat search" onClick={search.close}>
-          <X className="h-3.5 w-3.5" />
-        </SearchNavButton>
+              if (event.key === "Enter") {
+                event.preventDefault();
+                if (event.shiftKey) {
+                  search.previous();
+                  return;
+                }
+                search.next();
+              }
+            }}
+            placeholder="Search chat"
+            ref={search.inputRef}
+            value={search.query}
+          />
+          <span className="min-w-8 text-right text-[11px] text-muted-foreground">
+            {resultLabel}
+          </span>
+          <SearchNavButton
+            disabled={search.matchCount === 0}
+            label="Previous result"
+            onClick={search.previous}
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </SearchNavButton>
+          <SearchNavButton
+            disabled={search.matchCount === 0}
+            label="Next result"
+            onClick={search.next}
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </SearchNavButton>
+          <SearchNavButton label="Close chat search" onClick={search.close}>
+            <X className="h-3.5 w-3.5" />
+          </SearchNavButton>
+        </div>
       </div>
     </div>
   );
@@ -192,7 +197,7 @@ function SearchNavButton({
   return (
     <button
       aria-label={label}
-      className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100 disabled:pointer-events-none disabled:text-zinc-600"
+      className="grid h-5 w-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:text-muted-foreground/50"
       disabled={disabled}
       onClick={onClick}
       type="button"
