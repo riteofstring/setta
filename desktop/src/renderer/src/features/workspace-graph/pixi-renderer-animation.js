@@ -16,6 +16,7 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
   };
   let animationActive = false;
   let activeGlowNodes = [];
+  let activeEdgeFlows = [];
   let edgeFlowRedrawCount = 0;
   let nodePulseRedrawCount = 0;
   let cellAnimCount = 0;
@@ -35,6 +36,7 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
       reduceMotion: settings.reduceMotion,
       transitionsActive,
     }),
+    edgeFlows: () => activeEdgeFlows,
     glowNodes: () => activeGlowNodes,
     recompute: ({ edges, nodes, visibleNodeIds }) => {
       const animationsAllowed = settings.animationEnabled && !settings.reduceMotion;
@@ -52,6 +54,7 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
       );
       activeGlowNodes = [...visiblePulseNodes, ...visibleActiveCells];
       if (!animationsAllowed) {
+        activeEdgeFlows = [];
         activeEdgeFlowCount = 0;
         activeNodePulseCount = 0;
         animationActive = false;
@@ -61,13 +64,14 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
       }
       activeNodePulseCount = visiblePulseNodes.length;
       cellAnimCount = visibleActiveCells.length;
-      activeEdgeFlowCount = edges.filter(
+      activeEdgeFlows = edges.filter(
         (edge) =>
           rendererEdgeLayer(edge) === "workflow" &&
           edge.status === "active" &&
           visibleNodeIds.has(edge.sourceNodeId) &&
           visibleNodeIds.has(edge.targetNodeId),
-      ).length;
+      );
+      activeEdgeFlowCount = activeEdgeFlows.length;
       transitionsActive = 0;
       animationActive =
         activeNodePulseCount > 0 ||
@@ -85,7 +89,7 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
       }
       if (activeEdgeFlowCount > 0) {
         edgeFlowRedrawCount += 1;
-        handlers.redrawEdgeFlow?.({ now });
+        handlers.redrawEdgeFlow?.({ edges: activeEdgeFlows, now });
       }
       return true;
     },

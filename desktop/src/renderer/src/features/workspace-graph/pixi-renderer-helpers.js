@@ -203,11 +203,35 @@ export function samplePixiVisualState(renderer, stage, clearColor) {
 }
 
 export function drawCurvedEdge(target, start, end, stroke) {
-  const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.35);
+  const controlOffset = curvedEdgeControlOffset(start, end);
   target
     .moveTo(start.x, start.y)
     .bezierCurveTo(start.x + controlOffset, start.y, end.x - controlOffset, end.y, end.x, end.y)
     .stroke(stroke);
+}
+
+export function sampleCurvedEdge(start, end, t) {
+  const clampedT = clamp(t, 0, 1);
+  const controlOffset = curvedEdgeControlOffset(start, end);
+  const firstControl = { x: start.x + controlOffset, y: start.y };
+  const secondControl = { x: end.x - controlOffset, y: end.y };
+  const inverseT = 1 - clampedT;
+  const inverseSquared = inverseT * inverseT;
+  const tSquared = clampedT * clampedT;
+  return new Point(
+    inverseSquared * inverseT * start.x +
+      3 * inverseSquared * clampedT * firstControl.x +
+      3 * inverseT * tSquared * secondControl.x +
+      tSquared * clampedT * end.x,
+    inverseSquared * inverseT * start.y +
+      3 * inverseSquared * clampedT * firstControl.y +
+      3 * inverseT * tSquared * secondControl.y +
+      tSquared * clampedT * end.y,
+  );
+}
+
+function curvedEdgeControlOffset(start, end) {
+  return Math.max(80, Math.abs(end.x - start.x) * 0.35);
 }
 
 export function drawMarqueeSelection(target, marquee) {
@@ -397,6 +421,37 @@ export function commitEdgeConnection(connection, { edges, onEdgeCreate, redrawEd
   }
   edges.push(drawnEdge(sequence, connection));
   redrawEdges();
+}
+
+export function hitTestPortCandidateAtScreen({
+  excludeNodeId,
+  portHitRadiusScreen,
+  role,
+  screen,
+  spatialQueries,
+  viewport,
+}) {
+  let bestPort = null;
+  let bestDistance = Infinity;
+  const candidates = spatialQueries.portHitCandidatesAtScreen(screen, portHitRadiusScreen);
+  for (const node of candidates) {
+    if (node.connectable === false || node.id === excludeNodeId) {
+      continue;
+    }
+    for (const port of interactivePortsForNode(node)) {
+      if (port.role !== role) {
+        continue;
+      }
+      const world = portWorldPosition(node, port.id);
+      const portScreen = viewport.toScreen(world.x, world.y);
+      const distance = Math.hypot(screen.x - portScreen.x, screen.y - portScreen.y);
+      if (distance <= portHitRadiusScreen && distance < bestDistance) {
+        bestDistance = distance;
+        bestPort = { nodeId: node.id, portId: port.id };
+      }
+    }
+  }
+  return bestPort;
 }
 
 export function screenPointFromPointer(canvas, event) {

@@ -1,8 +1,15 @@
 import { drawEdgeLabel } from "./pixi-renderer-edge-labels";
 import { rendererEdgeLayer } from "./pixi-renderer-layers";
 import { drawDiagnosticDiamond } from "./pixi-renderer-node-geometry";
-import { drawCurvedEdge, portWorldPosition, requirePort } from "./pixi-renderer-helpers";
+import {
+  drawCurvedEdge,
+  portWorldPosition,
+  requirePort,
+  sampleCurvedEdge,
+} from "./pixi-renderer-helpers";
 import { workflowEdgeStrokeStyle, workspaceNeonTheme } from "./workspace-neon-theme";
+
+const edgeFlowHashMax = 0x100000000;
 
 export function redrawWorkspaceEdges({
   edgeGraphics,
@@ -60,6 +67,35 @@ export function redrawWorkspaceEdgeHighlights({
   }
 }
 
+export function redrawWorkspaceEdgeFlow({
+  edgeFlowGraphics,
+  edges,
+  getNode,
+  now,
+  visibleNodeIds = null,
+}) {
+  edgeFlowGraphics.clear();
+  for (const edge of edges) {
+    if (!edgeHasWorkflowFlow(edge, visibleNodeIds)) {
+      continue;
+    }
+    const source = getNode(edge.sourceNodeId);
+    const target = getNode(edge.targetNodeId);
+    const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
+    const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
+    drawWorkflowEdgeFlow(edgeFlowGraphics, edge, start, end, now);
+  }
+}
+
+export function workflowEdgeFlowPhase(edgeId) {
+  let hash = 2166136261;
+  for (let index = 0; index < edgeId.length; index += 1) {
+    hash ^= edgeId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / edgeFlowHashMax;
+}
+
 function drawEdge(target, edge, start, end) {
   switch (rendererEdgeLayer(edge)) {
     case "workflow":
@@ -98,6 +134,59 @@ function drawSemanticEdge(target, edge, start, end) {
     color: edge.color ?? 0xe2e8f0,
     width: edge.width ?? 2.5,
   });
+}
+
+function edgeHasWorkflowFlow(edge, visibleNodeIds) {
+  switch (rendererEdgeLayer(edge)) {
+    case "workflow":
+      break;
+    case "semantic":
+      return false;
+  }
+  if (edge.status !== "active") {
+    return false;
+  }
+  return (
+    visibleNodeIds === null ||
+    (visibleNodeIds.has(edge.sourceNodeId) && visibleNodeIds.has(edge.targetNodeId))
+  );
+}
+
+function drawWorkflowEdgeFlow(target, edge, start, end, now) {
+  const style = workspaceNeonTheme.workflow.edgeFlow;
+  const phase = (now / style.periodMs + workflowEdgeFlowPhase(edge.id)) % 1;
+  for (let pulseIndex = 0; pulseIndex < style.pulseCount; pulseIndex += 1) {
+    const headT = (phase + pulseIndex / style.pulseCount) % 1;
+    drawWorkflowEdgeFlowPulse(target, start, end, headT, edge.color ?? style.color);
+  }
+}
+
+function drawWorkflowEdgeFlowPulse(target, start, end, headT, color) {
+  const style = workspaceNeonTheme.workflow.edgeFlow;
+  const trailStartT = Math.max(0, headT - style.trailLength);
+  const trailSpan = headT - trailStartT;
+  if (trailSpan > 0) {
+    let previous = sampleCurvedEdge(start, end, trailStartT);
+    for (let sampleIndex = 1; sampleIndex <= style.trailSamples; sampleIndex += 1) {
+      const segmentT = trailStartT + (trailSpan * sampleIndex) / style.trailSamples;
+      const next = sampleCurvedEdge(start, end, segmentT);
+      target
+        .moveTo(previous.x, previous.y)
+        .lineTo(next.x, next.y)
+        .stroke({
+          alpha: (style.trailAlpha * sampleIndex) / style.trailSamples,
+          color,
+          width: style.trailWidth,
+        });
+      previous = next;
+    }
+  }
+  const head = sampleCurvedEdge(start, end, headT);
+  target
+    .circle(head.x, head.y, style.haloRadius)
+    .fill({ alpha: style.haloAlpha, color })
+    .circle(head.x, head.y, style.headRadius)
+    .fill({ alpha: style.headAlpha, color: style.coreColor });
 }
 
 function drawHighlightedEdge(target, edge, getNode, stroke) {

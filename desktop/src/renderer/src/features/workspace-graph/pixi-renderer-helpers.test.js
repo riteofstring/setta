@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { screenPointFromPointer, screenPointFromWheel } from "./pixi-renderer-helpers";
+import {
+  sampleCurvedEdge,
+  screenPointFromPointer,
+  screenPointFromWheel,
+} from "./pixi-renderer-helpers";
 
 describe("Pixi renderer helpers", () => {
   it("converts transformed canvas pointer coordinates into canvas-local coordinates", () => {
@@ -14,6 +18,20 @@ describe("Pixi renderer helpers", () => {
       x: 1000,
       y: 500,
     });
+  });
+
+  it("samples the same cubic curve used for renderer edges", () => {
+    const start = { x: 0, y: 0 };
+    const end = { x: 200, y: 100 };
+
+    expect(sampleCurvedEdge(start, end, 0)).toMatchObject(start);
+    expect(sampleCurvedEdge(start, end, 1)).toMatchObject(end);
+    expect(sampleCurvedEdge(start, end, 0.5)).toMatchObject({
+      x: 100,
+      y: 50,
+    });
+    expect(sampleCurvedEdge(start, end, -1)).toMatchObject(start);
+    expect(sampleCurvedEdge(start, end, 2)).toMatchObject(end);
   });
 });
 

@@ -100,7 +100,7 @@ export function createWorkflowGraphDebugSnapshot({
         canvasCreationCount: state.canvasCreationCount,
         cellAnimCount: state.cellAnimCount,
         edgeCommitCount: state.edgeCommitCount,
-        edgeGraphicsCount: 2,
+        edgeGraphicsCount: 3,
         edgeFlowRedrawCount: state.edgeFlowRedrawCount,
         edgeRedrawCount: state.edgeRedrawCount,
         edgeSelectionChangeCount: state.edgeSelectionChangeCount,

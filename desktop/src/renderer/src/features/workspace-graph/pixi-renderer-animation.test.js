@@ -51,8 +51,12 @@ describe("workflow graph animation state", () => {
       visibleNodeIds: new Set(["workflow_running", "workflow_ready", "semantic_active"]),
     });
     const redraws = [];
+    const edgeFlowRedraws = [];
     expect(
       state.tick(1000, {
+        redrawEdgeFlow: ({ edges }) => {
+          edgeFlowRedraws.push(edges.map((edge) => edge.id));
+        },
         redrawNodeGlow: ({ nodes }) => {
           redraws.push(nodes.map((node) => node.id));
         },
@@ -69,6 +73,7 @@ describe("workflow graph animation state", () => {
       transitionsActive: 0,
     });
     expect(redraws).toEqual([["workflow_running", "workflow_ready", "semantic_active"]]);
+    expect(edgeFlowRedraws).toEqual([["edge_active"]]);
   });
 
   test("disables animation under reduced motion or explicit switch", () => {

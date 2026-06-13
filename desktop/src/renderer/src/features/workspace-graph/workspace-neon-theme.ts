@@ -166,6 +166,20 @@ export const workspaceNeonTheme = {
   workflow: {
     defaultAccent: 0x38bdf8,
     edgeCoreColor: 0xecfeff,
+    edgeFlow: {
+      color: 0x22d3ee,
+      coreColor: 0xecfeff,
+      headAlpha: 0.96,
+      headRadius: 3.7,
+      haloAlpha: 0.2,
+      haloRadius: 8.5,
+      periodMs: 1800,
+      pulseCount: 2,
+      trailAlpha: 0.74,
+      trailLength: 0.16,
+      trailSamples: 6,
+      trailWidth: 4.2,
+    },
     edgeStatus: workflowEdgeStatusStyles,
     glass: {
       bodyBottom: 0x080b14,
