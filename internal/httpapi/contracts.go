@@ -8,6 +8,7 @@ import (
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
+	"setta/internal/workspaceui"
 )
 
 type UpdateAppearanceSettingsRequest struct {
@@ -46,6 +47,14 @@ type ReorderWorkspaceRequest struct {
 
 type RemoveRecentWorkspaceRequest struct {
 	ID string `json:"id"`
+}
+
+type ReadWorkspaceUILayoutRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type SaveWorkspaceUILayoutRequest struct {
+	Layout workspaceui.WorkspaceUILayout `json:"layout"`
 }
 
 type ListConversationsRequest struct {

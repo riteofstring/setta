@@ -256,8 +256,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
     close: async () => fallbackSession,
     openLocalFolder: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
     openPath: async () => ({ session: fallbackSession, workspace: fallbackWorkspace }),
+    readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
+    saveUILayout: async (layout) => layout,
     select: async () => fallbackSession,
     selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
     setSelectedConversation: async (workspaceId, conversationId) => ({

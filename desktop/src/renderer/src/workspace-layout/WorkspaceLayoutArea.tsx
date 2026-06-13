@@ -1,4 +1,5 @@
 import type { DesktopPlatform } from "@shared/types";
+import type { WorkspaceUILayout } from "@generated/backend";
 import { AlertTriangle, X } from "lucide-react";
 import {
   Profiler,
@@ -53,7 +54,7 @@ import {
   type PaneResizeSession,
 } from "./pane-resize-session";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
-import { persistRealWorkspaceScene } from "./workspace-scene";
+import { workspaceUILayoutFromScene } from "./workspace-scene";
 import type { OpenPaneRequest, Rect, SurfaceKind } from "./types";
 
 export interface WorkspaceSurfaceFocusRequest {
@@ -78,6 +79,43 @@ export function WorkspaceLayoutArea({
   focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
   platform: DesktopPlatform;
 }) {
+  const workspace = useSelectedWorkspaceSummary();
+  const mode = workspaceSceneMode();
+  const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
+  const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, mode);
+  if (layoutLoad.status === "loading") {
+    return <WorkspaceLayoutLoading mode={mode} platform={platform} workspaceId={workspaceId} />;
+  }
+  return (
+    <WorkspaceLayoutRuntimeArea
+      focusSurfaceRequest={focusSurfaceRequest}
+      initialLayout={layoutLoad.layout}
+      layoutLoadError={layoutLoad.error}
+      mode={mode}
+      platform={platform}
+      workspaceId={workspaceId}
+      workspaceName={workspaceName}
+    />
+  );
+}
+
+function WorkspaceLayoutRuntimeArea({
+  focusSurfaceRequest,
+  initialLayout,
+  layoutLoadError,
+  mode,
+  platform,
+  workspaceId,
+  workspaceName,
+}: {
+  focusSurfaceRequest: WorkspaceSurfaceFocusRequest | null;
+  initialLayout: WorkspaceUILayout | null;
+  layoutLoadError: string | null;
+  mode: WorkspaceSceneMode;
+  platform: DesktopPlatform;
+  workspaceId: string;
+  workspaceName: string;
+}) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const debugRef = useRef<HTMLDivElement | null>(null);
@@ -88,7 +126,6 @@ export function WorkspaceLayoutArea({
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createWorkspaceTrackpadNavigationState());
   const [overviewGhostTarget, setOverviewGhostTarget] = useState<OverviewGhostTarget | null>(null);
-  const workspace = useSelectedWorkspaceSummary();
   const showPerformanceStats = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.developer?.showPerformanceStats ?? false,
   );
@@ -96,21 +133,22 @@ export function WorkspaceLayoutArea({
     (state) =>
       (state.draft ?? state.settings)?.developer?.allowResizedPanesToOverflowViewport ?? false,
   );
-  const mode = workspaceSceneMode();
-  const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
   const runtime = useMemo(
     () =>
       createWorkspaceRuntime({
         allowResizedPanesToOverflowViewport,
         mode,
+        storedLayout: initialLayout,
         workspaceId,
         workspaceName,
       }),
-    [allowResizedPanesToOverflowViewport, mode, workspaceId, workspaceName],
+    [allowResizedPanesToOverflowViewport, initialLayout, mode, workspaceId, workspaceName],
   );
   const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
+  const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
+    useWorkspaceUILayoutPersistence(runtime, workspaceId);
   const stageViewport = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) {
@@ -118,16 +156,6 @@ export function WorkspaceLayoutArea({
     }
     return viewportRect(stage);
   }, []);
-  const persistLayout = useCallback(() => {
-    runtime.presentation.syncPanes(runtime.store.toScene().panes);
-    if (runtime.mode === "workspace") {
-      persistRealWorkspaceScene(
-        runtime.layoutStorageKey,
-        runtime.store.toScene(),
-        runtime.store.focusedPaneId(),
-      );
-    }
-  }, [runtime]);
   const runLayoutAction = useCallback(
     (action: () => void) => {
       action();
@@ -137,7 +165,8 @@ export function WorkspaceLayoutArea({
   );
   useEffect(() => {
     setLayoutRecoveryDismissed(false);
-  }, [runtime.layoutStorageKey]);
+    resetLayoutPersistenceError();
+  }, [resetLayoutPersistenceError, workspaceId]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
       setOverviewGhostTarget(null);
@@ -535,6 +564,13 @@ export function WorkspaceLayoutArea({
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
   }, [runtime, showPerformanceStats]);
 
+  const layoutRecoveryMessage = workspaceLayoutRecoveryMessage({
+    dismissed: layoutRecoveryDismissed,
+    layoutLoadError,
+    layoutPersistenceError,
+    runtimeRecoveryMessage: runtime.layoutRecovery?.message ?? null,
+  });
+
   return (
     <section
       aria-label={workspaceLayoutAreaLabel(runtime.mode)}
@@ -560,9 +596,7 @@ export function WorkspaceLayoutArea({
         />
       ) : null}
       <WorkspaceLayoutRecoveryNotice
-        message={
-          !layoutRecoveryDismissed && runtime.layoutRecovery ? runtime.layoutRecovery.message : null
-        }
+        message={layoutRecoveryMessage}
         onDismiss={() => setLayoutRecoveryDismissed(true)}
       />
       <div className="workspace-stage" data-testid="workspace-presentation-engine" ref={stageRef}>
@@ -613,6 +647,187 @@ function installResizeReportHooksForRuntime(
     viewportProvider,
     writer: runtime.resizeReportWriter,
   });
+}
+
+function workspaceLayoutRecoveryMessage({
+  dismissed,
+  layoutLoadError,
+  layoutPersistenceError,
+  runtimeRecoveryMessage,
+}: {
+  dismissed: boolean;
+  layoutLoadError: string | null;
+  layoutPersistenceError: string | null;
+  runtimeRecoveryMessage: string | null;
+}): string | null {
+  if (dismissed) {
+    return null;
+  }
+  return layoutLoadError ?? layoutPersistenceError ?? runtimeRecoveryMessage;
+}
+
+function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, workspaceId: string) {
+  const pendingLayoutSaveRef = useRef<Promise<unknown>>(Promise.resolve());
+  const [layoutPersistenceError, setLayoutPersistenceError] = useState<string | null>(null);
+
+  const persistLayout = useCallback(() => {
+    runtime.presentation.syncPanes(runtime.store.toScene().panes);
+    if (runtime.mode !== "workspace") {
+      return;
+    }
+    const layout = workspaceUILayoutFromScene(
+      workspaceId,
+      runtime.store.toScene(),
+      runtime.store.focusedPaneId(),
+    );
+    pendingLayoutSaveRef.current = pendingLayoutSaveRef.current
+      .catch(() => {})
+      .then(() => window.setta.workspace.saveUILayout(layout))
+      .then(() => {
+        setLayoutPersistenceError(null);
+      })
+      .catch((error: unknown) => {
+        setLayoutPersistenceError(errorMessage(error));
+      });
+  }, [runtime, workspaceId]);
+  const resetLayoutPersistenceError = useCallback(() => {
+    setLayoutPersistenceError(null);
+  }, []);
+
+  return { layoutPersistenceError, persistLayout, resetLayoutPersistenceError };
+}
+
+type WorkspaceUILayoutLoad =
+  | {
+      error: null;
+      key: string;
+      layout: WorkspaceUILayout | null;
+      status: "loaded";
+    }
+  | {
+      error: string;
+      key: string;
+      layout: null;
+      status: "failed";
+    }
+  | {
+      error: null;
+      key: string;
+      layout: null;
+      status: "loading";
+    };
+
+function WorkspaceLayoutLoading({
+  mode,
+  platform,
+  workspaceId,
+}: {
+  mode: WorkspaceSceneMode;
+  platform: DesktopPlatform;
+  workspaceId: string;
+}) {
+  return (
+    <section
+      aria-label={workspaceLayoutAreaLabel(mode)}
+      className="workspace-layout-area relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
+      data-browser-pane-count="0"
+      data-desktop-platform={platform}
+      data-maximized-pane-id=""
+      data-pane-count="0"
+      data-presentation-mode="normal"
+      data-workspace-mode={mode}
+      data-workspace-id={workspaceId}
+      data-testid="workspace-layout-area"
+    />
+  );
+}
+
+function useWorkspaceUILayoutLoad(
+  workspaceId: string,
+  mode: WorkspaceSceneMode,
+): WorkspaceUILayoutLoad {
+  const key = `${mode}:${workspaceId}`;
+  const [state, setState] = useState<WorkspaceUILayoutLoad>({
+    error: null,
+    key,
+    layout: null,
+    status: "loaded",
+  });
+  const shouldLoad = shouldLoadWorkspaceUILayout(workspaceId, mode);
+
+  useEffect(() => {
+    if (!shouldLoad) {
+      setState({
+        error: null,
+        key,
+        layout: null,
+        status: "loaded",
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setState({
+      error: null,
+      key,
+      layout: null,
+      status: "loading",
+    });
+    window.setta.workspace
+      .readUILayout(workspaceId)
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setState({
+          error: null,
+          key,
+          layout: result.layout,
+          status: "loaded",
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setState({
+          error: `Workspace UI state could not be loaded: ${errorMessage(error)}`,
+          key,
+          layout: null,
+          status: "failed",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, shouldLoad, workspaceId]);
+
+  if (!shouldLoad) {
+    return {
+      error: null,
+      key,
+      layout: null,
+      status: "loaded",
+    };
+  }
+  if (state.key !== key) {
+    return {
+      error: null,
+      key,
+      layout: null,
+      status: "loading",
+    };
+  }
+  return state;
+}
+
+function shouldLoadWorkspaceUILayout(workspaceId: string, mode: WorkspaceSceneMode): boolean {
+  return (
+    mode === "workspace" &&
+    workspaceId !== "empty" &&
+    typeof window !== "undefined" &&
+    Boolean(window.setta?.workspace?.readUILayout)
+  );
 }
 
 function workspaceBenchmarkShouldRun(mode: WorkspaceSceneMode): boolean {
@@ -743,4 +958,8 @@ function viewportRect(element: HTMLElement): Rect {
     x: 0,
     y: 0,
   };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Workspace layout operation failed";
 }

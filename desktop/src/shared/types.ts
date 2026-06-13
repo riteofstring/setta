@@ -112,6 +112,8 @@ import type {
   WorkflowGraph,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
+  WorkspaceUILayout,
+  WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -332,8 +334,10 @@ export interface SettaAPI {
     close: (id: string) => Promise<WorkspaceSession>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
     openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
+    readUILayout: (workspaceId: string) => Promise<WorkspaceUILayoutReadResult>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
+    saveUILayout: (layout: WorkspaceUILayout) => Promise<WorkspaceUILayout>;
     select: (id: string) => Promise<WorkspaceSession>;
     selectedConversations: () => Promise<WorkspaceSelectedConversations>;
     setSelectedConversation: (

@@ -24,6 +24,7 @@ import (
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
+	"setta/internal/workspaceui"
 )
 
 type Config struct {
@@ -71,6 +72,7 @@ type runtimeServices struct {
 	semanticGraphService *semanticgraph.Service
 	semanticGraphStore   *semanticgraph.Store
 	terminalService      *terminal.Manager
+	workspaceUIService   *workspaceui.Service
 	workspaceService     *workspacesession.Service
 	workflowService      *orchestrator.Service
 	workflowStore        *orchestrator.Store
@@ -169,6 +171,10 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
+	workspaceUIService, err := newWorkspaceUIService(config.AppDataDir, workspaceService)
+	if err != nil {
+		return runtimeServices{}, err
+	}
 	codexManager := newCodexManager()
 	chatService, err := newChatService(config.AppDataDir, workspaceService, codexManager, config.ChatHarness)
 	if err != nil {
@@ -226,6 +232,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		semanticGraphService: semanticGraphService,
 		semanticGraphStore:   semanticGraphStore,
 		terminalService:      terminalService,
+		workspaceUIService:   workspaceUIService,
 		workspaceService:     workspaceService,
 		workflowService:      workflowService,
 		workflowStore:        workflowStore,
@@ -258,6 +265,21 @@ func newWorkspaceService(appDataDir string) (*workspacesession.Service, error) {
 		return nil, fmt.Errorf("load workspace session: %w", err)
 	}
 	return workspaceService, nil
+}
+
+func newWorkspaceUIService(
+	appDataDir string,
+	workspaceService *workspacesession.Service,
+) (*workspaceui.Service, error) {
+	store, err := workspaceui.NewStore(appDataDir)
+	if err != nil {
+		return nil, fmt.Errorf("create workspace UI store: %w", err)
+	}
+	service, err := workspaceui.NewService(store, workspaceService)
+	if err != nil {
+		return nil, fmt.Errorf("create workspace UI service: %w", err)
+	}
+	return service, nil
 }
 
 func newCodexManager() *codexapp.Manager {
@@ -365,6 +387,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			CodexAccountService:  services.codexAccountService,
 			SemanticGraphService: services.semanticGraphService,
 			TerminalService:      services.terminalService,
+			WorkspaceUIService:   services.workspaceUIService,
 			WorkspaceService:     services.workspaceService,
 			WorkflowService:      services.workflowService,
 		}),

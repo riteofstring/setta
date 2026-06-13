@@ -100,6 +100,72 @@ export function decodeAppearancePresetID(value: unknown, label = "AppearancePres
   }
 }
 
+export type ColumnWidthUnit = "proportion" | "px";
+
+export const columnWidthUnitValues = ["proportion", "px"] as const satisfies readonly ColumnWidthUnit[];
+
+export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit"): ColumnWidthUnit {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "proportion":
+      return decoded;
+    case "px":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SurfaceKind = "chat-dom" | "empty-frame" | "workflow-graph" | "settings-dom" | "terminal" | "semantic-node-details" | "workflow-node-details" | "workflow-settings";
+
+export const surfaceKindValues = ["chat-dom", "empty-frame", "workflow-graph", "settings-dom", "terminal", "semantic-node-details", "workflow-node-details", "workflow-settings"] as const satisfies readonly SurfaceKind[];
+
+export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "chat-dom":
+      return decoded;
+    case "empty-frame":
+      return decoded;
+    case "workflow-graph":
+      return decoded;
+    case "settings-dom":
+      return decoded;
+    case "terminal":
+      return decoded;
+    case "semantic-node-details":
+      return decoded;
+    case "workflow-node-details":
+      return decoded;
+    case "workflow-settings":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type PaneTone = "cyan" | "green" | "orange" | "pink" | "slate";
+
+export const paneToneValues = ["cyan", "green", "orange", "pink", "slate"] as const satisfies readonly PaneTone[];
+
+export function decodePaneTone(value: unknown, label = "PaneTone"): PaneTone {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "cyan":
+      return decoded;
+    case "green":
+      return decoded;
+    case "orange":
+      return decoded;
+    case "pink":
+      return decoded;
+    case "slate":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export const reasoningEffortValues = ["none", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ReasoningEffort[];
@@ -2119,6 +2185,63 @@ export interface ReorderWorkspaceRequest {
 
 export interface RemoveRecentWorkspaceRequest {
   id: string;
+}
+
+export interface ReadWorkspaceUILayoutRequest {
+  workspaceId: string;
+}
+
+export interface ColumnWidthSpec {
+  unit: ColumnWidthUnit;
+  value: number;
+}
+
+export interface WorkspaceUIColumn {
+  columnId: string;
+  idealWidthSpec: ColumnWidthSpec;
+  index: number;
+  paneIds: string[];
+  planeIndex: number;
+  previousProportionWidth: number | null;
+  slotIndex: number;
+  widthSpec: ColumnWidthSpec;
+}
+
+export interface TerminalPaneConfig {
+  profileId: string;
+  cwdOverride: string;
+  titleOverride: string;
+}
+
+export interface WorkspaceUIPane {
+  columnId: string;
+  heat: number;
+  paneId: string;
+  sequence: number;
+  subtitle: string;
+  surfaceId: string;
+  surfaceKind: SurfaceKind;
+  terminalConfig: TerminalPaneConfig | null;
+  title: string;
+  tone: PaneTone;
+  weight: number;
+}
+
+export interface WorkspaceUILayout {
+  schemaVersion: number;
+  workspaceId: string;
+  focusedPaneId: string;
+  columns: WorkspaceUIColumn[];
+  panes: WorkspaceUIPane[];
+}
+
+export interface WorkspaceUILayoutReadResult {
+  workspaceId: string;
+  layout: WorkspaceUILayout | null;
+}
+
+export interface SaveWorkspaceUILayoutRequest {
+  layout: WorkspaceUILayout;
 }
 
 export interface ListConversationsRequest {
@@ -4671,6 +4794,14 @@ export const backendEndpoints = {
     method: "POST",
     path: "/workspaces/remove-recent",
   },
+  ReadWorkspaceUILayout: {
+    method: "POST",
+    path: "/workspaces/ui/layout/read",
+  },
+  SaveWorkspaceUILayout: {
+    method: "POST",
+    path: "/workspaces/ui/layout/save",
+  },
   ListConversations: {
     method: "POST",
     path: "/chat/conversations/list",
@@ -5285,6 +5416,95 @@ export function decodeRemoveRecentWorkspaceRequest(value: unknown): RemoveRecent
   assertKnownFields(record, "RemoveRecentWorkspaceRequest", ["id"]);
   return {
     id: decodeString(requireField(record, "id", "RemoveRecentWorkspaceRequest"), "RemoveRecentWorkspaceRequest.id"),
+  };
+}
+
+export function decodeReadWorkspaceUILayoutRequest(value: unknown): ReadWorkspaceUILayoutRequest {
+  const record = assertRecord(value, "ReadWorkspaceUILayoutRequest");
+  assertKnownFields(record, "ReadWorkspaceUILayoutRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadWorkspaceUILayoutRequest"), "ReadWorkspaceUILayoutRequest.workspaceId"),
+  };
+}
+
+export function decodeColumnWidthSpec(value: unknown): ColumnWidthSpec {
+  const record = assertRecord(value, "ColumnWidthSpec");
+  assertKnownFields(record, "ColumnWidthSpec", ["unit", "value"]);
+  return {
+    unit: decodeColumnWidthUnit(requireField(record, "unit", "ColumnWidthSpec"), "ColumnWidthSpec.unit"),
+    value: decodeNumber(requireField(record, "value", "ColumnWidthSpec"), "ColumnWidthSpec.value"),
+  };
+}
+
+export function decodeWorkspaceUIColumn(value: unknown): WorkspaceUIColumn {
+  const record = assertRecord(value, "WorkspaceUIColumn");
+  assertKnownFields(record, "WorkspaceUIColumn", ["columnId", "idealWidthSpec", "index", "paneIds", "planeIndex", "previousProportionWidth", "slotIndex", "widthSpec"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIColumn"), "WorkspaceUIColumn.columnId"),
+    idealWidthSpec: decodeColumnWidthSpec(requireField(record, "idealWidthSpec", "WorkspaceUIColumn")),
+    index: decodeInteger(requireField(record, "index", "WorkspaceUIColumn"), "WorkspaceUIColumn.index"),
+    paneIds: decodeArray(requireField(record, "paneIds", "WorkspaceUIColumn"), "WorkspaceUIColumn.paneIds", (item) => decodeString(item, "WorkspaceUIColumn.paneIds item")),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "WorkspaceUIColumn"), "WorkspaceUIColumn.planeIndex"),
+    previousProportionWidth: decodeNullable(requireField(record, "previousProportionWidth", "WorkspaceUIColumn"), "WorkspaceUIColumn.previousProportionWidth", (item) => decodeNumber(item, "WorkspaceUIColumn.previousProportionWidth")),
+    slotIndex: decodeInteger(requireField(record, "slotIndex", "WorkspaceUIColumn"), "WorkspaceUIColumn.slotIndex"),
+    widthSpec: decodeColumnWidthSpec(requireField(record, "widthSpec", "WorkspaceUIColumn")),
+  };
+}
+
+export function decodeTerminalPaneConfig(value: unknown): TerminalPaneConfig {
+  const record = assertRecord(value, "TerminalPaneConfig");
+  assertKnownFields(record, "TerminalPaneConfig", ["profileId", "cwdOverride", "titleOverride"]);
+  return {
+    profileId: decodeString(requireField(record, "profileId", "TerminalPaneConfig"), "TerminalPaneConfig.profileId"),
+    cwdOverride: decodeString(requireField(record, "cwdOverride", "TerminalPaneConfig"), "TerminalPaneConfig.cwdOverride"),
+    titleOverride: decodeString(requireField(record, "titleOverride", "TerminalPaneConfig"), "TerminalPaneConfig.titleOverride"),
+  };
+}
+
+export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
+  const record = assertRecord(value, "WorkspaceUIPane");
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "terminalConfig", "title", "tone", "weight"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
+    heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
+    paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPane"), "WorkspaceUIPane.paneId"),
+    sequence: decodeInteger(requireField(record, "sequence", "WorkspaceUIPane"), "WorkspaceUIPane.sequence"),
+    subtitle: decodeString(requireField(record, "subtitle", "WorkspaceUIPane"), "WorkspaceUIPane.subtitle"),
+    surfaceId: decodeString(requireField(record, "surfaceId", "WorkspaceUIPane"), "WorkspaceUIPane.surfaceId"),
+    surfaceKind: decodeSurfaceKind(requireField(record, "surfaceKind", "WorkspaceUIPane"), "WorkspaceUIPane.surfaceKind"),
+    terminalConfig: decodeNullable(requireField(record, "terminalConfig", "WorkspaceUIPane"), "WorkspaceUIPane.terminalConfig", (item) => decodeTerminalPaneConfig(item)),
+    title: decodeString(requireField(record, "title", "WorkspaceUIPane"), "WorkspaceUIPane.title"),
+    tone: decodePaneTone(requireField(record, "tone", "WorkspaceUIPane"), "WorkspaceUIPane.tone"),
+    weight: decodeNumber(requireField(record, "weight", "WorkspaceUIPane"), "WorkspaceUIPane.weight"),
+  };
+}
+
+export function decodeWorkspaceUILayout(value: unknown): WorkspaceUILayout {
+  const record = assertRecord(value, "WorkspaceUILayout");
+  assertKnownFields(record, "WorkspaceUILayout", ["schemaVersion", "workspaceId", "focusedPaneId", "columns", "panes"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkspaceUILayout"), "WorkspaceUILayout.schemaVersion"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUILayout"), "WorkspaceUILayout.workspaceId"),
+    focusedPaneId: decodeString(requireField(record, "focusedPaneId", "WorkspaceUILayout"), "WorkspaceUILayout.focusedPaneId"),
+    columns: decodeArray(requireField(record, "columns", "WorkspaceUILayout"), "WorkspaceUILayout.columns", (item) => decodeWorkspaceUIColumn(item)),
+    panes: decodeArray(requireField(record, "panes", "WorkspaceUILayout"), "WorkspaceUILayout.panes", (item) => decodeWorkspaceUIPane(item)),
+  };
+}
+
+export function decodeWorkspaceUILayoutReadResult(value: unknown): WorkspaceUILayoutReadResult {
+  const record = assertRecord(value, "WorkspaceUILayoutReadResult");
+  assertKnownFields(record, "WorkspaceUILayoutReadResult", ["workspaceId", "layout"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "WorkspaceUILayoutReadResult"), "WorkspaceUILayoutReadResult.workspaceId"),
+    layout: decodeNullable(requireField(record, "layout", "WorkspaceUILayoutReadResult"), "WorkspaceUILayoutReadResult.layout", (item) => decodeWorkspaceUILayout(item)),
+  };
+}
+
+export function decodeSaveWorkspaceUILayoutRequest(value: unknown): SaveWorkspaceUILayoutRequest {
+  const record = assertRecord(value, "SaveWorkspaceUILayoutRequest");
+  assertKnownFields(record, "SaveWorkspaceUILayoutRequest", ["layout"]);
+  return {
+    layout: decodeWorkspaceUILayout(requireField(record, "layout", "SaveWorkspaceUILayoutRequest")),
   };
 }
 
@@ -8844,6 +9064,8 @@ export interface BackendClient {
   closeWorkspace: (request: CloseWorkspaceRequest) => Promise<WorkspaceSession>;
   reorderWorkspace: (request: ReorderWorkspaceRequest) => Promise<WorkspaceSession>;
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
+  readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest) => Promise<WorkspaceUILayoutReadResult>;
+  saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest) => Promise<WorkspaceUILayout>;
   listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
   deleteConversation: (request: DeleteConversationRequest) => Promise<ListConversationsResponse>;
@@ -9031,6 +9253,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.RemoveRecentWorkspace,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readWorkspaceUILayout: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceUILayoutReadResult,
+      endpoint: backendEndpoints.ReadWorkspaceUILayout,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    saveWorkspaceUILayout: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkspaceUILayout,
+      endpoint: backendEndpoints.SaveWorkspaceUILayout,
       fetchImpl,
       requestPayload: request,
     }),

@@ -12,6 +12,7 @@ import (
 	"setta/internal/terminal"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
+	"setta/internal/workspaceui"
 )
 
 type AppearanceService interface {
@@ -28,6 +29,11 @@ type WorkspaceService interface {
 	SelectedConversationIDs() map[string]string
 	SetSelectedConversation(workspaceID string, conversationID string) (map[string]string, error)
 	Session() workspacesession.WorkspaceSession
+}
+
+type WorkspaceUIService interface {
+	ReadLayout(workspaceID string) (workspaceui.WorkspaceUILayoutReadResult, error)
+	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
 }
 
 type ChatService interface {
@@ -147,6 +153,7 @@ type HandlerConfig struct {
 	CodexAccountService  CodexAccountService
 	SemanticGraphService SemanticGraphService
 	TerminalService      TerminalService
+	WorkspaceUIService   WorkspaceUIService
 	WorkspaceService     WorkspaceService
 	WorkflowService      WorkflowService
 }
@@ -158,6 +165,7 @@ type handler struct {
 	codexAccountService  CodexAccountService
 	semanticGraphService SemanticGraphService
 	terminalService      TerminalService
+	workspaceUIService   WorkspaceUIService
 	workspaceService     WorkspaceService
 	workflowService      WorkflowService
 }
@@ -170,6 +178,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 		codexAccountService:  config.CodexAccountService,
 		semanticGraphService: config.SemanticGraphService,
 		terminalService:      config.TerminalService,
+		workspaceUIService:   config.WorkspaceUIService,
 		workspaceService:     config.WorkspaceService,
 		workflowService:      config.WorkflowService,
 	}

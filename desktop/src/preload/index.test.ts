@@ -10,6 +10,32 @@ import type {
 } from "@generated/backend";
 import { ipcChannels, ipcEvents } from "@shared/ipc";
 
+async function exposePreloadAPI({
+  invoke = vi.fn(),
+  on = vi.fn(),
+  removeListener = vi.fn(),
+  send = vi.fn(),
+} = {}) {
+  const exposed: Record<string, unknown> = {};
+  vi.doMock("electron", () => ({
+    contextBridge: {
+      exposeInMainWorld: (name: string, api: unknown) => {
+        exposed[name] = api;
+      },
+    },
+    ipcRenderer: {
+      invoke,
+      on,
+      removeListener,
+      send,
+    },
+  }));
+
+  await import("./index");
+
+  return { api: exposed.setta as SettaAPI, invoke, on, removeListener, send };
+}
+
 describe("preload workspace API", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -22,22 +48,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed app methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
+    const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.app).sort()).toEqual([
       "endWindowDrag",
       "flags",
@@ -79,37 +90,33 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed workspace methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
+    const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.workspace).sort()).toEqual([
       "close",
       "openLocalFolder",
       "openPath",
+      "readUILayout",
       "removeRecent",
       "reorder",
+      "saveUILayout",
       "select",
       "selectedConversations",
       "session",
       "setSelectedConversation",
     ]);
 
+    const layout = {
+      columns: [],
+      focusedPaneId: "workspace_pane_0",
+      panes: [],
+      schemaVersion: 1,
+      workspaceId: "workspace_api",
+    };
     await api.workspace.session();
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
+    await api.workspace.readUILayout("workspace_api");
+    await api.workspace.saveUILayout(layout);
     await api.workspace.select("workspace_api");
     await api.workspace.selectedConversations();
     await api.workspace.setSelectedConversation("workspace_api", "conversation_api");
@@ -121,6 +128,8 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceSession],
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
+      [ipcChannels.workspaceReadUILayout, "workspace_api"],
+      [ipcChannels.workspaceSaveUILayout, layout],
       [ipcChannels.workspaceSelect, "workspace_api"],
       [ipcChannels.workspaceSelectedConversations],
       [ipcChannels.workspaceSetSelectedConversation, "workspace_api", "conversation_api"],
@@ -131,28 +140,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed workspace native view methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    const on = vi.fn();
-    const removeListener = vi.fn();
-    const send = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-        on,
-        removeListener,
-        send,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
+    const { api, invoke, on, removeListener, send } = await exposePreloadAPI();
     const batch = {
       focusedSurfaceId: "surface_browser",
       totalBrowserPanes: 24,
@@ -241,22 +229,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed appearance methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
+    const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.appearance).sort()).toEqual(["presets", "read", "update"]);
     const request = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
 
@@ -272,26 +245,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed chat methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    const on = vi.fn();
-    const removeListener = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-        on,
-        removeListener,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
     expect(Object.keys(api.chat).sort()).toEqual([
       "activeRun",
       "cancelRun",
@@ -417,26 +371,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed terminal methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    const on = vi.fn();
-    const removeListener = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-        on,
-        removeListener,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
     expect(Object.keys(api.terminal).sort()).toEqual([
       "attach",
       "close",
@@ -526,22 +461,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed semantic graph methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
+    const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.semanticGraph).sort()).toEqual([
       "acceptCartographerPatch",
       "attachChatMessage",
@@ -1234,26 +1154,7 @@ describe("preload workspace API", () => {
   });
 
   test("exposes typed workflow methods through IPC", async () => {
-    const exposed: Record<string, unknown> = {};
-    const invoke = vi.fn();
-    const on = vi.fn();
-    const removeListener = vi.fn();
-    vi.doMock("electron", () => ({
-      contextBridge: {
-        exposeInMainWorld: (name: string, api: unknown) => {
-          exposed[name] = api;
-        },
-      },
-      ipcRenderer: {
-        invoke,
-        on,
-        removeListener,
-      },
-    }));
-
-    await import("./index");
-
-    const api = exposed.setta as SettaAPI;
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
     const graph = workflowGraph();
     expect(Object.keys(api.workflow).sort()).toEqual([
       "cancelExecution",

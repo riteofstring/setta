@@ -110,6 +110,8 @@ import type {
   WorkflowGraph,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
+  WorkspaceUILayout,
+  WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
 import type {
@@ -226,8 +228,10 @@ export const ipcChannels = {
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
+  workspaceReadUILayout: "workspace:read-ui-layout",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
+  workspaceSaveUILayout: "workspace:save-ui-layout",
   workspaceSelect: "workspace:select",
   workspaceSelectedConversations: "workspace:selected-conversations",
   workspaceSetSelectedConversation: "workspace:set-selected-conversation",
@@ -695,6 +699,10 @@ interface IpcContract {
     args: [rootPath: string];
     result: OpenWorkspaceResponse;
   };
+  workspaceReadUILayout: {
+    args: [workspaceId: string];
+    result: WorkspaceUILayoutReadResult;
+  };
   workspaceRemoveRecent: {
     args: [id: string];
     result: WorkspaceSession;
@@ -702,6 +710,10 @@ interface IpcContract {
   workspaceReorder: {
     args: [ids: string[]];
     result: WorkspaceSession;
+  };
+  workspaceSaveUILayout: {
+    args: [layout: WorkspaceUILayout];
+    result: WorkspaceUILayout;
   };
   workspaceSelect: {
     args: [id: string];
