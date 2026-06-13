@@ -246,7 +246,7 @@ async function createWindow() {
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
-          trafficLightPosition: { x: 22, y: 22 },
+          trafficLightPosition: { x: 22, y: 18 },
         }
       : {}),
     title: "Setta",
