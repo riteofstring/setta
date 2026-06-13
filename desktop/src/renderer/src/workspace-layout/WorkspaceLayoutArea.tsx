@@ -71,6 +71,11 @@ interface OverviewDragSession {
   startClientY: number;
 }
 
+interface PaneWindowDragSession {
+  handle: HTMLElement;
+  pointerId: number;
+}
+
 export function WorkspaceLayoutArea({
   focusSurfaceRequest = null,
   platform,
@@ -85,6 +90,7 @@ export function WorkspaceLayoutArea({
   const overviewDragSessionRef = useRef<OverviewDragSession | null>(null);
   const paneDragSessionRef = useRef<PaneDragSession | null>(null);
   const paneResizeSessionRef = useRef<PaneResizeSession | null>(null);
+  const paneWindowDragSessionRef = useRef<PaneWindowDragSession | null>(null);
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createWorkspaceTrackpadNavigationState());
   const [overviewGhostTarget, setOverviewGhostTarget] = useState<OverviewGhostTarget | null>(null);
@@ -96,6 +102,12 @@ export function WorkspaceLayoutArea({
     (state) =>
       (state.draft ?? state.settings)?.developer?.allowResizedPanesToOverflowViewport ?? false,
   );
+  const overviewCardMaxWidthPx = useAppearanceStore(
+    (state) => (state.draft ?? state.settings)?.developer?.overviewCardMaxWidthPx,
+  );
+  const overviewCardMinWidthPx = useAppearanceStore(
+    (state) => (state.draft ?? state.settings)?.developer?.overviewCardMinWidthPx,
+  );
   const mode = workspaceSceneMode();
   const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
   const runtime = useMemo(
@@ -103,10 +115,19 @@ export function WorkspaceLayoutArea({
       createWorkspaceRuntime({
         allowResizedPanesToOverflowViewport,
         mode,
+        overviewCardMaxWidthPx,
+        overviewCardMinWidthPx,
         workspaceId,
         workspaceName,
       }),
-    [allowResizedPanesToOverflowViewport, mode, workspaceId, workspaceName],
+    [
+      allowResizedPanesToOverflowViewport,
+      mode,
+      overviewCardMaxWidthPx,
+      overviewCardMinWidthPx,
+      workspaceId,
+      workspaceName,
+    ],
   );
   const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
@@ -322,6 +343,22 @@ export function WorkspaceLayoutArea({
       paneResizeSessionRef.current = resizeSession;
       return true;
     };
+    const beginPaneWindowDrag = (event: PointerEvent): boolean => {
+      const handle = paneWindowDragTargetFromPointer(event);
+      if (!handle) {
+        return false;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      scheduler.pauseBenchmark();
+      handle.setPointerCapture?.(event.pointerId);
+      paneWindowDragSessionRef.current = {
+        handle,
+        pointerId: event.pointerId,
+      };
+      void window.setta.app.startWindowDrag(windowDragPointFromPointer(event));
+      return true;
+    };
     const handlePointerDown = (event: PointerEvent) => {
       if (runtime.mode !== "workspace") {
         return;
@@ -331,6 +368,9 @@ export function WorkspaceLayoutArea({
         return;
       }
       if (beginPaneDrag(event)) {
+        return;
+      }
+      if (beginPaneWindowDrag(event)) {
         return;
       }
       beginPaneResize(event);
@@ -372,6 +412,16 @@ export function WorkspaceLayoutArea({
       updatePaneDragSession(event, root, paneDragSession, runtime.store);
       return true;
     };
+    const updatePaneWindowDrag = (event: PointerEvent): boolean => {
+      const paneWindowDragSession = paneWindowDragSessionRef.current;
+      if (!paneWindowDragSession || event.pointerId !== paneWindowDragSession.pointerId) {
+        return false;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      void window.setta.app.moveWindowDrag(windowDragPointFromPointer(event));
+      return true;
+    };
     const updatePaneResize = (event: PointerEvent): boolean => {
       const session = paneResizeSessionRef.current;
       if (!session) {
@@ -392,6 +442,9 @@ export function WorkspaceLayoutArea({
         return;
       }
       if (updatePaneDrag(event)) {
+        return;
+      }
+      if (updatePaneWindowDrag(event)) {
         return;
       }
       updatePaneResize(event);
@@ -458,11 +511,28 @@ export function WorkspaceLayoutArea({
       }
       return true;
     };
+    const finishActivePaneWindowDrag = (event: PointerEvent): boolean => {
+      const paneWindowDragSession = paneWindowDragSessionRef.current;
+      if (!paneWindowDragSession || event.pointerId !== paneWindowDragSession.pointerId) {
+        return false;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      paneWindowDragSessionRef.current = null;
+      if (paneWindowDragSession.handle.hasPointerCapture?.(event.pointerId)) {
+        paneWindowDragSession.handle.releasePointerCapture(event.pointerId);
+      }
+      void window.setta.app.endWindowDrag();
+      return true;
+    };
     const handlePointerUp = (event: PointerEvent) => {
       if (finishActiveOverviewDrag(event)) {
         return;
       }
       if (finishActivePaneDrag(event)) {
+        return;
+      }
+      if (finishActivePaneWindowDrag(event)) {
         return;
       }
       const session = paneResizeSessionRef.current;
@@ -521,6 +591,14 @@ export function WorkspaceLayoutArea({
       if (paneDragSessionRef.current) {
         cleanupPaneDragSession(root, paneDragSessionRef.current);
         paneDragSessionRef.current = null;
+      }
+      const paneWindowDragSession = paneWindowDragSessionRef.current;
+      if (paneWindowDragSession) {
+        if (paneWindowDragSession.handle.hasPointerCapture?.(paneWindowDragSession.pointerId)) {
+          paneWindowDragSession.handle.releasePointerCapture(paneWindowDragSession.pointerId);
+        }
+        void window.setta.app.endWindowDrag();
+        paneWindowDragSessionRef.current = null;
       }
       setOverviewGhostTargetIfChanged(setOverviewGhostTarget, null);
       runtime.store.clearPaneDropPreview();
@@ -712,6 +790,40 @@ function workspaceRuntimeIdentity(workspace: { displayName: string; id: string }
     return { workspaceId: "empty", workspaceName: "No workspace" };
   }
   return { workspaceId: workspace.id, workspaceName: workspace.displayName };
+}
+
+function paneWindowDragTargetFromPointer(event: PointerEvent): HTMLElement | null {
+  if (event.button !== 0 || !(event.target instanceof Element)) {
+    return null;
+  }
+  const topBar = event.target.closest<HTMLElement>("[data-workspace-pane-top-bar]");
+  if (!topBar) {
+    return null;
+  }
+  if (event.target.closest(paneWindowDragNoDragSelector)) {
+    return null;
+  }
+  return topBar;
+}
+
+const paneWindowDragNoDragSelector = [
+  "[data-workspace-pane-action]",
+  "[data-workspace-pane-action-strip='true']",
+  "[data-workspace-pane-drag-handle='true']",
+  "[data-app-window-no-drag='true']",
+  "button",
+  "a",
+  "input",
+  "select",
+  "textarea",
+  "[role='button']",
+].join(",");
+
+function windowDragPointFromPointer(event: PointerEvent) {
+  return {
+    screenX: event.screenX,
+    screenY: event.screenY,
+  };
 }
 
 function useWorkspaceLayoutSnapshot(store: WorkspaceLayoutStore) {

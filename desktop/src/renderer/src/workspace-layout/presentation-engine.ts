@@ -345,7 +345,7 @@ export class PresentationEngine {
       return existing;
     }
     const topBar = host.ownerDocument.createElement("div");
-    topBar.className = "workspace-pane-top-bar";
+    topBar.className = "workspace-pane-top-bar app-drag";
     topBar.dataset.workspacePaneTopBar = "true";
     host.append(topBar);
     return topBar;

@@ -32,7 +32,8 @@ describe("workspace toolbar", () => {
     expect(hidden).not.toContain('data-testid="workspace-performance-stats"');
     expect(hidden).not.toContain("workspace_pane_0");
     expect(hidden).not.toContain('data-testid="workspace-focused-pane-label"');
-    expect(hidden).toContain('data-workspace-title-bar="true"');
+    expect(hidden).toContain('data-testid="workspace-toolbar"');
+    expect(hidden).not.toContain('data-workspace-title-bar="true"');
     expect(hidden).toContain('aria-label="Enter overview"');
     expect(hidden).toContain('aria-label="New frame"');
     expect(hidden).not.toContain('aria-label="Frame split vertically"');

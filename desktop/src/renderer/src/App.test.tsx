@@ -59,6 +59,7 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="shell-top-bar"');
     expect(html).toContain('data-setta-shell-title-bar="true"');
+    expect(html).toContain('style="left:74px;width:146px"');
     expect(html).toContain('data-testid="shell-setta-logo"');
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('aria-pressed="true"');
@@ -77,7 +78,7 @@ describe("workspace renderer states", () => {
     expect(html).not.toContain('data-testid="right-workspace-pane"');
   });
 
-  test("renders a full-width shell drag strip on non-mac platforms", () => {
+  test("bounds the shell drag strip to the project pane on non-mac platforms", () => {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: {
@@ -99,6 +100,7 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="shell-top-bar"');
     expect(html).toContain('data-setta-shell-title-bar="true"');
+    expect(html).toContain('style="left:0;width:220px"');
     expect(html).toContain('data-desktop-platform="win32"');
     expect(html).toContain('aria-label="Hide project sidebar"');
   });

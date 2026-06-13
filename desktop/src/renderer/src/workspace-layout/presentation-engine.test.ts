@@ -301,7 +301,7 @@ describe("workspace presentation engine", () => {
     ]);
   });
 
-  test("adds pane top bar controls without Electron window drag chrome", () => {
+  test("adds pane top bar controls with only the handle opted into pane reorder", () => {
     const scene = generateBenchmarkScene({ paneCount: 1, targetVisiblePanes: 1 });
     const host = fakePaneHost("workspace_pane_0", "Pane 001");
     const presentation = new PresentationEngine(
@@ -336,7 +336,7 @@ describe("workspace presentation engine", () => {
       dragPaneId: "workspace_pane_0",
       hostMaximized: "true",
       titleEditorPresent: false,
-      topBarClassName: "workspace-pane-top-bar",
+      topBarClassName: "workspace-pane-top-bar app-drag",
       visibleActions: ["maximize", "close"],
       topBarPaneId: "workspace_pane_0",
     });

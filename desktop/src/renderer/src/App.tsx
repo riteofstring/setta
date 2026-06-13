@@ -314,7 +314,11 @@ function AppChromeControls({
 }) {
   return (
     <>
-      <ShellTopBar platform={platform} />
+      <ShellTopBar
+        platform={platform}
+        projectPaneOpen={projectPaneOpen}
+        projectPaneWidth={projectPaneWidth}
+      />
       <FloatingProjectPaneControl
         active={projectPaneOpen}
         platform={platform}
@@ -353,17 +357,27 @@ function FloatingProjectPaneControl({
   );
 }
 
-function ShellTopBar({ platform }: { platform: DesktopPlatform }) {
+function ShellTopBar({
+  platform,
+  projectPaneOpen,
+  projectPaneWidth,
+}: {
+  platform: DesktopPlatform;
+  projectPaneOpen: boolean;
+  projectPaneWidth: number;
+}) {
   const windowDragHandlers = useAppWindowDragHandlers();
+  if (!projectPaneOpen) {
+    return null;
+  }
+  const left = shellTopBarLeftInset(platform);
   return (
     <div
       aria-hidden="true"
-      className={cn(
-        "pointer-events-auto fixed top-0 z-30 h-10 bg-transparent",
-        shellTopBarDragClass(platform),
-      )}
+      className="pointer-events-auto fixed top-0 z-30 h-10 bg-transparent"
       data-setta-shell-title-bar="true"
       data-testid="shell-top-bar"
+      style={{ left, width: Math.max(0, projectPaneWidth - left) }}
       {...windowDragHandlers}
     />
   );
@@ -429,8 +443,8 @@ function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
   return platform === "darwin" ? "left-[74px]" : "left-2";
 }
 
-function shellTopBarDragClass(platform: DesktopPlatform) {
-  return platform === "darwin" ? "left-[74px] right-0" : "inset-x-0";
+function shellTopBarLeftInset(platform: DesktopPlatform) {
+  return platform === "darwin" ? 74 : 0;
 }
 
 function useWorkspaceViewState() {

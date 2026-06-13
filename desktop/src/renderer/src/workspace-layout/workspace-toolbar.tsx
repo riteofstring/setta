@@ -18,7 +18,6 @@ import {
 
 import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { useAppWindowDragHandlers } from "../app-window-drag";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import type { EmptyFrameOption } from "./surface-adapters";
 import type { WorkspacePane, OpenPaneRequest, SurfaceKind } from "./types";
@@ -38,7 +37,6 @@ export function WorkspaceToolbar({
   showPerformanceStats: boolean;
   store: WorkspaceLayoutStore;
 }) {
-  const windowDragHandlers = useAppWindowDragHandlers();
   const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
   const newFrameItems = openPaneActions.map(({ Icon, label, request }) => {
     const limitState = store.paneLimitState(request);
@@ -56,12 +54,18 @@ export function WorkspaceToolbar({
     };
   });
   return (
-    <div
-      className="workspace-toolbar"
-      data-workspace-title-bar="true"
-      data-testid="workspace-toolbar"
-      {...windowDragHandlers}
-    >
+    <div className="workspace-toolbar" data-testid="workspace-toolbar">
+      <TooltipProvider>
+        <div className="workspace-toolbar-group">
+          <WorkspaceToolbarButton
+            label={overviewActive ? "Exit overview" : "Enter overview"}
+            onClick={() => runLayoutAction(() => store.toggleOverviewMode())}
+          >
+            <OverviewIcon className="h-3.5 w-3.5" />
+          </WorkspaceToolbarButton>
+          <WorkspaceToolbarMenu Icon={Plus} items={newFrameItems} label="New frame" />
+        </div>
+      </TooltipProvider>
       <div className="workspace-toolbar-spacer" aria-hidden={!showPerformanceStats}>
         {showPerformanceStats ? (
           <div
@@ -75,17 +79,6 @@ export function WorkspaceToolbar({
           </div>
         ) : null}
       </div>
-      <TooltipProvider>
-        <div className="workspace-toolbar-group">
-          <WorkspaceToolbarButton
-            label={overviewActive ? "Exit overview" : "Enter overview"}
-            onClick={() => runLayoutAction(() => store.toggleOverviewMode())}
-          >
-            <OverviewIcon className="h-3.5 w-3.5" />
-          </WorkspaceToolbarButton>
-          <WorkspaceToolbarMenu Icon={Plus} items={newFrameItems} label="New frame" />
-        </div>
-      </TooltipProvider>
     </div>
   );
 }

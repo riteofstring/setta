@@ -23,7 +23,12 @@
   pointer-events: auto;
   position: absolute;
   width: 100%;
+  -webkit-app-region: drag;
   z-index: 6;
+}
+
+.workspace-pane-host .workspace-pane-top-bar {
+  -webkit-app-region: drag;
 }
 
 .workspace-pane-action-strip {
@@ -32,6 +37,7 @@
   flex: 0 0 auto;
   gap: 2px;
   margin-left: auto;
+  -webkit-app-region: no-drag;
 }
 
 .workspace-pane-drag-handle,
@@ -52,6 +58,7 @@
     color 120ms ease,
     opacity 120ms ease;
   width: 22px;
+  -webkit-app-region: no-drag;
 }
 
 .workspace-pane-drag-handle {

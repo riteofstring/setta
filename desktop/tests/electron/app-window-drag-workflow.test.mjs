@@ -57,16 +57,18 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await ensureWorkspaceOpen(context.client);
-  await waitForToolbar(context.client);
+  await waitForWorkspaceControls(context.client);
   await captureScreenshot(context.client, join(artifactDir, "before.png"));
 
   const regions = await sampleDragRegions(context.client);
-  assertToolbarDragSurface(regions);
-  assertPaneChromeNotDraggable(regions);
+  assertWorkspaceControlsNotDraggable(regions);
+  assertPaneChromeDraggable(regions);
+  assertPaneDragHandleNotWindowDraggable(regions);
 
   const before = await windowPosition(context.client);
-  const from = { x: 900, y: 12 };
-  const to = { x: 1020, y: 88 };
+  const paneTitleBar = requiredRegion(regions, "pane-title-bar");
+  const from = { x: Math.round(paneTitleBar.x), y: Math.round(paneTitleBar.y) };
+  const to = { x: from.x + 120, y: from.y + 76 };
   await dispatchPhysicalMouseDrag(context.client, { from, steps: 24, to });
   await delay(800);
   const after = await windowPosition(context.client);
@@ -127,7 +129,7 @@ async function ensureWorkspaceOpen(client) {
   );
 }
 
-async function waitForToolbar(client) {
+async function waitForWorkspaceControls(client) {
   await waitForState(
     client,
     `(() => Boolean(document.querySelector('.workspace-toolbar')))()`,
@@ -219,10 +221,10 @@ function dragResult(before, after, from, to) {
 
 function assertDragResult(result) {
   if (result.actualDelta.x === 0 && result.actualDelta.y === 0) {
-    throw new Error("window did not move from app toolbar drag");
+    throw new Error("window did not move from pane title bar drag");
   }
   if (result.deltaError.x > dragDeltaTolerancePx || result.deltaError.y > dragDeltaTolerancePx) {
-    throw new Error(`app toolbar drag moved by unexpected delta: ${JSON.stringify(result)}`);
+    throw new Error(`pane title bar drag moved by unexpected delta: ${JSON.stringify(result)}`);
   }
 }
 
@@ -230,41 +232,57 @@ async function sampleDragRegions(client) {
   return client.evaluate(`(() => {
     function sample(name, x, y) {
       const el = document.elementFromPoint(x, y);
+      const element = el instanceof Element ? el : null;
+      const closestTestId = element?.closest("[data-testid]")?.getAttribute("data-testid") ?? null;
       const style = el instanceof Element ? getComputedStyle(el) : null;
       return {
-        aria: el instanceof Element ? el.getAttribute("aria-label") : null,
-        className: el instanceof HTMLElement ? el.className : "",
+        aria: element?.getAttribute("aria-label") ?? null,
+        className: element?.getAttribute("class") ?? "",
         name,
         region: style?.getPropertyValue("-webkit-app-region") ?? null,
         tag: el instanceof Element ? el.tagName.toLowerCase() : null,
-        testid: el instanceof Element ? el.getAttribute("data-testid") : null,
+        testid: element?.getAttribute("data-testid") ?? closestTestId,
         x,
         y,
       };
     }
+    const toolbar = document.querySelector('.workspace-toolbar')?.getBoundingClientRect();
     const paneTop = document
       .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-top-bar')
       ?.getBoundingClientRect();
+    const paneHandle = document
+      .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-drag-handle')
+      ?.getBoundingClientRect();
     return [
-      sample("toolbar-empty-center", 900, 12),
-      sample("toolbar-empty-left", 360, 12),
-      sample("toolbar-control", 1390, 16),
+      sample("workspace-control", toolbar ? toolbar.left + 14 : 118, toolbar ? toolbar.top + 14 : 18),
       sample("pane-title-bar", paneTop ? paneTop.left + 120 : 350, paneTop ? paneTop.top + 12 : 53),
+      sample(
+        "pane-drag-handle",
+        paneHandle ? paneHandle.left + paneHandle.width / 2 : 30,
+        paneHandle ? paneHandle.top + paneHandle.height / 2 : 53,
+      ),
     ];
   })()`);
 }
 
-function assertToolbarDragSurface(regions) {
-  const toolbar = requiredRegion(regions, "toolbar-empty-center");
-  if (toolbar.testid !== "workspace-toolbar" || toolbar.className.includes("app-drag")) {
-    throw new Error(`toolbar drag surface is wrong: ${JSON.stringify(toolbar)}`);
+function assertWorkspaceControlsNotDraggable(regions) {
+  const control = requiredRegion(regions, "workspace-control");
+  if (control.testid !== "workspace-toolbar" || control.region !== "no-drag") {
+    throw new Error(`workspace control drag region is wrong: ${JSON.stringify(control)}`);
   }
 }
 
-function assertPaneChromeNotDraggable(regions) {
+function assertPaneChromeDraggable(regions) {
   const pane = requiredRegion(regions, "pane-title-bar");
-  if (pane.region !== "no-drag") {
-    throw new Error(`pane top bar is draggable: ${JSON.stringify(pane)}`);
+  if (pane.region !== "drag") {
+    throw new Error(`pane top bar is not draggable: ${JSON.stringify(pane)}`);
+  }
+}
+
+function assertPaneDragHandleNotWindowDraggable(regions) {
+  const handle = requiredRegion(regions, "pane-drag-handle");
+  if (handle.region !== "no-drag") {
+    throw new Error(`pane drag handle should not drag the window: ${JSON.stringify(handle)}`);
   }
 }
 
