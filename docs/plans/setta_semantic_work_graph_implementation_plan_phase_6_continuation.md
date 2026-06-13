@@ -518,13 +518,56 @@ Verification:
 Goal: improve recall for context packs and cartographer input without changing
 semantic truth.
 
+Phase 7 starts after Phase 6E. The cartographer patch schema, canonical graph
+tables, context pack contract, and harness abstraction should be treated as
+already established. Retrieval is an advisory layer over those records: it may
+find candidate context, but it must not become the source of truth for semantic
+nodes, evidence, activity, or cartographer decisions.
+
+Use SQLite FTS5 for the first implementation slice. Do not add embeddings,
+sqlite-vec, Tree-sitter, background workspace scans, compatibility migrations,
+dual-read/write paths, or legacy schema support in Phase 7. If the semantic
+store schema needs to change for FTS tables, bump the store version and reject
+incompatible stores rather than migrating them. Indexes must be rebuildable from
+the canonical semantic graph records.
+
+### Phase 7A: FTS Store And Maintenance
+
 Deliverables:
 
-- Add or enable SQLite FTS5 indexes for semantic nodes, evidence text, prompts,
-  chats, diffs, and docs.
-- Add exact search integration through ripgrep for workspace file search when
-  current indexed evidence is insufficient.
-- Add an internal retrieval service that merges:
+- Add FTS5 tables for bounded searchable semantic text:
+  - semantic node titles, summaries, statuses, labels, and attributes that are
+    already persisted as graph data;
+  - evidence summaries and quoted evidence text that already has source refs;
+  - context pack item labels, reasons, and compact summaries when they are
+    persisted;
+  - workflow/run association text that is already persisted as semantic
+    activity.
+- Keep large raw chat logs, huge diffs, and whole workspace files out of the
+  first FTS slice unless they already have bounded semantic records and source
+  refs.
+- Update FTS rows transactionally from semantic event append, projection update,
+  and explicit rebuild paths.
+- Add a deterministic FTS rebuild path for tests and developer repair. Rebuilds
+  must derive rows only from canonical semantic graph data.
+- Add focused store tests for insert, update, delete/tombstone, rebuild, and
+  stable query ordering.
+
+Verification:
+
+- Go tests for the semantic graph store FTS tables and rebuild behavior.
+- Confirm the implementation uses SQLite FTS5 already available through the
+  current SQLite dependency; add no new direct dependency unless the
+  implementation proves the existing dependency cannot support FTS5.
+
+### Phase 7B: Retrieval Service
+
+Deliverables:
+
+- Add an internal retrieval service that returns typed retrieval results with
+  stable ids, source refs, reason strings, scores, and enough provenance to
+  explain why each result was selected.
+- Merge these candidate sources:
 
 ```text
 explicit graph links
@@ -535,15 +578,47 @@ workflow/run associations
 user pins and steering
 ```
 
-- Add a `VectorIndex` interface but do not require a concrete vector backend in
-  the first retrieval slice.
-- Evaluate sqlite-vec behind that interface only after collecting representative
-  sessions where text/link retrieval misses important context.
-- Evaluate Tree-sitter only when file/range anchors need structured symbol
-  resolution beyond observed agent activity.
+- Keep ranking deterministic. Use explicit graph relationships and source refs
+  ahead of keyword matches, then use FTS scores, recency, workflow/run
+  association strength, pins, and stable tie-breakers.
+- Use `rg` only for explicit workspace file search requests or when persisted
+  source refs point to workspace paths that need exact confirmation. Do not run
+  broad file-system searches implicitly for every context pack or cartographer
+  request.
+- Add a `VectorIndex` interface only if it removes branching from the retrieval
+  service. Leave it without a concrete backend in Phase 7.
 
 Verification:
 
 - Focused retrieval tests for deterministic ranking and stable explanations.
-- Performance checks on large evidence sets before enabling broad automatic
-  retrieval in production paths.
+- Tests proving retrieval does not mutate semantic graph truth.
+- Tests covering missing FTS rows, stale index rebuild, pinned items, recent
+  activity, exact path/text matches, and stable tie-breaking.
+
+### Phase 7C: Context Pack And Cartographer Integration
+
+Deliverables:
+
+- Use the retrieval service as bounded candidate expansion for context packs and
+  cartographer windows after explicit graph associations and steering have
+  already been applied.
+- Preserve current context pack budgets. Retrieval must compete for existing
+  budget rather than expanding prompts without a bound.
+- Expose retrieval reasons in internal diagnostics or debug surfaces so a bad
+  context inclusion can be traced back to graph links, FTS, exact search,
+  activity, pins, or steering.
+- Do not change cartographer mutation semantics. The cartographer still receives
+  evidence and returns a strict patch envelope; retrieval only helps choose the
+  bounded input context.
+- Evaluate sqlite-vec only after representative sessions show text/link
+  retrieval misses important context. Evaluate Tree-sitter only after observed
+  file/range anchors require structured symbol resolution beyond agent activity.
+
+Verification:
+
+- Focused context pack and cartographer window tests proving retrieval-backed
+  candidates are included with source refs and reasons.
+- Performance checks on large synthetic evidence sets before enabling retrieval
+  in broad production paths. Record performance findings under
+  `docs/reports/performance/` if the phase changes production retrieval behavior
+  in a performance-relevant way.
