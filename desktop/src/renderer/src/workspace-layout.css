@@ -268,9 +268,14 @@
   outline: none;
 }
 
+/* The 22px toolbar buttons sit at top 14px so their centers (y 25) match the
+   pane top-bar action buttons (10px stage padding + 30px bar) and the macOS
+   traffic lights. The left inset right-justifies the toggle + toolbar cluster
+   inside the chrome plate: plate width - 7px end inset - 70px cluster + 24px
+   toggle offset. */
 .workspace-toolbar {
   --workspace-performance-end-inset: 10px;
-  --workspace-toolbar-left-inset: 28px;
+  --workspace-toolbar-left-inset: 59px;
   align-items: center;
   background: transparent;
   border-radius: 6px;
@@ -281,14 +286,14 @@
   overflow: visible;
   padding: 0;
   position: fixed;
-  top: 9px;
+  top: 14px;
   left: var(--workspace-toolbar-left-inset);
   width: auto;
   z-index: 100;
 }
 
 .workspace-layout-area[data-desktop-platform="darwin"] .workspace-toolbar {
-  --workspace-toolbar-left-inset: 110px;
+  --workspace-toolbar-left-inset: 133px;
 }
 
 .workspace-layout-area[data-desktop-platform="win32"] .workspace-toolbar {

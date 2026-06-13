@@ -361,7 +361,7 @@ function FloatingProjectPaneControl({
   return (
     <div
       className={cn(
-        "app-no-drag pointer-events-auto fixed top-[9px] z-[100] text-muted-foreground",
+        "app-no-drag pointer-events-auto fixed top-[14px] z-[100] text-muted-foreground",
         floatingProjectControlLeftInsetClass(platform),
       )}
     >
@@ -436,8 +436,11 @@ function ShellPaneToggle({
   );
 }
 
+// The toggle + workspace toolbar cluster (22px toggle, 2px gap, 46px toolbar)
+// is right-justified inside the chrome plate with the same 7px end inset the
+// pane action strips use: plate width - 7 - 70.
 function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
-  return platform === "darwin" ? "left-[86px]" : "left-4";
+  return platform === "darwin" ? "left-[109px]" : "left-[35px]";
 }
 
 function shellTopBarLeftInset(platform: DesktopPlatform) {

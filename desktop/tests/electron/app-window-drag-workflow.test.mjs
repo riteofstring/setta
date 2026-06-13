@@ -22,6 +22,7 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowTimeoutMs = 25_000;
 const dragDeltaTolerancePx = 35;
+const chromePlateEndInsetPx = 7;
 const viewport = {
   deviceScaleFactor: 1,
   height: 900,
@@ -353,6 +354,7 @@ async function topChromeControlMeasurements(client) {
       return Number.isFinite(gap) ? gap : null;
     }
     return {
+      chromePlate: rectFor('[data-testid="shell-chrome-plate"]'),
       newFrameButton: rectFor(".workspace-toolbar-menu-button"),
       paneActionButton: rectFor(
         '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-action-strip [data-workspace-pane-action]:not([disabled])',
@@ -569,6 +571,7 @@ function assertChromePlateDoesNotCaptureControls(regions) {
 
 function assertTopChromeControlSizing(measurements) {
   const {
+    chromePlate,
     newFrameButton,
     paneActionButton,
     paneActionGap,
@@ -577,6 +580,7 @@ function assertTopChromeControlSizing(measurements) {
     toolbarGap,
   } = measurements;
   for (const [name, rect] of Object.entries({
+    chromePlate,
     newFrameButton,
     paneActionButton,
     projectToggle,
@@ -595,6 +599,27 @@ function assertTopChromeControlSizing(measurements) {
     "project toggle to workspace toolbar gap",
   );
   assertNearlyEqual(toolbarGap, paneActionGap, "workspace toolbar group gap");
+  const paneActionCenterY = paneActionButton.top + paneActionButton.height / 2;
+  assertNearlyEqual(
+    projectToggle.top + projectToggle.height / 2,
+    paneActionCenterY,
+    "project toggle vertical center",
+  );
+  assertNearlyEqual(
+    toolbarButton.top + toolbarButton.height / 2,
+    paneActionCenterY,
+    "workspace toolbar button vertical center",
+  );
+  assertNearlyEqual(
+    newFrameButton.top + newFrameButton.height / 2,
+    paneActionCenterY,
+    "workspace toolbar menu button vertical center",
+  );
+  assertNearlyEqual(
+    chromePlate.right - newFrameButton.right,
+    chromePlateEndInsetPx,
+    "chrome control cluster right inset",
+  );
 }
 
 function assertSameRectSize(rect, expected, name) {

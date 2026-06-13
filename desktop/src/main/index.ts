@@ -246,7 +246,9 @@ async function createWindow() {
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
-          trafficLightPosition: { x: 22, y: 18 },
+          // y 19 centers the 12px traffic lights at y 25, matching the
+          // renderer's top chrome controls and pane top-bar buttons.
+          trafficLightPosition: { x: 22, y: 19 },
         }
       : {}),
     title: "Setta",
