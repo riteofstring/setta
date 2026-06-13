@@ -62,6 +62,7 @@ try {
 
   const regions = await sampleDragRegions(context.client);
   assertWorkspaceControlsNotDraggable(regions);
+  assertSettaLogoDoesNotCoverControls(regions);
   assertPaneChromeDraggable(regions);
   assertPaneDragHandleNotWindowDraggable(regions);
 
@@ -246,6 +247,20 @@ async function sampleDragRegions(client) {
         y,
       };
     }
+    function sampleElement(name, selector) {
+      const element = document.querySelector(selector);
+      const style = element instanceof Element ? getComputedStyle(element) : null;
+      return {
+        aria: element?.getAttribute("aria-label") ?? null,
+        className: element?.getAttribute("class") ?? "",
+        name,
+        region: style?.getPropertyValue("-webkit-app-region") ?? null,
+        tag: element instanceof Element ? element.tagName.toLowerCase() : null,
+        testid: element?.getAttribute("data-testid") ?? null,
+        x: -1,
+        y: -1,
+      };
+    }
     const toolbar = document.querySelector('.workspace-toolbar')?.getBoundingClientRect();
     const paneTop = document
       .querySelector('[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-top-bar')
@@ -255,6 +270,7 @@ async function sampleDragRegions(client) {
       ?.getBoundingClientRect();
     return [
       sample("workspace-control", toolbar ? toolbar.left + 14 : 118, toolbar ? toolbar.top + 14 : 18),
+      sampleElement("setta-logo-overlay", '[data-testid="shell-setta-logo"]'),
       sample("pane-title-bar", paneTop ? paneTop.left + 120 : 350, paneTop ? paneTop.top + 12 : 53),
       sample(
         "pane-drag-handle",
@@ -269,6 +285,15 @@ function assertWorkspaceControlsNotDraggable(regions) {
   const control = requiredRegion(regions, "workspace-control");
   if (control.testid !== "workspace-toolbar" || control.region !== "no-drag") {
     throw new Error(`workspace control drag region is wrong: ${JSON.stringify(control)}`);
+  }
+}
+
+function assertSettaLogoDoesNotCoverControls(regions) {
+  const logo = requiredRegion(regions, "setta-logo-overlay");
+  if (logo.region === "drag") {
+    throw new Error(
+      `setta logo overlay covers controls with a drag region: ${JSON.stringify(logo)}`,
+    );
   }
 }
 

@@ -428,7 +428,7 @@ function FloatingSettaBrand({
     <div
       aria-hidden="true"
       className={cn(
-        "app-drag pointer-events-none fixed top-0 left-0 z-50 flex h-10 items-center justify-end pr-5",
+        "pointer-events-none fixed top-0 left-0 z-50 flex h-10 items-center justify-end pr-5",
         !projectPaneOpen && "hidden",
       )}
       data-testid="shell-setta-logo"
