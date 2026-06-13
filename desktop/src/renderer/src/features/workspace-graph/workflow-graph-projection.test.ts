@@ -12,6 +12,7 @@ describe("rendererGraphFromWorkflowProjection", () => {
       definitionName: "Review workflow",
       definitionVersionId: "version_review",
       definitionVersionNumber: 2,
+      draftRevision: "sha256:draft",
       editable: false,
       executionId: "execution_review",
       executionStatus: "running",
@@ -215,6 +216,7 @@ function testProjection(): WorkflowGraphProjection {
     definitionVersionId: "version_review",
     definitionVersionNumber: 2,
     draftMatchesVersion: true,
+    draftRevision: "sha256:draft",
     draftUpdatedAt: "2026-06-05T12:00:00Z",
     editable: false,
     edges: [
@@ -266,6 +268,7 @@ function validationState(
   result: NonNullable<WorkflowGraphProjection["validation"]["snapshot"]>["result"] | null,
 ) {
   return {
+    currentDraftRevision: "sha256:draft",
     currentGraphFingerprint: "sha256:graph",
     currentValidatorFingerprint: "workflow-validator:v1",
     snapshot:

@@ -27,7 +27,7 @@ func workflowValidationSnapshotForDefinition(definition WorkflowDefinition, regi
 	}, nil
 }
 
-func workflowValidationState(graph WorkflowGraph, registry RunnerRegistry, snapshot *WorkflowValidationSnapshot) (WorkflowDefinitionValidationState, error) {
+func workflowValidationState(graph WorkflowGraph, draftRevision string, registry RunnerRegistry, snapshot *WorkflowValidationSnapshot) (WorkflowDefinitionValidationState, error) {
 	graphFingerprint, err := workflowValidationGraphFingerprint(graph)
 	if err != nil {
 		return WorkflowDefinitionValidationState{}, err
@@ -37,6 +37,7 @@ func workflowValidationState(graph WorkflowGraph, registry RunnerRegistry, snaps
 		Status:                      WorkflowValidationNotValidated,
 		CurrentGraphFingerprint:     graphFingerprint,
 		CurrentValidatorFingerprint: validatorFingerprint,
+		CurrentDraftRevision:        draftRevision,
 		Snapshot:                    snapshot,
 	}
 	if snapshot == nil {

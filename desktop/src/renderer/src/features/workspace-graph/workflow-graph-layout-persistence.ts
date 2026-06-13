@@ -106,6 +106,7 @@ async function persistWorkflowNodePositions({
   try {
     const projection = await window.setta.workflow.updateDefinitionLayout({
       definitionId: workflowProjection.definitionId,
+      expectedRevision: workflowProjection.draftRevision,
       positions: workflowLayoutPositionsForBackend(workflowPositions),
       workspaceId: workflowProjection.workspaceId,
     });

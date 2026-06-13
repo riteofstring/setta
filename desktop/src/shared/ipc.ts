@@ -1,6 +1,8 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
+  AddWorkflowEdgeRequest,
+  AddWorkflowNodeRequest,
   AppearancePresetList,
   AppearanceSettings,
   AttachSemanticNodeToChatMessageRequest,
@@ -32,6 +34,7 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  DeleteWorkflowNodesRequest,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
@@ -104,7 +107,11 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  UpdateWorkflowDefinitionRequest,
   UpdateWorkflowDefinitionLayoutRequest,
+  UpdateWorkflowDefinitionSettingsRequest,
+  UpdateWorkflowEdgeRequest,
+  UpdateWorkflowNodeRequest,
   ValidateWorkflowDefinitionDraftRequest,
   WorkflowDefinition,
   WorkflowExecution,
@@ -220,8 +227,11 @@ export const ipcChannels = {
   terminalSelectDefaultProfile: "terminal:select-default-profile",
   terminalUpdateProfile: "terminal:update-profile",
   workflowCancelExecution: "workflow:cancel-execution",
+  workflowAddEdge: "workflow:add-edge",
+  workflowAddNode: "workflow:add-node",
   workflowCreateDefinition: "workflow:create-definition",
   workflowDeleteDefinition: "workflow:delete-definition",
+  workflowDeleteNodes: "workflow:delete-nodes",
   workflowExecutionEvents: "workflow:execution-events",
   workflowGraphProjection: "workflow:graph-projection",
   workflowListDefinitions: "workflow:list-definitions",
@@ -231,6 +241,9 @@ export const ipcChannels = {
   workflowSubmitApproval: "workflow:submit-approval",
   workflowUpdateDefinition: "workflow:update-definition",
   workflowUpdateDefinitionLayout: "workflow:update-definition-layout",
+  workflowUpdateDefinitionSettings: "workflow:update-definition-settings",
+  workflowUpdateEdge: "workflow:update-edge",
+  workflowUpdateNode: "workflow:update-node",
   workflowValidateDefinition: "workflow:validate-definition",
   workflowValidateDefinitionDraft: "workflow:validate-definition-draft",
   workspaceClose: "workspace:close",
@@ -649,6 +662,14 @@ interface IpcContract {
     args: [workspaceId: string, executionId: string];
     result: WorkflowExecution;
   };
+  workflowAddEdge: {
+    args: [request: AddWorkflowEdgeRequest];
+    result: WorkflowGraphProjection;
+  };
+  workflowAddNode: {
+    args: [request: AddWorkflowNodeRequest];
+    result: WorkflowGraphProjection;
+  };
   workflowCreateDefinition: {
     args: [workspaceId: string, name: string, description: string, graph: WorkflowGraph];
     result: WorkflowDefinition;
@@ -656,6 +677,10 @@ interface IpcContract {
   workflowDeleteDefinition: {
     args: [workspaceId: string, definitionId: string];
     result: DeleteWorkflowDefinitionResponse;
+  };
+  workflowDeleteNodes: {
+    args: [request: DeleteWorkflowNodesRequest];
+    result: WorkflowGraphProjection;
   };
   workflowExecutionEvents: {
     args: [workspaceId: string, executionId: string, beforeOrdinal: number, limit: number];
@@ -686,17 +711,23 @@ interface IpcContract {
     result: WorkflowExecution;
   };
   workflowUpdateDefinition: {
-    args: [
-      workspaceId: string,
-      definitionId: string,
-      name: string,
-      description: string,
-      graph: WorkflowGraph,
-    ];
+    args: [request: UpdateWorkflowDefinitionRequest];
     result: WorkflowDefinition;
   };
   workflowUpdateDefinitionLayout: {
     args: [request: UpdateWorkflowDefinitionLayoutRequest];
+    result: WorkflowGraphProjection;
+  };
+  workflowUpdateDefinitionSettings: {
+    args: [request: UpdateWorkflowDefinitionSettingsRequest];
+    result: WorkflowDefinition;
+  };
+  workflowUpdateEdge: {
+    args: [request: UpdateWorkflowEdgeRequest];
+    result: WorkflowGraphProjection;
+  };
+  workflowUpdateNode: {
+    args: [request: UpdateWorkflowNodeRequest];
     result: WorkflowGraphProjection;
   };
   workflowValidateDefinition: {

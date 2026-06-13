@@ -47,25 +47,15 @@ func TestServiceStoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart(t *testing.T
 		t.Fatalf("read definition file: %v", err)
 	}
 	raw := string(content)
-	for _, forbidden := range []string{"workspaceId", "currentVersionId", "currentVersionNumber", "updatedAt"} {
-		if strings.Contains(raw, forbidden) {
-			t.Fatalf("definition file contains %s: %s", forbidden, raw)
-		}
-	}
-	if !strings.Contains(raw, `"graph"`) {
-		t.Fatalf("definition file missing graph: %s", raw)
-	}
-	latestVersionNumber, err := store.LatestDefinitionVersionNumber(workspaceID, definition.ID)
-	if err != nil {
-		t.Fatalf("read latest version number: %v", err)
-	}
-	if latestVersionNumber != 0 {
-		t.Fatalf("latest version before run = %d, want 0", latestVersionNumber)
-	}
+	assertDefinitionFileIsWorkspaceDraft(t, raw)
+	assertLatestDefinitionVersionNumber(t, store, workspaceID, definition.ID, 0, "before run")
 
-	updated, err := service.UpdateDefinition(workspaceID, definition.ID, "Review Flow Updated", "workspace file", startEndGraph())
+	updated, err := service.UpdateDefinition(workspaceID, definition.ID, definition.DraftRevision, "Review Flow Updated", "workspace file", startEndGraph())
 	if err != nil {
 		t.Fatalf("update definition: %v", err)
+	}
+	if definition.DraftRevision == "" || updated.DraftRevision == "" || definition.DraftRevision == updated.DraftRevision {
+		t.Fatalf("draft revisions before/after update = %q/%q, want distinct non-empty revisions", definition.DraftRevision, updated.DraftRevision)
 	}
 	if _, err := os.Stat(definitionPath); !os.IsNotExist(err) {
 		t.Fatalf("old definition path still exists or stat failed unexpectedly: %v", err)
@@ -74,13 +64,7 @@ func TestServiceStoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart(t *testing.T
 	if _, err := os.Stat(updatedPath); err != nil {
 		t.Fatalf("updated definition path missing: %v", err)
 	}
-	latestVersionNumber, err = store.LatestDefinitionVersionNumber(workspaceID, definition.ID)
-	if err != nil {
-		t.Fatalf("read latest version number after update: %v", err)
-	}
-	if latestVersionNumber != 0 {
-		t.Fatalf("latest version after update = %d, want 0", latestVersionNumber)
-	}
+	assertLatestDefinitionVersionNumber(t, store, workspaceID, definition.ID, 0, "after update")
 
 	started, err := service.StartExecution(workspaceID, definition.ID, "")
 	if err != nil {
@@ -95,6 +79,29 @@ func TestServiceStoresDefinitionsAsWorkspaceJSONAndSnapshotsOnStart(t *testing.T
 	}
 	if version.VersionNumber != 1 || version.Name != updated.Name {
 		t.Fatalf("version snapshot = %+v, want version 1 named %s", version, updated.Name)
+	}
+}
+
+func assertDefinitionFileIsWorkspaceDraft(t *testing.T, raw string) {
+	t.Helper()
+	for _, forbidden := range []string{"workspaceId", "currentVersionId", "currentVersionNumber", "updatedAt"} {
+		if strings.Contains(raw, forbidden) {
+			t.Fatalf("definition file contains %s: %s", forbidden, raw)
+		}
+	}
+	if !strings.Contains(raw, `"graph"`) {
+		t.Fatalf("definition file missing graph: %s", raw)
+	}
+}
+
+func assertLatestDefinitionVersionNumber(t *testing.T, store *Store, workspaceID string, definitionID string, want int, label string) {
+	t.Helper()
+	latestVersionNumber, err := store.LatestDefinitionVersionNumber(workspaceID, definitionID)
+	if err != nil {
+		t.Fatalf("read latest version number %s: %v", label, err)
+	}
+	if latestVersionNumber != want {
+		t.Fatalf("latest version %s = %d, want %d", label, latestVersionNumber, want)
 	}
 }
 
@@ -136,7 +143,7 @@ func TestServiceStoresValidationStateUntilExecutableGraphChanges(t *testing.T) {
 		t.Fatalf("create definition: %v", err)
 	}
 
-	validated, err := service.ValidateDefinitionDraft(workspaceID, definition.ID)
+	validated, err := service.ValidateDefinitionDraft(workspaceID, definition.ID, definition.DraftRevision)
 	if err != nil {
 		t.Fatalf("validate draft: %v", err)
 	}
@@ -147,7 +154,7 @@ func TestServiceStoresValidationStateUntilExecutableGraphChanges(t *testing.T) {
 	}
 	graphFingerprint := validated.Validation.CurrentGraphFingerprint
 
-	moved, err := service.UpdateDefinitionLayout(workspaceID, definition.ID, []WorkflowGraphNodeLayout{
+	moved, err := service.UpdateDefinitionLayout(workspaceID, definition.ID, validated.DraftRevision, []WorkflowGraphNodeLayout{
 		{NodeID: "start", X: -240, Y: 12},
 		{NodeID: "end", X: 80, Y: 12},
 	})
@@ -166,7 +173,7 @@ func TestServiceStoresValidationStateUntilExecutableGraphChanges(t *testing.T) {
 
 	updatedGraph := startEndGraph()
 	updatedGraph.Edges = []WorkflowEdge{}
-	if _, err := service.UpdateDefinition(workspaceID, definition.ID, definition.Name, definition.Description, updatedGraph); err != nil {
+	if _, err := service.UpdateDefinition(workspaceID, definition.ID, moved.DraftRevision, definition.Name, definition.Description, updatedGraph); err != nil {
 		t.Fatalf("update definition graph: %v", err)
 	}
 	stale, ok, err := service.ReadGraphProjection(workspaceID, definition.ID, "", "")
@@ -190,7 +197,7 @@ func TestServiceRejectsWorkflowLayoutForUnknownNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create definition: %v", err)
 	}
-	_, err = service.UpdateDefinitionLayout(workspaceID, definition.ID, []WorkflowGraphNodeLayout{
+	_, err = service.UpdateDefinitionLayout(workspaceID, definition.ID, definition.DraftRevision, []WorkflowGraphNodeLayout{
 		{NodeID: "missing", X: 0, Y: 0},
 	})
 	if err == nil {
@@ -198,6 +205,60 @@ func TestServiceRejectsWorkflowLayoutForUnknownNode(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unknown node missing") {
 		t.Fatalf("layout error = %v, want unknown node", err)
+	}
+}
+
+func TestServiceWorkflowDraftCommandsRequireCurrentRevision(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, err := service.CreateDefinition(workspaceID, "Commands", "", startEndGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+
+	withAgent, err := service.AddDefinitionNode(
+		workspaceID,
+		definition.ID,
+		definition.DraftRevision,
+		WorkflowDraftNodeAgentTask,
+		WorkflowDraftNodePosition{X: 320, Y: 140},
+	)
+	if err != nil {
+		t.Fatalf("add node: %v", err)
+	}
+	if withAgent.DraftRevision == "" || withAgent.DraftRevision == definition.DraftRevision {
+		t.Fatalf("add node draft revision = %q, previous %q", withAgent.DraftRevision, definition.DraftRevision)
+	}
+	if projectedNodeForTest(t, withAgent, "agent_task").Kind != NodeKindAction {
+		t.Fatalf("agent_task node was not projected as an action")
+	}
+	if position := projectedLayoutNodeForTest(t, withAgent, "agent_task"); position.X != 240 || position.Y != 99 {
+		t.Fatalf("agent_task layout = %+v, want x=240 y=99", position)
+	}
+
+	_, err = service.AddDefinitionEdge(
+		workspaceID,
+		definition.ID,
+		definition.DraftRevision,
+		WorkflowDraftEdgeConnection{SourceNodeID: "start", TargetNodeID: "agent_task"},
+	)
+	if _, ok := IsWorkflowConflictError(err); !ok {
+		t.Fatalf("stale add edge error = %v, want workflow conflict", err)
+	}
+
+	withEdge, err := service.AddDefinitionEdge(
+		workspaceID,
+		definition.ID,
+		withAgent.DraftRevision,
+		WorkflowDraftEdgeConnection{SourceNodeID: "start", TargetNodeID: "agent_task"},
+	)
+	if err != nil {
+		t.Fatalf("add edge: %v", err)
+	}
+	if withEdge.DraftRevision == withAgent.DraftRevision {
+		t.Fatalf("add edge did not advance revision %q", withEdge.DraftRevision)
+	}
+	if projectedEdgeForTest(t, withEdge, "start_agent_task").FromNodeID != "start" {
+		t.Fatalf("start_agent_task edge was not projected from start")
 	}
 }
 
@@ -391,7 +452,7 @@ func createRunningFirstVersion(t *testing.T, service *Service, workspaceID strin
 
 func updateDefinitionAndStartLatest(t *testing.T, service *Service, workspaceID string, definition WorkflowDefinition, firstVersionID string) (WorkflowDefinition, WorkflowExecution) {
 	t.Helper()
-	updated, err := service.UpdateDefinition(workspaceID, definition.ID, "Review", "second graph", startEndGraph())
+	updated, err := service.UpdateDefinition(workspaceID, definition.ID, definition.DraftRevision, "Review", "second graph", startEndGraph())
 	if err != nil {
 		t.Fatalf("update definition: %v", err)
 	}

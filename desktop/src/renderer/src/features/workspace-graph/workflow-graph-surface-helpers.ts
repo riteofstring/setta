@@ -13,7 +13,6 @@ import { mergeWorkflowAndSemanticGraphs } from "./semantic-graph-projection";
 import type { SyntheticWorkflowGraphOptions } from "./workflow-graph-camera-scope";
 import {
   emptyWorkflowGraph,
-  workflowGraphWithAddedDraftEdge,
   workflowGraphWithAddedDraftNode,
   type WorkflowDraftEdgeConnection,
   type WorkflowDraftNodeType,
@@ -174,17 +173,23 @@ export async function materializeWorkflowDraftNode({
   if (preflight !== null) {
     throw new Error(preflight);
   }
-  const graph = await workflowGraphWithDraftNode(projection, workspaceId, nodeType, position);
-  const definition =
-    projection === null
-      ? await createWorkflowDefinition(workspaceId, "Untitled workflow", graph)
-      : await window.setta.workflow.updateDefinition(
-          workspaceId,
-          projection.definitionId,
-          projection.definitionName,
-          projection.definitionDescription,
-          graph,
-        );
+  if (projection !== null) {
+    return window.setta.workflow.addNode({
+      definitionId: projection.definitionId,
+      expectedRevision: projection.draftRevision,
+      nodeType,
+      position: {
+        x: Math.round(position.worldX),
+        y: Math.round(position.worldY),
+      },
+      workspaceId: projection.workspaceId,
+    });
+  }
+  const graph = workflowGraphWithAddedDraftNode(emptyWorkflowGraph(), nodeType, {
+    x: position.worldX,
+    y: position.worldY,
+  });
+  const definition = await createWorkflowDefinition(workspaceId, "Untitled workflow", graph);
   return workflowProjectionForDefinition(workspaceId, definition.id);
 }
 
@@ -206,22 +211,6 @@ function workflowDraftNodeEditPreflight({
     return "Select the draft workflow before editing the graph";
   }
   return null;
-}
-
-async function workflowGraphWithDraftNode(
-  projection: WorkflowGraphProjection | null,
-  workspaceId: string,
-  nodeType: WorkflowDraftNodeType,
-  position: WorkflowDraftNodePosition,
-): Promise<WorkflowGraph> {
-  const baseGraph =
-    projection === null
-      ? emptyWorkflowGraph()
-      : (await window.setta.workflow.readDefinition(workspaceId, projection.definitionId)).graph;
-  return workflowGraphWithAddedDraftNode(baseGraph, nodeType, {
-    x: position.worldX,
-    y: position.worldY,
-  });
 }
 
 export async function workflowProjectionForDefinition(
@@ -262,19 +251,38 @@ export async function materializeWorkflowDraftEdge({
   connection,
   projection,
 }: MaterializeWorkflowDraftEdgeRequest): Promise<WorkflowGraphProjection> {
-  const definition = await window.setta.workflow.readDefinition(
-    projection.workspaceId,
-    projection.definitionId,
-  );
-  const graph = workflowGraphWithAddedDraftEdge(definition.graph, connection);
-  const updated = await window.setta.workflow.updateDefinition(
-    projection.workspaceId,
-    definition.id,
-    definition.name,
-    definition.description,
-    graph,
-  );
-  return workflowProjectionForDefinition(projection.workspaceId, updated.id);
+  await waitForWorkflowGraphDebugAddEdgeDelay();
+  return window.setta.workflow.addEdge({
+    connection: {
+      sourceNodeId: connection.sourceNodeId,
+      sourcePortId: connection.sourcePortId ?? "",
+      targetNodeId: connection.targetNodeId,
+      targetPortId: connection.targetPortId ?? "",
+    },
+    definitionId: projection.definitionId,
+    expectedRevision: projection.draftRevision,
+    workspaceId: projection.workspaceId,
+  });
+}
+
+declare global {
+  interface Window {
+    __settaWorkflowGraphAddEdgeDelayCalls?: number;
+    __settaWorkflowGraphAddEdgeDelayMs?: number;
+  }
+}
+
+async function waitForWorkflowGraphDebugAddEdgeDelay() {
+  if (!window.setta.app.flags.workflowGraphDebug) {
+    return;
+  }
+  const delayMs = window.__settaWorkflowGraphAddEdgeDelayMs;
+  if (typeof delayMs !== "number" || !Number.isFinite(delayMs) || delayMs <= 0) {
+    return;
+  }
+  window.__settaWorkflowGraphAddEdgeDelayCalls =
+    (window.__settaWorkflowGraphAddEdgeDelayCalls ?? 0) + 1;
+  await new Promise((resolve) => window.setTimeout(resolve, delayMs));
 }
 
 export function workflowRunDraftPreflightMessage({

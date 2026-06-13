@@ -37,6 +37,7 @@ type WorkflowRunnerStateStatus string
 type SideEffectPolicyKind string
 type SideEffectScope string
 type ApprovalTrigger string
+type WorkflowDraftNodeType string
 
 const (
 	NodeKindStart      WorkflowNodeKind = "start"
@@ -237,6 +238,13 @@ const (
 	ApprovalTriggerExternalWrite        ApprovalTrigger = "external_write"
 	ApprovalTriggerDestructiveAction    ApprovalTrigger = "destructive_action"
 	ApprovalTriggerUnsandboxedExecution ApprovalTrigger = "unsandboxed_execution"
+
+	WorkflowDraftNodeAgentTask   WorkflowDraftNodeType = "agent_task"
+	WorkflowDraftNodeBarrierJoin WorkflowDraftNodeType = "barrier_join"
+	WorkflowDraftNodeEnd         WorkflowDraftNodeType = "end"
+	WorkflowDraftNodeMerge       WorkflowDraftNodeType = "merge"
+	WorkflowDraftNodeRoute       WorkflowDraftNodeType = "route"
+	WorkflowDraftNodeStart       WorkflowDraftNodeType = "start"
 )
 
 var (
@@ -467,6 +475,14 @@ var (
 		ApprovalTriggerDestructiveAction,
 		ApprovalTriggerUnsandboxedExecution,
 	}
+	workflowDraftNodeTypeValues = []WorkflowDraftNodeType{
+		WorkflowDraftNodeAgentTask,
+		WorkflowDraftNodeBarrierJoin,
+		WorkflowDraftNodeEnd,
+		WorkflowDraftNodeMerge,
+		WorkflowDraftNodeRoute,
+		WorkflowDraftNodeStart,
+	}
 )
 
 type ContractValueSet struct {
@@ -505,6 +521,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SideEffectPolicyKind", Values: stringValues(sideEffectPolicyKindValues)},
 		{Name: "SideEffectScope", Values: stringValues(sideEffectScopeValues)},
 		{Name: "ApprovalTrigger", Values: stringValues(approvalTriggerValues)},
+		{Name: "WorkflowDraftNodeType", Values: stringValues(workflowDraftNodeTypeValues)},
 	}
 }
 
@@ -523,6 +540,7 @@ type WorkflowDefinition struct {
 	Name          string        `json:"name"`
 	Description   string        `json:"description"`
 	Graph         WorkflowGraph `json:"graph"`
+	DraftRevision string        `json:"draftRevision"`
 	CreatedAt     string        `json:"createdAt"`
 	UpdatedAt     string        `json:"updatedAt"`
 }
@@ -553,6 +571,18 @@ type WorkflowGraphNodeLayout struct {
 	NodeID string `json:"nodeId"`
 	X      int    `json:"x"`
 	Y      int    `json:"y"`
+}
+
+type WorkflowDraftNodePosition struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+type WorkflowDraftEdgeConnection struct {
+	SourceNodeID string `json:"sourceNodeId"`
+	SourcePortID string `json:"sourcePortId"`
+	TargetNodeID string `json:"targetNodeId"`
+	TargetPortID string `json:"targetPortId"`
 }
 
 type WorkflowNode struct {
@@ -712,6 +742,7 @@ type WorkflowDefinitionValidationState struct {
 	Status                      WorkflowValidationStatus    `json:"status"`
 	CurrentGraphFingerprint     string                      `json:"currentGraphFingerprint"`
 	CurrentValidatorFingerprint string                      `json:"currentValidatorFingerprint"`
+	CurrentDraftRevision        string                      `json:"currentDraftRevision"`
 	Snapshot                    *WorkflowValidationSnapshot `json:"snapshot"`
 }
 
@@ -855,6 +886,7 @@ type WorkflowGraphProjection struct {
 	DefinitionDescription      string                            `json:"definitionDescription"`
 	ViewMode                   WorkflowGraphViewMode             `json:"viewMode"`
 	Editable                   bool                              `json:"editable"`
+	DraftRevision              string                            `json:"draftRevision"`
 	DraftUpdatedAt             string                            `json:"draftUpdatedAt"`
 	DraftMatchesVersion        bool                              `json:"draftMatchesVersion"`
 	VersionMismatch            bool                              `json:"versionMismatch"`

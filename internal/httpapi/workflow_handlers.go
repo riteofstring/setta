@@ -62,7 +62,7 @@ func (handler handler) updateWorkflowDefinition(response http.ResponseWriter, re
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	definition, err := service.UpdateDefinition(payload.WorkspaceID, payload.DefinitionID, payload.Name, payload.Description, payload.Graph)
+	definition, err := service.UpdateDefinition(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.Name, payload.Description, payload.Graph)
 	if err != nil {
 		writeWorkflowError(response, "update_workflow_definition_failed", err)
 		return
@@ -112,7 +112,7 @@ func (handler handler) validateWorkflowDefinitionDraft(response http.ResponseWri
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	projection, err := service.ValidateDefinitionDraft(payload.WorkspaceID, payload.DefinitionID)
+	projection, err := service.ValidateDefinitionDraft(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision)
 	if err != nil {
 		writeWorkflowError(response, "validate_workflow_definition_draft_failed", err)
 		return
@@ -129,12 +129,114 @@ func (handler handler) updateWorkflowDefinitionLayout(response http.ResponseWrit
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	projection, err := service.UpdateDefinitionLayout(payload.WorkspaceID, payload.DefinitionID, payload.Positions)
+	projection, err := service.UpdateDefinitionLayout(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.Positions)
 	if err != nil {
 		writeWorkflowError(response, "update_workflow_definition_layout_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, projection)
+}
+
+func (handler handler) addWorkflowNode(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload AddWorkflowNodeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.AddDefinitionNode(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.NodeType, payload.Position)
+	if err != nil {
+		writeWorkflowError(response, "add_workflow_node_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
+func (handler handler) addWorkflowEdge(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload AddWorkflowEdgeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.AddDefinitionEdge(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.Connection)
+	if err != nil {
+		writeWorkflowError(response, "add_workflow_edge_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
+func (handler handler) deleteWorkflowNodes(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload DeleteWorkflowNodesRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.DeleteDefinitionNodes(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.NodeIDs)
+	if err != nil {
+		writeWorkflowError(response, "delete_workflow_nodes_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
+func (handler handler) updateWorkflowNode(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload UpdateWorkflowNodeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.UpdateDefinitionNode(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.Node)
+	if err != nil {
+		writeWorkflowError(response, "update_workflow_node_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
+func (handler handler) updateWorkflowEdge(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload UpdateWorkflowEdgeRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.UpdateDefinitionEdge(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.Edge)
+	if err != nil {
+		writeWorkflowError(response, "update_workflow_edge_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
+func (handler handler) updateWorkflowDefinitionSettings(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload UpdateWorkflowDefinitionSettingsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	definition, err := service.UpdateDefinitionSettings(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.Name, payload.Description)
+	if err != nil {
+		writeWorkflowError(response, "update_workflow_definition_settings_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, definition)
 }
 
 func (handler handler) startWorkflowExecution(response http.ResponseWriter, request *http.Request) {

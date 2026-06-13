@@ -86,12 +86,19 @@ export function WorkflowNodeDetailsSurface() {
         target.nodeId,
         draft,
       );
-      const updated = await window.setta.workflow.updateDefinition(
+      const updatedNode = updatedGraph.nodes.find((candidate) => candidate.id === target.nodeId);
+      if (!updatedNode) {
+        throw new Error(`workflow node ${target.nodeId} was not found`);
+      }
+      await window.setta.workflow.updateNode({
+        definitionId: target.definitionId,
+        expectedRevision: definition.draftRevision,
+        node: updatedNode,
+        workspaceId: target.workspaceId,
+      });
+      const updated = await window.setta.workflow.readDefinition(
         target.workspaceId,
         target.definitionId,
-        definition.name,
-        definition.description,
-        updatedGraph,
       );
       setDefinition(updated);
       setSaveMessage("Saved");
@@ -365,12 +372,14 @@ function AgentTaskDetailsForm({
     >
       <AgentTaskReadOnlyNotice readOnly={readOnly} />
       <WorkflowTextField
+        testId="workflow-node-title"
         disabled={disabled}
         label="Title"
         onChange={(value) => onDraftChange({ ...draft, title: value })}
         value={draft.title}
       />
       <WorkflowTextArea
+        testId="workflow-node-prompt"
         disabled={disabled}
         label="Prompt"
         onChange={(value) => onDraftChange({ ...draft, prompt: value })}
@@ -378,6 +387,7 @@ function AgentTaskDetailsForm({
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <WorkflowTextField
+          testId="workflow-node-model"
           disabled={disabled}
           label="Model"
           onChange={(value) => onDraftChange({ ...draft, model: value })}
@@ -385,6 +395,7 @@ function AgentTaskDetailsForm({
           value={draft.model}
         />
         <WorkflowTextField
+          testId="workflow-node-reasoning"
           disabled={disabled}
           label="Reasoning"
           onChange={(value) => onDraftChange({ ...draft, reasoningEffort: value })}
@@ -643,12 +654,14 @@ function WorkflowTextField({
   label,
   onChange,
   placeholder,
+  testId,
   value,
 }: {
   disabled: boolean;
   label: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  testId?: string;
   value: string;
 }) {
   return (
@@ -659,6 +672,7 @@ function WorkflowTextField({
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
         placeholder={placeholder}
+        data-testid={testId}
         value={value}
       />
     </label>
@@ -669,11 +683,13 @@ function WorkflowTextArea({
   disabled,
   label,
   onChange,
+  testId,
   value,
 }: {
   disabled: boolean;
   label: string;
   onChange: (value: string) => void;
+  testId?: string;
   value: string;
 }) {
   return (
@@ -683,6 +699,7 @@ function WorkflowTextArea({
         className="min-h-40 flex-1 resize-none rounded-sm border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm leading-5 text-zinc-100 outline-none focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
+        data-testid={testId}
         value={value}
       />
     </label>

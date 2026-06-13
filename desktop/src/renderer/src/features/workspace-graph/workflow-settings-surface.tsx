@@ -56,17 +56,13 @@ export function WorkflowSettingsSurface() {
     setLoadError("");
     setSaveMessage("Saving");
     try {
-      const currentDefinition = await window.setta.workflow.readDefinition(
-        target.workspaceId,
-        target.definitionId,
-      );
-      const updated = await window.setta.workflow.updateDefinition(
-        target.workspaceId,
-        target.definitionId,
-        draft.name,
-        draft.description,
-        currentDefinition.graph,
-      );
+      const updated = await window.setta.workflow.updateDefinitionSettings({
+        definitionId: target.definitionId,
+        description: draft.description,
+        expectedRevision: definition.draftRevision,
+        name: draft.name,
+        workspaceId: target.workspaceId,
+      });
       setDefinition(updated);
       setSelectedWorkflowSettingsTarget({
         ...target,

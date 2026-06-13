@@ -269,12 +269,15 @@ const api: SettaAPI = {
     updateSteeringDirective: (request) => invoke("semanticGraphUpdateSteeringDirective", request),
   },
   workflow: {
+    addEdge: (request) => invoke("workflowAddEdge", request),
+    addNode: (request) => invoke("workflowAddNode", request),
     cancelExecution: (workspaceId, executionId) =>
       invoke("workflowCancelExecution", workspaceId, executionId),
     createDefinition: (workspaceId, name, description, graph) =>
       invoke("workflowCreateDefinition", workspaceId, name, description, graph),
     deleteDefinition: (workspaceId, definitionId) =>
       invoke("workflowDeleteDefinition", workspaceId, definitionId),
+    deleteNodes: (request) => invoke("workflowDeleteNodes", request),
     executionEvents: (workspaceId, executionId, beforeOrdinal, limit) =>
       invoke("workflowExecutionEvents", workspaceId, executionId, beforeOrdinal, limit),
     graphProjection: (workspaceId, definitionId = "", versionId = "", executionId = "") =>
@@ -297,8 +300,10 @@ const api: SettaAPI = {
       invoke("workflowStartExecution", workspaceId, definitionId, versionId),
     submitApproval: (request) => invoke("workflowSubmitApproval", request),
     updateDefinitionLayout: (request) => invoke("workflowUpdateDefinitionLayout", request),
-    updateDefinition: (workspaceId, definitionId, name, description, graph) =>
-      invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),
+    updateDefinition: (request) => invoke("workflowUpdateDefinition", request),
+    updateDefinitionSettings: (request) => invoke("workflowUpdateDefinitionSettings", request),
+    updateEdge: (request) => invoke("workflowUpdateEdge", request),
+    updateNode: (request) => invoke("workflowUpdateNode", request),
     validateDefinition: (workspaceId, graph) =>
       invoke("workflowValidateDefinition", workspaceId, graph),
     validateDefinitionDraft: (request) => invoke("workflowValidateDefinitionDraft", request),

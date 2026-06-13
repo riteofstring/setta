@@ -40,8 +40,9 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 		t.Fatalf("definition missing ids: %+v", definition)
 	}
 	validatedProjection := postJSON[orchestrator.WorkflowGraphProjection](t, handler, "/workflows/definitions/validate-draft", ValidateWorkflowDefinitionDraftRequest{
-		WorkspaceID:  opened.Workspace.ID,
-		DefinitionID: definition.ID,
+		WorkspaceID:      opened.Workspace.ID,
+		DefinitionID:     definition.ID,
+		ExpectedRevision: definition.DraftRevision,
 	}, http.StatusOK)
 	if validatedProjection.Validation.Status != orchestrator.WorkflowValidationCurrent ||
 		validatedProjection.Validation.Snapshot == nil ||
@@ -49,12 +50,24 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 		t.Fatalf("validated projection state = %+v, want current valid snapshot", validatedProjection.Validation)
 	}
 	layoutProjection := postJSON[orchestrator.WorkflowGraphProjection](t, handler, "/workflows/definitions/layout", UpdateWorkflowDefinitionLayoutRequest{
-		WorkspaceID:  opened.Workspace.ID,
-		DefinitionID: definition.ID,
+		WorkspaceID:      opened.Workspace.ID,
+		DefinitionID:     definition.ID,
+		ExpectedRevision: validatedProjection.DraftRevision,
 		Positions: []orchestrator.WorkflowGraphNodeLayout{
 			{NodeID: "start", X: -240, Y: 16},
 		},
 	}, http.StatusOK)
+	conflict := postJSON[ErrorResponse](t, handler, "/workflows/definitions/layout", UpdateWorkflowDefinitionLayoutRequest{
+		WorkspaceID:      opened.Workspace.ID,
+		DefinitionID:     definition.ID,
+		ExpectedRevision: validatedProjection.DraftRevision,
+		Positions: []orchestrator.WorkflowGraphNodeLayout{
+			{NodeID: "start", X: -120, Y: 16},
+		},
+	}, http.StatusConflict)
+	if conflict.Error.Code != orchestrator.WorkflowDraftRevisionConflictCode {
+		t.Fatalf("layout conflict code = %s, want %s", conflict.Error.Code, orchestrator.WorkflowDraftRevisionConflictCode)
+	}
 	if layoutProjection.Validation.Status != orchestrator.WorkflowValidationCurrent {
 		t.Fatalf("layout projection validation status = %s, want current", layoutProjection.Validation.Status)
 	}

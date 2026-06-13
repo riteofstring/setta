@@ -235,11 +235,12 @@ type ReadWorkflowDefinitionRequest struct {
 }
 
 type UpdateWorkflowDefinitionRequest struct {
-	WorkspaceID  string                     `json:"workspaceId"`
-	DefinitionID string                     `json:"definitionId"`
-	Name         string                     `json:"name"`
-	Description  string                     `json:"description"`
-	Graph        orchestrator.WorkflowGraph `json:"graph"`
+	WorkspaceID      string                     `json:"workspaceId"`
+	DefinitionID     string                     `json:"definitionId"`
+	ExpectedRevision string                     `json:"expectedRevision"`
+	Name             string                     `json:"name"`
+	Description      string                     `json:"description"`
+	Graph            orchestrator.WorkflowGraph `json:"graph"`
 }
 
 type DeleteWorkflowDefinitionRequest struct {
@@ -257,14 +258,60 @@ type ValidateWorkflowDefinitionRequest struct {
 }
 
 type ValidateWorkflowDefinitionDraftRequest struct {
-	WorkspaceID  string `json:"workspaceId"`
-	DefinitionID string `json:"definitionId"`
+	WorkspaceID      string `json:"workspaceId"`
+	DefinitionID     string `json:"definitionId"`
+	ExpectedRevision string `json:"expectedRevision"`
 }
 
 type UpdateWorkflowDefinitionLayoutRequest struct {
-	WorkspaceID  string                                 `json:"workspaceId"`
-	DefinitionID string                                 `json:"definitionId"`
-	Positions    []orchestrator.WorkflowGraphNodeLayout `json:"positions"`
+	WorkspaceID      string                                 `json:"workspaceId"`
+	DefinitionID     string                                 `json:"definitionId"`
+	ExpectedRevision string                                 `json:"expectedRevision"`
+	Positions        []orchestrator.WorkflowGraphNodeLayout `json:"positions"`
+}
+
+type AddWorkflowNodeRequest struct {
+	WorkspaceID      string                                 `json:"workspaceId"`
+	DefinitionID     string                                 `json:"definitionId"`
+	ExpectedRevision string                                 `json:"expectedRevision"`
+	NodeType         orchestrator.WorkflowDraftNodeType     `json:"nodeType"`
+	Position         orchestrator.WorkflowDraftNodePosition `json:"position"`
+}
+
+type AddWorkflowEdgeRequest struct {
+	WorkspaceID      string                                   `json:"workspaceId"`
+	DefinitionID     string                                   `json:"definitionId"`
+	ExpectedRevision string                                   `json:"expectedRevision"`
+	Connection       orchestrator.WorkflowDraftEdgeConnection `json:"connection"`
+}
+
+type DeleteWorkflowNodesRequest struct {
+	WorkspaceID      string   `json:"workspaceId"`
+	DefinitionID     string   `json:"definitionId"`
+	ExpectedRevision string   `json:"expectedRevision"`
+	NodeIDs          []string `json:"nodeIds"`
+}
+
+type UpdateWorkflowNodeRequest struct {
+	WorkspaceID      string                    `json:"workspaceId"`
+	DefinitionID     string                    `json:"definitionId"`
+	ExpectedRevision string                    `json:"expectedRevision"`
+	Node             orchestrator.WorkflowNode `json:"node"`
+}
+
+type UpdateWorkflowEdgeRequest struct {
+	WorkspaceID      string                    `json:"workspaceId"`
+	DefinitionID     string                    `json:"definitionId"`
+	ExpectedRevision string                    `json:"expectedRevision"`
+	Edge             orchestrator.WorkflowEdge `json:"edge"`
+}
+
+type UpdateWorkflowDefinitionSettingsRequest struct {
+	WorkspaceID      string `json:"workspaceId"`
+	DefinitionID     string `json:"definitionId"`
+	ExpectedRevision string `json:"expectedRevision"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
 }
 
 type StartWorkflowExecutionRequest struct {

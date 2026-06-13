@@ -202,6 +202,7 @@ function testWorkflowGraph(): WorkflowGraphGraph {
       definitionName: "Workflow",
       definitionVersionId: "",
       definitionVersionNumber: 0,
+      draftRevision: "sha256:draft",
       editable: true,
       executionId: "",
       executionStatus: "",

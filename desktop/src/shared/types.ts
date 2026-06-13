@@ -1,4 +1,6 @@
 import type {
+  AddWorkflowEdgeRequest,
+  AddWorkflowNodeRequest,
   AppearancePresetList,
   AppearanceSettings,
   AttachSemanticNodeToChatMessageRequest,
@@ -31,6 +33,7 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  DeleteWorkflowNodesRequest,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
@@ -105,7 +108,11 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  UpdateWorkflowDefinitionRequest,
   UpdateWorkflowDefinitionLayoutRequest,
+  UpdateWorkflowDefinitionSettingsRequest,
+  UpdateWorkflowEdgeRequest,
+  UpdateWorkflowNodeRequest,
   ValidateWorkflowDefinitionDraftRequest,
   WorkflowDefinition,
   WorkflowEvent,
@@ -546,6 +553,8 @@ export interface SettaAPI {
     ) => Promise<SemanticMutationResult>;
   };
   workflow: {
+    addEdge: (request: AddWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
+    addNode: (request: AddWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
     cancelExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
     createDefinition: (
       workspaceId: string,
@@ -557,6 +566,7 @@ export interface SettaAPI {
       workspaceId: string,
       definitionId: string,
     ) => Promise<DeleteWorkflowDefinitionResponse>;
+    deleteNodes: (request: DeleteWorkflowNodesRequest) => Promise<WorkflowGraphProjection>;
     executionEvents: (
       workspaceId: string,
       executionId: string,
@@ -582,13 +592,12 @@ export interface SettaAPI {
     updateDefinitionLayout: (
       request: UpdateWorkflowDefinitionLayoutRequest,
     ) => Promise<WorkflowGraphProjection>;
-    updateDefinition: (
-      workspaceId: string,
-      definitionId: string,
-      name: string,
-      description: string,
-      graph: WorkflowGraph,
+    updateDefinition: (request: UpdateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
+    updateDefinitionSettings: (
+      request: UpdateWorkflowDefinitionSettingsRequest,
     ) => Promise<WorkflowDefinition>;
+    updateEdge: (request: UpdateWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
+    updateNode: (request: UpdateWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
     validateDefinition: (
       workspaceId: string,
       graph: WorkflowGraph,

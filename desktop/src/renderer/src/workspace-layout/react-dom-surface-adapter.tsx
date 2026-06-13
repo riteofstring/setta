@@ -11,6 +11,7 @@ import {
   WorkspaceChatSurface,
   WorkspaceSettingsSurface,
 } from "./workspace-dom-surfaces";
+import { notifyWorkspaceSurfaceResumed } from "./surface-lifecycle-events";
 import { applySnapshotScrollOffsets, recordSnapshotScrollOffsets } from "./surface-dom-content";
 import type {
   CanvasSurfaceStats,
@@ -152,6 +153,11 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     this.host?.setAttribute("data-resume-reason", reason);
     if (wasFrozen) {
       this.suppressLiveScrollbars();
+      notifyWorkspaceSurfaceResumed({
+        reason,
+        surfaceId: this.surfaceId,
+        surfaceKind: this.kind,
+      });
     }
     this.syncHostState();
   }

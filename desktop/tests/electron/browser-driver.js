@@ -628,13 +628,13 @@
     workspaceId,
   }) {
     const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
-    return window.setta.workflow.updateDefinition(
-      workspaceId,
+    return window.setta.workflow.updateDefinitionSettings({
       definitionId,
-      name,
       description,
-      definition.graph,
-    );
+      expectedRevision: definition.draftRevision,
+      name,
+      workspaceId,
+    });
   }
 
   function restoreMaximizedWorkflowGraphPane() {
@@ -888,31 +888,27 @@
 
   async function configureWorkflowResultAction({ definitionId, workspaceId }) {
     const definition = await window.setta.workflow.readDefinition(workspaceId, definitionId);
-    const graph = {
-      ...definition.graph,
-      nodes: definition.graph.nodes.map((node) => {
-        if (node.id !== "agent_task") {
-          return node;
-        }
-        return {
-          ...node,
-          action: {
-            ...node.action,
-            codex: {
-              ...node.action.codex,
-              prompt: "workflow result action",
-            },
-          },
-        };
-      }),
+    const agentTask = definition.graph.nodes.find((node) => node.id === "agent_task");
+    if (!agentTask) {
+      throw new Error(`agent_task node was not found: ${JSON.stringify(definition.graph.nodes)}`);
+    }
+    const node = {
+      ...agentTask,
+      action: {
+        ...agentTask.action,
+        codex: {
+          ...agentTask.action.codex,
+          prompt: "workflow result action",
+        },
+      },
     };
-    return window.setta.workflow.updateDefinition(
-      workspaceId,
+    await window.setta.workflow.updateNode({
       definitionId,
-      definition.name,
-      definition.description,
-      graph,
-    );
+      expectedRevision: definition.draftRevision,
+      node,
+      workspaceId,
+    });
+    return window.setta.workflow.readDefinition(workspaceId, definitionId);
   }
 
   async function readWorkflowExecution({ executionId, workspaceId }) {

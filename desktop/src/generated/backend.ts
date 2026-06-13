@@ -850,6 +850,30 @@ export function decodeWorkflowGraphEdgeStatus(value: unknown, label = "WorkflowG
   }
 }
 
+export type WorkflowDraftNodeType = "agent_task" | "barrier_join" | "end" | "merge" | "route" | "start";
+
+export const workflowDraftNodeTypeValues = ["agent_task", "barrier_join", "end", "merge", "route", "start"] as const satisfies readonly WorkflowDraftNodeType[];
+
+export function decodeWorkflowDraftNodeType(value: unknown, label = "WorkflowDraftNodeType"): WorkflowDraftNodeType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "agent_task":
+      return decoded;
+    case "barrier_join":
+      return decoded;
+    case "end":
+      return decoded;
+    case "merge":
+      return decoded;
+    case "route":
+      return decoded;
+    case "start":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SideEffectPolicyKind = "pure" | "idempotent" | "at_least_once" | "requires_approval" | "manual_recovery" | "compensatable";
 
 export const sideEffectPolicyKindValues = ["pure", "idempotent", "at_least_once", "requires_approval", "manual_recovery", "compensatable"] as const satisfies readonly SideEffectPolicyKind[];
@@ -2852,6 +2876,7 @@ export interface WorkflowDefinition {
   name: string;
   description: string;
   graph: WorkflowGraph;
+  draftRevision: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -2875,6 +2900,7 @@ export interface ReadWorkflowDefinitionRequest {
 export interface UpdateWorkflowDefinitionRequest {
   workspaceId: string;
   definitionId: string;
+  expectedRevision: string;
   name: string;
   description: string;
   graph: WorkflowGraph;
@@ -2910,6 +2936,7 @@ export interface WorkflowValidationResult {
 export interface ValidateWorkflowDefinitionDraftRequest {
   workspaceId: string;
   definitionId: string;
+  expectedRevision: string;
 }
 
 export interface WorkflowValidationSnapshot {
@@ -2926,6 +2953,7 @@ export interface WorkflowDefinitionValidationState {
   status: WorkflowValidationStatus;
   currentGraphFingerprint: string;
   currentValidatorFingerprint: string;
+  currentDraftRevision: string;
   snapshot: WorkflowValidationSnapshot | null;
 }
 
@@ -2987,6 +3015,7 @@ export interface WorkflowGraphProjection {
   definitionDescription: string;
   viewMode: WorkflowGraphViewMode;
   editable: boolean;
+  draftRevision: string;
   draftUpdatedAt: string;
   draftMatchesVersion: boolean;
   versionMismatch: boolean;
@@ -3004,7 +3033,64 @@ export interface WorkflowGraphProjection {
 export interface UpdateWorkflowDefinitionLayoutRequest {
   workspaceId: string;
   definitionId: string;
+  expectedRevision: string;
   positions: WorkflowGraphNodeLayout[];
+}
+
+export interface WorkflowDraftNodePosition {
+  x: number;
+  y: number;
+}
+
+export interface AddWorkflowNodeRequest {
+  workspaceId: string;
+  definitionId: string;
+  expectedRevision: string;
+  nodeType: WorkflowDraftNodeType;
+  position: WorkflowDraftNodePosition;
+}
+
+export interface WorkflowDraftEdgeConnection {
+  sourceNodeId: string;
+  sourcePortId: string;
+  targetNodeId: string;
+  targetPortId: string;
+}
+
+export interface AddWorkflowEdgeRequest {
+  workspaceId: string;
+  definitionId: string;
+  expectedRevision: string;
+  connection: WorkflowDraftEdgeConnection;
+}
+
+export interface DeleteWorkflowNodesRequest {
+  workspaceId: string;
+  definitionId: string;
+  expectedRevision: string;
+  nodeIds: string[];
+}
+
+export interface UpdateWorkflowNodeRequest {
+  workspaceId: string;
+  definitionId: string;
+  expectedRevision: string;
+  node: WorkflowNode;
+}
+
+export interface UpdateWorkflowEdgeRequest {
+  workspaceId: string;
+  definitionId: string;
+  expectedRevision: string;
+  edge: WorkflowEdge;
+}
+
+export interface UpdateWorkflowDefinitionSettingsRequest {
+  workspaceId: string;
+  definitionId: string;
+  expectedRevision: string;
+  name: string;
+  description: string;
 }
 
 export interface StartWorkflowExecutionRequest {
@@ -4975,6 +5061,30 @@ export const backendEndpoints = {
     method: "POST",
     path: "/workflows/definitions/layout",
   },
+  AddWorkflowNode: {
+    method: "POST",
+    path: "/workflows/definitions/nodes/add",
+  },
+  AddWorkflowEdge: {
+    method: "POST",
+    path: "/workflows/definitions/edges/add",
+  },
+  DeleteWorkflowNodes: {
+    method: "POST",
+    path: "/workflows/definitions/nodes/delete",
+  },
+  UpdateWorkflowNode: {
+    method: "POST",
+    path: "/workflows/definitions/nodes/update",
+  },
+  UpdateWorkflowEdge: {
+    method: "POST",
+    path: "/workflows/definitions/edges/update",
+  },
+  UpdateWorkflowDefinitionSettings: {
+    method: "POST",
+    path: "/workflows/definitions/settings",
+  },
   StartWorkflowExecution: {
     method: "POST",
     path: "/workflows/executions/start",
@@ -6442,7 +6552,7 @@ export function decodeWorkflowGraph(value: unknown): WorkflowGraph {
 
 export function decodeWorkflowDefinition(value: unknown): WorkflowDefinition {
   const record = assertRecord(value, "WorkflowDefinition");
-  assertKnownFields(record, "WorkflowDefinition", ["schemaVersion", "id", "workspaceId", "name", "description", "graph", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "WorkflowDefinition", ["schemaVersion", "id", "workspaceId", "name", "description", "graph", "draftRevision", "createdAt", "updatedAt"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowDefinition"), "WorkflowDefinition.schemaVersion"),
     id: decodeString(requireField(record, "id", "WorkflowDefinition"), "WorkflowDefinition.id"),
@@ -6450,6 +6560,7 @@ export function decodeWorkflowDefinition(value: unknown): WorkflowDefinition {
     name: decodeString(requireField(record, "name", "WorkflowDefinition"), "WorkflowDefinition.name"),
     description: decodeString(requireField(record, "description", "WorkflowDefinition"), "WorkflowDefinition.description"),
     graph: decodeWorkflowGraph(requireField(record, "graph", "WorkflowDefinition")),
+    draftRevision: decodeString(requireField(record, "draftRevision", "WorkflowDefinition"), "WorkflowDefinition.draftRevision"),
     createdAt: decodeString(requireField(record, "createdAt", "WorkflowDefinition"), "WorkflowDefinition.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "WorkflowDefinition"), "WorkflowDefinition.updatedAt"),
   };
@@ -6485,10 +6596,11 @@ export function decodeReadWorkflowDefinitionRequest(value: unknown): ReadWorkflo
 
 export function decodeUpdateWorkflowDefinitionRequest(value: unknown): UpdateWorkflowDefinitionRequest {
   const record = assertRecord(value, "UpdateWorkflowDefinitionRequest");
-  assertKnownFields(record, "UpdateWorkflowDefinitionRequest", ["workspaceId", "definitionId", "name", "description", "graph"]);
+  assertKnownFields(record, "UpdateWorkflowDefinitionRequest", ["workspaceId", "definitionId", "expectedRevision", "name", "description", "graph"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "UpdateWorkflowDefinitionRequest"), "UpdateWorkflowDefinitionRequest.workspaceId"),
     definitionId: decodeString(requireField(record, "definitionId", "UpdateWorkflowDefinitionRequest"), "UpdateWorkflowDefinitionRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "UpdateWorkflowDefinitionRequest"), "UpdateWorkflowDefinitionRequest.expectedRevision"),
     name: decodeString(requireField(record, "name", "UpdateWorkflowDefinitionRequest"), "UpdateWorkflowDefinitionRequest.name"),
     description: decodeString(requireField(record, "description", "UpdateWorkflowDefinitionRequest"), "UpdateWorkflowDefinitionRequest.description"),
     graph: decodeWorkflowGraph(requireField(record, "graph", "UpdateWorkflowDefinitionRequest")),
@@ -6544,10 +6656,11 @@ export function decodeWorkflowValidationResult(value: unknown): WorkflowValidati
 
 export function decodeValidateWorkflowDefinitionDraftRequest(value: unknown): ValidateWorkflowDefinitionDraftRequest {
   const record = assertRecord(value, "ValidateWorkflowDefinitionDraftRequest");
-  assertKnownFields(record, "ValidateWorkflowDefinitionDraftRequest", ["workspaceId", "definitionId"]);
+  assertKnownFields(record, "ValidateWorkflowDefinitionDraftRequest", ["workspaceId", "definitionId", "expectedRevision"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "ValidateWorkflowDefinitionDraftRequest"), "ValidateWorkflowDefinitionDraftRequest.workspaceId"),
     definitionId: decodeString(requireField(record, "definitionId", "ValidateWorkflowDefinitionDraftRequest"), "ValidateWorkflowDefinitionDraftRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "ValidateWorkflowDefinitionDraftRequest"), "ValidateWorkflowDefinitionDraftRequest.expectedRevision"),
   };
 }
 
@@ -6567,11 +6680,12 @@ export function decodeWorkflowValidationSnapshot(value: unknown): WorkflowValida
 
 export function decodeWorkflowDefinitionValidationState(value: unknown): WorkflowDefinitionValidationState {
   const record = assertRecord(value, "WorkflowDefinitionValidationState");
-  assertKnownFields(record, "WorkflowDefinitionValidationState", ["status", "currentGraphFingerprint", "currentValidatorFingerprint", "snapshot"]);
+  assertKnownFields(record, "WorkflowDefinitionValidationState", ["status", "currentGraphFingerprint", "currentValidatorFingerprint", "currentDraftRevision", "snapshot"]);
   return {
     status: decodeWorkflowValidationStatus(requireField(record, "status", "WorkflowDefinitionValidationState"), "WorkflowDefinitionValidationState.status"),
     currentGraphFingerprint: decodeString(requireField(record, "currentGraphFingerprint", "WorkflowDefinitionValidationState"), "WorkflowDefinitionValidationState.currentGraphFingerprint"),
     currentValidatorFingerprint: decodeString(requireField(record, "currentValidatorFingerprint", "WorkflowDefinitionValidationState"), "WorkflowDefinitionValidationState.currentValidatorFingerprint"),
+    currentDraftRevision: decodeString(requireField(record, "currentDraftRevision", "WorkflowDefinitionValidationState"), "WorkflowDefinitionValidationState.currentDraftRevision"),
     snapshot: decodeNullable(requireField(record, "snapshot", "WorkflowDefinitionValidationState"), "WorkflowDefinitionValidationState.snapshot", (item) => decodeWorkflowValidationSnapshot(item)),
   };
 }
@@ -6641,7 +6755,7 @@ export function decodeWorkflowGraphEdge(value: unknown): WorkflowGraphEdge {
 
 export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProjection {
   const record = assertRecord(value, "WorkflowGraphProjection");
-  assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionVersionNumber", "definitionVersionCreatedAt", "definitionName", "definitionDescription", "viewMode", "editable", "draftUpdatedAt", "draftMatchesVersion", "versionMismatch", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "validation", "layout", "nodes", "edges"]);
+  assertKnownFields(record, "WorkflowGraphProjection", ["schemaVersion", "workspaceId", "definitionId", "definitionVersionId", "definitionVersionNumber", "definitionVersionCreatedAt", "definitionName", "definitionDescription", "viewMode", "editable", "draftRevision", "draftUpdatedAt", "draftMatchesVersion", "versionMismatch", "executionId", "executionStatus", "terminalReason", "lastEventOrdinal", "updatedAt", "validation", "layout", "nodes", "edges"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "WorkflowGraphProjection"), "WorkflowGraphProjection.schemaVersion"),
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkflowGraphProjection"), "WorkflowGraphProjection.workspaceId"),
@@ -6653,6 +6767,7 @@ export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProj
     definitionDescription: decodeString(requireField(record, "definitionDescription", "WorkflowGraphProjection"), "WorkflowGraphProjection.definitionDescription"),
     viewMode: decodeWorkflowGraphViewMode(requireField(record, "viewMode", "WorkflowGraphProjection"), "WorkflowGraphProjection.viewMode"),
     editable: decodeBoolean(requireField(record, "editable", "WorkflowGraphProjection"), "WorkflowGraphProjection.editable"),
+    draftRevision: decodeString(requireField(record, "draftRevision", "WorkflowGraphProjection"), "WorkflowGraphProjection.draftRevision"),
     draftUpdatedAt: decodeString(requireField(record, "draftUpdatedAt", "WorkflowGraphProjection"), "WorkflowGraphProjection.draftUpdatedAt"),
     draftMatchesVersion: decodeBoolean(requireField(record, "draftMatchesVersion", "WorkflowGraphProjection"), "WorkflowGraphProjection.draftMatchesVersion"),
     versionMismatch: decodeBoolean(requireField(record, "versionMismatch", "WorkflowGraphProjection"), "WorkflowGraphProjection.versionMismatch"),
@@ -6670,11 +6785,100 @@ export function decodeWorkflowGraphProjection(value: unknown): WorkflowGraphProj
 
 export function decodeUpdateWorkflowDefinitionLayoutRequest(value: unknown): UpdateWorkflowDefinitionLayoutRequest {
   const record = assertRecord(value, "UpdateWorkflowDefinitionLayoutRequest");
-  assertKnownFields(record, "UpdateWorkflowDefinitionLayoutRequest", ["workspaceId", "definitionId", "positions"]);
+  assertKnownFields(record, "UpdateWorkflowDefinitionLayoutRequest", ["workspaceId", "definitionId", "expectedRevision", "positions"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "UpdateWorkflowDefinitionLayoutRequest"), "UpdateWorkflowDefinitionLayoutRequest.workspaceId"),
     definitionId: decodeString(requireField(record, "definitionId", "UpdateWorkflowDefinitionLayoutRequest"), "UpdateWorkflowDefinitionLayoutRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "UpdateWorkflowDefinitionLayoutRequest"), "UpdateWorkflowDefinitionLayoutRequest.expectedRevision"),
     positions: decodeArray(requireField(record, "positions", "UpdateWorkflowDefinitionLayoutRequest"), "UpdateWorkflowDefinitionLayoutRequest.positions", (item) => decodeWorkflowGraphNodeLayout(item)),
+  };
+}
+
+export function decodeWorkflowDraftNodePosition(value: unknown): WorkflowDraftNodePosition {
+  const record = assertRecord(value, "WorkflowDraftNodePosition");
+  assertKnownFields(record, "WorkflowDraftNodePosition", ["x", "y"]);
+  return {
+    x: decodeInteger(requireField(record, "x", "WorkflowDraftNodePosition"), "WorkflowDraftNodePosition.x"),
+    y: decodeInteger(requireField(record, "y", "WorkflowDraftNodePosition"), "WorkflowDraftNodePosition.y"),
+  };
+}
+
+export function decodeAddWorkflowNodeRequest(value: unknown): AddWorkflowNodeRequest {
+  const record = assertRecord(value, "AddWorkflowNodeRequest");
+  assertKnownFields(record, "AddWorkflowNodeRequest", ["workspaceId", "definitionId", "expectedRevision", "nodeType", "position"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AddWorkflowNodeRequest"), "AddWorkflowNodeRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "AddWorkflowNodeRequest"), "AddWorkflowNodeRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "AddWorkflowNodeRequest"), "AddWorkflowNodeRequest.expectedRevision"),
+    nodeType: decodeWorkflowDraftNodeType(requireField(record, "nodeType", "AddWorkflowNodeRequest"), "AddWorkflowNodeRequest.nodeType"),
+    position: decodeWorkflowDraftNodePosition(requireField(record, "position", "AddWorkflowNodeRequest")),
+  };
+}
+
+export function decodeWorkflowDraftEdgeConnection(value: unknown): WorkflowDraftEdgeConnection {
+  const record = assertRecord(value, "WorkflowDraftEdgeConnection");
+  assertKnownFields(record, "WorkflowDraftEdgeConnection", ["sourceNodeId", "sourcePortId", "targetNodeId", "targetPortId"]);
+  return {
+    sourceNodeId: decodeString(requireField(record, "sourceNodeId", "WorkflowDraftEdgeConnection"), "WorkflowDraftEdgeConnection.sourceNodeId"),
+    sourcePortId: decodeString(requireField(record, "sourcePortId", "WorkflowDraftEdgeConnection"), "WorkflowDraftEdgeConnection.sourcePortId"),
+    targetNodeId: decodeString(requireField(record, "targetNodeId", "WorkflowDraftEdgeConnection"), "WorkflowDraftEdgeConnection.targetNodeId"),
+    targetPortId: decodeString(requireField(record, "targetPortId", "WorkflowDraftEdgeConnection"), "WorkflowDraftEdgeConnection.targetPortId"),
+  };
+}
+
+export function decodeAddWorkflowEdgeRequest(value: unknown): AddWorkflowEdgeRequest {
+  const record = assertRecord(value, "AddWorkflowEdgeRequest");
+  assertKnownFields(record, "AddWorkflowEdgeRequest", ["workspaceId", "definitionId", "expectedRevision", "connection"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "AddWorkflowEdgeRequest"), "AddWorkflowEdgeRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "AddWorkflowEdgeRequest"), "AddWorkflowEdgeRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "AddWorkflowEdgeRequest"), "AddWorkflowEdgeRequest.expectedRevision"),
+    connection: decodeWorkflowDraftEdgeConnection(requireField(record, "connection", "AddWorkflowEdgeRequest")),
+  };
+}
+
+export function decodeDeleteWorkflowNodesRequest(value: unknown): DeleteWorkflowNodesRequest {
+  const record = assertRecord(value, "DeleteWorkflowNodesRequest");
+  assertKnownFields(record, "DeleteWorkflowNodesRequest", ["workspaceId", "definitionId", "expectedRevision", "nodeIds"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "DeleteWorkflowNodesRequest"), "DeleteWorkflowNodesRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "DeleteWorkflowNodesRequest"), "DeleteWorkflowNodesRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "DeleteWorkflowNodesRequest"), "DeleteWorkflowNodesRequest.expectedRevision"),
+    nodeIds: decodeArray(requireField(record, "nodeIds", "DeleteWorkflowNodesRequest"), "DeleteWorkflowNodesRequest.nodeIds", (item) => decodeString(item, "DeleteWorkflowNodesRequest.nodeIds item")),
+  };
+}
+
+export function decodeUpdateWorkflowNodeRequest(value: unknown): UpdateWorkflowNodeRequest {
+  const record = assertRecord(value, "UpdateWorkflowNodeRequest");
+  assertKnownFields(record, "UpdateWorkflowNodeRequest", ["workspaceId", "definitionId", "expectedRevision", "node"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateWorkflowNodeRequest"), "UpdateWorkflowNodeRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "UpdateWorkflowNodeRequest"), "UpdateWorkflowNodeRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "UpdateWorkflowNodeRequest"), "UpdateWorkflowNodeRequest.expectedRevision"),
+    node: decodeWorkflowNode(requireField(record, "node", "UpdateWorkflowNodeRequest")),
+  };
+}
+
+export function decodeUpdateWorkflowEdgeRequest(value: unknown): UpdateWorkflowEdgeRequest {
+  const record = assertRecord(value, "UpdateWorkflowEdgeRequest");
+  assertKnownFields(record, "UpdateWorkflowEdgeRequest", ["workspaceId", "definitionId", "expectedRevision", "edge"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateWorkflowEdgeRequest"), "UpdateWorkflowEdgeRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "UpdateWorkflowEdgeRequest"), "UpdateWorkflowEdgeRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "UpdateWorkflowEdgeRequest"), "UpdateWorkflowEdgeRequest.expectedRevision"),
+    edge: decodeWorkflowEdge(requireField(record, "edge", "UpdateWorkflowEdgeRequest")),
+  };
+}
+
+export function decodeUpdateWorkflowDefinitionSettingsRequest(value: unknown): UpdateWorkflowDefinitionSettingsRequest {
+  const record = assertRecord(value, "UpdateWorkflowDefinitionSettingsRequest");
+  assertKnownFields(record, "UpdateWorkflowDefinitionSettingsRequest", ["workspaceId", "definitionId", "expectedRevision", "name", "description"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "UpdateWorkflowDefinitionSettingsRequest"), "UpdateWorkflowDefinitionSettingsRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "UpdateWorkflowDefinitionSettingsRequest"), "UpdateWorkflowDefinitionSettingsRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "UpdateWorkflowDefinitionSettingsRequest"), "UpdateWorkflowDefinitionSettingsRequest.expectedRevision"),
+    name: decodeString(requireField(record, "name", "UpdateWorkflowDefinitionSettingsRequest"), "UpdateWorkflowDefinitionSettingsRequest.name"),
+    description: decodeString(requireField(record, "description", "UpdateWorkflowDefinitionSettingsRequest"), "UpdateWorkflowDefinitionSettingsRequest.description"),
   };
 }
 
@@ -9201,6 +9405,12 @@ export interface BackendClient {
   validateWorkflowDefinition: (request: ValidateWorkflowDefinitionRequest) => Promise<WorkflowValidationResult>;
   validateWorkflowDefinitionDraft: (request: ValidateWorkflowDefinitionDraftRequest) => Promise<WorkflowGraphProjection>;
   updateWorkflowDefinitionLayout: (request: UpdateWorkflowDefinitionLayoutRequest) => Promise<WorkflowGraphProjection>;
+  addWorkflowNode: (request: AddWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
+  addWorkflowEdge: (request: AddWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
+  deleteWorkflowNodes: (request: DeleteWorkflowNodesRequest) => Promise<WorkflowGraphProjection>;
+  updateWorkflowNode: (request: UpdateWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
+  updateWorkflowEdge: (request: UpdateWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
+  updateWorkflowDefinitionSettings: (request: UpdateWorkflowDefinitionSettingsRequest) => Promise<WorkflowDefinition>;
   startWorkflowExecution: (request: StartWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   cancelWorkflowExecution: (request: CancelWorkflowExecutionRequest) => Promise<WorkflowExecution>;
   readWorkflowExecution: (request: ReadWorkflowExecutionRequest) => Promise<WorkflowExecution>;
@@ -9623,6 +9833,54 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowGraphProjection,
       endpoint: backendEndpoints.UpdateWorkflowDefinitionLayout,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    addWorkflowNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowGraphProjection,
+      endpoint: backendEndpoints.AddWorkflowNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    addWorkflowEdge: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowGraphProjection,
+      endpoint: backendEndpoints.AddWorkflowEdge,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    deleteWorkflowNodes: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowGraphProjection,
+      endpoint: backendEndpoints.DeleteWorkflowNodes,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateWorkflowNode: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowGraphProjection,
+      endpoint: backendEndpoints.UpdateWorkflowNode,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateWorkflowEdge: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowGraphProjection,
+      endpoint: backendEndpoints.UpdateWorkflowEdge,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    updateWorkflowDefinitionSettings: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowDefinition,
+      endpoint: backendEndpoints.UpdateWorkflowDefinitionSettings,
       fetchImpl,
       requestPayload: request,
     }),

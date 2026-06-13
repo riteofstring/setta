@@ -53,6 +53,7 @@ export interface WorkflowGraphGraph {
     definitionName: string;
     definitionVersionId: string;
     definitionVersionNumber: number;
+    draftRevision: string;
     editable: boolean;
     executionId: string;
     executionStatus: string;

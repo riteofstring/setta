@@ -51,6 +51,7 @@ interface WorkflowGraphGraph {
     definitionName: string;
     definitionVersionId: string;
     definitionVersionNumber: number;
+    draftRevision: string;
     editable: boolean;
     executionId: string;
     executionStatus: string;
@@ -141,6 +142,7 @@ export function rendererGraphFromWorkflowProjection(
       definitionName: projection.definitionName,
       definitionVersionId: projection.definitionVersionId,
       definitionVersionNumber: projection.definitionVersionNumber,
+      draftRevision: projection.draftRevision,
       editable: projection.editable,
       executionId: projection.executionId,
       executionStatus: projection.executionStatus ?? "",

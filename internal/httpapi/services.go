@@ -73,9 +73,12 @@ type CodexAccountService interface {
 }
 
 type WorkflowService interface {
+	AddDefinitionEdge(workspaceID string, definitionID string, expectedRevision string, connection orchestrator.WorkflowDraftEdgeConnection) (orchestrator.WorkflowGraphProjection, error)
+	AddDefinitionNode(workspaceID string, definitionID string, expectedRevision string, nodeType orchestrator.WorkflowDraftNodeType, position orchestrator.WorkflowDraftNodePosition) (orchestrator.WorkflowGraphProjection, error)
 	CancelExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
 	CreateDefinition(workspaceID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	DeleteDefinition(workspaceID string, definitionID string) error
+	DeleteDefinitionNodes(workspaceID string, definitionID string, expectedRevision string, nodeIDs []string) (orchestrator.WorkflowGraphProjection, error)
 	ListDefinitions(workspaceID string) ([]orchestrator.WorkflowDefinition, error)
 	ReadDefinition(workspaceID string, definitionID string) (orchestrator.WorkflowDefinition, error)
 	ReadExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
@@ -84,10 +87,13 @@ type WorkflowService interface {
 	StartExecution(workspaceID string, definitionID string, versionID string) (orchestrator.WorkflowExecution, error)
 	SubscribeEvents(cursor orchestrator.WorkflowEventCursor) (*orchestrator.EventSubscription, error)
 	SubmitApproval(workspaceID string, executionID string, nodeExecutionID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (orchestrator.WorkflowExecution, error)
-	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
+	UpdateDefinition(workspaceID string, definitionID string, expectedRevision string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
+	UpdateDefinitionEdge(workspaceID string, definitionID string, expectedRevision string, edge orchestrator.WorkflowEdge) (orchestrator.WorkflowGraphProjection, error)
 	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
-	ValidateDefinitionDraft(workspaceID string, definitionID string) (orchestrator.WorkflowGraphProjection, error)
-	UpdateDefinitionLayout(workspaceID string, definitionID string, positions []orchestrator.WorkflowGraphNodeLayout) (orchestrator.WorkflowGraphProjection, error)
+	ValidateDefinitionDraft(workspaceID string, definitionID string, expectedRevision string) (orchestrator.WorkflowGraphProjection, error)
+	UpdateDefinitionLayout(workspaceID string, definitionID string, expectedRevision string, positions []orchestrator.WorkflowGraphNodeLayout) (orchestrator.WorkflowGraphProjection, error)
+	UpdateDefinitionNode(workspaceID string, definitionID string, expectedRevision string, node orchestrator.WorkflowNode) (orchestrator.WorkflowGraphProjection, error)
+	UpdateDefinitionSettings(workspaceID string, definitionID string, expectedRevision string, name string, description string) (orchestrator.WorkflowDefinition, error)
 }
 
 type SemanticGraphService interface {

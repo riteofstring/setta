@@ -114,6 +114,7 @@ function workflowProjection(
     definitionName: "Review workflow",
     ...workflowProjectionDefaultsByViewMode[viewMode],
     draftMatchesVersion: !versionMismatch,
+    draftRevision: "sha256:draft",
     draftUpdatedAt: "2026-06-08T12:10:00Z",
     edges: [],
     layout: { nodes: [] },
@@ -175,6 +176,7 @@ function workflowValidationState(
   result: NonNullable<WorkflowGraphProjection["validation"]["snapshot"]>["result"] | null,
 ) {
   return {
+    currentDraftRevision: "sha256:draft",
     currentGraphFingerprint: "sha256:graph",
     currentValidatorFingerprint: "workflow-validator:v1",
     snapshot:

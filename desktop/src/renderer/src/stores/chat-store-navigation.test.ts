@@ -532,9 +532,12 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     throw new Error("workflow API is not implemented in this test");
   };
   return {
+    addEdge: unavailable,
+    addNode: unavailable,
     cancelExecution: unavailable,
     createDefinition: unavailable,
     deleteDefinition: unavailable,
+    deleteNodes: unavailable,
     executionEvents: unavailable,
     graphProjection: unavailable,
     listDefinitions: unavailable,
@@ -545,6 +548,9 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     submitApproval: unavailable,
     updateDefinition: unavailable,
     updateDefinitionLayout: unavailable,
+    updateDefinitionSettings: unavailable,
+    updateEdge: unavailable,
+    updateNode: unavailable,
     validateDefinition: unavailable,
     validateDefinitionDraft: unavailable,
   };
