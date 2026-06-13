@@ -35,13 +35,14 @@ func TestScriptedHarnessReturnsDeterministicCartographerPatchEnvelope(t *testing
 	}
 	var envelope struct {
 		Patches []struct {
-			ID string `json:"id"`
+			ID         string   `json:"patchId"`
+			Confidence *float64 `json:"confidence"`
 		} `json:"patches"`
 	}
 	if err := json.Unmarshal(result.StructuredOutput, &envelope); err != nil {
 		t.Fatalf("decode scripted envelope: %v", err)
 	}
-	if len(envelope.Patches) != 1 || envelope.Patches[0].ID != "cartographer_patch_scripted" {
+	if len(envelope.Patches) != 1 || envelope.Patches[0].ID != "cartographer_patch_scripted" || envelope.Patches[0].Confidence == nil {
 		t.Fatalf("scripted envelope = %s, want deterministic cartographer patch", result.StructuredOutput)
 	}
 	if result.Audit.RequestID == "" || result.Audit.ResponseID == "" {

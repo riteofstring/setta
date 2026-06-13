@@ -27,11 +27,29 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	}
 	output, err := json.Marshal(map[string]any{
 		"patches": []map[string]any{{
-			"id":         "cartographer_patch_scripted",
-			"summary":    "Scripted cartographer patch envelope",
-			"confidence": 100,
-			"operations": []any{},
-			"evidence":   []any{},
+			"patchId":       "cartographer_patch_scripted",
+			"operation":     "record_finding",
+			"workspaceId":   request.StructuredTask.Workspace.ID,
+			"sourceRefs":    map[string]any{},
+			"causationId":   "scripted-cartographer-request",
+			"correlationId": "scripted-cartographer-response",
+			"confidence":    0.91,
+			"publicSummary": "Scripted cartographer patch envelope",
+			"evidenceRefs":  []any{},
+			"modelInfo": map[string]any{
+				"harness": "scripted",
+			},
+			"reviewRequired": false,
+			"payload": map[string]any{
+				"newNode": map[string]any{
+					"semanticNodeId": "semantic_node_cartographer_scripted",
+					"kind":           "finding",
+					"label":          "Scripted cartographer finding",
+					"summary":        "The scripted harness returned a deterministic finding.",
+					"scope":          "session",
+					"evidenceRefs":   []any{},
+				},
+			},
 		}},
 	})
 	if err != nil {

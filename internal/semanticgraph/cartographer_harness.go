@@ -100,7 +100,36 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
     "patches": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "patchId",
+          "operation",
+          "workspaceId",
+          "sourceRefs",
+          "causationId",
+          "correlationId",
+          "confidence",
+          "publicSummary",
+          "evidenceRefs",
+          "modelInfo",
+          "reviewRequired",
+          "payload"
+        ],
+        "properties": {
+          "patchId": {"type": "string"},
+          "operation": {"type": "string"},
+          "workspaceId": {"type": "string"},
+          "sourceRefs": {"type": "object"},
+          "causationId": {"type": "string"},
+          "correlationId": {"type": "string"},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "publicSummary": {"type": "string"},
+          "evidenceRefs": {"type": "array", "items": {"type": "object"}},
+          "modelInfo": {"type": "object"},
+          "reviewRequired": {"type": "boolean"},
+          "payload": {"type": "object"}
+        }
       }
     }
   }
@@ -108,37 +137,37 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
 }
 
 func ValidateCartographerPatchEnvelopeShape(raw json.RawMessage) error {
+	_, err := DecodeCartographerPatchEnvelope(raw)
+	return err
+}
+
+func DecodeCartographerPatchEnvelope(raw json.RawMessage) (CartographerPatchEnvelope, error) {
 	if len(raw) == 0 {
-		return errors.New("cartographer patch envelope is required")
+		return CartographerPatchEnvelope{}, errors.New("cartographer patch envelope is required")
 	}
-	var envelope struct {
-		Patches []json.RawMessage `json:"patches"`
-	}
+	var envelope CartographerPatchEnvelope
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&envelope); err != nil {
-		return fmt.Errorf("decode cartographer patch envelope: %w", err)
+		return CartographerPatchEnvelope{}, fmt.Errorf("decode cartographer patch envelope: %w", err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
 		if err == nil {
-			return errors.New("decode cartographer patch envelope: trailing JSON value")
+			return CartographerPatchEnvelope{}, errors.New("decode cartographer patch envelope: trailing JSON value")
 		}
-		return fmt.Errorf("decode cartographer patch envelope trailing JSON: %w", err)
+		return CartographerPatchEnvelope{}, fmt.Errorf("decode cartographer patch envelope trailing JSON: %w", err)
 	}
 	if envelope.Patches == nil {
-		return errors.New("cartographer patch envelope patches array is required")
+		return CartographerPatchEnvelope{}, errors.New("cartographer patch envelope patches array is required")
 	}
-	for index, patch := range envelope.Patches {
-		var patchObject map[string]json.RawMessage
-		if err := json.Unmarshal(patch, &patchObject); err != nil {
-			return fmt.Errorf("cartographer patch envelope patches[%d] must be an object: %w", index, err)
-		}
-		if patchObject == nil {
-			return fmt.Errorf("cartographer patch envelope patches[%d] must be an object", index)
+	for index := range envelope.Patches {
+		normalizeCartographerPatch(&envelope.Patches[index])
+		if envelope.Patches[index].ID == "" {
+			return CartographerPatchEnvelope{}, fmt.Errorf("cartographer patch envelope patches[%d] patchId is required", index)
 		}
 	}
-	return nil
+	return envelope, nil
 }
 
 func validateCartographerHarnessTask(ctx context.Context, task CartographerHarnessTask) error {

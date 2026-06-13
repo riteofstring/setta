@@ -68,7 +68,7 @@ func TestValidateCartographerPatchEnvelopeShapeRequiresPatchObjects(t *testing.T
 	if err == nil {
 		t.Fatal("cartographer envelope accepted non-object patch, want shape error")
 	}
-	if !strings.Contains(err.Error(), "patches[0] must be an object") {
+	if !strings.Contains(err.Error(), "cannot unmarshal string") {
 		t.Fatalf("cartographer envelope error = %v, want patch object failure", err)
 	}
 }

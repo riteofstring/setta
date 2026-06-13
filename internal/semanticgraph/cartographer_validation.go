@@ -12,6 +12,17 @@ func validateCartographerRun(ctx context.Context, run CartographerRun) error {
 	if ctx == nil {
 		return errors.New("context is required")
 	}
+	return firstCartographerValidationError(
+		func() error { return validateCartographerRunIdentity(run) },
+		func() error { return validateCartographerRunInput(run) },
+		func() error { return validateCartographerRunAudit(run) },
+		func() error {
+			return validateCartographerTimestamps("cartographer run", run.CreatedAt, run.StartedAt, run.CompletedAt, run.UpdatedAt)
+		},
+	)
+}
+
+func validateCartographerRunIdentity(run CartographerRun) error {
 	if err := validateStoreIDs("workspace id", run.WorkspaceID, "cartographer run id", run.ID); err != nil {
 		return err
 	}
@@ -27,13 +38,31 @@ func validateCartographerRun(ctx context.Context, run CartographerRun) error {
 	if err := validateContextSourceRefs(run.SourceRefs, "cartographer run"); err != nil {
 		return err
 	}
-	if err := validateCartographerInputBundle(run.InputBundle, "cartographer run input bundle"); err != nil {
+	return nil
+}
+
+func validateCartographerRunInput(run CartographerRun) error {
+	return validateCartographerInputBundle(run.InputBundle, "cartographer run input bundle")
+}
+
+func validateCartographerRunAudit(run CartographerRun) error {
+	if err := validateOptionalStoreIDs([]optionalStoreID{
+		{label: "cartographer run window id", value: run.WindowID},
+		{label: "cartographer run request id", value: run.RequestID},
+		{label: "cartographer run response id", value: run.ResponseID},
+	}); err != nil {
+		return err
+	}
+	if err := validateCartographerInputItemCounts(run.InputItemCounts); err != nil {
+		return err
+	}
+	if err := validateOptionalStoreIDs(optionalIDsFromStrings("cartographer run created semantic event id", run.CreatedSemanticEventIDs)); err != nil {
 		return err
 	}
 	if err := validateCartographerDiagnostics(run.Diagnostics); err != nil {
 		return err
 	}
-	return validateCartographerTimestamps("cartographer run", run.CreatedAt, run.StartedAt, run.CompletedAt, run.UpdatedAt)
+	return nil
 }
 
 func validateCartographerWindow(ctx context.Context, window CartographerWindow) error {
@@ -133,8 +162,14 @@ func validateCartographerPatchRecord(ctx context.Context, patch CartographerPatc
 	if !isCartographerPatchStatus(patch.Status) {
 		return fmt.Errorf("cartographer patch status is unsupported: %s", patch.Status)
 	}
-	if err := validateCartographerPatch(patch.Patch, patch.ID, patch.RunID, patch.WindowID); err != nil {
-		return err
+	if patch.Status == CartographerPatchRejected {
+		if patch.Patch.ID != patch.ID {
+			return fmt.Errorf("cartographer patch patchId = %s, want %s", patch.Patch.ID, patch.ID)
+		}
+	} else {
+		if err := validateCartographerPatch(patch.Patch, patch.ID, patch.WorkspaceID); err != nil {
+			return err
+		}
 	}
 	if err := validateCartographerValidationResult(patch.ValidationResult, patch.ID); err != nil {
 		return err
@@ -148,67 +183,287 @@ func validateCartographerPatchRecord(ctx context.Context, patch CartographerPatc
 	return validateCartographerTimestamps("cartographer patch", patch.CreatedAt, patch.ValidatedAt, patch.AppliedAt)
 }
 
-func validateCartographerPatch(patch CartographerPatch, patchID string, runID string, windowID string) error {
-	if err := validateCartographerPatchIdentity(patch, patchID, runID, windowID); err != nil {
+func validateCartographerPatch(patch CartographerPatch, patchID string, workspaceID string) error {
+	if err := validateCartographerPatchIdentity(patch, patchID, workspaceID); err != nil {
 		return err
 	}
-	if patch.Confidence != nil && (*patch.Confidence < 0 || *patch.Confidence > 100) {
-		return fmt.Errorf("cartographer patch confidence must be between 0 and 100")
-	}
-	if err := validateCartographerPatchOperations(patch.Operations); err != nil {
+	if err := validateCartographerPatchConfidence(patch); err != nil {
 		return err
 	}
-	if err := validateCartographerPatchEvidence(patch.Evidence); err != nil {
+	if err := requireNonEmpty(patch.PublicSummary, "cartographer patch public summary"); err != nil {
 		return err
 	}
-	if _, _, err := compactRawJSON(patch.RawEnvelope, "{}"); err != nil {
-		return fmt.Errorf("cartographer patch raw envelope: %w", err)
+	if containsChainOfThoughtMarker(patch.PublicSummary) {
+		return errors.New("cartographer patch public summary must not contain chain-of-thought")
+	}
+	if !isCartographerPatchOperation(patch.Operation) {
+		return fmt.Errorf("cartographer patch operation is unsupported: %s", patch.Operation)
+	}
+	if err := validateContextSourceRefs(patch.SourceRefs, "cartographer patch"); err != nil {
+		return err
+	}
+	if err := validateStoreIDs("cartographer patch causation id", patch.CausationID, "cartographer patch correlation id", patch.CorrelationID); err != nil {
+		return err
+	}
+	if patch.ModelInfo == nil {
+		return errors.New("cartographer patch modelInfo must not be null")
+	}
+	if err := validateCartographerPatchEvidence(patch.EvidenceRefs); err != nil {
+		return err
+	}
+	if err := validateCartographerPatchPayload(patch.Operation, patch.Payload); err != nil {
+		return err
 	}
 	return nil
 }
 
-func validateCartographerPatchIdentity(patch CartographerPatch, patchID string, runID string, windowID string) error {
+func validateCartographerPatchIdentity(patch CartographerPatch, patchID string, workspaceID string) error {
 	if patch.ID != patchID {
-		return fmt.Errorf("cartographer patch id = %s, want %s", patch.ID, patchID)
+		return fmt.Errorf("cartographer patch patchId = %s, want %s", patch.ID, patchID)
 	}
-	if patch.RunID != runID {
-		return fmt.Errorf("cartographer patch runId = %s, want %s", patch.RunID, runID)
-	}
-	if patch.WindowID != windowID {
-		return fmt.Errorf("cartographer patch windowId = %s, want %s", patch.WindowID, windowID)
+	if patch.WorkspaceID != workspaceID {
+		return fmt.Errorf("cartographer patch workspaceId = %s, want %s", patch.WorkspaceID, workspaceID)
 	}
 	return nil
 }
 
-func validateCartographerPatchOperations(operations []CartographerPatchOperation) error {
-	if len(operations) == 0 {
-		return errors.New("cartographer patch operations are required")
+func validateCartographerPatchConfidence(patch CartographerPatch) error {
+	if patch.Confidence == nil {
+		return errors.New("cartographer patch confidence is required")
 	}
-	for _, operation := range operations {
-		if err := validateCartographerPatchOperation(operation); err != nil {
+	if *patch.Confidence < 0 || *patch.Confidence > 1 {
+		return fmt.Errorf("cartographer patch confidence must be between 0.0 and 1.0")
+	}
+	return nil
+}
+
+func validateCartographerPatchPayload(operation CartographerPatchOperation, payload CartographerPatchPayload) error {
+	if err := validateCartographerPatchPayloadText(payload); err != nil {
+		return err
+	}
+	validator, ok := cartographerPatchPayloadValidators[operation]
+	if !ok {
+		return fmt.Errorf("cartographer patch operation is unsupported: %s", operation)
+	}
+	return validator(payload)
+}
+
+var cartographerPatchPayloadValidators = map[CartographerPatchOperation]func(CartographerPatchPayload) error{
+	CartographerPatchRecordFinding: func(payload CartographerPatchPayload) error {
+		return validateCartographerRecordNodePayload(payload, NodeKindFinding)
+	},
+	CartographerPatchRecordDecision: func(payload CartographerPatchPayload) error {
+		return validateCartographerRecordNodePayload(payload, NodeKindDecision)
+	},
+	CartographerPatchRecordConstraint: func(payload CartographerPatchPayload) error {
+		return validateCartographerRecordNodePayload(payload, NodeKindConstraint)
+	},
+	CartographerPatchRecordOpenQuestion: func(payload CartographerPatchPayload) error {
+		return validateCartographerRecordNodePayload(payload, NodeKindQuestion)
+	},
+	CartographerPatchUpdateNodeSummary: validateCartographerUpdateNodeSummaryPayload,
+	CartographerPatchAttachEvidence:    validateCartographerAttachEvidencePayload,
+	CartographerPatchCreateEdge:        validateCartographerCreateEdgePayload,
+	CartographerPatchStartActivity:     validateCartographerStartActivityPayload,
+	CartographerPatchEndActivity:       validateCartographerEndActivityPayload,
+	CartographerPatchSplitNode:         validateCartographerSplitNodePayload,
+	CartographerPatchMergeNodes:        validateCartographerMergeNodesPayload,
+	CartographerPatchMarkResolved:      validateCartographerMarkResolvedPayload,
+}
+
+func validateCartographerUpdateNodeSummaryPayload(payload CartographerPatchPayload) error {
+	if err := validateStoreIDs("cartographer patch semantic node id", payload.SemanticNodeID); err != nil {
+		return err
+	}
+	return requireNonEmpty(payload.Summary, "cartographer patch node summary")
+}
+
+func validateCartographerAttachEvidencePayload(payload CartographerPatchPayload) error {
+	target := payload.TargetEntityID
+	if target == "" {
+		target = payload.SemanticNodeID
+	}
+	if err := validateStoreIDs("cartographer patch evidence target entity id", target); err != nil {
+		return err
+	}
+	return validateCartographerPatchEvidence(payload.EvidenceRefs)
+}
+
+func validateCartographerCreateEdgePayload(payload CartographerPatchPayload) error {
+	if err := validateOptionalStoreIDs([]optionalStoreID{{label: "cartographer patch edge id", value: payload.EdgeID}}); err != nil {
+		return err
+	}
+	if !isSemanticEdgeKind(payload.EdgeKind) {
+		return fmt.Errorf("cartographer patch edge kind is unsupported: %s", payload.EdgeKind)
+	}
+	return validateStoreIDs("cartographer patch from node id", payload.FromNodeID, "cartographer patch to node id", payload.ToNodeID)
+}
+
+func validateCartographerStartActivityPayload(payload CartographerPatchPayload) error {
+	if err := validateOptionalStoreIDs([]optionalStoreID{{label: "cartographer patch activity id", value: payload.ActivityID}}); err != nil {
+		return err
+	}
+	if !isSemanticActivityKind(payload.ActivityKind) {
+		return fmt.Errorf("cartographer patch activity kind is unsupported: %s", payload.ActivityKind)
+	}
+	if !isSemanticActivitySourceKind(payload.ActivitySourceKind) {
+		return fmt.Errorf("cartographer patch activity source kind is unsupported: %s", payload.ActivitySourceKind)
+	}
+	return validateStoreIDs("cartographer patch activity target entity id", payload.TargetEntityID)
+}
+
+func validateCartographerEndActivityPayload(payload CartographerPatchPayload) error {
+	return validateStoreIDs("cartographer patch activity id", payload.ActivityID)
+}
+
+func validateCartographerSplitNodePayload(payload CartographerPatchPayload) error {
+	if err := validateStoreIDs("cartographer patch source node id", payload.SourceNodeID); err != nil {
+		return err
+	}
+	return validateCartographerPatchNewNodes(payload.NewNodes, "cartographer patch split new node")
+}
+
+func validateCartographerMergeNodesPayload(payload CartographerPatchPayload) error {
+	if err := validateCartographerPatchNodeIDs(payload.SourceNodeIDs, "cartographer patch merge source node id"); err != nil {
+		return err
+	}
+	if payload.TargetNode == nil {
+		return errors.New("cartographer patch merge targetNode is required")
+	}
+	return validateCartographerPatchNewNode(*payload.TargetNode, "cartographer patch merge target node")
+}
+
+func validateCartographerMarkResolvedPayload(payload CartographerPatchPayload) error {
+	if err := validateStoreIDs("cartographer patch resolved semantic node id", payload.SemanticNodeID); err != nil {
+		return err
+	}
+	if payload.ResolutionNodeID == "" {
+		return nil
+	}
+	return validateStoreIDs("cartographer patch resolution node id", payload.ResolutionNodeID)
+}
+
+func validateCartographerRecordNodePayload(payload CartographerPatchPayload, kind SemanticNodeKind) error {
+	if payload.SemanticNodeID == "" && payload.NewNode == nil {
+		return errors.New("cartographer patch record payload requires semanticNodeId or newNode")
+	}
+	if payload.SemanticNodeID != "" && payload.NewNode != nil {
+		return errors.New("cartographer patch record payload must not include both semanticNodeId and newNode")
+	}
+	if payload.SemanticNodeID != "" {
+		return validateStoreIDs("cartographer patch semantic node id", payload.SemanticNodeID)
+	}
+	if err := validateCartographerPatchNewNode(*payload.NewNode, "cartographer patch new node"); err != nil {
+		return err
+	}
+	if payload.NewNode.Kind != kind {
+		return fmt.Errorf("cartographer patch new node kind = %s, want %s", payload.NewNode.Kind, kind)
+	}
+	return nil
+}
+
+func validateCartographerPatchNewNode(node CartographerPatchNewNode, label string) error {
+	if err := validateStoreIDs(label+" semantic node id", node.SemanticNodeID); err != nil {
+		return err
+	}
+	if !isSemanticNodeKind(node.Kind) {
+		return fmt.Errorf("%s kind is unsupported: %s", label, node.Kind)
+	}
+	if err := requireNonEmpty(node.Label, label+" label"); err != nil {
+		return err
+	}
+	if err := requireNonEmpty(node.Summary, label+" summary"); err != nil {
+		return err
+	}
+	if !isCartographerPatchNodeScope(node.Scope) {
+		return fmt.Errorf("%s scope is unsupported: %s", label, node.Scope)
+	}
+	return validateCartographerPatchEvidence(node.EvidenceRefs)
+}
+
+func validateCartographerPatchNewNodes(nodes []CartographerPatchNewNode, label string) error {
+	if len(nodes) == 0 {
+		return fmt.Errorf("%ss are required", label)
+	}
+	for _, node := range nodes {
+		if err := validateCartographerPatchNewNode(node, label); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateCartographerPatchOperation(operation CartographerPatchOperation) error {
-	if err := validateStoreIDs("cartographer patch operation id", operation.ID); err != nil {
-		return err
+func validateCartographerPatchNodeIDs(nodeIDs []string, label string) error {
+	if len(nodeIDs) == 0 {
+		return fmt.Errorf("%ss are required", label)
 	}
-	if err := requireNonEmpty(operation.Kind, "cartographer patch operation kind"); err != nil {
-		return err
+	for _, nodeID := range nodeIDs {
+		if err := validateStoreIDs(label, nodeID); err != nil {
+			return err
+		}
 	}
-	if err := requireOptionalEntityID(operation.TargetEntityID, "cartographer patch operation target entity id"); err != nil {
-		return err
+	return nil
+}
+
+func validateCartographerPatchPayloadText(payload CartographerPatchPayload) error {
+	texts := []struct {
+		label string
+		value string
+	}{
+		{label: "cartographer patch payload summary", value: payload.Summary},
+		{label: "cartographer patch payload label", value: payload.Label},
 	}
-	if _, _, err := compactRawJSON(operation.Payload, "{}"); err != nil {
-		return fmt.Errorf("cartographer patch operation payload: %w", err)
+	if payload.NewNode != nil {
+		texts = append(texts,
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch new node label", value: payload.NewNode.Label},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch new node summary", value: payload.NewNode.Summary},
+		)
+	}
+	if payload.TargetNode != nil {
+		texts = append(texts,
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch target node label", value: payload.TargetNode.Label},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch target node summary", value: payload.TargetNode.Summary},
+		)
+	}
+	for index := range payload.NewNodes {
+		texts = append(texts,
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch split node label", value: payload.NewNodes[index].Label},
+			struct {
+				label string
+				value string
+			}{label: "cartographer patch split node summary", value: payload.NewNodes[index].Summary},
+		)
+	}
+	for _, item := range texts {
+		if len(item.value) > 4096 {
+			return fmt.Errorf("%s must not contain large raw content", item.label)
+		}
+		if containsChainOfThoughtMarker(item.value) {
+			return fmt.Errorf("%s must not contain chain-of-thought", item.label)
+		}
 	}
 	return nil
 }
 
 func validateCartographerPatchEvidence(evidenceRefs []CartographerPatchEvidenceRef) error {
+	if evidenceRefs == nil {
+		return errors.New("cartographer patch evidenceRefs must not be null")
+	}
 	for _, evidence := range evidenceRefs {
 		if evidence.SourceKind != "" && !isSemanticEvidenceSourceKind(evidence.SourceKind) {
 			return fmt.Errorf("cartographer patch evidence sourceKind is unsupported: %s", evidence.SourceKind)
@@ -219,8 +474,46 @@ func validateCartographerPatchEvidence(evidenceRefs []CartographerPatchEvidenceR
 		}); err != nil {
 			return err
 		}
+		if evidence.SourceID == "" && evidence.EvidenceAnchorID == "" {
+			return errors.New("cartographer patch evidence ref requires sourceId or evidenceAnchorId")
+		}
 	}
 	return nil
+}
+
+func validateCartographerInputItemCounts(counts CartographerInputItemCounts) error {
+	values := []struct {
+		label string
+		value int
+	}{
+		{label: "cartographer input item count newEvents", value: counts.NewEvents},
+		{label: "cartographer input item count toolCalls", value: counts.ToolCalls},
+		{label: "cartographer input item count fileChanges", value: counts.FileChanges},
+		{label: "cartographer input item count testResults", value: counts.TestResults},
+		{label: "cartographer input item count outputSummaries", value: counts.OutputSummaries},
+		{label: "cartographer input item count existingNodes", value: counts.ExistingNodes},
+		{label: "cartographer input item count existingEdges", value: counts.ExistingEdges},
+		{label: "cartographer input item count evidence", value: counts.Evidence},
+		{label: "cartographer input item count activity", value: counts.Activity},
+		{label: "cartographer input item count steering", value: counts.Steering},
+		{label: "cartographer input item count contextPacks", value: counts.ContextPacks},
+		{label: "cartographer input item count trajectorySummaries", value: counts.TrajectorySummaries},
+		{label: "cartographer input item count observedEventRefs", value: counts.ObservedEventRefs},
+	}
+	for _, item := range values {
+		if item.value < 0 {
+			return fmt.Errorf("%s must not be negative: %d", item.label, item.value)
+		}
+	}
+	return nil
+}
+
+func containsChainOfThoughtMarker(value string) bool {
+	normalized := strings.ToLower(value)
+	return strings.Contains(normalized, "chain-of-thought") ||
+		strings.Contains(normalized, "chain of thought") ||
+		strings.Contains(normalized, "chain_of_thought") ||
+		strings.Contains(normalized, "chainofthought")
 }
 
 func validateCartographerValidationResult(result CartographerPatchValidationResult, patchID string) error {
@@ -589,7 +882,7 @@ func validateOutputOrdinalMap(values map[string]int, label string) error {
 
 func isCartographerRunStatus(status CartographerRunStatus) bool {
 	switch status {
-	case CartographerRunPending, CartographerRunRunning, CartographerRunCompleted, CartographerRunFailed:
+	case CartographerRunPending, CartographerRunRunning, CartographerRunCompleted, CartographerRunFailed, CartographerRunProposed, CartographerRunApplied, CartographerRunRejected:
 		return true
 	default:
 		return false
@@ -651,7 +944,36 @@ func isCartographerWindowCloseReason(reason CartographerWindowCloseReason) bool 
 
 func isCartographerPatchStatus(status CartographerPatchStatus) bool {
 	switch status {
-	case CartographerPatchProposed, CartographerPatchValidated, CartographerPatchRejected, CartographerPatchApplied:
+	case CartographerPatchProposed, CartographerPatchValidated, CartographerPatchPendingReview, CartographerPatchRejected, CartographerPatchApplied:
+		return true
+	default:
+		return false
+	}
+}
+
+func isCartographerPatchOperation(operation CartographerPatchOperation) bool {
+	switch operation {
+	case CartographerPatchRecordFinding,
+		CartographerPatchRecordDecision,
+		CartographerPatchRecordConstraint,
+		CartographerPatchRecordOpenQuestion,
+		CartographerPatchUpdateNodeSummary,
+		CartographerPatchAttachEvidence,
+		CartographerPatchCreateEdge,
+		CartographerPatchStartActivity,
+		CartographerPatchEndActivity,
+		CartographerPatchSplitNode,
+		CartographerPatchMergeNodes,
+		CartographerPatchMarkResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+func isCartographerPatchNodeScope(scope CartographerPatchNodeScope) bool {
+	switch scope {
+	case CartographerPatchNodeScopeSession, CartographerPatchNodeScopeWorkspace:
 		return true
 	default:
 		return false

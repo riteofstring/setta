@@ -742,7 +742,7 @@ func cartographerTestSummary(runID string, windowID string) CartographerTrajecto
 }
 
 func cartographerTestPatch(runID string, windowID string) CartographerPatchRecord {
-	confidence := 82
+	confidence := 0.82
 	return CartographerPatchRecord{
 		WorkspaceID: testWorkspaceID,
 		ID:          "cartographer_patch_001",
@@ -750,22 +750,34 @@ func cartographerTestPatch(runID string, windowID string) CartographerPatchRecor
 		WindowID:    windowID,
 		Status:      CartographerPatchApplied,
 		Patch: CartographerPatch{
-			ID:         "cartographer_patch_001",
-			RunID:      runID,
-			WindowID:   windowID,
-			Confidence: &confidence,
-			Summary:    "Create a finding from observed work.",
-			Operations: []CartographerPatchOperation{{
-				ID:      "cartographer_operation_001",
-				Kind:    "create_node",
-				Payload: json.RawMessage(`{"nodeId":"node_cartographer_created","kind":"finding"}`),
-			}},
-			Evidence: []CartographerPatchEvidenceRef{{
+			ID:            "cartographer_patch_001",
+			Operation:     CartographerPatchRecordFinding,
+			WorkspaceID:   testWorkspaceID,
+			SourceRefs:    cartographerTestInputBundle().SourceRefs,
+			CausationID:   "request_cartographer",
+			CorrelationID: "response_cartographer",
+			Confidence:    &confidence,
+			PublicSummary: "Create a finding from observed work.",
+			EvidenceRefs: []CartographerPatchEvidenceRef{{
 				SourceKind:       EvidenceSourceRunItem,
 				SourceID:         "run_item_cartographer",
 				EvidenceAnchorID: "evidence_cartographer",
 			}},
-			RawEnvelope: json.RawMessage(`{"patches":[{"id":"cartographer_patch_001"}]}`),
+			ModelInfo: map[string]string{"model": "gpt-5-codex"},
+			Payload: CartographerPatchPayload{
+				NewNode: &CartographerPatchNewNode{
+					SemanticNodeID: "node_cartographer_created",
+					Kind:           NodeKindFinding,
+					Label:          "Observed semantic graph persistence",
+					Summary:        "The cartographer observed semantic graph persistence work.",
+					Scope:          CartographerPatchNodeScopeSession,
+					EvidenceRefs: []CartographerPatchEvidenceRef{{
+						SourceKind:       EvidenceSourceRunItem,
+						SourceID:         "run_item_cartographer",
+						EvidenceAnchorID: "evidence_cartographer",
+					}},
+				},
+			},
 		},
 		ValidationResult: CartographerPatchValidationResult{
 			PatchID:  "cartographer_patch_001",

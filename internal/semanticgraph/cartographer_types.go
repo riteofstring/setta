@@ -7,6 +7,8 @@ type CartographerRunTriggerKind string
 type CartographerWindowStatus string
 type CartographerSourceKind string
 type CartographerPatchStatus string
+type CartographerPatchOperation string
+type CartographerPatchNodeScope string
 type CartographerDiagnosticSeverity string
 type CartographerTrajectoryEventSource string
 type CartographerWindowCloseReason string
@@ -16,6 +18,9 @@ const (
 	CartographerRunRunning   CartographerRunStatus = "running"
 	CartographerRunCompleted CartographerRunStatus = "completed"
 	CartographerRunFailed    CartographerRunStatus = "failed"
+	CartographerRunProposed  CartographerRunStatus = "proposed"
+	CartographerRunApplied   CartographerRunStatus = "applied"
+	CartographerRunRejected  CartographerRunStatus = "rejected"
 
 	CartographerTriggerManual         CartographerRunTriggerKind = "manual"
 	CartographerTriggerWorkflowWindow CartographerRunTriggerKind = "workflow_window"
@@ -31,10 +36,27 @@ const (
 	CartographerSourceChatRun           CartographerSourceKind = "chat_run"
 	CartographerSourceSemanticTarget    CartographerSourceKind = "semantic_target"
 
-	CartographerPatchProposed  CartographerPatchStatus = "proposed"
-	CartographerPatchValidated CartographerPatchStatus = "validated"
-	CartographerPatchRejected  CartographerPatchStatus = "rejected"
-	CartographerPatchApplied   CartographerPatchStatus = "applied"
+	CartographerPatchProposed      CartographerPatchStatus = "proposed"
+	CartographerPatchValidated     CartographerPatchStatus = "validated"
+	CartographerPatchPendingReview CartographerPatchStatus = "pending_review"
+	CartographerPatchRejected      CartographerPatchStatus = "rejected"
+	CartographerPatchApplied       CartographerPatchStatus = "applied"
+
+	CartographerPatchRecordFinding      CartographerPatchOperation = "record_finding"
+	CartographerPatchRecordDecision     CartographerPatchOperation = "record_decision"
+	CartographerPatchRecordConstraint   CartographerPatchOperation = "record_constraint"
+	CartographerPatchRecordOpenQuestion CartographerPatchOperation = "record_open_question"
+	CartographerPatchUpdateNodeSummary  CartographerPatchOperation = "update_node_summary"
+	CartographerPatchAttachEvidence     CartographerPatchOperation = "attach_evidence"
+	CartographerPatchCreateEdge         CartographerPatchOperation = "create_edge"
+	CartographerPatchStartActivity      CartographerPatchOperation = "start_activity"
+	CartographerPatchEndActivity        CartographerPatchOperation = "end_activity"
+	CartographerPatchSplitNode          CartographerPatchOperation = "split_node"
+	CartographerPatchMergeNodes         CartographerPatchOperation = "merge_nodes"
+	CartographerPatchMarkResolved       CartographerPatchOperation = "mark_resolved"
+
+	CartographerPatchNodeScopeSession   CartographerPatchNodeScope = "session"
+	CartographerPatchNodeScopeWorkspace CartographerPatchNodeScope = "workspace"
 
 	CartographerDiagnosticInfo    CartographerDiagnosticSeverity = "info"
 	CartographerDiagnosticWarning CartographerDiagnosticSeverity = "warning"
@@ -55,24 +77,30 @@ const (
 )
 
 type CartographerRun struct {
-	ID             string                     `json:"id"`
-	WorkspaceID    string                     `json:"workspaceId"`
-	Status         CartographerRunStatus      `json:"status"`
-	TriggerKind    CartographerRunTriggerKind `json:"triggerKind"`
-	TargetEntityID string                     `json:"targetEntityId"`
-	SourceRefs     SemanticContextSourceRefs  `json:"sourceRefs"`
-	InputBundle    CartographerInputBundle    `json:"inputBundle"`
-	OutputSchema   json.RawMessage            `json:"outputSchema"`
-	HarnessKind    string                     `json:"harnessKind"`
-	Model          string                     `json:"model"`
-	RequestID      string                     `json:"requestId"`
-	ResponseID     string                     `json:"responseId"`
-	Diagnostics    []CartographerDiagnostic   `json:"diagnostics"`
-	CreatedAt      string                     `json:"createdAt"`
-	StartedAt      string                     `json:"startedAt"`
-	CompletedAt    string                     `json:"completedAt"`
-	UpdatedAt      string                     `json:"updatedAt"`
-	Error          string                     `json:"error"`
+	ID                      string                      `json:"id"`
+	WorkspaceID             string                      `json:"workspaceId"`
+	Status                  CartographerRunStatus       `json:"status"`
+	TriggerKind             CartographerRunTriggerKind  `json:"triggerKind"`
+	TargetEntityID          string                      `json:"targetEntityId"`
+	SourceRefs              SemanticContextSourceRefs   `json:"sourceRefs"`
+	InputBundle             CartographerInputBundle     `json:"inputBundle"`
+	OutputSchema            json.RawMessage             `json:"outputSchema"`
+	HarnessKind             string                      `json:"harnessKind"`
+	Model                   string                      `json:"model"`
+	RequestID               string                      `json:"requestId"`
+	ResponseID              string                      `json:"responseId"`
+	WindowID                string                      `json:"windowId"`
+	InputBundleHash         string                      `json:"inputBundleHash"`
+	InputItemCounts         CartographerInputItemCounts `json:"inputItemCounts"`
+	RawHarnessResponseHash  string                      `json:"rawHarnessResponseHash"`
+	TrajectorySummary       string                      `json:"trajectorySummary"`
+	CreatedSemanticEventIDs []string                    `json:"createdSemanticEventIds"`
+	Diagnostics             []CartographerDiagnostic    `json:"diagnostics"`
+	CreatedAt               string                      `json:"createdAt"`
+	StartedAt               string                      `json:"startedAt"`
+	CompletedAt             string                      `json:"completedAt"`
+	UpdatedAt               string                      `json:"updatedAt"`
+	Error                   string                      `json:"error"`
 }
 
 type CartographerWindow struct {
@@ -242,22 +270,72 @@ type CartographerInputTruncation struct {
 	DeterministicSummary string   `json:"deterministicSummary"`
 }
 
-type CartographerPatch struct {
-	ID          string                         `json:"id"`
-	RunID       string                         `json:"runId"`
-	WindowID    string                         `json:"windowId"`
-	Operations  []CartographerPatchOperation   `json:"operations"`
-	Evidence    []CartographerPatchEvidenceRef `json:"evidence"`
-	Confidence  *int                           `json:"confidence"`
-	Summary     string                         `json:"summary"`
-	RawEnvelope json.RawMessage                `json:"rawEnvelope"`
+type CartographerInputItemCounts struct {
+	NewEvents           int `json:"newEvents"`
+	ToolCalls           int `json:"toolCalls"`
+	FileChanges         int `json:"fileChanges"`
+	TestResults         int `json:"testResults"`
+	OutputSummaries     int `json:"outputSummaries"`
+	ExistingNodes       int `json:"existingNodes"`
+	ExistingEdges       int `json:"existingEdges"`
+	Evidence            int `json:"evidence"`
+	Activity            int `json:"activity"`
+	Steering            int `json:"steering"`
+	ContextPacks        int `json:"contextPacks"`
+	TrajectorySummaries int `json:"trajectorySummaries"`
+	ObservedEventRefs   int `json:"observedEventRefs"`
 }
 
-type CartographerPatchOperation struct {
-	ID             string          `json:"id"`
-	Kind           string          `json:"kind"`
-	TargetEntityID string          `json:"targetEntityId"`
-	Payload        json.RawMessage `json:"payload"`
+type CartographerPatchEnvelope struct {
+	Patches []CartographerPatch `json:"patches"`
+}
+
+type CartographerPatch struct {
+	ID             string                         `json:"patchId"`
+	Operation      CartographerPatchOperation     `json:"operation"`
+	WorkspaceID    string                         `json:"workspaceId"`
+	SourceRefs     SemanticContextSourceRefs      `json:"sourceRefs"`
+	CausationID    string                         `json:"causationId"`
+	CorrelationID  string                         `json:"correlationId"`
+	Confidence     *float64                       `json:"confidence"`
+	PublicSummary  string                         `json:"publicSummary"`
+	EvidenceRefs   []CartographerPatchEvidenceRef `json:"evidenceRefs"`
+	ModelInfo      map[string]string              `json:"modelInfo"`
+	ReviewRequired bool                           `json:"reviewRequired"`
+	Payload        CartographerPatchPayload       `json:"payload"`
+}
+
+type CartographerPatchPayload struct {
+	SemanticNodeID     string                         `json:"semanticNodeId"`
+	TargetEntityID     string                         `json:"targetEntityId"`
+	NewNode            *CartographerPatchNewNode      `json:"newNode"`
+	Summary            string                         `json:"summary"`
+	EdgeID             string                         `json:"edgeId"`
+	EdgeKind           SemanticEdgeKind               `json:"edgeKind"`
+	FromNodeID         string                         `json:"fromNodeId"`
+	ToNodeID           string                         `json:"toNodeId"`
+	Label              string                         `json:"label"`
+	ActivityID         string                         `json:"activityId"`
+	ActivityKind       SemanticActivityKind           `json:"activityKind"`
+	ActivitySourceKind SemanticActivitySourceKind     `json:"activitySourceKind"`
+	ActivitySourceID   string                         `json:"activitySourceId"`
+	EvidenceAnchorID   string                         `json:"evidenceAnchorId"`
+	SourceNodeID       string                         `json:"sourceNodeId"`
+	NewNodes           []CartographerPatchNewNode     `json:"newNodes"`
+	SourceNodeIDs      []string                       `json:"sourceNodeIds"`
+	TargetNode         *CartographerPatchNewNode      `json:"targetNode"`
+	ResolutionNodeID   string                         `json:"resolutionNodeId"`
+	EvidenceRefs       []CartographerPatchEvidenceRef `json:"evidenceRefs"`
+	Reassignments      SemanticReassignmentInputs     `json:"reassignments"`
+}
+
+type CartographerPatchNewNode struct {
+	SemanticNodeID string                         `json:"semanticNodeId"`
+	Kind           SemanticNodeKind               `json:"kind"`
+	Label          string                         `json:"label"`
+	Summary        string                         `json:"summary"`
+	Scope          CartographerPatchNodeScope     `json:"scope"`
+	EvidenceRefs   []CartographerPatchEvidenceRef `json:"evidenceRefs"`
 }
 
 type CartographerPatchEvidenceRef struct {
