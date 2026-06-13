@@ -63,7 +63,11 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 		return nil, service.cartographerHarnessErr
 	}
 	if service.semanticGraphChanges == nil {
-		service.semanticGraphChanges = newSemanticGraphChangeHub(defaultSemanticGraphChangeStreamID, service.now)
+		streamID, err := service.newID("semantic_graph_changes")
+		if err != nil {
+			return nil, fmt.Errorf("create semantic graph change stream id: %w", err)
+		}
+		service.semanticGraphChanges = newSemanticGraphChangeHub(streamID, service.now)
 	}
 	return service, nil
 }

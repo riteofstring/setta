@@ -142,10 +142,45 @@ func TestSemanticGraphChangeEventsAreWorkspaceScoped(t *testing.T) {
 	}
 }
 
+func TestSemanticGraphChangeStreamIDIsServiceUnique(t *testing.T) {
+	newID := countingIDGenerator()
+	first := newNotificationTestServiceWithIDGenerator(t, newID)
+	second := newNotificationTestServiceWithIDGenerator(t, newID)
+	firstSubscription := subscribeSemanticGraphChangesForTest(t, first, SemanticGraphChangeCursor{})
+	defer firstSubscription.Unsubscribe()
+	secondSubscription := subscribeSemanticGraphChangesForTest(t, second, SemanticGraphChangeCursor{})
+	defer secondSubscription.Unsubscribe()
+
+	createNotificationNode(t, first, testWorkspaceID, "node_first_stream")
+	createNotificationNode(t, second, testWorkspaceID, "node_second_stream")
+
+	firstEvent := receiveSemanticGraphChange(t, firstSubscription)
+	secondEvent := receiveSemanticGraphChange(t, secondSubscription)
+	if firstEvent.StreamID == "" || secondEvent.StreamID == "" || firstEvent.StreamID == secondEvent.StreamID {
+		t.Fatalf("semantic graph stream ids = %q and %q, want unique non-empty ids", firstEvent.StreamID, secondEvent.StreamID)
+	}
+	if firstEvent.Sequence != 1 || secondEvent.Sequence != 1 {
+		t.Fatalf("semantic graph change sequences = %d and %d, want each service to start at 1", firstEvent.Sequence, secondEvent.Sequence)
+	}
+}
+
 func newNotificationTestService(t *testing.T) *Service {
 	t.Helper()
 	store := newTestStore(t)
 	return newAssociationTestService(t, store, t.TempDir(), nil, nil)
+}
+
+func newNotificationTestServiceWithIDGenerator(t *testing.T, newID IDGenerator) *Service {
+	t.Helper()
+	service, err := NewService(
+		newTestStore(t),
+		associationWorkspaceResolver{root: t.TempDir()},
+		WithIDGenerator(newID),
+	)
+	if err != nil {
+		t.Fatalf("new semantic graph notification test service: %v", err)
+	}
+	return service
 }
 
 func subscribeSemanticGraphChangesForTest(t *testing.T, service *Service, cursor SemanticGraphChangeCursor) *SemanticGraphChangeSubscription {
