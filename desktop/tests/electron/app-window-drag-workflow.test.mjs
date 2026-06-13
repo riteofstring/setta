@@ -76,6 +76,7 @@ try {
   const result = dragResult(before, after, from, to);
   assertDragResult(result);
 
+  await assertCollapsedWorkspaceControlsClickable(context.client, artifactDir);
   await captureScreenshot(context.client, join(artifactDir, "after.png"));
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
@@ -193,10 +194,113 @@ async function dispatchPhysicalMouseDrag(client, { from, steps, to }) {
   });
 }
 
+async function dispatchPhysicalMouseClick(client, point) {
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    type: "mouseMoved",
+    x: point.x,
+    y: point.y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: point.x,
+    y: point.y,
+  });
+  await delay(80);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: point.x,
+    y: point.y,
+  });
+}
+
 async function windowPosition(client) {
   return client.evaluate(
     `(() => ({ screenX: window.screenX, screenY: window.screenY, outerWidth: window.outerWidth, outerHeight: window.outerHeight }))()`,
   );
+}
+
+async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
+  const toggle = await elementCenter(client, '[data-testid="project-sidebar-toggle"]');
+  await dispatchPhysicalMouseClick(client, toggle);
+  await waitForProjectToggleLabel(client, "Show project sidebar");
+  await captureScreenshot(client, join(artifactDir, "collapsed-controls.png"));
+  const collapsedRegions = await sampleDragRegions(client);
+  assertWorkspaceControlsNotDraggable(collapsedRegions);
+  assertChromePlateDoesNotCaptureControls(collapsedRegions);
+
+  const overviewButton = await elementCenter(client, ".workspace-toolbar-button");
+  await dispatchPhysicalMouseClick(client, overviewButton);
+  await waitForState(
+    client,
+    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-presentation-mode") ?? "")()`,
+    (mode) => mode === "overview",
+    workflowTimeoutMs,
+  );
+  const overviewExitButton = await elementCenter(client, ".workspace-toolbar-button");
+  await dispatchPhysicalMouseClick(client, overviewExitButton);
+  await waitForState(
+    client,
+    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-presentation-mode") ?? "")()`,
+    (mode) => mode === "normal",
+    workflowTimeoutMs,
+  );
+  const newFrameButton = await elementCenter(client, ".workspace-toolbar-menu-button");
+  await dispatchPhysicalMouseClick(client, newFrameButton);
+  await waitForNewFrameMenu(client, true);
+  const newFrameCloseButton = await elementCenter(client, ".workspace-toolbar-menu-button");
+  await dispatchPhysicalMouseClick(client, newFrameCloseButton);
+  await waitForNewFrameMenu(client, false);
+
+  await dispatchPhysicalMouseClick(client, toggle);
+  await waitForProjectToggleLabel(client, "Hide project sidebar");
+}
+
+async function waitForNewFrameMenu(client, expectedOpen) {
+  await waitForState(
+    client,
+    `(() => Boolean(document.querySelector('[role="menu"][aria-label="New frame options"]')))()`,
+    (open) => open === expectedOpen,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForProjectToggleLabel(client, label) {
+  await waitForState(
+    client,
+    `(() => document.querySelector('[data-testid="project-sidebar-toggle"]')?.getAttribute("aria-label") ?? "")()`,
+    (value) => value === label,
+    workflowTimeoutMs,
+  );
+}
+
+async function elementCenter(client, selector) {
+  const rect = await client.evaluate(`(() => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!(element instanceof Element)) {
+      return null;
+    }
+    const rect = element.getBoundingClientRect();
+    return {
+      height: rect.height,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+    };
+  })()`);
+  if (!rect) {
+    throw new Error(`missing element center target: ${selector}`);
+  }
+  return {
+    x: Math.round(rect.left + rect.width / 2),
+    y: Math.round(rect.top + rect.height / 2),
+  };
 }
 
 function dragResult(before, after, from, to) {
