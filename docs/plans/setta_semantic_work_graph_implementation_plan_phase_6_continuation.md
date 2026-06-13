@@ -419,6 +419,39 @@ Verification:
 Goal: wire semantic cartographer turns through the production common LLM harness
 after the deterministic pipeline is already validated end to end.
 
+Preflight before implementation:
+
+- Start from the Phase 6D state: deterministic cartographer windows, strict
+  patch validation/application, review surfaces, and generated frontend
+  contracts are already in place. Phase 6E should wire production execution into
+  those paths, not redefine patch schema, review semantics, or renderer
+  contracts.
+- `CodexHarness.RunTask` currently rejects structured tasks. Implement
+  structured-task support in the common harness path for
+  `HarnessSurfaceSemanticCartographer`, `HarnessTurnStructuredTask`, and
+  `HarnessOutputStrictJSON`; do not add a cartographer-specific Codex helper or
+  direct provider client.
+- Keep the cartographer capability policy restrictive in production:
+
+```text
+allowed_tools: []
+workspace_mutation: false
+approvals: false
+streaming: false
+```
+
+  Do not expose CLI, MCP, dynamic tools, file reads, workspace writes, or
+  approval flows to the cartographer in Phase 6E.
+- Write the production cartographer prompt as backend-owned source near the
+  cartographer harness boundary. The prompt must instruct the model to emit only
+  the strict patch envelope, use only ids/source refs/evidence present in the
+  input bundle, set `reviewRequired` when uncertain or high impact, return an
+  empty patch list when no evidence-backed update is warranted, and avoid
+  chain-of-thought or large raw content.
+- If Codex or any future harness cannot satisfy strict structured output for the
+  requested task, fail the cartographer run with explicit diagnostics. Do not
+  fall back to best-effort free-text parsing.
+
 Deliverables:
 
 - Wire cartographer turns through the same runtime-selected LLM harness used by
@@ -431,6 +464,20 @@ Deliverables:
 - Run cartographer turns as isolated structured tasks with strict JSON output,
   explicit tool/capability policy, persisted harness metadata, and no workspace
   mutation authority unless a later phase explicitly grants it.
+- Add a production cartographer runner that processes closed 6B windows by:
+
+```text
+loading the persisted window/run/input bundle
+building a CartographerHarnessTask with the production prompt and strict schema
+calling the shared HarnessTaskRunner
+persisting harness/audit metadata
+passing the raw structured response into the 6C validator/applier
+marking the window processed only after audit state is persisted
+```
+
+- Support explicit/manual run requests through the same runner path when a
+  current-progress window has already been built. Do not add background scans
+  across all workspaces or historical sessions.
 - Do not make harness unavailability look like a successful no-op. Harness auth,
   transport, schema, timeout, rate-limit, or unsupported-capability failures
   should create failed cartographer audits with explicit diagnostics.
@@ -443,17 +490,28 @@ Acceptance criteria:
 
 ```text
 production Codex harness adapter can propose strict JSON patches for active workflow-agent windows
+closed windows are processed through the shared harness runner and then the 6C validator/applier
 harness failures are visible as failed audits
 live harness output passes the same 6C validator before any graph mutation
 long-running workflows continue to use bounded windows and persisted cursors
+cartographer production turns have no tools, no workspace mutation authority, no approvals, and no streaming
 ```
 
 Verification:
 
+- Deterministic tests for Codex/common-harness structured-task request
+  construction, strict schema propagation, prompt/input assembly, failure audit
+  persistence, and window processed-state transitions.
+- Deterministic end-to-end app workflow through production
+  Electron/main/preload/renderer/HTTP/store paths proving an active workflow run
+  produces a cartographer window, processes it through a scripted structured
+  harness, applies or holds validated patches through 6C/6D, survives reload,
+  and exposes the audit/review state.
 - Deterministic harness tests must remain the primary regression suite.
 - Because Phase 6 touches chat/workflow/agent behavior and semantic graph
   mutation, run live Codex E2E tests when local ChatGPT auth is available. If
-  unavailable, report the live-harness skip explicitly.
+  unavailable, report the live-harness skip explicitly. Live tests must not use
+  `OPENAI_API_KEY`; they should exercise the local Codex CLI ChatGPT-auth path.
 
 ## Phase 7: Retrieval Indexes
 
