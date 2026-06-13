@@ -138,6 +138,10 @@ func (service *Service) CloseEvents() {
 	service.events.Close()
 }
 
+func (service *Service) HarnessTaskRunner() HarnessTaskRunner {
+	return service.taskRunner
+}
+
 func (service *Service) PublishCodexAccountChanged(reason string) {
 	_, _ = service.events.Publish(NewCodexAccountChangedEvent(reason))
 }

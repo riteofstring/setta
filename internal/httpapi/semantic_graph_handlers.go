@@ -238,6 +238,23 @@ func (handler handler) buildCartographerWindow(response http.ResponseWriter, req
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) processCartographerWindow(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ProcessCartographerWindowRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.ProcessCartographerWindow(request.Context(), payload.WorkspaceID, payload.WindowID)
+	if err != nil {
+		writeSemanticGraphError(response, "process_cartographer_window_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) readCartographerRun(response http.ResponseWriter, request *http.Request) {
 	service := requireSemanticGraphService(response, handler.semanticGraphService)
 	if service == nil {

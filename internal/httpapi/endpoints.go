@@ -95,6 +95,7 @@ var apiEndpoints = []endpoint{
 	post[ReadSemanticContextPackRequest, semanticgraph.SemanticContextPackReadResponse]("ReadSemanticContextPack", "/semantic-graph/context-packs/read", handler.readSemanticContextPack),
 	post[ListSemanticContextPacksRequest, semanticgraph.SemanticContextPackList]("ListSemanticContextPacks", "/semantic-graph/context-packs/list", handler.listSemanticContextPacks),
 	post[BuildCartographerWindowRequest, semanticgraph.CartographerWindowBuildResult]("BuildCartographerWindow", "/semantic-graph/cartographer/windows/build", handler.buildCartographerWindow),
+	post[ProcessCartographerWindowRequest, semanticgraph.CartographerWindowProcessResult]("ProcessCartographerWindow", "/semantic-graph/cartographer/windows/process", handler.processCartographerWindow),
 	post[ReadCartographerRunRequest, semanticgraph.CartographerRunReadResponse]("ReadCartographerRun", "/semantic-graph/cartographer/runs/read", handler.readCartographerRun),
 	post[ListCartographerRunsRequest, semanticgraph.CartographerRunList]("ListCartographerRuns", "/semantic-graph/cartographer/runs/list", handler.listCartographerRuns),
 	post[ListCartographerWindowsRequest, semanticgraph.CartographerWindowList]("ListCartographerWindows", "/semantic-graph/cartographer/windows/list", handler.listCartographerWindows),

@@ -551,6 +551,7 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
     listContextPacks: unavailable,
     listEvidence: unavailable,
     mergeNodes: unavailable,
+    processCartographerWindow: unavailable,
     promoteNode: unavailable,
     read: unavailable,
     readActivitySummary: unavailable,

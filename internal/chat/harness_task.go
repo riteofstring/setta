@@ -25,17 +25,21 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	if request.OutputContract.Kind != HarnessOutputStrictJSON {
 		return HarnessTaskResult{}, fmt.Errorf("%w: structured output contract %s", ErrUnsupportedHarnessTask, request.OutputContract.Kind)
 	}
+	input, err := scriptedCartographerInputFromRequest(request)
+	if err != nil {
+		return HarnessTaskResult{}, err
+	}
 	output, err := json.Marshal(map[string]any{
 		"patches": []map[string]any{{
 			"patchId":       "cartographer_patch_scripted",
 			"operation":     "record_finding",
-			"workspaceId":   request.StructuredTask.Workspace.ID,
-			"sourceRefs":    map[string]any{},
+			"workspaceId":   input.WorkspaceID,
+			"sourceRefs":    input.SourceRefs,
 			"causationId":   "scripted-cartographer-request",
 			"correlationId": "scripted-cartographer-response",
 			"confidence":    0.91,
 			"publicSummary": "Scripted cartographer patch envelope",
-			"evidenceRefs":  []any{},
+			"evidenceRefs":  input.EvidenceRefs,
 			"modelInfo": map[string]any{
 				"harness": "scripted",
 			},
@@ -47,7 +51,7 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 					"label":          "Scripted cartographer finding",
 					"summary":        "The scripted harness returned a deterministic finding.",
 					"scope":          "session",
-					"evidenceRefs":   []any{},
+					"evidenceRefs":   input.EvidenceRefs,
 				},
 			},
 		}},
@@ -66,4 +70,50 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 			ThreadRef:   request.ThreadRef,
 		},
 	}, nil
+}
+
+type scriptedCartographerInput struct {
+	WorkspaceID  string
+	SourceRefs   map[string]any
+	EvidenceRefs []map[string]any
+}
+
+func scriptedCartographerInputFromRequest(request HarnessTaskRequest) (scriptedCartographerInput, error) {
+	input := scriptedCartographerInput{
+		WorkspaceID:  request.StructuredTask.Workspace.ID,
+		SourceRefs:   map[string]any{},
+		EvidenceRefs: []map[string]any{},
+	}
+	var bundle struct {
+		WorkspaceID string         `json:"workspaceId"`
+		SourceRefs  map[string]any `json:"sourceRefs"`
+		Evidence    []struct {
+			ID         string `json:"id"`
+			SourceKind string `json:"sourceKind"`
+			SourceID   string `json:"sourceId"`
+		} `json:"evidence"`
+	}
+	if len(request.StructuredTask.Input) == 0 {
+		return input, nil
+	}
+	if err := json.Unmarshal(request.StructuredTask.Input, &bundle); err != nil {
+		return scriptedCartographerInput{}, fmt.Errorf("decode scripted cartographer input bundle: %w", err)
+	}
+	if bundle.WorkspaceID != "" {
+		input.WorkspaceID = bundle.WorkspaceID
+	}
+	if bundle.SourceRefs != nil {
+		input.SourceRefs = bundle.SourceRefs
+	}
+	for _, evidence := range bundle.Evidence {
+		if evidence.ID == "" || evidence.SourceKind == "" || evidence.SourceID == "" {
+			continue
+		}
+		input.EvidenceRefs = append(input.EvidenceRefs, map[string]any{
+			"sourceKind":       evidence.SourceKind,
+			"sourceId":         evidence.SourceID,
+			"evidenceAnchorId": evidence.ID,
+		})
+	}
+	return input, nil
 }

@@ -3722,6 +3722,18 @@ export interface CartographerWindowBuildResult {
   summary: CartographerTrajectorySummary | null;
 }
 
+export interface ProcessCartographerWindowRequest {
+  workspaceId: string;
+  windowId: string;
+}
+
+export interface CartographerWindowProcessResult {
+  run: CartographerRun;
+  window: CartographerWindow;
+  patches: CartographerPatchRecord[];
+  events: SemanticEvent[];
+}
+
 export interface ReadCartographerRunRequest {
   workspaceId: string;
   runId: string;
@@ -4763,6 +4775,10 @@ export const backendEndpoints = {
   BuildCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/build",
+  },
+  ProcessCartographerWindow: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/windows/process",
   },
   ReadCartographerRun: {
     method: "POST",
@@ -7492,6 +7508,26 @@ export function decodeCartographerWindowBuildResult(value: unknown): Cartographe
   };
 }
 
+export function decodeProcessCartographerWindowRequest(value: unknown): ProcessCartographerWindowRequest {
+  const record = assertRecord(value, "ProcessCartographerWindowRequest");
+  assertKnownFields(record, "ProcessCartographerWindowRequest", ["workspaceId", "windowId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ProcessCartographerWindowRequest"), "ProcessCartographerWindowRequest.workspaceId"),
+    windowId: decodeString(requireField(record, "windowId", "ProcessCartographerWindowRequest"), "ProcessCartographerWindowRequest.windowId"),
+  };
+}
+
+export function decodeCartographerWindowProcessResult(value: unknown): CartographerWindowProcessResult {
+  const record = assertRecord(value, "CartographerWindowProcessResult");
+  assertKnownFields(record, "CartographerWindowProcessResult", ["run", "window", "patches", "events"]);
+  return {
+    run: decodeCartographerRun(requireField(record, "run", "CartographerWindowProcessResult")),
+    window: decodeCartographerWindow(requireField(record, "window", "CartographerWindowProcessResult")),
+    patches: decodeArray(requireField(record, "patches", "CartographerWindowProcessResult"), "CartographerWindowProcessResult.patches", (item) => decodeCartographerPatchRecord(item)),
+    events: decodeArray(requireField(record, "events", "CartographerWindowProcessResult"), "CartographerWindowProcessResult.events", (item) => decodeSemanticEvent(item)),
+  };
+}
+
 export function decodeReadCartographerRunRequest(value: unknown): ReadCartographerRunRequest {
   const record = assertRecord(value, "ReadCartographerRunRequest");
   assertKnownFields(record, "ReadCartographerRunRequest", ["workspaceId", "runId"]);
@@ -8686,6 +8722,7 @@ export interface BackendClient {
   readSemanticContextPack: (request: ReadSemanticContextPackRequest) => Promise<SemanticContextPackReadResponse>;
   listSemanticContextPacks: (request: ListSemanticContextPacksRequest) => Promise<SemanticContextPackList>;
   buildCartographerWindow: (request: BuildCartographerWindowRequest) => Promise<CartographerWindowBuildResult>;
+  processCartographerWindow: (request: ProcessCartographerWindowRequest) => Promise<CartographerWindowProcessResult>;
   readCartographerRun: (request: ReadCartographerRunRequest) => Promise<CartographerRunReadResponse>;
   listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
   listCartographerWindows: (request: ListCartographerWindowsRequest) => Promise<CartographerWindowList>;
@@ -9193,6 +9230,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowBuildResult,
       endpoint: backendEndpoints.BuildCartographerWindow,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    processCartographerWindow: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerWindowProcessResult,
+      endpoint: backendEndpoints.ProcessCartographerWindow,
       fetchImpl,
       requestPayload: request,
     }),

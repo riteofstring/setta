@@ -452,6 +452,13 @@ type CartographerWindowBuildResult struct {
 	Summary *CartographerTrajectorySummary `json:"summary"`
 }
 
+type CartographerWindowProcessResult struct {
+	Run     CartographerRun           `json:"run"`
+	Window  CartographerWindow        `json:"window"`
+	Patches []CartographerPatchRecord `json:"patches"`
+	Events  []SemanticEvent           `json:"events"`
+}
+
 type CartographerPatchReviewResult struct {
 	Run        CartographerRun         `json:"run"`
 	Patch      CartographerPatchRecord `json:"patch"`

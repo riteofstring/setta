@@ -19,6 +19,7 @@ import type {
   CartographerRunReadResponse,
   CartographerWindowBuildResult,
   CartographerWindowList,
+  CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   CodexAccountState,
@@ -44,6 +45,7 @@ import type {
   MergeSemanticNodesRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  ProcessCartographerWindowRequest,
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
@@ -172,6 +174,7 @@ export const ipcChannels = {
   semanticGraphCartographerRunList: "semantic-graph:cartographer-run-list",
   semanticGraphCartographerRunRead: "semantic-graph:cartographer-run-read",
   semanticGraphCartographerWindowBuild: "semantic-graph:cartographer-window-build",
+  semanticGraphCartographerWindowProcess: "semantic-graph:cartographer-window-process",
   semanticGraphCartographerWindowList: "semantic-graph:cartographer-window-list",
   semanticGraphCreateEdge: "semantic-graph:create-edge",
   semanticGraphCreateNode: "semantic-graph:create-node",
@@ -474,6 +477,10 @@ interface IpcContract {
   semanticGraphCartographerWindowBuild: {
     args: [request: BuildCartographerWindowRequest];
     result: CartographerWindowBuildResult;
+  };
+  semanticGraphCartographerWindowProcess: {
+    args: [request: ProcessCartographerWindowRequest];
+    result: CartographerWindowProcessResult;
   };
   semanticGraphCartographerWindowList: {
     args: [request: ListCartographerWindowsRequest];

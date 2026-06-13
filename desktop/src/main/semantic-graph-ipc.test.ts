@@ -32,6 +32,7 @@ describe("semantic graph IPC handlers", () => {
     await invoke(handlers, ipcChannels.semanticGraphCartographerPatchList, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerPatchAccept, request);
     await invoke(handlers, ipcChannels.semanticGraphCartographerPatchReject, request);
+    await invoke(handlers, ipcChannels.semanticGraphCartographerWindowProcess, request);
     await invoke(handlers, ipcChannels.semanticGraphRenameNode, request);
     await invoke(handlers, ipcChannels.semanticGraphUpdateNode, request);
     await invoke(handlers, ipcChannels.semanticGraphDismissNode, request);
@@ -56,6 +57,7 @@ describe("semantic graph IPC handlers", () => {
     expect(backend.listCartographerPatches).toHaveBeenCalledWith(request);
     expect(backend.acceptCartographerPatch).toHaveBeenCalledWith(request);
     expect(backend.rejectCartographerPatch).toHaveBeenCalledWith(request);
+    expect(backend.processCartographerWindow).toHaveBeenCalledWith(request);
     expect(backend.renameSemanticNode).toHaveBeenCalledWith(request);
     expect(backend.updateSemanticNode).toHaveBeenCalledWith(request);
     expect(backend.dismissSemanticNode).toHaveBeenCalledWith(request);
@@ -87,6 +89,7 @@ function semanticBackendClient() {
   const methods = {
     acceptCartographerPatch: vi.fn(async () => ({})),
     buildCartographerWindow: vi.fn(async () => ({})),
+    processCartographerWindow: vi.fn(async () => ({})),
     createSemanticEdge: vi.fn(async () => ({})),
     createSemanticNode: vi.fn(async () => ({})),
     createSemanticSteeringDirective: vi.fn(async () => ({})),

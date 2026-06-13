@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/chat"
 	"setta/internal/workspace"
 )
 
@@ -27,6 +28,9 @@ type Service struct {
 	cartographerConfig               CartographerObservationConfig
 	cartographerChatSubscription     cartographerSubscription
 	cartographerWorkflowSubscription cartographerSubscription
+	cartographerHarness              *CartographerHarness
+	cartographerHarnessKind          chat.HarnessKind
+	cartographerHarnessErr           error
 	newID                            IDGenerator
 	now                              func() time.Time
 }
@@ -41,14 +45,18 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 		return nil, errors.New("workspace resolver is required")
 	}
 	service := &Service{
-		store:              store,
-		workspaceResolver:  workspaceResolver,
-		cartographerConfig: DefaultCartographerObservationConfig(),
-		newID:              randomID,
-		now:                time.Now,
+		store:                   store,
+		workspaceResolver:       workspaceResolver,
+		cartographerConfig:      DefaultCartographerObservationConfig(),
+		cartographerHarnessKind: chat.HarnessCodex,
+		newID:                   randomID,
+		now:                     time.Now,
 	}
 	for _, option := range options {
 		option(service)
+	}
+	if service.cartographerHarnessErr != nil {
+		return nil, service.cartographerHarnessErr
 	}
 	return service, nil
 }
@@ -80,6 +88,18 @@ func WithChatSourceResolver(resolver ChatSourceResolver) Option {
 func WithCartographerObservationConfig(config CartographerObservationConfig) Option {
 	return func(service *Service) {
 		service.cartographerConfig = normalizeCartographerObservationConfig(config)
+	}
+}
+
+func WithCartographerHarnessTaskRunner(runner chat.HarnessTaskRunner, harnessKind chat.HarnessKind) Option {
+	return func(service *Service) {
+		service.cartographerHarnessKind = harnessKind
+		harness, err := NewCartographerHarness(runner, harnessKind)
+		if err != nil {
+			service.cartographerHarnessErr = err
+			return
+		}
+		service.cartographerHarness = harness
 	}
 }
 

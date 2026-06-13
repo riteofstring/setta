@@ -129,7 +129,7 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 
 func (harness *CodexHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
 	if request.TurnMode == HarnessTurnStructuredTask {
-		return HarnessTaskResult{}, fmt.Errorf("%w: codex structured tasks are not wired in phase 6A", ErrUnsupportedHarnessTask)
+		return harness.runStructuredTask(ctx, request)
 	}
 	return runConversationHarnessTask(ctx, request, harness.StartTurn)
 }

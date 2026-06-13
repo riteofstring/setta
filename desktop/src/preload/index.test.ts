@@ -565,6 +565,7 @@ describe("preload workspace API", () => {
       "listContextPacks",
       "listEvidence",
       "mergeNodes",
+      "processCartographerWindow",
       "promoteNode",
       "read",
       "readActivitySummary",
@@ -628,6 +629,10 @@ describe("preload workspace API", () => {
       targetEntityId: "node_api",
       terminalReason: "",
       triggerKind: "manual",
+      workspaceId,
+    });
+    await api.semanticGraph.processCartographerWindow({
+      windowId: "cartographer_window_api",
       workspaceId,
     });
     await api.semanticGraph.readCartographerRun({
@@ -902,6 +907,13 @@ describe("preload workspace API", () => {
           targetEntityId: "node_api",
           terminalReason: "",
           triggerKind: "manual",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerWindowProcess,
+        {
+          windowId: "cartographer_window_api",
           workspaceId,
         },
       ],

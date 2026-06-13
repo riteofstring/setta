@@ -373,6 +373,11 @@ type BuildCartographerWindowRequest struct {
 	Summary        string                                   `json:"summary"`
 }
 
+type ProcessCartographerWindowRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	WindowID    string `json:"windowId"`
+}
+
 type ReadCartographerRunRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	RunID       string `json:"runId"`

@@ -66,13 +66,19 @@ func (service *Service) ApplyCartographerPatchEnvelope(ctx context.Context, inpu
 }
 
 func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, run CartographerRun, envelope CartographerPatchEnvelope, now string) (CartographerPatchEnvelopeApplicationResult, error) {
+	if len(envelope.Patches) == 0 {
+		run.Status = CartographerRunCompleted
+		run.Diagnostics = []CartographerDiagnostic{service.newCartographerDiagnostic(input.RunID, "", CartographerDiagnosticInfo, "empty_envelope", "cartographer patch envelope proposed no semantic graph mutations", "$.patches", now)}
+		saved, err := service.SaveCartographerRun(ctx, run)
+		return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, err
+	}
 	decisions, runDiagnostics, err := service.validateCartographerPatchEnvelope(ctx, input, envelope, now)
 	if err != nil {
 		run.Status = CartographerRunRejected
 		run.Error = err.Error()
 		run.Diagnostics = runDiagnostics
 		saved, saveErr := service.SaveCartographerRun(ctx, run)
-		return CartographerPatchEnvelopeApplicationResult{Run: saved}, saveErr
+		return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, saveErr
 	}
 	events, eventIndexesByPatch, err := service.cartographerSemanticEventsForDecisions(ctx, input, decisions, now)
 	if err != nil {
@@ -116,6 +122,9 @@ func (service *Service) saveCartographerPatchApplication(ctx context.Context, in
 	if !ok {
 		return CartographerPatchEnvelopeApplicationResult{}, fmt.Errorf("cartographer run %s was not persisted", input.RunID)
 	}
+	for index := range records {
+		normalizeCartographerPatchRecord(&records[index])
+	}
 	return CartographerPatchEnvelopeApplicationResult{Run: savedRun, Patches: records, Events: appended}, nil
 }
 
@@ -124,7 +133,7 @@ func (service *Service) saveCartographerFailedRunAudit(ctx context.Context, run 
 	run.Error = message
 	run.Diagnostics = []CartographerDiagnostic{service.newCartographerDiagnostic(run.ID, "", CartographerDiagnosticError, code, message, "$", now)}
 	saved, err := service.SaveCartographerRun(ctx, run)
-	return CartographerPatchEnvelopeApplicationResult{Run: saved}, err
+	return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, err
 }
 
 func (service *Service) validateCartographerPatchEnvelopeApplicationInput(ctx context.Context, input CartographerPatchEnvelopeApplicationInput) error {
@@ -186,9 +195,6 @@ func (service *Service) cartographerRunAuditFromPatchInput(input CartographerPat
 }
 
 func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, envelope CartographerPatchEnvelope, now string) ([]cartographerPatchDecision, []CartographerDiagnostic, error) {
-	if len(envelope.Patches) == 0 {
-		return nil, []CartographerDiagnostic{service.newCartographerDiagnostic(input.RunID, "", CartographerDiagnosticError, "empty_envelope", "cartographer patch envelope must include at least one patch", "$.patches", now)}, errors.New("cartographer patch envelope must include at least one patch")
-	}
 	ids := map[string]bool{}
 	runDiagnostics := []CartographerDiagnostic{}
 	decisions := make([]cartographerPatchDecision, 0, len(envelope.Patches))
@@ -620,16 +626,24 @@ func (service *Service) cartographerPatchRecordsFromDecisions(input Cartographer
 	records := make([]CartographerPatchRecord, 0, len(decisions))
 	for _, decision := range decisions {
 		eventIDs := eventIDsByPatch[decision.patch.ID]
+		if eventIDs == nil {
+			eventIDs = []string{}
+		}
+		diagnostics := decision.diagnostics
+		if diagnostics == nil {
+			diagnostics = []CartographerDiagnostic{}
+		}
 		validation := CartographerPatchValidationResult{
 			PatchID:     decision.patch.ID,
 			Accepted:    decision.status != CartographerPatchRejected,
-			Diagnostics: decision.diagnostics,
+			Diagnostics: diagnostics,
 			ValidatedAt: now,
 		}
 		application := CartographerPatchApplicationResult{
 			PatchID:                 decision.patch.ID,
 			Applied:                 decision.status == CartographerPatchApplied,
 			CreatedSemanticEventIDs: eventIDs,
+			Diagnostics:             []CartographerDiagnostic{},
 			AppliedAt:               "",
 		}
 		appliedAt := ""

@@ -17,6 +17,7 @@ import type {
   CartographerRunReadResponse,
   CartographerWindowBuildResult,
   CartographerWindowList,
+  CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
@@ -43,6 +44,7 @@ import type {
   MergeSemanticNodesRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  ProcessCartographerWindowRequest,
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
@@ -449,6 +451,9 @@ export interface SettaAPI {
     buildCartographerWindow: (
       request: BuildCartographerWindowRequest,
     ) => Promise<CartographerWindowBuildResult>;
+    processCartographerWindow: (
+      request: ProcessCartographerWindowRequest,
+    ) => Promise<CartographerWindowProcessResult>;
     listCartographerCursors: (
       request: ListCartographerCursorsRequest,
     ) => Promise<CartographerCursorList>;

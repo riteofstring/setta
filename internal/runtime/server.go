@@ -321,6 +321,7 @@ func newSemanticGraphService(
 		workspaceService,
 		semanticgraph.WithWorkflowSourceResolver(workflowService),
 		semanticgraph.WithChatSourceResolver(chatService),
+		semanticgraph.WithCartographerHarnessTaskRunner(chatService.HarnessTaskRunner(), chat.HarnessCodex),
 	)
 	if err != nil {
 		_ = semanticStore.Close()

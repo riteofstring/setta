@@ -34,12 +34,16 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 }
 
 func TestCartographerReadAndReviewEndpoints(t *testing.T) {
-	handler, semanticService := newSemanticGraphHandler(t)
+	handler, semanticService := newSemanticGraphHandlerWithOptions(t,
+		semanticgraph.WithCartographerHarnessTaskRunner(chat.HarnessTaskRunnerFor(chat.NewFakeHarness(nil)), chat.HarnessCodex),
+	)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
 	workspaceID := opened.Workspace.ID
 	seedHTTPSemanticReadFixture(t, semanticService, workspaceID)
+	seedHTTPCartographerProcessEvidence(t, semanticService, workspaceID)
 
 	built := buildHTTPCartographerWindow(t, handler, workspaceID)
+	assertHTTPCartographerProcessEndpoint(t, handler, workspaceID, built.Window.ID)
 	saveHTTPCartographerCursor(t, semanticService, workspaceID, built.Window.ID)
 	pending := applyPendingHTTPCartographerPatch(t, semanticService, workspaceID, "cartographer_run_http_accept", "cartographer_patch_http_accept", "node_http_accept")
 	assertHTTPCartographerReadEndpoints(t, handler, workspaceID, built, pending)
@@ -63,6 +67,32 @@ func buildHTTPCartographerWindow(t *testing.T, handler http.Handler, workspaceID
 		t.Fatalf("built cartographer window = %+v, want run, window, and summary", built)
 	}
 	return built
+}
+
+func seedHTTPCartographerProcessEvidence(t *testing.T, semanticService *semanticgraph.Service, workspaceID string) {
+	t.Helper()
+	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventEvidenceAttached, "node_scope", map[string]any{
+		"anchorId":            "evidence_cartographer_http",
+		"targetEntityId":      "node_scope",
+		"sourceKind":          string(semanticgraph.EvidenceSourceWorkflowExecution),
+		"sourceId":            "execution_scope",
+		"workflowExecutionId": "execution_scope",
+		"summary":             "Workflow execution evidence for cartographer processing.",
+	})
+}
+
+func assertHTTPCartographerProcessEndpoint(t *testing.T, handler http.Handler, workspaceID string, windowID string) {
+	t.Helper()
+	processed := postJSON[semanticgraph.CartographerWindowProcessResult](t, handler, "/semantic-graph/cartographer/windows/process", ProcessCartographerWindowRequest{
+		WorkspaceID: workspaceID,
+		WindowID:    windowID,
+	}, http.StatusOK)
+	if processed.Window.Status != semanticgraph.CartographerWindowProcessed ||
+		processed.Run.Status != semanticgraph.CartographerRunApplied ||
+		len(processed.Patches) != 1 ||
+		len(processed.Events) == 0 {
+		t.Fatalf("processed cartographer window = %+v, want applied scripted audit", processed)
+	}
 }
 
 func saveHTTPCartographerCursor(t *testing.T, semanticService *semanticgraph.Service, workspaceID string, windowID string) {

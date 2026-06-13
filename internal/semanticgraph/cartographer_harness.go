@@ -43,6 +43,17 @@ func NewCartographerHarness(runner chat.HarnessTaskRunner, harnessKind chat.Harn
 }
 
 func (harness *CartographerHarness) Run(ctx context.Context, task CartographerHarnessTask) (CartographerHarnessResult, error) {
+	result, err := harness.RunRaw(ctx, task)
+	if err != nil {
+		return CartographerHarnessResult{}, err
+	}
+	if err := ValidateCartographerPatchEnvelopeShape(result.PatchEnvelope); err != nil {
+		return CartographerHarnessResult{}, err
+	}
+	return result, nil
+}
+
+func (harness *CartographerHarness) RunRaw(ctx context.Context, task CartographerHarnessTask) (CartographerHarnessResult, error) {
 	if err := validateCartographerHarnessTask(ctx, task); err != nil {
 		return CartographerHarnessResult{}, err
 	}
@@ -71,7 +82,7 @@ func (harness *CartographerHarness) Run(ctx context.Context, task CartographerHa
 		StructuredTask: &chat.HarnessStructuredTask{
 			ID:        task.ID,
 			Workspace: task.Workspace,
-			Prompt:    "Return a strict JSON semantic cartographer patch envelope for the provided Setta trajectory input.",
+			Prompt:    ProductionCartographerPrompt(),
 			Input:     inputJSON,
 			Model:     task.Model,
 		},
@@ -85,10 +96,19 @@ func (harness *CartographerHarness) Run(ctx context.Context, task CartographerHa
 	if result.Completion.Outcome != chat.TurnOutcomeCompleted {
 		return CartographerHarnessResult{}, fmt.Errorf("cartographer harness task finished with outcome %s: %s", result.Completion.Outcome, result.Completion.ErrorMessage)
 	}
-	if err := ValidateCartographerPatchEnvelopeShape(result.StructuredOutput); err != nil {
-		return CartographerHarnessResult{}, err
-	}
 	return CartographerHarnessResult{PatchEnvelope: result.StructuredOutput, Audit: result.Audit}, nil
+}
+
+func ProductionCartographerPrompt() string {
+	return `You are Setta's semantic cartographer. Return only a strict JSON semantic graph patch envelope that matches the supplied JSON schema.
+
+Use only ids, source refs, semantic nodes, edges, evidence anchors, activity intervals, steering directives, context packs, and trajectory summaries that are present in the input bundle. Do not invent source refs or evidence.
+
+Emit an empty patches array when no evidence-backed semantic update is warranted. For uncertain, low-confidence, broad, destructive, split, merge, resolution, or high-impact changes, set reviewRequired to true.
+
+Every patch must include confidence as a JSON number from 0.0 through 1.0, a publicSummary suitable for user inspection, sourceRefs matching the input bundle, causationId, correlationId, modelInfo, and explicit evidenceRefs when evidence is required.
+
+Do not include chain-of-thought, private reasoning, large raw transcripts, complete logs, complete diffs, complete files, markdown fences, prose outside JSON, or best-effort explanations.`
 }
 
 func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
