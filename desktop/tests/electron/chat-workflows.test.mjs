@@ -582,6 +582,7 @@ async function runFailWorkflow(client, backend, workspaceId, conversationId) {
 async function runApprovalsWorkflow(client, backend, workspaceId, conversationId) {
   await runProtocolApprovalWorkflows({
     backend,
+    clickButtonByAria,
     clickButtonByText,
     client,
     conversationId,

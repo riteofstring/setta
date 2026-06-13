@@ -82,7 +82,12 @@ function StructuredInputFormApproval({
         ? schema.fields.map((field) => <StructuredFormFieldInput field={field} key={field.id} />)
         : null}
       <div className="flex flex-wrap gap-2">
-        <Button disabled={schema.errors.length > 0} type="submit" variant="primary">
+        <Button
+          aria-label="Submit structured input"
+          disabled={schema.errors.length > 0}
+          type="submit"
+          variant="primary"
+        >
           <Check className="h-4 w-4" />
           Submit
         </Button>

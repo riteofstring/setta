@@ -195,7 +195,12 @@ function UserInputApproval({
         );
       })}
       <div className="flex gap-2">
-        <Button onClick={submitCurrentAnswers} type="button" variant="primary">
+        <Button
+          aria-label="Submit answer"
+          onClick={submitCurrentAnswers}
+          type="button"
+          variant="primary"
+        >
           <Check className="h-4 w-4" />
           Answer
         </Button>

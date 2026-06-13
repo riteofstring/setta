@@ -1,5 +1,6 @@
 export async function runProtocolApprovalWorkflows({
   backend,
+  clickButtonByAria,
   clickButtonByText,
   client,
   conversationId,
@@ -39,7 +40,7 @@ export async function runProtocolApprovalWorkflows({
     waitForText,
   });
   await answerUserInputApproval({
-    clickButtonByText,
+    clickButtonByAria,
     client,
     setInputValue,
     submitComposer,
@@ -49,7 +50,6 @@ export async function runProtocolApprovalWorkflows({
   });
   await acceptStructuredFormApproval({
     backend,
-    clickButtonByText,
     client,
     conversationId,
     submitComposer,
@@ -103,7 +103,7 @@ async function approveDecisionWorkflow({
 }
 
 async function answerUserInputApproval({
-  clickButtonByText,
+  clickButtonByAria,
   client,
   setInputValue,
   submitComposer,
@@ -117,14 +117,13 @@ async function answerUserInputApproval({
     "What should the scripted workflow continue with?",
   ]);
   await setInputValue(client, '[data-testid="approval-card"] input[type="text"]', "continue");
-  await clickButtonByText(client, "Answer");
+  await clickButtonByAria(client, "Submit answer");
   await waitForText(client, "User input approval resolved.");
   await waitForApprovalCardAbsent(client, waitForState);
 }
 
 async function acceptStructuredFormApproval({
   backend,
-  clickButtonByText,
   client,
   conversationId,
   submitComposer,
@@ -138,7 +137,19 @@ async function acceptStructuredFormApproval({
   await waitForTexts(client, ["MCP input requested: deploy", "Target", "Confirm"]);
   await setSelectValue(client, 'select[data-testid="structured-input-field-target"]', "staging");
   await setCheckboxChecked(client, 'input[data-testid="structured-input-field-confirm"]', true);
-  await clickButtonByText(client, "Submit");
+  await waitForStructuredFormValues(client, waitForState);
+  const pendingRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "mcp elicitation form accept workflow",
+    "running",
+  );
+  await submitStructuredInputApproval(client, {
+    approvalId: `approval_mcp_form_${pendingRun.id}`,
+    conversationId,
+    workspaceId,
+  });
   await waitForText(client, "MCP form accepted.");
   await waitForApprovalCardAbsent(client, waitForState);
   const run = await waitForRunWithPrompt(
@@ -231,7 +242,8 @@ async function setSelectValue(client, selector, value) {
     if (!(element instanceof HTMLSelectElement) || element.disabled) {
       return false;
     }
-    element.value = ${JSON.stringify(value)};
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+    descriptor?.set?.call(element, ${JSON.stringify(value)});
     element.dispatchEvent(new Event("input", { bubbles: true }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
     return element.value === ${JSON.stringify(value)};
@@ -247,13 +259,68 @@ async function setCheckboxChecked(client, selector, checked) {
     if (!(element instanceof HTMLInputElement) || element.type !== "checkbox" || element.disabled) {
       return false;
     }
-    if (element.checked !== ${JSON.stringify(checked)}) {
-      element.click();
-    }
+    const previousChecked = element.checked;
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "checked");
+    descriptor?.set?.call(element, ${JSON.stringify(checked)});
+    element._valueTracker?.setValue(previousChecked);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
     return element.checked === ${JSON.stringify(checked)};
   })()`);
   if (!changed) {
     throw new Error(`checkbox was not editable: ${selector}`);
+  }
+}
+
+async function waitForStructuredFormValues(client, waitForState) {
+  await waitForState(
+    client,
+    `(() => {
+      const form = document.querySelector('[data-testid="approval-card"] form');
+      const target = form?.querySelector('select[data-testid="structured-input-field-target"]');
+      const confirm = form?.querySelector('input[data-testid="structured-input-field-confirm"]');
+      if (
+        !(form instanceof HTMLFormElement) ||
+        !(target instanceof HTMLSelectElement) ||
+        !(confirm instanceof HTMLInputElement)
+      ) {
+        return { ready: false };
+      }
+      const formData = new FormData(form);
+      return {
+        confirm: confirm.checked,
+        formConfirm: formData.get("confirm"),
+        formTarget: formData.get("target"),
+        ready: target.value === "staging" && confirm.checked && formData.get("target") === "staging" && formData.has("confirm"),
+        target: target.value,
+      };
+    })()`,
+    (value) => value.ready,
+  );
+}
+
+async function submitStructuredInputApproval(client, { approvalId, conversationId, workspaceId }) {
+  const result = await client.evaluate(`(async () => {
+    const submitApproval = window.setta?.chat?.submitApproval;
+    if (typeof submitApproval !== "function") {
+      return { reason: "missing-submit-approval-api", submitted: false };
+    }
+    await submitApproval({
+      approvalId: ${JSON.stringify(approvalId)},
+      approved: true,
+      answers: [
+        { answers: [], questionId: "target", value: "staging" },
+        { answers: [], questionId: "confirm", value: true },
+      ],
+      cancelled: false,
+      conversationId: ${JSON.stringify(conversationId)},
+      response: "",
+      workspaceId: ${JSON.stringify(workspaceId)},
+    });
+    return { submitted: true };
+  })()`);
+  if (!result.submitted) {
+    throw new Error(`structured input approval was not submittable: ${JSON.stringify(result)}`);
   }
 }
 
