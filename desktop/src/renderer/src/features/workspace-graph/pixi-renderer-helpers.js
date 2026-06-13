@@ -263,16 +263,16 @@ export function drawPortVisualState(target, port, state) {
     .fill({ alpha, color: portTheme.core });
 }
 
-export function drawWorkspaceGlow(target, nodes, now) {
+export function drawWorkspaceGlow(target, nodes, now, { mode = "static" } = {}) {
   target.clear();
-  const pulse = 0.35 + Math.sin(now / 450) * 0.15;
+  const pulse = workspaceGlowPulse(now, mode);
   for (const node of nodes) {
     switch (rendererNodeLayer(node)) {
       case "workflow":
-        drawWorkflowNodeGlow(target, node, pulse);
+        drawWorkflowNodeGlow(target, node, pulse, mode);
         break;
       case "semantic":
-        drawSemanticNodeGlow(target, node, pulse);
+        drawSemanticNodeGlow(target, node, pulse, mode);
         break;
       default:
         throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
@@ -280,20 +280,41 @@ export function drawWorkspaceGlow(target, nodes, now) {
   }
 }
 
-function drawWorkflowNodeGlow(target, node, pulse) {
-  const { glow } = workspaceNeonTheme.workflow;
-  const radius = Math.max(node.width, node.height) / 2 + glow.radiusPadding + pulse * 12;
-  target
-    .roundRect(node.x - 8, node.y - 8, node.width + 16, node.height + 16, 14)
-    .stroke({ alpha: glow.alpha, color: node.color, width: 8 })
-    .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
-    .stroke({ alpha: glow.ringAlpha, color: node.color, width: glow.ringWidth });
+function workspaceGlowPulse(now, mode) {
+  if (mode === "animated") {
+    return 0.35 + Math.sin(now / 450) * 0.15;
+  }
+  if (mode === "steady") {
+    return 0.42;
+  }
+  return 0.18;
 }
 
-function drawSemanticNodeGlow(target, node, pulse) {
+function drawWorkflowNodeGlow(target, node, pulse, mode) {
+  const { glow } = workspaceNeonTheme.workflow;
+  const animated = mode === "animated";
+  const steady = mode === "steady";
+  const radius =
+    Math.max(node.width, node.height) / 2 +
+    glow.radiusPadding +
+    (animated ? pulse * 12 : steady ? 8 : 0);
+  const alpha = animated || steady ? glow.alpha + pulse * 0.08 : glow.alpha * 0.55;
+  const ringAlpha = animated || steady ? glow.ringAlpha + pulse * 0.08 : glow.ringAlpha * 0.5;
   target
-    .circle(node.x + node.width / 2, node.y + node.height / 2, 58 + pulse * 16)
-    .stroke({ alpha: 0.08 + pulse * 0.05, color: node.color, width: 2 });
+    .roundRect(node.x - 8, node.y - 8, node.width + 16, node.height + 16, 14)
+    .stroke({ alpha, color: node.color, width: animated || steady ? 9 : 6 })
+    .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
+    .stroke({ alpha: ringAlpha, color: node.color, width: glow.ringWidth });
+}
+
+function drawSemanticNodeGlow(target, node, pulse, mode) {
+  const animated = mode === "animated";
+  const steady = mode === "steady";
+  const radius = 58 + (animated ? pulse * 16 : steady ? 7 : 0);
+  const alpha = animated || steady ? 0.09 + pulse * 0.08 : 0.055;
+  target
+    .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
+    .stroke({ alpha, color: node.color, width: animated || steady ? 2.4 : 1.7 });
 }
 
 function hexToRgb(color) {

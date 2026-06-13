@@ -15,6 +15,7 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
     reduceMotion: reduceMotion === true,
   };
   let animationActive = false;
+  let activeGlowNodes = [];
   let edgeFlowRedrawCount = 0;
   let nodePulseRedrawCount = 0;
   let cellAnimCount = 0;
@@ -34,8 +35,22 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
       reduceMotion: settings.reduceMotion,
       transitionsActive,
     }),
+    glowNodes: () => activeGlowNodes,
     recompute: ({ edges, nodes, visibleNodeIds }) => {
       const animationsAllowed = settings.animationEnabled && !settings.reduceMotion;
+      const visiblePulseNodes = nodes.filter(
+        (node) =>
+          visibleNodeIds.has(node.id) &&
+          rendererNodeLayer(node) === "workflow" &&
+          workflowPulseNodeStatuses.has(node.status),
+      );
+      const visibleActiveCells = nodes.filter(
+        (node) =>
+          visibleNodeIds.has(node.id) &&
+          rendererNodeLayer(node) === "semantic" &&
+          node.activity?.active === true,
+      );
+      activeGlowNodes = [...visiblePulseNodes, ...visibleActiveCells];
       if (!animationsAllowed) {
         activeEdgeFlowCount = 0;
         activeNodePulseCount = 0;
@@ -44,18 +59,8 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
         transitionsActive = 0;
         return;
       }
-      activeNodePulseCount = nodes.filter(
-        (node) =>
-          visibleNodeIds.has(node.id) &&
-          rendererNodeLayer(node) === "workflow" &&
-          workflowPulseNodeStatuses.has(node.status),
-      ).length;
-      cellAnimCount = nodes.filter(
-        (node) =>
-          visibleNodeIds.has(node.id) &&
-          rendererNodeLayer(node) === "semantic" &&
-          node.activity?.active === true,
-      ).length;
+      activeNodePulseCount = visiblePulseNodes.length;
+      cellAnimCount = visibleActiveCells.length;
       activeEdgeFlowCount = edges.filter(
         (edge) =>
           rendererEdgeLayer(edge) === "workflow" &&
@@ -70,16 +75,19 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
         cellAnimCount > 0 ||
         transitionsActive > 0;
     },
-    tick: () => {
+    tick: (now, handlers = {}) => {
       if (!animationActive) {
-        return;
+        return false;
+      }
+      if (activeGlowNodes.length > 0) {
+        nodePulseRedrawCount += 1;
+        handlers.redrawNodeGlow?.({ nodes: activeGlowNodes, now });
       }
       if (activeEdgeFlowCount > 0) {
         edgeFlowRedrawCount += 1;
+        handlers.redrawEdgeFlow?.({ now });
       }
-      if (activeNodePulseCount > 0) {
-        nodePulseRedrawCount += 1;
-      }
+      return true;
     },
   };
 }

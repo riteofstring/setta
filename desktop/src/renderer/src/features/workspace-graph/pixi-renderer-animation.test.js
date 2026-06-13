@@ -50,7 +50,14 @@ describe("workflow graph animation state", () => {
       ],
       visibleNodeIds: new Set(["workflow_running", "workflow_ready", "semantic_active"]),
     });
-    state.tick();
+    const redraws = [];
+    expect(
+      state.tick(1000, {
+        redrawNodeGlow: ({ nodes }) => {
+          redraws.push(nodes.map((node) => node.id));
+        },
+      }),
+    ).toBe(true);
 
     expect(state.debugSnapshot()).toMatchObject({
       activeEdgeFlowCount: 1,
@@ -61,6 +68,7 @@ describe("workflow graph animation state", () => {
       nodePulseRedrawCount: 1,
       transitionsActive: 0,
     });
+    expect(redraws).toEqual([["workflow_running", "workflow_ready", "semantic_active"]]);
   });
 
   test("disables animation under reduced motion or explicit switch", () => {
@@ -85,7 +93,7 @@ describe("workflow graph animation state", () => {
         ],
         visibleNodeIds: new Set(["workflow_running", "workflow_ready"]),
       });
-      state.tick();
+      expect(state.tick(1000)).toBe(false);
 
       expect(state.debugSnapshot()).toMatchObject({
         activeEdgeFlowCount: 0,
@@ -95,6 +103,45 @@ describe("workflow graph animation state", () => {
         edgeFlowRedrawCount: 0,
         nodePulseRedrawCount: 0,
       });
+      expect(state.glowNodes().map((node) => node.id)).toEqual([
+        "workflow_running",
+        "workflow_ready",
+      ]);
     }
+  });
+
+  test("keeps finished graphs idle", () => {
+    const state = createWorkflowGraphAnimationState({
+      animationEnabled: true,
+      reduceMotion: false,
+    });
+
+    state.recompute({
+      edges: [
+        {
+          id: "edge_completed",
+          layer: "workflow",
+          sourceNodeId: "workflow_done",
+          status: "completed",
+          targetNodeId: "workflow_cancelled",
+        },
+      ],
+      nodes: [
+        { id: "workflow_done", layer: "workflow", status: "succeeded" },
+        { id: "workflow_cancelled", layer: "workflow", status: "cancelled" },
+      ],
+      visibleNodeIds: new Set(["workflow_done", "workflow_cancelled"]),
+    });
+
+    expect(state.tick(1000)).toBe(false);
+    expect(state.debugSnapshot()).toMatchObject({
+      activeEdgeFlowCount: 0,
+      activeNodePulseCount: 0,
+      animationActive: false,
+      cellAnimCount: 0,
+      edgeFlowRedrawCount: 0,
+      nodePulseRedrawCount: 0,
+    });
+    expect(state.glowNodes()).toEqual([]);
   });
 });
