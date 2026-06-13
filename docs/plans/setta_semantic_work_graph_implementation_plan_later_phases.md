@@ -107,6 +107,8 @@ The MVP is complete when this loop works through production app paths:
 
 ```text
 agent or workflow work happens
+the semantic cartographer is enabled by default
+bounded cartographer windows are processed automatically while work is running
 semantic events are appended
 semantic nodes/edges/activity appear
 each node has inspectable evidence
@@ -115,6 +117,7 @@ selected semantic context reaches an agent explicitly
 context-pack history records what the agent saw
 state survives restart/reload
 history can explain why the graph changed
+validated cartographer updates do not require user review or approval
 ```
 
 MVP dependencies should be limited to existing stack plus SQLite FTS5 if

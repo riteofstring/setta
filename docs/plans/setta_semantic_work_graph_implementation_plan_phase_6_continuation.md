@@ -513,12 +513,120 @@ Verification:
   unavailable, report the live-harness skip explicitly. Live tests must not use
   `OPENAI_API_KEY`; they should exercise the local Codex CLI ChatGPT-auth path.
 
+### Phase 6F: Default-On Automatic Cartographer Processing
+
+Goal: make semantic graph updates happen automatically during normal workflow
+runs when the semantic cartographer is enabled.
+
+This phase is required before the semantic work graph MVP can be considered
+complete. Phase 6E proves that a closed cartographer window can be processed
+through the shared harness. Phase 6F wires that runner into production workflow
+execution so users do not need to call hidden APIs, press a review button, or
+manually approve semantic graph updates.
+
+Preflight before implementation:
+
+- Start from the Phase 6E runner. Do not redefine the patch schema, prompt,
+  structured-output contract, validation rules, evidence model, or shared
+  harness abstraction.
+- Keep the cartographer enabled by default for workflow runs. Add an explicit
+  setting only to disable automatic cartography, not to enable it.
+- Use push-based workflow/chat event observation. Do not add periodic polling.
+  A startup recovery scan for closed unprocessed windows is acceptable because
+  it repairs durable work after restart.
+- Do not ask for user review or permission before applying cartographer output.
+  The safety boundary is deterministic validation plus append-only semantic
+  events, not a user approval gate.
+- Keep the cartographer non-mutating with respect to the workspace filesystem
+  and workflow definitions. It may only propose semantic graph patches through
+  the existing strict JSON envelope.
+
+Deliverables:
+
+- Add an automatic cartographer processing queue owned by the semantic graph
+  service or runtime wiring. When the observer closes a cartographer window, the
+  window should be enqueued immediately for processing through
+  `ProcessCartographerWindow`.
+- Process windows while the workflow is still running as windows close, not only
+  after the workflow reaches a terminal state. Terminal workflow windows should
+  also be processed automatically.
+- Add per-workspace or per-source concurrency limits so a long workflow cannot
+  start unbounded cartographer turns. Preserve ordering for windows from the
+  same chat run, workflow execution, or cartographer cursor.
+- Add durable recovery on backend startup:
+
+```text
+find closed, unprocessed cartographer windows
+ignore already running/processed windows
+enqueue pending closed windows in deterministic order
+record explicit diagnostics for windows that fail processing
+```
+
+- Auto-apply every cartographer patch that passes deterministic validation.
+  Validation failures should be persisted as failed/rejected cartographer audit
+  records with diagnostics and no graph mutation.
+- Remove review-required behavior from the automatic path. If the model marks a
+  patch as review-required, store that fact as metadata/diagnostics but do not
+  block application when deterministic validation passes.
+- Keep existing review surfaces as audit/correction tools only. They should not
+  be required for normal automatic graph evolution.
+- Refresh semantic graph projections and renderer state after automatic patches
+  create or update nodes, edges, evidence, activity, or steering records.
+- Surface operational state for dogfooding:
+
+```text
+cartographer enabled/disabled
+queued windows
+running window/process count
+last processed window
+last failure diagnostic
+created semantic event ids
+```
+
+- Ensure automatic processing uses the same runtime harness entry point as
+  master chats and workflow agent nodes. Do not introduce a cartographer-only
+  backend, direct model client, hidden CLI invocation, or alternate provider
+  path.
+
+Acceptance criteria:
+
+```text
+new workspaces run with semantic cartographer automatic processing enabled
+any agentic workflow run produces semantic nodes/evidence automatically when the agent trajectory contains evidence-backed findings, decisions, questions, constraints, or activity
+semantic nodes can appear while a long workflow is still running as cartographer windows close
+no user review, approval, or permission prompt is required for validated semantic graph updates
+invalid or unsupported cartographer output records failed audit state without mutating the graph
+restart processes closed unprocessed windows exactly once
+automatic processing remains bounded by cartographer windows, summaries, and concurrency limits
+```
+
+Verification:
+
+- Focused backend tests for queueing on window close, per-source ordering,
+  concurrency limits, restart recovery, idempotent processed-window handling,
+  harness failure diagnostics, validation failure no-mutation behavior, and
+  auto-application of validated patches that were marked review-required by the
+  model.
+- Deterministic end-to-end Electron workflow through production
+  Electron/main/preload/renderer/HTTP/store paths proving semantic nodes are
+  produced automatically through the scripted structured harness, without
+  calling `processCartographerWindow` from the test and without accepting a
+  review prompt. A simple `Start -> Agent -> End` graph is enough for the
+  minimal smoke case, but the implementation must attach to the general
+  workflow/chat event stream rather than that specific graph shape.
+- Deterministic long-running workflow test proving multiple bounded windows are
+  processed before workflow terminal completion and survive reload/restart.
+- Live Codex E2E test when local ChatGPT auth is available. If unavailable,
+  report the live-harness skip explicitly. The live test should verify automatic
+  semantic node creation from a real workflow agent run, not only manual window
+  processing.
+
 ## Phase 7: Retrieval Indexes
 
 Goal: improve recall for context packs and cartographer input without changing
 semantic truth.
 
-Phase 7 starts after Phase 6E. The cartographer patch schema, canonical graph
+Phase 7 starts after Phase 6F. The cartographer patch schema, canonical graph
 tables, context pack contract, and harness abstraction should be treated as
 already established. Retrieval is an advisory layer over those records: it may
 find candidate context, but it must not become the source of truth for semantic
