@@ -1,6 +1,7 @@
 import type { WorkflowGraph } from "@generated/backend";
 
 export interface WorkflowLayoutPosition {
+  moved?: boolean;
   nodeId: string;
   x: number;
   y: number;

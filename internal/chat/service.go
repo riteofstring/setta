@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/semanticcontext"
 	"setta/internal/workspace"
 )
 
@@ -27,8 +28,10 @@ type WorkspaceResolver interface {
 type Service struct {
 	store             *Store
 	harness           Harness
+	taskRunner        HarnessTaskRunner
 	workspaceResolver WorkspaceResolver
 	events            *EventHub
+	semanticCompiler  semanticcontext.Compiler
 	newID             func(prefix string) (string, error)
 	now               func() time.Time
 
@@ -69,6 +72,7 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 	service := &Service{
 		store:             store,
 		harness:           harness,
+		taskRunner:        HarnessTaskRunnerFor(harness),
 		workspaceResolver: workspaceResolver,
 		newID:             randomID,
 		now:               time.Now,
@@ -113,12 +117,29 @@ func WithEventHub(events *EventHub) Option {
 	}
 }
 
+func WithSemanticContextCompiler(compiler semanticcontext.Compiler) Option {
+	return func(service *Service) {
+		service.semanticCompiler = compiler
+	}
+}
+
+func (service *Service) SetSemanticContextCompiler(compiler semanticcontext.Compiler) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.semanticCompiler = compiler
+}
+
 func (service *Service) SubscribeEvents(cursor EventCursor) (*EventSubscription, error) {
 	return service.events.Subscribe(cursor)
 }
 
 func (service *Service) CloseEvents() {
 	service.events.Close()
+}
+
+func (service *Service) HarnessTaskRunner() HarnessTaskRunner {
+	return service.taskRunner
 }
 
 func (service *Service) PublishCodexAccountChanged(reason string) {

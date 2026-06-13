@@ -8,8 +8,10 @@ import (
 	"setta/internal/chat"
 	"setta/internal/codexaccount"
 	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
 	"setta/internal/workspacesession"
+	"setta/internal/workspaceui"
 )
 
 type ContractSchema struct {
@@ -47,6 +49,8 @@ var apiEndpoints = []endpoint{
 	post[CloseWorkspaceRequest, workspacesession.WorkspaceSession]("CloseWorkspace", "/workspaces/close", handler.closeWorkspace),
 	post[ReorderWorkspaceRequest, workspacesession.WorkspaceSession]("ReorderWorkspace", "/workspaces/reorder", handler.reorderWorkspaces),
 	post[RemoveRecentWorkspaceRequest, workspacesession.WorkspaceSession]("RemoveRecentWorkspace", "/workspaces/remove-recent", handler.removeRecentWorkspace),
+	post[ReadWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayoutReadResult]("ReadWorkspaceUILayout", "/workspaces/ui/layout/read", handler.readWorkspaceUILayout),
+	post[SaveWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("SaveWorkspaceUILayout", "/workspaces/ui/layout/save", handler.saveWorkspaceUILayout),
 	post[ListConversationsRequest, ListConversationsResponse]("ListConversations", "/chat/conversations/list", handler.listConversations),
 	post[CreateConversationRequest, chat.Conversation]("CreateConversation", "/chat/conversations/create", handler.createConversation),
 	post[DeleteConversationRequest, ListConversationsResponse]("DeleteConversation", "/chat/conversations/delete", handler.deleteConversation),
@@ -83,6 +87,47 @@ var apiEndpoints = []endpoint{
 	post[GetWorkflowExecutionEventsRequest, orchestrator.WorkflowExecutionEventPage]("GetWorkflowExecutionEvents", "/workflows/executions/events", handler.getWorkflowExecutionEvents),
 	post[SubmitWorkflowApprovalRequest, orchestrator.WorkflowExecution]("SubmitWorkflowApproval", "/workflows/approvals/submit", handler.submitWorkflowApproval),
 	stream("WorkflowEventStream", "/workflows/events", handler.workflowEventStream),
+	post[ReadSemanticGraphRequest, semanticgraph.SemanticGraph]("ReadSemanticGraph", "/semantic-graph/read", handler.readSemanticGraph),
+	post[ReadSemanticNodeDetailRequest, ReadSemanticNodeDetailResponse]("ReadSemanticNodeDetail", "/semantic-graph/nodes/detail", handler.readSemanticNodeDetail),
+	post[ListSemanticEvidenceRequest, semanticgraph.SemanticEvidenceList]("ListSemanticEvidence", "/semantic-graph/evidence/list", handler.listSemanticEvidence),
+	post[ListSemanticActivityRequest, semanticgraph.SemanticActivityList]("ListSemanticActivity", "/semantic-graph/activity/list", handler.listSemanticActivity),
+	post[ListSemanticActivityPageRequest, semanticgraph.SemanticActivityPage]("ListSemanticActivityPage", "/semantic-graph/activity/page", handler.listSemanticActivityPage),
+	post[ReadSemanticActivitySummaryRequest, semanticgraph.SemanticActivitySummary]("ReadSemanticActivitySummary", "/semantic-graph/activity/summary", handler.readSemanticActivitySummary),
+	post[ReadSemanticSteeringStateRequest, semanticgraph.SemanticSteeringState]("ReadSemanticSteeringState", "/semantic-graph/steering/read", handler.readSemanticSteeringState),
+	post[ReadSemanticEventHistoryRequest, semanticgraph.SemanticEventHistory]("ReadSemanticEventHistory", "/semantic-graph/events/history", handler.readSemanticEventHistory),
+	post[ReadSemanticContextPackRequest, semanticgraph.SemanticContextPackReadResponse]("ReadSemanticContextPack", "/semantic-graph/context-packs/read", handler.readSemanticContextPack),
+	post[ListSemanticContextPacksRequest, semanticgraph.SemanticContextPackList]("ListSemanticContextPacks", "/semantic-graph/context-packs/list", handler.listSemanticContextPacks),
+	post[BuildCartographerWindowRequest, semanticgraph.CartographerWindowBuildResult]("BuildCartographerWindow", "/semantic-graph/cartographer/windows/build", handler.buildCartographerWindow),
+	post[ProcessCartographerWindowRequest, semanticgraph.CartographerWindowProcessResult]("ProcessCartographerWindow", "/semantic-graph/cartographer/windows/process", handler.processCartographerWindow),
+	post[ReadCartographerProcessingStateRequest, semanticgraph.CartographerProcessingState]("ReadCartographerProcessingState", "/semantic-graph/cartographer/processing/state", handler.readCartographerProcessingState),
+	post[ReadCartographerRunRequest, semanticgraph.CartographerRunReadResponse]("ReadCartographerRun", "/semantic-graph/cartographer/runs/read", handler.readCartographerRun),
+	post[ListCartographerRunsRequest, semanticgraph.CartographerRunList]("ListCartographerRuns", "/semantic-graph/cartographer/runs/list", handler.listCartographerRuns),
+	post[ListCartographerWindowsRequest, semanticgraph.CartographerWindowList]("ListCartographerWindows", "/semantic-graph/cartographer/windows/list", handler.listCartographerWindows),
+	post[ListCartographerCursorsRequest, semanticgraph.CartographerCursorList]("ListCartographerCursors", "/semantic-graph/cartographer/cursors/list", handler.listCartographerCursors),
+	post[ListCartographerPatchesRequest, semanticgraph.CartographerPatchList]("ListCartographerPatches", "/semantic-graph/cartographer/patches/list", handler.listCartographerPatches),
+	post[ReviewCartographerPatchRequest, semanticgraph.CartographerPatchReviewResult]("AcceptCartographerPatch", "/semantic-graph/cartographer/patches/accept", handler.acceptCartographerPatch),
+	post[ReviewCartographerPatchRequest, semanticgraph.CartographerPatchReviewResult]("RejectCartographerPatch", "/semantic-graph/cartographer/patches/reject", handler.rejectCartographerPatch),
+	post[UpdateSemanticLayoutPositionsRequest, semanticgraph.SemanticLayoutPositionList]("UpdateSemanticLayoutPositions", "/semantic-graph/layout/update", handler.updateSemanticLayoutPositions),
+	post[AttachSemanticNodeToWorkflowExecutionRequest, semanticgraph.SemanticAttachmentResult]("AttachSemanticNodeToWorkflowExecution", "/semantic-graph/attachments/workflow-execution", handler.attachSemanticNodeToWorkflowExecution),
+	post[AttachSemanticNodeToWorkflowNodeRequest, semanticgraph.SemanticAttachmentResult]("AttachSemanticNodeToWorkflowNode", "/semantic-graph/attachments/workflow-node", handler.attachSemanticNodeToWorkflowNode),
+	post[AttachSemanticNodeToChatRunRequest, semanticgraph.SemanticAttachmentResult]("AttachSemanticNodeToChatRun", "/semantic-graph/attachments/chat-run", handler.attachSemanticNodeToChatRun),
+	post[AttachSemanticNodeToChatMessageRequest, semanticgraph.SemanticAttachmentResult]("AttachSemanticNodeToChatMessage", "/semantic-graph/attachments/chat-message", handler.attachSemanticNodeToChatMessage),
+	post[AttachSemanticNodeToRunItemRequest, semanticgraph.SemanticAttachmentResult]("AttachSemanticNodeToRunItem", "/semantic-graph/attachments/run-item", handler.attachSemanticNodeToRunItem),
+	post[AttachSemanticNodeToFileRangeRequest, semanticgraph.SemanticAttachmentResult]("AttachSemanticNodeToFileRange", "/semantic-graph/attachments/file-range", handler.attachSemanticNodeToFileRange),
+	post[EndSemanticActivityRequest, semanticgraph.SemanticActivityEndResult]("EndSemanticActivity", "/semantic-graph/activity/end", handler.endSemanticActivity),
+	post[RenameSemanticNodeRequest, semanticgraph.SemanticMutationResult]("RenameSemanticNode", "/semantic-graph/nodes/rename", handler.renameSemanticNode),
+	post[UpdateSemanticNodeRequest, semanticgraph.SemanticMutationResult]("UpdateSemanticNode", "/semantic-graph/nodes/update", handler.updateSemanticNode),
+	post[SemanticNodeOperationRequest, semanticgraph.SemanticMutationResult]("DismissSemanticNode", "/semantic-graph/nodes/dismiss", handler.dismissSemanticNode),
+	post[SemanticNodeOperationRequest, semanticgraph.SemanticMutationResult]("PromoteSemanticNode", "/semantic-graph/nodes/promote", handler.promoteSemanticNode),
+	post[SplitSemanticNodeRequest, semanticgraph.SemanticMutationResult]("SplitSemanticNode", "/semantic-graph/nodes/split", handler.splitSemanticNode),
+	post[MergeSemanticNodesRequest, semanticgraph.SemanticMutationResult]("MergeSemanticNodes", "/semantic-graph/nodes/merge", handler.mergeSemanticNodes),
+	post[CreateSemanticNodeRequest, semanticgraph.SemanticMutationResult]("CreateSemanticNode", "/semantic-graph/nodes/create", handler.createSemanticNode),
+	post[CreateSemanticEdgeRequest, semanticgraph.SemanticMutationResult]("CreateSemanticEdge", "/semantic-graph/edges/create", handler.createSemanticEdge),
+	post[UpdateSemanticEdgeRequest, semanticgraph.SemanticMutationResult]("UpdateSemanticEdge", "/semantic-graph/edges/update", handler.updateSemanticEdge),
+	post[SemanticEdgeOperationRequest, semanticgraph.SemanticMutationResult]("RemoveSemanticEdge", "/semantic-graph/edges/remove", handler.removeSemanticEdge),
+	post[CreateSemanticSteeringDirectiveRequest, semanticgraph.SemanticMutationResult]("CreateSemanticSteeringDirective", "/semantic-graph/steering/create", handler.createSemanticSteeringDirective),
+	post[UpdateSemanticSteeringDirectiveRequest, semanticgraph.SemanticMutationResult]("UpdateSemanticSteeringDirective", "/semantic-graph/steering/update", handler.updateSemanticSteeringDirective),
+	streamEvent[semanticgraph.SemanticGraphChangeEvent]("SemanticGraphChangeEventStream", "/semantic-graph/events/changes", handler.semanticGraphChangeEventStream),
 	post[CreateTerminalRequest, TerminalSessionResponse]("CreateTerminal", "/terminals/create", handler.createTerminal),
 	post[AttachTerminalRequest, TerminalSessionResponse]("AttachTerminal", "/terminals/attach", handler.attachTerminal),
 	post[TerminalInputRequest, TerminalInputResponse]("TerminalInput", "/terminals/input", handler.terminalInput),

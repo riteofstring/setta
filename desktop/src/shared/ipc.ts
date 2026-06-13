@@ -3,35 +3,92 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 import type {
   AppearancePresetList,
   AppearanceSettings,
+  AttachSemanticNodeToChatMessageRequest,
+  AttachSemanticNodeToChatRunRequest,
+  AttachSemanticNodeToFileRangeRequest,
+  AttachSemanticNodeToRunItemRequest,
+  AttachSemanticNodeToWorkflowExecutionRequest,
+  AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
+  BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
+  CartographerCursorList,
+  CartographerPatchList,
+  CartographerPatchReviewResult,
+  CartographerProcessingState,
+  CartographerRunList,
+  CartographerRunReadResponse,
+  CartographerWindowBuildResult,
+  CartographerWindowList,
+  CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   CodexAccountState,
   Conversation,
   ConversationListItem,
+  CreateSemanticEdgeRequest,
+  CreateSemanticNodeRequest,
+  CreateSemanticSteeringDirectiveRequest,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
+  ListCartographerCursorsRequest,
+  ListCartographerPatchesRequest,
+  ListCartographerRunsRequest,
+  ListCartographerWindowsRequest,
   ListConversationsResponse,
+  ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
+  MergeSemanticNodesRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  ProcessCartographerWindowRequest,
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  ReadCartographerProcessingStateRequest,
+  RenameSemanticNodeRequest,
+  ReadCartographerRunRequest,
+  ReadSemanticActivitySummaryRequest,
+  ReadSemanticContextPackRequest,
   ReadWorkflowGraphProjectionResponse,
+  ReadSemanticEventHistoryRequest,
+  ReadSemanticGraphRequest,
+  ReadSemanticNodeDetailRequest,
+  ReadSemanticNodeDetailResponse,
+  ReadSemanticSteeringStateRequest,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
+  ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
+  ListSemanticActivityPageRequest,
+  ListSemanticActivityRequest,
+  ListSemanticEvidenceRequest,
   SendMessageResult,
   SelectDefaultTerminalProfileRequest,
+  SemanticActivityEndResult,
+  SemanticActivityList,
+  SemanticActivityPage,
+  SemanticActivitySummary,
+  SemanticAttachmentResult,
+  SemanticContextPackList,
+  SemanticContextPackReadResponse,
+  SemanticEdgeOperationRequest,
+  SemanticEventHistory,
+  SemanticEvidenceList,
+  SemanticGraph,
+  SemanticLayoutPositionList,
+  SemanticMutationResult,
+  SemanticNodeOperationRequest,
+  SemanticSteeringState,
+  SplitSemanticNodeRequest,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
@@ -42,6 +99,10 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
+  UpdateSemanticEdgeRequest,
+  UpdateSemanticLayoutPositionsRequest,
+  UpdateSemanticNodeRequest,
+  UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
   WorkflowDefinition,
   WorkflowExecution,
@@ -49,6 +110,8 @@ import type {
   WorkflowGraph,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
+  WorkspaceUILayout,
+  WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
 import type {
@@ -101,6 +164,46 @@ export const ipcChannels = {
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
+  semanticGraphActivityEnd: "semantic-graph:activity-end",
+  semanticGraphActivityList: "semantic-graph:activity-list",
+  semanticGraphActivityPage: "semantic-graph:activity-page",
+  semanticGraphActivitySummary: "semantic-graph:activity-summary",
+  semanticGraphAttachChatMessage: "semantic-graph:attach-chat-message",
+  semanticGraphAttachChatRun: "semantic-graph:attach-chat-run",
+  semanticGraphAttachFileRange: "semantic-graph:attach-file-range",
+  semanticGraphAttachRunItem: "semantic-graph:attach-run-item",
+  semanticGraphAttachWorkflowExecution: "semantic-graph:attach-workflow-execution",
+  semanticGraphAttachWorkflowNode: "semantic-graph:attach-workflow-node",
+  semanticGraphCartographerCursorList: "semantic-graph:cartographer-cursor-list",
+  semanticGraphCartographerPatchAccept: "semantic-graph:cartographer-patch-accept",
+  semanticGraphCartographerPatchList: "semantic-graph:cartographer-patch-list",
+  semanticGraphCartographerPatchReject: "semantic-graph:cartographer-patch-reject",
+  semanticGraphCartographerProcessingState: "semantic-graph:cartographer-processing-state",
+  semanticGraphCartographerRunList: "semantic-graph:cartographer-run-list",
+  semanticGraphCartographerRunRead: "semantic-graph:cartographer-run-read",
+  semanticGraphCartographerWindowBuild: "semantic-graph:cartographer-window-build",
+  semanticGraphCartographerWindowProcess: "semantic-graph:cartographer-window-process",
+  semanticGraphCartographerWindowList: "semantic-graph:cartographer-window-list",
+  semanticGraphCreateEdge: "semantic-graph:create-edge",
+  semanticGraphCreateNode: "semantic-graph:create-node",
+  semanticGraphCreateSteeringDirective: "semantic-graph:create-steering-directive",
+  semanticGraphContextPackList: "semantic-graph:context-pack-list",
+  semanticGraphContextPackRead: "semantic-graph:context-pack-read",
+  semanticGraphDismissNode: "semantic-graph:dismiss-node",
+  semanticGraphEventHistory: "semantic-graph:event-history",
+  semanticGraphEvidenceList: "semantic-graph:evidence-list",
+  semanticGraphLayoutUpdate: "semantic-graph:layout-update",
+  semanticGraphMergeNodes: "semantic-graph:merge-nodes",
+  semanticGraphNodeDetail: "semantic-graph:node-detail",
+  semanticGraphPromoteNode: "semantic-graph:promote-node",
+  semanticGraphRead: "semantic-graph:read",
+  semanticGraphRemoveEdge: "semantic-graph:remove-edge",
+  semanticGraphRenameNode: "semantic-graph:rename-node",
+  semanticGraphSplitNode: "semantic-graph:split-node",
+  semanticGraphSteeringRead: "semantic-graph:steering-read",
+  semanticGraphUpdateEdge: "semantic-graph:update-edge",
+  semanticGraphUpdateNode: "semantic-graph:update-node",
+  semanticGraphUpdateSteeringDirective: "semantic-graph:update-steering-directive",
   workspaceBrowserViewStats: "workspace:browser-view-stats",
   workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   terminalAttach: "terminal:attach",
@@ -128,8 +231,10 @@ export const ipcChannels = {
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
+  workspaceReadUILayout: "workspace:read-ui-layout",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
+  workspaceSaveUILayout: "workspace:save-ui-layout",
   workspaceSelect: "workspace:select",
   workspaceSelectedConversations: "workspace:selected-conversations",
   workspaceSetSelectedConversation: "workspace:set-selected-conversation",
@@ -145,6 +250,7 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
+  semanticGraphEvent: "semantic-graph:event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
   terminalEvent: "terminal:event",
@@ -319,6 +425,166 @@ interface IpcContract {
     args: [request: StartCodexLoginRequest];
     result: StartCodexLoginResponse;
   };
+  semanticGraphActivityList: {
+    args: [request: ListSemanticActivityRequest];
+    result: SemanticActivityList;
+  };
+  semanticGraphActivityPage: {
+    args: [request: ListSemanticActivityPageRequest];
+    result: SemanticActivityPage;
+  };
+  semanticGraphActivitySummary: {
+    args: [request: ReadSemanticActivitySummaryRequest];
+    result: SemanticActivitySummary;
+  };
+  semanticGraphActivityEnd: {
+    args: [request: EndSemanticActivityRequest];
+    result: SemanticActivityEndResult;
+  };
+  semanticGraphAttachChatMessage: {
+    args: [request: AttachSemanticNodeToChatMessageRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachChatRun: {
+    args: [request: AttachSemanticNodeToChatRunRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachFileRange: {
+    args: [request: AttachSemanticNodeToFileRangeRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachRunItem: {
+    args: [request: AttachSemanticNodeToRunItemRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachWorkflowExecution: {
+    args: [request: AttachSemanticNodeToWorkflowExecutionRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphAttachWorkflowNode: {
+    args: [request: AttachSemanticNodeToWorkflowNodeRequest];
+    result: SemanticAttachmentResult;
+  };
+  semanticGraphCartographerCursorList: {
+    args: [request: ListCartographerCursorsRequest];
+    result: CartographerCursorList;
+  };
+  semanticGraphCartographerPatchAccept: {
+    args: [request: ReviewCartographerPatchRequest];
+    result: CartographerPatchReviewResult;
+  };
+  semanticGraphCartographerPatchList: {
+    args: [request: ListCartographerPatchesRequest];
+    result: CartographerPatchList;
+  };
+  semanticGraphCartographerPatchReject: {
+    args: [request: ReviewCartographerPatchRequest];
+    result: CartographerPatchReviewResult;
+  };
+  semanticGraphCartographerProcessingState: {
+    args: [request: ReadCartographerProcessingStateRequest];
+    result: CartographerProcessingState;
+  };
+  semanticGraphCartographerRunList: {
+    args: [request: ListCartographerRunsRequest];
+    result: CartographerRunList;
+  };
+  semanticGraphCartographerRunRead: {
+    args: [request: ReadCartographerRunRequest];
+    result: CartographerRunReadResponse;
+  };
+  semanticGraphCartographerWindowBuild: {
+    args: [request: BuildCartographerWindowRequest];
+    result: CartographerWindowBuildResult;
+  };
+  semanticGraphCartographerWindowProcess: {
+    args: [request: ProcessCartographerWindowRequest];
+    result: CartographerWindowProcessResult;
+  };
+  semanticGraphCartographerWindowList: {
+    args: [request: ListCartographerWindowsRequest];
+    result: CartographerWindowList;
+  };
+  semanticGraphCreateEdge: {
+    args: [request: CreateSemanticEdgeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphCreateNode: {
+    args: [request: CreateSemanticNodeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphCreateSteeringDirective: {
+    args: [request: CreateSemanticSteeringDirectiveRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphContextPackList: {
+    args: [request: ListSemanticContextPacksRequest];
+    result: SemanticContextPackList;
+  };
+  semanticGraphContextPackRead: {
+    args: [request: ReadSemanticContextPackRequest];
+    result: SemanticContextPackReadResponse;
+  };
+  semanticGraphDismissNode: {
+    args: [request: SemanticNodeOperationRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphEventHistory: {
+    args: [request: ReadSemanticEventHistoryRequest];
+    result: SemanticEventHistory;
+  };
+  semanticGraphEvidenceList: {
+    args: [request: ListSemanticEvidenceRequest];
+    result: SemanticEvidenceList;
+  };
+  semanticGraphLayoutUpdate: {
+    args: [request: UpdateSemanticLayoutPositionsRequest];
+    result: SemanticLayoutPositionList;
+  };
+  semanticGraphMergeNodes: {
+    args: [request: MergeSemanticNodesRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphNodeDetail: {
+    args: [request: ReadSemanticNodeDetailRequest];
+    result: ReadSemanticNodeDetailResponse;
+  };
+  semanticGraphPromoteNode: {
+    args: [request: SemanticNodeOperationRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphRead: {
+    args: [request: ReadSemanticGraphRequest];
+    result: SemanticGraph;
+  };
+  semanticGraphRemoveEdge: {
+    args: [request: SemanticEdgeOperationRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphRenameNode: {
+    args: [request: RenameSemanticNodeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphSplitNode: {
+    args: [request: SplitSemanticNodeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphSteeringRead: {
+    args: [request: ReadSemanticSteeringStateRequest];
+    result: SemanticSteeringState;
+  };
+  semanticGraphUpdateEdge: {
+    args: [request: UpdateSemanticEdgeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphUpdateNode: {
+    args: [request: UpdateSemanticNodeRequest];
+    result: SemanticMutationResult;
+  };
+  semanticGraphUpdateSteeringDirective: {
+    args: [request: UpdateSemanticSteeringDirectiveRequest];
+    result: SemanticMutationResult;
+  };
   workspaceBrowserViewStats: {
     args: [];
     result: WorkspaceBrowserViewStats;
@@ -440,6 +706,10 @@ interface IpcContract {
     args: [rootPath: string];
     result: OpenWorkspaceResponse;
   };
+  workspaceReadUILayout: {
+    args: [workspaceId: string];
+    result: WorkspaceUILayoutReadResult;
+  };
   workspaceRemoveRecent: {
     args: [id: string];
     result: WorkspaceSession;
@@ -447,6 +717,10 @@ interface IpcContract {
   workspaceReorder: {
     args: [ids: string[]];
     result: WorkspaceSession;
+  };
+  workspaceSaveUILayout: {
+    args: [layout: WorkspaceUILayout];
+    result: WorkspaceUILayout;
   };
   workspaceSelect: {
     args: [id: string];

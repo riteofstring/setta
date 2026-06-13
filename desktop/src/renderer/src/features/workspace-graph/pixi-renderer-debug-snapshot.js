@@ -6,7 +6,7 @@ import {
   cameraState,
   countMapValues,
   frameSampleStats,
-  portsForNode,
+  interactivePortsForNode,
   portWorldPosition,
   samplePixiVisualState,
   totalDisplayObjectCount,
@@ -97,7 +97,7 @@ export function createWorkflowGraphDebugSnapshot({
               worldScaleX: label.worldTransform.a,
               worldScaleY: label.worldTransform.d,
             },
-            ports: portsForNode(node).map((port) => {
+            ports: interactivePortsForNode(node).map((port) => {
               const world = portWorldPosition(node, port.id);
               const portScreen = viewport.toScreen(world.x, world.y);
               return {
@@ -128,11 +128,19 @@ export function createWorkflowGraphDebugSnapshot({
       render: {
         averageFrameMs: frameStats.average,
         cameraUpdateCount: state.cameraUpdateCount,
+        canvasCreationCount: state.canvasCreationCount,
         edgeCommitCount: state.edgeCommitCount,
         edgeGraphicsCount: 1,
         edgeRedrawCount: state.edgeRedrawCount,
         frameCount: state.frameCount,
         gridDrawCount: state.gridDrawCount,
+        graphUpdateCount: state.graphUpdateCount,
+        graphUpdateEdgeAddCount: state.graphUpdateEdgeAddCount,
+        graphUpdateEdgeRemoveCount: state.graphUpdateEdgeRemoveCount,
+        graphUpdateEdgeUpdateCount: state.graphUpdateEdgeUpdateCount,
+        graphUpdateNodeAddCount: state.graphUpdateNodeAddCount,
+        graphUpdateNodeRemoveCount: state.graphUpdateNodeRemoveCount,
+        graphUpdateNodeUpdateCount: state.graphUpdateNodeUpdateCount,
         compactSelectedLabelCount: countMapValues(nodeLabelFontSizeModes, "compact-selected"),
         labelObjectCount: nodeLabels.size,
         labelSyncCount: state.labelSyncCount,
@@ -150,6 +158,8 @@ export function createWorkflowGraphDebugSnapshot({
         pointerPanUpdateCount: state.pointerPanUpdateCount,
         portGraphicsCount: portVisuals.size,
         reactRenderCount: reactRenderCount(),
+        rendererDestroyCount: state.rendererDestroyCount,
+        rendererInstanceId: state.rendererInstanceId,
         recentFrameMs: [...recentFrameMs],
         selectionChangeCount: state.selectionChangeCount,
         ...spatialQueries.debugSnapshot(),

@@ -16,7 +16,9 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/httpapi"
 	"setta/internal/orchestrator"
+	"setta/internal/semanticgraph"
 	"setta/internal/terminal"
+	"setta/internal/workspaceui"
 )
 
 type contractSpec struct {
@@ -52,16 +54,6 @@ type eventSpec struct {
 	Name    string
 	Payload reflect.Type
 	Type    string
-}
-
-type decoderHelpers struct {
-	Array    bool
-	Boolean  bool
-	Integer  bool
-	Map      bool
-	Nullable bool
-	String   bool
-	Unknown  bool
 }
 
 type contractCollector struct {
@@ -149,7 +141,13 @@ func contractValueSets() []chat.ContractValueSet {
 	for _, set := range orchestrator.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
+	for _, set := range semanticgraph.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
 	for _, set := range terminal.ContractValueSets() {
+		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
+	}
+	for _, set := range workspaceui.ContractValueSets() {
 		sets = append(sets, chat.ContractValueSet{Name: set.Name, Values: set.Values})
 	}
 	return sets
@@ -370,7 +368,7 @@ func (collector *contractCollector) add(goType reflect.Type) error {
 		return nil
 	}
 	switch goType.Kind() {
-	case reflect.Bool, reflect.Int:
+	case reflect.Bool, reflect.Float32, reflect.Float64, reflect.Int:
 		return nil
 	case reflect.String:
 		return collector.addStringAlias(goType)
@@ -404,10 +402,15 @@ func (collector *contractCollector) addStringAlias(goType reflect.Type) error {
 }
 
 func (collector *contractCollector) addMap(goType reflect.Type) error {
-	if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
+	if goType.Key().Kind() != reflect.String {
 		return fmt.Errorf("unsupported Go map type %s", goType)
 	}
-	return nil
+	switch goType.Elem().Kind() {
+	case reflect.Int, reflect.String:
+		return nil
+	default:
+		return fmt.Errorf("unsupported Go map type %s", goType)
+	}
 }
 
 func (collector *contractCollector) addStruct(goType reflect.Type) error {
@@ -530,48 +533,6 @@ func literalUnion(values []string) string {
 		quoted = append(quoted, fmt.Sprintf("%q", value))
 	}
 	return strings.Join(quoted, " | ")
-}
-
-func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
-	helpers := decoderHelperUsage(specs.Interfaces, specs.Events)
-	imports := []string{
-		"assertKnownFields",
-		"assertRecord",
-	}
-	if helpers.Array {
-		imports = append(imports, "decodeArray")
-	}
-	if helpers.Boolean {
-		imports = append(imports, "decodeBoolean")
-	}
-	if len(specs.Events) > 0 {
-		imports = append(imports, "decodeBackendEventBase")
-	}
-	if helpers.Integer {
-		imports = append(imports, "decodeInteger")
-	}
-	if helpers.Map {
-		imports = append(imports, "decodeStringRecord")
-	}
-	if helpers.Nullable {
-		imports = append(imports, "decodeNullable")
-	}
-	if helpers.String {
-		imports = append(imports, "decodeString")
-	}
-	if helpers.Unknown {
-		imports = append(imports, "decodeUnknown")
-	}
-	imports = append(imports,
-		"requestBackend",
-		"requireField",
-	)
-	buffer.WriteString("import {\n")
-	for _, name := range imports {
-		fmt.Fprintf(buffer, "  %s,\n", name)
-	}
-	buffer.WriteString("  type BackendFetch,\n")
-	buffer.WriteString("} from \"@shared/backend-runtime\";\n\n")
 }
 
 func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec) error {
@@ -703,46 +664,6 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 	return nil
 }
 
-func decoderHelperUsage(specs []interfaceSpec, events []eventSpec) decoderHelpers {
-	var helpers decoderHelpers
-	for _, spec := range specs {
-		for index := range spec.Type.NumField() {
-			field := spec.Type.Field(index)
-			if field.PkgPath != "" || jsonName(field) == "-" {
-				continue
-			}
-			markDecoderHelperUsage(field.Type, &helpers)
-		}
-	}
-	if len(events) > 0 {
-		helpers.String = true
-	}
-	return helpers
-}
-
-func markDecoderHelperUsage(goType reflect.Type, helpers *decoderHelpers) {
-	if isJSONRawMessage(goType) {
-		helpers.Unknown = true
-		return
-	}
-	switch goType.Kind() {
-	case reflect.Bool:
-		helpers.Boolean = true
-	case reflect.Int:
-		helpers.Integer = true
-	case reflect.String:
-		helpers.String = true
-	case reflect.Slice:
-		helpers.Array = true
-		markDecoderHelperUsage(goType.Elem(), helpers)
-	case reflect.Map:
-		helpers.Map = true
-	case reflect.Pointer:
-		helpers.Nullable = true
-		markDecoderHelperUsage(goType.Elem(), helpers)
-	}
-}
-
 func renderClient(buffer *bytes.Buffer, specs contractSpec) {
 	buffer.WriteString("export interface BackendClient {\n")
 	for _, endpoint := range specs.Endpoints {
@@ -801,7 +722,7 @@ func decoderExpression(goType reflect.Type, valueExpr string, label string) (str
 		return fmt.Sprintf("decodeUnknown(%s, %q)", valueExpr, label), nil
 	}
 	switch goType.Kind() {
-	case reflect.Bool, reflect.Int, reflect.String:
+	case reflect.Bool, reflect.Float32, reflect.Float64, reflect.Int, reflect.String:
 		return scalarDecoderExpression(goType, valueExpr, label), nil
 	case reflect.Slice:
 		return arrayDecoderExpression(goType, valueExpr, label)
@@ -820,6 +741,8 @@ func scalarDecoderExpression(goType reflect.Type, valueExpr string, label string
 	switch goType.Kind() {
 	case reflect.Bool:
 		return fmt.Sprintf("decodeBoolean(%s, %q)", valueExpr, label)
+	case reflect.Float32, reflect.Float64:
+		return fmt.Sprintf("decodeNumber(%s, %q)", valueExpr, label)
 	case reflect.Int:
 		return fmt.Sprintf("decodeInteger(%s, %q)", valueExpr, label)
 	case reflect.String:
@@ -841,10 +764,17 @@ func arrayDecoderExpression(goType reflect.Type, valueExpr string, label string)
 }
 
 func mapDecoderExpression(goType reflect.Type, valueExpr string, label string) (string, error) {
-	if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
+	if goType.Key().Kind() != reflect.String {
 		return "", fmt.Errorf("unsupported Go map type %s", goType)
 	}
-	return fmt.Sprintf("decodeStringRecord(%s, %q)", valueExpr, label), nil
+	switch goType.Elem().Kind() {
+	case reflect.Int:
+		return fmt.Sprintf("decodeIntegerRecord(%s, %q)", valueExpr, label), nil
+	case reflect.String:
+		return fmt.Sprintf("decodeStringRecord(%s, %q)", valueExpr, label), nil
+	default:
+		return "", fmt.Errorf("unsupported Go map type %s", goType)
+	}
 }
 
 func pointerDecoderExpression(goType reflect.Type, valueExpr string, label string) (string, error) {
@@ -889,7 +819,7 @@ func typeScriptType(goType reflect.Type) (string, error) {
 		return "unknown", nil
 	}
 	switch goType.Kind() {
-	case reflect.Bool, reflect.Int, reflect.String:
+	case reflect.Bool, reflect.Float32, reflect.Float64, reflect.Int, reflect.String:
 		return scalarTypeScriptType(goType), nil
 	case reflect.Slice:
 		return arrayTypeScriptType(goType)
@@ -908,6 +838,8 @@ func scalarTypeScriptType(goType reflect.Type) string {
 	switch goType.Kind() {
 	case reflect.Bool:
 		return "boolean"
+	case reflect.Float32, reflect.Float64:
+		return "number"
 	case reflect.Int:
 		return "number"
 	case reflect.String:
@@ -929,10 +861,17 @@ func arrayTypeScriptType(goType reflect.Type) (string, error) {
 }
 
 func mapTypeScriptType(goType reflect.Type) (string, error) {
-	if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
+	if goType.Key().Kind() != reflect.String {
 		return "", fmt.Errorf("unsupported Go map type %s", goType)
 	}
-	return "Record<string, string>", nil
+	switch goType.Elem().Kind() {
+	case reflect.Int:
+		return "Record<string, number>", nil
+	case reflect.String:
+		return "Record<string, string>", nil
+	default:
+		return "", fmt.Errorf("unsupported Go map type %s", goType)
+	}
 }
 
 func pointerTypeScriptType(goType reflect.Type) (string, error) {

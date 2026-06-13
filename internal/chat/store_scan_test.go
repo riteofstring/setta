@@ -35,7 +35,7 @@ func TestStoreConversationScanFailsWhenExistingDirLacksConversationFile(t *testi
 	if missing {
 		t.Fatal("conversation dir missing = true, want false for existing malformed dir")
 	}
-	_, _, err = store.ScanConversationsAllowingCorrupt("workspace_api")
+	_, _, err = store.scanConversationsAllowingCorrupt("workspace_api")
 	if err == nil {
 		t.Fatal("scan conversations succeeded, want missing conversation file error")
 	}

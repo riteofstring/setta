@@ -29,7 +29,6 @@ import {
   isVerticalDirection,
   minimumColumnWidth,
   nearestColumnWidthPreset,
-  nearestPaneByVerticalCenter,
   nextNumericSuffix,
   normalizedColumnWidthSpec,
   type PaneDirection,
@@ -42,6 +41,10 @@ import {
   normalizeTerminalPaneConfig,
   terminalConfigForRequest,
 } from "./layout-engine-normalization";
+import {
+  paneInHorizontalVisualDirection,
+  paneInVerticalVisualDirection,
+} from "./layout-engine-navigation";
 import { renderNormalLayoutFrame, renderOverviewLayoutFrame } from "./layout-engine-rendering";
 import {
   reorderPaneColumnBefore,
@@ -218,21 +221,27 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       return null;
     }
     const availableHeight = this.availablePaneHeight(viewport.height);
+    const columnVisualFrames = (column: WorkspaceColumn) =>
+      this.columnVisualFrames(column, availableHeight, maximizedPaneId);
     if (isVerticalDirection(direction)) {
-      return this.paneInVerticalVisualDirection(
-        source,
+      return paneInVerticalVisualDirection({
+        adjacentPlaneIndex: (planeIndex, targetDirection) =>
+          this.adjacentPlaneIndex(planeIndex, targetDirection),
+        columnVisualFrames,
+        columns: this.columns,
         direction,
+        nearestColumnInPlaneByHorizontalCenter: (planeIndex, targetSource) =>
+          this.nearestColumnInPlaneByHorizontalCenter(planeIndex, targetSource, viewport.width),
+        source,
         viewport,
-        availableHeight,
-        maximizedPaneId,
-      );
+      });
     }
-    return this.paneInHorizontalVisualDirection(
-      source,
+    return paneInHorizontalVisualDirection({
+      columnVisualFrames,
+      columns: this.columns,
       direction,
-      availableHeight,
-      maximizedPaneId,
-    );
+      source,
+    });
   }
 
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
@@ -768,69 +777,6 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     const targetRow = clamp(source.rowIndex + offset, 0, paneIds.length - 1);
     paneIds.splice(source.rowIndex, 1);
     paneIds.splice(targetRow, 0, paneId);
-  }
-
-  private paneInHorizontalVisualDirection(
-    source: PaneLocation,
-    direction: "left" | "right",
-    availableHeight: number,
-    maximizedPaneId: PaneId | null,
-  ): PaneId | null {
-    const planeColumns = this.columnsInPlane(source.planeIndex);
-    if (planeColumns.length <= 1) {
-      return null;
-    }
-    const targetIndex = source.planeColumnIndex + (direction === "left" ? -1 : 1);
-    const targetColumn = planeColumns[(targetIndex + planeColumns.length) % planeColumns.length];
-    const sourceColumn = this.columns[source.columnIndex];
-    if (!sourceColumn || !targetColumn) {
-      return null;
-    }
-    const sourceFrame = this.columnVisualFrames(sourceColumn, availableHeight, maximizedPaneId)[
-      source.rowIndex
-    ];
-    if (!sourceFrame) {
-      return null;
-    }
-    return nearestPaneByVerticalCenter(
-      this.columnVisualFrames(targetColumn, availableHeight, maximizedPaneId),
-      sourceFrame.centerY,
-    );
-  }
-
-  private paneInVerticalVisualDirection(
-    source: PaneLocation,
-    direction: "up" | "down",
-    viewport: LayoutFrameInput["viewport"],
-    availableHeight: number,
-    maximizedPaneId: PaneId | null,
-  ): PaneId | null {
-    const column = this.columns[source.columnIndex];
-    if (!column) {
-      return null;
-    }
-    const frames = this.columnVisualFrames(column, availableHeight, maximizedPaneId);
-    const targetRowIndex = source.rowIndex + (direction === "up" ? -1 : 1);
-    if (frames[targetRowIndex]) {
-      return frames[targetRowIndex].paneId;
-    }
-    const targetPlaneIndex = this.adjacentPlaneIndex(source.planeIndex, direction);
-    if (targetPlaneIndex === null) {
-      return null;
-    }
-    const targetColumn = this.nearestColumnInPlaneByHorizontalCenter(
-      targetPlaneIndex,
-      source,
-      viewport.width,
-    );
-    if (!targetColumn) {
-      return null;
-    }
-    const sourceFrame = frames[source.rowIndex];
-    return nearestPaneByVerticalCenter(
-      this.columnVisualFrames(targetColumn, availableHeight, maximizedPaneId),
-      sourceFrame?.centerY ?? 0,
-    );
   }
 
   private requirePaneAt(columnIndex: number, rowIndex: number): WorkspacePane {

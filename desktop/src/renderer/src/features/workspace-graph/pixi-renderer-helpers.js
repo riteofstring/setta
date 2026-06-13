@@ -117,8 +117,15 @@ export function portLocalPosition(node, portId) {
   };
 }
 
-export function portsForNode(node) {
-  return Array.isArray(node.ports) && node.ports.length > 0 ? node.ports : defaultPorts;
+function portsForNode(node) {
+  return Array.isArray(node.ports) ? node.ports : defaultPorts;
+}
+
+export function interactivePortsForNode(node) {
+  if (node.connectable === false) {
+    return [];
+  }
+  return portsForNode(node);
 }
 
 export function requirePort(node, portId) {
@@ -381,23 +388,6 @@ export function stopNativeInteraction(event) {
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation();
-}
-
-export function createCanvasContextMenuHandler({ canvas, onCanvasContextMenu, viewport }) {
-  return (event) => {
-    if (!onCanvasContextMenu) {
-      return;
-    }
-    stopNativeInteraction(event);
-    const screen = screenPointFromPointer(canvas, event);
-    const world = viewport.toWorld(screen);
-    onCanvasContextMenu({
-      clientX: event.clientX,
-      clientY: event.clientY,
-      worldX: Math.round(world.x),
-      worldY: Math.round(world.y),
-    });
-  };
 }
 
 export function countMapValues(map, expected) {

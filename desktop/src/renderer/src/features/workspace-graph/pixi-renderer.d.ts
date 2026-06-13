@@ -1,8 +1,15 @@
-interface WorkflowGraphNode {
+export interface WorkflowGraphNode {
+  activity?: {
+    active: boolean;
+    count: number;
+    kind: string;
+  } | null;
   color: number;
+  connectable?: boolean;
   diagnostic?: WorkflowGraphDiagnostic | null;
   height: number;
   id: string;
+  layer?: "semantic" | "workflow";
   label: string;
   ports?: WorkflowGraphPort[];
   width: number;
@@ -10,7 +17,7 @@ interface WorkflowGraphNode {
   y: number;
 }
 
-interface WorkflowGraphPort {
+export interface WorkflowGraphPort {
   id: string;
   label: string;
   role: "source" | "target";
@@ -18,23 +25,27 @@ interface WorkflowGraphPort {
   yRatio: number;
 }
 
-interface WorkflowGraphEdge {
+export interface WorkflowGraphEdge {
+  alpha?: number;
+  color?: number;
   diagnostic?: WorkflowGraphDiagnostic | null;
   id: string;
+  layer?: "semantic" | "workflow";
   label?: string;
   sourceNodeId: string;
   sourcePortId: string;
   targetNodeId: string;
   targetPortId: string;
+  width?: number;
 }
 
-interface WorkflowGraphDiagnostic {
+export interface WorkflowGraphDiagnostic {
   codes: string[];
   count: number;
   severity: "error" | "warning";
 }
 
-interface WorkflowGraphGraph {
+export interface WorkflowGraphGraph {
   edges: WorkflowGraphEdge[];
   nodes: WorkflowGraphNode[];
   workflow?: {
@@ -57,7 +68,8 @@ export interface WorkflowGraphCameraState {
   zoom: number;
 }
 
-interface WorkflowGraphNodePosition {
+export interface WorkflowGraphNodePosition {
+  moved: boolean;
   nodeId: string;
   x: number;
   y: number;
@@ -77,6 +89,17 @@ export interface WorkflowGraphEdgeConnection {
   targetPortId: string;
 }
 
+export interface WorkflowGraphRendererHandlers {
+  onCanvasContextMenu?: ((menu: WorkflowGraphCanvasContextMenu) => void) | null;
+  onCameraStateChange?: (camera: WorkflowGraphCameraState) => void;
+  onEdgeCreate?: (connection: WorkflowGraphEdgeConnection) => void;
+  onNodeDelete?: (nodeIds: string[]) => void;
+  onNodeOpen?: ((nodeId: string) => void) | null;
+  onNodePositionsChange?: (positions: WorkflowGraphNodePosition[]) => void;
+  onNodeSelectionChange?: (nodeIds: string[]) => void;
+  reactRenderCount?: () => number;
+}
+
 interface CreateWorkflowGraphRendererOptions {
   abortSignal?: AbortSignal;
   debugEnabled: boolean;
@@ -84,19 +107,21 @@ interface CreateWorkflowGraphRendererOptions {
   graph?: WorkflowGraphGraph;
   host: HTMLElement;
   initialCameraState?: WorkflowGraphCameraState | null;
-  onCanvasContextMenu?: (menu: WorkflowGraphCanvasContextMenu) => void;
-  onCameraStateChange?: (camera: WorkflowGraphCameraState) => void;
-  onEdgeCreate?: (connection: WorkflowGraphEdgeConnection) => void;
-  onNodeDelete?: (nodeIds: string[]) => void;
-  onNodeOpen?: (nodeId: string) => void;
-  onNodePositionsChange?: (positions: WorkflowGraphNodePosition[]) => void;
-  onNodeSelectionChange?: (nodeIds: string[]) => void;
-  reactRenderCount: () => number;
+  onCanvasContextMenu?: WorkflowGraphRendererHandlers["onCanvasContextMenu"];
+  onCameraStateChange?: WorkflowGraphRendererHandlers["onCameraStateChange"];
+  onEdgeCreate?: WorkflowGraphRendererHandlers["onEdgeCreate"];
+  onNodeDelete?: WorkflowGraphRendererHandlers["onNodeDelete"];
+  onNodeOpen?: WorkflowGraphRendererHandlers["onNodeOpen"];
+  onNodePositionsChange?: WorkflowGraphRendererHandlers["onNodePositionsChange"];
+  onNodeSelectionChange?: WorkflowGraphRendererHandlers["onNodeSelectionChange"];
+  reactRenderCount?: WorkflowGraphRendererHandlers["reactRenderCount"];
 }
 
 export interface WorkflowGraphRenderer {
   cameraState: () => WorkflowGraphCameraState;
   destroy: () => void;
+  setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
+  updateGraph: (graph: WorkflowGraphGraph) => void;
 }
 
 export function createWorkflowGraphRenderer(

@@ -108,7 +108,7 @@ try {
 
 async function ensureWorkspaceOpen(client) {
   const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
-  if (currentWorkspaceId && !currentWorkspaceId.endsWith(":empty")) {
+  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return;
   }
   const opened = await client.evaluate(`(() => {
@@ -128,7 +128,7 @@ async function ensureWorkspaceOpen(client) {
   await waitForState(
     client,
     workspaceIdExpression(),
-    (workspaceId) => workspaceId !== "" && !workspaceId.endsWith(":empty"),
+    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
 }

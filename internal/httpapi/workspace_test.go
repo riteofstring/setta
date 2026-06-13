@@ -14,6 +14,7 @@ import (
 	"setta/internal/appstate"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
+	"setta/internal/workspaceui"
 )
 
 func TestWorkspaceEndpointsOpenSelectReorderCloseAndRemoveRecent(t *testing.T) {
@@ -86,6 +87,46 @@ func TestWorkspaceSelectedConversationsEndpointReturnsCurrentSelection(t *testin
 	}
 	if selected.SelectedConversationIDsByWorkspaceID[opened.Workspace.ID] != "conversation_api" {
 		t.Fatalf("selected conversation ids = %#v", selected.SelectedConversationIDsByWorkspaceID)
+	}
+}
+
+func TestWorkspaceUILayoutEndpointsPersistByWorkspaceID(t *testing.T) {
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, nil, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	layout := workspaceUILayout(opened.Workspace.ID)
+
+	saved := postJSON[workspaceui.WorkspaceUILayout](t, handler, "/workspaces/ui/layout/save", SaveWorkspaceUILayoutRequest{
+		Layout: layout,
+	}, http.StatusOK)
+	if saved.WorkspaceID != opened.Workspace.ID {
+		t.Fatalf("saved workspaceID = %q, want %q", saved.WorkspaceID, opened.Workspace.ID)
+	}
+
+	read := postJSON[workspaceui.WorkspaceUILayoutReadResult](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if read.Layout == nil {
+		t.Fatal("read layout is nil")
+	}
+	if read.Layout.FocusedPaneID != layout.FocusedPaneID {
+		t.Fatalf("focusedPaneID = %q, want %q", read.Layout.FocusedPaneID, layout.FocusedPaneID)
+	}
+	if _, err := os.Stat(workspaceui.StateFilePath(appDataDir, opened.Workspace.ID)); err != nil {
+		t.Fatalf("stat workspace UI state: %v", err)
+	}
+}
+
+func TestWorkspaceUILayoutEndpointRejectsUnknownWorkspace(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, nil)
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/ui/layout/read", ReadWorkspaceUILayoutRequest{
+		WorkspaceID: "workspace_missing",
+	}, http.StatusBadRequest)
+
+	if errResponse.Error.Code != "read_workspace_ui_layout_failed" {
+		t.Fatalf("error code = %q, want read_workspace_ui_layout_failed", errResponse.Error.Code)
 	}
 }
 
@@ -212,9 +253,18 @@ func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Ti
 	if err != nil {
 		t.Fatalf("new workspace service: %v", err)
 	}
+	uiStore, err := workspaceui.NewStore(filepath.Dir(store.Path()))
+	if err != nil {
+		t.Fatalf("new workspace UI store: %v", err)
+	}
+	uiService, err := workspaceui.NewService(uiStore, service)
+	if err != nil {
+		t.Fatalf("new workspace UI service: %v", err)
+	}
 	return NewHandler(HandlerConfig{
-		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
-		WorkspaceService: service,
+		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
+		WorkspaceService:   service,
+		WorkspaceUIService: uiService,
 	}), filepath.Dir(store.Path())
 }
 
@@ -267,4 +317,60 @@ func mustTime(t *testing.T, value string) time.Time {
 		t.Fatalf("parse time %q: %v", value, err)
 	}
 	return parsed
+}
+
+func workspaceUILayout(workspaceID string) workspaceui.WorkspaceUILayout {
+	return workspaceui.WorkspaceUILayout{
+		SchemaVersion: workspaceui.SchemaVersion,
+		WorkspaceID:   workspaceID,
+		FocusedPaneID: "workspace_pane_1",
+		Columns: []workspaceui.WorkspaceUIColumn{
+			{
+				ColumnID:                "workspace_column_0",
+				IdealWidthSpec:          workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitPX, Value: 520},
+				Index:                   0,
+				PaneIDs:                 []string{"workspace_pane_0"},
+				PlaneIndex:              0,
+				PreviousProportionWidth: nil,
+				SlotIndex:               0,
+				WidthSpec:               workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitPX, Value: 520},
+			},
+			{
+				ColumnID:                "workspace_column_1",
+				IdealWidthSpec:          workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitPX, Value: 520},
+				Index:                   1,
+				PaneIDs:                 []string{"workspace_pane_1"},
+				PlaneIndex:              0,
+				PreviousProportionWidth: nil,
+				SlotIndex:               1,
+				WidthSpec:               workspaceui.ColumnWidthSpec{Unit: workspaceui.ColumnWidthUnitPX, Value: 520},
+			},
+		},
+		Panes: []workspaceui.WorkspaceUIPane{
+			{
+				ColumnID:    "workspace_column_0",
+				Heat:        0,
+				PaneID:      "workspace_pane_0",
+				Sequence:    0,
+				Subtitle:    "workspace chat",
+				SurfaceID:   "workspace_surface_0",
+				SurfaceKind: workspaceui.SurfaceKindChatDOM,
+				Title:       "Chat",
+				Tone:        workspaceui.PaneToneCyan,
+				Weight:      1.6,
+			},
+			{
+				ColumnID:    "workspace_column_1",
+				Heat:        37,
+				PaneID:      "workspace_pane_1",
+				Sequence:    1,
+				Subtitle:    "terminal",
+				SurfaceID:   "workspace_surface_1",
+				SurfaceKind: workspaceui.SurfaceKindTerminal,
+				Title:       "Terminal",
+				Tone:        workspaceui.PaneToneGreen,
+				Weight:      1,
+			},
+		},
+	}
 }
