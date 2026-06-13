@@ -7,11 +7,12 @@ import {
   attachWorkflowGraphCanvas,
   initializeWorkflowGraphApplication,
 } from "./pixi-renderer-application";
+import { createWorkflowGraphAnimationCoordinator } from "./pixi-renderer-animation-coordinator";
 import { createWorkflowGraphAnimationState } from "./pixi-renderer-animation";
+import { createSemanticCellAnimationController } from "./pixi-renderer-cell-animation";
 import { registerWorkflowGraphDebugSurfaceIfEnabled } from "./pixi-renderer-debug-surface";
 import { createWorkflowGraphDebugSnapshot } from "./pixi-renderer-debug-snapshot";
 import {
-  redrawWorkspaceEdgeFlow,
   redrawWorkspaceEdgeHighlights,
   redrawWorkspaceEdges,
 } from "./pixi-renderer-edge-rendering";
@@ -42,7 +43,6 @@ import {
   drawMarqueeSelection,
   drawPortVisualState,
   drawTemporaryEdge,
-  drawWorkspaceGlow,
   edgeConnection,
   hostScreenSize,
   hitTestPortCandidateAtScreen,
@@ -205,6 +205,7 @@ export async function createWorkflowGraphRenderer(options) {
   const edgeGraphics = new Graphics();
   const edgeFlowGraphics = new Graphics();
   const edgeHighlightGraphics = new Graphics();
+  const cellAnimationGraphics = new Graphics();
   const temporaryEdgeGraphics = new Graphics();
   const marqueeGraphics = new Graphics();
   const grid = new Graphics();
@@ -253,12 +254,31 @@ export async function createWorkflowGraphRenderer(options) {
     animationEnabled,
     reduceMotion,
   });
+  const cellAnimation = createSemanticCellAnimationController({
+    cellAnimationGraphics,
+    nodeContainers,
+    nodes,
+  });
+  const animationCoordinator = createWorkflowGraphAnimationCoordinator({
+    animatedGlow,
+    animationState,
+    cellAnimation,
+    edgeFlowGraphics,
+    edges,
+    getNode: requireNode,
+    nodes,
+    spatialQueries,
+    staticGlow,
+  });
   edgeFlowGraphics.blendMode = "add";
   edgeFlowGraphics.eventMode = "none";
+  cellAnimationGraphics.blendMode = "add";
+  cellAnimationGraphics.eventMode = "none";
 
   backgroundLayer.addChild(grid);
   edgeLayer.addChild(edgeGraphics, edgeFlowGraphics, edgeHighlightGraphics, edgeLabelLayer);
   nodeGlowLayer.addChild(staticGlow, animatedGlow);
+  effectsLayer.addChild(cellAnimationGraphics);
   interactionLayer.addChild(marqueeGraphics, temporaryEdgeGraphics);
   drawWorkspaceGrid(grid);
   drawWorkspaceVignette(vignette, screenSize, vignetteGradient);
@@ -421,19 +441,7 @@ export async function createWorkflowGraphRenderer(options) {
     if (cameraStatesDiffer(nextCameraState, lastCameraState)) {
       commitCameraChange(nextCameraState);
     }
-    animationState.tick(now, {
-      redrawEdgeFlow: ({ edges: flowEdges, now: animationNow }) => {
-        redrawWorkspaceEdgeFlow({
-          edgeFlowGraphics,
-          edges: flowEdges,
-          getNode: requireNode,
-          now: animationNow,
-        });
-      },
-      redrawNodeGlow: ({ nodes: glowNodes, now: animationNow }) => {
-        drawWorkspaceGlow(animatedGlow, glowNodes, animationNow, { mode: "animated" });
-      },
-    });
+    animationCoordinator.tick(now);
   });
 
   const unregisterDebugSurface = registerWorkflowGraphDebugSurfaceIfEnabled({
@@ -474,7 +482,7 @@ export async function createWorkflowGraphRenderer(options) {
         pointerPanUpdateCount,
         rendererDestroyCount,
         rendererInstanceId,
-        selectedNodeId: firstSelectedNodeId(),
+        selectedNodeId: selectedNodeIds.values().next().value ?? null,
         selectedEdgeId: edgeInteractions.firstSelectedEdgeId(),
         selectedEdgeIds: edgeInteractions.selectedEdgeIds,
         selectedNodeIds,
@@ -533,7 +541,7 @@ export async function createWorkflowGraphRenderer(options) {
     currentWorkflow = update.workflow;
     nextEdgeSequence = update.nextEdgeSequence;
     spatialQueries.rebuild(nodes);
-    syncAnimationActiveSet();
+    animationCoordinator.syncActiveSet();
     pruneSelectionForNodes(nodes);
     edgeInteractions.prune(edges);
     drawAllNodeOutlines();
@@ -637,7 +645,7 @@ export async function createWorkflowGraphRenderer(options) {
       spatialQueries.updateNode(node);
       labels.syncLabelPosition(node.id);
     }
-    syncAnimationActiveSet();
+    animationCoordinator.syncActiveSet();
     draggingNode.moved = true;
     labels.syncLabelVisibility();
     nodeDragUpdateCount += 1;
@@ -799,16 +807,6 @@ export async function createWorkflowGraphRenderer(options) {
       selectedEdgeIds: edgeInteractions.selectedEdgeIds,
     });
   }
-  function redrawStaticGlow(visibleNodes) {
-    drawWorkspaceGlow(staticGlow, visibleNodes, performance.now(), {
-      mode: "static",
-    });
-  }
-  function redrawAnimatedGlowStatic() {
-    drawWorkspaceGlow(animatedGlow, animationState.glowNodes(), performance.now(), {
-      mode: "steady",
-    });
-  }
   function startEdgeDrawing(sourceNodeId, sourcePortId) {
     const source = requireNode(sourceNodeId);
     const start = portWorldPosition(source, sourcePortId);
@@ -962,18 +960,7 @@ export async function createWorkflowGraphRenderer(options) {
     lastCameraState = nextCameraState;
     handlers.onCameraStateChange(nextCameraState);
     labels.syncAllLabels();
-    syncAnimationActiveSet();
-  }
-
-  function syncAnimationActiveSet() {
-    const visibleNodeIds = spatialQueries.visibleNodeIds();
-    const visibleNodes = nodes.filter((node) => visibleNodeIds.has(node.id));
-    animationState.recompute({ edges, nodes, visibleNodeIds });
-    redrawStaticGlow(visibleNodes);
-    redrawAnimatedGlowStatic();
-    if (animationState.edgeFlows().length === 0) {
-      edgeFlowGraphics.clear();
-    }
+    animationCoordinator.syncActiveSet();
   }
 
   function setPortVisualState(nodeId, portId, state) {
@@ -984,9 +971,6 @@ export async function createWorkflowGraphRenderer(options) {
     }
     portVisualStates.set(key, state);
     drawPortVisualState(visual, requirePort(requireNode(nodeId), portId), state);
-  }
-  function firstSelectedNodeId() {
-    return selectedNodeIds.values().next().value ?? null;
   }
   function requireNode(nodeId) {
     const node = nodes.find((candidate) => candidate.id === nodeId);

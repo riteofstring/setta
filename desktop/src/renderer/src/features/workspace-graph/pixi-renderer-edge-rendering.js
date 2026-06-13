@@ -68,6 +68,7 @@ export function redrawWorkspaceEdgeHighlights({
 }
 
 export function redrawWorkspaceEdgeFlow({
+  activeSemanticNodeIds = null,
   edgeFlowGraphics,
   edges,
   getNode,
@@ -76,14 +77,22 @@ export function redrawWorkspaceEdgeFlow({
 }) {
   edgeFlowGraphics.clear();
   for (const edge of edges) {
-    if (!edgeHasWorkflowFlow(edge, visibleNodeIds)) {
-      continue;
+    switch (rendererEdgeLayer(edge)) {
+      case "workflow":
+        if (!edgeHasWorkflowFlow(edge, visibleNodeIds)) {
+          continue;
+        }
+        drawWorkflowEdgeFlowForEdge({ edge, getNode, now, target: edgeFlowGraphics });
+        break;
+      case "semantic":
+        if (!edgeHasSemanticTendrilFlow(edge, visibleNodeIds, activeSemanticNodeIds)) {
+          continue;
+        }
+        drawSemanticTendrilFlowForEdge({ edge, getNode, now, target: edgeFlowGraphics });
+        break;
+      default:
+        throw new Error(`unsupported workspace graph edge layer: ${edge.layer}`);
     }
-    const source = getNode(edge.sourceNodeId);
-    const target = getNode(edge.targetNodeId);
-    const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
-    const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
-    drawWorkflowEdgeFlow(edgeFlowGraphics, edge, start, end, now);
   }
 }
 
@@ -172,15 +181,22 @@ function drawSemanticEdge(target, edge, start, end) {
 
 function drawSemanticTendrilPath({ amplitude = 0, edge, end, start, stroke, target }) {
   const samples = workspaceNeonTheme.semantic.tendril.filamentSamples;
-  let previous = semanticTendrilPoint(edge, start, end, 0, amplitude);
+  let previous = semanticTendrilPoint({ amplitude, edge, end, phase: 0, start, t: 0 });
   for (let sampleIndex = 1; sampleIndex <= samples; sampleIndex += 1) {
-    const next = semanticTendrilPoint(edge, start, end, sampleIndex / samples, amplitude);
+    const next = semanticTendrilPoint({
+      amplitude,
+      edge,
+      end,
+      phase: 0,
+      start,
+      t: sampleIndex / samples,
+    });
     target.moveTo(previous.x, previous.y).lineTo(next.x, next.y).stroke(stroke);
     previous = next;
   }
 }
 
-function semanticTendrilPoint(edge, start, end, t, amplitude) {
+function semanticTendrilPoint({ amplitude, edge, end, phase, start, t }) {
   const point = sampleCurvedEdge(start, end, t);
   if (amplitude === 0) {
     return point;
@@ -191,7 +207,7 @@ function semanticTendrilPoint(edge, start, end, t, amplitude) {
   const dy = after.y - before.y;
   const length = Math.hypot(dx, dy) || 1;
   const endpointFalloff = Math.sin(Math.PI * t);
-  const wave = Math.sin((t * 1.7 + unitHashForId(edge.id)) * Math.PI * 2);
+  const wave = Math.sin((t * 1.7 + unitHashForId(edge.id) + phase) * Math.PI * 2);
   const offset = wave * amplitude * endpointFalloff;
   return {
     x: point.x + (-dy / length) * offset,
@@ -213,6 +229,26 @@ function edgeHasWorkflowFlow(edge, visibleNodeIds) {
     visibleNodeIds === null ||
     (visibleNodeIds.has(edge.sourceNodeId) && visibleNodeIds.has(edge.targetNodeId))
   );
+}
+
+function edgeHasSemanticTendrilFlow(edge, visibleNodeIds, activeSemanticNodeIds) {
+  if (activeSemanticNodeIds === null || activeSemanticNodeIds.size === 0) {
+    return false;
+  }
+  return (
+    (activeSemanticNodeIds.has(edge.sourceNodeId) ||
+      activeSemanticNodeIds.has(edge.targetNodeId)) &&
+    (visibleNodeIds === null ||
+      (visibleNodeIds.has(edge.sourceNodeId) && visibleNodeIds.has(edge.targetNodeId)))
+  );
+}
+
+function drawWorkflowEdgeFlowForEdge({ edge, getNode, now, target }) {
+  const source = getNode(edge.sourceNodeId);
+  const targetNode = getNode(edge.targetNodeId);
+  const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
+  const end = portWorldPosition(targetNode, requireEdgePort(targetNode, edge, "targetPortId"));
+  drawWorkflowEdgeFlow(target, edge, start, end, now);
 }
 
 function drawWorkflowEdgeFlow(target, edge, start, end, now) {
@@ -250,6 +286,101 @@ function drawWorkflowEdgeFlowPulse(target, start, end, headT, color) {
     .fill({ alpha: style.haloAlpha, color })
     .circle(head.x, head.y, style.headRadius)
     .fill({ alpha: style.headAlpha, color: style.coreColor });
+}
+
+function drawSemanticTendrilFlowForEdge({ edge, getNode, now, target }) {
+  const source = getNode(edge.sourceNodeId);
+  const targetNode = getNode(edge.targetNodeId);
+  const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
+  const end = portWorldPosition(targetNode, requireEdgePort(targetNode, edge, "targetPortId"));
+  drawSemanticTendrilFlow(target, edge, start, end, now);
+}
+
+function drawSemanticTendrilFlow(target, edge, start, end, now) {
+  const style = workspaceNeonTheme.semantic.animation.tendril;
+  const color = edge.color ?? 0x7dd3fc;
+  const phase = now / style.periodMs;
+  drawAnimatedSemanticTendrilPath({
+    amplitude: style.wobbleAmplitude,
+    edge,
+    end,
+    phase,
+    start,
+    stroke: {
+      alpha: style.filamentAlpha,
+      color,
+      width: style.filamentWidth,
+    },
+    target,
+  });
+  drawSemanticTendrilSignal({ color, edge, end, phase, start, target, now });
+}
+
+function drawAnimatedSemanticTendrilPath({ amplitude, edge, end, phase, start, stroke, target }) {
+  const samples = workspaceNeonTheme.semantic.tendril.filamentSamples;
+  let previous = semanticTendrilPoint({ amplitude, edge, end, phase, start, t: 0 });
+  for (let sampleIndex = 1; sampleIndex <= samples; sampleIndex += 1) {
+    const next = semanticTendrilPoint({
+      amplitude,
+      edge,
+      end,
+      phase,
+      start,
+      t: sampleIndex / samples,
+    });
+    target.moveTo(previous.x, previous.y).lineTo(next.x, next.y).stroke(stroke);
+    previous = next;
+  }
+}
+
+function drawSemanticTendrilSignal({ color, edge, end, phase, start, target, now }) {
+  const style = workspaceNeonTheme.semantic.animation.tendril;
+  const headT = (now / style.signalPeriodMs + unitHashForId(edge.id)) % 1;
+  const trailStartT = Math.max(0, headT - style.signalTrailLength);
+  const trailSpan = headT - trailStartT;
+  if (trailSpan > 0) {
+    let previous = semanticTendrilPoint({
+      amplitude: style.wobbleAmplitude,
+      edge,
+      end,
+      phase,
+      start,
+      t: trailStartT,
+    });
+    for (let sampleIndex = 1; sampleIndex <= style.signalSamples; sampleIndex += 1) {
+      const segmentT = trailStartT + (trailSpan * sampleIndex) / style.signalSamples;
+      const next = semanticTendrilPoint({
+        amplitude: style.wobbleAmplitude,
+        edge,
+        end,
+        phase,
+        start,
+        t: segmentT,
+      });
+      target
+        .moveTo(previous.x, previous.y)
+        .lineTo(next.x, next.y)
+        .stroke({
+          alpha: (style.signalTrailAlpha * sampleIndex) / style.signalSamples,
+          color,
+          width: style.signalTrailWidth,
+        });
+      previous = next;
+    }
+  }
+  const head = semanticTendrilPoint({
+    amplitude: style.wobbleAmplitude,
+    edge,
+    end,
+    phase,
+    start,
+    t: headT,
+  });
+  target
+    .circle(head.x, head.y, style.signalHaloRadius)
+    .fill({ alpha: style.signalHaloAlpha, color })
+    .circle(head.x, head.y, style.signalRadius)
+    .fill({ alpha: style.signalAlpha, color: workspaceNeonTheme.semantic.tendril.coreColor });
 }
 
 function drawHighlightedEdge(target, edge, getNode, stroke) {

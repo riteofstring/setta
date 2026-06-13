@@ -109,7 +109,11 @@ interface WorkflowGraphDebugSnapshot {
     animationActive: boolean;
     animationEnabled: boolean;
     cameraUpdateCount: number;
+    cellAnimCandidateCount: number;
+    cellAnimCap: number;
+    cellAnimCapped: boolean;
     cellAnimCount: number;
+    cellAnimRedrawCount: number;
     edgeCommitCount: number;
     edgeFlowRedrawCount: number;
     edgeGraphicsCount: number;
@@ -142,6 +146,11 @@ interface WorkflowGraphDebugSnapshot {
     reduceMotion: boolean;
     recentFrameMs: number[];
     selectionChangeCount: number;
+    semanticTendrilAnimCandidateCount: number;
+    semanticTendrilAnimCap: number;
+    semanticTendrilAnimCapped: boolean;
+    semanticTendrilAnimCount: number;
+    semanticTendrilRedrawCount: number;
     spatialIndexCandidateCount: number;
     spatialIndexNodeCount: number;
     spatialIndexQueryCount: number;

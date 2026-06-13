@@ -105,6 +105,40 @@ describe("workspace graph edge flow rendering", () => {
     ).toBe(true);
     expect(strokes.filter((stroke) => stroke.color === color).length).toBeGreaterThan(2);
   });
+
+  test("draws animated semantic tendrils only for visible active endpoints", () => {
+    const edgeFlowGraphics = new RecordingGraphics();
+    const nodes = new Map([
+      ["semantic:active", semanticNode("semantic:active", 0, 0)],
+      ["semantic:neighbor", semanticNode("semantic:neighbor", 180, 70)],
+      ["semantic:inactive", semanticNode("semantic:inactive", 360, 70)],
+      ["semantic:hidden", semanticNode("semantic:hidden", 540, 70)],
+    ]);
+    const accessedNodeIds = [];
+
+    redrawWorkspaceEdgeFlow({
+      activeSemanticNodeIds: new Set(["semantic:active"]),
+      edgeFlowGraphics,
+      edges: [
+        semanticEdge("semantic-active", "semantic:active", "semantic:neighbor"),
+        semanticEdge("semantic-inactive", "semantic:neighbor", "semantic:inactive"),
+        semanticEdge("semantic-hidden", "semantic:active", "semantic:hidden"),
+      ],
+      getNode: (nodeId) => {
+        accessedNodeIds.push(nodeId);
+        return nodes.get(nodeId);
+      },
+      now: 2400,
+      visibleNodeIds: new Set(["semantic:active", "semantic:neighbor", "semantic:inactive"]),
+    });
+
+    expect(accessedNodeIds).toEqual(["semantic:active", "semantic:neighbor"]);
+    expect(edgeFlowGraphics.operations[0]).toEqual(["clear"]);
+    expect(edgeFlowGraphics.operations.some(([operation]) => operation === "lineTo")).toBe(true);
+    expect(edgeFlowGraphics.operations.filter(([operation]) => operation === "fill")).toHaveLength(
+      2,
+    );
+  });
 });
 
 function workflowNode(id, x, y) {
@@ -135,6 +169,18 @@ function workflowEdge(id, sourceNodeId, targetNodeId, status) {
     sourceNodeId,
     sourcePortId: "output",
     status,
+    targetNodeId,
+    targetPortId: "input",
+  };
+}
+
+function semanticEdge(id, sourceNodeId, targetNodeId) {
+  return {
+    color: workspaceNeonTheme.semantic.edgeKind.supports,
+    id,
+    layer: "semantic",
+    sourceNodeId,
+    sourcePortId: "output",
     targetNodeId,
     targetPortId: "input",
   };
