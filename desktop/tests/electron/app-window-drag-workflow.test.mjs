@@ -65,6 +65,7 @@ try {
   assertChromePlateDoesNotCaptureControls(regions);
   assertPaneChromeDraggable(regions);
   assertPaneDragHandleNotWindowDraggable(regions);
+  await assertEffectiveWindowDragRegions(context.client);
 
   const before = await windowPosition(context.client);
   const paneTitleBar = requiredRegion(regions, "pane-title-bar");
@@ -235,6 +236,7 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
   assertWorkspaceControlsNotDraggable(collapsedRegions);
   assertChromePlateDoesNotCaptureControls(collapsedRegions);
   assertTopChromeControlSizing(await topChromeControlMeasurements(client));
+  await assertEffectiveWindowDragRegions(client);
 
   const maximizeButton = await elementCenter(
     client,
@@ -363,6 +365,98 @@ async function topChromeControlMeasurements(client) {
       toolbarGap: numericGap(".workspace-toolbar-group"),
     };
   })()`);
+}
+
+// Electron builds the OS draggable region by applying every element's
+// -webkit-app-region rect in document order (SkRegion union for drag,
+// difference for no-drag), so a drag surface rendered after a control
+// re-covers the no-drag hole that control punched. Synthetic CDP input
+// bypasses the OS region, so clicks alone cannot catch that regression;
+// this models the ordered region math and checks the points that matter.
+async function assertEffectiveWindowDragRegions(client) {
+  const platform = await client.evaluate(`(() =>
+    document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-desktop-platform") ?? ""
+  )()`);
+  const targets = [
+    { name: "project-toggle", selector: '[data-testid="project-sidebar-toggle"]' },
+    { name: "overview-button", selector: ".workspace-toolbar-button" },
+    { name: "new-frame-button", selector: ".workspace-toolbar-menu-button" },
+    {
+      name: "pane-title-bar",
+      offsetX: 220,
+      offsetY: 12,
+      selector: '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-top-bar',
+    },
+    ...(platform === "darwin" ? [{ name: "chrome-hit-shield", x: 12, y: 20 }] : []),
+  ];
+  const states = await effectiveDragRegionStates(client, targets);
+  const expectations = {
+    "new-frame-button": false,
+    "overview-button": false,
+    "pane-title-bar": true,
+    "project-toggle": false,
+    ...(platform === "darwin" ? { "chrome-hit-shield": false } : {}),
+  };
+  for (const [name, expectedDraggable] of Object.entries(expectations)) {
+    const state = states.find((candidate) => candidate.name === name);
+    if (!state || state.missing) {
+      throw new Error(
+        `missing effective drag region target ${name}: ${JSON.stringify(state ?? states)}`,
+      );
+    }
+    if (state.draggable !== expectedDraggable) {
+      throw new Error(
+        `effective OS drag region mismatch for ${name} (expected draggable=${expectedDraggable}): ${JSON.stringify(state)}`,
+      );
+    }
+  }
+}
+
+async function effectiveDragRegionStates(client, targets) {
+  return client.evaluate(`((targets) => {
+    const points = targets.map((target) => {
+      if (typeof target.x === "number" && typeof target.y === "number") {
+        return { missing: null, name: target.name, x: target.x, y: target.y };
+      }
+      const element = document.querySelector(target.selector);
+      if (!(element instanceof Element)) {
+        return { missing: target.selector, name: target.name, x: 0, y: 0 };
+      }
+      const rect = element.getBoundingClientRect();
+      return {
+        missing: null,
+        name: target.name,
+        x: rect.left + (target.offsetX ?? rect.width / 2),
+        y: rect.top + (target.offsetY ?? rect.height / 2),
+      };
+    });
+    const draggable = points.map(() => false);
+    for (const element of document.querySelectorAll("*")) {
+      const style = getComputedStyle(element);
+      const region = style.getPropertyValue("-webkit-app-region");
+      if (region !== "drag" && region !== "no-drag") {
+        continue;
+      }
+      if (style.display === "none" || style.visibility === "hidden") {
+        continue;
+      }
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        continue;
+      }
+      points.forEach((point, index) => {
+        if (
+          point.x >= rect.left &&
+          point.x < rect.right &&
+          point.y >= rect.top &&
+          point.y < rect.bottom
+        ) {
+          draggable[index] = region === "drag";
+        }
+      });
+    }
+    return points.map((point, index) => ({ ...point, draggable: draggable[index] }));
+  })(${JSON.stringify(targets)})`);
 }
 
 function dragResult(before, after, from, to) {
