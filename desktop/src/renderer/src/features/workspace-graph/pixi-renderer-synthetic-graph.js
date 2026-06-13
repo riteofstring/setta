@@ -1,3 +1,14 @@
+import {
+  semanticEdgeKindValues,
+  semanticNodeColor,
+  semanticNodeKindValues,
+  workflowEdgeStatusValues,
+  workflowNodeAccentColor,
+  workflowNodeKindValues,
+  workflowNodeStatusValues,
+  workspaceNeonTheme,
+} from "./workspace-neon-theme";
+
 const nodeWidth = 168;
 const nodeHeight = 82;
 const nodeSpacingX = 240;
@@ -7,55 +18,6 @@ const semanticNodeWidth = 168;
 const semanticNodeSpacingX = 220;
 const semanticNodeSpacingY = 132;
 
-const workflowNodeStatuses = [
-  "not_started",
-  "pending",
-  "ready",
-  "running",
-  "succeeded",
-  "failed",
-  "cancelled",
-  "waiting_approval",
-  "recovery_required",
-];
-const workflowEdgeStatuses = ["inactive", "active", "completed", "cancelled"];
-const workflowNodeKinds = [
-  "action",
-  "end",
-  "gateway.and",
-  "gateway.or",
-  "gateway.xor",
-  "loop.guard",
-  "start",
-];
-const workflowStatusColors = {
-  not_started: 0x64748b,
-  pending: 0xa78bfa,
-  ready: 0x38bdf8,
-  running: 0x14b8a6,
-  succeeded: 0x22c55e,
-  failed: 0xef4444,
-  cancelled: 0x71717a,
-  waiting_approval: 0xf59e0b,
-  recovery_required: 0xdc2626,
-};
-const semanticNodeKinds = [
-  "concept",
-  "question",
-  "hypothesis",
-  "finding",
-  "decision",
-  "constraint",
-];
-const semanticNodeColors = {
-  concept: 0x0f766e,
-  question: 0x2563eb,
-  hypothesis: 0x9333ea,
-  finding: 0x16a34a,
-  decision: 0xd97706,
-  constraint: 0xdc2626,
-};
-const semanticEdgeColors = [0x7dd3fc, 0x5eead4, 0x86efac, 0xfda4af, 0xfcd34d, 0xf87171, 0xc4b5fd];
 const activityKinds = ["exploring", "editing", "debugging", "validating", "blocked"];
 
 export function createSyntheticWorkflowGraph({ edgesPerNode, nodeCount, scene = "workflow" }) {
@@ -81,10 +43,10 @@ function createSyntheticWorkflowStatusGraph({ edgesPerNode, nodeCount }) {
   for (let index = 0; index < nodeCount; index += 1) {
     const row = Math.floor(index / columns);
     const column = index % columns;
-    const status = workflowNodeStatuses[index % workflowNodeStatuses.length];
-    const kind = workflowNodeKinds[index % workflowNodeKinds.length];
+    const status = workflowNodeStatusValues[index % workflowNodeStatusValues.length];
+    const kind = workflowNodeKindValues[index % workflowNodeKindValues.length];
     nodes.push({
-      color: workflowStatusColors[status],
+      color: workflowNodeAccentColor(status, kind),
       height: nodeHeight,
       id: syntheticNodeId(index),
       kind,
@@ -107,7 +69,7 @@ function createSyntheticWorkflowStatusGraph({ edgesPerNode, nodeCount }) {
         layer: "workflow",
         sourceNodeId: syntheticNodeId(sourceIndex),
         sourcePortId: "output",
-        status: workflowEdgeStatuses[edges.length % workflowEdgeStatuses.length],
+        status: workflowEdgeStatusValues[edges.length % workflowEdgeStatusValues.length],
         targetNodeId: syntheticNodeId(targetIndex),
         targetPortId: "input",
       });
@@ -127,12 +89,12 @@ function createSyntheticSemanticCellGraph({ edgesPerNode, nodeCount }) {
   for (let index = 0; index < nodeCount; index += 1) {
     const row = Math.floor(index / columns);
     const column = index % columns;
-    const kind = semanticNodeKinds[index % semanticNodeKinds.length];
+    const kind = semanticNodeKindValues[index % semanticNodeKindValues.length];
     const promoted = index % 29 === 0;
     const dismissed = index % 31 === 0 && index !== 0;
     nodes.push({
       activity: semanticSyntheticActivity(index),
-      color: dismissed ? 0x52525b : promoted ? 0x0891b2 : semanticNodeColors[kind],
+      color: semanticNodeColor({ dismissed, kind, promoted }),
       connectable: false,
       dismissed,
       height: semanticNodeHeight,
@@ -154,12 +116,13 @@ function createSyntheticSemanticCellGraph({ edgesPerNode, nodeCount }) {
     for (let edgeOrdinal = 0; edgeOrdinal < edgesPerNode; edgeOrdinal += 1) {
       const targetIndex =
         (sourceIndex + edgeTargetOffset(edgeOrdinal, columns, nodeCount)) % nodeCount;
+      const edgeKind = semanticEdgeKindValues[edges.length % semanticEdgeKindValues.length];
       edges.push({
         alpha: 0.76,
-        color: semanticEdgeColors[edges.length % semanticEdgeColors.length],
+        color: workspaceNeonTheme.semantic.edgeKind[edgeKind],
         id: `semantic-edge:synthetic-edge-${edges.length.toString().padStart(5, "0")}`,
         layer: "semantic",
-        label: "related_to",
+        label: edgeKind,
         sourceNodeId: semanticSyntheticNodeId(sourceIndex),
         sourcePortId: "output",
         targetNodeId: semanticSyntheticNodeId(targetIndex),

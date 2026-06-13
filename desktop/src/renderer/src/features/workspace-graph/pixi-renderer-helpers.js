@@ -3,10 +3,12 @@
 import { Point } from "pixi.js";
 
 import { rendererNodeLayer } from "./pixi-renderer-layers";
+import { workspaceNeonTheme } from "./workspace-neon-theme";
 
-const backgroundRed = 7;
-const backgroundGreen = 8;
-const backgroundBlue = 13;
+const backgroundRgb = hexToRgb(workspaceNeonTheme.foundation.background);
+const backgroundRed = backgroundRgb.red;
+const backgroundGreen = backgroundRgb.green;
+const backgroundBlue = backgroundRgb.blue;
 const lineWheelPixelSize = 20;
 const mouseWheelZoomSensitivity = 0.0016;
 const notchedWheelDeltaThreshold = 80;
@@ -214,11 +216,12 @@ export function drawMarqueeSelection(target, marquee) {
     return;
   }
   const bounds = marqueeBounds(marquee);
+  const style = workspaceNeonTheme.foundation.marquee;
   target
     .rect(bounds.x, bounds.y, bounds.width, bounds.height)
-    .fill({ alpha: 0.14, color: 0x38bdf8 })
+    .fill({ alpha: style.fillAlpha, color: style.fillColor })
     .rect(bounds.x, bounds.y, bounds.width, bounds.height)
-    .stroke({ alpha: 0.9, color: 0xbae6fd, width: 2 });
+    .stroke({ alpha: style.strokeAlpha, color: style.strokeColor, width: style.strokeWidth });
 }
 
 export function drawTemporaryEdge(target, edgeDrawing) {
@@ -228,21 +231,28 @@ export function drawTemporaryEdge(target, edgeDrawing) {
   }
   const start = new Point(edgeDrawing.startX, edgeDrawing.startY);
   const end = new Point(edgeDrawing.endX, edgeDrawing.endY);
+  const style = workspaceNeonTheme.foundation.temporaryEdge;
   drawCurvedEdge(target, start, end, {
-    alpha: 0.94,
-    color: 0x67e8f9,
-    width: 3.5,
+    alpha: style.glowAlpha,
+    color: style.color,
+    width: style.glowWidth,
+  });
+  drawCurvedEdge(target, start, end, {
+    alpha: style.alpha,
+    color: style.color,
+    width: style.width,
   });
   target
-    .circle(start.x, start.y, 5.5)
-    .fill({ alpha: 0.92, color: 0x67e8f9 })
-    .circle(end.x, end.y, 5.5)
-    .stroke({ alpha: 0.82, color: 0x67e8f9, width: 2.5 });
+    .circle(start.x, start.y, style.endpointRadius)
+    .fill({ alpha: style.endpointAlpha, color: style.color })
+    .circle(end.x, end.y, style.endpointRadius)
+    .stroke({ alpha: 0.84, color: style.color, width: 2.5 });
 }
 
 export function drawPortVisualState(target, port, state) {
   target.clear();
-  const color = port.role === "source" ? 0x67e8f9 : 0xc4b5fd;
+  const portTheme = workspaceNeonTheme.foundation.port;
+  const color = port.role === "source" ? portTheme.source : portTheme.target;
   const alpha = state === "idle" ? 0.82 : 1;
   const ringAlpha = state === "idle" ? 0.34 : 0.88;
   const ringRadius = state === "active" || state === "target" ? 13 : 10;
@@ -250,7 +260,7 @@ export function drawPortVisualState(target, port, state) {
     .circle(0, 0, ringRadius)
     .stroke({ alpha: ringAlpha, color, width: state === "idle" ? 1.5 : 2.5 })
     .circle(0, 0, 6)
-    .fill({ alpha, color: 0xf8fafc });
+    .fill({ alpha, color: portTheme.core });
 }
 
 export function drawWorkspaceGlow(target, nodes, now) {
@@ -271,13 +281,27 @@ export function drawWorkspaceGlow(target, nodes, now) {
 }
 
 function drawWorkflowNodeGlow(target, node, pulse) {
+  const { glow } = workspaceNeonTheme.workflow;
+  const radius = Math.max(node.width, node.height) / 2 + glow.radiusPadding + pulse * 12;
+  target
+    .roundRect(node.x - 8, node.y - 8, node.width + 16, node.height + 16, 14)
+    .stroke({ alpha: glow.alpha, color: node.color, width: 8 })
+    .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
+    .stroke({ alpha: glow.ringAlpha, color: node.color, width: glow.ringWidth });
+}
+
+function drawSemanticNodeGlow(target, node, pulse) {
   target
     .circle(node.x + node.width / 2, node.y + node.height / 2, 58 + pulse * 16)
     .stroke({ alpha: 0.08 + pulse * 0.05, color: node.color, width: 2 });
 }
 
-function drawSemanticNodeGlow(target, node, pulse) {
-  drawWorkflowNodeGlow(target, node, pulse);
+function hexToRgb(color) {
+  return {
+    blue: color & 0xff,
+    green: (color >> 8) & 0xff,
+    red: (color >> 16) & 0xff,
+  };
 }
 
 export function visibleDisplayObjectCount(displayObjects) {

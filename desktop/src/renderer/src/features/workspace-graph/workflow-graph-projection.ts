@@ -9,6 +9,8 @@ import type {
   WorkflowValidationSeverity,
 } from "@generated/backend";
 
+import { workflowNodeAccentColor } from "./workspace-neon-theme";
+
 interface WorkflowGraphNode {
   color: number;
   diagnostic: WorkflowGraphDiagnostic | null;
@@ -82,28 +84,6 @@ const routePorts = [
   { id: "route_no", label: "no", role: "source", xOffset: -20, yRatio: 0.5 },
   { id: "route_default", label: "default", role: "source", xOffset: -20, yRatio: 0.72 },
 ] satisfies WorkflowGraphPort[];
-
-const nodeStatusColors = {
-  not_started: 0x52525b,
-  pending: 0xa78bfa,
-  ready: 0x38bdf8,
-  running: 0x14b8a6,
-  succeeded: 0x22c55e,
-  failed: 0xef4444,
-  cancelled: 0x71717a,
-  waiting_approval: 0xf59e0b,
-  recovery_required: 0xdc2626,
-} satisfies Record<WorkflowGraphNodeStatus, number>;
-
-const idleKindColors = {
-  action: 0x64748b,
-  end: 0x475569,
-  "gateway.and": 0x8b5cf6,
-  "gateway.or": 0x8b5cf6,
-  "gateway.xor": 0x8b5cf6,
-  "loop.guard": 0xf97316,
-  start: 0x0f766e,
-} satisfies Record<WorkflowNodeKind, number>;
 
 export function rendererGraphFromWorkflowProjection(
   projection: WorkflowGraphProjection,
@@ -250,10 +230,7 @@ function workflowEdgeSourcePortId(condition: WorkflowCondition | null): string {
 }
 
 function workflowNodeColor(status: WorkflowGraphNodeStatus, kind: WorkflowNodeKind) {
-  if (status === "not_started") {
-    return idleKindColors[kind];
-  }
-  return nodeStatusColors[status];
+  return workflowNodeAccentColor(status, kind);
 }
 
 function assertNever(value: never): never {

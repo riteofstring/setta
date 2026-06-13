@@ -9,6 +9,7 @@ import {
   semanticRendererNodeId,
 } from "./semantic-graph-projection";
 import type { WorkflowGraphGraph } from "./pixi-renderer";
+import { workflowNodeAccentColor } from "./workspace-neon-theme";
 
 describe("rendererGraphFromSemanticGraph", () => {
   test("maps semantic graph state into distinct renderer nodes, edges, and activity markers", () => {
@@ -236,11 +237,13 @@ function testWorkflowGraph(): WorkflowGraphGraph {
     edges: [],
     nodes: [
       {
-        color: 0x38bdf8,
+        color: workflowNodeAccentColor("ready", "action"),
         height: 82,
         id: "workflow_node",
+        kind: "action",
         layer: "workflow",
         label: "Workflow Node",
+        status: "ready",
         width: 180,
         x: -120,
         y: 0,

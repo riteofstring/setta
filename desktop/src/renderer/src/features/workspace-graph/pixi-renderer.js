@@ -3,7 +3,6 @@
 import { Container, Graphics, Rectangle } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 
-import { initialEdges, initialNodes } from "./pixi-renderer-fixture";
 import {
   attachWorkflowGraphCanvas,
   initializeWorkflowGraphApplication,
@@ -16,19 +15,19 @@ import {
   redrawWorkspaceEdges,
 } from "./pixi-renderer-edge-rendering";
 import { createWorkflowGraphEdgeInteractions } from "./pixi-renderer-edge-interactions";
-import {
-  createDynamicCanvasContextMenuHandler,
-  noopCameraStateChange,
-  noopReactRenderCount,
-  rendererHandlers,
-} from "./pixi-renderer-handlers";
+import { createDynamicCanvasContextMenuHandler, rendererHandlers } from "./pixi-renderer-handlers";
 import {
   compactSelectedNodeLabelBitmapFontSize,
   validateNodeLabelGlyphs,
 } from "./pixi-renderer-label-font";
 import { createWorkflowGraphLabelManager } from "./pixi-renderer-labels";
 import { destroyInitializedApp } from "./pixi-renderer-lifecycle";
-import { createNodeGeometryContextFactory, drawWorkspaceGrid } from "./pixi-renderer-node-geometry";
+import {
+  createWorkspaceVignetteGradient,
+  createNodeGeometryContextFactory,
+  drawWorkspaceGrid,
+  drawWorkspaceVignette,
+} from "./pixi-renderer-node-geometry";
 import { createWorkflowGraphNodeContainer } from "./pixi-renderer-node-container";
 import { createWorkflowGraphPortContainer } from "./pixi-renderer-port-container";
 import { createWorkflowGraphSceneGraphUpdater } from "./pixi-renderer-scene-graph";
@@ -66,26 +65,16 @@ import {
   createWorkflowGraphKeyDownHandler,
   createWorkflowGraphPointerDownHandler,
 } from "./pixi-renderer-input-handlers";
-const backgroundColor = 0x07080d;
+import { rendererOptionsWithDefaults } from "./pixi-renderer-options";
+import { workspaceNeonTheme } from "./workspace-neon-theme";
+
+const backgroundColor = workspaceNeonTheme.foundation.background;
 const maxZoom = 4;
 const minZoom = 0.25;
 const nodeOpenClickDistanceScreen = 6;
 const nodeOpenClickIntervalMs = 500;
 const portHitRadiusScreen = 18;
 let nextRendererInstanceId = 1;
-const defaultRendererOptions = {
-  animationEnabled: true,
-  debugSurfaceId: "workflow-graph",
-  graph: { edges: initialEdges, nodes: initialNodes },
-  initialCameraState: null,
-  onCameraStateChange: noopCameraStateChange,
-  onCanvasContextMenu: null,
-  onNodeOpen: null,
-  onNodePositionsChange: null,
-  onNodeSelectionChange: null,
-  reactRenderCount: noopReactRenderCount,
-  reduceMotion: false,
-};
 
 export async function createWorkflowGraphRenderer(options) {
   const {
@@ -126,10 +115,14 @@ export async function createWorkflowGraphRenderer(options) {
   });
   viewport.forceHitArea = new Rectangle(0, 0, screenSize.width, screenSize.height);
   configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom });
+  const vignette = new Graphics();
+  const vignetteGradient = createWorkspaceVignetteGradient();
+  vignette.eventMode = "none";
+  vignette.interactiveChildren = false;
   const labelLayer = new Container();
   labelLayer.eventMode = "none";
   labelLayer.interactiveChildren = false;
-  app.stage.addChild(viewport, labelLayer);
+  app.stage.addChild(viewport, vignette, labelLayer);
 
   const backgroundLayer = new Container();
   const edgeLayer = new Container();
@@ -252,6 +245,7 @@ export async function createWorkflowGraphRenderer(options) {
   interactionLayer.addChild(marqueeGraphics, temporaryEdgeGraphics);
   effectsLayer.addChild(glow);
   drawWorkspaceGrid(grid);
+  drawWorkspaceVignette(vignette, screenSize, vignetteGradient);
   gridDrawCount += 1;
   replaceSceneGraph(graph, { countUpdate: false });
 
@@ -263,6 +257,7 @@ export async function createWorkflowGraphRenderer(options) {
     app.renderer.resize(nextSize.width, nextSize.height);
     viewport.resize(nextSize.width, nextSize.height, 4000, 4000);
     viewport.forceHitArea = new Rectangle(0, 0, nextSize.width, nextSize.height);
+    drawWorkspaceVignette(vignette, nextSize, vignetteGradient);
     labels.syncAllLabels();
   });
   resizeObserver.observe(host);
@@ -487,6 +482,8 @@ export async function createWorkflowGraphRenderer(options) {
       window.removeEventListener("pointercancel", pointerCancel);
       window.removeEventListener("keydown", keyDown);
       unregisterDebugSurface?.();
+      vignette.clear();
+      vignetteGradient.destroy();
       for (const nodeId of [...nodeLabels.keys()]) {
         labels.releaseLabel(nodeId);
       }
@@ -978,21 +975,4 @@ export async function createWorkflowGraphRenderer(options) {
     }
     return node;
   }
-}
-
-function rendererOptionsWithDefaults(options) {
-  return {
-    ...defaultRendererOptions,
-    ...definedRendererOptions(options),
-  };
-}
-
-function definedRendererOptions(options) {
-  const definedOptions = {};
-  for (const [key, value] of Object.entries(options)) {
-    if (value !== undefined) {
-      definedOptions[key] = value;
-    }
-  }
-  return definedOptions;
 }

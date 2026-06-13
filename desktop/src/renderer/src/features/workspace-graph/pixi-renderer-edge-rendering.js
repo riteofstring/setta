@@ -2,6 +2,7 @@ import { drawEdgeLabel } from "./pixi-renderer-edge-labels";
 import { rendererEdgeLayer } from "./pixi-renderer-layers";
 import { drawDiagnosticDiamond } from "./pixi-renderer-node-geometry";
 import { drawCurvedEdge, portWorldPosition, requirePort } from "./pixi-renderer-helpers";
+import { workflowEdgeStrokeStyle, workspaceNeonTheme } from "./workspace-neon-theme";
 
 export function redrawWorkspaceEdges({
   edgeGraphics,
@@ -43,7 +44,7 @@ export function redrawWorkspaceEdgeHighlights({
     }
     drawHighlightedEdge(edgeHighlightGraphics, edge, getNode, {
       alpha: 0.72,
-      color: 0x93c5fd,
+      color: workspaceNeonTheme.foundation.selection.hovered.color,
       width: 4.5,
     });
   }
@@ -53,7 +54,7 @@ export function redrawWorkspaceEdgeHighlights({
     }
     drawHighlightedEdge(edgeHighlightGraphics, edge, getNode, {
       alpha: 0.95,
-      color: 0x67e8f9,
+      color: workspaceNeonTheme.foundation.selection.selected.color,
       width: 5.5,
     });
   }
@@ -72,15 +73,31 @@ function drawEdge(target, edge, start, end) {
 }
 
 function drawWorkflowEdge(target, edge, start, end) {
+  const style = workflowEdgeStrokeStyle(edge.status);
+  const color = edge.color ?? style.color;
+  drawCurvedEdge(target, start, end, {
+    alpha: style.glowAlpha,
+    color,
+    width: edge.width ? edge.width + style.glowWidth : style.glowWidth,
+  });
+  drawCurvedEdge(target, start, end, {
+    alpha: edge.alpha ?? style.alpha,
+    color,
+    width: edge.width ?? style.width,
+  });
+  drawCurvedEdge(target, start, end, {
+    alpha: Math.min(0.68, edge.alpha ?? style.alpha),
+    color: workspaceNeonTheme.workflow.edgeCoreColor,
+    width: Math.max(1, (edge.width ?? style.width) - 1.2),
+  });
+}
+
+function drawSemanticEdge(target, edge, start, end) {
   drawCurvedEdge(target, start, end, {
     alpha: edge.alpha ?? 0.65,
     color: edge.color ?? 0xe2e8f0,
     width: edge.width ?? 2.5,
   });
-}
-
-function drawSemanticEdge(target, edge, start, end) {
-  drawWorkflowEdge(target, edge, start, end);
 }
 
 function drawHighlightedEdge(target, edge, getNode, stroke) {

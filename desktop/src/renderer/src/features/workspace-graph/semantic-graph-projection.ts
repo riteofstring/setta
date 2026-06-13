@@ -1,14 +1,16 @@
 import type {
   SemanticActivityInterval,
-  SemanticEdgeKind,
   SemanticGraph,
   SemanticLayoutPositionInput,
   SemanticLayoutPosition,
   SemanticNode,
-  SemanticNodeKind,
 } from "@generated/backend";
 
 import type { WorkflowGraphGraph } from "./pixi-renderer";
+import {
+  semanticNodeColor as semanticNeonNodeColor,
+  workspaceNeonTheme,
+} from "./workspace-neon-theme";
 
 const semanticNodePrefix = "semantic:";
 const semanticNodeHeight = 68;
@@ -17,25 +19,6 @@ const semanticNodeMaxWidth = 236;
 const semanticNodeWidthStep = 7;
 const semanticColumnGap = 248;
 const semanticRowGap = 112;
-
-const semanticNodeColors = {
-  concept: 0x0f766e,
-  question: 0x2563eb,
-  hypothesis: 0x9333ea,
-  finding: 0x16a34a,
-  decision: 0xd97706,
-  constraint: 0xdc2626,
-} satisfies Record<SemanticNodeKind, number>;
-
-const semanticEdgeColors = {
-  about: 0x7dd3fc,
-  touches: 0x5eead4,
-  supports: 0x86efac,
-  refutes: 0xfda4af,
-  resolves: 0xfcd34d,
-  constrains: 0xf87171,
-  related_to: 0xc4b5fd,
-} satisfies Record<SemanticEdgeKind, number>;
 
 export type SemanticActivityByNodeId = ReadonlyMap<string, readonly SemanticActivityInterval[]>;
 
@@ -62,7 +45,7 @@ export function rendererGraphFromSemanticGraph({
       .filter((edge) => semanticNodeIds.has(edge.fromNodeId) && semanticNodeIds.has(edge.toNodeId))
       .map((edge) => ({
         alpha: 0.76,
-        color: semanticEdgeColors[edge.kind],
+        color: workspaceNeonTheme.semantic.edgeKind[edge.kind],
         diagnostic: null,
         id: `semantic-edge:${edge.id}`,
         label: edge.label || edge.kind,
@@ -202,13 +185,11 @@ function semanticDefaultBase(workflowGraph: WorkflowGraphGraph | undefined) {
 }
 
 function semanticNodeColor(node: SemanticNode) {
-  if (semanticNodeDismissed(node)) {
-    return 0x52525b;
-  }
-  if (node.promoted) {
-    return 0x0891b2;
-  }
-  return semanticNodeColors[node.kind];
+  return semanticNeonNodeColor({
+    dismissed: semanticNodeDismissed(node),
+    kind: node.kind,
+    promoted: node.promoted,
+  });
 }
 
 function semanticNodeDismissed(node: SemanticNode) {
