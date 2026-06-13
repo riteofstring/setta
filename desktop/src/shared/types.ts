@@ -33,6 +33,7 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  DeleteWorkflowEdgesRequest,
   DeleteWorkflowNodesRequest,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
@@ -566,6 +567,7 @@ export interface SettaAPI {
       workspaceId: string,
       definitionId: string,
     ) => Promise<DeleteWorkflowDefinitionResponse>;
+    deleteEdges: (request: DeleteWorkflowEdgesRequest) => Promise<WorkflowGraphProjection>;
     deleteNodes: (request: DeleteWorkflowNodesRequest) => Promise<WorkflowGraphProjection>;
     executionEvents: (
       workspaceId: string,

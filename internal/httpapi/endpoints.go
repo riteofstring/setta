@@ -85,6 +85,7 @@ var apiEndpoints = []endpoint{
 	post[AddWorkflowNodeRequest, orchestrator.WorkflowGraphProjection]("AddWorkflowNode", "/workflows/definitions/nodes/add", handler.addWorkflowNode),
 	post[AddWorkflowEdgeRequest, orchestrator.WorkflowGraphProjection]("AddWorkflowEdge", "/workflows/definitions/edges/add", handler.addWorkflowEdge),
 	post[DeleteWorkflowNodesRequest, orchestrator.WorkflowGraphProjection]("DeleteWorkflowNodes", "/workflows/definitions/nodes/delete", handler.deleteWorkflowNodes),
+	post[DeleteWorkflowEdgesRequest, orchestrator.WorkflowGraphProjection]("DeleteWorkflowEdges", "/workflows/definitions/edges/delete", handler.deleteWorkflowEdges),
 	post[UpdateWorkflowNodeRequest, orchestrator.WorkflowGraphProjection]("UpdateWorkflowNode", "/workflows/definitions/nodes/update", handler.updateWorkflowNode),
 	post[UpdateWorkflowEdgeRequest, orchestrator.WorkflowGraphProjection]("UpdateWorkflowEdge", "/workflows/definitions/edges/update", handler.updateWorkflowEdge),
 	post[UpdateWorkflowDefinitionSettingsRequest, orchestrator.WorkflowDefinition]("UpdateWorkflowDefinitionSettings", "/workflows/definitions/settings", handler.updateWorkflowDefinitionSettings),

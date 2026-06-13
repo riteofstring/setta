@@ -78,6 +78,7 @@ type WorkflowService interface {
 	CancelExecution(workspaceID string, executionID string) (orchestrator.WorkflowExecution, error)
 	CreateDefinition(workspaceID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	DeleteDefinition(workspaceID string, definitionID string) error
+	DeleteDefinitionEdges(workspaceID string, definitionID string, expectedRevision string, edgeIDs []string) (orchestrator.WorkflowGraphProjection, error)
 	DeleteDefinitionNodes(workspaceID string, definitionID string, expectedRevision string, nodeIDs []string) (orchestrator.WorkflowGraphProjection, error)
 	ListDefinitions(workspaceID string) ([]orchestrator.WorkflowDefinition, error)
 	ReadDefinition(workspaceID string, definitionID string) (orchestrator.WorkflowDefinition, error)

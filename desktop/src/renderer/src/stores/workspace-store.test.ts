@@ -521,6 +521,7 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     cancelExecution: unavailable,
     createDefinition: unavailable,
     deleteDefinition: unavailable,
+    deleteEdges: unavailable,
     deleteNodes: unavailable,
     executionEvents: unavailable,
     graphProjection: unavailable,

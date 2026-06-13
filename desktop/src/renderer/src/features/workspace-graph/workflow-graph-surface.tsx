@@ -45,7 +45,6 @@ import {
   WorkflowGraphEditorErrorLayer,
   WorkflowGraphStateLayers,
   WorkflowGraphToolbarLayer,
-  WorkflowValidationLayer,
   type WorkflowContextMenuState,
 } from "./workflow-graph-surface-layers";
 import {
@@ -86,6 +85,7 @@ export function WorkflowGraphSurface({
     null,
   );
   const [selectedWorkflowNodeId, setSelectedWorkflowNodeId] = useState<string | null>(null);
+  const [selectedWorkflowEdgeId, setSelectedWorkflowEdgeId] = useState<string | null>(null);
   const [selectedSemanticNodeId, setSelectedSemanticNodeId] = useState<string | null>(null);
   const [workflowValidationFallback, setWorkflowValidationFallback] =
     useState<WorkflowValidationResult | null>(null);
@@ -409,6 +409,56 @@ export function WorkflowGraphSurface({
     },
     [enqueueWorkflowGraphWrite, setSelectedNodeTarget, syntheticGraph],
   );
+  const deleteWorkflowDraftEdges = useCallback(
+    async (edgeIds: string[]) => {
+      if (syntheticGraph !== null || edgeIds.length === 0) {
+        return;
+      }
+      const projectionForDelete = workflowProjectionRef.current;
+      if (projectionForDelete === null) {
+        setWorkflowEditorError("Select workflow edges before deleting");
+        return;
+      }
+      const workflowEdgeIds = new Set(projectionForDelete.edges.map((edge) => edge.id));
+      const edgeIdsToDelete = edgeIds.filter((edgeId) => workflowEdgeIds.has(edgeId));
+      if (edgeIdsToDelete.length === 0) {
+        return;
+      }
+      if (!projectionForDelete.editable) {
+        setWorkflowEditorError("Select the draft workflow before deleting edges");
+        return;
+      }
+      setWorkflowEditorError("");
+      setWorkflowValidationFallback(null);
+      try {
+        await enqueueWorkflowGraphWrite(() => {
+          const currentProjection = workflowProjectionRef.current;
+          if (currentProjection === null) {
+            throw new Error("Select workflow edges before deleting");
+          }
+          if (!currentProjection.editable) {
+            throw new Error("Select the draft workflow before deleting edges");
+          }
+          return window.setta.workflow.deleteEdges({
+            definitionId: currentProjection.definitionId,
+            edgeIds: edgeIdsToDelete,
+            expectedRevision: currentProjection.draftRevision,
+            workspaceId: currentProjection.workspaceId,
+          });
+        });
+        setSelectedWorkflowEdgeId((selectedEdgeId) =>
+          selectedEdgeId !== null && edgeIdsToDelete.includes(selectedEdgeId)
+            ? null
+            : selectedEdgeId,
+        );
+      } catch (error: unknown) {
+        setWorkflowEditorError(
+          error instanceof Error ? error.message : "Workflow edge delete failed",
+        );
+      }
+    },
+    [enqueueWorkflowGraphWrite, syntheticGraph],
+  );
   const validateWorkflowDraft = useCallback(async () => {
     if (syntheticGraph !== null) {
       return null;
@@ -601,12 +651,25 @@ export function WorkflowGraphSurface({
       selectedNodeId === null ? null : semanticNodeIdFromRendererNodeId(selectedNodeId);
     setSelectedSemanticNodeId(semanticNodeId);
     setSelectedWorkflowNodeId(semanticNodeId === null ? selectedNodeId : null);
+    if (selectedNodeId !== null) {
+      setSelectedWorkflowEdgeId(null);
+    }
+  }, []);
+  const handleGraphEdgeSelectionChange = useCallback((edgeIds: string[]) => {
+    const selectedEdgeId = edgeIds[0] ?? null;
+    setSelectedWorkflowEdgeId(selectedEdgeId);
+    if (selectedEdgeId !== null) {
+      setSelectedSemanticNodeId(null);
+      setSelectedWorkflowNodeId(null);
+    }
   }, []);
   const rendererHandlers = useMemo<WorkflowGraphRendererHandlers>(
     () =>
       workflowRendererHandlersForSurface({
         addWorkflowDraftEdge,
+        deleteWorkflowDraftEdges,
         deleteWorkflowDraftNodes,
+        handleGraphEdgeSelectionChange,
         handleGraphNodeSelectionChange,
         openGraphNodeDetails,
         openWorkflowContextMenu,
@@ -619,7 +682,9 @@ export function WorkflowGraphSurface({
       }),
     [
       addWorkflowDraftEdge,
+      deleteWorkflowDraftEdges,
       deleteWorkflowDraftNodes,
+      handleGraphEdgeSelectionChange,
       handleGraphNodeSelectionChange,
       openGraphNodeDetails,
       openWorkflowContextMenu,
@@ -662,6 +727,15 @@ export function WorkflowGraphSurface({
       setSelectedWorkflowNodeId(null);
     }
   }, [selectedWorkflowNodeId, workflowProjection]);
+
+  useEffect(() => {
+    if (
+      selectedWorkflowEdgeId !== null &&
+      !workflowProjection?.edges.some((edge) => edge.id === selectedWorkflowEdgeId)
+    ) {
+      setSelectedWorkflowEdgeId(null);
+    }
+  }, [selectedWorkflowEdgeId, workflowProjection]);
 
   useEffect(() => {
     if (
@@ -828,7 +902,6 @@ export function WorkflowGraphSurface({
         })}
         workflowProjectionError={workflowProjectionError}
       />
-      <WorkflowValidationLayer workflowValidation={workflowValidation} />
       <WorkflowContextMenuLayer
         addWorkflowDraftNode={addWorkflowDraftNode}
         workflowContextMenu={workflowContextMenu}

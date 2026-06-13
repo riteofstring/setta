@@ -10,7 +10,11 @@ import {
 } from "./pixi-renderer-application";
 import { registerWorkflowGraphDebugSurfaceIfEnabled } from "./pixi-renderer-debug-surface";
 import { createWorkflowGraphDebugSnapshot } from "./pixi-renderer-debug-snapshot";
-import { redrawWorkspaceEdges } from "./pixi-renderer-edge-rendering";
+import {
+  redrawWorkspaceEdgeHighlights,
+  redrawWorkspaceEdges,
+} from "./pixi-renderer-edge-rendering";
+import { createWorkflowGraphEdgeInteractions } from "./pixi-renderer-edge-interactions";
 import {
   createDynamicCanvasContextMenuHandler,
   noopCameraStateChange,
@@ -31,7 +35,6 @@ import { createWorkflowGraphSpatialQueries } from "./pixi-renderer-spatial-queri
 import {
   cameraState,
   cameraStatesDiffer,
-  capturePointer,
   clamp,
   commitEdgeConnection,
   configureViewportNavigation,
@@ -42,11 +45,8 @@ import {
   edgeConnection,
   hostScreenSize,
   interactivePortsForNode,
-  isSelectionToggleEvent,
   isZoomWheel,
   marqueeBounds,
-  nodeDeleteRequested,
-  nodeOpenRequested,
   normalizedWheelDelta,
   notifyNodeSelectionChange,
   parsePortKey,
@@ -61,6 +61,10 @@ import {
   stopNativeInteraction,
   zoomFactorFromWheel,
 } from "./pixi-renderer-helpers";
+import {
+  createWorkflowGraphKeyDownHandler,
+  createWorkflowGraphPointerDownHandler,
+} from "./pixi-renderer-input-handlers";
 const backgroundColor = 0x07080d;
 const maxZoom = 4;
 const minZoom = 0.25;
@@ -91,6 +95,8 @@ export async function createWorkflowGraphRenderer(options) {
     onCameraStateChange,
     onCanvasContextMenu,
     onEdgeCreate,
+    onEdgeDelete,
+    onEdgeSelectionChange,
     onNodeDelete,
     onNodeOpen,
     onNodePositionsChange,
@@ -134,6 +140,8 @@ export async function createWorkflowGraphRenderer(options) {
     onCameraStateChange,
     onCanvasContextMenu,
     onEdgeCreate,
+    onEdgeDelete,
+    onEdgeSelectionChange,
     onNodeDelete,
     onNodeOpen,
     onNodePositionsChange,
@@ -185,6 +193,7 @@ export async function createWorkflowGraphRenderer(options) {
     requireNodeLabel: labels.requireNodeLabel,
   });
   const edgeGraphics = new Graphics();
+  const edgeHighlightGraphics = new Graphics();
   const temporaryEdgeGraphics = new Graphics();
   const marqueeGraphics = new Graphics();
   const grid = new Graphics();
@@ -217,9 +226,20 @@ export async function createWorkflowGraphRenderer(options) {
   const canvasCreationCount = 1;
   let rendererDestroyCount = 0;
   const recentFrameMs = [];
+  const edgeInteractions = createWorkflowGraphEdgeInteractions({
+    edges,
+    getNode: requireNode,
+    onSelectionChange: (edgeIds) => {
+      if (handlers.onEdgeSelectionChange) {
+        handlers.onEdgeSelectionChange([...edgeIds]);
+      }
+    },
+    redrawHighlights: redrawEdgeHighlights,
+    viewport,
+  });
 
   backgroundLayer.addChild(grid);
-  edgeLayer.addChild(edgeGraphics, edgeLabelLayer);
+  edgeLayer.addChild(edgeGraphics, edgeHighlightGraphics, edgeLabelLayer);
   interactionLayer.addChild(marqueeGraphics, temporaryEdgeGraphics);
   effectsLayer.addChild(glow);
   drawWorkspaceGrid(grid);
@@ -238,64 +258,23 @@ export async function createWorkflowGraphRenderer(options) {
   });
   resizeObserver.observe(host);
 
-  const pointerDown = (event) => {
-    if (event.button !== 0) {
-      return;
-    }
-    const screen = screenPointFromPointer(app.canvas, event);
-    const sourcePort = hitTestPortAtScreen(screen, {
-      excludeNodeId: null,
-      role: "source",
-    });
-    if (sourcePort) {
-      clearLastNodeClick();
-      startEdgeDrawing(sourcePort.nodeId, sourcePort.portId);
-      capturePointer(event);
-      stopNativeInteraction(event);
-      return;
-    }
-    const node = hitTestNodeAtScreen(screen);
-    if (node) {
-      if (
-        nodeOpenRequested(event, handlers.onNodeOpen) ||
-        repeatedNodeOpenRequested(node.id, screen)
-      ) {
-        clearLastNodeClick();
-        selectOnlyNode(node.id);
-        handlers.onNodeOpen(node.id);
-        capturePointer(event);
-        stopNativeInteraction(event);
-        return;
-      }
-      if (isSelectionToggleEvent(event)) {
-        clearLastNodeClick();
-        toggleNodeSelection(node.id);
-        capturePointer(event);
-        stopNativeInteraction(event);
-        return;
-      }
-      startNodeDragging(node.id, screen);
-      capturePointer(event);
-      stopNativeInteraction(event);
-      return;
-    }
-    if (event.shiftKey) {
-      clearLastNodeClick();
-      startMarqueeSelection(screen);
-      capturePointer(event);
-      stopNativeInteraction(event);
-      return;
-    }
-    if (isSelectionToggleEvent(event)) {
-      stopNativeInteraction(event);
-      return;
-    }
-    clearSelection();
-    clearLastNodeClick();
-    startCameraPanning(screen);
-    capturePointer(event);
-    stopNativeInteraction(event);
-  };
+  const pointerDown = createWorkflowGraphPointerDownHandler({
+    canvas: app.canvas,
+    clearLastNodeClick,
+    clearSelection,
+    edgeInteractions,
+    handlers,
+    hitTestNodeAtScreen,
+    hitTestPortAtScreen,
+    repeatedNodeOpenRequested,
+    selectOnlyNode,
+    setSelectedNodeIds,
+    startCameraPanning,
+    startEdgeDrawing,
+    startMarqueeSelection,
+    startNodeDragging,
+    toggleNodeSelection,
+  });
   const pointerMove = (event) => {
     const screen = screenPointFromPointer(app.canvas, event);
     if (drawingEdge) {
@@ -319,7 +298,7 @@ export async function createWorkflowGraphRenderer(options) {
       moveCameraPan(screen);
       return;
     }
-    syncHoveredNodeAtScreen(screen);
+    syncHoverAtScreen(screen);
   };
   const pointerUp = (event) => {
     if (drawingEdge) {
@@ -363,6 +342,7 @@ export async function createWorkflowGraphRenderer(options) {
   };
   const pointerLeave = () => {
     setHoveredNodeId(null);
+    edgeInteractions.setHovered(null);
   };
   const wheel = (event) => {
     if (drawingEdge || drawingMarquee || draggingNode) {
@@ -384,33 +364,18 @@ export async function createWorkflowGraphRenderer(options) {
     handlers,
     viewport,
   });
-  const keyDown = (event) => {
-    if (nodeDeleteRequested(event, handlers.onNodeDelete, selectedNodeIds)) {
-      handlers.onNodeDelete([...selectedNodeIds]);
-      stopNativeInteraction(event);
-      return;
-    }
-    if (event.key !== "Escape") {
-      return;
-    }
-    if (drawingEdge) {
-      finishEdgeDrawing();
-      stopNativeInteraction(event);
-      return;
-    }
-    if (drawingMarquee) {
-      cancelMarqueeSelection();
-      stopNativeInteraction(event);
-      return;
-    }
-    if (draggingNode || panningCamera) {
-      return;
-    }
-    if (selectedNodeIds.size > 0) {
-      clearSelection();
-      stopNativeInteraction(event);
-    }
-  };
+  const keyDown = createWorkflowGraphKeyDownHandler({
+    cancelMarqueeSelection,
+    clearSelection,
+    edgeInteractions,
+    finishEdgeDrawing,
+    handlers,
+    isDrawingEdge: () => Boolean(drawingEdge),
+    isDrawingMarquee: () => Boolean(drawingMarquee),
+    isDraggingNode: () => Boolean(draggingNode),
+    isPanningCamera: () => Boolean(panningCamera),
+    selectedNodeIds,
+  });
   app.canvas.addEventListener("pointerdown", pointerDown, true);
   app.canvas.addEventListener("pointermove", pointerMove);
   app.canvas.addEventListener("pointerleave", pointerLeave);
@@ -466,6 +431,7 @@ export async function createWorkflowGraphRenderer(options) {
         drawingMarquee: Boolean(drawingMarquee),
         edgeCommitCount,
         edgeRedrawCount,
+        edgeSelectionChangeCount: edgeInteractions.selectionChangeCount(),
         frameCount,
         gridDrawCount,
         labelSyncCount: labels.syncCount(),
@@ -476,6 +442,8 @@ export async function createWorkflowGraphRenderer(options) {
         rendererDestroyCount,
         rendererInstanceId,
         selectedNodeId: firstSelectedNodeId(),
+        selectedEdgeId: edgeInteractions.firstSelectedEdgeId(),
+        selectedEdgeIds: edgeInteractions.selectedEdgeIds,
         selectedNodeIds,
         selectionChangeCount,
         temporaryEdgeUpdateCount,
@@ -530,6 +498,7 @@ export async function createWorkflowGraphRenderer(options) {
     nextEdgeSequence = update.nextEdgeSequence;
     spatialQueries.rebuild(nodes);
     pruneSelectionForNodes(nodes);
+    edgeInteractions.prune(edges);
     drawAllNodeOutlines();
     redrawGlow();
     labels.syncAllLabels();
@@ -704,12 +673,15 @@ export async function createWorkflowGraphRenderer(options) {
     pointerPanUpdateCount += 1;
   }
   function selectOnlyNode(nodeId) {
+    edgeInteractions.clearSelection();
     setSelectedNodeIds([nodeId]);
   }
   function clearSelection() {
+    edgeInteractions.clearSelection();
     setSelectedNodeIds([]);
   }
   function toggleNodeSelection(nodeId) {
+    edgeInteractions.clearSelection();
     const nextSelectedNodeIds = new Set(selectedNodeIds);
     if (nextSelectedNodeIds.has(nodeId)) {
       nextSelectedNodeIds.delete(nodeId);
@@ -737,8 +709,12 @@ export async function createWorkflowGraphRenderer(options) {
       syncNodeOutlineVisibility(candidate.id);
     }
   }
-  function syncHoveredNodeAtScreen(screen) {
-    setHoveredNodeId(hitTestNodeAtScreen(screen)?.id ?? null);
+  function syncHoverAtScreen(screen) {
+    const nodeId = hitTestNodeAtScreen(screen)?.id ?? null;
+    setHoveredNodeId(nodeId);
+    edgeInteractions.setHovered(
+      nodeId === null ? (edgeInteractions.hitTestAtScreen(screen)?.id ?? null) : null,
+    );
   }
   function setHoveredNodeId(nodeId) {
     const nextHoveredNodeIds = new Set(nodeId ? [nodeId] : []);
@@ -775,7 +751,17 @@ export async function createWorkflowGraphRenderer(options) {
       getNode: requireNode,
       validateGlyphs: validateNodeLabelGlyphs,
     });
+    redrawEdgeHighlights();
     edgeRedrawCount += 1;
+  }
+  function redrawEdgeHighlights() {
+    redrawWorkspaceEdgeHighlights({
+      edgeHighlightGraphics,
+      edges,
+      getNode: requireNode,
+      hoveredEdgeIds: edgeInteractions.hoveredEdgeIds,
+      selectedEdgeIds: edgeInteractions.selectedEdgeIds,
+    });
   }
   function redrawGlow() {
     drawWorkspaceGlow(glow, nodes, performance.now());
@@ -839,6 +825,7 @@ export async function createWorkflowGraphRenderer(options) {
     const intersectingNodeIds = nodes
       .filter((node) => candidateNodeIds.has(node.id))
       .map((node) => node.id);
+    edgeInteractions.clearSelection();
     setSelectedNodeIds(intersectingNodeIds);
     finishMarqueeSelection();
   }

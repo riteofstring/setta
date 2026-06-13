@@ -18,11 +18,7 @@ export function redrawWorkspaceEdges({
     const target = getNode(edge.targetNodeId);
     const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
     const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
-    drawCurvedEdge(edgeGraphics, start, end, {
-      alpha: edge.alpha ?? 0.65,
-      color: edge.color ?? 0xe2e8f0,
-      width: edge.width ?? 2.5,
-    });
+    drawEdge(edgeGraphics, edge, start, end);
     drawEdgeDiagnosticMarker(edgeGraphics, edge, start, end);
     drawEdgeLabel(edgeLabelLayer, edge, start, end, {
       fontFamily,
@@ -30,6 +26,52 @@ export function redrawWorkspaceEdges({
       validateGlyphs,
     });
   }
+}
+
+export function redrawWorkspaceEdgeHighlights({
+  edgeHighlightGraphics,
+  edges,
+  getNode,
+  hoveredEdgeIds,
+  selectedEdgeIds,
+}) {
+  edgeHighlightGraphics.clear();
+  for (const edge of edges) {
+    if (!hoveredEdgeIds.has(edge.id) || selectedEdgeIds.has(edge.id)) {
+      continue;
+    }
+    drawHighlightedEdge(edgeHighlightGraphics, edge, getNode, {
+      alpha: 0.72,
+      color: 0x93c5fd,
+      width: 4.5,
+    });
+  }
+  for (const edge of edges) {
+    if (!selectedEdgeIds.has(edge.id)) {
+      continue;
+    }
+    drawHighlightedEdge(edgeHighlightGraphics, edge, getNode, {
+      alpha: 0.95,
+      color: 0x67e8f9,
+      width: 5.5,
+    });
+  }
+}
+
+function drawEdge(target, edge, start, end) {
+  drawCurvedEdge(target, start, end, {
+    alpha: edge.alpha ?? 0.65,
+    color: edge.color ?? 0xe2e8f0,
+    width: edge.width ?? 2.5,
+  });
+}
+
+function drawHighlightedEdge(target, edge, getNode, stroke) {
+  const source = getNode(edge.sourceNodeId);
+  const targetNode = getNode(edge.targetNodeId);
+  const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
+  const end = portWorldPosition(targetNode, requireEdgePort(targetNode, edge, "targetPortId"));
+  drawCurvedEdge(target, start, end, stroke);
 }
 
 function drawEdgeDiagnosticMarker(target, edge, start, end) {

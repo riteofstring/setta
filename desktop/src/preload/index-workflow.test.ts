@@ -50,6 +50,7 @@ describe("preload workflow API", () => {
       "cancelExecution",
       "createDefinition",
       "deleteDefinition",
+      "deleteEdges",
       "deleteNodes",
       "executionEvents",
       "graphProjection",
@@ -101,6 +102,12 @@ describe("preload workflow API", () => {
       definitionId: "workflow_definition_api",
       expectedRevision: "revision_api",
       nodeIds: ["work"],
+      workspaceId: "workspace_api",
+    });
+    await api.workflow.deleteEdges({
+      definitionId: "workflow_definition_api",
+      edgeIds: ["start_work"],
+      expectedRevision: "revision_api",
       workspaceId: "workspace_api",
     });
     await api.workflow.deleteDefinition("workspace_api", "workflow_definition_api");
@@ -217,6 +224,15 @@ describe("preload workflow API", () => {
           definitionId: "workflow_definition_api",
           expectedRevision: "revision_api",
           nodeIds: ["work"],
+          workspaceId: "workspace_api",
+        },
+      ],
+      [
+        ipcChannels.workflowDeleteEdges,
+        {
+          definitionId: "workflow_definition_api",
+          edgeIds: ["start_work"],
+          expectedRevision: "revision_api",
           workspaceId: "workspace_api",
         },
       ],

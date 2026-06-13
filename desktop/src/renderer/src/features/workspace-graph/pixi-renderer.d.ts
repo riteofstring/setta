@@ -94,6 +94,8 @@ export interface WorkflowGraphRendererHandlers {
   onCanvasContextMenu?: ((menu: WorkflowGraphCanvasContextMenu) => void) | null;
   onCameraStateChange?: (camera: WorkflowGraphCameraState) => void;
   onEdgeCreate?: (connection: WorkflowGraphEdgeConnection) => void;
+  onEdgeDelete?: (edgeIds: string[]) => void;
+  onEdgeSelectionChange?: (edgeIds: string[]) => void;
   onNodeDelete?: (nodeIds: string[]) => void;
   onNodeOpen?: ((nodeId: string) => void) | null;
   onNodePositionsChange?: (positions: WorkflowGraphNodePosition[]) => void;
@@ -111,6 +113,8 @@ interface CreateWorkflowGraphRendererOptions {
   onCanvasContextMenu?: WorkflowGraphRendererHandlers["onCanvasContextMenu"];
   onCameraStateChange?: WorkflowGraphRendererHandlers["onCameraStateChange"];
   onEdgeCreate?: WorkflowGraphRendererHandlers["onEdgeCreate"];
+  onEdgeDelete?: WorkflowGraphRendererHandlers["onEdgeDelete"];
+  onEdgeSelectionChange?: WorkflowGraphRendererHandlers["onEdgeSelectionChange"];
   onNodeDelete?: WorkflowGraphRendererHandlers["onNodeDelete"];
   onNodeOpen?: WorkflowGraphRendererHandlers["onNodeOpen"];
   onNodePositionsChange?: WorkflowGraphRendererHandlers["onNodePositionsChange"];

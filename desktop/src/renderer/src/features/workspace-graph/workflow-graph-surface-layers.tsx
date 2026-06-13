@@ -53,20 +53,23 @@ export function WorkflowGraphToolbarLayer({
     return null;
   }
   return (
-    <WorkflowGraphToolbar
-      busy={workflowOperation}
-      onAddNode={(nodeType) => void addWorkflowDraftNodeFromToolbar(nodeType)}
-      onOpenDetails={() => openWorkflowNodeDetails(selectedWorkflowNodeId)}
-      onOpenSettings={() => openWorkflowSettings()}
-      onRun={() => void runWorkflowDraft()}
-      onShowDraft={() => void showDraftWorkflow()}
-      onValidate={() => void validateWorkflowDraft()}
-      projection={workflowProjection}
-      ready={workflowProjectionReady}
-      selectedNodeLabel={selectedWorkflowNodeLabel}
-      validation={workflowValidation}
-      workspaceId={workflowWorkspaceId}
-    />
+    <div className="pointer-events-none absolute top-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-col gap-2">
+      <WorkflowGraphToolbar
+        busy={workflowOperation}
+        onAddNode={(nodeType) => void addWorkflowDraftNodeFromToolbar(nodeType)}
+        onOpenDetails={() => openWorkflowNodeDetails(selectedWorkflowNodeId)}
+        onOpenSettings={() => openWorkflowSettings()}
+        onRun={() => void runWorkflowDraft()}
+        onShowDraft={() => void showDraftWorkflow()}
+        onValidate={() => void validateWorkflowDraft()}
+        projection={workflowProjection}
+        ready={workflowProjectionReady}
+        selectedNodeLabel={selectedWorkflowNodeLabel}
+        validation={workflowValidation}
+        workspaceId={workflowWorkspaceId}
+      />
+      <WorkflowValidationLayer workflowValidation={workflowValidation} />
+    </div>
   );
 }
 
@@ -89,7 +92,7 @@ export function WorkflowGraphStateLayers({
   }).map((label) => <WorkflowGraphState key={label} label={label} />);
 }
 
-export function WorkflowValidationLayer({
+function WorkflowValidationLayer({
   workflowValidation,
 }: {
   workflowValidation: WorkflowValidationResult | null;

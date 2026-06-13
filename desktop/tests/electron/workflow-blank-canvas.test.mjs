@@ -173,7 +173,7 @@ try {
 
   const endPoint = offsetFromWorkflowGraphNode(afterEdge, "agent_task", { x: 260, y: 0 });
   await addWorkflowNodeAt(context.client, workflowGraphSurfaceId, "end", endPoint);
-  const withEndElsewhere = await waitForWorkflowGraphSnapshot(
+  await waitForWorkflowGraphSnapshot(
     context.client,
     (snapshot) =>
       snapshot.graph.nodeCount === 3 &&
@@ -194,7 +194,7 @@ try {
   assertWorkflowNodeDiagnostic(invalidAgentPath, "agent_task", "action_node_output_required");
 
   await installDelayedWorkflowAddEdge(context.client, 1_000);
-  await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, withEndElsewhere, {
+  await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, invalidAgentPath, {
     sourceNodeId: "agent_task",
     targetNodeId: "end",
   });
@@ -250,6 +250,40 @@ try {
   ) {
     throw new Error(`saved workflow edge mismatch: ${JSON.stringify(saved.graph.edges)}`);
   }
+
+  await deleteWorkflowEdgeWithKeyboard(
+    context.client,
+    workflowGraphSurfaceId,
+    afterDelayedEdgeValidation,
+    "start_agent_task",
+  );
+  const afterEdgeKeyboardDelete = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.edgeCount === 1 &&
+      !snapshot.graph.edges.some((edge) => edge.id === "start_agent_task") &&
+      snapshot.interaction.selectedEdgeIds.length === 0,
+  );
+  const afterEdgeDeleteSaved = await readSavedWorkflowDefinition(
+    fixture.workspaceRoot,
+    definitions[0].id,
+  );
+  if (afterEdgeDeleteSaved.graph.edges.some((edge) => edge.id === "start_agent_task")) {
+    throw new Error(
+      `keyboard-deleted workflow edge was saved: ${JSON.stringify(afterEdgeDeleteSaved.graph.edges)}`,
+    );
+  }
+  await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, afterEdgeKeyboardDelete, {
+    sourceNodeId: "start",
+    targetNodeId: "agent_task",
+  });
+  const afterEdgeKeyboardRestore = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.edgeCount === 2 &&
+      snapshot.graph.edges.some((edge) => edge.id === "start_agent_task"),
+  );
+  assertCameraPreserved(afterEdgeKeyboardRestore.camera, pannedCanvas.camera);
 
   const renamedDefinition = await renameWorkflowFromSettings(
     context.client,
@@ -806,6 +840,26 @@ async function deleteWorkflowNodeWithKeyboard(client, surfaceId, snapshot, nodeI
   });
   await waitForWorkflowGraphSnapshot(client, (selectedSnapshot) =>
     selectedSnapshot.interaction.selectedNodeIds.includes(nodeId),
+  );
+  await dispatchKeyEvent(client, { code: "Delete", key: "Delete" });
+  await dispatchKeyEvent(client, { code: "Delete", key: "Delete", type: "keyUp" });
+}
+
+async function deleteWorkflowEdgeWithKeyboard(client, surfaceId, snapshot, edgeId) {
+  const edge = snapshot.graph.edges.find((candidate) => candidate.id === edgeId);
+  if (!edge) {
+    throw new Error(
+      `missing delete target edge ${edgeId}: ${JSON.stringify(snapshot.graph.edges)}`,
+    );
+  }
+  const sourcePort = workflowGraphNodePort(snapshot, edge.sourceNodeId, edge.sourcePortId);
+  const targetPort = workflowGraphNodePort(snapshot, edge.targetNodeId, edge.targetPortId);
+  await dispatchWorkflowGraphMouseClick(client, surfaceId, {
+    x: (sourcePort.screenX + targetPort.screenX) / 2,
+    y: (sourcePort.screenY + targetPort.screenY) / 2,
+  });
+  await waitForWorkflowGraphSnapshot(client, (selectedSnapshot) =>
+    selectedSnapshot.interaction.selectedEdgeIds.includes(edgeId),
   );
   await dispatchKeyEvent(client, { code: "Delete", key: "Delete" });
   await dispatchKeyEvent(client, { code: "Delete", key: "Delete", type: "keyUp" });

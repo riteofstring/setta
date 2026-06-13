@@ -13,7 +13,9 @@ import type { WorkflowContextMenuState } from "./workflow-graph-surface-layers";
 
 interface WorkflowRendererHandlersForSurfaceRequest {
   addWorkflowDraftEdge: (edge: WorkflowGraphEdgeConnection) => Promise<void>;
+  deleteWorkflowDraftEdges: (edgeIds: string[]) => Promise<void>;
   deleteWorkflowDraftNodes: (nodeIds: string[]) => Promise<void>;
+  handleGraphEdgeSelectionChange: (edgeIds: string[]) => void;
   handleGraphNodeSelectionChange: (nodeIds: string[]) => void;
   openGraphNodeDetails: (nodeId: string | null) => void;
   openWorkflowContextMenu: (menu: WorkflowContextMenuState) => void;
@@ -27,7 +29,9 @@ interface WorkflowRendererHandlersForSurfaceRequest {
 
 export function workflowRendererHandlersForSurface({
   addWorkflowDraftEdge,
+  deleteWorkflowDraftEdges,
   deleteWorkflowDraftNodes,
+  handleGraphEdgeSelectionChange,
   handleGraphNodeSelectionChange,
   openGraphNodeDetails,
   openWorkflowContextMenu,
@@ -45,6 +49,9 @@ export function workflowRendererHandlersForSurface({
     },
     onCanvasContextMenu: syntheticGraph === null ? openWorkflowContextMenu : null,
     onEdgeCreate: syntheticGraph === null ? (edge) => void addWorkflowDraftEdge(edge) : undefined,
+    onEdgeDelete:
+      syntheticGraph === null ? (edgeIds) => void deleteWorkflowDraftEdges(edgeIds) : undefined,
+    onEdgeSelectionChange: syntheticGraph === null ? handleGraphEdgeSelectionChange : undefined,
     onNodeDelete:
       syntheticGraph === null ? (nodeIds) => void deleteWorkflowDraftNodes(nodeIds) : undefined,
     onNodeOpen: syntheticGraph === null ? (nodeId) => openGraphNodeDetails(nodeId) : null,

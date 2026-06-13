@@ -34,6 +34,7 @@ import type {
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
+  DeleteWorkflowEdgesRequest,
   DeleteWorkflowNodesRequest,
   EndSemanticActivityRequest,
   GetActiveRunResponse,
@@ -231,6 +232,7 @@ export const ipcChannels = {
   workflowAddNode: "workflow:add-node",
   workflowCreateDefinition: "workflow:create-definition",
   workflowDeleteDefinition: "workflow:delete-definition",
+  workflowDeleteEdges: "workflow:delete-edges",
   workflowDeleteNodes: "workflow:delete-nodes",
   workflowExecutionEvents: "workflow:execution-events",
   workflowGraphProjection: "workflow:graph-projection",
@@ -677,6 +679,10 @@ interface IpcContract {
   workflowDeleteDefinition: {
     args: [workspaceId: string, definitionId: string];
     result: DeleteWorkflowDefinitionResponse;
+  };
+  workflowDeleteEdges: {
+    args: [request: DeleteWorkflowEdgesRequest];
+    result: WorkflowGraphProjection;
   };
   workflowDeleteNodes: {
     args: [request: DeleteWorkflowNodesRequest];

@@ -262,6 +262,84 @@ func TestServiceWorkflowDraftCommandsRequireCurrentRevision(t *testing.T) {
 	}
 }
 
+func TestServiceDeletesWorkflowDraftEdges(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, err := service.CreateDefinition(workspaceID, "Edge delete", "", startEndGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	updated, err := service.DeleteDefinitionEdges(
+		workspaceID,
+		definition.ID,
+		definition.DraftRevision,
+		[]string{"start_end"},
+	)
+	if err != nil {
+		t.Fatalf("delete edge: %v", err)
+	}
+	if updated.DraftRevision == definition.DraftRevision {
+		t.Fatalf("delete edge did not advance revision %q", updated.DraftRevision)
+	}
+	if len(updated.Edges) != 0 {
+		t.Fatalf("projection edges = %+v, want none", updated.Edges)
+	}
+	_, err = service.DeleteDefinitionEdges(
+		workspaceID,
+		definition.ID,
+		updated.DraftRevision,
+		[]string{"missing_edge"},
+	)
+	if err == nil || !strings.Contains(err.Error(), "workflow edge missing_edge was not found") {
+		t.Fatalf("delete missing edge error = %v, want missing edge", err)
+	}
+}
+
+func TestServiceDeletingRouteSourceEdgeReconcilesConditions(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	graph := WorkflowGraph{
+		Nodes: []WorkflowNode{
+			testActionNode("work"),
+			{ID: "route", Kind: NodeKindGatewayXOR, Gateway: &WorkflowGatewayConfig{}},
+			{ID: "end", Kind: NodeKindEnd},
+		},
+		Edges: []WorkflowEdge{
+			{ID: "work_route", FromNodeID: "work", ToNodeID: "route", Kind: EdgeKindNormal},
+			{
+				ID:         "route_end_yes",
+				FromNodeID: "route",
+				ToNodeID:   "end",
+				Kind:       EdgeKindNormal,
+				Condition: &WorkflowCondition{
+					Kind:        ConditionActionSignal,
+					NodeID:      "work",
+					SignalName:  "route",
+					SignalValue: "yes",
+				},
+			},
+		},
+	}
+	definition, err := service.CreateDefinition(workspaceID, "Route source delete", "", graph)
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	updated, err := service.DeleteDefinitionEdges(
+		workspaceID,
+		definition.ID,
+		definition.DraftRevision,
+		[]string{"work_route"},
+	)
+	if err != nil {
+		t.Fatalf("delete route source edge: %v", err)
+	}
+	edge := projectedEdgeForTest(t, updated, "route_end_yes")
+	if edge.Condition == nil {
+		t.Fatal("route_end_yes condition is nil, want action signal condition")
+	}
+	if edge.Condition.NodeID != "" {
+		t.Fatalf("route_end_yes condition node id = %q, want cleared source", edge.Condition.NodeID)
+	}
+}
+
 func TestServiceStartupRecoveryRequiresManualStateForUncertainSideEffects(t *testing.T) {
 	runner := newRecordingActionRunner()
 	runner.recover = func(request ActionRecoverRequest) ActionRecoverResult {

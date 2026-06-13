@@ -25,9 +25,18 @@ export function nodeOpenRequested(event, onNodeOpen) {
 
 export function nodeDeleteRequested(event, onNodeDelete, selectedNodeIds) {
   return (
-    isNodeDeleteKey(event.key) &&
+    isDeleteKey(event.key) &&
     selectedNodeIds.size > 0 &&
     typeof onNodeDelete === "function" &&
+    !keyboardEventTargetsEditableText(event)
+  );
+}
+
+export function edgeDeleteRequested(event, onEdgeDelete, selectedEdgeIds) {
+  return (
+    isDeleteKey(event.key) &&
+    selectedEdgeIds.size > 0 &&
+    typeof onEdgeDelete === "function" &&
     !keyboardEventTargetsEditableText(event)
   );
 }
@@ -38,7 +47,7 @@ export function notifyNodeSelectionChange(onNodeSelectionChange, selectedNodeIds
   }
 }
 
-function isNodeDeleteKey(key) {
+function isDeleteKey(key) {
   return key === "Delete" || key === "Backspace";
 }
 

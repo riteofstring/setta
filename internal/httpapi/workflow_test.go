@@ -126,6 +126,32 @@ func TestWorkflowEndpointsCreateValidateStartCancelAndReadEvents(t *testing.T) {
 	}
 }
 
+func TestWorkflowEndpointDeletesDraftEdges(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	workspaceRoot := t.TempDir()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: workspaceRoot}, http.StatusOK)
+	definition := postJSON[orchestrator.WorkflowDefinition](t, handler, "/workflows/definitions/create", CreateWorkflowDefinitionRequest{
+		WorkspaceID: opened.Workspace.ID,
+		Name:        "HTTP edge delete",
+		Graph:       httpWorkflowActionGraph(),
+	}, http.StatusOK)
+
+	projection := postJSON[orchestrator.WorkflowGraphProjection](t, handler, "/workflows/definitions/edges/delete", DeleteWorkflowEdgesRequest{
+		WorkspaceID:      opened.Workspace.ID,
+		DefinitionID:     definition.ID,
+		ExpectedRevision: definition.DraftRevision,
+		EdgeIDs:          []string{"start_work"},
+	}, http.StatusOK)
+	for _, edge := range projection.Edges {
+		if edge.ID == "start_work" {
+			t.Fatalf("projection edges still contain deleted edge: %+v", projection.Edges)
+		}
+	}
+	if len(projection.Edges) != 1 {
+		t.Fatalf("projection edges = %+v, want one remaining edge", projection.Edges)
+	}
+}
+
 func TestWorkflowEndpointsSubmitWorkflowApproval(t *testing.T) {
 	handler := newScriptedWorkflowHandler(t)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)

@@ -3071,6 +3071,13 @@ export interface DeleteWorkflowNodesRequest {
   nodeIds: string[];
 }
 
+export interface DeleteWorkflowEdgesRequest {
+  workspaceId: string;
+  definitionId: string;
+  expectedRevision: string;
+  edgeIds: string[];
+}
+
 export interface UpdateWorkflowNodeRequest {
   workspaceId: string;
   definitionId: string;
@@ -5073,6 +5080,10 @@ export const backendEndpoints = {
     method: "POST",
     path: "/workflows/definitions/nodes/delete",
   },
+  DeleteWorkflowEdges: {
+    method: "POST",
+    path: "/workflows/definitions/edges/delete",
+  },
   UpdateWorkflowNode: {
     method: "POST",
     path: "/workflows/definitions/nodes/update",
@@ -6845,6 +6856,17 @@ export function decodeDeleteWorkflowNodesRequest(value: unknown): DeleteWorkflow
     definitionId: decodeString(requireField(record, "definitionId", "DeleteWorkflowNodesRequest"), "DeleteWorkflowNodesRequest.definitionId"),
     expectedRevision: decodeString(requireField(record, "expectedRevision", "DeleteWorkflowNodesRequest"), "DeleteWorkflowNodesRequest.expectedRevision"),
     nodeIds: decodeArray(requireField(record, "nodeIds", "DeleteWorkflowNodesRequest"), "DeleteWorkflowNodesRequest.nodeIds", (item) => decodeString(item, "DeleteWorkflowNodesRequest.nodeIds item")),
+  };
+}
+
+export function decodeDeleteWorkflowEdgesRequest(value: unknown): DeleteWorkflowEdgesRequest {
+  const record = assertRecord(value, "DeleteWorkflowEdgesRequest");
+  assertKnownFields(record, "DeleteWorkflowEdgesRequest", ["workspaceId", "definitionId", "expectedRevision", "edgeIds"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "DeleteWorkflowEdgesRequest"), "DeleteWorkflowEdgesRequest.workspaceId"),
+    definitionId: decodeString(requireField(record, "definitionId", "DeleteWorkflowEdgesRequest"), "DeleteWorkflowEdgesRequest.definitionId"),
+    expectedRevision: decodeString(requireField(record, "expectedRevision", "DeleteWorkflowEdgesRequest"), "DeleteWorkflowEdgesRequest.expectedRevision"),
+    edgeIds: decodeArray(requireField(record, "edgeIds", "DeleteWorkflowEdgesRequest"), "DeleteWorkflowEdgesRequest.edgeIds", (item) => decodeString(item, "DeleteWorkflowEdgesRequest.edgeIds item")),
   };
 }
 
@@ -9408,6 +9430,7 @@ export interface BackendClient {
   addWorkflowNode: (request: AddWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
   addWorkflowEdge: (request: AddWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
   deleteWorkflowNodes: (request: DeleteWorkflowNodesRequest) => Promise<WorkflowGraphProjection>;
+  deleteWorkflowEdges: (request: DeleteWorkflowEdgesRequest) => Promise<WorkflowGraphProjection>;
   updateWorkflowNode: (request: UpdateWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
   updateWorkflowEdge: (request: UpdateWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
   updateWorkflowDefinitionSettings: (request: UpdateWorkflowDefinitionSettingsRequest) => Promise<WorkflowDefinition>;
@@ -9857,6 +9880,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkflowGraphProjection,
       endpoint: backendEndpoints.DeleteWorkflowNodes,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    deleteWorkflowEdges: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeWorkflowGraphProjection,
+      endpoint: backendEndpoints.DeleteWorkflowEdges,
       fetchImpl,
       requestPayload: request,
     }),

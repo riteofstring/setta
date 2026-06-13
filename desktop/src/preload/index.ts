@@ -277,6 +277,7 @@ const api: SettaAPI = {
       invoke("workflowCreateDefinition", workspaceId, name, description, graph),
     deleteDefinition: (workspaceId, definitionId) =>
       invoke("workflowDeleteDefinition", workspaceId, definitionId),
+    deleteEdges: (request) => invoke("workflowDeleteEdges", request),
     deleteNodes: (request) => invoke("workflowDeleteNodes", request),
     executionEvents: (workspaceId, executionId, beforeOrdinal, limit) =>
       invoke("workflowExecutionEvents", workspaceId, executionId, beforeOrdinal, limit),

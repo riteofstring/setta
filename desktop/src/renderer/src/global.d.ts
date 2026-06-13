@@ -87,6 +87,8 @@ interface WorkflowGraphDebugSnapshot {
   interaction: {
     drawingEdge: boolean;
     drawingMarquee: boolean;
+    selectedEdgeId: string | null;
+    selectedEdgeIds: string[];
     selectedNodeId: string | null;
     selectedNodeIds: string[];
   };
@@ -96,6 +98,7 @@ interface WorkflowGraphDebugSnapshot {
     edgeCommitCount: number;
     edgeGraphicsCount: number;
     edgeRedrawCount: number;
+    edgeSelectionChangeCount: number;
     frameCount: number;
     compactSelectedLabelCount: number;
     gridDrawCount: number;

@@ -188,6 +188,23 @@ func (handler handler) deleteWorkflowNodes(response http.ResponseWriter, request
 	writeJSON(response, http.StatusOK, projection)
 }
 
+func (handler handler) deleteWorkflowEdges(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload DeleteWorkflowEdgesRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.DeleteDefinitionEdges(payload.WorkspaceID, payload.DefinitionID, payload.ExpectedRevision, payload.EdgeIDs)
+	if err != nil {
+		writeWorkflowError(response, "delete_workflow_edges_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
 func (handler handler) updateWorkflowNode(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

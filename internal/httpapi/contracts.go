@@ -292,6 +292,13 @@ type DeleteWorkflowNodesRequest struct {
 	NodeIDs          []string `json:"nodeIds"`
 }
 
+type DeleteWorkflowEdgesRequest struct {
+	WorkspaceID      string   `json:"workspaceId"`
+	DefinitionID     string   `json:"definitionId"`
+	ExpectedRevision string   `json:"expectedRevision"`
+	EdgeIDs          []string `json:"edgeIds"`
+}
+
 type UpdateWorkflowNodeRequest struct {
 	WorkspaceID      string                    `json:"workspaceId"`
 	DefinitionID     string                    `json:"definitionId"`

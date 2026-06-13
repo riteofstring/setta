@@ -67,6 +67,12 @@ func (service *Service) DeleteDefinitionNodes(workspaceID string, definitionID s
 	})
 }
 
+func (service *Service) DeleteDefinitionEdges(workspaceID string, definitionID string, expectedRevision string, edgeIDs []string) (WorkflowGraphProjection, error) {
+	return service.updateDraftGraph(workspaceID, definitionID, expectedRevision, func(graph WorkflowGraph) (WorkflowGraph, error) {
+		return workflowGraphWithoutDraftEdges(graph, edgeIDs)
+	})
+}
+
 func (service *Service) UpdateDefinitionNode(workspaceID string, definitionID string, expectedRevision string, node WorkflowNode) (WorkflowGraphProjection, error) {
 	return service.updateDraftGraph(workspaceID, definitionID, expectedRevision, func(graph WorkflowGraph) (WorkflowGraph, error) {
 		return workflowGraphWithUpdatedNode(graph, node)
@@ -200,6 +206,34 @@ func workflowGraphWithoutDraftNodes(graph WorkflowGraph, nodeIDs []string) Workf
 		}
 	}
 	return workflowGraphWithResolvedRouteConditionSources(workflowGraphWithoutDeletedConditionSources(nextGraph, removedNodeIDs))
+}
+
+func workflowGraphWithoutDraftEdges(graph WorkflowGraph, edgeIDs []string) (WorkflowGraph, error) {
+	normalized := normalizeWorkflowGraph(graph)
+	removedEdgeIDs := map[string]bool{}
+	for _, edgeID := range edgeIDs {
+		removedEdgeIDs[edgeID] = true
+	}
+	if len(removedEdgeIDs) == 0 {
+		return normalized, nil
+	}
+	nextGraph := WorkflowGraph{
+		Edges:  make([]WorkflowEdge, 0, len(normalized.Edges)),
+		Layout: normalized.Layout,
+		Nodes:  normalized.Nodes,
+	}
+	for _, edge := range normalized.Edges {
+		if removedEdgeIDs[edge.ID] {
+			delete(removedEdgeIDs, edge.ID)
+			continue
+		}
+		nextGraph.Edges = append(nextGraph.Edges, edge)
+	}
+	if len(removedEdgeIDs) > 0 {
+		missingEdgeID := firstMapKey(removedEdgeIDs)
+		return WorkflowGraph{}, fmt.Errorf("workflow edge %s was not found", missingEdgeID)
+	}
+	return workflowGraphWithReconciledRouteConditionSources(nextGraph), nil
 }
 
 func workflowGraphWithUpdatedNode(graph WorkflowGraph, updated WorkflowNode) (WorkflowGraph, error) {
@@ -397,6 +431,24 @@ func workflowGraphWithResolvedRouteConditionSources(graph WorkflowGraph) Workflo
 	return next
 }
 
+func workflowGraphWithReconciledRouteConditionSources(graph WorkflowGraph) WorkflowGraph {
+	next := graph
+	next.Edges = append([]WorkflowEdge{}, graph.Edges...)
+	for index, edge := range next.Edges {
+		if edge.Condition == nil || edge.Condition.Kind != ConditionActionSignal {
+			continue
+		}
+		source, err := workflowDraftNode(graph, edge.FromNodeID)
+		if err != nil || source.Kind != NodeKindGatewayXOR {
+			continue
+		}
+		condition := *edge.Condition
+		condition.NodeID = routeConditionSourceNodeID(graph, source.ID)
+		next.Edges[index].Condition = &condition
+	}
+	return next
+}
+
 func workflowGraphWithoutDeletedConditionSources(graph WorkflowGraph, removedNodeIDs map[string]bool) WorkflowGraph {
 	next := graph
 	next.Edges = append([]WorkflowEdge{}, graph.Edges...)
@@ -427,6 +479,13 @@ func routeConditionSourceNodeID(graph WorkflowGraph, routeNodeID string) string 
 		return ""
 	}
 	return sourceNodeIDs[0]
+}
+
+func firstMapKey(values map[string]bool) string {
+	for value := range values {
+		return value
+	}
+	return ""
 }
 
 func workflowDraftNode(graph WorkflowGraph, nodeID string) (WorkflowNode, error) {

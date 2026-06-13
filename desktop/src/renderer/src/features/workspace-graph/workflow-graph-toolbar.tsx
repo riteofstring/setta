@@ -134,70 +134,68 @@ export function WorkflowGraphToolbar({
 
   return (
     <div
-      className="absolute top-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-col gap-2"
+      className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-2 py-2 text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur"
       data-testid="workflow-graph-toolbar"
     >
-      <div className="flex max-w-full flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-2 py-2 text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur">
-        <span aria-live="polite" className="sr-only" role="status">
-          {model.operationStatus}
-        </span>
-        <WorkflowToolbarTitle
-          mismatchLabel={model.mismatchLabel}
-          stateLabel={model.stateLabel}
-          title={model.title}
-          versionLabel={model.versionLabel}
-        />
-        <ToolbarButton
-          disabled={model.settingsDisabled}
-          icon={Settings}
-          label="Settings"
-          onClick={onOpenSettings}
-          blocked={model.operationBlocked}
-          testId="workflow-settings-button"
-        />
-        <WorkflowAddNodeMenu
-          blocked={model.operationBlocked}
-          disabled={model.hardDisabled || !model.editable}
-          menuOpen={addMenuOpen}
-          onAddNode={onAddNode}
-          setMenuOpen={setAddMenuOpen}
-        />
-        <ToolbarButton
-          accessibleLabel={model.validateAccessibleLabel}
-          disabled={model.disabled || !model.editable}
-          icon={model.validationIcon}
-          label={model.validateLabel}
-          onClick={onValidate}
-          blocked={model.operationBlocked}
-          spin={displayBusy === "validate"}
-          testId="workflow-validate-button"
-        />
-        <ToolbarButton
-          accessibleLabel={model.runAccessibleLabel}
-          disabled={model.runDisabled}
-          icon={model.runIcon}
-          label={model.runLabel}
-          onClick={onRun}
-          blocked={model.operationBlocked}
-          spin={displayBusy === "run"}
-          testId="workflow-run-button"
-        />
-        <WorkflowOperationStatus status={model.visibleStatus} />
-        <WorkflowDraftButton
-          disabled={model.disabled}
-          onShowDraft={onShowDraft}
-          blocked={model.operationBlocked}
-          viewingDraft={!model.showDraftButton}
-        />
-        <ToolbarButton
-          disabled={model.detailsDisabled}
-          icon={Eye}
-          label={model.detailsLabel}
-          onClick={onOpenDetails}
-          blocked={model.operationBlocked}
-          testId="workflow-node-details-button"
-        />
-      </div>
+      <span aria-live="polite" className="sr-only" role="status">
+        {model.operationStatus}
+      </span>
+      <WorkflowToolbarTitle
+        mismatchLabel={model.mismatchLabel}
+        stateLabel={model.stateLabel}
+        title={model.title}
+        versionLabel={model.versionLabel}
+      />
+      <ToolbarButton
+        disabled={model.settingsDisabled}
+        icon={Settings}
+        label="Settings"
+        onClick={onOpenSettings}
+        blocked={model.operationBlocked}
+        testId="workflow-settings-button"
+      />
+      <WorkflowAddNodeMenu
+        blocked={model.operationBlocked}
+        disabled={model.hardDisabled || !model.editable}
+        menuOpen={addMenuOpen}
+        onAddNode={onAddNode}
+        setMenuOpen={setAddMenuOpen}
+      />
+      <ToolbarButton
+        accessibleLabel={model.validateAccessibleLabel}
+        disabled={model.disabled || !model.editable}
+        icon={model.validationIcon}
+        label={model.validateLabel}
+        onClick={onValidate}
+        blocked={model.operationBlocked}
+        spin={displayBusy === "validate"}
+        testId="workflow-validate-button"
+      />
+      <ToolbarButton
+        accessibleLabel={model.runAccessibleLabel}
+        disabled={model.runDisabled}
+        icon={model.runIcon}
+        label={model.runLabel}
+        onClick={onRun}
+        blocked={model.operationBlocked}
+        spin={displayBusy === "run"}
+        testId="workflow-run-button"
+      />
+      <WorkflowOperationStatus status={model.visibleStatus} />
+      <WorkflowDraftButton
+        disabled={model.disabled}
+        onShowDraft={onShowDraft}
+        blocked={model.operationBlocked}
+        viewingDraft={!model.showDraftButton}
+      />
+      <ToolbarButton
+        disabled={model.detailsDisabled}
+        icon={Eye}
+        label={model.detailsLabel}
+        onClick={onOpenDetails}
+        blocked={model.operationBlocked}
+        testId="workflow-node-details-button"
+      />
     </div>
   );
 }
@@ -209,7 +207,7 @@ export function WorkflowValidationPanel({ validation }: { validation: WorkflowVa
 
   return (
     <div
-      className="absolute top-16 left-3 z-10 max-w-md rounded-md border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 text-xs text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur"
+      className="pointer-events-none max-w-md rounded-md border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 text-xs text-zinc-100 shadow-xl shadow-zinc-950/40 backdrop-blur"
       data-testid="workflow-validation-panel"
     >
       <WorkflowValidationSummary valid={validation.valid} />

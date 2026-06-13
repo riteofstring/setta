@@ -77,6 +77,14 @@ export function registerWorkflowIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "workflowDeleteEdges",
+    async (_event, request) => {
+      return requireBackendClient().deleteWorkflowEdges(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workflowDeleteDefinition",
     async (_event, workspaceId, definitionId) => {
       return requireBackendClient().deleteWorkflowDefinition({ definitionId, workspaceId });
