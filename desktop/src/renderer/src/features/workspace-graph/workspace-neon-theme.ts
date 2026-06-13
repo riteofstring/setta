@@ -15,6 +15,21 @@ type EdgeStrokeStyle = {
   width: number;
 };
 
+type WorkflowNodeAuraStyle = {
+  animate: boolean;
+  baseAlpha: number;
+  baseRingAlpha: number;
+  glowWidth: number;
+  mode: "breathing" | "flicker" | "idle" | "inert" | "settled";
+  periodMs: number;
+  pulseAlpha: number;
+  pulseRadius: number;
+  radiusPadding: number;
+  ringWidth: number;
+  steadyAlpha: number;
+  steadyRingAlpha: number;
+};
+
 const workflowStatusColors = {
   not_started: 0x52525b,
   pending: 0xa78bfa,
@@ -67,6 +82,135 @@ const workflowEdgeStatusStyles = {
     width: 1.6,
   },
 } satisfies Record<WorkflowGraphEdgeStatus, EdgeStrokeStyle>;
+
+const workflowNodeAuraStyles = {
+  not_started: {
+    animate: false,
+    baseAlpha: 0.055,
+    baseRingAlpha: 0.025,
+    glowWidth: 5,
+    mode: "idle",
+    periodMs: 2400,
+    pulseAlpha: 0,
+    pulseRadius: 0,
+    radiusPadding: 19,
+    ringWidth: 1.4,
+    steadyAlpha: 0.09,
+    steadyRingAlpha: 0.045,
+  },
+  pending: {
+    animate: true,
+    baseAlpha: 0.11,
+    baseRingAlpha: 0.06,
+    glowWidth: 7,
+    mode: "breathing",
+    periodMs: 1900,
+    pulseAlpha: 0.1,
+    pulseRadius: 9,
+    radiusPadding: 24,
+    ringWidth: 2,
+    steadyAlpha: 0.22,
+    steadyRingAlpha: 0.15,
+  },
+  ready: {
+    animate: true,
+    baseAlpha: 0.13,
+    baseRingAlpha: 0.07,
+    glowWidth: 8,
+    mode: "breathing",
+    periodMs: 1600,
+    pulseAlpha: 0.11,
+    pulseRadius: 10,
+    radiusPadding: 25,
+    ringWidth: 2,
+    steadyAlpha: 0.24,
+    steadyRingAlpha: 0.16,
+  },
+  running: {
+    animate: true,
+    baseAlpha: 0.16,
+    baseRingAlpha: 0.09,
+    glowWidth: 9,
+    mode: "breathing",
+    periodMs: 1250,
+    pulseAlpha: 0.14,
+    pulseRadius: 13,
+    radiusPadding: 27,
+    ringWidth: 2.2,
+    steadyAlpha: 0.28,
+    steadyRingAlpha: 0.19,
+  },
+  succeeded: {
+    animate: false,
+    baseAlpha: 0.13,
+    baseRingAlpha: 0.09,
+    glowWidth: 6.5,
+    mode: "settled",
+    periodMs: 2400,
+    pulseAlpha: 0,
+    pulseRadius: 0,
+    radiusPadding: 24,
+    ringWidth: 1.7,
+    steadyAlpha: 0.16,
+    steadyRingAlpha: 0.11,
+  },
+  failed: {
+    animate: true,
+    baseAlpha: 0.18,
+    baseRingAlpha: 0.12,
+    glowWidth: 10,
+    mode: "flicker",
+    periodMs: 520,
+    pulseAlpha: 0.18,
+    pulseRadius: 10,
+    radiusPadding: 28,
+    ringWidth: 2.5,
+    steadyAlpha: 0.34,
+    steadyRingAlpha: 0.24,
+  },
+  cancelled: {
+    animate: false,
+    baseAlpha: 0.025,
+    baseRingAlpha: 0.012,
+    glowWidth: 4,
+    mode: "inert",
+    periodMs: 2400,
+    pulseAlpha: 0,
+    pulseRadius: 0,
+    radiusPadding: 18,
+    ringWidth: 1.2,
+    steadyAlpha: 0.035,
+    steadyRingAlpha: 0.018,
+  },
+  waiting_approval: {
+    animate: true,
+    baseAlpha: 0.14,
+    baseRingAlpha: 0.08,
+    glowWidth: 8.5,
+    mode: "breathing",
+    periodMs: 1500,
+    pulseAlpha: 0.12,
+    pulseRadius: 11,
+    radiusPadding: 25,
+    ringWidth: 2.1,
+    steadyAlpha: 0.27,
+    steadyRingAlpha: 0.18,
+  },
+  recovery_required: {
+    animate: true,
+    baseAlpha: 0.2,
+    baseRingAlpha: 0.14,
+    glowWidth: 11,
+    mode: "flicker",
+    periodMs: 430,
+    pulseAlpha: 0.22,
+    pulseRadius: 12,
+    radiusPadding: 30,
+    ringWidth: 2.7,
+    steadyAlpha: 0.38,
+    steadyRingAlpha: 0.28,
+  },
+} satisfies Record<WorkflowGraphNodeStatus, WorkflowNodeAuraStyle>;
 
 const semanticKindColors = {
   concept: 0x0f766e,
@@ -201,6 +345,7 @@ export const workspaceNeonTheme = {
       radiusPadding: 28,
     },
     kind: workflowKindColors,
+    nodeAura: workflowNodeAuraStyles,
     status: workflowStatusColors,
   },
 } as const;

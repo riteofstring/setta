@@ -289,14 +289,14 @@ export function drawPortVisualState(target, port, state) {
 
 export function drawWorkspaceGlow(target, nodes, now, { mode = "static" } = {}) {
   target.clear();
-  const pulse = workspaceGlowPulse(now, mode);
+  const semanticPulse = workspaceGlowPulse(now, mode);
   for (const node of nodes) {
     switch (rendererNodeLayer(node)) {
       case "workflow":
-        drawWorkflowNodeGlow(target, node, pulse, mode);
+        drawWorkflowNodeGlow(target, node, now, mode);
         break;
       case "semantic":
-        drawSemanticNodeGlow(target, node, pulse, mode);
+        drawSemanticNodeGlow(target, node, semanticPulse, mode);
         break;
       default:
         throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
@@ -314,21 +314,64 @@ function workspaceGlowPulse(now, mode) {
   return 0.18;
 }
 
-function drawWorkflowNodeGlow(target, node, pulse, mode) {
-  const { glow } = workspaceNeonTheme.workflow;
-  const animated = mode === "animated";
-  const steady = mode === "steady";
-  const radius =
-    Math.max(node.width, node.height) / 2 +
-    glow.radiusPadding +
-    (animated ? pulse * 12 : steady ? 8 : 0);
-  const alpha = animated || steady ? glow.alpha + pulse * 0.08 : glow.alpha * 0.55;
-  const ringAlpha = animated || steady ? glow.ringAlpha + pulse * 0.08 : glow.ringAlpha * 0.5;
+function drawWorkflowNodeGlow(target, node, now, mode) {
+  const style = workflowNodeAuraStyleFor(node);
+  const aura = workflowNodeAuraRenderState(node, style, now, mode);
+  const radius = Math.max(node.width, node.height) / 2 + style.radiusPadding + aura.radiusOffset;
   target
     .roundRect(node.x - 8, node.y - 8, node.width + 16, node.height + 16, 14)
-    .stroke({ alpha, color: node.color, width: animated || steady ? 9 : 6 })
+    .stroke({ alpha: aura.alpha, color: node.color, width: aura.glowWidth })
     .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
-    .stroke({ alpha: ringAlpha, color: node.color, width: glow.ringWidth });
+    .stroke({ alpha: aura.ringAlpha, color: node.color, width: style.ringWidth });
+}
+
+function workflowNodeAuraStyleFor(node) {
+  return workspaceNeonTheme.workflow.nodeAura[node.status ?? "not_started"];
+}
+
+function workflowNodeAuraRenderState(node, style, now, mode) {
+  if (mode === "animated" && style.animate) {
+    const intensity = workflowNodeAuraIntensity(node, style, now);
+    return {
+      alpha: style.steadyAlpha + style.pulseAlpha * intensity,
+      glowWidth: style.glowWidth,
+      radiusOffset: style.pulseRadius * intensity,
+      ringAlpha: style.steadyRingAlpha + style.pulseAlpha * 0.65 * intensity,
+    };
+  }
+  if (mode === "steady") {
+    return {
+      alpha: style.steadyAlpha,
+      glowWidth: style.glowWidth,
+      radiusOffset: style.pulseRadius * 0.45,
+      ringAlpha: style.steadyRingAlpha,
+    };
+  }
+  return {
+    alpha: style.baseAlpha,
+    glowWidth: Math.max(3, style.glowWidth - 2),
+    radiusOffset: 0,
+    ringAlpha: style.baseRingAlpha,
+  };
+}
+
+function workflowNodeAuraIntensity(node, style, now) {
+  const phase = (now / style.periodMs + workflowNodeAuraSeed(node.id)) % 1;
+  const wave = 0.5 + Math.sin(phase * Math.PI * 2) * 0.5;
+  if (style.mode === "flicker") {
+    const stutter = 0.5 + Math.sin((phase + 0.17) * Math.PI * 9.4) * 0.5;
+    return clamp(wave * 0.58 + stutter * 0.42, 0.18, 1);
+  }
+  return wave;
+}
+
+function workflowNodeAuraSeed(nodeId) {
+  let hash = 2166136261;
+  for (let index = 0; index < nodeId.length; index += 1) {
+    hash ^= nodeId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0x100000000;
 }
 
 function drawSemanticNodeGlow(target, node, pulse, mode) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  drawWorkspaceGlow,
   sampleCurvedEdge,
   screenPointFromPointer,
   screenPointFromWheel,
@@ -33,6 +34,41 @@ describe("Pixi renderer helpers", () => {
     expect(sampleCurvedEdge(start, end, -1)).toMatchObject(start);
     expect(sampleCurvedEdge(start, end, 2)).toMatchObject(end);
   });
+
+  it("draws workflow node auras by status and motion mode", () => {
+    const staticGlow = new RecordingGraphics();
+    drawWorkspaceGlow(
+      staticGlow,
+      [
+        workflowNode("running", "running"),
+        workflowNode("succeeded", "succeeded"),
+        workflowNode("cancelled", "cancelled"),
+      ],
+      1000,
+      { mode: "static" },
+    );
+
+    const staticStrokes = staticGlow.operations.filter(([operation]) => operation === "stroke");
+    expect(staticStrokes).toHaveLength(6);
+    expect(staticStrokes[0][1].alpha).toBeGreaterThan(staticStrokes[4][1].alpha);
+    expect(staticStrokes[2][1].alpha).toBeGreaterThan(staticStrokes[4][1].alpha);
+
+    const animatedFirst = new RecordingGraphics();
+    drawWorkspaceGlow(animatedFirst, [workflowNode("failed", "failed")], 1000, {
+      mode: "animated",
+    });
+    const animatedSecond = new RecordingGraphics();
+    drawWorkspaceGlow(animatedSecond, [workflowNode("failed", "failed")], 1260, {
+      mode: "animated",
+    });
+
+    expect(firstStrokeAlpha(animatedFirst)).not.toBe(firstStrokeAlpha(animatedSecond));
+
+    const steady = new RecordingGraphics();
+    drawWorkspaceGlow(steady, [workflowNode("ready", "ready")], 1000, { mode: "steady" });
+
+    expect(firstStrokeAlpha(steady)).toBeGreaterThan(firstStrokeAlpha(staticGlow));
+  });
 });
 
 function scaledCanvas() {
@@ -46,4 +82,47 @@ function scaledCanvas() {
       width: 500,
     }),
   };
+}
+
+function workflowNode(id, status) {
+  return {
+    color: 0x38bdf8,
+    height: 82,
+    id,
+    layer: "workflow",
+    status,
+    width: 168,
+    x: 0,
+    y: 0,
+  };
+}
+
+function firstStrokeAlpha(graphics) {
+  return graphics.operations.find(([operation]) => operation === "stroke")[1].alpha;
+}
+
+class RecordingGraphics {
+  constructor() {
+    this.operations = [];
+  }
+
+  clear() {
+    this.operations.push(["clear"]);
+    return this;
+  }
+
+  roundRect(x, y, width, height, radius) {
+    this.operations.push(["roundRect", x, y, width, height, radius]);
+    return this;
+  }
+
+  circle(x, y, radius) {
+    this.operations.push(["circle", x, y, radius]);
+    return this;
+  }
+
+  stroke(style) {
+    this.operations.push(["stroke", style]);
+    return this;
+  }
 }

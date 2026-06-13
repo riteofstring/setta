@@ -38,6 +38,16 @@ describe("workflow graph animation state", () => {
           status: "ready",
         },
         {
+          id: "workflow_failed",
+          layer: "workflow",
+          status: "failed",
+        },
+        {
+          id: "workflow_recovery",
+          layer: "workflow",
+          status: "recovery_required",
+        },
+        {
           id: "semantic_active",
           activity: { active: true, count: 1, kind: "exploring" },
           layer: "semantic",
@@ -48,7 +58,13 @@ describe("workflow graph animation state", () => {
           status: "running",
         },
       ],
-      visibleNodeIds: new Set(["workflow_running", "workflow_ready", "semantic_active"]),
+      visibleNodeIds: new Set([
+        "workflow_running",
+        "workflow_ready",
+        "workflow_failed",
+        "workflow_recovery",
+        "semantic_active",
+      ]),
     });
     const redraws = [];
     const edgeFlowRedraws = [];
@@ -65,14 +81,22 @@ describe("workflow graph animation state", () => {
 
     expect(state.debugSnapshot()).toMatchObject({
       activeEdgeFlowCount: 1,
-      activeNodePulseCount: 2,
+      activeNodePulseCount: 4,
       animationActive: true,
       cellAnimCount: 1,
       edgeFlowRedrawCount: 1,
       nodePulseRedrawCount: 1,
       transitionsActive: 0,
     });
-    expect(redraws).toEqual([["workflow_running", "workflow_ready", "semantic_active"]]);
+    expect(redraws).toEqual([
+      [
+        "workflow_running",
+        "workflow_ready",
+        "workflow_failed",
+        "workflow_recovery",
+        "semantic_active",
+      ],
+    ]);
     expect(edgeFlowRedraws).toEqual([["edge_active"]]);
   });
 

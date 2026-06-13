@@ -1,13 +1,11 @@
 import { rendererEdgeLayer, rendererNodeLayer } from "./pixi-renderer-layers";
+import { workspaceNeonTheme } from "./workspace-neon-theme";
 
-const workflowPulseNodeStatuses = new Set([
-  "pending",
-  "ready",
-  "running",
-  "waiting_approval",
-  "failed",
-  "recovery_required",
-]);
+const workflowPulseNodeStatuses = new Set(
+  Object.entries(workspaceNeonTheme.workflow.nodeAura)
+    .filter(([, style]) => style.animate)
+    .map(([status]) => status),
+);
 
 export function createWorkflowGraphAnimationState({ animationEnabled, reduceMotion }) {
   const settings = {
