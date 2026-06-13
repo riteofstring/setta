@@ -834,6 +834,61 @@ describe("real workspace layout column sizing", () => {
   });
 });
 
+describe("compact mobile layout", () => {
+  const mobileViewport: Rect = { height: 700, width: 390, x: 0, y: 0 };
+
+  test("renders every pane at the full viewport size without scene padding", () => {
+    const engine = createRealEngine();
+    engine.setCompactLayout(true);
+    const items = renderFrame(engine, mobileViewport, 0, "workspace_pane_0");
+    const firstItem = requireRenderItem(items, "workspace_pane_0");
+    const secondItem = requireRenderItem(items, "workspace_pane_1");
+
+    expect(firstItem).toMatchObject({
+      height: mobileViewport.height,
+      width: mobileViewport.width,
+      x: 0,
+      y: 0,
+    });
+    expect(secondItem).toMatchObject({
+      height: mobileViewport.height,
+      width: mobileViewport.width,
+      x: mobileViewport.width + 8,
+    });
+  });
+
+  test("gives stacked panes a full-height page each and matching scroll offsets", () => {
+    const engine = createRealEngine();
+    const stackedPaneId = engine.splitPane("workspace_pane_0", "down");
+    engine.setCompactLayout(true);
+    const items = renderFrame(engine, mobileViewport, 0, stackedPaneId);
+    const topItem = requireRenderItem(items, "workspace_pane_0");
+    const bottomItem = requireRenderItem(items, stackedPaneId);
+
+    expect(topItem.height).toBe(mobileViewport.height);
+    expect(bottomItem.height).toBe(mobileViewport.height);
+    expect(bottomItem.y).toBe(topItem.y + mobileViewport.height + 8);
+    expect(engine.verticalScrollOffsetForPane(stackedPaneId, mobileViewport.height)).toBe(
+      mobileViewport.height + 8,
+    );
+  });
+
+  test("restores the regular column sizing when compact layout is disabled", () => {
+    const engine = createRealEngine();
+    engine.setCompactLayout(true);
+    engine.setCompactLayout(false);
+    const items = renderFrame(engine, { ...viewport, width: 1200 }, 0, "workspace_pane_0");
+    const firstItem = requireRenderItem(items, "workspace_pane_0");
+
+    expect(firstItem).toMatchObject({
+      height: viewport.height - 20,
+      width: 520,
+      x: 10,
+      y: 10,
+    });
+  });
+});
+
 function renderFrame(
   engine: WorkspaceLikeLayoutEngine,
   frameViewport: Rect,

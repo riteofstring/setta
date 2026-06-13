@@ -251,6 +251,7 @@ export interface LayoutEngine {
     upperHeightWeight: number,
     lowerHeightWeight: number,
   ): boolean;
+  setCompactLayout(compact: boolean): void;
   setPaneTerminalConfig(paneId: PaneId, terminalConfig: TerminalPaneConfig): void;
   splitPane(paneId: PaneId, direction: "up" | "down" | "left" | "right"): PaneId;
   splitPaneToPlane(paneId: PaneId, direction: "up" | "down"): PaneId;

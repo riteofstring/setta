@@ -6,11 +6,13 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "reac
 
 import {
   compactProjectPaneWidth,
+  isMobileViewportWidth,
   projectPaneDefaultWidth,
   projectPaneMaxWidth,
   projectPaneMinWidth,
 } from "./app-layout";
 import { useAppWindowDragHandlers } from "./app-window-drag";
+import { useViewportSize } from "./use-viewport-size";
 import { type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizablePane } from "./components/resizable-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -49,14 +51,27 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const [workspaceSurfaceFocusRequest, setWorkspaceSurfaceFocusRequest] =
     useState<WorkspaceSurfaceFocusRequest | null>(null);
   const effectiveProjectPaneWidth = compactProjectPaneWidth(projectPaneWidth, viewport.width);
+  const mobileViewport = isMobileViewportWidth(viewport.width);
+  const toggleProjectPane = useCallback(() => {
+    setProjectPaneOpen((current) => !current);
+  }, []);
+  // The mobile project pane is a full-screen overlay summoned from the bottom
+  // bar, so it starts closed at mobile widths and reopens as the regular side
+  // pane when the viewport widens again.
+  useEffect(() => {
+    setProjectPaneOpen(!mobileViewport);
+  }, [mobileViewport]);
   const focusWorkspaceSurface = useCallback(
     (surfaceKind: WorkspaceSurfaceFocusRequest["surfaceKind"]) => {
       setWorkspaceSurfaceFocusRequest((current) => ({
         requestId: (current?.requestId ?? 0) + 1,
         surfaceKind,
       }));
+      if (mobileViewport) {
+        setProjectPaneOpen(false);
+      }
     },
-    [],
+    [mobileViewport],
   );
   const openSettingsPane = useCallback(() => {
     focusWorkspaceSurface("settings-dom");
@@ -101,22 +116,26 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background">
         <ProjectPane
           chat={chat}
-          chromeInsetTop={projectPaneOpen}
+          chromeInsetTop={mobileViewport ? platform === "darwin" : projectPaneOpen}
           createConversation={createConversationAndFocusChat}
           createWorkspaceConversation={createWorkspaceConversationAndFocusChat}
           deleteConversation={deleteConversation}
+          mobileOverlay={mobileViewport}
           open={projectPaneOpen}
           openSettingsPane={openSettingsPane}
           openWorkflowGraphPane={openWorkflowGraphPane}
           selectConversation={selectConversationAndFocusChat}
           setConversationPinned={setConversationPinned}
           setWidth={setProjectPaneWidth}
+          viewportWidth={viewport.width}
           width={effectiveProjectPaneWidth}
           workspace={workspace}
         />
         <WorkspaceLayoutArea
           focusSurfaceRequest={workspaceSurfaceFocusRequest}
+          onToggleProjectPane={toggleProjectPane}
           platform={platform}
+          projectPaneOpen={projectPaneOpen}
         />
       </main>
       {/* Rendered after the workspace so the no-drag chrome controls follow every
@@ -124,6 +143,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           drag/no-drag rects in that order, and a later drag rect would re-cover the
           holes these controls punch into the OS draggable region. */}
       <AppChromeControls
+        mobileViewport={mobileViewport}
         platform={platform}
         projectPaneOpen={projectPaneOpen}
         projectPaneWidth={effectiveProjectPaneWidth}
@@ -197,33 +217,6 @@ function useSelectedWorkspaceChatSync(workspaceId: string | null) {
   }, [storeWorkspaceId, syncWorkspaceChat, workspaceId]);
 }
 
-function useViewportSize() {
-  const [size, setSize] = useState(() => ({
-    height: browserViewportHeight(),
-    width: browserViewportWidth(),
-  }));
-
-  useEffect(() => {
-    const handleResize = () =>
-      setSize({
-        height: browserViewportHeight(),
-        width: browserViewportWidth(),
-      });
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  return size;
-}
-
-function browserViewportHeight(): number {
-  return typeof window.innerHeight === "number" ? window.innerHeight : 820;
-}
-
-function browserViewportWidth(): number {
-  return typeof window.innerWidth === "number" ? window.innerWidth : 1280;
-}
-
 type WorkspaceViewState = ReturnType<typeof useWorkspaceViewState>;
 
 function ProjectPane({
@@ -232,12 +225,14 @@ function ProjectPane({
   createConversation,
   createWorkspaceConversation,
   deleteConversation,
+  mobileOverlay,
   open,
   openSettingsPane,
   openWorkflowGraphPane,
   selectConversation,
   setConversationPinned,
   setWidth,
+  viewportWidth,
   width,
   workspace,
 }: {
@@ -246,17 +241,60 @@ function ProjectPane({
   createConversation: ChatView["createConversation"];
   createWorkspaceConversation: ChatView["createWorkspaceConversation"];
   deleteConversation: ChatView["deleteConversation"];
+  mobileOverlay: boolean;
   open: boolean;
   openSettingsPane: () => void;
   openWorkflowGraphPane: () => void;
   selectConversation: ChatView["selectConversation"];
   setConversationPinned: ChatView["setConversationPinned"];
   setWidth: (width: number) => void;
+  viewportWidth: number;
   width: number;
   workspace: WorkspaceViewState;
 }) {
   if (!open) {
     return null;
+  }
+
+  const sidebar = (
+    <WorkspaceSidebar
+      activeRun={chat.activeRun}
+      activeWorkspaces={workspace.activeWorkspaces}
+      busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
+      chromeInsetTop={chromeInsetTop}
+      clearWorkspaceError={workspace.clearError}
+      closeWorkspace={workspace.closeWorkspace}
+      createConversation={createConversation}
+      createWorkspaceConversation={createWorkspaceConversation}
+      deleteConversation={deleteConversation}
+      openLocalFolder={workspace.openLocalFolder}
+      openSettingsPane={openSettingsPane}
+      openWorkflowGraphPane={openWorkflowGraphPane}
+      openWorkspacePath={workspace.openWorkspacePath}
+      recentWorkspaces={workspace.recentWorkspaces}
+      removeRecent={workspace.removeRecent}
+      selectConversation={selectConversation}
+      selectWorkspace={workspace.selectWorkspace}
+      setConversationPinned={setConversationPinned}
+      selectedConversationId={chat.selectedConversation?.id ?? ""}
+      selectedWorkspaceId={workspace.selectedWorkspaceId}
+      sidebarWidth={mobileOverlay ? viewportWidth : width}
+      workspaceError={workspace.error}
+    />
+  );
+
+  if (mobileOverlay) {
+    // Full-screen project pane summoned from the workspace bottom bar; it
+    // stops above the bar so the toggle stays reachable to dismiss it.
+    return (
+      <div
+        className="fixed inset-x-0 top-0 z-[90] bg-background"
+        data-testid="mobile-project-pane"
+        style={{ bottom: "var(--workspace-mobile-bar-height)" }}
+      >
+        {sidebar}
+      </div>
+    );
   }
 
   return (
@@ -267,32 +305,7 @@ function ProjectPane({
       onWidthChange={setWidth}
       width={width}
     >
-      <div className="h-full">
-        <WorkspaceSidebar
-          activeRun={chat.activeRun}
-          activeWorkspaces={workspace.activeWorkspaces}
-          busy={sidebarWorkspaceBusy(workspace.operation, workspace.status)}
-          chromeInsetTop={chromeInsetTop}
-          clearWorkspaceError={workspace.clearError}
-          closeWorkspace={workspace.closeWorkspace}
-          createConversation={createConversation}
-          createWorkspaceConversation={createWorkspaceConversation}
-          deleteConversation={deleteConversation}
-          openLocalFolder={workspace.openLocalFolder}
-          openSettingsPane={openSettingsPane}
-          openWorkflowGraphPane={openWorkflowGraphPane}
-          openWorkspacePath={workspace.openWorkspacePath}
-          recentWorkspaces={workspace.recentWorkspaces}
-          removeRecent={workspace.removeRecent}
-          selectConversation={selectConversation}
-          selectWorkspace={workspace.selectWorkspace}
-          setConversationPinned={setConversationPinned}
-          selectedConversationId={chat.selectedConversation?.id ?? ""}
-          selectedWorkspaceId={workspace.selectedWorkspaceId}
-          sidebarWidth={width}
-          workspaceError={workspace.error}
-        />
-      </div>
+      <div className="h-full">{sidebar}</div>
     </ResizablePane>
   );
 }
@@ -305,16 +318,24 @@ export function sidebarWorkspaceBusy(
 }
 
 function AppChromeControls({
+  mobileViewport,
   platform,
   projectPaneOpen,
   projectPaneWidth,
   setProjectPaneOpen,
 }: {
+  mobileViewport: boolean;
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   projectPaneWidth: number;
   setProjectPaneOpen: Dispatch<SetStateAction<boolean>>;
 }) {
+  // At mobile widths the top-left chrome gives way to the workspace bottom
+  // control bar: the project pane becomes a full-screen overlay, so the plate
+  // background, project toggle, and side-pane drag strip all disappear.
+  if (mobileViewport) {
+    return null;
+  }
   return (
     <>
       <AppChromePlate platform={platform} />

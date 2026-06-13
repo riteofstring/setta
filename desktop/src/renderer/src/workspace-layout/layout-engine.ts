@@ -64,6 +64,7 @@ interface PaneReorderPreview {
 
 export class WorkspaceLikeLayoutEngine implements LayoutEngine {
   private columns: WorkspaceColumn[];
+  private compactLayout = false;
   private nextColumnSequence: number;
   private paneById: Map<PaneId, WorkspacePane>;
   private paneReorderPreview: PaneReorderPreview | null = null;
@@ -91,6 +92,14 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       scene.totalPanes,
       nextNumericSuffix(scene.panes, "workspace_pane_", (pane) => pane.paneId),
     );
+  }
+
+  // Compact (mobile-width) presentation: every column spans the full viewport
+  // width and every pane the full viewport height, so navigation pages between
+  // full-screen panes. Column width specs are untouched, so the regular layout
+  // is restored when the viewport widens again.
+  setCompactLayout(compact: boolean): void {
+    this.compactLayout = compact;
   }
 
   closePane(paneId: PaneId): void {
@@ -299,12 +308,13 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       availableHeight: this.availablePaneHeight(input.viewport.height),
       columns: this.columns,
       focusedLocation: this.locationForPane(input.focusedPaneId),
+      fullSizePanes: this.compactLayout,
       geometry: this.columnGeometry(input.viewport.width, input.maximizedPaneId),
       input,
       paneById: this.paneById,
       planeIndexes: this.planeIndexes(),
       push,
-      scene: this.scene,
+      scene: this.renderScene(),
     });
   }
 
@@ -511,7 +521,7 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
 
   totalColumnOverflowWidth(viewportWidth: number): number {
     const geometry = this.columnGeometry(viewportWidth, null, 0);
-    return this.scene.padding * 2 + this.maxUnscaledPlaneWidth(geometry);
+    return this.scenePadding() * 2 + this.maxUnscaledPlaneWidth(geometry);
   }
 
   toScene(id: string = this.scene.id): WorkspaceScene {
@@ -561,16 +571,30 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     return column;
   }
 
+  private scenePadding(): number {
+    return this.compactLayout ? 0 : this.scene.padding;
+  }
+
+  private compactRenderScene: WorkspaceScene | null = null;
+
+  private renderScene(): WorkspaceScene {
+    if (!this.compactLayout) {
+      return this.scene;
+    }
+    this.compactRenderScene ??= { ...this.scene, padding: 0 };
+    return this.compactRenderScene;
+  }
+
   private availablePaneHeight(viewportHeight: number): number {
-    return Math.max(1, viewportHeight - this.scene.padding * 2);
+    return Math.max(1, viewportHeight - this.scenePadding() * 2);
   }
 
   private availableWidth(viewportWidth: number): number {
-    return Math.max(minimumColumnWidth, viewportWidth - this.scene.padding * 2);
+    return Math.max(minimumColumnWidth, viewportWidth - this.scenePadding() * 2);
   }
 
   private availableViewportWidth(viewportWidth: number): number {
-    return Math.max(1, viewportWidth - this.scene.padding * 2);
+    return Math.max(1, viewportWidth - this.scenePadding() * 2);
   }
 
   private columnGeometry(
@@ -580,7 +604,7 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     allowViewportOverflow = this.options.allowResizedPanesToOverflowViewport ?? false,
   ): ColumnGeometry {
     const widths = this.columns.map((column) =>
-      maximizedPaneId && column.paneIds.includes(maximizedPaneId)
+      this.compactLayout || (maximizedPaneId && column.paneIds.includes(maximizedPaneId))
         ? this.availableWidth(viewportWidth)
         : this.resolveColumnWidth(column, viewportWidth, allowViewportOverflow),
     );
@@ -830,12 +854,13 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
         minWidthPx: this.options.overviewCardMinWidthPx,
       },
       columns: this.columns,
+      fullSizePanes: this.compactLayout,
       geometry: this.columnGeometry(input.viewport.width, null, this.scene.columnGap, true),
       input,
       paneById: this.paneById,
       planeIndexes: this.planeIndexes(),
       push,
-      scene: this.scene,
+      scene: this.renderScene(),
     });
   }
 
@@ -980,6 +1005,7 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     return columnVisualFramesForPane({
       availableHeight,
       column,
+      fullSizeRows: this.compactLayout,
       maximizedPaneId,
       paneById: this.paneById,
       rowGap: this.scene.rowGap,

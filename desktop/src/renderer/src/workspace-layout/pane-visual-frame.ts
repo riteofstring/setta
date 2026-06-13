@@ -5,12 +5,14 @@ export type PaneVisualFrame = { centerY: number; paneId: PaneId; top: number };
 export function columnVisualFramesForPane({
   availableHeight,
   column,
+  fullSizeRows = false,
   maximizedPaneId,
   paneById,
   rowGap,
 }: {
   availableHeight: number;
   column: WorkspaceColumn;
+  fullSizeRows?: boolean;
   maximizedPaneId: PaneId | null;
   paneById: ReadonlyMap<PaneId, WorkspacePane>;
   rowGap: number;
@@ -23,7 +25,7 @@ export function columnVisualFramesForPane({
   let top = 0;
   return panes.map((pane) => {
     const height =
-      pane.paneId === maximizedPaneId
+      fullSizeRows || pane.paneId === maximizedPaneId
         ? availableHeight
         : Math.max(42, ((availableHeight - totalGap) * pane.weight) / totalWeight);
     const frame = { centerY: top + height / 2, paneId: pane.paneId, top };

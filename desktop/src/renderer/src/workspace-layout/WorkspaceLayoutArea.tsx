@@ -10,13 +10,16 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { isMobileViewportWidth } from "../app-layout";
 import { useAppearanceStore } from "../stores/appearance-store";
 import { useWorkspaceStore } from "../stores/workspace-store";
+import { useViewportSize } from "../use-viewport-size";
 import { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import { installWindowResizeReportHooks, installWindowReportHooks } from "./performance-report";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
+import { WorkspaceMobileControls } from "./workspace-mobile-controls";
 import { WorkspaceToolbar, openPaneActionForSurfaceKind } from "./workspace-toolbar";
 import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runtime";
 import {
@@ -78,10 +81,14 @@ interface PaneWindowDragSession {
 
 export function WorkspaceLayoutArea({
   focusSurfaceRequest = null,
+  onToggleProjectPane,
   platform,
+  projectPaneOpen,
 }: {
   focusSurfaceRequest?: WorkspaceSurfaceFocusRequest | null;
+  onToggleProjectPane: () => void;
   platform: DesktopPlatform;
+  projectPaneOpen: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -109,6 +116,8 @@ export function WorkspaceLayoutArea({
     (state) => (state.draft ?? state.settings)?.developer?.overviewCardMinWidthPx,
   );
   const mode = workspaceSceneMode();
+  const viewport = useViewportSize();
+  const mobileLayout = isMobileViewportWidth(viewport.width);
   const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
   const runtime = useMemo(
     () =>
@@ -159,6 +168,9 @@ export function WorkspaceLayoutArea({
   useEffect(() => {
     setLayoutRecoveryDismissed(false);
   }, [runtime.layoutStorageKey]);
+  useEffect(() => {
+    runtime.engine.setCompactLayout(mobileLayout);
+  }, [mobileLayout, runtime]);
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
       setOverviewGhostTarget(null);
@@ -613,11 +625,20 @@ export function WorkspaceLayoutArea({
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
   }, [runtime, showPerformanceStats]);
 
+  // The full-screen project pane overlay covers the stage, so any workspace
+  // action from the bottom bar dismisses it first to reveal its effect.
+  const dismissProjectPaneOverlay = () => {
+    if (projectPaneOpen) {
+      onToggleProjectPane();
+    }
+  };
+
   return (
     <section
       aria-label={workspaceLayoutAreaLabel(runtime.mode)}
       className="workspace-layout-area relative h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
       data-browser-pane-count={runtime.browserPaneCount}
+      data-compact-layout={mobileLayout}
       data-desktop-platform={platform}
       data-maximized-pane-id={layoutSnapshot.maximizedPaneId ?? ""}
       data-pane-count={currentScene.totalPanes}
@@ -670,7 +691,7 @@ export function WorkspaceLayoutArea({
           applies the drag/no-drag rects in that order, and an earlier no-drag hole
           would be re-covered by a later drag rect when a pane sits under the
           toolbar with the project pane collapsed. */}
-      {runtime.mode === "workspace" ? (
+      {runtime.mode === "workspace" && !mobileLayout ? (
         <WorkspaceToolbar
           openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
           overviewActive={layoutSnapshot.presentationMode === "overview"}
@@ -678,6 +699,34 @@ export function WorkspaceLayoutArea({
           runLayoutAction={runLayoutAction}
           showPerformanceStats={showPerformanceStats}
           store={runtime.store}
+        />
+      ) : null}
+      {runtime.mode === "workspace" && mobileLayout ? (
+        <WorkspaceMobileControls
+          moveFocus={(direction) => {
+            dismissProjectPaneOverlay();
+            runtime.store.moveFocus(direction, stageViewport());
+            persistLayout();
+          }}
+          onNewPane={() => {
+            dismissProjectPaneOverlay();
+            runLayoutAction(() => runtime.store.openEmptyFrame());
+          }}
+          onOpenSettingsPane={() => {
+            dismissProjectPaneOverlay();
+            runLayoutAction(() => {
+              focusOrOpenPaneBySurfaceKind(runtime, "settings-dom");
+              runtime.store.ensureFocusedColumnVisible(stageViewport());
+              runtime.store.snapScrollToTarget();
+            });
+          }}
+          onToggleOverview={() => {
+            dismissProjectPaneOverlay();
+            runLayoutAction(() => runtime.store.toggleOverviewMode());
+          }}
+          onToggleProjectPane={onToggleProjectPane}
+          overviewActive={layoutSnapshot.presentationMode === "overview"}
+          projectPaneOpen={projectPaneOpen}
         />
       ) : null}
     </section>

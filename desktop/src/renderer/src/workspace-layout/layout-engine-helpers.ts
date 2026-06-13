@@ -180,6 +180,7 @@ export function pushColumnItems({
   column,
   columnWidth,
   focusedPaneId,
+  fullSizePanes = false,
   maximizedPaneId = null,
   moving,
   paneById,
@@ -194,6 +195,7 @@ export function pushColumnItems({
   column: WorkspaceColumn;
   columnWidth: number;
   focusedPaneId: PaneId;
+  fullSizePanes?: boolean;
   maximizedPaneId?: PaneId | null;
   moving: boolean;
   paneById: Map<PaneId, WorkspacePane>;
@@ -213,9 +215,10 @@ export function pushColumnItems({
 
   for (const pane of panes) {
     const maximized = pane.paneId === maximizedPaneId;
-    const height = maximized
-      ? availableHeight
-      : Math.max(42, ((availableHeight - totalGap) * pane.weight) / totalWeight);
+    const height =
+      fullSizePanes || maximized
+        ? availableHeight
+        : Math.max(42, ((availableHeight - totalGap) * pane.weight) / totalWeight);
     const focused = pane.paneId === focusedPaneId;
     push({
       focused,

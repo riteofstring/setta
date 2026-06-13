@@ -23,6 +23,7 @@ import {
 interface RenderFrameContext {
   availableHeight: number;
   columns: WorkspaceColumn[];
+  fullSizePanes: boolean;
   geometry: ColumnGeometry;
   input: LayoutFrameInput;
   paneById: Map<PaneId, WorkspacePane>;
@@ -35,6 +36,7 @@ export function renderNormalLayoutFrame({
   availableHeight,
   columns,
   focusedLocation,
+  fullSizePanes,
   geometry,
   input,
   paneById,
@@ -80,6 +82,7 @@ export function renderNormalLayoutFrame({
       column,
       columnWidth,
       focusedPaneId: input.focusedPaneId,
+      fullSizePanes,
       maximizedPaneId,
       moving: input.movementPhase === "moving",
       paneById,
@@ -97,6 +100,7 @@ export function renderOverviewLayoutFrame({
   availableHeight,
   cardSizeConstraints,
   columns,
+  fullSizePanes,
   geometry,
   input,
   paneById,
@@ -136,6 +140,7 @@ export function renderOverviewLayoutFrame({
       column,
       columnWidth,
       focusedPaneId: input.focusedPaneId,
+      fullSizePanes,
       moving: input.movementPhase === "moving",
       paneById,
       presentationMode: input.presentationMode,

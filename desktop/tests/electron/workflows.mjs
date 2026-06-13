@@ -56,6 +56,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "mobile-layout-workflow.test.mjs",
+    name: "mobile-layout",
+    tiers: ["required"],
+  },
+  {
     file: "workflow-graph-smoke.test.mjs",
     name: "workflow-graph-smoke",
     tiers: ["required"],

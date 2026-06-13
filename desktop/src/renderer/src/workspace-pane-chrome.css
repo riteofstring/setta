@@ -40,6 +40,19 @@
   -webkit-app-region: no-drag;
 }
 
+/* Mobile-width layout pages between full-screen panes; pane management moves
+   to the bottom control bar, so the per-pane action buttons disappear, the
+   reorder grip makes no sense outside overview, and the bar grows into an
+   easier touch target. */
+.workspace-layout-area[data-compact-layout="true"] .workspace-pane-host {
+  --workspace-pane-top-bar-height: 44px;
+}
+
+.workspace-layout-area[data-compact-layout="true"] .workspace-pane-action-strip,
+.workspace-layout-area[data-compact-layout="true"] .workspace-pane-drag-handle {
+  display: none;
+}
+
 .workspace-pane-drag-handle,
 .workspace-pane-action-button {
   align-items: center;
