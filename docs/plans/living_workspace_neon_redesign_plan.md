@@ -1,7 +1,7 @@
 # Living Workspace Visual Redesign Plan — Neon Circuit + Neon Cells
 
 - **Date:** June 13, 2026
-- **Status:** Proposed; not started (supersedes the workflow-only "Neon Circuit" draft)
+- **Status:** Phases 0–6 implemented (committed through `1992781fb`), but **visual parity with the mockup is NOT met** — the running app reads as a *darker version of the pre-redesign graph*, not the neon mockup. Phases 0–6 are a sound structural skeleton; the gap is **visual calibration, not architecture** (see "Visual parity & gating" and "Known calibration gaps"). A calibration pass under the new visual-parity gate is required before continuing to Phase 7.
 - **Scope:** Give the whole workspace graph a single neon aesthetic with two forms of life: the **workflow** runs like a *machine/circuit*; the **semantic** map grows like an *organism/cells*. Both share the dark-void + neon-glow language. The cartographer's real `split_node` / `merge_nodes` operations become **cell mitosis / fusion**. Extend the existing shared Pixi renderer; do not fork it or move graph state into React.
 - **Mockups:**
   - `docs/mockups/workflow-graph-aesthetics.html#neon` — the chosen "Neon Circuit" direction.
@@ -16,9 +16,11 @@
 
 Both halves glow with the same neon-on-dark palette, so the workspace reads as one living system. This is a presentation-layer change: graph topology, layout, hit-testing, selection, edge drawing, persistence, and the React/store contracts stay as they are. We change how each layer is painted, add a gated per-frame animation pass, and add a **snapshot-driven** transition coordinator for mitosis/fusion — driven by typed node-lineage fields the backend already provides (see E). The only contract change is additive optional renderer fields; no graph state moves into React and no new store/IPC event feed is introduced. This redesign **replaces** the old flat look; do not add backward-compatibility shims, legacy rendering paths, migrations, transitional adapters, dual renderers, dual-read/write paths, or A/B theme toggles.
 
-## Current state (what we're changing)
+## Pre-redesign baseline & still-current facts
 
-The renderer lives in `desktop/src/renderer/src/features/workspace-graph/` — custom Pixi.js v8 (`8.18.1`) + `pixi-viewport`. Confirmed in code:
+> **Note (post-Phase-6):** this section documents the *starting point* and the rationale, not the current code. Several "gaps" below have since been implemented by phases 0–6 — the renderer contract now carries `status`/`kind`/lineage (Phase 0/A), there is a gated animation loop (Phase 2), and semantic nodes render as cells rather than rounded rects (Phase 5). Read items framed as gaps as **historical motivation**, not remaining work. The facts that are still the live spec for the not-yet-built Phase 7 — the typed `SemanticNode` lineage fields and the `semantic:<id>` ID-namespace caveat — remain accurate.
+
+The renderer lives in `desktop/src/renderer/src/features/workspace-graph/` — custom Pixi.js v8 (`8.18.1`) + `pixi-viewport`. Confirmed in code at the pre-redesign baseline:
 
 - **The renderer is shared across layers.** Its contract is `pixi-renderer.d.ts`. `workflow-graph-projection.ts` and `semantic-graph-projection.ts` both produce the same `WorkflowGraphGraph`, and `mergeWorkflowAndSemanticGraphs` (`semantic-graph-projection.ts:96`) places both in one scene. Nodes/edges carry `layer?: "semantic" | "workflow"` (`pixi-renderer.d.ts:12,33`).
 - **`status`/`kind` are not in the renderer contract.** `pixi-renderer.d.ts` types nodes with `color`, `layer?`, `activity?`, `diagnostic?`, `ports?`; edges with `color?`, `alpha?`, `width?` (no `status`). Workflow `status`/`kind` and edge `status` live only on the projection's private interface (`workflow-graph-projection.ts:12-25`) and ride along untyped at runtime; the renderer consumes a **pre-resolved `node.color`/`edge.color`** and never re-derives colour.
@@ -110,7 +112,9 @@ The renderer's diff-replace can't express "one cell became two." Add a thin **tr
 
 Workflow first establishes the shared foundation (palette, animation driver, layer-gating); semantic builds on it; mitosis/fusion last.
 
-**Milestones (independently shippable):** **M1 — Workflow neon foundation** (Phases 0–4). **M2 — Semantic cells** (Phases 5–6). **M3 — Mitosis & fusion** (Phase 7), whose only cross-milestone dependency is the lineage-field threading done in M1's Phase 0/A. Polish (8) and verification (9) close out. M3 is the riskiest slice and can be planned/scheduled on its own without blocking M1–M2 shipping.
+**Every phase below that changes pixels is gated by "Visual parity & gating" (next section): it is not done until its canonical scene is rendered at fit-to-view zoom, posted next to the mockup, and approved by the user.** Phases 1–6 were marked done without this gate and that is exactly why the result missed the mockup — re-running them through the gate is the calibration pass.
+
+**Milestones (independently shippable):** **M1 — Workflow neon foundation** (Phases 0–4). **M2 — Semantic cells** (Phases 5–6). **Visual calibration (Phase 6.5) gates M3** — M1+M2 must reach mockup parity at fit zoom before mitosis work begins. **M3 — Mitosis & fusion** (Phase 7), whose only cross-milestone dependency is the lineage-field threading done in M1's Phase 0/A. Polish (8) and verification (9) close out. M3 is the riskiest slice and can be planned/scheduled on its own without blocking M1–M2 shipping.
 
 **Phase 0 — Contract, baseline & guardrails.** Section A contract + layer-gating. Performance baseline (idle / pan-zoom / drag / 500–5,000-node synthetic) recorded under `docs/reports/performance/`. **Extend the synthetic generator** with workflow status / edge-status **and** a semantic-cell scene with `activity.active` cells, so perf scenes exercise the animated paths (current synthetics emit none). Plumb `reduceMotion` + an animation on/off switch. Add debug-snapshot counters (`edgeFlowRedrawCount`, `nodePulseRedrawCount`, `cellAnimCount`, `transitionsActive`, `animationActive`).
 
@@ -126,11 +130,50 @@ Workflow first establishes the shared foundation (palette, animation driver, lay
 
 **Phase 6 — Semantic ambient life.** Breathing (container scale), drifting nucleus, organelles, and the `activity.active` shimmer — all gated to visible + active and capped. Tendril sway + slow signal. Re-measure ambient cost; tune until subtle and cheap.
 
+**Phase 6.5 — Visual calibration (BLOCKS Phase 7).** Bring the ordinary fit-to-view graph up to mockup parity — this is the salvage pass over phases 1–6, not new structure. **First deliverable, before tuning any value: the harness itself** — a deterministic, temporary-app-data, production-path render of the canonical tiny all-`not_started` draft workflow at fit zoom (`workflow-idle-fit.png`). Only with that reproducible baseline in hand (next to the mockup) does calibration begin. **First target = that exact failed case**; it must read like the mockup before anything else proceeds. Work the "Known calibration gaps" **one change at a time under the visual-parity gate** (render → side-by-side with mockup → user sign-off): zoom-stable glow first (the biggest lever, since world-space glow vanishes at fit zoom), then node contrast, then palette, then additive bloom (composited on the glow *layer*, not just child graphics). **Keep the performance gate attached** — additive bloom / screen-space glow via Pixi filters can be GPU-expensive; measure on the 500–5,000-node scenes and stay within the perf budget. Output: approved fit-zoom golden references for `workflow-idle`, `workflow-running`, `semantic-cells`, and `merged` under `docs/reports/visual/`. Phase 7 does not start until these are signed off.
+
 **Phase 7 — Mitosis & fusion (hero #2).** Section E snapshot-driven coordinator keyed off the typed `SemanticNode` lineage; choreograph geometry to the children's/survivor's layout positions; new-vs-historical-lineage detection; dismissed-source provenance treatment (split *and* merge keep the source); daughter-count fallback (peanut only for 2-child splits); interruption policy. Depends on the lineage threading from Phase 0/A. This is the payoff that makes the semantic map feel alive.
 
 **Phase 8 — Polish (optional).** Per-kind glyphs (workflow) / subtle internal cell texture; the workflow→semantic "bridge" (run feeding the map) if we want it as a real visual; optional true bloom via core `BlurFilter` (no new dep) within a fixed GPU budget — `@pixi/filter-advanced-bloom` would need `./update_dependencies.sh` + `./scripts/check_supply_chain.sh`.
 
-**Phase 9 — Verify & document.** Re-measure vs Phase 0 on the status/activity-enabled synthetic scenes; append before/after to `docs/reports/performance/`. Visual smoke coverage for: workflow neon states, active-edge flow, completed-static, cell static + ambient, active shimmer, **mitosis**, **fusion**, promoted/dismissed, reduced-motion (incl. transition-snap), and a merged workflow+semantic scene. Confirm React render counts unchanged during animation and transitions. **Scope note:** the snapshot-diff approach is intended to stay renderer-only. If any step ends up touching generated backend contracts, IPC/preload, or renderer↔store wiring, the AGENTS-required production-path E2E workflow coverage applies, not just visual smoke.
+**Phase 9 — Verify & document.** Re-measure vs Phase 0 on the status/activity-enabled synthetic scenes; append before/after to `docs/reports/performance/`. Visual smoke coverage for: workflow neon states, active-edge flow, completed-static, cell static + ambient, active shimmer, **mitosis**, **fusion**, promoted/dismissed, reduced-motion (incl. transition-snap), and a merged workflow+semantic scene. Confirm React render counts unchanged during animation and transitions. **Visual parity:** all canonical scenes (`workflow-idle`, `workflow-running`, `semantic-cells`, `merged`, `mitosis`) rendered at fit zoom, signed off against the mockup by the user, and saved as golden references under `docs/reports/visual/`. **Scope note:** the snapshot-diff approach is intended to stay renderer-only. If any step ends up touching generated backend contracts, IPC/preload, or renderer↔store wiring, the AGENTS-required production-path E2E workflow coverage applies, not just visual smoke.
+
+## Visual parity & gating (first-class — equal to the performance gate)
+
+This gate was added after phases 0–6 shipped structurally correct yet looked nothing like the mockup. The hard lesson: **code review and unit tests verify structure and counts, but cannot verify "does it look like the mockup."** Every visual phase passed review and tests, yet the running app looked like a *darker* pre-redesign graph — because the render was never compared to the mockup at the zoom the user actually sees. Visual parity is now a required gate.
+
+**Root-cause failures this gate exists to prevent (all happened):**
+- **No render-vs-mockup comparison was ever in the loop.** The mockup was the spec but never diffed against output.
+- **Self-certification on cherry-picked zoomed-in renders**, which flatter faint glow. The user sees the **whole-graph (fit-to-view)** zoom — where world-space glow shrinks to nothing and dark-glass nodes just read as dark.
+- **Tuning/judging a stale build** (`out/` not rebuilt), so the changes weren't even in the render being looked at.
+
+**Canonical reference scenes — always rendered at fit-to-view (whole-graph) zoom, never zoomed in:**
+- `workflow-idle` — a draft workflow, all `not_started` (the dimmest and most common state; the one the user kept seeing).
+- `workflow-running` — a mid-run with `running`/`succeeded`/`failed` nodes and `active` edges (where the energy lives).
+- `semantic-cells` — a cell cluster with tendrils and at least one `activity.active` cell.
+- `merged` — workflow + semantic in one scene.
+- `mitosis` — a mid-division frame (Phase 7).
+
+**How to render (concrete — don't leave this ambiguous):**
+- Commands: `node desktop/tests/electron/run-workflows.mjs --workflow workflow-graph-smoke` and `… --workflow semantic-graph`; PNGs land under `.recordings/workflow-graph/<ts>/` and `.recordings/semantic-graph/<ts>/`. Always render against a **fresh build** (`pnpm -C desktop build`) — confirm the renderer bundle is newer than your edits, or render in dev. (A stale `out/` silently renders old code — that already wasted a session.)
+- **Fit-to-view is mandatory, not automatic, and must be a named artifact.** The smoke harness's `initial.png` is zoomed *in*; capture a deliberate fit-to-view frame (whole graph in the viewport) saved as `<scene>-fit.png` (e.g., `workflow-idle-fit.png`). That is the only view that counts — zoomed-in frames are what hid the problem. If the harness can't yet emit a fit-to-view capture, **adding that capture is part of Phase 6.5, not something to hand-wave** — do not substitute whatever zoom the smoke happens to use.
+- **The `workflow-idle` golden must exercise the real app/backend/renderer path — deterministically, not from personal data.** A fixture render is insufficient (the failure was on the normal app surface). But "real path" must **not** mean the developer's `~/.setta` data — that isn't reproducible. Per AGENTS (temporary dirs, production paths): add a deterministic harness that seeds **temporary app data** with the canonical tiny all-`not_started` draft workflow programmatically, then renders it through the production main/preload/renderer path at fit zoom. (`scripts/record_desktop_session.sh` against personal data is fine for a quick manual gut-check, but the *golden* must be the deterministic temp-data render.) Synthetic env-flag scenes route through the real surface (`workflow-graph-surface-helpers.ts`) and are acceptable for the other canonical scenes.
+
+**Definition of done for any pixel-changing phase (in addition to typecheck / lint / unit):**
+1. **Fresh build** — verify the renderer bundle is newer than the edits (or render in dev). Never trust a stale `out/`.
+2. **Render the affected canonical scene(s) at fit zoom.**
+3. **Post the render side-by-side with the mockup** (`docs/mockups/…`) and get **explicit user sign-off** on parity. The implementer's judgment of their own render does not count — that is precisely what failed.
+4. On approval, **save the render as a golden reference** under `docs/reports/visual/`. Later changes auto-diff against it to catch regressions. (Pixel-diffing against the *mockup* is not meaningful — different renderer — so mockup parity stays a human call; golden diffs only guard against regressing an already-approved app render.)
+
+**Render discipline (on the implementer):** fresh build every time; fit-to-view zoom every time; the user is the judge of mockup parity; when calibrating, **one change at a time, re-rendered for approval** — no batches, no "it looks like neon" claims.
+
+**Known calibration gaps (phase-6 render vs. mockup — the visual to-do list):**
+- **Glow is world-space, so it vanishes at fit zoom** — the single biggest reason the graph looks dead. Make glow zoom-stable (e.g., screen-space or scale-compensated).
+- **Dark-glass nodes are too dark / low-contrast** vs. the mockup; Phase 1 removed the old colored fills and gave too little back.
+- **Palette is the muted original Setta colors**, not the mockup's brighter neon variants.
+- **No additive bloom that reads at realistic zoom** (the layered-stroke glow is too subtle; additive compositing must land on the glow *layer*, not just child graphics).
+
+These are calibration against `workspace-neon-theme.ts` plus a couple of rendering decisions (chiefly zoom-stable glow). **They do not require redoing phases 0–6** — the structure is the asset; the look is the work.
 
 ## Performance budget & gating (first-class, per AGENTS)
 
@@ -151,6 +194,7 @@ Workflow first establishes the shared foundation (palette, animation driver, lay
 
 ## Risks & mitigations
 
+- **Shipping a phase that passes tests but misses the mockup — REALIZED in phases 1–6.** This is the most expensive risk and it already happened: structure was correct, tests green, but the look was wrong and nobody compared render-to-mockup at the real zoom. Mitigated going forward by the first-class **Visual parity & gating** section: fit-zoom render posted next to the mockup with user sign-off before any pixel-changing phase is "done"; golden references guard against regressions; the implementer never self-certifies the look.
 - **Retheming the wrong layer.** Mitigated by the section A layer gate, explicit `layer`, and merged-scene checks in Phases 1/5/9.
 - **Mitosis/fusion desyncing from authoritative graph state.** Driven by typed `SemanticNode` lineage compared across authoritative snapshots (not untyped payloads or diff heuristics) + an explicit finish-then-apply interruption policy + tests in Phase 7/9.
 - **Ambient cell life regressing large-graph perf.** Cheap breathing + visible/active gating + caps + Phase 0/9 measurement on cell-heavy synthetic scenes; fallback to active-only breathing.
