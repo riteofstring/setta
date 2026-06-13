@@ -62,7 +62,7 @@ try {
 
   const regions = await sampleDragRegions(context.client);
   assertWorkspaceControlsNotDraggable(regions);
-  assertSettaLogoDoesNotCoverControls(regions);
+  assertChromePlateDoesNotCaptureControls(regions);
   assertPaneChromeDraggable(regions);
   assertPaneDragHandleNotWindowDraggable(regions);
 
@@ -250,13 +250,16 @@ async function sampleDragRegions(client) {
     function sampleElement(name, selector) {
       const element = document.querySelector(selector);
       const style = element instanceof Element ? getComputedStyle(element) : null;
+      const rect = element instanceof Element ? element.getBoundingClientRect() : null;
       return {
         aria: element?.getAttribute("aria-label") ?? null,
         className: element?.getAttribute("class") ?? "",
+        height: rect?.height ?? 0,
         name,
         region: style?.getPropertyValue("-webkit-app-region") ?? null,
         tag: element instanceof Element ? element.tagName.toLowerCase() : null,
         testid: element?.getAttribute("data-testid") ?? null,
+        width: rect?.width ?? 0,
         x: -1,
         y: -1,
       };
@@ -270,7 +273,7 @@ async function sampleDragRegions(client) {
       ?.getBoundingClientRect();
     return [
       sample("workspace-control", toolbar ? toolbar.left + 14 : 118, toolbar ? toolbar.top + 14 : 18),
-      sampleElement("setta-logo-overlay", '[data-testid="shell-setta-logo"]'),
+      sampleElement("chrome-plate", '[data-testid="shell-chrome-plate"]'),
       sample("pane-title-bar", paneTop ? paneTop.left + 120 : 350, paneTop ? paneTop.top + 12 : 53),
       sample(
         "pane-drag-handle",
@@ -288,11 +291,11 @@ function assertWorkspaceControlsNotDraggable(regions) {
   }
 }
 
-function assertSettaLogoDoesNotCoverControls(regions) {
-  const logo = requiredRegion(regions, "setta-logo-overlay");
-  if (logo.region === "drag") {
+function assertChromePlateDoesNotCaptureControls(regions) {
+  const plate = requiredRegion(regions, "chrome-plate");
+  if (plate.testid !== "shell-chrome-plate" || plate.region === "drag") {
     throw new Error(
-      `setta logo overlay covers controls with a drag region: ${JSON.stringify(logo)}`,
+      `chrome plate should not capture controls as a drag region: ${JSON.stringify(plate)}`,
     );
   }
 }

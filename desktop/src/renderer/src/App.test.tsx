@@ -65,8 +65,8 @@ describe("workspace renderer states", () => {
 
     expect(html).toContain('data-testid="shell-top-bar"');
     expect(html).toContain('data-setta-shell-title-bar="true"');
-    expect(html).toContain('style="left:74px;width:146px"');
-    expect(html).toContain('data-testid="shell-setta-logo"');
+    expect(html).toContain('style="left:86px;width:134px"');
+    expect(html).toContain('data-testid="shell-chrome-plate"');
     expect(html).toContain('aria-label="Hide project sidebar"');
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('data-testid="project-sidebar-toggle"');

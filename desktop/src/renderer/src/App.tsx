@@ -13,7 +13,6 @@ import {
 import { useAppWindowDragHandlers } from "./app-window-drag";
 import { type ChatView, useChatViewState } from "./components/chat-panel";
 import { ResizablePane } from "./components/resizable-pane";
-import { SettaLogoMark } from "./components/setta-logo-mark";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { cn } from "./lib/utils";
 import {
@@ -314,6 +313,7 @@ function AppChromeControls({
 }) {
   return (
     <>
+      <AppChromePlate platform={platform} />
       <ShellTopBar
         platform={platform}
         projectPaneOpen={projectPaneOpen}
@@ -324,8 +324,18 @@ function AppChromeControls({
         platform={platform}
         setProjectPaneOpen={setProjectPaneOpen}
       />
-      <FloatingSettaBrand projectPaneOpen={projectPaneOpen} projectPaneWidth={projectPaneWidth} />
     </>
+  );
+}
+
+function AppChromePlate({ platform }: { platform: DesktopPlatform }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed top-0 left-0 z-40 h-11 rounded-br-xl border-r border-b border-border/45 bg-background/72 shadow-[0_10px_28px_color-mix(in_oklch,black_24%,transparent)] backdrop-blur-md"
+      data-testid="shell-chrome-plate"
+      style={{ width: appChromePlateWidth(platform) }}
+    />
   );
 }
 
@@ -342,7 +352,7 @@ function FloatingProjectPaneControl({
   return (
     <div
       className={cn(
-        "app-no-drag pointer-events-auto fixed top-1 z-50 text-muted-foreground",
+        "app-no-drag pointer-events-auto fixed top-2 z-50 text-muted-foreground",
         floatingProjectControlLeftInsetClass(platform),
       )}
     >
@@ -417,34 +427,16 @@ function ShellPaneToggle({
   );
 }
 
-function FloatingSettaBrand({
-  projectPaneOpen,
-  projectPaneWidth,
-}: {
-  projectPaneOpen: boolean;
-  projectPaneWidth: number;
-}) {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn(
-        "pointer-events-none fixed top-0 left-0 z-50 flex h-10 items-center justify-end pr-5",
-        !projectPaneOpen && "hidden",
-      )}
-      data-testid="shell-setta-logo"
-      style={{ width: projectPaneWidth }}
-    >
-      <SettaLogoMark height={13} />
-    </div>
-  );
-}
-
 function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
-  return platform === "darwin" ? "left-[74px]" : "left-2";
+  return platform === "darwin" ? "left-[86px]" : "left-4";
 }
 
 function shellTopBarLeftInset(platform: DesktopPlatform) {
-  return platform === "darwin" ? 74 : 0;
+  return platform === "darwin" ? 86 : 0;
+}
+
+function appChromePlateWidth(platform: DesktopPlatform) {
+  return platform === "darwin" ? 186 : 112;
 }
 
 function useWorkspaceViewState() {

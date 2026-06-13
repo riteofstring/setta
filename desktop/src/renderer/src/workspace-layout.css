@@ -270,7 +270,7 @@
 
 .workspace-toolbar {
   --workspace-performance-end-inset: 10px;
-  --workspace-toolbar-left-inset: 40px;
+  --workspace-toolbar-left-inset: 52px;
   align-items: center;
   background: transparent;
   border-radius: 6px;
@@ -281,14 +281,14 @@
   overflow: visible;
   padding: 0;
   position: fixed;
-  top: 4px;
+  top: 8px;
   left: var(--workspace-toolbar-left-inset);
   width: auto;
   z-index: 52;
 }
 
 .workspace-layout-area[data-desktop-platform="darwin"] .workspace-toolbar {
-  --workspace-toolbar-left-inset: 106px;
+  --workspace-toolbar-left-inset: 118px;
 }
 
 .workspace-layout-area[data-desktop-platform="win32"] .workspace-toolbar {
