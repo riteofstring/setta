@@ -293,8 +293,11 @@ func validateCartographerCreateEdgePayload(payload CartographerPatchPayload) err
 	if err := validateOptionalStoreIDs([]optionalStoreID{{label: "cartographer patch edge id", value: payload.EdgeID}}); err != nil {
 		return err
 	}
-	if !isSemanticEdgeKind(payload.EdgeKind) {
-		return fmt.Errorf("cartographer patch edge kind is unsupported: %s", payload.EdgeKind)
+	if payload.EdgeKind == nil {
+		return errors.New("cartographer patch edge kind is required")
+	}
+	if !isSemanticEdgeKind(*payload.EdgeKind) {
+		return fmt.Errorf("cartographer patch edge kind is unsupported: %s", *payload.EdgeKind)
 	}
 	return validateStoreIDs("cartographer patch from node id", payload.FromNodeID, "cartographer patch to node id", payload.ToNodeID)
 }
@@ -303,11 +306,17 @@ func validateCartographerStartActivityPayload(payload CartographerPatchPayload) 
 	if err := validateOptionalStoreIDs([]optionalStoreID{{label: "cartographer patch activity id", value: payload.ActivityID}}); err != nil {
 		return err
 	}
-	if !isSemanticActivityKind(payload.ActivityKind) {
-		return fmt.Errorf("cartographer patch activity kind is unsupported: %s", payload.ActivityKind)
+	if payload.ActivityKind == nil {
+		return errors.New("cartographer patch activity kind is required")
 	}
-	if !isSemanticActivitySourceKind(payload.ActivitySourceKind) {
-		return fmt.Errorf("cartographer patch activity source kind is unsupported: %s", payload.ActivitySourceKind)
+	if !isSemanticActivityKind(*payload.ActivityKind) {
+		return fmt.Errorf("cartographer patch activity kind is unsupported: %s", *payload.ActivityKind)
+	}
+	if payload.ActivitySourceKind == nil {
+		return errors.New("cartographer patch activity source kind is required")
+	}
+	if !isSemanticActivitySourceKind(*payload.ActivitySourceKind) {
+		return fmt.Errorf("cartographer patch activity source kind is unsupported: %s", *payload.ActivitySourceKind)
 	}
 	return validateStoreIDs("cartographer patch activity target entity id", payload.TargetEntityID)
 }

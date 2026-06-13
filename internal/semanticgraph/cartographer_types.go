@@ -311,13 +311,13 @@ type CartographerPatchPayload struct {
 	NewNode            *CartographerPatchNewNode      `json:"newNode"`
 	Summary            string                         `json:"summary"`
 	EdgeID             string                         `json:"edgeId"`
-	EdgeKind           SemanticEdgeKind               `json:"edgeKind"`
+	EdgeKind           *SemanticEdgeKind              `json:"edgeKind"`
 	FromNodeID         string                         `json:"fromNodeId"`
 	ToNodeID           string                         `json:"toNodeId"`
 	Label              string                         `json:"label"`
 	ActivityID         string                         `json:"activityId"`
-	ActivityKind       SemanticActivityKind           `json:"activityKind"`
-	ActivitySourceKind SemanticActivitySourceKind     `json:"activitySourceKind"`
+	ActivityKind       *SemanticActivityKind          `json:"activityKind"`
+	ActivitySourceKind *SemanticActivitySourceKind    `json:"activitySourceKind"`
 	ActivitySourceID   string                         `json:"activitySourceId"`
 	EvidenceAnchorID   string                         `json:"evidenceAnchorId"`
 	SourceNodeID       string                         `json:"sourceNodeId"`
@@ -383,4 +383,78 @@ type CartographerDiagnostic struct {
 	Message   string                         `json:"message"`
 	Path      string                         `json:"path"`
 	CreatedAt string                         `json:"createdAt"`
+}
+
+type CartographerRunFilter struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	TargetEntityID      string `json:"targetEntityId"`
+	Limit               int    `json:"limit"`
+}
+
+type CartographerRunList struct {
+	WorkspaceID string            `json:"workspaceId"`
+	Runs        []CartographerRun `json:"runs"`
+	Limit       int               `json:"limit"`
+}
+
+type CartographerRunReadResponse struct {
+	Run *CartographerRun `json:"run"`
+}
+
+type CartographerWindowFilter struct {
+	WorkspaceID         string                 `json:"workspaceId"`
+	RunID               string                 `json:"runId"`
+	SourceKind          CartographerSourceKind `json:"sourceKind"`
+	SourceID            string                 `json:"sourceId"`
+	WorkflowExecutionID string                 `json:"workflowExecutionId"`
+	ChatRunID           string                 `json:"chatRunId"`
+	Limit               int                    `json:"limit"`
+}
+
+type CartographerWindowList struct {
+	WorkspaceID string               `json:"workspaceId"`
+	Windows     []CartographerWindow `json:"windows"`
+	Limit       int                  `json:"limit"`
+}
+
+type CartographerCursorFilter struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Limit               int    `json:"limit"`
+}
+
+type CartographerCursorList struct {
+	WorkspaceID string               `json:"workspaceId"`
+	Cursors     []CartographerCursor `json:"cursors"`
+	Limit       int                  `json:"limit"`
+}
+
+type CartographerPatchFilter struct {
+	WorkspaceID      string                  `json:"workspaceId"`
+	RunID            string                  `json:"runId"`
+	SemanticTargetID string                  `json:"semanticTargetId"`
+	Status           CartographerPatchStatus `json:"status"`
+	Limit            int                     `json:"limit"`
+}
+
+type CartographerPatchList struct {
+	WorkspaceID string                    `json:"workspaceId"`
+	Patches     []CartographerPatchRecord `json:"patches"`
+	Limit       int                       `json:"limit"`
+}
+
+type CartographerWindowBuildResult struct {
+	Run     CartographerRun                `json:"run"`
+	Window  CartographerWindow             `json:"window"`
+	Summary *CartographerTrajectorySummary `json:"summary"`
+}
+
+type CartographerPatchReviewResult struct {
+	Run        CartographerRun         `json:"run"`
+	Patch      CartographerPatchRecord `json:"patch"`
+	Events     []SemanticEvent         `json:"events"`
+	NodeDetail *SemanticNodeDetail     `json:"nodeDetail"`
 }

@@ -31,6 +31,15 @@ describe("SemanticLoadedNodeDetails", () => {
     expect(html).toContain("active constraint");
     expect(html).toContain("sha256:delivered");
     expect(html).toContain("node.created");
+    expect(html).toContain("Cartographer");
+    expect(html).toContain("attach_evidence");
+    expect(html).toContain("pending_review");
+    expect(html).toContain("Cartographer pending review evidence");
+    expect(html).toContain("source_ref_confirmed");
+    expect(html).toContain("Seed cartographer window summary");
+    expect(html).toContain("workflow_cursor_003");
+    expect(html).toContain("Accept");
+    expect(html).toContain("Reject");
   });
 });
 
@@ -64,6 +73,10 @@ function detail(): SemanticNodeDetail {
         workspaceId: "workspace_test",
       },
     ],
+    cartographerCursors: [cartographerCursor()],
+    cartographerPatches: [cartographerPatchRecord()],
+    cartographerRuns: [cartographerRun()],
+    cartographerWindows: [cartographerWindow()],
     contextPackHistory: [
       {
         createdAt: "2026-06-10T12:00:07Z",
@@ -204,6 +217,281 @@ function detail(): SemanticNodeDetail {
       },
     ],
     workspaceId: "workspace_test",
+  };
+}
+
+function cartographerPatchRecord(): SemanticNodeDetail["cartographerPatches"][number] {
+  const patch = cartographerPatch();
+  return {
+    applicationResult: {
+      applied: false,
+      appliedAt: "",
+      createdSemanticEventIds: [],
+      diagnostics: [],
+      patchId: patch.patchId,
+    },
+    appliedAt: "",
+    createdAt: "2026-06-10T12:00:08Z",
+    createdSemanticEventIds: [],
+    id: patch.patchId,
+    patch,
+    runId: "cartographer_run_detail",
+    status: "pending_review",
+    validatedAt: "2026-06-10T12:00:08Z",
+    validationResult: {
+      accepted: true,
+      diagnostics: [
+        {
+          code: "source_ref_confirmed",
+          createdAt: "2026-06-10T12:00:08Z",
+          id: "cartographer_diagnostic_detail",
+          message: "The patch references evidence in the inspected semantic node.",
+          patchId: patch.patchId,
+          path: "$.patches[0].evidenceRefs",
+          runId: "cartographer_run_detail",
+          severity: "info",
+        },
+      ],
+      patchId: patch.patchId,
+      validatedAt: "2026-06-10T12:00:08Z",
+    },
+    windowId: "cartographer_window_detail",
+    workspaceId: "workspace_test",
+  };
+}
+
+function cartographerPatch(): SemanticNodeDetail["cartographerPatches"][number]["patch"] {
+  const evidenceRefs = [
+    {
+      evidenceAnchorId: "evidence_node",
+      sourceId: "setta_semantic_work_graph_implementation_plan",
+      sourceKind: "document" as const,
+    },
+  ];
+  return {
+    causationId: "cartographer_request_detail",
+    confidence: 0.42,
+    correlationId: "cartographer_response_detail",
+    evidenceRefs,
+    modelInfo: { fixture: "renderer" },
+    operation: "attach_evidence",
+    patchId: "cartographer_patch_pending",
+    payload: {
+      activityId: "",
+      activityKind: "validating",
+      activitySourceId: "",
+      activitySourceKind: "file_range",
+      edgeId: "",
+      edgeKind: "supports",
+      evidenceAnchorId: "",
+      evidenceRefs,
+      fromNodeId: "",
+      label: "",
+      newNode: null,
+      newNodes: [],
+      reassignments: emptyReassignments(),
+      resolutionNodeId: "",
+      semanticNodeId: "",
+      sourceNodeId: "",
+      sourceNodeIds: [],
+      summary: "",
+      targetEntityId: "node_contract",
+      targetNode: null,
+      toNodeId: "",
+    },
+    publicSummary: "Cartographer pending review evidence",
+    reviewRequired: true,
+    sourceRefs: cartographerSourceRefs(),
+    workspaceId: "workspace_test",
+  };
+}
+
+function cartographerRun(): SemanticNodeDetail["cartographerRuns"][number] {
+  return {
+    completedAt: "",
+    createdAt: "2026-06-10T12:00:08Z",
+    createdSemanticEventIds: [],
+    diagnostics: [],
+    error: "",
+    harnessKind: "scripted",
+    id: "cartographer_run_detail",
+    inputBundle: cartographerInputBundle(),
+    inputBundleHash: "sha256:cartographer_input",
+    inputItemCounts: {
+      activity: 1,
+      contextPacks: 1,
+      evidence: 1,
+      existingEdges: 1,
+      existingNodes: 1,
+      fileChanges: 0,
+      newEvents: 1,
+      observedEventRefs: 1,
+      outputSummaries: 1,
+      steering: 1,
+      testResults: 0,
+      toolCalls: 0,
+      trajectorySummaries: 0,
+    },
+    model: "scripted",
+    outputSchema: {},
+    rawHarnessResponseHash: "sha256:cartographer_response",
+    requestId: "cartographer_request_detail",
+    responseId: "cartographer_response_detail",
+    sourceRefs: cartographerSourceRefs(),
+    startedAt: "2026-06-10T12:00:08Z",
+    status: "proposed",
+    targetEntityId: "node_contract",
+    trajectorySummary: "Seed cartographer window summary",
+    triggerKind: "manual",
+    updatedAt: "2026-06-10T12:00:08Z",
+    windowId: "cartographer_window_detail",
+    workspaceId: "workspace_test",
+  };
+}
+
+function cartographerWindow(): SemanticNodeDetail["cartographerWindows"][number] {
+  return {
+    closedAt: "2026-06-10T12:00:08Z",
+    createdAt: "2026-06-10T12:00:08Z",
+    cursorId: "cartographer_cursor_detail",
+    id: "cartographer_window_detail",
+    inputBundle: cartographerInputBundle(),
+    openedAt: "2026-06-10T12:00:08Z",
+    runId: "cartographer_run_detail",
+    sequence: 1,
+    sourceId: "workflow_detail",
+    sourceKind: "workflow_execution",
+    status: "closed",
+    summaryId: "cartographer_summary_detail",
+    updatedAt: "2026-06-10T12:00:08Z",
+    workspaceId: "workspace_test",
+  };
+}
+
+function cartographerCursor(): SemanticNodeDetail["cartographerCursors"][number] {
+  return {
+    chatConversationId: "",
+    chatRunId: "",
+    id: "cartographer_cursor_detail",
+    lastChatEventSequence: 0,
+    lastChatEventStreamId: "",
+    lastOutputOrdinalByRunItem: { run_item_detail: 3 },
+    lastWindowId: "cartographer_window_detail",
+    lastWorkflowEventCursor: "workflow_cursor_003",
+    updatedAt: "2026-06-10T12:00:08Z",
+    workflowExecutionId: "workflow_detail",
+    workflowNodeExecutionId: "",
+    workspaceId: "workspace_test",
+  };
+}
+
+function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][number]["inputBundle"] {
+  return {
+    activity: [],
+    assistantResponseSummary: "",
+    assistantText: "",
+    contextPacks: [],
+    evidence: [],
+    existingEdges: [],
+    existingNodes: [],
+    fileChanges: [],
+    newEvents: [
+      {
+        boundary: true,
+        chatMessageId: "",
+        closeReason: "manual",
+        eventId: "manual_cartographer_request",
+        includedContentBytes: 72,
+        occurredAt: "2026-06-10T12:00:08Z",
+        originalContentBytes: 72,
+        outputOrdinal: 0,
+        outputStream: "",
+        runItemId: "",
+        runItemStatus: "",
+        runItemType: "",
+        runStatus: "completed",
+        sequence: 0,
+        source: "workflow",
+        sourceRefs: cartographerSourceRefs(),
+        streamId: "",
+        summary: "Seed cartographer window summary",
+        truncated: false,
+        type: "cartographer.manual_current_progress",
+        workflowEventCursor: "workflow_cursor_003",
+      },
+    ],
+    observedEventRefs: ["workflow_cursor_003"],
+    outputSummaries: [
+      {
+        endOrdinal: 3,
+        runItemId: "run_item_detail",
+        startOrdinal: 1,
+        stream: "stdout",
+        summary: "Seed cartographer window summary",
+        truncated: false,
+      },
+    ],
+    promptSummary: "Seed cartographer window summary",
+    promptText: "",
+    runStatus: "completed",
+    sourceRefs: cartographerSourceRefs(),
+    steering: [],
+    targetEntityId: "node_contract",
+    terminalReason: "manual",
+    testResults: [],
+    tokenBudget: 1200,
+    toolCalls: [],
+    trajectorySummaries: [],
+    triggerKind: "manual",
+    truncation: {
+      deterministicSummary: "",
+      includedContentBytes: 72,
+      includedEventCount: 1,
+      originalContentBytes: 72,
+      originalEventCount: 1,
+      reasons: [],
+      segmentCount: 1,
+      segmentIndex: 0,
+      split: false,
+      summarized: false,
+    },
+    windowEndCursor: {
+      chatEventSequence: 0,
+      chatEventStreamId: "",
+      outputOrdinalByRunItem: { run_item_detail: 3 },
+      workflowEventCursor: "workflow_cursor_003",
+    },
+    windowId: "cartographer_window_detail",
+    windowStartCursor: {
+      chatEventSequence: 0,
+      chatEventStreamId: "",
+      outputOrdinalByRunItem: {},
+      workflowEventCursor: "workflow_cursor_001",
+    },
+    workspaceId: "workspace_test",
+  };
+}
+
+function cartographerSourceRefs() {
+  return {
+    chatConversationId: "",
+    chatMessageId: "",
+    chatRunId: "",
+    runItemId: "",
+    workflowDefinitionId: "",
+    workflowExecutionId: "workflow_detail",
+    workflowNodeExecutionId: "",
+    workflowNodeId: "",
+  };
+}
+
+function emptyReassignments() {
+  return {
+    activity: [],
+    edges: [],
+    evidence: [],
+    layout: [],
+    steering: [],
   };
 }
 

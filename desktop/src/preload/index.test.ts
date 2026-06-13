@@ -543,12 +543,14 @@ describe("preload workspace API", () => {
 
     const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.semanticGraph).sort()).toEqual([
+      "acceptCartographerPatch",
       "attachChatMessage",
       "attachChatRun",
       "attachFileRange",
       "attachRunItem",
       "attachWorkflowExecution",
       "attachWorkflowNode",
+      "buildCartographerWindow",
       "createEdge",
       "createNode",
       "createSteeringDirective",
@@ -556,16 +558,22 @@ describe("preload workspace API", () => {
       "endActivity",
       "listActivity",
       "listActivityPage",
+      "listCartographerCursors",
+      "listCartographerPatches",
+      "listCartographerRuns",
+      "listCartographerWindows",
       "listContextPacks",
       "listEvidence",
       "mergeNodes",
       "promoteNode",
       "read",
       "readActivitySummary",
+      "readCartographerRun",
       "readContextPack",
       "readEventHistory",
       "readNodeDetail",
       "readSteeringState",
+      "rejectCartographerPatch",
       "removeEdge",
       "renameNode",
       "splitNode",
@@ -576,6 +584,16 @@ describe("preload workspace API", () => {
     ]);
 
     const workspaceId = "workspace_api";
+    const cartographerSourceRefs = {
+      chatConversationId: "",
+      chatMessageId: "",
+      chatRunId: "",
+      runItemId: "",
+      workflowDefinitionId: "",
+      workflowExecutionId: "workflow_execution_api",
+      workflowNodeExecutionId: "",
+      workflowNodeId: "",
+    };
     await api.semanticGraph.read({ workspaceId });
     await api.semanticGraph.readNodeDetail({ nodeId: "node_api", workspaceId });
     await api.semanticGraph.listEvidence({ targetEntityId: "node_api", workspaceId });
@@ -601,6 +619,56 @@ describe("preload workspace API", () => {
       offset: 0,
       targetEntityId: "node_api",
       workflowExecutionId: "",
+      workspaceId,
+    });
+    await api.semanticGraph.buildCartographerWindow({
+      runStatus: "",
+      sourceRefs: cartographerSourceRefs,
+      summary: "Manual cartographer window",
+      targetEntityId: "node_api",
+      terminalReason: "",
+      triggerKind: "manual",
+      workspaceId,
+    });
+    await api.semanticGraph.readCartographerRun({
+      runId: "cartographer_run_api",
+      workspaceId,
+    });
+    await api.semanticGraph.listCartographerRuns({
+      chatRunId: "",
+      limit: 10,
+      targetEntityId: "node_api",
+      workflowExecutionId: "workflow_execution_api",
+      workspaceId,
+    });
+    await api.semanticGraph.listCartographerWindows({
+      chatRunId: "",
+      limit: 10,
+      runId: "",
+      sourceId: "",
+      sourceKind: "workflow_execution",
+      workflowExecutionId: "workflow_execution_api",
+      workspaceId,
+    });
+    await api.semanticGraph.listCartographerCursors({
+      chatRunId: "",
+      limit: 10,
+      workflowExecutionId: "workflow_execution_api",
+      workspaceId,
+    });
+    await api.semanticGraph.listCartographerPatches({
+      limit: 10,
+      runId: "cartographer_run_api",
+      semanticTargetId: "node_api",
+      status: "pending_review",
+      workspaceId,
+    });
+    await api.semanticGraph.acceptCartographerPatch({
+      patchId: "cartographer_patch_api",
+      workspaceId,
+    });
+    await api.semanticGraph.rejectCartographerPatch({
+      patchId: "cartographer_patch_api",
       workspaceId,
     });
     await api.semanticGraph.readActivitySummary({ recentLimit: 3, workspaceId });
@@ -822,6 +890,80 @@ describe("preload workspace API", () => {
           offset: 0,
           targetEntityId: "node_api",
           workflowExecutionId: "",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerWindowBuild,
+        {
+          runStatus: "",
+          sourceRefs: cartographerSourceRefs,
+          summary: "Manual cartographer window",
+          targetEntityId: "node_api",
+          terminalReason: "",
+          triggerKind: "manual",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerRunRead,
+        {
+          runId: "cartographer_run_api",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerRunList,
+        {
+          chatRunId: "",
+          limit: 10,
+          targetEntityId: "node_api",
+          workflowExecutionId: "workflow_execution_api",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerWindowList,
+        {
+          chatRunId: "",
+          limit: 10,
+          runId: "",
+          sourceId: "",
+          sourceKind: "workflow_execution",
+          workflowExecutionId: "workflow_execution_api",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerCursorList,
+        {
+          chatRunId: "",
+          limit: 10,
+          workflowExecutionId: "workflow_execution_api",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerPatchList,
+        {
+          limit: 10,
+          runId: "cartographer_run_api",
+          semanticTargetId: "node_api",
+          status: "pending_review",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerPatchAccept,
+        {
+          patchId: "cartographer_patch_api",
+          workspaceId,
+        },
+      ],
+      [
+        ipcChannels.semanticGraphCartographerPatchReject,
+        {
+          patchId: "cartographer_patch_api",
           workspaceId,
         },
       ],

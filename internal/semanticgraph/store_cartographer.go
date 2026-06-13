@@ -6,34 +6,100 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 func (store *Store) SaveCartographerRun(ctx context.Context, run CartographerRun) (CartographerRun, error) {
 	if err := validateCartographerRun(ctx, run); err != nil {
 		return CartographerRun{}, err
 	}
+	normalizeCartographerRun(&run)
+	columns, err := prepareCartographerRunJSONColumns(run)
+	if err != nil {
+		return CartographerRun{}, err
+	}
+	_, err = store.db.ExecContext(ctx, saveCartographerRunSQL,
+		run.WorkspaceID,
+		run.ID,
+		run.Status,
+		run.TriggerKind,
+		run.TargetEntityID,
+		run.SourceRefs.WorkflowDefinitionID,
+		run.SourceRefs.WorkflowExecutionID,
+		run.SourceRefs.WorkflowNodeID,
+		run.SourceRefs.WorkflowNodeExecutionID,
+		run.SourceRefs.ChatConversationID,
+		run.SourceRefs.ChatRunID,
+		run.SourceRefs.ChatMessageID,
+		run.SourceRefs.RunItemID,
+		columns.inputBundleJSON,
+		columns.outputSchemaJSON,
+		run.HarnessKind,
+		run.Model,
+		run.RequestID,
+		run.ResponseID,
+		run.WindowID,
+		run.InputBundleHash,
+		columns.inputItemCountsJSON,
+		run.RawHarnessResponseHash,
+		run.TrajectorySummary,
+		columns.createdEventIDsJSON,
+		columns.diagnosticsJSON,
+		run.CreatedAt,
+		run.StartedAt,
+		run.CompletedAt,
+		run.UpdatedAt,
+		run.Error,
+	)
+	if err != nil {
+		return CartographerRun{}, store.persistenceError("save cartographer run", err)
+	}
+	run.OutputSchema = columns.outputSchema
+	return run, nil
+}
+
+type cartographerRunJSONColumns struct {
+	inputBundleJSON     string
+	outputSchema        json.RawMessage
+	outputSchemaJSON    string
+	inputItemCountsJSON string
+	createdEventIDsJSON string
+	diagnosticsJSON     string
+}
+
+func prepareCartographerRunJSONColumns(run CartographerRun) (cartographerRunJSONColumns, error) {
+	normalizeCartographerRun(&run)
 	inputBundleJSON, err := marshalJSONColumn(run.InputBundle)
 	if err != nil {
-		return CartographerRun{}, fmt.Errorf("encode cartographer input bundle: %w", err)
+		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer input bundle: %w", err)
 	}
 	outputSchema, outputSchemaJSON, err := compactRawJSON(run.OutputSchema, "{}")
 	if err != nil {
-		return CartographerRun{}, fmt.Errorf("encode cartographer output schema: %w", err)
+		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer output schema: %w", err)
 	}
-	run.OutputSchema = outputSchema
 	inputItemCountsJSON, err := marshalJSONColumn(run.InputItemCounts)
 	if err != nil {
-		return CartographerRun{}, fmt.Errorf("encode cartographer input item counts: %w", err)
+		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer input item counts: %w", err)
 	}
 	createdEventIDsJSON, err := marshalJSONColumn(run.CreatedSemanticEventIDs)
 	if err != nil {
-		return CartographerRun{}, fmt.Errorf("encode cartographer run created semantic event ids: %w", err)
+		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer run created semantic event ids: %w", err)
 	}
 	diagnosticsJSON, err := marshalJSONColumn(run.Diagnostics)
 	if err != nil {
-		return CartographerRun{}, fmt.Errorf("encode cartographer diagnostics: %w", err)
+		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer diagnostics: %w", err)
 	}
-	_, err = store.db.ExecContext(ctx, `
+	return cartographerRunJSONColumns{
+		inputBundleJSON:     inputBundleJSON,
+		outputSchema:        outputSchema,
+		outputSchemaJSON:    outputSchemaJSON,
+		inputItemCountsJSON: inputItemCountsJSON,
+		createdEventIDsJSON: createdEventIDsJSON,
+		diagnosticsJSON:     diagnosticsJSON,
+	}, nil
+}
+
+const saveCartographerRunSQL = `
 INSERT INTO semantic_cartographer_runs (
   workspace_id, id, status, trigger_kind, target_entity_id,
   workflow_definition_id, workflow_execution_id, workflow_node_id,
@@ -73,7 +139,10 @@ ON CONFLICT(workspace_id, id) DO UPDATE SET
   completed_at = excluded.completed_at,
   updated_at = excluded.updated_at,
   error = excluded.error
-`,
+`
+
+func saveCartographerRunLocked(ctx context.Context, tx *sql.Tx, run CartographerRun, columns cartographerRunJSONColumns) error {
+	_, err := tx.ExecContext(ctx, saveCartographerRunSQL,
 		run.WorkspaceID,
 		run.ID,
 		run.Status,
@@ -87,29 +156,26 @@ ON CONFLICT(workspace_id, id) DO UPDATE SET
 		run.SourceRefs.ChatRunID,
 		run.SourceRefs.ChatMessageID,
 		run.SourceRefs.RunItemID,
-		inputBundleJSON,
-		outputSchemaJSON,
+		columns.inputBundleJSON,
+		columns.outputSchemaJSON,
 		run.HarnessKind,
 		run.Model,
 		run.RequestID,
 		run.ResponseID,
 		run.WindowID,
 		run.InputBundleHash,
-		inputItemCountsJSON,
+		columns.inputItemCountsJSON,
 		run.RawHarnessResponseHash,
 		run.TrajectorySummary,
-		createdEventIDsJSON,
-		diagnosticsJSON,
+		columns.createdEventIDsJSON,
+		columns.diagnosticsJSON,
 		run.CreatedAt,
 		run.StartedAt,
 		run.CompletedAt,
 		run.UpdatedAt,
 		run.Error,
 	)
-	if err != nil {
-		return CartographerRun{}, store.persistenceError("save cartographer run", err)
-	}
-	return run, nil
+	return err
 }
 
 func (store *Store) ReadCartographerRun(ctx context.Context, workspaceID string, runID string) (CartographerRun, bool, error) {
@@ -132,10 +198,41 @@ WHERE workspace_id = ? AND id = ?
 	return CartographerRun{}, false, store.corruptError("semantic_cartographer_runs", err)
 }
 
+func (store *Store) ListCartographerRuns(ctx context.Context, filter CartographerRunFilter) (CartographerRunList, error) {
+	if err := validateCartographerRunFilter(ctx, filter); err != nil {
+		return CartographerRunList{}, err
+	}
+	filter.Limit = normalizedCartographerLimit(filter.Limit)
+	condition, args := cartographerRunFilterCondition(filter)
+	args = append(args, filter.Limit)
+	rows, err := store.db.QueryContext(ctx, cartographerRunSelectSQL+`
+WHERE `+condition+`
+ORDER BY updated_at DESC, id DESC
+LIMIT ?
+`, args...)
+	if err != nil {
+		return CartographerRunList{}, store.persistenceError("list cartographer runs", err)
+	}
+	defer rows.Close()
+	runs := []CartographerRun{}
+	for rows.Next() {
+		run, err := scanCartographerRun(rows)
+		if err != nil {
+			return CartographerRunList{}, store.corruptError("semantic_cartographer_runs", err)
+		}
+		runs = append(runs, run)
+	}
+	if err := rows.Err(); err != nil {
+		return CartographerRunList{}, store.persistenceError("list cartographer runs", err)
+	}
+	return CartographerRunList{WorkspaceID: filter.WorkspaceID, Runs: runs, Limit: filter.Limit}, nil
+}
+
 func (store *Store) SaveCartographerWindow(ctx context.Context, window CartographerWindow) (CartographerWindow, error) {
 	if err := validateCartographerWindow(ctx, window); err != nil {
 		return CartographerWindow{}, err
 	}
+	normalizeCartographerInputBundle(&window.InputBundle)
 	inputBundleJSON, err := marshalJSONColumn(window.InputBundle)
 	if err != nil {
 		return CartographerWindow{}, fmt.Errorf("encode cartographer window input bundle: %w", err)
@@ -198,6 +295,36 @@ WHERE workspace_id = ? AND id = ?
 		return CartographerWindow{}, false, nil
 	}
 	return CartographerWindow{}, false, store.corruptError("semantic_cartographer_windows", err)
+}
+
+func (store *Store) ListCartographerWindows(ctx context.Context, filter CartographerWindowFilter) (CartographerWindowList, error) {
+	if err := validateCartographerWindowFilter(ctx, filter); err != nil {
+		return CartographerWindowList{}, err
+	}
+	filter.Limit = normalizedCartographerLimit(filter.Limit)
+	condition, args := cartographerWindowFilterCondition(filter)
+	args = append(args, filter.Limit)
+	rows, err := store.db.QueryContext(ctx, cartographerWindowSelectSQL+`
+WHERE `+condition+`
+ORDER BY updated_at DESC, id DESC
+LIMIT ?
+`, args...)
+	if err != nil {
+		return CartographerWindowList{}, store.persistenceError("list cartographer windows", err)
+	}
+	defer rows.Close()
+	windows := []CartographerWindow{}
+	for rows.Next() {
+		window, err := scanCartographerWindow(rows)
+		if err != nil {
+			return CartographerWindowList{}, store.corruptError("semantic_cartographer_windows", err)
+		}
+		windows = append(windows, window)
+	}
+	if err := rows.Err(); err != nil {
+		return CartographerWindowList{}, store.persistenceError("list cartographer windows", err)
+	}
+	return CartographerWindowList{WorkspaceID: filter.WorkspaceID, Windows: windows, Limit: filter.Limit}, nil
 }
 
 func (store *Store) ReadOpenCartographerWindowForCursor(ctx context.Context, workspaceID string, cursorID string) (CartographerWindow, bool, error) {
@@ -316,6 +443,36 @@ WHERE workspace_id = ? AND workflow_execution_id = ? AND workflow_node_execution
 	return CartographerCursor{}, false, store.corruptError("semantic_cartographer_cursors", err)
 }
 
+func (store *Store) ListCartographerCursors(ctx context.Context, filter CartographerCursorFilter) (CartographerCursorList, error) {
+	if err := validateCartographerCursorFilter(ctx, filter); err != nil {
+		return CartographerCursorList{}, err
+	}
+	filter.Limit = normalizedCartographerLimit(filter.Limit)
+	condition, args := cartographerCursorFilterCondition(filter)
+	args = append(args, filter.Limit)
+	rows, err := store.db.QueryContext(ctx, cartographerCursorSelectSQL+`
+WHERE `+condition+`
+ORDER BY updated_at DESC, id DESC
+LIMIT ?
+`, args...)
+	if err != nil {
+		return CartographerCursorList{}, store.persistenceError("list cartographer cursors", err)
+	}
+	defer rows.Close()
+	cursors := []CartographerCursor{}
+	for rows.Next() {
+		cursor, err := scanCartographerCursor(rows)
+		if err != nil {
+			return CartographerCursorList{}, store.corruptError("semantic_cartographer_cursors", err)
+		}
+		cursors = append(cursors, cursor)
+	}
+	if err := rows.Err(); err != nil {
+		return CartographerCursorList{}, store.persistenceError("list cartographer cursors", err)
+	}
+	return CartographerCursorList{WorkspaceID: filter.WorkspaceID, Cursors: cursors, Limit: filter.Limit}, nil
+}
+
 func (store *Store) SaveCartographerTrajectorySummary(ctx context.Context, summary CartographerTrajectorySummary) (CartographerTrajectorySummary, error) {
 	if err := validateCartographerTrajectorySummary(ctx, summary); err != nil {
 		return CartographerTrajectorySummary{}, err
@@ -421,202 +578,6 @@ LIMIT ?
 	return summaries, nil
 }
 
-func (store *Store) SaveCartographerPatch(ctx context.Context, patch CartographerPatchRecord) (CartographerPatchRecord, error) {
-	if err := validateCartographerPatchRecord(ctx, patch); err != nil {
-		return CartographerPatchRecord{}, err
-	}
-	columns, err := cartographerPatchJSONColumns(patch)
-	if err != nil {
-		return CartographerPatchRecord{}, err
-	}
-	tx, err := store.db.BeginTx(ctx, nil)
-	if err != nil {
-		return CartographerPatchRecord{}, store.persistenceError("begin cartographer patch save", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
-	if err := store.saveCartographerPatchLocked(ctx, tx, patch, columns); err != nil {
-		return CartographerPatchRecord{}, err
-	}
-	if err := store.replaceCartographerValidationDiagnostics(ctx, tx, patch); err != nil {
-		return CartographerPatchRecord{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return CartographerPatchRecord{}, store.persistenceError("commit cartographer patch save", err)
-	}
-	committed = true
-	return patch, nil
-}
-
-func (store *Store) SaveCartographerPatchesAndAppendEvents(ctx context.Context, patches []CartographerPatchRecord, events []SemanticEvent) ([]SemanticEvent, error) {
-	if ctx == nil {
-		return nil, errors.New("context is required")
-	}
-	patchColumns, err := prepareCartographerPatchColumns(ctx, patches)
-	if err != nil {
-		return nil, err
-	}
-	prepared, err := prepareOptionalSemanticEventsForAppend(events)
-	if err != nil {
-		return nil, err
-	}
-	return store.saveCartographerPatchesAndAppendEvents(ctx, patches, patchColumns, prepared)
-}
-
-func (store *Store) saveCartographerPatchesAndAppendEvents(ctx context.Context, patches []CartographerPatchRecord, patchColumns []cartographerPatchColumns, prepared []SemanticEvent) ([]SemanticEvent, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-
-	tx, err := store.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, store.persistenceError("begin cartographer patch application", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
-	for index := range patches {
-		if err := store.saveCartographerPatchLocked(ctx, tx, patches[index], patchColumns[index]); err != nil {
-			return nil, err
-		}
-		if err := store.replaceCartographerValidationDiagnostics(ctx, tx, patches[index]); err != nil {
-			return nil, err
-		}
-	}
-	if len(prepared) > 0 {
-		nextClock, err := nextSemanticLogicalClock(ctx, tx, prepared[0].WorkspaceID)
-		if err != nil {
-			return nil, store.persistenceError("read next semantic logical clock", err)
-		}
-		if err := assignSemanticEventLogicalClocks(prepared, nextClock); err != nil {
-			return nil, err
-		}
-		if err := store.insertSemanticEvents(ctx, tx, prepared); err != nil {
-			return nil, err
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, store.persistenceError("commit cartographer patch application", err)
-	}
-	committed = true
-	return prepared, nil
-}
-
-func prepareCartographerPatchColumns(ctx context.Context, patches []CartographerPatchRecord) ([]cartographerPatchColumns, error) {
-	if len(patches) == 0 {
-		return nil, errors.New("cartographer patches are required")
-	}
-	columns := make([]cartographerPatchColumns, 0, len(patches))
-	for _, patch := range patches {
-		if err := validateCartographerPatchRecord(ctx, patch); err != nil {
-			return nil, err
-		}
-		next, err := cartographerPatchJSONColumns(patch)
-		if err != nil {
-			return nil, err
-		}
-		columns = append(columns, next)
-	}
-	return columns, nil
-}
-
-func prepareOptionalSemanticEventsForAppend(events []SemanticEvent) ([]SemanticEvent, error) {
-	if len(events) == 0 {
-		return []SemanticEvent{}, nil
-	}
-	return prepareSemanticEventsForAppend(events)
-}
-
-type cartographerPatchColumns struct {
-	patchJSON           string
-	validationJSON      string
-	applicationJSON     string
-	createdEventIDsJSON string
-}
-
-func cartographerPatchJSONColumns(patch CartographerPatchRecord) (cartographerPatchColumns, error) {
-	patchJSON, err := marshalJSONColumn(patch.Patch)
-	if err != nil {
-		return cartographerPatchColumns{}, fmt.Errorf("encode cartographer patch: %w", err)
-	}
-	validationJSON, err := marshalJSONColumn(patch.ValidationResult)
-	if err != nil {
-		return cartographerPatchColumns{}, fmt.Errorf("encode cartographer validation result: %w", err)
-	}
-	applicationJSON, err := marshalJSONColumn(patch.ApplicationResult)
-	if err != nil {
-		return cartographerPatchColumns{}, fmt.Errorf("encode cartographer application result: %w", err)
-	}
-	createdEventIDsJSON, err := marshalJSONColumn(patch.CreatedSemanticEventIDs)
-	if err != nil {
-		return cartographerPatchColumns{}, fmt.Errorf("encode cartographer created semantic event ids: %w", err)
-	}
-	return cartographerPatchColumns{
-		patchJSON:           patchJSON,
-		validationJSON:      validationJSON,
-		applicationJSON:     applicationJSON,
-		createdEventIDsJSON: createdEventIDsJSON,
-	}, nil
-}
-
-func (store *Store) saveCartographerPatchLocked(ctx context.Context, tx *sql.Tx, patch CartographerPatchRecord, columns cartographerPatchColumns) error {
-	_, err := tx.ExecContext(ctx, `
-INSERT INTO semantic_cartographer_patches (
-  workspace_id, id, run_id, window_id, status, patch_json,
-  validation_result_json, application_result_json,
-  created_semantic_event_ids_json, created_at, validated_at, applied_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(workspace_id, id) DO UPDATE SET
-  run_id = excluded.run_id,
-  window_id = excluded.window_id,
-  status = excluded.status,
-  patch_json = excluded.patch_json,
-  validation_result_json = excluded.validation_result_json,
-  application_result_json = excluded.application_result_json,
-  created_semantic_event_ids_json = excluded.created_semantic_event_ids_json,
-  validated_at = excluded.validated_at,
-  applied_at = excluded.applied_at
-`,
-		patch.WorkspaceID,
-		patch.ID,
-		patch.RunID,
-		patch.WindowID,
-		patch.Status,
-		columns.patchJSON,
-		columns.validationJSON,
-		columns.applicationJSON,
-		columns.createdEventIDsJSON,
-		patch.CreatedAt,
-		patch.ValidatedAt,
-		patch.AppliedAt,
-	)
-	if err != nil {
-		return store.persistenceError("save cartographer patch", err)
-	}
-	return nil
-}
-
-func (store *Store) replaceCartographerValidationDiagnostics(ctx context.Context, tx *sql.Tx, patch CartographerPatchRecord) error {
-	if _, err := tx.ExecContext(ctx, `
-DELETE FROM semantic_cartographer_validation_diagnostics
-WHERE workspace_id = ? AND patch_id = ?
-`, patch.WorkspaceID, patch.ID); err != nil {
-		return store.persistenceError("replace cartographer validation diagnostics", err)
-	}
-	for _, diagnostic := range patch.ValidationResult.Diagnostics {
-		if err := insertCartographerDiagnostic(ctx, tx, patch.WorkspaceID, diagnostic); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (store *Store) ReadCartographerPatch(ctx context.Context, workspaceID string, patchID string) (CartographerPatchRecord, bool, error) {
 	if ctx == nil {
 		return CartographerPatchRecord{}, false, errors.New("context is required")
@@ -637,6 +598,40 @@ WHERE workspace_id = ? AND id = ?
 	return CartographerPatchRecord{}, false, store.corruptError("semantic_cartographer_patches", err)
 }
 
+func (store *Store) ListCartographerPatches(ctx context.Context, filter CartographerPatchFilter) (CartographerPatchList, error) {
+	if err := validateCartographerPatchFilter(ctx, filter); err != nil {
+		return CartographerPatchList{}, err
+	}
+	filter.Limit = normalizedCartographerLimit(filter.Limit)
+	condition, args := cartographerPatchFilterCondition(filter)
+	rows, err := store.db.QueryContext(ctx, cartographerPatchSelectSQL+`
+WHERE `+condition+`
+ORDER BY created_at DESC, id DESC
+`, args...)
+	if err != nil {
+		return CartographerPatchList{}, store.persistenceError("list cartographer patches", err)
+	}
+	defer rows.Close()
+	patches := []CartographerPatchRecord{}
+	for rows.Next() {
+		patch, err := scanCartographerPatchRecord(rows)
+		if err != nil {
+			return CartographerPatchList{}, store.corruptError("semantic_cartographer_patches", err)
+		}
+		if filter.SemanticTargetID != "" && !cartographerPatchTargetsSemanticEntity(patch.Patch, filter.SemanticTargetID) {
+			continue
+		}
+		patches = append(patches, patch)
+		if len(patches) >= filter.Limit {
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return CartographerPatchList{}, store.persistenceError("list cartographer patches", err)
+	}
+	return CartographerPatchList{WorkspaceID: filter.WorkspaceID, Patches: patches, Limit: filter.Limit}, nil
+}
+
 func insertCartographerDiagnostic(ctx context.Context, tx *sql.Tx, workspaceID string, diagnostic CartographerDiagnostic) error {
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO semantic_cartographer_validation_diagnostics (
@@ -647,6 +642,178 @@ INSERT INTO semantic_cartographer_validation_diagnostics (
 		return fmt.Errorf("record cartographer validation diagnostic: %w", err)
 	}
 	return nil
+}
+
+func validateCartographerRunFilter(ctx context.Context, filter CartographerRunFilter) error {
+	if ctx == nil {
+		return errors.New("context is required")
+	}
+	if err := validateStoreIDs("workspace id", filter.WorkspaceID); err != nil {
+		return err
+	}
+	return validateOptionalStoreIDs([]optionalStoreID{
+		{label: "cartographer run workflow execution id", value: filter.WorkflowExecutionID},
+		{label: "cartographer run chat run id", value: filter.ChatRunID},
+		{label: "cartographer run target entity id", value: filter.TargetEntityID},
+	})
+}
+
+func validateCartographerWindowFilter(ctx context.Context, filter CartographerWindowFilter) error {
+	if ctx == nil {
+		return errors.New("context is required")
+	}
+	if err := validateStoreIDs("workspace id", filter.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateOptionalStoreIDs([]optionalStoreID{
+		{label: "cartographer window run id", value: filter.RunID},
+		{label: "cartographer window source id", value: filter.SourceID},
+		{label: "cartographer window workflow execution id", value: filter.WorkflowExecutionID},
+		{label: "cartographer window chat run id", value: filter.ChatRunID},
+	}); err != nil {
+		return err
+	}
+	if filter.SourceKind != "" && !isCartographerSourceKind(filter.SourceKind) {
+		return fmt.Errorf("cartographer source kind is unsupported: %s", filter.SourceKind)
+	}
+	return nil
+}
+
+func validateCartographerCursorFilter(ctx context.Context, filter CartographerCursorFilter) error {
+	if ctx == nil {
+		return errors.New("context is required")
+	}
+	if err := validateStoreIDs("workspace id", filter.WorkspaceID); err != nil {
+		return err
+	}
+	return validateOptionalStoreIDs([]optionalStoreID{
+		{label: "cartographer cursor workflow execution id", value: filter.WorkflowExecutionID},
+		{label: "cartographer cursor chat run id", value: filter.ChatRunID},
+	})
+}
+
+func validateCartographerPatchFilter(ctx context.Context, filter CartographerPatchFilter) error {
+	if ctx == nil {
+		return errors.New("context is required")
+	}
+	if err := validateStoreIDs("workspace id", filter.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateOptionalStoreIDs([]optionalStoreID{
+		{label: "cartographer patch run id", value: filter.RunID},
+		{label: "cartographer patch semantic target id", value: filter.SemanticTargetID},
+	}); err != nil {
+		return err
+	}
+	if filter.Status != "" && !isCartographerPatchStatus(filter.Status) {
+		return fmt.Errorf("cartographer patch status is unsupported: %s", filter.Status)
+	}
+	return nil
+}
+
+func normalizedCartographerLimit(limit int) int {
+	if limit <= 0 || limit > defaultSemanticPageLimit {
+		return defaultSemanticPageLimit
+	}
+	return limit
+}
+
+func cartographerRunFilterCondition(filter CartographerRunFilter) (string, []any) {
+	clauses := []string{"workspace_id = ?"}
+	args := []any{filter.WorkspaceID}
+	addStringFilter(&clauses, &args, "workflow_execution_id", filter.WorkflowExecutionID)
+	addStringFilter(&clauses, &args, "chat_run_id", filter.ChatRunID)
+	addStringFilter(&clauses, &args, "target_entity_id", filter.TargetEntityID)
+	return strings.Join(clauses, " AND "), args
+}
+
+func cartographerWindowFilterCondition(filter CartographerWindowFilter) (string, []any) {
+	clauses := []string{"workspace_id = ?"}
+	args := []any{filter.WorkspaceID}
+	addStringFilter(&clauses, &args, "run_id", filter.RunID)
+	sourceKind := filter.SourceKind
+	sourceID := filter.SourceID
+	if sourceKind == "" && filter.WorkflowExecutionID != "" {
+		sourceKind = CartographerSourceWorkflowExecution
+		sourceID = filter.WorkflowExecutionID
+	}
+	if sourceKind == "" && filter.ChatRunID != "" {
+		sourceKind = CartographerSourceChatRun
+		sourceID = filter.ChatRunID
+	}
+	if sourceKind != "" {
+		clauses = append(clauses, "source_kind = ?")
+		args = append(args, sourceKind)
+	}
+	addStringFilter(&clauses, &args, "source_id", sourceID)
+	return strings.Join(clauses, " AND "), args
+}
+
+func cartographerCursorFilterCondition(filter CartographerCursorFilter) (string, []any) {
+	clauses := []string{"workspace_id = ?"}
+	args := []any{filter.WorkspaceID}
+	addStringFilter(&clauses, &args, "workflow_execution_id", filter.WorkflowExecutionID)
+	addStringFilter(&clauses, &args, "chat_run_id", filter.ChatRunID)
+	return strings.Join(clauses, " AND "), args
+}
+
+func cartographerPatchFilterCondition(filter CartographerPatchFilter) (string, []any) {
+	clauses := []string{"workspace_id = ?"}
+	args := []any{filter.WorkspaceID}
+	addStringFilter(&clauses, &args, "run_id", filter.RunID)
+	if filter.Status != "" {
+		clauses = append(clauses, "status = ?")
+		args = append(args, filter.Status)
+	}
+	return strings.Join(clauses, " AND "), args
+}
+
+func addStringFilter(clauses *[]string, args *[]any, column string, value string) {
+	if value == "" {
+		return
+	}
+	*clauses = append(*clauses, column+" = ?")
+	*args = append(*args, value)
+}
+
+func cartographerPatchTargetsSemanticEntity(patch CartographerPatch, entityID string) bool {
+	payload := patch.Payload
+	if patchTargetFieldMatches(entityID,
+		payload.SemanticNodeID,
+		payload.TargetEntityID,
+		payload.FromNodeID,
+		payload.ToNodeID,
+		payload.SourceNodeID,
+		payload.ResolutionNodeID,
+	) {
+		return true
+	}
+	if payload.NewNode != nil && payload.NewNode.SemanticNodeID == entityID {
+		return true
+	}
+	if payload.TargetNode != nil && payload.TargetNode.SemanticNodeID == entityID {
+		return true
+	}
+	for _, node := range payload.NewNodes {
+		if node.SemanticNodeID == entityID {
+			return true
+		}
+	}
+	for _, nodeID := range payload.SourceNodeIDs {
+		if nodeID == entityID {
+			return true
+		}
+	}
+	return false
+}
+
+func patchTargetFieldMatches(target string, values ...string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 const cartographerRunSelectSQL = `
@@ -690,282 +857,3 @@ SELECT workspace_id, id, run_id, window_id, status, patch_json,
        created_semantic_event_ids_json, created_at, validated_at, applied_at
 FROM semantic_cartographer_patches
 `
-
-func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (CartographerRun, error) {
-	var run CartographerRun
-	var inputBundleJSON string
-	var outputSchemaJSON string
-	var inputItemCountsJSON string
-	var createdEventIDsJSON string
-	var diagnosticsJSON string
-	if err := scanner.Scan(
-		&run.WorkspaceID,
-		&run.ID,
-		&run.Status,
-		&run.TriggerKind,
-		&run.TargetEntityID,
-		&run.SourceRefs.WorkflowDefinitionID,
-		&run.SourceRefs.WorkflowExecutionID,
-		&run.SourceRefs.WorkflowNodeID,
-		&run.SourceRefs.WorkflowNodeExecutionID,
-		&run.SourceRefs.ChatConversationID,
-		&run.SourceRefs.ChatRunID,
-		&run.SourceRefs.ChatMessageID,
-		&run.SourceRefs.RunItemID,
-		&inputBundleJSON,
-		&outputSchemaJSON,
-		&run.HarnessKind,
-		&run.Model,
-		&run.RequestID,
-		&run.ResponseID,
-		&run.WindowID,
-		&run.InputBundleHash,
-		&inputItemCountsJSON,
-		&run.RawHarnessResponseHash,
-		&run.TrajectorySummary,
-		&createdEventIDsJSON,
-		&diagnosticsJSON,
-		&run.CreatedAt,
-		&run.StartedAt,
-		&run.CompletedAt,
-		&run.UpdatedAt,
-		&run.Error,
-	); err != nil {
-		return CartographerRun{}, err
-	}
-	if err := unmarshalJSONColumn(inputBundleJSON, &run.InputBundle); err != nil {
-		return CartographerRun{}, fmt.Errorf("decode cartographer run input bundle: %w", err)
-	}
-	run.OutputSchema = rawJSONFromString(outputSchemaJSON)
-	if err := unmarshalJSONColumn(inputItemCountsJSON, &run.InputItemCounts); err != nil {
-		return CartographerRun{}, fmt.Errorf("decode cartographer run input item counts: %w", err)
-	}
-	if err := unmarshalJSONColumn(createdEventIDsJSON, &run.CreatedSemanticEventIDs); err != nil {
-		return CartographerRun{}, fmt.Errorf("decode cartographer run created semantic event ids: %w", err)
-	}
-	if err := unmarshalJSONColumn(diagnosticsJSON, &run.Diagnostics); err != nil {
-		return CartographerRun{}, fmt.Errorf("decode cartographer run diagnostics: %w", err)
-	}
-	normalizeCartographerRun(&run)
-	return run, nil
-}
-
-func scanCartographerWindow(scanner interface{ Scan(dest ...any) error }) (CartographerWindow, error) {
-	var window CartographerWindow
-	var inputBundleJSON string
-	if err := scanner.Scan(
-		&window.WorkspaceID,
-		&window.ID,
-		&window.RunID,
-		&window.Status,
-		&window.Sequence,
-		&window.SourceKind,
-		&window.SourceID,
-		&window.CursorID,
-		&window.SummaryID,
-		&inputBundleJSON,
-		&window.OpenedAt,
-		&window.ClosedAt,
-		&window.CreatedAt,
-		&window.UpdatedAt,
-	); err != nil {
-		return CartographerWindow{}, err
-	}
-	if err := unmarshalJSONColumn(inputBundleJSON, &window.InputBundle); err != nil {
-		return CartographerWindow{}, fmt.Errorf("decode cartographer window input bundle: %w", err)
-	}
-	normalizeCartographerInputBundle(&window.InputBundle)
-	return window, nil
-}
-
-func scanCartographerCursor(scanner interface{ Scan(dest ...any) error }) (CartographerCursor, error) {
-	var cursor CartographerCursor
-	var outputOrdinalsJSON string
-	if err := scanner.Scan(
-		&cursor.WorkspaceID,
-		&cursor.ID,
-		&cursor.WorkflowExecutionID,
-		&cursor.WorkflowNodeExecutionID,
-		&cursor.ChatConversationID,
-		&cursor.ChatRunID,
-		&cursor.LastChatEventStreamID,
-		&cursor.LastChatEventSequence,
-		&cursor.LastWorkflowEventCursor,
-		&outputOrdinalsJSON,
-		&cursor.LastWindowID,
-		&cursor.UpdatedAt,
-	); err != nil {
-		return CartographerCursor{}, err
-	}
-	if err := unmarshalJSONColumn(outputOrdinalsJSON, &cursor.LastOutputOrdinalByRunItem); err != nil {
-		return CartographerCursor{}, fmt.Errorf("decode cartographer cursor output ordinals: %w", err)
-	}
-	normalizeCartographerCursor(&cursor)
-	return cursor, nil
-}
-
-func scanCartographerTrajectorySummary(scanner interface{ Scan(dest ...any) error }) (CartographerTrajectorySummary, error) {
-	var summary CartographerTrajectorySummary
-	if err := scanner.Scan(
-		&summary.WorkspaceID,
-		&summary.ID,
-		&summary.RunID,
-		&summary.WindowID,
-		&summary.SourceKind,
-		&summary.SourceID,
-		&summary.Summary,
-		&summary.SourceRefs.WorkflowDefinitionID,
-		&summary.SourceRefs.WorkflowExecutionID,
-		&summary.SourceRefs.WorkflowNodeID,
-		&summary.SourceRefs.WorkflowNodeExecutionID,
-		&summary.SourceRefs.ChatConversationID,
-		&summary.SourceRefs.ChatRunID,
-		&summary.SourceRefs.ChatMessageID,
-		&summary.SourceRefs.RunItemID,
-		&summary.ItemCount,
-		&summary.CreatedAt,
-	); err != nil {
-		return CartographerTrajectorySummary{}, err
-	}
-	return summary, nil
-}
-
-func scanCartographerPatchRecord(scanner interface{ Scan(dest ...any) error }) (CartographerPatchRecord, error) {
-	var patch CartographerPatchRecord
-	var patchJSON string
-	var validationJSON string
-	var applicationJSON string
-	var createdEventIDsJSON string
-	if err := scanner.Scan(
-		&patch.WorkspaceID,
-		&patch.ID,
-		&patch.RunID,
-		&patch.WindowID,
-		&patch.Status,
-		&patchJSON,
-		&validationJSON,
-		&applicationJSON,
-		&createdEventIDsJSON,
-		&patch.CreatedAt,
-		&patch.ValidatedAt,
-		&patch.AppliedAt,
-	); err != nil {
-		return CartographerPatchRecord{}, err
-	}
-	if err := unmarshalJSONColumn(patchJSON, &patch.Patch); err != nil {
-		return CartographerPatchRecord{}, fmt.Errorf("decode cartographer patch: %w", err)
-	}
-	if err := unmarshalJSONColumn(validationJSON, &patch.ValidationResult); err != nil {
-		return CartographerPatchRecord{}, fmt.Errorf("decode cartographer validation result: %w", err)
-	}
-	if err := unmarshalJSONColumn(applicationJSON, &patch.ApplicationResult); err != nil {
-		return CartographerPatchRecord{}, fmt.Errorf("decode cartographer application result: %w", err)
-	}
-	if err := unmarshalJSONColumn(createdEventIDsJSON, &patch.CreatedSemanticEventIDs); err != nil {
-		return CartographerPatchRecord{}, fmt.Errorf("decode cartographer created semantic event ids: %w", err)
-	}
-	normalizeCartographerPatchRecord(&patch)
-	return patch, nil
-}
-
-func unmarshalJSONColumn(raw string, target any) error {
-	if raw == "" {
-		raw = "{}"
-	}
-	return json.Unmarshal([]byte(raw), target)
-}
-
-func normalizeCartographerRun(run *CartographerRun) {
-	normalizeCartographerInputBundle(&run.InputBundle)
-	if run.CreatedSemanticEventIDs == nil {
-		run.CreatedSemanticEventIDs = []string{}
-	}
-	if run.Diagnostics == nil {
-		run.Diagnostics = []CartographerDiagnostic{}
-	}
-}
-
-func normalizeCartographerCursor(cursor *CartographerCursor) {
-	if cursor.LastOutputOrdinalByRunItem == nil {
-		cursor.LastOutputOrdinalByRunItem = map[string]int{}
-	}
-}
-
-func normalizeCartographerPatchRecord(patch *CartographerPatchRecord) {
-	if patch.CreatedSemanticEventIDs == nil {
-		patch.CreatedSemanticEventIDs = []string{}
-	}
-	normalizeCartographerPatch(&patch.Patch)
-	if patch.ValidationResult.Diagnostics == nil {
-		patch.ValidationResult.Diagnostics = []CartographerDiagnostic{}
-	}
-	if patch.ApplicationResult.CreatedSemanticEventIDs == nil {
-		patch.ApplicationResult.CreatedSemanticEventIDs = []string{}
-	}
-	if patch.ApplicationResult.Diagnostics == nil {
-		patch.ApplicationResult.Diagnostics = []CartographerDiagnostic{}
-	}
-}
-
-func normalizeCartographerPatch(patch *CartographerPatch) {
-	if patch.EvidenceRefs == nil {
-		patch.EvidenceRefs = []CartographerPatchEvidenceRef{}
-	}
-	if patch.Payload.EvidenceRefs == nil {
-		patch.Payload.EvidenceRefs = []CartographerPatchEvidenceRef{}
-	}
-	if patch.Payload.NewNodes == nil {
-		patch.Payload.NewNodes = []CartographerPatchNewNode{}
-	}
-	for index := range patch.Payload.NewNodes {
-		if patch.Payload.NewNodes[index].EvidenceRefs == nil {
-			patch.Payload.NewNodes[index].EvidenceRefs = []CartographerPatchEvidenceRef{}
-		}
-	}
-	if patch.ModelInfo == nil {
-		patch.ModelInfo = map[string]string{}
-	}
-	if patch.Payload.NewNode != nil && patch.Payload.NewNode.EvidenceRefs == nil {
-		patch.Payload.NewNode.EvidenceRefs = []CartographerPatchEvidenceRef{}
-	}
-	if patch.Payload.TargetNode != nil && patch.Payload.TargetNode.EvidenceRefs == nil {
-		patch.Payload.TargetNode.EvidenceRefs = []CartographerPatchEvidenceRef{}
-	}
-}
-
-func normalizeCartographerInputBundle(bundle *CartographerInputBundle) {
-	normalizeCartographerWindowCursorMap(&bundle.WindowStartCursor)
-	normalizeCartographerWindowCursorMap(&bundle.WindowEndCursor)
-	bundle.NewEvents = nonNilSlice(bundle.NewEvents)
-	bundle.ToolCalls = nonNilSlice(bundle.ToolCalls)
-	bundle.FileChanges = nonNilSlice(bundle.FileChanges)
-	bundle.TestResults = nonNilSlice(bundle.TestResults)
-	bundle.OutputSummaries = nonNilSlice(bundle.OutputSummaries)
-	bundle.ExistingNodes = nonNilSlice(bundle.ExistingNodes)
-	bundle.ExistingEdges = nonNilSlice(bundle.ExistingEdges)
-	bundle.Evidence = nonNilSlice(bundle.Evidence)
-	bundle.Activity = nonNilSlice(bundle.Activity)
-	bundle.Steering = nonNilSlice(bundle.Steering)
-	bundle.ContextPacks = nonNilSlice(bundle.ContextPacks)
-	bundle.TrajectorySummaries = nonNilSlice(bundle.TrajectorySummaries)
-	bundle.ObservedEventRefs = nonNilSlice(bundle.ObservedEventRefs)
-	bundle.Truncation.Reasons = nonNilSlice(bundle.Truncation.Reasons)
-}
-
-func normalizeCartographerWindowCursorMap(cursor *CartographerWindowCursor) {
-	cursor.OutputOrdinalByRunItem = nonNilIntMap(cursor.OutputOrdinalByRunItem)
-}
-
-func nonNilSlice[T any](items []T) []T {
-	if items == nil {
-		return []T{}
-	}
-	return items
-}
-
-func nonNilIntMap(items map[string]int) map[string]int {
-	if items == nil {
-		return map[string]int{}
-	}
-	return items
-}

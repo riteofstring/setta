@@ -8,7 +8,15 @@ import type {
   AttachSemanticNodeToWorkflowExecutionRequest,
   AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
+  BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
+  CartographerCursorList,
+  CartographerPatchList,
+  CartographerPatchReviewResult,
+  CartographerRunList,
+  CartographerRunReadResponse,
+  CartographerWindowBuildResult,
+  CartographerWindowList,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
@@ -24,6 +32,10 @@ import type {
   EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
+  ListCartographerCursorsRequest,
+  ListCartographerPatchesRequest,
+  ListCartographerRunsRequest,
+  ListCartographerWindowsRequest,
   ListConversationsResponse,
   ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
@@ -35,6 +47,7 @@ import type {
   QueueMessageResult,
   QueueRemoveResult,
   RenameSemanticNodeRequest,
+  ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
   ReadSemanticContextPackRequest,
   ReadSemanticEventHistoryRequest,
@@ -46,6 +59,7 @@ import type {
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
+  ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
@@ -432,6 +446,28 @@ export interface SettaAPI {
     attachWorkflowNode: (
       request: AttachSemanticNodeToWorkflowNodeRequest,
     ) => Promise<SemanticAttachmentResult>;
+    buildCartographerWindow: (
+      request: BuildCartographerWindowRequest,
+    ) => Promise<CartographerWindowBuildResult>;
+    listCartographerCursors: (
+      request: ListCartographerCursorsRequest,
+    ) => Promise<CartographerCursorList>;
+    listCartographerPatches: (
+      request: ListCartographerPatchesRequest,
+    ) => Promise<CartographerPatchList>;
+    listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
+    listCartographerWindows: (
+      request: ListCartographerWindowsRequest,
+    ) => Promise<CartographerWindowList>;
+    readCartographerRun: (
+      request: ReadCartographerRunRequest,
+    ) => Promise<CartographerRunReadResponse>;
+    acceptCartographerPatch: (
+      request: ReviewCartographerPatchRequest,
+    ) => Promise<CartographerPatchReviewResult>;
+    rejectCartographerPatch: (
+      request: ReviewCartographerPatchRequest,
+    ) => Promise<CartographerPatchReviewResult>;
     createEdge: (request: CreateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
     createNode: (request: CreateSemanticNodeRequest) => Promise<SemanticMutationResult>;
     createSteeringDirective: (

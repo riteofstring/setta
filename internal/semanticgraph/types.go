@@ -246,6 +246,77 @@ var (
 		ContextPriorityImportant,
 		ContextPriorityRequired,
 	}
+	cartographerRunStatusValues = []CartographerRunStatus{
+		CartographerRunPending,
+		CartographerRunRunning,
+		CartographerRunCompleted,
+		CartographerRunFailed,
+		CartographerRunProposed,
+		CartographerRunApplied,
+		CartographerRunRejected,
+	}
+	cartographerRunTriggerKindValues = []CartographerRunTriggerKind{
+		CartographerTriggerManual,
+		CartographerTriggerWorkflowWindow,
+		CartographerTriggerWorkflowDone,
+		CartographerTriggerExplicitRetry,
+		CartographerTriggerExplicitReview,
+	}
+	cartographerWindowStatusValues = []CartographerWindowStatus{
+		CartographerWindowOpen,
+		CartographerWindowClosed,
+		CartographerWindowProcessed,
+	}
+	cartographerSourceKindValues = []CartographerSourceKind{
+		CartographerSourceWorkflowExecution,
+		CartographerSourceChatRun,
+		CartographerSourceSemanticTarget,
+	}
+	cartographerPatchStatusValues = []CartographerPatchStatus{
+		CartographerPatchProposed,
+		CartographerPatchValidated,
+		CartographerPatchPendingReview,
+		CartographerPatchRejected,
+		CartographerPatchApplied,
+	}
+	cartographerPatchOperationValues = []CartographerPatchOperation{
+		CartographerPatchRecordFinding,
+		CartographerPatchRecordDecision,
+		CartographerPatchRecordConstraint,
+		CartographerPatchRecordOpenQuestion,
+		CartographerPatchUpdateNodeSummary,
+		CartographerPatchAttachEvidence,
+		CartographerPatchCreateEdge,
+		CartographerPatchStartActivity,
+		CartographerPatchEndActivity,
+		CartographerPatchSplitNode,
+		CartographerPatchMergeNodes,
+		CartographerPatchMarkResolved,
+	}
+	cartographerPatchNodeScopeValues = []CartographerPatchNodeScope{
+		CartographerPatchNodeScopeSession,
+		CartographerPatchNodeScopeWorkspace,
+	}
+	cartographerDiagnosticSeverityValues = []CartographerDiagnosticSeverity{
+		CartographerDiagnosticInfo,
+		CartographerDiagnosticWarning,
+		CartographerDiagnosticError,
+	}
+	cartographerTrajectoryEventSourceValues = []CartographerTrajectoryEventSource{
+		CartographerTrajectorySourceChat,
+		CartographerTrajectorySourceWorkflow,
+	}
+	cartographerWindowCloseReasonValues = []CartographerWindowCloseReason{
+		CartographerCloseRunItemTerminal,
+		CartographerCloseApprovalRequired,
+		CartographerCloseAssistantComplete,
+		CartographerCloseAssistantThreshold,
+		CartographerCloseOutputThreshold,
+		CartographerCloseWorkflowNodeTerminal,
+		CartographerCloseWorkflowRunTerminal,
+		CartographerCloseQuietPeriod,
+		CartographerCloseManual,
+	}
 )
 
 type ContractValueSet struct {
@@ -268,6 +339,16 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticContextTriggerKind", Values: stringValues(semanticContextTriggerKindValues)},
 		{Name: "SemanticContextPackItemKind", Values: stringValues(semanticContextPackItemKindValues)},
 		{Name: "SemanticContextPackPriority", Values: stringValues(semanticContextPackPriorityValues)},
+		{Name: "CartographerRunStatus", Values: stringValues(cartographerRunStatusValues)},
+		{Name: "CartographerRunTriggerKind", Values: stringValues(cartographerRunTriggerKindValues)},
+		{Name: "CartographerWindowStatus", Values: stringValues(cartographerWindowStatusValues)},
+		{Name: "CartographerSourceKind", Values: stringValues(cartographerSourceKindValues)},
+		{Name: "CartographerPatchStatus", Values: stringValues(cartographerPatchStatusValues)},
+		{Name: "CartographerPatchOperation", Values: stringValues(cartographerPatchOperationValues)},
+		{Name: "CartographerPatchNodeScope", Values: stringValues(cartographerPatchNodeScopeValues)},
+		{Name: "CartographerDiagnosticSeverity", Values: stringValues(cartographerDiagnosticSeverityValues)},
+		{Name: "CartographerTrajectoryEventSource", Values: stringValues(cartographerTrajectoryEventSourceValues)},
+		{Name: "CartographerWindowCloseReason", Values: stringValues(cartographerWindowCloseReasonValues)},
 	}
 }
 
@@ -507,14 +588,18 @@ type SemanticGraph struct {
 }
 
 type SemanticNodeDetail struct {
-	WorkspaceID        string                      `json:"workspaceId"`
-	Node               SemanticNode                `json:"node"`
-	IncomingEdges      []SemanticEdge              `json:"incomingEdges"`
-	OutgoingEdges      []SemanticEdge              `json:"outgoingEdges"`
-	Evidence           []SemanticEvidenceAnchor    `json:"evidence"`
-	Activity           []SemanticActivityInterval  `json:"activity"`
-	SteeringDirectives []SemanticSteeringDirective `json:"steeringDirectives"`
-	ContextPackHistory []SemanticContextPackRecord `json:"contextPackHistory"`
+	WorkspaceID         string                      `json:"workspaceId"`
+	Node                SemanticNode                `json:"node"`
+	IncomingEdges       []SemanticEdge              `json:"incomingEdges"`
+	OutgoingEdges       []SemanticEdge              `json:"outgoingEdges"`
+	Evidence            []SemanticEvidenceAnchor    `json:"evidence"`
+	Activity            []SemanticActivityInterval  `json:"activity"`
+	SteeringDirectives  []SemanticSteeringDirective `json:"steeringDirectives"`
+	ContextPackHistory  []SemanticContextPackRecord `json:"contextPackHistory"`
+	CartographerPatches []CartographerPatchRecord   `json:"cartographerPatches"`
+	CartographerRuns    []CartographerRun           `json:"cartographerRuns"`
+	CartographerWindows []CartographerWindow        `json:"cartographerWindows"`
+	CartographerCursors []CartographerCursor        `json:"cartographerCursors"`
 }
 
 type SemanticEvidenceList struct {

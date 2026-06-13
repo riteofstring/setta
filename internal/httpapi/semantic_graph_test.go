@@ -33,6 +33,124 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t, handler, workspaceID)
 }
 
+func TestCartographerReadAndReviewEndpoints(t *testing.T) {
+	handler, semanticService := newSemanticGraphHandler(t)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	workspaceID := opened.Workspace.ID
+	seedHTTPSemanticReadFixture(t, semanticService, workspaceID)
+
+	built := buildHTTPCartographerWindow(t, handler, workspaceID)
+	saveHTTPCartographerCursor(t, semanticService, workspaceID, built.Window.ID)
+	pending := applyPendingHTTPCartographerPatch(t, semanticService, workspaceID, "cartographer_run_http_accept", "cartographer_patch_http_accept", "node_http_accept")
+	assertHTTPCartographerReadEndpoints(t, handler, workspaceID, built, pending)
+	assertHTTPCartographerAcceptEndpoint(t, handler, workspaceID)
+	applyPendingHTTPCartographerPatch(t, semanticService, workspaceID, "cartographer_run_http_reject", "cartographer_patch_http_reject", "node_http_reject")
+	assertHTTPCartographerRejectEndpoint(t, handler, workspaceID)
+}
+
+func buildHTTPCartographerWindow(t *testing.T, handler http.Handler, workspaceID string) semanticgraph.CartographerWindowBuildResult {
+	t.Helper()
+	built := postJSON[semanticgraph.CartographerWindowBuildResult](t, handler, "/semantic-graph/cartographer/windows/build", BuildCartographerWindowRequest{
+		WorkspaceID:    workspaceID,
+		TriggerKind:    semanticgraph.CartographerTriggerManual,
+		TargetEntityID: "node_scope",
+		SourceRefs: semanticgraph.SemanticContextSourceRefs{
+			WorkflowExecutionID: "execution_scope",
+		},
+		Summary: "Manual deterministic cartographer window for HTTP review coverage.",
+	}, http.StatusOK)
+	if built.Run.ID == "" || built.Window.RunID != built.Run.ID || built.Summary == nil {
+		t.Fatalf("built cartographer window = %+v, want run, window, and summary", built)
+	}
+	return built
+}
+
+func saveHTTPCartographerCursor(t *testing.T, semanticService *semanticgraph.Service, workspaceID string, windowID string) {
+	t.Helper()
+	if _, err := semanticService.SaveCartographerCursor(context.Background(), semanticgraph.CartographerCursor{
+		ID:                  "cartographer_cursor_http",
+		WorkspaceID:         workspaceID,
+		WorkflowExecutionID: "execution_scope",
+		LastWindowID:        windowID,
+		UpdatedAt:           "2026-06-10T12:20:00Z",
+	}); err != nil {
+		t.Fatalf("save cartographer cursor fixture: %v", err)
+	}
+}
+
+func assertHTTPCartographerReadEndpoints(t *testing.T, handler http.Handler, workspaceID string, built semanticgraph.CartographerWindowBuildResult, pending semanticgraph.CartographerPatchEnvelopeApplicationResult) {
+	t.Helper()
+	readRun := postJSON[semanticgraph.CartographerRunReadResponse](t, handler, "/semantic-graph/cartographer/runs/read", ReadCartographerRunRequest{
+		WorkspaceID: workspaceID,
+		RunID:       pending.Run.ID,
+	}, http.StatusOK)
+	if readRun.Run == nil || readRun.Run.ID != pending.Run.ID || readRun.Run.InputBundleHash == "" {
+		t.Fatalf("read cartographer run = %+v, want pending run audit", readRun.Run)
+	}
+	runs := postJSON[semanticgraph.CartographerRunList](t, handler, "/semantic-graph/cartographer/runs/list", ListCartographerRunsRequest{
+		WorkspaceID:         workspaceID,
+		WorkflowExecutionID: "execution_scope",
+		Limit:               10,
+	}, http.StatusOK)
+	if len(runs.Runs) < 2 {
+		t.Fatalf("cartographer runs = %+v, want built and pending runs", runs.Runs)
+	}
+	windows := postJSON[semanticgraph.CartographerWindowList](t, handler, "/semantic-graph/cartographer/windows/list", ListCartographerWindowsRequest{
+		WorkspaceID:         workspaceID,
+		WorkflowExecutionID: "execution_scope",
+		Limit:               10,
+	}, http.StatusOK)
+	if len(windows.Windows) != 1 || windows.Windows[0].ID != built.Window.ID {
+		t.Fatalf("cartographer windows = %+v, want built window", windows.Windows)
+	}
+	cursors := postJSON[semanticgraph.CartographerCursorList](t, handler, "/semantic-graph/cartographer/cursors/list", ListCartographerCursorsRequest{
+		WorkspaceID:         workspaceID,
+		WorkflowExecutionID: "execution_scope",
+		Limit:               10,
+	}, http.StatusOK)
+	if len(cursors.Cursors) != 1 || cursors.Cursors[0].LastWindowID != built.Window.ID {
+		t.Fatalf("cartographer cursors = %+v, want persisted cursor", cursors.Cursors)
+	}
+	patches := postJSON[semanticgraph.CartographerPatchList](t, handler, "/semantic-graph/cartographer/patches/list", ListCartographerPatchesRequest{
+		WorkspaceID:      workspaceID,
+		SemanticTargetID: "node_http_accept",
+		Status:           semanticgraph.CartographerPatchPendingReview,
+		Limit:            10,
+	}, http.StatusOK)
+	if len(patches.Patches) != 1 || patches.Patches[0].ID != "cartographer_patch_http_accept" {
+		t.Fatalf("cartographer patches = %+v, want pending target patch", patches.Patches)
+	}
+}
+
+func assertHTTPCartographerAcceptEndpoint(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
+	accepted := postJSON[semanticgraph.CartographerPatchReviewResult](t, handler, "/semantic-graph/cartographer/patches/accept", ReviewCartographerPatchRequest{
+		WorkspaceID: workspaceID,
+		PatchID:     "cartographer_patch_http_accept",
+	}, http.StatusOK)
+	if accepted.Patch.Status != semanticgraph.CartographerPatchApplied || accepted.NodeDetail == nil || accepted.NodeDetail.Node.ID != "node_http_accept" {
+		t.Fatalf("accepted cartographer patch = %+v, want applied node detail", accepted)
+	}
+	acceptedDetail := postJSON[ReadSemanticNodeDetailResponse](t, handler, "/semantic-graph/nodes/detail", ReadSemanticNodeDetailRequest{
+		WorkspaceID: workspaceID,
+		NodeID:      "node_http_accept",
+	}, http.StatusOK)
+	if acceptedDetail.Detail == nil || len(acceptedDetail.Detail.CartographerPatches) != 1 || acceptedDetail.Detail.CartographerPatches[0].Status != semanticgraph.CartographerPatchApplied {
+		t.Fatalf("accepted node detail = %+v, want cartographer patch history", acceptedDetail.Detail)
+	}
+}
+
+func assertHTTPCartographerRejectEndpoint(t *testing.T, handler http.Handler, workspaceID string) {
+	t.Helper()
+	rejected := postJSON[semanticgraph.CartographerPatchReviewResult](t, handler, "/semantic-graph/cartographer/patches/reject", ReviewCartographerPatchRequest{
+		WorkspaceID: workspaceID,
+		PatchID:     "cartographer_patch_http_reject",
+	}, http.StatusOK)
+	if rejected.Patch.Status != semanticgraph.CartographerPatchRejected || rejected.Patch.ApplicationResult.Applied {
+		t.Fatalf("rejected cartographer patch = %+v, want rejected without application", rejected.Patch)
+	}
+}
+
 func seedHTTPSemanticReadFixture(t *testing.T, semanticService *semanticgraph.Service, workspaceID string) {
 	t.Helper()
 	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventNodeCreated, "node_scope", map[string]any{
@@ -94,6 +212,77 @@ func seedHTTPSemanticReadFixture(t *testing.T, semanticService *semanticgraph.Se
 		}},
 		"deliveredContext": "Setta semantic context pack pack_scope\n- [required] Constraint: Phase 1 backend only",
 	})
+}
+
+func applyPendingHTTPCartographerPatch(t *testing.T, semanticService *semanticgraph.Service, workspaceID string, runID string, patchID string, nodeID string) semanticgraph.CartographerPatchEnvelopeApplicationResult {
+	t.Helper()
+	confidence := 0.2
+	sourceRefs := semanticgraph.SemanticContextSourceRefs{WorkflowExecutionID: "execution_scope"}
+	patch := semanticgraph.CartographerPatch{
+		ID:            patchID,
+		Operation:     semanticgraph.CartographerPatchRecordFinding,
+		WorkspaceID:   workspaceID,
+		SourceRefs:    sourceRefs,
+		CausationID:   "request_cartographer_http",
+		CorrelationID: "response_cartographer_http",
+		Confidence:    &confidence,
+		PublicSummary: "Record HTTP cartographer finding.",
+		EvidenceRefs: []semanticgraph.CartographerPatchEvidenceRef{{
+			EvidenceAnchorID: "evidence_scope",
+		}},
+		ModelInfo:      map[string]string{"model": "fake-cartographer-http"},
+		ReviewRequired: false,
+		Payload: semanticgraph.CartographerPatchPayload{
+			NewNode: &semanticgraph.CartographerPatchNewNode{
+				SemanticNodeID: nodeID,
+				Kind:           semanticgraph.NodeKindFinding,
+				Label:          "HTTP cartographer finding " + nodeID,
+				Summary:        "Pending review cartographer node from HTTP fixture.",
+				Scope:          semanticgraph.CartographerPatchNodeScopeSession,
+			},
+		},
+	}
+	raw, err := json.Marshal(semanticgraph.CartographerPatchEnvelope{Patches: []semanticgraph.CartographerPatch{patch}})
+	if err != nil {
+		t.Fatalf("marshal cartographer patch fixture: %v", err)
+	}
+	result, err := semanticService.ApplyCartographerPatchEnvelope(context.Background(), semanticgraph.CartographerPatchEnvelopeApplicationInput{
+		WorkspaceID:    workspaceID,
+		RunID:          runID,
+		WindowID:       "cartographer_window_" + patchID,
+		TriggerKind:    semanticgraph.CartographerTriggerManual,
+		TargetEntityID: "node_scope",
+		SourceRefs:     sourceRefs,
+		InputBundle: semanticgraph.CartographerInputBundle{
+			WorkspaceID:    workspaceID,
+			TriggerKind:    semanticgraph.CartographerTriggerManual,
+			SourceRefs:     sourceRefs,
+			TargetEntityID: "node_scope",
+			NewEvents: []semanticgraph.CartographerTrajectoryEvent{{
+				Source:     semanticgraph.CartographerTrajectorySourceWorkflow,
+				EventID:    "workflow_events:" + patchID,
+				Type:       "workflow.node.completed",
+				OccurredAt: "2026-06-10T12:15:00Z",
+				SourceRefs: sourceRefs,
+				Summary:    "Workflow node completed for cartographer HTTP fixture.",
+				Boundary:   true,
+			}},
+			ObservedEventRefs: []string{"workflow_events:" + patchID},
+		},
+		HarnessKind:        "scripted",
+		Model:              "fake-cartographer-http",
+		RequestID:          "request_cartographer_http",
+		ResponseID:         "response_cartographer_http",
+		RawHarnessResponse: raw,
+		TrajectorySummary:  "HTTP cartographer patch summary.",
+	})
+	if err != nil {
+		t.Fatalf("apply cartographer patch fixture: %v", err)
+	}
+	if len(result.Patches) != 1 || result.Patches[0].Status != semanticgraph.CartographerPatchPendingReview {
+		t.Fatalf("cartographer patch fixture = %+v, want pending review patch", result)
+	}
+	return result
 }
 
 func assertSemanticGraphReadEndpoint(t *testing.T, handler http.Handler, workspaceID string) {

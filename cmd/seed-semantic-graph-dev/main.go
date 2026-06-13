@@ -23,6 +23,9 @@ const (
 	seedFindingNodeID         = "semantic_seed_finding"
 	seedRiskNodeID            = "semantic_seed_risk"
 	seedQuestionNodeID        = "semantic_seed_question"
+	seedWorkflowExecutionID   = "semantic_seed_workflow_execution"
+	seedWorkflowNodeID        = "semantic_seed_workflow_node"
+	seedWorkflowCursor        = "semantic_seed_workflow_events:3"
 	seedBaseObservedTimestamp = "2026-06-10T12:00:00Z"
 )
 
@@ -129,6 +132,9 @@ func seedSemanticGraph(ctx context.Context, config config) (seedResult, error) {
 			return seedResult{}, err
 		}
 	}
+	if err := seedCartographerAudit(ctx, service, summary.ID); err != nil {
+		return seedResult{}, err
+	}
 	return seedResult{Workspace: summary}, nil
 }
 
@@ -151,6 +157,86 @@ func semanticNodeExists(nodes []semanticgraph.SemanticNode, nodeID string) bool 
 		}
 	}
 	return false
+}
+
+func seedCartographerAudit(ctx context.Context, service *semanticgraph.Service, workspaceID string) error {
+	sourceRefs := semanticgraph.SemanticContextSourceRefs{
+		WorkflowDefinitionID: "semantic_seed_workflow_definition",
+		WorkflowExecutionID:  seedWorkflowExecutionID,
+		WorkflowNodeID:       seedWorkflowNodeID,
+	}
+	built, err := service.BuildCartographerWindow(ctx, semanticgraph.CartographerManualWindowRequest{
+		WorkspaceID:    workspaceID,
+		TriggerKind:    semanticgraph.CartographerTriggerManual,
+		TargetEntityID: seedConstraintNodeID,
+		SourceRefs:     sourceRefs,
+		RunStatus:      "completed",
+		TerminalReason: "manual",
+		Summary:        "Seed cartographer window summary",
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := service.SaveCartographerCursor(ctx, semanticgraph.CartographerCursor{
+		ID:                         "semantic_seed_cartographer_cursor",
+		WorkspaceID:                workspaceID,
+		WorkflowExecutionID:        seedWorkflowExecutionID,
+		WorkflowNodeExecutionID:    "",
+		ChatConversationID:         "",
+		ChatRunID:                  "",
+		LastWorkflowEventCursor:    seedWorkflowCursor,
+		LastOutputOrdinalByRunItem: map[string]int{"semantic_seed_run_item": 3},
+		LastWindowID:               built.Window.ID,
+		UpdatedAt:                  seedObservedAt(13),
+	}); err != nil {
+		return err
+	}
+	confidence := 0.42
+	envelope := semanticgraph.CartographerPatchEnvelope{Patches: []semanticgraph.CartographerPatch{{
+		ID:             "semantic_seed_cartographer_patch_pending",
+		Operation:      semanticgraph.CartographerPatchAttachEvidence,
+		WorkspaceID:    workspaceID,
+		SourceRefs:     sourceRefs,
+		CausationID:    "semantic_seed_cartographer_request",
+		CorrelationID:  "semantic_seed_cartographer_response",
+		Confidence:     &confidence,
+		PublicSummary:  "Cartographer pending review evidence",
+		EvidenceRefs:   []semanticgraph.CartographerPatchEvidenceRef{seedCartographerEvidenceRef()},
+		ModelInfo:      map[string]string{"fixture": "semantic-graph-dev-seed"},
+		ReviewRequired: true,
+		Payload: semanticgraph.CartographerPatchPayload{
+			TargetEntityID: seedConstraintNodeID,
+			EvidenceRefs:   []semanticgraph.CartographerPatchEvidenceRef{seedCartographerEvidenceRef()},
+		},
+	}}}
+	rawEnvelope, err := json.Marshal(envelope)
+	if err != nil {
+		return err
+	}
+	_, err = service.ApplyCartographerPatchEnvelope(ctx, semanticgraph.CartographerPatchEnvelopeApplicationInput{
+		WorkspaceID:        workspaceID,
+		RunID:              built.Run.ID,
+		WindowID:           built.Window.ID,
+		TriggerKind:        semanticgraph.CartographerTriggerManual,
+		TargetEntityID:     seedConstraintNodeID,
+		SourceRefs:         sourceRefs,
+		InputBundle:        built.Window.InputBundle,
+		HarnessKind:        "scripted",
+		Model:              "semantic-graph-dev-seed",
+		RequestID:          "semantic_seed_cartographer_request",
+		ResponseID:         "semantic_seed_cartographer_response",
+		RawHarnessResponse: json.RawMessage(rawEnvelope),
+		TrajectorySummary:  "Seed cartographer window summary",
+	})
+	return err
+}
+
+func seedCartographerEvidenceRef() semanticgraph.CartographerPatchEvidenceRef {
+	return semanticgraph.CartographerPatchEvidenceRef{
+		SourceKind:       semanticgraph.EvidenceSourceDocument,
+		SourceID:         "setta_semantic_work_graph_implementation_plan",
+		EvidenceAnchorID: "semantic_seed_evidence_plan",
+	}
 }
 
 func seedEvents(workspaceID string) []semanticgraph.SemanticEvent {

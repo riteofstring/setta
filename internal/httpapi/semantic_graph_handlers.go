@@ -213,6 +213,179 @@ func (handler handler) listSemanticContextPacks(response http.ResponseWriter, re
 	writeJSON(response, http.StatusOK, packs)
 }
 
+func (handler handler) buildCartographerWindow(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload BuildCartographerWindowRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.BuildCartographerWindow(request.Context(), semanticgraph.CartographerManualWindowRequest{
+		WorkspaceID:    payload.WorkspaceID,
+		TriggerKind:    payload.TriggerKind,
+		TargetEntityID: payload.TargetEntityID,
+		SourceRefs:     payload.SourceRefs,
+		RunStatus:      payload.RunStatus,
+		TerminalReason: payload.TerminalReason,
+		Summary:        payload.Summary,
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "build_cartographer_window_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) readCartographerRun(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ReadCartographerRunRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	run, ok, err := service.ReadCartographerRun(request.Context(), payload.WorkspaceID, payload.RunID)
+	if err != nil {
+		writeSemanticGraphError(response, "read_cartographer_run_failed", err)
+		return
+	}
+	if !ok {
+		writeJSON(response, http.StatusOK, semanticgraph.CartographerRunReadResponse{})
+		return
+	}
+	writeJSON(response, http.StatusOK, semanticgraph.CartographerRunReadResponse{Run: &run})
+}
+
+func (handler handler) listCartographerRuns(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ListCartographerRunsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	runs, err := service.ListCartographerRuns(request.Context(), semanticgraph.CartographerRunFilter{
+		WorkspaceID:         payload.WorkspaceID,
+		WorkflowExecutionID: payload.WorkflowExecutionID,
+		ChatRunID:           payload.ChatRunID,
+		TargetEntityID:      payload.TargetEntityID,
+		Limit:               payload.Limit,
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "list_cartographer_runs_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, runs)
+}
+
+func (handler handler) listCartographerWindows(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ListCartographerWindowsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	windows, err := service.ListCartographerWindows(request.Context(), semanticgraph.CartographerWindowFilter{
+		WorkspaceID:         payload.WorkspaceID,
+		RunID:               payload.RunID,
+		SourceKind:          payload.SourceKind,
+		SourceID:            payload.SourceID,
+		WorkflowExecutionID: payload.WorkflowExecutionID,
+		ChatRunID:           payload.ChatRunID,
+		Limit:               payload.Limit,
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "list_cartographer_windows_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, windows)
+}
+
+func (handler handler) listCartographerCursors(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ListCartographerCursorsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	cursors, err := service.ListCartographerCursors(request.Context(), semanticgraph.CartographerCursorFilter{
+		WorkspaceID:         payload.WorkspaceID,
+		WorkflowExecutionID: payload.WorkflowExecutionID,
+		ChatRunID:           payload.ChatRunID,
+		Limit:               payload.Limit,
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "list_cartographer_cursors_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, cursors)
+}
+
+func (handler handler) listCartographerPatches(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ListCartographerPatchesRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	patches, err := service.ListCartographerPatches(request.Context(), semanticgraph.CartographerPatchFilter{
+		WorkspaceID:      payload.WorkspaceID,
+		RunID:            payload.RunID,
+		SemanticTargetID: payload.SemanticTargetID,
+		Status:           payload.Status,
+		Limit:            payload.Limit,
+	})
+	if err != nil {
+		writeSemanticGraphError(response, "list_cartographer_patches_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, patches)
+}
+
+func (handler handler) acceptCartographerPatch(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ReviewCartographerPatchRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.AcceptCartographerPatch(request.Context(), payload.WorkspaceID, payload.PatchID)
+	if err != nil {
+		writeSemanticGraphError(response, "accept_cartographer_patch_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) rejectCartographerPatch(response http.ResponseWriter, request *http.Request) {
+	service := requireSemanticGraphService(response, handler.semanticGraphService)
+	if service == nil {
+		return
+	}
+	var payload ReviewCartographerPatchRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.RejectCartographerPatch(request.Context(), payload.WorkspaceID, payload.PatchID)
+	if err != nil {
+		writeSemanticGraphError(response, "reject_cartographer_patch_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
 func (handler handler) updateSemanticLayoutPositions(response http.ResponseWriter, request *http.Request) {
 	service := requireSemanticGraphService(response, handler.semanticGraphService)
 	if service == nil {

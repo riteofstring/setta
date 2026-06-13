@@ -1,4 +1,9 @@
 import type {
+  CartographerCursor,
+  CartographerDiagnostic,
+  CartographerPatchRecord,
+  CartographerRun,
+  CartographerWindow,
   SemanticActivityInterval,
   SemanticEdge,
   SemanticEvent,
@@ -7,6 +12,7 @@ import type {
   SemanticNodeDetail,
   SemanticSteeringDirective,
 } from "@generated/backend";
+import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -26,6 +32,7 @@ type SemanticNodeDetailsTarget = NonNullable<
 type SemanticContextPack = SemanticNodeDetail["contextPackHistory"][number];
 type SemanticContextPackItem = SemanticContextPack["items"][number];
 type SemanticContextSourceRefs = SemanticContextPack["sourceRefs"];
+type CartographerPatch = CartographerPatchRecord["patch"];
 
 interface SemanticNodeInspectionState {
   detail: SemanticNodeDetail | null;
@@ -176,11 +183,283 @@ export function SemanticLoadedNodeDetails({
       <SemanticEditControls detail={detail} onMutation={onMutation} />
       <SemanticLineageSection detail={detail} />
       <SemanticEdgeSection incoming={detail.incomingEdges} outgoing={detail.outgoingEdges} />
+      <SemanticCartographerSection detail={detail} onMutation={onMutation} />
       <SemanticEvidenceSection evidence={detail.evidence} />
       <SemanticActivitySection activity={detail.activity} />
       <SemanticSteeringSection directives={detail.steeringDirectives} />
       <SemanticContextPackSection contextPacks={detail.contextPackHistory} />
       <SemanticHistorySection history={history} />
+    </div>
+  );
+}
+
+function SemanticCartographerSection({
+  detail,
+  onMutation,
+}: {
+  detail: SemanticNodeDetail;
+  onMutation?: () => void;
+}) {
+  const [pendingPatchId, setPendingPatchId] = useState("");
+  const [reviewError, setReviewError] = useState("");
+  const hasCartographerState =
+    detail.cartographerPatches.length > 0 ||
+    detail.cartographerRuns.length > 0 ||
+    detail.cartographerWindows.length > 0 ||
+    detail.cartographerCursors.length > 0;
+  if (!hasCartographerState) {
+    return null;
+  }
+  const reviewPatch = async (patch: CartographerPatchRecord, action: "accept" | "reject") => {
+    setPendingPatchId(patch.id);
+    setReviewError("");
+    try {
+      if (action === "accept") {
+        await window.setta.semanticGraph.acceptCartographerPatch({
+          patchId: patch.id,
+          workspaceId: detail.workspaceId,
+        });
+      } else {
+        await window.setta.semanticGraph.rejectCartographerPatch({
+          patchId: patch.id,
+          workspaceId: detail.workspaceId,
+        });
+      }
+      onMutation?.();
+    } catch (error) {
+      setReviewError(errorMessage(error));
+    } finally {
+      setPendingPatchId("");
+    }
+  };
+  return (
+    <WorkflowDetailsSection title="Cartographer">
+      <div className="space-y-3" data-testid="semantic-cartographer-section">
+        <CartographerPatchList
+          patches={detail.cartographerPatches}
+          pendingPatchId={pendingPatchId}
+          reviewPatch={reviewPatch}
+        />
+        <CartographerRunList runs={detail.cartographerRuns} />
+        <CartographerWindowList windows={detail.cartographerWindows} />
+        <CartographerCursorList cursors={detail.cartographerCursors} />
+        {reviewError !== "" ? <div className="text-xs text-rose-300">{reviewError}</div> : null}
+      </div>
+    </WorkflowDetailsSection>
+  );
+}
+
+function CartographerPatchList({
+  patches,
+  pendingPatchId,
+  reviewPatch,
+}: {
+  patches: CartographerPatchRecord[];
+  pendingPatchId: string;
+  reviewPatch: (patch: CartographerPatchRecord, action: "accept" | "reject") => Promise<void>;
+}) {
+  if (patches.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-zinc-400">Patches</div>
+      {patches.map((patch) => (
+        <SemanticRecord key={patch.id}>
+          <div className="space-y-2" data-testid="cartographer-patch-record">
+            <WorkflowDetailsRows
+              rows={[
+                { label: "Operation", value: patch.patch.operation },
+                { label: "Status", value: patch.status },
+                { label: "Confidence", value: cartographerConfidenceText(patch) },
+                { label: "Review required", value: patch.patch.reviewRequired ? "yes" : "no" },
+                { label: "Run", value: shortIdentifier(patch.runId) },
+                { label: "Window", value: shortIdentifier(patch.windowId) },
+                { label: "Target", value: cartographerPatchTargetText(patch.patch) },
+                { label: "Sources", value: semanticContextSourceRefsText(patch.patch.sourceRefs) },
+                { label: "Summary", value: patch.patch.publicSummary },
+                {
+                  label: "Created events",
+                  value: shortIdentifierList(patch.createdSemanticEventIds),
+                },
+                { label: "Created", value: patch.createdAt },
+                { label: "Validated", value: patch.validatedAt },
+                { label: "Applied", value: patch.appliedAt },
+              ]}
+            />
+            <CartographerDiagnostics diagnostics={cartographerPatchDiagnostics(patch)} />
+            {patch.status === "pending_review" ? (
+              <CartographerReviewActions
+                disabled={pendingPatchId !== ""}
+                loading={pendingPatchId === patch.id}
+                onAccept={() => void reviewPatch(patch, "accept")}
+                onReject={() => void reviewPatch(patch, "reject")}
+              />
+            ) : null}
+          </div>
+        </SemanticRecord>
+      ))}
+    </div>
+  );
+}
+
+function CartographerReviewActions({
+  disabled,
+  loading,
+  onAccept,
+  onReject,
+}: {
+  disabled: boolean;
+  loading: boolean;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 border-t border-zinc-900 pt-2">
+      <button
+        className="inline-flex items-center gap-1 rounded-sm border border-emerald-900 bg-emerald-950/40 px-2 py-1 text-xs font-medium text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+        data-testid="cartographer-patch-accept"
+        disabled={disabled}
+        onClick={onAccept}
+        type="button"
+      >
+        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+        {loading ? "Applying" : "Accept"}
+      </button>
+      <button
+        className="inline-flex items-center gap-1 rounded-sm border border-rose-900 bg-rose-950/40 px-2 py-1 text-xs font-medium text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+        data-testid="cartographer-patch-reject"
+        disabled={disabled}
+        onClick={onReject}
+        type="button"
+      >
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
+        Reject
+      </button>
+    </div>
+  );
+}
+
+function CartographerDiagnostics({ diagnostics }: { diagnostics: CartographerDiagnostic[] }) {
+  if (diagnostics.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-1 border-t border-zinc-900 pt-2">
+      <div className="text-xs font-medium text-zinc-400">Diagnostics</div>
+      {diagnostics.map((diagnostic) => (
+        <WorkflowDetailsRows
+          key={diagnostic.id}
+          rows={[
+            { label: "Severity", value: diagnostic.severity },
+            { label: "Code", value: diagnostic.code },
+            { label: "Message", value: diagnostic.message },
+            { label: "Path", value: diagnostic.path },
+          ]}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CartographerRunList({ runs }: { runs: CartographerRun[] }) {
+  if (runs.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-zinc-400">Runs</div>
+      {runs.map((run) => (
+        <SemanticRecord key={run.id}>
+          <WorkflowDetailsRows
+            rows={[
+              { label: "Status", value: run.status },
+              { label: "Trigger", value: run.triggerKind },
+              { label: "Run", value: shortIdentifier(run.id) },
+              { label: "Window", value: shortIdentifier(run.windowId) },
+              { label: "Target", value: shortIdentifier(run.targetEntityId) },
+              { label: "Sources", value: semanticContextSourceRefsText(run.sourceRefs) },
+              { label: "Summary", value: run.trajectorySummary },
+              { label: "Input hash", value: run.inputBundleHash },
+              { label: "Response hash", value: run.rawHarnessResponseHash },
+              { label: "Created events", value: shortIdentifierList(run.createdSemanticEventIds) },
+              { label: "Updated", value: run.updatedAt },
+            ]}
+          />
+        </SemanticRecord>
+      ))}
+    </div>
+  );
+}
+
+function CartographerWindowList({ windows }: { windows: CartographerWindow[] }) {
+  if (windows.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-zinc-400">Windows</div>
+      {windows.map((window) => (
+        <SemanticRecord key={window.id}>
+          <WorkflowDetailsRows
+            rows={[
+              { label: "Status", value: window.status },
+              {
+                label: "Source",
+                value: `${window.sourceKind}:${shortIdentifier(window.sourceId)}`,
+              },
+              { label: "Run", value: shortIdentifier(window.runId) },
+              { label: "Cursor", value: shortIdentifier(window.cursorId) },
+              { label: "Summary", value: cartographerWindowSummary(window) },
+              {
+                label: "Start cursor",
+                value: cartographerWindowCursorText(window.inputBundle.windowStartCursor),
+              },
+              {
+                label: "End cursor",
+                value: cartographerWindowCursorText(window.inputBundle.windowEndCursor),
+              },
+              { label: "Opened", value: window.openedAt },
+              { label: "Closed", value: window.closedAt },
+            ]}
+          />
+        </SemanticRecord>
+      ))}
+    </div>
+  );
+}
+
+function CartographerCursorList({ cursors }: { cursors: CartographerCursor[] }) {
+  if (cursors.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-zinc-400">Cursors</div>
+      {cursors.map((cursor) => (
+        <SemanticRecord key={cursor.id}>
+          <WorkflowDetailsRows
+            rows={[
+              { label: "Workflow execution", value: shortIdentifier(cursor.workflowExecutionId) },
+              { label: "Chat run", value: shortIdentifier(cursor.chatRunId) },
+              {
+                label: "Last chat",
+                value:
+                  cursor.lastChatEventStreamId === ""
+                    ? ""
+                    : `${cursor.lastChatEventStreamId}:${cursor.lastChatEventSequence}`,
+              },
+              { label: "Last workflow", value: cursor.lastWorkflowEventCursor },
+              { label: "Last window", value: shortIdentifier(cursor.lastWindowId) },
+              {
+                label: "Output ordinals",
+                value: cartographerOutputOrdinalsText(cursor.lastOutputOrdinalByRunItem),
+              },
+              { label: "Updated", value: cursor.updatedAt },
+            ]}
+          />
+        </SemanticRecord>
+      ))}
     </div>
   );
 }
@@ -548,6 +827,90 @@ function activityActor(interval: SemanticActivityInterval) {
     return interval.actorKind;
   }
   return `${interval.actorKind}:${interval.actorId}`;
+}
+
+function cartographerConfidenceText(patch: CartographerPatchRecord) {
+  return patch.patch.confidence === null ? "" : `${patch.patch.confidence}`;
+}
+
+const cartographerPatchTargetFormatters = {
+  attach_evidence: cartographerTargetEntityText,
+  create_edge: cartographerEdgeTargetText,
+  end_activity: (patch) => patch.payload.activityId,
+  mark_resolved: cartographerSemanticNodeTargetText,
+  merge_nodes: cartographerMergeTargetText,
+  record_constraint: cartographerRecordNodeTargetText,
+  record_decision: cartographerRecordNodeTargetText,
+  record_finding: cartographerRecordNodeTargetText,
+  record_open_question: cartographerRecordNodeTargetText,
+  split_node: (patch) => patch.payload.sourceNodeId,
+  start_activity: cartographerTargetEntityText,
+  update_node_summary: cartographerSemanticNodeTargetText,
+} satisfies Record<CartographerPatch["operation"], (patch: CartographerPatch) => string>;
+
+function cartographerPatchTargetText(patch: CartographerPatch) {
+  return cartographerPatchTargetFormatters[patch.operation](patch);
+}
+
+function cartographerRecordNodeTargetText(patch: CartographerPatch) {
+  return patch.payload.newNode?.semanticNodeId ?? patch.payload.semanticNodeId;
+}
+
+function cartographerSemanticNodeTargetText(patch: CartographerPatch) {
+  return patch.payload.semanticNodeId;
+}
+
+function cartographerTargetEntityText(patch: CartographerPatch) {
+  return patch.payload.targetEntityId || patch.payload.semanticNodeId;
+}
+
+function cartographerEdgeTargetText(patch: CartographerPatch) {
+  return `${shortIdentifier(patch.payload.fromNodeId)} -> ${shortIdentifier(patch.payload.toNodeId)}`;
+}
+
+function cartographerMergeTargetText(patch: CartographerPatch) {
+  return `${shortIdentifierList(patch.payload.sourceNodeIds)} -> ${shortIdentifier(patch.payload.targetNode?.semanticNodeId ?? "")}`;
+}
+
+function shortIdentifierList(values: string[]) {
+  return values
+    .filter((value) => value !== "")
+    .map(shortIdentifier)
+    .join(", ");
+}
+
+function cartographerPatchDiagnostics(patch: CartographerPatchRecord) {
+  return [...patch.validationResult.diagnostics, ...patch.applicationResult.diagnostics];
+}
+
+function cartographerWindowSummary(window: CartographerWindow) {
+  const summaries = [
+    window.inputBundle.promptSummary,
+    window.inputBundle.assistantResponseSummary,
+    window.inputBundle.truncation.deterministicSummary,
+    ...window.inputBundle.newEvents.map((event) => event.summary),
+  ].filter((summary) => summary !== "");
+  return summaries.join("; ");
+}
+
+function cartographerWindowCursorText(
+  cursor: CartographerWindow["inputBundle"]["windowStartCursor"],
+) {
+  const parts = [
+    cursor.chatEventStreamId === ""
+      ? ""
+      : `chat ${cursor.chatEventStreamId}:${cursor.chatEventSequence}`,
+    cursor.workflowEventCursor === "" ? "" : `workflow ${cursor.workflowEventCursor}`,
+    cartographerOutputOrdinalsText(cursor.outputOrdinalByRunItem),
+  ].filter((part) => part !== "");
+  return parts.join("; ");
+}
+
+function cartographerOutputOrdinalsText(ordinals: Record<string, number>) {
+  return Object.entries(ordinals)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([runItemId, ordinal]) => `${shortIdentifier(runItemId)}:${ordinal}`)
+    .join(", ");
 }
 
 function errorMessage(error: unknown) {

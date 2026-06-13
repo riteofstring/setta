@@ -48,40 +48,192 @@ func (store *Store) ReadNodeDetail(ctx context.Context, workspaceID string, node
 	if err != nil || !ok {
 		return SemanticNodeDetail{}, ok, err
 	}
-	incoming, err := store.loadSemanticEdges(ctx, workspaceID, "to_node_id = ?", []any{nodeID})
+	records, err := store.loadSemanticNodeDetailRecords(ctx, workspaceID, nodeID)
 	if err != nil {
 		return SemanticNodeDetail{}, false, err
 	}
-	outgoing, err := store.loadSemanticEdges(ctx, workspaceID, "from_node_id = ?", []any{nodeID})
-	if err != nil {
-		return SemanticNodeDetail{}, false, err
-	}
-	evidence, err := store.loadSemanticEvidence(ctx, workspaceID, nodeID)
-	if err != nil {
-		return SemanticNodeDetail{}, false, err
-	}
-	activity, err := store.loadSemanticActivity(ctx, workspaceID, nodeID, defaultSemanticPageLimit)
-	if err != nil {
-		return SemanticNodeDetail{}, false, err
-	}
-	steering, err := store.loadSemanticSteering(ctx, workspaceID, nodeID)
-	if err != nil {
-		return SemanticNodeDetail{}, false, err
-	}
-	contextPacks, err := store.loadSemanticContextPacks(ctx, workspaceID, nodeID)
+	cartographer, err := store.loadCartographerNodeDetailRecords(ctx, workspaceID, nodeID)
 	if err != nil {
 		return SemanticNodeDetail{}, false, err
 	}
 	return SemanticNodeDetail{
-		WorkspaceID:        workspaceID,
-		Node:               node,
-		IncomingEdges:      incoming,
-		OutgoingEdges:      outgoing,
-		Evidence:           evidence,
-		Activity:           activity,
-		SteeringDirectives: steering,
-		ContextPackHistory: contextPacks,
+		WorkspaceID:         workspaceID,
+		Node:                node,
+		IncomingEdges:       records.incoming,
+		OutgoingEdges:       records.outgoing,
+		Evidence:            records.evidence,
+		Activity:            records.activity,
+		SteeringDirectives:  records.steering,
+		ContextPackHistory:  records.contextPacks,
+		CartographerPatches: cartographer.patches,
+		CartographerRuns:    cartographer.runs,
+		CartographerWindows: cartographer.windows,
+		CartographerCursors: cartographer.cursors,
 	}, true, nil
+}
+
+func (store *Store) loadSemanticNodeDetailRecords(ctx context.Context, workspaceID string, nodeID string) (semanticNodeDetailRecords, error) {
+	incoming, err := store.loadSemanticEdges(ctx, workspaceID, "to_node_id = ?", []any{nodeID})
+	if err != nil {
+		return semanticNodeDetailRecords{}, err
+	}
+	outgoing, err := store.loadSemanticEdges(ctx, workspaceID, "from_node_id = ?", []any{nodeID})
+	if err != nil {
+		return semanticNodeDetailRecords{}, err
+	}
+	evidence, err := store.loadSemanticEvidence(ctx, workspaceID, nodeID)
+	if err != nil {
+		return semanticNodeDetailRecords{}, err
+	}
+	activity, err := store.loadSemanticActivity(ctx, workspaceID, nodeID, defaultSemanticPageLimit)
+	if err != nil {
+		return semanticNodeDetailRecords{}, err
+	}
+	steering, err := store.loadSemanticSteering(ctx, workspaceID, nodeID)
+	if err != nil {
+		return semanticNodeDetailRecords{}, err
+	}
+	contextPacks, err := store.loadSemanticContextPacks(ctx, workspaceID, nodeID)
+	if err != nil {
+		return semanticNodeDetailRecords{}, err
+	}
+	return semanticNodeDetailRecords{
+		incoming:     incoming,
+		outgoing:     outgoing,
+		evidence:     evidence,
+		activity:     activity,
+		steering:     steering,
+		contextPacks: contextPacks,
+	}, nil
+}
+
+func (store *Store) loadCartographerNodeDetailRecords(ctx context.Context, workspaceID string, nodeID string) (cartographerNodeDetailRecords, error) {
+	patches, err := store.ListCartographerPatches(ctx, CartographerPatchFilter{
+		WorkspaceID:      workspaceID,
+		SemanticTargetID: nodeID,
+		Limit:            defaultSemanticPageLimit,
+	})
+	if err != nil {
+		return cartographerNodeDetailRecords{}, err
+	}
+	runs, windows, cursors, err := store.loadCartographerDetailProvenance(ctx, workspaceID, patches.Patches)
+	if err != nil {
+		return cartographerNodeDetailRecords{}, err
+	}
+	return cartographerNodeDetailRecords{
+		patches: patches.Patches,
+		runs:    runs,
+		windows: windows,
+		cursors: cursors,
+	}, nil
+}
+
+func (store *Store) loadCartographerDetailProvenance(ctx context.Context, workspaceID string, patches []CartographerPatchRecord) ([]CartographerRun, []CartographerWindow, []CartographerCursor, error) {
+	runIDs, windowIDs := cartographerDetailProvenanceIDs(patches)
+	runs, err := store.readCartographerRunsByID(ctx, workspaceID, runIDs)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	windows, err := store.readCartographerWindowsByID(ctx, workspaceID, windowIDs)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	cursors, err := store.loadCartographerCursorsForRuns(ctx, workspaceID, runs)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return runs, windows, cursors, nil
+}
+
+func cartographerDetailProvenanceIDs(patches []CartographerPatchRecord) ([]string, []string) {
+	seenRunIDs := map[string]bool{}
+	seenWindowIDs := map[string]bool{}
+	runIDs := []string{}
+	windowIDs := []string{}
+	for _, patch := range patches {
+		runIDs = appendUniqueCartographerID(runIDs, seenRunIDs, patch.RunID)
+		if patch.WindowID != "" {
+			windowIDs = appendUniqueCartographerID(windowIDs, seenWindowIDs, patch.WindowID)
+		}
+	}
+	return runIDs, windowIDs
+}
+
+func appendUniqueCartographerID(ids []string, seen map[string]bool, id string) []string {
+	if seen[id] {
+		return ids
+	}
+	seen[id] = true
+	return append(ids, id)
+}
+
+func (store *Store) readCartographerRunsByID(ctx context.Context, workspaceID string, runIDs []string) ([]CartographerRun, error) {
+	runs := []CartographerRun{}
+	for _, runID := range runIDs {
+		run, ok, err := store.ReadCartographerRun(ctx, workspaceID, runID)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			runs = append(runs, run)
+		}
+	}
+	return runs, nil
+}
+
+func (store *Store) readCartographerWindowsByID(ctx context.Context, workspaceID string, windowIDs []string) ([]CartographerWindow, error) {
+	windows := []CartographerWindow{}
+	for _, windowID := range windowIDs {
+		window, ok, err := store.ReadCartographerWindow(ctx, workspaceID, windowID)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			windows = append(windows, window)
+		}
+	}
+	return windows, nil
+}
+
+func (store *Store) loadCartographerCursorsForRuns(ctx context.Context, workspaceID string, runs []CartographerRun) ([]CartographerCursor, error) {
+	seen := map[string]bool{}
+	cursors := []CartographerCursor{}
+	for _, run := range runs {
+		filters := cartographerCursorFiltersForRun(workspaceID, run)
+		for _, filter := range filters {
+			list, err := store.ListCartographerCursors(ctx, filter)
+			if err != nil {
+				return nil, err
+			}
+			for _, cursor := range list.Cursors {
+				if seen[cursor.ID] {
+					continue
+				}
+				seen[cursor.ID] = true
+				cursors = append(cursors, cursor)
+			}
+		}
+	}
+	return cursors, nil
+}
+
+func cartographerCursorFiltersForRun(workspaceID string, run CartographerRun) []CartographerCursorFilter {
+	filters := []CartographerCursorFilter{}
+	if run.SourceRefs.WorkflowExecutionID != "" {
+		filters = append(filters, CartographerCursorFilter{
+			WorkspaceID:         workspaceID,
+			WorkflowExecutionID: run.SourceRefs.WorkflowExecutionID,
+			Limit:               defaultSemanticPageLimit,
+		})
+	}
+	if run.SourceRefs.ChatRunID != "" {
+		filters = append(filters, CartographerCursorFilter{
+			WorkspaceID: workspaceID,
+			ChatRunID:   run.SourceRefs.ChatRunID,
+			Limit:       defaultSemanticPageLimit,
+		})
+	}
+	return filters
 }
 
 func (store *Store) ListEvidence(ctx context.Context, workspaceID string, targetEntityID string) (SemanticEvidenceList, error) {

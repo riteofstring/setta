@@ -94,6 +94,70 @@ export function registerSemanticGraphIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "semanticGraphCartographerWindowBuild",
+    async (_event, request) => {
+      return requireBackendClient().buildCartographerWindow(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCartographerRunRead",
+    async (_event, request) => {
+      return requireBackendClient().readCartographerRun(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCartographerRunList",
+    async (_event, request) => {
+      return requireBackendClient().listCartographerRuns(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCartographerWindowList",
+    async (_event, request) => {
+      return requireBackendClient().listCartographerWindows(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCartographerCursorList",
+    async (_event, request) => {
+      return requireBackendClient().listCartographerCursors(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCartographerPatchList",
+    async (_event, request) => {
+      return requireBackendClient().listCartographerPatches(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCartographerPatchAccept",
+    async (_event, request) => {
+      return requireBackendClient().acceptCartographerPatch(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "semanticGraphCartographerPatchReject",
+    async (_event, request) => {
+      return requireBackendClient().rejectCartographerPatch(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "semanticGraphLayoutUpdate",
     async (_event, request) => {
       return requireBackendClient().updateSemanticLayoutPositions(request);

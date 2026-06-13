@@ -7,8 +7,10 @@ import {
   decodeBoolean,
   decodeBackendEventBase,
   decodeInteger,
+  decodeIntegerRecord,
   decodeStringRecord,
   decodeNullable,
+  decodeNumber,
   decodeString,
   decodeUnknown,
   requestBackend,
@@ -1438,6 +1440,228 @@ export function decodeSemanticContextPackPriority(value: unknown, label = "Seman
     case "important":
       return decoded;
     case "required":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerPatchStatus = "proposed" | "validated" | "pending_review" | "rejected" | "applied";
+
+export const cartographerPatchStatusValues = ["proposed", "validated", "pending_review", "rejected", "applied"] as const satisfies readonly CartographerPatchStatus[];
+
+export function decodeCartographerPatchStatus(value: unknown, label = "CartographerPatchStatus"): CartographerPatchStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "proposed":
+      return decoded;
+    case "validated":
+      return decoded;
+    case "pending_review":
+      return decoded;
+    case "rejected":
+      return decoded;
+    case "applied":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerPatchOperation = "record_finding" | "record_decision" | "record_constraint" | "record_open_question" | "update_node_summary" | "attach_evidence" | "create_edge" | "start_activity" | "end_activity" | "split_node" | "merge_nodes" | "mark_resolved";
+
+export const cartographerPatchOperationValues = ["record_finding", "record_decision", "record_constraint", "record_open_question", "update_node_summary", "attach_evidence", "create_edge", "start_activity", "end_activity", "split_node", "merge_nodes", "mark_resolved"] as const satisfies readonly CartographerPatchOperation[];
+
+export function decodeCartographerPatchOperation(value: unknown, label = "CartographerPatchOperation"): CartographerPatchOperation {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "record_finding":
+      return decoded;
+    case "record_decision":
+      return decoded;
+    case "record_constraint":
+      return decoded;
+    case "record_open_question":
+      return decoded;
+    case "update_node_summary":
+      return decoded;
+    case "attach_evidence":
+      return decoded;
+    case "create_edge":
+      return decoded;
+    case "start_activity":
+      return decoded;
+    case "end_activity":
+      return decoded;
+    case "split_node":
+      return decoded;
+    case "merge_nodes":
+      return decoded;
+    case "mark_resolved":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerPatchNodeScope = "session" | "workspace";
+
+export const cartographerPatchNodeScopeValues = ["session", "workspace"] as const satisfies readonly CartographerPatchNodeScope[];
+
+export function decodeCartographerPatchNodeScope(value: unknown, label = "CartographerPatchNodeScope"): CartographerPatchNodeScope {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "session":
+      return decoded;
+    case "workspace":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerDiagnosticSeverity = "info" | "warning" | "error";
+
+export const cartographerDiagnosticSeverityValues = ["info", "warning", "error"] as const satisfies readonly CartographerDiagnosticSeverity[];
+
+export function decodeCartographerDiagnosticSeverity(value: unknown, label = "CartographerDiagnosticSeverity"): CartographerDiagnosticSeverity {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "info":
+      return decoded;
+    case "warning":
+      return decoded;
+    case "error":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerRunStatus = "pending" | "running" | "completed" | "failed" | "proposed" | "applied" | "rejected";
+
+export const cartographerRunStatusValues = ["pending", "running", "completed", "failed", "proposed", "applied", "rejected"] as const satisfies readonly CartographerRunStatus[];
+
+export function decodeCartographerRunStatus(value: unknown, label = "CartographerRunStatus"): CartographerRunStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "running":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "proposed":
+      return decoded;
+    case "applied":
+      return decoded;
+    case "rejected":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerRunTriggerKind = "manual" | "workflow_window" | "workflow_done" | "explicit_retry" | "explicit_review";
+
+export const cartographerRunTriggerKindValues = ["manual", "workflow_window", "workflow_done", "explicit_retry", "explicit_review"] as const satisfies readonly CartographerRunTriggerKind[];
+
+export function decodeCartographerRunTriggerKind(value: unknown, label = "CartographerRunTriggerKind"): CartographerRunTriggerKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "manual":
+      return decoded;
+    case "workflow_window":
+      return decoded;
+    case "workflow_done":
+      return decoded;
+    case "explicit_retry":
+      return decoded;
+    case "explicit_review":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerTrajectoryEventSource = "chat" | "workflow";
+
+export const cartographerTrajectoryEventSourceValues = ["chat", "workflow"] as const satisfies readonly CartographerTrajectoryEventSource[];
+
+export function decodeCartographerTrajectoryEventSource(value: unknown, label = "CartographerTrajectoryEventSource"): CartographerTrajectoryEventSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "chat":
+      return decoded;
+    case "workflow":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerWindowCloseReason = "run_item_terminal" | "approval_required" | "assistant_complete" | "assistant_threshold" | "output_threshold" | "workflow_node_terminal" | "workflow_run_terminal" | "quiet_period" | "manual";
+
+export const cartographerWindowCloseReasonValues = ["run_item_terminal", "approval_required", "assistant_complete", "assistant_threshold", "output_threshold", "workflow_node_terminal", "workflow_run_terminal", "quiet_period", "manual"] as const satisfies readonly CartographerWindowCloseReason[];
+
+export function decodeCartographerWindowCloseReason(value: unknown, label = "CartographerWindowCloseReason"): CartographerWindowCloseReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "run_item_terminal":
+      return decoded;
+    case "approval_required":
+      return decoded;
+    case "assistant_complete":
+      return decoded;
+    case "assistant_threshold":
+      return decoded;
+    case "output_threshold":
+      return decoded;
+    case "workflow_node_terminal":
+      return decoded;
+    case "workflow_run_terminal":
+      return decoded;
+    case "quiet_period":
+      return decoded;
+    case "manual":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerSourceKind = "workflow_execution" | "chat_run" | "semantic_target";
+
+export const cartographerSourceKindValues = ["workflow_execution", "chat_run", "semantic_target"] as const satisfies readonly CartographerSourceKind[];
+
+export function decodeCartographerSourceKind(value: unknown, label = "CartographerSourceKind"): CartographerSourceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "workflow_execution":
+      return decoded;
+    case "chat_run":
+      return decoded;
+    case "semantic_target":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type CartographerWindowStatus = "open" | "closed" | "processed";
+
+export const cartographerWindowStatusValues = ["open", "closed", "processed"] as const satisfies readonly CartographerWindowStatus[];
+
+export function decodeCartographerWindowStatus(value: unknown, label = "CartographerWindowStatus"): CartographerWindowStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "open":
+      return decoded;
+    case "closed":
+      return decoded;
+    case "processed":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2990,6 +3214,338 @@ export interface SemanticContextPackRecord {
   createdAt: string;
 }
 
+export interface CartographerPatchEvidenceRef {
+  sourceKind: SemanticEvidenceSourceKind;
+  sourceId: string;
+  evidenceAnchorId: string;
+}
+
+export interface CartographerPatchNewNode {
+  semanticNodeId: string;
+  kind: SemanticNodeKind;
+  label: string;
+  summary: string;
+  scope: CartographerPatchNodeScope;
+  evidenceRefs: CartographerPatchEvidenceRef[];
+}
+
+export interface SemanticEdgeReassignmentInput {
+  edgeId: string;
+  targetEdgeId: string;
+  fromNodeId: string;
+  toNodeId: string;
+}
+
+export interface SemanticEvidenceReassignmentInput {
+  anchorId: string;
+  targetNodeId: string;
+}
+
+export interface SemanticActivityReassignmentInput {
+  activityIntervalId: string;
+  targetNodeId: string;
+}
+
+export interface SemanticSteeringReassignmentInput {
+  directiveId: string;
+  targetNodeId: string;
+}
+
+export interface SemanticLayoutReassignmentInput {
+  entityId: string;
+  targetEntityId: string;
+}
+
+export interface SemanticReassignmentInputs {
+  edges: SemanticEdgeReassignmentInput[];
+  evidence: SemanticEvidenceReassignmentInput[];
+  activity: SemanticActivityReassignmentInput[];
+  steering: SemanticSteeringReassignmentInput[];
+  layout: SemanticLayoutReassignmentInput[];
+}
+
+export interface CartographerPatchPayload {
+  semanticNodeId: string;
+  targetEntityId: string;
+  newNode: CartographerPatchNewNode | null;
+  summary: string;
+  edgeId: string;
+  edgeKind: SemanticEdgeKind | null;
+  fromNodeId: string;
+  toNodeId: string;
+  label: string;
+  activityId: string;
+  activityKind: SemanticActivityKind | null;
+  activitySourceKind: SemanticActivitySourceKind | null;
+  activitySourceId: string;
+  evidenceAnchorId: string;
+  sourceNodeId: string;
+  newNodes: CartographerPatchNewNode[];
+  sourceNodeIds: string[];
+  targetNode: CartographerPatchNewNode | null;
+  resolutionNodeId: string;
+  evidenceRefs: CartographerPatchEvidenceRef[];
+  reassignments: SemanticReassignmentInputs;
+}
+
+export interface CartographerPatch {
+  patchId: string;
+  operation: CartographerPatchOperation;
+  workspaceId: string;
+  sourceRefs: SemanticContextSourceRefs;
+  causationId: string;
+  correlationId: string;
+  confidence: number | null;
+  publicSummary: string;
+  evidenceRefs: CartographerPatchEvidenceRef[];
+  modelInfo: Record<string, string>;
+  reviewRequired: boolean;
+  payload: CartographerPatchPayload;
+}
+
+export interface CartographerDiagnostic {
+  id: string;
+  runId: string;
+  patchId: string;
+  severity: CartographerDiagnosticSeverity;
+  code: string;
+  message: string;
+  path: string;
+  createdAt: string;
+}
+
+export interface CartographerPatchValidationResult {
+  patchId: string;
+  accepted: boolean;
+  diagnostics: CartographerDiagnostic[];
+  validatedAt: string;
+}
+
+export interface CartographerPatchApplicationResult {
+  patchId: string;
+  applied: boolean;
+  createdSemanticEventIds: string[];
+  diagnostics: CartographerDiagnostic[];
+  appliedAt: string;
+}
+
+export interface CartographerPatchRecord {
+  workspaceId: string;
+  id: string;
+  runId: string;
+  windowId: string;
+  status: CartographerPatchStatus;
+  patch: CartographerPatch;
+  validationResult: CartographerPatchValidationResult;
+  applicationResult: CartographerPatchApplicationResult;
+  createdSemanticEventIds: string[];
+  createdAt: string;
+  validatedAt: string;
+  appliedAt: string;
+}
+
+export interface CartographerWindowCursor {
+  chatEventStreamId: string;
+  chatEventSequence: number;
+  workflowEventCursor: string;
+  outputOrdinalByRunItem: Record<string, number>;
+}
+
+export interface CartographerTrajectoryEvent {
+  source: CartographerTrajectoryEventSource;
+  eventId: string;
+  type: string;
+  streamId: string;
+  sequence: number;
+  workflowEventCursor: string;
+  occurredAt: string;
+  sourceRefs: SemanticContextSourceRefs;
+  chatMessageId: string;
+  runItemId: string;
+  runItemType: string;
+  runItemStatus: string;
+  runStatus: string;
+  outputStream: string;
+  outputOrdinal: number;
+  summary: string;
+  boundary: boolean;
+  closeReason: CartographerWindowCloseReason;
+  originalContentBytes: number;
+  includedContentBytes: number;
+  truncated: boolean;
+}
+
+export interface CartographerToolCallSummary {
+  runItemId: string;
+  type: string;
+  status: string;
+  title: string;
+  command: string;
+  cwd: string;
+  toolName: string;
+  serverName: string;
+  resultSummary: string;
+  error: string;
+  exitCode: number;
+}
+
+export interface CartographerFileChangeSummary {
+  runItemId: string;
+  status: string;
+  filePaths: string[];
+  patchStatus: string;
+  diffSummary: string;
+}
+
+export interface CartographerTestResultSummary {
+  runItemId: string;
+  command: string;
+  exitCode: number;
+  result: string;
+  error: string;
+}
+
+export interface CartographerOutputSummary {
+  runItemId: string;
+  stream: string;
+  startOrdinal: number;
+  endOrdinal: number;
+  summary: string;
+  truncated: boolean;
+}
+
+export interface CartographerTrajectorySummary {
+  id: string;
+  workspaceId: string;
+  runId: string;
+  windowId: string;
+  sourceKind: CartographerSourceKind;
+  sourceId: string;
+  summary: string;
+  sourceRefs: SemanticContextSourceRefs;
+  itemCount: number;
+  createdAt: string;
+}
+
+export interface CartographerInputTruncation {
+  originalEventCount: number;
+  includedEventCount: number;
+  originalContentBytes: number;
+  includedContentBytes: number;
+  summarized: boolean;
+  split: boolean;
+  segmentIndex: number;
+  segmentCount: number;
+  reasons: string[];
+  deterministicSummary: string;
+}
+
+export interface CartographerInputBundle {
+  workspaceId: string;
+  triggerKind: CartographerRunTriggerKind;
+  sourceRefs: SemanticContextSourceRefs;
+  targetEntityId: string;
+  runStatus: string;
+  terminalReason: string;
+  windowId: string;
+  windowStartCursor: CartographerWindowCursor;
+  windowEndCursor: CartographerWindowCursor;
+  newEvents: CartographerTrajectoryEvent[];
+  promptSummary: string;
+  promptText: string;
+  assistantResponseSummary: string;
+  assistantText: string;
+  toolCalls: CartographerToolCallSummary[];
+  fileChanges: CartographerFileChangeSummary[];
+  testResults: CartographerTestResultSummary[];
+  outputSummaries: CartographerOutputSummary[];
+  existingNodes: SemanticNode[];
+  existingEdges: SemanticEdge[];
+  evidence: SemanticEvidenceAnchor[];
+  activity: SemanticActivityInterval[];
+  steering: SemanticSteeringDirective[];
+  contextPacks: SemanticContextPackRecord[];
+  trajectorySummaries: CartographerTrajectorySummary[];
+  observedEventRefs: string[];
+  tokenBudget: number;
+  truncation: CartographerInputTruncation;
+}
+
+export interface CartographerInputItemCounts {
+  newEvents: number;
+  toolCalls: number;
+  fileChanges: number;
+  testResults: number;
+  outputSummaries: number;
+  existingNodes: number;
+  existingEdges: number;
+  evidence: number;
+  activity: number;
+  steering: number;
+  contextPacks: number;
+  trajectorySummaries: number;
+  observedEventRefs: number;
+}
+
+export interface CartographerRun {
+  id: string;
+  workspaceId: string;
+  status: CartographerRunStatus;
+  triggerKind: CartographerRunTriggerKind;
+  targetEntityId: string;
+  sourceRefs: SemanticContextSourceRefs;
+  inputBundle: CartographerInputBundle;
+  outputSchema: unknown;
+  harnessKind: string;
+  model: string;
+  requestId: string;
+  responseId: string;
+  windowId: string;
+  inputBundleHash: string;
+  inputItemCounts: CartographerInputItemCounts;
+  rawHarnessResponseHash: string;
+  trajectorySummary: string;
+  createdSemanticEventIds: string[];
+  diagnostics: CartographerDiagnostic[];
+  createdAt: string;
+  startedAt: string;
+  completedAt: string;
+  updatedAt: string;
+  error: string;
+}
+
+export interface CartographerWindow {
+  id: string;
+  workspaceId: string;
+  runId: string;
+  status: CartographerWindowStatus;
+  sequence: number;
+  sourceKind: CartographerSourceKind;
+  sourceId: string;
+  cursorId: string;
+  summaryId: string;
+  inputBundle: CartographerInputBundle;
+  openedAt: string;
+  closedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CartographerCursor {
+  id: string;
+  workspaceId: string;
+  workflowExecutionId: string;
+  workflowNodeExecutionId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  lastChatEventStreamId: string;
+  lastChatEventSequence: number;
+  lastWorkflowEventCursor: string;
+  lastOutputOrdinalByRunItem: Record<string, number>;
+  lastWindowId: string;
+  updatedAt: string;
+}
+
 export interface SemanticNodeDetail {
   workspaceId: string;
   node: SemanticNode;
@@ -2999,6 +3555,10 @@ export interface SemanticNodeDetail {
   activity: SemanticActivityInterval[];
   steeringDirectives: SemanticSteeringDirective[];
   contextPackHistory: SemanticContextPackRecord[];
+  cartographerPatches: CartographerPatchRecord[];
+  cartographerRuns: CartographerRun[];
+  cartographerWindows: CartographerWindow[];
+  cartographerCursors: CartographerCursor[];
 }
 
 export interface ReadSemanticNodeDetailResponse {
@@ -3146,6 +3706,100 @@ export interface SemanticContextPackList {
   limit: number;
 }
 
+export interface BuildCartographerWindowRequest {
+  workspaceId: string;
+  triggerKind: CartographerRunTriggerKind;
+  targetEntityId: string;
+  sourceRefs: SemanticContextSourceRefs;
+  runStatus: string;
+  terminalReason: string;
+  summary: string;
+}
+
+export interface CartographerWindowBuildResult {
+  run: CartographerRun;
+  window: CartographerWindow;
+  summary: CartographerTrajectorySummary | null;
+}
+
+export interface ReadCartographerRunRequest {
+  workspaceId: string;
+  runId: string;
+}
+
+export interface CartographerRunReadResponse {
+  run: CartographerRun | null;
+}
+
+export interface ListCartographerRunsRequest {
+  workspaceId: string;
+  workflowExecutionId: string;
+  chatRunId: string;
+  targetEntityId: string;
+  limit: number;
+}
+
+export interface CartographerRunList {
+  workspaceId: string;
+  runs: CartographerRun[];
+  limit: number;
+}
+
+export interface ListCartographerWindowsRequest {
+  workspaceId: string;
+  runId: string;
+  sourceKind: CartographerSourceKind;
+  sourceId: string;
+  workflowExecutionId: string;
+  chatRunId: string;
+  limit: number;
+}
+
+export interface CartographerWindowList {
+  workspaceId: string;
+  windows: CartographerWindow[];
+  limit: number;
+}
+
+export interface ListCartographerCursorsRequest {
+  workspaceId: string;
+  workflowExecutionId: string;
+  chatRunId: string;
+  limit: number;
+}
+
+export interface CartographerCursorList {
+  workspaceId: string;
+  cursors: CartographerCursor[];
+  limit: number;
+}
+
+export interface ListCartographerPatchesRequest {
+  workspaceId: string;
+  runId: string;
+  semanticTargetId: string;
+  status: CartographerPatchStatus;
+  limit: number;
+}
+
+export interface CartographerPatchList {
+  workspaceId: string;
+  patches: CartographerPatchRecord[];
+  limit: number;
+}
+
+export interface ReviewCartographerPatchRequest {
+  workspaceId: string;
+  patchId: string;
+}
+
+export interface CartographerPatchReviewResult {
+  run: CartographerRun;
+  patch: CartographerPatchRecord;
+  events: SemanticEvent[];
+  nodeDetail: SemanticNodeDetail | null;
+}
+
 export interface SemanticLayoutPositionInput {
   entityId: string;
   x: number;
@@ -3289,41 +3943,6 @@ export interface SemanticNodeSeedInput {
   kind: SemanticNodeKind;
   label: string;
   summary: string;
-}
-
-export interface SemanticEdgeReassignmentInput {
-  edgeId: string;
-  targetEdgeId: string;
-  fromNodeId: string;
-  toNodeId: string;
-}
-
-export interface SemanticEvidenceReassignmentInput {
-  anchorId: string;
-  targetNodeId: string;
-}
-
-export interface SemanticActivityReassignmentInput {
-  activityIntervalId: string;
-  targetNodeId: string;
-}
-
-export interface SemanticSteeringReassignmentInput {
-  directiveId: string;
-  targetNodeId: string;
-}
-
-export interface SemanticLayoutReassignmentInput {
-  entityId: string;
-  targetEntityId: string;
-}
-
-export interface SemanticReassignmentInputs {
-  edges: SemanticEdgeReassignmentInput[];
-  evidence: SemanticEvidenceReassignmentInput[];
-  activity: SemanticActivityReassignmentInput[];
-  steering: SemanticSteeringReassignmentInput[];
-  layout: SemanticLayoutReassignmentInput[];
 }
 
 export interface SplitSemanticNodeRequest {
@@ -4140,6 +4759,38 @@ export const backendEndpoints = {
   ListSemanticContextPacks: {
     method: "POST",
     path: "/semantic-graph/context-packs/list",
+  },
+  BuildCartographerWindow: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/windows/build",
+  },
+  ReadCartographerRun: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/runs/read",
+  },
+  ListCartographerRuns: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/runs/list",
+  },
+  ListCartographerWindows: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/windows/list",
+  },
+  ListCartographerCursors: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/cursors/list",
+  },
+  ListCartographerPatches: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/patches/list",
+  },
+  AcceptCartographerPatch: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/patches/accept",
+  },
+  RejectCartographerPatch: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/patches/reject",
   },
   UpdateSemanticLayoutPositions: {
     method: "POST",
@@ -6137,9 +6788,449 @@ export function decodeSemanticContextPackRecord(value: unknown): SemanticContext
   };
 }
 
+export function decodeCartographerPatchEvidenceRef(value: unknown): CartographerPatchEvidenceRef {
+  const record = assertRecord(value, "CartographerPatchEvidenceRef");
+  assertKnownFields(record, "CartographerPatchEvidenceRef", ["sourceKind", "sourceId", "evidenceAnchorId"]);
+  return {
+    sourceKind: decodeSemanticEvidenceSourceKind(requireField(record, "sourceKind", "CartographerPatchEvidenceRef"), "CartographerPatchEvidenceRef.sourceKind"),
+    sourceId: decodeString(requireField(record, "sourceId", "CartographerPatchEvidenceRef"), "CartographerPatchEvidenceRef.sourceId"),
+    evidenceAnchorId: decodeString(requireField(record, "evidenceAnchorId", "CartographerPatchEvidenceRef"), "CartographerPatchEvidenceRef.evidenceAnchorId"),
+  };
+}
+
+export function decodeCartographerPatchNewNode(value: unknown): CartographerPatchNewNode {
+  const record = assertRecord(value, "CartographerPatchNewNode");
+  assertKnownFields(record, "CartographerPatchNewNode", ["semanticNodeId", "kind", "label", "summary", "scope", "evidenceRefs"]);
+  return {
+    semanticNodeId: decodeString(requireField(record, "semanticNodeId", "CartographerPatchNewNode"), "CartographerPatchNewNode.semanticNodeId"),
+    kind: decodeSemanticNodeKind(requireField(record, "kind", "CartographerPatchNewNode"), "CartographerPatchNewNode.kind"),
+    label: decodeString(requireField(record, "label", "CartographerPatchNewNode"), "CartographerPatchNewNode.label"),
+    summary: decodeString(requireField(record, "summary", "CartographerPatchNewNode"), "CartographerPatchNewNode.summary"),
+    scope: decodeCartographerPatchNodeScope(requireField(record, "scope", "CartographerPatchNewNode"), "CartographerPatchNewNode.scope"),
+    evidenceRefs: decodeArray(requireField(record, "evidenceRefs", "CartographerPatchNewNode"), "CartographerPatchNewNode.evidenceRefs", (item) => decodeCartographerPatchEvidenceRef(item)),
+  };
+}
+
+export function decodeSemanticEdgeReassignmentInput(value: unknown): SemanticEdgeReassignmentInput {
+  const record = assertRecord(value, "SemanticEdgeReassignmentInput");
+  assertKnownFields(record, "SemanticEdgeReassignmentInput", ["edgeId", "targetEdgeId", "fromNodeId", "toNodeId"]);
+  return {
+    edgeId: decodeString(requireField(record, "edgeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.edgeId"),
+    targetEdgeId: decodeString(requireField(record, "targetEdgeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.targetEdgeId"),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.toNodeId"),
+  };
+}
+
+export function decodeSemanticEvidenceReassignmentInput(value: unknown): SemanticEvidenceReassignmentInput {
+  const record = assertRecord(value, "SemanticEvidenceReassignmentInput");
+  assertKnownFields(record, "SemanticEvidenceReassignmentInput", ["anchorId", "targetNodeId"]);
+  return {
+    anchorId: decodeString(requireField(record, "anchorId", "SemanticEvidenceReassignmentInput"), "SemanticEvidenceReassignmentInput.anchorId"),
+    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticEvidenceReassignmentInput"), "SemanticEvidenceReassignmentInput.targetNodeId"),
+  };
+}
+
+export function decodeSemanticActivityReassignmentInput(value: unknown): SemanticActivityReassignmentInput {
+  const record = assertRecord(value, "SemanticActivityReassignmentInput");
+  assertKnownFields(record, "SemanticActivityReassignmentInput", ["activityIntervalId", "targetNodeId"]);
+  return {
+    activityIntervalId: decodeString(requireField(record, "activityIntervalId", "SemanticActivityReassignmentInput"), "SemanticActivityReassignmentInput.activityIntervalId"),
+    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticActivityReassignmentInput"), "SemanticActivityReassignmentInput.targetNodeId"),
+  };
+}
+
+export function decodeSemanticSteeringReassignmentInput(value: unknown): SemanticSteeringReassignmentInput {
+  const record = assertRecord(value, "SemanticSteeringReassignmentInput");
+  assertKnownFields(record, "SemanticSteeringReassignmentInput", ["directiveId", "targetNodeId"]);
+  return {
+    directiveId: decodeString(requireField(record, "directiveId", "SemanticSteeringReassignmentInput"), "SemanticSteeringReassignmentInput.directiveId"),
+    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticSteeringReassignmentInput"), "SemanticSteeringReassignmentInput.targetNodeId"),
+  };
+}
+
+export function decodeSemanticLayoutReassignmentInput(value: unknown): SemanticLayoutReassignmentInput {
+  const record = assertRecord(value, "SemanticLayoutReassignmentInput");
+  assertKnownFields(record, "SemanticLayoutReassignmentInput", ["entityId", "targetEntityId"]);
+  return {
+    entityId: decodeString(requireField(record, "entityId", "SemanticLayoutReassignmentInput"), "SemanticLayoutReassignmentInput.entityId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticLayoutReassignmentInput"), "SemanticLayoutReassignmentInput.targetEntityId"),
+  };
+}
+
+export function decodeSemanticReassignmentInputs(value: unknown): SemanticReassignmentInputs {
+  const record = assertRecord(value, "SemanticReassignmentInputs");
+  assertKnownFields(record, "SemanticReassignmentInputs", ["edges", "evidence", "activity", "steering", "layout"]);
+  return {
+    edges: decodeArray(requireField(record, "edges", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.edges", (item) => decodeSemanticEdgeReassignmentInput(item)),
+    evidence: decodeArray(requireField(record, "evidence", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.evidence", (item) => decodeSemanticEvidenceReassignmentInput(item)),
+    activity: decodeArray(requireField(record, "activity", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.activity", (item) => decodeSemanticActivityReassignmentInput(item)),
+    steering: decodeArray(requireField(record, "steering", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.steering", (item) => decodeSemanticSteeringReassignmentInput(item)),
+    layout: decodeArray(requireField(record, "layout", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.layout", (item) => decodeSemanticLayoutReassignmentInput(item)),
+  };
+}
+
+export function decodeCartographerPatchPayload(value: unknown): CartographerPatchPayload {
+  const record = assertRecord(value, "CartographerPatchPayload");
+  assertKnownFields(record, "CartographerPatchPayload", ["semanticNodeId", "targetEntityId", "newNode", "summary", "edgeId", "edgeKind", "fromNodeId", "toNodeId", "label", "activityId", "activityKind", "activitySourceKind", "activitySourceId", "evidenceAnchorId", "sourceNodeId", "newNodes", "sourceNodeIds", "targetNode", "resolutionNodeId", "evidenceRefs", "reassignments"]);
+  return {
+    semanticNodeId: decodeString(requireField(record, "semanticNodeId", "CartographerPatchPayload"), "CartographerPatchPayload.semanticNodeId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "CartographerPatchPayload"), "CartographerPatchPayload.targetEntityId"),
+    newNode: decodeNullable(requireField(record, "newNode", "CartographerPatchPayload"), "CartographerPatchPayload.newNode", (item) => decodeCartographerPatchNewNode(item)),
+    summary: decodeString(requireField(record, "summary", "CartographerPatchPayload"), "CartographerPatchPayload.summary"),
+    edgeId: decodeString(requireField(record, "edgeId", "CartographerPatchPayload"), "CartographerPatchPayload.edgeId"),
+    edgeKind: decodeNullable(requireField(record, "edgeKind", "CartographerPatchPayload"), "CartographerPatchPayload.edgeKind", (item) => decodeSemanticEdgeKind(item, "CartographerPatchPayload.edgeKind")),
+    fromNodeId: decodeString(requireField(record, "fromNodeId", "CartographerPatchPayload"), "CartographerPatchPayload.fromNodeId"),
+    toNodeId: decodeString(requireField(record, "toNodeId", "CartographerPatchPayload"), "CartographerPatchPayload.toNodeId"),
+    label: decodeString(requireField(record, "label", "CartographerPatchPayload"), "CartographerPatchPayload.label"),
+    activityId: decodeString(requireField(record, "activityId", "CartographerPatchPayload"), "CartographerPatchPayload.activityId"),
+    activityKind: decodeNullable(requireField(record, "activityKind", "CartographerPatchPayload"), "CartographerPatchPayload.activityKind", (item) => decodeSemanticActivityKind(item, "CartographerPatchPayload.activityKind")),
+    activitySourceKind: decodeNullable(requireField(record, "activitySourceKind", "CartographerPatchPayload"), "CartographerPatchPayload.activitySourceKind", (item) => decodeSemanticActivitySourceKind(item, "CartographerPatchPayload.activitySourceKind")),
+    activitySourceId: decodeString(requireField(record, "activitySourceId", "CartographerPatchPayload"), "CartographerPatchPayload.activitySourceId"),
+    evidenceAnchorId: decodeString(requireField(record, "evidenceAnchorId", "CartographerPatchPayload"), "CartographerPatchPayload.evidenceAnchorId"),
+    sourceNodeId: decodeString(requireField(record, "sourceNodeId", "CartographerPatchPayload"), "CartographerPatchPayload.sourceNodeId"),
+    newNodes: decodeArray(requireField(record, "newNodes", "CartographerPatchPayload"), "CartographerPatchPayload.newNodes", (item) => decodeCartographerPatchNewNode(item)),
+    sourceNodeIds: decodeArray(requireField(record, "sourceNodeIds", "CartographerPatchPayload"), "CartographerPatchPayload.sourceNodeIds", (item) => decodeString(item, "CartographerPatchPayload.sourceNodeIds item")),
+    targetNode: decodeNullable(requireField(record, "targetNode", "CartographerPatchPayload"), "CartographerPatchPayload.targetNode", (item) => decodeCartographerPatchNewNode(item)),
+    resolutionNodeId: decodeString(requireField(record, "resolutionNodeId", "CartographerPatchPayload"), "CartographerPatchPayload.resolutionNodeId"),
+    evidenceRefs: decodeArray(requireField(record, "evidenceRefs", "CartographerPatchPayload"), "CartographerPatchPayload.evidenceRefs", (item) => decodeCartographerPatchEvidenceRef(item)),
+    reassignments: decodeSemanticReassignmentInputs(requireField(record, "reassignments", "CartographerPatchPayload")),
+  };
+}
+
+export function decodeCartographerPatch(value: unknown): CartographerPatch {
+  const record = assertRecord(value, "CartographerPatch");
+  assertKnownFields(record, "CartographerPatch", ["patchId", "operation", "workspaceId", "sourceRefs", "causationId", "correlationId", "confidence", "publicSummary", "evidenceRefs", "modelInfo", "reviewRequired", "payload"]);
+  return {
+    patchId: decodeString(requireField(record, "patchId", "CartographerPatch"), "CartographerPatch.patchId"),
+    operation: decodeCartographerPatchOperation(requireField(record, "operation", "CartographerPatch"), "CartographerPatch.operation"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerPatch"), "CartographerPatch.workspaceId"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "CartographerPatch")),
+    causationId: decodeString(requireField(record, "causationId", "CartographerPatch"), "CartographerPatch.causationId"),
+    correlationId: decodeString(requireField(record, "correlationId", "CartographerPatch"), "CartographerPatch.correlationId"),
+    confidence: decodeNullable(requireField(record, "confidence", "CartographerPatch"), "CartographerPatch.confidence", (item) => decodeNumber(item, "CartographerPatch.confidence")),
+    publicSummary: decodeString(requireField(record, "publicSummary", "CartographerPatch"), "CartographerPatch.publicSummary"),
+    evidenceRefs: decodeArray(requireField(record, "evidenceRefs", "CartographerPatch"), "CartographerPatch.evidenceRefs", (item) => decodeCartographerPatchEvidenceRef(item)),
+    modelInfo: decodeStringRecord(requireField(record, "modelInfo", "CartographerPatch"), "CartographerPatch.modelInfo"),
+    reviewRequired: decodeBoolean(requireField(record, "reviewRequired", "CartographerPatch"), "CartographerPatch.reviewRequired"),
+    payload: decodeCartographerPatchPayload(requireField(record, "payload", "CartographerPatch")),
+  };
+}
+
+export function decodeCartographerDiagnostic(value: unknown): CartographerDiagnostic {
+  const record = assertRecord(value, "CartographerDiagnostic");
+  assertKnownFields(record, "CartographerDiagnostic", ["id", "runId", "patchId", "severity", "code", "message", "path", "createdAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "CartographerDiagnostic"), "CartographerDiagnostic.id"),
+    runId: decodeString(requireField(record, "runId", "CartographerDiagnostic"), "CartographerDiagnostic.runId"),
+    patchId: decodeString(requireField(record, "patchId", "CartographerDiagnostic"), "CartographerDiagnostic.patchId"),
+    severity: decodeCartographerDiagnosticSeverity(requireField(record, "severity", "CartographerDiagnostic"), "CartographerDiagnostic.severity"),
+    code: decodeString(requireField(record, "code", "CartographerDiagnostic"), "CartographerDiagnostic.code"),
+    message: decodeString(requireField(record, "message", "CartographerDiagnostic"), "CartographerDiagnostic.message"),
+    path: decodeString(requireField(record, "path", "CartographerDiagnostic"), "CartographerDiagnostic.path"),
+    createdAt: decodeString(requireField(record, "createdAt", "CartographerDiagnostic"), "CartographerDiagnostic.createdAt"),
+  };
+}
+
+export function decodeCartographerPatchValidationResult(value: unknown): CartographerPatchValidationResult {
+  const record = assertRecord(value, "CartographerPatchValidationResult");
+  assertKnownFields(record, "CartographerPatchValidationResult", ["patchId", "accepted", "diagnostics", "validatedAt"]);
+  return {
+    patchId: decodeString(requireField(record, "patchId", "CartographerPatchValidationResult"), "CartographerPatchValidationResult.patchId"),
+    accepted: decodeBoolean(requireField(record, "accepted", "CartographerPatchValidationResult"), "CartographerPatchValidationResult.accepted"),
+    diagnostics: decodeArray(requireField(record, "diagnostics", "CartographerPatchValidationResult"), "CartographerPatchValidationResult.diagnostics", (item) => decodeCartographerDiagnostic(item)),
+    validatedAt: decodeString(requireField(record, "validatedAt", "CartographerPatchValidationResult"), "CartographerPatchValidationResult.validatedAt"),
+  };
+}
+
+export function decodeCartographerPatchApplicationResult(value: unknown): CartographerPatchApplicationResult {
+  const record = assertRecord(value, "CartographerPatchApplicationResult");
+  assertKnownFields(record, "CartographerPatchApplicationResult", ["patchId", "applied", "createdSemanticEventIds", "diagnostics", "appliedAt"]);
+  return {
+    patchId: decodeString(requireField(record, "patchId", "CartographerPatchApplicationResult"), "CartographerPatchApplicationResult.patchId"),
+    applied: decodeBoolean(requireField(record, "applied", "CartographerPatchApplicationResult"), "CartographerPatchApplicationResult.applied"),
+    createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "CartographerPatchApplicationResult"), "CartographerPatchApplicationResult.createdSemanticEventIds", (item) => decodeString(item, "CartographerPatchApplicationResult.createdSemanticEventIds item")),
+    diagnostics: decodeArray(requireField(record, "diagnostics", "CartographerPatchApplicationResult"), "CartographerPatchApplicationResult.diagnostics", (item) => decodeCartographerDiagnostic(item)),
+    appliedAt: decodeString(requireField(record, "appliedAt", "CartographerPatchApplicationResult"), "CartographerPatchApplicationResult.appliedAt"),
+  };
+}
+
+export function decodeCartographerPatchRecord(value: unknown): CartographerPatchRecord {
+  const record = assertRecord(value, "CartographerPatchRecord");
+  assertKnownFields(record, "CartographerPatchRecord", ["workspaceId", "id", "runId", "windowId", "status", "patch", "validationResult", "applicationResult", "createdSemanticEventIds", "createdAt", "validatedAt", "appliedAt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerPatchRecord"), "CartographerPatchRecord.workspaceId"),
+    id: decodeString(requireField(record, "id", "CartographerPatchRecord"), "CartographerPatchRecord.id"),
+    runId: decodeString(requireField(record, "runId", "CartographerPatchRecord"), "CartographerPatchRecord.runId"),
+    windowId: decodeString(requireField(record, "windowId", "CartographerPatchRecord"), "CartographerPatchRecord.windowId"),
+    status: decodeCartographerPatchStatus(requireField(record, "status", "CartographerPatchRecord"), "CartographerPatchRecord.status"),
+    patch: decodeCartographerPatch(requireField(record, "patch", "CartographerPatchRecord")),
+    validationResult: decodeCartographerPatchValidationResult(requireField(record, "validationResult", "CartographerPatchRecord")),
+    applicationResult: decodeCartographerPatchApplicationResult(requireField(record, "applicationResult", "CartographerPatchRecord")),
+    createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "CartographerPatchRecord"), "CartographerPatchRecord.createdSemanticEventIds", (item) => decodeString(item, "CartographerPatchRecord.createdSemanticEventIds item")),
+    createdAt: decodeString(requireField(record, "createdAt", "CartographerPatchRecord"), "CartographerPatchRecord.createdAt"),
+    validatedAt: decodeString(requireField(record, "validatedAt", "CartographerPatchRecord"), "CartographerPatchRecord.validatedAt"),
+    appliedAt: decodeString(requireField(record, "appliedAt", "CartographerPatchRecord"), "CartographerPatchRecord.appliedAt"),
+  };
+}
+
+export function decodeCartographerWindowCursor(value: unknown): CartographerWindowCursor {
+  const record = assertRecord(value, "CartographerWindowCursor");
+  assertKnownFields(record, "CartographerWindowCursor", ["chatEventStreamId", "chatEventSequence", "workflowEventCursor", "outputOrdinalByRunItem"]);
+  return {
+    chatEventStreamId: decodeString(requireField(record, "chatEventStreamId", "CartographerWindowCursor"), "CartographerWindowCursor.chatEventStreamId"),
+    chatEventSequence: decodeInteger(requireField(record, "chatEventSequence", "CartographerWindowCursor"), "CartographerWindowCursor.chatEventSequence"),
+    workflowEventCursor: decodeString(requireField(record, "workflowEventCursor", "CartographerWindowCursor"), "CartographerWindowCursor.workflowEventCursor"),
+    outputOrdinalByRunItem: decodeIntegerRecord(requireField(record, "outputOrdinalByRunItem", "CartographerWindowCursor"), "CartographerWindowCursor.outputOrdinalByRunItem"),
+  };
+}
+
+export function decodeCartographerTrajectoryEvent(value: unknown): CartographerTrajectoryEvent {
+  const record = assertRecord(value, "CartographerTrajectoryEvent");
+  assertKnownFields(record, "CartographerTrajectoryEvent", ["source", "eventId", "type", "streamId", "sequence", "workflowEventCursor", "occurredAt", "sourceRefs", "chatMessageId", "runItemId", "runItemType", "runItemStatus", "runStatus", "outputStream", "outputOrdinal", "summary", "boundary", "closeReason", "originalContentBytes", "includedContentBytes", "truncated"]);
+  return {
+    source: decodeCartographerTrajectoryEventSource(requireField(record, "source", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.source"),
+    eventId: decodeString(requireField(record, "eventId", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.eventId"),
+    type: decodeString(requireField(record, "type", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.type"),
+    streamId: decodeString(requireField(record, "streamId", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.sequence"),
+    workflowEventCursor: decodeString(requireField(record, "workflowEventCursor", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.workflowEventCursor"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.occurredAt"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "CartographerTrajectoryEvent")),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.chatMessageId"),
+    runItemId: decodeString(requireField(record, "runItemId", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.runItemId"),
+    runItemType: decodeString(requireField(record, "runItemType", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.runItemType"),
+    runItemStatus: decodeString(requireField(record, "runItemStatus", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.runItemStatus"),
+    runStatus: decodeString(requireField(record, "runStatus", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.runStatus"),
+    outputStream: decodeString(requireField(record, "outputStream", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.outputStream"),
+    outputOrdinal: decodeInteger(requireField(record, "outputOrdinal", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.outputOrdinal"),
+    summary: decodeString(requireField(record, "summary", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.summary"),
+    boundary: decodeBoolean(requireField(record, "boundary", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.boundary"),
+    closeReason: decodeCartographerWindowCloseReason(requireField(record, "closeReason", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.closeReason"),
+    originalContentBytes: decodeInteger(requireField(record, "originalContentBytes", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.originalContentBytes"),
+    includedContentBytes: decodeInteger(requireField(record, "includedContentBytes", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.includedContentBytes"),
+    truncated: decodeBoolean(requireField(record, "truncated", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.truncated"),
+  };
+}
+
+export function decodeCartographerToolCallSummary(value: unknown): CartographerToolCallSummary {
+  const record = assertRecord(value, "CartographerToolCallSummary");
+  assertKnownFields(record, "CartographerToolCallSummary", ["runItemId", "type", "status", "title", "command", "cwd", "toolName", "serverName", "resultSummary", "error", "exitCode"]);
+  return {
+    runItemId: decodeString(requireField(record, "runItemId", "CartographerToolCallSummary"), "CartographerToolCallSummary.runItemId"),
+    type: decodeString(requireField(record, "type", "CartographerToolCallSummary"), "CartographerToolCallSummary.type"),
+    status: decodeString(requireField(record, "status", "CartographerToolCallSummary"), "CartographerToolCallSummary.status"),
+    title: decodeString(requireField(record, "title", "CartographerToolCallSummary"), "CartographerToolCallSummary.title"),
+    command: decodeString(requireField(record, "command", "CartographerToolCallSummary"), "CartographerToolCallSummary.command"),
+    cwd: decodeString(requireField(record, "cwd", "CartographerToolCallSummary"), "CartographerToolCallSummary.cwd"),
+    toolName: decodeString(requireField(record, "toolName", "CartographerToolCallSummary"), "CartographerToolCallSummary.toolName"),
+    serverName: decodeString(requireField(record, "serverName", "CartographerToolCallSummary"), "CartographerToolCallSummary.serverName"),
+    resultSummary: decodeString(requireField(record, "resultSummary", "CartographerToolCallSummary"), "CartographerToolCallSummary.resultSummary"),
+    error: decodeString(requireField(record, "error", "CartographerToolCallSummary"), "CartographerToolCallSummary.error"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "CartographerToolCallSummary"), "CartographerToolCallSummary.exitCode"),
+  };
+}
+
+export function decodeCartographerFileChangeSummary(value: unknown): CartographerFileChangeSummary {
+  const record = assertRecord(value, "CartographerFileChangeSummary");
+  assertKnownFields(record, "CartographerFileChangeSummary", ["runItemId", "status", "filePaths", "patchStatus", "diffSummary"]);
+  return {
+    runItemId: decodeString(requireField(record, "runItemId", "CartographerFileChangeSummary"), "CartographerFileChangeSummary.runItemId"),
+    status: decodeString(requireField(record, "status", "CartographerFileChangeSummary"), "CartographerFileChangeSummary.status"),
+    filePaths: decodeArray(requireField(record, "filePaths", "CartographerFileChangeSummary"), "CartographerFileChangeSummary.filePaths", (item) => decodeString(item, "CartographerFileChangeSummary.filePaths item")),
+    patchStatus: decodeString(requireField(record, "patchStatus", "CartographerFileChangeSummary"), "CartographerFileChangeSummary.patchStatus"),
+    diffSummary: decodeString(requireField(record, "diffSummary", "CartographerFileChangeSummary"), "CartographerFileChangeSummary.diffSummary"),
+  };
+}
+
+export function decodeCartographerTestResultSummary(value: unknown): CartographerTestResultSummary {
+  const record = assertRecord(value, "CartographerTestResultSummary");
+  assertKnownFields(record, "CartographerTestResultSummary", ["runItemId", "command", "exitCode", "result", "error"]);
+  return {
+    runItemId: decodeString(requireField(record, "runItemId", "CartographerTestResultSummary"), "CartographerTestResultSummary.runItemId"),
+    command: decodeString(requireField(record, "command", "CartographerTestResultSummary"), "CartographerTestResultSummary.command"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "CartographerTestResultSummary"), "CartographerTestResultSummary.exitCode"),
+    result: decodeString(requireField(record, "result", "CartographerTestResultSummary"), "CartographerTestResultSummary.result"),
+    error: decodeString(requireField(record, "error", "CartographerTestResultSummary"), "CartographerTestResultSummary.error"),
+  };
+}
+
+export function decodeCartographerOutputSummary(value: unknown): CartographerOutputSummary {
+  const record = assertRecord(value, "CartographerOutputSummary");
+  assertKnownFields(record, "CartographerOutputSummary", ["runItemId", "stream", "startOrdinal", "endOrdinal", "summary", "truncated"]);
+  return {
+    runItemId: decodeString(requireField(record, "runItemId", "CartographerOutputSummary"), "CartographerOutputSummary.runItemId"),
+    stream: decodeString(requireField(record, "stream", "CartographerOutputSummary"), "CartographerOutputSummary.stream"),
+    startOrdinal: decodeInteger(requireField(record, "startOrdinal", "CartographerOutputSummary"), "CartographerOutputSummary.startOrdinal"),
+    endOrdinal: decodeInteger(requireField(record, "endOrdinal", "CartographerOutputSummary"), "CartographerOutputSummary.endOrdinal"),
+    summary: decodeString(requireField(record, "summary", "CartographerOutputSummary"), "CartographerOutputSummary.summary"),
+    truncated: decodeBoolean(requireField(record, "truncated", "CartographerOutputSummary"), "CartographerOutputSummary.truncated"),
+  };
+}
+
+export function decodeCartographerTrajectorySummary(value: unknown): CartographerTrajectorySummary {
+  const record = assertRecord(value, "CartographerTrajectorySummary");
+  assertKnownFields(record, "CartographerTrajectorySummary", ["id", "workspaceId", "runId", "windowId", "sourceKind", "sourceId", "summary", "sourceRefs", "itemCount", "createdAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.workspaceId"),
+    runId: decodeString(requireField(record, "runId", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.runId"),
+    windowId: decodeString(requireField(record, "windowId", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.windowId"),
+    sourceKind: decodeCartographerSourceKind(requireField(record, "sourceKind", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.sourceKind"),
+    sourceId: decodeString(requireField(record, "sourceId", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.sourceId"),
+    summary: decodeString(requireField(record, "summary", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.summary"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "CartographerTrajectorySummary")),
+    itemCount: decodeInteger(requireField(record, "itemCount", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.itemCount"),
+    createdAt: decodeString(requireField(record, "createdAt", "CartographerTrajectorySummary"), "CartographerTrajectorySummary.createdAt"),
+  };
+}
+
+export function decodeCartographerInputTruncation(value: unknown): CartographerInputTruncation {
+  const record = assertRecord(value, "CartographerInputTruncation");
+  assertKnownFields(record, "CartographerInputTruncation", ["originalEventCount", "includedEventCount", "originalContentBytes", "includedContentBytes", "summarized", "split", "segmentIndex", "segmentCount", "reasons", "deterministicSummary"]);
+  return {
+    originalEventCount: decodeInteger(requireField(record, "originalEventCount", "CartographerInputTruncation"), "CartographerInputTruncation.originalEventCount"),
+    includedEventCount: decodeInteger(requireField(record, "includedEventCount", "CartographerInputTruncation"), "CartographerInputTruncation.includedEventCount"),
+    originalContentBytes: decodeInteger(requireField(record, "originalContentBytes", "CartographerInputTruncation"), "CartographerInputTruncation.originalContentBytes"),
+    includedContentBytes: decodeInteger(requireField(record, "includedContentBytes", "CartographerInputTruncation"), "CartographerInputTruncation.includedContentBytes"),
+    summarized: decodeBoolean(requireField(record, "summarized", "CartographerInputTruncation"), "CartographerInputTruncation.summarized"),
+    split: decodeBoolean(requireField(record, "split", "CartographerInputTruncation"), "CartographerInputTruncation.split"),
+    segmentIndex: decodeInteger(requireField(record, "segmentIndex", "CartographerInputTruncation"), "CartographerInputTruncation.segmentIndex"),
+    segmentCount: decodeInteger(requireField(record, "segmentCount", "CartographerInputTruncation"), "CartographerInputTruncation.segmentCount"),
+    reasons: decodeArray(requireField(record, "reasons", "CartographerInputTruncation"), "CartographerInputTruncation.reasons", (item) => decodeString(item, "CartographerInputTruncation.reasons item")),
+    deterministicSummary: decodeString(requireField(record, "deterministicSummary", "CartographerInputTruncation"), "CartographerInputTruncation.deterministicSummary"),
+  };
+}
+
+export function decodeCartographerInputBundle(value: unknown): CartographerInputBundle {
+  const record = assertRecord(value, "CartographerInputBundle");
+  assertKnownFields(record, "CartographerInputBundle", ["workspaceId", "triggerKind", "sourceRefs", "targetEntityId", "runStatus", "terminalReason", "windowId", "windowStartCursor", "windowEndCursor", "newEvents", "promptSummary", "promptText", "assistantResponseSummary", "assistantText", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "trajectorySummaries", "observedEventRefs", "tokenBudget", "truncation"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerInputBundle"), "CartographerInputBundle.workspaceId"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "CartographerInputBundle"), "CartographerInputBundle.triggerKind"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "CartographerInputBundle")),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "CartographerInputBundle"), "CartographerInputBundle.targetEntityId"),
+    runStatus: decodeString(requireField(record, "runStatus", "CartographerInputBundle"), "CartographerInputBundle.runStatus"),
+    terminalReason: decodeString(requireField(record, "terminalReason", "CartographerInputBundle"), "CartographerInputBundle.terminalReason"),
+    windowId: decodeString(requireField(record, "windowId", "CartographerInputBundle"), "CartographerInputBundle.windowId"),
+    windowStartCursor: decodeCartographerWindowCursor(requireField(record, "windowStartCursor", "CartographerInputBundle")),
+    windowEndCursor: decodeCartographerWindowCursor(requireField(record, "windowEndCursor", "CartographerInputBundle")),
+    newEvents: decodeArray(requireField(record, "newEvents", "CartographerInputBundle"), "CartographerInputBundle.newEvents", (item) => decodeCartographerTrajectoryEvent(item)),
+    promptSummary: decodeString(requireField(record, "promptSummary", "CartographerInputBundle"), "CartographerInputBundle.promptSummary"),
+    promptText: decodeString(requireField(record, "promptText", "CartographerInputBundle"), "CartographerInputBundle.promptText"),
+    assistantResponseSummary: decodeString(requireField(record, "assistantResponseSummary", "CartographerInputBundle"), "CartographerInputBundle.assistantResponseSummary"),
+    assistantText: decodeString(requireField(record, "assistantText", "CartographerInputBundle"), "CartographerInputBundle.assistantText"),
+    toolCalls: decodeArray(requireField(record, "toolCalls", "CartographerInputBundle"), "CartographerInputBundle.toolCalls", (item) => decodeCartographerToolCallSummary(item)),
+    fileChanges: decodeArray(requireField(record, "fileChanges", "CartographerInputBundle"), "CartographerInputBundle.fileChanges", (item) => decodeCartographerFileChangeSummary(item)),
+    testResults: decodeArray(requireField(record, "testResults", "CartographerInputBundle"), "CartographerInputBundle.testResults", (item) => decodeCartographerTestResultSummary(item)),
+    outputSummaries: decodeArray(requireField(record, "outputSummaries", "CartographerInputBundle"), "CartographerInputBundle.outputSummaries", (item) => decodeCartographerOutputSummary(item)),
+    existingNodes: decodeArray(requireField(record, "existingNodes", "CartographerInputBundle"), "CartographerInputBundle.existingNodes", (item) => decodeSemanticNode(item)),
+    existingEdges: decodeArray(requireField(record, "existingEdges", "CartographerInputBundle"), "CartographerInputBundle.existingEdges", (item) => decodeSemanticEdge(item)),
+    evidence: decodeArray(requireField(record, "evidence", "CartographerInputBundle"), "CartographerInputBundle.evidence", (item) => decodeSemanticEvidenceAnchor(item)),
+    activity: decodeArray(requireField(record, "activity", "CartographerInputBundle"), "CartographerInputBundle.activity", (item) => decodeSemanticActivityInterval(item)),
+    steering: decodeArray(requireField(record, "steering", "CartographerInputBundle"), "CartographerInputBundle.steering", (item) => decodeSemanticSteeringDirective(item)),
+    contextPacks: decodeArray(requireField(record, "contextPacks", "CartographerInputBundle"), "CartographerInputBundle.contextPacks", (item) => decodeSemanticContextPackRecord(item)),
+    trajectorySummaries: decodeArray(requireField(record, "trajectorySummaries", "CartographerInputBundle"), "CartographerInputBundle.trajectorySummaries", (item) => decodeCartographerTrajectorySummary(item)),
+    observedEventRefs: decodeArray(requireField(record, "observedEventRefs", "CartographerInputBundle"), "CartographerInputBundle.observedEventRefs", (item) => decodeString(item, "CartographerInputBundle.observedEventRefs item")),
+    tokenBudget: decodeInteger(requireField(record, "tokenBudget", "CartographerInputBundle"), "CartographerInputBundle.tokenBudget"),
+    truncation: decodeCartographerInputTruncation(requireField(record, "truncation", "CartographerInputBundle")),
+  };
+}
+
+export function decodeCartographerInputItemCounts(value: unknown): CartographerInputItemCounts {
+  const record = assertRecord(value, "CartographerInputItemCounts");
+  assertKnownFields(record, "CartographerInputItemCounts", ["newEvents", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "trajectorySummaries", "observedEventRefs"]);
+  return {
+    newEvents: decodeInteger(requireField(record, "newEvents", "CartographerInputItemCounts"), "CartographerInputItemCounts.newEvents"),
+    toolCalls: decodeInteger(requireField(record, "toolCalls", "CartographerInputItemCounts"), "CartographerInputItemCounts.toolCalls"),
+    fileChanges: decodeInteger(requireField(record, "fileChanges", "CartographerInputItemCounts"), "CartographerInputItemCounts.fileChanges"),
+    testResults: decodeInteger(requireField(record, "testResults", "CartographerInputItemCounts"), "CartographerInputItemCounts.testResults"),
+    outputSummaries: decodeInteger(requireField(record, "outputSummaries", "CartographerInputItemCounts"), "CartographerInputItemCounts.outputSummaries"),
+    existingNodes: decodeInteger(requireField(record, "existingNodes", "CartographerInputItemCounts"), "CartographerInputItemCounts.existingNodes"),
+    existingEdges: decodeInteger(requireField(record, "existingEdges", "CartographerInputItemCounts"), "CartographerInputItemCounts.existingEdges"),
+    evidence: decodeInteger(requireField(record, "evidence", "CartographerInputItemCounts"), "CartographerInputItemCounts.evidence"),
+    activity: decodeInteger(requireField(record, "activity", "CartographerInputItemCounts"), "CartographerInputItemCounts.activity"),
+    steering: decodeInteger(requireField(record, "steering", "CartographerInputItemCounts"), "CartographerInputItemCounts.steering"),
+    contextPacks: decodeInteger(requireField(record, "contextPacks", "CartographerInputItemCounts"), "CartographerInputItemCounts.contextPacks"),
+    trajectorySummaries: decodeInteger(requireField(record, "trajectorySummaries", "CartographerInputItemCounts"), "CartographerInputItemCounts.trajectorySummaries"),
+    observedEventRefs: decodeInteger(requireField(record, "observedEventRefs", "CartographerInputItemCounts"), "CartographerInputItemCounts.observedEventRefs"),
+  };
+}
+
+export function decodeCartographerRun(value: unknown): CartographerRun {
+  const record = assertRecord(value, "CartographerRun");
+  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "model", "requestId", "responseId", "windowId", "inputBundleHash", "inputItemCounts", "rawHarnessResponseHash", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
+  return {
+    id: decodeString(requireField(record, "id", "CartographerRun"), "CartographerRun.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerRun"), "CartographerRun.workspaceId"),
+    status: decodeCartographerRunStatus(requireField(record, "status", "CartographerRun"), "CartographerRun.status"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "CartographerRun"), "CartographerRun.triggerKind"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "CartographerRun"), "CartographerRun.targetEntityId"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "CartographerRun")),
+    inputBundle: decodeCartographerInputBundle(requireField(record, "inputBundle", "CartographerRun")),
+    outputSchema: decodeUnknown(requireField(record, "outputSchema", "CartographerRun"), "CartographerRun.outputSchema"),
+    harnessKind: decodeString(requireField(record, "harnessKind", "CartographerRun"), "CartographerRun.harnessKind"),
+    model: decodeString(requireField(record, "model", "CartographerRun"), "CartographerRun.model"),
+    requestId: decodeString(requireField(record, "requestId", "CartographerRun"), "CartographerRun.requestId"),
+    responseId: decodeString(requireField(record, "responseId", "CartographerRun"), "CartographerRun.responseId"),
+    windowId: decodeString(requireField(record, "windowId", "CartographerRun"), "CartographerRun.windowId"),
+    inputBundleHash: decodeString(requireField(record, "inputBundleHash", "CartographerRun"), "CartographerRun.inputBundleHash"),
+    inputItemCounts: decodeCartographerInputItemCounts(requireField(record, "inputItemCounts", "CartographerRun")),
+    rawHarnessResponseHash: decodeString(requireField(record, "rawHarnessResponseHash", "CartographerRun"), "CartographerRun.rawHarnessResponseHash"),
+    trajectorySummary: decodeString(requireField(record, "trajectorySummary", "CartographerRun"), "CartographerRun.trajectorySummary"),
+    createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "CartographerRun"), "CartographerRun.createdSemanticEventIds", (item) => decodeString(item, "CartographerRun.createdSemanticEventIds item")),
+    diagnostics: decodeArray(requireField(record, "diagnostics", "CartographerRun"), "CartographerRun.diagnostics", (item) => decodeCartographerDiagnostic(item)),
+    createdAt: decodeString(requireField(record, "createdAt", "CartographerRun"), "CartographerRun.createdAt"),
+    startedAt: decodeString(requireField(record, "startedAt", "CartographerRun"), "CartographerRun.startedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "CartographerRun"), "CartographerRun.completedAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "CartographerRun"), "CartographerRun.updatedAt"),
+    error: decodeString(requireField(record, "error", "CartographerRun"), "CartographerRun.error"),
+  };
+}
+
+export function decodeCartographerWindow(value: unknown): CartographerWindow {
+  const record = assertRecord(value, "CartographerWindow");
+  assertKnownFields(record, "CartographerWindow", ["id", "workspaceId", "runId", "status", "sequence", "sourceKind", "sourceId", "cursorId", "summaryId", "inputBundle", "openedAt", "closedAt", "createdAt", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "CartographerWindow"), "CartographerWindow.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerWindow"), "CartographerWindow.workspaceId"),
+    runId: decodeString(requireField(record, "runId", "CartographerWindow"), "CartographerWindow.runId"),
+    status: decodeCartographerWindowStatus(requireField(record, "status", "CartographerWindow"), "CartographerWindow.status"),
+    sequence: decodeInteger(requireField(record, "sequence", "CartographerWindow"), "CartographerWindow.sequence"),
+    sourceKind: decodeCartographerSourceKind(requireField(record, "sourceKind", "CartographerWindow"), "CartographerWindow.sourceKind"),
+    sourceId: decodeString(requireField(record, "sourceId", "CartographerWindow"), "CartographerWindow.sourceId"),
+    cursorId: decodeString(requireField(record, "cursorId", "CartographerWindow"), "CartographerWindow.cursorId"),
+    summaryId: decodeString(requireField(record, "summaryId", "CartographerWindow"), "CartographerWindow.summaryId"),
+    inputBundle: decodeCartographerInputBundle(requireField(record, "inputBundle", "CartographerWindow")),
+    openedAt: decodeString(requireField(record, "openedAt", "CartographerWindow"), "CartographerWindow.openedAt"),
+    closedAt: decodeString(requireField(record, "closedAt", "CartographerWindow"), "CartographerWindow.closedAt"),
+    createdAt: decodeString(requireField(record, "createdAt", "CartographerWindow"), "CartographerWindow.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "CartographerWindow"), "CartographerWindow.updatedAt"),
+  };
+}
+
+export function decodeCartographerCursor(value: unknown): CartographerCursor {
+  const record = assertRecord(value, "CartographerCursor");
+  assertKnownFields(record, "CartographerCursor", ["id", "workspaceId", "workflowExecutionId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "lastChatEventStreamId", "lastChatEventSequence", "lastWorkflowEventCursor", "lastOutputOrdinalByRunItem", "lastWindowId", "updatedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "CartographerCursor"), "CartographerCursor.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerCursor"), "CartographerCursor.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "CartographerCursor"), "CartographerCursor.workflowExecutionId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "CartographerCursor"), "CartographerCursor.workflowNodeExecutionId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "CartographerCursor"), "CartographerCursor.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "CartographerCursor"), "CartographerCursor.chatRunId"),
+    lastChatEventStreamId: decodeString(requireField(record, "lastChatEventStreamId", "CartographerCursor"), "CartographerCursor.lastChatEventStreamId"),
+    lastChatEventSequence: decodeInteger(requireField(record, "lastChatEventSequence", "CartographerCursor"), "CartographerCursor.lastChatEventSequence"),
+    lastWorkflowEventCursor: decodeString(requireField(record, "lastWorkflowEventCursor", "CartographerCursor"), "CartographerCursor.lastWorkflowEventCursor"),
+    lastOutputOrdinalByRunItem: decodeIntegerRecord(requireField(record, "lastOutputOrdinalByRunItem", "CartographerCursor"), "CartographerCursor.lastOutputOrdinalByRunItem"),
+    lastWindowId: decodeString(requireField(record, "lastWindowId", "CartographerCursor"), "CartographerCursor.lastWindowId"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "CartographerCursor"), "CartographerCursor.updatedAt"),
+  };
+}
+
 export function decodeSemanticNodeDetail(value: unknown): SemanticNodeDetail {
   const record = assertRecord(value, "SemanticNodeDetail");
-  assertKnownFields(record, "SemanticNodeDetail", ["workspaceId", "node", "incomingEdges", "outgoingEdges", "evidence", "activity", "steeringDirectives", "contextPackHistory"]);
+  assertKnownFields(record, "SemanticNodeDetail", ["workspaceId", "node", "incomingEdges", "outgoingEdges", "evidence", "activity", "steeringDirectives", "contextPackHistory", "cartographerPatches", "cartographerRuns", "cartographerWindows", "cartographerCursors"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SemanticNodeDetail"), "SemanticNodeDetail.workspaceId"),
     node: decodeSemanticNode(requireField(record, "node", "SemanticNodeDetail")),
@@ -6149,6 +7240,10 @@ export function decodeSemanticNodeDetail(value: unknown): SemanticNodeDetail {
     activity: decodeArray(requireField(record, "activity", "SemanticNodeDetail"), "SemanticNodeDetail.activity", (item) => decodeSemanticActivityInterval(item)),
     steeringDirectives: decodeArray(requireField(record, "steeringDirectives", "SemanticNodeDetail"), "SemanticNodeDetail.steeringDirectives", (item) => decodeSemanticSteeringDirective(item)),
     contextPackHistory: decodeArray(requireField(record, "contextPackHistory", "SemanticNodeDetail"), "SemanticNodeDetail.contextPackHistory", (item) => decodeSemanticContextPackRecord(item)),
+    cartographerPatches: decodeArray(requireField(record, "cartographerPatches", "SemanticNodeDetail"), "SemanticNodeDetail.cartographerPatches", (item) => decodeCartographerPatchRecord(item)),
+    cartographerRuns: decodeArray(requireField(record, "cartographerRuns", "SemanticNodeDetail"), "SemanticNodeDetail.cartographerRuns", (item) => decodeCartographerRun(item)),
+    cartographerWindows: decodeArray(requireField(record, "cartographerWindows", "SemanticNodeDetail"), "SemanticNodeDetail.cartographerWindows", (item) => decodeCartographerWindow(item)),
+    cartographerCursors: decodeArray(requireField(record, "cartographerCursors", "SemanticNodeDetail"), "SemanticNodeDetail.cartographerCursors", (item) => decodeCartographerCursor(item)),
   };
 }
 
@@ -6373,6 +7468,156 @@ export function decodeSemanticContextPackList(value: unknown): SemanticContextPa
   };
 }
 
+export function decodeBuildCartographerWindowRequest(value: unknown): BuildCartographerWindowRequest {
+  const record = assertRecord(value, "BuildCartographerWindowRequest");
+  assertKnownFields(record, "BuildCartographerWindowRequest", ["workspaceId", "triggerKind", "targetEntityId", "sourceRefs", "runStatus", "terminalReason", "summary"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "BuildCartographerWindowRequest"), "BuildCartographerWindowRequest.workspaceId"),
+    triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "BuildCartographerWindowRequest"), "BuildCartographerWindowRequest.triggerKind"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "BuildCartographerWindowRequest"), "BuildCartographerWindowRequest.targetEntityId"),
+    sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "BuildCartographerWindowRequest")),
+    runStatus: decodeString(requireField(record, "runStatus", "BuildCartographerWindowRequest"), "BuildCartographerWindowRequest.runStatus"),
+    terminalReason: decodeString(requireField(record, "terminalReason", "BuildCartographerWindowRequest"), "BuildCartographerWindowRequest.terminalReason"),
+    summary: decodeString(requireField(record, "summary", "BuildCartographerWindowRequest"), "BuildCartographerWindowRequest.summary"),
+  };
+}
+
+export function decodeCartographerWindowBuildResult(value: unknown): CartographerWindowBuildResult {
+  const record = assertRecord(value, "CartographerWindowBuildResult");
+  assertKnownFields(record, "CartographerWindowBuildResult", ["run", "window", "summary"]);
+  return {
+    run: decodeCartographerRun(requireField(record, "run", "CartographerWindowBuildResult")),
+    window: decodeCartographerWindow(requireField(record, "window", "CartographerWindowBuildResult")),
+    summary: decodeNullable(requireField(record, "summary", "CartographerWindowBuildResult"), "CartographerWindowBuildResult.summary", (item) => decodeCartographerTrajectorySummary(item)),
+  };
+}
+
+export function decodeReadCartographerRunRequest(value: unknown): ReadCartographerRunRequest {
+  const record = assertRecord(value, "ReadCartographerRunRequest");
+  assertKnownFields(record, "ReadCartographerRunRequest", ["workspaceId", "runId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadCartographerRunRequest"), "ReadCartographerRunRequest.workspaceId"),
+    runId: decodeString(requireField(record, "runId", "ReadCartographerRunRequest"), "ReadCartographerRunRequest.runId"),
+  };
+}
+
+export function decodeCartographerRunReadResponse(value: unknown): CartographerRunReadResponse {
+  const record = assertRecord(value, "CartographerRunReadResponse");
+  assertKnownFields(record, "CartographerRunReadResponse", ["run"]);
+  return {
+    run: decodeNullable(requireField(record, "run", "CartographerRunReadResponse"), "CartographerRunReadResponse.run", (item) => decodeCartographerRun(item)),
+  };
+}
+
+export function decodeListCartographerRunsRequest(value: unknown): ListCartographerRunsRequest {
+  const record = assertRecord(value, "ListCartographerRunsRequest");
+  assertKnownFields(record, "ListCartographerRunsRequest", ["workspaceId", "workflowExecutionId", "chatRunId", "targetEntityId", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListCartographerRunsRequest"), "ListCartographerRunsRequest.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "ListCartographerRunsRequest"), "ListCartographerRunsRequest.workflowExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "ListCartographerRunsRequest"), "ListCartographerRunsRequest.chatRunId"),
+    targetEntityId: decodeString(requireField(record, "targetEntityId", "ListCartographerRunsRequest"), "ListCartographerRunsRequest.targetEntityId"),
+    limit: decodeInteger(requireField(record, "limit", "ListCartographerRunsRequest"), "ListCartographerRunsRequest.limit"),
+  };
+}
+
+export function decodeCartographerRunList(value: unknown): CartographerRunList {
+  const record = assertRecord(value, "CartographerRunList");
+  assertKnownFields(record, "CartographerRunList", ["workspaceId", "runs", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerRunList"), "CartographerRunList.workspaceId"),
+    runs: decodeArray(requireField(record, "runs", "CartographerRunList"), "CartographerRunList.runs", (item) => decodeCartographerRun(item)),
+    limit: decodeInteger(requireField(record, "limit", "CartographerRunList"), "CartographerRunList.limit"),
+  };
+}
+
+export function decodeListCartographerWindowsRequest(value: unknown): ListCartographerWindowsRequest {
+  const record = assertRecord(value, "ListCartographerWindowsRequest");
+  assertKnownFields(record, "ListCartographerWindowsRequest", ["workspaceId", "runId", "sourceKind", "sourceId", "workflowExecutionId", "chatRunId", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListCartographerWindowsRequest"), "ListCartographerWindowsRequest.workspaceId"),
+    runId: decodeString(requireField(record, "runId", "ListCartographerWindowsRequest"), "ListCartographerWindowsRequest.runId"),
+    sourceKind: decodeCartographerSourceKind(requireField(record, "sourceKind", "ListCartographerWindowsRequest"), "ListCartographerWindowsRequest.sourceKind"),
+    sourceId: decodeString(requireField(record, "sourceId", "ListCartographerWindowsRequest"), "ListCartographerWindowsRequest.sourceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "ListCartographerWindowsRequest"), "ListCartographerWindowsRequest.workflowExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "ListCartographerWindowsRequest"), "ListCartographerWindowsRequest.chatRunId"),
+    limit: decodeInteger(requireField(record, "limit", "ListCartographerWindowsRequest"), "ListCartographerWindowsRequest.limit"),
+  };
+}
+
+export function decodeCartographerWindowList(value: unknown): CartographerWindowList {
+  const record = assertRecord(value, "CartographerWindowList");
+  assertKnownFields(record, "CartographerWindowList", ["workspaceId", "windows", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerWindowList"), "CartographerWindowList.workspaceId"),
+    windows: decodeArray(requireField(record, "windows", "CartographerWindowList"), "CartographerWindowList.windows", (item) => decodeCartographerWindow(item)),
+    limit: decodeInteger(requireField(record, "limit", "CartographerWindowList"), "CartographerWindowList.limit"),
+  };
+}
+
+export function decodeListCartographerCursorsRequest(value: unknown): ListCartographerCursorsRequest {
+  const record = assertRecord(value, "ListCartographerCursorsRequest");
+  assertKnownFields(record, "ListCartographerCursorsRequest", ["workspaceId", "workflowExecutionId", "chatRunId", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListCartographerCursorsRequest"), "ListCartographerCursorsRequest.workspaceId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "ListCartographerCursorsRequest"), "ListCartographerCursorsRequest.workflowExecutionId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "ListCartographerCursorsRequest"), "ListCartographerCursorsRequest.chatRunId"),
+    limit: decodeInteger(requireField(record, "limit", "ListCartographerCursorsRequest"), "ListCartographerCursorsRequest.limit"),
+  };
+}
+
+export function decodeCartographerCursorList(value: unknown): CartographerCursorList {
+  const record = assertRecord(value, "CartographerCursorList");
+  assertKnownFields(record, "CartographerCursorList", ["workspaceId", "cursors", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerCursorList"), "CartographerCursorList.workspaceId"),
+    cursors: decodeArray(requireField(record, "cursors", "CartographerCursorList"), "CartographerCursorList.cursors", (item) => decodeCartographerCursor(item)),
+    limit: decodeInteger(requireField(record, "limit", "CartographerCursorList"), "CartographerCursorList.limit"),
+  };
+}
+
+export function decodeListCartographerPatchesRequest(value: unknown): ListCartographerPatchesRequest {
+  const record = assertRecord(value, "ListCartographerPatchesRequest");
+  assertKnownFields(record, "ListCartographerPatchesRequest", ["workspaceId", "runId", "semanticTargetId", "status", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListCartographerPatchesRequest"), "ListCartographerPatchesRequest.workspaceId"),
+    runId: decodeString(requireField(record, "runId", "ListCartographerPatchesRequest"), "ListCartographerPatchesRequest.runId"),
+    semanticTargetId: decodeString(requireField(record, "semanticTargetId", "ListCartographerPatchesRequest"), "ListCartographerPatchesRequest.semanticTargetId"),
+    status: decodeCartographerPatchStatus(requireField(record, "status", "ListCartographerPatchesRequest"), "ListCartographerPatchesRequest.status"),
+    limit: decodeInteger(requireField(record, "limit", "ListCartographerPatchesRequest"), "ListCartographerPatchesRequest.limit"),
+  };
+}
+
+export function decodeCartographerPatchList(value: unknown): CartographerPatchList {
+  const record = assertRecord(value, "CartographerPatchList");
+  assertKnownFields(record, "CartographerPatchList", ["workspaceId", "patches", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerPatchList"), "CartographerPatchList.workspaceId"),
+    patches: decodeArray(requireField(record, "patches", "CartographerPatchList"), "CartographerPatchList.patches", (item) => decodeCartographerPatchRecord(item)),
+    limit: decodeInteger(requireField(record, "limit", "CartographerPatchList"), "CartographerPatchList.limit"),
+  };
+}
+
+export function decodeReviewCartographerPatchRequest(value: unknown): ReviewCartographerPatchRequest {
+  const record = assertRecord(value, "ReviewCartographerPatchRequest");
+  assertKnownFields(record, "ReviewCartographerPatchRequest", ["workspaceId", "patchId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReviewCartographerPatchRequest"), "ReviewCartographerPatchRequest.workspaceId"),
+    patchId: decodeString(requireField(record, "patchId", "ReviewCartographerPatchRequest"), "ReviewCartographerPatchRequest.patchId"),
+  };
+}
+
+export function decodeCartographerPatchReviewResult(value: unknown): CartographerPatchReviewResult {
+  const record = assertRecord(value, "CartographerPatchReviewResult");
+  assertKnownFields(record, "CartographerPatchReviewResult", ["run", "patch", "events", "nodeDetail"]);
+  return {
+    run: decodeCartographerRun(requireField(record, "run", "CartographerPatchReviewResult")),
+    patch: decodeCartographerPatchRecord(requireField(record, "patch", "CartographerPatchReviewResult")),
+    events: decodeArray(requireField(record, "events", "CartographerPatchReviewResult"), "CartographerPatchReviewResult.events", (item) => decodeSemanticEvent(item)),
+    nodeDetail: decodeNullable(requireField(record, "nodeDetail", "CartographerPatchReviewResult"), "CartographerPatchReviewResult.nodeDetail", (item) => decodeSemanticNodeDetail(item)),
+  };
+}
+
 export function decodeSemanticLayoutPositionInput(value: unknown): SemanticLayoutPositionInput {
   const record = assertRecord(value, "SemanticLayoutPositionInput");
   assertKnownFields(record, "SemanticLayoutPositionInput", ["entityId", "x", "y", "pinned"]);
@@ -6583,65 +7828,6 @@ export function decodeSemanticNodeSeedInput(value: unknown): SemanticNodeSeedInp
     kind: decodeSemanticNodeKind(requireField(record, "kind", "SemanticNodeSeedInput"), "SemanticNodeSeedInput.kind"),
     label: decodeString(requireField(record, "label", "SemanticNodeSeedInput"), "SemanticNodeSeedInput.label"),
     summary: decodeString(requireField(record, "summary", "SemanticNodeSeedInput"), "SemanticNodeSeedInput.summary"),
-  };
-}
-
-export function decodeSemanticEdgeReassignmentInput(value: unknown): SemanticEdgeReassignmentInput {
-  const record = assertRecord(value, "SemanticEdgeReassignmentInput");
-  assertKnownFields(record, "SemanticEdgeReassignmentInput", ["edgeId", "targetEdgeId", "fromNodeId", "toNodeId"]);
-  return {
-    edgeId: decodeString(requireField(record, "edgeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.edgeId"),
-    targetEdgeId: decodeString(requireField(record, "targetEdgeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.targetEdgeId"),
-    fromNodeId: decodeString(requireField(record, "fromNodeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.fromNodeId"),
-    toNodeId: decodeString(requireField(record, "toNodeId", "SemanticEdgeReassignmentInput"), "SemanticEdgeReassignmentInput.toNodeId"),
-  };
-}
-
-export function decodeSemanticEvidenceReassignmentInput(value: unknown): SemanticEvidenceReassignmentInput {
-  const record = assertRecord(value, "SemanticEvidenceReassignmentInput");
-  assertKnownFields(record, "SemanticEvidenceReassignmentInput", ["anchorId", "targetNodeId"]);
-  return {
-    anchorId: decodeString(requireField(record, "anchorId", "SemanticEvidenceReassignmentInput"), "SemanticEvidenceReassignmentInput.anchorId"),
-    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticEvidenceReassignmentInput"), "SemanticEvidenceReassignmentInput.targetNodeId"),
-  };
-}
-
-export function decodeSemanticActivityReassignmentInput(value: unknown): SemanticActivityReassignmentInput {
-  const record = assertRecord(value, "SemanticActivityReassignmentInput");
-  assertKnownFields(record, "SemanticActivityReassignmentInput", ["activityIntervalId", "targetNodeId"]);
-  return {
-    activityIntervalId: decodeString(requireField(record, "activityIntervalId", "SemanticActivityReassignmentInput"), "SemanticActivityReassignmentInput.activityIntervalId"),
-    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticActivityReassignmentInput"), "SemanticActivityReassignmentInput.targetNodeId"),
-  };
-}
-
-export function decodeSemanticSteeringReassignmentInput(value: unknown): SemanticSteeringReassignmentInput {
-  const record = assertRecord(value, "SemanticSteeringReassignmentInput");
-  assertKnownFields(record, "SemanticSteeringReassignmentInput", ["directiveId", "targetNodeId"]);
-  return {
-    directiveId: decodeString(requireField(record, "directiveId", "SemanticSteeringReassignmentInput"), "SemanticSteeringReassignmentInput.directiveId"),
-    targetNodeId: decodeString(requireField(record, "targetNodeId", "SemanticSteeringReassignmentInput"), "SemanticSteeringReassignmentInput.targetNodeId"),
-  };
-}
-
-export function decodeSemanticLayoutReassignmentInput(value: unknown): SemanticLayoutReassignmentInput {
-  const record = assertRecord(value, "SemanticLayoutReassignmentInput");
-  assertKnownFields(record, "SemanticLayoutReassignmentInput", ["entityId", "targetEntityId"]);
-  return {
-    entityId: decodeString(requireField(record, "entityId", "SemanticLayoutReassignmentInput"), "SemanticLayoutReassignmentInput.entityId"),
-    targetEntityId: decodeString(requireField(record, "targetEntityId", "SemanticLayoutReassignmentInput"), "SemanticLayoutReassignmentInput.targetEntityId"),
-  };
-}
-
-export function decodeSemanticReassignmentInputs(value: unknown): SemanticReassignmentInputs {
-  const record = assertRecord(value, "SemanticReassignmentInputs");
-  assertKnownFields(record, "SemanticReassignmentInputs", ["edges", "evidence", "activity", "steering", "layout"]);
-  return {
-    edges: decodeArray(requireField(record, "edges", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.edges", (item) => decodeSemanticEdgeReassignmentInput(item)),
-    evidence: decodeArray(requireField(record, "evidence", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.evidence", (item) => decodeSemanticEvidenceReassignmentInput(item)),
-    activity: decodeArray(requireField(record, "activity", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.activity", (item) => decodeSemanticActivityReassignmentInput(item)),
-    steering: decodeArray(requireField(record, "steering", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.steering", (item) => decodeSemanticSteeringReassignmentInput(item)),
-    layout: decodeArray(requireField(record, "layout", "SemanticReassignmentInputs"), "SemanticReassignmentInputs.layout", (item) => decodeSemanticLayoutReassignmentInput(item)),
   };
 }
 
@@ -7499,6 +8685,14 @@ export interface BackendClient {
   readSemanticEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
   readSemanticContextPack: (request: ReadSemanticContextPackRequest) => Promise<SemanticContextPackReadResponse>;
   listSemanticContextPacks: (request: ListSemanticContextPacksRequest) => Promise<SemanticContextPackList>;
+  buildCartographerWindow: (request: BuildCartographerWindowRequest) => Promise<CartographerWindowBuildResult>;
+  readCartographerRun: (request: ReadCartographerRunRequest) => Promise<CartographerRunReadResponse>;
+  listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
+  listCartographerWindows: (request: ListCartographerWindowsRequest) => Promise<CartographerWindowList>;
+  listCartographerCursors: (request: ListCartographerCursorsRequest) => Promise<CartographerCursorList>;
+  listCartographerPatches: (request: ListCartographerPatchesRequest) => Promise<CartographerPatchList>;
+  acceptCartographerPatch: (request: ReviewCartographerPatchRequest) => Promise<CartographerPatchReviewResult>;
+  rejectCartographerPatch: (request: ReviewCartographerPatchRequest) => Promise<CartographerPatchReviewResult>;
   updateSemanticLayoutPositions: (request: UpdateSemanticLayoutPositionsRequest) => Promise<SemanticLayoutPositionList>;
   attachSemanticNodeToWorkflowExecution: (request: AttachSemanticNodeToWorkflowExecutionRequest) => Promise<SemanticAttachmentResult>;
   attachSemanticNodeToWorkflowNode: (request: AttachSemanticNodeToWorkflowNodeRequest) => Promise<SemanticAttachmentResult>;
@@ -7991,6 +9185,70 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSemanticContextPackList,
       endpoint: backendEndpoints.ListSemanticContextPacks,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    buildCartographerWindow: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerWindowBuildResult,
+      endpoint: backendEndpoints.BuildCartographerWindow,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readCartographerRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerRunReadResponse,
+      endpoint: backendEndpoints.ReadCartographerRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listCartographerRuns: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerRunList,
+      endpoint: backendEndpoints.ListCartographerRuns,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listCartographerWindows: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerWindowList,
+      endpoint: backendEndpoints.ListCartographerWindows,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listCartographerCursors: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerCursorList,
+      endpoint: backendEndpoints.ListCartographerCursors,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listCartographerPatches: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerPatchList,
+      endpoint: backendEndpoints.ListCartographerPatches,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    acceptCartographerPatch: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerPatchReviewResult,
+      endpoint: backendEndpoints.AcceptCartographerPatch,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    rejectCartographerPatch: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerPatchReviewResult,
+      endpoint: backendEndpoints.RejectCartographerPatch,
       fetchImpl,
       requestPayload: request,
     }),

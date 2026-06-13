@@ -363,6 +363,59 @@ type ListSemanticContextPacksRequest struct {
 	Limit               int    `json:"limit"`
 }
 
+type BuildCartographerWindowRequest struct {
+	WorkspaceID    string                                   `json:"workspaceId"`
+	TriggerKind    semanticgraph.CartographerRunTriggerKind `json:"triggerKind"`
+	TargetEntityID string                                   `json:"targetEntityId"`
+	SourceRefs     semanticgraph.SemanticContextSourceRefs  `json:"sourceRefs"`
+	RunStatus      string                                   `json:"runStatus"`
+	TerminalReason string                                   `json:"terminalReason"`
+	Summary        string                                   `json:"summary"`
+}
+
+type ReadCartographerRunRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	RunID       string `json:"runId"`
+}
+
+type ListCartographerRunsRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	TargetEntityID      string `json:"targetEntityId"`
+	Limit               int    `json:"limit"`
+}
+
+type ListCartographerWindowsRequest struct {
+	WorkspaceID         string                               `json:"workspaceId"`
+	RunID               string                               `json:"runId"`
+	SourceKind          semanticgraph.CartographerSourceKind `json:"sourceKind"`
+	SourceID            string                               `json:"sourceId"`
+	WorkflowExecutionID string                               `json:"workflowExecutionId"`
+	ChatRunID           string                               `json:"chatRunId"`
+	Limit               int                                  `json:"limit"`
+}
+
+type ListCartographerCursorsRequest struct {
+	WorkspaceID         string `json:"workspaceId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	ChatRunID           string `json:"chatRunId"`
+	Limit               int    `json:"limit"`
+}
+
+type ListCartographerPatchesRequest struct {
+	WorkspaceID      string                                `json:"workspaceId"`
+	RunID            string                                `json:"runId"`
+	SemanticTargetID string                                `json:"semanticTargetId"`
+	Status           semanticgraph.CartographerPatchStatus `json:"status"`
+	Limit            int                                   `json:"limit"`
+}
+
+type ReviewCartographerPatchRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	PatchID     string `json:"patchId"`
+}
+
 type UpdateSemanticLayoutPositionsRequest struct {
 	WorkspaceID string                                      `json:"workspaceId"`
 	Positions   []semanticgraph.SemanticLayoutPositionInput `json:"positions"`

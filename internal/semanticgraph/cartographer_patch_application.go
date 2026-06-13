@@ -320,10 +320,13 @@ func validateCartographerPatchActivitySourceRef(bundle CartographerInputBundle, 
 	if patch.Payload.ActivitySourceID == "" {
 		return errors.New("cartographer patch activitySourceId is required")
 	}
-	if cartographerInputBundleHasActivitySourceRef(bundle, patch.Payload.ActivitySourceKind, patch.Payload.ActivitySourceID) {
+	if patch.Payload.ActivitySourceKind == nil {
+		return errors.New("cartographer patch activitySourceKind is required")
+	}
+	if cartographerInputBundleHasActivitySourceRef(bundle, *patch.Payload.ActivitySourceKind, patch.Payload.ActivitySourceID) {
 		return nil
 	}
-	return fmt.Errorf("cartographer patch references unknown activity source %s/%s", patch.Payload.ActivitySourceKind, patch.Payload.ActivitySourceID)
+	return fmt.Errorf("cartographer patch references unknown activity source %s/%s", *patch.Payload.ActivitySourceKind, patch.Payload.ActivitySourceID)
 }
 
 func (service *Service) validateCartographerPatchOperationRefs(ctx context.Context, workspaceID string, patch CartographerPatch, newNodeIDs map[string]bool) error {
