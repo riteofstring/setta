@@ -485,9 +485,20 @@ func countingIDGenerator() IDGenerator {
 }
 
 type fakeChatResolver struct {
-	run     chat.Run
-	message chat.ChatMessage
-	item    chat.RunItem
+	conversation chat.Conversation
+	run          chat.Run
+	message      chat.ChatMessage
+	item         chat.RunItem
+}
+
+func (resolver fakeChatResolver) ReadConversation(_ string, conversationID string) (chat.Conversation, error) {
+	if resolver.conversation.ID == conversationID {
+		return resolver.conversation, nil
+	}
+	if resolver.run.ConversationID == conversationID || resolver.message.ConversationID == conversationID {
+		return chat.Conversation{ID: conversationID, WorkspaceID: testWorkspaceID}, nil
+	}
+	return chat.Conversation{}, errors.New("chat conversation not found")
 }
 
 func (resolver fakeChatResolver) ReadRun(_ string, runID string) (chat.Run, error) {

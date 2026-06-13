@@ -26,6 +26,7 @@ type WorkflowSourceResolver interface {
 }
 
 type ChatSourceResolver interface {
+	ReadConversation(workspaceID string, conversationID string) (chat.Conversation, error)
 	ReadMessage(workspaceID string, conversationID string, messageID string) (chat.ChatMessage, error)
 	ReadRun(workspaceID string, runID string) (chat.Run, error)
 	ReadRunItem(workspaceID string, runID string, runItemID string) (chat.RunItem, error)

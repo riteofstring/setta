@@ -178,31 +178,93 @@ WHERE workspace_id = ? AND id = ?
 	return CartographerWindow{}, false, store.corruptError("semantic_cartographer_windows", err)
 }
 
+func (store *Store) ReadOpenCartographerWindowForCursor(ctx context.Context, workspaceID string, cursorID string) (CartographerWindow, bool, error) {
+	if ctx == nil {
+		return CartographerWindow{}, false, errors.New("context is required")
+	}
+	if err := validateStoreIDs("workspace id", workspaceID, "cartographer cursor id", cursorID); err != nil {
+		return CartographerWindow{}, false, err
+	}
+	row := store.db.QueryRowContext(ctx, cartographerWindowSelectSQL+`
+WHERE workspace_id = ? AND cursor_id = ? AND status = ?
+ORDER BY updated_at DESC, id DESC
+LIMIT 1
+`, workspaceID, cursorID, CartographerWindowOpen)
+	window, err := scanCartographerWindow(row)
+	if err == nil {
+		return window, true, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return CartographerWindow{}, false, nil
+	}
+	return CartographerWindow{}, false, store.corruptError("semantic_cartographer_windows", err)
+}
+
+func (store *Store) ListOpenCartographerWindowsUpdatedBefore(ctx context.Context, cutoff string) ([]CartographerWindow, error) {
+	if ctx == nil {
+		return nil, errors.New("context is required")
+	}
+	if err := validateTimestamp("cartographer open window cutoff", cutoff); err != nil {
+		return nil, err
+	}
+	rows, err := store.db.QueryContext(ctx, cartographerWindowSelectSQL+`
+WHERE status = ? AND updated_at <= ?
+ORDER BY updated_at ASC, id ASC
+`, CartographerWindowOpen, cutoff)
+	if err != nil {
+		return nil, store.persistenceError("list open cartographer windows", err)
+	}
+	defer rows.Close()
+	windows := []CartographerWindow{}
+	for rows.Next() {
+		window, err := scanCartographerWindow(rows)
+		if err != nil {
+			return nil, store.corruptError("semantic_cartographer_windows", err)
+		}
+		windows = append(windows, window)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, store.persistenceError("list open cartographer windows", err)
+	}
+	return windows, nil
+}
+
 func (store *Store) SaveCartographerCursor(ctx context.Context, cursor CartographerCursor) (CartographerCursor, error) {
+	normalizeCartographerCursor(&cursor)
 	if err := validateCartographerCursor(ctx, cursor); err != nil {
 		return CartographerCursor{}, err
 	}
-	_, err := store.db.ExecContext(ctx, `
+	outputOrdinalsJSON, err := marshalJSONColumn(cursor.LastOutputOrdinalByRunItem)
+	if err != nil {
+		return CartographerCursor{}, fmt.Errorf("encode cartographer cursor output ordinals: %w", err)
+	}
+	_, err = store.db.ExecContext(ctx, `
 INSERT INTO semantic_cartographer_cursors (
-  workspace_id, id, source_kind, source_id, last_event_id, last_sequence,
-  last_observed_at, run_id, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(workspace_id, source_kind, source_id) DO UPDATE SET
+  workspace_id, id, workflow_execution_id, workflow_node_execution_id,
+  chat_conversation_id, chat_run_id, last_chat_event_stream_id,
+  last_chat_event_sequence, last_workflow_event_cursor,
+  last_output_ordinal_by_run_item_json, last_window_id, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(workspace_id, workflow_execution_id, workflow_node_execution_id, chat_conversation_id, chat_run_id) DO UPDATE SET
   id = excluded.id,
-  last_event_id = excluded.last_event_id,
-  last_sequence = excluded.last_sequence,
-  last_observed_at = excluded.last_observed_at,
-  run_id = excluded.run_id,
+  last_chat_event_stream_id = excluded.last_chat_event_stream_id,
+  last_chat_event_sequence = excluded.last_chat_event_sequence,
+  last_workflow_event_cursor = excluded.last_workflow_event_cursor,
+  last_output_ordinal_by_run_item_json = excluded.last_output_ordinal_by_run_item_json,
+  last_window_id = excluded.last_window_id,
   updated_at = excluded.updated_at
 `,
 		cursor.WorkspaceID,
 		cursor.ID,
-		cursor.SourceKind,
-		cursor.SourceID,
-		cursor.LastEventID,
-		cursor.LastSequence,
-		cursor.LastObservedAt,
-		cursor.RunID,
+		cursor.WorkflowExecutionID,
+		cursor.WorkflowNodeExecutionID,
+		cursor.ChatConversationID,
+		cursor.ChatRunID,
+		cursor.LastChatEventStreamID,
+		cursor.LastChatEventSequence,
+		cursor.LastWorkflowEventCursor,
+		outputOrdinalsJSON,
+		cursor.LastWindowID,
 		cursor.UpdatedAt,
 	)
 	if err != nil {
@@ -211,16 +273,17 @@ ON CONFLICT(workspace_id, source_kind, source_id) DO UPDATE SET
 	return cursor, nil
 }
 
-func (store *Store) ReadCartographerCursor(ctx context.Context, workspaceID string, sourceKind CartographerSourceKind, sourceID string) (CartographerCursor, bool, error) {
+func (store *Store) ReadCartographerCursor(ctx context.Context, key CartographerCursorKey) (CartographerCursor, bool, error) {
 	if ctx == nil {
 		return CartographerCursor{}, false, errors.New("context is required")
 	}
-	if err := validateCartographerSource(ctx, workspaceID, sourceKind, sourceID); err != nil {
+	if err := validateCartographerCursorKey(ctx, key); err != nil {
 		return CartographerCursor{}, false, err
 	}
 	row := store.db.QueryRowContext(ctx, cartographerCursorSelectSQL+`
-WHERE workspace_id = ? AND source_kind = ? AND source_id = ?
-`, workspaceID, sourceKind, sourceID)
+WHERE workspace_id = ? AND workflow_execution_id = ? AND workflow_node_execution_id = ?
+  AND chat_conversation_id = ? AND chat_run_id = ?
+`, key.WorkspaceID, key.WorkflowExecutionID, key.WorkflowNodeExecutionID, key.ChatConversationID, key.ChatRunID)
 	cursor, err := scanCartographerCursor(row)
 	if err == nil {
 		return cursor, true, nil
@@ -300,6 +363,40 @@ WHERE workspace_id = ? AND id = ?
 		return CartographerTrajectorySummary{}, false, nil
 	}
 	return CartographerTrajectorySummary{}, false, store.corruptError("semantic_cartographer_trajectory_summaries", err)
+}
+
+func (store *Store) ListCartographerTrajectorySummaries(ctx context.Context, workspaceID string, sourceKind CartographerSourceKind, sourceID string, limit int) ([]CartographerTrajectorySummary, error) {
+	if err := validateCartographerSource(ctx, workspaceID, sourceKind, sourceID); err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		return []CartographerTrajectorySummary{}, nil
+	}
+	rows, err := store.db.QueryContext(ctx, cartographerSummarySelectSQL+`
+WHERE workspace_id = ? AND source_kind = ? AND source_id = ?
+ORDER BY created_at DESC, id DESC
+LIMIT ?
+`, workspaceID, sourceKind, sourceID, limit)
+	if err != nil {
+		return nil, store.persistenceError("list cartographer trajectory summaries", err)
+	}
+	defer rows.Close()
+	reversed := []CartographerTrajectorySummary{}
+	for rows.Next() {
+		summary, err := scanCartographerTrajectorySummary(rows)
+		if err != nil {
+			return nil, store.corruptError("semantic_cartographer_trajectory_summaries", err)
+		}
+		reversed = append(reversed, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, store.persistenceError("list cartographer trajectory summaries", err)
+	}
+	summaries := make([]CartographerTrajectorySummary, len(reversed))
+	for index := range reversed {
+		summaries[len(reversed)-1-index] = reversed[index]
+	}
+	return summaries, nil
 }
 
 func (store *Store) SaveCartographerPatch(ctx context.Context, patch CartographerPatchRecord) (CartographerPatchRecord, error) {
@@ -467,8 +564,10 @@ FROM semantic_cartographer_windows
 `
 
 const cartographerCursorSelectSQL = `
-SELECT workspace_id, id, source_kind, source_id, last_event_id, last_sequence,
-       last_observed_at, run_id, updated_at
+SELECT workspace_id, id, workflow_execution_id, workflow_node_execution_id,
+       chat_conversation_id, chat_run_id, last_chat_event_stream_id,
+       last_chat_event_sequence, last_workflow_event_cursor,
+       last_output_ordinal_by_run_item_json, last_window_id, updated_at
 FROM semantic_cartographer_cursors
 `
 
@@ -562,19 +661,27 @@ func scanCartographerWindow(scanner interface{ Scan(dest ...any) error }) (Carto
 
 func scanCartographerCursor(scanner interface{ Scan(dest ...any) error }) (CartographerCursor, error) {
 	var cursor CartographerCursor
+	var outputOrdinalsJSON string
 	if err := scanner.Scan(
 		&cursor.WorkspaceID,
 		&cursor.ID,
-		&cursor.SourceKind,
-		&cursor.SourceID,
-		&cursor.LastEventID,
-		&cursor.LastSequence,
-		&cursor.LastObservedAt,
-		&cursor.RunID,
+		&cursor.WorkflowExecutionID,
+		&cursor.WorkflowNodeExecutionID,
+		&cursor.ChatConversationID,
+		&cursor.ChatRunID,
+		&cursor.LastChatEventStreamID,
+		&cursor.LastChatEventSequence,
+		&cursor.LastWorkflowEventCursor,
+		&outputOrdinalsJSON,
+		&cursor.LastWindowID,
 		&cursor.UpdatedAt,
 	); err != nil {
 		return CartographerCursor{}, err
 	}
+	if err := unmarshalJSONColumn(outputOrdinalsJSON, &cursor.LastOutputOrdinalByRunItem); err != nil {
+		return CartographerCursor{}, fmt.Errorf("decode cartographer cursor output ordinals: %w", err)
+	}
+	normalizeCartographerCursor(&cursor)
 	return cursor, nil
 }
 
@@ -656,6 +763,12 @@ func normalizeCartographerRun(run *CartographerRun) {
 	}
 }
 
+func normalizeCartographerCursor(cursor *CartographerCursor) {
+	if cursor.LastOutputOrdinalByRunItem == nil {
+		cursor.LastOutputOrdinalByRunItem = map[string]int{}
+	}
+}
+
 func normalizeCartographerPatchRecord(patch *CartographerPatchRecord) {
 	if patch.CreatedSemanticEventIDs == nil {
 		patch.CreatedSemanticEventIDs = []string{}
@@ -678,28 +791,38 @@ func normalizeCartographerPatchRecord(patch *CartographerPatchRecord) {
 }
 
 func normalizeCartographerInputBundle(bundle *CartographerInputBundle) {
-	if bundle.ExistingNodes == nil {
-		bundle.ExistingNodes = []SemanticNode{}
+	normalizeCartographerWindowCursorMap(&bundle.WindowStartCursor)
+	normalizeCartographerWindowCursorMap(&bundle.WindowEndCursor)
+	bundle.NewEvents = nonNilSlice(bundle.NewEvents)
+	bundle.ToolCalls = nonNilSlice(bundle.ToolCalls)
+	bundle.FileChanges = nonNilSlice(bundle.FileChanges)
+	bundle.TestResults = nonNilSlice(bundle.TestResults)
+	bundle.OutputSummaries = nonNilSlice(bundle.OutputSummaries)
+	bundle.ExistingNodes = nonNilSlice(bundle.ExistingNodes)
+	bundle.ExistingEdges = nonNilSlice(bundle.ExistingEdges)
+	bundle.Evidence = nonNilSlice(bundle.Evidence)
+	bundle.Activity = nonNilSlice(bundle.Activity)
+	bundle.Steering = nonNilSlice(bundle.Steering)
+	bundle.ContextPacks = nonNilSlice(bundle.ContextPacks)
+	bundle.TrajectorySummaries = nonNilSlice(bundle.TrajectorySummaries)
+	bundle.ObservedEventRefs = nonNilSlice(bundle.ObservedEventRefs)
+	bundle.Truncation.Reasons = nonNilSlice(bundle.Truncation.Reasons)
+}
+
+func normalizeCartographerWindowCursorMap(cursor *CartographerWindowCursor) {
+	cursor.OutputOrdinalByRunItem = nonNilIntMap(cursor.OutputOrdinalByRunItem)
+}
+
+func nonNilSlice[T any](items []T) []T {
+	if items == nil {
+		return []T{}
 	}
-	if bundle.ExistingEdges == nil {
-		bundle.ExistingEdges = []SemanticEdge{}
+	return items
+}
+
+func nonNilIntMap(items map[string]int) map[string]int {
+	if items == nil {
+		return map[string]int{}
 	}
-	if bundle.Evidence == nil {
-		bundle.Evidence = []SemanticEvidenceAnchor{}
-	}
-	if bundle.Activity == nil {
-		bundle.Activity = []SemanticActivityInterval{}
-	}
-	if bundle.Steering == nil {
-		bundle.Steering = []SemanticSteeringDirective{}
-	}
-	if bundle.ContextPacks == nil {
-		bundle.ContextPacks = []SemanticContextPackRecord{}
-	}
-	if bundle.TrajectorySummaries == nil {
-		bundle.TrajectorySummaries = []CartographerTrajectorySummary{}
-	}
-	if bundle.ObservedEventRefs == nil {
-		bundle.ObservedEventRefs = []string{}
-	}
+	return items
 }

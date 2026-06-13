@@ -2,6 +2,15 @@ package chat
 
 import "fmt"
 
+func (service *Service) ReadConversation(workspaceID string, conversationID string) (Conversation, error) {
+	if _, err := service.validateConversationRequest(workspaceID, conversationID); err != nil {
+		return Conversation{}, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.store.LoadConversation(workspaceID, conversationID)
+}
+
 func (service *Service) ReadRun(workspaceID string, runID string) (Run, error) {
 	if _, err := service.validateRunRequest(workspaceID, runID); err != nil {
 		return Run{}, err

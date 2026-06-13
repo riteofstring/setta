@@ -50,15 +50,16 @@ type ReadyEvent struct {
 }
 
 type Server struct {
-	closeCodex          func(context.Context) error
-	closeSemanticStore  func() error
-	closeTerminal       func(context.Context) error
-	closeWorkflowStore  func() error
-	closeEvents         func()
-	closeWorkflowEvents func()
-	server              *http.Server
-	listener            net.Listener
-	done                chan error
+	closeCartographerEvents func()
+	closeCodex              func(context.Context) error
+	closeSemanticStore      func() error
+	closeTerminal           func(context.Context) error
+	closeWorkflowStore      func() error
+	closeEvents             func()
+	closeWorkflowEvents     func()
+	server                  *http.Server
+	listener                net.Listener
+	done                    chan error
 }
 
 type runtimeServices struct {
@@ -137,15 +138,16 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	}
 
 	server := &Server{
-		closeCodex:          services.codexManager.Shutdown,
-		closeSemanticStore:  services.semanticGraphStore.Close,
-		closeTerminal:       services.terminalService.Shutdown,
-		closeWorkflowStore:  services.workflowStore.Close,
-		closeEvents:         services.chatService.CloseEvents,
-		closeWorkflowEvents: services.workflowService.CloseEvents,
-		server:              newHTTPServer(config, services),
-		listener:            listener,
-		done:                make(chan error, 1),
+		closeCartographerEvents: services.semanticGraphService.CloseCartographerEventObserver,
+		closeCodex:              services.codexManager.Shutdown,
+		closeSemanticStore:      services.semanticGraphStore.Close,
+		closeTerminal:           services.terminalService.Shutdown,
+		closeWorkflowStore:      services.workflowStore.Close,
+		closeEvents:             services.chatService.CloseEvents,
+		closeWorkflowEvents:     services.workflowService.CloseEvents,
+		server:                  newHTTPServer(config, services),
+		listener:                listener,
+		done:                    make(chan error, 1),
 	}
 
 	if err := json.NewEncoder(config.Stdout).Encode(ReadyEvent{Event: "ready", Addr: listener.Addr().String()}); err != nil {
@@ -193,13 +195,19 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		_ = semanticGraphStore.Close()
 		return runtimeServices{}, fmt.Errorf("configure semantic context compiler: %w", err)
 	}
+	if err := semanticGraphService.StartCartographerEventObserver(context.Background(), chatService, workflowService); err != nil {
+		_ = semanticGraphStore.Close()
+		return runtimeServices{}, fmt.Errorf("start semantic cartographer observer: %w", err)
+	}
 	terminalService, err := newTerminalService(config.AppDataDir, workspaceService)
 	if err != nil {
+		semanticGraphService.CloseCartographerEventObserver()
 		_ = semanticGraphStore.Close()
 		return runtimeServices{}, err
 	}
 	codexAccountService, err := codexaccount.NewService(codexManager, chatService.PublishCodexAccountChanged)
 	if err != nil {
+		semanticGraphService.CloseCartographerEventObserver()
 		_ = semanticGraphStore.Close()
 		return runtimeServices{}, fmt.Errorf("create Codex account service: %w", err)
 	}
@@ -372,6 +380,9 @@ func (server *Server) Shutdown(ctx context.Context) error {
 }
 
 func (server *Server) closeEventStreams() {
+	if server.closeCartographerEvents != nil {
+		server.closeCartographerEvents()
+	}
 	if server.closeEvents != nil {
 		server.closeEvents()
 	}

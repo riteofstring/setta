@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 5
+	semanticStoreVersion = 6
 	sqliteDriverName     = "sqlite"
 )
 
@@ -425,15 +425,18 @@ CREATE INDEX IF NOT EXISTS semantic_cartographer_windows_workspace_source_idx
 CREATE TABLE IF NOT EXISTS semantic_cartographer_cursors (
   workspace_id TEXT NOT NULL,
   id TEXT NOT NULL,
-  source_kind TEXT NOT NULL,
-  source_id TEXT NOT NULL,
-  last_event_id TEXT NOT NULL DEFAULT '',
-  last_sequence INTEGER NOT NULL DEFAULT 0,
-  last_observed_at TEXT NOT NULL DEFAULT '',
-  run_id TEXT NOT NULL DEFAULT '',
+  workflow_execution_id TEXT NOT NULL DEFAULT '',
+  workflow_node_execution_id TEXT NOT NULL DEFAULT '',
+  chat_conversation_id TEXT NOT NULL DEFAULT '',
+  chat_run_id TEXT NOT NULL DEFAULT '',
+  last_chat_event_stream_id TEXT NOT NULL DEFAULT '',
+  last_chat_event_sequence INTEGER NOT NULL DEFAULT 0,
+  last_workflow_event_cursor TEXT NOT NULL DEFAULT '',
+  last_output_ordinal_by_run_item_json TEXT NOT NULL DEFAULT '{}',
+  last_window_id TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL,
   PRIMARY KEY(workspace_id, id),
-  UNIQUE(workspace_id, source_kind, source_id)
+  UNIQUE(workspace_id, workflow_execution_id, workflow_node_execution_id, chat_conversation_id, chat_run_id)
 );
 
 CREATE TABLE IF NOT EXISTS semantic_cartographer_trajectory_summaries (

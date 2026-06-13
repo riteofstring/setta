@@ -520,6 +520,13 @@ type httpSemanticChatResolver struct {
 	run chat.Run
 }
 
+func (resolver httpSemanticChatResolver) ReadConversation(workspaceID string, conversationID string) (chat.Conversation, error) {
+	if resolver.run.ConversationID == conversationID {
+		return chat.Conversation{ID: conversationID, WorkspaceID: workspaceID}, nil
+	}
+	return chat.Conversation{}, errors.New("chat conversation not found")
+}
+
 func (resolver httpSemanticChatResolver) ReadRun(workspaceID string, runID string) (chat.Run, error) {
 	if resolver.run.ID == runID {
 		run := resolver.run

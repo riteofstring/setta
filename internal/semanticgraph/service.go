@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"setta/internal/workspace"
@@ -18,12 +19,16 @@ type WorkspaceResolver interface {
 type IDGenerator func(prefix string) (string, error)
 
 type Service struct {
-	store             *Store
-	workspaceResolver WorkspaceResolver
-	workflowResolver  WorkflowSourceResolver
-	chatResolver      ChatSourceResolver
-	newID             IDGenerator
-	now               func() time.Time
+	store                            *Store
+	workspaceResolver                WorkspaceResolver
+	workflowResolver                 WorkflowSourceResolver
+	chatResolver                     ChatSourceResolver
+	cartographerMu                   sync.Mutex
+	cartographerConfig               CartographerObservationConfig
+	cartographerChatSubscription     cartographerSubscription
+	cartographerWorkflowSubscription cartographerSubscription
+	newID                            IDGenerator
+	now                              func() time.Time
 }
 
 type Option func(*Service)
@@ -36,10 +41,11 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 		return nil, errors.New("workspace resolver is required")
 	}
 	service := &Service{
-		store:             store,
-		workspaceResolver: workspaceResolver,
-		newID:             randomID,
-		now:               time.Now,
+		store:              store,
+		workspaceResolver:  workspaceResolver,
+		cartographerConfig: DefaultCartographerObservationConfig(),
+		newID:              randomID,
+		now:                time.Now,
 	}
 	for _, option := range options {
 		option(service)
@@ -68,6 +74,12 @@ func WithWorkflowSourceResolver(resolver WorkflowSourceResolver) Option {
 func WithChatSourceResolver(resolver ChatSourceResolver) Option {
 	return func(service *Service) {
 		service.chatResolver = resolver
+	}
+}
+
+func WithCartographerObservationConfig(config CartographerObservationConfig) Option {
+	return func(service *Service) {
+		service.cartographerConfig = normalizeCartographerObservationConfig(config)
 	}
 }
 
@@ -242,11 +254,11 @@ func (service *Service) SaveCartographerCursor(ctx context.Context, cursor Carto
 	return service.store.SaveCartographerCursor(ctx, cursor)
 }
 
-func (service *Service) ReadCartographerCursor(ctx context.Context, workspaceID string, sourceKind CartographerSourceKind, sourceID string) (CartographerCursor, bool, error) {
-	if _, err := service.resolveWorkspace(workspaceID); err != nil {
+func (service *Service) ReadCartographerCursor(ctx context.Context, key CartographerCursorKey) (CartographerCursor, bool, error) {
+	if _, err := service.resolveWorkspace(key.WorkspaceID); err != nil {
 		return CartographerCursor{}, false, err
 	}
-	return service.store.ReadCartographerCursor(ctx, workspaceID, sourceKind, sourceID)
+	return service.store.ReadCartographerCursor(ctx, key)
 }
 
 func (service *Service) SaveCartographerTrajectorySummary(ctx context.Context, summary CartographerTrajectorySummary) (CartographerTrajectorySummary, error) {

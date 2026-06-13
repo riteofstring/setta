@@ -8,6 +8,8 @@ type CartographerWindowStatus string
 type CartographerSourceKind string
 type CartographerPatchStatus string
 type CartographerDiagnosticSeverity string
+type CartographerTrajectoryEventSource string
+type CartographerWindowCloseReason string
 
 const (
 	CartographerRunPending   CartographerRunStatus = "pending"
@@ -37,6 +39,19 @@ const (
 	CartographerDiagnosticInfo    CartographerDiagnosticSeverity = "info"
 	CartographerDiagnosticWarning CartographerDiagnosticSeverity = "warning"
 	CartographerDiagnosticError   CartographerDiagnosticSeverity = "error"
+
+	CartographerTrajectorySourceChat     CartographerTrajectoryEventSource = "chat"
+	CartographerTrajectorySourceWorkflow CartographerTrajectoryEventSource = "workflow"
+
+	CartographerCloseRunItemTerminal      CartographerWindowCloseReason = "run_item_terminal"
+	CartographerCloseApprovalRequired     CartographerWindowCloseReason = "approval_required"
+	CartographerCloseAssistantComplete    CartographerWindowCloseReason = "assistant_complete"
+	CartographerCloseAssistantThreshold   CartographerWindowCloseReason = "assistant_threshold"
+	CartographerCloseOutputThreshold      CartographerWindowCloseReason = "output_threshold"
+	CartographerCloseWorkflowNodeTerminal CartographerWindowCloseReason = "workflow_node_terminal"
+	CartographerCloseWorkflowRunTerminal  CartographerWindowCloseReason = "workflow_run_terminal"
+	CartographerCloseQuietPeriod          CartographerWindowCloseReason = "quiet_period"
+	CartographerCloseManual               CartographerWindowCloseReason = "manual"
 )
 
 type CartographerRun struct {
@@ -78,15 +93,26 @@ type CartographerWindow struct {
 }
 
 type CartographerCursor struct {
-	ID             string                 `json:"id"`
-	WorkspaceID    string                 `json:"workspaceId"`
-	SourceKind     CartographerSourceKind `json:"sourceKind"`
-	SourceID       string                 `json:"sourceId"`
-	LastEventID    string                 `json:"lastEventId"`
-	LastSequence   int                    `json:"lastSequence"`
-	LastObservedAt string                 `json:"lastObservedAt"`
-	RunID          string                 `json:"runId"`
-	UpdatedAt      string                 `json:"updatedAt"`
+	ID                         string         `json:"id"`
+	WorkspaceID                string         `json:"workspaceId"`
+	WorkflowExecutionID        string         `json:"workflowExecutionId"`
+	WorkflowNodeExecutionID    string         `json:"workflowNodeExecutionId"`
+	ChatConversationID         string         `json:"chatConversationId"`
+	ChatRunID                  string         `json:"chatRunId"`
+	LastChatEventStreamID      string         `json:"lastChatEventStreamId"`
+	LastChatEventSequence      int            `json:"lastChatEventSequence"`
+	LastWorkflowEventCursor    string         `json:"lastWorkflowEventCursor"`
+	LastOutputOrdinalByRunItem map[string]int `json:"lastOutputOrdinalByRunItem"`
+	LastWindowID               string         `json:"lastWindowId"`
+	UpdatedAt                  string         `json:"updatedAt"`
+}
+
+type CartographerCursorKey struct {
+	WorkspaceID             string `json:"workspaceId"`
+	WorkflowExecutionID     string `json:"workflowExecutionId"`
+	WorkflowNodeExecutionID string `json:"workflowNodeExecutionId"`
+	ChatConversationID      string `json:"chatConversationId"`
+	ChatRunID               string `json:"chatRunId"`
 }
 
 type CartographerTrajectorySummary struct {
@@ -103,17 +129,117 @@ type CartographerTrajectorySummary struct {
 }
 
 type CartographerInputBundle struct {
-	WorkspaceID         string                          `json:"workspaceId"`
-	SourceRefs          SemanticContextSourceRefs       `json:"sourceRefs"`
-	TargetEntityID      string                          `json:"targetEntityId"`
-	ExistingNodes       []SemanticNode                  `json:"existingNodes"`
-	ExistingEdges       []SemanticEdge                  `json:"existingEdges"`
-	Evidence            []SemanticEvidenceAnchor        `json:"evidence"`
-	Activity            []SemanticActivityInterval      `json:"activity"`
-	Steering            []SemanticSteeringDirective     `json:"steering"`
-	ContextPacks        []SemanticContextPackRecord     `json:"contextPacks"`
-	TrajectorySummaries []CartographerTrajectorySummary `json:"trajectorySummaries"`
-	ObservedEventRefs   []string                        `json:"observedEventRefs"`
+	WorkspaceID              string                          `json:"workspaceId"`
+	TriggerKind              CartographerRunTriggerKind      `json:"triggerKind"`
+	SourceRefs               SemanticContextSourceRefs       `json:"sourceRefs"`
+	TargetEntityID           string                          `json:"targetEntityId"`
+	RunStatus                string                          `json:"runStatus"`
+	TerminalReason           string                          `json:"terminalReason"`
+	WindowID                 string                          `json:"windowId"`
+	WindowStartCursor        CartographerWindowCursor        `json:"windowStartCursor"`
+	WindowEndCursor          CartographerWindowCursor        `json:"windowEndCursor"`
+	NewEvents                []CartographerTrajectoryEvent   `json:"newEvents"`
+	PromptSummary            string                          `json:"promptSummary"`
+	PromptText               string                          `json:"promptText"`
+	AssistantResponseSummary string                          `json:"assistantResponseSummary"`
+	AssistantText            string                          `json:"assistantText"`
+	ToolCalls                []CartographerToolCallSummary   `json:"toolCalls"`
+	FileChanges              []CartographerFileChangeSummary `json:"fileChanges"`
+	TestResults              []CartographerTestResultSummary `json:"testResults"`
+	OutputSummaries          []CartographerOutputSummary     `json:"outputSummaries"`
+	ExistingNodes            []SemanticNode                  `json:"existingNodes"`
+	ExistingEdges            []SemanticEdge                  `json:"existingEdges"`
+	Evidence                 []SemanticEvidenceAnchor        `json:"evidence"`
+	Activity                 []SemanticActivityInterval      `json:"activity"`
+	Steering                 []SemanticSteeringDirective     `json:"steering"`
+	ContextPacks             []SemanticContextPackRecord     `json:"contextPacks"`
+	TrajectorySummaries      []CartographerTrajectorySummary `json:"trajectorySummaries"`
+	ObservedEventRefs        []string                        `json:"observedEventRefs"`
+	TokenBudget              int                             `json:"tokenBudget"`
+	Truncation               CartographerInputTruncation     `json:"truncation"`
+}
+
+type CartographerWindowCursor struct {
+	ChatEventStreamID      string         `json:"chatEventStreamId"`
+	ChatEventSequence      int            `json:"chatEventSequence"`
+	WorkflowEventCursor    string         `json:"workflowEventCursor"`
+	OutputOrdinalByRunItem map[string]int `json:"outputOrdinalByRunItem"`
+}
+
+type CartographerTrajectoryEvent struct {
+	Source               CartographerTrajectoryEventSource `json:"source"`
+	EventID              string                            `json:"eventId"`
+	Type                 string                            `json:"type"`
+	StreamID             string                            `json:"streamId"`
+	Sequence             int                               `json:"sequence"`
+	WorkflowEventCursor  string                            `json:"workflowEventCursor"`
+	OccurredAt           string                            `json:"occurredAt"`
+	SourceRefs           SemanticContextSourceRefs         `json:"sourceRefs"`
+	ChatMessageID        string                            `json:"chatMessageId"`
+	RunItemID            string                            `json:"runItemId"`
+	RunItemType          string                            `json:"runItemType"`
+	RunItemStatus        string                            `json:"runItemStatus"`
+	RunStatus            string                            `json:"runStatus"`
+	OutputStream         string                            `json:"outputStream"`
+	OutputOrdinal        int                               `json:"outputOrdinal"`
+	Summary              string                            `json:"summary"`
+	Boundary             bool                              `json:"boundary"`
+	CloseReason          CartographerWindowCloseReason     `json:"closeReason"`
+	OriginalContentBytes int                               `json:"originalContentBytes"`
+	IncludedContentBytes int                               `json:"includedContentBytes"`
+	Truncated            bool                              `json:"truncated"`
+}
+
+type CartographerToolCallSummary struct {
+	RunItemID     string `json:"runItemId"`
+	Type          string `json:"type"`
+	Status        string `json:"status"`
+	Title         string `json:"title"`
+	Command       string `json:"command"`
+	Cwd           string `json:"cwd"`
+	ToolName      string `json:"toolName"`
+	ServerName    string `json:"serverName"`
+	ResultSummary string `json:"resultSummary"`
+	Error         string `json:"error"`
+	ExitCode      int    `json:"exitCode"`
+}
+
+type CartographerFileChangeSummary struct {
+	RunItemID   string   `json:"runItemId"`
+	Status      string   `json:"status"`
+	FilePaths   []string `json:"filePaths"`
+	PatchStatus string   `json:"patchStatus"`
+	DiffSummary string   `json:"diffSummary"`
+}
+
+type CartographerTestResultSummary struct {
+	RunItemID string `json:"runItemId"`
+	Command   string `json:"command"`
+	ExitCode  int    `json:"exitCode"`
+	Result    string `json:"result"`
+	Error     string `json:"error"`
+}
+
+type CartographerOutputSummary struct {
+	RunItemID    string `json:"runItemId"`
+	Stream       string `json:"stream"`
+	StartOrdinal int    `json:"startOrdinal"`
+	EndOrdinal   int    `json:"endOrdinal"`
+	Summary      string `json:"summary"`
+	Truncated    bool   `json:"truncated"`
+}
+
+type CartographerInputTruncation struct {
+	OriginalEventCount   int      `json:"originalEventCount"`
+	IncludedEventCount   int      `json:"includedEventCount"`
+	OriginalContentBytes int      `json:"originalContentBytes"`
+	IncludedContentBytes int      `json:"includedContentBytes"`
+	Summarized           bool     `json:"summarized"`
+	Split                bool     `json:"split"`
+	SegmentIndex         int      `json:"segmentIndex"`
+	SegmentCount         int      `json:"segmentCount"`
+	Reasons              []string `json:"reasons"`
+	DeterministicSummary string   `json:"deterministicSummary"`
 }
 
 type CartographerPatch struct {

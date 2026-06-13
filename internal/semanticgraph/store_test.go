@@ -623,11 +623,22 @@ func saveCartographerCursorForTest(t *testing.T, store *Store, ctx context.Conte
 	if _, err := store.SaveCartographerCursor(ctx, cursor); err != nil {
 		t.Fatalf("save cartographer cursor: %v", err)
 	}
-	readCursor, ok, err := store.ReadCartographerCursor(ctx, testWorkspaceID, CartographerSourceWorkflowExecution, "workflow_execution_cartographer")
+	readCursor, ok, err := store.ReadCartographerCursor(ctx, CartographerCursorKey{
+		WorkspaceID:             testWorkspaceID,
+		WorkflowExecutionID:     "workflow_execution_cartographer",
+		WorkflowNodeExecutionID: "workflow_node_execution_cartographer",
+		ChatConversationID:      "chat_conversation_cartographer",
+		ChatRunID:               "chat_run_cartographer",
+	})
 	if err != nil {
 		t.Fatalf("read cartographer cursor: %v", err)
 	}
-	if !ok || readCursor.LastSequence != 42 || readCursor.RunID != runID {
+	if !ok ||
+		readCursor.LastChatEventStreamID != "chat_events" ||
+		readCursor.LastChatEventSequence != 42 ||
+		readCursor.LastWorkflowEventCursor != "workflow_events:17" ||
+		readCursor.LastOutputOrdinalByRunItem["run_item_cartographer"] != 9 ||
+		readCursor.LastWindowID != "cartographer_window_001" {
 		t.Fatalf("read cartographer cursor = %+v, want persisted cursor", readCursor)
 	}
 }
@@ -655,8 +666,10 @@ func cartographerTestRun() CartographerRun {
 		TriggerKind:    CartographerTriggerManual,
 		TargetEntityID: "node_cartographer_target",
 		SourceRefs: SemanticContextSourceRefs{
-			WorkflowExecutionID: "workflow_execution_cartographer",
-			ChatRunID:           "chat_run_cartographer",
+			WorkflowExecutionID:     "workflow_execution_cartographer",
+			WorkflowNodeExecutionID: "workflow_node_execution_cartographer",
+			ChatConversationID:      "chat_conversation_cartographer",
+			ChatRunID:               "chat_run_cartographer",
 		},
 		InputBundle: cartographerTestInputBundle(),
 		OutputSchema: json.RawMessage(`{
@@ -693,15 +706,18 @@ func cartographerTestWindow(runID string) CartographerWindow {
 
 func cartographerTestCursor(runID string) CartographerCursor {
 	return CartographerCursor{
-		ID:             "cartographer_cursor_001",
-		WorkspaceID:    testWorkspaceID,
-		SourceKind:     CartographerSourceWorkflowExecution,
-		SourceID:       "workflow_execution_cartographer",
-		LastEventID:    "event_observed_001",
-		LastSequence:   42,
-		LastObservedAt: testTimestamp(34),
-		RunID:          runID,
-		UpdatedAt:      testTimestamp(34),
+		ID:                         "cartographer_cursor_001",
+		WorkspaceID:                testWorkspaceID,
+		WorkflowExecutionID:        "workflow_execution_cartographer",
+		WorkflowNodeExecutionID:    "workflow_node_execution_cartographer",
+		ChatConversationID:         "chat_conversation_cartographer",
+		ChatRunID:                  "chat_run_cartographer",
+		LastChatEventStreamID:      "chat_events",
+		LastChatEventSequence:      42,
+		LastWorkflowEventCursor:    "workflow_events:17",
+		LastOutputOrdinalByRunItem: map[string]int{"run_item_cartographer": 9},
+		LastWindowID:               "cartographer_window_001",
+		UpdatedAt:                  testTimestamp(34),
 	}
 }
 
@@ -715,8 +731,10 @@ func cartographerTestSummary(runID string, windowID string) CartographerTrajecto
 		SourceID:    "workflow_execution_cartographer",
 		Summary:     "Agent inspected semantic graph persistence and prepared a patch envelope.",
 		SourceRefs: SemanticContextSourceRefs{
-			WorkflowExecutionID: "workflow_execution_cartographer",
-			ChatRunID:           "chat_run_cartographer",
+			WorkflowExecutionID:     "workflow_execution_cartographer",
+			WorkflowNodeExecutionID: "workflow_node_execution_cartographer",
+			ChatConversationID:      "chat_conversation_cartographer",
+			ChatRunID:               "chat_run_cartographer",
 		},
 		ItemCount: 3,
 		CreatedAt: testTimestamp(35),
@@ -793,8 +811,10 @@ func cartographerTestInputBundle() CartographerInputBundle {
 		WorkspaceID:    testWorkspaceID,
 		TargetEntityID: "node_cartographer_target",
 		SourceRefs: SemanticContextSourceRefs{
-			WorkflowExecutionID: "workflow_execution_cartographer",
-			ChatRunID:           "chat_run_cartographer",
+			WorkflowExecutionID:     "workflow_execution_cartographer",
+			WorkflowNodeExecutionID: "workflow_node_execution_cartographer",
+			ChatConversationID:      "chat_conversation_cartographer",
+			ChatRunID:               "chat_run_cartographer",
 		},
 		ObservedEventRefs: []string{"event_observed_001"},
 	}
