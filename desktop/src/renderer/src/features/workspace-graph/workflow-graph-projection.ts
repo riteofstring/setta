@@ -104,7 +104,7 @@ const idleKindColors = {
 
 export function rendererGraphFromWorkflowProjection(
   projection: WorkflowGraphProjection,
-  validation: WorkflowValidationResult | null = null,
+  validation: WorkflowValidationResult | null = workflowProjectionValidationResult(projection),
 ): WorkflowGraphGraph {
   const positions = workflowNodePositions(projection);
   const diagnostics = workflowDiagnosticMaps(projection, validation);
@@ -149,6 +149,15 @@ export function rendererGraphFromWorkflowProjection(
       workspaceId: projection.workspaceId,
     },
   };
+}
+
+function workflowProjectionValidationResult(
+  projection: WorkflowGraphProjection,
+): WorkflowValidationResult | null {
+  if (projection.validation.status !== "current") {
+    return null;
+  }
+  return projection.validation.snapshot?.result ?? null;
 }
 
 function workflowDiagnosticMaps(

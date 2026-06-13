@@ -1177,7 +1177,9 @@ describe("preload workspace API", () => {
       "startExecution",
       "submitApproval",
       "updateDefinition",
+      "updateDefinitionLayout",
       "validateDefinition",
+      "validateDefinitionDraft",
     ]);
 
     await api.workflow.listDefinitions("workspace_api");
@@ -1192,6 +1194,15 @@ describe("preload workspace API", () => {
     );
     await api.workflow.deleteDefinition("workspace_api", "workflow_definition_api");
     await api.workflow.validateDefinition("workspace_api", graph);
+    await api.workflow.validateDefinitionDraft({
+      definitionId: "workflow_definition_api",
+      workspaceId: "workspace_api",
+    });
+    await api.workflow.updateDefinitionLayout({
+      definitionId: "workflow_definition_api",
+      positions: [{ nodeId: "start", x: 10, y: 20 }],
+      workspaceId: "workspace_api",
+    });
     await api.workflow.startExecution("workspace_api", "workflow_definition_api");
     await api.workflow.startExecution(
       "workspace_api",
@@ -1243,6 +1254,21 @@ describe("preload workspace API", () => {
       ],
       [ipcChannels.workflowDeleteDefinition, "workspace_api", "workflow_definition_api"],
       [ipcChannels.workflowValidateDefinition, "workspace_api", graph],
+      [
+        ipcChannels.workflowValidateDefinitionDraft,
+        {
+          definitionId: "workflow_definition_api",
+          workspaceId: "workspace_api",
+        },
+      ],
+      [
+        ipcChannels.workflowUpdateDefinitionLayout,
+        {
+          definitionId: "workflow_definition_api",
+          positions: [{ nodeId: "start", x: 10, y: 20 }],
+          workspaceId: "workspace_api",
+        },
+      ],
       [ipcChannels.workflowStartExecution, "workspace_api", "workflow_definition_api", ""],
       [
         ipcChannels.workflowStartExecution,

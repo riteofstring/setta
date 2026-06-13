@@ -25,6 +25,8 @@ type WorkflowStore interface {
 	SaveDefinitionVersion(WorkflowDefinitionVersion) error
 	LatestDefinitionVersionNumber(workspaceID string, definitionID string) (int, error)
 	LoadDefinitionVersion(workspaceID string, definitionID string, versionID string) (WorkflowDefinitionVersion, error)
+	SaveDefinitionValidationSnapshot(WorkflowValidationSnapshot) error
+	LoadDefinitionValidationSnapshot(workspaceID string, definitionID string) (WorkflowValidationSnapshot, bool, error)
 	LoadExecution(workspaceID string, executionID string) (WorkflowExecution, error)
 	ListExecutions(workspaceID string) ([]WorkflowExecution, error)
 	WorkspaceIDs() ([]string, error)
@@ -177,6 +179,17 @@ CREATE TABLE IF NOT EXISTS workflow_versions (
 
 CREATE INDEX IF NOT EXISTS workflow_versions_definition_created_idx
   ON workflow_versions(definition_id, created_at DESC, id);
+
+CREATE TABLE IF NOT EXISTS workflow_validation_snapshots (
+  workspace_id TEXT NOT NULL,
+  definition_id TEXT NOT NULL,
+  schema_version INTEGER NOT NULL,
+  graph_fingerprint TEXT NOT NULL,
+  validator_fingerprint TEXT NOT NULL,
+  result_json TEXT NOT NULL,
+  validated_at TEXT NOT NULL,
+  PRIMARY KEY(workspace_id, definition_id)
+);
 
 CREATE TABLE IF NOT EXISTS workflow_runs (
   id TEXT PRIMARY KEY,

@@ -103,6 +103,40 @@ func (handler handler) validateWorkflowDefinition(response http.ResponseWriter, 
 	writeJSON(response, http.StatusOK, result)
 }
 
+func (handler handler) validateWorkflowDefinitionDraft(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload ValidateWorkflowDefinitionDraftRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.ValidateDefinitionDraft(payload.WorkspaceID, payload.DefinitionID)
+	if err != nil {
+		writeWorkflowError(response, "validate_workflow_definition_draft_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
+func (handler handler) updateWorkflowDefinitionLayout(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkflowService(response, handler.workflowService)
+	if service == nil {
+		return
+	}
+	var payload UpdateWorkflowDefinitionLayoutRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	projection, err := service.UpdateDefinitionLayout(payload.WorkspaceID, payload.DefinitionID, payload.Positions)
+	if err != nil {
+		writeWorkflowError(response, "update_workflow_definition_layout_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, projection)
+}
+
 func (handler handler) startWorkflowExecution(response http.ResponseWriter, request *http.Request) {
 	service := requireWorkflowService(response, handler.workflowService)
 	if service == nil {

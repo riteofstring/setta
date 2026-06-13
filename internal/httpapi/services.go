@@ -86,6 +86,8 @@ type WorkflowService interface {
 	SubmitApproval(workspaceID string, executionID string, nodeExecutionID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (orchestrator.WorkflowExecution, error)
 	UpdateDefinition(workspaceID string, definitionID string, name string, description string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowDefinition, error)
 	ValidateDefinition(workspaceID string, graph orchestrator.WorkflowGraph) (orchestrator.WorkflowValidationResult, error)
+	ValidateDefinitionDraft(workspaceID string, definitionID string) (orchestrator.WorkflowGraphProjection, error)
+	UpdateDefinitionLayout(workspaceID string, definitionID string, positions []orchestrator.WorkflowGraphNodeLayout) (orchestrator.WorkflowGraphProjection, error)
 }
 
 type SemanticGraphService interface {

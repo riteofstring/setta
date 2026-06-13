@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import type { WorkflowGraphProjection } from "@generated/backend";
 import {
+  WorkflowGraphToolbar,
   workflowToolbarMismatchLabel,
   workflowToolbarStateLabel,
   workflowToolbarVersionLabel,
@@ -47,6 +50,57 @@ describe("workflow graph toolbar state labels", () => {
     );
     expect(workflowToolbarVersionLabel(projection)).toBe("v3 workflow_v...on_003");
   });
+
+  test("keeps async operation status separate from visible command labels", () => {
+    const html = renderToStaticMarkup(
+      createElement(WorkflowGraphToolbar, {
+        busy: "validate",
+        onAddNode: () => undefined,
+        onOpenDetails: () => undefined,
+        onOpenSettings: () => undefined,
+        onRun: () => undefined,
+        onShowDraft: () => undefined,
+        onValidate: () => undefined,
+        projection: workflowProjection({ viewMode: "draft" }),
+        ready: true,
+        selectedNodeLabel: "",
+        validation: null,
+        workspaceId: "workspace_test",
+      }),
+    );
+
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain('aria-label="Validate"');
+    expect(html).toContain(">Validate</span>");
+    expect(html).not.toContain("Validating workflow");
+    expect(html).not.toContain(">Validating</span>");
+  });
+
+  test("keeps validated status visible from projection validation state", () => {
+    const validation = { diagnostics: [], valid: true };
+    const html = renderToStaticMarkup(
+      createElement(WorkflowGraphToolbar, {
+        busy: null,
+        onAddNode: () => undefined,
+        onOpenDetails: () => undefined,
+        onOpenSettings: () => undefined,
+        onRun: () => undefined,
+        onShowDraft: () => undefined,
+        onValidate: () => undefined,
+        projection: workflowProjection({
+          validation: workflowValidationState(validation),
+          viewMode: "draft",
+        }),
+        ready: true,
+        selectedNodeLabel: "",
+        validation,
+        workspaceId: "workspace_test",
+      }),
+    );
+
+    expect(html).toContain(">Validated</span>");
+    expect(html).toContain('aria-label="Workflow validated"');
+  });
 });
 
 function workflowProjection(
@@ -67,6 +121,7 @@ function workflowProjection(
     schemaVersion: 1,
     terminalReason: null,
     updatedAt: "2026-06-08T12:15:00Z",
+    validation: workflowValidationState(null),
     versionMismatch,
     viewMode,
     workspaceId: "workspace_test",
@@ -115,3 +170,25 @@ const workflowProjectionDefaultsByViewMode = {
     | "lastEventOrdinal"
   >
 >;
+
+function workflowValidationState(
+  result: NonNullable<WorkflowGraphProjection["validation"]["snapshot"]>["result"] | null,
+) {
+  return {
+    currentGraphFingerprint: "sha256:graph",
+    currentValidatorFingerprint: "workflow-validator:v1",
+    snapshot:
+      result === null
+        ? null
+        : {
+            definitionId: "workflow_definition",
+            graphFingerprint: "sha256:graph",
+            result,
+            schemaVersion: 1,
+            validatedAt: "2026-06-08T12:16:00Z",
+            validatorFingerprint: "workflow-validator:v1",
+            workspaceId: "workspace_test",
+          },
+    status: result === null ? "not_validated" : "current",
+  } satisfies WorkflowGraphProjection["validation"];
+}

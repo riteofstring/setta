@@ -1,11 +1,12 @@
 import type {
   SemanticGraph,
   SemanticLayoutPosition,
+  WorkflowGraphNodeLayout,
   WorkflowGraphProjection,
 } from "@generated/backend";
 
 import { semanticLayoutPositionInputsFromRendererPositions } from "./semantic-graph-projection";
-import { workflowGraphWithNodeLayout, type WorkflowLayoutPosition } from "./workflow-graph-layout";
+import type { WorkflowLayoutPosition } from "./workflow-graph-layout";
 
 export async function persistGraphNodePositions({
   positions,
@@ -19,7 +20,7 @@ export async function persistGraphNodePositions({
   setWorkflowEditorError: (message: string) => void;
   updateSemanticLayoutPositions: (positions: SemanticLayoutPosition[]) => void;
   workflowProjection: WorkflowGraphProjection | null;
-}) {
+}): Promise<WorkflowGraphProjection | null> {
   const semanticError = await persistSemanticNodePositionsResult({
     positions,
     semanticGraph,
@@ -27,15 +28,17 @@ export async function persistGraphNodePositions({
   });
   if (semanticError !== "") {
     setWorkflowEditorError(semanticError);
-    return;
+    return null;
   }
-  const workflowError = await persistWorkflowNodePositions({
+  const workflowResult = await persistWorkflowNodePositions({
     positions,
     workflowProjection,
   });
-  if (workflowError !== "") {
-    setWorkflowEditorError(workflowError);
+  if (workflowResult.error !== "") {
+    setWorkflowEditorError(workflowResult.error);
+    return null;
   }
+  return workflowResult.projection;
 }
 
 async function persistSemanticNodePositions({
@@ -91,32 +94,38 @@ async function persistWorkflowNodePositions({
 }: {
   positions: WorkflowLayoutPosition[];
   workflowProjection: WorkflowGraphProjection | null;
-}) {
+}): Promise<{ error: string; projection: WorkflowGraphProjection | null }> {
   if (workflowProjection === null) {
-    return "";
+    return { error: "", projection: null };
   }
   const workflowNodeIds = new Set(workflowProjection.nodes.map((node) => node.id));
   const workflowPositions = positions.filter((position) => workflowNodeIds.has(position.nodeId));
   if (!workflowPositions.some((position) => position.moved) || !workflowProjection.editable) {
-    return "";
+    return { error: "", projection: null };
   }
   try {
-    const definition = await window.setta.workflow.readDefinition(
-      workflowProjection.workspaceId,
-      workflowProjection.definitionId,
-    );
-    const graph = workflowGraphWithNodeLayout(definition.graph, workflowPositions);
-    await window.setta.workflow.updateDefinition(
-      workflowProjection.workspaceId,
-      definition.id,
-      definition.name,
-      definition.description,
-      graph,
-    );
-    return "";
+    const projection = await window.setta.workflow.updateDefinitionLayout({
+      definitionId: workflowProjection.definitionId,
+      positions: workflowLayoutPositionsForBackend(workflowPositions),
+      workspaceId: workflowProjection.workspaceId,
+    });
+    return { error: "", projection };
   } catch (error: unknown) {
-    return layoutPersistenceErrorMessage(error, "Workflow layout update failed");
+    return {
+      error: layoutPersistenceErrorMessage(error, "Workflow layout update failed"),
+      projection: null,
+    };
   }
+}
+
+function workflowLayoutPositionsForBackend(
+  positions: WorkflowLayoutPosition[],
+): WorkflowGraphNodeLayout[] {
+  return positions.map((position) => ({
+    nodeId: position.nodeId,
+    x: Math.round(position.x),
+    y: Math.round(position.y),
+  }));
 }
 
 function layoutPersistenceErrorMessage(error: unknown, fallback: string) {

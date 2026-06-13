@@ -163,6 +163,22 @@ describe("rendererGraphFromWorkflowProjection", () => {
     expect(graph.nodes.find((node) => node.id === "start")?.diagnostic).toBeNull();
     expect(graph.edges.find((edge) => edge.id === "work_end")?.diagnostic).toBeNull();
   });
+
+  test("uses current projection validation state for draft diagnostics", () => {
+    const graph = rendererGraphFromWorkflowProjection({
+      ...draftProjection(),
+      validation: validationState({
+        diagnostics: [diagnostic("error", "start_node_output_required", "start", "")],
+        valid: false,
+      }),
+    });
+
+    expect(graph.nodes.find((node) => node.id === "start")?.diagnostic).toEqual({
+      codes: ["start_node_output_required"],
+      count: 1,
+      severity: "error",
+    });
+  });
 });
 
 function draftProjection(): WorkflowGraphProjection {
@@ -239,10 +255,33 @@ function testProjection(): WorkflowGraphProjection {
     schemaVersion: 1,
     terminalReason: null,
     updatedAt: "2026-06-05T12:00:00Z",
+    validation: validationState(null),
     versionMismatch: false,
     viewMode: "run",
     workspaceId: "workspace_test",
   };
+}
+
+function validationState(
+  result: NonNullable<WorkflowGraphProjection["validation"]["snapshot"]>["result"] | null,
+) {
+  return {
+    currentGraphFingerprint: "sha256:graph",
+    currentValidatorFingerprint: "workflow-validator:v1",
+    snapshot:
+      result === null
+        ? null
+        : {
+            definitionId: "definition_review",
+            graphFingerprint: "sha256:graph",
+            result,
+            schemaVersion: 1,
+            validatedAt: "2026-06-05T12:00:00Z",
+            validatorFingerprint: "workflow-validator:v1",
+            workspaceId: "workspace_test",
+          },
+    status: result === null ? "not_validated" : "current",
+  } satisfies WorkflowGraphProjection["validation"];
 }
 
 function projectedNode(

@@ -291,14 +291,45 @@ try {
         edge.targetNodeId === "end",
     ),
   );
-  await clickWorkflowValidateButton(context.client);
-  const diagnosedYesRoute = await waitForWorkflowGraphSnapshot(context.client, (snapshot) =>
-    snapshot.graph.edges.some(
-      (edge) =>
-        edge.id === "route_end" &&
-        edge.diagnostic?.severity === "error" &&
-        edge.diagnostic?.codes?.includes("edge_condition_invalid"),
-    ),
+  const movedRoute = await moveWorkflowGraphNode(
+    context.client,
+    workflowGraphSurfaceId,
+    routeNodes,
+    "route",
+    { x: 64, y: 36 },
+  );
+  const movedRoutePosition = workflowGraphNodeWorldPosition(movedRoute, "route");
+  const beforeValidationToolbar = await workflowToolbarButtonRects(context.client);
+  const validatingToolbar = await clickWorkflowValidateButtonAndReadNextFrame(context.client);
+  assertWorkflowValidationToolbarStable(
+    beforeValidationToolbar,
+    validatingToolbar,
+    "while validation is pending",
+  );
+  await waitForWorkflowOperationStatus(context.client, "Issues found");
+  const diagnosedYesRoute = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      workflowGraphNodePositionMatches(snapshot, "route", movedRoutePosition) &&
+      snapshot.graph.edges.some(
+        (edge) =>
+          edge.id === "route_end" &&
+          edge.diagnostic?.severity === "error" &&
+          edge.diagnostic?.codes?.includes("edge_condition_invalid"),
+      ),
+  );
+  assertWorkflowGraphNodePosition(
+    diagnosedYesRoute,
+    "route",
+    movedRoutePosition,
+    "after validation",
+  );
+  const afterValidationToolbar = await workflowToolbarButtonRects(context.client);
+  assertWorkflowValidationToolbarStable(
+    beforeValidationToolbar,
+    afterValidationToolbar,
+    "after validation completes",
+    { expectedStatus: "Issues found" },
   );
   assertWorkflowEdgeDiagnostic(diagnosedYesRoute, "route_end", "edge_condition_invalid");
   await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, diagnosedYesRoute, {
@@ -313,6 +344,7 @@ try {
         edge.targetNodeId === "route",
     ),
   );
+  await waitForWorkflowOperationStatus(context.client, "Stale");
   await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, routeInput, {
     sourceNodeId: "route",
     sourcePortId: "route_default",
@@ -441,14 +473,121 @@ async function clickWorkflowRunButton(client) {
   await clickWorkflowToolbarButton(client, "workflow-run-button");
 }
 
-async function clickWorkflowValidateButton(client) {
-  await clickWorkflowToolbarButton(client, "workflow-validate-button");
+async function clickWorkflowValidateButtonAndReadNextFrame(client) {
+  const result = await client.driver("clickWorkflowToolbarButtonAndReadNextFrame", {
+    testId: "workflow-validate-button",
+  });
+  if (!result.ok) {
+    throw new Error(
+      `workflow validate button was not clickable before geometry snapshot: ${JSON.stringify(result)}`,
+    );
+  }
+  return result;
 }
 
 async function clickWorkflowToolbarButton(client, testId) {
   const clicked = await client.driver("clickWorkflowToolbarButton", { testId });
   if (!clicked.ok) {
     throw new Error(`workflow toolbar button was not clickable: ${JSON.stringify(clicked)}`);
+  }
+}
+
+async function workflowToolbarButtonRects(client) {
+  const result = await client.driver("workflowToolbarButtonRects");
+  if (!result.ok) {
+    throw new Error(`workflow toolbar rects unavailable: ${JSON.stringify(result)}`);
+  }
+  return result;
+}
+
+async function waitForWorkflowOperationStatus(client, expected) {
+  await waitForState(
+    client,
+    driverCallExpression("workflowToolbarButtonRects"),
+    (value) => value.ok && value.operationStatus?.text === expected,
+  );
+}
+
+function assertWorkflowValidationToolbarStable(before, current, phase, options = {}) {
+  assertWorkflowToolbarFrameStable(before, current, phase);
+  assertWorkflowToolbarButtonsStable(before, current, phase);
+  assertWorkflowValidateButtonStable(current, phase);
+  assertWorkflowExpectedOperationStatus(current, phase, options.expectedStatus);
+}
+
+function assertWorkflowToolbarFrameStable(before, current, phase) {
+  assertRectStable(before.toolbar, current.toolbar, `workflow toolbar ${phase}`);
+  if (!before.operationStatus || !current.operationStatus) {
+    throw new Error(`workflow operation status slot missing ${phase}`);
+  }
+  assertRectStable(
+    before.operationStatus.rect,
+    current.operationStatus.rect,
+    `workflow operation status ${phase}`,
+  );
+}
+
+function assertWorkflowToolbarButtonsStable(before, current, phase) {
+  for (const testId of [
+    "workflow-settings-button",
+    "workflow-add-node-button",
+    "workflow-validate-button",
+    "workflow-run-button",
+    "workflow-node-details-button",
+  ]) {
+    const beforeButton = before.buttons[testId];
+    const currentButton = current.buttons[testId];
+    if (!beforeButton || !currentButton) {
+      throw new Error(`workflow toolbar button missing ${phase}: ${testId}`);
+    }
+    assertRectStable(beforeButton.rect, currentButton.rect, `${testId} ${phase}`);
+    if (beforeButton.disabled !== currentButton.disabled) {
+      throw new Error(
+        `workflow toolbar button disabled state changed ${phase}: ${testId} before=${beforeButton.disabled} current=${currentButton.disabled}`,
+      );
+    }
+  }
+}
+
+function assertWorkflowValidateButtonStable(current, phase) {
+  const validateButton = current.buttons["workflow-validate-button"];
+  if (validateButton.text !== "Validate") {
+    throw new Error(
+      `workflow validate button visual label changed ${phase}: ${validateButton.text}`,
+    );
+  }
+  if (
+    ![
+      "Validate",
+      "Validating workflow",
+      "Workflow validated",
+      "Workflow validation found issues",
+      "Workflow changed since validation",
+    ].includes(validateButton.ariaLabel)
+  ) {
+    throw new Error(
+      `workflow validate button accessible label changed unexpectedly ${phase}: ${validateButton.ariaLabel}`,
+    );
+  }
+}
+
+function assertWorkflowExpectedOperationStatus(current, phase, expectedStatus) {
+  if (expectedStatus && current.operationStatus.text !== expectedStatus) {
+    throw new Error(
+      `workflow validation status mismatch ${phase}: expected=${expectedStatus} current=${current.operationStatus.text}`,
+    );
+  }
+}
+
+function assertRectStable(before, current, label) {
+  const tolerancePx = 1;
+  for (const property of ["height", "left", "top", "width"]) {
+    const delta = Math.abs(before[property] - current[property]);
+    if (delta > tolerancePx) {
+      throw new Error(
+        `${label} ${property} shifted by ${delta}px: before=${JSON.stringify(before)} current=${JSON.stringify(current)}`,
+      );
+    }
   }
 }
 
@@ -759,12 +898,7 @@ function runWorkflowProjectionMetadata(snapshot) {
 }
 
 function offsetFromWorkflowGraphNode(snapshot, nodeId, offset) {
-  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
-  if (!node) {
-    throw new Error(
-      `missing workflow graph node ${nodeId}: ${JSON.stringify(snapshot.graph.nodes)}`,
-    );
-  }
+  const node = workflowGraphNode(snapshot, nodeId);
   const margin = 80;
   const maxX = Math.max(margin, snapshot.canvas.clientWidth - margin);
   const maxY = Math.max(margin, snapshot.canvas.clientHeight - margin);
@@ -772,6 +906,56 @@ function offsetFromWorkflowGraphNode(snapshot, nodeId, offset) {
     x: clamp(Math.round(node.screenX + offset.x), margin, maxX),
     y: clamp(Math.round(node.screenY + offset.y), margin, maxY),
   };
+}
+
+async function moveWorkflowGraphNode(client, surfaceId, snapshot, nodeId, delta) {
+  const node = workflowGraphNode(snapshot, nodeId);
+  const expected = {
+    x: Math.round(node.x + delta.x),
+    y: Math.round(node.y + delta.y),
+  };
+  await dispatchWorkflowGraphMouseDrag(client, surfaceId, {
+    from: { x: node.screenX, y: node.screenY },
+    to: { x: node.screenX + delta.x, y: node.screenY + delta.y },
+  });
+  return waitForWorkflowGraphSnapshot(client, (nextSnapshot) =>
+    workflowGraphNodePositionMatches(nextSnapshot, nodeId, expected),
+  );
+}
+
+function workflowGraphNodeWorldPosition(snapshot, nodeId) {
+  const node = workflowGraphNode(snapshot, nodeId);
+  return {
+    x: Math.round(node.x),
+    y: Math.round(node.y),
+  };
+}
+
+function workflowGraphNodePositionMatches(snapshot, nodeId, expected) {
+  const node = workflowGraphNode(snapshot, nodeId);
+  return (
+    Math.abs(Math.round(node.x) - expected.x) <= 1 && Math.abs(Math.round(node.y) - expected.y) <= 1
+  );
+}
+
+function assertWorkflowGraphNodePosition(snapshot, nodeId, expected, phase) {
+  if (!workflowGraphNodePositionMatches(snapshot, nodeId, expected)) {
+    throw new Error(
+      `workflow node ${nodeId} position changed ${phase}: expected=${JSON.stringify(
+        expected,
+      )} actual=${JSON.stringify(workflowGraphNodeWorldPosition(snapshot, nodeId))}`,
+    );
+  }
+}
+
+function workflowGraphNode(snapshot, nodeId) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(
+      `missing workflow graph node ${nodeId}: ${JSON.stringify(snapshot.graph.nodes)}`,
+    );
+  }
+  return node;
 }
 
 function clamp(value, min, max) {

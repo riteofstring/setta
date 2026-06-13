@@ -64,6 +64,7 @@
     return {
       rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map(
         (row) => ({
+          conversationId: row.getAttribute("data-conversation-id") ?? "",
           text: row.innerText,
           unread: Boolean(row.querySelector('[aria-label="Unread assistant response"]')),
         }),
@@ -498,6 +499,73 @@
   function workflowToolbarState() {
     const state = workflowToolbarElement('[data-testid="workflow-toolbar-state"]');
     return { text: state?.textContent?.trim() ?? "" };
+  }
+
+  const workflowToolbarButtonTestIds = [
+    "workflow-settings-button",
+    "workflow-add-node-button",
+    "workflow-validate-button",
+    "workflow-run-button",
+    "workflow-show-draft-button",
+    "workflow-node-details-button",
+  ];
+
+  function workflowToolbarButtonRects() {
+    const toolbar = workflowToolbarElement('[data-testid="workflow-graph-toolbar"]');
+    if (!(toolbar instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-workflow-toolbar" };
+    }
+    return {
+      buttons: workflowToolbarButtonSnapshots(),
+      ok: true,
+      operationStatus: workflowToolbarOperationStatusSnapshot(),
+      toolbar: elementRect(toolbar),
+    };
+  }
+
+  function workflowToolbarButtonSnapshots() {
+    const buttons = {};
+    for (const testId of workflowToolbarButtonTestIds) {
+      const button = workflowToolbarElement(`[data-testid="${testId}"]`);
+      if (button instanceof HTMLButtonElement) {
+        buttons[testId] = workflowToolbarButtonSnapshot(button);
+      }
+    }
+    return buttons;
+  }
+
+  function workflowToolbarButtonSnapshot(button) {
+    return {
+      ariaLabel: button.getAttribute("aria-label") ?? "",
+      disabled: button.disabled,
+      rect: elementRect(button),
+      text: compactElementText(button),
+      title: button.getAttribute("title") ?? "",
+    };
+  }
+
+  function workflowToolbarOperationStatusSnapshot() {
+    const operationStatus = workflowToolbarElement('[data-testid="workflow-operation-status"]');
+    if (!(operationStatus instanceof HTMLElement)) {
+      return null;
+    }
+    return {
+      rect: elementRect(operationStatus),
+      text: compactElementText(operationStatus),
+    };
+  }
+
+  function compactElementText(element) {
+    return element.textContent?.trim().replace(/\s+/g, " ") ?? "";
+  }
+
+  async function clickWorkflowToolbarButtonAndReadNextFrame({ testId }) {
+    const clicked = clickWorkflowToolbarButton({ testId });
+    if (!clicked.ok) {
+      return clicked;
+    }
+    await nextFrame();
+    return workflowToolbarButtonRects();
   }
 
   function clickWorkflowToolbarButton({ testId }) {
@@ -1060,6 +1128,7 @@
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
     clickWorkflowNodeDetailsButton,
+    clickWorkflowToolbarButtonAndReadNextFrame,
     clickWorkflowToolbarButton,
     configureWorkflowResultAction,
     createWorkflowProjectionFixture,
@@ -1084,6 +1153,7 @@
     workflowNodeDetailsButtonState,
     workflowNodeDetailsSurfaceState,
     workflowRunDetailsText,
+    workflowToolbarButtonRects,
     workflowToolbarState,
     workflowWorkspaceSessionState,
   };

@@ -296,10 +296,12 @@ const api: SettaAPI = {
     startExecution: (workspaceId, definitionId, versionId = "") =>
       invoke("workflowStartExecution", workspaceId, definitionId, versionId),
     submitApproval: (request) => invoke("workflowSubmitApproval", request),
+    updateDefinitionLayout: (request) => invoke("workflowUpdateDefinitionLayout", request),
     updateDefinition: (workspaceId, definitionId, name, description, graph) =>
       invoke("workflowUpdateDefinition", workspaceId, definitionId, name, description, graph),
     validateDefinition: (workspaceId, graph) =>
       invoke("workflowValidateDefinition", workspaceId, graph),
+    validateDefinitionDraft: (request) => invoke("workflowValidateDefinitionDraft", request),
   },
   workspace: {
     close: (id: string) => invoke("workspaceClose", id),

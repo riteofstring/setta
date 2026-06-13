@@ -104,10 +104,13 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  UpdateWorkflowDefinitionLayoutRequest,
+  ValidateWorkflowDefinitionDraftRequest,
   WorkflowDefinition,
   WorkflowExecution,
   WorkflowExecutionEventPage,
   WorkflowGraph,
+  WorkflowGraphProjection,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
   WorkspaceUILayout,
@@ -227,7 +230,9 @@ export const ipcChannels = {
   workflowStartExecution: "workflow:start-execution",
   workflowSubmitApproval: "workflow:submit-approval",
   workflowUpdateDefinition: "workflow:update-definition",
+  workflowUpdateDefinitionLayout: "workflow:update-definition-layout",
   workflowValidateDefinition: "workflow:validate-definition",
+  workflowValidateDefinitionDraft: "workflow:validate-definition-draft",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
@@ -690,9 +695,17 @@ interface IpcContract {
     ];
     result: WorkflowDefinition;
   };
+  workflowUpdateDefinitionLayout: {
+    args: [request: UpdateWorkflowDefinitionLayoutRequest];
+    result: WorkflowGraphProjection;
+  };
   workflowValidateDefinition: {
     args: [workspaceId: string, graph: WorkflowGraph];
     result: WorkflowValidationResult;
+  };
+  workflowValidateDefinitionDraft: {
+    args: [request: ValidateWorkflowDefinitionDraftRequest];
+    result: WorkflowGraphProjection;
   };
   workspaceClose: {
     args: [id: string];

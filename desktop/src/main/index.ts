@@ -756,6 +756,22 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "workflowValidateDefinitionDraft",
+    async (_event, request) => {
+      return requireBackendClient().validateWorkflowDefinitionDraft(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowUpdateDefinitionLayout",
+    async (_event, request) => {
+      return requireBackendClient().updateWorkflowDefinitionLayout(request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "workflowStartExecution",
     async (_event, workspaceId, definitionId, versionId) => {
       return requireBackendClient().startWorkflowExecution({

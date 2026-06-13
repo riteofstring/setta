@@ -105,11 +105,14 @@ import type {
   UpdateSemanticNodeRequest,
   UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
+  UpdateWorkflowDefinitionLayoutRequest,
+  ValidateWorkflowDefinitionDraftRequest,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
   WorkflowExecutionEventPage,
   WorkflowGraph,
+  WorkflowGraphProjection,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
   WorkspaceUILayout,
@@ -576,6 +579,9 @@ export interface SettaAPI {
       versionId?: string,
     ) => Promise<WorkflowExecution>;
     submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
+    updateDefinitionLayout: (
+      request: UpdateWorkflowDefinitionLayoutRequest,
+    ) => Promise<WorkflowGraphProjection>;
     updateDefinition: (
       workspaceId: string,
       definitionId: string,
@@ -587,5 +593,8 @@ export interface SettaAPI {
       workspaceId: string,
       graph: WorkflowGraph,
     ) => Promise<WorkflowValidationResult>;
+    validateDefinitionDraft: (
+      request: ValidateWorkflowDefinitionDraftRequest,
+    ) => Promise<WorkflowGraphProjection>;
   };
 }

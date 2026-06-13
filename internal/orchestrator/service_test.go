@@ -129,6 +129,78 @@ func TestServiceStoresNullWorkflowDraftAndRejectsRun(t *testing.T) {
 	}
 }
 
+func TestServiceStoresValidationStateUntilExecutableGraphChanges(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, err := service.CreateDefinition(workspaceID, "Validated", "", startEndGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+
+	validated, err := service.ValidateDefinitionDraft(workspaceID, definition.ID)
+	if err != nil {
+		t.Fatalf("validate draft: %v", err)
+	}
+	if validated.Validation.Status != WorkflowValidationCurrent ||
+		validated.Validation.Snapshot == nil ||
+		!validated.Validation.Snapshot.Result.Valid {
+		t.Fatalf("validated projection state = %+v, want current valid snapshot", validated.Validation)
+	}
+	graphFingerprint := validated.Validation.CurrentGraphFingerprint
+
+	moved, err := service.UpdateDefinitionLayout(workspaceID, definition.ID, []WorkflowGraphNodeLayout{
+		{NodeID: "start", X: -240, Y: 12},
+		{NodeID: "end", X: 80, Y: 12},
+	})
+	if err != nil {
+		t.Fatalf("update definition layout: %v", err)
+	}
+	if moved.Validation.Status != WorkflowValidationCurrent {
+		t.Fatalf("layout-only validation status = %s, want current", moved.Validation.Status)
+	}
+	if moved.Validation.CurrentGraphFingerprint != graphFingerprint {
+		t.Fatalf("layout-only fingerprint = %s, want %s", moved.Validation.CurrentGraphFingerprint, graphFingerprint)
+	}
+	if projectedLayoutNodeForTest(t, moved, "start").X != -240 {
+		t.Fatalf("updated start layout = %+v, want x=-240", projectedLayoutNodeForTest(t, moved, "start"))
+	}
+
+	updatedGraph := startEndGraph()
+	updatedGraph.Edges = []WorkflowEdge{}
+	if _, err := service.UpdateDefinition(workspaceID, definition.ID, definition.Name, definition.Description, updatedGraph); err != nil {
+		t.Fatalf("update definition graph: %v", err)
+	}
+	stale, ok, err := service.ReadGraphProjection(workspaceID, definition.ID, "", "")
+	if err != nil {
+		t.Fatalf("read projection: %v", err)
+	}
+	if !ok {
+		t.Fatal("projection missing after graph update")
+	}
+	if stale.Validation.Status != WorkflowValidationStale {
+		t.Fatalf("graph-change validation status = %s, want stale", stale.Validation.Status)
+	}
+	if stale.Validation.Snapshot == nil || !stale.Validation.Snapshot.Result.Valid {
+		t.Fatalf("stale validation snapshot = %+v, want previous valid snapshot", stale.Validation.Snapshot)
+	}
+}
+
+func TestServiceRejectsWorkflowLayoutForUnknownNode(t *testing.T) {
+	_, _, service, workspaceID := newTestWorkflowService(t)
+	definition, err := service.CreateDefinition(workspaceID, "Layout", "", startEndGraph())
+	if err != nil {
+		t.Fatalf("create definition: %v", err)
+	}
+	_, err = service.UpdateDefinitionLayout(workspaceID, definition.ID, []WorkflowGraphNodeLayout{
+		{NodeID: "missing", X: 0, Y: 0},
+	})
+	if err == nil {
+		t.Fatal("update layout with missing node succeeded, want error")
+	}
+	if !strings.Contains(err.Error(), "unknown node missing") {
+		t.Fatalf("layout error = %v, want unknown node", err)
+	}
+}
+
 func TestServiceStartupRecoveryRequiresManualStateForUncertainSideEffects(t *testing.T) {
 	runner := newRecordingActionRunner()
 	runner.recover = func(request ActionRecoverRequest) ActionRecoverResult {
