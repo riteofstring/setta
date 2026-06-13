@@ -347,15 +347,37 @@ Verification:
 Goal: make cartographer activity inspectable and reviewable through production
 HTTP, generated TypeScript, IPC/preload, and renderer paths.
 
+Preflight before implementation:
+
+- Treat Phase 6D as surfaces over the Phase 6B/6C deterministic pipeline. Do
+  not wire production Codex/model cartographer execution in 6D; production
+  common-harness invocation remains Phase 6E. If a runtime cartographer request
+  cannot be satisfied without production structured-task support, return an
+  explicit unsupported/failed audit instead of silently no-oping.
+- Add backend read/review service methods before renderer work. The renderer
+  should consume Go-owned HTTP contracts and generated TypeScript only; do not
+  add renderer-local mirrors of cartographer contracts.
+- Review actions must operate on stored `pending_review` patch records only.
+  Rejecting a patch updates audit state and appends no semantic graph mutation.
+  Accepting a patch must revalidate the stored patch against current graph,
+  evidence, workspace, and source-ref state, then apply it through the same 6C
+  validator/applier path. Do not allow accepting already applied/rejected
+  patches, and do not add a generic patch-append endpoint.
+- Keep deterministic end-to-end coverage on production Electron/main/preload/
+  renderer/HTTP/store paths, using temporary app data and scripted/fake
+  harness/provider behavior. Live Codex cartographer verification belongs to
+  Phase 6E.
+
 Deliverables:
 
 - Add minimal review/read surfaces:
 
 ```text
-run cartographer for explicit source refs or current active-run progress
+build or run cartographer for explicit source refs/current active-run progress when supported by the existing deterministic pipeline
 list cartographer runs by workflow execution/chat run/semantic target
 read cartographer run by id
 read cartographer windows/cursors for a workflow execution or chat run
+read cartographer patches by run, semantic target, and status
 accept/reject a pending cartographer patch
 show cartographer patch history from semantic node details and run-adjacent surfaces
 ```
@@ -366,6 +388,9 @@ show cartographer patch history from semantic node details and run-adjacent surf
   semantic-node detail surfaces.
 - Review actions should accept/reject pending patches explicitly and apply
   accepted patches through the same 6C validator/applier path.
+- Keep the initial UI operational and inspectable rather than predictive:
+  show run/window/patch status, validation diagnostics, source refs, confidence,
+  public summaries, created semantic event ids, and pending review actions.
 
 Acceptance criteria:
 
@@ -374,6 +399,7 @@ HTTP and IPC surfaces expose cartographer run/window/cursor/patch state
 generated TypeScript contracts are regenerated from Go-owned endpoint contracts
 semantic node details show cartographer provenance and pending review state
 review accept/reject updates audit state and applies accepted patches safely
+production Codex/model cartographer execution is not introduced before Phase 6E
 ```
 
 Verification:
@@ -382,11 +408,11 @@ Verification:
 - Renderer tests for cartographer patch history, window summaries, validation
   diagnostics, and review UI.
 - Deterministic end-to-end app workflow through production
-  Electron/main/preload/renderer/HTTP/store paths proving a harness-backed
-  workflow run, using the Codex adapter initially, creates evidence-grounded
-  semantic nodes while the run is still active, records cartographer audit,
-  survives reload, resumes from persisted cursors, exposes review state, and can
-  be inspected.
+  Electron/main/preload/renderer/HTTP/store paths proving a scripted/fake
+  cartographer workflow or pre-seeded active-run window creates or exposes
+  evidence-grounded cartographer audit, survives reload, resumes from persisted
+  cursors, exposes review state, and can be inspected. Production Codex-backed
+  cartographer turns are verified in Phase 6E.
 
 ### Phase 6E: Production Harness Wiring And Live Verification
 
