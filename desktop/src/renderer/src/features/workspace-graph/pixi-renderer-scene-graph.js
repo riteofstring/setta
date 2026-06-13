@@ -173,8 +173,10 @@ function nodeContainerRequiresRebuild(previous, next) {
   return (
     previous.color !== next.color ||
     previous.connectable !== next.connectable ||
+    previous.dismissed !== next.dismissed ||
     previous.height !== next.height ||
     previous.layer !== next.layer ||
+    previous.promoted !== next.promoted ||
     previous.width !== next.width ||
     !portsEqual(previous.ports, next.ports)
   );

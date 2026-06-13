@@ -14,7 +14,7 @@ const nodeHeight = 82;
 const nodeSpacingX = 240;
 const nodeSpacingY = 150;
 const semanticNodeHeight = 68;
-const semanticNodeWidth = 168;
+const semanticNodeWidth = semanticNodeHeight;
 const semanticNodeSpacingX = 220;
 const semanticNodeSpacingY = 132;
 

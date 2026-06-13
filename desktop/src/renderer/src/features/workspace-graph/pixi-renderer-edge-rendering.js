@@ -88,6 +88,10 @@ export function redrawWorkspaceEdgeFlow({
 }
 
 export function workflowEdgeFlowPhase(edgeId) {
+  return unitHashForId(edgeId);
+}
+
+function unitHashForId(edgeId) {
   let hash = 2166136261;
   for (let index = 0; index < edgeId.length; index += 1) {
     hash ^= edgeId.charCodeAt(index);
@@ -129,11 +133,70 @@ function drawWorkflowEdge(target, edge, start, end) {
 }
 
 function drawSemanticEdge(target, edge, start, end) {
+  const style = workspaceNeonTheme.semantic.tendril;
+  const color = edge.color ?? 0xe2e8f0;
   drawCurvedEdge(target, start, end, {
-    alpha: edge.alpha ?? 0.65,
-    color: edge.color ?? 0xe2e8f0,
-    width: edge.width ?? 2.5,
+    alpha: style.glowAlpha,
+    color,
+    width: (edge.width ?? style.width) + style.glowWidth,
   });
+  drawSemanticTendrilPath({
+    edge,
+    end,
+    start,
+    stroke: {
+      alpha: edge.alpha ?? style.strokeAlpha,
+      color,
+      width: edge.width ?? style.width,
+    },
+    target,
+  });
+  drawCurvedEdge(target, start, end, {
+    alpha: style.coreAlpha,
+    color: style.coreColor,
+    width: style.coreWidth,
+  });
+  drawSemanticTendrilPath({
+    amplitude: style.wobbleAmplitude,
+    edge,
+    end,
+    start,
+    stroke: {
+      alpha: style.filamentAlpha,
+      color,
+      width: style.filamentWidth,
+    },
+    target,
+  });
+}
+
+function drawSemanticTendrilPath({ amplitude = 0, edge, end, start, stroke, target }) {
+  const samples = workspaceNeonTheme.semantic.tendril.filamentSamples;
+  let previous = semanticTendrilPoint(edge, start, end, 0, amplitude);
+  for (let sampleIndex = 1; sampleIndex <= samples; sampleIndex += 1) {
+    const next = semanticTendrilPoint(edge, start, end, sampleIndex / samples, amplitude);
+    target.moveTo(previous.x, previous.y).lineTo(next.x, next.y).stroke(stroke);
+    previous = next;
+  }
+}
+
+function semanticTendrilPoint(edge, start, end, t, amplitude) {
+  const point = sampleCurvedEdge(start, end, t);
+  if (amplitude === 0) {
+    return point;
+  }
+  const before = sampleCurvedEdge(start, end, Math.max(0, t - 0.025));
+  const after = sampleCurvedEdge(start, end, Math.min(1, t + 0.025));
+  const dx = after.x - before.x;
+  const dy = after.y - before.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const endpointFalloff = Math.sin(Math.PI * t);
+  const wave = Math.sin((t * 1.7 + unitHashForId(edge.id)) * Math.PI * 2);
+  const offset = wave * amplitude * endpointFalloff;
+  return {
+    x: point.x + (-dy / length) * offset,
+    y: point.y + (dx / length) * offset,
+  };
 }
 
 function edgeHasWorkflowFlow(edge, visibleNodeIds) {

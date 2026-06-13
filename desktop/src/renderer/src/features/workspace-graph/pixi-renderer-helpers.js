@@ -375,13 +375,16 @@ function workflowNodeAuraSeed(nodeId) {
 }
 
 function drawSemanticNodeGlow(target, node, pulse, mode) {
+  const cell = workspaceNeonTheme.semantic.cell;
   const animated = mode === "animated";
   const steady = mode === "steady";
-  const radius = 58 + (animated ? pulse * 16 : steady ? 7 : 0);
-  const alpha = animated || steady ? 0.09 + pulse * 0.08 : 0.055;
+  const cellRadius = Math.min(node.width, node.height) / 2;
+  const radius = cellRadius + 15 + (animated ? pulse * 10 : steady ? 5 : 0);
+  const baseAlpha = node.dismissed ? cell.dismissed.auraAlpha : cell.auraAlpha;
+  const alpha = animated || steady ? baseAlpha + pulse * 0.08 : baseAlpha * 0.58;
   target
     .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
-    .stroke({ alpha, color: node.color, width: animated || steady ? 2.4 : 1.7 });
+    .stroke({ alpha, color: node.color, width: animated || steady ? 2.6 : 1.8 });
 }
 
 function hexToRgb(color) {

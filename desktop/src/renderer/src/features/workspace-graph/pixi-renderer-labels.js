@@ -6,6 +6,8 @@ import {
   validateNodeLabelGlyphs,
 } from "./pixi-renderer-label-font";
 import { syncNodeLabelVisibility } from "./pixi-renderer-label-visibility";
+import { rendererNodeLayer } from "./pixi-renderer-layers";
+import { workspaceNeonTheme } from "./workspace-neon-theme";
 
 export function createWorkflowGraphLabelManager({
   labelLayer,
@@ -73,12 +75,17 @@ export function createWorkflowGraphLabelManager({
       syncLabelPosition(node.id);
     }
     syncLabelVisibility();
+    for (const node of nodes) {
+      if (rendererNodeLayer(node) === "semantic") {
+        syncLabelPosition(node.id);
+      }
+    }
   }
 
   function syncLabelPosition(nodeId) {
     const node = requireNode(nodeId);
     const label = requireNodeLabel(nodeId);
-    const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
+    const screen = nodeLabelScreenPosition({ label, node, viewport });
     label.position.set(Math.round(screen.x), Math.round(screen.y));
     label.scale.set(1);
     labelSyncCount += 1;
@@ -113,4 +120,22 @@ export function createWorkflowGraphLabelManager({
     }
     return label;
   }
+}
+
+export function nodeLabelScreenPosition({ label, node, viewport }) {
+  switch (rendererNodeLayer(node)) {
+    case "workflow":
+      return viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
+    case "semantic": {
+      const membraneBottom = viewport.toScreen(node.x + node.width / 2, node.y + node.height);
+      return {
+        x: membraneBottom.x,
+        y:
+          membraneBottom.y +
+          workspaceNeonTheme.semantic.cell.labelGapScreenPx +
+          Math.max(0, label.height / 2),
+      };
+    }
+  }
+  throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
 }

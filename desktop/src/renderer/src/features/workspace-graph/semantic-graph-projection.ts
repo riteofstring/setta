@@ -14,9 +14,7 @@ import {
 
 const semanticNodePrefix = "semantic:";
 const semanticNodeHeight = 68;
-const semanticNodeMinWidth = 168;
-const semanticNodeMaxWidth = 236;
-const semanticNodeWidthStep = 7;
+const semanticNodeWidth = semanticNodeHeight;
 const semanticColumnGap = 248;
 const semanticRowGap = 112;
 
@@ -72,7 +70,7 @@ export function rendererGraphFromSemanticGraph({
         promoted: node.promoted,
         splitFromNodeId: semanticOptionalRendererNodeId(node.splitFromNodeId),
         splitIntoNodeIds: node.splitIntoNodeIds.map(semanticRendererNodeId),
-        width: semanticNodeWidth(node.label),
+        width: semanticNodeWidth,
         x: position.x,
         y: position.y,
       };
@@ -172,7 +170,7 @@ function defaultSemanticNodePosition(index: number, workflowGraph: WorkflowGraph
 
 function semanticDefaultBase(workflowGraph: WorkflowGraphGraph | undefined) {
   if (!workflowGraph || workflowGraph.nodes.length === 0) {
-    return { x: -semanticNodeMinWidth / 2, y: 20 };
+    return { x: -semanticNodeWidth / 2, y: 20 };
   }
   const right = Math.max(...workflowGraph.nodes.map((node) => node.x + node.width));
   const centerY =
@@ -198,13 +196,6 @@ function semanticNodeDismissed(node: SemanticNode) {
 
 function semanticOptionalRendererNodeId(nodeId: string) {
   return nodeId === "" ? "" : semanticRendererNodeId(nodeId);
-}
-
-function semanticNodeWidth(label: string) {
-  return Math.min(
-    semanticNodeMaxWidth,
-    Math.max(semanticNodeMinWidth, 44 + label.length * semanticNodeWidthStep),
-  );
 }
 
 function semanticNodeActivitySummary(activity: readonly SemanticActivityInterval[]) {

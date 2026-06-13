@@ -3,26 +3,13 @@ import { FillGradient, GraphicsContext } from "pixi.js";
 import { rendererNodeLayer } from "./pixi-renderer-layers";
 import { workspaceNeonTheme } from "./workspace-neon-theme";
 
-const legacyNodeBodyStyle = {
-  radius: 8,
-  fillAlpha: 0.92,
-  strokeAlpha: 0.55,
-  strokeColor: 0xffffff,
-  strokeWidth: 1.5,
-};
-
-const legacyNodeShadowStyle = {
-  alpha: 0.14,
-  color: 0x000000,
-  offsetX: 7,
-  offsetY: 9,
-  radius: 8,
-};
-
 const diagnosticMarkerColors = {
   error: 0xfb7185,
   warning: 0xfbbf24,
 };
+
+const cellPathSegments = 22;
+const cellTau = Math.PI * 2;
 
 export function createNodeGeometryContextFactory() {
   let nodeBodyContextCount = 0;
@@ -46,18 +33,15 @@ export function createNodeGeometryContextFactory() {
       throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
     },
     nodeOutlineContextFor: (node, state) => {
-      rendererNodeLayer(node);
-      const style = nodeOutlineStyleFor(state);
-      nodeOutlineContextCount += 1;
-      return new GraphicsContext()
-        .roundRect(
-          -style.inset,
-          -style.inset,
-          node.width + style.inset * 2,
-          node.height + style.inset * 2,
-          style.radius,
-        )
-        .stroke({ alpha: style.alpha, color: style.color, width: style.width });
+      switch (rendererNodeLayer(node)) {
+        case "workflow":
+          nodeOutlineContextCount += 1;
+          return workflowNodeOutlineContextFor(node, state);
+        case "semantic":
+          nodeOutlineContextCount += 1;
+          return semanticNodeOutlineContextFor(node, state);
+      }
+      throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
     },
     nodeShadowContextFor: (node) => {
       switch (rendererNodeLayer(node)) {
@@ -137,12 +121,17 @@ export function drawNodeActivityMarker(target, node) {
     workspaceNeonTheme.semantic.activity[node.activity.kind] ??
     workspaceNeonTheme.semantic.activity.exploring;
   const style = activityMarkerStyle(node.activity.active);
+  const geometry = semanticCellGeometry(node);
+  const dotAngle = -Math.PI / 4;
+  const dotDistance = geometry.radius + 7;
+  const dotX = geometry.centerX + Math.cos(dotAngle) * dotDistance;
+  const dotY = geometry.centerY + Math.sin(dotAngle) * dotDistance;
   target
-    .roundRect(-7, -7, node.width + 14, node.height + 14, 12)
+    .circle(geometry.centerX, geometry.centerY, geometry.radius + 7)
     .stroke({ alpha: style.ringAlpha, color, width: style.ringWidth })
-    .circle(10, -3, style.dotRadius)
+    .circle(dotX, dotY, style.dotRadius)
     .fill({ alpha: style.dotAlpha, color })
-    .circle(10, -3, style.outerRadius)
+    .circle(dotX, dotY, style.outerRadius)
     .stroke({ alpha: style.outerAlpha, color, width: 2 });
 }
 
@@ -186,15 +175,37 @@ function workflowNodeBodyContextFor(node) {
 }
 
 function semanticNodeBodyContextFor(node) {
-  return new GraphicsContext()
-    .roundRect(0, 0, node.width, node.height, legacyNodeBodyStyle.radius)
-    .fill({ alpha: legacyNodeBodyStyle.fillAlpha, color: node.color })
-    .roundRect(0, 0, node.width, node.height, legacyNodeBodyStyle.radius)
-    .stroke({
-      alpha: legacyNodeBodyStyle.strokeAlpha,
-      color: legacyNodeBodyStyle.strokeColor,
-      width: legacyNodeBodyStyle.strokeWidth,
-    });
+  const style = semanticCellRenderStyle(node);
+  const geometry = semanticCellGeometry(node);
+  const seed = stableUnitHash(node.id);
+  const context = new GraphicsContext();
+  drawOrganicCellPath(context, geometry, seed)
+    .fill({ alpha: style.cytoplasmAlpha, color: style.cytoplasmColor })
+    .circle(
+      geometry.centerX - geometry.radius * 0.14,
+      geometry.centerY - geometry.radius * 0.12,
+      geometry.radius * 0.67,
+    )
+    .fill({ alpha: style.innerTintAlpha, color: node.color })
+    .circle(
+      geometry.centerX + geometry.radius * 0.18,
+      geometry.centerY + geometry.radius * 0.15,
+      geometry.radius * 0.43,
+    )
+    .fill({ alpha: style.innerTintAlpha * 0.58, color: node.color });
+  drawSemanticNucleus(context, node, geometry, seed, style);
+  drawSemanticOrganelles(context, node, geometry, seed, style);
+  drawOrganicCellPath(context, geometry, seed).stroke({
+    alpha: style.membraneAlpha,
+    color: node.color,
+    width: style.membraneWidth,
+  });
+  drawOrganicCellPath(context, { ...geometry, radius: geometry.radius - 2.4 }, seed + 0.19).stroke({
+    alpha: Math.min(0.38, style.membraneAlpha * 0.42),
+    color: 0xecfeff,
+    width: 0.8,
+  });
+  return context;
 }
 
 function workflowNodeShadowContextFor(node) {
@@ -207,15 +218,118 @@ function workflowNodeShadowContextFor(node) {
 }
 
 function semanticNodeShadowContextFor(node) {
+  const style = semanticCellRenderStyle(node);
+  const geometry = semanticCellGeometry(node);
+  return new GraphicsContext()
+    .circle(geometry.centerX + 4, geometry.centerY + 6, geometry.radius + 2)
+    .fill({ alpha: 0.18, color: 0x000000 })
+    .circle(geometry.centerX, geometry.centerY, geometry.radius + 8)
+    .stroke({ alpha: style.auraAlpha * 0.58, color: node.color, width: style.auraWidth + 4 })
+    .circle(geometry.centerX, geometry.centerY, geometry.radius + 4)
+    .stroke({ alpha: style.auraAlpha, color: node.color, width: style.auraWidth });
+}
+
+function workflowNodeOutlineContextFor(node, state) {
+  const style = nodeOutlineStyleFor(state);
   return new GraphicsContext()
     .roundRect(
-      legacyNodeShadowStyle.offsetX,
-      legacyNodeShadowStyle.offsetY,
-      node.width,
-      node.height,
-      legacyNodeShadowStyle.radius,
+      -style.inset,
+      -style.inset,
+      node.width + style.inset * 2,
+      node.height + style.inset * 2,
+      style.radius,
     )
-    .fill({ alpha: legacyNodeShadowStyle.alpha, color: legacyNodeShadowStyle.color });
+    .stroke({ alpha: style.alpha, color: style.color, width: style.width });
+}
+
+function semanticNodeOutlineContextFor(node, state) {
+  const style = nodeOutlineStyleFor(state);
+  const geometry = semanticCellGeometry(node);
+  return new GraphicsContext()
+    .circle(geometry.centerX, geometry.centerY, geometry.radius + style.inset)
+    .stroke({ alpha: style.alpha, color: style.color, width: style.width });
+}
+
+function semanticCellGeometry(node) {
+  const radius = Math.max(
+    1,
+    Math.min(node.width, node.height) / 2 - workspaceNeonTheme.semantic.cell.membraneRadiusInset,
+  );
+  return {
+    centerX: node.width / 2,
+    centerY: node.height / 2,
+    radius,
+  };
+}
+
+function semanticCellRenderStyle(node) {
+  const { dismissed, promoted, ...base } = workspaceNeonTheme.semantic.cell;
+  if (node.dismissed) {
+    return { ...base, ...dismissed };
+  }
+  if (node.promoted) {
+    return { ...base, ...promoted };
+  }
+  return base;
+}
+
+function drawOrganicCellPath(context, geometry, seed) {
+  const first = organicCellPoint(geometry, 0, seed);
+  context.moveTo(first.x, first.y);
+  for (let index = 1; index <= cellPathSegments; index += 1) {
+    const point = organicCellPoint(geometry, index, seed);
+    context.lineTo(point.x, point.y);
+  }
+  return context.closePath();
+}
+
+function organicCellPoint({ centerX, centerY, radius }, index, seed) {
+  const angle = (index / cellPathSegments) * cellTau;
+  const wobble =
+    Math.sin(angle * 3 + seed * cellTau) * 1.25 + Math.sin(angle * 5 - seed * cellTau * 0.73) * 0.9;
+  const pointRadius = radius + wobble;
+  return {
+    x: centerX + Math.cos(angle) * pointRadius,
+    y: centerY + Math.sin(angle) * pointRadius,
+  };
+}
+
+function drawSemanticNucleus(context, node, geometry, seed, style) {
+  const angle = seed * cellTau + 0.6;
+  const nucleusX = geometry.centerX + Math.cos(angle) * geometry.radius * 0.16;
+  const nucleusY = geometry.centerY + Math.sin(angle) * geometry.radius * 0.14;
+  const nucleusRadius = geometry.radius * 0.25;
+  context
+    .circle(nucleusX, nucleusY, nucleusRadius * 1.44)
+    .fill({ alpha: style.nucleusAlpha * 0.1, color: node.color })
+    .circle(nucleusX, nucleusY, nucleusRadius)
+    .stroke({ alpha: style.nucleusAlpha, color: node.color, width: 1.6 })
+    .circle(nucleusX, nucleusY, nucleusRadius * 0.43)
+    .fill({ alpha: style.nucleusAlpha * 0.88, color: 0xecfeff });
+}
+
+function drawSemanticOrganelles(context, node, geometry, seed, style) {
+  const organelleRadii = [0.055, 0.045, 0.05, 0.04];
+  for (let index = 0; index < organelleRadii.length; index += 1) {
+    const angle = seed * cellTau + index * 1.71 + 0.4;
+    const distance = geometry.radius * (0.38 + ((index * 17) % 19) / 100);
+    context
+      .circle(
+        geometry.centerX + Math.cos(angle) * distance,
+        geometry.centerY + Math.sin(angle) * distance,
+        Math.max(1.6, geometry.radius * organelleRadii[index]),
+      )
+      .fill({ alpha: style.organelleAlpha, color: index % 2 === 0 ? node.color : 0xecfeff });
+  }
+}
+
+function stableUnitHash(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0x100000000;
 }
 
 export function drawDiagnosticDiamond(target, centerX, centerY, severity) {

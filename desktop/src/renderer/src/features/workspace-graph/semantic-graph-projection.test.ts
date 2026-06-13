@@ -43,6 +43,7 @@ describe("rendererGraphFromSemanticGraph", () => {
       promoted: false,
       splitFromNodeId: "",
       splitIntoNodeIds: [],
+      width: 68,
       x: 80,
       y: -40,
     });

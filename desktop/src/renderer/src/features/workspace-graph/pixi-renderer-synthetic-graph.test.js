@@ -70,6 +70,7 @@ describe("workflow graph synthetic data", () => {
       id: "semantic:synthetic-node-00000",
       layer: "semantic",
       label: "Cell 0000",
+      width: 68,
     });
     expect(graph.nodes.filter((node) => node.activity?.active === true)).toHaveLength(2);
     expect(graph.edges[0]).toMatchObject({
