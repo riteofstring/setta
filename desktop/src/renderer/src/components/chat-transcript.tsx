@@ -154,6 +154,22 @@ const userMessageContainerClassByDelivery = {
     "max-w-full overflow-hidden rounded-sm border border-blue-400/40 bg-blue-950/30 px-3 py-2 text-[13px] leading-5 break-words text-blue-100",
 } satisfies Record<MessageDelivery, string>;
 
+export function transcriptVirtualItemKey(
+  timeline: ReadonlyArray<Pick<TranscriptTimelineRow, "key">>,
+  index: number,
+  item: Pick<TranscriptTimelineRow, "key"> | undefined,
+) {
+  return item?.key ?? timeline[index]?.key ?? `transcript-row:${index}`;
+}
+
+export function transcriptVirtualItem(
+  timeline: readonly TranscriptTimelineRow[],
+  index: number,
+  item: TranscriptTimelineRow | undefined,
+) {
+  return item ?? timeline[index] ?? null;
+}
+
 export function ChatTranscript({
   activeRun,
   editQueuedMessage,
@@ -321,19 +337,23 @@ export function ChatTranscript({
         }}
         data={timeline}
         data-testid="chat-transcript-scroller"
-        computeItemKey={(_, item) => item.key}
+        computeItemKey={(index, item) => transcriptVirtualItemKey(timeline, index, item)}
         followOutput={pinned ? "auto" : false}
         increaseViewportBy={{ bottom: 800, top: 400 }}
         initialItemCount={Math.min(timeline.length, 30)}
-        itemContent={(_, item) => {
-          if (item.kind === "message") {
+        itemContent={(index, item) => {
+          const row = transcriptVirtualItem(timeline, index, item);
+          if (!row) {
+            return null;
+          }
+          if (row.kind === "message") {
             return (
               <MessageRow
                 loadRunItemOutput={loadRunItemOutput}
                 activeSearchMessageId={search.activeMessageId}
-                message={item.message}
+                message={row.message}
                 rowActions={rowActions}
-                showTimestamp={timestampMessageIds.has(item.message.id)}
+                showTimestamp={timestampMessageIds.has(row.message.id)}
                 runItemIdsByRunId={transcript.runItemIdsByRunId}
                 runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
                 runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
@@ -351,7 +371,7 @@ export function ChatTranscript({
               runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
               runItemOutputsById={transcript.runItemOutputsById}
               runItemsById={transcript.runItemsById}
-              turn={item.turn}
+              turn={row.turn}
               rowActions={rowActions}
               timestampMessageIds={timestampMessageIds}
             />

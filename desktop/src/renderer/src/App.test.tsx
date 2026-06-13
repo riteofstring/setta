@@ -13,7 +13,13 @@ import { beforeEach, describe, expect, test } from "vitest";
 
 import { App, sidebarWorkspaceBusy } from "./App";
 import { compactPaneWidth } from "./app-layout";
-import { ChatTranscript, type ChatTranscriptProps } from "./components/chat-transcript";
+import {
+  ChatTranscript,
+  transcriptVirtualItem,
+  transcriptVirtualItemKey,
+  type ChatTranscriptProps,
+} from "./components/chat-transcript";
+import type { TranscriptTimelineRow } from "./components/chat-transcript-timeline";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { useAppearanceStore } from "./stores/appearance-store";
 import { useChatStore } from "./stores/chat-store";
@@ -425,6 +431,17 @@ describe("chat renderer states", () => {
 
     expect(rowCount(html, "chat-assistant-turn-row")).toBeLessThanOrEqual(30);
   }, 30_000);
+
+  test("resolves transcript virtual rows when the virtualizer omits an item", () => {
+    const timeline = [{ key: "message:one" }, { key: "turn:run_api" }];
+    const row = { key: "turn:run_api" } as TranscriptTimelineRow;
+
+    expect(transcriptVirtualItemKey(timeline, 0, { key: "message:item" })).toBe("message:item");
+    expect(transcriptVirtualItemKey(timeline, 1, undefined)).toBe("turn:run_api");
+    expect(transcriptVirtualItemKey(timeline, 8, undefined)).toBe("transcript-row:8");
+    expect(transcriptVirtualItem([row], 0, undefined)).toBe(row);
+    expect(transcriptVirtualItem([], 8, undefined)).toBeNull();
+  });
 
   test("renders queued steering and activity rows", () => {
     const html = renderToString(
