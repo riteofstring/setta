@@ -4,7 +4,9 @@ import { drawNodeActivityMarker, drawNodeDiagnosticMarker } from "./pixi-rendere
 
 export function createWorkflowGraphNodeContainer({
   node,
+  nodeActivityMarkers,
   nodeBodies,
+  nodeDiagnosticMarkers,
   nodeGeometry,
   nodeOutlines,
   nodeShadows,
@@ -30,8 +32,10 @@ export function createWorkflowGraphNodeContainer({
   selectedOutline.visible = false;
   const diagnosticMarker = new Graphics();
   drawNodeDiagnosticMarker(diagnosticMarker, node);
+  nodeDiagnosticMarkers.set(node.id, diagnosticMarker);
   const activityMarker = new Graphics();
   drawNodeActivityMarker(activityMarker, node);
+  nodeActivityMarkers.set(node.id, activityMarker);
   nodeOutlines.set(node.id, { hoverOutline, selectedOutline });
 
   const nodeGraphics = [

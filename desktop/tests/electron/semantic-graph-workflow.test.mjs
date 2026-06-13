@@ -33,6 +33,7 @@ const seedConstraintNodeId = "semantic_seed_constraint";
 const seedCartographerPatchId = "semantic_seed_cartographer_patch_pending";
 const seedWorkflowExecutionId = "semantic_seed_workflow_execution";
 const seedRendererNodeId = `semantic:${seedConstraintNodeId}`;
+const cartographerAuditBurstSize = 6;
 const semanticNodeDragDelta = { x: 92, y: 44 };
 const semanticNodeDetailsRequiredText = [
   "Deterministic layout writes stay read-only",
@@ -101,9 +102,15 @@ try {
       semanticEdges(snapshot).length >= 3,
   );
   assertSemanticGraphVisible(initial);
+  assertRendererLifecycleDebug(initial, "initial semantic graph");
   await captureScreenshot(context.client, join(artifactDir, "semantic-initial.png"));
 
-  const targetNode = nodeById(initial, seedRendererNodeId);
+  const auditBurst = await buildCartographerAuditBurst(context.client, workspaceId);
+  assertCartographerAuditBurst(auditBurst);
+  const afterAuditBurst = await getWorkflowGraphSnapshot(context.client);
+  assertRendererStableWithoutGraphUpdate(initial, afterAuditBurst, "cartographer audit burst");
+
+  const targetNode = nodeById(afterAuditBurst, seedRendererNodeId);
   await dispatchWorkflowGraphMouseDoubleClick(context.client, workflowGraphSurfaceId, {
     x: targetNode.screenX,
     y: targetNode.screenY,
@@ -123,8 +130,20 @@ try {
 
   const attachment = await attachSemanticNodeToChatRun(context.client, workspaceId);
   assertSemanticChatRunAttachment(attachment);
+  const beforeGraphMutationBurst = await getWorkflowGraphSnapshot(context.client);
   const editing = await exerciseSemanticEditing(context.client, workspaceId);
   assertSemanticEditingResult(editing);
+  const afterGraphMutationBurst = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.render.graphUpdateCount > beforeGraphMutationBurst.render.graphUpdateCount &&
+      snapshot.graph.nodes.some((node) => node.id === "semantic:semantic_e2e_merged"),
+  );
+  assertRendererStableForGraphUpdate(
+    beforeGraphMutationBurst,
+    afterGraphMutationBurst,
+    "semantic editing graph refresh",
+  );
   const beforeHistory = await semanticEventHistory(context.client, workspaceId);
   assertSemanticAttachmentHistory(beforeHistory, attachment);
 
@@ -197,8 +216,11 @@ try {
   await writeJson(join(artifactDir, "summary.json"), {
     attachment,
     afterDrag,
+    afterAuditBurst,
+    afterGraphMutationBurst,
     afterReload,
     artifactDir,
+    auditBurst,
     beforeHistoryCount: beforeHistory.events.length,
     editing,
     initial,
@@ -499,6 +521,61 @@ async function waitForWorkflowGraphSnapshot(client, predicate) {
 
 async function getWorkflowGraphSnapshot(client) {
   return client.driver("workflowGraphDebugSnapshot", { surfaceId: workflowGraphSurfaceId });
+}
+
+async function buildCartographerAuditBurst(client, workspaceId) {
+  const burstSize = cartographerAuditBurstSize;
+  return client.evaluate(`(async () => {
+    const burstSize = ${burstSize};
+    const workspaceId = ${JSON.stringify(workspaceId)};
+    const sourceRefs = {
+      chatConversationId: "",
+      chatMessageId: "",
+      chatRunId: "",
+      runItemId: "",
+      workflowDefinitionId: "",
+      workflowExecutionId: ${JSON.stringify(seedWorkflowExecutionId)},
+      workflowNodeExecutionId: "",
+      workflowNodeId: ""
+    };
+    const events = [];
+    const unsubscribe = window.setta.semanticGraph.onEvent((event) => {
+      if (
+        event.workspaceId === workspaceId &&
+        event.changedAreas.length === 1 &&
+        event.changedAreas[0] === "cartographer_audit"
+      ) {
+        events.push(event);
+      }
+    });
+    const built = [];
+    try {
+      for (let index = 0; index < burstSize; index += 1) {
+        built.push(await window.setta.semanticGraph.buildCartographerWindow({
+          runStatus: "completed",
+          sourceRefs,
+          summary: \`Workflow graph audit-only burst \${index + 1}\`,
+          targetEntityId: ${JSON.stringify(seedConstraintNodeId)},
+          terminalReason: "manual",
+          triggerKind: "manual",
+          workspaceId
+        }));
+      }
+      const deadline = Date.now() + 5000;
+      while (events.length < built.length && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return {
+        auditEventCount: events.length,
+        builtCount: built.length,
+        changedAreas: events.map((event) => event.changedAreas),
+        runIds: built.map((item) => item.run.id),
+        windowIds: built.map((item) => item.window.id)
+      };
+    } finally {
+      unsubscribe();
+    }
+  })()`);
 }
 
 async function dispatchWorkflowGraphMouseDoubleClick(client, surfaceId, point) {
@@ -964,15 +1041,27 @@ async function acceptSeedCartographerPatchFromDetails(client) {
     })()`,
     (value) => value.hasButton && !value.disabled && !value.loading,
   );
-  await client.evaluate(
+  const clickResult = await client.evaluate(
     `(() => {
       const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
       if (!(button instanceof HTMLButtonElement) || button.disabled) {
-        throw new Error("cartographer accept button is not clickable");
+        return { ok: false, reason: "cartographer accept button is not clickable" };
       }
-      button.click();
+      try {
+        button.click();
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          reason: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack ?? "" : "",
+        };
+      }
     })()`,
   );
+  if (!clickResult.ok) {
+    throw new Error(`cartographer accept click failed: ${JSON.stringify(clickResult)}`);
+  }
   await waitForState(
     client,
     `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
@@ -1050,6 +1139,95 @@ function assertSemanticGraphVisible(snapshot) {
   }
   if (!snapshot.visual.hasNonBackgroundPixels || snapshot.visual.sampledColorCount < 2) {
     throw new Error(`semantic graph canvas appears blank: ${JSON.stringify(snapshot.visual)}`);
+  }
+}
+
+function assertRendererLifecycleDebug(snapshot, label) {
+  for (const counter of [
+    "canvasCreationCount",
+    "graphUpdateCount",
+    "rendererDestroyCount",
+    "rendererInstanceId",
+  ]) {
+    if (!Number.isInteger(snapshot.render[counter]) || snapshot.render[counter] < 0) {
+      throw new Error(
+        `${label} renderer lifecycle counter ${counter} was invalid: ${JSON.stringify(snapshot.render)}`,
+      );
+    }
+  }
+  if (snapshot.render.canvasCreationCount !== 1) {
+    throw new Error(
+      `${label} expected one canvas for the mounted renderer: ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+}
+
+function assertCartographerAuditBurst(result) {
+  if (
+    result.builtCount !== cartographerAuditBurstSize ||
+    result.auditEventCount < result.builtCount
+  ) {
+    throw new Error(
+      `cartographer audit burst did not deliver enough events: ${JSON.stringify(result)}`,
+    );
+  }
+  const nonAuditOnly = result.changedAreas.find(
+    (areas) => areas.length !== 1 || areas[0] !== "cartographer_audit",
+  );
+  if (nonAuditOnly) {
+    throw new Error(
+      `cartographer audit burst delivered non-audit areas: ${JSON.stringify(result)}`,
+    );
+  }
+}
+
+function assertRendererStableWithoutGraphUpdate(before, after, label) {
+  assertRendererStable(before, after, label);
+  if (after.render.graphUpdateCount !== before.render.graphUpdateCount) {
+    throw new Error(
+      `${label} triggered a graph update: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+    );
+  }
+  if (
+    after.graph.nodeCount !== before.graph.nodeCount ||
+    after.graph.edgeCount !== before.graph.edgeCount
+  ) {
+    throw new Error(
+      `${label} changed visible graph topology: before=${JSON.stringify(before.graph)} after=${JSON.stringify(after.graph)}`,
+    );
+  }
+}
+
+function assertRendererStableForGraphUpdate(before, after, label) {
+  assertRendererStable(before, after, label);
+  if (after.render.graphUpdateCount <= before.render.graphUpdateCount) {
+    throw new Error(
+      `${label} did not update graph data in the existing renderer: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+    );
+  }
+}
+
+function assertRendererStable(before, after, label) {
+  assertRendererLifecycleDebug(after, label);
+  if (after.render.rendererInstanceId !== before.render.rendererInstanceId) {
+    throw new Error(
+      `${label} recreated the Pixi renderer: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+    );
+  }
+  if (after.render.canvasCreationCount !== before.render.canvasCreationCount) {
+    throw new Error(
+      `${label} created a replacement canvas: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+    );
+  }
+  if (after.render.rendererDestroyCount !== before.render.rendererDestroyCount) {
+    throw new Error(
+      `${label} destroyed the renderer: before=${JSON.stringify(before.render)} after=${JSON.stringify(after.render)}`,
+    );
+  }
+  if (!after.visual.hasNonBackgroundPixels || after.visual.sampledColorCount < 2) {
+    throw new Error(
+      `${label} left the workflow graph canvas blank: ${JSON.stringify(after.visual)}`,
+    );
   }
 }
 

@@ -27,6 +27,7 @@ import type {
   WorkflowGraphEdgeConnection,
   WorkflowGraphGraph,
   WorkflowGraphRenderer,
+  WorkflowGraphRendererHandlers,
 } from "./pixi-renderer";
 import { createSyntheticWorkflowGraph } from "./pixi-renderer-synthetic-graph";
 import { WorkflowApprovalOverlay } from "./workflow-approval-overlay";
@@ -38,7 +39,12 @@ import {
 } from "./workflow-graph-camera-scope";
 import { rendererGraphFromWorkflowProjection } from "./workflow-graph-projection";
 import { useWorkflowProjectionState } from "./workflow-graph-projection-state";
+import { workflowRendererHandlersForSurface } from "./workflow-graph-renderer-handlers";
 import { isWorkflowGraphRendererInitAbort } from "./workflow-graph-renderer-lifecycle";
+import {
+  workflowGraphStateForSurface,
+  workflowSyntheticGraphForSurface,
+} from "./workflow-graph-surface-state";
 import {
   mergeWorkflowAndSemanticGraphs,
   rendererGraphFromSemanticGraph,
@@ -73,6 +79,8 @@ export function WorkflowGraphSurface({
   const workflowMenuRef = useRef<HTMLDivElement>(null);
   const workflowCameraRef = useRef<WorkflowGraphCameraState | null>(null);
   const workflowCameraScopeRef = useRef<WorkflowGraphCameraScope | null>(null);
+  const workflowRendererRef = useRef<WorkflowGraphRenderer | null>(null);
+  const pendingWorkflowGraphRef = useRef<WorkflowGraphRendererGraph | null>(null);
   const reactRenderCount = useRef(0);
   reactRenderCount.current += 1;
   const [workflowEditorError, setWorkflowEditorError] = useState("");
@@ -85,8 +93,7 @@ export function WorkflowGraphSurface({
     null,
   );
   const [workflowOperation, setWorkflowOperation] = useState<"run" | "validate" | null>(null);
-  const syntheticGraph =
-    window.setta.app.flags.workflowGraphSyntheticGraph ?? syntheticGraphFallback ?? null;
+  const syntheticGraph = workflowSyntheticGraphForSurface(syntheticGraphFallback);
   const selectedDefinitionIdsByWorkspaceId = useWorkflowDefinitionStore(
     (state) => state.selectedDefinitionIdsByWorkspaceId,
   );
@@ -147,6 +154,9 @@ export function WorkflowGraphSurface({
       }),
     [semanticGraph, syntheticGraph, workflowGraph, workflowProjectionReady, workflowWorkspaceId],
   );
+  pendingWorkflowGraphRef.current = graph ?? null;
+  const rendererGraphReady = graph !== undefined;
+  const rendererScopeKey = workflowRendererScopeKey(syntheticGraph, workflowWorkspaceId);
   const pendingApproval = useMemo(
     () => workflowProjectionPendingApproval(workflowProjection),
     [workflowProjection],
@@ -155,13 +165,14 @@ export function WorkflowGraphSurface({
     () => selectedWorkflowProjectionNode(workflowProjection, selectedWorkflowNodeId),
     [selectedWorkflowNodeId, workflowProjection],
   );
-  const loadingProjection =
-    syntheticGraph === null && (workflowProjectionLoading || semanticGraphState.loading);
-  const noWorkspace = syntheticGraph === null && workflowProjectionHasNoWorkspace;
-  const workflowProjectionError =
-    syntheticGraph === null
-      ? [workflowProjectionLoadError, semanticGraphState.error].filter(Boolean).join("\n")
-      : "";
+  const { loadingProjection, noWorkspace, workflowProjectionError } = workflowGraphStateForSurface({
+    semanticGraphError: semanticGraphState.error,
+    semanticGraphLoading: semanticGraphState.loading,
+    syntheticGraph,
+    workflowProjectionHasNoWorkspace,
+    workflowProjectionLoadError,
+    workflowProjectionLoading,
+  });
   const openWorkflowContextMenu = useCallback((menu: WorkflowContextMenuState) => {
     setWorkflowContextMenu(menu);
   }, []);
@@ -500,6 +511,34 @@ export function WorkflowGraphSurface({
     setSelectedSemanticNodeId(semanticNodeId);
     setSelectedWorkflowNodeId(semanticNodeId === null ? selectedNodeId : null);
   }, []);
+  const rendererHandlers = useMemo<WorkflowGraphRendererHandlers>(
+    () =>
+      workflowRendererHandlersForSurface({
+        addWorkflowDraftEdge,
+        deleteWorkflowDraftNodes,
+        handleGraphNodeSelectionChange,
+        openGraphNodeDetails,
+        openWorkflowContextMenu,
+        persistNodePositions,
+        reactRenderCount,
+        surfaceId,
+        syntheticGraph,
+        workflowCameraRef,
+        workflowCameraScopeRef,
+      }),
+    [
+      addWorkflowDraftEdge,
+      deleteWorkflowDraftNodes,
+      handleGraphNodeSelectionChange,
+      openGraphNodeDetails,
+      openWorkflowContextMenu,
+      persistNodePositions,
+      surfaceId,
+      syntheticGraph,
+    ],
+  );
+  const rendererHandlersRef = useRef<WorkflowGraphRendererHandlers>(rendererHandlers);
+  rendererHandlersRef.current = rendererHandlers;
 
   useEffect(() => {
     syncWorkflowGraphCameraScope({
@@ -530,11 +569,26 @@ export function WorkflowGraphSurface({
   }, [selectedSemanticNodeId, semanticGraphState.graph]);
 
   useEffect(() => {
+    workflowRendererRef.current?.setHandlers(rendererHandlers);
+  }, [rendererHandlers]);
+
+  useEffect(() => {
     if (!graph) {
+      return;
+    }
+    workflowRendererRef.current?.updateGraph(graph);
+  }, [graph]);
+
+  useEffect(() => {
+    if (!rendererGraphReady) {
       return;
     }
     const host = hostRef.current;
     if (!host) {
+      return;
+    }
+    const initialGraph = pendingWorkflowGraphRef.current;
+    if (initialGraph === null) {
       return;
     }
 
@@ -552,6 +606,9 @@ export function WorkflowGraphSurface({
         workflowCameraScopeRef.current,
         workflowCameraRef.current,
       );
+      if (workflowRendererRef.current === rendererHandle) {
+        workflowRendererRef.current = null;
+      }
       rendererHandle.destroy();
       rendererHandle = null;
     };
@@ -565,34 +622,22 @@ export function WorkflowGraphSurface({
           abortSignal: abortController.signal,
           debugEnabled,
           debugSurfaceId: surfaceId,
-          graph,
+          graph: initialGraph,
           host,
           initialCameraState: workflowCameraRef.current,
-          onCanvasContextMenu: syntheticGraph === null ? openWorkflowContextMenu : undefined,
-          onCameraStateChange: (camera) => {
-            workflowCameraRef.current = camera;
-            writeWorkflowGraphCameraState(surfaceId, workflowCameraScopeRef.current, camera);
-          },
-          onEdgeCreate:
-            syntheticGraph === null ? (edge) => void addWorkflowDraftEdge(edge) : undefined,
-          onNodeDelete:
-            syntheticGraph === null
-              ? (nodeIds) => void deleteWorkflowDraftNodes(nodeIds)
-              : undefined,
-          onNodeOpen:
-            syntheticGraph === null ? (nodeId) => openGraphNodeDetails(nodeId) : undefined,
-          onNodePositionsChange: (positions) => {
-            void persistNodePositions(positions);
-          },
-          onNodeSelectionChange:
-            syntheticGraph === null ? handleGraphNodeSelectionChange : undefined,
-          reactRenderCount: () => reactRenderCount.current,
+          ...rendererHandlersRef.current,
         });
         if (disposed) {
           renderer.destroy();
           return;
         }
         rendererHandle = renderer;
+        workflowRendererRef.current = renderer;
+        renderer.setHandlers(rendererHandlersRef.current);
+        const pendingGraph = pendingWorkflowGraphRef.current;
+        if (pendingGraph !== null && pendingGraph !== initialGraph) {
+          renderer.updateGraph(pendingGraph);
+        }
       })
       .catch((error: unknown) => {
         if (isWorkflowGraphRendererInitAbort(error)) {
@@ -607,18 +652,7 @@ export function WorkflowGraphSurface({
       destroyRenderer();
       host.replaceChildren();
     };
-  }, [
-    debugEnabled,
-    graph,
-    addWorkflowDraftEdge,
-    deleteWorkflowDraftNodes,
-    handleGraphNodeSelectionChange,
-    openWorkflowContextMenu,
-    openGraphNodeDetails,
-    persistNodePositions,
-    surfaceId,
-    syntheticGraph,
-  ]);
+  }, [debugEnabled, rendererGraphReady, rendererScopeKey, surfaceId]);
 
   useEffect(() => {
     if (workflowContextMenu === null) {
@@ -767,6 +801,16 @@ function workflowRendererGraphForSurface({
     return emptyWorkflowRendererGraph();
   }
   return undefined;
+}
+
+function workflowRendererScopeKey(
+  syntheticGraph: SyntheticWorkflowGraphOptions,
+  workflowWorkspaceId: string,
+) {
+  if (syntheticGraph !== null) {
+    return `synthetic:${syntheticGraph.nodeCount}:${syntheticGraph.edgesPerNode}`;
+  }
+  return `workspace:${workflowWorkspaceId}`;
 }
 
 function workflowProjectionPendingApproval(projection: WorkflowGraphProjection | null) {

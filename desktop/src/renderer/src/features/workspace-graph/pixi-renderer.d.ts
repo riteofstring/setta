@@ -89,6 +89,17 @@ export interface WorkflowGraphEdgeConnection {
   targetPortId: string;
 }
 
+export interface WorkflowGraphRendererHandlers {
+  onCanvasContextMenu?: ((menu: WorkflowGraphCanvasContextMenu) => void) | null;
+  onCameraStateChange?: (camera: WorkflowGraphCameraState) => void;
+  onEdgeCreate?: (connection: WorkflowGraphEdgeConnection) => void;
+  onNodeDelete?: (nodeIds: string[]) => void;
+  onNodeOpen?: ((nodeId: string) => void) | null;
+  onNodePositionsChange?: (positions: WorkflowGraphNodePosition[]) => void;
+  onNodeSelectionChange?: (nodeIds: string[]) => void;
+  reactRenderCount?: () => number;
+}
+
 interface CreateWorkflowGraphRendererOptions {
   abortSignal?: AbortSignal;
   debugEnabled: boolean;
@@ -96,19 +107,21 @@ interface CreateWorkflowGraphRendererOptions {
   graph?: WorkflowGraphGraph;
   host: HTMLElement;
   initialCameraState?: WorkflowGraphCameraState | null;
-  onCanvasContextMenu?: (menu: WorkflowGraphCanvasContextMenu) => void;
-  onCameraStateChange?: (camera: WorkflowGraphCameraState) => void;
-  onEdgeCreate?: (connection: WorkflowGraphEdgeConnection) => void;
-  onNodeDelete?: (nodeIds: string[]) => void;
-  onNodeOpen?: (nodeId: string) => void;
-  onNodePositionsChange?: (positions: WorkflowGraphNodePosition[]) => void;
-  onNodeSelectionChange?: (nodeIds: string[]) => void;
-  reactRenderCount: () => number;
+  onCanvasContextMenu?: WorkflowGraphRendererHandlers["onCanvasContextMenu"];
+  onCameraStateChange?: WorkflowGraphRendererHandlers["onCameraStateChange"];
+  onEdgeCreate?: WorkflowGraphRendererHandlers["onEdgeCreate"];
+  onNodeDelete?: WorkflowGraphRendererHandlers["onNodeDelete"];
+  onNodeOpen?: WorkflowGraphRendererHandlers["onNodeOpen"];
+  onNodePositionsChange?: WorkflowGraphRendererHandlers["onNodePositionsChange"];
+  onNodeSelectionChange?: WorkflowGraphRendererHandlers["onNodeSelectionChange"];
+  reactRenderCount?: WorkflowGraphRendererHandlers["reactRenderCount"];
 }
 
 export interface WorkflowGraphRenderer {
   cameraState: () => WorkflowGraphCameraState;
   destroy: () => void;
+  setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
+  updateGraph: (graph: WorkflowGraphGraph) => void;
 }
 
 export function createWorkflowGraphRenderer(

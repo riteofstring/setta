@@ -19,7 +19,20 @@ interface SemanticGraphState {
   workspaceId: string;
 }
 
+export interface SemanticGraphRefreshRequest {
+  activity: boolean;
+  graph: boolean;
+}
+
 const semanticGraphActivityLimit = 3;
+const emptyRefreshRequest: SemanticGraphRefreshRequest = {
+  activity: false,
+  graph: false,
+};
+const fullRefreshRequest: SemanticGraphRefreshRequest = {
+  activity: true,
+  graph: true,
+};
 
 export function useSemanticGraphState() {
   const selectedWorkspaceId = useWorkspaceStore(
@@ -32,6 +45,7 @@ export function useSemanticGraphState() {
     let refreshQueued = false;
     let refreshRunning = false;
     let refreshRequested = false;
+    let scheduledRefresh = emptyRefreshRequest;
 
     if (selectedWorkspaceId === "") {
       setState(semanticGraphNoWorkspaceState(""));
@@ -40,27 +54,32 @@ export function useSemanticGraphState() {
 
     setState(semanticGraphLoadingState(selectedWorkspaceId));
 
-    const refresh = async (reason: "initial" | "notification") => {
+    const refresh = async (
+      reason: "initial" | "notification",
+      request: SemanticGraphRefreshRequest,
+    ) => {
       if (refreshRunning) {
+        scheduledRefresh = mergeSemanticGraphRefreshRequests(scheduledRefresh, request);
         refreshRequested = true;
         return;
       }
       refreshRunning = true;
+      let nextRequest = request;
       try {
         do {
           refreshRequested = false;
           try {
-            const snapshot = await loadSemanticGraphSnapshot(selectedWorkspaceId);
+            const snapshot = await loadSemanticGraphSnapshot(selectedWorkspaceId, nextRequest);
             if (!disposed) {
-              setState({
-                activitiesByNodeId: snapshot.activitiesByNodeId,
+              setState((current) => ({
+                activitiesByNodeId: snapshot.activitiesByNodeId ?? current.activitiesByNodeId,
                 error: "",
-                graph: snapshot.graph,
+                graph: snapshot.graph ?? current.graph,
                 loading: false,
                 noWorkspace: false,
                 ready: true,
                 workspaceId: selectedWorkspaceId,
-              });
+              }));
             }
           } catch (error: unknown) {
             console.error(
@@ -84,27 +103,40 @@ export function useSemanticGraphState() {
               );
             }
           }
+          nextRequest = scheduledRefresh;
+          scheduledRefresh = emptyRefreshRequest;
         } while (refreshRequested && !disposed);
       } finally {
         refreshRunning = false;
       }
     };
 
-    const scheduleRefresh = () => {
+    const scheduleRefresh = (request: SemanticGraphRefreshRequest) => {
+      scheduledRefresh = mergeSemanticGraphRefreshRequests(scheduledRefresh, request);
+      if (refreshRunning) {
+        refreshRequested = true;
+        return;
+      }
       if (refreshQueued) {
         return;
       }
       refreshQueued = true;
       queueMicrotask(() => {
         refreshQueued = false;
-        void refresh("notification");
+        const request = scheduledRefresh;
+        scheduledRefresh = emptyRefreshRequest;
+        if (semanticGraphRefreshRequestIsEmpty(request)) {
+          return;
+        }
+        void refresh("notification", request);
       });
     };
 
-    void refresh("initial");
+    void refresh("initial", fullRefreshRequest);
     const unsubscribe = window.setta.semanticGraph.onEvent((event) => {
-      if (semanticGraphChangeAffectsWorkspaceGraphState(event, selectedWorkspaceId)) {
-        scheduleRefresh();
+      const request = semanticGraphRefreshRequestForChange(event, selectedWorkspaceId);
+      if (request !== null) {
+        scheduleRefresh(request);
       }
     });
 
@@ -142,25 +174,69 @@ export function semanticGraphActivitySummaryMap(summary: SemanticActivitySummary
   return new Map(entries);
 }
 
+export function semanticGraphRefreshRequestForChange(
+  event: SemanticGraphChangeEvent,
+  workspaceId: string,
+): SemanticGraphRefreshRequest | null {
+  if (event.workspaceId !== workspaceId) {
+    return null;
+  }
+  const graph = event.changedAreas.some((area) => area === "graph" || area === "layout");
+  const activity = graph || event.changedAreas.includes("activity");
+  if (!graph && !activity) {
+    return null;
+  }
+  return { activity, graph };
+}
+
 export function semanticGraphChangeAffectsWorkspaceGraphState(
   event: SemanticGraphChangeEvent,
   workspaceId: string,
 ) {
-  return event.workspaceId === workspaceId && event.changedAreas.length > 0;
+  return semanticGraphRefreshRequestForChange(event, workspaceId) !== null;
 }
 
-async function loadSemanticGraphSnapshot(workspaceId: string) {
-  const [graph, activitySummary] = await Promise.all([
-    window.setta.semanticGraph.read({ workspaceId }),
-    window.setta.semanticGraph.readActivitySummary({
+async function loadSemanticGraphSnapshot(
+  workspaceId: string,
+  request: SemanticGraphRefreshRequest,
+) {
+  if (request.graph) {
+    const [graph, activitySummary] = await Promise.all([
+      window.setta.semanticGraph.read({ workspaceId }),
+      window.setta.semanticGraph.readActivitySummary({
+        recentLimit: semanticGraphActivityLimit,
+        workspaceId,
+      }),
+    ]);
+    return {
+      activitiesByNodeId: semanticGraphActivitySummaryMap(activitySummary),
+      graph,
+    };
+  }
+  if (request.activity) {
+    const activitySummary = await window.setta.semanticGraph.readActivitySummary({
       recentLimit: semanticGraphActivityLimit,
       workspaceId,
-    }),
-  ]);
+    });
+    return {
+      activitiesByNodeId: semanticGraphActivitySummaryMap(activitySummary),
+    };
+  }
+  return {};
+}
+
+function mergeSemanticGraphRefreshRequests(
+  left: SemanticGraphRefreshRequest,
+  right: SemanticGraphRefreshRequest,
+): SemanticGraphRefreshRequest {
   return {
-    activitiesByNodeId: semanticGraphActivitySummaryMap(activitySummary),
-    graph,
+    activity: left.activity || right.activity,
+    graph: left.graph || right.graph,
   };
+}
+
+function semanticGraphRefreshRequestIsEmpty(request: SemanticGraphRefreshRequest) {
+  return !request.activity && !request.graph;
 }
 
 function dedupeSemanticActivity(activity: SemanticActivityInterval[]) {

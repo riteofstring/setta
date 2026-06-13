@@ -8,6 +8,7 @@ import type {
 import {
   semanticGraphActivitySummaryMap,
   semanticGraphChangeAffectsWorkspaceGraphState,
+  semanticGraphRefreshRequestForChange,
 } from "./semantic-graph-state";
 
 describe("semanticGraphActivitySummaryMap", () => {
@@ -49,7 +50,7 @@ describe("semanticGraphActivitySummaryMap", () => {
 });
 
 describe("semanticGraphChangeAffectsWorkspaceGraphState", () => {
-  test("matches only selected-workspace semantic graph changes", () => {
+  test("matches only selected-workspace graph, layout, and activity changes", () => {
     const event = semanticGraphChangeEvent({ workspaceId: "workspace_graph" });
 
     expect(semanticGraphChangeAffectsWorkspaceGraphState(event, "workspace_graph")).toBe(true);
@@ -60,6 +61,56 @@ describe("semanticGraphChangeAffectsWorkspaceGraphState", () => {
         "workspace_graph",
       ),
     ).toBe(false);
+    expect(
+      semanticGraphChangeAffectsWorkspaceGraphState(
+        semanticGraphChangeEvent({ changedAreas: ["cartographer_audit"] }),
+        "workspace_graph",
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("semanticGraphRefreshRequestForChange", () => {
+  test("requests full graph refreshes for graph and layout changes", () => {
+    expect(
+      semanticGraphRefreshRequestForChange(
+        semanticGraphChangeEvent({ changedAreas: ["graph"] }),
+        "workspace_graph",
+      ),
+    ).toEqual({ activity: true, graph: true });
+    expect(
+      semanticGraphRefreshRequestForChange(
+        semanticGraphChangeEvent({ changedAreas: ["layout"] }),
+        "workspace_graph",
+      ),
+    ).toEqual({ activity: true, graph: true });
+  });
+
+  test("requests activity-only refreshes without replacing graph data", () => {
+    expect(
+      semanticGraphRefreshRequestForChange(
+        semanticGraphChangeEvent({ changedAreas: ["activity"] }),
+        "workspace_graph",
+      ),
+    ).toEqual({ activity: true, graph: false });
+  });
+
+  test("ignores non-graph surface areas and other workspaces", () => {
+    expect(
+      semanticGraphRefreshRequestForChange(
+        semanticGraphChangeEvent({ changedAreas: ["cartographer_audit"] }),
+        "workspace_graph",
+      ),
+    ).toBeNull();
+    expect(
+      semanticGraphRefreshRequestForChange(
+        semanticGraphChangeEvent({
+          changedAreas: ["graph"],
+          workspaceId: "workspace_other",
+        }),
+        "workspace_graph",
+      ),
+    ).toBeNull();
   });
 });
 

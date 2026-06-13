@@ -390,23 +390,6 @@ export function stopNativeInteraction(event) {
   event.stopImmediatePropagation();
 }
 
-export function createCanvasContextMenuHandler({ canvas, onCanvasContextMenu, viewport }) {
-  return (event) => {
-    if (!onCanvasContextMenu) {
-      return;
-    }
-    stopNativeInteraction(event);
-    const screen = screenPointFromPointer(canvas, event);
-    const world = viewport.toWorld(screen);
-    onCanvasContextMenu({
-      clientX: event.clientX,
-      clientY: event.clientY,
-      worldX: Math.round(world.x),
-      worldY: Math.round(world.y),
-    });
-  };
-}
-
 export function countMapValues(map, expected) {
   return [...map.values()].filter((value) => value === expected).length;
 }
