@@ -95,6 +95,7 @@ type SemanticGraphService interface {
 	ListContextPacks(context.Context, semanticgraph.SemanticContextPackFilter) (semanticgraph.SemanticContextPackList, error)
 	BuildCartographerWindow(context.Context, semanticgraph.CartographerManualWindowRequest) (semanticgraph.CartographerWindowBuildResult, error)
 	ProcessCartographerWindow(context.Context, string, string) (semanticgraph.CartographerWindowProcessResult, error)
+	ReadCartographerProcessingState(context.Context) (semanticgraph.CartographerProcessingState, error)
 	ReadCartographerRun(context.Context, string, string) (semanticgraph.CartographerRun, bool, error)
 	ListCartographerRuns(context.Context, semanticgraph.CartographerRunFilter) (semanticgraph.CartographerRunList, error)
 	ListCartographerWindows(context.Context, semanticgraph.CartographerWindowFilter) (semanticgraph.CartographerWindowList, error)

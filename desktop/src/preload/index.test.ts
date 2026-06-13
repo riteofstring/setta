@@ -569,6 +569,7 @@ describe("preload workspace API", () => {
       "promoteNode",
       "read",
       "readActivitySummary",
+      "readCartographerProcessingState",
       "readCartographerRun",
       "readContextPack",
       "readEventHistory",
@@ -635,6 +636,7 @@ describe("preload workspace API", () => {
       windowId: "cartographer_window_api",
       workspaceId,
     });
+    await api.semanticGraph.readCartographerProcessingState({});
     await api.semanticGraph.readCartographerRun({
       runId: "cartographer_run_api",
       workspaceId,
@@ -917,6 +919,7 @@ describe("preload workspace API", () => {
           workspaceId,
         },
       ],
+      [ipcChannels.semanticGraphCartographerProcessingState, {}],
       [
         ipcChannels.semanticGraphCartographerRunRead,
         {

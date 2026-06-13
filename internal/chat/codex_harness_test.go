@@ -74,6 +74,25 @@ func TestCodexHarnessRunsSemanticCartographerStructuredTask(t *testing.T) {
 	}
 }
 
+func TestCodexStructuredOutputUsesStreamedTextWhenCompletedTurnOmitsFinalText(t *testing.T) {
+	output, err := codexStructuredOutputFromCompletedTurn(
+		fakeCodexTurnWithItems("completed", []any{
+			map[string]any{
+				"id":   "agent_message_structured_fake",
+				"text": "",
+				"type": "agentMessage",
+			},
+		}),
+		`{"patches":[]}`,
+	)
+	if err != nil {
+		t.Fatalf("structured output from streamed text: %v", err)
+	}
+	if string(output) != `{"patches":[]}` {
+		t.Fatalf("structured output = %s, want streamed patch envelope", output)
+	}
+}
+
 func TestJSONRPCPendingCallFailsOnProcessExit(t *testing.T) {
 	client, err := startTestJSONRPCClient(testCodexConfig("jsonrpc-pending-exit"))
 	if err != nil {

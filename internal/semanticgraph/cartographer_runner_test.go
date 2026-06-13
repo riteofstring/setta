@@ -24,7 +24,7 @@ func TestProcessCartographerWindowRunsStructuredHarnessAndMarksProcessed(t *test
 	assertCartographerProcessApplied(t, result)
 	assertCartographerProcessContractArrays(t, result)
 	assertProcessedCartographerWindowReadback(t, service, ctx, window.ID)
-	assertProcessedCartographerNodeReadback(t, service, ctx)
+	assertProcessedCartographerNodeReadback(t, service, ctx, result)
 	assertStructuredCartographerTask(t, fake)
 }
 
@@ -64,9 +64,10 @@ func assertProcessedCartographerWindowReadback(t *testing.T, service *Service, c
 	}
 }
 
-func assertProcessedCartographerNodeReadback(t *testing.T, service *Service, ctx context.Context) {
+func assertProcessedCartographerNodeReadback(t *testing.T, service *Service, ctx context.Context, result CartographerWindowProcessResult) {
 	t.Helper()
-	detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "semantic_node_cartographer_scripted")
+	nodeID := result.Patches[0].Patch.Payload.NewNode.SemanticNodeID
+	detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, nodeID)
 	if err != nil || !ok || len(detail.Evidence) == 0 {
 		t.Fatalf("cartographer-created node detail = %+v ok=%v err=%v, want evidence-backed node", detail, ok, err)
 	}

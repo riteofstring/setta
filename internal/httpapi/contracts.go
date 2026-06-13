@@ -378,6 +378,8 @@ type ProcessCartographerWindowRequest struct {
 	WindowID    string `json:"windowId"`
 }
 
+type ReadCartographerProcessingStateRequest struct{}
+
 type ReadCartographerRunRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	RunID       string `json:"runId"`

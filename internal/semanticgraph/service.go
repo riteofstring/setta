@@ -25,12 +25,14 @@ type Service struct {
 	workflowResolver                 WorkflowSourceResolver
 	chatResolver                     ChatSourceResolver
 	cartographerMu                   sync.Mutex
+	automaticCartographerMu          sync.Mutex
 	cartographerConfig               CartographerObservationConfig
 	cartographerChatSubscription     cartographerSubscription
 	cartographerWorkflowSubscription cartographerSubscription
 	cartographerHarness              *CartographerHarness
 	cartographerHarnessKind          chat.HarnessKind
 	cartographerHarnessErr           error
+	automaticCartographer            automaticCartographerState
 	newID                            IDGenerator
 	now                              func() time.Time
 }
@@ -49,6 +51,7 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 		workspaceResolver:       workspaceResolver,
 		cartographerConfig:      DefaultCartographerObservationConfig(),
 		cartographerHarnessKind: chat.HarnessCodex,
+		automaticCartographer:   newAutomaticCartographerState(),
 		newID:                   randomID,
 		now:                     time.Now,
 	}
@@ -100,6 +103,18 @@ func WithCartographerHarnessTaskRunner(runner chat.HarnessTaskRunner, harnessKin
 			return
 		}
 		service.cartographerHarness = harness
+	}
+}
+
+func WithAutomaticCartographerProcessingDisabled() Option {
+	return func(service *Service) {
+		service.automaticCartographer.enabled = false
+	}
+}
+
+func WithAutomaticCartographerProcessingConfig(config AutomaticCartographerProcessingConfig) Option {
+	return func(service *Service) {
+		service.automaticCartographer.config = normalizeAutomaticCartographerProcessingConfig(config)
 	}
 }
 

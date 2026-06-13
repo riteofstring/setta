@@ -115,14 +115,19 @@ func (service *Service) StartCartographerEventObserver(ctx context.Context, chat
 	if ctx == nil {
 		return errors.New("context is required")
 	}
+	if err := service.StartAutomaticCartographerProcessing(ctx); err != nil {
+		return err
+	}
 	service.cartographerMu.Lock()
 	defer service.cartographerMu.Unlock()
 	if service.cartographerChatSubscription != nil || service.cartographerWorkflowSubscription != nil {
+		service.StopAutomaticCartographerProcessing()
 		return errors.New("cartographer event observer is already running")
 	}
 	if chatSource != nil {
 		subscription, err := chatSource.SubscribeEvents(chat.EventCursor{})
 		if err != nil {
+			service.StopAutomaticCartographerProcessing()
 			return err
 		}
 		service.cartographerChatSubscription = subscription
@@ -135,6 +140,7 @@ func (service *Service) StartCartographerEventObserver(ctx context.Context, chat
 				service.cartographerChatSubscription.Unsubscribe()
 				service.cartographerChatSubscription = nil
 			}
+			service.StopAutomaticCartographerProcessing()
 			return err
 		}
 		service.cartographerWorkflowSubscription = subscription
@@ -154,6 +160,7 @@ func (service *Service) CloseCartographerEventObserver() {
 		service.cartographerWorkflowSubscription.Unsubscribe()
 		service.cartographerWorkflowSubscription = nil
 	}
+	service.StopAutomaticCartographerProcessing()
 }
 
 func (service *Service) observeCartographerChatEvents(ctx context.Context, events <-chan chat.Event) {
@@ -376,6 +383,7 @@ func (service *Service) CloseQuietCartographerWindows(ctx context.Context, cutof
 		}
 		closed = append(closed, window)
 	}
+	service.enqueueClosedCartographerWindows(closed)
 	return closed, nil
 }
 
@@ -409,7 +417,9 @@ func (service *Service) observeCartographerEvent(ctx context.Context, observed o
 		if err := service.persistClosedObservedWindow(ctx, &window, run, advancedCursor, closeReason, now); err != nil {
 			return nil, err
 		}
-		return []CartographerWindow{window}, nil
+		closed := []CartographerWindow{window}
+		service.enqueueClosedCartographerWindows(closed)
+		return closed, nil
 	}
 
 	return nil, service.persistOpenObservedWindow(ctx, window, run, advancedCursor)

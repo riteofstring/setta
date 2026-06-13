@@ -220,6 +220,8 @@ const api: SettaAPI = {
     buildCartographerWindow: (request) => invoke("semanticGraphCartographerWindowBuild", request),
     processCartographerWindow: (request) =>
       invoke("semanticGraphCartographerWindowProcess", request),
+    readCartographerProcessingState: (request) =>
+      invoke("semanticGraphCartographerProcessingState", request),
     createEdge: (request) => invoke("semanticGraphCreateEdge", request),
     createNode: (request) => invoke("semanticGraphCreateNode", request),
     createSteeringDirective: (request) => invoke("semanticGraphCreateSteeringDirective", request),

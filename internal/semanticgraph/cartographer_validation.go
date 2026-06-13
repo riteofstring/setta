@@ -347,7 +347,7 @@ func validateCartographerMarkResolvedPayload(payload CartographerPatchPayload) e
 		return err
 	}
 	if payload.ResolutionNodeID == "" {
-		return nil
+		return errors.New("cartographer patch resolutionNodeId is required")
 	}
 	return validateStoreIDs("cartographer patch resolution node id", payload.ResolutionNodeID)
 }
@@ -936,7 +936,8 @@ func isCartographerTrajectoryEventSource(source CartographerTrajectoryEventSourc
 
 func isCartographerWindowCloseReason(reason CartographerWindowCloseReason) bool {
 	switch reason {
-	case CartographerCloseRunItemTerminal,
+	case CartographerCloseNone,
+		CartographerCloseRunItemTerminal,
 		CartographerCloseApprovalRequired,
 		CartographerCloseAssistantComplete,
 		CartographerCloseAssistantThreshold,

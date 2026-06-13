@@ -65,6 +65,7 @@ const (
 	CartographerTrajectorySourceChat     CartographerTrajectoryEventSource = "chat"
 	CartographerTrajectorySourceWorkflow CartographerTrajectoryEventSource = "workflow"
 
+	CartographerCloseNone                 CartographerWindowCloseReason = "none"
 	CartographerCloseRunItemTerminal      CartographerWindowCloseReason = "run_item_terminal"
 	CartographerCloseApprovalRequired     CartographerWindowCloseReason = "approval_required"
 	CartographerCloseAssistantComplete    CartographerWindowCloseReason = "assistant_complete"
@@ -464,4 +465,51 @@ type CartographerPatchReviewResult struct {
 	Patch      CartographerPatchRecord `json:"patch"`
 	Events     []SemanticEvent         `json:"events"`
 	NodeDetail *SemanticNodeDetail     `json:"nodeDetail"`
+}
+
+type AutomaticCartographerProcessingConfig struct {
+	MaxConcurrent       int `json:"maxConcurrent"`
+	PerSourceConcurrent int `json:"perSourceConcurrent"`
+}
+
+type CartographerProcessingQueueItem struct {
+	WorkspaceID string `json:"workspaceId"`
+	WindowID    string `json:"windowId"`
+	RunID       string `json:"runId"`
+	SourceKey   string `json:"sourceKey"`
+	EnqueuedAt  string `json:"enqueuedAt"`
+	StartedAt   string `json:"startedAt"`
+	Position    int    `json:"position"`
+}
+
+type CartographerProcessingFailure struct {
+	WorkspaceID string `json:"workspaceId"`
+	WindowID    string `json:"windowId"`
+	RunID       string `json:"runId"`
+	SourceKey   string `json:"sourceKey"`
+	Message     string `json:"message"`
+	FailedAt    string `json:"failedAt"`
+}
+
+type CartographerProcessingState struct {
+	Enabled                  bool                              `json:"enabled"`
+	Started                  bool                              `json:"started"`
+	MaxConcurrent            int                               `json:"maxConcurrent"`
+	PerSourceConcurrent      int                               `json:"perSourceConcurrent"`
+	QueuedWindowCount        int                               `json:"queuedWindowCount"`
+	RunningWindowCount       int                               `json:"runningWindowCount"`
+	QueuedWindows            []CartographerProcessingQueueItem `json:"queuedWindows"`
+	RunningWindows           []CartographerProcessingQueueItem `json:"runningWindows"`
+	LastProcessedWorkspaceID string                            `json:"lastProcessedWorkspaceId"`
+	LastProcessedWindowID    string                            `json:"lastProcessedWindowId"`
+	LastProcessedRunID       string                            `json:"lastProcessedRunId"`
+	LastProcessedAt          string                            `json:"lastProcessedAt"`
+	LastFailure              *CartographerProcessingFailure    `json:"lastFailure"`
+	CreatedSemanticEventIDs  []string                          `json:"createdSemanticEventIds"`
+}
+
+type CartographerProcessingRecoveryResult struct {
+	State            CartographerProcessingState       `json:"state"`
+	RecoveredCount   int                               `json:"recoveredCount"`
+	RecoveredWindows []CartographerProcessingQueueItem `json:"recoveredWindows"`
 }

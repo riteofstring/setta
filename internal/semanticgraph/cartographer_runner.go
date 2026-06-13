@@ -8,13 +8,22 @@ import (
 	"setta/internal/workspace"
 )
 
+type cartographerWindowProcessingOptions struct {
+	AutoApplyValidatedPatches bool
+}
+
 func (service *Service) ProcessCartographerWindow(ctx context.Context, workspaceID string, windowID string) (CartographerWindowProcessResult, error) {
+	return service.processCartographerWindow(ctx, workspaceID, windowID, cartographerWindowProcessingOptions{})
+}
+
+func (service *Service) processCartographerWindow(ctx context.Context, workspaceID string, windowID string, options cartographerWindowProcessingOptions) (CartographerWindowProcessResult, error) {
 	workspaceSummary, window, run, err := service.beginCartographerWindowProcessing(ctx, workspaceID, windowID)
 	if err != nil {
 		return CartographerWindowProcessResult{}, err
 	}
 
 	applicationInput := service.cartographerApplicationInputForWindow(run, window)
+	applicationInput.AutoApplyValidatedPatches = options.AutoApplyValidatedPatches
 	if service.cartographerHarness == nil {
 		applicationInput.HarnessError = "semantic cartographer harness task runner is not configured"
 	} else {
@@ -110,8 +119,8 @@ func (service *Service) readProcessableCartographerRun(ctx context.Context, work
 	if !ok {
 		return CartographerRun{}, fmt.Errorf("cartographer run %s was not found for window %s", window.RunID, window.ID)
 	}
-	if run.Status != CartographerRunPending && run.Status != CartographerRunRunning {
-		return CartographerRun{}, fmt.Errorf("cartographer run %s has status %s, want pending or running", run.ID, run.Status)
+	if run.Status != CartographerRunPending {
+		return CartographerRun{}, fmt.Errorf("cartographer run %s has status %s, want pending", run.ID, run.Status)
 	}
 	return run, nil
 }

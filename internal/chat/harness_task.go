@@ -2,6 +2,8 @@ package chat
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 )
@@ -29,9 +31,10 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 	if err != nil {
 		return HarnessTaskResult{}, err
 	}
+	patchID, nodeID := scriptedCartographerPatchIDs(input)
 	output, err := json.Marshal(map[string]any{
 		"patches": []map[string]any{{
-			"patchId":       "cartographer_patch_scripted",
+			"patchId":       patchID,
 			"operation":     "record_finding",
 			"workspaceId":   input.WorkspaceID,
 			"sourceRefs":    input.SourceRefs,
@@ -46,7 +49,7 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 			"reviewRequired": false,
 			"payload": map[string]any{
 				"newNode": map[string]any{
-					"semanticNodeId": "semantic_node_cartographer_scripted",
+					"semanticNodeId": nodeID,
 					"kind":           "finding",
 					"label":          "Scripted cartographer finding",
 					"summary":        "The scripted harness returned a deterministic finding.",
@@ -74,6 +77,7 @@ func runScriptedStructuredHarnessTask(ctx context.Context, request HarnessTaskRe
 
 type scriptedCartographerInput struct {
 	WorkspaceID  string
+	WindowID     string
 	SourceRefs   map[string]any
 	EvidenceRefs []map[string]any
 }
@@ -86,6 +90,7 @@ func scriptedCartographerInputFromRequest(request HarnessTaskRequest) (scriptedC
 	}
 	var bundle struct {
 		WorkspaceID string         `json:"workspaceId"`
+		WindowID    string         `json:"windowId"`
 		SourceRefs  map[string]any `json:"sourceRefs"`
 		Evidence    []struct {
 			ID         string `json:"id"`
@@ -102,6 +107,7 @@ func scriptedCartographerInputFromRequest(request HarnessTaskRequest) (scriptedC
 	if bundle.WorkspaceID != "" {
 		input.WorkspaceID = bundle.WorkspaceID
 	}
+	input.WindowID = bundle.WindowID
 	if bundle.SourceRefs != nil {
 		input.SourceRefs = bundle.SourceRefs
 	}
@@ -116,4 +122,15 @@ func scriptedCartographerInputFromRequest(request HarnessTaskRequest) (scriptedC
 		})
 	}
 	return input, nil
+}
+
+func scriptedCartographerPatchIDs(input scriptedCartographerInput) (string, string) {
+	const patchID = "cartographer_patch_scripted"
+	const nodeID = "semantic_node_cartographer_scripted"
+	if input.WindowID == "" {
+		return patchID, nodeID
+	}
+	sum := sha256.Sum256([]byte(input.WindowID))
+	suffix := hex.EncodeToString(sum[:])[:12]
+	return patchID + "_" + suffix, nodeID + "_" + suffix
 }

@@ -13,6 +13,7 @@ import type {
   CartographerCursorList,
   CartographerPatchList,
   CartographerPatchReviewResult,
+  CartographerProcessingState,
   CartographerRunList,
   CartographerRunReadResponse,
   CartographerWindowBuildResult,
@@ -48,6 +49,7 @@ import type {
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  ReadCartographerProcessingStateRequest,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -454,6 +456,9 @@ export interface SettaAPI {
     processCartographerWindow: (
       request: ProcessCartographerWindowRequest,
     ) => Promise<CartographerWindowProcessResult>;
+    readCartographerProcessingState: (
+      request: ReadCartographerProcessingStateRequest,
+    ) => Promise<CartographerProcessingState>;
     listCartographerCursors: (
       request: ListCartographerCursorsRequest,
     ) => Promise<CartographerCursorList>;

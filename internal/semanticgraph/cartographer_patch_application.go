@@ -12,20 +12,21 @@ import (
 const cartographerAutoApplyConfidenceThreshold = 0.75
 
 type CartographerPatchEnvelopeApplicationInput struct {
-	WorkspaceID        string                     `json:"workspaceId"`
-	RunID              string                     `json:"runId"`
-	WindowID           string                     `json:"windowId"`
-	TriggerKind        CartographerRunTriggerKind `json:"triggerKind"`
-	TargetEntityID     string                     `json:"targetEntityId"`
-	SourceRefs         SemanticContextSourceRefs  `json:"sourceRefs"`
-	InputBundle        CartographerInputBundle    `json:"inputBundle"`
-	HarnessKind        string                     `json:"harnessKind"`
-	Model              string                     `json:"model"`
-	RequestID          string                     `json:"requestId"`
-	ResponseID         string                     `json:"responseId"`
-	RawHarnessResponse json.RawMessage            `json:"rawHarnessResponse"`
-	HarnessError       string                     `json:"harnessError"`
-	TrajectorySummary  string                     `json:"trajectorySummary"`
+	WorkspaceID               string                     `json:"workspaceId"`
+	RunID                     string                     `json:"runId"`
+	WindowID                  string                     `json:"windowId"`
+	TriggerKind               CartographerRunTriggerKind `json:"triggerKind"`
+	TargetEntityID            string                     `json:"targetEntityId"`
+	SourceRefs                SemanticContextSourceRefs  `json:"sourceRefs"`
+	InputBundle               CartographerInputBundle    `json:"inputBundle"`
+	HarnessKind               string                     `json:"harnessKind"`
+	Model                     string                     `json:"model"`
+	RequestID                 string                     `json:"requestId"`
+	ResponseID                string                     `json:"responseId"`
+	RawHarnessResponse        json.RawMessage            `json:"rawHarnessResponse"`
+	HarnessError              string                     `json:"harnessError"`
+	TrajectorySummary         string                     `json:"trajectorySummary"`
+	AutoApplyValidatedPatches bool                       `json:"autoApplyValidatedPatches"`
 }
 
 type CartographerPatchEnvelopeApplicationResult struct {
@@ -207,7 +208,10 @@ func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, i
 		}
 		ids[patch.ID] = true
 		diagnostics := service.validateCartographerPatch(ctx, input, patch, newNodeIDs, index, now)
-		status, autoApply := cartographerPatchStatusFromDiagnostics(patch, diagnostics)
+		if input.AutoApplyValidatedPatches {
+			diagnostics = append(diagnostics, service.cartographerAutomaticPatchMetadataDiagnostics(input.RunID, patch, index, now)...)
+		}
+		status, autoApply := cartographerPatchStatusFromDiagnostics(patch, diagnostics, input.AutoApplyValidatedPatches)
 		decisions = append(decisions, cartographerPatchDecision{patch: patch, status: status, autoApply: autoApply, diagnostics: diagnostics})
 	}
 	if len(runDiagnostics) > 0 {
@@ -254,9 +258,50 @@ func (service *Service) validateCartographerPatch(ctx context.Context, input Car
 	return diagnostics
 }
 
-func cartographerPatchStatusFromDiagnostics(patch CartographerPatch, diagnostics []CartographerDiagnostic) (CartographerPatchStatus, bool) {
-	if len(diagnostics) > 0 {
+func (service *Service) cartographerAutomaticPatchMetadataDiagnostics(runID string, patch CartographerPatch, index int, now string) []CartographerDiagnostic {
+	diagnostics := []CartographerDiagnostic{}
+	if patch.ReviewRequired {
+		diagnostics = append(diagnostics, service.newCartographerDiagnostic(
+			runID,
+			patch.ID,
+			CartographerDiagnosticWarning,
+			"review_required_auto_applied",
+			"cartographer automatic processing records reviewRequired metadata but does not block deterministic-valid patches",
+			fmt.Sprintf("$.patches[%d].reviewRequired", index),
+			now,
+		))
+	}
+	if patch.Confidence != nil && *patch.Confidence < cartographerAutoApplyConfidenceThreshold {
+		diagnostics = append(diagnostics, service.newCartographerDiagnostic(
+			runID,
+			patch.ID,
+			CartographerDiagnosticWarning,
+			"low_confidence_auto_applied",
+			"cartographer automatic processing records low confidence metadata but does not block deterministic-valid patches",
+			fmt.Sprintf("$.patches[%d].confidence", index),
+			now,
+		))
+	}
+	if !cartographerPatchIsLowImpactOperation(patch.Operation) {
+		diagnostics = append(diagnostics, service.newCartographerDiagnostic(
+			runID,
+			patch.ID,
+			CartographerDiagnosticWarning,
+			"high_impact_auto_applied",
+			"cartographer automatic processing records high-impact operation metadata but does not block deterministic-valid patches",
+			fmt.Sprintf("$.patches[%d].operation", index),
+			now,
+		))
+	}
+	return diagnostics
+}
+
+func cartographerPatchStatusFromDiagnostics(patch CartographerPatch, diagnostics []CartographerDiagnostic, autoApplyValidated bool) (CartographerPatchStatus, bool) {
+	if cartographerDiagnosticsContainError(diagnostics) {
 		return CartographerPatchRejected, false
+	}
+	if autoApplyValidated {
+		return CartographerPatchApplied, true
 	}
 	if !cartographerPatchIsLowRiskAutoApply(patch) {
 		return CartographerPatchPendingReview, false
@@ -264,17 +309,30 @@ func cartographerPatchStatusFromDiagnostics(patch CartographerPatch, diagnostics
 	return CartographerPatchApplied, true
 }
 
+func cartographerDiagnosticsContainError(diagnostics []CartographerDiagnostic) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == CartographerDiagnosticError {
+			return true
+		}
+	}
+	return false
+}
+
 func cartographerPatchIsLowRiskAutoApply(patch CartographerPatch) bool {
 	if patch.ReviewRequired || patch.Confidence == nil || *patch.Confidence < cartographerAutoApplyConfidenceThreshold {
 		return false
 	}
-	switch patch.Operation {
+	return cartographerPatchIsLowImpactOperation(patch.Operation) && cartographerPatchHasEvidence(patch)
+}
+
+func cartographerPatchIsLowImpactOperation(operation CartographerPatchOperation) bool {
+	switch operation {
 	case CartographerPatchRecordFinding,
 		CartographerPatchRecordDecision,
 		CartographerPatchRecordConstraint,
 		CartographerPatchRecordOpenQuestion,
 		CartographerPatchAttachEvidence:
-		return cartographerPatchHasEvidence(patch)
+		return true
 	default:
 		return false
 	}
@@ -353,7 +411,7 @@ var cartographerPatchOperationRefValidators = map[CartographerPatchOperation]car
 	CartographerPatchAttachEvidence:     validateCartographerAttachEvidenceRefs,
 	CartographerPatchCreateEdge:         validateCartographerCreateEdgeRefs,
 	CartographerPatchUpdateNodeSummary:  validateCartographerExistingSemanticNodeRef,
-	CartographerPatchMarkResolved:       validateCartographerExistingSemanticNodeRef,
+	CartographerPatchMarkResolved:       validateCartographerMarkResolvedRefs,
 	CartographerPatchStartActivity:      validateCartographerStartActivityRefs,
 	CartographerPatchEndActivity:        validateCartographerEndActivityRefs,
 	CartographerPatchSplitNode:          validateCartographerSplitNodeRefs,
@@ -384,6 +442,13 @@ func validateCartographerCreateEdgeRefs(service *Service, ctx context.Context, w
 
 func validateCartographerExistingSemanticNodeRef(service *Service, ctx context.Context, workspaceID string, patch CartographerPatch, _ map[string]bool) error {
 	return service.requireSemanticNode(ctx, workspaceID, patch.Payload.SemanticNodeID)
+}
+
+func validateCartographerMarkResolvedRefs(service *Service, ctx context.Context, workspaceID string, patch CartographerPatch, newNodeIDs map[string]bool) error {
+	if err := service.requireSemanticNode(ctx, workspaceID, patch.Payload.SemanticNodeID); err != nil {
+		return err
+	}
+	return service.requireSemanticEntityOrNewNode(ctx, workspaceID, patch.Payload.ResolutionNodeID, newNodeIDs)
 }
 
 func validateCartographerStartActivityRefs(service *Service, ctx context.Context, workspaceID string, patch CartographerPatch, newNodeIDs map[string]bool) error {
@@ -469,37 +534,23 @@ func (service *Service) cartographerSemanticEventsForDecisions(ctx context.Conte
 	events := []SemanticEvent{}
 	eventIndexesByPatch := map[string][]int{}
 	actor := SemanticAttachmentActor{ActorKind: ActorKindCartographer, ActorID: input.RunID}
-	for index := range decisions {
-		if !decisions[index].autoApply {
+	orderedIndexes := cartographerDecisionApplicationOrder(decisions)
+	for _, decisionIndex := range orderedIndexes {
+		if !decisions[decisionIndex].autoApply {
 			continue
 		}
-		patchEvents, err := service.cartographerSemanticEventsForPatch(ctx, input.WorkspaceID, actor, decisions[index].patch)
+		patchEvents, err := service.cartographerSemanticEventsForPatch(ctx, input.WorkspaceID, actor, decisions[decisionIndex].patch)
 		if err != nil {
 			return nil, nil, err
 		}
 		for patchEventIndex := range patchEvents {
-			service.decorateCartographerSemanticEvent(&patchEvents[patchEventIndex], input, decisions[index].patch, now)
-			eventIndexesByPatch[decisions[index].patch.ID] = append(eventIndexesByPatch[decisions[index].patch.ID], len(events))
+			service.decorateCartographerSemanticEvent(&patchEvents[patchEventIndex], input, decisions[decisionIndex].patch, now)
+			eventIndexesByPatch[decisions[decisionIndex].patch.ID] = append(eventIndexesByPatch[decisions[decisionIndex].patch.ID], len(events))
 			events = append(events, patchEvents[patchEventIndex])
 		}
-		decisions[index].eventCount = len(patchEvents)
+		decisions[decisionIndex].eventCount = len(patchEvents)
 	}
 	return events, eventIndexesByPatch, nil
-}
-
-func (service *Service) cartographerSemanticEventsForPatch(ctx context.Context, workspaceID string, actor SemanticAttachmentActor, patch CartographerPatch) ([]SemanticEvent, error) {
-	switch patch.Operation {
-	case CartographerPatchRecordFinding, CartographerPatchRecordDecision, CartographerPatchRecordConstraint, CartographerPatchRecordOpenQuestion:
-		return service.cartographerRecordNodeEvents(ctx, workspaceID, actor, patch)
-	case CartographerPatchAttachEvidence:
-		targetID := patch.Payload.TargetEntityID
-		if targetID == "" {
-			targetID = patch.Payload.SemanticNodeID
-		}
-		return service.cartographerEvidenceEvents(ctx, workspaceID, actor, targetID, patch.Payload.EvidenceRefs, patch)
-	default:
-		return nil, fmt.Errorf("cartographer patch operation %s is not auto-applicable", patch.Operation)
-	}
 }
 
 func (service *Service) cartographerRecordNodeEvents(ctx context.Context, workspaceID string, actor SemanticAttachmentActor, patch CartographerPatch) ([]SemanticEvent, error) {

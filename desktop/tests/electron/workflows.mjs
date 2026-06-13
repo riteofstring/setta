@@ -66,6 +66,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "semantic-cartographer-auto-workflow.test.mjs",
+    name: "semantic-cartographer-auto",
+    tiers: ["required"],
+  },
+  {
     file: "workflow-graph-scale-validation.test.mjs",
     name: "workflow-graph-scale-validation",
     tiers: ["performance"],

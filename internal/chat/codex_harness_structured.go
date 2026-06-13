@@ -165,7 +165,7 @@ func startCodexStructuredTaskTurn(ctx context.Context, session *codexapp.Session
 			"type": "text",
 		}},
 		"outputSchema":  request.OutputContract.JSONSchema,
-		"sandboxPolicy": "read-only",
+		"sandboxPolicy": codexReadOnlySandboxPolicy(),
 		"threadId":      threadID,
 	}
 	if request.StructuredTask.Model != "" {
@@ -179,6 +179,10 @@ func startCodexStructuredTaskTurn(ctx context.Context, session *codexapp.Session
 		return "", fmt.Errorf("start codex structured task turn: %w", err)
 	}
 	return turnIDFromStartResponse(result)
+}
+
+func codexReadOnlySandboxPolicy() codexapp.SandboxPolicy {
+	return codexapp.SandboxPolicy([]byte(`{"type":"readOnly"}`))
 }
 
 func codexStructuredTaskInputText(task HarnessStructuredTask) string {
@@ -241,14 +245,14 @@ func handleCodexStructuredTaskNotification(message jsonRPCMessage, threadID stri
 	if completion.Completion.Outcome != TurnOutcomeCompleted {
 		return codexStructuredTaskWaitResult{completion: completion.Completion}, true, nil
 	}
-	output, err := codexStructuredOutputFromCompletedTurn(turn)
+	output, err := codexStructuredOutputFromCompletedTurn(turn, sink.StreamedAssistantText())
 	if err != nil {
 		return codexStructuredTaskWaitResult{}, false, err
 	}
 	return codexStructuredTaskWaitResult{completion: completion.Completion, output: output}, true, nil
 }
 
-func codexStructuredOutputFromCompletedTurn(turn map[string]any) (json.RawMessage, error) {
+func codexStructuredOutputFromCompletedTurn(turn map[string]any, streamedText string) (json.RawMessage, error) {
 	items, err := requireArray(turn, "items", "codex structured completed turn")
 	if err != nil {
 		return nil, err
@@ -260,6 +264,9 @@ func codexStructuredOutputFromCompletedTurn(turn map[string]any) (json.RawMessag
 			return nil, err
 		}
 		candidates = append(candidates, itemCandidates...)
+	}
+	if len(candidates) == 0 && strings.TrimSpace(streamedText) != "" {
+		candidates = append(candidates, json.RawMessage(streamedText))
 	}
 	if len(candidates) != 1 {
 		return nil, fmt.Errorf("codex structured task produced %d structured output candidates, want exactly one", len(candidates))
@@ -336,7 +343,8 @@ func strictJSONObject(raw json.RawMessage, label string) (json.RawMessage, error
 }
 
 type codexStructuredTaskSink struct {
-	diagnostics []HarnessTaskDiagnostic
+	assistantText strings.Builder
+	diagnostics   []HarnessTaskDiagnostic
 }
 
 func newCodexStructuredTaskSink() *codexStructuredTaskSink {
@@ -347,8 +355,13 @@ func (sink *codexStructuredTaskSink) Diagnostics() []HarnessTaskDiagnostic {
 	return append([]HarnessTaskDiagnostic{}, sink.diagnostics...)
 }
 
-func (sink *codexStructuredTaskSink) AssistantTextDelta(string, string) error {
-	return errors.New("codex structured cartographer task attempted streaming assistant text")
+func (sink *codexStructuredTaskSink) StreamedAssistantText() string {
+	return sink.assistantText.String()
+}
+
+func (sink *codexStructuredTaskSink) AssistantTextDelta(_ string, text string) error {
+	_, _ = sink.assistantText.WriteString(text)
+	return nil
 }
 
 func (sink *codexStructuredTaskSink) ApprovalRequested(ApprovalRequest) error {

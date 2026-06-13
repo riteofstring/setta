@@ -307,6 +307,7 @@ var (
 		CartographerTrajectorySourceWorkflow,
 	}
 	cartographerWindowCloseReasonValues = []CartographerWindowCloseReason{
+		CartographerCloseNone,
 		CartographerCloseRunItemTerminal,
 		CartographerCloseApprovalRequired,
 		CartographerCloseAssistantComplete,

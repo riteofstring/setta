@@ -103,6 +103,19 @@ func TestCartographerPatchEnvelopeRejectsInvalidOutputWithoutGraphMutation(t *te
 			wantState: CartographerRunRejected,
 		},
 		{
+			name: "missing resolution node",
+			input: func(t *testing.T) CartographerPatchEnvelopeApplicationInput {
+				patch := cartographerRecordFindingPatch("cartographer_patch_missing_resolution", "node_resolution_unused", "Missing resolution", 0.91)
+				patch.Operation = CartographerPatchMarkResolved
+				patch.Payload = CartographerPatchPayload{
+					SemanticNodeID: "node_cartographer_source",
+				}
+				return cartographerPatchApplicationInput(t, "cartographer_run_missing_resolution", []CartographerPatch{patch})
+			},
+			wantCode:  "schema_invalid",
+			wantState: CartographerRunRejected,
+		},
+		{
 			name: "chain of thought field",
 			input: func(t *testing.T) CartographerPatchEnvelopeApplicationInput {
 				input := cartographerPatchApplicationInput(t, "cartographer_run_chain_field", nil)

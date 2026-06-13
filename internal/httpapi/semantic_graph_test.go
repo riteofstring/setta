@@ -44,6 +44,7 @@ func TestCartographerReadAndReviewEndpoints(t *testing.T) {
 
 	built := buildHTTPCartographerWindow(t, handler, workspaceID)
 	assertHTTPCartographerProcessEndpoint(t, handler, workspaceID, built.Window.ID)
+	assertHTTPCartographerProcessingStateEndpoint(t, handler)
 	saveHTTPCartographerCursor(t, semanticService, workspaceID, built.Window.ID)
 	pending := applyPendingHTTPCartographerPatch(t, semanticService, workspaceID, "cartographer_run_http_accept", "cartographer_patch_http_accept", "node_http_accept")
 	assertHTTPCartographerReadEndpoints(t, handler, workspaceID, built, pending)
@@ -67,6 +68,14 @@ func buildHTTPCartographerWindow(t *testing.T, handler http.Handler, workspaceID
 		t.Fatalf("built cartographer window = %+v, want run, window, and summary", built)
 	}
 	return built
+}
+
+func assertHTTPCartographerProcessingStateEndpoint(t *testing.T, handler http.Handler) {
+	t.Helper()
+	state := postJSON[semanticgraph.CartographerProcessingState](t, handler, "/semantic-graph/cartographer/processing/state", ReadCartographerProcessingStateRequest{}, http.StatusOK)
+	if !state.Enabled || state.CreatedSemanticEventIDs == nil || state.QueuedWindows == nil || state.RunningWindows == nil {
+		t.Fatalf("cartographer processing state = %+v, want enabled state with non-nil slices", state)
+	}
 }
 
 func seedHTTPCartographerProcessEvidence(t *testing.T, semanticService *semanticgraph.Service, workspaceID string) {

@@ -15,6 +15,7 @@ import type {
   CartographerCursorList,
   CartographerPatchList,
   CartographerPatchReviewResult,
+  CartographerProcessingState,
   CartographerRunList,
   CartographerRunReadResponse,
   CartographerWindowBuildResult,
@@ -49,6 +50,7 @@ import type {
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
+  ReadCartographerProcessingStateRequest,
   RenameSemanticNodeRequest,
   ReadCartographerRunRequest,
   ReadSemanticActivitySummaryRequest,
@@ -171,6 +173,7 @@ export const ipcChannels = {
   semanticGraphCartographerPatchAccept: "semantic-graph:cartographer-patch-accept",
   semanticGraphCartographerPatchList: "semantic-graph:cartographer-patch-list",
   semanticGraphCartographerPatchReject: "semantic-graph:cartographer-patch-reject",
+  semanticGraphCartographerProcessingState: "semantic-graph:cartographer-processing-state",
   semanticGraphCartographerRunList: "semantic-graph:cartographer-run-list",
   semanticGraphCartographerRunRead: "semantic-graph:cartographer-run-read",
   semanticGraphCartographerWindowBuild: "semantic-graph:cartographer-window-build",
@@ -465,6 +468,10 @@ interface IpcContract {
   semanticGraphCartographerPatchReject: {
     args: [request: ReviewCartographerPatchRequest];
     result: CartographerPatchReviewResult;
+  };
+  semanticGraphCartographerProcessingState: {
+    args: [request: ReadCartographerProcessingStateRequest];
+    result: CartographerProcessingState;
   };
   semanticGraphCartographerRunList: {
     args: [request: ListCartographerRunsRequest];

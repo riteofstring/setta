@@ -27,14 +27,15 @@ import (
 )
 
 type Config struct {
-	AppDataDir      string
-	ChatHarness     ChatHarnessMode
-	Host            string
-	Port            int
-	Version         string
-	Stdout          io.Writer
-	Stderr          io.Writer
-	ShutdownTimeout time.Duration
+	AppDataDir                             string
+	ChatHarness                            ChatHarnessMode
+	DisableAutomaticCartographerProcessing bool
+	Host                                   string
+	Port                                   int
+	Version                                string
+	Stdout                                 io.Writer
+	Stderr                                 io.Writer
+	ShutdownTimeout                        time.Duration
 }
 
 type ChatHarnessMode string
@@ -186,6 +187,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		workspaceService,
 		workflowService,
 		chatService,
+		config.DisableAutomaticCartographerProcessing,
 	)
 	if err != nil {
 		return runtimeServices{}, err
@@ -311,18 +313,21 @@ func newSemanticGraphService(
 	workspaceService *workspacesession.Service,
 	workflowService *orchestrator.Service,
 	chatService *chat.Service,
+	disableAutomaticCartographerProcessing bool,
 ) (*semanticgraph.Service, *semanticgraph.Store, error) {
 	semanticStore, err := semanticgraph.NewStore(appDataDir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create semantic graph store: %w", err)
 	}
-	semanticService, err := semanticgraph.NewService(
-		semanticStore,
-		workspaceService,
+	options := []semanticgraph.Option{
 		semanticgraph.WithWorkflowSourceResolver(workflowService),
 		semanticgraph.WithChatSourceResolver(chatService),
 		semanticgraph.WithCartographerHarnessTaskRunner(chatService.HarnessTaskRunner(), chat.HarnessCodex),
-	)
+	}
+	if disableAutomaticCartographerProcessing {
+		options = append(options, semanticgraph.WithAutomaticCartographerProcessingDisabled())
+	}
+	semanticService, err := semanticgraph.NewService(semanticStore, workspaceService, options...)
 	if err != nil {
 		_ = semanticStore.Close()
 		return nil, nil, fmt.Errorf("create semantic graph service: %w", err)

@@ -250,7 +250,7 @@ func mergeOutputSummary(bundle *CartographerInputBundle, observed observedCartog
 }
 
 func cartographerCloseReason(bundle CartographerInputBundle, observed observedCartographerEvent, config CartographerObservationConfig) CartographerWindowCloseReason {
-	if observed.closeReason != "" {
+	if isCartographerClosingReason(observed.closeReason) {
 		return observed.closeReason
 	}
 	if cartographerAssistantBytes(bundle.NewEvents) >= config.AssistantThresholdBytes {
@@ -307,12 +307,23 @@ func cartographerTrajectoryEventFromObserved(observed observedCartographerEvent)
 		OutputStream:         observed.outputStream,
 		OutputOrdinal:        observed.outputOrdinal,
 		Summary:              text.text,
-		Boundary:             observed.closeReason != "",
-		CloseReason:          observed.closeReason,
+		Boundary:             isCartographerClosingReason(observed.closeReason),
+		CloseReason:          cartographerSerializedCloseReason(observed.closeReason),
 		OriginalContentBytes: contentBytes,
 		IncludedContentBytes: len([]byte(text.text)),
 		Truncated:            text.truncated,
 	}
+}
+
+func isCartographerClosingReason(reason CartographerWindowCloseReason) bool {
+	return reason != "" && reason != CartographerCloseNone
+}
+
+func cartographerSerializedCloseReason(reason CartographerWindowCloseReason) CartographerWindowCloseReason {
+	if isCartographerClosingReason(reason) {
+		return reason
+	}
+	return CartographerCloseNone
 }
 
 func applyCartographerInputLimits(bundle CartographerInputBundle, config CartographerObservationConfig) CartographerInputBundle {

@@ -747,7 +747,8 @@ func assertFakeStructuredTaskTurnStart(message map[string]any) {
 	if params["approvalPolicy"] != "never" {
 		panic("structured task turn should disable approvals")
 	}
-	if params["sandboxPolicy"] != "read-only" {
+	sandboxPolicy, ok := params["sandboxPolicy"].(map[string]any)
+	if !ok || sandboxPolicy["type"] != "readOnly" {
 		panic("structured task turn should use read-only sandbox")
 	}
 	if params["model"] != "gpt-test" {
@@ -828,6 +829,7 @@ func fakeCoreStreamTurnStart(string, *fakeCodexState) bool {
 }
 
 func fakeCoreStructuredTaskTurnStart(string, *fakeCodexState) bool {
+	writeFakeAssistantDelta(`{"patches":[]}`)
 	writeFakeStructuredCompletedTurn()
 	return true
 }

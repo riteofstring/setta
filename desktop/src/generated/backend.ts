@@ -1602,13 +1602,15 @@ export function decodeCartographerTrajectoryEventSource(value: unknown, label = 
   }
 }
 
-export type CartographerWindowCloseReason = "run_item_terminal" | "approval_required" | "assistant_complete" | "assistant_threshold" | "output_threshold" | "workflow_node_terminal" | "workflow_run_terminal" | "quiet_period" | "manual";
+export type CartographerWindowCloseReason = "none" | "run_item_terminal" | "approval_required" | "assistant_complete" | "assistant_threshold" | "output_threshold" | "workflow_node_terminal" | "workflow_run_terminal" | "quiet_period" | "manual";
 
-export const cartographerWindowCloseReasonValues = ["run_item_terminal", "approval_required", "assistant_complete", "assistant_threshold", "output_threshold", "workflow_node_terminal", "workflow_run_terminal", "quiet_period", "manual"] as const satisfies readonly CartographerWindowCloseReason[];
+export const cartographerWindowCloseReasonValues = ["none", "run_item_terminal", "approval_required", "assistant_complete", "assistant_threshold", "output_threshold", "workflow_node_terminal", "workflow_run_terminal", "quiet_period", "manual"] as const satisfies readonly CartographerWindowCloseReason[];
 
 export function decodeCartographerWindowCloseReason(value: unknown, label = "CartographerWindowCloseReason"): CartographerWindowCloseReason {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "none":
+      return decoded;
     case "run_item_terminal":
       return decoded;
     case "approval_required":
@@ -3734,6 +3736,45 @@ export interface CartographerWindowProcessResult {
   events: SemanticEvent[];
 }
 
+export interface ReadCartographerProcessingStateRequest {
+}
+
+export interface CartographerProcessingQueueItem {
+  workspaceId: string;
+  windowId: string;
+  runId: string;
+  sourceKey: string;
+  enqueuedAt: string;
+  startedAt: string;
+  position: number;
+}
+
+export interface CartographerProcessingFailure {
+  workspaceId: string;
+  windowId: string;
+  runId: string;
+  sourceKey: string;
+  message: string;
+  failedAt: string;
+}
+
+export interface CartographerProcessingState {
+  enabled: boolean;
+  started: boolean;
+  maxConcurrent: number;
+  perSourceConcurrent: number;
+  queuedWindowCount: number;
+  runningWindowCount: number;
+  queuedWindows: CartographerProcessingQueueItem[];
+  runningWindows: CartographerProcessingQueueItem[];
+  lastProcessedWorkspaceId: string;
+  lastProcessedWindowId: string;
+  lastProcessedRunId: string;
+  lastProcessedAt: string;
+  lastFailure: CartographerProcessingFailure | null;
+  createdSemanticEventIds: string[];
+}
+
 export interface ReadCartographerRunRequest {
   workspaceId: string;
   runId: string;
@@ -4779,6 +4820,10 @@ export const backendEndpoints = {
   ProcessCartographerWindow: {
     method: "POST",
     path: "/semantic-graph/cartographer/windows/process",
+  },
+  ReadCartographerProcessingState: {
+    method: "POST",
+    path: "/semantic-graph/cartographer/processing/state",
   },
   ReadCartographerRun: {
     method: "POST",
@@ -7528,6 +7573,61 @@ export function decodeCartographerWindowProcessResult(value: unknown): Cartograp
   };
 }
 
+export function decodeReadCartographerProcessingStateRequest(value: unknown): ReadCartographerProcessingStateRequest {
+  const record = assertRecord(value, "ReadCartographerProcessingStateRequest");
+  assertKnownFields(record, "ReadCartographerProcessingStateRequest", []);
+  return {
+  };
+}
+
+export function decodeCartographerProcessingQueueItem(value: unknown): CartographerProcessingQueueItem {
+  const record = assertRecord(value, "CartographerProcessingQueueItem");
+  assertKnownFields(record, "CartographerProcessingQueueItem", ["workspaceId", "windowId", "runId", "sourceKey", "enqueuedAt", "startedAt", "position"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.workspaceId"),
+    windowId: decodeString(requireField(record, "windowId", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.windowId"),
+    runId: decodeString(requireField(record, "runId", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.runId"),
+    sourceKey: decodeString(requireField(record, "sourceKey", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.sourceKey"),
+    enqueuedAt: decodeString(requireField(record, "enqueuedAt", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.enqueuedAt"),
+    startedAt: decodeString(requireField(record, "startedAt", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.startedAt"),
+    position: decodeInteger(requireField(record, "position", "CartographerProcessingQueueItem"), "CartographerProcessingQueueItem.position"),
+  };
+}
+
+export function decodeCartographerProcessingFailure(value: unknown): CartographerProcessingFailure {
+  const record = assertRecord(value, "CartographerProcessingFailure");
+  assertKnownFields(record, "CartographerProcessingFailure", ["workspaceId", "windowId", "runId", "sourceKey", "message", "failedAt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerProcessingFailure"), "CartographerProcessingFailure.workspaceId"),
+    windowId: decodeString(requireField(record, "windowId", "CartographerProcessingFailure"), "CartographerProcessingFailure.windowId"),
+    runId: decodeString(requireField(record, "runId", "CartographerProcessingFailure"), "CartographerProcessingFailure.runId"),
+    sourceKey: decodeString(requireField(record, "sourceKey", "CartographerProcessingFailure"), "CartographerProcessingFailure.sourceKey"),
+    message: decodeString(requireField(record, "message", "CartographerProcessingFailure"), "CartographerProcessingFailure.message"),
+    failedAt: decodeString(requireField(record, "failedAt", "CartographerProcessingFailure"), "CartographerProcessingFailure.failedAt"),
+  };
+}
+
+export function decodeCartographerProcessingState(value: unknown): CartographerProcessingState {
+  const record = assertRecord(value, "CartographerProcessingState");
+  assertKnownFields(record, "CartographerProcessingState", ["enabled", "started", "maxConcurrent", "perSourceConcurrent", "queuedWindowCount", "runningWindowCount", "queuedWindows", "runningWindows", "lastProcessedWorkspaceId", "lastProcessedWindowId", "lastProcessedRunId", "lastProcessedAt", "lastFailure", "createdSemanticEventIds"]);
+  return {
+    enabled: decodeBoolean(requireField(record, "enabled", "CartographerProcessingState"), "CartographerProcessingState.enabled"),
+    started: decodeBoolean(requireField(record, "started", "CartographerProcessingState"), "CartographerProcessingState.started"),
+    maxConcurrent: decodeInteger(requireField(record, "maxConcurrent", "CartographerProcessingState"), "CartographerProcessingState.maxConcurrent"),
+    perSourceConcurrent: decodeInteger(requireField(record, "perSourceConcurrent", "CartographerProcessingState"), "CartographerProcessingState.perSourceConcurrent"),
+    queuedWindowCount: decodeInteger(requireField(record, "queuedWindowCount", "CartographerProcessingState"), "CartographerProcessingState.queuedWindowCount"),
+    runningWindowCount: decodeInteger(requireField(record, "runningWindowCount", "CartographerProcessingState"), "CartographerProcessingState.runningWindowCount"),
+    queuedWindows: decodeArray(requireField(record, "queuedWindows", "CartographerProcessingState"), "CartographerProcessingState.queuedWindows", (item) => decodeCartographerProcessingQueueItem(item)),
+    runningWindows: decodeArray(requireField(record, "runningWindows", "CartographerProcessingState"), "CartographerProcessingState.runningWindows", (item) => decodeCartographerProcessingQueueItem(item)),
+    lastProcessedWorkspaceId: decodeString(requireField(record, "lastProcessedWorkspaceId", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedWorkspaceId"),
+    lastProcessedWindowId: decodeString(requireField(record, "lastProcessedWindowId", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedWindowId"),
+    lastProcessedRunId: decodeString(requireField(record, "lastProcessedRunId", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedRunId"),
+    lastProcessedAt: decodeString(requireField(record, "lastProcessedAt", "CartographerProcessingState"), "CartographerProcessingState.lastProcessedAt"),
+    lastFailure: decodeNullable(requireField(record, "lastFailure", "CartographerProcessingState"), "CartographerProcessingState.lastFailure", (item) => decodeCartographerProcessingFailure(item)),
+    createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "CartographerProcessingState"), "CartographerProcessingState.createdSemanticEventIds", (item) => decodeString(item, "CartographerProcessingState.createdSemanticEventIds item")),
+  };
+}
+
 export function decodeReadCartographerRunRequest(value: unknown): ReadCartographerRunRequest {
   const record = assertRecord(value, "ReadCartographerRunRequest");
   assertKnownFields(record, "ReadCartographerRunRequest", ["workspaceId", "runId"]);
@@ -8723,6 +8823,7 @@ export interface BackendClient {
   listSemanticContextPacks: (request: ListSemanticContextPacksRequest) => Promise<SemanticContextPackList>;
   buildCartographerWindow: (request: BuildCartographerWindowRequest) => Promise<CartographerWindowBuildResult>;
   processCartographerWindow: (request: ProcessCartographerWindowRequest) => Promise<CartographerWindowProcessResult>;
+  readCartographerProcessingState: (request: ReadCartographerProcessingStateRequest) => Promise<CartographerProcessingState>;
   readCartographerRun: (request: ReadCartographerRunRequest) => Promise<CartographerRunReadResponse>;
   listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
   listCartographerWindows: (request: ListCartographerWindowsRequest) => Promise<CartographerWindowList>;
@@ -9238,6 +9339,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCartographerWindowProcessResult,
       endpoint: backendEndpoints.ProcessCartographerWindow,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    readCartographerProcessingState: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeCartographerProcessingState,
+      endpoint: backendEndpoints.ReadCartographerProcessingState,
       fetchImpl,
       requestPayload: request,
     }),

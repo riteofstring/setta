@@ -80,6 +80,7 @@ try {
     artifactDir,
     extraEnv: {
       SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
+      SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER: "1",
       SETTA_WORKFLOW_GRAPH_DEBUG: "1",
     },
     fixture,
@@ -786,6 +787,7 @@ async function assertProcessCartographerWindowApi(client, workspaceId) {
   assertProcessedCartographerResult(processed, built);
   return {
     evidenceAnchorId: setup.evidenceAnchorId,
+    nodeId: processed.patches[0].patch.payload.newNode.semanticNodeId,
     patchId: processed.patches[0].id,
     runId: processed.run.id,
     windowId: processed.window.id,
@@ -851,7 +853,7 @@ function assertProcessedCartographerPatchResult(processed) {
   const patch = processed.patches[0] ?? null;
   if (
     processed.patches.length !== 1 ||
-    patch?.id !== "cartographer_patch_scripted" ||
+    !patch?.id.startsWith("cartographer_patch_scripted") ||
     patch?.status !== "applied" ||
     processed.events.length === 0
   ) {
@@ -884,7 +886,7 @@ async function assertProcessedCartographerReadback(client, workspaceId, processe
         workspaceId: ${JSON.stringify(workspaceId)}
       });
       const detail = await window.setta.semanticGraph.readNodeDetail({
-        nodeId: "semantic_node_cartographer_scripted",
+        nodeId: ${JSON.stringify(processedCartographer.nodeId)},
         workspaceId: ${JSON.stringify(workspaceId)}
       });
       const graph = await window.setta.semanticGraph.read({ workspaceId: ${JSON.stringify(workspaceId)} });
@@ -906,7 +908,7 @@ function processedCartographerReadbackReady(value, processedCartographer) {
     value.run?.run?.status === "applied" &&
     processedCartographerWindowReadbackReady(value, processedCartographer.windowId) &&
     processedCartographerPatchReadbackReady(value, processedCartographer.patchId) &&
-    value.detail?.detail?.node?.id === "semantic_node_cartographer_scripted"
+    value.detail?.detail?.node?.id === processedCartographer.nodeId
   );
 }
 
@@ -942,9 +944,7 @@ function assertProcessedCartographerNodeReadback(result, processedCartographer) 
   const hasEvidence = result.detail.detail.evidence.some(
     (evidence) => evidence.reassignedFromAnchorId === processedCartographer.evidenceAnchorId,
   );
-  const hasNode = result.graph.nodes.some(
-    (node) => node.id === "semantic_node_cartographer_scripted",
-  );
+  const hasNode = result.graph.nodes.some((node) => node.id === processedCartographer.nodeId);
   if (!hasEvidence || !hasNode) {
     throw new Error("processed cartographer node mismatch");
   }

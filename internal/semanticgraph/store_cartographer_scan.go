@@ -265,6 +265,11 @@ func normalizeCartographerInputBundle(bundle *CartographerInputBundle) {
 	normalizeCartographerWindowCursorMap(&bundle.WindowStartCursor)
 	normalizeCartographerWindowCursorMap(&bundle.WindowEndCursor)
 	bundle.NewEvents = nonNilSlice(bundle.NewEvents)
+	for index := range bundle.NewEvents {
+		if bundle.NewEvents[index].CloseReason == "" {
+			bundle.NewEvents[index].CloseReason = CartographerCloseNone
+		}
+	}
 	bundle.ToolCalls = nonNilSlice(bundle.ToolCalls)
 	bundle.FileChanges = nonNilSlice(bundle.FileChanges)
 	bundle.TestResults = nonNilSlice(bundle.TestResults)

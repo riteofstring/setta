@@ -63,6 +63,14 @@ func TestCartographerHarnessRejectsInvalidEnvelopeShape(t *testing.T) {
 	}
 }
 
+func TestDefaultCartographerPatchEnvelopeSchemaIsStrictForProvider(t *testing.T) {
+	var schema any
+	if err := json.Unmarshal(DefaultCartographerPatchEnvelopeSchema(), &schema); err != nil {
+		t.Fatalf("default cartographer schema is invalid JSON: %v", err)
+	}
+	assertStrictObjectSchema(t, schema, "$")
+}
+
 func TestValidateCartographerPatchEnvelopeShapeRequiresPatchObjects(t *testing.T) {
 	err := ValidateCartographerPatchEnvelopeShape(json.RawMessage(`{"patches":["not an object"]}`))
 	if err == nil {
@@ -71,6 +79,70 @@ func TestValidateCartographerPatchEnvelopeShapeRequiresPatchObjects(t *testing.T
 	if !strings.Contains(err.Error(), "cannot unmarshal string") {
 		t.Fatalf("cartographer envelope error = %v, want patch object failure", err)
 	}
+}
+
+func assertStrictObjectSchema(t *testing.T, raw any, path string) {
+	t.Helper()
+	schema, ok := raw.(map[string]any)
+	if !ok {
+		return
+	}
+	if schemaTypeIncludes(schema["type"], "object") || schema["properties"] != nil {
+		if schema["additionalProperties"] != false {
+			t.Fatalf("%s additionalProperties = %v, want false", path, schema["additionalProperties"])
+		}
+		properties := objectSchemaProperties(t, schema, path)
+		required := objectSchemaRequired(t, schema, path)
+		for property := range properties {
+			if !required[property] {
+				t.Fatalf("%s property %s is not required", path, property)
+			}
+		}
+	}
+	for key, value := range schema {
+		assertStrictObjectSchema(t, value, path+"."+key)
+	}
+}
+
+func schemaTypeIncludes(raw any, want string) bool {
+	switch value := raw.(type) {
+	case string:
+		return value == want
+	case []any:
+		for _, item := range value {
+			if item == want {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func objectSchemaProperties(t *testing.T, schema map[string]any, path string) map[string]any {
+	t.Helper()
+	raw, ok := schema["properties"].(map[string]any)
+	if ok {
+		return raw
+	}
+	t.Fatalf("%s object schema is missing properties", path)
+	return nil
+}
+
+func objectSchemaRequired(t *testing.T, schema map[string]any, path string) map[string]bool {
+	t.Helper()
+	raw, ok := schema["required"].([]any)
+	if !ok {
+		t.Fatalf("%s object schema is missing required", path)
+	}
+	required := map[string]bool{}
+	for _, item := range raw {
+		name, ok := item.(string)
+		if !ok {
+			t.Fatalf("%s required contains non-string value %v", path, item)
+		}
+		required[name] = true
+	}
+	return required
 }
 
 type badCartographerTaskRunner struct{}

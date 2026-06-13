@@ -106,7 +106,13 @@ Use only ids, source refs, semantic nodes, edges, evidence anchors, activity int
 
 Emit an empty patches array when no evidence-backed semantic update is warranted. For uncertain, low-confidence, broad, destructive, split, merge, resolution, or high-impact changes, set reviewRequired to true.
 
+When new workflow-agent output states an explicit finding, decision, constraint, or open question that is not already represented in existingNodes, emit the corresponding record_finding, record_decision, record_constraint, or record_open_question patch instead of an empty envelope. For a new finding, put the new node in payload.newNode, leave payload.semanticNodeId empty, use kind "finding", use scope "session" unless the finding is clearly workspace-wide, and cite evidenceRefs from non-empty source refs in the input bundle, such as {"sourceKind":"chat_message","sourceId":sourceRefs.chatMessageId} or {"sourceKind":"workflow_node","sourceId":sourceRefs.workflowNodeId}.
+
+Generate patchId and any new semanticNodeId, edgeId, or activityId values with only letters, numbers, underscores, or hyphens. Do not copy event refs, stream refs, source ids, or other values containing colons or punctuation into generated ids; derive a short safe id instead.
+
 Every patch must include confidence as a JSON number from 0.0 through 1.0, a publicSummary suitable for user inspection, sourceRefs matching the input bundle, causationId, correlationId, modelInfo, and explicit evidenceRefs when evidence is required.
+
+Because the output schema is strict, include every required payload field; set unused string fields to "", unused arrays to [], unused nested objects to null, and unused nullable kind fields to null.
 
 Do not include chain-of-thought, private reasoning, large raw transcripts, complete logs, complete diffs, complete files, markdown fences, prose outside JSON, or best-effort explanations.`
 }
@@ -140,15 +146,281 @@ func DefaultCartographerPatchEnvelopeSchema() json.RawMessage {
           "patchId": {"type": "string"},
           "operation": {"type": "string"},
           "workspaceId": {"type": "string"},
-          "sourceRefs": {"type": "object"},
+          "sourceRefs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "workflowDefinitionId",
+              "workflowExecutionId",
+              "workflowNodeId",
+              "workflowNodeExecutionId",
+              "chatConversationId",
+              "chatRunId",
+              "chatMessageId",
+              "runItemId"
+            ],
+            "properties": {
+              "workflowDefinitionId": {"type": "string"},
+              "workflowExecutionId": {"type": "string"},
+              "workflowNodeId": {"type": "string"},
+              "workflowNodeExecutionId": {"type": "string"},
+              "chatConversationId": {"type": "string"},
+              "chatRunId": {"type": "string"},
+              "chatMessageId": {"type": "string"},
+              "runItemId": {"type": "string"}
+            }
+          },
           "causationId": {"type": "string"},
           "correlationId": {"type": "string"},
           "confidence": {"type": "number", "minimum": 0, "maximum": 1},
           "publicSummary": {"type": "string"},
-          "evidenceRefs": {"type": "array", "items": {"type": "object"}},
-          "modelInfo": {"type": "object"},
+          "evidenceRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
+              "properties": {
+                "sourceKind": {"type": "string"},
+                "sourceId": {"type": "string"},
+                "evidenceAnchorId": {"type": "string"}
+              }
+            }
+          },
+          "modelInfo": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider", "model", "responseId"],
+            "properties": {
+              "provider": {"type": "string"},
+              "model": {"type": "string"},
+              "responseId": {"type": "string"}
+            }
+          },
           "reviewRequired": {"type": "boolean"},
-          "payload": {"type": "object"}
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "semanticNodeId",
+              "targetEntityId",
+              "newNode",
+              "summary",
+              "edgeId",
+              "edgeKind",
+              "fromNodeId",
+              "toNodeId",
+              "label",
+              "activityId",
+              "activityKind",
+              "activitySourceKind",
+              "activitySourceId",
+              "evidenceAnchorId",
+              "sourceNodeId",
+              "newNodes",
+              "sourceNodeIds",
+              "targetNode",
+              "resolutionNodeId",
+              "evidenceRefs",
+              "reassignments"
+            ],
+            "properties": {
+              "semanticNodeId": {"type": "string"},
+              "targetEntityId": {"type": "string"},
+              "newNode": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "required": ["semanticNodeId", "kind", "label", "summary", "scope", "evidenceRefs"],
+                "properties": {
+                  "semanticNodeId": {"type": "string"},
+                  "kind": {
+                    "type": "string",
+                    "enum": ["concept", "question", "hypothesis", "finding", "decision", "constraint"]
+                  },
+                  "label": {"type": "string"},
+                  "summary": {"type": "string"},
+                  "scope": {
+                    "type": "string",
+                    "enum": ["session", "workspace"]
+                  },
+                  "evidenceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
+                      "properties": {
+                        "sourceKind": {"type": "string"},
+                        "sourceId": {"type": "string"},
+                        "evidenceAnchorId": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "summary": {"type": "string"},
+              "edgeId": {"type": "string"},
+              "edgeKind": {"type": ["string", "null"]},
+              "fromNodeId": {"type": "string"},
+              "toNodeId": {"type": "string"},
+              "label": {"type": "string"},
+              "activityId": {"type": "string"},
+              "activityKind": {"type": ["string", "null"]},
+              "activitySourceKind": {"type": ["string", "null"]},
+              "activitySourceId": {"type": "string"},
+              "evidenceAnchorId": {"type": "string"},
+              "sourceNodeId": {"type": "string"},
+              "newNodes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["semanticNodeId", "kind", "label", "summary", "scope", "evidenceRefs"],
+                  "properties": {
+                    "semanticNodeId": {"type": "string"},
+                    "kind": {
+                      "type": "string",
+                      "enum": ["concept", "question", "hypothesis", "finding", "decision", "constraint"]
+                    },
+                    "label": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "scope": {
+                      "type": "string",
+                      "enum": ["session", "workspace"]
+                    },
+                    "evidenceRefs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
+                        "properties": {
+                          "sourceKind": {"type": "string"},
+                          "sourceId": {"type": "string"},
+                          "evidenceAnchorId": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "sourceNodeIds": {"type": "array", "items": {"type": "string"}},
+              "targetNode": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "required": ["semanticNodeId", "kind", "label", "summary", "scope", "evidenceRefs"],
+                "properties": {
+                  "semanticNodeId": {"type": "string"},
+                  "kind": {
+                    "type": "string",
+                    "enum": ["concept", "question", "hypothesis", "finding", "decision", "constraint"]
+                  },
+                  "label": {"type": "string"},
+                  "summary": {"type": "string"},
+                  "scope": {
+                    "type": "string",
+                    "enum": ["session", "workspace"]
+                  },
+                  "evidenceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
+                      "properties": {
+                        "sourceKind": {"type": "string"},
+                        "sourceId": {"type": "string"},
+                        "evidenceAnchorId": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "resolutionNodeId": {"type": "string"},
+              "evidenceRefs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["sourceKind", "sourceId", "evidenceAnchorId"],
+                  "properties": {
+                    "sourceKind": {"type": "string"},
+                    "sourceId": {"type": "string"},
+                    "evidenceAnchorId": {"type": "string"}
+                  }
+                }
+              },
+              "reassignments": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["edges", "evidence", "activity", "steering", "layout"],
+                "properties": {
+                  "edges": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["edgeId", "targetEdgeId", "fromNodeId", "toNodeId"],
+                      "properties": {
+                        "edgeId": {"type": "string"},
+                        "targetEdgeId": {"type": "string"},
+                        "fromNodeId": {"type": "string"},
+                        "toNodeId": {"type": "string"}
+                      }
+                    }
+                  },
+                  "evidence": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["anchorId", "targetNodeId"],
+                      "properties": {
+                        "anchorId": {"type": "string"},
+                        "targetNodeId": {"type": "string"}
+                      }
+                    }
+                  },
+                  "activity": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["activityIntervalId", "targetNodeId"],
+                      "properties": {
+                        "activityIntervalId": {"type": "string"},
+                        "targetNodeId": {"type": "string"}
+                      }
+                    }
+                  },
+                  "steering": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["directiveId", "targetNodeId"],
+                      "properties": {
+                        "directiveId": {"type": "string"},
+                        "targetNodeId": {"type": "string"}
+                      }
+                    }
+                  },
+                  "layout": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["entityId", "targetEntityId"],
+                      "properties": {
+                        "entityId": {"type": "string"},
+                        "targetEntityId": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

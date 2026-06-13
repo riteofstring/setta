@@ -555,6 +555,7 @@ function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
     promoteNode: unavailable,
     read: unavailable,
     readActivitySummary: unavailable,
+    readCartographerProcessingState: unavailable,
     readCartographerRun: unavailable,
     readContextPack: unavailable,
     readEventHistory: unavailable,

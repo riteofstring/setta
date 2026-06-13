@@ -378,6 +378,39 @@ ORDER BY updated_at ASC, id ASC
 	return windows, nil
 }
 
+func (store *Store) ListClosedPendingCartographerWindows(ctx context.Context) ([]CartographerWindow, error) {
+	if ctx == nil {
+		return nil, errors.New("context is required")
+	}
+	rows, err := store.db.QueryContext(ctx, cartographerWindowSelectSQL+`
+WHERE status = ?
+  AND EXISTS (
+    SELECT 1
+    FROM semantic_cartographer_runs AS runs
+    WHERE runs.workspace_id = semantic_cartographer_windows.workspace_id
+      AND runs.id = semantic_cartographer_windows.run_id
+      AND runs.status = ?
+  )
+ORDER BY closed_at ASC, updated_at ASC, id ASC
+`, CartographerWindowClosed, CartographerRunPending)
+	if err != nil {
+		return nil, store.persistenceError("list closed pending cartographer windows", err)
+	}
+	defer rows.Close()
+	windows := []CartographerWindow{}
+	for rows.Next() {
+		window, err := scanCartographerWindow(rows)
+		if err != nil {
+			return nil, store.corruptError("semantic_cartographer_windows", err)
+		}
+		windows = append(windows, window)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, store.persistenceError("list closed pending cartographer windows", err)
+	}
+	return windows, nil
+}
+
 func (store *Store) SaveCartographerCursor(ctx context.Context, cursor CartographerCursor) (CartographerCursor, error) {
 	normalizeCartographerCursor(&cursor)
 	if err := validateCartographerCursor(ctx, cursor); err != nil {
