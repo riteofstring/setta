@@ -196,6 +196,24 @@ Verification:
 Goal: validate cartographer patch proposals and apply accepted low-risk patches
 through normal semantic graph events.
 
+Preflight before implementation:
+
+- Treat the Phase 6A/6B `CartographerPatch` and patch operation shape as a
+  provisional persistence/audit scaffold only. Before implementing semantic
+  validation or application, replace it with the strict Phase 6C patch envelope
+  and discriminated operation schema described below. Do not build the 6C
+  validator around the generic `{kind, targetEntityId, payload}` operation
+  shape.
+- Keep this as a strict no-migration/no-compatibility change. Bump the semantic
+  store version for the patch schema change and reject incompatible existing
+  semantic stores. Do not add upgrade code, old patch aliases, dual-read paths,
+  or transitional adapters.
+- Use `confidence` as a required JSON number in the `0.0..1.0` range. Do not
+  keep or accept the provisional integer `0..100` confidence representation.
+- Phase 6C should use deterministic/fake patch envelopes in tests and should
+  not wire production Codex/model execution yet. Production harness invocation
+  remains Phase 6E; Phase 6C owns schema, validation, audit, and application.
+
 Deliverables:
 
 - Define a strict graph patch schema as a discriminated union. Each patch must
@@ -306,6 +324,7 @@ Acceptance criteria:
 
 ```text
 invalid harness output leaves graph state unchanged
+provisional Phase 6A/6B patch records are replaced by the strict Phase 6C schema
 accepted patches apply through normal semantic graph events
 patch audit records input hash, response hash, diagnostics, summary, and event ids
 application is all-or-nothing
