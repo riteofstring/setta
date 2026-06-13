@@ -26,7 +26,6 @@ type LiveHeavyDomSurfaceKind =
   | "chat-dom"
   | "fake-heavy-dom"
   | "fake-long-chat"
-  | "semantic-node-details"
   | "workflow-node-details"
   | "workflow-settings";
 type SurfaceRuntimeCategory =
@@ -44,7 +43,6 @@ const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>([
   "chat-dom",
   "fake-heavy-dom",
   "fake-long-chat",
-  "semantic-node-details",
   "workflow-node-details",
   "workflow-settings",
 ]);
@@ -59,7 +57,6 @@ const surfaceRuntimeCategories = {
   "git-graph": "git-graph",
   "workflow-graph": "canvas",
   "settings-dom": "always-live",
-  "semantic-node-details": "heavy-dom",
   snapshot: "snapshot",
   terminal: "terminal",
   "workflow-node-details": "heavy-dom",

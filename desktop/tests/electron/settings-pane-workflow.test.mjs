@@ -48,12 +48,12 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const workspaceId = await ensureWorkspaceOpen(context.client);
+  const layoutStorageKey = await ensureWorkspaceOpen(context.client);
 
-  await persistLayoutWithoutSettings(context.client, workspaceId);
+  await persistLayoutWithoutSettings(context.client, layoutStorageKey);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const beforeOpen = await waitForLayoutWithoutSettings(context.client, workspaceId);
+  const beforeOpen = await waitForLayoutWithoutSettings(context.client, layoutStorageKey);
   await captureScreenshot(context.client, join(artifactDir, "before-settings-open.png"));
 
   await clickSettingsButton(context.client);
@@ -86,9 +86,9 @@ try {
 }
 
 async function ensureWorkspaceOpen(client) {
-  const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
-  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
-    return currentWorkspaceId;
+  const currentStorageKey = await client.evaluate(layoutStorageKeyExpression());
+  if (currentStorageKey && !currentStorageKey.endsWith(":empty")) {
+    return currentStorageKey;
   }
   const opened = await client.evaluate(`(() => {
     const button = document.querySelector('button[aria-label="Open project folder"]');
@@ -106,28 +106,25 @@ async function ensureWorkspaceOpen(client) {
   }
   return waitForState(
     client,
-    workspaceIdExpression(),
-    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
+    layoutStorageKeyExpression(),
+    (storageKey) => storageKey !== "" && !storageKey.endsWith(":empty"),
     workflowTimeoutMs,
   );
 }
 
-async function persistLayoutWithoutSettings(client, workspaceId) {
-  const result = await client.evaluate(`(async () => {
-    await window.setta.workspace.saveUILayout(${JSON.stringify(layoutWithoutSettings(workspaceId))});
-    return true;
+async function persistLayoutWithoutSettings(client, layoutStorageKey) {
+  const serializedLayout = JSON.stringify(layoutWithoutSettings());
+  await client.evaluate(`(() => {
+    window.localStorage.setItem(${JSON.stringify(layoutStorageKey)}, ${JSON.stringify(serializedLayout)});
   })()`);
-  if (!result) {
-    throw new Error("workspace UI layout was not persisted");
-  }
 }
 
-async function waitForLayoutWithoutSettings(client, workspaceId) {
+async function waitForLayoutWithoutSettings(client, layoutStorageKey) {
   return waitForState(
     client,
     settingsStateExpression(),
     (state) =>
-      state.workspaceId === workspaceId &&
+      state.layoutStorageKey === layoutStorageKey &&
       state.paneCount === 2 &&
       !state.surfaceKinds.includes("settings-dom") &&
       !state.settingsPanelReady,
@@ -182,22 +179,22 @@ function settingsStateExpression() {
     const focused = hosts.find((host) => host.dataset.focused === "true");
     return {
       focusedSurfaceKind: focused?.dataset.surfaceKind ?? "",
+      layoutStorageKey: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
       paneCount: Number(area instanceof HTMLElement ? area.dataset.paneCount ?? "0" : "0"),
       settingsPanelReady: Boolean(document.querySelector("#settings-subtab-theme")),
       surfaceKinds: hosts.map((host) => host.dataset.surfaceKind ?? ""),
-      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
     };
   })()`;
 }
 
-function workspaceIdExpression() {
+function layoutStorageKeyExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
   })()`;
 }
 
-function layoutWithoutSettings(workspaceId) {
+function layoutWithoutSettings() {
   return {
     columns: [
       storedColumn("workspace_column_0", 0, ["workspace_pane_0"]),
@@ -228,8 +225,7 @@ function layoutWithoutSettings(workspaceId) {
         weight: 1,
       }),
     ],
-    schemaVersion: 1,
-    workspaceId,
+    version: 4,
   };
 }
 
@@ -240,7 +236,6 @@ function storedColumn(columnId, index, paneIds) {
     index,
     paneIds,
     planeIndex: 0,
-    previousProportionWidth: null,
     slotIndex: index,
     widthSpec: { unit: "px", value: 520 },
   };
@@ -250,6 +245,5 @@ function storedPane(pane) {
   return {
     ...pane,
     heat: (pane.sequence * 37) % 100,
-    terminalConfig: null,
   };
 }

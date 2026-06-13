@@ -22,19 +22,6 @@ For throwaway local app state:
 SETTA_APP_DATA_DIR="$(mktemp -d)" ./scripts/dev_desktop.sh
 ```
 
-To reset the default global app state:
-
-```sh
-./scripts/reset_global_setta_state.sh
-./scripts/reset_global_setta_state.sh --yes
-```
-
-The first command is a dry run. The reset script refuses to follow a symlinked
-state directory, refuses to run while a Setta backend appears active, and does
-not touch workspace-local `.setta` directories. It clears backend app data under
-`~/.setta`, including workspace UI layout state under `~/.setta/workspaces`,
-and Setta Electron user data.
-
 Record a desktop dogfood session:
 
 ```sh

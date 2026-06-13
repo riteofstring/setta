@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -13,27 +13,25 @@ import {
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
-import { registerAppIpcHandlers } from "./app-ipc";
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
+import { readEditorIconDataURL } from "./editor-icon-data-url";
+import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
-import { startSemanticGraphEventForwarding } from "./semantic-graph-event-forwarding-stream";
-import { registerSemanticGraphIpcHandlers } from "./semantic-graph-ipc";
 import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
-import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
+import { readWorkspaceGitInfo } from "./workspace-actions";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
-let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
 let terminalEventStream: TerminalEventStream | null = null;
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
@@ -88,7 +86,6 @@ async function prepareBackend(appDataDir: string) {
       }
     });
     startChatEventStream();
-    startSemanticGraphEventStreamForwarding();
     startTerminalEventStreamForwarding();
     startWorkflowEventStreamForwarding();
   } catch (error) {
@@ -138,18 +135,6 @@ function startWorkflowEventStreamForwarding() {
   });
 }
 
-function startSemanticGraphEventStreamForwarding() {
-  if (!backend) {
-    return;
-  }
-  void stopSemanticGraphEventStreamForwarding();
-  semanticGraphEventStream = startSemanticGraphEventForwarding({
-    baseURL: backend.url,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
-    recorder,
-  });
-}
-
 function startTerminalEventStreamForwarding() {
   if (!backend) {
     return;
@@ -174,12 +159,6 @@ async function stopWorkflowEventStreamForwarding() {
   await stream?.stop();
 }
 
-async function stopSemanticGraphEventStreamForwarding() {
-  const stream = semanticGraphEventStream;
-  semanticGraphEventStream = null;
-  await stream?.stop();
-}
-
 async function stopTerminalEventStreamForwarding() {
   const stream = terminalEventStream;
   terminalEventStream = null;
@@ -189,7 +168,6 @@ async function stopTerminalEventStreamForwarding() {
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
-    stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
   ]);
@@ -346,16 +324,56 @@ function registerIpc() {
   ipcMain.on(ipcMessages.workspaceBrowserViewBatch, (event, batch) => {
     workspaceBrowserViews.applyBatch(event, batch);
   });
-  registerAppIpcHandlers({
+  handleIpc(
     ipcMain,
+    "appInstalledEditors",
+    () => {
+      return listInstalledEditorApps(readEditorIconDataURL);
+    },
     ipcObserver,
-    recordAppEvent: (type, payload) => recorder?.recordAppEvent(type, payload),
-  });
+  );
+  handleIpc(
+    ipcMain,
+    "appOpenWorkspaceInEditor",
+    async (_event, editorId, rootPath) => {
+      await openWorkspaceInEditor(editorId, rootPath, {
+        openPath: shell.openPath,
+      });
+    },
+    ipcObserver,
+  );
   registerAppWindowDragIpcHandlers({
     ipcMain,
     ipcObserver,
     windowFromEvent: (event) => BrowserWindow.fromWebContents(event.sender),
   });
+  handleIpc(
+    ipcMain,
+    "appWorkspaceGitInfo",
+    async (_event, rootPath) => {
+      return readWorkspaceGitInfo(rootPath);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appVersions",
+    () => ({
+      app: app.getVersion(),
+      chrome: process.versions.chrome,
+      electron: process.versions.electron,
+      node: process.versions.node,
+    }),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appOpenExternalUrl",
+    async (_event, rawURL) => {
+      await openExternalURL(rawURL);
+    },
+    ipcObserver,
+  );
   handleIpc(
     ipcMain,
     "backendHealth",
@@ -457,7 +475,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerWorkspaceUILayoutIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "workspaceClose",
@@ -854,7 +871,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerSemanticGraphIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "workspaceBrowserViewStats",
@@ -872,6 +888,23 @@ function registerIpc() {
     ipcObserver,
   );
   registerTerminalIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+}
+
+function externalURL(rawURL: string) {
+  const url = new URL(rawURL);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("external URL must use http or https: " + rawURL);
+  }
+  return url.toString();
+}
+
+async function openExternalURL(rawURL: string) {
+  const url = externalURL(rawURL);
+  if (process.env.SETTA_E2E_BLOCK_EXTERNAL_OPEN === "1") {
+    recorder?.recordAppEvent("external_url_open_blocked", { url });
+    return;
+  }
+  await shell.openExternal(url);
 }
 
 function requireBackendClient(): BackendClient {

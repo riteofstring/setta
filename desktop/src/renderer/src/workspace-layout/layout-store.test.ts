@@ -422,8 +422,7 @@ describe("workspace layout store", () => {
       value: {},
     });
     const { scene } = createRealWorkspaceScene({
-      storedLayout: null,
-      workspaceId: "setta:workspace-layout:store-initial-snap",
+      storageKey: "setta:workspace-layout:store-initial-snap",
       workspaceName: "Repo",
     });
     const store = new WorkspaceLayoutStore(
@@ -589,8 +588,7 @@ function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
     value: {},
   });
   const { focusedPaneId, scene } = createRealWorkspaceScene({
-    storedLayout: null,
-    workspaceId: "setta:workspace-layout:store-test",
+    storageKey: "setta:workspace-layout:store-test",
     workspaceName: "Repo",
   });
   return new WorkspaceLayoutStore(new WorkspaceLikeLayoutEngine(scene), scene, focusedPaneId, {

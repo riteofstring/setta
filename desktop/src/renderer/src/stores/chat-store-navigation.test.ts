@@ -477,16 +477,13 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       }),
     },
     terminal: unimplementedTerminalAPI(),
-    semanticGraph: unimplementedSemanticGraphAPI(),
     workflow: unimplementedWorkflowAPI(),
     workspace: {
       close: async () => workspaceSession(),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
-      readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
-      saveUILayout: async (layout) => layout,
       select: async () => workspaceSession(),
       selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
       setSelectedConversation: async (workspaceId, conversationId) => ({
@@ -539,55 +536,6 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     submitApproval: unavailable,
     updateDefinition: unavailable,
     validateDefinition: unavailable,
-  };
-}
-
-function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
-  const unavailable = async (): Promise<never> => {
-    throw new Error("semantic graph API is not implemented in this test");
-  };
-  return {
-    acceptCartographerPatch: unavailable,
-    attachChatMessage: unavailable,
-    attachChatRun: unavailable,
-    attachFileRange: unavailable,
-    attachRunItem: unavailable,
-    attachWorkflowExecution: unavailable,
-    attachWorkflowNode: unavailable,
-    buildCartographerWindow: unavailable,
-    createEdge: unavailable,
-    createNode: unavailable,
-    createSteeringDirective: unavailable,
-    dismissNode: unavailable,
-    endActivity: unavailable,
-    listActivity: unavailable,
-    listActivityPage: unavailable,
-    listCartographerCursors: unavailable,
-    listCartographerPatches: unavailable,
-    listCartographerRuns: unavailable,
-    listCartographerWindows: unavailable,
-    listContextPacks: unavailable,
-    listEvidence: unavailable,
-    mergeNodes: unavailable,
-    onEvent: () => () => {},
-    processCartographerWindow: unavailable,
-    promoteNode: unavailable,
-    read: unavailable,
-    readActivitySummary: unavailable,
-    readCartographerProcessingState: unavailable,
-    readCartographerRun: unavailable,
-    readContextPack: unavailable,
-    readEventHistory: unavailable,
-    readNodeDetail: unavailable,
-    readSteeringState: unavailable,
-    rejectCartographerPatch: unavailable,
-    removeEdge: unavailable,
-    renameNode: unavailable,
-    splitNode: unavailable,
-    updateEdge: unavailable,
-    updateLayoutPositions: unavailable,
-    updateNode: unavailable,
-    updateSteeringDirective: unavailable,
   };
 }
 

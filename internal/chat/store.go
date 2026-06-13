@@ -327,13 +327,6 @@ func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conv
 		}
 		conversation, err := store.LoadConversation(workspaceID, entry.Name())
 		if err != nil {
-			vanished, vanishErr := store.conversationVanishedDuringScan(workspaceID, entry.Name(), err)
-			if vanishErr != nil {
-				return nil, nil, vanishErr
-			}
-			if vanished {
-				continue
-			}
 			if IsCorruptStateError(err) {
 				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, entry.Name(), "", corruptConversationKind))
 				continue

@@ -1,5 +1,3 @@
-import type { WorkspaceUILayout } from "@generated/backend";
-
 import { BrowserSurfaceProxyAdapter } from "./browser-surface-proxy-adapter";
 import { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { WorkspaceLayoutStore } from "./layout-store";
@@ -31,17 +29,16 @@ import type { WorkspacePane } from "./types";
 export function createWorkspaceRuntime({
   allowResizedPanesToOverflowViewport,
   mode,
-  storedLayout,
   workspaceId,
   workspaceName,
 }: {
   allowResizedPanesToOverflowViewport: boolean;
   mode: WorkspaceSceneMode;
-  storedLayout: WorkspaceUILayout | null;
   workspaceId: string;
   workspaceName: string;
 }) {
-  const realScene = createRealSceneForRuntime({ mode, storedLayout, workspaceId, workspaceName });
+  const layoutStorageKey = `setta:workspace-layout-horizontal-v4:${workspaceId}`;
+  const realScene = createRealSceneForRuntime({ layoutStorageKey, mode, workspaceName });
   const scene = sceneForRuntime(realScene);
   const engine = new WorkspaceLikeLayoutEngine(scene, { allowResizedPanesToOverflowViewport });
   const store = new WorkspaceLayoutStore(
@@ -74,6 +71,7 @@ export function createWorkspaceRuntime({
     engine,
     hostPoolSize: hostPoolSizeForRuntime(mode),
     layoutRecovery: realScene?.layoutRecovery ?? null,
+    layoutStorageKey,
     metrics,
     mode,
     presentation: new PresentationEngine(

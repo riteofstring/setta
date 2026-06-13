@@ -1,11 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import {
-  decodeChatEvent,
-  decodeSemanticGraphChangeEvent,
-  decodeTerminalEvent,
-  decodeWorkflowEvent,
-} from "@generated/backend";
+import { decodeChatEvent, decodeTerminalEvent, decodeWorkflowEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import type {
   BackendEventStreamStatus,
@@ -214,59 +209,6 @@ const api: SettaAPI = {
     refresh: (request) => invoke("codexAccountRefresh", request),
     startLogin: (request) => invoke("codexAccountStartLogin", request),
   },
-  semanticGraph: {
-    attachChatMessage: (request) => invoke("semanticGraphAttachChatMessage", request),
-    attachChatRun: (request) => invoke("semanticGraphAttachChatRun", request),
-    attachFileRange: (request) => invoke("semanticGraphAttachFileRange", request),
-    attachRunItem: (request) => invoke("semanticGraphAttachRunItem", request),
-    attachWorkflowExecution: (request) => invoke("semanticGraphAttachWorkflowExecution", request),
-    attachWorkflowNode: (request) => invoke("semanticGraphAttachWorkflowNode", request),
-    acceptCartographerPatch: (request) => invoke("semanticGraphCartographerPatchAccept", request),
-    buildCartographerWindow: (request) => invoke("semanticGraphCartographerWindowBuild", request),
-    processCartographerWindow: (request) =>
-      invoke("semanticGraphCartographerWindowProcess", request),
-    readCartographerProcessingState: (request) =>
-      invoke("semanticGraphCartographerProcessingState", request),
-    createEdge: (request) => invoke("semanticGraphCreateEdge", request),
-    createNode: (request) => invoke("semanticGraphCreateNode", request),
-    createSteeringDirective: (request) => invoke("semanticGraphCreateSteeringDirective", request),
-    dismissNode: (request) => invoke("semanticGraphDismissNode", request),
-    endActivity: (request) => invoke("semanticGraphActivityEnd", request),
-    listCartographerCursors: (request) => invoke("semanticGraphCartographerCursorList", request),
-    listCartographerPatches: (request) => invoke("semanticGraphCartographerPatchList", request),
-    listCartographerRuns: (request) => invoke("semanticGraphCartographerRunList", request),
-    listCartographerWindows: (request) => invoke("semanticGraphCartographerWindowList", request),
-    listActivity: (request) => invoke("semanticGraphActivityList", request),
-    listActivityPage: (request) => invoke("semanticGraphActivityPage", request),
-    listContextPacks: (request) => invoke("semanticGraphContextPackList", request),
-    listEvidence: (request) => invoke("semanticGraphEvidenceList", request),
-    mergeNodes: (request) => invoke("semanticGraphMergeNodes", request),
-    onEvent: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeSemanticGraphChangeEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.semanticGraphEvent, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.semanticGraphEvent, handler);
-      };
-    },
-    promoteNode: (request) => invoke("semanticGraphPromoteNode", request),
-    read: (request) => invoke("semanticGraphRead", request),
-    readActivitySummary: (request) => invoke("semanticGraphActivitySummary", request),
-    readCartographerRun: (request) => invoke("semanticGraphCartographerRunRead", request),
-    readContextPack: (request) => invoke("semanticGraphContextPackRead", request),
-    readEventHistory: (request) => invoke("semanticGraphEventHistory", request),
-    readNodeDetail: (request) => invoke("semanticGraphNodeDetail", request),
-    readSteeringState: (request) => invoke("semanticGraphSteeringRead", request),
-    rejectCartographerPatch: (request) => invoke("semanticGraphCartographerPatchReject", request),
-    removeEdge: (request) => invoke("semanticGraphRemoveEdge", request),
-    renameNode: (request) => invoke("semanticGraphRenameNode", request),
-    splitNode: (request) => invoke("semanticGraphSplitNode", request),
-    updateEdge: (request) => invoke("semanticGraphUpdateEdge", request),
-    updateLayoutPositions: (request) => invoke("semanticGraphLayoutUpdate", request),
-    updateNode: (request) => invoke("semanticGraphUpdateNode", request),
-    updateSteeringDirective: (request) => invoke("semanticGraphUpdateSteeringDirective", request),
-  },
   workflow: {
     cancelExecution: (workspaceId, executionId) =>
       invoke("workflowCancelExecution", workspaceId, executionId),
@@ -304,10 +246,8 @@ const api: SettaAPI = {
     close: (id: string) => invoke("workspaceClose", id),
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
     openPath: (rootPath: string) => invoke("workspaceOpenPath", rootPath),
-    readUILayout: (workspaceId: string) => invoke("workspaceReadUILayout", workspaceId),
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
-    saveUILayout: (layout) => invoke("workspaceSaveUILayout", layout),
     select: (id: string) => invoke("workspaceSelect", id),
     selectedConversations: () => invoke("workspaceSelectedConversations"),
     setSelectedConversation: (workspaceId: string, conversationId: string) =>

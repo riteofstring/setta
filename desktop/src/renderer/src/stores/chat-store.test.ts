@@ -970,7 +970,12 @@ interface SettaAPIOverrides {
   workspace?: Partial<SettaAPI["workspace"]>;
 }
 function emptyCorruption() {
-  return { byKind: [], bySeverity: [], hasCorruption: false, total: 0 };
+  return {
+    byKind: [],
+    bySeverity: [],
+    hasCorruption: false,
+    total: 0,
+  };
 }
 
 function listResponse(
@@ -1180,17 +1185,14 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
-    semanticGraph: {} as SettaAPI["semanticGraph"],
     terminal: unimplementedTerminalAPI,
     workflow: {} as SettaAPI["workflow"],
     workspace: {
       close: async () => workspaceSession(),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
-      readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
-      saveUILayout: async (layout) => layout,
       select: async () => workspaceSession(),
       selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
       setSelectedConversation: async (workspaceId, conversationId) => ({
@@ -1488,9 +1490,11 @@ function emptyCodexAccountState() {
     status: "unauthenticated" as const,
   };
 }
-const workspaceSummary = () => ({
-  displayName: "api",
-  id: "workspace_api",
-  lastOpenedAt: "2026-05-29T20:00:00Z",
-  rootPath: "/tmp/api",
-});
+function workspaceSummary() {
+  return {
+    displayName: "api",
+    id: "workspace_api",
+    lastOpenedAt: "2026-05-29T20:00:00Z",
+    rootPath: "/tmp/api",
+  };
+}

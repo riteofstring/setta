@@ -44,19 +44,16 @@ type FakeHarness struct {
 	events         []FakeHarnessEvent
 	eventsByPrompt map[string][]FakeHarnessEvent
 
-	mu              sync.Mutex
-	cancelled       []CancelRequest
-	commands        []HarnessCommandRequest
-	approvals       []ApprovalResponse
-	goal            *ChatGoalState
-	model           string
-	reasoning       ReasoningEffort
-	steering        []SteerRequest
-	taskRequests    []HarnessTaskRequest
-	structuredTasks []HarnessTaskRequest
-	turns           []TurnRequest
-	approvalChs     map[string]chan ApprovalResponse
-	steerChs        map[string]chan SteerRequest
+	mu          sync.Mutex
+	cancelled   []CancelRequest
+	commands    []HarnessCommandRequest
+	approvals   []ApprovalResponse
+	goal        *ChatGoalState
+	model       string
+	reasoning   ReasoningEffort
+	steering    []SteerRequest
+	approvalChs map[string]chan ApprovalResponse
+	steerChs    map[string]chan SteerRequest
 }
 
 func NewFakeHarness(events []FakeHarnessEvent) *FakeHarness {
@@ -77,10 +74,6 @@ func NewFakeHarnessByPrompt(eventsByPrompt map[string][]FakeHarnessEvent) *FakeH
 }
 
 func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
-	harness.mu.Lock()
-	harness.turns = append(harness.turns, request)
-	harness.mu.Unlock()
-
 	events := harness.script(request)
 	harness.registerRun(request.Run.ID)
 	defer harness.unregisterRun(request.Run.ID)
@@ -100,19 +93,6 @@ func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, 
 		}
 	}
 	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
-}
-
-func (harness *FakeHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
-	harness.mu.Lock()
-	harness.taskRequests = append(harness.taskRequests, request)
-	harness.mu.Unlock()
-	if request.TurnMode == HarnessTurnStructuredTask {
-		harness.mu.Lock()
-		harness.structuredTasks = append(harness.structuredTasks, request)
-		harness.mu.Unlock()
-		return runScriptedStructuredHarnessTask(ctx, request)
-	}
-	return runConversationHarnessTask(ctx, request, harness.StartTurn)
 }
 
 func (harness *FakeHarness) handleEvent(ctx context.Context, request TurnRequest, sink TurnSink, event FakeHarnessEvent) error {
@@ -383,27 +363,6 @@ func (harness *FakeHarness) SteeringRequests() []SteerRequest {
 	defer harness.mu.Unlock()
 
 	return append([]SteerRequest{}, harness.steering...)
-}
-
-func (harness *FakeHarness) TurnRequests() []TurnRequest {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-
-	return append([]TurnRequest{}, harness.turns...)
-}
-
-func (harness *FakeHarness) TaskRequests() []HarnessTaskRequest {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-
-	return append([]HarnessTaskRequest{}, harness.taskRequests...)
-}
-
-func (harness *FakeHarness) StructuredTaskRequests() []HarnessTaskRequest {
-	harness.mu.Lock()
-	defer harness.mu.Unlock()
-
-	return append([]HarnessTaskRequest{}, harness.structuredTasks...)
 }
 
 func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {

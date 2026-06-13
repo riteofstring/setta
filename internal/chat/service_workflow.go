@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"setta/internal/semanticcontext"
 	"setta/internal/workspace"
 )
 
@@ -17,7 +16,6 @@ type WorkflowAgentTurnRequest struct {
 	NodeID              string
 	NodeExecutionID     string
 	Prompt              string
-	SemanticContext     *semanticcontext.Delivery
 	FreshConversation   bool
 	Model               string
 	ReasoningEffort     *ReasoningEffort
@@ -82,12 +80,11 @@ func (service *Service) sendWorkflowAgentTurnLocked(workspaceID string, request 
 		workspaceID:      workspaceID,
 	}
 	turnRequest := TurnRequest{
-		Workspace:       workspaceSummary,
-		Conversation:    conversation,
-		Run:             run,
-		Prompt:          prompt,
-		SemanticContext: request.SemanticContext,
-		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
+		Workspace:    workspaceSummary,
+		Conversation: conversation,
+		Run:          run,
+		Prompt:       prompt,
+		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
 	go service.runHarnessTurn(ctx, turnRequest)
 

@@ -175,7 +175,6 @@ async function main() {
       assertNoVisibleUserMessage,
       submitComposer,
       waitForAssistantTextRendered,
-      waitForBackendState,
       waitForCommandResult,
       waitForGoalStatus,
       waitForLinkedCodexRef,

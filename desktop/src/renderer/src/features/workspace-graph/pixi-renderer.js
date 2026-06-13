@@ -1,6 +1,6 @@
 /* global ResizeObserver, performance, window */
 
-import { Container, Graphics, Rectangle } from "pixi.js";
+import { BitmapText, Container, Graphics, Rectangle } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 
 import { initialEdges, initialNodes } from "./pixi-renderer-fixture";
@@ -12,21 +12,14 @@ import { registerWorkflowGraphDebugSurfaceIfEnabled } from "./pixi-renderer-debu
 import { createWorkflowGraphDebugSnapshot } from "./pixi-renderer-debug-snapshot";
 import { redrawWorkspaceEdges } from "./pixi-renderer-edge-rendering";
 import {
-  createDynamicCanvasContextMenuHandler,
-  noopCameraStateChange,
-  noopReactRenderCount,
-  rendererHandlers,
-} from "./pixi-renderer-handlers";
-import {
   compactSelectedNodeLabelBitmapFontSize,
+  nodeLabelBitmapFontSize,
   validateNodeLabelGlyphs,
 } from "./pixi-renderer-label-font";
-import { createWorkflowGraphLabelManager } from "./pixi-renderer-labels";
+import { syncNodeLabelVisibility } from "./pixi-renderer-label-visibility";
 import { destroyInitializedApp } from "./pixi-renderer-lifecycle";
 import { createNodeGeometryContextFactory, drawWorkspaceGrid } from "./pixi-renderer-node-geometry";
 import { createWorkflowGraphNodeContainer } from "./pixi-renderer-node-container";
-import { createWorkflowGraphPortContainer } from "./pixi-renderer-port-container";
-import { createWorkflowGraphSceneGraphUpdater } from "./pixi-renderer-scene-graph";
 import { createWorkflowGraphSpatialQueries } from "./pixi-renderer-spatial-queries";
 import {
   cameraState,
@@ -35,13 +28,13 @@ import {
   clamp,
   commitEdgeConnection,
   configureViewportNavigation,
+  createCanvasContextMenuHandler,
   drawMarqueeSelection,
   drawPortVisualState,
   drawTemporaryEdge,
   drawWorkspaceGlow,
   edgeConnection,
   hostScreenSize,
-  interactivePortsForNode,
   isSelectionToggleEvent,
   isZoomWheel,
   marqueeBounds,
@@ -52,6 +45,8 @@ import {
   parsePortKey,
   pointInsideNodeBounds,
   portKey,
+  portsForNode,
+  portLocalPosition,
   portWorldPosition,
   releasePointer,
   requirePort,
@@ -64,41 +59,38 @@ import {
 const backgroundColor = 0x07080d;
 const maxZoom = 4;
 const minZoom = 0.25;
-const nodeOpenClickDistanceScreen = 6;
-const nodeOpenClickIntervalMs = 500;
 const portHitRadiusScreen = 18;
-let nextRendererInstanceId = 1;
-const defaultRendererOptions = {
-  debugSurfaceId: "workflow-graph",
-  graph: { edges: initialEdges, nodes: initialNodes },
-  initialCameraState: null,
-  onCameraStateChange: noopCameraStateChange,
-  onCanvasContextMenu: null,
-  onNodeOpen: null,
-  onNodePositionsChange: null,
-  onNodeSelectionChange: null,
-  reactRenderCount: noopReactRenderCount,
-};
-
-export async function createWorkflowGraphRenderer(options) {
-  const {
-    abortSignal,
-    debugEnabled,
-    debugSurfaceId,
-    graph,
-    host,
-    initialCameraState,
-    onCameraStateChange,
-    onCanvasContextMenu,
-    onEdgeCreate,
-    onNodeDelete,
-    onNodeOpen,
-    onNodePositionsChange,
-    onNodeSelectionChange,
-    reactRenderCount,
-  } = rendererOptionsWithDefaults(options);
-  const rendererInstanceId = nextRendererInstanceId;
-  nextRendererInstanceId += 1;
+function noopCameraStateChange() {}
+function initializeWorkflowGraphNodes({
+  acquireLabel,
+  createNodeContainer,
+  nodeContainers,
+  nodeLayer,
+  nodes,
+}) {
+  for (const node of nodes) {
+    const container = createNodeContainer(node);
+    nodeContainers.set(node.id, container);
+    nodeLayer.addChild(container);
+    acquireLabel(node.id);
+  }
+}
+export async function createWorkflowGraphRenderer({
+  abortSignal,
+  debugEnabled,
+  debugSurfaceId = "workflow-graph",
+  graph = { edges: initialEdges, nodes: initialNodes },
+  host,
+  initialCameraState = null,
+  onCanvasContextMenu = null,
+  onCameraStateChange = noopCameraStateChange,
+  onEdgeCreate,
+  onNodeDelete,
+  onNodeOpen = null,
+  onNodePositionsChange = null,
+  onNodeSelectionChange = null,
+  reactRenderCount,
+}) {
   const { app, loadedNodeLabelFont, screenSize } = await initializeWorkflowGraphApplication({
     abortSignal,
     backgroundColor,
@@ -130,23 +122,11 @@ export async function createWorkflowGraphRenderer(options) {
   edgeLabelLayer.interactiveChildren = false;
   viewport.addChild(backgroundLayer, edgeLayer, nodeLayer, interactionLayer, effectsLayer);
 
-  const handlers = rendererHandlers({
-    onCameraStateChange,
-    onCanvasContextMenu,
-    onEdgeCreate,
-    onNodeDelete,
-    onNodeOpen,
-    onNodePositionsChange,
-    onNodeSelectionChange,
-    reactRenderCount,
-  });
-  const nodes = [];
-  const edges = [];
+  const nodes = graph.nodes.map((node) => ({ ...node }));
+  const edges = graph.edges.map((edge) => ({ ...edge }));
   const spatialQueries = createWorkflowGraphSpatialQueries({ nodes, viewport });
   const nodeGeometry = createNodeGeometryContextFactory();
-  const nodeActivityMarkers = new Map();
   const nodeContainers = new Map();
-  const nodeDiagnosticMarkers = new Map();
   const nodeBodies = new Map();
   const nodeShadows = new Map();
   const nodeLabels = new Map();
@@ -155,44 +135,15 @@ export async function createWorkflowGraphRenderer(options) {
   const nodeOutlines = new Map();
   const portVisuals = new Map();
   const portVisualStates = new Map();
-  const selectedNodeIds = new Set();
-  const labels = createWorkflowGraphLabelManager({
-    labelLayer,
-    loadedNodeLabelFont,
-    nodeLabels,
-    nodeLabelFontSizeModes,
-    nodeLabelVisibilityReasons,
-    nodes,
-    selectedNodeIds,
-    spatialQueries,
-    viewport,
-  });
-  const sceneGraph = createWorkflowGraphSceneGraphUpdater({
-    acquireLabel: labels.acquireLabel,
-    createNodeContainer: nodeContainer,
-    edges,
-    nodeActivityMarkers,
-    nodeBodies,
-    nodeContainers,
-    nodeDiagnosticMarkers,
-    nodeLayer,
-    nodeOutlines,
-    nodeShadows,
-    nodes,
-    portVisuals,
-    portVisualStates,
-    releaseLabel: labels.releaseLabel,
-    requireNodeLabel: labels.requireNodeLabel,
-  });
   const edgeGraphics = new Graphics();
   const temporaryEdgeGraphics = new Graphics();
   const marqueeGraphics = new Graphics();
   const grid = new Graphics();
   const glow = new Graphics();
+  const selectedNodeIds = new Set();
   const hoveredNodeIds = new Set();
   let draggingNode = null;
   let drawingEdge = null;
-  let lastNodeClick = null;
   let drawingMarquee = null;
   let panningCamera = null;
   let activeTargetPortKey = null;
@@ -204,18 +155,16 @@ export async function createWorkflowGraphRenderer(options) {
   let edgeRedrawCount = 0;
   let marqueeUpdateCount = 0;
   let edgeCommitCount = 0;
-  let nextEdgeSequence = 1;
+  let nextEdgeSequence = edges.length + 1;
   let pointerPanUpdateCount = 0;
   let selectionChangeCount = 0;
   let temporaryEdgeUpdateCount = 0;
   let wheelPanUpdateCount = 0;
   let wheelZoomUpdateCount = 0;
+  let labelSyncCount = 0;
   let gridDrawCount = 0;
   let nodeOutlineVisibilityUpdateCount = 0;
   let lastCameraState = cameraState(viewport);
-  let currentWorkflow = graph.workflow ?? null;
-  const canvasCreationCount = 1;
-  let rendererDestroyCount = 0;
   const recentFrameMs = [];
 
   backgroundLayer.addChild(grid);
@@ -224,7 +173,17 @@ export async function createWorkflowGraphRenderer(options) {
   effectsLayer.addChild(glow);
   drawWorkspaceGrid(grid);
   gridDrawCount += 1;
-  replaceSceneGraph(graph, { countUpdate: false });
+  initializeWorkflowGraphNodes({
+    acquireLabel,
+    createNodeContainer: nodeContainer,
+    nodeContainers,
+    nodeGeometry,
+    nodeLayer,
+    nodes,
+  });
+  redrawGlow();
+  syncAllLabels();
+  redrawEdges();
 
   const resizeObserver = new ResizeObserver(() => {
     if (destroyed) {
@@ -234,7 +193,7 @@ export async function createWorkflowGraphRenderer(options) {
     app.renderer.resize(nextSize.width, nextSize.height);
     viewport.resize(nextSize.width, nextSize.height, 4000, 4000);
     viewport.forceHitArea = new Rectangle(0, 0, nextSize.width, nextSize.height);
-    labels.syncAllLabels();
+    syncAllLabels();
   });
   resizeObserver.observe(host);
 
@@ -248,7 +207,6 @@ export async function createWorkflowGraphRenderer(options) {
       role: "source",
     });
     if (sourcePort) {
-      clearLastNodeClick();
       startEdgeDrawing(sourcePort.nodeId, sourcePort.portId);
       capturePointer(event);
       stopNativeInteraction(event);
@@ -256,19 +214,14 @@ export async function createWorkflowGraphRenderer(options) {
     }
     const node = hitTestNodeAtScreen(screen);
     if (node) {
-      if (
-        nodeOpenRequested(event, handlers.onNodeOpen) ||
-        repeatedNodeOpenRequested(node.id, screen)
-      ) {
-        clearLastNodeClick();
+      if (nodeOpenRequested(event, onNodeOpen)) {
         selectOnlyNode(node.id);
-        handlers.onNodeOpen(node.id);
+        onNodeOpen(node.id);
         capturePointer(event);
         stopNativeInteraction(event);
         return;
       }
       if (isSelectionToggleEvent(event)) {
-        clearLastNodeClick();
         toggleNodeSelection(node.id);
         capturePointer(event);
         stopNativeInteraction(event);
@@ -280,7 +233,6 @@ export async function createWorkflowGraphRenderer(options) {
       return;
     }
     if (event.shiftKey) {
-      clearLastNodeClick();
       startMarqueeSelection(screen);
       capturePointer(event);
       stopNativeInteraction(event);
@@ -291,7 +243,6 @@ export async function createWorkflowGraphRenderer(options) {
       return;
     }
     clearSelection();
-    clearLastNodeClick();
     startCameraPanning(screen);
     capturePointer(event);
     stopNativeInteraction(event);
@@ -379,14 +330,14 @@ export async function createWorkflowGraphRenderer(options) {
     panCameraByScreenDelta(delta.x, delta.y);
     wheelPanUpdateCount += 1;
   };
-  const contextMenu = createDynamicCanvasContextMenuHandler({
+  const contextMenu = createCanvasContextMenuHandler({
     canvas: app.canvas,
-    handlers,
+    onCanvasContextMenu,
     viewport,
   });
   const keyDown = (event) => {
-    if (nodeDeleteRequested(event, handlers.onNodeDelete, selectedNodeIds)) {
-      handlers.onNodeDelete([...selectedNodeIds]);
+    if (nodeDeleteRequested(event, onNodeDelete, selectedNodeIds)) {
+      onNodeDelete([...selectedNodeIds]);
       stopNativeInteraction(event);
       return;
     }
@@ -457,34 +408,30 @@ export async function createWorkflowGraphRenderer(options) {
       nodes,
       nodeShadows,
       portVisuals,
-      reactRenderCount: () => handlers.reactRenderCount(),
+      reactRenderCount,
       recentFrameMs,
       renderState: () => ({
         cameraUpdateCount,
-        canvasCreationCount,
         drawingEdge: Boolean(drawingEdge),
         drawingMarquee: Boolean(drawingMarquee),
         edgeCommitCount,
         edgeRedrawCount,
         frameCount,
         gridDrawCount,
-        labelSyncCount: labels.syncCount(),
+        labelSyncCount,
         marqueeUpdateCount,
         nodeDragUpdateCount,
         nodeOutlineVisibilityUpdateCount,
         pointerPanUpdateCount,
-        rendererDestroyCount,
-        rendererInstanceId,
         selectedNodeId: firstSelectedNodeId(),
         selectedNodeIds,
         selectionChangeCount,
         temporaryEdgeUpdateCount,
         wheelPanUpdateCount,
         wheelZoomUpdateCount,
-        workflow: currentWorkflow,
-        ...sceneGraph.updateCounts(),
+        workflow: graph.workflow ?? null,
       }),
-      requireNodeLabel: labels.requireNodeLabel,
+      requireNodeLabel,
       spatialQueries,
       viewport,
     }),
@@ -493,11 +440,7 @@ export async function createWorkflowGraphRenderer(options) {
   return {
     cameraState: () => cameraState(viewport),
     destroy: () => {
-      if (destroyed) {
-        return;
-      }
       destroyed = true;
-      rendererDestroyCount += 1;
       resizeObserver.disconnect();
       app.canvas.removeEventListener("pointerdown", pointerDown, true);
       app.canvas.removeEventListener("pointermove", pointerMove);
@@ -509,84 +452,88 @@ export async function createWorkflowGraphRenderer(options) {
       window.removeEventListener("keydown", keyDown);
       unregisterDebugSurface?.();
       for (const nodeId of [...nodeLabels.keys()]) {
-        labels.releaseLabel(nodeId);
+        releaseLabel(nodeId);
       }
       destroyInitializedApp(app);
     },
-    setHandlers: (nextHandlers) => {
-      Object.assign(handlers, rendererHandlers(nextHandlers));
-    },
-    updateGraph: (nextGraph) => {
-      replaceSceneGraph(nextGraph, { countUpdate: true });
-    },
   };
-  function replaceSceneGraph(nextGraph, { countUpdate }) {
-    if (destroyed) {
-      return;
-    }
-    cancelActiveInteractionsForGraphUpdate();
-    const update = sceneGraph.replaceGraph(nextGraph, { countUpdate });
-    currentWorkflow = update.workflow;
-    nextEdgeSequence = update.nextEdgeSequence;
-    spatialQueries.rebuild(nodes);
-    pruneSelectionForNodes(nodes);
-    drawAllNodeOutlines();
-    redrawGlow();
-    labels.syncAllLabels();
-    redrawEdges();
-  }
-  function cancelActiveInteractionsForGraphUpdate() {
-    drawingEdge = null;
-    drawingMarquee = null;
-    draggingNode = null;
-    panningCamera = null;
-    activeTargetPortKey = null;
-    temporaryEdgeGraphics.clear();
-    marqueeGraphics.clear();
-    viewport.plugins.resume("decelerate");
-  }
-  function pruneSelectionForNodes(nextNodes) {
-    const nextNodeIds = new Set(nextNodes.map((node) => node.id));
-    const previousSelectedNodeIds = new Set(selectedNodeIds);
-    for (const nodeId of previousSelectedNodeIds) {
-      if (!nextNodeIds.has(nodeId)) {
-        selectedNodeIds.delete(nodeId);
-      }
-    }
-    for (const nodeId of [...hoveredNodeIds]) {
-      if (!nextNodeIds.has(nodeId)) {
-        hoveredNodeIds.delete(nodeId);
-      }
-    }
-    if (!setsEqual(previousSelectedNodeIds, selectedNodeIds)) {
-      selectionChangeCount += 1;
-      notifyNodeSelectionChange(handlers.onNodeSelectionChange, selectedNodeIds);
-    }
-  }
   function nodeContainer(node) {
     return createWorkflowGraphNodeContainer({
       node,
-      nodeActivityMarkers,
       nodeBodies,
-      nodeDiagnosticMarkers,
       nodeGeometry,
       nodeOutlines,
       nodeShadows,
       onPointerOut: () => setHoveredNodeId(null),
       onPointerOver: () => setHoveredNodeId(node.id),
-      portContainers: interactivePortsForNode(node).map((port) => portContainer(node, port)),
+      portContainers: portsForNode(node).map((port) => portContainer(node, port)),
     });
   }
-  function portContainer(node, port) {
-    return createWorkflowGraphPortContainer({
-      drawingEdgeActive: () => Boolean(drawingEdge),
-      node,
-      port,
-      portHitRadiusScreen,
-      portVisuals,
-      portVisualStates,
-      setPortVisualState,
+  function acquireLabel(nodeId) {
+    const existingLabel = nodeLabels.get(nodeId);
+    if (existingLabel) {
+      return existingLabel;
+    }
+    const node = requireNode(nodeId);
+    validateNodeLabelGlyphs(node.id, node.label);
+    const label = new BitmapText({
+      anchor: 0.5,
+      style: {
+        align: "center",
+        fill: 0xf8fafc,
+        fontFamily: loadedNodeLabelFont.fontFamily,
+        fontSize: nodeLabelBitmapFontSize,
+      },
+      text: node.label,
     });
+    label.eventMode = "none";
+    label.roundPixels = true;
+    nodeLabels.set(nodeId, label);
+    nodeLabelFontSizeModes.set(nodeId, "normal");
+    nodeLabelVisibilityReasons.set(nodeId, "zoom-hidden");
+    labelLayer.addChild(label);
+    return label;
+  }
+  function releaseLabel(nodeId) {
+    const label = nodeLabels.get(nodeId);
+    if (!label) {
+      return;
+    }
+    nodeLabels.delete(nodeId);
+    nodeLabelFontSizeModes.delete(nodeId);
+    nodeLabelVisibilityReasons.delete(nodeId);
+    label.removeFromParent();
+    label.destroy();
+  }
+  function portContainer(node, port) {
+    const position = portLocalPosition(node, port.id);
+    const container = new Container();
+    container.x = position.x;
+    container.y = position.y;
+    container.eventMode = "static";
+    container.cursor = port.role === "source" ? "crosshair" : "copy";
+    container.hitArea = new Rectangle(
+      -portHitRadiusScreen,
+      -portHitRadiusScreen,
+      portHitRadiusScreen * 2,
+      portHitRadiusScreen * 2,
+    );
+    const visual = new Graphics();
+    const key = portKey(node.id, port.id);
+    portVisuals.set(key, visual);
+    container.addChild(visual);
+    setPortVisualState(node.id, port.id, "idle");
+    container.on("pointerover", () => {
+      if (!drawingEdge) {
+        setPortVisualState(node.id, port.id, "hover");
+      }
+    });
+    container.on("pointerout", () => {
+      if (!drawingEdge) {
+        setPortVisualState(node.id, port.id, "idle");
+      }
+    });
+    return container;
   }
   function startNodeDragging(nodeId, screen) {
     const node = requireNode(nodeId);
@@ -603,8 +550,6 @@ export async function createWorkflowGraphRenderer(options) {
       })),
       moved: false,
       primaryNodeId: node.id,
-      startScreenX: screen.x,
-      startScreenY: screen.y,
     };
     for (const draggedNode of draggedNodes) {
       const body = nodeBodies.get(draggedNode.id);
@@ -630,60 +575,30 @@ export async function createWorkflowGraphRenderer(options) {
       container.x = node.x;
       container.y = node.y;
       spatialQueries.updateNode(node);
-      labels.syncLabelPosition(node.id);
+      syncLabelPosition(node.id);
     }
     draggingNode.moved = true;
-    labels.syncLabelVisibility();
+    syncLabelVisibility();
     nodeDragUpdateCount += 1;
     redrawEdges();
     redrawGlow();
   }
   function finishNodeDragging() {
-    const completedDrag = draggingNode;
-    const shouldPersistPositions = completedDrag?.moved === true;
-    const movedNodeIds = new Set(completedDrag?.nodes.map((node) => node.nodeId) ?? []);
+    const shouldPersistPositions = draggingNode?.moved === true;
     viewport.plugins.resume("decelerate");
     draggingNode = null;
     for (const body of nodeBodies.values()) {
       body.cursor = "grab";
     }
-    if (shouldPersistPositions && handlers.onNodePositionsChange) {
-      clearLastNodeClick();
-      handlers.onNodePositionsChange(
+    if (shouldPersistPositions && onNodePositionsChange) {
+      onNodePositionsChange(
         nodes.map((node) => ({
-          moved: movedNodeIds.has(node.id),
           nodeId: node.id,
           x: Math.round(node.x),
           y: Math.round(node.y),
         })),
       );
-      return;
     }
-    if (completedDrag) {
-      recordNodeClick(completedDrag.primaryNodeId, {
-        x: completedDrag.startScreenX,
-        y: completedDrag.startScreenY,
-      });
-    }
-  }
-  function repeatedNodeOpenRequested(nodeId, screen) {
-    if (handlers.onNodeOpen === null || lastNodeClick === null || lastNodeClick.nodeId !== nodeId) {
-      return false;
-    }
-    const elapsed = performance.now() - lastNodeClick.time;
-    const distance = Math.hypot(screen.x - lastNodeClick.x, screen.y - lastNodeClick.y);
-    return elapsed <= nodeOpenClickIntervalMs && distance <= nodeOpenClickDistanceScreen;
-  }
-  function recordNodeClick(nodeId, screen) {
-    lastNodeClick = {
-      nodeId,
-      time: performance.now(),
-      x: screen.x,
-      y: screen.y,
-    };
-  }
-  function clearLastNodeClick() {
-    lastNodeClick = null;
   }
   function startCameraPanning(screen) {
     panningCamera = {
@@ -729,8 +644,8 @@ export async function createWorkflowGraphRenderer(options) {
     }
     selectionChangeCount += 1;
     drawAllNodeOutlines();
-    labels.syncLabelVisibility();
-    notifyNodeSelectionChange(handlers.onNodeSelectionChange, selectedNodeIds);
+    syncLabelVisibility();
+    notifyNodeSelectionChange(onNodeSelectionChange, selectedNodeIds);
   }
   function drawAllNodeOutlines() {
     for (const candidate of nodes) {
@@ -803,7 +718,7 @@ export async function createWorkflowGraphRenderer(options) {
     temporaryEdgeGraphics.clear();
     viewport.plugins.resume("decelerate");
     for (const node of nodes) {
-      for (const port of interactivePortsForNode(node)) {
+      for (const port of portsForNode(node)) {
         setPortVisualState(node.id, port.id, "idle");
       }
     }
@@ -876,7 +791,7 @@ export async function createWorkflowGraphRenderer(options) {
     const connection = edgeConnection(edgeDrawing, targetPort);
     commitEdgeConnection(connection, {
       edges,
-      onEdgeCreate: handlers.onEdgeCreate,
+      onEdgeCreate,
       redrawEdges,
       sequence: nextEdgeSequence,
     });
@@ -888,13 +803,10 @@ export async function createWorkflowGraphRenderer(options) {
     let bestDistance = Infinity;
     const candidates = spatialQueries.portHitCandidatesAtScreen(screen, portHitRadiusScreen);
     for (const node of candidates) {
-      if (node.connectable === false) {
-        continue;
-      }
       if (node.id === excludeNodeId) {
         continue;
       }
-      for (const port of interactivePortsForNode(node)) {
+      for (const port of portsForNode(node)) {
         if (port.role !== role) {
           continue;
         }
@@ -946,8 +858,35 @@ export async function createWorkflowGraphRenderer(options) {
     }
     cameraUpdateCount += 1;
     lastCameraState = nextCameraState;
-    handlers.onCameraStateChange(nextCameraState);
-    labels.syncAllLabels();
+    onCameraStateChange(nextCameraState);
+    syncAllLabels();
+  }
+  function syncAllLabels() {
+    for (const node of nodes) {
+      syncLabelPosition(node.id);
+    }
+    syncLabelVisibility();
+  }
+  function syncLabelPosition(nodeId) {
+    const node = requireNode(nodeId);
+    const label = requireNodeLabel(nodeId);
+    const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
+    label.position.set(Math.round(screen.x), Math.round(screen.y));
+    label.scale.set(1);
+    labelSyncCount += 1;
+  }
+  function syncLabelVisibility() {
+    syncNodeLabelVisibility({
+      compactSelectedFontSize: compactSelectedNodeLabelBitmapFontSize,
+      fontSizeModes: nodeLabelFontSizeModes,
+      nodeLabels,
+      nodes,
+      normalFontSize: nodeLabelBitmapFontSize,
+      selectedNodeIds,
+      viewport,
+      visibleNodeIds: spatialQueries.labelVisibleNodeIds(),
+      visibilityReasons: nodeLabelVisibilityReasons,
+    });
   }
 
   function setPortVisualState(nodeId, portId, state) {
@@ -969,21 +908,11 @@ export async function createWorkflowGraphRenderer(options) {
     }
     return node;
   }
-}
-
-function rendererOptionsWithDefaults(options) {
-  return {
-    ...defaultRendererOptions,
-    ...definedRendererOptions(options),
-  };
-}
-
-function definedRendererOptions(options) {
-  const definedOptions = {};
-  for (const [key, value] of Object.entries(options)) {
-    if (value !== undefined) {
-      definedOptions[key] = value;
+  function requireNodeLabel(nodeId) {
+    const label = nodeLabels.get(nodeId);
+    if (!label) {
+      throw new Error(`workflow graph node label is missing: ${nodeId}`);
     }
+    return label;
   }
-  return definedOptions;
 }

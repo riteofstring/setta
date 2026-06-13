@@ -61,10 +61,6 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
         "port-hit",
       );
     },
-    rebuild: (nextNodes) => {
-      nodeSpatialIndex.rebuild(nextNodes);
-      counters.spatialIndexRebuildCount += 1;
-    },
     updateNode: (node) => {
       nodeSpatialIndex.update(node);
       counters.spatialIndexUpdateCount += 1;

@@ -79,42 +79,6 @@ func TestConfigFromArgsRejectsScriptedWorkflowHarnessWithoutE2EGuard(t *testing.
 	}
 }
 
-func TestConfigFromArgsDisablesAutomaticCartographerWithE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E" {
-			return "1"
-		}
-		if name == "SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER" {
-			return "1"
-		}
-		return ""
-	})
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
-	}
-	if !config.DisableAutomaticCartographerProcessing {
-		t.Fatal("automatic cartographer processing was not disabled")
-	}
-}
-
-func TestConfigFromArgsRejectsAutomaticCartographerDisableWithoutE2EGuard(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	_, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		if name == "SETTA_E2E_DISABLE_AUTOMATIC_CARTOGRAPHER" {
-			return "1"
-		}
-		return ""
-	})
-	if err == nil {
-		t.Fatal("config succeeded, want SETTA_E2E guard error")
-	}
-}
-
 func emptyEnv(string) string {
 	return ""
 }

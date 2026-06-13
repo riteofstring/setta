@@ -463,9 +463,6 @@ function closePaneWithConfirmation({
   ) {
     return;
   }
-  if (pane?.surfaceKind === "terminal") {
-    terminateTerminalSessionForPane(paneId);
-  }
   runLayoutAction(() => {
     if (!runtime.store.focusPane(paneId)) {
       return;
@@ -485,17 +482,6 @@ function terminalPaneCloseRequiresConfirmation(paneId: string): boolean {
   }
   const status = host?.dataset.terminalStatus ?? "";
   return status === "" || status === "running" || status === "starting";
-}
-
-function terminateTerminalSessionForPane(paneId: string): void {
-  const host = visiblePaneHostForPane(paneId);
-  const sessionId = host?.dataset.terminalSessionId ?? "";
-  if (sessionId === "") {
-    return;
-  }
-  void window.setta?.terminal.close(sessionId, "terminate").catch((error: unknown) => {
-    console.error("failed to close terminal session", error);
-  });
 }
 
 function assertNever(value: never): never {

@@ -32,67 +32,6 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessRunsSemanticCartographerStructuredTask(t *testing.T) {
-	harness := NewCodexHarness(testCodexConfig("structured-task"))
-	result, err := harness.RunTask(context.Background(), HarnessTaskRequest{
-		Surface:     HarnessSurfaceSemanticCartographer,
-		HarnessKind: HarnessCodex,
-		TurnMode:    HarnessTurnStructuredTask,
-		OutputContract: HarnessOutputContract{
-			Kind:       HarnessOutputStrictJSON,
-			JSONSchema: json.RawMessage(`{"type":"object","required":["patches"],"properties":{"patches":{"type":"array"}}}`),
-		},
-		CapabilityPolicy: HarnessCapabilityPolicy{
-			AllowedTools:      []string{},
-			WorkspaceMutation: false,
-			Approvals:         false,
-			Streaming:         false,
-		},
-		StructuredTask: &HarnessStructuredTask{
-			ID:        "cartographer_task_codex_test",
-			Workspace: testTurnRequest(t).Workspace,
-			Prompt:    "Return only a strict JSON patch envelope.",
-			Input:     json.RawMessage(`{"workspaceId":"workspace_api","sourceRefs":{},"evidence":[]}`),
-			Model:     "gpt-test",
-		},
-	})
-	if err != nil {
-		t.Fatalf("run structured task: %v", err)
-	}
-	requireTurnOutcome(t, result.Completion, TurnOutcomeCompleted)
-	if string(result.StructuredOutput) != `{"patches":[]}` {
-		t.Fatalf("structured output = %s, want empty patch envelope", result.StructuredOutput)
-	}
-	if result.Audit.HarnessKind != HarnessCodex ||
-		result.Audit.Model != "gpt-test" ||
-		result.Audit.RequestID != "cartographer_task_codex_test" ||
-		result.Audit.ResponseID != "turn_fake" ||
-		result.Audit.ThreadRef.ThreadID != "thread_fake" ||
-		result.Audit.ThreadRef.LastTurnID != "turn_fake" ||
-		result.Audit.ThreadRef.Status != HarnessRefLinked {
-		t.Fatalf("audit = %+v, want codex structured task metadata", result.Audit)
-	}
-}
-
-func TestCodexStructuredOutputUsesStreamedTextWhenCompletedTurnOmitsFinalText(t *testing.T) {
-	output, err := codexStructuredOutputFromCompletedTurn(
-		fakeCodexTurnWithItems("completed", []any{
-			map[string]any{
-				"id":   "agent_message_structured_fake",
-				"text": "",
-				"type": "agentMessage",
-			},
-		}),
-		`{"patches":[]}`,
-	)
-	if err != nil {
-		t.Fatalf("structured output from streamed text: %v", err)
-	}
-	if string(output) != `{"patches":[]}` {
-		t.Fatalf("structured output = %s, want streamed patch envelope", output)
-	}
-}
-
 func TestJSONRPCPendingCallFailsOnProcessExit(t *testing.T) {
 	client, err := startTestJSONRPCClient(testCodexConfig("jsonrpc-pending-exit"))
 	if err != nil {
@@ -1390,9 +1329,6 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	if mode == "initial-settings" {
 		assertFakeInitialTurnSettings(message)
 	}
-	if mode == "structured-task" {
-		assertFakeStructuredTaskTurnStart(message)
-	}
 	writeFakeResponse(message["id"], map[string]any{
 		"turn": fakeCodexTurn("inProgress"),
 	})
@@ -1409,6 +1345,68 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 		return done
 	}
 	return false
+}
+
+func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
+	switch mode {
+	case "stream":
+		writeFakeStreamTurn()
+		return true, true
+	case "dynamic-tools-thread-start", "dynamic-tools-thread-resume":
+		writeFakeStreamTurn()
+		return true, true
+	case "initial-settings":
+		writeFakeStreamTurn()
+		return true, true
+	case "turn-started-id":
+		writeFakeProviderTurnID()
+		return true, true
+	case "provider-item-turn-id":
+		writeFakeProviderItemTurnID()
+		return true, true
+	case "failed-turn":
+		writeFakeFailedTurn()
+		return true, true
+	case "unknown-turn-status":
+		writeFakeCompletedTurn("paused")
+		return true, true
+	case "steer":
+		return true, false
+	case "activity":
+		writeFakeActivityTurn()
+		return true, true
+	case "empty-deltas":
+		writeFakeEmptyDeltaTurn()
+		return true, true
+	case "empty-base64-output-deltas":
+		writeFakeEmptyBase64OutputDeltaTurn()
+		return true, true
+	case "unsupported-output-stream":
+		writeFakeUnsupportedOutputStreamTurn()
+		return true, true
+	case "approval", "permission", "user-input":
+		state.approvalOutstanding = true
+		writeFakeApprovalRequest(mode)
+		return true, false
+	case "mcp-elicitation-form", "mcp-elicitation-form-cancel", "mcp-elicitation-url-decline":
+		state.approvalOutstanding = true
+		writeFakeMCPElicitationRequest(mode)
+		return true, false
+	case "dynamic-tool-unknown", "dynamic-tool-registered", "attestation-unavailable", "attestation-provider":
+		writeFakeImmediateServerRequest(mode, state)
+		return true, false
+	case "malformed-approval":
+		writeFakeMalformedApproval()
+		return true, true
+	case "malformed-delta":
+		writeFakeMalformedDelta()
+		return true, true
+	case "unsupported-request":
+		writeFakeUnsupportedRequest()
+		return true, true
+	default:
+		return false, false
+	}
 }
 
 func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {
