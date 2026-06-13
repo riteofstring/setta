@@ -133,7 +133,7 @@ export function workflowRendererScopeKey(
   workflowWorkspaceId: string,
 ) {
   if (syntheticGraph !== null) {
-    return `synthetic:${syntheticGraph.nodeCount}:${syntheticGraph.edgesPerNode}`;
+    return `synthetic:${syntheticGraph.scene ?? "workflow"}:${syntheticGraph.nodeCount}:${syntheticGraph.edgesPerNode}`;
   }
   return `workspace:${workflowWorkspaceId}`;
 }

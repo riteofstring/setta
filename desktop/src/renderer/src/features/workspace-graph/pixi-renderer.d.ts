@@ -1,3 +1,9 @@
+import type {
+  WorkflowGraphEdgeStatus,
+  WorkflowGraphNodeStatus,
+  WorkflowNodeKind,
+} from "@generated/backend";
+
 export interface WorkflowGraphNode {
   activity?: {
     active: boolean;
@@ -7,11 +13,26 @@ export interface WorkflowGraphNode {
   color: number;
   connectable?: boolean;
   diagnostic?: WorkflowGraphDiagnostic | null;
+  /** Semantic-only renderer flag; merged nodes are also treated as dismissed by projections. */
+  dismissed?: boolean;
+  executionCount?: number;
   height: number;
   id: string;
-  layer?: "semantic" | "workflow";
+  /** Workflow-only node kind. Semantic kind is pre-resolved into color. */
+  kind?: WorkflowNodeKind;
+  layer: "semantic" | "workflow";
   label: string;
+  /** Semantic-only lineage id in renderer namespace, or "" when unset. */
+  mergedIntoNodeId?: string;
   ports?: WorkflowGraphPort[];
+  /** Semantic-only renderer flag. */
+  promoted?: boolean;
+  /** Semantic-only lineage id in renderer namespace, or "" when unset. */
+  splitFromNodeId?: string;
+  /** Semantic-only lineage ids in renderer namespace. */
+  splitIntoNodeIds?: string[];
+  /** Workflow-only node status. */
+  status?: WorkflowGraphNodeStatus;
   width: number;
   x: number;
   y: number;
@@ -30,10 +51,12 @@ export interface WorkflowGraphEdge {
   color?: number;
   diagnostic?: WorkflowGraphDiagnostic | null;
   id: string;
-  layer?: "semantic" | "workflow";
+  layer: "semantic" | "workflow";
   label?: string;
   sourceNodeId: string;
   sourcePortId: string;
+  /** Workflow-only edge status. Semantic edge kind is pre-resolved into color. */
+  status?: WorkflowGraphEdgeStatus;
   targetNodeId: string;
   targetPortId: string;
   width?: number;
@@ -105,6 +128,7 @@ export interface WorkflowGraphRendererHandlers {
 
 interface CreateWorkflowGraphRendererOptions {
   abortSignal?: AbortSignal;
+  animationEnabled?: boolean;
   debugEnabled: boolean;
   debugSurfaceId?: string;
   graph?: WorkflowGraphGraph;
@@ -120,6 +144,7 @@ interface CreateWorkflowGraphRendererOptions {
   onNodePositionsChange?: WorkflowGraphRendererHandlers["onNodePositionsChange"];
   onNodeSelectionChange?: WorkflowGraphRendererHandlers["onNodeSelectionChange"];
   reactRenderCount?: WorkflowGraphRendererHandlers["reactRenderCount"];
+  reduceMotion?: boolean;
 }
 
 export interface WorkflowGraphRenderer {

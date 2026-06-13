@@ -61,6 +61,15 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
         "port-hit",
       );
     },
+    visibleNodeIds: () => {
+      const worldBounds = viewportWorldBounds(viewport);
+      return new Set(
+        nodeSpatialIndex
+          .search(worldBounds)
+          .filter((node) => rectanglesIntersect(nodeBounds(node), worldBounds))
+          .map((node) => node.id),
+      );
+    },
     rebuild: (nextNodes) => {
       nodeSpatialIndex.rebuild(nextNodes);
       counters.spatialIndexRebuildCount += 1;

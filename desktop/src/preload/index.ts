@@ -17,10 +17,17 @@ import type {
 } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
 
+type WorkflowGraphSyntheticScene = Exclude<
+  NonNullable<SettaAPI["app"]["flags"]["workflowGraphSyntheticGraph"]>["scene"],
+  undefined
+>;
+
 const invoke = createRendererIpcInvoke(ipcRenderer);
 const appFlags = {
+  workflowGraphAnimationEnabled: process.env.SETTA_WORKFLOW_GRAPH_ANIMATION !== "0",
   workflowGraphDebug:
     process.env.SETTA_E2E === "1" || process.env.SETTA_WORKFLOW_GRAPH_DEBUG === "1",
+  workflowGraphReduceMotion: process.env.SETTA_WORKFLOW_GRAPH_REDUCE_MOTION === "1",
   workflowGraphSyntheticGraph: parseWorkflowGraphSyntheticGraph(process.env),
 };
 const workspaceBrowserViewKeys = new Set<string>([
@@ -337,7 +344,8 @@ function parseWorkflowGraphSyntheticGraph(env: NodeJS.ProcessEnv) {
     env.SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE,
     "SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE",
   );
-  if (nodeCount === null && edgesPerNode === null) {
+  const scene = optionalWorkflowGraphSyntheticSceneEnv(env.SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE);
+  if (nodeCount === null && edgesPerNode === null && scene === null) {
     return null;
   }
   if (nodeCount === null || edgesPerNode === null) {
@@ -345,7 +353,19 @@ function parseWorkflowGraphSyntheticGraph(env: NodeJS.ProcessEnv) {
       "SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT and SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE must be set together",
     );
   }
-  return { edgesPerNode, nodeCount };
+  return { edgesPerNode, nodeCount, ...(scene === null ? {} : { scene }) };
+}
+
+function optionalWorkflowGraphSyntheticSceneEnv(
+  value: string | undefined,
+): WorkflowGraphSyntheticScene | null {
+  if (value === undefined || value === "") {
+    return null;
+  }
+  if (value === "workflow" || value === "semantic-cells") {
+    return value;
+  }
+  throw new Error(`SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE is unsupported: ${value}`);
 }
 
 function optionalPositiveIntegerEnv(value: string | undefined, name: string) {

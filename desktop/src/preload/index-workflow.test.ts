@@ -36,9 +36,12 @@ describe("preload workflow API", () => {
     vi.doUnmock("electron");
     vi.unstubAllEnvs();
     vi.stubEnv("SETTA_E2E", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_ANIMATION", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_REDUCE_MOTION", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "");
   });
 
   test("exposes typed workflow methods through IPC", async () => {

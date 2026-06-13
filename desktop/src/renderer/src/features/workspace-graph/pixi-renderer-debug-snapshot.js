@@ -62,61 +62,24 @@ export function createWorkflowGraphDebugSnapshot({
         edges: edges.map((edge) => ({
           id: edge.id,
           diagnostic: edge.diagnostic ?? null,
+          layer: edge.layer,
           label: edge.label ?? "",
           sourceNodeId: edge.sourceNodeId,
           sourcePortId: edge.sourcePortId,
+          status: edge.status ?? "",
           targetNodeId: edge.targetNodeId,
           targetPortId: edge.targetPortId,
         })),
         nodeCount: nodes.length,
-        nodes: nodes.map((node) => {
-          const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
-          const label = requireNodeLabel(node.id);
-          const labelGlobal = label.getGlobalPosition(new Point());
-          return {
-            id: node.id,
-            diagnostic: node.diagnostic ?? null,
-            height: node.height,
-            label: {
-              eventMode: label.eventMode,
-              fontDistanceFieldRange: loadedNodeLabelFont.distanceField.range,
-              fontDistanceFieldType: loadedNodeLabelFont.distanceField.type,
-              fontFamily: label.style.fontFamily,
-              fontSize: label.style.fontSize,
-              fontSizeMode: nodeLabelFontSizeModes.get(node.id) ?? "normal",
-              globalX: labelGlobal.x,
-              globalY: labelGlobal.y,
-              kind: "bitmap-text",
-              screenX: label.x,
-              screenY: label.y,
-              scaleX: label.scale.x,
-              scaleY: label.scale.y,
-              text: label.text,
-              visible: label.visible,
-              visibilityReason: nodeLabelVisibilityReasons.get(node.id) ?? "zoom-hidden",
-              worldScaleX: label.worldTransform.a,
-              worldScaleY: label.worldTransform.d,
-            },
-            ports: interactivePortsForNode(node).map((port) => {
-              const world = portWorldPosition(node, port.id);
-              const portScreen = viewport.toScreen(world.x, world.y);
-              return {
-                id: port.id,
-                label: port.label ?? "",
-                role: port.role,
-                screenX: portScreen.x,
-                screenY: portScreen.y,
-                x: world.x,
-                y: world.y,
-              };
-            }),
-            screenX: screen.x,
-            screenY: screen.y,
-            width: node.width,
-            x: node.x,
-            y: node.y,
-          };
-        }),
+        nodes: nodes.map((node) =>
+          nodeDebugSnapshot(node, {
+            loadedNodeLabelFont,
+            nodeLabelFontSizeModes,
+            nodeLabelVisibilityReasons,
+            requireNodeLabel,
+            viewport,
+          }),
+        ),
         workflow: state.workflow,
       },
       interaction: {
@@ -128,11 +91,17 @@ export function createWorkflowGraphDebugSnapshot({
         selectedNodeIds: [...state.selectedNodeIds],
       },
       render: {
+        activeEdgeFlowCount: state.activeEdgeFlowCount,
+        activeNodePulseCount: state.activeNodePulseCount,
         averageFrameMs: frameStats.average,
+        animationActive: state.animationActive,
+        animationEnabled: state.animationEnabled,
         cameraUpdateCount: state.cameraUpdateCount,
         canvasCreationCount: state.canvasCreationCount,
+        cellAnimCount: state.cellAnimCount,
         edgeCommitCount: state.edgeCommitCount,
         edgeGraphicsCount: 2,
+        edgeFlowRedrawCount: state.edgeFlowRedrawCount,
         edgeRedrawCount: state.edgeRedrawCount,
         edgeSelectionChangeCount: state.edgeSelectionChangeCount,
         frameCount: state.frameCount,
@@ -153,6 +122,7 @@ export function createWorkflowGraphDebugSnapshot({
         nodeBodyGraphicsCount: nodeBodies.size,
         nodeContainerCount: nodeContainers.size,
         nodeDragUpdateCount: state.nodeDragUpdateCount,
+        nodePulseRedrawCount: state.nodePulseRedrawCount,
         nodeOutlineContextCount: nodeGeometryContexts.outline,
         nodeOutlineGraphicsCount: countNodeOutlineGraphics(nodeOutlines),
         nodeOutlineVisibilityUpdateCount: state.nodeOutlineVisibilityUpdateCount,
@@ -161,6 +131,7 @@ export function createWorkflowGraphDebugSnapshot({
         pointerPanUpdateCount: state.pointerPanUpdateCount,
         portGraphicsCount: portVisuals.size,
         reactRenderCount: reactRenderCount(),
+        reduceMotion: state.reduceMotion,
         rendererDestroyCount: state.rendererDestroyCount,
         rendererInstanceId: state.rendererInstanceId,
         recentFrameMs: [...recentFrameMs],
@@ -168,6 +139,7 @@ export function createWorkflowGraphDebugSnapshot({
         ...spatialQueries.debugSnapshot(),
         temporaryEdgeUpdateCount: state.temporaryEdgeUpdateCount,
         totalDisplayObjectCount: totalDisplayObjectCount(app.stage),
+        transitionsActive: state.transitionsActive,
         visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
         wheelPanUpdateCount: state.wheelPanUpdateCount,
         wheelZoomUpdateCount: state.wheelZoomUpdateCount,
@@ -177,6 +149,88 @@ export function createWorkflowGraphDebugSnapshot({
       visual,
     };
   };
+}
+
+function nodeDebugSnapshot(
+  node,
+  {
+    loadedNodeLabelFont,
+    nodeLabelFontSizeModes,
+    nodeLabelVisibilityReasons,
+    requireNodeLabel,
+    viewport,
+  },
+) {
+  const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
+  return {
+    id: node.id,
+    diagnostic: node.diagnostic ?? null,
+    dismissed: node.dismissed ?? false,
+    height: node.height,
+    kind: node.kind ?? "",
+    label: nodeLabelDebugSnapshot(node, {
+      loadedNodeLabelFont,
+      nodeLabelFontSizeModes,
+      nodeLabelVisibilityReasons,
+      requireNodeLabel,
+    }),
+    layer: node.layer,
+    mergedIntoNodeId: node.mergedIntoNodeId ?? "",
+    ports: nodePortDebugSnapshots(node, viewport),
+    promoted: node.promoted ?? false,
+    screenX: screen.x,
+    screenY: screen.y,
+    splitFromNodeId: node.splitFromNodeId ?? "",
+    splitIntoNodeIds: node.splitIntoNodeIds ?? [],
+    status: node.status ?? "",
+    width: node.width,
+    x: node.x,
+    y: node.y,
+  };
+}
+
+function nodeLabelDebugSnapshot(
+  node,
+  { loadedNodeLabelFont, nodeLabelFontSizeModes, nodeLabelVisibilityReasons, requireNodeLabel },
+) {
+  const label = requireNodeLabel(node.id);
+  const labelGlobal = label.getGlobalPosition(new Point());
+  return {
+    eventMode: label.eventMode,
+    fontDistanceFieldRange: loadedNodeLabelFont.distanceField.range,
+    fontDistanceFieldType: loadedNodeLabelFont.distanceField.type,
+    fontFamily: label.style.fontFamily,
+    fontSize: label.style.fontSize,
+    fontSizeMode: nodeLabelFontSizeModes.get(node.id) ?? "normal",
+    globalX: labelGlobal.x,
+    globalY: labelGlobal.y,
+    kind: "bitmap-text",
+    scaleX: label.scale.x,
+    scaleY: label.scale.y,
+    screenX: label.x,
+    screenY: label.y,
+    text: label.text,
+    visibilityReason: nodeLabelVisibilityReasons.get(node.id) ?? "zoom-hidden",
+    visible: label.visible,
+    worldScaleX: label.worldTransform.a,
+    worldScaleY: label.worldTransform.d,
+  };
+}
+
+function nodePortDebugSnapshots(node, viewport) {
+  return interactivePortsForNode(node).map((port) => {
+    const world = portWorldPosition(node, port.id);
+    const portScreen = viewport.toScreen(world.x, world.y);
+    return {
+      id: port.id,
+      label: port.label ?? "",
+      role: port.role,
+      screenX: portScreen.x,
+      screenY: portScreen.y,
+      x: world.x,
+      y: world.y,
+    };
+  });
 }
 
 function skippedVisualState() {

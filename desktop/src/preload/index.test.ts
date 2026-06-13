@@ -36,9 +36,12 @@ describe("preload workspace API", () => {
     vi.doUnmock("electron");
     vi.unstubAllEnvs();
     vi.stubEnv("SETTA_E2E", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_ANIMATION", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_REDUCE_MOTION", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "");
   });
 
   test("exposes typed app methods through IPC", async () => {
@@ -58,7 +61,9 @@ describe("preload workspace API", () => {
     ]);
 
     expect(api.app.flags).toEqual({
+      workflowGraphAnimationEnabled: true,
       workflowGraphDebug: false,
+      workflowGraphReduceMotion: false,
       workflowGraphSyntheticGraph: null,
     });
     const dragPoint = { screenX: 200, screenY: 120 };
@@ -82,6 +87,38 @@ describe("preload workspace API", () => {
       [ipcChannels.appWorkspaceGitInfo, "/tmp/api"],
       [ipcChannels.appOpenExternalUrl, "https://example.test/login"],
     ]);
+  });
+
+  test("exposes workflow graph visual flags from environment", async () => {
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_ANIMATION", "0");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_DEBUG", "1");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_REDUCE_MOTION", "1");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "2");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "500");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "semantic-cells");
+
+    const { api } = await exposePreloadAPI();
+
+    expect(api.app.flags).toEqual({
+      workflowGraphAnimationEnabled: false,
+      workflowGraphDebug: true,
+      workflowGraphReduceMotion: true,
+      workflowGraphSyntheticGraph: {
+        edgesPerNode: 2,
+        nodeCount: 500,
+        scene: "semantic-cells",
+      },
+    });
+  });
+
+  test("rejects unsupported workflow graph synthetic scenes", async () => {
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "2");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "500");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "unknown");
+
+    await expect(exposePreloadAPI()).rejects.toThrow(
+      "SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE is unsupported: unknown",
+    );
   });
 
   test("exposes typed workspace methods through IPC", async () => {

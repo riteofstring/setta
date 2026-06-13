@@ -37,6 +37,11 @@ describe("rendererGraphFromSemanticGraph", () => {
     ]);
     expect(graph.nodes.find((node) => node.id === "semantic:node_constraint")).toMatchObject({
       activity: { active: true, count: 1, kind: "validating" },
+      dismissed: false,
+      mergedIntoNodeId: "",
+      promoted: false,
+      splitFromNodeId: "",
+      splitIntoNodeIds: [],
       x: 80,
       y: -40,
     });
@@ -64,6 +69,49 @@ describe("rendererGraphFromSemanticGraph", () => {
         semanticGraph: testSemanticGraph(),
       }),
     ).toEqual([{ entityId: "node_constraint", pinned: true, x: 80, y: -40 }]);
+  });
+
+  test("threads semantic provenance fields in renderer node id namespace", () => {
+    const graph = rendererGraphFromSemanticGraph({
+      semanticActivities: new Map(),
+      semanticGraph: {
+        ...testSemanticGraph(),
+        nodes: [
+          {
+            ...node("node_parent", "concept", "Parent"),
+            dismissed: true,
+            splitIntoNodeIds: ["node_left", "node_right"],
+          },
+          {
+            ...node("node_left", "finding", "Left"),
+            promoted: true,
+            splitFromNodeId: "node_parent",
+          },
+          {
+            ...node("node_absorbed", "question", "Absorbed"),
+            dismissed: true,
+            mergedIntoNodeId: "node_left",
+          },
+        ],
+      },
+      workflowGraph: undefined,
+    });
+
+    expect(graph.nodes.find((candidate) => candidate.id === "semantic:node_parent")).toMatchObject({
+      dismissed: true,
+      splitFromNodeId: "",
+      splitIntoNodeIds: ["semantic:node_left", "semantic:node_right"],
+    });
+    expect(graph.nodes.find((candidate) => candidate.id === "semantic:node_left")).toMatchObject({
+      promoted: true,
+      splitFromNodeId: "semantic:node_parent",
+    });
+    expect(
+      graph.nodes.find((candidate) => candidate.id === "semantic:node_absorbed"),
+    ).toMatchObject({
+      dismissed: true,
+      mergedIntoNodeId: "semantic:node_left",
+    });
   });
 
   test("merges workflow and semantic renderer graphs without changing workflow metadata", () => {
@@ -191,6 +239,7 @@ function testWorkflowGraph(): WorkflowGraphGraph {
         color: 0x38bdf8,
         height: 82,
         id: "workflow_node",
+        layer: "workflow",
         label: "Workflow Node",
         width: 180,
         x: -120,

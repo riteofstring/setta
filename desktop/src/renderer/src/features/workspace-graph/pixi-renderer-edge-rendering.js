@@ -1,4 +1,5 @@
 import { drawEdgeLabel } from "./pixi-renderer-edge-labels";
+import { rendererEdgeLayer } from "./pixi-renderer-layers";
 import { drawDiagnosticDiamond } from "./pixi-renderer-node-geometry";
 import { drawCurvedEdge, portWorldPosition, requirePort } from "./pixi-renderer-helpers";
 
@@ -59,6 +60,18 @@ export function redrawWorkspaceEdgeHighlights({
 }
 
 function drawEdge(target, edge, start, end) {
+  switch (rendererEdgeLayer(edge)) {
+    case "workflow":
+      drawWorkflowEdge(target, edge, start, end);
+      return;
+    case "semantic":
+      drawSemanticEdge(target, edge, start, end);
+      return;
+  }
+  throw new Error(`unsupported workspace graph edge layer: ${edge.layer}`);
+}
+
+function drawWorkflowEdge(target, edge, start, end) {
   drawCurvedEdge(target, start, end, {
     alpha: edge.alpha ?? 0.65,
     color: edge.color ?? 0xe2e8f0,
@@ -66,7 +79,12 @@ function drawEdge(target, edge, start, end) {
   });
 }
 
+function drawSemanticEdge(target, edge, start, end) {
+  drawWorkflowEdge(target, edge, start, end);
+}
+
 function drawHighlightedEdge(target, edge, getNode, stroke) {
+  rendererEdgeLayer(edge);
   const source = getNode(edge.sourceNodeId);
   const targetNode = getNode(edge.targetNodeId);
   const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));

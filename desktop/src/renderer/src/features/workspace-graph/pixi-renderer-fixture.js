@@ -3,6 +3,7 @@ export const initialNodes = [
     color: 0x14b8a6,
     height: 82,
     id: "source",
+    layer: "workflow",
     label: "Source",
     width: 168,
     x: -360,
@@ -12,6 +13,7 @@ export const initialNodes = [
     color: 0x8b5cf6,
     height: 90,
     id: "reason",
+    layer: "workflow",
     label: "Reason",
     width: 184,
     x: -70,
@@ -21,6 +23,7 @@ export const initialNodes = [
     color: 0xf59e0b,
     height: 82,
     id: "output",
+    layer: "workflow",
     label: "Output",
     width: 168,
     x: 260,
@@ -30,6 +33,7 @@ export const initialNodes = [
     color: 0x38bdf8,
     height: 76,
     id: "review",
+    layer: "workflow",
     label: "Review",
     width: 160,
     x: 110,
@@ -40,6 +44,7 @@ export const initialNodes = [
 export const initialEdges = [
   {
     id: "source-reason",
+    layer: "workflow",
     sourceNodeId: "source",
     sourcePortId: "output",
     targetNodeId: "reason",
@@ -47,6 +52,7 @@ export const initialEdges = [
   },
   {
     id: "reason-output",
+    layer: "workflow",
     sourceNodeId: "reason",
     sourcePortId: "output",
     targetNodeId: "output",
@@ -54,6 +60,7 @@ export const initialEdges = [
   },
   {
     id: "reason-review",
+    layer: "workflow",
     sourceNodeId: "reason",
     sourcePortId: "output",
     targetNodeId: "review",

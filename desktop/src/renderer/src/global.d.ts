@@ -21,15 +21,19 @@ interface WorkflowGraphDebugSnapshot {
     edges: Array<{
       id: string;
       label: string;
+      layer: "semantic" | "workflow";
       sourceNodeId: string;
       sourcePortId: string;
+      status: string;
       targetNodeId: string;
       targetPortId: string;
     }>;
     nodeCount: number;
     nodes: Array<{
+      dismissed: boolean;
       height: number;
       id: string;
+      kind: string;
       label: {
         eventMode: string;
         fontDistanceFieldRange: number;
@@ -56,6 +60,8 @@ interface WorkflowGraphDebugSnapshot {
         worldScaleX: number;
         worldScaleY: number;
       };
+      layer: "semantic" | "workflow";
+      mergedIntoNodeId: string;
       ports: Array<{
         id: string;
         label: string;
@@ -67,6 +73,10 @@ interface WorkflowGraphDebugSnapshot {
       }>;
       screenX: number;
       screenY: number;
+      splitFromNodeId: string;
+      splitIntoNodeIds: string[];
+      status: string;
+      promoted: boolean;
       width: number;
       x: number;
       y: number;
@@ -93,9 +103,15 @@ interface WorkflowGraphDebugSnapshot {
     selectedNodeIds: string[];
   };
   render: {
+    activeEdgeFlowCount: number;
+    activeNodePulseCount: number;
     averageFrameMs: number;
+    animationActive: boolean;
+    animationEnabled: boolean;
     cameraUpdateCount: number;
+    cellAnimCount: number;
     edgeCommitCount: number;
+    edgeFlowRedrawCount: number;
     edgeGraphicsCount: number;
     edgeRedrawCount: number;
     edgeSelectionChangeCount: number;
@@ -114,6 +130,7 @@ interface WorkflowGraphDebugSnapshot {
     nodeBodyGraphicsCount: number;
     nodeContainerCount: number;
     nodeDragUpdateCount: number;
+    nodePulseRedrawCount: number;
     nodeOutlineContextCount: number;
     nodeOutlineGraphicsCount: number;
     nodeOutlineVisibilityUpdateCount: number;
@@ -122,6 +139,7 @@ interface WorkflowGraphDebugSnapshot {
     pointerPanUpdateCount: number;
     portGraphicsCount: number;
     reactRenderCount: number;
+    reduceMotion: boolean;
     recentFrameMs: number[];
     selectionChangeCount: number;
     spatialIndexCandidateCount: number;
@@ -131,6 +149,7 @@ interface WorkflowGraphDebugSnapshot {
     spatialIndexUpdateCount: number;
     temporaryEdgeUpdateCount: number;
     totalDisplayObjectCount: number;
+    transitionsActive: number;
     visibleLabelCount: number;
     wheelPanUpdateCount: number;
     wheelZoomUpdateCount: number;

@@ -20,14 +20,17 @@ describe("rendererGraphFromWorkflowProjection", () => {
       viewMode: "run",
       workspaceId: "workspace_test",
     });
-    expect(graph.nodes.map((node) => [node.id, node.status, node.executionCount])).toEqual([
-      ["start", "succeeded", 1],
-      ["work", "running", 2],
-      ["end", "not_started", 0],
+    expect(
+      graph.nodes.map((node) => [node.id, node.layer, node.status, node.executionCount]),
+    ).toEqual([
+      ["start", "workflow", "succeeded", 1],
+      ["work", "workflow", "running", 2],
+      ["end", "workflow", "not_started", 0],
     ]);
     expect(
       graph.edges.map((edge) => [
         edge.id,
+        edge.layer,
         edge.sourceNodeId,
         edge.sourcePortId,
         edge.targetNodeId,
@@ -35,8 +38,8 @@ describe("rendererGraphFromWorkflowProjection", () => {
         edge.label,
       ]),
     ).toEqual([
-      ["start_work", "start", "output", "work", "completed", ""],
-      ["work_end", "work", "output", "end", "active", ""],
+      ["start_work", "workflow", "start", "output", "work", "completed", ""],
+      ["work_end", "workflow", "work", "output", "end", "active", ""],
     ]);
     expect(graph.nodes.find((node) => node.id === "start")?.x).toBeLessThan(
       graph.nodes.find((node) => node.id === "work")?.x ?? 0,

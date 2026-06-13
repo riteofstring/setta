@@ -2,6 +2,8 @@
 
 import { Point } from "pixi.js";
 
+import { rendererNodeLayer } from "./pixi-renderer-layers";
+
 const backgroundRed = 7;
 const backgroundGreen = 8;
 const backgroundBlue = 13;
@@ -255,10 +257,27 @@ export function drawWorkspaceGlow(target, nodes, now) {
   target.clear();
   const pulse = 0.35 + Math.sin(now / 450) * 0.15;
   for (const node of nodes) {
-    target
-      .circle(node.x + node.width / 2, node.y + node.height / 2, 58 + pulse * 16)
-      .stroke({ alpha: 0.08 + pulse * 0.05, color: node.color, width: 2 });
+    switch (rendererNodeLayer(node)) {
+      case "workflow":
+        drawWorkflowNodeGlow(target, node, pulse);
+        break;
+      case "semantic":
+        drawSemanticNodeGlow(target, node, pulse);
+        break;
+      default:
+        throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
+    }
   }
+}
+
+function drawWorkflowNodeGlow(target, node, pulse) {
+  target
+    .circle(node.x + node.width / 2, node.y + node.height / 2, 58 + pulse * 16)
+    .stroke({ alpha: 0.08 + pulse * 0.05, color: node.color, width: 2 });
+}
+
+function drawSemanticNodeGlow(target, node, pulse) {
+  drawWorkflowNodeGlow(target, node, pulse);
 }
 
 export function visibleDisplayObjectCount(displayObjects) {
@@ -323,7 +342,7 @@ export function edgeConnection(edgeDrawing, targetPort) {
 }
 
 function drawnEdge(sequence, connection) {
-  return { id: `drawn-${sequence}`, ...connection };
+  return { id: `drawn-${sequence}`, layer: "workflow", ...connection };
 }
 
 export function commitEdgeConnection(connection, { edges, onEdgeCreate, redrawEdges, sequence }) {

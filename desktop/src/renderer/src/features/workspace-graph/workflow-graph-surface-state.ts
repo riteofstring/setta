@@ -1,5 +1,14 @@
 import type { SyntheticWorkflowGraphOptions } from "./workflow-graph-camera-scope";
 
+export function workflowGraphAnimationSettingsForSurface() {
+  const prefersReducedMotion =
+    window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  return {
+    animationEnabled: window.setta.app.flags.workflowGraphAnimationEnabled,
+    reduceMotion: window.setta.app.flags.workflowGraphReduceMotion || prefersReducedMotion,
+  };
+}
+
 export function workflowSyntheticGraphForSurface(
   syntheticGraphFallback: SyntheticWorkflowGraphOptions | undefined,
 ) {

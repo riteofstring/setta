@@ -26,6 +26,7 @@ import { useWorkflowProjectionState } from "./workflow-graph-projection-state";
 import { workflowRendererHandlersForSurface } from "./workflow-graph-renderer-handlers";
 import { isWorkflowGraphRendererInitAbort } from "./workflow-graph-renderer-lifecycle";
 import {
+  workflowGraphAnimationSettingsForSurface,
   workflowGraphStateForSurface,
   workflowSyntheticGraphForSurface,
 } from "./workflow-graph-surface-state";
@@ -94,6 +95,7 @@ export function WorkflowGraphSurface({
   const workflowGraphWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
   const layoutSaveSequenceRef = useRef(0);
   const syntheticGraph = workflowSyntheticGraphForSurface(syntheticGraphFallback);
+  const graphAnimationSettings = workflowGraphAnimationSettingsForSurface();
   const selectedDefinitionIdsByWorkspaceId = useWorkflowDefinitionStore(
     (state) => state.selectedDefinitionIdsByWorkspaceId,
   );
@@ -798,11 +800,13 @@ export function WorkflowGraphSurface({
         }
         const renderer = await createWorkflowGraphRenderer({
           abortSignal: abortController.signal,
+          animationEnabled: graphAnimationSettings.animationEnabled,
           debugEnabled,
           debugSurfaceId: surfaceId,
           graph: initialGraph,
           host,
           initialCameraState: workflowCameraRef.current,
+          reduceMotion: graphAnimationSettings.reduceMotion,
           ...rendererHandlersRef.current,
         });
         if (disposed) {
@@ -830,7 +834,14 @@ export function WorkflowGraphSurface({
       destroyRenderer();
       host.replaceChildren();
     };
-  }, [debugEnabled, rendererGraphReady, rendererScopeKey, surfaceId]);
+  }, [
+    debugEnabled,
+    graphAnimationSettings.animationEnabled,
+    graphAnimationSettings.reduceMotion,
+    rendererGraphReady,
+    rendererScopeKey,
+    surfaceId,
+  ]);
 
   useEffect(() => {
     if (workflowContextMenu === null) {

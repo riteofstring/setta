@@ -50,7 +50,9 @@ describe("workspace renderer states", () => {
         setta: {
           app: {
             flags: {
+              workflowGraphAnimationEnabled: true,
               workflowGraphDebug: false,
+              workflowGraphReduceMotion: false,
               workflowGraphSyntheticGraph: null,
             },
             platform: "darwin",
@@ -91,7 +93,9 @@ describe("workspace renderer states", () => {
         setta: {
           app: {
             flags: {
+              workflowGraphAnimationEnabled: true,
               workflowGraphDebug: false,
+              workflowGraphReduceMotion: false,
               workflowGraphSyntheticGraph: null,
             },
             platform: "win32",

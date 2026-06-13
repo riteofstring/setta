@@ -271,7 +271,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const api: SettaAPI = {
     app: {
       flags: {
+        workflowGraphAnimationEnabled: true,
         workflowGraphDebug: false,
+        workflowGraphReduceMotion: false,
         workflowGraphSyntheticGraph: null,
       },
       captureRendererRegion: async () => ({

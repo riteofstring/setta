@@ -296,10 +296,13 @@ export interface ChatCommandExecutionOptions {
 export interface SettaAPI {
   app: {
     flags: {
+      workflowGraphAnimationEnabled: boolean;
       workflowGraphDebug: boolean;
+      workflowGraphReduceMotion: boolean;
       workflowGraphSyntheticGraph: {
         edgesPerNode: number;
         nodeCount: number;
+        scene?: "semantic-cells" | "workflow";
       } | null;
     };
     installedEditors: () => Promise<InstalledEditorApp[]>;

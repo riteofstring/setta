@@ -1,5 +1,7 @@
 import { GraphicsContext } from "pixi.js";
 
+import { rendererNodeLayer } from "./pixi-renderer-layers";
+
 const nodeBodyStyle = {
   radius: 8,
   fillAlpha: 0.92,
@@ -57,18 +59,18 @@ export function createNodeGeometryContextFactory() {
       shadow: nodeShadowContextCount,
     }),
     nodeBodyContextFor: (node) => {
-      nodeBodyContextCount += 1;
-      return new GraphicsContext()
-        .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
-        .fill({ alpha: nodeBodyStyle.fillAlpha, color: node.color })
-        .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
-        .stroke({
-          alpha: nodeBodyStyle.strokeAlpha,
-          color: nodeBodyStyle.strokeColor,
-          width: nodeBodyStyle.strokeWidth,
-        });
+      switch (rendererNodeLayer(node)) {
+        case "workflow":
+          nodeBodyContextCount += 1;
+          return workflowNodeBodyContextFor(node);
+        case "semantic":
+          nodeBodyContextCount += 1;
+          return semanticNodeBodyContextFor(node);
+      }
+      throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
     },
     nodeOutlineContextFor: (node, state) => {
+      rendererNodeLayer(node);
       const style = nodeOutlineStyleFor(state);
       nodeOutlineContextCount += 1;
       return new GraphicsContext()
@@ -82,16 +84,15 @@ export function createNodeGeometryContextFactory() {
         .stroke({ alpha: style.alpha, color: style.color, width: style.width });
     },
     nodeShadowContextFor: (node) => {
-      nodeShadowContextCount += 1;
-      return new GraphicsContext()
-        .roundRect(
-          nodeShadowStyle.offsetX,
-          nodeShadowStyle.offsetY,
-          node.width,
-          node.height,
-          nodeShadowStyle.radius,
-        )
-        .fill({ alpha: nodeShadowStyle.alpha, color: nodeShadowStyle.color });
+      switch (rendererNodeLayer(node)) {
+        case "workflow":
+          nodeShadowContextCount += 1;
+          return workflowNodeShadowContextFor(node);
+        case "semantic":
+          nodeShadowContextCount += 1;
+          return semanticNodeShadowContextFor(node);
+      }
+      throw new Error(`unsupported workspace graph node layer: ${node.layer}`);
     },
   };
 }
@@ -122,7 +123,7 @@ export function drawNodeDiagnosticMarker(target, node) {
 
 export function drawNodeActivityMarker(target, node) {
   target.clear();
-  if (!node.activity || node.activity.count <= 0) {
+  if (rendererNodeLayer(node) !== "semantic" || !node.activity || node.activity.count <= 0) {
     target.visible = false;
     return;
   }
@@ -157,6 +158,38 @@ function activityMarkerStyle(active) {
     ringAlpha: 0.28,
     ringWidth: 2,
   };
+}
+
+function workflowNodeBodyContextFor(node) {
+  return new GraphicsContext()
+    .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
+    .fill({ alpha: nodeBodyStyle.fillAlpha, color: node.color })
+    .roundRect(0, 0, node.width, node.height, nodeBodyStyle.radius)
+    .stroke({
+      alpha: nodeBodyStyle.strokeAlpha,
+      color: nodeBodyStyle.strokeColor,
+      width: nodeBodyStyle.strokeWidth,
+    });
+}
+
+function semanticNodeBodyContextFor(node) {
+  return workflowNodeBodyContextFor(node);
+}
+
+function workflowNodeShadowContextFor(node) {
+  return new GraphicsContext()
+    .roundRect(
+      nodeShadowStyle.offsetX,
+      nodeShadowStyle.offsetY,
+      node.width,
+      node.height,
+      nodeShadowStyle.radius,
+    )
+    .fill({ alpha: nodeShadowStyle.alpha, color: nodeShadowStyle.color });
+}
+
+function semanticNodeShadowContextFor(node) {
+  return workflowNodeShadowContextFor(node);
 }
 
 export function drawDiagnosticDiamond(target, centerX, centerY, severity) {

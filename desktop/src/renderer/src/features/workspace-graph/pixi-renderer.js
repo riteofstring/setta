@@ -8,6 +8,7 @@ import {
   attachWorkflowGraphCanvas,
   initializeWorkflowGraphApplication,
 } from "./pixi-renderer-application";
+import { createWorkflowGraphAnimationState } from "./pixi-renderer-animation";
 import { registerWorkflowGraphDebugSurfaceIfEnabled } from "./pixi-renderer-debug-surface";
 import { createWorkflowGraphDebugSnapshot } from "./pixi-renderer-debug-snapshot";
 import {
@@ -73,6 +74,7 @@ const nodeOpenClickIntervalMs = 500;
 const portHitRadiusScreen = 18;
 let nextRendererInstanceId = 1;
 const defaultRendererOptions = {
+  animationEnabled: true,
   debugSurfaceId: "workflow-graph",
   graph: { edges: initialEdges, nodes: initialNodes },
   initialCameraState: null,
@@ -82,11 +84,13 @@ const defaultRendererOptions = {
   onNodePositionsChange: null,
   onNodeSelectionChange: null,
   reactRenderCount: noopReactRenderCount,
+  reduceMotion: false,
 };
 
 export async function createWorkflowGraphRenderer(options) {
   const {
     abortSignal,
+    animationEnabled,
     debugEnabled,
     debugSurfaceId,
     graph,
@@ -102,6 +106,7 @@ export async function createWorkflowGraphRenderer(options) {
     onNodePositionsChange,
     onNodeSelectionChange,
     reactRenderCount,
+    reduceMotion,
   } = rendererOptionsWithDefaults(options);
   const rendererInstanceId = nextRendererInstanceId;
   nextRendererInstanceId += 1;
@@ -236,6 +241,10 @@ export async function createWorkflowGraphRenderer(options) {
     },
     redrawHighlights: redrawEdgeHighlights,
     viewport,
+  });
+  const animationState = createWorkflowGraphAnimationState({
+    animationEnabled,
+    reduceMotion,
   });
 
   backgroundLayer.addChild(grid);
@@ -401,6 +410,7 @@ export async function createWorkflowGraphRenderer(options) {
     if (cameraStatesDiffer(nextCameraState, lastCameraState)) {
       commitCameraChange(nextCameraState);
     }
+    animationState.tick(now);
   });
 
   const unregisterDebugSurface = registerWorkflowGraphDebugSurfaceIfEnabled({
@@ -450,6 +460,7 @@ export async function createWorkflowGraphRenderer(options) {
         wheelPanUpdateCount,
         wheelZoomUpdateCount,
         workflow: currentWorkflow,
+        ...animationState.debugSnapshot(),
         ...sceneGraph.updateCounts(),
       }),
       requireNodeLabel: labels.requireNodeLabel,
@@ -497,6 +508,7 @@ export async function createWorkflowGraphRenderer(options) {
     currentWorkflow = update.workflow;
     nextEdgeSequence = update.nextEdgeSequence;
     spatialQueries.rebuild(nodes);
+    syncAnimationActiveSet();
     pruneSelectionForNodes(nodes);
     edgeInteractions.prune(edges);
     drawAllNodeOutlines();
@@ -601,6 +613,7 @@ export async function createWorkflowGraphRenderer(options) {
       spatialQueries.updateNode(node);
       labels.syncLabelPosition(node.id);
     }
+    syncAnimationActiveSet();
     draggingNode.moved = true;
     labels.syncLabelVisibility();
     nodeDragUpdateCount += 1;
@@ -935,6 +948,15 @@ export async function createWorkflowGraphRenderer(options) {
     lastCameraState = nextCameraState;
     handlers.onCameraStateChange(nextCameraState);
     labels.syncAllLabels();
+    syncAnimationActiveSet();
+  }
+
+  function syncAnimationActiveSet() {
+    animationState.recompute({
+      edges,
+      nodes,
+      visibleNodeIds: spatialQueries.visibleNodeIds(),
+    });
   }
 
   function setPortVisualState(nodeId, portId, state) {

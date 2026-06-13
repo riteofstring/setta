@@ -16,6 +16,7 @@ interface WorkflowGraphNode {
   height: number;
   id: string;
   kind: WorkflowNodeKind;
+  layer: "workflow";
   label: string;
   ports?: WorkflowGraphPort[];
   status: WorkflowGraphNodeStatus;
@@ -35,6 +36,7 @@ interface WorkflowGraphPort {
 interface WorkflowGraphEdge {
   diagnostic: WorkflowGraphDiagnostic | null;
   id: string;
+  layer: "workflow";
   label: string;
   sourceNodeId: string;
   sourcePortId: string;
@@ -113,6 +115,7 @@ export function rendererGraphFromWorkflowProjection(
     edges: projection.edges.map((edge) => ({
       diagnostic: diagnostics.edges.get(edge.id) ?? null,
       id: edge.id,
+      layer: "workflow",
       label: edge.label,
       sourceNodeId: edge.fromNodeId,
       sourcePortId: workflowEdgeSourcePortId(edge.condition),
@@ -129,6 +132,7 @@ export function rendererGraphFromWorkflowProjection(
         height: nodeHeight,
         id: node.id,
         kind: node.kind,
+        layer: "workflow",
         label: node.label,
         ports: workflowNodePorts(node.kind),
         status: node.status,

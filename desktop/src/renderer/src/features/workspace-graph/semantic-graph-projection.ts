@@ -80,10 +80,15 @@ export function rendererGraphFromSemanticGraph({
         color: semanticNodeColor(node),
         connectable: false,
         diagnostic: null,
+        dismissed: semanticNodeDismissed(node),
         height: semanticNodeHeight,
         id: semanticRendererNodeId(node.id),
         layer: "semantic",
         label: node.label,
+        mergedIntoNodeId: semanticOptionalRendererNodeId(node.mergedIntoNodeId),
+        promoted: node.promoted,
+        splitFromNodeId: semanticOptionalRendererNodeId(node.splitFromNodeId),
+        splitIntoNodeIds: node.splitIntoNodeIds.map(semanticRendererNodeId),
         width: semanticNodeWidth(node.label),
         x: position.x,
         y: position.y,
@@ -197,13 +202,21 @@ function semanticDefaultBase(workflowGraph: WorkflowGraphGraph | undefined) {
 }
 
 function semanticNodeColor(node: SemanticNode) {
-  if (node.dismissed || node.mergedIntoNodeId !== "") {
+  if (semanticNodeDismissed(node)) {
     return 0x52525b;
   }
   if (node.promoted) {
     return 0x0891b2;
   }
   return semanticNodeColors[node.kind];
+}
+
+function semanticNodeDismissed(node: SemanticNode) {
+  return node.dismissed || node.mergedIntoNodeId !== "";
+}
+
+function semanticOptionalRendererNodeId(nodeId: string) {
+  return nodeId === "" ? "" : semanticRendererNodeId(nodeId);
 }
 
 function semanticNodeWidth(label: string) {
