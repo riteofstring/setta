@@ -10,9 +10,13 @@ import (
 const SchemaVersion = 2
 
 const (
-	accessibleBlack          = "oklch(0.0000 0.0000 0.00)"
-	accessibleWhite          = "oklch(1.0000 0.0000 0.00)"
-	wcagAANormalTextContrast = 4.5
+	accessibleBlack               = "oklch(0.0000 0.0000 0.00)"
+	accessibleWhite               = "oklch(1.0000 0.0000 0.00)"
+	defaultOverviewCardMaxWidthPx = 460
+	defaultOverviewCardMinWidthPx = 280
+	maximumOverviewCardWidthPx    = 900
+	minimumOverviewCardWidthPx    = 180
+	wcagAANormalTextContrast      = 4.5
 )
 
 type AppearanceColorMode string
@@ -143,6 +147,8 @@ type AppearanceFontScheme struct {
 
 type AppearanceDeveloperSettings struct {
 	AllowResizedPanesToOverflowViewport bool `json:"allowResizedPanesToOverflowViewport"`
+	OverviewCardMaxWidthPx              int  `json:"overviewCardMaxWidthPx"`
+	OverviewCardMinWidthPx              int  `json:"overviewCardMinWidthPx"`
 	ShowPerformanceStats                bool `json:"showPerformanceStats"`
 }
 
@@ -184,6 +190,8 @@ func DefaultSettings() AppearanceSettings {
 		},
 		Developer: AppearanceDeveloperSettings{
 			AllowResizedPanesToOverflowViewport: false,
+			OverviewCardMaxWidthPx:              defaultOverviewCardMaxWidthPx,
+			OverviewCardMinWidthPx:              defaultOverviewCardMinWidthPx,
 			ShowPerformanceStats:                false,
 		},
 	}
@@ -247,7 +255,20 @@ func Validate(settings AppearanceSettings) error {
 	if err := validateColorScheme("dark", settings.Dark); err != nil {
 		return err
 	}
-	return validateFontScheme(settings.Fonts)
+	if err := validateFontScheme(settings.Fonts); err != nil {
+		return err
+	}
+	return validateDeveloperSettings(settings.Developer)
+}
+
+func Normalize(settings AppearanceSettings) AppearanceSettings {
+	if settings.Developer.OverviewCardMinWidthPx == 0 {
+		settings.Developer.OverviewCardMinWidthPx = defaultOverviewCardMinWidthPx
+	}
+	if settings.Developer.OverviewCardMaxWidthPx == 0 {
+		settings.Developer.OverviewCardMaxWidthPx = defaultOverviewCardMaxWidthPx
+	}
+	return settings
 }
 
 func validateColorScheme(label string, scheme AppearanceColorScheme) error {
@@ -354,6 +375,26 @@ func validateFontScheme(fonts AppearanceFontScheme) error {
 		return err
 	}
 	return validateFontFamily("fonts.heading", fonts.Heading)
+}
+
+func validateDeveloperSettings(settings AppearanceDeveloperSettings) error {
+	if err := validateOverviewCardWidth("developer.overviewCardMinWidthPx", settings.OverviewCardMinWidthPx); err != nil {
+		return err
+	}
+	if err := validateOverviewCardWidth("developer.overviewCardMaxWidthPx", settings.OverviewCardMaxWidthPx); err != nil {
+		return err
+	}
+	if settings.OverviewCardMinWidthPx > settings.OverviewCardMaxWidthPx {
+		return fmt.Errorf("developer overview card min width %d exceeds max width %d", settings.OverviewCardMinWidthPx, settings.OverviewCardMaxWidthPx)
+	}
+	return nil
+}
+
+func validateOverviewCardWidth(label string, value int) error {
+	if value < minimumOverviewCardWidthPx || value > maximumOverviewCardWidthPx {
+		return fmt.Errorf("%s = %d, want %d-%d", label, value, minimumOverviewCardWidthPx, maximumOverviewCardWidthPx)
+	}
+	return nil
 }
 
 func validateFontFamily(label string, value string) error {

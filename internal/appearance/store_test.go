@@ -22,6 +22,12 @@ func TestDefaultSettingsValidate(t *testing.T) {
 	if settings.Developer.AllowResizedPanesToOverflowViewport {
 		t.Fatal("default resized panes overflow setting = true, want false")
 	}
+	if settings.Developer.OverviewCardMinWidthPx != defaultOverviewCardMinWidthPx {
+		t.Fatalf("default overview card min width = %d, want %d", settings.Developer.OverviewCardMinWidthPx, defaultOverviewCardMinWidthPx)
+	}
+	if settings.Developer.OverviewCardMaxWidthPx != defaultOverviewCardMaxWidthPx {
+		t.Fatalf("default overview card max width = %d, want %d", settings.Developer.OverviewCardMaxWidthPx, defaultOverviewCardMaxWidthPx)
+	}
 	if settings.Dark.Tailwind.Setta900 != "oklch(0.1631 0.0125 264.14)" {
 		t.Fatalf("dark setta 900 = %q, want original Setta dark scale", settings.Dark.Tailwind.Setta900)
 	}
@@ -84,6 +90,8 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 	settings.Mode = ColorModeLight
 	settings.Fonts.Sans = `"Aptos", ui-sans-serif, sans-serif`
 	settings.Developer.AllowResizedPanesToOverflowViewport = true
+	settings.Developer.OverviewCardMinWidthPx = 320
+	settings.Developer.OverviewCardMaxWidthPx = 540
 	settings.Developer.ShowPerformanceStats = true
 
 	if err := store.Save(settings); err != nil {
@@ -105,6 +113,12 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 	}
 	if !loaded.Developer.AllowResizedPanesToOverflowViewport {
 		t.Fatal("resized panes overflow setting = false, want true")
+	}
+	if loaded.Developer.OverviewCardMinWidthPx != 320 {
+		t.Fatalf("overview card min width = %d, want 320", loaded.Developer.OverviewCardMinWidthPx)
+	}
+	if loaded.Developer.OverviewCardMaxWidthPx != 540 {
+		t.Fatalf("overview card max width = %d, want 540", loaded.Developer.OverviewCardMaxWidthPx)
 	}
 }
 
@@ -176,6 +190,21 @@ func TestStoreRejectsLowContrastColorPair(t *testing.T) {
 	}
 	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "WCAG AA normal text") {
 		t.Fatalf("error = %T %v, want WCAG AA contrast failure", err, err)
+	}
+}
+
+func TestStoreRejectsInvalidOverviewCardWidthRange(t *testing.T) {
+	store := newTestStore(t)
+	settings := DefaultSettings()
+	settings.Developer.OverviewCardMinWidthPx = 620
+	settings.Developer.OverviewCardMaxWidthPx = 360
+
+	err := store.Save(settings)
+	if err == nil {
+		t.Fatal("save succeeded, want invalid overview card width error")
+	}
+	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "overview card min width") {
+		t.Fatalf("error = %T %v, want overview card width failure", err, err)
 	}
 }
 

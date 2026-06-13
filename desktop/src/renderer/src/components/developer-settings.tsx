@@ -2,6 +2,7 @@ import type { AppearanceDeveloperSettings } from "@generated/backend";
 import { Check, CircleAlert, Gauge, Loader2, RotateCcw, Save } from "lucide-react";
 
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import type { AppearanceStoreStatus } from "../stores/appearance-store";
 
 interface DeveloperSettingsEditorProps {
@@ -9,6 +10,7 @@ interface DeveloperSettingsEditorProps {
   dirty: boolean;
   error: string | null;
   onClampResizedPanesToViewportChange: (clamp: boolean) => void;
+  onOverviewCardWidthBoundsChange: (minWidthPx: number, maxWidthPx: number) => void;
   onRevert: () => void;
   onSave: () => Promise<void>;
   onShowPerformanceStatsChange: (show: boolean) => void;
@@ -20,6 +22,7 @@ export function DeveloperSettingsEditor({
   dirty,
   error,
   onClampResizedPanesToViewportChange,
+  onOverviewCardWidthBoundsChange,
   onRevert,
   onSave,
   onShowPerformanceStatsChange,
@@ -71,6 +74,28 @@ export function DeveloperSettingsEditor({
             label="Top bar performance stats"
             onChange={onShowPerformanceStatsChange}
           />
+          <div className="grid gap-2 border-t border-border/70 pt-2 sm:grid-cols-2">
+            <OverviewCardWidthField
+              label="Overview card min width"
+              onChange={(minWidthPx) =>
+                onOverviewCardWidthBoundsChange(
+                  minWidthPx,
+                  Math.max(minWidthPx, developer.overviewCardMaxWidthPx),
+                )
+              }
+              value={developer.overviewCardMinWidthPx}
+            />
+            <OverviewCardWidthField
+              label="Overview card max width"
+              onChange={(maxWidthPx) =>
+                onOverviewCardWidthBoundsChange(
+                  Math.min(maxWidthPx, developer.overviewCardMinWidthPx),
+                  maxWidthPx,
+                )
+              }
+              value={developer.overviewCardMaxWidthPx}
+            />
+          </div>
         </section>
       ) : (
         <div className="flex h-16 items-center gap-2 rounded-sm border border-border px-3 text-xs text-muted-foreground">
@@ -79,6 +104,37 @@ export function DeveloperSettingsEditor({
         </div>
       )}
     </form>
+  );
+}
+
+function OverviewCardWidthField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: number) => void;
+  value: number;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-xs font-medium text-foreground">{label}</span>
+      <span className="flex items-center gap-1">
+        <Input
+          inputMode="numeric"
+          onChange={(event) => {
+            const next = Number.parseInt(event.currentTarget.value, 10);
+            if (Number.isFinite(next)) {
+              onChange(next);
+            }
+          }}
+          step={20}
+          type="number"
+          value={value}
+        />
+        <span className="shrink-0 text-xs text-muted-foreground">px</span>
+      </span>
+    </label>
   );
 }
 

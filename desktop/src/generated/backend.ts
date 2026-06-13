@@ -1454,6 +1454,8 @@ export interface AppearanceFontScheme {
 
 export interface AppearanceDeveloperSettings {
   allowResizedPanesToOverflowViewport: boolean;
+  overviewCardMaxWidthPx: number;
+  overviewCardMinWidthPx: number;
   showPerformanceStats: boolean;
 }
 
@@ -3333,9 +3335,11 @@ export function decodeAppearanceFontScheme(value: unknown): AppearanceFontScheme
 
 export function decodeAppearanceDeveloperSettings(value: unknown): AppearanceDeveloperSettings {
   const record = assertRecord(value, "AppearanceDeveloperSettings");
-  assertKnownFields(record, "AppearanceDeveloperSettings", ["allowResizedPanesToOverflowViewport", "showPerformanceStats"]);
+  assertKnownFields(record, "AppearanceDeveloperSettings", ["allowResizedPanesToOverflowViewport", "overviewCardMaxWidthPx", "overviewCardMinWidthPx", "showPerformanceStats"]);
   return {
     allowResizedPanesToOverflowViewport: decodeBoolean(requireField(record, "allowResizedPanesToOverflowViewport", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.allowResizedPanesToOverflowViewport"),
+    overviewCardMaxWidthPx: decodeInteger(requireField(record, "overviewCardMaxWidthPx", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.overviewCardMaxWidthPx"),
+    overviewCardMinWidthPx: decodeInteger(requireField(record, "overviewCardMinWidthPx", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.overviewCardMinWidthPx"),
     showPerformanceStats: decodeBoolean(requireField(record, "showPerformanceStats", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.showPerformanceStats"),
   };
 }

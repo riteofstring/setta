@@ -82,6 +82,22 @@ describe("appearance store", () => {
     );
     expect(settings.developer.allowResizedPanesToOverflowViewport).toBe(false);
   });
+
+  test("updates the draft overview card width bounds", () => {
+    const settings = testAppearanceSettings();
+    useAppearanceStore.setState({
+      draft: settings,
+      settings,
+      status: "ready",
+    });
+
+    useAppearanceStore.getState().setOverviewCardWidthBounds(320, 540);
+
+    expect(useAppearanceStore.getState().draft?.developer.overviewCardMinWidthPx).toBe(320);
+    expect(useAppearanceStore.getState().draft?.developer.overviewCardMaxWidthPx).toBe(540);
+    expect(settings.developer.overviewCardMinWidthPx).toBe(280);
+    expect(settings.developer.overviewCardMaxWidthPx).toBe(460);
+  });
 });
 
 function installAppearanceAPI({
@@ -111,6 +127,8 @@ function testAppearanceSettings(): AppearanceSettings {
     },
     developer: {
       allowResizedPanesToOverflowViewport: false,
+      overviewCardMaxWidthPx: 460,
+      overviewCardMinWidthPx: 280,
       showPerformanceStats: false,
     },
     mode: "dark",

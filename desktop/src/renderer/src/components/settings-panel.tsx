@@ -82,6 +82,9 @@ export function SettingsPanel() {
     (state) => state.setClampResizedPanesToViewport,
   );
   const setMode = useAppearanceStore((state) => state.setMode);
+  const setOverviewCardWidthBounds = useAppearanceStore(
+    (state) => state.setOverviewCardWidthBounds,
+  );
   const setShowPerformanceStats = useAppearanceStore((state) => state.setShowPerformanceStats);
   const status = useAppearanceStore((state) => state.status);
 
@@ -129,6 +132,7 @@ export function SettingsPanel() {
                 dirty={draft !== null && !appearanceSettingsEqual(draft, settings)}
                 error={error}
                 onClampResizedPanesToViewportChange={setClampResizedPanesToViewport}
+                onOverviewCardWidthBoundsChange={setOverviewCardWidthBounds}
                 onRevert={revertDraft}
                 onSave={saveDraft}
                 onShowPerformanceStatsChange={setShowPerformanceStats}
