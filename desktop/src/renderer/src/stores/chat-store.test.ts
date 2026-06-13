@@ -1012,6 +1012,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         workflowGraphDebug: false,
         workflowGraphSyntheticGraph: null,
       },
+      captureRendererRegion: async () => ({
+        capturedAt: 0,
+        height: 1,
+        imageDataUrl: "data:image/png;base64,",
+        width: 1,
+      }),
       installedEditors: async () => [],
       endWindowDrag: async () => {},
       moveWindowDrag: async () => {},
@@ -1124,11 +1130,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: testRun("queued"),
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
-      runActivity: async () => ({
-        items: [],
-        output: [],
-        runId: "run_api",
-      }),
+      runActivity: async () => ({ items: [], output: [], runId: "run_api" }),
       runItemOutput: async () => ({
         hasMore: false,
         nextOrdinal: 0,
@@ -1205,9 +1207,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
 
   Object.defineProperty(globalThis, "window", {
     configurable: true,
-    value: {
-      setta: api,
-    },
+    value: { setta: api },
   });
 }
 
@@ -1475,12 +1475,10 @@ function deferred<T>(): Deferred<T> {
   return { promise, reject, resolve };
 }
 function workspaceSession(): WorkspaceSession {
-  return {
-    activeWorkspaces: [workspaceSummary()],
-    recentWorkspaces: [],
-    selectedWorkspaceId: "workspace_api",
-  };
+  const workspace = workspaceSummary();
+  return { activeWorkspaces: [workspace], recentWorkspaces: [], selectedWorkspaceId: workspace.id };
 }
+
 function emptyCodexAccountState() {
   return {
     account: null,
@@ -1490,6 +1488,7 @@ function emptyCodexAccountState() {
     status: "unauthenticated" as const,
   };
 }
+
 function workspaceSummary() {
   return {
     displayName: "api",

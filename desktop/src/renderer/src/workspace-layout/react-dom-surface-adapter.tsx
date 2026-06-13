@@ -10,6 +10,7 @@ import {
   WorkspaceChatSurface,
   WorkspaceSettingsSurface,
 } from "./workspace-dom-surfaces";
+import { applySnapshotScrollOffsets, recordSnapshotScrollOffsets } from "./surface-dom-content";
 import type {
   CanvasSurfaceStats,
   FreezeReason,
@@ -33,6 +34,7 @@ export interface ReactSurfaceRootFactory {
 }
 
 export interface ReactDomSurfaceState {
+  activated: boolean;
   focused: boolean;
 }
 
@@ -54,6 +56,8 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   private frozen = false;
   private host: HTMLElement | null = null;
   private root: ReactSurfaceRoot | null = null;
+  private activated = false;
+  private scrollbarSuppressionToken = 0;
   private visible = false;
 
   constructor(
@@ -66,10 +70,11 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
 
   get lifecycleState() {
     return {
+      activated: this.activated,
       destroyed: this.destroyed,
       focused: this.focused,
       frozen: this.frozen,
-      mounted: this.root !== null,
+      mounted: this.host !== null,
       visible: this.visible,
     };
   }
@@ -80,31 +85,33 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
 
   mount(host: HTMLElement): void {
     this.ensureNotDestroyed();
-    if (this.root) {
+    if (this.host && this.host !== host) {
       this.unmount();
     }
     this.host = host;
-    this.container = host.ownerDocument.createElement("div");
-    this.container.className = "workspace-react-dom-surface";
-    this.container.dataset.reactSurfaceKind = this.kind;
+    if (!this.container) {
+      this.container = host.ownerDocument.createElement("div");
+      this.container.className = "workspace-react-dom-surface";
+      this.container.dataset.reactSurfaceKind = this.kind;
+    }
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
     host.replaceChildren(this.container);
-    this.root = this.rootFactory.createRoot(this.container);
-    this.renderCurrentSurface();
+    this.restoreParkedScrollOffsets();
+    if (!this.root) {
+      this.root = this.rootFactory.createRoot(this.container);
+      this.renderCurrentSurface();
+    }
     this.syncHostState();
   }
 
   unmount(): void {
-    const root = this.root;
-    this.root = null;
-    this.container = null;
+    if (this.container) {
+      recordSnapshotScrollOffsets(this.container);
+    }
     this.host?.replaceChildren();
     this.host = null;
     this.visible = false;
-    if (root) {
-      deferReactRootUnmount(root);
-    }
   }
 
   setVisible(visible: boolean): void {
@@ -113,6 +120,9 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 
   setFocused(focused: boolean): void {
+    if (focused) {
+      this.activated = true;
+    }
     if (this.focused === focused) {
       return;
     }
@@ -136,8 +146,12 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 
   resume(reason: ResumeReason): void {
+    const wasFrozen = this.frozen;
     this.frozen = false;
     this.host?.setAttribute("data-resume-reason", reason);
+    if (wasFrozen) {
+      this.suppressLiveScrollbars();
+    }
     this.syncHostState();
   }
 
@@ -167,7 +181,13 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (this.destroyed) {
       return;
     }
+    const root = this.root;
+    this.root = null;
     this.unmount();
+    this.container = null;
+    if (root) {
+      deferReactRootUnmount(root);
+    }
     this.destroyed = true;
   }
 
@@ -195,10 +215,73 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   private renderCurrentSurface(): void {
     this.root?.render(
       this.renderSurface({
+        activated: this.activated,
         focused: this.focused,
       }),
     );
   }
+
+  private restoreParkedScrollOffsets(): void {
+    const container = this.container;
+    if (!container) {
+      return;
+    }
+    applySnapshotScrollOffsets(container);
+    restoreScrollOffsetsAcrossFrames(container, 24);
+  }
+
+  private suppressLiveScrollbars(): void {
+    const container = this.container;
+    if (!container) {
+      return;
+    }
+    this.scrollbarSuppressionToken += 1;
+    const token = this.scrollbarSuppressionToken;
+    container.dataset.scrollbarsSuppressed = "true";
+    clearScrollbarsSuppressedAcrossFrames(
+      container,
+      token,
+      () => this.scrollbarSuppressionToken,
+      18,
+    );
+  }
+}
+
+function restoreScrollOffsetsAcrossFrames(root: Element, remainingFrames: number): void {
+  if (remainingFrames <= 0) {
+    return;
+  }
+  const restore = () => {
+    applySnapshotScrollOffsets(root);
+    restoreScrollOffsetsAcrossFrames(root, remainingFrames - 1);
+  };
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(restore);
+    return;
+  }
+  queueMicrotask(restore);
+}
+
+function clearScrollbarsSuppressedAcrossFrames(
+  root: HTMLElement,
+  token: number,
+  currentToken: () => number,
+  remainingFrames: number,
+): void {
+  if (remainingFrames <= 0) {
+    if (currentToken() === token) {
+      delete root.dataset.scrollbarsSuppressed;
+    }
+    return;
+  }
+  const clear = () => {
+    clearScrollbarsSuppressedAcrossFrames(root, token, currentToken, remainingFrames - 1);
+  };
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(clear);
+    return;
+  }
+  queueMicrotask(clear);
 }
 
 export function createReactDomSurfaceAdapter(
@@ -228,7 +311,7 @@ export function createReactDomSurfaceAdapter(
   if (pane.surfaceKind === "settings-dom") {
     return new ReactDomSurfaceAdapter(
       pane,
-      ({ focused }) => <WorkspaceSettingsSurface active={focused} />,
+      ({ activated, focused }) => <WorkspaceSettingsSurface active={focused} loaded={activated} />,
       rootFactory,
     );
   }

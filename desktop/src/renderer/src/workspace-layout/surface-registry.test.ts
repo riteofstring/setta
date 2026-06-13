@@ -1,7 +1,9 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+import type { SettaAPI } from "@shared/types";
 
 import { SurfaceRegistry } from "./surface-registry";
-import { createFakeHost } from "./test-dom-fakes";
+import { createFakeHost, setFakeRect } from "./test-dom-fakes";
 import type {
   FreezeReason,
   WorkspacePane,
@@ -330,15 +332,161 @@ describe("workspace surface registry", () => {
       },
     );
 
-    const snapshotContent = fakeChildrenOf(host)[0];
-    const texture = snapshotContent?.children[0];
-    const capturedPane = texture?.children[0];
+    const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
+    const texture = requireFakeChild(snapshotContent.children, 0);
+    const capturedPane = requireFakeChild(texture.children, 0);
 
     expect(host.dataset.surfaceKind).toBe("snapshot");
-    expect(snapshotContent?.className).toBe("workspace-pane-content workspace-snapshot-surface");
-    expect(texture?.className).toBe("workspace-snapshot-texture");
-    expect(capturedPane?.className).toBe("workspace-textured-source");
-    expect(capturedPane?.textContent).toBe("live pane texture");
+    expect(snapshotContent.className).toBe(
+      "workspace-pane-content workspace-snapshot-surface workspace-snapshot-surface-has-texture",
+    );
+    expect(texture.className).toBe("workspace-snapshot-texture");
+    expect(capturedPane.className).toBe("workspace-textured-source");
+    expect(capturedPane.textContent).toBe("live pane texture");
+  });
+
+  test("preserves nested scroller offsets in DOM pane snapshots", () => {
+    const pane = fakePane("chat-dom");
+    const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+    const registry = new SurfaceRegistry([pane], () => adapter);
+    const host = createFakeHost();
+
+    registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+    registry.syncHost(
+      host,
+      { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
+      {
+        resizePhase: "idle",
+      },
+    );
+
+    const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
+    const texture = requireFakeChild(snapshotContent.children, 0);
+    const capturedPane = requireFakeChild(texture.children, 0);
+    const capturedScroller = requireFakeChild(capturedPane.children, 0);
+
+    expect(snapshotContent.className).toBe(
+      "workspace-pane-content workspace-snapshot-surface workspace-snapshot-surface-has-texture",
+    );
+    expect(capturedScroller.dataset.snapshotScrollTop).toBe("84");
+    expect(capturedScroller.dataset.snapshotScrollLeft).toBe("13");
+    expect(capturedScroller.dataset.snapshotScroller).toBe("true");
+    expect(capturedScroller.scrollTop).toBe(84);
+    expect(capturedScroller.scrollLeft).toBe(13);
+    expect(capturedScroller.textContent).toBe("visible transcript window");
+    expect(capturedPane.dataset.snapshotWidth).toBe("640");
+    expect(capturedPane.dataset.snapshotHeight).toBe("480");
+    expect(capturedPane.style.getPropertyValue("width")).toBe("640px");
+    expect(capturedPane.style.getPropertyValue("height")).toBe("480px");
+    expect(capturedPane.style.getPropertyValue("overflow")).toBe("hidden");
+  });
+
+  test("warms bitmap snapshots for idle live DOM panes", async () => {
+    const captureRendererRegion = vi.fn().mockResolvedValue({
+      capturedAt: 123,
+      height: 480,
+      imageDataUrl: "data:image/png;base64,AAAA",
+      width: 640,
+    });
+    vi.stubGlobal("window", {
+      setta: {
+        app: {
+          captureRendererRegion,
+        },
+      },
+    });
+    try {
+      const pane = fakePane("chat-dom");
+      const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+      const registry = new SurfaceRegistry([pane], () => adapter);
+      const host = createFakeHost();
+
+      registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+      await Promise.resolve();
+      registry.syncHost(
+        host,
+        { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
+        {
+          resizePhase: "idle",
+        },
+      );
+
+      const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
+      const texture = requireFakeChild(snapshotContent.children, 0);
+      const image = requireFakeChild(texture.children, 0);
+
+      expect(captureRendererRegion).toHaveBeenCalledWith({
+        height: 480,
+        width: 640,
+        x: 0,
+        y: 0,
+      });
+      expect(texture.className).toBe(
+        "workspace-snapshot-texture workspace-snapshot-bitmap-texture",
+      );
+      expect(image.className).toBe("workspace-snapshot-bitmap");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("keeps cloned snapshots when warm bitmap capture resolves after handoff", async () => {
+    type CaptureSnapshot = Awaited<ReturnType<SettaAPI["app"]["captureRendererRegion"]>>;
+    let resolveCapture: (snapshot: CaptureSnapshot) => void = () => {
+      throw new Error("capture promise was not created");
+    };
+    const captureRendererRegion = vi.fn(
+      () =>
+        new Promise<CaptureSnapshot>((resolve) => {
+          resolveCapture = resolve;
+        }),
+    );
+    vi.stubGlobal("window", {
+      setta: {
+        app: {
+          captureRendererRegion,
+        },
+      },
+    });
+    try {
+      const pane = fakePane("chat-dom");
+      const adapter = new ScrollableTexturedSurfaceAdapter(pane);
+      const registry = new SurfaceRegistry([pane], () => adapter);
+      const host = createFakeHost();
+
+      registry.syncHost(host, renderItem(pane, "live"), { resizePhase: "idle" });
+      registry.syncHost(
+        host,
+        { ...renderItem(pane, "snapshot"), presentationMode: "overview" },
+        {
+          resizePhase: "idle",
+        },
+      );
+
+      const snapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
+      const texture = requireFakeChild(snapshotContent.children, 0);
+      const capturedPane = requireFakeChild(texture.children, 0);
+
+      expect(texture.className).toBe("workspace-snapshot-texture");
+      expect(capturedPane.className).toBe("workspace-react-dom-surface");
+
+      resolveCapture({
+        capturedAt: 123,
+        height: 480,
+        imageDataUrl: "data:image/png;base64,AAAA",
+        width: 640,
+      });
+      await Promise.resolve();
+
+      const settledSnapshotContent = requireFakeChild(fakeChildrenOf(host), 0);
+      const settledTexture = requireFakeChild(settledSnapshotContent.children, 0);
+      const settledCapturedPane = requireFakeChild(settledTexture.children, 0);
+
+      expect(settledTexture.className).toBe("workspace-snapshot-texture");
+      expect(settledCapturedPane.className).toBe("workspace-react-dom-surface");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
@@ -405,14 +553,44 @@ class TexturedSurfaceAdapter extends RecordingSurfaceAdapter {
   }
 }
 
+class ScrollableTexturedSurfaceAdapter extends RecordingSurfaceAdapter {
+  override mount(host: HTMLElement): void {
+    super.mount(host);
+    const surface = host.ownerDocument.createElement("div");
+    surface.className = "workspace-react-dom-surface";
+    setFakeRect(surface as unknown as HTMLElement, { height: 480, width: 640, x: 0, y: 0 });
+    const scroller = host.ownerDocument.createElement("div");
+    scroller.className = "chat-transcript-scroller";
+    scroller.scrollLeft = 13;
+    scroller.scrollTop = 84;
+    scroller.textContent = "visible transcript window";
+    surface.append(scroller);
+    host.append(surface);
+  }
+}
+
 interface FakeChildNode {
   children: FakeChildNode[];
   className: string;
+  dataset: Record<string, string>;
+  scrollLeft: number;
+  scrollTop: number;
+  style: {
+    getPropertyValue(name: string): string;
+  };
   textContent: string;
 }
 
 function fakeChildrenOf(host: HTMLElement): FakeChildNode[] {
   return (host as unknown as { children: FakeChildNode[] }).children;
+}
+
+function requireFakeChild(children: FakeChildNode[], index: number): FakeChildNode {
+  const child = children[index];
+  if (!child) {
+    throw new Error(`missing fake child at index ${index}`);
+  }
+  return child;
 }
 
 function fakeTerminalStats(overrides: Partial<TerminalSurfaceStats> = {}): TerminalSurfaceStats {

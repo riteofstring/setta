@@ -41,6 +41,7 @@ describe("workspace pane runtime policy", () => {
   test("degrades heavy and canvas surfaces during movement", () => {
     const items = [
       renderItem("focused-canvas", "workflow-graph", true),
+      renderItem("focused-chat", "chat-dom", true),
       renderItem("moving-heavy", "fake-heavy-dom", false),
       renderItem("moving-long-chat", "fake-long-chat", false),
       renderItem("moving-chat", "chat-dom", false),
@@ -53,14 +54,15 @@ describe("workspace pane runtime policy", () => {
 
     expect(items.map((item) => [item.paneId, item.runtimeState])).toEqual([
       ["focused-canvas", "live"],
+      ["focused-chat", "snapshot"],
       ["moving-heavy", "snapshot"],
-      ["moving-long-chat", "live"],
+      ["moving-long-chat", "snapshot"],
       ["moving-chat", "snapshot"],
       ["moving-canvas", "snapshot"],
       ["moving-light", "live"],
       ["moving-settings", "live"],
     ]);
-    expect(summary.snapshot).toBe(3);
+    expect(summary.snapshot).toBe(5);
     expect(summary.budget.maxLiveWebGpuCanvases).toBe(1);
   });
 

@@ -37,7 +37,7 @@ export function FakeLongChatSurface({ pane }: { pane: WorkspacePane }) {
   );
 }
 
-export function WorkspaceSettingsSurface({ active }: { active: boolean }) {
+export function WorkspaceSettingsSurface({ active, loaded }: { active: boolean; loaded: boolean }) {
   return (
     <section className="workspace-dom-surface" data-testid="workspace-settings-dom-surface">
       <header className="workspace-dom-surface-header workspace-dom-surface-header-compact">
@@ -48,9 +48,22 @@ export function WorkspaceSettingsSurface({ active }: { active: boolean }) {
         </div>
       </header>
       <div className="workspace-real-dom-surface-body" data-inactive={String(!active)}>
-        {active ? <SettingsPanel /> : null}
+        {loaded ? <SettingsPanel /> : <UnloadedPanePlaceholder label="Settings not loaded" />}
       </div>
     </section>
+  );
+}
+
+function UnloadedPanePlaceholder({ label }: { label: string }) {
+  return (
+    <div
+      aria-label={label}
+      className="workspace-unloaded-surface-placeholder"
+      data-testid="workspace-unloaded-surface-placeholder"
+      role="img"
+    >
+      <Settings aria-hidden="true" className="h-6 w-6" />
+    </div>
   );
 }
 

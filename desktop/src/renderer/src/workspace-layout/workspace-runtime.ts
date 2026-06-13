@@ -29,18 +29,26 @@ import type { WorkspacePane } from "./types";
 export function createWorkspaceRuntime({
   allowResizedPanesToOverflowViewport,
   mode,
+  overviewCardMaxWidthPx,
+  overviewCardMinWidthPx,
   workspaceId,
   workspaceName,
 }: {
   allowResizedPanesToOverflowViewport: boolean;
   mode: WorkspaceSceneMode;
+  overviewCardMaxWidthPx?: number;
+  overviewCardMinWidthPx?: number;
   workspaceId: string;
   workspaceName: string;
 }) {
   const layoutStorageKey = `setta:workspace-layout-horizontal-v4:${workspaceId}`;
   const realScene = createRealSceneForRuntime({ layoutStorageKey, mode, workspaceName });
   const scene = sceneForRuntime(realScene);
-  const engine = new WorkspaceLikeLayoutEngine(scene, { allowResizedPanesToOverflowViewport });
+  const engine = new WorkspaceLikeLayoutEngine(scene, {
+    allowResizedPanesToOverflowViewport,
+    overviewCardMaxWidthPx,
+    overviewCardMinWidthPx,
+  });
   const store = new WorkspaceLayoutStore(
     engine,
     scene,

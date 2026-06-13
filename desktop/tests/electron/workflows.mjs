@@ -51,6 +51,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "dom-pane-snapshot-scroll-workflow.test.mjs",
+    name: "dom-pane-snapshot-scroll",
+    tiers: ["required"],
+  },
+  {
     file: "workflow-graph-smoke.test.mjs",
     name: "workflow-graph-smoke",
     tiers: ["required"],

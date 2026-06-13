@@ -121,6 +121,7 @@ export function renderSnapshotContent(
   const content = document.createElement("div");
   content.className = "workspace-pane-content workspace-snapshot-surface";
   if (texture) {
+    content.classList.add("workspace-snapshot-surface-has-texture");
     content.append(texture);
     return content;
   }
@@ -144,11 +145,38 @@ export function cloneSnapshotNode(node: Element, document: Document): Element {
     const fallback = document.createElement("div");
     fallback.className = (node as HTMLElement).className;
     fallback.textContent = node.textContent ?? "";
+    copySnapshotElementState(node, fallback);
+    pinSnapshotRootBounds(node, fallback);
     return fallback;
   }
   const clone = node.cloneNode(true) as Element;
   copyCanvasBitmaps(node, clone);
+  copySnapshotElementState(node, clone);
+  pinSnapshotRootBounds(node, clone);
   return clone;
+}
+
+export function applySnapshotScrollOffsets(root: Element): void {
+  for (const element of collectElementTree(root)) {
+    const dataset = datasetFor(element);
+    if (!dataset) {
+      continue;
+    }
+    const scrollTop = parseSnapshotOffset(dataset.snapshotScrollTop);
+    if (scrollTop !== null) {
+      (element as HTMLElement).scrollTop = scrollTop;
+    }
+    const scrollLeft = parseSnapshotOffset(dataset.snapshotScrollLeft);
+    if (scrollLeft !== null) {
+      (element as HTMLElement).scrollLeft = scrollLeft;
+    }
+  }
+}
+
+export function recordSnapshotScrollOffsets(root: Element): void {
+  for (const element of collectElementTree(root)) {
+    recordScrollableElementState(element);
+  }
 }
 
 function renderStaticSnapshotTexture(host: HTMLElement, pane: WorkspacePane): HTMLElement | null {
@@ -261,4 +289,144 @@ function copyCanvasBitmaps(sourceRoot: Element, cloneRoot: Element): void {
     cloneCanvas.height = sourceCanvas.height;
     cloneCanvas.getContext("2d")?.drawImage(sourceCanvas, 0, 0);
   }
+}
+
+function copySnapshotElementState(sourceRoot: Element, cloneRoot: Element): void {
+  const sourceElements = collectElementTree(sourceRoot);
+  const cloneElements = collectElementTree(cloneRoot);
+  for (let index = 0; index < sourceElements.length; index += 1) {
+    const source = sourceElements[index];
+    const clone = cloneElements[index];
+    if (!source || !clone) {
+      continue;
+    }
+    copyFormControlState(source, clone);
+    copyScrollableElementState(source, clone);
+  }
+}
+
+function pinSnapshotRootBounds(source: Element, clone: Element): void {
+  const dataset = datasetFor(clone);
+  const style = styleFor(clone);
+  if (!dataset || !style) {
+    return;
+  }
+  const rect = source.getBoundingClientRect();
+  const width = Math.round(rect.width);
+  const height = Math.round(rect.height);
+  if (width > 0) {
+    dataset.snapshotWidth = String(width);
+    setSnapshotBoxSize(style, "width", width);
+  }
+  if (height > 0) {
+    dataset.snapshotHeight = String(height);
+    setSnapshotBoxSize(style, "height", height);
+  }
+  if (width > 0 || height > 0) {
+    style.setProperty("overflow", "hidden");
+  }
+}
+
+function setSnapshotBoxSize(
+  style: Pick<CSSStyleDeclaration, "setProperty">,
+  property: "height" | "width",
+  value: number,
+): void {
+  const cssValue = `${value}px`;
+  style.setProperty(property, cssValue);
+  style.setProperty(`min-${property}`, cssValue);
+  style.setProperty(`max-${property}`, cssValue);
+}
+
+function copyFormControlState(source: Element, clone: Element): void {
+  if (isHtmlInputElement(source) && isHtmlInputElement(clone)) {
+    clone.checked = source.checked;
+    clone.indeterminate = source.indeterminate;
+    clone.value = source.value;
+    return;
+  }
+  if (isHtmlTextAreaElement(source) && isHtmlTextAreaElement(clone)) {
+    clone.value = source.value;
+    return;
+  }
+  if (isHtmlSelectElement(source) && isHtmlSelectElement(clone)) {
+    clone.selectedIndex = source.selectedIndex;
+  }
+}
+
+function copyScrollableElementState(source: Element, clone: Element): void {
+  const scrollTop = scrollOffsetFor(source, "scrollTop");
+  const scrollLeft = scrollOffsetFor(source, "scrollLeft");
+  if (scrollTop <= 0 && scrollLeft <= 0) {
+    return;
+  }
+  const dataset = datasetFor(clone);
+  if (!dataset) {
+    return;
+  }
+  dataset.snapshotScroller = "true";
+  if (scrollTop > 0) {
+    dataset.snapshotScrollTop = String(scrollTop);
+    (clone as HTMLElement).scrollTop = scrollTop;
+  }
+  if (scrollLeft > 0) {
+    dataset.snapshotScrollLeft = String(scrollLeft);
+    (clone as HTMLElement).scrollLeft = scrollLeft;
+  }
+}
+
+function recordScrollableElementState(element: Element): void {
+  const dataset = datasetFor(element);
+  if (!dataset) {
+    return;
+  }
+  const scrollTop = scrollOffsetFor(element, "scrollTop");
+  const scrollLeft = scrollOffsetFor(element, "scrollLeft");
+  if (scrollTop > 0) {
+    dataset.snapshotScrollTop = String(scrollTop);
+  } else {
+    delete dataset.snapshotScrollTop;
+  }
+  if (scrollLeft > 0) {
+    dataset.snapshotScrollLeft = String(scrollLeft);
+  } else {
+    delete dataset.snapshotScrollLeft;
+  }
+}
+
+function collectElementTree(root: Element): Element[] {
+  return [root, ...Array.from(root.children).flatMap((child) => collectElementTree(child))];
+}
+
+function datasetFor(element: Element): DOMStringMap | null {
+  return "dataset" in element ? ((element as HTMLElement).dataset ?? null) : null;
+}
+
+function styleFor(element: Element): Pick<CSSStyleDeclaration, "setProperty"> | null {
+  return "style" in element ? ((element as HTMLElement).style ?? null) : null;
+}
+
+function scrollOffsetFor(element: Element, property: "scrollLeft" | "scrollTop"): number {
+  const value = (element as HTMLElement)[property];
+  return Number.isFinite(value) ? value : 0;
+}
+
+function parseSnapshotOffset(value: string | undefined): number | null {
+  if (value === undefined) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isHtmlInputElement(element: Element): element is HTMLInputElement {
+  return typeof HTMLInputElement !== "undefined" && element instanceof HTMLInputElement;
+}
+
+function isHtmlTextAreaElement(element: Element): element is HTMLTextAreaElement {
+  return typeof HTMLTextAreaElement !== "undefined" && element instanceof HTMLTextAreaElement;
+}
+
+function isHtmlSelectElement(element: Element): element is HTMLSelectElement {
+  return typeof HTMLSelectElement !== "undefined" && element instanceof HTMLSelectElement;
 }

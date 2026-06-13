@@ -91,6 +91,20 @@ export interface AppWindowDragPoint {
   screenY: number;
 }
 
+export interface RendererRegionCaptureRequest {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
+export interface RendererRegionSnapshot {
+  capturedAt: number;
+  height: number;
+  imageDataUrl: string;
+  width: number;
+}
+
 export type WorkspaceBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
 
 export interface WorkspaceBrowserViewUpdate {
@@ -214,6 +228,9 @@ export interface SettaAPI {
       } | null;
     };
     installedEditors: () => Promise<InstalledEditorApp[]>;
+    captureRendererRegion: (
+      request: RendererRegionCaptureRequest,
+    ) => Promise<RendererRegionSnapshot>;
     endWindowDrag: () => Promise<void>;
     moveWindowDrag: (point: AppWindowDragPoint) => Promise<void>;
     openWorkspaceInEditor: (editorId: string, rootPath: string) => Promise<void>;

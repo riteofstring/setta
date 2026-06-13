@@ -24,6 +24,20 @@ const minimumOverviewScale = 0.12;
 const planeGap = 28;
 export const minimumColumnWidth = 96;
 
+export interface OverviewCardSizeConstraints {
+  maxWidthPx?: number;
+  minWidthPx?: number;
+}
+
+export interface OverviewScaleInput {
+  cardSizeConstraints?: OverviewCardSizeConstraints;
+  height: number;
+  padding: number;
+  referenceCardWidth?: number;
+  viewport: LayoutFrameInput["viewport"];
+  width: number;
+}
+
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -85,15 +99,48 @@ export function normalizedColumnWidthSpec(spec: ColumnWidthSpec): ColumnWidthSpe
   return { unit: "proportion", value: clamp(spec.value, 0.1, 1) };
 }
 
-export function overviewScale(
-  viewport: LayoutFrameInput["viewport"],
-  width: number,
-  height: number,
-  padding: number,
-): number {
+export function overviewScale({
+  cardSizeConstraints = {},
+  height,
+  padding,
+  referenceCardWidth = 0,
+  viewport,
+  width,
+}: OverviewScaleInput): number {
   const fitWidth = (viewport.width - padding * 2) / Math.max(1, width);
   const fitHeight = (viewport.height - padding * 2) / Math.max(1, height);
-  return clamp(Math.min(fitWidth, fitHeight, maximumOverviewScale), minimumOverviewScale, 1);
+  const fitScale = Math.min(fitWidth, fitHeight);
+  if (!hasOverviewCardSizeConstraint(cardSizeConstraints)) {
+    return clamp(Math.min(fitScale, maximumOverviewScale), minimumOverviewScale, 1);
+  }
+  const scaleBounds = overviewCardScaleBounds(referenceCardWidth, cardSizeConstraints);
+  return clamp(fitScale, scaleBounds.minScale, scaleBounds.maxScale);
+}
+
+function hasOverviewCardSizeConstraint({
+  maxWidthPx,
+  minWidthPx,
+}: OverviewCardSizeConstraints): boolean {
+  return isPositiveFiniteNumber(minWidthPx) || isPositiveFiniteNumber(maxWidthPx);
+}
+
+function overviewCardScaleBounds(
+  referenceCardWidth: number,
+  { maxWidthPx, minWidthPx }: OverviewCardSizeConstraints,
+): { maxScale: number; minScale: number } {
+  const normalizedReferenceWidth = Math.max(1, referenceCardWidth);
+  const minScale = isPositiveFiniteNumber(minWidthPx)
+    ? minWidthPx / normalizedReferenceWidth
+    : minimumOverviewScale;
+  const maxScale = isPositiveFiniteNumber(maxWidthPx) ? maxWidthPx / normalizedReferenceWidth : 1;
+  return {
+    maxScale: Math.min(1, Math.max(minScale, maxScale)),
+    minScale: Math.min(1, Math.min(minScale, maxScale)),
+  };
+}
+
+function isPositiveFiniteNumber(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 export function planeTopOffsets(

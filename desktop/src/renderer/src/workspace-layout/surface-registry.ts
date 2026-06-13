@@ -291,6 +291,7 @@ export class SurfaceRegistry {
       stats,
     });
     adapter.syncFrame?.();
+    this.warmSnapshotBitmap(record, host, item, options);
     return stats;
   }
 
@@ -470,6 +471,23 @@ export class SurfaceRegistry {
     hostRecord.viewport = { ...rect };
     recordViewportWrite(adapter.kind, stats);
   }
+
+  private warmSnapshotBitmap(
+    record: SurfaceRecord,
+    host: HTMLElement,
+    item: PaneRenderItem,
+    options: SurfaceSyncOptions,
+  ): void {
+    if (
+      item.runtimeState !== "live" ||
+      item.moving ||
+      options.resizePhase !== "idle" ||
+      !bitmapSnapshotSurfaceKind(item.surfaceKind)
+    ) {
+      return;
+    }
+    record.snapshotAdapter.captureBitmap(host);
+  }
 }
 
 type SurfaceViewportSyncReason = "frame" | "mount" | "movement-active" | "resize" | "resize-active";
@@ -608,6 +626,16 @@ function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
     kind === "git-graph" ||
     kind === "workflow-graph" ||
     kind === "terminal"
+  );
+}
+
+function bitmapSnapshotSurfaceKind(kind: SurfaceKind): boolean {
+  return (
+    kind === "chat-dom" ||
+    kind === "fake-heavy-dom" ||
+    kind === "fake-long-chat" ||
+    kind === "workflow-node-details" ||
+    kind === "workflow-settings"
   );
 }
 

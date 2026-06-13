@@ -11,6 +11,7 @@ import {
   type ColumnGeometry,
   minimumColumnWidth,
   overviewScale,
+  type OverviewCardSizeConstraints,
   type PaneLocation,
   planeTopOffsets,
   pushColumnItems,
@@ -94,6 +95,7 @@ export function renderNormalLayoutFrame({
 
 export function renderOverviewLayoutFrame({
   availableHeight,
+  cardSizeConstraints,
   columns,
   geometry,
   input,
@@ -101,16 +103,31 @@ export function renderOverviewLayoutFrame({
   planeIndexes,
   push,
   scene,
-}: RenderFrameContext): void {
+}: RenderFrameContext & {
+  cardSizeConstraints?: OverviewCardSizeConstraints;
+}): void {
   const unscaledWidth = maxUnscaledPlaneWidth(columns, planeIndexes, geometry);
   const unscaledHeight = totalUnscaledPlaneHeight(planeIndexes.length, input.viewport.height);
-  const scale = overviewScale(input.viewport, unscaledWidth, unscaledHeight, scene.padding);
+  const referenceCardWidth = maxOverviewCardWidth(columns, geometry);
+  const scale = overviewScale({
+    cardSizeConstraints,
+    height: unscaledHeight,
+    padding: scene.padding,
+    referenceCardWidth,
+    viewport: input.viewport,
+    width: unscaledWidth,
+  });
   const xOffset = Math.max(
     scene.padding,
     Math.floor((input.viewport.width - unscaledWidth * scale) / 2),
   );
-  const yOffset = Math.max(0, Math.floor((input.viewport.height - unscaledHeight * scale) / 2));
+  const centeredYOffset = Math.max(
+    0,
+    Math.floor((input.viewport.height - unscaledHeight * scale) / 2),
+  );
+  const yOffset = centeredYOffset - input.scrollRow * scale;
   const planeOffsets = planeTopOffsets(planeIndexes, input.viewport.height);
+  const horizontalPanOffset = scrollOffsetForColumn(input.scrollColumn, geometry.offsets);
 
   for (const column of columns) {
     const columnWidth = geometry.widths[column.index] ?? minimumColumnWidth;
@@ -125,7 +142,7 @@ export function renderOverviewLayoutFrame({
       push,
       scale,
       scene,
-      x: xOffset + (geometry.offsets[column.index] ?? 0) * scale,
+      x: xOffset + ((geometry.offsets[column.index] ?? 0) - horizontalPanOffset) * scale,
       yOffset: yOffset + (planeOffsets.get(column.planeIndex) ?? 0) * scale,
     });
   }
@@ -149,6 +166,13 @@ function maxUnscaledPlaneWidth(
   return Math.max(
     minimumColumnWidth,
     ...planeIndexes.map((planeIndex) => totalUnscaledPlaneWidth(columns, planeIndex, geometry)),
+  );
+}
+
+function maxOverviewCardWidth(columns: WorkspaceColumn[], geometry: ColumnGeometry): number {
+  return Math.max(
+    minimumColumnWidth,
+    ...columns.map((column) => geometry.widths[column.index] ?? minimumColumnWidth),
   );
 }
 

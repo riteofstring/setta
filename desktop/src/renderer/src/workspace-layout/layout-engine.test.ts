@@ -320,6 +320,42 @@ describe("real workspace layout column sizing", () => {
     ).toBeLessThanOrEqual(1190);
   });
 
+  test("overview honors configured card width bounds", () => {
+    const engine = createRealEngine({
+      overviewCardMaxWidthPx: 420,
+      overviewCardMinWidthPx: 320,
+    });
+    const wideItems = renderFrame(
+      engine,
+      { ...viewport, height: 3000, width: 6000 },
+      0,
+      "workspace_pane_0",
+      "overview",
+    );
+    const narrowItems = renderFrame(
+      engine,
+      { ...viewport, height: 420, width: 600 },
+      0,
+      "workspace_pane_0",
+      "overview",
+    );
+    const pannedItems = renderFrame(
+      engine,
+      { ...viewport, height: 420, width: 600 },
+      2,
+      "workspace_pane_0",
+      "overview",
+    );
+
+    expect(maxVisualWidth(wideItems)).toBeLessThanOrEqual(420);
+    expect(maxVisualWidth(wideItems)).toBeGreaterThan(410);
+    expect(maxVisualWidth(narrowItems)).toBeGreaterThanOrEqual(320);
+    expect(maxVisualWidth(narrowItems)).toBeLessThan(330);
+    expect(requireRenderItem(pannedItems, "workspace_pane_0").x).toBeLessThan(
+      requireRenderItem(narrowItems, "workspace_pane_0").x,
+    );
+  });
+
   test("normal zoom source frames include offscreen columns", () => {
     const engine = createRealEngine();
     const items = renderFrame(
@@ -576,6 +612,30 @@ describe("real workspace layout column sizing", () => {
     expect(items.every((item) => item.runtimeState === "live")).toBe(true);
   });
 
+  test("overview applies vertical scroll offset as pan", () => {
+    const { focusedPaneId, scene } = createRealWorkspaceScene({
+      storageKey: "setta:workspace-layout:overview-pan",
+      workspaceName: "Repo",
+    });
+    const engine = new WorkspaceLikeLayoutEngine(scene);
+    const store = new WorkspaceLayoutStore(engine, scene, focusedPaneId);
+    const lowerPaneId = store.splitFocusedPaneToPlane("down");
+
+    const topItems = renderFrame(engine, { ...viewport, width: 1200 }, 0, lowerPaneId, "overview");
+    const pannedItems = renderFrame(
+      engine,
+      { ...viewport, width: 1200 },
+      0,
+      lowerPaneId,
+      "overview",
+      200,
+    );
+    const topPane = requireRenderItem(topItems, lowerPaneId);
+    const pannedPane = requireRenderItem(pannedItems, lowerPaneId);
+
+    expect(pannedPane.y).toBeLessThan(topPane.y);
+  });
+
   test("resets a resized column back to its ideal original width", () => {
     const engine = createRealEngine();
 
@@ -807,6 +867,10 @@ function requireRenderItem(items: PaneRenderItem[], paneId: string): PaneRenderI
     throw new Error(`render item ${paneId} was not found`);
   }
   return item;
+}
+
+function maxVisualWidth(items: readonly PaneRenderItem[]): number {
+  return Math.max(...items.map((item) => item.width * item.scale));
 }
 
 function createRealEngine(

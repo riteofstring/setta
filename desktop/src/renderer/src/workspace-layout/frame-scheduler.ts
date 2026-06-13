@@ -4,7 +4,7 @@ import type { WorkspaceLayoutSnapshot, WorkspaceLayoutStore } from "./layout-sto
 import type { WorkspaceMetricsCollector } from "./metrics";
 import { interpolatePaneRenderItems } from "./pane-render-interpolation";
 import type { PerformanceReportWriter } from "./performance-report";
-import type { PaneRenderItem, Rect } from "./types";
+import type { LayoutFrameInput, PaneRenderItem, Rect } from "./types";
 import type { PresentationEngine } from "./presentation-engine";
 import type { PaneRuntimePolicy } from "./runtime-policy";
 import { ResizePhaseTracker } from "./resize-phase-tracker";
@@ -36,6 +36,7 @@ export class FrameScheduler {
   private lastFocusStepTimestamp = 0;
   private longTaskObserver: PerformanceObserver | null = null;
   private measurementStartedAt = 0;
+  private overviewViewport: Rect | null = null;
   private reportWritten = false;
   private resizePhaseTracker = new ResizePhaseTracker();
   private startedAt = 0;
@@ -114,13 +115,16 @@ export class FrameScheduler {
     viewport: Rect,
     resizePhase: "active" | "idle" | "settled",
   ): "active" | "idle" | "settled" {
-    this.layoutStore.ensureFocusedPaneVisible(viewport);
+    const initialSnapshot = this.layoutStore.getSnapshot();
+    const focusViewport = this.focusVisibilityViewport(initialSnapshot, viewport);
+    this.layoutStore.ensureFocusedPaneVisible(focusViewport);
     if (resizePhase === "active") {
       this.layoutStore.snapScrollToTarget();
     }
     const movementPhase =
       resizePhase === "active" ? "moving" : this.layoutStore.advanceFrame(deltaMs);
     const snapshot = this.layoutStore.getSnapshot();
+    this.syncOverviewViewport(snapshot, viewport);
     const targetOverviewProgress = snapshot.presentationMode === "overview" ? 1 : 0;
     const zooming = Math.abs(snapshot.overviewProgress - targetOverviewProgress) > 0.001;
     const renderMovementPhase = zooming ? "moving" : movementPhase;
@@ -134,27 +138,13 @@ export class FrameScheduler {
       scrollRow: snapshot.scrollRow,
       viewport,
     } as const;
-    if (zooming) {
-      const { normalItems, overviewItems } = this.zoomEndpointFrameItems({
-        frameInput,
-        resizePhase,
-        snapshot,
-      });
-      this.items.push(
-        ...interpolatePaneRenderItems({
-          normalItems,
-          overviewItems,
-          overviewProgress: snapshot.overviewProgress,
-          presentationMode: snapshot.presentationMode,
-        }),
-      );
-    } else {
-      this.engine.renderFrame(
-        { ...frameInput, presentationMode: snapshot.presentationMode },
-        (item) => this.items.push(item),
-      );
-      this.zoomEndpointFrames = null;
-    }
+    this.renderPaneItems({
+      frameInput,
+      resizePhase,
+      snapshot,
+      viewport,
+      zooming,
+    });
     for (const item of this.items) {
       item.resizing = resizePhase === "active";
     }
@@ -163,6 +153,67 @@ export class FrameScheduler {
       this.metrics.recordResizeFinalViewport(viewport);
     }
     return resizePhase;
+  }
+
+  private renderPaneItems({
+    frameInput,
+    resizePhase,
+    snapshot,
+    viewport,
+    zooming,
+  }: {
+    frameInput: Omit<LayoutFrameInput, "presentationMode">;
+    resizePhase: "active" | "idle" | "settled";
+    snapshot: WorkspaceLayoutSnapshot;
+    viewport: Rect;
+    zooming: boolean;
+  }): void {
+    if (zooming) {
+      this.renderZoomingPaneItems({ frameInput, resizePhase, snapshot, viewport });
+      return;
+    }
+    this.engine.renderFrame(
+      {
+        ...frameInput,
+        presentationMode: snapshot.presentationMode,
+        viewport:
+          snapshot.presentationMode === "overview"
+            ? this.overviewEndpointViewport(viewport)
+            : viewport,
+      },
+      (item) => this.items.push(item),
+    );
+    this.zoomEndpointFrames = null;
+  }
+
+  private renderZoomingPaneItems({
+    frameInput,
+    resizePhase,
+    snapshot,
+    viewport,
+  }: {
+    frameInput: Omit<LayoutFrameInput, "presentationMode">;
+    resizePhase: "active" | "idle" | "settled";
+    snapshot: WorkspaceLayoutSnapshot;
+    viewport: Rect;
+  }): void {
+    const { normalItems, overviewItems } = this.zoomEndpointFrameItems({
+      normalFrameInput: frameInput,
+      overviewFrameInput: {
+        ...frameInput,
+        viewport: this.overviewEndpointViewport(viewport),
+      },
+      resizePhase,
+      snapshot,
+    });
+    this.items.push(
+      ...interpolatePaneRenderItems({
+        normalItems,
+        overviewItems,
+        overviewProgress: snapshot.overviewProgress,
+        presentationMode: snapshot.presentationMode,
+      }),
+    );
   }
 
   private tick = (timestamp: number, deltaMs: number): void => {
@@ -196,11 +247,20 @@ export class FrameScheduler {
   };
 
   private zoomEndpointFrameItems({
-    frameInput,
+    normalFrameInput,
+    overviewFrameInput,
     resizePhase,
     snapshot,
   }: {
-    frameInput: {
+    normalFrameInput: {
+      focusedPaneId: string;
+      maximizedPaneId: string | null;
+      movementPhase: "idle" | "moving";
+      scrollColumn: number;
+      scrollRow: number;
+      viewport: Rect;
+    };
+    overviewFrameInput: {
       focusedPaneId: string;
       maximizedPaneId: string | null;
       movementPhase: "idle" | "moving";
@@ -211,17 +271,22 @@ export class FrameScheduler {
     resizePhase: "active" | "idle" | "settled";
     snapshot: WorkspaceLayoutSnapshot;
   }): ZoomEndpointFrames {
-    const key = this.zoomEndpointFrameKey({ frameInput, resizePhase, snapshot });
+    const key = this.zoomEndpointFrameKey({
+      normalFrameInput,
+      overviewFrameInput,
+      resizePhase,
+      snapshot,
+    });
     if (this.zoomEndpointFrames?.key === key) {
       return this.zoomEndpointFrames;
     }
     const normalItems: PaneRenderItem[] = [];
     const overviewItems: PaneRenderItem[] = [];
     this.engine.renderFrame(
-      { ...frameInput, presentationMode: "normal", renderAllColumns: true },
+      { ...normalFrameInput, presentationMode: "normal", renderAllColumns: true },
       (item) => normalItems.push(item),
     );
-    this.engine.renderFrame({ ...frameInput, presentationMode: "overview" }, (item) =>
+    this.engine.renderFrame({ ...overviewFrameInput, presentationMode: "overview" }, (item) =>
       overviewItems.push(item),
     );
     this.zoomEndpointFrames = {
@@ -233,11 +298,20 @@ export class FrameScheduler {
   }
 
   private zoomEndpointFrameKey({
-    frameInput,
+    normalFrameInput,
+    overviewFrameInput,
     resizePhase,
     snapshot,
   }: {
-    frameInput: {
+    normalFrameInput: {
+      focusedPaneId: string;
+      maximizedPaneId: string | null;
+      movementPhase: "idle" | "moving";
+      scrollColumn: number;
+      scrollRow: number;
+      viewport: Rect;
+    };
+    overviewFrameInput: {
       focusedPaneId: string;
       maximizedPaneId: string | null;
       movementPhase: "idle" | "moving";
@@ -250,17 +324,45 @@ export class FrameScheduler {
   }): string {
     return [
       snapshot.revision,
-      frameInput.focusedPaneId,
-      frameInput.maximizedPaneId ?? "",
-      frameInput.movementPhase,
+      normalFrameInput.focusedPaneId,
+      normalFrameInput.maximizedPaneId ?? "",
+      normalFrameInput.movementPhase,
       resizePhase,
-      frameInput.scrollColumn.toFixed(3),
-      frameInput.scrollRow.toFixed(3),
-      frameInput.viewport.x.toFixed(1),
-      frameInput.viewport.y.toFixed(1),
-      frameInput.viewport.width.toFixed(1),
-      frameInput.viewport.height.toFixed(1),
+      normalFrameInput.scrollColumn.toFixed(3),
+      normalFrameInput.scrollRow.toFixed(3),
+      normalFrameInput.viewport.x.toFixed(1),
+      normalFrameInput.viewport.y.toFixed(1),
+      normalFrameInput.viewport.width.toFixed(1),
+      normalFrameInput.viewport.height.toFixed(1),
+      overviewFrameInput.viewport.x.toFixed(1),
+      overviewFrameInput.viewport.y.toFixed(1),
+      overviewFrameInput.viewport.width.toFixed(1),
+      overviewFrameInput.viewport.height.toFixed(1),
     ].join("|");
+  }
+
+  private focusVisibilityViewport(snapshot: WorkspaceLayoutSnapshot, viewport: Rect): Rect {
+    if (snapshot.presentationMode !== "overview") {
+      return viewport;
+    }
+    return this.overviewEndpointViewport(viewport);
+  }
+
+  private overviewEndpointViewport(viewport: Rect): Rect {
+    if (!this.overviewViewport) {
+      this.overviewViewport = { ...viewport };
+    }
+    return this.overviewViewport;
+  }
+
+  private syncOverviewViewport(snapshot: WorkspaceLayoutSnapshot, viewport: Rect): void {
+    if (snapshot.presentationMode === "overview") {
+      this.overviewEndpointViewport(viewport);
+      return;
+    }
+    if (snapshot.overviewProgress <= 0.001) {
+      this.overviewViewport = null;
+    }
   }
 
   private startMeasurementAfterWarmup(timestamp: number): void {

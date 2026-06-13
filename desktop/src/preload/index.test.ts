@@ -39,6 +39,7 @@ describe("preload workspace API", () => {
 
     const api = exposed.setta as SettaAPI;
     expect(Object.keys(api.app).sort()).toEqual([
+      "captureRendererRegion",
       "endWindowDrag",
       "flags",
       "installedEditors",
@@ -153,6 +154,7 @@ describe("preload workspace API", () => {
     await import("./index");
 
     const api = exposed.setta as SettaAPI;
+    await api.app.captureRendererRegion({ height: 40, width: 80, x: 12, y: 24 });
     const batch = {
       focusedSurfaceId: "surface_browser",
       totalBrowserPanes: 24,
@@ -210,9 +212,15 @@ describe("preload workspace API", () => {
     unsubscribeSnapshot();
 
     expect(send).toHaveBeenCalledWith("workspace:browser-view-batch", batch);
-    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.workspaceBrowserViewStats);
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.appCaptureRendererRegion, {
+      height: 40,
+      width: 80,
+      x: 12,
+      y: 24,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.workspaceBrowserViewStats);
     expect(invoke).toHaveBeenNthCalledWith(
-      2,
+      3,
       ipcChannels.workspaceBrowserViewsTeardown,
       "phase-4-browser-pane-benchmark",
     );

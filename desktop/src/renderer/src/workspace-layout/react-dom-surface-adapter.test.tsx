@@ -11,7 +11,7 @@ import { createFakeHost } from "./test-dom-fakes";
 import type { WorkspacePane } from "./types";
 
 describe("workspace React DOM surface adapter", () => {
-  test("keeps React mount and unmount semantics stable across lifecycle calls", async () => {
+  test("parks React root across host unmounts and tears it down on destroy", async () => {
     const events: string[] = [];
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot(container) {
@@ -27,6 +27,7 @@ describe("workspace React DOM surface adapter", () => {
     );
 
     adapter.mount(host);
+    const container = requireFakeChild(fakeChildrenOf(host), 0);
     adapter.setViewport({ height: 120, width: 180, x: 0, y: 0 }, "mount");
     adapter.setVisible(true);
     adapter.setFocused(true);
@@ -39,7 +40,9 @@ describe("workspace React DOM surface adapter", () => {
     expect(host.dataset.surfaceFocused).toBe("true");
     expect(host.dataset.surfaceFrozen).toBe("false");
     expect(host.dataset.surfaceVisible).toBe("true");
+    expect(container.dataset.scrollbarsSuppressed).toBe("true");
     expect(adapter.lifecycleState).toMatchObject({
+      activated: true,
       focused: true,
       frozen: false,
       mounted: true,
@@ -49,12 +52,50 @@ describe("workspace React DOM surface adapter", () => {
     adapter.unmount();
     await waitForMicrotask();
 
+    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render"]);
+    expect(adapter.lifecycleState.mounted).toBe(false);
+
+    adapter.mount(host);
+
+    expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render"]);
+    expect(adapter.lifecycleState.mounted).toBe(true);
+
+    adapter.destroy();
+    await waitForMicrotask();
+
     expect(events).toEqual(["create:workspace-react-dom-surface", "render", "render", "unmount"]);
     expect(adapter.lifecycleState.mounted).toBe(false);
   });
 
+  test("restores parked DOM scroller offsets when remounting React surfaces", () => {
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return new RecordingRoot([]);
+      },
+    };
+    const host = createFakeHost();
+    const adapter = new ReactDomSurfaceAdapter(
+      fakePane("chat-dom"),
+      () => "chat surface",
+      rootFactory,
+    );
+
+    adapter.mount(host);
+    const container = requireFakeChild(fakeChildrenOf(host), 0);
+    const scroller = host.ownerDocument.createElement("div");
+    scroller.scrollTop = 240;
+    container.append(scroller as unknown as FakeChildNode);
+
+    adapter.unmount();
+    scroller.scrollTop = 0;
+    adapter.mount(host);
+
+    expect(scroller.dataset.snapshotScrollTop).toBe("240");
+    expect(scroller.scrollTop).toBe(240);
+  });
+
   test("rerenders React DOM surfaces when focus changes", () => {
-    const focusStates: boolean[] = [];
+    const surfaceStates: Array<{ activated: boolean; focused: boolean }> = [];
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot() {
         return new RecordingRoot([]);
@@ -63,8 +104,8 @@ describe("workspace React DOM surface adapter", () => {
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
       fakePane("settings-dom"),
-      ({ focused }) => {
-        focusStates.push(focused);
+      ({ activated, focused }) => {
+        surfaceStates.push({ activated, focused });
         return focused ? "active settings" : "inactive settings";
       },
       rootFactory,
@@ -75,7 +116,11 @@ describe("workspace React DOM surface adapter", () => {
     adapter.setFocused(true);
     adapter.setFocused(false);
 
-    expect(focusStates).toEqual([false, true, false]);
+    expect(surfaceStates).toEqual([
+      { activated: false, focused: false },
+      { activated: true, focused: true },
+      { activated: true, focused: false },
+    ]);
   });
 
   test("mounts workflow graph as a React surface with canvas runtime stats", () => {
@@ -169,4 +214,23 @@ function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
     tone: "cyan",
     weight: 1,
   };
+}
+
+interface FakeChildNode {
+  append(...nodes: FakeChildNode[]): void;
+  children: FakeChildNode[];
+  dataset: Record<string, string>;
+  scrollTop: number;
+}
+
+function fakeChildrenOf(host: HTMLElement): FakeChildNode[] {
+  return (host as unknown as { children: FakeChildNode[] }).children;
+}
+
+function requireFakeChild(children: FakeChildNode[], index: number): FakeChildNode {
+  const child = children[index];
+  if (!child) {
+    throw new Error(`missing fake child at index ${index}`);
+  }
+  return child;
 }

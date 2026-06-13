@@ -21,6 +21,7 @@ import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { readEditorIconDataURL } from "./editor-icon-data-url";
 import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
+import { captureRendererRegion } from "./renderer-region-capture";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
@@ -329,6 +330,14 @@ function registerIpc() {
     "appInstalledEditors",
     () => {
       return listInstalledEditorApps(readEditorIconDataURL);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appCaptureRendererRegion",
+    async (event, request) => {
+      return captureRendererRegion(event, request);
     },
     ipcObserver,
   );

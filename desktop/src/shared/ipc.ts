@@ -54,6 +54,8 @@ import type {
 import type {
   AppWindowDragPoint,
   InstalledEditorApp,
+  RendererRegionCaptureRequest,
+  RendererRegionSnapshot,
   WorkspaceBrowserViewStats,
   RuntimeVersions,
   WorkspaceGitInfo,
@@ -61,6 +63,7 @@ import type {
 
 export const ipcChannels = {
   appInstalledEditors: "app:installed-editors",
+  appCaptureRendererRegion: "app:capture-renderer-region",
   appWindowDragEnd: "app:window-drag-end",
   appWindowDragMove: "app:window-drag-move",
   appWindowDragStart: "app:window-drag-start",
@@ -152,6 +155,10 @@ interface IpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
+  };
+  appCaptureRendererRegion: {
+    args: [request: RendererRegionCaptureRequest];
+    result: RendererRegionSnapshot;
   };
   appWindowDragEnd: {
     args: [];

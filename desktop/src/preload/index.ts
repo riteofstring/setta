@@ -40,6 +40,7 @@ const api: SettaAPI = {
   app: {
     flags: appFlags,
     installedEditors: () => invoke("appInstalledEditors"),
+    captureRendererRegion: (request) => invoke("appCaptureRendererRegion", request),
     endWindowDrag: () => invoke("appWindowDragEnd"),
     moveWindowDrag: (point) => invoke("appWindowDragMove", point),
     openWorkspaceInEditor: (editorId: string, rootPath: string) =>

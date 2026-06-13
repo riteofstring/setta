@@ -174,6 +174,9 @@ export class PaneRuntimePolicy {
     if (this.degradesMovingBrowser(item, movementPhase)) {
       return this.snapshotOrThrottle(counters);
     }
+    if (this.degradesMovingHeavyDom(item, movementPhase)) {
+      return this.snapshotOrThrottle(counters);
+    }
     if (item.focused) {
       return "live";
     }
@@ -198,6 +201,14 @@ export class PaneRuntimePolicy {
   private degradesMovingBrowser(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
     return (
       this.degradeDuringMovement && movementPhase === "moving" && item.surfaceKind === "browser"
+    );
+  }
+
+  private degradesMovingHeavyDom(item: PaneRenderItem, movementPhase: "idle" | "moving"): boolean {
+    return (
+      this.degradeDuringMovement &&
+      movementPhase === "moving" &&
+      isLiveHeavyDomSurfaceKind(item.surfaceKind)
     );
   }
 

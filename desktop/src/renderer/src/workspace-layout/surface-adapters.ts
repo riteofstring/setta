@@ -4,6 +4,7 @@ import { GitGraphSurfaceAdapter } from "./git-graph-surface-adapter";
 import { createReactDomSurfaceAdapter } from "./react-dom-surface-adapter";
 import { SyntheticTerminalSurfaceAdapter } from "./synthetic-terminal-surface-adapter";
 import {
+  applySnapshotScrollOffsets,
   cloneSnapshotNode,
   type EmptyFrameOption,
   renderEmptyFrameContent,
@@ -38,6 +39,14 @@ export interface DefaultSurfaceAdapterOptions {
 }
 
 export type EmptyFrameOptionsProvider = () => readonly EmptyFrameOption[];
+
+type RendererCaptureRegion = { height: number; width: number; x: number; y: number };
+type RendererCaptureApi = NonNullable<Window["setta"]>["app"]["captureRendererRegion"];
+
+interface BitmapCaptureRequest {
+  captureKey: string;
+  captureRegion: RendererCaptureRegion;
+}
 
 class FakeDomSurfaceAdapter implements SurfaceAdapter {
   readonly kind: SurfaceKind = "fake-dom";
@@ -177,9 +186,13 @@ export class FakeHeavyDomSurfaceAdapter extends FakeDomSurfaceAdapter {
 
 export class SnapshotSurfaceAdapter implements SurfaceAdapter {
   readonly kind = "snapshot" satisfies SurfaceKind;
+  private bitmapCaptureKey: string | null = null;
+  private bitmapCapturePendingKey: string | null = null;
+  private bitmapTexture: HTMLElement | null = null;
   private focused = false;
   private host: HTMLElement | null = null;
   private texture: HTMLElement | null = null;
+  private textureCaptureKey: string | null = null;
   private visible = false;
 
   constructor(
@@ -191,7 +204,31 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     return `${this.pane.surfaceId}:snapshot`;
   }
 
+  captureBitmap(sourceHost: HTMLElement): void {
+    const request = bitmapCaptureRequestForHost(sourceHost);
+    if (!request || this.bitmapCaptureRequested(request.captureKey)) {
+      return;
+    }
+    const captureApi = rendererRegionCaptureApi();
+    if (!captureApi) {
+      return;
+    }
+    this.bitmapCapturePendingKey = request.captureKey;
+    void captureApi(request.captureRegion)
+      .then((snapshot) => {
+        this.applyCapturedBitmap(sourceHost, request.captureKey, snapshot);
+      })
+      .catch((error: unknown) => {
+        this.handleBitmapCaptureFailure(request.captureKey, error);
+      });
+  }
+
   captureTexture(sourceHost: HTMLElement): void {
+    this.bitmapCapturePendingKey = null;
+    const capture = rendererRegionCaptureForHost(sourceHost);
+    const captureRegion = rendererCaptureRegionForElement(capture?.source ?? null);
+    this.textureCaptureKey =
+      capture && captureRegion ? rendererCaptureKey(capture.source, captureRegion) : null;
     const document = sourceHost.ownerDocument;
     const texture = document.createElement("div");
     texture.className = "workspace-snapshot-texture";
@@ -210,9 +247,8 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     this.host = host;
     host.dataset.surfaceId = this.surfaceId;
     host.dataset.surfaceKind = this.kind;
-    host.replaceChildren(
-      renderSnapshotContent(host, this.pane, this.texture, this.options.staticFallback ?? false),
-    );
+    this.rerenderMountedSnapshot();
+    applySnapshotScrollOffsets(host);
     this.syncHostState();
   }
 
@@ -256,6 +292,159 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
     this.host.dataset.surfaceFocused = String(this.focused);
     this.host.style.visibility = this.visible ? "visible" : "hidden";
   }
+
+  private rerenderMountedSnapshot(): void {
+    if (!this.host) {
+      return;
+    }
+    const texture =
+      this.bitmapTexture && this.bitmapCaptureKey === this.textureCaptureKey
+        ? this.bitmapTexture
+        : this.texture;
+    this.host.replaceChildren(
+      renderSnapshotContent(this.host, this.pane, texture, this.options.staticFallback ?? false),
+    );
+    applySnapshotScrollOffsets(this.host);
+  }
+
+  private bitmapCaptureRequested(captureKey: string): boolean {
+    return this.bitmapCaptureKey === captureKey || this.bitmapCapturePendingKey === captureKey;
+  }
+
+  private applyCapturedBitmap(
+    sourceHost: HTMLElement,
+    captureKey: string,
+    snapshot: Awaited<ReturnType<RendererCaptureApi>>,
+  ): void {
+    if (this.bitmapCapturePendingKey !== captureKey) {
+      return;
+    }
+    this.bitmapCapturePendingKey = null;
+    this.bitmapCaptureKey = captureKey;
+    this.bitmapTexture = renderBitmapSnapshotTexture(
+      sourceHost.ownerDocument,
+      snapshot,
+      captureKey,
+    );
+    this.rerenderMountedSnapshot();
+  }
+
+  private handleBitmapCaptureFailure(captureKey: string, error: unknown): void {
+    if (this.bitmapCapturePendingKey !== captureKey) {
+      return;
+    }
+    this.bitmapCapturePendingKey = null;
+    console.warn(
+      "failed to capture workspace DOM pane bitmap snapshot",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
+function bitmapCaptureRequestForHost(sourceHost: HTMLElement): BitmapCaptureRequest | null {
+  const capture = rendererRegionCaptureForHost(sourceHost);
+  const captureRegion = rendererCaptureRegionForElement(capture?.source ?? null);
+  if (!capture || !captureRegion) {
+    return null;
+  }
+  return {
+    captureKey: rendererCaptureKey(capture.source, captureRegion),
+    captureRegion,
+  };
+}
+
+function rendererRegionCaptureApi(): RendererCaptureApi | null {
+  return typeof window === "undefined" ? null : (window.setta?.app.captureRendererRegion ?? null);
+}
+
+function rendererRegionCaptureForHost(sourceHost: HTMLElement): { source: HTMLElement } | null {
+  for (const child of Array.from(sourceHost.children)) {
+    if (child.classList.contains("workspace-pane-top-bar")) {
+      continue;
+    }
+    if (isElementWithLayout(child)) {
+      return { source: child };
+    }
+  }
+  return null;
+}
+
+function rendererCaptureRegionForElement(source: HTMLElement | null): RendererCaptureRegion | null {
+  if (!source) {
+    return null;
+  }
+  const rect = source.getBoundingClientRect();
+  const width = Math.round(rect.width);
+  const height = Math.round(rect.height);
+  if (width <= 1 || height <= 1) {
+    return null;
+  }
+  return {
+    height,
+    width,
+    x: Math.round(rect.left),
+    y: Math.round(rect.top),
+  };
+}
+
+function rendererCaptureKey(
+  source: HTMLElement,
+  region: { height: number; width: number },
+): string {
+  return [
+    source.dataset.surfaceViewport ?? "",
+    region.width,
+    region.height,
+    snapshotScrollKey(source),
+  ].join(":");
+}
+
+function snapshotScrollKey(root: Element): string {
+  if (typeof root.querySelectorAll !== "function") {
+    return "";
+  }
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      [
+        "[data-snapshot-scroller='true']",
+        "[data-testid='chat-transcript-scroller']",
+        ".overflow-auto",
+        ".overflow-y-auto",
+        ".workspace-fake-long-chat-scroll",
+      ].join(","),
+    ),
+  )
+    .map((element) => `${Math.round(element.scrollTop)},${Math.round(element.scrollLeft)}`)
+    .join("|");
+}
+
+function isElementWithLayout(element: Element): element is HTMLElement {
+  return (
+    "getBoundingClientRect" in element &&
+    "dataset" in element &&
+    "ownerDocument" in element &&
+    "style" in element
+  );
+}
+
+function renderBitmapSnapshotTexture(
+  document: Document,
+  snapshot: { height: number; imageDataUrl: string; width: number },
+  captureKey: string,
+): HTMLElement {
+  const texture = document.createElement("div");
+  texture.className = "workspace-snapshot-texture workspace-snapshot-bitmap-texture";
+  texture.dataset.snapshotCaptureKey = captureKey;
+  const image = document.createElement("img");
+  image.alt = "";
+  image.className = "workspace-snapshot-bitmap";
+  image.decoding = "async";
+  image.draggable = false;
+  image.height = snapshot.height;
+  image.src = snapshot.imageDataUrl;
+  image.width = snapshot.width;
+  texture.append(image);
+  return texture;
 }
 
 export function createDefaultSurfaceAdapter(

@@ -52,6 +52,8 @@ import { columnVisualFramesForPane, type PaneVisualFrame } from "./pane-visual-f
 
 export interface WorkspaceLayoutEngineOptions {
   allowResizedPanesToOverflowViewport?: boolean;
+  overviewCardMaxWidthPx?: number;
+  overviewCardMinWidthPx?: number;
 }
 
 interface PaneReorderPreview {
@@ -823,6 +825,10 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
   private renderOverviewFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
     renderOverviewLayoutFrame({
       availableHeight: this.availablePaneHeight(input.viewport.height),
+      cardSizeConstraints: {
+        maxWidthPx: this.options.overviewCardMaxWidthPx,
+        minWidthPx: this.options.overviewCardMinWidthPx,
+      },
       columns: this.columns,
       geometry: this.columnGeometry(input.viewport.width, null, this.scene.columnGap, true),
       input,

@@ -272,6 +272,12 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         workflowGraphDebug: false,
         workflowGraphSyntheticGraph: null,
       },
+      captureRendererRegion: async () => ({
+        capturedAt: 0,
+        height: 1,
+        imageDataUrl: "data:image/png;base64,",
+        width: 1,
+      }),
       installedEditors: async () => [],
       endWindowDrag: async () => {},
       moveWindowDrag: async () => {},

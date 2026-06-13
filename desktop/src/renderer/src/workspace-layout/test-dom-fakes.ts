@@ -8,9 +8,12 @@ interface FakeElement {
     remove(value: string): void;
   };
   className: string;
+  cloneNode(deep?: boolean): FakeElement;
   dataset: Record<string, string>;
   ownerDocument: FakeDocument;
   parentElement: FakeElement | null;
+  scrollLeft: number;
+  scrollTop: number;
   style: FakeStyle;
   textContent: string;
   addEventListener(type: string, listener: EventListener): void;
@@ -119,8 +122,24 @@ function createFakeElement(document: FakeDocument, tagName: string): FakeElement
       }
     },
     dataset: {},
+    cloneNode(deep = false) {
+      const clone = createFakeElement(document, tagName);
+      clone.className = this.className;
+      Object.assign(clone.dataset, this.dataset);
+      clone.textContent = this.textContent;
+      clone.style.visibility = this.style.visibility;
+      for (const [name, value] of styleProperties) {
+        clone.style.setProperty(name, value);
+      }
+      if (deep) {
+        clone.append(...this.children.map((child) => child.cloneNode(true)));
+      }
+      return clone;
+    },
     ownerDocument: document,
     parentElement: null,
+    scrollLeft: 0,
+    scrollTop: 0,
     style: {
       getPropertyValue(name) {
         return styleProperties.get(name) ?? "";

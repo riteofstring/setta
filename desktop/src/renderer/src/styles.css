@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./workspace-layout.css";
+@import "./workspace-snapshot.css";
 @import "./workspace-pane-chrome.css";
 
 @theme inline {
