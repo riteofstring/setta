@@ -331,6 +331,13 @@ func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conv
 				corrupt = append(corrupt, corruptStateFinding(err, workspaceID, entry.Name(), "", corruptConversationKind))
 				continue
 			}
+			missing, missingErr := store.conversationDirDisappearedDuringScan(workspaceID, entry.Name(), err)
+			if missingErr != nil {
+				return nil, nil, missingErr
+			}
+			if missing {
+				continue
+			}
 			return nil, nil, err
 		}
 		conversations = append(conversations, conversation)
