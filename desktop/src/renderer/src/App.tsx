@@ -98,12 +98,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
 
   return (
     <div className="fixed inset-0 min-h-0 overflow-hidden bg-background text-foreground">
-      <AppChromeControls
-        platform={platform}
-        projectPaneOpen={projectPaneOpen}
-        projectPaneWidth={effectiveProjectPaneWidth}
-        setProjectPaneOpen={setProjectPaneOpen}
-      />
       <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background">
         <ProjectPane
           chat={chat}
@@ -125,6 +119,16 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           platform={platform}
         />
       </main>
+      {/* Rendered after the workspace so the no-drag chrome controls follow every
+          -webkit-app-region: drag surface in document order; Electron applies the
+          drag/no-drag rects in that order, and a later drag rect would re-cover the
+          holes these controls punch into the OS draggable region. */}
+      <AppChromeControls
+        platform={platform}
+        projectPaneOpen={projectPaneOpen}
+        projectPaneWidth={effectiveProjectPaneWidth}
+        setProjectPaneOpen={setProjectPaneOpen}
+      />
     </div>
   );
 }

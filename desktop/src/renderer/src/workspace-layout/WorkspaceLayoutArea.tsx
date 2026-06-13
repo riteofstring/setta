@@ -627,16 +627,6 @@ export function WorkspaceLayoutArea({
       data-testid="workspace-layout-area"
       ref={rootRef}
     >
-      {runtime.mode === "workspace" ? (
-        <WorkspaceToolbar
-          openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
-          overviewActive={layoutSnapshot.presentationMode === "overview"}
-          performanceStatsRef={showPerformanceStats ? debugRef : null}
-          runLayoutAction={runLayoutAction}
-          showPerformanceStats={showPerformanceStats}
-          store={runtime.store}
-        />
-      ) : null}
       <WorkspaceLayoutRecoveryNotice
         message={
           !layoutRecoveryDismissed && runtime.layoutRecovery ? runtime.layoutRecovery.message : null
@@ -675,6 +665,21 @@ export function WorkspaceLayoutArea({
           ))}
         </Profiler>
       </div>
+      {/* Rendered after the stage so the toolbar's no-drag buttons follow the pane
+          top bars' -webkit-app-region: drag surfaces in document order; Electron
+          applies the drag/no-drag rects in that order, and an earlier no-drag hole
+          would be re-covered by a later drag rect when a pane sits under the
+          toolbar with the project pane collapsed. */}
+      {runtime.mode === "workspace" ? (
+        <WorkspaceToolbar
+          openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
+          overviewActive={layoutSnapshot.presentationMode === "overview"}
+          performanceStatsRef={showPerformanceStats ? debugRef : null}
+          runLayoutAction={runLayoutAction}
+          showPerformanceStats={showPerformanceStats}
+          store={runtime.store}
+        />
+      ) : null}
     </section>
   );
 }
