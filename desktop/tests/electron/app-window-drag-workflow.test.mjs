@@ -235,6 +235,19 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
   assertWorkspaceControlsNotDraggable(collapsedRegions);
   assertChromePlateDoesNotCaptureControls(collapsedRegions);
 
+  const maximizeButton = await elementCenter(
+    client,
+    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
+  );
+  await dispatchPhysicalMouseClick(client, maximizeButton);
+  await waitForPaneMaximized(client, true);
+  const restoreButton = await elementCenter(
+    client,
+    '[data-testid="workspace-pane-host"][data-visible="true"] [data-workspace-pane-maximize-button="true"]:not([disabled])',
+  );
+  await dispatchPhysicalMouseClick(client, restoreButton);
+  await waitForPaneMaximized(client, false);
+
   const overviewButton = await elementCenter(client, ".workspace-toolbar-button");
   await dispatchPhysicalMouseClick(client, overviewButton);
   await waitForState(
@@ -267,6 +280,15 @@ async function waitForNewFrameMenu(client, expectedOpen) {
     client,
     `(() => Boolean(document.querySelector('[role="menu"][aria-label="New frame options"]')))()`,
     (open) => open === expectedOpen,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForPaneMaximized(client, expectedMaximized) {
+  await waitForState(
+    client,
+    `(() => Boolean(document.querySelector('[data-testid="workspace-pane-host"][data-visible="true"][data-maximized="true"]')))()`,
+    (maximized) => maximized === expectedMaximized,
     workflowTimeoutMs,
   );
 }
@@ -378,6 +400,7 @@ async function sampleDragRegions(client) {
     return [
       sample("workspace-control", toolbar ? toolbar.left + 14 : 118, toolbar ? toolbar.top + 14 : 18),
       sampleElement("chrome-plate", '[data-testid="shell-chrome-plate"]'),
+      sample("chrome-plate-surface", 12, 20),
       sample("pane-title-bar", paneTop ? paneTop.left + 120 : 350, paneTop ? paneTop.top + 12 : 53),
       sample(
         "pane-drag-handle",
@@ -400,6 +423,12 @@ function assertChromePlateDoesNotCaptureControls(regions) {
   if (plate.testid !== "shell-chrome-plate" || plate.region === "drag") {
     throw new Error(
       `chrome plate should not capture controls as a drag region: ${JSON.stringify(plate)}`,
+    );
+  }
+  const plateSurface = requiredRegion(regions, "chrome-plate-surface");
+  if (plateSurface.testid !== "shell-chrome-plate" || plateSurface.region !== "no-drag") {
+    throw new Error(
+      `chrome plate surface should shield pane drag regions: ${JSON.stringify(plateSurface)}`,
     );
   }
 }

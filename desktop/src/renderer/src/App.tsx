@@ -332,7 +332,7 @@ function AppChromePlate({ platform }: { platform: DesktopPlatform }) {
   return (
     <div
       aria-hidden="true"
-      className="app-no-drag pointer-events-none fixed top-0 left-0 z-[80] h-10 rounded-br-xl border-r border-b border-border/45 bg-background/72 shadow-[0_10px_28px_color-mix(in_oklch,black_24%,transparent)] backdrop-blur-md"
+      className="app-no-drag pointer-events-auto fixed top-0 left-0 z-[80] h-10 rounded-br-xl border-r border-b border-border/45 bg-background/72 shadow-[0_10px_28px_color-mix(in_oklch,black_24%,transparent)] backdrop-blur-md"
       data-testid="shell-chrome-plate"
       style={{ width: appChromePlateWidth(platform) }}
     />
