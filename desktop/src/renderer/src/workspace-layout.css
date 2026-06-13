@@ -270,25 +270,25 @@
 
 .workspace-toolbar {
   --workspace-performance-end-inset: 10px;
-  --workspace-toolbar-left-inset: 46px;
+  --workspace-toolbar-left-inset: 28px;
   align-items: center;
   background: transparent;
   border-radius: 6px;
   color: var(--muted-foreground);
   display: flex;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
   overflow: visible;
   padding: 0;
   position: fixed;
-  top: 11px;
+  top: 9px;
   left: var(--workspace-toolbar-left-inset);
   width: auto;
-  z-index: 90;
+  z-index: 100;
 }
 
 .workspace-layout-area[data-desktop-platform="darwin"] .workspace-toolbar {
-  --workspace-toolbar-left-inset: 116px;
+  --workspace-toolbar-left-inset: 110px;
 }
 
 .workspace-layout-area[data-desktop-platform="win32"] .workspace-toolbar {
@@ -338,10 +338,10 @@
   color: var(--muted-foreground);
   cursor: pointer;
   display: inline-flex;
-  height: 28px;
+  height: 22px;
   justify-content: center;
   padding: 0;
-  width: 28px;
+  width: 22px;
 }
 
 .workspace-toolbar-button:hover,
@@ -367,11 +367,11 @@
   color: var(--muted-foreground);
   cursor: pointer;
   display: inline-flex;
-  height: 28px;
+  height: 22px;
   justify-content: center;
   padding: 0;
   white-space: nowrap;
-  width: 28px;
+  width: 22px;
 }
 
 .workspace-toolbar-menu {

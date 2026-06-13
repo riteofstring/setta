@@ -332,10 +332,15 @@ function AppChromePlate({ platform }: { platform: DesktopPlatform }) {
   return (
     <div
       aria-hidden="true"
-      className="app-no-drag pointer-events-auto fixed top-0 left-0 z-[80] h-10 rounded-br-xl border-r border-b border-border/45 bg-background/72 shadow-[0_10px_28px_color-mix(in_oklch,black_24%,transparent)] backdrop-blur-md"
+      className="pointer-events-none fixed top-0 left-0 z-[80] h-10 rounded-br-xl border-r border-b border-border/45 bg-background/72 shadow-[0_10px_28px_color-mix(in_oklch,black_24%,transparent)] backdrop-blur-md"
       data-testid="shell-chrome-plate"
       style={{ width: appChromePlateWidth(platform) }}
-    />
+    >
+      <div
+        className="app-no-drag pointer-events-auto absolute top-0 left-0 h-10"
+        style={{ width: appChromeHitShieldWidth(platform) }}
+      />
+    </div>
   );
 }
 
@@ -352,7 +357,7 @@ function FloatingProjectPaneControl({
   return (
     <div
       className={cn(
-        "app-no-drag pointer-events-auto fixed top-[11px] z-[90] text-muted-foreground",
+        "app-no-drag pointer-events-auto fixed top-[9px] z-[100] text-muted-foreground",
         floatingProjectControlLeftInsetClass(platform),
       )}
     >
@@ -412,8 +417,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 focus-visible:bg-accent/80"
-          : "app-no-drag inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground"
+          ? "app-no-drag inline-flex h-[22px] w-[22px] items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 focus-visible:bg-accent/80"
+          : "app-no-drag inline-flex h-[22px] w-[22px] items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent/80 hover:text-muted-foreground focus-visible:bg-accent/80 focus-visible:text-muted-foreground"
       }
       data-testid="project-sidebar-toggle"
       disabled={disabled}
@@ -437,6 +442,10 @@ function shellTopBarLeftInset(platform: DesktopPlatform) {
 
 function appChromePlateWidth(platform: DesktopPlatform) {
   return platform === "darwin" ? 186 : 112;
+}
+
+function appChromeHitShieldWidth(platform: DesktopPlatform) {
+  return platform === "darwin" ? 82 : 0;
 }
 
 function useWorkspaceViewState() {

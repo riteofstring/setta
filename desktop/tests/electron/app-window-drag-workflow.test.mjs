@@ -234,6 +234,7 @@ async function assertCollapsedWorkspaceControlsClickable(client, artifactDir) {
   const collapsedRegions = await sampleDragRegions(client);
   assertWorkspaceControlsNotDraggable(collapsedRegions);
   assertChromePlateDoesNotCaptureControls(collapsedRegions);
+  assertTopChromeControlSizing(await topChromeControlMeasurements(client));
 
   const maximizeButton = await elementCenter(
     client,
@@ -323,6 +324,45 @@ async function elementCenter(client, selector) {
     x: Math.round(rect.left + rect.width / 2),
     y: Math.round(rect.top + rect.height / 2),
   };
+}
+
+async function topChromeControlMeasurements(client) {
+  return client.evaluate(`(() => {
+    function rectFor(selector) {
+      const element = document.querySelector(selector);
+      if (!(element instanceof Element)) {
+        return null;
+      }
+      const rect = element.getBoundingClientRect();
+      return {
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+      };
+    }
+    function numericGap(selector) {
+      const element = document.querySelector(selector);
+      if (!(element instanceof Element)) {
+        return null;
+      }
+      const gap = Number.parseFloat(getComputedStyle(element).gap);
+      return Number.isFinite(gap) ? gap : null;
+    }
+    return {
+      newFrameButton: rectFor(".workspace-toolbar-menu-button"),
+      paneActionButton: rectFor(
+        '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-action-strip [data-workspace-pane-action]:not([disabled])',
+      ),
+      paneActionGap: numericGap(
+        '[data-testid="workspace-pane-host"][data-visible="true"] .workspace-pane-action-strip',
+      ),
+      projectToggle: rectFor('[data-testid="project-sidebar-toggle"]'),
+      toolbarButton: rectFor(".workspace-toolbar-button"),
+      toolbarGap: numericGap(".workspace-toolbar-group"),
+    };
+  })()`);
 }
 
 function dragResult(before, after, from, to) {
@@ -430,6 +470,51 @@ function assertChromePlateDoesNotCaptureControls(regions) {
     throw new Error(
       `chrome plate surface should shield pane drag regions: ${JSON.stringify(plateSurface)}`,
     );
+  }
+}
+
+function assertTopChromeControlSizing(measurements) {
+  const {
+    newFrameButton,
+    paneActionButton,
+    paneActionGap,
+    projectToggle,
+    toolbarButton,
+    toolbarGap,
+  } = measurements;
+  for (const [name, rect] of Object.entries({
+    newFrameButton,
+    paneActionButton,
+    projectToggle,
+    toolbarButton,
+  })) {
+    if (!rect) {
+      throw new Error(`missing top chrome control measurement: ${name}`);
+    }
+  }
+  assertSameRectSize(projectToggle, paneActionButton, "project toggle");
+  assertSameRectSize(toolbarButton, paneActionButton, "workspace toolbar button");
+  assertSameRectSize(newFrameButton, paneActionButton, "workspace toolbar menu button");
+  assertNearlyEqual(
+    Math.round(toolbarButton.left - projectToggle.right),
+    paneActionGap,
+    "project toggle to workspace toolbar gap",
+  );
+  assertNearlyEqual(toolbarGap, paneActionGap, "workspace toolbar group gap");
+}
+
+function assertSameRectSize(rect, expected, name) {
+  assertNearlyEqual(rect.width, expected.width, `${name} width`);
+  assertNearlyEqual(rect.height, expected.height, `${name} height`);
+}
+
+function assertNearlyEqual(actual, expected, name) {
+  if (
+    typeof actual !== "number" ||
+    typeof expected !== "number" ||
+    Math.abs(actual - expected) > 0.5
+  ) {
+    throw new Error(`${name} mismatch: expected ${expected}, got ${actual}`);
   }
 }
 
