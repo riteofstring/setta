@@ -222,13 +222,13 @@ func (service *Service) BuildManualCartographerWindow(ctx context.Context, reque
 	if err != nil {
 		return CartographerWindow{}, err
 	}
-	if _, err := service.store.SaveCartographerRun(ctx, run); err != nil {
+	if _, err := service.SaveCartographerRun(ctx, run); err != nil {
 		return CartographerWindow{}, err
 	}
-	if _, err := service.store.SaveCartographerWindow(ctx, window); err != nil {
+	if _, err := service.SaveCartographerWindow(ctx, window); err != nil {
 		return CartographerWindow{}, err
 	}
-	if _, err := service.store.SaveCartographerTrajectorySummary(ctx, summary); err != nil {
+	if _, err := service.SaveCartographerTrajectorySummary(ctx, summary); err != nil {
 		return CartographerWindow{}, err
 	}
 	return window, nil
@@ -491,7 +491,7 @@ func (service *Service) persistClosedObservedWindow(ctx context.Context, window 
 	}
 	run.InputBundle = window.InputBundle
 	cursor.LastWindowID = window.ID
-	if _, err := service.store.SaveCartographerRun(ctx, run); err != nil {
+	if _, err := service.SaveCartographerRun(ctx, run); err != nil {
 		return err
 	}
 	_, err := service.store.SaveCartographerCursor(ctx, cursor)
@@ -499,10 +499,10 @@ func (service *Service) persistClosedObservedWindow(ctx context.Context, window 
 }
 
 func (service *Service) persistOpenObservedWindow(ctx context.Context, window CartographerWindow, run CartographerRun, cursor CartographerCursor) error {
-	if _, err := service.store.SaveCartographerRun(ctx, run); err != nil {
+	if _, err := service.SaveCartographerRun(ctx, run); err != nil {
 		return err
 	}
-	if _, err := service.store.SaveCartographerWindow(ctx, window); err != nil {
+	if _, err := service.SaveCartographerWindow(ctx, window); err != nil {
 		return err
 	}
 	_, err := service.store.SaveCartographerCursor(ctx, cursor)
@@ -606,11 +606,11 @@ func (service *Service) closeCartographerWindowLocked(ctx context.Context, windo
 	}
 	window.InputBundle.Truncation.Reasons = appendUniqueString(window.InputBundle.Truncation.Reasons, string(closeReason))
 	window.InputBundle = applyCartographerInputLimits(window.InputBundle, service.cartographerConfig)
-	if _, err := service.store.SaveCartographerWindow(ctx, *window); err != nil {
+	if _, err := service.SaveCartographerWindow(ctx, *window); err != nil {
 		return err
 	}
 	summary := cartographerTrajectorySummaryFromWindow(summaryID, *window, window.InputBundle, now)
-	if _, err := service.store.SaveCartographerTrajectorySummary(ctx, summary); err != nil {
+	if _, err := service.SaveCartographerTrajectorySummary(ctx, summary); err != nil {
 		return err
 	}
 	return nil

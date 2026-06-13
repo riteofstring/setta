@@ -565,6 +565,7 @@ describe("preload workspace API", () => {
       "listContextPacks",
       "listEvidence",
       "mergeNodes",
+      "onEvent",
       "processCartographerWindow",
       "promoteNode",
       "read",

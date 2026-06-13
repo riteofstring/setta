@@ -122,6 +122,7 @@ type SemanticGraphService interface {
 	UpdateEdge(context.Context, semanticgraph.UpdateSemanticEdgeInput) (semanticgraph.SemanticMutationResult, error)
 	RemoveEdge(context.Context, semanticgraph.SemanticEdgeOperationInput) (semanticgraph.SemanticMutationResult, error)
 	CreateSteeringDirective(context.Context, semanticgraph.CreateSteeringDirectiveInput) (semanticgraph.SemanticMutationResult, error)
+	SubscribeSemanticGraphChanges(semanticgraph.SemanticGraphChangeCursor) (*semanticgraph.SemanticGraphChangeSubscription, error)
 	UpdateSteeringDirective(context.Context, semanticgraph.UpdateSteeringDirectiveInput) (semanticgraph.SemanticMutationResult, error)
 }
 

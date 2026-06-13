@@ -155,6 +155,7 @@ func (service *Service) enqueueClosedCartographerWindow(window CartographerWindo
 	service.automaticCartographer.queuedByWindow[item.WindowID] = true
 	service.scheduleAutomaticCartographerProcessingLocked()
 	service.automaticCartographerMu.Unlock()
+	service.publishSemanticGraphChangeForCartographerAudit(item.WorkspaceID, []string{window.InputBundle.TargetEntityID}, []string{item.RunID}, []string{item.WindowID}, nil)
 	return item, true
 }
 
@@ -196,6 +197,7 @@ func (service *Service) renumberAutomaticCartographerQueueLocked() {
 
 func (service *Service) runAutomaticCartographerWindow(ctx context.Context, item CartographerProcessingQueueItem) {
 	defer service.automaticCartographer.workers.Done()
+	service.publishSemanticGraphChangeForCartographerAudit(item.WorkspaceID, nil, []string{item.RunID}, []string{item.WindowID}, nil)
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -247,6 +249,7 @@ func (service *Service) finishAutomaticCartographerWindow(item CartographerProce
 	service.scheduleAutomaticCartographerProcessingLocked()
 	service.notifyAutomaticCartographerIdleLocked()
 	service.automaticCartographerMu.Unlock()
+	service.publishSemanticGraphChangeForCartographerAudit(item.WorkspaceID, nil, []string{item.RunID}, []string{item.WindowID}, nil)
 }
 
 func (service *Service) WaitForAutomaticCartographerIdle(ctx context.Context) error {

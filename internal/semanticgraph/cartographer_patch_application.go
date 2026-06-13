@@ -126,6 +126,7 @@ func (service *Service) saveCartographerPatchApplication(ctx context.Context, in
 	for index := range records {
 		normalizeCartographerPatchRecord(&records[index])
 	}
+	service.publishSemanticGraphChangeForEvents(appended, cartographerPatchApplicationChangeDraft(input.WorkspaceID, savedRun, records))
 	return CartographerPatchEnvelopeApplicationResult{Run: savedRun, Patches: records, Events: appended}, nil
 }
 

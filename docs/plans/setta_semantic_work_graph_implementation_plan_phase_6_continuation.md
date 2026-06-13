@@ -621,6 +621,103 @@ Verification:
   semantic node creation from a real workflow agent run, not only manual window
   processing.
 
+### Phase 6F Follow-Up: Semantic Graph Change Propagation
+
+Goal: make semantic graph changes created by automatic cartographer processing
+visible in already-open renderer surfaces without reloads, manual refreshes, or
+polling.
+
+This is a Phase 6F completion follow-up, not a new product phase. Phase 6F is
+only complete when semantic graph mutations created during a workflow run are
+observable by the renderer through the same production app paths users are
+already using. A cartographer patch that is applied in SQLite but invisible
+until workspace reload does not satisfy the Phase 6F user experience.
+
+Preflight before implementation:
+
+- Do not add renderer polling, timeouts, forced window reloads, or one-off
+  "refresh after workflow run" calls. Semantic graph updates are domain state
+  changes and need a durable app-wide invalidation mechanism.
+- Do not add renderer-local mirrors of semantic graph contracts. Event payloads
+  and request/response types must come from Go-owned contracts through the
+  normal generator path.
+- Keep semantic graph mutation authority in the backend service. The renderer
+  should subscribe to change notifications and refetch authoritative read
+  models; it should not infer graph mutations from cartographer audit records,
+  workflow events, chat events, or local UI state.
+- Use push-based propagation. If a backend restart happens, normal initial
+  reads should recover the current graph projection; the live update mechanism
+  does not need compatibility replay beyond the current process.
+
+Deliverables:
+
+- Add a backend semantic graph change notification stream at the semantic graph
+  service boundary. Emit notifications after committed semantic events or
+  projection-affecting operations, including cartographer-applied patches,
+  manual semantic node/edge edits, evidence/activity/steering mutations, and
+  layout updates.
+- Define a typed notification contract with enough information for efficient
+  renderer invalidation:
+
+```text
+workspace id
+monotonic sequence or revision for the current process
+changed areas: graph | activity | steering | context_packs | cartographer_audit | layout
+changed semantic node ids
+changed edge ids
+changed target entity ids
+created semantic event ids
+cartographer run/window/patch ids when relevant
+occurred at
+```
+
+- Wire the notification stream through production backend HTTP, Electron main,
+  preload, and renderer paths. Prefer matching the existing chat/workflow event
+  stream architecture so semantic graph updates become another first-class app
+  event source rather than a feature-local callback.
+- Update `useSemanticGraphState` to subscribe for the selected workspace,
+  coalesce bursts of notifications, and refetch the authoritative semantic graph
+  and affected activity summaries. The hook should unsubscribe on workspace
+  change/unmount and ignore notifications for other workspaces.
+- Keep renderer state replacement deterministic. Do not merge partial semantic
+  graph data by hand unless the backend exposes a typed incremental read model.
+  The first implementation should refetch the existing graph/activity read
+  models after a relevant notification.
+- Make cartographer processing state visible through the same invalidation
+  path, so audit panels and operational status can update without manual
+  refresh when queued/running/completed windows change.
+- Ensure notification delivery is best-effort but state recovery is robust:
+  missed live notifications are acceptable if a later explicit read returns the
+  correct current projection, but the renderer must not permanently believe a
+  loaded graph is current after receiving a failed refetch.
+
+Acceptance criteria:
+
+```text
+semantic nodes created by automatic cartographer patches appear in an already-open workflow graph without reload
+manual semantic graph mutations also refresh already-open graph/details surfaces
+cartographer audit/status surfaces refresh after run/window/patch state changes
+no renderer polling or forced page reload is introduced
+notifications are workspace-scoped and generated from committed backend state
+renderer subscriptions are cleaned up on workspace change and app surface unmount
+missed notifications are recoverable by normal read paths after reload/reopen
+```
+
+Verification:
+
+- Focused backend tests for notification emission after committed semantic
+  events, no emission on failed/rolled-back mutations, workspace scoping, and
+  sequence/revision monotonicity.
+- Main/preload contract tests proving the semantic graph event stream is exposed
+  through generated/typed surfaces, not hardcoded renderer-only shapes.
+- Renderer tests for `useSemanticGraphState` subscription, notification
+  coalescing, workspace filtering, refetch failure handling, and cleanup.
+- Deterministic Electron workflow through production
+  Electron/main/preload/renderer/HTTP/store paths proving a `Start -> Agent ->
+  End` or equivalent agentic workflow creates a semantic node through automatic
+  cartographer processing and that the node appears in the open graph surface
+  without reload or manual refresh.
+
 ## Phase 7: Retrieval Indexes
 
 Goal: improve recall for context packs and cartographer input without changing

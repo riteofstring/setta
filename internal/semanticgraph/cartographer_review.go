@@ -209,6 +209,7 @@ func (service *Service) saveCartographerPatchReview(ctx context.Context, run Car
 	if err != nil {
 		return CartographerPatchReviewResult{}, err
 	}
+	service.publishSemanticGraphChangeForEvents(appended, cartographerPatchApplicationChangeDraft(run.WorkspaceID, run, []CartographerPatchRecord{patch}))
 	nodeDetail, err := service.nodeDetailForCartographerPatchReview(ctx, run.WorkspaceID, patch)
 	if err != nil {
 		return CartographerPatchReviewResult{}, err

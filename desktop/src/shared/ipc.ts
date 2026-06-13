@@ -243,6 +243,7 @@ export const ipcEvents = {
   backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
+  semanticGraphEvent: "semantic-graph:event",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
   terminalEvent: "terminal:event",

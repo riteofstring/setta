@@ -124,6 +124,7 @@ var apiEndpoints = []endpoint{
 	post[SemanticEdgeOperationRequest, semanticgraph.SemanticMutationResult]("RemoveSemanticEdge", "/semantic-graph/edges/remove", handler.removeSemanticEdge),
 	post[CreateSemanticSteeringDirectiveRequest, semanticgraph.SemanticMutationResult]("CreateSemanticSteeringDirective", "/semantic-graph/steering/create", handler.createSemanticSteeringDirective),
 	post[UpdateSemanticSteeringDirectiveRequest, semanticgraph.SemanticMutationResult]("UpdateSemanticSteeringDirective", "/semantic-graph/steering/update", handler.updateSemanticSteeringDirective),
+	streamEvent[semanticgraph.SemanticGraphChangeEvent]("SemanticGraphChangeEventStream", "/semantic-graph/events/changes", handler.semanticGraphChangeEventStream),
 	post[CreateTerminalRequest, TerminalSessionResponse]("CreateTerminal", "/terminals/create", handler.createTerminal),
 	post[AttachTerminalRequest, TerminalSessionResponse]("AttachTerminal", "/terminals/attach", handler.attachTerminal),
 	post[TerminalInputRequest, TerminalInputResponse]("TerminalInput", "/terminals/input", handler.terminalInput),

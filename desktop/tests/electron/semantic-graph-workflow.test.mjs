@@ -951,9 +951,27 @@ function assertProcessedCartographerNodeReadback(result, processedCartographer) 
 }
 
 async function acceptSeedCartographerPatchFromDetails(client) {
-  await waitForSelector(client, '[data-testid="cartographer-patch-accept"]');
+  await waitForState(
+    client,
+    `(() => {
+      const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
+      const surface = document.querySelector('[data-testid="semantic-node-details-surface"]');
+      return {
+        disabled: button?.disabled ?? true,
+        hasButton: button !== null,
+        loading: surface?.innerText.includes("Loading semantic node details") ?? true,
+      };
+    })()`,
+    (value) => value.hasButton && !value.disabled && !value.loading,
+  );
   await client.evaluate(
-    `document.querySelector('[data-testid="cartographer-patch-accept"]')?.click()`,
+    `(() => {
+      const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
+      if (!(button instanceof HTMLButtonElement) || button.disabled) {
+        throw new Error("cartographer accept button is not clickable");
+      }
+      button.click();
+    })()`,
   );
   await waitForState(
     client,

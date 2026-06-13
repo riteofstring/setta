@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import { decodeChatEvent, decodeTerminalEvent, decodeWorkflowEvent } from "@generated/backend";
+import {
+  decodeChatEvent,
+  decodeSemanticGraphChangeEvent,
+  decodeTerminalEvent,
+  decodeWorkflowEvent,
+} from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import type {
   BackendEventStreamStatus,
@@ -236,6 +241,15 @@ const api: SettaAPI = {
     listContextPacks: (request) => invoke("semanticGraphContextPackList", request),
     listEvidence: (request) => invoke("semanticGraphEvidenceList", request),
     mergeNodes: (request) => invoke("semanticGraphMergeNodes", request),
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeSemanticGraphChangeEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.semanticGraphEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.semanticGraphEvent, handler);
+      };
+    },
     promoteNode: (request) => invoke("semanticGraphPromoteNode", request),
     read: (request) => invoke("semanticGraphRead", request),
     readActivitySummary: (request) => invoke("semanticGraphActivitySummary", request),

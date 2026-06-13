@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SemanticEditControls } from "./semantic-node-edit-controls";
+import { semanticGraphChangeAffectsSemanticNodeInspection } from "./semantic-node-details-invalidation";
 import {
   WorkflowDetailsEmpty,
   WorkflowDetailsError,
@@ -70,6 +71,8 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
 
   useEffect(() => {
     let disposed = false;
+    let refreshQueued = false;
+    let loadedDetail: SemanticNodeDetail | null = null;
     setState({
       detail: null,
       history: null,
@@ -80,6 +83,20 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
     if (target === null) {
       return;
     }
+
+    const scheduleRefresh = () => {
+      if (refreshQueued) {
+        return;
+      }
+      refreshQueued = true;
+      queueMicrotask(() => {
+        refreshQueued = false;
+        if (!disposed) {
+          setReloadKey((value) => value + 1);
+        }
+      });
+    };
+
     const load = async () => {
       const [detailResponse, history] = await Promise.all([
         window.setta.semanticGraph.readNodeDetail({
@@ -94,6 +111,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
         }),
       ]);
       if (!disposed) {
+        loadedDetail = detailResponse.detail;
         setState({
           detail: detailResponse.detail,
           history,
@@ -114,8 +132,14 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
         });
       }
     });
+    const unsubscribe = window.setta.semanticGraph.onEvent((event) => {
+      if (semanticGraphChangeAffectsSemanticNodeInspection(event, target, loadedDetail)) {
+        scheduleRefresh();
+      }
+    });
     return () => {
       disposed = true;
+      unsubscribe();
     };
   }, [target, reload, reloadKey]);
 

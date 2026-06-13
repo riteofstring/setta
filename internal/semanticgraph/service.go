@@ -33,6 +33,7 @@ type Service struct {
 	cartographerHarnessKind          chat.HarnessKind
 	cartographerHarnessErr           error
 	automaticCartographer            automaticCartographerState
+	semanticGraphChanges             *semanticGraphChangeHub
 	newID                            IDGenerator
 	now                              func() time.Time
 }
@@ -60,6 +61,9 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, options ...Op
 	}
 	if service.cartographerHarnessErr != nil {
 		return nil, service.cartographerHarnessErr
+	}
+	if service.semanticGraphChanges == nil {
+		service.semanticGraphChanges = newSemanticGraphChangeHub(defaultSemanticGraphChangeStreamID, service.now)
 	}
 	return service, nil
 }
@@ -138,7 +142,12 @@ func (service *Service) AppendEvent(ctx context.Context, event SemanticEvent) (S
 	if event.ModelInfo == nil {
 		event.ModelInfo = map[string]string{}
 	}
-	return service.store.AppendEvent(ctx, event)
+	appended, err := service.store.AppendEvent(ctx, event)
+	if err != nil {
+		return SemanticEvent{}, err
+	}
+	service.publishSemanticGraphChangeForEvents([]SemanticEvent{appended}, semanticGraphChangeDraft{})
+	return appended, nil
 }
 
 func (service *Service) appendEvents(ctx context.Context, events []SemanticEvent) ([]SemanticEvent, error) {
@@ -170,7 +179,12 @@ func (service *Service) appendEvents(ctx context.Context, events []SemanticEvent
 			events[index].ModelInfo = map[string]string{}
 		}
 	}
-	return service.store.AppendEvents(ctx, events)
+	appended, err := service.store.AppendEvents(ctx, events)
+	if err != nil {
+		return nil, err
+	}
+	service.publishSemanticGraphChangeForEvents(appended, semanticGraphChangeDraft{})
+	return appended, nil
 }
 
 func (service *Service) RebuildProjections(ctx context.Context) error {
@@ -251,14 +265,30 @@ func (service *Service) UpdateLayoutPositions(ctx context.Context, workspaceID s
 	if _, err := service.resolveWorkspace(workspaceID); err != nil {
 		return SemanticLayoutPositionList{}, err
 	}
-	return service.store.UpdateLayoutPositions(ctx, workspaceID, positions, timestamp(service.now()))
+	updated, err := service.store.UpdateLayoutPositions(ctx, workspaceID, positions, timestamp(service.now()))
+	if err != nil {
+		return SemanticLayoutPositionList{}, err
+	}
+	if len(positions) > 0 {
+		service.publishSemanticGraphChange(semanticGraphChangeDraft{
+			WorkspaceID:     workspaceID,
+			ChangedAreas:    []SemanticGraphChangeArea{SemanticGraphChangeAreaLayout},
+			TargetEntityIDs: semanticLayoutPositionEntityIDs(positions),
+		})
+	}
+	return updated, nil
 }
 
 func (service *Service) SaveCartographerRun(ctx context.Context, run CartographerRun) (CartographerRun, error) {
 	if _, err := service.resolveWorkspace(run.WorkspaceID); err != nil {
 		return CartographerRun{}, err
 	}
-	return service.store.SaveCartographerRun(ctx, run)
+	saved, err := service.store.SaveCartographerRun(ctx, run)
+	if err != nil {
+		return CartographerRun{}, err
+	}
+	service.publishSemanticGraphChangeForCartographerAudit(saved.WorkspaceID, []string{saved.TargetEntityID}, []string{saved.ID}, nil, nil)
+	return saved, nil
 }
 
 func (service *Service) ReadCartographerRun(ctx context.Context, workspaceID string, runID string) (CartographerRun, bool, error) {
@@ -272,7 +302,12 @@ func (service *Service) SaveCartographerWindow(ctx context.Context, window Carto
 	if _, err := service.resolveWorkspace(window.WorkspaceID); err != nil {
 		return CartographerWindow{}, err
 	}
-	return service.store.SaveCartographerWindow(ctx, window)
+	saved, err := service.store.SaveCartographerWindow(ctx, window)
+	if err != nil {
+		return CartographerWindow{}, err
+	}
+	service.publishSemanticGraphChangeForCartographerAudit(saved.WorkspaceID, []string{saved.InputBundle.TargetEntityID}, []string{saved.RunID}, []string{saved.ID}, nil)
+	return saved, nil
 }
 
 func (service *Service) ReadCartographerWindow(ctx context.Context, workspaceID string, windowID string) (CartographerWindow, bool, error) {
@@ -300,7 +335,12 @@ func (service *Service) SaveCartographerTrajectorySummary(ctx context.Context, s
 	if _, err := service.resolveWorkspace(summary.WorkspaceID); err != nil {
 		return CartographerTrajectorySummary{}, err
 	}
-	return service.store.SaveCartographerTrajectorySummary(ctx, summary)
+	saved, err := service.store.SaveCartographerTrajectorySummary(ctx, summary)
+	if err != nil {
+		return CartographerTrajectorySummary{}, err
+	}
+	service.publishSemanticGraphChangeForCartographerAudit(saved.WorkspaceID, nil, []string{saved.RunID}, []string{saved.WindowID}, nil)
+	return saved, nil
 }
 
 func (service *Service) ReadCartographerTrajectorySummary(ctx context.Context, workspaceID string, summaryID string) (CartographerTrajectorySummary, bool, error) {
@@ -314,7 +354,12 @@ func (service *Service) SaveCartographerPatch(ctx context.Context, patch Cartogr
 	if _, err := service.resolveWorkspace(patch.WorkspaceID); err != nil {
 		return CartographerPatchRecord{}, err
 	}
-	return service.store.SaveCartographerPatch(ctx, patch)
+	saved, err := service.store.SaveCartographerPatch(ctx, patch)
+	if err != nil {
+		return CartographerPatchRecord{}, err
+	}
+	service.publishSemanticGraphChangeForCartographerAudit(saved.WorkspaceID, cartographerPatchTargetEntityIDs(saved.Patch), []string{saved.RunID}, []string{saved.WindowID}, []string{saved.ID})
+	return saved, nil
 }
 
 func (service *Service) ReadCartographerPatch(ctx context.Context, workspaceID string, patchID string) (CartographerPatchRecord, bool, error) {

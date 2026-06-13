@@ -81,6 +81,7 @@ import type {
   SemanticEventHistory,
   SemanticEvidenceList,
   SemanticGraph,
+  SemanticGraphChangeEvent,
   SemanticLayoutPositionList,
   SemanticMutationResult,
   SemanticNodeOperationRequest,
@@ -492,6 +493,7 @@ export interface SettaAPI {
     ) => Promise<SemanticContextPackList>;
     listEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
     mergeNodes: (request: MergeSemanticNodesRequest) => Promise<SemanticMutationResult>;
+    onEvent: (listener: (event: SemanticGraphChangeEvent) => void) => () => void;
     promoteNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
     read: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
     readActivitySummary: (

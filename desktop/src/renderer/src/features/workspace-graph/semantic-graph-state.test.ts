@@ -1,7 +1,14 @@
 import { describe, expect, test } from "vitest";
 
-import type { SemanticActivityInterval, SemanticActivitySummary } from "@generated/backend";
-import { semanticGraphActivitySummaryMap } from "./semantic-graph-state";
+import type {
+  SemanticActivityInterval,
+  SemanticActivitySummary,
+  SemanticGraphChangeEvent,
+} from "@generated/backend";
+import {
+  semanticGraphActivitySummaryMap,
+  semanticGraphChangeAffectsWorkspaceGraphState,
+} from "./semantic-graph-state";
 
 describe("semanticGraphActivitySummaryMap", () => {
   test("projects current and recent activity by semantic target without duplicates", () => {
@@ -41,6 +48,21 @@ describe("semanticGraphActivitySummaryMap", () => {
   });
 });
 
+describe("semanticGraphChangeAffectsWorkspaceGraphState", () => {
+  test("matches only selected-workspace semantic graph changes", () => {
+    const event = semanticGraphChangeEvent({ workspaceId: "workspace_graph" });
+
+    expect(semanticGraphChangeAffectsWorkspaceGraphState(event, "workspace_graph")).toBe(true);
+    expect(semanticGraphChangeAffectsWorkspaceGraphState(event, "workspace_other")).toBe(false);
+    expect(
+      semanticGraphChangeAffectsWorkspaceGraphState(
+        semanticGraphChangeEvent({ changedAreas: [] }),
+        "workspace_graph",
+      ),
+    ).toBe(false);
+  });
+});
+
 function activity({
   endedAt,
   id,
@@ -77,5 +99,28 @@ function activity({
     runItemId: "",
     reassignedFromIntervalId: "",
     workspaceId: "workspace_test",
+  };
+}
+
+function semanticGraphChangeEvent(
+  patch: Partial<SemanticGraphChangeEvent> = {},
+): SemanticGraphChangeEvent {
+  return {
+    cartographerPatchIds: [],
+    cartographerRunIds: [],
+    cartographerWindowIds: [],
+    changedAreas: ["graph"],
+    createdSemanticEventIds: [],
+    eventId: "semantic_graph_changes:1",
+    occurredAt: "2026-06-11T12:00:00Z",
+    schemaVersion: 1,
+    semanticEdgeIds: [],
+    semanticNodeIds: ["node_graph"],
+    sequence: 1,
+    streamId: "semantic_graph_changes",
+    targetEntityIds: ["node_graph"],
+    type: "semantic_graph.changed",
+    workspaceId: "workspace_graph",
+    ...patch,
   };
 }

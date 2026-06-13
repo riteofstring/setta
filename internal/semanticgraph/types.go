@@ -17,6 +17,7 @@ type SemanticSteeringScope string
 type SemanticContextTriggerKind string
 type SemanticContextPackItemKind string
 type SemanticContextPackPriority string
+type SemanticGraphChangeArea string
 
 const (
 	NodeKindConcept    SemanticNodeKind = "concept"
@@ -124,6 +125,13 @@ const (
 	ContextPriorityRelevant   SemanticContextPackPriority = "relevant"
 	ContextPriorityImportant  SemanticContextPackPriority = "important"
 	ContextPriorityRequired   SemanticContextPackPriority = "required"
+
+	SemanticGraphChangeAreaGraph             SemanticGraphChangeArea = "graph"
+	SemanticGraphChangeAreaActivity          SemanticGraphChangeArea = "activity"
+	SemanticGraphChangeAreaSteering          SemanticGraphChangeArea = "steering"
+	SemanticGraphChangeAreaContextPacks      SemanticGraphChangeArea = "context_packs"
+	SemanticGraphChangeAreaCartographerAudit SemanticGraphChangeArea = "cartographer_audit"
+	SemanticGraphChangeAreaLayout            SemanticGraphChangeArea = "layout"
 )
 
 var (
@@ -246,6 +254,14 @@ var (
 		ContextPriorityImportant,
 		ContextPriorityRequired,
 	}
+	semanticGraphChangeAreaValues = []SemanticGraphChangeArea{
+		SemanticGraphChangeAreaGraph,
+		SemanticGraphChangeAreaActivity,
+		SemanticGraphChangeAreaSteering,
+		SemanticGraphChangeAreaContextPacks,
+		SemanticGraphChangeAreaCartographerAudit,
+		SemanticGraphChangeAreaLayout,
+	}
 	cartographerRunStatusValues = []CartographerRunStatus{
 		CartographerRunPending,
 		CartographerRunRunning,
@@ -340,6 +356,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticContextTriggerKind", Values: stringValues(semanticContextTriggerKindValues)},
 		{Name: "SemanticContextPackItemKind", Values: stringValues(semanticContextPackItemKindValues)},
 		{Name: "SemanticContextPackPriority", Values: stringValues(semanticContextPackPriorityValues)},
+		{Name: "SemanticGraphChangeArea", Values: stringValues(semanticGraphChangeAreaValues)},
 		{Name: "CartographerRunStatus", Values: stringValues(cartographerRunStatusValues)},
 		{Name: "CartographerRunTriggerKind", Values: stringValues(cartographerRunTriggerKindValues)},
 		{Name: "CartographerWindowStatus", Values: stringValues(cartographerWindowStatusValues)},

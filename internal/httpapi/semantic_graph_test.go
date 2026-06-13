@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,6 +33,57 @@ func TestSemanticGraphReadEndpoints(t *testing.T) {
 	assertSemanticHistoryEndpoint(t, handler, workspaceID)
 	assertSemanticContextPackEndpoints(t, handler, workspaceID)
 	assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t, handler, workspaceID)
+}
+
+func TestSemanticGraphChangeEventStreamPushesCommittedChanges(t *testing.T) {
+	handler, _ := newSemanticGraphHandler(t)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+
+	response, err := http.Get(server.URL + "/semantic-graph/events/changes")
+	if err != nil {
+		t.Fatalf("open semantic graph change stream: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("semantic graph change stream status = %d, want 200", response.StatusCode)
+	}
+	if response.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("semantic graph change stream content type = %q, want text/event-stream", response.Header.Get("Content-Type"))
+	}
+
+	postJSON[semanticgraph.SemanticMutationResult](t, handler, "/semantic-graph/nodes/create", CreateSemanticNodeRequest{
+		WorkspaceID: opened.Workspace.ID,
+		NodeID:      "node_streamed",
+		Kind:        semanticgraph.NodeKindFinding,
+		Label:       "Streamed semantic change",
+		ActorKind:   semanticgraph.ActorKindUser,
+		ActorID:     "user_http",
+	}, http.StatusOK)
+
+	event := readServerSentSemanticGraphChangeEvent(t, bufio.NewReader(response.Body))
+	if event.WorkspaceID != opened.Workspace.ID ||
+		event.Sequence == 0 ||
+		event.StreamID == "" ||
+		event.EventID == "" ||
+		event.Type != semanticgraph.SemanticGraphChangeEventType ||
+		!semanticGraphHTTPAreasContain(event.ChangedAreas, semanticgraph.SemanticGraphChangeAreaGraph) ||
+		!semanticGraphHTTPStringsContain(event.SemanticNodeIDs, "node_streamed") {
+		t.Fatalf("semantic graph change event = %+v, want streamed node graph invalidation", event)
+	}
+}
+
+func TestSemanticGraphChangeEventStreamRejectsInvalidCursor(t *testing.T) {
+	handler, _ := newSemanticGraphHandler(t)
+	request := httptest.NewRequest(http.MethodGet, "/semantic-graph/events/changes?lastEventId=bad", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("invalid semantic graph change cursor status = %d, want 400", response.Code)
+	}
 }
 
 func TestCartographerReadAndReviewEndpoints(t *testing.T) {
@@ -651,6 +704,49 @@ func assertSemanticLayoutUpdateEndpointDoesNotAppendEvent(t *testing.T, handler 
 	if len(history.Events) != 6 {
 		t.Fatalf("history after layout update = %+v, want no appended semantic event", history.Events)
 	}
+}
+
+func readServerSentSemanticGraphChangeEvent(t *testing.T, reader *bufio.Reader) semanticgraph.SemanticGraphChangeEvent {
+	t.Helper()
+	var data string
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("read semantic graph change stream line: %v", err)
+		}
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" {
+			if data == "" {
+				continue
+			}
+			var event semanticgraph.SemanticGraphChangeEvent
+			if err := json.Unmarshal([]byte(data), &event); err != nil {
+				t.Fatalf("decode semantic graph change stream data: %v", err)
+			}
+			return event
+		}
+		if strings.HasPrefix(line, "data: ") {
+			data = strings.TrimPrefix(line, "data: ")
+		}
+	}
+}
+
+func semanticGraphHTTPAreasContain(values []semanticgraph.SemanticGraphChangeArea, want semanticgraph.SemanticGraphChangeArea) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func semanticGraphHTTPStringsContain(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func newSemanticGraphHandler(t *testing.T) (http.Handler, *semanticgraph.Service) {

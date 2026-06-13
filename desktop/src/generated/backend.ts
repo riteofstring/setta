@@ -1716,6 +1716,30 @@ export function decodeSemanticEventType(value: unknown, label = "SemanticEventTy
   }
 }
 
+export type SemanticGraphChangeArea = "graph" | "activity" | "steering" | "context_packs" | "cartographer_audit" | "layout";
+
+export const semanticGraphChangeAreaValues = ["graph", "activity", "steering", "context_packs", "cartographer_audit", "layout"] as const satisfies readonly SemanticGraphChangeArea[];
+
+export function decodeSemanticGraphChangeArea(value: unknown, label = "SemanticGraphChangeArea"): SemanticGraphChangeArea {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "graph":
+      return decoded;
+    case "activity":
+      return decoded;
+    case "steering":
+      return decoded;
+    case "context_packs":
+      return decoded;
+    case "cartographer_audit":
+      return decoded;
+    case "layout":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type SessionStatus = "starting" | "running" | "exited" | "closed" | "error";
 
 export const sessionStatusValues = ["starting", "running", "exited", "closed", "error"] as const satisfies readonly SessionStatus[];
@@ -4083,6 +4107,24 @@ export interface UpdateSemanticSteeringDirectiveRequest {
   actorId: string;
 }
 
+export interface SemanticGraphChangeEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: string;
+  workspaceId: string;
+  changedAreas: SemanticGraphChangeArea[];
+  semanticNodeIds: string[];
+  semanticEdgeIds: string[];
+  targetEntityIds: string[];
+  createdSemanticEventIds: string[];
+  cartographerRunIds: string[];
+  cartographerWindowIds: string[];
+  cartographerPatchIds: string[];
+  occurredAt: string;
+}
+
 export interface CreateTerminalRequest {
   workspaceId: string;
   paneId: string;
@@ -4932,6 +4974,10 @@ export const backendEndpoints = {
   UpdateSemanticSteeringDirective: {
     method: "POST",
     path: "/semantic-graph/steering/update",
+  },
+  SemanticGraphChangeEventStream: {
+    method: "GET",
+    path: "/semantic-graph/events/changes",
   },
   CreateTerminal: {
     method: "POST",
@@ -8081,6 +8127,28 @@ export function decodeUpdateSemanticSteeringDirectiveRequest(value: unknown): Up
     supersedesDirectiveId: decodeString(requireField(record, "supersedesDirectiveId", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.supersedesDirectiveId"),
     actorKind: decodeSemanticActorKind(requireField(record, "actorKind", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.actorKind"),
     actorId: decodeString(requireField(record, "actorId", "UpdateSemanticSteeringDirectiveRequest"), "UpdateSemanticSteeringDirectiveRequest.actorId"),
+  };
+}
+
+export function decodeSemanticGraphChangeEvent(value: unknown): SemanticGraphChangeEvent {
+  const record = assertRecord(value, "SemanticGraphChangeEvent");
+  assertKnownFields(record, "SemanticGraphChangeEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "workspaceId", "changedAreas", "semanticNodeIds", "semanticEdgeIds", "targetEntityIds", "createdSemanticEventIds", "cartographerRunIds", "cartographerWindowIds", "cartographerPatchIds", "occurredAt"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.eventId"),
+    type: decodeString(requireField(record, "type", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.type"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.workspaceId"),
+    changedAreas: decodeArray(requireField(record, "changedAreas", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.changedAreas", (item) => decodeSemanticGraphChangeArea(item, "SemanticGraphChangeEvent.changedAreas item")),
+    semanticNodeIds: decodeArray(requireField(record, "semanticNodeIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.semanticNodeIds", (item) => decodeString(item, "SemanticGraphChangeEvent.semanticNodeIds item")),
+    semanticEdgeIds: decodeArray(requireField(record, "semanticEdgeIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.semanticEdgeIds", (item) => decodeString(item, "SemanticGraphChangeEvent.semanticEdgeIds item")),
+    targetEntityIds: decodeArray(requireField(record, "targetEntityIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.targetEntityIds", (item) => decodeString(item, "SemanticGraphChangeEvent.targetEntityIds item")),
+    createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.createdSemanticEventIds", (item) => decodeString(item, "SemanticGraphChangeEvent.createdSemanticEventIds item")),
+    cartographerRunIds: decodeArray(requireField(record, "cartographerRunIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.cartographerRunIds", (item) => decodeString(item, "SemanticGraphChangeEvent.cartographerRunIds item")),
+    cartographerWindowIds: decodeArray(requireField(record, "cartographerWindowIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.cartographerWindowIds", (item) => decodeString(item, "SemanticGraphChangeEvent.cartographerWindowIds item")),
+    cartographerPatchIds: decodeArray(requireField(record, "cartographerPatchIds", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.cartographerPatchIds", (item) => decodeString(item, "SemanticGraphChangeEvent.cartographerPatchIds item")),
+    occurredAt: decodeString(requireField(record, "occurredAt", "SemanticGraphChangeEvent"), "SemanticGraphChangeEvent.occurredAt"),
   };
 }
 

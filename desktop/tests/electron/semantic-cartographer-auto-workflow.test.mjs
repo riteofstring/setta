@@ -19,7 +19,13 @@ import {
   pathTimestamp,
   stopLaunchedContext,
   waitForBackendState,
+  waitForState,
 } from "./chat-workflow-harness.mjs";
+import { driverCallExpression } from "./cdp-client.mjs";
+import {
+  maximizeWorkflowGraphPane,
+  openWorkflowGraphPane,
+} from "./workflow-graph-layout-helpers.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
@@ -93,8 +99,8 @@ async function createTrackedFixture(name) {
   return fixture;
 }
 
-async function launchTrackedContext(fixture, recordingDir) {
-  const context = await launchContext(fixture, recordingDir);
+async function launchTrackedContext(fixture, recordingDir, launchOptions = {}) {
+  const context = await launchContext(fixture, recordingDir, launchOptions);
   contexts.push(context);
   return context;
 }
@@ -114,12 +120,22 @@ async function stopTrackedContext(context) {
 async function runAutomaticAgentSmoke() {
   const fixture = await createTrackedFixture("semantic-cartographer-auto");
   const recordingDir = join(recordingRoot, "automatic-agent");
-  const context = await launchTrackedContext(fixture, recordingDir);
+  const context = await launchTrackedContext(fixture, recordingDir, {
+    extraEnv: {
+      SETTA_WORKFLOW_GRAPH_DEBUG: "1",
+    },
+  });
   const backend = await backendProbe(recordingDir);
   const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
   await createChat(context.client, backend, workspaceId);
+  await openWorkflowGraphPane(context.client, { timeoutMs: 30_000 });
+  const graphSurfaceId = await maximizeWorkflowGraphPane(context.client, { timeoutMs: 30_000 });
+  const rendererMarker = `semantic-cartographer-open-graph-${Date.now()}`;
+  await setRendererReloadMarker(context.client, rendererMarker);
 
   const seeded = await seedAgentWorkflowEvidence(context.client, workspaceId);
+  await waitForRenderedSemanticGraphNode(context.client, graphSurfaceId, seedNodeId);
+  await assertScriptedCartographerNodeAbsent(context.client, graphSurfaceId);
   const started = await rendererWorkflow(context.client, "startExecution", [
     workspaceId,
     seeded.definition.id,
@@ -139,6 +155,8 @@ async function runAutomaticAgentSmoke() {
     executionId: started.id,
     workspaceId,
   });
+  await waitForRenderedSemanticGraphNode(context.client, graphSurfaceId, automatic.nodeId);
+  await assertRendererReloadMarker(context.client, rendererMarker);
 
   await captureScreenshot(context.client, join(recordingDir, "automatic-cartographer.png"));
   await assertSemanticCartographerRecordingEvidence(recordingDir);
@@ -428,6 +446,65 @@ async function waitForAutomaticCartographerApplied({
     evidenceAnchorId,
     executionId,
   );
+}
+
+async function waitForRenderedSemanticGraphNode(client, graphSurfaceId, semanticNodeId) {
+  return waitForWorkflowGraphSnapshot(
+    client,
+    graphSurfaceId,
+    (snapshot) => renderedSemanticNodeIds(snapshot).has(semanticNodeId),
+    30_000,
+  );
+}
+
+async function assertScriptedCartographerNodeAbsent(client, graphSurfaceId) {
+  const snapshot = await getWorkflowGraphSnapshot(client, graphSurfaceId);
+  const nodeId = [...renderedSemanticNodeIds(snapshot)].find((id) =>
+    id.startsWith(cartographerNodeIdPrefix),
+  );
+  if (nodeId) {
+    throw new Error(`scripted cartographer node rendered before automatic run: ${nodeId}`);
+  }
+}
+
+async function waitForWorkflowGraphSnapshot(client, graphSurfaceId, predicate, timeoutMs) {
+  await client.installDriver();
+  return waitForState(
+    client,
+    driverCallExpression("workflowGraphDebugSnapshotReady", {
+      surfaceId: graphSurfaceId,
+    }),
+    (value) => value.ready && predicate(value.snapshot),
+    timeoutMs,
+  ).then((value) => value.snapshot);
+}
+
+async function getWorkflowGraphSnapshot(client, graphSurfaceId) {
+  await client.installDriver();
+  return client.driver("workflowGraphDebugSnapshot", { surfaceId: graphSurfaceId });
+}
+
+function renderedSemanticNodeIds(snapshot) {
+  const ids = new Set();
+  for (const node of snapshot.graph.nodes ?? []) {
+    if (typeof node.id === "string" && node.id.startsWith("semantic:")) {
+      ids.add(node.id.slice("semantic:".length));
+    }
+  }
+  return ids;
+}
+
+async function setRendererReloadMarker(client, marker) {
+  await client.evaluate(
+    `globalThis.__settaSemanticCartographerOpenGraphMarker = ${JSON.stringify(marker)}`,
+  );
+}
+
+async function assertRendererReloadMarker(client, marker) {
+  const observed = await client.evaluate("globalThis.__settaSemanticCartographerOpenGraphMarker");
+  if (observed !== marker) {
+    throw new Error(`renderer reloaded while waiting for semantic graph changes: ${observed}`);
+  }
 }
 
 async function waitForLongRunningCartographerProgress({

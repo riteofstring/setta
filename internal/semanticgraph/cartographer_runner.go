@@ -137,7 +137,7 @@ func (service *Service) saveStartedCartographerRun(ctx context.Context, run Cart
 	}
 	run.UpdatedAt = now
 	run.Error = ""
-	return service.store.SaveCartographerRun(ctx, run)
+	return service.SaveCartographerRun(ctx, run)
 }
 
 func (service *Service) cartographerApplicationInputForWindow(run CartographerRun, window CartographerWindow) CartographerPatchEnvelopeApplicationInput {
@@ -161,7 +161,7 @@ func (service *Service) markCartographerWindowProcessed(ctx context.Context, win
 
 	window.Status = CartographerWindowProcessed
 	window.UpdatedAt = timestamp(service.now())
-	return service.store.SaveCartographerWindow(ctx, window)
+	return service.SaveCartographerWindow(ctx, window)
 }
 
 func cartographerTrajectorySummaryText(bundle CartographerInputBundle) string {
