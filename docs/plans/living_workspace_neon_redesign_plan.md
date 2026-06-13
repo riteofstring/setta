@@ -14,7 +14,7 @@
 - **Workflow = the machine.** Rigid dark-glass nodes edged in a neon stroke whose colour encodes status; edges are glowing wires carrying sharp **energy pulses along the active path** so you watch a run travel the graph.
 - **Semantic = the organism.** Each node is a **living cell** — a kind-coloured neon membrane around a dark cytoplasm, a drifting nucleus, a few organelles, gentle breathing; joined by **tendrils** (semantic edges) that sway and carry slow nutrient-like signals. When the cartographer **splits** a node the cell undergoes **mitosis**; **merge** fuses two cells back into one.
 
-Both halves glow with the same neon-on-dark palette, so the workspace reads as one living system. This is a presentation-layer change: graph topology, layout, hit-testing, selection, edge drawing, persistence, and the React/store contracts stay as they are. We change how each layer is painted, add a gated per-frame animation pass, and add a **snapshot-driven** transition coordinator for mitosis/fusion — driven by typed node-lineage fields the backend already provides (see E). The only contract change is additive optional renderer fields; no graph state moves into React and no new store/IPC event feed is introduced.
+Both halves glow with the same neon-on-dark palette, so the workspace reads as one living system. This is a presentation-layer change: graph topology, layout, hit-testing, selection, edge drawing, persistence, and the React/store contracts stay as they are. We change how each layer is painted, add a gated per-frame animation pass, and add a **snapshot-driven** transition coordinator for mitosis/fusion — driven by typed node-lineage fields the backend already provides (see E). The only contract change is additive optional renderer fields; no graph state moves into React and no new store/IPC event feed is introduced. This redesign **replaces** the old flat look; do not add backward-compatibility shims, legacy rendering paths, migrations, transitional adapters, dual renderers, dual-read/write paths, or A/B theme toggles.
 
 ## Current state (what we're changing)
 
@@ -114,7 +114,7 @@ Workflow first establishes the shared foundation (palette, animation driver, lay
 
 **Phase 0 — Contract, baseline & guardrails.** Section A contract + layer-gating. Performance baseline (idle / pan-zoom / drag / 500–5,000-node synthetic) recorded under `docs/reports/performance/`. **Extend the synthetic generator** with workflow status / edge-status **and** a semantic-cell scene with `activity.active` cells, so perf scenes exercise the animated paths (current synthetics emit none). Plumb `reduceMotion` + an animation on/off switch. Add debug-snapshot counters (`edgeFlowRedrawCount`, `nodePulseRedrawCount`, `cellAnimCount`, `transitionsActive`, `animationActive`).
 
-**Phase 1 — Shared neon foundation + workflow static repaint.** `workspace-neon-theme.ts`; stage-level vignette; neon grid; dark-glass workflow node + neon status/kind stroke + base glow; neon outlines/ports/temp-edge/marquee; neon workflow edge base strokes. Verify a merged scene leaves semantic visuals unchanged for now.
+**Phase 1 — Shared neon foundation + workflow static repaint.** `workspace-neon-theme.ts`; stage-level vignette; neon grid; dark-glass workflow node + neon status/kind stroke + base glow; neon outlines/ports/temp-edge/marquee; neon workflow edge base strokes. Replace the old workflow visuals in place; do not keep a flat-look fallback or theme flag. Verify a merged scene leaves semantic visuals unchanged for now.
 
 **Phase 2 — Animation driver.** Section C: under-node glow layer, active-set gating, culling, reduced-motion static path. Move glow onto it. Confirm idle/finished graphs add no cost.
 
@@ -145,8 +145,9 @@ Workflow first establishes the shared foundation (palette, animation driver, lay
 
 - **No change to graph topology, layout, cartographer logic, or store/React contracts** beyond the additive optional renderer fields in A (including the threaded `SemanticNode` lineage). The coordinator (E) runs off snapshots the renderer already receives — no new store/IPC event feed. We render decisions the backend already made.
 - The transition coordinator is presentation-only; it never decides or persists splits/merges.
+- **No backward compatibility, legacy support, migrations, transitional code, or old-look fallback.** Do not add compatibility shims, dual rendering paths, old-field aliases, dual-read/write behavior, feature flags for the previous visual style, or A/B toggles. If a renderer contract or visual path changes for this redesign, update the direct owner and its tests in place.
 - No new runtime dependencies unless approved (bloom caveat).
-- No in-app theme switcher unless requested; the theme module is the seam.
+- No in-app theme switcher. The theme module is an implementation boundary for the new look, not a compatibility layer.
 
 ## Risks & mitigations
 
@@ -162,6 +163,6 @@ Workflow first establishes the shared foundation (palette, animation driver, lay
 1. **Ambient prominence:** calm-until-something-happens (breathing **off** by default, motion gated to active/transitions — the cheaper default that keeps settled graphs at ~0 cost), or opt-in subtle always-on breathing once measured? (Recommended: gated default; enable always-on only if measurement shows it's negligible.)
 2. **The workflow→semantic bridge:** render the run visibly feeding the semantic map (as in the mockup), or keep the two layers visually separate?
 3. **Mitosis trigger source (largely resolved — confirm preference):** the typed `SemanticNode` lineage fields (`splitFromNodeId`/`splitIntoNodeIds`/`mergedIntoNodeId`) already let the coordinator detect splits/merges by snapshot diff with **no new contract** — the recommended wiring. The event-driven alternative (generated typed `node.split` payloads or an explicit store→renderer transition hint) is only needed if you want timing independent of snapshot cadence. OK to go snapshot-diff?
-4. **Replace vs toggle** for the whole workspace look: ship neon as the only look, or keep the current flat look behind a flag for A/B? (Recommended: replace.)
+4. **Replacement policy:** resolved — ship neon as the only workspace graph look. Do not keep the current flat look behind a flag or A/B toggle.
 5. **Dismissed-source treatment:** both split and merge **keep** the source node as a `dismissed` (grey) provenance cell. Show it as a dimmed provenance cell, hide it via presentation policy, or keep it fully visible? (Decides whether mitosis/fusion ends on "parent fades to dim" vs "parent vanishes.")
 6. **Non-2 splits:** the peanut mitosis only fits a 2-child split (the canonical case, and what the backend test exercises), but `projectNodeSplit` allows ≥1 child. Snap / use a generic "bud-off" transition for 1- or 3+-child splits, or constrain the product to 2-child splits?
