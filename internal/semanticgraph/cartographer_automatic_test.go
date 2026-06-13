@@ -195,6 +195,35 @@ func TestAutomaticCartographerValidationFailureRecordsAuditWithoutGraphMutation(
 	}
 }
 
+func TestShutdownAutomaticCartographerProcessingCancelsAndWaitsForRunningWorker(t *testing.T) {
+	runner := newBlockingCartographerRunner()
+	service, _ := newAutomaticCartographerTestService(t, runner, AutomaticCartographerProcessingConfig{})
+	ctx := context.Background()
+	if err := service.StartAutomaticCartographerProcessing(ctx); err != nil {
+		t.Fatalf("start automatic cartographer processing: %v", err)
+	}
+
+	window := buildAutomaticManualWindow(t, service, "node_shutdown_auto")
+	service.enqueueClosedCartographerWindow(window, testTimestamp(83))
+	runner.waitForStarted(t, 1)
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := service.ShutdownAutomaticCartographerProcessing(shutdownCtx); err != nil {
+		t.Fatalf("shutdown automatic cartographer processing: %v", err)
+	}
+	if got := runner.runningCount(); got != 0 {
+		t.Fatalf("running cartographer tasks = %d, want none after shutdown", got)
+	}
+	state, err := service.ReadCartographerProcessingState(ctx)
+	if err != nil {
+		t.Fatalf("read cartographer state after shutdown: %v", err)
+	}
+	if state.Started || state.RunningWindowCount != 0 {
+		t.Fatalf("automatic cartographer state after shutdown = %+v, want stopped and idle", state)
+	}
+}
+
 func newAutomaticCartographerTestService(t *testing.T, runner chat.HarnessTaskRunner, config AutomaticCartographerProcessingConfig) (*Service, *Store) {
 	t.Helper()
 	store := newTestStore(t)
@@ -366,6 +395,11 @@ func (runner *blockingCartographerRunner) RunTask(ctx context.Context, _ chat.Ha
 	runner.startedChanged <- struct{}{}
 	release := runner.release
 	runner.mu.Unlock()
+	defer func() {
+		runner.mu.Lock()
+		runner.running--
+		runner.mu.Unlock()
+	}()
 
 	select {
 	case <-ctx.Done():
@@ -373,9 +407,6 @@ func (runner *blockingCartographerRunner) RunTask(ctx context.Context, _ chat.Ha
 	case <-release:
 	}
 
-	runner.mu.Lock()
-	runner.running--
-	runner.mu.Unlock()
 	return automaticRunnerTaskResult([]byte(`{"patches":[]}`)), nil
 }
 
@@ -411,6 +442,12 @@ func (runner *blockingCartographerRunner) maxConcurrentObserved() int {
 	runner.mu.Lock()
 	defer runner.mu.Unlock()
 	return runner.maxConcurrent
+}
+
+func (runner *blockingCartographerRunner) runningCount() int {
+	runner.mu.Lock()
+	defer runner.mu.Unlock()
+	return runner.running
 }
 
 func automaticRunnerTaskResult(raw json.RawMessage) chat.HarnessTaskResult {

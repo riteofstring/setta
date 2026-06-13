@@ -92,6 +92,24 @@ func (service *Service) StopAutomaticCartographerProcessing() {
 	}
 }
 
+func (service *Service) ShutdownAutomaticCartographerProcessing(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("context is required")
+	}
+	service.StopAutomaticCartographerProcessing()
+	done := make(chan struct{})
+	go func() {
+		service.automaticCartographer.workers.Wait()
+		close(done)
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		return nil
+	}
+}
+
 func (service *Service) ReadCartographerProcessingState(context.Context) (CartographerProcessingState, error) {
 	service.automaticCartographerMu.Lock()
 	defer service.automaticCartographerMu.Unlock()

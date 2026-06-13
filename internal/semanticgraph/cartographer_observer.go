@@ -150,6 +150,18 @@ func (service *Service) StartCartographerEventObserver(ctx context.Context, chat
 }
 
 func (service *Service) CloseCartographerEventObserver() {
+	service.stopCartographerEventObserver()
+}
+
+func (service *Service) ShutdownCartographerEventObserver(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("context is required")
+	}
+	service.stopCartographerEventObserver()
+	return service.ShutdownAutomaticCartographerProcessing(ctx)
+}
+
+func (service *Service) stopCartographerEventObserver() {
 	service.cartographerMu.Lock()
 	defer service.cartographerMu.Unlock()
 	if service.cartographerChatSubscription != nil {
