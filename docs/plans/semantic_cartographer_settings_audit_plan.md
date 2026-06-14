@@ -763,7 +763,45 @@ pnpm -C desktop typecheck
   Cartographer, edits model/reasoning or processing settings, saves, reloads,
   and verifies the persisted values are shown.
 
+Implementation note:
+
+- Phase 6 was implemented by adding the `Cartographer` settings subtab, a
+  dedicated renderer cartographer settings store, and generated-contract IPC/
+  preload access for settings metadata.
+- The backend now exposes `ReadSemanticCartographerSettingsMetadata`, returning
+  the current settings record, backend-owned default settings input, numeric
+  bounds, and validation relationships. The renderer uses this metadata for
+  reset-to-default and number validation instead of hardcoding defaults.
+- The renderer store loads settings metadata, processing state, model options,
+  and recent runs for the selected workspace; keeps settings global; uses the
+  selected workspace only for Codex catalog validation; blocks Save without a
+  selected workspace; and ignores stale async model-catalog loads from old
+  workspaces.
+- The UI separates provider-default model mode from explicit model selection,
+  stores `ChatModelOption.model` for explicit choices, filters reasoning effort
+  options from the selected model/default model, preserves unsupported saved
+  model/reasoning values with field errors, and shows a compact runtime/recent
+  run summary.
+- A deterministic `settings-pane` Electron workflow was added and registered in
+  the required workflow tier. It opens Settings -> Cartographer, edits a
+  processing setting, saves, reloads, and verifies persistence through the
+  production renderer/preload/main/HTTP/store path.
+- The Codex protocol registration now includes the experimental
+  `turn/moderationMetadata` notification so the settings workflow does not fail
+  on provider drift from scripted/live Codex app-server notifications.
+- No persistent schema changed in Phase 6, so the semantic graph store remains
+  version `12`.
+
 ## Phase 7 - Final Synthesis Input Budgeting
+
+Phase 7 is not ready to implement until this Phase 6 follow-up is fixed:
+
+- `Service.applySemanticCartographerSettingsDefaults` still writes
+  `service.cartographerConfig` without taking `cartographerMu`, while observer
+  paths read `service.cartographerConfig` under `cartographerMu`. Fix the
+  runtime settings synchronization first, and add focused coverage for settings
+  updates racing with observer/window input construction. Automatic-processing
+  config should remain protected by `automaticCartographerMu`.
 
 The failed `workflow_done` run in local state shows that final synthesis can
 exceed the Codex maximum input length.
@@ -779,6 +817,33 @@ Fix final synthesis before increasing reasoning effort or concurrency:
 
 This phase should make failed final synthesis explainable and prevent an
 expensive high-reasoning task from being started with impossible input.
+
+Implementation boundary:
+
+- Use the existing Phase 1/6 `finalSynthesisTaskConfig.inputBudget` setting as
+  the final-synthesis budget source. It is already persisted and editable, but
+  it is not yet enforced.
+- Enforce budgeting before `cartographerHarnessTaskFromRun` starts Codex. A run
+  that still exceeds budget after deterministic compaction should fail with a
+  normal `CartographerRunFailed` audit record and must not start the harness.
+- Keep live `workflow_window` behavior separate from `workflow_done` final
+  synthesis. Live windows continue to use observation limits; final synthesis
+  must additionally apply the final task input budget.
+- Extend `CartographerInputTruncation` and run audit only with Go-owned fields
+  needed to explain deterministic compaction, such as folded window count,
+  dropped item counts, budget reason, and final serialized byte/character
+  counts. If persistent fields are added, bump the semantic graph store version
+  and continue to reject old stores; do not add migrations or compatibility
+  aliases.
+- Budgeting should operate on structured `CartographerInputBundle` data before
+  JSON serialization. Do not rely on brittle string slicing of the serialized
+  harness prompt.
+- Add deterministic tests for `workflow_done` windows that fold queued,
+  processed, and open epochs; verify they preserve high-value final evidence
+  while dropping or summarizing lower-value repeated context first.
+- Add a targeted Electron or backend workflow fixture where final synthesis
+  would exceed budget without compaction, and assert the audit shows either a
+  bounded input bundle or a clear pre-harness failure diagnostic.
 
 ## Phase 8 - Recording and Debug Integration
 
