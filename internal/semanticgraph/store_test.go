@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -627,6 +628,9 @@ func TestStoreRejectsUnsupportedExistingVersionBeforeCreatingSchema(t *testing.T
 	if !IsCorruptStateError(err) {
 		t.Fatalf("new store error = %T %v, want corrupt state error", err, err)
 	}
+	if !strings.Contains(err.Error(), "reset the semantic graph store") {
+		t.Fatalf("new store error = %v, want reset guidance", err)
+	}
 
 	db, err = sql.Open(sqliteDriverName, dbPath)
 	if err != nil {
@@ -693,6 +697,10 @@ WHERE type = 'table' AND name IN (
 	}
 	if !IsCorruptStateError(err) {
 		t.Fatalf("previous-version store error = %T %v, want corrupt state error", err, err)
+	}
+	if !strings.Contains(err.Error(), "unsupported schema version 9") ||
+		!strings.Contains(err.Error(), "reset the semantic graph store") {
+		t.Fatalf("previous-version store error = %v, want version 9 reset guidance", err)
 	}
 }
 

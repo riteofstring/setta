@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 9
+	semanticStoreVersion = 10
 	sqliteDriverName     = "sqlite"
 )
 
@@ -130,7 +130,7 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 		return store.persistenceError("read semantic graph database schema version", err)
 	}
 	if userVersion != 0 && userVersion != semanticStoreVersion {
-		return store.corruptError("semantic graph database", fmt.Errorf("unsupported schema version %d", userVersion))
+		return store.corruptError("semantic graph database", unsupportedSemanticStoreVersionError(userVersion))
 	}
 	if err := store.createSchema(ctx); err != nil {
 		return err
@@ -141,6 +141,13 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func unsupportedSemanticStoreVersionError(version int) error {
+	return fmt.Errorf(
+		"unsupported schema version %d; reset the semantic graph store by deleting semantic-graph.sqlite and its WAL/SHM sidecar files",
+		version,
+	)
 }
 
 func (store *Store) createSchema(ctx context.Context) error {
