@@ -817,15 +817,36 @@ func validateCartographerOutputSummaries(items []CartographerOutputSummary, labe
 }
 
 func validateCartographerInputTruncation(truncation CartographerInputTruncation, label string) error {
-	if truncation.OriginalEventCount < 0 || truncation.IncludedEventCount < 0 ||
-		truncation.OriginalContentBytes < 0 || truncation.IncludedContentBytes < 0 ||
-		truncation.SegmentIndex < 0 || truncation.SegmentCount < 0 {
-		return fmt.Errorf("%s truncation counts must not be negative", label)
+	for _, count := range cartographerInputTruncationCountValues(truncation) {
+		if count < 0 {
+			return fmt.Errorf("%s truncation counts must not be negative", label)
+		}
 	}
 	if truncation.IncludedEventCount > truncation.OriginalEventCount && truncation.OriginalEventCount > 0 {
 		return fmt.Errorf("%s truncation includedEventCount must not exceed originalEventCount", label)
 	}
+	for _, counts := range []CartographerInputItemCounts{truncation.OriginalItemCounts, truncation.IncludedItemCounts, truncation.DroppedItemCounts} {
+		if err := validateCartographerInputItemCounts(counts); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func cartographerInputTruncationCountValues(truncation CartographerInputTruncation) []int {
+	return []int{
+		truncation.OriginalEventCount,
+		truncation.IncludedEventCount,
+		truncation.OriginalContentBytes,
+		truncation.IncludedContentBytes,
+		truncation.FoldedWindowCount,
+		truncation.SerializedInputBytes,
+		truncation.SerializedInputCharacterCount,
+		truncation.InputBudgetCharacters,
+		truncation.StructuredTaskCharacterLimit,
+		truncation.SegmentIndex,
+		truncation.SegmentCount,
+	}
 }
 
 func validateCartographerDiagnostics(diagnostics []CartographerDiagnostic) error {

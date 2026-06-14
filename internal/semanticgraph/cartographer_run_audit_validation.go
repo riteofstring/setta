@@ -68,6 +68,12 @@ func validateCartographerRunReasoningAudit(run CartographerRun) error {
 	if !isSemanticCartographerReasoningEffort(run.RequestedReasoningEffort) {
 		return fmt.Errorf("cartographer run requestedReasoningEffort is unsupported: %s", run.RequestedReasoningEffort)
 	}
+	if run.RequestedInputBudget <= 0 {
+		return fmt.Errorf("cartographer run requestedInputBudget must be positive: %d", run.RequestedInputBudget)
+	}
+	if run.RequestedInputBudget > codexStructuredTaskInputCharacterLimit {
+		return fmt.Errorf("cartographer run requestedInputBudget must not exceed %d serialized harness-input characters: %d", codexStructuredTaskInputCharacterLimit, run.RequestedInputBudget)
+	}
 	if err := validateOptionalCartographerReasoningEffort("effectiveReasoningEffort", run.EffectiveReasoningEffort); err != nil {
 		return err
 	}

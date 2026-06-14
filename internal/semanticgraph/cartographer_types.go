@@ -124,6 +124,7 @@ type CartographerRun struct {
 	EffectiveModel            string                             `json:"effectiveModel"`
 	ReportedModel             string                             `json:"reportedModel"`
 	RequestedReasoningEffort  chat.ReasoningEffort               `json:"requestedReasoningEffort"`
+	RequestedInputBudget      int                                `json:"requestedInputBudget"`
 	EffectiveReasoningEffort  string                             `json:"effectiveReasoningEffort"`
 	ReportedReasoningEffort   string                             `json:"reportedReasoningEffort"`
 	ReasoningEffortReported   bool                               `json:"reasoningEffortReported"`
@@ -353,16 +354,25 @@ type CartographerOutputSummary struct {
 }
 
 type CartographerInputTruncation struct {
-	OriginalEventCount   int      `json:"originalEventCount"`
-	IncludedEventCount   int      `json:"includedEventCount"`
-	OriginalContentBytes int      `json:"originalContentBytes"`
-	IncludedContentBytes int      `json:"includedContentBytes"`
-	Summarized           bool     `json:"summarized"`
-	Split                bool     `json:"split"`
-	SegmentIndex         int      `json:"segmentIndex"`
-	SegmentCount         int      `json:"segmentCount"`
-	Reasons              []string `json:"reasons"`
-	DeterministicSummary string   `json:"deterministicSummary"`
+	OriginalEventCount            int                         `json:"originalEventCount"`
+	IncludedEventCount            int                         `json:"includedEventCount"`
+	OriginalContentBytes          int                         `json:"originalContentBytes"`
+	IncludedContentBytes          int                         `json:"includedContentBytes"`
+	OriginalItemCounts            CartographerInputItemCounts `json:"originalItemCounts"`
+	IncludedItemCounts            CartographerInputItemCounts `json:"includedItemCounts"`
+	DroppedItemCounts             CartographerInputItemCounts `json:"droppedItemCounts"`
+	FoldedWindowCount             int                         `json:"foldedWindowCount"`
+	SerializedInputBytes          int                         `json:"serializedInputBytes"`
+	SerializedInputCharacterCount int                         `json:"serializedInputCharacterCount"`
+	InputBudgetCharacters         int                         `json:"inputBudgetCharacters"`
+	StructuredTaskCharacterLimit  int                         `json:"structuredTaskCharacterLimit"`
+	BudgetExceeded                bool                        `json:"budgetExceeded"`
+	Summarized                    bool                        `json:"summarized"`
+	Split                         bool                        `json:"split"`
+	SegmentIndex                  int                         `json:"segmentIndex"`
+	SegmentCount                  int                         `json:"segmentCount"`
+	Reasons                       []string                    `json:"reasons"`
+	DeterministicSummary          string                      `json:"deterministicSummary"`
 }
 
 type CartographerInputItemCounts struct {

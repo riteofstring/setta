@@ -20,11 +20,12 @@ func (service *Service) applyCartographerRunSettingsSnapshot(ctx context.Context
 	run.RequestedModelSelection = config.ModelSelection
 	run.RequestedModel = config.ModelID
 	run.RequestedReasoningEffort = config.ReasoningEffort
+	run.RequestedInputBudget = config.InputBudget
 	return nil
 }
 
 func cartographerRunSettingsSnapshotComplete(run CartographerRun) bool {
-	if run.SettingsHash == "" || run.TaskProfile == "" || run.RequestedModelSelection == "" || run.RequestedReasoningEffort == "" {
+	if run.SettingsHash == "" || run.TaskProfile == "" || run.RequestedModelSelection == "" || run.RequestedReasoningEffort == "" || run.RequestedInputBudget <= 0 {
 		return false
 	}
 	if run.RequestedModelSelection == SemanticCartographerModelSelectionExplicit && run.RequestedModel == "" {

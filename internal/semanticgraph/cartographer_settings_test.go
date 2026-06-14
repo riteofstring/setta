@@ -470,6 +470,34 @@ func TestSemanticCartographerSettingsRejectsPreviousAuditSchemaStore(t *testing.
 	}
 }
 
+func TestSemanticCartographerSettingsRejectsPreviousFinalSynthesisBudgetSchemaStore(t *testing.T) {
+	appDataDir := t.TempDir()
+	dbPath := filepath.Join(appDataDir, semanticDatabaseName)
+	db, err := sql.Open(sqliteDriverName, dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	if _, err := db.Exec("PRAGMA user_version = 12"); err != nil {
+		t.Fatalf("write version 12: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close sqlite db: %v", err)
+	}
+
+	store, err := NewStore(appDataDir)
+	if err == nil {
+		_ = store.Close()
+		t.Fatal("new store with version 12 succeeded, want corrupt state error")
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("version 12 store error = %T %v, want corrupt state error", err, err)
+	}
+	if !strings.Contains(err.Error(), "unsupported schema version 12") ||
+		!strings.Contains(err.Error(), "reset the semantic graph store") {
+		t.Fatalf("version 12 store error = %v, want reset guidance", err)
+	}
+}
+
 func TestSemanticCartographerSettingsProvideServiceDefaults(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()

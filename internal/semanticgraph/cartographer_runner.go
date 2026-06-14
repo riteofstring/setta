@@ -28,7 +28,10 @@ func (service *Service) processCartographerWindow(ctx context.Context, workspace
 
 	applicationInput := service.cartographerApplicationInputForWindow(run, window)
 	applicationInput.AutoApplyValidatedPatches = options.AutoApplyValidatedPatches
-	if service.cartographerHarness == nil {
+	if err := cartographerFinalSynthesisInputBudgetError(run); err != nil {
+		applicationInput.HarnessErrorCode = "input_budget_exceeded"
+		applicationInput.HarnessError = err.Error()
+	} else if service.cartographerHarness == nil {
 		applicationInput.HarnessError = "semantic cartographer harness task runner is not configured"
 	} else {
 		taskID, err := service.newID("cartographer_task")
@@ -105,6 +108,14 @@ func (service *Service) beginCartographerWindowProcessing(ctx context.Context, w
 		return
 	}
 	window.InputBundle.WindowID = window.ID
+	if run.TriggerKind == CartographerTriggerWorkflowDone {
+		window.InputBundle = compactCartographerWorkflowDoneInputBundle(window.InputBundle, service.cartographerConfig, window.InputBundle.Truncation.FoldedWindowCount, run.RequestedInputBudget)
+		window, err = service.SaveCartographerWindow(ctx, window)
+		if err != nil {
+			return
+		}
+		run.InputBundle = window.InputBundle
+	}
 	run, err = service.saveStartedCartographerRun(ctx, run, window, options)
 	if err != nil {
 		return

@@ -576,6 +576,9 @@ func (service *Service) persistClosedObservedWindow(ctx context.Context, window 
 	if closeReason == CartographerCloseWorkflowRunTerminal {
 		window.InputBundle.TriggerKind = CartographerTriggerWorkflowDone
 		run.TriggerKind = CartographerTriggerWorkflowDone
+		if err := service.applyCartographerRunSettingsSnapshot(ctx, &run, true); err != nil {
+			return false, err
+		}
 		duplicate, err := service.workflowDoneAlreadyLeftQueue(ctx, *window)
 		if err != nil {
 			return false, err
@@ -602,7 +605,8 @@ func (service *Service) persistClosedObservedWindow(ctx context.Context, window 
 	}
 	run.InputBundle = window.InputBundle
 	cursor.LastWindowID = window.ID
-	if err := service.prepareCartographerQueuedRun(ctx, &run, *window, now, true); err != nil {
+	forceSettingsSnapshot := run.TriggerKind != CartographerTriggerWorkflowDone
+	if err := service.prepareCartographerQueuedRun(ctx, &run, *window, now, forceSettingsSnapshot); err != nil {
 		return false, err
 	}
 	if _, err := service.SaveCartographerRun(ctx, run); err != nil {
@@ -685,10 +689,7 @@ func (service *Service) foldWorkflowDoneEpochsLocked(ctx context.Context, finalW
 	if err != nil {
 		return err
 	}
-	if len(folded) == 0 {
-		return nil
-	}
-	finalWindow.InputBundle = cartographerWorkflowDoneInputBundle(finalWindow.InputBundle, folded, service.cartographerConfig)
+	finalWindow.InputBundle = cartographerWorkflowDoneInputBundle(finalWindow.InputBundle, folded, service.cartographerConfig, finalRun.RequestedInputBudget)
 	finalRun.InputBundle = finalWindow.InputBundle
 	return service.supersedeFoldedOpenCartographerWindows(ctx, folded, now)
 }

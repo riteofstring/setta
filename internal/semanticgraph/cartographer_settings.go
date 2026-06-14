@@ -16,6 +16,7 @@ const (
 
 	defaultSemanticCartographerFinalInputBudget       = 12000
 	defaultSemanticCartographerQuietCloseAfterSeconds = 120
+	codexStructuredTaskInputCharacterLimit            = 1048576
 )
 
 type SemanticCartographerModelSelection string
@@ -256,6 +257,9 @@ func validateSemanticCartographerTaskConfig(config SemanticCartographerTaskConfi
 	}
 	if config.InputBudget <= 0 {
 		return fmt.Errorf("%s inputBudget must be positive: %d", label, config.InputBudget)
+	}
+	if config.InputBudget > codexStructuredTaskInputCharacterLimit {
+		return fmt.Errorf("%s inputBudget must not exceed %d serialized harness-input characters: %d", label, codexStructuredTaskInputCharacterLimit, config.InputBudget)
 	}
 	return nil
 }

@@ -3883,11 +3883,38 @@ export interface CartographerTrajectorySummary {
   createdAt: string;
 }
 
+export interface CartographerInputItemCounts {
+  newEvents: number;
+  observations: number;
+  toolCalls: number;
+  fileChanges: number;
+  testResults: number;
+  outputSummaries: number;
+  existingNodes: number;
+  existingEdges: number;
+  evidence: number;
+  activity: number;
+  steering: number;
+  contextPacks: number;
+  retrievalResults: number;
+  trajectorySummaries: number;
+  observedEventRefs: number;
+}
+
 export interface CartographerInputTruncation {
   originalEventCount: number;
   includedEventCount: number;
   originalContentBytes: number;
   includedContentBytes: number;
+  originalItemCounts: CartographerInputItemCounts;
+  includedItemCounts: CartographerInputItemCounts;
+  droppedItemCounts: CartographerInputItemCounts;
+  foldedWindowCount: number;
+  serializedInputBytes: number;
+  serializedInputCharacterCount: number;
+  inputBudgetCharacters: number;
+  structuredTaskCharacterLimit: number;
+  budgetExceeded: boolean;
   summarized: boolean;
   split: boolean;
   segmentIndex: number;
@@ -3929,24 +3956,6 @@ export interface CartographerInputBundle {
   truncation: CartographerInputTruncation;
 }
 
-export interface CartographerInputItemCounts {
-  newEvents: number;
-  observations: number;
-  toolCalls: number;
-  fileChanges: number;
-  testResults: number;
-  outputSummaries: number;
-  existingNodes: number;
-  existingEdges: number;
-  evidence: number;
-  activity: number;
-  steering: number;
-  contextPacks: number;
-  retrievalResults: number;
-  trajectorySummaries: number;
-  observedEventRefs: number;
-}
-
 export interface CartographerRun {
   id: string;
   workspaceId: string;
@@ -3964,6 +3973,7 @@ export interface CartographerRun {
   effectiveModel: string;
   reportedModel: string;
   requestedReasoningEffort: ReasoningEffort;
+  requestedInputBudget: number;
   effectiveReasoningEffort: string;
   reportedReasoningEffort: string;
   reasoningEffortReported: boolean;
@@ -8162,14 +8172,45 @@ export function decodeCartographerTrajectorySummary(value: unknown): Cartographe
   };
 }
 
+export function decodeCartographerInputItemCounts(value: unknown): CartographerInputItemCounts {
+  const record = assertRecord(value, "CartographerInputItemCounts");
+  assertKnownFields(record, "CartographerInputItemCounts", ["newEvents", "observations", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "retrievalResults", "trajectorySummaries", "observedEventRefs"]);
+  return {
+    newEvents: decodeInteger(requireField(record, "newEvents", "CartographerInputItemCounts"), "CartographerInputItemCounts.newEvents"),
+    observations: decodeInteger(requireField(record, "observations", "CartographerInputItemCounts"), "CartographerInputItemCounts.observations"),
+    toolCalls: decodeInteger(requireField(record, "toolCalls", "CartographerInputItemCounts"), "CartographerInputItemCounts.toolCalls"),
+    fileChanges: decodeInteger(requireField(record, "fileChanges", "CartographerInputItemCounts"), "CartographerInputItemCounts.fileChanges"),
+    testResults: decodeInteger(requireField(record, "testResults", "CartographerInputItemCounts"), "CartographerInputItemCounts.testResults"),
+    outputSummaries: decodeInteger(requireField(record, "outputSummaries", "CartographerInputItemCounts"), "CartographerInputItemCounts.outputSummaries"),
+    existingNodes: decodeInteger(requireField(record, "existingNodes", "CartographerInputItemCounts"), "CartographerInputItemCounts.existingNodes"),
+    existingEdges: decodeInteger(requireField(record, "existingEdges", "CartographerInputItemCounts"), "CartographerInputItemCounts.existingEdges"),
+    evidence: decodeInteger(requireField(record, "evidence", "CartographerInputItemCounts"), "CartographerInputItemCounts.evidence"),
+    activity: decodeInteger(requireField(record, "activity", "CartographerInputItemCounts"), "CartographerInputItemCounts.activity"),
+    steering: decodeInteger(requireField(record, "steering", "CartographerInputItemCounts"), "CartographerInputItemCounts.steering"),
+    contextPacks: decodeInteger(requireField(record, "contextPacks", "CartographerInputItemCounts"), "CartographerInputItemCounts.contextPacks"),
+    retrievalResults: decodeInteger(requireField(record, "retrievalResults", "CartographerInputItemCounts"), "CartographerInputItemCounts.retrievalResults"),
+    trajectorySummaries: decodeInteger(requireField(record, "trajectorySummaries", "CartographerInputItemCounts"), "CartographerInputItemCounts.trajectorySummaries"),
+    observedEventRefs: decodeInteger(requireField(record, "observedEventRefs", "CartographerInputItemCounts"), "CartographerInputItemCounts.observedEventRefs"),
+  };
+}
+
 export function decodeCartographerInputTruncation(value: unknown): CartographerInputTruncation {
   const record = assertRecord(value, "CartographerInputTruncation");
-  assertKnownFields(record, "CartographerInputTruncation", ["originalEventCount", "includedEventCount", "originalContentBytes", "includedContentBytes", "summarized", "split", "segmentIndex", "segmentCount", "reasons", "deterministicSummary"]);
+  assertKnownFields(record, "CartographerInputTruncation", ["originalEventCount", "includedEventCount", "originalContentBytes", "includedContentBytes", "originalItemCounts", "includedItemCounts", "droppedItemCounts", "foldedWindowCount", "serializedInputBytes", "serializedInputCharacterCount", "inputBudgetCharacters", "structuredTaskCharacterLimit", "budgetExceeded", "summarized", "split", "segmentIndex", "segmentCount", "reasons", "deterministicSummary"]);
   return {
     originalEventCount: decodeInteger(requireField(record, "originalEventCount", "CartographerInputTruncation"), "CartographerInputTruncation.originalEventCount"),
     includedEventCount: decodeInteger(requireField(record, "includedEventCount", "CartographerInputTruncation"), "CartographerInputTruncation.includedEventCount"),
     originalContentBytes: decodeInteger(requireField(record, "originalContentBytes", "CartographerInputTruncation"), "CartographerInputTruncation.originalContentBytes"),
     includedContentBytes: decodeInteger(requireField(record, "includedContentBytes", "CartographerInputTruncation"), "CartographerInputTruncation.includedContentBytes"),
+    originalItemCounts: decodeCartographerInputItemCounts(requireField(record, "originalItemCounts", "CartographerInputTruncation")),
+    includedItemCounts: decodeCartographerInputItemCounts(requireField(record, "includedItemCounts", "CartographerInputTruncation")),
+    droppedItemCounts: decodeCartographerInputItemCounts(requireField(record, "droppedItemCounts", "CartographerInputTruncation")),
+    foldedWindowCount: decodeInteger(requireField(record, "foldedWindowCount", "CartographerInputTruncation"), "CartographerInputTruncation.foldedWindowCount"),
+    serializedInputBytes: decodeInteger(requireField(record, "serializedInputBytes", "CartographerInputTruncation"), "CartographerInputTruncation.serializedInputBytes"),
+    serializedInputCharacterCount: decodeInteger(requireField(record, "serializedInputCharacterCount", "CartographerInputTruncation"), "CartographerInputTruncation.serializedInputCharacterCount"),
+    inputBudgetCharacters: decodeInteger(requireField(record, "inputBudgetCharacters", "CartographerInputTruncation"), "CartographerInputTruncation.inputBudgetCharacters"),
+    structuredTaskCharacterLimit: decodeInteger(requireField(record, "structuredTaskCharacterLimit", "CartographerInputTruncation"), "CartographerInputTruncation.structuredTaskCharacterLimit"),
+    budgetExceeded: decodeBoolean(requireField(record, "budgetExceeded", "CartographerInputTruncation"), "CartographerInputTruncation.budgetExceeded"),
     summarized: decodeBoolean(requireField(record, "summarized", "CartographerInputTruncation"), "CartographerInputTruncation.summarized"),
     split: decodeBoolean(requireField(record, "split", "CartographerInputTruncation"), "CartographerInputTruncation.split"),
     segmentIndex: decodeInteger(requireField(record, "segmentIndex", "CartographerInputTruncation"), "CartographerInputTruncation.segmentIndex"),
@@ -8216,31 +8257,9 @@ export function decodeCartographerInputBundle(value: unknown): CartographerInput
   };
 }
 
-export function decodeCartographerInputItemCounts(value: unknown): CartographerInputItemCounts {
-  const record = assertRecord(value, "CartographerInputItemCounts");
-  assertKnownFields(record, "CartographerInputItemCounts", ["newEvents", "observations", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "retrievalResults", "trajectorySummaries", "observedEventRefs"]);
-  return {
-    newEvents: decodeInteger(requireField(record, "newEvents", "CartographerInputItemCounts"), "CartographerInputItemCounts.newEvents"),
-    observations: decodeInteger(requireField(record, "observations", "CartographerInputItemCounts"), "CartographerInputItemCounts.observations"),
-    toolCalls: decodeInteger(requireField(record, "toolCalls", "CartographerInputItemCounts"), "CartographerInputItemCounts.toolCalls"),
-    fileChanges: decodeInteger(requireField(record, "fileChanges", "CartographerInputItemCounts"), "CartographerInputItemCounts.fileChanges"),
-    testResults: decodeInteger(requireField(record, "testResults", "CartographerInputItemCounts"), "CartographerInputItemCounts.testResults"),
-    outputSummaries: decodeInteger(requireField(record, "outputSummaries", "CartographerInputItemCounts"), "CartographerInputItemCounts.outputSummaries"),
-    existingNodes: decodeInteger(requireField(record, "existingNodes", "CartographerInputItemCounts"), "CartographerInputItemCounts.existingNodes"),
-    existingEdges: decodeInteger(requireField(record, "existingEdges", "CartographerInputItemCounts"), "CartographerInputItemCounts.existingEdges"),
-    evidence: decodeInteger(requireField(record, "evidence", "CartographerInputItemCounts"), "CartographerInputItemCounts.evidence"),
-    activity: decodeInteger(requireField(record, "activity", "CartographerInputItemCounts"), "CartographerInputItemCounts.activity"),
-    steering: decodeInteger(requireField(record, "steering", "CartographerInputItemCounts"), "CartographerInputItemCounts.steering"),
-    contextPacks: decodeInteger(requireField(record, "contextPacks", "CartographerInputItemCounts"), "CartographerInputItemCounts.contextPacks"),
-    retrievalResults: decodeInteger(requireField(record, "retrievalResults", "CartographerInputItemCounts"), "CartographerInputItemCounts.retrievalResults"),
-    trajectorySummaries: decodeInteger(requireField(record, "trajectorySummaries", "CartographerInputItemCounts"), "CartographerInputItemCounts.trajectorySummaries"),
-    observedEventRefs: decodeInteger(requireField(record, "observedEventRefs", "CartographerInputItemCounts"), "CartographerInputItemCounts.observedEventRefs"),
-  };
-}
-
 export function decodeCartographerRun(value: unknown): CartographerRun {
   const record = assertRecord(value, "CartographerRun");
-  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "settingsHash", "taskProfile", "requestedModelSelection", "requestedModel", "effectiveModel", "reportedModel", "requestedReasoningEffort", "effectiveReasoningEffort", "reportedReasoningEffort", "reasoningEffortReported", "requestId", "responseId", "windowId", "sourceEpochId", "sourceKey", "priority", "leaseOwner", "leaseDeadline", "attemptCount", "inputBundleHash", "inputBundleBytes", "inputBundleCharacterCount", "inputItemCounts", "outputSchemaBytes", "rawHarnessResponseHash", "rawHarnessResponseBytes", "closeReason", "queueWaitMs", "harnessDurationMs", "validationDurationMs", "applicationDurationMs", "totalDurationMs", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
+  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "settingsHash", "taskProfile", "requestedModelSelection", "requestedModel", "effectiveModel", "reportedModel", "requestedReasoningEffort", "requestedInputBudget", "effectiveReasoningEffort", "reportedReasoningEffort", "reasoningEffortReported", "requestId", "responseId", "windowId", "sourceEpochId", "sourceKey", "priority", "leaseOwner", "leaseDeadline", "attemptCount", "inputBundleHash", "inputBundleBytes", "inputBundleCharacterCount", "inputItemCounts", "outputSchemaBytes", "rawHarnessResponseHash", "rawHarnessResponseBytes", "closeReason", "queueWaitMs", "harnessDurationMs", "validationDurationMs", "applicationDurationMs", "totalDurationMs", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
   return {
     id: decodeString(requireField(record, "id", "CartographerRun"), "CartographerRun.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "CartographerRun"), "CartographerRun.workspaceId"),
@@ -8258,6 +8277,7 @@ export function decodeCartographerRun(value: unknown): CartographerRun {
     effectiveModel: decodeString(requireField(record, "effectiveModel", "CartographerRun"), "CartographerRun.effectiveModel"),
     reportedModel: decodeString(requireField(record, "reportedModel", "CartographerRun"), "CartographerRun.reportedModel"),
     requestedReasoningEffort: decodeReasoningEffort(requireField(record, "requestedReasoningEffort", "CartographerRun"), "CartographerRun.requestedReasoningEffort"),
+    requestedInputBudget: decodeInteger(requireField(record, "requestedInputBudget", "CartographerRun"), "CartographerRun.requestedInputBudget"),
     effectiveReasoningEffort: decodeString(requireField(record, "effectiveReasoningEffort", "CartographerRun"), "CartographerRun.effectiveReasoningEffort"),
     reportedReasoningEffort: decodeString(requireField(record, "reportedReasoningEffort", "CartographerRun"), "CartographerRun.reportedReasoningEffort"),
     reasoningEffortReported: decodeBoolean(requireField(record, "reasoningEffortReported", "CartographerRun"), "CartographerRun.reasoningEffortReported"),

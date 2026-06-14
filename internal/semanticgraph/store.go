@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 12
+	semanticStoreVersion = 13
 	sqliteDriverName     = "sqlite"
 )
 
@@ -411,6 +411,7 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
   effective_model TEXT NOT NULL DEFAULT '',
   reported_model TEXT NOT NULL DEFAULT '',
   requested_reasoning_effort TEXT NOT NULL DEFAULT '',
+  requested_input_budget INTEGER NOT NULL DEFAULT 0,
   effective_reasoning_effort TEXT NOT NULL DEFAULT '',
   reported_reasoning_effort TEXT NOT NULL DEFAULT '',
   reasoning_effort_reported INTEGER NOT NULL DEFAULT 0,

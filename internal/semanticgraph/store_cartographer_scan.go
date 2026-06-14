@@ -37,6 +37,7 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 		&run.EffectiveModel,
 		&run.ReportedModel,
 		&run.RequestedReasoningEffort,
+		&run.RequestedInputBudget,
 		&run.EffectiveReasoningEffort,
 		&run.ReportedReasoningEffort,
 		&reasoningEffortReported,

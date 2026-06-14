@@ -5,7 +5,7 @@ import (
 	"sort"
 )
 
-func cartographerWorkflowDoneInputBundle(final CartographerInputBundle, folded []CartographerWindow, config CartographerObservationConfig) CartographerInputBundle {
+func cartographerWorkflowDoneInputBundle(final CartographerInputBundle, folded []CartographerWindow, config CartographerObservationConfig, requestedInputBudget int) CartographerInputBundle {
 	combined := emptyCartographerWorkflowDoneInputBundle(final)
 	for _, window := range folded {
 		mergeCartographerEpochInputBundle(&combined, window.InputBundle, config)
@@ -19,14 +19,16 @@ func cartographerWorkflowDoneInputBundle(final CartographerInputBundle, folded [
 	combined.TerminalReason = firstNonEmpty(final.TerminalReason, combined.TerminalReason)
 	combined.WindowID = final.WindowID
 	combined.TokenBudget = final.TokenBudget
-	combined.Truncation.Summarized = true
-	combined.Truncation.Reasons = appendUniqueString(combined.Truncation.Reasons, "workflow_done_folded_epochs")
-	combined.Truncation.DeterministicSummary = appendBoundedAggregate(
-		combined.Truncation.DeterministicSummary,
-		fmt.Sprintf("folded %d earlier cartographer epoch(s) into the workflow completion synthesis pass", len(folded)),
-		config.MaxWindowContentBytes,
-	)
-	return applyCartographerInputLimits(combined, config)
+	if len(folded) > 0 {
+		combined.Truncation.Summarized = true
+		combined.Truncation.Reasons = appendUniqueString(combined.Truncation.Reasons, "workflow_done_folded_epochs")
+		combined.Truncation.DeterministicSummary = appendBoundedAggregate(
+			combined.Truncation.DeterministicSummary,
+			fmt.Sprintf("folded %d earlier cartographer epoch(s) into the workflow completion synthesis pass", len(folded)),
+			config.MaxWindowContentBytes,
+		)
+	}
+	return compactCartographerWorkflowDoneInputBundle(combined, config, len(folded), requestedInputBudget)
 }
 
 func emptyCartographerWorkflowDoneInputBundle(final CartographerInputBundle) CartographerInputBundle {

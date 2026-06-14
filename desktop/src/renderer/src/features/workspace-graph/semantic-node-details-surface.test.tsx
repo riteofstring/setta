@@ -345,6 +345,7 @@ function cartographerRun(): SemanticNodeDetail["cartographerRuns"][number] {
     effectiveModel: "scripted-request",
     reportedModel: "scripted",
     requestedReasoningEffort: "low",
+    requestedInputBudget: 1200,
     effectiveReasoningEffort: "",
     reportedReasoningEffort: "",
     reasoningEffortReported: false,
@@ -478,14 +479,33 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
     triggerKind: "manual",
     truncation: {
       deterministicSummary: "",
+      budgetExceeded: false,
+      droppedItemCounts: emptyCartographerInputItemCounts(),
+      foldedWindowCount: 0,
       includedContentBytes: 72,
       includedEventCount: 1,
+      includedItemCounts: {
+        ...emptyCartographerInputItemCounts(),
+        newEvents: 1,
+        observedEventRefs: 1,
+        outputSummaries: 1,
+      },
+      inputBudgetCharacters: 1200,
       originalContentBytes: 72,
       originalEventCount: 1,
+      originalItemCounts: {
+        ...emptyCartographerInputItemCounts(),
+        newEvents: 1,
+        observedEventRefs: 1,
+        outputSummaries: 1,
+      },
       reasons: [],
       segmentCount: 1,
       segmentIndex: 0,
+      serializedInputBytes: 2048,
+      serializedInputCharacterCount: 2048,
       split: false,
+      structuredTaskCharacterLimit: 1048576,
       summarized: false,
     },
     windowEndCursor: {
@@ -502,6 +522,26 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
       workflowEventCursor: "workflow_cursor_001",
     },
     workspaceId: "workspace_test",
+  };
+}
+
+function emptyCartographerInputItemCounts() {
+  return {
+    activity: 0,
+    contextPacks: 0,
+    evidence: 0,
+    existingEdges: 0,
+    existingNodes: 0,
+    fileChanges: 0,
+    newEvents: 0,
+    observations: 0,
+    observedEventRefs: 0,
+    outputSummaries: 0,
+    retrievalResults: 0,
+    steering: 0,
+    testResults: 0,
+    toolCalls: 0,
+    trajectorySummaries: 0,
   };
 }
 

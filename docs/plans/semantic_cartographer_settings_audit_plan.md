@@ -907,6 +907,19 @@ Implementation boundary:
   would exceed budget without compaction, and assert the audit shows either a
   bounded input bundle or a clear pre-harness failure diagnostic.
 
+Implementation note:
+
+- Phase 7 defines `inputBudget` as serialized harness-input characters,
+  snapshots `requested_input_budget` in run audit, bumps the semantic graph
+  store version to `13`, and rejects version `12` stores with reset guidance.
+- `workflow_done` construction deduplicates folded arrays, collapses assistant
+  deltas, records folded/original/included/dropped/serialized budget metadata,
+  and compacts lower-value retrieval, prior summaries, and metadata-heavy
+  observations before high-value final answer, command/test/file, terminal
+  status, and direct semantic context.
+- If compaction still exceeds budget, processing records `CartographerRunFailed`
+  with `input_budget_exceeded` before any harness request is sent.
+
 ## Phase 8 - Recording and Debug Integration
 
 Extend recording capture so future reports answer the model/reasoning question

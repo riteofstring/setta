@@ -32,6 +32,7 @@ type CartographerPatchEnvelopeApplicationInput struct {
 	AttemptCount              int                        `json:"attemptCount"`
 	RawHarnessResponse        json.RawMessage            `json:"rawHarnessResponse"`
 	HarnessDurationMS         int                        `json:"harnessDurationMs"`
+	HarnessErrorCode          string                     `json:"harnessErrorCode"`
 	HarnessError              string                     `json:"harnessError"`
 	TrajectorySummary         string                     `json:"trajectorySummary"`
 	AutoApplyValidatedPatches bool                       `json:"autoApplyValidatedPatches"`
@@ -67,7 +68,7 @@ func (service *Service) ApplyCartographerPatchEnvelope(ctx context.Context, inpu
 		return CartographerPatchEnvelopeApplicationResult{}, err
 	}
 	if input.HarnessError != "" {
-		return service.saveCartographerFailedRunAudit(ctx, run, "harness_failed", input.HarnessError, now)
+		return service.saveCartographerFailedRunAudit(ctx, run, firstNonEmpty(input.HarnessErrorCode, "harness_failed"), input.HarnessError, now)
 	}
 
 	validationStart := time.Now()

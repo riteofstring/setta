@@ -690,6 +690,7 @@ WHERE type = 'table' AND name IN (
 		"effective_model",
 		"reported_model",
 		"requested_reasoning_effort",
+		"requested_input_budget",
 		"effective_reasoning_effort",
 		"reported_reasoning_effort",
 		"reasoning_effort_reported",
@@ -729,9 +730,9 @@ WHERE type = 'table' AND name IN (
 	if !IsCorruptStateError(err) {
 		t.Fatalf("previous-version store error = %T %v, want corrupt state error", err, err)
 	}
-	if !strings.Contains(err.Error(), "unsupported schema version 11") ||
+	if !strings.Contains(err.Error(), "unsupported schema version 12") ||
 		!strings.Contains(err.Error(), "reset the semantic graph store") {
-		t.Fatalf("previous-version store error = %v, want version 11 reset guidance", err)
+		t.Fatalf("previous-version store error = %v, want version 12 reset guidance", err)
 	}
 }
 
@@ -808,6 +809,7 @@ func saveCartographerRunForTest(t *testing.T, store *Store, ctx context.Context)
 		readRun.TaskProfile != CartographerTaskProfileManual ||
 		readRun.RequestedModelSelection != SemanticCartographerModelSelectionProviderDefault ||
 		readRun.RequestedReasoningEffort != "low" ||
+		readRun.RequestedInputBudget != DefaultCartographerObservationConfig().TokenBudget ||
 		readRun.ReportedModel != "gpt-5-codex" ||
 		readRun.InputBundleBytes <= 0 ||
 		readRun.OutputSchemaBytes <= 0 {
@@ -896,6 +898,7 @@ func cartographerTestRun() CartographerRun {
 		TaskProfile:              CartographerTaskProfileManual,
 		RequestedModelSelection:  SemanticCartographerModelSelectionProviderDefault,
 		RequestedReasoningEffort: "low",
+		RequestedInputBudget:     DefaultCartographerObservationConfig().TokenBudget,
 		ReportedModel:            "gpt-5-codex",
 		RequestID:                "request_cartographer",
 		CreatedAt:                testTimestamp(30),
