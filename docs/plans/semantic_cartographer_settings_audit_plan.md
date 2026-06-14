@@ -963,52 +963,30 @@ generated backend contract.
 
 ## Phase 9 - Verification
 
-Focused backend checks:
+Focused backend checks: `./scripts/go.sh test -count=1 ./internal/semanticgraph`,
+`./scripts/go.sh test -count=1 ./internal/httpapi`, and
+`./scripts/go.sh test -count=1 ./internal/chat`.
 
-```text
-./scripts/go.sh test -count=1 ./internal/semanticgraph
-./scripts/go.sh test -count=1 ./internal/httpapi
-./scripts/go.sh test -count=1 ./internal/chat
-```
+Renderer checks: `pnpm -C desktop exec vitest run
+src/components/settings-panel.test.tsx`, `pnpm -C desktop exec vitest run
+src/features/workspace-graph/semantic-graph-state.test.ts`, and
+`pnpm -C desktop build`.
 
-Renderer checks:
-
-```text
-pnpm -C desktop exec vitest run src/components/settings-panel.test.tsx
-pnpm -C desktop exec vitest run src/features/workspace-graph/semantic-graph-state.test.ts
-pnpm -C desktop build
-```
-
-Required E2E coverage:
-
-- Fake Codex structured cartographer receives configured model and reasoning
-  effort.
-- Run audit persists requested/effective/reported model fields.
-- Run audit persists requested/effective reasoning effort.
-- Settings persist across restart.
-- Invalid settings fail loudly.
-- Final synthesis input over budget is truncated or fails before harness start
-  with a clear audit diagnostic.
-- Recording output includes settings and recent run audit.
-
+Required E2E coverage: fake Codex structured cartographer receives configured
+model/reasoning, run audit persists requested/effective/reported model and
+reasoning fields, settings persist across restart, invalid settings fail
+loudly, final synthesis over budget truncates or fails before harness start
+with clear audit, and recording output includes settings and recent run audit.
 If local ChatGPT auth is available, run the live Codex E2E flow that exercises
-semantic cartographer configuration. Do not use `OPENAI_API_KEY` for live Codex
-verification.
-
-Before any implementation commit that changes executable code, contracts,
-generated outputs, or tests:
-
-```text
-./scripts/format.sh
-./check_quality.sh --all
-```
+semantic cartographer configuration; do not use `OPENAI_API_KEY`.
+Before implementation commits that change executable code, contracts, generated
+outputs, or tests, run `./scripts/format.sh` and `./check_quality.sh --all`.
 
 ## Open Decisions
 
 None. The product decisions above are resolved for this implementation pass.
 
 ## Success Criteria
-
 - The Settings panel has a Cartographer tab with explicit model and reasoning
   controls.
 - Automatic cartographer runs no longer inherit chat defaults accidentally.
@@ -1018,5 +996,5 @@ None. The product decisions above are resolved for this implementation pass.
 - Recordings include enough cartographer audit data to diagnose slow or missing
   semantic updates.
 - Final synthesis cannot fail invisibly due to oversized input.
-- The implementation keeps cartographer settings independent from chat
-  conversation settings and uses generated frontend contracts.
+- The implementation keeps cartographer settings independent from chat settings
+  and uses generated frontend contracts.

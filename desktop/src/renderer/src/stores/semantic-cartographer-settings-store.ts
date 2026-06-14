@@ -13,6 +13,10 @@ import type {
 } from "@generated/backend";
 import { create } from "zustand";
 
+import {
+  createCartographerAuditRecordingSnapshot,
+  emitCartographerAuditRecordingSnapshot,
+} from "../lib/semantic-cartographer-recording";
 import { useWorkspaceStore } from "./workspace-store";
 
 export type SemanticCartographerSettingsStatus = "idle" | "loading" | "ready" | "saving" | "error";
@@ -106,6 +110,16 @@ export const useSemanticCartographerSettingsStore = create<SemanticCartographerS
             return;
           }
           const draft = inputFromRecord(metadata.record);
+          emitCartographerAuditRecordingSnapshot(
+            createCartographerAuditRecordingSnapshot({
+              capturedAt: new Date().toISOString(),
+              processingState,
+              recentRuns,
+              settings: metadata.record,
+              trigger: "settings_refresh",
+              workspaceId: workspaceId ?? "",
+            }),
+          );
           set({
             dirty: false,
             draft,
@@ -208,6 +222,16 @@ export const useSemanticCartographerSettingsStore = create<SemanticCartographerS
                 record,
                 relationships: [],
               };
+          emitCartographerAuditRecordingSnapshot(
+            createCartographerAuditRecordingSnapshot({
+              capturedAt: new Date().toISOString(),
+              processingState,
+              recentRuns,
+              settings: record,
+              trigger: "settings_save",
+              workspaceId,
+            }),
+          );
           set({
             dirty: false,
             draft: nextDraft,

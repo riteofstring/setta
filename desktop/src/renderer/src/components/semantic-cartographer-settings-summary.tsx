@@ -6,6 +6,13 @@ import type {
 import { Check, CircleAlert, Loader2 } from "lucide-react";
 
 import type { SemanticCartographerSettingsStatus } from "../stores/semantic-cartographer-settings-store";
+import {
+  cartographerRunModelText,
+  cartographerRunReasoningText,
+  formatCartographerBytes,
+  formatCartographerDuration,
+  shortCartographerHash,
+} from "../lib/semantic-cartographer-recording";
 
 export function CartographerRuntimeSummary({
   processingState,
@@ -20,7 +27,10 @@ export function CartographerRuntimeSummary({
       {processingState ? (
         <div className="grid gap-2">
           <div className="grid gap-1 text-xs sm:grid-cols-2">
-            <RuntimeMetric label="Settings hash" value={shortHash(processingState.settingsHash)} />
+            <RuntimeMetric
+              label="Settings hash"
+              value={shortCartographerHash(processingState.settingsHash)}
+            />
             <RuntimeMetric
               label="Effective concurrency"
               value={`${processingState.effectiveProcessingConfig.maxConcurrent}/${processingState.effectiveProcessingConfig.perSourceConcurrent}`}
@@ -112,13 +122,13 @@ function RecentRuns({ runs }: { runs: CartographerRun[] }) {
           <span className="truncate font-medium text-foreground">{run.status}</span>
           <span className="truncate text-muted-foreground">{run.taskProfile}</span>
           <span className="truncate text-muted-foreground">
-            {runModelText(run)} / {runReasoningText(run)}
+            {cartographerRunModelText(run)} / {cartographerRunReasoningText(run)}
           </span>
           <span className="truncate text-muted-foreground">
-            {formatDuration(run.totalDurationMs)}
+            {formatCartographerDuration(run.totalDurationMs)}
           </span>
           <span className="truncate text-muted-foreground">
-            {formatBytes(run.inputBundleBytes)}
+            {formatCartographerBytes(run.inputBundleBytes)}
           </span>
           {run.error ? (
             <span className="break-words text-status-critical md:col-span-5">{run.error}</span>
@@ -150,10 +160,12 @@ function ProcessingRunSummary({
         <span className="truncate text-muted-foreground">{summary.status}</span>
       </div>
       <div className="truncate text-muted-foreground">
-        {summary.taskProfile} / {summaryModelText(summary)} / {summaryReasoningText(summary)}
+        {summary.taskProfile} / {cartographerRunModelText(summary)} /{" "}
+        {cartographerRunReasoningText(summary)}
       </div>
       <div className="truncate text-muted-foreground">
-        {formatDuration(summary.totalDurationMs)} / {formatBytes(summary.inputBundleBytes)}
+        {formatCartographerDuration(summary.totalDurationMs)} /{" "}
+        {formatCartographerBytes(summary.inputBundleBytes)}
       </div>
       {summary.error ? (
         <div className="break-words text-status-critical">{summary.error}</div>
@@ -178,57 +190,4 @@ function StatusAlert({ message }: { message: string }) {
       <span className="min-w-0 break-words">{message}</span>
     </div>
   );
-}
-
-function runModelText(run: CartographerRun) {
-  return (
-    run.reportedModel ||
-    run.effectiveModel ||
-    run.requestedModel ||
-    (run.requestedModelSelection === "provider_default" ? "Provider default" : "Model unset")
-  );
-}
-
-function runReasoningText(run: CartographerRun) {
-  return (
-    run.reportedReasoningEffort || run.effectiveReasoningEffort || run.requestedReasoningEffort
-  );
-}
-
-function summaryModelText(summary: CartographerProcessingRunAuditSummary) {
-  return (
-    summary.reportedModel ||
-    summary.effectiveModel ||
-    summary.requestedModel ||
-    (summary.requestedModelSelection === "provider_default" ? "Provider default" : "Model unset")
-  );
-}
-
-function summaryReasoningText(summary: CartographerProcessingRunAuditSummary) {
-  return (
-    summary.reportedReasoningEffort ||
-    summary.effectiveReasoningEffort ||
-    summary.requestedReasoningEffort
-  );
-}
-
-function formatDuration(value: number) {
-  return value > 0 ? `${value} ms` : "0 ms";
-}
-
-function formatBytes(value: number) {
-  if (value >= 1024 * 1024) {
-    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-  }
-  if (value >= 1024) {
-    return `${(value / 1024).toFixed(1)} KB`;
-  }
-  return `${value} B`;
-}
-
-function shortHash(value: string) {
-  if (value.length <= 18) {
-    return value || "none";
-  }
-  return `${value.slice(0, 15)}...`;
 }

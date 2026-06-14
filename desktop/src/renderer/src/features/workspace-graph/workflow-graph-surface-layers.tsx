@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import type {
   CartographerProcessingQueueItem,
   CartographerProcessingState,
+  CartographerRun,
+  SemanticCartographerSettingsRecord,
   WorkflowGraphProjection,
   WorkflowValidationResult,
 } from "@generated/backend";
@@ -17,12 +19,26 @@ import {
 } from "./workflow-graph-toolbar";
 import type { WorkflowDraftNodeType } from "./workflow-graph-draft";
 import { shortIdentifier } from "./workflow-node-details-helpers";
+import {
+  createCartographerAuditRecordingSnapshot,
+  emitCartographerAuditRecordingSnapshot,
+  formatCartographerBytes,
+  formatCartographerDuration,
+  shortCartographerHash,
+  summarizeCartographerFinalSynthesisBudget,
+} from "../../lib/semantic-cartographer-recording";
 
 export interface WorkflowContextMenuState {
   clientX: number;
   clientY: number;
   worldX: number;
   worldY: number;
+}
+
+export interface CartographerHealthData {
+  processingState: CartographerProcessingState;
+  recentRuns: CartographerRun[];
+  settings: SemanticCartographerSettingsRecord;
 }
 
 export function WorkflowGraphToolbarLayer({
@@ -144,17 +160,17 @@ function CartographerHealthLayer({
         </button>
       </div>
       {health.error !== "" ? <div className="mt-2 text-rose-300">{health.error}</div> : null}
-      {health.state === null ? (
+      {health.data === null ? (
         <div className="mt-2 text-zinc-500">Waiting for cartographer audit state</div>
       ) : (
-        <CartographerHealthState state={health.state} />
+        <CartographerHealthState data={health.data} />
       )}
     </div>
   );
 }
 
 function useCartographerProcessingState(debugEnabled: boolean, workspaceId: string) {
-  const [state, setState] = useState<CartographerProcessingState | null>(null);
+  const [data, setData] = useState<CartographerHealthData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshRequest, setRefreshRequest] = useState<{
@@ -164,14 +180,15 @@ function useCartographerProcessingState(debugEnabled: boolean, workspaceId: stri
 
   useEffect(() => {
     if (!debugEnabled || workspaceId === "") {
-      setState(null);
+      setData(null);
       setError("");
       setLoading(false);
       return;
     }
-    setState(null);
+    setData(null);
     setError("");
     setLoading(false);
+    setRefreshRequest({ serial: 0, workspaceId });
   }, [debugEnabled, workspaceId]);
 
   useEffect(() => {
@@ -187,9 +204,39 @@ function useCartographerProcessingState(debugEnabled: boolean, workspaceId: stri
     const load = async () => {
       setLoading(true);
       try {
-        const nextState = await window.setta.semanticGraph.readCartographerProcessingState({});
+        const [settings, nextState, recentRuns] = await Promise.all([
+          window.setta.semanticGraph.readCartographerSettings({}),
+          window.setta.semanticGraph.readCartographerProcessingState({}),
+          window.setta.semanticGraph
+            .listCartographerRuns({
+              chatRunId: "",
+              limit: 12,
+              targetEntityId: "",
+              workflowExecutionId: "",
+              workspaceId,
+            })
+            .then((list) => list.runs),
+        ]);
         if (!disposed) {
-          setState(nextState);
+          const nextData = {
+            processingState: nextState,
+            recentRuns,
+            settings,
+          };
+          emitCartographerAuditRecordingSnapshot(
+            createCartographerAuditRecordingSnapshot({
+              capturedAt: new Date().toISOString(),
+              processingState: nextState,
+              recentRuns,
+              settings,
+              trigger:
+                refreshRequest.serial === 0
+                  ? "workflow_graph_debug_open"
+                  : "workflow_graph_debug_refresh",
+              workspaceId,
+            }),
+          );
+          setData(nextData);
           setError("");
         }
       } catch (error: unknown) {
@@ -216,15 +263,17 @@ function useCartographerProcessingState(debugEnabled: boolean, workspaceId: stri
         serial: (request?.serial ?? 0) + 1,
         workspaceId,
       })),
-    state,
+    data,
   };
 }
 
-function CartographerHealthState({ state }: { state: CartographerProcessingState }) {
+export function CartographerHealthState({ data }: { data: CartographerHealthData }) {
+  const state = data.processingState;
   return (
     <div className="mt-2 space-y-2">
       <CartographerHealthRows
         rows={[
+          { label: "Settings", value: shortCartographerHash(data.settings.settingsHash) },
           { label: "Runtime", value: cartographerRuntimeText(state) },
           { label: "Queue", value: cartographerQueueText(state) },
           { label: "Durable", value: cartographerDurableText(state) },
@@ -238,8 +287,63 @@ function CartographerHealthState({ state }: { state: CartographerProcessingState
           { label: "Guidance", value: state.concurrencyGuidance },
         ]}
       />
+      <CartographerFinalSynthesisBudgets runs={data.recentRuns} />
       <CartographerQueueItems title="Queued Windows" items={state.queuedWindows} />
       <CartographerQueueItems title="Running Windows" items={state.runningWindows} />
+    </div>
+  );
+}
+
+function CartographerFinalSynthesisBudgets({ runs }: { runs: CartographerRun[] }) {
+  const summaries = runs
+    .filter((run) => run.triggerKind === "workflow_done")
+    .slice(0, 3)
+    .map((run) => summarizeCartographerFinalSynthesisBudget(run));
+  if (summaries.length === 0) {
+    return null;
+  }
+  return (
+    <div className="border-t border-zinc-800 pt-2">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+        Final Synthesis Budget
+      </div>
+      <div className="mt-1 space-y-1">
+        {summaries.map((summary) => (
+          <div
+            className="rounded-sm border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-300"
+            key={summary.runId}
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="font-medium text-zinc-200">
+                {budgetOutcomeText(summary.outcome)}
+              </span>
+              <span>{summary.status}</span>
+              <span>run {shortIdentifier(summary.runId)}</span>
+            </div>
+            <div className="mt-0.5 break-words text-zinc-500">
+              {summary.model.display} / {summary.reasoning.display}; chars{" "}
+              {formatInteger(summary.serializedInputCharacterCount)}/
+              {formatInteger(summary.requestedInputBudget)}; harness{" "}
+              {formatCartographerDuration(summary.harnessDurationMs)}; total{" "}
+              {formatCartographerDuration(summary.totalDurationMs)}
+            </div>
+            <div className="mt-0.5 break-words text-zinc-500">
+              {formatCartographerBytes(summary.serializedInputBytes)}, included{" "}
+              {formatInteger(summary.includedItemCount)}, dropped{" "}
+              {formatInteger(summary.droppedItemCount)}, folded windows{" "}
+              {formatInteger(summary.truncation.foldedWindowCount)}
+            </div>
+            {summary.truncation.deterministicSummary !== "" ? (
+              <div className="mt-0.5 break-words text-zinc-500">
+                {summary.truncation.deterministicSummary}
+              </div>
+            ) : null}
+            {summary.error !== "" ? (
+              <div className="mt-0.5 break-words text-rose-300">{summary.error}</div>
+            ) : null}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -349,6 +453,25 @@ function shortIdentifierList(values: string[]) {
     .filter((value) => value !== "")
     .map(shortIdentifier)
     .join(", ");
+}
+
+function budgetOutcomeText(
+  outcome: ReturnType<typeof summarizeCartographerFinalSynthesisBudget>["outcome"],
+) {
+  switch (outcome) {
+    case "within_budget":
+      return "within budget";
+    case "compacted_to_fit":
+      return "compacted to fit";
+    case "input_budget_exceeded":
+      return "input budget exceeded";
+    case "not_measured":
+      return "not measured";
+  }
+}
+
+function formatInteger(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
 }
 
 export function WorkflowContextMenuLayer({
