@@ -257,10 +257,36 @@ Phase 1 implementation boundary:
   across store reopen, settings hash stability, invalid settings rejection, and
   version `10` rejection.
 
+Implementation note:
+
+- Phase 1 was implemented by adding `SemanticCartographerSettings` persistence,
+  the singleton `semantic_cartographer_settings` row, canonical settings JSON,
+  settings hash validation, service default application, and the store version
+  bump to `11`.
+- Version `11` is the current settings-store shape, but it still has the old
+  `semantic_cartographer_runs.model` audit field and does not yet persist
+  requested/effective/reported model and reasoning metadata.
+
 ## Phase 2 - Run Audit Schema
 
 Replace the single ambiguous `model` audit field with explicit requested,
 effective, and reported metadata.
+
+Implementation boundary:
+
+- Phase 2 is a backend run-audit schema and lifecycle phase. It may update
+  existing Go HTTP contract types and regenerate existing TypeScript surfaces
+  because `CartographerRun` is already exposed, but it should not add the new
+  settings endpoints, settings UI, model catalog endpoint, or final-synthesis
+  input budgeting.
+- Do not change the cartographer harness request policy in this phase beyond
+  recording what was actually sent. Sending configured model/reasoning belongs
+  to Phase 3.
+- Do not add migrations, transitional reads, dual writes, old-field aliases, or
+  compatibility shims for the old `model` field.
+- Bump `semanticStoreVersion` from `11` to `12` in the same commit as the run
+  audit schema change. Version `11` stores must fail on open with reset
+  guidance.
 
 Recommended run audit fields:
 
@@ -289,14 +315,32 @@ close_reason
 
 Semantics:
 
-- `requested_*` comes directly from the saved settings snapshot.
-- `effective_*` is what Setta sent to `chat.HarnessStructuredTask`.
+- `settings_hash` is copied from the singleton settings row at run/window
+  creation time. Later settings changes must not rewrite historical run meaning.
+- `requested_*` comes directly from the saved settings snapshot at
+  run/window creation time and is copied onto the run. Do not depend on looking
+  up a mutable settings row later to explain an old run.
+- `effective_*` is what Setta actually sent to `chat.HarnessStructuredTask`.
+  Until Phase 3 sends configured reasoning effort, `effective_reasoning_effort`
+  should stay empty for current harness calls instead of pretending the
+  configured value was sent.
 - `reported_model` is what the Codex structured-task audit reports.
 - `reported_reasoning_effort` is only populated if the provider returns it.
-- Existing `model` should not remain the long-term source of truth.
+- `reasoning_effort_reported` is `false` when provider audit has no typed
+  reasoning-effort signal.
+- Existing `model` should be removed from the run schema and Go/TypeScript
+  contract surfaces rather than retained as a compatibility alias.
 - Timings should be measured across queue, harness, validation, and application
   stages, not overwritten by the final patch application timestamp.
 - Existing cartographer audit rows are not migrated into these fields.
+- `task_profile` is derived deterministically from the trigger:
+  `workflow_window` -> `live_window`, `workflow_done` -> `final_synthesis`,
+  `manual` -> `manual`, `explicit_retry` -> `retry`, and `explicit_review` ->
+  `review`.
+- Until manual/retry/review get dedicated task-profile settings, they should
+  record their specific `task_profile` value but use the live task config for
+  requested model/reasoning defaults. `workflow_done` uses final synthesis
+  settings; `workflow_window` uses live settings.
 
 The cartographer run record should be updated at each lifecycle transition:
 
@@ -306,6 +350,35 @@ The cartographer run record should be updated at each lifecycle transition:
   duration.
 - Applied/no-op/rejected/failed/cancelled: terminal status, terminal timestamp,
   diagnostics, total duration.
+
+Phase 2 must also fix the current timing bug:
+
+- `beginCartographerWindowProcessing` should preserve the original `created_at`
+  and set `started_at` only when processing starts.
+- `ApplyCartographerPatchEnvelope` should update the existing run audit instead
+  of rebuilding a fresh run with `created_at`, `started_at`, and `completed_at`
+  all set to the application timestamp.
+- Queue wait should be computed from `started_at - created_at`.
+- Harness duration should measure only the structured harness call.
+- Validation and application durations should measure their own stages.
+- Total duration should be `completed_at - created_at`.
+
+Recommended Phase 2 tests:
+
+- Fresh semantic graph store opens at version `12`; version `11` stores are
+  rejected with reset guidance.
+- Saving and reading a cartographer run persists the new requested/effective/
+  reported model and reasoning fields, settings hash, profile, close reason,
+  byte counts, and durations.
+- `model` is absent from the current SQLite run schema and generated
+  TypeScript `CartographerRun` contract.
+- Queued runs snapshot the current settings hash and requested config.
+- A settings change after queueing does not rewrite the queued run's requested
+  audit fields.
+- Processing a run records effective fields from the actual harness task and
+  reported fields from harness audit.
+- Successful, no-op, rejected, failed, and cancelled terminal paths preserve
+  the original `created_at`/`started_at` and record nonnegative durations.
 
 ## Phase 3 - Harness Configuration Path
 
@@ -318,8 +391,9 @@ Backend changes:
 - Set `chat.HarnessStructuredTask.ReasoningEffort`.
 - Preserve existing strict JSON output contract and no-tools/no-mutation policy.
 - Resolve live versus final task profile before queuing or starting the run.
-- Snapshot the settings hash onto the run so later settings changes do not
-  rewrite historical meaning.
+- Use the run's Phase 2 settings hash and requested config snapshot when
+  building the harness task. Do not re-read current mutable settings in a way
+  that changes the meaning of already queued runs.
 
 Codex structured-task behavior:
 
