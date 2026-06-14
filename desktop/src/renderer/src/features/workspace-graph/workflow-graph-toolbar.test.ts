@@ -324,6 +324,7 @@ function cartographerWorkflowDoneRun(): CartographerRun {
     effectiveModel: "gpt-explicit",
     effectiveReasoningEffort: "medium",
     error: "",
+    graphUsefulnessScore: emptyGraphUsefulnessScore(),
     harnessDurationMs: 350,
     harnessKind: "codex_structured_task",
     id: "cartographer_run_budget",
@@ -415,6 +416,25 @@ function cartographerWorkflowDoneRun(): CartographerRun {
     validationDurationMs: 20,
     windowId: "cartographer_window_budget",
     workspaceId: "workspace_test",
+  };
+}
+
+function emptyGraphUsefulnessScore(): CartographerRun["graphUsefulnessScore"] {
+  return {
+    activityCoveragePercent: 0,
+    activityCoveredTargetCount: 0,
+    activityTargetCount: 0,
+    appliedPatches: 0,
+    committedUpdateLatencySampleCount: 0,
+    createdEdgesByKind: [],
+    createdNodesByKind: [],
+    duplicateEvidencePrevented: 0,
+    livePulseLatencySampleCount: 0,
+    medianSourceEventToCommittedSemanticUpdateMs: 0,
+    medianSourceEventToVisibleLivePulseMs: 0,
+    noopPatches: 0,
+    rejectedPatches: 0,
+    sourceLinksBySourceKind: [],
   };
 }
 

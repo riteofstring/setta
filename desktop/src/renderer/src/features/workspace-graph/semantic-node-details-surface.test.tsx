@@ -315,6 +315,7 @@ function cartographerRun(): SemanticNodeDetail["cartographerRuns"][number] {
     createdSemanticEventIds: [],
     diagnostics: [],
     error: "",
+    graphUsefulnessScore: emptyGraphUsefulnessScore(),
     harnessKind: "scripted",
     id: "cartographer_run_detail",
     inputBundle: cartographerInputBundle(),
@@ -376,6 +377,25 @@ function cartographerRun(): SemanticNodeDetail["cartographerRuns"][number] {
     updatedAt: "2026-06-10T12:00:08Z",
     windowId: "cartographer_window_detail",
     workspaceId: "workspace_test",
+  };
+}
+
+function emptyGraphUsefulnessScore(): SemanticNodeDetail["cartographerRuns"][number]["graphUsefulnessScore"] {
+  return {
+    activityCoveragePercent: 0,
+    activityCoveredTargetCount: 0,
+    activityTargetCount: 0,
+    appliedPatches: 0,
+    committedUpdateLatencySampleCount: 0,
+    createdEdgesByKind: [],
+    createdNodesByKind: [],
+    duplicateEvidencePrevented: 0,
+    livePulseLatencySampleCount: 0,
+    medianSourceEventToCommittedSemanticUpdateMs: 0,
+    medianSourceEventToVisibleLivePulseMs: 0,
+    noopPatches: 0,
+    rejectedPatches: 0,
+    sourceLinksBySourceKind: [],
   };
 }
 

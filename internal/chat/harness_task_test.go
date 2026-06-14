@@ -59,7 +59,7 @@ func TestScriptedHarnessReturnsDeterministicCartographerPatchEnvelope(t *testing
 		envelope.Patches[0].ID != "cartographer_patch_scripted" ||
 		envelope.Patches[0].Operation != "record_finding" ||
 		envelope.Patches[0].Payload.NewNode == nil ||
-		envelope.Patches[0].Payload.NewNode.Label != "Workflow result recorded" ||
+		envelope.Patches[0].Payload.NewNode.Label != "Workflow node workflow_node_scripted result" ||
 		envelope.Patches[0].Confidence == nil ||
 		envelope.Patches[0].ModelInfo["provider"] != "scripted" {
 		t.Fatalf("scripted finding envelope = %s, want deterministic concrete finding patch", result.StructuredOutput)

@@ -72,6 +72,7 @@ func (store *Store) SaveCartographerRun(ctx context.Context, run CartographerRun
 		run.TrajectorySummary,
 		columns.createdEventIDsJSON,
 		columns.diagnosticsJSON,
+		columns.graphUsefulnessScoreJSON,
 		run.CreatedAt,
 		run.StartedAt,
 		run.CompletedAt,
@@ -86,12 +87,13 @@ func (store *Store) SaveCartographerRun(ctx context.Context, run CartographerRun
 }
 
 type cartographerRunJSONColumns struct {
-	inputBundleJSON     string
-	outputSchema        json.RawMessage
-	outputSchemaJSON    string
-	inputItemCountsJSON string
-	createdEventIDsJSON string
-	diagnosticsJSON     string
+	inputBundleJSON          string
+	outputSchema             json.RawMessage
+	outputSchemaJSON         string
+	inputItemCountsJSON      string
+	createdEventIDsJSON      string
+	diagnosticsJSON          string
+	graphUsefulnessScoreJSON string
 }
 
 func prepareCartographerRunJSONColumns(run CartographerRun) (cartographerRunJSONColumns, error) {
@@ -117,13 +119,19 @@ func prepareCartographerRunJSONColumns(run CartographerRun) (cartographerRunJSON
 	if err != nil {
 		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer diagnostics: %w", err)
 	}
+	normalizeCartographerGraphUsefulnessScore(&run.GraphUsefulnessScore)
+	graphUsefulnessScoreJSON, err := marshalJSONColumn(run.GraphUsefulnessScore)
+	if err != nil {
+		return cartographerRunJSONColumns{}, fmt.Errorf("encode cartographer graph usefulness score: %w", err)
+	}
 	return cartographerRunJSONColumns{
-		inputBundleJSON:     inputBundleJSON,
-		outputSchema:        outputSchema,
-		outputSchemaJSON:    outputSchemaJSON,
-		inputItemCountsJSON: inputItemCountsJSON,
-		createdEventIDsJSON: createdEventIDsJSON,
-		diagnosticsJSON:     diagnosticsJSON,
+		inputBundleJSON:          inputBundleJSON,
+		outputSchema:             outputSchema,
+		outputSchemaJSON:         outputSchemaJSON,
+		inputItemCountsJSON:      inputItemCountsJSON,
+		createdEventIDsJSON:      createdEventIDsJSON,
+		diagnosticsJSON:          diagnosticsJSON,
+		graphUsefulnessScoreJSON: graphUsefulnessScoreJSON,
 	}, nil
 }
 
@@ -155,9 +163,9 @@ INSERT INTO semantic_cartographer_runs (
   input_item_counts_json, output_schema_bytes, raw_harness_response_hash,
   raw_harness_response_bytes, close_reason, queue_wait_ms, harness_duration_ms,
   validation_duration_ms, application_duration_ms, total_duration_ms, trajectory_summary,
-  created_semantic_event_ids_json, diagnostics_json,
+  created_semantic_event_ids_json, diagnostics_json, graph_usefulness_score_json,
   created_at, started_at, completed_at, updated_at, error
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(workspace_id, id) DO UPDATE SET
   status = excluded.status,
   trigger_kind = excluded.trigger_kind,
@@ -209,6 +217,7 @@ ON CONFLICT(workspace_id, id) DO UPDATE SET
   trajectory_summary = excluded.trajectory_summary,
   created_semantic_event_ids_json = excluded.created_semantic_event_ids_json,
   diagnostics_json = excluded.diagnostics_json,
+  graph_usefulness_score_json = excluded.graph_usefulness_score_json,
   started_at = excluded.started_at,
   completed_at = excluded.completed_at,
   updated_at = excluded.updated_at,
@@ -270,6 +279,7 @@ func saveCartographerRunLocked(ctx context.Context, tx *sql.Tx, run Cartographer
 		run.TrajectorySummary,
 		columns.createdEventIDsJSON,
 		columns.diagnosticsJSON,
+		columns.graphUsefulnessScoreJSON,
 		run.CreatedAt,
 		run.StartedAt,
 		run.CompletedAt,
@@ -932,7 +942,7 @@ SELECT workspace_id, id, status, trigger_kind, target_entity_id,
        raw_harness_response_bytes, close_reason, queue_wait_ms, harness_duration_ms,
        validation_duration_ms, application_duration_ms, total_duration_ms,
        trajectory_summary, created_semantic_event_ids_json, diagnostics_json,
-       created_at, started_at, completed_at, updated_at, error
+       graph_usefulness_score_json, created_at, started_at, completed_at, updated_at, error
 FROM semantic_cartographer_runs
 `
 

@@ -388,17 +388,29 @@ func projectEvidenceAttached(ctx context.Context, tx *sql.Tx, event SemanticEven
 	if err := requireSemanticEntity(ctx, tx, event.WorkspaceID, payload.TargetEntityID); err != nil {
 		return err
 	}
+	identity := semanticEvidenceIdentityForPayload(event.WorkspaceID, payload)
+	if existing, ok, err := loadSemanticEvidenceAnchorByIdentityForProjection(ctx, tx, event.WorkspaceID, identity); err != nil || ok {
+		if err != nil {
+			return err
+		}
+		merged, err := updateDuplicateSemanticEvidenceAnchor(ctx, tx, event, identity, existing, payload)
+		if err != nil {
+			return err
+		}
+		return upsertSemanticEvidenceSearchRow(ctx, tx, merged)
+	}
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO semantic_evidence_anchors (
-  workspace_id, id, target_entity_id, source_kind, source_id, uri, path,
+  workspace_id, id, evidence_identity, target_entity_id, source_kind, source_id, uri, path,
   range_start, range_end, text, summary, content_hash, workflow_definition_id,
   workflow_execution_id, workflow_node_id, workflow_node_execution_id,
   chat_conversation_id, chat_run_id, chat_message_id, run_item_id,
-  reassigned_from_anchor_id, created_by_event_id, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  reassigned_from_anchor_id, created_by_event_id, updated_by_event_id, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		event.WorkspaceID,
 		payload.AnchorID,
+		identity,
 		payload.TargetEntityID,
 		payload.SourceKind,
 		payload.SourceID,
@@ -419,36 +431,14 @@ INSERT INTO semantic_evidence_anchors (
 		payload.RunItemID,
 		payload.ReassignedFromAnchorID,
 		event.EventID,
+		event.EventID,
+		event.ObservedAt,
 		event.ObservedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("attach semantic evidence: %w", err)
 	}
-	return upsertSemanticEvidenceSearchRow(ctx, tx, SemanticEvidenceAnchor{
-		ID:                      payload.AnchorID,
-		WorkspaceID:             event.WorkspaceID,
-		TargetEntityID:          payload.TargetEntityID,
-		SourceKind:              payload.SourceKind,
-		SourceID:                payload.SourceID,
-		URI:                     payload.URI,
-		Path:                    payload.Path,
-		RangeStart:              payload.RangeStart,
-		RangeEnd:                payload.RangeEnd,
-		Text:                    payload.Text,
-		Summary:                 payload.Summary,
-		ContentHash:             payload.ContentHash,
-		WorkflowDefinitionID:    payload.WorkflowDefinitionID,
-		WorkflowExecutionID:     payload.WorkflowExecutionID,
-		WorkflowNodeID:          payload.WorkflowNodeID,
-		WorkflowNodeExecutionID: payload.WorkflowNodeExecutionID,
-		ChatConversationID:      payload.ChatConversationID,
-		ChatRunID:               payload.ChatRunID,
-		ChatMessageID:           payload.ChatMessageID,
-		RunItemID:               payload.RunItemID,
-		ReassignedFromAnchorID:  payload.ReassignedFromAnchorID,
-		CreatedByEventID:        event.EventID,
-		CreatedAt:               event.ObservedAt,
-	})
+	return upsertSemanticEvidenceSearchRow(ctx, tx, semanticEvidenceAnchorFromPayload(event, payload))
 }
 
 func projectActivityStarted(ctx context.Context, tx *sql.Tx, event SemanticEvent) error {

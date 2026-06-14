@@ -122,6 +122,7 @@ interface CartographerRunAuditRecordingSummary {
   effectiveModel: string;
   effectiveReasoningEffort: string;
   error: string;
+  graphUsefulnessScore: CartographerRun["graphUsefulnessScore"];
   harnessDurationMs: number;
   inputBundleBytes: number;
   inputBundleCharacterCount: number;
@@ -376,6 +377,7 @@ function summarizeCartographerRunAudit(run: CartographerRun): CartographerRunAud
     effectiveModel: run.effectiveModel,
     effectiveReasoningEffort: run.effectiveReasoningEffort,
     error: run.error,
+    graphUsefulnessScore: run.graphUsefulnessScore,
     harnessDurationMs: run.harnessDurationMs,
     inputBundleBytes: run.inputBundleBytes,
     inputBundleCharacterCount: run.inputBundleCharacterCount,

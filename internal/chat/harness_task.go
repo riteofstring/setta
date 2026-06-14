@@ -189,7 +189,7 @@ func scriptedCartographerPatches(request HarnessTaskRequest, input scriptedCarto
 	findingPayload["newNode"] = map[string]any{
 		"semanticNodeId": ids.NodeID,
 		"kind":           "finding",
-		"label":          "Workflow result recorded",
+		"label":          scriptedCartographerFindingLabel(input),
 		"summary":        scriptedCartographerFindingSummary(input),
 		"scope":          "session",
 		"evidenceRefs":   []map[string]any{},
@@ -264,13 +264,32 @@ func scriptedCartographerEmptyPayload() map[string]any {
 }
 
 func scriptedCartographerFindingSummary(input scriptedCartographerInput) string {
-	if input.ToolResult != "" {
-		return "The workflow result tool recorded: " + input.ToolResult + "."
+	return scriptedCartographerFindingSubject(input) + " produced a result backed by the cited evidence."
+}
+
+func scriptedCartographerFindingLabel(input scriptedCartographerInput) string {
+	return scriptedCartographerFindingSubject(input) + " result"
+}
+
+func scriptedCartographerFindingSubject(input scriptedCartographerInput) string {
+	if sourceID := scriptedCartographerStringRef(input.SourceRefs, "workflowNodeId"); sourceID != "" {
+		return "Workflow node " + sourceID
 	}
-	if input.AssistantText != "" {
-		return "The final assistant response stated: " + input.AssistantText
+	if sourceID := scriptedCartographerStringRef(input.SourceRefs, "runItemId"); sourceID != "" {
+		return "Run item " + sourceID
 	}
-	return "The workflow produced a concrete result backed by the cited evidence."
+	if sourceID := scriptedCartographerStringRef(input.SourceRefs, "chatMessageId"); sourceID != "" {
+		return "Chat message " + sourceID
+	}
+	return "Workflow evidence"
+}
+
+func scriptedCartographerStringRef(refs map[string]any, key string) string {
+	value, ok := refs[key].(string)
+	if !ok {
+		return ""
+	}
+	return value
 }
 
 func scriptedCartographerSourceRefs(raw map[string]any) map[string]any {

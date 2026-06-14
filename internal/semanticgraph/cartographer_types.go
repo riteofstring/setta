@@ -153,6 +153,7 @@ type CartographerRun struct {
 	TrajectorySummary         string                             `json:"trajectorySummary"`
 	CreatedSemanticEventIDs   []string                           `json:"createdSemanticEventIds"`
 	Diagnostics               []CartographerDiagnostic           `json:"diagnostics"`
+	GraphUsefulnessScore      CartographerGraphUsefulnessScore   `json:"graphUsefulnessScore"`
 	CreatedAt                 string                             `json:"createdAt"`
 	StartedAt                 string                             `json:"startedAt"`
 	CompletedAt               string                             `json:"completedAt"`
@@ -391,6 +392,28 @@ type CartographerInputItemCounts struct {
 	RetrievalResults    int `json:"retrievalResults"`
 	TrajectorySummaries int `json:"trajectorySummaries"`
 	ObservedEventRefs   int `json:"observedEventRefs"`
+}
+
+type CartographerGraphUsefulnessKindCount struct {
+	Kind  string `json:"kind"`
+	Count int    `json:"count"`
+}
+
+type CartographerGraphUsefulnessScore struct {
+	AppliedPatches                               int                                    `json:"appliedPatches"`
+	NoopPatches                                  int                                    `json:"noopPatches"`
+	RejectedPatches                              int                                    `json:"rejectedPatches"`
+	DuplicateEvidencePrevented                   int                                    `json:"duplicateEvidencePrevented"`
+	CreatedNodesByKind                           []CartographerGraphUsefulnessKindCount `json:"createdNodesByKind"`
+	CreatedEdgesByKind                           []CartographerGraphUsefulnessKindCount `json:"createdEdgesByKind"`
+	SourceLinksBySourceKind                      []CartographerGraphUsefulnessKindCount `json:"sourceLinksBySourceKind"`
+	ActivityTargetCount                          int                                    `json:"activityTargetCount"`
+	ActivityCoveredTargetCount                   int                                    `json:"activityCoveredTargetCount"`
+	ActivityCoveragePercent                      int                                    `json:"activityCoveragePercent"`
+	LivePulseLatencySampleCount                  int                                    `json:"livePulseLatencySampleCount"`
+	CommittedUpdateLatencySampleCount            int                                    `json:"committedUpdateLatencySampleCount"`
+	MedianSourceEventToVisibleLivePulseMs        int                                    `json:"medianSourceEventToVisibleLivePulseMs"`
+	MedianSourceEventToCommittedSemanticUpdateMs int                                    `json:"medianSourceEventToCommittedSemanticUpdateMs"`
 }
 
 type CartographerPatchEnvelope struct {

@@ -12,6 +12,7 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 	var inputItemCountsJSON string
 	var createdEventIDsJSON string
 	var diagnosticsJSON string
+	var graphUsefulnessScoreJSON string
 	var reasoningEffortReported int
 	if err := scanner.Scan(
 		&run.WorkspaceID,
@@ -66,6 +67,7 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 		&run.TrajectorySummary,
 		&createdEventIDsJSON,
 		&diagnosticsJSON,
+		&graphUsefulnessScoreJSON,
 		&run.CreatedAt,
 		&run.StartedAt,
 		&run.CompletedAt,
@@ -87,6 +89,9 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 	}
 	if err := unmarshalJSONColumn(diagnosticsJSON, &run.Diagnostics); err != nil {
 		return CartographerRun{}, fmt.Errorf("decode cartographer run diagnostics: %w", err)
+	}
+	if err := unmarshalJSONColumn(graphUsefulnessScoreJSON, &run.GraphUsefulnessScore); err != nil {
+		return CartographerRun{}, fmt.Errorf("decode cartographer graph usefulness score: %w", err)
 	}
 	normalizeCartographerRun(&run)
 	return run, nil
@@ -225,6 +230,13 @@ func normalizeCartographerRun(run *CartographerRun) {
 	if run.Diagnostics == nil {
 		run.Diagnostics = []CartographerDiagnostic{}
 	}
+	normalizeCartographerGraphUsefulnessScore(&run.GraphUsefulnessScore)
+}
+
+func normalizeCartographerGraphUsefulnessScore(score *CartographerGraphUsefulnessScore) {
+	score.CreatedNodesByKind = nonNilSlice(score.CreatedNodesByKind)
+	score.CreatedEdgesByKind = nonNilSlice(score.CreatedEdgesByKind)
+	score.SourceLinksBySourceKind = nonNilSlice(score.SourceLinksBySourceKind)
 }
 
 func normalizeCartographerCursor(cursor *CartographerCursor) {

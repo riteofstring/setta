@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -16,10 +15,62 @@ func validateCartographerRun(ctx context.Context, run CartographerRun) error {
 		func() error { return validateCartographerRunIdentity(run) },
 		func() error { return validateCartographerRunInput(run) },
 		func() error { return validateCartographerRunAudit(run) },
+		func() error { return validateCartographerGraphUsefulnessScore(run.GraphUsefulnessScore) },
 		func() error {
 			return validateCartographerTimestamps("cartographer run", run.CreatedAt, run.StartedAt, run.CompletedAt, run.UpdatedAt)
 		},
 	)
+}
+
+func validateCartographerGraphUsefulnessScore(score CartographerGraphUsefulnessScore) error {
+	values := []struct {
+		label string
+		value int
+	}{
+		{label: "cartographer graph usefulness appliedPatches", value: score.AppliedPatches},
+		{label: "cartographer graph usefulness noopPatches", value: score.NoopPatches},
+		{label: "cartographer graph usefulness rejectedPatches", value: score.RejectedPatches},
+		{label: "cartographer graph usefulness duplicateEvidencePrevented", value: score.DuplicateEvidencePrevented},
+		{label: "cartographer graph usefulness activityTargetCount", value: score.ActivityTargetCount},
+		{label: "cartographer graph usefulness activityCoveredTargetCount", value: score.ActivityCoveredTargetCount},
+		{label: "cartographer graph usefulness activityCoveragePercent", value: score.ActivityCoveragePercent},
+		{label: "cartographer graph usefulness livePulseLatencySampleCount", value: score.LivePulseLatencySampleCount},
+		{label: "cartographer graph usefulness committedUpdateLatencySampleCount", value: score.CommittedUpdateLatencySampleCount},
+		{label: "cartographer graph usefulness medianSourceEventToVisibleLivePulseMs", value: score.MedianSourceEventToVisibleLivePulseMs},
+		{label: "cartographer graph usefulness medianSourceEventToCommittedSemanticUpdateMs", value: score.MedianSourceEventToCommittedSemanticUpdateMs},
+	}
+	for _, item := range values {
+		if item.value < 0 {
+			return fmt.Errorf("%s must not be negative: %d", item.label, item.value)
+		}
+	}
+	if score.ActivityCoveragePercent > 100 {
+		return fmt.Errorf("cartographer graph usefulness activityCoveragePercent must not exceed 100: %d", score.ActivityCoveragePercent)
+	}
+	if err := validateCartographerGraphUsefulnessKindCounts(score.CreatedNodesByKind, "createdNodesByKind"); err != nil {
+		return err
+	}
+	if err := validateCartographerGraphUsefulnessKindCounts(score.CreatedEdgesByKind, "createdEdgesByKind"); err != nil {
+		return err
+	}
+	return validateCartographerGraphUsefulnessKindCounts(score.SourceLinksBySourceKind, "sourceLinksBySourceKind")
+}
+
+func validateCartographerGraphUsefulnessKindCounts(counts []CartographerGraphUsefulnessKindCount, label string) error {
+	seen := map[string]bool{}
+	for index, item := range counts {
+		if err := requireNonEmpty(item.Kind, "cartographer graph usefulness "+label+" kind"); err != nil {
+			return err
+		}
+		if item.Count < 0 {
+			return fmt.Errorf("cartographer graph usefulness %s[%d] count must not be negative: %d", label, index, item.Count)
+		}
+		if seen[item.Kind] {
+			return fmt.Errorf("cartographer graph usefulness %s contains duplicate kind %s", label, item.Kind)
+		}
+		seen[item.Kind] = true
+	}
+	return nil
 }
 
 func validateCartographerRunIdentity(run CartographerRun) error {
@@ -882,75 +933,6 @@ func validateCartographerSource(ctx context.Context, workspaceID string, sourceK
 	}
 	if !isCartographerSourceKind(sourceKind) {
 		return fmt.Errorf("cartographer source kind is unsupported: %s", sourceKind)
-	}
-	return nil
-}
-
-func validateCartographerTimestamps(label string, values ...string) error {
-	for _, value := range values {
-		if value == "" {
-			continue
-		}
-		if err := validateTimestamp(label+" timestamp", value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func optionalIDsFromStrings(label string, values []string) []optionalStoreID {
-	result := make([]optionalStoreID, 0, len(values))
-	for _, value := range values {
-		result = append(result, optionalStoreID{label: label, value: value})
-	}
-	return result
-}
-
-func validateCartographerEventRefs(values []string, label string) error {
-	for _, value := range values {
-		if err := validateCartographerEventRef(value, label); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateCartographerEventRef(value string, label string) error {
-	if strings.TrimSpace(value) == "" {
-		return fmt.Errorf("%s is required", label)
-	}
-	if strings.ContainsAny(value, " \t\r\n") {
-		return fmt.Errorf("%s %q must not contain whitespace", label, value)
-	}
-	return nil
-}
-
-func validateCartographerWorkflowCursor(value string, label string) error {
-	if value == "" {
-		return nil
-	}
-	streamID, sequenceText, ok := strings.Cut(value, ":")
-	if !ok || streamID == "" || sequenceText == "" {
-		return fmt.Errorf("%s must be <stream-id>:<sequence>: %s", label, value)
-	}
-	if err := validateStorageID(label+" stream id", streamID); err != nil {
-		return err
-	}
-	sequence, err := strconv.Atoi(sequenceText)
-	if err != nil || sequence < 0 {
-		return fmt.Errorf("%s sequence must be a non-negative integer: %s", label, value)
-	}
-	return nil
-}
-
-func validateOutputOrdinalMap(values map[string]int, label string) error {
-	for runItemID, ordinal := range values {
-		if err := validateStoreIDs(label+" run item id", runItemID); err != nil {
-			return err
-		}
-		if ordinal < 0 {
-			return fmt.Errorf("%s ordinal for %s must not be negative: %d", label, runItemID, ordinal)
-		}
 	}
 	return nil
 }

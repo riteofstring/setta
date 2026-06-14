@@ -45,11 +45,12 @@ type CartographerPatchEnvelopeApplicationResult struct {
 }
 
 type cartographerPatchDecision struct {
-	patch       CartographerPatch
-	status      CartographerPatchStatus
-	autoApply   bool
-	diagnostics []CartographerDiagnostic
-	eventCount  int
+	patch                  CartographerPatch
+	status                 CartographerPatchStatus
+	autoApply              bool
+	diagnostics            []CartographerDiagnostic
+	applicationDiagnostics []CartographerDiagnostic
+	eventCount             int
 }
 
 func (service *Service) ApplyCartographerPatchEnvelope(ctx context.Context, input CartographerPatchEnvelopeApplicationInput) (CartographerPatchEnvelopeApplicationResult, error) {
@@ -105,10 +106,13 @@ func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Contex
 		return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, saveErr
 	}
 	applicationStart := time.Now()
-	events, eventIndexesByPatch, err := service.cartographerSemanticEventsForDecisions(ctx, input, decisions, now)
+	events, eventIndexesByPatch, applicationDiagnosticsByPatch, err := service.cartographerSemanticEventsForDecisions(ctx, input, decisions, now)
 	if err != nil {
 		run.ApplicationDurationMS = elapsedMillis(applicationStart)
 		return service.saveCartographerFailedRunAudit(ctx, run, "application_build_failed", err.Error(), now)
+	}
+	for index := range decisions {
+		decisions[index].applicationDiagnostics = append(decisions[index].applicationDiagnostics, applicationDiagnosticsByPatch[decisions[index].patch.ID]...)
 	}
 	if err := service.assignCartographerEventIDs(events); err != nil {
 		return CartographerPatchEnvelopeApplicationResult{}, err
@@ -117,6 +121,7 @@ func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Contex
 	records := service.cartographerPatchRecordsFromDecisions(input, decisions, eventIDsByPatch, now)
 	run.CreatedSemanticEventIDs = semanticEventIDs(events)
 	run.Status = cartographerRunStatusForPatchRecords(records)
+	run.GraphUsefulnessScore = cartographerGraphUsefulnessScoreForRun(run, records)
 	if run.Status == CartographerRunRejected {
 		run.Error = "cartographer patch validation rejected all proposed mutations"
 	}
@@ -205,6 +210,7 @@ func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, i
 	runDiagnostics := []CartographerDiagnostic{}
 	decisions := make([]cartographerPatchDecision, 0, len(envelope.Patches))
 	newNodeIDs := collectCartographerEnvelopeNewNodeIDs(envelope)
+	newNodeSignatures := collectCartographerEnvelopeNewNodeSignatures(envelope)
 	edgeConnectedNodeIDs := collectCartographerEnvelopeEdgeConnectedNodeIDs(envelope)
 	for index, patch := range envelope.Patches {
 		if ids[patch.ID] {
@@ -213,7 +219,7 @@ func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, i
 			continue
 		}
 		ids[patch.ID] = true
-		diagnostics := service.validateCartographerPatch(ctx, input, patch, newNodeIDs, edgeConnectedNodeIDs, index, now)
+		diagnostics := service.validateCartographerPatch(ctx, input, patch, newNodeIDs, newNodeSignatures, edgeConnectedNodeIDs, index, now)
 		if input.AutoApplyValidatedPatches {
 			diagnostics = append(diagnostics, service.cartographerAutomaticPatchMetadataDiagnostics(input.RunID, patch, index, now)...)
 		}
@@ -234,7 +240,7 @@ func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, i
 	return decisions, nil, nil
 }
 
-func (service *Service) validateCartographerPatch(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, patch CartographerPatch, newNodeIDs map[string]bool, edgeConnectedNodeIDs map[string]bool, index int, now string) []CartographerDiagnostic {
+func (service *Service) validateCartographerPatch(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, patch CartographerPatch, newNodeIDs map[string]bool, newNodeSignatures map[string]int, edgeConnectedNodeIDs map[string]bool, index int, now string) []CartographerDiagnostic {
 	diagnostics := []CartographerDiagnostic{}
 	add := func(code string, message string, path string) {
 		diagnostics = append(diagnostics, service.newCartographerDiagnostic(input.RunID, patch.ID, CartographerDiagnosticError, code, message, path, now))
@@ -261,7 +267,7 @@ func (service *Service) validateCartographerPatch(ctx context.Context, input Car
 	if cartographerPatchRequiresEvidence(patch) && !cartographerPatchHasEvidence(patch) {
 		add("missing_evidence", "cartographer auto-applied patches require evidence refs", fmt.Sprintf("$.patches[%d].evidenceRefs", index))
 	}
-	for _, diagnostic := range service.validateCartographerAutomaticNodeConnectionPolicy(ctx, input, patch, edgeConnectedNodeIDs, index, now) {
+	for _, diagnostic := range service.validateCartographerAutomaticNodeConnectionPolicy(ctx, input, patch, newNodeSignatures, edgeConnectedNodeIDs, index, now) {
 		diagnostics = append(diagnostics, diagnostic)
 	}
 	return diagnostics
@@ -558,9 +564,11 @@ func (service *Service) validateCartographerPatchEvidenceRefs(ctx context.Contex
 	return nil
 }
 
-func (service *Service) cartographerSemanticEventsForDecisions(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, decisions []cartographerPatchDecision, now string) ([]SemanticEvent, map[string][]int, error) {
+func (service *Service) cartographerSemanticEventsForDecisions(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, decisions []cartographerPatchDecision, now string) ([]SemanticEvent, map[string][]int, map[string][]CartographerDiagnostic, error) {
 	events := []SemanticEvent{}
 	eventIndexesByPatch := map[string][]int{}
+	applicationDiagnosticsByPatch := map[string][]CartographerDiagnostic{}
+	seenEvidenceIdentities := map[string]bool{}
 	actor := SemanticAttachmentActor{ActorKind: ActorKindCartographer, ActorID: input.RunID}
 	orderedIndexes := cartographerDecisionApplicationOrder(decisions)
 	for _, decisionIndex := range orderedIndexes {
@@ -569,16 +577,53 @@ func (service *Service) cartographerSemanticEventsForDecisions(ctx context.Conte
 		}
 		patchEvents, err := service.cartographerSemanticEventsForPatch(ctx, input.WorkspaceID, actor, decisions[decisionIndex].patch)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		for patchEventIndex := range patchEvents {
 			service.decorateCartographerSemanticEvent(&patchEvents[patchEventIndex], input, decisions[decisionIndex].patch, now)
+			diagnostic, ok, err := service.cartographerDuplicateEvidenceDiagnosticForEvent(ctx, input, decisions[decisionIndex].patch, decisionIndex, patchEvents[patchEventIndex], seenEvidenceIdentities, now)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			if ok {
+				applicationDiagnosticsByPatch[decisions[decisionIndex].patch.ID] = append(applicationDiagnosticsByPatch[decisions[decisionIndex].patch.ID], diagnostic)
+			}
 			eventIndexesByPatch[decisions[decisionIndex].patch.ID] = append(eventIndexesByPatch[decisions[decisionIndex].patch.ID], len(events))
 			events = append(events, patchEvents[patchEventIndex])
 		}
 		decisions[decisionIndex].eventCount = len(patchEvents)
 	}
-	return events, eventIndexesByPatch, nil
+	return events, eventIndexesByPatch, applicationDiagnosticsByPatch, nil
+}
+
+func (service *Service) cartographerDuplicateEvidenceDiagnosticForEvent(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, patch CartographerPatch, patchIndex int, event SemanticEvent, seenEvidenceIdentities map[string]bool, now string) (CartographerDiagnostic, bool, error) {
+	if event.EventType != EventEvidenceAttached {
+		return CartographerDiagnostic{}, false, nil
+	}
+	payload, err := decodeStrictPayload[evidenceAttachedPayload](event)
+	if err != nil {
+		return CartographerDiagnostic{}, false, err
+	}
+	identity := semanticEvidenceIdentityForPayload(input.WorkspaceID, payload)
+	duplicateInEnvelope := seenEvidenceIdentities[identity]
+	seenEvidenceIdentities[identity] = true
+	exists, err := service.store.semanticEvidenceIdentityExists(ctx, input.WorkspaceID, identity)
+	if err != nil {
+		return CartographerDiagnostic{}, false, err
+	}
+	if !duplicateInEnvelope && !exists {
+		return CartographerDiagnostic{}, false, nil
+	}
+	message := fmt.Sprintf("duplicate semantic evidence was merged for target %s from %s/%s", payload.TargetEntityID, payload.SourceKind, payload.SourceID)
+	return service.newCartographerDiagnostic(
+		input.RunID,
+		patch.ID,
+		CartographerDiagnosticInfo,
+		cartographerDiagnosticDuplicateEvidencePrevented,
+		message,
+		fmt.Sprintf("$.patches[%d].evidenceRefs", patchIndex),
+		now,
+	), true, nil
 }
 
 func (service *Service) cartographerRecordNodeEvents(ctx context.Context, workspaceID string, actor SemanticAttachmentActor, patch CartographerPatch) ([]SemanticEvent, error) {
@@ -716,7 +761,7 @@ func (service *Service) cartographerPatchRecordsFromDecisions(input Cartographer
 			PatchID:                 decision.patch.ID,
 			Applied:                 decision.status == CartographerPatchApplied,
 			CreatedSemanticEventIDs: eventIDs,
-			Diagnostics:             []CartographerDiagnostic{},
+			Diagnostics:             nonNilSlice(decision.applicationDiagnostics),
 			AppliedAt:               "",
 		}
 		appliedAt := ""
@@ -792,169 +837,4 @@ func cartographerDecisionsContainRejected(decisions []cartographerPatchDecision)
 		}
 	}
 	return false
-}
-
-func collectCartographerEnvelopeNewNodeIDs(envelope CartographerPatchEnvelope) map[string]bool {
-	ids := map[string]bool{}
-	for _, patch := range envelope.Patches {
-		if patch.Payload.NewNode != nil {
-			ids[patch.Payload.NewNode.SemanticNodeID] = true
-		}
-		if patch.Payload.TargetNode != nil {
-			ids[patch.Payload.TargetNode.SemanticNodeID] = true
-		}
-		for _, node := range patch.Payload.NewNodes {
-			ids[node.SemanticNodeID] = true
-		}
-	}
-	return ids
-}
-
-func cartographerPatchSourceRefsMatchInput(patchRefs SemanticContextSourceRefs, bundle CartographerInputBundle) bool {
-	candidates := []SemanticContextSourceRefs{bundle.SourceRefs}
-	for _, observation := range bundle.Observations {
-		candidates = append(candidates, cartographerObservationSourceRefs(observation))
-	}
-	for _, event := range bundle.NewEvents {
-		candidates = append(candidates, cartographerTrajectoryEventSourceRefs(event))
-	}
-	for _, candidate := range candidates {
-		if cartographerPatchSourceRefsMatchCandidate(patchRefs, candidate) {
-			return true
-		}
-	}
-	return cartographerPatchSourceRefsMatchInputAggregate(patchRefs, candidates)
-}
-
-func cartographerObservationSourceRefs(observation CartographerObservationRecord) SemanticContextSourceRefs {
-	return SemanticContextSourceRefs{
-		WorkflowDefinitionID:    observation.WorkflowDefinitionID,
-		WorkflowExecutionID:     observation.WorkflowExecutionID,
-		WorkflowNodeID:          observation.WorkflowNodeID,
-		WorkflowNodeExecutionID: observation.WorkflowNodeExecutionID,
-		ChatConversationID:      observation.ChatConversationID,
-		ChatRunID:               observation.ChatRunID,
-		ChatMessageID:           observation.ChatMessageID,
-		RunItemID:               observation.RunItemID,
-	}
-}
-
-func cartographerTrajectoryEventSourceRefs(event CartographerTrajectoryEvent) SemanticContextSourceRefs {
-	refs := event.SourceRefs
-	refs.ChatMessageID = firstNonEmpty(refs.ChatMessageID, event.ChatMessageID)
-	refs.RunItemID = firstNonEmpty(refs.RunItemID, event.RunItemID)
-	return refs
-}
-
-func cartographerPatchSourceRefsMatchCandidate(patchRefs SemanticContextSourceRefs, inputRefs SemanticContextSourceRefs) bool {
-	patchValues := []struct {
-		patch string
-		input string
-	}{
-		{patch: patchRefs.WorkflowDefinitionID, input: inputRefs.WorkflowDefinitionID},
-		{patch: patchRefs.WorkflowExecutionID, input: inputRefs.WorkflowExecutionID},
-		{patch: patchRefs.WorkflowNodeID, input: inputRefs.WorkflowNodeID},
-		{patch: patchRefs.WorkflowNodeExecutionID, input: inputRefs.WorkflowNodeExecutionID},
-		{patch: patchRefs.ChatConversationID, input: inputRefs.ChatConversationID},
-		{patch: patchRefs.ChatRunID, input: inputRefs.ChatRunID},
-		{patch: patchRefs.ChatMessageID, input: inputRefs.ChatMessageID},
-		{patch: patchRefs.RunItemID, input: inputRefs.RunItemID},
-	}
-	nonEmpty := false
-	for _, item := range patchValues {
-		if item.patch == "" {
-			continue
-		}
-		nonEmpty = true
-		if item.patch != item.input {
-			return false
-		}
-	}
-	return nonEmpty
-}
-
-func cartographerPatchSourceRefsMatchInputAggregate(patchRefs SemanticContextSourceRefs, inputRefs []SemanticContextSourceRefs) bool {
-	patchValues := []struct {
-		patch string
-		input func(SemanticContextSourceRefs) string
-	}{
-		{patch: patchRefs.WorkflowDefinitionID, input: func(refs SemanticContextSourceRefs) string { return refs.WorkflowDefinitionID }},
-		{patch: patchRefs.WorkflowExecutionID, input: func(refs SemanticContextSourceRefs) string { return refs.WorkflowExecutionID }},
-		{patch: patchRefs.WorkflowNodeID, input: func(refs SemanticContextSourceRefs) string { return refs.WorkflowNodeID }},
-		{patch: patchRefs.WorkflowNodeExecutionID, input: func(refs SemanticContextSourceRefs) string { return refs.WorkflowNodeExecutionID }},
-		{patch: patchRefs.ChatConversationID, input: func(refs SemanticContextSourceRefs) string { return refs.ChatConversationID }},
-		{patch: patchRefs.ChatRunID, input: func(refs SemanticContextSourceRefs) string { return refs.ChatRunID }},
-		{patch: patchRefs.ChatMessageID, input: func(refs SemanticContextSourceRefs) string { return refs.ChatMessageID }},
-		{patch: patchRefs.RunItemID, input: func(refs SemanticContextSourceRefs) string { return refs.RunItemID }},
-	}
-	nonEmpty := false
-	for _, item := range patchValues {
-		if item.patch == "" {
-			continue
-		}
-		nonEmpty = true
-		matched := false
-		for _, refs := range inputRefs {
-			if item.input(refs) == item.patch {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
-	}
-	return nonEmpty
-}
-
-func cartographerInputBundleHasSourceRef(bundle CartographerInputBundle, kind SemanticEvidenceSourceKind, sourceID string) bool {
-	return cartographerInputBundleHasDirectSourceRef(bundle, kind, sourceID) ||
-		cartographerInputBundleHasObservedSourceRef(bundle, kind, sourceID) ||
-		cartographerInputBundleEvidenceHasSourceRef(bundle, kind, sourceID)
-}
-
-func cartographerInputBundleHasActivitySourceRef(bundle CartographerInputBundle, kind SemanticActivitySourceKind, sourceID string) bool {
-	evidenceKind, ok := evidenceSourceKindForActivitySourceKind(kind)
-	if !ok {
-		return false
-	}
-	return cartographerInputBundleHasSourceRef(bundle, evidenceKind, sourceID)
-}
-
-func evidenceSourceKindForActivitySourceKind(kind SemanticActivitySourceKind) (SemanticEvidenceSourceKind, bool) {
-	switch kind {
-	case ActivitySourceWorkflowExecution:
-		return EvidenceSourceWorkflowExecution, true
-	case ActivitySourceWorkflowNode:
-		return EvidenceSourceWorkflowNode, true
-	case ActivitySourceChatRun:
-		return EvidenceSourceChatRun, true
-	case ActivitySourceChatMessage:
-		return EvidenceSourceChatMessage, true
-	case ActivitySourceRunItem, ActivitySourceCommand:
-		return EvidenceSourceRunItem, true
-	case ActivitySourceFileRange:
-		return EvidenceSourceFileRange, true
-	case ActivitySourceTest:
-		return EvidenceSourceTest, true
-	case ActivitySourceDiff:
-		return EvidenceSourceDiff, true
-	default:
-		return "", false
-	}
-}
-
-func cartographerInputBundleHasDirectSourceRef(bundle CartographerInputBundle, kind SemanticEvidenceSourceKind, sourceID string) bool {
-	switch kind {
-	case EvidenceSourceWorkflowExecution:
-		return sourceID == bundle.SourceRefs.WorkflowExecutionID
-	case EvidenceSourceWorkflowNode:
-		return sourceID == bundle.SourceRefs.WorkflowNodeID || sourceID == bundle.SourceRefs.WorkflowNodeExecutionID
-	case EvidenceSourceChatRun:
-		return sourceID == bundle.SourceRefs.ChatRunID
-	case EvidenceSourceChatMessage:
-		return sourceID == bundle.SourceRefs.ChatMessageID
-	default:
-		return false
-	}
 }

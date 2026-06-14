@@ -326,6 +326,77 @@ func TestStoreProjectsSplitMergeDismissAndPromoteLineage(t *testing.T) {
 	}
 }
 
+func TestStoreMergesDuplicateEvidenceAnchorsByDeterministicIdentity(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	appendTestEvent(t, store, EventNodeCreated, "node_evidence_idempotent", nodeCreatedPayload{
+		NodeID:  "node_evidence_idempotent",
+		Kind:    NodeKindFinding,
+		Label:   "Evidence idempotency",
+		Summary: "Duplicate evidence events should not create duplicate source links.",
+	})
+	firstPayload := evidenceAttachedPayload{
+		AnchorID:       "evidence_idempotent_first",
+		TargetEntityID: "node_evidence_idempotent",
+		SourceKind:     EvidenceSourceRunItem,
+		SourceID:       "run_item_idempotent",
+		Path:           "internal/semanticgraph/store.go",
+		RangeStart:     10,
+		RangeEnd:       20,
+		Text:           "The same typed evidence body.",
+		Summary:        "Initial evidence summary.",
+		ContentHash:    "sha256:idempotent",
+		ChatRunID:      "chat_run_idempotent",
+		RunItemID:      "run_item_idempotent",
+	}
+	appendTestEvent(t, store, EventEvidenceAttached, "node_evidence_idempotent", firstPayload)
+	duplicatePayload := firstPayload
+	duplicatePayload.AnchorID = "evidence_idempotent_duplicate"
+	duplicatePayload.Summary = "Merged evidence summary."
+	appendTestEvent(t, store, EventEvidenceAttached, "node_evidence_idempotent", duplicatePayload)
+
+	graph, err := store.ReadGraph(ctx, testWorkspaceID)
+	if err != nil {
+		t.Fatalf("read graph: %v", err)
+	}
+	if len(graph.SourceLinks) != 1 {
+		t.Fatalf("source links = %+v, want one merged evidence link", graph.SourceLinks)
+	}
+	link := graph.SourceLinks[0]
+	if link.ID != "evidence_idempotent_first" || link.Summary != "Merged evidence summary." {
+		t.Fatalf("merged evidence = %+v, want original anchor id with merged summary", link)
+	}
+	history, err := store.ReadEventHistory(ctx, testWorkspaceID, "node_evidence_idempotent", 0, 10)
+	if err != nil {
+		t.Fatalf("read evidence event history: %v", err)
+	}
+	if len(history.Events) != 3 {
+		t.Fatalf("event history = %+v, want node creation plus both evidence events", history.Events)
+	}
+	var duplicateCount int
+	if err := store.db.QueryRow(`
+SELECT duplicate_count
+FROM semantic_evidence_anchors
+WHERE workspace_id = ? AND id = ?
+`, testWorkspaceID, "evidence_idempotent_first").Scan(&duplicateCount); err != nil {
+		t.Fatalf("read duplicate evidence count: %v", err)
+	}
+	if duplicateCount != 1 {
+		t.Fatalf("duplicate evidence count = %d, want 1", duplicateCount)
+	}
+
+	if err := store.RebuildProjections(ctx); err != nil {
+		t.Fatalf("rebuild projections: %v", err)
+	}
+	rebuilt, err := store.ReadGraph(ctx, testWorkspaceID)
+	if err != nil {
+		t.Fatalf("read rebuilt graph: %v", err)
+	}
+	if len(rebuilt.SourceLinks) != 1 || rebuilt.SourceLinks[0].ID != "evidence_idempotent_first" {
+		t.Fatalf("rebuilt source links = %+v, want one idempotent evidence link", rebuilt.SourceLinks)
+	}
+}
+
 func TestStoreProjectsEvidenceActivitySteeringAndContextPacks(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
@@ -704,6 +775,7 @@ WHERE type = 'table' AND name IN (
 		"output_schema_bytes",
 		"raw_harness_response_bytes",
 		"close_reason",
+		"graph_usefulness_score_json",
 	} {
 		if !cartographerRunColumns[column] {
 			t.Fatalf("semantic_cartographer_runs missing phase 2 audit column %s", column)
@@ -730,9 +802,9 @@ WHERE type = 'table' AND name IN (
 	if !IsCorruptStateError(err) {
 		t.Fatalf("previous-version store error = %T %v, want corrupt state error", err, err)
 	}
-	if !strings.Contains(err.Error(), "unsupported schema version 12") ||
+	if !strings.Contains(err.Error(), fmt.Sprintf("unsupported schema version %d", semanticStoreVersion-1)) ||
 		!strings.Contains(err.Error(), "reset the semantic graph store") {
-		t.Fatalf("previous-version store error = %v, want version 12 reset guidance", err)
+		t.Fatalf("previous-version store error = %v, want previous-version reset guidance", err)
 	}
 }
 

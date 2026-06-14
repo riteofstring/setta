@@ -192,6 +192,7 @@ function baseCartographerRun(
     effectiveModel: "",
     effectiveReasoningEffort: "low",
     error: "",
+    graphUsefulnessScore: emptyGraphUsefulnessScore(),
     harnessDurationMs: 350,
     harnessKind: "codex_structured_task",
     id,
@@ -236,6 +237,25 @@ function baseCartographerRun(
     validationDurationMs: 20,
     windowId: "cartographer_window_test",
     workspaceId: "workspace_test",
+  };
+}
+
+function emptyGraphUsefulnessScore(): CartographerRun["graphUsefulnessScore"] {
+  return {
+    activityCoveragePercent: 0,
+    activityCoveredTargetCount: 0,
+    activityTargetCount: 0,
+    appliedPatches: 0,
+    committedUpdateLatencySampleCount: 0,
+    createdEdgesByKind: [],
+    createdNodesByKind: [],
+    duplicateEvidencePrevented: 0,
+    livePulseLatencySampleCount: 0,
+    medianSourceEventToCommittedSemanticUpdateMs: 0,
+    medianSourceEventToVisibleLivePulseMs: 0,
+    noopPatches: 0,
+    rejectedPatches: 0,
+    sourceLinksBySourceKind: [],
   };
 }
 

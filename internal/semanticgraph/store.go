@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 13
+	semanticStoreVersion = 14
 	sqliteDriverName     = "sqlite"
 )
 
@@ -238,6 +238,7 @@ CREATE INDEX IF NOT EXISTS semantic_edges_workspace_nodes_idx
 CREATE TABLE IF NOT EXISTS semantic_evidence_anchors (
   workspace_id TEXT NOT NULL,
   id TEXT NOT NULL,
+  evidence_identity TEXT NOT NULL DEFAULT '',
   target_entity_id TEXT NOT NULL,
   source_kind TEXT NOT NULL,
   source_id TEXT NOT NULL DEFAULT '',
@@ -258,8 +259,12 @@ CREATE TABLE IF NOT EXISTS semantic_evidence_anchors (
   run_item_id TEXT NOT NULL DEFAULT '',
   reassigned_from_anchor_id TEXT NOT NULL DEFAULT '',
   created_by_event_id TEXT NOT NULL,
+  updated_by_event_id TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
-  PRIMARY KEY(workspace_id, id)
+  updated_at TEXT NOT NULL DEFAULT '',
+  duplicate_count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(workspace_id, id),
+  UNIQUE(workspace_id, evidence_identity)
 );
 
 CREATE INDEX IF NOT EXISTS semantic_evidence_workspace_target_idx
@@ -440,6 +445,7 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
   trajectory_summary TEXT NOT NULL DEFAULT '',
   created_semantic_event_ids_json TEXT NOT NULL DEFAULT '[]',
   diagnostics_json TEXT NOT NULL DEFAULT '[]',
+  graph_usefulness_score_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
   started_at TEXT NOT NULL DEFAULT '',
   completed_at TEXT NOT NULL DEFAULT '',

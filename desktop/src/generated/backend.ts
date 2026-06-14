@@ -4020,6 +4020,28 @@ export interface CartographerInputBundle {
   truncation: CartographerInputTruncation;
 }
 
+export interface CartographerGraphUsefulnessKindCount {
+  kind: string;
+  count: number;
+}
+
+export interface CartographerGraphUsefulnessScore {
+  appliedPatches: number;
+  noopPatches: number;
+  rejectedPatches: number;
+  duplicateEvidencePrevented: number;
+  createdNodesByKind: CartographerGraphUsefulnessKindCount[];
+  createdEdgesByKind: CartographerGraphUsefulnessKindCount[];
+  sourceLinksBySourceKind: CartographerGraphUsefulnessKindCount[];
+  activityTargetCount: number;
+  activityCoveredTargetCount: number;
+  activityCoveragePercent: number;
+  livePulseLatencySampleCount: number;
+  committedUpdateLatencySampleCount: number;
+  medianSourceEventToVisibleLivePulseMs: number;
+  medianSourceEventToCommittedSemanticUpdateMs: number;
+}
+
 export interface CartographerRun {
   id: string;
   workspaceId: string;
@@ -4066,6 +4088,7 @@ export interface CartographerRun {
   trajectorySummary: string;
   createdSemanticEventIds: string[];
   diagnostics: CartographerDiagnostic[];
+  graphUsefulnessScore: CartographerGraphUsefulnessScore;
   createdAt: string;
   startedAt: string;
   completedAt: string;
@@ -8487,9 +8510,39 @@ export function decodeCartographerInputBundle(value: unknown): CartographerInput
   };
 }
 
+export function decodeCartographerGraphUsefulnessKindCount(value: unknown): CartographerGraphUsefulnessKindCount {
+  const record = assertRecord(value, "CartographerGraphUsefulnessKindCount");
+  assertKnownFields(record, "CartographerGraphUsefulnessKindCount", ["kind", "count"]);
+  return {
+    kind: decodeString(requireField(record, "kind", "CartographerGraphUsefulnessKindCount"), "CartographerGraphUsefulnessKindCount.kind"),
+    count: decodeInteger(requireField(record, "count", "CartographerGraphUsefulnessKindCount"), "CartographerGraphUsefulnessKindCount.count"),
+  };
+}
+
+export function decodeCartographerGraphUsefulnessScore(value: unknown): CartographerGraphUsefulnessScore {
+  const record = assertRecord(value, "CartographerGraphUsefulnessScore");
+  assertKnownFields(record, "CartographerGraphUsefulnessScore", ["appliedPatches", "noopPatches", "rejectedPatches", "duplicateEvidencePrevented", "createdNodesByKind", "createdEdgesByKind", "sourceLinksBySourceKind", "activityTargetCount", "activityCoveredTargetCount", "activityCoveragePercent", "livePulseLatencySampleCount", "committedUpdateLatencySampleCount", "medianSourceEventToVisibleLivePulseMs", "medianSourceEventToCommittedSemanticUpdateMs"]);
+  return {
+    appliedPatches: decodeInteger(requireField(record, "appliedPatches", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.appliedPatches"),
+    noopPatches: decodeInteger(requireField(record, "noopPatches", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.noopPatches"),
+    rejectedPatches: decodeInteger(requireField(record, "rejectedPatches", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.rejectedPatches"),
+    duplicateEvidencePrevented: decodeInteger(requireField(record, "duplicateEvidencePrevented", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.duplicateEvidencePrevented"),
+    createdNodesByKind: decodeArray(requireField(record, "createdNodesByKind", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.createdNodesByKind", (item) => decodeCartographerGraphUsefulnessKindCount(item)),
+    createdEdgesByKind: decodeArray(requireField(record, "createdEdgesByKind", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.createdEdgesByKind", (item) => decodeCartographerGraphUsefulnessKindCount(item)),
+    sourceLinksBySourceKind: decodeArray(requireField(record, "sourceLinksBySourceKind", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.sourceLinksBySourceKind", (item) => decodeCartographerGraphUsefulnessKindCount(item)),
+    activityTargetCount: decodeInteger(requireField(record, "activityTargetCount", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.activityTargetCount"),
+    activityCoveredTargetCount: decodeInteger(requireField(record, "activityCoveredTargetCount", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.activityCoveredTargetCount"),
+    activityCoveragePercent: decodeInteger(requireField(record, "activityCoveragePercent", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.activityCoveragePercent"),
+    livePulseLatencySampleCount: decodeInteger(requireField(record, "livePulseLatencySampleCount", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.livePulseLatencySampleCount"),
+    committedUpdateLatencySampleCount: decodeInteger(requireField(record, "committedUpdateLatencySampleCount", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.committedUpdateLatencySampleCount"),
+    medianSourceEventToVisibleLivePulseMs: decodeInteger(requireField(record, "medianSourceEventToVisibleLivePulseMs", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.medianSourceEventToVisibleLivePulseMs"),
+    medianSourceEventToCommittedSemanticUpdateMs: decodeInteger(requireField(record, "medianSourceEventToCommittedSemanticUpdateMs", "CartographerGraphUsefulnessScore"), "CartographerGraphUsefulnessScore.medianSourceEventToCommittedSemanticUpdateMs"),
+  };
+}
+
 export function decodeCartographerRun(value: unknown): CartographerRun {
   const record = assertRecord(value, "CartographerRun");
-  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "settingsHash", "taskProfile", "requestedModelSelection", "requestedModel", "effectiveModel", "reportedModel", "requestedReasoningEffort", "requestedInputBudget", "effectiveReasoningEffort", "reportedReasoningEffort", "reasoningEffortReported", "requestId", "responseId", "windowId", "sourceEpochId", "sourceKey", "priority", "leaseOwner", "leaseDeadline", "attemptCount", "inputBundleHash", "inputBundleBytes", "inputBundleCharacterCount", "inputItemCounts", "outputSchemaBytes", "rawHarnessResponseHash", "rawHarnessResponseBytes", "closeReason", "queueWaitMs", "harnessDurationMs", "validationDurationMs", "applicationDurationMs", "totalDurationMs", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
+  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "settingsHash", "taskProfile", "requestedModelSelection", "requestedModel", "effectiveModel", "reportedModel", "requestedReasoningEffort", "requestedInputBudget", "effectiveReasoningEffort", "reportedReasoningEffort", "reasoningEffortReported", "requestId", "responseId", "windowId", "sourceEpochId", "sourceKey", "priority", "leaseOwner", "leaseDeadline", "attemptCount", "inputBundleHash", "inputBundleBytes", "inputBundleCharacterCount", "inputItemCounts", "outputSchemaBytes", "rawHarnessResponseHash", "rawHarnessResponseBytes", "closeReason", "queueWaitMs", "harnessDurationMs", "validationDurationMs", "applicationDurationMs", "totalDurationMs", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "graphUsefulnessScore", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
   return {
     id: decodeString(requireField(record, "id", "CartographerRun"), "CartographerRun.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "CartographerRun"), "CartographerRun.workspaceId"),
@@ -8536,6 +8589,7 @@ export function decodeCartographerRun(value: unknown): CartographerRun {
     trajectorySummary: decodeString(requireField(record, "trajectorySummary", "CartographerRun"), "CartographerRun.trajectorySummary"),
     createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "CartographerRun"), "CartographerRun.createdSemanticEventIds", (item) => decodeString(item, "CartographerRun.createdSemanticEventIds item")),
     diagnostics: decodeArray(requireField(record, "diagnostics", "CartographerRun"), "CartographerRun.diagnostics", (item) => decodeCartographerDiagnostic(item)),
+    graphUsefulnessScore: decodeCartographerGraphUsefulnessScore(requireField(record, "graphUsefulnessScore", "CartographerRun")),
     createdAt: decodeString(requireField(record, "createdAt", "CartographerRun"), "CartographerRun.createdAt"),
     startedAt: decodeString(requireField(record, "startedAt", "CartographerRun"), "CartographerRun.startedAt"),
     completedAt: decodeString(requireField(record, "completedAt", "CartographerRun"), "CartographerRun.completedAt"),
