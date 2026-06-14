@@ -14,6 +14,7 @@ export function createWorkflowGraphCameraSync({
   labelLayer,
   labels,
   syncFilterAreas,
+  syncVisibleScene,
   viewport,
 }) {
   let lastCameraState = cameraState(viewport);
@@ -139,14 +140,20 @@ export function createWorkflowGraphCameraSync({
 
   function runScheduledCameraSync(force) {
     const cameraMotion = cameraDependentSyncRequiresMovingFrame && !force ? "moving" : "settled";
+    const syncIncludesZoom = force || pendingCameraSyncIncludesZoom;
     cameraDependentSyncScheduled = false;
     cameraDependentSyncRequiresMovingFrame = false;
     debugMetrics.measure(
       "commit-camera-change",
       () => {
+        syncVisibleScene?.({
+          cameraMotion,
+          force,
+          zoomChanged: syncIncludesZoom,
+        });
         syncLabelsForCameraMotion(cameraMotion);
         animationCoordinator.syncActiveSet({ cameraMotion });
-        syncFilterAreas({ force: force || pendingCameraSyncIncludesZoom });
+        syncFilterAreas({ force: syncIncludesZoom });
         pendingCameraSyncIncludesZoom = false;
       },
       { cameraMotion },
@@ -169,6 +176,11 @@ export function createWorkflowGraphCameraSync({
     debugMetrics.measure(
       "camera-settle-fidelity-restore",
       () => {
+        syncVisibleScene?.({
+          cameraMotion: "settled",
+          force: false,
+          zoomChanged: false,
+        });
         syncLabelsForCameraMotion("settled");
         animationCoordinator.syncActiveSet({ cameraMotion: "settled" });
       },

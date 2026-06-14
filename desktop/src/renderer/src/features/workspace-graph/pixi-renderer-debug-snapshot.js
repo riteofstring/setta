@@ -34,7 +34,6 @@ export function createWorkflowGraphDebugSnapshot({
   reactRenderCount,
   recentFrameMs,
   renderState,
-  requireNodeLabel,
   spatialQueries,
   viewport,
 }) {
@@ -78,9 +77,9 @@ export function createWorkflowGraphDebugSnapshot({
         nodes: nodes.map((node) =>
           nodeDebugSnapshot(node, {
             loadedNodeLabelFont,
+            nodeLabels,
             nodeLabelFontSizeModes,
             nodeLabelVisibilityReasons,
-            requireNodeLabel,
             viewport,
           }),
         ),
@@ -122,6 +121,7 @@ export function createWorkflowGraphDebugSnapshot({
         cellAnimRedrawCount: state.cellAnimRedrawCount,
         edgeCommitCount: state.edgeCommitCount,
         edgeGraphicsCount: 3,
+        edgeLevelOfDetail: state.edgeLevelOfDetail,
         edgeFlowRedrawCount: state.edgeFlowRedrawCount,
         edgeRedrawCount: state.edgeRedrawCount,
         edgeSelectionChangeCount: state.edgeSelectionChangeCount,
@@ -147,6 +147,9 @@ export function createWorkflowGraphDebugSnapshot({
         labelVisibilityWindowSize: state.labelVisibilityWindowSize,
         lastLabelVisibilityEnteredCount: state.lastLabelVisibilityEnteredCount,
         lastLabelVisibilityExitedCount: state.lastLabelVisibilityExitedCount,
+        lastDrawnEdgeCount: state.lastDrawnEdgeCount,
+        lastDrawnEdgeLabelCount: state.lastDrawnEdgeLabelCount,
+        pooledLabelCount: state.pooledLabelCount,
         lastCameraMovementKind: state.lastCameraMovementKind,
         glowVisibilityEnterPaddingScreenPx: state.glowVisibilityEnterPaddingScreenPx,
         glowVisibilityExitPaddingScreenPx: state.glowVisibilityExitPaddingScreenPx,
@@ -155,6 +158,13 @@ export function createWorkflowGraphDebugSnapshot({
         lastStaticGlowVisibleNodeCount: state.lastStaticGlowVisibleNodeCount,
         marqueeUpdateCount: state.marqueeUpdateCount,
         movingLabelSyncNodeLimit: state.movingLabelSyncNodeLimit,
+        lastSceneWindowEnteredCount: state.lastSceneWindowEnteredCount,
+        lastSceneWindowExitedCount: state.lastSceneWindowExitedCount,
+        lastSceneWindowVisibleNodeCount: state.lastSceneWindowVisibleNodeCount,
+        lastVisibleMaterializedNodeCount: state.lastVisibleMaterializedNodeCount,
+        materializedLabelCount: nodeLabels.size,
+        materializedNodeCount: state.materializedNodeCount,
+        materializedPortCount: state.materializedPortCount,
         nodeBodyContextCount: nodeGeometryContexts.body,
         nodeBodyGraphicsCount: nodeBodies.size,
         nodeContainerCount: nodeContainers.size,
@@ -165,9 +175,14 @@ export function createWorkflowGraphDebugSnapshot({
         nodeOutlineVisibilityUpdateCount: state.nodeOutlineVisibilityUpdateCount,
         nodeShadowContextCount: nodeGeometryContexts.shadow,
         nodeShadowGraphicsCount: nodeShadows.size,
+        nodeViewPoolDestroyCount: state.nodeViewPoolDestroyCount,
+        nodeViewPoolHitCount: state.nodeViewPoolHitCount,
+        nodeViewPoolMissCount: state.nodeViewPoolMissCount,
+        nodeViewPoolReleaseCount: state.nodeViewPoolReleaseCount,
         p95FrameMs: frameStats.p95,
         pointerPanUpdateCount: state.pointerPanUpdateCount,
         portGraphicsCount: portVisuals.size,
+        pooledNodeViewCount: state.pooledNodeViewCount,
         reactRenderCount: reactRenderCount(),
         reduceMotion: state.reduceMotion,
         rendererDestroyCount: state.rendererDestroyCount,
@@ -179,6 +194,11 @@ export function createWorkflowGraphDebugSnapshot({
         semanticTendrilAnimCapped: state.semanticTendrilAnimCapped,
         semanticTendrilAnimCount: state.semanticTendrilAnimCount,
         semanticTendrilRedrawCount: state.semanticTendrilRedrawCount,
+        sceneWindowChangeCount: state.sceneWindowChangeCount,
+        sceneWindowEnterPaddingScreenPx: state.sceneWindowEnterPaddingScreenPx,
+        sceneWindowExitPaddingScreenPx: state.sceneWindowExitPaddingScreenPx,
+        sceneWindowInitialized: state.sceneWindowInitialized,
+        sceneWindowSize: state.sceneWindowSize,
         staticGlowDirty: state.staticGlowDirty,
         staticGlowVisibilityChangeCount: state.staticGlowVisibilityChangeCount,
         ...spatialQueries.debugSnapshot(),
@@ -208,13 +228,7 @@ export function createWorkflowGraphDebugSnapshot({
 
 function nodeDebugSnapshot(
   node,
-  {
-    loadedNodeLabelFont,
-    nodeLabelFontSizeModes,
-    nodeLabelVisibilityReasons,
-    requireNodeLabel,
-    viewport,
-  },
+  { loadedNodeLabelFont, nodeLabels, nodeLabelFontSizeModes, nodeLabelVisibilityReasons, viewport },
 ) {
   const screen = viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
   return {
@@ -223,11 +237,12 @@ function nodeDebugSnapshot(
     dismissed: node.dismissed ?? false,
     height: node.height,
     kind: node.kind ?? "",
+    materialized: nodeLabels.has(node.id),
     label: nodeLabelDebugSnapshot(node, {
       loadedNodeLabelFont,
+      nodeLabels,
       nodeLabelFontSizeModes,
       nodeLabelVisibilityReasons,
-      requireNodeLabel,
     }),
     layer: node.layer,
     mergedIntoNodeId: node.mergedIntoNodeId ?? "",
@@ -246,9 +261,16 @@ function nodeDebugSnapshot(
 
 function nodeLabelDebugSnapshot(
   node,
-  { loadedNodeLabelFont, nodeLabelFontSizeModes, nodeLabelVisibilityReasons, requireNodeLabel },
+  { loadedNodeLabelFont, nodeLabels, nodeLabelFontSizeModes, nodeLabelVisibilityReasons },
 ) {
-  const label = requireNodeLabel(node.id);
+  const label = nodeLabels.get(node.id);
+  if (!label) {
+    return unmaterializedNodeLabelDebugSnapshot(node, {
+      loadedNodeLabelFont,
+      nodeLabelFontSizeModes,
+      nodeLabelVisibilityReasons,
+    });
+  }
   const labelGlobal = label.getGlobalPosition(new Point());
   return {
     eventMode: label.eventMode,
@@ -260,6 +282,7 @@ function nodeLabelDebugSnapshot(
     globalX: labelGlobal.x,
     globalY: labelGlobal.y,
     kind: "bitmap-text",
+    materialized: true,
     scaleX: label.scale.x,
     scaleY: label.scale.y,
     screenX: label.x,
@@ -269,6 +292,33 @@ function nodeLabelDebugSnapshot(
     visible: label.visible,
     worldScaleX: label.worldTransform.a,
     worldScaleY: label.worldTransform.d,
+  };
+}
+
+function unmaterializedNodeLabelDebugSnapshot(
+  node,
+  { loadedNodeLabelFont, nodeLabelFontSizeModes, nodeLabelVisibilityReasons },
+) {
+  return {
+    eventMode: "none",
+    fontDistanceFieldRange: loadedNodeLabelFont.distanceField.range,
+    fontDistanceFieldType: loadedNodeLabelFont.distanceField.type,
+    fontFamily: loadedNodeLabelFont.fontFamily,
+    fontSize: 0,
+    fontSizeMode: nodeLabelFontSizeModes.get(node.id) ?? "normal",
+    globalX: 0,
+    globalY: 0,
+    kind: "bitmap-text",
+    materialized: false,
+    scaleX: 1,
+    scaleY: 1,
+    screenX: 0,
+    screenY: 0,
+    text: node.label,
+    visibilityReason: nodeLabelVisibilityReasons.get(node.id) ?? "outside-viewport",
+    visible: false,
+    worldScaleX: 0,
+    worldScaleY: 0,
   };
 }
 

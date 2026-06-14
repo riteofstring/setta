@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  edgeLevelOfDetailForZoom,
+  edgeVisibleForScene,
   redrawWorkspaceEdgeFlow,
   redrawWorkspaceEdges,
   workflowEdgeFlowPhase,
@@ -104,6 +106,46 @@ describe("workspace graph edge flow rendering", () => {
       ),
     ).toBe(true);
     expect(strokes.filter((stroke) => stroke.color === color).length).toBeGreaterThan(2);
+  });
+
+  test("selects edge LOD from zoom and culls low-zoom inactive workflow edges", () => {
+    const source = workflowNode("source", 0, 0);
+    const target = workflowNode("target", 220, 80);
+    const hidden = workflowNode("hidden", 1200, 80);
+
+    expect(edgeLevelOfDetailForZoom(0.25)).toBe("low");
+    expect(edgeLevelOfDetailForZoom(0.9)).toBe("medium");
+    expect(edgeLevelOfDetailForZoom(1.8)).toBe("high");
+    expect(
+      edgeVisibleForScene({
+        edge: workflowEdge("inactive", "source", "target", "completed"),
+        edgeLevelOfDetail: "low",
+        source,
+        target,
+        viewportWorldBounds: { height: 600, width: 800, x: -100, y: -100 },
+        visibleNodeIds: new Set(["source", "target"]),
+      }),
+    ).toBe(false);
+    expect(
+      edgeVisibleForScene({
+        edge: workflowEdge("active", "source", "target", "active"),
+        edgeLevelOfDetail: "low",
+        source,
+        target,
+        viewportWorldBounds: { height: 600, width: 800, x: -100, y: -100 },
+        visibleNodeIds: new Set(["source", "target"]),
+      }),
+    ).toBe(true);
+    expect(
+      edgeVisibleForScene({
+        edge: semanticEdge("semantic", "source", "hidden"),
+        edgeLevelOfDetail: "medium",
+        source,
+        target: hidden,
+        viewportWorldBounds: { height: 600, width: 800, x: -100, y: -100 },
+        visibleNodeIds: new Set(),
+      }),
+    ).toBe(true);
   });
 
   test("draws animated semantic tendrils only for visible active endpoints", () => {

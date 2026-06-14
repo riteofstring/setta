@@ -5,79 +5,238 @@ import { rendererEdgeLayer, rendererNodeLayer } from "./pixi-renderer-layers";
 import { drawDiagnosticDiamond } from "./pixi-renderer-node-geometry";
 import {
   drawCurvedEdge,
+  nodeBounds,
   portWorldPosition,
+  rectanglesIntersect,
   requirePort,
   sampleCurvedEdge,
 } from "./pixi-renderer-helpers";
 import { workflowEdgeStrokeStyle, workspaceNeonTheme } from "./workspace-neon-theme";
 
 const edgeFlowHashMax = 0x100000000;
+const lowZoomEdgeLodThreshold = 0.55;
+const mediumZoomEdgeLodThreshold = 1.35;
 
 export function redrawWorkspaceEdges({
   debugMetrics,
   edgeGraphics,
+  edgeLevelOfDetail = "high",
   edgeLabelLayer,
   edges,
   fontFamily,
   fontSize,
   getNode,
   validateGlyphs,
+  visibleNodeIds = null,
+  viewportWorldBounds = null,
 }) {
   edgeGraphics.clear();
   edgeLabelLayer.removeChildren().forEach((child) => child.destroy());
   let edgeDrawMs = 0;
   let edgeLabelDrawMs = 0;
+  let drawnEdgeCount = 0;
+  let drawnEdgeLabelCount = 0;
+  const labelsVisible = edgeLabelsVisible(edgeLevelOfDetail);
   for (const edge of edges) {
-    const source = getNode(edge.sourceNodeId);
-    const target = getNode(edge.targetNodeId);
-    const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
-    const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
-    const edgeStartedAt = performance.now();
-    drawEdge(edgeGraphics, edge, start, end, edgeEndpointLayers(source, target));
-    drawEdgeDiagnosticMarker(edgeGraphics, edge, start, end);
-    edgeDrawMs += performance.now() - edgeStartedAt;
-    const labelStartedAt = performance.now();
-    drawEdgeLabel(edgeLabelLayer, edge, start, end, {
+    const result = drawEdgeForScene({
+      edge,
+      edgeGraphics,
+      edgeLabelLayer,
+      edgeLevelOfDetail,
       fontFamily,
       fontSize,
+      getNode,
+      labelsVisible,
       validateGlyphs,
+      viewportWorldBounds,
+      visibleNodeIds,
     });
-    edgeLabelDrawMs += performance.now() - labelStartedAt;
+    if (!result.drawn) {
+      continue;
+    }
+    drawnEdgeCount += 1;
+    edgeDrawMs += result.edgeDrawMs;
+    edgeLabelDrawMs += result.edgeLabelDrawMs;
+    if (result.labelDrawn) {
+      drawnEdgeLabelCount += 1;
+    }
   }
-  debugMetrics?.recordDuration("edge-redraw", edgeDrawMs, { edgeCount: edges.length });
-  debugMetrics?.recordDuration("edge-label-redraw", edgeLabelDrawMs, {
+  debugMetrics?.recordDuration("edge-redraw", edgeDrawMs, {
+    drawnEdgeCount,
     edgeCount: edges.length,
+    edgeLevelOfDetail,
   });
+  debugMetrics?.recordDuration("edge-label-redraw", edgeLabelDrawMs, {
+    drawnEdgeLabelCount,
+    edgeCount: edges.length,
+    edgeLevelOfDetail,
+  });
+  return {
+    drawnEdgeCount,
+    drawnEdgeLabelCount,
+    edgeCount: edges.length,
+    edgeLevelOfDetail,
+  };
 }
 
 export function redrawWorkspaceEdgeHighlights({
   edgeHighlightGraphics,
+  edgeLevelOfDetail = "high",
   edges,
   getNode,
   hoveredEdgeIds,
   selectedEdgeIds,
+  visibleNodeIds = null,
+  viewportWorldBounds = null,
 }) {
   edgeHighlightGraphics.clear();
-  for (const edge of edges) {
-    if (!hoveredEdgeIds.has(edge.id) || selectedEdgeIds.has(edge.id)) {
-      continue;
-    }
-    drawHighlightedEdge(edgeHighlightGraphics, edge, getNode, {
+  drawHighlightedEdges({
+    edgeHighlightGraphics,
+    edgeLevelOfDetail,
+    edges,
+    getNode,
+    isHighlighted: (edge) => hoveredEdgeIds.has(edge.id) && !selectedEdgeIds.has(edge.id),
+    stroke: {
       alpha: 0.72,
       color: workspaceNeonTheme.foundation.selection.hovered.color,
       width: 4.5,
-    });
-  }
-  for (const edge of edges) {
-    if (!selectedEdgeIds.has(edge.id)) {
-      continue;
-    }
-    drawHighlightedEdge(edgeHighlightGraphics, edge, getNode, {
+    },
+    viewportWorldBounds,
+    visibleNodeIds,
+  });
+  drawHighlightedEdges({
+    edgeHighlightGraphics,
+    edgeLevelOfDetail,
+    edges,
+    getNode,
+    isHighlighted: (edge) => selectedEdgeIds.has(edge.id),
+    stroke: {
       alpha: 0.95,
       color: workspaceNeonTheme.foundation.selection.selected.color,
       width: 5.5,
-    });
+    },
+    viewportWorldBounds,
+    visibleNodeIds,
+  });
+}
+
+export function edgeLevelOfDetailForZoom(zoom) {
+  if (zoom < lowZoomEdgeLodThreshold) {
+    return "low";
   }
+  if (zoom < mediumZoomEdgeLodThreshold) {
+    return "medium";
+  }
+  return "high";
+}
+
+export function edgeVisibleForScene({
+  edge,
+  edgeLevelOfDetail,
+  source,
+  target,
+  viewportWorldBounds,
+  visibleNodeIds,
+}) {
+  if (edgeLevelOfDetail === "low" && !edgeImportantAtLowZoom(edge, source, target)) {
+    return false;
+  }
+  if (visibleNodeIds === null && viewportWorldBounds === null) {
+    return true;
+  }
+  const endpointVisible =
+    visibleNodeIds === null ||
+    visibleNodeIds.has(edge.sourceNodeId) ||
+    visibleNodeIds.has(edge.targetNodeId);
+  if (endpointVisible) {
+    return true;
+  }
+  if (viewportWorldBounds === null) {
+    return false;
+  }
+  return rectanglesIntersect(edgeWorldBounds(edge, source, target), viewportWorldBounds);
+}
+
+function drawEdgeForScene({
+  edge,
+  edgeGraphics,
+  edgeLabelLayer,
+  edgeLevelOfDetail,
+  fontFamily,
+  fontSize,
+  getNode,
+  labelsVisible,
+  validateGlyphs,
+  viewportWorldBounds,
+  visibleNodeIds,
+}) {
+  const source = getNode(edge.sourceNodeId);
+  const target = getNode(edge.targetNodeId);
+  if (
+    !edgeVisibleForScene({
+      edge,
+      edgeLevelOfDetail,
+      source,
+      target,
+      viewportWorldBounds,
+      visibleNodeIds,
+    })
+  ) {
+    return { drawn: false };
+  }
+  const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
+  const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
+  const edgeStartedAt = performance.now();
+  drawEdge(edgeGraphics, edge, start, end, edgeEndpointLayers(source, target));
+  if (labelsVisible) {
+    drawEdgeDiagnosticMarker(edgeGraphics, edge, start, end);
+  }
+  const edgeDrawMs = performance.now() - edgeStartedAt;
+  const labelDraw = drawEdgeLabelForLod({
+    edge,
+    edgeLabelLayer,
+    end,
+    fontFamily,
+    fontSize,
+    labelsVisible,
+    start,
+    validateGlyphs,
+  });
+  return {
+    drawn: true,
+    edgeDrawMs,
+    edgeLabelDrawMs: labelDraw.edgeLabelDrawMs,
+    labelDrawn: labelDraw.drawn,
+  };
+}
+
+function drawEdgeLabelForLod({
+  edge,
+  edgeLabelLayer,
+  end,
+  fontFamily,
+  fontSize,
+  labelsVisible,
+  start,
+  validateGlyphs,
+}) {
+  if (!labelsVisible) {
+    return { drawn: false, edgeLabelDrawMs: 0 };
+  }
+  const labelStartedAt = performance.now();
+  drawEdgeLabel(edgeLabelLayer, edge, start, end, {
+    fontFamily,
+    fontSize,
+    validateGlyphs,
+  });
+  return {
+    drawn: true,
+    edgeLabelDrawMs: performance.now() - labelStartedAt,
+  };
+}
+
+function edgeLabelsVisible(edgeLevelOfDetail) {
+  return edgeLevelOfDetail === "high";
 }
 
 export function redrawWorkspaceEdgeFlow({
@@ -124,6 +283,99 @@ export function redrawWorkspaceEdgeFlow({
 
 export function workflowEdgeFlowPhase(edgeId) {
   return unitHashForId(edgeId);
+}
+
+function drawHighlightedEdges({
+  edgeHighlightGraphics,
+  edgeLevelOfDetail,
+  edges,
+  getNode,
+  isHighlighted,
+  stroke,
+  viewportWorldBounds,
+  visibleNodeIds,
+}) {
+  for (const edge of edges) {
+    if (!isHighlighted(edge)) {
+      continue;
+    }
+    if (
+      !highlightedEdgeVisibleForScene({
+        edge,
+        edgeLevelOfDetail,
+        getNode,
+        viewportWorldBounds,
+        visibleNodeIds,
+      })
+    ) {
+      continue;
+    }
+    drawHighlightedEdge(edgeHighlightGraphics, edge, getNode, stroke);
+  }
+}
+
+function highlightedEdgeVisibleForScene({
+  edge,
+  edgeLevelOfDetail,
+  getNode,
+  viewportWorldBounds,
+  visibleNodeIds,
+}) {
+  return edgeVisibleForScene({
+    edge,
+    edgeLevelOfDetail,
+    source: getNode(edge.sourceNodeId),
+    target: getNode(edge.targetNodeId),
+    viewportWorldBounds,
+    visibleNodeIds,
+  });
+}
+
+function edgeImportantAtLowZoom(edge, source, target) {
+  if (edge.status === "active" || edge.diagnostic) {
+    return true;
+  }
+  if (rendererEdgeLayer(edge) === "semantic") {
+    return true;
+  }
+  return rendererNodeLayer(source) === "semantic" || rendererNodeLayer(target) === "semantic";
+}
+
+function edgeWorldBounds(edge, source, target) {
+  const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
+  const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
+  const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.35);
+  const sourceBounds = nodeBounds(source);
+  const targetBounds = nodeBounds(target);
+  const left = Math.min(
+    sourceBounds.x,
+    targetBounds.x,
+    start.x,
+    end.x,
+    start.x + controlOffset,
+    end.x - controlOffset,
+  );
+  const right = Math.max(
+    sourceBounds.x + sourceBounds.width,
+    targetBounds.x + targetBounds.width,
+    start.x,
+    end.x,
+    start.x + controlOffset,
+    end.x - controlOffset,
+  );
+  const top = Math.min(sourceBounds.y, targetBounds.y, start.y, end.y);
+  const bottom = Math.max(
+    sourceBounds.y + sourceBounds.height,
+    targetBounds.y + targetBounds.height,
+    start.y,
+    end.y,
+  );
+  return {
+    height: bottom - top,
+    width: right - left,
+    x: left,
+    y: top,
+  };
 }
 
 function unitHashForId(edgeId) {

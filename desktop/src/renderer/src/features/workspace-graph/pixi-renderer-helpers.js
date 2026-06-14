@@ -177,10 +177,12 @@ export function createPortVisualStateSync({ getNode, portVisuals, portVisualStat
     const key = portKey(nodeId, portId);
     const visual = portVisuals.get(key);
     if (!visual) {
-      throw new Error(`workspace port visual is missing: ${key}`);
+      return false;
     }
+    const node = getNode(nodeId);
     portVisualStates.set(key, state);
-    drawPortVisualState(visual, requirePort(getNode(nodeId), portId), state);
+    drawPortVisualState(visual, requirePort(node, portId), state);
+    return true;
   };
 }
 
@@ -469,6 +471,24 @@ export function cameraState(viewport) {
     x: corner.x,
     y: corner.y,
     zoom: viewport.scaled,
+  };
+}
+
+export function viewportWorldBoundsForScreen(viewport, paddingScreenPx = 0) {
+  const topLeft = viewport.toWorld({ x: -paddingScreenPx, y: -paddingScreenPx });
+  const bottomRight = viewport.toWorld({
+    x: viewport.screenWidth + paddingScreenPx,
+    y: viewport.screenHeight + paddingScreenPx,
+  });
+  const left = Math.min(topLeft.x, bottomRight.x);
+  const right = Math.max(topLeft.x, bottomRight.x);
+  const top = Math.min(topLeft.y, bottomRight.y);
+  const bottom = Math.max(topLeft.y, bottomRight.y);
+  return {
+    height: bottom - top,
+    width: right - left,
+    x: left,
+    y: top,
   };
 }
 

@@ -35,7 +35,7 @@ export function createSemanticCellAnimationController({
     for (const node of activeCellNodes) {
       const container = nodeContainers.get(node.id);
       if (!container) {
-        throw new Error(`semantic cell animation container is missing: ${node.id}`);
+        continue;
       }
       setNodeContainerScaleAroundCenter(container, node, semanticCellBreathScale(node, now));
     }

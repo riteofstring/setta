@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Phase 2 complete; Phase 3 ready
+- **Status:** Phase 3 complete; Phase 4 ready
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -304,6 +304,36 @@ counts, and hit-testing correctness at 500, 1,000, 2,500, and 5,000 nodes.
 
 This phase should be measured at 500, 1,000, 2,500, and 5,000 nodes for both workflow and semantic-cell scenes.
 
+### Phase 3 Implementation Review
+
+Phase 3 is implemented. The renderer now owns a `VisibleSceneWindow` that keeps
+the authoritative graph in JS arrays/maps while materializing Pixi node, port,
+label, activity-marker, diagnostic-marker, and outline display objects only for
+the padded visible scene. Detached node views and labels are pooled by node id
+and restored when they re-enter the scene window.
+
+Static edge rendering now uses viewport/segment culling and zoom LOD. Low zoom
+draws only important active, diagnostic, or semantic relationship edges; medium
+zoom draws visible endpoint or segment-intersecting edges without labels; high
+zoom restores labels and diagnostics. Node and port hit testing remains backed
+by the spatial index and authoritative graph state rather than display-object
+presence.
+
+The required before/after report is checked in at
+`docs/reports/performance/workspace-graph-semantic-liveness-phase-3-scene-pooling-lod.md`.
+It uses the Phase 2 visibility/latency report as the before state and the
+deterministic recordings at `.recordings/workspace-graph-phase3-after-20260616-r3`
+and `.recordings/workspace-graph-phase3-after-20260616-r4` as the after state.
+
+At 5,000 workflow nodes, initial materialization now retains 66 node views, 66
+labels, 132 ports, and 813 total display objects instead of the Phase 2
+60,021-display-object retained scene. The 5,000-node workflow p95 frame improved
+from 487.7 ms to 248.6 ms, and the 5,000-node semantic-cell scene recorded a
+200.6 ms p95. The remaining large-frame cost is still above the target frame
+budget, but display-object scale is now bounded by the visible scene window and
+the next measured work should move to Phase 4 semantic liveness unless further
+performance calibration is explicitly prioritized.
+
 ## Phase 4 - Semantic Working Set Contract
 
 Add a Go-owned, generated TypeScript contract for live semantic state.
@@ -465,8 +495,8 @@ Because this touches workflow, cartographer, event streaming, generated contract
 2. Complete: run the new recording against current code and save the baseline performance report.
 3. Complete: refactor camera interaction work to be frame-coalesced.
 4. Complete: make labels/glow/filter sync visibility-aware.
-5. Next: add visible object pooling and edge LOD because the measured bottleneck remains display-object scale.
-6. Add the semantic working-set contract and renderer projection.
+5. Complete: add visible object pooling and edge LOD because the measured bottleneck remains display-object scale.
+6. Next: add the semantic working-set contract and renderer projection.
 7. Add deterministic activity/change pulses.
 8. Fix semantic evidence idempotency and usefulness diagnostics.
 9. Add semantic details/highlight polish.

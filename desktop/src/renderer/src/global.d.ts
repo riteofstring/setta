@@ -34,6 +34,7 @@ interface WorkflowGraphDebugSnapshot {
       height: number;
       id: string;
       kind: string;
+      materialized: boolean;
       label: {
         eventMode: string;
         fontDistanceFieldRange: number;
@@ -44,6 +45,7 @@ interface WorkflowGraphDebugSnapshot {
         globalX: number;
         globalY: number;
         kind: "bitmap-text";
+        materialized: boolean;
         screenX: number;
         screenY: number;
         scaleX: number;
@@ -125,6 +127,7 @@ interface WorkflowGraphDebugSnapshot {
     cellAnimCount: number;
     cellAnimRedrawCount: number;
     edgeCommitCount: number;
+    edgeLevelOfDetail: "low" | "medium" | "high";
     edgeFlowRedrawCount: number;
     edgeGraphicsCount: number;
     edgeRedrawCount: number;
@@ -135,11 +138,21 @@ interface WorkflowGraphDebugSnapshot {
     labelObjectCount: number;
     labelSyncCount: number;
     labelVisibilityMode: "selected" | "visible-priority" | "all-visible";
+    lastDrawnEdgeCount: number;
+    lastDrawnEdgeLabelCount: number;
     lastLabelVisibilityCandidateCount: number;
     lastMarqueeCandidateCount: number;
     lastNodeHitCandidateCount: number;
     lastPortHitCandidateCount: number;
+    lastSceneWindowCandidateCount: number;
+    lastSceneWindowEnteredCount: number;
+    lastSceneWindowExitedCount: number;
+    lastSceneWindowVisibleNodeCount: number;
+    lastVisibleMaterializedNodeCount: number;
     marqueeUpdateCount: number;
+    materializedLabelCount: number;
+    materializedNodeCount: number;
+    materializedPortCount: number;
     nodeBodyContextCount: number;
     nodeBodyGraphicsCount: number;
     nodeContainerCount: number;
@@ -150,9 +163,15 @@ interface WorkflowGraphDebugSnapshot {
     nodeOutlineVisibilityUpdateCount: number;
     nodeShadowContextCount: number;
     nodeShadowGraphicsCount: number;
+    nodeViewPoolDestroyCount: number;
+    nodeViewPoolHitCount: number;
+    nodeViewPoolMissCount: number;
+    nodeViewPoolReleaseCount: number;
     p95FrameMs: number;
     pointerPanUpdateCount: number;
     portGraphicsCount: number;
+    pooledLabelCount: number;
+    pooledNodeViewCount: number;
     reactRenderCount: number;
     reduceMotion: boolean;
     recentFrameMs: number[];
@@ -162,6 +181,11 @@ interface WorkflowGraphDebugSnapshot {
     semanticTendrilAnimCapped: boolean;
     semanticTendrilAnimCount: number;
     semanticTendrilRedrawCount: number;
+    sceneWindowChangeCount: number;
+    sceneWindowEnterPaddingScreenPx: number;
+    sceneWindowExitPaddingScreenPx: number;
+    sceneWindowInitialized: boolean;
+    sceneWindowSize: number;
     spatialIndexCandidateCount: number;
     spatialIndexNodeCount: number;
     spatialIndexQueryCount: number;

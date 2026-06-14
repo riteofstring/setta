@@ -9,6 +9,7 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
     lastMarqueeCandidateCount: 0,
     lastNodeHitCandidateCount: 0,
     lastPortHitCandidateCount: 0,
+    lastSceneWindowCandidateCount: 0,
     lastVisibleNodeCandidateCount: 0,
     spatialIndexCandidateCount: 0,
     spatialIndexQueryCount: 0,
@@ -108,6 +109,8 @@ export function createWorkflowGraphSpatialQueries({ nodes, viewport }) {
       counters.lastNodeHitCandidateCount = candidateCount;
     } else if (queryKind === "port-hit") {
       counters.lastPortHitCandidateCount = candidateCount;
+    } else if (queryKind === "scene-window") {
+      counters.lastSceneWindowCandidateCount = candidateCount;
     } else if (queryKind === "visible") {
       counters.lastVisibleNodeCandidateCount = candidateCount;
     } else {

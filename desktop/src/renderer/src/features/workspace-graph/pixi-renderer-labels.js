@@ -30,6 +30,7 @@ export function createWorkflowGraphLabelManager({
   let lastLabelVisibilityEnteredCount = 0;
   let lastLabelVisibilityExitedCount = 0;
   let labelVisibilityWindowChangeCount = 0;
+  const pooledLabels = new Map();
   const labelVisibilityWindow = createPaddedViewportNodeSet({
     enterPaddingScreenPx: labelVisibilityEnterPaddingScreenPx,
     exitPaddingScreenPx: labelVisibilityExitPaddingScreenPx,
@@ -40,6 +41,8 @@ export function createWorkflowGraphLabelManager({
 
   return {
     acquireLabel,
+    deactivateLabel,
+    destroyLabel,
     debugSnapshot,
     releaseLabel,
     requireNodeLabel,
@@ -59,6 +62,16 @@ export function createWorkflowGraphLabelManager({
     }
     const node = labelNode ?? requireNode(nodeId);
     validateNodeLabelGlyphs(node.id, node.label);
+    const pooledLabel = pooledLabels.get(nodeId);
+    if (pooledLabel) {
+      pooledLabels.delete(nodeId);
+      syncPooledLabel({ label: pooledLabel, node });
+      nodeLabels.set(nodeId, pooledLabel);
+      nodeLabelFontSizeModes.set(nodeId, "normal");
+      nodeLabelVisibilityReasons.set(nodeId, "zoom-hidden");
+      labelLayer.addChild(pooledLabel);
+      return pooledLabel;
+    }
     const layer = rendererNodeLayer(node);
     const label = new BitmapText({
       anchor: 0.5,
@@ -79,7 +92,7 @@ export function createWorkflowGraphLabelManager({
     return label;
   }
 
-  function releaseLabel(nodeId) {
+  function deactivateLabel(nodeId) {
     const label = nodeLabels.get(nodeId);
     if (!label) {
       return;
@@ -87,8 +100,30 @@ export function createWorkflowGraphLabelManager({
     nodeLabels.delete(nodeId);
     nodeLabelFontSizeModes.delete(nodeId);
     nodeLabelVisibilityReasons.delete(nodeId);
+    label.visible = false;
     label.removeFromParent();
-    label.destroy();
+    pooledLabels.set(nodeId, label);
+  }
+
+  function releaseLabel(nodeId) {
+    destroyLabel(nodeId);
+  }
+
+  function destroyLabel(nodeId) {
+    const label = nodeLabels.get(nodeId);
+    if (label) {
+      nodeLabels.delete(nodeId);
+      nodeLabelFontSizeModes.delete(nodeId);
+      nodeLabelVisibilityReasons.delete(nodeId);
+      label.removeFromParent();
+      label.destroy();
+    }
+    const pooledLabel = pooledLabels.get(nodeId);
+    if (pooledLabel) {
+      pooledLabels.delete(nodeId);
+      pooledLabel.removeFromParent();
+      pooledLabel.destroy();
+    }
   }
 
   function syncAllLabels() {
@@ -109,7 +144,10 @@ export function createWorkflowGraphLabelManager({
       labelVisibilityWindowChangeCount += 1;
     }
 
-    const nodesToSync = mergeNodesById(visibleUpdate.visibleNodes, visibleUpdate.exitedNodes);
+    const nodesToSync = mergeNodesById(
+      visibleUpdate.visibleNodes,
+      visibleUpdate.exitedNodes,
+    ).filter((node) => nodeLabels.has(node.id));
     const displayNodeIds = spatialQueries.labelVisibleNodeIds();
     for (const node of nodesToSync) {
       syncLabelPosition(node.id);
@@ -191,11 +229,20 @@ export function createWorkflowGraphLabelManager({
       labelVisibilityWindowChangeCount,
       lastLabelVisibilityEnteredCount,
       lastLabelVisibilityExitedCount,
+      pooledLabelCount: pooledLabels.size,
     };
   }
 
   function visibleLabelSyncNodeCount() {
     return nodeLabels.size;
+  }
+
+  function syncPooledLabel({ label, node }) {
+    const layer = rendererNodeLayer(node);
+    label.text = node.label;
+    label.style.fontSize = layer === "semantic" ? 13 : nodeLabelBitmapFontSize;
+    label.visible = false;
+    label.scale.set(1);
   }
 }
 

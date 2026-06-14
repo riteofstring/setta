@@ -39,6 +39,7 @@ import {
   assertSpatialIndexDebugCounters,
   assertSpatialIndexQueryAdvanced,
   assertSpatialIndexUpdatesAdvanced,
+  assertWorkflowGraphLabelSizing,
   setsEqual,
   visiblePoint,
 } from "./workflow-graph-smoke-assertions.mjs";
@@ -64,11 +65,8 @@ const labelVisibilityReasons = new Set([
 ]);
 const geometryConstructionCounters = [
   "nodeBodyContextCount",
-  "nodeBodyGraphicsCount",
   "nodeOutlineContextCount",
-  "nodeOutlineGraphicsCount",
   "nodeShadowContextCount",
-  "nodeShadowGraphicsCount",
 ];
 
 if (options.help) {
@@ -847,6 +845,9 @@ function assertSelectedExactly(snapshot, expectedNodeIds, label) {
 
 function assertLabelsAttachedToNodes(snapshot, label) {
   for (const node of snapshot.graph.nodes) {
+    if (node.label?.materialized === false) {
+      continue;
+    }
     assertFiniteNumber(node.label?.screenX, `${label} ${node.id} label.screenX`);
     assertFiniteNumber(node.label?.screenY, `${label} ${node.id} label.screenY`);
     assertLabelGlobalPosition(node, label);
@@ -893,6 +894,9 @@ function assertLabelsScreenSpace(snapshot, label) {
       throw new Error(`${label} node label was interactive: ${JSON.stringify(node)}`);
     }
     assertLabelBitmapFontMetadata(node, label);
+    if (node.label.materialized === false) {
+      continue;
+    }
     const scaleFields = ["scaleX", "scaleY", "worldScaleX", "worldScaleY"];
     for (const field of scaleFields) {
       assertFiniteNumber(node.label[field], `${label} ${node.id} label.${field}`);
@@ -986,19 +990,10 @@ function assertNodeGeometryDebugCounters(snapshot, label) {
     snapshot.graph.nodeCount * 2,
     label,
   );
-  assertPositiveContextCount(render, "nodeBodyContextCount", render.nodeBodyGraphicsCount, label);
-  assertPositiveContextCount(
-    render,
-    "nodeOutlineContextCount",
-    render.nodeOutlineGraphicsCount,
-    label,
-  );
-  assertPositiveContextCount(
-    render,
-    "nodeShadowContextCount",
-    render.nodeShadowGraphicsCount,
-    label,
-  );
+  const retainedNodeViewCount = render.materializedNodeCount + render.pooledNodeViewCount;
+  assertPositiveContextCount(render, "nodeBodyContextCount", retainedNodeViewCount, label);
+  assertPositiveContextCount(render, "nodeOutlineContextCount", retainedNodeViewCount * 2, label);
+  assertPositiveContextCount(render, "nodeShadowContextCount", retainedNodeViewCount, label);
 }
 
 function assertPositiveBoundedRenderCount(render, counter, maximum, label) {
@@ -1009,10 +1004,10 @@ function assertPositiveBoundedRenderCount(render, counter, maximum, label) {
   }
 }
 
-function assertPositiveContextCount(render, counter, graphicsCount, label) {
-  if (render[counter] < 1 || render[counter] > graphicsCount) {
+function assertPositiveContextCount(render, counter, maximum, label) {
+  if (render[counter] < 1 || render[counter] > maximum) {
     throw new Error(
-      `${label} ${counter} was outside expected cache bounds: render=${JSON.stringify(render)}`,
+      `${label} ${counter} was outside expected cache bounds: max=${maximum} render=${JSON.stringify(render)}`,
     );
   }
 }
@@ -1099,6 +1094,9 @@ function assertLabelFontSizeModeValue(value, label) {
 function assertLabelFontSizeModes(snapshot, label) {
   for (const node of snapshot.graph.nodes) {
     assertLabelFontSizeModeValue(node.label?.fontSizeMode, `${label} ${node.id} fontSizeMode`);
+    if (node.label.materialized === false) {
+      continue;
+    }
     const expectedSize =
       node.label.fontSizeMode === "compact-selected"
         ? expectedCompactSelectedLabelFontSize
@@ -1112,25 +1110,13 @@ function assertLabelFontSizeModes(snapshot, label) {
 }
 
 function assertLabelSizing(snapshot, { compactNodeId = null, label }) {
-  assertLabelDebugCounters(snapshot, label);
-  const expectedCompactCount = compactNodeId ? 1 : 0;
-  if (snapshot.render.compactSelectedLabelCount !== expectedCompactCount) {
-    throw new Error(
-      `${label} reported wrong compact label count: expected=${expectedCompactCount} render=${JSON.stringify(snapshot.render)}`,
-    );
-  }
-  for (const node of snapshot.graph.nodes) {
-    const compact = node.id === compactNodeId;
-    const expectedMode = compact ? "compact-selected" : "normal";
-    const expectedSize = compact
-      ? expectedCompactSelectedLabelFontSize
-      : expectedBitmapLabelFontSize;
-    if (node.label.fontSizeMode !== expectedMode || node.label.fontSize !== expectedSize) {
-      throw new Error(
-        `${label} label used wrong sizing: expectedMode=${expectedMode} expectedSize=${expectedSize} node=${JSON.stringify(node)}`,
-      );
-    }
-  }
+  assertWorkflowGraphLabelSizing(snapshot, {
+    compactNodeId,
+    expectedBitmapLabelFontSize,
+    expectedCompactSelectedLabelFontSize,
+    label,
+    validateDebugCounters: assertLabelDebugCounters,
+  });
 }
 
 function assertSelectedModeLabelVisibility(snapshot, selectedNodeId, label) {

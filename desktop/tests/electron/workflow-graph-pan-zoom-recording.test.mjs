@@ -25,6 +25,7 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
+  pagePointForCanvasPoint,
 } from "./workflow-graph-layout-helpers.mjs";
 import { createWorkflowProjectionFixture } from "./workflow-projection-smoke-helpers.mjs";
 import {
@@ -38,6 +39,7 @@ import {
 
 const scenarioNames = new Set(["active", "baseline", "large", "small-trackpad"]);
 const largeNodeCounts = [500, 1000, 2500, 5000];
+const largeSyntheticScenes = ["workflow", "semantic-cells"];
 const scenarioTimeoutMs = 120_000;
 const requiredTimingBuckets = [
   "animation-active-set-recompute",
@@ -93,44 +95,42 @@ try {
 
 async function runLargeScenarios() {
   const summaries = [];
-  for (const nodeCount of largeNodeCounts) {
-    const artifactDir = join(artifactRoot, `${nodeCount}-nodes`);
-    summaries.push(
-      await runScenario({
-        artifactDir,
-        nodeCount,
-        scenario: "large",
-      }),
-    );
-    await writeJson(join(artifactRoot, "summary.json"), {
-      artifactRoot,
-      scenarios: summaries,
-      status: "running",
-    });
+  for (const syntheticScene of largeSyntheticScenes) {
+    for (const nodeCount of largeNodeCounts) {
+      const artifactDir = join(artifactRoot, syntheticScene, `${nodeCount}-nodes`);
+      summaries.push(
+        await runScenario({
+          artifactDir,
+          nodeCount,
+          scenario: "large",
+          syntheticScene,
+        }),
+      );
+      await writeJson(join(artifactRoot, "summary.json"), {
+        artifactRoot,
+        scenarios: summaries,
+        status: "running",
+      });
+    }
   }
   return summaries;
 }
 
-async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
+async function runScenario({ artifactDir, nodeCount = 0, scenario, syntheticScene = "workflow" }) {
   const fixture = await createElectronFixture(
     `workflow-graph-pan-zoom-${scenario}${nodeCount ? `-${nodeCount}` : ""}`,
   );
   let context = null;
   let workflowGraphSurfaceId = null;
   try {
-    if (scenario === "baseline") {
-      await seedSemanticGraphFixture(fixture);
-    }
+    await prepareScenarioBeforeLaunch({ fixture, scenario });
     context = await launchElectronCdpContext({
       artifactDir,
-      extraEnv: launchEnvForScenario({ nodeCount, scenario }),
+      extraEnv: launchEnvForScenario({ nodeCount, scenario, syntheticScene }),
       fixture,
       visible: options.visible,
     });
-    if (scenarioUsesWorkflowProjectionFixture(scenario)) {
-      await createWorkflowProjectionFixture(context.client, fixture.workspaceRoot);
-      await reloadPage(context.client);
-    }
+    await prepareScenarioAfterLaunch({ context, fixture, scenario });
     await waitForSelector(
       context.client,
       '[data-testid="workspace-layout-area"]',
@@ -146,6 +146,11 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
       scenario,
     });
     await captureScreenshot(context.client, join(artifactDir, "initial.png"));
+    const hitTesting = await verifyWorkflowGraphHitTesting({
+      client: context.client,
+      snapshot: initial,
+      surfaceId: workflowGraphSurfaceId,
+    });
     const contactSheet = await captureWorkflowGraphFitContactSheet({
       artifactDir,
       client: context.client,
@@ -183,10 +188,12 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
         initialScreenshot: join(artifactDir, "initial.png"),
       },
       final: summarizeSnapshot(final),
+      hitTesting,
       initial: summarizeSnapshot(initial),
       nodeCount: final.graph.nodeCount,
       scenario,
       status: "passed",
+      syntheticScene,
     };
     await writeJson(join(artifactDir, "summary.json"), summary);
     return summary;
@@ -213,6 +220,20 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
 
 function scenarioUsesWorkflowProjectionFixture(scenario) {
   return scenario === "baseline" || scenario === "small-trackpad";
+}
+
+async function prepareScenarioBeforeLaunch({ fixture, scenario }) {
+  if (scenario === "baseline") {
+    await seedSemanticGraphFixture(fixture);
+  }
+}
+
+async function prepareScenarioAfterLaunch({ context, fixture, scenario }) {
+  if (!scenarioUsesWorkflowProjectionFixture(scenario)) {
+    return;
+  }
+  await createWorkflowProjectionFixture(context.client, fixture.workspaceRoot);
+  await reloadPage(context.client);
 }
 
 async function exerciseScenarioPanZoom({ client, inputSamples, scenario, surfaceId }) {
@@ -479,6 +500,112 @@ function pointToSegmentDistance(point, start, end) {
   return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
 }
 
+async function verifyWorkflowGraphHitTesting({ client, snapshot, surfaceId }) {
+  const target = hitTestTargetNode(snapshot);
+  if (!target) {
+    throw new Error(
+      `workflow graph hit test could not find a materialized node target: ${JSON.stringify({
+        materializedNodeCount: snapshot.render.materializedNodeCount,
+        nodeCount: snapshot.graph.nodeCount,
+        visibleMaterializedNodeCount: snapshot.render.lastVisibleMaterializedNodeCount,
+      })}`,
+    );
+  }
+  await dispatchWorkflowGraphMouseClick(client, surfaceId, target.point);
+  await delay(32);
+  const selected = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  if (!selected.interaction.selectedNodeIds.includes(target.nodeId)) {
+    throw new Error(
+      `workflow graph node hit test failed: target=${JSON.stringify(target)} selected=${JSON.stringify(
+        selected.interaction.selectedNodeIds,
+      )}`,
+    );
+  }
+  await client.driver("dispatchDocumentEscape");
+  await delay(32);
+  const cleared = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  if (cleared.interaction.selectedNodeIds.length !== 0) {
+    throw new Error(
+      `workflow graph selection cleanup failed after hit test: selected=${JSON.stringify(
+        cleared.interaction.selectedNodeIds,
+      )}`,
+    );
+  }
+  return {
+    cleanup: "escape",
+    nodeId: target.nodeId,
+    nodePoint: target.point,
+    ok: true,
+    selectedNodeCountAfterClear: cleared.interaction.selectedNodeIds.length,
+    visibleMaterializedNodeCount: snapshot.render.lastVisibleMaterializedNodeCount,
+  };
+}
+
+function hitTestTargetNode(snapshot) {
+  const candidates = snapshot.graph.nodes
+    .filter((node) => node.materialized === true)
+    .filter((node) => pointInsideCanvas({ x: node.screenX, y: node.screenY }, snapshot.canvas));
+  if (candidates.length === 0) {
+    return null;
+  }
+  const canvasCenter = {
+    x: snapshot.canvas.clientWidth / 2,
+    y: snapshot.canvas.clientHeight / 2,
+  };
+  candidates.sort(
+    (left, right) =>
+      pointDistance({ x: left.screenX, y: left.screenY }, canvasCenter) -
+      pointDistance({ x: right.screenX, y: right.screenY }, canvasCenter),
+  );
+  const node = candidates[0];
+  return {
+    nodeId: node.id,
+    point: {
+      x: Math.round(node.screenX),
+      y: Math.round(node.screenY),
+    },
+  };
+}
+
+function pointInsideCanvas(point, canvas) {
+  return (
+    point.x >= 4 &&
+    point.x <= canvas.clientWidth - 4 &&
+    point.y >= 4 &&
+    point.y <= canvas.clientHeight - 4
+  );
+}
+
+function pointDistance(left, right) {
+  return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
+async function dispatchWorkflowGraphMouseClick(client, surfaceId, canvasPoint) {
+  const pagePoint = await pagePointForCanvasPoint(client, surfaceId, canvasPoint);
+  await client.call("Input.dispatchMouseEvent", {
+    button: "none",
+    type: "mouseMoved",
+    x: pagePoint.x,
+    y: pagePoint.y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+    type: "mousePressed",
+    x: pagePoint.x,
+    y: pagePoint.y,
+  });
+  await client.call("Input.dispatchMouseEvent", {
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+    type: "mouseReleased",
+    x: pagePoint.x,
+    y: pagePoint.y,
+  });
+}
+
 async function waitForWorkflowGraphSnapshot(client, surfaceId, { nodeCount, scenario }) {
   await client.installDriver();
   return waitForState(
@@ -575,7 +702,14 @@ function assertFiniteRenderCounters(snapshot) {
     "cameraUpdateCount",
     "cameraZoomSettleDelayMs",
     "labelSyncCount",
+    "lastDrawnEdgeCount",
+    "lastDrawnEdgeLabelCount",
+    "lastVisibleMaterializedNodeCount",
+    "materializedLabelCount",
+    "materializedNodeCount",
+    "materializedPortCount",
     "visibleLabelCount",
+    "sceneWindowSize",
     "spatialIndexQueryCount",
     "totalDisplayObjectCount",
     "wheelInputEventCount",
@@ -681,9 +815,20 @@ function summarizeSnapshot(snapshot) {
       cameraSettledSyncFrameCount: snapshot.render.cameraSettledSyncFrameCount,
       cameraUpdateCount: snapshot.render.cameraUpdateCount,
       cameraZoomSettleDelayMs: snapshot.render.cameraZoomSettleDelayMs,
+      displayObjectCountsByLayer: snapshot.render.displayObjectCountsByLayer,
+      edgeLevelOfDetail: snapshot.render.edgeLevelOfDetail,
       frameCount: snapshot.render.frameCount,
+      lastDrawnEdgeCount: snapshot.render.lastDrawnEdgeCount,
+      lastDrawnEdgeLabelCount: snapshot.render.lastDrawnEdgeLabelCount,
+      lastVisibleMaterializedNodeCount: snapshot.render.lastVisibleMaterializedNodeCount,
+      materializedLabelCount: snapshot.render.materializedLabelCount,
+      materializedNodeCount: snapshot.render.materializedNodeCount,
+      materializedPortCount: snapshot.render.materializedPortCount,
       p95FrameMs: snapshot.render.p95FrameMs,
       pointerPanUpdateCount: snapshot.render.pointerPanUpdateCount,
+      pooledLabelCount: snapshot.render.pooledLabelCount,
+      pooledNodeViewCount: snapshot.render.pooledNodeViewCount,
+      sceneWindowSize: snapshot.render.sceneWindowSize,
       timingBuckets: snapshot.render.timingBuckets,
       totalDisplayObjectCount: snapshot.render.totalDisplayObjectCount,
       visibleLabelCount: snapshot.render.visibleLabelCount,
@@ -700,7 +845,7 @@ function summarizeSnapshot(snapshot) {
   };
 }
 
-function launchEnvForScenario({ nodeCount, scenario }) {
+function launchEnvForScenario({ nodeCount, scenario, syntheticScene }) {
   const env = {
     SETTA_E2E_CHAT_HARNESS: "scripted-workflow",
     SETTA_WORKFLOW_GRAPH_DEBUG: "1",
@@ -718,7 +863,7 @@ function launchEnvForScenario({ nodeCount, scenario }) {
       ...env,
       SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE: "1",
       SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT: String(nodeCount),
-      SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE: "workflow",
+      SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE: syntheticScene,
     };
   }
   return env;
