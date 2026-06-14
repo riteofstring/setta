@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Phase 3 complete; Phase 4 ready
+- **Status:** Phase 4 complete; Phase 5 ready
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -774,6 +774,61 @@ Acceptance criteria:
   source refs and recent pulses.
 - Screenshots for the simple review workflow show workflow state first,
   semantic findings second, runtime telemetry third.
+
+### Phase 4 Implementation Review
+
+Phase 4 is implemented by commit `faf3ba31f` (`Add workflow-first semantic
+runtime indicators`).
+
+Implemented:
+
+- Added a renderer-side workflow runtime projection that aggregates live
+  semantic working-set facts by workflow node instead of rendering individual
+  live-source beads in the default graph view.
+- Threaded aggregate workflow runtime indicators through the merged
+  workflow/semantic graph, debug snapshots, selected workflow-node target state,
+  and workflow-node details panes.
+- Added compact workflow-node runtime badges with status color, source-count
+  dots, pulse marker, and bounded run/window/patch/source-ref detail.
+- Restored an unmistakable green running workflow-node treatment.
+- Drew semantic edges before workflow edges so active workflow edges remain
+  visually above semantic source/context edges.
+- Made patch-preview semantic cells visibly provisional with small perimeter
+  marks.
+- Added workflow-node details sections for semantic runtime status counts,
+  source refs, and recent pulses, so selection exposes the provenance behind
+  the aggregate indicator.
+- Added tests and Electron assertions proving the default view has zero
+  unlabeled live-source nodes and does expose an aggregate workflow runtime
+  indicator.
+
+Verification:
+
+```text
+./scripts/format.sh
+./check_quality.sh --all
+```
+
+The full quality gate passed, including Go tests, desktop formatting,
+typecheck, Vitest, desktop build, dead-code checks, and the required Electron
+workflow tier. The required Electron workflows included workflow graph smoke,
+semantic graph, and `semantic-cartographer-auto`; the semantic cartographer
+workflow passed both the smoke path and the long-running/restart branch.
+
+Important caveat:
+
+- Phase 4 exposes underlying source refs and recent pulses through workflow-node
+  selection/details. It does not add a separate hover card on the graph badge.
+  That is acceptable for the Phase 4 acceptance wording because selection is a
+  supported provenance path, but Phase 5 should avoid expanding graph-hover
+  behavior unless the liveness product contract proves it is needed.
+
+Phase 5 handoff:
+
+- Phase 5 is ready to implement. Keep the Phase 4 workflow-first visual
+  hierarchy intact: fast runtime state should aggregate onto workflow nodes,
+  proposed semantic memory should stay provisional, and durable semantic nodes
+  should remain secondary to active workflow execution.
 
 ## Phase 5 - Cartographer Liveness Product Contract
 
