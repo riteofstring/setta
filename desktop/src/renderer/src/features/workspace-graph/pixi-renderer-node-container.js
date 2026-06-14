@@ -1,10 +1,12 @@
 import { Container, Graphics, Rectangle } from "pixi.js";
 
-import { drawNodeDiagnosticMarker } from "./pixi-renderer-node-geometry";
+import { drawNodeActivityMarker, drawNodeDiagnosticMarker } from "./pixi-renderer-node-geometry";
 
 export function createWorkflowGraphNodeContainer({
   node,
+  nodeActivityMarkers,
   nodeBodies,
+  nodeDiagnosticMarkers,
   nodeGeometry,
   nodeOutlines,
   nodeShadows,
@@ -30,9 +32,20 @@ export function createWorkflowGraphNodeContainer({
   selectedOutline.visible = false;
   const diagnosticMarker = new Graphics();
   drawNodeDiagnosticMarker(diagnosticMarker, node);
+  nodeDiagnosticMarkers.set(node.id, diagnosticMarker);
+  const activityMarker = new Graphics();
+  drawNodeActivityMarker(activityMarker, node);
+  nodeActivityMarkers.set(node.id, activityMarker);
   nodeOutlines.set(node.id, { hoverOutline, selectedOutline });
 
-  const nodeGraphics = [shadow, body, hoverOutline, selectedOutline, diagnosticMarker];
+  const nodeGraphics = [
+    shadow,
+    body,
+    activityMarker,
+    hoverOutline,
+    selectedOutline,
+    diagnosticMarker,
+  ];
   container.addChild(...nodeGraphics, ...portContainers);
   body.on("pointerover", onPointerOver);
   body.on("pointerout", onPointerOut);

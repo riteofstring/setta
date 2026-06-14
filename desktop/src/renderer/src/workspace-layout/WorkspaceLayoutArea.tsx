@@ -1,4 +1,5 @@
 import type { DesktopPlatform } from "@shared/types";
+import type { WorkspaceUILayout } from "@generated/backend";
 import { AlertTriangle, X } from "lucide-react";
 import {
   Profiler,
@@ -19,12 +20,15 @@ import type { WorkspaceLayoutStore } from "./layout-store";
 import { installWindowResizeReportHooks, installWindowReportHooks } from "./performance-report";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
 import { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
-import { WorkspaceMobileControls } from "./workspace-mobile-controls";
-import { WorkspaceToolbar, openPaneActionForSurfaceKind } from "./workspace-toolbar";
 import { createWorkspaceRuntime, type WorkspaceRuntime } from "./workspace-runtime";
 import {
+  focusOrOpenPaneBySurfaceKind,
+  WorkspaceMobileControlsLayer,
+  WorkspaceOverviewGhostButton,
+  WorkspaceToolbarLayer,
+} from "./workspace-layout-layers";
+import {
   eventTargetsOverviewGhost,
-  overviewGhostLabel,
   overviewGhostTargetFromPointer,
   overviewPaneIdAtPoint,
   overviewPaneIdFromPointer,
@@ -56,7 +60,13 @@ import {
   type PaneResizeSession,
 } from "./pane-resize-session";
 import { workspaceOpenPaneRequestEvent } from "./open-pane-events";
-import { persistRealWorkspaceScene } from "./workspace-scene";
+import {
+  WorkspaceLayoutLoading,
+  useWorkspaceUILayoutLoad,
+  useWorkspaceUILayoutPersistence,
+  workspaceLayoutAreaLabel,
+  workspaceLayoutRecoveryMessage,
+} from "./workspace-ui-layout";
 import type { OpenPaneRequest, Rect, SurfaceKind } from "./types";
 
 export interface WorkspaceSurfaceFocusRequest {
@@ -90,6 +100,49 @@ export function WorkspaceLayoutArea({
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
 }) {
+  const workspace = useSelectedWorkspaceSummary();
+  const mode = workspaceSceneMode();
+  const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
+  const layoutLoad = useWorkspaceUILayoutLoad(workspaceId, mode);
+  if (layoutLoad.status === "loading") {
+    return <WorkspaceLayoutLoading mode={mode} platform={platform} workspaceId={workspaceId} />;
+  }
+  return (
+    <WorkspaceLayoutRuntimeArea
+      focusSurfaceRequest={focusSurfaceRequest}
+      initialLayout={layoutLoad.layout}
+      layoutLoadError={layoutLoad.error}
+      mode={mode}
+      onToggleProjectPane={onToggleProjectPane}
+      platform={platform}
+      projectPaneOpen={projectPaneOpen}
+      workspaceId={workspaceId}
+      workspaceName={workspaceName}
+    />
+  );
+}
+
+function WorkspaceLayoutRuntimeArea({
+  focusSurfaceRequest,
+  initialLayout,
+  layoutLoadError,
+  mode,
+  onToggleProjectPane,
+  platform,
+  projectPaneOpen,
+  workspaceId,
+  workspaceName,
+}: {
+  focusSurfaceRequest: WorkspaceSurfaceFocusRequest | null;
+  initialLayout: WorkspaceUILayout | null;
+  layoutLoadError: string | null;
+  mode: WorkspaceSceneMode;
+  onToggleProjectPane: () => void;
+  platform: DesktopPlatform;
+  projectPaneOpen: boolean;
+  workspaceId: string;
+  workspaceName: string;
+}) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const debugRef = useRef<HTMLDivElement | null>(null);
@@ -101,7 +154,6 @@ export function WorkspaceLayoutArea({
   const suppressNextClickRef = useRef(false);
   const trackpadNavigationRef = useRef(createWorkspaceTrackpadNavigationState());
   const [overviewGhostTarget, setOverviewGhostTarget] = useState<OverviewGhostTarget | null>(null);
-  const workspace = useSelectedWorkspaceSummary();
   const showPerformanceStats = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.developer?.showPerformanceStats ?? false,
   );
@@ -115,10 +167,8 @@ export function WorkspaceLayoutArea({
   const overviewCardMinWidthPx = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.developer?.overviewCardMinWidthPx,
   );
-  const mode = workspaceSceneMode();
   const viewport = useViewportSize();
   const mobileLayout = isMobileViewportWidth(viewport.width);
-  const { workspaceId, workspaceName } = workspaceRuntimeIdentity(workspace);
   const runtime = useMemo(
     () =>
       createWorkspaceRuntime({
@@ -126,11 +176,13 @@ export function WorkspaceLayoutArea({
         mode,
         overviewCardMaxWidthPx,
         overviewCardMinWidthPx,
+        storedLayout: initialLayout,
         workspaceId,
         workspaceName,
       }),
     [
       allowResizedPanesToOverflowViewport,
+      initialLayout,
       mode,
       overviewCardMaxWidthPx,
       overviewCardMinWidthPx,
@@ -141,6 +193,8 @@ export function WorkspaceLayoutArea({
   const [layoutRecoveryDismissed, setLayoutRecoveryDismissed] = useState(false);
   const layoutSnapshot = useWorkspaceLayoutSnapshot(runtime.store);
   const currentScene = runtime.store.toScene();
+  const { layoutPersistenceError, persistLayout, resetLayoutPersistenceError } =
+    useWorkspaceUILayoutPersistence(runtime, workspaceId);
   const stageViewport = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) {
@@ -148,16 +202,6 @@ export function WorkspaceLayoutArea({
     }
     return viewportRect(stage);
   }, []);
-  const persistLayout = useCallback(() => {
-    runtime.presentation.syncPanes(runtime.store.toScene().panes);
-    if (runtime.mode === "workspace") {
-      persistRealWorkspaceScene(
-        runtime.layoutStorageKey,
-        runtime.store.toScene(),
-        runtime.store.focusedPaneId(),
-      );
-    }
-  }, [runtime]);
   const runLayoutAction = useCallback(
     (action: () => void) => {
       action();
@@ -167,7 +211,8 @@ export function WorkspaceLayoutArea({
   );
   useEffect(() => {
     setLayoutRecoveryDismissed(false);
-  }, [runtime.layoutStorageKey]);
+    resetLayoutPersistenceError();
+  }, [resetLayoutPersistenceError, workspaceId]);
   useEffect(() => {
     runtime.engine.setCompactLayout(mobileLayout);
   }, [mobileLayout, runtime]);
@@ -633,6 +678,13 @@ export function WorkspaceLayoutArea({
     }
   };
 
+  const layoutRecoveryMessage = workspaceLayoutRecoveryMessage({
+    dismissed: layoutRecoveryDismissed,
+    layoutLoadError,
+    layoutPersistenceError,
+    runtime,
+  });
+
   return (
     <section
       aria-label={workspaceLayoutAreaLabel(runtime.mode)}
@@ -649,32 +701,15 @@ export function WorkspaceLayoutArea({
       ref={rootRef}
     >
       <WorkspaceLayoutRecoveryNotice
-        message={
-          !layoutRecoveryDismissed && runtime.layoutRecovery ? runtime.layoutRecovery.message : null
-        }
+        message={layoutRecoveryMessage}
         onDismiss={() => setLayoutRecoveryDismissed(true)}
       />
       <div className="workspace-stage" data-testid="workspace-presentation-engine" ref={stageRef}>
-        {layoutSnapshot.presentationMode === "overview" && overviewGhostTarget ? (
-          <button
-            aria-label={overviewGhostLabel(overviewGhostTarget.placement)}
-            className="workspace-overview-ghost-pane app-no-drag"
-            data-workspace-overview-ghost="true"
-            data-overview-ghost-placement={overviewGhostTarget.placement}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              openOverviewGhostPane(overviewGhostTarget);
-            }}
-            style={{
-              height: `${overviewGhostTarget.height.toFixed(2)}px`,
-              left: `${overviewGhostTarget.left.toFixed(2)}px`,
-              top: `${overviewGhostTarget.top.toFixed(2)}px`,
-              width: `${overviewGhostTarget.width.toFixed(2)}px`,
-            }}
-            type="button"
-          />
-        ) : null}
+        <WorkspaceOverviewGhostButton
+          onOpen={openOverviewGhostPane}
+          presentationMode={layoutSnapshot.presentationMode}
+          target={overviewGhostTarget}
+        />
         <Profiler id="workspace-pane-hosts" onRender={() => runtime.metrics.recordReactCommit()}>
           {Array.from({ length: runtime.hostPoolSize }, (_, index) => (
             <WorkspacePaneHost
@@ -691,44 +726,25 @@ export function WorkspaceLayoutArea({
           applies the drag/no-drag rects in that order, and an earlier no-drag hole
           would be re-covered by a later drag rect when a pane sits under the
           toolbar with the project pane collapsed. */}
-      {runtime.mode === "workspace" && !mobileLayout ? (
-        <WorkspaceToolbar
-          openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
-          overviewActive={layoutSnapshot.presentationMode === "overview"}
-          performanceStatsRef={showPerformanceStats ? debugRef : null}
-          runLayoutAction={runLayoutAction}
-          showPerformanceStats={showPerformanceStats}
-          store={runtime.store}
-        />
-      ) : null}
-      {runtime.mode === "workspace" && mobileLayout ? (
-        <WorkspaceMobileControls
-          moveFocus={(direction) => {
-            dismissProjectPaneOverlay();
-            runtime.store.moveFocus(direction, stageViewport());
-            persistLayout();
-          }}
-          onNewPane={() => {
-            dismissProjectPaneOverlay();
-            runLayoutAction(() => runtime.store.openEmptyFrame());
-          }}
-          onOpenSettingsPane={() => {
-            dismissProjectPaneOverlay();
-            runLayoutAction(() => {
-              focusOrOpenPaneBySurfaceKind(runtime, "settings-dom");
-              runtime.store.ensureFocusedColumnVisible(stageViewport());
-              runtime.store.snapScrollToTarget();
-            });
-          }}
-          onToggleOverview={() => {
-            dismissProjectPaneOverlay();
-            runLayoutAction(() => runtime.store.toggleOverviewMode());
-          }}
-          onToggleProjectPane={onToggleProjectPane}
-          overviewActive={layoutSnapshot.presentationMode === "overview"}
-          projectPaneOpen={projectPaneOpen}
-        />
-      ) : null}
+      <WorkspaceToolbarLayer
+        debugRef={debugRef}
+        mobileLayout={mobileLayout}
+        overviewActive={layoutSnapshot.presentationMode === "overview"}
+        runLayoutAction={runLayoutAction}
+        runtime={runtime}
+        showPerformanceStats={showPerformanceStats}
+      />
+      <WorkspaceMobileControlsLayer
+        dismissProjectPaneOverlay={dismissProjectPaneOverlay}
+        mobileLayout={mobileLayout}
+        onToggleProjectPane={onToggleProjectPane}
+        overviewActive={layoutSnapshot.presentationMode === "overview"}
+        persistLayout={persistLayout}
+        projectPaneOpen={projectPaneOpen}
+        runLayoutAction={runLayoutAction}
+        runtime={runtime}
+        stageViewport={stageViewport}
+      />
     </section>
   );
 }
@@ -815,25 +831,6 @@ function workspaceSceneMode(): WorkspaceSceneMode {
 
 function workspaceAutoBenchmarkEnabled(): boolean {
   return new URLSearchParams(window.location?.search ?? "").get("workspaceAuto") !== "false";
-}
-
-function focusOrOpenPaneBySurfaceKind(runtime: WorkspaceRuntime, surfaceKind: SurfaceKind): void {
-  const maximizedPaneId = runtime.store.getSnapshot().maximizedPaneId;
-  if (maximizedPaneId !== null) {
-    runtime.store.togglePaneMaximized(maximizedPaneId);
-  }
-  if (runtime.store.focusPaneBySurfaceKind(surfaceKind) !== null) {
-    return;
-  }
-  const action = openPaneActionForSurfaceKind(surfaceKind);
-  if (!action || !runtime.store.canOpenPane(action.request)) {
-    return;
-  }
-  runtime.store.openPane(action.request);
-}
-
-function workspaceLayoutAreaLabel(mode: WorkspaceSceneMode): string {
-  return mode === "benchmark" ? "Workspace benchmark workspace" : "Workspace workspace";
 }
 
 function workspaceRuntimeIdentity(workspace: { displayName: string; id: string } | null): {

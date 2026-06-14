@@ -322,7 +322,9 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const api: SettaAPI = {
     app: {
       flags: {
+        workflowGraphAnimationEnabled: true,
         workflowGraphDebug: false,
+        workflowGraphReduceMotion: false,
         workflowGraphSyntheticGraph: null,
       },
       captureRendererRegion: async () => ({
@@ -483,13 +485,16 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       }),
     },
     terminal: unimplementedTerminalAPI(),
+    semanticGraph: unimplementedSemanticGraphAPI(),
     workflow: unimplementedWorkflowAPI(),
     workspace: {
       close: async () => workspaceSession(),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
+      readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
+      saveUILayout: async (layout) => layout,
       select: async () => workspaceSession(),
       selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
       setSelectedConversation: async (workspaceId, conversationId) => ({
@@ -529,9 +534,13 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     throw new Error("workflow API is not implemented in this test");
   };
   return {
+    addEdge: unavailable,
+    addNode: unavailable,
     cancelExecution: unavailable,
     createDefinition: unavailable,
     deleteDefinition: unavailable,
+    deleteEdges: unavailable,
+    deleteNodes: unavailable,
     executionEvents: unavailable,
     graphProjection: unavailable,
     listDefinitions: unavailable,
@@ -541,7 +550,67 @@ function unimplementedWorkflowAPI(): SettaAPI["workflow"] {
     startExecution: unavailable,
     submitApproval: unavailable,
     updateDefinition: unavailable,
+    updateDefinitionLayout: unavailable,
+    updateDefinitionSettings: unavailable,
+    updateEdge: unavailable,
+    updateNode: unavailable,
     validateDefinition: unavailable,
+    validateDefinitionDraft: unavailable,
+  };
+}
+
+function unimplementedSemanticGraphAPI(): SettaAPI["semanticGraph"] {
+  const unavailable = async (): Promise<never> => {
+    throw new Error("semantic graph API is not implemented in this test");
+  };
+  return {
+    acceptCartographerPatch: unavailable,
+    attachChatMessage: unavailable,
+    attachChatRun: unavailable,
+    attachFileRange: unavailable,
+    attachRunItem: unavailable,
+    attachWorkflowExecution: unavailable,
+    attachWorkflowNode: unavailable,
+    buildCartographerWindow: unavailable,
+    createEdge: unavailable,
+    createNode: unavailable,
+    createSteeringDirective: unavailable,
+    dismissNode: unavailable,
+    endActivity: unavailable,
+    listActivity: unavailable,
+    listActivityPage: unavailable,
+    listCartographerCursors: unavailable,
+    listCartographerModelOptions: unavailable,
+    listCartographerPatches: unavailable,
+    listCartographerRuns: unavailable,
+    listCartographerWindows: unavailable,
+    listContextPacks: unavailable,
+    listEvidence: unavailable,
+    mergeNodes: unavailable,
+    onEvent: () => () => {},
+    processCartographerWindow: unavailable,
+    promoteNode: unavailable,
+    read: unavailable,
+    readActivitySummary: unavailable,
+    readCartographerProcessingState: unavailable,
+    readCartographerRun: unavailable,
+    readCartographerSettings: unavailable,
+    readCartographerSettingsMetadata: unavailable,
+    readContextPack: unavailable,
+    readEventHistory: unavailable,
+    readNodeDetail: unavailable,
+    readRuntimeSnapshot: unavailable,
+    readSteeringState: unavailable,
+    readWorkingSet: unavailable,
+    rejectCartographerPatch: unavailable,
+    removeEdge: unavailable,
+    renameNode: unavailable,
+    splitNode: unavailable,
+    updateEdge: unavailable,
+    updateCartographerSettings: unavailable,
+    updateLayoutPositions: unavailable,
+    updateNode: unavailable,
+    updateSteeringDirective: unavailable,
   };
 }
 

@@ -1,4 +1,5 @@
 import type { SyntheticWorkflowGraphOptions } from "../features/workspace-graph/workflow-graph-camera-scope";
+import type { WorkspaceUILayout } from "@generated/backend";
 import { generateBenchmarkScene, phaseOneVisiblePaneCount } from "./benchmark-scene";
 import type { WorkspaceLikeLayoutEngine } from "./layout-engine";
 import { LocalStoragePerformanceReportWriter } from "./performance-report";
@@ -42,19 +43,22 @@ export function browserPaneCountForScene(scene: WorkspaceScene): number {
 }
 
 export function createRealSceneForRuntime({
-  layoutStorageKey,
+  storedLayout,
   mode,
+  workspaceId,
   workspaceName,
 }: {
-  layoutStorageKey: string;
   mode: WorkspaceSceneMode;
+  storedLayout: WorkspaceUILayout | null;
+  workspaceId: string;
   workspaceName: string;
 }): RealWorkspaceSceneResult | null {
   if (mode !== "workspace") {
     return null;
   }
   return createRealWorkspaceScene({
-    storageKey: layoutStorageKey,
+    storedLayout,
+    workspaceId,
     workspaceName,
   });
 }

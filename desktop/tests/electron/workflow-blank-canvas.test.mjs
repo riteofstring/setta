@@ -31,6 +31,9 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const visibleWorkflowSettingsSurfaceSelector =
   '[data-testid="workspace-pane-host"][data-surface-kind="workflow-settings"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"] .workspace-react-dom-surface[data-react-surface-kind="workflow-settings"][data-visible="true"][data-frozen="false"] [data-testid="workflow-settings-surface"]';
+const visibleWorkflowNodeDetailsSurfaceSelector =
+  '[data-testid="workspace-pane-host"][data-surface-kind="workflow-node-details"][data-surface-visible="true"][data-surface-frozen="false"][data-moving="false"] .workspace-react-dom-surface[data-react-surface-kind="workflow-node-details"][data-visible="true"][data-frozen="false"] [data-testid="workflow-node-details-surface"]';
+const workflowResultPrompt = "workflow result action";
 
 if (options.help) {
   console.log(
@@ -168,6 +171,51 @@ try {
   );
   assertCameraPreserved(afterEdge.camera, pannedCanvas.camera);
 
+  const endPoint = offsetFromWorkflowGraphNode(afterEdge, "agent_task", { x: 260, y: 0 });
+  await addWorkflowNodeAt(context.client, workflowGraphSurfaceId, "end", endPoint);
+  await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.nodeCount === 3 &&
+      snapshot.graph.nodes.some((node) => node.id === "end") &&
+      snapshot.graph.edges.some((edge) => edge.id === "start_agent_task"),
+  );
+  await clickWorkflowToolbarButton(context.client, "workflow-validate-button");
+  await waitForWorkflowOperationStatus(context.client, "Issues found");
+  const invalidAgentPath = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.nodes.some(
+        (node) =>
+          node.id === "agent_task" &&
+          node.diagnostic?.codes?.includes("action_node_output_required"),
+      ) && snapshot.graph.nodes.some((node) => node.id === "end"),
+  );
+  assertWorkflowNodeDiagnostic(invalidAgentPath, "agent_task", "action_node_output_required");
+
+  await installDelayedWorkflowAddEdge(context.client, 1_000);
+  await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, invalidAgentPath, {
+    sourceNodeId: "agent_task",
+    targetNodeId: "end",
+  });
+  await waitForDelayedWorkflowAddEdgeCall(context.client);
+  await clickWorkflowToolbarButton(context.client, "workflow-validate-button");
+  await waitForWorkflowOperationStatus(context.client, "Validated");
+  await restoreDelayedWorkflowAddEdge(context.client);
+  const afterDelayedEdgeValidation = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.nodes.some((node) => node.id === "end" && node.diagnostic === null) &&
+      snapshot.graph.edges.some(
+        (edge) =>
+          edge.id === "agent_task_end" &&
+          edge.sourceNodeId === "agent_task" &&
+          edge.targetNodeId === "end" &&
+          edge.diagnostic === null,
+      ),
+  );
+  assertCameraPreserved(afterDelayedEdgeValidation.camera, pannedCanvas.camera);
+
   const definitions = await workflowDefinitions(context.client, workspaceId);
   if (definitions.length !== 1 || definitions[0].name !== "Untitled workflow") {
     throw new Error(`workflow definitions after first edit = ${JSON.stringify(definitions)}`);
@@ -177,7 +225,8 @@ try {
   if (
     saved.name !== "Untitled workflow" ||
     saved.graph.nodes[0]?.kind !== "start" ||
-    saved.graph.nodes[1]?.kind !== "action"
+    saved.graph.nodes[1]?.kind !== "action" ||
+    saved.graph.nodes[2]?.kind !== "end"
   ) {
     throw new Error(`saved workflow definition mismatch: ${JSON.stringify(saved)}`);
   }
@@ -187,15 +236,54 @@ try {
     );
   }
   if (
-    saved.graph.edges.length !== 1 ||
+    saved.graph.edges.length !== 2 ||
     saved.graph.edges[0]?.id !== "start_agent_task" ||
     saved.graph.edges[0]?.fromNodeId !== "start" ||
     saved.graph.edges[0]?.toNodeId !== "agent_task" ||
     saved.graph.edges[0]?.kind !== "normal" ||
-    saved.graph.edges[0]?.condition !== null
+    saved.graph.edges[0]?.condition !== null ||
+    saved.graph.edges[1]?.id !== "agent_task_end" ||
+    saved.graph.edges[1]?.fromNodeId !== "agent_task" ||
+    saved.graph.edges[1]?.toNodeId !== "end" ||
+    saved.graph.edges[1]?.kind !== "normal" ||
+    saved.graph.edges[1]?.condition !== null
   ) {
     throw new Error(`saved workflow edge mismatch: ${JSON.stringify(saved.graph.edges)}`);
   }
+
+  await deleteWorkflowEdgeWithKeyboard(
+    context.client,
+    workflowGraphSurfaceId,
+    afterDelayedEdgeValidation,
+    "start_agent_task",
+  );
+  const afterEdgeKeyboardDelete = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.edgeCount === 1 &&
+      !snapshot.graph.edges.some((edge) => edge.id === "start_agent_task") &&
+      snapshot.interaction.selectedEdgeIds.length === 0,
+  );
+  const afterEdgeDeleteSaved = await readSavedWorkflowDefinition(
+    fixture.workspaceRoot,
+    definitions[0].id,
+  );
+  if (afterEdgeDeleteSaved.graph.edges.some((edge) => edge.id === "start_agent_task")) {
+    throw new Error(
+      `keyboard-deleted workflow edge was saved: ${JSON.stringify(afterEdgeDeleteSaved.graph.edges)}`,
+    );
+  }
+  await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, afterEdgeKeyboardDelete, {
+    sourceNodeId: "start",
+    targetNodeId: "agent_task",
+  });
+  const afterEdgeKeyboardRestore = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.edgeCount === 2 &&
+      snapshot.graph.edges.some((edge) => edge.id === "start_agent_task"),
+  );
+  assertCameraPreserved(afterEdgeKeyboardRestore.camera, pannedCanvas.camera);
 
   const renamedDefinition = await renameWorkflowFromSettings(
     context.client,
@@ -228,6 +316,10 @@ try {
     surfaceId: workflowGraphSurfaceId,
   });
   await waitForWorkflowGraphPaneSettled(context.client, workflowGraphSurfaceId);
+  await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) => snapshot.graph.workflow?.definitionName === "Greeting workflow",
+  );
 
   await addWorkflowNodeAt(context.client, workflowGraphSurfaceId, "merge", { x: 720, y: 420 });
   const withDeletedCandidate = await waitForWorkflowGraphSnapshot(context.client, (snapshot) =>
@@ -242,7 +334,7 @@ try {
   const afterKeyboardDelete = await waitForWorkflowGraphSnapshot(
     context.client,
     (snapshot) =>
-      !snapshot.graph.nodes.some((node) => node.id === "merge") && snapshot.graph.nodeCount === 2,
+      !snapshot.graph.nodes.some((node) => node.id === "merge") && snapshot.graph.nodeCount === 3,
   );
   assertCameraPreserved(afterKeyboardDelete.camera, pannedCanvas.camera);
   const afterDeleteSaved = await readSavedWorkflowDefinition(
@@ -262,12 +354,7 @@ try {
   const routeOnly = await waitForWorkflowGraphSnapshot(context.client, (snapshot) =>
     snapshot.graph.nodes.some((node) => node.id === "route"),
   );
-  const firstEndPoint = offsetFromWorkflowGraphNode(routeOnly, "route", { x: 220, y: -140 });
   const secondEndPoint = offsetFromWorkflowGraphNode(routeOnly, "route", { x: 220, y: 140 });
-  await addWorkflowNodeAt(context.client, workflowGraphSurfaceId, "end", firstEndPoint);
-  await waitForWorkflowGraphSnapshot(context.client, (snapshot) =>
-    snapshot.graph.nodes.some((node) => node.id === "end"),
-  );
   await addWorkflowNodeAt(context.client, workflowGraphSurfaceId, "end", secondEndPoint);
   const routeNodes = await waitForWorkflowGraphSnapshot(
     context.client,
@@ -291,14 +378,45 @@ try {
         edge.targetNodeId === "end",
     ),
   );
-  await clickWorkflowValidateButton(context.client);
-  const diagnosedYesRoute = await waitForWorkflowGraphSnapshot(context.client, (snapshot) =>
-    snapshot.graph.edges.some(
-      (edge) =>
-        edge.id === "route_end" &&
-        edge.diagnostic?.severity === "error" &&
-        edge.diagnostic?.codes?.includes("edge_condition_invalid"),
-    ),
+  const movedRoute = await moveWorkflowGraphNode(
+    context.client,
+    workflowGraphSurfaceId,
+    routeNodes,
+    "route",
+    { x: 64, y: 36 },
+  );
+  const movedRoutePosition = workflowGraphNodeWorldPosition(movedRoute, "route");
+  const beforeValidationToolbar = await workflowToolbarButtonRects(context.client);
+  const validatingToolbar = await clickWorkflowValidateButtonAndReadNextFrame(context.client);
+  assertWorkflowValidationToolbarStable(
+    beforeValidationToolbar,
+    validatingToolbar,
+    "while validation is pending",
+  );
+  await waitForWorkflowOperationStatus(context.client, "Issues found");
+  const diagnosedYesRoute = await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      workflowGraphNodePositionMatches(snapshot, "route", movedRoutePosition) &&
+      snapshot.graph.edges.some(
+        (edge) =>
+          edge.id === "route_end" &&
+          edge.diagnostic?.severity === "error" &&
+          edge.diagnostic?.codes?.includes("edge_condition_invalid"),
+      ),
+  );
+  assertWorkflowGraphNodePosition(
+    diagnosedYesRoute,
+    "route",
+    movedRoutePosition,
+    "after validation",
+  );
+  const afterValidationToolbar = await workflowToolbarButtonRects(context.client);
+  assertWorkflowValidationToolbarStable(
+    beforeValidationToolbar,
+    afterValidationToolbar,
+    "after validation completes",
+    { expectedStatus: "Issues found" },
   );
   assertWorkflowEdgeDiagnostic(diagnosedYesRoute, "route_end", "edge_condition_invalid");
   await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, diagnosedYesRoute, {
@@ -313,6 +431,7 @@ try {
         edge.targetNodeId === "route",
     ),
   );
+  await waitForWorkflowOperationStatus(context.client, "Stale");
   await connectWorkflowGraphNodes(context.client, workflowGraphSurfaceId, routeInput, {
     sourceNodeId: "route",
     sourcePortId: "route_default",
@@ -331,10 +450,21 @@ try {
 
   const routeDefinition = await configureWorkflowResultAction(
     context.client,
+    workflowGraphSurfaceId,
     workspaceId,
     definitions[0].id,
   );
   assertSavedTypedRouteDefinition(routeDefinition);
+  workflowGraphSurfaceId = await maximizeWorkflowGraphPane(context.client, {
+    surfaceId: workflowGraphSurfaceId,
+  });
+  await waitForWorkflowGraphPaneSettled(context.client, workflowGraphSurfaceId);
+  await waitForWorkflowGraphSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.graph.workflow?.definitionId === routeDefinition.id &&
+      snapshot.graph.workflow?.draftRevision === routeDefinition.draftRevision,
+  );
   const execution = await startWorkflowAndWaitForCompletion(
     context.client,
     workspaceId,
@@ -348,17 +478,6 @@ try {
       snapshot.graph.nodes.some((node) => node.id === "agent_task"),
   );
   assertRunWorkflowProjection(completedRunGraph, execution);
-  await openWorkflowNodeDetailsFromToolbar(
-    context.client,
-    workflowGraphSurfaceId,
-    completedRunGraph,
-    {
-      detailsSelector: '[data-testid="workflow-node-run-details"]',
-      nodeId: "agent_task",
-      nodeLabel: "Agent Task",
-    },
-  );
-  await assertWorkflowRunDetails(context.client);
 
   await writeJson(join(artifactDir, "summary.json"), {
     definitionId: definitions[0].id,
@@ -432,7 +551,7 @@ async function waitForToolbarState(client, expected) {
   await client.installDriver();
   await waitForState(
     client,
-    driverCallExpression("workflowToolbarState"),
+    driverCallExpression("workflowToolbarState", { surfaceId: workflowGraphSurfaceId }),
     (value) => value.text === expected,
   );
 }
@@ -441,14 +560,153 @@ async function clickWorkflowRunButton(client) {
   await clickWorkflowToolbarButton(client, "workflow-run-button");
 }
 
-async function clickWorkflowValidateButton(client) {
-  await clickWorkflowToolbarButton(client, "workflow-validate-button");
+async function clickWorkflowValidateButtonAndReadNextFrame(client) {
+  const result = await client.driver("clickWorkflowToolbarButtonAndReadNextFrame", {
+    testId: "workflow-validate-button",
+  });
+  if (!result.ok) {
+    throw new Error(
+      `workflow validate button was not clickable before geometry snapshot: ${JSON.stringify(result)}`,
+    );
+  }
+  return result;
 }
 
 async function clickWorkflowToolbarButton(client, testId) {
-  const clicked = await client.driver("clickWorkflowToolbarButton", { testId });
+  const clicked = await client.driver("clickWorkflowToolbarButton", {
+    surfaceId: workflowGraphSurfaceId,
+    testId,
+  });
   if (!clicked.ok) {
     throw new Error(`workflow toolbar button was not clickable: ${JSON.stringify(clicked)}`);
+  }
+}
+
+async function installDelayedWorkflowAddEdge(client, delayMs) {
+  const installed = await client.evaluate(`(() => {
+    if (!window.setta?.app?.flags?.workflowGraphDebug) {
+      return false;
+    }
+    window.__settaWorkflowGraphAddEdgeDelayCalls = 0;
+    window.__settaWorkflowGraphAddEdgeDelayMs = ${JSON.stringify(delayMs)};
+    return true;
+  })()`);
+  if (!installed) {
+    throw new Error("failed to install delayed workflow addEdge debug delay");
+  }
+}
+
+async function waitForDelayedWorkflowAddEdgeCall(client) {
+  await waitForState(
+    client,
+    "window.__settaWorkflowGraphAddEdgeDelayCalls ?? 0",
+    (count) => count > 0,
+  );
+}
+
+async function restoreDelayedWorkflowAddEdge(client) {
+  await client.evaluate(`(() => {
+    delete window.__settaWorkflowGraphAddEdgeDelayCalls;
+    delete window.__settaWorkflowGraphAddEdgeDelayMs;
+  })()`);
+}
+
+async function workflowToolbarButtonRects(client) {
+  const result = await client.driver("workflowToolbarButtonRects");
+  if (!result.ok) {
+    throw new Error(`workflow toolbar rects unavailable: ${JSON.stringify(result)}`);
+  }
+  return result;
+}
+
+async function waitForWorkflowOperationStatus(client, expected) {
+  await waitForState(
+    client,
+    driverCallExpression("workflowToolbarButtonRects"),
+    (value) => value.ok && value.operationStatus?.text === expected,
+  );
+}
+
+function assertWorkflowValidationToolbarStable(before, current, phase, options = {}) {
+  assertWorkflowToolbarFrameStable(before, current, phase);
+  assertWorkflowToolbarButtonsStable(before, current, phase);
+  assertWorkflowValidateButtonStable(current, phase);
+  assertWorkflowExpectedOperationStatus(current, phase, options.expectedStatus);
+}
+
+function assertWorkflowToolbarFrameStable(before, current, phase) {
+  assertRectStable(before.toolbar, current.toolbar, `workflow toolbar ${phase}`);
+  if (!before.operationStatus || !current.operationStatus) {
+    throw new Error(`workflow operation status slot missing ${phase}`);
+  }
+  assertRectStable(
+    before.operationStatus.rect,
+    current.operationStatus.rect,
+    `workflow operation status ${phase}`,
+  );
+}
+
+function assertWorkflowToolbarButtonsStable(before, current, phase) {
+  for (const testId of [
+    "workflow-settings-button",
+    "workflow-add-node-button",
+    "workflow-validate-button",
+    "workflow-run-button",
+    "workflow-node-details-button",
+  ]) {
+    const beforeButton = before.buttons[testId];
+    const currentButton = current.buttons[testId];
+    if (!beforeButton || !currentButton) {
+      throw new Error(`workflow toolbar button missing ${phase}: ${testId}`);
+    }
+    assertRectStable(beforeButton.rect, currentButton.rect, `${testId} ${phase}`);
+    if (beforeButton.disabled !== currentButton.disabled) {
+      throw new Error(
+        `workflow toolbar button disabled state changed ${phase}: ${testId} before=${beforeButton.disabled} current=${currentButton.disabled}`,
+      );
+    }
+  }
+}
+
+function assertWorkflowValidateButtonStable(current, phase) {
+  const validateButton = current.buttons["workflow-validate-button"];
+  if (validateButton.text !== "Validate") {
+    throw new Error(
+      `workflow validate button visual label changed ${phase}: ${validateButton.text}`,
+    );
+  }
+  if (
+    ![
+      "Validate",
+      "Validating workflow",
+      "Workflow validated",
+      "Workflow validation found issues",
+      "Workflow changed since validation",
+    ].includes(validateButton.ariaLabel)
+  ) {
+    throw new Error(
+      `workflow validate button accessible label changed unexpectedly ${phase}: ${validateButton.ariaLabel}`,
+    );
+  }
+}
+
+function assertWorkflowExpectedOperationStatus(current, phase, expectedStatus) {
+  if (expectedStatus && current.operationStatus.text !== expectedStatus) {
+    throw new Error(
+      `workflow validation status mismatch ${phase}: expected=${expectedStatus} current=${current.operationStatus.text}`,
+    );
+  }
+}
+
+function assertRectStable(before, current, label) {
+  const tolerancePx = 1;
+  for (const property of ["height", "left", "top", "width"]) {
+    const delta = Math.abs(before[property] - current[property]);
+    if (delta > tolerancePx) {
+      throw new Error(
+        `${label} ${property} shifted by ${delta}px: before=${JSON.stringify(before)} current=${JSON.stringify(current)}`,
+      );
+    }
   }
 }
 
@@ -470,12 +728,42 @@ async function renameWorkflowFromSettings(client, workspaceId, definitionId, nam
     '[data-testid="workflow-settings-description"]',
     description,
   );
-  return client.driver("renameWorkflowDefinitionFromCurrentGraph", {
-    definitionId,
-    description,
-    name,
-    workspaceId,
+  await clickWorkflowSettingsSaveButton(client);
+  return waitForWorkflowDefinition(client, workspaceId, definitionId, (definition) => {
+    return definition.name === name && definition.description === description;
   });
+}
+
+async function clickWorkflowSettingsSaveButton(client) {
+  const result = await client.evaluate(`(() => {
+    const button = document.querySelector(${JSON.stringify(
+      `${visibleWorkflowSettingsSurfaceSelector} [data-testid="workflow-settings-save-button"]`,
+    )});
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false };
+    }
+    button.click();
+    return { clicked: true };
+  })()`);
+  if (!result.clicked) {
+    throw new Error("workflow settings save button was not clickable");
+  }
+}
+
+async function clickWorkflowNodeDetailsSaveButton(client) {
+  const result = await client.evaluate(`(() => {
+    const button = document.querySelector(${JSON.stringify(
+      `${visibleWorkflowNodeDetailsSurfaceSelector} [data-testid="workflow-node-save-button"]`,
+    )});
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return { clicked: false };
+    }
+    button.click();
+    return { clicked: true };
+  })()`);
+  if (!result.clicked) {
+    throw new Error("workflow node details save button was not clickable");
+  }
 }
 
 async function restoreMaximizedWorkflowGraphPane(client) {
@@ -491,6 +779,16 @@ async function restoreMaximizedWorkflowGraphPane(client) {
   );
 }
 
+async function waitForWorkflowDefinition(client, workspaceId, definitionId, predicate) {
+  return waitForState(
+    client,
+    `window.setta.workflow.readDefinition(${JSON.stringify(workspaceId)}, ${JSON.stringify(
+      definitionId,
+    )})`,
+    predicate,
+  );
+}
+
 async function setWorkflowSettingsControlValue(client, selector, value) {
   const result = await client.driver("setWorkflowSettingsControlValue", {
     selector,
@@ -499,6 +797,17 @@ async function setWorkflowSettingsControlValue(client, selector, value) {
   });
   if (!result.ok) {
     throw new Error(`failed to set control ${selector}: ${JSON.stringify(result)}`);
+  }
+}
+
+async function setWorkflowNodeDetailsControlValue(client, selector, value) {
+  const result = await client.driver("setWorkflowSettingsControlValue", {
+    selector,
+    surfaceSelector: visibleWorkflowNodeDetailsSurfaceSelector,
+    value,
+  });
+  if (!result.ok) {
+    throw new Error(`failed to set node details control ${selector}: ${JSON.stringify(result)}`);
   }
 }
 
@@ -523,6 +832,26 @@ async function deleteWorkflowNodeWithKeyboard(client, surfaceId, snapshot, nodeI
   });
   await waitForWorkflowGraphSnapshot(client, (selectedSnapshot) =>
     selectedSnapshot.interaction.selectedNodeIds.includes(nodeId),
+  );
+  await dispatchKeyEvent(client, { code: "Delete", key: "Delete" });
+  await dispatchKeyEvent(client, { code: "Delete", key: "Delete", type: "keyUp" });
+}
+
+async function deleteWorkflowEdgeWithKeyboard(client, surfaceId, snapshot, edgeId) {
+  const edge = snapshot.graph.edges.find((candidate) => candidate.id === edgeId);
+  if (!edge) {
+    throw new Error(
+      `missing delete target edge ${edgeId}: ${JSON.stringify(snapshot.graph.edges)}`,
+    );
+  }
+  const sourcePort = workflowGraphNodePort(snapshot, edge.sourceNodeId, edge.sourcePortId);
+  const targetPort = workflowGraphNodePort(snapshot, edge.targetNodeId, edge.targetPortId);
+  await dispatchWorkflowGraphMouseClick(client, surfaceId, {
+    x: (sourcePort.screenX + targetPort.screenX) / 2,
+    y: (sourcePort.screenY + targetPort.screenY) / 2,
+  });
+  await waitForWorkflowGraphSnapshot(client, (selectedSnapshot) =>
+    selectedSnapshot.interaction.selectedEdgeIds.includes(edgeId),
   );
   await dispatchKeyEvent(client, { code: "Delete", key: "Delete" });
   await dispatchKeyEvent(client, { code: "Delete", key: "Delete", type: "keyUp" });
@@ -567,23 +896,6 @@ async function openWorkflowNodeDetailsFromToolbar(
     (value) => value.exists,
   );
   await waitForSelector(client, detailsSelector);
-}
-
-async function assertWorkflowRunDetails(client) {
-  await client.installDriver();
-  await waitForState(
-    client,
-    driverCallExpression("workflowRunDetailsText"),
-    (text) =>
-      text.includes("Run status") &&
-      text.includes("succeeded") &&
-      text.includes("route=yes") &&
-      text.includes("decision=exit") &&
-      text.includes("scripted workflow result") &&
-      text.includes("reports/workflow-result.md") &&
-      text.includes("Workflow result") &&
-      text.includes("workflow result recorded"),
-  );
 }
 
 async function waitForWorkflowGraphPaneSettled(client, surfaceId) {
@@ -759,12 +1071,7 @@ function runWorkflowProjectionMetadata(snapshot) {
 }
 
 function offsetFromWorkflowGraphNode(snapshot, nodeId, offset) {
-  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
-  if (!node) {
-    throw new Error(
-      `missing workflow graph node ${nodeId}: ${JSON.stringify(snapshot.graph.nodes)}`,
-    );
-  }
+  const node = workflowGraphNode(snapshot, nodeId);
   const margin = 80;
   const maxX = Math.max(margin, snapshot.canvas.clientWidth - margin);
   const maxY = Math.max(margin, snapshot.canvas.clientHeight - margin);
@@ -774,12 +1081,90 @@ function offsetFromWorkflowGraphNode(snapshot, nodeId, offset) {
   };
 }
 
+async function moveWorkflowGraphNode(client, surfaceId, snapshot, nodeId, delta) {
+  const node = workflowGraphNode(snapshot, nodeId);
+  const expected = {
+    x: Math.round(node.x + delta.x),
+    y: Math.round(node.y + delta.y),
+  };
+  await dispatchWorkflowGraphMouseDrag(client, surfaceId, {
+    from: { x: node.screenX, y: node.screenY },
+    to: { x: node.screenX + delta.x, y: node.screenY + delta.y },
+  });
+  return waitForWorkflowGraphSnapshot(client, (nextSnapshot) =>
+    workflowGraphNodePositionMatches(nextSnapshot, nodeId, expected),
+  );
+}
+
+function workflowGraphNodeWorldPosition(snapshot, nodeId) {
+  const node = workflowGraphNode(snapshot, nodeId);
+  return {
+    x: Math.round(node.x),
+    y: Math.round(node.y),
+  };
+}
+
+function workflowGraphNodePositionMatches(snapshot, nodeId, expected) {
+  const node = workflowGraphNode(snapshot, nodeId);
+  return (
+    Math.abs(Math.round(node.x) - expected.x) <= 1 && Math.abs(Math.round(node.y) - expected.y) <= 1
+  );
+}
+
+function assertWorkflowGraphNodePosition(snapshot, nodeId, expected, phase) {
+  if (!workflowGraphNodePositionMatches(snapshot, nodeId, expected)) {
+    throw new Error(
+      `workflow node ${nodeId} position changed ${phase}: expected=${JSON.stringify(
+        expected,
+      )} actual=${JSON.stringify(workflowGraphNodeWorldPosition(snapshot, nodeId))}`,
+    );
+  }
+}
+
+function workflowGraphNode(snapshot, nodeId) {
+  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(
+      `missing workflow graph node ${nodeId}: ${JSON.stringify(snapshot.graph.nodes)}`,
+    );
+  }
+  return node;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-async function configureWorkflowResultAction(client, workspaceId, definitionId) {
-  return client.driver("configureWorkflowResultAction", { definitionId, workspaceId });
+async function configureWorkflowResultAction(client, surfaceId, workspaceId, definitionId) {
+  const graphSnapshot = await waitForWorkflowGraphSnapshot(client, (snapshot) =>
+    snapshot.graph.nodes.some((node) => node.id === "agent_task"),
+  );
+  await openAgentTaskDetailsFromToolbar(client, surfaceId, graphSnapshot);
+  await restoreMaximizedWorkflowGraphPane(client);
+  await waitForSelector(
+    client,
+    `${visibleWorkflowNodeDetailsSurfaceSelector} [data-testid="workflow-node-prompt"]`,
+  );
+  await setWorkflowNodeDetailsControlValue(
+    client,
+    '[data-testid="workflow-node-prompt"]',
+    workflowResultPrompt,
+  );
+  await clickWorkflowNodeDetailsSaveButton(client);
+  const definition = await waitForWorkflowDefinition(
+    client,
+    workspaceId,
+    definitionId,
+    (candidate) => {
+      const agentTask = candidate.graph.nodes.find((node) => node.id === "agent_task");
+      return agentTask?.action?.codex?.prompt === workflowResultPrompt;
+    },
+  );
+  await waitForWorkflowGraphSnapshot(
+    client,
+    (snapshot) => snapshot.graph.workflow?.draftRevision === definition.draftRevision,
+  );
+  return definition;
 }
 
 function assertSavedTypedRouteDefinition(definition) {
@@ -822,7 +1207,14 @@ function assertConditionField(edge, condition, field, expected) {
 }
 
 async function startWorkflowAndWaitForCompletion(client, workspaceId, definitionId) {
-  await clickWorkflowToolbarButton(client, "workflow-run-button");
+  const runStarted = await client.driver("runWorkflowDraftForSurface", {
+    definitionId,
+    surfaceId: workflowGraphSurfaceId,
+  });
+  if (!runStarted.ok) {
+    throw new Error(`workflow run was not started: ${JSON.stringify(runStarted)}`);
+  }
+  workflowGraphSurfaceId = runStarted.surfaceId;
   const runProjection = await waitForWorkflowGraphSnapshot(
     client,
     (snapshot) =>
@@ -830,7 +1222,6 @@ async function startWorkflowAndWaitForCompletion(client, workspaceId, definition
       snapshot.graph.workflow?.executionId,
   );
   const executionId = runProjection.graph.workflow.executionId;
-  await waitForToolbarState(client, "Run completed read-only");
   await client.installDriver();
   return waitForState(
     client,
@@ -932,12 +1323,12 @@ async function readSavedWorkflowDefinition(workspaceRoot, definitionId) {
   return JSON.parse(await readFile(join(workflowDir, matches[0]), "utf8"));
 }
 
-async function waitForWorkflowGraphSnapshot(client, predicate) {
+async function waitForWorkflowGraphSnapshot(client, predicate, { includeVisual = false } = {}) {
   await client.installDriver();
   return waitForState(
     client,
     driverCallExpression("workflowGraphDebugSnapshotReady", {
-      includeVisual: false,
+      includeVisual,
       surfaceId: workflowGraphSurfaceId,
     }),
     (value) => value.ready && predicate(value.snapshot),
