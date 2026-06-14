@@ -79,4 +79,70 @@ describe("workflow graph synthetic data", () => {
       targetNodeId: "semantic:synthetic-node-00001",
     });
   });
+
+  test("creates canonical running workflow scene for visual parity", () => {
+    const graph = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 3,
+      scene: "workflow-running",
+    });
+
+    expect(graph.nodes.map((node) => [node.id, node.status])).toEqual([
+      ["start", "succeeded"],
+      ["work", "running"],
+      ["end", "not_started"],
+    ]);
+    expect(graph.edges.map((edge) => [edge.id, edge.status])).toEqual([
+      ["start_work", "active"],
+      ["work_end", "inactive"],
+    ]);
+  });
+
+  test("creates merged workflow and semantic scene for visual parity", () => {
+    const graph = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 6,
+      scene: "merged",
+    });
+
+    expect(graph.nodes.filter((node) => node.layer === "workflow")).toHaveLength(4);
+    expect(graph.nodes.filter((node) => node.layer === "semantic")).toHaveLength(6);
+    expect(graph.edges.filter((edge) => edge.layer === "workflow")).toHaveLength(3);
+    expect(graph.edges.filter((edge) => edge.layer === "semantic")).toHaveLength(7);
+    expect(graph.nodes.find((node) => node.id === "wf_emit")).toMatchObject({
+      label: "Emit findings",
+      status: "not_started",
+    });
+    expect(graph.nodes.find((node) => node.id === "semantic:finding")).toMatchObject({
+      label: "Race in refresh",
+    });
+  });
+
+  test("creates canonical semantic-cell scene for visual parity", () => {
+    const graph = createSyntheticWorkflowGraph({
+      edgesPerNode: 1,
+      nodeCount: 6,
+      scene: "semantic-cells",
+    });
+
+    expect(graph.nodes.map((node) => node.label)).toEqual([
+      "Auth model",
+      "Token expiry?",
+      "JWT rotation",
+      "Race in refresh",
+      "Use refresh tokens",
+      "No 3rd-party store",
+    ]);
+    expect(graph.edges.map((edge) => edge.label)).toEqual([
+      "about",
+      "touches",
+      "supports",
+      "resolves",
+      "constrains",
+      "related_to",
+    ]);
+    expect(
+      graph.nodes.filter((node) => node.activity?.active === true).map((node) => node.id),
+    ).toEqual(["semantic:question", "semantic:finding"]);
+  });
 });

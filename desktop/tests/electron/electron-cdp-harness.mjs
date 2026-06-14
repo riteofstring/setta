@@ -167,6 +167,22 @@ export async function captureScreenshot(client, path) {
   await writeFile(path, Buffer.from(image.data, "base64"));
 }
 
+export async function captureScreenshotClip(client, path, clip) {
+  await mkdir(dirname(path), { recursive: true });
+  const image = await client.call("Page.captureScreenshot", {
+    captureBeyondViewport: false,
+    clip: {
+      height: clip.height,
+      scale: clip.scale ?? 1,
+      width: clip.width,
+      x: clip.x,
+      y: clip.y,
+    },
+    format: "png",
+  });
+  await writeFile(path, Buffer.from(image.data, "base64"));
+}
+
 export async function reloadPage(client) {
   try {
     await client.call("Page.reload", { ignoreCache: true });

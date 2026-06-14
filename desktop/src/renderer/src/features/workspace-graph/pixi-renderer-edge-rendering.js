@@ -1,5 +1,5 @@
 import { drawEdgeLabel } from "./pixi-renderer-edge-labels";
-import { rendererEdgeLayer } from "./pixi-renderer-layers";
+import { rendererEdgeLayer, rendererNodeLayer } from "./pixi-renderer-layers";
 import { drawDiagnosticDiamond } from "./pixi-renderer-node-geometry";
 import {
   drawCurvedEdge,
@@ -27,7 +27,7 @@ export function redrawWorkspaceEdges({
     const target = getNode(edge.targetNodeId);
     const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
     const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
-    drawEdge(edgeGraphics, edge, start, end);
+    drawEdge(edgeGraphics, edge, start, end, edgeEndpointLayers(source, target));
     drawEdgeDiagnosticMarker(edgeGraphics, edge, start, end);
     drawEdgeLabel(edgeLabelLayer, edge, start, end, {
       fontFamily,
@@ -88,7 +88,20 @@ export function redrawWorkspaceEdgeFlow({
         if (!edgeHasSemanticTendrilFlow(edge, visibleNodeIds, activeSemanticNodeIds)) {
           continue;
         }
-        drawSemanticTendrilFlowForEdge({ edge, getNode, now, target: edgeFlowGraphics });
+        {
+          const source = getNode(edge.sourceNodeId);
+          const targetNode = getNode(edge.targetNodeId);
+          if (isSemanticBridgeEndpoint(edgeEndpointLayers(source, targetNode))) {
+            continue;
+          }
+          drawSemanticTendrilFlowForNodes({
+            edge,
+            now,
+            source,
+            target: edgeFlowGraphics,
+            targetNode,
+          });
+        }
         break;
       default:
         throw new Error(`unsupported workspace graph edge layer: ${edge.layer}`);
@@ -109,13 +122,13 @@ function unitHashForId(edgeId) {
   return (hash >>> 0) / edgeFlowHashMax;
 }
 
-function drawEdge(target, edge, start, end) {
+function drawEdge(target, edge, start, end, endpointLayers) {
   switch (rendererEdgeLayer(edge)) {
     case "workflow":
       drawWorkflowEdge(target, edge, start, end);
       return;
     case "semantic":
-      drawSemanticEdge(target, edge, start, end);
+      drawSemanticEdge(target, edge, start, end, endpointLayers);
       return;
   }
   throw new Error(`unsupported workspace graph edge layer: ${edge.layer}`);
@@ -124,9 +137,15 @@ function drawEdge(target, edge, start, end) {
 function drawWorkflowEdge(target, edge, start, end) {
   const style = workflowEdgeStrokeStyle(edge.status);
   const color = edge.color ?? style.color;
+  const glowColor = color;
+  drawCurvedEdge(target, start, end, {
+    alpha: Math.min(0.045, style.glowAlpha * 0.38),
+    color: glowColor,
+    width: edge.width ? edge.width + style.glowWidth * 2.2 : style.glowWidth * 2.2,
+  });
   drawCurvedEdge(target, start, end, {
     alpha: style.glowAlpha,
-    color,
+    color: glowColor,
     width: edge.width ? edge.width + style.glowWidth : style.glowWidth,
   });
   drawCurvedEdge(target, start, end, {
@@ -135,19 +154,63 @@ function drawWorkflowEdge(target, edge, start, end) {
     width: edge.width ?? style.width,
   });
   drawCurvedEdge(target, start, end, {
-    alpha: Math.min(0.68, edge.alpha ?? style.alpha),
+    alpha: workflowEdgeCoreAlpha(edge, style),
     color: workspaceNeonTheme.workflow.edgeCoreColor,
-    width: Math.max(1, (edge.width ?? style.width) - 1.2),
+    width: workflowEdgeCoreWidth(edge, style),
   });
+  drawWorkflowEdgeBeacons(target, edge, start, end, style);
 }
 
-function drawSemanticEdge(target, edge, start, end) {
+function workflowEdgeCoreAlpha(edge, style) {
+  if (edge.status === "inactive") {
+    return Math.min(0.52, (edge.alpha ?? style.alpha) * 0.9);
+  }
+  return Math.min(0.92, (edge.alpha ?? style.alpha) + 0.04);
+}
+
+function workflowEdgeCoreWidth(edge, style) {
+  if (edge.status === "inactive") {
+    return Math.max(0.5, (edge.width ?? style.width) * 0.38);
+  }
+  return Math.max(1.4, (edge.width ?? style.width) - 0.6);
+}
+
+function drawWorkflowEdgeBeacons(target, edge, start, end, style) {
+  const color =
+    edge.status === "inactive" ? 0xeaf6ff : workspaceNeonTheme.workflow.edgeFlow.coreColor;
+  const alpha = edge.status === "inactive" ? 0.94 : 0.98;
+  const radius = edge.status === "inactive" ? 2.2 : 2.55;
+  const haloRadius = edge.status === "inactive" ? 3.8 : 3.45;
+  const positions = edge.status === "active" ? [0.2, 0.38, 0.56, 0.74] : [0.25, 0.75];
+  for (const t of positions) {
+    const point = sampleCurvedEdge(start, end, t);
+    target
+      .circle(point.x, point.y, radius)
+      .fill({ alpha, color })
+      .circle(point.x, point.y, haloRadius)
+      .stroke({ alpha: alpha * 0.1, color, width: 1.15 });
+  }
+}
+
+function drawSemanticEdge(target, edge, start, end, endpointLayers) {
   const style = workspaceNeonTheme.semantic.tendril;
   const color = edge.color ?? 0xe2e8f0;
-  drawCurvedEdge(target, start, end, {
-    alpha: style.glowAlpha,
-    color,
-    width: (edge.width ?? style.width) + style.glowWidth,
+  if (isSemanticBridgeEndpoint(endpointLayers)) {
+    drawSemanticBridgeEdge(target, edge, start, end, color, style);
+    return;
+  }
+  const alphaScale = semanticEdgeAlphaScale(edge, style.strokeAlpha);
+  drawSemanticTendrilPath({
+    amplitude: 0,
+    edge,
+    end,
+    start,
+    stroke: {
+      alpha: style.glowAlpha * alphaScale,
+      color,
+      width: (edge.width ?? style.width) + style.glowWidth,
+    },
+    target,
   });
   drawSemanticTendrilPath({
     edge,
@@ -160,10 +223,17 @@ function drawSemanticEdge(target, edge, start, end) {
     },
     target,
   });
-  drawCurvedEdge(target, start, end, {
-    alpha: style.coreAlpha,
-    color: style.coreColor,
-    width: style.coreWidth,
+  drawSemanticTendrilPath({
+    amplitude: 0,
+    edge,
+    end,
+    start,
+    stroke: {
+      alpha: style.coreAlpha * alphaScale,
+      color: style.coreColor,
+      width: style.coreWidth,
+    },
+    target,
   });
   drawSemanticTendrilPath({
     amplitude: style.wobbleAmplitude,
@@ -171,12 +241,51 @@ function drawSemanticEdge(target, edge, start, end) {
     end,
     start,
     stroke: {
-      alpha: style.filamentAlpha,
+      alpha: style.filamentAlpha * alphaScale,
       color,
       width: style.filamentWidth,
     },
     target,
   });
+}
+
+function drawSemanticBridgeEdge(target, edge, start, end, color, style) {
+  const alpha = edge.alpha ?? style.strokeAlpha;
+  drawSemanticTendrilPath({
+    amplitude: 0,
+    edge,
+    end,
+    start,
+    stroke: {
+      alpha: alpha * 0.14,
+      color,
+      width: Math.max(1, (edge.width ?? style.width) * 0.8),
+    },
+    target,
+  });
+  const samples = 22;
+  for (let sampleIndex = 1; sampleIndex <= samples; sampleIndex += 1) {
+    const t = sampleIndex / (samples + 1);
+    const point = semanticTendrilPoint({
+      amplitude: style.wobbleAmplitude * 0.18,
+      edge,
+      end,
+      phase: 0,
+      start,
+      t,
+    });
+    const pulse = 0.68 + Math.sin((t + unitHashForId(edge.id)) * Math.PI * 2) * 0.18;
+    target
+      .circle(point.x, point.y, sampleIndex % 5 === 0 ? 2.2 : 1.65)
+      .fill({ alpha: Math.min(0.64, alpha * pulse * 1.75), color });
+  }
+}
+
+function semanticEdgeAlphaScale(edge, baseAlpha) {
+  if (edge.alpha === undefined) {
+    return 1;
+  }
+  return Math.min(1, Math.max(0, edge.alpha / baseAlpha) ** 0.35);
 }
 
 function drawSemanticTendrilPath({ amplitude = 0, edge, end, start, stroke, target }) {
@@ -197,12 +306,12 @@ function drawSemanticTendrilPath({ amplitude = 0, edge, end, start, stroke, targ
 }
 
 function semanticTendrilPoint({ amplitude, edge, end, phase, start, t }) {
-  const point = sampleCurvedEdge(start, end, t);
+  const point = semanticBaseTendrilPoint(start, end, t);
   if (amplitude === 0) {
     return point;
   }
-  const before = sampleCurvedEdge(start, end, Math.max(0, t - 0.025));
-  const after = sampleCurvedEdge(start, end, Math.min(1, t + 0.025));
+  const before = semanticBaseTendrilPoint(start, end, Math.max(0, t - 0.025));
+  const after = semanticBaseTendrilPoint(start, end, Math.min(1, t + 0.025));
   const dx = after.x - before.x;
   const dy = after.y - before.y;
   const length = Math.hypot(dx, dy) || 1;
@@ -212,6 +321,18 @@ function semanticTendrilPoint({ amplitude, edge, end, phase, start, t }) {
   return {
     x: point.x + (-dy / length) * offset,
     y: point.y + (dx / length) * offset,
+  };
+}
+
+function semanticBaseTendrilPoint(start, end, t) {
+  const curved = sampleCurvedEdge(start, end, t);
+  const linear = {
+    x: start.x + (end.x - start.x) * t,
+    y: start.y + (end.y - start.y) * t,
+  };
+  return {
+    x: linear.x + (curved.x - linear.x) * 0.58,
+    y: linear.y + (curved.y - linear.y) * 0.58,
   };
 }
 
@@ -241,6 +362,17 @@ function edgeHasSemanticTendrilFlow(edge, visibleNodeIds, activeSemanticNodeIds)
     (visibleNodeIds === null ||
       (visibleNodeIds.has(edge.sourceNodeId) && visibleNodeIds.has(edge.targetNodeId)))
   );
+}
+
+function edgeEndpointLayers(source, target) {
+  return {
+    source: rendererNodeLayer(source),
+    target: rendererNodeLayer(target),
+  };
+}
+
+function isSemanticBridgeEndpoint(endpointLayers) {
+  return endpointLayers.source !== "semantic" || endpointLayers.target !== "semantic";
 }
 
 function drawWorkflowEdgeFlowForEdge({ edge, getNode, now, target }) {
@@ -288,9 +420,7 @@ function drawWorkflowEdgeFlowPulse(target, start, end, headT, color) {
     .fill({ alpha: style.headAlpha, color: style.coreColor });
 }
 
-function drawSemanticTendrilFlowForEdge({ edge, getNode, now, target }) {
-  const source = getNode(edge.sourceNodeId);
-  const targetNode = getNode(edge.targetNodeId);
+function drawSemanticTendrilFlowForNodes({ edge, now, source, target, targetNode }) {
   const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
   const end = portWorldPosition(targetNode, requireEdgePort(targetNode, edge, "targetPortId"));
   drawSemanticTendrilFlow(target, edge, start, end, now);
@@ -299,6 +429,7 @@ function drawSemanticTendrilFlowForEdge({ edge, getNode, now, target }) {
 function drawSemanticTendrilFlow(target, edge, start, end, now) {
   const style = workspaceNeonTheme.semantic.animation.tendril;
   const color = edge.color ?? 0x7dd3fc;
+  const alphaScale = semanticEdgeAlphaScale(edge, workspaceNeonTheme.semantic.tendril.strokeAlpha);
   const phase = now / style.periodMs;
   drawAnimatedSemanticTendrilPath({
     amplitude: style.wobbleAmplitude,
@@ -307,13 +438,13 @@ function drawSemanticTendrilFlow(target, edge, start, end, now) {
     phase,
     start,
     stroke: {
-      alpha: style.filamentAlpha,
+      alpha: style.filamentAlpha * alphaScale,
       color,
       width: style.filamentWidth,
     },
     target,
   });
-  drawSemanticTendrilSignal({ color, edge, end, phase, start, target, now });
+  drawSemanticTendrilSignal({ alphaScale, color, edge, end, phase, start, target, now });
 }
 
 function drawAnimatedSemanticTendrilPath({ amplitude, edge, end, phase, start, stroke, target }) {
@@ -333,10 +464,11 @@ function drawAnimatedSemanticTendrilPath({ amplitude, edge, end, phase, start, s
   }
 }
 
-function drawSemanticTendrilSignal({ color, edge, end, phase, start, target, now }) {
+function drawSemanticTendrilSignal({ alphaScale, color, edge, end, phase, start, target, now }) {
   const style = workspaceNeonTheme.semantic.animation.tendril;
-  const headT = (now / style.signalPeriodMs + unitHashForId(edge.id)) % 1;
-  const trailStartT = Math.max(0, headT - style.signalTrailLength);
+  const rawHeadT = (now / style.signalPeriodMs + unitHashForId(edge.id)) % 1;
+  const headT = 0.12 + rawHeadT * 0.76;
+  const trailStartT = Math.max(0.12, headT - style.signalTrailLength);
   const trailSpan = headT - trailStartT;
   if (trailSpan > 0) {
     let previous = semanticTendrilPoint({
@@ -361,7 +493,7 @@ function drawSemanticTendrilSignal({ color, edge, end, phase, start, target, now
         .moveTo(previous.x, previous.y)
         .lineTo(next.x, next.y)
         .stroke({
-          alpha: (style.signalTrailAlpha * sampleIndex) / style.signalSamples,
+          alpha: (style.signalTrailAlpha * alphaScale * sampleIndex) / style.signalSamples,
           color,
           width: style.signalTrailWidth,
         });
@@ -378,9 +510,12 @@ function drawSemanticTendrilSignal({ color, edge, end, phase, start, target, now
   });
   target
     .circle(head.x, head.y, style.signalHaloRadius)
-    .fill({ alpha: style.signalHaloAlpha, color })
+    .fill({ alpha: style.signalHaloAlpha * alphaScale, color })
     .circle(head.x, head.y, style.signalRadius)
-    .fill({ alpha: style.signalAlpha, color: workspaceNeonTheme.semantic.tendril.coreColor });
+    .fill({
+      alpha: style.signalAlpha * alphaScale,
+      color: workspaceNeonTheme.semantic.tendril.coreColor,
+    });
 }
 
 function drawHighlightedEdge(target, edge, getNode, stroke) {

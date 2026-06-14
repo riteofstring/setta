@@ -38,8 +38,9 @@ export function createWorkflowGraphDebugSnapshot({
 }) {
   return ({ includeVisual = true } = {}) => {
     const canvasRect = app.canvas.getBoundingClientRect();
+    const clearColor = typeof backgroundColor === "function" ? backgroundColor() : backgroundColor;
     const visual = includeVisual
-      ? samplePixiVisualState(app.renderer, app.stage, backgroundColor)
+      ? samplePixiVisualState(app.renderer, app.stage, clearColor)
       : skippedVisualState();
     const camera = cameraState(viewport);
     const nodeGeometryContexts = nodeGeometryContextCounts();

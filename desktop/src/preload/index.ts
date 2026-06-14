@@ -362,7 +362,12 @@ function optionalWorkflowGraphSyntheticSceneEnv(
   if (value === undefined || value === "") {
     return null;
   }
-  if (value === "workflow" || value === "semantic-cells") {
+  if (
+    value === "workflow" ||
+    value === "workflow-running" ||
+    value === "semantic-cells" ||
+    value === "merged"
+  ) {
     return value;
   }
   throw new Error(`SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE is unsupported: ${value}`);

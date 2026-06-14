@@ -81,6 +81,11 @@
     background: rgba(10,12,20,0.5); border: 1px solid rgba(255,255,255,0.07);
     border-radius: 12px; padding: 10px 13px; backdrop-filter: blur(10px); }
   .blurb b { color: rgba(255,255,255,.82); font-weight: 700; }
+  html.visual-capture .topbar,
+  html.visual-capture .legend,
+  html.visual-capture .hint,
+  html.visual-capture .detail,
+  html.visual-capture .blurb { display: none !important; }
 </style>
 </head>
 <body>
@@ -125,6 +130,11 @@ const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 let DPR = Math.min(window.devicePixelRatio || 1, 2);
 let W = 0, H = 0;
+const captureParams = new URLSearchParams(location.search);
+const captureMode = captureParams.get('capture') === '1';
+const captureScene = captureParams.get('scene') || '';
+const captureNow = Number.parseFloat(captureParams.get('now') || '1800');
+if (captureMode) document.documentElement.classList.add('visual-capture');
 
 /* ---------- shared status palette (mirrors the real app) ---------- */
 const STATUS = {
@@ -144,7 +154,7 @@ const KIND_LABEL = {
 
 /* ---------- sample workflow (a small but expressive DAG) ---------- */
 const COL = 250, ROW = 158, NW = 168, NH = 70;
-const nodeDefs = [
+const defaultNodeDefs = [
   { id:'start',     label:'Start',          kind:'start',        col:0, row:0 },
   { id:'fetch',     label:'Fetch Data',     kind:'action',       col:1, row:0 },
   { id:'route',     label:'Valid?',         kind:'gateway.xor',  col:2, row:0 },
@@ -154,7 +164,7 @@ const nodeDefs = [
   { id:'summarize', label:'Summarize',      kind:'action',       col:5, row:0 },
   { id:'done',      label:'Done',           kind:'end',          col:6, row:0 },
 ];
-const edgeDefs = [
+const defaultEdgeDefs = [
   { from:'start',     to:'fetch' },
   { from:'fetch',     to:'route' },
   { from:'route',     to:'process',   tag:'yes' },
@@ -164,6 +174,36 @@ const edgeDefs = [
   { from:'join',      to:'summarize' },
   { from:'summarize', to:'done' },
 ];
+function workflowSceneDefinitions(scene){
+  if(scene==='workflow-idle'){
+    return {
+      nodeDefs: [
+        { id:'start', label:'Start', kind:'start', col:0, row:0, status:'not_started' },
+        { id:'work', label:'Work', kind:'action', col:1.35, row:0.45, status:'not_started' },
+        { id:'end', label:'End', kind:'end', col:2.7, row:0, status:'not_started' },
+      ],
+      edgeDefs: [
+        { from:'start', to:'work' },
+        { from:'work', to:'end' },
+      ],
+    };
+  }
+  if(scene==='workflow-running'){
+    return {
+      nodeDefs: [
+        { id:'start', label:'Start', kind:'start', col:0, row:0, status:'succeeded' },
+        { id:'work', label:'Work', kind:'action', col:1.35, row:0.45, status:'running' },
+        { id:'end', label:'End', kind:'end', col:2.7, row:0, status:'not_started' },
+      ],
+      edgeDefs: [
+        { from:'start', to:'work' },
+        { from:'work', to:'end' },
+      ],
+    };
+  }
+  return { nodeDefs: defaultNodeDefs, edgeDefs: defaultEdgeDefs };
+}
+const { nodeDefs, edgeDefs } = workflowSceneDefinitions(captureScene);
 const descs = {
   start:'Entry point of the workflow. Fires once when the run begins.',
   fetch:'Agent pulls the source dataset and normalizes it for downstream steps.',
@@ -178,7 +218,7 @@ const descs = {
 /* layout → world coordinates (top-left of each node box) */
 const nodes = nodeDefs.map(n => ({
   ...n, x: n.col * COL, y: n.row * ROW, w: NW, h: NH,
-  status: 'not_started', anim: Math.random() * Math.PI * 2,
+  status: n.status || 'not_started', anim: Math.random() * Math.PI * 2,
 }));
 const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
 const edges = edgeDefs.map((e, i) => ({ ...e, i, a: byId[e.from], b: byId[e.to] }));
@@ -237,6 +277,7 @@ const RUN_WIN = 0.085; // fraction of loop a node spends "running"
 let runStart = 0;
 
 function updateSimulation(now){
+  if(captureScene==='workflow-idle' || captureScene==='workflow-running') return;
   const t = ((now - runStart) % PERIOD) / PERIOD;
   for (const n of nodes){
     const s = schedule[n.id];
@@ -637,6 +678,7 @@ function resetCam(){ ctx.setTransform(DPR,0,0,DPR,0,0); }
 let hoverId=null, selId=null;
 
 function frame(now){
+  if(captureMode) now = Number.isFinite(captureNow) ? captureNow : 1800;
   updateSimulation(now);
   const T = THEMES[current];
   resetCam();
@@ -649,6 +691,10 @@ function frame(now){
     T.node(ctx, n, now, hoverId===n.id, selId===n.id);
   }
   resetCam();
+  if(captureMode){
+    window.__settaVisualParityReady = true;
+    return;
+  }
   requestAnimationFrame(frame);
 }
 

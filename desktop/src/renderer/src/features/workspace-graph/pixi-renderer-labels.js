@@ -7,6 +7,7 @@ import {
 } from "./pixi-renderer-label-font";
 import { syncNodeLabelVisibility } from "./pixi-renderer-label-visibility";
 import { rendererNodeLayer } from "./pixi-renderer-layers";
+import { workflowCardLabelCenterX } from "./pixi-renderer-workflow-card-layout";
 import { workspaceNeonTheme } from "./workspace-neon-theme";
 
 export function createWorkflowGraphLabelManager({
@@ -39,13 +40,14 @@ export function createWorkflowGraphLabelManager({
     }
     const node = labelNode ?? requireNode(nodeId);
     validateNodeLabelGlyphs(node.id, node.label);
+    const layer = rendererNodeLayer(node);
     const label = new BitmapText({
       anchor: 0.5,
       style: {
         align: "center",
         fill: 0xf8fafc,
         fontFamily: loadedNodeLabelFont.fontFamily,
-        fontSize: nodeLabelBitmapFontSize,
+        fontSize: layer === "semantic" ? 13 : nodeLabelBitmapFontSize,
       },
       text: node.label,
     });
@@ -88,6 +90,13 @@ export function createWorkflowGraphLabelManager({
     const screen = nodeLabelScreenPosition({ label, node, viewport });
     label.position.set(Math.round(screen.x), Math.round(screen.y));
     label.scale.set(1);
+    const layer = rendererNodeLayer(node);
+    label.alpha =
+      layer === "semantic"
+        ? 0.92
+        : layer === "workflow" && node.status === "not_started"
+          ? 0.68
+          : 1;
     labelSyncCount += 1;
   }
 
@@ -125,7 +134,7 @@ export function createWorkflowGraphLabelManager({
 export function nodeLabelScreenPosition({ label, node, viewport }) {
   switch (rendererNodeLayer(node)) {
     case "workflow":
-      return viewport.toScreen(node.x + node.width / 2, node.y + node.height / 2);
+      return viewport.toScreen(node.x + workflowCardLabelCenterX(node), node.y + node.height / 2);
     case "semantic": {
       const membraneBottom = viewport.toScreen(node.x + node.width / 2, node.y + node.height);
       return {

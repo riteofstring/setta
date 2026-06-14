@@ -2,11 +2,12 @@ import { registerWorkflowGraphDebugSurface } from "./pixi-renderer-debug-registr
 
 export function registerWorkflowGraphDebugSurfaceIfEnabled({
   debugEnabled,
+  fitToGraph,
   debugSurfaceId,
   getSnapshot,
 }) {
   if (!debugEnabled) {
     return null;
   }
-  return registerWorkflowGraphDebugSurface(debugSurfaceId, getSnapshot);
+  return registerWorkflowGraphDebugSurface(debugSurfaceId, { fitToGraph, getSnapshot });
 }

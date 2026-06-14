@@ -1,6 +1,9 @@
 import { BitmapText } from "pixi.js";
 
 export function drawEdgeLabel(layer, edge, start, end, options) {
+  if (edge.layer === "semantic") {
+    return;
+  }
   const labelText = edge.label ?? "";
   if (labelText === "") {
     return;

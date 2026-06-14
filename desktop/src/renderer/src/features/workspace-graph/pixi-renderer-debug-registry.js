@@ -1,10 +1,10 @@
 /* global window */
 
-export function registerWorkflowGraphDebugSurface(surfaceId, getSnapshot) {
+export function registerWorkflowGraphDebugSurface(surfaceId, surface) {
   const api = ensureWorkflowGraphDebugApi();
-  api.__renderers.set(surfaceId, getSnapshot);
+  api.__renderers.set(surfaceId, normalizeDebugSurface(surface));
   return () => {
-    if (api.__renderers.get(surfaceId) === getSnapshot) {
+    if (api.__renderers.get(surfaceId)?.source === surface) {
       api.__renderers.delete(surfaceId);
     }
     if (api.__renderers.size === 0 && window.__settaWorkflowGraphDebug === api) {
@@ -23,28 +23,50 @@ function ensureWorkflowGraphDebugApi() {
   const api = {
     __renderers: renderers,
     getSnapshot(surfaceId, options) {
-      return resolveWorkflowGraphDebugSurface(renderers, surfaceId)(options);
+      return resolveWorkflowGraphDebugSurface(renderers, surfaceId).getSnapshot(options);
     },
     getSnapshots() {
       return Object.fromEntries(
-        [...renderers.entries()].map(([surfaceId, getSnapshot]) => [surfaceId, getSnapshot()]),
+        [...renderers.entries()].map(([surfaceId, surface]) => [surfaceId, surface.getSnapshot()]),
       );
     },
     getSurfaceIds() {
       return [...renderers.keys()];
+    },
+    fitToGraph(surfaceId, options) {
+      const surface = resolveWorkflowGraphDebugSurface(renderers, surfaceId);
+      if (!surface.fitToGraph) {
+        throw new Error(`Workflow graph debug surface cannot fit camera: ${surfaceId}`);
+      }
+      return surface.fitToGraph(options);
     },
   };
   window.__settaWorkflowGraphDebug = api;
   return api;
 }
 
+function normalizeDebugSurface(surface) {
+  if (typeof surface === "function") {
+    return {
+      fitToGraph: null,
+      getSnapshot: surface,
+      source: surface,
+    };
+  }
+  return {
+    fitToGraph: surface.fitToGraph ?? null,
+    getSnapshot: surface.getSnapshot,
+    source: surface,
+  };
+}
+
 function resolveWorkflowGraphDebugSurface(renderers, surfaceId) {
   if (surfaceId) {
-    const getSnapshot = renderers.get(surfaceId);
-    if (!getSnapshot) {
+    const surface = renderers.get(surfaceId);
+    if (!surface) {
       throw new Error(`Workflow graph debug surface is not registered: ${surfaceId}`);
     }
-    return getSnapshot;
+    return surface;
   }
   const first = renderers.values().next();
   if (first.done) {

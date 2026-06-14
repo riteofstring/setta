@@ -81,6 +81,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "visual-parity-workflow.test.mjs",
+    name: "visual-parity",
+    tiers: ["performance"],
+  },
+  {
     file: "workflow-graph-scale-validation.test.mjs",
     name: "workflow-graph-scale-validation",
     tiers: ["performance"],

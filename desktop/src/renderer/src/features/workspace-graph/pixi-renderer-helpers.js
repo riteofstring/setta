@@ -275,14 +275,17 @@ export function drawTemporaryEdge(target, edgeDrawing) {
 
 export function drawPortVisualState(target, port, state) {
   target.clear();
+  if (state === "idle") {
+    return;
+  }
   const portTheme = workspaceNeonTheme.foundation.port;
   const color = port.role === "source" ? portTheme.source : portTheme.target;
-  const alpha = state === "idle" ? 0.82 : 1;
-  const ringAlpha = state === "idle" ? 0.34 : 0.88;
+  const alpha = 1;
+  const ringAlpha = 0.88;
   const ringRadius = state === "active" || state === "target" ? 13 : 10;
   target
     .circle(0, 0, ringRadius)
-    .stroke({ alpha: ringAlpha, color, width: state === "idle" ? 1.5 : 2.5 })
+    .stroke({ alpha: ringAlpha, color, width: 2.5 })
     .circle(0, 0, 6)
     .fill({ alpha, color: portTheme.core });
 }
@@ -317,12 +320,14 @@ function workspaceGlowPulse(now, mode) {
 function drawWorkflowNodeGlow(target, node, now, mode) {
   const style = workflowNodeAuraStyleFor(node);
   const aura = workflowNodeAuraRenderState(node, style, now, mode);
+  const color = node.status === "not_started" ? 0x8b8b8b : node.color;
   const radius = Math.max(node.width, node.height) / 2 + style.radiusPadding + aura.radiusOffset;
+  const compactScale = 1;
   target
     .roundRect(node.x - 8, node.y - 8, node.width + 16, node.height + 16, 14)
-    .stroke({ alpha: aura.alpha, color: node.color, width: aura.glowWidth })
+    .stroke({ alpha: aura.alpha * compactScale, color, width: aura.glowWidth * compactScale })
     .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
-    .stroke({ alpha: aura.ringAlpha, color: node.color, width: style.ringWidth });
+    .stroke({ alpha: aura.ringAlpha * compactScale, color, width: style.ringWidth * compactScale });
 }
 
 function workflowNodeAuraStyleFor(node) {
@@ -379,12 +384,14 @@ function drawSemanticNodeGlow(target, node, pulse, mode) {
   const animated = mode === "animated";
   const steady = mode === "steady";
   const cellRadius = Math.min(node.width, node.height) / 2;
-  const radius = cellRadius + 15 + (animated ? pulse * 10 : steady ? 5 : 0);
+  const radius = cellRadius + 18 + (animated ? pulse * 8 : steady ? 6 : 0);
   const baseAlpha = node.dismissed ? cell.dismissed.auraAlpha : cell.auraAlpha;
-  const alpha = animated || steady ? baseAlpha + pulse * 0.08 : baseAlpha * 0.58;
+  const alpha = animated || steady ? baseAlpha * 0.58 + pulse * 0.03 : baseAlpha * 0.28;
   target
-    .circle(node.x + node.width / 2, node.y + node.height / 2, radius)
-    .stroke({ alpha, color: node.color, width: animated || steady ? 2.6 : 1.8 });
+    .circle(node.x + node.width / 2, node.y + node.height / 2, radius + 3)
+    .fill({ alpha: alpha * 0.46, color: node.color })
+    .circle(node.x + node.width / 2, node.y + node.height / 2, radius - 8)
+    .fill({ alpha: alpha * 0.18, color: node.color });
 }
 
 function hexToRgb(color) {

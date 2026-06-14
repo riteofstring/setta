@@ -435,6 +435,43 @@
     return { ready: true, snapshot: api.getSnapshot(surfaceId, { includeVisual }) };
   }
 
+  function workflowGraphFitToView({ maxFitZoom = 1.15, paddingScreenPx = 160, surfaceId }) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api) {
+      throw new Error("workflow graph debug API is not installed");
+    }
+    return api.fitToGraph(surfaceId, { maxFitZoom, paddingScreenPx });
+  }
+
+  function hideWorkflowGraphCaptureChrome({ surfaceId = null } = {}) {
+    const host = workflowGraphHostBySurfaceId(surfaceId) ?? activeWorkflowGraphHost();
+    if (!(host instanceof HTMLElement)) {
+      return { hidden: 0, ok: false, reason: "missing-workflow-graph-host" };
+    }
+    const selectors = [
+      '[data-testid="workflow-graph-toolbar"]',
+      '[data-testid="workflow-node-details-surface"]',
+      '[data-testid="semantic-node-details-surface"]',
+      '[data-testid="workspace-layout-recovery"]',
+      '[role="alert"]',
+    ];
+    let hidden = 0;
+    for (const selector of selectors) {
+      const elements = new Set([
+        ...host.querySelectorAll(selector),
+        ...document.querySelectorAll(selector),
+      ]);
+      for (const element of elements) {
+        if (element instanceof HTMLElement) {
+          element.dataset.visualParityPreviousVisibility = element.style.visibility;
+          element.style.visibility = "hidden";
+          hidden += 1;
+        }
+      }
+    }
+    return { hidden, ok: true };
+  }
+
   function workflowGraphDebugNotReady(reason, surfaceIds = []) {
     return {
       flags: window.setta?.app.flags ?? null,
@@ -466,6 +503,14 @@
       activeWorkspaceCount: session.activeWorkspaces.length,
       body: document.body.innerText,
       selectedWorkspaceId: session.selectedWorkspaceId,
+    };
+  }
+
+  async function openWorkspacePath({ workspaceRoot }) {
+    const opened = await window.setta.workspace.openPath(workspaceRoot);
+    return {
+      workspaceId: opened.workspace.id,
+      workspaceName: opened.workspace.name,
     };
   }
 
@@ -1119,7 +1164,7 @@
     newFrameButtonOrWorkflowMenuExists,
     openWorkflowGraphToolbarMenu,
     selectWorkflowGraphMenuItem,
-    version: "setta-e2e-driver-v5",
+    version: "setta-e2e-driver-v6",
     visibleUserMessageTexts,
     visibleAssistantTexts,
     visibleWorkflowGraphCount,
@@ -1129,6 +1174,7 @@
     configureWorkflowResultAction,
     createWorkflowProjectionFixture,
     nullWorkflowValidation,
+    openWorkspacePath,
     openWorkflowToolbarAddMenu,
     readWorkflowExecution,
     renameWorkflowDefinitionFromCurrentGraph,
@@ -1142,6 +1188,8 @@
     workflowGraphCanvasRect,
     workflowGraphDebugSnapshot,
     workflowGraphDebugSnapshotReady,
+    workflowGraphFitToView,
+    hideWorkflowGraphCaptureChrome,
     workflowGraphMenuItemExists,
     workflowGraphPaneSettled,
     workflowGraphPaneState,

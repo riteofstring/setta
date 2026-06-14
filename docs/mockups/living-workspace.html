@@ -68,6 +68,11 @@
   .detail .meta .v { color: rgba(255,255,255,.82); text-align: right; }
   .detail .close { position: absolute; top: 12px; right: 14px; cursor: pointer; color: rgba(255,255,255,.4); font-size: 18px; line-height: 1; }
   .detail .close:hover { color: #fff; }
+  html.visual-capture .topbar,
+  html.visual-capture .legend,
+  html.visual-capture .hint,
+  html.visual-capture .detail,
+  html.visual-capture .blurb { display: none !important; }
 </style>
 </head>
 <body>
@@ -119,6 +124,14 @@ const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 let DPR = Math.min(window.devicePixelRatio || 1, 2);
 let W = 0, H = 0;
+const captureParams = new URLSearchParams(location.search);
+const captureMode = captureParams.get('capture') === '1';
+const captureScene = captureParams.get('scene') || 'merged';
+const captureNow = Number.parseFloat(captureParams.get('now') || '2200');
+if (captureMode) document.documentElement.classList.add('visual-capture');
+if (captureMode && !['semantic-cells', 'merged'].includes(captureScene)) {
+  throw new Error(`unknown living-workspace capture scene: ${captureScene}`);
+}
 
 /* ---------- helpers ---------- */
 const TAU = Math.PI * 2;
@@ -132,6 +145,15 @@ function lerpHex(h1,h2,t){ const a=hx(h1),b=hx(h2);
 function easeInOut(t){ return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
 function hash01(str){ let h=2166136261; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619);} return ((h>>>0)%10000)/10000; }
 let _id=0; const uid=(p)=> `${p}-${++_id}`;
+function seededRandom(seedText){
+  let seed=2166136261;
+  for(let i=0;i<seedText.length;i++){ seed^=seedText.charCodeAt(i); seed=Math.imul(seed,16777619); }
+  return ()=>{
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+}
+const random = captureMode ? seededRandom(`living-workspace:${captureScene}`) : Math.random;
 
 /* ---------- palette (neon variants of the real Setta colours) ---------- */
 const SEM = {
@@ -223,9 +245,9 @@ function drawWfGlyph(kind,cx,cy,s,color){
 function makeCell(kind, label, x, y, r, opts={}){
   return {
     id: uid('cell'), kind, label, hx:x, hy:y, x, y, r, baseR:r,
-    phase: Math.random()*TAU, nphase: Math.random()*TAU,
-    organelles: Array.from({length: 4+Math.floor(Math.random()*3)}, ()=>({
-      a: Math.random()*TAU, d: 0.25+Math.random()*0.5, s: Math.random()*TAU, sp: 0.6+Math.random()*0.8,
+    phase: random()*TAU, nphase: random()*TAU,
+    organelles: Array.from({length: 4+Math.floor(random()*3)}, ()=>({
+      a: random()*TAU, d: 0.25+random()*0.5, s: random()*TAU, sp: 0.6+random()*0.8,
     })),
     active: opts.active||false, state: opts.state||'concept-state',
     promoted:false, dismissed:false, vx:0, vy:0,
@@ -243,7 +265,7 @@ let cells = [
 ];
 const cellById = ()=> Object.fromEntries(cells.map(c=>[c.id,c]));
 let tendrils = [];
-function link(aId,bId,kind){ tendrils.push({ id:uid('t'), from:aId, to:bId, kind, phase:Math.random()*TAU }); }
+function link(aId,bId,kind){ tendrils.push({ id:uid('t'), from:aId, to:bId, kind, phase:random()*TAU }); }
 (function seedTendrils(){
   const [concept,question,hyp,finding,decision,constraint]=cells;
   link(concept.id,question.id,'about');
@@ -452,7 +474,7 @@ function drawTendril(t, now){
 const DIVIDE_DUR=3.4, SPAWN_DUR=0.9, MERGE_DUR=2.8;
 function startDivision(c){
   if(c.anim||c.dismissed) return;
-  c.anim={ type:'divide', t:0, dur:DIVIDE_DUR, axis:Math.random()*TAU, flashAt:1, done:false };
+  c.anim={ type:'divide', t:0, dur:DIVIDE_DUR, axis:random()*TAU, flashAt:1, done:false };
 }
 function finishDivision(c){
   const axis=c.anim.axis, ax=Math.cos(axis), ay=Math.sin(axis); const sep=c.r*2.05;
@@ -463,8 +485,8 @@ function finishDivision(c){
   d1.x=c.x-ax*sep/2; d1.y=c.y-ay*sep/2; d2.x=c.x+ax*sep/2; d2.y=c.y+ay*sep/2;
   d1.anim={type:'spawn',t:0,dur:SPAWN_DUR}; d2.anim={type:'spawn',t:0,dur:SPAWN_DUR};
   // inherit tendrils from parent, split across daughters
-  for(const t of tendrils){ if(t.from===c.id) t.from=(Math.random()<0.5?d1.id:d2.id);
-    if(t.to===c.id) t.to=(Math.random()<0.5?d1.id:d2.id); }
+  for(const t of tendrils){ if(t.from===c.id) t.from=(random()<0.5?d1.id:d2.id);
+    if(t.to===c.id) t.to=(random()<0.5?d1.id:d2.id); }
   link(d1.id,d2.id,'related_to'); // sibling bond
   const idx=cells.indexOf(c); cells.splice(idx,1,d1,d2);
 }
@@ -537,14 +559,14 @@ function stepAnimations(dt){
 }
 
 /* auto-life: keep the workspace alive on its own */
-let autoOn=true, autoTimer=2.2;
+let autoOn=!captureMode, autoTimer=2.2;
 function autoTick(dt){
-  if(!autoOn) return; autoTimer-=dt; if(autoTimer>0) return; autoTimer=4.5+Math.random()*3;
+  if(!autoOn) return; autoTimer-=dt; if(autoTimer>0) return; autoTimer=4.5+random()*3;
   const busy=cells.some(c=>c.anim&&(c.anim.type==='divide'||c.anim.type==='merge'));
   if(busy){ autoTimer=1.2; return; }
   const alive=cells.filter(c=>!c.anim&&!c.dismissed);
   if(alive.length>=9){ startMerge(); }
-  else { const c=alive[Math.floor(Math.random()*alive.length)]; if(c) startDivision(c); }
+  else { const c=alive[Math.floor(random()*alive.length)]; if(c) startDivision(c); }
 }
 
 /* =====================================================================
@@ -553,9 +575,12 @@ function autoTick(dt){
 const cam={x:0,y:0,scale:1};
 function worldBBox(){ let m=[1e9,1e9,-1e9,-1e9];
   const pad=(o)=>{ m[0]=Math.min(m[0],o.x);m[1]=Math.min(m[1],o.y);m[2]=Math.max(m[2],o.x);m[3]=Math.max(m[3],o.y); };
-  for(const n of wfNodes){ pad({x:n.x,y:n.y}); pad({x:n.x+n.w,y:n.y+n.h}); }
-  for(const c of cells){ pad({x:c.x-c.r,y:c.y-c.r}); pad({x:c.x+c.r,y:c.y+c.r}); }
+  if(sceneIncludesWorkflow()) for(const n of wfNodes){ pad({x:n.x,y:n.y}); pad({x:n.x+n.w,y:n.y+n.h}); }
+  if(sceneIncludesSemantic()) for(const c of cells){ pad({x:c.x-c.r,y:c.y-c.r}); pad({x:c.x+c.r,y:c.y+c.r}); }
   return {minX:m[0],minY:m[1],maxX:m[2],maxY:m[3],w:m[2]-m[0],h:m[3]-m[1],cx:(m[0]+m[2])/2,cy:(m[1]+m[3])/2}; }
+function sceneIncludesWorkflow(){ return !captureMode || captureScene==='merged'; }
+function sceneIncludesSemantic(){ return !captureMode || captureScene==='semantic-cells' || captureScene==='merged'; }
+function sceneIncludesBridge(){ return sceneIncludesWorkflow() && sceneIncludesSemantic(); }
 function fit(){ const b=worldBBox(); const pad=170; const s=Math.min((W-pad)/b.w,(H-pad)/b.h,1.05);
   cam.scale=s; cam.x=W/2-b.cx*s; cam.y=H/2-b.cy*s; }
 function applyCam(){ ctx.setTransform(DPR,0,0,DPR,0,0); ctx.translate(cam.x,cam.y); ctx.scale(cam.scale,cam.scale); }
@@ -577,17 +602,19 @@ function drawBackground(now){
   ctx.stroke(); resetCam();
 }
 function frame(now){
-  const dt=Math.min(0.05,(now-lastNow)/1000); lastNow=now;
-  autoTick(dt); stepAnimations(dt);
-  drawBackground(now);
+  const renderNow = captureMode ? captureNow : now;
+  const dt=captureMode ? 0 : Math.min(0.05,(now-lastNow)/1000); lastNow=now;
+  if(!captureMode){ autoTick(dt); stepAnimations(dt); }
+  drawBackground(renderNow);
   applyCam();
   // bridge tendril: workflow 'emit' -> a finding cell, to show one shared space
-  drawBridge(now);
-  for(const t of tendrils) drawTendril(t, now);
-  drawWorkflow(now);
-  for(const c of cells){ if(!(c.anim&&c.anim.type==='merge')) drawCell(c, now); }
-  drawMerging(now);
+  if(sceneIncludesBridge()) drawBridge(renderNow);
+  if(sceneIncludesSemantic()) for(const t of tendrils) drawTendril(t, renderNow);
+  if(sceneIncludesWorkflow()) drawWorkflow(renderNow);
+  if(sceneIncludesSemantic()) for(const c of cells){ if(!(c.anim&&c.anim.type==='merge')) drawCell(c, renderNow); }
+  if(sceneIncludesSemantic()) drawMerging(renderNow);
   resetCam();
+  if(captureMode){ window.__settaVisualParityReady=true; return; }
   requestAnimationFrame(frame);
 }
 function drawBridge(now){
