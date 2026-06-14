@@ -155,7 +155,7 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
       artifactDir,
       client: context.client,
       interaction: ({ inputSamples }) =>
-        exercisePanZoom(context.client, workflowGraphSurfaceId, initial, inputSamples),
+        exercisePanZoom(context.client, workflowGraphSurfaceId, inputSamples),
       name: "pan-zoom",
       surfaceId: workflowGraphSurfaceId,
     });
@@ -205,15 +205,32 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
   }
 }
 
-async function exercisePanZoom(client, surfaceId, initial, inputSamples) {
+async function exercisePanZoom(client, surfaceId, inputSamples) {
+  const snapshot = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
   const center = {
-    x: Math.floor(initial.canvas.clientWidth / 2),
-    y: Math.floor(initial.canvas.clientHeight / 2),
+    x: Math.floor(snapshot.canvas.clientWidth / 2),
+    y: Math.floor(snapshot.canvas.clientHeight / 2),
   };
-  const panStart = {
-    x: Math.max(40, initial.canvas.clientWidth - 180),
-    y: Math.max(40, initial.canvas.clientHeight - 110),
+  const largeSyntheticScene = snapshot.graph.nodeCount >= 100;
+  let panStart = {
+    x: Math.max(40, snapshot.canvas.clientWidth - 180),
+    y: Math.max(40, snapshot.canvas.clientHeight - 110),
   };
+  if (largeSyntheticScene) {
+    await dispatchRecordedWorkflowGraphWheel(
+      client,
+      surfaceId,
+      {
+        deltaX: -2600,
+        deltaY: -1600,
+        x: center.x,
+        y: center.y,
+      },
+      inputSamples,
+    );
+    const shifted = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+    panStart = largeSceneBackgroundPanStart(shifted);
+  }
   await dispatchRecordedWorkflowGraphMouseDrag(
     client,
     surfaceId,
@@ -255,6 +272,135 @@ async function exercisePanZoom(client, surfaceId, initial, inputSamples) {
     },
     inputSamples,
   );
+}
+
+function largeSceneBackgroundPanStart(snapshot) {
+  const candidates = [];
+  const margin = 40;
+  const step = 16;
+  for (let y = margin; y <= snapshot.canvas.clientHeight - margin; y += step) {
+    for (let x = margin; x <= snapshot.canvas.clientWidth - margin; x += step) {
+      const point = { x, y };
+      const nodePortClearance = pointNodePortClearance(point, snapshot);
+      if (nodePortClearance > 4) {
+        candidates.push({ nodePortClearance, point });
+      }
+    }
+  }
+  candidates.sort((left, right) => right.nodePortClearance - left.nodePortClearance);
+  const edgeSegments = edgeScreenSegments(snapshot);
+  let best = null;
+  for (const candidate of candidates.slice(0, 800)) {
+    const edgeClearance = pointEdgeClearance(candidate.point, edgeSegments);
+    const score = Math.min(candidate.nodePortClearance, edgeClearance);
+    if (best === null || score > best.score) {
+      best = { edgeClearance, score, ...candidate };
+    }
+    if (edgeClearance > 2) {
+      return candidate.point;
+    }
+  }
+  throw new Error(
+    `could not find large-scene background pan point: ${JSON.stringify({
+      best,
+      candidateCount: candidates.length,
+      nodeCount: snapshot.graph.nodeCount,
+    })}`,
+  );
+}
+
+function pointNodePortClearance(point, snapshot) {
+  let clearance = Infinity;
+  for (const node of snapshot.graph.nodes) {
+    clearance = Math.min(clearance, pointNodeClearance(point, node, snapshot.camera.zoom));
+    for (const port of node.ports) {
+      clearance = Math.min(
+        clearance,
+        Math.hypot(point.x - port.screenX, point.y - port.screenY) - 18,
+      );
+    }
+  }
+  return clearance;
+}
+
+function pointNodeClearance(point, node, zoom) {
+  const dx = Math.abs(point.x - node.screenX) - (node.width * zoom) / 2;
+  const dy = Math.abs(point.y - node.screenY) - (node.height * zoom) / 2;
+  if (dx <= 0 && dy <= 0) {
+    return Math.max(dx, dy);
+  }
+  return Math.hypot(Math.max(dx, 0), Math.max(dy, 0));
+}
+
+function edgeScreenSegments(snapshot) {
+  const nodesById = new Map(snapshot.graph.nodes.map((node) => [node.id, node]));
+  const segments = [];
+  for (const edge of snapshot.graph.edges) {
+    const source = nodesById.get(edge.sourceNodeId);
+    const target = nodesById.get(edge.targetNodeId);
+    const start = source?.ports.find((port) => port.id === edge.sourcePortId);
+    const end = target?.ports.find((port) => port.id === edge.targetPortId);
+    if (!start || !end) {
+      continue;
+    }
+    let previous = edgeScreenPointAt(start, end, 0, snapshot.camera);
+    for (let index = 1; index <= 28; index += 1) {
+      const next = edgeScreenPointAt(start, end, index / 28, snapshot.camera);
+      segments.push([previous, next]);
+      previous = next;
+    }
+  }
+  return segments;
+}
+
+function edgeScreenPointAt(start, end, t, camera) {
+  const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.35);
+  const oneMinusT = 1 - t;
+  const oneMinusTSquared = oneMinusT * oneMinusT;
+  const tSquared = t * t;
+  return worldToScreen(
+    {
+      x:
+        oneMinusTSquared * oneMinusT * start.x +
+        3 * oneMinusTSquared * t * (start.x + controlOffset) +
+        3 * oneMinusT * tSquared * (end.x - controlOffset) +
+        tSquared * t * end.x,
+      y:
+        oneMinusTSquared * oneMinusT * start.y +
+        3 * oneMinusTSquared * t * start.y +
+        3 * oneMinusT * tSquared * end.y +
+        tSquared * t * end.y,
+    },
+    camera,
+  );
+}
+
+function worldToScreen(world, camera) {
+  return {
+    x: (world.x - camera.x) * camera.zoom,
+    y: (world.y - camera.y) * camera.zoom,
+  };
+}
+
+function pointEdgeClearance(point, segments) {
+  let clearance = Infinity;
+  for (const [start, end] of segments) {
+    clearance = Math.min(clearance, pointToSegmentDistance(point, start, end) - 8);
+  }
+  return clearance;
+}
+
+function pointToSegmentDistance(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y);
+  }
+  const t = Math.max(
+    0,
+    Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)),
+  );
+  return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
 }
 
 async function waitForWorkflowGraphSnapshot(client, surfaceId, { nodeCount, scenario }) {
@@ -341,7 +487,12 @@ function assertFiniteRenderCounters(snapshot) {
 }
 
 function assertPanZoomCounters(snapshot) {
-  if (snapshot.render.cameraUpdateCount <= 0 || snapshot.render.wheelZoomUpdateCount <= 0) {
+  if (
+    snapshot.render.cameraUpdateCount <= 0 ||
+    snapshot.render.pointerPanUpdateCount <= 0 ||
+    snapshot.render.wheelPanUpdateCount <= 0 ||
+    snapshot.render.wheelZoomUpdateCount <= 0
+  ) {
     throw new Error(`pan/zoom counters did not advance: ${JSON.stringify(snapshot.render)}`);
   }
 }
