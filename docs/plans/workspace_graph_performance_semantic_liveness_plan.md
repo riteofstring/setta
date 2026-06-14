@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Phase 3 complete; Phase 4 ready
+- **Status:** Phase 4 complete; Phase 5 ready
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -397,9 +397,46 @@ Renderer projection:
 
 This makes the semantic map live before durable semantic mutations exist.
 
+### Phase 4 Implementation Review
+
+Phase 4 is implemented. Commit `2d8d935eb` added the Go-owned
+`SemanticWorkingSet` contract, generated TypeScript surface, HTTP endpoint,
+main/preload IPC bridge, renderer state refresh path, and renderer projection
+for live source pulses, live source links, candidate targets, and pending patch
+preview cells.
+
+The implementation keeps committed `SemanticGraph` state separate from live
+working memory. `SemanticWorkingSet` is built from typed cartographer
+runs/windows/patches, semantic graph state, and cartographer audit changes. It
+does not add polling, keyword heuristics, chain-of-thought exposure,
+backward-compatibility shims, migrations, transitional dual-read/write paths,
+or hand-maintained TypeScript mirrors.
+
+Focused verification passed for the backend, HTTP, IPC/preload, renderer state,
+and renderer projection surfaces. The required production-path Electron
+workflow also passed:
+
+- `./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi`
+- `pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/preload/index.test.ts src/main/semantic-graph-ipc.test.ts`
+- `node tests/electron/semantic-graph-workflow.test.mjs --skip-build`
+
+The Electron workflow now verifies working-set invalidation from cartographer
+audit bursts, working-set readback, visible live source pulse projection, and
+renderer stability while committed semantic topology remains unchanged. No
+Phase 4 performance report is required because this phase was a contract and
+liveness-surface phase, not a renderer performance refactor.
+
 ## Phase 5 - Deterministic Activity And Change Pulses
 
 Do not rely exclusively on LLM-proposed `start_activity` patches for liveness.
+
+Readiness gate: Phase 5 is ready to implement. Phase 4 provides the typed
+working-set substrate and production renderer projection needed for
+deterministic, non-persistent activity/change pulses. Phase 5 should add pulse
+semantics from workflow/cartographer status and semantic change records on top
+of `SemanticWorkingSet`, extend the existing `semantic-live-run` and
+`semantic-graph` workflow evidence, and keep the no-polling/no-heuristics/no
+legacy-compatibility constraints intact.
 
 - Use workflow/cartographer status to create non-persistent live activity pulses in the working set.
 - Continue using persistent `SemanticActivityInterval` for durable activity history when the cartographer explicitly creates it or when a deterministic source-to-node relationship is known.
@@ -513,8 +550,8 @@ Because this touches workflow, cartographer, event streaming, generated contract
 3. Complete: refactor camera interaction work to be frame-coalesced.
 4. Complete: make labels/glow/filter sync visibility-aware.
 5. Complete: add visible object pooling and edge LOD because the measured bottleneck remains display-object scale.
-6. Next: add the semantic working-set contract and renderer projection.
-7. Add deterministic activity/change pulses.
+6. Complete: add the semantic working-set contract and renderer projection.
+7. Next: add deterministic activity/change pulses.
 8. Fix semantic evidence idempotency and usefulness diagnostics.
 9. Add semantic details/highlight polish.
 10. Promote calibrated performance and liveness checks into gates.
