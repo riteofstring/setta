@@ -11,7 +11,7 @@ import (
 	"setta/internal/chat"
 )
 
-func TestAutomaticCartographerProcessingEnqueuesClosedWindowAndAppliesReviewRequiredPatch(t *testing.T) {
+func TestAutomaticCartographerProcessingEnqueuesClosedWindowAndLeavesReviewRequiredPatchPending(t *testing.T) {
 	runner := &scriptedAutomaticCartographerRunner{reviewRequired: true, confidence: 0.22}
 	service, _ := newAutomaticCartographerTestService(t, runner, AutomaticCartographerProcessingConfig{})
 	ctx := context.Background()
@@ -27,23 +27,21 @@ func TestAutomaticCartographerProcessingEnqueuesClosedWindowAndAppliesReviewRequ
 	}
 	waitForAutomaticCartographerIdle(t, service)
 
-	detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "node_auto_001")
-	if err != nil || !ok || len(detail.Evidence) == 0 {
-		t.Fatalf("automatic cartographer node detail = %+v ok=%v err=%v, want evidence-backed node", detail, ok, err)
+	if detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "node_auto_001"); err != nil || ok {
+		t.Fatalf("automatic cartographer node detail = %+v ok=%v err=%v, want no graph mutation before review", detail, ok, err)
 	}
 	patches, err := service.ListCartographerPatches(ctx, CartographerPatchFilter{
-		WorkspaceID:      testWorkspaceID,
-		SemanticTargetID: "node_auto_001",
-		Limit:            10,
+		WorkspaceID: testWorkspaceID,
+		Limit:       10,
 	})
 	if err != nil {
 		t.Fatalf("list automatic cartographer patches: %v", err)
 	}
 	if len(patches.Patches) != 1 ||
-		patches.Patches[0].Status != CartographerPatchApplied ||
-		!cartographerDiagnosticsContain(nil, patches.Patches, "review_required_auto_applied") ||
-		!cartographerDiagnosticsContain(nil, patches.Patches, "low_confidence_auto_applied") {
-		t.Fatalf("automatic patch records = %+v, want applied review-required metadata diagnostics", patches.Patches)
+		patches.Patches[0].Status != CartographerPatchPendingReview ||
+		!cartographerDiagnosticsContain(nil, patches.Patches, "review_required_pending_review") ||
+		!cartographerDiagnosticsContain(nil, patches.Patches, "low_confidence_pending_review") {
+		t.Fatalf("automatic patch records = %+v, want pending review-required metadata diagnostics", patches.Patches)
 	}
 	state, err := service.ReadCartographerProcessingState(ctx)
 	if err != nil {
@@ -53,7 +51,7 @@ func TestAutomaticCartographerProcessingEnqueuesClosedWindowAndAppliesReviewRequ
 		state.QueuedWindowCount != 0 ||
 		state.RunningWindowCount != 0 ||
 		state.LastProcessedWindowID == "" ||
-		len(state.CreatedSemanticEventIDs) == 0 {
+		len(state.CreatedSemanticEventIDs) != 0 {
 		t.Fatalf("automatic cartographer state = %+v, want completed default-on processing state", state)
 	}
 }

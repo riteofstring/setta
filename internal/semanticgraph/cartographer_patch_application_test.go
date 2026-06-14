@@ -278,6 +278,87 @@ func TestCartographerPatchEnvelopeLeavesHighImpactAndLowConfidencePendingReview(
 	}
 }
 
+func TestCartographerPatchEnvelopeRejectsAutomaticNodeWithOnlyRunLevelEvidence(t *testing.T) {
+	service, store := newCartographerPatchApplicationTestService(t)
+	ctx := context.Background()
+	seedCartographerPatchEvidence(t, store)
+	before := semanticEventCount(t, store)
+	patch := cartographerRecordFindingPatch("cartographer_patch_run_level_only", "node_run_level_only", "Run level only", 0.91)
+	patch.EvidenceRefs = []CartographerPatchEvidenceRef{{
+		SourceKind: EvidenceSourceChatRun,
+		SourceID:   "chat_run_cartographer",
+	}}
+
+	result, err := service.ApplyCartographerPatchEnvelope(ctx, cartographerPatchApplicationInput(t, "cartographer_run_run_level_only", []CartographerPatch{patch}))
+	if err != nil {
+		t.Fatalf("apply run-level evidence patch: %v", err)
+	}
+	if result.Run.Status != CartographerRunRejected ||
+		!cartographerDiagnosticsContain(result.Run.Diagnostics, result.Patches, "source_evidence_insufficient") ||
+		!cartographerDiagnosticsContain(result.Run.Diagnostics, result.Patches, "isolated_node") {
+		t.Fatalf("result = %+v, want rejected run-level-only node diagnostics", result)
+	}
+	if after := semanticEventCount(t, store); after != before {
+		t.Fatalf("semantic event count after rejected run-level node = %d, want %d", after, before)
+	}
+}
+
+func TestCartographerPatchEnvelopeAutoAppliesEvidenceBackedEdgeAndSourceLinks(t *testing.T) {
+	service, store := newCartographerPatchApplicationTestService(t)
+	ctx := context.Background()
+	seedCartographerPatchEvidence(t, store)
+	nodePatch := cartographerRecordFindingPatch("cartographer_patch_connected_node", "node_connected_finding", "Connected finding", 0.91)
+	edgePatch := cartographerCreateEdgePatch("cartographer_patch_connected_edge", "edge_connected_finding", "node_connected_finding", "node_cartographer_source")
+
+	result, err := service.ApplyCartographerPatchEnvelope(ctx, cartographerPatchApplicationInput(t, "cartographer_run_connected_node", []CartographerPatch{nodePatch, edgePatch}))
+	if err != nil {
+		t.Fatalf("apply connected node envelope: %v", err)
+	}
+	if result.Run.Status != CartographerRunApplied || len(result.Run.CreatedSemanticEventIDs) != 3 {
+		t.Fatalf("result = %+v, want node, evidence, and edge events applied", result)
+	}
+	graph, err := service.ReadGraph(ctx, testWorkspaceID)
+	if err != nil {
+		t.Fatalf("read graph: %v", err)
+	}
+	semanticEdgeByID(t, graph.Edges, "edge_connected_finding")
+	if len(graph.SourceLinks) != 2 {
+		t.Fatalf("graph source links = %+v, want original seed link and cartographer node link", graph.SourceLinks)
+	}
+	createdLink := semanticEvidenceByTarget(t, graph.SourceLinks, "node_connected_finding")
+	if createdLink.SourceKind != EvidenceSourceRunItem || createdLink.RunItemID != "run_item_cartographer" || createdLink.ChatRunID != "chat_run_cartographer" {
+		t.Fatalf("created source link = %+v, want enriched run item source link", createdLink)
+	}
+}
+
+func TestCartographerPatchEnvelopeAutoAppliesEvidenceBackedActivityPatches(t *testing.T) {
+	service, store := newCartographerPatchApplicationTestService(t)
+	ctx := context.Background()
+	seedCartographerPatchEvidence(t, store)
+	startPatch := cartographerStartActivityPatch("cartographer_patch_activity_start", "activity_cartographer_auto", "node_cartographer_source")
+
+	started, err := service.ApplyCartographerPatchEnvelope(ctx, cartographerPatchApplicationInput(t, "cartographer_run_activity_start", []CartographerPatch{startPatch}))
+	if err != nil {
+		t.Fatalf("apply start activity envelope: %v", err)
+	}
+	if started.Run.Status != CartographerRunApplied || len(started.Events) != 1 || started.Events[0].EventType != EventActivityStarted {
+		t.Fatalf("started activity result = %+v, want applied activity start", started)
+	}
+
+	endPatch := cartographerEndActivityPatch("cartographer_patch_activity_end", "activity_cartographer_auto")
+	ended, err := service.ApplyCartographerPatchEnvelope(ctx, cartographerPatchApplicationInput(t, "cartographer_run_activity_end", []CartographerPatch{endPatch}))
+	if err != nil {
+		t.Fatalf("apply end activity envelope: %v", err)
+	}
+	if ended.Run.Status != CartographerRunApplied || len(ended.Events) != 1 || ended.Events[0].EventType != EventActivityEnded {
+		t.Fatalf("ended activity result = %+v, want applied activity end", ended)
+	}
+	activity, ok, err := store.loadSemanticActivityIntervalByID(ctx, testWorkspaceID, "activity_cartographer_auto")
+	if err != nil || !ok || activity.EndedAt == "" {
+		t.Fatalf("activity readback = %+v ok=%v err=%v, want ended interval", activity, ok, err)
+	}
+}
+
 func TestCartographerPatchEnvelopeDoesNotDedupeByLabel(t *testing.T) {
 	service, store := newCartographerPatchApplicationTestService(t)
 	ctx := context.Background()
@@ -430,6 +511,56 @@ func cartographerRecordFindingPatch(patchID string, nodeID string, label string,
 			},
 		},
 	}
+}
+
+func cartographerCreateEdgePatch(patchID string, edgeID string, fromNodeID string, toNodeID string) CartographerPatch {
+	patch := cartographerRecordFindingPatch(patchID, "node_unused_"+patchID, "Unused", 0.91)
+	kind := EdgeKindSupports
+	patch.Operation = CartographerPatchCreateEdge
+	patch.Payload = CartographerPatchPayload{
+		EdgeID:     edgeID,
+		EdgeKind:   &kind,
+		FromNodeID: fromNodeID,
+		ToNodeID:   toNodeID,
+		Label:      "supports",
+		Summary:    "Connected evidence-backed semantic nodes.",
+	}
+	return patch
+}
+
+func cartographerStartActivityPatch(patchID string, activityID string, targetID string) CartographerPatch {
+	patch := cartographerRecordFindingPatch(patchID, "node_unused_"+patchID, "Unused", 0.91)
+	kind := ActivityKindValidating
+	sourceKind := ActivitySourceRunItem
+	patch.Operation = CartographerPatchStartActivity
+	patch.Payload = CartographerPatchPayload{
+		TargetEntityID:     targetID,
+		ActivityID:         activityID,
+		ActivityKind:       &kind,
+		ActivitySourceKind: &sourceKind,
+		ActivitySourceID:   "run_item_cartographer",
+	}
+	return patch
+}
+
+func cartographerEndActivityPatch(patchID string, activityID string) CartographerPatch {
+	patch := cartographerRecordFindingPatch(patchID, "node_unused_"+patchID, "Unused", 0.91)
+	patch.Operation = CartographerPatchEndActivity
+	patch.Payload = CartographerPatchPayload{
+		ActivityID: activityID,
+	}
+	return patch
+}
+
+func semanticEvidenceByTarget(t *testing.T, evidence []SemanticEvidenceAnchor, targetID string) SemanticEvidenceAnchor {
+	t.Helper()
+	for _, anchor := range evidence {
+		if anchor.TargetEntityID == targetID {
+			return anchor
+		}
+	}
+	t.Fatalf("semantic evidence for target %s not found in %+v", targetID, evidence)
+	return SemanticEvidenceAnchor{}
 }
 
 func cartographerDiagnosticsContain(runDiagnostics []CartographerDiagnostic, patches []CartographerPatchRecord, code string) bool {

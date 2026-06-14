@@ -851,7 +851,7 @@ async function assertProcessCartographerWindowApi(client, workspaceId) {
     chatConversationId: "",
     chatMessageId: "",
     chatRunId: setup.chatRunId,
-    runItemId: "",
+    runItemId: setup.runItemId,
     workflowDefinitionId: "",
     workflowExecutionId: "",
     workflowNodeExecutionId: "",
@@ -882,22 +882,48 @@ async function attachChatRunEvidenceForProcessedCartographerWindow(client, works
       conversation.id,
       "Create deterministic evidence for semantic cartographer processing."
     );
-    const attached = await window.setta.semanticGraph.attachChatRun({
+    let runActivity = { items: [] };
+    let runItem = null;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      runActivity = await window.setta.chat.runActivity(
+        ${JSON.stringify(workspaceId)},
+        sent.run.id,
+        20
+      );
+      runItem =
+        runActivity.items.find((candidate) => candidate.type === "agent_message") ??
+        runActivity.items.find((candidate) => candidate.id !== "");
+      if (runItem) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (!runItem) {
+      throw new Error(
+        "run item missing for semantic cartographer evidence: " + JSON.stringify(runActivity)
+      );
+    }
+    const runItemAttached = await window.setta.semanticGraph.attachRunItem({
       activityKind: "validating",
       actorId: "semantic_e2e_user",
       actorKind: "user",
       chatRunId: sent.run.id,
       nodeId: ${JSON.stringify(seedConstraintNodeId)},
-      summary: "Chat run evidence for deterministic structured cartographer processing",
+      runItemId: runItem.id,
+      summary: "Run item evidence for deterministic structured cartographer processing",
       workspaceId: ${JSON.stringify(workspaceId)}
     });
     await window.setta.semanticGraph.endActivity({
-      activityIntervalId: attached.activity.id,
+      activityIntervalId: runItemAttached.activity.id,
       actorId: "semantic_e2e_user",
       actorKind: "user",
       workspaceId: ${JSON.stringify(workspaceId)}
     });
-    return { chatRunId: sent.run.id, evidenceAnchorId: attached.evidence.id };
+    return {
+      chatRunId: sent.run.id,
+      evidenceAnchorId: runItemAttached.evidence.id,
+      runItemId: runItem.id
+    };
   })()`);
 }
 
@@ -1028,37 +1054,27 @@ function assertProcessedCartographerNodeReadback(result, processedCartographer) 
 }
 
 async function acceptSeedCartographerPatchFromDetails(client) {
-  await waitForState(
-    client,
-    `(() => {
+  const clickResult = await client.evaluate(`(async () => {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
       const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
       const surface = document.querySelector('[data-testid="semantic-node-details-surface"]');
-      return {
-        disabled: button?.disabled ?? true,
-        hasButton: button !== null,
-        loading: surface?.innerText.includes("Loading semantic node details") ?? true,
-      };
-    })()`,
-    (value) => value.hasButton && !value.disabled && !value.loading,
-  );
-  const clickResult = await client.evaluate(
-    `(() => {
-      const button = document.querySelector('[data-testid="cartographer-patch-accept"]');
-      if (!(button instanceof HTMLButtonElement) || button.disabled) {
-        return { ok: false, reason: "cartographer accept button is not clickable" };
+      const loading = surface?.innerText.includes("Loading semantic node details") ?? true;
+      if (button instanceof HTMLButtonElement && !button.disabled && !loading) {
+        try {
+          button.click();
+          return { ok: true };
+        } catch (error) {
+          return {
+            ok: false,
+            reason: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack ?? "" : "",
+          };
+        }
       }
-      try {
-        button.click();
-        return { ok: true };
-      } catch (error) {
-        return {
-          ok: false,
-          reason: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack ?? "" : "",
-        };
-      }
-    })()`,
-  );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return { ok: false, reason: "cartographer accept button is not clickable" };
+  })()`);
   if (!clickResult.ok) {
     throw new Error(`cartographer accept click failed: ${JSON.stringify(clickResult)}`);
   }

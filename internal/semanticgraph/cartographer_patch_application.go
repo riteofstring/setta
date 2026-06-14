@@ -218,6 +218,7 @@ func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, i
 	runDiagnostics := []CartographerDiagnostic{}
 	decisions := make([]cartographerPatchDecision, 0, len(envelope.Patches))
 	newNodeIDs := collectCartographerEnvelopeNewNodeIDs(envelope)
+	edgeConnectedNodeIDs := collectCartographerEnvelopeEdgeConnectedNodeIDs(envelope)
 	for index, patch := range envelope.Patches {
 		if ids[patch.ID] {
 			diagnostic := service.newCartographerDiagnostic(input.RunID, patch.ID, CartographerDiagnosticError, "duplicate_patch_id", fmt.Sprintf("cartographer patch id %s is duplicated", patch.ID), fmt.Sprintf("$.patches[%d].patchId", index), now)
@@ -225,7 +226,7 @@ func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, i
 			continue
 		}
 		ids[patch.ID] = true
-		diagnostics := service.validateCartographerPatch(ctx, input, patch, newNodeIDs, index, now)
+		diagnostics := service.validateCartographerPatch(ctx, input, patch, newNodeIDs, edgeConnectedNodeIDs, index, now)
 		if input.AutoApplyValidatedPatches {
 			diagnostics = append(diagnostics, service.cartographerAutomaticPatchMetadataDiagnostics(input.RunID, patch, index, now)...)
 		}
@@ -246,7 +247,7 @@ func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, i
 	return decisions, nil, nil
 }
 
-func (service *Service) validateCartographerPatch(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, patch CartographerPatch, newNodeIDs map[string]bool, index int, now string) []CartographerDiagnostic {
+func (service *Service) validateCartographerPatch(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, patch CartographerPatch, newNodeIDs map[string]bool, edgeConnectedNodeIDs map[string]bool, index int, now string) []CartographerDiagnostic {
 	diagnostics := []CartographerDiagnostic{}
 	add := func(code string, message string, path string) {
 		diagnostics = append(diagnostics, service.newCartographerDiagnostic(input.RunID, patch.ID, CartographerDiagnosticError, code, message, path, now))
@@ -273,6 +274,9 @@ func (service *Service) validateCartographerPatch(ctx context.Context, input Car
 	if cartographerPatchRequiresEvidence(patch) && !cartographerPatchHasEvidence(patch) {
 		add("missing_evidence", "cartographer auto-applied patches require evidence refs", fmt.Sprintf("$.patches[%d].evidenceRefs", index))
 	}
+	for _, diagnostic := range service.validateCartographerAutomaticNodeConnectionPolicy(ctx, input, patch, edgeConnectedNodeIDs, index, now) {
+		diagnostics = append(diagnostics, diagnostic)
+	}
 	return diagnostics
 }
 
@@ -283,8 +287,8 @@ func (service *Service) cartographerAutomaticPatchMetadataDiagnostics(runID stri
 			runID,
 			patch.ID,
 			CartographerDiagnosticWarning,
-			"review_required_auto_applied",
-			"cartographer automatic processing records reviewRequired metadata but does not block deterministic-valid patches",
+			"review_required_pending_review",
+			"cartographer automatic processing leaves reviewRequired patches pending review",
 			fmt.Sprintf("$.patches[%d].reviewRequired", index),
 			now,
 		))
@@ -294,8 +298,8 @@ func (service *Service) cartographerAutomaticPatchMetadataDiagnostics(runID stri
 			runID,
 			patch.ID,
 			CartographerDiagnosticWarning,
-			"low_confidence_auto_applied",
-			"cartographer automatic processing records low confidence metadata but does not block deterministic-valid patches",
+			"low_confidence_pending_review",
+			"cartographer automatic processing leaves low-confidence patches pending review",
 			fmt.Sprintf("$.patches[%d].confidence", index),
 			now,
 		))
@@ -305,8 +309,8 @@ func (service *Service) cartographerAutomaticPatchMetadataDiagnostics(runID stri
 			runID,
 			patch.ID,
 			CartographerDiagnosticWarning,
-			"high_impact_auto_applied",
-			"cartographer automatic processing records high-impact operation metadata but does not block deterministic-valid patches",
+			"high_impact_pending_review",
+			"cartographer automatic processing leaves high-impact patches pending review",
 			fmt.Sprintf("$.patches[%d].operation", index),
 			now,
 		))
@@ -317,9 +321,6 @@ func (service *Service) cartographerAutomaticPatchMetadataDiagnostics(runID stri
 func cartographerPatchStatusFromDiagnostics(patch CartographerPatch, diagnostics []CartographerDiagnostic, autoApplyValidated bool) (CartographerPatchStatus, bool) {
 	if cartographerDiagnosticsContainError(diagnostics) {
 		return CartographerPatchRejected, false
-	}
-	if autoApplyValidated {
-		return CartographerPatchApplied, true
 	}
 	if !cartographerPatchIsLowRiskAutoApply(patch) {
 		return CartographerPatchPendingReview, false
@@ -340,7 +341,10 @@ func cartographerPatchIsLowRiskAutoApply(patch CartographerPatch) bool {
 	if patch.ReviewRequired || patch.Confidence == nil || *patch.Confidence < cartographerAutoApplyConfidenceThreshold {
 		return false
 	}
-	return cartographerPatchIsLowImpactOperation(patch.Operation) && cartographerPatchHasEvidence(patch)
+	if !cartographerPatchIsLowImpactOperation(patch.Operation) {
+		return false
+	}
+	return !cartographerPatchAutoApplyRequiresEvidence(patch) || cartographerPatchHasEvidence(patch)
 }
 
 func cartographerPatchIsLowImpactOperation(operation CartographerPatchOperation) bool {
@@ -349,7 +353,26 @@ func cartographerPatchIsLowImpactOperation(operation CartographerPatchOperation)
 		CartographerPatchRecordDecision,
 		CartographerPatchRecordConstraint,
 		CartographerPatchRecordOpenQuestion,
-		CartographerPatchAttachEvidence:
+		CartographerPatchAttachEvidence,
+		CartographerPatchCreateEdge,
+		CartographerPatchStartActivity,
+		CartographerPatchEndActivity:
+		return true
+	default:
+		return false
+	}
+}
+
+func cartographerPatchAutoApplyRequiresEvidence(patch CartographerPatch) bool {
+	switch patch.Operation {
+	case CartographerPatchRecordFinding,
+		CartographerPatchRecordDecision,
+		CartographerPatchRecordConstraint,
+		CartographerPatchRecordOpenQuestion,
+		CartographerPatchAttachEvidence,
+		CartographerPatchCreateEdge,
+		CartographerPatchStartActivity,
+		CartographerPatchEndActivity:
 		return true
 	default:
 		return false
@@ -653,13 +676,7 @@ func (service *Service) cartographerEvidencePayloadFromRef(ctx context.Context, 
 			ReassignedFromAnchorID:  anchor.ID,
 		}, nil
 	}
-	return evidenceAttachedPayload{
-		AnchorID:       anchorID,
-		TargetEntityID: targetEntityID,
-		SourceKind:     ref.SourceKind,
-		SourceID:       ref.SourceID,
-		Summary:        patch.PublicSummary,
-	}, nil
+	return cartographerEvidencePayloadFromSourceRef(anchorID, targetEntityID, ref, patch), nil
 }
 
 func (service *Service) decorateCartographerSemanticEvent(event *SemanticEvent, input CartographerPatchEnvelopeApplicationInput, patch CartographerPatch, now string) {

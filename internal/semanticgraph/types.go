@@ -622,6 +622,7 @@ type SemanticGraph struct {
 	WorkspaceID     string                   `json:"workspaceId"`
 	Nodes           []SemanticNode           `json:"nodes"`
 	Edges           []SemanticEdge           `json:"edges"`
+	SourceLinks     []SemanticEvidenceAnchor `json:"sourceLinks"`
 	LayoutPositions []SemanticLayoutPosition `json:"layoutPositions"`
 }
 

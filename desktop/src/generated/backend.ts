@@ -3407,27 +3407,6 @@ export interface SemanticEdge {
   updatedAt: string;
 }
 
-export interface SemanticLayoutPosition {
-  workspaceId: string;
-  entityId: string;
-  x: number;
-  y: number;
-  pinned: boolean;
-  updatedAt: string;
-}
-
-export interface SemanticGraph {
-  workspaceId: string;
-  nodes: SemanticNode[];
-  edges: SemanticEdge[];
-  layoutPositions: SemanticLayoutPosition[];
-}
-
-export interface ReadSemanticNodeDetailRequest {
-  workspaceId: string;
-  nodeId: string;
-}
-
 export interface SemanticEvidenceAnchor {
   id: string;
   workspaceId: string;
@@ -3452,6 +3431,28 @@ export interface SemanticEvidenceAnchor {
   reassignedFromAnchorId: string;
   createdByEventId: string;
   createdAt: string;
+}
+
+export interface SemanticLayoutPosition {
+  workspaceId: string;
+  entityId: string;
+  x: number;
+  y: number;
+  pinned: boolean;
+  updatedAt: string;
+}
+
+export interface SemanticGraph {
+  workspaceId: string;
+  nodes: SemanticNode[];
+  edges: SemanticEdge[];
+  sourceLinks: SemanticEvidenceAnchor[];
+  layoutPositions: SemanticLayoutPosition[];
+}
+
+export interface ReadSemanticNodeDetailRequest {
+  workspaceId: string;
+  nodeId: string;
 }
 
 export interface SemanticActivityInterval {
@@ -7379,39 +7380,6 @@ export function decodeSemanticEdge(value: unknown): SemanticEdge {
   };
 }
 
-export function decodeSemanticLayoutPosition(value: unknown): SemanticLayoutPosition {
-  const record = assertRecord(value, "SemanticLayoutPosition");
-  assertKnownFields(record, "SemanticLayoutPosition", ["workspaceId", "entityId", "x", "y", "pinned", "updatedAt"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticLayoutPosition"), "SemanticLayoutPosition.workspaceId"),
-    entityId: decodeString(requireField(record, "entityId", "SemanticLayoutPosition"), "SemanticLayoutPosition.entityId"),
-    x: decodeInteger(requireField(record, "x", "SemanticLayoutPosition"), "SemanticLayoutPosition.x"),
-    y: decodeInteger(requireField(record, "y", "SemanticLayoutPosition"), "SemanticLayoutPosition.y"),
-    pinned: decodeBoolean(requireField(record, "pinned", "SemanticLayoutPosition"), "SemanticLayoutPosition.pinned"),
-    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticLayoutPosition"), "SemanticLayoutPosition.updatedAt"),
-  };
-}
-
-export function decodeSemanticGraph(value: unknown): SemanticGraph {
-  const record = assertRecord(value, "SemanticGraph");
-  assertKnownFields(record, "SemanticGraph", ["workspaceId", "nodes", "edges", "layoutPositions"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticGraph"), "SemanticGraph.workspaceId"),
-    nodes: decodeArray(requireField(record, "nodes", "SemanticGraph"), "SemanticGraph.nodes", (item) => decodeSemanticNode(item)),
-    edges: decodeArray(requireField(record, "edges", "SemanticGraph"), "SemanticGraph.edges", (item) => decodeSemanticEdge(item)),
-    layoutPositions: decodeArray(requireField(record, "layoutPositions", "SemanticGraph"), "SemanticGraph.layoutPositions", (item) => decodeSemanticLayoutPosition(item)),
-  };
-}
-
-export function decodeReadSemanticNodeDetailRequest(value: unknown): ReadSemanticNodeDetailRequest {
-  const record = assertRecord(value, "ReadSemanticNodeDetailRequest");
-  assertKnownFields(record, "ReadSemanticNodeDetailRequest", ["workspaceId", "nodeId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticNodeDetailRequest"), "ReadSemanticNodeDetailRequest.workspaceId"),
-    nodeId: decodeString(requireField(record, "nodeId", "ReadSemanticNodeDetailRequest"), "ReadSemanticNodeDetailRequest.nodeId"),
-  };
-}
-
 export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAnchor {
   const record = assertRecord(value, "SemanticEvidenceAnchor");
   assertKnownFields(record, "SemanticEvidenceAnchor", ["id", "workspaceId", "targetEntityId", "sourceKind", "sourceId", "uri", "path", "rangeStart", "rangeEnd", "text", "summary", "contentHash", "workflowDefinitionId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "chatMessageId", "runItemId", "reassignedFromAnchorId", "createdByEventId", "createdAt"]);
@@ -7439,6 +7407,40 @@ export function decodeSemanticEvidenceAnchor(value: unknown): SemanticEvidenceAn
     reassignedFromAnchorId: decodeString(requireField(record, "reassignedFromAnchorId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.reassignedFromAnchorId"),
     createdByEventId: decodeString(requireField(record, "createdByEventId", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.createdByEventId"),
     createdAt: decodeString(requireField(record, "createdAt", "SemanticEvidenceAnchor"), "SemanticEvidenceAnchor.createdAt"),
+  };
+}
+
+export function decodeSemanticLayoutPosition(value: unknown): SemanticLayoutPosition {
+  const record = assertRecord(value, "SemanticLayoutPosition");
+  assertKnownFields(record, "SemanticLayoutPosition", ["workspaceId", "entityId", "x", "y", "pinned", "updatedAt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticLayoutPosition"), "SemanticLayoutPosition.workspaceId"),
+    entityId: decodeString(requireField(record, "entityId", "SemanticLayoutPosition"), "SemanticLayoutPosition.entityId"),
+    x: decodeInteger(requireField(record, "x", "SemanticLayoutPosition"), "SemanticLayoutPosition.x"),
+    y: decodeInteger(requireField(record, "y", "SemanticLayoutPosition"), "SemanticLayoutPosition.y"),
+    pinned: decodeBoolean(requireField(record, "pinned", "SemanticLayoutPosition"), "SemanticLayoutPosition.pinned"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "SemanticLayoutPosition"), "SemanticLayoutPosition.updatedAt"),
+  };
+}
+
+export function decodeSemanticGraph(value: unknown): SemanticGraph {
+  const record = assertRecord(value, "SemanticGraph");
+  assertKnownFields(record, "SemanticGraph", ["workspaceId", "nodes", "edges", "sourceLinks", "layoutPositions"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SemanticGraph"), "SemanticGraph.workspaceId"),
+    nodes: decodeArray(requireField(record, "nodes", "SemanticGraph"), "SemanticGraph.nodes", (item) => decodeSemanticNode(item)),
+    edges: decodeArray(requireField(record, "edges", "SemanticGraph"), "SemanticGraph.edges", (item) => decodeSemanticEdge(item)),
+    sourceLinks: decodeArray(requireField(record, "sourceLinks", "SemanticGraph"), "SemanticGraph.sourceLinks", (item) => decodeSemanticEvidenceAnchor(item)),
+    layoutPositions: decodeArray(requireField(record, "layoutPositions", "SemanticGraph"), "SemanticGraph.layoutPositions", (item) => decodeSemanticLayoutPosition(item)),
+  };
+}
+
+export function decodeReadSemanticNodeDetailRequest(value: unknown): ReadSemanticNodeDetailRequest {
+  const record = assertRecord(value, "ReadSemanticNodeDetailRequest");
+  assertKnownFields(record, "ReadSemanticNodeDetailRequest", ["workspaceId", "nodeId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadSemanticNodeDetailRequest"), "ReadSemanticNodeDetailRequest.workspaceId"),
+    nodeId: decodeString(requireField(record, "nodeId", "ReadSemanticNodeDetailRequest"), "ReadSemanticNodeDetailRequest.nodeId"),
   };
 }
 

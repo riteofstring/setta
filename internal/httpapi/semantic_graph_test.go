@@ -114,6 +114,7 @@ func buildHTTPCartographerWindow(t *testing.T, handler http.Handler, workspaceID
 		TargetEntityID: "node_scope",
 		SourceRefs: semanticgraph.SemanticContextSourceRefs{
 			WorkflowExecutionID: "execution_scope",
+			WorkflowNodeID:      "workflow_node_scope",
 		},
 		Summary: "Manual deterministic cartographer window for HTTP review coverage.",
 	}, http.StatusOK)
@@ -136,10 +137,11 @@ func seedHTTPCartographerProcessEvidence(t *testing.T, semanticService *semantic
 	appendHTTPSemanticEvent(t, semanticService, workspaceID, semanticgraph.EventEvidenceAttached, "node_scope", map[string]any{
 		"anchorId":            "evidence_cartographer_http",
 		"targetEntityId":      "node_scope",
-		"sourceKind":          string(semanticgraph.EvidenceSourceWorkflowExecution),
-		"sourceId":            "execution_scope",
+		"sourceKind":          string(semanticgraph.EvidenceSourceWorkflowNode),
+		"sourceId":            "workflow_node_scope",
 		"workflowExecutionId": "execution_scope",
-		"summary":             "Workflow execution evidence for cartographer processing.",
+		"workflowNodeId":      "workflow_node_scope",
+		"summary":             "Workflow node evidence for cartographer processing.",
 	})
 }
 

@@ -66,7 +66,8 @@ func (service *Service) AcceptCartographerPatch(ctx context.Context, workspaceID
 	now := timestamp(service.now())
 	input := cartographerPatchReviewApplicationInput(run, patch)
 	newNodeIDs := collectCartographerEnvelopeNewNodeIDs(CartographerPatchEnvelope{Patches: []CartographerPatch{patch.Patch}})
-	diagnostics := service.validateCartographerPatch(ctx, input, patch.Patch, newNodeIDs, 0, now)
+	edgeConnectedNodeIDs := collectCartographerEnvelopeEdgeConnectedNodeIDs(CartographerPatchEnvelope{Patches: []CartographerPatch{patch.Patch}})
+	diagnostics := service.validateCartographerPatch(ctx, input, patch.Patch, newNodeIDs, edgeConnectedNodeIDs, 0, now)
 	if len(diagnostics) > 0 {
 		patch.Status = CartographerPatchRejected
 		patch.ValidatedAt = now
