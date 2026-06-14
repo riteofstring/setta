@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Proposed
+- **Status:** Phase 0 implemented; Phase 1 ready
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -368,6 +368,58 @@ implementation step, the phase must document the temporary measured budget and
 the phase that removes it. Do not add a compatibility path to preserve the old
 behavior.
 
+### Phase 0 Implementation Review
+
+Phase 0 is implemented by commit `1cf772c9f` (`Implement semantic runtime phase
+0 guardrails`).
+
+Implemented:
+
+- Added the append-only evidence report at
+  `docs/reports/performance/semantic-runtime-graph-interaction-phase-0.md`.
+- Summarized `.recordings/20260617T041546Z`, including active workflow
+  working-set read count/rate/latency, IPC bytes, backend HTTP counts, semantic
+  event bursts, renderer layout snapshots, cartographer runtime state, and
+  screenshot evidence.
+- Added hard camera guardrails to the deterministic pan/zoom recordings:
+  small-trackpad wheel/pinch-to-camera p95 `< 16 ms`,
+  wheel/pinch-to-rendered-frame p95 `< 32 ms`, no semantic working-set reads
+  during the camera interaction window, and no long task over `100 ms` outside
+  large/report-only scenarios.
+- Added a focused semantic-live budget gate that records blank-scope
+  working-set reads and working-set IPC bytes/minute for the current
+  pre-runtime-projection path.
+- Added a default-view guard against unlabeled live-source graph nodes.
+
+Focused review verification:
+
+```text
+pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts
+pnpm --dir desktop exec eslint tests/electron/workflow-graph-phase0-performance-guardrails.mjs tests/electron/workflow-graph-pan-zoom-recording.test.mjs tests/electron/semantic-cartographer-auto-workflow.test.mjs tests/electron/semantic-graph-workflow.test.mjs tests/electron/semantic-graph-working-set-helpers.mjs tests/electron/workflow-graph-performance-recording.mjs
+```
+
+Important caveat:
+
+- Phase 0 intentionally pulled one narrow Phase 4 visual guardrail forward by
+  hiding untargeted live-source pulse graph nodes in the default renderer
+  projection. That is acceptable as a guardrail against the recorded mystery
+  bead failure, but it is not the full workflow-first visual grammar. Phase 4
+  still needs aggregate runtime indicators, active workflow hierarchy, details
+  affordances, and selected/hover/details expansion rules.
+
+Phase 1 handoff:
+
+- Phase 1 is ready to implement.
+- It must replace the temporary `semantic-live-run` budgets with the real
+  runtime projection path: `0` repeated full working-set reads after bootstrap
+  during normal event flow, one single-flight snapshot reload per detected
+  revision gap, and semantic runtime IPC restored toward the `< 1 MB/minute`
+  target.
+- It should stay scoped to backend-owned runtime contracts, revision semantics,
+  the snapshot endpoint, runtime delta publication, generated TypeScript, and
+  production-path deterministic coverage. Do not implement the renderer runtime
+  store, interaction scheduler, or broader visual grammar in Phase 1.
+
 ## Phase 1 - Backend Semantic Runtime Projection
 
 Create the backend-owned runtime projection and API contracts.
@@ -631,7 +683,7 @@ where `Reviewer` is an agent reviewing the codebase:
 
 ## Open Questions
 
-None are blocking Phase 0.
+None are blocking Phase 1.
 
 Recommended defaults for implementation:
 
