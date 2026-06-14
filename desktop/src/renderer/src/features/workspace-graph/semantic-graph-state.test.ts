@@ -77,22 +77,22 @@ describe("semanticGraphRefreshRequestForChange", () => {
         semanticGraphChangeEvent({ changedAreas: ["graph"] }),
         "workspace_graph",
       ),
-    ).toEqual({ activity: true, graph: true, workingSet: true });
+    ).toEqual({ activity: true, graph: true, workingSet: false });
     expect(
       semanticGraphRefreshRequestForChange(
         semanticGraphChangeEvent({ changedAreas: ["layout"] }),
         "workspace_graph",
       ),
-    ).toEqual({ activity: true, graph: true, workingSet: true });
+    ).toEqual({ activity: true, graph: true, workingSet: false });
   });
 
-  test("requests activity and working-set refreshes without replacing graph data", () => {
+  test("requests activity refreshes without reloading runtime working-set data", () => {
     expect(
       semanticGraphRefreshRequestForChange(
         semanticGraphChangeEvent({ changedAreas: ["activity"] }),
         "workspace_graph",
       ),
-    ).toEqual({ activity: true, graph: false, workingSet: true });
+    ).toEqual({ activity: true, graph: false, workingSet: false });
   });
 
   test("keeps cartographer runtime changes out of durable graph refreshes", () => {

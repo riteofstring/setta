@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SemanticEditControls } from "./semantic-node-edit-controls";
-import { semanticWorkingSetFromRuntimeSnapshot } from "./semantic-graph-state";
+import { semanticWorkingSetFromRuntimeSnapshot } from "./semantic-runtime-working-set";
 import { semanticGraphChangeAffectsSemanticNodeInspection } from "./semantic-node-details-invalidation";
 import { SemanticSourceLinkSection } from "./semantic-node-source-links";
 import {
