@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Phase 5 complete; Phase 6 ready
+- **Status:** Phase 6 complete; Phase 7 ready
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -504,9 +504,51 @@ Improve the value of committed semantic memory.
 
 The score is not a user-facing grade. It is a diagnostic and test artifact.
 
+### Phase 6 Implementation Review
+
+Phase 6 is implemented. The semantic graph store now uses deterministic
+evidence identities at the projection boundary and merges duplicate evidence
+anchors into the existing source link while preserving the append-only semantic
+event history. Duplicate evidence is visible through cartographer diagnostics
+and through the graph usefulness score instead of becoming another duplicate
+source link. The store schema version was bumped without migration or
+transitional compatibility code, matching the project decision that semantic
+state can be reset instead of migrated.
+
+Automatic cartographer patch application now rejects low-value committed
+semantic memory before it mutates the graph. New auto-applied nodes must have
+specific label/summary text, concrete evidence, and source-link or semantic-edge
+connectivity. Repeated node signatures are rejected, final workflow synthesis
+cannot leave isolated session nodes behind, and high-impact or low-confidence
+patches remain pending review. The scripted cartographer harness was updated to
+produce concrete, connected findings so deterministic E2E coverage exercises
+the strengthened policy instead of bypassing it.
+
+Cartographer run audit now records a graph usefulness score with applied/no-op/
+rejected patch counts, duplicate-evidence prevention counts, created node and
+edge kind counts, source-link kind counts, activity coverage, and source-event
+latency samples. Semantic live recordings include that score for diagnostics.
+
+Focused verification passed:
+
+- `./scripts/go.sh test ./internal/semanticgraph ./internal/chat ./cmd/generate-contracts`
+- `pnpm --dir desktop exec vitest run src/renderer/src/lib/semantic-cartographer-recording.test.ts src/renderer/src/features/workspace-graph/semantic-node-details-surface.test.tsx src/renderer/src/features/workspace-graph/workflow-graph-toolbar.test.ts src/preload/index.test.ts src/main/semantic-graph-ipc.test.ts`
+- `pnpm --dir desktop run build`
+- `node desktop/tests/electron/semantic-graph-workflow.test.mjs --skip-build`
+- `node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --semantic-live-recording-only --skip-build --keep-artifacts --artifact-dir .recordings/semantic-live-run-phase6-review`
+
 ## Phase 7 - Semantic UI Usefulness
 
 Make semantic nodes worth inspecting.
+
+Readiness gate: Phase 7 is ready to implement. Phase 6 provides reliable
+evidence idempotency, patch provenance diagnostics, graph usefulness audit
+data, and concrete automatic-patch policy. Phase 7 should be a UI usefulness
+layer over the existing semantic details, working-set, source-link, pulse, and
+cartographer audit contracts. Add narrow typed backend fields or queries only
+where the details pane cannot otherwise answer the provenance/highlight
+questions below; do not redesign the cartographer pipeline as part of this
+phase.
 
 - On hover or selection, highlight:
   - connected semantic edges
@@ -579,8 +621,8 @@ Because this touches workflow, cartographer, event streaming, generated contract
 5. Complete: add visible object pooling and edge LOD because the measured bottleneck remains display-object scale.
 6. Complete: add the semantic working-set contract and renderer projection.
 7. Complete: add deterministic activity/change pulses.
-8. Next: fix semantic evidence idempotency and usefulness diagnostics.
-9. Add semantic details/highlight polish.
+8. Complete: fix semantic evidence idempotency and usefulness diagnostics.
+9. Next: add semantic details/highlight polish.
 10. Promote calibrated performance and liveness checks into gates.
 
 ## Non-Goals
