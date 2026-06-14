@@ -277,6 +277,20 @@ so Phase 3 scene graph pooling and level of detail remain necessary.
 
 Implement the existing Phase 7 direction as a first-class renderer architecture, not as a narrow fix.
 
+Readiness gate: Phase 3 is ready to implement. The Phase 2 report removes the
+measured whole-graph label/glow/filter bottleneck and fixes the deterministic
+3-node small-trackpad latency scenario, but large-frame cost still scales with
+retained display objects and Pixi rendering. At 5,000 nodes, Phase 2 still
+records 60,021 display objects and a 487.7 ms p95 frame. Phase 3 should use
+`docs/reports/performance/workspace-graph-semantic-liveness-phase-2-visibility-latency.md`
+as the before state, then append a before/after report under
+`docs/reports/performance/`.
+
+Phase 3 verification must keep the small-trackpad workflow in the report so
+pooling and LOD do not regress the fixed start/stop latency. It must also
+measure display-object counts by layer, visible materialized node/label/port
+counts, and hit-testing correctness at 500, 1,000, 2,500, and 5,000 nodes.
+
 - Introduce a `VisibleSceneWindow` owned by the renderer. It maps the authoritative graph to a smaller visible display set.
 - Pool node containers, port graphics, labels, glow graphics, and activity overlays.
 - Keep authoritative graph state in JS data structures, but only materialize visible display objects.
