@@ -455,6 +455,20 @@ Recommended Phase 3 tests:
   auth is available, also run the live Codex E2E flow; do not use
   `OPENAI_API_KEY` for that live check.
 
+Implementation note:
+
+- Phase 3 was implemented by adding typed reasoning effort to
+  `CartographerHarnessTask`, deriving effective model/reasoning from the queued
+  run snapshot, sending `effort` through the existing Codex structured-task
+  path, omitting `model` for provider-default runs, and preserving requested/
+  effective audit fields on success and failure.
+- The expected Phase 3 persistent shape reused the Phase 2 run audit fields, so
+  the semantic graph store remains version `12`.
+- Focused backend verification covered `internal/chat` and
+  `internal/semanticgraph`. The broader deterministic app E2E and live-Codex
+  checks remain required whenever an implementation commit touches this harness
+  path.
+
 ## Phase 4 - Model and Reasoning Option Source
 
 The settings UI needs model and reasoning options without abusing an active chat
@@ -462,16 +476,56 @@ conversation.
 
 Create a shared Codex model catalog path:
 
-- Extract model listing and reasoning-effort validation out of the chat command
-  flow into a reusable chat/Codex service method.
-- Return `ChatModelOption` or a semanticgraph-owned equivalent through a
-  settings endpoint.
+- Extract model listing and reasoning-effort validation out of the `/model`
+  chat command flow into a reusable chat/Codex catalog method.
+- Keep Phase 4 backend-only. Do not add the settings HTTP endpoint, IPC/preload
+  wrappers, generated TypeScript contracts, or renderer UI until Phase 5/6.
+- Add an explicit service/harness catalog path, for example a chat service
+  method plus a Codex harness catalog interface. It may start a short Codex
+  app-server session for `model/list`, but it must not create or resume an
+  active chat conversation and must not execute `/model` through command
+  plumbing just to fetch options.
+- Make the existing `/model` command picker call the shared catalog path so
+  pagination, hidden-model filtering, provider-drift validation, and reasoning
+  option mapping are not duplicated.
+- Return `chat.ChatModelOption` unless a real semanticgraph-specific contract
+  need appears. `ChatModelOption.model` is the value sent to Codex and the value
+  stored as an explicit cartographer model; `ChatModelOption.id` is an option
+  identity/display key and must not be persisted as the explicit model value
+  unless Codex also reports it as `model`.
 - Include supported reasoning efforts per model.
-- Include the provider default model/effort if Codex reports it.
-- Fail if a saved explicit model no longer exists instead of silently switching
-  to another model.
+- Include the provider default model/effort using the provider-reported default
+  model option and default reasoning flag. Do not create a fake
+  `provider_default` model option; provider default remains the separate
+  settings mode that sends no model id.
+- Add a reusable validation helper for semantic cartographer settings against a
+  model catalog. Explicit model settings should fail if the configured model is
+  absent or the configured reasoning effort is unsupported for that model.
+  Provider-default settings should validate against the provider default model
+  only when the catalog reports one; do not silently switch modes or substitute
+  another model.
+- Keep store-level settings validation provider-independent. Catalog validation
+  belongs at service/API boundaries where Codex model options are available.
+- Do not bump `semanticStoreVersion` in Phase 4 unless the implementation adds
+  persistent schema.
+- Do not add model-list caching unless invalidation and stale-catalog behavior
+  are explicit and tested.
 
 The renderer should not hardcode model ids or reasoning effort availability.
+
+Recommended Phase 4 tests:
+
+- The Codex catalog method follows pagination, filters hidden models, and fails
+  loudly on malformed provider model/reasoning payloads.
+- The `/model` command picker and cartographer model catalog use the same
+  catalog implementation.
+- Catalog lookup works without an active conversation or thread ref.
+- Explicit cartographer settings validate against `ChatModelOption.model`, not
+  renderer/display-only ids.
+- Provider-default cartographer settings remain valid without persisting a fake
+  model id.
+- Unsupported saved explicit model and unsupported reasoning effort produce
+  specific validation errors with no silent fallback.
 
 ## Phase 5 - HTTP, IPC, and Generated Contracts
 
