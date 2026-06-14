@@ -2,7 +2,7 @@
 
 - **Date:** June 16, 2026
 - **Status:** Proposed
-- **Scope:** Replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
+- **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
   - `docs/plans/semantic_cartographer_usefulness_plan.md`
@@ -11,15 +11,27 @@
 
 ## Position
 
-The latest live recording changes the diagnosis.
+The latest live recording changes the diagnosis, but it does not fully explain
+the pan/zoom problem.
 
-The graph renderer still needs normal performance hardening, but the largest
-new problem is architectural: semantic liveness is implemented as frequent
-renderer-initiated full working-set reads in response to backend semantic change
-events. That creates a high-churn IPC/HTTP path, repeatedly rebuilds renderer
-semantic state, and competes with camera input. At the same time, the visual
-language makes semantic activity more prominent than workflow state, even when
-the semantic activity is only transient cartographer machinery.
+The user observed delayed/sluggish pan and zoom before starting the workflow on
+a simple three-node graph. That means the baseline camera/input path has an
+independent responsiveness problem. The workflow-time semantic storm is still
+real and important, but it should be treated as an amplifier and a second
+failure mode, not as the sole root cause.
+
+There are therefore two long-term problems to solve together:
+
+- Baseline camera interaction feels delayed even when the graph is small and
+  idle.
+- While a workflow is running, semantic liveness is implemented as frequent
+  renderer-initiated full working-set reads in response to backend semantic
+  change events. That creates a high-churn IPC/HTTP path, repeatedly rebuilds
+  renderer semantic state, and competes with camera input.
+
+At the same time, the visual language makes semantic activity more prominent
+than workflow state, even when the semantic activity is only transient
+cartographer machinery.
 
 The long-term fix should not be another animation tuning pass. Setta needs a
 first-class semantic runtime layer:
@@ -35,7 +47,7 @@ first-class semantic runtime layer:
 ## Recording Evidence
 
 The active recording at `.recordings/20260617T041546Z` is sufficient to diagnose
-the current class of problem.
+the semantic runtime churn and visual hierarchy class of problem.
 
 Measured from the recording:
 
@@ -56,6 +68,14 @@ Measured from the recording:
 The full IPC payload recording inflates the recording file size, but it does
 not create the request storm. The repeated working-set reads are real app work.
 
+This recording does not prove that semantic runtime churn caused the original
+pre-workflow pan/zoom delay. Because sluggishness was also present before the
+workflow started, Phase 0 must measure an idle three-node graph separately from
+an active workflow graph. If idle pan/zoom is sluggish with no semantic runtime
+traffic, the first fix must target camera event handling, camera smoothing,
+settle timing, render scheduling, label/glow work, Electron input delivery, or
+other baseline renderer work before cartographer liveness is involved.
+
 The screenshots also expose a product issue:
 
 - The active workflow node outline exists in some frames, but semantic edges,
@@ -68,6 +88,26 @@ The screenshots also expose a product issue:
   after the workflow-first graph has already been visually overwhelmed.
 
 ## Root Cause
+
+### Baseline Camera Responsiveness
+
+Idle pan/zoom sluggishness on a tiny graph points to an interaction-path problem
+that exists before semantic cartographer load:
+
+- Trackpad wheel/pinch normalization may introduce delayed starts or long
+  deceleration tails.
+- Camera smoothing or settle logic may be creating intentional-feeling latency.
+- Wheel handlers may be doing more work than camera math and scheduling.
+- Label, glow, filter, hover, or layout sync may still run in response to camera
+  movement even when the graph is small.
+- React or DOM overlay updates may be sharing the same turn as canvas input.
+- Electron development/recording overhead may amplify the problem, but should
+  not be assumed to be the cause without a packaged or recording-disabled
+  comparison.
+
+The baseline path needs its own measurement and budget. The semantic runtime
+refactor is necessary, but it is not sufficient if idle camera movement still
+feels delayed.
 
 ### Runtime Architecture
 
@@ -283,8 +323,10 @@ For a simple `Start -> Reviewer -> End` workflow:
 Capture the current failure as an append-only report before changing code.
 
 Add a report under `docs/reports/performance/` that summarizes
-`.recordings/20260617T041546Z`:
+`.recordings/20260617T041546Z` and separates idle-camera evidence from active
+workflow evidence:
 
+- Pre-workflow idle pan/zoom observations and screenshots, when present.
 - Working-set read count, rate, latency quantiles, and largest payloads.
 - Semantic event counts by changed area.
 - Backend HTTP counts by path.
@@ -297,6 +339,7 @@ Add a report under `docs/reports/performance/` that summarizes
 
 Then promote the current report-only findings into concrete guardrails:
 
+- Hard fail if idle three-node pan/zoom exceeds camera latency budgets.
 - Hard fail if a small running workflow performs repeated full working-set reads
   above a calibrated budget.
 - Hard fail if semantic runtime IPC bytes per minute exceed a calibrated budget.
@@ -309,6 +352,8 @@ Then promote the current report-only findings into concrete guardrails:
 Recommended initial budgets for the simple three-node review workflow:
 
 ```text
+idle wheel/pinch event to camera transform: p95 < 16 ms
+idle wheel/pinch event to rendered frame: p95 < 32 ms
 working-set full reads after bootstrap: 0 during normal event flow
 snapshot reloads after stream gap: <= 1 per detected gap
 semantic runtime IPC payload: < 1 MB/minute
@@ -391,12 +436,17 @@ Acceptance criteria:
 
 ## Phase 3 - Interaction Priority And Camera Isolation
 
-Make pan/zoom independent of semantic runtime churn.
+Fix baseline pan/zoom latency first, then make pan/zoom independent of semantic
+runtime churn.
 
 Implementation requirements:
 
 - Introduce explicit scheduler priority lanes in the Pixi graph renderer.
 - Ensure wheel/pinch/pointer handlers do only camera math and scheduling.
+- Audit camera smoothing, inertia, settle windows, and wheel delta
+  normalization for delayed start/stop behavior.
+- Compare recording-enabled development, recording-disabled development, and
+  packaged or production-like runs before blaming semantic runtime work.
 - Prove no backend semantic reads are triggered by camera movement.
 - Keep label sync, glow sync, filter sync, and semantic animation updates
   frame-coalesced.
@@ -408,6 +458,7 @@ Implementation requirements:
 
 Acceptance criteria:
 
+- Idle three-node pan/zoom is immediate before a workflow starts.
 - Small graph pan/zoom feels immediate while the cartographer is actively
   producing runtime events.
 - Scripted trackpad/pinch recording shows bounded event-to-camera latency.
