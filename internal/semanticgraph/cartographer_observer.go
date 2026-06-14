@@ -443,8 +443,12 @@ func (service *Service) observeCartographerEvent(ctx context.Context, observed o
 	}
 	advancedCursor, closeReason := service.applyObservedEventToWindow(&window, &run, cursor, observed, opened, now)
 	if closeReason != "" {
-		if err := service.persistClosedObservedWindow(ctx, &window, run, advancedCursor, closeReason, now); err != nil {
+		enqueue, err := service.persistClosedObservedWindow(ctx, &window, run, advancedCursor, closeReason, now)
+		if err != nil {
 			return nil, err
+		}
+		if !enqueue {
+			return nil, nil
 		}
 		closed := []CartographerWindow{window}
 		if _, err := service.supersedeObsoleteQueuedCartographerWindows(ctx, window, now); err != nil {
@@ -529,25 +533,106 @@ func markLastCartographerTrajectoryEventBoundary(bundle *CartographerInputBundle
 	last.CloseReason = cartographerSerializedCloseReason(closeReason)
 }
 
-func (service *Service) persistClosedObservedWindow(ctx context.Context, window *CartographerWindow, run CartographerRun, cursor CartographerCursor, closeReason CartographerWindowCloseReason, now string) error {
+func (service *Service) persistClosedObservedWindow(ctx context.Context, window *CartographerWindow, run CartographerRun, cursor CartographerCursor, closeReason CartographerWindowCloseReason, now string) (bool, error) {
 	if closeReason == CartographerCloseWorkflowRunTerminal {
 		window.InputBundle.TriggerKind = CartographerTriggerWorkflowDone
 		run.TriggerKind = CartographerTriggerWorkflowDone
+		duplicate, err := service.workflowDoneAlreadyLeftQueue(ctx, *window)
+		if err != nil {
+			return false, err
+		}
+		if duplicate {
+			if err := service.closeCartographerWindowLocked(ctx, window, closeReason, now); err != nil {
+				return false, err
+			}
+			run.InputBundle = window.InputBundle
+			run.WindowID = window.ID
+			cursor.LastWindowID = window.ID
+			if err := service.supersedeQueuedCartographerRun(ctx, &run, "duplicate_workflow_done", "duplicate workflow completion synthesis pass was skipped because an earlier final synthesis pass already left the queue", now); err != nil {
+				return false, err
+			}
+			_, err := service.store.SaveCartographerCursor(ctx, cursor)
+			return false, err
+		}
 		if err := service.foldWorkflowDoneEpochsLocked(ctx, window, &run, now); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if err := service.closeCartographerWindowLocked(ctx, window, closeReason, now); err != nil {
-		return err
+		return false, err
 	}
 	run.InputBundle = window.InputBundle
 	cursor.LastWindowID = window.ID
 	prepareCartographerQueuedRun(&run, *window, now)
 	if _, err := service.SaveCartographerRun(ctx, run); err != nil {
-		return err
+		return false, err
 	}
 	_, err := service.store.SaveCartographerCursor(ctx, cursor)
-	return err
+	return true, err
+}
+
+func (service *Service) workflowDoneAlreadyLeftQueue(ctx context.Context, finalWindow CartographerWindow) (bool, error) {
+	refs, ok := cartographerCompletionSourceRefs(finalWindow)
+	if !ok {
+		return false, nil
+	}
+	runs, err := service.matchingWorkflowDoneRuns(ctx, finalWindow, refs)
+	if err != nil {
+		return false, err
+	}
+	for _, run := range runs {
+		if run.ID == finalWindow.RunID || run.TriggerKind != CartographerTriggerWorkflowDone {
+			continue
+		}
+		if !cartographerRunMatchesCompletionSource(run, refs) {
+			continue
+		}
+		if cartographerWorkflowDoneRunBlocksDuplicate(run.Status) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (service *Service) matchingWorkflowDoneRuns(ctx context.Context, finalWindow CartographerWindow, refs SemanticContextSourceRefs) ([]CartographerRun, error) {
+	runs := []CartographerRun{}
+	seen := map[string]bool{}
+	appendRuns := func(filter CartographerRunFilter) error {
+		filter.WorkspaceID = finalWindow.WorkspaceID
+		filter.Limit = defaultSemanticPageLimit
+		list, err := service.store.ListCartographerRuns(ctx, filter)
+		if err != nil {
+			return err
+		}
+		for _, run := range list.Runs {
+			if seen[run.ID] {
+				continue
+			}
+			seen[run.ID] = true
+			runs = append(runs, run)
+		}
+		return nil
+	}
+	if refs.WorkflowExecutionID != "" {
+		if err := appendRuns(CartographerRunFilter{WorkflowExecutionID: refs.WorkflowExecutionID}); err != nil {
+			return nil, err
+		}
+	}
+	if refs.ChatRunID != "" {
+		if err := appendRuns(CartographerRunFilter{ChatRunID: refs.ChatRunID}); err != nil {
+			return nil, err
+		}
+	}
+	return runs, nil
+}
+
+func cartographerWorkflowDoneRunBlocksDuplicate(status CartographerRunStatus) bool {
+	switch status {
+	case CartographerRunQueued, CartographerRunSuperseded, CartographerRunCancelled, CartographerRunAbandoned:
+		return false
+	default:
+		return true
+	}
 }
 
 func (service *Service) foldWorkflowDoneEpochsLocked(ctx context.Context, finalWindow *CartographerWindow, finalRun *CartographerRun, now string) error {

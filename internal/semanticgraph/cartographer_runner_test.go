@@ -33,7 +33,7 @@ func assertCartographerProcessApplied(t *testing.T, result CartographerWindowPro
 	if result.Window.Status != CartographerWindowProcessed {
 		t.Fatalf("processed window status = %s, want processed", result.Window.Status)
 	}
-	if result.Run.Status != CartographerRunApplied || len(result.Patches) != 1 || len(result.Events) == 0 {
+	if result.Run.Status != CartographerRunApplied || len(result.Patches) < 1 || len(result.Events) == 0 {
 		t.Fatalf("process result = %+v, want applied run with patch events", result)
 	}
 	if result.Run.HarnessKind != string(chat.HarnessCodex) ||
@@ -46,13 +46,16 @@ func assertCartographerProcessApplied(t *testing.T, result CartographerWindowPro
 
 func assertCartographerProcessContractArrays(t *testing.T, result CartographerWindowProcessResult) {
 	t.Helper()
-	if result.Run.CreatedSemanticEventIDs == nil ||
-		result.Run.Diagnostics == nil ||
-		result.Patches[0].CreatedSemanticEventIDs == nil ||
-		result.Patches[0].ValidationResult.Diagnostics == nil ||
-		result.Patches[0].ApplicationResult.CreatedSemanticEventIDs == nil ||
-		result.Patches[0].ApplicationResult.Diagnostics == nil {
-		t.Fatalf("process result contains nil contract arrays: %+v", result)
+	if result.Run.CreatedSemanticEventIDs == nil || result.Run.Diagnostics == nil {
+		t.Fatalf("process result contains nil run contract arrays: %+v", result)
+	}
+	for _, patch := range result.Patches {
+		if patch.CreatedSemanticEventIDs == nil ||
+			patch.ValidationResult.Diagnostics == nil ||
+			patch.ApplicationResult.CreatedSemanticEventIDs == nil ||
+			patch.ApplicationResult.Diagnostics == nil {
+			t.Fatalf("process result contains nil patch contract arrays: %+v", result)
+		}
 	}
 }
 
@@ -66,11 +69,23 @@ func assertProcessedCartographerWindowReadback(t *testing.T, service *Service, c
 
 func assertProcessedCartographerNodeReadback(t *testing.T, service *Service, ctx context.Context, result CartographerWindowProcessResult) {
 	t.Helper()
-	nodeID := result.Patches[0].Patch.Payload.NewNode.SemanticNodeID
+	nodePatch := cartographerResultFindingPatch(t, result)
+	nodeID := nodePatch.Patch.Payload.NewNode.SemanticNodeID
 	detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, nodeID)
 	if err != nil || !ok || len(detail.Evidence) == 0 {
 		t.Fatalf("cartographer-created node detail = %+v ok=%v err=%v, want evidence-backed node", detail, ok, err)
 	}
+}
+
+func cartographerResultFindingPatch(t *testing.T, result CartographerWindowProcessResult) CartographerPatchRecord {
+	t.Helper()
+	for _, patch := range result.Patches {
+		if patch.Patch.Operation == CartographerPatchRecordFinding && patch.Patch.Payload.NewNode != nil {
+			return patch
+		}
+	}
+	t.Fatalf("process result patches = %+v, want applied finding patch with new node", result.Patches)
+	return CartographerPatchRecord{}
 }
 
 func assertStructuredCartographerTask(t *testing.T, fake *chat.FakeHarness) {

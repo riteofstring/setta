@@ -153,10 +153,20 @@ func assertHTTPCartographerProcessEndpoint(t *testing.T, handler http.Handler, w
 	}, http.StatusOK)
 	if processed.Window.Status != semanticgraph.CartographerWindowProcessed ||
 		processed.Run.Status != semanticgraph.CartographerRunApplied ||
-		len(processed.Patches) != 1 ||
+		!httpCartographerProcessHasPatch(processed.Patches, semanticgraph.CartographerPatchRecordFinding) ||
+		!httpCartographerProcessHasPatch(processed.Patches, semanticgraph.CartographerPatchCreateEdge) ||
 		len(processed.Events) == 0 {
 		t.Fatalf("processed cartographer window = %+v, want applied scripted audit", processed)
 	}
+}
+
+func httpCartographerProcessHasPatch(patches []semanticgraph.CartographerPatchRecord, operation semanticgraph.CartographerPatchOperation) bool {
+	for _, patch := range patches {
+		if patch.Patch.Operation == operation && patch.Status == semanticgraph.CartographerPatchApplied {
+			return true
+		}
+	}
+	return false
 }
 
 func saveHTTPCartographerCursor(t *testing.T, semanticService *semanticgraph.Service, workspaceID string, windowID string) {

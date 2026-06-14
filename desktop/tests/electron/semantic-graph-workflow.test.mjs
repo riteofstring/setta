@@ -22,6 +22,10 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { driverCallExpression } from "./cdp-client.mjs";
 import {
+  assertProcessedCartographerResultReadback,
+  processedCartographerReadbackReady,
+} from "./semantic-graph-cartographer-readback.mjs";
+import {
   dispatchWorkflowGraphMouseDrag,
   maximizeWorkflowGraphPane,
   openWorkflowGraphPane,
@@ -862,10 +866,21 @@ async function assertProcessCartographerWindowApi(client, workspaceId) {
     workspaceId: ${JSON.stringify(workspaceId)}
   })`);
   assertProcessedCartographerResult(processed, built);
+  const findingPatch = processed.patches.find(isProcessedCartographerFindingPatch);
+  const edgePatch = processed.patches.find(
+    (candidate) =>
+      isProcessedCartographerEdgePatch(candidate) && candidate.runId === findingPatch?.runId,
+  );
+  if (!findingPatch || !edgePatch) {
+    throw new Error(
+      `processed cartographer patches missing finding or edge: ${JSON.stringify(processed)}`,
+    );
+  }
   return {
+    edgePatchId: edgePatch.id,
     evidenceAnchorId: setup.evidenceAnchorId,
-    nodeId: processed.patches[0].patch.payload.newNode.semanticNodeId,
-    patchId: processed.patches[0].id,
+    nodeId: findingPatch.patch.payload.newNode.semanticNodeId,
+    patchId: findingPatch.id,
     runId: processed.run.id,
     windowId: processed.window.id,
   };
@@ -953,15 +968,38 @@ function assertProcessedCartographerWindowResult(window, expectedWindowId) {
 }
 
 function assertProcessedCartographerPatchResult(processed) {
-  const patch = processed.patches[0] ?? null;
+  const findingPatch = processed.patches.find(isProcessedCartographerFindingPatch);
+  const edgePatch = processed.patches.find(isProcessedCartographerEdgePatch);
   if (
-    processed.patches.length !== 1 ||
-    !patch?.id.startsWith("cartographer_patch_scripted") ||
-    patch?.status !== "applied" ||
+    !findingPatch ||
+    !edgePatch ||
+    findingPatch.status !== "applied" ||
+    edgePatch.status !== "applied" ||
     processed.events.length === 0
   ) {
     throw new Error(`cartographer process patch mismatch: ${JSON.stringify(processed)}`);
   }
+}
+
+function isProcessedCartographerPatch(patch) {
+  return patch.id.startsWith("cartographer_patch_scripted") && patch.status === "applied";
+}
+
+function isProcessedCartographerFindingPatch(patch) {
+  return (
+    isProcessedCartographerPatch(patch) &&
+    patch.patch.operation === "record_finding" &&
+    patch.patch.payload.newNode?.semanticNodeId
+  );
+}
+
+function isProcessedCartographerEdgePatch(patch) {
+  return (
+    isProcessedCartographerPatch(patch) &&
+    patch.patch.operation === "create_edge" &&
+    patch.patch.payload.fromNodeId?.startsWith("semantic_node_cartographer_scripted") &&
+    patch.patch.payload.toNodeId === seedConstraintNodeId
+  );
 }
 
 async function assertProcessedCartographerReadback(client, workspaceId, processedCartographer) {
@@ -998,58 +1036,9 @@ async function assertProcessedCartographerReadback(client, workspaceId, processe
     (value) => processedCartographerReadbackReady(value, processedCartographer),
   );
   try {
-    assertProcessedCartographerAuditReadback(result.run.run);
-    assertProcessedCartographerPatchReadback(result, processedCartographer);
-    assertProcessedCartographerNodeReadback(result, processedCartographer);
+    assertProcessedCartographerResultReadback(result, processedCartographer, seedConstraintNodeId);
   } catch {
     throw new Error(`processed cartographer readback mismatch: ${JSON.stringify(result)}`);
-  }
-}
-
-function processedCartographerReadbackReady(value, processedCartographer) {
-  return (
-    value.run?.run?.status === "applied" &&
-    processedCartographerWindowReadbackReady(value, processedCartographer.windowId) &&
-    processedCartographerPatchReadbackReady(value, processedCartographer.patchId) &&
-    value.detail?.detail?.node?.id === processedCartographer.nodeId
-  );
-}
-
-function processedCartographerWindowReadbackReady(value, windowId) {
-  return value.windows?.windows?.some((window) => window.id === windowId);
-}
-
-function processedCartographerPatchReadbackReady(value, patchId) {
-  return value.patches?.patches?.some((patch) => patch.id === patchId);
-}
-
-function assertProcessedCartographerAuditReadback(run) {
-  if (
-    run.harnessKind !== "codex" ||
-    run.requestId !== "scripted-cartographer-request" ||
-    run.responseId !== "scripted-cartographer-response" ||
-    run.rawHarnessResponseHash === ""
-  ) {
-    throw new Error("processed cartographer audit mismatch");
-  }
-}
-
-function assertProcessedCartographerPatchReadback(result, processedCartographer) {
-  const patch = result.patches.patches.find(
-    (candidate) => candidate.id === processedCartographer.patchId,
-  );
-  if (!patch || patch.patch.publicSummary !== "Scripted cartographer patch envelope") {
-    throw new Error("processed cartographer patch mismatch");
-  }
-}
-
-function assertProcessedCartographerNodeReadback(result, processedCartographer) {
-  const hasEvidence = result.detail.detail.evidence.some(
-    (evidence) => evidence.reassignedFromAnchorId === processedCartographer.evidenceAnchorId,
-  );
-  const hasNode = result.graph.nodes.some((node) => node.id === processedCartographer.nodeId);
-  if (!hasEvidence || !hasNode) {
-    throw new Error("processed cartographer node mismatch");
   }
 }
 

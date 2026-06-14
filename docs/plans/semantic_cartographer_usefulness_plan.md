@@ -1,7 +1,7 @@
 # Semantic Cartographer Usefulness Plan
 
 - **Date:** June 14, 2026
-- **Status:** Phases 1-4 implemented; Phase 5 ready next
+- **Status:** Phases 1-5 implemented; Phase 6 ready next
 - **Scope:** Make semantic cartography produce useful, connected, inspectable work memory from real workflow runs.
 - **Related docs:**
   - `docs/plans/setta_semantic_work_graph_plan.md`
@@ -267,27 +267,48 @@ node desktop/tests/electron/run-workflows.mjs --workflow semantic-graph
 node desktop/tests/electron/run-workflows.mjs --workflow semantic-cartographer-auto
 ```
 
-Phase 5 is ready to implement. Keep it scoped to the patch contract/prompt
-upgrade and golden trace behavior: make the cartographer ask for specific
-findings, decisions, constraints, questions, source-backed evidence, semantic
-edges, and activity patches that the Phase 4 validators and renderer projection
-can now apply or route to review. Do not fold Phase 6 details-button
-discoverability or cartographer health UI into Phase 5.
+Phase 5 has been implemented. The cartographer prompt and strict output schema
+now prioritize concrete findings, decisions, constraints, open questions,
+source-backed evidence, semantic relationships, and activity patches while
+discouraging process-only nodes. The schema constrains supported patch, edge,
+activity, and evidence kinds and documents generated safe ids for patch metadata
+so observed event refs are not reused as storage ids.
 
-Two lifecycle/policy notes should be carried into the next phases:
+This satisfies the prompt/contract prerequisite for Phase 6:
 
-- The Phase 3 tests cover workflow-terminal final synthesis folding, but they do
-  not yet cover a chat-run terminal event followed by a workflow-execution
-  terminal event after the first final pass has already processed. Before
-  claiming the "final synthesis runs once" quality gate as complete, add that
-  deterministic trace and dedupe/supersede any duplicate `workflow_done` pass.
+- Automatic nodes are instructed to be inspectable and connected by source links
+  or semantic edges, with granular evidence from chat messages, run items, file
+  ranges, diffs, tests, workflow nodes, logs, or documents.
+- Final synthesis now emphasizes final answer/tool output, command/test
+  results, file changes, failures, and existing semantic context.
+- Review-required handling is explicit for broad, destructive, uncertain,
+  low-confidence, split/merge, resolution, or high-impact changes.
+- The scripted structured cartographer harness now returns evidence-backed
+  finding and edge patches instead of isolated placeholder notes.
+- Duplicate workflow completion synthesis after an already processed final pass
+  is closed as superseded instead of enqueued again.
+- Golden trace and Electron workflow coverage verify concrete findings,
+  relationships, source links, accepted/rejected/pending/no-op paths, and the
+  live Codex provider path.
+
+Verification during the Phase 5 review:
+
+```text
+./scripts/go.sh test -count=1 ./internal/chat ./internal/semanticgraph
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs --workflow semantic-graph
+node desktop/tests/electron/run-workflows.mjs --workflow semantic-cartographer-auto
+node desktop/tests/electron/chat-live-auth.mjs
+node desktop/tests/electron/run-workflows.mjs --workflow live-codex-electron
+```
+
+One lifecycle/policy note should be carried into the next phases:
+
 - Renderer source/activity edges currently require a matching workflow graph
   node. Run-item, file, diff, test, chat-message, log, and document evidence is
   now preserved as source-link data and visible in details, but it does not yet
-  produce standalone visual source nodes when no workflow node is available. If
-  Phase 5 asks for these source kinds more aggressively, keep the visual
-  limitation explicit and leave standalone source-node UI to Phase 6 or a
-  dedicated renderer follow-up.
+  produce standalone visual source nodes when no workflow node is available.
+  Leave standalone source-node UI to Phase 6 or a dedicated renderer follow-up.
 
 Lease recovery is deadline-based: a crashed-but-unexpired lease is not
 recoverable until its lease deadline. Treat lease duration/owner-staleness as
@@ -759,7 +780,7 @@ details show source links and evidence excerpts
 automatically applied nodes are not isolated unless explicitly justified
 ```
 
-### Phase 5: Patch Contract And Prompt Upgrade (ready next)
+### Phase 5: Patch Contract And Prompt Upgrade (implemented)
 
 Goal: make the LLM cartographer optimize for useful graph state.
 

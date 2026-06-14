@@ -67,6 +67,7 @@ try {
       longRunningExecutionId: longRunning.executionId,
       longRunningProcessedWindows: longRunning.processedWindowCount,
       smokeExecutionId: smoke.executionId,
+      smokeEdgePatchId: smoke.automatic.edgePatch.id,
       smokePatchId: smoke.automatic.patch.id,
       smokeRunId: smoke.automatic.run.id,
       smokeWindowId: smoke.automatic.window.id,
@@ -590,8 +591,10 @@ function assertProcessedWindowsSurvivedRestart(beforeRestart, afterRestart) {
 function automaticCartographerReadbackReady(value) {
   return (
     automaticProcessingIdleWithOutput(value.state) &&
-    hasScriptedCartographerPatch(value.patches) &&
+    hasScriptedCartographerFindingPatch(value.patches) &&
+    hasScriptedCartographerEdgePatch(value.patches) &&
     hasScriptedCartographerNode(value.graph) &&
+    hasScriptedCartographerEdge(value.graph) &&
     hasAppliedCartographerRun(value.runs) &&
     hasProcessedCartographerWindow(value.windows)
   );
@@ -608,12 +611,25 @@ function automaticProcessingIdleWithOutput(state) {
   );
 }
 
-function hasScriptedCartographerPatch(patches) {
-  return patches.patches.some(isAppliedScriptedCartographerPatch);
+function hasScriptedCartographerFindingPatch(patches) {
+  return patches.patches.some(isAppliedScriptedCartographerFindingPatch);
+}
+
+function hasScriptedCartographerEdgePatch(patches) {
+  return patches.patches.some(isAppliedScriptedCartographerEdgePatch);
 }
 
 function hasScriptedCartographerNode(graph) {
   return graph.nodes.some(isScriptedCartographerNode);
+}
+
+function hasScriptedCartographerEdge(graph) {
+  return graph.edges.some(
+    (edge) =>
+      typeof edge.fromNodeId === "string" &&
+      edge.fromNodeId.startsWith(cartographerNodeIdPrefix) &&
+      edge.toNodeId === seedNodeId,
+  );
 }
 
 function hasAppliedCartographerRun(runs) {
@@ -626,6 +642,7 @@ function hasProcessedCartographerWindow(windows) {
 
 function assertAutomaticCartographerReadback(readback, records, evidenceAnchorId, executionId) {
   assertAutomaticPatch(records.patch);
+  assertAutomaticEdgePatch(records.edgePatch, records.nodeId);
   assertAutomaticRun(records.run, executionId);
   assertAutomaticWindow(records.window, records.run.id);
   assertAutomaticSemanticNode(readback, records.nodeId, evidenceAnchorId);
@@ -633,18 +650,39 @@ function assertAutomaticCartographerReadback(readback, records, evidenceAnchorId
 }
 
 function requireAutomaticCartographerRecords(readback) {
-  const patch = readback.patches.patches.find(isAppliedScriptedCartographerPatch);
+  const patch = readback.patches.patches.find(isAppliedScriptedCartographerFindingPatch);
+  const edgePatch = readback.patches.patches.find(
+    (candidate) =>
+      isAppliedScriptedCartographerEdgePatch(candidate) && candidate.runId === patch?.runId,
+  );
   const run = readback.runs.runs.find((candidate) => candidate.id === patch?.runId);
   const window = readback.windows.windows.find((candidate) => candidate.id === patch?.windowId);
   const nodeId = patch?.patch.payload.newNode?.semanticNodeId ?? "";
-  if (!patch || !run || !window || nodeId === "") {
+  if (!patch || !edgePatch || !run || !window || nodeId === "") {
     throw new Error(`automatic cartographer audit records missing: ${JSON.stringify(readback)}`);
   }
-  return { nodeId, patch, run, window };
+  return { edgePatch, nodeId, patch, run, window };
 }
 
 function isAppliedScriptedCartographerPatch(patch) {
   return patch.id.startsWith(cartographerPatchIdPrefix) && patch.status === "applied";
+}
+
+function isAppliedScriptedCartographerFindingPatch(patch) {
+  return (
+    isAppliedScriptedCartographerPatch(patch) &&
+    patch.patch.operation === "record_finding" &&
+    patch.patch.payload.newNode?.semanticNodeId?.startsWith(cartographerNodeIdPrefix)
+  );
+}
+
+function isAppliedScriptedCartographerEdgePatch(patch) {
+  return (
+    isAppliedScriptedCartographerPatch(patch) &&
+    patch.patch.operation === "create_edge" &&
+    patch.patch.payload.fromNodeId?.startsWith(cartographerNodeIdPrefix) &&
+    patch.patch.payload.toNodeId === seedNodeId
+  );
 }
 
 function isScriptedCartographerNode(node) {
@@ -663,6 +701,18 @@ function automaticPatchAppliedFinding(patch) {
     patch.patch.operation === "record_finding" &&
     patch.createdSemanticEventIds.length > 0
   );
+}
+
+function assertAutomaticEdgePatch(patch, nodeId) {
+  if (
+    patch.status !== "applied" ||
+    patch.patch.operation !== "create_edge" ||
+    patch.patch.payload.fromNodeId !== nodeId ||
+    patch.patch.payload.toNodeId !== seedNodeId ||
+    patch.createdSemanticEventIds.length === 0
+  ) {
+    throw new Error(`automatic cartographer edge patch mismatch: ${JSON.stringify(patch)}`);
+  }
 }
 
 function assertAutomaticRun(run, executionId) {
@@ -690,10 +740,14 @@ function assertAutomaticWindow(window, runId) {
 
 function assertAutomaticSemanticNode(readback, nodeId, evidenceAnchorId) {
   const hasNode = readback.graph.nodes.some((node) => node.id === nodeId);
+  const hasSourceLink = readback.graph.sourceLinks.some((link) => link.targetEntityId === nodeId);
+  const hasEdge = readback.graph.edges.some(
+    (edge) => edge.fromNodeId === nodeId && edge.toNodeId === seedNodeId,
+  );
   const hasEvidence = readback.detail.detail.evidence.some(
     (evidence) => evidence.reassignedFromAnchorId === evidenceAnchorId,
   );
-  if (!hasNode || !hasEvidence) {
+  if (!hasNode || !hasSourceLink || !hasEdge || !hasEvidence) {
     throw new Error(`automatic cartographer semantic node mismatch: ${JSON.stringify(readback)}`);
   }
 }

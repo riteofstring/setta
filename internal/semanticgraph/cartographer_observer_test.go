@@ -454,6 +454,61 @@ func TestCartographerObserverWorkflowCompletionFoldsOpenAssistantEpochIntoFinalS
 	}
 }
 
+func TestCartographerObserverSkipsDuplicateWorkflowCompletionAfterProcessedChatFinal(t *testing.T) {
+	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
+	ctx := context.Background()
+	chatFinalWindows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeRunUpdated, chat.RunUpdatedPayload{
+		Run: chat.Run{
+			SchemaVersion:  chat.SchemaVersion,
+			ID:             "chat_run_cartographer",
+			WorkspaceID:    testWorkspaceID,
+			ConversationID: "chat_conversation_cartographer",
+			Status:         chat.RunStatusCompleted,
+			CompletedAt:    testTimestamp(41),
+			PromptSummary:  "static review workflow",
+		},
+	}))
+	if err != nil {
+		t.Fatalf("observe terminal chat run: %v", err)
+	}
+	if len(chatFinalWindows) != 1 || chatFinalWindows[0].InputBundle.TriggerKind != CartographerTriggerWorkflowDone {
+		t.Fatalf("terminal chat windows = %+v, want one workflow_done final pass", chatFinalWindows)
+	}
+	markCartographerRunStatus(t, service, chatFinalWindows[0].RunID, CartographerRunApplied)
+	markCartographerWindowStatus(t, service, chatFinalWindows[0].ID, CartographerWindowProcessed)
+
+	workflowFinalWindows, err := service.ObserveCartographerWorkflowEvent(ctx, cartographerWorkflowTerminalEvent())
+	if err != nil {
+		t.Fatalf("observe terminal workflow after processed chat final: %v", err)
+	}
+	if len(workflowFinalWindows) != 0 {
+		t.Fatalf("terminal workflow windows = %+v, want duplicate final pass skipped", workflowFinalWindows)
+	}
+	runs, err := service.ListCartographerRuns(ctx, CartographerRunFilter{
+		WorkspaceID:         testWorkspaceID,
+		WorkflowExecutionID: "workflow_execution_cartographer",
+		Limit:               20,
+	})
+	if err != nil {
+		t.Fatalf("list cartographer runs after duplicate final: %v", err)
+	}
+	activeFinals := 0
+	supersededDuplicates := 0
+	for _, run := range runs.Runs {
+		if run.TriggerKind != CartographerTriggerWorkflowDone {
+			continue
+		}
+		if run.Status == CartographerRunSuperseded {
+			supersededDuplicates++
+			continue
+		}
+		activeFinals++
+	}
+	if activeFinals != 1 || supersededDuplicates != 1 {
+		t.Fatalf("workflow_done runs = %+v, want one processed final and one superseded duplicate", runs.Runs)
+	}
+}
+
 func TestManualCartographerWindowBuildsCurrentProgressWithoutSemanticMutation(t *testing.T) {
 	service, store := newCartographerObserverTestService(t, CartographerObservationConfig{})
 	ctx := context.Background()

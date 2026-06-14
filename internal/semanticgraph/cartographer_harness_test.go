@@ -71,6 +71,53 @@ func TestDefaultCartographerPatchEnvelopeSchemaIsStrictForProvider(t *testing.T)
 	assertStrictObjectSchema(t, schema, "$")
 }
 
+func TestDefaultCartographerPatchEnvelopeSchemaConstrainsGraphPatchEnums(t *testing.T) {
+	var schema map[string]any
+	if err := json.Unmarshal(DefaultCartographerPatchEnvelopeSchema(), &schema); err != nil {
+		t.Fatalf("default cartographer schema is invalid JSON: %v", err)
+	}
+	if !schemaStringEnumContains(t, schema, []string{"properties", "patches", "items", "properties", "operation"}, "create_edge") ||
+		!schemaStringEnumContains(t, schema, []string{"properties", "patches", "items", "properties", "payload", "properties", "edgeKind"}, "related_to") ||
+		!schemaStringEnumContains(t, schema, []string{"properties", "patches", "items", "properties", "payload", "properties", "activitySourceKind"}, "command") ||
+		!schemaStringEnumContains(t, schema, []string{"properties", "patches", "items", "properties", "evidenceRefs", "items", "properties", "sourceKind"}, "run_item") {
+		t.Fatalf("cartographer schema = %s, want constrained operation, edge, activity source, and evidence source enums", DefaultCartographerPatchEnvelopeSchema())
+	}
+}
+
+func TestDefaultCartographerPatchEnvelopeSchemaDescribesSafeGeneratedPatchIDs(t *testing.T) {
+	var schema map[string]any
+	if err := json.Unmarshal(DefaultCartographerPatchEnvelopeSchema(), &schema); err != nil {
+		t.Fatalf("default cartographer schema is invalid JSON: %v", err)
+	}
+	for _, path := range [][]string{
+		{"properties", "patches", "items", "properties", "patchId"},
+		{"properties", "patches", "items", "properties", "causationId"},
+		{"properties", "patches", "items", "properties", "correlationId"},
+	} {
+		if !schemaDescriptionContains(t, schema, path, "only letters, numbers, underscores, or hyphens") {
+			t.Fatalf("cartographer schema field %v missing safe-id guidance: %s", path, DefaultCartographerPatchEnvelopeSchema())
+		}
+	}
+}
+
+func TestProductionCartographerPromptPrioritizesPhase5Usefulness(t *testing.T) {
+	prompt := ProductionCartographerPrompt()
+	for _, want := range []string{
+		"specific findings, decisions, constraints, and open questions",
+		"Discourage process-only nodes",
+		"Every automatic node must be inspectable and connected",
+		"Use create_edge",
+		"Use start_activity",
+		"workflow_done final synthesis",
+		"causationId and correlationId are generated patch metadata ids",
+		"confidence below 0.75",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("production cartographer prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
+
 func TestValidateCartographerPatchEnvelopeShapeRequiresPatchObjects(t *testing.T) {
 	err := ValidateCartographerPatchEnvelopeShape(json.RawMessage(`{"patches":["not an object"]}`))
 	if err == nil {
@@ -79,6 +126,53 @@ func TestValidateCartographerPatchEnvelopeShapeRequiresPatchObjects(t *testing.T
 	if !strings.Contains(err.Error(), "cannot unmarshal string") {
 		t.Fatalf("cartographer envelope error = %v, want patch object failure", err)
 	}
+}
+
+func schemaStringEnumContains(t *testing.T, schema map[string]any, path []string, want string) bool {
+	t.Helper()
+	current := any(schema)
+	for _, segment := range path {
+		object, ok := current.(map[string]any)
+		if !ok {
+			t.Fatalf("schema path %v reached non-object %T", path, current)
+		}
+		current = object[segment]
+	}
+	object, ok := current.(map[string]any)
+	if !ok {
+		t.Fatalf("schema path %v reached non-object property %T", path, current)
+	}
+	raw, ok := object["enum"].([]any)
+	if !ok {
+		t.Fatalf("schema path %v has no enum", path)
+	}
+	for _, value := range raw {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaDescriptionContains(t *testing.T, schema map[string]any, path []string, want string) bool {
+	t.Helper()
+	current := any(schema)
+	for _, segment := range path {
+		object, ok := current.(map[string]any)
+		if !ok {
+			t.Fatalf("schema path %v reached non-object %T", path, current)
+		}
+		current = object[segment]
+	}
+	object, ok := current.(map[string]any)
+	if !ok {
+		t.Fatalf("schema path %v reached non-object property %T", path, current)
+	}
+	description, ok := object["description"].(string)
+	if !ok {
+		return false
+	}
+	return strings.Contains(description, want)
 }
 
 func assertStrictObjectSchema(t *testing.T, raw any, path string) {

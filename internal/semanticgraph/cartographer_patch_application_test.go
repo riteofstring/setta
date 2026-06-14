@@ -359,6 +359,42 @@ func TestCartographerPatchEnvelopeAutoAppliesEvidenceBackedActivityPatches(t *te
 	}
 }
 
+func TestCartographerPatchEnvelopeGoldenStaticReviewTraceCreatesConnectedConcreteFindings(t *testing.T) {
+	service, store := newCartographerPatchApplicationTestService(t)
+	ctx := context.Background()
+	seedCartographerPatchEvidence(t, store)
+	finding := cartographerRecordFindingPatch("cartographer_patch_static_review_finding", "node_static_review_finding", "Toolbar overflow blocks review actions", 0.91)
+	finding.Payload.NewNode.Summary = "Static review found that toolbar controls can overflow their container and obscure review actions."
+	decision := cartographerRecordFindingPatch("cartographer_patch_static_review_decision", "node_static_review_decision", "Constrain toolbar controls before release", 0.91)
+	decision.Operation = CartographerPatchRecordDecision
+	decision.Payload.NewNode.Kind = NodeKindDecision
+	decision.Payload.NewNode.Summary = "The implementation should keep toolbar controls constrained before release because review actions must remain reachable."
+	edge := cartographerCreateEdgePatch("cartographer_patch_static_review_edge", "edge_static_review_finding_decision", "node_static_review_finding", "node_static_review_decision")
+	edgeKind := EdgeKindSupports
+	edge.Payload.EdgeKind = &edgeKind
+	edge.Payload.Label = "supports release decision"
+	edge.Payload.Summary = "The toolbar overflow finding supports the release-blocking implementation decision."
+
+	result, err := service.ApplyCartographerPatchEnvelope(ctx, cartographerPatchApplicationInput(t, "cartographer_run_static_review_golden", []CartographerPatch{finding, decision, edge}))
+	if err != nil {
+		t.Fatalf("apply static review golden trace: %v", err)
+	}
+	if result.Run.Status != CartographerRunApplied || len(result.Patches) != 3 {
+		t.Fatalf("static review result = %+v, want applied finding, decision, and edge patches", result)
+	}
+	graph, err := service.ReadGraph(ctx, testWorkspaceID)
+	if err != nil {
+		t.Fatalf("read static review graph: %v", err)
+	}
+	semanticNodeByID(t, graph.Nodes, "node_static_review_finding")
+	semanticNodeByID(t, graph.Nodes, "node_static_review_decision")
+	semanticEdgeByID(t, graph.Edges, "edge_static_review_finding_decision")
+	findingDetail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "node_static_review_finding")
+	if err != nil || !ok || len(findingDetail.Evidence) == 0 {
+		t.Fatalf("static review finding detail = %+v ok=%v err=%v, want source-backed evidence", findingDetail, ok, err)
+	}
+}
+
 func TestCartographerPatchEnvelopeDoesNotDedupeByLabel(t *testing.T) {
 	service, store := newCartographerPatchApplicationTestService(t)
 	ctx := context.Background()
