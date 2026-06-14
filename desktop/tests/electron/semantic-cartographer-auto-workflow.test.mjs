@@ -49,8 +49,8 @@ const requiredAutomaticReadbackPulseKinds = [
   "evidence_attached",
   "edge_created",
 ];
-const phase1MaxBlankScopeWorkingSetReads = 0;
-const phase1MaxRuntimeIpcBytesPerMinute = 1_000_000;
+const phase2MaxBlankScopeWorkingSetReads = 0;
+const phase2MaxRuntimeIpcBytesPerMinute = 1_000_000;
 
 configureChatWorkflowHarness({ visible: options.visible });
 
@@ -198,7 +198,7 @@ async function runAutomaticAgentSmoke() {
     workspaceId,
   });
   assertSemanticRuntimeDefaultVisualBudget(phase8);
-  const runtimeBudget = await assertSemanticRuntimePhase0Budgets(recordingDir);
+  const runtimeBudget = await assertSemanticRuntimePhase2TrafficContract(recordingDir);
 
   await captureScreenshot(context.client, join(recordingDir, "automatic-cartographer.png"));
   await assertSemanticCartographerRecordingEvidence(recordingDir);
@@ -882,24 +882,24 @@ function assertSemanticRuntimeDefaultVisualBudget(phase8) {
   }
 }
 
-async function assertSemanticRuntimePhase0Budgets(recordingDir) {
+async function assertSemanticRuntimePhase2TrafficContract(recordingDir) {
   const [ipcRows, backendRows, eventRows] = await Promise.all([
     readJsonLinesWithRaw(join(recordingDir, "ipc.jsonl")),
     readJsonLinesWithRaw(join(recordingDir, "backend-http.jsonl")),
     readJsonLinesWithRaw(join(recordingDir, "events.jsonl")),
   ]);
-  const budget = semanticRuntimePhase0BudgetReport({
+  const budget = semanticRuntimePhase2TrafficReport({
     backendRows,
     eventRows,
     ipcRows,
     recordingDir,
   });
-  await writeJson(join(recordingDir, "semantic-runtime-phase0-budget-gate.json"), budget);
+  await writeJson(join(recordingDir, "semantic-runtime-phase2-traffic-gate.json"), budget);
   const failures = budget.checks
     .filter((check) => check.status !== "pass")
     .map((check) => `${check.id}: actual=${check.actual} budget=${check.budget}`);
   if (failures.length > 0) {
-    throw new Error(`semantic runtime phase 0 budgets failed: ${failures.join("; ")}`);
+    throw new Error(`semantic runtime phase 2 traffic contract failed: ${failures.join("; ")}`);
   }
   return budget;
 }
@@ -915,11 +915,18 @@ async function readJsonLinesWithRaw(path) {
     }));
 }
 
-function semanticRuntimePhase0BudgetReport({ backendRows, eventRows, ipcRows, recordingDir }) {
+function semanticRuntimePhase2TrafficReport({ backendRows, eventRows, ipcRows, recordingDir }) {
   const blankScopeIpcIds = blankScopeWorkingSetIpcIds(ipcRows);
+  const runtimeSnapshotIpcFinishes = ipcRows.filter(
+    ({ row }) => row.type === "ipc_finish" && row.channel === "semantic-graph:runtime-snapshot",
+  );
+  const runtimeSnapshotBootstrapAt = runtimeSnapshotIpcFinishes[0]?.row.at ?? "";
   const semanticEventCount = eventRows.filter(
     ({ row }) => row.type === "semantic_graph_event_forwarded",
   ).length;
+  const workingSetIpcStarts = ipcRows.filter(
+    ({ row }) => row.type === "ipc_start" && row.channel === "semantic-graph:working-set-read",
+  );
   const workingSetIpcBytes = ipcRows
     .filter(({ row }) => row.channel === "semantic-graph:working-set-read")
     .filter(({ row }) => blankScopeIpcIds.has(row.id))
@@ -931,60 +938,96 @@ function semanticRuntimePhase0BudgetReport({ backendRows, eventRows, ipcRows, re
   const rateWindowMinutes = Math.max(rawDurationMinutes, 1);
   const workingSetIpcBytesPerMinute = workingSetIpcBytes / rateWindowMinutes;
   const runtimeSnapshotIpcBytesPerMinute = runtimeSnapshotIpcBytes / rateWindowMinutes;
-  const blankScopeWorkingSetReadCount = ipcRows.filter(
-    ({ row }) =>
-      row.type === "ipc_finish" &&
-      row.channel === "semantic-graph:working-set-read" &&
-      blankScopeIpcIds.has(row.id),
+  const blankScopeWorkingSetReadCount = workingSetIpcStarts.filter(({ row }) =>
+    blankScopeIpcIds.has(row.id),
   ).length;
+  const blankScopeWorkingSetReadAfterBootstrapCount = workingSetIpcStarts.filter(
+    ({ row }) => blankScopeIpcIds.has(row.id) && rowIsAtOrAfter(row, runtimeSnapshotBootstrapAt),
+  ).length;
+  const scopedWorkingSetReadCount = workingSetIpcStarts.length - blankScopeWorkingSetReadCount;
   const blankScopeWorkingSetHttpRequestCount = backendRows.filter(
     ({ row }) =>
       row.type === "backend_http_request" &&
       backendRowPath(row) === "/semantic-graph/working-set/read" &&
       workingSetRequestBodyIsBlankScope(row.requestBody),
   ).length;
+  const blankScopeWorkingSetHttpRequestAfterBootstrapCount = backendRows.filter(
+    ({ row }) =>
+      row.type === "backend_http_request" &&
+      backendRowPath(row) === "/semantic-graph/working-set/read" &&
+      workingSetRequestBodyIsBlankScope(row.requestBody) &&
+      rowIsAtOrAfter(row, runtimeSnapshotBootstrapAt),
+  ).length;
   return {
     budgets: {
-      maxBlankScopeWorkingSetReads: phase1MaxBlankScopeWorkingSetReads,
-      maxRuntimeIpcBytesPerMinute: phase1MaxRuntimeIpcBytesPerMinute,
+      maxBlankScopeWorkingSetReads: phase2MaxBlankScopeWorkingSetReads,
+      maxRuntimeIpcBytesPerMinute: phase2MaxRuntimeIpcBytesPerMinute,
     },
     checks: [
       hardBudgetCheck({
+        actual: runtimeSnapshotIpcFinishes.length,
+        budget: 1,
+        id: "semantic-runtime-snapshot-bootstrap-recorded",
+        pass: runtimeSnapshotIpcFinishes.length > 0,
+      }),
+      hardBudgetCheck({
+        actual: blankScopeWorkingSetReadAfterBootstrapCount,
+        budget: phase2MaxBlankScopeWorkingSetReads,
+        id: "small-workflow-blank-scope-working-set-reads-after-runtime-bootstrap",
+        pass: blankScopeWorkingSetReadAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads,
+      }),
+      hardBudgetCheck({
+        actual: blankScopeWorkingSetHttpRequestAfterBootstrapCount,
+        budget: phase2MaxBlankScopeWorkingSetReads,
+        id: "small-workflow-blank-scope-working-set-http-requests-after-runtime-bootstrap",
+        pass:
+          blankScopeWorkingSetHttpRequestAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads,
+      }),
+      hardBudgetCheck({
         actual: blankScopeWorkingSetReadCount,
-        budget: phase1MaxBlankScopeWorkingSetReads,
+        budget: phase2MaxBlankScopeWorkingSetReads,
         id: "small-workflow-blank-scope-working-set-reads",
-        pass: blankScopeWorkingSetReadCount <= phase1MaxBlankScopeWorkingSetReads,
+        pass: blankScopeWorkingSetReadCount <= phase2MaxBlankScopeWorkingSetReads,
       }),
       hardBudgetCheck({
         actual: blankScopeWorkingSetHttpRequestCount,
-        budget: phase1MaxBlankScopeWorkingSetReads,
+        budget: phase2MaxBlankScopeWorkingSetReads,
         id: "small-workflow-blank-scope-working-set-http-requests",
-        pass: blankScopeWorkingSetHttpRequestCount <= phase1MaxBlankScopeWorkingSetReads,
+        pass: blankScopeWorkingSetHttpRequestCount <= phase2MaxBlankScopeWorkingSetReads,
       }),
       hardBudgetCheck({
         actual: Math.round(runtimeSnapshotIpcBytesPerMinute),
-        budget: phase1MaxRuntimeIpcBytesPerMinute,
+        budget: phase2MaxRuntimeIpcBytesPerMinute,
         id: "semantic-runtime-snapshot-ipc-bytes-per-minute",
-        pass: runtimeSnapshotIpcBytesPerMinute < phase1MaxRuntimeIpcBytesPerMinute,
+        pass: runtimeSnapshotIpcBytesPerMinute < phase2MaxRuntimeIpcBytesPerMinute,
       }),
     ],
     generatedAt: new Date().toISOString(),
     metrics: {
+      blankScopeWorkingSetHttpRequestAfterBootstrapCount,
       blankScopeWorkingSetHttpRequestCount,
+      blankScopeWorkingSetReadAfterBootstrapCount,
       blankScopeWorkingSetReadCount,
       rateWindowMinutes,
       rawDurationMinutes,
       runtimeSnapshotIpcBytes,
       runtimeSnapshotIpcBytesPerMinute,
+      runtimeSnapshotIpcReadCount: runtimeSnapshotIpcFinishes.length,
+      runtimeSnapshotBootstrapAt,
+      scopedWorkingSetReadCount,
       semanticEventCount,
       workingSetIpcBytes,
       workingSetIpcBytesPerMinute,
+      workingSetIpcReadCount: workingSetIpcStarts.length,
     },
     recordingDir,
     status:
-      blankScopeWorkingSetReadCount <= phase1MaxBlankScopeWorkingSetReads &&
-      blankScopeWorkingSetHttpRequestCount <= phase1MaxBlankScopeWorkingSetReads &&
-      runtimeSnapshotIpcBytesPerMinute < phase1MaxRuntimeIpcBytesPerMinute
+      runtimeSnapshotIpcFinishes.length > 0 &&
+      blankScopeWorkingSetReadAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads &&
+      blankScopeWorkingSetHttpRequestAfterBootstrapCount <= phase2MaxBlankScopeWorkingSetReads &&
+      blankScopeWorkingSetReadCount <= phase2MaxBlankScopeWorkingSetReads &&
+      blankScopeWorkingSetHttpRequestCount <= phase2MaxBlankScopeWorkingSetReads &&
+      runtimeSnapshotIpcBytesPerMinute < phase2MaxRuntimeIpcBytesPerMinute
         ? "passed"
         : "failed",
   };
@@ -1013,6 +1056,12 @@ function workingSetRequestBodyIsBlankScope(requestBody) {
 
 function workingSetRequestIsBlankScope(request) {
   return request?.workflowExecutionId === "" && request?.chatRunId === "";
+}
+
+function rowIsAtOrAfter(row, timestampValue) {
+  const rowTimestamp = Date.parse(row.at ?? "");
+  const threshold = Date.parse(timestampValue);
+  return Number.isFinite(rowTimestamp) && Number.isFinite(threshold) && rowTimestamp >= threshold;
 }
 
 function backendRowPath(row) {
@@ -1060,6 +1109,7 @@ async function assertSemanticCartographerRecordingEvidence(recordingDir) {
       "/semantic-graph/cartographer/runs/list",
       "/semantic-graph/cartographer/windows/list",
       "/semantic-graph/cartographer/patches/list",
+      "/semantic-graph/runtime/snapshot",
       "/semantic-graph/working-set/read",
       "/semantic-graph/nodes/detail",
       "/semantic-graph/read",
@@ -1083,6 +1133,7 @@ async function assertSemanticCartographerRecordingEvidence(recordingDir) {
       "semantic-graph:cartographer-run-list",
       "semantic-graph:cartographer-window-list",
       "semantic-graph:cartographer-patch-list",
+      "semantic-graph:runtime-snapshot",
       "semantic-graph:working-set-read",
       "semantic-graph:node-detail",
       "semantic-graph:read",

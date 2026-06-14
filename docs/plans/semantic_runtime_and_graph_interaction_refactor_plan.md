@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Phase 2 implemented with follow-up required before Phase 3
+- **Status:** Phase 2 complete; Phase 3 ready
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -542,8 +542,7 @@ Acceptance criteria:
 ### Phase 2 Implementation Review
 
 Phase 2 is implemented by commit `174271b7d` (`Implement semantic runtime
-renderer store`), but it is not ready to hand off to Phase 3 until the focused
-follow-up below lands.
+renderer store`), with the focused follow-up below now completed.
 
 Implemented:
 
@@ -571,33 +570,41 @@ pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/sem
 
 Both focused checks passed during review.
 
-Required Phase 2 follow-up before Phase 3:
+Phase 2 follow-up completion:
 
-- Fix runtime workflow/run-item removal semantics in the renderer store. The
+- Fixed runtime workflow/run-item removal semantics in the renderer store. The
   backend contract names these removal fields `workflowNodeIds` and
   `runItemIds`, and the backend populates them with source ids such as
-  `reviewer` or `run_item_review`. The renderer currently feeds those ids to
-  generic item-id replacement, but `SemanticRuntimeWorkflowNode.id` and
-  `SemanticRuntimeRunItem.id` are prefixed runtime ids such as
-  `semantic-runtime-workflow-node:reviewer` and
-  `semantic-runtime-run-item:run_item_review`. As a result, terminal deltas can
-  leave stale active workflow/run-item runtime state in the renderer until a
-  full snapshot reload. Merge and replace workflow-node runtime entries by
-  `workflowNodeId`, and run-item runtime entries by `runItemId`; add renderer
-  tests proving removal wins when it is latest and an update wins when it is
-  latest within a coalesced frame.
-- Add production-path verification for the Phase 2 traffic contract. The unit
-  tests prove store mechanics, but Phase 2's first acceptance criterion needs a
-  deterministic Electron/main/preload/renderer/HTTP/store-path check or an
-  equivalent recorded report showing a three-node review workflow performs no
-  repeated `semantic-graph:working-set-read` calls after runtime bootstrap.
+  `reviewer` or `run_item_review`. The renderer now merges and replaces
+  workflow-node runtime entries by `workflowNodeId`, and run-item runtime
+  entries by `runItemId`, while other runtime collections continue to use their
+  generated runtime `id`. Renderer tests prove removal wins when it is latest
+  and an update wins when it is latest within a coalesced frame.
+- Added production-path verification for the Phase 2 traffic contract. The
+  semantic cartographer automatic Electron workflow now writes
+  `semantic-runtime-phase2-traffic-gate.json`, requires a runtime snapshot
+  bootstrap through the production IPC/HTTP path, and hard-fails if the graph
+  liveness path performs any blank-scope
+  `semantic-graph:working-set-read` IPC or backend HTTP request after runtime
+  bootstrap.
+
+Focused follow-up verification:
+
+```text
+pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts
+pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/semantic-runtime-store.ts src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts tests/electron/semantic-cartographer-auto-workflow.test.mjs
+pnpm --dir desktop build
+node tests/electron/semantic-cartographer-auto-workflow.test.mjs --skip-build --semantic-live-recording-only
+```
+
+The focused Electron run produced a passing Phase 2 traffic report with
+`0` blank-scope working-set IPC reads after runtime bootstrap and `0`
+blank-scope working-set backend HTTP requests after runtime bootstrap.
 
 Phase 3 handoff:
 
-- Phase 3 is not ready yet. The implementation direction is sound, but Phase 2
-  has not fully met the "runtime visual updates remain correct" and
-  "no repeated working-set-read traffic after bootstrap" acceptance criteria
-  until the follow-up above is complete.
+- Phase 3 is ready to implement after the final repo gates for this changeset
+  pass.
 
 ## Phase 3 - Interaction Priority And Camera Isolation
 

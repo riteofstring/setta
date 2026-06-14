@@ -66,6 +66,15 @@ interface PendingRuntimeDelta {
   workspaceId: string;
 }
 
+interface RuntimeItemReplacement<T> {
+  current: readonly T[];
+  itemKey: (item: T) => string;
+  limit: number;
+  removalIds: readonly string[];
+  timestamp: (item: T) => string;
+  updates: readonly T[];
+}
+
 const defaultCameraSettleDelayMs = 120;
 
 export const emptySemanticRuntimeFrameSnapshot: SemanticRuntimeFrameSnapshot = {
@@ -229,48 +238,56 @@ export function createSemanticRuntimeStore({
       pendingDelta.removals.workflowNodeIds,
       delta.workflowNodeUpdates,
       delta.removals.workflowNodeIds,
+      (item) => item.workflowNodeId,
     );
     mergeRuntimeEntityUpdates(
       pendingDelta.runItemUpdates,
       pendingDelta.removals.runItemIds,
       delta.runItemUpdates,
       delta.removals.runItemIds,
+      (item) => item.runItemId,
     );
     mergeRuntimeEntityUpdates(
       pendingDelta.cartographerRunUpdates,
       pendingDelta.removals.cartographerRunIds,
       delta.cartographerRunUpdates,
       delta.removals.cartographerRunIds,
+      runtimeItemId,
     );
     mergeRuntimeEntityUpdates(
       pendingDelta.cartographerWindowUpdates,
       pendingDelta.removals.cartographerWindowIds,
       delta.cartographerWindowUpdates,
       delta.removals.cartographerWindowIds,
+      runtimeItemId,
     );
     mergeRuntimeEntityUpdates(
       pendingDelta.patchPreviewUpdates,
       pendingDelta.removals.patchPreviewIds,
       delta.patchPreviewUpdates,
       delta.removals.patchPreviewIds,
+      runtimeItemId,
     );
     mergeRuntimeEntityUpdates(
       pendingDelta.aggregateSourceUpdates,
       pendingDelta.removals.aggregateSourceIds,
       delta.aggregateSourceUpdates,
       delta.removals.aggregateSourceIds,
+      runtimeItemId,
     );
     mergeRuntimeEntityUpdates(
       pendingDelta.semanticNodeActivityUpdates,
       pendingDelta.removals.semanticNodeActivityIds,
       delta.semanticNodeActivityUpdates,
       delta.removals.semanticNodeActivityIds,
+      runtimeItemId,
     );
     mergeRuntimeEntityUpdates(
       pendingDelta.semanticChangeUpdates,
       new Set<string>(),
       delta.semanticChangeUpdates,
       [],
+      runtimeItemId,
     );
   }
 
@@ -460,62 +477,72 @@ function applySemanticRuntimeDelta(
   ) {
     return null;
   }
-  const activeRuns = replaceRuntimeItems(
-    snapshot.cartographer.activeRuns,
-    delta.cartographerRunUpdates.filter((run) => semanticWorkingSetStatusIsActive(run.status)),
-    delta.removals.cartographerRunIds,
-    snapshot.limits.maxCartographerRuns,
-    runtimeItemTimestamp,
-  );
-  const activeWindows = replaceRuntimeItems(
-    snapshot.cartographer.activeWindows,
-    delta.cartographerWindowUpdates.filter((window) => window.status === "window_open"),
-    delta.removals.cartographerWindowIds,
-    snapshot.limits.maxCartographerWindows,
-    runtimeItemTimestamp,
-  );
-  const patches = replaceRuntimeItems(
-    snapshot.patches,
-    delta.patchPreviewUpdates,
-    delta.removals.patchPreviewIds,
-    snapshot.limits.maxPatchPreviews,
-    runtimeItemTimestamp,
-  );
-  const recentSemanticChanges = replaceRuntimeItems(
-    snapshot.semanticActivity.recentSemanticChanges,
-    delta.semanticChangeUpdates,
-    [],
-    snapshot.limits.maxSemanticChanges,
-    (item) => item.occurredAt,
-  );
-  const nodeActivity = replaceRuntimeItems(
-    snapshot.semanticActivity.nodeActivity,
-    delta.semanticNodeActivityUpdates,
-    delta.removals.semanticNodeActivityIds,
-    snapshot.limits.maxSemanticChanges,
-    runtimeItemTimestamp,
-  );
-  const aggregateSources = replaceRuntimeItems(
-    snapshot.displayHints.aggregateSources,
-    delta.aggregateSourceUpdates,
-    delta.removals.aggregateSourceIds,
-    snapshot.limits.maxAggregateSources,
-    runtimeItemTimestamp,
-  );
-  const workflowNodeUpdates = replaceRuntimeItems(
-    snapshot.workflow.workflowNodeUpdates,
-    delta.workflowNodeUpdates,
-    delta.removals.workflowNodeIds,
-    snapshot.limits.maxAggregateSources,
-    runtimeItemTimestamp,
-  );
-  const runItemUpdates = replaceRuntimeItems(
-    snapshot.workflow.runItemUpdates,
-    delta.runItemUpdates,
-    delta.removals.runItemIds,
-    snapshot.limits.maxAggregateSources,
-    runtimeItemTimestamp,
-  );
+  const activeRuns = replaceRuntimeItems({
+    current: snapshot.cartographer.activeRuns,
+    itemKey: runtimeItemId,
+    limit: snapshot.limits.maxCartographerRuns,
+    removalIds: delta.removals.cartographerRunIds,
+    timestamp: runtimeItemTimestamp,
+    updates: delta.cartographerRunUpdates.filter((run) =>
+      semanticWorkingSetStatusIsActive(run.status),
+    ),
+  });
+  const activeWindows = replaceRuntimeItems({
+    current: snapshot.cartographer.activeWindows,
+    itemKey: runtimeItemId,
+    limit: snapshot.limits.maxCartographerWindows,
+    removalIds: delta.removals.cartographerWindowIds,
+    timestamp: runtimeItemTimestamp,
+    updates: delta.cartographerWindowUpdates.filter((window) => window.status === "window_open"),
+  });
+  const patches = replaceRuntimeItems({
+    current: snapshot.patches,
+    itemKey: runtimeItemId,
+    limit: snapshot.limits.maxPatchPreviews,
+    removalIds: delta.removals.patchPreviewIds,
+    timestamp: runtimeItemTimestamp,
+    updates: delta.patchPreviewUpdates,
+  });
+  const recentSemanticChanges = replaceRuntimeItems({
+    current: snapshot.semanticActivity.recentSemanticChanges,
+    itemKey: runtimeItemId,
+    limit: snapshot.limits.maxSemanticChanges,
+    removalIds: [],
+    timestamp: (item) => item.occurredAt,
+    updates: delta.semanticChangeUpdates,
+  });
+  const nodeActivity = replaceRuntimeItems({
+    current: snapshot.semanticActivity.nodeActivity,
+    itemKey: runtimeItemId,
+    limit: snapshot.limits.maxSemanticChanges,
+    removalIds: delta.removals.semanticNodeActivityIds,
+    timestamp: runtimeItemTimestamp,
+    updates: delta.semanticNodeActivityUpdates,
+  });
+  const aggregateSources = replaceRuntimeItems({
+    current: snapshot.displayHints.aggregateSources,
+    itemKey: runtimeItemId,
+    limit: snapshot.limits.maxAggregateSources,
+    removalIds: delta.removals.aggregateSourceIds,
+    timestamp: runtimeItemTimestamp,
+    updates: delta.aggregateSourceUpdates,
+  });
+  const workflowNodeUpdates = replaceRuntimeItems({
+    current: snapshot.workflow.workflowNodeUpdates,
+    itemKey: (item) => item.workflowNodeId,
+    limit: snapshot.limits.maxAggregateSources,
+    removalIds: delta.removals.workflowNodeIds,
+    timestamp: runtimeItemTimestamp,
+    updates: delta.workflowNodeUpdates,
+  });
+  const runItemUpdates = replaceRuntimeItems({
+    current: snapshot.workflow.runItemUpdates,
+    itemKey: (item) => item.runItemId,
+    limit: snapshot.limits.maxAggregateSources,
+    removalIds: delta.removals.runItemIds,
+    timestamp: runtimeItemTimestamp,
+    updates: delta.runItemUpdates,
+  });
   return {
     ...snapshot,
     revision: delta.toRevision,
@@ -580,14 +607,16 @@ function mergeRuntimeEntityUpdates<T extends { id: string }>(
   removalIds: Set<string>,
   updates: readonly T[],
   removals: readonly string[],
+  itemKey: (item: T) => string,
 ) {
   for (const id of removals) {
     updatesById.delete(id);
     removalIds.add(id);
   }
   for (const update of updates) {
-    removalIds.delete(update.id);
-    updatesById.set(update.id, update);
+    const key = itemKey(update);
+    removalIds.delete(key);
+    updatesById.set(key, update);
   }
 }
 
@@ -618,23 +647,26 @@ function materializePendingRuntimeDelta(pending: PendingRuntimeDelta): SemanticR
   };
 }
 
-function replaceRuntimeItems<T extends { id: string }>(
-  current: readonly T[],
-  updates: readonly T[],
-  removalIds: readonly string[],
-  limit: number,
-  timestamp: (item: T) => string,
-): T[] {
+function replaceRuntimeItems<T extends { id: string }>({
+  current,
+  itemKey,
+  limit,
+  removalIds,
+  timestamp,
+  updates,
+}: RuntimeItemReplacement<T>): T[] {
   const removals = new Set(removalIds);
   const byId = new Map<string, T>();
   for (const item of current) {
-    if (!removals.has(item.id)) {
-      byId.set(item.id, item);
+    const key = itemKey(item);
+    if (!removals.has(key)) {
+      byId.set(key, item);
     }
   }
   for (const item of updates) {
-    if (!removals.has(item.id)) {
-      byId.set(item.id, item);
+    const key = itemKey(item);
+    if (!removals.has(key)) {
+      byId.set(key, item);
     }
   }
   return [...byId.values()]
@@ -647,6 +679,10 @@ function replaceRuntimeItems<T extends { id: string }>(
       return left.id.localeCompare(right.id);
     })
     .slice(0, limit);
+}
+
+function runtimeItemId(item: { id: string }) {
+  return item.id;
 }
 
 function runtimeItemTimestamp(item: { updatedAt: string }) {

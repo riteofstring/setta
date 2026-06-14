@@ -1,8 +1,10 @@
 import type {
   SemanticGraphChangeEvent,
   SemanticRuntimeDelta,
+  SemanticRuntimeRunItem,
   SemanticRuntimeSnapshot,
   SemanticRuntimeSourceAggregate,
+  SemanticRuntimeWorkflowNode,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
@@ -60,6 +62,102 @@ describe("semantic runtime store", () => {
     expect(store.getFrameSnapshot().workingSet?.liveSourceRefs).toMatchObject([
       { runId: "cartographer_run_b", status: "running" },
     ]);
+  });
+
+  test("removes workflow and run-item runtime entries by source id when removal is latest", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () =>
+      runtimeSnapshot({
+        revision: 1,
+        runItemUpdates: [runtimeRunItem({ runItemId: "run_item_review" })],
+        workflowNodeUpdates: [runtimeWorkflowNode({ workflowNodeId: "reviewer" })],
+      }),
+    );
+    const events = eventSource();
+    const store = createSemanticRuntimeStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workspaceId: "workspace_graph",
+    });
+
+    store.start();
+    await flushPromises();
+
+    events.emit(
+      semanticRuntimeEvent({
+        delta: runtimeDelta({
+          fromRevision: 1,
+          runItemUpdates: [runtimeRunItem({ runItemId: "run_item_review" })],
+          toRevision: 2,
+          workflowNodeUpdates: [runtimeWorkflowNode({ workflowNodeId: "reviewer" })],
+        }),
+      }),
+    );
+    events.emit(
+      semanticRuntimeEvent({
+        delta: runtimeDelta({
+          fromRevision: 2,
+          removals: {
+            runItemIds: ["run_item_review"],
+            workflowNodeIds: ["reviewer"],
+          },
+          toRevision: 3,
+        }),
+      }),
+    );
+    scheduler.flushFrame();
+
+    expect(store.getSnapshot()?.workflow.workflowNodeUpdates).toEqual([]);
+    expect(store.getSnapshot()?.workflow.runItemUpdates).toEqual([]);
+    expect(store.getFrameSnapshot().workingSet?.activeWorkflowNodeIds).toEqual([]);
+    expect(store.getFrameSnapshot().workingSet?.activeRunItemIds).toEqual([]);
+  });
+
+  test("keeps workflow and run-item runtime updates by source id when update is latest", async () => {
+    const scheduler = manualScheduler();
+    const loadSnapshot = vi.fn(async () => runtimeSnapshot({ revision: 1 }));
+    const events = eventSource();
+    const store = createSemanticRuntimeStore({
+      loadSnapshot,
+      scheduleDelay: scheduler.scheduleDelay,
+      scheduleFrame: scheduler.scheduleFrame,
+      subscribeEvents: events.subscribe,
+      workspaceId: "workspace_graph",
+    });
+
+    store.start();
+    await flushPromises();
+
+    events.emit(
+      semanticRuntimeEvent({
+        delta: runtimeDelta({
+          fromRevision: 1,
+          removals: {
+            runItemIds: ["run_item_review"],
+            workflowNodeIds: ["reviewer"],
+          },
+          toRevision: 2,
+        }),
+      }),
+    );
+    events.emit(
+      semanticRuntimeEvent({
+        delta: runtimeDelta({
+          fromRevision: 2,
+          runItemUpdates: [runtimeRunItem({ runItemId: "run_item_review" })],
+          toRevision: 3,
+          workflowNodeUpdates: [runtimeWorkflowNode({ workflowNodeId: "reviewer" })],
+        }),
+      }),
+    );
+    scheduler.flushFrame();
+
+    expect(store.getSnapshot()?.workflow.activeWorkflowNodeIds).toEqual(["reviewer"]);
+    expect(store.getSnapshot()?.workflow.activeRunItemIds).toEqual(["run_item_review"]);
+    expect(store.getFrameSnapshot().workingSet?.activeWorkflowNodeIds).toEqual(["reviewer"]);
+    expect(store.getFrameSnapshot().workingSet?.activeRunItemIds).toEqual(["run_item_review"]);
   });
 
   test("drops stale deltas without notifying or reloading", async () => {
@@ -283,11 +381,17 @@ function semanticRuntimeEvent({
 function runtimeDelta({
   aggregateSourceUpdates = [],
   fromRevision,
+  removals = {},
+  runItemUpdates = [],
   toRevision,
+  workflowNodeUpdates = [],
 }: {
   aggregateSourceUpdates?: SemanticRuntimeSourceAggregate[];
   fromRevision: number;
+  removals?: Partial<SemanticRuntimeDelta["removals"]>;
+  runItemUpdates?: SemanticRuntimeRunItem[];
   toRevision: number;
+  workflowNodeUpdates?: SemanticRuntimeWorkflowNode[];
 }): SemanticRuntimeDelta {
   return {
     aggregateSourceUpdates,
@@ -297,20 +401,12 @@ function runtimeDelta({
     fromRevision,
     generatedAt: timestamp(toRevision),
     patchPreviewUpdates: [],
-    removals: {
-      aggregateSourceIds: [],
-      cartographerRunIds: [],
-      cartographerWindowIds: [],
-      patchPreviewIds: [],
-      runItemIds: [],
-      semanticNodeActivityIds: [],
-      workflowNodeIds: [],
-    },
-    runItemUpdates: [],
+    removals: runtimeRemovals(removals),
+    runItemUpdates,
     semanticChangeUpdates: [],
     semanticNodeActivityUpdates: [],
     toRevision,
-    workflowNodeUpdates: [],
+    workflowNodeUpdates,
     workspaceId: "workspace_graph",
   };
 }
@@ -318,9 +414,13 @@ function runtimeDelta({
 function runtimeSnapshot({
   aggregateSources = [],
   revision,
+  runItemUpdates = [],
+  workflowNodeUpdates = [],
 }: {
   aggregateSources?: SemanticRuntimeSourceAggregate[];
   revision: number;
+  runItemUpdates?: SemanticRuntimeRunItem[];
+  workflowNodeUpdates?: SemanticRuntimeWorkflowNode[];
 }): SemanticRuntimeSnapshot {
   return {
     cartographer: {
@@ -360,15 +460,63 @@ function runtimeSnapshot({
       recentSemanticChanges: [],
     },
     workflow: {
-      activeRunItemIds: [],
-      activeWorkflowNodeIds: [],
+      activeRunItemIds: runItemUpdates.map((item) => item.runItemId),
+      activeWorkflowNodeIds: workflowNodeUpdates.map((item) => item.workflowNodeId),
       hiddenActiveRunItems: 0,
       hiddenActiveWorkflowNodes: 0,
-      runItemUpdates: [],
-      workflowNodeUpdates: [],
+      runItemUpdates,
+      workflowNodeUpdates,
     },
     workflowExecutionId: "",
     workspaceId: "workspace_graph",
+  };
+}
+
+function runtimeRemovals(
+  removals: Partial<SemanticRuntimeDelta["removals"]> = {},
+): SemanticRuntimeDelta["removals"] {
+  return {
+    aggregateSourceIds: [],
+    cartographerRunIds: [],
+    cartographerWindowIds: [],
+    patchPreviewIds: [],
+    runItemIds: [],
+    semanticNodeActivityIds: [],
+    workflowNodeIds: [],
+    ...removals,
+  };
+}
+
+function runtimeWorkflowNode({
+  workflowNodeId,
+}: {
+  workflowNodeId: string;
+}): SemanticRuntimeWorkflowNode {
+  return {
+    activeSourceCount: 1,
+    id: `semantic-runtime-workflow-node:${workflowNodeId}`,
+    patchIds: [],
+    runIds: ["cartographer_run_review"],
+    sourceRefs: sourceRefs({ workflowNodeId }),
+    status: "running",
+    updatedAt: timestamp(1),
+    windowIds: [],
+    workflowExecutionId: "workflow_execution_review",
+    workflowNodeId,
+  };
+}
+
+function runtimeRunItem({ runItemId }: { runItemId: string }): SemanticRuntimeRunItem {
+  return {
+    activeSourceCount: 1,
+    id: `semantic-runtime-run-item:${runItemId}`,
+    patchIds: [],
+    runIds: ["cartographer_run_review"],
+    runItemId,
+    sourceRefs: sourceRefs({ runItemId }),
+    status: "running",
+    updatedAt: timestamp(1),
+    windowIds: [],
   };
 }
 
@@ -395,16 +543,22 @@ function aggregateSource({
   };
 }
 
-function sourceRefs() {
+function sourceRefs({
+  runItemId = "run_item_review",
+  workflowNodeId = "reviewer",
+}: {
+  runItemId?: string;
+  workflowNodeId?: string;
+} = {}) {
   return {
     chatConversationId: "",
     chatMessageId: "",
     chatRunId: "",
-    runItemId: "run_item_review",
+    runItemId,
     workflowDefinitionId: "workflow_definition_review",
     workflowExecutionId: "workflow_execution_review",
     workflowNodeExecutionId: "workflow_node_execution_review",
-    workflowNodeId: "reviewer",
+    workflowNodeId,
   };
 }
 
