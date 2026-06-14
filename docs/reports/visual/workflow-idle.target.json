@@ -1,0 +1,101 @@
+{
+  "dimensions": {
+    "height": 1536,
+    "width": 2076
+  },
+  "droppedMetrics": {
+    "backgroundLuminance": "mockup values overlap a negative control",
+    "p95Luminance": "mockup values overlap a negative control",
+    "backgroundRgb": "mockup colour distance overlaps a negative control"
+  },
+  "metrics": {
+    "colorfulness": {
+      "kind": "scalar",
+      "lower": 7.973203205632826,
+      "mockupMax": 8.193251185436957,
+      "mockupMin": 8.193073534471894,
+      "target": 8.193121049206596,
+      "upper": 255
+    },
+    "glowSoftness": {
+      "kind": "scalar",
+      "lower": 27.20535714285814,
+      "mockupMax": 39.42289635247382,
+      "mockupMin": 39.25710176195613,
+      "target": 39.37337662337662,
+      "upper": 40922
+    },
+    "litPixelRatio": {
+      "kind": "scalar",
+      "lower": 0.005997360710698138,
+      "mockupMax": 0.010660023281952473,
+      "mockupMin": 0.010647792730411047,
+      "target": 0.010650928769267824,
+      "upper": 0.012948077230856133
+    },
+    "meanLuminance": {
+      "kind": "scalar",
+      "lower": 0.028817160926752194,
+      "mockupMax": 0.04978971530549821,
+      "mockupMin": 0.04977914021795478,
+      "target": 0.04978305149766929,
+      "upper": 0.049795474815918145
+    },
+    "neonHuePresence": {
+      "kind": "scalar",
+      "lower": 0.00007526493356262041,
+      "mockupMax": 0.001582758811014772,
+      "mockupMin": 0.0015764867333012203,
+      "target": 0.0015793091682723185,
+      "upper": 0.003333922907638407
+    }
+  },
+  "negativeControls": {
+    "blurred": {
+      "backgroundLuminance": 0.027765490196078428,
+      "backgroundRgb": {
+        "b": 14,
+        "g": 7,
+        "r": 5
+      },
+      "colorfulness": 7.973203205631826,
+      "glowSoftness": 40922,
+      "litPixelRatio": 0.012948077231856134,
+      "meanLuminance": 0.049795474816918144,
+      "neonHuePresence": 0.003333922908638407,
+      "p95Luminance": 0.0784313725490196
+    },
+    "darkened": {
+      "backgroundLuminance": 0.015985098039215686,
+      "backgroundRgb": {
+        "b": 8,
+        "g": 4,
+        "r": 3
+      },
+      "colorfulness": 4.7824736785886675,
+      "glowSoftness": 27.205357142857142,
+      "litPixelRatio": 0.005997360709698137,
+      "meanLuminance": 0.028817160925752195,
+      "neonHuePresence": 0.00007526493256262042,
+      "p95Luminance": 0.043137254901960784
+    },
+    "knownBadPhase6": {
+      "backgroundLuminance": 0.00392156862745098,
+      "backgroundRgb": {
+        "b": 1,
+        "g": 1,
+        "r": 1
+      },
+      "colorfulness": 1.3074092054659088,
+      "glowSoftness": 0.20138572801294694,
+      "litPixelRatio": 0.02027972027972028,
+      "meanLuminance": 0.010233044716890646,
+      "neonHuePresence": 0,
+      "p95Luminance": 0.03137254901960784
+    }
+  },
+  "source": {
+    "mockupRerenderCount": 5,
+    "negativeControlCount": 3
+  }
+}
