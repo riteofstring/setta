@@ -74,8 +74,6 @@ const repoRoot = resolve(desktopRoot, "..");
 const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = chatWorkflowRecordingRoot(options);
-const sidebarConversationRowTimeoutMs = 30_000;
-const protocolNotificationUiTimeoutMs = 30_000;
 
 function parseArgs(args) {
   const parsed = {
@@ -177,7 +175,6 @@ async function main() {
       assertNoVisibleUserMessage,
       submitComposer,
       waitForAssistantTextRendered,
-      waitForBackendState,
       waitForCommandResult,
       waitForGoalStatus,
       waitForLinkedCodexRef,
@@ -815,7 +812,7 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
           sent.run.id,
           "completed",
         );
-        await waitForSidebarConversationRow(context.client, conversationId, {
+        await waitForSidebarConversationRow(context.client, backgroundPrompt, {
           unread: true,
         });
 
@@ -823,12 +820,7 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
           title: "Background created chat",
           workspaceId: fixture.secondWorkspace.id,
         });
-        await clickButtonByText(context.client, fixture.secondWorkspace.displayName);
-        await waitForBackendState(
-          async () => backend.get("/workspace-session"),
-          (value) => value.selectedWorkspaceId === fixture.secondWorkspace.id,
-        );
-        await waitForSidebarConversationRow(context.client, created.id, {
+        await waitForSidebarConversationRow(context.client, created.title, {
           unread: false,
         });
 
@@ -870,18 +862,19 @@ async function runCrossWorkspaceSidebarSummaryWorkflow(results) {
   });
 }
 
-async function waitForSidebarConversationRow(client, conversationId, { unread }) {
-  await waitForState(
-    client,
-    conversationRowsExpression(),
-    (value) =>
-      value.rows.some((row) => row.conversationId === conversationId && row.unread === unread),
-    sidebarConversationRowTimeoutMs,
+async function waitForSidebarConversationRow(client, text, { unread }) {
+  await waitForState(client, conversationRowsExpression(), (value) =>
+    value.rows.some((row) => row.text.includes(text) && row.unread === unread),
   );
 }
 
 function conversationRowsExpression() {
-  return "globalThis.__settaE2EDriver.conversationRows()";
+  return `(() => ({
+    rows: Array.from(document.querySelectorAll('[data-testid="conversation-list-item"]')).map((row) => ({
+      text: row.innerText,
+      unread: Boolean(row.querySelector('[aria-label="Unread assistant response"]')),
+    })),
+  }))()`;
 }
 
 async function runCodexProtocolWorkflow(results) {
@@ -908,17 +901,13 @@ async function runCodexProtocolWorkflow(results) {
       "protocol notification workflow",
       "completed",
     );
-    await waitForTexts(
-      context.client,
-      [
-        "coverage complete",
-        "Hook: pre-command",
-        "Auto-approval review",
-        "file change",
-        "Reasoning text",
-      ],
-      protocolNotificationUiTimeoutMs,
-    );
+    await waitForTexts(context.client, [
+      "coverage complete",
+      "Hook: pre-command",
+      "Auto-approval review",
+      "file change",
+      "Reasoning text",
+    ]);
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 

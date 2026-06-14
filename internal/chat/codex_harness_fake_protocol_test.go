@@ -68,12 +68,6 @@ func fakeCodexTurn(status string) map[string]any {
 	}
 }
 
-func fakeCodexTurnWithItems(status string, items []any) map[string]any {
-	turn := fakeCodexTurn(status)
-	turn["items"] = items
-	return turn
-}
-
 func fakeCodexThreadSettings(model string, effort ReasoningEffort) map[string]any {
 	return map[string]any{
 		"approvalPolicy":    "on-request",
@@ -467,13 +461,6 @@ func writeFakeProtocolCoverageNotifications() {
 		"turnId":        "turn_fake",
 		"verifications": []string{"trustedAccessForCyber"},
 	})
-	writeFakeNotification("turn/moderationMetadata", map[string]any{
-		"metadata": map[string]any{
-			"category": "none",
-		},
-		"threadId": "thread_fake",
-		"turnId":   "turn_fake",
-	})
 	writeFakeNotification("process/outputDelta", map[string]any{
 		"capReached":    false,
 		"deltaBase64":   "cHJvY2VzcyBvdXQK",
@@ -718,19 +705,6 @@ func writeFakeCompletedTurn(status string) {
 	})
 }
 
-func writeFakeStructuredCompletedTurn() {
-	writeFakeNotification("turn/completed", map[string]any{
-		"threadId": "thread_fake",
-		"turn": fakeCodexTurnWithItems("completed", []any{
-			map[string]any{
-				"id":   "agent_message_structured_fake",
-				"text": `{"patches":[]}`,
-				"type": "agentMessage",
-			},
-		}),
-	})
-}
-
 func assertFakeSteer(message map[string]any) {
 	params := fakeParams(message)
 	if params["threadId"] != "thread_fake" || params["expectedTurnId"] != "turn_fake" {
@@ -746,203 +720,12 @@ func assertFakeSteer(message map[string]any) {
 	}
 }
 
-func assertFakeStructuredTaskTurnStart(message map[string]any, model string, effort ReasoningEffort, expectModel bool) {
-	params := fakeParams(message)
-	assertFakeStructuredTaskBaseTurnParams(params)
-	assertFakeStructuredTaskRequestedParams(params, model, effort, expectModel)
-	assertFakeStructuredTaskSchema(params)
-	assertFakeStructuredTaskInput(params)
-}
-
-func assertFakeStructuredTaskBaseTurnParams(params map[string]any) {
-	if params["threadId"] != "thread_fake" {
-		panic("structured task turn targeted wrong thread")
-	}
-	if params["approvalPolicy"] != "never" {
-		panic("structured task turn should disable approvals")
-	}
-	sandboxPolicy, ok := params["sandboxPolicy"].(map[string]any)
-	if !ok || sandboxPolicy["type"] != "readOnly" {
-		panic("structured task turn should use read-only sandbox")
-	}
-}
-
-func assertFakeStructuredTaskRequestedParams(params map[string]any, model string, effort ReasoningEffort, expectModel bool) {
-	if expectModel && params["model"] != model {
-		panic("structured task turn missing model")
-	}
-	if !expectModel && fakeParamExists(params, "model") {
-		panic("provider-default structured task turn should omit model")
-	}
-	if params["effort"] != string(effort) {
-		panic("structured task turn missing effort")
-	}
-}
-
-func assertFakeStructuredTaskSchema(params map[string]any) {
-	schema, ok := params["outputSchema"].(map[string]any)
-	if !ok || schema["type"] != "object" {
-		panic("structured task turn missing strict output schema")
-	}
-}
-
-func assertFakeStructuredTaskInput(params map[string]any) {
-	input, ok := params["input"].([]any)
-	if !ok || len(input) != 1 {
-		panic("structured task turn missing single input")
-	}
-	first, ok := input[0].(map[string]any)
-	if !ok || first["type"] != "text" {
-		panic("structured task turn input must be text")
-	}
-	text, ok := first["text"].(string)
-	if !ok ||
-		!strings.Contains(text, "Return only a strict JSON patch envelope.") ||
-		!strings.Contains(text, "Cartographer input bundle JSON:") ||
-		!strings.Contains(text, `"workspaceId":"workspace_api"`) {
-		panic("structured task turn input text mismatch")
-	}
-}
-
-func fakeParamExists(params map[string]any, name string) bool {
-	_, ok := params[name]
-	return ok
-}
-
 func fakeParams(message map[string]any) map[string]any {
 	params, ok := message["params"].(map[string]any)
 	if !ok {
 		panic("message missing params")
 	}
 	return params
-}
-
-type fakeCoreTurnStartHandler func(string, *fakeCodexState) bool
-
-var fakeCoreTurnStartHandlers = map[string]fakeCoreTurnStartHandler{
-	"stream":                           fakeCoreStreamTurnStart,
-	"structured-task":                  fakeCoreStructuredTaskTurnStart,
-	"structured-task-provider-default": fakeCoreStructuredTaskTurnStart,
-	"dynamic-tools-thread-start":       fakeCoreStreamTurnStart,
-	"dynamic-tools-thread-resume":      fakeCoreStreamTurnStart,
-	"initial-settings":                 fakeCoreStreamTurnStart,
-	"turn-started-id":                  fakeCoreProviderTurnStart,
-	"provider-item-turn-id":            fakeCoreProviderItemTurnStart,
-	"failed-turn":                      fakeCoreFailedTurnStart,
-	"unknown-turn-status":              fakeCoreUnknownStatusTurnStart,
-	"steer":                            fakeCorePendingTurnStart,
-	"activity":                         fakeCoreActivityTurnStart,
-	"empty-deltas":                     fakeCoreEmptyDeltaTurnStart,
-	"empty-base64-output-deltas":       fakeCoreEmptyBase64OutputDeltaTurnStart,
-	"unsupported-output-stream":        fakeCoreUnsupportedOutputStreamTurnStart,
-	"approval":                         fakeCoreApprovalTurnStart,
-	"permission":                       fakeCoreApprovalTurnStart,
-	"user-input":                       fakeCoreApprovalTurnStart,
-	"mcp-elicitation-form":             fakeCoreMCPElicitationTurnStart,
-	"mcp-elicitation-form-cancel":      fakeCoreMCPElicitationTurnStart,
-	"mcp-elicitation-url-decline":      fakeCoreMCPElicitationTurnStart,
-	"dynamic-tool-unknown":             fakeCoreImmediateServerRequestTurnStart,
-	"dynamic-tool-registered":          fakeCoreImmediateServerRequestTurnStart,
-	"attestation-unavailable":          fakeCoreImmediateServerRequestTurnStart,
-	"attestation-provider":             fakeCoreImmediateServerRequestTurnStart,
-	"malformed-approval":               fakeCoreMalformedApprovalTurnStart,
-	"malformed-delta":                  fakeCoreMalformedDeltaTurnStart,
-	"unsupported-request":              fakeCoreUnsupportedRequestTurnStart,
-}
-
-func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
-	handler, ok := fakeCoreTurnStartHandlers[mode]
-	if !ok {
-		return false, false
-	}
-	return true, handler(mode, state)
-}
-
-func fakeCoreStreamTurnStart(string, *fakeCodexState) bool {
-	writeFakeStreamTurn()
-	return true
-}
-
-func fakeCoreStructuredTaskTurnStart(string, *fakeCodexState) bool {
-	writeFakeAssistantDelta(`{"patches":[]}`)
-	writeFakeStructuredCompletedTurn()
-	return true
-}
-
-func fakeCoreProviderTurnStart(string, *fakeCodexState) bool {
-	writeFakeProviderTurnID()
-	return true
-}
-
-func fakeCoreProviderItemTurnStart(string, *fakeCodexState) bool {
-	writeFakeProviderItemTurnID()
-	return true
-}
-
-func fakeCoreFailedTurnStart(string, *fakeCodexState) bool {
-	writeFakeFailedTurn()
-	return true
-}
-
-func fakeCoreUnknownStatusTurnStart(string, *fakeCodexState) bool {
-	writeFakeCompletedTurn("paused")
-	return true
-}
-
-func fakeCorePendingTurnStart(string, *fakeCodexState) bool {
-	return false
-}
-
-func fakeCoreActivityTurnStart(string, *fakeCodexState) bool {
-	writeFakeActivityTurn()
-	return true
-}
-
-func fakeCoreEmptyDeltaTurnStart(string, *fakeCodexState) bool {
-	writeFakeEmptyDeltaTurn()
-	return true
-}
-
-func fakeCoreEmptyBase64OutputDeltaTurnStart(string, *fakeCodexState) bool {
-	writeFakeEmptyBase64OutputDeltaTurn()
-	return true
-}
-
-func fakeCoreUnsupportedOutputStreamTurnStart(string, *fakeCodexState) bool {
-	writeFakeUnsupportedOutputStreamTurn()
-	return true
-}
-
-func fakeCoreApprovalTurnStart(mode string, state *fakeCodexState) bool {
-	state.approvalOutstanding = true
-	writeFakeApprovalRequest(mode)
-	return false
-}
-
-func fakeCoreMCPElicitationTurnStart(mode string, state *fakeCodexState) bool {
-	state.approvalOutstanding = true
-	writeFakeMCPElicitationRequest(mode)
-	return false
-}
-
-func fakeCoreImmediateServerRequestTurnStart(mode string, state *fakeCodexState) bool {
-	writeFakeImmediateServerRequest(mode, state)
-	return false
-}
-
-func fakeCoreMalformedApprovalTurnStart(string, *fakeCodexState) bool {
-	writeFakeMalformedApproval()
-	return true
-}
-
-func fakeCoreMalformedDeltaTurnStart(string, *fakeCodexState) bool {
-	writeFakeMalformedDelta()
-	return true
-}
-
-func fakeCoreUnsupportedRequestTurnStart(string, *fakeCodexState) bool {
-	writeFakeUnsupportedRequest()
-	return true
 }
 
 func assertFakeThreadID(message map[string]any) {
@@ -954,93 +737,42 @@ func assertFakeThreadID(message map[string]any) {
 
 func assertFakeDynamicToolsThreadParams(mode string, message map[string]any) {
 	switch mode {
-	case "structured-task":
-		assertFakeStructuredTaskThreadParams(message, "gpt-test", true)
-	case "structured-task-provider-default":
-		assertFakeStructuredTaskThreadParams(message, "", false)
 	case "dynamic-tools-thread-start":
-		assertFakeDynamicToolsThreadStartParams(message)
-	case "dynamic-tools-thread-resume":
-		assertFakeDynamicToolsThreadResumeParams(message)
-	}
-}
-
-func assertFakeStructuredTaskThreadParams(message map[string]any, model string, expectModel bool) {
-	if message["method"] != "thread/start" {
-		panic("structured task should start an isolated thread")
-	}
-	params := fakeParams(message)
-	if params["approvalPolicy"] != "never" {
-		panic("structured task thread should disable approvals")
-	}
-	if params["sandbox"] != "read-only" {
-		panic("structured task thread should use read-only sandbox")
-	}
-	if params["ephemeral"] != true {
-		panic("structured task thread should be ephemeral")
-	}
-	if _, ok := params["dynamicTools"]; ok {
-		panic("structured task thread should not include dynamic tools")
-	}
-	if expectModel && params["model"] != model {
-		panic("structured task thread missing model")
-	}
-	if !expectModel {
-		if _, ok := params["model"]; ok {
-			panic("provider-default structured task thread should omit model")
+		if message["method"] != "thread/start" {
+			panic("dynamic tools start test should start a thread")
 		}
-	}
-	instructions, ok := params["developerInstructions"].(string)
-	if !ok || !strings.Contains(instructions, "strict JSON patch envelope") {
-		panic("structured task thread missing production prompt")
-	}
-}
-
-func assertFakeDynamicToolsThreadStartParams(message map[string]any) {
-	if message["method"] != "thread/start" {
-		panic("dynamic tools start test should start a thread")
-	}
-	params := fakeParams(message)
-	assertFakeCodexDeveloperInstructions(params)
-	tools, ok := params["dynamicTools"].([]any)
-	if !ok || len(tools) != 2 {
-		panic("thread/start missing dynamic tools")
-	}
-	assertFakeVisibleDynamicTool(tools)
-	assertFakeDeferredDynamicTool(tools)
-}
-
-func assertFakeVisibleDynamicTool(tools []any) {
-	visible := fakeDynamicToolByName(tools, "workspace_context")
-	if visible == nil {
-		panic("workspace_context dynamic tool missing")
-	}
-	if visible["namespace"] != "setta" || visible["deferLoading"] != nil {
-		panic("workspace_context dynamic tool exposure mismatch")
-	}
-	schema, ok := visible["inputSchema"].(map[string]any)
-	if !ok || schema["type"] != "object" {
-		panic("workspace_context dynamic tool schema mismatch")
-	}
-}
-
-func assertFakeDeferredDynamicTool(tools []any) {
-	deferred := fakeDynamicToolByName(tools, "workspace_archive")
-	if deferred == nil {
-		panic("workspace_archive dynamic tool missing")
-	}
-	if deferred["namespace"] != "setta" || deferred["deferLoading"] != true {
-		panic("workspace_archive dynamic tool exposure mismatch")
-	}
-}
-
-func assertFakeDynamicToolsThreadResumeParams(message map[string]any) {
-	if message["method"] != "thread/resume" {
-		panic("dynamic tools resume test should resume a thread")
-	}
-	params := fakeParams(message)
-	if _, ok := params["dynamicTools"]; ok {
-		panic("thread/resume should not include dynamicTools")
+		params := fakeParams(message)
+		assertFakeCodexDeveloperInstructions(params)
+		tools, ok := params["dynamicTools"].([]any)
+		if !ok || len(tools) != 2 {
+			panic("thread/start missing dynamic tools")
+		}
+		visible := fakeDynamicToolByName(tools, "workspace_context")
+		if visible == nil {
+			panic("workspace_context dynamic tool missing")
+		}
+		if visible["namespace"] != "setta" || visible["deferLoading"] != nil {
+			panic("workspace_context dynamic tool exposure mismatch")
+		}
+		schema, ok := visible["inputSchema"].(map[string]any)
+		if !ok || schema["type"] != "object" {
+			panic("workspace_context dynamic tool schema mismatch")
+		}
+		deferred := fakeDynamicToolByName(tools, "workspace_archive")
+		if deferred == nil {
+			panic("workspace_archive dynamic tool missing")
+		}
+		if deferred["namespace"] != "setta" || deferred["deferLoading"] != true {
+			panic("workspace_archive dynamic tool exposure mismatch")
+		}
+	case "dynamic-tools-thread-resume":
+		if message["method"] != "thread/resume" {
+			panic("dynamic tools resume test should resume a thread")
+		}
+		params := fakeParams(message)
+		if _, ok := params["dynamicTools"]; ok {
+			panic("thread/resume should not include dynamicTools")
+		}
 	}
 }
 

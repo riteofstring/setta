@@ -166,7 +166,10 @@ function UserInputApproval({
                     key={option}
                     onClick={() => {
                       setQuestionAnswer(setAnswersByQuestion, question.id, option);
-                      inputRefs.current[question.id]?.focus();
+                      const input = inputRefs.current[question.id];
+                      if (input) {
+                        input.value = option;
+                      }
                     }}
                     type="button"
                     variant={answer === option ? "primary" : "secondary"}
@@ -179,7 +182,7 @@ function UserInputApproval({
             <input
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
               name={question.id}
-              onChange={(event) =>
+              onInput={(event) =>
                 setQuestionAnswer(setAnswersByQuestion, question.id, event.currentTarget.value)
               }
               ref={(input) => {
@@ -187,7 +190,6 @@ function UserInputApproval({
               }}
               required
               type={question.isSecret ? "password" : "text"}
-              value={answer}
             />
           </div>
         );

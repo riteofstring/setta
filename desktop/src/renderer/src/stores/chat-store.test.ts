@@ -970,7 +970,12 @@ interface SettaAPIOverrides {
   workspace?: Partial<SettaAPI["workspace"]>;
 }
 function emptyCorruption() {
-  return { byKind: [], bySeverity: [], hasCorruption: false, total: 0 };
+  return {
+    byKind: [],
+    bySeverity: [],
+    hasCorruption: false,
+    total: 0,
+  };
 }
 
 function listResponse(
@@ -1004,9 +1009,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   const api: SettaAPI = {
     app: {
       flags: {
-        workflowGraphAnimationEnabled: true,
         workflowGraphDebug: false,
-        workflowGraphReduceMotion: false,
         workflowGraphSyntheticGraph: null,
       },
       captureRendererRegion: async () => ({
@@ -1184,17 +1187,14 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         state: emptyCodexAccountState(),
       }),
     },
-    semanticGraph: {} as SettaAPI["semanticGraph"],
     terminal: unimplementedTerminalAPI,
     workflow: {} as SettaAPI["workflow"],
     workspace: {
       close: async () => workspaceSession(),
       openLocalFolder: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
       openPath: async () => ({ session: workspaceSession(), workspace: workspaceSummary() }),
-      readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
       removeRecent: async () => workspaceSession(),
       reorder: async () => workspaceSession(),
-      saveUILayout: async (layout) => layout,
       select: async () => workspaceSession(),
       selectedConversations: async () => ({ selectedConversationIdsByWorkspaceId: {} }),
       setSelectedConversation: async (workspaceId, conversationId) => ({

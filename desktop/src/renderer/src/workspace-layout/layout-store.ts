@@ -332,6 +332,9 @@ export class WorkspaceLayoutStore {
   }
 
   ensureFocusedColumnVisible(viewport: Rect): void {
+    if (this.presentationMode === "overview") {
+      return;
+    }
     this.lastViewport = viewport;
     const nextScrollColumn = this.engine.scrollColumnForFocusedColumnVisibility(
       this.focusedColumnIndex,
@@ -352,6 +355,9 @@ export class WorkspaceLayoutStore {
   }
 
   ensureFocusedRowVisible(viewport: Rect): void {
+    if (this.presentationMode === "overview") {
+      return;
+    }
     this.lastViewport = viewport;
     const nextScrollRow = this.targetScrollForFocusedRow();
     if (Math.abs(nextScrollRow - this.targetScrollRow) <= 0.001) {
@@ -545,6 +551,9 @@ export class WorkspaceLayoutStore {
     }
     this.focusedColumnIndex = location.columnIndex;
     this.focusedRowIndex = location.rowIndex;
+    if (this.presentationMode === "overview") {
+      return;
+    }
     this.targetScrollColumn = this.targetScrollForFocusedColumn();
     this.targetScrollRow = this.targetScrollForFocusedRow();
     if (Math.abs(this.scrollColumn - this.targetScrollColumn) < 0.001) {
@@ -556,7 +565,7 @@ export class WorkspaceLayoutStore {
   }
 
   private targetScrollForFocusedColumn(): number {
-    return Math.max(0, this.engine.paneLocation(this.focusedPaneId())?.planeColumnIndex ?? 0);
+    return this.engine.horizontalScrollColumnForPane(this.focusedPaneId());
   }
 
   private targetScrollForFocusedRow(): number {

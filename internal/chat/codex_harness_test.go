@@ -32,25 +32,6 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 	}
 }
 
-func TestCodexStructuredOutputUsesStreamedTextWhenCompletedTurnOmitsFinalText(t *testing.T) {
-	output, err := codexStructuredOutputFromCompletedTurn(
-		fakeCodexTurnWithItems("completed", []any{
-			map[string]any{
-				"id":   "agent_message_structured_fake",
-				"text": "",
-				"type": "agentMessage",
-			},
-		}),
-		`{"patches":[]}`,
-	)
-	if err != nil {
-		t.Fatalf("structured output from streamed text: %v", err)
-	}
-	if string(output) != `{"patches":[]}` {
-		t.Fatalf("structured output = %s, want streamed patch envelope", output)
-	}
-}
-
 func TestJSONRPCPendingCallFailsOnProcessExit(t *testing.T) {
 	client, err := startTestJSONRPCClient(testCodexConfig("jsonrpc-pending-exit"))
 	if err != nil {
@@ -1313,9 +1294,6 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		})
 		return mode == "command-model-set-local" || mode == "command-effort-set-local"
 	case "thread/start", "thread/resume":
-		if mode == "catalog-model-list-no-thread" {
-			panic("model catalog lookup should not start or resume a thread")
-		}
 		handleFakeCommandThread(mode, state, message)
 		assertFakeDynamicToolsThreadParams(mode, message)
 		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
@@ -1351,12 +1329,6 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	if mode == "initial-settings" {
 		assertFakeInitialTurnSettings(message)
 	}
-	switch mode {
-	case "structured-task":
-		assertFakeStructuredTaskTurnStart(message, "gpt-test", ReasoningEffortHigh, true)
-	case "structured-task-provider-default":
-		assertFakeStructuredTaskTurnStart(message, "", ReasoningEffortMedium, false)
-	}
 	writeFakeResponse(message["id"], map[string]any{
 		"turn": fakeCodexTurn("inProgress"),
 	})
@@ -1373,6 +1345,68 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 		return done
 	}
 	return false
+}
+
+func handleFakeCoreTurnStartMode(mode string, state *fakeCodexState) (bool, bool) {
+	switch mode {
+	case "stream":
+		writeFakeStreamTurn()
+		return true, true
+	case "dynamic-tools-thread-start", "dynamic-tools-thread-resume":
+		writeFakeStreamTurn()
+		return true, true
+	case "initial-settings":
+		writeFakeStreamTurn()
+		return true, true
+	case "turn-started-id":
+		writeFakeProviderTurnID()
+		return true, true
+	case "provider-item-turn-id":
+		writeFakeProviderItemTurnID()
+		return true, true
+	case "failed-turn":
+		writeFakeFailedTurn()
+		return true, true
+	case "unknown-turn-status":
+		writeFakeCompletedTurn("paused")
+		return true, true
+	case "steer":
+		return true, false
+	case "activity":
+		writeFakeActivityTurn()
+		return true, true
+	case "empty-deltas":
+		writeFakeEmptyDeltaTurn()
+		return true, true
+	case "empty-base64-output-deltas":
+		writeFakeEmptyBase64OutputDeltaTurn()
+		return true, true
+	case "unsupported-output-stream":
+		writeFakeUnsupportedOutputStreamTurn()
+		return true, true
+	case "approval", "permission", "user-input":
+		state.approvalOutstanding = true
+		writeFakeApprovalRequest(mode)
+		return true, false
+	case "mcp-elicitation-form", "mcp-elicitation-form-cancel", "mcp-elicitation-url-decline":
+		state.approvalOutstanding = true
+		writeFakeMCPElicitationRequest(mode)
+		return true, false
+	case "dynamic-tool-unknown", "dynamic-tool-registered", "attestation-unavailable", "attestation-provider":
+		writeFakeImmediateServerRequest(mode, state)
+		return true, false
+	case "malformed-approval":
+		writeFakeMalformedApproval()
+		return true, true
+	case "malformed-delta":
+		writeFakeMalformedDelta()
+		return true, true
+	case "unsupported-request":
+		writeFakeUnsupportedRequest()
+		return true, true
+	default:
+		return false, false
+	}
 }
 
 func handleFakeNotificationTurnStartMode(mode string) (bool, bool) {

@@ -71,53 +71,8 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "semantic-graph-workflow.test.mjs",
-    name: "semantic-graph",
-    tiers: ["required"],
-  },
-  {
-    file: "semantic-cartographer-auto-workflow.test.mjs",
-    name: "semantic-cartographer-auto",
-    tiers: ["required"],
-  },
-  {
-    file: "visual-parity-workflow.test.mjs",
-    name: "visual-parity",
-    tiers: ["performance"],
-  },
-  {
     file: "workflow-graph-scale-validation.test.mjs",
     name: "workflow-graph-scale-validation",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "baseline"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-baseline",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "small-trackpad"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-small-trackpad",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "active"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-active",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--scenario", "large"],
-    file: "workflow-graph-pan-zoom-recording.test.mjs",
-    name: "workflow-graph-pan-zoom-large",
-    tiers: ["performance"],
-  },
-  {
-    args: ["--semantic-live-recording-only"],
-    file: "semantic-cartographer-auto-workflow.test.mjs",
-    name: "semantic-live-run",
     tiers: ["performance"],
   },
   {
