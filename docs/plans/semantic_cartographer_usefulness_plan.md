@@ -1,7 +1,7 @@
 # Semantic Cartographer Usefulness Plan
 
 - **Date:** June 14, 2026
-- **Status:** Phases 1-5 implemented; Phase 6 ready next
+- **Status:** Phases 1-6 implemented; Phase 7 ready next
 - **Scope:** Make semantic cartography produce useful, connected, inspectable work memory from real workflow runs.
 - **Related docs:**
   - `docs/plans/setta_semantic_work_graph_plan.md`
@@ -303,13 +303,45 @@ node desktop/tests/electron/chat-live-auth.mjs
 node desktop/tests/electron/run-workflows.mjs --workflow live-codex-electron
 ```
 
+Phase 6 has been implemented in commit `2dfe4c192` (`Implement semantic
+cartographer details phase 6`). The workflow graph toolbar now treats semantic
+selections as inspectable graph nodes, routes the visible Details command to the
+semantic details pane, keeps double-click as a shortcut, adds a dedicated Source
+Links details section, and exposes a manual-refresh cartographer health panel in
+workflow graph debug mode.
+
+This satisfies the UI/discoverability prerequisite for Phase 7:
+
+- The toolbar Details command opens semantic node details when a semantic node is
+  selected, instead of only supporting workflow-node details.
+- Semantic details show source links alongside identity, status, provenance,
+  evidence, edges, activity, history, context packs, cartographer patches, and
+  review actions.
+- The cartographer health panel exposes runtime, durable queue, stale lease,
+  pending review, superseded, no-op, failure, last processed, last applied, and
+  created-event state without adding polling.
+- The semantic graph Electron workflow covers selecting a semantic node, opening
+  details through the toolbar, viewing source links and cartographer provenance,
+  accepting pending review from details, cartographer health refresh, reload
+  persistence, and double-click details after reload.
+
+Verification during the Phase 6 review:
+
+```text
+pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workflow-graph-toolbar.test.ts src/renderer/src/features/workspace-graph/semantic-node-details-surface.test.tsx
+pnpm -C desktop build
+node desktop/tests/electron/run-workflows.mjs --workflow semantic-graph
+```
+
 One lifecycle/policy note should be carried into the next phases:
 
 - Renderer source/activity edges currently require a matching workflow graph
   node. Run-item, file, diff, test, chat-message, log, and document evidence is
-  now preserved as source-link data and visible in details, but it does not yet
-  produce standalone visual source nodes when no workflow node is available.
-  Leave standalone source-node UI to Phase 6 or a dedicated renderer follow-up.
+  now preserved as source-link data and visible in details, but it still does
+  not produce standalone visual source nodes when no workflow node is available.
+  Treat standalone source-node UI as a dedicated renderer follow-up only if
+  product diagnostics show graph-level file/test/chat nodes are needed; it is
+  not a blocker for Phase 7.
 
 Lease recovery is deadline-based: a crashed-but-unexpired lease is not
 recoverable until its lease deadline. Treat lease duration/owner-staleness as
@@ -808,7 +840,7 @@ the cartographer creates relationships/source links instead of only standalone n
 low-confidence patches are not silently treated as high-value graph state
 ```
 
-### Phase 6: UI Discoverability And Review (ready next)
+### Phase 6: UI Discoverability And Review (implemented)
 
 Goal: make semantic nodes useful to users in the graph.
 
@@ -830,7 +862,7 @@ semantic provenance is visible without querying SQLite manually
 cartographer backlog/failure/no-op state is visible in dev diagnostics
 ```
 
-### Phase 7: Context Loop And Usefulness Evaluation
+### Phase 7: Context Loop And Usefulness Evaluation (ready next)
 
 Goal: prove semantic nodes improve later work.
 
