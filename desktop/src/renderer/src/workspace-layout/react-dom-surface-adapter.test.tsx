@@ -94,6 +94,37 @@ describe("workspace React DOM surface adapter", () => {
     expect(scroller.scrollTop).toBe(240);
   });
 
+  test("restores parked scroll offsets onto recreated scroller nodes", () => {
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return new RecordingRoot([]);
+      },
+    };
+    const host = createFakeHost();
+    const adapter = new ReactDomSurfaceAdapter(
+      fakePane("chat-dom"),
+      () => "chat surface",
+      rootFactory,
+    );
+
+    adapter.mount(host);
+    const container = requireFakeChild(fakeChildrenOf(host), 0);
+    const parkedScroller = host.ownerDocument.createElement("div");
+    parkedScroller.dataset.testid = "chat-transcript-scroller";
+    parkedScroller.scrollTop = 240;
+    container.append(parkedScroller as unknown as FakeChildNode);
+
+    adapter.unmount();
+    const recreatedScroller = host.ownerDocument.createElement("div");
+    recreatedScroller.dataset.testid = "chat-transcript-scroller";
+    recreatedScroller.scrollTop = 0;
+    container.replaceChildren(recreatedScroller as unknown as FakeChildNode);
+    adapter.mount(host);
+
+    expect(recreatedScroller.dataset.snapshotScrollTop).toBeUndefined();
+    expect(recreatedScroller.scrollTop).toBe(240);
+  });
+
   test("rerenders React DOM surfaces when focus changes", () => {
     const surfaceStates: Array<{ activated: boolean; focused: boolean }> = [];
     const rootFactory: ReactSurfaceRootFactory = {
@@ -220,6 +251,7 @@ interface FakeChildNode {
   append(...nodes: FakeChildNode[]): void;
   children: FakeChildNode[];
   dataset: Record<string, string>;
+  replaceChildren(...nodes: FakeChildNode[]): void;
   scrollTop: number;
 }
 

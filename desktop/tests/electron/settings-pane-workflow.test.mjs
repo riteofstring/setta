@@ -8,6 +8,7 @@ import {
   assertBuildExists,
   captureScreenshot,
   createElectronFixture,
+  dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   reloadPage,
@@ -48,21 +49,28 @@ try {
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const layoutStorageKey = await ensureWorkspaceOpen(context.client);
+  const workspaceId = await ensureWorkspaceOpen(context.client);
 
-  await persistLayoutWithoutSettings(context.client, layoutStorageKey);
+  await persistLayoutWithoutSettings(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  const beforeOpen = await waitForLayoutWithoutSettings(context.client, layoutStorageKey);
+  const beforeOpen = await waitForLayoutWithoutSettings(context.client, workspaceId);
   await captureScreenshot(context.client, join(artifactDir, "before-settings-open.png"));
 
   await clickSettingsButton(context.client);
   const afterOpen = await waitForSettingsPanel(context.client);
   await captureScreenshot(context.client, join(artifactDir, "after-settings-open.png"));
 
+  const cartographer = await exerciseCartographerSettings(context.client);
+  await captureScreenshot(
+    context.client,
+    join(artifactDir, "after-cartographer-settings-save.png"),
+  );
+
   await writeJson(join(artifactDir, "summary.json"), {
     afterOpen,
     artifactDir,
+    cartographer,
     beforeOpen,
     status: "passed",
     workspaceName: basename(fixture.workspaceRoot),
@@ -86,9 +94,9 @@ try {
 }
 
 async function ensureWorkspaceOpen(client) {
-  const currentStorageKey = await client.evaluate(layoutStorageKeyExpression());
-  if (currentStorageKey && !currentStorageKey.endsWith(":empty")) {
-    return currentStorageKey;
+  const currentWorkspaceId = await client.evaluate(workspaceIdExpression());
+  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
+    return currentWorkspaceId;
   }
   const opened = await client.evaluate(`(() => {
     const button = document.querySelector('button[aria-label="Open project folder"]');
@@ -106,25 +114,28 @@ async function ensureWorkspaceOpen(client) {
   }
   return waitForState(
     client,
-    layoutStorageKeyExpression(),
-    (storageKey) => storageKey !== "" && !storageKey.endsWith(":empty"),
+    workspaceIdExpression(),
+    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
     workflowTimeoutMs,
   );
 }
 
-async function persistLayoutWithoutSettings(client, layoutStorageKey) {
-  const serializedLayout = JSON.stringify(layoutWithoutSettings());
-  await client.evaluate(`(() => {
-    window.localStorage.setItem(${JSON.stringify(layoutStorageKey)}, ${JSON.stringify(serializedLayout)});
+async function persistLayoutWithoutSettings(client, workspaceId) {
+  const result = await client.evaluate(`(async () => {
+    await window.setta.workspace.saveUILayout(${JSON.stringify(layoutWithoutSettings(workspaceId))});
+    return true;
   })()`);
+  if (!result) {
+    throw new Error("workspace UI layout was not persisted");
+  }
 }
 
-async function waitForLayoutWithoutSettings(client, layoutStorageKey) {
+async function waitForLayoutWithoutSettings(client, workspaceId) {
   return waitForState(
     client,
     settingsStateExpression(),
     (state) =>
-      state.layoutStorageKey === layoutStorageKey &&
+      state.workspaceId === workspaceId &&
       state.paneCount === 2 &&
       !state.surfaceKinds.includes("settings-dom") &&
       !state.settingsPanelReady,
@@ -133,6 +144,18 @@ async function waitForLayoutWithoutSettings(client, layoutStorageKey) {
 }
 
 async function clickSettingsButton(client) {
+  await waitForState(
+    client,
+    `(() => {
+      const button = document.querySelector('button[aria-label="Open settings"]');
+      return {
+        disabled: button instanceof HTMLButtonElement ? button.disabled : null,
+        exists: button instanceof HTMLButtonElement,
+      };
+    })()`,
+    (state) => state.exists && state.disabled === false,
+    workflowTimeoutMs,
+  );
   const clicked = await client.evaluate(`(() => {
     const button = document.querySelector('button[aria-label="Open settings"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
@@ -159,12 +182,152 @@ async function waitForSettingsPanel(client) {
   );
 }
 
+async function exerciseCartographerSettings(client) {
+  await openCartographerSettingsTab(client);
+  const loaded = await waitForCartographerSettingsLoaded(client);
+  const nextMaxConcurrent = loaded.maxConcurrent === "3" ? 4 : 3;
+  await setInputValue(
+    client,
+    '[data-testid="cartographer-number-processingConfig-maxConcurrent"]',
+    String(nextMaxConcurrent),
+  );
+  await clickCartographerSaveButton(client);
+  const saved = await waitForCartographerBackendSetting(client, nextMaxConcurrent);
+  const workspaceId = await client.evaluate(workspaceIdExpression());
+  await persistLayoutWithoutSettings(client, workspaceId);
+  await reloadPage(client);
+  await waitForSelector(client, '[data-testid="workspace-layout-area"]');
+  await ensureSettingsPanelOpen(client);
+  await openCartographerSettingsTab(client);
+  const reloaded = await waitForState(
+    client,
+    cartographerSettingsStateExpression(),
+    (state) => state.ready && state.maxConcurrent === String(nextMaxConcurrent),
+    workflowTimeoutMs,
+  );
+  return { loaded, reloaded, saved };
+}
+
+async function ensureSettingsPanelOpen(client) {
+  const open = await client.evaluate(
+    `(() => Boolean(document.querySelector('[data-testid="settings-panel"]')))()`,
+  );
+  if (open) {
+    return waitForSettingsPanel(client);
+  }
+  const existingRect = await client.evaluate(`(() => {
+    const host = document.querySelector('[data-testid="workspace-pane-host"][data-surface-kind="settings-dom"]');
+    if (!(host instanceof HTMLElement)) {
+      return { ok: false };
+    }
+    const rect = host.getBoundingClientRect();
+    return {
+      ok: rect.width > 0 && rect.height > 0,
+      x: rect.left + Math.min(rect.width / 2, 24),
+      y: rect.top + Math.min(rect.height / 2, 24),
+    };
+  })()`);
+  if (existingRect.ok) {
+    await dispatchMouseClick(client, existingRect);
+    return waitForSettingsPanel(client);
+  }
+  await clickSettingsButton(client);
+  return waitForSettingsPanel(client);
+}
+
+async function openCartographerSettingsTab(client) {
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('#settings-subtab-cartographer');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error("cartographer settings tab was not clickable");
+  }
+  return waitForCartographerSettingsLoaded(client);
+}
+
+async function waitForCartographerSettingsLoaded(client) {
+  return waitForState(
+    client,
+    cartographerSettingsStateExpression(),
+    (state) => state.ready,
+    workflowTimeoutMs,
+  );
+}
+
+async function setInputValue(client, selector, value) {
+  const result = await client.evaluate(`(() => {
+    const input = document.querySelector(${JSON.stringify(selector)});
+    if (!(input instanceof HTMLInputElement) || input.disabled) {
+      return { ok: false, reason: "missing-or-disabled-input" };
+    }
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    if (!setter) {
+      return { ok: false, reason: "missing-input-value-setter" };
+    }
+    setter.call(input, ${JSON.stringify(value)});
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    return { ok: true, value: input.value };
+  })()`);
+  if (!result.ok) {
+    throw new Error(`failed to set input ${selector}: ${JSON.stringify(result)}`);
+  }
+}
+
+async function clickCartographerSaveButton(client) {
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="cartographer-settings-save-button"]');
+    if (!(button instanceof HTMLButtonElement) || button.disabled) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) {
+    throw new Error("cartographer settings save button was not clickable");
+  }
+}
+
+async function waitForCartographerBackendSetting(client, maxConcurrent) {
+  return waitForState(
+    client,
+    `(async () => {
+      const metadata = await window.setta.semanticGraph.readCartographerSettingsMetadata({});
+      return {
+        maxConcurrent: metadata.record.settings.processingConfig.maxConcurrent,
+        settingsHash: metadata.record.settingsHash,
+      };
+    })()`,
+    (state) => state.maxConcurrent === maxConcurrent && state.settingsHash !== "",
+    workflowTimeoutMs,
+  );
+}
+
 async function safeSettingsState(client) {
   try {
     return await client.evaluate(settingsStateExpression());
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+function cartographerSettingsStateExpression() {
+  return `(() => {
+    const panel = document.querySelector('[data-testid="semantic-cartographer-settings"]');
+    const input = document.querySelector('[data-testid="cartographer-number-processingConfig-maxConcurrent"]');
+    const save = document.querySelector('[data-testid="cartographer-settings-save-button"]');
+    const text = panel instanceof HTMLElement ? panel.textContent ?? "" : "";
+    return {
+      maxConcurrent: input instanceof HTMLInputElement ? input.value : "",
+      ready: Boolean(panel) && input instanceof HTMLInputElement && text.includes("Runtime"),
+      saveDisabled: save instanceof HTMLButtonElement ? save.disabled : null,
+      text,
+    };
+  })()`;
 }
 
 function settingsStateExpression() {
@@ -179,22 +342,22 @@ function settingsStateExpression() {
     const focused = hosts.find((host) => host.dataset.focused === "true");
     return {
       focusedSurfaceKind: focused?.dataset.surfaceKind ?? "",
-      layoutStorageKey: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
       paneCount: Number(area instanceof HTMLElement ? area.dataset.paneCount ?? "0" : "0"),
       settingsPanelReady: Boolean(document.querySelector("#settings-subtab-theme")),
       surfaceKinds: hosts.map((host) => host.dataset.surfaceKind ?? ""),
+      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
     };
   })()`;
 }
 
-function layoutStorageKeyExpression() {
+function workspaceIdExpression() {
   return `(() => {
     const area = document.querySelector('[data-testid="workspace-layout-area"]');
     return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
   })()`;
 }
 
-function layoutWithoutSettings() {
+function layoutWithoutSettings(workspaceId) {
   return {
     columns: [
       storedColumn("workspace_column_0", 0, ["workspace_pane_0"]),
@@ -225,7 +388,8 @@ function layoutWithoutSettings() {
         weight: 1,
       }),
     ],
-    version: 4,
+    schemaVersion: 1,
+    workspaceId,
   };
 }
 
@@ -236,6 +400,7 @@ function storedColumn(columnId, index, paneIds) {
     index,
     paneIds,
     planeIndex: 0,
+    previousProportionWidth: null,
     slotIndex: index,
     widthSpec: { unit: "px", value: 520 },
   };
@@ -245,5 +410,6 @@ function storedPane(pane) {
   return {
     ...pane,
     heat: (pane.sequence * 37) % 100,
+    terminalConfig: null,
   };
 }

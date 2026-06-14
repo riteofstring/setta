@@ -324,16 +324,21 @@ export function mergeOperationRunItems(
   currentRunItems: RunItem[],
   pageRunItems: RunItem[],
   terminalRunIds: Set<string>,
+  activeRunId = "",
 ) {
-  const currentPreservedItemsById = new Map(
+  const currentTerminalItemsById = new Map(
     currentRunItems
       .filter((item) => terminalRunIds.has(item.runId) || isTerminalRunItem(item))
       .map((item) => [item.id, item]),
   );
+  const currentActiveItemsById = new Map(
+    currentRunItems.filter((item) => item.runId === activeRunId).map((item) => [item.id, item]),
+  );
+  const currentMissingItemsById = new Map([...currentActiveItemsById, ...currentTerminalItemsById]);
   const pageItemIds = new Set(pageRunItems.map((item) => item.id));
   return [
-    ...pageRunItems.map((item) => currentPreservedItemsById.get(item.id) ?? item),
-    ...[...currentPreservedItemsById.values()].filter((item) => !pageItemIds.has(item.id)),
+    ...pageRunItems.map((item) => currentTerminalItemsById.get(item.id) ?? item),
+    ...[...currentMissingItemsById.values()].filter((item) => !pageItemIds.has(item.id)),
   ].toSorted(compareRunItems);
 }
 
@@ -342,11 +347,15 @@ export function mergeOperationRunItemOutputs(
   currentOutputs: RunItemOutput[],
   pageOutputs: RunItemOutput[],
   terminalRunIds: Set<string>,
+  activeRunId = "",
 ) {
   const terminalRunItemIds = new Set(
     currentRunItems
       .filter((item) => terminalRunIds.has(item.runId) || isTerminalRunItem(item))
       .map((item) => item.id),
+  );
+  const activeRunItemIds = new Set(
+    currentRunItems.filter((item) => item.runId === activeRunId).map((item) => item.id),
   );
   const currentTerminalOutputsById = new Map(
     currentOutputs
@@ -356,7 +365,11 @@ export function mergeOperationRunItemOutputs(
   const pageOutputIds = new Set(pageOutputs.map((output) => output.id));
   return [
     ...pageOutputs.map((output) => currentTerminalOutputsById.get(output.id) ?? output),
-    ...[...currentTerminalOutputsById.values()].filter((output) => !pageOutputIds.has(output.id)),
+    ...currentOutputs.filter(
+      (output) =>
+        !pageOutputIds.has(output.id) &&
+        (terminalRunItemIds.has(output.runItemId) || activeRunItemIds.has(output.runItemId)),
+    ),
   ].toSorted(compareRunItemOutputs);
 }
 

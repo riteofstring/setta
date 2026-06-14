@@ -312,11 +312,18 @@ func (generator *generator) collectMemberSchemas(members []protocolMember, used 
 		if !used[member.Method] || member.ParamsName == "" {
 			continue
 		}
-		if err := generator.enqueueNamedSchema(member.ParamsName); err != nil {
+		if err := generator.enqueueMemberSchema(member); err != nil {
 			return fmt.Errorf("%s %s: %w", member.Method, label, err)
 		}
 	}
 	return nil
+}
+
+func (generator *generator) enqueueMemberSchema(member protocolMember) error {
+	if member.Experimental {
+		return generator.enqueueNamedExperimentalSchema(member.ParamsName)
+	}
+	return generator.enqueueNamedSchema(member.ParamsName)
 }
 
 func responseNameForParams(paramsName string) string {

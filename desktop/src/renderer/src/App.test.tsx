@@ -50,7 +50,9 @@ describe("workspace renderer states", () => {
         setta: {
           app: {
             flags: {
+              workflowGraphAnimationEnabled: true,
               workflowGraphDebug: false,
+              workflowGraphReduceMotion: false,
               workflowGraphSyntheticGraph: null,
             },
             platform: "darwin",
@@ -91,7 +93,9 @@ describe("workspace renderer states", () => {
         setta: {
           app: {
             flags: {
+              workflowGraphAnimationEnabled: true,
               workflowGraphDebug: false,
+              workflowGraphReduceMotion: false,
               workflowGraphSyntheticGraph: null,
             },
             platform: "win32",
@@ -935,7 +939,7 @@ describe("chat renderer states", () => {
     );
     const scope = htmlScopeForTestId(html, "chat-tool-message-content");
 
-    expect(scope).toContain("border-accent-cyan/40");
+    expect(scope).toContain("border-cyan-400");
     expect(scope).toContain("font-mono");
     expect(scope).toContain("<pre");
     expect(scope).toContain("&quot;style_probe&quot;");

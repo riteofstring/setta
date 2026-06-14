@@ -36,7 +36,7 @@ func (store *Store) ValidateWorkspaceChatState(workspaceID string) ([]CorruptSta
 }
 
 func (store *Store) validateConversationChatState(workspaceID string) ([]CorruptStateFinding, error) {
-	conversations, corruptConversations, err := store.ScanConversationsAllowingCorrupt(workspaceID)
+	conversations, corruptConversations, err := store.scanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
 	}

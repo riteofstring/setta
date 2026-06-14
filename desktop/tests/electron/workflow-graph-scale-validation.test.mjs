@@ -42,10 +42,12 @@ import {
 
 const cdpShiftModifier = 8;
 const interactionDelayMs = 120;
+const marqueeEdgeAvoidanceScreen = 12;
 const portHitRadiusScreen = 18;
 const scenarioTimeoutMs = 120_000;
 const scaleNodeCounts = [500, 1000, 2500, 5000];
 const scaleEdgeDensities = [1, 2];
+const scaleScenes = parseScaleScenes(process.env.SETTA_WORKFLOW_GRAPH_SCALE_SCENES ?? "workflow");
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 
@@ -67,19 +69,21 @@ const scenarioResults = [];
 let workflowGraphSurfaceId = null;
 
 try {
-  for (const nodeCount of scaleNodeCounts) {
-    for (const edgesPerNode of scaleEdgeDensities) {
-      const scenario = { edgesPerNode, nodeCount };
-      const result = await runScaleScenario(scenario);
-      scenarioResults.push(result);
-      await writeJson(join(artifactRoot, "summary.json"), {
-        artifactRoot,
-        scenarios: scenarioResults,
-        status: "running",
-      });
-      console.log(
-        `workflow graph scale scenario passed: nodes=${nodeCount} edgesPerNode=${edgesPerNode} artifactDir=${result.artifactDir}`,
-      );
+  for (const scene of scaleScenes) {
+    for (const nodeCount of scaleNodeCounts) {
+      for (const edgesPerNode of scaleEdgeDensities) {
+        const scenario = { edgesPerNode, nodeCount, scene };
+        const result = await runScaleScenario(scenario);
+        scenarioResults.push(result);
+        await writeJson(join(artifactRoot, "summary.json"), {
+          artifactRoot,
+          scenarios: scenarioResults,
+          status: "running",
+        });
+        console.log(
+          `workflow graph scale scenario passed: scene=${scene} nodes=${nodeCount} edgesPerNode=${edgesPerNode} artifactDir=${result.artifactDir}`,
+        );
+      }
     }
   }
   await writeJson(join(artifactRoot, "summary.json"), {
@@ -99,39 +103,50 @@ try {
   throw error;
 }
 
-async function runScaleScenario({ edgesPerNode, nodeCount }) {
-  const scenarioName = `${nodeCount}-nodes-${edgesPerNode}-edges-per-node`;
+async function runScaleScenario({ edgesPerNode, nodeCount, scene }) {
+  const scenarioName = `${scene}-${nodeCount}-nodes-${edgesPerNode}-edges-per-node`;
   const artifactDir = join(artifactRoot, scenarioName);
-  const fixture = await createElectronFixture(`workflow-graph-scale-${nodeCount}-${edgesPerNode}`);
+  const fixture = await createElectronFixture(
+    `workflow-graph-scale-${scene}-${nodeCount}-${edgesPerNode}`,
+  );
   let context = null;
   const startedAt = performance.now();
 
   try {
-    context = await launchScaleScenario({ artifactDir, edgesPerNode, fixture, nodeCount });
+    context = await launchScaleScenario({ artifactDir, edgesPerNode, fixture, nodeCount, scene });
     const summary = await exerciseScaleScenario({
       artifactDir,
       client: context.client,
       edgesPerNode,
       nodeCount,
+      scene,
       startedAt,
     });
     await writeJson(join(artifactDir, "summary.json"), summary);
     return summary;
   } catch (error) {
-    await writeScaleScenarioFailure({ artifactDir, context, edgesPerNode, error, nodeCount });
+    await writeScaleScenarioFailure({
+      artifactDir,
+      context,
+      edgesPerNode,
+      error,
+      nodeCount,
+      scene,
+    });
     throw error;
   } finally {
     await stopElectronCdpContext(context);
   }
 }
 
-async function launchScaleScenario({ artifactDir, edgesPerNode, fixture, nodeCount }) {
+async function launchScaleScenario({ artifactDir, edgesPerNode, fixture, nodeCount, scene }) {
   const context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
       SETTA_WORKFLOW_GRAPH_DEBUG: "1",
       SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE: String(edgesPerNode),
       SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT: String(nodeCount),
+      SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE: scene,
     },
     fixture,
     visible: options.visible,
@@ -145,13 +160,23 @@ async function launchScaleScenario({ artifactDir, edgesPerNode, fixture, nodeCou
   return context;
 }
 
-async function exerciseScaleScenario({ artifactDir, client, edgesPerNode, nodeCount, startedAt }) {
+async function exerciseScaleScenario({
+  artifactDir,
+  client,
+  edgesPerNode,
+  nodeCount,
+  scene,
+  startedAt,
+}) {
   const { initial, initialRenderMs } = await waitForInitialScaleSnapshot(client, {
     artifactDir,
     edgesPerNode,
     nodeCount,
+    scene,
     startedAt,
   });
+  await delay(500);
+  const idle = await getWorkflowGraphSnapshot(client);
   const { afterClick, afterHover } = await exerciseNodeHitChecks(client, { initial });
   const { afterPan, afterZoom } = await exercisePanAndZoom(client, {
     afterClick,
@@ -161,31 +186,41 @@ async function exerciseScaleScenario({ artifactDir, client, edgesPerNode, nodeCo
     afterZoom,
     artifactDir,
   });
-  const { afterEdgeDraw, portPair } = await exercisePortTargeting(client, {
-    afterMarquee,
-    artifactDir,
-  });
+  const { afterInteraction, edgeTargetingScreenshot, portPair } =
+    scene === "workflow"
+      ? await exercisePortTargeting(client, {
+          afterMarquee,
+          artifactDir,
+        })
+      : {
+          afterInteraction: afterMarquee,
+          edgeTargetingScreenshot: null,
+          portPair: null,
+        };
   const afterNodeDrag = await exerciseNodeDrag(client, {
-    afterEdgeDraw,
+    afterInteraction,
     artifactDir,
-    portPair,
+    nodeId: portPair?.source.nodeId ?? expectedMarqueeNodeIds[0],
   });
   await assertNoRendererConsoleErrors(artifactDir);
 
   return scaleScenarioSummary({
     artifactDir,
+    edgeTargetingScreenshot,
     edgesPerNode,
     expectedMarqueeNodeIds,
     initialRenderMs,
     nodeCount,
+    scene,
     snapshots: {
       afterClick,
-      afterEdgeDraw,
       afterHover,
+      afterInteraction,
       afterMarquee,
       afterNodeDrag,
       afterPan,
       afterZoom,
+      idle,
       initial,
     },
   });
@@ -193,7 +228,7 @@ async function exerciseScaleScenario({ artifactDir, client, edgesPerNode, nodeCo
 
 async function waitForInitialScaleSnapshot(
   client,
-  { artifactDir, edgesPerNode, nodeCount, startedAt },
+  { artifactDir, edgesPerNode, nodeCount, scene, startedAt },
 ) {
   const initial = await waitForWorkflowGraphSnapshot(
     client,
@@ -201,7 +236,7 @@ async function waitForInitialScaleSnapshot(
     scenarioTimeoutMs,
   );
   const initialRenderMs = performance.now() - startedAt;
-  assertScaleSnapshot(initial, { edgesPerNode, label: "initial render", nodeCount });
+  assertScaleSnapshot(initial, { edgesPerNode, label: "initial render", nodeCount, scene });
   assertSpatialIndexCandidateAtLeast(
     initial,
     "lastLabelVisibilityCandidateCount",
@@ -294,9 +329,8 @@ async function exerciseMarquee(client, { afterZoom, artifactDir }) {
   const marquee = marqueeForVisibleCluster(afterZoom);
   const expectedMarqueeNodeIds = exactMarqueeNodeIds(afterZoom, marquee);
   assertNonEmptyMarqueeSelection(expectedMarqueeNodeIds, marquee);
-  await dispatchMouseDrag(client, {
+  await dispatchShiftMouseDrag(client, {
     from: marquee.from,
-    modifiers: cdpShiftModifier,
     steps: 12,
     to: marquee.to,
   });
@@ -329,7 +363,11 @@ async function exercisePortTargeting(client, { afterMarquee, artifactDir }) {
   assertEdgeCommitted(afterMarquee, afterEdgeDraw, portPair, "port targeting exactness");
   assertSpatialIndexQueryAdvanced(afterMarquee, afterEdgeDraw, "port targeting spatial query");
   assertCandidateReduced(afterEdgeDraw, "lastPortHitCandidateCount", "port targeting");
-  return { afterEdgeDraw, portPair };
+  return {
+    afterInteraction: afterEdgeDraw,
+    edgeTargetingScreenshot: join(artifactDir, "edge-targeting.png"),
+    portPair,
+  };
 }
 
 function assertExactTargetPort(snapshot, portPair) {
@@ -355,8 +393,8 @@ function assertTemporaryEdgeDrawing(snapshot, label) {
   }
 }
 
-async function exerciseNodeDrag(client, { afterEdgeDraw, artifactDir, portPair }) {
-  const dragTarget = nodeById(afterEdgeDraw, portPair.source.nodeId);
+async function exerciseNodeDrag(client, { afterInteraction, artifactDir, nodeId }) {
+  const dragTarget = nodeById(afterInteraction, nodeId);
   await dispatchMouseDrag(client, {
     from: { x: dragTarget.screenX, y: dragTarget.screenY },
     steps: 10,
@@ -364,8 +402,8 @@ async function exerciseNodeDrag(client, { afterEdgeDraw, artifactDir, portPair }
   });
   await delay(180);
   const afterNodeDrag = await getWorkflowGraphSnapshot(client);
-  assertNodeMoved(afterEdgeDraw, afterNodeDrag, dragTarget.id, "node drag");
-  assertSpatialIndexUpdatesAdvanced(afterEdgeDraw, afterNodeDrag, "node drag spatial update");
+  assertNodeMoved(afterInteraction, afterNodeDrag, dragTarget.id, "node drag");
+  assertSpatialIndexUpdatesAdvanced(afterInteraction, afterNodeDrag, "node drag spatial update");
   await captureScreenshot(client, join(artifactDir, "final.png"));
   return afterNodeDrag;
 }
@@ -380,10 +418,12 @@ async function assertNoRendererConsoleErrors(artifactDir) {
 
 function scaleScenarioSummary({
   artifactDir,
+  edgeTargetingScreenshot,
   edgesPerNode,
   expectedMarqueeNodeIds,
   initialRenderMs,
   nodeCount,
+  scene,
   snapshots,
 }) {
   return {
@@ -393,9 +433,10 @@ function scaleScenarioSummary({
     initialRenderMs,
     metrics: summarizeSnapshots(snapshots),
     nodeCount,
+    scene,
     screenshots: {
       afterZoomLabels: join(artifactDir, "after-zoom-labels.png"),
-      edgeTargeting: join(artifactDir, "edge-targeting.png"),
+      edgeTargeting: edgeTargetingScreenshot,
       final: join(artifactDir, "final.png"),
       initial: join(artifactDir, "initial.png"),
       marqueeSelection: join(artifactDir, "marquee-selection.png"),
@@ -404,7 +445,14 @@ function scaleScenarioSummary({
   };
 }
 
-async function writeScaleScenarioFailure({ artifactDir, context, edgesPerNode, error, nodeCount }) {
+async function writeScaleScenarioFailure({
+  artifactDir,
+  context,
+  edgesPerNode,
+  error,
+  nodeCount,
+  scene,
+}) {
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
     await getWorkflowGraphSnapshot(context.client)
@@ -416,6 +464,7 @@ async function writeScaleScenarioFailure({ artifactDir, context, edgesPerNode, e
     edgeDensity: edgesPerNode,
     error: error instanceof Error ? error.message : String(error),
     nodeCount,
+    scene,
     status: "failed",
   });
 }
@@ -496,6 +545,31 @@ async function dispatchMouseDrag(client, { from, modifiers = 0, steps = 12, to }
   });
 }
 
+async function dispatchShiftMouseDrag(client, { from, steps = 12, to }) {
+  await client.call("Input.dispatchKeyEvent", {
+    code: "ShiftLeft",
+    key: "Shift",
+    modifiers: cdpShiftModifier,
+    type: "keyDown",
+    windowsVirtualKeyCode: 16,
+  });
+  try {
+    await dispatchMouseDrag(client, {
+      from,
+      modifiers: cdpShiftModifier,
+      steps,
+      to,
+    });
+  } finally {
+    await client.call("Input.dispatchKeyEvent", {
+      code: "ShiftLeft",
+      key: "Shift",
+      type: "keyUp",
+      windowsVirtualKeyCode: 16,
+    });
+  }
+}
+
 async function dispatchWheel(client, { deltaX = 0, deltaY = 0, modifiers = 0, x, y }) {
   await dispatchWorkflowGraphWheel(client, workflowGraphSurfaceId, {
     deltaX,
@@ -506,7 +580,7 @@ async function dispatchWheel(client, { deltaX = 0, deltaY = 0, modifiers = 0, x,
   });
 }
 
-function assertScaleSnapshot(snapshot, { edgesPerNode, label, nodeCount }) {
+function assertScaleSnapshot(snapshot, { edgesPerNode, label, nodeCount, scene }) {
   if (snapshot.graph.nodeCount !== nodeCount) {
     throw new Error(
       `${label} graph node count mismatch: expected=${nodeCount} graph=${JSON.stringify(snapshot.graph)}`,
@@ -521,11 +595,12 @@ function assertScaleSnapshot(snapshot, { edgesPerNode, label, nodeCount }) {
     throw new Error(`${label} canvas was blank: visual=${JSON.stringify(snapshot.visual)}`);
   }
   assertSpatialIndexDebugCounters(snapshot, label);
-  assertDisplayObjectCounters(snapshot, label);
+  assertDisplayObjectCounters(snapshot, label, scene);
   assertFrameTimings(snapshot, label);
+  assertAnimationCounters(snapshot, label, scene);
 }
 
-function assertDisplayObjectCounters(snapshot, label) {
+function assertDisplayObjectCounters(snapshot, label, scene) {
   const render = snapshot.render;
   const counters = [
     "edgeGraphicsCount",
@@ -552,7 +627,13 @@ function assertDisplayObjectCounters(snapshot, label) {
   assertPositiveBoundedDisplayObjectCount(render, "nodeShadowGraphicsCount", nodeCount, label);
   assertPositiveBoundedDisplayObjectCount(render, "nodeOutlineGraphicsCount", nodeCount * 2, label);
   assertPositiveBoundedDisplayObjectCount(render, "labelObjectCount", nodeCount, label);
-  assertPositiveBoundedDisplayObjectCount(render, "portGraphicsCount", nodeCount * 2, label);
+  if (scene === "workflow") {
+    assertPositiveBoundedDisplayObjectCount(render, "portGraphicsCount", nodeCount * 2, label);
+  } else if (render.portGraphicsCount !== 0) {
+    throw new Error(
+      `${label} semantic synthetic scene should not create port graphics: render=${JSON.stringify(render)}`,
+    );
+  }
   if (render.visibleLabelCount > render.labelObjectCount) {
     throw new Error(
       `${label} visibleLabelCount exceeded labelObjectCount: render=${JSON.stringify(render)}`,
@@ -573,6 +654,39 @@ function assertDisplayObjectCounters(snapshot, label) {
   }
 }
 
+function assertAnimationCounters(snapshot, label, scene) {
+  const render = snapshot.render;
+  for (const counter of [
+    "activeEdgeFlowCount",
+    "activeNodePulseCount",
+    "cellAnimCount",
+    "edgeFlowRedrawCount",
+    "nodePulseRedrawCount",
+    "transitionsActive",
+  ]) {
+    assertNonNegativeInteger(render[counter], `${label} ${counter}`);
+  }
+  if (render.animationEnabled !== true || render.reduceMotion !== false) {
+    throw new Error(
+      `${label} animation flags were not in baseline mode: render=${JSON.stringify(render)}`,
+    );
+  }
+  if (
+    scene === "workflow" &&
+    render.activeNodePulseCount === 0 &&
+    render.activeEdgeFlowCount === 0
+  ) {
+    throw new Error(
+      `${label} workflow scene did not expose visible animated workflow paths: render=${JSON.stringify(render)}`,
+    );
+  }
+  if (scene === "semantic-cells" && render.cellAnimCount === 0) {
+    throw new Error(
+      `${label} semantic-cell scene did not expose visible active cells: render=${JSON.stringify(render)}`,
+    );
+  }
+}
+
 function assertPositiveBoundedDisplayObjectCount(render, counter, maximum, label) {
   if (render[counter] < 1 || render[counter] > maximum) {
     throw new Error(
@@ -587,12 +701,22 @@ function assertFrameTimings(snapshot, label) {
       `${label} Workflow graph ticker did not advance: render=${JSON.stringify(snapshot.render)}`,
     );
   }
-  for (const counter of ["averageFrameMs", "worstFrameMs"]) {
+  for (const counter of ["averageFrameMs", "p95FrameMs", "worstFrameMs"]) {
     if (!Number.isFinite(snapshot.render[counter])) {
       throw new Error(
         `${label} ${counter} was not finite: render=${JSON.stringify(snapshot.render)}`,
       );
     }
+  }
+  if (!snapshot.render.displayObjectCountsByLayer?.stage) {
+    throw new Error(
+      `${label} display object layer counts were missing: render=${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (!Array.isArray(snapshot.render.timingSamples)) {
+    throw new Error(
+      `${label} timing samples were missing: render=${JSON.stringify(snapshot.render)}`,
+    );
   }
 }
 
@@ -711,7 +835,9 @@ function visibleNodes(snapshot) {
 }
 
 function screenDistance(node, point) {
-  return Math.hypot(node.screenX - point.x, node.screenY - point.y);
+  const x = node.screenX ?? node.x;
+  const y = node.screenY ?? node.y;
+  return Math.hypot(x - point.x, y - point.y);
 }
 
 function marqueeForVisibleCluster(snapshot) {
@@ -881,6 +1007,7 @@ function nodeScreenBounds(snapshot, node) {
 
 function emptyCanvasPoint(snapshot) {
   const candidates = [
+    ...emptyCanvasGridCandidates(snapshot),
     { x: 32, y: 32 },
     { x: snapshot.canvas.clientWidth - 32, y: 32 },
     { x: 32, y: snapshot.canvas.clientHeight - 32 },
@@ -895,15 +1022,93 @@ function emptyCanvasPoint(snapshot) {
     const awayFromPorts = ports.every(
       (port) => Math.hypot(candidate.x - port.screenX, candidate.y - port.screenY) > 72,
     );
+    const awayFromEdges = snapshot.graph.edges.every(
+      (edge) => exactEdgeDistanceAtScreen(snapshot, edge, candidate) > marqueeEdgeAvoidanceScreen,
+    );
     const outsideNodes = snapshot.graph.nodes.every(
       (node) => !pointInsideNodeScreenBounds(snapshot, node, candidate, 24),
     );
-    return awayFromPorts && outsideNodes;
+    return awayFromPorts && awayFromEdges && outsideNodes;
   });
   if (!point) {
     throw new Error(`could not find an empty canvas point for marquee start`);
   }
   return point;
+}
+
+function emptyCanvasGridCandidates(snapshot) {
+  const candidates = [];
+  const center = canvasCenter(snapshot);
+  for (let y = 96; y <= snapshot.canvas.clientHeight - 96; y += 96) {
+    for (let x = 96; x <= snapshot.canvas.clientWidth - 96; x += 96) {
+      candidates.push({ x, y });
+    }
+  }
+  return candidates.sort(
+    (left, right) => screenDistance(left, center) - screenDistance(right, center),
+  );
+}
+
+function exactEdgeDistanceAtScreen(snapshot, edge, point) {
+  const start = edgePortWorldPosition(snapshot, edge.sourceNodeId, edge.sourcePortId);
+  const end = edgePortWorldPosition(snapshot, edge.targetNodeId, edge.targetPortId);
+  const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.35);
+  const controlA = { x: start.x + controlOffset, y: start.y };
+  const controlB = { x: end.x - controlOffset, y: end.y };
+  const worldPoint = screenToWorld(snapshot, point);
+  let previous = start;
+  let best = Infinity;
+  for (let step = 1; step <= 24; step += 1) {
+    const t = step / 24;
+    const current = cubicBezierPoint(start, controlA, controlB, end, t);
+    best = Math.min(best, pointToSegmentDistance(worldPoint, previous, current));
+    previous = current;
+  }
+  return best * snapshot.camera.zoom;
+}
+
+function edgePortWorldPosition(snapshot, nodeId, portId) {
+  const node = nodeById(snapshot, nodeId);
+  const port = node.ports.find((candidate) => candidate.id === portId);
+  if (port) {
+    return { x: port.x, y: port.y };
+  }
+  if (portId === "input") {
+    return { x: node.x + 20, y: node.y + node.height / 2 };
+  }
+  if (portId === "output") {
+    return { x: node.x + node.width - 20, y: node.y + node.height / 2 };
+  }
+  throw new Error(`missing edge port in snapshot: ${nodeId}:${portId}`);
+}
+
+function cubicBezierPoint(start, controlA, controlB, end, t) {
+  const inverse = 1 - t;
+  return {
+    x:
+      inverse ** 3 * start.x +
+      3 * inverse ** 2 * t * controlA.x +
+      3 * inverse * t ** 2 * controlB.x +
+      t ** 3 * end.x,
+    y:
+      inverse ** 3 * start.y +
+      3 * inverse ** 2 * t * controlA.y +
+      3 * inverse * t ** 2 * controlB.y +
+      t ** 3 * end.y,
+  };
+}
+
+function pointToSegmentDistance(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y);
+  }
+  const t = Math.max(
+    0,
+    Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)),
+  );
+  return Math.hypot(point.x - (start.x + dx * t), point.y - (start.y + dy * t));
 }
 
 function pointInsideNodeScreenBounds(snapshot, node, point, padding) {
@@ -946,9 +1151,21 @@ function summarizeSnapshots(snapshots) {
     Object.entries(snapshots).map(([name, snapshot]) => [
       name,
       {
+        animation: {
+          activeEdgeFlowCount: snapshot.render.activeEdgeFlowCount,
+          activeNodePulseCount: snapshot.render.activeNodePulseCount,
+          animationActive: snapshot.render.animationActive,
+          animationEnabled: snapshot.render.animationEnabled,
+          cellAnimCount: snapshot.render.cellAnimCount,
+          edgeFlowRedrawCount: snapshot.render.edgeFlowRedrawCount,
+          nodePulseRedrawCount: snapshot.render.nodePulseRedrawCount,
+          reduceMotion: snapshot.render.reduceMotion,
+          transitionsActive: snapshot.render.transitionsActive,
+        },
         averageFrameMs: snapshot.render.averageFrameMs,
         camera: snapshot.camera,
         displayObjects: {
+          byLayer: snapshot.render.displayObjectCountsByLayer,
           edgeGraphicsCount: snapshot.render.edgeGraphicsCount,
           nodeContainerCount: snapshot.render.nodeContainerCount,
           portGraphicsCount: snapshot.render.portGraphicsCount,
@@ -961,6 +1178,7 @@ function summarizeSnapshots(snapshots) {
           mode: snapshot.render.labelVisibilityMode,
           visibleLabelCount: snapshot.render.visibleLabelCount,
         },
+        p95FrameMs: snapshot.render.p95FrameMs,
         reactRenderCount: snapshot.render.reactRenderCount,
         spatialIndex: {
           lastLabelVisibilityCandidateCount: snapshot.render.lastLabelVisibilityCandidateCount,
@@ -973,18 +1191,41 @@ function summarizeSnapshots(snapshots) {
           spatialIndexRebuildCount: snapshot.render.spatialIndexRebuildCount,
           spatialIndexUpdateCount: snapshot.render.spatialIndexUpdateCount,
         },
+        timingBuckets: snapshot.render.timingBuckets,
         worstFrameMs: snapshot.render.worstFrameMs,
       },
     ]),
   );
 }
 
+function parseScaleScenes(value) {
+  const scenes = value
+    .split(",")
+    .map((scene) => scene.trim())
+    .filter(Boolean);
+  if (scenes.length === 0) {
+    throw new Error("SETTA_WORKFLOW_GRAPH_SCALE_SCENES must include at least one scene");
+  }
+  const unique = [];
+  for (const scene of scenes) {
+    if (scene !== "workflow" && scene !== "semantic-cells") {
+      throw new Error(`unsupported workflow graph scale scene: ${scene}`);
+    }
+    if (!unique.includes(scene)) {
+      unique.push(scene);
+    }
+  }
+  return unique;
+}
+
 function recommendationForResults(results) {
   const largestSparse = results.find(
-    (result) => result.nodeCount === 5000 && result.edgeDensity === 1,
+    (result) =>
+      result.scene === "workflow" && result.nodeCount === 5000 && result.edgeDensity === 1,
   );
   const largestDense = results.find(
-    (result) => result.nodeCount === 5000 && result.edgeDensity === 2,
+    (result) =>
+      result.scene === "workflow" && result.nodeCount === 5000 && result.edgeDensity === 2,
   );
   if (!largestSparse || !largestDense) {
     return "No Phase 7 recommendation: the largest required scenario did not run.";

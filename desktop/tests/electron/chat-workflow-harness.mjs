@@ -2,10 +2,11 @@ import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:net";
-import { existsSync } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { appendFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -530,7 +531,7 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   for (const name of unsetEnv) {
     delete env[name];
   }
-  const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
+  const electron = spawn(electronBin(), electronLaunchArgs(debugPort), {
     cwd: desktopRoot,
     env,
     stdio: ["ignore", "pipe", "pipe"],
@@ -538,6 +539,14 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   electron.logs = [];
   collectProcessOutput(electron);
   return electron;
+}
+
+function electronLaunchArgs(debugPort) {
+  return [
+    `--remote-debugging-port=${debugPort}`,
+    ".",
+    ...(process.platform === "darwin" ? ["-ApplePersistenceIgnoreState", "YES"] : []),
+  ];
 }
 
 export async function createFixture(name) {
@@ -768,12 +777,7 @@ export function failureWithLogs(error, logs) {
 export async function assertRecordingEvidence(recordingDir, expected) {
   await assertNoIpcFailures(recordingDir);
   await assertLayoutSnapshotsRecorded(recordingDir);
-  const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
-  for (const channel of expected.ipcChannels) {
-    if (!ipc.some((entry) => entry.type === "ipc_finish" && entry.channel === channel)) {
-      throw new Error(`recording missing successful IPC channel: ${channel}`);
-    }
-  }
+  await assertIpcChannels(recordingDir, expected.ipcChannels);
   const backend = await readJsonLines(join(recordingDir, "backend-http.jsonl"));
   const workflowState = await readJsonLinesOptional(join(recordingDir, "workflow-state.jsonl"));
   for (const path of expected.backendPaths) {
@@ -793,9 +797,21 @@ export async function assertRecordingEvidence(recordingDir, expected) {
   }
 }
 
+async function assertIpcChannels(recordingDir, expectedChannels) {
+  const missing = new Set(expectedChannels);
+  await scanJsonLines(join(recordingDir, "ipc.jsonl"), (entry) => {
+    if (entry.type === "ipc_finish" && missing.has(entry.channel)) {
+      missing.delete(entry.channel);
+    }
+    return missing.size > 0;
+  });
+  if (missing.size > 0) {
+    throw new Error(`recording missing successful IPC channels: ${Array.from(missing).join(", ")}`);
+  }
+}
+
 async function assertLayoutSnapshotsRecorded(recordingDir) {
-  const rendererEvents = await readJsonLines(join(recordingDir, "renderer-events.jsonl"));
-  const snapshots = rendererEvents.filter((entry) => entry.type === "layout_snapshot");
+  const snapshots = await waitForLayoutSnapshots(recordingDir);
   if (snapshots.length === 0) {
     throw new Error(`recording missing renderer layout snapshots: ${recordingDir}`);
   }
@@ -804,13 +820,35 @@ async function assertLayoutSnapshotsRecorded(recordingDir) {
   }
 }
 
+async function waitForLayoutSnapshots(recordingDir) {
+  const path = join(recordingDir, "renderer-events.jsonl");
+  const startedAt = Date.now();
+  let snapshots = [];
+  while (Date.now() - startedAt < 2_000) {
+    const rendererEvents = await readJsonLines(path);
+    snapshots = rendererEvents.filter((entry) => entry.type === "layout_snapshot");
+    if (snapshots.some((entry) => entry.chatDetailPane && entry.composer)) {
+      return snapshots;
+    }
+    await delay(50);
+  }
+  return snapshots;
+}
+
 async function assertNoIpcFailures(recordingDir) {
-  const ipc = await readJsonLines(join(recordingDir, "ipc.jsonl"));
-  const failures = ipc.filter(
-    (entry) => entry.type === "ipc_failure" && !isExpectedInitialTerminalAttachMiss(entry),
-  );
+  const failures = [];
+  await scanJsonLines(join(recordingDir, "ipc.jsonl"), (entry) => {
+    if (entry.type === "ipc_failure" && !isExpectedInitialTerminalAttachMiss(entry)) {
+      failures.push(entry);
+    }
+    return failures.length < 20;
+  });
   if (failures.length > 0) {
-    throw new Error(`recording included IPC failures: ${JSON.stringify(failures)}`);
+    throw new Error(
+      `recording included IPC failures: ${JSON.stringify(failures)}${
+        failures.length === 20 ? " (showing first 20)" : ""
+      }`,
+    );
   }
 }
 
@@ -828,6 +866,22 @@ async function readJsonLines(path) {
     .split("\n")
     .filter((line) => line.trim() !== "")
     .map((line) => JSON.parse(line));
+}
+
+async function scanJsonLines(path, visit) {
+  const stream = createReadStream(path, { encoding: "utf8" });
+  const lines = createInterface({ crlfDelay: Infinity, input: stream });
+  for await (const line of lines) {
+    if (line.trim() === "") {
+      continue;
+    }
+    const shouldContinue = await visit(JSON.parse(line));
+    if (!shouldContinue) {
+      lines.close();
+      stream.destroy();
+      return;
+    }
+  }
 }
 
 async function readJsonLinesOptional(path) {

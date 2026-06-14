@@ -17,7 +17,7 @@ describe("workspace frame scheduler", () => {
         push(renderItem(input.presentationMode, input.movementPhase));
       },
     } as unknown as WorkspaceLikeLayoutEngine;
-    const store = createZoomingStore([0.2, 0.4, 0.6], 2, 360);
+    const store = createZoomingStore([0.2, 0.4, 0.6]);
     const scheduler = new FrameScheduler({
       engine,
       layoutStore: store,
@@ -42,8 +42,6 @@ describe("workspace frame scheduler", () => {
     renderFrame(16, viewport, "idle");
 
     expect(renderCalls.map((input) => input.presentationMode)).toEqual(["normal", "overview"]);
-    expect(renderCalls.map((input) => input.scrollColumn)).toEqual([2, 0]);
-    expect(renderCalls.map((input) => input.scrollRow)).toEqual([360, 0]);
   });
 
   test("keeps overview layout viewport stable across resize until overview exits", () => {
@@ -54,7 +52,7 @@ describe("workspace frame scheduler", () => {
         push(renderItem(input.presentationMode, input.movementPhase));
       },
     } as unknown as WorkspaceLikeLayoutEngine;
-    const store = createStableStore("overview", 1, 3, 540);
+    const store = createStableStore("overview", 1);
     const scheduler = new FrameScheduler({
       engine,
       layoutStore: store,
@@ -71,18 +69,12 @@ describe("workspace frame scheduler", () => {
     renderFrame(16, resizedViewport, "active");
 
     expect(renderCalls.map((input) => input.viewport)).toEqual([viewport, viewport]);
-    expect(renderCalls.map((input) => input.scrollColumn)).toEqual([0, 0]);
-    expect(renderCalls.map((input) => input.scrollRow)).toEqual([0, 0]);
   });
 });
 
 const viewport: Rect = { height: 900, width: 1440, x: 0, y: 0 };
 
-function createZoomingStore(
-  progressByFrame: number[],
-  scrollColumn = 0,
-  scrollRow = 0,
-): WorkspaceLayoutStore {
+function createZoomingStore(progressByFrame: number[]): WorkspaceLayoutStore {
   let frameIndex = -1;
   return {
     advanceFrame() {
@@ -99,8 +91,8 @@ function createZoomingStore(
         overviewProgress: progressByFrame[Math.max(0, frameIndex)] ?? 0,
         presentationMode: "overview",
         revision: 1,
-        scrollColumn,
-        scrollRow,
+        scrollColumn: 0,
+        scrollRow: 0,
         targetScrollColumn: 0,
         targetScrollRow: 0,
       };
@@ -116,8 +108,6 @@ function createZoomingStore(
 function createStableStore(
   presentationMode: WorkspaceLayoutSnapshot["presentationMode"],
   overviewProgress: number,
-  scrollColumn = 0,
-  scrollRow = 0,
 ): WorkspaceLayoutStore {
   return {
     advanceFrame() {
@@ -133,8 +123,8 @@ function createStableStore(
         overviewProgress,
         presentationMode,
         revision: 1,
-        scrollColumn,
-        scrollRow,
+        scrollColumn: 0,
+        scrollRow: 0,
         targetScrollColumn: 0,
         targetScrollRow: 0,
       };

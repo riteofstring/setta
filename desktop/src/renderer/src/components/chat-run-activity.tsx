@@ -61,7 +61,7 @@ const activityIconByType = {
 
 const activityIconClassByType = {
   agent_message: "h-4 w-4 shrink-0 text-muted-foreground",
-  approval_review: "h-4 w-4 shrink-0 text-status-alert",
+  approval_review: "h-4 w-4 shrink-0 text-status-warning",
   collab_agent_tool_call: "h-4 w-4 shrink-0 text-muted-foreground",
   command_execution: "h-4 w-4 shrink-0 text-muted-foreground",
   context_compaction: "h-4 w-4 shrink-0 text-muted-foreground",
@@ -445,7 +445,9 @@ function RunActivityGroupStatus({ items }: { items: RunItem[] }) {
   const running = items.some((item) => item.status === "pending" || item.status === "running");
   return (
     <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-      {running ? <BrailleSpinner className="text-accent-violet" label="Activity running" /> : null}
+      {running ? (
+        <BrailleSpinner className="text-muted-foreground" label="Activity running" />
+      ) : null}
       <span>{activityGroupStatus(items)}</span>
     </span>
   );
@@ -468,7 +470,10 @@ function RunActivityStatus({ item }: { item: RunItem }) {
   return (
     <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
       {item.status === "running" || item.status === "pending" ? (
-        <BrailleSpinner className="text-accent-violet" label={`${activityTitle(item)} running`} />
+        <BrailleSpinner
+          className="text-muted-foreground"
+          label={`${activityTitle(item)} running`}
+        />
       ) : null}
       <span>{item.status}</span>
     </span>

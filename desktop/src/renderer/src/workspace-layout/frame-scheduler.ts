@@ -176,13 +176,10 @@ export class FrameScheduler {
       {
         ...frameInput,
         presentationMode: snapshot.presentationMode,
-        ...(snapshot.presentationMode === "overview"
-          ? {
-              scrollColumn: 0,
-              scrollRow: 0,
-              viewport: this.overviewEndpointViewport(viewport),
-            }
-          : { viewport }),
+        viewport:
+          snapshot.presentationMode === "overview"
+            ? this.overviewEndpointViewport(viewport)
+            : viewport,
       },
       (item) => this.items.push(item),
     );
@@ -204,8 +201,6 @@ export class FrameScheduler {
       normalFrameInput: frameInput,
       overviewFrameInput: {
         ...frameInput,
-        scrollColumn: 0,
-        scrollRow: 0,
         viewport: this.overviewEndpointViewport(viewport),
       },
       resizePhase,

@@ -1,6 +1,8 @@
 package orchestrator
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -114,15 +116,18 @@ func readWorkflowDefinitionFile(workspaceID string, path string) (WorkflowDefini
 	if err != nil {
 		return WorkflowDefinition{}, fmt.Errorf("stat workflow definition file %s: %w", path, err)
 	}
-	definition := workflowDefinitionFromFile(workspaceID, saved, timestamp(info.ModTime()))
+	definition, err := workflowDefinitionFromFile(workspaceID, saved, timestamp(info.ModTime()))
+	if err != nil {
+		return WorkflowDefinition{}, fmt.Errorf("compute workflow definition revision %s: %w", path, err)
+	}
 	if err := validateDefinitionSnapshot(definition); err != nil {
 		return WorkflowDefinition{}, fmt.Errorf("validate workflow definition file %s: %w", path, err)
 	}
 	return definition, nil
 }
 
-func workflowDefinitionFromFile(workspaceID string, saved workflowDefinitionFile, updatedAt string) WorkflowDefinition {
-	return WorkflowDefinition{
+func workflowDefinitionFromFile(workspaceID string, saved workflowDefinitionFile, updatedAt string) (WorkflowDefinition, error) {
+	return workflowDefinitionWithDraftRevision(WorkflowDefinition{
 		SchemaVersion: saved.SchemaVersion,
 		ID:            saved.ID,
 		WorkspaceID:   workspaceID,
@@ -131,7 +136,7 @@ func workflowDefinitionFromFile(workspaceID string, saved workflowDefinitionFile
 		Graph:         normalizeWorkflowGraph(saved.Graph),
 		CreatedAt:     updatedAt,
 		UpdatedAt:     updatedAt,
-	}
+	})
 }
 
 func workflowDefinitionToFile(definition WorkflowDefinition) workflowDefinitionFile {
@@ -145,6 +150,11 @@ func workflowDefinitionToFile(definition WorkflowDefinition) workflowDefinitionF
 }
 
 func writeWorkflowDefinitionFile(workspaceRoot string, definition WorkflowDefinition, currentPath string) (WorkflowDefinition, error) {
+	var err error
+	definition, err = workflowDefinitionWithDraftRevision(definition)
+	if err != nil {
+		return WorkflowDefinition{}, err
+	}
 	targetPath, err := workflowDefinitionWriteTarget(workspaceRoot, definition, currentPath)
 	if err != nil {
 		return WorkflowDefinition{}, err
@@ -234,7 +244,26 @@ func workflowDefinitionWithFileTimestamps(definition WorkflowDefinition, targetP
 	}
 	definition.CreatedAt = timestamp(info.ModTime())
 	definition.UpdatedAt = timestamp(info.ModTime())
+	return workflowDefinitionWithDraftRevision(definition)
+}
+
+func workflowDefinitionWithDraftRevision(definition WorkflowDefinition) (WorkflowDefinition, error) {
+	revision, err := workflowDefinitionRevision(definition)
+	if err != nil {
+		return WorkflowDefinition{}, err
+	}
+	definition.Graph = normalizeWorkflowGraph(definition.Graph)
+	definition.DraftRevision = revision
 	return definition, nil
+}
+
+func workflowDefinitionRevision(definition WorkflowDefinition) (string, error) {
+	payload, err := json.Marshal(workflowDefinitionToFile(definition))
+	if err != nil {
+		return "", fmt.Errorf("encode workflow definition revision: %w", err)
+	}
+	digest := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(digest[:]), nil
 }
 
 func deleteWorkflowDefinitionFile(path string) error {

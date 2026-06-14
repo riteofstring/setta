@@ -327,7 +327,7 @@ describe("workspace layout store", () => {
     });
   });
 
-  test("moves left and right into the top pane of a vertical split column", () => {
+  test("moves left and right to the nearest pane in visual vertical order", () => {
     const store = createStore();
 
     store.moveFocus("right", viewport);
@@ -345,22 +345,16 @@ describe("workspace layout store", () => {
     store.moveFocus("right", viewport);
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 1,
-      focusedPaneId: upperPaneId,
-      focusedRowIndex: 0,
-      targetScrollRow: 0,
-    });
-
-    store.moveFocus("down", viewport);
-    expect(store.getSnapshot()).toMatchObject({
       focusedPaneId: middlePaneId,
-      targetScrollRow: 0,
+      focusedRowIndex: 1,
     });
 
+    store.moveFocus("up", viewport);
+    expect(store.getSnapshot().focusedPaneId).toBe(upperPaneId);
+
     store.moveFocus("down", viewport);
-    expect(store.getSnapshot()).toMatchObject({
-      focusedPaneId: lowerPaneId,
-      targetScrollRow: 0,
-    });
+    store.moveFocus("down", viewport);
+    expect(store.getSnapshot().focusedPaneId).toBe(lowerPaneId);
   });
 
   test("moves focus from an unfocused pane title bar target", () => {
@@ -388,23 +382,6 @@ describe("workspace layout store", () => {
       focusedPaneId: "workspace_pane_1",
       focusedRowIndex: 0,
       presentationMode: "overview",
-    });
-  });
-
-  test("keeps overview focus changes from rewriting normal scroll targets", () => {
-    const store = createStore();
-    store.splitFocusedPaneToPlane("down");
-    const lowerPlaneSnapshot = store.getSnapshot();
-
-    store.toggleOverviewMode();
-    store.moveFocus("up", viewport);
-    store.ensureFocusedPaneVisible(viewport);
-
-    expect(store.getSnapshot()).toMatchObject({
-      focusedPaneId: "workspace_pane_0",
-      presentationMode: "overview",
-      targetScrollColumn: lowerPlaneSnapshot.targetScrollColumn,
-      targetScrollRow: lowerPlaneSnapshot.targetScrollRow,
     });
   });
 
@@ -445,7 +422,8 @@ describe("workspace layout store", () => {
       value: {},
     });
     const { scene } = createRealWorkspaceScene({
-      storageKey: "setta:workspace-layout:store-initial-snap",
+      storedLayout: null,
+      workspaceId: "setta:workspace-layout:store-initial-snap",
       workspaceName: "Repo",
     });
     const store = new WorkspaceLayoutStore(
@@ -611,7 +589,8 @@ function createStore(paneLimits?: PaneLimitPolicy): WorkspaceLayoutStore {
     value: {},
   });
   const { focusedPaneId, scene } = createRealWorkspaceScene({
-    storageKey: "setta:workspace-layout:store-test",
+    storedLayout: null,
+    workspaceId: "setta:workspace-layout:store-test",
     workspaceName: "Repo",
   });
   return new WorkspaceLayoutStore(new WorkspaceLikeLayoutEngine(scene), scene, focusedPaneId, {

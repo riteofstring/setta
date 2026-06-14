@@ -48,6 +48,31 @@ describe("chat store workspace conversation selection", () => {
     expect(useChatStore.getState().error).toBeNull();
     expect(useChatStore.getState().status).toBe("ready");
   });
+
+  test("resync ignores stale selected conversations from another workspace", async () => {
+    const apiConversation = conversation("conversation_api", "workspace_api");
+    const webConversation = conversation("conversation_web", "workspace_web");
+    const listConversations = vi
+      .fn()
+      .mockResolvedValue(listResponse([conversationItem(apiConversation)]));
+    const messagePage = vi.fn().mockResolvedValue(messagePageResponse(apiConversation));
+    const setSelectedConversation = vi.fn(async (workspaceId: string, conversationId: string) => ({
+      selectedConversationIdsByWorkspaceId: { [workspaceId]: conversationId },
+    }));
+    installChatAPI({ listConversations, messagePage, setSelectedConversation });
+    useChatStore.setState({
+      selectedConversation: webConversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().resyncActiveConversation();
+
+    expect(listConversations).toHaveBeenCalledWith("workspace_api");
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
+    expect(messagePage).not.toHaveBeenCalledWith("workspace_api", "conversation_web", 0, 40);
+    expect(useChatStore.getState().selectedConversation?.id).toBe("conversation_api");
+  });
 });
 
 function installChatAPI({

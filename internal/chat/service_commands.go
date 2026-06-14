@@ -41,6 +41,24 @@ func (service *Service) ListCommands(workspaceID string, conversationID string) 
 	return ChatCommandListResult{Commands: result.Commands}, nil
 }
 
+func (service *Service) ListCodexModelOptions(workspaceID string) ([]ChatModelOption, error) {
+	workspaceSummary, err := service.resolveWorkspaceForRequest(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	catalog, err := service.modelCatalog()
+	if err != nil {
+		return nil, err
+	}
+	result, err := catalog.ListModelOptions(context.Background(), HarnessModelCatalogRequest{
+		Workspace: workspaceSummary,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return nonNilModels(result.Models), nil
+}
+
 type ChatCommandExecutionOptions struct {
 	ConfirmGoalReplacement bool
 }
@@ -206,6 +224,14 @@ func (service *Service) commandExecutor() (HarnessCommandExecutor, error) {
 		return nil, commandError(ChatCommandErrorUnsupportedHarness, "selected harness does not support chat commands", nil)
 	}
 	return executor, nil
+}
+
+func (service *Service) modelCatalog() (HarnessModelCatalog, error) {
+	catalog, ok := service.harness.(HarnessModelCatalog)
+	if !ok {
+		return nil, commandError(ChatCommandErrorUnsupportedHarness, "selected harness does not support Codex model catalog", nil)
+	}
+	return catalog, nil
 }
 
 func (service *Service) commandConversationStateLocked(workspaceID string, conversationID string) (Conversation, *Run, error) {

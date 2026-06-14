@@ -10,9 +10,9 @@ func (store *Store) conversationDirDisappearedDuringScan(workspaceID string, con
 		return false, nil
 	}
 	dir := store.conversationDir(workspaceID, conversationID)
-	_, err := os.Stat(dir)
+	info, err := os.Stat(dir)
 	if err == nil {
-		return false, nil
+		return !info.IsDir(), nil
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		return true, nil

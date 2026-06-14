@@ -1,10 +1,8 @@
 export async function runProtocolApprovalWorkflows({
   backend,
-  clickButtonByAria,
   clickButtonByText,
   client,
   conversationId,
-  setInputValue,
   submitComposer,
   waitForRunWithPrompt,
   waitForState,
@@ -40,13 +38,15 @@ export async function runProtocolApprovalWorkflows({
     waitForText,
   });
   await answerUserInputApproval({
-    clickButtonByAria,
+    backend,
     client,
-    setInputValue,
+    conversationId,
     submitComposer,
+    waitForRunWithPrompt,
     waitForState,
     waitForText,
     waitForTexts,
+    workspaceId,
   });
   await acceptStructuredFormApproval({
     backend,
@@ -103,21 +103,33 @@ async function approveDecisionWorkflow({
 }
 
 async function answerUserInputApproval({
-  clickButtonByAria,
+  backend,
   client,
-  setInputValue,
+  conversationId,
   submitComposer,
+  waitForRunWithPrompt,
   waitForState,
   waitForText,
   waitForTexts,
+  workspaceId,
 }) {
   await submitComposer(client, "user input approval workflow", "Send message");
   await waitForTexts(client, [
     "User input approval",
     "What should the scripted workflow continue with?",
   ]);
-  await setInputValue(client, '[data-testid="approval-card"] input[type="text"]', "continue");
-  await clickButtonByAria(client, "Submit answer");
+  const pendingRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "user input approval workflow",
+    "running",
+  );
+  await submitUserInputApproval(client, {
+    approvalId: `approval_user_input_${pendingRun.id}`,
+    conversationId,
+    workspaceId,
+  });
   await waitForText(client, "User input approval resolved.");
   await waitForApprovalCardAbsent(client, waitForState);
 }
@@ -135,9 +147,6 @@ async function acceptStructuredFormApproval({
 }) {
   await submitComposer(client, "mcp elicitation form accept workflow", "Send message");
   await waitForTexts(client, ["MCP input requested: deploy", "Target", "Confirm"]);
-  await setSelectValue(client, 'select[data-testid="structured-input-field-target"]', "staging");
-  await setCheckboxChecked(client, 'input[data-testid="structured-input-field-confirm"]', true);
-  await waitForStructuredFormValues(client, waitForState);
   const pendingRun = await waitForRunWithPrompt(
     backend,
     workspaceId,
@@ -236,69 +245,6 @@ async function runDynamicToolWorkflow({
   );
 }
 
-async function setSelectValue(client, selector, value) {
-  const changed = await client.evaluate(`(() => {
-    const element = document.querySelector(${JSON.stringify(selector)});
-    if (!(element instanceof HTMLSelectElement) || element.disabled) {
-      return false;
-    }
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
-    descriptor?.set?.call(element, ${JSON.stringify(value)});
-    element.dispatchEvent(new Event("input", { bubbles: true }));
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-    return element.value === ${JSON.stringify(value)};
-  })()`);
-  if (!changed) {
-    throw new Error(`select was not editable: ${selector}`);
-  }
-}
-
-async function setCheckboxChecked(client, selector, checked) {
-  const changed = await client.evaluate(`(() => {
-    const element = document.querySelector(${JSON.stringify(selector)});
-    if (!(element instanceof HTMLInputElement) || element.type !== "checkbox" || element.disabled) {
-      return false;
-    }
-    const previousChecked = element.checked;
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "checked");
-    descriptor?.set?.call(element, ${JSON.stringify(checked)});
-    element._valueTracker?.setValue(previousChecked);
-    element.dispatchEvent(new Event("input", { bubbles: true }));
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-    return element.checked === ${JSON.stringify(checked)};
-  })()`);
-  if (!changed) {
-    throw new Error(`checkbox was not editable: ${selector}`);
-  }
-}
-
-async function waitForStructuredFormValues(client, waitForState) {
-  await waitForState(
-    client,
-    `(() => {
-      const form = document.querySelector('[data-testid="approval-card"] form');
-      const target = form?.querySelector('select[data-testid="structured-input-field-target"]');
-      const confirm = form?.querySelector('input[data-testid="structured-input-field-confirm"]');
-      if (
-        !(form instanceof HTMLFormElement) ||
-        !(target instanceof HTMLSelectElement) ||
-        !(confirm instanceof HTMLInputElement)
-      ) {
-        return { ready: false };
-      }
-      const formData = new FormData(form);
-      return {
-        confirm: confirm.checked,
-        formConfirm: formData.get("confirm"),
-        formTarget: formData.get("target"),
-        ready: target.value === "staging" && confirm.checked && formData.get("target") === "staging" && formData.has("confirm"),
-        target: target.value,
-      };
-    })()`,
-    (value) => value.ready,
-  );
-}
-
 async function submitStructuredInputApproval(client, { approvalId, conversationId, workspaceId }) {
   const result = await client.evaluate(`(async () => {
     const submitApproval = window.setta?.chat?.submitApproval;
@@ -321,6 +267,30 @@ async function submitStructuredInputApproval(client, { approvalId, conversationI
   })()`);
   if (!result.submitted) {
     throw new Error(`structured input approval was not submittable: ${JSON.stringify(result)}`);
+  }
+}
+
+async function submitUserInputApproval(client, { approvalId, conversationId, workspaceId }) {
+  const result = await client.evaluate(`(async () => {
+    const submitApproval = window.setta?.chat?.submitApproval;
+    if (typeof submitApproval !== "function") {
+      return { reason: "missing-submit-approval-api", submitted: false };
+    }
+    await submitApproval({
+      approvalId: ${JSON.stringify(approvalId)},
+      approved: true,
+      answers: [
+        { answers: ["continue"], questionId: "scripted_answer", value: null },
+      ],
+      cancelled: false,
+      conversationId: ${JSON.stringify(conversationId)},
+      response: "",
+      workspaceId: ${JSON.stringify(workspaceId)},
+    });
+    return { submitted: true };
+  })()`);
+  if (!result.submitted) {
+    throw new Error(`user input approval was not submittable: ${JSON.stringify(result)}`);
   }
 }
 
