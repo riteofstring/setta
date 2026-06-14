@@ -204,6 +204,15 @@ next measured bottleneck.
 
 Stop treating labels and glow as whole-graph camera work.
 
+Readiness gate: Phase 2 is ready to implement. The Phase 1 before/after report
+shows that camera movement work is coalesced and cheaper, but settled fidelity
+restore still performs whole-graph label work. At 5,000 nodes, the settled
+restore averages 68.83 ms and `label-all-sync` remains the dominant measured
+sub-bucket. Phase 2 should use
+`docs/reports/performance/workspace-graph-semantic-liveness-phase-1-camera-coalescing.md`
+as the before state, then append a before/after report under
+`docs/reports/performance/`.
+
 ### Labels
 
 - Maintain a visible-label set with padded viewport hysteresis.
@@ -400,8 +409,8 @@ Because this touches workflow, cartographer, event streaming, generated contract
 
 1. Complete: add diagnostic recording and debug timing.
 2. Complete: run the new recording against current code and save the baseline performance report.
-3. Next: refactor camera interaction work to be frame-coalesced.
-4. Make labels/glow/filter sync visibility-aware.
+3. Complete: refactor camera interaction work to be frame-coalesced.
+4. Next: make labels/glow/filter sync visibility-aware.
 5. Add visible object pooling and edge LOD if the measured bottleneck remains display-object scale.
 6. Add the semantic working-set contract and renderer projection.
 7. Add deterministic activity/change pulses.
