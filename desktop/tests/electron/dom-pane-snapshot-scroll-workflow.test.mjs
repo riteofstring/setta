@@ -90,11 +90,18 @@ try {
       value.hostSurfaceKind === "snapshot" &&
       value.hostRuntimeState === "snapshot" &&
       overviewSnapshotPreservesScroll(value, liveScroller.scrollTop) &&
+      overviewSnapshotSourceSizeReady(value) &&
       value.settingsPlaceholderFound,
     workflowTimeoutMs,
   );
   await delay(400);
   await captureScreenshot(context.client, join(artifactDir, "overview.png"));
+  const sidebarSnapshots = await toggleProjectSidebarInOverview(
+    context.client,
+    liveScroller.paneId,
+    overviewSnapshot,
+  );
+  await captureScreenshot(context.client, join(artifactDir, "overview-after-sidebar-toggle.png"));
 
   await clickExitOverview(context.client);
   const restoreSamples = await sampleLiveScrollerAfterExit(context.client, liveScroller.paneId);
@@ -106,6 +113,7 @@ try {
     liveScroller,
     overviewSnapshot,
     restoreSamples,
+    sidebarSnapshots,
     status: "passed",
     viewport,
     workspaceName: basename(fixture.workspaceRoot),
@@ -175,6 +183,45 @@ async function clickExitOverview(client) {
   await clickOverviewButton(client, "Exit overview");
 }
 
+async function toggleProjectSidebarInOverview(client, paneId, baselineSnapshot) {
+  const afterFirstToggle = await toggleProjectSidebarAndWaitForStableSnapshot(
+    client,
+    paneId,
+    baselineSnapshot,
+  );
+  const afterSecondToggle = await toggleProjectSidebarAndWaitForStableSnapshot(
+    client,
+    paneId,
+    baselineSnapshot,
+  );
+  return { afterFirstToggle, afterSecondToggle };
+}
+
+async function toggleProjectSidebarAndWaitForStableSnapshot(client, paneId, baselineSnapshot) {
+  const clicked = await client.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="project-sidebar-toggle"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-project-sidebar-toggle" };
+    }
+    const label = button.getAttribute("aria-label") ?? "";
+    button.click();
+    return { label, ok: true };
+  })()`);
+  if (!clicked.ok) {
+    throw new Error(`project sidebar toggle failed: ${JSON.stringify(clicked)}`);
+  }
+  return waitForState(
+    client,
+    overviewSnapshotExpression(paneId),
+    (value) =>
+      value.chatHostFound &&
+      value.hostSurfaceKind === "snapshot" &&
+      value.hostRuntimeState === "snapshot" &&
+      overviewSnapshotSourceSizeStable(value, baselineSnapshot),
+    workflowTimeoutMs,
+  );
+}
+
 async function clickOverviewButton(client, label) {
   const clicked = await client.evaluate(`(() => {
     const button = Array.from(document.querySelectorAll('button')).find((candidate) =>
@@ -225,6 +272,9 @@ function overviewSnapshotExpression(paneId) {
     const scroller = chatHost?.querySelector('[data-testid="chat-transcript-scroller"]');
     const bitmapTexture = chatHost?.querySelector('.workspace-snapshot-bitmap-texture');
     const bitmapImage = bitmapTexture?.querySelector('.workspace-snapshot-bitmap');
+    const snapshotContent = chatHost?.querySelector('.workspace-snapshot-surface');
+    const texture = snapshotContent?.querySelector('.workspace-snapshot-texture');
+    const source = texture?.firstElementChild;
     const settingsHost = hosts.find((host) =>
       host.querySelector('[data-testid="workspace-settings-dom-surface"]')
     );
@@ -245,8 +295,31 @@ function overviewSnapshotExpression(paneId) {
       scrollHeight: scroller instanceof HTMLElement ? scroller.scrollHeight : -1,
       scrollTop: scroller instanceof HTMLElement ? scroller.scrollTop : -1,
       settingsPlaceholderFound: Boolean(settingsPlaceholder),
+      sourceClassName: source instanceof HTMLElement ? source.className : "",
+      sourceHeight: snapshotSourceHeight(source),
+      sourceWidth: snapshotSourceWidth(source),
       text: chatHost?.textContent?.slice(0, 500) ?? "",
     };
+
+    function snapshotSourceHeight(source) {
+      if (source instanceof HTMLImageElement) {
+        return source.naturalHeight || source.height;
+      }
+      if (source instanceof HTMLElement) {
+        return Number(source.dataset.snapshotHeight || source.getBoundingClientRect().height);
+      }
+      return -1;
+    }
+
+    function snapshotSourceWidth(source) {
+      if (source instanceof HTMLImageElement) {
+        return source.naturalWidth || source.width;
+      }
+      if (source instanceof HTMLElement) {
+        return Number(source.dataset.snapshotWidth || source.getBoundingClientRect().width);
+      }
+      return -1;
+    }
   })()`;
 }
 
@@ -259,6 +332,18 @@ function overviewSnapshotPreservesScroll(snapshot, expectedScrollTop) {
   }
   return (
     snapshot.bitmapFound && snapshot.bitmapCaptureKey.includes(`${Math.round(expectedScrollTop)},`)
+  );
+}
+
+function overviewSnapshotSourceSizeReady(snapshot) {
+  return snapshot.sourceHeight > 1 && snapshot.sourceWidth > 1;
+}
+
+function overviewSnapshotSourceSizeStable(snapshot, baselineSnapshot) {
+  return (
+    overviewSnapshotSourceSizeReady(snapshot) &&
+    Math.abs(snapshot.sourceHeight - baselineSnapshot.sourceHeight) <= 2 &&
+    Math.abs(snapshot.sourceWidth - baselineSnapshot.sourceWidth) <= 2
   );
 }
 

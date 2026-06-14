@@ -247,7 +247,7 @@ function ConversationStatusIndicator({
         />
       ) : running ? (
         <AsciiSpinner
-          className="w-[18px] text-[7px] text-muted-foreground"
+          className="w-[18px] text-[7px] text-accent-violet"
           label="Chat response running"
         />
       ) : unread ? (

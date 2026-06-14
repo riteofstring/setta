@@ -1,4 +1,5 @@
 import type {
+  AppearanceAccentPalette,
   AppearanceColorScheme,
   AppearancePreset,
   AppearanceSettings,
@@ -20,6 +21,7 @@ describe("appearance settings", () => {
     expect(html).toContain('role="tablist"');
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain("Theme");
+    expect(html).toContain("Shortcuts");
     expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");
     expect(html).toContain('role="tabpanel"');
@@ -157,7 +159,10 @@ function sampleAppearanceSettings(): AppearanceSettings {
     },
     light: sampleColorScheme(tailwind, 100),
     mode: "dark",
-    schemaVersion: 2,
+    schemaVersion: 3,
+    shortcuts: {
+      workspaceNavigation: "mod_alt_arrows",
+    },
   };
 }
 
@@ -189,6 +194,7 @@ function sampleColorScheme(
   offset: number,
 ): AppearanceColorScheme {
   return {
+    accent: sampleAccentPalette(offset + 60),
     shadcn: sampleShadcnPalette(offset),
     status: sampleStatusPalette(offset + 40),
     tailwind,
@@ -258,6 +264,19 @@ function sampleStatusPalette(offset: number): AppearanceStatusPalette {
     successForeground: color(offset + 3),
     warning: color(offset + 4),
     warningForeground: color(offset + 5),
+  };
+}
+
+function sampleAccentPalette(offset: number): AppearanceAccentPalette {
+  return {
+    amber: color(offset + 5),
+    blue: color(offset + 1),
+    cyan: color(offset),
+    green: color(offset + 6),
+    magenta: color(offset + 3),
+    red: color(offset + 4),
+    teal: color(offset + 7),
+    violet: color(offset + 2),
   };
 }
 

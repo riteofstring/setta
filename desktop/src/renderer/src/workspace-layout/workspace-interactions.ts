@@ -1,4 +1,5 @@
 import type { WorkspaceBrowserViewKeyEvent } from "@shared/types";
+import type { AppearanceShortcutsSettings } from "@generated/backend";
 
 import type { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceRuntime } from "./workspace-runtime";
@@ -12,6 +13,12 @@ import {
   wheelTargetIsAppTitleBar,
 } from "./trackpad-navigation";
 import type { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
+import {
+  isTerminalSafeWorkspaceArrowNavigationShortcut,
+  isWorkspaceArrowNavigationShortcut,
+  workspaceShortcutModifierMatches,
+  workspaceArrowDirection,
+} from "./workspace-shortcuts";
 import type { Rect } from "./types";
 
 type PaneChromeAction = "add-above" | "add-below" | "close" | "maximize" | "split-down";
@@ -239,6 +246,7 @@ export function handleWorkspaceKeyDown({
   runLayoutAction,
   runtime,
   scheduler,
+  shortcuts,
   viewportProvider,
 }: {
   event: KeyboardEvent;
@@ -246,9 +254,13 @@ export function handleWorkspaceKeyDown({
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
+  shortcuts?: AppearanceShortcutsSettings;
   viewportProvider: () => Rect;
 }): void {
-  if (eventTargetsTerminalSurface(event)) {
+  if (
+    eventTargetsTerminalSurface(event) &&
+    !isTerminalSafeWorkspaceArrowNavigationShortcut(event, shortcuts)
+  ) {
     return;
   }
   handleWorkspaceKeyAction({
@@ -257,12 +269,14 @@ export function handleWorkspaceKeyDown({
     runLayoutAction,
     runtime,
     scheduler,
+    shortcuts,
     viewportProvider,
   });
 }
 
 interface WorkspaceKeyEvent {
   altKey: boolean;
+  ctrlKey?: boolean;
   key: string;
   metaKey: boolean;
   preventDefault(): void;
@@ -275,6 +289,7 @@ export function handleForwardedBrowserViewKey({
   runLayoutAction,
   runtime,
   scheduler,
+  shortcuts,
   viewportProvider,
 }: {
   event: WorkspaceBrowserViewKeyEvent;
@@ -282,11 +297,13 @@ export function handleForwardedBrowserViewKey({
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
+  shortcuts?: AppearanceShortcutsSettings;
   viewportProvider: () => Rect;
 }): void {
   handleWorkspaceKeyAction({
     event: {
       altKey: event.altKey,
+      ctrlKey: event.ctrlKey,
       key: event.key,
       metaKey: event.metaKey,
       preventDefault() {},
@@ -296,6 +313,7 @@ export function handleForwardedBrowserViewKey({
     runLayoutAction,
     runtime,
     scheduler,
+    shortcuts,
     viewportProvider,
   });
 }
@@ -306,6 +324,7 @@ function handleWorkspaceKeyAction({
   runLayoutAction,
   runtime,
   scheduler,
+  shortcuts,
   viewportProvider,
 }: {
   event: WorkspaceKeyEvent;
@@ -313,27 +332,23 @@ function handleWorkspaceKeyAction({
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
+  shortcuts?: AppearanceShortcutsSettings;
   viewportProvider: () => Rect;
 }): void {
-  if (event.metaKey && event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
-    event.preventDefault();
-    scheduler.pauseBenchmark();
-    runLayoutAction(() =>
-      runtime.store.splitFocusedPaneToPlane(event.key === "ArrowUp" ? "up" : "down"),
-    );
+  if (!isArrowKey(event.key)) {
+    handleWorkspaceCommandKey({ event, runLayoutAction, runtime, shortcuts });
     return;
   }
-  if (!isArrowKey(event.key)) {
-    handleWorkspaceCommandKey({ event, runLayoutAction, runtime });
+  if (!isWorkspaceArrowNavigationShortcut(event, shortcuts)) {
     return;
   }
   event.preventDefault();
   scheduler.pauseBenchmark();
   if (event.shiftKey) {
-    runLayoutAction(() => runtime.store.moveFocusedPane(arrowDirection(event.key)));
+    runLayoutAction(() => runtime.store.moveFocusedPane(workspaceArrowDirection(event.key)));
     return;
   }
-  runtime.store.moveFocus(arrowDirection(event.key), viewportProvider());
+  runtime.store.moveFocus(workspaceArrowDirection(event.key), viewportProvider());
   persistLayout();
 }
 
@@ -341,20 +356,23 @@ function handleWorkspaceCommandKey({
   event,
   runLayoutAction,
   runtime,
+  shortcuts,
 }: {
   event: WorkspaceKeyEvent;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
+  shortcuts?: AppearanceShortcutsSettings;
 }): void {
   const handlers = [
     handleNewEmptyFrameCommand,
+    handleSplitFocusedPaneToPlaneCommand,
     handleSplitFocusedPaneCommand,
     handleOpenPaneShortcutCommand,
     handleToggleOverviewCommand,
     handleCloseFocusedPaneCommand,
   ];
   for (const handler of handlers) {
-    if (handler({ event, runLayoutAction, runtime })) {
+    if (handler({ event, runLayoutAction, runtime, shortcuts })) {
       return;
     }
   }
@@ -364,6 +382,7 @@ type WorkspaceCommandHandler = (context: {
   event: WorkspaceKeyEvent;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
+  shortcuts?: AppearanceShortcutsSettings;
 }) => boolean;
 
 const handleNewEmptyFrameCommand: WorkspaceCommandHandler = ({
@@ -384,11 +403,25 @@ const handleSplitFocusedPaneCommand: WorkspaceCommandHandler = ({
   runLayoutAction,
   runtime,
 }) => {
-  if (!event.metaKey || event.key !== "Enter") {
+  if (!event.metaKey || event.altKey || event.key !== "Enter") {
     return false;
   }
   event.preventDefault();
   runLayoutAction(() => runtime.store.splitFocusedPane(event.shiftKey ? "down" : "right"));
+  return true;
+};
+
+const handleSplitFocusedPaneToPlaneCommand: WorkspaceCommandHandler = ({
+  event,
+  runLayoutAction,
+  runtime,
+  shortcuts,
+}) => {
+  if (event.key !== "Enter" || !workspaceShortcutModifierMatches(event, shortcuts)) {
+    return false;
+  }
+  event.preventDefault();
+  runLayoutAction(() => runtime.store.splitFocusedPaneToPlane(event.shiftKey ? "up" : "down"));
   return true;
 };
 
@@ -541,19 +574,4 @@ export function handleWorkspaceWheel({
 
 function isArrowKey(key: string): key is "ArrowDown" | "ArrowLeft" | "ArrowRight" | "ArrowUp" {
   return key === "ArrowDown" || key === "ArrowLeft" || key === "ArrowRight" || key === "ArrowUp";
-}
-
-function arrowDirection(key: string): "up" | "down" | "left" | "right" {
-  switch (key) {
-    case "ArrowDown":
-      return "down";
-    case "ArrowLeft":
-      return "left";
-    case "ArrowRight":
-      return "right";
-    case "ArrowUp":
-      return "up";
-    default:
-      throw new Error(`unsupported workspace focus key: ${key}`);
-  }
 }

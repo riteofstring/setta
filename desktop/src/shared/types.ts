@@ -156,6 +156,7 @@ export type WorkspaceBrowserViewKey =
 
 export interface WorkspaceBrowserViewKeyEvent {
   altKey: boolean;
+  ctrlKey: boolean;
   key: WorkspaceBrowserViewKey;
   metaKey: boolean;
   shiftKey: boolean;

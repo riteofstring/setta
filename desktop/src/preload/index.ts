@@ -363,6 +363,7 @@ function decodeWorkspaceBrowserViewKeyEvent(value: unknown): WorkspaceBrowserVie
   }
   return {
     altKey: booleanField(record, "altKey", "WorkspaceBrowserViewKeyEvent"),
+    ctrlKey: booleanField(record, "ctrlKey", "WorkspaceBrowserViewKeyEvent"),
     key,
     metaKey: booleanField(record, "metaKey", "WorkspaceBrowserViewKeyEvent"),
     shiftKey: booleanField(record, "shiftKey", "WorkspaceBrowserViewKeyEvent"),

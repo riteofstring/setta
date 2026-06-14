@@ -44,6 +44,10 @@ import { renderXtermContent, type TerminalPasteElements } from "./terminal-surfa
 import { TerminalSearchController } from "./terminal-surface-search";
 import { mountXtermTerminal, type TerminalDisposable } from "./terminal-surface-xterm";
 import { assertNever, emptyTerminalStats, performanceNow } from "./terminal-surface-utils";
+import {
+  isWorkspaceArrowNavigationShortcut,
+  workspaceShortcutKeyboardEventInit,
+} from "./workspace-shortcuts";
 import type {
   FreezeReason,
   WorkspacePane,
@@ -542,6 +546,11 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
     if (event.type !== "keydown") {
       return true;
     }
+    if (isWorkspaceArrowNavigationShortcut(event)) {
+      event.preventDefault();
+      this.dispatchWorkspaceShortcut(event);
+      return false;
+    }
     if (isTerminalCopyShortcut(event)) {
       event.preventDefault();
       void this.copySelectionToClipboard();
@@ -558,6 +567,10 @@ export class TerminalSurfaceAdapter implements SurfaceAdapter {
       return false;
     }
     return true;
+  }
+
+  private dispatchWorkspaceShortcut(event: KeyboardEvent): void {
+    window.dispatchEvent(new KeyboardEvent("keydown", workspaceShortcutKeyboardEventInit(event)));
   }
 
   private handleCopyEvent(event: ClipboardEvent): void {

@@ -32,6 +32,22 @@ export function decodeAppearanceColorMode(value: unknown, label = "AppearanceCol
   }
 }
 
+export type AppearanceWorkspaceNavigationShortcut = "mod_alt_arrows" | "ctrl_alt_arrows";
+
+export const appearanceWorkspaceNavigationShortcutValues = ["mod_alt_arrows", "ctrl_alt_arrows"] as const satisfies readonly AppearanceWorkspaceNavigationShortcut[];
+
+export function decodeAppearanceWorkspaceNavigationShortcut(value: unknown, label = "AppearanceWorkspaceNavigationShortcut"): AppearanceWorkspaceNavigationShortcut {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "mod_alt_arrows":
+      return decoded;
+    case "ctrl_alt_arrows":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type AppearancePresetID = "setta_standard" | "tailwind_slate" | "tailwind_gray" | "tailwind_zinc" | "tailwind_neutral" | "tailwind_stone" | "tailwind_red" | "tailwind_orange" | "tailwind_amber" | "tailwind_yellow" | "tailwind_lime" | "tailwind_green" | "tailwind_emerald" | "tailwind_teal" | "tailwind_cyan" | "tailwind_sky" | "tailwind_blue" | "tailwind_indigo" | "tailwind_violet" | "tailwind_purple" | "tailwind_fuchsia" | "tailwind_pink" | "tailwind_rose" | "shadcn_mauve" | "shadcn_olive" | "shadcn_mist" | "shadcn_taupe";
 
 export const appearancePresetIDValues = ["setta_standard", "tailwind_slate", "tailwind_gray", "tailwind_zinc", "tailwind_neutral", "tailwind_stone", "tailwind_red", "tailwind_orange", "tailwind_amber", "tailwind_yellow", "tailwind_lime", "tailwind_green", "tailwind_emerald", "tailwind_teal", "tailwind_cyan", "tailwind_sky", "tailwind_blue", "tailwind_indigo", "tailwind_violet", "tailwind_purple", "tailwind_fuchsia", "tailwind_pink", "tailwind_rose", "shadcn_mauve", "shadcn_olive", "shadcn_mist", "shadcn_taupe"] as const satisfies readonly AppearancePresetID[];
@@ -1440,10 +1456,22 @@ export interface AppearanceStatusPalette {
   criticalForeground: string;
 }
 
+export interface AppearanceAccentPalette {
+  cyan: string;
+  blue: string;
+  violet: string;
+  magenta: string;
+  red: string;
+  amber: string;
+  green: string;
+  teal: string;
+}
+
 export interface AppearanceColorScheme {
   tailwind: AppearanceTailwindPalette;
   shadcn: AppearanceShadcnPalette;
   status: AppearanceStatusPalette;
+  accent: AppearanceAccentPalette;
 }
 
 export interface AppearanceFontScheme {
@@ -1459,6 +1487,10 @@ export interface AppearanceDeveloperSettings {
   showPerformanceStats: boolean;
 }
 
+export interface AppearanceShortcutsSettings {
+  workspaceNavigation: AppearanceWorkspaceNavigationShortcut;
+}
+
 export interface AppearanceSettings {
   schemaVersion: number;
   mode: AppearanceColorMode;
@@ -1466,6 +1498,7 @@ export interface AppearanceSettings {
   dark: AppearanceColorScheme;
   fonts: AppearanceFontScheme;
   developer: AppearanceDeveloperSettings;
+  shortcuts: AppearanceShortcutsSettings;
 }
 
 export interface AppearancePreset {
@@ -3313,13 +3346,29 @@ export function decodeAppearanceStatusPalette(value: unknown): AppearanceStatusP
   };
 }
 
+export function decodeAppearanceAccentPalette(value: unknown): AppearanceAccentPalette {
+  const record = assertRecord(value, "AppearanceAccentPalette");
+  assertKnownFields(record, "AppearanceAccentPalette", ["cyan", "blue", "violet", "magenta", "red", "amber", "green", "teal"]);
+  return {
+    cyan: decodeString(requireField(record, "cyan", "AppearanceAccentPalette"), "AppearanceAccentPalette.cyan"),
+    blue: decodeString(requireField(record, "blue", "AppearanceAccentPalette"), "AppearanceAccentPalette.blue"),
+    violet: decodeString(requireField(record, "violet", "AppearanceAccentPalette"), "AppearanceAccentPalette.violet"),
+    magenta: decodeString(requireField(record, "magenta", "AppearanceAccentPalette"), "AppearanceAccentPalette.magenta"),
+    red: decodeString(requireField(record, "red", "AppearanceAccentPalette"), "AppearanceAccentPalette.red"),
+    amber: decodeString(requireField(record, "amber", "AppearanceAccentPalette"), "AppearanceAccentPalette.amber"),
+    green: decodeString(requireField(record, "green", "AppearanceAccentPalette"), "AppearanceAccentPalette.green"),
+    teal: decodeString(requireField(record, "teal", "AppearanceAccentPalette"), "AppearanceAccentPalette.teal"),
+  };
+}
+
 export function decodeAppearanceColorScheme(value: unknown): AppearanceColorScheme {
   const record = assertRecord(value, "AppearanceColorScheme");
-  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status"]);
+  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status", "accent"]);
   return {
     tailwind: decodeAppearanceTailwindPalette(requireField(record, "tailwind", "AppearanceColorScheme")),
     shadcn: decodeAppearanceShadcnPalette(requireField(record, "shadcn", "AppearanceColorScheme")),
     status: decodeAppearanceStatusPalette(requireField(record, "status", "AppearanceColorScheme")),
+    accent: decodeAppearanceAccentPalette(requireField(record, "accent", "AppearanceColorScheme")),
   };
 }
 
@@ -3344,9 +3393,17 @@ export function decodeAppearanceDeveloperSettings(value: unknown): AppearanceDev
   };
 }
 
+export function decodeAppearanceShortcutsSettings(value: unknown): AppearanceShortcutsSettings {
+  const record = assertRecord(value, "AppearanceShortcutsSettings");
+  assertKnownFields(record, "AppearanceShortcutsSettings", ["workspaceNavigation"]);
+  return {
+    workspaceNavigation: decodeAppearanceWorkspaceNavigationShortcut(requireField(record, "workspaceNavigation", "AppearanceShortcutsSettings"), "AppearanceShortcutsSettings.workspaceNavigation"),
+  };
+}
+
 export function decodeAppearanceSettings(value: unknown): AppearanceSettings {
   const record = assertRecord(value, "AppearanceSettings");
-  assertKnownFields(record, "AppearanceSettings", ["schemaVersion", "mode", "light", "dark", "fonts", "developer"]);
+  assertKnownFields(record, "AppearanceSettings", ["schemaVersion", "mode", "light", "dark", "fonts", "developer", "shortcuts"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "AppearanceSettings"), "AppearanceSettings.schemaVersion"),
     mode: decodeAppearanceColorMode(requireField(record, "mode", "AppearanceSettings"), "AppearanceSettings.mode"),
@@ -3354,6 +3411,7 @@ export function decodeAppearanceSettings(value: unknown): AppearanceSettings {
     dark: decodeAppearanceColorScheme(requireField(record, "dark", "AppearanceSettings")),
     fonts: decodeAppearanceFontScheme(requireField(record, "fonts", "AppearanceSettings")),
     developer: decodeAppearanceDeveloperSettings(requireField(record, "developer", "AppearanceSettings")),
+    shortcuts: decodeAppearanceShortcutsSettings(requireField(record, "shortcuts", "AppearanceSettings")),
   };
 }
 

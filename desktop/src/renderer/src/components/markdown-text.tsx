@@ -97,7 +97,7 @@ function renderInlineMarkdown(text: string) {
     if (token.startsWith("`")) {
       nodes.push(
         <code
-          className="rounded bg-secondary px-1 py-0.5 text-[0.85em] break-words text-secondary-foreground [overflow-wrap:anywhere]"
+          className="rounded bg-secondary px-1 py-0.5 text-[0.85em] break-words text-accent-teal [overflow-wrap:anywhere]"
           key={index}
         >
           {token.slice(1, -1)}

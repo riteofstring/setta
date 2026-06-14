@@ -138,20 +138,20 @@ const assistantMessageContainerClass =
 const assistantMessageContainerClassByRole = {
   assistant: assistantMessageContainerClass,
   command:
-    "min-w-0 max-w-full overflow-hidden border-l border-emerald-500/40 pl-3 text-[13px] leading-5 break-words text-emerald-100",
+    "min-w-0 max-w-full overflow-hidden border-l border-accent-green/40 pl-3 text-[13px] leading-5 break-words text-foreground",
   developer: assistantMessageContainerClass,
   system: assistantMessageContainerClass,
-  tool: "min-w-0 max-w-full overflow-hidden rounded-r-sm border-l border-cyan-400/40 bg-cyan-950/20 px-3 py-2 font-mono text-[12px] leading-5 break-words text-cyan-50 [overflow-wrap:anywhere]",
+  tool: "min-w-0 max-w-full overflow-hidden rounded-r-sm border-l border-accent-cyan/40 bg-accent-cyan/10 px-3 py-2 font-mono text-[12px] leading-5 break-words text-foreground [overflow-wrap:anywhere]",
 } satisfies Record<Exclude<MessageRole, "user">, string>;
 
 const userMessageContainerClassByDelivery = {
-  goal: "max-w-full overflow-hidden rounded-sm border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-[13px] leading-5 break-words text-emerald-100",
+  goal: "max-w-full overflow-hidden rounded-sm border border-accent-green/40 bg-accent-green/10 px-3 py-2 text-[13px] leading-5 break-words text-foreground",
   normal:
     "max-w-full overflow-hidden rounded-sm bg-muted px-3 py-2 text-[13px] leading-5 break-words text-foreground",
   queued:
     "max-w-full overflow-hidden rounded-sm border border-dashed border-border bg-background px-3 py-2 text-[13px] leading-5 break-words text-muted-foreground",
   steering:
-    "max-w-full overflow-hidden rounded-sm border border-blue-400/40 bg-blue-950/30 px-3 py-2 text-[13px] leading-5 break-words text-blue-100",
+    "max-w-full overflow-hidden rounded-sm border border-accent-blue/40 bg-accent-blue/10 px-3 py-2 text-[13px] leading-5 break-words text-foreground",
 } satisfies Record<MessageDelivery, string>;
 
 export function transcriptVirtualItemKey(
@@ -712,7 +712,7 @@ const MessageRow = memo(function MessageRow({
 function messageRowClass(message: ChatMessage, activeSearchMatch: boolean) {
   return cn(
     messageRowClassByRole[message.role],
-    activeSearchMatch && "rounded-sm bg-blue-400/5 ring-1 ring-blue-400/50",
+    activeSearchMatch && "rounded-sm bg-accent-blue/5 ring-1 ring-accent-blue/50",
   );
 }
 

@@ -7,7 +7,7 @@ import (
 	"unicode"
 )
 
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 const (
 	accessibleBlack               = "oklch(0.0000 0.0000 0.00)"
@@ -71,12 +71,14 @@ type AppearanceSettings struct {
 	Dark          AppearanceColorScheme       `json:"dark"`
 	Fonts         AppearanceFontScheme        `json:"fonts"`
 	Developer     AppearanceDeveloperSettings `json:"developer"`
+	Shortcuts     AppearanceShortcutsSettings `json:"shortcuts"`
 }
 
 type AppearanceColorScheme struct {
 	Tailwind AppearanceTailwindPalette `json:"tailwind"`
 	Shadcn   AppearanceShadcnPalette   `json:"shadcn"`
 	Status   AppearanceStatusPalette   `json:"status"`
+	Accent   AppearanceAccentPalette   `json:"accent"`
 }
 
 type AppearanceTailwindPalette struct {
@@ -145,13 +147,6 @@ type AppearanceFontScheme struct {
 	Heading string `json:"heading"`
 }
 
-type AppearanceDeveloperSettings struct {
-	AllowResizedPanesToOverflowViewport bool `json:"allowResizedPanesToOverflowViewport"`
-	OverviewCardMaxWidthPx              int  `json:"overviewCardMaxWidthPx"`
-	OverviewCardMinWidthPx              int  `json:"overviewCardMinWidthPx"`
-	ShowPerformanceStats                bool `json:"showPerformanceStats"`
-}
-
 type AppearancePreset struct {
 	ID          AppearancePresetID `json:"id"`
 	Name        string             `json:"name"`
@@ -173,6 +168,7 @@ func ContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
 		{Name: "AppearanceColorMode", Values: stringValues(colorModeValues)},
 		{Name: "AppearancePresetID", Values: stringValues(presetIDValues)},
+		{Name: "AppearanceWorkspaceNavigationShortcut", Values: stringValues(workspaceNavigationShortcutValues)},
 	}
 }
 
@@ -193,6 +189,9 @@ func DefaultSettings() AppearanceSettings {
 			OverviewCardMaxWidthPx:              defaultOverviewCardMaxWidthPx,
 			OverviewCardMinWidthPx:              defaultOverviewCardMinWidthPx,
 			ShowPerformanceStats:                false,
+		},
+		Shortcuts: AppearanceShortcutsSettings{
+			WorkspaceNavigation: WorkspaceNavigationModAltArrows,
 		},
 	}
 }
@@ -258,7 +257,10 @@ func Validate(settings AppearanceSettings) error {
 	if err := validateFontScheme(settings.Fonts); err != nil {
 		return err
 	}
-	return validateDeveloperSettings(settings.Developer)
+	if err := validateDeveloperSettings(settings.Developer); err != nil {
+		return err
+	}
+	return validateShortcutsSettings(settings.Shortcuts)
 }
 
 func Normalize(settings AppearanceSettings) AppearanceSettings {
@@ -267,6 +269,9 @@ func Normalize(settings AppearanceSettings) AppearanceSettings {
 	}
 	if settings.Developer.OverviewCardMaxWidthPx == 0 {
 		settings.Developer.OverviewCardMaxWidthPx = defaultOverviewCardMaxWidthPx
+	}
+	if settings.Shortcuts.WorkspaceNavigation == "" {
+		settings.Shortcuts.WorkspaceNavigation = WorkspaceNavigationModAltArrows
 	}
 	return settings
 }
@@ -279,6 +284,9 @@ func validateColorScheme(label string, scheme AppearanceColorScheme) error {
 		return err
 	}
 	if err := validateStatusPalette(label+".status", scheme.Status); err != nil {
+		return err
+	}
+	if err := validateAccentPalette(label+".accent", scheme.Accent); err != nil {
 		return err
 	}
 	return validateColorContrast(label, scheme)
@@ -375,26 +383,6 @@ func validateFontScheme(fonts AppearanceFontScheme) error {
 		return err
 	}
 	return validateFontFamily("fonts.heading", fonts.Heading)
-}
-
-func validateDeveloperSettings(settings AppearanceDeveloperSettings) error {
-	if err := validateOverviewCardWidth("developer.overviewCardMinWidthPx", settings.OverviewCardMinWidthPx); err != nil {
-		return err
-	}
-	if err := validateOverviewCardWidth("developer.overviewCardMaxWidthPx", settings.OverviewCardMaxWidthPx); err != nil {
-		return err
-	}
-	if settings.OverviewCardMinWidthPx > settings.OverviewCardMaxWidthPx {
-		return fmt.Errorf("developer overview card min width %d exceeds max width %d", settings.OverviewCardMinWidthPx, settings.OverviewCardMaxWidthPx)
-	}
-	return nil
-}
-
-func validateOverviewCardWidth(label string, value int) error {
-	if value < minimumOverviewCardWidthPx || value > maximumOverviewCardWidthPx {
-		return fmt.Errorf("%s = %d, want %d-%d", label, value, minimumOverviewCardWidthPx, maximumOverviewCardWidthPx)
-	}
-	return nil
 }
 
 func validateFontFamily(label string, value string) error {

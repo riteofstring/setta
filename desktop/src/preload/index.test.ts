@@ -180,6 +180,7 @@ describe("preload workspace API", () => {
       {},
       {
         altKey: false,
+        ctrlKey: false,
         key: "ArrowRight",
         metaKey: false,
         shiftKey: false,
@@ -228,6 +229,7 @@ describe("preload workspace API", () => {
     expect(on).toHaveBeenCalledWith("workspace:browser-view-snapshot", expect.any(Function));
     expect(keyListener).toHaveBeenCalledWith({
       altKey: false,
+      ctrlKey: false,
       key: "ArrowRight",
       metaKey: false,
       shiftKey: false,
