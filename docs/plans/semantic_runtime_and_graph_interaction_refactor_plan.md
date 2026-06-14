@@ -861,18 +861,30 @@ Acceptance criteria:
 
 ### Phase 5 Implementation Review
 
-Phase 5 is implemented in the current worktree.
+Phase 5 is implemented by commit `b35f1ec60` (`Implement semantic runtime model audit`).
 
 Implemented:
 
-- Added Go-owned `SemanticRuntimeModelAudit`, regenerated TypeScript, and threaded bounded requested/effective/reported model, reasoning, duration, and error fields through runtime runs, aggregate workflow-source hints, the working-set bridge, and selected workflow-node details.
+- Added Go-owned `SemanticRuntimeModelAudit`, regenerated TypeScript, and
+  threaded compact requested/effective/reported model, reasoning, duration, and
+  error fields through runtime runs, aggregate workflow-source hints, the
+  working-set bridge, and selected workflow-node details.
 - Preserved workflow-first hierarchy: queued/running/pending-review/no-op/rejected/failed/applied lifecycle stays aggregated onto workflow nodes, pending previews remain provisional, and committed findings still require applied evidence-backed patches.
 - Kept fast liveness typed-event based. Workflow execution projection still drives active node styling, and cartographer queued/open/running/terminal records drive compact runtime status without waiting for model output or provider metadata.
 - Added focused backend and renderer tests for terminal no-op lifecycle visibility without source-pulse nodes and selected-node rendering of model audit metadata.
 
-Focused verification covered backend/runtime contracts, generated TypeScript, renderer projection/store/details tests, typecheck, and targeted ESLint.
+Focused verification passed during review:
 
-Phase 6 is ready. Keep Phase 5 model-audit fields bounded while adding explicit hot-path payload byte budgets, detail separation, and recording payload instrumentation.
+- `./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi`
+- `pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts src/renderer/src/features/workspace-graph/semantic-node-details-surface.test.tsx`
+- `pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/semantic-workflow-runtime-projection.ts src/renderer/src/features/workspace-graph/semantic-runtime-working-set.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.tsx src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/workflow-node-details-surface.test.ts`
+- `pnpm --dir desktop typecheck`
+
+Phase 6 is ready. The phase 5 model-audit fields are intentionally compact, but
+they are not yet governed by a measured hot-path byte budget or details-only
+contract. Phase 6 must measure snapshot/delta payload costs, add explicit
+budgets, and either enforce caps/truncation on audit strings or move richer
+audit detail behind an on-demand details/diagnostics surface.
 
 ## Phase 6 - Payload Budgets And Detail Separation
 
