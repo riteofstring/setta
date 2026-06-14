@@ -338,6 +338,23 @@ performance calibration is explicitly prioritized.
 
 Add a Go-owned, generated TypeScript contract for live semantic state.
 
+Readiness gate: Phase 4 is ready to implement. Phase 3 bounded visible
+materialization enough to stop performance work from blocking semantic
+liveness: the 5,000-node workflow scene now starts with 66 materialized node
+views and 813 total display objects instead of the Phase 2 60,021-object
+retained scene. The remaining 5,000-node interaction p95 is still high
+(`248.6 ms` workflow, `200.6 ms` semantic-cells), but the measured bottleneck is
+now large-scene renderer calibration rather than whole-graph label/glow/filter
+work or unbounded retained display objects.
+
+Phase 4 should use the existing semantic graph change stream, main/preload IPC
+forwarding, cartographer audit snapshots, and `semantic-live-run` workflow as
+the integration path. Because this phase adds Go-owned contract surface, it must
+regenerate generated TypeScript from the Go contract owner, avoid hand-edited
+generated files, and verify the production Electron/main/preload/renderer/HTTP
+paths. It should not add polling, heuristic live-state inference, legacy
+compatibility, migrations, or transitional dual-read/write paths.
+
 The committed graph remains `SemanticGraph`. Add a separate read/event surface, for example `SemanticWorkingSet`, that is owned by `internal/semanticgraph` and delivered over the existing push model.
 
 Candidate fields:
