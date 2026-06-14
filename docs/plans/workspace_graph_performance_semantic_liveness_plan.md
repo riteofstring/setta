@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Proposed
+- **Status:** In progress; Phase 0 instrumentation landed, baseline evidence pending
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -147,9 +147,26 @@ Add deterministic recording workflows using temporary app data:
 
 Manual recordings against `~/.setta` should remain useful for symptoms, but only temp-data deterministic recordings are accepted as verification evidence.
 
+### Phase 0 Implementation Review
+
+Commit `a7fc49f4a` added the core diagnostic surface: renderer timing buckets, p95 frame stats, display-object layer counts, pointer/wheel input samples, CDP traces, PerformanceObserver records, contact-sheet capture, and deterministic `workflow-graph-pan-zoom-*` and `semantic-live-run` workflow registrations.
+
+Phase 0 is not complete yet. The implementation adds the recorder, but the repository does not yet contain the required baseline report under `docs/reports/performance/`, and the review did not find checked-in evidence from the new `workflow-graph-pan-zoom-baseline`, `workflow-graph-pan-zoom-active`, or `workflow-graph-pan-zoom-large` workflows.
+
+Do not start performance refactors until Phase 0 produces and commits a baseline report. The report should summarize, at minimum:
+
+- The exact workflows run and artifact directories.
+- Baseline, active, and large-scene frame stats, including average, p95, worst frame, and long tasks.
+- `commit-camera-change` timing and its label, animation, filter, grid, edge, and Pixi render sub-buckets.
+- Camera update, wheel/pointer pan, wheel zoom, label sync, spatial query, redraw, and graph update deltas during scripted interaction.
+- Display object counts by layer at each scenario size.
+- Whether the recorded evidence supports Phase 1 as the next bottleneck, or whether another measured hotspot should move earlier.
+
 ## Phase 1 - Interaction Path Refactor
 
 Make pan/zoom event handling frame-coalesced.
+
+Readiness gate: Phase 1 is not ready to implement until the Phase 0 baseline report exists. The first Phase 1 implementation should use that report to target the measured interaction path, then append a before/after report under `docs/reports/performance/`.
 
 - Replace synchronous per-event camera work with a camera dirty flag processed in the ticker.
 - During a pan/zoom frame, update viewport transform immediately, but run label/visibility/filter/animation sync once per frame.
