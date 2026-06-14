@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Phase 1 implemented; Phase 2 ready
+- **Status:** Phase 2 implemented with follow-up required before Phase 3
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -538,6 +538,66 @@ Acceptance criteria:
 - The renderer can process semantic event bursts without large React state churn.
 - Runtime visual updates remain correct after reload and stream reconnect.
 - Existing semantic details behavior still works through explicit detail reads.
+
+### Phase 2 Implementation Review
+
+Phase 2 is implemented by commit `174271b7d` (`Implement semantic runtime
+renderer store`), but it is not ready to hand off to Phase 3 until the focused
+follow-up below lands.
+
+Implemented:
+
+- Added `SemanticRuntimeStore`, with snapshot bootstrap, revision-ordered delta
+  application, stale-delta dropping, revision-gap reload, animation-frame
+  coalescing, and camera-movement deferral.
+- Split runtime working-set projection into
+  `semantic-runtime-working-set.ts`, so the runtime snapshot/delta path no
+  longer depends on repeated full `readWorkingSet` calls.
+- Updated `useSemanticGraphState` so `cartographer_audit` and `working_set`
+  events do not schedule durable graph refreshes, while graph/layout/activity
+  changes still refresh their durable data.
+- Threaded camera movement notifications from the Pixi camera callback into the
+  runtime store so low-priority semantic runtime publication can wait until the
+  camera settles.
+- Added focused renderer unit coverage for runtime delta burst coalescing,
+  stale-delta dropping, revision-gap reload, and camera-settle deferral.
+
+Focused review verification:
+
+```text
+pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts
+./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi
+```
+
+Both focused checks passed during review.
+
+Required Phase 2 follow-up before Phase 3:
+
+- Fix runtime workflow/run-item removal semantics in the renderer store. The
+  backend contract names these removal fields `workflowNodeIds` and
+  `runItemIds`, and the backend populates them with source ids such as
+  `reviewer` or `run_item_review`. The renderer currently feeds those ids to
+  generic item-id replacement, but `SemanticRuntimeWorkflowNode.id` and
+  `SemanticRuntimeRunItem.id` are prefixed runtime ids such as
+  `semantic-runtime-workflow-node:reviewer` and
+  `semantic-runtime-run-item:run_item_review`. As a result, terminal deltas can
+  leave stale active workflow/run-item runtime state in the renderer until a
+  full snapshot reload. Merge and replace workflow-node runtime entries by
+  `workflowNodeId`, and run-item runtime entries by `runItemId`; add renderer
+  tests proving removal wins when it is latest and an update wins when it is
+  latest within a coalesced frame.
+- Add production-path verification for the Phase 2 traffic contract. The unit
+  tests prove store mechanics, but Phase 2's first acceptance criterion needs a
+  deterministic Electron/main/preload/renderer/HTTP/store-path check or an
+  equivalent recorded report showing a three-node review workflow performs no
+  repeated `semantic-graph:working-set-read` calls after runtime bootstrap.
+
+Phase 3 handoff:
+
+- Phase 3 is not ready yet. The implementation direction is sound, but Phase 2
+  has not fully met the "runtime visual updates remain correct" and
+  "no repeated working-set-read traffic after bootstrap" acceptance criteria
+  until the follow-up above is complete.
 
 ## Phase 3 - Interaction Priority And Camera Isolation
 
