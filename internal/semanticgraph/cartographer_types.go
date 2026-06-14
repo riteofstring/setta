@@ -1,9 +1,14 @@
 package semanticgraph
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"setta/internal/chat"
+)
 
 type CartographerRunStatus string
 type CartographerRunTriggerKind string
+type CartographerTaskProfile string
 type CartographerWindowStatus string
 type CartographerSourceKind string
 type CartographerPatchStatus string
@@ -31,6 +36,12 @@ const (
 	CartographerTriggerWorkflowDone   CartographerRunTriggerKind = "workflow_done"
 	CartographerTriggerExplicitRetry  CartographerRunTriggerKind = "explicit_retry"
 	CartographerTriggerExplicitReview CartographerRunTriggerKind = "explicit_review"
+
+	CartographerTaskProfileLiveWindow     CartographerTaskProfile = "live_window"
+	CartographerTaskProfileFinalSynthesis CartographerTaskProfile = "final_synthesis"
+	CartographerTaskProfileManual         CartographerTaskProfile = "manual"
+	CartographerTaskProfileRetry          CartographerTaskProfile = "retry"
+	CartographerTaskProfileReview         CartographerTaskProfile = "review"
 
 	CartographerWindowOpen      CartographerWindowStatus = "open"
 	CartographerWindowClosed    CartographerWindowStatus = "closed"
@@ -97,36 +108,55 @@ const (
 )
 
 type CartographerRun struct {
-	ID                      string                      `json:"id"`
-	WorkspaceID             string                      `json:"workspaceId"`
-	Status                  CartographerRunStatus       `json:"status"`
-	TriggerKind             CartographerRunTriggerKind  `json:"triggerKind"`
-	TargetEntityID          string                      `json:"targetEntityId"`
-	SourceRefs              SemanticContextSourceRefs   `json:"sourceRefs"`
-	InputBundle             CartographerInputBundle     `json:"inputBundle"`
-	OutputSchema            json.RawMessage             `json:"outputSchema"`
-	HarnessKind             string                      `json:"harnessKind"`
-	Model                   string                      `json:"model"`
-	RequestID               string                      `json:"requestId"`
-	ResponseID              string                      `json:"responseId"`
-	WindowID                string                      `json:"windowId"`
-	SourceEpochID           string                      `json:"sourceEpochId"`
-	SourceKey               string                      `json:"sourceKey"`
-	Priority                int                         `json:"priority"`
-	LeaseOwner              string                      `json:"leaseOwner"`
-	LeaseDeadline           string                      `json:"leaseDeadline"`
-	AttemptCount            int                         `json:"attemptCount"`
-	InputBundleHash         string                      `json:"inputBundleHash"`
-	InputItemCounts         CartographerInputItemCounts `json:"inputItemCounts"`
-	RawHarnessResponseHash  string                      `json:"rawHarnessResponseHash"`
-	TrajectorySummary       string                      `json:"trajectorySummary"`
-	CreatedSemanticEventIDs []string                    `json:"createdSemanticEventIds"`
-	Diagnostics             []CartographerDiagnostic    `json:"diagnostics"`
-	CreatedAt               string                      `json:"createdAt"`
-	StartedAt               string                      `json:"startedAt"`
-	CompletedAt             string                      `json:"completedAt"`
-	UpdatedAt               string                      `json:"updatedAt"`
-	Error                   string                      `json:"error"`
+	ID                        string                             `json:"id"`
+	WorkspaceID               string                             `json:"workspaceId"`
+	Status                    CartographerRunStatus              `json:"status"`
+	TriggerKind               CartographerRunTriggerKind         `json:"triggerKind"`
+	TargetEntityID            string                             `json:"targetEntityId"`
+	SourceRefs                SemanticContextSourceRefs          `json:"sourceRefs"`
+	InputBundle               CartographerInputBundle            `json:"inputBundle"`
+	OutputSchema              json.RawMessage                    `json:"outputSchema"`
+	HarnessKind               string                             `json:"harnessKind"`
+	SettingsHash              string                             `json:"settingsHash"`
+	TaskProfile               CartographerTaskProfile            `json:"taskProfile"`
+	RequestedModelSelection   SemanticCartographerModelSelection `json:"requestedModelSelection"`
+	RequestedModel            string                             `json:"requestedModel"`
+	EffectiveModel            string                             `json:"effectiveModel"`
+	ReportedModel             string                             `json:"reportedModel"`
+	RequestedReasoningEffort  chat.ReasoningEffort               `json:"requestedReasoningEffort"`
+	EffectiveReasoningEffort  string                             `json:"effectiveReasoningEffort"`
+	ReportedReasoningEffort   string                             `json:"reportedReasoningEffort"`
+	ReasoningEffortReported   bool                               `json:"reasoningEffortReported"`
+	RequestID                 string                             `json:"requestId"`
+	ResponseID                string                             `json:"responseId"`
+	WindowID                  string                             `json:"windowId"`
+	SourceEpochID             string                             `json:"sourceEpochId"`
+	SourceKey                 string                             `json:"sourceKey"`
+	Priority                  int                                `json:"priority"`
+	LeaseOwner                string                             `json:"leaseOwner"`
+	LeaseDeadline             string                             `json:"leaseDeadline"`
+	AttemptCount              int                                `json:"attemptCount"`
+	InputBundleHash           string                             `json:"inputBundleHash"`
+	InputBundleBytes          int                                `json:"inputBundleBytes"`
+	InputBundleCharacterCount int                                `json:"inputBundleCharacterCount"`
+	InputItemCounts           CartographerInputItemCounts        `json:"inputItemCounts"`
+	OutputSchemaBytes         int                                `json:"outputSchemaBytes"`
+	RawHarnessResponseHash    string                             `json:"rawHarnessResponseHash"`
+	RawHarnessResponseBytes   int                                `json:"rawHarnessResponseBytes"`
+	CloseReason               CartographerWindowCloseReason      `json:"closeReason"`
+	QueueWaitMS               int                                `json:"queueWaitMs"`
+	HarnessDurationMS         int                                `json:"harnessDurationMs"`
+	ValidationDurationMS      int                                `json:"validationDurationMs"`
+	ApplicationDurationMS     int                                `json:"applicationDurationMs"`
+	TotalDurationMS           int                                `json:"totalDurationMs"`
+	TrajectorySummary         string                             `json:"trajectorySummary"`
+	CreatedSemanticEventIDs   []string                           `json:"createdSemanticEventIds"`
+	Diagnostics               []CartographerDiagnostic           `json:"diagnostics"`
+	CreatedAt                 string                             `json:"createdAt"`
+	StartedAt                 string                             `json:"startedAt"`
+	CompletedAt               string                             `json:"completedAt"`
+	UpdatedAt                 string                             `json:"updatedAt"`
+	Error                     string                             `json:"error"`
 }
 
 type CartographerWindow struct {

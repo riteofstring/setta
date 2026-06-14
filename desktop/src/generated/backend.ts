@@ -1806,6 +1806,44 @@ export function decodeCartographerSourceKind(value: unknown, label = "Cartograph
   }
 }
 
+export type CartographerTaskProfile = "live_window" | "final_synthesis" | "manual" | "retry" | "review";
+
+export const cartographerTaskProfileValues = ["live_window", "final_synthesis", "manual", "retry", "review"] as const satisfies readonly CartographerTaskProfile[];
+
+export function decodeCartographerTaskProfile(value: unknown, label = "CartographerTaskProfile"): CartographerTaskProfile {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "live_window":
+      return decoded;
+    case "final_synthesis":
+      return decoded;
+    case "manual":
+      return decoded;
+    case "retry":
+      return decoded;
+    case "review":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type SemanticCartographerModelSelection = "provider_default" | "explicit";
+
+export const semanticCartographerModelSelectionValues = ["provider_default", "explicit"] as const satisfies readonly SemanticCartographerModelSelection[];
+
+export function decodeSemanticCartographerModelSelection(value: unknown, label = "SemanticCartographerModelSelection"): SemanticCartographerModelSelection {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "provider_default":
+      return decoded;
+    case "explicit":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type CartographerWindowStatus = "open" | "closed" | "processed";
 
 export const cartographerWindowStatusValues = ["open", "closed", "processed"] as const satisfies readonly CartographerWindowStatus[];
@@ -3901,7 +3939,16 @@ export interface CartographerRun {
   inputBundle: CartographerInputBundle;
   outputSchema: unknown;
   harnessKind: string;
-  model: string;
+  settingsHash: string;
+  taskProfile: CartographerTaskProfile;
+  requestedModelSelection: SemanticCartographerModelSelection;
+  requestedModel: string;
+  effectiveModel: string;
+  reportedModel: string;
+  requestedReasoningEffort: ReasoningEffort;
+  effectiveReasoningEffort: string;
+  reportedReasoningEffort: string;
+  reasoningEffortReported: boolean;
   requestId: string;
   responseId: string;
   windowId: string;
@@ -3912,8 +3959,18 @@ export interface CartographerRun {
   leaseDeadline: string;
   attemptCount: number;
   inputBundleHash: string;
+  inputBundleBytes: number;
+  inputBundleCharacterCount: number;
   inputItemCounts: CartographerInputItemCounts;
+  outputSchemaBytes: number;
   rawHarnessResponseHash: string;
+  rawHarnessResponseBytes: number;
+  closeReason: CartographerWindowCloseReason;
+  queueWaitMs: number;
+  harnessDurationMs: number;
+  validationDurationMs: number;
+  applicationDurationMs: number;
+  totalDurationMs: number;
   trajectorySummary: string;
   createdSemanticEventIds: string[];
   diagnostics: CartographerDiagnostic[];
@@ -8033,7 +8090,7 @@ export function decodeCartographerInputItemCounts(value: unknown): CartographerI
 
 export function decodeCartographerRun(value: unknown): CartographerRun {
   const record = assertRecord(value, "CartographerRun");
-  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "model", "requestId", "responseId", "windowId", "sourceEpochId", "sourceKey", "priority", "leaseOwner", "leaseDeadline", "attemptCount", "inputBundleHash", "inputItemCounts", "rawHarnessResponseHash", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
+  assertKnownFields(record, "CartographerRun", ["id", "workspaceId", "status", "triggerKind", "targetEntityId", "sourceRefs", "inputBundle", "outputSchema", "harnessKind", "settingsHash", "taskProfile", "requestedModelSelection", "requestedModel", "effectiveModel", "reportedModel", "requestedReasoningEffort", "effectiveReasoningEffort", "reportedReasoningEffort", "reasoningEffortReported", "requestId", "responseId", "windowId", "sourceEpochId", "sourceKey", "priority", "leaseOwner", "leaseDeadline", "attemptCount", "inputBundleHash", "inputBundleBytes", "inputBundleCharacterCount", "inputItemCounts", "outputSchemaBytes", "rawHarnessResponseHash", "rawHarnessResponseBytes", "closeReason", "queueWaitMs", "harnessDurationMs", "validationDurationMs", "applicationDurationMs", "totalDurationMs", "trajectorySummary", "createdSemanticEventIds", "diagnostics", "createdAt", "startedAt", "completedAt", "updatedAt", "error"]);
   return {
     id: decodeString(requireField(record, "id", "CartographerRun"), "CartographerRun.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "CartographerRun"), "CartographerRun.workspaceId"),
@@ -8044,7 +8101,16 @@ export function decodeCartographerRun(value: unknown): CartographerRun {
     inputBundle: decodeCartographerInputBundle(requireField(record, "inputBundle", "CartographerRun")),
     outputSchema: decodeUnknown(requireField(record, "outputSchema", "CartographerRun"), "CartographerRun.outputSchema"),
     harnessKind: decodeString(requireField(record, "harnessKind", "CartographerRun"), "CartographerRun.harnessKind"),
-    model: decodeString(requireField(record, "model", "CartographerRun"), "CartographerRun.model"),
+    settingsHash: decodeString(requireField(record, "settingsHash", "CartographerRun"), "CartographerRun.settingsHash"),
+    taskProfile: decodeCartographerTaskProfile(requireField(record, "taskProfile", "CartographerRun"), "CartographerRun.taskProfile"),
+    requestedModelSelection: decodeSemanticCartographerModelSelection(requireField(record, "requestedModelSelection", "CartographerRun"), "CartographerRun.requestedModelSelection"),
+    requestedModel: decodeString(requireField(record, "requestedModel", "CartographerRun"), "CartographerRun.requestedModel"),
+    effectiveModel: decodeString(requireField(record, "effectiveModel", "CartographerRun"), "CartographerRun.effectiveModel"),
+    reportedModel: decodeString(requireField(record, "reportedModel", "CartographerRun"), "CartographerRun.reportedModel"),
+    requestedReasoningEffort: decodeReasoningEffort(requireField(record, "requestedReasoningEffort", "CartographerRun"), "CartographerRun.requestedReasoningEffort"),
+    effectiveReasoningEffort: decodeString(requireField(record, "effectiveReasoningEffort", "CartographerRun"), "CartographerRun.effectiveReasoningEffort"),
+    reportedReasoningEffort: decodeString(requireField(record, "reportedReasoningEffort", "CartographerRun"), "CartographerRun.reportedReasoningEffort"),
+    reasoningEffortReported: decodeBoolean(requireField(record, "reasoningEffortReported", "CartographerRun"), "CartographerRun.reasoningEffortReported"),
     requestId: decodeString(requireField(record, "requestId", "CartographerRun"), "CartographerRun.requestId"),
     responseId: decodeString(requireField(record, "responseId", "CartographerRun"), "CartographerRun.responseId"),
     windowId: decodeString(requireField(record, "windowId", "CartographerRun"), "CartographerRun.windowId"),
@@ -8055,8 +8121,18 @@ export function decodeCartographerRun(value: unknown): CartographerRun {
     leaseDeadline: decodeString(requireField(record, "leaseDeadline", "CartographerRun"), "CartographerRun.leaseDeadline"),
     attemptCount: decodeInteger(requireField(record, "attemptCount", "CartographerRun"), "CartographerRun.attemptCount"),
     inputBundleHash: decodeString(requireField(record, "inputBundleHash", "CartographerRun"), "CartographerRun.inputBundleHash"),
+    inputBundleBytes: decodeInteger(requireField(record, "inputBundleBytes", "CartographerRun"), "CartographerRun.inputBundleBytes"),
+    inputBundleCharacterCount: decodeInteger(requireField(record, "inputBundleCharacterCount", "CartographerRun"), "CartographerRun.inputBundleCharacterCount"),
     inputItemCounts: decodeCartographerInputItemCounts(requireField(record, "inputItemCounts", "CartographerRun")),
+    outputSchemaBytes: decodeInteger(requireField(record, "outputSchemaBytes", "CartographerRun"), "CartographerRun.outputSchemaBytes"),
     rawHarnessResponseHash: decodeString(requireField(record, "rawHarnessResponseHash", "CartographerRun"), "CartographerRun.rawHarnessResponseHash"),
+    rawHarnessResponseBytes: decodeInteger(requireField(record, "rawHarnessResponseBytes", "CartographerRun"), "CartographerRun.rawHarnessResponseBytes"),
+    closeReason: decodeCartographerWindowCloseReason(requireField(record, "closeReason", "CartographerRun"), "CartographerRun.closeReason"),
+    queueWaitMs: decodeInteger(requireField(record, "queueWaitMs", "CartographerRun"), "CartographerRun.queueWaitMs"),
+    harnessDurationMs: decodeInteger(requireField(record, "harnessDurationMs", "CartographerRun"), "CartographerRun.harnessDurationMs"),
+    validationDurationMs: decodeInteger(requireField(record, "validationDurationMs", "CartographerRun"), "CartographerRun.validationDurationMs"),
+    applicationDurationMs: decodeInteger(requireField(record, "applicationDurationMs", "CartographerRun"), "CartographerRun.applicationDurationMs"),
+    totalDurationMs: decodeInteger(requireField(record, "totalDurationMs", "CartographerRun"), "CartographerRun.totalDurationMs"),
     trajectorySummary: decodeString(requireField(record, "trajectorySummary", "CartographerRun"), "CartographerRun.trajectorySummary"),
     createdSemanticEventIds: decodeArray(requireField(record, "createdSemanticEventIds", "CartographerRun"), "CartographerRun.createdSemanticEventIds", (item) => decodeString(item, "CartographerRun.createdSemanticEventIds item")),
     diagnostics: decodeArray(requireField(record, "diagnostics", "CartographerRun"), "CartographerRun.diagnostics", (item) => decodeCartographerDiagnostic(item)),

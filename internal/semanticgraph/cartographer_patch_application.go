@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 )
 
 const cartographerAutoApplyConfidenceThreshold = 0.75
@@ -18,7 +19,11 @@ type CartographerPatchEnvelopeApplicationInput struct {
 	SourceRefs                SemanticContextSourceRefs  `json:"sourceRefs"`
 	InputBundle               CartographerInputBundle    `json:"inputBundle"`
 	HarnessKind               string                     `json:"harnessKind"`
-	Model                     string                     `json:"model"`
+	EffectiveModel            string                     `json:"effectiveModel"`
+	ReportedModel             string                     `json:"reportedModel"`
+	EffectiveReasoningEffort  string                     `json:"effectiveReasoningEffort"`
+	ReportedReasoningEffort   string                     `json:"reportedReasoningEffort"`
+	ReasoningEffortReported   bool                       `json:"reasoningEffortReported"`
 	RequestID                 string                     `json:"requestId"`
 	ResponseID                string                     `json:"responseId"`
 	SourceEpochID             string                     `json:"sourceEpochId"`
@@ -26,6 +31,7 @@ type CartographerPatchEnvelopeApplicationInput struct {
 	Priority                  int                        `json:"priority"`
 	AttemptCount              int                        `json:"attemptCount"`
 	RawHarnessResponse        json.RawMessage            `json:"rawHarnessResponse"`
+	HarnessDurationMS         int                        `json:"harnessDurationMs"`
 	HarnessError              string                     `json:"harnessError"`
 	TrajectorySummary         string                     `json:"trajectorySummary"`
 	AutoApplyValidatedPatches bool                       `json:"autoApplyValidatedPatches"`
@@ -56,12 +62,17 @@ func (service *Service) ApplyCartographerPatchEnvelope(ctx context.Context, inpu
 		return CartographerPatchEnvelopeApplicationResult{}, err
 	}
 	now := timestamp(service.now())
-	run := service.cartographerRunAuditFromPatchInput(input, now)
+	run, err := service.cartographerRunAuditFromPatchInput(ctx, input, now)
+	if err != nil {
+		return CartographerPatchEnvelopeApplicationResult{}, err
+	}
 	if input.HarnessError != "" {
 		return service.saveCartographerFailedRunAudit(ctx, run, "harness_failed", input.HarnessError, now)
 	}
 
+	validationStart := time.Now()
 	envelope, err := DecodeCartographerPatchEnvelope(input.RawHarnessResponse)
+	run.ValidationDurationMS = elapsedMillis(validationStart)
 	if err != nil {
 		return service.saveCartographerFailedRunAudit(ctx, run, "invalid_json", err.Error(), now)
 	}
@@ -70,6 +81,8 @@ func (service *Service) ApplyCartographerPatchEnvelope(ctx context.Context, inpu
 
 func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, run CartographerRun, envelope CartographerPatchEnvelope, now string) (CartographerPatchEnvelopeApplicationResult, error) {
 	if len(envelope.Patches) == 0 {
+		run.ValidationDurationMS = 0
+		run.ApplicationDurationMS = 0
 		run.Status = CartographerRunCompletedNoop
 		run.Error = "cartographer patch envelope proposed no semantic graph mutations"
 		run.Diagnostics = []CartographerDiagnostic{service.newCartographerDiagnostic(input.RunID, "", CartographerDiagnosticInfo, "empty_envelope", run.Error, "$.patches", now)}
@@ -78,7 +91,9 @@ func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Contex
 		saved, err := service.SaveCartographerRun(ctx, run)
 		return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, err
 	}
+	validationStart := time.Now()
 	decisions, runDiagnostics, err := service.validateCartographerPatchEnvelope(ctx, input, envelope, now)
+	run.ValidationDurationMS = elapsedMillis(validationStart)
 	if err != nil {
 		run.Status = CartographerRunRejected
 		run.Error = err.Error()
@@ -88,8 +103,10 @@ func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Contex
 		saved, saveErr := service.SaveCartographerRun(ctx, run)
 		return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, saveErr
 	}
+	applicationStart := time.Now()
 	events, eventIndexesByPatch, err := service.cartographerSemanticEventsForDecisions(ctx, input, decisions, now)
 	if err != nil {
+		run.ApplicationDurationMS = elapsedMillis(applicationStart)
 		return service.saveCartographerFailedRunAudit(ctx, run, "application_build_failed", err.Error(), now)
 	}
 	if err := service.assignCartographerEventIDs(events); err != nil {
@@ -104,6 +121,7 @@ func (service *Service) applyDecodedCartographerPatchEnvelope(ctx context.Contex
 	}
 	run.LeaseOwner = ""
 	run.LeaseDeadline = ""
+	run.ApplicationDurationMS = elapsedMillis(applicationStart)
 
 	if _, err := service.SaveCartographerRun(ctx, run); err != nil {
 		return CartographerPatchEnvelopeApplicationResult{}, err
@@ -146,6 +164,8 @@ func (service *Service) saveCartographerFailedRunAudit(ctx context.Context, run 
 	run.Error = message
 	run.LeaseOwner = ""
 	run.LeaseDeadline = ""
+	run.CompletedAt = now
+	run.UpdatedAt = now
 	run.Diagnostics = []CartographerDiagnostic{service.newCartographerDiagnostic(run.ID, "", CartographerDiagnosticError, code, message, "$", now)}
 	saved, err := service.SaveCartographerRun(ctx, run)
 	return CartographerPatchEnvelopeApplicationResult{Run: saved, Patches: []CartographerPatchRecord{}, Events: []SemanticEvent{}}, err
@@ -177,40 +197,6 @@ func (service *Service) validateCartographerPatchEnvelopeApplicationInput(ctx co
 		return fmt.Errorf("cartographer input bundle workspaceId = %s, want %s", input.InputBundle.WorkspaceID, input.WorkspaceID)
 	}
 	return validateCartographerInputBundle(input.InputBundle, "cartographer patch application input bundle")
-}
-
-func (service *Service) cartographerRunAuditFromPatchInput(input CartographerPatchEnvelopeApplicationInput, now string) CartographerRun {
-	bundle := input.InputBundle
-	bundle.WorkspaceID = input.WorkspaceID
-	return CartographerRun{
-		ID:                      input.RunID,
-		WorkspaceID:             input.WorkspaceID,
-		Status:                  CartographerRunPendingReview,
-		TriggerKind:             input.TriggerKind,
-		TargetEntityID:          input.TargetEntityID,
-		SourceRefs:              input.SourceRefs,
-		InputBundle:             bundle,
-		OutputSchema:            DefaultCartographerPatchEnvelopeSchema(),
-		HarnessKind:             input.HarnessKind,
-		Model:                   input.Model,
-		RequestID:               input.RequestID,
-		ResponseID:              input.ResponseID,
-		WindowID:                input.WindowID,
-		SourceEpochID:           input.SourceEpochID,
-		SourceKey:               input.SourceKey,
-		Priority:                input.Priority,
-		AttemptCount:            input.AttemptCount,
-		InputBundleHash:         hashJSONValue(bundle),
-		InputItemCounts:         cartographerInputItemCounts(bundle),
-		RawHarnessResponseHash:  hashBytes(input.RawHarnessResponse),
-		TrajectorySummary:       input.TrajectorySummary,
-		CreatedSemanticEventIDs: []string{},
-		Diagnostics:             []CartographerDiagnostic{},
-		CreatedAt:               now,
-		StartedAt:               now,
-		CompletedAt:             now,
-		UpdatedAt:               now,
-	}
 }
 
 func (service *Service) validateCartographerPatchEnvelope(ctx context.Context, input CartographerPatchEnvelopeApplicationInput, envelope CartographerPatchEnvelope, now string) ([]cartographerPatchDecision, []CartographerDiagnostic, error) {

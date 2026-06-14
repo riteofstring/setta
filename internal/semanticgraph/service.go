@@ -298,6 +298,11 @@ func (service *Service) SaveCartographerRun(ctx context.Context, run Cartographe
 	if _, err := service.resolveWorkspace(run.WorkspaceID); err != nil {
 		return CartographerRun{}, err
 	}
+	if !cartographerRunSettingsSnapshotComplete(run) {
+		if err := service.applyCartographerRunSettingsSnapshot(ctx, &run, false); err != nil {
+			return CartographerRun{}, err
+		}
+	}
 	saved, err := service.store.SaveCartographerRun(ctx, run)
 	if err != nil {
 		return CartographerRun{}, err

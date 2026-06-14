@@ -45,38 +45,6 @@ func validateCartographerRunInput(run CartographerRun) error {
 	return validateCartographerInputBundle(run.InputBundle, "cartographer run input bundle")
 }
 
-func validateCartographerRunAudit(run CartographerRun) error {
-	if err := validateOptionalStoreIDs([]optionalStoreID{
-		{label: "cartographer run window id", value: run.WindowID},
-		{label: "cartographer run source epoch id", value: run.SourceEpochID},
-		{label: "cartographer run request id", value: run.RequestID},
-		{label: "cartographer run response id", value: run.ResponseID},
-	}); err != nil {
-		return err
-	}
-	if run.Priority < 0 {
-		return fmt.Errorf("cartographer run priority must not be negative: %d", run.Priority)
-	}
-	if run.AttemptCount < 0 {
-		return fmt.Errorf("cartographer run attemptCount must not be negative: %d", run.AttemptCount)
-	}
-	if run.LeaseDeadline != "" {
-		if err := validateTimestamp("cartographer run leaseDeadline", run.LeaseDeadline); err != nil {
-			return err
-		}
-	}
-	if err := validateCartographerInputItemCounts(run.InputItemCounts); err != nil {
-		return err
-	}
-	if err := validateOptionalStoreIDs(optionalIDsFromStrings("cartographer run created semantic event id", run.CreatedSemanticEventIDs)); err != nil {
-		return err
-	}
-	if err := validateCartographerDiagnostics(run.Diagnostics); err != nil {
-		return err
-	}
-	return nil
-}
-
 func validateCartographerWindow(ctx context.Context, window CartographerWindow) error {
 	if ctx == nil {
 		return errors.New("context is required")

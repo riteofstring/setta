@@ -28,6 +28,43 @@ func TestProcessCartographerWindowRunsStructuredHarnessAndMarksProcessed(t *test
 	assertStructuredCartographerTask(t, fake)
 }
 
+func TestProcessCartographerWindowPreservesQueuedAndStartedTimestamps(t *testing.T) {
+	fake := chat.NewFakeHarness(nil)
+	store := newTestStore(t)
+	now, err := time.Parse(time.RFC3339Nano, testTimestamp(50))
+	if err != nil {
+		t.Fatalf("parse queued time: %v", err)
+	}
+	service, err := NewService(
+		store,
+		associationWorkspaceResolver{root: t.TempDir()},
+		WithIDGenerator(countingIDGenerator()),
+		WithClock(func() time.Time { return now }),
+		WithCartographerHarnessTaskRunner(chat.HarnessTaskRunnerFor(fake), chat.HarnessCodex),
+	)
+	if err != nil {
+		t.Fatalf("new cartographer runner service: %v", err)
+	}
+	seedCartographerPatchEvidence(t, store)
+	window := buildRunnerCartographerWindow(t, service)
+	now, err = time.Parse(time.RFC3339Nano, testTimestamp(55))
+	if err != nil {
+		t.Fatalf("parse started time: %v", err)
+	}
+
+	result, err := service.ProcessCartographerWindow(context.Background(), testWorkspaceID, window.ID)
+	if err != nil {
+		t.Fatalf("process cartographer window: %v", err)
+	}
+	if result.Run.CreatedAt != testTimestamp(50) ||
+		result.Run.StartedAt != testTimestamp(55) ||
+		result.Run.CompletedAt != testTimestamp(55) ||
+		result.Run.QueueWaitMS != 5000 ||
+		result.Run.TotalDurationMS != 5000 {
+		t.Fatalf("run timing audit = %+v, want created at queue time and started/completed at processing time", result.Run)
+	}
+}
+
 func assertCartographerProcessApplied(t *testing.T, result CartographerWindowProcessResult) {
 	t.Helper()
 	if result.Window.Status != CartographerWindowProcessed {
@@ -39,7 +76,8 @@ func assertCartographerProcessApplied(t *testing.T, result CartographerWindowPro
 	if result.Run.HarnessKind != string(chat.HarnessCodex) ||
 		result.Run.RequestID != "scripted-cartographer-request" ||
 		result.Run.ResponseID != "scripted-cartographer-response" ||
-		result.Run.RawHarnessResponseHash == "" {
+		result.Run.RawHarnessResponseHash == "" ||
+		result.Run.RawHarnessResponseBytes <= 0 {
 		t.Fatalf("run audit = %+v, want persisted structured harness metadata", result.Run)
 	}
 }

@@ -280,8 +280,10 @@ func (service *Service) readQueuedCartographerRunForWindow(ctx context.Context, 
 	if run.Status != CartographerRunQueued {
 		return CartographerRun{}, false, nil
 	}
-	if run.SourceEpochID == "" || run.SourceKey == "" || run.Priority <= 0 {
-		prepareCartographerQueuedRun(&run, window, now)
+	if run.SourceEpochID == "" || run.SourceKey == "" || run.Priority <= 0 || !cartographerRunSettingsSnapshotComplete(run) {
+		if err := service.prepareCartographerQueuedRun(ctx, &run, window, now, false); err != nil {
+			return CartographerRun{}, false, err
+		}
 		if _, err := service.SaveCartographerRun(ctx, run); err != nil {
 			return CartographerRun{}, false, err
 		}
@@ -590,7 +592,12 @@ func cartographerProcessingSourceKey(window CartographerWindow) string {
 	return window.WorkspaceID + ":window:" + window.ID
 }
 
-func prepareCartographerQueuedRun(run *CartographerRun, window CartographerWindow, now string) {
+func (service *Service) prepareCartographerQueuedRun(ctx context.Context, run *CartographerRun, window CartographerWindow, now string, forceSettingsSnapshot bool) error {
+	prepareCartographerQueuedRunMetadata(run, window, now)
+	return service.applyCartographerRunSettingsSnapshot(ctx, run, forceSettingsSnapshot)
+}
+
+func prepareCartographerQueuedRunMetadata(run *CartographerRun, window CartographerWindow, now string) {
 	run.Status = CartographerRunQueued
 	run.WindowID = window.ID
 	run.SourceEpochID = window.ID

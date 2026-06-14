@@ -12,6 +12,7 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 	var inputItemCountsJSON string
 	var createdEventIDsJSON string
 	var diagnosticsJSON string
+	var reasoningEffortReported int
 	if err := scanner.Scan(
 		&run.WorkspaceID,
 		&run.ID,
@@ -29,7 +30,16 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 		&inputBundleJSON,
 		&outputSchemaJSON,
 		&run.HarnessKind,
-		&run.Model,
+		&run.SettingsHash,
+		&run.TaskProfile,
+		&run.RequestedModelSelection,
+		&run.RequestedModel,
+		&run.EffectiveModel,
+		&run.ReportedModel,
+		&run.RequestedReasoningEffort,
+		&run.EffectiveReasoningEffort,
+		&run.ReportedReasoningEffort,
+		&reasoningEffortReported,
 		&run.RequestID,
 		&run.ResponseID,
 		&run.WindowID,
@@ -40,8 +50,18 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 		&run.LeaseDeadline,
 		&run.AttemptCount,
 		&run.InputBundleHash,
+		&run.InputBundleBytes,
+		&run.InputBundleCharacterCount,
 		&inputItemCountsJSON,
+		&run.OutputSchemaBytes,
 		&run.RawHarnessResponseHash,
+		&run.RawHarnessResponseBytes,
+		&run.CloseReason,
+		&run.QueueWaitMS,
+		&run.HarnessDurationMS,
+		&run.ValidationDurationMS,
+		&run.ApplicationDurationMS,
+		&run.TotalDurationMS,
 		&run.TrajectorySummary,
 		&createdEventIDsJSON,
 		&diagnosticsJSON,
@@ -53,6 +73,7 @@ func scanCartographerRun(scanner interface{ Scan(dest ...any) error }) (Cartogra
 	); err != nil {
 		return CartographerRun{}, err
 	}
+	run.ReasoningEffortReported = sqliteIntToBool(reasoningEffortReported)
 	if err := unmarshalJSONColumn(inputBundleJSON, &run.InputBundle); err != nil {
 		return CartographerRun{}, fmt.Errorf("decode cartographer run input bundle: %w", err)
 	}

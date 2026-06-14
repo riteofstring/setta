@@ -281,6 +281,17 @@ var (
 		CartographerTriggerExplicitRetry,
 		CartographerTriggerExplicitReview,
 	}
+	cartographerTaskProfileValues = []CartographerTaskProfile{
+		CartographerTaskProfileLiveWindow,
+		CartographerTaskProfileFinalSynthesis,
+		CartographerTaskProfileManual,
+		CartographerTaskProfileRetry,
+		CartographerTaskProfileReview,
+	}
+	semanticCartographerModelSelectionValues = []SemanticCartographerModelSelection{
+		SemanticCartographerModelSelectionProviderDefault,
+		SemanticCartographerModelSelectionExplicit,
+	}
 	cartographerWindowStatusValues = []CartographerWindowStatus{
 		CartographerWindowOpen,
 		CartographerWindowClosed,
@@ -378,6 +389,8 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SemanticGraphChangeArea", Values: stringValues(semanticGraphChangeAreaValues)},
 		{Name: "CartographerRunStatus", Values: stringValues(cartographerRunStatusValues)},
 		{Name: "CartographerRunTriggerKind", Values: stringValues(cartographerRunTriggerKindValues)},
+		{Name: "CartographerTaskProfile", Values: stringValues(cartographerTaskProfileValues)},
+		{Name: "SemanticCartographerModelSelection", Values: stringValues(semanticCartographerModelSelectionValues)},
 		{Name: "CartographerWindowStatus", Values: stringValues(cartographerWindowStatusValues)},
 		{Name: "CartographerSourceKind", Values: stringValues(cartographerSourceKindValues)},
 		{Name: "CartographerPatchStatus", Values: stringValues(cartographerPatchStatusValues)},

@@ -678,6 +678,36 @@ WHERE type = 'table' AND name IN (
 	if cartographerTables != 7 {
 		t.Fatalf("cartographer table count = %d, want 7", cartographerTables)
 	}
+	cartographerRunColumns := cartographerRunSchemaColumns(t, store)
+	if cartographerRunColumns["model"] {
+		t.Fatalf("semantic_cartographer_runs still has legacy model column")
+	}
+	for _, column := range []string{
+		"settings_hash",
+		"task_profile",
+		"requested_model_selection",
+		"requested_model",
+		"effective_model",
+		"reported_model",
+		"requested_reasoning_effort",
+		"effective_reasoning_effort",
+		"reported_reasoning_effort",
+		"reasoning_effort_reported",
+		"queue_wait_ms",
+		"harness_duration_ms",
+		"validation_duration_ms",
+		"application_duration_ms",
+		"total_duration_ms",
+		"input_bundle_bytes",
+		"input_bundle_character_count",
+		"output_schema_bytes",
+		"raw_harness_response_bytes",
+		"close_reason",
+	} {
+		if !cartographerRunColumns[column] {
+			t.Fatalf("semantic_cartographer_runs missing phase 2 audit column %s", column)
+		}
+	}
 
 	appDataDir := t.TempDir()
 	dbPath := filepath.Join(appDataDir, semanticDatabaseName)
@@ -699,10 +729,36 @@ WHERE type = 'table' AND name IN (
 	if !IsCorruptStateError(err) {
 		t.Fatalf("previous-version store error = %T %v, want corrupt state error", err, err)
 	}
-	if !strings.Contains(err.Error(), "unsupported schema version 10") ||
+	if !strings.Contains(err.Error(), "unsupported schema version 11") ||
 		!strings.Contains(err.Error(), "reset the semantic graph store") {
-		t.Fatalf("previous-version store error = %v, want version 10 reset guidance", err)
+		t.Fatalf("previous-version store error = %v, want version 11 reset guidance", err)
 	}
+}
+
+func cartographerRunSchemaColumns(t *testing.T, store *Store) map[string]bool {
+	t.Helper()
+	rows, err := store.db.Query("PRAGMA table_info(semantic_cartographer_runs)")
+	if err != nil {
+		t.Fatalf("read cartographer run schema: %v", err)
+	}
+	defer rows.Close()
+	columns := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name string
+		var columnType string
+		var notNull int
+		var defaultValue sql.NullString
+		var primaryKey int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			t.Fatalf("scan cartographer run schema column: %v", err)
+		}
+		columns[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate cartographer run schema: %v", err)
+	}
+	return columns
 }
 
 func TestStorePersistsCartographerRunWindowCursorAndSummary(t *testing.T) {
@@ -746,7 +802,15 @@ func saveCartographerRunForTest(t *testing.T, store *Store, ctx context.Context)
 	if err != nil {
 		t.Fatalf("read cartographer run: %v", err)
 	}
-	if !ok || readRun.InputBundle.ObservedEventRefs[0] != "event_observed_001" || readRun.HarnessKind != "codex" {
+	if !ok ||
+		readRun.InputBundle.ObservedEventRefs[0] != "event_observed_001" ||
+		readRun.HarnessKind != "codex" ||
+		readRun.TaskProfile != CartographerTaskProfileManual ||
+		readRun.RequestedModelSelection != SemanticCartographerModelSelectionProviderDefault ||
+		readRun.RequestedReasoningEffort != "low" ||
+		readRun.ReportedModel != "gpt-5-codex" ||
+		readRun.InputBundleBytes <= 0 ||
+		readRun.OutputSchemaBytes <= 0 {
 		t.Fatalf("read cartographer run = %+v, want persisted run input and harness audit", readRun)
 	}
 	return run
@@ -827,12 +891,16 @@ func cartographerTestRun() CartographerRun {
 			"type": "object",
 			"required": ["patches"]
 		}`),
-		HarnessKind: "codex",
-		Model:       "gpt-5-codex",
-		RequestID:   "request_cartographer",
-		CreatedAt:   testTimestamp(30),
-		StartedAt:   testTimestamp(31),
-		UpdatedAt:   testTimestamp(31),
+		HarnessKind:              "codex",
+		SettingsHash:             "sha256:cartographer-settings-test",
+		TaskProfile:              CartographerTaskProfileManual,
+		RequestedModelSelection:  SemanticCartographerModelSelectionProviderDefault,
+		RequestedReasoningEffort: "low",
+		ReportedModel:            "gpt-5-codex",
+		RequestID:                "request_cartographer",
+		CreatedAt:                testTimestamp(30),
+		StartedAt:                testTimestamp(31),
+		UpdatedAt:                testTimestamp(31),
 	}
 }
 

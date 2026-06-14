@@ -16,7 +16,7 @@ import (
 
 const (
 	semanticDatabaseName = "semantic-graph.sqlite"
-	semanticStoreVersion = 11
+	semanticStoreVersion = 12
 	sqliteDriverName     = "sqlite"
 )
 
@@ -404,7 +404,16 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
   input_bundle_json TEXT NOT NULL DEFAULT '{}',
   output_schema_json TEXT NOT NULL DEFAULT '{}',
   harness_kind TEXT NOT NULL DEFAULT '',
-  model TEXT NOT NULL DEFAULT '',
+  settings_hash TEXT NOT NULL DEFAULT '',
+  task_profile TEXT NOT NULL DEFAULT '',
+  requested_model_selection TEXT NOT NULL DEFAULT '',
+  requested_model TEXT NOT NULL DEFAULT '',
+  effective_model TEXT NOT NULL DEFAULT '',
+  reported_model TEXT NOT NULL DEFAULT '',
+  requested_reasoning_effort TEXT NOT NULL DEFAULT '',
+  effective_reasoning_effort TEXT NOT NULL DEFAULT '',
+  reported_reasoning_effort TEXT NOT NULL DEFAULT '',
+  reasoning_effort_reported INTEGER NOT NULL DEFAULT 0,
   request_id TEXT NOT NULL DEFAULT '',
   response_id TEXT NOT NULL DEFAULT '',
   window_id TEXT NOT NULL DEFAULT '',
@@ -415,8 +424,18 @@ CREATE TABLE IF NOT EXISTS semantic_cartographer_runs (
   lease_deadline TEXT NOT NULL DEFAULT '',
   attempt_count INTEGER NOT NULL DEFAULT 0,
   input_bundle_hash TEXT NOT NULL DEFAULT '',
+  input_bundle_bytes INTEGER NOT NULL DEFAULT 0,
+  input_bundle_character_count INTEGER NOT NULL DEFAULT 0,
   input_item_counts_json TEXT NOT NULL DEFAULT '{}',
+  output_schema_bytes INTEGER NOT NULL DEFAULT 0,
   raw_harness_response_hash TEXT NOT NULL DEFAULT '',
+  raw_harness_response_bytes INTEGER NOT NULL DEFAULT 0,
+  close_reason TEXT NOT NULL DEFAULT '',
+  queue_wait_ms INTEGER NOT NULL DEFAULT 0,
+  harness_duration_ms INTEGER NOT NULL DEFAULT 0,
+  validation_duration_ms INTEGER NOT NULL DEFAULT 0,
+  application_duration_ms INTEGER NOT NULL DEFAULT 0,
+  total_duration_ms INTEGER NOT NULL DEFAULT 0,
   trajectory_summary TEXT NOT NULL DEFAULT '',
   created_semantic_event_ids_json TEXT NOT NULL DEFAULT '[]',
   diagnostics_json TEXT NOT NULL DEFAULT '[]',

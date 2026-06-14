@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"setta/internal/workspace"
 )
@@ -33,13 +34,23 @@ func (service *Service) processCartographerWindow(ctx context.Context, workspace
 		if err != nil {
 			return CartographerWindowProcessResult{}, fmt.Errorf("create cartographer task id: %w", err)
 		}
-		harnessResult, err := service.cartographerHarness.RunRaw(ctx, CartographerHarnessTask{
+		task := CartographerHarnessTask{
 			ID:           taskID,
 			Workspace:    workspaceSummary,
 			InputBundle:  window.InputBundle,
 			OutputSchema: CartographerPatchEnvelopeSchema(run.OutputSchema),
-			Model:        run.Model,
+			Model:        run.EffectiveModel,
+		}
+		applicationInput.EffectiveModel = task.Model
+		harnessStarted := time.Now()
+		harnessResult, err := service.cartographerHarness.RunRaw(ctx, CartographerHarnessTask{
+			ID:           task.ID,
+			Workspace:    task.Workspace,
+			InputBundle:  task.InputBundle,
+			OutputSchema: task.OutputSchema,
+			Model:        task.Model,
 		})
+		applicationInput.HarnessDurationMS = elapsedMillis(harnessStarted)
 		if err != nil {
 			if ctx.Err() != nil {
 				cancelled, cancelErr := service.cancelCartographerWindowProcessing(context.WithoutCancel(ctx), run, window, ctx.Err().Error())
@@ -52,7 +63,9 @@ func (service *Service) processCartographerWindow(ctx context.Context, workspace
 		} else {
 			applicationInput.RawHarnessResponse = harnessResult.PatchEnvelope
 			applicationInput.HarnessKind = string(harnessResult.Audit.HarnessKind)
-			applicationInput.Model = harnessResult.Audit.Model
+			applicationInput.ReportedModel = harnessResult.Audit.Model
+			applicationInput.ReportedReasoningEffort = string(harnessResult.Audit.ReasoningEffort)
+			applicationInput.ReasoningEffortReported = harnessResult.Audit.ReasoningEffortReported
 			applicationInput.RequestID = harnessResult.Audit.RequestID
 			applicationInput.ResponseID = harnessResult.Audit.ResponseID
 		}
@@ -147,6 +160,8 @@ func (service *Service) saveStartedCartographerRun(ctx context.Context, run Cart
 	run.InputBundle = window.InputBundle
 	run.OutputSchema = DefaultCartographerPatchEnvelopeSchema()
 	run.HarnessKind = string(service.cartographerHarnessKind)
+	run.EffectiveModel = ""
+	run.EffectiveReasoningEffort = ""
 	if run.StartedAt == "" {
 		run.StartedAt = now
 	}
@@ -165,7 +180,8 @@ func (service *Service) cartographerApplicationInputForWindow(run CartographerRu
 		SourceRefs:        run.SourceRefs,
 		InputBundle:       window.InputBundle,
 		HarnessKind:       run.HarnessKind,
-		Model:             run.Model,
+		EffectiveModel:    run.EffectiveModel,
+		ReportedModel:     run.ReportedModel,
 		SourceEpochID:     run.SourceEpochID,
 		SourceKey:         run.SourceKey,
 		Priority:          run.Priority,

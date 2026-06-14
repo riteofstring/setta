@@ -273,7 +273,9 @@ func (service *Service) newManualCartographerWindowRecords(ctx context.Context, 
 	}
 	run := newManualCartographerRun(request, ids.runID, input, now)
 	window := newManualCartographerWindow(request, ids, sourceKind, sourceID, input, now)
-	prepareCartographerQueuedRun(&run, window, now)
+	if err := service.prepareCartographerQueuedRun(ctx, &run, window, now, true); err != nil {
+		return CartographerWindow{}, CartographerRun{}, CartographerTrajectorySummary{}, err
+	}
 	summary := cartographerTrajectorySummaryFromWindow(ids.summaryID, window, input, now)
 	return window, run, summary, nil
 }
@@ -372,13 +374,8 @@ func newManualCartographerWindow(request CartographerManualWindowRequest, ids ma
 }
 
 func (service *Service) CloseQuietCartographerWindows(ctx context.Context, cutoff string) ([]CartographerWindow, error) {
-	if ctx == nil {
-		return nil, errors.New("context is required")
-	}
-	if cutoff == "" {
-		cutoff = timestamp(service.now())
-	}
-	if err := validateTimestamp("cartographer quiet cutoff", cutoff); err != nil {
+	cutoff, err := service.validateCloseQuietCartographerWindowsCall(ctx, cutoff)
+	if err != nil {
 		return nil, err
 	}
 	service.cartographerMu.Lock()
@@ -390,30 +387,62 @@ func (service *Service) CloseQuietCartographerWindows(ctx context.Context, cutof
 	}
 	closed := make([]CartographerWindow, 0, len(windows))
 	for _, window := range windows {
-		window.InputBundle.TriggerKind = CartographerTriggerWorkflowWindow
-		window.InputBundle.Truncation.Reasons = appendUniqueString(window.InputBundle.Truncation.Reasons, string(CartographerCloseQuietPeriod))
-		window.InputBundle = applyCartographerInputLimits(window.InputBundle, service.cartographerConfig)
-		if err := service.closeCartographerWindowLocked(ctx, &window, CartographerCloseQuietPeriod, cutoff); err != nil {
-			return nil, err
-		}
-		run, ok, err := service.store.ReadCartographerRun(ctx, window.WorkspaceID, window.RunID)
+		closedWindow, err := service.closeQuietCartographerWindow(ctx, window, cutoff)
 		if err != nil {
 			return nil, err
 		}
-		if !ok {
-			return nil, fmt.Errorf("cartographer run %s was not found for quiet window %s", window.RunID, window.ID)
-		}
-		run.InputBundle = window.InputBundle
-		prepareCartographerQueuedRun(&run, window, cutoff)
-		if _, err := service.SaveCartographerRun(ctx, run); err != nil {
-			return nil, err
-		}
-		closed = append(closed, window)
+		closed = append(closed, closedWindow)
 	}
 	if err := service.enqueueClosedCartographerWindows(ctx, closed); err != nil {
 		return nil, err
 	}
 	return closed, nil
+}
+
+func (service *Service) validateCloseQuietCartographerWindowsCall(ctx context.Context, cutoff string) (string, error) {
+	if ctx == nil {
+		return "", errors.New("context is required")
+	}
+	if cutoff == "" {
+		cutoff = timestamp(service.now())
+	}
+	if err := validateTimestamp("cartographer quiet cutoff", cutoff); err != nil {
+		return "", err
+	}
+	return cutoff, nil
+}
+
+func (service *Service) closeQuietCartographerWindow(ctx context.Context, window CartographerWindow, cutoff string) (CartographerWindow, error) {
+	window.InputBundle = quietCartographerWindowInputBundle(window.InputBundle, service.cartographerConfig)
+	if err := service.closeCartographerWindowLocked(ctx, &window, CartographerCloseQuietPeriod, cutoff); err != nil {
+		return CartographerWindow{}, err
+	}
+	if err := service.prepareClosedQuietCartographerRun(ctx, window, cutoff); err != nil {
+		return CartographerWindow{}, err
+	}
+	return window, nil
+}
+
+func quietCartographerWindowInputBundle(input CartographerInputBundle, config CartographerObservationConfig) CartographerInputBundle {
+	input.TriggerKind = CartographerTriggerWorkflowWindow
+	input.Truncation.Reasons = appendUniqueString(input.Truncation.Reasons, string(CartographerCloseQuietPeriod))
+	return applyCartographerInputLimits(input, config)
+}
+
+func (service *Service) prepareClosedQuietCartographerRun(ctx context.Context, window CartographerWindow, cutoff string) error {
+	run, ok, err := service.store.ReadCartographerRun(ctx, window.WorkspaceID, window.RunID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("cartographer run %s was not found for quiet window %s", window.RunID, window.ID)
+	}
+	run.InputBundle = window.InputBundle
+	if err := service.prepareCartographerQueuedRun(ctx, &run, window, cutoff, true); err != nil {
+		return err
+	}
+	_, err = service.SaveCartographerRun(ctx, run)
+	return err
 }
 
 func (service *Service) observeCartographerEvent(ctx context.Context, observed observedCartographerEvent) ([]CartographerWindow, error) {
@@ -573,7 +602,9 @@ func (service *Service) persistClosedObservedWindow(ctx context.Context, window 
 	}
 	run.InputBundle = window.InputBundle
 	cursor.LastWindowID = window.ID
-	prepareCartographerQueuedRun(&run, *window, now)
+	if err := service.prepareCartographerQueuedRun(ctx, &run, *window, now, true); err != nil {
+		return false, err
+	}
 	if _, err := service.SaveCartographerRun(ctx, run); err != nil {
 		return false, err
 	}
@@ -854,7 +885,9 @@ func (service *Service) newOpenCartographerWindowForEvent(ctx context.Context, c
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	prepareCartographerQueuedRun(&run, window, now)
+	if err := service.prepareCartographerQueuedRun(ctx, &run, window, now, true); err != nil {
+		return CartographerWindow{}, CartographerRun{}, false, err
+	}
 	return window, run, true, nil
 }
 

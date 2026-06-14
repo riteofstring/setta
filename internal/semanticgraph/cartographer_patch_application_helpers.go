@@ -3,7 +3,6 @@ package semanticgraph
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 )
 
 func cartographerInputBundleHasObservedSourceRef(bundle CartographerInputBundle, kind SemanticEvidenceSourceKind, sourceID string) bool {
@@ -169,14 +168,6 @@ func cartographerInputItemCounts(bundle CartographerInputBundle) CartographerInp
 		TrajectorySummaries: len(bundle.TrajectorySummaries),
 		ObservedEventRefs:   len(bundle.ObservedEventRefs),
 	}
-}
-
-func hashJSONValue(value any) string {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return ""
-	}
-	return hashBytes(data)
 }
 
 func hashBytes(data []byte) string {

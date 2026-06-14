@@ -332,15 +332,15 @@ WHERE id = ?
 	}
 }
 
-func TestSemanticCartographerSettingsRejectsVersionTenStore(t *testing.T) {
+func TestSemanticCartographerSettingsRejectsPreviousAuditSchemaStore(t *testing.T) {
 	appDataDir := t.TempDir()
 	dbPath := filepath.Join(appDataDir, semanticDatabaseName)
 	db, err := sql.Open(sqliteDriverName, dbPath)
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}
-	if _, err := db.Exec("PRAGMA user_version = 10"); err != nil {
-		t.Fatalf("write version 10: %v", err)
+	if _, err := db.Exec("PRAGMA user_version = 11"); err != nil {
+		t.Fatalf("write version 11: %v", err)
 	}
 	if err := db.Close(); err != nil {
 		t.Fatalf("close sqlite db: %v", err)
@@ -349,14 +349,14 @@ func TestSemanticCartographerSettingsRejectsVersionTenStore(t *testing.T) {
 	store, err := NewStore(appDataDir)
 	if err == nil {
 		_ = store.Close()
-		t.Fatal("new store with version 10 succeeded, want corrupt state error")
+		t.Fatal("new store with version 11 succeeded, want corrupt state error")
 	}
 	if !IsCorruptStateError(err) {
-		t.Fatalf("version 10 store error = %T %v, want corrupt state error", err, err)
+		t.Fatalf("version 11 store error = %T %v, want corrupt state error", err, err)
 	}
-	if !strings.Contains(err.Error(), "unsupported schema version 10") ||
+	if !strings.Contains(err.Error(), "unsupported schema version 11") ||
 		!strings.Contains(err.Error(), "reset the semantic graph store") {
-		t.Fatalf("version 10 store error = %v, want reset guidance", err)
+		t.Fatalf("version 11 store error = %v, want reset guidance", err)
 	}
 }
 
@@ -403,5 +403,88 @@ func TestSemanticCartographerSettingsProvideServiceDefaults(t *testing.T) {
 	if override.automaticCartographer.config.MaxConcurrent != 1 ||
 		override.cartographerConfig.MaxWindowEvents != 5 {
 		t.Fatalf("override service configs = %+v / %+v, want constructor options to override persisted defaults", override.automaticCartographer.config, override.cartographerConfig)
+	}
+}
+
+func TestCartographerQueuedRunsSnapshotCurrentSettingsAudit(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	initial, err := store.ReadSemanticCartographerSettings(ctx)
+	if err != nil {
+		t.Fatalf("read settings: %v", err)
+	}
+	settings := initial.Settings
+	settings.LiveTaskConfig.ModelSelection = SemanticCartographerModelSelectionExplicit
+	settings.LiveTaskConfig.ModelID = "gpt-cartographer-live"
+	settings.LiveTaskConfig.ReasoningEffort = "high"
+	settings.FinalSynthesisTaskConfig.ModelSelection = SemanticCartographerModelSelectionExplicit
+	settings.FinalSynthesisTaskConfig.ModelID = "gpt-cartographer-final"
+	settings.FinalSynthesisTaskConfig.ReasoningEffort = "medium"
+	snapshot, err := store.UpdateSemanticCartographerSettings(ctx, settings)
+	if err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
+
+	service, err := NewService(
+		store,
+		associationWorkspaceResolver{root: t.TempDir()},
+		WithIDGenerator(countingIDGenerator()),
+	)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	liveWindow, err := service.BuildManualCartographerWindow(ctx, CartographerManualWindowRequest{
+		WorkspaceID:    testWorkspaceID,
+		TriggerKind:    CartographerTriggerWorkflowWindow,
+		TargetEntityID: "node_cartographer_live_settings",
+		SourceRefs:     SemanticContextSourceRefs{ChatRunID: "chat_run_cartographer_live_settings"},
+		Summary:        "Snapshot live settings.",
+	})
+	if err != nil {
+		t.Fatalf("build live cartographer window: %v", err)
+	}
+	finalWindow, err := service.BuildManualCartographerWindow(ctx, CartographerManualWindowRequest{
+		WorkspaceID:    testWorkspaceID,
+		TriggerKind:    CartographerTriggerWorkflowDone,
+		TargetEntityID: "node_cartographer_final_settings",
+		SourceRefs:     SemanticContextSourceRefs{WorkflowExecutionID: "workflow_execution_cartographer_final_settings"},
+		Summary:        "Snapshot final settings.",
+	})
+	if err != nil {
+		t.Fatalf("build final cartographer window: %v", err)
+	}
+
+	changed := snapshot.Settings
+	changed.LiveTaskConfig.ModelID = "gpt-cartographer-live-changed"
+	changed.FinalSynthesisTaskConfig.ModelID = "gpt-cartographer-final-changed"
+	if _, err := store.UpdateSemanticCartographerSettings(ctx, changed); err != nil {
+		t.Fatalf("change settings after queueing: %v", err)
+	}
+
+	liveRun := readCartographerRunForTest(t, store, liveWindow.RunID)
+	assertCartographerRunSettingsSnapshot(t, liveRun, snapshot.SettingsHash, CartographerTaskProfileLiveWindow, "gpt-cartographer-live", "high")
+	finalRun := readCartographerRunForTest(t, store, finalWindow.RunID)
+	assertCartographerRunSettingsSnapshot(t, finalRun, snapshot.SettingsHash, CartographerTaskProfileFinalSynthesis, "gpt-cartographer-final", "medium")
+}
+
+func readCartographerRunForTest(t *testing.T, store *Store, runID string) CartographerRun {
+	t.Helper()
+	run, ok, err := store.ReadCartographerRun(context.Background(), testWorkspaceID, runID)
+	if err != nil || !ok {
+		t.Fatalf("read cartographer run %s: ok=%v err=%v", runID, ok, err)
+	}
+	return run
+}
+
+func assertCartographerRunSettingsSnapshot(t *testing.T, run CartographerRun, settingsHash string, profile CartographerTaskProfile, requestedModel string, requestedReasoning string) {
+	t.Helper()
+	if run.SettingsHash != settingsHash ||
+		run.TaskProfile != profile ||
+		run.RequestedModelSelection != SemanticCartographerModelSelectionExplicit ||
+		run.RequestedModel != requestedModel ||
+		string(run.RequestedReasoningEffort) != requestedReasoning ||
+		run.EffectiveModel != "" ||
+		run.EffectiveReasoningEffort != "" {
+		t.Fatalf("run settings audit = %+v, want hash %s profile %s requested model %s reasoning %s with empty effective fields", run, settingsHash, profile, requestedModel, requestedReasoning)
 	}
 }

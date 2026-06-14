@@ -27,6 +27,29 @@ func isCartographerRunTriggerKind(kind CartographerRunTriggerKind) bool {
 	}
 }
 
+func isCartographerTaskProfile(profile CartographerTaskProfile) bool {
+	switch profile {
+	case CartographerTaskProfileLiveWindow,
+		CartographerTaskProfileFinalSynthesis,
+		CartographerTaskProfileManual,
+		CartographerTaskProfileRetry,
+		CartographerTaskProfileReview:
+		return true
+	default:
+		return false
+	}
+}
+
+func isSemanticCartographerModelSelection(selection SemanticCartographerModelSelection) bool {
+	switch selection {
+	case SemanticCartographerModelSelectionProviderDefault,
+		SemanticCartographerModelSelectionExplicit:
+		return true
+	default:
+		return false
+	}
+}
+
 func isCartographerWindowStatus(status CartographerWindowStatus) bool {
 	switch status {
 	case CartographerWindowOpen, CartographerWindowClosed, CartographerWindowProcessed:
