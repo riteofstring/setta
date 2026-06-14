@@ -20,17 +20,14 @@ import {
 } from "./workspace-neon-theme";
 
 const semanticNodePrefix = "semantic:";
-const semanticLiveSourcePulsePrefix = "semantic-live-source:";
 const semanticPreviewNodePrefix = "semantic-preview:";
 const semanticNodeHeight = 68;
 const semanticNodeWidth = semanticNodeHeight;
-const semanticLiveSourcePulseSize = 18;
 const semanticPreviewNodeHeight = 58;
 const semanticPreviewNodeWidth = semanticPreviewNodeHeight;
 const semanticColumnGap = 248;
 const semanticRowGap = 112;
 const semanticSourceLinkColor = 0x67e8f9;
-const semanticLiveSourcePulseColor = 0x22d3ee;
 const semanticPreviewNodeColor = 0xf0abfc;
 const recentSemanticPulseKinds = new Set<SemanticWorkingSetPulseKind>([
   "node_updated_recent",
@@ -159,14 +156,6 @@ export function rendererGraphFromSemanticGraph({
           x: position.x,
           y: position.y,
         };
-      }),
-      ...semanticWorkingSetSourcePulseNodes({
-        pendingPreviewNodeIds,
-        positions,
-        semanticNodeIds,
-        semanticWorkingSet,
-        workflowGraph,
-        workflowNodeMap,
       }),
       ...semanticWorkingSetPreviewNodes({
         positions,
@@ -504,65 +493,6 @@ function semanticWorkingSetNodeActivityKind(
   );
 }
 
-function semanticWorkingSetSourcePulseNodes({
-  pendingPreviewNodeIds,
-  positions,
-  semanticNodeIds,
-  semanticWorkingSet,
-  workflowGraph,
-  workflowNodeMap,
-}: {
-  pendingPreviewNodeIds: ReadonlySet<string>;
-  positions: ReadonlyMap<string, { x: number; y: number }>;
-  semanticNodeIds: ReadonlySet<string>;
-  semanticWorkingSet: SemanticWorkingSet | null | undefined;
-  workflowGraph: WorkflowGraphGraph | undefined;
-  workflowNodeMap: ReadonlyMap<string, WorkflowGraphGraph["nodes"][number]>;
-}) {
-  if (!semanticWorkingSet) {
-    return [];
-  }
-  return semanticWorkingSet.liveSourceRefs.flatMap((source, index) => {
-    if (source.targetEntityId !== "" && semanticNodeIds.has(source.targetEntityId)) {
-      return [];
-    }
-    if (source.patchId !== "" && pendingPreviewNodeIds.has(source.patchId)) {
-      return [];
-    }
-    const anchor = semanticWorkingSetAnchorPosition({
-      fallbackIndex: index,
-      positions,
-      semanticNodeIds,
-      source,
-      workflowGraph,
-      workflowNodeMap,
-    });
-    const pulseKind = semanticWorkingSetPulseKindForLiveSource(semanticWorkingSet, source);
-    return [
-      {
-        activity: {
-          active: semanticWorkingSetStatusIsActive(source.status),
-          count: 1,
-          kind: semanticActivityKindForWorkingSetStatus(source.status),
-          pulseKind,
-        },
-        color: semanticWorkingSetPulseColor(pulseKind) ?? semanticLiveSourcePulseColor,
-        connectable: false,
-        diagnostic: null,
-        height: semanticLiveSourcePulseSize,
-        id: semanticLiveSourceRendererNodeId(source.id),
-        layer: "semantic" as const,
-        label: "",
-        semanticPulseKind: pulseKind,
-        semanticRole: "source_pulse" as const,
-        width: semanticLiveSourcePulseSize,
-        x: anchor.x,
-        y: anchor.y,
-      },
-    ];
-  });
-}
-
 function semanticWorkingSetPreviewNodes({
   positions,
   semanticNodeIds,
@@ -694,49 +624,7 @@ function semanticWorkingSetSourceTargetRendererNodeId({
       return semanticPreviewRendererNodeId(source.patchId, node.semanticNodeId);
     }
   }
-  return semanticLiveSourceRendererNodeId(source.id);
-}
-
-function semanticWorkingSetAnchorPosition({
-  fallbackIndex,
-  positions,
-  semanticNodeIds,
-  source,
-  workflowGraph,
-  workflowNodeMap,
-}: {
-  fallbackIndex: number;
-  positions: ReadonlyMap<string, { x: number; y: number }>;
-  semanticNodeIds: ReadonlySet<string>;
-  source: SemanticWorkingSetLiveSourceRef;
-  workflowGraph: WorkflowGraphGraph | undefined;
-  workflowNodeMap: ReadonlyMap<string, WorkflowGraphGraph["nodes"][number]>;
-}) {
-  const workflowNode = workflowNodeMap.get(source.sourceRefs.workflowNodeId);
-  if (workflowNode) {
-    return {
-      x: workflowNode.x + workflowNode.width + 28,
-      y:
-        workflowNode.y +
-        workflowNode.height / 2 -
-        semanticLiveSourcePulseSize / 2 +
-        fallbackIndex * 10,
-    };
-  }
-  if (source.targetEntityId !== "" && semanticNodeIds.has(source.targetEntityId)) {
-    const position = positions.get(source.targetEntityId);
-    if (position) {
-      return {
-        x: position.x - semanticLiveSourcePulseSize - 22,
-        y: position.y + semanticNodeHeight / 2 - semanticLiveSourcePulseSize / 2,
-      };
-    }
-  }
-  const fallback = defaultSemanticNodePosition(fallbackIndex, workflowGraph);
-  return {
-    x: fallback.x - 42,
-    y: fallback.y,
-  };
+  return "";
 }
 
 function semanticWorkingSetPreviewPosition({
@@ -906,10 +794,6 @@ function semanticWorkingSetPulseColor(kind: SemanticWorkingSetPulseKind | undefi
 
 function semanticPreviewRendererNodeId(patchId: string, semanticNodeId: string) {
   return `${semanticPreviewNodePrefix}${patchId}:${semanticNodeId}`;
-}
-
-function semanticLiveSourceRendererNodeId(sourceId: string) {
-  return semanticLiveSourcePulsePrefix + sourceId;
 }
 
 function semanticWorkingSetStatusIsActive(status: SemanticWorkingSetStatus) {

@@ -100,22 +100,18 @@ export function assertUntargetedLiveCartographerSource({ result, seedWorkflowNod
   assertLiveSourceRef(result, seedWorkflowNodeId);
 }
 
-export function assertSemanticWorkingSetPulseVisible({ liveSource, seedWorkflowNodeId, snapshot }) {
-  const pulse = graphNodeById(snapshot, liveSource.pulseNodeId);
-  if (pulse.layer !== "semantic" || pulse.width !== 18 || pulse.height !== 18) {
-    throw new Error(`semantic working-set pulse shape mismatch: ${JSON.stringify(pulse)}`);
-  }
-  if (pulse.semanticPulseKind !== "active_workflow_source") {
-    throw new Error(`semantic working-set pulse kind mismatch: ${JSON.stringify(pulse)}`);
+export function assertSemanticWorkingSetPulseHidden({ liveSource, snapshot }) {
+  const pulse = snapshot.graph.nodes.find((node) => node.id === liveSource.pulseNodeId);
+  if (pulse) {
+    throw new Error(`semantic working-set source pulse should be hidden: ${JSON.stringify(pulse)}`);
   }
   const sourceEdge = snapshot.graph.edges.find(
     (edge) =>
       edge.id === `semantic-live-source:semantic-working-set-source:run:${liveSource.built.run.id}`,
   );
-  const workflowNodeVisible = snapshot.graph.nodes.some((node) => node.id === seedWorkflowNodeId);
-  if (workflowNodeVisible && sourceEdge?.targetNodeId !== liveSource.pulseNodeId) {
+  if (sourceEdge) {
     throw new Error(
-      `semantic working-set source edge mismatch: ${JSON.stringify({
+      `semantic working-set source edge should be hidden: ${JSON.stringify({
         snapshot: snapshot.graph,
         sourceEdge,
       })}`,
@@ -197,16 +193,6 @@ function assertWorkingSetPulseKind(result, kind) {
   if (!result.workingSet.pulses.some((pulse) => pulse.kind === kind)) {
     throw new Error(`working-set pulse ${kind} missing: ${JSON.stringify(result.workingSet)}`);
   }
-}
-
-function graphNodeById(snapshot, nodeId) {
-  const node = snapshot.graph.nodes.find((candidate) => candidate.id === nodeId);
-  if (!node) {
-    throw new Error(
-      `node ${nodeId} missing from graph snapshot: ${JSON.stringify(snapshot.graph)}`,
-    );
-  }
-  return node;
 }
 
 function committedSemanticNodeIds(snapshot) {

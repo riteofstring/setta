@@ -628,11 +628,13 @@ function summarizeWorkflowGraphPerformanceDiagnostics({
   return {
     inputCountsByKind: countInputSamplesByKind(inputSamples),
     inputEventCount: countRecordedInputEvents(inputSamples),
+    inputWindow: inputSampleWindow(inputSamples),
     interactionRenderDeltas: performanceRenderDeltas(snapshotPair),
     longTaskCount: performanceTimeline?.longTasks?.length ?? 0,
     maxEventTimingMs: maxDuration(performanceTimeline?.eventTimings ?? []),
     maxLongTaskMs: maxDuration(performanceTimeline?.longTasks ?? []),
     timingBucketDeltas: performanceTimingBucketDeltas(snapshotPair),
+    wheelLatency: workflowGraphWheelLatencyMetrics(snapshotPair.after),
   };
 }
 
@@ -679,8 +681,59 @@ function inputSampleEventCount(sample) {
   return 1;
 }
 
+function inputSampleWindow(inputSamples) {
+  const timestamps = inputSamples
+    .map((sample) => Date.parse(sample.at))
+    .filter((timestamp) => Number.isFinite(timestamp));
+  if (timestamps.length === 0) {
+    return {
+      firstAt: "",
+      lastAt: "",
+    };
+  }
+  return {
+    firstAt: new Date(Math.min(...timestamps)).toISOString(),
+    lastAt: new Date(Math.max(...timestamps)).toISOString(),
+  };
+}
+
 function maxDuration(entries) {
   return entries.reduce((max, entry) => Math.max(max, Number(entry.duration) || 0), 0);
+}
+
+function workflowGraphWheelLatencyMetrics(snapshot) {
+  const samples = (snapshot?.render?.wheelInput?.samples ?? []).filter(
+    (sample) => sample.cameraChanged === true,
+  );
+  const eventToCameraUpdateMs = finiteSampleValues(samples, "eventToCameraUpdateMs");
+  const eventToRenderedFrameMs = finiteSampleValues(
+    samples,
+    "eventToFirstRenderedFrameAfterCameraMs",
+  );
+  return {
+    maxEventToCameraUpdateMs: maxNumber(eventToCameraUpdateMs),
+    maxEventToRenderedFrameMs: maxNumber(eventToRenderedFrameMs),
+    p95EventToCameraUpdateMs: percentile(eventToCameraUpdateMs, 0.95),
+    p95EventToRenderedFrameMs: percentile(eventToRenderedFrameMs, 0.95),
+    sampleCount: samples.length,
+  };
+}
+
+function finiteSampleValues(samples, key) {
+  return samples.map((sample) => Number(sample[key])).filter((value) => Number.isFinite(value));
+}
+
+function maxNumber(values) {
+  return values.length === 0 ? 0 : Math.max(...values);
+}
+
+function percentile(values, percentileValue) {
+  if (values.length === 0) {
+    return 0;
+  }
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.ceil(percentileValue * sorted.length) - 1;
+  return sorted[Math.max(0, Math.min(sorted.length - 1, index))];
 }
 
 function timingBucketDeltas(before, after) {

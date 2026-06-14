@@ -35,7 +35,7 @@ import {
   assertCartographerAuditBurst,
   assertRendererStableForWorkingSetUpdate,
   assertSemanticWorkingSetAfterAuditBurst,
-  assertSemanticWorkingSetPulseVisible,
+  assertSemanticWorkingSetPulseHidden,
   assertUntargetedLiveCartographerSource,
   buildUntargetedLiveCartographerSource,
 } from "./semantic-graph-working-set-helpers.mjs";
@@ -134,20 +134,13 @@ try {
     workspaceId,
   });
   assertUntargetedLiveCartographerSource({ result: liveSource, seedWorkflowNodeId });
-  const afterLiveSource = await waitForWorkflowGraphSnapshot(context.client, (snapshot) =>
-    snapshot.graph.nodes.some((node) => node.id === liveSource.pulseNodeId),
-  );
-  assertSemanticWorkingSetPulseVisible({
+  await delay(250);
+  const afterLiveSource = await getWorkflowGraphSnapshot(context.client);
+  assertSemanticWorkingSetPulseHidden({
     liveSource,
-    seedWorkflowNodeId,
     snapshot: afterLiveSource,
   });
-  assertRendererStableForWorkingSetUpdate({
-    after: afterLiveSource,
-    assertRendererStable,
-    before: afterAuditBurst,
-    label: "semantic working-set live source",
-  });
+  assertRendererStable(afterAuditBurst, afterLiveSource, "semantic working-set live source hidden");
 
   const targetNode = nodeById(afterAuditBurst, seedRendererNodeId);
   await dispatchWorkflowGraphMouseClick(context.client, workflowGraphSurfaceId, {

@@ -151,24 +151,13 @@ describe("rendererGraphFromSemanticGraph", () => {
       semanticPulseKind: "cartographer_running",
       semanticRole: "committed",
     });
+    expect(graph.nodes.filter((node) => node.semanticRole === "source_pulse")).toEqual([]);
     expect(
-      graph.nodes.find(
-        (node) =>
-          node.id === "semantic-live-source:semantic-working-set-source:run:cartographer_run_live",
+      graph.edges.find(
+        (edge) =>
+          edge.id === "semantic-live-source:semantic-working-set-source:run:cartographer_run_live",
       ),
-    ).toMatchObject({
-      activity: {
-        active: true,
-        count: 1,
-        kind: "exploring",
-        pulseKind: "cartographer_running",
-      },
-      height: 18,
-      label: "",
-      semanticPulseKind: "cartographer_running",
-      semanticRole: "source_pulse",
-      width: 18,
-    });
+    ).toBeUndefined();
     expect(
       graph.nodes.find(
         (node) => node.id === "semantic-preview:cartographer_patch_preview:node_preview",
