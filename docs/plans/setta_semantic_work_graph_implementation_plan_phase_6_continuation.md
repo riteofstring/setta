@@ -723,6 +723,11 @@ Verification:
 Goal: improve recall for context packs and cartographer input without changing
 semantic truth.
 
+Current status: not implemented in this branch as of the Phase 7 readiness
+review. No FTS tables, retrieval service, retrieval-backed context/cartographer
+integration, or Phase 7 performance/usefulness evidence are present yet. Treat
+this phase as the prerequisite before Phase 8.
+
 Phase 7 starts after Phase 6F. The cartographer patch schema, canonical graph
 tables, context pack contract, and harness abstraction should be treated as
 already established. Retrieval is an advisory layer over those records: it may

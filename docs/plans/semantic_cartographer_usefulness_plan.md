@@ -1,11 +1,13 @@
 # Semantic Cartographer Usefulness Plan
 
 - **Date:** June 14, 2026
-- **Status:** Phases 1-6 implemented; Phase 7 ready next
+- **Status:** Phases 1-6 implemented; Phase 7 ready to implement; Phase 8
+  blocked until Phase 7 evidence lands
 - **Scope:** Make semantic cartography produce useful, connected, inspectable work memory from real workflow runs.
 - **Related docs:**
   - `docs/plans/setta_semantic_work_graph_plan.md`
   - `docs/plans/setta_semantic_work_graph_implementation_plan.md`
+  - `docs/plans/setta_semantic_work_graph_implementation_plan_phase_6_continuation.md`
   - `docs/plans/setta_semantic_work_graph_implementation_plan_later_phases.md`
 
 ## Problem Statement
@@ -332,6 +334,20 @@ pnpm -C desktop exec vitest run src/renderer/src/features/workspace-graph/workfl
 pnpm -C desktop build
 node desktop/tests/electron/run-workflows.mjs --workflow semantic-graph
 ```
+
+Phase 7 implementation status review:
+
+- This branch does not yet contain the Phase 7 implementation. The current
+  post-Phase-6 history only updates readiness documentation; no FTS tables,
+  retrieval service, retrieval-backed context/cartographer integration, or
+  usefulness-evaluation report artifacts are present.
+- The existing context compiler and context-pack tests prove the earlier
+  baseline delivery/audit path, but they are not the Phase 7 usefulness loop by
+  themselves.
+- Phase 8 is not ready to start until Phase 7 records which semantic nodes were
+  delivered to later runs, proves promoted constraints/decisions reach relevant
+  future agent context, delivers steering as explicit context deltas, and records
+  before/after trace-corpus quality reports.
 
 One lifecycle/policy note should be carried into the next phases:
 
@@ -862,7 +878,7 @@ semantic provenance is visible without querying SQLite manually
 cartographer backlog/failure/no-op state is visible in dev diagnostics
 ```
 
-### Phase 7: Context Loop And Usefulness Evaluation (ready next)
+### Phase 7: Context Loop And Usefulness Evaluation (ready to implement)
 
 Goal: prove semantic nodes improve later work.
 
