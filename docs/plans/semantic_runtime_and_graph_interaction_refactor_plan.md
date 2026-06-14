@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Phase 0 implemented; Phase 1 ready
+- **Status:** Phase 1 implemented; Phase 2 ready
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -452,6 +452,59 @@ Acceptance criteria:
 - Deterministic Electron coverage exercises production
   Electron/main/preload/renderer/HTTP/store paths.
 
+### Phase 1 Implementation Review
+
+Phase 1 is implemented by commit `13fdd4a46` (`Implement semantic runtime
+projection phase 1`).
+
+Implemented:
+
+- Added Go-owned `SemanticRuntimeSnapshot`, `SemanticRuntimeDelta`, runtime
+  change-area, limits, workflow, cartographer, patch preview, semantic
+  activity, aggregate-source, and removal contracts.
+- Added the `/semantic-graph/runtime/snapshot` endpoint through the
+  `internal/httpapi` endpoint registry and regenerated TypeScript from the
+  Go-owned contracts.
+- Added semantic runtime revision fields and `semanticRuntimeDelta` /
+  `semanticRuntimeSnapshotRequired` to semantic graph change events.
+- Added targeted runtime delta construction for changed cartographer runs,
+  windows, patches, semantic node activity, aggregate sources, and removals.
+- Added bounded runtime snapshots that exclude the full recent cartographer run
+  list from the graph hot path and preserve typed source refs for details.
+- Updated the renderer/preload/main IPC surface so the graph can bootstrap from
+  the runtime snapshot endpoint.
+- Updated the current renderer semantic graph state path so
+  `cartographer_audit` and `working_set` events are handled through runtime
+  deltas/snapshot reload instead of scheduling full `readWorkingSet` refreshes.
+
+Focused review verification:
+
+```text
+./scripts/go.sh test ./internal/semanticgraph ./internal/httpapi
+pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/preload/index.test.ts src/preload/semantic-graph-events.test.ts src/main/semantic-graph-ipc.test.ts src/main/semantic-graph-event-forwarding.test.ts src/main/semantic-graph-event-stream.test.ts
+```
+
+Important caveat:
+
+- Phase 1 pulled forward part of Phase 2 by wiring runtime snapshots/deltas into
+  `useSemanticGraphState`. That is useful for proving the hot-path contract, but
+  it is not the final Phase 2 renderer architecture. Runtime-derived working-set
+  state is still updated through React state, runtime visual invalidations are
+  not yet explicitly frame-batched, and burst handling does not yet merge
+  runtime deltas by entity id outside React.
+
+Phase 2 handoff:
+
+- Phase 2 is ready to implement.
+- It should keep the Phase 1 backend contract intact and focus on the renderer
+  side: a purpose-built semantic runtime store, frame-coalesced notifications,
+  stale-delta/gap handling tests, burst backpressure, details-pane separation,
+  and production-path Electron coverage proving no repeated full working-set
+  reads after bootstrap.
+- Do not redesign the backend runtime contract or broaden into the interaction
+  scheduler/visual grammar phases unless a Phase 2 acceptance criterion truly
+  requires it.
+
 ## Phase 2 - Renderer Runtime Store And Backpressure
 
 Move semantic liveness out of the React full-state refresh path.
@@ -683,7 +736,7 @@ where `Reviewer` is an agent reviewing the codebase:
 
 ## Open Questions
 
-None are blocking Phase 1.
+None are blocking Phase 2.
 
 Recommended defaults for implementation:
 
