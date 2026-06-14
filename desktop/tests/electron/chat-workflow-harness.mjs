@@ -794,14 +794,28 @@ export async function assertRecordingEvidence(recordingDir, expected) {
 }
 
 async function assertLayoutSnapshotsRecorded(recordingDir) {
-  const rendererEvents = await readJsonLines(join(recordingDir, "renderer-events.jsonl"));
-  const snapshots = rendererEvents.filter((entry) => entry.type === "layout_snapshot");
+  const snapshots = await waitForLayoutSnapshots(recordingDir);
   if (snapshots.length === 0) {
     throw new Error(`recording missing renderer layout snapshots: ${recordingDir}`);
   }
   if (!snapshots.some((entry) => entry.chatDetailPane && entry.composer)) {
     throw new Error(`recording layout snapshots never captured chat regions: ${recordingDir}`);
   }
+}
+
+async function waitForLayoutSnapshots(recordingDir) {
+  const path = join(recordingDir, "renderer-events.jsonl");
+  const startedAt = Date.now();
+  let snapshots = [];
+  while (Date.now() - startedAt < 2_000) {
+    const rendererEvents = await readJsonLines(path);
+    snapshots = rendererEvents.filter((entry) => entry.type === "layout_snapshot");
+    if (snapshots.some((entry) => entry.chatDetailPane && entry.composer)) {
+      return snapshots;
+    }
+    await delay(50);
+  }
+  return snapshots;
 }
 
 async function assertNoIpcFailures(recordingDir) {
