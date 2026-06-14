@@ -1748,6 +1748,46 @@ export function decodeCartographerWindowCloseReason(value: unknown, label = "Car
   }
 }
 
+export type CartographerObservationKind = "prompt_message" | "assistant_message_completed" | "assistant_text_chunk_aggregate" | "command_started" | "command_completed" | "command_failed" | "file_read_observed" | "file_change_observed" | "diff_observed" | "test_result_observed" | "workflow_node_started" | "workflow_node_completed" | "approval_requested" | "run_completed";
+
+export const cartographerObservationKindValues = ["prompt_message", "assistant_message_completed", "assistant_text_chunk_aggregate", "command_started", "command_completed", "command_failed", "file_read_observed", "file_change_observed", "diff_observed", "test_result_observed", "workflow_node_started", "workflow_node_completed", "approval_requested", "run_completed"] as const satisfies readonly CartographerObservationKind[];
+
+export function decodeCartographerObservationKind(value: unknown, label = "CartographerObservationKind"): CartographerObservationKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "prompt_message":
+      return decoded;
+    case "assistant_message_completed":
+      return decoded;
+    case "assistant_text_chunk_aggregate":
+      return decoded;
+    case "command_started":
+      return decoded;
+    case "command_completed":
+      return decoded;
+    case "command_failed":
+      return decoded;
+    case "file_read_observed":
+      return decoded;
+    case "file_change_observed":
+      return decoded;
+    case "diff_observed":
+      return decoded;
+    case "test_result_observed":
+      return decoded;
+    case "workflow_node_started":
+      return decoded;
+    case "workflow_node_completed":
+      return decoded;
+    case "approval_requested":
+      return decoded;
+    case "run_completed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type CartographerSourceKind = "workflow_execution" | "chat_run" | "semantic_target";
 
 export const cartographerSourceKindValues = ["workflow_execution", "chat_run", "semantic_target"] as const satisfies readonly CartographerSourceKind[];
@@ -3658,6 +3698,8 @@ export interface CartographerTrajectoryEvent {
   occurredAt: string;
   sourceRefs: SemanticContextSourceRefs;
   chatMessageId: string;
+  messageRole: string;
+  messageStatus: string;
   runItemId: string;
   runItemType: string;
   runItemStatus: string;
@@ -3670,6 +3712,41 @@ export interface CartographerTrajectoryEvent {
   originalContentBytes: number;
   includedContentBytes: number;
   truncated: boolean;
+}
+
+export interface CartographerObservationRecord {
+  kind: CartographerObservationKind;
+  source: CartographerTrajectoryEventSource;
+  eventId: string;
+  type: string;
+  workspaceId: string;
+  workflowDefinitionId: string;
+  workflowExecutionId: string;
+  workflowNodeId: string;
+  workflowNodeExecutionId: string;
+  chatConversationId: string;
+  chatRunId: string;
+  chatMessageId: string;
+  messageRole: string;
+  messageStatus: string;
+  runItemId: string;
+  providerItemId: string;
+  runItemType: string;
+  runItemStatus: string;
+  runStatus: string;
+  filePath: string;
+  filePaths: string[];
+  rangeStart: number;
+  rangeEnd: number;
+  command: string;
+  cwd: string;
+  exitCode: number;
+  outputStream: string;
+  outputOrdinal: number;
+  summary: string;
+  textExcerpt: string;
+  contentHash: string;
+  occurredAt: string;
 }
 
 export interface CartographerToolCallSummary {
@@ -3748,6 +3825,7 @@ export interface CartographerInputBundle {
   windowStartCursor: CartographerWindowCursor;
   windowEndCursor: CartographerWindowCursor;
   newEvents: CartographerTrajectoryEvent[];
+  observations: CartographerObservationRecord[];
   promptSummary: string;
   promptText: string;
   assistantResponseSummary: string;
@@ -3770,6 +3848,7 @@ export interface CartographerInputBundle {
 
 export interface CartographerInputItemCounts {
   newEvents: number;
+  observations: number;
   toolCalls: number;
   fileChanges: number;
   testResults: number;
@@ -7679,7 +7758,7 @@ export function decodeCartographerWindowCursor(value: unknown): CartographerWind
 
 export function decodeCartographerTrajectoryEvent(value: unknown): CartographerTrajectoryEvent {
   const record = assertRecord(value, "CartographerTrajectoryEvent");
-  assertKnownFields(record, "CartographerTrajectoryEvent", ["source", "eventId", "type", "streamId", "sequence", "workflowEventCursor", "occurredAt", "sourceRefs", "chatMessageId", "runItemId", "runItemType", "runItemStatus", "runStatus", "outputStream", "outputOrdinal", "summary", "boundary", "closeReason", "originalContentBytes", "includedContentBytes", "truncated"]);
+  assertKnownFields(record, "CartographerTrajectoryEvent", ["source", "eventId", "type", "streamId", "sequence", "workflowEventCursor", "occurredAt", "sourceRefs", "chatMessageId", "messageRole", "messageStatus", "runItemId", "runItemType", "runItemStatus", "runStatus", "outputStream", "outputOrdinal", "summary", "boundary", "closeReason", "originalContentBytes", "includedContentBytes", "truncated"]);
   return {
     source: decodeCartographerTrajectoryEventSource(requireField(record, "source", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.source"),
     eventId: decodeString(requireField(record, "eventId", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.eventId"),
@@ -7690,6 +7769,8 @@ export function decodeCartographerTrajectoryEvent(value: unknown): CartographerT
     occurredAt: decodeString(requireField(record, "occurredAt", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.occurredAt"),
     sourceRefs: decodeSemanticContextSourceRefs(requireField(record, "sourceRefs", "CartographerTrajectoryEvent")),
     chatMessageId: decodeString(requireField(record, "chatMessageId", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.chatMessageId"),
+    messageRole: decodeString(requireField(record, "messageRole", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.messageRole"),
+    messageStatus: decodeString(requireField(record, "messageStatus", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.messageStatus"),
     runItemId: decodeString(requireField(record, "runItemId", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.runItemId"),
     runItemType: decodeString(requireField(record, "runItemType", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.runItemType"),
     runItemStatus: decodeString(requireField(record, "runItemStatus", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.runItemStatus"),
@@ -7702,6 +7783,45 @@ export function decodeCartographerTrajectoryEvent(value: unknown): CartographerT
     originalContentBytes: decodeInteger(requireField(record, "originalContentBytes", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.originalContentBytes"),
     includedContentBytes: decodeInteger(requireField(record, "includedContentBytes", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.includedContentBytes"),
     truncated: decodeBoolean(requireField(record, "truncated", "CartographerTrajectoryEvent"), "CartographerTrajectoryEvent.truncated"),
+  };
+}
+
+export function decodeCartographerObservationRecord(value: unknown): CartographerObservationRecord {
+  const record = assertRecord(value, "CartographerObservationRecord");
+  assertKnownFields(record, "CartographerObservationRecord", ["kind", "source", "eventId", "type", "workspaceId", "workflowDefinitionId", "workflowExecutionId", "workflowNodeId", "workflowNodeExecutionId", "chatConversationId", "chatRunId", "chatMessageId", "messageRole", "messageStatus", "runItemId", "providerItemId", "runItemType", "runItemStatus", "runStatus", "filePath", "filePaths", "rangeStart", "rangeEnd", "command", "cwd", "exitCode", "outputStream", "outputOrdinal", "summary", "textExcerpt", "contentHash", "occurredAt"]);
+  return {
+    kind: decodeCartographerObservationKind(requireField(record, "kind", "CartographerObservationRecord"), "CartographerObservationRecord.kind"),
+    source: decodeCartographerTrajectoryEventSource(requireField(record, "source", "CartographerObservationRecord"), "CartographerObservationRecord.source"),
+    eventId: decodeString(requireField(record, "eventId", "CartographerObservationRecord"), "CartographerObservationRecord.eventId"),
+    type: decodeString(requireField(record, "type", "CartographerObservationRecord"), "CartographerObservationRecord.type"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "CartographerObservationRecord"), "CartographerObservationRecord.workspaceId"),
+    workflowDefinitionId: decodeString(requireField(record, "workflowDefinitionId", "CartographerObservationRecord"), "CartographerObservationRecord.workflowDefinitionId"),
+    workflowExecutionId: decodeString(requireField(record, "workflowExecutionId", "CartographerObservationRecord"), "CartographerObservationRecord.workflowExecutionId"),
+    workflowNodeId: decodeString(requireField(record, "workflowNodeId", "CartographerObservationRecord"), "CartographerObservationRecord.workflowNodeId"),
+    workflowNodeExecutionId: decodeString(requireField(record, "workflowNodeExecutionId", "CartographerObservationRecord"), "CartographerObservationRecord.workflowNodeExecutionId"),
+    chatConversationId: decodeString(requireField(record, "chatConversationId", "CartographerObservationRecord"), "CartographerObservationRecord.chatConversationId"),
+    chatRunId: decodeString(requireField(record, "chatRunId", "CartographerObservationRecord"), "CartographerObservationRecord.chatRunId"),
+    chatMessageId: decodeString(requireField(record, "chatMessageId", "CartographerObservationRecord"), "CartographerObservationRecord.chatMessageId"),
+    messageRole: decodeString(requireField(record, "messageRole", "CartographerObservationRecord"), "CartographerObservationRecord.messageRole"),
+    messageStatus: decodeString(requireField(record, "messageStatus", "CartographerObservationRecord"), "CartographerObservationRecord.messageStatus"),
+    runItemId: decodeString(requireField(record, "runItemId", "CartographerObservationRecord"), "CartographerObservationRecord.runItemId"),
+    providerItemId: decodeString(requireField(record, "providerItemId", "CartographerObservationRecord"), "CartographerObservationRecord.providerItemId"),
+    runItemType: decodeString(requireField(record, "runItemType", "CartographerObservationRecord"), "CartographerObservationRecord.runItemType"),
+    runItemStatus: decodeString(requireField(record, "runItemStatus", "CartographerObservationRecord"), "CartographerObservationRecord.runItemStatus"),
+    runStatus: decodeString(requireField(record, "runStatus", "CartographerObservationRecord"), "CartographerObservationRecord.runStatus"),
+    filePath: decodeString(requireField(record, "filePath", "CartographerObservationRecord"), "CartographerObservationRecord.filePath"),
+    filePaths: decodeArray(requireField(record, "filePaths", "CartographerObservationRecord"), "CartographerObservationRecord.filePaths", (item) => decodeString(item, "CartographerObservationRecord.filePaths item")),
+    rangeStart: decodeInteger(requireField(record, "rangeStart", "CartographerObservationRecord"), "CartographerObservationRecord.rangeStart"),
+    rangeEnd: decodeInteger(requireField(record, "rangeEnd", "CartographerObservationRecord"), "CartographerObservationRecord.rangeEnd"),
+    command: decodeString(requireField(record, "command", "CartographerObservationRecord"), "CartographerObservationRecord.command"),
+    cwd: decodeString(requireField(record, "cwd", "CartographerObservationRecord"), "CartographerObservationRecord.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "CartographerObservationRecord"), "CartographerObservationRecord.exitCode"),
+    outputStream: decodeString(requireField(record, "outputStream", "CartographerObservationRecord"), "CartographerObservationRecord.outputStream"),
+    outputOrdinal: decodeInteger(requireField(record, "outputOrdinal", "CartographerObservationRecord"), "CartographerObservationRecord.outputOrdinal"),
+    summary: decodeString(requireField(record, "summary", "CartographerObservationRecord"), "CartographerObservationRecord.summary"),
+    textExcerpt: decodeString(requireField(record, "textExcerpt", "CartographerObservationRecord"), "CartographerObservationRecord.textExcerpt"),
+    contentHash: decodeString(requireField(record, "contentHash", "CartographerObservationRecord"), "CartographerObservationRecord.contentHash"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "CartographerObservationRecord"), "CartographerObservationRecord.occurredAt"),
   };
 }
 
@@ -7796,7 +7916,7 @@ export function decodeCartographerInputTruncation(value: unknown): CartographerI
 
 export function decodeCartographerInputBundle(value: unknown): CartographerInputBundle {
   const record = assertRecord(value, "CartographerInputBundle");
-  assertKnownFields(record, "CartographerInputBundle", ["workspaceId", "triggerKind", "sourceRefs", "targetEntityId", "runStatus", "terminalReason", "windowId", "windowStartCursor", "windowEndCursor", "newEvents", "promptSummary", "promptText", "assistantResponseSummary", "assistantText", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "trajectorySummaries", "observedEventRefs", "tokenBudget", "truncation"]);
+  assertKnownFields(record, "CartographerInputBundle", ["workspaceId", "triggerKind", "sourceRefs", "targetEntityId", "runStatus", "terminalReason", "windowId", "windowStartCursor", "windowEndCursor", "newEvents", "observations", "promptSummary", "promptText", "assistantResponseSummary", "assistantText", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "trajectorySummaries", "observedEventRefs", "tokenBudget", "truncation"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "CartographerInputBundle"), "CartographerInputBundle.workspaceId"),
     triggerKind: decodeCartographerRunTriggerKind(requireField(record, "triggerKind", "CartographerInputBundle"), "CartographerInputBundle.triggerKind"),
@@ -7808,6 +7928,7 @@ export function decodeCartographerInputBundle(value: unknown): CartographerInput
     windowStartCursor: decodeCartographerWindowCursor(requireField(record, "windowStartCursor", "CartographerInputBundle")),
     windowEndCursor: decodeCartographerWindowCursor(requireField(record, "windowEndCursor", "CartographerInputBundle")),
     newEvents: decodeArray(requireField(record, "newEvents", "CartographerInputBundle"), "CartographerInputBundle.newEvents", (item) => decodeCartographerTrajectoryEvent(item)),
+    observations: decodeArray(requireField(record, "observations", "CartographerInputBundle"), "CartographerInputBundle.observations", (item) => decodeCartographerObservationRecord(item)),
     promptSummary: decodeString(requireField(record, "promptSummary", "CartographerInputBundle"), "CartographerInputBundle.promptSummary"),
     promptText: decodeString(requireField(record, "promptText", "CartographerInputBundle"), "CartographerInputBundle.promptText"),
     assistantResponseSummary: decodeString(requireField(record, "assistantResponseSummary", "CartographerInputBundle"), "CartographerInputBundle.assistantResponseSummary"),
@@ -7831,9 +7952,10 @@ export function decodeCartographerInputBundle(value: unknown): CartographerInput
 
 export function decodeCartographerInputItemCounts(value: unknown): CartographerInputItemCounts {
   const record = assertRecord(value, "CartographerInputItemCounts");
-  assertKnownFields(record, "CartographerInputItemCounts", ["newEvents", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "trajectorySummaries", "observedEventRefs"]);
+  assertKnownFields(record, "CartographerInputItemCounts", ["newEvents", "observations", "toolCalls", "fileChanges", "testResults", "outputSummaries", "existingNodes", "existingEdges", "evidence", "activity", "steering", "contextPacks", "trajectorySummaries", "observedEventRefs"]);
   return {
     newEvents: decodeInteger(requireField(record, "newEvents", "CartographerInputItemCounts"), "CartographerInputItemCounts.newEvents"),
+    observations: decodeInteger(requireField(record, "observations", "CartographerInputItemCounts"), "CartographerInputItemCounts.observations"),
     toolCalls: decodeInteger(requireField(record, "toolCalls", "CartographerInputItemCounts"), "CartographerInputItemCounts.toolCalls"),
     fileChanges: decodeInteger(requireField(record, "fileChanges", "CartographerInputItemCounts"), "CartographerInputItemCounts.fileChanges"),
     testResults: decodeInteger(requireField(record, "testResults", "CartographerInputItemCounts"), "CartographerInputItemCounts.testResults"),

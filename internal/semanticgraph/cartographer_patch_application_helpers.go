@@ -7,21 +7,67 @@ import (
 )
 
 func cartographerInputBundleHasObservedSourceRef(bundle CartographerInputBundle, kind SemanticEvidenceSourceKind, sourceID string) bool {
-	switch kind {
-	case EvidenceSourceRunItem:
-		return cartographerTrajectoryEventsHaveRunItem(bundle.NewEvents, sourceID) ||
-			cartographerToolCallsHaveRunItem(bundle.ToolCalls, sourceID)
-	case EvidenceSourceFileRange:
-		return cartographerFileChangesHaveRunItem(bundle.FileChanges, sourceID)
-	case EvidenceSourceTest:
-		return cartographerTestResultsHaveRunItem(bundle.TestResults, sourceID)
-	case EvidenceSourceDiff:
-		return cartographerFileChangesHaveRunItem(bundle.FileChanges, sourceID)
-	case EvidenceSourcePrompt, EvidenceSourceLog, EvidenceSourceDocument:
-		return stringSliceContains(bundle.ObservedEventRefs, sourceID)
-	default:
+	check, ok := cartographerObservedSourceRefChecks[kind]
+	if !ok {
 		return false
 	}
+	return check(bundle, sourceID)
+}
+
+type cartographerObservedSourceRefCheck func(CartographerInputBundle, string) bool
+
+var cartographerObservedSourceRefChecks = map[SemanticEvidenceSourceKind]cartographerObservedSourceRefCheck{
+	EvidenceSourceRunItem:     cartographerInputBundleHasRunItemObservationSourceRef,
+	EvidenceSourceChatMessage: cartographerInputBundleHasChatMessageObservationSourceRef,
+	EvidenceSourceFileRange:   cartographerInputBundleHasFileOrDiffObservationSourceRef,
+	EvidenceSourceDiff:        cartographerInputBundleHasFileOrDiffObservationSourceRef,
+	EvidenceSourceTest:        cartographerInputBundleHasTestObservationSourceRef,
+	EvidenceSourcePrompt:      cartographerInputBundleHasObservedEventRef,
+	EvidenceSourceLog:         cartographerInputBundleHasObservedEventRef,
+	EvidenceSourceDocument:    cartographerInputBundleHasObservedEventRef,
+}
+
+func cartographerInputBundleHasRunItemObservationSourceRef(bundle CartographerInputBundle, sourceID string) bool {
+	return cartographerTrajectoryEventsHaveRunItem(bundle.NewEvents, sourceID) ||
+		cartographerObservationsHaveRunItem(bundle.Observations, sourceID) ||
+		cartographerToolCallsHaveRunItem(bundle.ToolCalls, sourceID)
+}
+
+func cartographerInputBundleHasChatMessageObservationSourceRef(bundle CartographerInputBundle, sourceID string) bool {
+	return cartographerTrajectoryEventsHaveChatMessage(bundle.NewEvents, sourceID) ||
+		cartographerObservationsHaveChatMessage(bundle.Observations, sourceID)
+}
+
+func cartographerInputBundleHasFileOrDiffObservationSourceRef(bundle CartographerInputBundle, sourceID string) bool {
+	return cartographerObservationsHaveRunItem(bundle.Observations, sourceID) ||
+		cartographerFileChangesHaveRunItem(bundle.FileChanges, sourceID)
+}
+
+func cartographerInputBundleHasTestObservationSourceRef(bundle CartographerInputBundle, sourceID string) bool {
+	return cartographerObservationsHaveRunItem(bundle.Observations, sourceID) ||
+		cartographerTestResultsHaveRunItem(bundle.TestResults, sourceID)
+}
+
+func cartographerInputBundleHasObservedEventRef(bundle CartographerInputBundle, sourceID string) bool {
+	return stringSliceContains(bundle.ObservedEventRefs, sourceID)
+}
+
+func cartographerObservationsHaveRunItem(observations []CartographerObservationRecord, runItemID string) bool {
+	for _, observation := range observations {
+		if observation.RunItemID == runItemID {
+			return true
+		}
+	}
+	return false
+}
+
+func cartographerObservationsHaveChatMessage(observations []CartographerObservationRecord, chatMessageID string) bool {
+	for _, observation := range observations {
+		if observation.ChatMessageID == chatMessageID {
+			return true
+		}
+	}
+	return false
 }
 
 func cartographerInputBundleEvidenceHasSourceRef(bundle CartographerInputBundle, kind SemanticEvidenceSourceKind, sourceID string) bool {
@@ -36,6 +82,15 @@ func cartographerInputBundleEvidenceHasSourceRef(bundle CartographerInputBundle,
 func cartographerTrajectoryEventsHaveRunItem(events []CartographerTrajectoryEvent, runItemID string) bool {
 	for _, event := range events {
 		if event.RunItemID == runItemID {
+			return true
+		}
+	}
+	return false
+}
+
+func cartographerTrajectoryEventsHaveChatMessage(events []CartographerTrajectoryEvent, chatMessageID string) bool {
+	for _, event := range events {
+		if event.ChatMessageID == chatMessageID {
 			return true
 		}
 	}
@@ -99,6 +154,7 @@ func semanticEventIDs(events []SemanticEvent) []string {
 func cartographerInputItemCounts(bundle CartographerInputBundle) CartographerInputItemCounts {
 	return CartographerInputItemCounts{
 		NewEvents:           len(bundle.NewEvents),
+		Observations:        len(bundle.Observations),
 		ToolCalls:           len(bundle.ToolCalls),
 		FileChanges:         len(bundle.FileChanges),
 		TestResults:         len(bundle.TestResults),

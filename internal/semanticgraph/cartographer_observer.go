@@ -64,6 +64,8 @@ type observedCartographerEvent struct {
 	occurredAt          string
 	sourceRefs          SemanticContextSourceRefs
 	chatMessageID       string
+	messageRole         string
+	messageStatus       string
 	runItemID           string
 	runItemType         string
 	runItemStatus       string

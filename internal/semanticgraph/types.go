@@ -337,6 +337,22 @@ var (
 		CartographerCloseQuietPeriod,
 		CartographerCloseManual,
 	}
+	cartographerObservationKindValues = []CartographerObservationKind{
+		CartographerObservationPromptMessage,
+		CartographerObservationAssistantMessageCompleted,
+		CartographerObservationAssistantTextChunkAggregate,
+		CartographerObservationCommandStarted,
+		CartographerObservationCommandCompleted,
+		CartographerObservationCommandFailed,
+		CartographerObservationFileReadObserved,
+		CartographerObservationFileChangeObserved,
+		CartographerObservationDiffObserved,
+		CartographerObservationTestResultObserved,
+		CartographerObservationWorkflowNodeStarted,
+		CartographerObservationWorkflowNodeCompleted,
+		CartographerObservationApprovalRequested,
+		CartographerObservationRunCompleted,
+	}
 )
 
 type ContractValueSet struct {
@@ -370,6 +386,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "CartographerDiagnosticSeverity", Values: stringValues(cartographerDiagnosticSeverityValues)},
 		{Name: "CartographerTrajectoryEventSource", Values: stringValues(cartographerTrajectoryEventSourceValues)},
 		{Name: "CartographerWindowCloseReason", Values: stringValues(cartographerWindowCloseReasonValues)},
+		{Name: "CartographerObservationKind", Values: stringValues(cartographerObservationKindValues)},
 	}
 }
 

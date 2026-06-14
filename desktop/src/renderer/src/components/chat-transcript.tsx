@@ -49,6 +49,7 @@ import {
 } from "./chat-transcript-row-actions";
 import { cn } from "../lib/utils";
 import type { RunItemOutputPageState } from "../stores/chat-store";
+import { subscribeWorkspaceSurfaceResumed } from "../workspace-layout/surface-lifecycle-events";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
@@ -247,8 +248,19 @@ export function ChatTranscript({
     if (!pinned) {
       return;
     }
-    virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
+    scrollTranscriptToLatest(virtuosoRef.current);
   }, [activeRun, pinned, timeline.length, transcript.runItemOutputsById, transcript.runItemsById]);
+
+  useEffect(() => {
+    if (!pinned) {
+      return;
+    }
+    return subscribeWorkspaceSurfaceResumed((detail) => {
+      if (detail.surfaceKind === "chat-dom") {
+        scrollTranscriptToLatestAcrossFrames(virtuosoRef, 8);
+      }
+    });
+  }, [pinned]);
 
   useEffect(() => {
     if (!pendingScrollAnchor) {
@@ -328,7 +340,7 @@ export function ChatTranscript({
             setPinned(true);
           }
         }}
-        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-background pt-4 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-x-hidden bg-background pt-4 pb-2 [overflow-anchor:none]"
         components={{
           Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
           Header: () => (
@@ -388,6 +400,28 @@ export function ChatTranscript({
   );
 }
 
+function scrollTranscriptToLatest(virtuoso: VirtuosoHandle | null): void {
+  virtuoso?.scrollTo({ behavior: "auto", top: Number.MAX_SAFE_INTEGER });
+}
+
+function scrollTranscriptToLatestAcrossFrames(
+  virtuosoRef: { current: VirtuosoHandle | null },
+  remainingFrames: number,
+): void {
+  scrollTranscriptToLatest(virtuosoRef.current);
+  if (remainingFrames <= 0) {
+    return;
+  }
+  const scrollNextFrame = () => {
+    scrollTranscriptToLatestAcrossFrames(virtuosoRef, remainingFrames - 1);
+  };
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(scrollNextFrame);
+    return;
+  }
+  queueMicrotask(scrollNextFrame);
+}
+
 function EmptyChatTranscript({
   activeRun,
   submitApproval,
@@ -398,7 +432,7 @@ function EmptyChatTranscript({
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-background px-3 pt-4 pb-2"
+        className="h-full min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-background px-3 pt-4 pb-2 [overflow-anchor:none]"
         data-testid="chat-transcript-scroller"
       >
         <div

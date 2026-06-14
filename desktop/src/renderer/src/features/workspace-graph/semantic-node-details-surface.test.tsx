@@ -325,6 +325,7 @@ function cartographerRun(): SemanticNodeDetail["cartographerRuns"][number] {
       existingNodes: 1,
       fileChanges: 0,
       newEvents: 1,
+      observations: 0,
       observedEventRefs: 1,
       outputSummaries: 1,
       steering: 1,
@@ -408,6 +409,8 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
         closeReason: "manual",
         eventId: "manual_cartographer_request",
         includedContentBytes: 72,
+        messageRole: "",
+        messageStatus: "",
         occurredAt: "2026-06-10T12:00:08Z",
         originalContentBytes: 72,
         outputOrdinal: 0,
@@ -426,6 +429,7 @@ function cartographerInputBundle(): SemanticNodeDetail["cartographerRuns"][numbe
         workflowEventCursor: "workflow_cursor_003",
       },
     ],
+    observations: [],
     observedEventRefs: ["workflow_cursor_003"],
     outputSummaries: [
       {

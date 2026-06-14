@@ -12,7 +12,13 @@ import {
   WorkspaceSettingsSurface,
 } from "./workspace-dom-surfaces";
 import { notifyWorkspaceSurfaceResumed } from "./surface-lifecycle-events";
-import { applySnapshotScrollOffsets, recordSnapshotScrollOffsets } from "./surface-dom-content";
+import {
+  applyCapturedSnapshotScrollOffsets,
+  applySnapshotScrollOffsets,
+  captureSnapshotScrollOffsets,
+  recordSnapshotScrollOffsets,
+  type SnapshotScrollOffsetRecord,
+} from "./surface-dom-content";
 import type {
   CanvasSurfaceStats,
   FreezeReason,
@@ -59,6 +65,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   private host: HTMLElement | null = null;
   private root: ReactSurfaceRoot | null = null;
   private activated = false;
+  private parkedScrollOffsets: SnapshotScrollOffsetRecord[] = [];
   private scrollbarSuppressionToken = 0;
   private visible = false;
 
@@ -109,6 +116,7 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
 
   unmount(): void {
     if (this.container) {
+      this.parkedScrollOffsets = captureSnapshotScrollOffsets(this.container);
       recordSnapshotScrollOffsets(this.container);
     }
     this.host?.replaceChildren();
@@ -233,8 +241,12 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     if (!container) {
       return;
     }
-    applySnapshotScrollOffsets(container);
-    restoreScrollOffsetsAcrossFrames(container, 24);
+    const restore = () => {
+      applySnapshotScrollOffsets(container);
+      applyCapturedSnapshotScrollOffsets(container, this.parkedScrollOffsets);
+    };
+    restore();
+    restoreScrollOffsetsAcrossFrames(restore, 24);
   }
 
   private suppressLiveScrollbars(): void {
@@ -254,19 +266,22 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
   }
 }
 
-function restoreScrollOffsetsAcrossFrames(root: Element, remainingFrames: number): void {
+function restoreScrollOffsetsAcrossFrames(restore: () => void, remainingFrames: number): void {
   if (remainingFrames <= 0) {
     return;
   }
-  const restore = () => {
-    applySnapshotScrollOffsets(root);
-    restoreScrollOffsetsAcrossFrames(root, remainingFrames - 1);
+  const restoreFrame = () => {
+    restore();
+    queueMicrotask(() => {
+      restore();
+    });
+    restoreScrollOffsetsAcrossFrames(restore, remainingFrames - 1);
   };
   if (typeof requestAnimationFrame === "function") {
-    requestAnimationFrame(restore);
+    requestAnimationFrame(restoreFrame);
     return;
   }
-  queueMicrotask(restore);
+  queueMicrotask(restoreFrame);
 }
 
 function clearScrollbarsSuppressedAcrossFrames(

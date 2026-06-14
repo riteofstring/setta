@@ -276,6 +276,10 @@ func normalizeCartographerInputBundle(bundle *CartographerInputBundle) {
 			bundle.NewEvents[index].CloseReason = CartographerCloseNone
 		}
 	}
+	bundle.Observations = nonNilSlice(bundle.Observations)
+	for index := range bundle.Observations {
+		bundle.Observations[index].FilePaths = nonNilSlice(bundle.Observations[index].FilePaths)
+	}
 	bundle.ToolCalls = nonNilSlice(bundle.ToolCalls)
 	bundle.FileChanges = nonNilSlice(bundle.FileChanges)
 	bundle.TestResults = nonNilSlice(bundle.TestResults)

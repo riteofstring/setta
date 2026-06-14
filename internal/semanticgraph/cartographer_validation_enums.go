@@ -72,6 +72,28 @@ func isCartographerWindowCloseReason(reason CartographerWindowCloseReason) bool 
 	}
 }
 
+func isCartographerObservationKind(kind CartographerObservationKind) bool {
+	switch kind {
+	case CartographerObservationPromptMessage,
+		CartographerObservationAssistantMessageCompleted,
+		CartographerObservationAssistantTextChunkAggregate,
+		CartographerObservationCommandStarted,
+		CartographerObservationCommandCompleted,
+		CartographerObservationCommandFailed,
+		CartographerObservationFileReadObserved,
+		CartographerObservationFileChangeObserved,
+		CartographerObservationDiffObserved,
+		CartographerObservationTestResultObserved,
+		CartographerObservationWorkflowNodeStarted,
+		CartographerObservationWorkflowNodeCompleted,
+		CartographerObservationApprovalRequested,
+		CartographerObservationRunCompleted:
+		return true
+	default:
+		return false
+	}
+}
+
 func isCartographerPatchStatus(status CartographerPatchStatus) bool {
 	switch status {
 	case CartographerPatchProposed, CartographerPatchValidated, CartographerPatchPendingReview, CartographerPatchRejected, CartographerPatchApplied:

@@ -12,6 +12,7 @@ type CartographerPatchNodeScope string
 type CartographerDiagnosticSeverity string
 type CartographerTrajectoryEventSource string
 type CartographerWindowCloseReason string
+type CartographerObservationKind string
 
 const (
 	CartographerRunQueued        CartographerRunStatus = "queued"
@@ -78,6 +79,21 @@ const (
 	CartographerCloseWorkflowRunTerminal  CartographerWindowCloseReason = "workflow_run_terminal"
 	CartographerCloseQuietPeriod          CartographerWindowCloseReason = "quiet_period"
 	CartographerCloseManual               CartographerWindowCloseReason = "manual"
+
+	CartographerObservationPromptMessage               CartographerObservationKind = "prompt_message"
+	CartographerObservationAssistantMessageCompleted   CartographerObservationKind = "assistant_message_completed"
+	CartographerObservationAssistantTextChunkAggregate CartographerObservationKind = "assistant_text_chunk_aggregate"
+	CartographerObservationCommandStarted              CartographerObservationKind = "command_started"
+	CartographerObservationCommandCompleted            CartographerObservationKind = "command_completed"
+	CartographerObservationCommandFailed               CartographerObservationKind = "command_failed"
+	CartographerObservationFileReadObserved            CartographerObservationKind = "file_read_observed"
+	CartographerObservationFileChangeObserved          CartographerObservationKind = "file_change_observed"
+	CartographerObservationDiffObserved                CartographerObservationKind = "diff_observed"
+	CartographerObservationTestResultObserved          CartographerObservationKind = "test_result_observed"
+	CartographerObservationWorkflowNodeStarted         CartographerObservationKind = "workflow_node_started"
+	CartographerObservationWorkflowNodeCompleted       CartographerObservationKind = "workflow_node_completed"
+	CartographerObservationApprovalRequested           CartographerObservationKind = "approval_requested"
+	CartographerObservationRunCompleted                CartographerObservationKind = "run_completed"
 )
 
 type CartographerRun struct {
@@ -177,6 +193,7 @@ type CartographerInputBundle struct {
 	WindowStartCursor        CartographerWindowCursor        `json:"windowStartCursor"`
 	WindowEndCursor          CartographerWindowCursor        `json:"windowEndCursor"`
 	NewEvents                []CartographerTrajectoryEvent   `json:"newEvents"`
+	Observations             []CartographerObservationRecord `json:"observations"`
 	PromptSummary            string                          `json:"promptSummary"`
 	PromptText               string                          `json:"promptText"`
 	AssistantResponseSummary string                          `json:"assistantResponseSummary"`
@@ -214,6 +231,8 @@ type CartographerTrajectoryEvent struct {
 	OccurredAt           string                            `json:"occurredAt"`
 	SourceRefs           SemanticContextSourceRefs         `json:"sourceRefs"`
 	ChatMessageID        string                            `json:"chatMessageId"`
+	MessageRole          string                            `json:"messageRole"`
+	MessageStatus        string                            `json:"messageStatus"`
 	RunItemID            string                            `json:"runItemId"`
 	RunItemType          string                            `json:"runItemType"`
 	RunItemStatus        string                            `json:"runItemStatus"`
@@ -226,6 +245,41 @@ type CartographerTrajectoryEvent struct {
 	OriginalContentBytes int                               `json:"originalContentBytes"`
 	IncludedContentBytes int                               `json:"includedContentBytes"`
 	Truncated            bool                              `json:"truncated"`
+}
+
+type CartographerObservationRecord struct {
+	Kind                    CartographerObservationKind       `json:"kind"`
+	Source                  CartographerTrajectoryEventSource `json:"source"`
+	EventID                 string                            `json:"eventId"`
+	Type                    string                            `json:"type"`
+	WorkspaceID             string                            `json:"workspaceId"`
+	WorkflowDefinitionID    string                            `json:"workflowDefinitionId"`
+	WorkflowExecutionID     string                            `json:"workflowExecutionId"`
+	WorkflowNodeID          string                            `json:"workflowNodeId"`
+	WorkflowNodeExecutionID string                            `json:"workflowNodeExecutionId"`
+	ChatConversationID      string                            `json:"chatConversationId"`
+	ChatRunID               string                            `json:"chatRunId"`
+	ChatMessageID           string                            `json:"chatMessageId"`
+	MessageRole             string                            `json:"messageRole"`
+	MessageStatus           string                            `json:"messageStatus"`
+	RunItemID               string                            `json:"runItemId"`
+	ProviderItemID          string                            `json:"providerItemId"`
+	RunItemType             string                            `json:"runItemType"`
+	RunItemStatus           string                            `json:"runItemStatus"`
+	RunStatus               string                            `json:"runStatus"`
+	FilePath                string                            `json:"filePath"`
+	FilePaths               []string                          `json:"filePaths"`
+	RangeStart              int                               `json:"rangeStart"`
+	RangeEnd                int                               `json:"rangeEnd"`
+	Command                 string                            `json:"command"`
+	Cwd                     string                            `json:"cwd"`
+	ExitCode                int                               `json:"exitCode"`
+	OutputStream            string                            `json:"outputStream"`
+	OutputOrdinal           int                               `json:"outputOrdinal"`
+	Summary                 string                            `json:"summary"`
+	TextExcerpt             string                            `json:"textExcerpt"`
+	ContentHash             string                            `json:"contentHash"`
+	OccurredAt              string                            `json:"occurredAt"`
 }
 
 type CartographerToolCallSummary struct {
@@ -282,6 +336,7 @@ type CartographerInputTruncation struct {
 
 type CartographerInputItemCounts struct {
 	NewEvents           int `json:"newEvents"`
+	Observations        int `json:"observations"`
 	ToolCalls           int `json:"toolCalls"`
 	FileChanges         int `json:"fileChanges"`
 	TestResults         int `json:"testResults"`

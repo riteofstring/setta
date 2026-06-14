@@ -66,6 +66,7 @@ func decodeCartographerAssistantTextDelta(observed observedCartographerEvent, ra
 		return observedCartographerEvent{}, err
 	}
 	observed.chatMessageID = payload.MessageID
+	observed.messageRole = string(chat.RoleAssistant)
 	observed.content = payload.Delta
 	observed.summary = "assistant text delta: " + boundedText(payload.Delta, cartographerEventSummaryLimit).text
 	return observed, nil
@@ -272,6 +273,8 @@ func (service *Service) cartographerChatSourceRefs(event chat.Event) (SemanticCo
 
 func (observed observedCartographerEvent) withMessage(message chat.ChatMessage) observedCartographerEvent {
 	observed.chatMessageID = message.ID
+	observed.messageRole = string(message.Role)
+	observed.messageStatus = string(message.Status)
 	observed.sourceRefs.ChatMessageID = message.ID
 	text := chatMessageText(message)
 	observed.content = text

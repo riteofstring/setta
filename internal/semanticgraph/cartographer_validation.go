@@ -508,6 +508,7 @@ func validateCartographerInputItemCounts(counts CartographerInputItemCounts) err
 		value int
 	}{
 		{label: "cartographer input item count newEvents", value: counts.NewEvents},
+		{label: "cartographer input item count observations", value: counts.Observations},
 		{label: "cartographer input item count toolCalls", value: counts.ToolCalls},
 		{label: "cartographer input item count fileChanges", value: counts.FileChanges},
 		{label: "cartographer input item count testResults", value: counts.TestResults},
@@ -612,12 +613,72 @@ func validateCartographerInputWindow(bundle CartographerInputBundle, label strin
 func validateCartographerInputContent(bundle CartographerInputBundle, label string) error {
 	return firstCartographerValidationError(
 		func() error { return validateCartographerTrajectoryEvents(bundle.NewEvents, label) },
+		func() error { return validateCartographerObservationRecords(bundle.Observations, label) },
 		func() error { return validateCartographerToolSummaries(bundle.ToolCalls, label) },
 		func() error { return validateCartographerFileChanges(bundle.FileChanges, label) },
 		func() error { return validateCartographerTestResults(bundle.TestResults, label) },
 		func() error { return validateCartographerOutputSummaries(bundle.OutputSummaries, label) },
 		func() error {
 			return validateCartographerEventRefs(bundle.ObservedEventRefs, label+" observed event ref")
+		},
+	)
+}
+
+func validateCartographerObservationRecords(observations []CartographerObservationRecord, label string) error {
+	for index, observation := range observations {
+		itemLabel := fmt.Sprintf("%s observations[%d]", label, index)
+		if err := validateCartographerObservationRecord(observation, itemLabel); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCartographerObservationRecord(observation CartographerObservationRecord, label string) error {
+	return firstCartographerValidationError(
+		func() error {
+			if !isCartographerObservationKind(observation.Kind) {
+				return fmt.Errorf("%s kind is unsupported: %s", label, observation.Kind)
+			}
+			if !isCartographerTrajectoryEventSource(observation.Source) {
+				return fmt.Errorf("%s source is unsupported: %s", label, observation.Source)
+			}
+			return requireNonEmpty(observation.Type, label+" type")
+		},
+		func() error {
+			return validateContextSourceRefs(SemanticContextSourceRefs{
+				WorkflowDefinitionID:    observation.WorkflowDefinitionID,
+				WorkflowExecutionID:     observation.WorkflowExecutionID,
+				WorkflowNodeID:          observation.WorkflowNodeID,
+				WorkflowNodeExecutionID: observation.WorkflowNodeExecutionID,
+				ChatConversationID:      observation.ChatConversationID,
+				ChatRunID:               observation.ChatRunID,
+				ChatMessageID:           observation.ChatMessageID,
+				RunItemID:               observation.RunItemID,
+			}, label)
+		},
+		func() error {
+			if observation.EventID != "" {
+				if err := validateCartographerEventRef(observation.EventID, label+" eventId"); err != nil {
+					return err
+				}
+			}
+			return validateOptionalStoreIDs([]optionalStoreID{{label: label + " workspaceId", value: observation.WorkspaceID}})
+		},
+		func() error {
+			if observation.RangeStart < 0 || observation.RangeEnd < 0 {
+				return fmt.Errorf("%s range values must not be negative", label)
+			}
+			if observation.OutputOrdinal < 0 {
+				return fmt.Errorf("%s outputOrdinal must not be negative: %d", label, observation.OutputOrdinal)
+			}
+			return nil
+		},
+		func() error {
+			if observation.OccurredAt != "" {
+				return validateTimestamp(label+" occurredAt", observation.OccurredAt)
+			}
+			return nil
 		},
 	)
 }

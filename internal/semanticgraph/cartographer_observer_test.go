@@ -141,6 +141,102 @@ func TestCartographerObserverProcessesLongRunIncrementallyWithPriorSummaries(t *
 	}
 }
 
+func TestCartographerObserverUsesTypedMessageRolesForPromptAndAssistantText(t *testing.T) {
+	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
+	ctx := context.Background()
+	promptText := "Please review the API. This prompt intentionally says assistant inside user text."
+	assistantText := "The assistant answer intentionally says prompt inside assistant text."
+
+	if windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeMessageCreated, chat.MessageCreatedPayload{
+		Message: cartographerChatMessage("message_prompt_misleading", chat.RoleUser, chat.MessageStatusComplete, promptText),
+	})); err != nil || len(windows) != 0 {
+		t.Fatalf("observe prompt message windows=%+v err=%v, want open window only", windows, err)
+	}
+	windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 2, chat.EventTypeMessageUpdated, chat.MessageUpdatedPayload{
+		Message: cartographerChatMessage("message_assistant_misleading", chat.RoleAssistant, chat.MessageStatusComplete, assistantText),
+	}))
+	if err != nil {
+		t.Fatalf("observe assistant message: %v", err)
+	}
+	if len(windows) != 1 {
+		t.Fatalf("assistant message windows = %+v, want one closed window", windows)
+	}
+	input := windows[0].InputBundle
+	if input.PromptText != promptText {
+		t.Fatalf("prompt text = %q, want only typed user prompt %q", input.PromptText, promptText)
+	}
+	if input.AssistantText != assistantText {
+		t.Fatalf("assistant text = %q, want only typed assistant text %q", input.AssistantText, assistantText)
+	}
+	if !cartographerInputHasObservation(input, CartographerObservationPromptMessage, "message_prompt_misleading", "") ||
+		!cartographerInputHasObservation(input, CartographerObservationAssistantMessageCompleted, "message_assistant_misleading", "") {
+		t.Fatalf("observations = %+v, want typed prompt and assistant message observations", input.Observations)
+	}
+}
+
+func TestCartographerObserverRunItemObservationsCarryTypedFields(t *testing.T) {
+	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
+	ctx := context.Background()
+	command := cartographerRunItem("run_item_typed_command", chat.RunItemTypeCommandExecution, chat.RunItemStatusCompleted)
+	command.ProviderItemID = "provider_command_001"
+	command.Command = "./scripts/go.sh test -count=1 ./internal/semanticgraph"
+	command.ExitCode = 0
+	command.Result = "ok setta/internal/semanticgraph"
+	windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeRunItemUpdated, chat.RunItemUpdatedPayload{Item: command}))
+	if err != nil {
+		t.Fatalf("observe command run item: %v", err)
+	}
+	if len(windows) != 1 {
+		t.Fatalf("command windows = %+v, want terminal command window", windows)
+	}
+	commandInput := windows[0].InputBundle
+	commandObservation, ok := findCartographerObservation(commandInput, CartographerObservationCommandCompleted, "run_item_typed_command")
+	if !ok {
+		t.Fatalf("command observations = %+v, want completed command observation", commandInput.Observations)
+	}
+	if commandObservation.ProviderItemID != "provider_command_001" ||
+		commandObservation.Command != command.Command ||
+		commandObservation.ExitCode != 0 ||
+		commandObservation.RunItemStatus != string(chat.RunItemStatusCompleted) {
+		t.Fatalf("command observation = %+v, want typed command fields", commandObservation)
+	}
+	if _, ok := findCartographerObservation(commandInput, CartographerObservationTestResultObserved, "run_item_typed_command"); !ok {
+		t.Fatalf("command observations = %+v, want test-result observation from typed command item", commandInput.Observations)
+	}
+	if !cartographerInputBundleHasSourceRef(commandInput, EvidenceSourceRunItem, "run_item_typed_command") ||
+		!cartographerInputBundleHasSourceRef(commandInput, EvidenceSourceTest, "run_item_typed_command") {
+		t.Fatalf("command input did not preserve run item source refs: %+v", commandInput)
+	}
+
+	fileChange := cartographerRunItem("run_item_typed_file", chat.RunItemTypeFileChange, chat.RunItemStatusCompleted)
+	fileChange.ProviderItemID = "provider_file_001"
+	fileChange.FilePaths = []string{"internal/semanticgraph/cartographer_observer_input.go"}
+	fileChange.DiffSummary = "1 file changed, typed observation projection updated"
+	windows, err = service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 2, chat.EventTypeRunItemUpdated, chat.RunItemUpdatedPayload{Item: fileChange}))
+	if err != nil {
+		t.Fatalf("observe file run item: %v", err)
+	}
+	if len(windows) != 1 {
+		t.Fatalf("file windows = %+v, want terminal file window", windows)
+	}
+	fileInput := windows[0].InputBundle
+	fileObservation, ok := findCartographerObservation(fileInput, CartographerObservationFileChangeObserved, "run_item_typed_file")
+	if !ok {
+		t.Fatalf("file observations = %+v, want file-change observation", fileInput.Observations)
+	}
+	if fileObservation.ProviderItemID != "provider_file_001" ||
+		fileObservation.FilePath != "internal/semanticgraph/cartographer_observer_input.go" ||
+		len(fileObservation.FilePaths) != 1 {
+		t.Fatalf("file observation = %+v, want typed file fields", fileObservation)
+	}
+	if _, ok := findCartographerObservation(fileInput, CartographerObservationDiffObserved, "run_item_typed_file"); !ok {
+		t.Fatalf("file observations = %+v, want diff observation", fileInput.Observations)
+	}
+	if !cartographerInputBundleHasSourceRef(fileInput, EvidenceSourceDiff, "run_item_typed_file") {
+		t.Fatalf("file input did not preserve diff source ref: %+v", fileInput)
+	}
+}
+
 func TestCartographerObserverClosesQuietWindow(t *testing.T) {
 	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
 	ctx := context.Background()
@@ -304,6 +400,27 @@ func cartographerChatEvent(t *testing.T, sequence int, eventType string, payload
 	}
 }
 
+func cartographerChatMessage(id string, role chat.MessageRole, status chat.MessageStatus, text string) chat.ChatMessage {
+	return chat.ChatMessage{
+		SchemaVersion:  chat.SchemaVersion,
+		ID:             id,
+		ConversationID: "chat_conversation_cartographer",
+		RunID:          "chat_run_cartographer",
+		Role:           role,
+		Delivery:       chat.MessageDeliveryNormal,
+		Ordinal:        1,
+		CreatedAt:      testTimestamp(40),
+		UpdatedAt:      testTimestamp(41),
+		Status:         status,
+		Parts: []chat.MessagePart{{
+			ID:     id + "_part",
+			Type:   chat.MessagePartText,
+			Text:   text,
+			Format: chat.TextFormatPlain,
+		}},
+	}
+}
+
 func cartographerRunItem(id string, itemType chat.RunItemType, status chat.RunItemStatus) chat.RunItem {
 	return chat.RunItem{
 		SchemaVersion:  chat.SchemaVersion,
@@ -323,6 +440,31 @@ func cartographerRunItem(id string, itemType chat.RunItemType, status chat.RunIt
 		Result:         "ok",
 		DiffSummary:    "No file changes",
 	}
+}
+
+func cartographerInputHasObservation(input CartographerInputBundle, kind CartographerObservationKind, chatMessageID string, runItemID string) bool {
+	_, ok := findCartographerObservationByRefs(input, kind, chatMessageID, runItemID)
+	return ok
+}
+
+func findCartographerObservation(input CartographerInputBundle, kind CartographerObservationKind, runItemID string) (CartographerObservationRecord, bool) {
+	return findCartographerObservationByRefs(input, kind, "", runItemID)
+}
+
+func findCartographerObservationByRefs(input CartographerInputBundle, kind CartographerObservationKind, chatMessageID string, runItemID string) (CartographerObservationRecord, bool) {
+	for _, observation := range input.Observations {
+		if observation.Kind != kind {
+			continue
+		}
+		if chatMessageID != "" && observation.ChatMessageID != chatMessageID {
+			continue
+		}
+		if runItemID != "" && observation.RunItemID != runItemID {
+			continue
+		}
+		return observation, true
+	}
+	return CartographerObservationRecord{}, false
 }
 
 func cartographerWorkflowConversation() chat.Conversation {
