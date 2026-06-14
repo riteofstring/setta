@@ -1,7 +1,7 @@
 # Semantic Runtime and Graph Interaction Refactor Plan
 
 - **Date:** June 16, 2026
-- **Status:** Phase 2 complete; Phase 3 ready
+- **Status:** Phase 3 complete; Phase 4 ready
 - **Scope:** Fix baseline pan/zoom latency even before a workflow starts, replace the current event-to-full-read semantic working-set path with a bounded runtime projection, restore workflow-first visual hierarchy, and make pan/zoom interaction predictably responsive while semantic cartography is active.
 - **Related docs:**
   - `docs/plans/workspace_graph_performance_semantic_liveness_plan.md`
@@ -643,6 +643,99 @@ Acceptance criteria:
 - Semantic runtime bursts cannot create long tasks during camera movement.
 - Existing Phase 8 performance gate is updated so the prior report-only
   label-sync churn is either fixed or fails hard.
+
+### Phase 3 Implementation Review
+
+Phase 3 is implemented in the current worktree.
+
+Implemented:
+
+- Added explicit Pixi renderer interaction lanes for camera input, visible
+  position sync, hover/selection feedback, semantic runtime visuals, settled
+  fidelity restore, and background recompute. The lanes are exported through
+  the workflow graph debug snapshot and recorded as renderer timing buckets.
+- Removed Pixi viewport deceleration/inertia from graph navigation. Touch
+  pinch remains immediate and non-dragging; wheel/pinch camera movement stays
+  in the Setta-owned wheel handler and responsiveness tracker.
+- Kept wheel/pinch and pointer-pan handlers on the immediate camera path:
+  input records update the viewport camera first, then schedule frame-coalesced
+  camera-dependent work.
+- Added pointer-pan interaction lifetime tracking so settled fidelity is
+  restored after pointer-up rather than between delayed pointer-move samples.
+  Wheel/pinch gestures continue to use the measured quiet settle window.
+- Added camera-moving fidelity mode. Moving frames hide/defer screen-space node
+  labels, avoid forced filter-area sync, keep active workflow edge motion, and
+  defer semantic cell/tendril decorative animation until movement settles.
+- Restored settled fidelity through the lower-priority lane after movement
+  stops: visible scene, labels, active sets, glow/cell fidelity, and filter
+  areas are restored once per completed camera gesture.
+- Hardened the Phase 8 label-sync guardrail. The old report-only
+  `no-full-graph-label-sync-per-pan-wheel-event` check is now a hard check
+  requiring `cameraMovingLabelSyncDelta=0`.
+- Kept the Phase 2 semantic runtime traffic contract intact: camera movement
+  still produces `0` semantic working-set reads during the interaction window,
+  and the cartographer runtime traffic gate still reports `0` blank-scope
+  working-set reads after runtime bootstrap.
+
+Focused verification:
+
+```text
+pnpm --dir desktop exec vitest run src/renderer/src/features/workspace-graph/semantic-runtime-store.test.ts src/renderer/src/features/workspace-graph/semantic-graph-state.test.ts src/renderer/src/features/workspace-graph/semantic-graph-projection.test.ts src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.test.js src/renderer/src/features/workspace-graph/pixi-renderer-animation.test.js src/renderer/src/features/workspace-graph/pixi-renderer-animation-coordinator.test.js src/renderer/src/features/workspace-graph/pixi-renderer-wheel-responsiveness.test.js
+pnpm --dir desktop exec eslint src/renderer/src/features/workspace-graph/pixi-renderer-interaction-scheduler.js src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.js src/renderer/src/features/workspace-graph/pixi-renderer-animation.js src/renderer/src/features/workspace-graph/pixi-renderer-animation-coordinator.js src/renderer/src/features/workspace-graph/pixi-renderer-helpers.js src/renderer/src/features/workspace-graph/pixi-renderer.js src/renderer/src/features/workspace-graph/pixi-renderer-debug-snapshot.js src/renderer/src/features/workspace-graph/pixi-renderer-camera-sync.test.js src/renderer/src/features/workspace-graph/pixi-renderer-animation.test.js tests/electron/workflow-graph-performance-recording.mjs tests/electron/workflow-graph-phase0-performance-guardrails.mjs tests/electron/workflow-graph-pan-zoom-recording.test.mjs
+pnpm --dir desktop build
+node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --skip-build --scenario active
+node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --skip-build --scenario small-trackpad --write-report
+node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs --skip-build --semantic-live-recording-only
+```
+
+The final `small-trackpad` recording at
+`.recordings/workflow-graph-pan-zoom-small-trackpad/20260618T005055Z`
+reported:
+
+```text
+idle wheel/pinch to camera transform p95: 0.30000001192092896 ms
+idle wheel/pinch to rendered frame p95: 12.699999988079071 ms
+semantic working-set reads during camera interaction: 0
+cameraMovingLabelSyncDelta: 0
+max long task: 59 ms
+hard failures: 0
+report-only findings: 0
+```
+
+The active semantic recording at
+`.recordings/workflow-graph-pan-zoom-active/20260618T005014Z` reported:
+
+```text
+semantic working-set reads during camera interaction: 0
+cameraMovingLabelSyncDelta: 0
+cameraSettleRestoreFrameCount: 4
+max long task: 92 ms
+hard failures: 0
+```
+
+The cartographer production-path traffic gate at
+`.recordings/semantic-live-run/2026-06-18T005155-753Z/automatic-agent/semantic-runtime-phase2-traffic-gate.json`
+reported:
+
+```text
+blank-scope working-set reads after runtime bootstrap: 0
+blank-scope working-set HTTP requests after runtime bootstrap: 0
+runtime snapshot IPC bytes per minute: 181160
+```
+
+Important caveat:
+
+- The active pan/zoom recording is the existing production-like built Electron
+  synthetic semantic scene, not a live-provider run. The live cartographer
+  production-path gate was rerun separately to prove the runtime traffic
+  contract. Dedicated live runtime-burst camera workflows remain part of the
+  Phase 7 verification matrix.
+
+Phase 4 handoff:
+
+- Phase 4 is ready to implement. Keep the Phase 3 camera scheduler and
+  movement-mode fidelity contract intact while adding workflow-first visual
+  grammar and aggregate cartographer runtime indicators.
 
 ## Phase 4 - Workflow-First Visual Grammar
 

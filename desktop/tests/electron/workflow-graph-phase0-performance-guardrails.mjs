@@ -138,8 +138,8 @@ function phase8PanWheelEventCount(inputCounts) {
 function phase8LabelMetrics(final, panWheelEventCount) {
   const graphNodeCount = Number(final.graph.nodeCount ?? 0);
   return {
+    cameraMovingLabelSyncBudget: 0,
     fullGraphLabelSyncBudget: phase8FullGraphLabelSyncBudget(graphNodeCount, panWheelEventCount),
-    fullGraphLabelSyncIsMaterial: graphNodeCount >= 100,
     graphNodeCount,
     materializedLabelCount: Math.max(1, Number(final.render.materializedLabelCount ?? 0)),
   };
@@ -153,6 +153,7 @@ function phase8RenderMetrics(diagnostics, final, renderDeltas, nodeDragMoveEvent
   return {
     coalescedStaticGlowBudget: phase8StaticGlowBudget(renderDeltas, nodeDragMoveEvents),
     displayObjectBudget: phase8DisplayObjectBudget(scenario),
+    cameraMovingLabelSyncDelta: Number(renderDeltas.cameraMovingLabelSyncedFrameCount ?? 0),
     labelSyncDelta: Number(renderDeltas.labelSyncCount ?? 0),
     materializedNodeBudget: phase8MaterializedNodeBudget(final),
     nodeDragDelta: Number(renderDeltas.nodeDragUpdateCount ?? 0),
@@ -245,14 +246,12 @@ function phase0CameraWorkingSetReadCheck({ semanticTraffic }) {
 }
 
 function phase8LabelSyncCheck(context) {
-  const check = context.fullGraphLabelSyncIsMaterial ? hardCheck : reportOnlyCheck;
-  return check({
-    actual: context.labelSyncDelta,
-    budget: context.fullGraphLabelSyncBudget,
+  return hardCheck({
+    actual: context.cameraMovingLabelSyncDelta,
+    budget: context.cameraMovingLabelSyncBudget,
     id: "no-full-graph-label-sync-per-pan-wheel-event",
-    pass:
-      context.panWheelEventCount === 0 || context.labelSyncDelta < context.fullGraphLabelSyncBudget,
-    summary: `labelSyncDelta=${context.labelSyncDelta}, panWheelEventCount=${context.panWheelEventCount}, graphNodeCount=${context.graphNodeCount}, materializedLabelCount=${context.materializedLabelCount}`,
+    pass: context.panWheelEventCount === 0 || context.cameraMovingLabelSyncDelta === 0,
+    summary: `cameraMovingLabelSyncDelta=${context.cameraMovingLabelSyncDelta}, labelSyncDelta=${context.labelSyncDelta}, panWheelEventCount=${context.panWheelEventCount}, graphNodeCount=${context.graphNodeCount}, materializedLabelCount=${context.materializedLabelCount}`,
   });
 }
 
@@ -348,7 +347,9 @@ function reportOnlyCheck({ actual, budget, id, pass, summary }) {
 function renderCounterDeltas(initialRender, finalRender) {
   const counters = [
     "cameraDependentSyncFrameCount",
+    "cameraMovingLabelDeferredFrameCount",
     "cameraMovingSyncFrameCount",
+    "cameraMovingLabelSyncedFrameCount",
     "cameraSettleLabelSyncCount",
     "cameraSettleRestoreFrameCount",
     "cameraSettledSyncFrameCount",

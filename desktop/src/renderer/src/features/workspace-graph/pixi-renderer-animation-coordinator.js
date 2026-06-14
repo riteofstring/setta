@@ -59,30 +59,34 @@ export function createWorkflowGraphAnimationCoordinator({
     staticGlowDirty = true;
   }
 
-  function tick(now) {
-    animationState.tick(now, {
-      redrawCellAnimation: ({ nodes: cellNodes, now: animationNow }) => {
-        debugMetrics.measure("cell-animation-redraw", () => {
-          cellAnimation.sync(cellNodes, animationNow);
-        });
-      },
-      redrawEdgeFlow: ({ edges: flowEdges, now: animationNow }) => {
-        debugMetrics.measure("edge-flow-redraw", () => {
-          redrawWorkspaceEdgeFlow({
-            activeSemanticNodeIds: animationState.activeSemanticNodeIds(),
-            edgeFlowGraphics,
-            edges: flowEdges,
-            getNode,
-            now: animationNow,
+  function tick(now, { cameraMotion = "settled" } = {}) {
+    animationState.tick(
+      now,
+      {
+        redrawCellAnimation: ({ nodes: cellNodes, now: animationNow }) => {
+          debugMetrics.measure("cell-animation-redraw", () => {
+            cellAnimation.sync(cellNodes, animationNow);
           });
-        });
+        },
+        redrawEdgeFlow: ({ edges: flowEdges, now: animationNow }) => {
+          debugMetrics.measure("edge-flow-redraw", () => {
+            redrawWorkspaceEdgeFlow({
+              activeSemanticNodeIds: animationState.activeSemanticNodeIds(),
+              edgeFlowGraphics,
+              edges: flowEdges,
+              getNode,
+              now: animationNow,
+            });
+          });
+        },
+        redrawNodeGlow: ({ nodes: glowNodes, now: animationNow }) => {
+          debugMetrics.measure("animated-glow-redraw", () => {
+            drawWorkspaceGlow(animatedGlow, glowNodes, animationNow, { mode: "animated" });
+          });
+        },
       },
-      redrawNodeGlow: ({ nodes: glowNodes, now: animationNow }) => {
-        debugMetrics.measure("animated-glow-redraw", () => {
-          drawWorkspaceGlow(animatedGlow, glowNodes, animationNow, { mode: "animated" });
-        });
-      },
-    });
+      { cameraMotion },
+    );
   }
 
   function syncActiveSet({ cameraMotion = "settled", forceStaticGlow = false } = {}) {

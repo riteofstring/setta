@@ -129,6 +129,137 @@ describe("workflow graph animation state", () => {
     expect(semanticNodeIdSets).toEqual([["semantic_active"]]);
   });
 
+  test("keeps workflow motion and defers semantic decoration while camera is moving", () => {
+    const state = createWorkflowGraphAnimationState({
+      animationEnabled: true,
+      reduceMotion: false,
+    });
+
+    state.recompute({
+      edges: [
+        {
+          id: "edge_active",
+          layer: "workflow",
+          sourceNodeId: "workflow_running",
+          status: "active",
+          targetNodeId: "workflow_ready",
+        },
+        {
+          id: "semantic_tendril_active",
+          layer: "semantic",
+          sourceNodeId: "semantic_active",
+          targetNodeId: "semantic_neighbor",
+        },
+      ],
+      visibleNodes: [
+        {
+          id: "workflow_running",
+          layer: "workflow",
+          status: "running",
+        },
+        {
+          id: "workflow_ready",
+          layer: "workflow",
+          status: "ready",
+        },
+        {
+          id: "semantic_active",
+          activity: { active: true, count: 1, kind: "exploring" },
+          layer: "semantic",
+        },
+        {
+          id: "semantic_neighbor",
+          activity: null,
+          layer: "semantic",
+        },
+      ],
+      visibleNodeIds: new Set([
+        "workflow_running",
+        "workflow_ready",
+        "semantic_active",
+        "semantic_neighbor",
+      ]),
+    });
+    const edgeFlowRedraws = [];
+    const cellAnimationRedraws = [];
+    const semanticNodeIdSets = [];
+    expect(
+      state.tick(
+        1000,
+        {
+          redrawCellAnimation: ({ nodes }) => {
+            cellAnimationRedraws.push(nodes.map((node) => node.id));
+          },
+          redrawEdgeFlow: ({ activeSemanticNodeIds, edges }) => {
+            edgeFlowRedraws.push(edges.map((edge) => edge.id));
+            semanticNodeIdSets.push([...activeSemanticNodeIds]);
+          },
+          redrawNodeGlow: () => undefined,
+        },
+        { cameraMotion: "moving" },
+      ),
+    ).toBe(true);
+
+    expect(edgeFlowRedraws).toEqual([["edge_active"]]);
+    expect(cellAnimationRedraws).toEqual([]);
+    expect(semanticNodeIdSets).toEqual([[]]);
+    expect(state.debugSnapshot()).toMatchObject({
+      cellAnimRedrawCount: 0,
+      edgeFlowRedrawCount: 1,
+      semanticTendrilRedrawCount: 0,
+    });
+  });
+
+  test("clears semantic-only edge flow while camera is moving", () => {
+    const state = createWorkflowGraphAnimationState({
+      animationEnabled: true,
+      reduceMotion: false,
+    });
+
+    state.recompute({
+      edges: [
+        {
+          id: "semantic_tendril_active",
+          layer: "semantic",
+          sourceNodeId: "semantic_active",
+          targetNodeId: "semantic_neighbor",
+        },
+      ],
+      visibleNodes: [
+        {
+          id: "semantic_active",
+          activity: { active: true, count: 1, kind: "exploring" },
+          layer: "semantic",
+        },
+        {
+          id: "semantic_neighbor",
+          activity: null,
+          layer: "semantic",
+        },
+      ],
+      visibleNodeIds: new Set(["semantic_active", "semantic_neighbor"]),
+    });
+    const edgeFlowRedraws = [];
+    expect(
+      state.tick(
+        1000,
+        {
+          redrawEdgeFlow: ({ edges }) => {
+            edgeFlowRedraws.push(edges.map((edge) => edge.id));
+          },
+        },
+        { cameraMotion: "moving" },
+      ),
+    ).toBe(true);
+
+    expect(edgeFlowRedraws).toEqual([[]]);
+    expect(state.debugSnapshot()).toMatchObject({
+      cellAnimRedrawCount: 0,
+      edgeFlowRedrawCount: 1,
+      semanticTendrilRedrawCount: 0,
+    });
+  });
+
   test("disables animation under reduced motion or explicit switch", () => {
     for (const options of [
       { animationEnabled: false, reduceMotion: false },

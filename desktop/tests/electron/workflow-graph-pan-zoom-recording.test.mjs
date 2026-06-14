@@ -59,6 +59,12 @@ const requiredTimingBuckets = [
   "label-position-sync",
   "label-visibility-sync",
   "pixi-render",
+  "scheduler-lane-background-recompute",
+  "scheduler-lane-camera-input",
+  "scheduler-lane-hover-selection-feedback",
+  "scheduler-lane-semantic-runtime-visual",
+  "scheduler-lane-settled-fidelity-restore",
+  "scheduler-lane-visible-position-sync",
   "scene-graph-node-diff-update-rebuild",
   "static-glow-redraw",
 ];
@@ -892,11 +898,13 @@ function assertLargeNodeCount(snapshot, { nodeCount, scenario }) {
 
 function assertFiniteRenderCounters(snapshot) {
   for (const counter of [
+    "activeCameraInteractionCount",
     "averageFrameMs",
     "p95FrameMs",
     "worstFrameMs",
     "cameraDependentSyncFrameCount",
     "cameraMovingLabelHiddenFrameCount",
+    "cameraMovingLabelDeferredFrameCount",
     "cameraMovingLabelSyncedFrameCount",
     "cameraMovingSyncFrameCount",
     "cameraPanSettleDelayMs",
@@ -907,6 +915,7 @@ function assertFiniteRenderCounters(snapshot) {
     "cameraUpdateCount",
     "cameraZoomSettleDelayMs",
     "labelSyncCount",
+    "interactionSchedulerRunCount",
     "lastDrawnEdgeCount",
     "lastDrawnEdgeLabelCount",
     "lastVisibleMaterializedNodeCount",
@@ -960,12 +969,59 @@ function assertCameraSyncCounters(snapshot) {
     );
   }
   if (
-    snapshot.render.cameraMovingLabelHiddenFrameCount <= 0 &&
-    snapshot.render.cameraMovingLabelSyncedFrameCount <= 0
+    snapshot.render.cameraMovingLabelHiddenFrameCount <= 0 ||
+    snapshot.render.cameraMovingLabelSyncedFrameCount !== 0
   ) {
     throw new Error(
       `camera sync counters did not show moving label handling: ${JSON.stringify(snapshot.render)}`,
     );
+  }
+  assertInteractionSchedulerCounters(snapshot);
+}
+
+function assertInteractionSchedulerCounters(snapshot) {
+  const counts = snapshot.render.interactionSchedulerLaneCounts ?? {};
+  const definitions = snapshot.render.interactionSchedulerLaneDefinitions ?? [];
+  assertInteractionSchedulerLaneRuns(counts);
+  assertInteractionSchedulerPriorities(definitions);
+}
+
+function assertInteractionSchedulerLaneRuns(counts) {
+  const requiredLaneIds = [
+    "background-recompute",
+    "camera-input",
+    "hover-selection-feedback",
+    "semantic-runtime-visual",
+    "settled-fidelity-restore",
+    "visible-position-sync",
+  ];
+  for (const laneId of requiredLaneIds) {
+    if (!Number.isFinite(counts[laneId]) || counts[laneId] <= 0) {
+      throw new Error(
+        `interaction scheduler lane did not run: lane=${laneId} counts=${JSON.stringify(counts)}`,
+      );
+    }
+  }
+}
+
+function assertInteractionSchedulerPriorities(definitions) {
+  const priorities = Object.fromEntries(
+    definitions.map((definition) => [definition.id, definition.priority]),
+  );
+  const expectedLanePriorities = [
+    ["camera-input", 1],
+    ["visible-position-sync", 2],
+    ["hover-selection-feedback", 3],
+    ["semantic-runtime-visual", 4],
+    ["settled-fidelity-restore", 5],
+    ["background-recompute", 6],
+  ];
+  for (const [laneId, priority] of expectedLanePriorities) {
+    if (priorities[laneId] !== priority) {
+      throw new Error(
+        `interaction scheduler priorities were not explicit and ordered: ${JSON.stringify(definitions)}`,
+      );
+    }
   }
 }
 

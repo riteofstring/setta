@@ -122,13 +122,17 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
         semanticTendrilAnimCount > 0 ||
         transitionsActive > 0;
     },
-    tick: (now, handlers = {}) => {
+    tick: (now, handlers = {}, { cameraMotion = "settled" } = {}) => {
       if (!animationActive) {
         return false;
       }
       redrawActiveNodeGlow(handlers, now);
-      redrawActiveEdgeFlow(handlers, now);
-      redrawActiveCells(handlers, now);
+      redrawActiveEdgeFlow(handlers, now, {
+        includeSemanticTendrils: cameraMotion !== "moving",
+      });
+      if (cameraMotion !== "moving") {
+        redrawActiveCells(handlers, now);
+      }
       return true;
     },
   };
@@ -141,17 +145,20 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
     handlers.redrawNodeGlow?.({ nodes: activeGlowNodes, now });
   }
 
-  function redrawActiveEdgeFlow(handlers, now) {
-    if (activeEdgeFlowCount === 0 && semanticTendrilAnimCount === 0) {
+  function redrawActiveEdgeFlow(handlers, now, { includeSemanticTendrils }) {
+    const semanticEdges = includeSemanticTendrils ? activeSemanticTendrils : [];
+    const edges = [...activeEdgeFlows, ...semanticEdges];
+    const clearsDeferredSemanticTendrils = !includeSemanticTendrils && semanticTendrilAnimCount > 0;
+    if (edges.length === 0 && !clearsDeferredSemanticTendrils) {
       return;
     }
     edgeFlowRedrawCount += 1;
-    if (semanticTendrilAnimCount > 0) {
+    if (semanticEdges.length > 0) {
       semanticTendrilRedrawCount += 1;
     }
     handlers.redrawEdgeFlow?.({
-      activeSemanticNodeIds,
-      edges: [...activeEdgeFlows, ...activeSemanticTendrils],
+      activeSemanticNodeIds: includeSemanticTendrils ? activeSemanticNodeIds : new Set(),
+      edges,
       now,
     });
   }

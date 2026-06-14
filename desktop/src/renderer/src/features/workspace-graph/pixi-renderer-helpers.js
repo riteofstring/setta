@@ -497,7 +497,7 @@ export function cameraStatesDiffer(left, right) {
 }
 
 export function configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom }) {
-  viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
+  viewport.pinch({ noDrag: true, percent: 1 });
   if (!initialCameraState) {
     viewport.moveCenter(0, 20);
     return;

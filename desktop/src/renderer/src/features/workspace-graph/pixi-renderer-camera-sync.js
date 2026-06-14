@@ -4,13 +4,14 @@ import { cameraState, cameraStatesDiffer } from "./pixi-renderer-helpers";
 
 const cameraPanSettleDelayMs = 64;
 const cameraZoomSettleDelayMs = 48;
-const movingLabelSyncNodeLimit = 120;
+const movingLabelSyncNodeLimit = 0;
 
 export function createWorkflowGraphCameraSync({
   animationCoordinator,
   debugMetrics,
   handlers,
   inputResponsiveness,
+  interactionScheduler = { runLane: (_laneId, callback) => callback() },
   labelLayer,
   labels,
   syncFilterAreas,
@@ -22,20 +23,26 @@ export function createWorkflowGraphCameraSync({
   let cameraDependentSyncRequiresMovingFrame = false;
   let cameraDependentSyncFrameCount = 0;
   let cameraMoving = false;
+  let activeCameraInteractionCount = 0;
   let cameraMovingLabelHiddenFrameCount = 0;
   let cameraMovingSyncFrameCount = 0;
   let cameraSettleLabelSyncCount = 0;
   let cameraSettleRestoreFrameCount = 0;
   let cameraSettledSyncFrameCount = 0;
   let cameraUpdateCount = 0;
+  let cameraMovingLabelDeferredFrameCount = 0;
   let lastCameraMovementAt = 0;
   let lastCameraMovementKind = "none";
   let cameraMovingLabelSyncedFrameCount = 0;
   let pendingCameraSyncIncludesZoom = false;
+  let pendingSettledFidelityIncludesZoom = false;
 
   return {
+    beginCameraInteraction,
     debugSnapshot,
+    endCameraInteraction,
     hasCameraChanged,
+    isCameraMoving,
     recordCameraState,
     runCameraDependentSyncFrame,
     scheduleCameraDependentSync,
@@ -43,10 +50,12 @@ export function createWorkflowGraphCameraSync({
 
   function debugSnapshot() {
     return {
+      activeCameraInteractionCount,
       cameraDependentSyncFrameCount,
       cameraDependentSyncRequiresMovingFrame,
       cameraDependentSyncScheduled,
       cameraMoving,
+      cameraMovingLabelDeferredFrameCount,
       cameraMovingLabelHiddenFrameCount,
       cameraMovingLabelSyncedFrameCount,
       cameraMovingSyncFrameCount,
@@ -60,6 +69,7 @@ export function createWorkflowGraphCameraSync({
       lastCameraMovementKind,
       movingLabelSyncNodeLimit,
       pendingCameraSyncIncludesZoom,
+      pendingSettledFidelityIncludesZoom,
     };
   }
 
@@ -67,23 +77,43 @@ export function createWorkflowGraphCameraSync({
     return cameraStatesDiffer(nextCameraState, lastCameraState);
   }
 
+  function isCameraMoving() {
+    return cameraMoving;
+  }
+
+  function beginCameraInteraction({ interactionKind = "none", now } = {}) {
+    activeCameraInteractionCount += 1;
+    cameraMoving = true;
+    lastCameraMovementAt = Number.isFinite(now) ? now : performance.now();
+    lastCameraMovementKind = interactionKind;
+  }
+
+  function endCameraInteraction({ interactionKind = "none", now } = {}) {
+    activeCameraInteractionCount = Math.max(0, activeCameraInteractionCount - 1);
+    cameraMoving = true;
+    lastCameraMovementAt = Number.isFinite(now) ? now : performance.now();
+    lastCameraMovementKind = interactionKind;
+  }
+
   function recordCameraState(
     nextCameraState = cameraState(viewport),
     { interactionKind = "none", moving, now } = {},
   ) {
-    return debugMetrics.measure("record-camera-state", () => {
-      if (!hasCameraChanged(nextCameraState)) {
-        return false;
-      }
-      const recordedCameraState = { ...nextCameraState };
-      pendingCameraSyncIncludesZoom =
-        pendingCameraSyncIncludesZoom || recordedCameraState.zoom !== lastCameraState.zoom;
-      cameraUpdateCount += 1;
-      lastCameraState = recordedCameraState;
-      handlers.onCameraStateChange(recordedCameraState);
-      syncCameraMovementState({ interactionKind, moving, now });
-      return true;
-    });
+    return interactionScheduler.runLane("camera-input", () =>
+      debugMetrics.measure("record-camera-state", () => {
+        if (!hasCameraChanged(nextCameraState)) {
+          return false;
+        }
+        const recordedCameraState = { ...nextCameraState };
+        pendingCameraSyncIncludesZoom =
+          pendingCameraSyncIncludesZoom || recordedCameraState.zoom !== lastCameraState.zoom;
+        cameraUpdateCount += 1;
+        lastCameraState = recordedCameraState;
+        handlers.onCameraStateChange(recordedCameraState);
+        syncCameraMovementState({ interactionKind, moving, now });
+        return true;
+      }),
+    );
   }
 
   function syncCameraMovementState({ interactionKind, moving, now }) {
@@ -127,6 +157,7 @@ export function createWorkflowGraphCameraSync({
   function cameraSettleDue(now) {
     return (
       cameraMoving &&
+      activeCameraInteractionCount === 0 &&
       Number.isFinite(lastCameraMovementAt) &&
       now - lastCameraMovementAt >= currentCameraSettleDelayMs()
     );
@@ -146,14 +177,18 @@ export function createWorkflowGraphCameraSync({
     debugMetrics.measure(
       "commit-camera-change",
       () => {
-        syncVisibleScene?.({
-          cameraMotion,
-          force,
-          zoomChanged: syncIncludesZoom,
+        interactionScheduler.runLane("visible-position-sync", () => {
+          syncVisibleScene?.({
+            cameraMotion,
+            force,
+            zoomChanged: syncIncludesZoom,
+          });
         });
-        syncLabelsForCameraMotion(cameraMotion);
-        animationCoordinator.syncActiveSet({ cameraMotion });
-        syncFilterAreas({ force: syncIncludesZoom });
+        if (cameraMotion === "moving") {
+          syncMovingCameraFidelity(syncIncludesZoom);
+        } else {
+          syncSettledCameraFidelity(syncIncludesZoom);
+        }
         pendingCameraSyncIncludesZoom = false;
       },
       { cameraMotion },
@@ -173,33 +208,62 @@ export function createWorkflowGraphCameraSync({
 
   function runCameraSettleFidelityRestore(now) {
     cameraMoving = false;
-    debugMetrics.measure(
-      "camera-settle-fidelity-restore",
+    interactionScheduler.runLane(
+      "settled-fidelity-restore",
       () => {
-        syncVisibleScene?.({
-          cameraMotion: "settled",
-          force: false,
-          zoomChanged: false,
-        });
-        syncLabelsForCameraMotion("settled");
-        animationCoordinator.syncActiveSet({ cameraMotion: "settled" });
+        debugMetrics.measure(
+          "camera-settle-fidelity-restore",
+          () => {
+            syncVisibleScene?.({
+              cameraMotion: "settled",
+              force: false,
+              zoomChanged: pendingSettledFidelityIncludesZoom,
+            });
+            syncLabelsForCameraMotion("settled");
+            animationCoordinator.syncActiveSet({ cameraMotion: "settled" });
+            syncFilterAreas({ force: pendingSettledFidelityIncludesZoom });
+            pendingSettledFidelityIncludesZoom = false;
+          },
+          { now },
+        );
       },
-      { now },
+      { cameraMotion: "settled" },
     );
     inputResponsiveness?.recordSettleRestore(now);
     cameraSettleRestoreFrameCount += 1;
   }
 
+  function syncMovingCameraFidelity(syncIncludesZoom) {
+    syncLabelsForCameraMotion("moving");
+    interactionScheduler.runLane(
+      "semantic-runtime-visual",
+      () => {
+        animationCoordinator.syncActiveSet({ cameraMotion: "moving" });
+      },
+      { cameraMotion: "moving" },
+    );
+    syncFilterAreas({ force: false });
+    pendingSettledFidelityIncludesZoom = pendingSettledFidelityIncludesZoom || syncIncludesZoom;
+  }
+
+  function syncSettledCameraFidelity(syncIncludesZoom) {
+    interactionScheduler.runLane(
+      "settled-fidelity-restore",
+      () => {
+        syncLabelsForCameraMotion("settled");
+        animationCoordinator.syncActiveSet({ cameraMotion: "settled" });
+        syncFilterAreas({ force: syncIncludesZoom || pendingSettledFidelityIncludesZoom });
+        pendingSettledFidelityIncludesZoom = false;
+      },
+      { cameraMotion: "settled" },
+    );
+  }
+
   function syncLabelsForCameraMotion(cameraMotion) {
     if (cameraMotion === "moving") {
-      if (labels.visibleLabelSyncNodeCount() <= movingLabelSyncNodeLimit) {
-        labelLayer.visible = true;
-        labels.syncVisibleLabels();
-        cameraMovingLabelSyncedFrameCount += 1;
-        return;
-      }
       labelLayer.visible = false;
       cameraMovingLabelHiddenFrameCount += 1;
+      cameraMovingLabelDeferredFrameCount += labels.visibleLabelSyncNodeCount();
       return;
     }
     labelLayer.visible = true;
