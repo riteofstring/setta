@@ -132,10 +132,7 @@ func (manager *Manager) NewSession(ctx context.Context) (*Session, error) {
 	return session, nil
 }
 
-func (manager *Manager) Shutdown(ctx context.Context) error {
-	if ctx == nil {
-		return errors.New("shutdown context is required")
-	}
+func (manager *Manager) Shutdown(context.Context) error {
 	manager.mu.Lock()
 	manager.closed = true
 	client := manager.client
@@ -146,14 +143,13 @@ func (manager *Manager) Shutdown(ctx context.Context) error {
 	manager.sessions = map[int]*Session{}
 	manager.mu.Unlock()
 
-	var shutdownErr error
 	if client != nil {
-		shutdownErr = client.shutdown(ctx)
+		client.Close()
 	}
 	for _, session := range sessions {
 		session.closeWithEvent(Event{Kind: EventLifecycle, Err: errors.New("codex app-server manager shut down")})
 	}
-	return shutdownErr
+	return nil
 }
 
 func (manager *Manager) ensureStarted(ctx context.Context) (*Client, error) {

@@ -1,10 +1,10 @@
 /* global window */
 
-export function registerWorkflowGraphDebugSurface(surfaceId, surface) {
+export function registerWorkflowGraphDebugSurface(surfaceId, getSnapshot) {
   const api = ensureWorkflowGraphDebugApi();
-  api.__renderers.set(surfaceId, normalizeDebugSurface(surface));
+  api.__renderers.set(surfaceId, getSnapshot);
   return () => {
-    if (api.__renderers.get(surfaceId)?.source === surface) {
+    if (api.__renderers.get(surfaceId) === getSnapshot) {
       api.__renderers.delete(surfaceId);
     }
     if (api.__renderers.size === 0 && window.__settaWorkflowGraphDebug === api) {
@@ -23,68 +23,28 @@ function ensureWorkflowGraphDebugApi() {
   const api = {
     __renderers: renderers,
     getSnapshot(surfaceId, options) {
-      return resolveWorkflowGraphDebugSurface(renderers, surfaceId).getSnapshot(options);
+      return resolveWorkflowGraphDebugSurface(renderers, surfaceId)(options);
     },
     getSnapshots() {
       return Object.fromEntries(
-        [...renderers.entries()].map(([surfaceId, surface]) => [surfaceId, surface.getSnapshot()]),
+        [...renderers.entries()].map(([surfaceId, getSnapshot]) => [surfaceId, getSnapshot()]),
       );
     },
     getSurfaceIds() {
       return [...renderers.keys()];
-    },
-    fitToGraph(surfaceId, options) {
-      const surface = resolveWorkflowGraphDebugSurface(renderers, surfaceId);
-      if (!surface.fitToGraph) {
-        throw new Error(`Workflow graph debug surface cannot fit camera: ${surfaceId}`);
-      }
-      return surface.fitToGraph(options);
-    },
-    renderAnimationFrame(surfaceId, options) {
-      const surface = resolveWorkflowGraphDebugSurface(renderers, surfaceId);
-      if (!surface.renderAnimationFrame) {
-        throw new Error(`Workflow graph debug surface cannot render animation frame: ${surfaceId}`);
-      }
-      return surface.renderAnimationFrame(options);
-    },
-    releaseAnimationFrame(surfaceId) {
-      const surface = resolveWorkflowGraphDebugSurface(renderers, surfaceId);
-      if (!surface.releaseAnimationFrame) {
-        throw new Error(
-          `Workflow graph debug surface cannot release animation frame: ${surfaceId}`,
-        );
-      }
-      return surface.releaseAnimationFrame();
     },
   };
   window.__settaWorkflowGraphDebug = api;
   return api;
 }
 
-function normalizeDebugSurface(surface) {
-  if (typeof surface === "function") {
-    return {
-      fitToGraph: null,
-      getSnapshot: surface,
-      source: surface,
-    };
-  }
-  return {
-    fitToGraph: surface.fitToGraph ?? null,
-    getSnapshot: surface.getSnapshot,
-    releaseAnimationFrame: surface.releaseAnimationFrame ?? null,
-    renderAnimationFrame: surface.renderAnimationFrame ?? null,
-    source: surface,
-  };
-}
-
 function resolveWorkflowGraphDebugSurface(renderers, surfaceId) {
   if (surfaceId) {
-    const surface = renderers.get(surfaceId);
-    if (!surface) {
+    const getSnapshot = renderers.get(surfaceId);
+    if (!getSnapshot) {
       throw new Error(`Workflow graph debug surface is not registered: ${surfaceId}`);
     }
-    return surface;
+    return getSnapshot;
   }
   const first = renderers.values().next();
   if (first.done) {

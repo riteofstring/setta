@@ -10,35 +10,22 @@ import (
 	"os"
 	"os/exec"
 	"sync"
-	"time"
 )
 
 const maxCanceledResponseTombstones = 1024
 
-const (
-	DefaultProcessShutdownGracePeriod = 2 * time.Second
-	DefaultProcessShutdownKillPeriod  = 2 * time.Second
-)
-
-var errProcessExitTimeout = errors.New("codex app-server process did not exit before shutdown timeout")
-
 type ProcessConfig struct {
-	Command             string
-	Args                []string
-	Env                 []string
-	ShutdownGracePeriod time.Duration
-	ShutdownKillPeriod  time.Duration
+	Command string
+	Args    []string
+	Env     []string
 }
 
 type Client struct {
-	cmd                 *exec.Cmd
-	stdin               io.WriteCloser
-	notifications       chan Message
-	requests            chan Message
-	lifecycle           *Lifecycle
-	waitDone            chan struct{}
-	shutdownGracePeriod time.Duration
-	shutdownKillPeriod  time.Duration
+	cmd           *exec.Cmd
+	stdin         io.WriteCloser
+	notifications chan Message
+	requests      chan Message
+	lifecycle     *Lifecycle
 
 	mu      sync.Mutex
 	nextID  int
@@ -99,14 +86,7 @@ func StartProcess(config ProcessConfig) (*Client, error) {
 	if len(config.Args) == 0 {
 		config.Args = []string{"app-server", "--listen", "stdio://"}
 	}
-	if config.ShutdownGracePeriod <= 0 {
-		config.ShutdownGracePeriod = DefaultProcessShutdownGracePeriod
-	}
-	if config.ShutdownKillPeriod <= 0 {
-		config.ShutdownKillPeriod = DefaultProcessShutdownKillPeriod
-	}
 	cmd := exec.Command(config.Command, config.Args...)
-	configureCommandProcessGroup(cmd)
 	if len(config.Env) > 0 {
 		cmd.Env = append(os.Environ(), config.Env...)
 	}
@@ -129,9 +109,6 @@ func StartProcess(config ProcessConfig) (*Client, error) {
 		notifications:       make(chan Message, 128),
 		requests:            make(chan Message, 32),
 		lifecycle:           newLifecycle(),
-		waitDone:            make(chan struct{}),
-		shutdownGracePeriod: config.ShutdownGracePeriod,
-		shutdownKillPeriod:  config.ShutdownKillPeriod,
 		pending:             map[int]*pendingCall{},
 		canceledResponseIDs: map[int]struct{}{},
 	}
@@ -284,7 +261,6 @@ func (client *Client) readLoop(stdout io.Reader, stderr fmt.Stringer) {
 	var terminalErr error
 	defer func() {
 		client.finish(terminalErr)
-		close(client.waitDone)
 	}()
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 4096), 16*1024*1024)
@@ -318,20 +294,12 @@ func (client *Client) readLoop(stdout io.Reader, stderr fmt.Stringer) {
 
 func (client *Client) routeMessage(message Message) error {
 	if message.Method != "" && message.ID != nil {
-		select {
-		case client.requests <- message:
-			return nil
-		case <-client.lifecycle.Done():
-			return client.lifecycleError("codex app-server exited")
-		}
+		client.requests <- message
+		return nil
 	}
 	if message.Method != "" {
-		select {
-		case client.notifications <- message:
-			return nil
-		case <-client.lifecycle.Done():
-			return client.lifecycleError("codex app-server exited")
-		}
+		client.notifications <- message
+		return nil
 	}
 	if message.ID == nil {
 		return nil
@@ -363,75 +331,11 @@ func (client *Client) resolvePending(id int, message Message) error {
 }
 
 func (client *Client) Close() {
-	_ = client.shutdown(context.Background())
-}
-
-func (client *Client) shutdown(ctx context.Context) error {
-	if ctx == nil {
-		return errors.New("shutdown context is required")
+	_ = client.stdin.Close()
+	if client.cmd.Process != nil {
+		_ = client.cmd.Process.Kill()
 	}
 	client.finish(errors.New("codex app-server client closed"))
-	_ = client.stdin.Close()
-	if client.cmd == nil || client.cmd.Process == nil {
-		return client.waitForProcessExit(ctx, client.shutdownKillPeriod)
-	}
-	return client.shutdownProcess(ctx)
-}
-
-func (client *Client) shutdownProcess(ctx context.Context) error {
-	terminateErr := processSignalShutdownError(terminateCommandProcess(client.cmd))
-	graceErr := client.waitForProcessExit(ctx, client.shutdownGracePeriod)
-	if graceErr == nil {
-		_ = killCommandProcess(client.cmd)
-		return nil
-	}
-	killErr := processSignalShutdownError(killCommandProcess(client.cmd))
-	killWaitErr := client.waitForProcessExit(ctx, client.shutdownKillPeriod)
-	return firstClientShutdownError(
-		terminateErr,
-		processWaitShutdownError(graceErr),
-		killWaitErr,
-		killErr,
-	)
-}
-
-func processSignalShutdownError(err error) error {
-	if errors.Is(err, os.ErrProcessDone) {
-		return nil
-	}
-	return err
-}
-
-func processWaitShutdownError(err error) error {
-	if errors.Is(err, errProcessExitTimeout) {
-		return nil
-	}
-	return err
-}
-
-func firstClientShutdownError(errors ...error) error {
-	for _, err := range errors {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (client *Client) waitForProcessExit(ctx context.Context, timeout time.Duration) error {
-	if timeout <= 0 {
-		timeout = DefaultProcessShutdownKillPeriod
-	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	select {
-	case <-client.waitDone:
-		return nil
-	case <-timer.C:
-		return errProcessExitTimeout
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
 
 func newLifecycle() *Lifecycle {

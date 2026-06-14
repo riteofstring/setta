@@ -22,13 +22,13 @@ export function ApprovalCard({
 }) {
   return (
     <section
-      className="min-w-0 rounded-md border border-status-warning/50 bg-status-warning/15 px-4 py-3 text-sm break-words text-foreground"
+      className="min-w-0 rounded-md border border-status-alert/50 bg-status-alert/10 px-4 py-3 text-sm break-words text-foreground"
       data-testid="approval-card"
     >
       <div className="font-semibold">{approval.title}</div>
       {approval.body ? <div className="mt-1 text-muted-foreground">{approval.body}</div> : null}
       {approval.command ? (
-        <pre className="mt-3 max-w-full overflow-hidden whitespace-pre-wrap rounded border border-status-warning/40 bg-background p-2 text-xs break-words text-foreground [overflow-wrap:anywhere]">
+        <pre className="mt-3 max-w-full overflow-hidden whitespace-pre-wrap rounded border border-status-alert/40 bg-background p-2 text-xs break-words text-foreground [overflow-wrap:anywhere]">
           {approval.command}
         </pre>
       ) : null}
@@ -36,7 +36,7 @@ export function ApprovalCard({
         <div className="mt-2 break-all font-mono text-xs">{approval.filePath}</div>
       ) : null}
       {approval.permission ? (
-        <pre className="mt-3 max-w-full overflow-hidden whitespace-pre-wrap rounded border border-status-warning/40 bg-background p-2 text-xs break-words text-foreground [overflow-wrap:anywhere]">
+        <pre className="mt-3 max-w-full overflow-hidden whitespace-pre-wrap rounded border border-status-alert/40 bg-background p-2 text-xs break-words text-foreground [overflow-wrap:anywhere]">
           {approval.permission}
         </pre>
       ) : null}
@@ -166,7 +166,10 @@ function UserInputApproval({
                     key={option}
                     onClick={() => {
                       setQuestionAnswer(setAnswersByQuestion, question.id, option);
-                      inputRefs.current[question.id]?.focus();
+                      const input = inputRefs.current[question.id];
+                      if (input) {
+                        input.value = option;
+                      }
                     }}
                     type="button"
                     variant={answer === option ? "primary" : "secondary"}
@@ -179,7 +182,7 @@ function UserInputApproval({
             <input
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
               name={question.id}
-              onChange={(event) =>
+              onInput={(event) =>
                 setQuestionAnswer(setAnswersByQuestion, question.id, event.currentTarget.value)
               }
               ref={(input) => {
@@ -187,7 +190,6 @@ function UserInputApproval({
               }}
               required
               type={question.isSecret ? "password" : "text"}
-              value={answer}
             />
           </div>
         );

@@ -563,7 +563,7 @@ export function CommandSuggestions({
               type="button"
             >
               <span className="grid h-4 w-4 shrink-0 place-items-center">
-                {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
+                {selected ? <Check className="h-4 w-4 text-status-success" /> : null}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium text-foreground">
@@ -597,7 +597,7 @@ export function CommandSuggestions({
                   type="button"
                 >
                   <span className="grid h-4 w-4 shrink-0 place-items-center">
-                    {selected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
+                    {selected ? <Check className="h-4 w-4 text-status-success" /> : null}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-foreground">

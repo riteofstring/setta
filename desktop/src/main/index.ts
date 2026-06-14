@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -13,28 +13,26 @@ import {
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendEventStreamStatus, BackendProcessStatus } from "@shared/types";
-import { registerAppIpcHandlers } from "./app-ipc";
 import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
 import { createBackendRequestLifecycle } from "./backend-request-lifecycle";
 import { createBackendStatusBroadcaster } from "./backend-status";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
 import { forwardChatEventToWindows } from "./chat-event-forwarding";
+import { readEditorIconDataURL } from "./editor-icon-data-url";
+import { listInstalledEditorApps, openWorkspaceInEditor } from "./editor-apps";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
+import { captureRendererRegion } from "./renderer-region-capture";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
-import { startSemanticGraphEventForwarding } from "./semantic-graph-event-forwarding-stream";
-import { registerSemanticGraphIpcHandlers } from "./semantic-graph-ipc";
 import { forwardTerminalEventToWindows } from "./terminal-event-forwarding";
 import { startTerminalEventStream, type TerminalEventStream } from "./terminal-event-stream";
 import { registerTerminalIpcHandlers } from "./terminal-ipc";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
 import { forwardWorkflowEventToWindows } from "./workflow-event-forwarding";
 import { startWorkflowEventStream, type WorkflowEventStream } from "./workflow-event-stream";
-import { registerWorkflowIpcHandlers } from "./workflow-ipc";
-import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
+import { readWorkspaceGitInfo } from "./workspace-actions";
 
 let backend: BackendHandle | null = null;
 let backendEventStream: BackendEventStream | null = null;
-let semanticGraphEventStream: ReturnType<typeof startSemanticGraphEventForwarding> | null = null;
 let terminalEventStream: TerminalEventStream | null = null;
 let workflowEventStream: WorkflowEventStream | null = null;
 let backendStartupError: string | null = null;
@@ -89,7 +87,6 @@ async function prepareBackend(appDataDir: string) {
       }
     });
     startChatEventStream();
-    startSemanticGraphEventStreamForwarding();
     startTerminalEventStreamForwarding();
     startWorkflowEventStreamForwarding();
   } catch (error) {
@@ -139,18 +136,6 @@ function startWorkflowEventStreamForwarding() {
   });
 }
 
-function startSemanticGraphEventStreamForwarding() {
-  if (!backend) {
-    return;
-  }
-  void stopSemanticGraphEventStreamForwarding();
-  semanticGraphEventStream = startSemanticGraphEventForwarding({
-    baseURL: backend.url,
-    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
-    recorder,
-  });
-}
-
 function startTerminalEventStreamForwarding() {
   if (!backend) {
     return;
@@ -175,12 +160,6 @@ async function stopWorkflowEventStreamForwarding() {
   await stream?.stop();
 }
 
-async function stopSemanticGraphEventStreamForwarding() {
-  const stream = semanticGraphEventStream;
-  semanticGraphEventStream = null;
-  await stream?.stop();
-}
-
 async function stopTerminalEventStreamForwarding() {
   const stream = terminalEventStream;
   terminalEventStream = null;
@@ -190,7 +169,6 @@ async function stopTerminalEventStreamForwarding() {
 async function stopBackendEventStreams() {
   await Promise.all([
     stopChatEventStream(),
-    stopSemanticGraphEventStreamForwarding(),
     stopTerminalEventStreamForwarding(),
     stopWorkflowEventStreamForwarding(),
   ]);
@@ -349,16 +327,64 @@ function registerIpc() {
   ipcMain.on(ipcMessages.workspaceBrowserViewBatch, (event, batch) => {
     workspaceBrowserViews.applyBatch(event, batch);
   });
-  registerAppIpcHandlers({
+  handleIpc(
     ipcMain,
+    "appInstalledEditors",
+    () => {
+      return listInstalledEditorApps(readEditorIconDataURL);
+    },
     ipcObserver,
-    recordAppEvent: (type, payload) => recorder?.recordAppEvent(type, payload),
-  });
+  );
+  handleIpc(
+    ipcMain,
+    "appCaptureRendererRegion",
+    async (event, request) => {
+      return captureRendererRegion(event, request);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appOpenWorkspaceInEditor",
+    async (_event, editorId, rootPath) => {
+      await openWorkspaceInEditor(editorId, rootPath, {
+        openPath: shell.openPath,
+      });
+    },
+    ipcObserver,
+  );
   registerAppWindowDragIpcHandlers({
     ipcMain,
     ipcObserver,
     windowFromEvent: (event) => BrowserWindow.fromWebContents(event.sender),
   });
+  handleIpc(
+    ipcMain,
+    "appWorkspaceGitInfo",
+    async (_event, rootPath) => {
+      return readWorkspaceGitInfo(rootPath);
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appVersions",
+    () => ({
+      app: app.getVersion(),
+      chrome: process.versions.chrome,
+      electron: process.versions.electron,
+      node: process.versions.node,
+    }),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "appOpenExternalUrl",
+    async (_event, rawURL) => {
+      await openExternalURL(rawURL);
+    },
+    ipcObserver,
+  );
   handleIpc(
     ipcMain,
     "backendHealth",
@@ -460,7 +486,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerWorkspaceUILayoutIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "workspaceClose",
@@ -695,7 +720,128 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerWorkflowIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
+  handleIpc(
+    ipcMain,
+    "workflowListDefinitions",
+    async (_event, workspaceId) => {
+      return requireBackendClient().listWorkflowDefinitions({ workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowCreateDefinition",
+    async (_event, workspaceId, name, description, graph) => {
+      return requireBackendClient().createWorkflowDefinition({
+        description,
+        graph,
+        name,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowReadDefinition",
+    async (_event, workspaceId, definitionId) => {
+      return requireBackendClient().readWorkflowDefinition({ definitionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowUpdateDefinition",
+    async (_event, ...args) => {
+      const [workspaceId, definitionId, name, description, graph] = args;
+      return requireBackendClient().updateWorkflowDefinition({
+        definitionId,
+        description,
+        graph,
+        name,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowDeleteDefinition",
+    async (_event, workspaceId, definitionId) => {
+      return requireBackendClient().deleteWorkflowDefinition({ definitionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowValidateDefinition",
+    async (_event, workspaceId, graph) => {
+      return requireBackendClient().validateWorkflowDefinition({ graph, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowStartExecution",
+    async (_event, workspaceId, definitionId, versionId) => {
+      return requireBackendClient().startWorkflowExecution({
+        definitionId,
+        versionId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowCancelExecution",
+    async (_event, workspaceId, executionId) => {
+      return requireBackendClient().cancelWorkflowExecution({ executionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowReadExecution",
+    async (_event, workspaceId, executionId) => {
+      return requireBackendClient().readWorkflowExecution({ executionId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowExecutionEvents",
+    async (_event, workspaceId, executionId, beforeOrdinal, limit) => {
+      return requireBackendClient().getWorkflowExecutionEvents({
+        beforeOrdinal,
+        executionId,
+        limit,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowGraphProjection",
+    async (_event, workspaceId, definitionId, versionId, executionId) => {
+      return requireBackendClient().readWorkflowGraphProjection({
+        definitionId,
+        executionId,
+        versionId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "workflowSubmitApproval",
+    async (_event, request) => {
+      return requireBackendClient().submitWorkflowApproval(request);
+    },
+    ipcObserver,
+  );
   handleIpc(
     ipcMain,
     "codexAccountRead",
@@ -736,7 +882,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerSemanticGraphIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "workspaceBrowserViewStats",
@@ -756,6 +901,23 @@ function registerIpc() {
   registerTerminalIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
 }
 
+function externalURL(rawURL: string) {
+  const url = new URL(rawURL);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("external URL must use http or https: " + rawURL);
+  }
+  return url.toString();
+}
+
+async function openExternalURL(rawURL: string) {
+  const url = externalURL(rawURL);
+  if (process.env.SETTA_E2E_BLOCK_EXTERNAL_OPEN === "1") {
+    recorder?.recordAppEvent("external_url_open_blocked", { url });
+    return;
+  }
+  await shell.openExternal(url);
+}
+
 function requireBackendClient(): BackendClient {
   if (!backend) {
     throw new Error(backendStartupError ?? "backend is not running");
@@ -771,14 +933,6 @@ async function stopBackend() {
   await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
   await backend?.stop();
   backend = null;
-}
-
-function destroyRendererWindowsForQuit() {
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) {
-      window.destroy();
-    }
-  }
 }
 
 function requestQuit() {
@@ -813,7 +967,6 @@ app.on("before-quit", (event) => {
   quitting = true;
   void (async () => {
     await recorder?.captureScreenshot(mainWindow, "app-before-quit");
-    destroyRendererWindowsForQuit();
     await stopBackend();
     recorder?.close();
     app.quit();
@@ -821,7 +974,7 @@ app.on("before-quit", (event) => {
 });
 
 app.on("window-all-closed", () => {
-  if (!quitting && process.platform !== "darwin") {
+  if (process.platform !== "darwin") {
     app.quit();
   }
 });

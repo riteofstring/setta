@@ -29,6 +29,7 @@ import {
   isVerticalDirection,
   minimumColumnWidth,
   nearestColumnWidthPreset,
+  nearestPaneByVerticalCenter,
   nextNumericSuffix,
   normalizedColumnWidthSpec,
   type PaneDirection,
@@ -41,10 +42,6 @@ import {
   normalizeTerminalPaneConfig,
   terminalConfigForRequest,
 } from "./layout-engine-normalization";
-import {
-  paneInHorizontalVisualDirection,
-  paneInVerticalVisualDirection,
-} from "./layout-engine-navigation";
 import { renderNormalLayoutFrame, renderOverviewLayoutFrame } from "./layout-engine-rendering";
 import {
   reorderPaneColumnBefore,
@@ -221,27 +218,16 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
       return null;
     }
     const availableHeight = this.availablePaneHeight(viewport.height);
-    const columnVisualFrames = (column: WorkspaceColumn) =>
-      this.columnVisualFrames(column, availableHeight, maximizedPaneId);
     if (isVerticalDirection(direction)) {
-      return paneInVerticalVisualDirection({
-        adjacentPlaneIndex: (planeIndex, targetDirection) =>
-          this.adjacentPlaneIndex(planeIndex, targetDirection),
-        columnVisualFrames,
-        columns: this.columns,
-        direction,
-        nearestColumnInPlaneByHorizontalCenter: (planeIndex, targetSource) =>
-          this.nearestColumnInPlaneByHorizontalCenter(planeIndex, targetSource, viewport.width),
+      return this.paneInVerticalVisualDirection(
         source,
+        direction,
         viewport,
-      });
+        availableHeight,
+        maximizedPaneId,
+      );
     }
-    return paneInHorizontalVisualDirection({
-      columnVisualFrames,
-      columns: this.columns,
-      direction,
-      source,
-    });
+    return this.paneInHorizontalVisualDirection(source, direction);
   }
 
   renderFrame(input: LayoutFrameInput, push: (item: PaneRenderItem) => void): void {
@@ -316,7 +302,6 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     renderNormalLayoutFrame({
       availableHeight: this.availablePaneHeight(input.viewport.height),
       columns: this.columns,
-      focusedLocation: this.locationForPane(input.focusedPaneId),
       fullSizePanes: this.compactLayout,
       geometry: this.columnGeometry(input.viewport.width, input.maximizedPaneId),
       input,
@@ -492,6 +477,9 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     const availableHeight = this.availablePaneHeight(viewportHeight);
     const planeOffset =
       planeTopOffsets(this.planeIndexes(), viewportHeight).get(location.planeIndex) ?? 0;
+    if (!this.compactLayout) {
+      return planeOffset;
+    }
     return (
       planeOffset +
       scrollOffsetForColumn(
@@ -510,22 +498,21 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     maximizedPaneId: PaneId | null = null,
   ): number {
     const focusedColumn = this.columns[focusedColumnIndex];
-    const focusedPlaneIndex = focusedColumn?.planeIndex ?? 0;
-    if (!focusedColumn) {
-      return this.constrainScrollColumnToViewport(
-        currentScrollColumn,
-        viewportWidth,
-        focusedPlaneIndex,
-        this.columnGeometry(viewportWidth, maximizedPaneId, 0),
-      );
-    }
     const geometry = this.columnGeometry(viewportWidth, maximizedPaneId, 0);
+    if (!focusedColumn) {
+      return this.constrainScrollColumnToViewport(currentScrollColumn, viewportWidth, geometry);
+    }
     return this.constrainScrollColumnToViewport(
-      this.planeColumnIndex(focusedColumn),
+      this.scrollColumnForColumn(focusedColumn),
       viewportWidth,
-      focusedPlaneIndex,
       geometry,
     );
+  }
+
+  horizontalScrollColumnForPane(paneId: PaneId): number {
+    const location = this.locationForPane(paneId);
+    const column = location ? this.columns[location.columnIndex] : undefined;
+    return column ? this.scrollColumnForColumn(column) : 0;
   }
 
   totalColumnOverflowWidth(viewportWidth: number): number {
@@ -633,17 +620,18 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
         offsets[column.index] = slotOffsets.get(columnSlotIndex(column)) ?? 0;
       }
     }
-    return { offsets, widths };
+    const scrollOffsets = [...slotOffsets.entries()]
+      .toSorted(([leftSlot], [rightSlot]) => leftSlot - rightSlot)
+      .map(([, offset]) => offset);
+    return { offsets, scrollOffsets, widths };
   }
 
   private constrainScrollColumnToViewport(
     scrollColumn: number,
     viewportWidth: number,
-    planeIndex: number,
     geometry = this.columnGeometry(viewportWidth),
   ): number {
-    const planeOffsets = this.offsetsForPlane(planeIndex, geometry);
-    return clamp(scrollColumn, 0, Math.max(0, planeOffsets.length - 1));
+    return clamp(scrollColumn, 0, Math.max(0, geometry.scrollOffsets.length - 1));
   }
 
   private insertAdjacentColumn(
@@ -779,6 +767,54 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     paneIds.splice(targetRow, 0, paneId);
   }
 
+  private paneInHorizontalVisualDirection(
+    source: PaneLocation,
+    direction: "left" | "right",
+  ): PaneId | null {
+    const planeColumns = this.columnsInPlane(source.planeIndex);
+    if (planeColumns.length <= 1) {
+      return null;
+    }
+    const targetIndex = source.planeColumnIndex + (direction === "left" ? -1 : 1);
+    const targetColumn = planeColumns[(targetIndex + planeColumns.length) % planeColumns.length];
+    return targetColumn?.paneIds[0] ?? null;
+  }
+
+  private paneInVerticalVisualDirection(
+    source: PaneLocation,
+    direction: "up" | "down",
+    viewport: LayoutFrameInput["viewport"],
+    availableHeight: number,
+    maximizedPaneId: PaneId | null,
+  ): PaneId | null {
+    const column = this.columns[source.columnIndex];
+    if (!column) {
+      return null;
+    }
+    const frames = this.columnVisualFrames(column, availableHeight, maximizedPaneId);
+    const targetRowIndex = source.rowIndex + (direction === "up" ? -1 : 1);
+    if (frames[targetRowIndex]) {
+      return frames[targetRowIndex].paneId;
+    }
+    const targetPlaneIndex = this.adjacentPlaneIndex(source.planeIndex, direction);
+    if (targetPlaneIndex === null) {
+      return null;
+    }
+    const targetColumn = this.nearestColumnInPlaneByHorizontalCenter(
+      targetPlaneIndex,
+      source,
+      viewport.width,
+    );
+    if (!targetColumn) {
+      return null;
+    }
+    const sourceFrame = frames[source.rowIndex];
+    return nearestPaneByVerticalCenter(
+      this.columnVisualFrames(targetColumn, availableHeight, maximizedPaneId),
+      sourceFrame?.centerY ?? 0,
+    );
+  }
+
   private requirePaneAt(columnIndex: number, rowIndex: number): WorkspacePane {
     const column = this.columns[clamp(columnIndex, 0, this.columns.length - 1)];
     if (!column) {
@@ -881,10 +917,6 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
     );
   }
 
-  private offsetsForPlane(planeIndex: number, geometry: ColumnGeometry): number[] {
-    return this.columnsInPlane(planeIndex).map((column) => geometry.offsets[column.index] ?? 0);
-  }
-
   private planeColumnIndex(column: WorkspaceColumn): number {
     return Math.max(
       0,
@@ -892,6 +924,14 @@ export class WorkspaceLikeLayoutEngine implements LayoutEngine {
         (candidate) => candidate.columnId === column.columnId,
       ),
     );
+  }
+
+  private scrollColumnForColumn(column: WorkspaceColumn): number {
+    const slotIndex = columnSlotIndex(column);
+    const occupiedSlots = [
+      ...new Set(this.columns.map((candidate) => columnSlotIndex(candidate))),
+    ].toSorted((left, right) => left - right);
+    return Math.max(0, occupiedSlots.indexOf(slotIndex));
   }
 
   private planeIndexes(): number[] {

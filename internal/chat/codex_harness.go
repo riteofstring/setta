@@ -127,13 +127,6 @@ func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest,
 	return harness.waitForTurn(ctx, session, request.Run.ID, threadID, turnID, sink)
 }
 
-func (harness *CodexHarness) RunTask(ctx context.Context, request HarnessTaskRequest) (HarnessTaskResult, error) {
-	if request.TurnMode == HarnessTurnStructuredTask {
-		return harness.runStructuredTask(ctx, request)
-	}
-	return runConversationHarnessTask(ctx, request, harness.StartTurn)
-}
-
 func (harness *CodexHarness) waitForTurn(ctx context.Context, session *codexapp.Session, runID string, threadID string, turnID string, sink TurnSink) (TurnCompletion, error) {
 	state := codexTurnWaitState{activeTurnID: turnID, allowTurnIDRebind: true}
 	for {
@@ -324,7 +317,7 @@ func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest
 	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnSteer, map[string]any{
 		"expectedTurnId": active.turnID,
 		"input": []map[string]any{{
-			"text": deliveredSteeringText(request),
+			"text": request.Text,
 			"type": "text",
 		}},
 		"threadId": active.threadID,
@@ -419,7 +412,7 @@ func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID str
 		"cwd":      request.Workspace.RootPath,
 		"threadId": threadID,
 		"input": []map[string]any{{
-			"text": deliveredTurnPrompt(request),
+			"text": request.Prompt,
 			"type": "text",
 		}},
 	}

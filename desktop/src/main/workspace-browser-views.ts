@@ -74,6 +74,7 @@ interface BeforeInputEvent {
 
 interface BeforeInput {
   alt: boolean;
+  control?: boolean;
   key: string;
   meta: boolean;
   shift: boolean;
@@ -750,17 +751,34 @@ function workspaceBrowserViewKeyEventFromInput(
     return null;
   }
   const key = normalizeBrowserViewInputKey(input.key);
-  if (!isArrowKey(key) && !(input.meta && isBrowserViewCommandKey(key))) {
+  const ctrlKey = input.control ?? false;
+  const workspaceModifier = input.alt && (input.meta || ctrlKey);
+  if (!shouldForwardWorkspaceBrowserViewKey(input, key, workspaceModifier)) {
     return null;
   }
   return {
     altKey: input.alt,
+    ctrlKey,
     key,
     metaKey: input.meta,
     shiftKey: input.shift,
     surfaceId,
     workspaceId,
   };
+}
+
+function shouldForwardWorkspaceBrowserViewKey(
+  input: BeforeInput,
+  key: string,
+  workspaceModifier: boolean,
+): key is WorkspaceBrowserViewKey {
+  if (isArrowKey(key)) {
+    return workspaceModifier;
+  }
+  if (key === "Enter" && workspaceModifier) {
+    return true;
+  }
+  return input.meta && isBrowserViewCommandKey(key);
 }
 
 function normalizeBrowserViewInputKey(key: string): string {

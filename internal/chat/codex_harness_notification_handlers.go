@@ -75,7 +75,6 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	codexapp.CodexNotificationThreadUnarchived:                        handleCodexThreadLifecycle,
 	codexapp.CodexNotificationTurnCompleted:                           handleCodexTurnCompletedNotification,
 	codexapp.CodexNotificationTurnDiffUpdated:                         handleCodexDiffUpdated,
-	codexapp.CodexNotificationTurnModerationMetadata:                  handleCodexTurnScopedTraceNotification,
 	codexapp.CodexNotificationTurnPlanUpdated:                         handleCodexPlanUpdated,
 	codexapp.CodexNotificationTurnStarted:                             handleCodexTurnStarted,
 	codexapp.CodexNotificationWarning:                                 handleCodexNotice,
@@ -155,17 +154,6 @@ func handleCodexThreadTokenUsageUpdated(message jsonRPCMessage, threadID string,
 		traceTurnID = turnID
 	}
 	return codexNotificationResult{}, sink.Trace("codex_thread_token_usage_updated", traceTurnID)
-}
-
-func handleCodexTurnScopedTraceNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex turn-scoped trace notification params")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
-		return codexNotificationResult{}, err
-	}
-	return handleCodexTraceOnlyNotification(message, threadID, turnID, sink)
 }
 
 func handleCodexRemoteControlStatusChanged(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {

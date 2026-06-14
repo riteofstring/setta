@@ -22,8 +22,6 @@ type ContractTestRequest struct {
 type ContractTestResponse struct {
 	Items  []ContractTestLeaf `json:"items"`
 	Labels map[string]string  `json:"labels"`
-	Counts map[string]int     `json:"counts"`
-	Score  *float64           `json:"score"`
 }
 
 type ContractTestError struct {
@@ -143,7 +141,7 @@ func TestContractSpecsCollectEndpointEventAndValueSetSemantics(t *testing.T) {
 		t.Fatalf("events = %+v, want contract test event payload", specs.Events)
 	}
 	helpers := decoderHelperUsage(specs.Interfaces, specs.Events)
-	if !helpers.Array || !helpers.Integer || !helpers.IntegerMap || !helpers.Map || !helpers.Nullable || !helpers.Number || !helpers.String {
+	if !helpers.Array || !helpers.Integer || !helpers.Map || !helpers.Nullable || !helpers.String {
 		t.Fatalf("decoder helpers = %+v, want semantic helper usage for test graph", helpers)
 	}
 	for _, valueSet := range []struct {

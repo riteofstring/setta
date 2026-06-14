@@ -1,111 +1,39 @@
 import type {
-  AddWorkflowEdgeRequest,
-  AddWorkflowNodeRequest,
   AppearancePresetList,
   AppearanceSettings,
-  AttachSemanticNodeToChatMessageRequest,
-  AttachSemanticNodeToChatRunRequest,
-  AttachSemanticNodeToFileRangeRequest,
-  AttachSemanticNodeToRunItemRequest,
-  AttachSemanticNodeToWorkflowExecutionRequest,
-  AttachSemanticNodeToWorkflowNodeRequest,
   BackendHealth,
-  BuildCartographerWindowRequest,
   CancelCodexLoginRequest,
-  CartographerCursorList,
-  CartographerPatchList,
-  CartographerPatchReviewResult,
-  CartographerProcessingState,
-  CartographerRunList,
-  CartographerRunReadResponse,
-  CartographerWindowBuildResult,
-  CartographerWindowList,
-  CartographerWindowProcessResult,
   ChatCommandExecuteResult,
   ChatCommandListResult,
   ChatEvent,
-  ChatModelOption,
   CodexAccountState,
   Conversation,
   ConversationListItem,
-  CreateSemanticEdgeRequest,
-  CreateSemanticNodeRequest,
-  CreateSemanticSteeringDirectiveRequest,
   CreateTerminalProfileRequest,
   DeleteTerminalProfileRequest,
   DeleteWorkflowDefinitionResponse,
-  DeleteWorkflowEdgesRequest,
-  DeleteWorkflowNodesRequest,
-  EndSemanticActivityRequest,
   GetActiveRunResponse,
   ImmediateSteeringResult,
-  ListCartographerCursorsRequest,
-  ListCartographerPatchesRequest,
-  ListCartographerRunsRequest,
-  ListCartographerWindowsRequest,
-  ListSemanticCartographerModelOptionsRequest,
   ListConversationsResponse,
-  ListSemanticContextPacksRequest,
   ListWorkflowDefinitionsResponse,
   LogoutCodexAccountRequest,
-  MergeSemanticNodesRequest,
   MessagePage,
   OpenWorkspaceResponse,
-  ProcessCartographerWindowRequest,
   QueueEditResult,
   QueueMessageResult,
   QueueRemoveResult,
-  ReadCartographerProcessingStateRequest,
-  ReadSemanticCartographerSettingsRequest,
-  ReadSemanticCartographerSettingsMetadataRequest,
-  RenameSemanticNodeRequest,
-  ReadCartographerRunRequest,
-  ReadSemanticActivitySummaryRequest,
-  ReadSemanticContextPackRequest,
-  ReadSemanticEventHistoryRequest,
-  ReadSemanticGraphRequest,
-  ReadSemanticNodeDetailRequest,
-  ReadSemanticNodeDetailResponse,
-  ReadSemanticRuntimeSnapshotRequest,
-  ReadSemanticSteeringStateRequest,
-  ReadSemanticWorkingSetRequest,
   ReadWorkflowGraphProjectionResponse,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   ResizeTerminalRequest,
-  ReviewCartographerPatchRequest,
   Run,
   RunActivityPage,
   RunItemOutputPage,
-  ListSemanticActivityPageRequest,
-  ListSemanticActivityRequest,
-  ListSemanticEvidenceRequest,
-  SemanticActivityEndResult,
-  SemanticActivityList,
-  SemanticActivityPage,
-  SemanticActivitySummary,
-  SemanticAttachmentResult,
-  SemanticCartographerSettingsMetadata,
-  SemanticCartographerSettingsRecord,
-  SemanticContextPackList,
-  SemanticContextPackReadResponse,
-  SemanticEdgeOperationRequest,
-  SemanticEventHistory,
-  SemanticEvidenceList,
-  SemanticGraph,
-  SemanticGraphChangeEvent,
-  SemanticRuntimeSnapshot,
-  SemanticWorkingSet,
-  SemanticLayoutPositionList,
-  SemanticMutationResult,
-  SemanticNodeOperationRequest,
-  SemanticSteeringState,
   SendMessageResult,
   SelectDefaultTerminalProfileRequest,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   SteerMessageResult,
-  SplitSemanticNodeRequest,
   SubmitApprovalRequest,
   SubmitWorkflowApprovalRequest,
   TerminalEvent,
@@ -114,28 +42,14 @@ import type {
   TerminalProfileList,
   TerminalSessionResponse,
   UpdateAppearanceSettingsRequest,
-  UpdateSemanticCartographerSettingsRequest,
-  UpdateSemanticEdgeRequest,
-  UpdateSemanticLayoutPositionsRequest,
-  UpdateSemanticNodeRequest,
-  UpdateSemanticSteeringDirectiveRequest,
   UpdateTerminalProfileRequest,
-  UpdateWorkflowDefinitionRequest,
-  UpdateWorkflowDefinitionLayoutRequest,
-  UpdateWorkflowDefinitionSettingsRequest,
-  UpdateWorkflowEdgeRequest,
-  UpdateWorkflowNodeRequest,
-  ValidateWorkflowDefinitionDraftRequest,
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowExecution,
   WorkflowExecutionEventPage,
   WorkflowGraph,
-  WorkflowGraphProjection,
   WorkflowValidationResult,
   WorkspaceSelectedConversations,
-  WorkspaceUILayout,
-  WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -242,6 +156,7 @@ export type WorkspaceBrowserViewKey =
 
 export interface WorkspaceBrowserViewKeyEvent {
   altKey: boolean;
+  ctrlKey: boolean;
   key: WorkspaceBrowserViewKey;
   metaKey: boolean;
   shiftKey: boolean;
@@ -307,13 +222,10 @@ export interface ChatCommandExecutionOptions {
 export interface SettaAPI {
   app: {
     flags: {
-      workflowGraphAnimationEnabled: boolean;
       workflowGraphDebug: boolean;
-      workflowGraphReduceMotion: boolean;
       workflowGraphSyntheticGraph: {
         edgesPerNode: number;
         nodeCount: number;
-        scene?: "merged" | "semantic-cells" | "workflow" | "workflow-running";
       } | null;
     };
     installedEditors: () => Promise<InstalledEditorApp[]>;
@@ -376,10 +288,8 @@ export interface SettaAPI {
     close: (id: string) => Promise<WorkspaceSession>;
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
     openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
-    readUILayout: (workspaceId: string) => Promise<WorkspaceUILayoutReadResult>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
-    saveUILayout: (layout: WorkspaceUILayout) => Promise<WorkspaceUILayout>;
     select: (id: string) => Promise<WorkspaceSession>;
     selectedConversations: () => Promise<WorkspaceSelectedConversations>;
     setSelectedConversation: (
@@ -478,114 +388,7 @@ export interface SettaAPI {
     refresh: (request: RefreshCodexAccountRequest) => Promise<CodexAccountState>;
     startLogin: (request: StartCodexLoginRequest) => Promise<StartCodexLoginResponse>;
   };
-  semanticGraph: {
-    attachChatMessage: (
-      request: AttachSemanticNodeToChatMessageRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachChatRun: (
-      request: AttachSemanticNodeToChatRunRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachFileRange: (
-      request: AttachSemanticNodeToFileRangeRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachRunItem: (
-      request: AttachSemanticNodeToRunItemRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachWorkflowExecution: (
-      request: AttachSemanticNodeToWorkflowExecutionRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    attachWorkflowNode: (
-      request: AttachSemanticNodeToWorkflowNodeRequest,
-    ) => Promise<SemanticAttachmentResult>;
-    buildCartographerWindow: (
-      request: BuildCartographerWindowRequest,
-    ) => Promise<CartographerWindowBuildResult>;
-    processCartographerWindow: (
-      request: ProcessCartographerWindowRequest,
-    ) => Promise<CartographerWindowProcessResult>;
-    readCartographerProcessingState: (
-      request: ReadCartographerProcessingStateRequest,
-    ) => Promise<CartographerProcessingState>;
-    readCartographerSettings: (
-      request: ReadSemanticCartographerSettingsRequest,
-    ) => Promise<SemanticCartographerSettingsRecord>;
-    readCartographerSettingsMetadata: (
-      request: ReadSemanticCartographerSettingsMetadataRequest,
-    ) => Promise<SemanticCartographerSettingsMetadata>;
-    updateCartographerSettings: (
-      request: UpdateSemanticCartographerSettingsRequest,
-    ) => Promise<SemanticCartographerSettingsRecord>;
-    listCartographerModelOptions: (
-      request: ListSemanticCartographerModelOptionsRequest,
-    ) => Promise<ChatModelOption[]>;
-    listCartographerCursors: (
-      request: ListCartographerCursorsRequest,
-    ) => Promise<CartographerCursorList>;
-    listCartographerPatches: (
-      request: ListCartographerPatchesRequest,
-    ) => Promise<CartographerPatchList>;
-    listCartographerRuns: (request: ListCartographerRunsRequest) => Promise<CartographerRunList>;
-    listCartographerWindows: (
-      request: ListCartographerWindowsRequest,
-    ) => Promise<CartographerWindowList>;
-    readCartographerRun: (
-      request: ReadCartographerRunRequest,
-    ) => Promise<CartographerRunReadResponse>;
-    acceptCartographerPatch: (
-      request: ReviewCartographerPatchRequest,
-    ) => Promise<CartographerPatchReviewResult>;
-    rejectCartographerPatch: (
-      request: ReviewCartographerPatchRequest,
-    ) => Promise<CartographerPatchReviewResult>;
-    createEdge: (request: CreateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
-    createNode: (request: CreateSemanticNodeRequest) => Promise<SemanticMutationResult>;
-    createSteeringDirective: (
-      request: CreateSemanticSteeringDirectiveRequest,
-    ) => Promise<SemanticMutationResult>;
-    dismissNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
-    endActivity: (request: EndSemanticActivityRequest) => Promise<SemanticActivityEndResult>;
-    listActivity: (request: ListSemanticActivityRequest) => Promise<SemanticActivityList>;
-    listActivityPage: (request: ListSemanticActivityPageRequest) => Promise<SemanticActivityPage>;
-    listContextPacks: (
-      request: ListSemanticContextPacksRequest,
-    ) => Promise<SemanticContextPackList>;
-    listEvidence: (request: ListSemanticEvidenceRequest) => Promise<SemanticEvidenceList>;
-    mergeNodes: (request: MergeSemanticNodesRequest) => Promise<SemanticMutationResult>;
-    onEvent: (listener: (event: SemanticGraphChangeEvent) => void) => () => void;
-    promoteNode: (request: SemanticNodeOperationRequest) => Promise<SemanticMutationResult>;
-    read: (request: ReadSemanticGraphRequest) => Promise<SemanticGraph>;
-    readActivitySummary: (
-      request: ReadSemanticActivitySummaryRequest,
-    ) => Promise<SemanticActivitySummary>;
-    readContextPack: (
-      request: ReadSemanticContextPackRequest,
-    ) => Promise<SemanticContextPackReadResponse>;
-    readEventHistory: (request: ReadSemanticEventHistoryRequest) => Promise<SemanticEventHistory>;
-    readNodeDetail: (
-      request: ReadSemanticNodeDetailRequest,
-    ) => Promise<ReadSemanticNodeDetailResponse>;
-    readRuntimeSnapshot: (
-      request: ReadSemanticRuntimeSnapshotRequest,
-    ) => Promise<SemanticRuntimeSnapshot>;
-    readSteeringState: (
-      request: ReadSemanticSteeringStateRequest,
-    ) => Promise<SemanticSteeringState>;
-    readWorkingSet: (request: ReadSemanticWorkingSetRequest) => Promise<SemanticWorkingSet>;
-    removeEdge: (request: SemanticEdgeOperationRequest) => Promise<SemanticMutationResult>;
-    renameNode: (request: RenameSemanticNodeRequest) => Promise<SemanticMutationResult>;
-    splitNode: (request: SplitSemanticNodeRequest) => Promise<SemanticMutationResult>;
-    updateEdge: (request: UpdateSemanticEdgeRequest) => Promise<SemanticMutationResult>;
-    updateLayoutPositions: (
-      request: UpdateSemanticLayoutPositionsRequest,
-    ) => Promise<SemanticLayoutPositionList>;
-    updateNode: (request: UpdateSemanticNodeRequest) => Promise<SemanticMutationResult>;
-    updateSteeringDirective: (
-      request: UpdateSemanticSteeringDirectiveRequest,
-    ) => Promise<SemanticMutationResult>;
-  };
   workflow: {
-    addEdge: (request: AddWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
-    addNode: (request: AddWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
     cancelExecution: (workspaceId: string, executionId: string) => Promise<WorkflowExecution>;
     createDefinition: (
       workspaceId: string,
@@ -597,8 +400,6 @@ export interface SettaAPI {
       workspaceId: string,
       definitionId: string,
     ) => Promise<DeleteWorkflowDefinitionResponse>;
-    deleteEdges: (request: DeleteWorkflowEdgesRequest) => Promise<WorkflowGraphProjection>;
-    deleteNodes: (request: DeleteWorkflowNodesRequest) => Promise<WorkflowGraphProjection>;
     executionEvents: (
       workspaceId: string,
       executionId: string,
@@ -621,21 +422,16 @@ export interface SettaAPI {
       versionId?: string,
     ) => Promise<WorkflowExecution>;
     submitApproval: (request: SubmitWorkflowApprovalRequest) => Promise<WorkflowExecution>;
-    updateDefinitionLayout: (
-      request: UpdateWorkflowDefinitionLayoutRequest,
-    ) => Promise<WorkflowGraphProjection>;
-    updateDefinition: (request: UpdateWorkflowDefinitionRequest) => Promise<WorkflowDefinition>;
-    updateDefinitionSettings: (
-      request: UpdateWorkflowDefinitionSettingsRequest,
+    updateDefinition: (
+      workspaceId: string,
+      definitionId: string,
+      name: string,
+      description: string,
+      graph: WorkflowGraph,
     ) => Promise<WorkflowDefinition>;
-    updateEdge: (request: UpdateWorkflowEdgeRequest) => Promise<WorkflowGraphProjection>;
-    updateNode: (request: UpdateWorkflowNodeRequest) => Promise<WorkflowGraphProjection>;
     validateDefinition: (
       workspaceId: string,
       graph: WorkflowGraph,
     ) => Promise<WorkflowValidationResult>;
-    validateDefinitionDraft: (
-      request: ValidateWorkflowDefinitionDraftRequest,
-    ) => Promise<WorkflowGraphProjection>;
   };
 }

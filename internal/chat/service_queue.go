@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"setta/internal/semanticcontext"
 	"setta/internal/workspace"
 )
 
@@ -329,25 +328,13 @@ func (service *Service) submitSteeringMessage(workspaceID string, conversationID
 	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
-	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
-	if err != nil {
-		return ChatMessage{}, Run{}, err
-	}
-	semanticDelivery, err := service.compileSemanticContextForChatTurn(context.Background(), semanticcontext.TriggerSteering, conversation, run, message.ID, prompt)
-	if err != nil {
-		if _, _, finishErr := service.finishSteeringMessage(workspaceID, conversationID, message.ID, run.ID, err); finishErr != nil {
-			return ChatMessage{}, Run{}, finishErr
-		}
-		return ChatMessage{}, Run{}, err
-	}
 	steerErr := service.harness.SteerTurn(context.Background(), SteerRequest{
-		ConversationID:  conversationID,
-		RunID:           run.ID,
-		SemanticContext: semanticDelivery,
-		Text:            prompt,
-		ThreadID:        threadID,
-		TurnID:          turnID,
-		WorkspaceID:     workspaceID,
+		ConversationID: conversationID,
+		RunID:          run.ID,
+		Text:           prompt,
+		ThreadID:       threadID,
+		TurnID:         turnID,
+		WorkspaceID:    workspaceID,
 	})
 	message, run, err = service.finishSteeringMessage(workspaceID, conversationID, message.ID, run.ID, steerErr)
 	if err != nil {
@@ -472,21 +459,12 @@ func (service *Service) startImmediateSteeringReplay(workspaceSummary workspace.
 	ids := messageIDs(pending)
 	service.mu.Unlock()
 
-	semanticDelivery, err := service.compileSemanticContextForChatTurn(context.Background(), semanticcontext.TriggerImmediateSteeringReplay, conversation, run, userMessage.ID, replayPrompt)
-	if err != nil {
-		cancel()
-		if failErr := service.failTurn(workspaceID, conversationID, run.ID, err.Error()); failErr != nil {
-			return ImmediateSteeringResult{}, failErr
-		}
-		return ImmediateSteeringResult{}, err
-	}
 	request := TurnRequest{
-		Workspace:       workspaceSummary,
-		Conversation:    conversation,
-		Run:             run,
-		Prompt:          replayPrompt,
-		SemanticContext: semanticDelivery,
-		ThreadRef:       latestHarnessRef(conversation, HarnessCodex),
+		Workspace:    workspaceSummary,
+		Conversation: conversation,
+		Run:          run,
+		Prompt:       replayPrompt,
+		ThreadRef:    latestHarnessRef(conversation, HarnessCodex),
 	}
 	go service.runHarnessTurn(ctx, request)
 	return ImmediateSteeringResult{

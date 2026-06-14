@@ -22,7 +22,6 @@ const surfaceKindLabels = {
   "git-graph": "git graph",
   "workflow-graph": "workflow graph",
   "settings-dom": "real settings",
-  "semantic-node-details": "semantic node",
   snapshot: "snapshot",
   terminal: "terminal",
   "workflow-node-details": "workflow node",

@@ -159,7 +159,7 @@ async function openWorkspaceFromSidebar(client) {
       const area = document.querySelector('[data-testid="workspace-layout-area"]');
       return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
     })()`,
-    (workspaceId) => workspaceId !== "" && workspaceId !== "empty",
+    (workspaceId) => workspaceId !== "" && !workspaceId.endsWith(":empty"),
     terminalWorkflowTimeoutMs,
   );
 }
