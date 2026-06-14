@@ -53,7 +53,7 @@ export class CDPClient {
       returnByValue: true,
     });
     if (result.exceptionDetails) {
-      throw new Error(result.exceptionDetails.text);
+      throw new Error(runtimeExceptionMessage(result.exceptionDetails));
     }
     return result.result.value;
   }
@@ -89,6 +89,18 @@ export class CDPClient {
     }
     pending.resolve(message.result);
   }
+}
+
+function runtimeExceptionMessage(exceptionDetails) {
+  const description = exceptionDetails.exception?.description;
+  if (typeof description === "string" && description.trim() !== "") {
+    return description;
+  }
+  const value = exceptionDetails.exception?.value;
+  if (typeof value === "string" && value.trim() !== "") {
+    return value;
+  }
+  return exceptionDetails.text;
 }
 
 export function driverCallExpression(method, args = {}) {

@@ -76,5 +76,75 @@
   "source": {
     "mockupRerenderCount": 5,
     "negativeControlCount": 2
+  },
+  "animation": {
+    "dimensions": {
+      "frameCount": 9,
+      "height": 1536,
+      "width": 2076
+    },
+    "droppedMetrics": {},
+    "metrics": {
+      "changedPixelRatio": {
+        "kind": "scalar",
+        "lower": 1e-12,
+        "mockupMax": 0.009475855009633912,
+        "mockupMin": 0.009475855009633912,
+        "target": 0.009475855009633912,
+        "upper": 0.999999999999
+      },
+      "flickerToMotionRatio": {
+        "kind": "scalar",
+        "lower": 1e-12,
+        "mockupMax": 0.4275256190299312,
+        "mockupMin": 0.4275256190299312,
+        "target": 0.4275256190299312,
+        "upper": 0.86972962413876
+      },
+      "globalLuminanceDelta": {
+        "kind": "scalar",
+        "lower": 1e-12,
+        "mockupMax": 0.0003257686721478206,
+        "mockupMin": 0.0003257686721478206,
+        "target": 0.0003257686721478206,
+        "upper": 0.03749843578869736
+      },
+      "meanFrameDelta": {
+        "kind": "scalar",
+        "lower": 1e-12,
+        "mockupMax": 0.0007619863176550677,
+        "mockupMin": 0.0007619863176550677,
+        "target": 0.0007619863176550677,
+        "upper": 0.043115049491290955
+      },
+      "p95FrameDelta": {
+        "kind": "scalar",
+        "lower": 0,
+        "mockupMax": 0,
+        "mockupMin": 0,
+        "target": 0,
+        "upper": 0.06666666666566666
+      }
+    },
+    "negativeControls": {
+      "frozenFrame": {
+        "changedPixelRatio": 0,
+        "flickerToMotionRatio": 0,
+        "globalLuminanceDelta": 0,
+        "meanFrameDelta": 0,
+        "p95FrameDelta": 0
+      },
+      "highFlicker": {
+        "changedPixelRatio": 1,
+        "flickerToMotionRatio": 0.86972962413976,
+        "globalLuminanceDelta": 0.03749843578969736,
+        "meanFrameDelta": 0.043115049492290954,
+        "p95FrameDelta": 0.06666666666666667
+      }
+    },
+    "source": {
+      "frameIntervalMs": 250,
+      "negativeControlCount": 2
+    }
   }
 }

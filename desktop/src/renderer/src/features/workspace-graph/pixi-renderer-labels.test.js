@@ -5,7 +5,7 @@ import { nodeLabelScreenPosition } from "./pixi-renderer-labels";
 import { workspaceNeonTheme } from "./workspace-neon-theme";
 
 describe("workspace graph node labels", () => {
-  test("keeps workflow labels centered and anchors semantic labels below cells", () => {
+  test("positions workflow labels from card layout and anchors semantic labels below cells", () => {
     const viewport = {
       toScreen: (x, y) => ({ x: x * 2 + 10, y: y * 2 + 20 }),
     };
@@ -16,7 +16,10 @@ describe("workspace graph node labels", () => {
         node: nodeStub({ height: 80, layer: "workflow", width: 100, x: 10, y: 20 }),
         viewport,
       }),
-    ).toEqual({ x: 130, y: 140 });
+    ).toEqual({
+      x: (10 + workspaceNeonTheme.workflow.cardLayout.regular.labelCenterX) * 2 + 10,
+      y: 140,
+    });
 
     expect(
       nodeLabelScreenPosition({

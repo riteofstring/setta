@@ -15,6 +15,14 @@ const defaultRendererOptions = {
   reduceMotion: false,
 };
 
+export const workflowGraphRendererLimits = {
+  maxZoom: 4,
+  minZoom: 0.25,
+  nodeOpenClickDistanceScreen: 6,
+  nodeOpenClickIntervalMs: 500,
+  portHitRadiusScreen: 18,
+};
+
 export function rendererOptionsWithDefaults(options) {
   return {
     ...defaultRendererOptions,

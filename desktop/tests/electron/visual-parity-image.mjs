@@ -367,6 +367,62 @@ export function sideBySideImage(left, right) {
   return output;
 }
 
+export function contactSheetImage(images, { columns = 3, gutter = 12, tileWidth = 680 } = {}) {
+  validateContactSheetOptions({ columns, gutter, images, tileWidth });
+  const first = images[0];
+  const scale = Math.min(1, tileWidth / first.width);
+  const tileHeight = Math.max(1, Math.round(first.height * scale));
+  const scaledTileWidth = Math.max(1, Math.round(first.width * scale));
+  const rows = Math.ceil(images.length / columns);
+  const width = columns * scaledTileWidth + (columns - 1) * gutter;
+  const height = rows * tileHeight + (rows - 1) * gutter;
+  const output = filledImage(width, height, { b: 10, g: 5, r: 4 });
+  images.forEach((image, index) => {
+    const scaled = scale === 1 ? image : nearestResizeImage(image, scaledTileWidth, tileHeight);
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    blitImage(output, scaled, column * (scaledTileWidth + gutter), row * (tileHeight + gutter));
+  });
+  return output;
+}
+
+function validateContactSheetOptions({ columns, gutter, images, tileWidth }) {
+  validateContactSheetImageList(images);
+  validateContactSheetPositiveInteger("columns", columns);
+  validateContactSheetNonNegativeInteger("gutter", gutter);
+  validateContactSheetPositiveInteger("tileWidth", tileWidth);
+  validateContactSheetFrameDimensions(images);
+}
+
+function validateContactSheetImageList(images) {
+  if (!Array.isArray(images) || images.length === 0) {
+    throw new Error("contact sheet requires at least one image");
+  }
+}
+
+function validateContactSheetPositiveInteger(name, value) {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`contact sheet ${name} must be a positive integer: ${String(value)}`);
+  }
+}
+
+function validateContactSheetNonNegativeInteger(name, value) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`contact sheet ${name} must be a non-negative integer: ${String(value)}`);
+  }
+}
+
+function validateContactSheetFrameDimensions(images) {
+  const first = images[0];
+  for (const image of images) {
+    if (image.width !== first.width || image.height !== first.height) {
+      throw new Error(
+        `contact sheet frame dimensions differ: expected ${first.width}x${first.height}, received ${image.width}x${image.height}`,
+      );
+    }
+  }
+}
+
 function decodePng(buffer) {
   if (!buffer.subarray(0, pngSignature.length).equals(pngSignature)) {
     throw new Error("PNG signature mismatch");
@@ -782,6 +838,39 @@ function blitImage(destination, source, left, top) {
       );
     }
   }
+}
+
+function nearestResizeImage(source, width, height) {
+  const output = {
+    data: Buffer.alloc(width * height * rgbaChannels),
+    height,
+    width,
+  };
+  for (let y = 0; y < height; y += 1) {
+    const sourceY = Math.min(source.height - 1, Math.floor((y / height) * source.height));
+    for (let x = 0; x < width; x += 1) {
+      const sourceX = Math.min(source.width - 1, Math.floor((x / width) * source.width));
+      const sourceOffset = (sourceY * source.width + sourceX) * rgbaChannels;
+      const destinationOffset = (y * width + x) * rgbaChannels;
+      source.data.copy(output.data, destinationOffset, sourceOffset, sourceOffset + rgbaChannels);
+    }
+  }
+  return output;
+}
+
+function filledImage(width, height, { b, g, r }) {
+  const output = {
+    data: Buffer.alloc(width * height * rgbaChannels),
+    height,
+    width,
+  };
+  for (let offset = 0; offset < output.data.length; offset += rgbaChannels) {
+    output.data[offset] = r;
+    output.data[offset + 1] = g;
+    output.data[offset + 2] = b;
+    output.data[offset + 3] = 255;
+  }
+  return output;
 }
 
 function cloneImage(image) {

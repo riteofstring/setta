@@ -83,5 +83,75 @@
   "source": {
     "mockupRerenderCount": 5,
     "negativeControlCount": 2
+  },
+  "animation": {
+    "dimensions": {
+      "frameCount": 9,
+      "height": 1536,
+      "width": 2076
+    },
+    "droppedMetrics": {},
+    "metrics": {
+      "changedPixelRatio": {
+        "kind": "scalar",
+        "lower": 1e-12,
+        "mockupMax": 0.0290397982147158,
+        "mockupMin": 0.0290397982147158,
+        "target": 0.0290397982147158,
+        "upper": 0.9997522921298004
+      },
+      "flickerToMotionRatio": {
+        "kind": "scalar",
+        "lower": 1e-12,
+        "mockupMax": 0.2359439599941523,
+        "mockupMin": 0.2359439599941523,
+        "target": 0.2359439599941523,
+        "upper": 0.9116975451929178
+      },
+      "globalLuminanceDelta": {
+        "kind": "scalar",
+        "lower": 1e-12,
+        "mockupMax": 0.0005340823900319633,
+        "mockupMin": 0.0005340823900319633,
+        "target": 0.0005340823900319633,
+        "upper": 0.029067434020112474
+      },
+      "meanFrameDelta": {
+        "kind": "scalar",
+        "lower": 1e-12,
+        "mockupMax": 0.0022635984834924365,
+        "mockupMin": 0.0022635984834924365,
+        "target": 0.0022635984834924365,
+        "upper": 0.0318827599936316
+      },
+      "p95FrameDelta": {
+        "kind": "scalar",
+        "lower": 0,
+        "mockupMax": 0.00392156862745098,
+        "mockupMin": 0.00392156862745098,
+        "target": 0.00392156862745098,
+        "upper": 0.07450980392056862
+      }
+    },
+    "negativeControls": {
+      "frozenFrame": {
+        "changedPixelRatio": 0,
+        "flickerToMotionRatio": 0,
+        "globalLuminanceDelta": 0,
+        "meanFrameDelta": 0,
+        "p95FrameDelta": 0
+      },
+      "highFlicker": {
+        "changedPixelRatio": 0.9997522921308004,
+        "flickerToMotionRatio": 0.9116975451939178,
+        "globalLuminanceDelta": 0.029067434021112473,
+        "meanFrameDelta": 0.031882759994631596,
+        "p95FrameDelta": 0.07450980392156863
+      }
+    },
+    "source": {
+      "frameIntervalMs": 250,
+      "negativeControlCount": 2
+    }
   }
 }

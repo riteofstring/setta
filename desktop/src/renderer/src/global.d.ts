@@ -174,10 +174,15 @@ interface WorkflowGraphDebugSnapshot {
 }
 
 interface WorkflowGraphDebugApi {
-  __renderers: Map<string, () => WorkflowGraphDebugSnapshot>;
+  __renderers: Map<string, unknown>;
   getSnapshot: (surfaceId?: string) => WorkflowGraphDebugSnapshot;
   getSnapshots: () => Record<string, WorkflowGraphDebugSnapshot>;
   getSurfaceIds: () => string[];
+  releaseAnimationFrame: (surfaceId?: string) => { tickerHeld: false; tickerStarted: boolean };
+  renderAnimationFrame: (
+    surfaceId?: string,
+    options?: { holdTicker?: boolean; now?: number },
+  ) => { animationActive: boolean; now: number; tickerHeld: boolean; tickerStarted: boolean };
 }
 
 declare global {

@@ -77,7 +77,7 @@ function createSyntheticWorkflowRunningGraph() {
       syntheticWorkflowEdge({
         id: "work_end",
         sourceNodeId: "work",
-        status: "inactive",
+        status: "active",
         targetNodeId: "end",
       }),
     ],
@@ -88,12 +88,17 @@ function createSyntheticWorkflowRunningGraph() {
 function createSyntheticMergedGraph() {
   const workflowGraph = createLivingWorkspaceWorkflowGraph();
   const semanticGraph = createCanonicalSemanticCellGraph();
+  const mergedSemanticEdges = semanticGraph.edges.map((edge) => ({
+    ...edge,
+    alpha: Math.min(0.9, (edge.alpha ?? 0.76) + 0.1),
+    width: (edge.width ?? 2) + 0.15,
+  }));
   return {
     edges: [
       ...workflowGraph.edges,
-      ...semanticGraph.edges,
+      ...mergedSemanticEdges,
       {
-        alpha: 0.28,
+        alpha: 0.36,
         color: workspaceNeonTheme.semantic.edgeKind.about,
         id: "semantic-edge:workflow-emit-finding",
         layer: "semantic",
@@ -101,7 +106,7 @@ function createSyntheticMergedGraph() {
         sourcePortId: "output",
         targetNodeId: "semantic:finding",
         targetPortId: "input",
-        width: 1.5,
+        width: 1.7,
       },
     ],
     nodes: [...workflowGraph.nodes, ...semanticGraph.nodes],

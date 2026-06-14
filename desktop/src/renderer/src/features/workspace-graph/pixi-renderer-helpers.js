@@ -99,13 +99,24 @@ export function nodeBounds(node) {
   };
 }
 
-export function pointInsideNodeBounds(point, node) {
+function pointInsideNodeBounds(point, node) {
   return (
     point.x >= node.x &&
     point.x <= node.x + node.width &&
     point.y >= node.y &&
     point.y <= node.y + node.height
   );
+}
+
+export function hitTestTopNodeAtScreen(spatialQueries, screen) {
+  const { candidates, world } = spatialQueries.nodeHitCandidatesAtScreen(screen);
+  let picked = null;
+  for (const node of candidates) {
+    if (pointInsideNodeBounds(world, node)) {
+      picked = node;
+    }
+  }
+  return picked;
 }
 
 export function rectanglesIntersect(left, right) {

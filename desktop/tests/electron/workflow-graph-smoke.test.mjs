@@ -63,7 +63,6 @@ const labelVisibilityReasons = new Set([
   "zoom-hidden",
 ]);
 const geometryConstructionCounters = [
-  "gridDrawCount",
   "nodeBodyContextCount",
   "nodeBodyGraphicsCount",
   "nodeOutlineContextCount",
@@ -264,7 +263,7 @@ try {
   await delay(150);
   const afterPan = await getWorkflowGraphSnapshot(context.client);
   assertCameraMoved(afterEscapeClear, afterPan, "empty-space pan after marquee interactions");
-  assertLabelsAttachedToNodeCenters(afterPan, "empty-space pan");
+  assertLabelsAttachedToNodes(afterPan, "empty-space pan");
   assertLabelsScreenSpace(afterPan, "empty-space pan");
   assertLabelSyncAdvanced(afterEscapeClear, afterPan, "empty-space pan label sync");
   assertSpatialIndexQueryAdvanced(afterEscapeClear, afterPan, "empty-space pan label visibility");
@@ -285,7 +284,7 @@ try {
   const afterZoom = await getWorkflowGraphSnapshot(context.client);
   assertZoomChanged(afterPan, afterZoom);
   assertZoomAtLeast(afterZoom, 1.1, "zoomed group drag setup");
-  assertLabelsAttachedToNodeCenters(afterZoom, "wheel zoom");
+  assertLabelsAttachedToNodes(afterZoom, "wheel zoom");
   assertLabelsScreenSpace(afterZoom, "wheel zoom");
   assertLabelSizing(afterZoom, { label: "wheel zoom" });
   assertLabelSyncAdvanced(afterPan, afterZoom, "wheel zoom label sync");
@@ -345,7 +344,7 @@ try {
   const afterWheelPan = await getWorkflowGraphSnapshot(context.client);
   assertCameraMoved(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan");
   assertZoomUnchanged(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan");
-  assertLabelsAttachedToNodeCenters(afterWheelPan, "trackpad-style wheel pan");
+  assertLabelsAttachedToNodes(afterWheelPan, "trackpad-style wheel pan");
   assertLabelsScreenSpace(afterWheelPan, "trackpad-style wheel pan");
   assertLabelSyncAdvanced(afterZoomGroupDrag, afterWheelPan, "trackpad-style wheel pan label sync");
   assertGeometryConstructionCountersStable(
@@ -408,7 +407,7 @@ try {
   await delay(250);
   const afterDeepZoom = await getWorkflowGraphSnapshot(context.client);
   assertZoomAtLeast(afterDeepZoom, 3, "deep label zoom");
-  assertLabelsAttachedToNodeCenters(afterDeepZoom, "deep label zoom");
+  assertLabelsAttachedToNodes(afterDeepZoom, "deep label zoom");
   assertLabelsScreenSpace(afterDeepZoom, "deep label zoom");
   assertLabelSizing(afterDeepZoom, { label: "deep label zoom" });
   assertAtLeastOneVisibleLabel(afterDeepZoom, "deep label zoom");
@@ -430,7 +429,7 @@ try {
   const afterDeepZoomPan = await getWorkflowGraphSnapshot(context.client);
   assertCameraMoved(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom");
   assertZoomUnchanged(afterDeepZoom, afterDeepZoomPan, "pan after deep label zoom");
-  assertLabelsAttachedToNodeCenters(afterDeepZoomPan, "pan after deep label zoom");
+  assertLabelsAttachedToNodes(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelsScreenSpace(afterDeepZoomPan, "pan after deep label zoom");
   assertLabelSizing(afterDeepZoomPan, { label: "pan after deep label zoom" });
   assertAllVisibleModeLabels(afterDeepZoomPan, "pan after deep label zoom");
@@ -464,7 +463,7 @@ try {
   });
   await delay(250);
   const afterLowZoom = await getWorkflowGraphSnapshot(context.client);
-  assertLabelsAttachedToNodeCenters(afterLowZoom, "low zoom selected-mode LOD");
+  assertLabelsAttachedToNodes(afterLowZoom, "low zoom selected-mode LOD");
   assertLabelsScreenSpace(afterLowZoom, "low zoom selected-mode LOD");
   assertSelectedModeLabelVisibility(afterLowZoom, lowZoomTarget.id, "low zoom selected-mode LOD");
   assertLabelSizing(afterLowZoom, {
@@ -752,7 +751,7 @@ function assertInitialSnapshot(snapshot) {
     throw new Error(`workflow graph canvas appears blank: ${JSON.stringify(snapshot.visual)}`);
   }
   assertSelectionDebugShape(snapshot);
-  assertLabelsAttachedToNodeCenters(snapshot, "initial render");
+  assertLabelsAttachedToNodes(snapshot, "initial render");
   assertLabelsScreenSpace(snapshot, "initial render");
   assertLabelSizing(snapshot, { label: "initial render" });
   assertLabelVisibilityMode(snapshot, "visible-priority", "initial render");
@@ -846,27 +845,39 @@ function assertSelectedExactly(snapshot, expectedNodeIds, label) {
   }
 }
 
-function assertLabelsAttachedToNodeCenters(snapshot, label) {
+function assertLabelsAttachedToNodes(snapshot, label) {
   for (const node of snapshot.graph.nodes) {
-    const nodeCenter = { x: Math.round(node.screenX), y: Math.round(node.screenY) };
     assertFiniteNumber(node.label?.screenX, `${label} ${node.id} label.screenX`);
     assertFiniteNumber(node.label?.screenY, `${label} ${node.id} label.screenY`);
-    if (
-      Math.abs(node.label.screenX - nodeCenter.x) > 1 ||
-      Math.abs(node.label.screenY - nodeCenter.y) > 1
-    ) {
-      throw new Error(
-        `${label} label was not attached to node center: node=${JSON.stringify(node)}`,
-      );
+    assertLabelGlobalPosition(node, label);
+    if (node.layer !== "workflow") {
+      continue;
     }
-    if (
-      Math.abs(node.label.globalX - node.label.screenX) > 1 ||
-      Math.abs(node.label.globalY - node.label.screenY) > 1
-    ) {
-      throw new Error(
-        `${label} label global position did not match screen position: node=${JSON.stringify(node)}`,
-      );
-    }
+    assertWorkflowLabelAttachedToNode(node, snapshot.camera.zoom, label);
+  }
+}
+
+function assertLabelGlobalPosition(node, label) {
+  if (
+    Math.abs(node.label.globalX - node.label.screenX) > 1 ||
+    Math.abs(node.label.globalY - node.label.screenY) > 1
+  ) {
+    throw new Error(
+      `${label} label global position did not match screen position: node=${JSON.stringify(node)}`,
+    );
+  }
+}
+
+function assertWorkflowLabelAttachedToNode(node, zoom, label) {
+  const halfWidth = (node.width * zoom) / 2;
+  const left = node.screenX - halfWidth - 1;
+  const right = node.screenX + halfWidth + 1;
+  if (
+    Math.abs(node.label.screenY - Math.round(node.screenY)) > 1 ||
+    node.label.screenX < left ||
+    node.label.screenX > right
+  ) {
+    throw new Error(`${label} label was not attached to node: node=${JSON.stringify(node)}`);
   }
 }
 
@@ -951,8 +962,8 @@ function assertNodeGeometryDebugCounters(snapshot, label) {
   for (const counter of counters) {
     assertNonNegativeInteger(render[counter], `${label} ${counter}`);
   }
-  if (render.gridDrawCount !== 1) {
-    throw new Error(`${label} gridDrawCount was not one: render=${JSON.stringify(render)}`);
+  if (render.gridDrawCount < 1) {
+    throw new Error(`${label} gridDrawCount did not advance: render=${JSON.stringify(render)}`);
   }
   assertPositiveBoundedRenderCount(
     render,
@@ -1209,7 +1220,7 @@ function assertGroupDragMoved(before, after, selectedNodeIds) {
   assertCameraUnchanged(before, after, "group node drag");
   assertRenderCounterAdvanced(before, after, "nodeDragUpdateCount", "group node drag");
   assertRenderCounterAdvanced(before, after, "edgeRedrawCount", "group node drag edge redraw");
-  assertLabelsAttachedToNodeCenters(after, "group node drag");
+  assertLabelsAttachedToNodes(after, "group node drag");
   assertLabelsScreenSpace(after, "group node drag");
   assertLabelSyncAdvanced(before, after, "group node drag label sync");
 

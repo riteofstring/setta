@@ -40,6 +40,22 @@ function ensureWorkflowGraphDebugApi() {
       }
       return surface.fitToGraph(options);
     },
+    renderAnimationFrame(surfaceId, options) {
+      const surface = resolveWorkflowGraphDebugSurface(renderers, surfaceId);
+      if (!surface.renderAnimationFrame) {
+        throw new Error(`Workflow graph debug surface cannot render animation frame: ${surfaceId}`);
+      }
+      return surface.renderAnimationFrame(options);
+    },
+    releaseAnimationFrame(surfaceId) {
+      const surface = resolveWorkflowGraphDebugSurface(renderers, surfaceId);
+      if (!surface.releaseAnimationFrame) {
+        throw new Error(
+          `Workflow graph debug surface cannot release animation frame: ${surfaceId}`,
+        );
+      }
+      return surface.releaseAnimationFrame();
+    },
   };
   window.__settaWorkflowGraphDebug = api;
   return api;
@@ -56,6 +72,8 @@ function normalizeDebugSurface(surface) {
   return {
     fitToGraph: surface.fitToGraph ?? null,
     getSnapshot: surface.getSnapshot,
+    releaseAnimationFrame: surface.releaseAnimationFrame ?? null,
+    renderAnimationFrame: surface.renderAnimationFrame ?? null,
     source: surface,
   };
 }

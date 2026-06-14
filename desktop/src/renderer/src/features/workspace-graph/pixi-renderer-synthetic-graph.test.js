@@ -94,7 +94,7 @@ describe("workflow graph synthetic data", () => {
     ]);
     expect(graph.edges.map((edge) => [edge.id, edge.status])).toEqual([
       ["start_work", "active"],
-      ["work_end", "inactive"],
+      ["work_end", "active"],
     ]);
   });
 
@@ -109,6 +109,13 @@ describe("workflow graph synthetic data", () => {
     expect(graph.nodes.filter((node) => node.layer === "semantic")).toHaveLength(6);
     expect(graph.edges.filter((edge) => edge.layer === "workflow")).toHaveLength(3);
     expect(graph.edges.filter((edge) => edge.layer === "semantic")).toHaveLength(7);
+    expect(
+      graph.edges.filter((edge) => edge.layer === "workflow").map((edge) => [edge.id, edge.status]),
+    ).toEqual([
+      ["wf_start_fetch", "active"],
+      ["wf_fetch_route", "active"],
+      ["wf_route_emit", "inactive"],
+    ]);
     expect(graph.nodes.find((node) => node.id === "wf_emit")).toMatchObject({
       label: "Emit findings",
       status: "not_started",

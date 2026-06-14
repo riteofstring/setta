@@ -68,37 +68,54 @@ export function drawWorkspaceGrid(grid, foundation = workspaceNeonTheme.foundati
   };
   grid.clear();
   if (fineSoft) {
-    for (const position of gridLinePositions(gridBounds.minX, gridBounds.maxX, fine.step)) {
-      grid.moveTo(position, gridBounds.minY).lineTo(position, gridBounds.maxY);
-    }
-    for (const position of gridLinePositions(gridBounds.minY, gridBounds.maxY, fine.step)) {
-      grid.moveTo(gridBounds.minX, position).lineTo(gridBounds.maxX, position);
-    }
+    drawGridLines(grid, gridBounds, fine.step);
     grid.stroke({
       alpha: fineSoft.alpha,
       color: fineSoft.color,
       width: fineSoft.width,
     });
   }
-  for (const position of gridLinePositions(gridBounds.minX, gridBounds.maxX, fine.step)) {
-    grid.moveTo(position, gridBounds.minY).lineTo(position, gridBounds.maxY);
-  }
-  for (const position of gridLinePositions(gridBounds.minY, gridBounds.maxY, fine.step)) {
-    grid.moveTo(gridBounds.minX, position).lineTo(gridBounds.maxX, position);
-  }
+  drawGridLines(grid, gridBounds, fine.step);
   grid.stroke({
     alpha: fine.alpha,
     color: fine.color,
     pixelLine: true,
     width: fine.width,
   });
-  for (const position of gridLinePositions(gridBounds.minX, gridBounds.maxX, coarse.step)) {
+  drawGridLines(grid, gridBounds, coarse.step);
+  grid.stroke({ alpha: coarse.alpha, color: coarse.color, width: coarse.width });
+}
+
+export function workspaceGridBoundsForNodes(nodesForBounds) {
+  if (nodesForBounds.length === 0) {
+    return null;
+  }
+  const padding = 200;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const node of nodesForBounds) {
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x + node.width);
+    maxY = Math.max(maxY, node.y + node.height);
+  }
+  return {
+    maxX: maxX + padding,
+    maxY: maxY + padding,
+    minX: minX - padding,
+    minY: minY - padding,
+  };
+}
+
+function drawGridLines(grid, gridBounds, step) {
+  for (const position of gridLinePositions(gridBounds.minX, gridBounds.maxX, step)) {
     grid.moveTo(position, gridBounds.minY).lineTo(position, gridBounds.maxY);
   }
-  for (const position of gridLinePositions(gridBounds.minY, gridBounds.maxY, coarse.step)) {
+  for (const position of gridLinePositions(gridBounds.minY, gridBounds.maxY, step)) {
     grid.moveTo(gridBounds.minX, position).lineTo(gridBounds.maxX, position);
   }
-  grid.stroke({ alpha: coarse.alpha, color: coarse.color, width: coarse.width });
 }
 
 function gridLinePositions(min, max, step) {
@@ -512,13 +529,13 @@ function semanticNodeShadowContextFor(node) {
     .circle(geometry.centerX, geometry.centerY, geometry.radius + 22)
     .fill({ alpha: style.auraAlpha * 0.022, color: node.color })
     .circle(geometry.centerX, geometry.centerY, geometry.radius + 14)
-    .fill({ alpha: style.auraAlpha * 0.044, color: node.color })
+    .fill({ alpha: style.auraAlpha * 0.046, color: node.color })
     .circle(geometry.centerX, geometry.centerY, geometry.radius + 7)
-    .fill({ alpha: style.auraAlpha * 0.046, color: node.color });
+    .fill({ alpha: style.auraAlpha * 0.05, color: node.color });
   drawOrganicCellPath(context, { ...geometry, radius: geometry.radius + 5 }, seed).stroke({
     alpha: style.auraAlpha * 0.12,
     color: node.color,
-    width: style.auraWidth + 2.4,
+    width: style.auraWidth + 2.2,
   });
   return context;
 }

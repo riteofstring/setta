@@ -163,14 +163,20 @@ function drawWorkflowEdge(target, edge, start, end) {
 
 function workflowEdgeCoreAlpha(edge, style) {
   if (edge.status === "inactive") {
-    return Math.min(0.42, (edge.alpha ?? style.alpha) * 0.72);
+    return Math.min(0.42, (edge.alpha ?? style.alpha) * 1.05);
+  }
+  if (edge.status === "active") {
+    return Math.min(0.72, (edge.alpha ?? style.alpha) * 0.78);
   }
   return Math.min(0.96, (edge.alpha ?? style.alpha) + 0.1);
 }
 
 function workflowEdgeCoreWidth(edge, style) {
   if (edge.status === "inactive") {
-    return Math.max(0.5, (edge.width ?? style.width) * 0.3);
+    return Math.max(0.9, (edge.width ?? style.width) * 0.47);
+  }
+  if (edge.status === "active") {
+    return Math.max(1.25, (edge.width ?? style.width) - 0.9);
   }
   return Math.max(1.4, (edge.width ?? style.width) - 0.6);
 }
@@ -196,7 +202,7 @@ function drawSemanticEdge(target, edge, start, end, endpointLayers) {
   const style = workspaceNeonTheme.semantic.tendril;
   const color = edge.color ?? 0xe2e8f0;
   if (isSemanticBridgeEndpoint(endpointLayers)) {
-    drawSemanticBridgeEdge(target, edge, start, end, color, style);
+    drawSemanticBridgeEdge({ color, edge, end, start, style, target });
     return;
   }
   const alphaScale = semanticEdgeAlphaScale(edge, style.strokeAlpha);
@@ -249,7 +255,7 @@ function drawSemanticEdge(target, edge, start, end, endpointLayers) {
   });
 }
 
-function drawSemanticBridgeEdge(target, edge, start, end, color, style) {
+function drawSemanticBridgeEdge({ color, edge, end, start, style, target }) {
   const alpha = edge.alpha ?? style.strokeAlpha;
   drawSemanticTendrilPath({
     amplitude: 0,

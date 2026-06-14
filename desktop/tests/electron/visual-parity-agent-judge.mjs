@@ -6,10 +6,13 @@ import { join } from "node:path";
 import process from "node:process";
 
 export async function agentJudgeVerdict({
+  animationEvidence,
+  animationScorecard,
   appMetrics,
   appPath,
   artifactDir,
   controlScorecard,
+  deterministicPass,
   mockupPath,
   options,
   repoRoot,
@@ -24,22 +27,16 @@ export async function agentJudgeVerdict({
     );
     return normalizeAgentJudgeVerdict({
       scene,
-      scorecard,
       source: options.agentJudgeFile,
       status: "provided",
       verdict,
+      deterministicPass,
     });
   }
   if (options.agentJudgeRunner === "none") {
-    return {
-      criteria: {},
-      pass: false,
-      reason:
-        "No configured vision-agent judge is available in this run. Use --agent-judge-runner codex-cli or provide --agent-judge-file with a structured verdict from an authorized image-capable agent.",
-      required: true,
-      scene,
-      status: "missing",
-    };
+    throw new Error(
+      "Phase 6.5 requires a configured vision-agent judge; --agent-judge-runner none is not allowed.",
+    );
   }
   if (options.agentJudgeRunner !== "codex-cli") {
     throw new Error(`unsupported visual parity agent judge runner: ${options.agentJudgeRunner}`);
@@ -48,10 +45,13 @@ export async function agentJudgeVerdict({
   const trials = [];
   for (let trial = 1; trial <= options.agentJudgeTrials; trial += 1) {
     const verdict = await runCodexCliAgentJudgeTrial({
+      animationEvidence,
+      animationScorecard,
       appMetrics,
       appPath,
       artifactDir,
       controlScorecard,
+      deterministicPass,
       mockupPath,
       options,
       repoRoot,
@@ -63,9 +63,9 @@ export async function agentJudgeVerdict({
     trials.push(verdict);
   }
   return aggregateAgentJudgeVerdicts({
+    deterministicPass,
     runner: options.agentJudgeRunner,
     scene,
-    scorecard,
     status: "judged",
     trials,
   });
@@ -81,12 +81,12 @@ function sceneVerdictFromFile(verdict, scene) {
   return verdict;
 }
 
-function normalizeAgentJudgeVerdict({ scene, scorecard, source, status, verdict }) {
+function normalizeAgentJudgeVerdict({ deterministicPass, scene, source, status, verdict }) {
   if (Array.isArray(verdict.trials)) {
     return aggregateAgentJudgeVerdicts({
+      deterministicPass,
       runner: source,
       scene,
-      scorecard,
       status,
       trials: verdict.trials.map((trial, index) =>
         normalizeAgentJudgeTrialVerdict(trial, index + 1),
@@ -98,14 +98,14 @@ function normalizeAgentJudgeVerdict({ scene, scorecard, source, status, verdict 
   }
   const normalized = normalizeAgentJudgeTrialVerdict(verdict, 1);
   return {
-    deterministicPass: scorecard.pass,
+    deterministicPass,
     majority: {
       failCount: normalized.pass ? 0 : 1,
       passCount: normalized.pass ? 1 : 0,
       threshold: 1,
       trialCount: 1,
     },
-    pass: scorecard.pass && normalized.pass,
+    pass: deterministicPass && normalized.pass,
     required: true,
     runner: source,
     scene,
@@ -114,19 +114,19 @@ function normalizeAgentJudgeVerdict({ scene, scorecard, source, status, verdict 
   };
 }
 
-function aggregateAgentJudgeVerdicts({ runner, scene, scorecard, status, trials }) {
+function aggregateAgentJudgeVerdicts({ deterministicPass, runner, scene, status, trials }) {
   const passCount = trials.filter((trial) => trial.pass).length;
   const threshold = Math.floor(trials.length / 2) + 1;
   const majorityPass = passCount >= threshold;
   return {
-    deterministicPass: scorecard.pass,
+    deterministicPass,
     majority: {
       failCount: trials.length - passCount,
       passCount,
       threshold,
       trialCount: trials.length,
     },
-    pass: scorecard.pass && majorityPass,
+    pass: deterministicPass && majorityPass,
     required: true,
     runner,
     scene,
@@ -136,10 +136,13 @@ function aggregateAgentJudgeVerdicts({ runner, scene, scorecard, status, trials 
 }
 
 async function runCodexCliAgentJudgeTrial({
+  animationEvidence,
+  animationScorecard,
   appMetrics,
   appPath,
   artifactDir,
   controlScorecard,
+  deterministicPass,
   mockupPath,
   options,
   repoRoot,
@@ -154,9 +157,12 @@ async function runCodexCliAgentJudgeTrial({
   const schemaPath = join(judgeDir, "schema.json");
   const outputPath = join(judgeDir, "verdict.json");
   const prompt = agentJudgePrompt({
+    animationEvidence,
+    animationScorecard,
     appMetrics,
     appPath,
     controlScorecard,
+    deterministicPass,
     mockupPath,
     options,
     scene,
@@ -183,6 +189,10 @@ async function runCodexCliAgentJudgeTrial({
     "--image",
     appPath,
   ];
+  if (animationEvidence) {
+    args.push("--image", animationEvidence.mockupContactSheetPath);
+    args.push("--image", animationEvidence.appContactSheetPath);
+  }
   if (options.agentJudgeModel) {
     args.push("--model", options.agentJudgeModel);
   }
@@ -217,7 +227,14 @@ function normalizeAgentJudgeCriteria(criteria) {
     throw new Error("agent judge verdict criteria must be an object");
   }
   return Object.fromEntries(
-    ["background", "nodeBorders", "edgeGlow", "overallNeonCharacter"].map((name) => {
+    [
+      "background",
+      "nodeBorders",
+      "edgeGlow",
+      "overallNeonCharacter",
+      "pulseShimmerFeel",
+      "flickerJank",
+    ].map((name) => {
       const criterion = criteria[name];
       if (!criterion || typeof criterion !== "object") {
         throw new Error(`agent judge verdict criteria.${name} must be an object`);
@@ -249,9 +266,12 @@ function stringArray(value) {
 }
 
 function agentJudgePrompt({
+  animationEvidence,
+  animationScorecard,
   appMetrics,
   appPath,
   controlScorecard,
+  deterministicPass,
   mockupPath,
   options,
   scene,
@@ -265,25 +285,40 @@ Inputs:
 - Image 1 is the reference mockup crop: ${mockupPath}
 - Image 2 is the production app crop: ${appPath}
 - Both images are cropped to the graph canvas at the same fit-to-view framing.
+${
+  animationEvidence
+    ? `- Image 3 is the reference mockup animation contact sheet: ${animationEvidence.mockupContactSheetPath}
+- Image 4 is the production app animation contact sheet: ${animationEvidence.appContactSheetPath}
+- The side-by-side animation contact sheet is saved at: ${animationEvidence.contactSheetPath}`
+    : "- This scene has no animation requirement; no contact-sheet images are attached."
+}
 
 Scene: ${scene}
 Trial: ${trial} of ${options.agentJudgeTrials}
 
-The deterministic metric floor is authoritative. If scorecard.pass is false, your verdict must fail.
-If scorecard.pass is true, judge whether the app crop is visually equivalent to the mockup crop for:
+The deterministic metric floor is authoritative. If deterministicPass is false, your verdict must fail.
+If deterministicPass is true, judge whether the app crop is visually equivalent to the mockup crop for:
 1. background: background color/luminance and canvas atmosphere.
 2. nodeBorders: node/card borders, halos, internal contrast, and readable neon silhouettes.
 3. edgeGlow: edge brightness, aura, active-flow energy, and line visibility at fit zoom.
 4. overallNeonCharacter: whether the scene reads as the same neon mockup style, not merely nonblank or structurally similar.
+5. pulseShimmerFeel: for animated scenes, whether the contact sheets show comparable directional workflow pulses or semantic shimmer/breathing/tendril motion. For static scenes this passes when no motion evidence is required.
+6. flickerJank: for animated scenes, whether the contact sheets avoid frozen-frame behavior, whole-frame flicker, and jarring instability. For static scenes this passes when no motion evidence is required.
 
 Use this scale for each criterion:
 0 = missing or unrelated; 1 = severe mismatch; 2 = visible mismatch; 3 = close but still materially off; 4 = parity with small tolerable differences; 5 = indistinguishable for the criterion.
-A criterion passes only at score >= 4. The overall pass must be true only when all four criteria pass and the deterministic scorecard passes.
+A criterion passes only at score >= 4. The overall pass must be true only when all six criteria pass and deterministicPass is true.
 
 Return only JSON matching the provided schema. Include concrete deltas if failing or marginal.
 
+Deterministic pass:
+${JSON.stringify(deterministicPass, null, 2)}
+
 Deterministic scorecard:
 ${JSON.stringify(scorecard, null, 2)}
+
+Animation scorecard:
+${JSON.stringify(animationScorecard, null, 2)}
 
 App image metrics:
 ${JSON.stringify(appMetrics, null, 2)}
@@ -317,8 +352,17 @@ function agentJudgeOutputSchema() {
           edgeGlow: criterionSchema,
           nodeBorders: criterionSchema,
           overallNeonCharacter: criterionSchema,
+          pulseShimmerFeel: criterionSchema,
+          flickerJank: criterionSchema,
         },
-        required: ["background", "nodeBorders", "edgeGlow", "overallNeonCharacter"],
+        required: [
+          "background",
+          "nodeBorders",
+          "edgeGlow",
+          "overallNeonCharacter",
+          "pulseShimmerFeel",
+          "flickerJank",
+        ],
         type: "object",
       },
       deltas: {

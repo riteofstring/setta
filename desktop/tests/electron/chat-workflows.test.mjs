@@ -75,6 +75,7 @@ const options = parseArgs(process.argv.slice(2));
 configureChatWorkflowHarness({ visible: options.visible });
 const recordingRoot = chatWorkflowRecordingRoot(options);
 const sidebarConversationRowTimeoutMs = 30_000;
+const protocolNotificationUiTimeoutMs = 30_000;
 
 function parseArgs(args) {
   const parsed = {
@@ -907,13 +908,17 @@ async function runCodexProtocolWorkflow(results) {
       "protocol notification workflow",
       "completed",
     );
-    await waitForTexts(context.client, [
-      "coverage complete",
-      "Hook: pre-command",
-      "Auto-approval review",
-      "file change",
-      "Reasoning text",
-    ]);
+    await waitForTexts(
+      context.client,
+      [
+        "coverage complete",
+        "Hook: pre-command",
+        "Auto-approval review",
+        "file change",
+        "Reasoning text",
+      ],
+      protocolNotificationUiTimeoutMs,
+    );
     await assertProtocolNotificationActivity(backend, workspaceId, conversationId, run.id);
     await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 

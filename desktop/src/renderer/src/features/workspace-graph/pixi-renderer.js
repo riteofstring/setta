@@ -10,7 +10,10 @@ import { createWorkflowGraphAnimationState } from "./pixi-renderer-animation";
 import { fitViewportToGraph } from "./pixi-renderer-camera-fit";
 import { createSemanticCellAnimationController } from "./pixi-renderer-cell-animation";
 import { createRendererContainerFactories } from "./pixi-renderer-container-factories";
-import { registerWorkflowGraphDebugSurfaceIfEnabled } from "./pixi-renderer-debug-surface";
+import {
+  createWorkflowGraphDebugAnimationFrameRenderer,
+  registerWorkflowGraphDebugSurfaceIfEnabled,
+} from "./pixi-renderer-debug-surface";
 import { createWorkflowGraphDebugSnapshot } from "./pixi-renderer-debug-snapshot";
 import { addWorkflowGraphDomListeners } from "./pixi-renderer-dom-listeners";
 import {
@@ -34,6 +37,7 @@ import {
   drawWorkspaceBackdrop,
   drawWorkspaceGrid,
   drawWorkspaceVignette,
+  workspaceGridBoundsForNodes,
 } from "./pixi-renderer-node-geometry";
 import { createWorkflowGraphSceneGraphUpdater } from "./pixi-renderer-scene-graph";
 import { createWorkflowGraphSpatialQueries } from "./pixi-renderer-spatial-queries";
@@ -49,13 +53,13 @@ import {
   edgeConnection,
   hostScreenSize,
   hitTestPortCandidateAtScreen,
+  hitTestTopNodeAtScreen,
   interactivePortsForNode,
   isZoomWheel,
   marqueeBounds,
   normalizedWheelDelta,
   notifyNodeSelectionChange,
   parsePortKey,
-  pointInsideNodeBounds,
   portKey,
   portWorldPosition,
   releasePointer,
@@ -70,13 +74,9 @@ import {
   createWorkflowGraphKeyDownHandler,
   createWorkflowGraphPointerDownHandler,
 } from "./pixi-renderer-input-handlers";
-import { rendererOptionsWithDefaults } from "./pixi-renderer-options";
+import { rendererOptionsWithDefaults, workflowGraphRendererLimits } from "./pixi-renderer-options";
 import { observeWorkflowGraphRendererResize } from "./pixi-renderer-resize-observer";
-const maxZoom = 4;
-const minZoom = 0.25;
-const nodeOpenClickDistanceScreen = 6;
-const nodeOpenClickIntervalMs = 500;
-const portHitRadiusScreen = 18;
+const limits = workflowGraphRendererLimits;
 let nextRendererInstanceId = 1;
 export async function createWorkflowGraphRenderer(options) {
   const {
@@ -117,7 +117,7 @@ export async function createWorkflowGraphRenderer(options) {
     worldWidth: 4000,
   });
   viewport.forceHitArea = new Rectangle(0, 0, screenSize.width, screenSize.height);
-  configureViewportNavigation(viewport, initialCameraState, { maxZoom, minZoom });
+  configureViewportNavigation(viewport, initialCameraState, limits);
   const backdrop = new Graphics();
   let backdropGradient = createWorkspaceBackdropGradient(foundationStyle);
   backdrop.eventMode = "none";
@@ -198,7 +198,7 @@ export async function createWorkflowGraphRenderer(options) {
     nodeShadows,
     onNodePointerOut: () => setHoveredNodeId(null),
     onNodePointerOver: (nodeId) => setHoveredNodeId(nodeId),
-    portHitRadius: portHitRadiusScreen,
+    portHitRadius: limits.portHitRadiusScreen,
     portVisuals,
     portVisualStates,
     setPortVisualState,
@@ -235,8 +235,7 @@ export async function createWorkflowGraphRenderer(options) {
   const hoveredNodeIds = new Set();
   let [draggingNode, drawingEdge, lastNodeClick] = [null, null, null];
   let [drawingMarquee, panningCamera, activeTargetPortKey] = [null, null, null];
-  let [destroyed, frameCount] = [false, 0];
-  let lastFrameAt = performance.now();
+  let [destroyed, frameCount, lastFrameAt] = [false, 0, performance.now()];
   let [cameraUpdateCount, nodeDragUpdateCount, edgeRedrawCount] = [0, 0, 0];
   let [marqueeUpdateCount, edgeCommitCount, nextEdgeSequence] = [0, 0, 1];
   let [pointerPanUpdateCount, selectionChangeCount, temporaryEdgeUpdateCount] = [0, 0, 0];
@@ -455,6 +454,11 @@ export async function createWorkflowGraphRenderer(options) {
     }
     animationCoordinator.tick(now);
   });
+  const debugAnimationFrameRenderer = createWorkflowGraphDebugAnimationFrameRenderer({
+    animationCoordinator,
+    animationState,
+    app,
+  });
   const unregisterDebugSurface = registerWorkflowGraphDebugSurfaceIfEnabled({
     debugEnabled,
     debugSurfaceId,
@@ -510,6 +514,8 @@ export async function createWorkflowGraphRenderer(options) {
       spatialQueries,
       viewport,
     }),
+    releaseAnimationFrame: debugAnimationFrameRenderer.releaseAnimationFrame,
+    renderAnimationFrame: debugAnimationFrameRenderer.renderAnimationFrame,
   });
   return {
     cameraState: () => cameraState(viewport),
@@ -686,7 +692,9 @@ export async function createWorkflowGraphRenderer(options) {
     }
     const elapsed = performance.now() - lastNodeClick.time;
     const distance = Math.hypot(screen.x - lastNodeClick.x, screen.y - lastNodeClick.y);
-    return elapsed <= nodeOpenClickIntervalMs && distance <= nodeOpenClickDistanceScreen;
+    return (
+      elapsed <= limits.nodeOpenClickIntervalMs && distance <= limits.nodeOpenClickDistanceScreen
+    );
   }
   function recordNodeClick(nodeId, screen) {
     lastNodeClick = {
@@ -915,7 +923,7 @@ export async function createWorkflowGraphRenderer(options) {
   function hitTestPortAtScreen(screen, { excludeNodeId, role }) {
     return hitTestPortCandidateAtScreen({
       excludeNodeId,
-      portHitRadiusScreen,
+      portHitRadiusScreen: limits.portHitRadiusScreen,
       role,
       screen,
       spatialQueries,
@@ -923,14 +931,7 @@ export async function createWorkflowGraphRenderer(options) {
     });
   }
   function hitTestNodeAtScreen(screen) {
-    const { candidates, world } = spatialQueries.nodeHitCandidatesAtScreen(screen);
-    let picked = null;
-    for (const node of candidates) {
-      if (pointInsideNodeBounds(world, node)) {
-        picked = node;
-      }
-    }
-    return picked;
+    return hitTestTopNodeAtScreen(spatialQueries, screen);
   }
   function panCameraByScreenDelta(deltaX, deltaY) {
     if (deltaX === 0 && deltaY === 0) {
@@ -941,7 +942,7 @@ export async function createWorkflowGraphRenderer(options) {
     commitCameraChange();
   }
   function zoomCameraAtScreen(screen, factor) {
-    const nextZoom = clamp(viewport.scaled * factor, minZoom, maxZoom);
+    const nextZoom = clamp(viewport.scaled * factor, limits.minZoom, limits.maxZoom);
     if (nextZoom === viewport.scaled) {
       return;
     }
@@ -959,34 +960,12 @@ export async function createWorkflowGraphRenderer(options) {
       host,
       labels,
       maxFitZoom,
-      maxZoom,
-      minZoom,
+      maxZoom: limits.maxZoom,
+      minZoom: limits.minZoom,
       nodes,
       paddingScreenPx,
       viewport,
     });
-  }
-  function workspaceGridBoundsForNodes(nodesForBounds) {
-    if (nodesForBounds.length === 0) {
-      return null;
-    }
-    const padding = 200;
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const node of nodesForBounds) {
-      minX = Math.min(minX, node.x);
-      minY = Math.min(minY, node.y);
-      maxX = Math.max(maxX, node.x + node.width);
-      maxY = Math.max(maxY, node.y + node.height);
-    }
-    return {
-      maxX: maxX + padding,
-      maxY: maxY + padding,
-      minX: minX - padding,
-      minY: minY - padding,
-    };
   }
   function commitCameraChange(nextCameraState = cameraState(viewport)) {
     if (!cameraStatesDiffer(nextCameraState, lastCameraState)) {

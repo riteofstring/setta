@@ -443,6 +443,22 @@
     return api.fitToGraph(surfaceId, { maxFitZoom, paddingScreenPx });
   }
 
+  function workflowGraphRenderAnimationFrame({ holdTicker = false, now, surfaceId }) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api) {
+      throw new Error("workflow graph debug API is not installed");
+    }
+    return api.renderAnimationFrame(surfaceId, { holdTicker, now });
+  }
+
+  function workflowGraphReleaseAnimationFrame({ surfaceId }) {
+    const api = window.__settaWorkflowGraphDebug;
+    if (!api) {
+      throw new Error("workflow graph debug API is not installed");
+    }
+    return api.releaseAnimationFrame(surfaceId);
+  }
+
   function hideWorkflowGraphCaptureChrome({ surfaceId = null } = {}) {
     const host = workflowGraphHostBySurfaceId(surfaceId) ?? activeWorkflowGraphHost();
     if (!(host instanceof HTMLElement)) {
@@ -864,7 +880,7 @@
     const layout = {
       nodes: [
         { nodeId: "start", x: -360, y: 0 },
-        { nodeId: "work", x: 0, y: 120 },
+        { nodeId: "work", x: 0, y: 76 },
         { nodeId: "end", x: 360, y: 0 },
       ],
     };
@@ -1189,6 +1205,8 @@
     workflowGraphDebugSnapshot,
     workflowGraphDebugSnapshotReady,
     workflowGraphFitToView,
+    workflowGraphReleaseAnimationFrame,
+    workflowGraphRenderAnimationFrame,
     hideWorkflowGraphCaptureChrome,
     workflowGraphMenuItemExists,
     workflowGraphPaneSettled,
