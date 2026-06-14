@@ -31,11 +31,12 @@ import {
   captureWorkflowGraphFitContactSheet,
   dispatchRecordedWorkflowGraphMouseDrag,
   dispatchRecordedWorkflowGraphWheel,
+  dispatchRecordedWorkflowGraphWheelBurst,
   getWorkflowGraphDebugSnapshot,
   recordWorkflowGraphPanZoomDiagnostics,
 } from "./workflow-graph-performance-recording.mjs";
 
-const scenarioNames = new Set(["active", "baseline", "large"]);
+const scenarioNames = new Set(["active", "baseline", "large", "small-trackpad"]);
 const largeNodeCounts = [500, 1000, 2500, 5000];
 const scenarioTimeoutMs = 120_000;
 const requiredTimingBuckets = [
@@ -57,7 +58,7 @@ const options = parseGraphRecordingArgs(process.argv.slice(2));
 
 if (options.help) {
   console.log(
-    `Usage: node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario <baseline|active|large> [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>]`,
+    `Usage: node desktop/tests/electron/workflow-graph-pan-zoom-recording.test.mjs --scenario <baseline|active|large|small-trackpad> [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>]`,
   );
   process.exit(0);
 }
@@ -126,7 +127,7 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
       fixture,
       visible: options.visible,
     });
-    if (scenario === "baseline") {
+    if (scenarioUsesWorkflowProjectionFixture(scenario)) {
       await createWorkflowProjectionFixture(context.client, fixture.workspaceRoot);
       await reloadPage(context.client);
     }
@@ -155,7 +156,12 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
       artifactDir,
       client: context.client,
       interaction: ({ inputSamples }) =>
-        exercisePanZoom(context.client, workflowGraphSurfaceId, inputSamples),
+        exerciseScenarioPanZoom({
+          client: context.client,
+          inputSamples,
+          scenario,
+          surfaceId: workflowGraphSurfaceId,
+        }),
       name: "pan-zoom",
       surfaceId: workflowGraphSurfaceId,
     });
@@ -203,6 +209,18 @@ async function runScenario({ artifactDir, nodeCount = 0, scenario }) {
   } finally {
     await stopElectronCdpContext(context);
   }
+}
+
+function scenarioUsesWorkflowProjectionFixture(scenario) {
+  return scenario === "baseline" || scenario === "small-trackpad";
+}
+
+async function exerciseScenarioPanZoom({ client, inputSamples, scenario, surfaceId }) {
+  if (scenario === "small-trackpad") {
+    await exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples);
+    return;
+  }
+  await exercisePanZoom(client, surfaceId, inputSamples);
 }
 
 async function exercisePanZoom(client, surfaceId, inputSamples) {
@@ -272,6 +290,64 @@ async function exercisePanZoom(client, surfaceId, inputSamples) {
     },
     inputSamples,
   );
+}
+
+async function exerciseSmallTrackpadPanZoom(client, surfaceId, inputSamples) {
+  const snapshot = await getWorkflowGraphDebugSnapshot(client, surfaceId, false);
+  const center = {
+    x: Math.floor(snapshot.canvas.clientWidth / 2),
+    y: Math.floor(snapshot.canvas.clientHeight / 2),
+  };
+  await dispatchRecordedWorkflowGraphWheelBurst(
+    client,
+    surfaceId,
+    {
+      events: trackpadPanEvents(),
+      x: center.x,
+      y: center.y,
+    },
+    inputSamples,
+  );
+  await delay(160);
+  await dispatchRecordedWorkflowGraphWheelBurst(
+    client,
+    surfaceId,
+    {
+      events: trackpadPinchEvents(),
+      modifiers: 2,
+      x: center.x,
+      y: center.y,
+    },
+    inputSamples,
+  );
+  await delay(180);
+}
+
+function trackpadPanEvents() {
+  return [
+    { delayMs: 8, deltaX: 2, deltaY: 1, phase: "start" },
+    { delayMs: 8, deltaX: 6, deltaY: 3, phase: "active" },
+    { delayMs: 8, deltaX: 10, deltaY: 5, phase: "active" },
+    { delayMs: 8, deltaX: 14, deltaY: 7, phase: "active" },
+    { delayMs: 10, deltaX: 10, deltaY: 5, phase: "active" },
+    { delayMs: 14, deltaX: 5, deltaY: 3, phase: "tail" },
+    { delayMs: 20, deltaX: 2, deltaY: 1, phase: "tail" },
+    { delayMs: 28, deltaX: 1, deltaY: 0.5, phase: "tail" },
+  ];
+}
+
+function trackpadPinchEvents() {
+  return [
+    { delayMs: 8, deltaY: -0.8, phase: "start" },
+    { delayMs: 8, deltaY: -1.8, phase: "active" },
+    { delayMs: 8, deltaY: -3.2, phase: "active" },
+    { delayMs: 8, deltaY: -5.4, phase: "active" },
+    { delayMs: 8, deltaY: -7.2, phase: "active" },
+    { delayMs: 10, deltaY: -5.2, phase: "active" },
+    { delayMs: 14, deltaY: -2.4, phase: "tail" },
+    { delayMs: 20, deltaY: -1.1, phase: "tail" },
+    { delayMs: 28, deltaY: -0.4, phase: "tail" },
+  ];
 }
 
 function largeSceneBackgroundPanStart(snapshot) {
@@ -423,6 +499,9 @@ function initialSnapshotReady(snapshot, { nodeCount, scenario }) {
   if (scenario === "active") {
     return activeSnapshotReady(snapshot);
   }
+  if (scenario === "small-trackpad") {
+    return smallTrackpadSnapshotReady(snapshot);
+  }
   return snapshot.graph.nodeCount === nodeCount;
 }
 
@@ -451,10 +530,19 @@ function activeSnapshotReady(snapshot) {
   );
 }
 
+function smallTrackpadSnapshotReady(snapshot) {
+  return (
+    snapshot.graph.nodeCount === 3 &&
+    snapshot.graph.edgeCount === 2 &&
+    snapshot.graph.nodes.every((node) => node.layer === "workflow") &&
+    snapshot.graph.workflow?.viewMode === "draft"
+  );
+}
+
 function assertPhase0DebugSnapshot(snapshot, expected) {
   assertLargeNodeCount(snapshot, expected);
   assertFiniteRenderCounters(snapshot);
-  assertPanZoomCounters(snapshot);
+  assertPanZoomCounters(snapshot, expected);
   assertCameraSyncCounters(snapshot);
   assertRequiredTimingBuckets(snapshot);
   assertDisplayObjectLayerCounts(snapshot);
@@ -477,16 +565,21 @@ function assertFiniteRenderCounters(snapshot) {
     "worstFrameMs",
     "cameraDependentSyncFrameCount",
     "cameraMovingLabelHiddenFrameCount",
+    "cameraMovingLabelSyncedFrameCount",
     "cameraMovingSyncFrameCount",
+    "cameraPanSettleDelayMs",
     "cameraSettleDelayMs",
     "cameraSettleLabelSyncCount",
     "cameraSettleRestoreFrameCount",
     "cameraSettledSyncFrameCount",
     "cameraUpdateCount",
+    "cameraZoomSettleDelayMs",
     "labelSyncCount",
     "visibleLabelCount",
     "spatialIndexQueryCount",
     "totalDisplayObjectCount",
+    "wheelInputEventCount",
+    "wheelInputGestureCount",
   ]) {
     if (!Number.isFinite(snapshot.render[counter])) {
       throw new Error(`render counter was not finite: ${counter}=${snapshot.render[counter]}`);
@@ -494,21 +587,25 @@ function assertFiniteRenderCounters(snapshot) {
   }
 }
 
-function assertPanZoomCounters(snapshot) {
+function assertPanZoomCounters(snapshot, { scenario }) {
   if (
     snapshot.render.cameraUpdateCount <= 0 ||
-    snapshot.render.pointerPanUpdateCount <= 0 ||
     snapshot.render.wheelPanUpdateCount <= 0 ||
     snapshot.render.wheelZoomUpdateCount <= 0
   ) {
     throw new Error(`pan/zoom counters did not advance: ${JSON.stringify(snapshot.render)}`);
+  }
+  if (scenario !== "small-trackpad" && snapshot.render.pointerPanUpdateCount <= 0) {
+    throw new Error(`pointer pan counter did not advance: ${JSON.stringify(snapshot.render)}`);
+  }
+  if (snapshot.render.wheelInputEventCount <= 0 || snapshot.render.wheelInputGestureCount <= 0) {
+    throw new Error(`wheel input counters did not advance: ${JSON.stringify(snapshot.render)}`);
   }
 }
 
 function assertCameraSyncCounters(snapshot) {
   if (
     snapshot.render.cameraDependentSyncFrameCount <= 0 ||
-    snapshot.render.cameraMovingLabelHiddenFrameCount <= 0 ||
     snapshot.render.cameraMovingSyncFrameCount <= 0 ||
     snapshot.render.cameraSettleLabelSyncCount <= 0 ||
     snapshot.render.cameraSettleRestoreFrameCount <= 0 ||
@@ -517,6 +614,14 @@ function assertCameraSyncCounters(snapshot) {
   ) {
     throw new Error(
       `camera sync counters did not show coalesced movement: ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (
+    snapshot.render.cameraMovingLabelHiddenFrameCount <= 0 &&
+    snapshot.render.cameraMovingLabelSyncedFrameCount <= 0
+  ) {
+    throw new Error(
+      `camera sync counters did not show moving label handling: ${JSON.stringify(snapshot.render)}`,
     );
   }
 }
@@ -567,17 +672,27 @@ function summarizeSnapshot(snapshot) {
       averageFrameMs: snapshot.render.averageFrameMs,
       cameraDependentSyncFrameCount: snapshot.render.cameraDependentSyncFrameCount,
       cameraMovingLabelHiddenFrameCount: snapshot.render.cameraMovingLabelHiddenFrameCount,
+      cameraMovingLabelSyncedFrameCount: snapshot.render.cameraMovingLabelSyncedFrameCount,
       cameraMovingSyncFrameCount: snapshot.render.cameraMovingSyncFrameCount,
+      cameraPanSettleDelayMs: snapshot.render.cameraPanSettleDelayMs,
       cameraSettleLabelSyncCount: snapshot.render.cameraSettleLabelSyncCount,
       cameraSettleRestoreFrameCount: snapshot.render.cameraSettleRestoreFrameCount,
+      cameraSettleDelayMs: snapshot.render.cameraSettleDelayMs,
       cameraSettledSyncFrameCount: snapshot.render.cameraSettledSyncFrameCount,
       cameraUpdateCount: snapshot.render.cameraUpdateCount,
+      cameraZoomSettleDelayMs: snapshot.render.cameraZoomSettleDelayMs,
       frameCount: snapshot.render.frameCount,
       p95FrameMs: snapshot.render.p95FrameMs,
       pointerPanUpdateCount: snapshot.render.pointerPanUpdateCount,
       timingBuckets: snapshot.render.timingBuckets,
       totalDisplayObjectCount: snapshot.render.totalDisplayObjectCount,
       visibleLabelCount: snapshot.render.visibleLabelCount,
+      wheelInput: snapshot.render.wheelInput,
+      wheelInputEventCount: snapshot.render.wheelInputEventCount,
+      wheelInputGestureCount: snapshot.render.wheelInputGestureCount,
+      wheelInputLastEventToSettleRestoreMs: snapshot.render.wheelInputLastEventToSettleRestoreMs,
+      wheelInputTailCandidateDurationMs: snapshot.render.wheelInputTailCandidateDurationMs,
+      wheelInputTailCandidateEventCount: snapshot.render.wheelInputTailCandidateEventCount,
       wheelPanUpdateCount: snapshot.render.wheelPanUpdateCount,
       wheelZoomUpdateCount: snapshot.render.wheelZoomUpdateCount,
       worstFrameMs: snapshot.render.worstFrameMs,

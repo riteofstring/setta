@@ -1,7 +1,7 @@
 # Workspace Graph Performance and Semantic Liveness Plan
 
 - **Date:** June 15, 2026
-- **Status:** Phase 1 complete; Phase 2 ready
+- **Status:** Phase 2 complete; Phase 3 ready
 - **Scope:** Diagnose and fix workspace graph pan/zoom/interaction performance, then make the semantic cartographer feel live and useful during real workflow runs.
 - **Related docs:**
   - `docs/plans/living_workspace_neon_redesign_plan.md`
@@ -233,6 +233,46 @@ as the before state, then append a before/after report under
 - Only update filter areas on resize and zoom changes if pan-only movement does not require it.
 - If pan does require it for correctness, coalesce it with the camera dirty frame and measure.
 
+### Phase 2 Implementation Review
+
+Phase 2 is implemented. Labels now use a padded sync window with hysteresis and
+an actual viewport-visible display set, semantic labels share the same path as
+workflow labels, and the second all-semantic camera positioning pass has been
+removed. Renderer hot lookups use a maintained node map instead of repeated
+`nodes.find(...)` scans.
+
+Static glow now has a padded visible-node window and a dirty flag, so camera
+settle frames redraw static glow only when graph content changes or visibility
+membership crosses the padded window. Filter-area sync is measured and skipped
+for pan-only movement while the viewport remains inside the previous padded
+filter area; zoom and resize still force correctness-preserving updates.
+
+Phase 2 also absorbed a small-graph trackpad latency blocker found during
+development. Wheel diagnostics now record event timestamp delta, modifier keys,
+delta mode, raw and normalized deltas, pan-vs-zoom treatment, first camera
+update, first rendered frame after camera change, last wheel event to settle
+restore, and tail-candidate counts/duration. Wheel zoom uses a 48 ms settle
+delay, pan uses a 64 ms settle delay, and small graphs keep labels visible while
+syncing only the visible label set during camera movement.
+
+The required before/after report is checked in at
+`docs/reports/performance/workspace-graph-semantic-liveness-phase-2-visibility-latency.md`.
+It uses the Phase 1 camera-coalescing report as the before state and the
+deterministic recordings at `.recordings/workspace-graph-phase2-after-20260616-r5`
+as the after state.
+
+At 5,000 nodes, settled restore dropped from 68.83 ms average / 120.20 ms worst
+to 1.53 ms average / 13.00 ms worst. The recorded label sync delta dropped from
+110,000 in Phase 1 to 1,234 in Phase 2. The deterministic 3-node
+small-trackpad scenario recorded first wheel-to-camera update at 0.4 ms for pan
+and 0.3 ms for pinch zoom, first wheel-to-rendered frame at 11.1 ms for pan and
+12.2 ms for pinch zoom, and last wheel-to-settle restore at 65.8 ms for pan and
+49.9 ms for pinch zoom. In that scenario labels were never hidden during
+movement.
+
+Large-frame cost still scales with retained display objects and Pixi rendering,
+so Phase 3 scene graph pooling and level of detail remain necessary.
+
 ## Phase 3 - Scene Graph Pooling And Level Of Detail
 
 Implement the existing Phase 7 direction as a first-class renderer architecture, not as a narrow fix.
@@ -410,8 +450,8 @@ Because this touches workflow, cartographer, event streaming, generated contract
 1. Complete: add diagnostic recording and debug timing.
 2. Complete: run the new recording against current code and save the baseline performance report.
 3. Complete: refactor camera interaction work to be frame-coalesced.
-4. Next: make labels/glow/filter sync visibility-aware.
-5. Add visible object pooling and edge LOD if the measured bottleneck remains display-object scale.
+4. Complete: make labels/glow/filter sync visibility-aware.
+5. Next: add visible object pooling and edge LOD because the measured bottleneck remains display-object scale.
 6. Add the semantic working-set contract and renderer projection.
 7. Add deterministic activity/change pulses.
 8. Fix semantic evidence idempotency and usefulness diagnostics.

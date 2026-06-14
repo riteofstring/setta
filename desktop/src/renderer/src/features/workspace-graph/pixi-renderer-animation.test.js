@@ -39,7 +39,7 @@ describe("workflow graph animation state", () => {
           targetNodeId: "semantic_other",
         },
       ],
-      nodes: [
+      visibleNodes: [
         {
           id: "workflow_running",
           layer: "workflow",
@@ -74,11 +74,6 @@ describe("workflow graph animation state", () => {
           id: "semantic_other",
           activity: null,
           layer: "semantic",
-        },
-        {
-          id: "workflow_hidden",
-          layer: "workflow",
-          status: "running",
         },
       ],
       visibleNodeIds: new Set([
@@ -150,7 +145,7 @@ describe("workflow graph animation state", () => {
             targetNodeId: "workflow_ready",
           },
         ],
-        nodes: [
+        visibleNodes: [
           { id: "workflow_running", layer: "workflow", status: "running" },
           { id: "workflow_ready", layer: "workflow", status: "ready" },
         ],
@@ -191,7 +186,7 @@ describe("workflow graph animation state", () => {
           targetNodeId: "workflow_cancelled",
         },
       ],
-      nodes: [
+      visibleNodes: [
         { id: "workflow_done", layer: "workflow", status: "succeeded" },
         { id: "workflow_cancelled", layer: "workflow", status: "cancelled" },
       ],
@@ -225,7 +220,7 @@ describe("workflow graph animation state", () => {
 
     state.recompute({
       edges: [],
-      nodes,
+      visibleNodes: nodes,
       visibleNodeIds: new Set(nodes.map((node) => node.id)),
     });
 

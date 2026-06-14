@@ -7,31 +7,49 @@ import {
 } from "./pixi-renderer-label-font";
 import { syncNodeLabelVisibility } from "./pixi-renderer-label-visibility";
 import { rendererNodeLayer } from "./pixi-renderer-layers";
+import { createPaddedViewportNodeSet } from "./pixi-renderer-visibility-window";
 import { workflowCardLabelCenterX } from "./pixi-renderer-workflow-card-layout";
 import { workspaceNeonTheme } from "./workspace-neon-theme";
 
+const labelVisibilityEnterPaddingScreenPx = 160;
+const labelVisibilityExitPaddingScreenPx = 320;
+
 export function createWorkflowGraphLabelManager({
   debugMetrics,
+  getNode,
   labelLayer,
   loadedNodeLabelFont,
   nodeLabels,
   nodeLabelFontSizeModes,
   nodeLabelVisibilityReasons,
-  nodes,
   selectedNodeIds,
   spatialQueries,
   viewport,
 }) {
   let labelSyncCount = 0;
+  let lastLabelVisibilityEnteredCount = 0;
+  let lastLabelVisibilityExitedCount = 0;
+  let labelVisibilityWindowChangeCount = 0;
+  const labelVisibilityWindow = createPaddedViewportNodeSet({
+    enterPaddingScreenPx: labelVisibilityEnterPaddingScreenPx,
+    exitPaddingScreenPx: labelVisibilityExitPaddingScreenPx,
+    getNode: requireNode,
+    queryKind: "label-visibility",
+    spatialQueries,
+  });
 
   return {
     acquireLabel,
+    debugSnapshot,
     releaseLabel,
     requireNodeLabel,
+    resetVisibleLabels,
     syncAllLabels,
     syncCount: () => labelSyncCount,
     syncLabelPosition,
     syncLabelVisibility,
+    syncVisibleLabels,
+    visibleLabelSyncNodeCount,
   };
 
   function acquireLabel(nodeId, labelNode = null) {
@@ -74,21 +92,41 @@ export function createWorkflowGraphLabelManager({
   }
 
   function syncAllLabels() {
-    return debugMetrics.measure("label-all-sync", () => {
-      syncAllLabelsNow();
+    return syncVisibleLabels();
+  }
+
+  function syncVisibleLabels() {
+    return debugMetrics.measure("label-visible-sync", () => {
+      syncVisibleLabelsNow();
     });
   }
 
-  function syncAllLabelsNow() {
-    for (const node of nodes) {
+  function syncVisibleLabelsNow() {
+    const visibleUpdate = labelVisibilityWindow.sync();
+    lastLabelVisibilityEnteredCount = visibleUpdate.enteredNodeIds.size;
+    lastLabelVisibilityExitedCount = visibleUpdate.exitedNodeIds.size;
+    if (visibleUpdate.changed) {
+      labelVisibilityWindowChangeCount += 1;
+    }
+
+    const nodesToSync = mergeNodesById(visibleUpdate.visibleNodes, visibleUpdate.exitedNodes);
+    const displayNodeIds = spatialQueries.labelVisibleNodeIds();
+    for (const node of nodesToSync) {
       syncLabelPosition(node.id);
     }
-    syncLabelVisibility();
-    for (const node of nodes) {
-      if (rendererNodeLayer(node) === "semantic") {
-        syncLabelPosition(node.id);
-      }
-    }
+    debugMetrics.measure("label-visibility-sync", () => {
+      syncNodeLabelVisibility({
+        compactSelectedFontSize: compactSelectedNodeLabelBitmapFontSize,
+        fontSizeModes: nodeLabelFontSizeModes,
+        nodeLabels,
+        nodes: nodesToSync,
+        normalFontSize: nodeLabelBitmapFontSize,
+        selectedNodeIds,
+        viewport,
+        visibleNodeIds: displayNodeIds,
+        visibilityReasons: nodeLabelVisibilityReasons,
+      });
+    });
   }
 
   function syncLabelPosition(nodeId) {
@@ -114,27 +152,11 @@ export function createWorkflowGraphLabelManager({
   }
 
   function syncLabelVisibility() {
-    return debugMetrics.measure("label-visibility-sync", () => {
-      syncLabelVisibilityNow();
-    });
-  }
-
-  function syncLabelVisibilityNow() {
-    syncNodeLabelVisibility({
-      compactSelectedFontSize: compactSelectedNodeLabelBitmapFontSize,
-      fontSizeModes: nodeLabelFontSizeModes,
-      nodeLabels,
-      nodes,
-      normalFontSize: nodeLabelBitmapFontSize,
-      selectedNodeIds,
-      viewport,
-      visibleNodeIds: spatialQueries.labelVisibleNodeIds(),
-      visibilityReasons: nodeLabelVisibilityReasons,
-    });
+    return syncVisibleLabels();
   }
 
   function requireNode(nodeId) {
-    const node = nodes.find((candidate) => candidate.id === nodeId);
+    const node = getNode(nodeId);
     if (!node) {
       throw new Error(`workflow graph label references missing node: ${nodeId}`);
     }
@@ -148,6 +170,48 @@ export function createWorkflowGraphLabelManager({
     }
     return label;
   }
+
+  function resetVisibleLabels() {
+    for (const [nodeId, label] of nodeLabels) {
+      label.visible = false;
+      nodeLabelVisibilityReasons.set(nodeId, "outside-viewport");
+    }
+    labelVisibilityWindow.reset();
+    lastLabelVisibilityEnteredCount = 0;
+    lastLabelVisibilityExitedCount = 0;
+  }
+
+  function debugSnapshot() {
+    const windowSnapshot = labelVisibilityWindow.debugSnapshot();
+    return {
+      labelVisibilityEnterPaddingScreenPx,
+      labelVisibilityExitPaddingScreenPx,
+      labelVisibilityWindowInitialized: windowSnapshot.visibleNodeWindowInitialized,
+      labelVisibilityWindowSize: windowSnapshot.visibleNodeWindowSize,
+      labelVisibilityWindowChangeCount,
+      lastLabelVisibilityEnteredCount,
+      lastLabelVisibilityExitedCount,
+    };
+  }
+
+  function visibleLabelSyncNodeCount() {
+    return nodeLabels.size;
+  }
+}
+
+function mergeNodesById(...nodeLists) {
+  const merged = [];
+  const seenNodeIds = new Set();
+  for (const nodeList of nodeLists) {
+    for (const node of nodeList) {
+      if (seenNodeIds.has(node.id)) {
+        continue;
+      }
+      merged.push(node);
+      seenNodeIds.add(node.id);
+    }
+  }
+  return merged;
 }
 
 export function nodeLabelScreenPosition({ label, node, viewport }) {

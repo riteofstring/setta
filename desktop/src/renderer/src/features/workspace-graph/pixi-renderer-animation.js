@@ -57,19 +57,14 @@ export function createWorkflowGraphAnimationState({ animationEnabled, reduceMoti
     cellNodes: () => activeCellNodes,
     edgeFlows: () => [...activeEdgeFlows, ...activeSemanticTendrils],
     glowNodes: () => activeGlowNodes,
-    recompute: ({ edges, nodes, visibleNodeIds }) => {
+    recompute: ({ edges, visibleNodeIds, visibleNodes }) => {
       const animationsAllowed = settings.animationEnabled && !settings.reduceMotion;
-      const visiblePulseNodes = nodes.filter(
+      const visiblePulseNodes = visibleNodes.filter(
         (node) =>
-          visibleNodeIds.has(node.id) &&
-          rendererNodeLayer(node) === "workflow" &&
-          workflowPulseNodeStatuses.has(node.status),
+          rendererNodeLayer(node) === "workflow" && workflowPulseNodeStatuses.has(node.status),
       );
-      const visibleActiveCellCandidates = nodes.filter(
-        (node) =>
-          visibleNodeIds.has(node.id) &&
-          rendererNodeLayer(node) === "semantic" &&
-          node.activity?.active === true,
+      const visibleActiveCellCandidates = visibleNodes.filter(
+        (node) => rendererNodeLayer(node) === "semantic" && node.activity?.active === true,
       );
       cellAnimCandidateCount = visibleActiveCellCandidates.length;
       const cellCap = workspaceNeonTheme.semantic.animation.activeCellCap;

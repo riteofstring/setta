@@ -5,8 +5,8 @@ const tau = Math.PI * 2;
 
 export function createSemanticCellAnimationController({
   cellAnimationGraphics,
+  getNode,
   nodeContainers,
-  nodes,
 }) {
   const animatedCellContainerIds = new Set();
 
@@ -46,7 +46,7 @@ export function createSemanticCellAnimationController({
   }
 
   function resetSemanticCellContainer(nodeId) {
-    const node = nodes.find((candidate) => candidate.id === nodeId);
+    const node = getNode(nodeId);
     const container = nodeContainers.get(nodeId);
     if (!node || !container) {
       return;

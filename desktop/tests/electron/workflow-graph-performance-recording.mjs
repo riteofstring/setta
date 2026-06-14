@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { performance } from "node:perf_hooks";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { captureScreenshotClip, writeJson } from "./electron-cdp-harness.mjs";
@@ -27,6 +28,9 @@ const renderDeltaCounters = [
   "labelSyncCount",
   "pointerPanUpdateCount",
   "spatialIndexQueryCount",
+  "wheelInputEventCount",
+  "wheelInputGestureCount",
+  "wheelInputTailCandidateEventCount",
   "wheelPanUpdateCount",
   "wheelZoomUpdateCount",
 ];
@@ -94,6 +98,84 @@ export async function dispatchRecordedWorkflowGraphWheel(
     },
     samples,
   );
+}
+
+export async function dispatchRecordedWorkflowGraphWheelBurst(
+  client,
+  surfaceId,
+  { events, modifiers = 0, x, y },
+  samples,
+) {
+  const pagePoint = await pagePointForCanvasPoint(client, surfaceId, { x, y });
+  const targetCanvas = await client.driver("workflowGraphCanvasRect", { surfaceId });
+  const startedAt = await client.evaluate("performance.now()");
+  const dispatched = [];
+  const pendingDispatches = [];
+  for (const [index, event] of events.entries()) {
+    queueRecordedWheelDispatch({
+      client,
+      dispatched,
+      event,
+      index,
+      modifiers,
+      pagePoint,
+      pendingDispatches,
+    });
+    await delayAfterRecordedWheelEvent(event);
+  }
+  await Promise.all(pendingDispatches);
+  const completedAt = await client.evaluate("performance.now()");
+  samples.push({
+    at: new Date().toISOString(),
+    canvasPoint: { x, y },
+    completedAt,
+    dispatched,
+    durationMs: completedAt - startedAt,
+    kind: "wheel-burst",
+    pagePoint,
+    startedAt,
+    surfaceId,
+    targetCanvas,
+  });
+}
+
+function queueRecordedWheelDispatch({
+  client,
+  dispatched,
+  event,
+  index,
+  modifiers,
+  pagePoint,
+  pendingDispatches,
+}) {
+  const deltaX = event.deltaX ?? 0;
+  const deltaY = event.deltaY ?? 0;
+  const effectiveModifiers = event.modifiers ?? modifiers;
+  const harnessSentAtMs = performance.now();
+  pendingDispatches.push(
+    client.call("Input.dispatchMouseEvent", {
+      deltaX,
+      deltaY,
+      modifiers: effectiveModifiers,
+      type: "mouseWheel",
+      x: pagePoint.x,
+      y: pagePoint.y,
+    }),
+  );
+  dispatched.push({
+    deltaX,
+    deltaY,
+    harnessSentAtMs,
+    index,
+    modifiers: effectiveModifiers,
+    phase: event.phase ?? "",
+  });
+}
+
+async function delayAfterRecordedWheelEvent(event) {
+  if (event.delayMs > 0) {
+    await delay(event.delayMs);
+  }
 }
 
 export async function dispatchRecordedWorkflowGraphMouseDrag(

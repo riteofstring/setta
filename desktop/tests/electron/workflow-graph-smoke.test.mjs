@@ -853,6 +853,9 @@ function assertLabelsAttachedToNodes(snapshot, label) {
     if (node.layer !== "workflow") {
       continue;
     }
+    if (node.label.visible === false && node.label.visibilityReason === "outside-viewport") {
+      continue;
+    }
     assertWorkflowLabelAttachedToNode(node, snapshot.camera.zoom, label);
   }
 }
@@ -1424,7 +1427,6 @@ function assertEdgeCommitted(before, during, after, pair) {
 function rendererRebuilt(before, after) {
   return after.render.reactRenderCount !== before.render.reactRenderCount;
 }
-
 function assertTemporaryEdgeActive(before, during, label) {
   if (!during.interaction.drawingEdge) {
     throw new Error(
@@ -1445,7 +1447,6 @@ function assertTemporaryEdgeCleared(after, label) {
     );
   }
 }
-
 function assertEdgeCountUnchanged(before, after, label) {
   if (after.graph.edgeCount !== before.graph.edgeCount) {
     throw new Error(

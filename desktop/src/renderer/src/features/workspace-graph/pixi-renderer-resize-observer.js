@@ -28,7 +28,8 @@ export function observeWorkflowGraphRendererResize({
     onResize?.();
     drawWorkspaceBackdrop(backdrop, nextSize, getFoundationStyle());
     drawWorkspaceVignette(vignette, nextSize, vignetteGradient, getFoundationStyle());
-    labels.syncAllLabels();
+    labels.resetVisibleLabels();
+    labels.syncVisibleLabels();
   });
   resizeObserver.observe(host);
   return resizeObserver;

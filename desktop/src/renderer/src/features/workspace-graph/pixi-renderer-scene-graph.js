@@ -12,6 +12,7 @@ export function createWorkflowGraphSceneGraphUpdater({
   nodeDiagnosticMarkers,
   nodeLayer,
   nodeOutlines,
+  nodesById,
   nodeShadows,
   nodes,
   portVisuals,
@@ -97,6 +98,7 @@ export function createWorkflowGraphSceneGraphUpdater({
       updateNodeDisplayObjects(existingNode);
     }
     nodes.splice(0, nodes.length, ...updatedNodes);
+    syncNodesById(updatedNodes);
   }
 
   function addNodeDisplayObjects(node) {
@@ -148,6 +150,13 @@ export function createWorkflowGraphSceneGraphUpdater({
         portVisuals.delete(key);
         portVisualStates.delete(key);
       }
+    }
+  }
+
+  function syncNodesById(updatedNodes) {
+    nodesById.clear();
+    for (const node of updatedNodes) {
+      nodesById.set(node.id, node);
     }
   }
 }

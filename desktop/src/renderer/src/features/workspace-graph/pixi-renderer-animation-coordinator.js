@@ -2,6 +2,10 @@
 
 import { redrawWorkspaceEdgeFlow } from "./pixi-renderer-edge-rendering";
 import { drawWorkspaceGlow } from "./pixi-renderer-helpers";
+import { createPaddedViewportNodeSet } from "./pixi-renderer-visibility-window";
+
+const glowVisibilityEnterPaddingScreenPx = 192;
+const glowVisibilityExitPaddingScreenPx = 384;
 
 export function createWorkflowGraphAnimationCoordinator({
   animatedGlow,
@@ -11,14 +15,49 @@ export function createWorkflowGraphAnimationCoordinator({
   edgeFlowGraphics,
   edges,
   getNode,
-  nodes,
   spatialQueries,
   staticGlow,
 }) {
+  const glowVisibilityWindow = createPaddedViewportNodeSet({
+    enterPaddingScreenPx: glowVisibilityEnterPaddingScreenPx,
+    exitPaddingScreenPx: glowVisibilityExitPaddingScreenPx,
+    getNode,
+    queryKind: "glow-visibility",
+    spatialQueries,
+  });
+  let staticGlowDirty = true;
+  let staticGlowVisibilityChangeCount = 0;
+  let lastStaticGlowVisibleNodeCount = 0;
+
   return {
+    debugSnapshot,
+    markStaticGlowDirty,
+    resetVisibility,
     syncActiveSet,
     tick,
   };
+
+  function debugSnapshot() {
+    const windowSnapshot = glowVisibilityWindow.debugSnapshot();
+    return {
+      glowVisibilityWindowInitialized: windowSnapshot.visibleNodeWindowInitialized,
+      glowVisibilityWindowSize: windowSnapshot.visibleNodeWindowSize,
+      glowVisibilityEnterPaddingScreenPx,
+      glowVisibilityExitPaddingScreenPx,
+      lastStaticGlowVisibleNodeCount,
+      staticGlowDirty,
+      staticGlowVisibilityChangeCount,
+    };
+  }
+
+  function markStaticGlowDirty() {
+    staticGlowDirty = true;
+  }
+
+  function resetVisibility() {
+    glowVisibilityWindow.reset();
+    staticGlowDirty = true;
+  }
 
   function tick(now) {
     animationState.tick(now, {
@@ -46,23 +85,37 @@ export function createWorkflowGraphAnimationCoordinator({
     });
   }
 
-  function syncActiveSet({ cameraMotion = "settled" } = {}) {
-    const visibleNodeIds = spatialQueries.visibleNodeIds();
-    const visibleNodes = nodes.filter((node) => visibleNodeIds.has(node.id));
+  function syncActiveSet({ cameraMotion = "settled", forceStaticGlow = false } = {}) {
+    const visibility = glowVisibilityWindow.sync();
+    const visibleNodeIds = visibility.visibleNodeIds;
+    const visibleNodes = visibility.visibleNodes;
+    lastStaticGlowVisibleNodeCount = visibleNodes.length;
+    if (visibility.changed) {
+      staticGlowVisibilityChangeCount += 1;
+    }
     debugMetrics.measure("animation-active-set-recompute", () => {
-      animationState.recompute({ edges, nodes, visibleNodeIds });
+      animationState.recompute({ edges, visibleNodeIds, visibleNodes });
     });
     if (cameraMotion === "moving") {
-      if (animationState.edgeFlows().length === 0) {
-        edgeFlowGraphics.clear();
-      }
+      clearInactiveEdgeFlow();
       return;
     }
-    debugMetrics.measure("static-glow-redraw", () => {
-      drawWorkspaceGlow(staticGlow, visibleNodes, performance.now(), {
-        mode: "static",
-      });
+    syncSettledGlowAndCells(visibleNodes, {
+      redrawStaticGlow: forceStaticGlow || staticGlowDirty || visibility.changed,
     });
+    clearInactiveEdgeFlow();
+  }
+
+  function clearInactiveEdgeFlow() {
+    if (animationState.edgeFlows().length === 0) {
+      edgeFlowGraphics.clear();
+    }
+  }
+
+  function syncSettledGlowAndCells(visibleNodes, { redrawStaticGlow }) {
+    if (redrawStaticGlow) {
+      redrawStaticGlowForNodes(visibleNodes);
+    }
     debugMetrics.measure("animated-glow-redraw", () => {
       drawWorkspaceGlow(animatedGlow, animationState.glowNodes(), performance.now(), {
         mode: "steady",
@@ -71,8 +124,14 @@ export function createWorkflowGraphAnimationCoordinator({
     debugMetrics.measure("cell-animation-redraw", () => {
       cellAnimation.sync(animationState.cellNodes(), performance.now());
     });
-    if (animationState.edgeFlows().length === 0) {
-      edgeFlowGraphics.clear();
-    }
+  }
+
+  function redrawStaticGlowForNodes(visibleNodes) {
+    debugMetrics.measure("static-glow-redraw", () => {
+      drawWorkspaceGlow(staticGlow, visibleNodes, performance.now(), {
+        mode: "static",
+      });
+    });
+    staticGlowDirty = false;
   }
 }

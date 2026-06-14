@@ -2,12 +2,15 @@
 
 import { cameraState, cameraStatesDiffer } from "./pixi-renderer-helpers";
 
-const cameraSettleDelayMs = 96;
+const cameraPanSettleDelayMs = 64;
+const cameraZoomSettleDelayMs = 48;
+const movingLabelSyncNodeLimit = 120;
 
 export function createWorkflowGraphCameraSync({
   animationCoordinator,
   debugMetrics,
   handlers,
+  inputResponsiveness,
   labelLayer,
   labels,
   syncFilterAreas,
@@ -25,6 +28,9 @@ export function createWorkflowGraphCameraSync({
   let cameraSettledSyncFrameCount = 0;
   let cameraUpdateCount = 0;
   let lastCameraMovementAt = 0;
+  let lastCameraMovementKind = "none";
+  let cameraMovingLabelSyncedFrameCount = 0;
+  let pendingCameraSyncIncludesZoom = false;
 
   return {
     debugSnapshot,
@@ -41,12 +47,18 @@ export function createWorkflowGraphCameraSync({
       cameraDependentSyncScheduled,
       cameraMoving,
       cameraMovingLabelHiddenFrameCount,
+      cameraMovingLabelSyncedFrameCount,
       cameraMovingSyncFrameCount,
-      cameraSettleDelayMs,
+      cameraPanSettleDelayMs,
+      cameraSettleDelayMs: currentCameraSettleDelayMs(),
       cameraSettleLabelSyncCount,
       cameraSettleRestoreFrameCount,
       cameraSettledSyncFrameCount,
       cameraUpdateCount,
+      cameraZoomSettleDelayMs,
+      lastCameraMovementKind,
+      movingLabelSyncNodeLimit,
+      pendingCameraSyncIncludesZoom,
     };
   }
 
@@ -54,28 +66,35 @@ export function createWorkflowGraphCameraSync({
     return cameraStatesDiffer(nextCameraState, lastCameraState);
   }
 
-  function recordCameraState(nextCameraState = cameraState(viewport), { moving, now } = {}) {
+  function recordCameraState(
+    nextCameraState = cameraState(viewport),
+    { interactionKind = "none", moving, now } = {},
+  ) {
     return debugMetrics.measure("record-camera-state", () => {
       if (!hasCameraChanged(nextCameraState)) {
         return false;
       }
       const recordedCameraState = { ...nextCameraState };
+      pendingCameraSyncIncludesZoom =
+        pendingCameraSyncIncludesZoom || recordedCameraState.zoom !== lastCameraState.zoom;
       cameraUpdateCount += 1;
       lastCameraState = recordedCameraState;
       handlers.onCameraStateChange(recordedCameraState);
-      syncCameraMovementState({ moving, now });
+      syncCameraMovementState({ interactionKind, moving, now });
       return true;
     });
   }
 
-  function syncCameraMovementState({ moving, now }) {
+  function syncCameraMovementState({ interactionKind, moving, now }) {
     if (moving === true) {
       cameraMoving = true;
       lastCameraMovementAt = Number.isFinite(now) ? now : performance.now();
+      lastCameraMovementKind = interactionKind;
       return;
     }
     if (moving === false) {
       cameraMoving = false;
+      lastCameraMovementKind = interactionKind;
     }
   }
 
@@ -108,8 +127,14 @@ export function createWorkflowGraphCameraSync({
     return (
       cameraMoving &&
       Number.isFinite(lastCameraMovementAt) &&
-      now - lastCameraMovementAt >= cameraSettleDelayMs
+      now - lastCameraMovementAt >= currentCameraSettleDelayMs()
     );
+  }
+
+  function currentCameraSettleDelayMs() {
+    return lastCameraMovementKind === "wheel-zoom"
+      ? cameraZoomSettleDelayMs
+      : cameraPanSettleDelayMs;
   }
 
   function runScheduledCameraSync(force) {
@@ -121,7 +146,8 @@ export function createWorkflowGraphCameraSync({
       () => {
         syncLabelsForCameraMotion(cameraMotion);
         animationCoordinator.syncActiveSet({ cameraMotion });
-        syncFilterAreas();
+        syncFilterAreas({ force: force || pendingCameraSyncIncludesZoom });
+        pendingCameraSyncIncludesZoom = false;
       },
       { cameraMotion },
     );
@@ -148,17 +174,24 @@ export function createWorkflowGraphCameraSync({
       },
       { now },
     );
+    inputResponsiveness?.recordSettleRestore(now);
     cameraSettleRestoreFrameCount += 1;
   }
 
   function syncLabelsForCameraMotion(cameraMotion) {
     if (cameraMotion === "moving") {
+      if (labels.visibleLabelSyncNodeCount() <= movingLabelSyncNodeLimit) {
+        labelLayer.visible = true;
+        labels.syncVisibleLabels();
+        cameraMovingLabelSyncedFrameCount += 1;
+        return;
+      }
       labelLayer.visible = false;
       cameraMovingLabelHiddenFrameCount += 1;
       return;
     }
     labelLayer.visible = true;
-    labels.syncAllLabels();
+    labels.syncVisibleLabels();
     cameraSettleLabelSyncCount += 1;
   }
 }

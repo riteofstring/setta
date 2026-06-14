@@ -97,6 +97,12 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    args: ["--scenario", "small-trackpad"],
+    file: "workflow-graph-pan-zoom-recording.test.mjs",
+    name: "workflow-graph-pan-zoom-small-trackpad",
+    tiers: ["performance"],
+  },
+  {
     args: ["--scenario", "active"],
     file: "workflow-graph-pan-zoom-recording.test.mjs",
     name: "workflow-graph-pan-zoom-active",

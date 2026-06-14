@@ -185,7 +185,8 @@ export function createPortVisualStateSync({ getNode, portVisuals, portVisualStat
 }
 
 export function requireWorkflowGraphNode(nodes, nodeId) {
-  const node = nodes.find((candidate) => candidate.id === nodeId);
+  const node =
+    nodes instanceof Map ? nodes.get(nodeId) : nodes.find((candidate) => candidate.id === nodeId);
   if (!node) {
     throw new Error(`workspace edge references missing node: ${nodeId}`);
   }
