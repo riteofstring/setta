@@ -158,30 +158,30 @@ function drawWorkflowEdge(target, edge, start, end) {
     color: workspaceNeonTheme.workflow.edgeCoreColor,
     width: workflowEdgeCoreWidth(edge, style),
   });
-  drawWorkflowEdgeBeacons(target, edge, start, end, style);
+  drawWorkflowEdgeBeacons(target, edge, start, end);
 }
 
 function workflowEdgeCoreAlpha(edge, style) {
   if (edge.status === "inactive") {
-    return Math.min(0.52, (edge.alpha ?? style.alpha) * 0.9);
+    return Math.min(0.42, (edge.alpha ?? style.alpha) * 0.72);
   }
-  return Math.min(0.92, (edge.alpha ?? style.alpha) + 0.04);
+  return Math.min(0.96, (edge.alpha ?? style.alpha) + 0.1);
 }
 
 function workflowEdgeCoreWidth(edge, style) {
   if (edge.status === "inactive") {
-    return Math.max(0.5, (edge.width ?? style.width) * 0.38);
+    return Math.max(0.5, (edge.width ?? style.width) * 0.3);
   }
   return Math.max(1.4, (edge.width ?? style.width) - 0.6);
 }
 
-function drawWorkflowEdgeBeacons(target, edge, start, end, style) {
+function drawWorkflowEdgeBeacons(target, edge, start, end) {
   const color =
     edge.status === "inactive" ? 0xeaf6ff : workspaceNeonTheme.workflow.edgeFlow.coreColor;
-  const alpha = edge.status === "inactive" ? 0.94 : 0.98;
-  const radius = edge.status === "inactive" ? 2.2 : 2.55;
-  const haloRadius = edge.status === "inactive" ? 3.8 : 3.45;
-  const positions = edge.status === "active" ? [0.2, 0.38, 0.56, 0.74] : [0.25, 0.75];
+  const alpha = edge.status === "inactive" ? 0.78 : 0.96;
+  const radius = edge.status === "inactive" ? 1.9 : 2.35;
+  const haloRadius = edge.status === "inactive" ? 3.2 : 3.2;
+  const positions = edge.status === "active" ? [0.32, 0.68] : [0.25, 0.75];
   for (const t of positions) {
     const point = sampleCurvedEdge(start, end, t);
     target

@@ -464,9 +464,9 @@ function semanticNodeBodyContextFor(node) {
     )
     .fill({ alpha: style.innerTintAlpha * 0.58, color: node.color });
   drawOrganicCellPath(context, geometry, seed).stroke({
-    alpha: style.auraAlpha * 0.22,
+    alpha: style.auraAlpha * 0.2,
     color: node.color,
-    width: style.auraWidth + 1.6,
+    width: style.auraWidth + 1.2,
   });
   drawSemanticNucleus(context, node, geometry, seed, style);
   drawSemanticOrganelles(context, node, geometry, seed, style);
@@ -510,15 +510,15 @@ function semanticNodeShadowContextFor(node) {
     .circle(geometry.centerX + 4, geometry.centerY + 6, geometry.radius + 2)
     .fill({ alpha: 0.12, color: 0x000000 })
     .circle(geometry.centerX, geometry.centerY, geometry.radius + 22)
-    .fill({ alpha: style.auraAlpha * 0.025, color: node.color })
+    .fill({ alpha: style.auraAlpha * 0.022, color: node.color })
     .circle(geometry.centerX, geometry.centerY, geometry.radius + 14)
-    .fill({ alpha: style.auraAlpha * 0.05, color: node.color })
+    .fill({ alpha: style.auraAlpha * 0.044, color: node.color })
     .circle(geometry.centerX, geometry.centerY, geometry.radius + 7)
-    .fill({ alpha: style.auraAlpha * 0.05, color: node.color });
+    .fill({ alpha: style.auraAlpha * 0.046, color: node.color });
   drawOrganicCellPath(context, { ...geometry, radius: geometry.radius + 5 }, seed).stroke({
-    alpha: style.auraAlpha * 0.14,
+    alpha: style.auraAlpha * 0.12,
     color: node.color,
-    width: style.auraWidth + 3,
+    width: style.auraWidth + 2.4,
   });
   return context;
 }

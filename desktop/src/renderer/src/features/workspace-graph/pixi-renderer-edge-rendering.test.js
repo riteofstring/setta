@@ -41,7 +41,7 @@ describe("workspace graph edge flow rendering", () => {
     expect(edgeFlowGraphics.operations[0]).toEqual(["clear"]);
     expect(edgeFlowGraphics.operations.some(([operation]) => operation === "lineTo")).toBe(true);
     expect(edgeFlowGraphics.operations.filter(([operation]) => operation === "fill")).toHaveLength(
-      4,
+      workspaceNeonTheme.workflow.edgeFlow.pulseCount * 2,
     );
   });
 
