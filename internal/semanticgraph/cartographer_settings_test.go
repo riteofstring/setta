@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"setta/internal/chat"
@@ -512,6 +513,66 @@ func TestSemanticCartographerSettingsProvideServiceDefaults(t *testing.T) {
 	if override.automaticCartographer.config.MaxConcurrent != 1 ||
 		override.cartographerConfig.MaxWindowEvents != 5 {
 		t.Fatalf("override service configs = %+v / %+v, want constructor options to override persisted defaults", override.automaticCartographer.config, override.cartographerConfig)
+	}
+}
+
+func TestSemanticCartographerSettingsUpdateSynchronizesObserverInputConstruction(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	service, err := NewService(store, associationWorkspaceResolver{root: t.TempDir()})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	initial, err := service.ReadSemanticCartographerSettings(ctx)
+	if err != nil {
+		t.Fatalf("read settings: %v", err)
+	}
+	models := []chat.ChatModelOption{
+		cartographerSettingsCatalogModel("default", "gpt-default", true, chat.ReasoningEffortLow, chat.ReasoningEffortMedium, chat.ReasoningEffortHigh),
+	}
+
+	const iterations = 50
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		for index := 0; index < iterations; index++ {
+			input := SemanticCartographerSettingsInputFromSettings(initial.Settings)
+			input.ObservationConfig.MaxWindowEvents = 3 + index%5
+			input.ObservationConfig.MaxWindowContentBytes = 512 + index
+			input.ObservationConfig.AssistantThresholdBytes = 128
+			input.ObservationConfig.OutputThresholdBytes = 128
+			input.ObservationConfig.PriorSummaryLimit = 1 + index%3
+			input.ObservationConfig.TokenBudget = 256 + index
+			if _, err := service.UpdateSemanticCartographerSettings(ctx, input, models); err != nil {
+				errs <- err
+				return
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		for index := 0; index < iterations; index++ {
+			_, err := service.BuildManualCartographerWindow(ctx, CartographerManualWindowRequest{
+				WorkspaceID:    testWorkspaceID,
+				TargetEntityID: "node_settings_sync_" + threeDigit(index+1),
+				Summary:        "Build a cartographer input bundle while settings are changing.",
+			})
+			if err != nil {
+				errs <- err
+				return
+			}
+		}
+	}()
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("concurrent settings/window input operation failed: %v", err)
 	}
 }
 

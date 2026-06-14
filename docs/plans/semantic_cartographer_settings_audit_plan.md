@@ -789,30 +789,80 @@ Implementation note:
 - The Codex protocol registration now includes the experimental
   `turn/moderationMetadata` notification so the settings workflow does not fail
   on provider drift from scripted/live Codex app-server notifications.
+- The Phase 6 follow-up was fixed by synchronizing observation-config runtime
+  settings application under `cartographerMu` while keeping automatic-processing
+  config under `automaticCartographerMu`. Focused service coverage now exercises
+  concurrent settings updates against cartographer window input construction and
+  passes under Go's race detector.
 - No persistent schema changed in Phase 6, so the semantic graph store remains
   version `12`.
 
 ## Phase 7 - Final Synthesis Input Budgeting
 
-Phase 7 is not ready to implement until this Phase 6 follow-up is fixed:
+Phase 7 is ready to implement now that this Phase 6 follow-up is fixed:
 
-- `Service.applySemanticCartographerSettingsDefaults` still writes
-  `service.cartographerConfig` without taking `cartographerMu`, while observer
-  paths read `service.cartographerConfig` under `cartographerMu`. Fix the
-  runtime settings synchronization first, and add focused coverage for settings
-  updates racing with observer/window input construction. Automatic-processing
-  config should remain protected by `automaticCartographerMu`.
+- `Service.applySemanticCartographerSettingsDefaults` now writes
+  `service.cartographerConfig` under `cartographerMu`, matching the observer
+  paths that read `service.cartographerConfig` under `cartographerMu`. Focused
+  coverage exercises settings updates racing with observer/window input
+  construction. Automatic-processing config remains protected by
+  `automaticCartographerMu`.
 
 The failed `workflow_done` run in local state shows that final synthesis can
-exceed the Codex maximum input length.
+exceed the Codex structured-task request limit, even if the selected model has
+a much larger theoretical context window.
+
+Current diagnosis from `~/.setta/semantic-graph.sqlite`:
+
+- Failed run `cartographer_run_1ccc81dc68e25dd0ebc9b51fafec8ff0` was rejected
+  by `turn/start` with `Input exceeds the maximum length of 1048576
+  characters.`
+- Its persisted `input_bundle_json` was `3,110,169` characters, roughly `2.97x`
+  the Codex structured-task limit.
+- The final assistant text was not the large field. Dominant fields were
+  `observations` at about `1.29M` characters, `trajectorySummaries` at about
+  `946K`, `evidence` at about `519K`, `existingNodes` at about `118K`, and
+  `observedEventRefs` at about `99K`.
+- A large share is duplicate folded context: `evidence` had `487` records but
+  only `11` distinct evidence IDs; `existingNodes` had `186` records but only
+  `4` distinct node IDs; `trajectorySummaries` had `800` records but only
+  `113` distinct summary/window IDs.
+- Assistant delta observations are also too expensive for final synthesis:
+  `797` tiny `chat.assistant_text_delta` observation records accounted for
+  about `887K` characters because every small delta carries full source
+  metadata. Final synthesis already has bounded aggregate assistant text and
+  summary fields, so carrying every delta-level observation is low value.
+- The current truncation accounting is misleading. The failed bundle reported
+  `includedContentBytes = 54,523`, while the serialized JSON sent toward Codex
+  was `3,110,169` characters. `cartographerBundleContentBytes` does not count
+  most JSON object overhead or the large folded arrays that dominate the
+  request.
+
+This is a bundle-construction and accounting bug, not merely a missing
+preflight check. `workflow_done` currently folds prior windows by appending
+large structured arrays, while `applyCartographerInputLimits` caps `NewEvents`
+and selected text fields but does not cap total serialized bundle size or final
+synthesis array counts.
 
 Fix final synthesis before increasing reasoning effort or concurrency:
 
-- Measure serialized input size before calling Codex.
-- Apply deterministic truncation/summarization before the harness call.
+- Deduplicate folded arrays by stable IDs before any budget decision:
+  observations by event/source key, evidence by evidence ID, existing nodes by
+  node ID, existing edges by edge ID, trajectory summaries by summary/window ID,
+  and observed event refs by ref string.
+- Collapse assistant delta observations for final synthesis into bounded
+  aggregate assistant text/summary evidence instead of carrying hundreds of
+  per-delta metadata records.
+- Apply deterministic final-synthesis compaction before the harness call:
+  preserve terminal workflow status, final assistant answer/result, command and
+  test outcomes, file changes, direct evidence, and nearby existing semantic
+  context; summarize or drop repeated low-value prior-window context first.
+- Measure serialized input size before calling Codex and record both
+  compacted-structured counts and serialized character/byte counts.
 - Record `input_bundle_bytes`, truncation reasons, and dropped/folded window
   counts in run audit.
-- Add a hard validation error when the input still exceeds the provider limit.
+- Add a hard validation error when the input still exceeds the configured budget
+  or the Codex structured-task limit.
 - Keep the final synthesis budget configurable but bounded.
 
 This phase should make failed final synthesis explainable and prevent an
@@ -820,9 +870,16 @@ expensive high-reasoning task from being started with impossible input.
 
 Implementation boundary:
 
+- Treat this as a deterministic input-builder fix first and a preflight guard
+  second. Do not only check size after constructing the same oversized bundle.
 - Use the existing Phase 1/6 `finalSynthesisTaskConfig.inputBudget` setting as
   the final-synthesis budget source. It is already persisted and editable, but
-  it is not yet enforced.
+  it is not yet enforced. Phase 7 must define and document the budget unit
+  before enforcing it; recommended unit is serialized harness-input characters
+  because Codex reports the structured-task limit in characters. If this
+  requires a clearer field name or persistent audit fields, make a schema break,
+  bump the store version, and reject old stores; do not add migrations or
+  compatibility aliases.
 - Enforce budgeting before `cartographerHarnessTaskFromRun` starts Codex. A run
   that still exceeds budget after deterministic compaction should fail with a
   normal `CartographerRunFailed` audit record and must not start the harness.
@@ -841,6 +898,11 @@ Implementation boundary:
 - Add deterministic tests for `workflow_done` windows that fold queued,
   processed, and open epochs; verify they preserve high-value final evidence
   while dropping or summarizing lower-value repeated context first.
+- Add focused tests for the diagnosed failure modes: duplicate evidence/nodes/
+  edges/trajectory summaries are deduped; assistant text deltas are collapsed in
+  final synthesis; serialized bundle size is measured; and truncation accounting
+  cannot report a small `includedContentBytes` while the actual serialized
+  harness input is oversized.
 - Add a targeted Electron or backend workflow fixture where final synthesis
   would exceed budget without compaction, and assert the audit shows either a
   bounded input bundle or a clear pre-harness failure diagnostic.
