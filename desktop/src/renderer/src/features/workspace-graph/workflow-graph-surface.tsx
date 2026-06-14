@@ -906,14 +906,11 @@ export function WorkflowGraphSurface({
       <WorkflowGraphStateLayers
         loadingProjection={loadingProjection}
         noWorkspace={noWorkspace}
-        semanticEmpty={
-          syntheticGraph === null &&
-          semanticGraphIsEmpty({
-            semanticGraph: semanticGraphState.graph,
-            semanticReady: semanticGraphState.ready,
-            workflowGraph,
-          })
-        }
+        semanticEmpty={semanticGraphIsEmpty({
+          semanticGraph: semanticGraphState.graph,
+          semanticReady: semanticGraphState.ready,
+          workflowGraph,
+        })}
         workflowProjectionError={workflowProjectionError}
       />
       <WorkflowContextMenuLayer

@@ -86,11 +86,6 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
-    file: "workflow-graph-visual-calibration.test.mjs",
-    name: "workflow-graph-visual-calibration",
-    tiers: ["performance"],
-  },
-  {
     file: "overview-zoom-performance.test.mjs",
     name: "overview-zoom-performance",
     tiers: ["performance"],

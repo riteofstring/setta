@@ -161,12 +161,9 @@ export async function waitForSelector(client, selector, timeoutMs = stateWaitTim
   );
 }
 
-export async function captureScreenshot(client, path, { clip = null } = {}) {
+export async function captureScreenshot(client, path) {
   await mkdir(dirname(path), { recursive: true });
-  const image = await client.call("Page.captureScreenshot", {
-    format: "png",
-    ...(clip === null ? {} : { clip }),
-  });
+  const image = await client.call("Page.captureScreenshot", { format: "png" });
   await writeFile(path, Buffer.from(image.data, "base64"));
 }
 

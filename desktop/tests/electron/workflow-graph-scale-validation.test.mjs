@@ -48,11 +48,6 @@ const scenarioTimeoutMs = 120_000;
 const scaleNodeCounts = [500, 1000, 2500, 5000];
 const scaleEdgeDensities = [1, 2];
 const scaleScenes = parseScaleScenes(process.env.SETTA_WORKFLOW_GRAPH_SCALE_SCENES ?? "workflow");
-const sceneLayerAssertions = {
-  merged: assertMergedSceneLayers,
-  "semantic-cells": assertSemanticCellSceneLayers,
-  workflow: assertWorkflowSceneLayers,
-};
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 
@@ -599,82 +594,13 @@ function assertScaleSnapshot(snapshot, { edgesPerNode, label, nodeCount, scene }
   if (!snapshot.visual.hasNonBackgroundPixels) {
     throw new Error(`${label} canvas was blank: visual=${JSON.stringify(snapshot.visual)}`);
   }
-  assertSceneLayerComposition(snapshot, label, scene);
   assertSpatialIndexDebugCounters(snapshot, label);
-  assertDisplayObjectCounters(snapshot, label);
+  assertDisplayObjectCounters(snapshot, label, scene);
   assertFrameTimings(snapshot, label);
   assertAnimationCounters(snapshot, label, scene);
 }
 
-function assertSceneLayerComposition(snapshot, label, scene) {
-  const assertLayers = sceneLayerAssertions[scene];
-  if (!assertLayers) {
-    throw new Error(`unsupported scale validation scene: ${scene}`);
-  }
-  assertLayers(snapshot, label, graphLayerCounts(snapshot));
-}
-
-function graphLayerCounts(snapshot) {
-  return {
-    semanticEdges: countGraphEdgesByLayer(snapshot, "semantic"),
-    semanticNodes: countGraphNodesByLayer(snapshot, "semantic"),
-    workflowEdges: countGraphEdgesByLayer(snapshot, "workflow"),
-    workflowNodes: countGraphNodesByLayer(snapshot, "workflow"),
-  };
-}
-
-function assertWorkflowSceneLayers(snapshot, label, counts) {
-  if (!workflowSceneLayersMatch(snapshot, counts)) {
-    throw new Error(
-      `${label} workflow scene layer mismatch: graph=${JSON.stringify(snapshot.graph)}`,
-    );
-  }
-}
-
-function workflowSceneLayersMatch(snapshot, counts) {
-  return (
-    counts.workflowNodes === snapshot.graph.nodeCount &&
-    counts.semanticNodes === 0 &&
-    counts.workflowEdges === snapshot.graph.edgeCount &&
-    counts.semanticEdges === 0
-  );
-}
-
-function assertSemanticCellSceneLayers(snapshot, label, counts) {
-  if (!semanticCellSceneLayersMatch(snapshot, counts)) {
-    throw new Error(
-      `${label} semantic-cell scene layer mismatch: graph=${JSON.stringify(snapshot.graph)}`,
-    );
-  }
-}
-
-function semanticCellSceneLayersMatch(snapshot, counts) {
-  return (
-    counts.workflowNodes === 0 &&
-    counts.semanticNodes === snapshot.graph.nodeCount &&
-    counts.workflowEdges === 0 &&
-    counts.semanticEdges === snapshot.graph.edgeCount
-  );
-}
-
-function assertMergedSceneLayers(snapshot, label, counts) {
-  if (!mergedSceneLayersMatch(counts)) {
-    throw new Error(
-      `${label} merged scene layer mismatch: graph=${JSON.stringify(snapshot.graph)}`,
-    );
-  }
-}
-
-function mergedSceneLayersMatch(counts) {
-  return (
-    counts.workflowNodes > 0 &&
-    counts.semanticNodes > 0 &&
-    counts.workflowEdges > 0 &&
-    counts.semanticEdges > 0
-  );
-}
-
-function assertDisplayObjectCounters(snapshot, label) {
+function assertDisplayObjectCounters(snapshot, label, scene) {
   const render = snapshot.render;
   const counters = [
     "edgeGraphicsCount",
@@ -691,7 +617,6 @@ function assertDisplayObjectCounters(snapshot, label) {
     assertNonNegativeInteger(render[counter], `${label} ${counter}`);
   }
   const nodeCount = snapshot.graph.nodeCount;
-  const workflowNodeCount = countGraphNodesByLayer(snapshot, "workflow");
   if (render.edgeGraphicsCount < 1) {
     throw new Error(
       `${label} edgeGraphicsCount was not positive: render=${JSON.stringify(render)}`,
@@ -702,13 +627,8 @@ function assertDisplayObjectCounters(snapshot, label) {
   assertPositiveBoundedDisplayObjectCount(render, "nodeShadowGraphicsCount", nodeCount, label);
   assertPositiveBoundedDisplayObjectCount(render, "nodeOutlineGraphicsCount", nodeCount * 2, label);
   assertPositiveBoundedDisplayObjectCount(render, "labelObjectCount", nodeCount, label);
-  if (workflowNodeCount > 0) {
-    assertPositiveBoundedDisplayObjectCount(
-      render,
-      "portGraphicsCount",
-      workflowNodeCount * 2,
-      label,
-    );
+  if (scene === "workflow") {
+    assertPositiveBoundedDisplayObjectCount(render, "portGraphicsCount", nodeCount * 2, label);
   } else if (render.portGraphicsCount !== 0) {
     throw new Error(
       `${label} semantic synthetic scene should not create port graphics: render=${JSON.stringify(render)}`,
@@ -752,7 +672,7 @@ function assertAnimationCounters(snapshot, label, scene) {
     );
   }
   if (
-    sceneHasWorkflowLayer(scene) &&
+    scene === "workflow" &&
     render.activeNodePulseCount === 0 &&
     render.activeEdgeFlowCount === 0
   ) {
@@ -765,18 +685,6 @@ function assertAnimationCounters(snapshot, label, scene) {
       `${label} semantic-cell scene did not expose visible active cells: render=${JSON.stringify(render)}`,
     );
   }
-}
-
-function countGraphNodesByLayer(snapshot, layer) {
-  return snapshot.graph.nodes.filter((node) => node.layer === layer).length;
-}
-
-function countGraphEdgesByLayer(snapshot, layer) {
-  return snapshot.graph.edges.filter((edge) => edge.layer === layer).length;
-}
-
-function sceneHasWorkflowLayer(scene) {
-  return scene === "workflow" || scene === "merged";
 }
 
 function assertPositiveBoundedDisplayObjectCount(render, counter, maximum, label) {
@@ -1287,7 +1195,7 @@ function parseScaleScenes(value) {
   }
   const unique = [];
   for (const scene of scenes) {
-    if (scene !== "workflow" && scene !== "semantic-cells" && scene !== "merged") {
+    if (scene !== "workflow" && scene !== "semantic-cells") {
       throw new Error(`unsupported workflow graph scale scene: ${scene}`);
     }
     if (!unique.includes(scene)) {

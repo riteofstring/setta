@@ -17,7 +17,6 @@ import {
   redrawWorkspaceEdges,
 } from "./pixi-renderer-edge-rendering";
 import { createWorkflowGraphEdgeInteractions } from "./pixi-renderer-edge-interactions";
-import { createWorkflowGraphFitToGraph } from "./pixi-renderer-fit-to-graph";
 import { createDynamicCanvasContextMenuHandler, rendererHandlers } from "./pixi-renderer-handlers";
 import {
   compactSelectedNodeLabelBitmapFontSize,
@@ -138,7 +137,6 @@ export async function createWorkflowGraphRenderer(options) {
   edgeLabelLayer.interactiveChildren = false;
   nodeGlowLayer.eventMode = "none";
   nodeGlowLayer.interactiveChildren = false;
-  nodeGlowLayer.blendMode = "add";
   viewport.addChild(
     backgroundLayer,
     edgeLayer,
@@ -213,8 +211,6 @@ export async function createWorkflowGraphRenderer(options) {
   const grid = new Graphics();
   const staticGlow = new Graphics();
   const animatedGlow = new Graphics();
-  staticGlow.blendMode = "add";
-  animatedGlow.blendMode = "add";
   const hoveredNodeIds = new Set();
   let draggingNode = null;
   let drawingEdge = null;
@@ -273,7 +269,6 @@ export async function createWorkflowGraphRenderer(options) {
     nodes,
     spatialQueries,
     staticGlow,
-    viewport,
   });
   edgeFlowGraphics.blendMode = "add";
   edgeFlowGraphics.eventMode = "none";
@@ -430,15 +425,6 @@ export async function createWorkflowGraphRenderer(options) {
   window.addEventListener("pointercancel", pointerCancel);
   window.addEventListener("keydown", keyDown);
 
-  const fitCameraToGraph = createWorkflowGraphFitToGraph({
-    app,
-    commitCameraChange,
-    maxZoom,
-    minZoom,
-    nodes,
-    viewport,
-  });
-
   app.ticker.add(() => {
     if (destroyed) {
       return;
@@ -461,7 +447,6 @@ export async function createWorkflowGraphRenderer(options) {
   const unregisterDebugSurface = registerWorkflowGraphDebugSurfaceIfEnabled({
     debugEnabled,
     debugSurfaceId,
-    fitToGraph: fitCameraToGraph,
     getSnapshot: createWorkflowGraphDebugSnapshot({
       app,
       backgroundColor,
@@ -543,7 +528,6 @@ export async function createWorkflowGraphRenderer(options) {
     setHandlers: (nextHandlers) => {
       Object.assign(handlers, rendererHandlers(nextHandlers));
     },
-    fitToGraph: fitCameraToGraph,
     updateGraph: (nextGraph) => {
       replaceSceneGraph(nextGraph, { countUpdate: true });
     },

@@ -150,11 +150,6 @@ interface CreateWorkflowGraphRendererOptions {
 export interface WorkflowGraphRenderer {
   cameraState: () => WorkflowGraphCameraState;
   destroy: () => void;
-  fitToGraph: (options?: { maxZoom?: number; padding?: number }) => {
-    camera: WorkflowGraphCameraState;
-    ok: boolean;
-    reason?: string;
-  };
   setHandlers: (handlers: WorkflowGraphRendererHandlers) => void;
   updateGraph: (graph: WorkflowGraphGraph) => void;
 }

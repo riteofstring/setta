@@ -27,39 +27,10 @@ export function createSyntheticWorkflowGraph({ edgesPerNode, nodeCount, scene = 
   if (nodeCount < 2) {
     throw new Error(`synthetic graph requires at least two nodes: nodeCount=${nodeCount}`);
   }
-  if (scene === "merged") {
-    return createSyntheticMergedGraph({ edgesPerNode, nodeCount });
-  }
   if (scene === "semantic-cells") {
     return createSyntheticSemanticCellGraph({ edgesPerNode, nodeCount });
   }
   return createSyntheticWorkflowStatusGraph({ edgesPerNode, nodeCount });
-}
-
-function createSyntheticMergedGraph({ edgesPerNode, nodeCount }) {
-  if (nodeCount < 4) {
-    throw new Error(`merged synthetic graph requires at least four nodes: nodeCount=${nodeCount}`);
-  }
-  const workflowNodeCount = Math.ceil(nodeCount / 2);
-  const semanticNodeCount = nodeCount - workflowNodeCount;
-  const workflow = translateSyntheticGraph(
-    createSyntheticWorkflowStatusGraph({
-      edgesPerNode,
-      nodeCount: workflowNodeCount,
-    }),
-    { x: -360, y: -120 },
-  );
-  const semantic = translateSyntheticGraph(
-    createSyntheticSemanticCellGraph({
-      edgesPerNode,
-      nodeCount: semanticNodeCount,
-    }),
-    { x: 420, y: 120 },
-  );
-  return {
-    edges: [...workflow.edges, ...semantic.edges],
-    nodes: [...workflow.nodes, ...semantic.nodes],
-  };
 }
 
 function createSyntheticWorkflowStatusGraph({ edgesPerNode, nodeCount }) {
@@ -185,20 +156,9 @@ function assertPositiveInteger(value, label) {
 }
 
 function assertSyntheticScene(scene) {
-  if (scene !== "workflow" && scene !== "semantic-cells" && scene !== "merged") {
+  if (scene !== "workflow" && scene !== "semantic-cells") {
     throw new Error(`unsupported synthetic graph scene: ${String(scene)}`);
   }
-}
-
-function translateSyntheticGraph(graph, offset) {
-  return {
-    edges: graph.edges,
-    nodes: graph.nodes.map((node) => ({
-      ...node,
-      x: node.x + offset.x,
-      y: node.y + offset.y,
-    })),
-  };
 }
 
 function semanticSyntheticActivity(index) {

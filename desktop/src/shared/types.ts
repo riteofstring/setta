@@ -302,7 +302,7 @@ export interface SettaAPI {
       workflowGraphSyntheticGraph: {
         edgesPerNode: number;
         nodeCount: number;
-        scene?: "merged" | "semantic-cells" | "workflow";
+        scene?: "semantic-cells" | "workflow";
       } | null;
     };
     installedEditors: () => Promise<InstalledEditorApp[]>;

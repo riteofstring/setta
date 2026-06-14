@@ -7,7 +7,7 @@ import type {
 interface WorkflowGraphSyntheticGraphOptions {
   edgesPerNode: number;
   nodeCount: number;
-  scene?: "merged" | "semantic-cells" | "workflow";
+  scene?: "semantic-cells" | "workflow";
 }
 
 interface WorkflowGraphSyntheticNode {

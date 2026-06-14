@@ -69,24 +69,6 @@ describe("Pixi renderer helpers", () => {
 
     expect(firstStrokeAlpha(steady)).toBeGreaterThan(firstStrokeAlpha(staticGlow));
   });
-
-  it("scale-compensates workflow node aura strokes for fit zoom", () => {
-    const normalZoom = new RecordingGraphics();
-    const fitZoom = new RecordingGraphics();
-    const node = workflowNode("idle", "not_started");
-
-    drawWorkspaceGlow(normalZoom, [node], 1000, { mode: "static", zoom: 1 });
-    drawWorkspaceGlow(fitZoom, [node], 1000, { mode: "static", zoom: 0.5 });
-
-    expect(firstStrokeWidth(fitZoom) * 0.5).toBeCloseTo(firstStrokeWidth(normalZoom), 5);
-    expect(firstCircleRadius(fitZoom)).toBeGreaterThan(firstCircleRadius(normalZoom));
-
-    const nodeRadius = Math.max(node.width, node.height) / 2;
-    expect(firstCircleRadius(fitZoom) * 0.5 - nodeRadius * 0.5).toBeCloseTo(
-      firstCircleRadius(normalZoom) - nodeRadius,
-      5,
-    );
-  });
 });
 
 function scaledCanvas() {
@@ -117,14 +99,6 @@ function workflowNode(id, status) {
 
 function firstStrokeAlpha(graphics) {
   return graphics.operations.find(([operation]) => operation === "stroke")[1].alpha;
-}
-
-function firstStrokeWidth(graphics) {
-  return graphics.operations.find(([operation]) => operation === "stroke")[1].width;
-}
-
-function firstCircleRadius(graphics) {
-  return graphics.operations.find(([operation]) => operation === "circle")[3];
 }
 
 class RecordingGraphics {

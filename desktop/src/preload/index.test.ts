@@ -95,7 +95,7 @@ describe("preload workspace API", () => {
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_REDUCE_MOTION", "1");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_EDGES_PER_NODE", "2");
     vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_NODE_COUNT", "500");
-    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "merged");
+    vi.stubEnv("SETTA_WORKFLOW_GRAPH_SYNTHETIC_SCENE", "semantic-cells");
 
     const { api } = await exposePreloadAPI();
 
@@ -106,7 +106,7 @@ describe("preload workspace API", () => {
       workflowGraphSyntheticGraph: {
         edgesPerNode: 2,
         nodeCount: 500,
-        scene: "merged",
+        scene: "semantic-cells",
       },
     });
   });

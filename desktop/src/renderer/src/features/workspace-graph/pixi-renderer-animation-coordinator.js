@@ -13,7 +13,6 @@ export function createWorkflowGraphAnimationCoordinator({
   nodes,
   spatialQueries,
   staticGlow,
-  viewport,
 }) {
   return {
     syncActiveSet,
@@ -35,10 +34,7 @@ export function createWorkflowGraphAnimationCoordinator({
         });
       },
       redrawNodeGlow: ({ nodes: glowNodes, now: animationNow }) => {
-        drawWorkspaceGlow(animatedGlow, glowNodes, animationNow, {
-          mode: "animated",
-          zoom: viewport.scaled,
-        });
+        drawWorkspaceGlow(animatedGlow, glowNodes, animationNow, { mode: "animated" });
       },
     });
   }
@@ -49,11 +45,9 @@ export function createWorkflowGraphAnimationCoordinator({
     animationState.recompute({ edges, nodes, visibleNodeIds });
     drawWorkspaceGlow(staticGlow, visibleNodes, performance.now(), {
       mode: "static",
-      zoom: viewport.scaled,
     });
     drawWorkspaceGlow(animatedGlow, animationState.glowNodes(), performance.now(), {
       mode: "steady",
-      zoom: viewport.scaled,
     });
     cellAnimation.sync(animationState.cellNodes(), performance.now());
     if (animationState.edgeFlows().length === 0) {
