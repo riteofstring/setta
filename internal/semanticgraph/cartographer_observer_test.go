@@ -105,7 +105,7 @@ func TestCartographerObserverSummarizesLargeOpenWindowDeterministically(t *testi
 	}
 }
 
-func TestCartographerObserverProcessesLongRunIncrementallyWithPriorSummaries(t *testing.T) {
+func TestCartographerObserverCoalescesNoisyOutputUntilSemanticBoundary(t *testing.T) {
 	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{
 		MaxWindowEvents:         10,
 		MaxWindowContentBytes:   200,
@@ -115,29 +115,77 @@ func TestCartographerObserverProcessesLongRunIncrementallyWithPriorSummaries(t *
 	})
 	ctx := context.Background()
 
-	first, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeRunItemOutputDelta, chat.RunItemOutputDeltaPayload{
-		Output: chat.RunItemOutput{SchemaVersion: chat.SchemaVersion, ID: "output_a", RunItemID: "run_item_long_a", Stream: "stdout", Ordinal: 1, Text: "12345678901", CreatedAt: testTimestamp(42)},
+	if windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeRunItemCreated, chat.RunItemCreatedPayload{
+		Item: cartographerRunItem("run_item_noisy", chat.RunItemTypeCommandExecution, chat.RunItemStatusRunning),
+	})); err != nil || len(windows) != 0 {
+		t.Fatalf("observe running command windows=%+v err=%v, want open epoch", windows, err)
+	}
+	for ordinal, text := range []string{"12345678901", "abcdefghijk", "output fragment three"} {
+		windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, ordinal+2, chat.EventTypeRunItemOutputDelta, chat.RunItemOutputDeltaPayload{
+			Output: chat.RunItemOutput{SchemaVersion: chat.SchemaVersion, ID: "output_noisy_" + threeDigit(ordinal+1), RunItemID: "run_item_noisy", Stream: "stdout", Ordinal: ordinal + 1, Text: text, CreatedAt: testTimestamp(42 + ordinal)},
+		}))
+		if err != nil {
+			t.Fatalf("observe noisy output %d: %v", ordinal+1, err)
+		}
+		if len(windows) != 0 {
+			t.Fatalf("noisy output windows = %+v, want output coalesced into open epoch", windows)
+		}
+	}
+	windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 5, chat.EventTypeRunItemUpdated, chat.RunItemUpdatedPayload{
+		Item: cartographerRunItem("run_item_noisy", chat.RunItemTypeCommandExecution, chat.RunItemStatusCompleted),
 	}))
 	if err != nil {
-		t.Fatalf("observe first output: %v", err)
+		t.Fatalf("observe completed noisy command: %v", err)
 	}
-	if len(first) != 1 || first[0].InputBundle.TrajectorySummaries == nil {
-		t.Fatalf("first threshold windows = %+v, want first closed window", first)
+	if len(windows) != 1 {
+		t.Fatalf("completed noisy command windows = %+v, want one semantic epoch", windows)
 	}
-	second, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 2, chat.EventTypeRunItemOutputDelta, chat.RunItemOutputDeltaPayload{
-		Output: chat.RunItemOutput{SchemaVersion: chat.SchemaVersion, ID: "output_b", RunItemID: "run_item_long_b", Stream: "stdout", Ordinal: 1, Text: "abcdefghijk", CreatedAt: testTimestamp(43)},
+	outputs := windows[0].InputBundle.OutputSummaries
+	if len(outputs) != 1 || outputs[0].StartOrdinal != 1 || outputs[0].EndOrdinal != 3 {
+		t.Fatalf("output summaries = %+v, want coalesced output range", outputs)
+	}
+	if windows[0].InputBundle.NewEvents[len(windows[0].InputBundle.NewEvents)-1].CloseReason != CartographerCloseRunItemTerminal {
+		t.Fatalf("closed noisy epoch = %+v, want run item terminal boundary", windows[0].InputBundle.NewEvents)
+	}
+}
+
+func TestCartographerObserverAssistantThresholdWaitsForCompletionBoundary(t *testing.T) {
+	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{
+		MaxWindowEvents:         10,
+		MaxWindowContentBytes:   200,
+		AssistantThresholdBytes: 5,
+		OutputThresholdBytes:    1000,
+	})
+	ctx := context.Background()
+
+	for sequence, text := range []string{"large assistant chunk", "second assistant chunk"} {
+		windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, sequence+1, chat.EventTypeAssistantTextDelta, chat.AssistantTextDeltaPayload{
+			MessageID: "message_assistant_threshold",
+			PartID:    "part_1",
+			Delta:     text,
+			UpdatedAt: testTimestamp(40 + sequence),
+		}))
+		if err != nil {
+			t.Fatalf("observe assistant delta %d: %v", sequence+1, err)
+		}
+		if len(windows) != 0 {
+			t.Fatalf("assistant threshold windows = %+v, want no threshold fragment", windows)
+		}
+	}
+	windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 3, chat.EventTypeMessageUpdated, chat.MessageUpdatedPayload{
+		Message: cartographerChatMessage("message_assistant_threshold", chat.RoleAssistant, chat.MessageStatusComplete, "large assistant chunk second assistant chunk final"),
 	}))
 	if err != nil {
-		t.Fatalf("observe second output: %v", err)
+		t.Fatalf("observe completed assistant message: %v", err)
 	}
-	if len(second) != 1 {
-		t.Fatalf("second threshold windows = %+v, want one closed window", second)
+	if len(windows) != 1 {
+		t.Fatalf("assistant completion windows = %+v, want one semantic epoch", windows)
 	}
-	if len(second[0].InputBundle.NewEvents) != 1 || second[0].InputBundle.NewEvents[0].EventID != "chat_events:002" {
-		t.Fatalf("second window events = %+v, want only new event since cursor", second[0].InputBundle.NewEvents)
-	}
-	if len(second[0].InputBundle.TrajectorySummaries) != 1 || second[0].InputBundle.TrajectorySummaries[0].WindowID != first[0].ID {
-		t.Fatalf("second prior summaries = %+v, want prior window summary", second[0].InputBundle.TrajectorySummaries)
+	input := windows[0].InputBundle
+	if !strings.Contains(input.AssistantText, "large assistant chunk") ||
+		!strings.Contains(input.AssistantText, "final") ||
+		input.NewEvents[len(input.NewEvents)-1].CloseReason != CartographerCloseAssistantComplete {
+		t.Fatalf("assistant completion input = %+v, want completed assistant boundary with aggregate text", input)
 	}
 }
 
@@ -293,6 +341,116 @@ func TestCartographerObserverWorkflowCompletionQueuesFinalPassAndSupersedesQueue
 	}
 	if state.SupersededWindowCount < 2 || state.LastSupersededWindowID == "" {
 		t.Fatalf("cartographer state after workflow done = %+v, want supersession health", state)
+	}
+}
+
+func TestCartographerObserverWorkflowCompletionFoldsQueuedAssistantEpochIntoFinalSynthesis(t *testing.T) {
+	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
+	ctx := context.Background()
+	assistantText := "Final assistant review finding: command output exposes a regression."
+	assistantWindows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeMessageUpdated, chat.MessageUpdatedPayload{
+		Message: cartographerChatMessage("message_final_assistant", chat.RoleAssistant, chat.MessageStatusComplete, assistantText),
+	}))
+	if err != nil {
+		t.Fatalf("observe assistant completion: %v", err)
+	}
+	if len(assistantWindows) != 1 || assistantWindows[0].InputBundle.AssistantText != assistantText {
+		t.Fatalf("assistant windows = %+v, want queued assistant epoch", assistantWindows)
+	}
+
+	finalWindows, err := service.ObserveCartographerWorkflowEvent(ctx, cartographerWorkflowTerminalEvent())
+	if err != nil {
+		t.Fatalf("observe workflow terminal event: %v", err)
+	}
+	if len(finalWindows) != 1 {
+		t.Fatalf("terminal workflow windows = %+v, want one final synthesis epoch", finalWindows)
+	}
+	finalInput := finalWindows[0].InputBundle
+	if finalInput.TriggerKind != CartographerTriggerWorkflowDone ||
+		finalInput.AssistantText != assistantText ||
+		!cartographerInputHasObservation(finalInput, CartographerObservationAssistantMessageCompleted, "message_final_assistant", "") {
+		t.Fatalf("final synthesis input = %+v, want folded assistant text and observation", finalInput)
+	}
+	if got := finalInput.NewEvents[len(finalInput.NewEvents)-1].CloseReason; got != CartographerCloseWorkflowRunTerminal {
+		t.Fatalf("final synthesis close reason = %s, want workflow_run_terminal", got)
+	}
+	if !strings.Contains(finalInput.Truncation.DeterministicSummary, "folded 1 earlier cartographer epoch") {
+		t.Fatalf("final synthesis truncation = %+v, want folded epoch summary", finalInput.Truncation)
+	}
+	assistantRun, ok, err := service.ReadCartographerRun(ctx, testWorkspaceID, assistantWindows[0].RunID)
+	if err != nil || !ok || assistantRun.Status != CartographerRunSuperseded {
+		t.Fatalf("assistant run after final synthesis = %+v ok=%v err=%v, want superseded", assistantRun, ok, err)
+	}
+}
+
+func TestCartographerObserverWorkflowCompletionFoldsProcessedAssistantEpochIntoFinalSynthesis(t *testing.T) {
+	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
+	ctx := context.Background()
+	assistantText := "Processed assistant finding: the live run produced workflow evidence."
+	assistantWindows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeMessageUpdated, chat.MessageUpdatedPayload{
+		Message: cartographerChatMessage("message_processed_assistant", chat.RoleAssistant, chat.MessageStatusComplete, assistantText),
+	}))
+	if err != nil {
+		t.Fatalf("observe assistant completion: %v", err)
+	}
+	if len(assistantWindows) != 1 {
+		t.Fatalf("assistant windows = %+v, want one queued assistant epoch", assistantWindows)
+	}
+	processed, err := service.markCartographerWindowProcessed(ctx, assistantWindows[0])
+	if err != nil {
+		t.Fatalf("mark assistant window processed: %v", err)
+	}
+	if processed.Status != CartographerWindowProcessed {
+		t.Fatalf("processed assistant window = %+v, want processed", processed)
+	}
+
+	finalWindows, err := service.ObserveCartographerWorkflowEvent(ctx, cartographerWorkflowTerminalEvent())
+	if err != nil {
+		t.Fatalf("observe workflow terminal event: %v", err)
+	}
+	if len(finalWindows) != 1 {
+		t.Fatalf("terminal workflow windows = %+v, want one final synthesis epoch", finalWindows)
+	}
+	finalInput := finalWindows[0].InputBundle
+	if finalInput.TriggerKind != CartographerTriggerWorkflowDone ||
+		finalInput.AssistantText != assistantText ||
+		!cartographerInputHasObservation(finalInput, CartographerObservationAssistantMessageCompleted, "message_processed_assistant", "") {
+		t.Fatalf("final synthesis input = %+v, want folded processed assistant epoch", finalInput)
+	}
+}
+
+func TestCartographerObserverWorkflowCompletionFoldsOpenAssistantEpochIntoFinalSynthesis(t *testing.T) {
+	service, _ := newCartographerObserverTestService(t, CartographerObservationConfig{})
+	ctx := context.Background()
+	assistantChunk := "Assistant was still streaming when the workflow completed."
+	if windows, err := service.ObserveCartographerChatEvent(ctx, cartographerChatEvent(t, 1, chat.EventTypeAssistantTextDelta, chat.AssistantTextDeltaPayload{
+		MessageID: "message_open_assistant",
+		PartID:    "part_1",
+		Delta:     assistantChunk,
+		UpdatedAt: testTimestamp(41),
+	})); err != nil || len(windows) != 0 {
+		t.Fatalf("observe assistant delta windows=%+v err=%v, want open epoch", windows, err)
+	}
+
+	finalWindows, err := service.ObserveCartographerWorkflowEvent(ctx, cartographerWorkflowTerminalEvent())
+	if err != nil {
+		t.Fatalf("observe workflow terminal event: %v", err)
+	}
+	if len(finalWindows) != 1 {
+		t.Fatalf("terminal workflow windows = %+v, want one final synthesis epoch", finalWindows)
+	}
+	finalInput := finalWindows[0].InputBundle
+	if finalInput.AssistantText != assistantChunk ||
+		!cartographerInputHasObservation(finalInput, CartographerObservationAssistantTextChunkAggregate, "message_open_assistant", "") {
+		t.Fatalf("final synthesis input = %+v, want folded open assistant aggregate", finalInput)
+	}
+	cursor := readObserverCursor(t, service.store)
+	foldedOpen, ok, err := service.store.ReadOpenCartographerWindowForCursor(ctx, testWorkspaceID, cursor.ID)
+	if err != nil {
+		t.Fatalf("read folded open window: %v", err)
+	}
+	if ok {
+		t.Fatalf("folded open window still open: %+v", foldedOpen)
 	}
 }
 

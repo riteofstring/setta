@@ -35,6 +35,71 @@ func TestCartographerPatchEnvelopeAppliesAcceptedEvidenceBackedRecordPatch(t *te
 	}
 }
 
+func TestCartographerPatchEnvelopeAcceptsObservationBackedSourceRefs(t *testing.T) {
+	service, store := newCartographerPatchApplicationTestService(t)
+	ctx := context.Background()
+	seedCartographerPatchEvidence(t, store)
+
+	observedRefs := SemanticContextSourceRefs{
+		WorkflowExecutionID:     "workflow_execution_cartographer",
+		WorkflowNodeID:          "workflow_node_cartographer",
+		WorkflowNodeExecutionID: "workflow_node_execution_cartographer",
+		ChatConversationID:      "chat_conversation_cartographer",
+		ChatRunID:               "chat_run_cartographer",
+		ChatMessageID:           "message_observed_cartographer",
+	}
+	patch := cartographerRecordFindingPatch("cartographer_patch_observed_refs", "node_observed_refs", "Observation-backed source refs", 0.91)
+	patch.SourceRefs = observedRefs
+	patch.EvidenceRefs = []CartographerPatchEvidenceRef{{
+		SourceKind: EvidenceSourceChatMessage,
+		SourceID:   observedRefs.ChatMessageID,
+	}}
+	input := cartographerPatchApplicationInput(t, "cartographer_run_observed_refs", []CartographerPatch{patch})
+	input.SourceRefs = SemanticContextSourceRefs{
+		WorkflowExecutionID:     observedRefs.WorkflowExecutionID,
+		WorkflowNodeID:          observedRefs.WorkflowNodeID,
+		WorkflowNodeExecutionID: observedRefs.WorkflowNodeExecutionID,
+	}
+	input.InputBundle.SourceRefs = input.SourceRefs
+	input.InputBundle.NewEvents = nil
+	input.InputBundle.Observations = []CartographerObservationRecord{{
+		Kind:               CartographerObservationAssistantMessageCompleted,
+		Source:             CartographerTrajectorySourceChat,
+		EventID:            "chat_events:observed",
+		Type:               "message.updated",
+		WorkspaceID:        testWorkspaceID,
+		ChatConversationID: observedRefs.ChatConversationID,
+		ChatRunID:          observedRefs.ChatRunID,
+		ChatMessageID:      observedRefs.ChatMessageID,
+		MessageRole:        "assistant",
+		MessageStatus:      "complete",
+		Summary:            "Assistant message completed.",
+		TextExcerpt:        "Assistant produced the final answer.",
+		OccurredAt:         testTimestamp(40),
+	}}
+
+	result, err := service.ApplyCartographerPatchEnvelope(ctx, input)
+	if err != nil {
+		t.Fatalf("apply observation-backed cartographer envelope: %v", err)
+	}
+	if result.Run.Status != CartographerRunApplied {
+		t.Fatalf("run status = %s diagnostics=%+v patches=%+v, want applied", result.Run.Status, result.Run.Diagnostics, result.Patches)
+	}
+	if cartographerDiagnosticsContain(result.Run.Diagnostics, result.Patches, "source_ref_mismatch") ||
+		cartographerDiagnosticsContain(result.Run.Diagnostics, result.Patches, "missing_evidence") {
+		t.Fatalf("diagnostics run=%+v patches=%+v, want observation-backed refs accepted", result.Run.Diagnostics, result.Patches)
+	}
+	detail, ok, err := service.ReadNodeDetail(ctx, testWorkspaceID, "node_observed_refs")
+	if err != nil {
+		t.Fatalf("read observation-backed cartographer node detail: %v", err)
+	}
+	if !ok || len(detail.Evidence) != 1 ||
+		detail.Evidence[0].SourceKind != EvidenceSourceChatMessage ||
+		detail.Evidence[0].SourceID != observedRefs.ChatMessageID {
+		t.Fatalf("cartographer node detail = %+v, want chat message evidence from observation", detail)
+	}
+}
+
 func TestCartographerPatchEnvelopeRejectsInvalidOutputWithoutGraphMutation(t *testing.T) {
 	cases := []struct {
 		name      string

@@ -258,7 +258,7 @@ func (service *Service) validateCartographerPatch(ctx context.Context, input Car
 	if patch.WorkspaceID != input.WorkspaceID {
 		add("workspace_mismatch", fmt.Sprintf("cartographer patch workspaceId = %s, want %s", patch.WorkspaceID, input.WorkspaceID), fmt.Sprintf("$.patches[%d].workspaceId", index))
 	}
-	if !cartographerPatchSourceRefsMatchInput(patch.SourceRefs, input.SourceRefs) {
+	if !cartographerPatchSourceRefsMatchInput(patch.SourceRefs, input.InputBundle) {
 		add("source_ref_mismatch", "cartographer patch sourceRefs must match the input bundle source refs", fmt.Sprintf("$.patches[%d].sourceRefs", index))
 	}
 	if err := service.validateCartographerPatchEvidenceRefs(ctx, input.WorkspaceID, input.InputBundle, cartographerPatchAllEvidenceRefs(patch), fmt.Sprintf("$.patches[%d].evidenceRefs", index)); err != nil {
@@ -806,7 +806,43 @@ func collectCartographerEnvelopeNewNodeIDs(envelope CartographerPatchEnvelope) m
 	return ids
 }
 
-func cartographerPatchSourceRefsMatchInput(patchRefs SemanticContextSourceRefs, inputRefs SemanticContextSourceRefs) bool {
+func cartographerPatchSourceRefsMatchInput(patchRefs SemanticContextSourceRefs, bundle CartographerInputBundle) bool {
+	candidates := []SemanticContextSourceRefs{bundle.SourceRefs}
+	for _, observation := range bundle.Observations {
+		candidates = append(candidates, cartographerObservationSourceRefs(observation))
+	}
+	for _, event := range bundle.NewEvents {
+		candidates = append(candidates, cartographerTrajectoryEventSourceRefs(event))
+	}
+	for _, candidate := range candidates {
+		if cartographerPatchSourceRefsMatchCandidate(patchRefs, candidate) {
+			return true
+		}
+	}
+	return cartographerPatchSourceRefsMatchInputAggregate(patchRefs, candidates)
+}
+
+func cartographerObservationSourceRefs(observation CartographerObservationRecord) SemanticContextSourceRefs {
+	return SemanticContextSourceRefs{
+		WorkflowDefinitionID:    observation.WorkflowDefinitionID,
+		WorkflowExecutionID:     observation.WorkflowExecutionID,
+		WorkflowNodeID:          observation.WorkflowNodeID,
+		WorkflowNodeExecutionID: observation.WorkflowNodeExecutionID,
+		ChatConversationID:      observation.ChatConversationID,
+		ChatRunID:               observation.ChatRunID,
+		ChatMessageID:           observation.ChatMessageID,
+		RunItemID:               observation.RunItemID,
+	}
+}
+
+func cartographerTrajectoryEventSourceRefs(event CartographerTrajectoryEvent) SemanticContextSourceRefs {
+	refs := event.SourceRefs
+	refs.ChatMessageID = firstNonEmpty(refs.ChatMessageID, event.ChatMessageID)
+	refs.RunItemID = firstNonEmpty(refs.RunItemID, event.RunItemID)
+	return refs
+}
+
+func cartographerPatchSourceRefsMatchCandidate(patchRefs SemanticContextSourceRefs, inputRefs SemanticContextSourceRefs) bool {
 	patchValues := []struct {
 		patch string
 		input string
@@ -827,6 +863,40 @@ func cartographerPatchSourceRefsMatchInput(patchRefs SemanticContextSourceRefs, 
 		}
 		nonEmpty = true
 		if item.patch != item.input {
+			return false
+		}
+	}
+	return nonEmpty
+}
+
+func cartographerPatchSourceRefsMatchInputAggregate(patchRefs SemanticContextSourceRefs, inputRefs []SemanticContextSourceRefs) bool {
+	patchValues := []struct {
+		patch string
+		input func(SemanticContextSourceRefs) string
+	}{
+		{patch: patchRefs.WorkflowDefinitionID, input: func(refs SemanticContextSourceRefs) string { return refs.WorkflowDefinitionID }},
+		{patch: patchRefs.WorkflowExecutionID, input: func(refs SemanticContextSourceRefs) string { return refs.WorkflowExecutionID }},
+		{patch: patchRefs.WorkflowNodeID, input: func(refs SemanticContextSourceRefs) string { return refs.WorkflowNodeID }},
+		{patch: patchRefs.WorkflowNodeExecutionID, input: func(refs SemanticContextSourceRefs) string { return refs.WorkflowNodeExecutionID }},
+		{patch: patchRefs.ChatConversationID, input: func(refs SemanticContextSourceRefs) string { return refs.ChatConversationID }},
+		{patch: patchRefs.ChatRunID, input: func(refs SemanticContextSourceRefs) string { return refs.ChatRunID }},
+		{patch: patchRefs.ChatMessageID, input: func(refs SemanticContextSourceRefs) string { return refs.ChatMessageID }},
+		{patch: patchRefs.RunItemID, input: func(refs SemanticContextSourceRefs) string { return refs.RunItemID }},
+	}
+	nonEmpty := false
+	for _, item := range patchValues {
+		if item.patch == "" {
+			continue
+		}
+		nonEmpty = true
+		matched := false
+		for _, refs := range inputRefs {
+			if item.input(refs) == item.patch {
+				matched = true
+				break
+			}
+		}
+		if !matched {
 			return false
 		}
 	}

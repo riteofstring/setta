@@ -248,39 +248,49 @@ func mergeOutputSummary(bundle *CartographerInputBundle, observed observedCartog
 	})
 }
 
-func cartographerCloseReason(bundle CartographerInputBundle, observed observedCartographerEvent, config CartographerObservationConfig) CartographerWindowCloseReason {
-	if isCartographerClosingReason(observed.closeReason) {
-		return observed.closeReason
-	}
-	if cartographerAssistantBytes(bundle.NewEvents) >= config.AssistantThresholdBytes {
-		return CartographerCloseAssistantThreshold
-	}
-	for _, total := range cartographerOutputBytesByRunItem(bundle.NewEvents) {
-		if total >= config.OutputThresholdBytes {
-			return CartographerCloseOutputThreshold
-		}
+func cartographerCloseReason(_ CartographerInputBundle, observed observedCartographerEvent, _ CartographerObservationConfig) CartographerWindowCloseReason {
+	if reason := cartographerSemanticEpochCloseReason(observed); reason != "" {
+		return reason
 	}
 	return ""
 }
 
-func cartographerAssistantBytes(events []CartographerTrajectoryEvent) int {
-	total := 0
-	for _, event := range events {
-		if event.Type == chat.EventTypeAssistantTextDelta {
-			total += event.OriginalContentBytes
-		}
+func cartographerSemanticEpochCloseReason(observed observedCartographerEvent) CartographerWindowCloseReason {
+	if !isCartographerClosingReason(observed.closeReason) {
+		return ""
 	}
-	return total
+	switch observed.closeReason {
+	case CartographerCloseAssistantComplete,
+		CartographerCloseApprovalRequired,
+		CartographerCloseWorkflowNodeTerminal,
+		CartographerCloseWorkflowRunTerminal:
+		return observed.closeReason
+	case CartographerCloseRunItemTerminal:
+		if cartographerRunItemClosesSemanticEpoch(observed) {
+			return observed.closeReason
+		}
+		return ""
+	default:
+		return observed.closeReason
+	}
 }
 
-func cartographerOutputBytesByRunItem(events []CartographerTrajectoryEvent) map[string]int {
-	outputBytes := map[string]int{}
-	for _, event := range events {
-		if event.RunItemID != "" && event.OutputOrdinal > 0 {
-			outputBytes[event.RunItemID] += event.OriginalContentBytes
-		}
+func cartographerRunItemClosesSemanticEpoch(observed observedCartographerEvent) bool {
+	if observed.item == nil {
+		return observed.source == CartographerTrajectorySourceWorkflow
 	}
-	return outputBytes
+	switch observed.item.Type {
+	case chat.RunItemTypeCommandExecution,
+		chat.RunItemTypeFileChange,
+		chat.RunItemTypeDiff,
+		chat.RunItemTypeApprovalReview:
+		return true
+	case chat.RunItemTypeDynamicToolCall:
+		return observed.item.Namespace == chat.SettaAgentToolNamespace &&
+			observed.item.ToolName == chat.SettaWorkflowResultAgentToolName
+	default:
+		return false
+	}
 }
 
 func cartographerTrajectoryEventFromObserved(observed observedCartographerEvent) CartographerTrajectoryEvent {
@@ -588,7 +598,6 @@ func applyCartographerEventCountLimit(bundle CartographerInputBundle, config Car
 	}
 	trimmed := bundle.NewEvents[:len(bundle.NewEvents)-config.MaxWindowEvents]
 	bundle.NewEvents = append([]CartographerTrajectoryEvent{}, bundle.NewEvents[len(bundle.NewEvents)-config.MaxWindowEvents:]...)
-	bundle.Observations = cartographerObservationsForEvents(bundle.Observations, bundle.NewEvents)
 	bundle.Truncation.Summarized = true
 	bundle.Truncation.Reasons = appendUniqueString(bundle.Truncation.Reasons, "event_count_limit")
 	bundle.Truncation.DeterministicSummary = appendBoundedAggregate(bundle.Truncation.DeterministicSummary, summarizeTrajectoryEvents(trimmed), config.MaxWindowContentBytes)
@@ -887,23 +896,6 @@ func summarizeTrajectoryEvents(events []CartographerTrajectoryEvent) string {
 		parts = append(parts, fmt.Sprintf("%s=%d", key, counts[key]))
 	}
 	return fmt.Sprintf("summarized %d earlier event(s): %s", len(events), strings.Join(parts, ", "))
-}
-
-func cartographerObservationsForEvents(observations []CartographerObservationRecord, events []CartographerTrajectoryEvent) []CartographerObservationRecord {
-	if len(observations) == 0 || len(events) == 0 {
-		return []CartographerObservationRecord{}
-	}
-	eventIDs := map[string]bool{}
-	for _, event := range events {
-		eventIDs[event.EventID] = true
-	}
-	filtered := []CartographerObservationRecord{}
-	for _, observation := range observations {
-		if observation.EventID == "" || eventIDs[observation.EventID] {
-			filtered = append(filtered, observation)
-		}
-	}
-	return filtered
 }
 
 func appendUniqueString(values []string, value string) []string {

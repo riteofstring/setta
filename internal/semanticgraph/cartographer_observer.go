@@ -513,16 +513,29 @@ func (service *Service) applyObservedEventToWindow(window *CartographerWindow, r
 	advancedCursor := advanceCartographerCursor(cursor, observed, now)
 	window.InputBundle.WindowEndCursor = cartographerWindowCursorFromCursor(advancedCursor)
 	closeReason := cartographerCloseReason(window.InputBundle, observed, service.cartographerConfig)
+	markLastCartographerTrajectoryEventBoundary(&window.InputBundle, closeReason)
 	window.InputBundle = applyCartographerInputLimits(window.InputBundle, service.cartographerConfig)
 	run.InputBundle = window.InputBundle
 	run.UpdatedAt = now
 	return advancedCursor, closeReason
 }
 
+func markLastCartographerTrajectoryEventBoundary(bundle *CartographerInputBundle, closeReason CartographerWindowCloseReason) {
+	if len(bundle.NewEvents) == 0 {
+		return
+	}
+	last := &bundle.NewEvents[len(bundle.NewEvents)-1]
+	last.Boundary = isCartographerClosingReason(closeReason)
+	last.CloseReason = cartographerSerializedCloseReason(closeReason)
+}
+
 func (service *Service) persistClosedObservedWindow(ctx context.Context, window *CartographerWindow, run CartographerRun, cursor CartographerCursor, closeReason CartographerWindowCloseReason, now string) error {
 	if closeReason == CartographerCloseWorkflowRunTerminal {
 		window.InputBundle.TriggerKind = CartographerTriggerWorkflowDone
 		run.TriggerKind = CartographerTriggerWorkflowDone
+		if err := service.foldWorkflowDoneEpochsLocked(ctx, window, &run, now); err != nil {
+			return err
+		}
 	}
 	if err := service.closeCartographerWindowLocked(ctx, window, closeReason, now); err != nil {
 		return err
@@ -535,6 +548,130 @@ func (service *Service) persistClosedObservedWindow(ctx context.Context, window 
 	}
 	_, err := service.store.SaveCartographerCursor(ctx, cursor)
 	return err
+}
+
+func (service *Service) foldWorkflowDoneEpochsLocked(ctx context.Context, finalWindow *CartographerWindow, finalRun *CartographerRun, now string) error {
+	refs, ok := cartographerCompletionSourceRefs(*finalWindow)
+	if !ok {
+		return nil
+	}
+	folded, err := service.workflowDoneFoldedEpochWindows(ctx, *finalWindow, refs)
+	if err != nil {
+		return err
+	}
+	if len(folded) == 0 {
+		return nil
+	}
+	finalWindow.InputBundle = cartographerWorkflowDoneInputBundle(finalWindow.InputBundle, folded, service.cartographerConfig)
+	finalRun.InputBundle = finalWindow.InputBundle
+	return service.supersedeFoldedOpenCartographerWindows(ctx, folded, now)
+}
+
+func (service *Service) workflowDoneFoldedEpochWindows(ctx context.Context, finalWindow CartographerWindow, refs SemanticContextSourceRefs) ([]CartographerWindow, error) {
+	stored, err := service.storedWorkflowDoneFoldedEpochWindows(ctx, finalWindow, refs)
+	if err != nil {
+		return nil, err
+	}
+	open, err := service.openWorkflowDoneFoldedEpochWindows(ctx, finalWindow, refs)
+	if err != nil {
+		return nil, err
+	}
+	folded := append(stored, open...)
+	folded = dedupeCartographerWindows(folded)
+	sortCartographerWindowsForEpochFold(folded)
+	return folded, nil
+}
+
+func (service *Service) storedWorkflowDoneFoldedEpochWindows(ctx context.Context, finalWindow CartographerWindow, refs SemanticContextSourceRefs) ([]CartographerWindow, error) {
+	folded := []CartographerWindow{}
+	seen := map[string]bool{}
+	filters := []CartographerWindowFilter{}
+	if refs.WorkflowExecutionID != "" {
+		filters = append(filters, CartographerWindowFilter{
+			WorkspaceID:         finalWindow.WorkspaceID,
+			WorkflowExecutionID: refs.WorkflowExecutionID,
+		})
+	}
+	if refs.ChatRunID != "" {
+		filters = append(filters, CartographerWindowFilter{
+			WorkspaceID: finalWindow.WorkspaceID,
+			ChatRunID:   refs.ChatRunID,
+		})
+	}
+	for _, filter := range filters {
+		list, err := service.store.ListCartographerWindows(ctx, filter)
+		if err != nil {
+			return nil, err
+		}
+		for _, window := range list.Windows {
+			if seen[window.ID] || !cartographerWindowShouldFoldIntoWorkflowDone(window, finalWindow, refs) {
+				continue
+			}
+			seen[window.ID] = true
+			folded = append(folded, window)
+		}
+	}
+	return folded, nil
+}
+
+func (service *Service) openWorkflowDoneFoldedEpochWindows(ctx context.Context, finalWindow CartographerWindow, refs SemanticContextSourceRefs) ([]CartographerWindow, error) {
+	filter := CartographerCursorFilter{
+		WorkspaceID:         finalWindow.WorkspaceID,
+		WorkflowExecutionID: refs.WorkflowExecutionID,
+		ChatRunID:           refs.ChatRunID,
+	}
+	cursors, err := service.store.ListCartographerCursors(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	folded := []CartographerWindow{}
+	for _, cursor := range cursors.Cursors {
+		window, ok, err := service.store.ReadOpenCartographerWindowForCursor(ctx, finalWindow.WorkspaceID, cursor.ID)
+		if err != nil {
+			return nil, err
+		}
+		if ok && cartographerWindowShouldFoldIntoWorkflowDone(window, finalWindow, refs) {
+			folded = append(folded, window)
+		}
+	}
+	return folded, nil
+}
+
+func (service *Service) supersedeFoldedOpenCartographerWindows(ctx context.Context, folded []CartographerWindow, now string) error {
+	for _, window := range folded {
+		if window.Status != CartographerWindowOpen {
+			continue
+		}
+		run, ok, err := service.store.ReadCartographerRun(ctx, window.WorkspaceID, window.RunID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("cartographer run %s was not found for folded open window %s", window.RunID, window.ID)
+		}
+		if err := service.closeCartographerWindowLocked(ctx, &window, CartographerCloseWorkflowRunTerminal, now); err != nil {
+			return err
+		}
+		run.InputBundle = window.InputBundle
+		run.WindowID = window.ID
+		if err := service.supersedeQueuedCartographerRun(ctx, &run, "folded_into_workflow_done", "open cartographer epoch was folded into the workflow completion synthesis pass", now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func dedupeCartographerWindows(windows []CartographerWindow) []CartographerWindow {
+	deduped := []CartographerWindow{}
+	seen := map[string]bool{}
+	for _, window := range windows {
+		if seen[window.ID] {
+			continue
+		}
+		seen[window.ID] = true
+		deduped = append(deduped, window)
+	}
+	return deduped
 }
 
 func (service *Service) persistOpenObservedWindow(ctx context.Context, window CartographerWindow, run CartographerRun, cursor CartographerCursor) error {
