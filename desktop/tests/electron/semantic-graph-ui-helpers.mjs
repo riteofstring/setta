@@ -1,5 +1,34 @@
 import { waitForState } from "./electron-cdp-harness.mjs";
 
+const semanticNodeDetailsRequiredText = [
+  "Deterministic layout writes stay read-only",
+  "supports",
+  "refutes",
+  "resolves",
+  "Phase 2 plan excerpt",
+  "SOURCE LINKS",
+  "Why this exists",
+  "validating",
+  "Keep semantic graph rendering read-only",
+  "context_pack.created",
+  "workflow_agent_start",
+  "Renderer read-only semantic graph surface",
+  "active workspace constraint",
+  "sha256:semantic_seed_delivered_context",
+  "Delivered Context",
+  "OVERVIEW",
+  "Newest evidence",
+  "Related",
+  "Patch",
+  "RECENT CHANGES",
+  "88",
+  "Cartographer",
+  "Cartographer pending review evidence",
+  "attach_evidence",
+  "Seed cartographer window summary",
+  "semantic_seed_workflow_events:3",
+];
+
 export async function openSelectedGraphNodeDetailsFromToolbar(client, expectedLabel) {
   const buttonState = await waitForState(
     client,
@@ -50,6 +79,29 @@ export async function openSelectedGraphNodeDetailsFromToolbar(client, expectedLa
   })()`);
 }
 
+export async function assertSemanticNodeDetails(client) {
+  const details = await waitForState(
+    client,
+    `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
+    (value) => textIncludesAll(value.text, semanticNodeDetailsRequiredText),
+  );
+  if (!details.text.includes("docs/plans/setta_semantic_work_graph_implementation_plan.md")) {
+    throw new Error(`semantic node details omitted evidence path: ${details.text}`);
+  }
+}
+
+export async function assertSemanticNodeLiveStatus(client) {
+  const details = await waitForState(
+    client,
+    `(() => ({ text: document.querySelector('[data-testid="semantic-live-status"]')?.innerText ?? "" }))()`,
+    (value) => value.text.includes("candidate target"),
+    5000,
+  );
+  if (!details.text.includes("candidate target")) {
+    throw new Error(`semantic node live status missing: ${details.text}`);
+  }
+}
+
 export async function assertCartographerHealthPanel(client) {
   await waitForState(
     client,
@@ -86,4 +138,8 @@ export async function assertCartographerHealthPanel(client) {
   if (!text.includes("Cartographer Health")) {
     throw new Error(`cartographer health panel missing: ${text}`);
   }
+}
+
+function textIncludesAll(text, expected) {
+  return expected.every((item) => text.includes(item));
 }

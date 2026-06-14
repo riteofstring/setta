@@ -11,6 +11,7 @@ import type {
   SemanticEvidenceAnchor,
   SemanticNodeDetail,
   SemanticSteeringDirective,
+  SemanticWorkingSet,
 } from "@generated/backend";
 import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
@@ -19,6 +20,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SemanticEditControls } from "./semantic-node-edit-controls";
 import { semanticGraphChangeAffectsSemanticNodeInspection } from "./semantic-node-details-invalidation";
 import { SemanticSourceLinkSection } from "./semantic-node-source-links";
+import {
+  SemanticLiveStatusSection,
+  SemanticOverviewSection,
+  SemanticRecentChangesSection,
+  semanticContextSourceRefsText,
+} from "./semantic-node-details-usefulness";
 import {
   WorkflowDetailsEmpty,
   WorkflowDetailsError,
@@ -33,7 +40,6 @@ type SemanticNodeDetailsTarget = NonNullable<
 >;
 type SemanticContextPack = SemanticNodeDetail["contextPackHistory"][number];
 type SemanticContextPackItem = SemanticContextPack["items"][number];
-type SemanticContextSourceRefs = SemanticContextPack["sourceRefs"];
 type CartographerPatch = CartographerPatchRecord["patch"];
 
 interface SemanticNodeInspectionState {
@@ -42,9 +48,11 @@ interface SemanticNodeInspectionState {
   loadError: string;
   loading: boolean;
   reload: () => void;
+  workingSet: SemanticWorkingSet | null;
 }
 
 const semanticEventHistoryLimit = 80;
+const semanticWorkingSetInspectionLimit = 80;
 
 export function SemanticNodeDetailsSurface() {
   const target = useSemanticGraphStore((state) => state.selectedNodeTarget);
@@ -72,6 +80,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
     loadError: "",
     loading: false,
     reload,
+    workingSet: null,
   }));
 
   useEffect(() => {
@@ -84,6 +93,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
       loadError: "",
       loading: target !== null,
       reload,
+      workingSet: null,
     });
     if (target === null) {
       return;
@@ -103,7 +113,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
     };
 
     const load = async () => {
-      const [detailResponse, history] = await Promise.all([
+      const [detailResponse, history, workingSet] = await Promise.all([
         window.setta.semanticGraph.readNodeDetail({
           nodeId: target.nodeId,
           workspaceId: target.workspaceId,
@@ -112,6 +122,12 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           beforeLogicalClock: 0,
           limit: semanticEventHistoryLimit,
           targetEntityId: target.nodeId,
+          workspaceId: target.workspaceId,
+        }),
+        window.setta.semanticGraph.readWorkingSet({
+          chatRunId: "",
+          limit: semanticWorkingSetInspectionLimit,
+          workflowExecutionId: "",
           workspaceId: target.workspaceId,
         }),
       ]);
@@ -123,6 +139,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           loadError: "",
           loading: false,
           reload,
+          workingSet,
         });
       }
     };
@@ -134,6 +151,7 @@ function useSemanticNodeInspection(target: SemanticNodeDetailsTarget | null) {
           loadError: errorMessage(error),
           loading: false,
           reload,
+          workingSet: null,
         });
       }
     });
@@ -175,6 +193,7 @@ function SemanticNodeDetailsContent({
       detail={inspection.detail}
       history={inspection.history}
       onMutation={inspection.reload}
+      workingSet={inspection.workingSet}
     />
   );
 }
@@ -183,10 +202,12 @@ export function SemanticLoadedNodeDetails({
   detail,
   history,
   onMutation,
+  workingSet = null,
 }: {
   detail: SemanticNodeDetail;
   history: SemanticEventHistory | null;
   onMutation?: () => void;
+  workingSet?: SemanticWorkingSet | null;
 }) {
   const confidence = useMemo(() => latestConfidence(history?.events ?? []), [history]);
   const node = detail.node;
@@ -210,6 +231,9 @@ export function SemanticLoadedNodeDetails({
           ]}
         />
       </WorkflowDetailsSection>
+      <SemanticOverviewSection detail={detail} history={history} workingSet={workingSet} />
+      <SemanticLiveStatusSection detail={detail} workingSet={workingSet} />
+      <SemanticRecentChangesSection detail={detail} history={history} workingSet={workingSet} />
       <SemanticEditControls detail={detail} onMutation={onMutation} />
       <SemanticLineageSection detail={detail} />
       <SemanticSourceLinkSection evidence={detail.evidence} />
@@ -741,23 +765,6 @@ function SemanticContextPackDeliveredContext({ context }: { context: string }) {
       </pre>
     </div>
   );
-}
-
-function semanticContextSourceRefsText(refs: SemanticContextSourceRefs) {
-  const entries: [string, string][] = [
-    ["workflow definition", refs.workflowDefinitionId],
-    ["workflow execution", refs.workflowExecutionId],
-    ["workflow node", refs.workflowNodeId],
-    ["workflow node execution", refs.workflowNodeExecutionId],
-    ["chat conversation", refs.chatConversationId],
-    ["chat run", refs.chatRunId],
-    ["chat message", refs.chatMessageId],
-    ["run item", refs.runItemId],
-  ];
-  return entries
-    .filter(([, value]) => value !== "")
-    .map(([label, value]) => `${label}: ${shortIdentifier(value)}`)
-    .join("; ");
 }
 
 function SemanticHistorySection({ history }: { history: SemanticEventHistory | null }) {

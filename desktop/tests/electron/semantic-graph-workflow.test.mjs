@@ -27,6 +27,8 @@ import {
 } from "./semantic-graph-cartographer-readback.mjs";
 import {
   assertCartographerHealthPanel,
+  assertSemanticNodeDetails,
+  assertSemanticNodeLiveStatus,
   openSelectedGraphNodeDetailsFromToolbar,
 } from "./semantic-graph-ui-helpers.mjs";
 import {
@@ -53,29 +55,6 @@ const seedWorkflowNodeId = "semantic_seed_workflow_node";
 const seedRendererNodeId = `semantic:${seedConstraintNodeId}`;
 const cartographerAuditBurstSize = 6;
 const semanticNodeDragDelta = { x: 92, y: 44 };
-const semanticNodeDetailsRequiredText = [
-  "Deterministic layout writes stay read-only",
-  "supports",
-  "refutes",
-  "resolves",
-  "Phase 2 plan excerpt",
-  "SOURCE LINKS",
-  "Why this exists",
-  "validating",
-  "Keep semantic graph rendering read-only",
-  "context_pack.created",
-  "workflow_agent_start",
-  "Renderer read-only semantic graph surface",
-  "active workspace constraint",
-  "sha256:semantic_seed_delivered_context",
-  "Delivered Context",
-  "88",
-  "Cartographer",
-  "Cartographer pending review evidence",
-  "attach_evidence",
-  "Seed cartographer window summary",
-  "semantic_seed_workflow_events:3",
-];
 
 if (options.help) {
   console.log(
@@ -185,6 +164,7 @@ try {
   );
   await waitForSelector(context.client, '[data-testid="semantic-node-details-surface"]');
   await assertSemanticNodeDetails(context.client);
+  await assertSemanticNodeLiveStatus(context.client);
   await assertCartographerHealthPanel(context.client);
   await assertSeedContextPackReadApis(context.client, workspaceId);
   await assertSeedCartographerReadApis(context.client, workspaceId, "pending_review");
@@ -681,17 +661,6 @@ async function clickAtPagePoint(client, point, clickCount) {
   });
 }
 
-async function assertSemanticNodeDetails(client) {
-  const details = await waitForState(
-    client,
-    `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
-    (value) => textIncludesAll(value.text, semanticNodeDetailsRequiredText),
-  );
-  if (!details.text.includes("docs/plans/setta_semantic_work_graph_implementation_plan.md")) {
-    throw new Error(`semantic node details omitted evidence path: ${details.text}`);
-  }
-}
-
 async function assertSeedContextPackReadApis(client, workspaceId) {
   const result = await client.evaluate(`(async () => {
     const list = await window.setta.semanticGraph.listContextPacks({
@@ -1138,10 +1107,6 @@ async function acceptSeedCartographerPatchFromDetails(client) {
     `(() => ({ text: document.querySelector('[data-testid="semantic-node-details-surface"]')?.innerText ?? "" }))()`,
     (value) => value.text.includes("applied") && !value.text.includes("pending_review"),
   );
-}
-
-function textIncludesAll(text, expected) {
-  return expected.every((item) => text.includes(item));
 }
 
 async function assertSemanticAttachmentDetails(client, attachment) {

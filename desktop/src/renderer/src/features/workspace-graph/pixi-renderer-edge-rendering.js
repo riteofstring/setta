@@ -85,7 +85,9 @@ export function redrawWorkspaceEdgeHighlights({
   edges,
   getNode,
   hoveredEdgeIds,
+  hoveredNodeIds = emptyEdgeIdSet,
   selectedEdgeIds,
+  selectedNodeIds = emptyEdgeIdSet,
   visibleNodeIds = null,
   viewportWorldBounds = null,
 }) {
@@ -95,10 +97,40 @@ export function redrawWorkspaceEdgeHighlights({
     edgeLevelOfDetail,
     edges,
     getNode,
+    isHighlighted: (edge) =>
+      semanticEdgeRelatedToNodes(edge, hoveredNodeIds) && !selectedEdgeIds.has(edge.id),
+    stroke: {
+      alpha: 0.5,
+      color: workspaceNeonTheme.foundation.selection.hovered.color,
+      width: 3.5,
+    },
+    viewportWorldBounds,
+    visibleNodeIds,
+  });
+  drawHighlightedEdges({
+    edgeHighlightGraphics,
+    edgeLevelOfDetail,
+    edges,
+    getNode,
     isHighlighted: (edge) => hoveredEdgeIds.has(edge.id) && !selectedEdgeIds.has(edge.id),
     stroke: {
       alpha: 0.72,
       color: workspaceNeonTheme.foundation.selection.hovered.color,
+      width: 4.5,
+    },
+    viewportWorldBounds,
+    visibleNodeIds,
+  });
+  drawHighlightedEdges({
+    edgeHighlightGraphics,
+    edgeLevelOfDetail,
+    edges,
+    getNode,
+    isHighlighted: (edge) =>
+      semanticEdgeRelatedToNodes(edge, selectedNodeIds) && !selectedEdgeIds.has(edge.id),
+    stroke: {
+      alpha: 0.78,
+      color: workspaceNeonTheme.foundation.selection.selected.color,
       width: 4.5,
     },
     viewportWorldBounds,
@@ -119,6 +151,8 @@ export function redrawWorkspaceEdgeHighlights({
     visibleNodeIds,
   });
 }
+
+const emptyEdgeIdSet = new Set();
 
 export function edgeLevelOfDetailForZoom(zoom) {
   if (zoom < lowZoomEdgeLodThreshold) {
@@ -312,6 +346,14 @@ function drawHighlightedEdges({
     }
     drawHighlightedEdge(edgeHighlightGraphics, edge, getNode, stroke);
   }
+}
+
+function semanticEdgeRelatedToNodes(edge, nodeIds) {
+  return (
+    nodeIds.size > 0 &&
+    rendererEdgeLayer(edge) === "semantic" &&
+    (nodeIds.has(edge.sourceNodeId) || nodeIds.has(edge.targetNodeId))
+  );
 }
 
 function highlightedEdgeVisibleForScene({

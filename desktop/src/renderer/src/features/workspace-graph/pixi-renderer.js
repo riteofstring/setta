@@ -266,7 +266,9 @@ export async function createWorkflowGraphRenderer(options) {
     fontFamily: loadedNodeLabelFont.fontFamily,
     fontSize: compactSelectedNodeLabelBitmapFontSize,
     getNode: requireNode,
+    hoveredNodeIds,
     sceneGraph,
+    selectedNodeIds,
     validateGlyphs: validateNodeLabelGlyphs,
     viewport,
   });
@@ -638,6 +640,7 @@ export async function createWorkflowGraphRenderer(options) {
     }
     if (!setsEqual(previousSelectedNodeIds, selectedNodeIds)) {
       selectionChangeCount += 1;
+      edgeScene.redrawEdgeHighlights();
       notifyNodeSelectionChange(handlers.onNodeSelectionChange, selectedNodeIds);
     }
   }
@@ -793,6 +796,7 @@ export async function createWorkflowGraphRenderer(options) {
     }
     selectionChangeCount += 1;
     drawAllNodeOutlines();
+    edgeScene.redrawEdgeHighlights();
     labels.syncLabelVisibility();
     notifyNodeSelectionChange(handlers.onNodeSelectionChange, selectedNodeIds);
   }
@@ -821,6 +825,7 @@ export async function createWorkflowGraphRenderer(options) {
     for (const affectedNodeId of affectedNodeIds) {
       syncNodeOutlineVisibility(affectedNodeId);
     }
+    edgeScene.redrawEdgeHighlights();
   }
   function syncNodeOutlineVisibility(nodeId) {
     const outlines = nodeOutlines.get(nodeId);

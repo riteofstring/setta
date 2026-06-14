@@ -15,7 +15,9 @@ export function createWorkflowGraphEdgeSceneRenderer({
   fontFamily,
   fontSize,
   getNode,
+  hoveredNodeIds,
   sceneGraph,
+  selectedNodeIds,
   validateGlyphs,
   viewport,
 }) {
@@ -71,7 +73,9 @@ export function createWorkflowGraphEdgeSceneRenderer({
       edges,
       getNode,
       hoveredEdgeIds: edgeSelection.hoveredEdgeIds,
+      hoveredNodeIds,
       selectedEdgeIds: edgeSelection.selectedEdgeIds,
+      selectedNodeIds,
       visibleNodeIds: edgeScene.visibleNodeIds,
       viewportWorldBounds: edgeScene.viewportWorldBounds,
     });

@@ -4,6 +4,7 @@ import {
   edgeLevelOfDetailForZoom,
   edgeVisibleForScene,
   redrawWorkspaceEdgeFlow,
+  redrawWorkspaceEdgeHighlights,
   redrawWorkspaceEdges,
   workflowEdgeFlowPhase,
 } from "./pixi-renderer-edge-rendering";
@@ -180,6 +181,40 @@ describe("workspace graph edge flow rendering", () => {
     expect(edgeFlowGraphics.operations.filter(([operation]) => operation === "fill")).toHaveLength(
       2,
     );
+  });
+
+  test("highlights semantic relationship edges incident to hovered or selected nodes", () => {
+    const edgeHighlightGraphics = new RecordingGraphics();
+    const nodes = new Map([
+      ["workflow", workflowNode("workflow", -220, 0)],
+      ["semantic:a", semanticNode("semantic:a", 0, 0)],
+      ["semantic:b", semanticNode("semantic:b", 220, 80)],
+      ["semantic:c", semanticNode("semantic:c", 440, 80)],
+    ]);
+
+    redrawWorkspaceEdgeHighlights({
+      edgeHighlightGraphics,
+      edges: [
+        semanticEdge("semantic-related", "semantic:a", "semantic:b"),
+        semanticEdge("semantic-source", "workflow", "semantic:a"),
+        semanticEdge("semantic-unrelated", "semantic:b", "semantic:c"),
+        workflowEdge("workflow-unrelated", "workflow", "semantic:a", "active"),
+      ],
+      getNode: (nodeId) => nodes.get(nodeId),
+      hoveredEdgeIds: new Set(),
+      hoveredNodeIds: new Set(["semantic:a"]),
+      selectedEdgeIds: new Set(),
+      selectedNodeIds: new Set(["semantic:b"]),
+    });
+
+    const strokes = edgeHighlightGraphics.operations
+      .filter(([operation]) => operation === "stroke")
+      .map(([, style]) => style);
+    const hoveredColor = workspaceNeonTheme.foundation.selection.hovered.color;
+    const selectedColor = workspaceNeonTheme.foundation.selection.selected.color;
+    expect(edgeHighlightGraphics.operations[0]).toEqual(["clear"]);
+    expect(strokes.filter((stroke) => stroke.color === hoveredColor)).toHaveLength(2);
+    expect(strokes.filter((stroke) => stroke.color === selectedColor)).toHaveLength(2);
   });
 });
 
