@@ -633,33 +633,135 @@ Recommended Phase 5 tests:
   coverage through the production Electron/main/preload/renderer/HTTP/store
   paths before committing implementation code.
 
+Implementation note:
+
+- Phase 5 was implemented by adding `ReadSemanticCartographerSettings`,
+  `UpdateSemanticCartographerSettings`, and
+  `ListSemanticCartographerModelOptions` as Go-owned endpoints.
+- The update contract now accepts `SemanticCartographerSettingsInput`, while
+  `updatedAt`, `settingsHash`, `createdAt`, and the singleton row id remain
+  backend-owned response fields.
+- Settings updates fetch the workspace Codex model catalog through the chat
+  service, validate the candidate settings against that catalog, persist the
+  canonical settings row, and re-apply runtime cartographer defaults without
+  rewriting already queued run snapshots.
+- `CartographerProcessingState` now includes `settingsHash`,
+  `effectiveProcessingConfig`, `lastProcessedRunSummary`, and
+  `lastFailureRunSummary`.
+- The existing `ReadCartographerRun` and `ListCartographerRuns` endpoints remain
+  the run-audit read path; no duplicate run-audit endpoints were added.
+- Generated TypeScript, main IPC, preload IPC, and shared renderer types expose
+  the new settings and model-option APIs. The contract generator now supports
+  non-struct endpoint response types so the model-options endpoint can return
+  `[]chat.ChatModelOption` directly.
+- No persistent schema changed in Phase 5, so the semantic graph store remains
+  version `12`.
+
 ## Phase 6 - Settings UI
 
-Add a `Cartographer` subtab to the existing Settings panel.
+Phase 6 is ready to implement. It should add a `Cartographer` subtab to the
+existing Settings panel and keep the UI as a client of the Phase 5 backend
+contracts.
+
+One backend-backed UI metadata gap remains: reset-to-default needs a
+backend-owned default settings input. Do not hardcode cartographer defaults,
+numeric bounds, or validation relationships in the renderer. Recommended first
+step for Phase 6:
+
+- Add or extend a Go-owned settings metadata/read contract that returns the
+  current `SemanticCartographerSettingsRecord`, a
+  `defaultSettings: SemanticCartographerSettingsInput`, and any field bounds or
+  relationship descriptors needed for numeric controls.
+- Regenerate TypeScript and update IPC/preload only if this metadata surface is
+  added. No persistent schema change is expected.
+
+Renderer integration:
+
+- Before exposing settings edits in the UI, verify runtime settings application
+  is synchronized: observation config changes should be applied under the
+  cartographer observer mutex, and automatic-processing config changes should be
+  applied under the automatic-processing mutex. Add a focused regression test or
+  race-oriented service test if this path changes.
+- Add a renderer store, for example
+  `desktop/src/renderer/src/stores/semantic-cartographer-settings-store.ts`,
+  instead of mixing cartographer settings into `appearance-store`.
+- The store should hold status, error, current record, draft
+  `SemanticCartographerSettingsInput`, model options for the selected workspace,
+  processing state, dirty state, and save/revert/reset actions.
+- Resolve the selected workspace from `useWorkspaceStore.session`. Settings are
+  still global, but model option listing and settings updates require
+  `workspaceId` for Codex catalog validation.
+- If no workspace is selected, the tab can still show already loaded global
+  settings as read-only, but model-dependent controls and Save should be
+  disabled until a workspace is available.
+- Track request generation or workspace id on async loads so a slow model
+  catalog request from an old workspace cannot overwrite the current selected
+  workspace's options.
+- Load on tab activation, selected workspace change, save/revert/reset, and
+  explicit refresh. Do not add polling; use existing semantic graph events or a
+  manual refresh action if the audit summary needs to be refreshed while the tab
+  is open.
 
 Controls:
 
 - Toggle automatic processing.
 - Segmented control for task profile: `Live` and `Final`.
-- Model select for each profile.
-- Reasoning effort select for each profile.
+- For each task profile, use an explicit model-selection control with
+  `Provider default` and `Explicit model` modes. Provider default is a settings
+  mode, not a fake model option.
+- Show the provider-reported default model from `ChatModelOption.isDefault` when
+  the catalog reports one.
+- Explicit model select options must use `ChatModelOption.model` as the saved
+  value and `displayName`/`description` only for presentation.
+- Reasoning effort options must come from the selected model's
+  `supportedReasoningEfforts`. For provider default, use the default model's
+  supported efforts when the catalog reports a default model.
 - Numeric inputs or steppers for concurrency, per-source concurrency, queue cap,
   lease duration, and input budgets.
 - Reset-to-default and save/revert actions.
 - Read-only audit summary for the last few runs: status, profile, model,
   reasoning effort, duration, input size, and error/no-op reason.
+- Include the compact runtime summary from `ReadCartographerProcessingState`,
+  especially settings hash, effective processing config, last processed run, and
+  last failure run.
 
 UI requirements:
 
 - Keep the settings screen operational and compact, not a marketing surface.
 - Do not put settings cards inside other cards.
 - Do not expose unsupported model/reasoning combinations as selectable.
+- If a saved setting is no longer present in the current model catalog, show the
+  unsupported value with a field-level validation error and require an explicit
+  user edit before Save succeeds.
 - Show validation errors next to the relevant control.
 - Keep advanced processing/window-size controls grouped separately from common
   model/reasoning controls.
+- Keep display text sized for the existing settings panel. Avoid hero-scale
+  headings, oversized explanatory copy, and card-heavy layouts.
 
-The settings UI should remain a client of backend contracts. It should not
-derive Codex model support from local constants.
+Recommended Phase 6 tests:
+
+- Store tests cover loading settings, loading model options for the selected
+  workspace, save/revert/reset behavior, backend validation errors, and stale
+  workspace-load protection.
+- Settings panel tests cover the new `Cartographer` subtab, disabled state with
+  no selected workspace, provider-default vs explicit model mode, reasoning
+  option filtering, unsupported saved model/reasoning display, and save button
+  dirty/busy behavior.
+- If a metadata/defaults contract is added, add HTTP, generated TypeScript, IPC,
+  and preload tests for that surface.
+- Run focused renderer checks:
+
+```text
+pnpm -C desktop exec vitest run src/renderer/src/stores/semantic-cartographer-settings-store.test.ts src/renderer/src/components/settings-panel.test.tsx
+pnpm -C desktop typecheck
+```
+
+- Because the implementation is a user-facing settings workflow that persists
+  through production renderer/preload/main/HTTP/store paths, include a
+  deterministic Electron E2E that opens a workspace, opens Settings ->
+  Cartographer, edits model/reasoning or processing settings, saves, reloads,
+  and verifies the persisted values are shown.
 
 ## Phase 7 - Final Synthesis Input Budgeting
 
