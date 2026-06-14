@@ -267,8 +267,9 @@ node desktop/tests/electron/run-workflows.mjs --workflow semantic-graph
 node desktop/tests/electron/run-workflows.mjs --workflow semantic-cartographer-auto
 ```
 
-Phase 5 has been implemented. The cartographer prompt and strict output schema
-now prioritize concrete findings, decisions, constraints, open questions,
+Phase 5 has been implemented in commit `efa491a44` (`Implement semantic
+cartographer phase 5`). The cartographer prompt and strict output schema now
+prioritize concrete findings, decisions, constraints, open questions,
 source-backed evidence, semantic relationships, and activity patches while
 discouraging process-only nodes. The schema constrains supported patch, edge,
 activity, and evidence kinds and documents generated safe ids for patch metadata
@@ -807,7 +808,7 @@ the cartographer creates relationships/source links instead of only standalone n
 low-confidence patches are not silently treated as high-value graph state
 ```
 
-### Phase 6: UI Discoverability And Review
+### Phase 6: UI Discoverability And Review (ready next)
 
 Goal: make semantic nodes useful to users in the graph.
 
