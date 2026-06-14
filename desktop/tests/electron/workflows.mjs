@@ -91,6 +91,30 @@ export const electronWorkflows = [
     tiers: ["performance"],
   },
   {
+    args: ["--scenario", "baseline"],
+    file: "workflow-graph-pan-zoom-recording.test.mjs",
+    name: "workflow-graph-pan-zoom-baseline",
+    tiers: ["performance"],
+  },
+  {
+    args: ["--scenario", "active"],
+    file: "workflow-graph-pan-zoom-recording.test.mjs",
+    name: "workflow-graph-pan-zoom-active",
+    tiers: ["performance"],
+  },
+  {
+    args: ["--scenario", "large"],
+    file: "workflow-graph-pan-zoom-recording.test.mjs",
+    name: "workflow-graph-pan-zoom-large",
+    tiers: ["performance"],
+  },
+  {
+    args: ["--semantic-live-recording-only"],
+    file: "semantic-cartographer-auto-workflow.test.mjs",
+    name: "semantic-live-run",
+    tiers: ["performance"],
+  },
+  {
     file: "overview-zoom-performance.test.mjs",
     name: "overview-zoom-performance",
     tiers: ["performance"],

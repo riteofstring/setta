@@ -16,7 +16,9 @@ import {
 export function createWorkflowGraphDebugSnapshot({
   app,
   backgroundColor,
+  debugMetrics,
   debugSurfaceId,
+  displayObjectLayers,
   edges,
   loadedNodeLabelFont,
   nodeBodies,
@@ -46,6 +48,7 @@ export function createWorkflowGraphDebugSnapshot({
     const nodeGeometryContexts = nodeGeometryContextCounts();
     const frameStats = frameSampleStats(recentFrameMs);
     const state = renderState();
+    const timing = debugMetrics.snapshot();
     return {
       camera,
       canvas: {
@@ -133,6 +136,7 @@ export function createWorkflowGraphDebugSnapshot({
         nodeOutlineVisibilityUpdateCount: state.nodeOutlineVisibilityUpdateCount,
         nodeShadowContextCount: nodeGeometryContexts.shadow,
         nodeShadowGraphicsCount: nodeShadows.size,
+        p95FrameMs: frameStats.p95,
         pointerPanUpdateCount: state.pointerPanUpdateCount,
         portGraphicsCount: portVisuals.size,
         reactRenderCount: reactRenderCount(),
@@ -147,7 +151,11 @@ export function createWorkflowGraphDebugSnapshot({
         semanticTendrilAnimCount: state.semanticTendrilAnimCount,
         semanticTendrilRedrawCount: state.semanticTendrilRedrawCount,
         ...spatialQueries.debugSnapshot(),
+        timingBuckets: timing.timingBuckets,
+        timingSampleLimit: timing.timingSampleLimit,
+        timingSamples: timing.timingSamples,
         temporaryEdgeUpdateCount: state.temporaryEdgeUpdateCount,
+        displayObjectCountsByLayer: displayObjectCountsByLayer(displayObjectLayers),
         totalDisplayObjectCount: totalDisplayObjectCount(app.stage),
         transitionsActive: state.transitionsActive,
         visibleLabelCount: visibleDisplayObjectCount(nodeLabels.values()),
@@ -241,6 +249,34 @@ function nodePortDebugSnapshots(node, viewport) {
       y: world.y,
     };
   });
+}
+
+function displayObjectCountsByLayer(layers) {
+  return Object.fromEntries(
+    Object.entries(layers).map(([name, displayObject]) => [
+      name,
+      {
+        directChildCount: Array.isArray(displayObject.children) ? displayObject.children.length : 0,
+        totalCount: totalDisplayObjectCount(displayObject),
+        visibleCount: visibleDisplayTreeCount(displayObject),
+      },
+    ]),
+  );
+}
+
+function visibleDisplayTreeCount(displayObject) {
+  if (!displayObject.visible) {
+    return 0;
+  }
+  let count = 1;
+  const children = displayObject.children;
+  if (!Array.isArray(children)) {
+    return count;
+  }
+  for (const child of children) {
+    count += visibleDisplayTreeCount(child);
+  }
+  return count;
 }
 
 function skippedVisualState() {

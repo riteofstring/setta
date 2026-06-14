@@ -130,10 +130,21 @@ function assertFrameTimingsHealthy(snapshot) {
   }
   if (
     !Number.isFinite(snapshot.render.averageFrameMs) ||
+    !Number.isFinite(snapshot.render.p95FrameMs) ||
     !Number.isFinite(snapshot.render.worstFrameMs)
   ) {
     throw new Error(
       `Workflow graph frame timings were not finite: ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (!Array.isArray(snapshot.render.timingSamples)) {
+    throw new Error(
+      `Workflow graph timing samples were missing: ${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (!snapshot.render.displayObjectCountsByLayer?.stage) {
+    throw new Error(
+      `Workflow graph display object layer counts were missing: ${JSON.stringify(snapshot.render)}`,
     );
   }
 }

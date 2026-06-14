@@ -4,6 +4,7 @@ import { drawNodeActivityMarker, drawNodeDiagnosticMarker } from "./pixi-rendere
 export function createWorkflowGraphSceneGraphUpdater({
   acquireLabel,
   createNodeContainer,
+  debugMetrics,
   edges,
   nodeActivityMarkers,
   nodeBodies,
@@ -33,7 +34,9 @@ export function createWorkflowGraphSceneGraphUpdater({
       if (countUpdate) {
         recordGraphUpdateCounts(nextNodes, nextEdges);
       }
-      applySceneGraphNodes(nextNodes);
+      debugMetrics.measure("scene-graph-node-diff-update-rebuild", () => {
+        applySceneGraphNodes(nextNodes);
+      });
       edges.splice(0, edges.length, ...nextEdges);
       return {
         nextEdgeSequence: edges.length + 1,

@@ -172,6 +172,26 @@ export function parsePortKey(key) {
   return { nodeId, portId };
 }
 
+export function createPortVisualStateSync({ getNode, portVisuals, portVisualStates }) {
+  return (nodeId, portId, state) => {
+    const key = portKey(nodeId, portId);
+    const visual = portVisuals.get(key);
+    if (!visual) {
+      throw new Error(`workspace port visual is missing: ${key}`);
+    }
+    portVisualStates.set(key, state);
+    drawPortVisualState(visual, requirePort(getNode(nodeId), portId), state);
+  };
+}
+
+export function requireWorkflowGraphNode(nodes, nodeId) {
+  const node = nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    throw new Error(`workspace edge references missing node: ${nodeId}`);
+  }
+  return node;
+}
+
 function isNonBackgroundColor(red, green, blue) {
   return (
     Math.abs(red - backgroundRed) > 3 ||
@@ -588,10 +608,13 @@ export function countMapValues(map, expected) {
 
 export function frameSampleStats(samples) {
   if (samples.length === 0) {
-    return { average: 0, worst: 0 };
+    return { average: 0, p95: 0, worst: 0 };
   }
+  const sorted = [...samples].sort((left, right) => left - right);
+  const p95Index = Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1);
   return {
     average: samples.reduce((total, value) => total + value, 0) / samples.length,
+    p95: sorted[p95Index],
     worst: Math.max(...samples),
   };
 }

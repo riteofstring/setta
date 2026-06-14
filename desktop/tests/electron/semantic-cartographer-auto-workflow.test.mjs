@@ -43,7 +43,7 @@ configureChatWorkflowHarness({ visible: options.visible });
 
 if (options.help) {
   console.log(
-    "Usage: node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>]",
+    "Usage: node desktop/tests/electron/semantic-cartographer-auto-workflow.test.mjs [--semantic-live-recording-only] [--skip-build] [--visible] [--keep-artifacts] [--artifact-dir <dir>]",
   );
   process.exit(0);
 }
@@ -61,11 +61,14 @@ const stoppedLogs = [];
 
 try {
   const smoke = await runAutomaticAgentSmoke();
-  const longRunning = await runLongRunningAutomaticCartographerWorkflow();
+  const longRunning = options.semanticLiveRecordingOnly
+    ? null
+    : await runLongRunningAutomaticCartographerWorkflow();
   console.log(
     `semantic cartographer automatic workflow passed: ${JSON.stringify({
-      longRunningExecutionId: longRunning.executionId,
-      longRunningProcessedWindows: longRunning.processedWindowCount,
+      longRunningExecutionId: longRunning?.executionId ?? "",
+      longRunningProcessedWindows: longRunning?.processedWindowCount ?? 0,
+      semanticLiveRecordingOnly: options.semanticLiveRecordingOnly,
       smokeExecutionId: smoke.executionId,
       smokeEdgePatchId: smoke.automatic.edgePatch.id,
       smokePatchId: smoke.automatic.patch.id,
@@ -221,42 +224,72 @@ function parseArgs(args) {
     artifactDir: "",
     help: false,
     keepArtifacts: false,
+    semanticLiveRecordingOnly: false,
     skipBuild: false,
     visible: process.env.SETTA_E2E_VISIBLE === "1",
   };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    switch (arg) {
-      case "--artifact-dir":
-        if (!args[index + 1]) {
-          throw new Error("--artifact-dir requires a value");
-        }
-        parsed.artifactDir = resolve(args[index + 1]);
-        index += 1;
-        break;
-      case "--keep-artifacts":
-        parsed.keepArtifacts = true;
-        break;
-      case "--skip-build":
-        parsed.skipBuild = true;
-        break;
-      case "--visible":
-        parsed.visible = true;
-        break;
-      case "-h":
-      case "--help":
-        parsed.help = true;
-        break;
-      default:
-        throw new Error(`unknown semantic cartographer workflow argument: ${arg}`);
+    const handler = semanticCartographerArgHandlers()[arg];
+    if (!handler) {
+      throw new Error(`unknown semantic cartographer workflow argument: ${arg}`);
     }
+    index += handler(parsed, args, index);
   }
   return parsed;
+}
+
+function semanticCartographerArgHandlers() {
+  return {
+    "--artifact-dir": parseArtifactDirArg,
+    "--help": parseHelpArg,
+    "--keep-artifacts": parseKeepArtifactsArg,
+    "--semantic-live-recording-only": parseSemanticLiveRecordingOnlyArg,
+    "--skip-build": parseSkipBuildArg,
+    "--visible": parseVisibleArg,
+    "-h": parseHelpArg,
+  };
+}
+
+function parseArtifactDirArg(parsed, args, index) {
+  if (!args[index + 1]) {
+    throw new Error("--artifact-dir requires a value");
+  }
+  parsed.artifactDir = resolve(args[index + 1]);
+  return 1;
+}
+
+function parseHelpArg(parsed) {
+  parsed.help = true;
+  return 0;
+}
+
+function parseKeepArtifactsArg(parsed) {
+  parsed.keepArtifacts = true;
+  return 0;
+}
+
+function parseSemanticLiveRecordingOnlyArg(parsed) {
+  parsed.semanticLiveRecordingOnly = true;
+  return 0;
+}
+
+function parseSkipBuildArg(parsed) {
+  parsed.skipBuild = true;
+  return 0;
+}
+
+function parseVisibleArg(parsed) {
+  parsed.visible = true;
+  return 0;
 }
 
 function semanticCartographerRecordingRoot(parsed) {
   if (parsed.artifactDir !== "") {
     return parsed.artifactDir;
+  }
+  if (parsed.semanticLiveRecordingOnly) {
+    return join(repoRoot, ".recordings", "semantic-live-run", pathTimestamp());
   }
   const base = join(repoRoot, "test-results", "electron-integration", "semantic-cartographer-auto");
   return parsed.keepArtifacts ? join(base, pathTimestamp()) : base;

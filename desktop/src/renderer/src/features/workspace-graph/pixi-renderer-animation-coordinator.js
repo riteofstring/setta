@@ -7,6 +7,7 @@ export function createWorkflowGraphAnimationCoordinator({
   animatedGlow,
   animationState,
   cellAnimation,
+  debugMetrics,
   edgeFlowGraphics,
   edges,
   getNode,
@@ -22,19 +23,25 @@ export function createWorkflowGraphAnimationCoordinator({
   function tick(now) {
     animationState.tick(now, {
       redrawCellAnimation: ({ nodes: cellNodes, now: animationNow }) => {
-        cellAnimation.sync(cellNodes, animationNow);
+        debugMetrics.measure("cell-animation-redraw", () => {
+          cellAnimation.sync(cellNodes, animationNow);
+        });
       },
       redrawEdgeFlow: ({ edges: flowEdges, now: animationNow }) => {
-        redrawWorkspaceEdgeFlow({
-          activeSemanticNodeIds: animationState.activeSemanticNodeIds(),
-          edgeFlowGraphics,
-          edges: flowEdges,
-          getNode,
-          now: animationNow,
+        debugMetrics.measure("edge-flow-redraw", () => {
+          redrawWorkspaceEdgeFlow({
+            activeSemanticNodeIds: animationState.activeSemanticNodeIds(),
+            edgeFlowGraphics,
+            edges: flowEdges,
+            getNode,
+            now: animationNow,
+          });
         });
       },
       redrawNodeGlow: ({ nodes: glowNodes, now: animationNow }) => {
-        drawWorkspaceGlow(animatedGlow, glowNodes, animationNow, { mode: "animated" });
+        debugMetrics.measure("animated-glow-redraw", () => {
+          drawWorkspaceGlow(animatedGlow, glowNodes, animationNow, { mode: "animated" });
+        });
       },
     });
   }
@@ -42,14 +49,22 @@ export function createWorkflowGraphAnimationCoordinator({
   function syncActiveSet() {
     const visibleNodeIds = spatialQueries.visibleNodeIds();
     const visibleNodes = nodes.filter((node) => visibleNodeIds.has(node.id));
-    animationState.recompute({ edges, nodes, visibleNodeIds });
-    drawWorkspaceGlow(staticGlow, visibleNodes, performance.now(), {
-      mode: "static",
+    debugMetrics.measure("animation-active-set-recompute", () => {
+      animationState.recompute({ edges, nodes, visibleNodeIds });
     });
-    drawWorkspaceGlow(animatedGlow, animationState.glowNodes(), performance.now(), {
-      mode: "steady",
+    debugMetrics.measure("static-glow-redraw", () => {
+      drawWorkspaceGlow(staticGlow, visibleNodes, performance.now(), {
+        mode: "static",
+      });
     });
-    cellAnimation.sync(animationState.cellNodes(), performance.now());
+    debugMetrics.measure("animated-glow-redraw", () => {
+      drawWorkspaceGlow(animatedGlow, animationState.glowNodes(), performance.now(), {
+        mode: "steady",
+      });
+    });
+    debugMetrics.measure("cell-animation-redraw", () => {
+      cellAnimation.sync(animationState.cellNodes(), performance.now());
+    });
     if (animationState.edgeFlows().length === 0) {
       edgeFlowGraphics.clear();
     }

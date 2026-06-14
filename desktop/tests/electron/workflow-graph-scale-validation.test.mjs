@@ -701,12 +701,22 @@ function assertFrameTimings(snapshot, label) {
       `${label} Workflow graph ticker did not advance: render=${JSON.stringify(snapshot.render)}`,
     );
   }
-  for (const counter of ["averageFrameMs", "worstFrameMs"]) {
+  for (const counter of ["averageFrameMs", "p95FrameMs", "worstFrameMs"]) {
     if (!Number.isFinite(snapshot.render[counter])) {
       throw new Error(
         `${label} ${counter} was not finite: render=${JSON.stringify(snapshot.render)}`,
       );
     }
+  }
+  if (!snapshot.render.displayObjectCountsByLayer?.stage) {
+    throw new Error(
+      `${label} display object layer counts were missing: render=${JSON.stringify(snapshot.render)}`,
+    );
+  }
+  if (!Array.isArray(snapshot.render.timingSamples)) {
+    throw new Error(
+      `${label} timing samples were missing: render=${JSON.stringify(snapshot.render)}`,
+    );
   }
 }
 
@@ -1155,6 +1165,7 @@ function summarizeSnapshots(snapshots) {
         averageFrameMs: snapshot.render.averageFrameMs,
         camera: snapshot.camera,
         displayObjects: {
+          byLayer: snapshot.render.displayObjectCountsByLayer,
           edgeGraphicsCount: snapshot.render.edgeGraphicsCount,
           nodeContainerCount: snapshot.render.nodeContainerCount,
           portGraphicsCount: snapshot.render.portGraphicsCount,
@@ -1167,6 +1178,7 @@ function summarizeSnapshots(snapshots) {
           mode: snapshot.render.labelVisibilityMode,
           visibleLabelCount: snapshot.render.visibleLabelCount,
         },
+        p95FrameMs: snapshot.render.p95FrameMs,
         reactRenderCount: snapshot.render.reactRenderCount,
         spatialIndex: {
           lastLabelVisibilityCandidateCount: snapshot.render.lastLabelVisibilityCandidateCount,
@@ -1179,6 +1191,7 @@ function summarizeSnapshots(snapshots) {
           spatialIndexRebuildCount: snapshot.render.spatialIndexRebuildCount,
           spatialIndexUpdateCount: snapshot.render.spatialIndexUpdateCount,
         },
+        timingBuckets: snapshot.render.timingBuckets,
         worstFrameMs: snapshot.render.worstFrameMs,
       },
     ]),

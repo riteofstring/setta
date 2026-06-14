@@ -11,6 +11,7 @@ import { workflowCardLabelCenterX } from "./pixi-renderer-workflow-card-layout";
 import { workspaceNeonTheme } from "./workspace-neon-theme";
 
 export function createWorkflowGraphLabelManager({
+  debugMetrics,
   labelLayer,
   loadedNodeLabelFont,
   nodeLabels,
@@ -73,6 +74,12 @@ export function createWorkflowGraphLabelManager({
   }
 
   function syncAllLabels() {
+    return debugMetrics.measure("label-all-sync", () => {
+      syncAllLabelsNow();
+    });
+  }
+
+  function syncAllLabelsNow() {
     for (const node of nodes) {
       syncLabelPosition(node.id);
     }
@@ -85,6 +92,12 @@ export function createWorkflowGraphLabelManager({
   }
 
   function syncLabelPosition(nodeId) {
+    return debugMetrics.measure("label-position-sync", () => {
+      syncLabelPositionNow(nodeId);
+    });
+  }
+
+  function syncLabelPositionNow(nodeId) {
     const node = requireNode(nodeId);
     const label = requireNodeLabel(nodeId);
     const screen = nodeLabelScreenPosition({ label, node, viewport });
@@ -101,6 +114,12 @@ export function createWorkflowGraphLabelManager({
   }
 
   function syncLabelVisibility() {
+    return debugMetrics.measure("label-visibility-sync", () => {
+      syncLabelVisibilityNow();
+    });
+  }
+
+  function syncLabelVisibilityNow() {
     syncNodeLabelVisibility({
       compactSelectedFontSize: compactSelectedNodeLabelBitmapFontSize,
       fontSizeModes: nodeLabelFontSizeModes,

@@ -1,3 +1,5 @@
+/* global performance */
+
 import { drawEdgeLabel } from "./pixi-renderer-edge-labels";
 import { rendererEdgeLayer, rendererNodeLayer } from "./pixi-renderer-layers";
 import { drawDiagnosticDiamond } from "./pixi-renderer-node-geometry";
@@ -12,6 +14,7 @@ import { workflowEdgeStrokeStyle, workspaceNeonTheme } from "./workspace-neon-th
 const edgeFlowHashMax = 0x100000000;
 
 export function redrawWorkspaceEdges({
+  debugMetrics,
   edgeGraphics,
   edgeLabelLayer,
   edges,
@@ -22,19 +25,29 @@ export function redrawWorkspaceEdges({
 }) {
   edgeGraphics.clear();
   edgeLabelLayer.removeChildren().forEach((child) => child.destroy());
+  let edgeDrawMs = 0;
+  let edgeLabelDrawMs = 0;
   for (const edge of edges) {
     const source = getNode(edge.sourceNodeId);
     const target = getNode(edge.targetNodeId);
     const start = portWorldPosition(source, requireEdgePort(source, edge, "sourcePortId"));
     const end = portWorldPosition(target, requireEdgePort(target, edge, "targetPortId"));
+    const edgeStartedAt = performance.now();
     drawEdge(edgeGraphics, edge, start, end, edgeEndpointLayers(source, target));
     drawEdgeDiagnosticMarker(edgeGraphics, edge, start, end);
+    edgeDrawMs += performance.now() - edgeStartedAt;
+    const labelStartedAt = performance.now();
     drawEdgeLabel(edgeLabelLayer, edge, start, end, {
       fontFamily,
       fontSize,
       validateGlyphs,
     });
+    edgeLabelDrawMs += performance.now() - labelStartedAt;
   }
+  debugMetrics?.recordDuration("edge-redraw", edgeDrawMs, { edgeCount: edges.length });
+  debugMetrics?.recordDuration("edge-label-redraw", edgeLabelDrawMs, {
+    edgeCount: edges.length,
+  });
 }
 
 export function redrawWorkspaceEdgeHighlights({

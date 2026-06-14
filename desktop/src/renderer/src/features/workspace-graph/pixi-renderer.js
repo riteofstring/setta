@@ -15,6 +15,7 @@ import {
   registerWorkflowGraphDebugSurfaceIfEnabled,
 } from "./pixi-renderer-debug-surface";
 import { createWorkflowGraphDebugSnapshot } from "./pixi-renderer-debug-snapshot";
+import { createWorkflowGraphDebugMetrics } from "./pixi-renderer-debug-metrics";
 import { addWorkflowGraphDomListeners } from "./pixi-renderer-dom-listeners";
 import {
   redrawWorkspaceEdgeHighlights,
@@ -47,8 +48,8 @@ import {
   clamp,
   commitEdgeConnection,
   configureViewportNavigation,
+  createPortVisualStateSync,
   drawMarqueeSelection,
-  drawPortVisualState,
   drawTemporaryEdge,
   edgeConnection,
   hostScreenSize,
@@ -63,7 +64,7 @@ import {
   portKey,
   portWorldPosition,
   releasePointer,
-  requirePort,
+  requireWorkflowGraphNode,
   screenPointFromPointer,
   screenPointFromWheel,
   setsEqual,
@@ -109,6 +110,7 @@ export async function createWorkflowGraphRenderer(options) {
     host,
   });
   attachWorkflowGraphCanvas(host, app.canvas);
+  const debugMetrics = createWorkflowGraphDebugMetrics({ app, enabled: debugEnabled });
   const viewport = new Viewport({
     events: app.renderer.events,
     screenHeight: screenSize.height,
@@ -177,7 +179,14 @@ export async function createWorkflowGraphRenderer(options) {
   const portVisuals = new Map();
   const portVisualStates = new Map();
   const selectedNodeIds = new Set();
+  const requireNode = (nodeId) => requireWorkflowGraphNode(nodes, nodeId);
+  const setPortVisualState = createPortVisualStateSync({
+    getNode: requireNode,
+    portVisuals,
+    portVisualStates,
+  });
   const labels = createWorkflowGraphLabelManager({
+    debugMetrics,
     labelLayer,
     loadedNodeLabelFont,
     nodeLabels,
@@ -206,6 +215,7 @@ export async function createWorkflowGraphRenderer(options) {
   const sceneGraph = createWorkflowGraphSceneGraphUpdater({
     acquireLabel: labels.acquireLabel,
     createNodeContainer: containerFactories.nodeContainer,
+    debugMetrics,
     edges,
     nodeActivityMarkers,
     nodeBodies,
@@ -270,6 +280,7 @@ export async function createWorkflowGraphRenderer(options) {
     animatedGlow,
     animationState,
     cellAnimation,
+    debugMetrics,
     edgeFlowGraphics,
     edges,
     getNode: requireNode,
@@ -291,9 +302,8 @@ export async function createWorkflowGraphRenderer(options) {
   effectsLayer.addChild(cellAnimationGraphics);
   interactionLayer.addChild(marqueeGraphics, temporaryEdgeGraphics);
   drawWorkspaceBackdrop(backdrop, screenSize, foundationStyle);
-  drawWorkspaceGrid(grid, foundationStyle, workspaceGridBoundsForNodes(graph.nodes));
+  redrawGridForNodes(graph.nodes);
   drawWorkspaceVignette(vignette, screenSize, vignetteGradient, foundationStyle);
-  gridDrawCount += 1;
   replaceSceneGraph(graph, { countUpdate: false });
   const resizeObserver = observeWorkflowGraphRendererResize({
     app,
@@ -481,34 +491,27 @@ export async function createWorkflowGraphRenderer(options) {
       portVisuals,
       reactRenderCount: () => handlers.reactRenderCount(),
       recentFrameMs,
+      debugMetrics,
+      // prettier-ignore
+      displayObjectLayers: {
+        background: backgroundLayer, edge: edgeLayer, edgeLabels: edgeLabelLayer,
+        effects: effectsLayer, interaction: interactionLayer, labels: labelLayer,
+        nodeGlow: nodeGlowLayer, nodes: nodeLayer, stage: app.stage, viewport,
+      },
+      // prettier-ignore
       renderState: () => ({
-        cameraUpdateCount,
-        canvasCreationCount,
-        drawingEdge: Boolean(drawingEdge),
-        drawingMarquee: Boolean(drawingMarquee),
-        edgeCommitCount,
-        edgeRedrawCount,
-        edgeSelectionChangeCount: edgeInteractions.selectionChangeCount(),
-        frameCount,
-        gridDrawCount,
-        labelSyncCount: labels.syncCount(),
-        marqueeUpdateCount,
-        nodeDragUpdateCount,
-        nodeOutlineVisibilityUpdateCount,
-        pointerPanUpdateCount,
-        rendererDestroyCount,
-        rendererInstanceId,
+        cameraUpdateCount, canvasCreationCount, drawingEdge: Boolean(drawingEdge),
+        drawingMarquee: Boolean(drawingMarquee), edgeCommitCount, edgeRedrawCount,
+        edgeSelectionChangeCount: edgeInteractions.selectionChangeCount(), frameCount,
+        gridDrawCount, labelSyncCount: labels.syncCount(), marqueeUpdateCount,
+        nodeDragUpdateCount, nodeOutlineVisibilityUpdateCount, pointerPanUpdateCount,
+        rendererDestroyCount, rendererInstanceId,
         selectedNodeId: selectedNodeIds.values().next().value ?? null,
         selectedEdgeId: edgeInteractions.firstSelectedEdgeId(),
-        selectedEdgeIds: edgeInteractions.selectedEdgeIds,
-        selectedNodeIds,
-        selectionChangeCount,
-        temporaryEdgeUpdateCount,
-        wheelPanUpdateCount,
-        wheelZoomUpdateCount,
-        workflow: currentWorkflow,
-        ...animationState.debugSnapshot(),
-        ...sceneGraph.updateCounts(),
+        selectedEdgeIds: edgeInteractions.selectedEdgeIds, selectedNodeIds,
+        selectionChangeCount, temporaryEdgeUpdateCount, wheelPanUpdateCount,
+        wheelZoomUpdateCount, workflow: currentWorkflow,
+        ...animationState.debugSnapshot(), ...sceneGraph.updateCounts(),
       }),
       requireNodeLabel: labels.requireNodeLabel,
       spatialQueries,
@@ -528,6 +531,7 @@ export async function createWorkflowGraphRenderer(options) {
       resizeObserver.disconnect();
       removeDomListeners();
       unregisterDebugSurface?.();
+      debugMetrics.destroy();
       vignette.clear();
       vignetteGradient.destroy();
       for (const nodeId of [...nodeLabels.keys()]) {
@@ -555,8 +559,7 @@ export async function createWorkflowGraphRenderer(options) {
     animationCoordinator.syncActiveSet();
     pruneSelectionForNodes(nodes);
     edgeInteractions.prune(edges);
-    drawWorkspaceGrid(grid, foundationStyle, workspaceGridBoundsForNodes(nodes));
-    gridDrawCount += 1;
+    redrawGridForNodes(nodes);
     drawAllNodeOutlines();
     labels.syncAllLabels();
     redrawEdges();
@@ -796,6 +799,7 @@ export async function createWorkflowGraphRenderer(options) {
   }
   function redrawEdges() {
     redrawWorkspaceEdges({
+      debugMetrics,
       edgeGraphics,
       edgeLabelLayer,
       edges,
@@ -968,33 +972,27 @@ export async function createWorkflowGraphRenderer(options) {
     });
   }
   function commitCameraChange(nextCameraState = cameraState(viewport)) {
-    if (!cameraStatesDiffer(nextCameraState, lastCameraState)) {
-      return;
-    }
-    cameraUpdateCount += 1;
-    lastCameraState = nextCameraState;
-    handlers.onCameraStateChange(nextCameraState);
-    labels.syncAllLabels();
-    animationCoordinator.syncActiveSet();
-    syncFilterAreas();
+    debugMetrics.measure("commit-camera-change", () => {
+      if (!cameraStatesDiffer(nextCameraState, lastCameraState)) {
+        return;
+      }
+      cameraUpdateCount += 1;
+      lastCameraState = nextCameraState;
+      handlers.onCameraStateChange(nextCameraState);
+      labels.syncAllLabels();
+      animationCoordinator.syncActiveSet();
+      syncFilterAreas();
+    });
   }
   function syncFilterAreas() {
-    syncWorkflowGraphFilterAreas({ filteredGraphics, viewport });
+    debugMetrics.measure("filter-area-sync", () => {
+      syncWorkflowGraphFilterAreas({ filteredGraphics, viewport });
+    });
   }
-  function setPortVisualState(nodeId, portId, state) {
-    const key = portKey(nodeId, portId);
-    const visual = portVisuals.get(key);
-    if (!visual) {
-      throw new Error(`workspace port visual is missing: ${key}`);
-    }
-    portVisualStates.set(key, state);
-    drawPortVisualState(visual, requirePort(requireNode(nodeId), portId), state);
-  }
-  function requireNode(nodeId) {
-    const node = nodes.find((candidate) => candidate.id === nodeId);
-    if (!node) {
-      throw new Error(`workspace edge references missing node: ${nodeId}`);
-    }
-    return node;
+  function redrawGridForNodes(gridNodes) {
+    debugMetrics.measure("grid-redraw", () => {
+      drawWorkspaceGrid(grid, foundationStyle, workspaceGridBoundsForNodes(gridNodes));
+    });
+    gridDrawCount += 1;
   }
 }

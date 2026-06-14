@@ -140,6 +140,7 @@ interface WorkflowGraphDebugSnapshot {
     nodeOutlineVisibilityUpdateCount: number;
     nodeShadowContextCount: number;
     nodeShadowGraphicsCount: number;
+    p95FrameMs: number;
     pointerPanUpdateCount: number;
     portGraphicsCount: number;
     reactRenderCount: number;
@@ -156,7 +157,33 @@ interface WorkflowGraphDebugSnapshot {
     spatialIndexQueryCount: number;
     spatialIndexRebuildCount: number;
     spatialIndexUpdateCount: number;
+    timingBuckets: Record<
+      string,
+      {
+        averageMs: number;
+        count: number;
+        recentMs: number;
+        totalMs: number;
+        worstMs: number;
+      }
+    >;
+    timingSampleLimit: number;
+    timingSamples: Array<{
+      at: number;
+      bucket: string;
+      details?: Record<string, unknown>;
+      durationMs: number;
+      sequence: number;
+    }>;
     temporaryEdgeUpdateCount: number;
+    displayObjectCountsByLayer: Record<
+      string,
+      {
+        directChildCount: number;
+        totalCount: number;
+        visibleCount: number;
+      }
+    >;
     totalDisplayObjectCount: number;
     transitionsActive: number;
     visibleLabelCount: number;

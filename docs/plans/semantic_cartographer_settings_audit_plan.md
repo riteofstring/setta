@@ -1,5 +1,4 @@
 # Semantic Cartographer Settings and Auditability Plan
-
 - **Date:** June 15, 2026
 - **Status:** Proposed
 - **Scope:** Add first-class semantic cartographer configuration, persist model/reasoning/audit metadata in SQLite, and expose a settings UI that controls cartographer behavior independently from chat conversations.
@@ -9,12 +8,10 @@
   - `docs/plans/setta_semantic_work_graph_implementation_plan.md`
 
 ## Position
-
 Yes: the semantic cartographer needs its own settings page, and reasoning effort
 belongs in SQLite cartographer state.
 
 The current behavior is too implicit for a long-lived product surface:
-
 - Automatic cartographer runs do not set their own model or reasoning effort.
 - Completed run audit records persist the model reported by Codex, but not the
   requested or effective reasoning effort.
@@ -34,7 +31,6 @@ requested, what was sent to the harness, what Codex reported back, and how long
 each stage took.
 
 ## Principles
-
 1. **Cartographer settings are not chat settings.**
    Per-conversation `/model` choices should not silently determine background
    semantic indexing behavior. The cartographer needs an independent settings
@@ -71,7 +67,6 @@ each stage took.
    silent compatibility behavior.
 
 ## Resolved Product Decisions
-
 1. **Live reasoning defaults to low.**
    Live `workflow_window` cartography should favor fast, frequent,
    evidence-backed extraction. If measurement later proves low reasoning is too
@@ -101,9 +96,7 @@ each stage took.
    compatibility aliases, synthetic defaults, or transitional read paths.
 
 ## Target Product Behavior
-
 Settings should let the user control:
-
 - Automatic cartographer processing enabled/disabled.
 - Live window model and reasoning effort.
 - Final synthesis model and reasoning effort.
@@ -115,7 +108,6 @@ Settings should let the user control:
 - Debug/audit capture level.
 
 The default experience should be:
-
 - Both live and final profiles start with `provider_default` model selection
   that is recorded explicitly in audit state.
 - Live windows use `low` reasoning for low-latency updates.
@@ -128,10 +120,8 @@ The default experience should be:
 - Recordings include cartographer settings and recent run audit snapshots.
 
 ## Phase 0 - Audit Current State and Reset Store Version
-
 Before implementation, capture a short appendix report under
 `docs/reports/performance/` or `docs/reports/semantic-cartographer/` with:
-
 - Recent counts from `semantic_cartographer_runs` grouped by status, trigger,
   model, and error.
 - Distinct models currently recorded.
@@ -141,14 +131,12 @@ Before implementation, capture a short appendix report under
 - The exact store reset command or developer action used before verification.
 
 Decision:
-
 - Treat schema change as a cartographer store-version change.
 - Do not preserve legacy cartographer rows.
 - Do not implement migrations or transitional schema readers.
 - Fail loudly on incompatible state and require a fresh semantic graph store.
 
 Implementation note:
-
 - Phase 0 captured the baseline in
   `docs/reports/performance/semantic-cartographer-settings-audit-phase-0.md`
   and bumped the semantic graph store version to `10` as a reset gate.
@@ -159,9 +147,7 @@ Implementation note:
   silently adding missing tables or columns through `CREATE TABLE IF NOT EXISTS`.
 
 ## Phase 1 - Semantic Cartographer Settings Domain
-
 Add a semanticgraph-owned settings model, for example:
-
 ```text
 SemanticCartographerSettings
   schemaVersion
@@ -196,7 +182,6 @@ SemanticCartographerObservationConfig
 ```
 
 `modelSelection` should be explicit:
-
 - `provider_default`: do not send a model id; audit that the provider default
   was requested.
 - `explicit`: send the configured model id.
@@ -207,7 +192,6 @@ Both defaults must be validated against the available Codex model options before
 they are sent.
 
 Persist settings in `semantic-graph.sqlite`, not in appearance settings:
-
 - The semantic graph service owns cartographer behavior.
 - Settings and run audit should live in the same durable domain.
 - Renderer appearance settings should not become a generic app-settings drawer.
@@ -221,7 +205,6 @@ Persist settings in `semantic-graph.sqlite`, not in appearance settings:
   must fail on open.
 
 Recommended SQLite shape:
-
 ```text
 semantic_cartographer_settings
   id TEXT PRIMARY KEY
@@ -236,7 +219,6 @@ Keep the row count to one global app-level settings record at first. Workspace
 overrides can be added later only if real usage requires them.
 
 Phase 1 implementation boundary:
-
 - Implement backend domain types, default construction, validation, canonical
   JSON persistence, and settings hash calculation in `internal/semanticgraph`.
 - Add store methods to read the singleton settings row, create defaults for a
@@ -258,7 +240,6 @@ Phase 1 implementation boundary:
   version `10` rejection.
 
 Implementation note:
-
 - Phase 1 was implemented by adding `SemanticCartographerSettings` persistence,
   the singleton `semantic_cartographer_settings` row, canonical settings JSON,
   settings hash validation, service default application, and the store version
@@ -268,12 +249,10 @@ Implementation note:
   requested/effective/reported model and reasoning metadata.
 
 ## Phase 2 - Run Audit Schema
-
 Replace the single ambiguous `model` audit field with explicit requested,
 effective, and reported metadata.
 
 Implementation boundary:
-
 - Phase 2 is a backend run-audit schema and lifecycle phase. It may update
   existing Go HTTP contract types and regenerate existing TypeScript surfaces
   because `CartographerRun` is already exposed, but it should not add the new
@@ -289,7 +268,6 @@ Implementation boundary:
   guidance.
 
 Recommended run audit fields:
-
 ```text
 settings_hash
 task_profile                  -- live_window | final_synthesis | manual | retry | review
@@ -314,7 +292,6 @@ close_reason
 ```
 
 Semantics:
-
 - `settings_hash` is copied from the singleton settings row at run/window
   creation time. Later settings changes must not rewrite historical run meaning.
 - `requested_*` comes directly from the saved settings snapshot at
@@ -343,7 +320,6 @@ Semantics:
   settings; `workflow_window` uses live settings.
 
 The cartographer run record should be updated at each lifecycle transition:
-
 - Queued: settings hash, requested config, trigger, close reason, input counts.
 - Running: lease metadata, started timestamp, effective model/reasoning.
 - Harness completed: reported model/response id, raw response size, harness
@@ -352,7 +328,6 @@ The cartographer run record should be updated at each lifecycle transition:
   diagnostics, total duration.
 
 Phase 2 must also fix the current timing bug:
-
 - `beginCartographerWindowProcessing` should preserve the original `created_at`
   and set `started_at` only when processing starts.
 - `ApplyCartographerPatchEnvelope` should update the existing run audit instead
@@ -364,7 +339,6 @@ Phase 2 must also fix the current timing bug:
 - Total duration should be `completed_at - created_at`.
 
 Recommended Phase 2 tests:
-
 - Fresh semantic graph store opens at version `12`; version `11` stores are
   rejected with reset guidance.
 - Saving and reading a cartographer run persists the new requested/effective/
@@ -381,7 +355,6 @@ Recommended Phase 2 tests:
   the original `created_at`/`started_at` and record nonnegative durations.
 
 Implementation note:
-
 - Phase 2 was implemented by replacing `semantic_cartographer_runs.model` with
   the requested/effective/reported model and reasoning audit fields, adding
   timing/input-size audit, regenerating the existing generated TypeScript
@@ -396,12 +369,10 @@ Implementation note:
   from the requested or effective value.
 
 ## Phase 3 - Harness Configuration Path
-
 Extend the cartographer harness task path so settings flow through one typed
 configuration object.
 
 Backend changes:
-
 - Add reasoning effort to `CartographerHarnessTask` as a typed
   `chat.ReasoningEffort`.
 - Set `chat.HarnessStructuredTask.ReasoningEffort`.
@@ -420,7 +391,6 @@ Backend changes:
   run audit fields.
 
 Codex structured-task behavior:
-
 - Send `model` only when `requested_model_selection` is `explicit`; leave model
   empty for `provider_default` and audit that the effective model was empty
   because no model id was sent.
@@ -435,7 +405,6 @@ Codex structured-task behavior:
   defaults.
 
 Recommended Phase 3 tests:
-
 - `CartographerHarnessTask` forwards reasoning effort to
   `chat.HarnessStructuredTask`.
 - Explicit model selection sends the requested model and records
@@ -456,7 +425,6 @@ Recommended Phase 3 tests:
   `OPENAI_API_KEY` for that live check.
 
 Implementation note:
-
 - Phase 3 was implemented by adding typed reasoning effort to
   `CartographerHarnessTask`, deriving effective model/reasoning from the queued
   run snapshot, sending `effort` through the existing Codex structured-task
@@ -470,12 +438,10 @@ Implementation note:
   path.
 
 ## Phase 4 - Model and Reasoning Option Source
-
 The settings UI needs model and reasoning options without abusing an active chat
 conversation.
 
 Create a shared Codex model catalog path:
-
 - Extract model listing and reasoning-effort validation out of the `/model`
   chat command flow into a reusable chat/Codex catalog method.
 - Keep Phase 4 backend-only. Do not add the settings HTTP endpoint, IPC/preload
@@ -514,7 +480,6 @@ Create a shared Codex model catalog path:
 The renderer should not hardcode model ids or reasoning effort availability.
 
 Recommended Phase 4 tests:
-
 - The Codex catalog method follows pagination, filters hidden models, and fails
   loudly on malformed provider model/reasoning payloads.
 - The `/model` command picker and cartographer model catalog use the same
@@ -528,7 +493,6 @@ Recommended Phase 4 tests:
   specific validation errors with no silent fallback.
 
 Implementation note:
-
 - Phase 4 was implemented by adding a reusable chat harness model-catalog path,
   `Service.ListCodexModelOptions(workspaceID)`, and
   `CodexHarness.ListModelOptions`.
@@ -545,14 +509,12 @@ Implementation note:
   version `12`.
 
 ## Phase 5 - HTTP, IPC, and Generated Contracts
-
 Phase 5 is ready to implement. It should expose the Phase 1 settings state and
 Phase 4 model catalog through Go-owned contracts. It should not add duplicate
 run-audit endpoints: `ReadCartographerRun` and `ListCartographerRuns` already
 expose the Phase 2 audit fields and should remain the run-audit read path.
 
 Add Go-owned endpoints:
-
 ```text
 ReadSemanticCartographerSettings
 UpdateSemanticCartographerSettings
@@ -560,7 +522,6 @@ ListSemanticCartographerModelOptions
 ```
 
 Recommended contract shape:
-
 - `ReadSemanticCartographerSettings` can use an empty request and should return
   `semanticgraph.SemanticCartographerSettingsRecord`.
 - `UpdateSemanticCartographerSettings` should take `workspaceId` plus the
@@ -575,7 +536,6 @@ Recommended contract shape:
   `provider_default` option.
 
 Backend behavior:
-
 - Extend `internal/httpapi.ChatService` with the Phase 4
   `ListCodexModelOptions(workspaceID string)` method.
 - Extend `internal/httpapi.SemanticGraphService` with settings read/update
@@ -596,7 +556,6 @@ Backend behavior:
   another persistent schema field.
 
 The existing processing state endpoint should include:
-
 - Current settings hash.
 - Effective processing config.
 - Last processed run model/reasoning summary, including task profile,
@@ -607,7 +566,6 @@ The existing processing state endpoint should include:
   not from a second audit table or duplicate endpoint.
 
 After editing contracts:
-
 - Regenerate generated TypeScript surfaces.
 - Update preload/main IPC wrappers.
 - Keep endpoint request/response contracts owned by `internal/httpapi`.
@@ -615,7 +573,6 @@ After editing contracts:
   TypeScript.
 
 Recommended Phase 5 tests:
-
 - HTTP tests cover reading settings, listing model options for a workspace,
   updating settings with a supported explicit model/reasoning pair, rejecting an
   unsupported explicit model, rejecting unsupported reasoning for the selected
@@ -634,7 +591,6 @@ Recommended Phase 5 tests:
   paths before committing implementation code.
 
 Implementation note:
-
 - Phase 5 was implemented by adding `ReadSemanticCartographerSettings`,
   `UpdateSemanticCartographerSettings`, and
   `ListSemanticCartographerModelOptions` as Go-owned endpoints.
@@ -658,7 +614,6 @@ Implementation note:
   version `12`.
 
 ## Phase 6 - Settings UI
-
 Phase 6 is ready to implement. It should add a `Cartographer` subtab to the
 existing Settings panel and keep the UI as a client of the Phase 5 backend
 contracts.
@@ -667,7 +622,6 @@ One backend-backed UI metadata gap remains: reset-to-default needs a
 backend-owned default settings input. Do not hardcode cartographer defaults,
 numeric bounds, or validation relationships in the renderer. Recommended first
 step for Phase 6:
-
 - Add or extend a Go-owned settings metadata/read contract that returns the
   current `SemanticCartographerSettingsRecord`, a
   `defaultSettings: SemanticCartographerSettingsInput`, and any field bounds or
@@ -676,7 +630,6 @@ step for Phase 6:
   added. No persistent schema change is expected.
 
 Renderer integration:
-
 - Before exposing settings edits in the UI, verify runtime settings application
   is synchronized: observation config changes should be applied under the
   cartographer observer mutex, and automatic-processing config changes should be
@@ -703,7 +656,6 @@ Renderer integration:
   is open.
 
 Controls:
-
 - Toggle automatic processing.
 - Segmented control for task profile: `Live` and `Final`.
 - For each task profile, use an explicit model-selection control with
@@ -726,7 +678,6 @@ Controls:
   last failure run.
 
 UI requirements:
-
 - Keep the settings screen operational and compact, not a marketing surface.
 - Do not put settings cards inside other cards.
 - Do not expose unsupported model/reasoning combinations as selectable.
@@ -740,7 +691,6 @@ UI requirements:
   headings, oversized explanatory copy, and card-heavy layouts.
 
 Recommended Phase 6 tests:
-
 - Store tests cover loading settings, loading model options for the selected
   workspace, save/revert/reset behavior, backend validation errors, and stale
   workspace-load protection.
@@ -764,7 +714,6 @@ pnpm -C desktop typecheck
   and verifies the persisted values are shown.
 
 Implementation note:
-
 - Phase 6 was implemented by adding the `Cartographer` settings subtab, a
   dedicated renderer cartographer settings store, and generated-contract IPC/
   preload access for settings metadata.
@@ -798,9 +747,7 @@ Implementation note:
   version `12`.
 
 ## Phase 7 - Final Synthesis Input Budgeting
-
 Phase 7 is ready to implement now that this Phase 6 follow-up is fixed:
-
 - `Service.applySemanticCartographerSettingsDefaults` now writes
   `service.cartographerConfig` under `cartographerMu`, matching the observer
   paths that read `service.cartographerConfig` under `cartographerMu`. Focused
@@ -813,7 +760,6 @@ exceed the Codex structured-task request limit, even if the selected model has
 a much larger theoretical context window.
 
 Current diagnosis from `~/.setta/semantic-graph.sqlite`:
-
 - Failed run `cartographer_run_1ccc81dc68e25dd0ebc9b51fafec8ff0` was rejected
   by `turn/start` with `Input exceeds the maximum length of 1048576
   characters.`
@@ -845,7 +791,6 @@ and selected text fields but does not cap total serialized bundle size or final
 synthesis array counts.
 
 Fix final synthesis before increasing reasoning effort or concurrency:
-
 - Deduplicate folded arrays by stable IDs before any budget decision:
   observations by event/source key, evidence by evidence ID, existing nodes by
   node ID, existing edges by edge ID, trajectory summaries by summary/window ID,
@@ -869,7 +814,6 @@ This phase should make failed final synthesis explainable and prevent an
 expensive high-reasoning task from being started with impossible input.
 
 Implementation boundary:
-
 - Treat this as a deterministic input-builder fix first and a preflight guard
   second. Do not only check size after constructing the same oversized bundle.
 - Use the existing Phase 1/6 `finalSynthesisTaskConfig.inputBudget` setting as
@@ -908,7 +852,6 @@ Implementation boundary:
   bounded input bundle or a clear pre-harness failure diagnostic.
 
 Implementation note:
-
 - Phase 7 defines `inputBudget` as serialized harness-input characters,
   snapshots `requested_input_budget` in run audit, bumps the semantic graph
   store version to `13`, and rejects version `12` stores with reset guidance.
@@ -921,7 +864,6 @@ Implementation note:
   with `input_budget_exceeded` before any harness request is sent.
 
 ## Phase 8 - Recording and Debug Integration
-
 Phase 8 was implemented after Phase 7 persisted requested input budget,
 serialized input size, and truncation/compaction metadata in the cartographer
 run audit.
@@ -930,7 +872,6 @@ Extend recording capture so future reports answer the model/reasoning question
 and final-synthesis budget question without manual SQLite queries.
 
 Record:
-
 - Current cartographer settings.
 - Cartographer processing state.
 - Recent run audit list.
@@ -962,7 +903,6 @@ aliases for old recording field names; recordings should follow the current
 generated backend contract.
 
 Implementation note:
-
 - Phase 8 added a structured renderer-side cartographer audit recording snapshot
   with `schemaVersion: 1`.
 - The snapshot includes current settings, processing state, recent runs,
@@ -979,7 +919,6 @@ Implementation note:
   records it as a structured `cartographer_audit_snapshot` renderer event.
 
 ## Phase 9 - Verification
-
 Phase 9 is a closure checklist, not a separate implementation phase. The
 settings/audit plan has no remaining product or architecture decisions after
 Phase 8. Move the next feature work to
@@ -1006,7 +945,6 @@ Before implementation commits that change executable code, contracts, generated
 outputs, or tests, run `./scripts/format.sh` and `./check_quality.sh --all`.
 
 Implementation note:
-
 - Phase 9 focused checks were run after Phase 8 review:
   `./scripts/go.sh test -count=1 ./internal/semanticgraph ./internal/httpapi ./internal/chat`,
   `pnpm -C desktop exec vitest run src/renderer/src/lib/semantic-cartographer-recording.test.ts src/renderer/src/features/workspace-graph/workflow-graph-toolbar.test.ts`,
@@ -1020,7 +958,6 @@ Implementation note:
   semantic liveness plan.
 
 ## Open Decisions
-
 None. The product decisions above are resolved for this implementation pass.
 
 ## Success Criteria
